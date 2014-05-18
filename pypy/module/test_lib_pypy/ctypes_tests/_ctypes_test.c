@@ -567,3 +567,13 @@ EXPORT(int) test_errno(void)
     errno = result + 1;
     return result;
 }
+
+EXPORT(int *) test_issue1655(char const *tag, int *len)
+{
+    static int data[] = { -1, -2, -3, -4 };
+    *len = -42;
+    if (strcmp(tag, "testing!") != 0)
+        return NULL;
+    *len = sizeof(data) / sizeof(data[0]);
+    return data;
+}

@@ -57,3 +57,18 @@ class AppTestSubprocess:
             parent_pgid = os.getpgid(os.getpid())
             child_pgid = int(output)
             assert parent_pgid != child_pgid
+
+    def test_cpython_issue15736(self):
+        import _posixsubprocess
+        import sys
+        n = 0
+        class Z(object):
+            def __len__(self):
+                return sys.maxsize + n
+            def __getitem__(self, i):
+                return b'x'
+        raises(MemoryError, _posixsubprocess.fork_exec,
+               1,Z(),3,[1, 2],5,6,7,8,9,10,11,12,13,14,15,16,17)
+        n = 1
+        raises(OverflowError, _posixsubprocess.fork_exec,
+               1,Z(),3,[1, 2],5,6,7,8,9,10,11,12,13,14,15,16,17)

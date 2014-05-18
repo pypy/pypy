@@ -305,6 +305,11 @@ class AppTestSocket:
         cls.space = space
         cls.w_udir = space.wrap(str(udir))
 
+    def test_module(self):
+        import _socket
+        assert _socket.socket.__name__ == 'socket'
+        assert _socket.socket.__module__ == '_socket'
+
     def test_ntoa_exception(self):
         import _socket
         raises(_socket.error, _socket.inet_ntoa, b"ab")
@@ -391,10 +396,12 @@ class AppTestSocket:
         name = s.getpeername() # Will raise socket.error if not connected
         assert name[1] == 80
         s.close()
-    
+
     def test_socket_connect_ex(self):
         import _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+        # The following might fail if the DNS redirects failed requests to a
+        # catch-all address (i.e. opendns).
         # Make sure we get an app-level error, not an interp one.
         raises(_socket.gaierror, s.connect_ex, ("wrong.invalid", 80))
         s.close()
@@ -415,8 +422,13 @@ class AppTestSocket:
     def test_bigport(self):
         import _socket
         s = _socket.socket()
-        raises(ValueError, s.connect, ("localhost", 1000000))
-        raises(ValueError, s.connect, ("localhost", -1))
+        exc = raises(OverflowError, s.connect, ("localhost", -1))
+        assert "port must be 0-65535." in str(exc.value)
+        exc = raises(OverflowError, s.connect, ("localhost", 1000000))
+        assert "port must be 0-65535." in str(exc.value)
+        s = _socket.socket(_socket.AF_INET6)
+        exc = raises(OverflowError, s.connect, ("::1", 1234, 1048576))
+        assert "flowinfo must be 0-1048575." in str(exc.value)
 
     def test_NtoH(self):
         import sys
@@ -463,6 +475,13 @@ class AppTestSocket:
     def test_newsocket(self):
         import socket
         s = socket.socket()
+
+    def test_subclass(self):
+        from _socket import socket
+        class MySock(socket):
+            blah = 123
+        s = MySock()
+        assert s.blah == 123
 
     def test_getsetsockopt(self):
         import _socket as socket
@@ -520,9 +539,12 @@ class AppTestSocket:
             s.connect(("www.python.org", 80))
         except _socket.gaierror as ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
-        s.send(memoryview(b''))
-        s.sendall(memoryview(b''))
-        raises(TypeError, s.send, '')
+        exc = raises(TypeError, s.send, None)
+        assert str(exc.value) == "'NoneType' does not support the buffer interface"
+        assert s.send(memoryview(b'')) == 0
+        assert s.sendall(memoryview(b'')) is None
+        exc = raises(TypeError, s.send, '')
+        assert str(exc.value) == "'str' does not support the buffer interface"
         raises(TypeError, s.sendall, '')
         s.close()
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM, 0)
@@ -585,11 +607,11 @@ class AppTestSocket:
 
 
 class AppTestSocketTCP:
+    HOST = 'localhost'
+
     def setup_class(cls):
         cls.space = space
 
-    HOST = 'localhost'
-        
     def setup_method(self, method):
         w_HOST = space.wrap(self.HOST)
         self.w_serv = space.appexec([w_HOST],
@@ -600,6 +622,7 @@ class AppTestSocketTCP:
             serv.listen(1)
             return serv
             ''')
+
     def teardown_method(self, method):
         if hasattr(self, 'w_serv'):
             space.appexec([self.w_serv], '(serv): serv.close()')
@@ -620,7 +643,7 @@ class AppTestSocketTCP:
         raises(error, raise_error)
 
     def test_recv_send_timeout(self):
-        from _socket import socket, timeout
+        from _socket import socket, timeout, SOL_SOCKET, SO_RCVBUF, SO_SNDBUF
         cli = socket()
         cli.connect(self.serv.getsockname())
         fileno, addr = self.serv._accept()
@@ -637,10 +660,13 @@ class AppTestSocketTCP:
         buf = t.recv(1)
         assert buf == b'!'
         # test that sendall() works
-        cli.sendall(b'?')
-        assert count == 1
+        count = cli.sendall(b'?')
+        assert count is None
         buf = t.recv(1)
         assert buf == b'?'
+        # speed up filling the buffers
+        t.setsockopt(SOL_SOCKET, SO_RCVBUF, 4096)
+        cli.setsockopt(SOL_SOCKET, SO_SNDBUF, 4096)
         # test send() timeout
         count = 0
         try:
@@ -648,7 +674,7 @@ class AppTestSocketTCP:
                 count += cli.send(b'foobar' * 70)
         except timeout:
             pass
-        t.recv(count)    
+        t.recv(count)
         # test sendall() timeout
         try:
             while 1:
@@ -669,10 +695,17 @@ class AppTestSocketTCP:
         conn = socket.socket(fileno=fileno)
         buf = memoryview(MSG)
         conn.send(buf)
-        buf = array.array('b', b' '*1024)
+        buf = array.array('b', b' ' * 1024)
         nbytes = cli.recv_into(buf)
         assert nbytes == len(MSG)
         msg = buf.tobytes()[:len(MSG)]
+        assert msg == MSG
+
+        conn.send(MSG)
+        buf = bytearray(1024)
+        nbytes = cli.recv_into(memoryview(buf))
+        assert nbytes == len(MSG)
+        msg = buf[:len(MSG)]
         assert msg == MSG
 
     def test_recvfrom_into(self):
@@ -685,16 +718,24 @@ class AppTestSocketTCP:
         conn = socket.socket(fileno=fileno)
         buf = memoryview(MSG)
         conn.send(buf)
-        buf = array.array('b', b' '*1024)
+        buf = array.array('b', b' ' * 1024)
         nbytes, addr = cli.recvfrom_into(buf)
         assert nbytes == len(MSG)
         msg = buf.tobytes()[:len(MSG)]
+        assert msg == MSG
+
+        conn.send(MSG)
+        buf = bytearray(1024)
+        nbytes, addr = cli.recvfrom_into(memoryview(buf))
+        assert nbytes == len(MSG)
+        msg = buf[:len(MSG)]
         assert msg == MSG
 
     def test_family(self):
         import socket
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         assert cli.family == socket.AF_INET
+
 
 class AppTestErrno:
     def setup_class(cls):

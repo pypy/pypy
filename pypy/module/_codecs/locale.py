@@ -12,13 +12,6 @@ from rpython.rlib.runicode import (code_to_unichr,
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-if we_are_translated():
-    UNICHAR_SIZE = rffi.sizeof(lltype.UniChar)
-else:
-    UNICHAR_SIZE = 2 if sys.maxunicode == 0xFFFF else 4
-MERGE_SURROGATES = UNICHAR_SIZE == 2 and rffi.sizeof(rffi.WCHAR_T) == 4
-
-
 cwd = py.path.local(__file__).dirpath()
 eci = ExternalCompilationInfo(
     includes=[cwd.join('locale.h')],
@@ -114,7 +107,10 @@ class scoped_unicode2rawwcharp:
 
 def unicode2rawwcharp(u):
     """unicode -> raw wchar_t*"""
-    size = _unicode2rawwcharp_loop(u, None) if MERGE_SURROGATES else len(u)
+    if _should_merge_surrogates():
+        size = _unicode2rawwcharp_loop(u, lltype.nullptr(RAW_WCHARP.TO))
+    else:
+        size = len(u)
     array = lltype.malloc(RAW_WCHARP.TO, size + 1, flavor='raw')
     array[size] = rffi.cast(rffi.WCHAR_T, u'\x00')
     _unicode2rawwcharp_loop(u, array)
@@ -122,21 +118,20 @@ def unicode2rawwcharp(u):
 unicode2rawwcharp._annenforceargs_ = [unicode]
 
 def _unicode2rawwcharp_loop(u, array):
-    write = array is not None
     ulen = len(u)
     count = i = 0
     while i < ulen:
         oc = ord(u[i])
-        if (MERGE_SURROGATES and
+        if (_should_merge_surrogates() and
             0xD800 <= oc <= 0xDBFF and i + 1 < ulen and
             0xDC00 <= ord(u[i + 1]) <= 0xDFFF):
-            if write:
+            if array:
                 merged = (((oc & 0x03FF) << 10) |
                           (ord(u[i + 1]) & 0x03FF)) + 0x10000
                 array[count] = rffi.cast(rffi.WCHAR_T, merged)
             i += 2
         else:
-            if write:
+            if array:
                 array[count] = rffi.cast(rffi.WCHAR_T, oc)
             i += 1
         count += 1
@@ -152,3 +147,11 @@ def rawwcharp2unicoden(wcp, maxlen):
         i += 1
     return assert_str0(b.build())
 rawwcharp2unicoden._annenforceargs_ = [None, int]
+
+
+def _should_merge_surrogates():
+    if we_are_translated():
+        unichar_size = rffi.sizeof(lltype.UniChar)
+    else:
+        unichar_size = 2 if sys.maxunicode == 0xFFFF else 4
+    return unichar_size == 2 and rffi.sizeof(rffi.WCHAR_T) == 4

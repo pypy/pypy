@@ -10,6 +10,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import intmask
 
@@ -55,7 +56,7 @@ if _POSIX:
     # constants, look in sys/mman.h and platform docs for the meaning
     # some constants are linux only so they will be correctly exposed outside
     # depending on the OS
-    constant_names = ['MAP_SHARED', 'MAP_PRIVATE',
+    constant_names = ['MAP_SHARED', 'MAP_PRIVATE', 'MAP_FIXED',
                       'PROT_READ', 'PROT_WRITE',
                       'MS_SYNC']
     opt_constant_names = ['MAP_ANON', 'MAP_ANONYMOUS', 'MAP_NORESERVE',
@@ -113,15 +114,21 @@ def external(name, args, result, **kwargs):
                              **kwargs)
     safe = rffi.llexternal(name, args, result,
                            compilation_info=CConfig._compilation_info_,
-                           sandboxsafe=True, threadsafe=False,
+                           sandboxsafe=True, releasegil=False,
                            **kwargs)
     return unsafe, safe
 
 def winexternal(name, args, result, **kwargs):
-    return rffi.llexternal(name, args, result,
+    unsafe = rffi.llexternal(name, args, result,
                            compilation_info=CConfig._compilation_info_,
                            calling_conv='win',
                            **kwargs)
+    safe = rffi.llexternal(name, args, result,
+                           compilation_info=CConfig._compilation_info_,
+                           calling_conv='win',
+                           sandboxsafe=True, releasegil=False,
+                           **kwargs)
+    return unsafe, safe
 
 PTR = rffi.CCHARP
 
@@ -188,32 +195,29 @@ elif _MS_WINDOWS:
     SYSTEM_INFO = config['SYSTEM_INFO']
     SYSTEM_INFO_P = lltype.Ptr(SYSTEM_INFO)
 
-    GetSystemInfo = winexternal('GetSystemInfo', [SYSTEM_INFO_P], lltype.Void)
-    GetFileSize = winexternal('GetFileSize', [HANDLE, LPDWORD], DWORD)
-    GetCurrentProcess = winexternal('GetCurrentProcess', [], HANDLE)
-    DuplicateHandle = winexternal('DuplicateHandle', [HANDLE, HANDLE, HANDLE, LPHANDLE, DWORD, BOOL, DWORD], BOOL)
-    CreateFileMapping = winexternal('CreateFileMappingA', [HANDLE, rwin32.LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCSTR], HANDLE)
-    MapViewOfFile = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD, DWORD, SIZE_T], LPCSTR)##!!LPVOID)
-    UnmapViewOfFile = winexternal('UnmapViewOfFile', [LPCSTR], BOOL,
-                                  threadsafe=False)
-    FlushViewOfFile = winexternal('FlushViewOfFile', [LPCSTR, SIZE_T], BOOL)
-    SetFilePointer = winexternal('SetFilePointer', [HANDLE, LONG, PLONG, DWORD], DWORD)
-    SetEndOfFile = winexternal('SetEndOfFile', [HANDLE], BOOL)
-    VirtualAlloc = winexternal('VirtualAlloc',
+    GetSystemInfo, _ = winexternal('GetSystemInfo', [SYSTEM_INFO_P], lltype.Void)
+    GetFileSize, _ = winexternal('GetFileSize', [HANDLE, LPDWORD], DWORD)
+    GetCurrentProcess, _ = winexternal('GetCurrentProcess', [], HANDLE)
+    DuplicateHandle, _ = winexternal('DuplicateHandle', [HANDLE, HANDLE, HANDLE, LPHANDLE, DWORD, BOOL, DWORD], BOOL)
+    CreateFileMapping, _ = winexternal('CreateFileMappingA', [HANDLE, rwin32.LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCSTR], HANDLE)
+    MapViewOfFile, _ = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD, DWORD, SIZE_T], LPCSTR)##!!LPVOID)
+    _, UnmapViewOfFile_safe = winexternal('UnmapViewOfFile', [LPCSTR], BOOL)
+    FlushViewOfFile, _ = winexternal('FlushViewOfFile', [LPCSTR, SIZE_T], BOOL)
+    SetFilePointer, _ = winexternal('SetFilePointer', [HANDLE, LONG, PLONG, DWORD], DWORD)
+    SetEndOfFile, _ = winexternal('SetEndOfFile', [HANDLE], BOOL)
+    VirtualAlloc, VirtualAlloc_safe = winexternal('VirtualAlloc',
                                [rffi.VOIDP, rffi.SIZE_T, DWORD, DWORD],
                                rffi.VOIDP)
-    # VirtualProtect is used in llarena and should not release the GIL
-    _VirtualProtect = winexternal('VirtualProtect',
+    _, _VirtualProtect_safe = winexternal('VirtualProtect',
                                   [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
-                                  BOOL,
-                                  _nowrapper=True)
+                                  BOOL)
     def VirtualProtect(addr, size, mode, oldmode_ptr):
-        return _VirtualProtect(addr,
+        return _VirtualProtect_safe(addr,
                                rffi.cast(rffi.SIZE_T, size),
                                rffi.cast(DWORD, mode),
                                oldmode_ptr)
     VirtualProtect._annspecialcase_ = 'specialize:ll'
-    VirtualFree = winexternal('VirtualFree',
+    VirtualFree, VirtualFree_safe = winexternal('VirtualFree',
                               [rffi.VOIDP, rffi.SIZE_T, DWORD], BOOL)
 
     def _get_page_size():
@@ -300,7 +304,7 @@ class MMap(object):
 
     def unmap(self):
         if _MS_WINDOWS:
-            UnmapViewOfFile(self.getptr(0))
+            UnmapViewOfFile_safe(self.getptr(0))
         elif _POSIX:
             self.unmap_range(0, self.size)
 
@@ -575,6 +579,7 @@ class MMap(object):
 
     def getitem(self, index):
         # simplified version, for rpython
+        self.check_valid()
         if index < 0:
             index += self.size
         return self.data[index]
@@ -638,6 +643,8 @@ if _POSIX:
             size = st[stat.ST_SIZE]
             if stat.S_ISREG(mode):
                 if map_size == 0:
+                    if size == 0:
+                        raise RValueError("cannot mmap an empty file")
                     if offset > size:
                         raise RValueError(
                             "mmap offset is greater than file size")
@@ -673,7 +680,20 @@ if _POSIX:
     def alloc_hinted(hintp, map_size):
         flags = MAP_PRIVATE | MAP_ANONYMOUS
         prot = PROT_EXEC | PROT_READ | PROT_WRITE
+        if we_are_translated():
+            flags = NonConstant(flags)
+            prot = NonConstant(prot)
         return c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
+
+    def clear_large_memory_chunk_aligned(addr, map_size):
+        addr = rffi.cast(PTR, addr)
+        flags = MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS
+        prot = PROT_READ | PROT_WRITE
+        if we_are_translated():
+            flags = NonConstant(flags)
+            prot = NonConstant(prot)
+        res = c_mmap_safe(addr, map_size, prot, flags, -1, 0)
+        return res == addr
 
     # XXX is this really necessary?
     class Hint:
@@ -759,6 +779,8 @@ elif _MS_WINDOWS:
                     size = (high << 32) + low
                     size = rffi.cast(lltype.Signed, size)
                 if map_size == 0:
+                    if size == 0:
+                        raise RValueError("cannot mmap an empty file")
                     if offset > size:
                         raise RValueError(
                             "mmap offset is greater than file size")
@@ -846,7 +868,7 @@ elif _MS_WINDOWS:
         case of a sandboxed process
         """
         null = lltype.nullptr(rffi.VOIDP.TO)
-        res = VirtualAlloc(null, map_size, MEM_COMMIT | MEM_RESERVE,
+        res = VirtualAlloc_safe(null, map_size, MEM_COMMIT | MEM_RESERVE,
                            PAGE_EXECUTE_READWRITE)
         if not res:
             raise MemoryError
@@ -858,6 +880,6 @@ elif _MS_WINDOWS:
     alloc._annenforceargs_ = (int,)
 
     def free(ptr, map_size):
-        VirtualFree(ptr, 0, MEM_RELEASE)
+        VirtualFree_safe(ptr, 0, MEM_RELEASE)
 
 # register_external here?

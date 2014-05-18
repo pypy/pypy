@@ -2,7 +2,7 @@ from pypy.module.pyexpat.interp_pyexpat import global_storage
 from pytest import skip
 
 class AppTestPyexpat:
-    spaceconfig = dict(usemodules=['pyexpat'])
+    spaceconfig = dict(usemodules=['pyexpat', '_multibytecodec'])
 
     def teardown_class(cls):
         global_storage.clear()
@@ -100,8 +100,24 @@ class AppTestPyexpat:
         p.Parse(xml)
 
     def test_python_encoding(self):
-        # This name is not knonwn by expat
+        # This name is not known by expat
         xml = b"<?xml version='1.0' encoding='latin1'?><s>caf\xe9</s>"
+        import pyexpat
+        p = pyexpat.ParserCreate()
+        def gotText(text):
+            assert text == "caf\xe9"
+        p.CharacterDataHandler = gotText
+        p.Parse(xml)
+
+    def test_mbcs(self):
+        xml = b"<?xml version='1.0' encoding='gbk'?><p/>"
+        import pyexpat
+        p = pyexpat.ParserCreate()
+        exc = raises(ValueError, p.Parse, xml)
+        assert str(exc.value) == "multi-byte encodings are not supported"
+
+    def test_parse_str(self):
+        xml = "<?xml version='1.0' encoding='latin1'?><s>caf\xe9</s>"
         import pyexpat
         p = pyexpat.ParserCreate()
         def gotText(text):
@@ -183,7 +199,7 @@ class AppTestPyexpat:
             assert fake_reader.read_count == 4
 
 class AppTestPyexpat2:
-    spaceconfig = dict(usemodules=['_ffi', '_rawffi', 'pyexpat', 'itertools',
+    spaceconfig = dict(usemodules=['_rawffi', 'pyexpat', 'itertools',
                                    '_socket', 'rctime', 'struct', 'binascii'])
 
     def test_django_bug(self):

@@ -1307,3 +1307,7 @@ class TestAstBuilder:
         if1, if2 = comps[0].ifs
         assert isinstance(if1, ast.Name)
         assert isinstance(if2, ast.Name)
+
+    def test_cpython_issue12983(self):
+        raises(SyntaxError, self.get_ast, r"""b'\x'""")
+        raises(SyntaxError, self.get_ast, r"""b'\x0'""")

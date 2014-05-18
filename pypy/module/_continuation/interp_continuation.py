@@ -1,6 +1,6 @@
 from rpython.rlib.rstacklet import StackletThread
 from rpython.rlib import jit
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
@@ -39,6 +39,7 @@ class W_Continulet(W_Root):
         bottomframe.locals_stack_w[1] = w_callable
         bottomframe.locals_stack_w[2] = w_args
         bottomframe.locals_stack_w[3] = w_kwds
+        bottomframe.last_exception = get_cleared_operation_error(space)
         self.bottomframe = bottomframe
         #
         global_state.origin = self
@@ -135,8 +136,7 @@ def unpickle(space, w_subtype):
 
 
 W_Continulet.typedef = TypeDef(
-    'continulet',
-    __module__ = '_continuation',
+    '_continuation.continulet',
     __new__     = interp2app(W_Continulet___new__),
     __init__    = interp2app(W_Continulet.descr_init),
     switch      = interp2app(W_Continulet.descr_switch),

@@ -306,7 +306,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         for i, default in enumerate(args.kw_defaults):
             if default:
                 kwonly = args.kwonlyargs[i]
-                self.load_const(self.space.wrap(kwonly.arg.decode('utf-8')))
+                mangled = self.scope.mangle(kwonly.arg).decode('utf-8')
+                self.load_const(self.space.wrap(mangled))
                 default.walkabout(self)
                 defaults += 1
         return defaults
@@ -1074,9 +1075,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         return self._call_has_no_star_args(call) and not call.keywords
 
     def _optimize_method_call(self, call):
-        if not self.space.config.objspace.opcodes.CALL_METHOD or \
-                not self._call_has_no_star_args(call) or \
-                not isinstance(call.func, ast.Attribute):
+        if not self._call_has_no_star_args(call) or \
+           not isinstance(call.func, ast.Attribute):
             return False
         attr_lookup = call.func
         assert isinstance(attr_lookup, ast.Attribute)
@@ -1244,6 +1244,8 @@ class AbstractFunctionCodeGenerator(PythonCodeGenerator):
             flags |= consts.CO_NESTED
         if scope.is_generator:
             flags |= consts.CO_GENERATOR
+        if scope.has_yield_inside_try:
+            flags |= consts.CO_YIELD_INSIDE_TRY
         if scope.has_variable_arg:
             flags |= consts.CO_VARARGS
         if scope.has_keywords_arg:

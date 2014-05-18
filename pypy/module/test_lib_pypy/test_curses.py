@@ -1,4 +1,8 @@
 import pytest
+import sys
+if sys.platform == 'win32':
+    #This module does not exist in windows
+    pytest.skip('no curses on windows')
 
 # Check that lib_pypy.cffi finds the correct version of _cffi_backend.
 # Otherwise, the test is skipped.  It should never be skipped when run

@@ -1,3 +1,4 @@
+# encoding: utf-8
 import py
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictMultiObject
 from pypy.objspace.std.kwargsdict import *
@@ -73,7 +74,7 @@ def test_limit_size():
     for i in range(100):
         assert d.setitem_str("d%s" % i, 4) is None
     assert d.strategy is not strategy
-    assert "StringDictStrategy" == d.strategy.__class__.__name__
+    assert "UnicodeDictStrategy" == d.strategy.__class__.__name__
 
 def test_keys_doesnt_wrap():
     space = FakeSpace()
@@ -133,7 +134,6 @@ class AppTestKwargsDictStrategy(object):
         return r[r.find("(") + 1: r.find(")")]
 
     def test_create(self):
-        py3k_skip("need UnicodeDictStrategy to work in py3k")
         def f(**args):
             return args
         d = f(a=1)
@@ -149,7 +149,6 @@ class AppTestKwargsDictStrategy(object):
         assert sorted(f(a=2, b=3).values()) == [2, 3]
 
     def test_setdefault(self):
-        py3k_skip("XXX: strategies are currently broken")
         def f(**args):
             return args
         d = f(a=1, b=2)
@@ -161,3 +160,23 @@ class AppTestKwargsDictStrategy(object):
         assert a == 3
         assert "KwargsDictStrategy" in self.get_strategy(d)
 
+    def test_unicode(self):
+        """
+        def f(**kwargs):
+            return kwargs
+
+        d = f(λ=True)
+        assert list(d) == ['λ']
+        assert next(iter(d)) == 'λ'
+        assert "KwargsDictStrategy" in self.get_strategy(d)
+
+        d['foo'] = 'bar'
+        assert sorted(d) == ['foo', 'λ']
+        assert "KwargsDictStrategy" in self.get_strategy(d)
+
+        d = f(λ=True)
+        o = object()
+        d[o] = 'baz'
+        assert set(d) == set(['λ', o])
+        assert "ObjectDictStrategy" in self.get_strategy(d)
+        """

@@ -14,6 +14,6 @@ class GcWeakrefs(object):
 
     def build(self, cdata, destructor):
         # make a new cdata of the same type as the original one
-        new_cdata = self.ffi.cast(self.ffi.typeof(cdata), cdata)
+        new_cdata = self.ffi.cast(self.ffi._backend.typeof(cdata), cdata)
         self.data[ref(new_cdata, self.remove)] = destructor, cdata
         return new_cdata

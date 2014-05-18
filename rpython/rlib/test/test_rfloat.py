@@ -217,19 +217,19 @@ def test_gamma_overflow_translated():
 def test_string_to_float():
     from rpython.rlib.rstring import ParseStringError
     import random
-    assert string_to_float(u'0') == 0.0
-    assert string_to_float(u'1') == 1.0
-    assert string_to_float(u'-1.5') == -1.5
-    assert string_to_float(u'1.5E2') == 150.0
-    assert string_to_float(u'2.5E-1') == 0.25
-    assert string_to_float(u'1e1111111111111') == float('1e1111111111111')
-    assert string_to_float(u'1e-1111111111111') == float('1e-1111111111111')
-    assert string_to_float(u'-1e1111111111111') == float('-1e1111111111111')
-    assert string_to_float(u'-1e-1111111111111') == float('-1e-1111111111111')
-    assert string_to_float(u'1e111111111111111111111') == float('1e111111111111111111111')
-    assert string_to_float(u'1e-111111111111111111111') == float('1e-111111111111111111111')
-    assert string_to_float(u'-1e111111111111111111111') == float('-1e111111111111111111111')
-    assert string_to_float(u'-1e-111111111111111111111') == float('-1e-111111111111111111111')
+    assert string_to_float('0') == 0.0
+    assert string_to_float('1') == 1.0
+    assert string_to_float('-1.5') == -1.5
+    assert string_to_float('1.5E2') == 150.0
+    assert string_to_float('2.5E-1') == 0.25
+    assert string_to_float('1e1111111111111') == float('1e1111111111111')
+    assert string_to_float('1e-1111111111111') == float('1e-1111111111111')
+    assert string_to_float('-1e1111111111111') == float('-1e1111111111111')
+    assert string_to_float('-1e-1111111111111') == float('-1e-1111111111111')
+    assert string_to_float('1e111111111111111111111') == float('1e111111111111111111111')
+    assert string_to_float('1e-111111111111111111111') == float('1e-111111111111111111111')
+    assert string_to_float('-1e111111111111111111111') == float('-1e111111111111111111111')
+    assert string_to_float('-1e-111111111111111111111') == float('-1e-111111111111111111111')
 
     valid_parts = [['', '  ', ' \f\n\r\t\v'],
                    ['', '+', '-'],
@@ -251,7 +251,7 @@ def test_string_to_float():
             for part2 in valid_parts[2]:
                 for part3 in valid_parts[3]:
                     for part4 in valid_parts[4]:
-                        s = unicode(part0+part1+part2+part3+part4)
+                        s = part0+part1+part2+part3+part4
                         assert (abs(string_to_float(s) - float(s)) <=
                                 1E-13 * abs(float(s)))
 
@@ -260,8 +260,8 @@ def test_string_to_float():
             for i in range(20):
                 parts = [random.choice(lst) for lst in valid_parts]
                 parts[j] = invalid
-                s = u''.join(parts)
+                s = ''.join(parts)
                 print repr(s)
                 if s.strip(): # empty s raises OperationError directly
                     py.test.raises(ParseStringError, string_to_float, s)
-    py.test.raises(ParseStringError, string_to_float, u"")
+    py.test.raises(ParseStringError, string_to_float, "")

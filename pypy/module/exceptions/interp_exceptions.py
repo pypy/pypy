@@ -208,8 +208,10 @@ def _new(cls, basecls=None):
     if basecls is None:
         basecls = cls
     def descr_new_base_exception(space, w_subtype, __args__):
+        args_w, kwds_w = __args__.unpack()  # ignore kwds
         exc = space.allocate_instance(cls, w_subtype)
         basecls.__init__(exc, space)
+        exc.args_w = args_w
         return space.wrap(exc)
     descr_new_base_exception.func_name = 'descr_new_' + cls.__name__
     return interp2app(descr_new_base_exception)
@@ -217,7 +219,6 @@ def _new(cls, basecls=None):
 W_BaseException.typedef = TypeDef(
     'BaseException',
     __doc__ = W_BaseException.__doc__,
-    __module__ = 'builtins',
     __new__ = _new(W_BaseException),
     __init__ = interp2app(W_BaseException.descr_init),
     __str__ = interp2app(W_BaseException.descr_str),
@@ -258,7 +259,6 @@ def _new_exception(name, base, docstring, **kwargs):
         name,
         base.typedef,
         __doc__ = W_Exc.__doc__,
-        __module__ = 'builtins',
         **kwargs
     )
     W_Exc.typedef.applevel_subclasses_base = realbase
@@ -323,7 +323,6 @@ W_UnicodeTranslateError.typedef = TypeDef(
     'UnicodeTranslateError',
     W_UnicodeError.typedef,
     __doc__ = W_UnicodeTranslateError.__doc__,
-    __module__ = 'builtins',
     __new__ = _new(W_UnicodeTranslateError),
     __init__ = interp2app(W_UnicodeTranslateError.descr_init),
     __str__ = interp2app(W_UnicodeTranslateError.descr_str),
@@ -390,14 +389,14 @@ class W_EnvironmentError(W_Exception):
     def descr_str(self, space):
         if (not space.is_w(self.w_errno, space.w_None) and
             not space.is_w(self.w_strerror, space.w_None)):
-            errno = space.str_w(space.str(self.w_errno))
-            strerror = space.str_w(space.str(self.w_strerror))
+            errno = space.unicode_w(space.str(self.w_errno))
+            strerror = space.unicode_w(space.str(self.w_strerror))
             if not space.is_w(self.w_filename, space.w_None):
-                return space.wrap("[Errno %s] %s: %s" % (
+                return space.wrap(u"[Errno %s] %s: %s" % (
                     errno,
                     strerror,
-                    space.str_w(space.repr(self.w_filename))))
-            return space.wrap("[Errno %s] %s" % (
+                    space.unicode_w(space.repr(self.w_filename))))
+            return space.wrap(u"[Errno %s] %s" % (
                 errno,
                 strerror,
             ))
@@ -407,7 +406,6 @@ W_EnvironmentError.typedef = TypeDef(
     'EnvironmentError',
     W_Exception.typedef,
     __doc__ = W_EnvironmentError.__doc__,
-    __module__ = 'builtins',
     __new__ = _new(W_EnvironmentError),
     __reduce__ = interp2app(W_EnvironmentError.descr_reduce),
     __init__ = interp2app(W_EnvironmentError.descr_init),
@@ -443,17 +441,22 @@ class W_WindowsError(W_OSError):
     def descr_str(self, space):
         if (not space.is_w(self.w_winerror, space.w_None) and
             not space.is_w(self.w_strerror, space.w_None)):
+            winerror = space.int_w(self.w_winerror)
+            strerror = space.unicode_w(self.w_strerror)
             if not space.is_w(self.w_filename, space.w_None):
-                return space.wrap("[Error %d] %s: %s" % (
-                    space.int_w(self.w_winerror),
-                    space.str_w(self.w_strerror),
-                    space.str_w(self.w_filename)))
-            return space.wrap("[Error %d] %s" % (space.int_w(self.w_winerror),
-                                                 space.str_w(self.w_strerror)))
+                return space.wrap(u"[Error %d] %s: %s" % (
+                    winerror,
+                    strerror,
+                    space.unicode_w(self.w_filename)))
+            return space.wrap(u"[Error %d] %s" % (winerror,
+                                                  strerror))
         return W_BaseException.descr_str(self, space)
 
     if hasattr(rwin32, 'build_winerror_to_errno'):
         _winerror_to_errno, _default_errno = rwin32.build_winerror_to_errno()
+        # Python 2 doesn't map ERROR_DIRECTORY (267) to ENOTDIR but
+        # Python 3 (CPython issue #12802) and build_winerror_to_errno do
+        del _winerror_to_errno[267]
     else:
         _winerror_to_errno, _default_errno = {}, 22 # EINVAL
 
@@ -461,7 +464,6 @@ W_WindowsError.typedef = TypeDef(
     "WindowsError",
     W_OSError.typedef,
     __doc__  = W_WindowsError.__doc__,
-    __module__ = 'builtins',
     __new__  = _new(W_WindowsError),
     __init__ = interp2app(W_WindowsError.descr_init),
     __str__  = interp2app(W_WindowsError.descr_str),
@@ -571,7 +573,6 @@ W_SyntaxError.typedef = TypeDef(
     __str__ = interp2app(W_SyntaxError.descr_str),
     __repr__ = interp2app(W_SyntaxError.descr_repr),
     __doc__ = W_SyntaxError.__doc__,
-    __module__ = 'builtins',
     msg      = readwrite_attrproperty_w('w_msg', W_SyntaxError),
     filename = readwrite_attrproperty_w('w_filename', W_SyntaxError),
     lineno   = readwrite_attrproperty_w('w_lineno', W_SyntaxError),
@@ -605,7 +606,6 @@ W_SystemExit.typedef = TypeDef(
     __new__ = _new(W_SystemExit),
     __init__ = interp2app(W_SystemExit.descr_init),
     __doc__ = W_SystemExit.__doc__,
-    __module__ = 'builtins',
     code    = readwrite_attrproperty_w('w_code', W_SystemExit)
 )
 
@@ -672,7 +672,6 @@ W_UnicodeDecodeError.typedef = TypeDef(
     'UnicodeDecodeError',
     W_UnicodeError.typedef,
     __doc__ = W_UnicodeDecodeError.__doc__,
-    __module__ = 'builtins',
     __new__ = _new(W_UnicodeDecodeError),
     __init__ = interp2app(W_UnicodeDecodeError.descr_init),
     __str__ = interp2app(W_UnicodeDecodeError.descr_str),
@@ -767,7 +766,6 @@ W_UnicodeEncodeError.typedef = TypeDef(
     'UnicodeEncodeError',
     W_UnicodeError.typedef,
     __doc__ = W_UnicodeEncodeError.__doc__,
-    __module__ = 'builtins',
     __new__ = _new(W_UnicodeEncodeError),
     __init__ = interp2app(W_UnicodeEncodeError.descr_init),
     __str__ = interp2app(W_UnicodeEncodeError.descr_str),

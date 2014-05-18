@@ -200,7 +200,7 @@ class ClassDefPage(GraphPage):
                 dotgen.emit_edge(nameof(cdef), nameof(prevcdef), color="red")
             prevcdef = cdef
             cdef = cdef.basedef
-        
+
         self.source = dotgen.generate(target=None)
 
     def followlink(self, name):
@@ -224,7 +224,7 @@ class BaseTranslatorPage(GraphPage):
         dotgen.emit('mclimit=15.0')
 
         self.do_compute(dotgen, *args, **kwds)
-        
+
         self.source = dotgen.generate(target=None)
 
         # link the function names to the individual flow graphs
@@ -264,7 +264,7 @@ class BaseTranslatorPage(GraphPage):
                 data = self.labelof(classdef, classdef.shortname)
                 dotgen.emit_node(nameof(classdef), label=data, shape="box")
                 dotgen.emit_edge(nameof(classdef.basedef), nameof(classdef))
-             
+
     def labelof(self, obj, objname):
         name = objname
         i = 1
@@ -409,22 +409,11 @@ def try_show(obj):
     elif isinstance(obj, Link):
         try_show(obj.prevblock)
     elif isinstance(obj, Block):
-        import gc
-        pending = [obj]   # pending blocks
-        seen = {obj: True, None: True}
-        for x in pending:
-            for y in gc.get_referrers(x):
-                if isinstance(y, FunctionGraph):
-                    y.show()
-                    return
-                elif isinstance(y, Link):
-                    block = y.prevblock
-                    if block not in seen:
-                        pending.append(block)
-                        seen[block] = True
-                elif isinstance(y, dict):
-                    pending.append(y)   # go back from the dict to the real obj
-        graph = IncompleteGraph(pending)
+        graph = obj.get_graph()
+        if isinstance(graph, FunctionGraph):
+            graph.show()
+            return
+        graph = IncompleteGraph(graph)
         SingleGraphPage(graph).display()
     else:
         raise TypeError("try_show(%r object)" % (type(obj).__name__,))
@@ -449,7 +438,7 @@ def try_get_functiongraph(obj):
                         seen[block] = True
         return pending
     else:
-        raise TypeError("try_get_functiongraph(%r object)" % (type(obj).__name__,))    
+        raise TypeError("try_get_functiongraph(%r object)" % (type(obj).__name__,))
 
 class IncompleteGraph:
     name = '(incomplete graph)'

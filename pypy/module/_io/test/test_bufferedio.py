@@ -139,6 +139,13 @@ class AppTestBufferedReader:
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
         assert f.readinto(a) == 5
+        f.seek(0)
+        m = memoryview(bytearray(b"hello"))
+        assert f.readinto(m) == 5
+        exc = raises(TypeError, f.readinto, u"hello")
+        assert str(exc.value) == "must be read-write buffer, not str"
+        exc = raises(TypeError, f.readinto, memoryview(b"hello"))
+        assert str(exc.value) == "must be read-write buffer, not memoryview"
         f.close()
         assert a == b'a\nb\ncxxxxx'
 
@@ -250,6 +257,7 @@ class AppTestBufferedWriter:
         raw = _io.FileIO(self.tmpfile, 'w')
         f = _io.BufferedWriter(raw)
         f.write(b"abcd")
+        raises(TypeError, f.write, u"cd")
         f.close()
         assert self.readfile() == b"abcd"
 
@@ -515,6 +523,35 @@ class AppTestBufferedWriter:
         bufio.write(b"test")
         exc = raises(RuntimeError, bufio.flush)
         assert "reentrant" in str(exc.value)  # And not e.g. recursion limit.
+
+    def test_write_error_on_close(self):
+        import _io
+        class MockRawIO(_io._RawIOBase):
+            def writable(self):
+                return True
+            def write(self, data):
+                raise IOError()
+        raw = MockRawIO()
+        b = _io.BufferedWriter(raw)
+        b.write(b'spam')
+        raises(IOError, b.close)  # exception not swallowed
+        assert b.closed
+
+    def test_close_error_on_close(self):
+        import _io
+        class MockRawIO(_io._RawIOBase):
+            def writable(self):
+                return True
+            def close(self):
+                raise IOError('close')
+        def bad_flush():
+            raise IOError('flush')
+        raw = MockRawIO()
+        b = _io.BufferedWriter(raw)
+        b.flush = bad_flush
+        err = raises(IOError, b.close)  # exception not swallowed
+        assert err.value.args == ('close',)
+        assert not b.closed
 
 class AppTestBufferedRWPair:
     def test_pair(self):

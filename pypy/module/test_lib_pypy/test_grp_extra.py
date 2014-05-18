@@ -2,8 +2,7 @@ from pypy.module.test_lib_pypy.support import import_lib_pypy
 
 
 class AppTestGrp:
-
-    spaceconfig = dict(usemodules=('_ffi', '_rawffi', 'fcntl', 'itertools',
+    spaceconfig = dict(usemodules=('_rawffi', 'binascii', 'fcntl', 'itertools',
                                    'select', 'signal'))
 
     def setup_class(cls):
@@ -11,11 +10,19 @@ class AppTestGrp:
                                     "No grp module on this platform")
 
     def test_basic(self):
-        g = self.grp.getgrnam("root")
-        assert g.gr_gid == 0
-        assert g.gr_mem == ['root'] or g.gr_mem == []
-        assert g.gr_name == 'root'
-        assert isinstance(g.gr_passwd, str)    # usually just 'x', don't hope :-)
+        raises(KeyError, self.grp.getgrnam, "dEkLofcG")
+        for name in ["root", "wheel"]:
+            try:
+                g = self.grp.getgrnam(name)
+            except KeyError:
+                continue
+            assert g.gr_gid == 0
+            assert 'root' in g.gr_mem or g.gr_mem == []
+            assert g.gr_name == name
+            assert isinstance(g.gr_passwd, str)    # usually just 'x', don't hope :-)
+            break
+        else:
+            raise
 
     def test_extra(self):
         grp = self.grp

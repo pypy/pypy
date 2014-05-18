@@ -116,11 +116,11 @@ def r_putenv(name, value):
     just_a_placeholder
 
 os_getenv = rffi.llexternal('getenv', [rffi.CCHARP], rffi.CCHARP,
-                            threadsafe=False)
+                            releasegil=False)
 os_putenv = rffi.llexternal('putenv', [rffi.CCHARP], rffi.INT)
 if _WIN32:
     _wgetenv = rffi.llexternal('_wgetenv', [rffi.CWCHARP], rffi.CWCHARP,
-                               compilation_info=eci, threadsafe=False)
+                               compilation_info=eci, releasegil=False)
     _wputenv = rffi.llexternal('_wputenv', [rffi.CWCHARP], rffi.INT,
                                compilation_info=eci)
 

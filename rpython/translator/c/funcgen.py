@@ -178,7 +178,7 @@ class FunctionCodeGenerator(object):
             else:
                 return self.db.get(value)
         else:
-            raise TypeError, "expr(%r)" % (v,)
+            raise TypeError("expr(%r)" % (v,))
 
     # ____________________________________________________________
 
@@ -692,6 +692,7 @@ class FunctionCodeGenerator(object):
         return (
            '((%(typename)s) (((char *)%(addr)s) + %(offset)s))[0] = %(value)s;'
            % locals())
+    OP_BARE_RAW_STORE = OP_RAW_STORE
 
     def OP_RAW_LOAD(self, op):
         addr = self.expr(op.args[0])

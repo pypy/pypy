@@ -1,9 +1,10 @@
-from rpython.flowspace.model import Variable
+from rpython.flowspace.model import Variable, Constant
 from rpython.translator.backendopt import graphanalyze
 
 top_set = object()
 empty_set = frozenset()
 
+CUTOFF = 1000
 
 class WriteAnalyzer(graphanalyze.GraphAnalyzer):
     def bottom_result(self):
@@ -21,6 +22,8 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
     def add_to_result(self, result, other):
         if other is top_set:
             return top_set
+        if len(other) + len(result) > CUTOFF:
+            return top_set
         result.update(other)
         return result
 
@@ -34,6 +37,12 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
             return top_set
         return result1.union(result2)
 
+    def _getinteriorname(self, op):
+        if (isinstance(op.args[1], Constant) and
+            isinstance(op.args[1].value, str)):
+            return op.args[1].value
+        return op.args[2].value
+
     def analyze_simple_operation(self, op, graphinfo):
         if op.opname == "setfield":
             if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
@@ -42,10 +51,17 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
         elif op.opname == "setarrayitem":
             if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
                 return self._array_result(op.args[0].concretetype)
+        elif op.opname == "setinteriorfield":
+            if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
+                name = self._getinteriorname(op)
+                return self._interiorfield_result(op.args[0].concretetype, name)
         return empty_set
 
     def _array_result(self, TYPE):
         return frozenset([("array", TYPE)])
+
+    def _interiorfield_result(self, TYPE, fieldname):
+        return frozenset([("interiorfield", TYPE, fieldname)])
 
     def compute_graph_info(self, graph):
         return FreshMallocs(graph)
@@ -96,4 +112,8 @@ class ReadWriteAnalyzer(WriteAnalyzer):
         elif op.opname == "getarrayitem":
             return frozenset([
                 ("readarray", op.args[0].concretetype)])
+        elif op.opname == "getinteriorfield":
+            name = self._getinteriorname(op)
+            return frozenset([("readinteriorfield", op.args[0].concretetype,
+                            name)])
         return WriteAnalyzer.analyze_simple_operation(self, op, graphinfo)

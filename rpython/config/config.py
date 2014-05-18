@@ -215,7 +215,7 @@ class Option(object):
         self._name = name
         self.doc = doc
         self.cmdline = cmdline
-        
+
     def validate(self, value):
         raise NotImplementedError('abstract base class')
 
@@ -388,7 +388,7 @@ class FloatOption(Option):
 
 class StrOption(Option):
     opt_type = 'string'
-    
+
     def __init__(self, name, doc, default=None, cmdline=DEFAULT_OPTION_NAME):
         super(StrOption, self).__init__(name, doc, cmdline)
         self.default = default
@@ -447,7 +447,7 @@ class OptionDescription(object):
 
     def getpaths(self, include_groups=False, currpath=None):
         """returns a list of all paths in self, recursively
-        
+
             currpath should not be provided (helps with recursion)
         """
         if currpath is None:
@@ -492,15 +492,15 @@ class OptHelpFormatter(optparse.TitledHelpFormatter):
                     defl = "default"
             else:
                 defl = "default: %s" % val
-                
+
         if option.type == 'choice':
             choices = option.choices
-            
+
         if choices is not None:
             choices = "%s=%s" % (option.metavar, '|'.join(choices))
         else:
             choices = ""
-        
+
         if '%default' in option.help:
             if choices and defl:
                 sep = ", "
@@ -511,7 +511,7 @@ class OptHelpFormatter(optparse.TitledHelpFormatter):
                 defl = ""
             return option.help.replace("%default", defl)
         elif choices:
-            return option.help + ' [%s]' % choices 
+            return option.help + ' [%s]' % choices
 
         return option.help
 

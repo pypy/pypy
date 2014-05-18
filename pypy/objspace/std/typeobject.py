@@ -1,13 +1,13 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import Function, StaticMethod
-from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
+from pypy.interpreter.typedef import weakref_descr, GetSetProperty, Member, \
      descr_get_dict
 from pypy.interpreter.astcompiler.misc import mangle
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
+from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
 from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
@@ -263,8 +263,8 @@ class W_TypeObject(W_Object):
 
     def setdictvalue(w_self, space, name, w_value):
         if not w_self.is_heaptype():
-            msg = "can't set attributes on type object '%N'"
-            raise operationerrfmt(space.w_TypeError, msg, w_self)
+            raise oefmt(space.w_TypeError,
+                        "can't set attributes on type object '%N'", w_self)
         if name == "__del__" and name not in w_self.dict_w:
             msg = ("a __del__ method added to an existing type will not be "
                    "called")
@@ -287,8 +287,8 @@ class W_TypeObject(W_Object):
         if w_self.lazyloaders:
             w_self._cleanup_()    # force un-lazification
         if not w_self.is_heaptype():
-            msg = "can't delete attributes on type object '%N'"
-            raise operationerrfmt(space.w_TypeError, msg, w_self)
+            raise oefmt(space.w_TypeError,
+                        "can't delete attributes on type object '%N'", w_self)
         try:
             del w_self.dict_w[key]
         except KeyError:
@@ -369,6 +369,12 @@ class W_TypeObject(W_Object):
         w_class, w_value = w_self._pure_lookup_where_with_method_cache(name, version_tag)
         return w_class, unwrap_cell(space, w_value)
 
+    def _pure_lookup_where_possibly_with_method_cache(w_self, name, version_tag):
+        if w_self.space.config.objspace.std.withmethodcache:
+            return w_self._pure_lookup_where_with_method_cache(name, version_tag)
+        else:
+            return w_self._lookup_where_all_typeobjects(name)
+
     @elidable
     def _pure_lookup_where_with_method_cache(w_self, name, version_tag):
         space = w_self.space
@@ -410,17 +416,16 @@ class W_TypeObject(W_Object):
     def check_user_subclass(w_self, w_subtype):
         space = w_self.space
         if not isinstance(w_subtype, W_TypeObject):
-            raise operationerrfmt(space.w_TypeError,
-                "X is not a type object ('%T')",
-                w_subtype)
+            raise oefmt(space.w_TypeError,
+                        "X is not a type object ('%T')", w_subtype)
         if not w_subtype.issubtype(w_self):
-            raise operationerrfmt(space.w_TypeError,
-                "%N.__new__(%N): %N is not a subtype of %N",
-                w_self, w_subtype, w_subtype, w_self)
+            raise oefmt(space.w_TypeError,
+                        "%N.__new__(%N): %N is not a subtype of %N",
+                        w_self, w_subtype, w_subtype, w_self)
         if w_self.instancetypedef is not w_subtype.instancetypedef:
-            raise operationerrfmt(space.w_TypeError,
-                "%N.__new__(%N) is not safe, use %N.__new__()",
-                w_self, w_subtype, w_subtype)
+            raise oefmt(space.w_TypeError,
+                        "%N.__new__(%N) is not safe, use %N.__new__()",
+                        w_self, w_subtype, w_subtype)
         return w_subtype
 
     def _cleanup_(w_self):
@@ -466,31 +471,28 @@ class W_TypeObject(W_Object):
                 return res
         return _issubtype(w_self, w_type)
 
-    def get_module(w_self):
-        space = w_self.space
-        if w_self.is_heaptype() and w_self.getdictvalue(space, '__module__') is not None:
-            return w_self.getdictvalue(space, '__module__')
+    def get_module(self):
+        space = self.space
+        if self.is_heaptype():
+            return self.getdictvalue(space, '__module__')
         else:
-            # for non-heap types, CPython checks for a module.name in the
-            # type name.  That's a hack, so we're allowed to use a different
-            # hack...
-            if ('__module__' in w_self.dict_w and
-                space.isinstance_w(w_self.getdictvalue(space, '__module__'),
-                                               space.w_unicode)):
-                return w_self.getdictvalue(space, '__module__')
-            return space.wrap('builtins')
+            dot = self.name.find('.')
+            if dot >= 0:
+                mod = self.name[:dot]
+            else:
+                mod = "builtins"
+            return space.wrap(mod)
 
-    def get_module_type_name(w_self):
-        space = w_self.space
-        w_mod = w_self.get_module()
-        if not space.isinstance_w(w_mod, space.w_unicode):
-            mod = u'builtins'
+    def getname(self, space):
+        if self.is_heaptype():
+            result = self.name
         else:
-            mod = space.unicode_w(w_mod)
-        if mod != u'builtins':
-            return u'%s.%s' % (mod, w_self.name.decode('utf-8'))
-        else:
-            return w_self.name.decode('utf-8')
+            dot = self.name.find('.')
+            if dot >= 0:
+                result = self.name[dot+1:]
+            else:
+                result = self.name
+        return result.decode('utf-8')
 
     def add_subclass(w_self, w_subclass):
         space = w_self.space
@@ -560,8 +562,6 @@ def descr__new__(space, w_typetype, w_name, w_bases=None, w_dict=None):
 def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
     # this is in its own function because we want the special case 'type(x)'
     # above to be seen by the jit.
-    from pypy.objspace.std.typeobject import W_TypeObject
-
     if w_bases is None or w_dict is None:
         raise OperationError(space.w_TypeError, space.wrap("type() takes 1 or 3 arguments"))
 
@@ -603,16 +603,13 @@ def _calculate_metaclass(space, w_metaclass, bases_w):
     return w_winner
 
 def _precheck_for_new(space, w_type):
-    from pypy.objspace.std.typeobject import W_TypeObject
     if not isinstance(w_type, W_TypeObject):
-        raise operationerrfmt(space.w_TypeError, "X is not a type object (%T)",
-                              w_type)
+        raise oefmt(space.w_TypeError, "X is not a type object (%T)", w_type)
     return w_type
 
 # ____________________________________________________________
 
 def _check(space, w_type, w_msg=None):
-    from pypy.objspace.std.typeobject import W_TypeObject
     if not isinstance(w_type, W_TypeObject):
         if w_msg is None:
             w_msg = space.wrap("descriptor is for 'type'")
@@ -622,14 +619,16 @@ def _check(space, w_type, w_msg=None):
 
 def descr_get__name__(space, w_type):
     w_type = _check(space, w_type)
-    return space.wrap(w_type.name.decode('utf-8'))
+    return space.wrap(w_type.getname(space))
 
 def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
-        raise operationerrfmt(space.w_TypeError,
-                              "can't set %N.__name__", w_type)
-    w_type.name = space.str_w(w_value)
+        raise oefmt(space.w_TypeError, "can't set %N.__name__", w_type)
+    name = space.str_w(w_value)
+    if '\x00' in name:
+        raise oefmt(space.w_ValueError, "__name__ must not contain null bytes")
+    w_type.name = name
 
 def descr_get__mro__(space, w_type):
     w_type = _check(space, w_type)
@@ -645,7 +644,6 @@ def descr_get__bases__(space, w_type):
     return space.newtuple(w_type.bases_w)
 
 def mro_subclasses(space, w_type, temp):
-    from pypy.objspace.std.typeobject import W_TypeObject, compute_mro
     temp.append((w_type, w_type.mro_w))
     compute_mro(w_type)
     for w_sc in w_type.get_subclasses():
@@ -654,22 +652,18 @@ def mro_subclasses(space, w_type, temp):
 
 def descr_set__bases__(space, w_type, w_value):
     # this assumes all app-level type objects are W_TypeObject
-    from pypy.objspace.std.typeobject import (W_TypeObject, get_parent_layout,
-        check_and_find_best_base, is_mro_purely_of_types)
-
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
-        raise operationerrfmt(space.w_TypeError,
-                              "can't set %N.__bases__", w_type)
+        raise oefmt(space.w_TypeError, "can't set %N.__bases__", w_type)
     if not space.isinstance_w(w_value, space.w_tuple):
-        raise operationerrfmt(space.w_TypeError,
-                              "can only assign tuple to %N.__bases__, not %T",
-                              w_type, w_value)
+        raise oefmt(space.w_TypeError,
+                    "can only assign tuple to %N.__bases__, not %T",
+                    w_type, w_value)
     newbases_w = space.fixedview(w_value)
     if len(newbases_w) == 0:
-        raise operationerrfmt(space.w_TypeError,
+        raise oefmt(space.w_TypeError,
                     "can only assign non-empty tuple to %N.__bases__, not ()",
-                              w_type)
+                    w_type)
 
     for w_newbase in newbases_w:
         if isinstance(w_newbase, W_TypeObject):
@@ -684,9 +678,9 @@ def descr_set__bases__(space, w_type, w_value):
     newlayout = w_newbestbase.get_full_instance_layout()
 
     if oldlayout != newlayout:
-        msg = "__bases__ assignment: '%N' object layout differs from '%N'"
-        raise operationerrfmt(space.w_TypeError, msg,
-                              w_newbestbase, w_oldbestbase)
+        raise oefmt(space.w_TypeError,
+                    "__bases__ assignment: '%N' object layout differs from "
+                    "'%N'", w_newbestbase, w_oldbestbase)
 
     # invalidate the version_tag of all the current subclasses
     w_type.mutated(None)
@@ -720,7 +714,6 @@ def descr_set__bases__(space, w_type, w_value):
     assert w_type.w_same_layout_as is get_parent_layout(w_type)  # invariant
 
 def descr__base(space, w_type):
-    from pypy.objspace.std.typeobject import find_best_base
     w_type = _check(space, w_type)
     return find_best_base(space, w_type.bases_w)
 
@@ -788,6 +781,8 @@ def descr___subclasses__(space, w_type):
     return space.newlist(w_type.get_subclasses())
 
 def descr___prepare__(space, __args__):
+    # XXX: space.newdict(strdict=True)? (XXX: which should be
+    # UnicodeDictStrategy but is currently BytesDictStrategy)
     return space.newdict()
 
 # ____________________________________________________________
@@ -885,10 +880,8 @@ def check_and_find_best_base(space, bases_w):
                              space.wrap("a new-style class can't have "
                                         "only classic bases"))
     if not w_bestbase.instancetypedef.acceptable_as_base_class:
-        raise operationerrfmt(space.w_TypeError,
-                              "type '%N' is not an "
-                              "acceptable base class",
-                              w_bestbase)
+        raise oefmt(space.w_TypeError,
+                    "type '%N' is not an acceptable base class", w_bestbase)
 
     # check that all other bases' layouts are superclasses of the bestbase
     w_bestlayout = w_bestbase.w_same_layout_as or w_bestbase
@@ -1009,6 +1002,7 @@ def setup_builtin_type(w_self):
     w_self.weakrefable = w_self.instancetypedef.weakrefable
     w_self.w_doc = w_self.space.wrap(w_self.instancetypedef.doc)
     ensure_common_attributes(w_self)
+    w_self.flag_heaptype = w_self.instancetypedef.heaptype
 
 def ensure_common_attributes(w_self):
     ensure_static_new(w_self)
@@ -1116,15 +1110,14 @@ def _pure_issubtype(w_sub, w_type, version_tag1, version_tag2):
 
 def repr__Type(space, w_obj):
     w_mod = w_obj.get_module()
-    if not space.isinstance_w(w_mod, space.w_unicode):
+    if w_mod is None or not space.isinstance_w(w_mod, space.w_unicode):
         mod = None
     else:
         mod = space.unicode_w(w_mod)
-    name = w_obj.name.decode('utf-8')
     if mod is not None and mod != u'builtins':
-        return space.wrap(u"<class '%s.%s'>" % (mod, name))
+        return space.wrap(u"<class '%s.%s'>" % (mod, w_obj.getname(space)))
     else:
-        return space.wrap(u"<class '%s'>" % (name))
+        return space.wrap(u"<class '%s'>" % (w_obj.name.decode('utf-8')))
 
 def getattr__Type_ANY(space, w_type, w_name):
     name = space.str_w(w_name)
@@ -1141,9 +1134,8 @@ def getattr__Type_ANY(space, w_type, w_name):
         return space.get(w_value, space.w_None, w_type)
     if w_descr is not None:
         return space.get(w_descr, w_type)
-    raise operationerrfmt(space.w_AttributeError,
-                          "type object '%N' has no attribute %R",
-                          w_type, w_name)
+    raise oefmt(space.w_AttributeError,
+                "type object '%N' has no attribute %R", w_type, w_name)
 
 
 # ____________________________________________________________
@@ -1203,8 +1195,7 @@ def mro_error(space, orderlists):
     candidate = orderlists[-1][0]
     if candidate in orderlists[-1][1:]:
         # explicit error message for this specific case
-        raise operationerrfmt(space.w_TypeError, "duplicate base class '%N'",
-                              candidate)
+        raise oefmt(space.w_TypeError, "duplicate base class '%N'", candidate)
     while candidate not in cycle:
         cycle.append(candidate)
         nextblockinglist = mro_blockinglist(candidate, orderlists)

@@ -199,15 +199,12 @@ class Repr(object):
         [v_self] = hop.inputargs(self)
         return hop.gendirectcall(self.ll_str, v_self)
 
-    def rtype_nonzero(self, hop):
-        return self.rtype_is_true(hop)   # can call a subclass' rtype_is_true()
-
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         try:
             vlen = self.rtype_len(hop)
         except MissingRTypeOperation:
             if not hop.s_result.is_constant():
-                raise TyperError("rtype_is_true(%r) not implemented" % (self,))
+                raise TyperError("rtype_bool(%r) not implemented" % (self,))
             return hop.inputconst(Bool, hop.s_result.const)
         else:
             return hop.genop('int_is_true', [vlen], resulttype=Bool)
@@ -243,7 +240,7 @@ class CanBeNull(object):
     """A mix-in base class for subclasses of Repr that represent None as
     'null' and true values as non-'null'.
     """
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         if hop.s_result.is_constant():
             return hop.inputconst(Bool, hop.s_result.const)
         else:

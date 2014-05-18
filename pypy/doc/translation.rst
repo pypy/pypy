@@ -380,7 +380,7 @@ parent class.
 The RPython Typer
 =================
 
-https://bitbucket.org/pypy/pypy/src/default/pypy/rpython/
+https://bitbucket.org/pypy/pypy/src/default/rpython/rtyper/
 
 The RTyper is the first place where the choice of backend makes a
 difference; as outlined above we are assuming that ANSI C is the target.
@@ -603,7 +603,7 @@ freedom to change how to do it.  There are three approaches implemented today:
  - using the `Boehm-Demers-Weiser conservative garbage collector`_
  - using one of our custom `exact GCs implemented in RPython`_
 
-.. _`Boehm-Demers-Weiser conservative garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
+.. _`Boehm-Demers-Weiser conservative garbage collector`: http://hboehm.info/gc/
 .. _`exact GCs implemented in RPython`: garbage_collection.html
 
 Almost all application-level Python code allocates objects at a very fast
@@ -621,7 +621,7 @@ You can choose which garbage collection strategy to use with
 The C Back-End
 ==============
 
-https://bitbucket.org/pypy/pypy/src/default/pypy/translator/c/
+https://bitbucket.org/pypy/pypy/src/default/rpython/translator/c/
 
 GenC is usually the most actively maintained backend -- everyone working on
 PyPy has a C compiler, for one thing -- and is usually where new features are

@@ -33,13 +33,6 @@ def taskdef(deps, title, new_state=None, expected_states=[],
 # TODO:
 # sanity-checks using states
 
-_BACKEND_TO_TYPESYSTEM = {
-    'c': 'lltype',
-}
-
-def backend_to_typesystem(backend):
-    return _BACKEND_TO_TYPESYSTEM[backend]
-
 # set of translation steps to profile
 PROFILE = set([])
 
@@ -132,7 +125,7 @@ class TranslationDriver(SimpleTaskEngine):
                         if backend == postfix:
                             expose_task(task, explicit_task)
                     elif ts:
-                        if ts == backend_to_typesystem(postfix):
+                        if ts == 'lltype':
                             expose_task(explicit_task)
                     else:
                         expose_task(explicit_task)
@@ -241,9 +234,9 @@ class TranslationDriver(SimpleTaskEngine):
             if os.WIFEXITED(status):
                 status = os.WEXITSTATUS(status)
                 if status != 0:
-                    raise Exception, "instrumentation child failed: %d" % status
+                    raise Exception("instrumentation child failed: %d" % status)
             else:
-                raise Exception, "instrumentation child aborted"
+                raise Exception("instrumentation child aborted")
             import array, struct
             n = datafile.size()//struct.calcsize('L')
             datafile = datafile.open('rb')
@@ -460,7 +453,7 @@ class TranslationDriver(SimpleTaskEngine):
             targetdir = cbuilder.targetdir
             fname = dump_static_data_info(self.log, database, targetdir)
             dstname = self.compute_exe_name() + '.staticdata.info'
-            shutil.copy(str(fname), str(dstname))
+            shutil_copy(str(fname), str(dstname))
             self.log.info('Static data info written to %s' % dstname)
 
     def compute_exe_name(self):
@@ -470,20 +463,24 @@ class TranslationDriver(SimpleTaskEngine):
         return py.path.local(newexename)
 
     def create_exe(self):
-        """ Copy the compiled executable into translator/goal
+        """ Copy the compiled executable into current directory, which is
+            pypy/goal on nightly builds
         """
         if self.exe_name is not None:
             exename = self.c_entryp
             newexename = mkexename(self.compute_exe_name())
-            shutil.copy(str(exename), str(newexename))
+            shutil_copy(str(exename), str(newexename))
             if self.cbuilder.shared_library_name is not None:
                 soname = self.cbuilder.shared_library_name
                 newsoname = newexename.new(basename=soname.basename)
-                shutil.copy(str(soname), str(newsoname))
+                shutil_copy(str(soname), str(newsoname))
                 self.log.info("copied: %s" % (newsoname,))
                 if sys.platform == 'win32':
-                    shutil.copyfile(str(soname.new(ext='lib')),
-                                    str(newsoname.new(ext='lib')))
+                    # copy the import library as well
+                    libname = soname.new(ext='lib')
+                    newlibname = newexename.new(basename=soname.basename)
+                    shutil.copyfile(str(libname), str(newlibname.new(ext='lib')))
+                    self.log.info("copied: %s" % (newlibname,))
             self.c_entryp = newexename
         self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))
@@ -587,3 +584,12 @@ def mkexename(name):
     if sys.platform == 'win32':
         name = name.new(ext='exe')
     return name
+
+if os.name == 'posix':
+    def shutil_copy(src, dst):
+        # this version handles the case where 'dst' is an executable
+        # currently being executed
+        shutil.copy(src, dst + '~')
+        os.rename(dst + '~', dst)
+else:
+    shutil_copy = shutil.copy

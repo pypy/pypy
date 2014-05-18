@@ -12,7 +12,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
-    CO_GENERATOR, CO_KILL_DOCSTRING)
+    CO_GENERATOR, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import compute_hash, we_are_translated
@@ -35,7 +35,7 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 # different value for the highest 16 bits. Bump pypy_incremental_magic every
 # time you make pyc files incompatible
 
-pypy_incremental_magic = 16 # bump it by 16
+pypy_incremental_magic = 48 # bump it by 16
 assert pypy_incremental_magic % 16 == 0
 assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value
@@ -211,9 +211,8 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args_matched = args.parse_into_scope(None, fresh_frame.locals_stack_w,
-                                             func.name,
-                                             sig, func.defs_w, func.w_kw_defs)
+        args.parse_into_scope(None, fresh_frame.locals_stack_w, func.name,
+                              sig, func.defs_w, func.w_kw_defs)
         fresh_frame.init_cells()
         return frame.run()
 
@@ -224,9 +223,8 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args_matched = args.parse_into_scope(w_obj, fresh_frame.locals_stack_w,
-                                             func.name,
-                                             sig, func.defs_w, func.w_kw_defs)
+        args.parse_into_scope(w_obj, fresh_frame.locals_stack_w, func.name,
+                              sig, func.defs_w, func.w_kw_defs)
         fresh_frame.init_cells()
         return frame.run()
 
@@ -275,8 +273,9 @@ class PyCode(eval.Code):
                         tuple(self.co_cellvars))
 
     def exec_host_bytecode(self, w_globals, w_locals):
-        from pypy.interpreter.pyframe import CPythonFrame
-        frame = CPythonFrame(self.space, self, w_globals, None)
+        if sys.version_info < (2, 7):
+            raise Exception("PyPy no longer supports Python 2.6 or lower")
+        frame = self.space.FrameClass(self.space, self, w_globals, None)
         frame.setdictscope(w_locals)
         return frame.run()
 
@@ -415,13 +414,17 @@ class PyCode(eval.Code):
         return space.newtuple([new_inst, space.newtuple(tup)])
 
     def get_repr(self):
+        # This is called by the default get_printable_location so it
+        # must avoid doing too much (that might release the gil)
+        return '<code object %s, file "%s", line %d>' % (
+            self.co_name, self.co_filename,
+            -1 if self.co_firstlineno == 0 else self.co_firstlineno)
+
+    def repr(self, space):
         space = self.space
         # co_name should be an identifier
         name = self.co_name.decode('utf-8')
         fn = space.fsdecode_w(space.wrapbytes(self.co_filename))
-        return u'<code object %s at 0x%s, file "%s", line %d>' % (
+        return space.wrap(u'<code object %s at 0x%s, file "%s", line %d>' % (
             name, unicode(self.getaddrstring(space)), fn,
-            -1 if self.co_firstlineno == 0 else self.co_firstlineno)
-
-    def repr(self, space):
-        return space.wrap(self.get_repr())
+            -1 if self.co_firstlineno == 0 else self.co_firstlineno))

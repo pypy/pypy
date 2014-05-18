@@ -1,5 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
-    
+
+
 class Module(MixedModule):
     interpleveldefs = {
         'collect': 'interp_gc.collect',
@@ -8,15 +9,14 @@ class Module(MixedModule):
         'isenabled': 'interp_gc.isenabled',
         'enable_finalizers': 'interp_gc.enable_finalizers',
         'disable_finalizers': 'interp_gc.disable_finalizers',
-        'garbage' : 'space.newlist([])',
+        'garbage': 'space.newlist([])',
         #'dump_heap_stats': 'interp_gc.dump_heap_stats',
     }
-    appleveldefs = {
-    }
+    appleveldefs = {}
 
     def __init__(self, space, w_name):
         if (not space.config.translating or
-            space.config.translation.gctransformer == "framework"):
+                space.config.translation.gctransformer == "framework"):
             self.appleveldefs.update({
                 'dump_rpy_heap': 'app_referents.dump_rpy_heap',
                 })

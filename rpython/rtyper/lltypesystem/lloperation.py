@@ -141,7 +141,7 @@ class Entry(ExtRegistryEntry):
     _type_ = LLOp
 
     def compute_result_annotation(self, RESULTTYPE, *args):
-        from rpython.annotator.model import lltype_to_annotation
+        from rpython.rtyper.llannotation import lltype_to_annotation
         assert RESULTTYPE.is_constant()
         return lltype_to_annotation(RESULTTYPE.const)
 
@@ -167,7 +167,7 @@ class Entry(ExtRegistryEntry):
 #
 # This list corresponds to the operations implemented by the LLInterpreter.
 # Note that many exception-raising operations can be replaced by calls
-# to helper functions in rpython.rtyper.raisingops.raisingops.
+# to helper functions in rpython.rtyper.raisingops.
 # ***** Run test_lloperation after changes. *****
 
 LL_OPERATIONS = {
@@ -410,8 +410,9 @@ LL_OPERATIONS = {
     'raw_memclear':         LLOp(),
     'raw_memcopy':          LLOp(),
     'raw_memmove':          LLOp(),
-    'raw_load':             LLOp(sideeffects=False),
-    'raw_store':            LLOp(),
+    'raw_load':             LLOp(sideeffects=False, canrun=True),
+    'raw_store':            LLOp(canrun=True),
+    'bare_raw_store':       LLOp(),
     'stack_malloc':         LLOp(), # mmh
     'track_alloc_start':    LLOp(),
     'track_alloc_stop':     LLOp(),
@@ -471,7 +472,6 @@ LL_OPERATIONS = {
     'gc_obtain_free_space': LLOp(),
     'gc_set_max_heap_size': LLOp(),
     'gc_can_move'         : LLOp(sideeffects=False),
-    'gc_thread_prepare'   : LLOp(canmallocgc=True),
     'gc_thread_run'       : LLOp(),
     'gc_thread_start'     : LLOp(),
     'gc_thread_die'       : LLOp(),

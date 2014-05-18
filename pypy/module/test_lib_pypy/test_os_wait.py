@@ -10,8 +10,8 @@ from pypy.module.test_lib_pypy.support import import_lib_pypy
 
 class AppTestOsWait:
 
-    spaceconfig = dict(usemodules=('_ffi', '_rawffi', 'fcntl', 'itertools',
-                                   'select', 'signal'))
+    spaceconfig = dict(usemodules=('_rawffi', 'fcntl', 'itertools', 'select',
+                                   'signal'))
 
     def setup_class(cls):
         if not hasattr(os, "fork"):

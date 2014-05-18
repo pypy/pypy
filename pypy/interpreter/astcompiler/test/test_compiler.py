@@ -1,5 +1,5 @@
 from __future__ import division
-import py
+import py, sys
 from pypy.interpreter.astcompiler import codegen, astbuilder, symtable, optimize
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions
@@ -968,6 +968,9 @@ class TestCompiler:
 
 class AppTestCompiler:
 
+    def setup_class(cls):
+        cls.w_maxunicode = cls.space.wrap(sys.maxunicode)
+
     def test_docstring_not_loaded(self):
         import io, dis, sys
         ns = {}
@@ -1002,7 +1005,13 @@ class AppTestCompiler:
         l = [a for a in Foo()]
         assert hint_called[0]
         assert l == list(range(5))
-        
+
+    def test_unicode_in_source(self):
+        import sys
+        d = {}
+        exec('# -*- coding: utf-8 -*-\n\nu = "\xf0\x9f\x92\x8b"', d)
+        assert len(d['u']) == 4
+
 
 class TestOptimizations:
     def count_instructions(self, source):

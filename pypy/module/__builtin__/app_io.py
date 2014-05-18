@@ -57,7 +57,14 @@ is printed without a trailing newline before reading."""
     return line
 
 def print_(*args, **kwargs):
-    """The new-style print function from py3k."""
+    r"""print(value, ..., sep=' ', end='\n', file=sys.stdout)
+
+    Prints the values to a stream, or to sys.stdout by default.
+    Optional keyword arguments:
+    file: a file-like object (stream); defaults to the current sys.stdout.
+    sep:  string inserted between values, default a space.
+    end:  string appended after the last value, default a newline.
+    """
     fp = kwargs.pop("file", None)
     if fp is None:
         fp = sys.stdout

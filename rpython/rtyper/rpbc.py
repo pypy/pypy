@@ -268,8 +268,8 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
                                   # lowleveltype wouldn't be Void otherwise
         funcdesc, = self.s_pbc.descriptions
         tables = []        # find the simple call in the calltable
-        for key, table in self.callfamily.calltables.items():
-            if not key[1] and not key[2] and not key[3]:
+        for shape, table in self.callfamily.calltables.items():
+            if not shape[1] and not shape[2]:
                 tables.append(table)
         if len(tables) != 1:
             raise TyperError("cannot pass a function with various call shapes")
@@ -587,7 +587,7 @@ class __extend__(pairtype(MethodOfFrozenPBCRepr, MethodOfFrozenPBCRepr)):
 class NoneFrozenPBCRepr(Repr):
     lowleveltype = Void
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         return Constant(False, Bool)
 
     def none_call(self, hop):
@@ -595,6 +595,9 @@ class NoneFrozenPBCRepr(Repr):
 
     def ll_str(self, none):
         return llstr("None")
+
+    def get_ll_eq_function(self):
+        return None
 
     def get_ll_hash_function(self):
         return ll_none_hash

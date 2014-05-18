@@ -177,9 +177,8 @@ def do_setfield_gc(cpu, _, structbox, itembox, fielddescr):
 
 def do_setfield_raw(cpu, _, structbox, itembox, fielddescr):
     struct = structbox.getint()
-    if fielddescr.is_pointer_field():
-        cpu.bh_setfield_raw_r(struct, itembox.getref_base(), fielddescr)
-    elif fielddescr.is_float_field():
+    assert not fielddescr.is_pointer_field()
+    if fielddescr.is_float_field():
         cpu.bh_setfield_raw_f(struct, itembox.getfloatstorage(), fielddescr)
     else:
         cpu.bh_setfield_raw_i(struct, itembox.getint(), fielddescr)
@@ -333,6 +332,7 @@ def _make_execute_list():
                     continue
             if value in (rop.FORCE_TOKEN,
                          rop.CALL_ASSEMBLER,
+                         rop.INCREMENT_DEBUG_COUNTER,
                          rop.COND_CALL_GC_WB,
                          rop.COND_CALL_GC_WB_ARRAY,
                          rop.DEBUG_MERGE_POINT,

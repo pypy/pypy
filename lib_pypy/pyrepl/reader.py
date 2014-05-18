@@ -20,6 +20,7 @@
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 from __future__ import unicode_literals
+import re
 import unicodedata
 from pyrepl import commands
 from pyrepl import input
@@ -29,6 +30,8 @@ except NameError:
     unicode = str
     unichr = chr
 
+
+_r_csi_seq = re.compile(r"\033\[[ -@]*[A-~]")
 
 def _make_unctrl_map():
     uc_map = {}
@@ -55,7 +58,7 @@ def _my_unctrl(c, u=_make_unctrl_map()):
         else:
             return c
 
-if 'a'[0] == 'a':
+if 'a'[0] == b'a':
     # When running tests with python2, bytes characters are bytes.
     def _my_unctrl(c, uc=_my_unctrl):
         return uc(ord(c))
@@ -318,6 +321,10 @@ feeling more loquacious than I am now."""
         excluded from the length calculation.  So also a copy of the prompt
         is returned with these control characters removed.  """
 
+        # The logic below also ignores the length of common escape
+        # sequences if they were not explicitly within \x01...\x02.
+        # They are CSI (or ANSI) sequences  ( ESC [ ... LETTER )
+
         out_prompt = ''
         l = len(prompt)
         pos = 0
@@ -329,10 +336,14 @@ feeling more loquacious than I am now."""
             if e == -1:
                 break
             # Found start and end brackets, subtract from string length
-            l = l - (e - s + 1)
-            out_prompt += prompt[pos:s] + prompt[s + 1:e]
-            pos = e + 1
-        out_prompt += prompt[pos:]
+            l = l - (e-s+1)
+            keep = prompt[pos:s]
+            l -= sum(map(len, _r_csi_seq.findall(keep)))
+            out_prompt += keep + prompt[s+1:e]
+            pos = e+1
+        keep = prompt[pos:]
+        l -= sum(map(len, _r_csi_seq.findall(keep)))
+        out_prompt += keep
         return out_prompt, l
 
     def bow(self, p=None):

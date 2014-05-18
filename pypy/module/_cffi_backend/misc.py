@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import keepalive_until_here, specialize
-from rpython.rlib.rarithmetic import r_uint, r_ulonglong, is_signed_integer_type
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -137,13 +137,13 @@ def as_long_long(space, w_ob):
     else:
         return value
     try:
-        bigint = space.bigint_w(w_ob)
+        bigint = space.bigint_w(w_ob, allow_conversion=False)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         if _is_a_float(space, w_ob):
             raise
-        bigint = space.bigint_w(space.int(w_ob))
+        bigint = space.bigint_w(space.int(w_ob), allow_conversion=False)
     try:
         return bigint.tolonglong()
     except OverflowError:
@@ -154,13 +154,13 @@ def as_long(space, w_ob):
     if space.is_w(space.type(w_ob), space.w_int):   # shortcut
         return space.int_w(w_ob)
     try:
-        bigint = space.bigint_w(w_ob)
+        bigint = space.bigint_w(w_ob, allow_conversion=False)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         if _is_a_float(space, w_ob):
             raise
-        bigint = space.bigint_w(space.int(w_ob))
+        bigint = space.bigint_w(space.int(w_ob), allow_conversion=False)
     try:
         return bigint.toint()
     except OverflowError:
@@ -182,13 +182,13 @@ def as_unsigned_long_long(space, w_ob, strict):
             raise OperationError(space.w_OverflowError, space.wrap(neg_msg))
         return r_ulonglong(value)
     try:
-        bigint = space.bigint_w(w_ob)
+        bigint = space.bigint_w(w_ob, allow_conversion=False)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         if strict and _is_a_float(space, w_ob):
             raise
-        bigint = space.bigint_w(space.int(w_ob))
+        bigint = space.bigint_w(space.int(w_ob), allow_conversion=False)
     if strict:
         try:
             return bigint.toulonglong()
@@ -202,13 +202,13 @@ def as_unsigned_long_long(space, w_ob, strict):
 def as_unsigned_long(space, w_ob, strict):
     # same as as_unsigned_long_long(), but returning just an Unsigned
     try:
-        bigint = space.bigint_w(w_ob)
+        bigint = space.bigint_w(w_ob, allow_conversion=False)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         if strict and _is_a_float(space, w_ob):
             raise
-        bigint = space.bigint_w(space.int(w_ob))
+        bigint = space.bigint_w(space.int(w_ob), allow_conversion=False)
     if strict:
         try:
             return bigint.touint()
@@ -282,6 +282,23 @@ def object_as_bool(space, w_ob):
 
 # ____________________________________________________________
 
+def get_new_array_length(space, w_value):
+    if (space.isinstance_w(w_value, space.w_list) or
+        space.isinstance_w(w_value, space.w_tuple)):
+        return (w_value, space.int_w(space.len(w_value)))
+    elif (space.isinstance_w(w_value, space.w_unicode) or
+          space.isinstance_w(w_value, space.w_bytes)):
+        # from a string, we add the null terminator
+        return (w_value, space.int_w(space.len(w_value)) + 1)
+    else:
+        explicitlength = space.getindex_w(w_value, space.w_OverflowError)
+        if explicitlength < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("negative array length"))
+        return (space.w_None, explicitlength)
+
+# ____________________________________________________________
+
 @specialize.arg(0)
 def _raw_memcopy_tp(TPP, source, dest):
     # in its own function: LONGLONG may make the whole function jit-opaque
@@ -319,3 +336,47 @@ def _raw_memclear(dest, size):
             _raw_memclear_tp(TP, TPP, dest)
             return
     raise NotImplementedError("bad clear size")
+
+# ____________________________________________________________
+
+def pack_list_to_raw_array_bounds(int_list, target, size, vmin, vrangemax):
+    for TP, TPP in _prim_signed_types:
+        if size == rffi.sizeof(TP):
+            ptr = rffi.cast(TPP, target)
+            for i in range(len(int_list)):
+                x = int_list[i]
+                if r_uint(x) - vmin > vrangemax:
+                    return x      # overflow
+                ptr[i] = rffi.cast(TP, x)
+            return 0
+    raise NotImplementedError("bad integer size")
+
+@specialize.arg(2)
+def pack_float_list_to_raw_array(float_list, target, TP, TPP):
+    target = rffi.cast(TPP, target)
+    for i in range(len(float_list)):
+        x = float_list[i]
+        target[i] = rffi.cast(TP, x)
+
+def unpack_list_from_raw_array(int_list, source, size):
+    for TP, TPP in _prim_signed_types:
+        if size == rffi.sizeof(TP):
+            ptr = rffi.cast(TPP, source)
+            for i in range(len(int_list)):
+                int_list[i] = rffi.cast(lltype.Signed, ptr[i])
+            return
+    raise NotImplementedError("bad integer size")
+
+def unpack_unsigned_list_from_raw_array(int_list, source, size):
+    for TP, TPP in _prim_unsigned_types:
+        if size == rffi.sizeof(TP):
+            ptr = rffi.cast(TPP, source)
+            for i in range(len(int_list)):
+                int_list[i] = rffi.cast(lltype.Signed, ptr[i])
+            return
+    raise NotImplementedError("bad integer size")
+
+def unpack_cfloat_list_from_raw_array(float_list, source):
+    ptr = rffi.cast(rffi.FLOATP, source)
+    for i in range(len(float_list)):
+        float_list[i] = rffi.cast(lltype.Float, ptr[i])

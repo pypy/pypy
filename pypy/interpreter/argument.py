@@ -1,11 +1,11 @@
 """
 Arguments objects.
 """
-
-from pypy.interpreter.error import OperationError, operationerrfmt
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import enforceargs
+
+from pypy.interpreter.error import OperationError, oefmt
 
 
 class Arguments(object):
@@ -88,9 +88,9 @@ class Arguments(object):
             args_w = space.fixedview(w_stararg)
         except OperationError, e:
             if e.match(space, space.w_TypeError):
-                raise operationerrfmt(
-                    space.w_TypeError,
-                    "argument after * must be a sequence, not %T", w_stararg)
+                raise oefmt(space.w_TypeError,
+                            "argument after * must be a sequence, not %T",
+                            w_stararg)
             raise
         self.arguments_w = self.arguments_w + args_w
 
@@ -115,10 +115,9 @@ class Arguments(object):
                 w_keys = space.call_method(w_starstararg, "keys")
             except OperationError, e:
                 if e.match(space, space.w_AttributeError):
-                    raise operationerrfmt(
-                        space.w_TypeError,
-                        "argument after ** must be a mapping, not %T",
-                        w_starstararg)
+                    raise oefmt(space.w_TypeError,
+                                "argument after ** must be a mapping, not %T",
+                                w_starstararg)
                 raise
             keys_w = space.unpackiterable(w_keys)
         keywords_w = [None] * len(keys_w)
@@ -309,8 +308,7 @@ class Arguments(object):
                                   scope_w, signature, defaults_w,
                                   w_kw_defs, 0)
         except ArgErr, e:
-            raise operationerrfmt(self.space.w_TypeError,
-                                  "%s() %8", fnname, e.getmsg())
+            raise oefmt(self.space.w_TypeError, "%s() %8", fnname, e.getmsg())
         return signature.scope_length()
 
     def _parse(self, w_firstarg, signature, defaults_w, w_kw_defs, blindargs=0):
@@ -334,8 +332,7 @@ class Arguments(object):
             return self._parse(w_firstarg, signature, defaults_w, w_kw_defs,
                                blindargs)
         except ArgErr, e:
-            raise operationerrfmt(self.space.w_TypeError,
-                                  "%s() %8", fnname, e.getmsg())
+            raise oefmt(self.space.w_TypeError, "%s() %8", fnname, e.getmsg())
 
     @staticmethod
     def frompacked(space, w_args=None, w_kwds=None):
@@ -354,10 +351,11 @@ class Arguments(object):
                 limit -= len(self.keyword_names_w)
             for i in range(len(self.keywords)):
                 if i < limit:
-                    w_key = space.wrap(self.keywords[i])
+                    key = self.keywords[i]
+                    space.setitem_str(w_kwds, key, self.keywords_w[i])
                 else:
                     w_key = self.keyword_names_w[i - limit]
-                space.setitem(w_kwds, w_key, self.keywords_w[i])
+                    space.setitem(w_kwds, w_key, self.keywords_w[i])
         return w_args, w_kwds
 
 # JIT helper functions
@@ -374,10 +372,9 @@ def _check_not_duplicate_kwargs(space, existingkeywords, keywords, keywords_w):
     for key in keywords:
         for otherkey in existingkeywords:
             if otherkey == key:
-                raise operationerrfmt(space.w_TypeError,
-                                      "got multiple values "
-                                      "for keyword argument "
-                                      "'%s'", key)
+                raise oefmt(space.w_TypeError,
+                            "got multiple values for keyword argument '%s'",
+                            key)
 
 def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
         keywords_w, existingkeywords):
@@ -397,10 +394,9 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
                 raise
         else:
             if existingkeywords and key in existingkeywords:
-                raise operationerrfmt(space.w_TypeError,
-                                      "got multiple values "
-                                      "for keyword argument "
-                                      "'%s'", key)
+                raise oefmt(space.w_TypeError,
+                            "got multiple values for keyword argument '%s'",
+                            key)
         keywords[i] = key
         keywords_w[i] = space.getitem(w_starstararg, w_key)
         i += 1
@@ -451,10 +447,10 @@ def _collect_keyword_args(space, keywords, keywords_w, w_kwds, kwds_mapping,
                 break
         else:
             if i < limit:
-                w_key = space.wrap(keywords[i])
+                space.setitem_str(w_kwds, keywords[i], keywords_w[i])
             else:
                 w_key = keyword_names_w[i - limit]
-            space.setitem(w_kwds, w_key, keywords_w[i])
+                space.setitem(w_kwds, w_key, keywords_w[i])
 
 #
 # ArgErr family of exceptions raised in case of argument mismatch.

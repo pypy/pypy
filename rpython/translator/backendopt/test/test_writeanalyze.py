@@ -169,8 +169,6 @@ class TestWriteAnalyze(BaseTest):
         assert not wa.analyze(op_call_m)
 
     def test_instantiate(self):
-        # instantiate is interesting, because it leads to one of the few cases of
-        # an indirect call without a list of graphs
         from rpython.rlib.objectmodel import instantiate
         class A:
             pass
@@ -187,7 +185,7 @@ class TestWriteAnalyze(BaseTest):
         t, wa = self.translate(f, [int])
         fgraph = graphof(t, f)
         result = wa.analyze(fgraph.startblock.operations[0])
-        assert result is top_set
+        assert not result
 
     def test_llexternal(self):
         from rpython.rtyper.lltypesystem.rffi import llexternal
@@ -355,3 +353,23 @@ class TestLLtypeReadWriteAnalyze(BaseTest):
 
         result = wa.analyze(fgraph.startblock.operations[-1])
         assert list(result) == [("struct", lltype.Ptr(S), "x")]
+
+    def test_interiorfield(self):
+        A = lltype.GcArray(lltype.Struct('x', ('x', lltype.Signed),
+                                         ('y', lltype.Signed)))
+
+        def g(x):
+            a = lltype.malloc(A, 1)
+            a[0].y = 3
+            return f(a, x)
+
+        def f(a, x):
+            a[0].x = x
+            return a[0].y
+
+        t, wa = self.translate(g, [int])
+        ggraph = graphof(t, g)
+        result = wa.analyze(ggraph.startblock.operations[-1])
+        res = list(result)
+        assert ('readinteriorfield', lltype.Ptr(A), 'y') in res
+        assert ('interiorfield', lltype.Ptr(A), 'x') in res

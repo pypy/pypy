@@ -21,7 +21,16 @@ def init_intobject(space):
     "Type description of PyIntObject"
     make_typedescr(space.w_int.instancetypedef,
                    basestruct=PyIntObject.TO,
+                   attach=int_attach,
                    realize=int_realize)
+
+def int_attach(space, py_obj, w_obj):
+    """
+    Fills a newly allocated PyIntObject with the given int object. The
+    value must not be modified.
+    """
+    py_int = rffi.cast(PyIntObject, py_obj)
+    py_int.c_ob_ival = space.int_w(w_obj)
 
 def int_realize(space, obj):
     intval = rffi.cast(lltype.Signed, rffi.cast(PyIntObject, obj).c_ob_ival)

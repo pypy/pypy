@@ -1192,3 +1192,19 @@ class TestRclass(BaseRtypingTest):
 
         assert self.interpret(f, [True]) == f(True)
         assert self.interpret(f, [False]) == f(False)
+
+    def test_init_with_star_args(self):
+        class Base(object):
+            def __init__(self, a, b):
+                self.a = a
+                self.b = b
+        class A(Base):
+            def __init__(self, *args):
+                Base.__init__(self, *args)
+                self.c = -1
+        cls = [Base, A]
+
+        def f(k, a, b):
+            return cls[k](a, b).b
+
+        assert self.interpret(f, [1, 4, 7]) == 7

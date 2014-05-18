@@ -8,6 +8,7 @@ class AppTestMinimal:
 
     def test_signal(self):
         from __pypy__ import thread
+        assert type(thread.signals_enabled).__module__ == '__pypy__.thread'
         with thread.signals_enabled:
             pass
         # assert did not crash
@@ -56,7 +57,7 @@ class AppTestThreadSignal(GenericTestThread):
                 interrupted = []
                 print('--- start ---')
                 _thread.start_new_thread(subthread, ())
-                for j in range(10):
+                for j in range(30):
                     if len(done): break
                     print('.')
                     time.sleep(0.25)

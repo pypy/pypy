@@ -2,6 +2,8 @@ from rpython.tool.udir import udir
 
 
 class AppTestMarshal:
+    spaceconfig = {'usemodules': ['array']}
+
     def setup_class(cls):
         tmpfile = udir.join('AppTestMarshal.tmp')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
@@ -13,11 +15,17 @@ class AppTestMarshal:
         print(repr(s))
         x = marshal.loads(s)
         assert x == case and type(x) is type(case)
-        f = BytesIO()
-        marshal.dump(case, f)
-        f.seek(0)
-        x = marshal.load(f)
-        assert x == case and type(x) is type(case)
+
+        y = marshal.loads(memoryview(s))
+        assert y == case and type(y) is type(case)
+
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            f = BytesIO()
+            marshal.dump(case, f)
+            f.seek(0)
+            x = marshal.load(f)
+            assert x == case and type(x) is type(case)
         return x
 
     def test_None(self):
@@ -171,14 +179,25 @@ class AppTestMarshal:
         import marshal
         types = (float, complex, int, tuple, list, dict, set, frozenset)
         for cls in types:
+            print(cls)
             class subtype(cls):
                 pass
-            raises(ValueError, marshal.dumps, subtype)
+            exc = raises(ValueError, marshal.dumps, subtype)
+            assert str(exc.value) == 'unmarshallable object'
+            exc = raises(ValueError, marshal.dumps, subtype())
+            assert str(exc.value) == 'unmarshallable object'
+
+    def test_valid_subtypes(self):
+        import marshal
+        from array import array
+        class subtype(array):
+            pass
+        assert marshal.dumps(subtype('b', b'test')) == marshal.dumps(array('b', b'test'))
 
     def test_bad_typecode(self):
         import marshal
-        exc = raises(ValueError, marshal.loads, b'\x01')
-        assert r"'\x01'" in str(exc.value)
+        exc = raises(ValueError, marshal.loads, bytes([1]))
+        assert str(exc.value) == "bad marshal data (unknown type code)"
 
     def test_bad_data(self):
         import marshal
@@ -188,11 +207,19 @@ class AppTestMarshal:
 
 
 class AppTestSmallLong(AppTestMarshal):
-    spaceconfig = {"objspace.std.withsmalllong": True}
+    spaceconfig = AppTestMarshal.spaceconfig.copy()
+    spaceconfig["objspace.std.withsmalllong"] = True
+
+    def setup_class(cls):
+        from pypy.interpreter import gateway
+        from pypy.objspace.std.smalllongobject import W_SmallLongObject
+        def w__small(space, w_obj):
+            return W_SmallLongObject.frombigint(space.bigint_w(w_obj))
+        cls.w__small = cls.space.wrap(gateway.interp2app(w__small))
 
     def test_smalllong(self):
         import __pypy__
-        x = -123456789012345
+        x = self._small(-123456789012345)
         assert 'SmallLong' in __pypy__.internal_repr(x)
         y = self.marshal_check(x)
         assert y == x

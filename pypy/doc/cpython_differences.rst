@@ -58,7 +58,6 @@ List of extension modules that we support:
     math
     mmap
     operator
-    oracle
     parser
     posix
     pyexpat
@@ -83,7 +82,7 @@ List of extension modules that we support:
 
     _winreg
 
-* Supported by being rewritten in pure Python (possibly using ``ctypes``):
+* Supported by being rewritten in pure Python (possibly using ``cffi``):
   see the `lib_pypy/`_ directory.  Examples of modules that we
   support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
   Note that some modules are both in there and in the list above;
@@ -106,23 +105,43 @@ that are neither mentioned above nor in `lib_pypy/`_ are not available in PyPy.
 Differences related to garbage collection strategies
 ----------------------------------------------------
 
-Most of the garbage collectors used or implemented by PyPy are not based on
+The garbage collectors used or implemented by PyPy are not based on
 reference counting, so the objects are not freed instantly when they are no
 longer reachable.  The most obvious effect of this is that files are not
 promptly closed when they go out of scope.  For files that are opened for
 writing, data can be left sitting in their output buffers for a while, making
-the on-disk file appear empty or truncated.
+the on-disk file appear empty or truncated.  Moreover, you might reach your
+OS's limit on the number of concurrently opened files.
 
-Fixing this is essentially not possible without forcing a
+Fixing this is essentially impossible without forcing a
 reference-counting approach to garbage collection.  The effect that you
 get in CPython has clearly been described as a side-effect of the
 implementation and not a language design decision: programs relying on
 this are basically bogus.  It would anyway be insane to try to enforce
 CPython's behavior in a language spec, given that it has no chance to be
 adopted by Jython or IronPython (or any other port of Python to Java or
-.NET, like PyPy itself).
+.NET).
 
-This affects the precise time at which ``__del__`` methods are called, which
+Even the naive idea of forcing a full GC when we're getting dangerously
+close to the OS's limit can be very bad in some cases.  If your program
+leaks open files heavily, then it would work, but force a complete GC
+cycle every n'th leaked file.  The value of n is a constant, but the
+program can take an arbitrary amount of memory, which makes a complete
+GC cycle arbitrarily long.  The end result is that PyPy would spend an
+arbitrarily large fraction of its run time in the GC --- slowing down
+the actual execution, not by 10% nor 100% nor 1000% but by essentially
+any factor.
+
+To the best of our knowledge this problem has no better solution than
+fixing the programs.  If it occurs in 3rd-party code, this means going
+to the authors and explaining the problem to them: they need to close
+their open files in order to run on any non-CPython-based implementation
+of Python.
+
+---------------------------------
+
+Here are some more technical details.  This issue affects the precise
+time at which ``__del__`` methods are called, which
 is not reliable in PyPy (nor Jython nor IronPython).  It also means that
 weak references may stay alive for a bit longer than expected.  This
 makes "weak proxies" (as returned by ``weakref.proxy()``) somewhat less
@@ -292,6 +311,10 @@ Miscellaneous
   depending on the compiler settings, the default of 768KB is enough
   for about 1400 calls.
 
+* since the implementation of dictionary is different, the exact number
+  which ``__hash__`` and ``__eq__`` are called is different. Since CPython
+  does not give any specific guarantees either, don't rely on it.
+
 * assignment to ``__class__`` is limited to the cases where it
   works on CPython 2.5.  On CPython 2.6 and 2.7 it works in a bit
   more cases, which are not supported by PyPy so far.  (If needed,
@@ -311,10 +334,23 @@ Miscellaneous
   implementation detail that shows up because of internal C-level slots
   that PyPy does not have.
 
+* on CPython, ``[].__add__`` is a ``method-wrapper``, and
+  ``list.__add__`` is a ``slot wrapper``.  On PyPy these are normal
+  bound or unbound method objects.  This can occasionally confuse some
+  tools that inspect built-in types.  For example, the standard
+  library ``inspect`` module has a function ``ismethod()`` that returns
+  True on unbound method objects but False on method-wrappers or slot
+  wrappers.  On PyPy we can't tell the difference, so
+  ``ismethod([].__add__) == ismethod(list.__add__) == True``.
+
 * the ``__dict__`` attribute of new-style classes returns a normal dict, as
   opposed to a dict proxy like in CPython. Mutating the dict will change the
   type and vice versa. For builtin types, a dictionary will be returned that
   cannot be changed (but still looks and behaves like a normal dictionary).
 
+* PyPy prints a random line from past #pypy IRC topics at startup in
+  interactive mode. In a released version, this behaviour is supressed, but
+  setting the environment variable PYPY_IRC_TOPIC will bring it back. Note that
+  downstream package providers have been known to totally disable this feature.
 
 .. include:: _ref.txt

@@ -2,7 +2,6 @@
 
 
 class AppTestStringObjectWithDict:
-
     def test_format_item(self):
         d = {'i': 23}
         assert 'a23b' == 'a%(i)sb' % d
@@ -36,18 +35,20 @@ class AppTestStringObjectWithDict:
         assert '' % d == ''
         n = 5
         raises(TypeError, "'' % n")
+
         class MyMapping(object):
             def __getitem__(self, key):
                 py.test.fail('should not be here')
         assert '' % MyMapping() == ''
+
         class MyMapping2(object):
             def __getitem__(self, key):
                 return key
         assert '%(key)s'%MyMapping2() == 'key'
         #assert u'%(key)s'%MyMapping2() == u'key'  # no py3k
 
-class AppTestStringObject:
 
+class AppTestStringObject:
     def test_format_item(self):
         n = 23
         assert 'a23b' == 'a%sb' % n
@@ -138,7 +139,6 @@ class AppTestStringObject:
         assert '<(1, 2)-(3, 4)>' == '<%s-%s>' % (t, (3,4))
 
     def test_format_dict(self):
-
         # I'll just note that the first of these two completely
         # contradicts what CPython's documentation says:
 
@@ -174,7 +174,37 @@ class AppTestStringObject:
         raises(TypeError, '%c'.__mod__, ("bla",))
         raises(TypeError, '%c'.__mod__, ("",))
         raises(TypeError, '%c'.__mod__, (['c'],))
-    
+
+    def test___int__(self):
+        class MyInt(object):
+            def __init__(self, x):
+                self.x = x
+            def __int__(self):
+                return self.x
+        x = MyInt(65)
+        assert '%c' % x == 'A'
+
+    def test_int_fails(self):
+        class IntFails(object):
+            def __int__(self):
+                raise Exception
+
+        exc = raises(TypeError, "%x".__mod__, IntFails())
+        expected = "%x format: a number is required, not IntFails"
+        assert str(exc.value) == expected
+
+    def test_formatting_huge_precision(self):
+        prec = 2**31
+        format_string = "%.{}f".format(prec)
+        exc = raises(ValueError, "format_string % 2.34")
+        assert str(exc.value) == 'prec too big'
+        raises(OverflowError, lambda: u'%.*f' % (prec, 1. / 7))
+
+    def test_formatting_huge_width(self):
+        import sys
+        format_string = "%{}f".format(sys.maxsize + 1)
+        exc = raises(ValueError, "format_string % 2.34")
+        assert str(exc.value) == 'width too big'
 
 class AppTestWidthPrec:
     def test_width(self):
@@ -217,7 +247,6 @@ class AppTestWidthPrec:
         assert "%-05g" % ttf =="2.25 "
         assert "%05s" % ttf == " 2.25"
 
-        
     def test_star_width(self):
         f = 5
         assert "%*s" %( f, 'abc') ==  '  abc'
@@ -256,6 +285,7 @@ class AppTestWidthPrec:
         assert "%F" % (nan,) == 'NAN'
         assert "%G" % (nan,) == 'NAN'
 
+
 class AppTestUnicodeObject:
     
     def test_unicode_d(self):
@@ -282,6 +312,19 @@ class AppTestUnicodeObject:
     def test_invalid_char(self):
         f = 4
         raises(ValueError, '"%\u1234" % (f,)')
+
+    def test_formatting_huge_precision(self):
+        prec = 2**31
+        format_string = u"%.{}f".format(prec)
+        exc = raises(ValueError, "format_string % 2.34")
+        assert str(exc.value) == 'prec too big'
+        raises(OverflowError, lambda: u'%.*f' % (prec, 1. / 7))
+
+    def test_formatting_huge_width(self):
+        import sys
+        format_string = u"%{}f".format(sys.maxsize + 1)
+        exc = raises(ValueError, "format_string % 2.34")
+        assert str(exc.value) == 'width too big'
 
     def test_ascii(self):
         assert "<%a>" % "test" == "<'test'>"

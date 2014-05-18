@@ -16,6 +16,11 @@ def test_split():
     assert split('endcase test', 'test') == ['endcase ', '']
     py.test.raises(ValueError, split, 'abc', '')
 
+def test_split_None():
+    assert split("") == []
+    assert split(' a\ta\na b') == ['a', 'a', 'a', 'b']
+    assert split(" a a ", maxsplit=1) == ['a', 'a ']
+
 def test_split_unicode():
     assert split(u"", u'x') == [u'']
     assert split(u"a", u"a", 1) == [u'', u'']
@@ -36,6 +41,11 @@ def test_rsplit():
     assert rsplit('a//b//c//d', '//') == ['a', 'b', 'c', 'd']
     assert rsplit('endcase test', 'test') == ['endcase ', '']
     py.test.raises(ValueError, rsplit, "abc", '')
+
+def test_rsplit_None():
+    assert rsplit("") == []
+    assert rsplit(' a\ta\na b') == ['a', 'a', 'a', 'b']
+    assert rsplit(" a a ", maxsplit=1) == [' a', 'a']
 
 def test_rsplit_unicode():
     assert rsplit(u"a", u"a", 1) == [u'', u'']
@@ -168,6 +178,7 @@ class TestTranslates(BaseRtypingTest):
         def fn():
             res = True
             res = res and split('a//b//c//d', '//') == ['a', 'b', 'c', 'd']
+            res = res and split(' a\ta\na b') == ['a', 'a', 'a', 'b']
             res = res and split('a//b//c//d', '//', 2) == ['a', 'b', 'c//d']
             res = res and split(u'a//b//c//d', u'//') == [u'a', u'b', u'c', u'd']
             res = res and split(u'endcase test', u'test') == [u'endcase ', u'']

@@ -1,8 +1,9 @@
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.runicode import code_to_unichr, MAXUNICODE
 
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 
 
@@ -74,9 +75,9 @@ class CodecState(object):
                 if newpos < 0:
                     newpos = len(input) + newpos
             if newpos < 0 or newpos > len(input):
-                raise operationerrfmt(
-                    space.w_IndexError,
-                    "position %d from error handler out of bounds", newpos)
+                raise oefmt(space.w_IndexError,
+                            "position %d from error handler out of bounds",
+                            newpos)
             return w_replace, newpos
         return call_errorhandler
 
@@ -183,9 +184,7 @@ def _lookup_codec_loop(space, encoding, normalized_encoding):
                 state.codec_search_cache[normalized_encoding] = w_result
                 state.modified()
                 return w_result
-    raise operationerrfmt(
-        space.w_LookupError,
-        "unknown encoding: %s", encoding)
+    raise oefmt(space.w_LookupError, "unknown encoding: %s", encoding)
 
 # ____________________________________________________________
 # Register standard error handlers
@@ -235,8 +234,8 @@ def replace_errors(space, w_exc):
         text = u'\ufffd' * size
         return space.newtuple([space.wrap(text), w_end])
     else:
-        raise operationerrfmt(space.w_TypeError,
-            "don't know how to handle %T in error callback", w_exc)
+        raise oefmt(space.w_TypeError,
+                    "don't know how to handle %T in error callback", w_exc)
 
 def xmlcharrefreplace_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -248,15 +247,21 @@ def xmlcharrefreplace_errors(space, w_exc):
         builder = UnicodeBuilder()
         pos = start
         while pos < end:
-            ch = obj[pos]
+            code = ord(obj[pos])
+            if (MAXUNICODE == 0xffff and 0xD800 <= code <= 0xDBFF and
+                       pos + 1 < end and 0xDC00 <= ord(obj[pos+1]) <= 0xDFFF):
+                code = (code & 0x03FF) << 10
+                code |= ord(obj[pos+1]) & 0x03FF
+                code += 0x10000
+                pos += 1
             builder.append(u"&#")
-            builder.append(unicode(str(ord(ch))))
+            builder.append(unicode(str(code)))
             builder.append(u";")
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
     else:
-        raise operationerrfmt(space.w_TypeError,
-            "don't know how to handle %T in error callback", w_exc)
+        raise oefmt(space.w_TypeError,
+                    "don't know how to handle %T in error callback", w_exc)
 
 def backslashreplace_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -287,8 +292,8 @@ def backslashreplace_errors(space, w_exc):
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
     else:
-        raise operationerrfmt(space.w_TypeError,
-            "don't know how to handle %T in error callback", w_exc)
+        raise oefmt(space.w_TypeError,
+                    "don't know how to handle %T in error callback", w_exc)
 
 def surrogatepass_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -331,9 +336,8 @@ def surrogatepass_errors(space, w_exc):
             raise OperationError(space.type(w_exc), w_exc)
         return space.newtuple([space.wrap(unichr(ch)), space.wrap(start + 3)])
     else:
-        raise operationerrfmt(space.w_TypeError,
-                              "don't know how to handle %T in error callback",
-                              w_exc)
+        raise oefmt(space.w_TypeError,
+                    "don't know how to handle %T in error callback", w_exc)
 
 def surrogateescape_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -371,9 +375,8 @@ def surrogateescape_errors(space, w_exc):
         return space.newtuple([space.wrap(replace),
                                space.wrap(start + consumed)])
     else:
-        raise operationerrfmt(space.w_TypeError,
-                              "don't know how to handle %T in error callback",
-                              w_exc)
+        raise oefmt(space.w_TypeError,
+                    "don't know how to handle %T in error callback", w_exc)
 
 def register_builtin_error_handlers(space):
     "NOT_RPYTHON"
@@ -396,9 +399,8 @@ def lookup_error(space, errors):
     try:
         w_err_handler = state.codec_error_registry[errors]
     except KeyError:
-        raise operationerrfmt(
-            space.w_LookupError,
-            "unknown error handler name %s", errors)
+        raise oefmt(space.w_LookupError,
+                    "unknown error handler name %s", errors)
     return w_err_handler
 
 
@@ -421,8 +423,9 @@ def encode(space, w_obj, w_encoding=None, errors='strict'):
     w_res = space.call_function(w_encoder, w_obj, space.wrap(errors))
     return space.getitem(w_res, space.wrap(0))
 
-@unwrap_spec(s='bufferstr_or_u', errors='str_or_None')
-def buffer_encode(space, s, errors='strict'):
+@unwrap_spec(errors='str_or_None')
+def readbuffer_encode(space, w_data, errors='strict'):
+    s = space.getarg_w('s#', w_data)
     return space.newtuple([space.wrapbytes(s), space.wrap(len(s))])
 
 @unwrap_spec(errors=str)
@@ -653,33 +656,22 @@ class Charmap_Decode:
                     raise
                 return errorchar
 
-        # Charmap may return a unicode string
-        try:
-            x = space.unicode_w(w_ch)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-        else:
-            return x
-
-        # Charmap may return a number
-        try:
+        if space.isinstance_w(w_ch, space.w_unicode):
+            # Charmap may return a unicode string
+            return space.unicode_w(w_ch)
+        elif space.isinstance_w(w_ch, space.w_int):
+            # Charmap may return a number
             x = space.int_w(w_ch)
-        except OperationError:
-            if not e.match(space, space.w_TypeError):
-                raise
-        else:
-            if 0 <= x < 65536: # Even on wide unicode builds...
-                return unichr(x)
-            else:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "character mapping must be in range(65536)"))
-
-        # Charmap may return None
-        if space.is_w(w_ch, space.w_None):
+            if not 0 <= x <= 0x10FFFF:
+                raise oefmt(space.w_TypeError,
+                    "character mapping must be in range(0x110000)")
+            return code_to_unichr(x)
+        elif space.is_w(w_ch, space.w_None):
+            # Charmap may return None
             return errorchar
 
-        raise OperationError(space.w_TypeError, space.wrap("invalid mapping"))
+        raise oefmt(space.w_TypeError,
+            "character mapping must return integer, None or unicode")
 
 class Charmap_Encode:
     def __init__(self, space, w_mapping):
@@ -697,33 +689,22 @@ class Charmap_Encode:
                 raise
             return errorchar
 
-        # Charmap may return a string
-        try:
-            x = space.bytes_w(w_ch)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-        else:
-            return x
-
-        # Charmap may return a number
-        try:
+        if space.isinstance_w(w_ch, space.w_bytes):
+            # Charmap may return a string
+            return space.bytes_w(w_ch)
+        elif space.isinstance_w(w_ch, space.w_int):
+            # Charmap may return a number
             x = space.int_w(w_ch)
-        except OperationError:
-            if not e.match(space, space.w_TypeError):
-                raise
-        else:
-            if 0 <= x < 256:
-                return chr(x)
-            else:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "character mapping must be in range(256)"))
-
-        # Charmap may return None
-        if space.is_w(w_ch, space.w_None):
+            if not 0 <= x < 256:
+                raise oefmt(space.w_TypeError,
+                    "character mapping must be in range(256)")
+            return chr(x)
+        elif space.is_w(w_ch, space.w_None):
+            # Charmap may return None
             return errorchar
 
-        raise OperationError(space.w_TypeError, space.wrap("invalid mapping"))
+        raise oefmt(space.w_TypeError,
+            "character mapping must return integer, None or str")
 
 
 @unwrap_spec(string="bufferstr", errors='str_or_None')
@@ -788,9 +769,9 @@ class UnicodeData_Handler:
             return -1
         return space.int_w(w_code)
 
-@unwrap_spec(string='bufferstr_or_u', errors='str_or_None',
-             w_final=WrappedDefault(False))
-def unicode_escape_decode(space, string, errors="strict", w_final=None):
+@unwrap_spec(errors='str_or_None', w_final=WrappedDefault(False))
+def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
+    string = space.getarg_w('s*', w_string).as_str()
     if errors is None:
         errors = 'strict'
     final = space.is_true(w_final)
@@ -808,9 +789,9 @@ def unicode_escape_decode(space, string, errors="strict", w_final=None):
 # ____________________________________________________________
 # Raw Unicode escape (accepts bytes or str)
 
-@unwrap_spec(string='bufferstr_or_u', errors='str_or_None',
-             w_final=WrappedDefault(False))
-def raw_unicode_escape_decode(space, string, errors="strict", w_final=None):
+@unwrap_spec(errors='str_or_None', w_final=WrappedDefault(False))
+def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
+    string = space.getarg_w('s*', w_string).as_str()
     if errors is None:
         errors = 'strict'
     final = space.is_true(w_final)
@@ -831,7 +812,7 @@ def unicode_internal_decode(space, w_string, errors="strict"):
     if space.isinstance_w(w_string, space.w_unicode):
         return space.newtuple([w_string, space.len(w_string)])
 
-    string = space.bytes_w(w_string)
+    string = space.readbuf_w(w_string).as_str()
 
     if len(string) == 0:
         return space.newtuple([space.wrap(u''), space.wrap(0)])
@@ -847,14 +828,16 @@ def unicode_internal_decode(space, w_string, errors="strict"):
 # support for the "string escape" translation
 # This is a bytes-to bytes transformation
 
-@unwrap_spec(data="bufferstr", errors='str_or_None')
-def escape_encode(space, data, errors='strict'):
-    from pypy.objspace.std.stringobject import string_escape_encode
+@unwrap_spec(errors='str_or_None')
+def escape_encode(space, w_data, errors='strict'):
+    data = space.bytes_w(w_data)
+    from pypy.objspace.std.bytesobject import string_escape_encode
     result = string_escape_encode(data, False)
     return space.newtuple([space.wrapbytes(result), space.wrap(len(data))])
 
-@unwrap_spec(data='bufferstr_or_u', errors='str_or_None')
-def escape_decode(space, data, errors='strict'):
+@unwrap_spec(errors='str_or_None')
+def escape_decode(space, w_data, errors='strict'):
+    data = space.getarg_w('s#', w_data)
     from pypy.interpreter.pyparser.parsestring import PyString_DecodeEscape
-    result = PyString_DecodeEscape(space, data, None)
+    result = PyString_DecodeEscape(space, data, errors, None)
     return space.newtuple([space.wrapbytes(result), space.wrap(len(data))])

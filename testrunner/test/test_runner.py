@@ -171,7 +171,7 @@ class TestExecuteTest(object):
 
         failure, extralog = runner.interpret_exitcode(1, "test_foo", "F Foo\n")
         assert failure
-        assert extralog == ""
+        assert extralog == "  (somefailed=True in test_foo)\n"
 
         failure, extralog = runner.interpret_exitcode(2, "test_foo")
         assert failure

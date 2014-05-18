@@ -1,16 +1,21 @@
-## ----------------------------------------------------------------------------
-## dict strategy (see dictmultiobject.py)
+"""dict implementation specialized for keyword argument dicts.
 
-from rpython.rlib import rerased, jit
-from pypy.objspace.std.dictmultiobject import (DictStrategy,
-                                               create_iterator_classes,
-                                               EmptyDictStrategy,
-                                               ObjectDictStrategy,
-                                               StringDictStrategy)
+Based on two lists containing unwrapped key value pairs.
+"""
+
+from rpython.rlib import jit, rerased
+
+from pypy.objspace.std.dictmultiobject import (
+    DictStrategy, EmptyDictStrategy, ObjectDictStrategy, UnicodeDictStrategy,
+    create_iterator_classes)
+
+
+def _wrapkey(space, key):
+    return space.wrap(key.decode('utf-8'))
 
 
 class EmptyKwargsDictStrategy(EmptyDictStrategy):
-    def switch_to_string_strategy(self, w_dict):
+    def switch_to_unicode_strategy(self, w_dict):
         strategy = self.space.fromcache(KwargsDictStrategy)
         storage = strategy.get_empty_storage()
         w_dict.strategy = strategy
@@ -23,7 +28,7 @@ class KwargsDictStrategy(DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, key):
-        return self.space.wrap(key)
+        return _wrapkey(self.space, key)
 
     def unwrap(self, wrapped):
         return self.space.str_w(wrapped)
@@ -34,13 +39,10 @@ class KwargsDictStrategy(DictStrategy):
 
     def is_correct_type(self, w_obj):
         space = self.space
-        return space.is_w(space.type(w_obj), space.w_str)
+        return space.is_w(space.type(w_obj), space.w_unicode)
 
     def _never_equal_to(self, w_lookup_type):
         return False
-
-    def w_keys(self, w_dict):
-        return self.space.newlist([self.space.wrap(key) for key in self.unerase(w_dict.dstorage)[0]])
 
     def setitem(self, w_dict, w_key, w_value):
         if self.is_correct_type(w_key):
@@ -57,7 +59,6 @@ class KwargsDictStrategy(DictStrategy):
             jit.isconstant(self.length(w_dict)) and jit.isconstant(key))
     def _setitem_str_indirection(self, w_dict, key, w_value):
         keys, values_w = self.unerase(w_dict.dstorage)
-        result = []
         for i in range(len(keys)):
             if keys[i] == key:
                 values_w[i] = w_value
@@ -65,14 +66,13 @@ class KwargsDictStrategy(DictStrategy):
         else:
             # limit the size so that the linear searches don't become too long
             if len(keys) >= 16:
-                self.switch_to_string_strategy(w_dict)
+                self.switch_to_unicode_strategy(w_dict)
                 w_dict.setitem_str(key, w_value)
             else:
                 keys.append(key)
                 values_w.append(w_value)
 
     def setdefault(self, w_dict, w_key, w_default):
-        space = self.space
         if self.is_correct_type(w_key):
             key = self.unwrap(w_key)
             w_result = self.getitem_str(w_dict, key)
@@ -99,7 +99,6 @@ class KwargsDictStrategy(DictStrategy):
             jit.isconstant(self.length(w_dict)) and jit.isconstant(key))
     def _getitem_str_indirection(self, w_dict, key):
         keys, values_w = self.unerase(w_dict.dstorage)
-        result = []
         for i in range(len(keys)):
             if keys[i] == key:
                 return values_w[i]
@@ -117,7 +116,7 @@ class KwargsDictStrategy(DictStrategy):
 
     def w_keys(self, w_dict):
         l = self.unerase(w_dict.dstorage)[0]
-        return self.space.newlist_str(l[:])
+        return self.space.newlist_unicode(l[:])
 
     def values(self, w_dict):
         return self.unerase(w_dict.dstorage)[1][:] # to make non-resizable
@@ -125,16 +124,14 @@ class KwargsDictStrategy(DictStrategy):
     def items(self, w_dict):
         space = self.space
         keys, values_w = self.unerase(w_dict.dstorage)
-        result = []
-        for i in range(len(keys)):
-            result.append(space.newtuple([self.wrap(keys[i]), values_w[i]]))
-        return result
+        return [space.newtuple([self.wrap(keys[i]), values_w[i]])
+                for i in range(len(keys))]
 
     def popitem(self, w_dict):
         keys, values_w = self.unerase(w_dict.dstorage)
         key = keys.pop()
         w_value = values_w.pop()
-        return (self.wrap(key), w_value)
+        return self.wrap(key), w_value
 
     def clear(self, w_dict):
         w_dict.dstorage = self.get_empty_storage()
@@ -148,13 +145,13 @@ class KwargsDictStrategy(DictStrategy):
         w_dict.strategy = strategy
         w_dict.dstorage = strategy.erase(d_new)
 
-    def switch_to_string_strategy(self, w_dict):
-        strategy = self.space.fromcache(StringDictStrategy)
+    def switch_to_unicode_strategy(self, w_dict):
+        strategy = self.space.fromcache(UnicodeDictStrategy)
         keys, values_w = self.unerase(w_dict.dstorage)
         storage = strategy.get_empty_storage()
         d_new = strategy.unerase(storage)
         for i in range(len(keys)):
-            d_new[keys[i]] = values_w[i]
+            d_new[self.decodekey_str(keys[i])] = values_w[i]
         w_dict.strategy = strategy
         w_dict.dstorage = storage
 
@@ -164,21 +161,23 @@ class KwargsDictStrategy(DictStrategy):
 
     def getiterkeys(self, w_dict):
         return iter(self.unerase(w_dict.dstorage)[0])
+
     def getitervalues(self, w_dict):
         return iter(self.unerase(w_dict.dstorage)[1])
+
     def getiteritems(self, w_dict):
         keys = self.unerase(w_dict.dstorage)[0]
         return iter(range(len(keys)))
-    def wrapkey(space, key):
-        return space.wrap(key)
+
+    wrapkey = _wrapkey
+
 
 def next_item(self):
     strategy = self.strategy
     assert isinstance(strategy, KwargsDictStrategy)
     for i in self.iterator:
-        keys, values_w = strategy.unerase(
-            self.dictimplementation.dstorage)
-        return self.space.wrap(keys[i]), values_w[i]
+        keys, values_w = strategy.unerase(self.dictimplementation.dstorage)
+        return _wrapkey(self.space, keys[i]), values_w[i]
     else:
         return None, None
 

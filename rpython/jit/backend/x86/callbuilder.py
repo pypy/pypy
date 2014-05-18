@@ -242,8 +242,8 @@ class CallBuilder32(CallBuilderX86):
             if self.tmpresloc is None:
                 if self.restype == 'L':     # long long
                     # move eax/edx -> xmm0
-                    self.mc.MOVD_xr(resloc.value^1, edx.value)
-                    self.mc.MOVD_xr(resloc.value,   eax.value)
+                    self.mc.MOVD32_xr(resloc.value^1, edx.value)
+                    self.mc.MOVD32_xr(resloc.value,   eax.value)
                     self.mc.PUNPCKLDQ_xx(resloc.value, resloc.value^1)
                 else:
                     # float: we have to go via the stack
@@ -304,8 +304,12 @@ class CallBuilder64(CallBuilderX86):
         except IndexError:
             return None
         if hint in self.DONT_MOVE_GPR:
-            self.ARGUMENTS_GPR[i] = hint
-            res = hint
+            for j in range(i):
+                if hint is self.ARGUMENTS_GPR[j]:
+                    break
+            else:
+                self.ARGUMENTS_GPR[i] = hint
+                res = hint
         return res
 
     def _unused_xmm(self):
@@ -431,7 +435,7 @@ class CallBuilder64(CallBuilderX86):
                 if isinstance(src, ImmedLoc):
                     self.mc.MOV(X86_64_SCRATCH_REG, src)
                     src = X86_64_SCRATCH_REG
-                self.mc.MOVD(dst, src)
+                self.mc.MOVD32(dst, src)
         # Finally remap the arguments in the main regs
         remap_frame_layout(self.asm, src_locs, dst_locs, X86_64_SCRATCH_REG)
 
@@ -443,7 +447,7 @@ class CallBuilder64(CallBuilderX86):
         if self.restype == 'S' and self.tmpresloc is None:
             # singlefloat return: use MOVD to load the target register
             # from the lower 32 bits of XMM0
-            self.mc.MOVD(self.resloc, xmm0)
+            self.mc.MOVD32(self.resloc, xmm0)
         else:
             CallBuilderX86.load_result(self)
 
@@ -465,7 +469,7 @@ class CallBuilder64(CallBuilderX86):
         if self.restype == 'S':
             # singlefloat return: use MOVD to store the lower 32 bits
             # of XMM0 into the tmpresloc (register or [ESP])
-            self.mc.MOVD(self.tmpresloc, xmm0)
+            self.mc.MOVD32(self.tmpresloc, xmm0)
         else:
             assert self.restype == INT
             self.mc.MOV(self.tmpresloc, eax)

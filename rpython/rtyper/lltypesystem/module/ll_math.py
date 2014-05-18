@@ -1,15 +1,16 @@
-import math
 import errno
+import math
 import py
 import sys
 
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.tool.sourcetools import func_with_new_name
 from rpython.conftest import cdir
 from rpython.rlib import jit, rposix
+from rpython.rlib.rfloat import INFINITY, NAN, isfinite, isinf, isnan
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.module.support import UNDERSCORE_ON_WIN32
+from rpython.tool.sourcetools import func_with_new_name
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
-from rpython.rlib.rfloat import isfinite, isinf, isnan, INFINITY, NAN
 
 use_library_isinf_isnan = False
 if sys.platform == "win32":
@@ -18,8 +19,8 @@ if sys.platform == "win32":
         # It's no more possible to take the address of some math functions.
         # Ensure that the compiler chooses real functions instead.
         eci = ExternalCompilationInfo(
-            includes = ['math.h', 'float.h'],
-            post_include_bits = ['#pragma function(floor)'],
+            includes=['math.h', 'float.h'],
+            post_include_bits=['#pragma function(floor)'],
             )
         use_library_isinf_isnan = True
     else:
@@ -27,8 +28,8 @@ if sys.platform == "win32":
     # Some math functions are C99 and not defined by the Microsoft compiler
     cdir = py.path.local(cdir)
     math_eci = ExternalCompilationInfo(
-        include_dirs = [cdir],
-        includes = ['src/ll_math.h'],
+        include_dirs=[cdir],
+        includes=['src/ll_math.h'],
         separate_module_files=[cdir.join('src', 'll_math.c')],
         export_symbols=['_pypy_math_acosh', '_pypy_math_asinh',
                         '_pypy_math_atanh',
@@ -50,16 +51,11 @@ def math_llexternal(name, ARGS, RESULT):
                            compilation_info=math_eci,
                            sandboxsafe=True)
 
-if sys.platform == 'win32':
-    underscore = '_'
-else:
-    underscore = ''
-
 math_fabs = llexternal('fabs', [rffi.DOUBLE], rffi.DOUBLE)
 math_log = llexternal('log', [rffi.DOUBLE], rffi.DOUBLE)
 math_log10 = llexternal('log10', [rffi.DOUBLE], rffi.DOUBLE)
 math_log1p = math_llexternal('log1p', [rffi.DOUBLE], rffi.DOUBLE)
-math_copysign = llexternal(underscore + 'copysign',
+math_copysign = llexternal(UNDERSCORE_ON_WIN32 + 'copysign',
                            [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
                            elidable_function=True)
 math_atan2 = llexternal('atan2', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
@@ -68,12 +64,12 @@ math_modf  = llexternal('modf',  [rffi.DOUBLE, rffi.DOUBLEP], rffi.DOUBLE)
 math_ldexp = llexternal('ldexp', [rffi.DOUBLE, rffi.INT], rffi.DOUBLE)
 math_pow   = llexternal('pow', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_fmod  = llexternal('fmod',  [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
-math_hypot = llexternal(underscore + 'hypot',
+math_hypot = llexternal(UNDERSCORE_ON_WIN32 + 'hypot',
                         [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_floor = llexternal('floor', [rffi.DOUBLE], rffi.DOUBLE, elidable_function=True)
 math_sqrt = llexternal('sqrt', [rffi.DOUBLE], rffi.DOUBLE)
-math_sin = llexternal('sin', [rffi.DOUBLE], rffi.DOUBLE)
-math_cos = llexternal('cos', [rffi.DOUBLE], rffi.DOUBLE)
+math_sin = llexternal('sin', [rffi.DOUBLE], rffi.DOUBLE, elidable_function=True)
+math_cos = llexternal('cos', [rffi.DOUBLE], rffi.DOUBLE, elidable_function=True)
 
 @jit.elidable
 def sqrt_nonneg(x):
@@ -115,8 +111,8 @@ VERY_LARGE_FLOAT = 1.0
 while VERY_LARGE_FLOAT * 100.0 != INFINITY:
     VERY_LARGE_FLOAT *= 64.0
 
-_lib_isnan = llexternal("_isnan", [lltype.Float], lltype.Signed)
-_lib_finite = llexternal("_finite", [lltype.Float], lltype.Signed)
+_lib_isnan = llexternal('_isnan', [lltype.Float], lltype.Signed)
+_lib_finite = llexternal('_finite', [lltype.Float], lltype.Signed)
 
 def ll_math_isnan(y):
     # By not calling into the external function the JIT can inline this.
@@ -347,7 +343,7 @@ def ll_math_pow(x, y):
 
 def ll_math_sqrt(x):
     if x < 0.0:
-        raise ValueError, "math domain error"
+        raise ValueError("math domain error")
 
     if isfinite(x):
         return sqrt_nonneg(x)
@@ -435,4 +431,5 @@ unary_math_functions_c99 = [
 for name in unary_math_functions:
     can_overflow = name in unary_math_functions_can_overflow
     c99 = name in unary_math_functions_c99
-    globals()['ll_math_' + name] = new_unary_math_function(name, can_overflow, c99)
+    globals()['ll_math_' + name] = new_unary_math_function(name, can_overflow,
+                                                           c99)

@@ -92,9 +92,8 @@ def normalize_calltable_row_signature(annotator, shape, row):
     else:
         return False   # nothing to do, all signatures already match
 
-    shape_cnt, shape_keys, shape_star, shape_stst = shape
+    shape_cnt, shape_keys, shape_star = shape
     assert not shape_star, "XXX not implemented"
-    assert not shape_stst, "XXX not implemented"
 
     # for the first 'shape_cnt' arguments we need to generalize to
     # a common type

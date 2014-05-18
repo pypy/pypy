@@ -1,8 +1,9 @@
 import weakref
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
+from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib import rstack
 from rpython.rlib.jit import JitDebugInfo, Counters, dont_look_inside
 from rpython.conftest import option
@@ -105,7 +106,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 def compile_loop(metainterp, greenkey, start,
                  inputargs, jumpargs,
-                 resume_at_jump_descr, full_preamble_needed=True,
+                 full_preamble_needed=True,
                  try_disabling_unroll=False):
     """Try to compile a new procedure by closing the current history back
     to the first operation.
@@ -127,7 +128,6 @@ def compile_loop(metainterp, greenkey, start,
     part = create_empty_loop(metainterp)
     part.inputargs = inputargs[:]
     h_ops = history.operations
-    part.resume_at_jump_descr = resume_at_jump_descr
     part.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(jitcell_token))] + \
                       [h_ops[i].clone() for i in range(start, len(h_ops))] + \
                       [ResOperation(rop.LABEL, jumpargs, None, descr=jitcell_token)]
@@ -186,7 +186,7 @@ def compile_loop(metainterp, greenkey, start,
 
 def compile_retrace(metainterp, greenkey, start,
                     inputargs, jumpargs,
-                    resume_at_jump_descr, partial_trace, resumekey):
+                    partial_trace, resumekey):
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
@@ -202,7 +202,6 @@ def compile_retrace(metainterp, greenkey, start,
 
     part = create_empty_loop(metainterp)
     part.inputargs = inputargs[:]
-    part.resume_at_jump_descr = resume_at_jump_descr
     h_ops = history.operations
 
     part.operations = [partial_trace.operations[-1]] + \
@@ -302,17 +301,17 @@ def do_compile_loop(metainterp_sd, inputargs, operations, looptoken,
                     log=True, name=''):
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
                                       'compiling', name=name)
-    return metainterp_sd.cpu.compile_loop(metainterp_sd.logger_ops,
-                                          inputargs, operations, looptoken,
-                                          log=log, name=name)
+    return metainterp_sd.cpu.compile_loop(inputargs, operations, looptoken,
+                                          log=log, name=name,
+                                          logger=metainterp_sd.logger_ops)
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True):
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling")
     assert isinstance(faildescr, AbstractFailDescr)
-    return metainterp_sd.cpu.compile_bridge(metainterp_sd.logger_ops,
-                                            faildescr, inputargs, operations,
-                                            original_loop_token, log=log)
+    return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
+                                            original_loop_token, log=log,
+                                            logger=metainterp_sd.logger_ops)
 
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     vinfo = jitdriver_sd.virtualizable_info
@@ -483,11 +482,7 @@ class ResumeDescr(AbstractFailDescr):
     pass
 
 class ResumeGuardDescr(ResumeDescr):
-    _counter = 0        # on a GUARD_VALUE, there is one counter per value;
-    _counters = None    # they get stored in _counters then.
-
     # this class also gets the following attributes stored by resume.py code
-
     # XXX move all of unused stuff to guard_op, now that we can have
     #     a separate class, so it does not survive that long
     rd_snapshot = None
@@ -498,18 +493,28 @@ class ResumeGuardDescr(ResumeDescr):
     rd_virtuals = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
-    CNT_BASE_MASK  =  0x0FFFFFFF     # the base counter value
-    CNT_BUSY_FLAG  =  0x10000000     # if set, busy tracing from the guard
-    CNT_TYPE_MASK  =  0x60000000     # mask for the type
+    status = r_uint(0)
 
-    CNT_INT        =  0x20000000
-    CNT_REF        =  0x40000000
-    CNT_FLOAT      =  0x60000000
+    ST_BUSY_FLAG    = 0x01     # if set, busy tracing from the guard
+    ST_TYPE_MASK    = 0x06     # mask for the type (TY_xxx)
+    ST_SHIFT        = 3        # in "status >> ST_SHIFT" is stored:
+                               # - if TY_NONE, the jitcounter hash directly
+                               # - otherwise, the guard_value failarg index
+    ST_SHIFT_MASK   = -(1 << ST_SHIFT)
+    TY_NONE         = 0x00
+    TY_INT          = 0x02
+    TY_REF          = 0x04
+    TY_FLOAT        = 0x06
 
-    def store_final_boxes(self, guard_op, boxes):
+    def store_final_boxes(self, guard_op, boxes, metainterp_sd):
         guard_op.setfailargs(boxes)
         self.rd_count = len(boxes)
         self.guard_opnum = guard_op.getopnum()
+        #
+        if metainterp_sd.warmrunnerdesc is not None:   # for tests
+            jitcounter = metainterp_sd.warmrunnerdesc.jitcounter
+            hash = jitcounter.fetch_next_hash()
+            self.status = hash & self.ST_SHIFT_MASK
 
     def make_a_counter_per_value(self, guard_value_op):
         assert guard_value_op.getopnum() == rop.GUARD_VALUE
@@ -519,18 +524,15 @@ class ResumeGuardDescr(ResumeDescr):
         except ValueError:
             return     # xxx probably very rare
         else:
-            if i > self.CNT_BASE_MASK:
-                return    # probably never, but better safe than sorry
             if box.type == history.INT:
-                cnt = self.CNT_INT
+                ty = self.TY_INT
             elif box.type == history.REF:
-                cnt = self.CNT_REF
+                ty = self.TY_REF
             elif box.type == history.FLOAT:
-                cnt = self.CNT_FLOAT
+                ty = self.TY_FLOAT
             else:
                 assert 0, box.type
-            assert cnt > self.CNT_BASE_MASK
-            self._counter = cnt | i
+            self.status = ty | (r_uint(i) << self.ST_SHIFT)
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         if self.must_compile(deadframe, metainterp_sd, jitdriver_sd):
@@ -557,65 +559,60 @@ class ResumeGuardDescr(ResumeDescr):
     _trace_and_compile_from_bridge._dont_inline_ = True
 
     def must_compile(self, deadframe, metainterp_sd, jitdriver_sd):
-        trace_eagerness = jitdriver_sd.warmstate.trace_eagerness
+        jitcounter = metainterp_sd.warmrunnerdesc.jitcounter
         #
-        if self._counter <= self.CNT_BASE_MASK:
-            # simple case: just counting from 0 to trace_eagerness
-            self._counter += 1
-            return self._counter >= trace_eagerness
+        if self.status & (self.ST_BUSY_FLAG | self.ST_TYPE_MASK) == 0:
+            # common case: this is not a guard_value, and we are not
+            # already busy tracing.  The rest of self.status stores a
+            # valid per-guard index in the jitcounter.
+            hash = self.status
+            assert hash == (self.status & self.ST_SHIFT_MASK)
         #
         # do we have the BUSY flag?  If so, we're tracing right now, e.g. in an
         # outer invocation of the same function, so don't trace again for now.
-        elif self._counter & self.CNT_BUSY_FLAG:
+        elif self.status & self.ST_BUSY_FLAG:
             return False
         #
-        else: # we have a GUARD_VALUE that fails.  Make a _counters instance
-            # (only now, when the guard is actually failing at least once),
-            # and use it to record some statistics about the failing values.
-            index = self._counter & self.CNT_BASE_MASK
-            typetag = self._counter & self.CNT_TYPE_MASK
-            counters = self._counters
-            if typetag == self.CNT_INT:
-                intvalue = metainterp_sd.cpu.get_int_value(
-                    deadframe, index)
-                if counters is None:
-                    self._counters = counters = ResumeGuardCountersInt()
-                else:
-                    assert isinstance(counters, ResumeGuardCountersInt)
-                counter = counters.see_int(intvalue)
-            elif typetag == self.CNT_REF:
-                refvalue = metainterp_sd.cpu.get_ref_value(
-                    deadframe, index)
-                if counters is None:
-                    self._counters = counters = ResumeGuardCountersRef()
-                else:
-                    assert isinstance(counters, ResumeGuardCountersRef)
-                counter = counters.see_ref(refvalue)
-            elif typetag == self.CNT_FLOAT:
-                floatvalue = metainterp_sd.cpu.get_float_value(
-                    deadframe, index)
-                if counters is None:
-                    self._counters = counters = ResumeGuardCountersFloat()
-                else:
-                    assert isinstance(counters, ResumeGuardCountersFloat)
-                counter = counters.see_float(floatvalue)
+        else:    # we have a GUARD_VALUE that fails.
+            from rpython.rlib.objectmodel import current_object_addr_as_int
+
+            index = intmask(self.status >> self.ST_SHIFT)
+            typetag = intmask(self.status & self.ST_TYPE_MASK)
+
+            # fetch the actual value of the guard_value, possibly turning
+            # it to an integer
+            if typetag == self.TY_INT:
+                intval = metainterp_sd.cpu.get_int_value(deadframe, index)
+            elif typetag == self.TY_REF:
+                refval = metainterp_sd.cpu.get_ref_value(deadframe, index)
+                intval = lltype.cast_ptr_to_int(refval)
+            elif typetag == self.TY_FLOAT:
+                floatval = metainterp_sd.cpu.get_float_value(deadframe, index)
+                intval = longlong.gethash_fast(floatval)
             else:
                 assert 0, typetag
-            return counter >= trace_eagerness
+
+            if not we_are_translated():
+                if isinstance(intval, llmemory.AddressAsInt):
+                    intval = llmemory.cast_adr_to_int(
+                        llmemory.cast_int_to_adr(intval), "forced")
+
+            hash = r_uint(current_object_addr_as_int(self) * 777767777 +
+                          intval * 1442968193)
+        #
+        increment = jitdriver_sd.warmstate.increment_trace_eagerness
+        return jitcounter.tick(hash, increment)
 
     def start_compiling(self):
         # start tracing and compiling from this guard.
-        self._counter |= self.CNT_BUSY_FLAG
+        self.status |= self.ST_BUSY_FLAG
 
     def done_compiling(self):
-        # done tracing and compiling from this guard.  Either the bridge has
-        # been successfully compiled, in which case whatever value we store
-        # in self._counter will not be seen any more, or not, in which case
-        # we should reset the counter to 0, in order to wait a bit until the
-        # next attempt.
-        if self._counter >= 0:
-            self._counter = 0
-        self._counters = None
+        # done tracing and compiling from this guard.  Note that if the
+        # bridge has not been successfully compiled, the jitcounter for
+        # it was reset to 0 already by jitcounter.tick() and not
+        # incremented at all as long as ST_BUSY_FLAG was set.
+        self.status &= ~self.ST_BUSY_FLAG
 
     def compile_and_attach(self, metainterp, new_loop):
         # We managed to create a bridge.  Attach the new operations
@@ -745,69 +742,6 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         return res
 
 
-class AbstractResumeGuardCounters(object):
-    # Completely custom algorithm for now: keep 5 pairs (value, counter),
-    # and when we need more, we discard the middle pair (middle in the
-    # current value of the counter).  That way, we tend to keep the
-    # values with a high counter, but also we avoid always throwing away
-    # the most recently added value.  **THIS ALGO MUST GO AWAY AT SOME POINT**
-    pass
-
-def _see(self, newvalue):
-    # find and update an existing counter
-    unused = -1
-    for i in range(5):
-        cnt = self.counters[i]
-        if cnt:
-            if self.values[i] == newvalue:
-                cnt += 1
-                self.counters[i] = cnt
-                return cnt
-        else:
-            unused = i
-    # not found.  Use a previously unused entry, if there is one
-    if unused >= 0:
-        self.counters[unused] = 1
-        self.values[unused] = newvalue
-        return 1
-    # no unused entry.  Overwrite the middle one.  Computed with indices
-    # a, b, c meaning the highest, second highest, and third highest
-    # entries.
-    a = 0
-    b = c = -1
-    for i in range(1, 5):
-        if self.counters[i] > self.counters[a]:
-            c = b
-            b = a
-            a = i
-        elif b < 0 or self.counters[i] > self.counters[b]:
-            c = b
-            b = i
-        elif c < 0 or self.counters[i] > self.counters[c]:
-            c = i
-    self.counters[c] = 1
-    self.values[c] = newvalue
-    return 1
-
-class ResumeGuardCountersInt(AbstractResumeGuardCounters):
-    def __init__(self):
-        self.counters = [0] * 5
-        self.values = [0] * 5
-    see_int = func_with_new_name(_see, 'see_int')
-
-class ResumeGuardCountersRef(AbstractResumeGuardCounters):
-    def __init__(self):
-        self.counters = [0] * 5
-        self.values = [history.ConstPtr.value] * 5
-    see_ref = func_with_new_name(_see, 'see_ref')
-
-class ResumeGuardCountersFloat(AbstractResumeGuardCounters):
-    def __init__(self):
-        self.counters = [0] * 5
-        self.values = [longlong.ZEROF] * 5
-    see_float = func_with_new_name(_see, 'see_float')
-
-
 class ResumeFromInterpDescr(ResumeDescr):
     def __init__(self, original_greenkey):
         self.original_greenkey = original_greenkey
@@ -829,7 +763,7 @@ class ResumeFromInterpDescr(ResumeDescr):
         metainterp_sd.stats.add_jitcell_token(jitcell_token)
 
 
-def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
+def compile_trace(metainterp, resumekey):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
@@ -845,7 +779,6 @@ def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
     # clone ops, as optimize_bridge can mutate the ops
 
     new_trace.operations = [op.clone() for op in metainterp.history.operations]
-    new_trace.resume_at_jump_descr = resume_at_jump_descr
     metainterp_sd = metainterp.staticdata
     state = metainterp.jitdriver_sd.warmstate
     if isinstance(resumekey, ResumeAtPositionDescr):
@@ -934,7 +867,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     ]
     operations[1].setfailargs([])
     operations = get_deep_immutable_oplist(operations)
-    cpu.compile_loop(None, inputargs, operations, jitcell_token, log=False)
+    cpu.compile_loop(inputargs, operations, jitcell_token, log=False)
     if memory_manager is not None:    # for tests
         memory_manager.keep_loop_alive(jitcell_token)
     return jitcell_token

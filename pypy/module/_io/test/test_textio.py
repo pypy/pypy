@@ -1,6 +1,12 @@
 class AppTestTextIO:
     spaceconfig = dict(usemodules=['_io', '_locale'])
 
+    def setup_class(cls):
+        from rpython.rlib.rarithmetic import INT_MAX, UINT_MAX
+        space = cls.space
+        cls.w_INT_MAX = space.wrap(INT_MAX)
+        cls.w_UINT_MAX = space.wrap(UINT_MAX)
+
     def test_constructor(self):
         import _io
         r = _io.BytesIO(b"\xc3\xa9\n\n")
@@ -142,6 +148,13 @@ class AppTestTextIO:
             f.seek(0)
             assert f.read() == data * 2
             assert buf.getvalue() == (data * 2).encode(encoding)
+
+    def test_writelines_error(self):
+        import _io
+        txt = _io.TextIOWrapper(_io.BytesIO())
+        raises(TypeError, txt.writelines, [1, 2, 3])
+        raises(TypeError, txt.writelines, None)
+        raises(TypeError, txt.writelines, b'abc')
 
     def test_tell(self):
         import _io
@@ -330,9 +343,59 @@ class AppTestTextIO:
                     return b""
         return MockRawIO
 
+    def test_flush_error_on_close(self):
+        import _io
+        txt = _io.TextIOWrapper(_io.BytesIO(b""), encoding="ascii")
+        def bad_flush():
+            raise IOError()
+        txt.flush = bad_flush
+        raises(IOError, txt.close)  # exception not swallowed
+        assert txt.closed
+
+    def test_illegal_decoder(self):
+        import _io
+        t = _io.TextIOWrapper(_io.BytesIO(b'aaaaaa'), newline='\n',
+                             encoding='quopri_codec')
+        raises(TypeError, t.read, 1)
+        t = _io.TextIOWrapper(_io.BytesIO(b'aaaaaa'), newline='\n',
+                             encoding='quopri_codec')
+        raises(TypeError, t.readline)
+        t = _io.TextIOWrapper(_io.BytesIO(b'aaaaaa'), newline='\n',
+                             encoding='quopri_codec')
+        raises(TypeError, t.read)
+
+    def test_read_nonbytes(self):
+        import _io
+        class NonbytesStream(_io.StringIO):
+            read1 = _io.StringIO.read
+        t = _io.TextIOWrapper(NonbytesStream(u'a'))
+        raises(TypeError, t.read, 1)
+        t = _io.TextIOWrapper(NonbytesStream(u'a'))
+        raises(TypeError, t.readline)
+        t = _io.TextIOWrapper(NonbytesStream(u'a'))
+        raises(TypeError, t.read)
+
+    def test_device_encoding(self):
+        import os
+        import sys
+        encoding = os.device_encoding(sys.stderr.fileno())
+        if not encoding:
+            skip("Requires a result from "
+                 "os.device_encoding(sys.stderr.fileno())")
+        import _io
+        f = _io.TextIOWrapper(sys.stderr.buffer)
+        assert f.encoding == encoding
+
+    def test_device_encoding_ovf(self):
+        import _io
+        b = _io.BytesIO()
+        b.fileno = lambda: self.INT_MAX + 1
+        raises(OverflowError, _io.TextIOWrapper, b)
+        b.fileno = lambda: self.UINT_MAX + 1
+        raises(OverflowError, _io.TextIOWrapper, b)
+
 
 class AppTestIncrementalNewlineDecoder:
-
     def test_newline_decoder(self):
         import _io
         def check_newline_decoding_utf8(decoder):
@@ -439,14 +502,3 @@ class AppTestIncrementalNewlineDecoder:
         _check(dec)
         dec = _io.IncrementalNewlineDecoder(None, translate=True)
         _check(dec)
-
-    def test_device_encoding(self):
-        import os
-        import sys
-        encoding = os.device_encoding(sys.stderr.fileno())
-        if not encoding:
-            skip("Requires a result from "
-                 "os.device_encoding(sys.stderr.fileno())")
-        import _io
-        f = _io.TextIOWrapper(sys.stderr.buffer)
-        assert f.encoding == encoding

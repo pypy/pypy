@@ -11,8 +11,13 @@ from subprocess import PIPE, Popen
 def run_subprocess(executable, args, env=None, cwd=None):
     return _run(executable, args, env, cwd)
 
+shell_default = False
+if sys.platform == 'win32':
+    shell_default = True
 
 def _run(executable, args, env, cwd):   # unless overridden below
+    if sys.platform == 'win32':
+        executable = executable.replace('/','\\')
     if isinstance(args, str):
         args = str(executable) + ' ' + args
         shell = True
@@ -21,7 +26,9 @@ def _run(executable, args, env, cwd):   # unless overridden below
             args = [str(executable)]
         else:
             args = [str(executable)] + args
-        shell = False
+        # shell=True on unix-like is a known security vulnerability, but
+        # on windows shell=True does not properly propogate the env dict
+        shell = shell_default
 
     # Just before spawning the subprocess, do a gc.collect().  This
     # should help if we are running on top of PyPy, if the subprocess
@@ -49,7 +56,7 @@ if __name__ == '__main__':
         sys.stdout.flush()
 
 
-if sys.platform != 'win32' and hasattr(os, 'fork'):
+if sys.platform != 'win32' and hasattr(os, 'fork') and not os.getenv("PYPY_DONT_RUN_SUBPROCESS", None):
     # do this at import-time, when the process is still tiny
     _source = os.path.dirname(os.path.abspath(__file__))
     _source = os.path.join(_source, 'runsubprocess.py')   # and not e.g. '.pyc'

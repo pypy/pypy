@@ -7,6 +7,11 @@ import sys, os, re, runpy, subprocess
 from rpython.tool.udir import udir
 from contextlib import contextmanager
 from pypy.conftest import pypydir
+from pypy.module.sys.version import PYPY_VERSION
+from lib_pypy._pypy_interact import irc_header
+
+is_release = PYPY_VERSION[3] == "final"
+
 
 python3 = os.environ.get("PYTHON3", "python3")
 
@@ -250,6 +255,10 @@ class TestInteraction:
         child = self.spawn([])
         child.expect('Python ')   # banner
         child.expect('>>> ')      # prompt
+        if is_release:
+            assert irc_header not in child.before
+        else:
+            assert irc_header in child.before
         child.sendline('[6*7]')
         child.expect(re.escape('[42]'))
         child.sendline('def f(x):')
@@ -1061,7 +1070,8 @@ class AppTestAppMain:
 
         self.w_tmp_dir = self.space.wrap(tmp_dir)
 
-        foo_py = prefix.join('foo.py').write("pass")
+        foo_py = prefix.join('foo.py')
+        foo_py.write("pass")
         self.w_foo_py = self.space.wrap(str(foo_py))
 
     def test_setup_bootstrap_path(self):
@@ -1073,6 +1083,8 @@ class AppTestAppMain:
 
         sys.path.append(self.goal_dir)
         # make sure cwd does not contain a stdlib
+        if self.tmp_dir.startswith(self.trunkdir):
+            skip('TMPDIR is inside the PyPy source')
         os.chdir(self.tmp_dir)
         tmp_pypy_c = os.path.join(self.tmp_dir, 'pypy-c')
         try:

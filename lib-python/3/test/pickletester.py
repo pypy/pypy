@@ -577,10 +577,10 @@ class AbstractPickleTests(unittest.TestCase):
         i = C()
         i.attr = i
         for proto in protocols:
-            s = self.dumps(i, 2)
+            s = self.dumps(i, proto)
             x = self.loads(s)
             self.assertEqual(dir(x), dir(i))
-            self.assertTrue(x.attr is x)
+            self.assertIs(x.attr, x)
 
     def test_recursive_multi(self):
         l = []
@@ -637,13 +637,13 @@ class AbstractPickleTests(unittest.TestCase):
     def test_bytes(self):
         for proto in protocols:
             for s in b'', b'xyz', b'xyz'*100:
-                p = self.dumps(s)
+                p = self.dumps(s, proto)
                 self.assertEqual(self.loads(p), s)
             for s in [bytes([i]) for i in range(256)]:
-                p = self.dumps(s)
+                p = self.dumps(s, proto)
                 self.assertEqual(self.loads(p), s)
             for s in [bytes([i, i]) for i in range(256)]:
-                p = self.dumps(s)
+                p = self.dumps(s, proto)
                 self.assertEqual(self.loads(p), s)
 
     def test_ints(self):
@@ -706,6 +706,11 @@ class AbstractPickleTests(unittest.TestCase):
 
     def test_getinitargs(self):
         pass
+
+    def test_pop_empty_stack(self):
+        # Test issue7455
+        s = b'0'
+        self.assertRaises((pickle.UnpicklingError, IndexError), self.loads, s)
 
     def test_metaclass(self):
         a = use_metaclass()
@@ -1390,10 +1395,6 @@ class AbstractPickleModuleTests(unittest.TestCase):
         # Test issue4298
         s = bytes([0x58, 0, 0, 0, 0x54])
         self.assertRaises(EOFError, pickle.loads, s)
-        # Test issue7455
-        s = b'0'
-        self.assertRaises((pickle.UnpicklingError, IndexError),
-                          pickle.loads, s)
 
 
 class AbstractPersistentPicklerTests(unittest.TestCase):

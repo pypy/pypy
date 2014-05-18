@@ -1,16 +1,19 @@
 import py, weakref
 from rpython.jit.backend import model
 from rpython.jit.backend.llgraph import support
+from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.jit.metainterp.history import Const, getkind
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
 from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.optimizeopt import intbounds
 from rpython.jit.codewriter import longlong, heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
 from rpython.rtyper.llinterp import LLInterpreter, LLException
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 
+from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
 from rpython.rlib.rtimer import read_timestamp
 
@@ -64,9 +67,10 @@ class Jump(Exception):
         self.args = args
 
 class CallDescr(AbstractDescr):
-    def __init__(self, RESULT, ARGS, extrainfo):
+    def __init__(self, RESULT, ARGS, extrainfo, ABI=FFI_DEFAULT_ABI):
         self.RESULT = RESULT
         self.ARGS = ARGS
+        self.ABI = ABI
         self.extrainfo = extrainfo
 
     def __repr__(self):
@@ -119,16 +123,36 @@ class FieldDescr(AbstractDescr):
     def is_field_signed(self):
         return _is_signed_kind(self.FIELD)
 
+    def is_integer_bounded(self):
+        return getkind(self.FIELD) == 'int' \
+            and rffi.sizeof(self.FIELD) < symbolic.WORD
+
+    def get_integer_min(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_min(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
+
+    def get_integer_max(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_max(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
+
 def _is_signed_kind(TYPE):
     return (TYPE is not lltype.Bool and isinstance(TYPE, lltype.Number) and
             rffi.cast(TYPE, -1) == -1)
 
 class ArrayDescr(AbstractDescr):
     def __init__(self, A):
-        self.A = A
+        self.A = self.OUTERA = A
+        if isinstance(A, lltype.Struct):
+            self.A = A._flds[A._arrayfld]
 
     def __repr__(self):
-        return 'ArrayDescr(%r)' % (self.A,)
+        return 'ArrayDescr(%r)' % (self.OUTERA,)
 
     def is_array_of_pointers(self):
         return getkind(self.A.OF) == 'ref'
@@ -141,6 +165,25 @@ class ArrayDescr(AbstractDescr):
 
     def is_array_of_structs(self):
         return isinstance(self.A.OF, lltype.Struct)
+
+    def is_item_integer_bounded(self):
+        return getkind(self.A.OF) == 'int' \
+            and rffi.sizeof(self.A.OF) < symbolic.WORD
+
+    def get_item_integer_min(self):
+        if getkind(self.A.OF) != 'int':
+            assert False
+
+        return intbounds.get_integer_min(
+            not _is_signed_kind(self.A.OF), rffi.sizeof(self.A.OF))
+
+    def get_item_integer_max(self):
+        if getkind(self.A.OF) != 'int':
+            assert False
+
+        return intbounds.get_integer_max(
+            not _is_signed_kind(self.A.OF), rffi.sizeof(self.A.OF))
+
 
 class InteriorFieldDescr(AbstractDescr):
     def __init__(self, A, fieldname):
@@ -159,6 +202,24 @@ class InteriorFieldDescr(AbstractDescr):
 
     def is_float_field(self):
         return getkind(self.FIELD) == 'float'
+
+    def is_integer_bounded(self):
+        return getkind(self.FIELD) == 'int' \
+            and rffi.sizeof(self.FIELD) < symbolic.WORD
+
+    def get_integer_min(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_min(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
+
+    def get_integer_max(self):
+        if getkind(self.FIELD) != 'int':
+            assert False
+
+        return intbounds.get_integer_max(
+            not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
 
 _example_res = {'v': None,
                 'r': lltype.nullptr(llmemory.GCREF.TO),
@@ -183,8 +244,8 @@ class LLGraphCPU(model.AbstractCPU):
         self.stats = stats or MiniStats()
         self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
 
-    def compile_loop(self, logger, inputargs, operations, looptoken, log=True,
-                     name=''):
+    def compile_loop(self, inputargs, operations, looptoken, log=True,
+                     name='', logger=None):
         clt = model.CompiledLoopToken(self, looptoken.number)
         looptoken.compiled_loop_token = clt
         lltrace = LLTrace(inputargs, operations)
@@ -192,8 +253,8 @@ class LLGraphCPU(model.AbstractCPU):
         clt._llgraph_alltraces = [lltrace]
         self._record_labels(lltrace)
 
-    def compile_bridge(self, logger, faildescr, inputargs, operations,
-                       original_loop_token, log=True):
+    def compile_bridge(self, faildescr, inputargs, operations,
+                       original_loop_token, log=True, logger=None):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
         lltrace = LLTrace(inputargs, operations)
@@ -369,7 +430,7 @@ class LLGraphCPU(model.AbstractCPU):
         try:
             return self.descrs[key]
         except KeyError:
-            descr = CallDescr(RESULT, ARGS, extrainfo)
+            descr = CallDescr(RESULT, ARGS, extrainfo, ABI=cif_description.abi)
             self.descrs[key] = descr
             return descr
 
@@ -381,6 +442,8 @@ class LLGraphCPU(model.AbstractCPU):
             res = self.llinterp.eval_graph(ptr._obj.graph, args)
         else:
             res = ptr._obj._callable(*args)
+        if RESULT is lltype.Void:
+            return None
         return support.cast_result(RESULT, res)
 
     def _do_call(self, func, args_i, args_r, args_f, calldescr):
@@ -418,11 +481,12 @@ class LLGraphCPU(model.AbstractCPU):
 
     bh_setfield_raw   = bh_setfield_gc
     bh_setfield_raw_i = bh_setfield_raw
-    bh_setfield_raw_r = bh_setfield_raw
     bh_setfield_raw_f = bh_setfield_raw
 
     def bh_arraylen_gc(self, a, descr):
         array = a._obj.container
+        if descr.A is not descr.OUTERA:
+            array = getattr(array, descr.OUTERA._arrayfld)
         return array.getlength()
 
     def bh_getarrayitem_gc(self, a, index, descr):
@@ -490,6 +554,10 @@ class LLGraphCPU(model.AbstractCPU):
             return self.bh_raw_load_f(struct, offset, descr)
         else:
             return self.bh_raw_load_i(struct, offset, descr)
+
+    def bh_increment_debug_counter(self, addr):
+        p = rffi.cast(rffi.CArrayPtr(lltype.Signed), addr)
+        p[0] += 1
 
     def unpack_arraydescr_size(self, arraydescr):
         from rpython.jit.backend.llsupport.symbolic import get_array_token
@@ -883,7 +951,7 @@ class LLFrame(object):
             # graph, not to directly execute the python function
             result = self.cpu.maybe_on_top_of_llinterp(func, call_args, descr.RESULT)
         else:
-            FUNC = lltype.FuncType(descr.ARGS, descr.RESULT)
+            FUNC = lltype.FuncType(descr.ARGS, descr.RESULT, descr.ABI)
             func_to_call = rffi.cast(lltype.Ptr(FUNC), func)
             result = func_to_call(*call_args)
         del self.force_guard_op

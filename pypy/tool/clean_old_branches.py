@@ -20,8 +20,8 @@ def heads():
     for line in result:
         if len(line) != 3:
             raise ValueError("'result' contains: %r" % line)
-    result = [(head, branch) for (head, branch, extra) in result
-                if branch not in ['', 'closed-branches'] and 'close' in extra]
+    result = [(head, branch or 'default') for (head, branch, extra) in result
+                if branch != 'closed-branches' and 'close=1' in extra]
     return result
 
 
@@ -38,7 +38,8 @@ closed_heads.reverse()
 for head, branch in closed_heads:
     print '\t', head, '\t', branch
 print
-print 'The branches listed above will be merged to "closed-branches".'
+print 'The %d branches listed above will be merged to "closed-branches".' % (
+    len(closed_heads),)
 print 'You need to run this script in a clean working copy where you'
 print 'don''t mind all files being removed.'
 print

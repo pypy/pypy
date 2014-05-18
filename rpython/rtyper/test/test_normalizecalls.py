@@ -185,7 +185,7 @@ class TestNormalize(object):
     .+Sub1.fn
     .+Sub2.fn
 are called with inconsistent numbers of arguments
-sometimes with 2 arguments, sometimes with 1
+sometimes with \d arguments, sometimes with \d
 the callers of these functions are:
     .+otherfunc
     .+dummyfn"""
@@ -224,7 +224,7 @@ class TestNormalizeAfterTheFact(TestNormalize):
 
         from rpython.rtyper import annlowlevel
         # annotate, normalize and rtype fn after the fact
-        annhelper = annlowlevel.MixLevelHelperAnnotator(typer)               
+        annhelper = annlowlevel.MixLevelHelperAnnotator(typer)
         graph = annhelper.getgraph(fn, [a.typeannotation(argtype) for argtype in argtypes],
                                    s_result)
         annhelper.finish()
@@ -239,7 +239,7 @@ class TestNormalizeAfterTheFact(TestNormalize):
         assert res == 100
         res = llinterp.eval_graph(graphof(t, prefn), [2])
         assert res == 201
-        
+
         return t
 
     def test_mix_after_recursion(self):
@@ -248,7 +248,7 @@ class TestNormalizeAfterTheFact(TestNormalize):
                 return 2*prefn(n-1)
             else:
                 return 1
-        
+
         t = TranslationContext()
         a = t.buildannotator()
         a.build_types(prefn, [int])
@@ -260,10 +260,10 @@ class TestNormalizeAfterTheFact(TestNormalize):
             return 1
 
         from rpython.rtyper import annlowlevel
-        annhelper = annlowlevel.MixLevelHelperAnnotator(typer)               
+        annhelper = annlowlevel.MixLevelHelperAnnotator(typer)
         graph = annhelper.getgraph(f, [], annmodel.SomeInteger())
         annhelper.finish()
-        
+
     def test_add_more_subclasses(self):
         from rpython.rtyper import rclass
         from rpython.rtyper.lltypesystem.rclass import ll_issubclass

@@ -73,6 +73,7 @@ class PythonAPITestCase(unittest.TestCase):
         del pyobj
         self.assertEqual(grc(s), ref)
 
+    @xfail
     def test_PyOS_snprintf(self):
         PyOS_snprintf = pythonapi.PyOS_snprintf
         PyOS_snprintf.argtypes = POINTER(c_char), c_size_t, c_char_p

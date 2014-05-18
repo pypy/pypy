@@ -25,6 +25,13 @@ class AppTestBuiltinApp:
         else:
             cls.w_safe_runtimerror = cls.space.wrap(sys.version_info < (2, 6))
 
+    def test_builtin_names(self):
+        import builtins as __builtin__
+        assert __builtin__.bytes is bytes
+        assert __builtin__.dict is dict
+        assert __builtin__.memoryview is memoryview
+        assert not hasattr(__builtin__, 'buffer')
+
     def test_bytes_alias(self):
         assert bytes is not str
         assert isinstance(eval("b'hi'"), bytes)
@@ -84,6 +91,15 @@ class AppTestBuiltinApp:
         assert bin(-2) == "-0b10"
         assert bin(Foo()) == "0b100"
         raises(TypeError, bin, 0.)
+        class C(object):
+            def __index__(self):
+                return 42
+        assert bin(C()) == bin(42)
+        class D(object):
+            def __int__(self):
+                return 42
+        exc = raises(TypeError, bin, D())
+        assert "integer" in str(exc.value)
 
     def test_oct(self):
         class Foo:
@@ -129,10 +145,21 @@ class AppTestBuiltinApp:
     def test_locals(self):
         def f():
             return locals()
+
         def g(c=0, b=0, a=0):
             return locals()
+
         assert f() == {}
-        assert g() == {'a':0, 'b':0, 'c':0}
+        assert g() == {'a': 0, 'b': 0, 'c': 0}
+
+    def test_locals_deleted_local(self):
+        def f():
+            a = 3
+            locals()
+            del a
+            return locals()
+
+        assert f() == {}
 
     def test_dir(self):
         def f():
@@ -298,22 +325,6 @@ class AppTestBuiltinApp:
         assert next(x) == 3
 
     def test_range_args(self):
-##        # range() attributes are deprecated and were removed in Python 2.3.
-##        x = range(2)
-##        assert x.start == 0
-##        assert x.stop == 2
-##        assert x.step == 1
-
-##        x = range(2,10,2)
-##        assert x.start == 2
-##        assert x.stop == 10
-##        assert x.step == 2
-
-##        x = range(2.3, 10.5, 2.4)
-##        assert x.start == 2
-##        assert x.stop == 10
-##        assert x.step == 2
-
         raises(ValueError, range, 0, 1, 0)
 
     def test_range_repr(self):
@@ -342,13 +353,14 @@ class AppTestBuiltinApp:
     def test_range_len(self):
         x = range(33)
         assert len(x) == 33
-        raises(TypeError, range, 33.2)
+        exc = raises(TypeError, range, 33.2)
+        assert "integer" in str(exc.value)
         x = range(33,0,-1)
         assert len(x) == 33
         x = range(33,0)
         assert len(x) == 0
-        raises(TypeError, range, 33, 0.2)
-        assert len(x) == 0
+        exc = raises(TypeError, range, 33, 0.2)
+        assert "integer" in str(exc.value)
         x = range(0,33)
         assert len(x) == 33
         x = range(0,33,-1)
@@ -374,7 +386,7 @@ class AppTestBuiltinApp:
         raises(TypeError, range, 1, 3+2j)
         raises(TypeError, range, 1, 2, '1')
         raises(TypeError, range, 1, 2, 3+2j)
-    
+
     def test_sorted(self):
         l = []
         sorted_l = sorted(l)
@@ -393,7 +405,7 @@ class AppTestBuiltinApp:
         assert sorted_l is not l
         assert sorted_l == ['C', 'b', 'a']
         raises(TypeError, sorted, [], reverse=None)
-        
+
     def test_reversed_simple_sequences(self):
         l = range(5)
         rev = reversed(l)
@@ -409,7 +421,7 @@ class AppTestBuiltinApp:
                 return 42
         obj = SomeClass()
         assert reversed(obj) == 42
-    
+
     def test_return_None(self):
         class X(object): pass
         x = X()
@@ -465,7 +477,7 @@ class AppTestBuiltinApp:
         assert eval("1+2") == 3
         assert eval(" \t1+2\n") == 3
         assert eval("len([])") == 0
-        assert eval("len([])", {}) == 0        
+        assert eval("len([])", {}) == 0
         # cpython 2.4 allows this (raises in 2.3)
         assert eval("3", None, None) == 3
         i = 4
@@ -475,12 +487,39 @@ class AppTestBuiltinApp:
     def test_compile(self):
         co = compile('1+2', '?', 'eval')
         assert eval(co) == 3
+        co = compile(memoryview(b'1+2'), '?', 'eval')
+        assert eval(co) == 3
+        exc = raises(TypeError, compile, chr(0), '?', 'eval')
+        assert str(exc.value) == "source code string cannot contain null bytes"
         compile("from __future__ import with_statement", "<test>", "exec")
         raises(SyntaxError, compile, '-', '?', 'eval')
         raises(SyntaxError, compile, '"\\xt"', '?', 'eval')
         raises(ValueError, compile, '1+2', '?', 'maybenot')
         raises(ValueError, compile, "\n", "<string>", "exec", 0xff)
         raises(TypeError, compile, '1+2', 12, 34)
+
+    def test_compile_error_message(self):
+        import re
+        compile('# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
+        compile(b'\xef\xbb\xbf\n', 'dummy', 'exec')
+        compile(b'\xef\xbb\xbf# -*- coding: utf-8 -*-\n', 'dummy', 'exec')
+        exc = raises(SyntaxError, compile,
+            b'# -*- coding: fake -*-\n', 'dummy', 'exec')
+        assert 'fake' in str(exc.value)
+        exc = raises(SyntaxError, compile,
+            b'\xef\xbb\xbf# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
+        assert 'iso-8859-15' in str(exc.value)
+        assert 'BOM' in str(exc.value)
+        exc = raises(SyntaxError, compile,
+            b'\xef\xbb\xbf# -*- coding: fake -*-\n', 'dummy', 'exec')
+        assert 'fake' in str(exc.value)
+        assert 'BOM' in str(exc.value)
+
+    def test_unicode_compile(self):
+        try:
+            compile(u'-', '?', 'eval')
+        except SyntaxError as e:
+            assert e.lineno == 1
 
     def test_unicode_encoding_compile(self):
         code = "# -*- coding: utf-8 -*-\npass\n"

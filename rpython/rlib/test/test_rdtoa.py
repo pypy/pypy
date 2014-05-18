@@ -29,3 +29,7 @@ def test_dtoa():
 def test_dtoa_precision():
     assert dtoa(1.1, code='f', precision=2) == "1.10"
     assert dtoa(1e12, code='g', precision=12) == "1e+12"
+
+def test_flag_cut_exp_0():
+    assert dtoa(1.1e9, code="g", precision=2, flags=rfloat.DTSF_CUT_EXP_0) == "1.1e+9"
+    assert dtoa(1.1e-9, code="g", precision=2, flags=rfloat.DTSF_CUT_EXP_0) == "1.1e-9"

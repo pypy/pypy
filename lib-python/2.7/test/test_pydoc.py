@@ -4,17 +4,27 @@ import difflib
 import __builtin__
 import re
 import pydoc
+import contextlib
 import inspect
 import keyword
+import pkgutil
 import unittest
 import xml.etree
 import test.test_support
 from collections import namedtuple
 from test.script_helper import assert_python_ok
 from test.test_support import (
-    TESTFN, rmtree, reap_children, captured_stdout)
+    TESTFN, rmtree, reap_children, captured_stdout, captured_stderr)
 
 from test import pydoc_mod
+
+if test.test_support.HAVE_DOCSTRINGS:
+    expected_data_docstrings = (
+        'dictionary for instance variables (if defined)',
+        'list of weak references to the object (if defined)',
+        )
+else:
+    expected_data_docstrings = ('', '')
 
 expected_text_pattern = \
 """
@@ -40,11 +50,9 @@ CLASSES
     class B(__builtin__.object)
      |  Data descriptors defined here:
      |\x20\x20
-     |  __dict__
-     |      dictionary for instance variables (if defined)
+     |  __dict__%s
      |\x20\x20
-     |  __weakref__
-     |      list of weak references to the object (if defined)
+     |  __weakref__%s
      |\x20\x20
      |  ----------------------------------------------------------------------
      |  Data and other attributes defined here:
@@ -74,6 +82,9 @@ AUTHOR
 CREDITS
     Nobody
 """.strip()
+
+expected_text_data_docstrings = tuple('\n     |      ' + s if s else ''
+                                      for s in expected_data_docstrings)
 
 expected_html_pattern = \
 """
@@ -121,10 +132,10 @@ expected_html_pattern = \
 <tr><td bgcolor="#ffc8d8"><tt>&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
 <td width="100%%">Data descriptors defined here:<br>
 <dl><dt><strong>__dict__</strong></dt>
-<dd><tt>dictionary&nbsp;for&nbsp;instance&nbsp;variables&nbsp;(if&nbsp;defined)</tt></dd>
+<dd><tt>%s</tt></dd>
 </dl>
 <dl><dt><strong>__weakref__</strong></dt>
-<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
+<dd><tt>%s</tt></dd>
 </dl>
 <hr>
 Data and other attributes defined here:<br>
@@ -168,6 +179,8 @@ war</tt></dd></dl>
 <td width="100%%">Nobody</td></tr></table>
 """.strip()
 
+expected_html_data_docstrings = tuple(s.replace(' ', '&nbsp;')
+                                      for s in expected_data_docstrings)
 
 # output pattern for missing module
 missing_pattern = "no Python documentation found for '%s'"
@@ -217,7 +230,30 @@ def print_diffs(text1, text2):
     print '\n' + ''.join(diffs)
 
 
-class PyDocDocTest(unittest.TestCase):
+class PydocBaseTest(unittest.TestCase):
+
+    def _restricted_walk_packages(self, walk_packages, path=None):
+        """
+        A version of pkgutil.walk_packages() that will restrict itself to
+        a given path.
+        """
+        default_path = path or [os.path.dirname(__file__)]
+        def wrapper(path=None, prefix='', onerror=None):
+            return walk_packages(path or default_path, prefix, onerror)
+        return wrapper
+
+    @contextlib.contextmanager
+    def restrict_walk_packages(self, path=None):
+        walk_packages = pkgutil.walk_packages
+        pkgutil.walk_packages = self._restricted_walk_packages(walk_packages,
+                                                               path)
+        try:
+            yield
+        finally:
+            pkgutil.walk_packages = walk_packages
+
+
+class PydocDocTest(unittest.TestCase):
 
     @unittest.skipIf(sys.flags.optimize >= 2,
                      "Docstrings are omitted with -O2 and above")
@@ -229,7 +265,9 @@ class PyDocDocTest(unittest.TestCase):
             mod_url = nturl2path.pathname2url(mod_file)
         else:
             mod_url = mod_file
-        expected_html = expected_html_pattern % (mod_url, mod_file, doc_loc)
+        expected_html = expected_html_pattern % (
+                        (mod_url, mod_file, doc_loc) +
+                        expected_html_data_docstrings)
         if result != expected_html:
             print_diffs(expected_html, result)
             self.fail("outputs are not equal, see diff above")
@@ -238,8 +276,9 @@ class PyDocDocTest(unittest.TestCase):
                      "Docstrings are omitted with -O2 and above")
     def test_text_doc(self):
         result, doc_loc = get_pydoc_text(pydoc_mod)
-        expected_text = expected_text_pattern % \
-                        (inspect.getabsfile(pydoc_mod), doc_loc)
+        expected_text = expected_text_pattern % (
+                        (inspect.getabsfile(pydoc_mod), doc_loc) +
+                        expected_text_data_docstrings)
         if result != expected_text:
             print_diffs(expected_text, result)
             self.fail("outputs are not equal, see diff above")
@@ -248,6 +287,17 @@ class PyDocDocTest(unittest.TestCase):
         # Test issue8225 to ensure no doc link appears for xml.etree
         result, doc_loc = get_pydoc_text(xml.etree)
         self.assertEqual(doc_loc, "", "MODULE DOCS incorrectly includes a link")
+
+    def test_non_str_name(self):
+        # issue14638
+        # Treat illegal (non-str) name like no name
+        class A:
+            __name__ = 42
+        class B:
+            pass
+        adoc = pydoc.render_doc(A())
+        bdoc = pydoc.render_doc(B())
+        self.assertEqual(adoc.replace("A", "B"), bdoc)
 
     def test_not_here(self):
         missing_module = "test.i_am_not_here"
@@ -278,7 +328,7 @@ class PyDocDocTest(unittest.TestCase):
                          "<type 'exceptions.Exception'>")
 
 
-class PydocImportTest(unittest.TestCase):
+class PydocImportTest(PydocBaseTest):
 
     def setUp(self):
         self.test_dir = os.mkdir(TESTFN)
@@ -312,8 +362,19 @@ class PydocImportTest(unittest.TestCase):
         badsyntax = os.path.join(pkgdir, "__init__") + os.extsep + "py"
         with open(badsyntax, 'w') as f:
             f.write("invalid python syntax = $1\n")
-        result = run_pydoc('zqwykjv', '-k', PYTHONPATH=TESTFN)
-        self.assertEqual('', result)
+        with self.restrict_walk_packages(path=[TESTFN]):
+            with captured_stdout() as out:
+                with captured_stderr() as err:
+                    pydoc.apropos('xyzzy')
+            # No result, no error
+            self.assertEqual(out.getvalue(), '')
+            self.assertEqual(err.getvalue(), '')
+            # The package name is still matched
+            with captured_stdout() as out:
+                with captured_stderr() as err:
+                    pydoc.apropos('syntaxerr')
+            self.assertEqual(out.getvalue().strip(), 'syntaxerr')
+            self.assertEqual(err.getvalue(), '')
 
     def test_apropos_with_unreadable_dir(self):
         # Issue 7367 - pydoc -k failed when unreadable dir on path
@@ -322,8 +383,13 @@ class PydocImportTest(unittest.TestCase):
         self.addCleanup(os.rmdir, self.unreadable_dir)
         # Note, on Windows the directory appears to be still
         #   readable so this is not really testing the issue there
-        result = run_pydoc('zqwykjv', '-k', PYTHONPATH=TESTFN)
-        self.assertEqual('', result)
+        with self.restrict_walk_packages(path=[TESTFN]):
+            with captured_stdout() as out:
+                with captured_stderr() as err:
+                    pydoc.apropos('SOMEKEY')
+        # No result, no error
+        self.assertEqual(out.getvalue(), '')
+        self.assertEqual(err.getvalue(), '')
 
 
 class TestDescriptions(unittest.TestCase):
@@ -386,7 +452,7 @@ class TestHelper(unittest.TestCase):
 
 def test_main():
     try:
-        test.test_support.run_unittest(PyDocDocTest,
+        test.test_support.run_unittest(PydocDocTest,
                                        PydocImportTest,
                                        TestDescriptions,
                                        TestHelper)

@@ -128,27 +128,39 @@ class UUID(object):
         overriding the given 'hex', 'bytes', 'bytes_le', 'fields', or 'int'.
         """
 
-        if [hex, bytes, bytes_le, fields, int].count(None) != 4:
-            raise TypeError('need one of hex, bytes, bytes_le, fields, or int')
         if hex is not None:
+            if (bytes is not None or bytes_le is not None or
+                    fields is not None or int is not None):
+                raise TypeError('if the hex argument is given, bytes,'
+                                ' bytes_le, fields,  and int need to be None')
             hex = hex.replace('urn:', '').replace('uuid:', '')
             hex = hex.strip('{}').replace('-', '')
             if len(hex) != 32:
                 raise ValueError('badly formed hexadecimal UUID string')
             int = int_(hex, 16)
-        if bytes_le is not None:
+        elif bytes_le is not None:
+            if bytes is not None or fields is not None or int is not None:
+                raise TypeError('if the bytes_le argument is given, bytes,'
+                                ' fields, and int need to be None')
             if len(bytes_le) != 16:
                 raise ValueError('bytes_le is not a 16-char string')
             bytes = (bytes_(reversed(bytes_le[0:4])) +
                      bytes_(reversed(bytes_le[4:6])) +
                      bytes_(reversed(bytes_le[6:8])) +
                      bytes_le[8:])
-        if bytes is not None:
+            int = int_.from_bytes(bytes, byteorder='big')
+        elif bytes is not None:
+            if fields is not None or int is not None:
+                raise TypeError('if the bytes argument is given, fields '
+                                'and int need to be None')
             if len(bytes) != 16:
                 raise ValueError('bytes is not a 16-char string')
             assert isinstance(bytes, bytes_), repr(bytes)
-            int = int_(('%02x'*16) % tuple(bytes), 16)
-        if fields is not None:
+            int = int_.from_bytes(bytes, byteorder='big')
+        elif fields is not None:
+            if int is not None:
+                raise TypeError('if the fields argument is given, int needs'
+                                ' to be None')
             if len(fields) != 6:
                 raise ValueError('fields is not a 6-tuple')
             (time_low, time_mid, time_hi_version,
@@ -168,9 +180,12 @@ class UUID(object):
             clock_seq = (clock_seq_hi_variant << 8) | clock_seq_low
             int = ((time_low << 96) | (time_mid << 80) |
                    (time_hi_version << 64) | (clock_seq << 48) | node)
-        if int is not None:
+        elif int is not None:
             if not 0 <= int < 1<<128:
                 raise ValueError('int is out of range (need a 128-bit value)')
+        else:
+            raise TypeError('one of hex, bytes, bytes_le, fields,'
+                            ' or int need to be not None')
         if version is not None:
             if not 1 <= version <= 5:
                 raise ValueError('illegal version number')
@@ -180,7 +195,7 @@ class UUID(object):
             # Set the version number.
             int &= ~(0xf000 << 64)
             int |= version << 76
-        self.__dict__['int'] = int
+        object.__setattr__(self, 'int', int)
 
     def __eq__(self, other):
         if isinstance(other, UUID):

@@ -56,8 +56,16 @@ else:
 
 ASN1_STRING = lltype.Ptr(lltype.ForwardReference())
 ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')
-ASN1_ITEM_EXP = lltype.Ptr(lltype.FuncType([], ASN1_ITEM))
 X509_NAME = rffi.COpaquePtr('X509_NAME')
+
+class CConfigBootstrap:
+    _compilation_info_ = eci
+    OPENSSL_EXPORT_VAR_AS_FUNCTION = rffi_platform.Defined(
+            "OPENSSL_EXPORT_VAR_AS_FUNCTION")
+if rffi_platform.configure(CConfigBootstrap)["OPENSSL_EXPORT_VAR_AS_FUNCTION"]:
+    ASN1_ITEM_EXP = lltype.Ptr(lltype.FuncType([], ASN1_ITEM))
+else:
+    ASN1_ITEM_EXP = ASN1_ITEM
 
 class CConfig:
     _compilation_info_ = eci
@@ -97,6 +105,14 @@ class CConfig:
 
     NID_subject_alt_name = rffi_platform.ConstantInteger("NID_subject_alt_name")
     GEN_DIRNAME = rffi_platform.ConstantInteger("GEN_DIRNAME")
+    GEN_EMAIL = rffi_platform.ConstantInteger("GEN_EMAIL")
+    GEN_DNS = rffi_platform.ConstantInteger("GEN_DNS")
+    GEN_URI = rffi_platform.ConstantInteger("GEN_URI")
+    GEN_OTHERNAME = rffi_platform.ConstantInteger("GEN_OTHERNAME")
+    GEN_X400 = rffi_platform.ConstantInteger("GEN_X400")
+    GEN_EDIPARTY = rffi_platform.ConstantInteger("GEN_EDIPARTY")
+    GEN_IPADD = rffi_platform.ConstantInteger("GEN_IPADD")
+    GEN_RID = rffi_platform.ConstantInteger("GEN_RID")
 
     CRYPTO_LOCK = rffi_platform.ConstantInteger("CRYPTO_LOCK")
 
@@ -120,16 +136,13 @@ class CConfig:
          ('d2i', lltype.Ptr(X509V3_EXT_D2I))])
     GENERAL_NAME_st = rffi_platform.Struct(
         'struct GENERAL_NAME_st',
-        [('type', rffi.INT),
-         ])
+        [('type', rffi.INT)])
     EVP_MD_st = rffi_platform.Struct(
         'EVP_MD',
         [('md_size', rffi.INT),
          ('block_size', rffi.INT)])
     EVP_MD_SIZE = rffi_platform.SizeOf('EVP_MD')
     EVP_MD_CTX_SIZE = rffi_platform.SizeOf('EVP_MD_CTX')
-    OPENSSL_EXPORT_VAR_AS_FUNCTION = rffi_platform.Defined(
-                                             "OPENSSL_EXPORT_VAR_AS_FUNCTION")
 
     OBJ_NAME_st = rffi_platform.Struct(
         'OBJ_NAME',
@@ -242,7 +255,7 @@ ssl_external('X509_NAME_get_entry', [X509_NAME, rffi.INT], X509_NAME_ENTRY)
 ssl_external('X509_NAME_ENTRY_get_object', [X509_NAME_ENTRY], ASN1_OBJECT)
 ssl_external('X509_NAME_ENTRY_get_data', [X509_NAME_ENTRY], ASN1_STRING)
 ssl_external('i2d_X509', [X509, rffi.CCHARPP], rffi.INT)
-ssl_external('X509_free', [X509], lltype.Void, threadsafe=False)
+ssl_external('X509_free', [X509], lltype.Void, releasegil=False)
 ssl_external('X509_get_notBefore', [X509], ASN1_TIME, macro=True)
 ssl_external('X509_get_notAfter', [X509], ASN1_TIME, macro=True)
 ssl_external('X509_get_serialNumber', [X509], ASN1_INTEGER)
@@ -254,15 +267,14 @@ ssl_external('X509V3_EXT_get', [X509_EXTENSION], X509V3_EXT_METHOD)
 
 ssl_external('OBJ_obj2txt',
              [rffi.CCHARP, rffi.INT, ASN1_OBJECT, rffi.INT], rffi.INT)
+ssl_external('ASN1_STRING_data', [ASN1_STRING], rffi.CCHARP)
+ssl_external('ASN1_STRING_length', [ASN1_STRING], rffi.INT)
 ssl_external('ASN1_STRING_to_UTF8', [rffi.CCHARPP, ASN1_STRING], rffi.INT)
 ssl_external('ASN1_TIME_print', [BIO, ASN1_TIME], rffi.INT)
 ssl_external('i2a_ASN1_INTEGER', [BIO, ASN1_INTEGER], rffi.INT)
 ssl_external('ASN1_item_d2i',
              [rffi.VOIDP, rffi.CCHARPP, rffi.LONG, ASN1_ITEM], rffi.VOIDP)
-if OPENSSL_EXPORT_VAR_AS_FUNCTION:
-    ssl_external('ASN1_ITEM_ptr', [ASN1_ITEM_EXP], ASN1_ITEM, macro=True)
-else:
-    ssl_external('ASN1_ITEM_ptr', [rffi.VOIDP], ASN1_ITEM, macro=True)
+ssl_external('ASN1_ITEM_ptr', [ASN1_ITEM_EXP], ASN1_ITEM, macro=True)
 
 ssl_external('sk_GENERAL_NAME_num', [GENERAL_NAMES], rffi.INT,
              macro=True)
@@ -282,10 +294,10 @@ ssl_external('ERR_peek_last_error', [], rffi.INT)
 ssl_external('ERR_error_string', [rffi.ULONG, rffi.CCHARP], rffi.CCHARP)
 ssl_external('ERR_clear_error', [], lltype.Void)
 
-# 'threadsafe=False' here indicates that this function will be called
+# 'releasegil=False' here indicates that this function will be called
 # with the GIL held, and so is allowed to run in a RPython __del__ method.
-ssl_external('SSL_free', [SSL], lltype.Void, threadsafe=False)
-ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void, threadsafe=False)
+ssl_external('SSL_free', [SSL], lltype.Void, releasegil=False)
+ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void, releasegil=False)
 ssl_external('CRYPTO_free', [rffi.VOIDP], lltype.Void)
 libssl_OPENSSL_free = libssl_CRYPTO_free
 
@@ -325,7 +337,7 @@ EVP_DigestFinal = external(
 EVP_MD_CTX_copy = external(
     'EVP_MD_CTX_copy', [EVP_MD_CTX, EVP_MD_CTX], rffi.INT)
 EVP_MD_CTX_cleanup = external(
-    'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT, threadsafe=False)
+    'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT, releasegil=False)
 
 OBJ_NAME_CALLBACK = lltype.Ptr(lltype.FuncType(
         [OBJ_NAME, rffi.VOIDP], lltype.Void))

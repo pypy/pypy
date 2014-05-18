@@ -72,7 +72,6 @@ class GILTests(test_rthread.AbstractGCTestClass):
             state.datalen4 = 0
             state.threadlocals = gil.GILThreadLocals()
             state.threadlocals.setup_threads(space)
-            thread.gc_thread_prepare()
             subident = thread.start_new_thread(bootstrap, ())
             mainident = thread.get_ident()
             runme(True)

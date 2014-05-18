@@ -1,14 +1,9 @@
 from pypy.objspace.std.setobject import W_SetObject
-from pypy.objspace.std.setobject import (IntegerSetStrategy, ObjectSetStrategy,
-                                         EmptySetStrategy, StringSetStrategy,
-                                         UnicodeSetStrategy,
-                                         IntegerIteratorImplementation,
-                                         StringIteratorImplementation,
-                                         UnicodeIteratorImplementation)
+from pypy.objspace.std.setobject import (
+    BytesIteratorImplementation, BytesSetStrategy, EmptySetStrategy,
+    IntegerIteratorImplementation, IntegerSetStrategy, ObjectSetStrategy,
+    UnicodeIteratorImplementation, UnicodeSetStrategy)
 from pypy.objspace.std.listobject import W_ListObject
-
-import py
-py.test.py3k_skip("XXX: strategies are currently broken")
 
 class TestW_SetStrategies:
 
@@ -33,7 +28,7 @@ class TestW_SetStrategies:
         assert s.strategy is self.space.fromcache(EmptySetStrategy)
 
         s = W_SetObject(self.space, self.wrapped(["a", "b"], bytes=True))
-        assert s.strategy is self.space.fromcache(StringSetStrategy)
+        assert s.strategy is self.space.fromcache(BytesSetStrategy)
 
         s = W_SetObject(self.space, self.wrapped([u"a", u"b"]))
         assert s.strategy is self.space.fromcache(UnicodeSetStrategy)
@@ -133,7 +128,7 @@ class TestW_SetStrategies:
         #
         s = W_SetObject(space, self.wrapped(["a", "b"], bytes=True))
         it = s.iter()
-        assert isinstance(it, StringIteratorImplementation)
+        assert isinstance(it, BytesIteratorImplementation)
         assert space.unwrap(it.next()) == "a"
         assert space.unwrap(it.next()) == "b"
         #
@@ -149,7 +144,7 @@ class TestW_SetStrategies:
         assert sorted(space.listview_int(s)) == [1, 2]
         #
         s = W_SetObject(space, self.wrapped(["a", "b"], bytes=True))
-        assert sorted(space.listview_str(s)) == ["a", "b"]
+        assert sorted(space.listview_bytes(s)) == ["a", "b"]
         #
         s = W_SetObject(space, self.wrapped([u"a", u"b"]))
         assert sorted(space.listview_unicode(s)) == [u"a", u"b"]

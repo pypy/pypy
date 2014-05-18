@@ -1,4 +1,4 @@
-from test.support import run_unittest, TESTFN
+from test.support import run_unittest, TESTFN, impl_detail
 import unittest
 import os
 
@@ -41,6 +41,7 @@ class SunAUTest(unittest.TestCase):
         self.assertEqual(self.f.readframes(nframes), output)
         self.f.close()
 
+    @impl_detail(pypy=False)
     def test_ulaw(self):
         self.f = sunau.open(TESTFN, 'w')
         self.f.setnchannels(nchannels)

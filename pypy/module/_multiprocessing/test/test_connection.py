@@ -8,7 +8,13 @@ class TestImport:
         from pypy.module._multiprocessing import interp_semaphore
 
 class AppTestBufferTooShort:
-    spaceconfig = dict(usemodules=['_multiprocessing', 'thread', 'signal'])
+    spaceconfig = {'usemodules': ['_multiprocessing', 'thread', 'signal',
+                                  'select', 'struct', 'binascii']}
+    if sys.platform == 'win32':
+        spaceconfig['usemodules'].append('_rawffi')
+    else:
+        spaceconfig['usemodules'].append('fcntl')
+
 
     def setup_class(cls):
         if cls.runappdirect:
@@ -73,6 +79,8 @@ class AppTestWinpipeConnection(BaseConnectionTest):
             'itertools', '_socket', 'binascii',
         ]
     }
+    if sys.platform == 'win32':
+        spaceconfig['usemodules'].append('_rawffi')
 
     def setup_class(cls):
         if sys.platform != "win32":
@@ -84,7 +92,6 @@ class AppTestWinpipeConnection(BaseConnectionTest):
             # just for multiprocessing to import correctly on Windows
             w_modules = space.sys.get('modules')
             space.setitem(w_modules, space.wrap('msvcrt'), space.sys)
-            space.setitem(w_modules, space.wrap('_subprocess'), space.sys)
         else:
             import _multiprocessing
 
@@ -98,9 +105,12 @@ class AppTestSocketConnection(BaseConnectionTest):
     spaceconfig = {
         "usemodules": [
             '_multiprocessing', 'thread', 'signal', 'struct', 'array',
-            '_socket', 'binascii',
-        ]
+            '_socket', 'binascii', 'select' ]
     }
+    if sys.platform == 'win32':
+        spaceconfig['usemodules'].append('_rawffi')
+    else:
+        spaceconfig['usemodules'].append('fcntl')
 
     def setup_class(cls):
         cls.w_connections = cls.space.newlist([])

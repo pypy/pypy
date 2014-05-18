@@ -31,6 +31,12 @@ class LenBound(object):
     def clone(self):
         return LenBound(self.mode, self.descr, self.bound.clone())
 
+    def generalization_of(self, other):
+        return (other is not None and
+                self.mode == other.mode and
+                self.descr == other.descr and
+                self.bound.contains_bound(other.bound))
+
 class OptValue(object):
     __metaclass__ = extendabletype
     _attrs_ = ('box', 'known_class', 'last_guard', 'level', 'intbound', 'lenbound')
@@ -129,13 +135,21 @@ class OptValue(object):
     def force_at_end_of_preamble(self, already_forced, optforce):
         return self
 
-    def get_args_for_fail(self, modifier):
+    # visitor API
+
+    def visitor_walk_recursive(self, visitor):
         pass
 
-    def make_virtual_info(self, modifier, fieldnums):
-        #raise NotImplementedError # should not be called on this level
-        assert fieldnums is None
-        return modifier.make_not_virtual(self)
+    @specialize.argtype(1)
+    def visitor_dispatch_virtual_type(self, visitor):
+        if self.is_virtual():
+            return self._visitor_dispatch_virtual_type(visitor)
+        else:
+            return visitor.visit_not_virtual(self)
+
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
+        assert 0, "unreachable"
 
     def is_constant(self):
         return self.level == LEVEL_CONSTANT
@@ -323,10 +337,6 @@ class Optimization(object):
     def force_at_end_of_preamble(self):
         pass
 
-    # It is too late to force stuff here, it must be done in force_at_end_of_preamble
-    def new(self):
-        raise NotImplementedError
-
     # Called after last operation has been propagated to flush out any posponed ops
     def flush(self):
         pass
@@ -336,6 +346,21 @@ class Optimization(object):
 
     def forget_numberings(self, box):
         self.optimizer.forget_numberings(box)
+
+    def _can_optimize_call_pure(self, op):
+        arg_consts = []
+        for i in range(op.numargs()):
+            arg = op.getarg(i)
+            const = self.optimizer.get_constant_box(arg)
+            if const is None:
+                return None
+            arg_consts.append(const)
+        else:
+            # all constant arguments: check if we already know the result
+            try:
+                return self.optimizer.call_pure_results[arg_consts]
+            except KeyError:
+                return None
 
 
 class Optimizer(Optimization):
@@ -389,16 +414,6 @@ class Optimizer(Optimization):
     def flush(self):
         for o in self.optimizations:
             o.flush()
-
-    def new(self):
-        new = Optimizer(self.metainterp_sd, self.loop)
-        return self._new(new)
-
-    def _new(self, new):
-        optimizations = [o.new() for o in self.optimizations]
-        new.set_optimizations(optimizations)
-        new.quasi_immutable_deps = self.quasi_immutable_deps
-        return new
 
     def produce_potential_short_preamble_ops(self, sb):
         for opt in self.optimizations:
@@ -584,7 +599,7 @@ class Optimizer(Optimization):
                 raise resume.TagOverflow
         except resume.TagOverflow:
             raise compile.giveup()
-        descr.store_final_boxes(op, newboxes)
+        descr.store_final_boxes(op, newboxes, self.metainterp_sd)
         #
         if op.getopnum() == rop.GUARD_VALUE:
             if self.getvalue(op.getarg(0)) in self.bool_boxes:
@@ -642,13 +657,6 @@ class Optimizer(Optimization):
     def optimize_DEBUG_MERGE_POINT(self, op):
         self.emit_operation(op)
 
-    def optimize_GETARRAYITEM_GC_PURE(self, op):
-        indexvalue = self.getvalue(op.getarg(1))
-        if indexvalue.is_constant():
-            arrayvalue = self.getvalue(op.getarg(0))
-            arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
-        self.optimize_default(op)
-
     def optimize_STRGETITEM(self, op):
         indexvalue = self.getvalue(op.getarg(1))
         if indexvalue.is_constant():
@@ -675,6 +683,3 @@ class Optimizer(Optimization):
 
 dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
         default=Optimizer.optimize_default)
-
-
-

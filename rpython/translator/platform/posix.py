@@ -83,7 +83,8 @@ class BasePosix(Platform):
         return [entry[2:] for entry in out.split()]
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
-                     shared=False):
+                     shared=False, headers_to_precompile=[],
+                     no_precompile_cfiles = []):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -252,6 +253,9 @@ class GnuMakefile(object):
         if fpath.dirpath() == self.makefile_dir:
             return fpath.basename
         elif fpath.dirpath().dirpath() == self.makefile_dir.dirpath():
+            assert fpath.relto(self.makefile_dir.dirpath()), (
+                "%r should be relative to %r" % (
+                    fpath, self.makefile_dir.dirpath()))
             path = '../' + fpath.relto(self.makefile_dir.dirpath())
             return path.replace('\\', '/')
         else:

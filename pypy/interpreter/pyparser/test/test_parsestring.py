@@ -1,10 +1,10 @@
 from pypy.interpreter.pyparser import parsestring
-import py
+import py, sys
 
 class TestParsetring:
-    def parse_and_compare(self, literal, value):
+    def parse_and_compare(self, literal, value, encoding=None):
         space = self.space
-        w_ret = parsestring.parsestr(space, None, literal)
+        w_ret = parsestring.parsestr(space, encoding, literal)
         if isinstance(value, str):
             assert space.type(w_ret) == space.w_bytes
             assert space.bytes_w(w_ret) == value
@@ -62,6 +62,19 @@ class TestParsetring:
         ret = space.unwrap(w_ret)
         assert ret == eval("# -*- coding: koi8-u -*-\nu'\x81'")
 
+    def test_unicode_pep414(self):
+        space = self.space
+        for s in [u'hello world', u'hello\n world']:
+            self.parse_and_compare(repr(s), unicode(s))
+
+        self.parse_and_compare("u'''hello\\x42 world'''",
+                               u'hello\x42 world')
+        self.parse_and_compare("u'''hello\\u0842 world'''",
+                               u'hello\u0842 world')
+
+        space.raises_w(space.w_ValueError,
+                       parsestring.parsestr, space, None, "ur'foo'")
+
     def test_unicode_literals(self):
         space = self.space
         w_ret = parsestring.parsestr(space, None, repr("hello"))
@@ -105,3 +118,18 @@ class TestParsetring:
         input = ["'", 'x', ' ', chr(0xc3), chr(0xa9), ' ', chr(92), 'n', "'"]
         w_ret = parsestring.parsestr(space, 'utf8', ''.join(input))
         assert space.str_w(w_ret) == ''.join(expected)
+
+    def test_wide_unicode_in_source(self):
+        if sys.maxunicode == 65535:
+            py.test.skip("requires a wide-unicode host")
+        self.parse_and_compare('"\xf0\x9f\x92\x8b"',
+                               unichr(0x1f48b),
+                               encoding='utf-8')
+
+    def test_decode_unicode_utf8(self):
+        buf = parsestring.decode_unicode_utf8(self.space,
+                                              'u"\xf0\x9f\x92\x8b"', 2, 6)
+        if sys.maxunicode == 65535:
+            assert buf == r"\U0000d83d\U0000dc8b"
+        else:
+            assert buf == r"\U0001f48b"

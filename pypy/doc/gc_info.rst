@@ -6,13 +6,24 @@ Garbage collector configuration
 Minimark
 --------
 
-PyPy's default ``minimark`` garbage collector is configurable through
+PyPy's default ``incminimark`` garbage collector is configurable through
 several environment variables:
 
 ``PYPY_GC_NURSERY``
     The nursery size.
     Defaults to 1/2 of your cache or ``4M``.
     Small values (like 1 or 1KB) are useful for debugging.
+
+``PYPY_GC_NURSERY_CLEANUP``
+    The interval at which nursery is cleaned up. Must
+    be smaller than the nursery size and bigger than the
+    biggest object we can allotate in the nursery.
+
+``PYPY_GC_INCREMENT_STEP``
+    The size of memory marked during the marking step.  Default is size of
+    nursery times 2. If you mark it too high your GC is not incremental at
+    all.  The minimum is set to size that survives minor collection times
+    1.5 so we reclaim anything all the time.
 
 ``PYPY_GC_MAJOR_COLLECT``
     Major collection memory factor.

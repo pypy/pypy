@@ -1,25 +1,8 @@
 import sys
-import py
-import py.test
-
-
-## class AppTestSimpleArray:
-##     spaceconfig = dict(usemodules=('array',))
-##     def setup_class(cls):
-##         cls.w_simple_array = cls.space.appexec([], """():
-##             import array
-##             return array.simple_array
-##         """)
-
-##     def test_simple(self):
-##         a = self.simple_array(10)
-##         a[5] = 7.42
-##         assert a[5] == 7.42
+import pytest
 
 
 class BaseArrayTests:
-
-
     def test_ctor(self):
         assert len(self.array('i')) == 0
 
@@ -148,6 +131,18 @@ class BaseArrayTests:
             raises(OverflowError, a.append, 2 ** (8 * b))
 
     def test_fromstring(self):
+        a = self.array('b')
+        a.fromstring('Hi!')
+        assert len(a) == 3
+        assert a[0] == ord(b'H') and a[1] == ord(b'i') and a[2] == ord(b'!')
+        a = self.array('b')
+        a.fromstring(memoryview(b'xyz'))
+        assert len(a) == 3
+        assert a[0] == ord(b'x') and a[1] == ord(b'y') and a[2] == ord(b'z')
+        a = self.array('b')
+        a.fromstring('')
+        assert not len(a)
+
         for t in 'bBhHiIlLfd':
             a = self.array(t)
             a.fromstring('\x00' * a.itemsize * 2)
@@ -426,7 +421,6 @@ class BaseArrayTests:
     def test_buffer_write(self):
         a = self.array('b', b'hello')
         buf = memoryview(a)
-        print(repr(buf))
         try:
             buf[3] = b'L'
         except TypeError:
@@ -554,7 +548,6 @@ class BaseArrayTests:
         assert a <= 2*a
         assert not a > 2*a
         assert not a >= 2*a
-
 
     def test_reduce(self):
         import pickle
@@ -703,6 +696,8 @@ class BaseArrayTests:
         for i in a:
             b.append(i)
         assert repr(b) == "array('i', [1, 2, 3])"
+        assert hasattr(b, '__iter__')
+        assert next(b.__iter__()) == 1
 
     def test_lying_iterable(self):
         class lier(object):
@@ -789,7 +784,6 @@ class BaseArrayTests:
 
         assert img[3, 25] == 3 * 9
 
-
     def test_override_from(self):
         class mya(self.array):
             def fromlist(self, lst):
@@ -872,41 +866,41 @@ class BaseArrayTests:
 
     def test_assign_object_with_special_methods(self):
         from array import array
-        
+
         class Num(object):
             def __float__(self):
                 return 5.25
-                
+
             def __int__(self):
                 return 7
-                
+
         class NotNum(object):
             pass
-        
+
         class Silly(object):
             def __float__(self):
                 return None
-                
+
             def __int__(self):
-                return None         
+                return None
 
         class OldNum:
             def __float__(self):
                 return 6.25
-                
+
             def __int__(self):
                 return 8
-                
+
         class OldNotNum:
             pass
-        
+
         class OldSilly:
             def __float__(self):
                 return None
-                
+
             def __int__(self):
                 return None
-                
+
         for tc in 'bBhHiIlL':
             a = array(tc, [0])
             raises(TypeError, a.__setitem__, 0, 1.0)
@@ -924,7 +918,7 @@ class BaseArrayTests:
             a = array(tc, [0])
             a[0] = 1.0
             a[0] = 1
-            a[0] = Num()        
+            a[0] = Num()
             assert a[0] == 5.25
             raises(TypeError, a.__setitem__, NotNum())
             a[0] = OldNum()
@@ -932,11 +926,15 @@ class BaseArrayTests:
             raises(TypeError, a.__setitem__, OldNotNum())
             raises(TypeError, a.__setitem__, Silly())
             raises(TypeError, a.__setitem__, OldSilly())
-            
+
         a = array('u', 'hi')
         a[0] = 'b'
         assert a[0] == 'b'
-        
+
+        a = array('u', u'hi')
+        a[0] = u'b'
+        assert a[0] == u'b'
+
     def test_bytearray(self):
         a = self.array('u', 'hi')
         b = self.array('u')
@@ -950,15 +948,13 @@ class BaseArrayTests:
         assert repr(a) == "array('u', {!r})".format(s)
         assert eval(repr(a), {'array': self.array}) == a
 
-
 class DontTestCPythonsOwnArray(BaseArrayTests):
-
     def setup_class(cls):
         import array
         cls.array = array.array
         import struct
         cls.struct = struct
-        cls.tempfile = str(py.test.ensuretemp('array').join('tmpfile'))
+        cls.tempfile = str(pytest.ensuretemp('array').join('tmpfile'))
         cls.maxint = sys.maxint
 
 
@@ -971,7 +967,7 @@ class AppTestArray(BaseArrayTests):
             return array.array
         """)
         cls.w_tempfile = cls.space.wrap(
-            str(py.test.ensuretemp('array').join('tmpfile')))
+            str(pytest.ensuretemp('array').join('tmpfile')))
         cls.w_maxint = cls.space.wrap(sys.maxint)
 
     def test_buffer_info(self):
@@ -1035,6 +1031,18 @@ class AppTestArray(BaseArrayTests):
         b = a * 13
         assert len(b) == 13
         assert str(b[12]) == "-0.0"
+
+    def test_getitem_only_ints(self):
+        class MyInt(object):
+            def __init__(self, x):
+                self.x = x
+
+            def __int__(self):
+                return self.x
+
+        a = self.array('i', [1, 2, 3, 4, 5, 6])
+        raises(TypeError, "a[MyInt(0)]")
+        raises(TypeError, "a[MyInt(0):MyInt(5)]")
 
 
 class AppTestArrayBuiltinShortcut(AppTestArray):
@@ -1168,3 +1176,9 @@ class AppTestArrayReconstructor:
             b = array_reconstructor(
                 array.array, 'u', mformat_code, teststr.encode(encoding))
             assert a == b
+
+    def test_iterate_iterator(self):
+        import array
+        it = iter(array.array('b'))
+        assert list(it) == []
+        assert list(iter(it)) == []

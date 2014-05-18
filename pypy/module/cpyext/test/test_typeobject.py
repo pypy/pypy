@@ -33,7 +33,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert "copy" in repr(module.fooType.copy)
         assert repr(module.fooType) == "<class 'foo.foo'>"
         assert repr(obj2) == "<Foo>"
-        assert repr(module.fooType.__call__) == "<slot wrapper '__call__' of 'foo' objects>"
+        assert repr(module.fooType.__call__) == "<slot wrapper '__call__' of 'foo.foo' objects>"
         assert obj2(foo=1, bar=2) == dict(foo=1, bar=2)
 
         print(obj.foo)
@@ -156,7 +156,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
             def __init__(self):
                 self.foobar = 32
                 super(UnicodeSubclass2, self).__init__()
-        
+
         newobj = UnicodeSubclass2()
         assert newobj.get_val() == 42
         assert newobj.foobar == 32
@@ -180,12 +180,16 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         del x, y
 
     def test_sre(self):
+        import sys
+        for m in ['_sre', 'sre_compile', 'sre_constants', 'sre_parse', 're']:
+            # clear out these modules
+            try:
+                del sys.modules[m]
+            except KeyError:
+                pass
         module = self.import_module(name='_sre')
-        import sre_compile
-        sre_compile._sre = module
-        assert sre_compile.MAGIC == module.MAGIC
         import re
-        import time
+        assert re.sre_compile._sre is module
         s = "Foo " * 1000 + "Bar"
         prog = re.compile(r"Foo.*Bar")
         assert prog.match(s)
@@ -349,6 +353,13 @@ class TestTypes(BaseApiTest):
         w_obj = api._PyType_Lookup(w_type, space.wrap("__invalid"))
         assert w_obj is None
         assert api.PyErr_Occurred() is None
+
+    def test_ndarray_ref(self, space, api):
+        w_obj = space.appexec([], """():
+            import _numpypy
+            return _numpypy.multiarray.dtype('int64').type(2)""")
+        ref = make_ref(space, w_obj)
+        api.Py_DecRef(ref)
 
 class AppTestSlots(AppTestCpythonExtensionBase):
     def test_some_slots(self):
@@ -517,7 +528,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert type(it) is type(iter([]))
         assert module.tp_iternext(it) == 1
         raises(StopIteration, module.tp_iternext, it)
-        
+
     def test_bool(self):
         module = self.import_extension('foo', [
             ("newInt", "METH_VARARGS",
@@ -569,3 +580,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert bool(module.newInt(1))
         assert bool(module.newInt(-1))
         raises(ValueError, bool, module.newInt(-42))
+
+    def test_tp_new_in_subclass_of_type(self):
+        skip("BROKEN")
+        module = self.import_module(name='foo3')
+        print('calling module.Type()...')
+        module.Type("X", (object,), {})

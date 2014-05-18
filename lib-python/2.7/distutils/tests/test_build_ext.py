@@ -77,8 +77,9 @@ class BuildExtTestCase(support.TempdirManager,
         self.assertEqual(xx.foo(2, 5), 7)
         self.assertEqual(xx.foo(13,15), 28)
         self.assertEqual(xx.new().demo(), None)
-        doc = 'This is a template module just for instruction.'
-        self.assertEqual(xx.__doc__, doc)
+        if test_support.HAVE_DOCSTRINGS:
+            doc = 'This is a template module just for instruction.'
+            self.assertEqual(xx.__doc__, doc)
         self.assertTrue(isinstance(xx.Null(), xx.Null))
         self.assertTrue(isinstance(xx.Str(), xx.Str))
 
@@ -288,7 +289,7 @@ class BuildExtTestCase(support.TempdirManager,
         finally:
             os.chdir(old_wd)
         self.assertTrue(os.path.exists(so_file))
-        self.assertEqual(so_file[so_file.index(os.path.extsep):],
+        self.assertEqual(os.path.splitext(so_file)[-1],
                          sysconfig.get_config_var('SO'))
         so_dir = os.path.dirname(so_file)
         self.assertEqual(so_dir, other_tmp_dir)
@@ -297,7 +298,7 @@ class BuildExtTestCase(support.TempdirManager,
         cmd.run()
         so_file = cmd.get_outputs()[0]
         self.assertTrue(os.path.exists(so_file))
-        self.assertEqual(so_file[so_file.index(os.path.extsep):],
+        self.assertEqual(os.path.splitext(so_file)[-1],
                          sysconfig.get_config_var('SO'))
         so_dir = os.path.dirname(so_file)
         self.assertEqual(so_dir, cmd.build_lib)

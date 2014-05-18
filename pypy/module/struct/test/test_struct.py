@@ -2,7 +2,6 @@
 Tests for the struct module implemented at interp-level in pypy/module/struct.
 """
 
-import py
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
 
 
@@ -20,13 +19,15 @@ class AppTestStruct(object):
         """)
         cls.w_native_is_bigendian = cls.space.wrap(native_is_bigendian)
 
-
     def test_error(self):
         """
         struct.error should be an exception class.
         """
         assert issubclass(self.struct.error, Exception)
-
+        assert self.struct.error.__mro__ == (self.struct.error, Exception,
+                                             BaseException, object)
+        assert self.struct.error.__name__ == "error"
+        assert self.struct.error.__module__ == "struct"
 
     def test_calcsize_standard(self):
         """
@@ -53,13 +54,11 @@ class AppTestStruct(object):
         # test with some repetitions and multiple format characters
         assert calcsize('=bQ3i') == 1 + 8 + 3*4
 
-
     def test_index(self):
         class X(object):
             def __index__(self):
                 return 3
         assert self.struct.unpack("i", self.struct.pack("i", X()))[0] == 3
-
 
     def test_pack_standard_little(self):
         """
@@ -74,7 +73,6 @@ class AppTestStruct(object):
         assert pack("<q", -0x41B2B3B4B5B6B7B8) == b'HHIJKLM\xbe'
         assert pack("<Q", 0x8142434445464748) == b'HGFEDCB\x81'
 
-
     def test_unpack_standard_little(self):
         """
         Check unpacking with the '<' format specifier.
@@ -87,7 +85,6 @@ class AppTestStruct(object):
         assert unpack("<q", b'HGFEDCBA') == (0x4142434445464748,)
         assert unpack("<q", b'HHIJKLM\xbe') == (-0x41B2B3B4B5B6B7B8,)
         assert unpack("<Q", b'HGFEDCB\x81') == (0x8142434445464748,)
-
 
     def test_pack_standard_big(self):
         """
@@ -102,7 +99,6 @@ class AppTestStruct(object):
         assert pack(">q", -0x41B2B3B4B5B6B7B8) == b'\xbeMLKJIHH'
         assert pack(">Q", 0x8142434445464748) == b'\x81BCDEFGH'
 
-
     def test_unpack_standard_big(self):
         """
         Check unpacking with the '>' format specifier.
@@ -115,7 +111,6 @@ class AppTestStruct(object):
         assert unpack(">q", b'ABCDEFGH') == (0x4142434445464748,)
         assert unpack(">q", b'\xbeMLKJIHH') == (-0x41B2B3B4B5B6B7B8,)
         assert unpack(">Q", b'\x81BCDEFGH') == (0x8142434445464748,)
-
 
     def test_calcsize_native(self):
         """
@@ -146,7 +141,6 @@ class AppTestStruct(object):
         assert calcsize('ibb') == calcsize('i') + 2 * calcsize('b')
         assert calcsize('ih') == calcsize('i') + calcsize('h')
 
-
     def test_pack_native(self):
         """
         Check packing with the native format.
@@ -164,7 +158,6 @@ class AppTestStruct(object):
             assert res[sizeofi:] == b'\x05' + b'\x00' * (sizeofi-1)
         assert pack("q", -1) == b'\xff' * calcsize("q")
 
-
     def test_unpack_native(self):
         """
         Check unpacking with the native format.
@@ -174,7 +167,6 @@ class AppTestStruct(object):
         unpack = self.struct.unpack
         assert unpack("bi", pack("bi", -2, 5)) == (-2, 5)
         assert unpack("q", b'\xff' * calcsize("q")) == (-1,)
-
 
     def test_string_format(self):
         """
@@ -189,7 +181,6 @@ class AppTestStruct(object):
         assert unpack("7s", b"hello\x00\x00") == (b"hello\x00\x00",)
         assert unpack("5s3s", b"worldspa") == (b"world", b"spa")
         assert unpack("0s", b"") == (b"",)
-
 
     def test_pascal_format(self):
         """
@@ -210,7 +201,6 @@ class AppTestStruct(object):
         assert unpack("1p", b"\x03") == (b"",)
         assert unpack("300p", longpacked300) == (longstring[:255],)
 
-
     def test_char_format(self):
         """
         Check the 'c' format character.
@@ -222,7 +212,6 @@ class AppTestStruct(object):
         assert unpack("c", b"?") == (b"?",)
         assert unpack("5c", b"a\xc0\x00\n-") == (b"a", b"\xc0", b"\x00", b"\n", b"-")
 
-
     def test_pad_format(self):
         """
         Check the 'x' format character.
@@ -233,7 +222,6 @@ class AppTestStruct(object):
         assert pack("5x") == b"\x00" * 5
         assert unpack("x", b"?") == ()
         assert unpack("5x", b"hello") == ()
-
 
     def test_native_floats(self):
         """
@@ -250,7 +238,6 @@ class AppTestStruct(object):
         res, = unpack("f", data)
         assert res != 12.34                      # precision lost
         assert abs(res - 12.34) < 1E-6
-
 
     def test_standard_floats(self):
         """
@@ -270,7 +257,6 @@ class AppTestStruct(object):
 
     def test_bool(self):
         pack = self.struct.pack
-        unpack = self.struct.unpack
         assert pack("!?", True) == b'\x01'
         assert pack(">?", True) == b'\x01'
         assert pack("!?", False) == b'\x00'
@@ -333,15 +319,12 @@ class AppTestStruct(object):
         raises(error, pack, "b", 150)   # argument out of range
         # XXX the accepted ranges still differs between PyPy and CPython
 
-
     def test_overflow_error(self):
         """
         Check OverflowError cases.
         """
         import sys
         calcsize = self.struct.calcsize
-        pack = self.struct.pack
-        unpack = self.struct.unpack
         someerror = (OverflowError, self.struct.error)
         raises(someerror, calcsize, "%dc" % (sys.maxsize+1,))
         raises(someerror, calcsize, "999999999999999999999999999c")
@@ -349,7 +332,6 @@ class AppTestStruct(object):
         raises(someerror, calcsize, "%dcc" % (sys.maxsize,))
         raises(someerror, calcsize, "c%dc" % (sys.maxsize,))
         raises(someerror, calcsize, "%dci" % (sys.maxsize,))
-
 
     def test_unicode(self):
         """
@@ -366,7 +348,6 @@ class AppTestStruct(object):
         assert data == b'X\x00\x00\x00Y\x00\x00\x00Z\x00\x00\x00'
         assert self.struct.unpack("uuu", data) == ('X', 'Y', 'Z')
 
-
     def test_unpack_memoryview(self):
         """
         memoryview objects can be passed to struct.unpack().
@@ -374,6 +355,55 @@ class AppTestStruct(object):
         b = memoryview(self.struct.pack("ii", 62, 12))
         assert self.struct.unpack("ii", b) == (62, 12)
         raises(self.struct.error, self.struct.unpack, "i", b)
+
+    def test_pack_unpack_buffer(self):
+        import array
+        b = array.array('b', b'\x00' * 19)
+        sz = self.struct.calcsize("ii")
+        for offset in [2, -17]:
+            self.struct.pack_into("ii", b, offset, 17, 42)
+            assert bytes(memoryview(b)) == (b'\x00' * 2 +
+                                            self.struct.pack("ii", 17, 42) +
+                                            b'\x00' * (19-sz-2))
+        b2 = array.array('b', b'\x00' * 19)
+        self.struct.pack_into("ii", memoryview(b2), 0, 17, 42)
+        assert bytes(b2) == self.struct.pack("ii", 17, 42) + (b'\x00' * 11)
+
+        exc = raises(TypeError, self.struct.pack_into, "ii", 'test', 0, 17, 42)
+        assert str(exc.value) == "expected an object with a writable buffer interface"
+        exc = raises(self.struct.error, self.struct.pack_into, "ii", b[0:1], 0, 17, 42)
+        assert str(exc.value) == "pack_into requires a buffer of at least 8 bytes"
+
+        assert self.struct.unpack_from("ii", b, 2) == (17, 42)
+        assert self.struct.unpack_from("ii", b, -17) == (17, 42)
+        assert self.struct.unpack_from("ii", memoryview(b)[2:]) == (17, 42)
+        assert self.struct.unpack_from("ii", memoryview(b), 2) == (17, 42)
+        exc = raises(TypeError, self.struct.unpack_from, "ii", 123)
+        assert str(exc.value) == "'int' does not support the buffer interface"
+        exc = raises(TypeError, self.struct.unpack_from, "ii", None)
+        assert str(exc.value) == "'NoneType' does not support the buffer interface"
+        exc = raises(self.struct.error, self.struct.unpack_from, "ii", b'')
+        assert str(exc.value) == "unpack_from requires a buffer of at least 8 bytes"
+        exc = raises(self.struct.error, self.struct.unpack_from, "ii", memoryview(b''))
+        assert str(exc.value) == "unpack_from requires a buffer of at least 8 bytes"
+
+    def test___float__(self):
+        class MyFloat(object):
+            def __init__(self, x):
+                self.x = x
+            def __float__(self):
+                return self.x
+
+        obj = MyFloat(42.3)
+        data = self.struct.pack('d', obj)
+        obj2, = self.struct.unpack('d', data)
+        assert type(obj2) is float
+        assert obj2 == 42.3
+
+    def test_struct_object(self):
+        s = self.struct.Struct('i')
+        assert s.unpack(s.pack(42)) == (42,)
+        assert s.unpack_from(memoryview(s.pack(42))) == (42,)
 
     def test_trailing_counter(self):
         import array
@@ -450,6 +480,7 @@ class AppTestStruct(object):
                     continue
                 format = byteorder+code
                 t = run_not_int_test(format)
+
 
 class AppTestStructBuffer(object):
     spaceconfig = dict(usemodules=['struct', '__pypy__'])

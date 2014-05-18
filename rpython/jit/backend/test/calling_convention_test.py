@@ -105,7 +105,7 @@ class CallingConvTests(Runner):
 
             loop = parse(ops, namespace=locals())
             looptoken = JitCellToken()
-            self.cpu.compile_loop(None, loop.inputargs, loop.operations, looptoken)
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
             argvals, expected_result = self._prepare_args(args, floats, ints)
 
             deadframe = self.cpu.execute_token(looptoken, *argvals)
@@ -249,7 +249,7 @@ class CallingConvTests(Runner):
             called_looptoken = JitCellToken()
             called_looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
             done_descr = called_loop.operations[-1].getdescr()
-            self.cpu.compile_loop(None, called_loop.inputargs, called_loop.operations, called_looptoken)
+            self.cpu.compile_loop(called_loop.inputargs, called_loop.operations, called_looptoken)
 
             argvals, expected_result = self._prepare_args(args, floats, ints)
             deadframe = cpu.execute_token(called_looptoken, *argvals)
@@ -278,7 +278,7 @@ class CallingConvTests(Runner):
             self.cpu.done_with_this_frame_descr_float = done_descr
             try:
                 othertoken = JitCellToken()
-                self.cpu.compile_loop(None, loop.inputargs, loop.operations, othertoken)
+                self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
 
                 # prepare call to called_loop
                 argvals, _ = self._prepare_args(args, floats, ints)
@@ -424,7 +424,7 @@ class CallingConvTests(Runner):
 
             loop = parse(ops, namespace=locals())
             looptoken = JitCellToken()
-            self.cpu.compile_loop(None, loop.inputargs, loop.operations, looptoken)
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
             argvals, expected_result = self._prepare_args(args, floats, ints)
 
             deadframe = self.cpu.execute_token(looptoken, *argvals)

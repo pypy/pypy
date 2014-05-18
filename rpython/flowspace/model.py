@@ -8,7 +8,6 @@ import py
 
 from rpython.tool.uid import uid, Hashable
 from rpython.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
-from rpython.rlib.rarithmetic import is_valid_int, r_longlong, r_ulonglong, r_uint
 
 
 """
@@ -36,17 +35,17 @@ __metaclass__ = type
 
 class FunctionGraph(object):
     def __init__(self, name, startblock, return_var=None):
-        self.name        = name    # function name (possibly mangled already)
-        self.startblock  = startblock
+        self.name = name  # function name (possibly mangled already)
+        self.startblock = startblock
         # build default returnblock
         self.returnblock = Block([return_var or Variable()])
         self.returnblock.operations = ()
-        self.returnblock.exits      = ()
+        self.returnblock.exits = ()
         # block corresponding to exception results
         self.exceptblock = Block([Variable('etype'),   # exception class
                                   Variable('evalue')])  # exception value
         self.exceptblock.operations = ()
-        self.exceptblock.exits      = ()
+        self.exceptblock.exits = ()
         self.tag = None
 
     def getargs(self):
@@ -188,7 +187,7 @@ class Block(object):
         self.operations = []              # list of SpaceOperation(s)
         self.exitswitch = None            # a variable or
                                           #  Constant(last_exception), see below
-        self.exits      = []              # list of Link(s)
+        self.exits = []                   # list of Link(s)
 
     def at(self):
         if self.operations and self.operations[0].offset >= 0:
@@ -253,6 +252,23 @@ class Block(object):
         from rpython.translator.tool.graphpage import try_show
         try_show(self)
 
+    def get_graph(self):
+        import gc
+        pending = [self]   # pending blocks
+        seen = {self: True, None: True}
+        for x in pending:
+            for y in gc.get_referrers(x):
+                if isinstance(y, FunctionGraph):
+                    return y
+                elif isinstance(y, Link):
+                    block = y.prevblock
+                    if block not in seen:
+                        pending.append(block)
+                        seen[block] = True
+                elif isinstance(y, dict):
+                    pending.append(y)   # go back from the dict to the real obj
+        return pending
+
     view = show
 
 
@@ -260,7 +276,7 @@ class Variable(object):
     __slots__ = ["_name", "_nr", "concretetype"]
 
     dummyname = 'v'
-    namesdict = {dummyname : (dummyname, 0)}
+    namesdict = {dummyname: (dummyname, 0)}
 
     @property
     def name(self):
@@ -322,7 +338,7 @@ class Variable(object):
 class Constant(Hashable):
     __slots__ = ["concretetype"]
 
-    def __init__(self, value, concretetype = None):
+    def __init__(self, value, concretetype=None):
         Hashable.__init__(self, value)
         if concretetype is not None:
             self.concretetype = concretetype
@@ -347,6 +363,28 @@ class Constant(Hashable):
             return False
 
 
+class FSException(object):
+    def __init__(self, w_type, w_value):
+        assert w_type is not None
+        self.w_type = w_type
+        self.w_value = w_value
+
+    def __str__(self):
+        return '[%s: %s]' % (self.w_type, self.w_value)
+
+class ConstException(Constant, FSException):
+    def foldable(self):
+        return True
+
+    @property
+    def w_type(self):
+        return Constant(type(self.value))
+
+    @property
+    def w_value(self):
+        return Constant(self.value)
+
+
 class UnwrapException(Exception):
     """Attempted to unwrap a Variable."""
 
@@ -355,12 +393,30 @@ class WrapException(Exception):
     during its construction"""
 
 
+# method-wrappers have not enough introspection in CPython
+if hasattr(complex.real.__get__, 'im_self'):
+    type_with_bad_introspection = None     # on top of PyPy
+else:
+    type_with_bad_introspection = type(complex.real.__get__)
+
+def const(obj):
+    if hasattr(obj, "_flowspace_rewrite_directly_as_"):
+        obj = obj._flowspace_rewrite_directly_as_
+    if isinstance(obj, (Variable, Constant)):
+        raise TypeError("already wrapped: " + repr(obj))
+    # method-wrapper have ill-defined comparison and introspection
+    # to appear in a flow graph
+    if type(obj) is type_with_bad_introspection:
+        raise WrapException
+    elif isinstance(obj, Exception):
+        return ConstException(obj)
+    return Constant(obj)
+
 class SpaceOperation(object):
-    __slots__ = "opname args result offset".split()
 
     def __init__(self, opname, args, result, offset=-1):
         self.opname = intern(opname)      # operation name
-        self.args   = list(args)  # mixed list of var/const
+        self.args = list(args)    # mixed list of var/const
         self.result = result      # either Variable or Constant instance
         self.offset = offset      # offset in code string
 
@@ -374,15 +430,20 @@ class SpaceOperation(object):
         return not (self == other)
 
     def __hash__(self):
-        return hash((self.opname,tuple(self.args),self.result))
+        return hash((self.opname, tuple(self.args), self.result))
 
     def __repr__(self):
         return "%r = %s(%s)" % (self.result, self.opname,
                                 ", ".join(map(repr, self.args)))
 
+    def replace(self, mapping):
+        newargs = [mapping.get(arg, arg) for arg in self.args]
+        newresult = mapping.get(self.result, self.result)
+        return type(self)(self.opname, newargs, newresult, self.offset)
+
 class Atom(object):
     def __init__(self, name):
-        self.__name__ = name # make save_global happy
+        self.__name__ = name  # make save_global happy
     def __repr__(self):
         return self.__name__
 
@@ -409,7 +470,8 @@ def flattenobj(*args):
         try:
             for atom in flattenobj(*arg):
                 yield atom
-        except: yield arg
+        except:
+            yield arg
 
 def mkentrymap(funcgraph):
     "Returns a dict mapping Blocks to lists of Links."
@@ -489,7 +551,8 @@ def checkgraph(graph):
     if not __debug__:
         return
     try:
-
+        from rpython.rlib.rarithmetic import (is_valid_int, r_longlong,
+            r_ulonglong, r_uint)
         vars_previous_blocks = {}
 
         exitblocks = {graph.returnblock: 1,   # retval

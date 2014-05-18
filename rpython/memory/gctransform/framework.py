@@ -1,4 +1,5 @@
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomeAddress, SomePtr
 from rpython.rlib import rgc
 from rpython.rtyper import rmodel, annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
@@ -142,8 +143,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         if hasattr(translator, '_jit2gc'):
             self.layoutbuilder = translator._jit2gc['layoutbuilder']
+            finished_minor_collection = translator._jit2gc.get(
+                'invoke_after_minor_collection', None)
         else:
             self.layoutbuilder = TransformerLayoutBuilder(translator, GCClass)
+            finished_minor_collection = None
         self.layoutbuilder.transformer = self
         self.get_type_id = self.layoutbuilder.get_type_id
 
@@ -167,6 +171,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         gcdata.gc = GCClass(translator.config.translation, **GC_PARAMS)
         root_walker = self.build_root_walker()
+        root_walker.finished_minor_collection_func = finished_minor_collection
         self.root_walker = root_walker
         gcdata.set_query_functions(gcdata.gc)
         gcdata.gc.set_root_walker(root_walker)
@@ -191,21 +196,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
         # the point of this little dance is to not annotate
         # self.gcdata.static_root_xyz as constants. XXX is it still needed??
         data_classdef = bk.getuniqueclassdef(gctypelayout.GCData)
-        data_classdef.generalize_attr(
-            'static_root_start',
-            annmodel.SomeAddress())
-        data_classdef.generalize_attr(
-            'static_root_nongcend',
-            annmodel.SomeAddress())
-        data_classdef.generalize_attr(
-            'static_root_end',
-            annmodel.SomeAddress())
-        data_classdef.generalize_attr(
-            'max_type_id',
-            annmodel.SomeInteger())
-        data_classdef.generalize_attr(
-            'typeids_z',
-            annmodel.SomeAddress())
+        data_classdef.generalize_attr('static_root_start', SomeAddress())
+        data_classdef.generalize_attr('static_root_nongcend', SomeAddress())
+        data_classdef.generalize_attr('static_root_end', SomeAddress())
+        data_classdef.generalize_attr('max_type_id', annmodel.SomeInteger())
+        data_classdef.generalize_attr('typeids_z', SomeAddress())
 
         annhelper = annlowlevel.MixLevelHelperAnnotator(self.translator.rtyper)
 
@@ -273,7 +268,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         from rpython.memory.gc.base import ARRAY_TYPEID_MAP
         from rpython.memory.gc import inspector
 
-        s_gcref = annmodel.SomePtr(llmemory.GCREF)
+        s_gcref = SomePtr(llmemory.GCREF)
         gcdata = self.gcdata
         translator = self.translator
 
@@ -306,20 +301,20 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc, annmodel.SomeInteger()], annmodel.s_None)
         self.can_move_ptr = getfn(GCClass.can_move.im_func,
-                                  [s_gc, annmodel.SomeAddress()],
+                                  [s_gc, SomeAddress()],
                                   annmodel.SomeBool())
 
         if hasattr(GCClass, 'shrink_array'):
             self.shrink_array_ptr = getfn(
                 GCClass.shrink_array.im_func,
-                [s_gc, annmodel.SomeAddress(),
+                [s_gc, SomeAddress(),
                  annmodel.SomeInteger(nonneg=True)], annmodel.s_Bool)
         else:
             self.shrink_array_ptr = None
 
         if hasattr(GCClass, 'heap_stats'):
             self.heap_stats_ptr = getfn(GCClass.heap_stats.im_func,
-                    [s_gc], annmodel.SomePtr(lltype.Ptr(ARRAY_TYPEID_MAP)),
+                    [s_gc], SomePtr(lltype.Ptr(ARRAY_TYPEID_MAP)),
                     minimal_transform=False)
             self.get_member_index_ptr = getfn(
                 GCClass.get_member_index.im_func,
@@ -329,7 +324,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if hasattr(GCClass, 'writebarrier_before_copy'):
             self.wb_before_copy_ptr = \
                     getfn(GCClass.writebarrier_before_copy.im_func,
-                    [s_gc] + [annmodel.SomeAddress()] * 2 +
+                    [s_gc] + [SomeAddress()] * 2 +
                     [annmodel.SomeInteger()] * 3, annmodel.SomeBool())
         elif GCClass.needs_write_barrier:
             raise NotImplementedError("GC needs write barrier, but does not provide writebarrier_before_copy functionality")
@@ -417,7 +412,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if getattr(GCClass, 'obtain_free_space', False):
             self.obtainfreespace_ptr = getfn(GCClass.obtain_free_space.im_func,
                                              [s_gc, annmodel.SomeInteger()],
-                                             annmodel.SomeAddress())
+                                             SomeAddress())
 
         if GCClass.moving_gc:
             self.id_ptr = getfn(GCClass.id.im_func,
@@ -453,8 +448,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                        minimal_transform=False)
         self.get_typeids_z_ptr = getfn(inspector.get_typeids_z,
                                        [s_gc],
-                                       annmodel.SomePtr(
-                                           lltype.Ptr(rgc.ARRAY_OF_CHAR)),
+                                       SomePtr(lltype.Ptr(rgc.ARRAY_OF_CHAR)),
                                        minimal_transform=False)
 
         self.set_max_heap_size_ptr = getfn(GCClass.set_max_heap_size.im_func,
@@ -466,8 +460,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.write_barrier_from_array_ptr = None
         if GCClass.needs_write_barrier:
             self.write_barrier_ptr = getfn(GCClass.write_barrier.im_func,
-                                           [s_gc,
-                                            annmodel.SomeAddress()],
+                                           [s_gc, SomeAddress()],
                                            annmodel.s_None,
                                            inline=True)
             func = getattr(gcdata.gc, 'remember_young_pointer', None)
@@ -475,13 +468,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 # func should not be a bound method, but a real function
                 assert isinstance(func, types.FunctionType)
                 self.write_barrier_failing_case_ptr = getfn(func,
-                                               [annmodel.SomeAddress()],
+                                               [SomeAddress()],
                                                annmodel.s_None)
             func = getattr(GCClass, 'write_barrier_from_array', None)
             if func is not None:
                 self.write_barrier_from_array_ptr = getfn(func.im_func,
-                                           [s_gc,
-                                            annmodel.SomeAddress(),
+                                           [s_gc, SomeAddress(),
                                             annmodel.SomeInteger()],
                                            annmodel.s_None,
                                            inline=True)
@@ -493,7 +485,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                     assert isinstance(func, types.FunctionType)
                     self.write_barrier_from_array_failing_case_ptr = \
                                              getfn(func,
-                                                   [annmodel.SomeAddress()],
+                                                   [SomeAddress()],
                                                    annmodel.s_None)
 
 
@@ -871,8 +863,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def gct_get_write_barrier_from_array_failing_case(self, hop):
         op = hop.spaceop
-        v = getattr(self, 'write_barrier_from_array_failing_case_ptr',
-                    lltype.nullptr(op.result.concretetype.TO))
+        null = lltype.nullptr(op.result.concretetype.TO)
+        c_null = rmodel.inputconst(op.result.concretetype, null)
+        v = getattr(self, 'write_barrier_from_array_failing_case_ptr', c_null)
         hop.genop("same_as", [v], resultvar=op.result)
 
     def gct_zero_gc_pointers_inside(self, hop):
@@ -973,9 +966,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call", [self.set_max_heap_size_ptr,
                                   self.c_const_gc,
                                   v_size])
-
-    def gct_gc_thread_prepare(self, hop):
-        pass   # no effect any more
 
     def gct_gc_thread_run(self, hop):
         assert self.translator.config.translation.thread
@@ -1103,7 +1093,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
         opname = hop.spaceop.opname
         v_struct = hop.spaceop.args[0]
         v_newvalue = hop.spaceop.args[-1]
-        assert opname in ('setfield', 'setarrayitem', 'setinteriorfield')
+        assert opname in ('setfield', 'setarrayitem', 'setinteriorfield',
+                          'raw_store')
         assert isinstance(v_newvalue.concretetype, lltype.Ptr)
         # XXX for some GCs the skipping if the newvalue is a constant won't be
         # ok
@@ -1286,6 +1277,7 @@ sizeofaddr = llmemory.sizeof(llmemory.Address)
 
 class BaseRootWalker(object):
     thread_setup = None
+    finished_minor_collection_func = None
 
     def __init__(self, gctransformer):
         self.gcdata = gctransformer.gcdata
@@ -1322,6 +1314,11 @@ class BaseRootWalker(object):
                 addr += sizeofaddr
         if collect_stack_root:
             self.walk_stack_roots(collect_stack_root)     # abstract
+
+    def finished_minor_collection(self):
+        func = self.finished_minor_collection_func
+        if func is not None:
+            func()
 
     def need_stacklet_support(self):
         raise Exception("%s does not support stacklets" % (

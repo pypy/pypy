@@ -5,7 +5,7 @@ and the various cases of write barrier.
 """
 
 import weakref
-import os
+import os, py
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.jit import JitDriver, dont_look_inside
@@ -13,6 +13,7 @@ from rpython.rlib.jit import elidable, unroll_safe
 from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
 from rpython.tool.udir import udir
 from rpython.config.translationoption import DEFL_GC
+from rpython.config.config import ConfigError
 
 
 class X(object):
@@ -113,6 +114,7 @@ def run(cbuilder, args=''):
 
 
 class BaseFrameworkTests(object):
+    gc = DEFL_GC
 
     def setup_class(cls):
         funcs = []
@@ -162,9 +164,12 @@ class BaseFrameworkTests(object):
         OLD_DEBUG = GcLLDescr_framework.DEBUG
         try:
             GcLLDescr_framework.DEBUG = True
-            cls.cbuilder = compile(get_entry(allfuncs), DEFL_GC,
+            cls.cbuilder = compile(get_entry(allfuncs), cls.gc,
                                    gcrootfinder=cls.gcrootfinder, jit=True,
                                    thread=True)
+        except ConfigError, e:        
+            assert str(e).startswith('invalid value asmgcc')
+            py.test.skip('asmgcc not supported')
         finally:
             GcLLDescr_framework.DEBUG = OLD_DEBUG
 

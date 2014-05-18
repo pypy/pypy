@@ -1,5 +1,3 @@
-
-import py, sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 
@@ -51,27 +49,6 @@ class TestDicts(BaseTestPyPyC):
             ...
         """)
 
-    def test_list(self):
-        def main(n):
-            i = 0
-            while i < n:
-                z = list(())
-                z.append(1)
-                i += z[-1] / len(z)
-            return i
-
-        log = self.run(main, [1000])
-        assert log.result == main(1000)
-        loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
-            i7 = int_lt(i5, i6)
-            guard_true(i7, descr=...)
-            guard_not_invalidated(descr=...)
-            i9 = int_add(i5, 1)
-            --TICK--
-            jump(..., descr=...)
-        """)
-
     def test_non_virtual_dict(self):
         def main(n):
             i = 0
@@ -93,14 +70,14 @@ class TestDicts(BaseTestPyPyC):
             p13 = new(descr=...)
             p15 = new_array(8, descr=<ArrayX .*>)
             setfield_gc(p13, p15, descr=<FieldP dicttable.entries .*>)
-            i17 = call(ConstClass(ll_dict_lookup_trampoline), p13, p10, i12, descr=<Calli . rri EF=4>)
+            i17 = call(ConstClass(ll_dict_lookup_trampoline), p13, p10, i12, descr=<Calli . rri EF=4 OS=4>)
             setfield_gc(p13, 16, descr=<FieldS dicttable.resize_counter .*>)
             guard_no_exception(descr=...)
             p20 = new_with_vtable(ConstClass(W_IntObject))
             call(ConstClass(_ll_dict_setitem_lookup_done_trampoline), p13, p10, p20, i12, i17, descr=<Callv 0 rrrii EF=4>)
             setfield_gc(p20, i5, descr=<FieldS .*W_IntObject.inst_intval .*>)
             guard_no_exception(descr=...)
-            i23 = call(ConstClass(ll_dict_lookup_trampoline), p13, p10, i12, descr=<Calli . rri EF=4>)
+            i23 = call(ConstClass(ll_dict_lookup_trampoline), p13, p10, i12, descr=<Calli . rri EF=4 OS=4>)
             guard_no_exception(descr=...)
             i26 = int_and(i23, .*)
             i27 = int_is_true(i26)
@@ -119,6 +96,30 @@ class TestDicts(BaseTestPyPyC):
             jump(..., descr=...)
         """)
 
+
+
+class TestOtherContainers(BaseTestPyPyC):
+    def test_list(self):
+        def main(n):
+            i = 0
+            while i < n:
+                z = list(())
+                z.append(1)
+                i += z[-1] / len(z)
+            return i
+
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i5, i6)
+            guard_true(i7, descr=...)
+            guard_not_invalidated(descr=...)
+            i9 = int_add(i5, 1)
+            --TICK--
+            jump(..., descr=...)
+        """)
+
     def test_floatlist_unpack_without_calls(self):
         def fn(n):
             l = [2.3, 3.4, 4.5]
@@ -130,8 +131,7 @@ class TestDicts(BaseTestPyPyC):
         ops = loop.ops_by_id('look')
         assert 'call' not in log.opnames(ops)
 
-    #XXX the following tests only work with strategies enabled
-
+    # XXX the following tests only work with strategies enabled
     def test_should_not_create_intobject_with_sets(self):
         def main(n):
             i = 0

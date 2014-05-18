@@ -10,6 +10,9 @@ import types
 import math
 import inspect
 from rpython.tool.sourcetools import rpython_wrapper, func_with_new_name
+from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.flowspace.specialcase import register_flow_sc
+from rpython.flowspace.model import Constant
 
 # specialize is a decorator factory for attaching _annspecialcase_
 # attributes to functions: for example
@@ -23,7 +26,6 @@ from rpython.tool.sourcetools import rpython_wrapper, func_with_new_name
 # def f(...
 #
 
-from rpython.rtyper.extregistry import ExtRegistryEntry
 
 class _Specialize(object):
     def memo(self):
@@ -120,7 +122,7 @@ def enforceargs(*types_, **kwds):
     """
     typecheck = kwds.pop('typecheck', True)
     if types_ and kwds:
-        raise TypeError, 'Cannot mix positional arguments and keywords'
+        raise TypeError('Cannot mix positional arguments and keywords')
 
     if not typecheck:
         def decorator(f):
@@ -175,7 +177,7 @@ def enforceargs(*types_, **kwds):
                 if not s_expected.contains(s_argtype):
                     msg = "%s argument %r must be of type %s" % (
                         f.func_name, srcargs[i], expected_type)
-                    raise TypeError, msg
+                    raise TypeError(msg)
         #
         template = """
             def {name}({arglist}):
@@ -278,7 +280,11 @@ def instantiate(cls):
 
 def we_are_translated():
     return False
-# annotation -> True (replaced by the flow objspace)
+
+@register_flow_sc(we_are_translated)
+def sc_we_are_translated(ctx):
+    return Constant(True)
+
 
 def keepalive_until_here(*values):
     pass
@@ -332,9 +338,10 @@ class Entry(ExtRegistryEntry):
     _about_ = newlist_hint
 
     def compute_result_annotation(self, s_sizehint):
-        from rpython.annotator.model import SomeInteger
+        from rpython.annotator.model import SomeInteger, AnnotatorError
 
-        assert isinstance(s_sizehint, SomeInteger)
+        if not isinstance(s_sizehint, SomeInteger):
+            raise AnnotatorError("newlist_hint() argument must be an int")
         s_l = self.bookkeeper.newlist()
         s_l.listdef.listitem.resize()
         return s_l
@@ -359,8 +366,13 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_l, s_sizehint):
         from rpython.annotator import model as annmodel
-        assert isinstance(s_l, annmodel.SomeList)
-        assert isinstance(s_sizehint, annmodel.SomeInteger)
+        if annmodel.s_None.contains(s_l):
+            return   # first argument is only None so far, but we
+                     # expect a generalization later
+        if not isinstance(s_l, annmodel.SomeList):
+            raise annmodel.AnnotatorError("First argument must be a list")
+        if not isinstance(s_sizehint, annmodel.SomeInteger):
+            raise annmodel.AnnotatorError("Second argument must be an integer")
         s_l.listdef.listitem.resize()
 
     def specialize_call(self, hop):
@@ -420,7 +432,11 @@ def compute_unique_id(x):
     costly depending on the garbage collector.  To remind you of this
     fact, we don't support id(x) directly.
     """
-    return id(x)      # XXX need to return r_longlong on some platforms
+    # The assumption with RPython is that a regular integer is wide enough
+    # to store a pointer.  The following intmask() should not loose any
+    # information.
+    from rpython.rlib.rarithmetic import intmask
+    return intmask(id(x))
 
 def current_object_addr_as_int(x):
     """A cheap version of id(x).
@@ -560,7 +576,7 @@ class Entry(ExtRegistryEntry):
 # ____________________________________________________________
 
 def hlinvoke(repr, llcallable, *args):
-    raise TypeError, "hlinvoke is meant to be rtyped and not called direclty"
+    raise TypeError("hlinvoke is meant to be rtyped and not called direclty")
 
 def invoke_around_extcall(before, after):
     """Call before() before any external function call, and after() after.
@@ -622,8 +638,11 @@ class r_dict(object):
     The functions key_eq() and key_hash() are used by the key comparison
     algorithm."""
 
+    def _newdict(self):
+        return {}
+
     def __init__(self, key_eq, key_hash, force_non_null=False):
-        self._dict = {}
+        self._dict = self._newdict()
         self.key_eq = key_eq
         self.key_hash = key_hash
         self.force_non_null = force_non_null
@@ -658,7 +677,7 @@ class r_dict(object):
         return dk.key, value
 
     def copy(self):
-        result = r_dict(self.key_eq, self.key_hash)
+        result = self.__class__(self.key_eq, self.key_hash)
         result.update(self)
         return result
 
@@ -694,6 +713,11 @@ class r_dict(object):
     def __hash__(self):
         raise TypeError("cannot hash r_dict instances")
 
+class r_ordereddict(r_dict):
+    def _newdict(self):
+        from collections import OrderedDict
+
+        return OrderedDict()
 
 class _r_dictkey(object):
     __slots__ = ['dic', 'key', 'hash']
@@ -715,11 +739,6 @@ class _r_dictkey(object):
     def __repr__(self):
         return repr(self.key)
 
-class _r_dictkey_with_hash(_r_dictkey):
-    def __init__(self, dic, key, hash):
-        self.dic = dic
-        self.key = key
-        self.hash = hash
 
 # ____________________________________________________________
 
@@ -729,13 +748,15 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
     Function and staticmethod objects are duplicated, which means
     that annotation will not consider them as identical to another
     copy in another unrelated class.
-    
+
     By default, "special" methods and class attributes, with a name
     like "__xxx__", are not copied unless they are "__init__" or
     "__del__".  The list can be changed with the optional second
     argument.
     """
     flatten = {}
+    caller = sys._getframe(1)
+    caller_name = caller.f_globals.get('__name__')
     for base in inspect.getmro(M):
         if base is object:
             continue
@@ -750,13 +771,17 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
             elif isinstance(value, staticmethod):
                 func = value.__get__(42)
                 func = func_with_new_name(func, func.__name__)
+                if caller_name:
+                    # staticmethods lack a unique im_class so further
+                    # distinguish them from themselves
+                    func.__module__ = caller_name
                 value = staticmethod(func)
             elif isinstance(value, classmethod):
                 raise AssertionError("classmethods not supported "
                                      "in 'import_from_mixin'")
             flatten[key] = value
     #
-    target = sys._getframe(1).f_locals
+    target = caller.f_locals
     for key, value in flatten.items():
         if key in target:
             raise Exception("import_from_mixin: would overwrite the value "

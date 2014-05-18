@@ -1,4 +1,3 @@
-
 """ The ffi for rpython, need to be imported for side effects
 """
 
@@ -8,8 +7,6 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.extfunc import register_external
 from pypy.module._minimal_curses import interp_curses
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from sys import platform
-import os.path
 
 # We cannot trust ncurses5-config, it's broken in various ways in
 # various versions.  For example it might not list -ltinfo even though
@@ -26,6 +23,9 @@ def try_cflags():
 def try_ldflags():
     yield ExternalCompilationInfo(libraries=['curses'])
     yield ExternalCompilationInfo(libraries=['curses', 'tinfo'])
+    yield ExternalCompilationInfo(libraries=['ncurses'])
+    yield ExternalCompilationInfo(libraries=['ncurses'],
+                                  library_dirs=['/usr/lib64'])
 
 def try_tools():
     try:

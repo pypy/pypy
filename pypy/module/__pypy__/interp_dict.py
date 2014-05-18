@@ -1,6 +1,6 @@
 
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 
 @unwrap_spec(type=str)
@@ -30,8 +30,7 @@ def newdict(space, type):
     elif type == 'strdict':
         return space.newdict(strdict=True)
     else:
-        raise operationerrfmt(space.w_TypeError, "unknown type of dict %s",
-                              type)
+        raise oefmt(space.w_TypeError, "unknown type of dict %s", type)
 
 def dictstrategy(space, w_obj):
     """ dictstrategy(dict)

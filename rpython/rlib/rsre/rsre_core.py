@@ -19,7 +19,7 @@ OPCODE_BRANCH             = 7
 #OPCODE_CALL              = 8
 OPCODE_CATEGORY           = 9
 OPCODE_CHARSET            = 10
-#OPCODE_BIGCHARSET        = 11
+OPCODE_BIGCHARSET         = 11
 OPCODE_GROUPREF           = 12
 OPCODE_GROUPREF_EXISTS    = 13
 OPCODE_GROUPREF_IGNORE    = 14
@@ -41,6 +41,9 @@ OPCODE_REPEAT_ONE         = 29
 #OPCODE_SUBPATTERN        = 30
 OPCODE_MIN_REPEAT_ONE     = 31
 
+# not used by Python itself
+OPCODE_UNICODE_GENERAL_CATEGORY = 70
+
 # ____________________________________________________________
 
 _seen_specname = {}
@@ -59,7 +62,8 @@ def specializectx(func):
     # Install a copy of the function under the name '_spec_funcname' in each
     # concrete subclass
     specialized_methods = []
-    for prefix, concreteclass in [('str', StrMatchContext),
+    for prefix, concreteclass in [('buf', BufMatchContext),
+                                  ('str', StrMatchContext),
                                   ('uni', UnicodeMatchContext)]:
         newfunc = func_with_new_name(func, prefix + specname)
         assert not hasattr(concreteclass, specname)
@@ -95,6 +99,10 @@ class AbstractMatchContext(object):
         self.match_start = match_start
         self.end = end
         self.flags = flags
+        # check we don't get the old value of MAXREPEAT
+        # during the untranslated tests
+        if not we_are_translated():
+            assert 65535 not in pattern
 
     def reset(self, start):
         self.match_start = start
@@ -162,6 +170,27 @@ class AbstractMatchContext(object):
 
     def fresh_copy(self, start):
         raise NotImplementedError
+
+class BufMatchContext(AbstractMatchContext):
+    """Concrete subclass for matching in a buffer."""
+
+    _immutable_fields_ = ["_buffer"]
+
+    def __init__(self, pattern, buf, match_start, end, flags):
+        AbstractMatchContext.__init__(self, pattern, match_start, end, flags)
+        self._buffer = buf
+
+    def str(self, index):
+        check_nonneg(index)
+        return ord(self._buffer.getitem(index))
+
+    def lowstr(self, index):
+        c = self.str(index)
+        return rsre_char.getlower(c, self.flags)
+
+    def fresh_copy(self, start):
+        return BufMatchContext(self.pattern, self._buffer, start,
+                               self.end, self.flags)
 
 class StrMatchContext(AbstractMatchContext):
     """Concrete subclass for matching in a plain string."""
@@ -374,7 +403,7 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
                 ptr=ptr, marks=marks, self=self, ctx=ctx)
             if match_more:
                 max = ctx.pat(ppos+2)
-                if max == 65535 or self.num_pending < max:
+                if max == rsre_char.MAXREPEAT or self.num_pending < max:
                     # try to match one more 'item'
                     enum = sre_match(ctx, ppos + 3, ptr, marks)
                 else:
@@ -442,7 +471,7 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
                     return self
             resume = False
 
-            if max == 65535 or self.num_pending < max:
+            if max == rsre_char.MAXREPEAT or self.num_pending < max:
                 # try to match one more 'item'
                 enum = sre_match(ctx, ppos + 3, ptr, marks)
                 #
@@ -721,7 +750,7 @@ def sre_match(ctx, ppos, ptr, marks):
 
             maxptr = ctx.end
             max = ctx.pat(ppos+2)
-            if max != 65535:
+            if max != rsre_char.MAXREPEAT:
                 maxptr1 = start + max
                 if maxptr1 <= maxptr:
                     maxptr = maxptr1
@@ -784,7 +813,7 @@ def find_repetition_end(ctx, ppos, ptr, maxcount):
     if maxcount == 1:
         return ptrp1
     # Else we really need to count how many times it matches.
-    if maxcount != 65535:
+    if maxcount != rsre_char.MAXREPEAT:
         # adjust end
         end1 = ptr + maxcount
         if end1 <= end:

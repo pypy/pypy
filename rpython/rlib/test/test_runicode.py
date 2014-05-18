@@ -4,6 +4,7 @@ import py
 import sys, random
 from rpython.rlib import runicode
 
+
 def test_unichr():
     assert runicode.UNICHR(0xffff) == u'\uffff'
     if runicode.MAXUNICODE > 0xffff:
@@ -14,6 +15,7 @@ def test_unichr():
     else:
         py.test.raises(ValueError, runicode.UNICHR, 0x10000)
     py.test.raises(TypeError, runicode.UNICHR, 'abc')
+
 
 def test_ord():
     assert runicode.ORD('a') == 97
@@ -99,7 +101,7 @@ class UnicodeTests(object):
             called[0] += 1
             if called[0] == 1:
                 assert errors == "foo!"
-                assert enc == encoding
+                assert enc == encoding.replace('-', '')
                 assert t is s
                 assert start == startingpos
                 assert stop == endingpos
@@ -118,7 +120,6 @@ class UnicodeTests(object):
 
 
 class TestDecoding(UnicodeTests):
-
     # XXX test bom recognition in utf-16
     # XXX test proper error handling
 
@@ -246,7 +247,8 @@ class TestDecoding(UnicodeTests):
         assert decode('+3AE-', 5, None) == (u'\uDC01', 5)
         assert decode('+3AE-x', 6, None) == (u'\uDC01x', 6)
 
-        assert encode(u'\uD801\U000abcde', 2, None) == '+2AHab9ze-'
+        u = u'\uD801\U000abcde'
+        assert encode(u, len(u), None) == '+2AHab9ze-'
         assert decode('+2AHab9ze-', 10, None) == (u'\uD801\U000abcde', 10)
 
 
@@ -551,7 +553,6 @@ class TestUTF8Decoding(UnicodeTests):
             self.checkdecodeerror(s, "utf-8", 0, 3, addstuff=True,
                                   msg='invalid continuation byte')
 
-
     def test_issue8271(self):
         # From CPython
         # Issue #8271: during the decoding of an invalid UTF-8 byte sequence,
@@ -646,6 +647,7 @@ class TestUTF8Decoding(UnicodeTests):
             res = res.replace(FFFD, u'')
             assert decoder(seq, len(seq), 'ignore', final=True
                            ) == (res, len(seq))
+
 
 class TestEncoding(UnicodeTests):
     def test_all_ascii(self):
@@ -758,6 +760,7 @@ class TestEncoding(UnicodeTests):
         py.test.raises(UnicodeEncodeError, encoder, u' 12, \u1234 ', 7, None)
         assert encoder(u'u\u1234', 2, 'replace') == 'u?'
 
+
 class TestTranslation(object):
     def setup_class(cls):
         if runicode.MAXUNICODE != sys.maxunicode:
@@ -800,3 +803,20 @@ class TestTranslation(object):
                 u, len(u), True) == r'\ud800\udc00'
             assert runicode.unicode_encode_raw_unicode_escape(
                 u, len(u), True) == r'\ud800\udc00'
+
+    def test_encode_surrogate_pair_utf8(self):
+        u = runicode.UNICHR(0xD800) + runicode.UNICHR(0xDC00)
+        if runicode.MAXUNICODE < 65536:
+            # Narrow unicode build, consider utf16 surrogate pairs
+            assert runicode.unicode_encode_utf_8(
+                u, len(u), True, allow_surrogates=True) == '\xf0\x90\x80\x80'
+            assert runicode.unicode_encode_utf_8(
+                u, len(u), True, allow_surrogates=False) == '\xf0\x90\x80\x80'
+        else:
+            # Wide unicode build, merge utf16 surrogate pairs only when allowed
+            assert runicode.unicode_encode_utf_8(
+                u, len(u), True, allow_surrogates=True) == '\xf0\x90\x80\x80'
+            # Surrogates not merged, encoding fails.
+            py.test.raises(
+                UnicodeEncodeError, runicode.unicode_encode_utf_8,
+                u, len(u), True, allow_surrogates=False)

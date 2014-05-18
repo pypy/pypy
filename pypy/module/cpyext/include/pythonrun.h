@@ -8,12 +8,24 @@ extern "C" {
 
 PyAPI_FUNC(void) Py_FatalError(const char *message);
 
-/* the -3 option will probably not be implemented */
-#define Py_Py3kWarningFlag 0
+/* taken from Python-3.2.3/Include/pydebug.h */
+PyAPI_DATA(int) Py_DebugFlag;
+PyAPI_DATA(int) Py_VerboseFlag;
+PyAPI_DATA(int) Py_QuietFlag;
+PyAPI_DATA(int) Py_InteractiveFlag;
+PyAPI_DATA(int) Py_InspectFlag;
+PyAPI_DATA(int) Py_OptimizeFlag;
+PyAPI_DATA(int) Py_NoSiteFlag;
+PyAPI_DATA(int) Py_BytesWarningFlag;
+PyAPI_DATA(int) Py_UseClassExceptionsFlag;
+PyAPI_DATA(int) Py_FrozenFlag;
+PyAPI_DATA(int) Py_IgnoreEnvironmentFlag;
+PyAPI_DATA(int) Py_DivisionWarningFlag;
+PyAPI_DATA(int) Py_DontWriteBytecodeFlag;
+PyAPI_DATA(int) Py_NoUserSiteDirectory;
+PyAPI_DATA(int) Py_UnbufferedStdioFlag;
+PyAPI_DATA(int) Py_HashRandomizationFlag;
 
-#define Py_FrozenFlag 0
-#define Py_VerboseFlag 0
-#define Py_DebugFlag 1
 
 typedef struct {
     int cf_flags;  /* bitmask of CO_xxx flags relevant to future */

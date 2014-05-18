@@ -182,21 +182,6 @@ class StructDefNode(NodeWithDependencies):
                                  FIELD_T):
                 yield line
 
-    def debug_offsets(self):
-        # generate number exprs giving the offset of the elements in the struct
-        assert self.varlength is None
-        for name in self.fieldnames:
-            FIELD_T = self.c_struct_field_type(name)
-            if FIELD_T is Void:
-                yield '-1'
-            else:
-                try:
-                    cname = self.c_struct_field_name(name)
-                except ValueError:
-                    yield '-1'
-                else:
-                    yield 'offsetof(%s %s, %s)' % (self.typetag,
-                                                   self.name, cname)
 
 def deflength(varlength):
     if varlength is None:
@@ -318,20 +303,6 @@ class ArrayDefNode(NodeWithDependencies):
             yield '\t}'
             yield '}'
 
-    def debug_offsets(self):
-        # generate three offsets for debugging inspection
-        assert self.varlength is None
-        if not self.ARRAY._hints.get('nolength', False):
-            yield 'offsetof(struct %s, length)' % (self.name,)
-        else:
-            yield '-1'
-        if self.ARRAY.OF is not Void:
-            yield 'offsetof(struct %s, items[0])' % (self.name,)
-            yield 'offsetof(struct %s, items[1])' % (self.name,)
-        else:
-            yield '-1'
-            yield '-1'
-
 
 class BareBoneArrayDefNode(NodeWithDependencies):
     """For 'simple' array types which don't need a length nor GC headers.
@@ -390,12 +361,6 @@ class BareBoneArrayDefNode(NodeWithDependencies):
 
     def visitor_lines(self, prefix, on_item):
         raise Exception("cannot visit C arrays - don't know the length")
-
-    def debug_offsets(self):
-        # generate three offsets for debugging inspection,
-        yield '-1'     # no length
-        yield '0'      # first element is immediately at the start of the array
-        yield 'sizeof(%s)' % (cdecl(self.itemtypename, ''),)
 
 
 class FixedSizeArrayDefNode(NodeWithDependencies):
@@ -468,10 +433,6 @@ class FixedSizeArrayDefNode(NodeWithDependencies):
             yield '\t\t%s++;' % varname
             yield '\t}'
             yield '}'
-
-    def debug_offsets(self):
-        # XXX not implemented
-        return []
 
 
 class ExtTypeOpaqueDefNode(NodeWithDependencies):
@@ -955,15 +916,6 @@ def select_function_code_generators(fnobj, db, functionname):
             return sandbox_stub(fnobj, db)
         db.externalfuncs[fnobj._external_name] = fnobj
         return []
-    elif fnobj._callable in extfunc.EXTERNALS:
-        # -- deprecated case --
-        # 'fnobj' is one of the ll_xyz() functions with the suggested_primitive
-        # flag in rpython.rtyper.module.*.  The corresponding C wrappers are
-        # written by hand in src/ll_*.h, and declared in extfunc.EXTERNALS.
-        if sandbox and not fnobj._name.startswith('ll_stack_'): # XXX!!! Temporary
-            return sandbox_stub(fnobj, db)
-        db.externalfuncs[fnobj._callable] = fnobj
-        return []
     elif hasattr(fnobj, 'graph'):
         if sandbox and sandbox != "if_external":
             # apply the sandbox transformation
@@ -982,7 +934,7 @@ def select_function_code_generators(fnobj, db, functionname):
     elif hasattr(fnobj._callable, "c_name"):
         return []
     else:
-        raise ValueError, "don't know how to generate code for %r" % (fnobj,)
+        raise ValueError("don't know how to generate code for %r" % (fnobj,))
 
 class ExtType_OpaqueNode(ContainerNode):
     nodekind = 'rpyopaque'

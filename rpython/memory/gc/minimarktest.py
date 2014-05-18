@@ -1,3 +1,4 @@
+import sys
 from rpython.rtyper.lltypesystem import llarena
 from rpython.rtyper.lltypesystem.llmemory import raw_malloc_usage
 from rpython.rlib.debug import ll_assert
@@ -32,13 +33,26 @@ class SimpleArenaCollection(object):
         self.total_memory_used += nsize
         return result
 
-    def mass_free(self, ok_to_free_func):
-        objs = self.all_objects
+    def mass_free_prepare(self):
+        self.old_all_objects = self.all_objects
         self.all_objects = []
         self.total_memory_used = 0
-        for rawobj, nsize in objs:
+
+    def mass_free_incremental(self, ok_to_free_func, max_pages):
+        old = self.old_all_objects
+        while old:
+            rawobj, nsize = old.pop()
             if ok_to_free_func(rawobj):
                 llarena.arena_free(rawobj)
             else:
                 self.all_objects.append((rawobj, nsize))
                 self.total_memory_used += nsize
+            max_pages -= 0.1
+            if max_pages <= 0:
+                return False
+        return True
+
+    def mass_free(self, ok_to_free_func):
+        self.mass_free_prepare()
+        res = self.mass_free_incremental(ok_to_free_func, sys.maxint)
+        assert res

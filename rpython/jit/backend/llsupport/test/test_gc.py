@@ -175,26 +175,6 @@ class TestFramework(object):
                                       repr(basesize), repr(itemsize),
                                       repr(ofs_length), p)]
 
-    def test_do_write_barrier(self):
-        gc_ll_descr = self.gc_ll_descr
-        R = lltype.GcStruct('R')
-        S = lltype.GcStruct('S', ('r', lltype.Ptr(R)))
-        s = lltype.malloc(S)
-        r = lltype.malloc(R)
-        s_hdr = gc_ll_descr.gcheaderbuilder.new_header(s)
-        s_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
-        r_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, r)
-        s_adr = llmemory.cast_ptr_to_adr(s)
-        llmemory.cast_ptr_to_adr(r)
-        #
-        s_hdr.tid &= ~gc_ll_descr.GCClass.JIT_WB_IF_FLAG
-        gc_ll_descr.do_write_barrier(s_gcref, r_gcref)
-        assert self.llop1.record == []    # not called
-        #
-        s_hdr.tid |= gc_ll_descr.GCClass.JIT_WB_IF_FLAG
-        gc_ll_descr.do_write_barrier(s_gcref, r_gcref)
-        assert self.llop1.record == [('barrier', s_adr)]
-
     def test_gen_write_barrier(self):
         gc_ll_descr = self.gc_ll_descr
         llop1 = self.llop1

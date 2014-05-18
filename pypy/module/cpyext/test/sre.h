@@ -14,11 +14,12 @@
 #include "sre_constants.h"
 
 /* size of a code word (must be unsigned short or larger, and
-   large enough to hold a Py_UNICODE character) */
-#ifdef Py_UNICODE_WIDE
+   large enough to hold a UCS4 character) */
 #define SRE_CODE Py_UCS4
+#if SIZEOF_SIZE_T > 4
+# define SRE_MAXREPEAT (~(SRE_CODE)0)
 #else
-#define SRE_CODE unsigned short
+# define SRE_MAXREPEAT ((SRE_CODE)PY_SSIZE_T_MAX + 1u)
 #endif
 
 typedef struct {

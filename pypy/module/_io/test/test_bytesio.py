@@ -34,12 +34,17 @@ class AppTestBytesIO:
         assert f.writable()
         assert f.seekable()
         f.close()
+        raises(ValueError, f.readable)
+        raises(ValueError, f.writable)
+        raises(ValueError, f.seekable)
 
     def test_write(self):
         import _io
         f = _io.BytesIO()
         assert f.write(b"") == 0
         assert f.write(b"hello") == 5
+        exc = raises(TypeError, f.write, u"lo")
+        assert str(exc.value) == "'str' does not support the buffer interface"
         import gc; gc.collect()
         assert f.getvalue() == b"hello"
         f.close()
@@ -99,6 +104,13 @@ class AppTestBytesIO:
         a2 = bytearray(b'testing')
         assert b.readinto(a1) == 1
         assert b.readinto(a2) == 4
+        b.seek(0)
+        m = memoryview(bytearray(b"world"))
+        assert b.readinto(m) == 5
+        exc = raises(TypeError, b.readinto, u"hello")
+        assert str(exc.value) == "must be read-write buffer, not str"
+        exc = raises(TypeError, b.readinto, memoryview(b"hello"))
+        assert str(exc.value) == "must be read-write buffer, not memoryview"
         b.close()
         assert a1 == b"h"
         assert a2 == b"elloing"

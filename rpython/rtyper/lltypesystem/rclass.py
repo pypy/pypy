@@ -574,7 +574,7 @@ class InstanceRepr(AbstractInstanceRepr):
         self.setfield(vinst, attr, vvalue, hop.llops,
                       flags=hop.args_s[0].flags)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         vinst, = hop.inputargs(self)
         return hop.genop('ptr_nonzero', [vinst], resulttype=Bool)
 

@@ -1,8 +1,8 @@
 import py, sys
 
 class AppTestPwd:
-    spaceconfig = dict(usemodules=('_ffi', '_rawffi', 'itertools', 'binascii',
-                                   'fcntl', 'select', 'signal'))
+    spaceconfig = dict(usemodules=('_rawffi', 'itertools', 'binascii', 'fcntl',
+                                   'select', 'signal'))
 
     def setup_class(cls):
         if sys.platform == 'win32':

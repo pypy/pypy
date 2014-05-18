@@ -29,6 +29,7 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.backend.arm import callbuilder
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 class AssemblerARM(ResOpAssembler):
 
@@ -1488,7 +1489,9 @@ class AssemblerARM(ResOpAssembler):
 
 
 def not_implemented(msg):
-    os.write(2, '[ARM/asm] %s\n' % msg)
+    msg = '[ARM/asm] %s\n' % msg
+    if we_are_translated():
+        llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
 
 

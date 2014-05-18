@@ -1,3 +1,5 @@
+import sys
+
 class AppTestCodecs:
     spaceconfig = {
         "usemodules": ['unicodedata', 'struct', 'binascii'],
@@ -109,7 +111,26 @@ class AppTestCodecs:
         map = tuple([chr(i) for i in range(256)])
         assert charmap_decode(b'xxx\xff', 'strict', map) == ('xxx\xff', 4)
 
-        raises(TypeError, charmap_decode, '\xff', "replace",  {0xff: 0x10001})
+        exc = raises(TypeError, charmap_decode, b'\xff', "strict",  {0xff: b'a'})
+        assert str(exc.value) == "character mapping must return integer, None or unicode"
+        raises(TypeError, charmap_decode, b'\xff', "strict",  {0xff: 0x110000})
+        assert (charmap_decode(b"\x00\x01\x02", "strict",
+                               {0: 0x10FFFF, 1: ord('b'), 2: ord('c')}) ==
+                u"\U0010FFFFbc", 3)
+        assert (charmap_decode(b"\x00\x01\x02", "strict",
+                               {0: u'\U0010FFFF', 1: u'b', 2: u'c'}) ==
+                u"\U0010FFFFbc", 3)
+
+    def test_escape_decode_errors(self):
+        from _codecs import escape_decode as decode
+        raises(ValueError, decode, br"\x")
+        raises(ValueError, decode, br"[\x]")
+        assert decode(br"[\x]\x", "ignore") == (b"[]", 6)
+        assert decode(br"[\x]\x", "replace") == (b"[?]?", 6)
+        raises(ValueError, decode, br"\x0")
+        raises(ValueError, decode, br"[\x0]")
+        assert decode(br"[\x0]\x0", "ignore") == (b"[]", 8)
+        assert decode(br"[\x0]\x0", "replace") == (b"[?]?", 8)
 
     def test_unicode_escape(self):
         from _codecs import unicode_escape_encode, unicode_escape_decode
@@ -117,8 +138,11 @@ class AppTestCodecs:
         assert unicode_escape_decode(b'abc') == (b'abc'.decode('unicode_escape'), 3)
         assert unicode_escape_decode(b'\\x61\\x62\\x63') == ('abc', 12)
 
+
 class AppTestPartialEvaluation:
-    spaceconfig = dict(usemodules=('array',))
+    spaceconfig = dict(usemodules=['array',])
+    if sys.platform == 'win32':
+        spaceconfig['usemodules'].append('_winreg')
 
     def test_partial_utf8(self):
         import _codecs
@@ -135,11 +159,15 @@ class AppTestPartialEvaluation:
                 "\x00\xff\u07ff\u0800",
                 "\x00\xff\u07ff\u0800",
                 "\x00\xff\u07ff\u0800\uffff",
+                "\x00\xff\u07ff\u0800\uffff",
+                "\x00\xff\u07ff\u0800\uffff",
+                "\x00\xff\u07ff\u0800\uffff",
+                "\x00\xff\u07ff\u0800\uffff\U00010000",
             ]
 
         buffer = b''
         result = ""
-        for (c, partialresult) in zip("\x00\xff\u07ff\u0800\uffff".encode(encoding), check_partial):
+        for (c, partialresult) in zip("\x00\xff\u07ff\u0800\uffff\U00010000".encode(encoding), check_partial):
             buffer += bytes([c])
             res = _codecs.utf_8_decode(buffer,'strict',False)
             if res[1] >0 :
@@ -161,10 +189,14 @@ class AppTestPartialEvaluation:
                     "\x00\xff\u0100",
                     "\x00\xff\u0100",
                     "\x00\xff\u0100\uffff",
+                    "\x00\xff\u0100\uffff",
+                    "\x00\xff\u0100\uffff",
+                    "\x00\xff\u0100\uffff",
+                    "\x00\xff\u0100\uffff\U00010000",
                 ]
         buffer = b''
         result = ""
-        for (c, partialresult) in zip("\x00\xff\u0100\uffff".encode(encoding), check_partial):
+        for (c, partialresult) in zip("\x00\xff\u0100\uffff\U00010000".encode(encoding), check_partial):
             buffer += bytes([c])
             res = _codecs.utf_16_decode(buffer,'strict',False)
             if res[1] >0 :
@@ -245,7 +277,7 @@ class AppTestPartialEvaluation:
                 assert enc == b"a\x00\x00\x00"
 
     def test_unicode_internal_decode(self):
-        import sys
+        import sys, _codecs, array
         if sys.maxunicode == 65535: # UCS2 build
             if sys.byteorder == "big":
                 bytes = b"\x00a"
@@ -260,6 +292,8 @@ class AppTestPartialEvaluation:
                 bytes2 = b"\x98\x00\x01\x00"
             assert bytes2.decode("unicode_internal") == "\U00010098"
         assert bytes.decode("unicode_internal") == "a"
+        assert _codecs.unicode_internal_decode(array.array('b', bytes))[0] == u"a"
+        assert _codecs.unicode_internal_decode(memoryview(bytes))[0] == u"a"
 
     def test_raw_unicode_escape(self):
         import _codecs
@@ -293,6 +327,28 @@ class AppTestPartialEvaluation:
         raises(ValueError, _codecs.escape_decode, br"[\x]")
         raises(ValueError, _codecs.escape_decode, br"\x0")
         raises(ValueError, _codecs.escape_decode, br"[\x0]")
+
+    def test_unicode_escape_decode_errors(self):
+        from _codecs import unicode_escape_decode, raw_unicode_escape_decode
+        for decode in [unicode_escape_decode, raw_unicode_escape_decode]:
+            for c, d in ('u', 4), ('U', 4):
+                for i in range(d):
+                    raises(UnicodeDecodeError, decode,
+                                      "\\" + c + "0"*i)
+                    raises(UnicodeDecodeError, decode,
+                                      "[\\" + c + "0"*i + "]")
+                    data = "[\\" + c + "0"*i + "]\\" + c + "0"*i
+                    assert decode(data, "ignore") == (u"[]", len(data))
+                    assert decode(data, "replace") == (u"[\ufffd]\ufffd", len(data))
+            raises(UnicodeDecodeError, decode, r"\U00110000")
+            assert decode(r"\U00110000", "ignore") == (u"", 10)
+            assert decode(r"\U00110000", "replace") == (u"\ufffd", 10)
+        exc = raises(UnicodeDecodeError, unicode_escape_decode, b"\u1z32z3", 'strict')
+        assert str(exc.value) == r"'unicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX escape"
+        exc = raises(UnicodeDecodeError, raw_unicode_escape_decode, b"\u1z32z3", 'strict')
+        assert str(exc.value) == r"'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX"
+        exc = raises(UnicodeDecodeError, raw_unicode_escape_decode, b"\U1z32z3", 'strict')
+        assert str(exc.value) == r"'rawunicodeescape' codec can't decode bytes in position 0-2: truncated \uXXXX"
 
     def test_escape_encode(self):
         import _codecs
@@ -374,14 +430,12 @@ class AppTestPartialEvaluation:
         for (i, line) in enumerate(reader):
             assert line == s[i]
 
-    def test_readbuffer_encode(self):
-        import _codecs
-        assert _codecs.readbuffer_encode("") ==  (b"", 0)
-
-    def test_readbuffer_encode_array(self):
+    def test_buffer_encode(self):
         import _codecs, array
         assert (_codecs.readbuffer_encode(array.array('b', b'spam')) ==
                 (b'spam', 4))
+        assert _codecs.readbuffer_encode(u"test") == (b'test', 4)
+        assert _codecs.readbuffer_encode("") ==  (b"", 0)
 
     def test_utf8sig(self):
         import codecs
@@ -596,6 +650,16 @@ class AppTestPartialEvaluation:
         else:
             assert res == "\x00\x00\x01\x00\x00" # UCS2 build
 
+        def handler1(exc):
+            if not isinstance(exc, UnicodeEncodeError) \
+               and not isinstance(exc, UnicodeDecodeError):
+                raise TypeError("don't know how to handle %r" % exc)
+            l = [u"<%d>" % exc.object[pos] for pos in range(exc.start, exc.end)]
+            return (u"[%s]" % u"".join(l), exc.end)
+        codecs.register_error("test.handler1", handler1)
+        assert b"\\u3042\u3xxx".decode("unicode-escape", "test.handler1") == \
+            u"\u3042[<92><117><51>]xxx"
+
     def test_encode_error_bad_handler(self):
         import codecs
         codecs.register_error("test.bad_handler", lambda e: (repl, 1))
@@ -611,8 +675,11 @@ class AppTestPartialEvaluation:
         assert 'xxx'.encode('charmap') == b'xxx'
 
         import codecs
-        raises(TypeError, codecs.charmap_encode, '\xff', "replace",  {0xff: 300})
-        raises(UnicodeError, codecs.charmap_encode, "\xff", "replace", {0xff: None})
+        exc = raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: 300})
+        assert str(exc.value) == 'character mapping must be in range(256)'
+        exc = raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: u'a'})
+        assert str(exc.value) == 'character mapping must return integer, None or str'
+        raises(UnicodeError, codecs.charmap_encode, u"\xff", "replace", {0xff: None})
 
     def test_charmap_encode_replace(self):
         charmap = dict([(c, bytes([c, c]).upper()) for c in b"abcdefgh"])
@@ -640,6 +707,30 @@ class AppTestPartialEvaluation:
     def test_utf7_surrogate(self):
         assert b'+3ADYAA-'.decode('utf-7') == '\udc00\ud800'
 
+    def test_utf7_errors(self):
+        import codecs
+        tests = [
+            (b'a\xffb', u'a\ufffdb'),
+            (b'a+IK', u'a\ufffd'),
+            (b'a+IK-b', u'a\ufffdb'),
+            (b'a+IK,b', u'a\ufffdb'),
+            (b'a+IKx', u'a\u20ac\ufffd'),
+            (b'a+IKx-b', u'a\u20ac\ufffdb'),
+            (b'a+IKwgr', u'a\u20ac\ufffd'),
+            (b'a+IKwgr-b', u'a\u20ac\ufffdb'),
+            (b'a+IKwgr,', u'a\u20ac\ufffd'),
+            (b'a+IKwgr,-b', u'a\u20ac\ufffd-b'),
+            (b'a+IKwgrB', u'a\u20ac\u20ac\ufffd'),
+            (b'a+IKwgrB-b', u'a\u20ac\u20ac\ufffdb'),
+            (b'a+/,+IKw-b', u'a\ufffd\u20acb'),
+            (b'a+//,+IKw-b', u'a\ufffd\u20acb'),
+            (b'a+///,+IKw-b', u'a\uffff\ufffd\u20acb'),
+            (b'a+////,+IKw-b', u'a\uffff\ufffd\u20acb'),
+        ]
+        for raw, expected in tests:
+            raises(UnicodeDecodeError, codecs.utf_7_decode, raw, 'strict', True)
+            assert raw.decode('utf-7', 'replace') == expected
+
     def test_utf_16_encode_decode(self):
         import codecs, sys
         x = '123abc'
@@ -666,9 +757,25 @@ class AppTestPartialEvaluation:
         import sys
         if sys.platform != 'win32':
             return
-        assert 'test'.encode('mbcs') == b'test'
-        assert 'caf\xe9'.encode('mbcs') == b'caf\xe9'
-        raises(UnicodeEncodeError, '\u040a'.encode, 'mbcs')
-        raises(UnicodeEncodeError,
-               "-\u5171\u0141\u2661\u0363\uDC80".encode, 'mbcs')
-        assert b'cafx\e9'.decode('mbcs') == 'cafx\e9'
+        toencode = u'caf\xe9', b'caf\xe9'
+        try:
+            # test for non-latin1 codepage, more general test needed
+            import _winreg
+            key = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE,
+                        r'System\CurrentControlSet\Control\Nls\CodePage')
+            if _winreg.QueryValueEx(key, 'ACP')[0] == u'1255':  # non-latin1
+                toencode = u'caf\xbf',b'caf\xbf'
+        except:
+            assert False, 'cannot test mbcs on this windows system, check code page'
+        assert u'test'.encode('mbcs') == b'test'
+        assert toencode[0].encode('mbcs') == toencode[1]
+        assert u'\u040a'.encode('mbcs') == b'?'  # some cyrillic letter
+        assert b'cafx\e9'.decode('mbcs') == u'cafx\e9'
+
+    def test_handler_string_result(self):
+        import _codecs
+        def f(exc):
+            return (b'foo', exc.end)
+        _codecs.register_error("test.test_codecs_not_a_string", f)
+        result = '\u1234'.encode('ascii', 'test.test_codecs_not_a_string')
+        assert result == b'foo'

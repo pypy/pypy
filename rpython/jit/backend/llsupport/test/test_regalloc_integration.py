@@ -97,7 +97,7 @@ class BaseTestRegalloc(object):
         loop = self.parse(ops, namespace=namespace)
         self.loop = loop
         looptoken = JitCellToken()
-        self.cpu.compile_loop(None, loop.inputargs, loop.operations, looptoken)
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         arguments = []
         for arg in args:
             if isinstance(arg, int):
@@ -147,7 +147,7 @@ class BaseTestRegalloc(object):
         assert ([box.type for box in bridge.inputargs] ==
                 [box.type for box in guard_op.getfailargs()])
         faildescr = guard_op.getdescr()
-        self.cpu.compile_bridge(None, faildescr, bridge.inputargs,
+        self.cpu.compile_bridge(faildescr, bridge.inputargs,
                                 bridge.operations,
                                 loop._jitcelltoken)
         return bridge

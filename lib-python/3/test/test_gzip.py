@@ -331,6 +331,20 @@ class TestGzip(unittest.TestCase):
             with gzip.GzipFile(fileobj=f, mode="w") as g:
                 pass
 
+    def test_bytes_filename(self):
+        str_filename = self.filename
+        try:
+            bytes_filename = str_filename.encode("ascii")
+        except UnicodeEncodeError:
+            self.skipTest("Temporary file name needs to be ASCII")
+        with gzip.GzipFile(bytes_filename, "wb") as f:
+            f.write(data1 * 50)
+        with gzip.GzipFile(bytes_filename, "rb") as f:
+            self.assertEqual(f.read(), data1 * 50)
+        # Sanity check that we are actually operating on the right file.
+        with gzip.GzipFile(str_filename, "rb") as f:
+            self.assertEqual(f.read(), data1 * 50)
+
     # Testing compress/decompress shortcut functions
 
     def test_compress(self):
@@ -350,6 +364,15 @@ class TestGzip(unittest.TestCase):
             # Roundtrip with compress
             datac = gzip.compress(data)
             self.assertEqual(gzip.decompress(datac), data)
+
+
+    def test_read_with_extra(self):
+        # Gzip data with an extra field
+        gzdata = (b'\x1f\x8b\x08\x04\xb2\x17cQ\x02\xff'
+                  b'\x05\x00Extra'
+                  b'\x0bI-.\x01\x002\xd1Mx\x04\x00\x00\x00')
+        with gzip.GzipFile(fileobj=io.BytesIO(gzdata)) as f:
+            self.assertEqual(f.read(), b'Test')
 
 def test_main(verbose=None):
     support.run_unittest(TestGzip)

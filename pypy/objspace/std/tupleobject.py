@@ -27,6 +27,9 @@ def _unroll_condition_cmp(self, space, other):
             jit.loop_unrolling_heuristic(other, other.length(), UNROLL_CUTOFF))
 
 
+contains_jmp = jit.JitDriver(greens = ['tp'], reds = 'auto',
+                             name = 'tuple.contains')
+
 class W_AbstractTupleObject(W_Root):
     __slots__ = ()
 
@@ -121,9 +124,23 @@ class W_AbstractTupleObject(W_Root):
     descr_gt = _make_tuple_comparison('gt')
     descr_ge = _make_tuple_comparison('ge')
 
-    @jit.look_inside_iff(lambda self, _1, _2: _unroll_condition(self))
     def descr_contains(self, space, w_obj):
+        if _unroll_condition(self):
+            return self._descr_contains_unroll_safe(space, w_obj)
+        else:
+            return self._descr_contains_jmp(space, w_obj)
+
+    @jit.unroll_safe
+    def _descr_contains_unroll_safe(self, space, w_obj):
         for w_item in self.tolist():
+            if space.eq_w(w_item, w_obj):
+                return space.w_True
+        return space.w_False
+
+    def _descr_contains_jmp(self, space, w_obj):
+        tp = space.type(w_obj)
+        for w_item in self.tolist():
+            contains_jmp.jit_merge_point(tp=tp)
             if space.eq_w(w_item, w_obj):
                 return space.w_True
         return space.w_False
@@ -194,10 +211,10 @@ class W_AbstractTupleObject(W_Root):
 
 W_AbstractTupleObject.typedef = StdTypeDef(
     "tuple",
-    __doc__ = '''tuple() -> an empty tuple
+    __doc__ = """tuple() -> an empty tuple
 tuple(sequence) -> tuple initialized from sequence's items
 
-If the argument is a tuple, the return value is the same object.''',
+If the argument is a tuple, the return value is the same object.""",
     __new__ = interp2app(W_AbstractTupleObject.descr_new),
     __repr__ = interp2app(W_AbstractTupleObject.descr_repr),
     __hash__ = interpindirect2app(W_AbstractTupleObject.descr_hash),

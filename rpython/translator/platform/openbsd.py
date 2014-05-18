@@ -13,7 +13,7 @@ class OpenBSD(BSD):
              ] + os.environ.get("CFLAGS", "").split()
 
     def _libs(self, libraries):
-        libraries=set(libraries + ("intl", "iconv", "compat"))
+        libraries=set(libraries + ("intl", "iconv"))
         return ['-l%s' % lib for lib in libraries if lib not in ["crypt", "dl", "rt"]]
 
 class OpenBSD_64(OpenBSD):

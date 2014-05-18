@@ -7,6 +7,7 @@ import errno
 import io
 import socket
 import select
+import _testcapi
 import time
 import traceback
 import queue
@@ -444,7 +445,7 @@ class GeneralModuleTests(unittest.TestCase):
         # Try same call with optional protocol omitted
         port2 = socket.getservbyname(service)
         eq(port, port2)
-        # Try udp, but don't barf it it doesn't exist
+        # Try udp, but don't barf if it doesn't exist
         try:
             udpport = socket.getservbyname(service, 'udp')
         except socket.error:
@@ -842,11 +843,28 @@ class GeneralModuleTests(unittest.TestCase):
             fp.close()
             self.assertEqual(repr(fp), "<_io.BufferedReader name=-1>")
 
-    def testListenBacklog0(self):
+    def test_unusable_closed_socketio(self):
+        with socket.socket() as sock:
+            fp = sock.makefile("rb", buffering=0)
+            self.assertTrue(fp.readable())
+            self.assertFalse(fp.writable())
+            self.assertFalse(fp.seekable())
+            fp.close()
+            self.assertRaises(ValueError, fp.readable)
+            self.assertRaises(ValueError, fp.writable)
+            self.assertRaises(ValueError, fp.seekable)
+
+    def test_listen_backlog(self):
+        for backlog in 0, -1:
+            srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            srv.bind((HOST, 0))
+            srv.listen(backlog)
+            srv.close()
+
+        # Issue 15989
         srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         srv.bind((HOST, 0))
-        # backlog = 0
-        srv.listen(0)
+        self.assertRaises(OverflowError, srv.listen, _testcapi.INT_MAX + 1)
         srv.close()
 
     @unittest.skipUnless(SUPPORTS_IPV6, 'IPv6 required for this test.')
@@ -946,6 +964,11 @@ class BasicTCPTest(SocketConnectedTest):
 
     def _testShutdown(self):
         self.serv_conn.send(MSG)
+        # Issue 15989
+        self.assertRaises(OverflowError, self.serv_conn.shutdown,
+                          _testcapi.INT_MAX + 1)
+        self.assertRaises(OverflowError, self.serv_conn.shutdown,
+                          2 + (_testcapi.UINT_MAX + 1))
         self.serv_conn.shutdown(2)
 
     def testDetach(self):
@@ -954,6 +977,7 @@ class BasicTCPTest(SocketConnectedTest):
         f = self.cli_conn.detach()
         self.assertEqual(f, fileno)
         # cli_conn cannot be used anymore...
+        self.assertTrue(self.cli_conn._closed)
         self.assertRaises(socket.error, self.cli_conn.recv, 1024)
         self.cli_conn.close()
         # ...but we can create another socket using the (still open)
@@ -1058,7 +1082,10 @@ class NonBlockingTCPTests(ThreadedTCPSocketTest):
 
     def testSetBlocking(self):
         # Testing whether set blocking works
-        self.serv.setblocking(0)
+        self.serv.setblocking(True)
+        self.assertIsNone(self.serv.gettimeout())
+        self.serv.setblocking(False)
+        self.assertEqual(self.serv.gettimeout(), 0.0)
         start = time.time()
         try:
             self.serv.accept()
@@ -1066,6 +1093,10 @@ class NonBlockingTCPTests(ThreadedTCPSocketTest):
             pass
         end = time.time()
         self.assertTrue((end - start) < 1.0, "Error setting non-blocking mode.")
+        # Issue 15989
+        if _testcapi.UINT_MAX < _testcapi.ULONG_MAX:
+            self.serv.setblocking(_testcapi.UINT_MAX + 1)
+            self.assertIsNone(self.serv.gettimeout())
 
     def _testSetBlocking(self):
         pass
@@ -1630,7 +1661,26 @@ class NetworkConnectionNoServer(unittest.TestCase):
         port = support.find_unused_port()
         with self.assertRaises(socket.error) as cm:
             socket.create_connection((HOST, port))
-        self.assertEqual(cm.exception.errno, errno.ECONNREFUSED)
+
+        # Issue #16257: create_connection() calls getaddrinfo() against
+        # 'localhost'.  This may result in an IPV6 addr being returned
+        # as well as an IPV4 one:
+        #   >>> socket.getaddrinfo('localhost', port, 0, SOCK_STREAM)
+        #   >>> [(2,  2, 0, '', ('127.0.0.1', 41230)),
+        #        (26, 2, 0, '', ('::1', 41230, 0, 0))]
+        #
+        # create_connection() enumerates through all the addresses returned
+        # and if it doesn't successfully bind to any of them, it propagates
+        # the last exception it encountered.
+        #
+        # On Solaris, ENETUNREACH is returned in this circumstance instead
+        # of ECONNREFUSED.  So, if that errno exists, add it to our list of
+        # expected errnos.
+        expected_errnos = [ errno.ECONNREFUSED, ]
+        if hasattr(errno, 'ENETUNREACH'):
+            expected_errnos.append(errno.ENETUNREACH)
+
+        self.assertIn(cm.exception.errno, expected_errnos)
 
     def test_create_connection_timeout(self):
         # Issue #9792: create_connection() should not recast timeout errors

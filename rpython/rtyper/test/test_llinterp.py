@@ -9,7 +9,7 @@ from rpython.rtyper.exceptiondata import UnknownException
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.lltypesystem import lltype
 from rpython.annotator import model as annmodel
-from rpython.annotator.model import lltype_to_annotation
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.rarithmetic import r_uint, ovfcheck
 from rpython.tool import leakfinder
 from rpython.conftest import option
@@ -336,14 +336,15 @@ def test_mod_ovf_zer():
 
 def test_funny_links():
     from rpython.flowspace.model import Block, FunctionGraph, \
-         SpaceOperation, Variable, Constant, Link
+         Variable, Constant, Link
+    from rpython.flowspace.operation import op
     for i in range(2):
         v_i = Variable("i")
-        v_case = Variable("case")
         block = Block([v_i])
         g = FunctionGraph("is_one", block)
-        block.operations.append(SpaceOperation("eq", [v_i, Constant(1)], v_case))
-        block.exitswitch = v_case
+        op1 = op.eq(v_i, Constant(1))
+        block.operations.append(op1)
+        block.exitswitch = op1.result
         tlink = Link([Constant(1)], g.returnblock, True)
         flink = Link([Constant(0)], g.returnblock, False)
         links = [tlink, flink]

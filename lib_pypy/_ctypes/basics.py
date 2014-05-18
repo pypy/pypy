@@ -1,6 +1,5 @@
-
 import _rawffi
-import _ffi
+from _rawffi import alt as _ffi
 import sys
 
 try: from __pypy__ import builtinify
@@ -137,7 +136,7 @@ class _CData(object, metaclass=_CDataMeta):
             return self.value
 
     def __buffer__(self):
-        return self._buffer.__buffer__()
+        return memoryview(self._buffer)
 
     def _get_b_base(self):
         try:

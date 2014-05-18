@@ -6,15 +6,8 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
 from rpython.rlib.rsocket import SocketError, SocketErrorWithErrno, RSocketError
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import gateway
-
-class SignalChecker:
-    def __init__(self, space):
-        self.space = space
-
-    def check(self):
-        self.space.getexecutioncontext().checksignals()
 
 
 # XXX Hack to seperate rpython and pypy
@@ -76,10 +69,7 @@ def fill_from_object(addr, space, w_address):
         else:                 flowinfo = 0
         if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
         else:                 scope_id = 0
-        if flowinfo < 0 or flowinfo > 0xfffff:
-            raise OperationError(space.w_OverflowError, space.wrap(
-                "flowinfo must be 0-1048575."))
-        flowinfo = rffi.cast(lltype.Unsigned, flowinfo)
+        flowinfo = make_unsigned_flowinfo(space, flowinfo)
         a = addr.lock(_c.sockaddr_in6)
         rffi.setintfield(a, 'c_sin6_port', rsocket.htons(port))
         rffi.setintfield(a, 'c_sin6_flowinfo', rsocket.htonl(flowinfo))
@@ -108,10 +98,7 @@ def addr_from_object(family, space, w_address):
         else:                 flowinfo = 0
         if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
         else:                 scope_id = 0
-        if flowinfo < 0 or flowinfo > 0xfffff:
-            raise OperationError(space.w_OverflowError, space.wrap(
-                "flowinfo must be 0-1048575."))
-        flowinfo = rffi.cast(lltype.Unsigned, flowinfo)
+        flowinfo = make_unsigned_flowinfo(space, flowinfo)
         return rsocket.INET6Address(host, port, flowinfo, scope_id)
     if rsocket.HAS_AF_UNIX and family == rsocket.AF_UNIX:
         return rsocket.UNIXAddress(space.str_w(w_address))
@@ -123,9 +110,15 @@ def addr_from_object(family, space, w_address):
 # XXX Hack to seperate rpython and pypy
 def make_ushort_port(space, port):
     if port < 0 or port > 0xffff:
-        raise OperationError(space.w_ValueError, space.wrap(
+        raise OperationError(space.w_OverflowError, space.wrap(
             "port must be 0-65535."))
     return rffi.cast(rffi.USHORT, port)
+
+def make_unsigned_flowinfo(space, flowinfo):
+    if flowinfo < 0 or flowinfo > 0xfffff:
+        raise OperationError(space.w_OverflowError, space.wrap(
+            "flowinfo must be 0-1048575."))
+    return rffi.cast(lltype.Unsigned, flowinfo)
 
 # XXX Hack to seperate rpython and pypy
 def ipaddr_from_object(space, w_sockaddr):
@@ -242,7 +235,7 @@ class W_RSocket(W_Root, RSocket):
 
     def connect_ex_w(self, space, w_addr):
         """connect_ex(address) -> errno
-        
+
         This is like connect(address), but returns an error code (the errno value)
         instead of raising an exception when an error occurs.
         """
@@ -320,7 +313,7 @@ class W_RSocket(W_Root, RSocket):
             return space.w_None
         return space.wrap(timeout)
 
-    @unwrap_spec(backlog=int)
+    @unwrap_spec(backlog="c_int")
     def listen_w(self, space, backlog):
         """listen(backlog)
 
@@ -388,7 +381,7 @@ class W_RSocket(W_Root, RSocket):
         to tell how much data has been sent.
         """
         try:
-            count = self.sendall(data, flags, SignalChecker(space))
+            self.sendall(data, flags, space.getexecutioncontext().checksignals)
         except SocketError, e:
             raise converted_error(space, e)
 
@@ -464,7 +457,7 @@ class W_RSocket(W_Root, RSocket):
 
     @unwrap_spec(nbytes=int, flags=int)
     def recv_into_w(self, space, w_buffer, nbytes=0, flags=0):
-        rwbuffer = space.rwbuffer_w(w_buffer)
+        rwbuffer = space.getarg_w('w*', w_buffer)
         lgt = rwbuffer.getlength()
         if nbytes == 0 or nbytes > lgt:
             nbytes = lgt
@@ -475,7 +468,7 @@ class W_RSocket(W_Root, RSocket):
 
     @unwrap_spec(nbytes=int, flags=int)
     def recvfrom_into_w(self, space, w_buffer, nbytes=0, flags=0):
-        rwbuffer = space.rwbuffer_w(w_buffer)
+        rwbuffer = space.getarg_w('w*', w_buffer)
         lgt = rwbuffer.getlength()
         if nbytes == 0 or nbytes > lgt:
             nbytes = lgt
@@ -502,8 +495,8 @@ class W_RSocket(W_Root, RSocket):
             elif cmd == _c.SIO_KEEPALIVE_VALS:
                 value_size = rffi.sizeof(_c.tcp_keepalive)
             else:
-                raise operationerrfmt(space.w_ValueError,
-                                      "invalid ioctl command %d", cmd)
+                raise oefmt(space.w_ValueError,
+                            "invalid ioctl command %d", cmd)
 
             value_ptr = lltype.malloc(rffi.VOIDP.TO, value_size, flavor='raw')
             try:
@@ -530,7 +523,7 @@ class W_RSocket(W_Root, RSocket):
         finally:
             lltype.free(recv_ptr, flavor='raw')
 
-    @unwrap_spec(how=int)
+    @unwrap_spec(how="c_int")
     def shutdown_w(self, space, how):
         """shutdown(flag)
 

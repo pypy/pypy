@@ -4,6 +4,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.sliceobject import W_SliceObject
+from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.objectmodel import instantiate, we_are_translated, specialize
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
@@ -39,6 +40,9 @@ class W_MyObject(W_Root):
     def setclass(self, space, w_subtype):
         is_root(w_subtype)
 
+    def buffer_w(self, space, flags):
+        return StringBuffer("foobar")
+
     def str_w(self, space):
         return NonConstant("foobar")
     identifier_w = bytes_w = str_w
@@ -46,13 +50,13 @@ class W_MyObject(W_Root):
     def unicode_w(self, space):
         return NonConstant(u"foobar")
 
-    def int_w(self, space):
+    def int_w(self, space, allow_conversion=True):
         return NonConstant(-42)
 
     def uint_w(self, space):
         return r_uint(NonConstant(42))
 
-    def bigint_w(self, space):
+    def bigint_w(self, space, allow_conversion=True):
         from rpython.rlib.rbigint import rbigint
         return rbigint.fromint(NonConstant(42))
 
@@ -61,6 +65,8 @@ class W_MyListObj(W_MyObject):
         pass
 
 class W_MyType(W_MyObject):
+    name = "foobar"
+
     def __init__(self):
         self.mro_w = [w_some_obj(), w_some_obj()]
         self.dict_w = {'__str__': w_some_obj()}
@@ -122,7 +128,7 @@ class FakeObjSpace(ObjSpace):
     def _freeze_(self):
         return True
 
-    def float_w(self, w_obj):
+    def float_w(self, w_obj, allow_conversion=True):
         is_root(w_obj)
         return NonConstant(42.5)
 
@@ -171,6 +177,9 @@ class FakeObjSpace(ObjSpace):
         return w_some_obj()
 
     def newseqiter(self, x):
+        return w_some_obj()
+
+    def newbuffer(self, x):
         return w_some_obj()
 
     def marshal_w(self, w_obj):
@@ -300,6 +309,9 @@ class FakeObjSpace(ObjSpace):
         ec._py_repr = None
         return ec
 
+    def unicode_from_object(self, w_obj):
+        return w_some_obj()
+
     # ----------
 
     def translates(self, func=None, argtypes=None, seeobj_w=[], **kwds):
@@ -339,7 +351,7 @@ class FakeObjSpace(ObjSpace):
                      ObjSpace.ExceptionTable +
                      ['int', 'str', 'float', 'tuple', 'list',
                       'dict', 'bytes', 'complex', 'slice', 'bool',
-                      'text', 'object', 'unicode', 'bytearray']):
+                      'text', 'object', 'unicode', 'bytearray', 'memoryview']):
             setattr(space, 'w_' + name, w_some_obj())
         space.w_type = w_some_type()
         #

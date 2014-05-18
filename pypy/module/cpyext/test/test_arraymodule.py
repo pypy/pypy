@@ -1,7 +1,5 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
-import py
-import sys
 
 class AppTestArrayModule(AppTestCpythonExtensionBase):
     enable_leak_checking = False
@@ -21,7 +19,7 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         module = self.import_module(name='array')
         arr = module.array('i', [1,2,3])
         sum = 0
-        for i in arr: 
+        for i in arr:
             sum += i
         assert sum == 6
 
@@ -56,8 +54,7 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         module = self.import_module(name='array')
         arr = module.array('i', [1,2,3,4])
         # XXX big-endian
-        assert memoryview(arr).tobytes() == (b'\x01\0\0\0'
-                                             b'\x02\0\0\0'
-                                             b'\x03\0\0\0'
-                                             b'\x04\0\0\0')
-
+        assert bytes(arr) == (b'\x01\0\0\0'
+                              b'\x02\0\0\0'
+                              b'\x03\0\0\0'
+                              b'\x04\0\0\0')

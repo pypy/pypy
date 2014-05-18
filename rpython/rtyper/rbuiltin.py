@@ -47,10 +47,8 @@ def call_args_expand(hop, takes_kwds = True):
     hop = hop.copy()
     from rpython.annotator.argument import ArgumentsForTranslation
     arguments = ArgumentsForTranslation.fromshape(
-            None, hop.args_s[1].const, # shape
+            hop.args_s[1].const, # shape
             range(hop.nb_args-2))
-    if arguments.w_starstararg is not None:
-        raise TyperError("**kwds call not implemented")
     if arguments.w_stararg is not None:
         # expand the *arg in-place -- it must be a tuple
         from rpython.rtyper.rtuple import TupleRepr
@@ -74,10 +72,8 @@ def call_args_expand(hop, takes_kwds = True):
         raise TyperError("kwds args not supported")
     # prefix keyword arguments with 'i_'
     kwds_i = {}
-    for i, key in enumerate(keywords):
-        index = arguments.keywords_w[i]
-        kwds_i['i_' + key] = index
-
+    for key in keywords:
+        kwds_i['i_' + key] = keywords[key]
     return hop, kwds_i
 
 
@@ -195,7 +191,7 @@ def get_builtin_method_self(x):
 def rtype_builtin_bool(hop):
     # not called any more?
     assert hop.nb_args == 1
-    return hop.args_r[0].rtype_is_true(hop)
+    return hop.args_r[0].rtype_bool(hop)
 
 def rtype_builtin_int(hop):
     if isinstance(hop.args_s[0], annmodel.SomeString):
@@ -305,7 +301,7 @@ def rtype_hlinvoke(hop):
     s_callable = r_callable.get_s_callable()
 
     nbargs = len(hop.args_s) - 1 + nimplicitarg
-    s_sigs = r_func.get_s_signatures((nbargs, (), False, False))
+    s_sigs = r_func.get_s_signatures((nbargs, (), False))
     if len(s_sigs) != 1:
         raise TyperError("cannot hlinvoke callable %r with not uniform"
                          "annotations: %r" % (r_callable,
@@ -356,7 +352,8 @@ else:
         getattr(WindowsError.__init__, 'im_func', WindowsError.__init__)] = (
         rtype_WindowsError__init__)
 
-BUILTIN_TYPER[object.__init__] = rtype_object__init__
+BUILTIN_TYPER[getattr(object.__init__, 'im_func', object.__init__)] = (
+    rtype_object__init__)
 # annotation of low-level types
 
 def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
@@ -705,10 +702,6 @@ def rtype_builtin_isinstance(hop):
     assert isinstance(hop.args_r[0], rclass.InstanceRepr)
     return hop.args_r[0].rtype_isinstance(hop)
 
-def ll_instantiate(typeptr):   # NB. used by rpbc.ClassesPBCRepr as well
-    my_instantiate = typeptr.instantiate
-    return my_instantiate()
-
 def rtype_instantiate(hop):
     hop.exception_cannot_occur()
     s_class = hop.args_s[0]
@@ -716,10 +709,9 @@ def rtype_instantiate(hop):
     if len(s_class.descriptions) != 1:
         # instantiate() on a variable class
         vtypeptr, = hop.inputargs(rclass.get_type_repr(hop.rtyper))
-        v_inst = hop.gendirectcall(ll_instantiate, vtypeptr)
-        return hop.genop('cast_pointer', [v_inst],    # v_type implicit in r_result
-                         resulttype = hop.r_result.lowleveltype)
-
+        r_class = hop.args_r[0]
+        return r_class._instantiate_runtime_class(hop, vtypeptr,
+                                                  hop.r_result.lowleveltype)
     classdef = s_class.any_description().getuniqueclassdef()
     return rclass.rtype_new_instance(hop.rtyper, classdef, hop.llops)
 
@@ -730,10 +722,30 @@ def rtype_builtin_hasattr(hop):
 
     raise TyperError("hasattr is only suported on a constant")
 
+def rtype_ordered_dict(hop):
+    from rpython.rtyper.lltypesystem.rordereddict import ll_newdict
+
+    hop.exception_cannot_occur()
+    r_dict = hop.r_result
+    cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
+    v_result = hop.gendirectcall(ll_newdict, cDICT)
+    if hasattr(r_dict, 'r_dict_eqfn'):
+        v_eqfn = hop.inputarg(r_dict.r_rdict_eqfn, arg=0)
+        v_hashfn = hop.inputarg(r_dict.r_rdict_hashfn, arg=1)
+        if r_dict.r_rdict_eqfn.lowleveltype != lltype.Void:
+            cname = hop.inputconst(lltype.Void, 'fnkeyeq')
+            hop.genop('setfield', [v_result, cname, v_eqfn])
+        if r_dict.r_rdict_hashfn.lowleveltype != lltype.Void:
+            cname = hop.inputconst(lltype.Void, 'fnkeyhash')
+            hop.genop('setfield', [v_result, cname, v_hashfn])
+    return v_result
+
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
 BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
 BUILTIN_TYPER[hasattr] = rtype_builtin_hasattr
 BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
+BUILTIN_TYPER[annmodel.SomeOrderedDict.knowntype] = rtype_ordered_dict
+BUILTIN_TYPER[objectmodel.r_ordereddict] = rtype_ordered_dict
 
 # _________________________________________________________________
 # weakrefs

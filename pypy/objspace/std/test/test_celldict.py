@@ -1,42 +1,48 @@
+# encoding: utf-8
 import py
+
+from pypy.objspace.std.celldict import ModuleDictStrategy
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
-from pypy.objspace.std.celldict import ModuleCell, ModuleDictStrategy
-from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, \
-        BaseTestRDictImplementation, BaseTestDevolvedDictImplementation
-from pypy.interpreter import gateway
+from pypy.objspace.std.test.test_dictmultiobject import (
+    BaseTestRDictImplementation, BaseTestDevolvedDictImplementation, FakeSpace,
+    FakeUnicode)
 
 space = FakeSpace()
 
 class TestCellDict(object):
+    FakeString = FakeUnicode
+
     def test_basic_property_cells(self):
         strategy = ModuleDictStrategy(space)
         storage = strategy.get_empty_storage()
         d = W_DictMultiObject(space, strategy, storage)
 
         v1 = strategy.version
-        d.setitem("a", 1)
+        key = "a"
+        w_key = self.FakeString(key)
+        d.setitem(w_key, 1)
         v2 = strategy.version
         assert v1 is not v2
-        assert d.getitem("a") == 1
-        assert d.strategy.getdictvalue_no_unwrapping(d, "a") == 1
+        assert d.getitem(w_key) == 1
+        assert d.strategy.getdictvalue_no_unwrapping(d, key) == 1
 
-        d.setitem("a", 2)
+        d.setitem(w_key, 2)
         v3 = strategy.version
         assert v2 is not v3
-        assert d.getitem("a") == 2
-        assert d.strategy.getdictvalue_no_unwrapping(d, "a").w_value == 2
+        assert d.getitem(w_key) == 2
+        assert d.strategy.getdictvalue_no_unwrapping(d, key).w_value == 2
 
-        d.setitem("a", 3)
+        d.setitem(w_key, 3)
         v4 = strategy.version
         assert v3 is v4
-        assert d.getitem("a") == 3
-        assert d.strategy.getdictvalue_no_unwrapping(d, "a").w_value == 3
+        assert d.getitem(w_key) == 3
+        assert d.strategy.getdictvalue_no_unwrapping(d, key).w_value == 3
 
-        d.delitem("a")
+        d.delitem(w_key)
         v5 = strategy.version
         assert v5 is not v4
-        assert d.getitem("a") is None
-        assert d.strategy.getdictvalue_no_unwrapping(d, "a") is None
+        assert d.getitem(w_key) is None
+        assert d.strategy.getdictvalue_no_unwrapping(d, key) is None
 
     def test_same_key_set_twice(self):
         strategy = ModuleDictStrategy(space)
@@ -45,10 +51,10 @@ class TestCellDict(object):
 
         v1 = strategy.version
         x = object()
-        d.setitem("a", x)
+        d.setitem(u"a", x)
         v2 = strategy.version
         assert v1 is not v2
-        d.setitem("a", x)
+        d.setitem(u"a", x)
         v3 = strategy.version
         assert v2 is v3
 
@@ -65,7 +71,6 @@ class AppTestModuleDict(object):
         assert "ModuleDictStrategy" in __pypy__.internal_repr(obj)
 
     def test_check_module_uses_module_dict(self):
-        py3k_skip("ModuleDictStrategy is immediately turned into ObjectDictStrategy because we use unicode keys now")
         m = type(__builtins__)("abc")
         self.impl_used(m.__dict__)
 
@@ -128,9 +133,12 @@ class AppTestCellDict(object):
     def setup_class(cls):
         if cls.runappdirect:
             py.test.skip("__repr__ doesn't work on appdirect")
-        strategy = ModuleDictStrategy(cls.space)
+
+    def setup_method(self, method):
+        space = self.space
+        strategy = ModuleDictStrategy(space)
         storage = strategy.get_empty_storage()
-        cls.w_d = W_DictMultiObject(cls.space, strategy, storage)
+        self.w_d = W_DictMultiObject(space, strategy, storage)
 
     def test_popitem(self):
         import __pypy__
@@ -143,7 +151,6 @@ class AppTestCellDict(object):
         assert x == ("a", 3)
 
     def test_degenerate(self):
-        py3k_skip("ModuleDictStrategy is immediately turned into ObjectDictStrategy because we use unicode keys now")
         import __pypy__
 
         d = self.d
@@ -152,3 +159,23 @@ class AppTestCellDict(object):
         del d["a"]
         d[object()] = 5
         assert list(d.values()) == [5]
+
+    def test_unicode(self):
+        import __pypy__
+
+        d = self.d
+        assert "ModuleDict" in __pypy__.internal_repr(d)
+        d['λ'] = True
+        assert "ModuleDict" in __pypy__.internal_repr(d)
+        assert list(d) == ['λ']
+        assert next(iter(d)) == 'λ'
+        assert "ModuleDict" in __pypy__.internal_repr(d)
+
+        d['foo'] = 'bar'
+        assert sorted(d) == ['foo', 'λ']
+        assert "ModuleDict" in __pypy__.internal_repr(d)
+
+        o = object()
+        d[o] = 'baz'
+        assert set(d) == set(['foo', 'λ', o])
+        assert "ObjectDictStrategy" in __pypy__.internal_repr(d)

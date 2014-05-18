@@ -108,7 +108,7 @@ class __extend__(FloatRepr):
     def get_ll_hash_function(self):
         return _hash_float
 
-    def rtype_is_true(_, hop):
+    def rtype_bool(_, hop):
         vlist = hop.inputargs(Float)
         return hop.genop('float_is_true', vlist, resulttype=Bool)
 

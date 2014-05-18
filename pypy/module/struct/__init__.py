@@ -48,15 +48,17 @@ The variable struct.error is an exception raised on errors."""
     applevel_name = '_struct'
 
     interpleveldefs = {
+        'error': 'interp_struct.get_error(space)',
+
         'calcsize': 'interp_struct.calcsize',
         'pack': 'interp_struct.pack',
+        'pack_into': 'interp_struct.pack_into',
         'unpack': 'interp_struct.unpack',
+        'unpack_from': 'interp_struct.unpack_from',
         '_clearcache': 'interp_struct.clearcache',
-        }
+
+        'Struct': 'interp_struct.W_Struct',
+    }
 
     appleveldefs = {
-        'error': 'app_struct.error',
-        'pack_into': 'app_struct.pack_into',
-        'unpack_from': 'app_struct.unpack_from',
-        'Struct': 'app_struct.Struct',
-        }
+    }

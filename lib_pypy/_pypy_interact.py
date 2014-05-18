@@ -3,6 +3,8 @@
 import sys
 import os
 
+irc_header = "And now for something completely different"
+
 
 def interactive_console(mainmodule=None, quiet=False):
     # set sys.{ps1,ps2} just before invoking the interactive interpreter. This
@@ -15,8 +17,7 @@ def interactive_console(mainmodule=None, quiet=False):
     if not quiet:
         try:
             from _pypy_irc_topic import some_topic
-            text = "And now for something completely different: ``%s''" % (
-                some_topic(),)
+            text = "%s: ``%s''" % ( irc_header, some_topic())
             while len(text) >= 80:
                 i = text[:80].rfind(' ')
                 print(text[:i])
@@ -25,6 +26,7 @@ def interactive_console(mainmodule=None, quiet=False):
         except ImportError:
             pass
     #
+    run_interactive = run_simple_interactive_console
     try:
         if not os.isatty(sys.stdin.fileno()):
             # Bail out if stdin is not tty-like, as pyrepl wouldn't be happy
@@ -35,13 +37,12 @@ def interactive_console(mainmodule=None, quiet=False):
         if not check():
             raise ImportError
         from pyrepl.simple_interact import run_multiline_interactive_console
+        run_interactive = run_multiline_interactive_console
     except ImportError:
-        run_simple_interactive_console(mainmodule)
+        pass
     except SyntaxError:
         print("Warning: 'import pyrepl' failed with SyntaxError")
-        run_simple_interactive_console(mainmodule)
-    else:
-        run_multiline_interactive_console(mainmodule)
+    run_interactive(mainmodule)
 
 def run_simple_interactive_console(mainmodule):
     import code

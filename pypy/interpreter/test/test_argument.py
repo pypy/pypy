@@ -94,6 +94,7 @@ class DummySpace(object):
 
     def setitem(self, obj, key, value):
         obj[key] = value
+    setitem_str = setitem
 
     def getitem(self, obj, key):
         return obj[key]
@@ -113,7 +114,7 @@ class DummySpace(object):
     def len(self, x):
         return len(x)
 
-    def int_w(self, x):
+    def int_w(self, x, allow_conversion=True):
         return x
 
     def eq_w(self, x, y):
@@ -135,7 +136,7 @@ class DummySpace(object):
 
     def type(self, obj):
         class Type:
-            def getname(self, space, default=u'?'):
+            def getname(self, space):
                 return unicode(type(obj).__name__)
         return Type()
 

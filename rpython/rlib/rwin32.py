@@ -118,7 +118,7 @@ if WIN32:
     INVALID_HANDLE_VALUE = rffi.cast(HANDLE, -1)
     PFILETIME = rffi.CArrayPtr(FILETIME)
 
-    _GetLastError = winexternal('GetLastError', [], DWORD, threadsafe=False)
+    _GetLastError = winexternal('GetLastError', [], DWORD, releasegil=False)
     _SetLastError = winexternal('SetLastError', [DWORD], lltype.Void)
 
     def GetLastError():
@@ -134,10 +134,10 @@ if WIN32:
     GetProcAddress = winexternal('GetProcAddress',
                                  [HMODULE, rffi.CCHARP],
                                  rffi.VOIDP)
-    FreeLibrary = winexternal('FreeLibrary', [HMODULE], BOOL, threadsafe=False)
+    FreeLibrary = winexternal('FreeLibrary', [HMODULE], BOOL, releasegil=False)
 
     LocalFree = winexternal('LocalFree', [HLOCAL], DWORD)
-    CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL, threadsafe=False)
+    CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL, releasegil=False)
 
     FormatMessage = winexternal(
         'FormatMessageA',
@@ -169,7 +169,8 @@ if WIN32:
         cfile = udir.join('dosmaperr.c')
         cfile.write(r'''
                 #include <errno.h>
-                #include  <stdio.h>
+                #include <WinError.h>
+                #include <stdio.h>
                 #ifdef __GNUC__
                 #define _dosmaperr mingw_dosmaperr
                 #endif
@@ -196,6 +197,7 @@ if WIN32:
                 standalone=True)
         except (CompilationError, WindowsError):
             # Fallback for the mingw32 compiler
+            assert static_platform.name == 'mingw32'
             errors = {
                 2: 2, 3: 2, 4: 24, 5: 13, 6: 9, 7: 12, 8: 12, 9: 12, 10: 7,
                 11: 8, 15: 2, 16: 13, 17: 18, 18: 2, 19: 13, 20: 13, 21: 13,
@@ -221,7 +223,7 @@ if WIN32:
     def llimpl_FormatError(code):
         "Return a message corresponding to the given Windows error code."
         buf = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
-
+        buf[0] = lltype.nullptr(rffi.CCHARP.TO)
         try:
             msglen = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
                                    FORMAT_MESSAGE_FROM_SYSTEM,
@@ -230,17 +232,20 @@ if WIN32:
                                    DEFAULT_LANGUAGE,
                                    rffi.cast(rffi.CCHARP, buf),
                                    0, None)
+            buflen = intmask(msglen)
 
-            if msglen <= 2:   # includes the case msglen < 0
-                return fake_FormatError(code)
+            # remove trailing cr/lf and dots
+            s_buf = buf[0]
+            while buflen > 0 and (s_buf[buflen - 1] <= ' ' or
+                                  s_buf[buflen - 1] == '.'):
+                buflen -= 1
 
-            # FormatMessage always appends \r\n.
-            buflen = intmask(msglen - 2)
-            assert buflen > 0
-
-            result = rffi.charpsize2str(buf[0], buflen)
-            LocalFree(rffi.cast(rffi.VOIDP, buf[0]))
+            if buflen <= 0:
+                result = fake_FormatError(code)
+            else:
+                result = rffi.charpsize2str(s_buf, buflen)
         finally:
+            LocalFree(rffi.cast(rffi.VOIDP, buf[0]))
             lltype.free(buf, flavor='raw')
 
         return result

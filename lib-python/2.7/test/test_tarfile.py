@@ -154,6 +154,9 @@ class UstarReadTest(ReadTest):
     def test_fileobj_symlink2(self):
         self._test_fileobj_link("./ustar/linktest2/symtype", "ustar/linktest1/regtype")
 
+    def test_issue14160(self):
+        self._test_fileobj_link("symtype2", "ustar/regtype")
+
 
 class CommonReadTest(ReadTest):
 
@@ -300,26 +303,21 @@ class MiscReadTest(CommonReadTest):
 
     def test_extract_hardlink(self):
         # Test hardlink extraction (e.g. bug #857297).
-        tar = tarfile.open(tarname, errorlevel=1, encoding="iso8859-1")
+        with tarfile.open(tarname, errorlevel=1, encoding="iso8859-1") as tar:
+            tar.extract("ustar/regtype", TEMPDIR)
+            self.addCleanup(os.remove, os.path.join(TEMPDIR, "ustar/regtype"))
 
-        tar.extract("ustar/regtype", TEMPDIR)
-        try:
             tar.extract("ustar/lnktype", TEMPDIR)
-        except EnvironmentError, e:
-            if e.errno == errno.ENOENT:
-                self.fail("hardlink not extracted properly")
+            self.addCleanup(os.remove, os.path.join(TEMPDIR, "ustar/lnktype"))
+            with open(os.path.join(TEMPDIR, "ustar/lnktype"), "rb") as f:
+                data = f.read()
+            self.assertEqual(md5sum(data), md5_regtype)
 
-        data = open(os.path.join(TEMPDIR, "ustar/lnktype"), "rb").read()
-        self.assertEqual(md5sum(data), md5_regtype)
-
-        try:
             tar.extract("ustar/symtype", TEMPDIR)
-        except EnvironmentError, e:
-            if e.errno == errno.ENOENT:
-                self.fail("symlink not extracted properly")
-
-        data = open(os.path.join(TEMPDIR, "ustar/symtype"), "rb").read()
-        self.assertEqual(md5sum(data), md5_regtype)
+            self.addCleanup(os.remove, os.path.join(TEMPDIR, "ustar/symtype"))
+            with open(os.path.join(TEMPDIR, "ustar/symtype"), "rb") as f:
+                data = f.read()
+            self.assertEqual(md5sum(data), md5_regtype)
 
     def test_extractall(self):
         # Test if extractall() correctly restores directory permissions
@@ -340,7 +338,7 @@ class MiscReadTest(CommonReadTest):
         # constructor in case of an error. For the test we rely on
         # the fact that opening an empty file raises a ReadError.
         empty = os.path.join(TEMPDIR, "empty")
-        open(empty, "wb").write("")
+        open(empty, "wb").close()
 
         try:
             tar = object.__new__(tarfile.TarFile)
@@ -351,7 +349,15 @@ class MiscReadTest(CommonReadTest):
             else:
                 self.fail("ReadError not raised")
         finally:
-            os.remove(empty)
+            test_support.unlink(empty)
+
+    def test_parallel_iteration(self):
+        # Issue #16601: Restarting iteration over tarfile continued
+        # from where it left off.
+        with tarfile.open(self.tarname) as tar:
+            for m1, m2 in zip(tar, tar):
+                self.assertEqual(m1.offset, m2.offset)
+                self.assertEqual(m1.name, m2.name)
 
 
 class StreamReadTest(CommonReadTest):
@@ -867,7 +873,7 @@ class WriteTest(WriteTestBase):
 
             tar = tarfile.open(tmpname, "r")
             for t in tar:
-                self.assert_(t.name == "." or t.name.startswith("./"))
+                self.assertTrue(t.name == "." or t.name.startswith("./"))
             tar.close()
         finally:
             os.chdir(cwd)
@@ -1327,7 +1333,7 @@ class AppendTest(unittest.TestCase):
     def setUp(self):
         self.tarname = tmpname
         if os.path.exists(self.tarname):
-            os.remove(self.tarname)
+            test_support.unlink(self.tarname)
 
     def _add_testfile(self, fileobj=None):
         tar = tarfile.open(self.tarname, "a", fileobj=fileobj)

@@ -264,7 +264,6 @@ class ASTBuilder(object):
         return ast.Nonlocal(names, nonlocal_node.lineno, nonlocal_node.column)
 
     def handle_assert_stmt(self, assert_node):
-        child_count = len(assert_node.children)
         expr = self.handle_expr(assert_node.children[1])
         msg = None
         if len(assert_node.children) == 4:
@@ -1098,7 +1097,6 @@ class ASTBuilder(object):
         if negative:
             raw = "-" + raw
         w_num_str = self.space.wrap(raw)
-        w_index = None
         w_base = self.space.wrap(base)
         if raw[-1] in "jJ":
             tp = self.space.w_complex
@@ -1124,9 +1122,10 @@ class ASTBuilder(object):
                 sub_strings_w = [parsestring.parsestr(space, encoding, s.value)
                                  for s in atom_node.children]
             except error.OperationError, e:
-                if not e.match(space, space.w_UnicodeError):
+                if not (e.match(space, space.w_UnicodeError) or
+                        e.match(space, space.w_ValueError)):
                     raise
-                # UnicodeError in literal: turn into SyntaxError
+                # Unicode/ValueError in literal: turn into SyntaxError
                 self.error(e.errorstr(space), atom_node)
                 sub_strings_w = [] # please annotator
             # Implement implicit string concatenation.

@@ -5,7 +5,6 @@ from rpython.tool import leakfinder
 pytest_plugins = 'rpython.tool.pytest.expecttest'
 
 cdir = realpath(join(dirname(__file__), 'translator', 'c'))
-cache_dir = realpath(join(dirname(__file__), '_cache'))
 option = None
 
 def braindead_deindent(self):
@@ -24,20 +23,20 @@ def pytest_report_header():
 def pytest_configure(config):
     global option
     option = config.option
-
-def _set_platform(opt, opt_str, value, parser):
     from rpython.config.translationoption import PLATFORMS
     from rpython.translator.platform import set_platform
-    if value not in PLATFORMS:
-        raise ValueError("%s not in %s" % (value, PLATFORMS))
-    set_platform(value, None)
+    platform = config.option.platform
+    if platform not in PLATFORMS:
+        raise ValueError("%s not in %s" % (platform, PLATFORMS))
+    set_platform(platform, None)
+
 
 def pytest_addoption(parser):
     group = parser.getgroup("rpython options")
     group.addoption('--view', action="store_true", dest="view", default=False,
            help="view translation tests' flow graphs with Pygame")
-    group.addoption('-P', '--platform', action="callback", type="string",
-           default="host", callback=_set_platform,
+    group.addoption('-P', '--platform', action="store", dest="platform",
+                    type="string", default="host",
            help="set up tests to use specified platform as compile/run target")
     group = parser.getgroup("JIT options")
     group.addoption('--viewloops', action="store_true",
@@ -60,7 +59,7 @@ def pytest_addhooks(pluginmanager):
 
 class LeakFinder:
     """Track memory allocations during test execution.
-    
+
     So far, only used by the function lltype.malloc(flavor='raw').
     """
     def pytest_runtest_setup(self, __multicall__, item):

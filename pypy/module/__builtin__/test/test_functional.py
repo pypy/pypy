@@ -1,5 +1,4 @@
 class AppTestMap:
-
     def test_trivial_map_one_seq(self):
         assert list(map(lambda x: x+2, [1, 2, 3, 4])) == [3, 4, 5, 6]
 
@@ -105,6 +104,7 @@ class AppTestMap2:
         raises(TypeError, map, bool)
         raises(TypeError, map, 42)
 
+
 class AppTestZip:
     def test_one_list(self):
         assert list(zip([1,2,3])) == [(1,), (2,), (3,)]
@@ -123,6 +123,7 @@ class AppTestZip:
 
     def test_repr(self):
         assert repr(zip([1,2,3], [1,2], [1,2,3])).startswith('<zip object ')
+
 
 class AppTestFilter:
     def test_None(self):
@@ -433,6 +434,22 @@ class AppTestRange:
         x = range(1)
         assert type(reversed(x)) == type(iter(x))
 
+    def test_cpython_issue16029(self):
+        import sys
+        M = sys.maxsize
+        x = range(0, M, M - 1)
+        assert x.__reduce__() == (range, (0, M, M - 1))
+        x = range(0, -M, 1 - M)
+        assert x.__reduce__() == (range, (0, -M, 1 - M))
+
+    def test_cpython_issue16030(self):
+        import sys
+        M = sys.maxsize
+        x = range(0, M, M - 1)
+        assert repr(x) == 'range(0, %s, %s)' % (M, M - 1), repr(x)
+        x = range(0, -M, 1 - M)
+        assert repr(x) == 'range(0, %s, %s)' % (-M, 1 - M), repr(x)
+
 
 class AppTestReversed:
     def test_reversed(self):
@@ -446,6 +463,7 @@ class AppTestReversed:
         raises(StopIteration, r.__next__)
         assert list(reversed(list(reversed("hello")))) == ['h','e','l','l','o']
         raises(TypeError, reversed, reversed("hello"))
+
 
 class AppTestAllAny:
     """
@@ -495,6 +513,7 @@ class AppTestAllAny:
         assert any([x > 42 for x in S]) == True
         S = [10, 20, 30]
         assert any([x > 42 for x in S]) == False
+
 
 class AppTestMinMax:
     def test_min(self):

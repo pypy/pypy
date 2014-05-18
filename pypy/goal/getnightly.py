@@ -26,7 +26,12 @@ branch = hg.sysexec('branch').strip()
 if branch == 'default':
     branch = 'trunk'
 
-filename = 'pypy-c-jit-latest-%s.tar.bz2' % arch
+if '--nojit' in sys.argv:
+    kind = 'nojit'
+else:
+    kind = 'jit'
+
+filename = 'pypy-c-%s-latest-%s.tar.bz2' % (kind, arch)
 url = 'http://buildbot.pypy.org/nightly/%s/%s' % (branch, filename)
 tmp = py.path.local.mkdtemp()
 mydir = tmp.chdir()

@@ -1,11 +1,11 @@
 from pypy.module.imp import importing
 from rpython.rlib import streamio
 from rpython.rlib.streamio import StreamErrors
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyparser import pyparse
-from pypy.objspace.std import unicodetype
+from pypy.objspace.std import unicodeobject
 from pypy.module._io.interp_iobase import W_IOBase
 from pypy.module._io import interp_io
 from pypy.interpreter.streamutil import wrap_streamerror
@@ -64,9 +64,7 @@ def find_module(space, w_name, w_path=None):
     find_info = importing.find_module(
         space, name, w_name, name, w_path, use_loader=False)
     if not find_info:
-        raise operationerrfmt(
-            space.w_ImportError,
-            "No module named %s", name)
+        raise oefmt(space.w_ImportError, "No module named %s", name)
 
     w_filename = space.fsdecode(space.wrapbytes(find_info.filename))
     stream = find_info.stream
@@ -81,7 +79,7 @@ def find_module(space, w_name, w_path=None):
             stream.flush()
             encoding = pyparse._check_for_encoding(top)
             if encoding is None:
-                encoding = unicodetype.getdefaultencoding(space)
+                encoding = unicodeobject.getdefaultencoding(space)
         #
         # in python2, both CPython and PyPy pass the filename to
         # open(). However, CPython 3 just passes the fd, so the returned file
@@ -239,6 +237,6 @@ def source_from_cache(space, pathname):
     does not conform to PEP 3147 format, ValueError will be raised."""
     sourcename = importing.make_source_pathname(pathname)
     if sourcename is None:
-        raise operationerrfmt(space.w_ValueError,
-                              "Not a PEP 3147 pyc path: %s", pathname)
+        raise oefmt(space.w_ValueError,
+                    "Not a PEP 3147 pyc path: %s", pathname)
     return space.fsdecode(space.wrapbytes(sourcename))

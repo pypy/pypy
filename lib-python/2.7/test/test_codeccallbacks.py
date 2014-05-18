@@ -66,15 +66,34 @@ class CodecCallbackTest(unittest.TestCase):
         # replace unencodable characters which numeric character entities.
         # For ascii, latin-1 and charmaps this is completely implemented
         # in C and should be reasonably fast.
-        s = u"\u30b9\u30d1\u30e2 \xe4nd eggs"
+        s = u"\u30b9\u30d1\u30e2 \xe4nd egg\u0161"
         self.assertEqual(
             s.encode("ascii", "xmlcharrefreplace"),
-            "&#12473;&#12497;&#12514; &#228;nd eggs"
+            "&#12473;&#12497;&#12514; &#228;nd egg&#353;"
         )
         self.assertEqual(
             s.encode("latin-1", "xmlcharrefreplace"),
-            "&#12473;&#12497;&#12514; \xe4nd eggs"
+            "&#12473;&#12497;&#12514; \xe4nd egg&#353;"
         )
+        self.assertEqual(
+            s.encode("iso-8859-15", "xmlcharrefreplace"),
+            "&#12473;&#12497;&#12514; \xe4nd egg\xa8"
+        )
+
+    def test_xmlcharrefreplace_with_surrogates(self):
+        tests = [(u'\U0001f49d', '&#128157;'),
+                 (u'\ud83d', '&#55357;'),
+                 (u'\udc9d', '&#56477;'),
+                ]
+        if u'\ud83d\udc9d' != u'\U0001f49d':
+            tests += [(u'\ud83d\udc9d', '&#55357;&#56477;')]
+        for encoding in ['ascii', 'latin1', 'iso-8859-15']:
+            for s, exp in tests:
+                self.assertEqual(s.encode(encoding, 'xmlcharrefreplace'),
+                                 exp, msg='%r.encode(%r)' % (s, encoding))
+                self.assertEqual((s+'X').encode(encoding, 'xmlcharrefreplace'),
+                                 exp+'X',
+                                 msg='%r.encode(%r)' % (s + 'X', encoding))
 
     def test_xmlcharnamereplace(self):
         # This time use a named character entity for unencodable
@@ -262,12 +281,12 @@ class CodecCallbackTest(unittest.TestCase):
 
         self.assertEqual(
             "\\u3042\u3xxx".decode("unicode-escape", "test.handler1"),
-            u"\u3042[<92><117><51><120>]xx"
+            u"\u3042[<92><117><51>]xxx"
         )
 
         self.assertEqual(
             "\\u3042\u3xx".decode("unicode-escape", "test.handler1"),
-            u"\u3042[<92><117><51><120><120>]"
+            u"\u3042[<92><117><51>]xx"
         )
 
         self.assertEqual(
@@ -717,7 +736,7 @@ class CodecCallbackTest(unittest.TestCase):
                 raise ValueError
         self.assertRaises(UnicodeError, codecs.charmap_decode, "\xff", "strict", {0xff: None})
         self.assertRaises(ValueError, codecs.charmap_decode, "\xff", "strict", D())
-        self.assertRaises(TypeError, codecs.charmap_decode, "\xff", "strict", {0xff: sys.maxunicode+1})
+        self.assertRaises(TypeError, codecs.charmap_decode, "\xff", "strict", {0xff: 0x110000})
 
     def test_encodehelper(self):
         # enhance coverage of:

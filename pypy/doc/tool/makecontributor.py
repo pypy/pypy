@@ -1,3 +1,5 @@
+# NOTE: run this script with LANG=en_US.UTF-8
+
 import py
 import sys
 from collections import defaultdict
@@ -60,6 +62,11 @@ alias = {
     'Roberto De Ioris': ['roberto@mrspurr'],
     'Sven Hager': ['hager'],
     'Tomo Cocoa': ['cocoatomo'],
+    'Romain Guillebert': ['rguillebert', 'rguillbert', 'romain', 'Guillebert Romain'],
+    'Ronan Lamy': ['ronan'],
+    'Edd Barrett': ['edd'],
+    'Manuel Jacob': ['mjacob'],
+    'Rami Chowdhury': ['necaris'],
     }
 
 alias_map = {}
@@ -80,7 +87,8 @@ def get_more_authors(log):
     if not match:
         return set()
     ignore_words = ['around', 'consulting', 'yesterday', 'for a bit', 'thanks',
-                    'in-progress', 'bits of', 'even a little', 'floating',]
+                    'in-progress', 'bits of', 'even a little', 'floating',
+                    'a bit', 'reviewing']
     sep_words = ['and', ';', '+', '/', 'with special  by']
     nicknames = match.group(1)
     for word in ignore_words:
@@ -119,14 +127,14 @@ def main(show_numbers):
     ##         print '%5d %s' % (n, name)
     ##     else:
     ##         print name
-                
+
     items = authors_count.items()
     items.sort(key=operator.itemgetter(1), reverse=True)
     for name, n in items:
         if show_numbers:
             print '%5d %s' % (n, name)
         else:
-            print name
+            print '  ' + name
 
 if __name__ == '__main__':
     show_numbers = '-n' in sys.argv

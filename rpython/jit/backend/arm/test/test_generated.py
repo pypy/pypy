@@ -40,7 +40,7 @@ class TestStuff(object):
         looptoken = JitCellToken()
         operations[2].setfailargs([v12, v8, v3, v2, v1, v11])
         operations[3].setfailargs([v9, v6, v10, v2, v8, v5, v1, v4])
-        cpu.compile_loop(None, inputargs, operations, looptoken)
+        cpu.compile_loop(inputargs, operations, looptoken)
         args = [-12 , -26 , -19 , 7 , -5 , -24 , -37 , 62 , 9 , 12]
         deadframe = cpu.execute_token(looptoken, *args)
         assert cpu.get_int_value(deadframe, 0) == 0
@@ -92,7 +92,7 @@ class TestStuff(object):
         operations[9].setfailargs([v15, v7, v10, v18, v4, v17, v1])
         operations[-1].setfailargs([v7, v1, v2])
         looptoken = JitCellToken()
-        cpu.compile_loop(None, inputargs, operations, looptoken)
+        cpu.compile_loop(inputargs, operations, looptoken)
         args = [16 , 5 , 5 , 16 , 46 , 6 , 63 , 39 , 78 , 0]
         deadframe = cpu.execute_token(looptoken, *args)
         assert cpu.get_int_value(deadframe, 0) == 105
@@ -136,7 +136,7 @@ class TestStuff(object):
         operations[-1].setfailargs([v5, v2, v1, v10, v3, v8, v4, v6])
 
         looptoken = JitCellToken()
-        cpu.compile_loop(None, inputargs, operations, looptoken)
+        cpu.compile_loop(inputargs, operations, looptoken)
         args = [-5 , 24 , 46 , -15 , 13 , -8 , 0 , -6 , 6 , 6]
         deadframe = cpu.execute_token(looptoken, *args)
         assert cpu.get_latest_descr(deadframe).identifier == 2
@@ -179,7 +179,7 @@ class TestStuff(object):
         operations[5].setfailargs([])
         operations[-1].setfailargs([v8, v2, v6, v5, v7, v1, v10])
         looptoken = JitCellToken()
-        cpu.compile_loop(None, inputargs, operations, looptoken)
+        cpu.compile_loop(inputargs, operations, looptoken)
         args = [19 , -3 , -58 , -7 , 12 , 22 , -54 , -29 , -19 , -64]
         deadframe = cpu.execute_token(looptoken, *args)
         assert cpu.get_int_value(deadframe, 0) == -29
@@ -223,7 +223,7 @@ class TestStuff(object):
         looptoken = JitCellToken()
         operations[5].setfailargs([])
         operations[-1].setfailargs([v1, v4, v10, v8, v7, v3])
-        cpu.compile_loop(None, inputargs, operations, looptoken)
+        cpu.compile_loop(inputargs, operations, looptoken)
         args = [1073741824 , 95 , -16 , 5 , 92 , 12 , 32 , 17 , 37 , -63]
         deadframe = cpu.execute_token(looptoken, *args)
         assert cpu.get_int_value(deadframe, 0) == 1073741824
@@ -280,7 +280,7 @@ class TestStuff(object):
         operations[9].setfailargs([v10, v13])
         operations[-1].setfailargs([v8, v10, v6, v3, v2, v9])
         args = [32 , 41 , -9 , 12 , -18 , 46 , 15 , 17 , 10 , 12]
-        cpu.compile_loop(None, inputargs, operations, looptoken)
+        cpu.compile_loop(inputargs, operations, looptoken)
         deadframe = cpu.execute_token(looptoken, *args)
         assert cpu.get_latest_descr(deadframe).identifier == 3
         assert cpu.get_int_value(deadframe, 0) == 12
@@ -328,7 +328,7 @@ class TestStuff(object):
         operations[8].setfailargs([v5, v9])
         operations[-1].setfailargs([v4, v10, v6, v5, v9, v7])
         looptoken = JitCellToken()
-        cpu.compile_loop(None, inputargs, operations, looptoken)
+        cpu.compile_loop(inputargs, operations, looptoken)
         args = [-8 , 0 , 62 , 35 , 16 , 9 , 30 , 581610154 , -1 , 738197503]
         deadframe = cpu.execute_token(looptoken, *args)
         assert cpu.get_latest_descr(deadframe).identifier == 2
@@ -378,7 +378,7 @@ class TestStuff(object):
         operations[-2].setfailargs([v9, v4, v10, v11, v14])
         operations[-1].setfailargs([v10, v8, v1, v6, v4])
         looptoken = JitCellToken()
-        cpu.compile_loop(None, inputargs, operations, looptoken)
+        cpu.compile_loop(inputargs, operations, looptoken)
         args = [-39 , -18 , 1588243114 , -9 , -4 , 1252698794 , 0 , 715827882 , -15 , 536870912]
         deadframe = cpu.execute_token(looptoken, *args)
         assert cpu.get_latest_descr(deadframe).identifier == 1
@@ -433,7 +433,7 @@ class TestStuff(object):
         operations[9].setfailargs([v5, v7, v12, v14, v2, v13, v8])
         operations[-1].setfailargs([v1, v2, v9])
         looptoken = JitCellToken()
-        cpu.compile_loop(None, inputargs, operations, looptoken)
+        cpu.compile_loop(inputargs, operations, looptoken)
         args = [0 , -2 , 24 , 1 , -4 , 13 , -95 , 33 , 2 , -44]
         deadframe = cpu.execute_token(looptoken, *args)
         assert cpu.get_latest_descr(deadframe).identifier == 3
@@ -475,7 +475,7 @@ class TestStuff(object):
         operations[2].setfailargs([v10, v3, v6, v11, v9, v2])
         operations[-1].setfailargs([v8, v2, v10, v6, v7, v9, v5, v4])
         looptoken = JitCellToken()
-        cpu.compile_loop(None, inputargs, operations, looptoken)
+        cpu.compile_loop(inputargs, operations, looptoken)
         args = [3 , -5 , 1431655765 , 47 , 12 , 1789569706 , 15 , 939524096 , 16 , -43]
         deadframe = cpu.execute_token(looptoken, *args)
         assert cpu.get_latest_descr(deadframe).identifier == 1
@@ -524,7 +524,7 @@ class TestStuff(object):
         operations[-1].setfailargs([v2, v3, v5, v7, v10, v8, v9])
         operations[4].setfailargs([v14])
         looptoken = JitCellToken()
-        cpu.compile_loop(None, inputargs, operations, looptoken)
+        cpu.compile_loop(inputargs, operations, looptoken)
         args = [14 , -20 , 18 , -2058005163 , 6 , 1 , -16 , 11 , 0 , 19]
         deadframe = cpu.execute_token(looptoken, *args)
         assert cpu.get_latest_descr(deadframe).identifier == 1

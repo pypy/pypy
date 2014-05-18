@@ -72,6 +72,9 @@ class Logger(object):
     def _make_log_operations(self):
         return LogOperations(self.metainterp_sd, self.guard_number)
 
+    def repr_of_resop(self, op):
+        return LogOperations(self.metainterp_sd, self.guard_number).repr_of_resop(op)
+
 
 class LogOperations(object):
     """
@@ -103,7 +106,9 @@ class LogOperations(object):
         elif isinstance(arg, BoxInt):
             return 'i' + str(mv)
         elif isinstance(arg, self.ts.ConstRef):
-            return 'ConstPtr(ptr' + str(mv) + ')'
+            if arg.value:
+                return 'ConstPtr(ptr' + str(mv) + ')'
+            return 'ConstPtr(null)'
         elif isinstance(arg, self.ts.BoxRef):
             return 'p' + str(mv)
         elif isinstance(arg, ConstFloat):

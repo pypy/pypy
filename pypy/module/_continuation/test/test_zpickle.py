@@ -3,8 +3,7 @@ import py
 
 class AppTestCopy:
     spaceconfig = dict(usemodules=['_continuation'],
-                       continuation=True,
-                       CALL_METHOD=True)
+                       continuation=True)
 
     def test_basic_setup(self):
         from _continuation import continulet
@@ -106,7 +105,6 @@ class AppTestPickle:
     spaceconfig = {
         "usemodules": ['_continuation', 'struct', 'binascii'],
         "continuation": True,
-        "CALL_METHOD": True,
     }
 
     def setup_class(cls):
@@ -217,6 +215,7 @@ class AppTestPickle:
         ''', mod.__dict__)
 
     def test_pickle_continulet_real_subclass(self):
+        skip("XXX: triggers a crash: https://bitbucket.org/pypy/pypy/issue/1773")
         import types, sys
         mod = types.ModuleType('test_pickle_continulet_real_subclass')
         sys.modules['test_pickle_continulet_real_subclass'] = mod

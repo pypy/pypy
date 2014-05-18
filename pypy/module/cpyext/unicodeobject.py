@@ -11,7 +11,7 @@ from pypy.module.cpyext.pyobject import (
     make_typedescr, get_typedescr)
 from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
 from pypy.module._codecs.interp_codecs import CodecState
-from pypy.objspace.std import unicodeobject, unicodetype
+from pypy.objspace.std import unicodeobject
 from rpython.rlib import rstring, runicode
 from rpython.tool.sourcetools import func_renamer
 import sys
@@ -230,7 +230,8 @@ def _PyUnicode_AsString(space, ref):
     if not ref_unicode.c_utf8buffer:
         # Copy unicode buffer
         w_unicode = from_ref(space, ref)
-        w_encoded = unicodetype.encode_object(space, w_unicode, "utf-8", "strict")
+        w_encoded = unicodeobject.encode_object(space, w_unicode, "utf-8",
+                                                "strict")
         s = space.bytes_w(w_encoded)
         ref_unicode.c_utf8buffer = rffi.str2charp(s)
     return ref_unicode.c_utf8buffer
@@ -275,7 +276,7 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
 def PyUnicode_GetDefaultEncoding(space):
     """Returns the currently active default encoding."""
     if default_encoding[0] == '\x00':
-        encoding = unicodetype.getdefaultencoding(space)
+        encoding = unicodeobject.getdefaultencoding(space)
         i = 0
         while i < len(encoding) and i < DEFAULT_ENCODING_SIZE:
             default_encoding[i] = encoding[i]
@@ -297,7 +298,7 @@ def PyUnicode_AsEncodedObject(space, w_unicode, llencoding, llerrors):
         encoding = rffi.charp2str(llencoding)
     if llerrors:
         errors = rffi.charp2str(llerrors)
-    return unicodetype.encode_object(space, w_unicode, encoding, errors)
+    return unicodeobject.encode_object(space, w_unicode, encoding, errors)
 
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
 def PyUnicode_AsEncodedString(space, w_unicode, llencoding, llerrors):
@@ -320,7 +321,7 @@ def PyUnicode_AsUnicodeEscapeString(space, w_unicode):
     if not PyUnicode_Check(space, w_unicode):
         PyErr_BadArgument(space)
 
-    return unicodetype.encode_object(space, w_unicode, 'unicode-escape', 'strict')
+    return unicodeobject.encode_object(space, w_unicode, 'unicode-escape', 'strict')
 
 @cpython_api([CONST_WSTRING, Py_ssize_t], PyObject)
 def PyUnicode_FromUnicode(space, wchar_p, length):
@@ -354,6 +355,9 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
     in the unicode() built-in function.  The codec to be used is looked up
     using the Python codec registry.  Return NULL if an exception was raised by
     the codec."""
+    if not encoding:
+        # This tracks CPython 2.7, in CPython 3.4 'utf-8' is hardcoded instead
+        encoding = PyUnicode_GetDefaultEncoding(space)
     w_str = space.wrapbytes(rffi.charpsize2str(s, size))
     w_encoding = space.wrap(rffi.charp2str(encoding))
     if errors:
@@ -383,6 +387,9 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
 
     All other objects, including Unicode objects, cause a TypeError to be
     set."""
+    if not encoding:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("decoding Unicode is not supported"))
     w_encoding = space.wrap(rffi.charp2str(encoding))
     if errors:
         w_errors = space.wrap(rffi.charp2str(errors))
@@ -557,7 +564,7 @@ def make_conversion_functions(suffix, encoding):
         exception was raised by the codec."""
         if not PyUnicode_Check(space, w_unicode):
             PyErr_BadArgument(space)
-        return unicodetype.encode_object(space, w_unicode, encoding, "strict")
+        return unicodeobject.encode_object(space, w_unicode, encoding, "strict")
 
     @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
     @func_renamer('PyUnicode_Decode%s' % suffix)

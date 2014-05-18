@@ -14,7 +14,9 @@ from rpython.flowspace.model import *
 from rpython.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib import objectmodel
-from rpython.flowspace.objspace import build_flow, FlowingError
+from rpython.flowspace.objspace import build_flow
+from rpython.flowspace.flowcontext import FlowingError
+from rpython.flowspace.operation import op
 
 from rpython.translator.test import snippet
 
@@ -69,12 +71,11 @@ class TestAnnotateTestCase:
             return x+1
         """
         x = Variable("x")
-        result = Variable("result")
-        op = SpaceOperation("add", [x, Constant(1)], result)
+        oper = op.add(x, Constant(1))
         block = Block([x])
         fun = FunctionGraph("f", block)
-        block.operations.append(op)
-        block.closeblock(Link([result], fun.returnblock))
+        block.operations.append(oper)
+        block.closeblock(Link([oper.result], fun.returnblock))
         a = self.RPythonAnnotator()
         a.addpendingblock(fun, fun.startblock, [annmodel.SomeInteger()])
         a.complete()
@@ -90,20 +91,18 @@ class TestAnnotateTestCase:
         """
         i1 = Variable("i1")
         i2 = Variable("i2")
-        i3 = Variable("i3")
-        conditionres = Variable("conditionres")
-        conditionop = SpaceOperation("gt", [i1, Constant(0)], conditionres)
-        decop = SpaceOperation("add", [i2, Constant(-1)], i3)
+        conditionop = op.gt(i1, Constant(0))
+        decop = op.add(i2, Constant(-1))
         headerblock = Block([i1])
         whileblock = Block([i2])
 
         fun = FunctionGraph("f", headerblock)
         headerblock.operations.append(conditionop)
-        headerblock.exitswitch = conditionres
+        headerblock.exitswitch = conditionop.result
         headerblock.closeblock(Link([i1], fun.returnblock, False),
                                Link([i1], whileblock, True))
         whileblock.operations.append(decop)
-        whileblock.closeblock(Link([i3], headerblock))
+        whileblock.closeblock(Link([decop.result], headerblock))
 
         a = self.RPythonAnnotator()
         a.addpendingblock(fun, fun.startblock, [annmodel.SomeInteger()])
@@ -123,15 +122,12 @@ class TestAnnotateTestCase:
         i1 = Variable("i1")
         i2 = Variable("i2")
         i3 = Variable("i3")
-        i4 = Variable("i4")
         sum2 = Variable("sum2")
         sum3 = Variable("sum3")
-        sum4 = Variable("sum4")
 
-        conditionres = Variable("conditionres")
-        conditionop = SpaceOperation("gt", [i2, Constant(0)], conditionres)
-        decop = SpaceOperation("add", [i3, Constant(-1)], i4)
-        addop = SpaceOperation("add", [i3, sum3], sum4)
+        conditionop = op.gt(i2, Constant(0))
+        decop = op.add(i3, Constant(-1))
+        addop = op.add(i3, sum3)
         startblock = Block([i1])
         headerblock = Block([i2, sum2])
         whileblock = Block([i3, sum3])
@@ -139,12 +135,12 @@ class TestAnnotateTestCase:
         fun = FunctionGraph("f", startblock)
         startblock.closeblock(Link([i1, Constant(0)], headerblock))
         headerblock.operations.append(conditionop)
-        headerblock.exitswitch = conditionres
+        headerblock.exitswitch = conditionop.result
         headerblock.closeblock(Link([sum2], fun.returnblock, False),
                                Link([i2, sum2], whileblock, True))
         whileblock.operations.append(addop)
         whileblock.operations.append(decop)
-        whileblock.closeblock(Link([i4, sum4], headerblock))
+        whileblock.closeblock(Link([decop.result, addop.result], headerblock))
 
         a = self.RPythonAnnotator()
         a.addpendingblock(fun, fun.startblock, [annmodel.SomeInteger()])
@@ -228,7 +224,7 @@ class TestAnnotateTestCase:
         def f():
             return X().meth()
         a = self.RPythonAnnotator()
-        py.test.raises(AssertionError, a.build_types, f,  [])
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f,  [])
 
     def test_methodcall1(self):
         a = self.RPythonAnnotator()
@@ -1065,8 +1061,9 @@ class TestAnnotateTestCase:
         gf2 = graphof(a, f2)
         gf3 = graphof(a, f3)
 
-        assert fam1.calltables == {(2, (), False, False): [{fdesc1: gf1}], (1, (), False, False): [{fdesc1: gf1}]}
-        assert fam2.calltables == {(1, (), False, False): [{fdesc2: gf2, fdesc3: gf3}]}
+        assert fam1.calltables == {(2, (), False): [{fdesc1: gf1}],
+                                   (1, (), False): [{fdesc1: gf1}]}
+        assert fam2.calltables == {(1, (), False): [{fdesc2: gf2, fdesc3: gf3}]}
 
     def test_pbc_call_ins(self):
         class A(object):
@@ -1117,14 +1114,14 @@ class TestAnnotateTestCase:
         gfA_m = graphof(a, A.m.im_func)
         gfC_m = graphof(a, C.m.im_func)
 
-        assert famB_n.calltables == {(1, (), False, False): [{mdescB_n.funcdesc: gfB_n}] }
-        assert famA_m.calltables == {(1, (), False, False): [{mdescA_m.funcdesc: gfA_m, mdescC_m.funcdesc: gfC_m }] }
+        assert famB_n.calltables == {(1, (), False): [{mdescB_n.funcdesc: gfB_n}] }
+        assert famA_m.calltables == {(1, (), False): [{mdescA_m.funcdesc: gfA_m, mdescC_m.funcdesc: gfC_m }] }
 
         mdescCinit = getmdesc(C().__init__)
         famCinit = mdescCinit.getcallfamily()
         gfCinit = graphof(a, C.__init__.im_func)
 
-        assert famCinit.calltables == {(1, (), False, False): [{mdescCinit.funcdesc: gfCinit}] }
+        assert famCinit.calltables == {(1, (), False): [{mdescCinit.funcdesc: gfCinit}] }
 
     def test_isinstance_usigned(self):
         def f(x):
@@ -1438,7 +1435,7 @@ class TestAnnotateTestCase:
             elif a==2:
                 raise X(1)
             elif a==3:
-                raise X,4
+                raise X(4)
             else:
                 try:
                     l[0]
@@ -1490,7 +1487,7 @@ class TestAnnotateTestCase:
         s = a.build_types(snippet.prime, [int])
         assert s.knowntype == bool
 
-    def test_and_is_true_coalesce(self):
+    def test_and_bool_coalesce(self):
         def f(a,b,c,d,e):
             x = a and b
             if x:
@@ -1500,7 +1497,7 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int, str, a.bookkeeper.immutablevalue(1.0), a.bookkeeper.immutablevalue('d'), a.bookkeeper.immutablevalue('e')])
         assert s == annmodel.SomeTuple([annmodel.SomeChar(), a.bookkeeper.immutablevalue(1.0)])
 
-    def test_is_true_coalesce2(self):
+    def test_bool_coalesce2(self):
         def f(a,b,a1,b1,c,d,e):
             x = (a or  b) and (a1 or b1)
             if x:
@@ -1514,7 +1511,7 @@ class TestAnnotateTestCase:
         assert s == annmodel.SomeTuple([annmodel.SomeChar(),
                                         a.bookkeeper.immutablevalue(1.0)])
 
-    def test_is_true_coalesce_sanity(self):
+    def test_bool_coalesce_sanity(self):
         def f(a):
             while a:
                 pass
@@ -2053,7 +2050,7 @@ class TestAnnotateTestCase:
 
         someint = annmodel.SomeInteger()
 
-        assert (fdesc.get_s_signatures((2,(),False,False))
+        assert (fdesc.get_s_signatures((2, (), False))
                 == [([someint,someint],someint)])
 
     def test_emulated_pbc_call_callback(self):
@@ -2875,7 +2872,6 @@ class TestAnnotateTestCase:
         py.test.raises(Exception, a.build_types, fun, [s_nonneg, int])
 
     def test_sig_bug(self):
-        py.test.skip("_annenforceargs_ does not work for default arguments")
         def g(x, y=5):
             return y == 5
         g._annenforceargs_ = (int, int)
@@ -2883,7 +2879,8 @@ class TestAnnotateTestCase:
             return g(x)
         a = self.RPythonAnnotator()
         s = a.build_types(fun, [int])
-        assert not s.is_constant()
+        assert s.knowntype is bool
+        assert s.is_constant()
 
     def test_sig_list(self):
         def g(buf):
@@ -3381,22 +3378,22 @@ class TestAnnotateTestCase:
             return '%s' % unichr(x)
 
         a = self.RPythonAnnotator()
-        py.test.raises(NotImplementedError, a.build_types, f, [int])
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f, [int])
         def f(x):
             return '%s' % (unichr(x) * 3)
 
         a = self.RPythonAnnotator()
-        py.test.raises(NotImplementedError, a.build_types, f, [int])
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f, [int])
         def f(x):
             return '%s%s' % (1, unichr(x))
 
         a = self.RPythonAnnotator()
-        py.test.raises(NotImplementedError, a.build_types, f, [int])
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f, [int])
         def f(x):
             return '%s%s' % (1, unichr(x) * 15)
 
         a = self.RPythonAnnotator()
-        py.test.raises(NotImplementedError, a.build_types, f, [int])
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f, [int])
 
 
     def test_strformatting_tuple(self):
@@ -3434,13 +3431,36 @@ class TestAnnotateTestCase:
             return [1, 2, 3][s:e]
 
         a = self.RPythonAnnotator()
-        py.test.raises(TypeError, "a.build_types(f, [int, int])")
+        py.test.raises(annmodel.AnnotatorError, "a.build_types(f, [int, int])")
         a.build_types(f, [annmodel.SomeInteger(nonneg=True),
                           annmodel.SomeInteger(nonneg=True)])
         def f(x):
             return x[:-1]
 
         a.build_types(f, [str])
+
+    def test_negative_number_find(self):
+        def f(s, e):
+            return "xyz".find("x", s, e)
+
+        a = self.RPythonAnnotator()
+        py.test.raises(annmodel.AnnotatorError, "a.build_types(f, [int, int])")
+        a.build_types(f, [annmodel.SomeInteger(nonneg=True),
+                          annmodel.SomeInteger(nonneg=True)])
+        def f(s, e):
+            return "xyz".rfind("x", s, e)
+
+        py.test.raises(annmodel.AnnotatorError, "a.build_types(f, [int, int])")
+        a.build_types(f, [annmodel.SomeInteger(nonneg=True),
+                          annmodel.SomeInteger(nonneg=True)])
+
+        def f(s, e):
+            return "xyz".count("x", s, e)
+
+        py.test.raises(annmodel.AnnotatorError, "a.build_types(f, [int, int])")
+        a.build_types(f, [annmodel.SomeInteger(nonneg=True),
+                          annmodel.SomeInteger(nonneg=True)])
+
 
     def test_setslice(self):
         def f():
@@ -3608,7 +3628,7 @@ class TestAnnotateTestCase:
         def f():
             e = OverflowError()
             lle = cast_instance_to_base_ptr(e)
-            raise Exception, lle
+            raise Exception(lle)
             # ^^^ instead, must cast back from a base ptr to an instance
         a = self.RPythonAnnotator()
         py.test.raises(AssertionError, a.build_types, f, [])
@@ -3698,6 +3718,18 @@ class TestAnnotateTestCase:
             l1.append(n+1)
             a.lst = l1
             return a.lst
+
+        a = self.RPythonAnnotator()
+        py.test.raises(ListChangeUnallowed, a.build_types, f, [int])
+
+    def test_immutable_list_is_assigned_a_resizable_list(self):
+        class A:
+            _immutable_fields_ = 'lst[*]'
+        def f(n):
+            a = A()
+            foo = []
+            foo.append(n)
+            a.lst = foo
 
         a = self.RPythonAnnotator()
         py.test.raises(ListChangeUnallowed, a.build_types, f, [int])
@@ -3968,7 +4000,9 @@ class TestAnnotateTestCase:
             return bytearray("xyz")
 
         a = self.RPythonAnnotator()
-        assert isinstance(a.build_types(f, []), annmodel.SomeByteArray)
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeByteArray)
+        assert not s.is_constant()   # never a constant!
 
     def test_bytearray_add(self):
         def f(a):
@@ -4022,6 +4056,147 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         assert not a.build_types(fn, [int]).nonneg
+
+    def test_unionerror_attrs(self):
+        def f(x):
+            if x < 10:
+                return 1
+            else:
+                return "bbb"
+        a = self.RPythonAnnotator()
+
+        with py.test.raises(annmodel.UnionError) as exc:
+            a.build_types(f, [int])
+
+        the_exc = exc.value
+        s_objs = set([type(the_exc.s_obj1), type(the_exc.s_obj2)])
+
+        assert s_objs == set([annmodel.SomeInteger, annmodel.SomeString])
+
+    def test_unionerror_tuple_size(self):
+        def f(x):
+            if x < 10:
+                return (1, )
+            else:
+                return (1, 2)
+        a = self.RPythonAnnotator()
+
+        with py.test.raises(annmodel.UnionError) as exc:
+            a.build_types(f, [int])
+
+        assert "RPython cannot unify tuples of different length: 2 versus 1" in exc.value.msg
+
+    def test_unionerror_signedness(self):
+        def f(x):
+            if x < 10:
+                return r_uint(99)
+            else:
+                return -1
+        a = self.RPythonAnnotator()
+
+        with py.test.raises(annmodel.UnionError) as exc:
+            a.build_types(f, [int])
+
+        assert ("RPython cannot prove that these integers are of the "
+                "same signedness" in exc.value.msg)
+
+    def test_unionerror_instance(self):
+        class A(object): pass
+        class B(object): pass
+
+        def f(x):
+            if x < 10:
+                return A()
+            else:
+                return B()
+        a = self.RPythonAnnotator()
+
+        with py.test.raises(annmodel.UnionError) as exc:
+            a.build_types(f, [int])
+
+        assert ("RPython cannot unify instances with no common base class"
+                in exc.value.msg)
+
+    def test_unionerror_iters(self):
+
+        def f(x):
+            d = { 1 : "a", 2 : "b" }
+            if x < 10:
+                return d.iterkeys()
+            else:
+                return d.itervalues()
+        a = self.RPythonAnnotator()
+
+        with py.test.raises(annmodel.UnionError) as exc:
+            a.build_types(f, [int])
+
+        assert ("RPython cannot unify incompatible iterator variants" in
+                exc.value.msg)
+
+    def test_variable_getattr(self):
+        class A(object): pass
+        def f(y):
+            a = A()
+            return getattr(a, y)
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.AnnotatorError) as exc:
+            a.build_types(f, [str])
+        assert ("variable argument to getattr" in exc.value.msg)
+
+    def test_bad_call(self):
+        def f(x):
+            return x()
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.AnnotatorError) as exc:
+            a.build_types(f, [str])
+        assert ("Cannot prove that the object is callable" in exc.value.msg)
+
+    def test_UnionError_on_PBC(self):
+        l = ['a', 1]
+        def f(x):
+            l.append(x)
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.UnionError) as excinfo:
+            a.build_types(f, [int])
+        assert 'Happened at file' in excinfo.value.source
+        assert 'Known variable annotations:' in excinfo.value.source
+
+    def test_str_format_error(self):
+        def f(s, x):
+            return s.format(x)
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.AnnotatorError) as exc:
+            a.build_types(f, [str, str])
+        assert ("format() is not RPython" in exc.value.msg)
+
+    def test_prebuilt_ordered_dict(self):
+        try:
+            from collections import OrderedDict
+        except ImportError:
+            py.test.skip("Please upgrade to python 2.7")
+        d = OrderedDict([("aa", 1)])
+
+        def f():
+            return d
+
+        a = self.RPythonAnnotator()
+        assert isinstance(a.build_types(f, []), annmodel.SomeOrderedDict)
+
+    def test_enumerate_none(self):
+        # enumerate(None) can occur as an intermediate step during a full
+        # annotation, because the None will be generalized later to
+        # None-or-list for example
+        def f(flag):
+            if flag:
+                x = None
+            else:
+                x = [42]
+            return enumerate(x).next()
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeTuple)
+        assert s.items[1].const == 42
+
 
 def g(n):
     return [0, 1, 2, n]

@@ -1,12 +1,15 @@
 """Regular expression tests specific to _sre.py and accumulated during TDD."""
+
 import os
 import py
 from py.test import raises, skip
 from pypy.interpreter.gateway import app2interp_temp
 
+
 def init_app_test(cls, space):
-    cls.w_s = space.appexec([space.wrap(os.path.realpath(os.path.dirname(__file__)))], 
-                              """(this_dir):
+    cls.w_s = space.appexec(
+        [space.wrap(os.path.realpath(os.path.dirname(__file__)))],
+        """(this_dir):
         import sys
         # Uh-oh, ugly hack
         sys.path.insert(0, this_dir)
@@ -15,11 +18,10 @@ def init_app_test(cls, space):
             return support_test_app_sre
         finally:
             sys.path.pop(0)
-    """)
+        """)
 
 
 class AppTestSrePy:
-
     def test_magic(self):
         import _sre, sre_constants
         assert sre_constants.MAGIC == _sre.MAGIC
@@ -30,6 +32,9 @@ class AppTestSrePy:
 
 
 class AppTestSrePattern:
+    def setup_class(cls):
+        # This imports support_test_sre as the global "s"
+        init_app_test(cls, cls.space)
 
     spaceconfig = {'usemodules': ['itertools']}
 
@@ -48,6 +53,20 @@ class AppTestSrePattern:
         assert re.I | re.M == p.flags
         assert 2 == p.groups
         assert {"g": 2} == p.groupindex
+
+    def test_repeat_minmax_overflow(self):
+        import re
+        string = "x" * 100000
+        assert re.match(r".{%d}" % (self.s.MAXREPEAT - 1), string) is None
+        assert re.match(r".{,%d}" % (self.s.MAXREPEAT - 1), string).span() == (0, 100000)
+        assert re.match(r".{%d,}?" % (self.s.MAXREPEAT - 1), string) is None
+        import sys
+        if sys.version_info[:3] <= (3, 2, 3):
+            # XXX: These are fixed in 3.2.4 or so
+            return
+        raises(OverflowError, re.compile, r".{%d}" % self.s.MAXREPEAT)
+        raises(OverflowError, re.compile, r".{,%d}" % self.s.MAXREPEAT)
+        raises(OverflowError, re.compile, r".{%d,}?" % self.s.MAXREPEAT)
 
     def test_match_none(self):
         import re
@@ -99,8 +118,8 @@ class AppTestSrePattern:
 
 
 class AppTestSreMatch:
-    spaceconfig = dict(usemodules=('array',))
-        
+    spaceconfig = dict(usemodules=('array', ))
+
     def test_copy(self):
         import re
         # copy support is disabled by default in _sre.c
@@ -178,6 +197,9 @@ class AppTestSreMatch:
         assert ("1", "1", None) == m.group(1, 2, 3)
         assert ("1", None) == m.group("first", "second")
         raises(IndexError, m.group, 1, 4)
+        assert ("1", None) == m.group(1, "second")
+        raises(IndexError, m.group, 'foobarbaz')
+        raises(IndexError, m.group, 'first', 'foobarbaz')
 
     def test_expand(self):
         import re
@@ -234,6 +256,10 @@ class AppTestSreMatch:
         assert u2 == u1
         assert type(u2) is bytes   # and not MyBytes
 
+    def test_sub_bug(self):
+        import re
+        assert re.sub('=\w{2}', 'x', '=CA') == 'x'
+
     def test_match_array(self):
         import re, array
         a = array.array('b', b'hello')
@@ -286,9 +312,9 @@ class AppTestSreMatch:
 
 
 class AppTestSreScanner:
-    
+
     spaceconfig = {'usemodules': ['itertools']}
-    
+
     def test_scanner_attributes(self):
         import re
         p = re.compile("bla")
@@ -346,7 +372,7 @@ class AppTestGetlower:
     def setup_method(self, method):
         import locale
         locale.setlocale(locale.LC_ALL, (None, None))
-        
+
     def teardown_method(self, method):
         import locale
         locale.setlocale(locale.LC_ALL, (None, None))
@@ -382,7 +408,7 @@ class AppTestGetlower:
         s.assert_lower_equal([("a", "a"), ("A", "a"), (UPPER_AE, LOWER_AE),
             ("\u00c4", "\u00e4"), (UPPER_PI, LOWER_PI),
             ("\u4444", "\u4444")], sre_constants.SRE_FLAG_UNICODE)
-        
+
 
 class AppTestSimpleSearches:
 
@@ -558,15 +584,9 @@ class AppTestSimpleSearches:
         assert re.search(r"b(?<!\d.)a", "ba")
         assert not re.search(r"b(?<!\d.)a", "11ba")
 
-    def test_bug_725149(self):
-        # mark_stack_base restoring before restoring marks
-        # test copied from CPython test
-        import re
-        assert re.match('(a)(?:(?=(b)*)c)*', 'abb').groups() == ('a', None)
-        assert re.match('(a)((?!(b)*))*', 'abb').groups() == ('a', None, None)
-
 
 class AppTestMarksStack:
+
     spaceconfig = {'usemodules': ['itertools']}
 
     def test_mark_stack_branch(self):
@@ -598,7 +618,14 @@ class AppTestMarksStack:
         m = re.match("(\d)+?1((2)|(3))44", "221341244")
         assert ("2", "2", None) == m.group(2, 3, 4)
         assert 2 == m.lastindex
-        
+
+    def test_bug_725149(self):
+        # mark_stack_base restoring before restoring marks
+        # test copied from CPython test
+        import re
+        assert re.match('(a)(?:(?=(b)*)c)*', 'abb').groups() == ('a', None)
+        assert re.match('(a)((?!(b)*))*', 'abb').groups() == ('a', None, None)
+
 
 class AppTestOpcodes:
     spaceconfig = dict(usemodules=('_locale',))
@@ -878,21 +905,21 @@ class AppTestOpcodes:
 
     def test_repeat_one(self):
         s = self.s
-        opcodes = [s.OPCODES["repeat_one"], 6, 1, 65535] + s.encode_literal("a") \
+        opcodes = [s.OPCODES["repeat_one"], 6, 1, self.s.MAXREPEAT] + s.encode_literal("a") \
             + [s.OPCODES["success"]] + s.encode_literal("ab") + [s.OPCODES["success"]]
         s.assert_match(opcodes, ["aab", "aaaab"])
         s.assert_no_match(opcodes, ["ab", "a"])
 
     def test_min_repeat_one(self):
         s = self.s
-        opcodes = [s.OPCODES["min_repeat_one"], 5, 1, 65535, s.OPCODES["any"]] \
+        opcodes = [s.OPCODES["min_repeat_one"], 5, 1, self.s.MAXREPEAT, s.OPCODES["any"]] \
             + [s.OPCODES["success"]] + s.encode_literal("b") + [s.OPCODES["success"]]
         s.assert_match(opcodes, ["aab", "ardb", "bb"])
         s.assert_no_match(opcodes, ["b"])
 
     def test_repeat_maximizing(self):
         s = self.s
-        opcodes = [s.OPCODES["repeat"], 5, 1, 65535] + s.encode_literal("a") \
+        opcodes = [s.OPCODES["repeat"], 5, 1, self.s.MAXREPEAT] + s.encode_literal("a") \
             + [s.OPCODES["max_until"]] + s.encode_literal("b") + [s.OPCODES["success"]]
         s.assert_match(opcodes, ["ab", "aaaab", "baabb"])
         s.assert_no_match(opcodes, ["aaa", "", "ac"])
@@ -904,15 +931,15 @@ class AppTestOpcodes:
         import sys
         if not sys.version_info[:2] == (2, 3):
             s = self.s
-            opcodes = [s.OPCODES["repeat"], 10, 1, 65535, s.OPCODES["repeat_one"],
-                6, 0, 65535] + s.encode_literal("a") + [s.OPCODES["success"],
+            opcodes = [s.OPCODES["repeat"], 10, 1, self.s.MAXREPEAT, s.OPCODES["repeat_one"],
+                6, 0, self.s.MAXREPEAT] + s.encode_literal("a") + [s.OPCODES["success"],
                 s.OPCODES["max_until"], s.OPCODES["success"]]
             s.assert_match(opcodes, ["ab", "bb"])
             assert "" == s.search(opcodes, "bb").group(0)
 
     def test_repeat_minimizing(self):
         s = self.s
-        opcodes = [s.OPCODES["repeat"], 4, 1, 65535, s.OPCODES["any"],
+        opcodes = [s.OPCODES["repeat"], 4, 1, self.s.MAXREPEAT, s.OPCODES["any"],
             s.OPCODES["min_until"]] + s.encode_literal("b") + [s.OPCODES["success"]]
         s.assert_match(opcodes, ["ab", "aaaab", "baabb"])
         s.assert_no_match(opcodes, ["b"])
@@ -947,9 +974,6 @@ class AppTestOpcodes:
         s.assert_match(opcodes, ["a"])
         s.assert_no_match(opcodes, ["ab"])
 
-    def test_bug(self):
-        import re
-        assert re.sub('=\w{2}', 'x', '=CA') == 'x'
 
 class AppTestOptimizations:
     """These tests try to trigger optmized edge cases."""

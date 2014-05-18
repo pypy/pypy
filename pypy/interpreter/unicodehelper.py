@@ -94,7 +94,7 @@ def fsencode(space, w_uni):
     return space.wrapbytes(bytes)
 
 def encode(space, w_data, encoding=None, errors='strict'):
-    from pypy.objspace.std.unicodetype import encode_object
+    from pypy.objspace.std.unicodeobject import encode_object
     return encode_object(space, w_data, encoding, errors)
 
 # These functions take and return unwrapped rpython strings and unicodes

@@ -25,12 +25,18 @@ example is that virtualizable fields can store virtual objects without
 forcing them. This is very useful for frames. Declaring an object to be
 virtualizable works like this:
 
+.. code-block:: python
+
     class Frame(object):
        _virtualizable_ = ['locals[*]', 'stackdepth']
 
-And we use them in ``JitDriver`` like this::
+
+And we use them in ``JitDriver`` like this:
+
+.. code-block:: python
 
     jitdriver = JitDriver(greens=[], reds=['frame'], virtualizables=['frame'])
+
 
 This declaration means that ``stackdepth`` is a virtualizable **field**, while
 ``locals`` is a virtualizable **array** (a list stored on a virtualizable).
@@ -44,9 +50,11 @@ up with a compile-time error (as opposed to strange behavior). The rules are:
   constant or changing rarely within the context of the user's code.
 
 * If you initialize a new virtualizable in the JIT, it has to be done like this
-  (for example if we're in ``Frame.__init__``)::
+  (for example if we're in ``Frame.__init__``):
 
-    self = hint(self, access_directly=True, fresh_virtualizable=True)
+  .. code-block:: python
+
+      self = hint(self, access_directly=True, fresh_virtualizable=True)
 
   that way you can populate the fields directly.
 

@@ -23,11 +23,11 @@ ADTIFixedList = ADTInterface(None, {
 ADTIList = ADTInterface(ADTIFixedList, {
     # grow the length if needed, overallocating a bit
     '_ll_resize_ge':   (['self', Signed        ], Void),
-    # shrink the length, keeping it overallocated if useful
+    # shrink the length; if reallocating, don't keep any overallocation
     '_ll_resize_le':   (['self', Signed        ], Void),
-    # resize to exactly the given size
+    # resize to exactly the given size; no overallocation
     '_ll_resize':      (['self', Signed        ], Void),
-    # realloc the underlying list
+    # give a hint about the size; does overallocation if growing
     '_ll_resize_hint': (['self', Signed        ], Void),
 })
 
@@ -129,7 +129,7 @@ class AbstractBaseListRepr(Repr):
             ll_func = ll_len_foldable
         return hop.gendirectcall(ll_func, v_lst)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         v_lst, = hop.inputargs(self)
         if hop.args_s[0].listdef.listitem.resized:
             ll_func = ll_list_is_true

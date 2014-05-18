@@ -2,6 +2,7 @@
 import py
 import sys
 
+
 class TestUnicodeObject:
     spaceconfig = dict(usemodules=('unicodedata',))
 
@@ -25,6 +26,7 @@ class TestUnicodeObject:
         w_new = space.call_method(
                 space.w_unicode, "__new__", space.w_unicode, w_uni)
         assert w_new is w_uni
+
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
@@ -57,6 +59,7 @@ class AppTestUnicodeString:
         assert '' in 'abc'
         assert 'a' in 'abc'
         assert 'bc' in 'abc'
+        assert '\xe2' in 'g\xe2teau'
 
     def test_splitlines(self):
         assert ''.splitlines() == []
@@ -185,6 +188,14 @@ class AppTestUnicodeString:
         assert "!Brown Fox".istitle() == True
         assert "Brow&&&&N Fox".istitle() == True
         assert "!Brow&&&&n Fox".istitle() == False
+        assert '\u1FFc'.istitle()
+        assert 'Greek \u1FFcitlecases ...'.istitle()
+
+    def test_islower_isupper_with_titlecase(self):
+        # \u01c5 is a char which is neither lowercase nor uppercase, but
+        # titlecase
+        assert not '\u01c5abc'.islower()
+        assert not '\u01c5ABC'.isupper()
 
     def test_isidentifier(self):
         assert "".isidentifier() is False
@@ -295,7 +306,6 @@ class AppTestUnicodeString:
         assert 'xyzzyhelloxyzzy'.lstrip('xyz') == 'helloxyzzy'
         assert 'xyzzyhelloxyzzy'.rstrip('xyz') == 'xyzzyhello'
 
-
     def test_long_from_unicode(self):
         assert int('12345678901234567890') == 12345678901234567890
         assert int('123', 7) == 66
@@ -316,7 +326,7 @@ class AppTestUnicodeString:
                      'a', '"', '\'', '\"', '\t', '\\', "'''\"",
                      chr(19), chr(2), '\u1234', '\U00101234']:
             assert eval(repr(ustr)) == ustr
-            
+
     def test_getnewargs(self):
         class X(str):
             pass
@@ -331,12 +341,14 @@ class AppTestUnicodeString:
         assert str(123) == '123'
         assert str(object=123) == '123'
         assert str([2, 3]) == '[2, 3]'
+        assert str(errors='strict') == ''
         class U(str):
             pass
         assert str(U()).__class__ is str
         assert U().__str__().__class__ is str
         assert U('test') == 'test'
         assert U('test').__class__ is U
+        assert U(errors='strict') == U('')
 
     def test_call_unicode_2(self):
         class X(object):
@@ -390,7 +402,7 @@ class AppTestUnicodeString:
         assert not 'hello'.endswith(('he\u1111', 'he'))
         assert 'hello'.endswith(('\u1111lo', 'llo'))
         assert 'hello'.endswith(('\u1111hellox', 'hello'))
-    
+
     def test_endswith(self):
         assert 'ab'.endswith('ab') is True
         assert 'ab'.endswith('b') is True
@@ -439,13 +451,13 @@ class AppTestUnicodeString:
 
         s = 'xy\t'
         assert s.expandtabs() =='xy      '
-        
+
         s = '\txy\t'
         assert s.expandtabs() =='        xy      '
         assert s.expandtabs(1) ==' xy '
         assert s.expandtabs(2) =='  xy  '
         assert s.expandtabs(3) =='   xy '
-        
+
         assert 'xy'.expandtabs() =='xy'
         assert ''.expandtabs() ==''
 
@@ -454,7 +466,7 @@ class AppTestUnicodeString:
         if sys.maxsize > (1 << 32):
             skip("Wrong platform")
         raises((OverflowError, MemoryError), 't\tt\t'.expandtabs, sys.maxsize)
-        
+
     def test_translate(self):
         assert 'bbbc' == 'abababc'.translate({ord('a'):None})
         assert 'iiic' == 'abababc'.translate({ord('a'):None, ord('b'):ord('i')})
@@ -489,7 +501,7 @@ class AppTestUnicodeString:
     def test_unicode_form_encoded_object(self):
         assert str(b'x', 'utf-8') == 'x'
         assert str(b'x', 'utf-8', 'strict') == 'x'
-        
+
     def test_unicode_startswith_tuple(self):
         assert 'xxx'.startswith(('x', 'y', 'z'), 0)
         assert 'xxx'.endswith(('x', 'y', 'z'), 0)
@@ -527,14 +539,20 @@ class AppTestUnicodeString:
         assert str(b'+AB', 'utf-7', 'replace') == '\ufffd'
 
     def test_codecs_utf8(self):
+        import sys
         assert ''.encode('utf-8') == b''
         assert '\u20ac'.encode('utf-8') == b'\xe2\x82\xac'
-        assert '\ud800\udc02'.encode('utf-8') == b'\xf0\x90\x80\x82'
-        assert '\ud84d\udc56'.encode('utf-8') == b'\xf0\xa3\x91\x96'
         raises(UnicodeEncodeError, '\ud800'.encode, 'utf-8')
         raises(UnicodeEncodeError, '\udc00'.encode, 'utf-8')
         raises(UnicodeEncodeError, '\udc00!'.encode, 'utf-8')
-        assert ('\ud800\udc02'*1000).encode('utf-8') == b'\xf0\x90\x80\x82'*1000
+        if sys.maxunicode > 0xFFFF:
+            raises(UnicodeEncodeError, '\ud800\udc02'.encode, 'utf-8')
+            raises(UnicodeEncodeError, '\ud84d\udc56'.encode, 'utf-8')
+            raises(UnicodeEncodeError, ('\ud800\udc02'*1000).encode, 'utf-8')
+        else:
+            assert '\ud800\udc02'.encode('utf-8') == b'\xf0\x90\x80\x82'
+            assert '\ud84d\udc56'.encode('utf-8') == b'\xf0\xa3\x91\x96'
+            assert ('\ud800\udc02'*1000).encode('utf-8') == b'\xf0\x90\x80\x82'*1000
         assert (
             '\u6b63\u78ba\u306b\u8a00\u3046\u3068\u7ffb\u8a33\u306f'
             '\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002\u4e00'
@@ -606,7 +624,6 @@ class AppTestUnicodeString:
 
 
     def test_partition(self):
-
         assert ('this is the par', 'ti', 'tion method') == \
             'this is the partition method'.partition('ti')
 
@@ -621,7 +638,6 @@ class AppTestUnicodeString:
         raises(TypeError, S.partition, None)
 
     def test_rpartition(self):
-
         assert ('this is the rparti', 'ti', 'on method') == \
             'this is the rpartition method'.rpartition('ti')
 
@@ -634,7 +650,6 @@ class AppTestUnicodeString:
 
         raises(ValueError, S.rpartition, '')
         raises(TypeError, S.rpartition, None)
-
 
     def test_mul(self):
         zero = 0
@@ -749,7 +764,7 @@ class AppTestUnicodeString:
                 return X("stuff")
 
         assert str(Y()).__class__ is X
-    
+
     def test_getslice(self):
         assert '123456'[1:5] == '2345'
         s = "abc"
@@ -852,7 +867,7 @@ class AppTestUnicodeString:
         class B:
             def __str__(self):
                 return 'bar'
-    
+
         a = A()
         b = B()
         s = '%s %s' % (a, b)
@@ -910,3 +925,31 @@ class AppTestUnicodeString:
 
     def test_format_map_positional(self):
         raises(ValueError, '{}'.format_map, {})
+
+    def test_isdecimal(self):
+        assert '0'.isdecimal()
+        assert not ''.isdecimal()
+        assert not 'a'.isdecimal()
+        assert not '\u2460'.isdecimal() # CIRCLED DIGIT ONE
+
+    def test_isnumeric(self):
+        assert '0'.isnumeric()
+        assert not ''.isnumeric()
+        assert not 'a'.isnumeric()
+        assert '\u2460'.isnumeric() # CIRCLED DIGIT ONE
+
+    def test_replace_autoconvert(self):
+        res = 'one!two!three!'.replace('!', '@', 1)
+        assert res == 'one@two!three!'
+        assert type(res) == str
+
+    def test_join_subclass(self):
+        class StrSubclass(str):
+            pass
+        class BytesSubclass(bytes):
+            pass
+
+        s1 = StrSubclass('a')
+        assert ''.join([s1]) is not s1
+        s2 = BytesSubclass(b'a')
+        assert b''.join([s2]) is not s2

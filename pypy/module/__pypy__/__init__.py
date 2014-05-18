@@ -69,6 +69,7 @@ class Module(MixedModule):
         'debug_print'               : 'interp_debug.debug_print',
         'debug_stop'                : 'interp_debug.debug_stop',
         'debug_print_once'          : 'interp_debug.debug_print_once',
+        'debug_flush'               : 'interp_debug.debug_flush',
         'builtinify'                : 'interp_magic.builtinify',
         'hidden_applevel'           : 'interp_magic.hidden_applevel',
         'lookup_special'            : 'interp_magic.lookup_special',
@@ -81,6 +82,7 @@ class Module(MixedModule):
         'newdict'                   : 'interp_dict.newdict',
         'dictstrategy'              : 'interp_dict.dictstrategy',
         'set_debug'                 : 'interp_magic.set_debug',
+        'locals_to_fast'            : 'interp_magic.locals_to_fast',
         'normalize_exc'             : 'interp_magic.normalize_exc',
     }
 

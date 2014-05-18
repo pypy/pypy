@@ -1,206 +1,327 @@
-"""The builtin long implementation"""
+"""The builtin int type based on rbigint (the old long type)"""
 
-import sys
+import functools
 
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rbigint import SHIFT, _widen_digit, rbigint
+from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
-from pypy.interpreter.error import OperationError
-from pypy.objspace.std import model, newformat
-from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.longtype import W_AbstractLongObject, long_typedef
-from pypy.objspace.std.model import W_Object, registerimplementation
-from pypy.objspace.std.multimethod import FailedToImplementArgs
-from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.register_all import register_all
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import oefmt
+from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
+from pypy.objspace.std import newformat
+from pypy.objspace.std.intobject import (
+    HASH_BITS, HASH_MODULUS, W_AbstractIntObject, W_IntObject)
+from pypy.objspace.std.model import COMMUTATIVE_OPS
 
-HASH_BITS = 61 if sys.maxsize > 2 ** 31 - 1 else 31
-HASH_MODULUS = 2 ** HASH_BITS - 1
+
+def delegate_other(func):
+    @functools.wraps(func)
+    def delegated(self, space, w_other):
+        if isinstance(w_other, W_IntObject):
+            w_other = w_other.as_w_long(space)
+        elif not isinstance(w_other, W_AbstractLongObject):
+            return space.w_NotImplemented
+        return func(self, space, w_other)
+    return delegated
+
+
+class W_AbstractLongObject(W_AbstractIntObject):
+
+    __slots__ = ()
+
+    def unwrap(self, space):
+        return self.longval()
+
+    def int(self, space):
+        raise NotImplementedError
+
+    def asbigint(self):
+        raise NotImplementedError
+
+    def descr_getnewargs(self, space):
+        return space.newtuple([newlong(space, self.asbigint())])
+
+    def descr_bit_length(self, space):
+        bigint = space.bigint_w(self)
+        try:
+            return space.wrap(bigint.bit_length())
+        except OverflowError:
+            raise oefmt(space.w_OverflowError, "too many digits in integer")
+
+    def _truediv(self, space, w_other):
+        try:
+            f = self.asbigint().truediv(w_other.asbigint())
+        except ZeroDivisionError:
+            raise oefmt(space.w_ZeroDivisionError, "division by zero")
+        except OverflowError:
+            raise oefmt(space.w_OverflowError,
+                        "integer division result too large for a float")
+        return space.newfloat(f)
+
+    @delegate_other
+    def descr_truediv(self, space, w_other):
+        return W_AbstractLongObject._truediv(self, space, w_other)
+
+    @delegate_other
+    def descr_rtruediv(self, space, w_other):
+        return W_AbstractLongObject._truediv(w_other, space, self)
+
+    def descr_format(self, space, w_format_spec):
+        return newformat.run_formatter(space, w_format_spec,
+                                       "format_int_or_long", self,
+                                       newformat.LONG_KIND)
+
+    def descr_hash(self, space):
+        return space.wrap(_hash_long(space, self.asbigint()))
+
+    def descr_str(self, space):
+        return space.wrap(self.asbigint().str())
+    descr_repr = descr_str
 
 
 class W_LongObject(W_AbstractLongObject):
     """This is a wrapper of rbigint."""
+
     _immutable_fields_ = ['num']
 
-    typedef = long_typedef
+    def __init__(self, num):
+        self.num = num # instance of rbigint
 
-    def __init__(self, l):
-        self.num = l # instance of rbigint
-
+    @staticmethod
     def fromint(space, intval):
         return W_LongObject(rbigint.fromint(intval))
-    fromint = staticmethod(fromint)
 
     def longval(self):
         return self.num.tolong()
-
-    def unwrap(w_self, space): #YYYYYY
-        return w_self.longval()
 
     def tofloat(self, space):
         try:
             return self.num.tofloat()
         except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                    space.wrap("long int too large to convert to float"))
+            raise oefmt(space.w_OverflowError,
+                        "int too large to convert to float")
 
     def toint(self):
         return self.num.toint()
 
+    @staticmethod
     def fromfloat(space, f):
         return newlong(space, rbigint.fromfloat(f))
-    fromfloat = staticmethod(fromfloat)
 
+    @staticmethod
     def fromlong(l):
         return W_LongObject(rbigint.fromlong(l))
-    fromlong = staticmethod(fromlong)
 
+    @staticmethod
+    @specialize.argtype(0)
     def fromrarith_int(i):
         return W_LongObject(rbigint.fromrarith_int(i))
-    fromrarith_int._annspecialcase_ = "specialize:argtype(0)"
-    fromrarith_int = staticmethod(fromrarith_int)
 
-    def int_w(self, space):
+    def _int_w(self, space):
         try:
             return self.num.toint()
         except OverflowError:
-            raise OperationError(space.w_OverflowError, space.wrap(
-                "long int too large to convert to int"))
+            raise oefmt(space.w_OverflowError,
+                        "int too large to convert to int")
 
     def uint_w(self, space):
         try:
             return self.num.touint()
         except ValueError:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "cannot convert negative integer to unsigned int"))
+            raise oefmt(space.w_ValueError,
+                        "cannot convert negative integer to unsigned int")
         except OverflowError:
-            raise OperationError(space.w_OverflowError, space.wrap(
-                "long int too large to convert to unsigned int"))
+            raise oefmt(space.w_OverflowError,
+                        "int too large to convert to unsigned int")
 
-    def bigint_w(self, space):
+    def bigint_w(self, space, allow_conversion=True):
         return self.num
 
-    def float_w(self, space):
+    def _bigint_w(self, space):
+        return self.num
+
+    def float_w(self, space, allow_conversion=True):
+        return self.tofloat(space)
+
+    def _float_w(self, space):
         return self.tofloat(space)
 
     def int(self, space):
-        if (type(self) is not W_LongObject and
-            space.is_overloaded(self, space.w_int, '__int__')):
-            return W_Object.int(self, space)
-        return long_long(space, self)
+        if type(self) is W_LongObject:
+            return self
+        if not space.is_overloaded(self, space.w_int, '__int__'):
+            return W_LongObject(self.num)
+        return W_Root.int(self, space)
+
+    def asbigint(self):
+        return self.num
 
     def __repr__(self):
         return '<W_LongObject(%d)>' % self.num.tolong()
 
-registerimplementation(W_LongObject)
+    def descr_float(self, space):
+        return space.newfloat(self.tofloat(space))
 
-def newlong(space, bigint):
-    """Turn the bigint into a W_LongObject.  If withsmalllong is enabled,
-    check if the bigint would fit in a smalllong, and return a
-    W_SmallLongObject instead if it does.
-    """
-    if space.config.objspace.std.withsmalllong:
+    def descr_bool(self, space):
+        return space.newbool(self.num.tobool())
+
+    @unwrap_spec(w_modulus=WrappedDefault(None))
+    def descr_pow(self, space, w_exponent, w_modulus=None):
+        if isinstance(w_exponent, W_IntObject):
+            w_exponent = w_exponent.as_w_long(space)
+        elif not isinstance(w_exponent, W_AbstractLongObject):
+            return space.w_NotImplemented
+
+        if space.is_none(w_modulus):
+            if w_exponent.asbigint().sign < 0:
+                self = self.descr_float(space)
+                w_exponent = w_exponent.descr_float(space)
+                return space.pow(self, w_exponent, space.w_None)
+            return W_LongObject(self.num.pow(w_exponent.asbigint()))
+        elif isinstance(w_modulus, W_IntObject):
+            w_modulus = w_modulus.as_w_long(space)
+        elif not isinstance(w_modulus, W_AbstractLongObject):
+            return space.w_NotImplemented
+
+        if w_exponent.asbigint().sign < 0:
+            raise oefmt(space.w_TypeError,
+                        "pow() 2nd argument cannot be negative when 3rd "
+                        "argument specified")
         try:
-            z = bigint.tolonglong()
-        except OverflowError:
-            pass
+            result = self.num.pow(w_exponent.asbigint(), w_modulus.asbigint())
+        except ValueError:
+            raise oefmt(space.w_ValueError, "pow 3rd argument cannot be 0")
+        return W_LongObject(result)
+
+    @unwrap_spec(w_modulus=WrappedDefault(None))
+    def descr_rpow(self, space, w_base, w_modulus=None):
+        if isinstance(w_base, W_IntObject):
+            w_base = w_base.as_w_long(space)
+        elif not isinstance(w_base, W_AbstractLongObject):
+            return space.w_NotImplemented
+        return w_base.descr_pow(space, self, w_modulus)
+
+    def _make_descr_unaryop(opname):
+        op = getattr(rbigint, opname)
+        @func_renamer('descr_' + opname)
+        def descr_unaryop(self, space):
+            return W_LongObject(op(self.num))
+        return descr_unaryop
+
+    descr_neg = _make_descr_unaryop('neg')
+    descr_abs = _make_descr_unaryop('abs')
+    descr_invert = _make_descr_unaryop('invert')
+
+    def _make_descr_cmp(opname):
+        op = getattr(rbigint, opname)
+        @delegate_other
+        def descr_impl(self, space, w_other):
+            return space.newbool(op(self.num, w_other.asbigint()))
+        return func_with_new_name(descr_impl, "descr_" + opname)
+
+    descr_lt = _make_descr_cmp('lt')
+    descr_le = _make_descr_cmp('le')
+    descr_eq = _make_descr_cmp('eq')
+    descr_ne = _make_descr_cmp('ne')
+    descr_gt = _make_descr_cmp('gt')
+    descr_ge = _make_descr_cmp('ge')
+
+    def _make_generic_descr_binop(opname):
+        methname = opname + '_' if opname in ('and', 'or') else opname
+        descr_rname = 'descr_r' + opname
+        op = getattr(rbigint, methname)
+
+        @func_renamer('descr_' + opname)
+        @delegate_other
+        def descr_binop(self, space, w_other):
+            return W_LongObject(op(self.num, w_other.asbigint()))
+
+        if opname in COMMUTATIVE_OPS:
+            @func_renamer(descr_rname)
+            def descr_rbinop(self, space, w_other):
+                return descr_binop(self, space, w_other)
         else:
-            from pypy.objspace.std.smalllongobject import W_SmallLongObject
-            return W_SmallLongObject(z)
-    return W_LongObject(bigint)
+            @func_renamer(descr_rname)
+            @delegate_other
+            def descr_rbinop(self, space, w_other):
+                return W_LongObject(op(w_other.asbigint(), self.num))
 
-def newlong_from_float(space, floatval):
-    """Return a W_LongObject from an RPython float.
+        return descr_binop, descr_rbinop
 
-    Raises app-level exceptions on failure.
-    """
-    try:
-        return W_LongObject.fromfloat(space, floatval)
-    except OverflowError:
-        raise OperationError(
-            space.w_OverflowError,
-            space.wrap("cannot convert float infinity to integer"))
-    except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("cannot convert float NaN to integer"))
+    descr_add, descr_radd = _make_generic_descr_binop('add')
+    descr_sub, descr_rsub = _make_generic_descr_binop('sub')
+    descr_mul, descr_rmul = _make_generic_descr_binop('mul')
+    descr_and, descr_rand = _make_generic_descr_binop('and')
+    descr_or, descr_ror = _make_generic_descr_binop('or')
+    descr_xor, descr_rxor = _make_generic_descr_binop('xor')
 
-# bool-to-long
-def delegate_Bool2Long(space, w_bool):
-    return W_LongObject(rbigint.frombool(space.is_true(w_bool)))
+    def _make_descr_binop(func):
+        opname = func.__name__[1:]
 
-# int-to-long delegation
-def delegate_Int2Long(space, w_intobj):
-    return W_LongObject.fromint(space, w_intobj.intval)
+        @delegate_other
+        @func_renamer('descr_' + opname)
+        def descr_binop(self, space, w_other):
+            return func(self, space, w_other)
 
+        @delegate_other
+        @func_renamer('descr_r' + opname)
+        def descr_rbinop(self, space, w_other):
+            if not isinstance(w_other, W_LongObject):
+                # coerce other W_AbstractLongObjects
+                w_other = W_LongObject(w_other.asbigint())
+            return func(w_other, space, self)
 
-# long_long is supposed to do nothing, unless it has a derived long
-# object, where it should return an exact one.
-def long_long(space, w_long1):
-    if space.is_w(space.type(w_long1), space.w_int):
-        return w_long1
-    l = w_long1.num
-    return W_LongObject(l)
-trunc__Long = long_long
+        return descr_binop, descr_rbinop
 
-def index__Long(space, w_value):
-    return long_long(space, w_value)
+    def _lshift(self, space, w_other):
+        if w_other.asbigint().sign < 0:
+            raise oefmt(space.w_ValueError, "negative shift count")
+        try:
+            shift = w_other.asbigint().toint()
+        except OverflowError:   # b too big
+            raise oefmt(space.w_OverflowError, "shift count too large")
+        return W_LongObject(self.num.lshift(shift))
+    descr_lshift, descr_rlshift = _make_descr_binop(_lshift)
 
-def float__Long(space, w_longobj):
-    return space.newfloat(w_longobj.tofloat(space))
+    def _rshift(self, space, w_other):
+        if w_other.asbigint().sign < 0:
+            raise oefmt(space.w_ValueError, "negative shift count")
+        try:
+            shift = w_other.asbigint().toint()
+        except OverflowError:   # b too big # XXX maybe just return 0L instead?
+            raise oefmt(space.w_OverflowError, "shift count too large")
+        return newlong(space, self.num.rshift(shift))
+    descr_rshift, descr_rrshift = _make_descr_binop(_rshift)
 
-def repr__Long(space, w_long):
-    return space.wrap(w_long.num.str())
+    def _floordiv(self, space, w_other):
+        try:
+            z = self.num.floordiv(w_other.asbigint())
+        except ZeroDivisionError:
+            raise oefmt(space.w_ZeroDivisionError,
+                        "integer division or modulo by zero")
+        return newlong(space, z)
+    descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
 
-def str__Long(space, w_long):
-    return space.wrap(w_long.num.str())
+    def _mod(self, space, w_other):
+        try:
+            z = self.num.mod(w_other.asbigint())
+        except ZeroDivisionError:
+            raise oefmt(space.w_ZeroDivisionError,
+                        "integer division or modulo by zero")
+        return newlong(space, z)
+    descr_mod, descr_rmod = _make_descr_binop(_mod)
 
-def format__Long_ANY(space, w_long, w_format_spec):
-    return newformat.run_formatter(space, w_format_spec, "format_int_or_long",
-                                   w_long, newformat.LONG_KIND)
+    def _divmod(self, space, w_other):
+        try:
+            div, mod = self.num.divmod(w_other.asbigint())
+        except ZeroDivisionError:
+            raise oefmt(space.w_ZeroDivisionError,
+                        "integer division or modulo by zero")
+        return space.newtuple([newlong(space, div), newlong(space, mod)])
+    descr_divmod, descr_rdivmod = _make_descr_binop(_divmod)
 
-
-def lt__Long_Long(space, w_long1, w_long2):
-    return space.newbool(w_long1.num.lt(w_long2.num))
-def le__Long_Long(space, w_long1, w_long2):
-    return space.newbool(w_long1.num.le(w_long2.num))
-def eq__Long_Long(space, w_long1, w_long2):
-    return space.newbool(w_long1.num.eq(w_long2.num))
-def ne__Long_Long(space, w_long1, w_long2):
-    return space.newbool(w_long1.num.ne(w_long2.num))
-def gt__Long_Long(space, w_long1, w_long2):
-    return space.newbool(w_long1.num.gt(w_long2.num))
-def ge__Long_Long(space, w_long1, w_long2):
-    return space.newbool(w_long1.num.ge(w_long2.num))
-
-def lt__Long_Int(space, w_long1, w_int2):
-    return space.newbool(w_long1.num.lt(rbigint.fromint(w_int2.intval)))
-def le__Long_Int(space, w_long1, w_int2):
-    return space.newbool(w_long1.num.le(rbigint.fromint(w_int2.intval)))
-def eq__Long_Int(space, w_long1, w_int2):
-    return space.newbool(w_long1.num.eq(rbigint.fromint(w_int2.intval)))
-def ne__Long_Int(space, w_long1, w_int2):
-    return space.newbool(w_long1.num.ne(rbigint.fromint(w_int2.intval)))
-def gt__Long_Int(space, w_long1, w_int2):
-    return space.newbool(w_long1.num.gt(rbigint.fromint(w_int2.intval)))
-def ge__Long_Int(space, w_long1, w_int2):
-    return space.newbool(w_long1.num.ge(rbigint.fromint(w_int2.intval)))
-
-def lt__Int_Long(space, w_int1, w_long2):
-    return space.newbool(rbigint.fromint(w_int1.intval).lt(w_long2.num))
-def le__Int_Long(space, w_int1, w_long2):
-    return space.newbool(rbigint.fromint(w_int1.intval).le(w_long2.num))
-def eq__Int_Long(space, w_int1, w_long2):
-    return space.newbool(rbigint.fromint(w_int1.intval).eq(w_long2.num))
-def ne__Int_Long(space, w_int1, w_long2):
-    return space.newbool(rbigint.fromint(w_int1.intval).ne(w_long2.num))
-def gt__Int_Long(space, w_int1, w_long2):
-    return space.newbool(rbigint.fromint(w_int1.intval).gt(w_long2.num))
-def ge__Int_Long(space, w_int1, w_long2):
-    return space.newbool(rbigint.fromint(w_int1.intval).ge(w_long2.num))
-
-
-def hash__Long(space, w_value):
-    return space.wrap(_hash_long(space, w_value.num))
 
 def _hash_long(space, v):
     i = v.numdigits() - 1
@@ -221,182 +342,51 @@ def _hash_long(space, v):
     return -2 if x == -1 else x
 
 
-def add__Long_Long(space, w_long1, w_long2):
-    return W_LongObject(w_long1.num.add(w_long2.num))
+def newlong(space, bigint):
+    """Turn the bigint into a W_LongObject.  If withsmalllong is
+    enabled, check if the bigint would fit in a smalllong, and return a
+    W_SmallLongObject instead if it does.
+    """
+    if space.config.objspace.std.withsmalllong:
+        try:
+            z = bigint.tolonglong()
+        except OverflowError:
+            pass
+        else:
+            from pypy.objspace.std.smalllongobject import W_SmallLongObject
+            return W_SmallLongObject(z)
+    return W_LongObject(bigint)
 
-def sub__Long_Long(space, w_long1, w_long2):
-    return W_LongObject(w_long1.num.sub(w_long2.num))
 
-def mul__Long_Long(space, w_long1, w_long2):
-    return W_LongObject(w_long1.num.mul(w_long2.num))
+def newlong_from_float(space, floatval):
+    """Return a W_LongObject from an RPython float.
 
-def truediv__Long_Long(space, w_long1, w_long2):
+    Raises app-level exceptions on failure.
+    """
     try:
-        f = w_long1.num.truediv(w_long2.num)
-    except ZeroDivisionError:
-        raise OperationError(space.w_ZeroDivisionError,
-                             space.wrap("division by zero"))
+        return W_LongObject.fromfloat(space, floatval)
     except OverflowError:
-        raise OperationError(
-            space.w_OverflowError,
-            space.wrap("integer division result too large for a float"))
-    return space.newfloat(f)
-
-def floordiv__Long_Long(space, w_long1, w_long2):
-    try:
-        z = w_long1.num.floordiv(w_long2.num)
-    except ZeroDivisionError:
-        raise OperationError(space.w_ZeroDivisionError,
-                             space.wrap("integer division or modulo by zero"))
-    return newlong(space, z)
-
-def div__Long_Long(space, w_long1, w_long2):
-    return floordiv__Long_Long(space, w_long1, w_long2)
-
-def mod__Long_Long(space, w_long1, w_long2):
-    try:
-        z = w_long1.num.mod(w_long2.num)
-    except ZeroDivisionError:
-        raise OperationError(space.w_ZeroDivisionError,
-                             space.wrap("integer division or modulo by zero"))
-    return newlong(space, z)
-
-def divmod__Long_Long(space, w_long1, w_long2):
-    try:
-        div, mod = w_long1.num.divmod(w_long2.num)
-    except ZeroDivisionError:
-        raise OperationError(space.w_ZeroDivisionError,
-                             space.wrap("integer division or modulo by zero"))
-    return space.newtuple([newlong(space, div), newlong(space, mod)])
-
-def pow__Long_Long_Long(space, w_long1, w_long2, w_long3):
-    # XXX need to replicate some of the logic, to get the errors right
-    if w_long2.num.sign < 0:
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap(
-                "pow() 2nd argument "
-                "cannot be negative when 3rd argument specified"))
-    try:
-        return W_LongObject(w_long1.num.pow(w_long2.num, w_long3.num))
+        raise oefmt(space.w_OverflowError,
+                    "cannot convert float infinity to integer")
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("pow 3rd argument cannot be 0"))
-
-def pow__Long_Long_None(space, w_long1, w_long2, w_long3):
-    # XXX need to replicate some of the logic, to get the errors right
-    if w_long2.num.sign < 0:
-        raise FailedToImplementArgs(
-            space.w_ValueError,
-            space.wrap("int pow() too negative"))
-    return W_LongObject(w_long1.num.pow(w_long2.num, None))
-
-def neg__Long(space, w_long1):
-    return W_LongObject(w_long1.num.neg())
-
-def pos__Long(space, w_long):
-    return long_long(space, w_long)
-
-def abs__Long(space, w_long):
-    return W_LongObject(w_long.num.abs())
-
-def nonzero__Long(space, w_long):
-    return space.newbool(w_long.num.tobool())
-
-def invert__Long(space, w_long):
-    return W_LongObject(w_long.num.invert())
-
-def lshift__Long_Long(space, w_long1, w_long2):
-    # XXX need to replicate some of the logic, to get the errors right
-    if w_long2.num.sign < 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("negative shift count"))
-    try:
-        shift = w_long2.num.toint()
-    except OverflowError:   # b too big
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("shift count too large"))
-    return W_LongObject(w_long1.num.lshift(shift))
-
-def rshift__Long_Long(space, w_long1, w_long2):
-    # XXX need to replicate some of the logic, to get the errors right
-    if w_long2.num.sign < 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("negative shift count"))
-    try:
-        shift = w_long2.num.toint()
-    except OverflowError:   # b too big # XXX maybe just return 0L instead?
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("shift count too large"))
-    return newlong(space, w_long1.num.rshift(shift))
-
-def and__Long_Long(space, w_long1, w_long2):
-    return newlong(space, w_long1.num.and_(w_long2.num))
-
-def xor__Long_Long(space, w_long1, w_long2):
-    return W_LongObject(w_long1.num.xor(w_long2.num))
-
-def or__Long_Long(space, w_long1, w_long2):
-    return W_LongObject(w_long1.num.or_(w_long2.num))
-
-def getnewargs__Long(space, w_long1):
-    return space.newtuple([W_LongObject(w_long1.num)])
-
-register_all(vars())
-
-# register implementations of ops that recover int op overflows
-def recover_with_smalllong(space):
-    # True if there is a chance that a SmallLong would fit when an Int does not
-    return (space.config.objspace.std.withsmalllong and
-            sys.maxint == 2147483647)
-
-# binary ops
-for opname in ['add', 'sub', 'mul', 'div', 'floordiv', 'truediv', 'mod',
-               'divmod', 'lshift']:
-    exec compile("""
-def %(opname)s_ovr__Int_Int(space, w_int1, w_int2):
-    if recover_with_smalllong(space) and %(opname)r != 'truediv':
-        from pypy.objspace.std.smalllongobject import %(opname)s_ovr
-        return %(opname)s_ovr(space, w_int1, w_int2)
-    w_long1 = delegate_Int2Long(space, w_int1)
-    w_long2 = delegate_Int2Long(space, w_int2)
-    return %(opname)s__Long_Long(space, w_long1, w_long2)
-""" % {'opname': opname}, '', 'exec')
-
-    getattr(model.MM, opname).register(globals()['%s_ovr__Int_Int' % opname],
-                                       W_IntObject, W_IntObject, order=1)
-
-# unary ops
-for opname in ['neg', 'abs']:
-    exec """
-def %(opname)s_ovr__Int(space, w_int1):
-    if recover_with_smalllong(space):
-        from pypy.objspace.std.smalllongobject import %(opname)s_ovr
-        return %(opname)s_ovr(space, w_int1)
-    w_long1 = delegate_Int2Long(space, w_int1)
-    return %(opname)s__Long(space, w_long1)
-""" % {'opname': opname}
-
-    getattr(model.MM, opname).register(globals()['%s_ovr__Int' % opname],
-                                       W_IntObject, order=1)
-
-# pow
-def pow_ovr__Int_Int_None(space, w_int1, w_int2, w_none3):
-    if recover_with_smalllong(space):
-        from pypy.objspace.std.smalllongobject import pow_ovr
-        return pow_ovr(space, w_int1, w_int2)
-    w_long1 = delegate_Int2Long(space, w_int1)
-    w_long2 = delegate_Int2Long(space, w_int2)
-    return pow__Long_Long_None(space, w_long1, w_long2, w_none3)
-
-def pow_ovr__Int_Int_Long(space, w_int1, w_int2, w_long3):
-    w_long1 = delegate_Int2Long(space, w_int1)
-    w_long2 = delegate_Int2Long(space, w_int2)
-    return pow__Long_Long_Long(space, w_long1, w_long2, w_long3)
-
-model.MM.pow.register(pow_ovr__Int_Int_None, W_IntObject, W_IntObject,
-                      W_NoneObject, order=1)
-model.MM.pow.register(pow_ovr__Int_Int_Long, W_IntObject, W_IntObject,
-                      W_LongObject, order=1)
+        raise oefmt(space.w_ValueError, "cannot convert float NaN to integer")
 
 
+def newbigint(space, w_longtype, bigint):
+    """Turn the bigint into a W_LongObject.  If withsmalllong is enabled,
+    check if the bigint would fit in a smalllong, and return a
+    W_SmallLongObject instead if it does.  Similar to newlong() in
+    longobject.py, but takes an explicit w_longtype argument.
+    """
+    if (space.config.objspace.std.withsmalllong
+        and space.is_w(w_longtype, space.w_int)):
+        try:
+            z = bigint.tolonglong()
+        except OverflowError:
+            pass
+        else:
+            from pypy.objspace.std.smalllongobject import W_SmallLongObject
+            return W_SmallLongObject(z)
+    w_obj = space.allocate_instance(W_LongObject, w_longtype)
+    W_LongObject.__init__(w_obj, bigint)
+    return w_obj

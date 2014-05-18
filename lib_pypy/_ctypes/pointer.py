@@ -1,6 +1,6 @@
 
 import _rawffi
-import _ffi
+from _rawffi import alt as _ffi
 from _ctypes.basics import _CData, _CDataMeta, cdata_from_address, ArgumentError
 from _ctypes.basics import keepalive_key, store_reference, ensure_objects
 from _ctypes.basics import sizeof, byref, as_ffi_pointer

@@ -25,7 +25,8 @@ del float_constants, int_constants, const
 
 globals().update(rffi_platform.configure(CConfig))
 
-@objectmodel.enforceargs(unicode)
+INVALID_MSG = "invalid literal for float()"
+
 def string_to_float(s):
     """
     Conversion of string to float.
@@ -37,27 +38,10 @@ def string_to_float(s):
     from rpython.rlib.rstring import strip_spaces, ParseStringError
 
     s = strip_spaces(s)
-
     if not s:
-        raise ParseStringError(u"empty string for float()")
+        raise ParseStringError(INVALID_MSG)
 
-
-    try:
-        ascii_s = s.encode('ascii')
-    except UnicodeEncodeError:
-        # if s is not ASCII, it certainly is not a float literal (because the
-        # unicode-decimal to ascii-decimal conversion already happened
-        # earlier). We just set ascii_s to something which will fail when
-        # passed to rstring_to_float, to keep the code as similar as possible
-        # to the one we have on default.
-        #
-        # Note that CPython does something different and it encodes the string
-        # to UTF-8 before trying to parse it. We cannot since .encode('utf-8')
-        # is not RPython. However, it doesn't change anything since the UTF-8
-        # encoded string would make rstring_to_float to fail anyway.
-        ascii_s = "not a float"
-
-    low = ascii_s.lower()
+    low = s.lower()
     if low == "-inf" or low == "-infinity":
         return -INFINITY
     elif low == "inf" or low == "+inf":
@@ -70,11 +54,9 @@ def string_to_float(s):
         return -NAN
 
     try:
-        return rstring_to_float(ascii_s)
+        return rstring_to_float(s)
     except ValueError:
-        # note that we still put the original unicode string in the error
-        # message, not ascii_s
-        raise ParseStringError(u"invalid literal for float(): '%s'" % s)
+        raise ParseStringError(INVALID_MSG)
 
 def rstring_to_float(s):
     from rpython.rlib.rdtoa import strtod
@@ -87,6 +69,7 @@ DTSF_STR_PRECISION = 12
 DTSF_SIGN      = 0x1
 DTSF_ADD_DOT_0 = 0x2
 DTSF_ALT       = 0x4
+DTSF_CUT_EXP_0 = 0x8
 
 DIST_FINITE   = 1
 DIST_NAN      = 2

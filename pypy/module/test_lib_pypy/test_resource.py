@@ -3,11 +3,14 @@ from __future__ import absolute_import
 from lib_pypy.ctypes_config_cache import rebuild
 from pypy.module.test_lib_pypy.support import import_lib_pypy
 
+import os
+if os.name != 'posix':
+    skip('resource.h only available on unix')
 
 class AppTestResource:
 
-    spaceconfig = dict(usemodules=('_ffi', '_rawffi', 'fcntl', 'itertools',
-                                   'select', 'signal'))
+    spaceconfig = dict(usemodules=('_rawffi', 'fcntl', 'itertools', 'select',
+                                   'signal'))
 
     def setup_class(cls):
         rebuild.rebuild_one('resource.ctc.py')

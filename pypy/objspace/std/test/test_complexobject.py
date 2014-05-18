@@ -7,8 +7,6 @@ from pypy.objspace.std import complextype as cobjtype, StdObjSpace
 from pypy.objspace.std.complexobject import (W_ComplexObject,
     pow__Complex_Complex_ANY)
 from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.objspace.std.stringobject import W_StringObject
-
 
 EPS = 1e-9
 
@@ -204,6 +202,12 @@ class AppTestAppComplexTest:
         assert not large == (5+0j)
         assert (5+0j) != large
         assert large != (5+0j)
+
+    def test_richcompare_boundaries(self):
+        z = 9007199254740992+0j
+        i = 9007199254740993
+        assert not complex.__eq__(z, i)
+        assert complex.__ne__(z, i)
 
     def test_mod(self):
         a = 3.33+4.43j

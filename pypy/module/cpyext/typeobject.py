@@ -1,38 +1,36 @@
 import os
-import sys
 
-from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rstring import rsplit
 from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.lltypesystem import rffi, lltype
+
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
-from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import GetSetProperty
+from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
+from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
     generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    Py_TPFLAGS_HAVE_GETCHARBUFFER,
-    build_type_checkers, PyObjectFields, Py_buffer)
-from pypy.module.cpyext.pyobject import (
-    PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
-    track_reference, RefcountState, borrow_from)
-from pypy.interpreter.module import Module
-from pypy.module.cpyext import structmemberdefs
-from pypy.module.cpyext.modsupport import convert_method_defs
-from pypy.module.cpyext.state import State
+    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, Py_buffer)
 from pypy.module.cpyext.methodobject import (
     PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef)
-from pypy.module.cpyext.pyobject import Py_IncRef, Py_DecRef, _Py_Dealloc
+from pypy.module.cpyext.modsupport import convert_method_defs
+from pypy.module.cpyext.pyobject import (
+    PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
+    track_reference, RefcountState, borrow_from, Py_DecRef)
+from pypy.module.cpyext.slotdefs import (
+    slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
+from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
     PyTypeObjectPtr, PyTypeObject, PyGetSetDef, PyMemberDef, newfunc,
     PyNumberMethods, PyMappingMethods, PySequenceMethods, PyBufferProcs)
-from pypy.module.cpyext.slotdefs import (
-    slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
-from pypy.interpreter.error import OperationError
-from rpython.rlib.rstring import rsplit
-from rpython.rlib.objectmodel import specialize
-from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
-from rpython.rlib import jit
+from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
+
 
 WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
@@ -293,14 +291,9 @@ class W_PyCTypeObject(W_TypeObject):
         convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
         convert_member_defs(space, dict_w, pto.c_tp_members, self)
 
-        full_name = rffi.charp2str(pto.c_tp_name)
-        if '.' in full_name:
-            module_name, extension_name = rsplit(full_name, ".", 1)
-            dict_w["__module__"] = space.wrap(module_name)
-        else:
-            extension_name = full_name
+        name = rffi.charp2str(pto.c_tp_name)
 
-        W_TypeObject.__init__(self, space, extension_name,
+        W_TypeObject.__init__(self, space, name,
             bases_w or [space.w_object], dict_w)
         if not space.is_true(space.issubtype(self, space.w_type)):
             self.flag_cpytype = True
@@ -421,7 +414,6 @@ def type_dealloc(space, obj):
 
 
 def type_alloc(space, w_metatype):
-    size = rffi.sizeof(PyHeapTypeObject)
     metatype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_metatype))
     # Don't increase refcount for non-heaptypes
     if metatype:
@@ -471,7 +463,7 @@ def type_attach(space, py_obj, w_type):
         from pypy.module.cpyext.unicodeobject import _PyUnicode_AsString
         pto.c_tp_name = _PyUnicode_AsString(space, heaptype.c_ht_name)
     else:
-        pto.c_tp_name = rffi.str2charp(w_type.getname(space).encode('utf-8'))
+        pto.c_tp_name = rffi.str2charp(w_type.name)
     pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
     pto.c_tp_itemsize = 0
     # uninitialized fields:
@@ -497,11 +489,14 @@ def type_attach(space, py_obj, w_type):
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return pto
 
+def py_type_ready(space, pto):
+    if pto.c_tp_flags & Py_TPFLAGS_READY:
+        return
+    type_realize(space, rffi.cast(PyObject, pto))
+
 @cpython_api([PyTypeObjectPtr], rffi.INT_real, error=-1)
 def PyType_Ready(space, pto):
-    if pto.c_tp_flags & Py_TPFLAGS_READY:
-        return 0
-    type_realize(space, rffi.cast(PyObject, pto))
+    py_type_ready(space, pto)
     return 0
 
 def type_realize(space, py_obj):
@@ -522,30 +517,7 @@ def solid_base(space, w_type):
 def best_base(space, bases_w):
     if not bases_w:
         return None
-
-    w_winner = None
-    w_base = None
-    for w_base_i in bases_w:
-        assert isinstance(w_base_i, W_TypeObject)
-        w_candidate = solid_base(space, w_base_i)
-        if not w_winner:
-            w_winner = w_candidate
-            w_base = w_base_i
-        elif space.abstract_issubclass_w(w_winner, w_candidate):
-            pass
-        elif space.abstract_issubclass_w(w_candidate, w_winner):
-            w_winner = w_candidate
-            w_base = w_base_i
-        else:
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("multiple bases have instance lay-out conflict"))
-    if w_base is None:
-        raise OperationError(
-            space.w_TypeError,
-                space.wrap("a new-style class can't have only classic bases"))
-
-    return w_base
+    return find_best_base(space, bases_w)
 
 def inherit_slots(space, pto, w_base):
     # XXX missing: nearly everything

@@ -105,7 +105,6 @@ class NumberTestCase(unittest.TestCase):
             self.assertEqual(ArgType, type(parm))
 
 
-    @xfail
     def test_floats(self):
         # c_float and c_double can be created from
         # Python int, long and float
@@ -119,7 +118,6 @@ class NumberTestCase(unittest.TestCase):
             self.assertEqual(t(2).value, 2.0)
             self.assertEqual(t(f).value, 2.0)
 
-    @xfail
     def test_integers(self):
         class FloatLike(object):
             def __float__(self):
@@ -221,6 +219,16 @@ class NumberTestCase(unittest.TestCase):
         # Not from c_long or so, which seems strange, abd should
         # probably be changed:
         self.assertRaises(TypeError, c_int, c_long(42))
+
+    def test_float_overflow(self):
+        import sys
+        big_int = int(sys.float_info.max) * 2
+        for t in float_types + [c_longdouble]:
+            self.assertRaises(OverflowError, t, big_int)
+            if (hasattr(t, "__ctype_be__")):
+                self.assertRaises(OverflowError, t.__ctype_be__, big_int)
+            if (hasattr(t, "__ctype_le__")):
+                self.assertRaises(OverflowError, t.__ctype_le__, big_int)
 
 ##    def test_perf(self):
 ##        check_perf()

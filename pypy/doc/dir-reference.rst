@@ -47,7 +47,7 @@ Directory                          explanation/links
 `pypy/tool/`_                      various utilities and hacks used
                                    from various places
 
-`pypy/tool/algo/`_                 general-purpose algorithmic and mathematic
+`rpython/tool/algo/`_              general-purpose algorithmic and mathematic
                                    tools
 
 `pypy/tool/pytest/`_               support code for our `testing methods`_
@@ -129,3 +129,4 @@ Directory                          explanation/links
 .. _Mono: http://www.mono-project.com/
 .. _`"standard library"`: rlib.html
 .. _`graph viewer`: getting-started-dev.html#try-out-the-translator
+.. include:: _ref.txt

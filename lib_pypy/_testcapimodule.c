@@ -1304,6 +1304,7 @@ test_Z_code(PyObject *self)
         return NULL;
 
     obj = PyUnicode_FromString("test");
+    Py_INCREF(obj);
     PyTuple_SET_ITEM(tuple, 0, obj);
     Py_INCREF(Py_None);
     PyTuple_SET_ITEM(tuple, 1, Py_None);
@@ -1453,7 +1454,7 @@ unicode_encodedecimal(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "u#|s", &unicode, &length, &errors))
         return NULL;
 
-    decimal_length = length * 7; /* len('&#8364;') */
+    decimal_length = length * 10; /* len('&#1114111;') */
     decimal = PyBytes_FromStringAndSize(NULL, decimal_length);
     if (decimal == NULL)
         return NULL;
@@ -2491,7 +2492,7 @@ test_structmembers_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         ;
     test_structmembers *ob;
     const char *s = NULL;
-    Py_ssize_t string_len = 0;
+    int string_len = 0;
     ob = PyObject_New(test_structmembers, type);
     if (ob == NULL)
         return NULL;

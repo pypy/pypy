@@ -16,6 +16,20 @@ from rpython.tool.udir import udir
 from rpython.conftest import cdir
 from rpython.conftest import option
 
+def setup_module(module):
+    if os.name == 'nt':
+        # Do not open dreaded dialog box on segfault
+        import ctypes
+        SEM_NOGPFAULTERRORBOX = 0x0002 # From MSDN
+        old_err_mode = ctypes.windll.kernel32.GetErrorMode()
+        new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
+        ctypes.windll.kernel32.SetErrorMode(new_err_mode)
+        module.old_err_mode = old_err_mode
+
+def teardown_module(module):
+    if os.name == 'nt':
+        import ctypes
+        ctypes.windll.kernel32.SetErrorMode(module.old_err_mode)
 
 class StandaloneTests(object):
     config = None
@@ -498,6 +512,21 @@ class TestStandalone(StandaloneTests):
         assert lines[1] == 'childpid2 = 0\n'
         assert 'foo}' in lines[2]
         assert len(lines) == 3
+
+    def test_debug_flush_at_exit(self):
+        def entry_point(argv):
+            debug_start("mycat")
+            os._exit(0)
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        path = udir.join('test_debug_flush_at_exit.log')
+        cbuilder.cmdexec("", env={'PYPYLOG': ':%s' % path})
+        #
+        f = open(str(path), 'r')
+        lines = f.readlines()
+        f.close()
+        assert lines[0].endswith('{mycat\n')
 
     def test_fatal_error(self):
         def g(x):
@@ -1070,7 +1099,6 @@ class TestThread(object):
             rthread.gc_thread_die()
 
         def new_thread():
-            rthread.gc_thread_prepare()
             ident = rthread.start_new_thread(bootstrap, ())
             time.sleep(0.5)    # enough time to start, hopefully
             return ident
@@ -1198,7 +1226,6 @@ class TestThread(object):
             rthread.gc_thread_die()
 
         def new_thread():
-            rthread.gc_thread_prepare()
             ident = rthread.start_new_thread(bootstrap, ())
             time.sleep(0.5)    # enough time to start, hopefully
             return ident

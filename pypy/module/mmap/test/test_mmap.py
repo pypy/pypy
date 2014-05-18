@@ -524,9 +524,11 @@ class AppTestMMap:
         m = mmap(f.fileno(), 6)
         assert m[-3:7] == b"bar"
 
+        assert m[1:0:1] == b""
+
         f.close()
 
-    def test_buffer(self):
+    def test_memoryview(self):
         from mmap import mmap
         f = open(self.tmpname + "y", "bw+")
         f.write(b"foobar")
@@ -534,26 +536,11 @@ class AppTestMMap:
         m = mmap(f.fileno(), 6)
         b = memoryview(m)
         assert len(b) == 6
+        assert b.readonly is False
         assert b[3] == b"b"
         assert b[:] == b"foobar"
         del b  # For CPython: "exported pointers exist"
         m.close()
-        f.close()
-
-    def test_buffer_write(self):
-        from mmap import mmap
-        f = open(self.tmpname + "y", "wb+")
-        f.write(b"foobar")
-        f.flush()
-        m = mmap(f.fileno(), 6)
-        m[5] = ord('?')
-        b = memoryview(m)
-        b[:3] = b"FOO"
-        del b  # For CPython: "cannot close exported pointers exist"
-        m.close()
-        f.seek(0)
-        got = f.read()
-        assert got == b"FOOba?"
         f.close()
 
     def test_offset(self):
@@ -824,3 +811,17 @@ class AppTestMMap:
         assert m.read(10) == b"ABCDEABCDE"
         m.close()
         f.close()
+
+    def test_empty_file(self):
+        import mmap
+        f = open(self.tmpname, 'w+b')
+        f.close()
+        with open(self.tmpname, 'rb') as f:
+            try:
+                m = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+                m.close()
+                assert False, "should not have been able to mmap empty file"
+            except ValueError as e:
+                assert str(e) == "cannot mmap an empty file"
+            except BaseException as e:
+                assert False, "unexpected exception: " + str(e)

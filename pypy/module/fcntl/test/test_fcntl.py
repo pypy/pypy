@@ -35,7 +35,12 @@ class AppTestFcntl:
         fcntl.fcntl(F(int(f.fileno())), 1)
         raises(TypeError, fcntl.fcntl, "foo")
         raises(TypeError, fcntl.fcntl, f, "foo")
-        raises(TypeError, fcntl.fcntl, F("foo"), 1)
+        exc = raises(TypeError, fcntl.fcntl, F("foo"), 1)
+        assert str(exc.value) == 'fileno() returned a non-integer'
+        exc = raises(OverflowError, fcntl.fcntl, 2147483647 + 1, 1, 0)
+        exc = raises(OverflowError, fcntl.fcntl, F(2147483647 + 1), 1, 0)
+        exc = raises(OverflowError, fcntl.fcntl, -2147483648 - 1, 1, 0)
+        exc = raises(OverflowError, fcntl.fcntl, F(-2147483648 - 1), 1, 0)
         raises(ValueError, fcntl.fcntl, -1, 1, 0)
         raises(ValueError, fcntl.fcntl, F(-1), 1, 0)
         raises(ValueError, fcntl.fcntl, F(int(-1)), 1, 0)
@@ -216,6 +221,14 @@ class AppTestFcntl:
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf)
             assert res == 0
             assert buf.tostring() == expected
+
+            buf = array.array('i', [0])
+            res = fcntl.ioctl(mfd, TIOCGPGRP, memoryview(buf))
+            assert res == 0
+            assert buf.tostring() == expected
+
+            exc = raises(TypeError, fcntl.ioctl, mfd, TIOCGPGRP, memoryview(b'abc'), False)
+            assert str(exc.value) == "ioctl requires a file or file descriptor, an integer and optionally an integer or buffer argument"
 
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf, False)
             assert res == expected

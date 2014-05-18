@@ -1,6 +1,6 @@
 from __future__ import with_statement
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -37,7 +37,7 @@ SOCKET_IS_NONBLOCKING, SOCKET_IS_BLOCKING = 0, 1
 SOCKET_HAS_TIMED_OUT, SOCKET_HAS_BEEN_CLOSED = 2, 3
 SOCKET_TOO_LARGE_FOR_SELECT, SOCKET_OPERATION_OK = 4, 5
 
-HAVE_RPOLL = True  # Even win32 has rpoll.poll
+HAVE_RPOLL = 'poll' in dir(rpoll)
 
 constants = {}
 constants["SSL_ERROR_ZERO_RETURN"] = PY_SSL_ERROR_ZERO_RETURN
@@ -91,22 +91,7 @@ def ssl_error(space, msg, errno=0):
 
 
 class SSLContext(W_Root):
-    def __init__(self, method):
-        self.ctx = libssl_SSL_CTX_new(method)
-
-        # Defaults
-        libssl_SSL_CTX_set_verify(self.ctx, SSL_VERIFY_NONE, None)
-        libssl_SSL_CTX_set_options(
-            self.ctx, SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS)
-        libssl_SSL_CTX_set_session_id_context(self.ctx, "Python", len("Python"))
-
-    def __del__(self):
-        if self.ctx:
-            libssl_SSL_CTX_free(self.ctx)
-
-    @unwrap_spec(protocol=int)
-    def descr_new(space, w_subtype, protocol=PY_SSL_VERSION_SSL23):
-        self = space.allocate_instance(SSLContext, w_subtype)
+    def __init__(self, space, protocol):
         if protocol == PY_SSL_VERSION_TLS1:
             method = libssl_TLSv1_method()
         elif protocol == PY_SSL_VERSION_SSL3:
@@ -116,9 +101,25 @@ class SSLContext(W_Root):
         elif protocol == PY_SSL_VERSION_SSL23:
             method = libssl_SSLv23_method()
         else:
-            raise OperationError(
-                space.w_ValueError, space.wrap("invalid protocol version"))
-        self.__init__(method)
+            raise oefmt(space.w_ValueError, "invalid protocol version")
+        self.ctx = libssl_SSL_CTX_new(method)
+
+        # Defaults
+        libssl_SSL_CTX_set_verify(self.ctx, SSL_VERIFY_NONE, None)
+        options = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
+        if protocol != PY_SSL_VERSION_SSL2:
+            options |= SSL_OP_NO_SSLv2
+        libssl_SSL_CTX_set_options(self.ctx, options)
+        libssl_SSL_CTX_set_session_id_context(self.ctx, "Python", len("Python"))
+
+    def __del__(self):
+        if self.ctx:
+            libssl_SSL_CTX_free(self.ctx)
+
+    @unwrap_spec(protocol=int)
+    def descr_new(space, w_subtype, protocol=PY_SSL_VERSION_SSL23):
+        self = space.allocate_instance(SSLContext, w_subtype)
+        self.__init__(space, protocol)
         if not self.ctx:
             raise ssl_error(space, "failed to allocate SSL context")
         return space.wrap(self)
@@ -429,7 +430,7 @@ class SSLSocket(W_Root):
 
         rwbuffer = None
         if not space.is_none(w_buf):
-            rwbuffer = space.rwbuffer_w(w_buf)
+            rwbuffer = space.getarg_w('w*', w_buf)
             lgt = rwbuffer.getlength()
             if num_bytes < 0 or num_bytes > lgt:
                 num_bytes = lgt
@@ -606,7 +607,7 @@ class SSLSocket(W_Root):
 
         proto = libssl_SSL_CIPHER_get_version(current)
         if proto:
-            w_proto = space.wrap(rffi.charp2str(name))
+            w_proto = space.wrap(rffi.charp2str(proto))
         else:
             w_proto = space.w_None
 
@@ -683,15 +684,15 @@ def _decode_certificate(space, certificate, verbose=False):
                 w_serial = space.wrap(rffi.charpsize2str(buf, length))
             space.setitem(w_retval, space.wrap("serialNumber"), w_serial)
 
-            libssl_BIO_reset(biobuf)
-            notBefore = libssl_X509_get_notBefore(certificate)
-            libssl_ASN1_TIME_print(biobuf, notBefore)
-            with lltype.scoped_alloc(rffi.CCHARP.TO, 100) as buf:
-                length = libssl_BIO_gets(biobuf, buf, 99)
-                if length < 0:
-                    raise _ssl_seterror(space, None, length)
-                w_date = space.wrap(rffi.charpsize2str(buf, length))
-            space.setitem(w_retval, space.wrap("notBefore"), w_date)
+        libssl_BIO_reset(biobuf)
+        notBefore = libssl_X509_get_notBefore(certificate)
+        libssl_ASN1_TIME_print(biobuf, notBefore)
+        with lltype.scoped_alloc(rffi.CCHARP.TO, 100) as buf:
+            length = libssl_BIO_gets(biobuf, buf, 99)
+            if length < 0:
+                raise _ssl_seterror(space, None, length)
+            w_date = space.wrap(rffi.charpsize2str(buf, length))
+        space.setitem(w_retval, space.wrap("notBefore"), w_date)
 
         libssl_BIO_reset(biobuf)
         notAfter = libssl_X509_get_notAfter(certificate)
@@ -785,18 +786,37 @@ def _get_peer_alt_names(space, certificate):
                 # Get a rendering of each name in the set of names
 
                 name = libssl_sk_GENERAL_NAME_value(names, j)
-                if intmask(name[0].c_type) == GEN_DIRNAME:
-
+                gntype = intmask(name[0].c_type)
+                if gntype == GEN_DIRNAME:
                     # we special-case DirName as a tuple of tuples of attributes
                     dirname = libssl_pypy_GENERAL_NAME_dirn(name)
                     w_t = space.newtuple([
                             space.wrap("DirName"),
                             _create_tuple_for_X509_NAME(space, dirname)
                             ])
+                elif gntype in (GEN_EMAIL, GEN_DNS, GEN_URI):
+                    # GENERAL_NAME_print() doesn't handle NULL bytes in ASN1_string
+                    # correctly, CVE-2013-4238
+                    if gntype == GEN_EMAIL:
+                        v = space.wrap("email")
+                    elif gntype == GEN_DNS:
+                        v = space.wrap("DNS")
+                    elif gntype == GEN_URI:
+                        v = space.wrap("URI")
+                    else:
+                        assert False
+                    as_ = libssl_pypy_GENERAL_NAME_dirn(name)
+                    as_ = rffi.cast(ASN1_STRING, as_)
+                    buf = libssl_ASN1_STRING_data(as_)
+                    length = libssl_ASN1_STRING_length(as_)
+                    w_t = space.newtuple([v,
+                        space.wrap(rffi.charpsize2str(buf, length))])
                 else:
-
                     # for everything else, we use the OpenSSL print form
-
+                    if gntype not in (GEN_OTHERNAME, GEN_X400, GEN_EDIPARTY,
+                                      GEN_IPADD, GEN_RID):
+                        space.warn(space.wrap("Unknown general name type"),
+                                   space.w_RuntimeWarning)
                     libssl_BIO_reset(biobuf)
                     libssl_GENERAL_NAME_print(biobuf, name)
                     with lltype.scoped_alloc(rffi.CCHARP.TO, 2048) as buf:
@@ -859,7 +879,7 @@ def new_sslobject(space, ctx, w_sock, side, server_hostname):
     libssl_SSL_set_fd(ss.ssl, sock_fd) # set the socket for SSL
     # The ACCEPT_MOVING_WRITE_BUFFER flag is necessary because the address
     # of a str object may be changed by the garbage collector.
-    libssl_SSL_set_mode(ss.ssl, 
+    libssl_SSL_set_mode(ss.ssl,
                         SSL_MODE_AUTO_RETRY | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER)
 
     if server_hostname:

@@ -3,7 +3,7 @@ Utility RPython functions to inspect objects in the GC.
 """
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import free_non_gc_object
-from rpython.rtyper.module.ll_os import underscore_on_windows
+from rpython.rtyper.module.ll_os import UNDERSCORE_ON_WIN32
 from rpython.rlib import rposix, rgc
 
 from rpython.memory.support import AddressDict, get_address_stack
@@ -94,7 +94,7 @@ def is_rpy_instance(gc, gcref):
 
 # ----------
 
-raw_os_write = rffi.llexternal(underscore_on_windows+'write',
+raw_os_write = rffi.llexternal(UNDERSCORE_ON_WIN32 + 'write',
                                [rffi.INT, llmemory.Address, rffi.SIZE_T],
                                rffi.SIZE_T,
                                sandboxsafe=True, _nowrapper=True)

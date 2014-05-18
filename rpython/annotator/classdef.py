@@ -2,7 +2,7 @@
 Type inference for user-defined classes.
 """
 from rpython.annotator.model import SomePBC, s_ImpossibleValue, unionof
-from rpython.annotator.model import SomeInteger, SomeTuple, SomeString
+from rpython.annotator.model import SomeInteger, SomeTuple, SomeString, AnnotatorError
 from rpython.annotator import description
 
 
@@ -394,7 +394,7 @@ class ClassDef(object):
         return SomePBC([subdef.classdesc for subdef in self.getallsubdefs()])
 
     def _freeze_(self):
-        raise Exception, "ClassDefs are used as knowntype for instances but cannot be used as immutablevalue arguments directly"
+        raise Exception("ClassDefs are used as knowntype for instances but cannot be used as immutablevalue arguments directly")
 
 # ____________________________________________________________
 
@@ -429,7 +429,7 @@ class InstanceSource(object):
                         result.extend(slots)
         return result
 
-class NoSuchAttrError(Exception):
+class NoSuchAttrError(AnnotatorError):
     """Raised when an attribute is found on a class where __slots__
      or _attrs_ forbits it."""
 

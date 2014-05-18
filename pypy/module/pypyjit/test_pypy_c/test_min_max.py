@@ -1,8 +1,7 @@
-import py
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
-class TestMinMax(BaseTestPyPyC):
 
+class TestMinMax(BaseTestPyPyC):
     def test_min_max(self):
         def main():
             i=0
@@ -24,7 +23,6 @@ class TestMinMax(BaseTestPyPyC):
             --TICK--
             jump(..., descr=...)
         """)
-        
 
     def test_silly_max(self):
         def main():

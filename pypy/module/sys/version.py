@@ -2,20 +2,20 @@
 Version numbers exposed by PyPy through the 'sys' module.
 """
 import os
-import re
 from rpython.translator.platform import platform
 from pypy.interpreter import gateway
 
 #XXX # the release serial 42 is not in range(16)
-CPYTHON_VERSION            = (3, 2, 3, "final", 0)
+CPYTHON_VERSION            = (3, 2, 5, "final", 0)
 #XXX # sync CPYTHON_VERSION with patchlevel.h, package.py
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
-PYPY_VERSION               = (2, 2, 0, "alpha", 0)    #XXX # sync patchlevel.h
+PYPY_VERSION               = (2, 3, 0, "alpha", 0)    #XXX # sync patchlevel.h
 
 if platform.name == 'msvc':
     COMPILER_INFO = 'MSC v.%d 32 bit' % (platform.version * 10 + 600)
-elif platform.cc is not None and platform.cc.startswith(('gcc', 'clang')):
+elif platform.cc is not None and \
+        os.path.basename(platform.cc).startswith(('gcc', 'clang')):
     from rpython.rtyper.tool import rffi_platform
     COMPILER_INFO = 'GCC ' + rffi_platform.getdefinedstring('__VERSION__', '')
 else:

@@ -1,4 +1,4 @@
-import _ffi
+from _rawffi import alt as _ffi
 import _rawffi
 
 from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
@@ -21,10 +21,13 @@ class ArrayMeta(_CDataMeta):
                 # we don't want to have buffers here
                 if len(val) > self._length_:
                     raise ValueError("%r too long" % (val,))
-                for i in range(len(val)):
-                    self[i] = val[i]
+                if isinstance(val, str):
+                    _rawffi.rawstring2charp(self._buffer.buffer, val)
+                else:
+                    for i in range(len(val)):
+                        self[i] = val[i]
                 if len(val) < self._length_:
-                    self[len(val)] = b'\x00'
+                    self._buffer[len(val)] = b'\x00'
             res.value = property(getvalue, setvalue)
 
             def getraw(self):
@@ -34,8 +37,7 @@ class ArrayMeta(_CDataMeta):
             def setraw(self, buffer):
                 if len(buffer) > self._length_:
                     raise ValueError("%r too long" % (buffer,))
-                for i in range(len(buffer)):
-                    self[i] = buffer[i]
+                _rawffi.rawstring2charp(self._buffer.buffer, buffer)
             res.raw = property(getraw, setraw)
         elif subletter == 'u':
             def getvalue(self):
@@ -46,10 +48,14 @@ class ArrayMeta(_CDataMeta):
                 # we don't want to have buffers here
                 if len(val) > self._length_:
                     raise ValueError("%r too long" % (val,))
+                if isinstance(val, str):
+                    target = self._buffer
+                else:
+                    target = self
                 for i in range(len(val)):
-                    self[i] = val[i]
+                    target[i] = val[i]
                 if len(val) < self._length_:
-                    self[len(val)] = '\x00'
+                    target[len(val)] = '\x00'
             res.value = property(getvalue, setvalue)
 
         res._ffishape = (ffiarray, res._length_)

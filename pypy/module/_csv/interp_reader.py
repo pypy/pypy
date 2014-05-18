@@ -39,19 +39,13 @@ class W_Reader(W_Root):
         field_builder.append(c)
 
     def save_field(self, field_builder):
+        space = self.space
         field = field_builder.build()
         if self.numeric_field:
-            from rpython.rlib.rstring import ParseStringError
-            from rpython.rlib.rfloat import string_to_float
             self.numeric_field = False
-            try:
-                ff = string_to_float(field)
-            except ParseStringError, e:
-                raise OperationError(self.space.w_ValueError,
-                                     self.space.wrap(e.msg))
-            w_obj = self.space.wrap(ff)
+            w_obj = space.call_function(space.w_float, space.wrap(field))
         else:
-            w_obj = self.space.wrap(field)
+            w_obj = space.wrap(field)
         self.fields_w.append(w_obj)
 
     def next_w(self):
@@ -244,8 +238,7 @@ def csv_reader(space, w_iterator, w_dialect=None,
     return W_Reader(space, dialect, w_iter)
 
 W_Reader.typedef = TypeDef(
-        'reader',
-        __module__ = '_csv',
+        '_csv.reader',
         dialect = interp_attrproperty_w('dialect', W_Reader),
         line_num = interp_attrproperty('line_num', W_Reader),
         __iter__ = interp2app(W_Reader.iter_w),

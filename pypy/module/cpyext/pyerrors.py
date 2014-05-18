@@ -99,11 +99,13 @@ def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
     exc_p[0] = make_ref(space, operr.w_type)
     val_p[0] = make_ref(space, operr.get_w_value(space))
 
-@cpython_api([], lltype.Void)
+@cpython_api([], rffi.INT_real, error=0)
 def PyErr_BadArgument(space):
     """This is a shorthand for PyErr_SetString(PyExc_TypeError, message), where
     message indicates that a built-in operation was invoked with an illegal
-    argument.  It is mostly for internal use."""
+    argument.  It is mostly for internal use. In CPython this function always
+    raises an exception and returns 0 in all cases, hence the (ab)use of the
+    error indicator."""
     raise OperationError(space.w_TypeError,
             space.wrap("bad argument type for built-in operation"))
 
@@ -144,14 +146,29 @@ def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
     this is used to define the filename attribute of the exception instance.
     Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
-    errno = get_errno()
-    msg = os.strerror(errno)
     if llfilename:
         w_filename = rffi.charp2str(llfilename)
+        filename = space.wrap(w_filename)
+    else:
+        filename = space.w_None
+
+    PyErr_SetFromErrnoWithFilenameObject(space, w_type, filename)
+
+@cpython_api([PyObject, PyObject], PyObject)
+def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
+    """Similar to PyErr_SetFromErrno(), with the additional behavior that if
+    w_value is not NULL, it is passed to the constructor of type as a
+    third parameter.  In the case of exceptions such as IOError and OSError,
+    this is used to define the filename attribute of the exception instance.
+    Return value: always NULL."""
+    # XXX Doesn't actually do anything with PyErr_CheckSignals.
+    errno = get_errno()
+    msg = os.strerror(errno)
+    if w_value:
         w_error = space.call_function(w_type,
                                       space.wrap(errno),
                                       space.wrap(msg),
-                                      space.wrap(w_filename))
+                                      w_value)
     else:
         w_error = space.call_function(w_type,
                                       space.wrap(errno),

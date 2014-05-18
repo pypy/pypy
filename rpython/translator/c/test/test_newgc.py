@@ -658,7 +658,8 @@ class UsingFrameworkTest(object):
 
     def test_open_read_write_seek_close(self):
         self.run('open_read_write_seek_close')
-        assert open(self.filename, 'r').read() == "hello world\n"
+        with open(self.filename, 'r') as fid:
+            assert fid.read() == "hello world\n"
         os.unlink(self.filename)
 
     def define_callback_with_collect(cls):
@@ -1122,6 +1123,8 @@ class UsingFrameworkTest(object):
             #
             fd1 = os.open(filename1, os.O_WRONLY | os.O_CREAT, 0666)
             fd2 = os.open(filename2, os.O_WRONLY | os.O_CREAT, 0666)
+            # try to ensure we get twice the exact same output below
+            gc.collect(); gc.collect(); gc.collect()
             rgc.dump_rpy_heap(fd1)
             rgc.dump_rpy_heap(fd2)      # try twice in a row
             keepalive_until_here(s2)
@@ -1468,6 +1471,11 @@ class TestMiniMarkGC(TestSemiSpaceGC):
         res = self.run("nongc_opaque_attached_to_gc")
         assert res == 0
 
+
+class TestIncrementalMiniMarkGC(TestMiniMarkGC):
+    gcpolicy = "incminimark"
+
+
 # ____________________________________________________________________
 
 class TaggedPointersTest(object):
@@ -1559,4 +1567,7 @@ class TestHybridTaggedPointers(TaggedPointersTest, TestHybridGC):
 
 
 class TestMiniMarkGCMostCompact(TaggedPointersTest, TestMiniMarkGC):
+    removetypeptr = True
+
+class TestIncrementalMiniMarkGCMostCompact(TaggedPointersTest, TestIncrementalMiniMarkGC):
     removetypeptr = True

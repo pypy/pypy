@@ -76,6 +76,11 @@ def test_utimes():
     t1 = 1159195039.25
     compile(f, (str, float))(str(fname), t1)
     assert t1 == os.stat(str(fname)).st_mtime
+    if sys.version_info < (2, 7):
+        py.test.skip('requires Python 2.7')
+    t1 = 5000000000.0
+    compile(f, (str, float))(str(fname), t1)
+    assert t1 == os.stat(str(fname)).st_mtime
 
 def test__getfullpathname():
     if os.name != 'nt':

@@ -9,7 +9,7 @@ Taken from http://twistedmatrix.com/trac/browser/sandbox/exarkun/force-builds.py
 modified by PyPy team
 """
 
-import os, sys, pwd, urllib
+import os, sys, urllib
 
 from twisted.internet import reactor, defer
 from twisted.python import log
@@ -34,10 +34,16 @@ BUILDERS = [
     'build-pypy-c-jit-linux-armel',
 ]
 
-def main():
+def get_user():
+    if sys.platform == 'win32':
+        return os.environ['USERNAME']
+    else:
+        import pwd
+        return pwd.getpwuid(os.getuid())[0]
+
+def main(branch, server):
     #XXX: handle release tags
     #XXX: handle validity checks
-    branch = sys.argv[1]
     lock = defer.DeferredLock()
     requests = []
     def ebList(err):
@@ -47,10 +53,11 @@ def main():
 
     for builder in BUILDERS:
         print 'Forcing', builder, '...'
-        url = "http://buildbot.pypy.org/builders/" + builder + "/force"
+        url = "http://" + server + "/builders/" + builder + "/force"
         args = [
-            ('username', pwd.getpwuid(os.getuid())[0]),
+            ('username', get_user()),
             ('revision', ''),
+            ('forcescheduler', 'Force Scheduler'),
             ('submit', 'Force Build'),
             ('branch', branch),
             ('comments', "Forced by command line script")]
@@ -66,4 +73,11 @@ def main():
 
 if __name__ == '__main__':
     log.startLogging(sys.stdout)
-    main()
+    import optparse
+    parser = optparse.OptionParser()
+    parser.add_option("-b", "--branch", help="branch to build", default='')
+    parser.add_option("-s", "--server", help="buildbot server", default="buildbot.pypy.org")
+    (options, args) = parser.parse_args()
+    if  not options.branch:
+        parser.error("branch option required")
+    main(options.branch, options.server)

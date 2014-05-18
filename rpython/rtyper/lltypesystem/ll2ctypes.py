@@ -22,6 +22,8 @@ from rpython.tool.uid import fixid
 from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat, base_int, intmask
 from rpython.rlib.rarithmetic import is_emulated_long, maxint
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.llinterp import LLInterpreter, LLException
 from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from rpython.rtyper import raddress
@@ -161,7 +163,7 @@ def _setup_ctypes_cache():
         llmemory.GCREF:    ctypes.c_void_p,
         llmemory.WeakRef:  ctypes.c_void_p, # XXX
         })
-        
+
     if '__int128_t' in rffi.TYPES:
         _ctypes_cache[rffi.__INT128_T] = ctypes.c_longlong # XXX: Not right at all. But for some reason, It started by while doing JIT compile after a merge with default. Can't extend ctypes, because thats a python standard, right?
 
@@ -255,7 +257,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
         @classmethod
         def _malloc(cls, n=None):
             if not isinstance(n, int):
-                raise TypeError, "array length must be an int"
+                raise TypeError("array length must be an int")
             biggercls = get_ctypes_array_of_size(A, n)
             bigarray = allocate_ctypes(biggercls)
             if hasattr(bigarray, 'length'):
@@ -356,6 +358,12 @@ def build_new_ctypes_type(T, delayed_builders):
 
     if isinstance(T, lltype.Ptr):
         if isinstance(T.TO, lltype.FuncType):
+            functype = ctypes.CFUNCTYPE
+            if sys.platform == 'win32':
+                from rpython.rlib.clibffi import FFI_STDCALL, FFI_DEFAULT_ABI
+                if getattr(T.TO, 'ABI', FFI_DEFAULT_ABI) == FFI_STDCALL:
+                    # for win32 system call
+                    functype = ctypes.WINFUNCTYPE
             argtypes = [get_ctypes_type(ARG) for ARG in T.TO.ARGS
                         if ARG is not lltype.Void]
             if T.TO.RESULT is lltype.Void:
@@ -364,10 +372,10 @@ def build_new_ctypes_type(T, delayed_builders):
                 restype = get_ctypes_type(T.TO.RESULT)
             try:
                 kwds = {'use_errno': True}
-                return ctypes.CFUNCTYPE(restype, *argtypes, **kwds)
+                return functype(restype, *argtypes, **kwds)
             except TypeError:
                 # unexpected 'use_errno' argument, old ctypes version
-                return ctypes.CFUNCTYPE(restype, *argtypes)
+                return functype(restype, *argtypes)
         elif isinstance(T.TO, lltype.OpaqueType):
             return ctypes.c_void_p
         else:
@@ -403,7 +411,12 @@ def convert_struct(container, cstruct=None, delayed_converters=None):
         # bigger structure at once
         parent, parentindex = lltype.parentlink(container)
         if parent is not None:
-            convert_struct(parent)
+            if isinstance(parent, lltype._struct):
+                convert_struct(parent)
+            elif isinstance(parent, lltype._array):
+                convert_array(parent)
+            else:
+                raise AssertionError(type(parent))
             return
         # regular case: allocate a new ctypes Structure of the proper type
         cls = get_ctypes_type(STRUCT)
@@ -1159,6 +1172,8 @@ def get_ctypes_callable(funcptr, calling_conv):
         # XXX magic: on Windows try to load the function from 'kernel32' too
         if cfunc is None and hasattr(ctypes, 'windll'):
             cfunc = get_on_lib(ctypes.windll.kernel32, funcname)
+        if cfunc is None and hasattr(ctypes, 'windll'):
+            cfunc = get_on_lib(ctypes.cdll.msvcrt, funcname)
 
     if cfunc is None:
         # function name not found in any of the libraries
@@ -1297,7 +1312,7 @@ class ForceCastEntry(ExtRegistryEntry):
     def compute_result_annotation(self, s_RESTYPE, s_value):
         assert s_RESTYPE.is_constant()
         RESTYPE = s_RESTYPE.const
-        return annmodel.lltype_to_annotation(RESTYPE)
+        return lltype_to_annotation(RESTYPE)
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
@@ -1334,9 +1349,9 @@ class ForcePtrAddEntry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_ptr, s_n):
         assert isinstance(s_n, annmodel.SomeInteger)
-        assert isinstance(s_ptr, annmodel.SomePtr)
+        assert isinstance(s_ptr, SomePtr)
         typecheck_ptradd(s_ptr.ll_ptrtype)
-        return annmodel.lltype_to_annotation(s_ptr.ll_ptrtype)
+        return lltype_to_annotation(s_ptr.ll_ptrtype)
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
