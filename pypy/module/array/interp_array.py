@@ -637,16 +637,14 @@ class ArrayBuffer(Buffer):
         self.readonly = readonly
 
     def getlength(self):
-        return self.array.len
+        return self.array.len * self.itemsize
 
     def getitem(self, index):
-        resbuf = ['\x00'] * self.itemsize
         array = self.array
         data = array._charbuf_start()
-        for i in xrange(self.itemsize):
-            resbuf[i] = data[index + i]
+        char = data[index]
         array._charbuf_stop()
-        return ''.join(resbuf)
+        return char
 
     def setitem(self, index, char):
         array = self.array

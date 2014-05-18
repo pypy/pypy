@@ -73,11 +73,11 @@ class W_MemoryView(W_Root):
 
     def as_str(self):
         buf = self.buf
-        n_bytes = buf.getlength() * buf.itemsize
+        n_bytes = buf.getlength()
         return buf.getslice(0, n_bytes, 1, n_bytes)
 
     def getlength(self):
-        return self.buf.getlength()
+        return self.buf.getlength() // self.buf.itemsize
 
     def getslice(self, start, stop):
         if start < 0:
@@ -109,7 +109,10 @@ class W_MemoryView(W_Root):
         if step not in (0, 1):
             raise OperationError(space.w_NotImplementedError, space.wrap(""))
         if step == 0:  # index only
-            return space.wrapbytes(self.buf.getitem(start))
+            a = start * self.buf.itemsize
+            b = a + self.buf.itemsize
+            return space.wrapbytes(
+                ''.join([self.buf.getitem(i) for i in range(a, b)]))
         res = self.getslice(start, stop)
         return space.wrap(res)
 
