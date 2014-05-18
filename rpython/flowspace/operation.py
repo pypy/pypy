@@ -7,7 +7,7 @@ import __future__
 import operator
 import sys
 import types
-from rpython.tool.pairtype import pair
+from rpython.tool.pairtype import pair, DoubleDispatchRegistry
 from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.tool.sourcetools import compile2
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
@@ -54,13 +54,10 @@ class HLOperationMeta(type):
         type.__init__(cls, name, bases, attrdict)
         if hasattr(cls, 'opname'):
             setattr(op, cls.opname, cls)
-        cls._registry = {}
-
-    def register(cls, Some_cls):
-        def decorator(func):
-            cls._registry[Some_cls] = func
-            return func
-        return decorator
+        if cls.dispatch == 1:
+            cls._registry = {}
+        elif cls.dispatch == 2:
+            cls._registry = DoubleDispatchRegistry()
 
 
 class HLOperation(SpaceOperation):
@@ -152,6 +149,13 @@ class SingleDispatchMixin(object):
     dispatch = 1
 
     @classmethod
+    def register(cls, Some_cls):
+        def decorator(func):
+            cls._registry[Some_cls] = func
+            return func
+        return decorator
+
+    @classmethod
     def _dispatch(cls, Some_cls):
         for c in Some_cls.__mro__:
             try:
@@ -185,16 +189,26 @@ class DoubleDispatchMixin(object):
     dispatch = 2
 
     @classmethod
-    def get_specialization(cls, s_arg1, s_arg2, *_ignored):
-        impl = getattr(pair(s_arg1, s_arg2), cls.opname)
+    def register(cls, Some1, Some2):
+        def decorator(func):
+            cls._registry[Some1, Some2] = func
+            return func
+        return decorator
 
-        def specialized(arg1, arg2, *other_args):
-            return impl(*[x.ann for x in other_args])
+    @classmethod
+    def get_specialization(cls, s_arg1, s_arg2, *_ignored):
         try:
-            specialized.can_only_throw = impl.can_only_throw
+            impl = getattr(pair(s_arg1, s_arg2), cls.opname)
+
+            def specialized(arg1, arg2, *other_args):
+                return impl(*[x.ann for x in other_args])
+            try:
+                specialized.can_only_throw = impl.can_only_throw
+            except AttributeError:
+                pass
+            return specialized
         except AttributeError:
-            pass
-        return specialized
+            return cls._registry[type(s_arg1), type(s_arg2)]
 
     def get_can_only_throw(self, annotator):
         args_s = [annotator.binding(v) for v in self.args]
