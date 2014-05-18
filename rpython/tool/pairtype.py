@@ -71,3 +71,26 @@ def pairmro(cls1, cls2):
     for base2 in cls2.__mro__:
         for base1 in cls1.__mro__:
             yield (base1, base2)
+
+class DoubleDispatchRegistry(object):
+    """
+    A mapping of pairs of types to arbitrary objects respecting inheritance
+    """
+    def __init__(self):
+        self._registry = {}
+        self._cache = {}
+
+    def __getitem__(self, clspair):
+        try:
+            return self._cache[clspair]
+        except KeyError:
+            cls1, cls2 = clspair
+            for c1, c2 in pairmro(cls1, cls2):
+                if (c1, c2) in self._cache:
+                    return self._cache[(c1, c2)]
+            else:
+                raise
+
+    def __setitem__(self, clspair, value):
+        self._registry[clspair] = value
+        self._cache = self._registry.copy()

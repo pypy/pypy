@@ -1,4 +1,5 @@
-from rpython.tool.pairtype import pairtype, pair, extendabletype, pairmro
+from rpython.tool.pairtype import (
+    pairtype, pair, extendabletype, pairmro, DoubleDispatchRegistry)
 
 def test_binop():
     ### Binary operation example
@@ -113,3 +114,18 @@ def test_pairmro():
     class B2(B): pass
     parent_pairtypes = pairtype(A3, B2).__mro__[:-2]
     assert (tuple(pairtype(a, b) for a, b in pairmro(A3, B2)) == parent_pairtypes)
+
+def test_doubledispatch():
+    class A(object): pass
+    class A2(A): pass
+    class A3(A2): pass
+    class B(object): pass
+    class B2(B): pass
+    reg = DoubleDispatchRegistry()
+    reg[object, object] = "default"
+    assert reg[A3, B2] == "default"
+    reg[A2, B2] = "A2-B2"
+    assert reg[A, B2] == "default"
+    assert reg[A3, B2] == "A2-B2"
+    reg[A3, B] = "A3-B"
+    assert reg[A3, B2] == "A2-B2"  # note that A2,B2 wins over A3,B
