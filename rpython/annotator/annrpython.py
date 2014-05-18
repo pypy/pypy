@@ -468,20 +468,7 @@ class RPythonAnnotator(object):
         # occour for this specific, typed operation.
         if block.exitswitch == c_last_exception:
             op = block.operations[-1]
-            if op.dispatch == 2:
-                arg1 = self.binding(op.args[0])
-                arg2 = self.binding(op.args[1])
-                binop = getattr(pair(arg1, arg2), op.opname, None)
-                can_only_throw = annmodel.read_can_only_throw(binop, arg1, arg2)
-            elif op.dispatch == 1:
-                arg1 = self.binding(op.args[0])
-                opname = op.opname
-                if opname == 'contains': opname = 'op_contains'
-                unop = getattr(arg1, opname, None)
-                can_only_throw = annmodel.read_can_only_throw(unop, arg1)
-            else:
-                can_only_throw = None
-
+            can_only_throw = op.get_can_only_throw(self)
             if can_only_throw is not None:
                 candidates = can_only_throw
                 candidate_exits = exits

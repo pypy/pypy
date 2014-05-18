@@ -13,7 +13,8 @@ from rpython.tool.sourcetools import compile2
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
 from rpython.flowspace.specialcase import register_flow_sc
-from rpython.annotator.model import SomeTuple, AnnotatorError
+from rpython.annotator.model import (
+    SomeTuple, AnnotatorError, read_can_only_throw)
 from rpython.flowspace.specialcase import SPECIAL_CASES
 
 
@@ -101,6 +102,9 @@ class HLOperation(SpaceOperation):
         spec = type(self).get_specialization(*args_s)
         return spec(*args)
 
+    def get_can_only_throw(self, annotator):
+        return None
+
 class PureOperation(HLOperation):
     pure = True
 
@@ -155,12 +159,22 @@ class SingleDispatchMixin(object):
                 pass
         raise AnnotatorError("Unknown operation")
 
+    def get_can_only_throw(self, annotator):
+        args_s = [annotator.binding(v) for v in self.args]
+        spec = type(self).get_specialization(*args_s)
+        return read_can_only_throw(spec, args_s[0])
+
     @classmethod
     def get_specialization(cls, s_arg, *_ignored):
         try:
             impl = getattr(s_arg, cls.opname)
+
             def specialized(arg, *other_args):
                 return impl(*[x.ann for x in other_args])
+            try:
+                specialized.can_only_throw = impl.can_only_throw
+            except AttributeError:
+                pass
             return specialized
         except AttributeError:
             return cls._dispatch(type(s_arg))
@@ -172,9 +186,19 @@ class DoubleDispatchMixin(object):
     @classmethod
     def get_specialization(cls, s_arg1, s_arg2, *_ignored):
         impl = getattr(pair(s_arg1, s_arg2), cls.opname)
+
         def specialized(arg1, arg2, *other_args):
             return impl(*[x.ann for x in other_args])
+        try:
+            specialized.can_only_throw = impl.can_only_throw
+        except AttributeError:
+            pass
         return specialized
+
+    def get_can_only_throw(self, annotator):
+        args_s = [annotator.binding(v) for v in self.args]
+        spec = type(self).get_specialization(*args_s)
+        return read_can_only_throw(spec, args_s[0], args_s[1])
 
 
 def add_operator(name, arity, dispatch=None, pyfunc=None, pure=False, ovf=False):
