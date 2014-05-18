@@ -59,6 +59,7 @@ class HLOperationMeta(type):
     def register(cls, Some_cls):
         def decorator(func):
             cls._registry[Some_cls] = func
+            return func
         return decorator
 
 
@@ -416,18 +417,15 @@ add_operator('yield_', 1)
 add_operator('newslice', 3)
 add_operator('hint', None, dispatch=1)
 
-class Contains(PureOperation):
+class Contains(SingleDispatchMixin, PureOperation):
     opname = 'contains'
     arity = 2
     pyfunc = staticmethod(operator.contains)
 
-    # XXX "contains" clash with SomeObject method
+    # XXX "contains" clashes with SomeObject method
     @classmethod
     def get_specialization(cls, s_seq, s_elem):
-        impl = s_seq.op_contains
-        def specialized(seq, elem):
-            return impl(elem.ann)
-        return specialized
+        return cls._dispatch(type(s_seq))
 
 
 class NewDict(HLOperation):
