@@ -313,6 +313,35 @@ class W_Decimal(W_Root):
                                   status_ptr)
         return w_result
 
+    # Unary arithmetic functions, optional context arg
+
+    def to_integral_w(self, space, w_rounding=None, w_context=None):
+        context = interp_context.ensure_context(space, w_context)
+        w_workctx = context.copy_w(space)
+        if not space.is_none(w_rounding):
+            w_workctx.set_rounding(space, w_rounding)
+        w_result = W_Decimal.allocate(space)
+        with context.catch_status(space) as (ctx, status_ptr):
+            # We round with the temporary context, but set status and
+            # raise errors on the global one.
+            rmpdec.mpd_qround_to_int(w_result.mpd, self.mpd,
+                                     w_workctx.ctx, status_ptr)
+        return w_result
+        
+    def to_integral_exact_w(self, space, w_rounding=None, w_context=None):
+        context = interp_context.ensure_context(space, w_context)
+        w_workctx = context.copy_w(space)
+        if not space.is_none(w_rounding):
+            w_workctx.set_rounding(space, w_rounding)
+        w_result = W_Decimal.allocate(space)
+        with context.catch_status(space) as (ctx, status_ptr):
+            # We round with the temporary context, but set status and
+            # raise errors on the global one.
+            rmpdec.mpd_qround_to_intx(w_result.mpd, self.mpd,
+                                      w_workctx.ctx, status_ptr)
+        return w_result
+        
+
     # Boolean functions
     def is_qnan_w(self, space):
         return space.wrap(bool(rmpdec.mpd_isqnan(self.mpd)))
@@ -690,6 +719,10 @@ W_Decimal.typedef = TypeDef(
     __rmod__ = interp2app(W_Decimal.descr_rmod),
     __rdivmod__ = interp2app(W_Decimal.descr_rdivmod),
     __rpow__ = interp2app(W_Decimal.descr_rpow),
+    # Unary arithmetic functions, optional context arg
+    to_integral = interp2app(W_Decimal.to_integral_w),
+    to_integral_value = interp2app(W_Decimal.to_integral_w),
+    to_integral_exact = interp2app(W_Decimal.to_integral_exact_w),
     #
     copy_sign = interp2app(W_Decimal.copy_sign_w),
     is_qnan = interp2app(W_Decimal.is_qnan_w),

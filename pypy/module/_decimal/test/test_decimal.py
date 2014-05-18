@@ -758,3 +758,35 @@ class AppTestExplicitConstruction:
         d = Decimal( (1, (0, 2, 7, 1), 'F') )
         assert d.as_tuple() == (1, (0,), 'F')
 
+    def test_c_integral(self):
+        Decimal = self.decimal.Decimal
+        Inexact = self.decimal.Inexact
+        localcontext = self.decimal.localcontext
+        ROUND_UP = self.decimal.ROUND_UP
+
+        x = Decimal(10)
+        assert x.to_integral() == 10
+        raises(TypeError, x.to_integral, '10')
+        raises(TypeError, x.to_integral, 10, 'x')
+        raises(TypeError, x.to_integral, 10)
+
+        assert x.to_integral_value() == 10
+        raises(TypeError, x.to_integral_value, '10')
+        raises(TypeError, x.to_integral_value, 10, 'x')
+        raises(TypeError, x.to_integral_value, 10)
+
+        assert x.to_integral_exact() == 10
+        raises(TypeError, x.to_integral_exact, '10')
+        raises(TypeError, x.to_integral_exact, 10, 'x')
+        raises(TypeError, x.to_integral_exact, 10)
+
+        with localcontext() as c:
+            x = Decimal("99999999999999999999999999.9").to_integral_value(ROUND_UP)
+            assert x == Decimal('100000000000000000000000000')
+
+            x = Decimal("99999999999999999999999999.9").to_integral_exact(ROUND_UP)
+            assert x == Decimal('100000000000000000000000000')
+
+            c.traps[Inexact] = True
+            raises(Inexact, Decimal("999.9").to_integral_exact, ROUND_UP)
+
