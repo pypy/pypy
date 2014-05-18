@@ -85,7 +85,7 @@ def run_toplevel(f, *fargs, **fkwds):
             if softspace:
                 stdout.write('\n')
 
-    except SystemExit, e:
+    except SystemExit as e:
         handle_sys_exit(e)
     except:
         display_exception()
@@ -611,7 +611,7 @@ def run_command_line(interactive,
                         f = open(python_startup)
                         startup = f.read()
                         f.close()
-                    except IOError, e:
+                    except IOError as e:
                         print >> sys.stderr, "Could not open PYTHONSTARTUP"
                         print >> sys.stderr, "IOError:", e
                     else:
@@ -667,7 +667,7 @@ def run_command_line(interactive,
                     args = (execfile, filename, mainmodule.__dict__)
             success = run_toplevel(*args)
 
-    except SystemExit, e:
+    except SystemExit as e:
         status = e.code
         if inspect_requested():
             display_exception()
@@ -683,7 +683,7 @@ def run_command_line(interactive,
                             readenv and os.getenv('PYPY_IRC_TOPIC'))
             success = run_toplevel(interactive_console, mainmodule,
                                    quiet=not irc_topic)
-        except SystemExit, e:
+        except SystemExit as e:
             status = e.code
         else:
             status = not success
@@ -733,10 +733,10 @@ def entry_point(executable, argv):
     setup_bootstrap_path(executable)
     try:
         cmdline = parse_command_line(argv)
-    except CommandLineError, e:
+    except CommandLineError as e:
         print_error(str(e))
         return 2
-    except SystemExit, e:
+    except SystemExit as e:
         return e.code or 0
     setup_and_fix_paths(**cmdline)
     return run_command_line(**cmdline)
