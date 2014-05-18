@@ -61,3 +61,13 @@ def pairtype(cls1, cls2):
         bases = tuple(bases1 + bases2) or (tuple,)  # 'tuple': ultimate base
         pair = pairtypecache[cls1, cls2] = extendabletype(name, bases, {})
     return pair
+
+def pairmro(cls1, cls2):
+    """
+    Return the resolution order on pairs of types for double dispatch.
+
+    This order is compatible with the mro of pairtype(cls1, cls2).
+    """
+    for base2 in cls2.__mro__:
+        for base1 in cls1.__mro__:
+            yield (base1, base2)
