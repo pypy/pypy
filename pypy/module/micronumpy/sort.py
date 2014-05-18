@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import widen
@@ -148,20 +148,22 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
             if axis < 0 or axis >= len(shape):
                 raise oefmt(space.w_IndexError, "Wrong axis %d", axis)
             arr_iter = AllButAxisIter(arr, axis)
+            arr_state = arr_iter.reset()
             index_impl = index_arr.implementation
             index_iter = AllButAxisIter(index_impl, axis)
+            index_state = index_iter.reset()
             stride_size = arr.strides[axis]
             index_stride_size = index_impl.strides[axis]
             axis_size = arr.shape[axis]
-            while not arr_iter.done():
+            while not arr_iter.done(arr_state):
                 for i in range(axis_size):
                     raw_storage_setitem(storage, i * index_stride_size +
-                                        index_iter.offset, i)
+                                        index_state.offset, i)
                 r = Repr(index_stride_size, stride_size, axis_size,
-                         arr.get_storage(), storage, index_iter.offset, arr_iter.offset)
+                         arr.get_storage(), storage, index_state.offset, arr_state.offset)
                 ArgSort(r).sort()
-                arr_iter.next()
-                index_iter.next()
+                arr_state = arr_iter.next(arr_state)
+                index_state = index_iter.next(index_state)
         return index_arr
 
     return argsort
@@ -292,12 +294,13 @@ def make_sort_function(space, itemtype, comp_type, count=1):
             if axis < 0 or axis >= len(shape):
                 raise oefmt(space.w_IndexError, "Wrong axis %d", axis)
             arr_iter = AllButAxisIter(arr, axis)
+            arr_state = arr_iter.reset()
             stride_size = arr.strides[axis]
             axis_size = arr.shape[axis]
-            while not arr_iter.done():
-                r = Repr(stride_size, axis_size, arr.get_storage(), arr_iter.offset)
+            while not arr_iter.done(arr_state):
+                r = Repr(stride_size, axis_size, arr.get_storage(), arr_state.offset)
                 ArgSort(r).sort()
-                arr_iter.next()
+                arr_state = arr_iter.next(arr_state)
 
     return sort
 

@@ -707,7 +707,7 @@ class W_ListObject(W_Root):
             raise OperationError(space.w_ValueError,
                                  space.wrap("list modified during sort"))
 
-find_jmp = jit.JitDriver(greens = [], reds = 'auto', name = 'list.find')
+find_jmp = jit.JitDriver(greens = ['tp'], reds = 'auto', name = 'list.find')
 
 class ListStrategy(object):
 
@@ -733,8 +733,9 @@ class ListStrategy(object):
         space = self.space
         i = start
         # needs to be safe against eq_w mutating stuff
+        tp = space.type(w_item)
         while i < stop and i < w_list.length():
-            find_jmp.jit_merge_point()
+            find_jmp.jit_merge_point(tp=tp)
             if space.eq_w(w_list.getitem(i), w_item):
                 return i
             i += 1

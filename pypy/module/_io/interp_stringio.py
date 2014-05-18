@@ -237,12 +237,15 @@ class W_StringIO(W_TextIOBase):
         return space.wrap(u''.join(self.buf))
 
     def readable_w(self, space):
+        self._check_closed(space)
         return space.w_True
 
     def writable_w(self, space):
+        self._check_closed(space)
         return space.w_True
 
     def seekable_w(self, space):
+        self._check_closed(space)
         return space.w_True
 
     def close_w(self, space):
@@ -261,8 +264,7 @@ class W_StringIO(W_TextIOBase):
 
 
 W_StringIO.typedef = TypeDef(
-    'StringIO', W_TextIOBase.typedef,
-    __module__ = "_io",
+    '_io.StringIO', W_TextIOBase.typedef,
     __new__  = generic_new_descr(W_StringIO),
     __init__ = interp2app(W_StringIO.descr_init),
     __getstate__ = interp2app(W_StringIO.descr_getstate),

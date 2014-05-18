@@ -6,7 +6,7 @@
 # XXX We should try to generalize and single out one approach to dynamic
 # XXX code compilation.
 
-import sys, os, inspect, new
+import sys, os, inspect, types
 import py
 
 def render_docstr(func, indent_str='', closing_str=''):
@@ -127,7 +127,7 @@ def newcode(fromcode, **kwargs):
     for name in names:
         if name not in kwargs:
             kwargs[name] = getattr(fromcode, name)
-    return new.code(
+    return types.CodeType(
              kwargs['co_argcount'],
              kwargs['co_nlocals'],
              kwargs['co_stacksize'],
@@ -218,9 +218,8 @@ def func_with_new_name(func, newname, globals=None):
     """Make a renamed copy of a function."""
     if globals is None:
         globals = func.func_globals
-    f = new.function(func.func_code, globals,
-                        newname, func.func_defaults,
-                        func.func_closure)
+    f = types.FunctionType(func.func_code, globals, newname,
+            func.func_defaults, func.func_closure)
     if func.func_dict:
         f.func_dict = {}
         f.func_dict.update(func.func_dict)

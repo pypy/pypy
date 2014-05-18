@@ -85,8 +85,7 @@ class W_Library(W_Root):
 
 
 W_Library.typedef = TypeDef(
-    'Library',
-    __module__ = '_cffi_backend',
+    '_cffi_backend.Library',
     __repr__ = interp2app(W_Library.repr),
     load_function = interp2app(W_Library.load_function),
     read_variable = interp2app(W_Library.read_variable),

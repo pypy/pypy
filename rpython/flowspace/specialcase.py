@@ -49,6 +49,11 @@ def sc_open(ctx, *args_w):
     from rpython.rlib.rfile import create_file
     return ctx.appcall(create_file, *args_w)
 
+@register_flow_sc(os.fdopen)
+def sc_os_fdopen(ctx, *args_w):
+    from rpython.rlib.rfile import create_fdopen_rfile
+    return ctx.appcall(create_fdopen_rfile, *args_w)
+
 @register_flow_sc(os.tmpfile)
 def sc_os_tmpfile(ctx):
     from rpython.rlib.rfile import create_temp_rfile
@@ -60,6 +65,13 @@ def sc_os_remove(ctx, *args_w):
     # (on CPython they are '==', but not identical either)
     return ctx.appcall(os.unlink, *args_w)
 
+if os.name == 'nt':
+    @register_flow_sc(os.path.isdir)
+    def sc_os_path_isdir(ctx, *args_w):
+        # Cpython win32 reroutes os.path.isdir to nt._isdir
+        # which is not rpython
+        import genericpath
+        return ctx.appcall(genericpath.isdir, *args_w)
 # _________________________________________________________________________
 # a simplified version of the basic printing routines, for RPython programs
 class StdOutBuffer:

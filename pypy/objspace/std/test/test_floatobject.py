@@ -61,7 +61,7 @@ class TestW_FloatObject:
 
 class AppTestAppFloatTest:
     spaceconfig = dict(usemodules=['binascii', 'rctime'])
-    
+
     def setup_class(cls):
         cls.w_py26 = cls.space.wrap(sys.version_info >= (2, 6))
 
@@ -137,6 +137,11 @@ class AppTestAppFloatTest:
         assert repr(float("nan")) == "nan"
         assert repr(float("+nan")) == "nan"
         assert repr(float("-nAn")) == "nan"
+
+        assert float(buffer("inf")) == inf
+        assert float(bytearray("inf")) == inf
+        exc = raises(TypeError, float, memoryview("inf"))
+        assert str(exc.value) == "float() argument must be a string or a number"
 
     def test_float_unicode(self):
         # u00A0 and u2000 are some kind of spaces
@@ -812,7 +817,7 @@ class AppTestFloatHex:
 
         def check(a, b):
             assert (a, math.copysign(1.0, a)) == (b, math.copysign(1.0, b))
-            
+
         check(mod(-1.0, 1.0), 0.0)
         check(mod(-1e-100, 1.0), 1.0)
         check(mod(-0.0, 1.0), 0.0)

@@ -10,7 +10,7 @@ a callback and a state variable.
 
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
-from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint, intmask
+from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint
 from pypy.objspace.std import model
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.interpreter.special import Ellipsis
@@ -201,7 +201,6 @@ def unmarshal_Complex_bin(space, u, tc):
 register(TYPE_BINARY_COMPLEX, unmarshal_Complex_bin)
 
 def marshal_w__Long(space, w_long, m):
-    from rpython.rlib.rbigint import rbigint
     from rpython.rlib.rarithmetic import r_ulonglong
     m.start(TYPE_LONG)
     SHIFT = 15
@@ -375,7 +374,6 @@ def unmarshal_strlist(u, tc):
     lng = u.atom_lng(tc)
     res = [None] * lng
     idx = 0
-    space = u.space
     while idx < lng:
         res[idx] = unmarshal_str(u)
         idx += 1
@@ -462,12 +460,12 @@ def marshal_w__ANY(space, w_obj, m):
     # any unknown object implementing the buffer protocol is
     # accepted and encoded as a plain string
     try:
-        s = space.bufferstr_w(w_obj)
+        s = space.readbuf_w(w_obj)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
     else:
-        m.atom_str(TYPE_STRING, s)
+        m.atom_str(TYPE_STRING, s.as_str())
         return
 
     raise_exception(space, "unmarshallable object")

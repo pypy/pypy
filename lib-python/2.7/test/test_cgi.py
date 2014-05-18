@@ -120,6 +120,11 @@ def gen_result(data, environ):
 
 class CgiTests(unittest.TestCase):
 
+    def test_escape(self):
+        self.assertEqual("test &amp; string", cgi.escape("test & string"))
+        self.assertEqual("&lt;test string&gt;", cgi.escape("<test string>"))
+        self.assertEqual("&quot;test string&quot;", cgi.escape('"test string"', True))
+
     def test_strict(self):
         for orig, expect in parse_strict_test_cases:
             # Test basic parsing
@@ -260,6 +265,29 @@ Content-Disposition: form-data; name="submit"
             for k, exp in expect[x].items():
                 got = getattr(fs.list[x], k)
                 self.assertEqual(got, exp)
+
+    def test_fieldstorage_multipart_maxline(self):
+        # Issue #18167
+        maxline = 1 << 16
+        self.maxDiff = None
+        def check(content):
+            data = """
+---123
+Content-Disposition: form-data; name="upload"; filename="fake.txt"
+Content-Type: text/plain
+
+%s
+---123--
+""".replace('\n', '\r\n') % content
+            environ = {
+                'CONTENT_LENGTH':   str(len(data)),
+                'CONTENT_TYPE':     'multipart/form-data; boundary=-123',
+                'REQUEST_METHOD':   'POST',
+            }
+            self.assertEqual(gen_result(data, environ), {'upload': content})
+        check('x' * (maxline - 1))
+        check('x' * (maxline - 1) + '\r')
+        check('x' * (maxline - 1) + '\r' + 'y' * (maxline - 1))
 
     _qs_result = {
         'key1': 'value1',

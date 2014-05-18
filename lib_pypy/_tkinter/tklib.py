@@ -78,6 +78,7 @@ Tcl_UniChar *Tcl_GetUnicode(Tcl_Obj* objPtr);
 int Tcl_GetCharLength(Tcl_Obj* objPtr);
 
 Tcl_Obj *Tcl_NewListObj(int objc, Tcl_Obj* const objv[]);
+int Tcl_ListObjGetElements(Tcl_Interp *interp, Tcl_Obj *listPtr, int *objcPtr, Tcl_Obj ***objvPtr);
 int Tcl_ListObjLength(Tcl_Interp* interp, Tcl_Obj* listPtr, int* intPtr);
 int Tcl_ListObjIndex(Tcl_Interp* interp, Tcl_Obj* listPtr, int index, Tcl_Obj** objPtrPtr);
 int Tcl_SplitList(Tcl_Interp* interp, char* list, int* argcPtr, const char*** argvPtr);
@@ -119,6 +120,10 @@ elif sys.platform.startswith("freebsd"):
 elif sys.platform == 'win32':
     incdirs = []
     linklibs = ['tcl85', 'tk85']
+    libdirs = []
+elif sys.platform == 'darwin':
+    incdirs = ['/System/Library/Frameworks/Tk.framework/Versions/Current/Headers/']
+    linklibs = ['tcl', 'tk']
     libdirs = []
 else:
     incdirs=['/usr/include/tcl']

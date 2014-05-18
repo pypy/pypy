@@ -2,6 +2,7 @@
 Interp-level definition of frequently used functionals.
 
 """
+import sys
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
@@ -350,30 +351,29 @@ class W_XRange(W_Root):
         self.promote_step = promote_step
 
     def descr_new(space, w_subtype, w_start, w_stop=None, w_step=None):
-        start = _toint(space, w_start)
+        start = space.int_w(w_start)
         if space.is_none(w_step):  # no step argument provided
             step = 1
             promote_step = True
         else:
-            step  = _toint(space, w_step)
+            step  = space.int_w(w_step)
             promote_step = False
         if space.is_none(w_stop):  # only 1 argument provided
             start, stop = 0, start
         else:
-            stop = _toint(space, w_stop)
+            stop = space.int_w(w_stop)
         howmany = get_len_of_range(space, start, stop, step)
         obj = space.allocate_instance(W_XRange, w_subtype)
         W_XRange.__init__(obj, space, start, howmany, step, promote_step)
         return space.wrap(obj)
 
     def descr_repr(self):
-        stop = self.start + self.len * self.step
         if self.start == 0 and self.step == 1:
-            s = "xrange(%d)" % (stop,)
+            s = "xrange(%d)" % (self._get_stop(),)
         elif self.step == 1:
-            s = "xrange(%d, %d)" % (self.start, stop)
+            s = "xrange(%d, %d)" % (self.start, self._get_stop())
         else:
-            s = "xrange(%d, %d, %d)" %(self.start, stop, self.step)
+            s = "xrange(%d, %d, %d)" %(self.start, self._get_stop(), self.step)
         return self.space.wrap(s)
 
     def descr_len(self):
@@ -402,23 +402,28 @@ class W_XRange(W_Root):
                                                     self.len, self.step))
 
     def descr_reversed(self):
-        lastitem = self.start + (self.len-1) * self.step
-        return self.space.wrap(W_XRangeIterator(self.space, lastitem,
-                                                self.len, -self.step))
+        last = self.start + (self.len - 1) * self.step
+        return self.space.wrap(W_XRangeIterator(self.space, last, self.len,
+                                                -self.step))
 
     def descr_reduce(self):
         space = self.space
         return space.newtuple(
             [space.type(self),
              space.newtuple([space.wrap(self.start),
-                             space.wrap(self.start + self.len * self.step),
+                             space.wrap(self._get_stop()),
                              space.wrap(self.step)])
              ])
 
-def _toint(space, w_obj):
-    # this also supports float arguments.  CPython still does, too.
-    # needs a bit more thinking in general...
-    return space.int_w(space.int(w_obj))
+    def _get_stop(self):
+        if not self.len:
+            return self.start
+        step = self.step
+        last = self.start + (self.len - 1) * step
+        if step > 0:
+            return sys.maxint if last > sys.maxint - step else last + step
+        minint = -sys.maxint - 1
+        return minint if last < minint - step else last + step
 
 W_XRange.typedef = TypeDef("xrange",
     __new__          = interp2app(W_XRange.descr_new.im_func),
@@ -430,6 +435,7 @@ W_XRange.typedef = TypeDef("xrange",
     __reduce__       = interp2app(W_XRange.descr_reduce),
 )
 W_XRange.typedef.acceptable_as_base_class = False
+
 
 class W_XRangeIterator(W_Root):
     def __init__(self, space, current, remaining, step):
@@ -478,7 +484,10 @@ W_XRangeIterator.typedef = TypeDef("rangeiterator",
 )
 W_XRangeIterator.typedef.acceptable_as_base_class = False
 
+
 class W_XRangeStepOneIterator(W_XRangeIterator):
+    _immutable_fields_ = ['stop']
+
     def __init__(self, space, start, stop):
         self.space = space
         self.current = start

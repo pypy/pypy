@@ -51,16 +51,25 @@ class ResultLog(object):
         self.config = config
         self.logfile = logfile # preferably line buffered
 
-    def write_log_entry(self, testpath, lettercode, longrepr):
+    def write_log_entry(self, testpath, lettercode, longrepr, sections=[]):
         py.builtin.print_("%s %s" % (lettercode, testpath), file=self.logfile)
         for line in longrepr.splitlines():
             py.builtin.print_(" %s" % line, file=self.logfile)
+        for key, text in sections:
+            # py.io.StdCaptureFD may send in unicode
+            if isinstance(text, unicode):
+                text = text.encode('utf-8')
+            py.builtin.print_(" ", file=self.logfile)
+            py.builtin.print_(" -------------------- %s --------------------"
+                              % key.rstrip(), file=self.logfile)
+            py.builtin.print_(" %s" % (text.rstrip().replace('\n', '\n '),),
+                              file=self.logfile)
 
     def log_outcome(self, report, lettercode, longrepr):
         testpath = getattr(report, 'nodeid', None)
         if testpath is None:
             testpath = report.fspath
-        self.write_log_entry(testpath, lettercode, longrepr)
+        self.write_log_entry(testpath, lettercode, longrepr, report.sections)
 
     def pytest_runtest_logreport(self, report):
         if report.when != "call" and report.passed:

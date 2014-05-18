@@ -207,14 +207,13 @@ class Test__ffi(BaseTestPyPyC):
             ...
         """)
         ops = loop.ops_by_id('cfficall')
-        assert 'raw_malloc' not in str(ops)
-        assert 'raw_free' not in str(ops)
-        assert 'getarrayitem_raw' not in log.opnames(ops)
-        assert 'setarrayitem_raw' not in log.opnames(ops)
+        for name in ['raw_malloc', 'raw_free']:
+            assert name not in str(ops)
+        for name in ['raw_load', 'raw_store', 'getarrayitem_raw', 'setarrayitem_raw']:
+            assert name not in log.opnames(ops)
         # so far just check that call_release_gil() is produced.
         # later, also check that the arguments to call_release_gil()
         # are constants
-        # are constants, and that the numerous raw_mallocs are removed
 
     def test_cffi_call_guard_not_forced_fails(self):
         # this is the test_pypy_c equivalent of
@@ -341,13 +340,11 @@ class Test__ffi(BaseTestPyPyC):
         guard_value(p166, ConstPtr(ptr72), descr=...)
         p167 = call(ConstClass(_ll_0_alloc_with_del___), descr=<Callr . EF=4>)
         guard_no_exception(descr=...)
-        i168 = call(ConstClass(_ll_1_raw_malloc_varsize__Signed), 6, descr=<Calli . i EF=4>)
-        setfield_gc(p167, 0, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__cdata .>)
-        setfield_gc(p167, ConstPtr(ptr86), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst__lifeline_ .+>)
-        guard_no_exception(descr=...)
+        i168 = call(ConstClass(_ll_1_raw_malloc_varsize__Signed), 6, descr=<Calli . i EF=4 OS=110>)
         i169 = int_add(i168, i97)
         i170 = int_sub(i160, i106)
         setfield_gc(p167, i168, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__cdata .>)
+        setfield_gc(p167, ConstPtr(null), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst__lifeline_ .+>)
         setfield_gc(p167, ConstPtr(ptr89), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst_ctype .+>)
         i171 = uint_gt(i170, i108)
         guard_false(i171, descr=...)

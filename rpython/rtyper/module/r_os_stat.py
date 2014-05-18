@@ -11,7 +11,8 @@ from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.flowspace.model import Constant
 from rpython.tool.pairtype import pairtype
-from rpython.rtyper.rmodel import Repr, IntegerRepr
+from rpython.rtyper.rmodel import Repr
+from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.module import ll_os_stat
 

@@ -6,6 +6,7 @@ import functools
 import difflib
 import pprint
 import re
+import types
 import warnings
 
 from . import result
@@ -25,7 +26,7 @@ class SkipTest(Exception):
     """
     Raise this exception in a test to skip it.
 
-    Usually you can use TestResult.skip() or one of the skipping decorators
+    Usually you can use TestCase.skipTest() or one of the skipping decorators
     instead of raising this directly.
     """
     pass
@@ -55,7 +56,7 @@ def skip(reason):
     Unconditionally skip a test.
     """
     def decorator(test_item):
-        if not (isinstance(test_item, type) and issubclass(test_item, TestCase)):
+        if not isinstance(test_item, (type, types.ClassType)):
             @functools.wraps(test_item)
             def skip_wrapper(*args, **kwargs):
                 raise SkipTest(reason)
@@ -149,23 +150,22 @@ class TestCase(object):
     should not change the signature of their __init__ method, since instances
     of the classes are instantiated automatically by parts of the framework
     in order to be run.
-    """
 
-    # This attribute determines which exception will be raised when
-    # the instance's assertion methods fail; test methods raising this
-    # exception will be deemed to have 'failed' rather than 'errored'
+    When subclassing TestCase, you can set these attributes:
+    * failureException: determines which exception will be raised when
+        the instance's assertion methods fail; test methods raising this
+        exception will be deemed to have 'failed' rather than 'errored'.
+    * longMessage: determines whether long messages (including repr of
+        objects used in assert methods) will be printed on failure in *addition*
+        to any explicit message passed.
+    * maxDiff: sets the maximum length of a diff in failure messages
+        by assert methods using difflib. It is looked up as an instance
+        attribute so can be configured by individual tests if required.
+    """
 
     failureException = AssertionError
 
-    # This attribute determines whether long messages (including repr of
-    # objects used in assert methods) will be printed on failure in *addition*
-    # to any explicit message passed.
-
     longMessage = False
-
-    # This attribute sets the maximum length of a diff in failure messages
-    # by assert methods using difflib. It is looked up as an instance attribute
-    # so can be configured by individual tests if required.
 
     maxDiff = 80*8
 
@@ -201,7 +201,11 @@ class TestCase(object):
         self.addTypeEqualityFunc(tuple, 'assertTupleEqual')
         self.addTypeEqualityFunc(set, 'assertSetEqual')
         self.addTypeEqualityFunc(frozenset, 'assertSetEqual')
-        self.addTypeEqualityFunc(unicode, 'assertMultiLineEqual')
+        try:
+            self.addTypeEqualityFunc(unicode, 'assertMultiLineEqual')
+        except NameError:
+            # No unicode support in this build
+            pass
 
     def addTypeEqualityFunc(self, typeobj, function):
         """Add a type specific assertEqual style function to compare a type.
@@ -442,10 +446,10 @@ class TestCase(object):
 
 
     def assertRaises(self, excClass, callableObj=None, *args, **kwargs):
-        """Fail unless an exception of class excClass is thrown
+        """Fail unless an exception of class excClass is raised
            by callableObj when invoked with arguments args and keyword
            arguments kwargs. If a different type of exception is
-           thrown, it will not be caught, and the test case will be
+           raised, it will not be caught, and the test case will be
            deemed to have suffered an error, exactly as for an
            unexpected exception.
 
@@ -511,7 +515,7 @@ class TestCase(object):
         assertion_func(first, second, msg=msg)
 
     def assertNotEqual(self, first, second, msg=None):
-        """Fail if the two objects are equal as determined by the '=='
+        """Fail if the two objects are equal as determined by the '!='
            operator.
         """
         if not first != second:
@@ -871,7 +875,7 @@ class TestCase(object):
             - [0, 1, 1] and [1, 0, 1] compare equal.
             - [0, 0, 1] and [0, 1] compare unequal.
         """
-        first_seq, second_seq = list(actual_seq), list(expected_seq)
+        first_seq, second_seq = list(expected_seq), list(actual_seq)
         with warnings.catch_warnings():
             if sys.py3kwarning:
                 # Silence Py3k warning raised during the sorting

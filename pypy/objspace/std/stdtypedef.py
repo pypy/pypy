@@ -1,8 +1,7 @@
-from pypy.interpreter import gateway, baseobjspace, argument
+from pypy.interpreter import gateway, baseobjspace
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
-from pypy.interpreter.typedef import descr_get_dict, descr_set_dict
-from pypy.interpreter.typedef import descr_del_dict
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, \
+    descr_get_dict, descr_set_dict, descr_del_dict
 from pypy.interpreter.baseobjspace import SpaceCache
 from pypy.objspace.std import model
 from pypy.objspace.std.model import StdObjSpaceMultiMethod

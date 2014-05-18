@@ -16,6 +16,7 @@ if _MS_WINDOWS:
 
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.rarithmetic import intmask, r_uint
+from pypy.module._rawffi.buffer import RawFFIBuffer
 from pypy.module._rawffi.tracker import tracker
 
 TYPEMAP = {
@@ -352,9 +353,14 @@ class W_DataInstance(W_Root):
         lltype.free(self.ll_buffer, flavor='raw')
         self.ll_buffer = lltype.nullptr(rffi.VOIDP.TO)
 
-    def descr_buffer(self, space):
-        from pypy.module._rawffi.buffer import RawFFIBuffer
-        return space.wrap(RawFFIBuffer(self))
+    def buffer_w(self, space, flags):
+        return RawFFIBuffer(self)
+
+    def readbuf_w(self, space):
+        return RawFFIBuffer(self)
+
+    def writebuf_w(self, space):
+        return RawFFIBuffer(self)
 
     def getrawsize(self):
         raise NotImplementedError("abstract base class")
@@ -418,12 +424,10 @@ def wrap_value(space, func, add_arg, argdesc, letter):
             if c in TYPEMAP_PTR_LETTERS:
                 res = func(add_arg, argdesc, rffi.VOIDP)
                 return space.wrap(rffi.cast(lltype.Unsigned, res))
-            elif c == 'q' or c == 'Q' or c == 'L' or c == 'c' or c == 'u':
-                return space.wrap(func(add_arg, argdesc, ll_type))
             elif c == 'f' or c == 'd' or c == 'g':
                 return space.wrap(float(func(add_arg, argdesc, ll_type)))
             else:
-                return space.wrap(intmask(func(add_arg, argdesc, ll_type)))
+                return space.wrap(func(add_arg, argdesc, ll_type))
     raise OperationError(space.w_TypeError,
                          space.wrap("cannot directly read value"))
 wrap_value._annspecialcase_ = 'specialize:arg(1)'

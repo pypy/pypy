@@ -437,7 +437,6 @@ class StringMethods(object):
     def descr_split(self, space, w_sep=None, maxsplit=-1):
         res = []
         value = self._val(space)
-        length = len(value)
         if space.is_none(w_sep):
             res = split(value, maxsplit=maxsplit)
             return self._newlist_unwrapped(space, res)

@@ -1861,20 +1861,26 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #END MARKING
         elif self.gc_state == STATE_SWEEPING:
             #
-            # Walk all rawmalloced objects and free the ones that don't
-            # have the GCFLAG_VISITED flag.  Visit at most 'limit' objects.
-            limit = self.nursery_size // self.ac.page_size
-            remaining = self.free_unvisited_rawmalloc_objects_step(limit)
-            #
-            # Ask the ArenaCollection to visit a fraction of the objects.
-            # Free the ones that have not been visited above, and reset
-            # GCFLAG_VISITED on the others.  Visit at most '3 * limit'
-            # pages minus the number of objects already visited above.
-            done = self.ac.mass_free_incremental(self._free_if_unvisited,
-                                                 2 * limit + remaining)
+            if self.raw_malloc_might_sweep.non_empty():
+                # Walk all rawmalloced objects and free the ones that don't
+                # have the GCFLAG_VISITED flag.  Visit at most 'limit' objects.
+                # This limit is conservatively high enough to guarantee that
+                # a total object size of at least '3 * nursery_size' bytes
+                # is processed.
+                limit = 3 * self.nursery_size // self.small_request_threshold
+                self.free_unvisited_rawmalloc_objects_step(limit)
+                done = False    # the 2nd half below must still be done
+            else:
+                # Ask the ArenaCollection to visit a fraction of the objects.
+                # Free the ones that have not been visited above, and reset
+                # GCFLAG_VISITED on the others.  Visit at most '3 *
+                # nursery_size' bytes.
+                limit = 3 * self.nursery_size // self.ac.page_size
+                done = self.ac.mass_free_incremental(self._free_if_unvisited,
+                                                     limit)
             # XXX tweak the limits above
             #
-            if remaining > 0 and done:
+            if done:
                 self.num_major_collects += 1
                 #
                 # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.

@@ -36,6 +36,24 @@ class AppTestScalar(BaseNumpyAppTest):
         exc = raises(ValueError, "int(np.str_('abc'))")
         assert exc.value.message.startswith('invalid literal for int()')
         assert int(np.uint64((2<<63) - 1)) == (2<<63) - 1
+        exc = raises(ValueError, "int(np.float64(np.nan))")
+        assert str(exc.value) == "cannot convert float NaN to integer"
+        exc = raises(OverflowError, "int(np.float64(np.inf))")
+        assert str(exc.value) == "cannot convert float infinity to integer"
+        assert int(np.float64(1e100)) == int(1e100)
+        assert long(np.float64(1e100)) == int(1e100)
+        assert int(np.complex128(1e100+2j)) == int(1e100)
+        exc = raises(OverflowError, "int(np.complex64(1e100+2j))")
+        assert str(exc.value) == "cannot convert float infinity to integer"
+        assert int(np.str_('100000000000000000000')) == 100000000000000000000
+        assert long(np.str_('100000000000000000000')) == 100000000000000000000
+
+        assert float(np.float64(1e100)) == 1e100
+        assert float(np.complex128(1e100+2j)) == 1e100
+        assert float(np.str_('1e100')) == 1e100
+        assert float(np.str_('inf')) == np.inf
+        assert str(float(np.float64(np.nan))) == 'nan'
+
         assert oct(np.int32(11)) == '013'
         assert oct(np.float32(11.6)) == '013'
         assert oct(np.complex64(11-12j)) == '013'

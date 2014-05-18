@@ -188,7 +188,8 @@ class JitCounter:
 # this function is written directly in C; gcc will optimize it using SSE
 eci = ExternalCompilationInfo(post_include_bits=["""
 static void pypy__decay_jit_counters(char *data, double f1, long size) {
-    struct { float times[5]; unsigned short subhashes[5]; } *p = data;
+    struct rpy_jitcnt { float times[5]; unsigned short subhashes[5]; };
+    struct rpy_jitcnt *p = (struct rpy_jitcnt *)data;
     float f = (float)f1;
     long i;
     for (i=0; i<size; i++) {

@@ -74,7 +74,7 @@ class AppTestKqueue(object):
         assert ev != other
 
         bignum = (sys.maxsize * 2 + 1) & 0xffffffff
-        fd = sys.maxsize
+        fd = 2**31 - 1
         ev = select.kevent(fd, 1, 2, bignum, sys.maxsize, bignum)
         assert ev.ident == fd
         assert ev.filter == 1
@@ -84,6 +84,9 @@ class AppTestKqueue(object):
         assert ev.udata == bignum
         assert ev == ev
         assert ev != other
+
+        exc = raises(ValueError, select.kevent, fd + 1, 1, 2, bignum, sys.maxsize, bignum)
+        assert exc.value[0] == "file descriptor cannot be a negative integer (-1)"
 
     def test_queue_event(self):
         import errno

@@ -310,7 +310,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert math.isnan(fmod(v, 2))
 
     def test_minimum(self):
-        from numpypy import array, minimum
+        from numpypy import array, minimum, nan, isnan
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
@@ -318,14 +318,22 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert c[i] == min(a[i], b[i])
 
+        arg1 = array([0, nan, nan])
+        arg2 = array([nan, 0, nan])
+        assert isnan(minimum(arg1, arg2)).all()
+
     def test_maximum(self):
-        from numpypy import array, maximum
+        from numpypy import array, maximum, nan, isnan
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
         c = maximum(a, b)
         for i in range(3):
             assert c[i] == max(a[i], b[i])
+
+        arg1 = array([0, nan, nan])
+        arg2 = array([nan, 0, nan])
+        assert isnan(maximum(arg1, arg2)).all()
 
         x = maximum(2, 3)
         assert x == 3
@@ -772,6 +780,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         a = zeros((2, 2)) + 1
         assert (add.reduce(a, axis=1) == [2, 2]).all()
+        assert (add.reduce(a, axis=(1,)) == [2, 2]).all()
         exc = raises(ValueError, add.reduce, a, axis=2)
         assert exc.value[0] == "'axis' entry is out of bounds"
 

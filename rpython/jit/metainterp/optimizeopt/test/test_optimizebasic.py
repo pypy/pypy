@@ -61,24 +61,6 @@ def test_sharing_field_lists_of_virtual():
     lst6 = virt1._get_field_descr_list()
     assert lst6 is lst3
 
-def test_reuse_vinfo():
-    class FakeVInfo(object):
-        def set_content(self, fieldnums):
-            self.fieldnums = fieldnums
-        def equals(self, fieldnums):
-            return self.fieldnums == fieldnums
-    class FakeVirtualValue(virtualize.AbstractVirtualValue):
-        def _make_virtual(self, *args):
-            return FakeVInfo()
-    v1 = FakeVirtualValue(None, None)
-    vinfo1 = v1.make_virtual_info(None, [1, 2, 4])
-    vinfo2 = v1.make_virtual_info(None, [1, 2, 4])
-    assert vinfo1 is vinfo2
-    vinfo3 = v1.make_virtual_info(None, [1, 2, 6])
-    assert vinfo3 is not vinfo2
-    vinfo4 = v1.make_virtual_info(None, [1, 2, 6])
-    assert vinfo3 is vinfo4
-
 def test_descrlist_dict():
     from rpython.jit.metainterp.optimizeopt import util as optimizeutil
     h1 = optimizeutil.descrlist_hash([])
@@ -1657,6 +1639,16 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i4 = int_neg(i2)
         setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2, i4)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_setfield_int_eq_result(self):
+        # test that the setfield_gc does not end up before int_eq
+        ops = """
+        [p1, i1, i2]
+        i3 = int_eq(i1, i2)
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i1, i2)
         """
         self.optimize_loop(ops, ops)
 
@@ -5172,7 +5164,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_strunicode_loop(ops, expected)
 
     def test_call_pure_vstring_const(self):
-        py.test.skip("implement me")
         ops = """
         []
         p0 = newstr(3)
@@ -5188,6 +5179,25 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         call_pure_results = {
             (ConstInt(123), get_const_ptr_for_string("abc"),): ConstInt(5),
+        }
+        self.optimize_loop(ops, expected, call_pure_results)
+
+    def test_call_pure_quasiimmut(self):
+        ops = """
+        []
+        quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i0 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
+        i1 = call_pure(123, i0, descr=nonwritedescr)
+        finish(i1)
+        """
+        expected = """
+        []
+        guard_not_invalidated() []
+        finish(5)
+        """
+        call_pure_results = {
+            (ConstInt(123), ConstInt(-4247)): ConstInt(5),
         }
         self.optimize_loop(ops, expected, call_pure_results)
 
@@ -5431,6 +5441,21 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [i0]
         jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_consecutive_getinteriorfields(self):
+        py.test.skip("we want this to pass")
+        ops = """
+        [p0, i0]
+        i1 = getinteriorfield_gc(p0, i0, descr=valuedescr)
+        i2 = getinteriorfield_gc(p0, i0, descr=valuedescr)
+        jump(i1, i2)
+        """
+        expected = """
+        [p0, i0]
+        i1 = getinteriorfield_gc(p0, i0, descr=valuedescr)
+        jump(i1, i1)
         """
         self.optimize_loop(ops, expected)
 

@@ -67,6 +67,8 @@ namespace ns_example01 {
     extern int gMyGlobalInt;
 }
 
+int installableAddOneToInt(example01&, int a);
+
 #define itypeValue(itype, tname) \
    itype tname##Value(itype arg0, int argn=0, itype arg1=1, itype arg2=2)
 

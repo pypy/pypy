@@ -745,6 +745,7 @@ class TestLL2Ctypes(object):
     def test_get_errno(self):
         eci = ExternalCompilationInfo(includes=['string.h'])
         if sys.platform.startswith('win'):
+            py.test.skip('writing to invalid fd on windows crashes the process')
             # Note that cpython before 2.7 installs an _invalid_parameter_handler,
             # which is why the test passes there, but this is no longer
             # accepted practice.

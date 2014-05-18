@@ -10,7 +10,7 @@ from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
 
 from rpython.jit.metainterp.optimizeopt.rawbuffer import RawBuffer, InvalidRawOperation
 from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, specialize
 
 
 class AbstractVirtualValue(optimizer.OptValue):
@@ -45,27 +45,17 @@ class AbstractVirtualValue(optimizer.OptValue):
             return value
         return OptValue(self.force_box(optforce))
 
-    def get_args_for_fail(self, modifier):
+    def visitor_walk_recursive(self, visitor):
         # checks for recursion: it is False unless
         # we have already seen the very same keybox
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            self._get_args_for_fail(modifier)
+        if self.box is None and not visitor.already_seen_virtual(self.keybox):
+            self._visitor_walk_recursive(visitor)
 
-    def _get_args_for_fail(self, modifier):
+    def _visitor_walk_recursive(self, visitor):
         raise NotImplementedError("abstract base")
 
-    def make_virtual_info(self, modifier, fieldnums):
-        if fieldnums is None:
-            return self._make_virtual(modifier)
-        vinfo = self._cached_vinfo
-        if vinfo is not None and vinfo.equals(fieldnums):
-            return vinfo
-        vinfo = self._make_virtual(modifier)
-        vinfo.set_content(fieldnums)
-        self._cached_vinfo = vinfo
-        return vinfo
-
-    def _make_virtual(self, modifier):
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
         raise NotImplementedError("abstract base")
 
     def _really_force(self, optforce):
@@ -202,13 +192,13 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             self._cached_sorted_fields = lst
         return lst
 
-    def _get_args_for_fail(self, modifier):
+    def _visitor_walk_recursive(self, visitor):
         lst = self._get_field_descr_list()
         fieldboxes = [self._fields[ofs].get_key_box() for ofs in lst]
-        modifier.register_virtual_fields(self.keybox, fieldboxes)
+        visitor.register_virtual_fields(self.keybox, fieldboxes)
         for ofs in lst:
             fieldvalue = self._fields[ofs]
-            fieldvalue.get_args_for_fail(modifier)
+            fieldvalue.visitor_walk_recursive(visitor)
 
 class VirtualValue(AbstractVirtualStructValue):
     level = optimizer.LEVEL_KNOWNCLASS
@@ -218,9 +208,10 @@ class VirtualValue(AbstractVirtualStructValue):
         assert isinstance(known_class, Const)
         self.known_class = known_class
 
-    def _make_virtual(self, modifier):
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
         fielddescrs = self._get_field_descr_list()
-        return modifier.make_virtual(self.known_class, fielddescrs)
+        return visitor.visit_virtual(self.known_class, fielddescrs)
 
     def _get_descr(self):
         return vtable2descr(self.cpu, self.known_class.getint())
@@ -238,9 +229,10 @@ class VStructValue(AbstractVirtualStructValue):
         AbstractVirtualStructValue.__init__(self, cpu, keybox, source_op)
         self.structdescr = structdescr
 
-    def _make_virtual(self, modifier):
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
         fielddescrs = self._get_field_descr_list()
-        return modifier.make_vstruct(self.structdescr, fielddescrs)
+        return visitor.visit_vstruct(self.structdescr, fielddescrs)
 
     def _get_descr(self):
         return self.structdescr
@@ -260,15 +252,15 @@ class AbstractVArrayValue(AbstractVirtualValue):
     def set_item_value(self, i, newval):
         raise NotImplementedError
 
-    def _get_args_for_fail(self, modifier):
+    def _visitor_walk_recursive(self, visitor):
         itemboxes = []
         for i in range(self.getlength()):
             itemvalue = self.get_item_value(i)
             itemboxes.append(itemvalue.get_key_box())
-        modifier.register_virtual_fields(self.keybox, itemboxes)
+        visitor.register_virtual_fields(self.keybox, itemboxes)
         for i in range(self.getlength()):
             itemvalue = self.get_item_value(i)
-            itemvalue.get_args_for_fail(modifier)
+            itemvalue.visitor_walk_recursive(visitor)
 
 
 class VArrayValue(AbstractVArrayValue):
@@ -326,8 +318,9 @@ class VArrayValue(AbstractVArrayValue):
                                   descr=self.arraydescr)
                 optforce.emit_operation(op)
 
-    def _make_virtual(self, modifier):
-        return modifier.make_varray(self.arraydescr)
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_varray(self.arraydescr)
 
 
 class VArrayStructValue(AbstractVirtualValue):
@@ -373,16 +366,16 @@ class VArrayStructValue(AbstractVirtualValue):
             descrs.append(item_descrs)
         return descrs
 
-    def _get_args_for_fail(self, modifier):
+    def _visitor_walk_recursive(self, visitor):
         itemdescrs = self._get_list_of_descrs()
         itemboxes = []
         for i in range(len(self._items)):
             for descr in itemdescrs[i]:
                 itemboxes.append(self._items[i][descr].get_key_box())
-        modifier.register_virtual_fields(self.keybox, itemboxes)
+        visitor.register_virtual_fields(self.keybox, itemboxes)
         for i in range(len(self._items)):
             for descr in itemdescrs[i]:
-                self._items[i][descr].get_args_for_fail(modifier)
+                self._items[i][descr].visitor_walk_recursive(visitor)
 
     def force_at_end_of_preamble(self, already_forced, optforce):
         if self in already_forced:
@@ -393,8 +386,9 @@ class VArrayStructValue(AbstractVirtualValue):
                 self._items[index][descr] = self._items[index][descr].force_at_end_of_preamble(already_forced, optforce)
         return self
 
-    def _make_virtual(self, modifier):
-        return modifier.make_varraystruct(self.arraydescr, self._get_list_of_descrs())
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_varraystruct(self.arraydescr, self._get_list_of_descrs())
 
 
 class VRawBufferValue(AbstractVArrayValue):
@@ -432,30 +426,22 @@ class VRawBufferValue(AbstractVArrayValue):
         optforce.emit_operation(self.source_op)
         self.box = self.source_op.result
         for i in range(len(self.buffer.offsets)):
-            # get a pointer to self.box+offset
-            offset = self.buffer.offsets[i]
-            if offset == 0:
-                arraybox = self.box
-            else:
-                arraybox = BoxInt()
-                op = ResOperation(rop.INT_ADD,
-                                  [self.box, ConstInt(offset)], arraybox)
-                optforce.emit_operation(op)
-            #
             # write the value
+            offset = self.buffer.offsets[i]
             descr = self.buffer.descrs[i]
             itemvalue = self.buffer.values[i]
             itembox = itemvalue.force_box(optforce)
-            op = ResOperation(rop.SETARRAYITEM_RAW,
-                              [arraybox, ConstInt(0), itembox], None,
+            op = ResOperation(rop.RAW_STORE,
+                              [self.box, ConstInt(offset), itembox], None,
                               descr=descr)
             optforce.emit_operation(op)
 
-    def _make_virtual(self, modifier):
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
         # I *think* we need to make a copy of offsets and descrs because we
         # want a snapshot of the virtual state right now: if we grow more
         # elements later, we don't want them to go in this virtual state
-        return modifier.make_vrawbuffer(self.size,
+        return visitor.visit_vrawbuffer(self.size,
                                         self.buffer.offsets[:],
                                         self.buffer.descrs[:])
 
@@ -483,13 +469,14 @@ class VRawSliceValue(AbstractVirtualValue):
     def getitem_raw(self, offset, length, descr):
         return self.rawbuffer_value.getitem_raw(self.offset+offset, length, descr)
 
-    def _get_args_for_fail(self, modifier):
+    def _visitor_walk_recursive(self, visitor):
         box = self.rawbuffer_value.get_key_box()
-        modifier.register_virtual_fields(self.keybox, [box])
-        self.rawbuffer_value.get_args_for_fail(modifier)
+        visitor.register_virtual_fields(self.keybox, [box])
+        self.rawbuffer_value.visitor_walk_recursive(visitor)
 
-    def _make_virtual(self, modifier):
-        return modifier.make_vrawslice(self.offset)
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vrawslice(self.offset)
 
 
 class OptVirtualize(optimizer.Optimization):
@@ -657,7 +644,6 @@ class OptVirtualize(optimizer.Optimization):
 
     def optimize_SETFIELD_GC(self, op):
         value = self.getvalue(op.getarg(0))
-
         if value.is_virtual():
             fieldvalue = self.getvalue(op.getarg(1))
             value.setfield(op.getdescr(), fieldvalue)
@@ -674,14 +660,8 @@ class OptVirtualize(optimizer.Optimization):
     def optimize_NEW_ARRAY(self, op):
         sizebox = self.get_constant_box(op.getarg(0))
         if sizebox is not None:
-            # if the original 'op' did not have a ConstInt as argument,
-            # build a new one with the ConstInt argument
-            if not isinstance(op.getarg(0), ConstInt):
-                op = ResOperation(rop.NEW_ARRAY, [sizebox], op.result,
-                                  descr=op.getdescr())
             self.make_varray(op.getdescr(), sizebox.getint(), op.result, op)
         else:
-            self.getvalue(op.result).ensure_nonnull()
             self.emit_operation(op)
 
     def optimize_CALL(self, op):
@@ -699,12 +679,12 @@ class OptVirtualize(optimizer.Optimization):
             self.emit_operation(op)
 
     def do_RAW_MALLOC_VARSIZE_CHAR(self, op):
-        sizebox = op.getarg(1)
-        if not isinstance(sizebox, ConstInt):
+        sizebox = self.get_constant_box(op.getarg(1))
+        if sizebox is None:
             self.emit_operation(op)
             return
-        size = sizebox.value
-        self.make_virtual_raw_memory(size, op.result, op)
+        self.make_virtual_raw_memory(sizebox.getint(), op.result, op)
+        self.last_emitted_operation = REMOVED
 
     def do_RAW_FREE(self, op):
         value = self.getvalue(op.getarg(1))
@@ -779,11 +759,12 @@ class OptVirtualize(optimizer.Optimization):
                 offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
                 try:
                     itemvalue = value.getitem_raw(offset, itemsize, descr)
-                    self.make_equal_to(op.result, itemvalue)
                 except InvalidRawOperation:
                     box = value.force_box(self)
                     op.setarg(0, box)
                     self.emit_operation(op)
+                else:
+                    self.make_equal_to(op.result, itemvalue)
                 return
         value.ensure_nonnull()
         self.emit_operation(op)
@@ -794,6 +775,48 @@ class OptVirtualize(optimizer.Optimization):
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
+                itemvalue = self.getvalue(op.getarg(2))
+                try:
+                    value.setitem_raw(offset, itemsize, descr, itemvalue)
+                except InvalidRawOperation:
+                    box = value.force_box(self)
+                    op.setarg(0, box)
+                    self.emit_operation(op)
+                return
+        value.ensure_nonnull()
+        self.emit_operation(op)
+
+    def _unpack_raw_load_store_op(self, op, offsetbox):
+        offset = offsetbox.getint()
+        cpu = self.optimizer.cpu
+        descr = op.getdescr()
+        itemsize = cpu.unpack_arraydescr_size(descr)[1]
+        return offset, itemsize, descr
+
+    def optimize_RAW_LOAD(self, op):
+        value = self.getvalue(op.getarg(0))
+        if value.is_virtual():
+            offsetbox = self.get_constant_box(op.getarg(1))
+            if offsetbox is not None:
+                offset, itemsize, descr = self._unpack_raw_load_store_op(op, offsetbox)
+                try:
+                    itemvalue = value.getitem_raw(offset, itemsize, descr)
+                except InvalidRawOperation:
+                    box = value.force_box(self)
+                    op.setarg(0, box)
+                    self.emit_operation(op)
+                else:
+                    self.make_equal_to(op.result, itemvalue)
+                return
+        value.ensure_nonnull()
+        self.emit_operation(op)
+
+    def optimize_RAW_STORE(self, op):
+        value = self.getvalue(op.getarg(0))
+        if value.is_virtual():
+            offsetbox = self.get_constant_box(op.getarg(1))
+            if offsetbox is not None:
+                offset, itemsize, descr = self._unpack_raw_load_store_op(op, offsetbox)
                 itemvalue = self.getvalue(op.getarg(2))
                 try:
                     value.setitem_raw(offset, itemsize, descr, itemvalue)

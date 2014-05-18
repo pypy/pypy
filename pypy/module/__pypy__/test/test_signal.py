@@ -8,6 +8,7 @@ class AppTestMinimal:
 
     def test_signal(self):
         from __pypy__ import thread
+        assert type(thread.signals_enabled).__module__ == '__pypy__.thread'
         with thread.signals_enabled:
             pass
         # assert did not crash

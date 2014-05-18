@@ -142,12 +142,13 @@ def read(space, fd, buffersize):
     else:
         return space.wrap(s)
 
-@unwrap_spec(fd=c_int, data='bufferstr')
-def write(space, fd, data):
+@unwrap_spec(fd=c_int)
+def write(space, fd, w_data):
     """Write a string to a file descriptor.  Return the number of bytes
 actually written, which may be smaller than len(data)."""
+    data = space.getarg_w('s*', w_data)
     try:
-        res = os.write(fd, data)
+        res = os.write(fd, data.as_str())
     except OSError, e:
         raise wrap_oserror(space, e)
     else:

@@ -59,6 +59,8 @@ class AppTestRCTime:
         assert 0 <= (t1 - t0) < 1.2
         t = rctime.time()
         assert rctime.gmtime(t) == rctime.gmtime(t)
+        raises(ValueError, rctime.gmtime, 2**64)
+        raises(ValueError, rctime.gmtime, -2**64)
 
     def test_localtime(self):
         import time as rctime

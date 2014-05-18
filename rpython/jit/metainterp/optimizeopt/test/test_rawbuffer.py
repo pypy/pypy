@@ -17,8 +17,7 @@ def test_write_value():
         ( 4, 2, 'descr2', 'two'),
         ( 8, 4, 'descr3', 'three'),
         (12, 2, 'descr4', 'four'),
-        ]
-    #
+    ]
 
 def test_write_value_update():
     buf = RawBuffer(FakeCPU())
@@ -28,7 +27,7 @@ def test_write_value_update():
     assert buf._get_memory() == [
         ( 0, 4, 'descr', 'ONE'),
         ( 4, 2, 'descr', 'two'),
-        ]
+    ]
 
 def test_write_value_invalid_length():
     buf = RawBuffer(FakeCPU())
@@ -38,7 +37,6 @@ def test_write_value_invalid_length():
     with py.test.raises(InvalidRawWrite):
         buf.write_value(0, 4, 'descr2', 'two')
 
-    
 def test_write_value_overlapping_next():
     buf = RawBuffer(FakeCPU())
     buf.write_value(0, 4, 'descr', 'one')

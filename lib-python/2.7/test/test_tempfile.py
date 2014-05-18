@@ -1,13 +1,17 @@
 # tempfile.py unit tests.
 import tempfile
+import errno
+import io
 import os
 import signal
+import shutil
 import sys
 import re
 import warnings
+import contextlib
 
 import unittest
-from test import test_support
+from test import test_support as support
 
 warnings.filterwarnings("ignore",
                         category=RuntimeWarning,
@@ -24,8 +28,8 @@ has_spawnl = hasattr(os, 'spawnl')
 
 # TEST_FILES may need to be tweaked for systems depending on the maximum
 # number of files that can be opened at one time (see ulimit -n)
-if sys.platform.startswith("openbsd"):
-    TEST_FILES = 64 # ulimit -n defaults to 128 for normal users
+if sys.platform in ('openbsd3', 'openbsd4'):
+    TEST_FILES = 48
 else:
     TEST_FILES = 100
 
@@ -177,7 +181,7 @@ class test__candidate_tempdir_list(TC):
         # _candidate_tempdir_list contains the expected directories
 
         # Make sure the interesting environment variables are all set.
-        with test_support.EnvironmentVarGuard() as env:
+        with support.EnvironmentVarGuard() as env:
             for envname in 'TMPDIR', 'TEMP', 'TMP':
                 dirname = os.getenv(envname)
                 if not dirname:
@@ -202,8 +206,51 @@ class test__candidate_tempdir_list(TC):
 
 test_classes.append(test__candidate_tempdir_list)
 
+# We test _get_default_tempdir some more by testing gettempdir.
 
-# We test _get_default_tempdir by testing gettempdir.
+class TestGetDefaultTempdir(TC):
+    """Test _get_default_tempdir()."""
+
+    def test_no_files_left_behind(self):
+        # use a private empty directory
+        our_temp_directory = tempfile.mkdtemp()
+        try:
+            # force _get_default_tempdir() to consider our empty directory
+            def our_candidate_list():
+                return [our_temp_directory]
+
+            with support.swap_attr(tempfile, "_candidate_tempdir_list",
+                                   our_candidate_list):
+                # verify our directory is empty after _get_default_tempdir()
+                tempfile._get_default_tempdir()
+                self.assertEqual(os.listdir(our_temp_directory), [])
+
+                def raise_OSError(*args, **kwargs):
+                    raise OSError(-1)
+
+                with support.swap_attr(io, "open", raise_OSError):
+                    # test again with failing io.open()
+                    with self.assertRaises(IOError) as cm:
+                        tempfile._get_default_tempdir()
+                    self.assertEqual(cm.exception.errno, errno.ENOENT)
+                    self.assertEqual(os.listdir(our_temp_directory), [])
+
+                open = io.open
+                def bad_writer(*args, **kwargs):
+                    fp = open(*args, **kwargs)
+                    fp.write = raise_OSError
+                    return fp
+
+                with support.swap_attr(io, "open", bad_writer):
+                    # test again with failing write()
+                    with self.assertRaises(IOError) as cm:
+                        tempfile._get_default_tempdir()
+                    self.assertEqual(cm.exception.errno, errno.ENOENT)
+                    self.assertEqual(os.listdir(our_temp_directory), [])
+        finally:
+            shutil.rmtree(our_temp_directory)
+
+test_classes.append(TestGetDefaultTempdir)
 
 
 class test__get_candidate_names(TC):
@@ -222,6 +269,22 @@ class test__get_candidate_names(TC):
         self.assertTrue(a is b)
 
 test_classes.append(test__get_candidate_names)
+
+
+@contextlib.contextmanager
+def _inside_empty_temp_dir():
+    dir = tempfile.mkdtemp()
+    try:
+        with support.swap_attr(tempfile, 'tempdir', dir):
+            yield
+    finally:
+        support.rmtree(dir)
+
+
+def _mock_candidate_names(*names):
+    return support.swap_attr(tempfile,
+                             '_get_candidate_names',
+                             lambda: iter(names))
 
 
 class test__mkstemp_inner(TC):
@@ -276,7 +339,7 @@ class test__mkstemp_inner(TC):
         dir = tempfile.mkdtemp()
         try:
             self.do_create(dir=dir).write("blat")
-            test_support.gc_collect()
+            support.gc_collect()
         finally:
             os.rmdir(dir)
 
@@ -300,7 +363,7 @@ class test__mkstemp_inner(TC):
         if not has_spawnl:
             return            # ugh, can't use SkipTest.
 
-        if test_support.verbose:
+        if support.verbose:
             v="v"
         else:
             v="q"
@@ -340,6 +403,37 @@ class test__mkstemp_inner(TC):
 
         self.do_create(bin=0).write("blat\n")
         # XXX should test that the file really is a text file
+
+    def default_mkstemp_inner(self):
+        return tempfile._mkstemp_inner(tempfile.gettempdir(),
+                                       tempfile.template,
+                                       '',
+                                       tempfile._bin_openflags)
+
+    def test_collision_with_existing_file(self):
+        # _mkstemp_inner tries another name when a file with
+        # the chosen name already exists
+        with _inside_empty_temp_dir(), \
+             _mock_candidate_names('aaa', 'aaa', 'bbb'):
+            (fd1, name1) = self.default_mkstemp_inner()
+            os.close(fd1)
+            self.assertTrue(name1.endswith('aaa'))
+
+            (fd2, name2) = self.default_mkstemp_inner()
+            os.close(fd2)
+            self.assertTrue(name2.endswith('bbb'))
+
+    def test_collision_with_existing_directory(self):
+        # _mkstemp_inner tries another name when a directory with
+        # the chosen name already exists
+        with _inside_empty_temp_dir(), \
+             _mock_candidate_names('aaa', 'aaa', 'bbb'):
+            dir = tempfile.mkdtemp()
+            self.assertTrue(dir.endswith('aaa'))
+
+            (fd, name) = self.default_mkstemp_inner()
+            os.close(fd)
+            self.assertTrue(name.endswith('bbb'))
 
 test_classes.append(test__mkstemp_inner)
 
@@ -516,6 +610,27 @@ class test_mkdtemp(TC):
         finally:
             os.rmdir(dir)
 
+    def test_collision_with_existing_file(self):
+        # mkdtemp tries another name when a file with
+        # the chosen name already exists
+        with _inside_empty_temp_dir(), \
+             _mock_candidate_names('aaa', 'aaa', 'bbb'):
+            file = tempfile.NamedTemporaryFile(delete=False)
+            file.close()
+            self.assertTrue(file.name.endswith('aaa'))
+            dir = tempfile.mkdtemp()
+            self.assertTrue(dir.endswith('bbb'))
+
+    def test_collision_with_existing_directory(self):
+        # mkdtemp tries another name when a directory with
+        # the chosen name already exists
+        with _inside_empty_temp_dir(), \
+             _mock_candidate_names('aaa', 'aaa', 'bbb'):
+            dir1 = tempfile.mkdtemp()
+            self.assertTrue(dir1.endswith('aaa'))
+            dir2 = tempfile.mkdtemp()
+            self.assertTrue(dir2.endswith('bbb'))
+
 test_classes.append(test_mkdtemp)
 
 
@@ -561,7 +676,7 @@ class test_mktemp(TC):
         self.do_create(suf="b")
         self.do_create(pre="a", suf="b")
         self.do_create(pre="aa", suf=".txt")
-        test_support.gc_collect()
+        support.gc_collect()
 
     def test_many(self):
         # mktemp can choose many usable file names (stochastic)
@@ -569,7 +684,7 @@ class test_mktemp(TC):
         for i in extant:
             extant[i] = self.do_create(pre="aa")
         del extant
-        test_support.gc_collect()
+        support.gc_collect()
 
 ##     def test_warning(self):
 ##         # mktemp issues a warning when used
@@ -742,6 +857,17 @@ class test_SpooledTemporaryFile(TC):
         f.write(b'x')
         self.assertTrue(f._rolled)
 
+    def test_xreadlines(self):
+        f = self.do_create(max_size=20)
+        f.write(b'abc\n' * 5)
+        f.seek(0)
+        self.assertFalse(f._rolled)
+        self.assertEqual(list(f.xreadlines()), [b'abc\n'] * 5)
+        f.write(b'x\ny')
+        self.assertTrue(f._rolled)
+        f.seek(0)
+        self.assertEqual(list(f.xreadlines()), [b'abc\n'] * 5 + [b'x\n', b'y'])
+
     def test_sparse(self):
         # A SpooledTemporaryFile that is written late in the file will extend
         # when that occurs
@@ -796,6 +922,26 @@ class test_SpooledTemporaryFile(TC):
         write("b" * 35)
         seek(0, 0)
         self.assertTrue(read(70) == 'a'*35 + 'b'*35)
+
+    def test_properties(self):
+        f = tempfile.SpooledTemporaryFile(max_size=10)
+        f.write(b'x' * 10)
+        self.assertFalse(f._rolled)
+        self.assertEqual(f.mode, 'w+b')
+        self.assertIsNone(f.name)
+        with self.assertRaises(AttributeError):
+            f.newlines
+        with self.assertRaises(AttributeError):
+            f.encoding
+
+        f.write(b'x')
+        self.assertTrue(f._rolled)
+        self.assertEqual(f.mode, 'w+b')
+        self.assertIsNotNone(f.name)
+        with self.assertRaises(AttributeError):
+            f.newlines
+        with self.assertRaises(AttributeError):
+            f.encoding
 
     def test_context_manager_before_rollover(self):
         # A SpooledTemporaryFile can be used as a context manager
@@ -886,7 +1032,7 @@ if tempfile.NamedTemporaryFile is not tempfile.TemporaryFile:
     test_classes.append(test_TemporaryFile)
 
 def test_main():
-    test_support.run_unittest(*test_classes)
+    support.run_unittest(*test_classes)
 
 if __name__ == "__main__":
     test_main()

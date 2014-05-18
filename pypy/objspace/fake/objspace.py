@@ -4,6 +4,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.sliceobject import W_SliceObject
+from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.objectmodel import instantiate, we_are_translated, specialize
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
@@ -38,6 +39,9 @@ class W_MyObject(W_Root):
 
     def setclass(self, space, w_subtype):
         is_root(w_subtype)
+
+    def buffer_w(self, space, flags):
+        return StringBuffer("foobar")
 
     def str_w(self, space):
         return NonConstant("foobar")
@@ -166,6 +170,9 @@ class FakeObjSpace(ObjSpace):
         return w_some_obj()
 
     def newseqiter(self, x):
+        return w_some_obj()
+
+    def newbuffer(self, x):
         return w_some_obj()
 
     def marshal_w(self, w_obj):
@@ -334,7 +341,7 @@ class FakeObjSpace(ObjSpace):
                      ObjSpace.ExceptionTable +
                      ['int', 'str', 'float', 'long', 'tuple', 'list',
                       'dict', 'unicode', 'complex', 'slice', 'bool',
-                      'basestring', 'object', 'bytearray']):
+                      'basestring', 'object', 'bytearray', 'buffer']):
             setattr(space, 'w_' + name, w_some_obj())
         space.w_type = w_some_type()
         #

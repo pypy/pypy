@@ -18,6 +18,7 @@ a drop-in replacement for the 'socket' module.
 from rpython.rlib.objectmodel import instantiate, keepalive_until_here
 from rpython.rlib import _rsocket_rffi as _c
 from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rthread import dummy_lock
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
 INVALID_SOCKET = _c.INVALID_SOCKET
@@ -33,9 +34,11 @@ if _c.WIN32:
     from rpython.rlib import rwin32
     def rsocket_startup():
         wsadata = lltype.malloc(_c.WSAData, flavor='raw', zero=True)
-        res = _c.WSAStartup(1, wsadata)
-        lltype.free(wsadata, flavor='raw')
-        assert res == 0
+        try:
+            res = _c.WSAStartup(0x0101, wsadata)
+            assert res == 0
+        finally:
+            lltype.free(wsadata, flavor='raw')
 else:
     def rsocket_startup():
         pass
@@ -898,8 +901,8 @@ class RSocket(object):
                 except CSocketError, e:
                     if e.errno != _c.EINTR:
                         raise
-                if signal_checker:
-                    signal_checker.check()
+                if signal_checker is not None:
+                    signal_checker()
         finally:
             rffi.free_nonmovingbuffer(data, dataptr)
 
@@ -995,12 +998,8 @@ class CSocketError(SocketErrorWithErrno):
     def get_msg(self):
         return _c.socket_strerror_str(self.errno)
 
-if _c.WIN32:
-    def last_error():
-        return CSocketError(rwin32.GetLastError())
-else:
-    def last_error():
-        return CSocketError(_c.geterrno())
+def last_error():
+    return CSocketError(_c.geterrno())
 
 class GAIError(SocketErrorWithErrno):
     applevelerrcls = 'gaierror'
@@ -1126,28 +1125,33 @@ def gethost_common(hostname, hostent, addr=None):
         paddr = h_addr_list[i]
     return (rffi.charp2str(hostent.c_h_name), aliases, address_list)
 
-def gethostbyname_ex(name):
-    # XXX use gethostbyname_r() if available, and/or use locks if not
+def gethostbyname_ex(name, lock=dummy_lock):
+    # XXX use gethostbyname_r() if available instead of locks
     addr = gethostbyname(name)
-    hostent = _c.gethostbyname(name)
-    return gethost_common(name, hostent, addr)
+    with lock:
+        hostent = _c.gethostbyname(name)
+        return gethost_common(name, hostent, addr)
 
-def gethostbyaddr(ip):
-    # XXX use gethostbyaddr_r() if available, and/or use locks if not
+def gethostbyaddr(ip, lock=dummy_lock):
+    # XXX use gethostbyaddr_r() if available, instead of locks
     addr = makeipaddr(ip)
     assert isinstance(addr, IPAddress)
-    p, size = addr.lock_in_addr()
-    try:
-        hostent = _c.gethostbyaddr(p, size, addr.family)
-    finally:
-        addr.unlock()
-    return gethost_common(ip, hostent, addr)
+    with lock:
+        p, size = addr.lock_in_addr()
+        try:
+            hostent = _c.gethostbyaddr(p, size, addr.family)
+        finally:
+            addr.unlock()
+        return gethost_common(ip, hostent, addr)
 
 def getaddrinfo(host, port_or_service,
                 family=AF_UNSPEC, socktype=0, proto=0, flags=0,
                 address_to_fill=None):
     # port_or_service is a string, not an int (but try str(port_number)).
     assert port_or_service is None or isinstance(port_or_service, str)
+    if _c._MACOSX and flags & AI_NUMERICSERV and \
+            (port_or_service is None or port_or_service == '0'):
+        port_or_service = '00'
     hints = lltype.malloc(_c.addrinfo, flavor='raw', zero=True)
     rffi.setintfield(hints, 'c_ai_family',   family)
     rffi.setintfield(hints, 'c_ai_socktype', socktype)

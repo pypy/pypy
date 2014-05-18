@@ -588,7 +588,7 @@ Modules in PyPy
 
 Modules visible from application programs are imported from
 interpreter or application level files.  PyPy reuses almost all python
-modules of CPython's standard library, currently from version 2.7.3.  We
+modules of CPython's standard library, currently from version 2.7.6.  We
 sometimes need to `modify modules`_ and - more often - regression tests
 because they rely on implementation details of CPython.
 
@@ -742,9 +742,9 @@ translate.py.
 Testing modules in ``lib_pypy/``
 --------------------------------
 
-You can go to the `lib_pypy/pypy_test/`_ directory and invoke the testing tool
+You can go to the `pypy/module/test_lib_pypy/`_ directory and invoke the testing tool
 ("py.test" or "python ../../pypy/test_all.py") to run tests against the
-lib_pypy hierarchy.  Note, that tests in `lib_pypy/pypy_test/`_ are allowed
+lib_pypy hierarchy.  Note, that tests in `pypy/module/test_lib_pypy/`_ are allowed
 and encouraged to let their tests run at interpreter level although
 `lib_pypy/`_ modules eventually live at PyPy's application level.
 This allows us to quickly test our python-coded reimplementations
@@ -835,15 +835,6 @@ for the next milestone, both from an E-Mail and from a
 web interface.
 
 .. _`development tracker`: https://bugs.pypy.org/
-
-use your codespeak login or register
-------------------------------------
-
-If you have an existing codespeak account, you can use it to login within the
-tracker. Else, you can `register with the tracker`_ easily.
-
-
-.. _`register with the tracker`: https://bugs.pypy.org/user?@template=register
 .. _`roundup`: http://roundup.sourceforge.net/
 
 

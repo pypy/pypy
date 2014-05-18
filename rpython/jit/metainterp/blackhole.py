@@ -887,6 +887,10 @@ class BlackholeInterpreter(object):
     def bhimpl_int_isconstant(x):
         return False
 
+    @arguments("f", returns="i")
+    def bhimpl_float_isconstant(x):
+        return False
+
     @arguments("r", returns="i")
     def bhimpl_ref_isconstant(x):
         return False

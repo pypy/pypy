@@ -191,11 +191,15 @@ class TestRe:
         assert re.findall(":+", "abc") == []
         assert re.findall(":+", "a:b::c:::d") == [":", "::", ":::"]
         assert re.findall("(:+)", "a:b::c:::d") == [":", "::", ":::"]
+
+    def test_re_findall_2(self):
+        py.test.skip("findall() returning groups is not RPython")
         assert re.findall("(:)(:*)", "a:b::c:::d") == [(":", ""),
                                                                (":", ":"),
                                                                (":", "::")]
 
     def test_bug_117612(self):
+        py.test.skip("findall() returning groups is not RPython")
         assert re.findall(r"(a|(b))", "aba") == (
                          [("a", ""),("b", "b"),("a", "")])
 

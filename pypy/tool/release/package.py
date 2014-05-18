@@ -74,6 +74,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     if not sys.platform == 'win32':
         subprocess.check_call([str(pypy_c), '-c', 'import _curses'])
         subprocess.check_call([str(pypy_c), '-c', 'import syslog'])
+        subprocess.check_call([str(pypy_c), '-c', 'import gdbm'])
     if not withouttk:
         try:
             subprocess.check_call([str(pypy_c), '-c', 'import _tkinter'])
@@ -151,6 +152,9 @@ directory next to the dlls, as per build instructions."""
                                            '*.c', '*.o'))
     for file in ['LICENSE', 'README.rst']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
+    for file in ['_testcapimodule.c', '_ctypes_test.c']:
+        shutil.copyfile(str(basedir.join('lib_pypy', file)), 
+                        str(pypydir.join('lib_pypy', file)))
     #
     spdir = pypydir.ensure('site-packages', dir=True)
     shutil.copy(str(basedir.join('site-packages', 'README')), str(spdir))

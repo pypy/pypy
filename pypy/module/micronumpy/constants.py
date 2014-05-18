@@ -1,3 +1,5 @@
+MAXDIMS = 32
+
 BOOL = 0
 BYTE = 1
 UBYTE = 2

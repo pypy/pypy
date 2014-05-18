@@ -11,14 +11,10 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomePBC, SomeType, s_ImpossibleValue,
     s_Bool, s_None, unionof, add_knowntypedata,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
-from rpython.annotator.bookkeeper import getbookkeeper
+from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
 from rpython.annotator.model import AnnotatorError
-
-# convenience only!
-def immutablevalue(x):
-    return getbookkeeper().immutablevalue(x)
 
 UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])

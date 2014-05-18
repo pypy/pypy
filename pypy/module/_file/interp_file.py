@@ -3,6 +3,7 @@ import os
 import stat
 import errno
 from rpython.rlib import streamio
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
 from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
@@ -12,6 +13,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.streamutil import wrap_streamerror, wrap_oserror_as_ioerror
+
 
 class W_File(W_AbstractStream):
     """An interp-level file object.  This implements the same interface than
@@ -114,7 +116,7 @@ class W_File(W_AbstractStream):
         self.w_name = w_name
         self.check_mode_ok(mode)
         stream = dispatch_filename(streamio.open_file_as_stream)(
-            self.space, w_name, mode, buffering)
+            self.space, w_name, mode, buffering, signal_checker(self.space))
         fd = stream.try_to_find_file_descriptor()
         self.check_not_dir(fd)
         self.fdopenstream(stream, fd, mode)
@@ -133,7 +135,9 @@ class W_File(W_AbstractStream):
         self.direct_close()
         self.w_name = self.space.wrap('<fdopen>')
         self.check_mode_ok(mode)
-        stream = streamio.fdopen_as_stream(fd, mode, buffering)
+        stream = streamio.fdopen_as_stream(fd, mode, buffering,
+                                           signal_checker(self.space))
+        self.check_not_dir(fd)
         self.fdopenstream(stream, fd, mode)
 
     def direct_close(self):
@@ -181,7 +185,7 @@ class W_File(W_AbstractStream):
                     data = stream.read(n)
                 except OSError, e:
                     # a special-case only for read() (similar to CPython, which
-                    # also looses partial data with other methods): if we get
+                    # also loses partial data with other methods): if we get
                     # EAGAIN after already some data was received, return it.
                     if is_wouldblock_error(e):
                         got = result.build()
@@ -263,9 +267,14 @@ class W_File(W_AbstractStream):
 
     def direct_write(self, w_data):
         space = self.space
-        if not self.binary and space.isinstance_w(w_data, space.w_unicode):
-            w_data = space.call_method(w_data, "encode", space.wrap(self.encoding), space.wrap(self.errors))
-        data = space.bufferstr_w(w_data)
+        if self.binary:
+            data = space.getarg_w('s*', w_data).as_str()
+        else:
+            if space.isinstance_w(w_data, space.w_unicode):
+                w_data = space.call_method(w_data, "encode",
+                                           space.wrap(self.encoding),
+                                           space.wrap(self.errors))
+            data = space.charbuf_w(w_data)
         self.do_direct_write(data)
 
     def do_direct_write(self, data):
@@ -440,8 +449,6 @@ optimizations previously implemented in the xreadlines module.""")
         w_name = self.w_name
         if w_name is None:
             return '?'
-        elif space.isinstance_w(w_name, space.w_str):
-            return "'%s'" % space.str_w(w_name)
         else:
             return space.str_w(space.repr(w_name))
 
@@ -453,21 +460,24 @@ producing strings. This is equivalent to calling write() for each string."""
 
         space = self.space
         self.check_closed()
-        w_iterator = space.iter(w_lines)
-        while True:
-            try:
-                w_line = space.next(w_iterator)
-            except OperationError, e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break  # done
+        lines = space.fixedview(w_lines)
+        for i, w_line in enumerate(lines):
+            if not space.isinstance_w(w_line, space.w_str):
+                try:
+                    line = w_line.charbuf_w(space)
+                except TypeError:
+                    raise OperationError(space.w_TypeError, space.wrap(
+                        "writelines() argument must be a sequence of strings"))
+                else:
+                    lines[i] = space.wrap(line)
+        for w_line in lines:
             self.file_write(w_line)
 
     def file_readinto(self, w_rwbuffer):
         """readinto() -> Undocumented.  Don't use this; it may go away."""
         # XXX not the most efficient solution as it doesn't avoid the copying
         space = self.space
-        rwbuffer = space.rwbuffer_w(w_rwbuffer)
+        rwbuffer = space.writebuf_w(w_rwbuffer)
         w_data = self.file_read(rwbuffer.getlength())
         data = space.str_w(w_data)
         rwbuffer.setslice(0, data)
@@ -577,6 +587,12 @@ class FileState:
 
 def getopenstreams(space):
     return space.fromcache(FileState).openstreams
+
+@specialize.memo()
+def signal_checker(space):
+    def checksignals():
+        space.getexecutioncontext().checksignals()
+    return checksignals
 
 MAYBE_EAGAIN      = getattr(errno, 'EAGAIN',      None)
 MAYBE_EWOULDBLOCK = getattr(errno, 'EWOULDBLOCK', None)

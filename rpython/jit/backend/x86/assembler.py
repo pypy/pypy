@@ -287,7 +287,6 @@ class Assembler386(BaseAssembler):
                   cast_instance_to_gcref(self.cpu.propagate_exception_descr))
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.MOV(RawEbpLoc(ofs), imm(propagate_exception_descr))
-        self.mc.MOV_rr(eax.value, ebp.value)
         #
         self._call_footer()
         rawstart = self.mc.materialize(self.cpu.asmmemmgr, [])
@@ -435,8 +434,8 @@ class Assembler386(BaseAssembler):
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     @rgc.no_release_gil
-    def assemble_loop(self, logger, loopname, inputargs, operations, looptoken,
-                      log):
+    def assemble_loop(self, inputargs, operations, looptoken, log,
+                      loopname, logger):
         '''adds the following attributes to looptoken:
                _ll_function_addr    (address of the generated func, as an int)
                _ll_loop_code       (debug: addr of the start of the ResOps)
@@ -515,8 +514,8 @@ class Assembler386(BaseAssembler):
                        size_excluding_failure_stuff - looppos)
 
     @rgc.no_release_gil
-    def assemble_bridge(self, logger, faildescr, inputargs, operations,
-                        original_loop_token, log):
+    def assemble_bridge(self, faildescr, inputargs, operations,
+                        original_loop_token, log, logger):
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
@@ -761,6 +760,9 @@ class Assembler386(BaseAssembler):
             #
 
     def _call_footer(self):
+        # the return value is the jitframe
+        self.mc.MOV_rr(eax.value, ebp.value)
+
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_footer_shadowstack(gcrootmap)
@@ -1171,13 +1173,13 @@ class Assembler386(BaseAssembler):
         self.mc.CVTSD2SS(loctmp, loc0)
         assert isinstance(resloc, RegLoc)
         assert isinstance(loctmp, RegLoc)
-        self.mc.MOVD_rx(resloc.value, loctmp.value)
+        self.mc.MOVD32_rx(resloc.value, loctmp.value)
 
     def genop_cast_singlefloat_to_float(self, op, arglocs, resloc):
         loc0, = arglocs
         assert isinstance(resloc, RegLoc)
         assert isinstance(loc0, RegLoc)
-        self.mc.MOVD_xr(resloc.value, loc0.value)
+        self.mc.MOVD32_xr(resloc.value, loc0.value)
         self.mc.CVTSS2SD_xx(resloc.value, resloc.value)
 
     def genop_convert_float_bytes_to_longlong(self, op, arglocs, resloc):
@@ -1185,7 +1187,7 @@ class Assembler386(BaseAssembler):
         if longlong.is_64_bit:
             assert isinstance(resloc, RegLoc)
             assert isinstance(loc0, RegLoc)
-            self.mc.MOVD(resloc, loc0)
+            self.mc.MOVDQ(resloc, loc0)
         else:
             self.mov(loc0, resloc)
 
@@ -1194,7 +1196,7 @@ class Assembler386(BaseAssembler):
         if longlong.is_64_bit:
             assert isinstance(resloc, RegLoc)
             assert isinstance(loc0, RegLoc)
-            self.mc.MOVD(resloc, loc0)
+            self.mc.MOVDQ(resloc, loc0)
         else:
             self.mov(loc0, resloc)
 
@@ -1260,7 +1262,7 @@ class Assembler386(BaseAssembler):
         loc = arglocs[0]
         assert isinstance(resloc, RegLoc)
         if isinstance(loc, RegLoc):
-            self.mc.MOVD_rx(resloc.value, loc.value)
+            self.mc.MOVD32_rx(resloc.value, loc.value)
         elif isinstance(loc, FrameLoc):
             self.mc.MOV_rb(resloc.value, loc.value)
         else:
@@ -1275,16 +1277,16 @@ class Assembler386(BaseAssembler):
             assert isinstance(loc1, RegLoc)
             assert isinstance(loc2, RegLoc)
             assert isinstance(resloc, RegLoc)
-            self.mc.MOVD_xr(loc2.value, loc1.value)
+            self.mc.MOVD32_xr(loc2.value, loc1.value)
             self.mc.PSRAD_xi(loc2.value, 31)    # -> 0 or -1
-            self.mc.MOVD_xr(resloc.value, loc1.value)
+            self.mc.MOVD32_xr(resloc.value, loc1.value)
             self.mc.PUNPCKLDQ_xx(resloc.value, loc2.value)
 
     def genop_llong_from_uint(self, op, arglocs, resloc):
         loc1, = arglocs
         assert isinstance(resloc, RegLoc)
         assert isinstance(loc1, RegLoc)
-        self.mc.MOVD_xr(resloc.value, loc1.value)
+        self.mc.MOVD32_xr(resloc.value, loc1.value)
 
     def genop_llong_eq(self, op, arglocs, resloc):
         loc1, loc2, locxtmp = arglocs
@@ -1467,6 +1469,14 @@ class Assembler386(BaseAssembler):
                                                 ofs_loc)
         self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
 
+    def genop_discard_increment_debug_counter(self, op, arglocs):
+        # The argument should be an immediate address.  This should
+        # generate code equivalent to a GETFIELD_RAW, an ADD(1), and a
+        # SETFIELD_RAW.  Here we use the direct from-memory-to-memory
+        # increment operation of x86.
+        base_loc, = arglocs
+        self.mc.INC(mem(base_loc, 0))
+
     def genop_discard_setfield_gc(self, op, arglocs):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
@@ -1561,8 +1571,8 @@ class Assembler386(BaseAssembler):
             self.mc.OR_rr(edx.value, eax.value)
         else:
             loc1, = arglocs
-            self.mc.MOVD_xr(loc1.value, edx.value)
-            self.mc.MOVD_xr(resloc.value, eax.value)
+            self.mc.MOVD32_xr(loc1.value, edx.value)
+            self.mc.MOVD32_xr(resloc.value, eax.value)
             self.mc.PUNPCKLDQ_xx(resloc.value, loc1.value)
 
     def genop_guard_guard_true(self, ign_1, guard_op, guard_token, locs, ign_2):
@@ -1823,12 +1833,8 @@ class Assembler386(BaseAssembler):
         # did just above.
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.POP(eax)
-        mc.MOV_br(ofs2, eax.value)
-        mc.POP(eax)
-        mc.MOV_br(ofs, eax.value)
-        # the return value is the jitframe
-        mc.MOV_rr(eax.value, ebp.value)
+        mc.POP_b(ofs2)
+        mc.POP_b(ofs)
 
         self._call_footer()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
@@ -1851,17 +1857,23 @@ class Assembler386(BaseAssembler):
         arglist = op.getarglist()
         if arglist and arglist[0].type == REF:
             if self._finish_gcmap:
-                self._finish_gcmap[0] |= r_uint(1) # rax
+                # we're returning with a guard_not_forced_2, and
+                # additionally we need to say that eax/rax contains
+                # a reference too:
+                self._finish_gcmap[0] |= r_uint(1)
                 gcmap = self._finish_gcmap
             else:
                 gcmap = self.gcmap_for_finish
+            self.push_gcmap(self.mc, gcmap, store=True)
+        elif self._finish_gcmap:
+            # we're returning with a guard_not_forced_2
+            gcmap = self._finish_gcmap
             self.push_gcmap(self.mc, gcmap, store=True)
         else:
             # note that the 0 here is redundant, but I would rather
             # keep that one and kill all the others
             ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
             self.mc.MOV_bi(ofs, 0)
-        self.mc.MOV_rr(eax.value, ebp.value)
         # exit function
         self._call_footer()
 

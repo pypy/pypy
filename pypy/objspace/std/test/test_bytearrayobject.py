@@ -1,5 +1,6 @@
 from pypy import conftest
 
+
 class AppTestBytesArray:
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
@@ -49,7 +50,10 @@ class AppTestBytesArray:
     def test_repr(self):
         assert repr(bytearray()) == "bytearray(b'')"
         assert repr(bytearray('test')) == "bytearray(b'test')"
-        assert repr(bytearray("d'oh")) == r"bytearray(b'd\'oh')"
+        assert repr(bytearray("d'oh")) == r'bytearray(b"d\'oh")'
+        assert repr(bytearray('d"oh')) == 'bytearray(b\'d"oh\')'
+        assert repr(bytearray('d"\'oh')) == 'bytearray(b\'d"\\\'oh\')'
+        assert repr(bytearray('d\'"oh')) == 'bytearray(b\'d\\\'"oh\')'
 
     def test_str(self):
         assert str(bytearray()) == ""
@@ -426,10 +430,10 @@ class AppTestBytesArray:
         b = bytearray('abcdefghi')
         buf = buffer(b)
         assert buf[2] == 'c'
-        buf[3] = 'D'
-        assert b == 'abcDefghi'
-        buf[4:6] = 'EF'
-        assert b == 'abcDEFghi'
+        exc = raises(TypeError, "buf[2] = 'D'")
+        assert str(exc.value) == "buffer is read-only"
+        exc = raises(TypeError, "buf[4:6] = 'EF'")
+        assert str(exc.value) == "buffer is read-only"
 
     def test_decode(self):
         b = bytearray('abcdefghi')

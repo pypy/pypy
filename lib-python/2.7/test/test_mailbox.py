@@ -6,7 +6,9 @@ import socket
 import email
 import email.message
 import re
+import shutil
 import StringIO
+import tempfile
 from test import test_support
 import unittest
 import mailbox
@@ -19,7 +21,7 @@ except ImportError:
 # Silence Py3k warning
 rfc822 = test_support.import_module('rfc822', deprecated=True)
 
-class TestBase(unittest.TestCase):
+class TestBase:
 
     def _check_sample(self, msg):
         # Inspect a mailbox.Message representation of the sample message
@@ -46,7 +48,7 @@ class TestBase(unittest.TestCase):
 class TestMailbox(TestBase):
 
     _factory = None     # Overridden by subclasses to reuse tests
-    _template = 'From: foo\n\n%s'
+    _template = 'From: foo\n\n%s\n'
 
     def setUp(self):
         self._path = test_support.TESTFN
@@ -73,6 +75,18 @@ class TestMailbox(TestBase):
         self.assertEqual(self._box.get_string(keys[0]), self._template % 0)
         for i in (1, 2, 3, 4):
             self._check_sample(self._box[keys[i]])
+
+    def test_add_file(self):
+        with tempfile.TemporaryFile('w+') as f:
+            f.write(_sample_message)
+            f.seek(0)
+            key = self._box.add(f)
+        self.assertEqual(self._box.get_string(key).split('\n'),
+            _sample_message.split('\n'))
+
+    def test_add_StringIO(self):
+        key = self._box.add(StringIO.StringIO(self._template % "0"))
+        self.assertEqual(self._box.get_string(key), self._template % "0")
 
     def test_remove(self):
         # Remove messages using remove()
@@ -123,7 +137,7 @@ class TestMailbox(TestBase):
         key0 = self._box.add(self._template % 0)
         msg = self._box.get(key0)
         self.assertEqual(msg['from'], 'foo')
-        self.assertEqual(msg.get_payload(), '0')
+        self.assertEqual(msg.get_payload(), '0\n')
         self.assertIs(self._box.get('foo'), None)
         self.assertFalse(self._box.get('foo', False))
         self._box.close()
@@ -131,7 +145,7 @@ class TestMailbox(TestBase):
         key1 = self._box.add(self._template % 1)
         msg = self._box.get(key1)
         self.assertEqual(msg['from'], 'foo')
-        self.assertEqual(msg.fp.read(), '1')
+        self.assertEqual(msg.fp.read(), '1' + os.linesep)
         msg.fp.close()
 
     def test_getitem(self):
@@ -139,7 +153,7 @@ class TestMailbox(TestBase):
         key0 = self._box.add(self._template % 0)
         msg = self._box[key0]
         self.assertEqual(msg['from'], 'foo')
-        self.assertEqual(msg.get_payload(), '0')
+        self.assertEqual(msg.get_payload(), '0\n')
         self.assertRaises(KeyError, lambda: self._box['foo'])
         self._box.discard(key0)
         self.assertRaises(KeyError, lambda: self._box[key0])
@@ -151,7 +165,7 @@ class TestMailbox(TestBase):
         msg0 = self._box.get_message(key0)
         self.assertIsInstance(msg0, mailbox.Message)
         self.assertEqual(msg0['from'], 'foo')
-        self.assertEqual(msg0.get_payload(), '0')
+        self.assertEqual(msg0.get_payload(), '0\n')
         self._check_sample(self._box.get_message(key1))
 
     def test_get_string(self):
@@ -324,15 +338,15 @@ class TestMailbox(TestBase):
         self.assertIn(key0, self._box)
         key1 = self._box.add(self._template % 1)
         self.assertIn(key1, self._box)
-        self.assertEqual(self._box.pop(key0).get_payload(), '0')
+        self.assertEqual(self._box.pop(key0).get_payload(), '0\n')
         self.assertNotIn(key0, self._box)
         self.assertIn(key1, self._box)
         key2 = self._box.add(self._template % 2)
         self.assertIn(key2, self._box)
-        self.assertEqual(self._box.pop(key2).get_payload(), '2')
+        self.assertEqual(self._box.pop(key2).get_payload(), '2\n')
         self.assertNotIn(key2, self._box)
         self.assertIn(key1, self._box)
-        self.assertEqual(self._box.pop(key1).get_payload(), '1')
+        self.assertEqual(self._box.pop(key1).get_payload(), '1\n')
         self.assertNotIn(key1, self._box)
         self.assertEqual(len(self._box), 0)
 
@@ -390,6 +404,17 @@ class TestMailbox(TestBase):
         # Write changes to disk
         self._test_flush_or_close(self._box.flush, True)
 
+    def test_popitem_and_flush_twice(self):
+        # See #15036.
+        self._box.add(self._template % 0)
+        self._box.add(self._template % 1)
+        self._box.flush()
+
+        self._box.popitem()
+        self._box.flush()
+        self._box.popitem()
+        self._box.flush()
+
     def test_lock_unlock(self):
         # Lock and unlock the mailbox
         self.assertFalse(os.path.exists(self._get_lock_path()))
@@ -435,7 +460,7 @@ class TestMailbox(TestBase):
         return self._path + '.lock'
 
 
-class TestMailboxSuperclass(TestBase):
+class TestMailboxSuperclass(TestBase, unittest.TestCase):
 
     def test_notimplemented(self):
         # Test that all Mailbox methods raise NotImplementedException.
@@ -470,7 +495,7 @@ class TestMailboxSuperclass(TestBase):
         self.assertRaises(NotImplementedError, lambda: box.close())
 
 
-class TestMaildir(TestMailbox):
+class TestMaildir(TestMailbox, unittest.TestCase):
 
     _factory = lambda self, path, factory=None: mailbox.Maildir(path, factory)
 
@@ -512,7 +537,7 @@ class TestMaildir(TestMailbox):
         msg_returned = self._box.get_message(key)
         self.assertEqual(msg_returned.get_subdir(), 'new')
         self.assertEqual(msg_returned.get_flags(), '')
-        self.assertEqual(msg_returned.get_payload(), '1')
+        self.assertEqual(msg_returned.get_payload(), '1\n')
         msg2 = mailbox.MaildirMessage(self._template % 2)
         msg2.set_info('2,S')
         self._box[key] = msg2
@@ -520,7 +545,7 @@ class TestMaildir(TestMailbox):
         msg_returned = self._box.get_message(key)
         self.assertEqual(msg_returned.get_subdir(), 'new')
         self.assertEqual(msg_returned.get_flags(), 'S')
-        self.assertEqual(msg_returned.get_payload(), '3')
+        self.assertEqual(msg_returned.get_payload(), '3\n')
 
     def test_consistent_factory(self):
         # Add a message.
@@ -642,13 +667,13 @@ class TestMaildir(TestMailbox):
             self.assertTrue(match is not None, "Invalid file name: '%s'" % tail)
             groups = match.groups()
             if previous_groups is not None:
-                self.assertTrue(int(groups[0] >= previous_groups[0]),
+                self.assertGreaterEqual(int(groups[0]), int(previous_groups[0]),
                              "Non-monotonic seconds: '%s' before '%s'" %
                              (previous_groups[0], groups[0]))
-                self.assertTrue(int(groups[1] >= previous_groups[1]) or
-                             groups[0] != groups[1],
-                             "Non-monotonic milliseconds: '%s' before '%s'" %
-                             (previous_groups[1], groups[1]))
+                if int(groups[0]) == int(previous_groups[0]):
+                    self.assertGreaterEqual(int(groups[1]), int(previous_groups[1]),
+                                "Non-monotonic milliseconds: '%s' before '%s'" %
+                                (previous_groups[1], groups[1]))
                 self.assertTrue(int(groups[2]) == pid,
                              "Process ID mismatch: '%s' should be '%s'" %
                              (groups[2], pid))
@@ -819,7 +844,49 @@ class TestMaildir(TestMailbox):
         self._box._refresh()
         self.assertTrue(refreshed())
 
-class _TestMboxMMDF(TestMailbox):
+
+class _TestSingleFile(TestMailbox):
+    '''Common tests for single-file mailboxes'''
+
+    def test_add_doesnt_rewrite(self):
+        # When only adding messages, flush() should not rewrite the
+        # mailbox file. See issue #9559.
+
+        # Inode number changes if the contents are written to another
+        # file which is then renamed over the original file. So we
+        # must check that the inode number doesn't change.
+        inode_before = os.stat(self._path).st_ino
+
+        self._box.add(self._template % 0)
+        self._box.flush()
+
+        inode_after = os.stat(self._path).st_ino
+        self.assertEqual(inode_before, inode_after)
+
+        # Make sure the message was really added
+        self._box.close()
+        self._box = self._factory(self._path)
+        self.assertEqual(len(self._box), 1)
+
+    def test_permissions_after_flush(self):
+        # See issue #5346
+
+        # Make the mailbox world writable. It's unlikely that the new
+        # mailbox file would have these permissions after flush(),
+        # because umask usually prevents it.
+        mode = os.stat(self._path).st_mode | 0o666
+        os.chmod(self._path, mode)
+
+        self._box.add(self._template % 0)
+        i = self._box.add(self._template % 1)
+        # Need to remove one message to make flush() create a new file
+        self._box.remove(i)
+        self._box.flush()
+
+        self.assertEqual(os.stat(self._path).st_mode, mode)
+
+
+class _TestMboxMMDF(_TestSingleFile):
 
     def tearDown(self):
         self._box.close()
@@ -829,14 +896,14 @@ class _TestMboxMMDF(TestMailbox):
 
     def test_add_from_string(self):
         # Add a string starting with 'From ' to the mailbox
-        key = self._box.add('From foo@bar blah\nFrom: foo\n\n0')
+        key = self._box.add('From foo@bar blah\nFrom: foo\n\n0\n')
         self.assertEqual(self._box[key].get_from(), 'foo@bar blah')
-        self.assertEqual(self._box[key].get_payload(), '0')
+        self.assertEqual(self._box[key].get_payload(), '0\n')
 
     def test_add_mbox_or_mmdf_message(self):
         # Add an mboxMessage or MMDFMessage
         for class_ in (mailbox.mboxMessage, mailbox.MMDFMessage):
-            msg = class_('From foo@bar blah\nFrom: foo\n\n0')
+            msg = class_('From foo@bar blah\nFrom: foo\n\n0\n')
             key = self._box.add(msg)
 
     def test_open_close_open(self):
@@ -920,7 +987,7 @@ class _TestMboxMMDF(TestMailbox):
         self._box.close()
 
 
-class TestMbox(_TestMboxMMDF):
+class TestMbox(_TestMboxMMDF, unittest.TestCase):
 
     _factory = lambda self, path, factory=None: mailbox.mbox(path, factory)
 
@@ -943,12 +1010,35 @@ class TestMbox(_TestMboxMMDF):
             perms = st.st_mode
             self.assertFalse((perms & 0111)) # Execute bits should all be off.
 
-class TestMMDF(_TestMboxMMDF):
+    def test_terminating_newline(self):
+        message = email.message.Message()
+        message['From'] = 'john@example.com'
+        message.set_payload('No newline at the end')
+        i = self._box.add(message)
+
+        # A newline should have been appended to the payload
+        message = self._box.get(i)
+        self.assertEqual(message.get_payload(), 'No newline at the end\n')
+
+    def test_message_separator(self):
+        # Check there's always a single blank line after each message
+        self._box.add('From: foo\n\n0')  # No newline at the end
+        with open(self._path) as f:
+            data = f.read()
+            self.assertEqual(data[-3:], '0\n\n')
+
+        self._box.add('From: foo\n\n0\n')  # Newline at the end
+        with open(self._path) as f:
+            data = f.read()
+            self.assertEqual(data[-3:], '0\n\n')
+
+
+class TestMMDF(_TestMboxMMDF, unittest.TestCase):
 
     _factory = lambda self, path, factory=None: mailbox.MMDF(path, factory)
 
 
-class TestMH(TestMailbox):
+class TestMH(TestMailbox, unittest.TestCase):
 
     _factory = lambda self, path, factory=None: mailbox.MH(path, factory)
 
@@ -1080,7 +1170,7 @@ class TestMH(TestMailbox):
         return os.path.join(self._path, '.mh_sequences.lock')
 
 
-class TestBabyl(TestMailbox):
+class TestBabyl(_TestSingleFile, unittest.TestCase):
 
     _factory = lambda self, path, factory=None: mailbox.Babyl(path, factory)
 
@@ -1109,7 +1199,7 @@ class TestBabyl(TestMailbox):
         self.assertEqual(set(self._box.get_labels()), set(['blah']))
 
 
-class TestMessage(TestBase):
+class TestMessage(TestBase, unittest.TestCase):
 
     _factory = mailbox.Message      # Overridden by subclasses to reuse tests
 
@@ -1180,7 +1270,7 @@ class TestMessage(TestBase):
         pass
 
 
-class TestMaildirMessage(TestMessage):
+class TestMaildirMessage(TestMessage, unittest.TestCase):
 
     _factory = mailbox.MaildirMessage
 
@@ -1255,7 +1345,7 @@ class TestMaildirMessage(TestMessage):
         self._check_sample(msg)
 
 
-class _TestMboxMMDFMessage(TestMessage):
+class _TestMboxMMDFMessage:
 
     _factory = mailbox._mboxMMDFMessage
 
@@ -1302,12 +1392,12 @@ class _TestMboxMMDFMessage(TestMessage):
                                  r"\d{2} \d{4}", msg.get_from()))
 
 
-class TestMboxMessage(_TestMboxMMDFMessage):
+class TestMboxMessage(_TestMboxMMDFMessage, TestMessage):
 
     _factory = mailbox.mboxMessage
 
 
-class TestMHMessage(TestMessage):
+class TestMHMessage(TestMessage, unittest.TestCase):
 
     _factory = mailbox.MHMessage
 
@@ -1338,7 +1428,7 @@ class TestMHMessage(TestMessage):
         self.assertEqual(msg.get_sequences(), ['foobar', 'replied'])
 
 
-class TestBabylMessage(TestMessage):
+class TestBabylMessage(TestMessage, unittest.TestCase):
 
     _factory = mailbox.BabylMessage
 
@@ -1393,12 +1483,12 @@ class TestBabylMessage(TestMessage):
             self.assertEqual(visible[header], msg[header])
 
 
-class TestMMDFMessage(_TestMboxMMDFMessage):
+class TestMMDFMessage(_TestMboxMMDFMessage, TestMessage):
 
     _factory = mailbox.MMDFMessage
 
 
-class TestMessageConversion(TestBase):
+class TestMessageConversion(TestBase, unittest.TestCase):
 
     def test_plain_to_x(self):
         # Convert Message to all formats
@@ -1721,7 +1811,7 @@ class TestProxyFileBase(TestBase):
         proxy.close()
 
 
-class TestProxyFile(TestProxyFileBase):
+class TestProxyFile(TestProxyFileBase, unittest.TestCase):
 
     def setUp(self):
         self._path = test_support.TESTFN
@@ -1770,7 +1860,7 @@ class TestProxyFile(TestProxyFileBase):
         self._test_close(mailbox._ProxyFile(self._file))
 
 
-class TestPartialFile(TestProxyFileBase):
+class TestPartialFile(TestProxyFileBase, unittest.TestCase):
 
     def setUp(self):
         self._path = test_support.TESTFN

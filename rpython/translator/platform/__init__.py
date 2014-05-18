@@ -170,6 +170,9 @@ class Platform(object):
         ofile = cfile.new(ext=ext)
         if ofile.relto(udir):
             return ofile
+        assert ofile.relto(rpythonroot), (
+            "%r should be relative to either %r or %r" % (
+                ofile, rpythonroot, udir))
         ofile = udir.join(ofile.relto(rpythonroot))
         ofile.dirpath().ensure(dir=True)
         return ofile
@@ -267,7 +270,7 @@ if sys.platform.startswith('linux'):
     # Only required on armhf and mips{,el}, not armel. But there's no way to
     # detect armhf without shelling out
     if (platform.architecture()[0] == '64bit'
-            or platform.machine().startswith(('arm', 'mips'))):
+            or platform.machine().startswith(('arm', 'mips', 'ppc'))):
         host_factory = LinuxPIC
     else:
         host_factory = Linux

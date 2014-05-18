@@ -36,11 +36,13 @@ class FdWriteCapture(object):
         return self._value
 
 lib_m = 'm'
+has_sinf = True
 if sys.platform == 'win32':
     #there is a small chance this fails on Mingw via environ $CC
     import distutils.ccompiler
     if distutils.ccompiler.get_default_compiler() == 'msvc':
         lib_m = 'msvcrt'
+        has_sinf = False
 
 class TestFunction(object):
     Backend = CTypesBackend
@@ -55,6 +57,8 @@ class TestFunction(object):
         assert x == math.sin(1.23)
 
     def test_sinf(self):
+        if not has_sinf:
+            py.test.skip("sinf not available")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
             float sinf(float x);

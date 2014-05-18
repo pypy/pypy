@@ -560,14 +560,24 @@ class AppTestMMap:
         m = mmap(f.fileno(), 6)
         m[5] = '?'
         b = buffer(m)
-        try:
-            b[:3] = "FOO"
-        except TypeError:     # on CPython: "buffer is read-only" :-/
-            skip("on CPython: buffer is read-only")
+        exc = raises(TypeError, 'b[:3] = "FOO"')
+        assert str(exc.value) == "buffer is read-only"
         m.close()
         f.seek(0)
         got = f.read()
-        assert got == "FOOba?"
+        assert got == "fooba?"
+        f.close()
+
+    def test_memoryview(self):
+        from mmap import mmap
+        f = open(self.tmpname + "y", "w+")
+        f.write("foobar")
+        f.flush()
+        m = mmap(f.fileno(), 6)
+        m[5] = '?'
+        exc = raises(TypeError, memoryview, m)
+        assert 'buffer interface' in str(exc.value)
+        m.close()
         f.close()
 
     def test_offset(self):
@@ -832,3 +842,17 @@ class AppTestMMap:
         assert m.read(10) == "ABCDEABCDE"
         m.close()
         f.close()
+
+    def test_empty_file(self):
+        import mmap
+        f = open(self.tmpname, 'w+b')
+        f.close()
+        with open(self.tmpname, 'rb') as f:
+            try:
+                m = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+                m.close()
+                assert False, "should not have been able to mmap empty file"
+            except ValueError as e:
+                assert str(e) == "cannot mmap an empty file"
+            except BaseException as e:
+                assert False, "unexpected exception: " + str(e)
