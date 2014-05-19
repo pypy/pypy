@@ -337,6 +337,7 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                         if ((allow_surrogates or MAXUNICODE < 65536) and
                             ch <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF):
                             ch3 = ((ch - 0xD800) << 10 | (ch2 - 0xDC00)) + 0x10000
+                            assert ch3 >= 0
                             pos += 1
                             _encodeUCS4(result, ch3)
                             continue
