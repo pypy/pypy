@@ -25,6 +25,9 @@ class AppTestDecimalModule:
         bases = type(flags).__bases__
         assert bases[1] is MutableMapping
 
+        assert _decimal.Inexact in flags
+        assert _decimal.Inexact in flags.keys()
+
     def test_context_changes(self):
         import _decimal
         context = _decimal.getcontext()

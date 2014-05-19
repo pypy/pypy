@@ -47,6 +47,7 @@ except ImportError:
 
 C = import_fresh_module('decimal', fresh=['_decimal'])
 P = import_fresh_module('decimal', blocked=['_decimal'])
+C.MAX_EMAX = P.MAX_EMAX
 orig_sys_decimal = sys.modules['decimal']
 
 # fractions module must import the correct decimal module.

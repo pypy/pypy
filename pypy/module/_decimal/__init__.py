@@ -15,6 +15,7 @@ class Module(MixedModule):
         'getcontext': 'interp_context.getcontext',
         'setcontext': 'interp_context.setcontext',
         'DecimalException': 'interp_signals.get(space).w_DecimalException',
+        'SignalTuple': 'interp_signals.get(space).w_SignalTuple',
 
         'IEEE_CONTEXT_MAX_BITS': 'space.wrap(interp_decimal.IEEE_CONTEXT_MAX_BITS)',
         'MAX_PREC': 'space.wrap(interp_decimal.MAX_PREC)',

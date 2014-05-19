@@ -32,6 +32,13 @@ class W_SignalDictMixin(W_Root):
         else:
             self.flag_ptr[0] = rffi.cast(rffi.UINT, cur_flag & ~flag)
 
+    def descr_delitem(self, space, w_key):
+        raise oefmt(space.w_ValueError,
+                    "signal keys cannot be deleted")
+
+    def descr_iter(self, space):
+        return space.iter(interp_signals.get(space).w_SignalTuple)
+
 
 def new_signal_dict(space, flag_ptr):
     w_dict = space.allocate_instance(W_SignalDictMixin,
@@ -44,6 +51,8 @@ W_SignalDictMixin.typedef = TypeDef(
     'SignalDictMixin',
     __getitem__ = interp2app(W_SignalDictMixin.descr_getitem),
     __setitem__ = interp2app(W_SignalDictMixin.descr_setitem),
+    __delitem__ = interp2app(W_SignalDictMixin.descr_delitem),
+    __iter__ = interp2app(W_SignalDictMixin.descr_iter),
     )
 W_SignalDictMixin.typedef.acceptable_as_base_class = True
 

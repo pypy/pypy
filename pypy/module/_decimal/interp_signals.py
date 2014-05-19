@@ -117,5 +117,9 @@ class SignalState:
                             space.w_TypeError]),
             space.newdict())
 
+        self.w_SignalTuple = space.newtuple([
+                getattr(self, 'w_' + name)
+                for name, flag in SIGNAL_MAP])
+
 def get(space):
     return space.fromcache(SignalState)
