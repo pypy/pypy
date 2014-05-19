@@ -14,3 +14,6 @@ Move builtin ``struct`` module to ``_struct`` to allow ``pypy "-m idlelib.idle"`
 Support compilation with gcc-4.9
 
 Annotator cleanups
+
+.. branch: release-2.3.x
+
