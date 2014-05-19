@@ -58,6 +58,18 @@ def is__default(obj1, obj2):
     r.set_knowntypedata(knowntypedata)
     return r
 
+def _make_cmp_annotator_default(cmp_op):
+    @cmp_op.register(SomeObject, SomeObject)
+    def default_annotate(obj1, obj2):
+        s_1, s_2 = obj1.ann, obj2.ann
+        if s_1.is_immutable_constant() and s_2.is_immutable_constant():
+            return immutablevalue(cmp_op.pyfunc(s_1.const, s_2.const))
+        else:
+            return s_Bool
+
+for cmp_op in [op.lt, op.le, op.eq, op.ne, op.gt, op.ge]:
+    _make_cmp_annotator_default(cmp_op)
+
 class __extend__(pairtype(SomeObject, SomeObject)):
 
     def union((obj1, obj2)):
@@ -85,42 +97,6 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     inplace_truediv.can_only_throw = [ZeroDivisionError]
     inplace_floordiv.can_only_throw = [ZeroDivisionError]
     inplace_mod.can_only_throw = [ZeroDivisionError]
-
-    def lt((obj1, obj2)):
-        if obj1.is_immutable_constant() and obj2.is_immutable_constant():
-            return immutablevalue(obj1.const < obj2.const)
-        else:
-            return s_Bool
-
-    def le((obj1, obj2)):
-        if obj1.is_immutable_constant() and obj2.is_immutable_constant():
-            return immutablevalue(obj1.const <= obj2.const)
-        else:
-            return s_Bool
-
-    def eq((obj1, obj2)):
-        if obj1.is_immutable_constant() and obj2.is_immutable_constant():
-            return immutablevalue(obj1.const == obj2.const)
-        else:
-            return s_Bool
-
-    def ne((obj1, obj2)):
-        if obj1.is_immutable_constant() and obj2.is_immutable_constant():
-            return immutablevalue(obj1.const != obj2.const)
-        else:
-            return s_Bool
-
-    def gt((obj1, obj2)):
-        if obj1.is_immutable_constant() and obj2.is_immutable_constant():
-            return immutablevalue(obj1.const > obj2.const)
-        else:
-            return s_Bool
-
-    def ge((obj1, obj2)):
-        if obj1.is_immutable_constant() and obj2.is_immutable_constant():
-            return immutablevalue(obj1.const >= obj2.const)
-        else:
-            return s_Bool
 
     def cmp((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
