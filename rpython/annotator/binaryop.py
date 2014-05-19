@@ -24,6 +24,40 @@ BINARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 2])
 
 
+@op.is_.register(SomeObject, SomeObject)
+def is__default(obj1, obj2):
+    r = SomeBool()
+    s_obj1 = obj1.ann
+    s_obj2 = obj2.ann
+    if s_obj2.is_constant():
+        if s_obj1.is_constant():
+            r.const = s_obj1.const is s_obj2.const
+        if s_obj2.const is None and not s_obj1.can_be_none():
+            r.const = False
+    elif s_obj1.is_constant():
+        if s_obj1.const is None and not s_obj2.can_be_none():
+            r.const = False
+    knowntypedata = {}
+
+    def bind(src_obj, tgt_obj):
+        if hasattr(tgt_obj.ann, 'is_type_of') and src_obj.ann.is_constant():
+            add_knowntypedata(
+                knowntypedata, True,
+                [inst.value for inst in tgt_obj.ann.is_type_of],
+                getbookkeeper().valueoftype(src_obj.ann.const))
+        add_knowntypedata(knowntypedata, True, [tgt_obj.value], src_obj.ann)
+        s_nonnone = tgt_obj.ann
+        if (src_obj.ann.is_constant() and src_obj.ann.const is None and
+                tgt_obj.ann.can_be_none()):
+            s_nonnone = tgt_obj.ann.nonnoneify()
+        add_knowntypedata(knowntypedata,
+                            False, [tgt_obj.value], s_nonnone)
+
+    bind(obj2, obj1)
+    bind(obj1, obj2)
+    r.set_knowntypedata(knowntypedata)
+    return r
+
 class __extend__(pairtype(SomeObject, SomeObject)):
 
     def union((obj1, obj2)):
@@ -93,47 +127,6 @@ class __extend__(pairtype(SomeObject, SomeObject)):
             return immutablevalue(cmp(obj1.const, obj2.const))
         else:
             return SomeInteger()
-
-    def is_((obj1, obj2)):
-        r = SomeBool()
-        if obj2.is_constant():
-            if obj1.is_constant():
-                r.const = obj1.const is obj2.const
-            if obj2.const is None and not obj1.can_be_none():
-                r.const = False
-        elif obj1.is_constant():
-            if obj1.const is None and not obj2.can_be_none():
-                r.const = False
-        # XXX HACK HACK HACK
-        # XXX HACK HACK HACK
-        # XXX HACK HACK HACK
-        bk = getbookkeeper()
-        if bk is not None: # for testing
-            op = bk._find_current_op("is_", 2)
-            knowntypedata = {}
-            annotator = bk.annotator
-
-            def bind(src_obj, tgt_obj, tgt_arg):
-                if hasattr(tgt_obj, 'is_type_of') and src_obj.is_constant():
-                    add_knowntypedata(
-                        knowntypedata, True,
-                        [inst.value for inst in tgt_obj.is_type_of],
-                        bk.valueoftype(src_obj.const))
-
-                assert annotator.binding(op.args[tgt_arg]) == tgt_obj
-                add_knowntypedata(knowntypedata, True, [op.args[tgt_arg]], src_obj)
-
-                nonnone_obj = tgt_obj
-                if src_obj.is_constant() and src_obj.const is None and tgt_obj.can_be_none():
-                    nonnone_obj = tgt_obj.nonnoneify()
-
-                add_knowntypedata(knowntypedata, False, [op.args[tgt_arg]], nonnone_obj)
-
-            bind(obj2, obj1, 0)
-            bind(obj1, obj2, 1)
-            r.set_knowntypedata(knowntypedata)
-
-        return r
 
     def divmod((obj1, obj2)):
         return SomeTuple([pair(obj1, obj2).div(), pair(obj1, obj2).mod()])
@@ -742,24 +735,23 @@ class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
         s_self = unionof(bltn1.s_self, bltn2.s_self)
         return SomeBuiltin(bltn1.analyser, s_self, methodname=bltn1.methodname)
 
-class __extend__(pairtype(SomePBC, SomePBC)):
+@op.is_.register(SomePBC, SomePBC)
+def is__PBC_PBC(pbc1, pbc2):
+    s = is__default(pbc1, pbc2)
+    if not s.is_constant():
+        if not pbc1.ann.can_be_None or not pbc2.ann.can_be_None:
+            for desc in pbc1.ann.descriptions:
+                if desc in pbc2.ann.descriptions:
+                    break
+            else:
+                s.const = False    # no common desc in the two sets
+    return s
 
+class __extend__(pairtype(SomePBC, SomePBC)):
     def union((pbc1, pbc2)):
         d = pbc1.descriptions.copy()
         d.update(pbc2.descriptions)
         return SomePBC(d, can_be_None = pbc1.can_be_None or pbc2.can_be_None)
-
-    def is_((pbc1, pbc2)):
-        thistype = pairtype(SomePBC, SomePBC)
-        s = super(thistype, pair(pbc1, pbc2)).is_()
-        if not s.is_constant():
-            if not pbc1.can_be_None or not pbc2.can_be_None:
-                for desc in pbc1.descriptions:
-                    if desc in pbc2.descriptions:
-                        break
-                else:
-                    s.const = False    # no common desc in the two sets
-        return s
 
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
     def union((imp1, obj2)):
