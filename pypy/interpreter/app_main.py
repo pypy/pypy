@@ -608,9 +608,8 @@ def run_command_line(interactive,
                 python_startup = readenv and os.getenv('PYTHONSTARTUP')
                 if python_startup:
                     try:
-                        f = open(python_startup)
-                        startup = f.read()
-                        f.close()
+                        with open(python_startup) as f:
+                            startup = f.read()
                     except IOError as e:
                         print >> sys.stderr, "Could not open PYTHONSTARTUP"
                         print >> sys.stderr, "IOError:", e
