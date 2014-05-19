@@ -3,7 +3,6 @@ Binary operations between SomeValues.
 """
 
 import py
-import operator
 from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import (
     SomeObject, SomeInteger, SomeBool, s_Bool, SomeString, SomeChar, SomeList,
@@ -243,10 +242,14 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
             return SomeInteger(nonneg=int1.nonneg, knowntype=int1.knowntype)
     rshift.can_only_throw = []
 
-    def _compare_helper((int1, int2), opname, operation):
+
+def _make_cmp_annotator_int(cmp_op):
+    @cmp_op.register(SomeInteger, SomeInteger)
+    def _compare_helper(int1, int2):
         r = SomeBool()
-        if int1.is_immutable_constant() and int2.is_immutable_constant():
-            r.const = operation(int1.const, int2.const)
+        s_int1, s_int2 = int1.ann, int2.ann
+        if s_int1.is_immutable_constant() and s_int2.is_immutable_constant():
+            r.const = cmp_op.pyfunc(s_int1.const, s_int2.const)
         #
         # The rest of the code propagates nonneg information between
         # the two arguments.
@@ -258,45 +261,38 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         # nonneg then "assert x>=y" will let the annotator know that
         # x is nonneg too, but it will not work if y is unsigned.
         #
-        if not (rarithmetic.signedtype(int1.knowntype) and
-                rarithmetic.signedtype(int2.knowntype)):
+        if not (rarithmetic.signedtype(s_int1.knowntype) and
+                rarithmetic.signedtype(s_int2.knowntype)):
             return r
         knowntypedata = {}
-        op = getbookkeeper()._find_current_op(opname=opname, arity=2)
-        def tointtype(int0):
-            if int0.knowntype is bool:
+        def tointtype(s_int0):
+            if s_int0.knowntype is bool:
                 return int
-            return int0.knowntype
-        if int1.nonneg and isinstance(op.args[1], Variable):
-            case = opname in ('lt', 'le', 'eq')
-
-            add_knowntypedata(knowntypedata, case, [op.args[1]],
-                              SomeInteger(nonneg=True, knowntype=tointtype(int2)))
-        if int2.nonneg and isinstance(op.args[0], Variable):
-            case = opname in ('gt', 'ge', 'eq')
-            add_knowntypedata(knowntypedata, case, [op.args[0]],
-                              SomeInteger(nonneg=True, knowntype=tointtype(int1)))
+            return s_int0.knowntype
+        if s_int1.nonneg and isinstance(int2.value, Variable):
+            case = cmp_op.opname in ('lt', 'le', 'eq')
+            add_knowntypedata(knowntypedata, case, [int2.value],
+                              SomeInteger(nonneg=True, knowntype=tointtype(s_int2)))
+        if s_int2.nonneg and isinstance(int1.value, Variable):
+            case = cmp_op.opname in ('gt', 'ge', 'eq')
+            add_knowntypedata(knowntypedata, case, [int1.value],
+                              SomeInteger(nonneg=True, knowntype=tointtype(s_int1)))
         r.set_knowntypedata(knowntypedata)
         # a special case for 'x < 0' or 'x >= 0',
         # where 0 is a flow graph Constant
         # (in this case we are sure that it cannot become a r_uint later)
-        if (isinstance(op.args[1], Constant) and
-            type(op.args[1].value) is int and    # filter out Symbolics
-            op.args[1].value == 0):
-            if int1.nonneg:
-                if opname == 'lt':
+        if (isinstance(int2.value, Constant) and
+                type(int2.value.value) is int and  # filter out Symbolics
+                int2.value.value == 0):
+            if s_int1.nonneg:
+                if cmp_op.opname == 'lt':
                     r.const = False
-                if opname == 'ge':
+                if cmp_op.opname == 'ge':
                     r.const = True
         return r
 
-    def lt(intint): return intint._compare_helper('lt', operator.lt)
-    def le(intint): return intint._compare_helper('le', operator.le)
-    def eq(intint): return intint._compare_helper('eq', operator.eq)
-    def ne(intint): return intint._compare_helper('ne', operator.ne)
-    def gt(intint): return intint._compare_helper('gt', operator.gt)
-    def ge(intint): return intint._compare_helper('ge', operator.ge)
-
+for cmp_op in [op.lt, op.le, op.eq, op.ne, op.gt, op.ge]:
+    _make_cmp_annotator_int(cmp_op)
 
 class __extend__(pairtype(SomeBool, SomeBool)):
 
