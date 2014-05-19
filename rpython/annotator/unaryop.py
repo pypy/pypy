@@ -18,6 +18,7 @@ from rpython.annotator.model import AnnotatorError
 
 UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])
+UNARY_OPERATIONS.remove('contains')
 
 @op.type.register(SomeObject)
 def type_SomeObject(arg):
