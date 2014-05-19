@@ -9,8 +9,4 @@ Added support for the stdlib gdbm module via cffi
 
 Fixes for issues #1769, #1764, #1762, #1752
 
-Move builtin ``struct`` module to ``_struct`` to allow ``pypy "-m idlelib.idle"``
-
-Support compilation with gcc-4.9
-
 Annotator cleanups
