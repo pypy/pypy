@@ -554,7 +554,7 @@ class BufferingInputStream(Stream):
             else:
                 difpos = offset
             if -self.pos <= difpos <= currentsize:
-                self.pos += difpos
+                self.pos += intmask(difpos)
                 return
             if whence == 1:
                 offset -= currentsize
