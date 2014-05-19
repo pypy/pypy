@@ -533,12 +533,6 @@ class SomeBuiltin(SomeObject):
         return False
 
 
-class SomeBuiltinMethod(SomeBuiltin):
-    """ Stands for a built-in method which has got special meaning
-    """
-    knowntype = MethodType
-
-
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
     will never show up at run-time, e.g. elements of an empty list."""
