@@ -135,6 +135,27 @@ class TestIncminimark(PinningGCTest):
         self.gc.collect()
         assert ptr.someInt == 100
 
+    def test_pin_shadow_3(self):
+        s = self.malloc(S)
+        self.stackroots.append(s)
+        self.gc.id(s) # allocate shadow
+        self.gc.pin(llmemory.cast_ptr_to_adr(s))
+        
+        print("free: %s" % self.gc.nursery_free)
+        print("top: %s" % self.gc.nursery_top)
+        self.gc.minor_collection()
+        # XXX it seems like we adjust nursery_free wrong after the minor
+        # collection or there is some other bug. (groggi)
+        print("free: %s" % self.gc.nursery_free)
+        print("top: %s" % self.gc.nursery_top)
+
+        self.gc.unpin(llmemory.cast_ptr_to_adr(s))
+        assert self.gc.nursery_free != self.gc.nursery
+        # we still have a pinned object
+        self.gc.minor_collection()
+        assert self.gc.nursery_free == self.gc.nursery
+        # we don't have a pinned object any more
+
     # XXX test/define what happens if we try to pin an object that is too
     # big for the nursery and will be raw-malloc'ed.
 
