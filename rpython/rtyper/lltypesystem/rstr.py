@@ -9,11 +9,11 @@ from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import ll_str, llmemory
-from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.lltype import (GcStruct, Signed, Array, Char,
     UniChar, Ptr, malloc, Bool, Void, GcArray, nullptr, cast_primitive,
     typeOf, staticAdtMethod, GcForwardReference)
-from rpython.rtyper.rmodel import inputconst, Repr, IntegerRepr
+from rpython.rtyper.rmodel import inputconst, Repr
+from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rstr import (AbstractStringRepr, AbstractCharRepr,
     AbstractUniCharRepr, AbstractStringIteratorRepr, AbstractLLHelpers,
     AbstractUnicodeRepr)

@@ -1,13 +1,13 @@
 """Implements the main interface for flow graph creation: build_flow().
 """
 
-from inspect import CO_NEWLOCALS
+from inspect import CO_NEWLOCALS, isgeneratorfunction
 
-from rpython.flowspace.model import Variable, checkgraph
+from rpython.flowspace.model import checkgraph
 from rpython.flowspace.bytecode import HostCode
 from rpython.flowspace.flowcontext import (FlowContext, fixeggblocks)
 from rpython.flowspace.generator import (tweak_generator_graph,
-        bootstrap_generator)
+        make_generator_entry_graph)
 from rpython.flowspace.pygraph import PyGraph
 
 
@@ -33,15 +33,10 @@ def build_flow(func):
     Create the flow graph for the function.
     """
     _assert_rpythonic(func)
-    code = HostCode._from_code(func.func_code)
-    if (code.is_generator and
+    if (isgeneratorfunction(func) and
             not hasattr(func, '_generator_next_method_of_')):
-        graph = PyGraph(func, code)
-        block = graph.startblock
-        for name, w_value in zip(code.co_varnames, block.framestate.mergeable):
-            if isinstance(w_value, Variable):
-                w_value.rename(name)
-        return bootstrap_generator(graph)
+        return make_generator_entry_graph(func)
+    code = HostCode._from_code(func.func_code)
     graph = PyGraph(func, code)
     ctx = FlowContext(graph, code)
     ctx.build_flow()

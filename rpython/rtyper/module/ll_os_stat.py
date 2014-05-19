@@ -81,7 +81,7 @@ class SomeStatResult(annmodel.SomeObject):
         from rpython.rtyper.module import r_os_stat
         return r_os_stat.StatResultRepr(rtyper)
 
-    def rtyper_makekey_ex(self, rtyper):
+    def rtyper_makekey(self):
         return self.__class__,
 
     def getattr(self, s_attr):
@@ -115,7 +115,7 @@ class SomeStatvfsResult(annmodel.SomeObject):
         from rpython.rtyper.module import r_os_stat
         return r_os_stat.StatvfsResultRepr(rtyper)
 
-    def rtyper_makekey_ex(self, rtyper):
+    def rtyper_makekey(self):
         return self.__class__,
 
     def getattr(self, s_attr):

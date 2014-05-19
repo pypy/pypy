@@ -1,7 +1,7 @@
 import py
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import SomePtr
-from rpython.rtyper.lltypesystem import lltype, rstr
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr
 from rpython.rtyper.lltypesystem.llmemory import itemoffsetof

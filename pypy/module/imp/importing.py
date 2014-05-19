@@ -2,7 +2,7 @@
 Implementation of the interpreter-level default import logic.
 """
 
-import sys, os, stat, genericpath
+import sys, os, stat
 
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -528,8 +528,7 @@ def find_module(space, modulename, w_modulename, partname, w_path,
 
             path = space.str0_w(w_pathitem)
             filepart = os.path.join(path, partname)
-            # os.path.isdir on win32 is not rpython when pywin32 installed
-            if genericpath.isdir(filepart) and case_ok(filepart):
+            if os.path.isdir(filepart) and case_ok(filepart):
                 initfile = os.path.join(filepart, '__init__')
                 modtype, _, _ = find_modtype(space, initfile)
                 if modtype in (PY_SOURCE, PY_COMPILED):

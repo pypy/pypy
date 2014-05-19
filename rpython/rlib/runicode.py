@@ -125,15 +125,18 @@ def str_decode_utf_8(s, size, errors, final=False,
                      errorhandler=None, allow_surrogates=False):
     if errorhandler is None:
         errorhandler = default_unicode_error_decode
-    return str_decode_utf_8_impl(s, size, errors, final, errorhandler,
-                                 allow_surrogates=allow_surrogates)
-
-def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
-                          allow_surrogates):
-    if size == 0:
-        return u'', 0
-
     result = UnicodeBuilder(size)
+    pos = str_decode_utf_8_impl(s, size, errors, final, errorhandler,
+                                 allow_surrogates=allow_surrogates,
+                                 result=result)
+    return result.build(), pos
+
+@specialize.argtype(6)
+def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
+                          allow_surrogates, result):
+    if size == 0:
+        return 0
+
     pos = 0
     while pos < size:
         ordch1 = ord(s[pos])
@@ -291,7 +294,7 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
                 result.append(unichr(0xDC00 + (c & 0x03FF)))
             pos += 4
 
-    return result.build(), pos
+    return pos
 
 def _encodeUCS4(result, ch):
     # Encode UCS4 Unicode ordinals
