@@ -333,11 +333,11 @@ def check_negative_slice(s_start, s_stop, error="slicing"):
            getattr(s_stop, 'const', 0) != -1:
         raise AnnotatorError("%s: not proven to have non-negative stop" % error)
 
-def _can_only_throw(dct, *ignore):
-    if dct.ann.dictdef.dictkey.custom_eq_hash:
+
+def _can_only_throw(s_dct, *ignore):
+    if s_dct.dictdef.dictkey.custom_eq_hash:
         return None    # r_dict: can throw anything
     return []          # else: no possible exception
-
 
 @op.contains.register(SomeDict)
 def contains_SomeDict(dct, element):
