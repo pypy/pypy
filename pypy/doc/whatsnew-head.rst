@@ -7,8 +7,6 @@ What's new in PyPy 2.4+
 
 Added support for the stdlib gdbm module via cffi
 
-Fixes for issues #1769, #1764, #1762, #1752
-
 Annotator cleanups
 
 .. branch: release-2.3.x
