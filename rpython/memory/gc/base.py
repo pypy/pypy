@@ -18,6 +18,7 @@ class GCBase(object):
     needs_write_barrier = False
     malloc_zero_filled = False
     prebuilt_gc_objects_are_static_roots = True
+    can_usually_pin_objects = False
     object_minimal_size = 0
     gcflag_extra = 0   # or a real GC flag that is always 0 when not collecting
 
