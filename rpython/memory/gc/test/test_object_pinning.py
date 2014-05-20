@@ -68,6 +68,8 @@ class TestIncminimark(PinningGCTest):
 
     @py.test.mark.xfail(reason="Not implemented yet", run=False)
     def test_pin_referenced_from_stackroot(self):
+        # XXX most likely somehow connected with `old_objects_pointing_to_young`
+        # (groggi)
         root_ptr = self.malloc(S)
         next_ptr = self.malloc(S)
         self.write(root_ptr, 'next', next_ptr)
