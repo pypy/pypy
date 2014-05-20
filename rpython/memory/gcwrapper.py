@@ -123,14 +123,10 @@ class GCManagedHeap(object):
         return self.gc.can_move(addr)
 
     def pin(self, addr):
-        debug_start("groggi-gcwrapper-pin")
-        debug_stop("groggi-gcwrapper-pin")
         return self.gc.pin(addr)
 
     def unpin(self, addr):
-        debug_start("groggi-gcwrapper-unpin")
         self.gc.unpin(addr)
-        debug_stop("groggi-gcwrapper-unpin")
 
     def weakref_create_getlazy(self, objgetter):
         # we have to be lazy in reading the llinterp variable containing
