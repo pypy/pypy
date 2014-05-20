@@ -594,5 +594,11 @@ class GCTransformer(BaseGCTransformer):
     def gct_gc_can_move(self, hop):
         return hop.cast_result(rmodel.inputconst(lltype.Bool, False))
 
+    def gct_gc_pin(self, hop):
+        return hop.cast_result(rmodel.inputconst(lltype.Bool, False))
+
+    def gct_gc_unpin(self, hop):
+        pass
+
     def gct_shrink_array(self, hop):
         return hop.cast_result(rmodel.inputconst(lltype.Bool, False))
