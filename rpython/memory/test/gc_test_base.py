@@ -792,6 +792,24 @@ class GCTest(object):
             assert rgc.get_gcflag_extra(a2) == False
         self.interpret(fn, [])
 
+    def test_pinning(self):
+        def fn(n):
+            s = str(n)
+            if not rgc.can_move(s):
+                return 13
+            res = int(rgc.pin(s))
+            if res:
+                rgc.unpin(s)
+            return res
+
+        res = self.interpret(fn, [10])
+        if not self.GCClass.moving_gc:
+            assert res == 13
+        elif self.GCClass.can_usually_pin_objects:
+            assert res == 1
+        else:
+            assert res == 0 or res == 13
+
 from rpython.rlib.objectmodel import UnboxedValue
 
 class TaggedBase(object):
