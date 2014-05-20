@@ -174,8 +174,5 @@ class TestIncminimark(PinningGCTest):
     # XXX test/define what happens if we try to pin an object that is too
     # big for the nursery and will be raw-malloc'ed.
 
-    # XXX test/define what happens if pinned object already has a shadow
-    # => shadow handling.
-
     # XXX fill nursery with pinned objects -> + define behavior for such a
     # case
