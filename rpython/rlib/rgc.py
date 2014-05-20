@@ -8,9 +8,6 @@ from rpython.rlib.objectmodel import we_are_translated, enforceargs, specialize
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
-# XXX remove (groggi)
-from rpython.rlib.debug import debug_print, debug_start, debug_stop
-
 # ____________________________________________________________
 # General GC features
 
@@ -39,8 +36,6 @@ def pin(obj):
     # XXX doc string based on gc-minimark-pinning branch
     # XXX use doc string a basis for implementation behavior
     # XXX update doc string to match actual behavior
-    debug_start("groggi-rgc-pin")
-    debug_stop("groggi-rgc-pin")
     return False
 
 def unpin(obj):
