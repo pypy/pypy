@@ -1028,15 +1028,12 @@ class RegisterOs(BaseLazyRegistering):
         def os_write_llimpl(fd, data):
             count = len(data)
             rposix.validate_fd(fd)
-            buf, is_pinned, is_raw = rffi.get_nonmovingbuffer(data)
-            try:
+            with rffi.scoped_nonmovingbuffer(data) as buf:
                 written = rffi.cast(lltype.Signed, os_write(
                     rffi.cast(rffi.INT, fd),
                     buf, rffi.cast(rffi.SIZE_T, count)))
                 if written < 0:
                     raise OSError(rposix.get_errno(), "os_write failed")
-            finally:
-                rffi.free_nonmovingbuffer(data, buf, is_pinned, is_raw)
             return written
 
         return extdef([int, str], SomeInteger(nonneg=True),

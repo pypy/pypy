@@ -1133,20 +1133,19 @@ class scoped_nonmovingbuffer:
     def __init__(self, data):
         self.data = data
     def __enter__(self):
-        self.buf = get_nonmovingbuffer(self.data)
+        self.buf, self.pinned, self.is_raw = get_nonmovingbuffer(self.data)
         return self.buf
     def __exit__(self, *args):
-        free_nonmovingbuffer(self.data, self.buf)
-
+        free_nonmovingbuffer(self.data, self.buf, self.pinned, self.is_raw)
 
 class scoped_nonmoving_unicodebuffer:
     def __init__(self, data):
         self.data = data
     def __enter__(self):
-        self.buf = get_nonmoving_unicodebuffer(self.data)
+        self.buf, self.pinned, self.is_raw = get_nonmoving_unicodebuffer(self.data)
         return self.buf
     def __exit__(self, *args):
-        free_nonmoving_unicodebuffer(self.data, self.buf)
+        free_nonmoving_unicodebuffer(self.data, self.buf, self.pinned, self.is_raw)
 
 class scoped_alloc_buffer:
     def __init__(self, size):

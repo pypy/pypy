@@ -512,7 +512,7 @@ class BaseTestRffi:
     def test_nonmovingbuffer(self):
         d = 'some cool data that should not move'
         def f():
-            buf = get_nonmovingbuffer(d)
+            buf, is_pinned, is_raw = get_nonmovingbuffer(d)
             try:
                 counter = 0
                 for i in range(len(d)):
@@ -520,7 +520,7 @@ class BaseTestRffi:
                         counter += 1
                 return counter
             finally:
-                free_nonmovingbuffer(d, buf)
+                free_nonmovingbuffer(d, buf, is_pinned, is_raw)
         assert f() == len(d)
         fn = self.compile(f, [], gcpolicy='ref')
         assert fn() == len(d)
@@ -530,13 +530,13 @@ class BaseTestRffi:
         def f():
             counter = 0
             for n in range(32):
-                buf = get_nonmovingbuffer(d)
+                buf, is_pinned, is_raw = get_nonmovingbuffer(d)
                 try:
                     for i in range(len(d)):
                         if buf[i] == d[i]:
                             counter += 1
                 finally:
-                    free_nonmovingbuffer(d, buf)
+                    free_nonmovingbuffer(d, buf, is_pinned, is_raw)
             return counter
         fn = self.compile(f, [], gcpolicy='semispace')
         # The semispace gc uses raw_malloc for its internal data structs

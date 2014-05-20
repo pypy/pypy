@@ -127,8 +127,7 @@ def decode(codec, stringdata, errors="strict", errorcb=None, namecb=None):
 def decodeex(decodebuf, stringdata, errors="strict", errorcb=None, namecb=None,
              ignore_error=0):
     inleft = len(stringdata)
-    inbuf = rffi.get_nonmovingbuffer(stringdata)
-    try:
+    with rffi.scoped_nonmovingbuffer(stringdata) as inbuf:
         if pypy_cjk_dec_init(decodebuf, inbuf, inleft) < 0:
             raise MemoryError
         while True:
@@ -140,9 +139,6 @@ def decodeex(decodebuf, stringdata, errors="strict", errorcb=None, namecb=None,
         src = pypy_cjk_dec_outbuf(decodebuf)
         length = pypy_cjk_dec_outlen(decodebuf)
         return rffi.wcharpsize2unicode(src, length)
-    #
-    finally:
-        rffi.free_nonmovingbuffer(stringdata, inbuf)
 
 def multibytecodec_decerror(decodebuf, e, errors,
                             errorcb, namecb, stringdata):
@@ -171,11 +167,8 @@ def multibytecodec_decerror(decodebuf, e, errors,
         assert errorcb
         replace, end = errorcb(errors, namecb, reason,
                                stringdata, start, end)
-    inbuf = rffi.get_nonmoving_unicodebuffer(replace)
-    try:
+    with rffi.scoped_nonmoving_unicodebuffer(replace) as inbuf:
         r = pypy_cjk_dec_replace_on_error(decodebuf, inbuf, len(replace), end)
-    finally:
-        rffi.free_nonmoving_unicodebuffer(replace, inbuf)
     if r == MBERR_NOMEMORY:
         raise MemoryError
 
@@ -222,8 +215,7 @@ def encode(codec, unicodedata, errors="strict", errorcb=None, namecb=None):
 def encodeex(encodebuf, unicodedata, errors="strict", errorcb=None,
              namecb=None, ignore_error=0):
     inleft = len(unicodedata)
-    inbuf = rffi.get_nonmoving_unicodebuffer(unicodedata)
-    try:
+    with rffi.scoped_nonmoving_unicodebuffer(unicodedata) as inbuf:
         if pypy_cjk_enc_init(encodebuf, inbuf, inleft) < 0:
             raise MemoryError
         if ignore_error == 0:
@@ -245,9 +237,6 @@ def encodeex(encodebuf, unicodedata, errors="strict", errorcb=None,
         src = pypy_cjk_enc_outbuf(encodebuf)
         length = pypy_cjk_enc_outlen(encodebuf)
         return rffi.charpsize2str(src, length)
-    #
-    finally:
-        rffi.free_nonmoving_unicodebuffer(unicodedata, inbuf)
 
 def multibytecodec_encerror(encodebuf, e, errors,
                             errorcb, namecb, unicodedata):
@@ -287,10 +276,7 @@ def multibytecodec_encerror(encodebuf, e, errors,
             assert retu is not None
             codec = pypy_cjk_enc_getcodec(encodebuf)
             replace = encode(codec, retu, "strict", errorcb, namecb)
-    inbuf = rffi.get_nonmovingbuffer(replace)
-    try:
+    with rffi.scoped_nonmovingbuffer(replace) as inbuf:
         r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, len(replace), end)
-    finally:
-        rffi.free_nonmovingbuffer(replace, inbuf)
     if r == MBERR_NOMEMORY:
         raise MemoryError

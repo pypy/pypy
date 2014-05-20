@@ -133,8 +133,7 @@ class RFile(object):
         if not ll_file:
             raise ValueError("I/O operation on closed file")
         assert value is not None
-        ll_value, is_pinned, is_raw = rffi.get_nonmovingbuffer(value)
-        try:
+        with rffi.scoped_nonmovingbuffer(value) as ll_value:
             # note that since we got a nonmoving buffer, it is either raw
             # or already cannot move, so the arithmetics below are fine
             length = len(value)
@@ -142,8 +141,6 @@ class RFile(object):
             if bytes != length:
                 errno = rposix.get_errno()
                 raise OSError(errno, os.strerror(errno))
-        finally:
-            rffi.free_nonmovingbuffer(value, ll_value, is_pinned, is_raw)
 
     def close(self):
         """Closes the described file.
