@@ -533,6 +533,20 @@ class SomeBuiltin(SomeObject):
         return False
 
 
+class SomeBuiltinMethod(SomeBuiltin):
+    """ Stands for a built-in method which has got special meaning
+    """
+    def __init__(self, analyser, s_self, methodname):
+        if isinstance(analyser, MethodType):
+            analyser = descriptor.InstanceMethod(
+                analyser.im_func,
+                analyser.im_self,
+                analyser.im_class)
+        self.analyser = analyser
+        self.s_self = s_self
+        self.methodname = methodname
+
+
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
     will never show up at run-time, e.g. elements of an empty list."""

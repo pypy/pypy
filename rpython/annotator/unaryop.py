@@ -7,8 +7,8 @@ from __future__ import absolute_import
 from rpython.flowspace.operation import op
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
-    SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeFloat, SomeIterator,
-    SomePBC, SomeType, s_ImpossibleValue,
+    SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
+    SomeFloat, SomeIterator, SomePBC, SomeType, s_ImpossibleValue,
     s_Bool, s_None, unionof, add_knowntypedata,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
@@ -108,7 +108,7 @@ class __extend__(SomeObject):
         except AttributeError:
             return None
         else:
-            return SomeBuiltin(analyser, self, name)
+            return SomeBuiltinMethod(analyser, self, name)
 
     def getattr(self, s_attr):
         # get a SomeBuiltin if the SomeObject has
