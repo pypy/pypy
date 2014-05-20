@@ -8,7 +8,16 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
     descr_set_dict, descr_del_dict)
 from pypy.objspace.std import unicodeobject
+from pypy.objspace.std.floatobject import HASH_MODULUS, HASH_INF, HASH_NAN
 from pypy.module._decimal import interp_context
+
+if HASH_MODULUS == 2**31 - 1:
+    INVERSE_10_MODULUS = 1503238553
+elif HASH_MODULUS == 2**61 - 1:
+    INVERSE_10_MODULUS = 2075258708292324556
+else:
+    raise NotImplementedError('Unsupported HASH_MODULUS')
+assert (INVERSE_10_MODULUS * 10) % HASH_MODULUS == 1
 
 
 IEEE_CONTEXT_MAX_BITS = rmpdec.MPD_IEEE_CONTEXT_MAX_BITS
@@ -81,6 +90,78 @@ class W_Decimal(W_Root):
         finally:
             rmpdec.mpd_free(cp)
         return space.wrap("Decimal('%s')" % result)
+
+    def descr_hash(self, space):
+        if rmpdec.mpd_isspecial(self.mpd):
+            if rmpdec.mpd_issnan(self.mpd):
+                raise oefmt(space.w_TypeError,
+                            "cannot hash a signaling NaN value")
+            elif rmpdec.mpd_isnan(self.mpd):
+                return space.wrap(HASH_NAN)
+            elif rmpdec.mpd_isnegative(self.mpd):
+                return space.wrap(-HASH_INF)
+            else:
+                return space.wrap(HASH_INF)
+
+        with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1,
+                                 zero=True) as status_ptr:
+            with lltype.scoped_alloc(rmpdec.MPD_CONTEXT_PTR.TO) as ctx:
+                rmpdec.mpd_maxcontext(ctx)
+
+                # XXX cache these
+                w_p = W_Decimal.allocate(space)
+                rmpdec.mpd_qset_ssize(w_p.mpd, HASH_MODULUS,
+                                      ctx, status_ptr)
+                w_ten = W_Decimal.allocate(space)
+                rmpdec.mpd_qset_ssize(w_ten.mpd, 10,
+                                      ctx, status_ptr)
+                w_inv10_p = W_Decimal.allocate(space)
+                rmpdec.mpd_qset_ssize(w_inv10_p.mpd, INVERSE_10_MODULUS,
+                                      ctx, status_ptr)
+
+
+                w_exp_hash = W_Decimal.allocate(space)
+                w_tmp = W_Decimal.allocate(space)
+                exp = self.mpd.c_exp
+                if exp >= 0:
+                    # 10**exp(v) % p
+                    rmpdec.mpd_qsset_ssize(w_tmp.mpd, exp, ctx, status_ptr)
+                    rmpdec.mpd_qpowmod(
+                        w_exp_hash.mpd, w_ten.mpd, w_tmp.mpd, w_p.mpd,
+                        ctx, status_ptr)
+                else:
+                    # inv10_p**(-exp(v)) % p
+                    rmpdec.mpd_qsset_ssize(w_tmp.mpd, -exp, ctx, status_ptr)
+                    rmpdec.mpd_qpowmod(
+                        w_exp_hash.mpd, w_inv10_p.mpd, w_tmp.mpd, w_p.mpd,
+                        ctx, status_ptr)
+                # hash = (int(v) * exp_hash) % p
+                rmpdec.mpd_qcopy(w_tmp.mpd, self.mpd, status_ptr)
+                w_tmp.mpd.c_exp = 0
+                rmpdec.mpd_set_positive(w_tmp.mpd)
+
+                ctx.c_prec = rmpdec.MPD_MAX_PREC + 21
+                ctx.c_emax = rmpdec.MPD_MAX_EMAX + 21
+                ctx.c_emin = rmpdec.MPD_MIN_EMIN - 21
+
+                rmpdec.mpd_qmul(w_tmp.mpd, w_tmp.mpd, w_exp_hash.mpd,
+                                ctx, status_ptr)
+                rmpdec.mpd_qrem(w_tmp.mpd, w_tmp.mpd, w_p.mpd,
+                                ctx, status_ptr)
+
+                result = rmpdec.mpd_qget_ssize(w_tmp.mpd, status_ptr);
+                if rmpdec.mpd_isnegative(self.mpd):
+                    result = -result
+                if result == -1:
+                    result = -2
+            status = rffi.cast(lltype.Signed, status_ptr[0])
+        if status:
+            if status & rmpdec.MPD_Malloc_error:
+                raise OperationError(space.w_MemoryError, space.w_None)
+            else:
+                raise OperationError(space.w_SystemError, space.wrap(
+                        "Decimal.__hash__ internal error; please report"))
+        return space.wrap(result)
 
     def descr_bool(self, space):
         return space.wrap(not rmpdec.mpd_iszero(self.mpd))
@@ -166,16 +247,19 @@ class W_Decimal(W_Root):
 
     def compare(self, space, w_other, op):
         context = interp_context.getcontext(space)
-        w_err, w_other = convert_op(space, context, w_other)
+        w_err, w_self, w_other = convert_binop_cmp(
+            space, context, op, self, w_other)
         if w_err:
             return w_err
-        with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1) as status_ptr:
-            r = rmpdec.mpd_qcmp(self.mpd, w_other.mpd, status_ptr)
+        with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1,
+                                 zero=True) as status_ptr:
+            r = rmpdec.mpd_qcmp(w_self.mpd, w_other.mpd, status_ptr)
 
             if r > 0xFFFF:
                 # sNaNs or op={le,ge,lt,gt} always signal.
-                if (rmpdec.mpd_issnan(self.mpd) or rmpdec.mpd_issnan(w_other.mpd)
-                    or (op not in ('eq', 'ne'))):
+                if (rmpdec.mpd_issnan(w_self.mpd) or
+                    rmpdec.mpd_issnan(w_other.mpd) or
+                    op not in ('eq', 'ne')):
                     status = rffi.cast(lltype.Signed, status_ptr[0])
                     context.addstatus(space, status)
                 # qNaN comparison with op={eq,ne} or comparison with
@@ -436,6 +520,41 @@ def convert_binop_raise(space, context, w_x, w_y):
                     space.type(w_y))
     return w_a, w_b
 
+def convert_binop_cmp(space, context, op, w_v, w_w):
+    if isinstance(w_w, W_Decimal):
+        return None, w_v, w_w
+    elif space.isinstance_w(w_w, space.w_int):
+        value = space.bigint_w(w_w)
+        w_w = decimal_from_bigint(space, None, value, context,
+                                  exact=True)
+        return None, w_v, w_w
+    elif space.isinstance_w(w_w, space.w_float):
+        if op not in ('eq', 'ne'):
+            # Add status, and maybe raise
+            context.addstatus(space, rmpdec.MPD_Float_operation)
+        else:
+            # Add status, but don't raise
+            new_status = (rmpdec.MPD_Float_operation |
+                          rffi.cast(lltype.Signed, context.ctx.c_status))
+            context.ctx.c_status = rffi.cast(rffi.UINT, new_status)
+        w_w = decimal_from_float(space, None, w_w, context, exact=True)
+    elif space.isinstance_w(w_w, space.w_complex):
+        if op not in ('eq', 'ne'):
+            return space.w_NotImplemented, None, None
+        real, imag = space.unpackcomplex(w_w)
+        if imag == 0.0:
+            # Add status, but don't raise
+            new_status = (rmpdec.MPD_Float_operation |
+                          rffi.cast(lltype.Signed, context.ctx.c_status))
+            context.ctx.c_status = rffi.cast(rffi.UINT, new_status)
+            w_w = decimal_from_float(space, None, w_w, context, exact=True)
+        else:
+            return space.w_NotImplemented, None, None
+    else:
+        return space.w_NotImplemented, None, None
+    return None, w_v, w_w
+
+
 def binary_number_method(space, mpd_func, w_x, w_y):
     context = interp_context.getcontext(space)
 
@@ -684,6 +803,7 @@ W_Decimal.typedef = TypeDef(
     __new__ = interp2app(descr_new_decimal),
     __str__ = interp2app(W_Decimal.descr_str),
     __repr__ = interp2app(W_Decimal.descr_repr),
+    __hash__ = interp2app(W_Decimal.descr_hash),
     __bool__ = interp2app(W_Decimal.descr_bool),
     __float__ = interp2app(W_Decimal.descr_float),
     __int__ = interp2app(W_Decimal.descr_int),

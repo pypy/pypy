@@ -644,6 +644,180 @@ class AppTestExplicitConstruction:
         assert -Decimal(45) == Decimal(-45)
         assert abs(Decimal(45)) == abs(Decimal(-45))
 
+    def test_hash_method(self):
+
+        Decimal = self.decimal.Decimal
+        localcontext = self.decimal.localcontext
+
+        def hashit(d):
+            a = hash(d)
+            b = d.__hash__()
+            assert a == b
+            return a
+
+        #just that it's hashable
+        hashit(Decimal(23))
+        hashit(Decimal('Infinity'))
+        hashit(Decimal('-Infinity'))
+        hashit(Decimal('nan123'))
+        hashit(Decimal('-NaN'))
+
+        test_values = [Decimal(sign*(2**m + n))
+                       for m in [0, 14, 15, 16, 17, 30, 31,
+                                 32, 33, 61, 62, 63, 64, 65, 66]
+                       for n in range(-10, 10)
+                       for sign in [-1, 1]]
+        test_values.extend([
+                Decimal("-1"), # ==> -2
+                Decimal("-0"), # zeros
+                Decimal("0.00"),
+                Decimal("-0.000"),
+                Decimal("0E10"),
+                Decimal("-0E12"),
+                Decimal("10.0"), # negative exponent
+                Decimal("-23.00000"),
+                Decimal("1230E100"), # positive exponent
+                Decimal("-4.5678E50"),
+                # a value for which hash(n) != hash(n % (2**64-1))
+                # in Python pre-2.6
+                Decimal(2**64 + 2**32 - 1),
+                # selection of values which fail with the old (before
+                # version 2.6) long.__hash__
+                Decimal("1.634E100"),
+                Decimal("90.697E100"),
+                Decimal("188.83E100"),
+                Decimal("1652.9E100"),
+                Decimal("56531E100"),
+                ])
+
+        # check that hash(d) == hash(int(d)) for integral values
+        for value in test_values:
+            assert hashit(value) == hashit(int(value))
+
+        #the same hash that to an int
+        assert hashit(Decimal(23)) == hashit(23)
+        raises(TypeError, hash, Decimal('sNaN'))
+        assert hashit(Decimal('Inf'))
+        assert hashit(Decimal('-Inf'))
+
+        # check that the hashes of a Decimal float match when they
+        # represent exactly the same values
+        test_strings = ['inf', '-Inf', '0.0', '-.0e1',
+                        '34.0', '2.5', '112390.625', '-0.515625']
+        for s in test_strings:
+            f = float(s)
+            d = Decimal(s)
+            assert hashit(f) == hashit(d)
+
+        with localcontext() as c:
+            # check that the value of the hash doesn't depend on the
+            # current context (issue #1757)
+            x = Decimal("123456789.1")
+
+            c.prec = 6
+            h1 = hashit(x)
+            c.prec = 10
+            h2 = hashit(x)
+            c.prec = 16
+            h3 = hashit(x)
+
+            assert h1 == h2 == h3
+
+            c.prec = 10000
+            x = 1100 ** 1248
+            assert hashit(Decimal(x)) == hashit(x)
+
+    def test_float_comparison(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+        FloatOperation = self.decimal.FloatOperation
+        localcontext = self.decimal.localcontext
+
+        def assert_attr(a, b, attr, context, signal=None):
+            context.clear_flags()
+            f = getattr(a, attr)
+            if signal == FloatOperation:
+                raises(signal, f, b)
+            else:
+                assert f(b) is True
+            assert context.flags[FloatOperation]
+
+        small_d = Decimal('0.25')
+        big_d = Decimal('3.0')
+        small_f = 0.25
+        big_f = 3.0
+
+        zero_d = Decimal('0.0')
+        neg_zero_d = Decimal('-0.0')
+        zero_f = 0.0
+        neg_zero_f = -0.0
+
+        inf_d = Decimal('Infinity')
+        neg_inf_d = Decimal('-Infinity')
+        inf_f = float('inf')
+        neg_inf_f = float('-inf')
+
+        def doit(c, signal=None):
+            # Order
+            for attr in '__lt__', '__le__':
+                assert_attr(small_d, big_f, attr, c, signal)
+
+            for attr in '__gt__', '__ge__':
+                assert_attr(big_d, small_f, attr, c, signal)
+
+            # Equality
+            assert_attr(small_d, small_f, '__eq__', c, None)
+
+            assert_attr(neg_zero_d, neg_zero_f, '__eq__', c, None)
+            assert_attr(neg_zero_d, zero_f, '__eq__', c, None)
+
+            assert_attr(zero_d, neg_zero_f, '__eq__', c, None)
+            assert_attr(zero_d, zero_f, '__eq__', c, None)
+
+            assert_attr(neg_inf_d, neg_inf_f, '__eq__', c, None)
+            assert_attr(inf_d, inf_f, '__eq__', c, None)
+
+            # Inequality
+            assert_attr(small_d, big_f, '__ne__', c, None)
+
+            assert_attr(Decimal('0.1'), 0.1, '__ne__', c, None)
+
+            assert_attr(neg_inf_d, inf_f, '__ne__', c, None)
+            assert_attr(inf_d, neg_inf_f, '__ne__', c, None)
+
+            assert_attr(Decimal('NaN'), float('nan'), '__ne__', c, None)
+
+        def test_containers(c, signal=None):
+            c.clear_flags()
+            s = set([100.0, Decimal('100.0')])
+            assert len(s) == 1
+            assert c.flags[FloatOperation]
+
+            c.clear_flags()
+            if signal:
+                raises(signal, sorted, [1.0, Decimal('10.0')])
+            else:
+                s = sorted([10.0, Decimal('10.0')])
+            assert c.flags[FloatOperation]
+
+            c.clear_flags()
+            b = 10.0 in [Decimal('10.0'), 1.0]
+            assert c.flags[FloatOperation]
+
+            c.clear_flags()
+            b = 10.0 in {Decimal('10.0'):'a', 1.0:'b'}
+            assert c.flags[FloatOperation]
+
+        nc = Context()
+        with localcontext(nc) as c:
+            assert not c.traps[FloatOperation]
+            doit(c, signal=None)
+            test_containers(c, signal=None)
+
+            c.traps[FloatOperation] = True
+            doit(c, signal=FloatOperation)
+            test_containers(c, signal=FloatOperation)
+
     def test_nan_comparisons(self):
         import operator
         # comparisons involving signaling nans signal InvalidOperation

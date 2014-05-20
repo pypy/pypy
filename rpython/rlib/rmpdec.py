@@ -37,9 +37,10 @@ eci = ExternalCompilationInfo(
                            ],
     export_symbols=[
         "mpd_qset_ssize", "mpd_qset_uint", "mpd_qset_string",
+        "mpd_qsset_ssize", "mpd_qget_ssize",
         "mpd_qcopy", "mpd_qncopy", "mpd_setspecial", "mpd_clear_flags",
         "mpd_qimport_u32", "mpd_qexport_u32", "mpd_qexport_u16",
-        "mpd_set_sign", "mpd_sign", "mpd_qfinalize",
+        "mpd_set_sign", "mpd_set_positive", "mpd_sign", "mpd_qfinalize",
         "mpd_getprec", "mpd_getemin",  "mpd_getemax", "mpd_getround", "mpd_getclamp",
         "mpd_qsetprec", "mpd_qsetemin",  "mpd_qsetemax", "mpd_qsetround", "mpd_qsetclamp",
         "mpd_maxcontext",
@@ -151,6 +152,10 @@ mpd_qset_uint = external(
     'mpd_qset_uint', [MPD_PTR, rffi.UINT, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 mpd_qset_string = external(
     'mpd_qset_string', [MPD_PTR, rffi.CCHARP, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qsset_ssize = external(
+    'mpd_qsset_ssize', [MPD_PTR, rffi.SSIZE_T, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qget_ssize = external(
+    'mpd_qget_ssize', [MPD_PTR, rffi.UINTP], rffi.SSIZE_T)
 mpd_qimport_u32 = external(
     'mpd_qimport_u32', [
         MPD_PTR, rffi.UINTP, rffi.SIZE_T,
@@ -171,6 +176,8 @@ mpd_setspecial = external(
     'mpd_setspecial', [MPD_PTR, rffi.UCHAR, rffi.UCHAR], lltype.Void)
 mpd_set_sign = external(
     'mpd_set_sign', [MPD_PTR, rffi.UCHAR], lltype.Void)
+mpd_set_positive = external(
+    'mpd_set_positive', [MPD_PTR], lltype.Void)
 mpd_clear_flags = external(
     'mpd_clear_flags', [MPD_PTR], lltype.Void)
 mpd_sign = external(
