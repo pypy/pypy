@@ -697,21 +697,28 @@ class __extend__(SomeInstance):
         return s_next.call(bk.build_args("simple_call", []))
 
 class __extend__(SomeBuiltin):
+    def simple_call(self, *args):
+        return self.analyser(*args)
+
+    def call(self, args, implicit_init=False):
+        args_s, kwds = args.unpack()
+        # prefix keyword arguments with 's_'
+        kwds_s = {}
+        for key, s_value in kwds.items():
+            kwds_s['s_'+key] = s_value
+        return self.analyser(*args_s, **kwds_s)
+
+
+class __extend__(SomeBuiltinMethod):
     def _can_only_throw(self, *args):
         analyser_func = getattr(self.analyser, 'im_func', None)
         can_only_throw = getattr(analyser_func, 'can_only_throw', None)
         if can_only_throw is None or isinstance(can_only_throw, list):
             return can_only_throw
-        if self.s_self is not None:
-            return can_only_throw(self.s_self, *args)
-        else:
-            return can_only_throw(*args)
+        return can_only_throw(self.s_self, *args)
 
     def simple_call(self, *args):
-        if self.s_self is not None:
-            return self.analyser(self.s_self, *args)
-        else:
-            return self.analyser(*args)
+        return self.analyser(self.s_self, *args)
     simple_call.can_only_throw = _can_only_throw
 
     def call(self, args, implicit_init=False):
@@ -720,10 +727,7 @@ class __extend__(SomeBuiltin):
         kwds_s = {}
         for key, s_value in kwds.items():
             kwds_s['s_'+key] = s_value
-        if self.s_self is not None:
-            return self.analyser(self.s_self, *args_s, **kwds_s)
-        else:
-            return self.analyser(*args_s, **kwds_s)
+        return self.analyser(self.s_self, *args_s, **kwds_s)
 
 
 class __extend__(SomePBC):
