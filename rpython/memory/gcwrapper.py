@@ -5,9 +5,6 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.memory import gctypelayout
 from rpython.flowspace.model import Constant
 
-# XXX remove (groggi)
-from rpython.rlib.debug import debug_print, debug_start, debug_stop
-
 
 class GCManagedHeap(object):
 

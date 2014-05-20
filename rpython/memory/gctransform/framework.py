@@ -456,12 +456,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                             annmodel.SomeInteger(nonneg=True)],
                                            annmodel.s_None)
 
-        # XXX understand this, correct? (groggi)
         self.pin_ptr = getfn(GCClass.pin,
                              [s_gc, SomeAddress()],
                              annmodel.SomeBool())
 
-        # XXX understand this, correct? (groggi)
         self.unpin_ptr = getfn(GCClass.unpin,
                                [s_gc, SomeAddress()],
                                annmodel.s_None)
