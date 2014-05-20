@@ -122,7 +122,7 @@ class W_MemoryView(W_Root):
 
     def descr_len(self, space):
         self._check_released(space)
-        return space.wrap(self.buf.getlength())
+        return space.wrap(self.getlength())
 
     def w_get_format(self, space):
         self._check_released(space)
