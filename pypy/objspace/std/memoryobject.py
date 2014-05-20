@@ -85,7 +85,8 @@ class W_MemoryView(W_Root):
         size = stop - start
         if size < 0:
             size = 0
-        buf = SubBuffer(self.buf, start, size)
+        buf = SubBuffer(self.buf, start * self.buf.itemsize,
+                        size * self.buf.itemsize)
         return W_MemoryView(buf)
 
     def descr_tobytes(self, space):
