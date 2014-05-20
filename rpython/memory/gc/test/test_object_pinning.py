@@ -122,8 +122,13 @@ class TestIncminimark(PinningGCTest):
         ptr.someInt = 100
         assert self.gc.pin(adr)
         self.gc.id(ptr) # allocate shadow
-        self.gc.collect()
+        self.gc.minor_collection()
+        assert self.gc.is_in_nursery(adr)
         assert ptr.someInt == 100
+        self.gc.unpin(adr)
+        self.gc.minor_collection() # move to shadow
+        adr = llmemory.cast_ptr_to_adr(self.stackroots[0])
+        assert not self.gc.is_in_nursery(adr)
 
     def test_pin_shadow_2(self):
         ptr = self.malloc(S)
@@ -132,29 +137,39 @@ class TestIncminimark(PinningGCTest):
         ptr.someInt = 100
         assert self.gc.pin(adr)
         self.gc.identityhash(ptr) # allocate shadow
-        self.gc.collect()
+        self.gc.minor_collection()
+        assert self.gc.is_in_nursery(adr)
         assert ptr.someInt == 100
+        self.gc.unpin(adr)
+        self.gc.minor_collection() # move to shadow
+        adr = llmemory.cast_ptr_to_adr(self.stackroots[0])
+        assert not self.gc.is_in_nursery(adr)
 
     def test_pin_shadow_3(self):
-        s = self.malloc(S)
-        self.stackroots.append(s)
-        self.gc.id(s) # allocate shadow
-        self.gc.pin(llmemory.cast_ptr_to_adr(s))
-        
-        print("free: %s" % self.gc.nursery_free)
-        print("top: %s" % self.gc.nursery_top)
-        self.gc.minor_collection()
-        # XXX it seems like we adjust nursery_free wrong after the minor
-        # collection or there is some other bug. (groggi)
-        print("free: %s" % self.gc.nursery_free)
-        print("top: %s" % self.gc.nursery_top)
+        ptr = self.malloc(S)
+        adr = llmemory.cast_ptr_to_adr(ptr)
+        ptr.someInt = 100 # not used, just nice to have for identification
+        self.stackroots.append(ptr)
+        self.gc.id(ptr) # allocate shadow
 
-        self.gc.unpin(llmemory.cast_ptr_to_adr(s))
-        assert self.gc.nursery_free != self.gc.nursery
-        # we still have a pinned object
-        self.gc.minor_collection()
+        assert self.gc.pin(adr)
+        self.gc.minor_collection() # object stays in nursery
+        assert self.gc.is_in_nursery(adr)
+
+        self.gc.unpin(adr)
+        # we still have a pinned object at the beginning. There is no space left
+        # to malloc an object before the pinned one.
+        assert self.gc.is_in_nursery(adr)
         assert self.gc.nursery_free == self.gc.nursery
-        # we don't have a pinned object any more
+        assert self.gc.nursery_top == self.gc.nursery
+
+        self.gc.minor_collection()
+        # we don't have a pinned object any more.  There is now space left at
+        # the beginning of our nursery for new objects.
+        adr = llmemory.cast_ptr_to_adr(self.stackroots[0])
+        assert not self.gc.is_in_nursery(adr)
+        assert self.gc.nursery_free == self.gc.nursery
+        assert self.gc.nursery_top > self.gc.nursery
 
     # XXX test/define what happens if we try to pin an object that is too
     # big for the nursery and will be raw-malloc'ed.
