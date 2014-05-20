@@ -149,7 +149,7 @@ class gdbm(object):
         self._check_closed()
         lib.gdbm_sync(self.ll_dbm)
 
-def open(filename, flags='r', mode=0666):
+def open(filename, flags='r', mode=0o666):
     if flags[0] == 'r':
         iflags = lib.GDBM_READER
     elif flags[0] == 'w':
