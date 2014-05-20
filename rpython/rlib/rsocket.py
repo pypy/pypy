@@ -878,18 +878,18 @@ class RSocket(object):
         """Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  Return the number of bytes
         sent; this may be less than len(data) if the network is busy."""
-        dataptr = rffi.get_nonmovingbuffer(data)
+        dataptr, is_pinned, is_raw = rffi.get_nonmovingbuffer(data)
         try:
             return self.send_raw(dataptr, len(data), flags)
         finally:
-            rffi.free_nonmovingbuffer(data, dataptr)
+            rffi.free_nonmovingbuffer(data, dataptr, is_pinned, is_raw)
 
     def sendall(self, data, flags=0, signal_checker=None):
         """Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  This calls send() repeatedly
         until all data is sent.  If an error occurs, it's impossible
         to tell how much data has been sent."""
-        dataptr = rffi.get_nonmovingbuffer(data)
+        dataptr, is_pinned, is_raw = rffi.get_nonmovingbuffer(data)
         try:
             remaining = len(data)
             p = dataptr
@@ -904,7 +904,7 @@ class RSocket(object):
                 if signal_checker is not None:
                     signal_checker()
         finally:
-            rffi.free_nonmovingbuffer(data, dataptr)
+            rffi.free_nonmovingbuffer(data, dataptr, is_pinned, is_raw)
 
     def sendto(self, data, flags, address):
         """Like send(data, flags) but allows specifying the destination
@@ -1303,7 +1303,7 @@ if hasattr(_c, 'inet_ntop'):
             raise RSocketError("unknown address family")
         if len(packed) != srcsize:
             raise ValueError("packed IP wrong length for inet_ntop")
-        srcbuf = rffi.get_nonmovingbuffer(packed)
+        srcbuf = rffi.get_nonmovingbuffer(packed, is_pinned, is_raw)
         try:
             dstbuf = mallocbuf(dstsize)
             try:
@@ -1314,7 +1314,7 @@ if hasattr(_c, 'inet_ntop'):
             finally:
                 lltype.free(dstbuf, flavor='raw')
         finally:
-            rffi.free_nonmovingbuffer(packed, srcbuf)
+            rffi.free_nonmovingbuffer(packed, srcbuf, is_pinned, is_raw)
 
 def setdefaulttimeout(timeout):
     if timeout < 0.0:
