@@ -116,6 +116,7 @@ def display_exception(e):
 
     except BaseException as e:
         try:
+            initstdio()
             stderr = sys.stderr
             print('Error calling sys.excepthook:', file=stderr)
             originalexcepthook(type(e), e, e.__traceback__)
