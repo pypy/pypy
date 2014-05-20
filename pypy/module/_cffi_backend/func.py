@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.module._cffi_backend import ctypeobj, cdataobj
 
@@ -36,9 +36,8 @@ def sizeof(space, w_obj):
     elif isinstance(w_obj, ctypeobj.W_CType):
         size = w_obj.size
         if size < 0:
-            raise operationerrfmt(space.w_ValueError,
-                                  "ctype '%s' is of unknown size",
-                                  w_obj.name)
+            raise oefmt(space.w_ValueError,
+                        "ctype '%s' is of unknown size", w_obj.name)
     else:
         raise OperationError(space.w_TypeError,
                             space.wrap("expected a 'cdata' or 'ctype' object"))

@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt, exception_from_errno
+from pypy.interpreter.error import OperationError, exception_from_errno, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, generic_new_descr, GetSetProperty
 from rpython.rlib._rsocket_rffi import socketclose
@@ -149,9 +149,9 @@ class W_Kqueue(W_Root):
         self.check_closed(space)
 
         if max_events < 0:
-            raise operationerrfmt(space.w_ValueError,
-                "Length of eventlist must be 0 or positive, got %d", max_events
-            )
+            raise oefmt(space.w_ValueError,
+                        "Length of eventlist must be 0 or positive, got %d",
+                        max_events)
 
         if space.is_w(w_changelist, space.w_None):
             changelist_len = 0
@@ -165,9 +165,9 @@ class W_Kqueue(W_Root):
                     if not space.is_w(w_timeout, space.w_None):
                         _timeout = space.float_w(w_timeout)
                         if _timeout < 0:
-                            raise operationerrfmt(space.w_ValueError,
-                                "Timeout must be None or >= 0, got %s", str(_timeout)
-                            )
+                            raise oefmt(space.w_ValueError,
+                                        "Timeout must be None or >= 0, got %s",
+                                        str(_timeout))
                         sec = int(_timeout)
                         nsec = int(1e9 * (_timeout - sec))
                         rffi.setintfield(timeout, 'c_tv_sec', sec)

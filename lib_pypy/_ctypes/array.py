@@ -1,4 +1,4 @@
-import _ffi
+from _rawffi import alt as _ffi
 import _rawffi
 
 from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof

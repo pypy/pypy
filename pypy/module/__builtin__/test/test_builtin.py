@@ -24,6 +24,17 @@ class AppTestBuiltinApp:
         else:
             cls.w_safe_runtimerror = cls.space.wrap(sys.version_info < (2, 6))
 
+    def test_builtin_names(self):
+        import __builtin__
+        assert __builtin__.None is None
+        assert __builtin__.False is False
+        assert __builtin__.True is True
+
+        assert __builtin__.buffer is buffer
+        assert __builtin__.bytes is str
+        assert __builtin__.dict is dict
+        assert __builtin__.memoryview is memoryview
+
     def test_bytes_alias(self):
         assert bytes is str
         assert isinstance(eval("b'hi'"), str)
@@ -300,14 +311,14 @@ class AppTestBuiltinApp:
     def test_xrange_len(self):
         x = xrange(33)
         assert len(x) == 33
-        x = xrange(33.2)
-        assert len(x) == 33
+        exc = raises(TypeError, xrange, 33.2)
+        assert "integer" in str(exc.value)
         x = xrange(33,0,-1)
         assert len(x) == 33
         x = xrange(33,0)
         assert len(x) == 0
-        x = xrange(33,0.2)
-        assert len(x) == 0
+        exc = raises(TypeError, xrange, 33, 0.2)
+        assert "integer" in str(exc.value)
         x = xrange(0,33)
         assert len(x) == 33
         x = xrange(0,33,-1)
@@ -479,6 +490,14 @@ class AppTestBuiltinApp:
     def test_compile(self):
         co = compile('1+2', '?', 'eval')
         assert eval(co) == 3
+        co = compile(buffer('1+2'), '?', 'eval')
+        assert eval(co) == 3
+        exc = raises(TypeError, compile, chr(0), '?', 'eval')
+        assert str(exc.value) == "compile() expected string without null bytes"
+        exc = raises(TypeError, compile, unichr(0), '?', 'eval')
+        assert str(exc.value) == "compile() expected string without null bytes"
+        exc = raises(TypeError, compile, memoryview('1+2'), '?', 'eval')
+        assert str(exc.value) == "expected a readable buffer object"
         compile("from __future__ import with_statement", "<test>", "exec")
         raises(SyntaxError, compile, '-', '?', 'eval')
         raises(ValueError, compile, '"\\xt"', '?', 'eval')
@@ -486,10 +505,27 @@ class AppTestBuiltinApp:
         raises(ValueError, compile, "\n", "<string>", "exec", 0xff)
         raises(TypeError, compile, '1+2', 12, 34)
 
+    def test_compile_error_message(self):
+        import re
+        compile('# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
+        compile(b'\xef\xbb\xbf\n', 'dummy', 'exec')
+        compile(b'\xef\xbb\xbf# -*- coding: utf-8 -*-\n', 'dummy', 'exec')
+        exc = raises(SyntaxError, compile,
+            b'# -*- coding: fake -*-\n', 'dummy', 'exec')
+        assert 'fake' in str(exc.value)
+        exc = raises(SyntaxError, compile,
+            b'\xef\xbb\xbf# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
+        assert 'iso-8859-15' in str(exc.value)
+        assert 'BOM' in str(exc.value)
+        exc = raises(SyntaxError, compile,
+            b'\xef\xbb\xbf# -*- coding: fake -*-\n', 'dummy', 'exec')
+        assert 'fake' in str(exc.value)
+        assert 'BOM' in str(exc.value)
+
     def test_unicode_compile(self):
         try:
             compile(u'-', '?', 'eval')
-        except SyntaxError, e:
+        except SyntaxError as e:
             assert e.lineno == 1
 
     def test_unicode_encoding_compile(self):
@@ -573,6 +609,16 @@ def fn(): pass
         co = compile(src, 'mymod', 'exec')
         firstlineno = co.co_firstlineno
         assert firstlineno == 2
+
+    def test_compile_null_bytes(self):
+        import _ast
+        raises(TypeError, compile, '\x00', 'mymod', 'exec', 0)
+        raises(SyntaxError, compile, '\x00', 'mymod', 'exec',
+               _ast.PyCF_ACCEPT_NULL_BYTES)
+        src = "#abc\x00def\n"
+        raises(TypeError, compile, src, 'mymod', 'exec')
+        raises(TypeError, compile, src, 'mymod', 'exec', 0)
+        compile(src, 'mymod', 'exec', _ast.PyCF_ACCEPT_NULL_BYTES)  # works
 
     def test_print_function(self):
         import __builtin__

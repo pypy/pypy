@@ -1,25 +1,8 @@
 import sys
-import py
-import py.test
-
-
-## class AppTestSimpleArray:
-##     spaceconfig = dict(usemodules=('array',))
-##     def setup_class(cls):
-##         cls.w_simple_array = cls.space.appexec([], """():
-##             import array
-##             return array.simple_array
-##         """)
-
-##     def test_simple(self):
-##         a = self.simple_array(10)
-##         a[5] = 7.42
-##         assert a[5] == 7.42
+import pytest
 
 
 class BaseArrayTests:
-
-
     def test_ctor(self):
         assert len(self.array('c')) == 0
         assert len(self.array('i')) == 0
@@ -171,6 +154,11 @@ class BaseArrayTests:
         a = self.array('c')
         a.fromstring('Hi!')
         assert a[0] == 'H' and a[1] == 'i' and a[2] == '!' and len(a) == 3
+        a = self.array('c')
+        a.fromstring(buffer('xyz'))
+        exc = raises(TypeError, a.fromstring, memoryview('xyz'))
+        assert str(exc.value) == "must be string or read-only buffer, not memoryview"
+        assert a[0] == 'x' and a[1] == 'y' and a[2] == 'z' and len(a) == 3
         a = self.array('c')
         a.fromstring('')
         assert not len(a)
@@ -438,12 +426,8 @@ class BaseArrayTests:
     def test_buffer_write(self):
         a = self.array('c', 'hello')
         buf = buffer(a)
-        print repr(buf)
-        try:
-            buf[3] = 'L'
-        except TypeError:
-            skip("buffer(array) returns a read-only buffer on CPython")
-        assert a.tostring() == 'helLo'
+        exc = raises(TypeError, "buf[3] = 'L'")
+        assert str(exc.value) == "buffer is read-only"
 
     def test_buffer_keepalive(self):
         buf = buffer(self.array('c', 'text'))
@@ -562,7 +546,6 @@ class BaseArrayTests:
         assert a <= 2*a
         assert not a > 2*a
         assert not a >= 2*a
-
 
     def test_reduce(self):
         import pickle
@@ -714,6 +697,8 @@ class BaseArrayTests:
         for i in a:
             b.append(i)
         assert repr(b) == "array('i', [1, 2, 3])"
+        assert hasattr(b, '__iter__')
+        assert next(b.__iter__()) == 1
 
     def test_lying_iterable(self):
         class lier(object):
@@ -793,7 +778,6 @@ class BaseArrayTests:
                 assert img[x, y] == x * y
 
         assert img[3, 25] == 3 * 9
-
 
     def test_override_from(self):
         class mya(self.array):
@@ -879,41 +863,41 @@ class BaseArrayTests:
 
     def test_assign_object_with_special_methods(self):
         from array import array
-        
+
         class Num(object):
             def __float__(self):
                 return 5.25
-                
+
             def __int__(self):
                 return 7
-                
+
         class NotNum(object):
             pass
-        
+
         class Silly(object):
             def __float__(self):
                 return None
-                
+
             def __int__(self):
-                return None         
+                return None
 
         class OldNum:
             def __float__(self):
                 return 6.25
-                
+
             def __int__(self):
                 return 8
-                
+
         class OldNotNum:
             pass
-        
+
         class OldSilly:
             def __float__(self):
                 return None
-                
+
             def __int__(self):
                 return None
-                
+
         for tc in 'bBhHiIlL':
             a = array(tc, [0])
             raises(TypeError, a.__setitem__, 0, 1.0)
@@ -931,7 +915,7 @@ class BaseArrayTests:
             a = array(tc, [0])
             a[0] = 1.0
             a[0] = 1
-            a[0] = Num()        
+            a[0] = Num()
             assert a[0] == 5.25
             raises(TypeError, a.__setitem__, NotNum())
             a[0] = OldNum()
@@ -939,24 +923,23 @@ class BaseArrayTests:
             raises(TypeError, a.__setitem__, OldNotNum())
             raises(TypeError, a.__setitem__, Silly())
             raises(TypeError, a.__setitem__, OldSilly())
-            
+
         a = array('c', 'hi')
         a[0] = 'b'
         assert a[0] == 'b'
-            
+
         a = array('u', u'hi')
         a[0] = u'b'
         assert a[0] == u'b'
-        
+
 
 class TestCPythonsOwnArray(BaseArrayTests):
-
     def setup_class(cls):
         import array
         cls.array = array.array
         import struct
         cls.struct = struct
-        cls.tempfile = str(py.test.ensuretemp('array').join('tmpfile'))
+        cls.tempfile = str(pytest.ensuretemp('array').join('tmpfile'))
         cls.maxint = sys.maxint
 
 
@@ -969,7 +952,7 @@ class AppTestArray(BaseArrayTests):
             return array.array
         """)
         cls.w_tempfile = cls.space.wrap(
-            str(py.test.ensuretemp('array').join('tmpfile')))
+            str(pytest.ensuretemp('array').join('tmpfile')))
         cls.w_maxint = cls.space.wrap(sys.maxint)
 
     def test_buffer_info(self):
@@ -1034,8 +1017,19 @@ class AppTestArray(BaseArrayTests):
         assert len(b) == 13
         assert str(b[12]) == "-0.0"
 
+    def test_getitem_only_ints(self):
+        class MyInt(object):
+            def __init__(self, x):
+                self.x = x
+
+            def __int__(self):
+                return self.x
+
+        a = self.array('i', [1, 2, 3, 4, 5, 6])
+        raises(TypeError, "a[MyInt(0)]")
+        raises(TypeError, "a[MyInt(0):MyInt(5)]")
+
 
 class AppTestArrayBuiltinShortcut(AppTestArray):
     spaceconfig = AppTestArray.spaceconfig.copy()
     spaceconfig['objspace.std.builtinshortcut'] = True
-

@@ -7,8 +7,8 @@ attribute.
 """
 
 from rpython.rlib.unroll import unrolling_iterable
-from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.eval import Code
 from pypy.interpreter.argument import Arguments
 from rpython.rlib import jit
@@ -413,9 +413,9 @@ class Function(W_Root):
         if self.closure:
             closure_len = len(self.closure)
         if isinstance(code, PyCode) and closure_len != len(code.co_freevars):
-            raise operationerrfmt(space.w_ValueError,
-                "%N() requires a code object with %d free vars, not %d",
-                self, closure_len, len(code.co_freevars))
+            raise oefmt(space.w_ValueError,
+                        "%N() requires a code object with %d free vars, not "
+                        "%d", self, closure_len, len(code.co_freevars))
         self.fget_func_doc(space)    # see test_issue1293
         self.code = code
 
@@ -495,10 +495,9 @@ class Method(W_Root):
                     instdescr = instname + " instance"
                 else:
                     instdescr = "instance"
-            msg = ("unbound method %N() must be called with %s "
-                   "as first argument (got %s instead)")
-            raise operationerrfmt(space.w_TypeError, msg,
-                                  self, clsdescr, instdescr)
+            raise oefmt(space.w_TypeError,
+                        "unbound method %N() must be called with %s as first "
+                        "argument (got %s instead)", self, clsdescr, instdescr)
         return space.call_args(self.w_function, args)
 
     def descr_method_get(self, w_obj, w_cls=None):

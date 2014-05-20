@@ -10,9 +10,9 @@ from rpython.rtyper.lltypesystem.rclass import ll_inst_type
 from rpython.rtyper import rtyper
 from rpython.rtyper.rmodel import inputconst
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
-from rpython.rlib.rarithmetic import r_singlefloat
+from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
 from rpython.rlib.debug import ll_assert
-from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -22,6 +22,7 @@ PrimitiveErrorValue = {lltype.Signed: -1,
                        lltype.UnsignedLongLong: r_ulonglong(-1),
                        lltype.Float: -1.0,
                        lltype.SingleFloat: r_singlefloat(-1.0),
+                       lltype.LongFloat: r_longfloat(-1.0),
                        lltype.Char: chr(255),
                        lltype.UniChar: unichr(0xFFFF), # XXX is this always right?
                        lltype.Bool: True,
@@ -163,7 +164,7 @@ class ExceptionTransformer(object):
         return fn
 
     def build_func(self, name, fn, inputtypes, rettype, **kwds):
-        l2a = annmodel.lltype_to_annotation
+        l2a = lltype_to_annotation
         graph = self.mixlevelannotator.getgraph(fn, map(l2a, inputtypes), l2a(rettype))
         return self.constant_func(name, inputtypes, rettype, graph,
                                   exception_policy="exc_helper", **kwds)

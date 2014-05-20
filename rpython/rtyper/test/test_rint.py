@@ -1,7 +1,6 @@
 import py
 import sys, operator
 from rpython.translator.translator import TranslationContext
-from rpython.annotator import unaryop, binaryop
 from rpython.rtyper.test import snippet
 from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import ovfcheck, r_int64, intmask, int_between
@@ -28,16 +27,6 @@ class TestSnippet(object):
 
     def test_int_cast1(self):
         self._test(snippet.int_cast1, [int])
-
-    def DONTtest_unary_operations(self):
-        # XXX TODO test if all unary operations are implemented
-        for opname in unaryop.UNARY_OPERATIONS:
-            print 'UNARY_OPERATIONS:', opname
-
-    def DONTtest_binary_operations(self):
-        # XXX TODO test if all binary operations are implemented
-        for opname in binaryop.BINARY_OPERATIONS:
-            print 'BINARY_OPERATIONS:', opname
 
 
 class TestRint(BaseRtypingTest):

@@ -229,12 +229,13 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_RESTYPE, s_pythonfunction, *args_s):
         from rpython.annotator import model as annmodel
+        from rpython.rtyper.llannotation import lltype_to_annotation
         from rpython.rtyper.lltypesystem import lltype
         assert s_RESTYPE.is_constant()
         assert s_pythonfunction.is_constant()
         s_result = s_RESTYPE.const
         if isinstance(s_result, lltype.LowLevelType):
-            s_result = annmodel.lltype_to_annotation(s_result)
+            s_result = lltype_to_annotation(s_result)
         assert isinstance(s_result, annmodel.SomeObject)
         return s_result
 
@@ -287,7 +288,9 @@ class Entry(ExtRegistryEntry):
     _about_ = make_sure_not_resized
 
     def compute_result_annotation(self, s_arg):
-        from rpython.annotator.model import SomeList
+        from rpython.annotator.model import SomeList, s_None
+        if s_None.contains(s_arg):
+            return s_arg    # only None: just return
         assert isinstance(s_arg, SomeList)
         # the logic behind it is that we try not to propagate
         # make_sure_not_resized, when list comprehension is not on

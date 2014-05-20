@@ -1,6 +1,6 @@
 import py, random
 
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr, rffi
 from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from rpython.rtyper.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
 
@@ -92,6 +92,7 @@ class LLtypeMixin(object):
     NODE.become(lltype.GcStruct('NODE', ('parent', OBJECT),
                                         ('value', lltype.Signed),
                                         ('floatval', lltype.Float),
+                                        ('charval', lltype.Char),
                                         ('next', lltype.Ptr(NODE))))
     NODE2 = lltype.GcStruct('NODE2', ('parent', NODE),
                                      ('other', lltype.Ptr(NODE)))
@@ -108,6 +109,7 @@ class LLtypeMixin(object):
     nodesize2 = cpu.sizeof(NODE2)
     valuedescr = cpu.fielddescrof(NODE, 'value')
     floatdescr = cpu.fielddescrof(NODE, 'floatval')
+    chardescr = cpu.fielddescrof(NODE, 'charval')
     nextdescr = cpu.fielddescrof(NODE, 'next')
     otherdescr = cpu.fielddescrof(NODE2, 'other')
 
@@ -179,31 +181,36 @@ class LLtypeMixin(object):
     plaincalldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                      EffectInfo.MOST_GENERAL)
     nonwritedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                    EffectInfo([], [], [], []))
+                                    EffectInfo([], [], [], [], [], []))
     writeadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                  EffectInfo([], [], [adescr], []))
+                                  EffectInfo([], [], [], [adescr], [], []))
     writearraydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                  EffectInfo([], [], [adescr], [arraydescr]))
+                                  EffectInfo([], [], [], [adescr], [arraydescr],
+                                             []))
     readadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                 EffectInfo([adescr], [], [], []))
+                                 EffectInfo([adescr], [], [], [], [], []))
     mayforcevirtdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                 EffectInfo([nextdescr], [], [], [],
+                 EffectInfo([nextdescr], [], [], [], [], [],
                             EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE,
                             can_invalidate=True))
     arraycopydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-             EffectInfo([], [arraydescr], [], [arraydescr],
+             EffectInfo([], [arraydescr], [], [], [arraydescr], [],
                         EffectInfo.EF_CANNOT_RAISE,
                         oopspecindex=EffectInfo.OS_ARRAYCOPY))
 
     raw_malloc_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-             EffectInfo([], [], [], [],
+             EffectInfo([], [], [], [], [], [],
                         EffectInfo.EF_CAN_RAISE,
                         oopspecindex=EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR))
     raw_free_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-             EffectInfo([], [], [], [],
+             EffectInfo([], [], [], [], [], [],
                         EffectInfo.EF_CANNOT_RAISE,
                         oopspecindex=EffectInfo.OS_RAW_FREE))
 
+    chararray = lltype.GcArray(lltype.Char)
+    chararraydescr = cpu.arraydescrof(chararray)
+    u2array = lltype.GcArray(rffi.USHORT)
+    u2arraydescr = cpu.arraydescrof(u2array)
 
     # array of structs (complex data)
     complexarray = lltype.GcArray(
@@ -220,7 +227,15 @@ class LLtypeMixin(object):
                                                   hints={'nolength': True}))
     rawarraydescr_char = cpu.arraydescrof(lltype.Array(lltype.Char,
                                                        hints={'nolength': True}))
+    rawarraydescr_float = cpu.arraydescrof(lltype.Array(lltype.Float,
+                                                        hints={'nolength': True}))
 
+    fc_array = lltype.GcArray(
+        lltype.Struct(
+            "floatchar", ("float", lltype.Float), ("char", lltype.Char)))
+    fc_array_descr = cpu.arraydescrof(fc_array)
+    fc_array_floatdescr = cpu.interiorfielddescrof(fc_array, "float")
+    fc_array_chardescr = cpu.interiorfielddescrof(fc_array, "char")
 
     for _name, _os in [
         ('strconcatdescr',               'OS_STR_CONCAT'),
@@ -237,17 +252,18 @@ class LLtypeMixin(object):
         _oopspecindex = getattr(EffectInfo, _os)
         locals()[_name] = \
             cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
                            oopspecindex=_oopspecindex))
         #
         _oopspecindex = getattr(EffectInfo, _os.replace('STR', 'UNI'))
         locals()[_name.replace('str', 'unicode')] = \
             cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
                            oopspecindex=_oopspecindex))
 
     s2u_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-            EffectInfo([], [], [], [], oopspecindex=EffectInfo.OS_STR2UNICODE))
+            EffectInfo([], [], [], [], [], [],
+                       oopspecindex=EffectInfo.OS_STR2UNICODE))
     #
 
     class LoopToken(AbstractDescr):
@@ -263,7 +279,7 @@ class LLtypeMixin(object):
     virtualtokendescr = vrefinfo.descr_virtual_token
     virtualforceddescr = vrefinfo.descr_forced
     FUNC = lltype.FuncType([], lltype.Void)
-    ei = EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
                     can_invalidate=False,
                     oopspecindex=EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE)
     clear_vable = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
@@ -303,11 +319,21 @@ class FakeMetaInterpStaticData(object):
         def log_loop(*args):
             pass
 
+    class logger_ops:
+        repr_of_resop = repr
+
     class warmrunnerdesc:
         class memory_manager:
             retrace_limit = 5
             max_retrace_guards = 15
         jitcounter = DeterministicJitCounter()
+
+    def get_name_from_address(self, addr):
+        # hack
+        try:
+            return "".join(addr.ptr.name)[:-1] # remove \x00
+        except AttributeError:
+            return ""
 
 class Storage(compile.ResumeGuardDescr):
     "for tests."
@@ -329,11 +355,21 @@ def _sortboxes(boxes):
 
 class BaseTest(object):
 
-    def parse(self, s, boxkinds=None):
+    def parse(self, s, boxkinds=None, want_fail_descr=True):
+        if want_fail_descr:
+            invent_fail_descr = self.invent_fail_descr
+        else:
+            invent_fail_descr = lambda *args: None
         return parse(s, self.cpu, self.namespace,
                      type_system=self.type_system,
                      boxkinds=boxkinds,
-                     invent_fail_descr=self.invent_fail_descr)
+                     invent_fail_descr=invent_fail_descr)
+
+    def add_guard_future_condition(self, res):
+        # invent a GUARD_FUTURE_CONDITION to not have to change all tests
+        if res.operations[-1].getopnum() == rop.JUMP:
+            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], None, descr=self.invent_fail_descr(None, -1, []))
+            res.operations.insert(-1, guard)
 
     def invent_fail_descr(self, model, opnum, fail_args):
         if fail_args is None:
@@ -371,6 +407,7 @@ class BaseTest(object):
         optimize_trace(metainterp_sd, loop, self.enable_opts)
 
     def unroll_and_optimize(self, loop, call_pure_results=None):
+        self.add_guard_future_condition(loop)
         operations =  loop.operations
         jumpop = operations[-1]
         assert jumpop.getopnum() == rop.JUMP
@@ -382,7 +419,6 @@ class BaseTest(object):
 
         preamble = TreeLoop('preamble')
         preamble.inputargs = inputargs
-        preamble.resume_at_jump_descr = FakeDescrWithSnapshot()
 
         token = JitCellToken()
         preamble.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(token))] + \
@@ -393,7 +429,6 @@ class BaseTest(object):
         assert preamble.operations[-1].getopnum() == rop.LABEL
 
         inliner = Inliner(inputargs, jump_args)
-        loop.resume_at_jump_descr = preamble.resume_at_jump_descr
         loop.operations = [preamble.operations[-1]] + \
                           [inliner.inline_op(op, clone=False) for op in cloned_operations] + \
                           [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jump_args],
@@ -423,18 +458,6 @@ class FakeDescr(compile.ResumeGuardDescr):
         return FakeDescr()
     def __eq__(self, other):
         return isinstance(other, FakeDescr)
-
-class FakeDescrWithSnapshot(compile.ResumeGuardDescr):
-    class rd_snapshot:
-        class prev:
-            prev = None
-            boxes = []
-        boxes = []
-    def clone_if_mutable(self):
-        return FakeDescrWithSnapshot()
-    def __eq__(self, other):
-        return isinstance(other, Storage) or isinstance(other, FakeDescrWithSnapshot)
-
 
 def convert_old_style_to_targets(loop, jump):
     newloop = TreeLoop(loop.name)

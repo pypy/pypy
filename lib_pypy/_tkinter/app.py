@@ -334,15 +334,40 @@ class TkApp(object):
             return tkffi.string(tklib.Tcl_GetStringResult(self.interp))
 
     def split(self, arg):
-        if isinstance(arg, tuple):
+        if isinstance(arg, TclObject):
+            objc = tkffi.new("int*")
+            objv = tkffi.new("Tcl_Obj***")
+            status = tklib.Tcl_ListObjGetElements(self.interp, arg._value, objc, objv)
+            if status == tklib.TCL_ERROR:
+                return FromObj(self, arg._value)
+            if objc == 0:
+                return ''
+            elif objc == 1:
+                return FromObj(self, objv[0][0])
+            result = []
+            for i in range(objc[0]):
+                result.append(FromObj(self, objv[0][i]))
+            return tuple(result)
+        elif isinstance(arg, tuple):
             return self._splitObj(arg)
-        else:
-            return self._split(arg)
+        elif isinstance(arg, unicode):
+            arg = arg.encode('utf8')
+        return self._split(arg)
 
     def splitlist(self, arg):
-        if isinstance(arg, tuple):
+        if isinstance(arg, TclObject):
+            objc = tkffi.new("int*")
+            objv = tkffi.new("Tcl_Obj***")
+            status = tklib.Tcl_ListObjGetElements(self.interp, arg._value, objc, objv)
+            if status == tklib.TCL_ERROR:
+                self.raiseTclError()
+            result = []
+            for i in range(objc[0]):
+                result.append(FromObj(self, objv[0][i]))
+            return tuple(result)
+        elif isinstance(arg, tuple):
             return arg
-        if isinstance(arg, unicode):
+        elif isinstance(arg, unicode):
             arg = arg.encode('utf8')
 
         argc = tkffi.new("int*")
@@ -359,23 +384,34 @@ class TkApp(object):
     def _splitObj(self, arg):
         if isinstance(arg, tuple):
             size = len(arg)
+            result = None
             # Recursively invoke SplitObj for all tuple items.
             # If this does not return a new object, no action is
             # needed.
-            result = None
-            newelems = (self._splitObj(elem) for elem in arg)
-            for elem, newelem in zip(arg, newelems):
-                if elem is not newelem:
-                    return newelems
-        elif isinstance(arg, str):
+            for i in range(size):
+                elem = arg[i]
+                newelem = self._splitObj(elem)
+                if result is None:
+                    if newelem == elem:
+                        continue
+                    result = [None] * size
+                    for k in range(i):
+                        result[k] = arg[k]
+                result[i] = newelem
+            if result is not None:
+                return tuple(result)
+        elif isinstance(arg, basestring):
             argc = tkffi.new("int*")
             argv = tkffi.new("char***")
-            res = tklib.Tcl_SplitList(tkffi.NULL, arg, argc, argv)
-            if res == tklib.TCL_ERROR:
+            if isinstance(arg, unicode):
+                arg = arg.encode('utf-8')
+            list_ = str(arg)
+            res = tklib.Tcl_SplitList(tkffi.NULL, list_, argc, argv)
+            if res != tklib.TCL_OK:
                 return arg
             tklib.Tcl_Free(argv[0])
             if argc[0] > 1:
-                return self._split(arg)
+                return self._split(list_)
         return arg
 
     def _split(self, arg):
@@ -392,10 +428,10 @@ class TkApp(object):
             if argc[0] == 0:
                 return ""
             elif argc[0] == 1:
-                return argv[0][0]
+                return tkffi.string(argv[0][0])
             else:
-                return (self._split(argv[0][i])
-                        for i in range(argc[0]))
+                return tuple(self._split(argv[0][i])
+                             for i in range(argc[0]))
         finally:
             tklib.Tcl_Free(argv[0])
 

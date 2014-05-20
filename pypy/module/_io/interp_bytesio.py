@@ -1,7 +1,7 @@
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError, operationerrfmt
 from rpython.rlib.rStringIO import RStringIO
 from rpython.rlib.rarithmetic import r_longlong
 from pypy.module._io.interp_bufferedio import W_BufferedIOBase
@@ -11,7 +11,7 @@ import sys
 
 class W_BytesIO(RStringIO, W_BufferedIOBase):
     def __init__(self, space):
-        W_BufferedIOBase.__init__(self, space)
+        W_BufferedIOBase.__init__(self, space, add_to_autoflusher=False)
         self.init()
 
     def descr_init(self, space, w_initial_bytes=None):
@@ -41,7 +41,7 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
 
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)
-        rwbuffer = space.rwbuffer_w(w_buffer)
+        rwbuffer = space.getarg_w('w*', w_buffer)
         size = rwbuffer.getlength()
 
         output = self.read(size)
@@ -50,10 +50,7 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
 
     def write_w(self, space, w_data):
         self._check_closed(space)
-        if space.isinstance_w(w_data, space.w_unicode):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "bytes string of buffer expected"))
-        buf = space.bufferstr_w(w_data)
+        buf = space.buffer_w(w_data, space.BUF_CONTIG_RO).as_str()
         length = len(buf)
         if length <= 0:
             return space.wrap(0)
@@ -105,19 +102,22 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
                 raise OperationError(space.w_OverflowError, space.wrap(
                     "new position too large"))
         else:
-            raise operationerrfmt(space.w_ValueError,
-                "whence must be between 0 and 2, not %d", whence)
+            raise oefmt(space.w_ValueError,
+                        "whence must be between 0 and 2, not %d", whence)
 
         self.seek(pos, whence)
         return space.wrap(self.tell())
 
     def readable_w(self, space):
+        self._check_closed(space)
         return space.w_True
 
     def writable_w(self, space):
+        self._check_closed(space)
         return space.w_True
 
     def seekable_w(self, space):
+        self._check_closed(space)
         return space.w_True
 
     def close_w(self, space):
@@ -137,9 +137,9 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
         self._check_closed(space)
 
         if space.len_w(w_state) != 3:
-            raise operationerrfmt(space.w_TypeError,
-                "%T.__setstate__ argument should be 3-tuple, got %T",
-                self, w_state)
+            raise oefmt(space.w_TypeError,
+                        "%T.__setstate__ argument should be 3-tuple, got %T",
+                        self, w_state)
         w_content, w_pos, w_dict = space.unpackiterable(w_state, 3)
         self.truncate(0)
         self.write_w(space, w_content)
@@ -152,7 +152,7 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
             space.call_method(self.getdict(space), "update", w_dict)
 
 W_BytesIO.typedef = TypeDef(
-    'BytesIO', W_BufferedIOBase.typedef,
+    '_io.BytesIO', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BytesIO),
     __init__  = interp2app(W_BytesIO.descr_init),
 

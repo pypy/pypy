@@ -3,7 +3,7 @@ Arrays.
 """
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 
@@ -59,9 +59,9 @@ class W_CTypeArray(W_CTypePtrOrArray):
             raise OperationError(space.w_IndexError,
                                  space.wrap("negative index not supported"))
         if i >= w_cdata.get_array_length():
-            raise operationerrfmt(space.w_IndexError,
-                "index too large for cdata '%s' (expected %d < %d)",
-                self.name, i, w_cdata.get_array_length())
+            raise oefmt(space.w_IndexError,
+                        "index too large for cdata '%s' (expected %d < %d)",
+                        self.name, i, w_cdata.get_array_length())
         return self
 
     def _check_slice_index(self, w_cdata, start, stop):
@@ -70,9 +70,9 @@ class W_CTypeArray(W_CTypePtrOrArray):
             raise OperationError(space.w_IndexError,
                                  space.wrap("negative index not supported"))
         if stop > w_cdata.get_array_length():
-            raise operationerrfmt(space.w_IndexError,
-                "index too large (expected %d <= %d)",
-                stop, w_cdata.get_array_length())
+            raise oefmt(space.w_IndexError,
+                        "index too large (expected %d <= %d)",
+                        stop, w_cdata.get_array_length())
         return self.ctptr
 
     def convert_from_object(self, cdata, w_ob):
@@ -130,8 +130,7 @@ class W_CDataIter(W_Root):
         return self.ctitem.convert_to_object(result)
 
 W_CDataIter.typedef = TypeDef(
-    'CDataIter',
-    __module__ = '_cffi_backend',
+    '_cffi_backend.CDataIter',
     __iter__ = interp2app(W_CDataIter.iter_w),
     next = interp2app(W_CDataIter.next_w),
     )

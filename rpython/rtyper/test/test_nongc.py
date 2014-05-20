@@ -1,6 +1,7 @@
 import py
 
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomeAddress
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.rtyper.rtyper import RPythonTyper
 from rpython.rlib.objectmodel import free_non_gc_object
@@ -25,7 +26,7 @@ def test_free_non_gc_object():
     assert t.method2() == 42
     free_non_gc_object(t)
     py.test.raises(RuntimeError, "t.method1()")
-    py.test.raises(RuntimeError, "t.method2()") 
+    py.test.raises(RuntimeError, "t.method2()")
     py.test.raises(RuntimeError, "t.a")
     py.test.raises(RuntimeError, "t.a = 1")
     py.test.raises(AssertionError, "free_non_gc_object(TestClass2())")
@@ -43,8 +44,8 @@ def test_alloc_flavor():
     rtyper = RPythonTyper(a)
     rtyper.specialize()
     assert (Adef, 'raw') in rtyper.instance_reprs
-    assert (Adef, 'gc') not in rtyper.instance_reprs    
-    
+    assert (Adef, 'gc') not in rtyper.instance_reprs
+
 def test_alloc_flavor_subclassing():
     class A:
         _alloc_flavor_ = "raw"
@@ -64,7 +65,7 @@ def test_alloc_flavor_subclassing():
     assert (Adef, 'raw') in rtyper.instance_reprs
     assert (Adef, 'gc') not in rtyper.instance_reprs
     assert (Bdef, 'raw') in rtyper.instance_reprs
-    assert (Bdef, 'gc') not in rtyper.instance_reprs        
+    assert (Bdef, 'gc') not in rtyper.instance_reprs
 
 def test_unsupported():
     class A:
@@ -85,7 +86,7 @@ def test_isinstance():
         pass
     class C(B):
         pass
-    
+
     def f(i):
         if i == 0:
             o = None
@@ -226,7 +227,7 @@ def test_rtype_nongc_object():
         return b
     a = RPythonAnnotator()
     #does not raise:
-    s = a.build_types(malloc_and_free, [annmodel.SomeAddress()])
-    assert isinstance(s, annmodel.SomeAddress)
+    s = a.build_types(malloc_and_free, [SomeAddress()])
+    assert isinstance(s, SomeAddress)
     rtyper = RPythonTyper(a)
     rtyper.specialize()

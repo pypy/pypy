@@ -849,6 +849,14 @@ class Regalloc(BaseRegalloc):
     prepare_op_getfield_raw_pure = prepare_op_getfield_gc
     prepare_op_getfield_gc_pure = prepare_op_getfield_gc
 
+    def prepare_op_increment_debug_counter(self, op, fcond):
+        boxes = op.getarglist()
+        a0, = boxes
+        base_loc = self.make_sure_var_in_reg(a0, boxes)
+        value_loc = self.get_scratch_reg(INT, boxes)
+        self.free_temp_vars()
+        return [base_loc, value_loc]
+
     def prepare_op_getinteriorfield_gc(self, op, fcond):
         t = unpack_interiorfielddescr(op.getdescr())
         ofs, itemsize, fieldsize, sign = t

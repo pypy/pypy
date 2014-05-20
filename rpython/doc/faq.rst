@@ -167,7 +167,9 @@ clang.  (Note that compiling PyPy with clang gives a result that is not
 faster than compiling it with gcc.)  We might in theory get extra
 benefits from LLVM's GC integration, but this requires more work on the
 LLVM side before it would be remotely useful.  Anyway, it could be
-interfaced via a custom primitive in the C code.
+interfaced via a custom primitive in the C code.  (The latest such
+experimental backend is in the branch ``llvm-translation-backend``,
+which can translate PyPy with or without the JIT on Linux.)
 
 On the other hand, using LLVM as our JIT backend looks interesting as
 well --- but again we made an attempt, and it failed: LLVM has no way to
@@ -177,6 +179,19 @@ So the position of the core PyPy developers is that if anyone wants to
 make an N+1'th attempt with LLVM, he is welcome, and he will receive a
 bit of help on the IRC channel, but he is left with the burden of proof
 that it works.
+
+
+Compiling PyPy swaps or runs out of memory
+------------------------------------------
+
+This is documented (here__ and here__).  It needs 4 GB of RAM to run
+"rpython targetpypystandalone" on top of PyPy, a bit more when running
+on CPython.  If you have less than 4 GB it will just swap forever (or
+fail if you don't have enough swap).  On 32-bit, divide the numbers by
+two.
+
+.. __: http://pypy.org/download.html#building-from-source
+.. __: https://pypy.readthedocs.org/en/latest/getting-started-python.html#translating-the-pypy-python-interpreter
 
 
 .. _compile-own-interpreters:

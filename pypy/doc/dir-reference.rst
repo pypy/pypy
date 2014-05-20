@@ -48,9 +48,6 @@ Directory                                 explanation/links
 :source:`pypy/tool/`                      various utilities and hacks used
                                           from various places
 
-:source:`pypy/tool/algo/`                 general-purpose algorithmic and mathematic
-                                          tools
-
 :source:`pypy/tool/pytest/`               support code for our :ref:`testing methods <testing>`
 
 ``*/test/``                               many directories have a test subdirectory

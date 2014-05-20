@@ -470,6 +470,9 @@ class AbstractX86CodeBuilder(object):
 
     # ------------------------------ Arithmetic ------------------------------
 
+    INC_m = insn(rex_w, '\xFF', orbyte(0), mem_reg_plus_const(1))
+    INC_j = insn(rex_w, '\xFF', orbyte(0), abs_(1))
+
     ADD_ri,ADD_rr,ADD_rb,_,_,ADD_rm,ADD_rj,_,_ = common_modes(0)
     OR_ri, OR_rr, OR_rb, _,_,OR_rm, OR_rj, _,_ = common_modes(1)
     AND_ri,AND_rr,AND_rb,_,_,AND_rm,AND_rj,_,_ = common_modes(4)
@@ -614,12 +617,17 @@ class AbstractX86CodeBuilder(object):
     CVTSS2SD_xb = xmminsn('\xF3', rex_nw, '\x0F\x5A',
                           register(1, 8), stack_bp(2))
 
-    # These work on machine sized registers, so MOVD is actually MOVQ
-    # when running on 64 bits.  Note a bug in the Intel documentation:
+    # These work on machine sized registers, so "MOVDQ" is MOVD when running
+    # on 32 bits and MOVQ when running on 64 bits.  "MOVD32" is always 32-bit.
+    # Note a bug in the Intel documentation:
     # http://lists.gnu.org/archive/html/bug-binutils/2007-07/msg00095.html
-    MOVD_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
-    MOVD_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
-    MOVD_xb = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), stack_bp(2))
+    MOVDQ_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
+    MOVDQ_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
+    MOVDQ_xb = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), stack_bp(2))
+
+    MOVD32_rx = xmminsn('\x66', rex_nw, '\x0F\x7E', register(2, 8), register(1), '\xC0')
+    MOVD32_xr = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), register(2), '\xC0')
+    MOVD32_xb = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), stack_bp(2))
 
     PSRAD_xi = xmminsn('\x66', rex_nw, '\x0F\x72', register(1), '\xE0', immediate(2, 'b'))
 

@@ -1,4 +1,4 @@
-import types
+import sys, types
 from .lock import allocate_lock
 
 try:
@@ -88,18 +88,20 @@ class FFI(object):
             self.NULL = self.cast(self.BVoidP, 0)
             self.CData, self.CType = backend._get_types()
 
-    def cdef(self, csource, override=False):
+    def cdef(self, csource, override=False, packed=False):
         """Parse the given C source.  This registers all declared functions,
         types, and global variables.  The functions and global variables can
         then be accessed via either 'ffi.dlopen()' or 'ffi.verify()'.
         The types can be used in 'ffi.new()' and other functions.
+        If 'packed' is specified as True, all structs declared inside this
+        cdef are packed, i.e. laid out without any field alignment at all.
         """
         if not isinstance(csource, str):    # unicode, on Python 2
             if not isinstance(csource, basestring):
                 raise TypeError("cdef() argument must be a string")
             csource = csource.encode('ascii')
         with self._lock:
-            self._parser.parse(csource, override=override)
+            self._parser.parse(csource, override=override, packed=packed)
             self._cdefsources.append(csource)
             if override:
                 for cache in self._function_caches:
@@ -387,22 +389,27 @@ class FFI(object):
         return self._backend.from_handle(x)
 
 
-def _make_ffi_library(ffi, libname, flags):
-    import os
-    name = libname
+def _load_backend_lib(backend, name, flags):
     if name is None:
-        name = 'c'    # on Posix only
-    backend = ffi._backend
+        if sys.platform != "win32":
+            return backend.load_library(None, flags)
+        name = "c"    # Windows: load_library(None) fails, but this works
+                      # (backward compatibility hack only)
     try:
         if '.' not in name and '/' not in name:
             raise OSError("library not found: %r" % (name,))
-        backendlib = backend.load_library(name, flags)
+        return backend.load_library(name, flags)
     except OSError:
         import ctypes.util
         path = ctypes.util.find_library(name)
         if path is None:
             raise     # propagate the original OSError
-        backendlib = backend.load_library(path, flags)
+        return backend.load_library(path, flags)
+
+def _make_ffi_library(ffi, libname, flags):
+    import os
+    backend = ffi._backend
+    backendlib = _load_backend_lib(backend, libname, flags)
     copied_enums = []
     #
     def make_accessor_locked(name):

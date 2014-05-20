@@ -2,7 +2,7 @@ import py
 
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (interp2app, BuiltinCode, unwrap_spec,
      WrappedDefault)
 
@@ -22,6 +22,7 @@ class TypeDef(object):
         else:
             bases = [__base]
         self.bases = bases
+        self.heaptype = False
         self.hasdict = '__dict__' in rawdict
         self.weakrefable = '__weakref__' in rawdict
         self.doc = rawdict.pop('__doc__', None)
@@ -549,9 +550,9 @@ class Member(W_Root):
 
     def typecheck(self, space, w_obj):
         if not space.isinstance_w(w_obj, self.w_cls):
-            m = "descriptor '%N' for '%N' objects doesn't apply to '%T' object"
-            raise operationerrfmt(space.w_TypeError, m,
-                                  self, self.w_cls, w_obj)
+            raise oefmt(space.w_TypeError,
+                        "descriptor '%N' for '%N' objects doesn't apply to "
+                        "'%T' object", self, self.w_cls, w_obj)
 
     def descr_member_get(self, space, w_obj, w_cls=None):
         """member.__get__(obj[, type]) -> value
@@ -620,8 +621,9 @@ from pypy.interpreter.special import NotImplemented, Ellipsis
 def descr_get_dict(space, w_obj):
     w_dict = w_obj.getdict(space)
     if w_dict is None:
-        msg = "descriptor '__dict__' doesn't apply to '%T' objects"
-        raise operationerrfmt(space.w_TypeError, msg, w_obj)
+        raise oefmt(space.w_TypeError,
+                    "descriptor '__dict__' doesn't apply to '%T' objects",
+                    w_obj)
     return w_dict
 
 def descr_set_dict(space, w_obj, w_dict):
@@ -808,6 +810,7 @@ Function.typedef = TypeDef("function",
     __dict__ = getset_func_dict,
     __defaults__ = getset_func_defaults,
     __globals__ = interp_attrproperty_w('w_func_globals', cls=Function),
+    __closure__ = GetSetProperty(Function.fget_func_closure),
     __module__ = getset___module__,
     __weakref__ = make_weakref_descr(Function),
 )

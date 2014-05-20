@@ -1,7 +1,7 @@
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError
 from rpython.rlib import rgc
-from rpython.rlib.streamio import open_file_as_stream
+
 
 @unwrap_spec(generation=int)
 def collect(space, generation=0):
@@ -12,8 +12,8 @@ def collect(space, generation=0):
         cache = space.fromcache(MethodCache)
         cache.clear()
         if space.config.objspace.std.withmapdict:
-            from pypy.objspace.std.mapdict import IndexCache
-            cache = space.fromcache(IndexCache)
+            from pypy.objspace.std.mapdict import MapAttrCache
+            cache = space.fromcache(MapAttrCache)
             cache.clear()
     rgc.collect()
     return space.wrap(0)
@@ -56,7 +56,7 @@ def dump_heap_stats(space, filename):
     if not tb:
         raise OperationError(space.w_RuntimeError,
                              space.wrap("Wrong GC"))
-    f = open_file_as_stream(filename, mode="w")
+    f = open(filename, mode="w")
     for i in range(len(tb)):
         f.write("%d %d " % (tb[i].count, tb[i].size))
         f.write(",".join([str(tb[i].links[j]) for j in range(len(tb))]) + "\n")

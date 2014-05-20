@@ -9,8 +9,9 @@ from rpython.rtyper.lltypesystem.lltype import (
     Void, Signed, Bool, Ptr, GcStruct, malloc, typeOf, nullptr)
 from rpython.rtyper.lltypesystem.rstr import LLHelpers
 from rpython.rtyper.rstr import AbstractStringRepr
-from rpython.rtyper.rmodel import (Repr, IntegerRepr, inputconst, IteratorRepr,
+from rpython.rtyper.rmodel import (Repr, inputconst, IteratorRepr,
     externalvsinternal)
+from rpython.rtyper.rint import IntegerRepr
 from rpython.tool.pairtype import pairtype
 
 
@@ -18,9 +19,9 @@ class __extend__(annmodel.SomeTuple):
     def rtyper_makerepr(self, rtyper):
         return TupleRepr(rtyper, [rtyper.getrepr(s_item) for s_item in self.items])
 
-    def rtyper_makekey_ex(self, rtyper):
-        keys = [rtyper.makekey(s_item) for s_item in self.items]
-        return tuple([self.__class__]+keys)
+    def rtyper_makekey(self):
+        keys = [s_item.rtyper_makekey() for s_item in self.items]
+        return tuple([self.__class__] + keys)
 
 
 _gen_eq_function_cache = {}
@@ -290,20 +291,24 @@ class __extend__(pairtype(TupleRepr, Repr)):
         if not s_tup.is_constant():
             raise TyperError("contains() on non-const tuple")
         t = s_tup.const
-        typ = type(t[0])
-        for x in t[1:]:
-            if type(x) is not typ:
-                raise TyperError("contains() on mixed-type tuple "
-                                 "constant %r" % (t,))
-        d = {}
+        s_item = hop.args_s[1]
+        r_item = hop.args_r[1]
+        v_arg = hop.inputarg(r_item, arg=1)
+        ll_eq = r_item.get_ll_eq_function() or _ll_equal
+        v_result = None
         for x in t:
-            d[x] = None
-        hop2 = hop.copy()
-        _, _ = hop2.r_s_popfirstarg()
-        v_dict = Constant(d)
-        s_dict = hop.rtyper.annotator.bookkeeper.immutablevalue(d)
-        hop2.v_s_insertfirstarg(v_dict, s_dict)
-        return hop2.dispatch()
+            s_const_item = hop.rtyper.annotator.bookkeeper.immutablevalue(x)
+            if not s_item.contains(s_const_item):
+                continue   # corner case, see test_constant_tuple_contains_bug
+            c_tuple_item = hop.inputconst(r_item, x)
+            v_equal = hop.gendirectcall(ll_eq, v_arg, c_tuple_item)
+            if v_result is None:
+                v_result = v_equal
+            else:
+                v_result = hop.genop("int_or", [v_result, v_equal],
+                                     resulttype = Bool)
+        hop.exception_cannot_occur()
+        return v_result or hop.inputconst(Bool, False)
 
 class __extend__(pairtype(TupleRepr, TupleRepr)):
 
@@ -400,3 +405,6 @@ def ll_tuplenext(iter):
         return t.item0
     else:
         raise StopIteration
+
+def _ll_equal(x, y):
+    return x == y

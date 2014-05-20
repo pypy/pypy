@@ -165,6 +165,7 @@ the docs:
 
   getting-started-dev
   cpython_differences
+  embedding
   gc_info
   jit-hooks
   stackless

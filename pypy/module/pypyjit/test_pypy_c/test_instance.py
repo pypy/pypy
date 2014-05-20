@@ -35,7 +35,7 @@ class TestInstance(BaseTestPyPyC):
             class A(object):
                 pass
             a = A()
-            a.x = 2
+            a.x = 1
             def main(n):
                 i = 0
                 while i < n:
@@ -49,8 +49,7 @@ class TestInstance(BaseTestPyPyC):
             i9 = int_lt(i5, i6)
             guard_true(i9, descr=...)
             guard_not_invalidated(descr=...)
-            i10 = int_add_ovf(i5, i7)
-            guard_no_overflow(descr=...)
+            i10 = int_add(i5, 1)
             --TICK--
             jump(..., descr=...)
         """)
@@ -142,15 +141,16 @@ class TestInstance(BaseTestPyPyC):
             i = 0
             b = B(1)
             while i < 100:
-                b.x
-                v = b.x # ID: loadattr
+                v = b.x # ID: loadattr1
+                v = b.x # ID: loadattr2
                 i += v
             return i
 
         log = self.run(main, [], threshold=80)
         loop, = log.loops_by_filename(self.filepath)
-        assert loop.match_by_id('loadattr',
+        assert loop.match_by_id('loadattr1',
         '''
+        guard_not_invalidated(descr=...)
         i19 = call(ConstClass(ll_dict_lookup), _, _, _, descr=...)
         guard_no_exception(descr=...)
         i21 = int_and(i19, _)
@@ -162,6 +162,7 @@ class TestInstance(BaseTestPyPyC):
         i29 = int_is_true(i28)
         guard_true(i29, descr=...)
         ''')
+        assert loop.match_by_id('loadattr2', "")   # completely folded away
 
     def test_python_contains(self):
         def main():

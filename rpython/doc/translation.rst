@@ -653,7 +653,7 @@ freedom to change how to do it.  There are three approaches implemented today:
  - using the `Boehm-Demers-Weiser conservative garbage collector`_
  - using one of our custom :doc:`exact GCs implemented in RPython <garbage_collection>`
 
-.. _Boehm-Demers-Weiser conservative garbage collector: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
+.. _Boehm-Demers-Weiser conservative garbage collector: http://hboehm.info/gc/
 
 Almost all application-level Python code allocates objects at a very fast
 rate; this means that the memory management implementation is critical to the

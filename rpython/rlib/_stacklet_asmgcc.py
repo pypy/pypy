@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib import _rffi_stacklet as _c
 
 
@@ -145,7 +146,7 @@ get_stackletrootwalker._annspecialcase_ = 'specialize:memo'
 def complete_destrptr(gctransformer):
     translator = gctransformer.translator
     mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
-    args_s = [annmodel.lltype_to_annotation(lltype.Ptr(SUSPSTACK))]
+    args_s = [lltype_to_annotation(lltype.Ptr(SUSPSTACK))]
     s_result = annmodel.s_None
     destrptr = mixlevelannotator.delayedfunction(suspstack_destructor,
                                                  args_s, s_result)
@@ -188,7 +189,7 @@ FUNCNOARG_P = lltype.Ptr(lltype.FuncType([], _c.handle))
 pypy_asm_stackwalk2 = rffi.llexternal('pypy_asm_stackwalk',
                                       [FUNCNOARG_P,
                                        ASM_FRAMEDATA_HEAD_PTR],
-                                      _c.handle, sandboxsafe=True,
+                                      lltype.Signed, sandboxsafe=True,
                                       _nowrapper=True)
 
 
@@ -272,6 +273,7 @@ class StackletGcRootFinder(object):
         #
         h = pypy_asm_stackwalk2(llhelper(FUNCNOARG_P, _new_callback),
                                 alternateanchor)
+        h = rffi.cast(_c.handle, h)
         #
         llop.gc_reattach_callback_pieces(lltype.Void, callback_pieces)
         return self.get_result_suspstack(h)
@@ -291,6 +293,7 @@ class StackletGcRootFinder(object):
         #
         h = pypy_asm_stackwalk2(llhelper(FUNCNOARG_P, _switch_callback),
                                 alternateanchor)
+        h = rffi.cast(_c.handle, h)
         #
         llop.gc_reattach_callback_pieces(lltype.Void, callback_pieces)
         if not h:

@@ -17,7 +17,9 @@ Installing PyPy
 ~~~~~~~~~~~~~~~
 
 PyPy is ready to be executed as soon as you unpack the tarball or the zip
-file, with no need to install it in any specific location::
+file, with no need to install it in any specific location:
+
+.. code-block:: console
 
     $ tar xf pypy-2.1.tar.bz2
     $ ./pypy-2.1/bin/pypy
@@ -37,14 +39,12 @@ library.
 If you want to install 3rd party libraries, the most convenient way is to
 install distribute_ and pip_:
 
+.. code-block:: console
+
     $ curl -O http://python-distribute.org/distribute_setup.py
-
-    $ curl -O https://raw.github.com/pypa/pip/master/contrib/get-pip.py
-
+    $ curl -O https://raw.githubusercontent.com/pypa/pip/master/contrib/get-pip.py
     $ ./pypy-2.1/bin/pypy distribute_setup.py
-
     $ ./pypy-2.1/bin/pypy get-pip.py
-
     $ ./pypy-2.1/bin/pip install pygments  # for example
 
 Third party libraries will be installed in ``pypy-2.1/site-packages``, and

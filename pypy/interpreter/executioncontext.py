@@ -1,5 +1,5 @@
 import sys
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import jit
 
@@ -205,17 +205,31 @@ class ExecutionContext(object):
     def sys_exc_info(self): # attn: the result is not the wrapped sys.exc_info() !!!
         """Implements sys.exc_info().
         Return an OperationError instance or None."""
-        frame = self.gettopframe_nohidden()
+        frame = self.gettopframe()
         while frame:
             if frame.last_exception is not None:
-                return frame.last_exception
-            frame = self.getnextframe_nohidden(frame)
+                if (not frame.hide() or
+                        frame.last_exception is
+                            get_cleared_operation_error(self.space)):
+                    return frame.last_exception
+            frame = frame.f_backref()
         return None
 
     def set_sys_exc_info(self, operror):
         frame = self.gettopframe_nohidden()
         if frame:     # else, the exception goes nowhere and is lost
             frame.last_exception = operror
+
+    def clear_sys_exc_info(self):
+        # Find the frame out of which sys_exc_info() would return its result,
+        # and hack this frame's last_exception to become the cleared
+        # OperationError (which is different from None!).
+        frame = self.gettopframe_nohidden()
+        while frame:
+            if frame.last_exception is not None:
+                frame.last_exception = get_cleared_operation_error(self.space)
+                break
+            frame = self.getnextframe_nohidden(frame)
 
     @jit.dont_look_inside
     def settrace(self, w_func):

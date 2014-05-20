@@ -10,7 +10,7 @@ a callback and a state variable.
 
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
-from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint, intmask
+from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint
 from pypy.objspace.std import model
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.interpreter.special import Ellipsis
@@ -20,14 +20,15 @@ from rpython.rlib.rstruct import ieee
 from rpython.rlib.rstring import StringBuilder
 
 from pypy.objspace.std.boolobject    import W_BoolObject
+from pypy.objspace.std.bytesobject  import W_BytesObject
 from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.intobject     import W_IntObject
 from pypy.objspace.std.floatobject   import W_FloatObject
 from pypy.objspace.std.tupleobject   import W_AbstractTupleObject
 from pypy.objspace.std.listobject    import W_ListObject
-from pypy.objspace.std.stringobject  import W_StringObject
 from pypy.objspace.std.typeobject    import W_TypeObject
 from pypy.objspace.std.longobject    import W_LongObject, newlong
+from pypy.objspace.std.smalllongobject import W_SmallLongObject
 from pypy.objspace.std.noneobject    import W_NoneObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
@@ -97,16 +98,10 @@ def unmarshal_None(space, u, tc):
 register(TYPE_NONE, unmarshal_None)
 
 def marshal_w__Bool(space, w_bool, m):
-    if w_bool.boolval:
-        m.atom(TYPE_TRUE)
-    else:
-        m.atom(TYPE_FALSE)
+    m.atom(TYPE_TRUE if w_bool.intval else TYPE_FALSE)
 
 def unmarshal_Bool(space, u, tc):
-    if tc == TYPE_TRUE:
-        return space.w_True
-    else:
-        return space.w_False
+    return space.newbool(tc == TYPE_TRUE)
 register(TYPE_TRUE + TYPE_FALSE, unmarshal_Bool)
 
 def marshal_w__Type(space, w_type, m):
@@ -206,12 +201,11 @@ def unmarshal_Complex_bin(space, u, tc):
 register(TYPE_BINARY_COMPLEX, unmarshal_Complex_bin)
 
 def marshal_w__Long(space, w_long, m):
-    from rpython.rlib.rbigint import rbigint
     from rpython.rlib.rarithmetic import r_ulonglong
     m.start(TYPE_LONG)
     SHIFT = 15
     MASK = (1 << SHIFT) - 1
-    num = w_long.num
+    num = w_long.asbigint()
     sign = num.sign
     num = num.abs()
     total_length = (num.bit_length() + (SHIFT - 1)) / SHIFT
@@ -221,6 +215,7 @@ def marshal_w__Long(space, w_long, m):
         next = num.abs_rshift_and_mask(bigshiftcount, MASK)
         m.put_short(next)
         bigshiftcount += SHIFT
+marshal_w__SmallLong = marshal_w__Long
 
 def unmarshal_Long(space, u, tc):
     from rpython.rlib.rbigint import rbigint
@@ -248,11 +243,11 @@ register(TYPE_LONG, unmarshal_Long)
 def PySTRING_CHECK_INTERNED(w_str):
     return False
 
-def marshal_w__String(space, w_str, m):
-    # using the fastest possible access method here
-    # that does not touch the internal representation,
-    # which might change (array of bytes?)
-    s = w_str.unwrap(space)
+def marshal_bytes(space, w_str, m):
+    if not isinstance(w_str, W_BytesObject):
+        raise_exception(space, "unmarshallable object")
+
+    s = space.str_w(w_str)
     if m.version >= 1 and PySTRING_CHECK_INTERNED(w_str):
         # we use a native rtyper stringdict for speed
         idx = m.stringtable.get(s, -1)
@@ -264,10 +259,11 @@ def marshal_w__String(space, w_str, m):
             m.atom_str(TYPE_INTERNED, s)
     else:
         m.atom_str(TYPE_STRING, s)
+handled_by_any.append(('str', marshal_bytes))
 
-def unmarshal_String(space, u, tc):
+def unmarshal_bytes(space, u, tc):
     return space.wrap(u.get_str())
-register(TYPE_STRING, unmarshal_String)
+register(TYPE_STRING, unmarshal_bytes)
 
 def unmarshal_interned(space, u, tc):
     w_ret = space.wrap(u.get_str())
@@ -378,7 +374,6 @@ def unmarshal_strlist(u, tc):
     lng = u.atom_lng(tc)
     res = [None] * lng
     idx = 0
-    space = u.space
     while idx < lng:
         res[idx] = unmarshal_str(u)
         idx += 1
@@ -407,13 +402,16 @@ def unmarshal_pycode(space, u, tc):
     return space.wrap(code)
 register(TYPE_CODE, unmarshal_pycode)
 
-def marshal_w__Unicode(space, w_unicode, m):
+def marshal_unicode(space, w_unicode, m):
+    if not isinstance(w_unicode, W_UnicodeObject):
+        raise_exception(space, "unmarshallable object")
     s = unicodehelper.encode_utf8(space, space.unicode_w(w_unicode))
     m.atom_str(TYPE_UNICODE, s)
+handled_by_any.append(('unicode', marshal_unicode))
 
-def unmarshal_Unicode(space, u, tc):
+def unmarshal_unicode(space, u, tc):
     return space.wrap(unicodehelper.decode_utf8(space, u.get_str()))
-register(TYPE_UNICODE, unmarshal_Unicode)
+register(TYPE_UNICODE, unmarshal_unicode)
 
 app = gateway.applevel(r'''
     def tuple_to_set(datalist, frozen=False):
@@ -462,12 +460,12 @@ def marshal_w__ANY(space, w_obj, m):
     # any unknown object implementing the buffer protocol is
     # accepted and encoded as a plain string
     try:
-        s = space.bufferstr_w(w_obj)
+        s = space.readbuf_w(w_obj)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
     else:
-        m.atom_str(TYPE_STRING, s)
+        m.atom_str(TYPE_STRING, s.as_str())
         return
 
     raise_exception(space, "unmarshallable object")

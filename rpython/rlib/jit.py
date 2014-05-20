@@ -130,7 +130,9 @@ def elidable_promote(promote_args='all'):
         if promote_args != 'all':
             args = [args[int(i)] for i in promote_args.split(",")]
         for arg in args:
-            code.append("    %s = hint(%s, promote=True)\n" % (arg, arg))
+            code.append( #use both hints, and let jtransform pick the right one
+                "    %s = hint(%s, promote=True, promote_string=True)\n" %
+                (arg, arg))
         code.append("    return _orig_func_unlikely_name(%s)\n" % (argstring, ))
         d = {"_orig_func_unlikely_name": func, "hint": hint}
         exec py.code.Source("\n".join(code)).compile() in d
@@ -591,7 +593,7 @@ class JitDriver(object):
 
     def can_enter_jit(_self, **livevars):
         if _self.autoreds:
-            raise TypeError, "Cannot call can_enter_jit on a driver with reds='auto'"
+            raise TypeError("Cannot call can_enter_jit on a driver with reds='auto'")
         # special-cased by ExtRegistryEntry
         if _self.check_untranslated:
             _self._check_arguments(livevars, False)

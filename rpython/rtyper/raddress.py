@@ -1,22 +1,23 @@
 # rtyping of memory address operations
-from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomeAddress, SomeTypedAddressAccess
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.llmemory import (NULL, Address,
     cast_adr_to_int, fakeaddress, sizeof)
-from rpython.rtyper.rmodel import Repr, IntegerRepr
+from rpython.rtyper.rmodel import Repr
+from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rptr import PtrRepr
 from rpython.tool.pairtype import pairtype
 
 
-class __extend__(annmodel.SomeAddress):
+class __extend__(SomeAddress):
     def rtyper_makerepr(self, rtyper):
         return address_repr
 
     def rtyper_makekey(self):
         return self.__class__,
 
-class __extend__(annmodel.SomeTypedAddressAccess):
+class __extend__(SomeTypedAddressAccess):
     def rtyper_makerepr(self, rtyper):
         return TypedAddressAccessRepr(self.type)
 

@@ -4,6 +4,7 @@ from support import BaseCTypesTestChecker
 
 import py
 
+
 class TestSubclasses(BaseCTypesTestChecker):
     def test_subclass(self):
         class X(Structure):
@@ -44,6 +45,7 @@ class TestSubclasses(BaseCTypesTestChecker):
         assert X._fields_ == [("a", c_int)]
         assert Y._fields_ == [("b", c_int)]
         assert Z._fields_ == [("a", c_int)]
+
 
 class TestStructure(BaseCTypesTestChecker):
     formats = {"c": c_char,
@@ -163,7 +165,6 @@ class TestStructure(BaseCTypesTestChecker):
         # offset is always relative to the class...
 
     def test_packed(self):
-        py.test.skip("custom alignment not supported")
         class X(Structure):
             _fields_ = [("a", c_byte),
                         ("b", c_longlong)]
@@ -242,7 +243,6 @@ class TestStructure(BaseCTypesTestChecker):
         # Try a second time, result may be different (cf. issue1498)
         pos = POSITION(1, 2)
         assert (pos.x, pos.y) == (1, 2)
-        
 
     def test_invalid_field_types(self):
         class POINT(Structure):
@@ -460,8 +460,8 @@ class TestStructure(BaseCTypesTestChecker):
         class X(Structure):
             _fields_ = [(u"i", c_int)]
 
-class TestPointerMember(BaseCTypesTestChecker):
 
+class TestPointerMember(BaseCTypesTestChecker):
     def test_1(self):
         # a Structure with a POINTER field
         class S(Structure):
@@ -515,7 +515,6 @@ class TestRecursiveStructure(BaseCTypesTestChecker):
         else:
             raise AssertionError, "Structure or union cannot contain itself"
 
-
     def test_vice_versa(self):
         py.test.skip("mutually dependent lazily defined structures error semantics")
         class First(Structure):
@@ -563,4 +562,3 @@ class TestPatologicalCases(BaseCTypesTestChecker):
 
         x = X()
         assert x.x == 0
-

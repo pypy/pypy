@@ -230,6 +230,22 @@ def test_executemany_lastrowid(con):
     cur.executemany("insert into test values (?)", [[1], [2], [3]])
     assert cur.lastrowid is None
 
+
+def test_authorizer_bad_value(con):
+    def authorizer_cb(action, arg1, arg2, dbname, source):
+        return 42
+    con.set_authorizer(authorizer_cb)
+    with pytest.raises(_sqlite3.OperationalError) as e:
+        con.execute('select 123')
+    major, minor, micro = _sqlite3.sqlite_version.split('.')[:3]
+    if (int(major), int(minor), int(micro)) >= (3, 6, 14):
+        assert str(e.value) == 'authorizer malfunction'
+    else:
+        assert str(e.value) == \
+            ("illegal return value (1) from the authorization function - "
+             "should be SQLITE_OK, SQLITE_IGNORE, or SQLITE_DENY")
+
+
 def test_issue1573(con):
     cur = con.cursor()
     cur.execute(u'SELECT 1 as méil')

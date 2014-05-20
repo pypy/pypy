@@ -37,7 +37,7 @@ config.objspace.usemodules._weakref = False
 config.objspace.usemodules._sre = False
 config.objspace.usemodules._lsprof = False
 #
-config.objspace.usemodules._ffi = False
+config.objspace.usemodules._rawffi = False
 config.objspace.usemodules.micronumpy = False
 #
 set_pypy_opt_level(config, level='jit')

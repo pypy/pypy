@@ -196,6 +196,9 @@ class HeapCache(object):
                                 del boxes[box]
                 return
 
+        # XXX when is it useful to clear() the complete dictionaries?
+        # isn't it enough in all cases to do the same as the two
+        # loops just above?
         self.heap_cache.clear()
         self.heap_array_cache.clear()
 

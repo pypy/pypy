@@ -17,6 +17,14 @@ def test_attributes():
               datetime.tzinfo()]:
         raises(AttributeError, 'x.abc = 1')
 
+def test_timedelta_init_long():
+    td = datetime.timedelta(microseconds=20000000000000000000)
+    assert td.days == 231481481
+    assert td.seconds == 41600
+    td = datetime.timedelta(microseconds=20000000000000000000.)
+    assert td.days == 231481481
+    assert td.seconds == 41600
+
 def test_unpickle():
     e = raises(TypeError, datetime.date, '123')
     assert e.value.args[0] == 'an integer is required'

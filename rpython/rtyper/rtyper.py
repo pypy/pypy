@@ -16,6 +16,7 @@ import os
 import py
 
 from rpython.annotator import model as annmodel, unaryop, binaryop
+from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
 from rpython.annotator.annrpython import FAIL
 from rpython.flowspace.model import Variable, Constant, SpaceOperation, c_last_exception
 from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
@@ -76,7 +77,7 @@ class RPythonTyper(object):
         except KeyError:
             pass
         if isinstance(lltype, Primitive):
-            repr = self.primitive_to_repr[lltype] = self.getrepr(annmodel.lltype_to_annotation(lltype))
+            repr = self.primitive_to_repr[lltype] = self.getrepr(lltype_to_annotation(lltype))
             return repr
         raise TyperError('There is no primitive repr for %r' % (lltype,))
 
@@ -134,14 +135,9 @@ class RPythonTyper(object):
                 return key._as_ptr()
         raise KeyError(search)
 
-    def makekey(self, s_obj):
-        if hasattr(s_obj, "rtyper_makekey_ex"):
-            return s_obj.rtyper_makekey_ex(self)
-        return s_obj.rtyper_makekey()
-
     def getrepr(self, s_obj):
         # s_objs are not hashable... try hard to find a unique key anyway
-        key = self.makekey(s_obj)
+        key = s_obj.rtyper_makekey()
         assert key[0] is s_obj.__class__
         try:
             result = self.reprs[key]
@@ -588,8 +584,6 @@ class RPythonTyper(object):
         classdef = hop.s_result.classdef
         return rclass.rtype_new_instance(self, classdef, hop.llops)
 
-    generic_translate_operation = None
-
     def default_translate_operation(self, hop):
         raise TyperError("unimplemented operation: '%s'" % hop.spaceop.opname)
 
@@ -615,7 +609,7 @@ class RPythonTyper(object):
         for s in argtypes:
             # assume 's' is a low-level type, unless it is already an annotation
             if not isinstance(s, annmodel.SomeObject):
-                s = annmodel.lltype_to_annotation(s)
+                s = lltype_to_annotation(s)
             args_s.append(s)
         # hack for bound methods
         if hasattr(ll_function, 'im_func'):
@@ -639,10 +633,10 @@ class RPythonTyper(object):
         self.call_all_setups()  # compute ForwardReferences now
         if ARG_GCSTRUCT is None:
             ARG_GCSTRUCT = GCSTRUCT
-        args_s = [annmodel.SomePtr(Ptr(ARG_GCSTRUCT))]
+        args_s = [SomePtr(Ptr(ARG_GCSTRUCT))]
         graph = self.annotate_helper(func, args_s)
         s = self.annotator.binding(graph.getreturnvar())
-        if (not isinstance(s, annmodel.SomePtr) or
+        if (not isinstance(s, SomePtr) or
             s.ll_ptrtype != Ptr(RuntimeTypeInfo)):
             raise TyperError("runtime type info function %r returns %r, "
                              "excepted Ptr(RuntimeTypeInfo)" % (func, s))
@@ -667,13 +661,16 @@ class HighLevelOp(object):
     def setup(self):
         rtyper = self.rtyper
         spaceop = self.spaceop
-        self.nb_args  = len(spaceop.args)
         self.args_v   = list(spaceop.args)
         self.args_s   = [rtyper.binding(a) for a in spaceop.args]
         self.s_result = rtyper.binding(spaceop.result)
         self.args_r   = [rtyper.getrepr(s_a) for s_a in self.args_s]
         self.r_result = rtyper.getrepr(self.s_result)
         rtyper.call_all_setups()  # compute ForwardReferences now
+
+    @property
+    def nb_args(self):
+        return len(self.args_v)
 
     def copy(self):
         result = HighLevelOp(self.rtyper, self.spaceop,
@@ -687,13 +684,8 @@ class HighLevelOp(object):
 
     def dispatch(self):
         rtyper = self.rtyper
-        generic = rtyper.generic_translate_operation
-        if generic is not None:
-            res = generic(self)
-            if res is not None:
-                return res
         opname = self.forced_opname or self.spaceop.opname
-        translate_meth = getattr(rtyper, 'translate_op_'+opname,
+        translate_meth = getattr(rtyper, 'translate_op_' + opname,
                                  rtyper.default_translate_operation)
         return translate_meth(self)
 
@@ -737,7 +729,6 @@ class HighLevelOp(object):
 
     def r_s_pop(self, index=-1):
         "Return and discard the argument with index position."
-        self.nb_args -= 1
         self.args_v.pop(index)
         return self.args_r.pop(index), self.args_s.pop(index)
 
@@ -750,7 +741,6 @@ class HighLevelOp(object):
         self.args_v.insert(0, v_newfirstarg)
         self.args_r.insert(0, r_newfirstarg)
         self.args_s.insert(0, s_newfirstarg)
-        self.nb_args += 1
 
     def swap_fst_snd_args(self):
         self.args_v[0], self.args_v[1] = self.args_v[1], self.args_v[0]
@@ -902,7 +892,7 @@ class LowLevelOpList(list):
                     raise TyperError("non-PBC Void argument: %r", (s_value,))
                 args_s.append(s_value)
             else:
-                args_s.append(annmodel.lltype_to_annotation(v.concretetype))
+                args_s.append(lltype_to_annotation(v.concretetype))
             newargs_v.append(v)
 
         self.rtyper.call_all_setups()  # compute ForwardReferences now

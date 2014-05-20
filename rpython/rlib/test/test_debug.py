@@ -53,6 +53,15 @@ def test_make_sure_not_resized():
     py.test.raises(ListChangeUnallowed, interpret, f, [],
                    list_comprehension_operations=True)
 
+def test_make_sure_not_resized_annorder():
+    def f(n):
+        if n > 5:
+            result = None
+        else:
+            result = [1,2,3]
+        make_sure_not_resized(result)
+    interpret(f, [10])
+
 def test_mark_dict_non_null():
     def f():
         d = {"ac": "bx"}

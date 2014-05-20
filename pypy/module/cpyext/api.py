@@ -16,7 +16,7 @@ from rpython.translator.gensupp import NameManager
 from rpython.tool.udir import udir
 from rpython.translator import platform
 from pypy.module.cpyext.state import State
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.nestedscope import Cell
@@ -25,7 +25,6 @@ from pypy.interpreter.function import StaticMethod
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
-from pypy.module.__builtin__.interp_memoryview import W_MemoryView
 from pypy.module.micronumpy.base import W_NDimArray
 from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import is_valid_fd, validate_fd
@@ -400,16 +399,16 @@ SYMBOLS_C = [
     '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
     'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory', 'PyBuffer_FromObject',
-    'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', '_Py_init_bufferobject',
+    'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', '_Py_get_buffer_type',
 
     'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
     'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
-    'PyCObject_Type', '_Py_init_pycobject',
+    'PyCObject_Type', '_Py_get_cobject_type',
 
     'PyCapsule_New', 'PyCapsule_IsValid', 'PyCapsule_GetPointer',
     'PyCapsule_GetName', 'PyCapsule_GetDestructor', 'PyCapsule_GetContext',
     'PyCapsule_SetPointer', 'PyCapsule_SetName', 'PyCapsule_SetDestructor',
-    'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', '_Py_init_capsule',
+    'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', '_Py_get_capsule_type',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
 
@@ -447,6 +446,11 @@ BOOTSTRAP_FUNCTIONS = []
 
 def build_exported_objects():
     # Standard exceptions
+    # PyExc_BaseException, PyExc_Exception, PyExc_ValueError, PyExc_KeyError,
+    # PyExc_IndexError, PyExc_IOError, PyExc_OSError, PyExc_TypeError,
+    # PyExc_AttributeError, PyExc_OverflowError, PyExc_ImportError,
+    # PyExc_NameError, PyExc_MemoryError, PyExc_RuntimeError,
+    # PyExc_UnicodeEncodeError, PyExc_UnicodeDecodeError, ...
     for exc_name in exceptions.Module.interpleveldefs.keys():
         GLOBALS['PyExc_' + exc_name] = (
             'PyTypeObject*',
@@ -454,40 +458,41 @@ def build_exported_objects():
 
     # Common types with their own struct
     for cpyname, pypyexpr in {
-        "Type": "space.w_type",
-        "String": "space.w_str",
-        "Unicode": "space.w_unicode",
-        "BaseString": "space.w_basestring",
-        "Dict": "space.w_dict",
-        "Tuple": "space.w_tuple",
-        "List": "space.w_list",
-        "Set": "space.w_set",
-        "FrozenSet": "space.w_frozenset",
-        "Int": "space.w_int",
-        "Bool": "space.w_bool",
-        "Float": "space.w_float",
-        "Long": "space.w_long",
-        "Complex": "space.w_complex",
-        "ByteArray": "space.w_bytearray",
-        "MemoryView": "space.gettypeobject(W_MemoryView.typedef)",
-        "Array": "space.gettypeobject(W_NDimArray.typedef)",
-        "BaseObject": "space.w_object",
-        'None': 'space.type(space.w_None)',
-        'NotImplemented': 'space.type(space.w_NotImplemented)',
-        'Cell': 'space.gettypeobject(Cell.typedef)',
-        'Module': 'space.gettypeobject(Module.typedef)',
-        'Property': 'space.gettypeobject(W_Property.typedef)',
-        'Slice': 'space.gettypeobject(W_SliceObject.typedef)',
-        'Class': 'space.gettypeobject(W_ClassObject.typedef)',
-        'StaticMethod': 'space.gettypeobject(StaticMethod.typedef)',
-        'CFunction': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
-        'WrapperDescr': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)'
+        "PyType_Type": "space.w_type",
+        "PyString_Type": "space.w_str",
+        "PyUnicode_Type": "space.w_unicode",
+        "PyBaseString_Type": "space.w_basestring",
+        "PyDict_Type": "space.w_dict",
+        "PyTuple_Type": "space.w_tuple",
+        "PyList_Type": "space.w_list",
+        "PySet_Type": "space.w_set",
+        "PyFrozenSet_Type": "space.w_frozenset",
+        "PyInt_Type": "space.w_int",
+        "PyBool_Type": "space.w_bool",
+        "PyFloat_Type": "space.w_float",
+        "PyLong_Type": "space.w_long",
+        "PyComplex_Type": "space.w_complex",
+        "PyByteArray_Type": "space.w_bytearray",
+        "PyMemoryView_Type": "space.w_memoryview",
+        "PyArray_Type": "space.gettypeobject(W_NDimArray.typedef)",
+        "PyBaseObject_Type": "space.w_object",
+        'PyNone_Type': 'space.type(space.w_None)',
+        'PyNotImplemented_Type': 'space.type(space.w_NotImplemented)',
+        'PyCell_Type': 'space.gettypeobject(Cell.typedef)',
+        'PyModule_Type': 'space.gettypeobject(Module.typedef)',
+        'PyProperty_Type': 'space.gettypeobject(W_Property.typedef)',
+        'PySlice_Type': 'space.gettypeobject(W_SliceObject.typedef)',
+        'PyClass_Type': 'space.gettypeobject(W_ClassObject.typedef)',
+        'PyStaticMethod_Type': 'space.gettypeobject(StaticMethod.typedef)',
+        'PyCFunction_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
+        'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)'
         }.items():
-        GLOBALS['Py%s_Type#' % (cpyname, )] = ('PyTypeObject*', pypyexpr)
+        GLOBALS['%s#' % (cpyname, )] = ('PyTypeObject*', pypyexpr)
 
-    for cpyname in 'Method List Long Dict Tuple Class'.split():
-        FORWARD_DECLS.append('typedef struct { PyObject_HEAD } '
-                             'Py%sObject' % (cpyname, ))
+    for cpyname in '''PyMethodObject PyListObject PyLongObject
+                      PyDictObject PyTupleObject PyClassObject'''.split():
+        FORWARD_DECLS.append('typedef struct { PyObject_HEAD } %s'
+                             % (cpyname, ))
 build_exported_objects()
 
 def get_structtype_for_ctype(ctype):
@@ -691,17 +696,25 @@ def setup_init_functions(eci, translating):
         prefix = 'PyPy'
     else:
         prefix = 'cpyexttest'
-    init_buffer = rffi.llexternal('_%s_init_bufferobject' % prefix, [], lltype.Void,
-                                  compilation_info=eci, _nowrapper=True)
-    init_pycobject = rffi.llexternal('_%s_init_pycobject' % prefix, [], lltype.Void,
-                                     compilation_info=eci, _nowrapper=True)
-    init_capsule = rffi.llexternal('_%s_init_capsule' % prefix, [], lltype.Void,
-                                   compilation_info=eci, _nowrapper=True)
-    INIT_FUNCTIONS.extend([
-        lambda space: init_buffer(),
-        lambda space: init_pycobject(),
-        lambda space: init_capsule(),
-    ])
+    # jump through hoops to avoid releasing the GIL during initialization
+    # of the cpyext module.  The C functions are called with no wrapper,
+    # but must not do anything like calling back PyType_Ready().  We
+    # use them just to get a pointer to the PyTypeObjects defined in C.
+    get_buffer_type = rffi.llexternal('_%s_get_buffer_type' % prefix,
+                                      [], PyTypeObjectPtr,
+                                      compilation_info=eci, _nowrapper=True)
+    get_cobject_type = rffi.llexternal('_%s_get_cobject_type' % prefix,
+                                       [], PyTypeObjectPtr,
+                                       compilation_info=eci, _nowrapper=True)
+    get_capsule_type = rffi.llexternal('_%s_get_capsule_type' % prefix,
+                                       [], PyTypeObjectPtr,
+                                       compilation_info=eci, _nowrapper=True)
+    def init_types(space):
+        from pypy.module.cpyext.typeobject import py_type_ready
+        py_type_ready(space, get_buffer_type())
+        py_type_ready(space, get_cobject_type())
+        py_type_ready(space, get_capsule_type())
+    INIT_FUNCTIONS.append(init_types)
     from pypy.module.posix.interp_posix import add_fork_hook
     reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], lltype.Void,
                                  compilation_info=eci)
@@ -889,7 +902,9 @@ def generate_macros(export_symbols, prefix):
         ("SIZEOF_TIME_T", rffi.TIME_T),
         ("SIZEOF_LONG", rffi.LONG),
         ("SIZEOF_SHORT", rffi.SHORT),
-        ("SIZEOF_INT", rffi.INT)
+        ("SIZEOF_INT", rffi.INT),
+        ("SIZEOF_FLOAT", rffi.FLOAT),
+        ("SIZEOF_DOUBLE", rffi.DOUBLE),
     ]:
         pypy_macros.append("#define %s %s" % (macro_name, rffi.sizeof(size)))
     pypy_macros.append('')
@@ -902,6 +917,8 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     # implement function callbacks and generate function decls
     functions = []
     pypy_decls = []
+    pypy_decls.append("#ifndef _PYPY_PYPY_DECL_H\n")
+    pypy_decls.append("#define _PYPY_PYPY_DECL_H\n")
     pypy_decls.append("#ifndef PYPY_STANDALONE\n")
     pypy_decls.append("#ifdef __cplusplus")
     pypy_decls.append("extern \"C\" {")
@@ -945,6 +962,7 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     pypy_decls.append("}")
     pypy_decls.append("#endif")
     pypy_decls.append("#endif /*PYPY_STANDALONE*/\n")
+    pypy_decls.append("#endif /*_PYPY_PYPY_DECL_H*/\n")
 
     pypy_decl_h = udir.join('pypy_decl.h')
     pypy_decl_h.write('\n'.join(pypy_decls))
@@ -1097,17 +1115,14 @@ def load_extension_module(space, path, name):
             finally:
                 lltype.free(ll_libname, flavor='raw')
         except rdynload.DLOpenError, e:
-            raise operationerrfmt(
-                space.w_ImportError,
-                "unable to load extension module '%s': %s",
-                path, e.msg)
+            raise oefmt(space.w_ImportError,
+                        "unable to load extension module '%s': %s",
+                        path, e.msg)
         try:
             initptr = rdynload.dlsym(dll, 'init%s' % (name.split('.')[-1],))
         except KeyError:
-            raise operationerrfmt(
-                space.w_ImportError,
-                "function init%s not found in library %s",
-                name, path)
+            raise oefmt(space.w_ImportError,
+                        "function init%s not found in library %s", name, path)
         initfunc = rffi.cast(initfunctype, initptr)
         generic_cpy_call(space, initfunc)
         state.check_and_raise_exception()

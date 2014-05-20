@@ -74,7 +74,7 @@ class NN:
 
     def update(self, inputs):
         if len(inputs) != self.ni-1:
-            raise ValueError, 'wrong number of inputs'
+            raise ValueError('wrong number of inputs')
 
         # input activations
         for i in range(self.ni-1):
@@ -100,7 +100,7 @@ class NN:
 
     def backPropagate(self, targets, N, M):
         if len(targets) != self.no:
-            raise ValueError, 'wrong number of target values'
+            raise ValueError('wrong number of target values')
 
         # calculate error terms for output
         output_deltas = [0.0] * self.no

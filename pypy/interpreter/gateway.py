@@ -147,6 +147,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_c_nonnegint(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
+    def visit_c_short(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit_truncatedint_w(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
@@ -260,6 +263,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_c_nonnegint(self, typ):
         self.run_args.append("space.c_nonnegint_w(%s)" % (self.scopenext(),))
+
+    def visit_c_short(self, typ):
+        self.run_args.append("space.c_short_w(%s)" % (self.scopenext(),))
 
     def visit_truncatedint_w(self, typ):
         self.run_args.append("space.truncatedint_w(%s)" % (self.scopenext(),))
@@ -397,6 +403,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_c_nonnegint(self, typ):
         self.unwrap.append("space.c_nonnegint_w(%s)" % (self.nextarg(),))
 
+    def visit_c_short(self, typ):
+        self.unwrap.append("space.c_short_w(%s)" % (self.nextarg(),))
+
     def visit_truncatedint_w(self, typ):
         self.unwrap.append("space.truncatedint_w(%s)" % (self.nextarg(),))
 
@@ -520,12 +529,13 @@ class BuiltinCode(Code):
     # When a BuiltinCode is stored in a Function object,
     # you get the functionality of CPython's built-in function type.
 
-    def __init__(self, func, unwrap_spec=None, self_type=None, descrmismatch=None):
+    def __init__(self, func, unwrap_spec=None, self_type=None,
+                 descrmismatch=None, doc=None):
         "NOT_RPYTHON"
         # 'implfunc' is the interpreter-level function.
         # Note that this uses a lot of (construction-time) introspection.
         Code.__init__(self, func.__name__)
-        self.docstring = func.__doc__
+        self.docstring = doc or func.__doc__
 
         self.identifier = "%s-%s-%s" % (func.__module__, func.__name__,
                                         getattr(self_type, '__name__', '*'))
@@ -832,7 +842,7 @@ class interp2app(W_Root):
     instancecache = {}
 
     def __new__(cls, f, app_name=None, unwrap_spec=None, descrmismatch=None,
-                as_classmethod=False):
+                as_classmethod=False, doc=None):
 
         "NOT_RPYTHON"
         # f must be a function whose name does NOT start with 'app_'
@@ -861,7 +871,8 @@ class interp2app(W_Root):
         cls.instancecache[key] = self
         self._code = BuiltinCode(f, unwrap_spec=unwrap_spec,
                                  self_type=self_type,
-                                 descrmismatch=descrmismatch)
+                                 descrmismatch=descrmismatch,
+                                 doc=doc)
         self.__name__ = f.func_name
         self.name = app_name
         self.as_classmethod = as_classmethod
@@ -1063,7 +1074,9 @@ def appdef(source, applevel=ApplevelClass, filename=None):
                            return x+y
                     ''')
     """
+    prefix = ""
     if not isinstance(source, str):
+        flags = source.__code__.co_flags
         source = py.std.inspect.getsource(source).lstrip()
         while source.startswith(('@py.test.mark.', '@pytest.mark.')):
             # these decorators are known to return the same function
@@ -1072,12 +1085,21 @@ def appdef(source, applevel=ApplevelClass, filename=None):
             source = source[source.find('\n') + 1:].lstrip()
         assert source.startswith("def "), "can only transform functions"
         source = source[4:]
+        import __future__
+        if flags & __future__.CO_FUTURE_DIVISION:
+            prefix += "from __future__ import division\n"
+        if flags & __future__.CO_FUTURE_ABSOLUTE_IMPORT:
+            prefix += "from __future__ import absolute_import\n"
+        if flags & __future__.CO_FUTURE_PRINT_FUNCTION:
+            prefix += "from __future__ import print_function\n"
+        if flags & __future__.CO_FUTURE_UNICODE_LITERALS:
+            prefix += "from __future__ import unicode_literals\n"
     p = source.find('(')
     assert p >= 0
     funcname = source[:p].strip()
     source = source[p:]
     assert source.strip()
-    funcsource = "def %s%s\n" % (funcname, source)
+    funcsource = prefix + "def %s%s\n" % (funcname, source)
     #for debugging of wrong source code: py.std.parser.suite(funcsource)
     a = applevel(funcsource, filename=filename)
     return a.interphook(funcname)

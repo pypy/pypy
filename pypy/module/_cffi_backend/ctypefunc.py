@@ -3,7 +3,6 @@ Function pointers.
 """
 
 import sys
-from pypy.interpreter.error import OperationError, operationerrfmt
 
 from rpython.rlib import jit, clibffi, jit_libffi
 from rpython.rlib.jit_libffi import (CIF_DESCRIPTION, CIF_DESCRIPTION_P,
@@ -11,6 +10,7 @@ from rpython.rlib.jit_libffi import (CIF_DESCRIPTION, CIF_DESCRIPTION_P,
 from rpython.rlib.objectmodel import we_are_translated, instantiate
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase, W_CTypePointer
@@ -52,10 +52,9 @@ class W_CTypeFunc(W_CTypePtrBase):
             if isinstance(w_obj, cdataobj.W_CData):
                 ct = w_obj.ctype.get_vararg_type()
             else:
-                raise operationerrfmt(space.w_TypeError,
-                             "argument %d passed in the variadic part "
-                             "needs to be a cdata object (got %T)",
-                             i + 1, w_obj)
+                raise oefmt(space.w_TypeError,
+                            "argument %d passed in the variadic part needs to "
+                            "be a cdata object (got %T)", i + 1, w_obj)
             fvarargs[i] = ct
         ctypefunc = instantiate(W_CTypeFunc)
         ctypefunc.space = space
@@ -100,9 +99,9 @@ class W_CTypeFunc(W_CTypePtrBase):
             nargs_declared = len(self.fargs)
             if len(args_w) != nargs_declared:
                 space = self.space
-                raise operationerrfmt(space.w_TypeError,
-                                      "'%s' expects %d arguments, got %d",
-                                      self.name, nargs_declared, len(args_w))
+                raise oefmt(space.w_TypeError,
+                            "'%s' expects %d arguments, got %d",
+                            self.name, nargs_declared, len(args_w))
             return self._call(funcaddr, args_w)
         else:
             # call of a variadic function
@@ -113,9 +112,9 @@ class W_CTypeFunc(W_CTypePtrBase):
         nargs_declared = len(self.fargs)
         if len(args_w) < nargs_declared:
             space = self.space
-            raise operationerrfmt(space.w_TypeError,
-                                  "'%s' expects at least %d arguments, got %d",
-                                  self.name, nargs_declared, len(args_w))
+            raise oefmt(space.w_TypeError,
+                        "'%s' expects at least %d arguments, got %d",
+                        self.name, nargs_declared, len(args_w))
         completed = self.new_ctypefunc_completing_argtypes(args_w)
         return completed._call(funcaddr, args_w)
 
@@ -187,16 +186,15 @@ USE_C_LIBFFI_MSVC = getattr(clibffi, 'USE_C_LIBFFI_MSVC', False)
 def _missing_ffi_type(self, cifbuilder, is_result_type):
     space = self.space
     if self.size < 0:
-        raise operationerrfmt(space.w_TypeError,
-                              "ctype '%s' has incomplete type",
-                              self.name)
+        raise oefmt(space.w_TypeError,
+                    "ctype '%s' has incomplete type", self.name)
     if is_result_type:
         place = "return value"
     else:
         place = "argument"
-    raise operationerrfmt(space.w_NotImplementedError,
-                          "ctype '%s' (size %d) not supported as %s",
-                          self.name, self.size, place)
+    raise oefmt(space.w_NotImplementedError,
+                "ctype '%s' (size %d) not supported as %s",
+                self.name, self.size, place)
 
 def _struct_ffi_type(self, cifbuilder, is_result_type):
     if self.size >= 0:

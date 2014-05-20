@@ -69,23 +69,23 @@ Papers
 
 
 .. _bibtex: https://bitbucket.org/pypy/extradoc/raw/tip/talk/bibtex.bib
-.. _`Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages`: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/icooolps2011/jit-hints.pdf
-.. _`Allocation Removal by Partial Evaluation in a Tracing JIT`: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/pepm2011/bolz-allocation-removal.pdf
-.. _`Towards a Jitting VM for Prolog Execution`: http://www.stups.uni-duesseldorf.de/mediawiki/images/a/a7/Pub-BoLeSch2010.pdf
-.. _`High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages`: http://buildbot.pypy.org/misc/antocuni-thesis.pdf
-.. _`How to *not* write Virtual Machines for Dynamic Languages`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dyla2007/dyla.pdf
-.. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009/bolz-tracing-jit.pdf
-.. _`Faster than C#: Efficient Implementation of Dynamic Languages on .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009-dotnet/cli-jit.pdf
-.. _`Automatic JIT Compiler Generation with Runtime Partial Evaluation`: http://wwwold.cobra.cs.uni-duesseldorf.de/thesis/final-master.pdf
-.. _`RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages`: http://www.disi.unige.it/person/AnconaD/papers/Recent_abstracts.html#AACM-DLS07
-.. _`EU Reports`: index-report.html
-.. _`Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution`: http://sabi.net/nriley/pubs/dls6-riley.pdf
-.. _`PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy`: http://scg.unibe.ch/archive/papers/Brun09cPyGirl.pdf
-.. _`Representation-Based Just-in-Time Specialization and the Psyco Prototype for Python`: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
-.. _`Back to the Future in One Week -- Implementing a Smalltalk VM in PyPy`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
-.. _`Automatic generation of JIT compilers for dynamic languages in .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ecoop2009/main.pdf
-.. _`Core Object Optimization Results`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D06.1_Core_Optimizations-2007-04-30.pdf
-.. _`Compiling Dynamic Language Implementations`: http://codespeak.net/pypy/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+.. _Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/icooolps2011/jit-hints.pdf
+.. _Allocation Removal by Partial Evaluation in a Tracing JIT: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/pepm2011/bolz-allocation-removal.pdf
+.. _Towards a Jitting VM for Prolog Execution: http://www.stups.uni-duesseldorf.de/mediawiki/images/a/a7/Pub-BoLeSch2010.pdf
+.. _High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages: http://buildbot.pypy.org/misc/antocuni-thesis.pdf
+.. _How to *not* write Virtual Machines for Dynamic Languages: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dyla2007/dyla.pdf
+.. _Tracing the Meta-Level: PyPy's Tracing JIT Compiler: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009/bolz-tracing-jit.pdf
+.. _Faster than C#: Efficient Implementation of Dynamic Languages on .NET: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009-dotnet/cli-jit.pdf
+.. _Automatic JIT Compiler Generation with Runtime Partial Evaluation: http://wwwold.cobra.cs.uni-duesseldorf.de/thesis/final-master.pdf
+.. _RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages: http://www.disi.unige.it/person/AnconaD/papers/DynamicLanguages_abstracts.html#AACM-DLS07
+.. _EU Reports: index-report.html
+.. _Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution: http://sabi.net/nriley/pubs/dls6-riley.pdf
+.. _PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy: http://scg.unibe.ch/archive/papers/Brun09cPyGirl.pdf
+.. _Representation-Based Just-in-Time Specialization and the Psyco Prototype for Python: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
+.. _Back to the Future in One Week -- Implementing a Smalltalk VM in PyPy: http://dx.doi.org/10.1007/978-3-540-89275-5_7
+.. _Automatic generation of JIT compilers for dynamic languages in .NET: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ecoop2009/main.pdf
+.. _Core Object Optimization Results: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D06.1_Core_Optimizations-2007-04-30.pdf
+.. _Compiling Dynamic Language Implementations: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 
 
 Talks and Presentations
@@ -259,24 +259,24 @@ Talks in 2003
 
 .. _PyCon 2010: http://morepypy.blogspot.com/2010/02/pycon-2010-report.html
 .. _RuPy 2009: http://morepypy.blogspot.com/2009/11/pypy-on-rupy-2009.html
-.. _PyPy 3000: http://codespeak.net/pypy/extradoc/talk/ep2006/pypy3000.txt
-.. _What can PyPy do for you: http://codespeak.net/pypy/extradoc/talk/ep2006/usecases-slides.html
-.. _PyPy introduction at EuroPython 2006: http://codespeak.net/pypy/extradoc/talk/ep2006/intro.pdf
-.. _PyPy - the new Python implementation on the block: http://codespeak.net/pypy/extradoc/talk/22c3/hpk-tech.html
-.. _PyPy development method: http://codespeak.net/pypy/extradoc/talk/pycon2006/method_talk.html
-.. _PyPy intro: http://codespeak.net/pypy/extradoc/talk/accu2006/accu-2006.pdf
-.. _oscon2003-paper: http://codespeak.net/pypy/extradoc/talk/oscon2003-paper.html
-.. _Architecture introduction slides: http://codespeak.net/pypy/extradoc/talk/amsterdam-sprint-intro.pdf
-.. _EU funding for FOSS: http://codespeak.net/pypy/extradoc/talk/2004-21C3-pypy-EU-hpk.pdf
-.. _py lib slides: http://codespeak.net/pypy/extradoc/talk/2005-pycon-py.pdf
-.. _PyCon 2005: http://codespeak.net/pypy/extradoc/talk/pypy-talk-pycon2005/README.html
-.. _Trouble in Paradise: http://codespeak.net/pypy/extradoc/talk/agile2006/during-oss-sprints_talk.pdf
-.. _Sprint Driven Development: http://codespeak.net/pypy/extradoc/talk/xp2006/during-xp2006-sprints.pdf
-.. _Kill -1: http://codespeak.net/pypy/extradoc/talk/ep2006/kill_1_agiletalk.pdf
-.. _Open Source, EU-Funding and Agile Methods: http://codespeak.net/pypy/extradoc/talk/22c3/agility.pdf
-.. _PyPy Status: http://codespeak.net/pypy/extradoc/talk/vancouver/talk.html
+.. _PyPy 3000: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/pypy3000.txt
+.. _What can PyPy do for you: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/usecases-slides.txt
+.. _PyPy introduction at EuroPython 2006: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/intro.pdf
+.. _PyPy - the new Python implementation on the block: https://bitbucket.org/pypy/extradoc/raw/tip/talk/22c3/hpk-tech.txt
+.. _PyPy development method: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2006/method_talk.txt
+.. _PyPy intro: https://bitbucket.org/pypy/extradoc/raw/tip/talk/accu2006/accu-2006.pdf
+.. _oscon2003-paper: https://bitbucket.org/pypy/extradoc/raw/tip/talk/oscon2003-paper.txt
+.. _Architecture introduction slides: https://bitbucket.org/pypy/extradoc/raw/tip/talk/amsterdam-sprint-intro.pdf
+.. _EU funding for FOSS: https://bitbucket.org/pypy/extradoc/raw/tip/talk/2004-21C3-pypy-EU-hpk.pdf
+.. _py lib slides: https://bitbucket.org/pypy/extradoc/raw/tip/talk/2005-pycon-py.pdf
+.. _PyCon 2005: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pypy-talk-pycon2005/README.txt
+.. _Trouble in Paradise: https://bitbucket.org/pypy/extradoc/raw/tip/talk/agile2006/during-oss-sprints_talk.pdf
+.. _Sprint Driven Development: https://bitbucket.org/pypy/extradoc/raw/tip/talk/xp2006/during-xp2006-sprints.pdf
+.. _Kill -1: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/kill_1_agiletalk.pdf
+.. _Open Source, EU-Funding and Agile Methods: https://bitbucket.org/pypy/extradoc/raw/tip/talk/22c3/agility.pdf
+.. _PyPy Status: https://bitbucket.org/pypy/extradoc/raw/tip/talk/vancouver/
 .. _Sprinting the PyPy way: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2005/pypy_sprinttalk_ep2005bd.pdf
-.. _PyPy's VM Approach: http://codespeak.net/pypy/extradoc/talk/dls2006/talk.html
+.. _PyPy's VM Approach: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2006/
 .. _PyPy's approach to virtual machine construction: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2006/pypy-vm-construction.pdf
 .. _EuroPython talks 2009: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2009/
 .. _PyCon talks 2009: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2009/
@@ -356,8 +356,6 @@ Related projects
 .. _Croquet: http://www.opencroquet.org/
 .. _transparent dynamic optimization: http://www.hpl.hp.com/techreports/1999/HPL-1999-77.pdf
 .. _Dynamo: http://www.hpl.hp.com/techreports/1999/HPL-1999-78.pdf
-.. _feasible: http://codespeak.net/pipermail/pypy-dev/2004q2/001289.html
-.. _rock: http://codespeak.net/pipermail/pypy-dev/2004q1/001255.html
 .. _LLVM: http://llvm.org/
 .. _IronPython: http://ironpython.codeplex.com/
 .. _Dynamic Native Optimization of Native Interpreters: http://people.csail.mit.edu/gregs/dynamorio.html

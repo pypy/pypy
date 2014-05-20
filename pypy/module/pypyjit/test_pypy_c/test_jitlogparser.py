@@ -4,7 +4,7 @@ import re
 from rpython.tool.logparser import extract_category
 from rpython.jit.backend.tool.viewcode import ObjdumpNotFound
 
-from pypy.tool.jitlogparser.parser import (import_log, parse_log_counts,
+from rpython.tool.jitlogparser.parser import (import_log, parse_log_counts,
         mangle_descr)
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 

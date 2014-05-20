@@ -155,20 +155,6 @@ return next yielded value or raise StopIteration."""
         code_name = self.pycode.co_name
         return space.wrap(code_name)
 
-    def __del__(self):
-        # Only bother enqueuing self to raise an exception if the frame is
-        # still not finished and finally or except blocks are present.
-        self.clear_all_weakrefs()
-        if self.frame is not None:
-            block = self.frame.lastblock
-            while block is not None:
-                if not isinstance(block, LoopBlock):
-                    self.enqueue_for_destruction(self.space,
-                                                 GeneratorIterator.descr_close,
-                                                 "interrupting generator of ")
-                    break
-                block = block.previous
-
     # Results can be either an RPython list of W_Root, or it can be an
     # app-level W_ListObject, which also has an append() method, that's why we
     # generate 2 versions of the function and 2 jit drivers.
@@ -211,3 +197,20 @@ return next yielded value or raise StopIteration."""
         return unpack_into
     unpack_into = _create_unpack_into()
     unpack_into_w = _create_unpack_into()
+
+
+class GeneratorIteratorWithDel(GeneratorIterator):
+
+    def __del__(self):
+        # Only bother enqueuing self to raise an exception if the frame is
+        # still not finished and finally or except blocks are present.
+        self.clear_all_weakrefs()
+        if self.frame is not None:
+            block = self.frame.lastblock
+            while block is not None:
+                if not isinstance(block, LoopBlock):
+                    self.enqueue_for_destruction(self.space,
+                                                 GeneratorIterator.descr_close,
+                                                 "interrupting generator of ")
+                    break
+                block = block.previous

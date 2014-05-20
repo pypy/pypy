@@ -1,5 +1,5 @@
-
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+
 
 class AppTestNumSupport(BaseNumpyAppTest):
     def test_where(self):
@@ -41,8 +41,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         a[0] = 0
         assert (b == [1, 1, 1, 0, 0]).all()
 
-
-    def test_dot(self):
+    def test_dot_basic(self):
         from numpypy import array, dot, arange
         a = array(range(5))
         assert dot(a, a) == 30.0
@@ -56,6 +55,10 @@ class AppTestNumSupport(BaseNumpyAppTest):
         b = arange(12).reshape(4, 3)
         c = a.dot(b)
         assert (c == [[ 42, 48, 54], [114, 136, 158], [186, 224, 262]]).all()
+        c = a.dot(b.astype(float))
+        assert (c == [[ 42, 48, 54], [114, 136, 158], [186, 224, 262]]).all()
+        c = a.astype(float).dot(b)
+        assert (c == [[ 42, 48, 54], [114, 136, 158], [186, 224, 262]]).all()
 
         a = arange(24).reshape(2, 3, 4)
         raises(ValueError, "a.dot(a)")
@@ -65,7 +68,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert b.shape == (4, 3)
         c = dot(a, b)
         assert (c == [[[14, 38, 62], [38, 126, 214], [62, 214, 366]],
-                   [[86, 302, 518], [110, 390, 670], [134, 478, 822]]]).all()
+                      [[86, 302, 518], [110, 390, 670], [134, 478, 822]]]).all()
         c = dot(a, b[:, 2])
         assert (c == [[62, 214, 366], [518, 670, 822]]).all()
         a = arange(3*2*6).reshape((3,2,6))
@@ -91,9 +94,11 @@ class AppTestNumSupport(BaseNumpyAppTest):
         out = arange(9).reshape(3, 3)
         c = dot(a, b, out=out)
         assert (c == out).all()
-        out = arange(9,dtype=float).reshape(3, 3)
+        assert (c == [[42, 48, 54], [114, 136, 158], [186, 224, 262]]).all()
+        out = arange(9, dtype=float).reshape(3, 3)
         exc = raises(ValueError, dot, a, b, out)
-        assert exc.value[0].find('not acceptable') > 0
+        assert exc.value[0] == ('output array is not acceptable (must have the '
+                                'right type, nr dimensions, and be a C-Array)')
 
     def test_choose_basic(self):
         from numpypy import array

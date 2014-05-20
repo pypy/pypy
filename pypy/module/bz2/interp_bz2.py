@@ -2,7 +2,7 @@ from __future__ import with_statement
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -31,7 +31,7 @@ class CConfig:
     _compilation_info_ = eci
     calling_conv = 'c'
 
-    CHECK_LIBRARY = platform.Has('dump("x", (int)&BZ2_bzCompress)')
+    CHECK_LIBRARY = platform.Has('dump("x", (long)&BZ2_bzCompress)')
 
     off_t = platform.SimpleType("off_t", rffi.LONGLONG)
     size_t = platform.SimpleType("size_t", rffi.ULONG)
@@ -244,8 +244,7 @@ class W_BZ2File(W_File):
     def check_mode_ok(self, mode):
         if (not mode or mode[0] not in ['r', 'w', 'a', 'U']):
             space = self.space
-            raise operationerrfmt(space.w_ValueError,
-                                  "invalid mode: '%s'", mode)
+            raise oefmt(space.w_ValueError, "invalid mode: '%s'", mode)
 
     @unwrap_spec(mode=str, buffering=int, compresslevel=int)
     def direct_bz2__init__(self, w_name, mode='r', buffering=-1,
@@ -377,8 +376,8 @@ class ReadBZ2Filter(Stream):
         elif whence == 0:
             pass
         else:
-            raise operationerrfmt(self.space.w_ValueError,
-                                  "Invalid value for whence: %d", whence)
+            raise oefmt(self.space.w_ValueError,
+                        "Invalid value for whence: %d", whence)
 
         # Make offset relative to the current pos
         # Rewind iff necessary
@@ -459,9 +458,7 @@ class ReadBZ2Filter(Stream):
         return result
 
     def peek(self):
-        pos = self.pos
-        assert pos >= 0
-        return self.buffer[pos:]
+        return (self.pos, self.buffer)
 
     def try_to_find_file_descriptor(self):
         return self.stream.try_to_find_file_descriptor()

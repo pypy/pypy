@@ -155,9 +155,7 @@ def exc_clear(space):
 to exc_info() will return (None,None,None) until another exception is
 raised and caught in the current thread or the execution stack returns to a
 frame where another exception is being handled."""
-    operror = space.getexecutioncontext().sys_exc_info()
-    if operror is not None:
-        operror.clear(space)
+    space.getexecutioncontext().clear_sys_exc_info()
 
 def settrace(space, w_func):
     """Set the global debug tracing function.  It will be called on each

@@ -1,6 +1,7 @@
 import sys
 
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.flowspace.model import Variable, Constant
 from rpython.jit.metainterp.typesystem import deref
@@ -32,7 +33,7 @@ def _annotation(a, x):
     if T == lltype.Ptr(ll_rstr.STR):
         t = str
     else:
-        t = annmodel.lltype_to_annotation(T)
+        t = lltype_to_annotation(T)
     return a.typeannotation(t)
 
 def annotate(func, values, inline=None, backendoptimize=True,
@@ -814,12 +815,12 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res,
         return rtyper._builtin_func_for_spec_cache[key]
     except (KeyError, AttributeError):
         pass
-    args_s = [annmodel.lltype_to_annotation(v) for v in ll_args]
+    args_s = [lltype_to_annotation(v) for v in ll_args]
     if '.' not in oopspec_name:    # 'newxxx' operations
         LIST_OR_DICT = ll_res
     else:
         LIST_OR_DICT = ll_args[0]
-    s_result = annmodel.lltype_to_annotation(ll_res)
+    s_result = lltype_to_annotation(ll_res)
     impl = setup_extra_builtin(rtyper, oopspec_name, len(args_s), extra)
     if getattr(impl, 'need_result_type', False):
         bk = rtyper.annotator.bookkeeper

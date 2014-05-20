@@ -1,6 +1,7 @@
 from __future__ import with_statement
 
 from rpython.rlib import jit
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
@@ -9,8 +10,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import RWBuffer
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import (
@@ -42,7 +42,7 @@ def w_array(space, w_cls, typecode, __args__):
             if len(__args__.arguments_w) > 0:
                 w_initializer = __args__.arguments_w[0]
                 if space.type(w_initializer) is space.w_str:
-                    a.descr_fromstring(space, space.str_w(w_initializer))
+                    a.descr_fromstring(space, w_initializer)
                 elif space.type(w_initializer) is space.w_list:
                     a.descr_fromlist(space, w_initializer)
                 else:
@@ -131,6 +131,12 @@ class W_ArrayBase(W_Root):
         self.space = space
         self.len = 0
         self.allocated = 0
+
+    def readbuf_w(self, space):
+        return ArrayBuffer(self, True)
+
+    def writebuf_w(self, space):
+        return ArrayBuffer(self, False)
 
     def descr_append(self, space, w_x):
         """ append(x)
@@ -226,13 +232,13 @@ class W_ArrayBase(W_Root):
         self._charbuf_stop()
         return self.space.wrap(s)
 
-    @unwrap_spec(s=str)
-    def descr_fromstring(self, space, s):
+    def descr_fromstring(self, space, w_s):
         """ fromstring(string)
 
         Appends items from the string, interpreting it as an array of machine
         values,as if it had been read from a file using the fromfile() method).
         """
+        s = space.getarg_w('s#', w_s)
         if len(s) % self.itemsize != 0:
             msg = 'string length not a multiple of item size'
             raise OperationError(self.space.w_ValueError, self.space.wrap(msg))
@@ -264,10 +270,10 @@ class W_ArrayBase(W_Root):
             elems = max(0, len(item) - (len(item) % self.itemsize))
             if n != 0:
                 item = item[0:elems]
-            self.descr_fromstring(space, item)
+            self.descr_fromstring(space, space.wrap(item))
             msg = "not enough items in file"
             raise OperationError(space.w_EOFError, space.wrap(msg))
-        self.descr_fromstring(space, item)
+        self.descr_fromstring(space, w_item)
 
     @unwrap_spec(w_f=W_File)
     def descr_tofile(self, space, w_f):
@@ -442,6 +448,9 @@ class W_ArrayBase(W_Root):
         self.descr_delitem(space, space.newslice(w_start, w_stop,
                                                  space.w_None))
 
+    def descr_iter(self, space):
+        return space.newseqiter(self)
+
     def descr_add(self, space, w_other):
         raise NotImplementedError
 
@@ -462,9 +471,6 @@ class W_ArrayBase(W_Root):
 
     # Misc methods
 
-    def descr_buffer(self, space):
-        return space.wrap(ArrayBuffer(self))
-
     def descr_repr(self, space):
         if self.len == 0:
             return space.wrap("array('%s')" % self.typecode)
@@ -482,9 +488,8 @@ class W_ArrayBase(W_Root):
             return space.wrap(s)
 
 W_ArrayBase.typedef = TypeDef(
-    'array',
+    'array.array',
     __new__ = interp2app(w_array),
-    __module__ = 'array',
 
     __len__ = interp2app(W_ArrayBase.descr_len),
     __eq__ = interp2app(W_ArrayBase.descr_eq),
@@ -500,6 +505,7 @@ W_ArrayBase.typedef = TypeDef(
     __setslice__ = interp2app(W_ArrayBase.descr_setslice),
     __delitem__ = interp2app(W_ArrayBase.descr_delitem),
     __delslice__ = interp2app(W_ArrayBase.descr_delslice),
+    __iter__ = interp2app(W_ArrayBase.descr_iter),
 
     __add__ = interpindirect2app(W_ArrayBase.descr_add),
     __iadd__ = interpindirect2app(W_ArrayBase.descr_inplace_add),
@@ -508,7 +514,6 @@ W_ArrayBase.typedef = TypeDef(
     __radd__ = interp2app(W_ArrayBase.descr_radd),
     __rmul__ = interp2app(W_ArrayBase.descr_rmul),
 
-    __buffer__ = interp2app(W_ArrayBase.descr_buffer),
     __repr__ = interp2app(W_ArrayBase.descr_repr),
 
     itemsize = GetSetProperty(descr_itemsize),
@@ -584,9 +589,12 @@ for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
 
-class ArrayBuffer(RWBuffer):
-    def __init__(self, array):
+class ArrayBuffer(Buffer):
+    _immutable_ = True
+
+    def __init__(self, array, readonly):
         self.array = array
+        self.readonly = readonly
 
     def getlength(self):
         return self.array.len * self.array.itemsize
@@ -604,8 +612,18 @@ class ArrayBuffer(RWBuffer):
         data[index] = char
         array._charbuf_stop()
 
+    def getslice(self, start, stop, step, size):
+        if step == 1:
+            data = self.array._charbuf_start()
+            try:
+                return rffi.charpsize2str(rffi.ptradd(data, start), size)
+            finally:
+                self.array._charbuf_stop()
+        return Buffer.getslice(self, start, stop, step, size)
+
     def get_raw_address(self):
         return self.array._charbuf_start()
+
 
 def make_array(mytype):
     W_ArrayBase = globals()['W_ArrayBase']
@@ -633,8 +651,8 @@ def make_array(mytype):
                     try:
                         item = unwrap(space.call_method(w_item, mytype.method))
                     except OperationError:
-                        msg = 'array item must be ' + mytype.unwrap[:-2]
-                        raise operationerrfmt(space.w_TypeError, msg)
+                        raise oefmt(space.w_TypeError,
+                                    "array item must be " + mytype.unwrap[:-2])
                 else:
                     raise
             if mytype.unwrap == 'bigint_w':

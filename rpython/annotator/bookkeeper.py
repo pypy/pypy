@@ -8,11 +8,11 @@ import sys, types, inspect, weakref
 
 from rpython.flowspace.model import Constant
 from rpython.annotator.model import (SomeOrderedDict,
-    SomeString, SomeChar, SomeFloat, SomePtr, unionof, SomeInstance, SomeDict,
-    SomeBuiltin, SomePBC, SomeInteger, TLS, SomeAddress, SomeUnicodeCodePoint,
-    s_None, s_ImpossibleValue, SomeLLADTMeth, SomeBool, SomeTuple,
+    SomeString, SomeChar, SomeFloat, unionof, SomeInstance, SomeDict,
+    SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
+    s_None, s_ImpossibleValue, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
-    SomeWeakRef, lltype_to_annotation, SomeType, SomeByteArray, SomeConstantType)
+    SomeWeakRef, SomeByteArray, SomeConstantType)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
@@ -21,115 +21,16 @@ from rpython.annotator.signature import annotationoftype
 from rpython.annotator.argument import ArgumentsForTranslation
 from rpython.rlib.objectmodel import r_dict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
-from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import extregistry
 
 
-class Stats(object):
+BUILTIN_ANALYZERS = {}
 
-    def __init__(self, bookkeeper):
-        self.bookkeeper = bookkeeper
-        self.classify = {}
-
-    def count(self, category, *args):
-        for_category = self.classify.setdefault(category, {})
-        classifier = getattr(self, 'consider_%s' % category, self.consider_generic)
-        outcome = classifier(*args)
-        for_category[self.bookkeeper.position_key] = outcome
-
-    def indexrepr(self, idx):
-        if idx.is_constant():
-            if idx.const is None:
-                return ''
-            if isinstance(idx, SomeInteger):
-                if idx.const >=0:
-                    return 'pos-constant'
-                else:
-                    return 'Neg-constant'
-            return idx.const
-        else:
-            if isinstance(idx, SomeInteger):
-                if idx.nonneg:
-                    return "non-neg"
-                else:
-                    return "MAYBE-NEG"
-            else:
-                return self.typerepr(idx)
-
-    def steprepr(self, stp):
-        if stp.is_constant():
-            if stp.const in (1, None):
-                return 'step=1'
-            else:
-                return 'step=%s?' % stp.const
-        else:
-            return 'non-const-step %s' % self.typerepr(stp)
-
-    def consider_generic(self, *args):
-        return tuple([self.typerepr(x) for x in args])
-
-    def consider_list_list_eq(self, obj1, obj2):
-        return obj1, obj2
-
-    def consider_contains(self, seq):
-        return seq
-
-    def consider_non_int_eq(self, obj1, obj2):
-        if obj1.knowntype == obj2.knowntype == list:
-            self.count("list_list_eq", obj1, obj2)
-        return self.typerepr(obj1), self.typerepr(obj2)
-
-    def consider_non_int_comp(self, obj1, obj2):
-        return self.typerepr(obj1), self.typerepr(obj2)
-
-    def typerepr(self, obj):
-        if isinstance(obj, SomeInstance):
-            return obj.classdef.name
-        else:
-            return obj.knowntype.__name__
-
-    def consider_tuple_random_getitem(self, tup):
-        return tuple([self.typerepr(x) for x in tup.items])
-
-    def consider_list_index(self):
-        return '!'
-
-    def consider_list_getitem(self, idx):
-        return self.indexrepr(idx)
-
-    def consider_list_setitem(self, idx):
-        return self.indexrepr(idx)
-
-    def consider_list_delitem(self, idx):
-        return self.indexrepr(idx)
-
-    def consider_str_join(self, s):
-        if s.is_constant():
-            return repr(s.const)
-        else:
-            return "NON-CONSTANT"
-
-    def consider_str_getitem(self, idx):
-        return self.indexrepr(idx)
-
-    def consider_strformat(self, str, args):
-        if str.is_constant():
-            s = repr(str.const)
-        else:
-            s = "?!!!!!!"
-        if isinstance(args, SomeTuple):
-            return (s, tuple([self.typerepr(x) for x in args.items]))
-        else:
-            return (s, self.typerepr(args))
-
-    def consider_dict_getitem(self, dic):
-        return dic
-
-    def consider_dict_setitem(self, dic):
-        return dic
-
-    def consider_dict_delitem(self, dic):
-        return dic
+def analyzer_for(func):
+    def wrapped(ann_func):
+        BUILTIN_ANALYZERS[func] = ann_func
+        return func
+    return wrapped
 
 class Bookkeeper(object):
     """The log of choices that have been made while analysing the operations.
@@ -165,12 +66,7 @@ class Bookkeeper(object):
 
         self.needs_generic_instantiate = {}
 
-        self.stats = Stats(self)
-
         delayed_imports()
-
-    def count(self, category, *args):
-        self.stats.count(category, *args)
 
     def enter(self, position_key):
         """Start of an operation.
@@ -246,6 +142,7 @@ class Bookkeeper(object):
             check_no_flags(clsdef)
 
     def consider_call_site(self, call_op):
+        from rpython.rtyper.llannotation import SomeLLADTMeth, lltype_to_annotation
         binding = self.annotator.binding
         s_callable = binding(call_op.args[0])
         args_s = [binding(arg) for arg in call_op.args[1:]]
@@ -311,10 +208,7 @@ class Bookkeeper(object):
         position."""
         return SomeDict(self.getdictdef())
 
-    def immutableconstant(self, const):
-        return self.immutablevalue(const.value)
-
-    def immutablevalue(self, x, need_const=True):
+    def immutablevalue(self, x):
         """The most precise SomeValue instance that contains the
         immutable value x."""
         # convert unbound methods to the underlying function
@@ -350,73 +244,51 @@ class Bookkeeper(object):
         elif tp is bytearray:
             result = SomeByteArray()
         elif tp is tuple:
-            result = SomeTuple(items = [self.immutablevalue(e, need_const) for e in x])
+            result = SomeTuple(items = [self.immutablevalue(e) for e in x])
         elif tp is float:
             result = SomeFloat()
         elif tp is list:
-            if need_const:
-                key = Constant(x)
-                try:
-                    return self.immutable_cache[key]
-                except KeyError:
-                    result = SomeList(ListDef(self, s_ImpossibleValue))
-                    self.immutable_cache[key] = result
-                    for e in x:
-                        result.listdef.generalize(self.immutablevalue(e))
-                    result.const_box = key
-                    return result
-            else:
-                listdef = ListDef(self, s_ImpossibleValue)
+            key = Constant(x)
+            try:
+                return self.immutable_cache[key]
+            except KeyError:
+                result = SomeList(ListDef(self, s_ImpossibleValue))
+                self.immutable_cache[key] = result
                 for e in x:
-                    listdef.generalize(self.immutablevalue(e, False))
-                result = SomeList(listdef)
+                    result.listdef.generalize(self.immutablevalue(e))
+                result.const_box = key
+                return result
         elif tp is dict or tp is r_dict or tp is SomeOrderedDict.knowntype:
             if tp is SomeOrderedDict.knowntype:
                 cls = SomeOrderedDict
             else:
                 cls = SomeDict
-            if need_const:
-                key = Constant(x)
-                try:
-                    return self.immutable_cache[key]
-                except KeyError:
-                    result = cls(DictDef(self,
-                                         s_ImpossibleValue,
-                                         s_ImpossibleValue,
-                                         is_r_dict = tp is r_dict))
-                    self.immutable_cache[key] = result
-                    if tp is r_dict:
-                        s_eqfn = self.immutablevalue(x.key_eq)
-                        s_hashfn = self.immutablevalue(x.key_hash)
-                        result.dictdef.dictkey.update_rdict_annotations(s_eqfn,
-                                                                        s_hashfn)
-                    seen_elements = 0
-                    while seen_elements != len(x):
-                        items = x.items()
-                        for ek, ev in items:
-                            result.dictdef.generalize_key(self.immutablevalue(ek))
-                            result.dictdef.generalize_value(self.immutablevalue(ev))
-                            result.dictdef.seen_prebuilt_key(ek)
-                        seen_elements = len(items)
-                        # if the dictionary grew during the iteration,
-                        # start over again
-                    result.const_box = key
-                    return result
-            else:
-                dictdef = DictDef(self,
-                s_ImpossibleValue,
-                s_ImpossibleValue,
-                is_r_dict = tp is r_dict)
+            key = Constant(x)
+            try:
+                return self.immutable_cache[key]
+            except KeyError:
+                result = cls(DictDef(self,
+                                        s_ImpossibleValue,
+                                        s_ImpossibleValue,
+                                        is_r_dict = tp is r_dict))
+                self.immutable_cache[key] = result
                 if tp is r_dict:
                     s_eqfn = self.immutablevalue(x.key_eq)
                     s_hashfn = self.immutablevalue(x.key_hash)
-                    dictdef.dictkey.update_rdict_annotations(s_eqfn,
-                        s_hashfn)
-                for ek, ev in x.iteritems():
-                    dictdef.generalize_key(self.immutablevalue(ek, False))
-                    dictdef.generalize_value(self.immutablevalue(ev, False))
-                    dictdef.seen_prebuilt_key(ek)
-                result = cls(dictdef)
+                    result.dictdef.dictkey.update_rdict_annotations(s_eqfn,
+                                                                    s_hashfn)
+                seen_elements = 0
+                while seen_elements != len(x):
+                    items = x.items()
+                    for ek, ev in items:
+                        result.dictdef.generalize_key(self.immutablevalue(ek))
+                        result.dictdef.generalize_value(self.immutablevalue(ev))
+                        result.dictdef.seen_prebuilt_key(ek)
+                    seen_elements = len(items)
+                    # if the dictionary grew during the iteration,
+                    # start over again
+                result.const_box = key
+                return result
         elif tp is weakref.ReferenceType:
             x1 = x()
             if x1 is None:
@@ -431,21 +303,17 @@ class Bookkeeper(object):
         elif extregistry.is_registered(x):
             entry = extregistry.lookup(x)
             result = entry.compute_annotation_bk(self)
-        elif isinstance(x, lltype._ptr):
-            result = SomePtr(lltype.typeOf(x))
-        elif isinstance(x, llmemory.fakeaddress):
-            result = SomeAddress()
         elif tp is type:
             result = SomeConstantType(x, self)
         elif callable(x):
             if hasattr(x, 'im_self') and hasattr(x, 'im_func'):
                 # on top of PyPy, for cases like 'l.append' where 'l' is a
                 # global constant list, the find_method() returns non-None
-                s_self = self.immutablevalue(x.im_self, need_const)
+                s_self = self.immutablevalue(x.im_self)
                 result = s_self.find_method(x.im_func.__name__)
             elif hasattr(x, '__self__') and x.__self__ is not None:
                 # for cases like 'l.append' where 'l' is a global constant list
-                s_self = self.immutablevalue(x.__self__, need_const)
+                s_self = self.immutablevalue(x.__self__)
                 result = s_self.find_method(x.__name__)
                 assert result is not None
             else:
@@ -469,8 +337,7 @@ class Bookkeeper(object):
             return s_None
         else:
             raise Exception("Don't know how to represent %r" % (x,))
-        if need_const:
-            result.const = x
+        result.const = x
         return result
 
     def getdesc(self, pyobj):
@@ -488,7 +355,7 @@ class Bookkeeper(object):
                 result = description.FunctionDesc(self, pyobj)
             elif isinstance(pyobj, (type, types.ClassType)):
                 if pyobj is object:
-                    raise Exception, "ClassDesc for object not supported"
+                    raise Exception("ClassDesc for object not supported")
                 if pyobj.__module__ == '__builtin__': # avoid making classdefs for builtin types
                     result = self.getfrozen(pyobj)
                 else:
@@ -726,7 +593,7 @@ def origin_of_meth(boundmeth):
         for name, value in dict.iteritems():
             if value is func:
                 return cls, name
-    raise Exception, "could not match bound-method to attribute name: %r" % (boundmeth,)
+    raise Exception("could not match bound-method to attribute name: %r" % (boundmeth,))
 
 def ishashable(x):
     try:
@@ -735,6 +602,7 @@ def ishashable(x):
         return False
     else:
         return True
+
 # get current bookkeeper
 
 def getbookkeeper():
@@ -745,7 +613,8 @@ def getbookkeeper():
     except AttributeError:
         return None
 
+def immutablevalue(x):
+    return getbookkeeper().immutablevalue(x)
+
 def delayed_imports():
-    # import ordering hack
-    global BUILTIN_ANALYZERS
-    from rpython.annotator.builtin import BUILTIN_ANALYZERS
+    import rpython.annotator.builtin

@@ -25,9 +25,10 @@ def _iterdump(connection):
         FROM "sqlite_master"
             WHERE "sql" NOT NULL AND
             "type" == 'table'
+            ORDER BY "name"
         """
     schema_res = cu.execute(q)
-    for table_name, type, sql in sorted(schema_res.fetchall()):
+    for table_name, type, sql in schema_res.fetchall():
         if table_name == 'sqlite_sequence':
             yield('DELETE FROM "sqlite_sequence";')
         elif table_name == 'sqlite_stat1':
@@ -42,7 +43,7 @@ def _iterdump(connection):
         #        qtable,
         #        sql.replace("''")))
         else:
-            yield('{0};'.format(sql))
+            yield('%s;' % sql)
 
         # Build the insert statement for each row of the current table
         table_name_ident = table_name.replace('"', '""')
@@ -53,7 +54,7 @@ def _iterdump(connection):
             ",".join("""'||quote("{0}")||'""".format(col.replace('"', '""')) for col in column_names))
         query_res = cu.execute(q)
         for row in query_res:
-            yield("{0};".format(row[0]))
+            yield("%s;" % row[0])
 
     # Now when the type is 'index', 'trigger', or 'view'
     q = """
@@ -64,6 +65,6 @@ def _iterdump(connection):
         """
     schema_res = cu.execute(q)
     for name, type, sql in schema_res.fetchall():
-        yield('{0};'.format(sql))
+        yield('%s;' % sql)
 
     yield('COMMIT;')

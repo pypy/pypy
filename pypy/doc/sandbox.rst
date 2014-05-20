@@ -42,6 +42,10 @@ that are normally only present in debugging versions.
    use this sandboxed PyPy from a regular Python interpreter (CPython, or
    an unsandboxed PyPy).  Contributions welcome.
 
+.. warning::
+  
+  Tested with PyPy2.  May not work out of the box with PyPy3.
+
 
 Overview
 --------

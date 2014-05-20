@@ -48,11 +48,9 @@ class AppTest_fast_path_from_list(object):
         raises(OverflowError, _cffi_backend.newp, SHORT_ARRAY, [-40000])
 
     def test_fast_init_longlong_from_list(self):
-        if type(2 ** 50) is long:
-            large_int = 2 ** 30
-        else:
-            large_int = 2 ** 50
         import _cffi_backend
+        import sys
+        large_int = 2 ** (50 if sys.maxsize > 2**31 - 1 else 30)
         LONGLONG = _cffi_backend.new_primitive_type('long long')
         P_LONGLONG = _cffi_backend.new_pointer_type(LONGLONG)
         LONGLONG_ARRAY = _cffi_backend.new_array_type(P_LONGLONG, None)

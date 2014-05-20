@@ -1837,6 +1837,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 #
                 if self.objects_with_finalizers.non_empty():
                     self.deal_with_objects_with_finalizers()
+                elif self.old_objects_with_weakrefs.non_empty():
+                    # Weakref support: clear the weak pointers to dying objects
+                    # (if we call deal_with_objects_with_finalizers(), it will
+                    # invoke invalidate_old_weakrefs() itself directly)
+                    self.invalidate_old_weakrefs()
 
                 ll_assert(not self.objects_to_trace.non_empty(),
                           "objects_to_trace should be empty")
@@ -1846,9 +1851,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.more_objects_to_trace.delete()
 
                 #
-                # Weakref support: clear the weak pointers to dying objects
-                if self.old_objects_with_weakrefs.non_empty():
-                    self.invalidate_old_weakrefs()
+                # Light finalizers
                 if self.old_objects_with_light_finalizers.non_empty():
                     self.deal_with_old_objects_with_finalizers()
                 #objects_to_trace processed fully, can move on to sweeping
@@ -1858,20 +1861,26 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #END MARKING
         elif self.gc_state == STATE_SWEEPING:
             #
-            # Walk all rawmalloced objects and free the ones that don't
-            # have the GCFLAG_VISITED flag.  Visit at most 'limit' objects.
-            limit = self.nursery_size // self.ac.page_size
-            remaining = self.free_unvisited_rawmalloc_objects_step(limit)
-            #
-            # Ask the ArenaCollection to visit a fraction of the objects.
-            # Free the ones that have not been visited above, and reset
-            # GCFLAG_VISITED on the others.  Visit at most '3 * limit'
-            # pages minus the number of objects already visited above.
-            done = self.ac.mass_free_incremental(self._free_if_unvisited,
-                                                 2 * limit + remaining)
+            if self.raw_malloc_might_sweep.non_empty():
+                # Walk all rawmalloced objects and free the ones that don't
+                # have the GCFLAG_VISITED flag.  Visit at most 'limit' objects.
+                # This limit is conservatively high enough to guarantee that
+                # a total object size of at least '3 * nursery_size' bytes
+                # is processed.
+                limit = 3 * self.nursery_size // self.small_request_threshold
+                self.free_unvisited_rawmalloc_objects_step(limit)
+                done = False    # the 2nd half below must still be done
+            else:
+                # Ask the ArenaCollection to visit a fraction of the objects.
+                # Free the ones that have not been visited above, and reset
+                # GCFLAG_VISITED on the others.  Visit at most '3 *
+                # nursery_size' bytes.
+                limit = 3 * self.nursery_size // self.ac.page_size
+                done = self.ac.mass_free_incremental(self._free_if_unvisited,
+                                                     limit)
             # XXX tweak the limits above
             #
-            if remaining > 0 and done:
+            if done:
                 self.num_major_collects += 1
                 #
                 # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
@@ -2206,6 +2215,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     self._recursively_bump_finalization_state_from_2_to_3(y)
             self._recursively_bump_finalization_state_from_1_to_2(x)
 
+        # Clear the weak pointers to dying objects.  Also clears them if
+        # they point to objects which have the GCFLAG_FINALIZATION_ORDERING
+        # bit set here.  These are objects which will be added to
+        # run_finalizers().
+        self.invalidate_old_weakrefs()
+
         while marked.non_empty():
             x = marked.popleft()
             state = self._finalization_state(x)
@@ -2333,7 +2348,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             ll_assert((self.header(pointing_to).tid & GCFLAG_NO_HEAP_PTRS)
                       == 0, "registered old weakref should not "
                             "point to a NO_HEAP_PTRS obj")
-            if self.header(pointing_to).tid & GCFLAG_VISITED:
+            tid = self.header(pointing_to).tid
+            if ((tid & (GCFLAG_VISITED | GCFLAG_FINALIZATION_ORDERING)) ==
+                        GCFLAG_VISITED):
                 new_with_weakref.append(obj)
             else:
                 (obj + offset).address[0] = llmemory.NULL

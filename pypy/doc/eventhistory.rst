@@ -10,18 +10,18 @@ More sprints
 
 
 EuroPython PyPy sprint 6-9 July 2006
-------------------------------------------------------------------
+------------------------------------
 
 Once again a PyPy sprint took place right after the EuroPython
 Conference from the *6th to the 9th of July*.
 
 Read more in the `EuroPython 2006 sprint report`_.
 
-.. _EuroPython 2006 sprint report: http://codespeak.net/pypy/extradoc/sprintinfo/post-ep2006/report.txt
+.. _EuroPython 2006 sprint report: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/post-ep2006/report.txt
 
 
 PyPy at XP 2006 and Agile 2006
-------------------------------------------------------------------
+------------------------------
 
 PyPy presented experience reports at the two main agile conferences
 this year, `XP 2006`_ and `Agile 2006`_.
@@ -33,7 +33,7 @@ development method that is being used in PyPy.
 
 
 Duesseldorf PyPy sprint 2-9 June 2006
-------------------------------------------------------------------
+-------------------------------------
 
 The next PyPy sprint will be held in the Computer Science department of
 Heinrich-Heine Universitaet Duesseldorf from the *2nd to the 9th of June*.
@@ -43,12 +43,12 @@ release.
 Read more in `the sprint announcement`_, see who is  planning to attend
 on the `people page`_.
 
-.. _the sprint announcement: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006/announce.html
-.. _people page: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006/people.html
+.. _the sprint announcement: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/announce.html
+.. _people page: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/people.txt
 
 
 PyPy sprint at Akihabara (Tokyo, Japan)
-------------------------------------------------------------------
+---------------------------------------
 
 *April 23rd - 29th 2006.* This sprint was in Akihabara, Tokyo, Japan,
 our hosts was FSIJ (Free Software Initiative of Japan) and we aimed
@@ -62,7 +62,7 @@ enjoy the pictures_.
 
 
 PyPy at Python UK/ACCU Conference (United Kingdom)
--------------------------------------------------------------------
+--------------------------------------------------
 
 *April 19th - April 22nd 2006.* Several talks about PyPy were hold at
 this year's Python UK/ACCU conference. Read more at the `ACCU site`_.
@@ -71,7 +71,7 @@ this year's Python UK/ACCU conference. Read more at the `ACCU site`_.
 
 
 PyPy at XPDay France 2006 in Paris March 23rd - March 24th 2006
-------------------------------------------------------------------
+---------------------------------------------------------------
 
 Logilab presented PyPy at the first french XP Day that it was
 sponsoring and which was held in Paris. There was over a hundred
@@ -82,7 +82,7 @@ Tools for continuous integration.
 
 
 Logic Sprint at Louvain-la-Neuve University (Louvain-la-Neuve, Belgium)
-------------------------------------------------------------------------
+-----------------------------------------------------------------------
 
 *March 6th - March 10th 2006.* PyPy developers focusing on adding
 logic programming to PyPy will met with the team that developed the Oz
@@ -90,12 +90,12 @@ programming language and the Mozart interpreter.
 
 Read the report_ and the original announcement_.
 
-.. _report: http://codespeak.net/pypy/extradoc/sprintinfo/louvain-la-neuve-2006/report.html
-.. _announcement: http://codespeak.net/pypy/extradoc/sprintinfo/louvain-la-neuve-2006/sprint-announcement.html
+.. _report: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/louvain-la-neuve-2006/report.txt
+.. _announcement: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/louvain-la-neuve-2006/sprint-announcement.txt
 
 
 PyCon Sprint 2006 (Dallas, Texas, USA)
-------------------------------------------------------------------
+--------------------------------------
 
 *Feb 27th - March 2nd 2006.* The Post-PyCon PyPy Sprint took place
 right after PyCon 2006.
@@ -104,7 +104,7 @@ A report is coming up.
 
 
 Talks at PyCon 2006 (Dallas, Texas, USA)
--------------------------------------------------------------------
+----------------------------------------
 
 *Feb 24th - Feb 26th 2006.* PyPy developers spoke at PyCon 2006.
 
@@ -112,7 +112,7 @@ Talks at PyCon 2006 (Dallas, Texas, USA)
 
 
 PyPy at Solutions Linux in Paris January 31st - February 2nd 2006
--------------------------------------------------------------------
+-----------------------------------------------------------------
 
 PyPy developers from Logilab presented the intermediate results of the
 project during the Solutions Linux tradeshow in Paris. A lot of
@@ -121,11 +121,11 @@ about the details. Many people discovered PyPy on this occasion and
 said they were interested in the outcome and would keep an eye on its
 progress. Read the `talk slides`_.
 
-.. _talk slides: http://codespeak.net/pypy/extradoc/talk/solutions-linux-paris-2006.html
+.. _talk slides: https://bitbucket.org/pypy/extradoc/raw/tip/talk/solutions-linux-paris-2006.html
 
 
 PyPy Sprint in Palma De Mallorca 23rd - 29th January 2006
--------------------------------------------------------------------
+---------------------------------------------------------
 
 The Mallorca sprint that took place in Palma de Mallorca is over.
 Topics included progressing with the JIT work started in Göteborg
@@ -135,9 +135,9 @@ improving our way to write glue code for C libraries.
 Read more in `the announcement`_, there is a `sprint report`_
 for the first three days and `one for the rest of the sprint`_.
 
-.. _the announcement: http://codespeak.net/pypy/extradoc/sprintinfo/mallorca/sprint-announcement.html
-.. _sprint report: http://codespeak.net/pipermail/pypy-dev/2006q1/002746.html
-.. _one for the rest of the sprint: http://codespeak.net/pipermail/pypy-dev/2006q1/002749.html
+.. _the announcement: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/mallorca/sprint-announcement.txt
+.. _sprint report: https://mail.python.org/pipermail/pypy-dev/2006-January/002746.html
+.. _one for the rest of the sprint: https://mail.python.org/pipermail/pypy-dev/2006-January/002749.html
 
 
 Preliminary EU reports released
@@ -160,8 +160,8 @@ expose the internals of our parser and bytecode compiler to the user.
 Michael and Carl have written a `report about the first half`_ and `one about
 the second half`_ of the sprint.  *(12/18/2005)*
 
-.. _report about the first half: http://codespeak.net/pipermail/pypy-dev/2005q4/002656.html
-.. _one about the second half: http://codespeak.net/pipermail/pypy-dev/2005q4/002660.html
+.. _report about the first half: https://mail.python.org/pipermail/pypy-dev/2005-December/002656.html
+.. _one about the second half: https://mail.python.org/pipermail/pypy-dev/2005-December/002660.html
 
 
 PyPy release 0.8.0
@@ -192,12 +192,12 @@ Together with Armin they wrote one about `the rest of the sprint`_ on the
 way back.
 *(10/18/2005)*
 
-.. _Logilab offices in Paris: http://codespeak.net/pypy/extradoc/sprintinfo/paris-2005-sprint.html
+.. _Logilab offices in Paris: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/paris-2005-sprint.txt 
 .. _JIT: http://en.wikipedia.org/wiki/Just-in-time_compilation
 .. _continuation-passing: http://en.wikipedia.org/wiki/Continuation_passing_style
-.. _report about day one: http://codespeak.net/pipermail/pypy-dev/2005q4/002510.html
-.. _one about day two and three: http://codespeak.net/pipermail/pypy-dev/2005q4/002512.html
-.. _the rest of the sprint: http://codespeak.net/pipermail/pypy-dev/2005q4/002514.html
+.. _report about day one: https://mail.python.org/pipermail/pypy-dev/2005-October/002510.html
+.. _one about day two and three: https://mail.python.org/pipermail/pypy-dev/2005-October/002512.html
+.. _the rest of the sprint: https://mail.python.org/pipermail/pypy-dev/2005-October/002514.html
 
 
 PyPy release 0.7.0
@@ -214,66 +214,66 @@ trying it out.  We also have the beginning of a :doc:`FAQ <faq>`.  *(08/28/2005)
 PyPy Sprint in Heidelberg 22nd-29th August 2005
 -----------------------------------------------
 
-The last `PyPy sprint`_ took place at the Heidelberg University in Germany from
-22nd August to 29th August (both days included).  Its main focus is translation
-of the whole PyPy interpreter to a low level language and reaching 2.4.1 Python
-compliance.  The goal of the sprint is to release a first self-contained
-PyPy-0.7 version.  Carl has written a report about `day 1 - 3`_, there are
-`some pictures`_ online and a `heidelberg summary report`_ detailing some of
-the works that led to the successful release of :doc:`pypy-0.7.0 <releases/0.7.0>`!
+The last `PyPy sprint`_ took place at the Heidelberg University
+in Germany from 22nd August to 29th August (both days included). 
+Its main focus is translation of the whole PyPy interpreter 
+to a low level language and reaching 2.4.1 Python compliance.
+The goal of the sprint is to release a first self-contained
+PyPy-0.7 version.  Carl has written a report about `day 1 - 3`_
+and a `heidelberg summary report`_ detailing some of the works
+that led to the successful release of :doc:`pypy-0.7.0 <releases/0.7.0>`! 
 
-.. _heidelberg summary report: http://codespeak.net/pypy/extradoc/sprintinfo/Heidelberg-report.html
-.. _PyPy sprint: http://codespeak.net/pypy/extradoc/sprintinfo/Heidelberg-sprint.html
-.. _day 1 - 3: http://codespeak.net/pipermail/pypy-dev/2005q3/002287.html
-.. _some pictures: http://codespeak.net/~hpk/heidelberg-sprint/
+.. _heidelberg summary report: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/Heidelberg-report.txt
+.. _PyPy sprint: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/Heidelberg-sprint.txt
+.. _day 1 - 3: https://mail.python.org/pipermail/pypy-dev/2005-August/002287.html
 
 
 PyPy Hildesheim2 finished: first self-contained PyPy run!
 ---------------------------------------------------------
 
-Up until 31st August we were in a PyPy sprint at `Trillke-Gut`_.  Carl has
-written a `report about day 1`_, Holger about `day 2 and day 3`_ and Carl again
-about `day 4 and day 5`_, On `day 6`_ Holger reports the `breakthrough`_: PyPy
-runs on its own! Hurray_!.  And Carl finally reports about the winding down of
-`day 7`_ which saw us relaxing, discussing and generally having a good time.
-You might want to look at the selected `pictures from the sprint`_.
+Up until 31st August we were in a PyPy sprint at `Trillke-Gut`_. 
+Carl has written a `report about day 1`_, Holger 
+about `day 2 and day 3`_ and Carl again about `day 4 and day 5`_, 
+On `day 6`_ Holger reports the breakthrough: PyPy runs 
+on its own! Hurray!.  And Carl finally reports about the winding
+down of `day 7`_ which saw us relaxing, discussing and generally 
+having a good time.
 
-.. _report about day 1: http://codespeak.net/pipermail/pypy-dev/2005q3/002217.html
-.. _day 2 and day 3: http://codespeak.net/pipermail/pypy-dev/2005q3/002220.html
-.. _day 4 and day 5: http://codespeak.net/pipermail/pypy-dev/2005q3/002234.html
-.. _day 6: http://codespeak.net/pipermail/pypy-dev/2005q3/002239.html
-.. _day 7: http://codespeak.net/pipermail/pypy-dev/2005q3/002245.html
-.. _breakthrough: http://codespeak.net/~hpk/hildesheim2-sprint-www/hildesheim2-sprint-www-Thumbnails/36.jpg
-.. _hurray: http://codespeak.net/~hpk/hildesheim2-sprint-www/hildesheim2-sprint-www-Pages/Image37.html
-.. _pictures from the sprint: http://codespeak.net/~hpk/hildesheim2-sprint-www/
+.. _report about day 1: https://mail.python.org/pipermail/pypy-dev/2005-July/002217.html
+.. _day 2 and day 3: https://mail.python.org/pipermail/pypy-dev/2005-July/002220.html
+.. _day 4 and day 5: https://mail.python.org/pipermail/pypy-dev/2005-July/002234.html
+.. _day 6: https://mail.python.org/pipermail/pypy-dev/2005-July/002239.html
+.. _day 7: https://mail.python.org/pipermail/pypy-dev/2005-August/002245.html
 .. _Trillke-Gut: http://www.trillke.net
 
 
 EuroPython 2005 sprints finished
 --------------------------------
 
-We had two sprints around EuroPython, one more internal core developer one and
-a public one.  Both sprints were quite successful.  Regarding the
-Pre-EuroPython sprint Michael Hudson has posted summaries of `day 1`_, `day 2`_
-and `day 3`_ on the `pypy-dev`_ mailing list.  The larger public sprint has not
-been summarized yet but it went very well.  We had 20 people initially
-attending to hear the tutorials and work a bit.  Later with around 13-14 people
-we made the move to Python-2.4.1, integrated the parser, improved the LLVM
-backends and type inference in general.
+We had two sprints around EuroPython, one more internal core
+developer one and a public one.  Both sprints were quite
+successful.  Regarding the Pre-EuroPython sprint Michael Hudson
+has posted summaries of `day 1`_, `day 2`_ and `day 3`_ on
+the `pypy-dev`_ mailing list.  The larger public sprint
+has not been summarized yet but it went very well.  We had
+20 people initially attending to hear the tutorials and
+work a bit.  Later with around 13-14 people we made the
+move to Python-2.4.1, integrated the parser, improved
+the LLVM backends and type inference in general.
 *(07/13/2005)*
 
-.. _day 1: http://codespeak.net/pipermail/pypy-dev/2005q2/002169.html
-.. _day 2: http://codespeak.net/pipermail/pypy-dev/2005q2/002171.html
-.. _day 3: http://codespeak.net/pipermail/pypy-dev/2005q2/002172.html
-.. _pypy-dev: http://python.org/mailman/listinfo/pypy-dev
+.. _day 1: https://mail.python.org/pipermail/pypy-dev/2005-June/002169.html
+.. _day 2: https://mail.python.org/pipermail/pypy-dev/2005-June/002171.html
+.. _day 3: https://mail.python.org/pipermail/pypy-dev/2005-June/002172.html
+.. _pypy-dev: https://mail.python.org/mailman/listinfo/pypy-dev
 
 .. _EuroPython: http://europython.org
-.. _sprint announcement: http://codespeak.net/pypy/extradoc/sprintinfo/EP2005-announcement.html
-.. _list of people coming: http://codespeak.net/pypy/extradoc/sprintinfo/EP2005-people.html
+.. _sprint announcement: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/EP2005-announcement.html
+.. _list of people coming: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/EP2005-people.html
 
 
 Duesseldorf PyPy sprint 2-9 June 2006
-------------------------------------------------------------------
+-------------------------------------
 
 The next PyPy sprint will be held in the Computer Science department of
 Heinrich-Heine Universitaet Duesseldorf from the *2nd to the 9th of June*.
@@ -283,12 +283,12 @@ release.
 Read more in `the sprint announcement`_, see who is  planning to attend
 on the `people page`_.
 
-.. _the sprint announcement: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006/announce.html
-.. _people page: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006/people.html
+.. _the sprint announcement: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/announce.txt
+.. _people page: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/people.txt
 
 
 PyPy at XP 2006 and Agile 2006
-------------------------------------------------------------------
+------------------------------
 
 PyPy will present experience reports at the two main agile conferences
 this year, `XP 2006`_ and `Agile 2006`_.
@@ -300,7 +300,7 @@ development method that is being used in PyPy.
 
 
 EuroPython PyPy sprint 6-9 July 2006
-------------------------------------------------------------------
+------------------------------------
 
 Once again a PyPy sprint will take place right after the EuroPython
 Conference. This year it will be from the *6th to the 9th of July*.

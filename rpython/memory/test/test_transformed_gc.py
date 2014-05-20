@@ -3,6 +3,7 @@ import inspect
 
 from rpython.translator.c import gc
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
 from rpython.memory.gctransform import framework, shadowstack
 from rpython.rtyper.lltypesystem.lloperation import llop, void
@@ -98,7 +99,7 @@ class GCTest(object):
 
         from rpython.translator.c.genc import CStandaloneBuilder
 
-        s_args = annmodel.SomePtr(lltype.Ptr(ARGS))
+        s_args = SomePtr(lltype.Ptr(ARGS))
         t = rtype(entrypoint, [s_args], gcname=cls.gcname,
                   taggedpointers=cls.taggedpointers)
 
@@ -827,7 +828,7 @@ class GenericMovingGCTests(GenericGCTests):
             from rpython.translator.translator import graphof
             from rpython.flowspace.model import Constant
             from rpython.rtyper.lltypesystem import rffi
-            layoutbuilder = cls.ensure_layoutbuilder(translator)            
+            layoutbuilder = cls.ensure_layoutbuilder(translator)
             type_id = layoutbuilder.get_type_id(P)
             #
             # now fix the do_malloc_fixedsize_clear in the graph of g
@@ -1116,7 +1117,7 @@ class TestGenerationGC(GenericMovingGCTests):
 
     def test_adr_of_nursery(self):
         run = self.runner("adr_of_nursery")
-        res = run([])        
+        res = run([])
 
 class TestGenerationalNoFullCollectGC(GCTest):
     # test that nursery is doing its job and that no full collection

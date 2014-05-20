@@ -9,7 +9,7 @@ from rpython.rtyper.annlowlevel import llstr, llunicode
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw, copy_unicode_to_raw
 
-from pypy.interpreter.error import OperationError, operationerrfmt, wrap_oserror
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.module._cffi_backend import cdataobj, misc, ctypeprim, ctypevoid
 from pypy.module._cffi_backend.ctypeobj import W_CType
 
@@ -62,9 +62,9 @@ class W_CTypePtrOrArray(W_CType):
         space = self.space
         lst_w = space.listview(w_ob)
         if self.length >= 0 and len(lst_w) > self.length:
-            raise operationerrfmt(space.w_IndexError,
-                "too many initializers for '%s' (got %d)",
-                                  self.name, len(lst_w))
+            raise oefmt(space.w_IndexError,
+                        "too many initializers for '%s' (got %d)",
+                        self.name, len(lst_w))
         ctitem = self.ctitem
         for i in range(len(lst_w)):
             ctitem.convert_from_object(cdata, lst_w[i])
@@ -83,10 +83,9 @@ class W_CTypePtrOrArray(W_CType):
             s = space.str_w(w_ob)
             n = len(s)
             if self.length >= 0 and n > self.length:
-                raise operationerrfmt(space.w_IndexError,
-                                      "initializer string is too long for '%s'"
-                                      " (got %d characters)",
-                                      self.name, n)
+                raise oefmt(space.w_IndexError,
+                            "initializer string is too long for '%s' (got %d "
+                            "characters)", self.name, n)
             copy_string_to_raw(llstr(s), cdata, 0, n)
             if n != self.length:
                 cdata[n] = '\x00'
@@ -96,10 +95,9 @@ class W_CTypePtrOrArray(W_CType):
             s = space.unicode_w(w_ob)
             n = len(s)
             if self.length >= 0 and n > self.length:
-                raise operationerrfmt(space.w_IndexError,
-                              "initializer unicode string is too long for '%s'"
-                                      " (got %d characters)",
-                                      self.name, n)
+                raise oefmt(space.w_IndexError,
+                            "initializer unicode string is too long for '%s' "
+                            "(got %d characters)", self.name, n)
             unichardata = rffi.cast(rffi.CWCHARP, cdata)
             copy_unicode_to_raw(llunicode(s), unichardata, 0, n)
             if n != self.length:
@@ -112,9 +110,8 @@ class W_CTypePtrOrArray(W_CType):
         if isinstance(self.ctitem, ctypeprim.W_CTypePrimitive):
             cdata = cdataobj._cdata
             if not cdata:
-                raise operationerrfmt(space.w_RuntimeError,
-                                      "cannot use string() on %s",
-                                      space.str_w(cdataobj.repr()))
+                raise oefmt(space.w_RuntimeError, "cannot use string() on %s",
+                            space.str_w(cdataobj.repr()))
             #
             from pypy.module._cffi_backend import ctypearray
             length = maxlen
@@ -196,9 +193,9 @@ class W_CTypePointer(W_CTypePtrBase):
         ctitem = self.ctitem
         datasize = ctitem.size
         if datasize < 0:
-            raise operationerrfmt(space.w_TypeError,
-                "cannot instantiate ctype '%s' of unknown size",
-                                  self.name)
+            raise oefmt(space.w_TypeError,
+                        "cannot instantiate ctype '%s' of unknown size",
+                        self.name)
         if isinstance(ctitem, W_CTypeStructOrUnion):
             # 'newp' on a struct-or-union pointer: in this case, we return
             # a W_CDataPtrToStruct object which has a strong reference
@@ -227,9 +224,8 @@ class W_CTypePointer(W_CTypePtrBase):
             isinstance(w_cdata, cdataobj.W_CDataPtrToStructOrUnion)):
             if i != 0:
                 space = self.space
-                raise operationerrfmt(space.w_IndexError,
-                                      "cdata '%s' can only be indexed by 0",
-                                      self.name)
+                raise oefmt(space.w_IndexError,
+                            "cdata '%s' can only be indexed by 0", self.name)
         return self
 
     def _check_slice_index(self, w_cdata, start, stop):
@@ -243,9 +239,9 @@ class W_CTypePointer(W_CTypePtrBase):
             if self.is_void_ptr:
                 itemsize = 1
             else:
-                raise operationerrfmt(space.w_TypeError,
-                                  "ctype '%s' points to items of unknown size",
-                                  self.name)
+                raise oefmt(space.w_TypeError,
+                            "ctype '%s' points to items of unknown size",
+                            self.name)
         p = rffi.ptradd(cdata, i * itemsize)
         return cdataobj.W_CData(space, p, self)
 

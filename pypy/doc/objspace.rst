@@ -415,156 +415,39 @@ but isn't hard-coded at this level -- see :doc:`interpreter-optimizations`.)
 Object types
 ~~~~~~~~~~~~
 
-The largest part of the :source:`pypy/objspace/std` package defines and implements
-the library of Python's built-in object types.  Each type (:py:class:`int`,
-:py:class:`float`, :py:class:`list`, :py:class:`tuple`, :py:class:`str`, :py:class:`type`,
-and so on) is typically implemented by two modules:
+The larger part of the :source:`pypy/objspace/std/` package defines and
+implements the library of Python's standard built-in object types.  Each type
+``xxx`` (:py:class:`int`, :py:class:`float`, :py:class:`list`,
+:py:class:`tuple`, :py:class:`str`, :py:class:`type`, etc.) is typically
+implemented in the module ``xxxobject.py``.
 
-* the *type specification* module, which for a type ``xyz`` is called ``xyztype.py``;
+The ``W_AbstractXxxObject`` class, when present, is the abstract base
+class, which mainly defines what appears on the Python-level type
+object.  There are then actual implementations as subclasses, which are
+called ``W_XxxObject`` or some variant for the cases where we have
+several different implementations.  For example,
+:source:`pypy/objspace/std/bytesobject.py` defines ``W_AbstractBytesObject``,
+which contains everything needed to build the ``str`` app-level type;
+and there are subclasses ``W_BytesObject`` (the usual string) and
+``W_StringBufferObject`` (a special implementation tweaked for repeated
+additions, in :source:`pypy/objspace/std/strbufobject.py`).  For mutable data
+types like lists and dictionaries, we have a single class
+``W_ListObject`` or ``W_DictMultiObject`` which has an indirection to
+the real data and a strategy; the strategy can change as the content of
+the object changes.
 
-* the *implementation* module, called ``xyzobject.py``.
-
-The ``xyztype.py`` module defines the type object itself.  For example,
-:source:`pypy/objspace/std/listtype.py` contains the specification of the object
-you get when you type :py:class:`list` in a PyPy prompt, and enumerates the
-methods specific to lists, like :py:meth:`append`.
-
-A particular method implemented by all types is the :py:meth:`__new__` special
-method, which in Python's new-style-classes world is responsible for creating
-an instance of the type. In PyPy, :py:meth:`__new__` locates and imports the
-module implementing *instances* of the type, and creates such an instance based
-on the arguments the user supplied to the constructor.  For example, :source:`pypy/objspace/std/tupletype.py`
-defines :py:meth:`__new__` to import the class :py:class:`W_TupleObject` from
-:source:`pypy/objspace/std/tupleobject.py` and instantiate it.  The :source:`pypy/objspace/std/tupleobject.py` contains a
-"real" implementation of tuples: the way the data is stored in the :py:class:`W_TupleObject`
-class, how the operations work, etc.
-
-The above module layout cleanly separates the Python type object, visible to
-the user, and the actual implementation of its instances.  It is possible to
-provide *several* implementations of the instances of the same Python type by
-writing several :py:class:`W_XyzObject` classes.  Every place that instantiates
-a new object of that Python type can decide which :py:class:`W_XyzObject` class
-to instantiate.
-
-From the user's point of view, the multiple internal :py:class:`W_XyzObject`
-classes are not visible: they are still all instances of exactly the
-same Python type.  PyPy knows that (e.g.) the application-level type of
-its interpreter-level :py:class:`W_StringObject` instances is :py:class:`str`
-because there is a ``typedef`` class attribute in :py:class:`W_StringObject`
-which points back to the string type specification from :source:`pypy/objspace/std/stringtype.py`;
+From the user's point of view, even when there are several
+``W_AbstractXxxObject`` subclasses, this is not visible: at the
+app-level, they are still all instances of exactly the same Python type.
+PyPy knows that (e.g.) the application-level type of its
+interpreter-level ``W_BytesObject`` instances is str because there is a
+``typedef`` class attribute in ``W_BytesObject`` which points back to
+the string type specification from :source:`pypy/objspace/std/bytesobject.py`;
 all other implementations of strings use the same ``typedef`` from
-:source:`pypy/objspace/std/stringtype.py`.
+:source:`pypy/objspace/std/bytesobject.py`.
 
 For other examples of multiple implementations of the same Python type,
 see :doc:`interpreter-optimizations`.
-
-
-Multimethods
-~~~~~~~~~~~~
-
-The Standard Object Space allows multiple object implementations per
-Python type - this is based on multimethods_.  For a description of the
-multimethod variant that we implemented and which features it supports,
-see the comments at the start of :source:`pypy/objspace/std/multimethod.py`.
-However, multimethods alone are not enough for the Standard Object Space: the
-complete picture spans several levels in order to emulate the exact Python
-semantics.
-
-Consider the example of the ``space.getitem(w_a, w_b)`` operation,
-corresponding to the application-level syntax ``a[b]``.  The Standard
-Object Space contains a corresponding ``getitem`` multimethod and a
-family of functions that implement the multimethod for various
-combination of argument classes - more precisely, for various
-combinations of the :ref:`interpreter-level <interpreter-level>` classes of
-the arguments.  Here are some examples of functions implementing the ``getitem``
-multimethod:
-
-.. py:function:: getitem__Tuple_ANY
-
-   Called when the first argument is a :py:class:`W_TupleObject`, this function
-   converts its second argument to an integer and performs tuple indexing.
-
-.. py:function:: getitem__Tuple_Slice
-
-   Called when the first argument is a :py:class:`W_TupleObject` and the second
-   argument is a :py:class:`W_SliceObject`.  This version takes precedence over
-   the previous one if the indexing is done with a slice object, and performs
-   tuple slicing instead.
-
-.. py:function:: getitem__String_Slice
-
-   Called when the first argument is a :py:class:`W_StringObject` and the second
-   argument is a slice object.
-
-Note how the multimethod dispatch logic helps writing new object
-implementations without having to insert hooks into existing code.  Note
-first how we could have defined a regular method-based API that new
-object implementations must provide, and call these methods from the
-space operations.  The problem with this approach is that some Python
-operators are naturally binary or N-ary.  Consider for example the
-addition operation: for the basic string implementation it is a simple
-concatenation-by-copy, but it can have a rather more subtle
-implementation for strings done as ropes.  It is also likely that
-concatenating a basic string with a rope string could have its own
-dedicated implementation - and yet another implementation for a rope
-string with a basic string.  With multimethods, we can have an
-orthogonally-defined implementation for each combination.
-
-The multimethods mechanism also supports delegate functions, which are
-converters between two object implementations.  The dispatch logic knows
-how to insert calls to delegates if it encounters combinations of
-interpreter-level classes which is not directly implemented.  For example, we
-have no specific implementation for the concatenation of a basic string
-and a StringSlice object; when the user adds two such strings, then the
-StringSlice object is converted to a basic string (that is, a
-temporary copy is built), and the concatenation is performed on the
-resulting pair of basic strings.  This is similar to the C++ method
-overloading resolution mechanism (but occurs at runtime).
-
-.. _multimethods: http://en.wikipedia.org/wiki/Multimethods
-
-
-Multimethod slicing
-~~~~~~~~~~~~~~~~~~~
-
-The complete picture is more complicated because the Python object model
-is based on descriptors_: the types :py:class:`int`, :py:class:`str`, etc. must
-have methods :py:meth:`__add__`, :py:meth:`__mul__`, etc. that take two
-arguments including the :py:obj:`self`.  These methods must perform the
-operation or return :py:exc:`NotImplemented` if the second argument is not of
-a type that it knows how to handle.
-
-.. _descriptors: http://docs.python.org/2/howto/descriptor.html
-
-The Standard Object Space creates these methods by *slicing* the
-multimethod tables.  Each method is automatically generated from a
-subset of the registered implementations of the corresponding
-multimethod.  This slicing is performed on the first argument, in order
-to keep only the implementations whose first argument's
-interpreter-level class matches the declared Python-level type.
-
-For example, in a baseline PyPy, :py:meth:`int.__add__` just calls the
-function :py:func:`add__Int_Int`, which is the only registered implementation
-for :py:func:`add` whose first argument is an implementation of the :py:class:`int`
-Python type.  On the other hand, if we enable integers implemented as
-tagged pointers, then there is another matching implementation:
-:py:func:`add__SmallInt_SmallInt`.  In this case, the Python-level method
-:py:meth:`int.__add__` is implemented by trying to dispatch between these two
-functions based on the interpreter-level type of the two arguments.
-
-Similarly, the reverse methods (:py:meth:`__radd__` and others) are obtained by
-slicing the multimethod tables to keep only the functions whose *second*
-argument has the correct Python-level type.
-
-Slicing accurately reproduces the details of the object model as seen in CPython:
-slicing is attempted for every Python type for every multimethod, but the
-:py:meth:`__xyz__` Python methods are only put into the Python type when the
-resulting slices are non-empty.  This is how our :py:class:`int` type has no
-:py:meth:`__getitem__` method, for example. Additionally, slicing ensures that
-``5 .__add__(6L)`` correctly returns :py:exc:`NotImplemented` (because this
-particular slice does not include :py:func:`add__Long_Long` and there is no
-:py:func:`add__Int_Long`) and leads to ``6L.__radd__(5)`` being called, as in
-CPython.
 
 
 Object Space proxies

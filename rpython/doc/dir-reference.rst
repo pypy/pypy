@@ -29,6 +29,8 @@ Directory                                 explanation/links
 :source:`rpython/memory/`                 the :doc:`garbage collector <garbage_collection>` construction
                                           framework
 
+:source:`rpython/tool/algo/`              general-purpose algorithmic and mathematic tools
+
 :source:`rpython/translator/`             :doc:`translation <translation>` backends and support code
 
 :source:`rpython/translator/backendopt/`  general optimizations that run before a

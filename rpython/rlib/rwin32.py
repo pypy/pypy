@@ -169,7 +169,8 @@ if WIN32:
         cfile = udir.join('dosmaperr.c')
         cfile.write(r'''
                 #include <errno.h>
-                #include  <stdio.h>
+                #include <WinError.h>
+                #include <stdio.h>
                 #ifdef __GNUC__
                 #define _dosmaperr mingw_dosmaperr
                 #endif
@@ -178,8 +179,13 @@ if WIN32:
                     int i;
                     for(i=1; i < 65000; i++) {
                         _dosmaperr(i);
-                        if (errno == EINVAL)
-                            continue;
+                        if (errno == EINVAL) {
+                            /* CPython issue #12802 */
+                            if (i == ERROR_DIRECTORY)
+                                errno = ENOTDIR;
+                            else
+                                continue;
+                        }
                         printf("%d\t%d\n", i, errno);
                     }
                     return 0;
@@ -191,6 +197,7 @@ if WIN32:
                 standalone=True)
         except (CompilationError, WindowsError):
             # Fallback for the mingw32 compiler
+            assert static_platform.name == 'mingw32'
             errors = {
                 2: 2, 3: 2, 4: 24, 5: 13, 6: 9, 7: 12, 8: 12, 9: 12, 10: 7,
                 11: 8, 15: 2, 16: 13, 17: 18, 18: 2, 19: 13, 20: 13, 21: 13,
@@ -201,7 +208,7 @@ if WIN32:
                 132: 13, 145: 41, 158: 13, 161: 2, 164: 11, 167: 13, 183: 17,
                 188: 8, 189: 8, 190: 8, 191: 8, 192: 8, 193: 8, 194: 8,
                 195: 8, 196: 8, 197: 8, 198: 8, 199: 8, 200: 8, 201: 8,
-                202: 8, 206: 2, 215: 11, 1816: 12,
+                202: 8, 206: 2, 215: 11, 267: 20, 1816: 12,
                 }
         else:
             output = os.popen(str(exename))

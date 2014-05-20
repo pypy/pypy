@@ -107,9 +107,9 @@ Meeting PyPy developers
     the `development mailing list`_.
 
 .. _#pypy on irc.freenode.net: irc://irc.freenode.net/pypy
-.. _here: http://tismerysoft.de/pypy/irc-logs/pypy
-.. _Development mailing list: http://python.org/mailman/listinfo/pypy-dev
-.. _Commit mailing list: http://python.org/mailman/listinfo/pypy-commit
+.. _here: http://www.tismer.com/pypy/irc-logs/pypy/
+.. _Development mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
+.. _Commit mailing list: http://mail.python.org/mailman/listinfo/pypy-commit
 .. _Development bug/feature tracker: https://bugs.pypy.org/
 
 

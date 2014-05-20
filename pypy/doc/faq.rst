@@ -30,6 +30,7 @@ extension modules there is a good chance that it will work with PyPy.
 
 We list the differences we know about in :doc:`cpython differences <cpython_differences>`.
 
+
 Module xyz does not work with PyPy: ImportError
 -----------------------------------------------
 
@@ -62,8 +63,7 @@ The other commands of ``setup.py`` are available too, like ``build``.
 .. _`use virtualenv (as documented here)`: getting-started.html#installing-using-virtualenv
 
 
-.. _`See below.`: 
-
+.. _`See below.`:
 
 Do CPython Extension modules work with PyPy?
 --------------------------------------------
@@ -101,9 +101,7 @@ To bootstrap from sources, PyPy can use either CPython (2.6 or 2.7) or
 another (e.g. older) PyPy.  Cross-translation is not really supported:
 e.g. to build a 32-bit PyPy, you need to have a 32-bit environment.
 Cross-translation is only explicitly supported between a 32-bit Intel
-Linux and ARM Linux (see here__).
-
-.. __: arm.html
+Linux and ARM Linux (see :doc:`here <arm>`).
 
 
 Which Python version (2.x?) does PyPy implement?
@@ -160,14 +158,13 @@ need even more time to warm-up the JIT.
 
 .. _benchmarking site: http://speed.pypy.org
 
-.. _`jit documentation`: jit/index.html
 
 Couldn't the JIT dump and reload already-compiled machine code?
 ---------------------------------------------------------------
 
 No, we found no way of doing that.  The JIT generates machine code
 containing a large number of constant addresses --- constant at the time
-the machine code is written.  The vast majority is probably not at all
+the machine code is generated.  The vast majority is probably not at all
 constants that you find in the executable, with a nice link name.  E.g.
 the addresses of Python classes are used all the time, but Python
 classes don't come statically from the executable; they are created anew
@@ -177,6 +174,37 @@ mapping addresses in the old (now-dead) process to addresses in the new
 process, including checking that all the previous assumptions about the
 (now-dead) object are still true about the new object.
 
+
+.. _`prolog and javascript`:
+
+Can I use PyPy's translation toolchain for other languages besides Python?
+--------------------------------------------------------------------------
+
+Yes. The toolsuite that translates the PyPy interpreter is quite
+general and can be used to create optimized versions of interpreters
+for any language, not just Python.  Of course, these interpreters
+can make use of the same features that PyPy brings to Python:
+translation to various languages, stackless features,
+garbage collection, implementation of various things like arbitrarily long
+integers, etc.
+
+Currently, we have `Topaz`_, a Ruby interpreter; `Hippy`_, a PHP
+interpreter; preliminary versions of a `JavaScript interpreter`_
+(Leonardo Santagada as his Summer of PyPy project); a `Prolog interpreter`_
+(Carl Friedrich Bolz as his Bachelor thesis); and a `SmallTalk interpreter`_
+(produced during a sprint).  On the `PyPy bitbucket page`_ there is also a
+Scheme and an Io implementation; both of these are unfinished at the moment.
+
+.. _Topaz: http://topazruby.com/
+.. _Hippy: http://morepypy.blogspot.ch/2012/07/hello-everyone.html
+.. _JavaScript interpreter: https://bitbucket.org/pypy/lang-js/
+.. _Prolog interpreter: https://bitbucket.org/cfbolz/pyrolog/
+.. _SmallTalk interpreter: http://dx.doi.org/10.1007/978-3-540-89275-5_7
+.. _PyPy bitbucket page: https://bitbucket.org/pypy/
+
+
+Development
+===========
 
 How do I get into PyPy development?  Can I come to sprints?
 -----------------------------------------------------------
@@ -193,7 +221,7 @@ the most immediate way to get feedback (at least during some parts of the day;
 most PyPy developers are in Europe) and the `mailing list`_ is better for long
 discussions.
 
-.. _mailing list: http://python.org/mailman/listinfo/pypy-dev
+.. _mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
 
 
 OSError: ... cannot restore segment prot after reloc... Help?

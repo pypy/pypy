@@ -12,7 +12,7 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestSTLVECTOR:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_N = cls.space.wrap(13)
@@ -200,7 +200,7 @@ class AppTestSTLVECTOR:
 
 
 class AppTestSTLSTRING:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.wrap(test_dct)
@@ -246,15 +246,13 @@ class AppTestSTLSTRING:
         std = cppyy.gbl.std
         stringy_class = cppyy.gbl.stringy_class
 
-        c, s = stringy_class(""), std.string("test string")
+        c, s = stringy_class("dummy"), std.string("test string")
 
         c.m_string = "another test"
         assert c.m_string == "another test"
         assert str(c.m_string) == c.m_string
         assert c.get_string1() == "another test"
 
-        return
-        # TODO: assignment from object
         c.m_string = s
         assert str(c.m_string) == s
         assert c.m_string == s
@@ -267,8 +265,6 @@ class AppTestSTLSTRING:
         std = cppyy.gbl.std
         stringy_class = cppyy.gbl.stringy_class
 
-        return
-
         t0 = "aap\0noot"
         self.assertEqual(t0, "aap\0noot")
 
@@ -280,7 +276,7 @@ class AppTestSTLSTRING:
 
 
 class AppTestSTLLIST:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_N = cls.space.wrap(13)
@@ -336,13 +332,13 @@ class AppTestSTLLIST:
 
 
 class AppTestSTLMAP:
-    spaceconfig = dict(usemodules=['cppyy', 'itertools'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_N = cls.space.wrap(13)
         cls.w_test_dct  = cls.space.wrap(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import cppyy, math, sys
+            import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def test01_builtin_map_type(self):
@@ -445,7 +441,7 @@ class AppTestSTLMAP:
 
 
 class AppTestSTLITERATOR:
-    spaceconfig = dict(usemodules=['cppyy', 'itertools'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.wrap(test_dct)
@@ -479,3 +475,29 @@ class AppTestSTLITERATOR:
         assert b1 == e2
         assert b1 != b2
         assert b1 == e2
+
+
+class AppTestTEMPLATE_UI:
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+
+    def setup_class(cls):
+        cls.w_test_dct  = cls.space.wrap(test_dct)
+        cls.w_stlstring = cls.space.appexec([], """():
+            import cppyy, sys
+            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+
+    def test01_explicit_templates(self):
+        """Explicit use of Template class"""
+
+        import cppyy
+
+        vector = cppyy.Template('vector', cppyy.gbl.std)
+        assert vector[int] == vector(int)
+
+        v = vector[int]()
+
+        N = 10
+        v += range(N)
+        assert len(v) == N
+        for i in range(N):
+            assert v[i] == i

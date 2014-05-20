@@ -9,11 +9,11 @@ from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import ll_str, llmemory
-from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.lltype import (GcStruct, Signed, Array, Char,
     UniChar, Ptr, malloc, Bool, Void, GcArray, nullptr, cast_primitive,
     typeOf, staticAdtMethod, GcForwardReference)
-from rpython.rtyper.rmodel import inputconst, Repr, IntegerRepr
+from rpython.rtyper.rmodel import inputconst, Repr
+from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rstr import (AbstractStringRepr, AbstractCharRepr,
     AbstractUniCharRepr, AbstractStringIteratorRepr, AbstractLLHelpers,
     AbstractUnicodeRepr)
@@ -108,6 +108,8 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     copy_string_to_raw = func_with_new_name(copy_string_to_raw, 'copy_%s_to_raw' % name)
 
     @jit.dont_look_inside
+    @signature(types.any(), types.any(), types.int(), types.int(),
+               returns=types.none())
     def copy_raw_to_string(ptrsrc, dst, dststart, length):
         # xxx Warning: same note as above apply: don't do this at home
         assert length >= 0
@@ -832,6 +834,7 @@ class LLHelpers(AbstractLLHelpers):
     def ll_stringslice_startonly(s1, start):
         return LLHelpers._ll_stringslice(s1, start, len(s1.chars))
 
+    @signature(types.any(), types.int(), types.int(), returns=types.any())
     def ll_stringslice_startstop(s1, start, stop):
         if jit.we_are_jitted():
             if stop > len(s1.chars):

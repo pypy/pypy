@@ -1,4 +1,3 @@
-
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.tool import rffi_platform as platform
@@ -31,7 +30,7 @@ if _POSIX:
                 'stdio.h',
                 'netdb.h',
                 'arpa/inet.h',
-                'stdint.h', 
+                'stdint.h',
                 'errno.h',
                 )
     if _HAS_AF_PACKET:
@@ -40,7 +39,7 @@ if _POSIX:
                      'net/if.h')
 
     cond_includes = [('AF_NETLINK', 'linux/netlink.h')]
-    
+
     libraries = ()
     calling_conv = 'c'
     HEADER = ''.join(['#include <%s>\n' % filename for filename in includes])
@@ -140,7 +139,7 @@ EAI_MEMORY EAI_NODATA EAI_NONAME EAI_OVERFLOW EAI_PROTOCOL EAI_SERVICE
 EAI_SOCKTYPE EAI_SYSTEM
 
 IPPROTO_AH IPPROTO_BIP IPPROTO_DSTOPTS IPPROTO_EGP IPPROTO_EON IPPROTO_ESP
-IPPROTO_FRAGMENT IPPROTO_GGP IPPROTO_GRE IPPROTO_HELLO IPPROTO_HOPOPTS 
+IPPROTO_FRAGMENT IPPROTO_GGP IPPROTO_GRE IPPROTO_HELLO IPPROTO_HOPOPTS
 IPPROTO_ICMPV6 IPPROTO_IDP IPPROTO_IGMP IPPROTO_IPCOMP IPPROTO_IPIP
 IPPROTO_IPV4 IPPROTO_IPV6 IPPROTO_MAX IPPROTO_MOBILE IPPROTO_ND IPPROTO_NONE
 IPPROTO_PIM IPPROTO_PUP IPPROTO_ROUTING IPPROTO_RSVP IPPROTO_TCP IPPROTO_TP
@@ -175,7 +174,7 @@ PACKET_LOOPBACK PACKET_FASTROUTE
 
 SOCK_DGRAM SOCK_RAW SOCK_RDM SOCK_SEQPACKET SOCK_STREAM
 
-SOL_SOCKET SOL_IPX SOL_AX25 SOL_ATALK SOL_NETROM SOL_ROSE 
+SOL_SOCKET SOL_IPX SOL_AX25 SOL_ATALK SOL_NETROM SOL_ROSE
 
 SO_ACCEPTCONN SO_BROADCAST SO_DEBUG SO_DONTROUTE SO_ERROR SO_EXCLUSIVEADDRUSE
 SO_KEEPALIVE SO_LINGER SO_OOBINLINE SO_RCVBUF SO_RCVLOWAT SO_RCVTIMEO
@@ -287,7 +286,7 @@ CConfig.sockaddr_nl = platform.Struct('struct sockaddr_nl',
                                               ('nl_pid', rffi.INT),
                                               ('nl_groups', rffi.INT)],
                                              ifdef='AF_NETLINK')
-                                             
+
 CConfig.addrinfo = platform.Struct('struct addrinfo',
                                      [('ai_flags', rffi.INT),
                                       ('ai_family', rffi.INT),
@@ -612,11 +611,11 @@ elif WIN32:
 
     WSAPROTOCOL_INFO = cConfig.WSAPROTOCOL_INFO
     FROM_PROTOCOL_INFO = cConfig.FROM_PROTOCOL_INFO
-    WSADuplicateSocket = external('WSADuplicateSocketA', 
+    WSADuplicateSocket = external('WSADuplicateSocketA',
                                   [socketfd_type, rwin32.DWORD,
                                    lltype.Ptr(WSAPROTOCOL_INFO)],
                                   rffi.INT)
-    WSASocket = external('WSASocketA', 
+    WSASocket = external('WSASocketA',
                          [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(WSAPROTOCOL_INFO),
                           rwin32.DWORD, rwin32.DWORD],
@@ -624,11 +623,15 @@ elif WIN32:
 
 if WIN32:
     WSAData = cConfig.WSAData
-    WSAStartup = external('WSAStartup', [rffi.INT, lltype.Ptr(WSAData)],
+    WSAStartup = external('WSAStartup', [rwin32.WORD, lltype.Ptr(WSAData)],
                           rffi.INT)
 
-    WSAGetLastError = external('WSAGetLastError', [], rffi.INT)
+    WSAGetLastError = external('WSAGetLastError', [], rffi.INT, releasegil=False)
     geterrno = WSAGetLastError
+
+    # In tests, the first call to GetLastError is always wrong, because error
+    # is hidden by operations in ll2ctypes.  Call it now.
+    WSAGetLastError()
 
     from rpython.rlib import rwin32
 

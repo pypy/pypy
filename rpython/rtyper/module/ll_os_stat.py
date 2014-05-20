@@ -7,6 +7,7 @@ import os
 import sys
 
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib import rposix
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper import extregistry
@@ -80,14 +81,14 @@ class SomeStatResult(annmodel.SomeObject):
         from rpython.rtyper.module import r_os_stat
         return r_os_stat.StatResultRepr(rtyper)
 
-    def rtyper_makekey_ex(self, rtyper):
+    def rtyper_makekey(self):
         return self.__class__,
 
     def getattr(self, s_attr):
         assert s_attr.is_constant(), "non-constant attr name in getattr()"
         attrname = s_attr.const
         TYPE = STAT_FIELD_TYPES[attrname]
-        return annmodel.lltype_to_annotation(TYPE)
+        return lltype_to_annotation(TYPE)
 
     def _get_rmarshall_support_(self):     # for rlib.rmarshal
         # reduce and recreate stat_result objects from 10-tuples
@@ -98,7 +99,7 @@ class SomeStatResult(annmodel.SomeObject):
 
         def stat_result_recreate(tup):
             return make_stat_result(tup + extra_zeroes)
-        s_reduced = annmodel.SomeTuple([annmodel.lltype_to_annotation(TYPE)
+        s_reduced = annmodel.SomeTuple([lltype_to_annotation(TYPE)
                                        for name, TYPE in PORTABLE_STAT_FIELDS])
         extra_zeroes = (0,) * (len(STAT_FIELDS) - len(PORTABLE_STAT_FIELDS))
         return s_reduced, stat_result_reduce, stat_result_recreate
@@ -114,13 +115,13 @@ class SomeStatvfsResult(annmodel.SomeObject):
         from rpython.rtyper.module import r_os_stat
         return r_os_stat.StatvfsResultRepr(rtyper)
 
-    def rtyper_makekey_ex(self, rtyper):
+    def rtyper_makekey(self):
         return self.__class__,
 
     def getattr(self, s_attr):
         assert s_attr.is_constant()
         TYPE = STATVFS_FIELD_TYPES[s_attr.const]
-        return annmodel.lltype_to_annotation(TYPE)
+        return lltype_to_annotation(TYPE)
 
 
 class __extend__(pairtype(SomeStatResult, annmodel.SomeInteger)):
@@ -129,14 +130,14 @@ class __extend__(pairtype(SomeStatResult, annmodel.SomeInteger)):
         index = s_int.const
         assert 0 <= index < N_INDEXABLE_FIELDS, "os.stat()[index] out of range"
         name, TYPE = STAT_FIELDS[index]
-        return annmodel.lltype_to_annotation(TYPE)
+        return lltype_to_annotation(TYPE)
 
 
 class __extend__(pairtype(SomeStatvfsResult, annmodel.SomeInteger)):
     def getitem((s_stat, s_int)):
         assert s_int.is_constant()
         name, TYPE = STATVFS_FIELDS[s_int.const]
-        return annmodel.lltype_to_annotation(TYPE)
+        return lltype_to_annotation(TYPE)
 
 
 s_StatResult = SomeStatResult()

@@ -160,12 +160,42 @@ class TestMisc(BaseTestPyPyC):
         jump(..., descr=...)
         """)
 
-    def test_range_iter(self):
+    def test_range_iter_simple(self):
         def main(n):
             def g(n):
                 return range(n)
             s = 0
             for i in range(n):  # ID: for
+                tmp = g(n)
+                s += tmp[i]     # ID: getitem
+                a = 0
+            return s
+        #
+        log = self.run(main, [1000])
+        assert log.result == 1000 * 999 / 2
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            guard_not_invalidated?
+            i16 = int_ge(i11, i12)
+            guard_false(i16, descr=...)
+            i20 = int_add(i11, 1)
+            i21 = force_token()
+            setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
+            guard_not_invalidated?
+            i25 = int_ge(i11, i9)
+            guard_false(i25, descr=...)
+            i27 = int_add_ovf(i7, i11)
+            guard_no_overflow(descr=...)
+            --TICK--
+            jump(..., descr=...)
+        """)
+
+    def test_range_iter_normal(self):
+        def main(n):
+            def g(n):
+                return range(n)
+            s = 0
+            for i in range(1, n):  # ID: for
                 tmp = g(n)
                 s += tmp[i]     # ID: getitem
                 a = 0
@@ -317,51 +347,6 @@ class TestMisc(BaseTestPyPyC):
 
         loop, = log.loops_by_id("globalread", is_entry_bridge=True)
         assert len(loop.ops_by_id("globalread")) == 0
-
-    def test_struct_module(self):
-        def main():
-            import struct
-            i = 1
-            while i < 1000:
-                x = struct.unpack("i", struct.pack("i", i))[0] # ID: struct
-                i += x / i
-            return i
-
-        log = self.run(main)
-        assert log.result == main()
-
-        loop, = log.loops_by_id("struct")
-        if sys.maxint == 2 ** 63 - 1:
-            extra = """
-            i8 = int_lt(i4, -2147483648)
-            guard_false(i8, descr=...)
-            """
-        else:
-            extra = ""
-        # This could, of course stand some improvement, to remove all these
-        # arithmatic ops, but we've removed all the core overhead.
-        assert loop.match_by_id("struct", """
-            guard_not_invalidated(descr=...)
-            # struct.pack
-            %(32_bit_only)s
-            i11 = int_and(i4, 255)
-            i13 = int_rshift(i4, 8)
-            i14 = int_and(i13, 255)
-            i16 = int_rshift(i13, 8)
-            i17 = int_and(i16, 255)
-            i19 = int_rshift(i16, 8)
-            i20 = int_and(i19, 255)
-
-            # struct.unpack
-            i22 = int_lshift(i14, 8)
-            i23 = int_or(i11, i22)
-            i25 = int_lshift(i17, 16)
-            i26 = int_or(i23, i25)
-            i28 = int_ge(i20, 128)
-            guard_false(i28, descr=...)
-            i30 = int_lshift(i20, 24)
-            i31 = int_or(i26, i30)
-        """ % {"32_bit_only": extra})
 
     def test_eval(self):
         def main():

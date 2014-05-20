@@ -1,9 +1,10 @@
 import sys
 import os
 from rpython.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
-from rpython.config.config import ChoiceOption, StrOption, Config
+from rpython.config.config import ChoiceOption, StrOption, Config, ConflictConfigError
 from rpython.config.config import ConfigError
 from rpython.config.support import detect_number_of_processors
+from rpython.translator.platform import platform as compiler
 
 DEFL_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
@@ -366,9 +367,10 @@ def set_opt_level(config, level):
     # if we have specified strange inconsistent settings.
     config.translation.gc = config.translation.gc
 
-    # disallow asmgcc on OS/X
+    # disallow asmgcc on OS/X and on Win32
     if config.translation.gcrootfinder == "asmgcc":
-        assert sys.platform != "darwin"
+        assert sys.platform != "darwin", "'asmgcc' not supported on OS/X"
+        assert sys.platform != "win32",  "'asmgcc' not supported on Win32"
 
 # ----------------------------------------------------------------
 

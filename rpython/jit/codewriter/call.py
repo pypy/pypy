@@ -178,7 +178,7 @@ class CallControl(object):
         return (fnaddr, calldescr)
 
     def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
-                     extraeffect=None):
+                     extraeffect=None, extradescr=None):
         """Return the calldescr that describes all calls done by 'op'.
         This returns a calldescr that we can put in the corresponding
         call operation in the calling jitcode.  It gets an effectinfo
@@ -192,8 +192,15 @@ class CallControl(object):
         # check the number and type of arguments
         FUNC = op.args[0].concretetype.TO
         ARGS = FUNC.ARGS
-        assert NON_VOID_ARGS == [T for T in ARGS if T is not lltype.Void]
-        assert RESULT == FUNC.RESULT
+        if NON_VOID_ARGS != [T for T in ARGS if T is not lltype.Void]:
+            raise Exception(
+                "in operation %r: caling a function with signature %r, "
+                "but passing actual arguments (ignoring voids) of types %r"
+                % (op, FUNC, NON_VOID_ARGS))
+        if RESULT != FUNC.RESULT:
+            raise Exception(
+                "in operation %r: caling a function with signature %r, "
+                "but the actual return type is %r" % (op, FUNC, RESULT))
         # ok
         # get the 'elidable' and 'loopinvariant' flags from the function object
         elidable = False
@@ -213,6 +220,28 @@ class CallControl(object):
                 call_release_gil_target = func._call_aroundstate_target_
                 call_release_gil_target = llmemory.cast_ptr_to_adr(
                     call_release_gil_target)
+        elif op.opname == 'indirect_call':
+            # check that we're not trying to call indirectly some
+            # function with the special flags
+            graphs = op.args[-1].value
+            for graph in (graphs or ()):
+                if not hasattr(graph, 'func'):
+                    continue
+                error = None
+                if hasattr(graph.func, '_elidable_function_'):
+                    error = '@jit.elidable'
+                if hasattr(graph.func, '_jit_loop_invariant_'):
+                    error = '@jit.loop_invariant'
+                if hasattr(graph.func, '_call_aroundstate_target_'):
+                    error = '_call_aroundstate_target_'
+                if not error:
+                    continue
+                raise Exception(
+                    "%r is an indirect call to a family of functions "
+                    "(or methods) that includes %r. However, the latter "
+                    "is marked %r. You need to use an indirection: replace "
+                    "it with a non-marked function/method which calls the "
+                    "marked function." % (op, graph, error))
         # build the extraeffect
         random_effects = self.randomeffects_analyzer.analyze(op)
         if random_effects:
@@ -234,9 +263,25 @@ class CallControl(object):
             else:
                 extraeffect = EffectInfo.EF_CANNOT_RAISE
         #
+        # check that the result is really as expected
+        if loopinvariant:
+            if extraeffect != EffectInfo.EF_LOOPINVARIANT:
+                raise Exception(
+                "in operation %r: this calls a _jit_loop_invariant_ function,"
+                " but this contradicts other sources (e.g. it can have random"
+                " effects): EF=%s" % (op, extraeffect))
+        if elidable:
+            if extraeffect not in (EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
+                                   EffectInfo.EF_ELIDABLE_CAN_RAISE):
+                raise Exception(
+                "in operation %r: this calls an _elidable_function_,"
+                " but this contradicts other sources (e.g. it can have random"
+                " effects): EF=%s" % (op, extraeffect))
+        #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op, self.seen), self.cpu,
             extraeffect, oopspecindex, can_invalidate, call_release_gil_target,
+            extradescr,
         )
         #
         assert effectinfo is not None

@@ -7,7 +7,7 @@ from pypy.module._file.interp_file import W_File
 
 Py_MARSHAL_VERSION = 2
 
-@unwrap_spec(w_version = WrappedDefault(Py_MARSHAL_VERSION))
+@unwrap_spec(w_version=WrappedDefault(Py_MARSHAL_VERSION))
 def dump(space, w_data, w_f, w_version):
     """Write the 'data' object into the open file 'f'."""
     # special case real files for performance
@@ -24,7 +24,7 @@ def dump(space, w_data, w_f, w_version):
     finally:
         writer.finished()
 
-@unwrap_spec(w_version = WrappedDefault(Py_MARSHAL_VERSION))
+@unwrap_spec(w_version=WrappedDefault(Py_MARSHAL_VERSION))
 def dumps(space, w_data, w_version):
     """Return the string that would have been written to a file
 by dump(data, file)."""
@@ -218,10 +218,15 @@ class Marshaller(_Base):
 
     def dump_w_obj(self, w_obj):
         space = self.space
-        if (space.type(w_obj).is_heaptype() and
-            space.lookup(w_obj, "__buffer__") is None):
-            w_err = space.wrap("only builtins can be marshaled")
-            raise OperationError(space.w_ValueError, w_err)
+        if space.type(w_obj).is_heaptype():
+            try:
+                buf = space.readbuf_w(w_obj)
+            except OperationError as e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                self.raise_exc("unmarshallable object")
+            else:
+                w_obj = space.newbuffer(buf)
         try:
             self.put_w_obj(w_obj)
         except rstackovf.StackOverflow:
@@ -322,21 +327,8 @@ class StringMarshaller(Marshaller):
 
 
 def invalid_typecode(space, u, tc):
-    # %r not supported in rpython
-    #u.raise_exc('invalid typecode in unmarshal: %r' % tc)
-    c = ord(tc)
-    if c < 16:
-        s = '\\x0%x' % c
-    elif c < 32 or c > 126:
-        s = '\\x%x' % c
-    elif tc == '\\':
-        s = r'\\'
-    else:
-        s = tc
-    q = "'"
-    if s[0] == "'":
-        q = '"'
-    u.raise_exc('invalid typecode in unmarshal: ' + q + s + q)
+    u.raise_exc("bad marshal data (unknown type code)")
+
 
 def register(codes, func):
     """NOT_RPYTHON"""
@@ -471,13 +463,7 @@ class StringUnmarshaller(Unmarshaller):
     # Unmarshaller with inlined buffer string
     def __init__(self, space, w_str):
         Unmarshaller.__init__(self, space, None)
-        try:
-            self.bufstr = space.bufferstr_w(w_str)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            raise OperationError(space.w_TypeError, space.wrap(
-                'marshal.loads() arg must be string or buffer'))
+        self.bufstr = space.getarg_w('s#', w_str)
         self.bufpos = 0
         self.limit = len(self.bufstr)
 

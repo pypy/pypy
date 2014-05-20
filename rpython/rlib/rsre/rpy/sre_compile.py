@@ -8,7 +8,7 @@
 # See the sre.py file for information on usage and redistribution.
 #
 
-"""Internal support module for sre (copied from CPython 2.7.3)"""
+"""Internal support module for sre (copied from CPython)"""
 
 import sys
 from . import _sre, sre_parse
@@ -63,7 +63,7 @@ def _compile(code, pattern, flags):
                 emit(OPCODES[ANY])
         elif op in REPEATING_CODES:
             if flags & SRE_FLAG_TEMPLATE:
-                raise error, "internal: unsupported template operator"
+                raise error("internal: unsupported template operator")
                 emit(OPCODES[REPEAT])
                 skip = _len(code); emit(0)
                 emit(av[0])
@@ -112,7 +112,7 @@ def _compile(code, pattern, flags):
             else:
                 lo, hi = av[1].getwidth()
                 if lo != hi:
-                    raise error, "look-behind requires fixed-width pattern"
+                    raise error("look-behind requires fixed-width pattern")
                 emit(lo) # look behind
             _compile(code, av[1], flags)
             emit(OPCODES[SUCCESS])
@@ -173,7 +173,7 @@ def _compile(code, pattern, flags):
             else:
                 code[skipyes] = _len(code) - skipyes + 1
         else:
-            raise ValueError, ("unsupported operand type", op)
+            raise ValueError("unsupported operand type", op)
 
 def _compile_charset(charset, flags, code, fixup=None):
     # compile charset subprogram
@@ -201,7 +201,7 @@ def _compile_charset(charset, flags, code, fixup=None):
             else:
                 emit(CHCODES[av])
         else:
-            raise error, "internal: unsupported set operator"
+            raise error("internal: unsupported set operator")
     emit(OPCODES[FAILURE])
 
 def _optimize_charset(charset, fixup):
@@ -343,7 +343,7 @@ def _optimize_unicode(charset, fixup):
     else:
         code = 'I'
     # Convert block indices to byte array of 256 bytes
-    mapping = array.array('b', mapping).tostring()
+    mapping = array.array('B', mapping).tostring()
     # Convert byte array to word array
     mapping = array.array(code, mapping)
     assert mapping.itemsize == _sre.CODESIZE
@@ -354,8 +354,6 @@ def _optimize_unicode(charset, fixup):
 def _simple(av):
     # check if av is a "simple" operator
     lo, hi = av[2].getwidth()
-    if lo == 0 and hi == MAXREPEAT:
-        raise error, "nothing to repeat"
     return lo == hi == 1 and av[2][0][0] != SUBPATTERN
 
 def _compile_info(code, pattern, flags):
