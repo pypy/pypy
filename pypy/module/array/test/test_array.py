@@ -1045,7 +1045,7 @@ class AppTestArray(BaseArrayTests):
         raises(TypeError, "a[MyInt(0):MyInt(5)]")
 
     def test_fresh_array_buffer_str(self):
-        assert str(buffer(self.array('i'))) == ''
+        assert memoryview(self.array('i')).tobytes() == b''
 
 
 class AppTestArrayBuiltinShortcut(AppTestArray):
