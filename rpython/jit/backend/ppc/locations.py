@@ -137,16 +137,16 @@ class StackLocation(AssemblerLocation):
         return True
 
     def as_key(self):
-        return self.position + 10000
+        return -self.position + 10000
 
 def imm(val):
     return ImmLocation(val)
 
 def get_spp_offset(pos):
     if pos < 0:
-        return pos * WORD
+        return -pos * WORD
     else:
-        return (pos + 1) * WORD
+        return -(pos + 1) * WORD
 
 def get_fp_offset(base_ofs, position):
     return base_ofs + position
