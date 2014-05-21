@@ -72,6 +72,8 @@ add --without-{0} option to skip packaging binary CFFI extension.""".format(modu
 
 def package(basedir, options):
     name = options.name
+    if not name:
+        name = 'pypy-nightly'
     rename_pypy_c = options.pypy_c
     override_pypy_c = options.override_pypy_c
 
@@ -224,14 +226,14 @@ using another platform..."""
                 raise OSError('"tar" returned exit status %r' % e)
     finally:
         os.chdir(old_dir)
-    if copy_to_dir is not None:
-        print "Copying %s to %s" % (archive, copy_to_dir)
-        shutil.copy(archive, str(copy_to_dir))
+    if options.targetdir is not None:
+        print "Copying %s to %s" % (archive, options.targetdir)
+        shutil.copy(archive, options.targetdir)
     else:
         print "Ready in %s" % (builddir,)
     return builddir # for tests
 
-if __name__ == '__main__':
+def create_package(args):
     import argparse
     if sys.platform == 'win32':
         pypy_exe = 'pypy.exe'
@@ -248,11 +250,15 @@ if __name__ == '__main__':
         help='do not strip the exe, making it ~10MB larger')
     parser.add_argument('--rename_pypy_c', dest='pypy_c', type=str, default=pypy_exe,
         help='target executable name, defaults to "pypy"')
+    parser.add_argument('--archive-name', dest='name', type=str, default='',
+        help='pypy-VER-PLATFORM')
     parser.add_argument('--license_base', type=str, default=license_base,
         help='where to start looking for third party upstream licensing info')
     parser.add_argument('--builddir', type=str, default='',
         help='tmp dir for packaging')
-    options = parser.parse_args()
+    parser.add_argument('--targetdir', type=str, default='',
+        help='destination dir for archive')
+    options = parser.parse_args(args)
 
     if os.environ.has_key("PYPY_PACKAGE_NOSTRIP"):
         options.nostrip = True
@@ -265,3 +271,7 @@ if __name__ == '__main__':
         options.builddir = udir.ensure("build", dir=True)
     assert '/' not in options.rename_pypy_c
     package(basedir, options)
+
+if __name__ == '__main__':
+    import sys
+    create_package(sys.args)
