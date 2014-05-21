@@ -41,6 +41,9 @@ def ignore_patterns(*patterns):
 class PyPyCNotFound(Exception):
     pass
 
+class MissingDependenciesError(Exception):
+    pass
+
 def fix_permissions(dirname):
     if sys.platform != 'win32':
         os.system("chmod -R a+rX %s" % dirname)
@@ -51,11 +54,26 @@ def generate_license(base_file, options):
         txt = fid.read()
     return txt
 
+def create_cffi_import_libraries(pypy_c, options):
+    modules = ['_sqlite3']
+    subprocess.check_call([str(pypy_c), '-c', 'import _sqlite3'])
+    if not sys.platform == 'win32':
+        modules += ['_curses', 'syslog', 'gdbm', '_sqlite3']
+    if not options.no_tk:
+        modules.append(('_tkinter'))
+    for module in modules:
+        try:
+            subprocess.check_call([str(pypy_c), '-c', 'import ' + module])
+        except subprocess.CalledProcessError:
+            print >>sys.stderr, """Building %{0} bindings failed.
+You can either install development headers package or
+add --without-{0} option to skip packaging binary CFFI extension.""".format(module)
+            raise MissingDependenciesError(module)
+
 def package(basedir, options):
     name = options.name
     rename_pypy_c = options.pypy_c
     override_pypy_c = options.override_pypy_c
-    withouttk = options.tk
 
     basedir = py.path.local(basedir)
     if override_pypy_c is None:
@@ -76,23 +94,9 @@ def package(basedir, options):
             raise PyPyCNotFound(
                 'Bogus path: %r does not exist (see docstring for more info)'
                 % (os.path.dirname(str(pypy_c)),))
-    win_extras = ['libpypy-c.dll', 'libexpat.dll', 'sqlite3.dll',
-                      'libeay32.dll', 'ssleay32.dll']
-    subprocess.check_call([str(pypy_c), '-c', 'import _sqlite3'])
-    if not sys.platform == 'win32':
-        subprocess.check_call([str(pypy_c), '-c', 'import _curses'])
-        subprocess.check_call([str(pypy_c), '-c', 'import syslog'])
-        subprocess.check_call([str(pypy_c), '-c', 'import gdbm'])
-    if not withouttk:
-        try:
-            subprocess.check_call([str(pypy_c), '-c', 'import _tkinter'])
-        except subprocess.CalledProcessError:
-            print >>sys.stderr, """Building Tk bindings failed.
-You can either install Tk development headers package or
-add --without-tk option to skip packaging binary CFFI extension."""
-            sys.exit(1)
-        #Can the dependencies be found from cffi somehow?
-        win_extras += ['tcl85.dll', 'tk85.dll']
+    if not options.no_cffi:
+        create_cffi_import_libraries(pypy_c, options)
+
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
@@ -110,10 +114,11 @@ add --without-tk option to skip packaging binary CFFI extension."""
     pypydir.ensure('include', dir=True)
 
     if sys.platform == 'win32':
-        #Don't include a mscvrXX.dll, users should get their own.
-        #Instructions are provided on the website.
-
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
+        win_extras = ['libpypy-c.dll', 'libexpat.dll', 'sqlite3.dll',
+                          'libeay32.dll', 'ssleay32.dll']
+        if not options.no_tk:
+            win_extras += ['tcl85.dll', 'tk85.dll']
 
         for extra in win_extras:
             p = pypy_c.dirpath().join(extra)
@@ -135,7 +140,7 @@ add --without-tk option to skip packaging binary CFFI extension."""
             # XXX users will complain that they cannot compile cpyext
             # modules for windows, has the lib moved or are there no
             # exported functions in the dll so no import library is created?
-        if not withouttk:
+        if not options.no_tk:
             try:
                 p = pypy_c.dirpath().join('tcl85.dll')
                 if not p.check():
@@ -147,7 +152,7 @@ add --without-tk option to skip packaging binary CFFI extension."""
 tk85.dll and tcl85.dll found, expecting to find runtime in ..\\lib
 directory next to the dlls, as per build instructions."""
                 import traceback;traceback.print_exc()
-                sys.exit(1)
+                raise MissingDependenciesError('Tk runtime')
 
     # Careful: to copy lib_pypy, copying just the hg-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.
@@ -158,11 +163,14 @@ directory next to the dlls, as per build instructions."""
                     str(pypydir.join('lib_pypy')),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
                                            '*.c', '*.o'))
-    for file in ['LICENSE', 'README.rst']:
+    for file in ['README.rst',]:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
         shutil.copyfile(str(basedir.join('lib_pypy', file)),
                         str(pypydir.join('lib_pypy', file)))
+    license = generate_license(str(basedir.join('LICENSE')), options)
+    with open(pypydir.join('LICENSE'), 'w') as LICENSE:
+        LICENSE.write(license)
     #
     spdir = pypydir.ensure('site-packages', dir=True)
     shutil.copy(str(basedir.join('site-packages', 'README')), str(spdir))
