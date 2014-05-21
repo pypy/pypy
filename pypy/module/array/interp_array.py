@@ -2,7 +2,7 @@ from __future__ import with_statement
 
 from rpython.rlib import jit
 from rpython.rlib.buffer import Buffer
-from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.objectmodel import keepalive_until_here, we_are_translated
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.annlowlevel import llstr
@@ -616,6 +616,14 @@ class ArrayBuffer(Buffer):
         if step == 1:
             data = self.array._charbuf_start()
             try:
+                if not we_are_translated():
+                    # rffi.ptradd(NULL, ...) doesn't work untranslated.
+                    # It returns nonsense translated, but its return value is
+                    # unused if size == 0, which is the case if data == NULL
+                    if self.array._buffer_as_unsigned() == 0:
+                        assert size == 0
+                        return ''
+
                 return rffi.charpsize2str(rffi.ptradd(data, start), size)
             finally:
                 self.array._charbuf_stop()
