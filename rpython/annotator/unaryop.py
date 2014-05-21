@@ -15,6 +15,7 @@ from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
 from rpython.annotator.model import AnnotatorError
+from rpython.annotator.argument import simple_args, complex_args
 
 UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])
@@ -133,10 +134,10 @@ class __extend__(SomeObject):
         return self   # default unbound __get__ implementation
 
     def simple_call(self, *args_s):
-        return self.call(getbookkeeper().build_args("simple_call", args_s))
+        return self.call(simple_args(args_s))
 
     def call_args(self, *args_s):
-        return self.call(getbookkeeper().build_args("call_args", args_s))
+        return self.call(complex_args(args_s))
 
     def call(self, args, implicit_init=False):
         raise AnnotatorError("Cannot prove that the object is callable")
@@ -687,14 +688,14 @@ class __extend__(SomeInstance):
         bk = getbookkeeper()
         # record for calltables
         bk.emulate_pbc_call(bk.position_key, s_iterable, [])
-        return s_iterable.call(bk.build_args("simple_call", []))
+        return s_iterable.call(simple_args([]))
 
     def next(self):
         s_next = self._true_getattr('next')
         bk = getbookkeeper()
         # record for calltables
         bk.emulate_pbc_call(bk.position_key, s_next, [])
-        return s_next.call(bk.build_args("simple_call", []))
+        return s_next.call(simple_args([]))
 
 class __extend__(SomeBuiltin):
     def simple_call(self, *args):
