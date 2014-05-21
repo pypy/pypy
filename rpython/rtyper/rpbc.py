@@ -2,6 +2,7 @@ import types
 
 from rpython.annotator import model as annmodel, description
 from rpython.flowspace.model import Constant
+from rpython.annotator.argument import simple_args
 from rpython.rtyper import rclass, callparse
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.error import TyperError
@@ -290,7 +291,7 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         bk = self.rtyper.annotator.bookkeeper
         descs = list(s_pbc.descriptions)
         vfcs = description.FunctionDesc.variant_for_call_site
-        args = bk.build_args("simple_call", args_s)
+        args = simple_args(args_s)
         shape, index = vfcs(bk, self.callfamily, descs, args, op)
         funcdesc, = descs
         row_of_one_graph = self.callfamily.calltables[shape][index]

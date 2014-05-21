@@ -18,7 +18,7 @@ from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
 from rpython.annotator import description
 from rpython.annotator.signature import annotationoftype
-from rpython.annotator.argument import ArgumentsForTranslation
+from rpython.annotator.argument import simple_args, complex_args
 from rpython.rlib.objectmodel import r_dict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
@@ -538,7 +538,7 @@ class Bookkeeper(object):
                     del emulated_pbc_calls[other_key]
             emulated_pbc_calls[unique_key] = pbc, args_s
 
-            args = self.build_args("simple_call", args_s)
+            args = simple_args(args_s)
             if callback is None:
                 emulated = True
             else:
@@ -564,11 +564,9 @@ class Bookkeeper(object):
 
     def build_args(self, op, args_s):
         if op == "simple_call":
-            return ArgumentsForTranslation(list(args_s))
+            return simple_args(args_s)
         elif op == "call_args":
-            return ArgumentsForTranslation.fromshape(
-                    args_s[0].const, # shape
-                    list(args_s[1:]))
+            return complex_args(args_s)
 
     def ondegenerated(self, what, s_value, where=None, called_from_graph=None):
         self.annotator.ondegenerated(what, s_value, where=where,

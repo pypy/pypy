@@ -536,7 +536,15 @@ class SomeBuiltin(SomeObject):
 class SomeBuiltinMethod(SomeBuiltin):
     """ Stands for a built-in method which has got special meaning
     """
-    knowntype = MethodType
+    def __init__(self, analyser, s_self, methodname):
+        if isinstance(analyser, MethodType):
+            analyser = descriptor.InstanceMethod(
+                analyser.im_func,
+                analyser.im_self,
+                analyser.im_class)
+        self.analyser = analyser
+        self.s_self = s_self
+        self.methodname = methodname
 
 
 class SomeImpossibleValue(SomeObject):

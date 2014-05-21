@@ -11,37 +11,32 @@ from rpython.tool.pairtype import pairtype
 
 class __extend__(annmodel.SomeBuiltin):
     def rtyper_makerepr(self, rtyper):
-        if self.s_self is None:
-            # built-in function case
-            if not self.is_constant():
-                raise TyperError("non-constant built-in function!")
-            return BuiltinFunctionRepr(self.const)
-        else:
-            # built-in method case
-            assert self.methodname is not None
-            result = BuiltinMethodRepr(rtyper, self.s_self, self.methodname)
-            return result
+        if not self.is_constant():
+            raise TyperError("non-constant built-in function!")
+        return BuiltinFunctionRepr(self.const)
+
     def rtyper_makekey(self):
-        if self.s_self is None:
-            # built-in function case
+        const = getattr(self, 'const', None)
+        if extregistry.is_registered(const):
+            const = extregistry.lookup(const)
+        return self.__class__, const
 
-            const = getattr(self, 'const', None)
+class __extend__(annmodel.SomeBuiltinMethod):
+    def rtyper_makerepr(self, rtyper):
+        assert self.methodname is not None
+        result = BuiltinMethodRepr(rtyper, self.s_self, self.methodname)
+        return result
 
-            if extregistry.is_registered(const):
-                const = extregistry.lookup(const)
-
-            return self.__class__, const
-        else:
-            # built-in method case
-            # NOTE: we hash by id of self.s_self here.  This appears to be
-            # necessary because it ends up in hop.args_s[0] in the method call,
-            # and there is no telling what information the called
-            # rtype_method_xxx() will read from that hop.args_s[0].
-            # See test_method_join in test_rbuiltin.
-            # There is no problem with self.s_self being garbage-collected and
-            # its id reused, because the BuiltinMethodRepr keeps a reference
-            # to it.
-            return (self.__class__, self.methodname, id(self.s_self))
+    def rtyper_makekey(self):
+        # NOTE: we hash by id of self.s_self here.  This appears to be
+        # necessary because it ends up in hop.args_s[0] in the method call,
+        # and there is no telling what information the called
+        # rtype_method_xxx() will read from that hop.args_s[0].
+        # See test_method_join in test_rbuiltin.
+        # There is no problem with self.s_self being garbage-collected and
+        # its id reused, because the BuiltinMethodRepr keeps a reference
+        # to it.
+        return (self.__class__, self.methodname, id(self.s_self))
 
 def call_args_expand(hop, takes_kwds = True):
     hop = hop.copy()

@@ -8,7 +8,7 @@ from rpython.annotator.model import (
     SomeObject, SomeInteger, SomeBool, s_Bool, SomeString, SomeChar, SomeList,
     SomeDict, SomeOrderedDict, SomeUnicodeCodePoint, SomeUnicodeString,
     SomeTuple, SomeImpossibleValue, s_ImpossibleValue, SomeInstance,
-    SomeBuiltin, SomeIterator, SomePBC, SomeFloat, s_None, SomeByteArray,
+    SomeBuiltinMethod, SomeIterator, SomePBC, SomeFloat, s_None, SomeByteArray,
     SomeWeakRef, SomeSingleFloat,
     SomeLongFloat, SomeType, SomeConstantType, unionof, UnionError,
     read_can_only_throw, add_knowntypedata,
@@ -697,15 +697,14 @@ class __extend__(pairtype(SomeIterator, SomeIterator)):
         return SomeIterator(s_cont, *iter1.variant)
 
 
-class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
-
+class __extend__(pairtype(SomeBuiltinMethod, SomeBuiltinMethod)):
     def union((bltn1, bltn2)):
         if (bltn1.analyser != bltn2.analyser or
-            bltn1.methodname != bltn2.methodname or
-            bltn1.s_self is None or bltn2.s_self is None):
+                bltn1.methodname != bltn2.methodname):
             raise UnionError(bltn1, bltn2)
         s_self = unionof(bltn1.s_self, bltn2.s_self)
-        return SomeBuiltin(bltn1.analyser, s_self, methodname=bltn1.methodname)
+        return SomeBuiltinMethod(bltn1.analyser, s_self,
+                methodname=bltn1.methodname)
 
 @op.is_.register(SomePBC, SomePBC)
 def is__PBC_PBC(pbc1, pbc2):

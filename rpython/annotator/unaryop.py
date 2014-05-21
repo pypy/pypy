@@ -7,14 +7,15 @@ from __future__ import absolute_import
 from rpython.flowspace.operation import op
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
-    SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeFloat, SomeIterator,
-    SomePBC, SomeType, s_ImpossibleValue,
+    SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
+    SomeFloat, SomeIterator, SomePBC, SomeType, s_ImpossibleValue,
     s_Bool, s_None, unionof, add_knowntypedata,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
 from rpython.annotator.model import AnnotatorError
+from rpython.annotator.argument import simple_args, complex_args
 
 UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])
@@ -106,7 +107,7 @@ class __extend__(SomeObject):
         except AttributeError:
             return None
         else:
-            return SomeBuiltin(analyser, self, name)
+            return SomeBuiltinMethod(analyser, self, name)
 
     def getattr(self, s_attr):
         # get a SomeBuiltin if the SomeObject has
@@ -131,10 +132,10 @@ class __extend__(SomeObject):
         return self   # default unbound __get__ implementation
 
     def simple_call(self, *args_s):
-        return self.call(getbookkeeper().build_args("simple_call", args_s))
+        return self.call(simple_args(args_s))
 
     def call_args(self, *args_s):
-        return self.call(getbookkeeper().build_args("call_args", args_s))
+        return self.call(complex_args(args_s))
 
     def call(self, args, implicit_init=False):
         raise AnnotatorError("Cannot prove that the object is callable")
@@ -684,31 +685,38 @@ class __extend__(SomeInstance):
         bk = getbookkeeper()
         # record for calltables
         bk.emulate_pbc_call(bk.position_key, s_iterable, [])
-        return s_iterable.call(bk.build_args("simple_call", []))
+        return s_iterable.call(simple_args([]))
 
     def next(self):
         s_next = self._true_getattr('next')
         bk = getbookkeeper()
         # record for calltables
         bk.emulate_pbc_call(bk.position_key, s_next, [])
-        return s_next.call(bk.build_args("simple_call", []))
+        return s_next.call(simple_args([]))
 
 class __extend__(SomeBuiltin):
+    def simple_call(self, *args):
+        return self.analyser(*args)
+
+    def call(self, args, implicit_init=False):
+        args_s, kwds = args.unpack()
+        # prefix keyword arguments with 's_'
+        kwds_s = {}
+        for key, s_value in kwds.items():
+            kwds_s['s_'+key] = s_value
+        return self.analyser(*args_s, **kwds_s)
+
+
+class __extend__(SomeBuiltinMethod):
     def _can_only_throw(self, *args):
         analyser_func = getattr(self.analyser, 'im_func', None)
         can_only_throw = getattr(analyser_func, 'can_only_throw', None)
         if can_only_throw is None or isinstance(can_only_throw, list):
             return can_only_throw
-        if self.s_self is not None:
-            return can_only_throw(self.s_self, *args)
-        else:
-            return can_only_throw(*args)
+        return can_only_throw(self.s_self, *args)
 
     def simple_call(self, *args):
-        if self.s_self is not None:
-            return self.analyser(self.s_self, *args)
-        else:
-            return self.analyser(*args)
+        return self.analyser(self.s_self, *args)
     simple_call.can_only_throw = _can_only_throw
 
     def call(self, args, implicit_init=False):
@@ -717,10 +725,7 @@ class __extend__(SomeBuiltin):
         kwds_s = {}
         for key, s_value in kwds.items():
             kwds_s['s_'+key] = s_value
-        if self.s_self is not None:
-            return self.analyser(self.s_self, *args_s, **kwds_s)
-        else:
-            return self.analyser(*args_s, **kwds_s)
+        return self.analyser(self.s_self, *args_s, **kwds_s)
 
 
 class __extend__(SomePBC):
