@@ -65,7 +65,7 @@ def create_cffi_import_libraries(pypy_c, options):
         try:
             subprocess.check_call([str(pypy_c), '-c', 'import ' + module])
         except subprocess.CalledProcessError:
-            print >>sys.stderr, """Building %{0} bindings failed.
+            print >>sys.stderr, """Building {0} bindings failed.
 You can either install development headers package or
 add --without-{0} option to skip packaging binary CFFI extension.""".format(module)
             raise MissingDependenciesError(module)
@@ -78,7 +78,7 @@ def package(basedir, options):
     override_pypy_c = options.override_pypy_c
 
     basedir = py.path.local(basedir)
-    if override_pypy_c is None:
+    if not override_pypy_c:
         basename = 'pypy-c'
         if sys.platform == 'win32':
             basename += '.exe'
@@ -171,7 +171,7 @@ directory next to the dlls, as per build instructions."""
         shutil.copyfile(str(basedir.join('lib_pypy', file)),
                         str(pypydir.join('lib_pypy', file)))
     license = generate_license(str(basedir.join('LICENSE')), options)
-    with open(pypydir.join('LICENSE'), 'w') as LICENSE:
+    with open(str(pypydir.join('LICENSE')), 'w') as LICENSE:
         LICENSE.write(license)
     #
     spdir = pypydir.ensure('site-packages', dir=True)
@@ -226,7 +226,7 @@ using another platform..."""
                 raise OSError('"tar" returned exit status %r' % e)
     finally:
         os.chdir(old_dir)
-    if options.targetdir is not None:
+    if options.targetdir:
         print "Copying %s to %s" % (archive, options.targetdir)
         shutil.copy(archive, options.targetdir)
     else:
@@ -258,6 +258,8 @@ def create_package(args):
         help='tmp dir for packaging')
     parser.add_argument('--targetdir', type=str, default='',
         help='destination dir for archive')
+    parser.add_argument('--override_pypy_c', type=str, default='',
+        help='use as pypy exe, default is pypy/goal/pypy-c as exe source name')
     options = parser.parse_args(args)
 
     if os.environ.has_key("PYPY_PACKAGE_NOSTRIP"):
@@ -269,8 +271,8 @@ def create_package(args):
         # The import actually creates the udir directory
         from rpython.tool.udir import udir
         options.builddir = udir.ensure("build", dir=True)
-    assert '/' not in options.rename_pypy_c
-    package(basedir, options)
+    assert '/' not in options.pypy_c
+    return package(basedir, options)
 
 if __name__ == '__main__':
     import sys

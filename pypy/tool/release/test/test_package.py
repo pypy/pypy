@@ -1,7 +1,7 @@
 
 import py
 from pypy.conftest import pypydir
-from pypy.tool.release import package
+from pypy.tool.release import package, create_package
 from pypy.module.sys.version import  CPYTHON_VERSION
 import tarfile, zipfile, sys
 
@@ -36,7 +36,7 @@ def test_dir_structure(test='test'):
         assert not prefix.join('lib_pypy', 'ctypes_configure').check()
         assert prefix.join('LICENSE').check()
         assert prefix.join('README.rst').check()
-        if package.USE_ZIPFILE_MODULE:
+        if create_package.USE_ZIPFILE_MODULE:
             zh = zipfile.ZipFile(str(builddir.join('%s.zip' % test)))
             assert zh.open('%s/lib_pypy/syslog.py' % test)
         else:
@@ -59,7 +59,7 @@ def test_dir_structure(test='test'):
         def check_include(name):
             if includedir.join(name).check(file=True):
                 member = '%s/include/%s' % (test, name)
-                if package.USE_ZIPFILE_MODULE:
+                if create_package.USE_ZIPFILE_MODULE:
                     assert zh.open(member)
                 else:
                     assert th.getmember(member)
@@ -74,13 +74,12 @@ def test_dir_structure(test='test'):
             pypy_c.remove()
 
 def test_with_zipfile_module():
-    from pypy.tool.release import package
-    prev = package.USE_ZIPFILE_MODULE
+    prev = create_package.USE_ZIPFILE_MODULE
     try:
-        package.USE_ZIPFILE_MODULE = True
+        create_package.USE_ZIPFILE_MODULE = True
         test_dir_structure(test='testzipfile')
     finally:
-        package.USE_ZIPFILE_MODULE = prev
+        create_package.USE_ZIPFILE_MODULE = prev
 
 def test_fix_permissions(tmpdir):
     if sys.platform == 'win32':
@@ -100,7 +99,7 @@ def test_fix_permissions(tmpdir):
     file2.chmod(0640)
     pypy.chmod(0700)
     #
-    package.fix_permissions(tmpdir)
+    create_package.fix_permissions(tmpdir)
     check(mydir, 0755)
     check(bin,   0755)
     check(file1, 0644)
