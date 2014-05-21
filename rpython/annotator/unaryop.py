@@ -44,6 +44,14 @@ def contains_SomeObject(obj, element):
     return s_Bool
 contains_SomeObject.can_only_throw = []
 
+@op.simple_call.register(SomeObject)
+def simple_call_SomeObject(func, *args):
+    return func.ann.call(simple_args([arg.ann for arg in args]))
+
+@op.call_args.register(SomeObject)
+def call_args(func, *args):
+    return func.ann.call(complex_args([arg.ann for arg in args]))
+
 class __extend__(SomeObject):
 
     def issubtype(self, s_cls):
@@ -130,12 +138,6 @@ class __extend__(SomeObject):
 
     def bind_callables_under(self, classdef, name):
         return self   # default unbound __get__ implementation
-
-    def simple_call(self, *args_s):
-        return self.call(simple_args(args_s))
-
-    def call_args(self, *args_s):
-        return self.call(complex_args(args_s))
 
     def call(self, args, implicit_init=False):
         raise AnnotatorError("Cannot prove that the object is callable")
@@ -695,9 +697,6 @@ class __extend__(SomeInstance):
         return s_next.call(simple_args([]))
 
 class __extend__(SomeBuiltin):
-    def simple_call(self, *args):
-        return self.analyser(*args)
-
     def call(self, args, implicit_init=False):
         args_s, kwds = args.unpack()
         # prefix keyword arguments with 's_'
