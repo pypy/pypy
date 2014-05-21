@@ -3,20 +3,21 @@
 It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
-    package.py [--nostrip] [--without-tk] root-pypy-dir [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
+    package.py --base-dir pypy-base-dir [--options]
 
-Usually you would do:   package.py ../../.. pypy-VER-PLATFORM
-The output is found in the directory /tmp/usession-YOURNAME/build/.
+Usually you would do:   package.py --version-name pypy-VER-PLATFORM
+The output is found in the directory from --builddir,
+by default /tmp/usession-YOURNAME/build/.
 """
 
 import shutil
 import sys
 import os
 #Add toplevel repository dir to sys.path
-sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+basedir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(0,basedir)
 import py
 import fnmatch
-from rpython.tool.udir import udir
 import subprocess
 
 if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
@@ -40,15 +41,22 @@ def ignore_patterns(*patterns):
 class PyPyCNotFound(Exception):
     pass
 
-def fix_permissions(basedir):
+def fix_permissions(dirname):
     if sys.platform != 'win32':
-        os.system("chmod -R a+rX %s" % basedir)
-        os.system("chmod -R g-w %s" % basedir)
+        os.system("chmod -R a+rX %s" % dirname)
+        os.system("chmod -R g-w %s" % dirname)
 
-def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
-            copy_to_dir=None, override_pypy_c=None, nostrip=False,
-            withouttk=False):
-    assert '/' not in rename_pypy_c
+def generate_license(base_file, options):
+    with open(base_file) as fid:
+        txt = fid.read()
+    return txt
+
+def package(basedir, options):
+    name = options.name
+    rename_pypy_c = options.pypy_c
+    override_pypy_c = options.override_pypy_c
+    withouttk = options.tk
+
     basedir = py.path.local(basedir)
     if override_pypy_c is None:
         basename = 'pypy-c'
@@ -83,13 +91,13 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
 You can either install Tk development headers package or
 add --without-tk option to skip packaging binary CFFI extension."""
             sys.exit(1)
-        #Can the dependencies be found from cffi somehow?    
-        win_extras += ['tcl85.dll', 'tk85.dll']    
+        #Can the dependencies be found from cffi somehow?
+        win_extras += ['tcl85.dll', 'tk85.dll']
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
     #
-    builddir = udir.ensure("build", dir=True)
+    builddir = options.builddir
     pypydir = builddir.ensure(name, dir=True)
     includedir = basedir.join('include')
     # Recursively copy all headers, shutil has only ignore
@@ -116,7 +124,7 @@ add --without-tk option to skip packaging binary CFFI extension."""
                     continue
             print "Picking %s" % p
             binaries.append((p, p.basename))
-        importlib_name = 'python27.lib'    
+        importlib_name = 'python27.lib'
         if pypy_c.dirpath().join(importlib_name).check():
             shutil.copyfile(str(pypy_c.dirpath().join(importlib_name)),
                         str(pypydir.join('include/python27.lib')))
@@ -153,7 +161,7 @@ directory next to the dlls, as per build instructions."""
     for file in ['LICENSE', 'README.rst']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
-        shutil.copyfile(str(basedir.join('lib_pypy', file)), 
+        shutil.copyfile(str(basedir.join('lib_pypy', file)),
                         str(pypydir.join('lib_pypy', file)))
     #
     spdir = pypydir.ensure('site-packages', dir=True)
@@ -167,17 +175,17 @@ directory next to the dlls, as per build instructions."""
     for source, target in binaries:
         archive = bindir.join(target)
         shutil.copy(str(source), str(archive))
-    old_dir = os.getcwd()
     fix_permissions(builddir)
+
+    old_dir = os.getcwd()
     try:
         os.chdir(str(builddir))
-        #
-        # 'strip' fun: see issue #587
-        if not nostrip:
+        if not options.nostrip:
             for source, target in binaries:
                 if sys.platform == 'win32':
                     pass
                 elif sys.platform == 'darwin':
+                    # 'strip' fun: see issue #587 for why -x
                     os.system("strip -x " + str(bindir.join(target)))    # ignore errors
                 else:
                     os.system("strip " + str(bindir.join(target)))    # ignore errors
@@ -215,34 +223,37 @@ using another platform..."""
         print "Ready in %s" % (builddir,)
     return builddir # for tests
 
-
-def print_usage():
-    print >>sys.stderr, __doc__
-    sys.exit(1)
-
-
 if __name__ == '__main__':
-    if len(sys.argv) == 1:
-        print_usage()
-
-    args = sys.argv[1:]
-    kw = {}
-
-    for i, arg in enumerate(args):
-        if arg == '--nostrip':
-            kw['nostrip'] = True
-        elif arg == '--without-tk':
-            kw['withouttk'] = True
-        elif not arg.startswith('--'):
-            break
-        else:
-            print_usage()
+    import argparse
+    if sys.platform == 'win32':
+        pypy_exe = 'pypy.exe'
+        license_base = os.path.join(basedir,'../local') # as on buildbot YMMV
+    else:
+        pypy_exe = 'pypy'
+        license_base = '/usr/share/doc'
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--without-tk', dest='no_tk', action='store_true',
+        help='build and package the cffi tkinter module')
+    parser.add_argument('--without-cffi', dest='no_cffi', action='store_true',
+        help='do not pre-import any cffi modules')
+    parser.add_argument('--nostrip', dest='nostrip', action='store_true',
+        help='do not strip the exe, making it ~10MB larger')
+    parser.add_argument('--rename_pypy_c', dest='pypy_c', type=str, default=pypy_exe,
+        help='target executable name, defaults to "pypy"')
+    parser.add_argument('--license_base', type=str, default=license_base,
+        help='where to start looking for third party upstream licensing info')
+    parser.add_argument('--builddir', type=str, default='',
+        help='tmp dir for packaging')
+    options = parser.parse_args()
 
     if os.environ.has_key("PYPY_PACKAGE_NOSTRIP"):
-        kw['nostrip'] = True
+        options.nostrip = True
 
     if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
-        kw['withouttk'] = True
-
-    args = args[i:]
-    package(*args, **kw)
+        options.tk = True
+    if not options.builddir:
+        # The import actually creates the udir directory
+        from rpython.tool.udir import udir
+        options.builddir = udir.ensure("build", dir=True)
+    assert '/' not in options.rename_pypy_c
+    package(basedir, options)
