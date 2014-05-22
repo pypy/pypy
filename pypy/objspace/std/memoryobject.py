@@ -61,15 +61,6 @@ class W_MemoryView(W_Root):
     def getlength(self):
         return self.buf.getlength()
 
-    def getslice(self, start, stop):
-        if start < 0:
-            start = 0
-        size = stop - start
-        if size < 0:
-            size = 0
-        buf = SubBuffer(self.buf, start, size)
-        return W_MemoryView(buf)
-
     def descr_tobytes(self, space):
         return space.wrap(self.as_str())
 
@@ -81,13 +72,14 @@ class W_MemoryView(W_Root):
         return space.newlist(result)
 
     def descr_getitem(self, space, w_index):
-        start, stop, step = space.decode_index(w_index, self.getlength())
+        start, stop, step, size = space.decode_index4(w_index, self.getlength())
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
         if step == 0:  # index only
             return space.wrap(self.buf.getitem(start))
-        res = self.getslice(start, stop)
-        return space.wrap(res)
+        else:
+            buf = SubBuffer(self.buf, start, size)
+            return W_MemoryView(buf)
 
     def descr_setitem(self, space, w_index, w_obj):
         if self.buf.readonly:
