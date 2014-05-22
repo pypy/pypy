@@ -38,6 +38,20 @@ def pin(obj):
     # XXX update doc string to match actual behavior
     return False
 
+class PinEntry(ExtRegistryEntry):
+    _about_ = pin
+
+    def compute_result_annotation(self, s_arg):
+        from rpython.annotator.model import s_Bool
+        return s_Bool
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        v_obj, = hop.inputargs(hop.args_r[0])
+        v_addr = hop.genop('cast_ptr_to_adr', [v_obj],
+                           resulttype=llmemory.Address)
+        return hop.genop('gc_pin', [v_addr], resulttype=lltype.Bool)
+
 def unpin(obj):
     """Unpin 'obj', allowing it to move again.
     Must only be called after a call to pin(obj) returned True.
@@ -45,6 +59,19 @@ def unpin(obj):
     # XXX update doc string to match actual behavior
     raise AssertionError("pin() always returns False, "
                          "so unpin() should not be called")
+
+class UnpinEntry(ExtRegistryEntry):
+    _about_ = unpin
+
+    def compute_result_annotation(self, s_arg):
+        pass
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        v_obj, = hop.inputargs(hop.args_r[0])
+        v_addr = hop.genop('cast_ptr_to_adr', [v_obj],
+                           resulttype=llmemory.Address)
+        hop.genop('gc_unpin', [v_addr])
 
 # ____________________________________________________________
 # Annotation and specialization
@@ -601,33 +628,6 @@ class Entry(ExtRegistryEntry):
         vlist += hop.inputargs(*hop.args_r)
         hop.exception_cannot_occur()
         return hop.genop('gc_gcflag_extra', vlist, resulttype = hop.r_result)
-
-class Entry(ExtRegistryEntry): # XXX understand this, is it correct? (groggi)
-    _about_ = pin
-
-    def compute_result_annotation(self, s_arg):
-        from rpython.annotator.model import SomeBool
-        return SomeBool()
-
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-        v_obj, = hop.inputargs(hop.args_r[0])
-        v_addr = hop.genop('cast_ptr_to_adr', [v_obj],
-                           resulttype=llmemory.Address)
-        return hop.genop('gc_pin', [v_addr], resulttype=lltype.Bool)
-
-class Entry(ExtRegistryEntry): # XXX understand this, is it correct? (groggi)
-    _about_ = unpin
-
-    def compute_result_annotation(self, s_arg):
-        pass
-
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-        v_obj, = hop.inputargs(hop.args_r[0])
-        v_addr = hop.genop('cast_ptr_to_adr', [v_obj],
-                           resulttype=llmemory.Address)
-        hop.genop('gc_unpin', [v_addr])
 
 def lltype_is_gc(TP):
     return getattr(getattr(TP, "TO", None), "_gckind", "?") == 'gc'
