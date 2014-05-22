@@ -14,15 +14,11 @@ from rpython.annotator.model import (
     SomeLongFloat, SomeType, SomeConstantType, unionof, UnionError,
     read_can_only_throw, add_knowntypedata,
     merge_knowntypedata,)
-from rpython.annotator.bookkeeper import getbookkeeper
+from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.flowspace.model import Variable, Constant
 from rpython.flowspace.operation import op
 from rpython.rlib import rarithmetic
 from rpython.annotator.model import AnnotatorError
-
-# convenience only!
-def immutablevalue(x):
-    return getbookkeeper().immutablevalue(x)
 
 BINARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 2])
@@ -838,5 +834,5 @@ class __extend__(pairtype(SomeWeakRef, SomeWeakRef)):
         else:
             basedef = s_wrf1.classdef.commonbase(s_wrf2.classdef)
             if basedef is None:    # no common base class! complain...
-                return SomeObject()
+                raise UnionError(s_wrf1, s_wrf2)
         return SomeWeakRef(basedef)

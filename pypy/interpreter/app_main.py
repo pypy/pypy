@@ -37,6 +37,9 @@ PYTHONSTARTUP: file executed on interactive startup (no default)
 PYTHONPATH   : %r-separated list of directories prefixed to the
                default module search path.  The result is sys.path.
 PYTHONIOENCODING: Encoding[:errors] used for stdin/stdout/stderr.
+PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
+               topic at startup of interactive mode.
+PYPYLOG: If set to a non-empty value, enable logging.
 """
 
 try:
@@ -113,6 +116,7 @@ def display_exception(e):
 
     except BaseException as e:
         try:
+            initstdio()
             stderr = sys.stderr
             print('Error calling sys.excepthook:', file=stderr)
             originalexcepthook(type(e), e, e.__traceback__)
@@ -678,7 +682,11 @@ def run_command_line(interactive,
     if inspect_requested():
         try:
             from _pypy_interact import interactive_console
-            success = run_toplevel(interactive_console, mainmodule, quiet)
+            pypy_version_info = getattr(sys, 'pypy_version_info', sys.version_info)
+            irc_topic = pypy_version_info[3] != 'final' or (
+                            readenv and os.getenv('PYPY_IRC_TOPIC'))
+            success = run_toplevel(interactive_console, mainmodule,
+                                   quiet=quiet or not irc_topic)
         except SystemExit as e:
             status = e.code
         else:

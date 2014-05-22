@@ -9,7 +9,8 @@ from rpython.rtyper.annlowlevel import ADTInterface
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
 from rpython.rtyper.lltypesystem.lltype import nullptr, Char, UniChar, Number
-from rpython.rtyper.rmodel import Repr, IteratorRepr, IntegerRepr
+from rpython.rtyper.rmodel import Repr, IteratorRepr
+from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rstr import AbstractStringRepr, AbstractCharRepr
 from rpython.tool.pairtype import pairtype, pair
 

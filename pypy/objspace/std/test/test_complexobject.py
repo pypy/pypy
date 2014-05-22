@@ -85,7 +85,7 @@ class TestW_ComplexObject:
 
 
 class AppTestAppComplexTest:
-    spaceconfig = dict(usemodules=['binascii', 'rctime', 'unicodedata'])
+    spaceconfig = {"usemodules": ["binascii", "rctime", "unicodedata"]}
 
     def w_check_div(self, x, y):
         """Compute complex z=x*y, and check that z/x==y and z/y==x."""
@@ -319,6 +319,8 @@ class AppTestAppComplexTest:
         assert self.almost_equal(complex("-1"), -1)
         assert self.almost_equal(complex("+1"), +1)
         assert self.almost_equal(complex(" ( +3.14-6J ) "), 3.14-6j)
+        exc = raises(ValueError, complex, " ( +3.14- 6J ) ")
+        assert str(exc.value) == "complex() arg is a malformed string"
 
         class complex2(complex):
             pass
@@ -379,10 +381,10 @@ class AppTestAppComplexTest:
     def test_constructor_unicode(self):
         b1 = '\N{MATHEMATICAL BOLD DIGIT ONE}' # 𝟏
         b2 = '\N{MATHEMATICAL BOLD DIGIT TWO}' # 𝟐
-        s = '{0} + {1}j'.format(b1, b2)
+        s = '{0}+{1}j'.format(b1, b2)
         assert complex(s) == 1+2j
         assert complex('\N{EM SPACE}(\N{EN SPACE}1+1j ) ') == 1+1j
-        
+
     def test___complex___returning_non_complex(self):
         import cmath
         class Obj(object):
@@ -399,7 +401,7 @@ class AppTestAppComplexTest:
         #
         assert cmath.polar(1) == (1.0, 0.0)
         raises(TypeError, "cmath.polar(Obj(1))")
-        
+
     def test_hash(self):
         for x in range(-30, 30):
             assert hash(x) == hash(complex(x, 0))
@@ -417,7 +419,9 @@ class AppTestAppComplexTest:
             pass
         assert j(100 + 0j) == 100 + 0j
         assert isinstance(j(100), j)
-        assert j("100 + 0j") == 100 + 0j
+        assert j("100+0j") == 100 + 0j
+        exc = raises(ValueError, j, "100 + 0j")
+        assert str(exc.value) == "complex() arg is a malformed string"
         x = j(1+0j)
         x.foo = 42
         assert x.foo == 42

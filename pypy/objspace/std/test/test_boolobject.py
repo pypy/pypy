@@ -1,8 +1,4 @@
-
-
-
 class TestW_BoolObject:
-
     def setup_method(self,method):
         self.true = self.space.w_True
         self.false = self.space.w_False
@@ -28,6 +24,7 @@ class TestW_BoolObject:
 
     def test_rbigint_w(self):
         assert self.space.bigint_w(self.true)._digits == [1]
+
 
 class AppTestAppBoolTest:
     def test_bool_callable(self):

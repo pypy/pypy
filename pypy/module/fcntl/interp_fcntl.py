@@ -62,8 +62,8 @@ _flock = lltype.Ptr(cConfig.flock)
 fcntl_int = external('fcntl', [rffi.INT, rffi.INT, rffi.INT], rffi.INT)
 fcntl_str = external('fcntl', [rffi.INT, rffi.INT, rffi.CCHARP], rffi.INT)
 fcntl_flock = external('fcntl', [rffi.INT, rffi.INT, _flock], rffi.INT)
-ioctl_int = external('ioctl', [rffi.INT, rffi.INT, rffi.INT], rffi.INT)
-ioctl_str = external('ioctl', [rffi.INT, rffi.INT, rffi.CCHARP], rffi.INT)
+ioctl_int = external('ioctl', [rffi.INT, rffi.UINT, rffi.INT], rffi.INT)
+ioctl_str = external('ioctl', [rffi.INT, rffi.UINT, rffi.CCHARP], rffi.INT)
 
 has_flock = cConfig.has_flock
 if has_flock:

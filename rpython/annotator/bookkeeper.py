@@ -13,8 +13,6 @@ from rpython.annotator.model import (SomeOrderedDict,
     s_None, s_ImpossibleValue, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
     SomeWeakRef, SomeByteArray, SomeConstantType)
-from rpython.rtyper.llannotation import (
-    SomeAddress, SomePtr, SomeLLADTMeth, lltype_to_annotation)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
@@ -23,9 +21,16 @@ from rpython.annotator.signature import annotationoftype
 from rpython.annotator.argument import ArgumentsForTranslation
 from rpython.rlib.objectmodel import r_dict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
-from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import extregistry
 
+
+BUILTIN_ANALYZERS = {}
+
+def analyzer_for(func):
+    def wrapped(ann_func):
+        BUILTIN_ANALYZERS[func] = ann_func
+        return func
+    return wrapped
 
 class Bookkeeper(object):
     """The log of choices that have been made while analysing the operations.
@@ -137,6 +142,7 @@ class Bookkeeper(object):
             check_no_flags(clsdef)
 
     def consider_call_site(self, call_op):
+        from rpython.rtyper.llannotation import SomeLLADTMeth, lltype_to_annotation
         binding = self.annotator.binding
         s_callable = binding(call_op.args[0])
         args_s = [binding(arg) for arg in call_op.args[1:]]
@@ -297,10 +303,6 @@ class Bookkeeper(object):
         elif extregistry.is_registered(x):
             entry = extregistry.lookup(x)
             result = entry.compute_annotation_bk(self)
-        elif isinstance(x, lltype._ptr):
-            result = SomePtr(lltype.typeOf(x))
-        elif isinstance(x, llmemory.fakeaddress):
-            result = SomeAddress()
         elif tp is type:
             result = SomeConstantType(x, self)
         elif callable(x):
@@ -600,6 +602,7 @@ def ishashable(x):
         return False
     else:
         return True
+
 # get current bookkeeper
 
 def getbookkeeper():
@@ -610,7 +613,8 @@ def getbookkeeper():
     except AttributeError:
         return None
 
+def immutablevalue(x):
+    return getbookkeeper().immutablevalue(x)
+
 def delayed_imports():
-    # import ordering hack
-    global BUILTIN_ANALYZERS
-    from rpython.annotator.builtin import BUILTIN_ANALYZERS
+    import rpython.annotator.builtin
