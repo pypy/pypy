@@ -127,3 +127,12 @@ class AppTestMemoryView:
             assert cm is v
         raises(ValueError, bytes, v)
         assert "released memory" in repr(v)
+
+    def test_int_array_buffer(self):
+        import array
+        m = memoryview(array.array('i', list(range(10))))
+        assert len(m) == 10
+        assert len(m.tobytes()) == 40
+        assert m[0] == b'\x00\x00\x00\x00'
+        m[0] = b'\x00\x00\x00\x01'
+        assert m[0] == b'\x00\x00\x00\x01'

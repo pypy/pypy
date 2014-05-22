@@ -100,13 +100,10 @@ class W_MemoryView(W_Root):
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
         value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
-        if value.getlength() != size:
+        if value.getlength() != size * self.buf.itemsize:
             raise oefmt(space.w_ValueError,
                         "cannot modify size of memoryview object")
-        if step == 0:  # index only
-            self.buf.setitem(start, value.getitem(0))
-        elif step == 1:
-            self.buf.setslice(start, value.as_str())
+        self.buf.setslice(start * self.buf.itemsize, value.as_str())
 
     def descr_len(self, space):
         self._check_released(space)
