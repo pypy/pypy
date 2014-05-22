@@ -1163,11 +1163,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
             ll_assert(self.header(obj).tid & GCFLAG_VISITED_RMY == 0,
                       "GCFLAG_VISITED_RMY after collection")
         else:
-            # pinned objects are always in the nursery
             ll_assert(self.is_in_nursery(obj),
                       "pinned object not in nursery")
-            # XXX gc-minimark-pinning checks for GCFLAG_TRACK_YOUNG_POINTER
-            # (groggi)
+            # XXX check if we can support that or if it makes no sense (groggi)
+            ll_assert(not self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS,
+                      "pinned nursery object with GCFLAG_TRACK_YOUNG_PTRS")
 
         if self.gc_state == STATE_SCANNING:
             self._debug_check_object_scanning(obj)
@@ -1827,8 +1827,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # already visited and keeping track of the object
                 return
             hdr.tid |= GCFLAG_VISITED
-            # XXX check for object flags that are not supported alongside
-            # GCFLAG_PINNED (groggi)
+            # XXX add additional checks for unsupported pinned objects (groggi)
+            # XXX implement unsupported object types with pinning
+            ll_assert(not self.header(obj).tid & GCFLAG_HAS_CARDS,
+                "pinned object with GCFLAG_HAS_CARDS not supported")
             self.surviving_pinned_objects.append(
                 llarena.getfakearenaaddress(obj - size_gc_header))
             self.pinned_objects_in_nursery += 1
