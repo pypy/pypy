@@ -55,15 +55,15 @@ def test_simple_source():
     py.test.raises(Exception, "t.source()")
 
 def test_simple_source_llvm():
-    def f(x,y):
-        return x+y
+    def f(args):
+        return 0
 
-    t = Translation(f, [int, int], backend='llvm')
-    t.source(gc='boehm')
+    t = Translation(f, None, backend='llvm')
+    t.source(gc='ref')
     assert 'source_llvm' in t.driver.done
 
-    t = Translation(f, [int, int])
-    t.source_llvm()
+    t = Translation(f, None)
+    t.source_llvm(gc='ref')
     assert 'source_llvm' in t.driver.done
 
 def test_disable_logic():
