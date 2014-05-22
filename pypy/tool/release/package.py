@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-""" A sample script that packages PyPy, provided that it's already built.
+""" packages PyPy, provided that it's already built.
 It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
-    package.py --base-dir pypy-base-dir [--options]
+    package.py [--options]
 
 Usually you would do:   package.py --version-name pypy-VER-PLATFORM
 The output is found in the directory from --builddir,
@@ -51,8 +51,6 @@ def fix_permissions(dirname):
         os.system("chmod -R g-w %s" % dirname)
 
 def generate_license_linux(base_file, options):
-    # We don't actually ship binaries with the pypy archive,
-    # so no extra license needed?
     with open(base_file) as fid:
         txt = fid.read()
     searches = [("bzip2","libbz2-*", "copyright", '---------'),
@@ -81,20 +79,9 @@ def generate_license_linux(base_file, options):
                 txt += line
             if len(line.strip())<1:
                 txt += '\n'
+    txt += third_party_header
     # Do something for gdbm, which is GPL
-    txt += '''\n\nLicenses and Acknowledgements for Incorporated Software
-=======================================================
-
-This section is an incomplete, but growing list of licenses and acknowledgements
-for third-party software incorporated in the PyPy distribution.
-
-'''
-    txt += '''gdbm
-----
-
-The gdbm module includes code from gdbm.h, which is distributed under the terms
-of the GPL license version 2 or any later version.
-'''
+    txt += gdbm_bit
     return txt
 
 def generate_license_windows(base_file, options):
@@ -117,10 +104,21 @@ def generate_license_windows(base_file, options):
             txt += fid.read()
     return txt
 
+def generate_license_darwin(base_file, options):
+    # where are copyright files on macos?
+    try:
+        return generate_license_linux(base_file, options)
+    except:
+        import traceback; traceback.print_exc()
+        pass
+    with open(base_file) as fid:
+        txt = fid.read()
+    return txt
+
 if sys.platform == 'win32':
     generate_license = generate_license_windows
 elif sys.platform == 'darwin':
-    generate_license = generate_license_linux
+    generate_license = generate_license_darwin
 else:
     generate_license = generate_license_linux
 
@@ -358,6 +356,23 @@ def package(*args):
         options.builddir = udir.ensure("build", dir=True)
     assert '/' not in options.pypy_c
     return create_package(basedir, options)
+
+
+third_party_header = '''\n\nLicenses and Acknowledgements for Incorporated Software
+=======================================================
+
+This section is an incomplete, but growing list of licenses and acknowledgements
+for third-party software incorporated in the PyPy distribution.
+
+'''
+
+gdbm_bit = '''gdbm
+----
+
+The gdbm module includes code from gdbm.h, which is distributed under the terms
+of the GPL license version 2 or any later version.
+'''
+
 
 if __name__ == '__main__':
     import sys
