@@ -1632,8 +1632,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #                         ^^^ calculate the size of the last continuous
         #                             arena block.
         #
-        debug_print("last: resetting arena from %s for size: %s" %
-            (prev, self.nursery_real_top - prev))
         self.surviving_pinned_objects.delete()
         self.nursery_barriers = nursery_barriers
         # XXX gc-minimark-pinning does a debug_rotate_nursery() here (groggi)
