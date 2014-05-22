@@ -855,7 +855,7 @@ class AssemblerPPC(OpAssembler):
                     'loop.asm')
 
         ops_offset = self.mc.ops_offset
-        self._teardown()
+        self.teardown()
 
         debug_start("jit-backend-addr")
         debug_print("Loop %d (%s) has address %x to %x (bootstrap %x)" % (
@@ -925,7 +925,7 @@ class AssemblerPPC(OpAssembler):
         self._patch_sp_offset(sp_patch_location, rawstart)
 
         ops_offset = self.mc.ops_offset
-        self._teardown()
+        self.teardown()
 
         debug_start("jit-backend-addr")
         debug_print("bridge out of Guard %d has address %x to %x" %
@@ -1009,7 +1009,7 @@ class AssemblerPPC(OpAssembler):
             size += 1
         return size
 
-    def _teardown(self):
+    def teardown(self):
         self.patch_list = None
         self.pending_guards = None
         self.current_clt = None
