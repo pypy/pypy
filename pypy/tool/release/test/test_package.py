@@ -106,12 +106,21 @@ def test_fix_permissions(tmpdir):
     check(file2, 0644)
     check(pypy,  0755)
 
-def _test_generate_license():
-    from os.path import dirname, abspath
+def test_generate_license():
+    from os.path import dirname, abspath, join
     class Options(object):
         pass
     options = Options()
     basedir = dirname(dirname(dirname(dirname(dirname(abspath(__file__))))))
-    license = package.generate_license(str(basedir.join('LICENSE')), options)
-    assert 'bzlib' in license
+    options.no_tk = False
+    if sys.platform == 'win32':
+        # Following recommended build setup at
+        # http://doc.pypy.org/en/latest/windows.html#abridged-method-for-ojit-builds-using-visual-studio-2008
+        options.license_base = dirname(basedir) + '/local'
+    else:
+        options.license_base = '/usr/share/doc'
+    license = package.generate_license(join(basedir,'LICENSE'), options)
+    assert 'bzip2' in license
+    assert 'openssl' in license
+    assert 'tcl' in license
 

@@ -55,27 +55,50 @@ def generate_license_linux(base_file, options):
     # so no extra license needed?
     with open(base_file) as fid:
         txt = fid.read()
+    searches = [("bzip2","libbz2-*", "copyright"),
+                ("openssl", "openssl*", "copyright"),
+               ]
+    if not options.no_tk:
+        searches += [("tk", "tk-dev", "copyright"),
+                     ("tcl", "tcl-dev", "copyright")]
+    for name, pat, file in searches:
+        txt += "="*40
+        txt += "\nThis copy of PyPy includes a copy of %s, which is licensed under the following terms:\n\n" % name
+        dirs = glob.glob(options.license_base + "/" +pat)
+        if not dirs:
+            raise ValueError, "Could not find "+ options.license_base + "/" + pat
+        if len(dirs) > 2:
+            raise ValueError, "Multiple copies of "+pat
+        dir = dirs[0]
+        with open(os.path.join(dir, file)) as fid:
+            # Read up to the ---- dividing the packaging header from the actual
+            # copyright (bzip) or 'LICENSE ISSUES' for openssl
+            for line in fid:
+                if (line.startswith('---------') or 'LICENSE ISSUES' in line):
+                    break
+            txt += line
+            for line in fid:
+                txt += line
     return txt
 
 def generate_license_windows(base_file, options):
-    # Do as cpython does
     with open(base_file) as fid:
         txt = fid.read()
-        shutil.copyfileobj(open("crtlicense.txt"), out)
-        for name, pat, file in (("bzip2","bzip2-*", "LICENSE"),
-                          ("openssl", "openssl-*", "LICENSE"),
-                          ("Tcl", "tcl-8*", "license.terms"),
-                          ("Tk", "tk-8*", "license.terms"),
-                          ("Tix", "tix-*", "license.terms")):
-            txt += "\nThis copy of PyPy includes a copy of %s, which is licensed under the following terms:\n\n" % name
-            dirs = glob.glob(options.license_base + "/" +pat)
-            if not dirs:
-                raise ValueError, "Could not find "+ options.license_base + "/" + pat
-            if len(dirs) > 2:
-                raise ValueError, "Multiple copies of "+pat
-            dir = dirs[0]
-            with open(os.path.join(dir, file)) as fid:
-                txt += fid.read()
+    # shutil.copyfileobj(open("crtlicense.txt"), out) # We do not ship msvc runtime files
+    for name, pat, file in (("bzip2","bzip2-*", "LICENSE"),
+                      ("openssl", "openssl-*", "LICENSE"),
+                      ("Tcl", "tcl-8*", "license.terms"),
+                      ("Tk", "tk-8*", "license.terms"),
+                      ("Tix", "tix-*", "license.terms")):
+        txt += "\nThis copy of PyPy includes a copy of %s, which is licensed under the following terms:\n\n" % name
+        dirs = glob.glob(options.license_base + "/" +pat)
+        if not dirs:
+            raise ValueError, "Could not find "+ options.license_base + "/" + pat
+        if len(dirs) > 2:
+            raise ValueError, "Multiple copies of "+pat
+        dir = dirs[0]
+        with open(os.path.join(dir, file)) as fid:
+            txt += fid.read()
     return txt
 
 if sys.platform == 'win32':
