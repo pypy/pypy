@@ -5,7 +5,7 @@ import operator
 
 from rpython.rlib.buffer import Buffer, SubBuffer
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
@@ -80,8 +80,8 @@ class W_MemoryView(W_Root):
         self._check_released(space)
         buf = self.buf
         if buf.format != 'B':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "tolist() only supports byte views"))
+            raise oefmt(space.w_NotImplementedError,
+                        "tolist() only supports byte views")
         result = []
         for i in range(buf.getlength()):
             result.append(space.wrap(ord(buf.getitem(i)[0])))
@@ -91,7 +91,7 @@ class W_MemoryView(W_Root):
         self._check_released(space)
         start, stop, step = space.decode_index(w_index, self.getlength())
         if step not in (0, 1):
-            raise OperationError(space.w_NotImplementedError, space.wrap(""))
+            raise oefmt(space.w_NotImplementedError, "")
         if step == 0:  # index only
             a = start * self.buf.itemsize
             b = a + self.buf.itemsize
@@ -103,15 +103,14 @@ class W_MemoryView(W_Root):
     def descr_setitem(self, space, w_index, w_obj):
         self._check_released(space)
         if self.buf.readonly:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "cannot modify read-only memory"))
+            raise oefmt(space.w_TypeError, "cannot modify read-only memory")
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
         if step not in (0, 1):
-            raise OperationError(space.w_NotImplementedError, space.wrap(""))
+            raise oefmt(space.w_NotImplementedError, "")
         value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
         if value.getlength() != size:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "cannot modify size of memoryview object"))
+            raise oefmt(space.w_ValueError,
+                        "cannot modify size of memoryview object")
         if step == 0:  # index only
             self.buf.setitem(start, value.getitem(0))
         elif step == 1:
@@ -161,8 +160,8 @@ class W_MemoryView(W_Root):
 
     def _check_released(self, space):
         if self.buf is None:
-            raise OperationError(space.w_ValueError, space.wrap(
-                    "operation forbidden on released memoryview object"))
+            raise oefmt(space.w_ValueError,
+                        "operation forbidden on released memoryview object")
 
     def descr_enter(self, space):
         self._check_released(space)
