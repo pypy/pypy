@@ -10,23 +10,6 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
 
-def _buffer_setitem(space, buf, w_index, w_obj):
-    if buf.readonly:
-        raise OperationError(space.w_TypeError, space.wrap(
-            "cannot modify read-only memory"))
-    start, stop, step, size = space.decode_index4(w_index, buf.getlength())
-    if step not in (0, 1):
-        raise OperationError(space.w_NotImplementedError, space.wrap(""))
-    value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
-    if value.getlength() != size:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "cannot modify size of memoryview object"))
-    if step == 0:  # index only
-        buf.setitem(start, value.getitem(0))
-    elif step == 1:
-        buf.setslice(start, value.as_str())
-
-
 class W_MemoryView(W_Root):
     """Implement the built-in 'memoryview' type as a wrapper around
     an interp-level buffer.
@@ -119,7 +102,20 @@ class W_MemoryView(W_Root):
 
     def descr_setitem(self, space, w_index, w_obj):
         self._check_released(space)
-        _buffer_setitem(space, self.buf, w_index, w_obj)
+        if self.buf.readonly:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "cannot modify read-only memory"))
+        start, stop, step, size = space.decode_index4(w_index, self.getlength())
+        if step not in (0, 1):
+            raise OperationError(space.w_NotImplementedError, space.wrap(""))
+        value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
+        if value.getlength() != size:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "cannot modify size of memoryview object"))
+        if step == 0:  # index only
+            self.buf.setitem(start, value.getitem(0))
+        elif step == 1:
+            self.buf.setslice(start, value.as_str())
 
     def descr_len(self, space):
         self._check_released(space)
