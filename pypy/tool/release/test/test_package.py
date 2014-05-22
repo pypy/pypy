@@ -1,7 +1,7 @@
 
 import py
 from pypy.conftest import pypydir
-from pypy.tool.release import package
+from pypy.tool.release import package, package
 from pypy.module.sys.version import  CPYTHON_VERSION
 import tarfile, zipfile, sys
 
@@ -74,7 +74,6 @@ def test_dir_structure(test='test'):
             pypy_c.remove()
 
 def test_with_zipfile_module():
-    from pypy.tool.release import package
     prev = package.USE_ZIPFILE_MODULE
     try:
         package.USE_ZIPFILE_MODULE = True
@@ -106,3 +105,13 @@ def test_fix_permissions(tmpdir):
     check(file1, 0644)
     check(file2, 0644)
     check(pypy,  0755)
+
+def _test_generate_license():
+    from os.path import dirname, abspath
+    class Options(object):
+        pass
+    options = Options()
+    basedir = dirname(dirname(dirname(dirname(dirname(abspath(__file__))))))
+    license = package.generate_license(str(basedir.join('LICENSE')), options)
+    assert 'bzlib' in license
+

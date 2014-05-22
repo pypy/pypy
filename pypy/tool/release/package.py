@@ -19,6 +19,7 @@ sys.path.insert(0,basedir)
 import py
 import fnmatch
 import subprocess
+import glob
 
 if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
 
@@ -49,10 +50,40 @@ def fix_permissions(dirname):
         os.system("chmod -R a+rX %s" % dirname)
         os.system("chmod -R g-w %s" % dirname)
 
-def generate_license(base_file, options):
+def generate_license_linux(base_file, options):
+    # We don't actually ship binaries with the pypy archive,
+    # so no extra license needed?
     with open(base_file) as fid:
         txt = fid.read()
     return txt
+
+def generate_license_windows(base_file, options):
+    # Do as cpython does
+    with open(base_file) as fid:
+        txt = fid.read()
+        shutil.copyfileobj(open("crtlicense.txt"), out)
+        for name, pat, file in (("bzip2","bzip2-*", "LICENSE"),
+                          ("openssl", "openssl-*", "LICENSE"),
+                          ("Tcl", "tcl-8*", "license.terms"),
+                          ("Tk", "tk-8*", "license.terms"),
+                          ("Tix", "tix-*", "license.terms")):
+            txt += "\nThis copy of PyPy includes a copy of %s, which is licensed under the following terms:\n\n" % name
+            dirs = glob.glob(options.license_base + "/" +pat)
+            if not dirs:
+                raise ValueError, "Could not find "+ options.license_base + "/" + pat
+            if len(dirs) > 2:
+                raise ValueError, "Multiple copies of "+pat
+            dir = dirs[0]
+            with open(os.path.join(dir, file)) as fid:
+                txt += fid.read()
+    return txt
+
+if sys.platform == 'win32':
+    generate_license = generate_license_windows
+elif sys.platform == 'darwin':
+    generate_license = generate_license_linux
+else:
+    generate_license = generate_license_linux
 
 def create_cffi_import_libraries(pypy_c, options):
     modules = ['_sqlite3']
@@ -65,18 +96,20 @@ def create_cffi_import_libraries(pypy_c, options):
         try:
             subprocess.check_call([str(pypy_c), '-c', 'import ' + module])
         except subprocess.CalledProcessError:
-            print >>sys.stderr, """Building %{0} bindings failed.
+            print >>sys.stderr, """Building {0} bindings failed.
 You can either install development headers package or
 add --without-{0} option to skip packaging binary CFFI extension.""".format(module)
             raise MissingDependenciesError(module)
 
-def package(basedir, options):
+def create_package(basedir, options):
     name = options.name
+    if not name:
+        name = 'pypy-nightly'
     rename_pypy_c = options.pypy_c
     override_pypy_c = options.override_pypy_c
 
     basedir = py.path.local(basedir)
-    if override_pypy_c is None:
+    if not override_pypy_c:
         basename = 'pypy-c'
         if sys.platform == 'win32':
             basename += '.exe'
@@ -169,7 +202,7 @@ directory next to the dlls, as per build instructions."""
         shutil.copyfile(str(basedir.join('lib_pypy', file)),
                         str(pypydir.join('lib_pypy', file)))
     license = generate_license(str(basedir.join('LICENSE')), options)
-    with open(pypydir.join('LICENSE'), 'w') as LICENSE:
+    with open(str(pypydir.join('LICENSE')), 'w') as LICENSE:
         LICENSE.write(license)
     #
     spdir = pypydir.ensure('site-packages', dir=True)
@@ -224,14 +257,14 @@ using another platform..."""
                 raise OSError('"tar" returned exit status %r' % e)
     finally:
         os.chdir(old_dir)
-    if copy_to_dir is not None:
-        print "Copying %s to %s" % (archive, copy_to_dir)
-        shutil.copy(archive, str(copy_to_dir))
+    if options.targetdir:
+        print "Copying %s to %s" % (archive, options.targetdir)
+        shutil.copy(archive, options.targetdir)
     else:
         print "Ready in %s" % (builddir,)
     return builddir # for tests
 
-if __name__ == '__main__':
+def package(*args):
     import argparse
     if sys.platform == 'win32':
         pypy_exe = 'pypy.exe'
@@ -240,6 +273,8 @@ if __name__ == '__main__':
         pypy_exe = 'pypy'
         license_base = '/usr/share/doc'
     parser = argparse.ArgumentParser()
+    args = list(args)
+    args[0] = str(args[0])
     parser.add_argument('--without-tk', dest='no_tk', action='store_true',
         help='build and package the cffi tkinter module')
     parser.add_argument('--without-cffi', dest='no_cffi', action='store_true',
@@ -248,12 +283,31 @@ if __name__ == '__main__':
         help='do not strip the exe, making it ~10MB larger')
     parser.add_argument('--rename_pypy_c', dest='pypy_c', type=str, default=pypy_exe,
         help='target executable name, defaults to "pypy"')
+    parser.add_argument('--archive-name', dest='name', type=str, default='',
+        help='pypy-VER-PLATFORM')
     parser.add_argument('--license_base', type=str, default=license_base,
         help='where to start looking for third party upstream licensing info')
     parser.add_argument('--builddir', type=str, default='',
         help='tmp dir for packaging')
-    options = parser.parse_args()
+    parser.add_argument('--targetdir', type=str, default='',
+        help='destination dir for archive')
+    parser.add_argument('--override_pypy_c', type=str, default='',
+        help='use as pypy exe instead of pypy/goal/pypy-c')
+    # Positional arguments, for backward compatability with buldbots
+    parser.add_argument('extra_args', help='optional interface to positional arguments', nargs=argparse.REMAINDER,
+        metavar='[root-pypy-dir] [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]',
+        )
+    options = parser.parse_args(args)
 
+    # Handle positional arguments, choke if both methods are used
+    for i,target, default in ([1, 'name', ''], [2, 'pypy_c', pypy_exe],
+                              [3, 'targetdir', ''], [4,'override_pypy_c', '']):
+        if len(options.extra_args)>i:
+            if getattr(options, target) != default:
+                print 'positional argument',i,target,'already has value',getattr(options, target)
+                parser.print_help()
+                return
+            setattr(options, target, options.extra_args[i])
     if os.environ.has_key("PYPY_PACKAGE_NOSTRIP"):
         options.nostrip = True
 
@@ -263,5 +317,9 @@ if __name__ == '__main__':
         # The import actually creates the udir directory
         from rpython.tool.udir import udir
         options.builddir = udir.ensure("build", dir=True)
-    assert '/' not in options.rename_pypy_c
-    package(basedir, options)
+    assert '/' not in options.pypy_c
+    return create_package(basedir, options)
+
+if __name__ == '__main__':
+    import sys
+    create_package(*sys.argv[1:])
