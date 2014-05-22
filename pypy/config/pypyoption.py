@@ -335,6 +335,12 @@ def enable_allworkingmodules(config):
     # may not be present in config.objspace.usemodules at all
     modules = [name for name in modules if name not in essential_modules]
 
+    # the llvm translation backend currently doesn't support cpyext
+    # cppyy depends in cpyext
+    if config.translation.backend == 'llvm':
+        modules.remove('cpyext')
+        modules.remove('cppyy')
+
     config.objspace.usemodules.suggest(**dict.fromkeys(modules, True))
 
 def enable_translationmodules(config):
