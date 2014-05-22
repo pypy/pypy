@@ -347,6 +347,15 @@ class BaseGCTransformer(object):
                   [rmodel.inputconst(lltype.Bool, False)],
                   resultvar=op.result)
 
+    def gct_gc_pin(self, hop):
+        op = hop.spaceop
+        hop.genop("same_as",
+                    [rmodel.inputconst(lltype.Bool, False)],
+                    resultvar=op.result)
+
+    def gct_gc_unpin(self, hop):
+        pass
+
     def gct_gc_identityhash(self, hop):
         # must be implemented in the various GCs
         raise NotImplementedError
@@ -593,12 +602,6 @@ class GCTransformer(BaseGCTransformer):
 
     def gct_gc_can_move(self, hop):
         return hop.cast_result(rmodel.inputconst(lltype.Bool, False))
-
-    def gct_gc_pin(self, hop):
-        return hop.cast_result(rmodel.inputconst(lltype.Bool, False))
-
-    def gct_gc_unpin(self, hop):
-        pass
 
     def gct_shrink_array(self, hop):
         return hop.cast_result(rmodel.inputconst(lltype.Bool, False))
