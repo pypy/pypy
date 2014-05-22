@@ -43,7 +43,7 @@ def test_ctr():
         'backendopt_lltype']
 
     expected = ['annotate', 'backendopt', 'llinterpret', 'rtype', 'source_c',
-                'compile_c', 'pyjitpl']
+                'compile_c', 'source_llvm', 'compile_llvm', 'pyjitpl']
 
     assert set(td.exposed) == set(expected)
 
