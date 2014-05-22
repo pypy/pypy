@@ -86,13 +86,13 @@ def generate_license_linux(base_file, options):
 =======================================================
 
 This section is an incomplete, but growing list of licenses and acknowledgements
-for third-party software incorporated in the Python distribution.
+for third-party software incorporated in the PyPy distribution.
 
 '''
     txt += '''gdbm
 ----
 
-The gdbm module includes code from gdbm.h, which is distributed under th terms
+The gdbm module includes code from gdbm.h, which is distributed under the terms
 of the GPL license version 2 or any later version.
 '''
     return txt
