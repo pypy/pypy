@@ -18,6 +18,8 @@ from rpython.jit.metainterp.history import AbstractFailDescr
 from rpython.jit.metainterp.history import ConstInt, BoxInt
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
+from rpython.jit.backend.llsupport.assembler import (DEBUG_COUNTER, debug_bridge,
+                                                     BaseAssembler)
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.jit.metainterp.resoperation import rop, ResOperation
@@ -691,55 +693,7 @@ class AssemblerPPC(OpAssembler):
         return operations
 
     def setup_once(self):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        gc_ll_descr.initialize()
-        self._build_wb_slowpath(False)
-        self._build_wb_slowpath(True)
-        if self.cpu.supports_floats:
-            self._build_wb_slowpath(False, withfloats=True)
-            self._build_wb_slowpath(True, withfloats=True)
-        self._build_propagate_exception_path()
-        if gc_ll_descr.get_malloc_slowpath_addr is not None:
-            self._build_malloc_slowpath()
-        self._build_stack_check_slowpath()
-        if gc_ll_descr.gcrootmap and gc_ll_descr.gcrootmap.is_shadow_stack:
-            self._build_release_gil(gc_ll_descr.gcrootmap)
-        self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
-        self.exit_code_adr = self._gen_exit_path()
-        debug_start('jit-backend-counts')
-        self.set_debug(have_debug_prints())
-        debug_stop('jit-backend-counts')
-
-    def finish_once(self):
-        if self._debug:
-            debug_start('jit-backend-counts')
-            for i in range(len(self.loop_run_counters)):
-                struct = self.loop_run_counters[i]
-                if struct.type == 'l':
-                    prefix = 'TargetToken(%d)' % struct.number
-                elif struct.type == 'b':
-                    prefix = 'bridge ' + str(struct.number)
-                else:
-                    prefix = 'entry ' + str(struct.number)
-                debug_print(prefix + ':' + str(struct.i))
-            debug_stop('jit-backend-counts')
-
-    # XXX: merge with x86
-    def _register_counter(self, tp, number, token):
-        # YYY very minor leak -- we need the counters to stay alive
-        # forever, just because we want to report them at the end
-        # of the process
-        struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
-                               track_allocation=False)
-        struct.i = 0
-        struct.type = tp
-        if tp == 'b' or tp == 'e':
-            struct.number = number
-        else:
-            assert token
-            struct.number = compute_unique_id(token)
-        self.loop_run_counters.append(struct)
-        return struct
+        BaseAssembler.setup_once(self)
 
     def _append_debugging_code(self, operations, tp, number, token):
         counter = self._register_counter(tp, number, token)
