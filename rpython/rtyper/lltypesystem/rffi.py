@@ -23,9 +23,6 @@ from rpython.rlib.rarithmetic import maxint, LONG_BIT
 from rpython.translator.platform import CompilationError
 import os, sys
 
-# XXX remove (groggi)
-from rpython.rlib.debug import debug_print, debug_start, debug_stop
-
 class CConstant(Symbolic):
     """ A C-level constant, maybe #define, rendered directly.
     """
@@ -754,36 +751,25 @@ def make_string_mappings(strtype):
         """
         # XXX update doc string
 
-        debug_start("groggi-get_nonmovingbuffer")
-        debug_print("data address ", cast_ptr_to_adr(data))
-
         lldata = llstrtype(data)
         count = len(data)
 
         pinned = False
         if rgc.can_move(data):
             if rgc.pin(data):
-                debug_print("raw_and_pinned: len = %s" % count)
                 pinned = True
             else:
-                debug_print("allocating_raw_and_copying: len = %s" % count)
-
                 buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
                 copy_string_to_raw(lldata, buf, 0, count)
-
-                debug_stop("groggi-get_nonmovingbuffer")
                 return buf, pinned, True
                 # ^^^ raw malloc used to get a nonmovable copy
-        else:
-            debug_print("raw_and_nonmovable: len = %s" % count)
-
+        #
         # following code is executed if:
         # - rgc.can_move(data) and rgc.pin(data) both returned true
         # - rgc.can_move(data) returned false
         data_start = cast_ptr_to_adr(lldata) + \
             offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
 
-        debug_stop("groggi-get_nonmovingbuffer")
         return cast(TYPEP, data_start), pinned, False
         # ^^^ already nonmovable. Therefore it's not raw allocated nor
         # pinned.
@@ -802,9 +788,6 @@ def make_string_mappings(strtype):
         # followed the 2nd case in get_nonmovingbuffer(); in the first case,
         # 'buf' points to its own raw-malloced memory.
 
-        debug_start("groggi-free_nonmovingbuffer")
-        debug_print("data address ", cast_ptr_to_adr(data))
-
         assert not (is_pinned and is_raw)
 
         if is_pinned:
@@ -813,10 +796,7 @@ def make_string_mappings(strtype):
             lltype.free(buf, flavor='raw')
         # if is_pinned and is_raw are false: data was already nonmovable,
         # we have nothing to clean up
-
         keepalive_until_here(data)
-
-        debug_stop("groggi-free_nonmovingbuffer")
     free_nonmovingbuffer._annenforceargs_ = [strtype, None, bool, bool]
 
     # int -> (char*, str)
