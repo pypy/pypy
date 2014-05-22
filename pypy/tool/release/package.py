@@ -55,14 +55,15 @@ def generate_license_linux(base_file, options):
     # so no extra license needed?
     with open(base_file) as fid:
         txt = fid.read()
-    searches = [("bzip2","libbz2-*", "copyright"),
-                ("openssl", "openssl*", "copyright"),
+    searches = [("bzip2","libbz2-*", "copyright", '---------'),
+                ("openssl", "openssl*", "copyright", 'LICENSE ISSUES'),
                ]
     if not options.no_tk:
-        searches += [("tk", "tk-dev", "copyright"),
-                     ("tcl", "tcl-dev", "copyright")]
-    for name, pat, file in searches:
-        txt += "="*40
+        searches += [("tk", "tk-dev", "copyright", "Copyright"),
+                     ("tcl", "tcl-dev", "copyright", "Copyright")]
+    for name, pat, fname, first_line in searches:
+        txt += "License for '" + name + "'"
+        txt += '\n' + "="*(14 + len(name)) + '\n'
         txt += "\nThis copy of PyPy includes a copy of %s, which is licensed under the following terms:\n\n" % name
         dirs = glob.glob(options.license_base + "/" +pat)
         if not dirs:
@@ -70,15 +71,30 @@ def generate_license_linux(base_file, options):
         if len(dirs) > 2:
             raise ValueError, "Multiple copies of "+pat
         dir = dirs[0]
-        with open(os.path.join(dir, file)) as fid:
-            # Read up to the ---- dividing the packaging header from the actual
-            # copyright (bzip) or 'LICENSE ISSUES' for openssl
+        with open(os.path.join(dir, fname)) as fid:
+            # Read up to the line dividing the packaging header from the actual copyright
             for line in fid:
-                if (line.startswith('---------') or 'LICENSE ISSUES' in line):
+                if first_line in line:
                     break
             txt += line
             for line in fid:
                 txt += line
+            if len(line.strip())<1:
+                txt += '\n'
+    # Do something for gdbm, which is GPL
+    txt += '''\n\nLicenses and Acknowledgements for Incorporated Software
+=======================================================
+
+This section is an incomplete, but growing list of licenses and acknowledgements
+for third-party software incorporated in the Python distribution.
+
+'''
+    txt += '''gdbm
+----
+
+The gdbm module includes code from gdbm.h, which is distributed under th terms
+of the GPL license version 2 or any later version.
+'''
     return txt
 
 def generate_license_windows(base_file, options):
@@ -345,4 +361,4 @@ def package(*args):
 
 if __name__ == '__main__':
     import sys
-    create_package(*sys.argv[1:])
+    package(*sys.argv[1:])
