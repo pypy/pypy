@@ -909,20 +909,19 @@ ptradd = ll2ctypes.force_ptradd  # equivalent of "ptr + n" in C.
                                  # the ptr must point to an array.
 
 def size_and_sign(tp):
-    return sizeof(tp), is_unsigned(tp)
-
-def is_unsigned(tp):
+    size = sizeof(tp)
     try:
-        return not tp._type.SIGNED
+        unsigned = not tp._type.SIGNED
     except AttributeError:
         if not isinstance(tp, lltype.Primitive):
-            return False
+            unsigned = False
         elif tp in (lltype.Signed, FLOAT, DOUBLE, llmemory.Address):
-            return False
+            unsigned = False
         elif tp in (lltype.Char, lltype.UniChar, lltype.Bool):
-            return True
+            unsigned = True
         else:
-            raise AssertionError("is_unsigned(%r)" % (tp,))
+            raise AssertionError("size_and_sign(%r)" % (tp,))
+    return size, unsigned
 
 def sizeof(tp):
     """Similar to llmemory.sizeof() but tries hard to return a integer

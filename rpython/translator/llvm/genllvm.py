@@ -350,8 +350,8 @@ PRIMITIVES = {
 
 for type in rffi.NUMBER_TYPES + [lltype.Char, lltype.UniChar]:
     if type not in PRIMITIVES:
-        PRIMITIVES[type] = IntegralType(rffi.sizeof(type) * 8,
-                                         rffi.is_unsigned(type))
+        size_in_bytes, is_unsigned = rffi.size_and_sign(type)
+        PRIMITIVES[type] = IntegralType(size_in_bytes * 8, is_unsigned)
 LLVMSigned = PRIMITIVES[lltype.Signed]
 SIGNED_TYPE = LLVMSigned.repr_type()
 LLVMHalfWord = PRIMITIVES[llgroup.HALFWORD]
