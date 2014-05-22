@@ -5,7 +5,7 @@ import operator
 
 from rpython.rlib.buffer import Buffer, SubBuffer
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
@@ -83,7 +83,7 @@ class W_MemoryView(W_Root):
     def descr_getitem(self, space, w_index):
         start, stop, step = space.decode_index(w_index, self.getlength())
         if step not in (0, 1):
-            raise OperationError(space.w_NotImplementedError, space.wrap(""))
+            raise oefmt(space.w_NotImplementedError, "")
         if step == 0:  # index only
             return space.wrap(self.buf.getitem(start))
         res = self.getslice(start, stop)
@@ -91,15 +91,14 @@ class W_MemoryView(W_Root):
 
     def descr_setitem(self, space, w_index, w_obj):
         if self.buf.readonly:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "cannot modify read-only memory"))
-        start, stop, step, size = space.decode_index4(w_index, self.buf.getlength())
+            raise oefmt(space.w_TypeError, "cannot modify read-only memory")
+        start, stop, step, size = space.decode_index4(w_index, self.getlength())
         if step not in (0, 1):
-            raise OperationError(space.w_NotImplementedError, space.wrap(""))
+            raise oefmt(space.w_NotImplementedError, "")
         value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
         if value.getlength() != size:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "cannot modify size of memoryview object"))
+            raise oefmt(space.w_ValueError,
+                        "cannot modify size of memoryview object")
         if step == 0:  # index only
             self.buf.setitem(start, value.getitem(0))
         elif step == 1:
