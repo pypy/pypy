@@ -3174,6 +3174,14 @@ class AppTestSupport(BaseNumpyAppTest):
         exc = raises(ValueError, "a[2] = 'Z'")
         assert str(exc.value) == "assignment destination is read-only"
 
+        class A(object):
+            __buffer__ = 'abc'
+
+        data = A()
+        a = np.frombuffer(data, 'c')
+        #assert a.base is data.__buffer__
+        assert a.tostring() == 'abc'
+
     def test_fromstring(self):
         import sys
         from numpypy import fromstring, dtype
