@@ -13,6 +13,7 @@ else:
     MAXUNICODE = 0xffff
     allow_surrogate_by_default = True
 
+NARROW_HOST = not we_are_translated() and sys.maxunicode == 0xFFFF
 BYTEORDER = sys.byteorder
 
 # python 2.7 has a preview of py3k behavior, so those functions
@@ -65,7 +66,7 @@ else:
 
 if MAXUNICODE > 0xFFFF:
     def code_to_unichr(code):
-        if not we_are_translated() and sys.maxunicode == 0xFFFF:
+        if NARROW_HOST:
             # Host CPython is narrow build, generate surrogates
             return unichr_returns_surrogate(code)
         else:
@@ -336,7 +337,8 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                         ch2 = ord(s[pos])
                         # Check for low surrogate and combine the two to
                         # form a UCS4 value
-                        if ((allow_surrogates or MAXUNICODE < 65536) and
+                        if ((allow_surrogates or MAXUNICODE < 65536
+                             or NARROW_HOST) and
                             ch <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF):
                             ch3 = ((ch - 0xD800) << 10 | (ch2 - 0xDC00)) + 0x10000
                             pos += 1
@@ -1349,8 +1351,7 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
 
             # The following logic is enabled only if MAXUNICODE == 0xffff, or
             # for testing on top of a host Python where sys.maxunicode == 0xffff
-            if ((MAXUNICODE < 65536 or
-                    (not we_are_translated() and sys.maxunicode < 65536))
+            if ((MAXUNICODE < 65536 or NARROW_HOST)
                 and 0xD800 <= oc < 0xDC00 and pos + 1 < size):
                 # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes
                 pos += 1
