@@ -3,7 +3,6 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
-from pypy.objspace.std.memoryobject import _buffer_setitem
 
 from rpython.rlib.buffer import Buffer
 from rpython.rtyper.annlowlevel import llstr
@@ -43,8 +42,6 @@ class LLBuffer(Buffer):
         copy_string_to_raw(llstr(string), raw_cdata, 0, len(string))
 
 
-# Override the typedef to narrow down the interface that's exposed to app-level
-
 class MiniBuffer(W_Root):
     def __init__(self, buffer, keepalive=None):
         self.buffer = buffer
@@ -65,7 +62,18 @@ class MiniBuffer(W_Root):
         return space.wrapbytes(res)
 
     def descr_setitem(self, space, w_index, w_newstring):
-        _buffer_setitem(space, self.buffer, w_index, w_newstring)
+        start, stop, step, size = space.decode_index4(w_index,
+                                                      self.buffer.getlength())
+        if step not in (0, 1):
+            raise oefmt(space.w_NotImplementedError, "")
+        value = space.buffer_w(w_newstring, space.BUF_CONTIG_RO)
+        if value.getlength() != size:
+            raise oefmt(space.w_ValueError,
+                        "cannot modify size of memoryview object")
+        if step == 0:  # index only
+            self.buffer.setitem(start, value.getitem(0))
+        elif step == 1:
+            self.buffer.setslice(start, value.as_str())
 
 
 MiniBuffer.typedef = TypeDef(
