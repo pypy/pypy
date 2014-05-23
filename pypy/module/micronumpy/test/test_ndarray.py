@@ -3132,6 +3132,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
 
 class AppTestSupport(BaseNumpyAppTest):
+    spaceconfig = {'usemodules': ['micronumpy', 'array']}
+
     def setup_class(cls):
         import struct
         BaseNumpyAppTest.setup_class.im_func(cls)
@@ -3158,6 +3160,19 @@ class AppTestSupport(BaseNumpyAppTest):
             a = np.frombuffer(data)
             for i in range(4):
                 assert a[i] == i + 1
+
+        import array
+        data = array.array('c', 'testing')
+        a = np.frombuffer(data, 'c')
+        assert a.base is data
+        a[2] = 'Z'
+        assert data.tostring() == 'teZting'
+
+        data = buffer(data)
+        a = np.frombuffer(data, 'c')
+        assert a.base is data
+        exc = raises(ValueError, "a[2] = 'Z'")
+        assert str(exc.value) == "assignment destination is read-only"
 
     def test_fromstring(self):
         import sys

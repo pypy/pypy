@@ -215,7 +215,8 @@ def frombuffer(space, w_buffer, w_dtype=None, count=-1, offset=0):
     except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
-        buf = _getbuffer(space, space.getattr(w_buffer, space.wrap('__buffer__')))
+        w_buffer = space.getattr(w_buffer, space.wrap('__buffer__'))
+        buf = _getbuffer(space, w_buffer)
 
     ts = buf.getlength()
     if offset < 0 or offset > ts:
@@ -240,6 +241,13 @@ def frombuffer(space, w_buffer, w_dtype=None, count=-1, offset=0):
             raise oefmt(space.w_ValueError,
                         "buffer is smaller than requested size")
 
-    a = W_NDimArray.from_shape(space, [n], dtype=dtype)
-    loop.fromstring_loop(space, a, dtype, itemsize, buf.as_str())
-    return space.wrap(a)
+    try:
+        storage = buf.get_raw_address()
+    except ValueError:
+        a = W_NDimArray.from_shape(space, [n], dtype=dtype)
+        loop.fromstring_loop(space, a, dtype, itemsize, buf.as_str())
+        return a
+    else:
+        writable = not buf.readonly
+    return W_NDimArray.from_shape_and_storage(space, [n], storage, dtype=dtype,
+                                              w_base=w_buffer, writable=writable)
