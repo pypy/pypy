@@ -6,24 +6,27 @@ from rpython.tool.pairtype import extendabletype
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.error import TyperError
 
-class TypeSystem(object):
+class LowLevelTypeSystem(object):
     __metaclass__ = extendabletype
 
+    name = "lltypesystem"
+    callable_trait = (lltype.FuncType, lltype.functionptr)
+
     def derefType(self, T):
-        raise NotImplementedError()
+        assert isinstance(T, lltype.Ptr)
+        return T.TO
 
     def deref(self, obj):
-        """Dereference `obj' to concrete object."""
-        raise NotImplementedError()
+        assert isinstance(lltype.typeOf(obj), lltype.Ptr)
+        return obj._obj
 
     def check_null(self, repr, hop):
-        """Emit operations to check that `hop's argument is not a null object.
-"""
-        raise NotImplementedError()
+        # None is a nullptr, which is false; everything else is true.
+        vlist = hop.inputargs(repr)
+        return hop.genop('ptr_nonzero', vlist, resulttype=lltype.Bool)
 
     def null_callable(self, T):
-        """null callable object of type T"""
-        raise NotImplementedError()
+        return lltype.nullptr(T.TO)
 
     def getcallabletype(self, ARGS, RESTYPE):
         cls = self.callable_trait[0]
@@ -67,33 +70,7 @@ class TypeSystem(object):
         return constr(FT, name, **kwds)
 
     def getconcretetype(self, v):
-        """Helper called by getcallable() to get the conrete type of a variable
-in a graph."""
-        raise NotImplementedError()
-
-
-class LowLevelTypeSystem(TypeSystem):
-    name = "lltypesystem"
-    callable_trait = (lltype.FuncType, lltype.functionptr)
-
-    def derefType(self, T):
-        assert isinstance(T, lltype.Ptr)
-        return T.TO
-
-    def deref(self, obj):
-        assert isinstance(lltype.typeOf(obj), lltype.Ptr)
-        return obj._obj
-
-    def check_null(self, repr, hop):
-        # None is a nullptr, which is false; everything else is true.
-        vlist = hop.inputargs(repr)
-        return hop.genop('ptr_nonzero', vlist, resulttype=lltype.Bool)
-
-    def getconcretetype(self, v):
         return v.concretetype
-
-    def null_callable(self, T):
-        return lltype.nullptr(T.TO)
 
     def generic_is(self, robj1, robj2, hop):
         roriginal1 = robj1
@@ -113,7 +90,7 @@ class LowLevelTypeSystem(TypeSystem):
         v_list = hop.inputargs(robj1, robj2)
         return hop.genop('ptr_eq', v_list, resulttype=lltype.Bool)
 
+
 # All typesystems are singletons
 LowLevelTypeSystem.instance = LowLevelTypeSystem()
-
 getfunctionptr = LowLevelTypeSystem.instance.getcallable
