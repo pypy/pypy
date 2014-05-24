@@ -1559,7 +1559,7 @@ def source_as_str(space, w_source, funcname, what, flags):
         source = space.bytes_w(w_source)
     else:
         try:
-            buf = space.buffer_w(w_source, space.BUF_SIMPLE)
+            buf = space.buffer_w(w_source, space.BUF_SIMPLE)[0]
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise

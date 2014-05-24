@@ -619,7 +619,8 @@ class __extend__(W_NDimArray):
             "ctypes not implemented yet"))
 
     def buffer_w(self, space, flags):
-        return self.implementation.get_buffer(space, True)
+        # XXX format isn't always 'B' probably
+        return self.implementation.get_buffer(space, True), 'B', 1
 
     def descr_get_data(self, space):
         return space.newbuffer(self.implementation.get_buffer(space, False))

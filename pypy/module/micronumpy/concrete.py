@@ -477,9 +477,6 @@ class ArrayBuffer(Buffer):
     def __init__(self, impl, readonly):
         self.impl = impl
         self.readonly = readonly
-        #XXX
-        self.format = 'B'
-        self.itemsize = 1
 
     def getitem(self, item):
         return raw_storage_getitem(lltype.Char, self.impl.storage, item)

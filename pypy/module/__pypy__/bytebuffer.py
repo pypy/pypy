@@ -12,8 +12,6 @@ class ByteBuffer(Buffer):
     def __init__(self, len):
         self.data = ['\x00'] * len
         self.readonly = False
-        self.format = 'B'
-        self.itemsize = 1
 
     def getlength(self):
         return len(self.data)

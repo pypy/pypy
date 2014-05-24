@@ -1350,7 +1350,7 @@ class ObjSpace(object):
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
-            return w_obj.buffer_w(self, self.BUF_SIMPLE)
+            return w_obj.buffer_w(self, self.BUF_SIMPLE)[0]
         except TypeError:
             raise oefmt(self.w_TypeError,
                         "expected an object with a buffer interface")
@@ -1358,7 +1358,7 @@ class ObjSpace(object):
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
-            return w_obj.buffer_w(self, self.BUF_WRITABLE)
+            return w_obj.buffer_w(self, self.BUF_WRITABLE)[0]
         except TypeError:
             raise oefmt(self.w_TypeError,
                         "expected an object with a writable buffer interface")
@@ -1366,7 +1366,7 @@ class ObjSpace(object):
     def charbuf_w(self, w_obj):
         # Old buffer interface, returns a character buffer (PyObject_AsCharBuffer)
         try:
-            buf = w_obj.buffer_w(self, self.BUF_SIMPLE)
+            buf = w_obj.buffer_w(self, self.BUF_SIMPLE)[0]
         except TypeError:
             raise oefmt(self.w_TypeError,
                         "expected an object with a buffer interface")
@@ -1392,7 +1392,7 @@ class ObjSpace(object):
             if self.isinstance_w(w_obj, self.w_unicode):
                 return StringBuffer(w_obj.identifier_w(self))
             try:
-                return w_obj.buffer_w(self, self.BUF_SIMPLE)
+                return w_obj.buffer_w(self, self.BUF_SIMPLE)[0]
             except TypeError:
                 self._getarg_error("bytes or buffer", w_obj)
         elif code == 's#':
@@ -1401,13 +1401,13 @@ class ObjSpace(object):
             if self.isinstance_w(w_obj, self.w_unicode):
                 return w_obj.identifier_w(self)
             try:
-                return w_obj.buffer_w(self, self.BUF_SIMPLE).as_str()
+                return w_obj.buffer_w(self, self.BUF_SIMPLE)[0].as_str()
             except TypeError:
                 self._getarg_error("bytes or read-only buffer", w_obj)
         elif code == 'w*':
             try:
                 try:
-                    return w_obj.buffer_w(self, self.BUF_WRITABLE)
+                    return w_obj.buffer_w(self, self.BUF_WRITABLE)[0]
                 except OperationError:
                     pass
             except TypeError:
@@ -1415,7 +1415,7 @@ class ObjSpace(object):
             self._getarg_error("read-write buffer", w_obj)
         elif code == 'y*':
             try:
-                return w_obj.buffer_w(self, self.BUF_SIMPLE)
+                return w_obj.buffer_w(self, self.BUF_SIMPLE)[0]
             except TypeError:
                 self._getarg_error("bytes or buffer", w_obj)
         else:
@@ -1437,7 +1437,7 @@ class ObjSpace(object):
             if not e.match(self, self.w_TypeError):
                 raise
         try:
-            buf = w_obj.buffer_w(self, 0)
+            buf = w_obj.buffer_w(self, 0)[0]
         except TypeError:
             raise oefmt(self.w_TypeError,
                         "'%T' does not support the buffer interface", w_obj)

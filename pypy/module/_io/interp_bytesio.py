@@ -17,8 +17,6 @@ class BytesIOBuffer(Buffer):
     def __init__(self, w_bytesio):
         self.w_bytesio = w_bytesio
         self.readonly = False
-        self.format = 'B'
-        self.itemsize = 1
 
     def getlength(self):
         return int(self.w_bytesio.getsize())
@@ -96,7 +94,7 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
 
     def write_w(self, space, w_data):
         self._check_closed(space)
-        buf = space.buffer_w(w_data, space.BUF_CONTIG_RO).as_str()
+        buf = space.buffer_w(w_data, space.BUF_CONTIG_RO)[0].as_str()
         length = len(buf)
         if length <= 0:
             return space.wrap(0)

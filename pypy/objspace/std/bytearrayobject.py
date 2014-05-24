@@ -29,7 +29,7 @@ class W_BytearrayObject(W_Root):
         return "%s(%s)" % (w_self.__class__.__name__, ''.join(w_self.data))
 
     def buffer_w(self, space, flags):
-        return BytearrayBuffer(self.data, False)
+        return BytearrayBuffer(self.data, False), 'B', 1
 
     def _new(self, value):
         return W_BytearrayObject(_make_data(value))
@@ -55,7 +55,7 @@ class W_BytearrayObject(W_Root):
 
     @staticmethod
     def _op_val(space, w_other):
-        return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
+        return space.buffer_w(w_other, space.BUF_SIMPLE)[0].as_str()
 
     def _chr(self, char):
         assert len(char) == 1
@@ -1062,8 +1062,6 @@ class BytearrayBuffer(Buffer):
     def __init__(self, data, readonly):
         self.data = data
         self.readonly = readonly
-        self.format = 'B'
-        self.itemsize = 1
 
     def getlength(self):
         return len(self.data)

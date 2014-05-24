@@ -37,7 +37,7 @@ class W_StringBufferObject(W_AbstractBytesObject):
         return self.force()
 
     def buffer_w(self, space, flags):
-        return StringBuffer(self.force())
+        return StringBuffer(self.force()), 'B', 1
 
     def descr_len(self, space):
         return space.wrap(self.length)

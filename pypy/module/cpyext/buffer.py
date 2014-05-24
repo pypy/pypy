@@ -20,8 +20,6 @@ class CBufferMixin(object):
         self.c_buf = c_buf
         self.c_len = c_len
         self.w_obj = w_obj
-        self.format = 'B'
-        self.itemsize = 1
 
     def destructor(self):
         assert isinstance(self, CBufferMixin)

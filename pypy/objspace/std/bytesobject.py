@@ -400,7 +400,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, True)
-        return StringBuffer(self._value)
+        return StringBuffer(self._value), 'B', 1
 
     def listview_int(self):
         return _create_list_from_bytes(self._value)
@@ -433,7 +433,7 @@ class W_BytesObject(W_AbstractBytesObject):
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
-        return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
+        return space.buffer_w(w_other, space.BUF_SIMPLE)[0].as_str()
 
     def _chr(self, char):
         assert len(char) == 1
@@ -733,7 +733,7 @@ def makebytesdata_w(space, w_source):
 
     # String-like argument
     try:
-        buf = space.buffer_w(w_source, space.BUF_FULL_RO)
+        buf = space.buffer_w(w_source, space.BUF_FULL_RO)[0]
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise

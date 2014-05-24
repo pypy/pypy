@@ -139,7 +139,7 @@ class W_ArrayBase(W_Root):
         self.allocated = 0
 
     def buffer_w(self, space, flags):
-        return ArrayBuffer(self, False)
+        return ArrayBuffer(self, False), self.typecode, self.itemsize_
 
     def descr_append(self, space, w_x):
         """ append(x)
@@ -632,12 +632,10 @@ class ArrayBuffer(Buffer):
 
     def __init__(self, array, readonly):
         self.array = array
-        self.format = array.typecode
-        self.itemsize = array.itemsize_
         self.readonly = readonly
 
     def getlength(self):
-        return self.array.len * self.itemsize
+        return self.array.len * self.array.itemsize_
 
     def getitem(self, index):
         array = self.array

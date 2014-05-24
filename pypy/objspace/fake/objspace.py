@@ -41,7 +41,7 @@ class W_MyObject(W_Root):
         is_root(w_subtype)
 
     def buffer_w(self, space, flags):
-        return StringBuffer("foobar")
+        return StringBuffer("foobar"), 'B', 1
 
     def str_w(self, space):
         return NonConstant("foobar")

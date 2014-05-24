@@ -96,7 +96,7 @@ def unpack(space, format, w_str):
 @unwrap_spec(format=str, offset=int)
 def unpack_from(space, format, w_buffer, offset=0):
     size = _calcsize(space, format)
-    buf = space.buffer_w(w_buffer, space.BUF_SIMPLE)
+    buf = space.buffer_w(w_buffer, space.BUF_SIMPLE)[0]
     if offset < 0:
         offset += buf.getlength()
     if offset < 0 or (buf.getlength() - offset) < size:
