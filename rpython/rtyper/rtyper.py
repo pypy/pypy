@@ -26,7 +26,7 @@ from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
     Ptr, ContainerType, FuncType, functionptr, typeOf, RuntimeTypeInfo,
     attachRuntimeTypeInfo, Primitive)
 from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
-from rpython.rtyper.typesystem import LowLevelTypeSystem
+from rpython.rtyper.typesystem import LowLevelTypeSystem, getfunctionptr
 from rpython.rtyper.normalizecalls import perform_normalizations
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
@@ -600,7 +600,7 @@ class RPythonTyper(object):
         def getconcretetype(v):
             return self.bindingrepr(v).lowleveltype
 
-        return self.type_system.getcallable(graph, getconcretetype)
+        return getfunctionptr(graph, getconcretetype)
 
     def annotate_helper(self, ll_function, argtypes):
         """Annotate the given low-level helper function and return its graph

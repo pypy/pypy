@@ -13,6 +13,7 @@ from rpython.rtyper.rpbc import (AbstractClassesPBCRepr, AbstractMethodsPBCRepr,
     AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr,
     SingleFrozenPBCRepr, MethodOfFrozenPBCRepr, none_frozen_pbc_repr,
     get_concrete_calltable)
+from rpython.rtyper.typesystem import getfunctionptr
 from rpython.tool.pairtype import pairtype
 
 
@@ -218,7 +219,7 @@ class SmallFunctionSetPBCRepr(Repr):
             links[-1].llexitcase = chr(i)
         startblock.closeblock(*links)
         self.rtyper.annotator.translator.graphs.append(graph)
-        ll_ret = self.rtyper.type_system.getcallable(graph)
+        ll_ret = getfunctionptr(graph)
         #FTYPE = FuncType
         c_ret = self._dispatch_cache[key] = inputconst(typeOf(ll_ret), ll_ret)
         return c_ret

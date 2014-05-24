@@ -20,9 +20,6 @@ class LowLevelTypeSystem(object):
     def null_callable(self, T):
         return lltype.nullptr(T.TO)
 
-    def getcallable(self, graph, getconcretetype=None):
-        return getfunctionptr(graph, getconcretetype)
-
     def getexternalcallable(self, ll_args, ll_result, name, **kwds):
         FT = lltype.FuncType(ll_args, ll_result)
         return lltype.functionptr(FT, name, **kwds)
@@ -48,6 +45,7 @@ class LowLevelTypeSystem(object):
 
 def _getconcretetype(v):
     return v.concretetype
+
 
 def getfunctionptr(graph, getconcretetype=None):
     """Return callable given a Python function."""
