@@ -62,7 +62,7 @@ def w_array(space, w_cls, typecode, __args__):
 
 
 def descr_itemsize(space, self):
-    return space.wrap(self.itemsize_)
+    return space.wrap(self.itemsize)
 
 
 def descr_typecode(space, self):
@@ -139,7 +139,7 @@ class W_ArrayBase(W_Root):
         self.allocated = 0
 
     def buffer_w(self, space, flags):
-        return ArrayBuffer(self, False), self.typecode, self.itemsize_
+        return ArrayBuffer(self, False), self.typecode, self.itemsize
 
     def descr_append(self, space, w_x):
         """ append(x)
@@ -243,7 +243,7 @@ class W_ArrayBase(W_Root):
         bytes representation.
         """
         cbuf = self._charbuf_start()
-        s = rffi.charpsize2str(cbuf, self.len * self.itemsize_)
+        s = rffi.charpsize2str(cbuf, self.len * self.itemsize)
         self._charbuf_stop()
         return self.space.wrapbytes(s)
 
@@ -269,16 +269,16 @@ class W_ArrayBase(W_Root):
         machine values, as if it had been read from a file using the
         fromfile() method).
         """
-        if len(s) % self.itemsize_ != 0:
+        if len(s) % self.itemsize != 0:
             msg = 'string length not a multiple of item size'
             raise OperationError(self.space.w_ValueError, self.space.wrap(msg))
         oldlen = self.len
-        new = len(s) / self.itemsize_
+        new = len(s) / self.itemsize
         if not new:
             return
         self.setlen(oldlen + new)
         cbuf = self._charbuf_start()
-        copy_string_to_raw(llstr(s), rffi.ptradd(cbuf, oldlen * self.itemsize_),
+        copy_string_to_raw(llstr(s), rffi.ptradd(cbuf, oldlen * self.itemsize),
                            0, len(s))
         self._charbuf_stop()
 
@@ -290,14 +290,14 @@ class W_ArrayBase(W_Root):
         array.  Also called as read.
         """
         try:
-            size = ovfcheck(self.itemsize_ * n)
+            size = ovfcheck(self.itemsize * n)
         except OverflowError:
             raise MemoryError
         w_item = space.call_method(w_f, 'read', space.wrap(size))
         item = space.bytes_w(w_item)
         if len(item) < size:
-            n = len(item) % self.itemsize_
-            elems = max(0, len(item) - (len(item) % self.itemsize_))
+            n = len(item) % self.itemsize
+            elems = max(0, len(item) - (len(item) % self.itemsize))
             if n != 0:
                 item = item[0:elems]
             self.descr_frombytes(space, item)
@@ -407,7 +407,7 @@ class W_ArrayBase(W_Root):
         rffi.c_memcpy(
             rffi.cast(rffi.VOIDP, w_a._buffer_as_unsigned()),
             rffi.cast(rffi.VOIDP, self._buffer_as_unsigned()),
-            self.len * self.itemsize_
+            self.len * self.itemsize
         )
         return w_a
 
@@ -417,18 +417,18 @@ class W_ArrayBase(W_Root):
         Byteswap all items of the array.  If the items in the array are
         not 1, 2, 4, or 8 bytes in size, RuntimeError is raised.
         """
-        if self.itemsize_ not in [1, 2, 4, 8]:
+        if self.itemsize not in [1, 2, 4, 8]:
             msg = "byteswap not supported for this array"
             raise OperationError(space.w_RuntimeError, space.wrap(msg))
         if self.len == 0:
             return
         bytes = self._charbuf_start()
-        tmp = [bytes[0]] * self.itemsize_
-        for start in range(0, self.len * self.itemsize_, self.itemsize_):
-            stop = start + self.itemsize_ - 1
-            for i in range(self.itemsize_):
+        tmp = [bytes[0]] * self.itemsize
+        for start in range(0, self.len * self.itemsize, self.itemsize):
+            stop = start + self.itemsize - 1
+            for i in range(self.itemsize):
                 tmp[i] = bytes[start + i]
-            for i in range(self.itemsize_):
+            for i in range(self.itemsize):
                 bytes[stop - i] = tmp[i]
         self._charbuf_stop()
 
@@ -635,7 +635,7 @@ class ArrayBuffer(Buffer):
         self.readonly = readonly
 
     def getlength(self):
-        return self.array.len * self.array.itemsize_
+        return self.array.len * self.array.itemsize
 
     def getitem(self, index):
         array = self.array
@@ -669,7 +669,7 @@ def make_array(mytype):
     W_ArrayBase = globals()['W_ArrayBase']
 
     class W_Array(W_ArrayBase):
-        itemsize_ = mytype.bytes
+        itemsize = mytype.bytes
         typecode = mytype.typecode
 
         _attrs_ = ('space', 'len', 'allocated', '_lifeline_', 'buffer')
