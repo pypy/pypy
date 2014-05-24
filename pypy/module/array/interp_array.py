@@ -62,10 +62,12 @@ def w_array(space, w_cls, typecode, __args__):
 
 
 def descr_itemsize(space, self):
+    assert isinstance(self, W_ArrayBase)
     return space.wrap(self.itemsize)
 
 
 def descr_typecode(space, self):
+    assert isinstance(self, W_ArrayBase)
     return space.wrap(self.typecode)
 
 arr_eq_driver = jit.JitDriver(name='array_eq_driver', greens=['comp_func'],
