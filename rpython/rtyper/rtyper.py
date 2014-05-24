@@ -38,7 +38,7 @@ class RPythonTyper(object):
     def __init__(self, annotator):
         self.annotator = annotator
         self.lowlevel_ann_policy = LowLevelAnnotatorPolicy(self)
-        self.type_system = LowLevelTypeSystem.instance
+        self.type_system = LowLevelTypeSystem()
         self.reprs = {}
         self._reprs_must_call_setup = []
         self._seen_reprs_must_call_setup = {}
