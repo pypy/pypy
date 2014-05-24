@@ -10,11 +10,6 @@ class LowLevelTypeSystem(object):
     __metaclass__ = extendabletype
 
     name = "lltypesystem"
-    callable_trait = (lltype.FuncType, lltype.functionptr)
-
-    def derefType(self, T):
-        assert isinstance(T, lltype.Ptr)
-        return T.TO
 
     def deref(self, obj):
         assert isinstance(lltype.typeOf(obj), lltype.Ptr)
@@ -29,8 +24,7 @@ class LowLevelTypeSystem(object):
         return lltype.nullptr(T.TO)
 
     def getcallabletype(self, ARGS, RESTYPE):
-        cls = self.callable_trait[0]
-        return cls(ARGS, RESTYPE)
+        return lltype.FuncType(ARGS, RESTYPE)
 
     def getcallable(self, graph, getconcretetype=None):
         """Return callable given a Python function."""
@@ -39,9 +33,7 @@ class LowLevelTypeSystem(object):
         llinputs = [getconcretetype(v) for v in graph.getargs()]
         lloutput = getconcretetype(graph.getreturnvar())
 
-        typ, constr = self.callable_trait
-
-        FT = typ(llinputs, lloutput)
+        FT = lltype.FuncType(llinputs, lloutput)
         name = graph.name
         if hasattr(graph, 'func') and callable(graph.func):
             # the Python function object can have _llfnobjattrs_, specifying
@@ -58,16 +50,14 @@ class LowLevelTypeSystem(object):
             # _callable is normally graph.func, but can be overridden:
             # see fakeimpl in extfunc.py
             _callable = fnobjattrs.pop('_callable', graph.func)
-            return constr(FT, name, graph = graph, _callable = _callable,
-                          **fnobjattrs)
+            return lltype.functionptr(FT, name, graph = graph,
+                                      _callable = _callable, **fnobjattrs)
         else:
-            return constr(FT, name, graph = graph)
+            return lltype.functionptr(FT, name, graph = graph)
 
     def getexternalcallable(self, ll_args, ll_result, name, **kwds):
-        typ, constr = self.callable_trait
-
-        FT = typ(ll_args, ll_result)
-        return constr(FT, name, **kwds)
+        FT = lltype.FuncType(ll_args, ll_result)
+        return lltype.functionptr(FT, name, **kwds)
 
     def getconcretetype(self, v):
         return v.concretetype
