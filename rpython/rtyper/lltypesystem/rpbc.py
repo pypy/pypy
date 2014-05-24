@@ -352,11 +352,6 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
         v_func = r_class.getclsfield(v_cls, self.methodname, hop.llops)
 
         hop2 = self.add_instance_arg_to_hop(hop, call_args)
-        opname = 'simple_call'
-        if call_args:
-            opname = 'call_args'
-        hop2.forced_opname = opname
-
         hop2.v_s_insertfirstarg(v_func, s_func)   # insert 'function'
 
         if type(hop2.args_r[0]) is SmallFunctionSetPBCRepr and type(r_func) is FunctionsPBCRepr:

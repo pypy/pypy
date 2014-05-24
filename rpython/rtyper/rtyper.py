@@ -650,8 +650,6 @@ RPythonTyper._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERA
 
 
 class HighLevelOp(object):
-    forced_opname = None
-
     def __init__(self, rtyper, spaceop, exceptionlinks, llops):
         self.rtyper         = rtyper
         self.spaceop        = spaceop
@@ -679,12 +677,11 @@ class HighLevelOp(object):
             if type(value) is list:     # grunt
                 value = value[:]
             setattr(result, key, value)
-        result.forced_opname = self.forced_opname
         return result
 
     def dispatch(self):
         rtyper = self.rtyper
-        opname = self.forced_opname or self.spaceop.opname
+        opname = self.spaceop.opname
         translate_meth = getattr(rtyper, 'translate_op_' + opname,
                                  rtyper.default_translate_operation)
         return translate_meth(self)
