@@ -23,6 +23,9 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
 INVALID_SOCKET = _c.INVALID_SOCKET
 from rpython.rlib import jit
+# Usage of @jit.dont_look_inside in this file is possibly temporary
+# and only because some lltypes declared in _rsocket_rffi choke the
+# JIT's codewriter right now (notably, FixedSizeArray).
 
 
 def mallocbuf(buffersize):
