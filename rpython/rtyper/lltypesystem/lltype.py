@@ -2002,9 +2002,9 @@ def render_immortal(p, track_allocation=True):
     if track_allocation:
         leakfinder.remember_free(p._obj0)
 
-def _make_scoped_allocator(T):
+def _make_scoped_allocator(T, zero):
     class ScopedAlloc:
-        def __init__(self, n=None, zero=False):
+        def __init__(self, n=None):
             if n is None:
                 self.buf = malloc(T, flavor='raw', zero=zero)
             else:
@@ -2028,8 +2028,8 @@ def scoped_alloc(T, n=None, zero=False):
             ...use array...
         ...it's freed now.
     """
-    return _make_scoped_allocator(T)(n=n, zero=zero)
-scoped_alloc._annspecialcase_ = 'specialize:arg(0)'
+    return _make_scoped_allocator(T, zero)(n=n)
+scoped_alloc._annspecialcase_ = 'specialize:arg(0, 2)'
 
 def functionptr(TYPE, name, **attrs):
     if not isinstance(TYPE, FuncType):
