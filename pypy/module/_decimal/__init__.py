@@ -29,4 +29,8 @@ class Module(MixedModule):
         interpleveldefs[name] = 'space.wrap(%r)' % name
     for name, flag in interp_signals.SIGNAL_MAP:
         interpleveldefs[name] = 'interp_signals.get(space).w_%s' % name
+    for name, flag in interp_signals.COND_MAP:
+        if name == 'InvalidOperation':
+            pass
+        interpleveldefs[name] = 'interp_signals.get(space).w_%s' % name
         

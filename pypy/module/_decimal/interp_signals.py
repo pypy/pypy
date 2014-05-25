@@ -127,5 +127,22 @@ class SignalState:
                 getattr(self, 'w_' + name)
                 for name, flag in SIGNAL_MAP])
 
+        # Add remaining exceptions, inherit from InvalidOperation
+        for name, flag in COND_MAP:
+            if name == 'InvalidOperation':
+                # Unfortunately, InvalidOperation is a signal that
+                # comprises several conditions, including
+                # InvalidOperation! Naming the signal
+                # IEEEInvalidOperation would prevent the confusion.
+                continue
+            if name == 'DivisionUndefined':
+                w_bases = space.newtuple([self.w_InvalidOperation,
+                                          space.w_ZeroDivisionError])
+            else:
+                w_bases = space.newtuple([self.w_InvalidOperation])
+            setattr(self, 'w_' + name,
+                    space.call_function(
+                    space.w_type, space.wrap(name), w_bases, space.newdict()))
+
 def get(space):
     return space.fromcache(SignalState)
