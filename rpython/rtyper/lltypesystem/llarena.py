@@ -1,4 +1,4 @@
-import array, weakref
+import array
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rlib.rarithmetic import is_valid_int
 
@@ -16,8 +16,6 @@ class ArenaError(Exception):
     pass
 
 class Arena(object):
-    object_arena_location = {}     # {container: (arena, offset)}
-    old_object_arena_location = weakref.WeakKeyDictionary()
     _count_arenas = 0
 
     def __init__(self, nbytes, zero):
@@ -49,7 +47,7 @@ class Arena(object):
                 assert offset >= stop, "object overlaps cleared area"
             else:
                 obj = ptr._obj
-                _dictdel(Arena.object_arena_location, obj)
+                obj.__arena_location__[0] = False   # no longer valid
                 del self.objectptrs[offset]
                 del self.objectsizes[offset]
                 obj._free()
@@ -111,8 +109,7 @@ class Arena(object):
         self.objectptrs[offset] = objaddr.ptr
         self.objectsizes[offset] = bytes
         container = objaddr.ptr._obj
-        Arena.object_arena_location[container] = self, offset
-        Arena.old_object_arena_location[container] = self, offset
+        container.__arena_location__ = [True, self, offset]
 
     def shrink_obj(self, offset, newsize):
         oldbytes = self.objectsizes[offset]
@@ -203,12 +200,12 @@ class fakearenaaddress(llmemory.fakeaddress):
             return None, None
         obj = other.ptr._obj
         innerobject = False
-        while obj not in Arena.object_arena_location:
+        while not getattr(obj, '__arena_location__', (False,))[0]:
             obj = obj._parentstructure()
             if obj is None:
                 return None, None     # not found in the arena
             innerobject = True
-        arena, offset = Arena.object_arena_location[obj]
+        _, arena, offset = obj.__arena_location__
         if innerobject:
             # 'obj' is really inside the object allocated from the arena,
             # so it's likely that its address "should be" a bit larger than
@@ -272,24 +269,14 @@ def getfakearenaaddress(addr):
 def _oldobj_to_address(obj):
     obj = obj._normalizedcontainer(check=False)
     try:
-        arena, offset = Arena.old_object_arena_location[obj]
-    except KeyError:
+        _, arena, offset = obj.__arena_location__
+    except AttributeError:
         if obj._was_freed():
             msg = "taking address of %r, but it was freed"
         else:
             msg = "taking address of %r, but it is not in an arena"
         raise RuntimeError(msg % (obj,))
     return arena.getaddr(offset)
-
-def _dictdel(d, key):
-    # hack
-    try:
-        del d[key]
-    except KeyError:
-        items = d.items()
-        d.clear()
-        d.update(items)
-        del d[key]
 
 class RoundedUpForAllocation(llmemory.AddressOffset):
     """A size that is rounded up in order to preserve alignment of objects
