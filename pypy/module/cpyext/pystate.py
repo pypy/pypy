@@ -208,6 +208,9 @@ PyGILState_STATE = rffi.INT
 
 @cpython_api([], PyGILState_STATE, error=CANNOT_FAIL)
 def PyGILState_Ensure(space):
+    # XXX XXX XXX THIS IS A VERY MINIMAL IMPLEMENTATION THAT WILL HAPPILY
+    # DEADLOCK IF CALLED TWICE ON THE SAME THREAD, OR CRASH IF CALLED IN A
+    # NEW THREAD.  We should very carefully follow what CPython does instead.
     if rffi.aroundstate.after:
         # After external call is before entering Python
         rffi.aroundstate.after()
@@ -215,6 +218,7 @@ def PyGILState_Ensure(space):
 
 @cpython_api([PyGILState_STATE], lltype.Void)
 def PyGILState_Release(space, state):
+    # XXX XXX XXX We should very carefully follow what CPython does instead.
     if rffi.aroundstate.before:
         # Before external call is after running Python
         rffi.aroundstate.before()
