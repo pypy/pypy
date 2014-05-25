@@ -47,6 +47,12 @@ def flags_as_exception(space, flags):
                     "invalid error flag")
     return OperationError(w_exc, space.w_None)
 
+def list_as_flags(space, w_list):
+    flags = 0
+    for w_item in space.unpackiterable(w_list):
+        flags |= exception_as_flag(space, w_item)
+    return flags
+
 def exception_as_flag(space, w_exc):
     for name, flag in SIGNAL_MAP:
         if space.is_w(w_exc, getattr(get(space), 'w_' + name)):

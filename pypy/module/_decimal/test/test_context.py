@@ -71,6 +71,35 @@ class AppTestContext:
             x = self.random_float()
             self.assertEqual(x, float(nc.create_decimal(x))) # roundtrip
 
+    def test_create_decimal_from_float(self):
+        import math
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+        Inexact = self.decimal.Inexact
+
+        context = Context(prec=5, rounding=self.decimal.ROUND_DOWN)
+        self.assertEqual(
+            context.create_decimal_from_float(math.pi),
+            Decimal('3.1415')
+        )
+        context = Context(prec=5, rounding=self.decimal.ROUND_UP)
+        self.assertEqual(
+            context.create_decimal_from_float(math.pi),
+            Decimal('3.1416')
+        )
+        context = Context(prec=5, traps=[Inexact])
+        self.assertRaises(
+            Inexact,
+            context.create_decimal_from_float,
+            math.pi
+        )
+        self.assertEqual(repr(context.create_decimal_from_float(-0.0)),
+                         "Decimal('-0')")
+        self.assertEqual(repr(context.create_decimal_from_float(1.0)),
+                         "Decimal('1')")
+        self.assertEqual(repr(context.create_decimal_from_float(10)),
+                         "Decimal('10')")
+
     def test_add(self):
         Decimal = self.decimal.Decimal
         Context = self.decimal.Context

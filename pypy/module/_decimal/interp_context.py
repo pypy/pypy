@@ -112,6 +112,28 @@ class W_Context(W_Root):
         if self.ctx:
             lltype.free(self.ctx, flavor='raw', track_allocation=False)
 
+    def descr_init(self, space,
+                   w_prec=None, w_rounding=None, w_Emin=None, w_Emax=None,
+                   w_capitals=None, w_clamp=None, w_flags=None, w_traps=None):
+        if not space.is_none(w_prec):
+            self.set_prec(space, w_prec)
+        if not space.is_none(w_rounding):
+            self.set_rounding(space, w_rounding)
+        if not space.is_none(w_Emin):
+            self.set_emin(space, w_Emin)
+        if not space.is_none(w_Emax):
+            self.set_emax(space, w_Emax)
+        if not space.is_none(w_capitals):
+            self.set_capitals(space, w_capitals)
+        if not space.is_none(w_clamp):
+            self.set_clamp(space, w_clamp)
+        if not space.is_none(w_flags):
+            flags = interp_signals.list_as_flags(space, w_flags)
+            rffi.setintfield(self.ctx, 'c_status', flags)
+        if not space.is_none(w_traps):
+            flags = interp_signals.list_as_flags(space, w_traps)
+            rffi.setintfield(self.ctx, 'c_traps', flags)
+
     def addstatus(self, space, status):
         "Add resulting status to context, and eventually raise an exception."
         new_status = (rffi.cast(lltype.Signed, status) |
@@ -202,6 +224,11 @@ class W_Context(W_Root):
     def create_decimal_w(self, space, w_value=None):
         from pypy.module._decimal import interp_decimal
         return interp_decimal.decimal_from_object(
+            space, None, w_value, self, exact=False)
+
+    def create_decimal_from_float_w(self, space, w_value=None):
+        from pypy.module._decimal import interp_decimal
+        return interp_decimal.decimal_from_float(
             space, None, w_value, self, exact=False)
 
     def descr_repr(self, space):
@@ -309,6 +336,7 @@ def make_bool_method_noctx(mpd_func_name):
 W_Context.typedef = TypeDef(
     'Context',
     __new__ = interp2app(descr_new_context),
+    __init__ = interp2app(W_Context.descr_init),
     # Attributes
     flags=interp_attrproperty_w('w_flags', W_Context),
     traps=interp_attrproperty_w('w_traps', W_Context),
@@ -325,6 +353,7 @@ W_Context.typedef = TypeDef(
     clear_flags=interp2app(W_Context.clear_flags_w),
     clear_traps=interp2app(W_Context.clear_traps_w),
     create_decimal=interp2app(W_Context.create_decimal_w),
+    create_decimal_from_float=interp2app(W_Context.create_decimal_from_float_w),
     # Unary Operations
     abs=make_unary_method('mpd_qabs'),
     exp=make_unary_method('mpd_qexp'),
