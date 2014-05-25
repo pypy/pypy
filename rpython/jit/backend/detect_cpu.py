@@ -63,7 +63,10 @@ def detect_model_from_host_platform():
             'AMD64': MODEL_X86,    # win64
             'armv7l': MODEL_ARM,
             'armv6l': MODEL_ARM,
-            }[mach]
+            }.get(mach)
+
+    if result is None:
+        raise ProcessorAutodetectError, "unknown machine name %s" % mach
     #
     if result.startswith('x86'):
         if sys.maxint == 2**63-1:
