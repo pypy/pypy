@@ -789,11 +789,10 @@ def make_string_mappings(strtype):
         # 'buf' points to its own raw-malloced memory.
         # XXX fix comment (groggi)
 
-        assert not (is_pinned and is_raw)
 
         if is_pinned:
             rgc.unpin(data)
-        elif is_raw:
+        if is_raw:
             lltype.free(buf, flavor='raw')
         # if is_pinned and is_raw are false: data was already nonmovable,
         # we have nothing to clean up
