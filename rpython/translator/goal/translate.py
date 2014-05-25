@@ -109,7 +109,6 @@ def parse_options_and_load_target():
     opt_parser.disable_interspersed_args()
 
     config = get_combined_translation_config(translating=True)
-    config.translation.backend = 'llvm'
     to_optparse(config, parser=opt_parser, useoptions=['translation.*'])
     translateconfig = Config(translate_optiondescr)
     to_optparse(translateconfig, parser=opt_parser)
