@@ -14,6 +14,16 @@ class AppTestContext:
             return space.wrap(f)
         cls.w_random_float = space.wrap(gateway.interp2app(random_float))
 
+        # a few functions from unittest library
+        def assertTrue(space, w_x):
+            assert space.is_true(w_x)
+        cls.w_assertTrue = space.wrap(gateway.interp2app(assertTrue))
+        def assertEqual(space, w_x, w_y):
+            assert space.eq_w(w_x, w_y)
+        cls.w_assertEqual = space.wrap(gateway.interp2app(assertEqual))
+
+        cls.w_assertRaises = space.appexec([], """(): return raises""")
+
     def test_context_repr(self):
         c = self.decimal.DefaultContext.copy()
 
@@ -36,30 +46,30 @@ class AppTestContext:
         t = "Context(prec=425000000, rounding=ROUND_HALF_DOWN, " \
             "Emin=-425000000, Emax=425000000, capitals=0, clamp=1, " \
             "flags=[], traps=[])"
-        assert s == t
+        self.assertEqual(s, t)
 
     def test_explicit_context_create_from_float(self):
         Decimal = self.decimal.Decimal
 
         nc = self.decimal.Context()
         r = nc.create_decimal(0.1)
-        assert type(r) is Decimal
-        assert str(r) == '0.1000000000000000055511151231'
-        assert nc.create_decimal(float('nan')).is_qnan()
-        assert nc.create_decimal(float('inf')).is_infinite()
-        assert nc.create_decimal(float('-inf')).is_infinite()
-        assert (str(nc.create_decimal(float('nan'))) ==
-                str(nc.create_decimal('NaN')))
-        assert (str(nc.create_decimal(float('inf'))) ==
-                str(nc.create_decimal('Infinity')))
-        assert (str(nc.create_decimal(float('-inf'))) ==
-                str(nc.create_decimal('-Infinity')))
-        assert (str(nc.create_decimal(float('-0.0'))) ==
-                str(nc.create_decimal('-0')))
+        self.assertEqual(type(r), Decimal)
+        self.assertEqual(str(r), '0.1000000000000000055511151231')
+        self.assertTrue(nc.create_decimal(float('nan')).is_qnan())
+        self.assertTrue(nc.create_decimal(float('inf')).is_infinite())
+        self.assertTrue(nc.create_decimal(float('-inf')).is_infinite())
+        self.assertEqual(str(nc.create_decimal(float('nan'))),
+                         str(nc.create_decimal('NaN')))
+        self.assertEqual(str(nc.create_decimal(float('inf'))),
+                         str(nc.create_decimal('Infinity')))
+        self.assertEqual(str(nc.create_decimal(float('-inf'))),
+                         str(nc.create_decimal('-Infinity')))
+        self.assertEqual(str(nc.create_decimal(float('-0.0'))),
+                         str(nc.create_decimal('-0')))
         nc.prec = 100
         for i in range(200):
             x = self.random_float()
-            assert x == float(nc.create_decimal(x))  # roundtrip
+            self.assertEqual(x, float(nc.create_decimal(x))) # roundtrip
 
     def test_add(self):
         Decimal = self.decimal.Decimal
@@ -67,11 +77,11 @@ class AppTestContext:
 
         c = Context()
         d = c.add(Decimal(1), Decimal(1))
-        assert c.add(1, 1) == d
-        assert c.add(Decimal(1), 1) == d
-        assert c.add(1, Decimal(1)) == d
-        raises(TypeError, c.add, '1', 1)
-        raises(TypeError, c.add, 1, '1')
+        self.assertEqual(c.add(1, 1), d)
+        self.assertEqual(c.add(Decimal(1), 1), d)
+        self.assertEqual(c.add(1, Decimal(1)), d)
+        self.assertRaises(TypeError, c.add, '1', 1)
+        self.assertRaises(TypeError, c.add, 1, '1')
 
     def test_subtract(self):
         Decimal = self.decimal.Decimal
@@ -79,11 +89,11 @@ class AppTestContext:
 
         c = Context()
         d = c.subtract(Decimal(1), Decimal(2))
-        assert c.subtract(1, 2) == d
-        assert c.subtract(Decimal(1), 2) == d
-        assert c.subtract(1, Decimal(2)) == d
-        raises(TypeError, c.subtract, '1', 2)
-        raises(TypeError, c.subtract, 1, '2')
+        self.assertEqual(c.subtract(1, 2), d)
+        self.assertEqual(c.subtract(Decimal(1), 2), d)
+        self.assertEqual(c.subtract(1, Decimal(2)), d)
+        self.assertRaises(TypeError, c.subtract, '1', 2)
+        self.assertRaises(TypeError, c.subtract, 1, '2')
 
     def test_multiply(self):
         Decimal = self.decimal.Decimal
@@ -91,11 +101,11 @@ class AppTestContext:
 
         c = Context()
         d = c.multiply(Decimal(1), Decimal(2))
-        assert c.multiply(1, 2)== d
-        assert c.multiply(Decimal(1), 2)== d
-        assert c.multiply(1, Decimal(2))== d
-        raises(TypeError, c.multiply, '1', 2)
-        raises(TypeError, c.multiply, 1, '2')
+        self.assertEqual(c.multiply(1, 2), d)
+        self.assertEqual(c.multiply(Decimal(1), 2), d)
+        self.assertEqual(c.multiply(1, Decimal(2)), d)
+        self.assertRaises(TypeError, c.multiply, '1', 2)
+        self.assertRaises(TypeError, c.multiply, 1, '2')
 
     def test_divide(self):
         Decimal = self.decimal.Decimal
@@ -103,8 +113,54 @@ class AppTestContext:
 
         c = Context()
         d = c.divide(Decimal(1), Decimal(2))
-        assert c.divide(1, 2)== d
-        assert c.divide(Decimal(1), 2)== d
-        assert c.divide(1, Decimal(2))== d
-        raises(TypeError, c.divide, '1', 2)
-        raises(TypeError, c.divide, 1, '2')
+        self.assertEqual(c.divide(1, 2), d)
+        self.assertEqual(c.divide(Decimal(1), 2), d)
+        self.assertEqual(c.divide(1, Decimal(2)), d)
+        self.assertRaises(TypeError, c.divide, '1', 2)
+        self.assertRaises(TypeError, c.divide, 1, '2')
+
+    def test_logical_and(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.logical_and(Decimal(1), Decimal(1))
+        self.assertEqual(c.logical_and(1, 1), d)
+        self.assertEqual(c.logical_and(Decimal(1), 1), d)
+        self.assertEqual(c.logical_and(1, Decimal(1)), d)
+        self.assertRaises(TypeError, c.logical_and, '1', 1)
+        self.assertRaises(TypeError, c.logical_and, 1, '1')
+
+    def test_logical_invert(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.logical_invert(Decimal(1000))
+        self.assertEqual(c.logical_invert(1000), d)
+        self.assertRaises(TypeError, c.logical_invert, '1000')
+
+    def test_logical_or(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.logical_or(Decimal(1), Decimal(1))
+        self.assertEqual(c.logical_or(1, 1), d)
+        self.assertEqual(c.logical_or(Decimal(1), 1), d)
+        self.assertEqual(c.logical_or(1, Decimal(1)), d)
+        self.assertRaises(TypeError, c.logical_or, '1', 1)
+        self.assertRaises(TypeError, c.logical_or, 1, '1')
+
+    def test_logical_xor(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.logical_xor(Decimal(1), Decimal(1))
+        self.assertEqual(c.logical_xor(1, 1), d)
+        self.assertEqual(c.logical_xor(Decimal(1), 1), d)
+        self.assertEqual(c.logical_xor(1, Decimal(1)), d)
+        self.assertRaises(TypeError, c.logical_xor, '1', 1)
+        self.assertRaises(TypeError, c.logical_xor, 1, '1')
+

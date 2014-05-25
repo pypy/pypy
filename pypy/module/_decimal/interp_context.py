@@ -258,6 +258,8 @@ class W_Context(W_Root):
         return self.unary_method(space, rmpdec.mpd_qround_to_int, w_x)
     def sqrt_w(self, space, w_x):
         return self.unary_method(space, rmpdec.mpd_qsqrt, w_x)
+    def logical_invert_w(self, space, w_x):
+        return self.unary_method(space, rmpdec.mpd_qinvert, w_x)
 
     # Binary arithmetic functions
     def binary_method(self, space, mpd_func, w_x, w_y):
@@ -301,6 +303,12 @@ class W_Context(W_Root):
         return self.binary_method(space, rmpdec.mpd_qrem, w_x, w_y)
     def remainder_near_w(self, space, w_x, w_y):
         return self.binary_method(space, rmpdec.mpd_qrem_near, w_x, w_y)
+    def logical_and_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qand, w_x, w_y)
+    def logical_or_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qor, w_x, w_y)
+    def logical_xor_w(self, space, w_x, w_y):
+        return self.binary_method(space, rmpdec.mpd_qxor, w_x, w_y)
 
     # Ternary operations
     def power_w(self, space, w_a, w_b, w_modulo=None):
@@ -369,6 +377,7 @@ W_Context.typedef = TypeDef(
     to_integral_exact=interp2app(W_Context.to_integral_exact_w),
     to_integral_value=interp2app(W_Context.to_integral_value_w),
     sqrt=interp2app(W_Context.sqrt_w),
+    logical_invert=interp2app(W_Context.logical_invert_w),
     # Binary Operations
     add=interp2app(W_Context.add_w),
     subtract=interp2app(W_Context.subtract_w),
@@ -386,6 +395,9 @@ W_Context.typedef = TypeDef(
     quantize=interp2app(W_Context.quantize_w),
     remainder=interp2app(W_Context.remainder_w),
     remainder_near=interp2app(W_Context.remainder_near_w),
+    logical_and=interp2app(W_Context.logical_and_w),
+    logical_or=interp2app(W_Context.logical_or_w),
+    logical_xor=interp2app(W_Context.logical_xor_w),
     # Ternary operations
     power=interp2app(W_Context.power_w),
     fma=interp2app(W_Context.fma_w),
