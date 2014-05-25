@@ -223,92 +223,9 @@ class W_Context(W_Root):
                 self.capitals, rffi.cast(lltype.Signed, self.ctx.c_clamp),
                 flags, traps))
 
-    # Unary arithmetic functions
-    def unary_method(self, space, mpd_func, w_x):
-        from pypy.module._decimal import interp_decimal
-        w_a = interp_decimal.convert_op_raise(space, self, w_x)
-        w_result = interp_decimal.W_Decimal.allocate(space)
-        with self.catch_status(space) as (ctx, status_ptr):
-            mpd_func(w_result.mpd, w_a.mpd, ctx, status_ptr)
-        return w_result
-
-    def abs_w(self, space, w_x):
-        return self.unary_method(space, rmpdec.mpd_qabs, w_x)
-    def exp_w(self, space, w_x):
-        return self.unary_method(space, rmpdec.mpd_qexp, w_x)
-    def ln_w(self, space, w_x):
-        return self.unary_method(space, rmpdec.mpd_qln, w_x)
-    def log10_w(self, space, w_x):
-        return self.unary_method(space, rmpdec.mpd_qlog10, w_x)
-    def minus_w(self, space, w_x):
-        return self.unary_method(space, rmpdec.mpd_qminus, w_x)
-    def next_minus_w(self, space, w_x):
-        return self.unary_method(space, rmpdec.mpd_qnext_minus, w_x)
-    def next_plus_w(self, space, w_x):
-        return self.unary_method(space, rmpdec.mpd_qnext_plus, w_x)
-    def normalize_w(self, space, w_x):
-        return self.unary_method(space, rmpdec.mpd_qreduce, w_x)
-    def plus_w(self, space, w_x):
-        return self.unary_method(space, rmpdec.mpd_qplus, w_x)
-    def to_integral_w(self, space, w_x):
-        return self.unary_method(space, rmpdec.mpd_qround_to_int, w_x)
-    def to_integral_exact_w(self, space, w_x):
-        return self.unary_method(space, rmpdec.mpd_qround_to_intx, w_x)
-    def to_integral_value_w(self, space, w_x):
-        return self.unary_method(space, rmpdec.mpd_qround_to_int, w_x)
-    def sqrt_w(self, space, w_x):
-        return self.unary_method(space, rmpdec.mpd_qsqrt, w_x)
-    def logical_invert_w(self, space, w_x):
-        return self.unary_method(space, rmpdec.mpd_qinvert, w_x)
-
-    # Binary arithmetic functions
-    def binary_method(self, space, mpd_func, w_x, w_y):
-        from pypy.module._decimal import interp_decimal
-        w_a, w_b = interp_decimal.convert_binop_raise(space, self, w_x, w_y)
-        w_result = interp_decimal.W_Decimal.allocate(space)
-        with self.catch_status(space) as (ctx, status_ptr):
-            mpd_func(w_result.mpd, w_a.mpd, w_b.mpd, ctx, status_ptr)
-        return w_result
-
-    def add_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qadd, w_x, w_y)
-    def subtract_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qsub, w_x, w_y)
-    def multiply_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qmul, w_x, w_y)
-    def divide_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qdiv, w_x, w_y)
-    def compare_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qcompare, w_x, w_y)
-    def compare_signal_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qcompare_signal, w_x, w_y)
-    def divide_int_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qdivint, w_x, w_y)
     def divmod_w(self, space, w_x, w_y):
         from pypy.module._decimal import interp_decimal
         return interp_decimal.W_Decimal.divmod_impl(space, self, w_x, w_y)
-    def max_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qmax, w_x, w_y)
-    def max_mag_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qmax_mag, w_x, w_y)
-    def min_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qmin, w_x, w_y)
-    def min_mag_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qmin_mag, w_x, w_y)
-    def next_toward_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qnext_toward, w_x, w_y)
-    def quantize_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qquantize, w_x, w_y)
-    def remainder_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qrem, w_x, w_y)
-    def remainder_near_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qrem_near, w_x, w_y)
-    def logical_and_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qand, w_x, w_y)
-    def logical_or_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qor, w_x, w_y)
-    def logical_xor_w(self, space, w_x, w_y):
-        return self.binary_method(space, rmpdec.mpd_qxor, w_x, w_y)
 
     # Ternary operations
     def power_w(self, space, w_a, w_b, w_modulo=None):
@@ -344,21 +261,48 @@ def descr_new_context(space, w_subtype, __args__):
     W_Context.__init__(w_result, space)
     return w_result
 
-def make_bool_function(mpd_func):
+def make_unary_method(mpd_func_name):
+    mpd_func = getattr(rmpdec, mpd_func_name)
+    @unwrap_spec(w_context=W_Context)
+    def func_w(space, w_context, w_x):
+        from pypy.module._decimal import interp_decimal
+        w_a = interp_decimal.convert_op_raise(space, w_context, w_x)
+        w_result = interp_decimal.W_Decimal.allocate(space)
+        with w_context.catch_status(space) as (ctx, status_ptr):
+            mpd_func(w_result.mpd, w_a.mpd, ctx, status_ptr)
+        return w_result
+    return interp2app(func_w)
+
+def make_binary_method(mpd_func_name):
+    mpd_func = getattr(rmpdec, mpd_func_name)
+    @unwrap_spec(w_context=W_Context)
+    def func_w(space, w_context, w_x, w_y):
+        from pypy.module._decimal import interp_decimal
+        w_a, w_b = interp_decimal.convert_binop_raise(
+            space, w_context, w_x, w_y)
+        w_result = interp_decimal.W_Decimal.allocate(space)
+        with w_context.catch_status(space) as (ctx, status_ptr):
+            mpd_func(w_result.mpd, w_a.mpd, w_b.mpd, ctx, status_ptr)
+        return w_result
+    return interp2app(func_w)
+
+def make_bool_method(mpd_func_name):
+    mpd_func = getattr(rmpdec, mpd_func_name)
     @unwrap_spec(w_context=W_Context)
     def func_w(space, w_context, w_x):
         from pypy.module._decimal import interp_decimal
         w_x = interp_decimal.convert_op_raise(space, w_context, w_x)
-        res = getattr(rmpdec, mpd_func)(w_x.mpd, w_context.ctx)
+        res = mpd_func(w_x.mpd, w_context.ctx)
         return space.wrap(bool(res))
     return interp2app(func_w)
 
-def make_bool_function_noctx(mpd_func):
+def make_bool_method_noctx(mpd_func_name):
+    mpd_func = getattr(rmpdec, mpd_func_name)
     @unwrap_spec(w_context=W_Context)
     def func_w(space, w_context, w_x):
         from pypy.module._decimal import interp_decimal
         w_x = interp_decimal.convert_op_raise(space, w_context, w_x)
-        res = getattr(rmpdec, mpd_func)(w_x.mpd)
+        res = mpd_func(w_x.mpd)
         return space.wrap(bool(res))
     return interp2app(func_w)
 
@@ -382,53 +326,53 @@ W_Context.typedef = TypeDef(
     clear_traps=interp2app(W_Context.clear_traps_w),
     create_decimal=interp2app(W_Context.create_decimal_w),
     # Unary Operations
-    abs=interp2app(W_Context.abs_w),
-    exp=interp2app(W_Context.exp_w),
-    ln=interp2app(W_Context.ln_w),
-    log10=interp2app(W_Context.log10_w),
-    minus=interp2app(W_Context.minus_w),
-    next_minus=interp2app(W_Context.next_minus_w),
-    next_plus=interp2app(W_Context.next_plus_w),
-    normalize=interp2app(W_Context.normalize_w),
-    plus=interp2app(W_Context.plus_w),
-    to_integral=interp2app(W_Context.to_integral_w),
-    to_integral_exact=interp2app(W_Context.to_integral_exact_w),
-    to_integral_value=interp2app(W_Context.to_integral_value_w),
-    sqrt=interp2app(W_Context.sqrt_w),
-    logical_invert=interp2app(W_Context.logical_invert_w),
+    abs=make_unary_method('mpd_qabs'),
+    exp=make_unary_method('mpd_qexp'),
+    ln=make_unary_method('mpd_qln'),
+    log10=make_unary_method('mpd_qlog10'),
+    minus=make_unary_method('mpd_qminus'),
+    next_minus=make_unary_method('mpd_qnext_minus'),
+    next_plus=make_unary_method('mpd_qnext_plus'),
+    normalize=make_unary_method('mpd_qreduce'),
+    plus=make_unary_method('mpd_qplus'),
+    to_integral=make_unary_method('mpd_qround_to_int'),
+    to_integral_exact=make_unary_method('mpd_qround_to_intx'),
+    to_integral_value=make_unary_method('mpd_qround_to_int'),
+    sqrt=make_unary_method('mpd_qsqrt'),
+    logical_invert=make_unary_method('mpd_qinvert'),
     # Binary Operations
-    add=interp2app(W_Context.add_w),
-    subtract=interp2app(W_Context.subtract_w),
-    multiply=interp2app(W_Context.multiply_w),
-    divide=interp2app(W_Context.divide_w),
-    compare=interp2app(W_Context.compare_w),
-    compare_signal=interp2app(W_Context.compare_signal_w),
-    divide_int=interp2app(W_Context.divide_int_w),
+    add=make_binary_method('mpd_qadd'),
+    subtract=make_binary_method('mpd_qsub'),
+    multiply=make_binary_method('mpd_qmul'),
+    divide=make_binary_method('mpd_qdiv'),
+    compare=make_binary_method('mpd_qcompare'),
+    compare_signal=make_binary_method('mpd_qcompare_signal'),
+    divide_int=make_binary_method('mpd_qdivint'),
     divmod=interp2app(W_Context.divmod_w),
-    max=interp2app(W_Context.max_w),
-    max_mag=interp2app(W_Context.max_mag_w),
-    min=interp2app(W_Context.min_w),
-    min_mag=interp2app(W_Context.min_mag_w),
-    next_toward=interp2app(W_Context.next_toward_w),
-    quantize=interp2app(W_Context.quantize_w),
-    remainder=interp2app(W_Context.remainder_w),
-    remainder_near=interp2app(W_Context.remainder_near_w),
-    logical_and=interp2app(W_Context.logical_and_w),
-    logical_or=interp2app(W_Context.logical_or_w),
-    logical_xor=interp2app(W_Context.logical_xor_w),
+    max=make_binary_method('mpd_qmax'),
+    max_mag=make_binary_method('mpd_qmax_mag'),
+    min=make_binary_method('mpd_qmin'),
+    min_mag=make_binary_method('mpd_qmin_mag'),
+    next_toward=make_binary_method('mpd_qnext_toward'),
+    quantize=make_binary_method('mpd_qquantize'),
+    remainder=make_binary_method('mpd_qrem'),
+    remainder_near=make_binary_method('mpd_qrem_near'),
+    logical_and=make_binary_method('mpd_qand'),
+    logical_or=make_binary_method('mpd_qor'),
+    logical_xor=make_binary_method('mpd_qxor'),
     # Ternary operations
     power=interp2app(W_Context.power_w),
     fma=interp2app(W_Context.fma_w),
     # Boolean operations
-    is_signed=make_bool_function_noctx('mpd_issigned'),
-    is_zero=make_bool_function_noctx('mpd_iszero'),
-    is_normal=make_bool_function('mpd_isnormal'),
-    is_subnormal=make_bool_function('mpd_issubnormal'),
-    is_finite=make_bool_function_noctx('mpd_isfinite'),
-    is_infinite=make_bool_function_noctx('mpd_isinfinite'),
-    is_nan=make_bool_function_noctx('mpd_isnan'),
-    is_qnan=make_bool_function_noctx('mpd_isqnan'),
-    is_snan=make_bool_function_noctx('mpd_issnan'),
+    is_signed=make_bool_method_noctx('mpd_issigned'),
+    is_zero=make_bool_method_noctx('mpd_iszero'),
+    is_normal=make_bool_method('mpd_isnormal'),
+    is_subnormal=make_bool_method('mpd_issubnormal'),
+    is_finite=make_bool_method_noctx('mpd_isfinite'),
+    is_infinite=make_bool_method_noctx('mpd_isinfinite'),
+    is_nan=make_bool_method_noctx('mpd_isnan'),
+    is_qnan=make_bool_method_noctx('mpd_isqnan'),
+    is_snan=make_bool_method_noctx('mpd_issnan'),
     )
 
 
