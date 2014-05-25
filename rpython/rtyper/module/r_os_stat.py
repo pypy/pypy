@@ -12,7 +12,6 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.flowspace.model import Constant
 from rpython.flowspace.operation import op
 from rpython.tool.pairtype import pairtype
-from rpython.rtyper.rtyper import HighLevelOp
 from rpython.rtyper.rmodel import Repr
 from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.error import TyperError
@@ -36,10 +35,14 @@ class StatResultRepr(Repr):
 
     def redispatch_getfield(self, hop, index):
         rtyper = self.rtyper
+        s_index = rtyper.annotator.bookkeeper.immutablevalue(index)
+        hop2 = hop.copy()
         spaceop = op.getitem(hop.args_v[0], Constant(index))
         spaceop.result = hop.spaceop.result
-        hop2 = HighLevelOp(rtyper, spaceop, hop.exceptionlinks[:], hop.llops[:])
-        hop2.setup()
+        hop2.spaceop = spaceop
+        hop2.args_v = spaceop.args
+        hop2.args_s = [self.s_tuple, s_index]
+        hop2.args_r = [self.r_tuple, rtyper.getrepr(s_index)]
         return hop2.dispatch()
 
     def rtype_getattr(self, hop):
@@ -86,10 +89,13 @@ class StatvfsResultRepr(Repr):
     def redispatch_getfield(self, hop, index):
         rtyper = self.rtyper
         s_index = rtyper.annotator.bookkeeper.immutablevalue(index)
+        hop2 = hop.copy()
         spaceop = op.getitem(hop.args_v[0], Constant(index))
-        spaceop.result = hop.spaceop.result
-        hop2 = HighLevelOp(rtyper, spaceop, hop.exceptionlinks[:], hop.llops[:])
-        hop2.setup()
+        spaceop.result = hop.result
+        hop2.spaceop = spaceop
+        hop2.args_v = spaceop.args
+        hop2.args_s = [self.s_tuple, s_index]
+        hop2.args_r = [self.r_tuple, rtyper.getrepr(s_index)]
         return hop2.dispatch()
 
     def rtype_getattr(self, hop):
