@@ -344,6 +344,24 @@ def descr_new_context(space, w_subtype, __args__):
     W_Context.__init__(w_result, space)
     return w_result
 
+def make_bool_function(mpd_func):
+    @unwrap_spec(w_context=W_Context)
+    def func_w(space, w_context, w_x):
+        from pypy.module._decimal import interp_decimal
+        w_x = interp_decimal.convert_op_raise(space, w_context, w_x)
+        res = getattr(rmpdec, mpd_func)(w_x.mpd, w_context.ctx)
+        return space.wrap(bool(res))
+    return interp2app(func_w)
+
+def make_bool_function_noctx(mpd_func):
+    @unwrap_spec(w_context=W_Context)
+    def func_w(space, w_context, w_x):
+        from pypy.module._decimal import interp_decimal
+        w_x = interp_decimal.convert_op_raise(space, w_context, w_x)
+        res = getattr(rmpdec, mpd_func)(w_x.mpd)
+        return space.wrap(bool(res))
+    return interp2app(func_w)
+
 W_Context.typedef = TypeDef(
     'Context',
     __new__ = interp2app(descr_new_context),
@@ -401,6 +419,16 @@ W_Context.typedef = TypeDef(
     # Ternary operations
     power=interp2app(W_Context.power_w),
     fma=interp2app(W_Context.fma_w),
+    # Boolean operations
+    is_signed=make_bool_function_noctx('mpd_issigned'),
+    is_zero=make_bool_function_noctx('mpd_iszero'),
+    is_normal=make_bool_function('mpd_isnormal'),
+    is_subnormal=make_bool_function('mpd_issubnormal'),
+    is_finite=make_bool_function_noctx('mpd_isfinite'),
+    is_infinite=make_bool_function_noctx('mpd_isinfinite'),
+    is_nan=make_bool_function_noctx('mpd_isnan'),
+    is_qnan=make_bool_function_noctx('mpd_isqnan'),
+    is_snan=make_bool_function_noctx('mpd_issnan'),
     )
 
 

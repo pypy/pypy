@@ -164,3 +164,84 @@ class AppTestContext:
         self.assertRaises(TypeError, c.logical_xor, '1', 1)
         self.assertRaises(TypeError, c.logical_xor, 1, '1')
 
+    def test_is_finite(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.is_finite(Decimal(10))
+        self.assertEqual(c.is_finite(10), d)
+        self.assertRaises(TypeError, c.is_finite, '10')
+
+    def test_is_infinite(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.is_infinite(Decimal(10))
+        self.assertEqual(c.is_infinite(10), d)
+        self.assertRaises(TypeError, c.is_infinite, '10')
+
+    def test_is_nan(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.is_nan(Decimal(10))
+        self.assertEqual(c.is_nan(10), d)
+        self.assertRaises(TypeError, c.is_nan, '10')
+
+    def test_is_normal(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.is_normal(Decimal(10))
+        self.assertEqual(c.is_normal(10), d)
+        self.assertRaises(TypeError, c.is_normal, '10')
+
+    def test_is_qnan(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.is_qnan(Decimal(10))
+        self.assertEqual(c.is_qnan(10), d)
+        self.assertRaises(TypeError, c.is_qnan, '10')
+
+    def test_is_signed(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.is_signed(Decimal(10))
+        self.assertEqual(c.is_signed(10), d)
+        self.assertRaises(TypeError, c.is_signed, '10')
+
+    def test_is_snan(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.is_snan(Decimal(10))
+        self.assertEqual(c.is_snan(10), d)
+        self.assertRaises(TypeError, c.is_snan, '10')
+
+    def test_is_subnormal(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.is_subnormal(Decimal(10))
+        self.assertEqual(c.is_subnormal(10), d)
+        self.assertRaises(TypeError, c.is_subnormal, '10')
+
+    def test_is_zero(self):
+        Decimal = self.decimal.Decimal
+        Context = self.decimal.Context
+
+        c = Context()
+        d = c.is_zero(Decimal(10))
+        self.assertEqual(c.is_zero(10), d)
+        self.assertRaises(TypeError, c.is_zero, '10')
+

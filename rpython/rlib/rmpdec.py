@@ -46,7 +46,9 @@ eci = ExternalCompilationInfo(
         "mpd_maxcontext",
         "mpd_qnew", "mpd_del",
         "mpd_to_sci", "mpd_to_sci_size",
-        "mpd_iszero", "mpd_isnegative", "mpd_isinfinite", "mpd_isspecial",
+        "mpd_iszero", "mpd_isnegative", "mpd_issigned",
+        "mpd_isfinite", "mpd_isinfinite",
+        "mpd_isnormal", "mpd_issubnormal", "mpd_isspecial",
         "mpd_isnan", "mpd_issnan", "mpd_isqnan",
         "mpd_qcmp", "mpd_qcompare", "mpd_qcompare_signal",
         "mpd_qmin", "mpd_qmax", "mpd_qmin_mag", "mpd_qmax_mag",
@@ -233,8 +235,16 @@ mpd_iszero = external(
     'mpd_iszero', [MPD_PTR], rffi.INT)
 mpd_isnegative = external(
     'mpd_isnegative', [MPD_PTR], rffi.INT)
+mpd_issigned = external(
+    'mpd_issigned', [MPD_PTR], rffi.INT)
+mpd_isfinite = external(
+    'mpd_isfinite', [MPD_PTR], rffi.INT)
 mpd_isinfinite = external(
     'mpd_isinfinite', [MPD_PTR], rffi.INT)
+mpd_isnormal = external(
+    'mpd_isnormal', [MPD_PTR, MPD_CONTEXT_PTR], rffi.INT)
+mpd_issubnormal = external(
+    'mpd_issubnormal', [MPD_PTR, MPD_CONTEXT_PTR], rffi.INT)
 mpd_isspecial = external(
     'mpd_isspecial', [MPD_PTR], rffi.INT)
 mpd_isnan = external(
