@@ -1326,7 +1326,7 @@ class FunctionWriter(object):
         t1 = self._tmp(PtrType(LLVMChar))
         t2 = self._tmp(PtrType(LLVMChar))
         t3 = self._tmp(PtrType(ptr_to))
-        self.w('{t1.V} = bitcast {addr.TV} to {t1.T}'.format(**locals()))
+        self._cast(t1, addr)
         self.w('{t2.V} = getelementptr inbounds {t1.TV}, {offset.TV}'
                 .format(**locals()))
         self.w('{t3.V} = bitcast {t2.TV} to {t3.T}'.format(**locals()))
