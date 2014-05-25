@@ -221,6 +221,10 @@ class W_Decimal(W_Root):
         context = interp_context.getcontext(space)
         return self.to_long(space, context, rmpdec.MPD_ROUND_DOWN)
         
+    def descr_trunc(self, space):
+        context = interp_context.getcontext(space)
+        return self.to_long(space, context, rmpdec.MPD_ROUND_DOWN)
+        
     def descr_floor(self, space):
         context = interp_context.getcontext(space)
         return self.to_long(space, context, rmpdec.MPD_ROUND_FLOOR)
@@ -815,6 +819,7 @@ W_Decimal.typedef = TypeDef(
     __bool__ = interp2app(W_Decimal.descr_bool),
     __float__ = interp2app(W_Decimal.descr_float),
     __int__ = interp2app(W_Decimal.descr_int),
+    __trunc__ = interp2app(W_Decimal.descr_trunc),
     __floor__ = interp2app(W_Decimal.descr_floor),
     __ceil__ = interp2app(W_Decimal.descr_ceil),
     __round__ = interp2app(W_Decimal.descr_round),
