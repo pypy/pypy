@@ -14,6 +14,15 @@ class AppTestExplicitConstruction:
             return space.wrap(f)
         cls.w_random_float = space.wrap(gateway.interp2app(random_float))
 
+        # a few functions from unittest library
+        cls.w_assertTrue = space.appexec([], """():
+            def assertTrue(x): assert x
+            return assertTrue""")
+        cls.w_assertEqual = space.appexec([], """():
+            def assertEqual(x, y): assert x == y
+            return assertEqual""")
+        cls.w_assertRaises = space.appexec([], """(): return raises""")
+
     def test_explicit_empty(self):
         Decimal = self.Decimal
         assert Decimal() == Decimal("0")
@@ -205,6 +214,34 @@ class AppTestExplicitConstruction:
         for i in range(200):
             x = self.random_float()
             assert x == float(Decimal(x)) # roundtrip
+
+    def test_from_float(self):
+        Decimal = self.decimal.Decimal
+
+        class MyDecimal(Decimal):
+            pass
+
+        self.assertTrue(issubclass(MyDecimal, Decimal))
+
+        r = MyDecimal.from_float(0.1)
+        self.assertEqual(type(r), MyDecimal)
+        self.assertEqual(str(r),
+                '0.1000000000000000055511151231257827021181583404541015625')
+        bigint = 12345678901234567890123456789
+        self.assertEqual(MyDecimal.from_float(bigint), MyDecimal(bigint))
+        self.assertTrue(MyDecimal.from_float(float('nan')).is_qnan())
+        self.assertTrue(MyDecimal.from_float(float('inf')).is_infinite())
+        self.assertTrue(MyDecimal.from_float(float('-inf')).is_infinite())
+        self.assertEqual(str(MyDecimal.from_float(float('nan'))),
+                         str(Decimal('NaN')))
+        self.assertEqual(str(MyDecimal.from_float(float('inf'))),
+                         str(Decimal('Infinity')))
+        self.assertEqual(str(MyDecimal.from_float(float('-inf'))),
+                         str(Decimal('-Infinity')))
+        self.assertRaises(TypeError, MyDecimal.from_float, 'abc')
+        for i in range(200):
+            x = self.random_float()
+            self.assertEqual(x, float(MyDecimal.from_float(x))) # roundtrip
 
     def test_explicit_context_create_decimal(self):
         Decimal = self.decimal.Decimal

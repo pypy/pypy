@@ -571,6 +571,10 @@ def convert_context(space, w_context):
         return interp_context.getcontext(space)
     return space.interp_w(interp_context.W_Context, w_context)
 
+def decimal_from_float_w(space, w_cls, w_float):
+    context = interp_context.getcontext(space)
+    return decimal_from_float(space, w_cls, w_float, context, exact=True)
+
 # Constructors
 def decimal_from_ssize(space, w_subtype, value, context, exact=True):
     w_result = W_Decimal.allocate(space, w_subtype)
@@ -722,6 +726,10 @@ def decimal_from_decimal(space, w_subtype, w_value, context, exact=True):
             return w_value.apply(space, context)
 
 def decimal_from_float(space, w_subtype, w_value, context, exact=True):
+    if space.isinstance_w(w_value, space.w_int):
+        value = space.bigint_w(w_value)
+        return decimal_from_bigint(space, w_subtype, value, context,
+                                   exact=exact)
     value = space.float_w(w_value)
     sign = 0 if rfloat.copysign(1.0, value) == 1.0 else 1
 
@@ -849,4 +857,5 @@ W_Decimal.typedef = TypeDef(
     is_infinite = interp2app(W_Decimal.is_infinite_w),
     #
     as_tuple = interp2app(W_Decimal.as_tuple_w),
+    from_float = interp2app(decimal_from_float_w, as_classmethod=True),
     )
