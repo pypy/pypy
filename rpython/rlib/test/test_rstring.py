@@ -2,18 +2,24 @@ import sys, py
 
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
 from rpython.rlib.rstring import replace, startswith, endswith
+from rpython.rlib.rstring import search, SEARCH_FIND, SEARCH_RFIND, SEARCH_COUNT
 from rpython.rtyper.test.tool import BaseRtypingTest
 
 def test_split():
-    assert split("", 'x') == ['']
-    assert split("a", "a", 1) == ['', '']
-    assert split(" ", " ", 1) == ['', '']
-    assert split("aa", "a", 2) == ['', '', '']
-    assert split('a|b|c|d', '|') == ['a', 'b', 'c', 'd']
-    assert split('a|b|c|d', '|', 2) == ['a', 'b', 'c|d']
-    assert split('a//b//c//d', '//') == ['a', 'b', 'c', 'd']
-    assert split('a//b//c//d', '//', 2) == ['a', 'b', 'c//d']
-    assert split('endcase test', 'test') == ['endcase ', '']
+    def check_split(value, *args, **kwargs):
+        result = kwargs['res']
+        assert split(value, *args) == result
+        assert split(list(value), *args) == [list(i) for i in result]
+
+    check_split("", 'x', res=[''])
+    check_split("a", "a", 1, res=['', ''])
+    check_split(" ", " ", 1, res=['', ''])
+    check_split("aa", "a", 2, res=['', '', ''])
+    check_split('a|b|c|d', '|', res=['a', 'b', 'c', 'd'])
+    check_split('a|b|c|d', '|', 2, res=['a', 'b', 'c|d'])
+    check_split('a//b//c//d', '//', res=['a', 'b', 'c', 'd'])
+    check_split('a//b//c//d', '//', 2, res=['a', 'b', 'c//d'])
+    check_split('endcase test', 'test', res=['endcase ', ''])
     py.test.raises(ValueError, split, 'abc', '')
 
 def test_split_None():
@@ -33,13 +39,18 @@ def test_split_unicode():
     py.test.raises(ValueError, split, u'abc', u'')
 
 def test_rsplit():
-    assert rsplit("a", "a", 1) == ['', '']
-    assert rsplit(" ", " ", 1) == ['', '']
-    assert rsplit("aa", "a", 2) == ['', '', '']
-    assert rsplit('a|b|c|d', '|') == ['a', 'b', 'c', 'd']
-    assert rsplit('a|b|c|d', '|', 2) == ['a|b', 'c', 'd']
-    assert rsplit('a//b//c//d', '//') == ['a', 'b', 'c', 'd']
-    assert rsplit('endcase test', 'test') == ['endcase ', '']
+    def check_rsplit(value, *args, **kwargs):
+        result = kwargs['res']
+        assert rsplit(value, *args) == result
+        assert rsplit(list(value), *args) == [list(i) for i in result]
+
+    check_rsplit("a", "a", 1, res=['', ''])
+    check_rsplit(" ", " ", 1, res=['', ''])
+    check_rsplit("aa", "a", 2, res=['', '', ''])
+    check_rsplit('a|b|c|d', '|', res=['a', 'b', 'c', 'd'])
+    check_rsplit('a|b|c|d', '|', 2, res=['a|b', 'c', 'd'])
+    check_rsplit('a//b//c//d', '//', res=['a', 'b', 'c', 'd'])
+    check_rsplit('endcase test', 'test', res=['endcase ', ''])
     py.test.raises(ValueError, rsplit, "abc", '')
 
 def test_rsplit_None():
@@ -58,25 +69,30 @@ def test_rsplit_unicode():
     py.test.raises(ValueError, rsplit, u"abc", u'')
 
 def test_string_replace():
-    assert replace('one!two!three!', '!', '@', 1) == 'one@two!three!'
-    assert replace('one!two!three!', '!', '') == 'onetwothree'
-    assert replace('one!two!three!', '!', '@', 2) == 'one@two@three!'
-    assert replace('one!two!three!', '!', '@', 3) == 'one@two@three@'
-    assert replace('one!two!three!', '!', '@', 4) == 'one@two@three@'
-    assert replace('one!two!three!', '!', '@', 0) == 'one!two!three!'
-    assert replace('one!two!three!', '!', '@') == 'one@two@three@'
-    assert replace('one!two!three!', 'x', '@') == 'one!two!three!'
-    assert replace('one!two!three!', 'x', '@', 2) == 'one!two!three!'
-    assert replace('abc', '', '-') == '-a-b-c-'
-    assert replace('abc', '', '-', 3) == '-a-b-c'
-    assert replace('abc', '', '-', 0) == 'abc'
-    assert replace('', '', '') == ''
-    assert replace('', '', 'a') == 'a'
-    assert replace('abc', 'ab', '--', 0) == 'abc'
-    assert replace('abc', 'xy', '--') == 'abc'
-    assert replace('123', '123', '') == ''
-    assert replace('123123', '123', '') == ''
-    assert replace('123x123', '123', '') == 'x'
+    def check_replace(value, *args, **kwargs):
+        result = kwargs['res']
+        assert replace(value, *args) == result
+        assert replace(list(value), *args) == list(result)
+        
+    check_replace('one!two!three!', '!', '@', 1, res='one@two!three!')
+    check_replace('one!two!three!', '!', '', res='onetwothree')
+    check_replace('one!two!three!', '!', '@', 2, res='one@two@three!')
+    check_replace('one!two!three!', '!', '@', 3, res='one@two@three@')
+    check_replace('one!two!three!', '!', '@', 4, res='one@two@three@')
+    check_replace('one!two!three!', '!', '@', 0, res='one!two!three!')
+    check_replace('one!two!three!', '!', '@', res='one@two@three@')
+    check_replace('one!two!three!', 'x', '@', res='one!two!three!')
+    check_replace('one!two!three!', 'x', '@', 2, res='one!two!three!')
+    check_replace('abc', '', '-', res='-a-b-c-')
+    check_replace('abc', '', '-', 3, res='-a-b-c')
+    check_replace('abc', '', '-', 0, res='abc')
+    check_replace('', '', '', res='')
+    check_replace('', '', 'a', res='a')
+    check_replace('abc', 'ab', '--', 0, res='abc')
+    check_replace('abc', 'xy', '--', res='abc')
+    check_replace('123', '123', '', res='')
+    check_replace('123123', '123', '', res='')
+    check_replace('123x123', '123', '', res='x')
 
 def test_string_replace_overflow():
     if sys.maxint > 2**31-1:
@@ -122,35 +138,45 @@ def test_unicode_replace_overflow():
         replace(s, u"a", s, len(s) - 10)
 
 def test_startswith():
-    assert startswith('ab', 'ab') is True
-    assert startswith('ab', 'a') is True
-    assert startswith('ab', '') is True
-    assert startswith('x', 'a') is False
-    assert startswith('x', 'x') is True
-    assert startswith('', '') is True
-    assert startswith('', 'a') is False
-    assert startswith('x', 'xx') is False
-    assert startswith('y', 'xx') is False
-    assert startswith('ab', 'a', 0) is True
-    assert startswith('ab', 'a', 1) is False
-    assert startswith('ab', 'b', 1) is True
-    assert startswith('abc', 'bc', 1, 2) is False
-    assert startswith('abc', 'c', -1, 4) is True
+    def check_startswith(value, sub, *args, **kwargs):
+        result = kwargs['res']
+        assert startswith(value, sub, *args) is result
+        assert startswith(list(value), sub, *args) is result
+
+    check_startswith('ab', 'ab', res=True)
+    check_startswith('ab', 'a', res=True)
+    check_startswith('ab', '', res=True)
+    check_startswith('x', 'a', res=False)
+    check_startswith('x', 'x', res=True)
+    check_startswith('', '', res=True)
+    check_startswith('', 'a', res=False)
+    check_startswith('x', 'xx', res=False)
+    check_startswith('y', 'xx', res=False)
+    check_startswith('ab', 'a', 0, res=True)
+    check_startswith('ab', 'a', 1, res=False)
+    check_startswith('ab', 'b', 1, res=True)
+    check_startswith('abc', 'bc', 1, 2, res=False)
+    check_startswith('abc', 'c', -1, 4, res=True)
 
 def test_endswith():
-    assert endswith('ab', 'ab') is True
-    assert endswith('ab', 'b') is True
-    assert endswith('ab', '') is True
-    assert endswith('x', 'a') is False
-    assert endswith('x', 'x') is True
-    assert endswith('', '') is True
-    assert endswith('', 'a') is False
-    assert endswith('x', 'xx') is False
-    assert endswith('y', 'xx') is False
-    assert endswith('abc', 'ab', 0, 2) is True
-    assert endswith('abc', 'bc', 1) is True
-    assert endswith('abc', 'bc', 2) is False
-    assert endswith('abc', 'b', -3, -1) is True
+    def check_endswith(value, sub, *args, **kwargs):
+        result = kwargs['res']
+        assert endswith(value, sub, *args) is result
+        assert endswith(list(value), sub, *args) is result
+
+    check_endswith('ab', 'ab', res=True)
+    check_endswith('ab', 'b', res=True)
+    check_endswith('ab', '', res=True)
+    check_endswith('x', 'a', res=False)
+    check_endswith('x', 'x', res=True)
+    check_endswith('', '', res=True)
+    check_endswith('', 'a', res=False)
+    check_endswith('x', 'xx', res=False)
+    check_endswith('y', 'xx', res=False)
+    check_endswith('abc', 'ab', 0, 2, res=True)
+    check_endswith('abc', 'bc', 1, res=True)
+    check_endswith('abc', 'bc', 2, res=False)
+    check_endswith('abc', 'b', -3, -1, res=True)
 
 def test_string_builder():
     s = StringBuilder()
@@ -171,6 +197,24 @@ def test_unicode_builder():
     s.append_multiple_char(u'd', 4)
     assert s.build() == 'aabcbdddd'
     assert isinstance(s.build(), unicode)
+
+def test_search():
+    def check_search(value, sub, *args, **kwargs):
+        result = kwargs['res']
+        assert search(value, sub, *args) == result
+        assert search(list(value), sub, *args) == result
+
+    check_search('one two three', 'ne', 0, 13, SEARCH_FIND, res=1)
+    check_search('one two three', 'ne', 5, 13, SEARCH_FIND, res=-1)
+    check_search('one two three', '', 0, 13, SEARCH_FIND, res=0)
+
+    check_search('one two three', 'e', 0, 13, SEARCH_RFIND, res=12)
+    check_search('one two three', 'e', 0, 1, SEARCH_RFIND, res=-1)
+    check_search('one two three', '', 0, 13, SEARCH_RFIND, res=13)
+
+    check_search('one two three', 'e', 0, 13, SEARCH_COUNT, res=3)
+    check_search('one two three', 'e', 0, 1, SEARCH_COUNT, res=0)
+    check_search('one two three', '', 0, 13, SEARCH_RFIND, res=13)
 
 
 class TestTranslates(BaseRtypingTest):
