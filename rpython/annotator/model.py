@@ -505,6 +505,28 @@ class SomePBC(SomeObject):
         else:
             return kt.__name__
 
+class SomeNone(SomePBC):
+    can_be_None = True
+    subset_of = None
+    knowntype = type(None)
+    const = None
+
+    def __init__(self):
+        pass
+
+    def isNone(self):
+        return True
+
+    @property
+    def descriptions(self):
+        return set()
+
+    def is_constant(self):
+        return True
+
+    def is_immutable_constant(self):
+        return True
+
 class SomeConstantType(SomePBC):
     can_be_None = False
     subset_of = None
@@ -557,7 +579,7 @@ class SomeImpossibleValue(SomeObject):
         return False
 
 
-s_None = SomePBC([], can_be_None=True)
+s_None = SomeNone()
 s_Bool = SomeBool()
 s_Int = SomeInteger()
 s_ImpossibleValue = SomeImpossibleValue()
