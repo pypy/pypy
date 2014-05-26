@@ -780,3 +780,5 @@ class UfuncState(object):
 
 def get(space):
     return space.fromcache(UfuncState)
+
+

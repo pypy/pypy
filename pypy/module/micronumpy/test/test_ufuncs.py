@@ -97,11 +97,26 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, ufunc)
 
     def test_frompyfunc(self):
-        from numpy import ufunc, frompyfunc, arange
-        myufunc = frompyfunc(int.__add__, 2, 1)
-        assert isinstance(add, ufunc)
+        try:
+            from numpy import frompyfunc
+        except ImportError:
+            skip('frompyfunc not available')
+        from numpy import ufunc, frompyfunc, arange, dtype
+        def adder(a, b):
+            return a+b
+        myufunc = frompyfunc(adder, 2, 1)
+        assert isinstance(myufunc, ufunc)
         res = myufunc(arange(10), arange(10))
+        assert res.dtype == dtype(object)
         assert all(res == arange(10) + arange(10))
+        raises(TypeError, frompyfunc, 1, 2, 3)
+        int_func22 = frompyfunc(int, 2, 2)
+        raises (ValueError, int_func22, arange(10))
+        int_func12 = frompyfunc(int, 1, 2)
+        res = int_func12(arange(10))
+        assert len(res) == 2
+        assert isinstance(res, tuple)
+        assert (res[0] == arange(10)).all()
 
     def test_ufunc_attrs(self):
         from numpy import add, multiply, sin
