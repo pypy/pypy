@@ -6,7 +6,7 @@ from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePBC)
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import newlist_hint, specialize
+from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT as BLOOM_WIDTH
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.unicodedata import unicodedb_5_2_0 as unicodedb
@@ -18,7 +18,8 @@ from rpython.tool.pairtype import pairtype
 
 @specialize.argtype(0, 1)
 def _get_access_functions(value, other):
-    if isinstance(other, (str, unicode, list)):
+    if (isinstance(other, str) or  isinstance(other, unicode) or
+        isinstance(other, list)):
         def getitem(obj, i):
             return obj[i]
         def getlength(obj):
@@ -36,8 +37,8 @@ def _get_access_functions(value, other):
         def rfind(obj, other, start, end):
             return search(obj, other, start, end, SEARCH_RFIND)
     else:
-        assert isinstance(value, (str, unicode))
-        assert isinstance(other, (str, unicode))
+        assert isinstance(value, str) or  isinstance(value, unicode)
+        assert isinstance(other, str) or  isinstance(other, unicode)
         def find(obj, other, start, end):
             return obj.find(other, start, end)
         def rfind(obj, other, start, end):
@@ -85,7 +86,7 @@ def split(value, by=None, maxsplit=-1):
             i = j + 1
         return res
 
-    if isinstance(value, (list, str)):
+    if isinstance(value, list) or isinstance(value, str):
         assert isinstance(by, str)
     else:
         assert isinstance(by, unicode)
@@ -164,7 +165,7 @@ def rsplit(value, by=None, maxsplit=-1):
         res.reverse()
         return res
 
-    if isinstance(value, (list, str)):
+    if isinstance(value, list) or isinstance(value, str):
         assert isinstance(by, str)
     else:
         assert isinstance(by, unicode)
@@ -202,11 +203,12 @@ def replace(input, sub, by, maxsplit=-1):
         assert isinstance(sub, unicode)
         assert isinstance(by, unicode)
         Builder = UnicodeBuilder
-    elif isinstance(input, list):
+    else:
+        assert isinstance(input, list)
         assert isinstance(sub, str)
         assert isinstance(by, str)
         # TODO: ????
-        Builder = StringBuilder
+        Builder = ByteListBuilder
     if maxsplit == 0:
         return input
 
@@ -552,6 +554,35 @@ class StringBuilder(AbstractStringBuilder):
 class UnicodeBuilder(AbstractStringBuilder):
     tp = unicode
 
+class ByteListBuilder(object):
+    def __init__(self, init_size=INIT_SIZE):
+        self.l = newlist_hint(init_size)
+
+    @specialize.argtype(1)
+    def append(self, s):
+        for c in s:
+            self.l.append(c)
+
+    @specialize.argtype(1)
+    def append_slice(self, s, start, end):
+        assert 0 <= start <= end <= len(s)
+        for c in s[start:end]:
+            self.l.append(c)
+
+    def append_multiple_char(self, c, times):
+        assert isinstance(c, str)
+        self.l.extend([c] * times)
+
+    def append_charpsize(self, s, size):
+        assert size >= 0
+        for i in xrange(size):
+            self.l.append(s[i])
+
+    def build(self):
+        return self.l
+
+    def getlength(self):
+        return len(self.l)
 
 # ------------------------------------------------------------
 # ----------------- implementation details -------------------
