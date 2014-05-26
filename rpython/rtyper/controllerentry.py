@@ -1,6 +1,6 @@
 from rpython.annotator import model as annmodel
 from rpython.tool.pairtype import pairtype
-from rpython.annotator.binaryop import _make_none_union, SomePBC # SomePBC needed by _make_none_union
+from rpython.annotator.binaryop import _make_none_union, SomeNone # SomeNone needed by _make_none_union
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.annlowlevel import cachedtype

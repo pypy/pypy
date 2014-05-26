@@ -424,36 +424,32 @@ class SomePBC(SomeObject):
     immutable = True
 
     def __init__(self, descriptions, can_be_None=False, subset_of=None):
+        assert descriptions
         # descriptions is a set of Desc instances
         descriptions = set(descriptions)
         self.descriptions = descriptions
         self.can_be_None = can_be_None
         self.subset_of = subset_of
         self.simplify()
-        if self.isNone():
-            self.knowntype = type(None)
-            self.const = None
-        else:
-            knowntype = reduce(commonbase,
-                               [x.knowntype for x in descriptions])
-            if knowntype == type(Exception):
-                knowntype = type
-            if knowntype != object:
-                self.knowntype = knowntype
-            if len(descriptions) == 1 and not can_be_None:
-                # hack for the convenience of direct callers to SomePBC():
-                # only if there is a single object in descriptions
-                desc, = descriptions
-                if desc.pyobj is not None:
-                    self.const = desc.pyobj
-            elif len(descriptions) > 1:
-                from rpython.annotator.description import ClassDesc
-                if self.getKind() is ClassDesc:
-                    # a PBC of several classes: enforce them all to be
-                    # built, without support for specialization.  See
-                    # rpython/test/test_rpbc.test_pbc_of_classes_not_all_used
-                    for desc in descriptions:
-                        desc.getuniqueclassdef()
+        knowntype = reduce(commonbase, [x.knowntype for x in descriptions])
+        if knowntype == type(Exception):
+            knowntype = type
+        if knowntype != object:
+            self.knowntype = knowntype
+        if len(descriptions) == 1 and not can_be_None:
+            # hack for the convenience of direct callers to SomePBC():
+            # only if there is a single object in descriptions
+            desc, = descriptions
+            if desc.pyobj is not None:
+                self.const = desc.pyobj
+        elif len(descriptions) > 1:
+            from rpython.annotator.description import ClassDesc
+            if self.getKind() is ClassDesc:
+                # a PBC of several classes: enforce them all to be
+                # built, without support for specialization.  See
+                # rpython/test/test_rpbc.test_pbc_of_classes_not_all_used
+                for desc in descriptions:
+                    desc.getuniqueclassdef()
 
     def any_description(self):
         return iter(self.descriptions).next()
@@ -466,32 +462,24 @@ class SomePBC(SomeObject):
             kinds.add(x.__class__)
         if len(kinds) > 1:
             raise AnnotatorError("mixing several kinds of PBCs: %r" % kinds)
-        if not kinds:
-            raise ValueError("no 'kind' on the 'None' PBC")
         return kinds.pop()
 
     def simplify(self):
-        if self.descriptions:
-            # We check that the set only contains a single kind of Desc instance
-            kind = self.getKind()
-            # then we remove unnecessary entries in self.descriptions:
-            # some MethodDescs can be 'shadowed' by others
-            if len(self.descriptions) > 1:
-                kind.simplify_desc_set(self.descriptions)
-        else:
-            assert self.can_be_None, "use s_ImpossibleValue"
+        # We check that the set only contains a single kind of Desc instance
+        kind = self.getKind()
+        # then we remove unnecessary entries in self.descriptions:
+        # some MethodDescs can be 'shadowed' by others
+        if len(self.descriptions) > 1:
+            kind.simplify_desc_set(self.descriptions)
 
     def isNone(self):
-        return len(self.descriptions) == 0
+        return False
 
     def can_be_none(self):
         return self.can_be_None
 
     def nonnoneify(self):
-        if self.isNone():
-            return s_ImpossibleValue
-        else:
-            return SomePBC(self.descriptions, can_be_None=False)
+        return SomePBC(self.descriptions, can_be_None=False)
 
     def fmt_descriptions(self, pbis):
         if hasattr(self, 'const'):
@@ -526,6 +514,10 @@ class SomeNone(SomePBC):
 
     def is_immutable_constant(self):
         return True
+
+    def nonnoneify(self):
+        return s_ImpossibleValue
+
 
 class SomeConstantType(SomePBC):
     can_be_None = False

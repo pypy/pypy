@@ -8,7 +8,7 @@ from rpython.flowspace.operation import op
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
-    SomeFloat, SomeIterator, SomePBC, SomeType, s_ImpossibleValue,
+    SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
     s_Bool, s_None, unionof, add_knowntypedata,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
@@ -764,6 +764,10 @@ class __extend__(SomePBC):
         else:
             # This should probably never happen
             raise AnnotatorError("Cannot call len on a pbc")
+
+class __extend__(SomeNone):
+    def bind_callables_under(self, classdef, name):
+        return self
 
 #_________________________________________
 # weakrefs
