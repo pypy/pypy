@@ -302,33 +302,6 @@ class W_Decimal(W_Root):
         return self.compare(space, w_other, 'ge')
 
     # Binary operations
-
-    def descr_add(self, space, w_other):
-        return binary_number_method(space, rmpdec.mpd_qadd, self, w_other)
-    def descr_sub(self, space, w_other):
-        return binary_number_method(space, rmpdec.mpd_qsub, self, w_other)
-    def descr_mul(self, space, w_other):
-        return binary_number_method(space, rmpdec.mpd_qmul, self, w_other)
-    def descr_truediv(self, space, w_other):
-        return binary_number_method(space, rmpdec.mpd_qdiv, self, w_other)
-    def descr_floordiv(self, space, w_other):
-        return binary_number_method(space, rmpdec.mpd_qdivint, self, w_other)
-    def descr_mod(self, space, w_other):
-        return binary_number_method(space, rmpdec.mpd_qrem, self, w_other)
-
-    def descr_radd(self, space, w_other):
-        return binary_number_method(space, rmpdec.mpd_qadd, w_other, self)
-    def descr_rsub(self, space, w_other):
-        return binary_number_method(space, rmpdec.mpd_qsub, w_other, self)
-    def descr_rmul(self, space, w_other):
-        return binary_number_method(space, rmpdec.mpd_qmul, w_other, self)
-    def descr_rtruediv(self, space, w_other):
-        return binary_number_method(space, rmpdec.mpd_qdiv, w_other, self)
-    def descr_rfloordiv(self, space, w_other):
-        return binary_number_method(space, rmpdec.mpd_qdivint, w_other, self)
-    def descr_rmod(self, space, w_other):
-        return binary_number_method(space, rmpdec.mpd_qrem, w_other, self)
-
     @staticmethod
     def divmod_impl(space, context, w_x, w_y):
         w_err, w_a, w_b = convert_binop(space, context, w_x, w_y)
@@ -376,21 +349,6 @@ class W_Decimal(W_Root):
         return W_Decimal.pow_impl(space, self, w_other, w_mod)
     def descr_rpow(self, space, w_other):
         return W_Decimal.pow_impl(space, w_other, self, None)
-
-    # Unary operations
-    def unary_number_method(self, space, mpd_func):
-        context = interp_context.getcontext(space)
-        w_result = W_Decimal.allocate(space)
-        with context.catch_status(space) as (ctx, status_ptr):
-            mpd_func(w_result.mpd, self.mpd, ctx, status_ptr)
-        return w_result
-
-    def descr_neg(self, space):
-        return self.unary_number_method(space, rmpdec.mpd_qminus)
-    def descr_pos(self, space):
-        return self.unary_number_method(space, rmpdec.mpd_qplus)
-    def descr_abs(self, space):
-        return self.unary_number_method(space, rmpdec.mpd_qabs)
 
     def copy_sign_w(self, space, w_other, w_context=None):
         context = convert_context(space, w_context)
@@ -559,6 +517,17 @@ def convert_binop_cmp(space, context, op, w_v, w_w):
     return None, w_v, w_w
 
 
+def make_unary_number_method(mpd_func_name):
+    mpd_func = getattr(rmpdec, mpd_func_name)
+    def descr_method(space, w_self):
+        self = space.interp_w(W_Decimal, w_self)
+        context = interp_context.getcontext(space)
+        w_result = W_Decimal.allocate(space)
+        with context.catch_status(space) as (ctx, status_ptr):
+            mpd_func(w_result.mpd, self.mpd, ctx, status_ptr)
+        return w_result
+    return interp2app(descr_method)
+
 def binary_number_method(space, mpd_func, w_x, w_y):
     context = interp_context.getcontext(space)
 
@@ -569,6 +538,18 @@ def binary_number_method(space, mpd_func, w_x, w_y):
     with context.catch_status(space) as (ctx, status_ptr):
         mpd_func(w_result.mpd, w_a.mpd, w_b.mpd, ctx, status_ptr)
     return w_result
+
+def make_binary_number_method(mpd_func_name):
+    mpd_func = getattr(rmpdec, mpd_func_name)
+    def descr_method(space, w_self, w_other):
+        return binary_number_method(space, mpd_func, w_self, w_other)
+    return interp2app(descr_method)
+
+def make_binary_number_method_right(mpd_func_name):
+    mpd_func = getattr(rmpdec, mpd_func_name)
+    def descr_method(space, w_self, w_other):
+        return binary_number_method(space, mpd_func, w_other, w_self)
+    return interp2app(descr_method)
 
 def convert_context(space, w_context):
     if w_context is None:
@@ -830,26 +811,26 @@ W_Decimal.typedef = TypeDef(
     __ge__ = interp2app(W_Decimal.descr_ge),
     __lt__ = interp2app(W_Decimal.descr_lt),
     __gt__ = interp2app(W_Decimal.descr_gt),
-    #
-    __pos__ = interp2app(W_Decimal.descr_pos),
-    __neg__ = interp2app(W_Decimal.descr_neg),
-    __abs__ = interp2app(W_Decimal.descr_abs),
-    #
-    __add__ = interp2app(W_Decimal.descr_add),
-    __sub__ = interp2app(W_Decimal.descr_sub),
-    __mul__ = interp2app(W_Decimal.descr_mul),
-    __truediv__ = interp2app(W_Decimal.descr_truediv),
-    __floordiv__ = interp2app(W_Decimal.descr_floordiv),
-    __mod__ = interp2app(W_Decimal.descr_mod),
+    # Unary operations
+    __pos__ = make_unary_number_method('mpd_qplus'),
+    __neg__ = make_unary_number_method('mpd_qminus'),
+    __abs__ = make_unary_number_method('mpd_qabs'),
+    # Binary operations
+    __add__ = make_binary_number_method('mpd_qadd'),
+    __sub__ = make_binary_number_method('mpd_qsub'),
+    __mul__ = make_binary_number_method('mpd_qmul'),
+    __truediv__ = make_binary_number_method('mpd_qdiv'),
+    __floordiv__ = make_binary_number_method('mpd_qdivint'),
+    __mod__ = make_binary_number_method('mpd_qrem'),
     __divmod__ = interp2app(W_Decimal.descr_divmod),
     __pow__ = interp2app(W_Decimal.descr_pow),
     #
-    __radd__ = interp2app(W_Decimal.descr_radd),
-    __rsub__ = interp2app(W_Decimal.descr_rsub),
-    __rmul__ = interp2app(W_Decimal.descr_rmul),
-    __rtruediv__ = interp2app(W_Decimal.descr_rtruediv),
-    __rfloordiv__ = interp2app(W_Decimal.descr_rfloordiv),
-    __rmod__ = interp2app(W_Decimal.descr_rmod),
+    __radd__ = make_binary_number_method_right('mpd_qadd'),
+    __rsub__ = make_binary_number_method_right('mpd_qsub'),
+    __rmul__ = make_binary_number_method_right('mpd_qmul'),
+    __rtruediv__ = make_binary_number_method_right('mpd_qdiv'),
+    __rfloordiv__ = make_binary_number_method_right('mpd_qdivint'),
+    __rmod__ = make_binary_number_method_right('mpd_qrem'),
     __rdivmod__ = interp2app(W_Decimal.descr_rdivmod),
     __rpow__ = interp2app(W_Decimal.descr_rpow),
     # Unary arithmetic functions, optional context arg
