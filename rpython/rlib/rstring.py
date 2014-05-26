@@ -7,13 +7,43 @@ from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import newlist_hint, specialize
-from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT as BLOOM_WIDTH
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.unicodedata import unicodedb_5_2_0 as unicodedb
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
 
 
 # -------------- public API for string functions -----------------------
+
+@specialize.argtype(0, 1)
+def _get_access_functions(value, other):
+    if isinstance(other, (str, unicode, list)):
+        def getitem(obj, i):
+            return obj[i]
+        def getlength(obj):
+            return len(obj)
+    else:
+        assert isinstance(other, Buffer)
+        def getitem(obj, i):
+            return obj.getitem(i)
+        def getlength(obj):
+            return obj.getlength()
+
+    if isinstance(value, list) or isinstance(other, Buffer):
+        def find(obj, other, start, end):
+            return search(obj, other, start, end, SEARCH_FIND)
+        def rfind(obj, other, start, end):
+            return search(obj, other, start, end, SEARCH_RFIND)
+    else:
+        assert isinstance(value, (str, unicode))
+        assert isinstance(other, (str, unicode))
+        def find(obj, other, start, end):
+            return obj.find(other, start, end)
+        def rfind(obj, other, start, end):
+            return obj.rfind(other, start, end)
+
+    return getitem, getlength, find, rfind
 
 @specialize.argtype(0)
 def _isspace(char):
@@ -55,10 +85,11 @@ def split(value, by=None, maxsplit=-1):
             i = j + 1
         return res
 
-    if isinstance(value, str):
+    if isinstance(value, (list, str)):
         assert isinstance(by, str)
     else:
         assert isinstance(by, unicode)
+    _, _, find, _ = _get_access_functions(value, by)
     bylen = len(by)
     if bylen == 0:
         raise ValueError("empty separator")
@@ -72,7 +103,7 @@ def split(value, by=None, maxsplit=-1):
             count = maxsplit
         res = newlist_hint(count + 1)
         while count > 0:
-            next = value.find(by, start)
+            next = find(value, by, start, len(value))
             assert next >= 0 # cannot fail due to the value.count above
             res.append(value[start:next])
             start = next + bylen
@@ -86,7 +117,7 @@ def split(value, by=None, maxsplit=-1):
         res = []
 
     while maxsplit != 0:
-        next = value.find(by, start)
+        next = find(value, by, start, len(value))
         if next < 0:
             break
         res.append(value[start:next])
@@ -133,7 +164,7 @@ def rsplit(value, by=None, maxsplit=-1):
         res.reverse()
         return res
 
-    if isinstance(value, str):
+    if isinstance(value, (list, str)):
         assert isinstance(by, str)
     else:
         assert isinstance(by, unicode)
@@ -141,13 +172,14 @@ def rsplit(value, by=None, maxsplit=-1):
         res = newlist_hint(min(maxsplit + 1, len(value)))
     else:
         res = []
+    _, _, _, rfind = _get_access_functions(value, by)
     end = len(value)
     bylen = len(by)
     if bylen == 0:
         raise ValueError("empty separator")
 
     while maxsplit != 0:
-        next = value.rfind(by, 0, end)
+        next = rfind(value, by, 0, end)
         if next < 0:
             break
         res.append(value[next + bylen:end])
@@ -166,12 +198,19 @@ def replace(input, sub, by, maxsplit=-1):
         assert isinstance(sub, str)
         assert isinstance(by, str)
         Builder = StringBuilder
-    else:
+    elif isinstance(input, unicode):
         assert isinstance(sub, unicode)
         assert isinstance(by, unicode)
         Builder = UnicodeBuilder
+    elif isinstance(input, list):
+        assert isinstance(sub, str)
+        assert isinstance(by, str)
+        # TODO: ????
+        Builder = StringBuilder
     if maxsplit == 0:
         return input
+
+    _, _, find, _ = _get_access_functions(input, sub)
 
     if not sub:
         upper = len(input)
@@ -210,7 +249,7 @@ def replace(input, sub, by, maxsplit=-1):
         sublen = len(sub)
 
         while maxsplit != 0:
-            next = input.find(sub, start)
+            next = find(input, sub, start, len(input))
             if next < 0:
                 break
             builder.append_slice(input, start, next)
@@ -260,6 +299,114 @@ def endswith(u_self, suffix, start=0, end=sys.maxint):
         if u_self[begin+i] != suffix[i]:
             return False
     return True
+
+# Stolen form rpython.rtyper.lltypesytem.rstr
+# TODO: Ask about what to do with this...
+
+SEARCH_COUNT = 0
+SEARCH_FIND = 1
+SEARCH_RFIND = 2
+
+def bloom_add(mask, c):
+    return mask | (1 << (ord(c) & (BLOOM_WIDTH - 1)))
+
+def bloom(mask, c):
+    return mask & (1 << (ord(c) & (BLOOM_WIDTH - 1)))
+
+@specialize.argtype(0, 1)
+def search(value, other, start, end, mode):
+    getitem, getlength, _, _ = _get_access_functions(value, other)
+    if start < 0:
+        start = 0
+    if end > len(value):
+        end = len(value)
+    if start > end:
+        return -1
+
+    count = 0
+    n = end - start
+    m = getlength(other)
+
+    if m == 0:
+        if mode == SEARCH_COUNT:
+            return end - start + 1
+        elif mode == SEARCH_RFIND:
+            return end
+        else:
+            return start
+
+    w = n - m
+
+    if w < 0:
+        return -1
+
+    mlast = m - 1
+    skip = mlast - 1
+    mask = 0
+
+    if mode != SEARCH_RFIND:
+        for i in range(mlast):
+            mask = bloom_add(mask, getitem(other, i))
+            if getitem(other, i) == getitem(other, mlast):
+                skip = mlast - i - 1
+        mask = bloom_add(mask, getitem(other, mlast))
+
+        i = start - 1
+        while i + 1 <= start + w:
+            i += 1
+            if value[i + m - 1] == getitem(other, m - 1):
+                for j in range(mlast):
+                    if value[i + j] != getitem(other, j):
+                        break
+                else:
+                    if mode != SEARCH_COUNT:
+                        return i
+                    count += 1
+                    i += mlast
+                    continue
+
+                if i + m < len(value):
+                    c = value[i + m]
+                else:
+                    c = '\0'
+                if not bloom(mask, c):
+                    i += m
+                else:
+                    i += skip
+            else:
+                if i + m < len(value):
+                    c = value[i + m]
+                else:
+                    c = '\0'
+                if not bloom(mask, c):
+                    i += m
+    else:
+        mask = bloom_add(mask, getitem(other, 0))
+        for i in range(mlast, 0, -1):
+            mask = bloom_add(mask, getitem(other, i))
+            if getitem(other, i) == getitem(other, 0):
+                skip = i - 1
+
+        i = start + w + 1
+        while i - 1 >= start:
+            i -= 1
+            if value[i] == getitem(other, 0):
+                for j in xrange(mlast, 0, -1):
+                    if value[i + j] != getitem(other, j):
+                        break
+                else:
+                    return i
+                if i - 1 >= 0 and not bloom(mask, value[i - 1]):
+                    i -= m
+                else:
+                    i -= skip
+            else:
+                if i - 1 >= 0 and not bloom(mask, value[i - 1]):
+                    i -= m
+
+    if mode != SEARCH_COUNT:
+        return -1
+    return count
 
 # -------------- numeric parsing support --------------------
 

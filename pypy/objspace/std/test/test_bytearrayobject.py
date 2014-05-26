@@ -442,6 +442,7 @@ class AppTestBytesArray:
         u = b.decode('utf-8')
         assert isinstance(u, unicode)
         assert u == u'abcdefghi'
+        assert b.decode()
 
     def test_int(self):
         assert int(bytearray('-1234')) == -1234

@@ -62,6 +62,10 @@ class W_BytearrayObject(W_Root):
             raise oefmt(space.w_IndexError, "bytearray index out of range")
         return space.wrap(ord(character))
 
+    def _fillchar(self, space, w_fillchar):
+        c = self._op_val(space, w_fillchar)
+        return [c], len(c)
+
     def _val(self, space):
         return self.data
 
@@ -76,6 +80,9 @@ class W_BytearrayObject(W_Root):
     def _chr(self, char):
         assert len(char) == 1
         return str(char)[0]
+
+    def _multi_chr(self, char):
+        return [self._chr(char)]
 
     @staticmethod
     def _builder(size=100):
@@ -495,7 +502,6 @@ class W_BytearrayObject(W_Root):
             data[len(self.data) + i] = buffer.getitem(i)
         return self._new(data)
 
-
     def descr_reverse(self, space):
         self.data.reverse()
 
@@ -506,6 +512,13 @@ class BytearrayBuilder(object):
     def append(self, s):
         for i in range(len(s)):
             self.data.append(s[i])
+
+    def append_multiple_char(self, c, count):
+        self.data.extend([c] * count)
+
+    def append_slice(self, value, start, end):
+        for i in range(start, end):
+            self.data.append(value[i])
 
     def build(self):
         return self.data
