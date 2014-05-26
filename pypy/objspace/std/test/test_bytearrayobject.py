@@ -178,7 +178,9 @@ class AppTestBytesArray:
         assert bytearray('hello').rindex('l') == 3
         assert bytearray('hello').index(bytearray('e')) == 1
         assert bytearray('hello').find('l') == 2
+        assert bytearray('hello').find('l', -2) == 3
         assert bytearray('hello').rfind('l') == 3
+
 
         # these checks used to not raise in pypy but they should
         raises(TypeError, bytearray('hello').index, ord('e'))

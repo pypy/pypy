@@ -1,7 +1,7 @@
 """Functionality shared between bytes/bytearray/unicode"""
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, newlist_hint
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rstring import endswith, replace, rsplit, split, startswith
 
@@ -36,17 +36,27 @@ class StringMethods(object):
 
     def descr_contains(self, space, w_sub):
         value = self._val(space)
-        other = self._op_val(space, w_sub)
-        return space.newbool(value.find(other) >= 0)
+        if self._use_rstr_ops(space, w_sub):
+            other = self._op_val(space, w_sub)
+            return space.newbool(value.find(other) >= 0)
+
+        buffer = _get_buffer(space, w_sub)
+        res = _search_slowpath(value, buffer, 0, len(value), FAST_FIND)
+        return space.newbool(res >= 0)
 
     def descr_add(self, space, w_other):
-        try:
-            other = self._op_val(space, w_other)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-            raise
-        return self._new(self._val(space) + other)
+        if self._use_rstr_ops(space, w_other):
+            try:
+                other = self._op_val(space, w_other)
+            except OperationError as e:
+                if e.match(space, space.w_TypeError):
+                    return space.w_NotImplemented
+                raise
+            return self._new(self._val(space) + other)
+
+        # Bytearray overrides this method, CPython doesn't support contacting
+        # buffers and strs, and unicodes are always handled above
+        return space.w_NotImplemented
 
     def descr_mul(self, space, w_times):
         try:
@@ -128,14 +138,21 @@ class StringMethods(object):
 
     def descr_count(self, space, w_sub, w_start=None, w_end=None):
         value, start, end = self._convert_idx_params(space, w_start, w_end)
-        return space.newint(value.count(self._op_val(space, w_sub), start,
-                                        end))
+
+        if self._use_rstr_ops(space, w_sub):
+            return space.newint(value.count(self._op_val(space, w_sub), start,
+                                            end))
+
+        buffer = _get_buffer(space, w_sub)
+        res = _search_slowpath(value, buffer, start, end, FAST_COUNT)
+        return space.wrap(max(res, 0))
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
         from pypy.objspace.std.unicodeobject import (
             _get_encoding_and_errors, decode_object, unicode_from_string)
         encoding, errors = _get_encoding_and_errors(space, w_encoding,
                                                     w_errors)
+        # TODO: On CPython calling bytearray.decode with no arguments works.
         if encoding is None and errors is None:
             return unicode_from_string(space, self)
         return decode_object(space, self, encoding, errors)
@@ -192,30 +209,52 @@ class StringMethods(object):
 
     def descr_find(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
-        res = value.find(self._op_val(space, w_sub), start, end)
+
+        if self._use_rstr_ops(space, w_sub):
+            res = value.find(self._op_val(space, w_sub), start, end)
+            return space.wrap(res)
+
+        buffer = _get_buffer(space, w_sub)
+        res = _search_slowpath(value, buffer, start, end, FAST_FIND)
         return space.wrap(res)
 
     def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
-        res = value.rfind(self._op_val(space, w_sub), start, end)
+
+        if self._use_rstr_ops(space, w_sub):
+            res = value.rfind(self._op_val(space, w_sub), start, end)
+            return space.wrap(res)
+
+        buffer = _get_buffer(space, w_sub)
+        res = _search_slowpath(value, buffer, start, end, FAST_RFIND)
         return space.wrap(res)
 
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
-        res = value.find(self._op_val(space, w_sub), start, end)
+
+        if self._use_rstr_ops(space, w_sub):
+            res = value.find(self._op_val(space, w_sub), start, end)
+        else:
+            buffer = _get_buffer(space, w_sub)
+            res = _search_slowpath(value, buffer, start, end, FAST_FIND)
+
         if res < 0:
             raise oefmt(space.w_ValueError,
                         "substring not found in string.index")
-
         return space.wrap(res)
 
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
-        res = value.rfind(self._op_val(space, w_sub), start, end)
+
+        if self._use_rstr_ops(space, w_sub):
+            res = value.rfind(self._op_val(space, w_sub), start, end)
+        else:
+            buffer = _get_buffer(space, w_sub)
+            res = _search_slowpath(value, buffer, start, end, FAST_RFIND)
+
         if res < 0:
             raise oefmt(space.w_ValueError,
                         "substring not found in string.rindex")
-
         return space.wrap(res)
 
     @specialize.arg(2)
@@ -328,6 +367,7 @@ class StringMethods(object):
         value = self._val(space)
 
         prealloc_size = len(value) * (size - 1)
+        unwrapped = newlist_hint(size)
         for i in range(size):
             w_s = list_w[i]
             check_item = self._join_check_item(space, w_s)
@@ -337,13 +377,16 @@ class StringMethods(object):
                             i, w_s)
             elif check_item == 2:
                 return self._join_autoconvert(space, list_w)
-            prealloc_size += len(self._op_val(space, w_s))
+            # XXX Maybe the extra copy here is okay? It was basically going to
+            #     happen anyway, what with being placed into the builder
+            unwrapped.append(self._op_val(space, w_s))
+            prealloc_size += len(unwrapped[0])
 
         sb = self._builder(prealloc_size)
         for i in range(size):
             if value and i != 0:
                 sb.append(value)
-            sb.append(self._op_val(space, list_w[i]))
+            sb.append(unwrapped[i])
         return self._new(sb.build())
 
     def _join_autoconvert(self, space, list_w):
@@ -386,10 +429,22 @@ class StringMethods(object):
 
     def descr_partition(self, space, w_sub):
         value = self._val(space)
-        sub = self._op_val(space, w_sub)
-        if not sub:
+
+        if self._use_rstr_ops(space, w_sub):
+            sub = self._op_val(space, w_sub)
+            sublen = len(sub)
+        else:
+            sub = _get_buffer(space, w_sub)
+            sublen = sub.getlength()
+
+        if sublen == 0:
             raise oefmt(space.w_ValueError, "empty separator")
-        pos = value.find(sub)
+
+        if self._use_rstr_ops(space, w_sub):
+            pos = value.find(sub)
+        else:
+            pos = _search_slowpath(value, sub, 0, len(value), FAST_FIND)
+
         if pos == -1:
             from pypy.objspace.std.bytearrayobject import W_BytearrayObject
             if isinstance(self, W_BytearrayObject):
@@ -398,17 +453,29 @@ class StringMethods(object):
         else:
             from pypy.objspace.std.bytearrayobject import W_BytearrayObject
             if isinstance(self, W_BytearrayObject):
-                w_sub = self._new(sub)
+                w_sub = self._new_from_buffer(sub)
             return space.newtuple(
                 [self._sliced(space, value, 0, pos, self), w_sub,
                  self._sliced(space, value, pos+len(sub), len(value), self)])
 
     def descr_rpartition(self, space, w_sub):
         value = self._val(space)
-        sub = self._op_val(space, w_sub)
-        if not sub:
+
+        if self._use_rstr_ops(space, w_sub):
+            sub = self._op_val(space, w_sub)
+            sublen = len(sub)
+        else:
+            sub = _get_buffer(space, w_sub)
+            sublen = sub.getlength()
+
+        if sublen == 0:
             raise oefmt(space.w_ValueError, "empty separator")
-        pos = value.rfind(sub)
+
+        if self._use_rstr_ops(space, w_sub):
+            pos = value.rfind(sub)
+        else:
+            pos = _search_slowpath(value, sub, 0, len(value), FAST_RFIND)
+
         if pos == -1:
             from pypy.objspace.std.bytearrayobject import W_BytearrayObject
             if isinstance(self, W_BytearrayObject):
@@ -417,7 +484,7 @@ class StringMethods(object):
         else:
             from pypy.objspace.std.bytearrayobject import W_BytearrayObject
             if isinstance(self, W_BytearrayObject):
-                w_sub = self._new(sub)
+                w_sub = self._new_from_buffer(sub)
             return space.newtuple(
                 [self._sliced(space, value, 0, pos, self), w_sub,
                  self._sliced(space, value, pos+len(sub), len(value), self)])
@@ -616,10 +683,11 @@ class StringMethods(object):
             for char in string:
                 buf.append(table[ord(char)])
         else:
+            # XXX Why not preallocate here too?
             buf = self._builder()
             deletion_table = [False] * 256
-            for c in deletechars:
-                deletion_table[ord(c)] = True
+            for i in range(len(deletechars)):
+                deletion_table[ord(deletechars[i])] = True
             for char in string:
                 if not deletion_table[ord(char)]:
                     buf.append(table[ord(char)])
@@ -662,3 +730,118 @@ class StringMethods(object):
 @specialize.argtype(0)
 def _descr_getslice_slowpath(selfvalue, start, step, sl):
     return [selfvalue[start + i*step] for i in range(sl)]
+
+def _get_buffer(space, w_obj):
+    return space.buffer_w(w_obj, space.BUF_SIMPLE)
+
+
+
+# Stolen form rpython.rtyper.lltypesytem.rstr
+# TODO: Ask about what to do with this...
+
+FAST_COUNT = 0
+FAST_FIND = 1
+FAST_RFIND = 2
+
+from rpython.rlib.rarithmetic import LONG_BIT as BLOOM_WIDTH
+
+def bloom_add(mask, c):
+    return mask | (1 << (ord(c) & (BLOOM_WIDTH - 1)))
+
+
+def bloom(mask, c):
+    return mask & (1 << (ord(c) & (BLOOM_WIDTH - 1)))
+
+@specialize.argtype(0, 1)
+def _search_slowpath(value, buffer, start, end, mode):
+    if start < 0:
+        start = 0
+    if end > len(value):
+        end = len(value)
+    if start > end:
+        return -1
+
+    count = 0
+    n = end - start
+    m = buffer.getlength()
+
+    if m == 0:
+        if mode == FAST_COUNT:
+            return end - start + 1
+        elif mode == FAST_RFIND:
+            return end
+        else:
+            return start
+
+    w = n - m
+
+    if w < 0:
+        return -1
+
+    mlast = m - 1
+    skip = mlast - 1
+    mask = 0
+
+    if mode != FAST_RFIND:
+        for i in range(mlast):
+            mask = bloom_add(mask, buffer.getitem(i))
+            if buffer.getitem(i) == buffer.getitem(mlast):
+                skip = mlast - i - 1
+        mask = bloom_add(mask, buffer.getitem(mlast))
+
+        i = start - 1
+        while i + 1 <= start + w:
+            i += 1
+            if value[i + m - 1] == buffer.getitem(m - 1):
+                for j in range(mlast):
+                    if value[i + j] != buffer.getitem(j):
+                        break
+                else:
+                    if mode != FAST_COUNT:
+                        return i
+                    count += 1
+                    i += mlast
+                    continue
+
+                if i + m < len(value):
+                    c = value[i + m]
+                else:
+                    c = '\0'
+                if not bloom(mask, c):
+                    i += m
+                else:
+                    i += skip
+            else:
+                if i + m < len(value):
+                    c = value[i + m]
+                else:
+                    c = '\0'
+                if not bloom(mask, c):
+                    i += m
+    else:
+        mask = bloom_add(mask, buffer.getitem(0))
+        for i in range(mlast, 0, -1):
+            mask = bloom_add(mask, buffer.getitem(i))
+            if buffer.getitem(i) == buffer.getitem(0):
+                skip = i - 1
+
+        i = start + w + 1
+        while i - 1 >= start:
+            i -= 1
+            if value[i] == buffer.getitem(0):
+                for j in xrange(mlast, 0, -1):
+                    if value[i + j] != buffer.getitem(j):
+                        break
+                else:
+                    return i
+                if i - 1 >= 0 and not bloom(mask, value[i - 1]):
+                    i -= m
+                else:
+                    i -= skip
+            else:
+                if i - 1 >= 0 and not bloom(mask, value[i - 1]):
+                    i -= m
+
+    if mode != FAST_COUNT:
+        return -1
+    return count
