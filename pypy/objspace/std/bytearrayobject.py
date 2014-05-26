@@ -3,7 +3,7 @@
 from rpython.rlib.objectmodel import (
     import_from_mixin, newlist_hint, resizelist_hint, specialize)
 from rpython.rlib.buffer import Buffer
-from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rstring import StringBuilder, ByteListBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -86,7 +86,7 @@ class W_BytearrayObject(W_Root):
 
     @staticmethod
     def _builder(size=100):
-        return BytearrayBuilder(size)
+        return ByteListBuilder(size)
 
     def _newlist_unwrapped(self, space, res):
         return space.newlist([W_BytearrayObject(_make_data(i)) for i in res])
@@ -504,24 +504,6 @@ class W_BytearrayObject(W_Root):
 
     def descr_reverse(self, space):
         self.data.reverse()
-
-class BytearrayBuilder(object):
-    def __init__(self, size):
-        self.data = newlist_hint(size)
-
-    def append(self, s):
-        for i in range(len(s)):
-            self.data.append(s[i])
-
-    def append_multiple_char(self, c, count):
-        self.data.extend([c] * count)
-
-    def append_slice(self, value, start, end):
-        for i in range(start, end):
-            self.data.append(value[i])
-
-    def build(self):
-        return self.data
 
 
 

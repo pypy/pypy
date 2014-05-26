@@ -157,7 +157,10 @@ class StringMethods(object):
             _get_encoding_and_errors, decode_object, unicode_from_string)
         encoding, errors = _get_encoding_and_errors(space, w_encoding,
                                                     w_errors)
-        if encoding is None and errors is None:
+
+        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
+        if (encoding is None and errors is None and
+            not isinstance(self, W_BytearrayObject)):
             return unicode_from_string(space, self)
         return decode_object(space, self, encoding, errors)
 
