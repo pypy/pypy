@@ -91,7 +91,7 @@ class StatvfsResultRepr(Repr):
         s_index = rtyper.annotator.bookkeeper.immutablevalue(index)
         hop2 = hop.copy()
         spaceop = op.getitem(hop.args_v[0], Constant(index))
-        spaceop.result = hop.result
+        spaceop.result = hop.spaceop.result
         hop2.spaceop = spaceop
         hop2.args_v = spaceop.args
         hop2.args_s = [self.s_tuple, s_index]
