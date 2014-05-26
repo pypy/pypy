@@ -81,7 +81,9 @@ def detect_model_from_host_platform():
     #
     if result.startswith('arm'):
         from rpython.jit.backend.arm.detect import detect_float
-        assert detect_float(), 'the JIT-compiler requires a vfp unit'
+        if not detect_float():
+            raise ProcessorAutodetectError(
+                'the JIT-compiler requires a vfp unit')
     #
     return result
 
