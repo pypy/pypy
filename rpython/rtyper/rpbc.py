@@ -25,8 +25,6 @@ class __extend__(annmodel.SomePBC):
         from rpython.rtyper.lltypesystem.rpbc import (FunctionsPBCRepr,
             SmallFunctionSetPBCRepr, ClassesPBCRepr, MethodsPBCRepr,
             MethodOfFrozenPBCRepr)
-        if self.isNone():
-            return none_frozen_pbc_repr
         kind = self.getKind()
         if issubclass(kind, description.FunctionDesc):
             sample = self.any_description()
@@ -62,6 +60,13 @@ class __extend__(annmodel.SomePBC):
         else:
             t = ()
         return tuple([self.__class__, self.can_be_None]+lst)+t
+
+class __extend__(annmodel.SomeNone):
+    def rtyper_makerepr(self, rtyper):
+        return none_frozen_pbc_repr
+
+    def rtyper_makekey(self):
+        return self.__class__,
 
 # ____________________________________________________________
 
@@ -808,9 +813,6 @@ class AbstractMethodsPBCRepr(Repr):
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
         self.s_pbc = s_pbc
-        if s_pbc.isNone():
-            raise TyperError("unsupported: variable of type "
-                             "bound-method-object or None")
         mdescs = list(s_pbc.descriptions)
         methodname = mdescs[0].name
         classdef = mdescs[0].selfclassdef

@@ -472,9 +472,6 @@ class SomePBC(SomeObject):
         if len(self.descriptions) > 1:
             kind.simplify_desc_set(self.descriptions)
 
-    def isNone(self):
-        return False
-
     def can_be_none(self):
         return self.can_be_None
 
@@ -501,9 +498,6 @@ class SomeNone(SomePBC):
 
     def __init__(self):
         pass
-
-    def isNone(self):
-        return True
 
     @property
     def descriptions(self):

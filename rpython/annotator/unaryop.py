@@ -739,8 +739,7 @@ class __extend__(SomePBC):
     getattr.can_only_throw = []
 
     def setattr(self, s_attr, s_value):
-        if not self.isNone():
-            raise AnnotatorError("Cannot modify attribute of a pre-built constant")
+        raise AnnotatorError("Cannot modify attribute of a pre-built constant")
 
     def call(self, args):
         bookkeeper = getbookkeeper()
@@ -751,23 +750,26 @@ class __extend__(SomePBC):
         return SomePBC(d, can_be_None=self.can_be_None)
 
     def bool_behavior(self, s):
-        if self.isNone():
-            s.const = False
-        elif not self.can_be_None:
+        if not self.can_be_None:
             s.const = True
 
     def len(self):
-        if self.isNone():
-            # this None could later be generalized into an empty list,
-            # whose length is the constant 0; so let's tentatively answer 0.
-            return immutablevalue(0)
-        else:
-            # This should probably never happen
-            raise AnnotatorError("Cannot call len on a pbc")
+        raise AnnotatorError("Cannot call len on a pbc")
 
 class __extend__(SomeNone):
     def bind_callables_under(self, classdef, name):
         return self
+
+    def setattr(self, s_attr, s_value):
+        return None
+
+    def bool_behavior(self, s):
+        s.const = False
+
+    def len(self):
+        # XXX: this None could later be generalized into an empty list,
+        # whose length is the constant 0; so let's tentatively answer 0.
+        return immutablevalue(0)
 
 #_________________________________________
 # weakrefs

@@ -154,11 +154,12 @@ class AbstractClassRepr(Repr):
         # special-casing for methods:
         #  if s_value is SomePBC([MethodDescs...])
         #  return a PBC representing the underlying functions
-        if isinstance(s_value, annmodel.SomePBC):
-            if not s_value.isNone() and s_value.getKind() == description.MethodDesc:
-                s_value = self.classdef.lookup_filter(s_value)
-                funcdescs = [mdesc.funcdesc for mdesc in s_value.descriptions]
-                return annmodel.SomePBC(funcdescs)
+        if (isinstance(s_value, annmodel.SomePBC) and
+                not isinstance(s_value, annmodel.SomeNone) and
+                s_value.getKind() == description.MethodDesc):
+            s_value = self.classdef.lookup_filter(s_value)
+            funcdescs = [mdesc.funcdesc for mdesc in s_value.descriptions]
+            return annmodel.SomePBC(funcdescs)
         return None   # not a method
 
     def get_ll_eq_function(self):
