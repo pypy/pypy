@@ -471,6 +471,7 @@ class AppTestAppFloatTest:
         else:
             assert False, 'did not raise'
 
+    @py.test.mark.skipif("not config.option.runappdirect and sys.maxunicode == 0xffff")
     def test_float_from_unicode(self):
         s = '\U0001D7CF\U0001D7CE.4' # 𝟏𝟎.4
         assert float(s) == 10.4

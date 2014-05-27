@@ -360,6 +360,7 @@ class AppTestLong:
         b = A(5).real
         assert type(b) is int
 
+    @py.test.mark.skipif("not config.option.runappdirect and sys.maxunicode == 0xffff")
     def test_long_from_unicode(self):
         raises(ValueError, int, '123L')
         assert int('L', 22) == 21

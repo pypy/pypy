@@ -378,6 +378,7 @@ class AppTestAppComplexTest:
         assert self.almost_equal(complex(real=float2(17.), imag=float2(23.)), 17+23j)
         raises(TypeError, complex, float2(None))
 
+    @py.test.mark.skipif("not config.option.runappdirect and sys.maxunicode == 0xffff")
     def test_constructor_unicode(self):
         b1 = '\N{MATHEMATICAL BOLD DIGIT ONE}' # 𝟏
         b2 = '\N{MATHEMATICAL BOLD DIGIT TWO}' # 𝟐

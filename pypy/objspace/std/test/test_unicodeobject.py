@@ -11,7 +11,10 @@ class TestUnicodeObject:
         w_s = space.wrap(u"\N{EM SPACE}-3\N{EN SPACE}")
         s2 = unicode_to_decimal_w(space, w_s)
         assert s2 == " -3 "
-        #
+
+    @py.test.mark.skipif("not config.option.runappdirect and sys.maxunicode == 0xffff")
+    def test_unicode_to_decimal_w_wide(self, space):
+        from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
         w_s = space.wrap(u'\U0001D7CF\U0001D7CE') # 𝟏𝟎
         s2 = unicode_to_decimal_w(space, w_s)
         assert s2 == "10"
@@ -238,6 +241,8 @@ class AppTestUnicodeString:
         # single surrogate character
         assert not "\ud800".isprintable()
 
+    @py.test.mark.skipif("not config.option.runappdirect and sys.maxunicode == 0xffff")
+    def test_isprintable_wide(self):
         assert '\U0001F46F'.isprintable()  # Since unicode 6.0
         assert not '\U000E0020'.isprintable()
 
