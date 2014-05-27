@@ -545,7 +545,7 @@ class AppTestUnicodeString:
         raises(UnicodeEncodeError, '\ud800'.encode, 'utf-8')
         raises(UnicodeEncodeError, '\udc00'.encode, 'utf-8')
         raises(UnicodeEncodeError, '\udc00!'.encode, 'utf-8')
-        if sys.maxunicode > 0xFFFF:
+        if sys.maxunicode > 0xFFFF and len(chr(0x10000)) == 1:
             raises(UnicodeEncodeError, '\ud800\udc02'.encode, 'utf-8')
             raises(UnicodeEncodeError, '\ud84d\udc56'.encode, 'utf-8')
             raises(UnicodeEncodeError, ('\ud800\udc02'*1000).encode, 'utf-8')
