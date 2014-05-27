@@ -60,6 +60,7 @@ int pypy_main_function(int argc, char *argv[])
 
     pypy_malloc_counters_results();
 
+    RPython_TeardownCode();
     return exitcode;
 
  memory_out:

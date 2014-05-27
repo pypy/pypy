@@ -819,6 +819,12 @@ def gen_startupcode(f, database):
                 print >> f, '\t'+line
     print >> f, '\treturn error;'
     print >> f, '}'
+    print >> f
+    # also generate the tear-down code (empty except for stm statistics)
+    print >> f, 'void RPython_TeardownCode(void) {'
+    if database.with_stm:
+        print >> f, '\tpypy_stm_teardown();'
+    print >> f, '}'
 
 def gen_stm_prebuilt(f, database):
     from rpython.translator.c.primitive import name_signed

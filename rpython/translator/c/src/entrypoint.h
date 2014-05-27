@@ -9,5 +9,6 @@
 #endif
 
 char *RPython_StartupCode(void);
+void RPython_TeardownCode(void);
 int PYPY_MAIN_FUNCTION(int argc, char *argv[]);
 #endif  /* PYPY_STANDALONE */

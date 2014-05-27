@@ -71,6 +71,12 @@ void pypy_stm_setup(void)
     pypy_stm_start_inevitable_if_not_atomic();
 }
 
+void pypy_stm_teardown(void)
+{
+    pypy_stm_unregister_thread_local();
+    /* stm_teardown() not called here for now; it's mostly for tests */
+}
+
 long pypy_stm_enter_callback_call(void)
 {
     if (pypy_stm_ready_atomic == 0) {

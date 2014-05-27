@@ -19,6 +19,7 @@ extern __thread uintptr_t pypy_stm_nursery_low_fill_mark_saved;
 */
 
 void pypy_stm_setup(void);
+void pypy_stm_teardown(void);
 void pypy_stm_setup_prebuilt(void);        /* generated into stm_prebuilt.c */
 void pypy_stm_register_thread_local(void); /* generated into stm_prebuilt.c */
 void pypy_stm_unregister_thread_local(void); /* generated into stm_prebuilt.c */
