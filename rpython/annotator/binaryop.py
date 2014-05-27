@@ -791,28 +791,35 @@ _make_none_union('SomeOrderedDict',          'obj.dictdef')
 _make_none_union('SomeDict',          'obj.dictdef')
 _make_none_union('SomeWeakRef',         'obj.classdef')
 
-# getitem on SomePBCs, in particular None fails
 
 class __extend__(pairtype(SomePBC, SomeObject)):
     def getitem((pbc, o)):
-        if not pbc.isNone():
-            raise AnnotatorError("getitem on %r" % pbc)
-        return s_ImpossibleValue
+        raise AnnotatorError("getitem on %r" % pbc)
 
     def setitem((pbc, o), s_value):
-        if not pbc.isNone():
-            raise AnnotatorError("setitem on %r" % pbc)
+        raise AnnotatorError("setitem on %r" % pbc)
+
+class __extend__(pairtype(SomeNone, SomeObject)):
+    def getitem((none, o)):
+        return s_ImpossibleValue
+
+    def setitem((none, o), s_value):
+        return None
 
 class __extend__(pairtype(SomePBC, SomeString)):
     def add((pbc, o)):
-        if not pbc.isNone():
-            raise AnnotatorError('add on %r' % pbc)
+        raise AnnotatorError('add on %r' % pbc)
+
+class __extend__(pairtype(SomeNone, SomeString)):
+    def add((none, o)):
         return s_ImpossibleValue
 
 class __extend__(pairtype(SomeString, SomePBC)):
     def add((o, pbc)):
-        if not pbc.isNone():
-            raise AnnotatorError('add on %r' % pbc)
+        raise AnnotatorError('add on %r' % pbc)
+
+class __extend__(pairtype(SomeString, SomeNone)):
+    def add((o, none)):
         return s_ImpossibleValue
 
 #_________________________________________
