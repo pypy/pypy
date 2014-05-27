@@ -208,7 +208,7 @@ class AppTestThread(GenericTestThread):
         else:
             raise Exception("could unexpectedly start 1000 threads")
         # safety: check that we can start a new thread here
-        thread.start_new_thread(lambda: None, ())
+        _thread.start_new_thread(lambda: None, ())
 
     def test_stack_size(self):
         import _thread
