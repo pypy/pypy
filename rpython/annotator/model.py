@@ -261,10 +261,16 @@ class SomeString(SomeStringOrUnicode):
     "Stands for an object which is known to be a string."
     knowntype = str
 
+    def noneify(self):
+        return SomeString(can_be_None=True, no_nul=self.no_nul)
+
 
 class SomeUnicodeString(SomeStringOrUnicode):
     "Stands for an object which is known to be an unicode string"
     knowntype = unicode
+
+    def noneify(self):
+        return SomeUnicodeString(can_be_None=True, no_nul=self.no_nul)
 
 
 class SomeByteArray(SomeStringOrUnicode):
@@ -316,6 +322,9 @@ class SomeList(SomeObject):
     def can_be_none(self):
         return True
 
+    def noneify(self):
+        return SomeList(self.listdef)
+
 
 class SomeTuple(SomeObject):
     "Stands for a tuple of known length."
@@ -360,6 +369,9 @@ class SomeDict(SomeObject):
             return repr(const)
         else:
             return '{...%s...}' % (len(const),)
+
+    def noneify(self):
+        return type(self)(self.dictdef)
 
 class SomeOrderedDict(SomeDict):
     try:
@@ -419,6 +431,9 @@ class SomeInstance(SomeObject):
 
     def nonnoneify(self):
         return SomeInstance(self.classdef, can_be_None=False)
+
+    def noneify(self):
+        return SomeInstance(self.classdef, can_be_None=True)
 
 
 class SomePBC(SomeObject):
@@ -591,6 +606,9 @@ class SomeWeakRef(SomeObject):
     def __init__(self, classdef):
         # 'classdef' is None for known-to-be-dead weakrefs.
         self.classdef = classdef
+
+    def noneify(self):
+        return SomeWeakRef(self.classdef)
 
 # ____________________________________________________________
 

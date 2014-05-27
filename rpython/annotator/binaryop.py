@@ -2,12 +2,11 @@
 Binary operations between SomeValues.
 """
 
-import py
 import operator
 from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import (
     SomeObject, SomeInteger, SomeBool, s_Bool, SomeString, SomeChar, SomeList,
-    SomeDict, SomeOrderedDict, SomeUnicodeCodePoint, SomeUnicodeString,
+    SomeDict, SomeUnicodeCodePoint, SomeUnicodeString,
     SomeTuple, SomeImpossibleValue, s_ImpossibleValue, SomeInstance,
     SomeBuiltinMethod, SomeIterator, SomePBC, SomeNone, SomeFloat, s_None,
     SomeByteArray, SomeWeakRef, SomeSingleFloat,
@@ -783,29 +782,6 @@ class __extend__(pairtype(SomeImpossibleValue, SomeNone)):
 class __extend__(pairtype(SomeNone, SomeImpossibleValue)):
     def union((none, imp2)):
         return s_None
-
-def _make_none_union(classname, constructor_args='', glob=None):
-    if glob is None:
-        glob = globals()
-    loc = locals()
-    source = py.code.Source("""
-        class __extend__(pairtype(%(classname)s, SomeNone)):
-            def union((obj, none)):
-                return %(classname)s(%(constructor_args)s)
-
-        class __extend__(pairtype(SomeNone, %(classname)s)):
-            def union((none, obj)):
-                return %(classname)s(%(constructor_args)s)
-    """ % loc)
-    exec source.compile() in glob
-
-_make_none_union('SomeInstance',   'classdef=obj.classdef, can_be_None=True')
-_make_none_union('SomeString',      'no_nul=obj.no_nul, can_be_None=True')
-_make_none_union('SomeUnicodeString', 'can_be_None=True')
-_make_none_union('SomeList',         'obj.listdef')
-_make_none_union('SomeOrderedDict',          'obj.dictdef')
-_make_none_union('SomeDict',          'obj.dictdef')
-_make_none_union('SomeWeakRef',         'obj.classdef')
 
 
 class __extend__(pairtype(SomePBC, SomeObject)):
