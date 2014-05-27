@@ -768,6 +768,22 @@ class __extend__(pairtype(SomeObject, SomeImpossibleValue)):
 
 # mixing Nones with other objects
 
+class __extend__(pairtype(SomeObject, SomeNone)):
+    def union((obj, none)):
+        return obj.noneify()
+
+class __extend__(pairtype(SomeNone, SomeObject)):
+    def union((none, obj)):
+        return obj.noneify()
+
+class __extend__(pairtype(SomeImpossibleValue, SomeNone)):
+    def union((imp1, none)):
+        return s_None
+
+class __extend__(pairtype(SomeNone, SomeImpossibleValue)):
+    def union((none, imp2)):
+        return s_None
+
 def _make_none_union(classname, constructor_args='', glob=None):
     if glob is None:
         glob = globals()

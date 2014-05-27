@@ -122,6 +122,9 @@ class SomeObject(object):
     def can_be_none(self):
         return True
 
+    def noneify(self):
+        raise UnionError(self, s_None)
+
     def nonnoneify(self):
         return self
 
@@ -476,7 +479,12 @@ class SomePBC(SomeObject):
         return self.can_be_None
 
     def nonnoneify(self):
-        return SomePBC(self.descriptions, can_be_None=False)
+        return SomePBC(self.descriptions, can_be_None=False,
+                subset_of=self.subset_of)
+
+    def noneify(self):
+        return SomePBC(self.descriptions, can_be_None=True,
+                subset_of=self.subset_of)
 
     def fmt_descriptions(self, pbis):
         if hasattr(self, 'const'):
