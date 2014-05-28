@@ -390,7 +390,7 @@ from __future__ import generators""")
         mod.body[0].body[0].handlers[0].lineno = 7
         mod.body[0].body[0].handlers[1].lineno = 6
         code = compile(mod, "<test>", "exec")
-
+        
     def test_dict_astNode(self):
         import ast
         num_node = ast.Num(n=2, lineno=2, col_offset=3)
@@ -404,7 +404,7 @@ from __future__ import generators""")
         num_node = ast.Num(n=2,lineno=2)
         assert num_node.n == 2
         assert num_node.lineno == 2
-        num_node = copy.deepcopy(num_node)
+        num_node2 = copy.deepcopy(num_node)
 
     def test_issue1673_Num_fullinit(self):
         import ast
@@ -418,6 +418,7 @@ from __future__ import generators""")
         assert dict_res == {'n':2, 'lineno':2, 'col_offset':3}
 
           
+            
     def test_issue1673_Str(self):
         import ast
         import copy
@@ -427,3 +428,4 @@ from __future__ import generators""")
         str_node2 = copy.deepcopy(str_node)
         dict_res = str_node2.__dict__
         assert dict_res == {'n':2, 'lineno':2}
+
