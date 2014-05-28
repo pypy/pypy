@@ -513,7 +513,7 @@ class SomePBC(SomeObject):
         else:
             return kt.__name__
 
-class SomeNone(SomePBC):
+class SomeNone(SomeObject):
     can_be_None = True
     subset_of = None
     knowntype = type(None)

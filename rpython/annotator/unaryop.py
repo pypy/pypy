@@ -760,8 +760,15 @@ class __extend__(SomeNone):
     def bind_callables_under(self, classdef, name):
         return self
 
+    def getattr(self, s_attr):
+        return s_ImpossibleValue
+    getattr.can_only_throw = []
+
     def setattr(self, s_attr, s_value):
         return None
+
+    def call(self, args):
+        return s_ImpossibleValue
 
     def bool_behavior(self, s):
         s.const = False

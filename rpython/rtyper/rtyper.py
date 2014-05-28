@@ -885,7 +885,7 @@ class LowLevelOpList(list):
                 s_value = rtyper.binding(v, default=annmodel.s_None)
                 if not s_value.is_constant():
                     raise TyperError("non-constant variable of type Void")
-                if not isinstance(s_value, annmodel.SomePBC):
+                if not isinstance(s_value, (annmodel.SomePBC, annmodel.SomeNone)):
                     raise TyperError("non-PBC Void argument: %r", (s_value,))
                 args_s.append(s_value)
             else:

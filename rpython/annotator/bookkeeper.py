@@ -453,9 +453,6 @@ class Bookkeeper(object):
         attr = s_attr.const
 
         descs = list(pbc.descriptions)
-        if not descs:
-            return s_ImpossibleValue
-
         first = descs[0]
         if len(descs) == 1:
             return first.s_read_attribute(attr)
@@ -496,8 +493,6 @@ class Bookkeeper(object):
         annotations).
         """
         descs = list(pbc.descriptions)
-        if not descs:
-            return s_ImpossibleValue
         first = descs[0]
         first.mergecallfamilies(*descs[1:])
 
