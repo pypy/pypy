@@ -397,13 +397,14 @@ from __future__ import generators""")
         dict_res = num_node.__dict__
         assert dict_res == {'n':2, 'lineno':2, 'col_offset':3}
 
+    
     def test_issue1673_Num_notfullinit(self):
         import ast
         import copy
         num_node = ast.Num(n=2,lineno=2)
         assert num_node.n == 2
         assert num_node.lineno == 2
-        num_node2 = copy.deepcopy(num_node)
+        num_node = copy.deepcopy(num_node)
 
     def test_issue1673_Num_fullinit(self):
         import ast
@@ -416,6 +417,7 @@ from __future__ import generators""")
         dict_res = num_node2.__dict__
         assert dict_res == {'n':2, 'lineno':2, 'col_offset':3}
 
+          
     def test_issue1673_Str(self):
         import ast
         import copy
