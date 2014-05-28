@@ -199,6 +199,47 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
     recovery_func_sign = lltype.Ptr(lltype.FuncType([lltype.Signed] * 3,
             lltype.Signed))
 
+    # TODO: see with we really need the ignored_regs argument
+    def _push_all_regs_to_jitframe(self, mc, ignored_regs, withfloats,
+                                   callee_only=False):
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        if callee_only:
+            # Only push registers used to pass arguments to the callee
+            regs = r.VOLATILES
+        else:
+            regs = r.ALL_REGS
+        # For now, just push all regs to the jitframe
+        for i, reg in enumerate(regs):
+            # XXX should we progress to higher addresses?
+            mc.store_reg(reg, base_ofs - (i * WORD))
+
+        if withfloats:
+            if callee_only:
+                regs = r.VOLATILES_FLOAT
+            else:
+                regs = r.ALL_FLOAT_REGS
+            for i, reg in enumerate(regs):
+                pass # TODO find or create the proper store indexed for fpr's
+
+    def _pop_all_regs_from_jitframe(self, mc, ignored_regs, withfloats,
+                                    callee_only=False):
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        if callee_only:
+            regs = r.VOLATILES
+        else:
+            regs = r.ALL_REGS
+        for i, reg in enumerate(regs):
+            # XXX should we progress to higher addressess
+            mc.load_from_addr(reg, base_ofs - (i * WORD))
+
+        if withfloats:
+            if callee_only:
+                regs = r.VOLATILES_FLOAT
+            else:
+                regs = r.ALL_FLOAT_REGS
+            for i, reg in enumerate(regs):
+                pass # TODO find or create the proper load indexed for fpr's
+
     @rgc.no_collect
     def decode_registers_and_descr(self, mem_loc, spp, registers, fp_registers):
         """Decode locations encoded in memory at mem_loc and write the values
