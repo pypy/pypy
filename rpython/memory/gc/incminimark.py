@@ -65,10 +65,6 @@ from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 from rpython.rlib.objectmodel import specialize
 
-# XXX remove (groggi)
-from rpython.rlib.debug import debug_print, debug_start, debug_stop
-
-
 #
 # Handles the objects in 2 generations:
 #
