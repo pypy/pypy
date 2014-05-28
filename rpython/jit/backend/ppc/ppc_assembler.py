@@ -727,29 +727,6 @@ class AssemblerPPC(OpAssembler):
             operations = newoperations
         return operations
 
-    @staticmethod
-    def _release_gil_shadowstack():
-        before = rffi.aroundstate.before
-        if before:
-            before()
-
-    @staticmethod
-    def _reacquire_gil_shadowstack():
-        after = rffi.aroundstate.after
-        if after:
-            after()
-
-    _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
-
-    def _build_release_gil(self, gcrootmap):
-        assert gcrootmap.is_shadow_stack
-        releasegil_func = llhelper(self._NOARG_FUNC,
-                                   self._release_gil_shadowstack)
-        reacqgil_func = llhelper(self._NOARG_FUNC,
-                                 self._reacquire_gil_shadowstack)
-        self.releasegil_addr = rffi.cast(lltype.Signed, releasegil_func)
-        self.reacqgil_addr = rffi.cast(lltype.Signed, reacqgil_func)
-
     def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         clt.allgcrefs = []
