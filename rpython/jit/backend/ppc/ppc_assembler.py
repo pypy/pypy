@@ -70,7 +70,7 @@ def higher(w):
 def high(w):
     return (w >> 16) & 0x0000FFFF
 
-class AssemblerPPC(OpAssembler):
+class AssemblerPPC(OpAssembler, BaseAssembler):
 
     ENCODING_AREA               = FORCE_INDEX_OFS
     OFFSET_SPP_TO_GPR_SAVE_AREA = (FORCE_INDEX + FLOAT_INT_CONVERSION
@@ -325,6 +325,18 @@ class AssemblerPPC(OpAssembler):
             arglocs.append(loc)
         return arglocs[:]
 
+    # TODO
+    def _build_failure_recovery(self, exc, withfloats=False):
+        pass
+
+    # TODO
+    def build_frame_realloc_slowpath(self):
+        pass
+
+    # TODO
+    def _build_cond_call_slowpath(self, supports_floats, callee_only):
+        pass
+
     def _build_malloc_slowpath(self):
         mc = PPCBuilder()
         frame_size = (len(r.MANAGED_FP_REGS) * WORD
@@ -489,7 +501,8 @@ class AssemblerPPC(OpAssembler):
             self.write_64_bit_func_descr(rawstart, rawstart+3*WORD)
         self.stack_check_slowpath = rawstart
 
-    def _build_wb_slowpath(self, withcards, withfloats=False):
+    # TODO: see what need to be done when for_frame is True
+    def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
         descr = self.cpu.gc_ll_descr.write_barrier_descr
         if descr is None:
             return
@@ -690,7 +703,9 @@ class AssemblerPPC(OpAssembler):
                                                         allblocks)
         self.max_stack_params = 0
         self.target_tokens_currently_compiling = {}
-        return operations
+        self.frame_depth_to_patch = []
+        self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
+        return operations # do we really need this return?
 
     def setup_once(self):
         BaseAssembler.setup_once(self)
