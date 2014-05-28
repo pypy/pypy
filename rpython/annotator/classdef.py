@@ -2,7 +2,7 @@
 Type inference for user-defined classes.
 """
 from rpython.annotator.model import (
-    SomePBC, SomeNone, s_ImpossibleValue, unionof, s_None, SomeInteger,
+    SomePBC, s_ImpossibleValue, unionof, s_None, SomeInteger,
     SomeTuple, SomeString, AnnotatorError)
 from rpython.annotator import description
 
@@ -104,8 +104,7 @@ class Attribute(object):
             self.bookkeeper.annotator.reflowfromposition(position)
 
         # check for method demotion and after-the-fact method additions
-        if (isinstance(s_newvalue, SomePBC) and
-                not isinstance(s_newvalue, SomeNone)):
+        if isinstance(s_newvalue, SomePBC):
             attr = self.name
             if s_newvalue.getKind() == description.MethodDesc:
                 # is method
