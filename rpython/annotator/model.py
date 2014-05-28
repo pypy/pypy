@@ -514,17 +514,11 @@ class SomePBC(SomeObject):
             return kt.__name__
 
 class SomeNone(SomeObject):
-    can_be_None = True
-    subset_of = None
     knowntype = type(None)
     const = None
 
     def __init__(self):
         pass
-
-    @property
-    def descriptions(self):
-        return set()
 
     def is_constant(self):
         return True
