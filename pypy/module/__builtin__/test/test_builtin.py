@@ -610,6 +610,16 @@ def fn(): pass
         firstlineno = co.co_firstlineno
         assert firstlineno == 2
 
+    def test_compile_null_bytes(self):
+        import _ast
+        raises(TypeError, compile, '\x00', 'mymod', 'exec', 0)
+        raises(SyntaxError, compile, '\x00', 'mymod', 'exec',
+               _ast.PyCF_ACCEPT_NULL_BYTES)
+        src = "#abc\x00def\n"
+        raises(TypeError, compile, src, 'mymod', 'exec')
+        raises(TypeError, compile, src, 'mymod', 'exec', 0)
+        compile(src, 'mymod', 'exec', _ast.PyCF_ACCEPT_NULL_BYTES)  # works
+
     def test_print_function(self):
         import __builtin__
         import sys

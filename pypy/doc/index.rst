@@ -40,7 +40,7 @@ Index of various topics:
 
 * `FAQ`_: some frequently asked questions.
 
-* `Release 2.3.0`_: the latest official release
+* `Release 2.3.1`_: the latest official release
 
 * `PyPy Blog`_: news and status info about PyPy 
 

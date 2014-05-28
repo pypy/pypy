@@ -234,11 +234,12 @@ class Stream(object):
         while True:
             # "peeks" on the underlying stream to see how many characters
             # we can safely read without reading past an end-of-line
-            peeked = self.peek()
-            pn = peeked.find("\n")
+            startindex, peeked = self.peek()
+            assert 0 <= startindex <= len(peeked)
+            pn = peeked.find("\n", startindex)
             if pn < 0:
                 pn = len(peeked)
-            c = self.read(pn + 1)
+            c = self.read(pn - startindex + 1)
             if not c:
                 break
             result.append(c)
@@ -265,7 +266,7 @@ class Stream(object):
         pass
 
     def peek(self):
-        return ''
+        return (0, '')
 
     def try_to_find_file_descriptor(self):
         return -1
@@ -553,7 +554,7 @@ class BufferingInputStream(Stream):
             else:
                 difpos = offset
             if -self.pos <= difpos <= currentsize:
-                self.pos += difpos
+                self.pos += intmask(difpos)
                 return
             if whence == 1:
                 offset -= currentsize
@@ -705,9 +706,7 @@ class BufferingInputStream(Stream):
         return "".join(chunks)
 
     def peek(self):
-        pos = self.pos
-        assert pos >= 0
-        return self.buf[pos:]
+        return (self.pos, self.buf)
 
     write      = PassThrough("write",     flush_buffers=True)
     truncate   = PassThrough("truncate",  flush_buffers=True)
@@ -970,12 +969,13 @@ class TextInputFilter(Stream):
         while True:
             # "peeks" on the underlying stream to see how many characters
             # we can safely read without reading past an end-of-line
-            peeked = self.base.peek()
-            pn = peeked.find("\n")
-            pr = peeked.find("\r")
+            startindex, peeked = self.base.peek()
+            assert 0 <= startindex <= len(peeked)
+            pn = peeked.find("\n", startindex)
+            pr = peeked.find("\r", startindex)
             if pn < 0: pn = len(peeked)
             if pr < 0: pr = len(peeked)
-            c = self.read(min(pn, pr) + 1)
+            c = self.read(min(pn, pr) - startindex + 1)
             if not c:
                 break
             result.append(c)
@@ -1028,7 +1028,7 @@ class TextInputFilter(Stream):
                 self.buf = ""
 
     def peek(self):
-        return self.buf
+        return (0, self.buf)
 
     write      = PassThrough("write",     flush_buffers=True)
     truncate   = PassThrough("truncate",  flush_buffers=True)
