@@ -13,6 +13,7 @@ from rpython.rtyper.rpbc import (AbstractClassesPBCRepr, AbstractMethodsPBCRepr,
     AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr,
     SingleFrozenPBCRepr, MethodOfFrozenPBCRepr, none_frozen_pbc_repr,
     get_concrete_calltable)
+from rpython.rtyper.typesystem import getfunctionptr
 from rpython.tool.pairtype import pairtype
 
 
@@ -182,10 +183,10 @@ class SmallFunctionSetPBCRepr(Repr):
         return self.convert_desc(funcdesc)
 
     def rtype_simple_call(self, hop):
-        return self.call('simple_call', hop)
+        return self.call(hop)
 
     def rtype_call_args(self, hop):
-        return self.call('call_args', hop)
+        return self.call(hop)
 
     def dispatcher(self, shape, index, argtypes, resulttype):
         key = shape, index, tuple(argtypes), resulttype
@@ -218,14 +219,14 @@ class SmallFunctionSetPBCRepr(Repr):
             links[-1].llexitcase = chr(i)
         startblock.closeblock(*links)
         self.rtyper.annotator.translator.graphs.append(graph)
-        ll_ret = self.rtyper.type_system.getcallable(graph)
+        ll_ret = getfunctionptr(graph)
         #FTYPE = FuncType
         c_ret = self._dispatch_cache[key] = inputconst(typeOf(ll_ret), ll_ret)
         return c_ret
 
-    def call(self, opname, hop):
+    def call(self, hop):
         bk = self.rtyper.annotator.bookkeeper
-        args = bk.build_args(opname, hop.args_s[1:])
+        args = hop.spaceop.build_args(hop.args_s[1:])
         s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
         descs = list(s_pbc.descriptions)
         vfcs = description.FunctionDesc.variant_for_call_site
@@ -233,7 +234,7 @@ class SmallFunctionSetPBCRepr(Repr):
         row_of_graphs = self.callfamily.calltables[shape][index]
         anygraph = row_of_graphs.itervalues().next()  # pick any witness
         vlist = [hop.inputarg(self, arg=0)]
-        vlist += callparse.callparse(self.rtyper, anygraph, hop, opname)
+        vlist += callparse.callparse(self.rtyper, anygraph, hop)
         rresult = callparse.getrresult(self.rtyper, anygraph)
         hop.exception_is_here()
         v_dispatcher = self.dispatcher(shape, index, [v.concretetype for v in vlist[1:]], rresult.lowleveltype)
@@ -352,11 +353,6 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
         v_func = r_class.getclsfield(v_cls, self.methodname, hop.llops)
 
         hop2 = self.add_instance_arg_to_hop(hop, call_args)
-        opname = 'simple_call'
-        if call_args:
-            opname = 'call_args'
-        hop2.forced_opname = opname
-
         hop2.v_s_insertfirstarg(v_func, s_func)   # insert 'function'
 
         if type(hop2.args_r[0]) is SmallFunctionSetPBCRepr and type(r_func) is FunctionsPBCRepr:

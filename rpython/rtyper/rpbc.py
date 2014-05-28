@@ -25,8 +25,6 @@ class __extend__(annmodel.SomePBC):
         from rpython.rtyper.lltypesystem.rpbc import (FunctionsPBCRepr,
             SmallFunctionSetPBCRepr, ClassesPBCRepr, MethodsPBCRepr,
             MethodOfFrozenPBCRepr)
-        if self.isNone():
-            return none_frozen_pbc_repr
         kind = self.getKind()
         if issubclass(kind, description.FunctionDesc):
             sample = self.any_description()
@@ -62,6 +60,13 @@ class __extend__(annmodel.SomePBC):
         else:
             t = ()
         return tuple([self.__class__, self.can_be_None]+lst)+t
+
+class __extend__(annmodel.SomeNone):
+    def rtyper_makerepr(self, rtyper):
+        return none_frozen_pbc_repr
+
+    def rtyper_makekey(self):
+        return self.__class__,
 
 # ____________________________________________________________
 
@@ -300,14 +305,14 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         return inputconst(typeOf(llfn), llfn)
 
     def rtype_simple_call(self, hop):
-        return self.call('simple_call', hop)
+        return self.call(hop)
 
     def rtype_call_args(self, hop):
-        return self.call('call_args', hop)
+        return self.call(hop)
 
-    def call(self, opname, hop):
+    def call(self, hop):
         bk = self.rtyper.annotator.bookkeeper
-        args = bk.build_args(opname, hop.args_s[1:])
+        args = hop.spaceop.build_args(hop.args_s[1:])
         s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
         descs = list(s_pbc.descriptions)
         vfcs = description.FunctionDesc.variant_for_call_site
@@ -317,7 +322,7 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         vfn = hop.inputarg(self, arg=0)
         vlist = [self.convert_to_concrete_llfn(vfn, shape, index,
                                                hop.llops)]
-        vlist += callparse.callparse(self.rtyper, anygraph, hop, opname)
+        vlist += callparse.callparse(self.rtyper, anygraph, hop)
         rresult = callparse.getrresult(self.rtyper, anygraph)
         hop.exception_is_here()
         if isinstance(vlist[0], Constant):
@@ -808,9 +813,6 @@ class AbstractMethodsPBCRepr(Repr):
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
         self.s_pbc = s_pbc
-        if s_pbc.isNone():
-            raise TyperError("unsupported: variable of type "
-                             "bound-method-object or None")
         mdescs = list(s_pbc.descriptions)
         methodname = mdescs[0].name
         classdef = mdescs[0].selfclassdef

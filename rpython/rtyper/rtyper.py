@@ -26,7 +26,7 @@ from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
     Ptr, ContainerType, FuncType, functionptr, typeOf, RuntimeTypeInfo,
     attachRuntimeTypeInfo, Primitive)
 from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
-from rpython.rtyper.typesystem import LowLevelTypeSystem
+from rpython.rtyper.typesystem import LowLevelTypeSystem, getfunctionptr
 from rpython.rtyper.normalizecalls import perform_normalizations
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
@@ -38,7 +38,7 @@ class RPythonTyper(object):
     def __init__(self, annotator):
         self.annotator = annotator
         self.lowlevel_ann_policy = LowLevelAnnotatorPolicy(self)
-        self.type_system = LowLevelTypeSystem.instance
+        self.type_system = LowLevelTypeSystem()
         self.reprs = {}
         self._reprs_must_call_setup = []
         self._seen_reprs_must_call_setup = {}
@@ -600,7 +600,7 @@ class RPythonTyper(object):
         def getconcretetype(v):
             return self.bindingrepr(v).lowleveltype
 
-        return self.type_system.getcallable(graph, getconcretetype)
+        return getfunctionptr(graph, getconcretetype)
 
     def annotate_helper(self, ll_function, argtypes):
         """Annotate the given low-level helper function and return its graph
@@ -650,8 +650,6 @@ RPythonTyper._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERA
 
 
 class HighLevelOp(object):
-    forced_opname = None
-
     def __init__(self, rtyper, spaceop, exceptionlinks, llops):
         self.rtyper         = rtyper
         self.spaceop        = spaceop
@@ -679,12 +677,11 @@ class HighLevelOp(object):
             if type(value) is list:     # grunt
                 value = value[:]
             setattr(result, key, value)
-        result.forced_opname = self.forced_opname
         return result
 
     def dispatch(self):
         rtyper = self.rtyper
-        opname = self.forced_opname or self.spaceop.opname
+        opname = self.spaceop.opname
         translate_meth = getattr(rtyper, 'translate_op_' + opname,
                                  rtyper.default_translate_operation)
         return translate_meth(self)
@@ -888,7 +885,7 @@ class LowLevelOpList(list):
                 s_value = rtyper.binding(v, default=annmodel.s_None)
                 if not s_value.is_constant():
                     raise TyperError("non-constant variable of type Void")
-                if not isinstance(s_value, annmodel.SomePBC):
+                if not isinstance(s_value, (annmodel.SomePBC, annmodel.SomeNone)):
                     raise TyperError("non-PBC Void argument: %r", (s_value,))
                 args_s.append(s_value)
             else:

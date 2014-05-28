@@ -56,6 +56,9 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
                 assert s_obj.is_constant(), "ambiguous low-level helper specialization"
                 key.append(KeyComp(s_obj.const))
                 new_args_s.append(s_obj)
+            elif isinstance(s_obj, annmodel.SomeNone):
+                key.append(KeyComp(None))
+                new_args_s.append(s_obj)
             else:
                 new_args_s.append(annmodel.not_const(s_obj))
                 try:

@@ -446,6 +446,9 @@ class SomeStringBuilder(SomeObject):
     def rtyper_makekey(self):
         return self.__class__,
 
+    def noneify(self):
+        return self
+
 
 class SomeUnicodeBuilder(SomeObject):
     def method_append(self, s_str):
@@ -483,6 +486,9 @@ class SomeUnicodeBuilder(SomeObject):
     def rtyper_makekey(self):
         return self.__class__,
 
+    def noneify(self):
+        return self
+
 
 class BaseEntry(object):
     def compute_result_annotation(self, s_init_size=None):
@@ -505,29 +511,6 @@ class UnicodeBuilderEntry(BaseEntry, ExtRegistryEntry):
     _about_ = UnicodeBuilder
     use_unicode = True
 
-
-class __extend__(pairtype(SomeStringBuilder, SomePBC)):
-    def union((sb, p)):
-        assert p.const is None
-        return SomeStringBuilder()
-
-
-class __extend__(pairtype(SomePBC, SomeStringBuilder)):
-    def union((p, sb)):
-        assert p.const is None
-        return SomeStringBuilder()
-
-
-class __extend__(pairtype(SomeUnicodeBuilder, SomePBC)):
-    def union((sb, p)):
-        assert p.const is None
-        return SomeUnicodeBuilder()
-
-
-class __extend__(pairtype(SomePBC, SomeUnicodeBuilder)):
-    def union((p, sb)):
-        assert p.const is None
-        return SomeUnicodeBuilder()
 
 #___________________________________________________________________
 # Support functions for SomeString.no_nul

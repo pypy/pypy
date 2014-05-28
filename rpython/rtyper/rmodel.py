@@ -53,7 +53,7 @@ class Repr(object):
         self._initialized = setupstate.INPROGRESS
         try:
             self._setup_repr()
-        except TyperError, e:
+        except TyperError:
             self._initialized = setupstate.BROKEN
             raise
         else:
