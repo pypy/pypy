@@ -173,6 +173,24 @@ class TestIncminimark(PinningGCTest):
         assert self.gc.nursery_free == self.gc.nursery
         assert self.gc.nursery_top > self.gc.nursery
 
+    def get_max_nursery_objects(self, TYPE):
+        typeid = self.get_type_id(TYPE)
+        size = self.gc.fixed_size(typeid) + self.gc.gcheaderbuilder.size_gc_header
+        raw_size = llmemory.raw_malloc_usage(size)
+        return self.gc.nursery_size // raw_size
+
+    def test_pin_until_full(self):
+        object_mallocs = self.get_max_nursery_objects(S)
+        for instance_nr in xrange(object_mallocs):
+            ptr = self.malloc(S)
+            adr = llmemory.cast_ptr_to_adr(ptr)
+            ptr.someInt = 100 + instance_nr
+            self.stackroots.append(ptr)
+            self.gc.pin(adr)
+        # nursery should be full now, at least no space for another `S`. Next malloc should fail.
+        py.test.raises(Exception, self.malloc, S)
+
+
     # XXX test/define what happens if we try to pin an object that is too
     # big for the nursery and will be raw-malloc'ed.
 
