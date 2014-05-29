@@ -199,7 +199,7 @@ class TestIncminimark(PinningGCTest):
         py.test.raises(RuntimeError, 'ptr_not_stackroot.someInt') # should be freed
 
     def test_full_pinned_nursery_pin_fail(self):
-        typeid = self.get_type_id(TYPE)
+        typeid = self.get_type_id(S)
         size = self.gc.fixed_size(typeid) + self.gc.gcheaderbuilder.size_gc_header
         raw_size = llmemory.raw_malloc_usage(size)
         object_mallocs = self.gc.nursery_size // raw_size
