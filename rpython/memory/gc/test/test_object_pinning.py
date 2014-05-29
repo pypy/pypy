@@ -198,14 +198,11 @@ class TestIncminimark(PinningGCTest):
         assert ptr_stackroot_2.someInt == 100
         py.test.raises(RuntimeError, 'ptr_not_stackroot.someInt') # should be freed
 
-    def get_max_nursery_objects(self, TYPE):
+    def test_full_pinned_nursery_pin_fail(self):
         typeid = self.get_type_id(TYPE)
         size = self.gc.fixed_size(typeid) + self.gc.gcheaderbuilder.size_gc_header
         raw_size = llmemory.raw_malloc_usage(size)
-        return self.gc.nursery_size // raw_size
-
-    def test_full_pinned_nursery_pin_fail(self):
-        object_mallocs = self.get_max_nursery_objects(S)
+        object_mallocs = self.gc.nursery_size // raw_size
         for instance_nr in xrange(object_mallocs):
             ptr = self.malloc(S)
             adr = llmemory.cast_ptr_to_adr(ptr)
@@ -218,4 +215,4 @@ class TestIncminimark(PinningGCTest):
 
     # XXX test/define what happens if we try to pin an object that is too
     # big for the nursery and will be raw-malloc'ed.
-    
+
