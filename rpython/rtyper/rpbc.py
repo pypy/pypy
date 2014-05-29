@@ -4,8 +4,9 @@ from rpython.annotator import model as annmodel, description
 from rpython.flowspace.model import Constant
 from rpython.annotator.argument import simple_args
 from rpython.rtyper import rclass, callparse
+from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.lltypesystem.lltype import typeOf, Void
+from rpython.rtyper.lltypesystem.lltype import typeOf, Void, Bool
 from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
     inputdesc, warning, impossible_repr)
 from rpython.tool.pairtype import pair, pairtype
@@ -22,7 +23,8 @@ def small_cand(rtyper, s_pbc):
 class __extend__(annmodel.SomePBC):
     def rtyper_makerepr(self, rtyper):
         from rpython.rtyper.lltypesystem.rpbc import (FunctionsPBCRepr,
-            SmallFunctionSetPBCRepr, ClassesPBCRepr, MethodsPBCRepr)
+            SmallFunctionSetPBCRepr, ClassesPBCRepr, MethodsPBCRepr,
+            MethodOfFrozenPBCRepr)
         kind = self.getKind()
         if issubclass(kind, description.FunctionDesc):
             sample = self.any_description()
@@ -58,6 +60,13 @@ class __extend__(annmodel.SomePBC):
         else:
             t = ()
         return tuple([self.__class__, self.can_be_None]+lst)+t
+
+class __extend__(annmodel.SomeNone):
+    def rtyper_makerepr(self, rtyper):
+        return none_frozen_pbc_repr
+
+    def rtyper_makekey(self):
+        return self.__class__,
 
 # ____________________________________________________________
 
@@ -579,6 +588,56 @@ class __extend__(pairtype(MethodOfFrozenPBCRepr, MethodOfFrozenPBCRepr)):
 
     def convert_from_to((r_from, r_to), v, llops):
         return pair(r_from.r_im_self, r_to.r_im_self).convert_from_to(v, llops)
+
+# __ None ____________________________________________________
+class NoneFrozenPBCRepr(Repr):
+    lowleveltype = Void
+
+    def rtype_bool(self, hop):
+        return Constant(False, Bool)
+
+    def none_call(self, hop):
+        raise TyperError("attempt to call constant None")
+
+    def ll_str(self, none):
+        return llstr("None")
+
+    def get_ll_eq_function(self):
+        return None
+
+    def get_ll_hash_function(self):
+        return ll_none_hash
+
+    rtype_simple_call = none_call
+    rtype_call_args = none_call
+
+none_frozen_pbc_repr = NoneFrozenPBCRepr()
+
+def ll_none_hash(_):
+    return 0
+
+
+class __extend__(pairtype(Repr, NoneFrozenPBCRepr)):
+
+    def convert_from_to((r_from, _), v, llops):
+        return inputconst(Void, None)
+
+    def rtype_is_((robj1, rnone2), hop):
+        from rpython.rtyper.lltypesystem.rpbc import rtype_is_None
+        if hop.s_result.is_constant():
+            return hop.inputconst(Bool, hop.s_result.const)
+        return rtype_is_None(robj1, rnone2, hop)
+
+class __extend__(pairtype(NoneFrozenPBCRepr, Repr)):
+
+    def convert_from_to((_, r_to), v, llops):
+        return inputconst(r_to, None)
+
+    def rtype_is_((rnone1, robj2), hop):
+        from rpython.rtyper.lltypesystem.rpbc import rtype_is_None
+        if hop.s_result.is_constant():
+            return hop.inputconst(Bool, hop.s_result.const)
+        return rtype_is_None(robj2, rnone1, hop, pos=1)
 
 # ____________________________________________________________
 

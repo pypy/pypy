@@ -936,7 +936,7 @@ class LowLevelOpList(list):
 # _______________________________________________________________________
 # this has the side-effect of registering the unary and binary operations
 # and the rtyper_chooserepr() methods
-from rpython.rtyper import rint, rbool, rfloat, rnone
+from rpython.rtyper import rint, rbool, rfloat
 from rpython.rtyper import rrange
 from rpython.rtyper import rstr, rdict, rlist, rbytearray
 from rpython.rtyper import rclass, rbuiltin, rpbc

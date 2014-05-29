@@ -160,6 +160,8 @@ class Bookkeeper(object):
     def consider_call_site_for_pbc(self, s_callable, args, s_result,
                                    call_op):
         descs = list(s_callable.descriptions)
+        if not descs:
+            return
         family = descs[0].getcallfamily()
         s_callable.getKind().consider_call_site(self, family, descs, args,
                                                 s_result, call_op)
