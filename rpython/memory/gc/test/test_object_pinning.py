@@ -173,6 +173,30 @@ class TestIncminimark(PinningGCTest):
         assert self.gc.nursery_free == self.gc.nursery
         assert self.gc.nursery_top > self.gc.nursery
 
+    def test_collect_dead_pinned_objects(self):
+        # prepare three object, where two are stackroots
+        ptr_stackroot_1 = self.malloc(S)
+        ptr_stackroot_1.someInt = 100
+        self.stackroots.append(ptr_stackroot_1)
+
+        ptr_not_stackroot = self.malloc(S)
+
+        ptr_stackroot_2 = self.malloc(S)
+        ptr_stackroot_2.someInt = 100
+        self.stackroots.append(ptr_stackroot_2)
+
+        # pin all three objects
+        assert self.gc.pin(llmemory.cast_ptr_to_adr(ptr_stackroot_1))
+        assert self.gc.pin(llmemory.cast_ptr_to_adr(ptr_not_stackroot))
+        assert self.gc.pin(llmemory.cast_ptr_to_adr(ptr_stackroot_2))
+        assert self.gc.pinned_objects_in_nursery == 3
+
+        self.gc.minor_collection()
+        assert self.gc.pinned_objects_in_nursery == 2
+        assert ptr_stackroot_1.someInt == 100
+        assert ptr_stackroot_2.someInt == 100
+        py.test.raises(RuntimeError, 'ptr_not_stackroot.someInt') # should be freed
+
     def get_max_nursery_objects(self, TYPE):
         typeid = self.get_type_id(TYPE)
         size = self.gc.fixed_size(typeid) + self.gc.gcheaderbuilder.size_gc_header
