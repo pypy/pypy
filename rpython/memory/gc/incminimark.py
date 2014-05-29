@@ -256,6 +256,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # so we trade it by cleaning it bit-by-bit, as we progress through
         # nursery. Has to fit at least one large object
         "nursery_cleanup": 32768 * WORD,
+
+        # Number of  objects that are allowed to be pinned in the nursery
+        # at the same time.
+        "max_number_of_pinned_objects": 100,
         }
 
     def __init__(self, config,
@@ -268,6 +272,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                  major_collection_threshold=2.5,
                  growth_rate_max=2.5,   # for tests
                  card_page_indices=0,
+                 max_number_of_pinned_objects=100,
                  large_object=8*WORD,
                  ArenaCollectionClass=None,
                  **kwds):
@@ -284,6 +289,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.max_heap_size = 0.0
         self.max_heap_size_already_raised = False
         self.max_delta = float(r_uint(-1))
+        self.max_number_of_pinned_objects = max_number_of_pinned_objects
         #
         self.card_page_indices = card_page_indices
         if self.card_page_indices > 0:
@@ -965,7 +971,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Reason: It would be possible that the first caller unpins
             # while the second caller thinks it's still pinned.
             return False
-        if not self.should_pin(obj):
+        if self.pinned_objects_in_nursery >= self.max_number_of_pinned_objects:
             return False
 
         self.header(obj).tid |= GCFLAG_PINNED
@@ -980,9 +986,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             "unpin: object is already not pinned")
         self.header(obj).tid &= ~GCFLAG_PINNED
         self.pinned_objects_in_nursery -= 1
-
-    def should_pin(self, obj):
-        return True
 
     def shrink_array(self, obj, smallerlength):
         #
