@@ -756,7 +756,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                 # object
                                 pass
                 else:
-                    ll_assert(minor_collection_count >= 1,
+                    ll_assert(minor_collection_count < 1,
                         "Seeing minor_collection() at least twice. "
                         "Too many pinned objects?")
             #
