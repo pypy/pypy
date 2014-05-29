@@ -179,7 +179,7 @@ class TestIncminimark(PinningGCTest):
         raw_size = llmemory.raw_malloc_usage(size)
         return self.gc.nursery_size // raw_size
 
-    def test_pin_until_full(self):
+    def test_full_pinned_nursery_pin_fail(self):
         object_mallocs = self.get_max_nursery_objects(S)
         for instance_nr in xrange(object_mallocs):
             ptr = self.malloc(S)
