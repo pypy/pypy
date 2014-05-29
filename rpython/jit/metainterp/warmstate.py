@@ -366,7 +366,11 @@ class WarmEnterState(object):
             procedure_token = cell.get_procedure_token()
             if procedure_token is None:
                 # it was an aborted compilation, or maybe a weakref that
-                # has been freed
+                # has been freed.  Add the flag "JC_TEMPORARY" in case
+                # cleanup_chain() doesn't unlink the cell (stm only), so
+                # that the next time we'll count ticks and eventually
+                # enter bound_reached() again.
+                cell.flags |= JC_TEMPORARY
                 jitcounter.cleanup_chain(hash)
                 return
             if not confirm_enter_jit(*args):
