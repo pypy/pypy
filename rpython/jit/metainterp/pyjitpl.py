@@ -231,6 +231,14 @@ class MIFrame(object):
         ''' % (_opimpl, _opimpl.upper())).compile()
 
     @arguments("box")
+    def opimpl_int_same_as(self, box):
+        # for tests only: emits a same_as, forcing the result to be in a Box
+        resbox = history.BoxInt(box.getint())
+        self.metainterp._record_helper_nonpure_varargs(
+            rop.SAME_AS, resbox, None, [box])
+        return resbox
+
+    @arguments("box")
     def opimpl_ptr_nonzero(self, box):
         return self.execute(rop.PTR_NE, box, history.CONST_NULL)
 
