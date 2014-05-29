@@ -965,6 +965,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Reason: It would be possible that the first caller unpins
             # while the second caller thinks it's still pinned.
             return False
+        if not self.should_pin(obj):
+            return False
 
         self.header(obj).tid |= GCFLAG_PINNED
         self.pinned_objects_in_nursery += 1
@@ -979,6 +981,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.header(obj).tid &= ~GCFLAG_PINNED
         self.pinned_objects_in_nursery -= 1
 
+    def should_pin(self, obj):
+        return True
 
     def shrink_array(self, obj, smallerlength):
         #
