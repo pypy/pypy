@@ -524,7 +524,8 @@ class StructTest(unittest.TestCase):
     if IS32BIT:
         def test_crasher(self):
             # Pypy catches the string error instead of calculating the entire size
-            self.assertRaises((MemoryError, TypeError), struct.pack, "357913941b", "a")
+            self.assertRaises((MemoryError, struct.error),
+                              struct.pack, "357913941b", "a")
 
     def test_trailing_counter(self):
         store = array.array('b', b' '*100)
