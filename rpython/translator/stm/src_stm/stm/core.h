@@ -79,9 +79,7 @@ struct stm_priv_segment_info_s {
     /* List of old objects (older than the current transaction) that the
        current transaction attempts to modify.  This is used to track
        the STM status: they are old objects that where written to and
-       that need to be copied to other segments upon commit.  Note that
-       every object takes three list items: the object, and two words for
-       the location marker. */
+       that need to be copied to other segments upon commit. */
     struct list_s *modified_old_objects;
 
     /* For each entry in 'modified_old_objects', we have two entries

@@ -219,9 +219,9 @@ static void collect_oldrefs_to_nursery(void)
                 acquire_privatization_lock();
                 synchronize_object_now(obj);
                 release_privatization_lock();
-            }
-            else
+            } else {
                 LIST_APPEND(STM_PSEGMENT->large_overflow_objects, obj);
+            }
         }
 
         /* the list could have moved while appending */
@@ -245,7 +245,7 @@ static void collect_roots_from_markers(uintptr_t num_old)
     for (i = num_old + 1; i < total; i += 2) {
         minor_trace_if_young((object_t **)list_ptr_to_item(mlst, i));
     }
-    if (STM_PSEGMENT->transaction_state == TS_INEVITABLE) {
+    if (STM_PSEGMENT->marker_inev[1]) {
         uintptr_t *pmarker_inev_obj = (uintptr_t *)
             REAL_ADDRESS(STM_SEGMENT->segment_base,
                          &STM_PSEGMENT->marker_inev[1]);
@@ -281,6 +281,10 @@ static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
 
         TREE_LOOP_FORWARD(*pseg->young_outside_nursery, item) {
             assert(!_is_in_nursery((object_t *)item->addr));
+            /* mark slot as unread */
+            ((struct stm_read_marker_s *)
+             (pseg->pub.segment_base + (item->addr >> 4)))->rm = 0;
+
             _stm_large_free(stm_object_pages + item->addr);
         } TREE_LOOP_END;
 
@@ -342,8 +346,9 @@ static void _do_minor_collection(bool commit)
         collect_modified_old_objects();
         num_old = 0;
     }
-    else
+    else {
         num_old = STM_PSEGMENT->modified_old_objects_markers_num_old;
+    }
 
     collect_roots_from_markers(num_old);
 

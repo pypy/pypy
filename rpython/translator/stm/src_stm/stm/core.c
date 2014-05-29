@@ -210,9 +210,7 @@ void _stm_start_transaction(stm_thread_local_t *tl, stm_jmpbuf_t *jmpbuf)
     STM_PSEGMENT->start_time = tl->_timing_cur_start;
     STM_PSEGMENT->signalled_to_commit_soon = false;
     STM_PSEGMENT->safe_point = SP_RUNNING;
-#ifndef NDEBUG
-    STM_PSEGMENT->marker_inev[1] = 99999999999999999L;
-#endif
+    STM_PSEGMENT->marker_inev[1] = 0;
     if (jmpbuf == NULL)
         marker_fetch_inev();
     STM_PSEGMENT->transaction_state = (jmpbuf != NULL ? TS_REGULAR
@@ -481,6 +479,9 @@ static void _finish_transaction(int attribute_to)
 {
     STM_PSEGMENT->safe_point = SP_NO_TRANSACTION;
     STM_PSEGMENT->transaction_state = TS_NONE;
+
+    /* marker_inev is not needed anymore */
+    STM_PSEGMENT->marker_inev[1] = 0;
 
     /* reset these lists to NULL for the next transaction */
     LIST_FREE(STM_PSEGMENT->objects_pointing_to_nursery);
