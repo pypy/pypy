@@ -433,15 +433,17 @@ class DescrOperation(object):
             raise oefmt(space.w_TypeError,
                         "'%T' objects are unhashable", w_obj)
         w_result = space.get_and_call_function(w_hash, w_obj)
-        w_resulttype = space.type(w_result)
-        if space.is_w(w_resulttype, space.w_int):
+        if not space.isinstance_w(w_result, space.w_int):
+            raise oefmt(space.w_TypeError,
+                        "__hash__ method should return an integer")
+
+        from pypy.objspace.std.intobject import W_IntObject
+        if type(w_result) is W_IntObject:
             return w_result
-        elif space.isinstance_w(w_result, space.w_int):
-            # be careful about subclasses of 'int'...
+        elif isinstance(w_result, W_IntObject):
             return space.wrap(space.int_w(w_result))
-        else:
-            raise OperationError(space.w_TypeError,
-                    space.wrap("__hash__() should return an int"))
+        # a non W_IntObject int, assume long-like
+        return w_result.descr_hash(space)
 
     def userdel(space, w_obj):
         w_del = space.lookup(w_obj, '__del__')
