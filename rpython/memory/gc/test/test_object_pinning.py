@@ -192,6 +192,7 @@ class TestIncminimark(PinningGCTest):
         assert self.gc.pinned_objects_in_nursery == 3
 
         self.gc.minor_collection()
+        # now the one not on the stack should be gone.
         assert self.gc.pinned_objects_in_nursery == 2
         assert ptr_stackroot_1.someInt == 100
         assert ptr_stackroot_2.someInt == 100
@@ -217,6 +218,4 @@ class TestIncminimark(PinningGCTest):
 
     # XXX test/define what happens if we try to pin an object that is too
     # big for the nursery and will be raw-malloc'ed.
-
-    # XXX fill nursery with pinned objects -> + define behavior for such a
-    # case
+    
