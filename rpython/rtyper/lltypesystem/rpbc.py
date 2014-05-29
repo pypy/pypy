@@ -7,38 +7,14 @@ from rpython.rtyper import callparse
 from rpython.rtyper.lltypesystem import rclass, llmemory
 from rpython.rtyper.lltypesystem.lltype import (typeOf, Void, ForwardReference,
     Struct, Bool, Char, Ptr, malloc, nullptr, Array, Signed)
-from rpython.rtyper.rmodel import Repr, TyperError, inputconst
+from rpython.rtyper.rmodel import Repr, inputconst
 from rpython.rtyper.rpbc import (AbstractClassesPBCRepr, AbstractMethodsPBCRepr,
     OverriddenFunctionPBCRepr, AbstractMultipleFrozenPBCRepr,
     AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr,
-    SingleFrozenPBCRepr, MethodOfFrozenPBCRepr, none_frozen_pbc_repr,
-    get_concrete_calltable)
+    SingleFrozenPBCRepr, get_concrete_calltable)
 from rpython.rtyper.typesystem import getfunctionptr
 from rpython.tool.pairtype import pairtype
 
-
-def rtype_is_None(robj1, rnone2, hop, pos=0):
-    if isinstance(robj1.lowleveltype, Ptr):
-        v1 = hop.inputarg(robj1, pos)
-        return hop.genop('ptr_iszero', [v1], resulttype=Bool)
-    elif robj1.lowleveltype == llmemory.Address:
-        v1 = hop.inputarg(robj1, pos)
-        cnull = hop.inputconst(llmemory.Address, robj1.null_instance())
-        return hop.genop('adr_eq', [v1, cnull], resulttype=Bool)
-    elif robj1 == none_frozen_pbc_repr:
-        return hop.inputconst(Bool, True)
-    elif isinstance(robj1, SmallFunctionSetPBCRepr):
-        if robj1.s_pbc.can_be_None:
-            v1 = hop.inputarg(robj1, pos)
-            return hop.genop('char_eq', [v1, inputconst(Char, '\000')],
-                             resulttype=Bool)
-        else:
-            return inputconst(Bool, False)
-    else:
-        raise TyperError('rtype_is_None of %r' % (robj1))
-
-
-# ____________________________________________________________
 
 class MultipleFrozenPBCRepr(AbstractMultipleFrozenPBCRepr):
     """Representation selected for multiple non-callable pre-built constants."""
