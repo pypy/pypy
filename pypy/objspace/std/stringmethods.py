@@ -6,6 +6,7 @@ from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rstring import (
     search, SEARCH_FIND, SEARCH_RFIND, SEARCH_COUNT, endswith, replace, rsplit,
     split, startswith)
+from rpython.rlib.buffer import Buffer
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
@@ -31,7 +32,7 @@ class StringMethods(object):
         return (value, start, end)
 
     def _multi_chr(self, c):
-        return self._chr(c)
+        return c
 
     def descr_len(self, space):
         return space.wrap(self._len())
@@ -73,7 +74,7 @@ class StringMethods(object):
         if times <= 0:
             return self._empty()
         if self._len() == 1:
-            return self._new(self._val(space)[0] * times)
+            return self._new(self._multi_chr(self._val(space)[0]) * times)
         return self._new(self._val(space) * times)
 
     descr_rmul = descr_mul
@@ -134,7 +135,7 @@ class StringMethods(object):
         d = width - len(value)
         if d > 0:
             offset = d//2 + (d & width & 1)
-            fillchar = self._multi_chr(fillchar)
+            fillchar = self._multi_chr(fillchar[0])
             centered = offset * fillchar + value + (d - offset) * fillchar
         else:
             centered = value
@@ -177,7 +178,7 @@ class StringMethods(object):
         if not value:
             return self._empty()
 
-        if self._use_rstr_ops(value, self):
+        if self._use_rstr_ops(space, self):
             splitted = value.split(self._chr('\t'))
         else:
             splitted = split(value, self._chr('\t'))
@@ -189,7 +190,7 @@ class StringMethods(object):
         expanded = oldtoken = splitted.pop(0)
 
         for token in splitted:
-            expanded += self._multi_chr(' ') * self._tabindent(oldtoken,
+            expanded += self._multi_chr(self._chr(' ')) * self._tabindent(oldtoken,
                                                          tabsize) + token
             oldtoken = token
 
@@ -391,7 +392,7 @@ class StringMethods(object):
             # XXX Maybe the extra copy here is okay? It was basically going to
             #     happen anyway, what with being placed into the builder
             unwrapped.append(self._op_val(space, w_s))
-            prealloc_size += len(unwrapped[0])
+            prealloc_size += len(unwrapped[i])
 
         sb = self._builder(prealloc_size)
         for i in range(size):
@@ -412,7 +413,7 @@ class StringMethods(object):
                         "ljust() argument 2 must be a single character")
         d = width - len(value)
         if d > 0:
-            fillchar = self._multi_chr(fillchar)
+            fillchar = self._multi_chr(fillchar[0])
             value += d * fillchar
 
         return self._new(value)
@@ -426,7 +427,7 @@ class StringMethods(object):
                         "rjust() argument 2 must be a single character")
         d = width - len(value)
         if d > 0:
-            fillchar = self._multi_chr(fillchar)
+            fillchar = self._multi_chr(fillchar[0])
             value = d * fillchar + value
 
         return self._new(value)
@@ -439,63 +440,61 @@ class StringMethods(object):
         return self._new(builder.build())
 
     def descr_partition(self, space, w_sub):
+        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         value = self._val(space)
 
         if self._use_rstr_ops(space, w_sub):
             sub = self._op_val(space, w_sub)
             sublen = len(sub)
+            if sublen == 0:
+                raise oefmt(space.w_ValueError, "empty separator")
+
+            pos = value.find(sub)
         else:
             sub = _get_buffer(space, w_sub)
             sublen = sub.getlength()
+            if sublen == 0:
+                raise oefmt(space.w_ValueError, "empty separator")
 
-        if sublen == 0:
-            raise oefmt(space.w_ValueError, "empty separator")
-
-        if self._use_rstr_ops(space, w_sub):
-            pos = value.find(sub)
-        else:
             pos = search(value, sub, 0, len(value), SEARCH_FIND)
+            if pos != -1 and isinstance(self, W_BytearrayObject):
+                w_sub = self._new_from_buffer(sub)
 
         if pos == -1:
-            from pypy.objspace.std.bytearrayobject import W_BytearrayObject
             if isinstance(self, W_BytearrayObject):
                 self = self._new(value)
             return space.newtuple([self, self._empty(), self._empty()])
         else:
-            from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-            if isinstance(self, W_BytearrayObject):
-                w_sub = self._new_from_buffer(sub)
             return space.newtuple(
                 [self._sliced(space, value, 0, pos, self), w_sub,
                  self._sliced(space, value, pos + sublen, len(value), self)])
 
     def descr_rpartition(self, space, w_sub):
+        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         value = self._val(space)
 
         if self._use_rstr_ops(space, w_sub):
             sub = self._op_val(space, w_sub)
             sublen = len(sub)
+            if sublen == 0:
+                raise oefmt(space.w_ValueError, "empty separator")
+
+            pos = value.rfind(sub)
         else:
             sub = _get_buffer(space, w_sub)
             sublen = sub.getlength()
+            if sublen == 0:
+                raise oefmt(space.w_ValueError, "empty separator")
 
-        if sublen == 0:
-            raise oefmt(space.w_ValueError, "empty separator")
-
-        if self._use_rstr_ops(space, w_sub):
-            pos = value.rfind(sub)
-        else:
             pos = search(value, sub, 0, len(value), SEARCH_RFIND)
+            if pos != -1 and isinstance(self, W_BytearrayObject):
+                w_sub = self._new_from_buffer(sub)
 
         if pos == -1:
-            from pypy.objspace.std.bytearrayobject import W_BytearrayObject
             if isinstance(self, W_BytearrayObject):
                 self = self._new(value)
             return space.newtuple([self._empty(), self._empty(), self])
         else:
-            from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-            if isinstance(self, W_BytearrayObject):
-                w_sub = self._new_from_buffer(sub)
             return space.newtuple(
                 [self._sliced(space, value, 0, pos, self), w_sub,
                  self._sliced(space, value, pos + sublen, len(value), self)])
@@ -715,7 +714,7 @@ class StringMethods(object):
     def descr_zfill(self, space, width):
         selfval = self._val(space)
         if len(selfval) == 0:
-            return self._new(self._chr('0') * width)
+            return self._new(self._multi_chr(self._chr('0')) * width)
         num_zeros = width - len(selfval)
         if num_zeros <= 0:
             # cannot return self, in case it is a subclass of str

@@ -430,6 +430,7 @@ class W_BytesObject(W_AbstractBytesObject):
     _immutable_fields_ = ['_value']
 
     def __init__(self, str):
+        assert str is not None
         self._value = str
 
     def __repr__(self):
@@ -482,7 +483,8 @@ class W_BytesObject(W_AbstractBytesObject):
     @staticmethod
     def _use_rstr_ops(space, w_other):
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
-        return isinstance(w_other, (W_BytesObject, W_UnicodeObject))
+        return (isinstance(w_other, W_BytesObject) or
+                isinstance(w_other, W_UnicodeObject))
 
     @staticmethod
     def _op_val(space, w_other):

@@ -36,6 +36,8 @@ def _get_access_functions(value, other):
             return search(obj, other, start, end, SEARCH_FIND)
         def rfind(obj, other, start, end):
             return search(obj, other, start, end, SEARCH_RFIND)
+        def count(obj, other, start, end):
+            return search(obj, other, start, end, SEARCH_COUNT)
     else:
         assert isinstance(value, str) or  isinstance(value, unicode)
         assert isinstance(other, str) or  isinstance(other, unicode)
@@ -43,8 +45,10 @@ def _get_access_functions(value, other):
             return obj.find(other, start, end)
         def rfind(obj, other, start, end):
             return obj.rfind(other, start, end)
+        def count(obj, other, start, end):
+            return obj.count(other, start, end)
 
-    return getitem, getlength, find, rfind
+    return getitem, getlength, find, rfind, count
 
 @specialize.argtype(0)
 def _isspace(char):
@@ -90,7 +94,7 @@ def split(value, by=None, maxsplit=-1):
         assert isinstance(by, str)
     else:
         assert isinstance(by, unicode)
-    _, _, find, _ = _get_access_functions(value, by)
+    _, _, find, _, count = _get_access_functions(value, by)
     bylen = len(by)
     if bylen == 0:
         raise ValueError("empty separator")
@@ -99,7 +103,7 @@ def split(value, by=None, maxsplit=-1):
     if bylen == 1:
         # fast path: uses str.rfind(character) and str.count(character)
         by = by[0]    # annotator hack: string -> char
-        count = value.count(by)
+        count = count(value, by, 0, len(value))
         if 0 <= maxsplit < count:
             count = maxsplit
         res = newlist_hint(count + 1)
@@ -173,7 +177,7 @@ def rsplit(value, by=None, maxsplit=-1):
         res = newlist_hint(min(maxsplit + 1, len(value)))
     else:
         res = []
-    _, _, _, rfind = _get_access_functions(value, by)
+    _, _, _, rfind, _ = _get_access_functions(value, by)
     end = len(value)
     bylen = len(by)
     if bylen == 0:
@@ -212,7 +216,7 @@ def replace(input, sub, by, maxsplit=-1):
     if maxsplit == 0:
         return input
 
-    _, _, find, _ = _get_access_functions(input, sub)
+    _, _, find, _, count = _get_access_functions(input, sub)
 
     if not sub:
         upper = len(input)
@@ -236,7 +240,7 @@ def replace(input, sub, by, maxsplit=-1):
         builder.append_slice(input, upper, len(input))
     else:
         # First compute the exact result size
-        count = input.count(sub)
+        count = count(input, sub, 0, len(input))
         if count > maxsplit and maxsplit > 0:
             count = maxsplit
         diff_len = len(by) - len(sub)
@@ -317,7 +321,7 @@ def bloom(mask, c):
 
 @specialize.argtype(0, 1)
 def search(value, other, start, end, mode):
-    getitem, getlength, _, _ = _get_access_functions(value, other)
+    getitem, getlength, _, _, _ = _get_access_functions(value, other)
     if start < 0:
         start = 0
     if end > len(value):
@@ -571,7 +575,7 @@ class ByteListBuilder(object):
 
     def append_multiple_char(self, c, times):
         assert isinstance(c, str)
-        self.l.extend([c] * times)
+        self.l.extend([c[0]] * times)
 
     def append_charpsize(self, s, size):
         assert size >= 0

@@ -20,12 +20,12 @@ NON_HEX_MSG = "non-hexadecimal number found in fromhex() arg at position %d"
 class W_BytearrayObject(W_Root):
     import_from_mixin(StringMethods)
 
-    def __init__(w_self, data):
-        w_self.data = data
+    def __init__(self, data):
+        self.data = data
 
-    def __repr__(w_self):
+    def __repr__(self):
         """representation for debugging purposes"""
-        return "%s(%s)" % (w_self.__class__.__name__, ''.join(w_self.data))
+        return "%s(%s)" % (self.__class__.__name__, ''.join(self.data))
 
     def buffer_w(self, space, flags):
         return BytearrayBuffer(self.data, False)
@@ -62,10 +62,6 @@ class W_BytearrayObject(W_Root):
             raise oefmt(space.w_IndexError, "bytearray index out of range")
         return space.wrap(ord(character))
 
-    def _fillchar(self, space, w_fillchar):
-        c = self._op_val(space, w_fillchar)
-        return [c], len(c)
-
     def _val(self, space):
         return self.data
 
@@ -82,14 +78,14 @@ class W_BytearrayObject(W_Root):
         return str(char)[0]
 
     def _multi_chr(self, char):
-        return [self._chr(char)]
+        return [char]
 
     @staticmethod
     def _builder(size=100):
         return ByteListBuilder(size)
 
     def _newlist_unwrapped(self, space, res):
-        return space.newlist([W_BytearrayObject(_make_data(i)) for i in res])
+        return space.newlist([W_BytearrayObject(i) for i in res])
 
     def _isupper(self, ch):
         return ch.isupper()
@@ -318,9 +314,6 @@ class W_BytearrayObject(W_Root):
         return space.newbool(_memcmp(value, buffer, min_length) != 0)
 
     def descr_lt(self, space, w_other):
-        if isinstance(w_other, W_BytearrayObject):
-            return space.newbool(self.data < w_other.data)
-
         try:
             buffer = _get_buffer(space, w_other)
         except OperationError as e:
@@ -332,13 +325,9 @@ class W_BytearrayObject(W_Root):
         buffer_len = buffer.getlength()
 
         cmp = _memcmp(value, buffer, min(len(value), buffer_len))
-        return space.newbool(
-            cmp < 0 or (cmp == 0 and space.newbool(len(value) < buffer_len)))
+        return space.newbool(cmp < 0 or (cmp == 0 and len(value) < buffer_len))
 
     def descr_le(self, space, w_other):
-        if isinstance(w_other, W_BytearrayObject):
-            return space.newbool(self.data <= w_other.data)
-
         try:
             buffer = _get_buffer(space, w_other)
         except OperationError as e:
@@ -350,13 +339,9 @@ class W_BytearrayObject(W_Root):
         buffer_len = buffer.getlength()
 
         cmp = _memcmp(value, buffer, min(len(value), buffer_len))
-        return space.newbool(
-            cmp < 0 or (cmp == 0 and space.newbool(len(value) <= buffer_len)))
+        return space.newbool(cmp < 0 or (cmp == 0 and len(value) <= buffer_len))
 
     def descr_gt(self, space, w_other):
-        if isinstance(w_other, W_BytearrayObject):
-            return space.newbool(self.data > w_other.data)
-
         try:
             buffer = _get_buffer(space, w_other)
         except OperationError as e:
@@ -368,13 +353,9 @@ class W_BytearrayObject(W_Root):
         buffer_len = buffer.getlength()
 
         cmp = _memcmp(value, buffer, min(len(value), buffer_len))
-        return space.newbool(
-            cmp > 0 or (cmp == 0 and space.newbool(len(value) > buffer_len)))
+        return space.newbool(cmp > 0 or (cmp == 0 and len(value) > buffer_len))
 
     def descr_ge(self, space, w_other):
-        if isinstance(w_other, W_BytearrayObject):
-            return space.newbool(self.data >= w_other.data)
-
         try:
             buffer = _get_buffer(space, w_other)
         except OperationError as e:
@@ -386,8 +367,7 @@ class W_BytearrayObject(W_Root):
         buffer_len = buffer.getlength()
 
         cmp = _memcmp(value, buffer, min(len(value), buffer_len))
-        return space.newbool(
-            cmp > 0 or (cmp == 0 and space.newbool(len(value) >= buffer_len)))
+        return space.newbool(cmp > 0 or (cmp == 0 and len(value) >= buffer_len))
 
     def descr_iter(self, space):
         return space.newseqiter(self)
