@@ -437,12 +437,14 @@ class DescrOperation(object):
             raise oefmt(space.w_TypeError,
                         "__hash__ method should return an integer")
 
-        from pypy.objspace.std.intobject import W_IntObject
+        from pypy.objspace.std.intobject import (
+            W_AbstractIntObject, W_IntObject)
         if type(w_result) is W_IntObject:
             return w_result
         elif isinstance(w_result, W_IntObject):
             return space.wrap(space.int_w(w_result))
         # a non W_IntObject int, assume long-like
+        assert isinstance(w_result, W_AbstractIntObject)
         return w_result.descr_hash(space)
 
     def userdel(space, w_obj):
