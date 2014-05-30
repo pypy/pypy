@@ -258,7 +258,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         "nursery_cleanup": 32768 * WORD,
 
         # Number of  objects that are allowed to be pinned in the nursery
-        # at the same time.
+        # at the same time.  Must be lesser than or equal to the chunk size
+        # of an AddressStack.
         "max_number_of_pinned_objects": 100,
         }
 
