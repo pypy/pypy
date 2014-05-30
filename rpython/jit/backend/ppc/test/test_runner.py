@@ -56,8 +56,8 @@ class TestPPC(LLtypeBackendTest):
             ARGS = [lltype.Signed] * numargs
             RES = lltype.Signed
             args = [i+1 for i in range(numargs)]
-            res = self.cpu.execute_token(looptoken, *args)
-            assert self.cpu.get_latest_value_int(0) == sum(args)
+            deadframe = self.cpu.execute_token(looptoken, *args)
+            assert self.cpu.get_int_value(deadframe, 0) == sum(args)
   
     def test_return_spilled_args(self):
         numargs = 50
