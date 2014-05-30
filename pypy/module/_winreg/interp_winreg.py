@@ -328,7 +328,7 @@ def convert_to_regdata(space, w_value, typ):
             buf[0] = '\0'
         else:
             try:
-                value = w_value.readbuf_w(space)
+                value = w_value.buffer_w(space, space.BUF_SIMPLE)
             except TypeError:
                 raise oefmt(space.w_TypeError,
                             "Objects of type '%T' can not be used as binary "
