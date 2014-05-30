@@ -213,15 +213,8 @@ class TestIncminimark(PinningGCTest):
         # nursery should be full now, at least no space for another `S`. Next malloc should fail.
         py.test.raises(Exception, self.malloc, S)
 
-
-class TestIncminimarkFewPinnedObjects(BaseDirectGCTest):
-    from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
-
-    GC_PARAMS = {'max_number_of_pinned_objects': 5
-    }
-
     def test_pinning_limit(self):
-        for instance_nr in xrange(self.GC_PARAMS['max_number_of_pinned_objects']):
+        for instance_nr in xrange(self.gc.max_number_of_pinned_objects):
             ptr = self.malloc(S)
             adr = llmemory.cast_ptr_to_adr(ptr)
             ptr.someInt = 100 + instance_nr
@@ -233,22 +226,13 @@ class TestIncminimarkFewPinnedObjects(BaseDirectGCTest):
         adr = llmemory.cast_ptr_to_adr(ptr)
         self.stackroots.append(ptr)
         assert not self.gc.pin(adr)
-
-
-class TestIncminimarkManyPinnedObjects(BaseDirectGCTest):
-    from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
-    
-    GC_PARAMS_PLENTY_PINNED_OBJECTS = {'max_number_of_pinned_objects': 50
-    }
-
-    def get_max_nursery_objects(self, TYPE):
-        typeid = self.get_type_id(TYPE)
-        size = self.gc.fixed_size(typeid) + self.gc.gcheaderbuilder.size_gc_header
-        raw_size = llmemory.raw_malloc_usage(size)
-        return self.gc.nursery_size // raw_size
+    test_pinning_limit.GC_PARAMS = {'max_number_of_pinned_objects': 5}
 
     def test_full_pinned_nursery_pin_fail(self):
-        object_mallocs = self.get_max_nursery_objects(S)
+        typeid = self.get_type_id(S)
+        size = self.gc.fixed_size(typeid) + self.gc.gcheaderbuilder.size_gc_header
+        raw_size = llmemory.raw_malloc_usage(size)
+        object_mallocs = self.gc.nursery_size // raw_size
         # just to be sure we do not run into the limit as we test not the limiter
         # but rather the case of a nursery full with pinned objects.
         assert object_mallocs < self.gc.max_number_of_pinned_objects
@@ -261,3 +245,4 @@ class TestIncminimarkManyPinnedObjects(BaseDirectGCTest):
         #
         # nursery should be full now, at least no space for another `S`. Next malloc should fail.
         py.test.raises(Exception, self.malloc, S)
+    test_full_pinned_nursery_pin_fail.GC_PARAMS = {'max_number_of_pinned_objects': 50}
