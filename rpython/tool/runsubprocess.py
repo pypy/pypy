@@ -48,7 +48,7 @@ if __name__ == '__main__':
         args = eval(operation)
         try:
             results = _run(*args)
-        except EnvironmentError, e:
+        except EnvironmentError as e:
             results = (None, str(e))
         sys.stdout.write('%r\n' % (results,))
         sys.stdout.flush()
