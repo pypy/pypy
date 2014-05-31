@@ -7,7 +7,7 @@ from rpython.rtyper import rclass, callparse
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import typeOf, Void
 from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
-    inputdesc, warning, impossible_repr)
+    warning, impossible_repr)
 from rpython.tool.pairtype import pair, pairtype
 
 
@@ -495,7 +495,9 @@ class __extend__(pairtype(SingleFrozenPBCRepr, AbstractMultipleFrozenPBCRepr)):
         frozendesc1 = r_pbc1.frozendesc
         access = frozendesc1.queryattrfamily()
         if access is r_pbc2.access_set:
-            return inputdesc(r_pbc2, frozendesc1)
+            value = r_pbc2.convert_desc(frozendesc1)
+            lltype = r_pbc2.lowleveltype
+            return Constant(value, lltype)
         return NotImplemented
 
 class __extend__(pairtype(AbstractMultipleUnrelatedFrozenPBCRepr,
