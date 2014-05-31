@@ -196,6 +196,16 @@ class MIFrame(object):
             [history.ConstInt(really_wanted)])
         mi.vrefs_after_residual_call()
         mi.vable_after_residual_call()
+        #
+        if not really_wanted:
+            # we're about the return ConstInt(0), which will go into the
+            # jitcode's %iN variable.  But it will be captured by the
+            # GUARD_NOT_FORCED's resume data too.  It is essential that we
+            # don't capture the old, stale value!  Also, store ConstInt(1)
+            # to make sure that upon resuming we'll see a result of 1 (XXX
+            # unsure if it's needed, but it shouldn't hurt).
+            self.make_result_of_lastop(ConstInt(1))
+        #
         mi.generate_guard(rop.GUARD_NOT_FORCED, None)
         self.metainterp.heapcache.stm_break_done()
 
