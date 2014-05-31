@@ -159,8 +159,8 @@ class TestUfuncFromCFunc(object):
         def get(i):
             return w_result.getitem(space, [i]).value
         for d in [int32_dtype, float64_dtype]:
-            w_array = array(space, range(10), dtype=d)
-            w_result = func(w_array)
+            w_array = array(space, space.wrap(range(10)), w_dtype=d)
+            w_result = func.call(space, [w_array])
             for i in 10:
                 assert get(i) == 2*i
 
@@ -208,8 +208,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert sin.identity is None
 
         assert add.nin == 2
+        assert add.nout == 1
+        assert add.nargs == 3
+        assert add.signature == None
         assert multiply.nin == 2
+        assert multiply.nout == 1
+        assert multiply.nargs == 3
+        assert multiply.signature == None
         assert sin.nin == 1
+        assert sin.nout == 1
+        assert sin.nargs == 2
+        assert sin.signature == None
 
     def test_wrong_arguments(self):
         from numpy import add, sin

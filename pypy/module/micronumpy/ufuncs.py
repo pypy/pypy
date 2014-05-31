@@ -62,17 +62,17 @@ class W_Ufunc(W_Root):
         if (w_subok is not None and space.is_true(w_subok)):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("parameters unsupported"))
-        if kwds_w or len(args_w) < self.argcount:
+        if kwds_w or len(args_w) < self.nin:
             raise OperationError(space.w_ValueError,
                 space.wrap("invalid number of arguments")
             )
-        elif (len(args_w) > self.argcount and out is not None) or \
-             (len(args_w) > self.argcount + 1):
+        elif (len(args_w) > self.nin and out is not None) or \
+             (len(args_w) > self.nin + 1):
             raise OperationError(space.w_TypeError,
                 space.wrap("invalid number of arguments")
             )
         # Override the default out value, if it has been provided in w_wargs
-        if len(args_w) > self.argcount:
+        if len(args_w) > self.nin:
             out = args_w[-1]
         else:
             args_w = args_w + [out]
@@ -163,7 +163,7 @@ class W_Ufunc(W_Root):
 
     def reduce(self, space, w_obj, w_axis, keepdims=False, out=None, dtype=None,
                cumulative=False):
-        if self.argcount != 2:
+        if self.nin != 2:
             raise oefmt(space.w_ValueError,
                         "reduce only supported for binary functions")
         assert isinstance(self, W_Ufunc2)
@@ -287,7 +287,10 @@ class W_Ufunc(W_Root):
 
 class W_Ufunc1(W_Ufunc):
     _immutable_fields_ = ["func", "bool_result"]
-    argcount = 1
+    nin = 1
+    nout = 1
+    nargs = 2
+    signature = None
 
     def __init__(self, func, name, promote_to_largest=False, promote_to_float=False,
             promote_bools=False, identity=None, bool_result=False, int_only=False,
@@ -353,7 +356,10 @@ class W_Ufunc1(W_Ufunc):
 
 class W_Ufunc2(W_Ufunc):
     _immutable_fields_ = ["func", "comparison_func", "done_func"]
-    argcount = 2
+    nin = 2
+    nout = 1
+    nargs = 3
+    signature = None
 
     def __init__(self, func, name, promote_to_largest=False, promote_to_float=False,
             promote_bools=False, identity=None, comparison_func=False, int_only=False,
@@ -457,6 +463,62 @@ class W_Ufunc2(W_Ufunc):
                           res_dtype, w_lhs, w_rhs, out)
 
 
+class W_UfuncGeneric(W_Ufunc):
+    _immutable_fields_ = ["funcs", "signature", "nin", "nout", "nargs",
+                          "dtypes"]
+
+    def __init__(self, funcs, name, identity, nin, nout, dtypes, signature):
+        # XXX make sure funcs, signature, dtypes, nin, nout are consistent
+
+        # These don't matter, we use the signature and dtypes for determining
+        # output dtype
+        promote_to_largest = promote_to_float = promote_bools = False
+        int_only = allow_bool = allow_complex = complex_to_float = False
+        W_Ufunc.__init__(self, name, promote_to_largest, promote_to_float, promote_bools,
+                         identity, int_only, allow_bool, allow_complex, complex_to_float)
+        self.funcs = funcs
+        self.dtypes = dtypes
+        self.nin = nin
+        self.nout = nout
+        self.nargs = nin + max(nout, 1) # ufuncs can always be called with an out=<> kwarg
+        self.signature = signature
+
+    def reduce(self, space, w_obj, w_axis, keepdims=False, out=None, dtype=None,
+               cumulative=False):
+        raise oefmt(space.w_NotImplementedError, 'not implemented yet')
+
+    def call(self, space, args_w):
+        out = None
+        inargs = []
+        for i in range(self.nin):
+            inargs.append(convert_to_array(space, args_w[i]))
+        outargs = []
+        for i in range(min(self.nout, len(args_w)-self.nin)):
+            out = args_w[i+self.nin]
+            if space.is_w(out, space.w_None):
+                outargs.append(None)
+            else:
+                if not isinstance(out, W_NDimArray):
+                    raise oefmt(space.w_TypeError, 'output must be an array')
+                outargs.append(out)
+        index = self.alloc_outargs(space, inargs, outargs)
+        func, dims, steps = self.prep_call(space, index, inargs, outargs)
+        data = [] # allocate a ll array of pointers and
+                  # initialize to [x.data for x in inargs+outargs]
+        func(data, dims, steps, None)
+
+    def alloc_outargs(self, space, inargs, outargs):
+        # Find a match for the inargs.dtype in self.dtypes,
+        # then use the result dtype to verify/allocate outargs
+        return 0
+
+    def prep_call(self, space, index, inargs, outargs):
+        # Use the index and signature to determine
+        # dims and steps for function call
+        return self.funcs[index], [inargs[0].get_shape()[0]], \
+                 [inargs[0].get_strides()[0], outargs[0].get_strides()[0]]
+
+
 W_Ufunc.typedef = TypeDef("numpy.ufunc",
     __call__ = interp2app(W_Ufunc.descr_call),
     __repr__ = interp2app(W_Ufunc.descr_repr),
@@ -464,7 +526,10 @@ W_Ufunc.typedef = TypeDef("numpy.ufunc",
 
     identity = GetSetProperty(W_Ufunc.descr_get_identity),
     accumulate = interp2app(W_Ufunc.descr_accumulate),
-    nin = interp_attrproperty("argcount", cls=W_Ufunc),
+    nin = interp_attrproperty("nin", cls=W_Ufunc),
+    nout = interp_attrproperty("nout", cls=W_Ufunc),
+    nargs = interp_attrproperty("nargs", cls=W_Ufunc),
+    signature = interp_attrproperty("signature", cls=W_Ufunc),
 
     reduce = interp2app(W_Ufunc.descr_reduce),
     outer = interp2app(W_Ufunc.descr_outer),
@@ -626,7 +691,7 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
                 'supported', w_obj)
 
 
-def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
+def ufunc_dtype_caller(space, ufunc_name, op_name, nin, comparison_func,
                        bool_result):
     def get_op(dtype):
         try:
@@ -636,13 +701,13 @@ def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
                         "%s not implemented for %s",
                         ufunc_name, dtype.get_name())
     dtype_cache = descriptor.get_dtype_cache(space)
-    if argcount == 1:
+    if nin == 1:
         def impl(res_dtype, value):
             res = get_op(res_dtype)(value)
             if bool_result:
                 return dtype_cache.w_booldtype.box(res)
             return res
-    elif argcount == 2:
+    elif nin == 2:
         def impl(res_dtype, lvalue, rvalue):
             res = get_op(res_dtype)(lvalue, rvalue)
             if comparison_func:
@@ -757,7 +822,7 @@ class UfuncState(object):
         ]:
             self.add_ufunc(space, *ufunc_def)
 
-    def add_ufunc(self, space, ufunc_name, op_name, argcount, extra_kwargs=None):
+    def add_ufunc(self, space, ufunc_name, op_name, nin, extra_kwargs=None):
         if extra_kwargs is None:
             extra_kwargs = {}
 
@@ -767,13 +832,13 @@ class UfuncState(object):
                 descriptor.get_dtype_cache(space).w_longdtype.box(identity)
         extra_kwargs["identity"] = identity
 
-        func = ufunc_dtype_caller(space, ufunc_name, op_name, argcount,
+        func = ufunc_dtype_caller(space, ufunc_name, op_name, nin,
             comparison_func=extra_kwargs.get("comparison_func", False),
             bool_result=extra_kwargs.get("bool_result", False),
         )
-        if argcount == 1:
+        if nin == 1:
             ufunc = W_Ufunc1(func, ufunc_name, **extra_kwargs)
-        elif argcount == 2:
+        elif nin == 2:
             ufunc = W_Ufunc2(func, ufunc_name, **extra_kwargs)
         setattr(self, ufunc_name, ufunc)
 
@@ -781,7 +846,7 @@ class UfuncState(object):
 def get(space):
     return space.fromcache(UfuncState)
 
-@unwrap_spec(nin=int, nout=int, name=str, doc=str, check_return=int, signature=str)
-def ufunc_from_func_and_data_and_signature(w_funcs, w_data, w_types, nin, nout,
-                w_identity, name, doc, check_return, signature):
+def ufunc_from_func_and_data_and_signature(funcs, data, dtypes, nin, nout,
+                identity, name, doc, check_return, signature):
+    return W_UfuncGeneric(funcs, name, identity, nin, nout, dtypes, signature)
     pass

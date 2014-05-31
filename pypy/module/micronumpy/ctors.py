@@ -3,7 +3,8 @@ from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib.rstring import strip_spaces
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import descriptor, loop
-from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
+from pypy.module.micronumpy.base import convert_to_array
+from pypy.module.micronumpy.ndarray import W_NDimArray # use extended class
 from pypy.module.micronumpy.converters import shape_converter
 
 
