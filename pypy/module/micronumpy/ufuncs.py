@@ -781,4 +781,7 @@ class UfuncState(object):
 def get(space):
     return space.fromcache(UfuncState)
 
-
+@unwrap_spec(nin=int, nout=int, name=str, doc=str, check_return=int, signature=str)
+def ufunc_from_func_and_data_and_signature(w_funcs, w_data, w_types, nin, nout,
+                w_identity, name, doc, check_return, signature):
+    pass

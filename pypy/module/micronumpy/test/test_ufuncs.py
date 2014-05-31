@@ -4,6 +4,69 @@ from pypy.module.micronumpy.ufuncs import (find_binop_result_dtype,
 from pypy.module.micronumpy.descriptor import get_dtype_cache
 
 
+try:
+    import cffi
+    ffi = cffi.FFI()
+    if ffi.sizeof('int *') == ffi.sizeof('long'):
+        intp = 'long'
+    elif ffi.sizeof('int *') == ffi.sizeof('int'):
+        intp = 'int'
+    else:
+        raise ValueError('unknown size of int *')
+    ffi.cdef('''
+        void double_times2(char **args, {0} *dimensions,
+                            {0} * steps, void* data);
+        void int_times2(char **args, {0} **dimensions,
+                            {0} **steps, void* data);
+    '''.format(intp)
+    )
+    cfuncs = ffi.verify('''
+        void double_times2(char **args, {0} *dimensions,
+                            {0} * steps, void* data)
+    {{
+        {0} i;
+        {0} n = dimensions[0];
+        char *in = args[0], *out = args[1];
+        {0} in_step = steps[0], out_step = steps[1];
+
+        double tmp;
+
+        for (i = 0; i < n; i++) {{
+            /*BEGIN main ufunc computation*/
+            tmp = *(double *)in;
+            tmp *=2.0;
+            *((double *)out) = tmp;
+            /*END main ufunc computation*/
+
+            in += in_step;
+            out += out_step;
+        }}
+    }};
+        void int_times2(char **args, {0} *dimensions,
+                            {0} * steps, void* data)
+    {{
+        {0} i;
+        {0} n = dimensions[0];
+        char *in = args[0], *out = args[1];
+        {0} in_step = steps[0], out_step = steps[1];
+
+        int tmp;
+
+        for (i = 0; i < n; i++) {{
+            /*BEGIN main ufunc computation*/
+            tmp = *(int *)in;
+            tmp *=2.0;
+            *((int *)out) = tmp;
+            /*END main ufunc computation*/
+
+            in += in_step;
+            out += out_step;
+        }}
+    }}
+    '''.format(intp))
+except ImportError:
+    cfuncs = None
+
 class TestUfuncCoercion(object):
     def test_binops(self, space):
         bool_dtype = get_dtype_cache(space).w_booldtype
@@ -81,6 +144,25 @@ class TestUfuncCoercion(object):
         # promote bools, happens with sign ufunc
         assert find_unaryop_result_dtype(space, bool_dtype, promote_bools=True) is int8_dtype
 
+class TestUfuncFromCFunc(object):
+    def test_fromcfunc(self,space):
+        if not cfuncs:
+            skip('no cffi available')
+        from pypy.module.micronumpy.ufuncs import ufunc_from_func_and_data_and_signature as from_cfunc
+        from pypy.module.micronumpy.ctors import array
+        int32_dtype = get_dtype_cache(space).w_int32dtype
+        float64_dtype = get_dtype_cache(space).w_float64dtype
+        func = from_cfunc([cfuncs.double_times2, cfuncs.int_times2], None,
+                          [float64_dtype, float64_dtype, int32_dtype, int32_dtype],
+                           1, 1, 0, 'times2', 'times2_doc', 0, '()->()',
+                            )
+        def get(i):
+            return w_result.getitem(space, [i]).value
+        for d in [int32_dtype, float64_dtype]:
+            w_array = array(space, range(10), dtype=d)
+            w_result = func(w_array)
+            for i in 10:
+                assert get(i) == 2*i
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def test_constants(self):
