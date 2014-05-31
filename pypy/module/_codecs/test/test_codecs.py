@@ -760,10 +760,10 @@ class AppTestPartialEvaluation:
         toencode = u'caf\xe9', b'caf\xe9'
         try:
             # test for non-latin1 codepage, more general test needed
-            import _winreg
-            key = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE,
+            import winreg
+            key = winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE,
                         r'System\CurrentControlSet\Control\Nls\CodePage')
-            if _winreg.QueryValueEx(key, 'ACP')[0] == u'1255':  # non-latin1
+            if winreg.QueryValueEx(key, 'ACP')[0] == u'1255':  # non-latin1
                 toencode = u'caf\xbf',b'caf\xbf'
         except:
             assert False, 'cannot test mbcs on this windows system, check code page'

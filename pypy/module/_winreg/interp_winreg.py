@@ -68,7 +68,7 @@ def new_HKEY(space, w_subtype, key):
 descr_HKEY_new = interp2app(new_HKEY)
 
 W_HKEY.typedef = TypeDef(
-    "_winreg.HKEYType",
+    "winreg.HKEYType",
     __doc__ = """\
 PyHKEY Object - A Python object, representing a win32 registry key.
 
@@ -212,7 +212,7 @@ the configuration registry.  This helps the registry perform efficiently.
 The key identified by the key parameter must have been opened with
 KEY_SET_VALUE access."""
     if typ != rwinreg.REG_SZ:
-        errstring = space.wrap("Type must be _winreg.REG_SZ")
+        errstring = space.wrap("Type must be winreg.REG_SZ")
         raise OperationError(space.w_ValueError, errstring)
     hkey = hkey_w(w_hkey, space)
     if space.is_w(w_subkey, space.w_None):

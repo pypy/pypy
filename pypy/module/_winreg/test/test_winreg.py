@@ -3,7 +3,7 @@ from rpython.tool.udir import udir
 import os, sys, py
 
 if sys.platform != 'win32':
-    py.test.skip("_winreg is a win32 module")
+    py.test.skip("winreg is a win32 module")
 
 try:
     # To call SaveKey, the process must have Backup Privileges
