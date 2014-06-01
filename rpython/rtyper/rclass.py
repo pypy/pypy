@@ -28,15 +28,15 @@ class FieldListAccessor(object):
     def __repr__(self):
         return '<FieldListAccessor for %s>' % getattr(self, 'TYPE', '?')
 
-    def _freeze_(self):
-        return True
 
 class ImmutableRanking(object):
     def __init__(self, name, is_immutable):
         self.name = name
         self.is_immutable = is_immutable
+
     def __nonzero__(self):
         return self.is_immutable
+
     def __repr__(self):
         return '<%s>' % self.name
 
