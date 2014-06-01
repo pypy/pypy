@@ -12,6 +12,9 @@ class Buffer(object):
     def getlength(self):
         raise NotImplementedError
 
+    def __len__(self):
+        return self.getlength()
+
     def as_str(self):
         "Returns an interp-level string with the whole content of the buffer."
         # May be overridden.
@@ -21,13 +24,22 @@ class Buffer(object):
         "Returns the index'th character in the buffer."
         raise NotImplementedError   # Must be overriden.  No bounds checks.
 
+    def __getitem__(self, i):
+        return self.getitem(i)
+
     def getslice(self, start, stop, step, size):
         # May be overridden.  No bounds checks.
         return ''.join([self.getitem(i) for i in range(start, stop, step)])
 
+    def __getslice__(self, start, stop):
+        return self.getslice(start, stop, 1, stop - start)
+
     def setitem(self, index, char):
         "Write a character into the buffer."
         raise NotImplementedError   # Must be overriden.  No bounds checks.
+
+    def __setitem__(self, i, char):
+        return self.setitem(i, char)
 
     def setslice(self, start, string):
         # May be overridden.  No bounds checks.

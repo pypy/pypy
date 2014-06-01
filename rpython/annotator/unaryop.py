@@ -683,19 +683,27 @@ class __extend__(SomeInstance):
         if not self.can_be_None:
             s.const = True
 
-    def iter(self):
-        s_iterable = self._true_getattr('__iter__')
+    def _emulate_call(self, meth_name, *args_s):
         bk = getbookkeeper()
+        s_attr = self._true_getattr(meth_name)
         # record for calltables
-        bk.emulate_pbc_call(bk.position_key, s_iterable, [])
-        return s_iterable.call(simple_args([]))
+        bk.emulate_pbc_call(bk.position_key, s_attr, args_s)
+        return s_attr.call(simple_args(args_s))
+
+    def iter(self):
+        return self._emulate_call('__iter__')
 
     def next(self):
-        s_next = self._true_getattr('next')
-        bk = getbookkeeper()
-        # record for calltables
-        bk.emulate_pbc_call(bk.position_key, s_next, [])
-        return s_next.call(simple_args([]))
+        return self._emulate_call('next')
+
+    def len(self):
+        return self._emulate_call('__len__')
+
+    def getslice(self, s_start, s_stop):
+        return self._emulate_call('__getslice__', s_start, s_stop)
+
+    def setslice(self, s_start, s_stop, s_iterable):
+        return self._emulate_call('__setslice__', s_start, s_stop, s_iterable)
 
 class __extend__(SomeBuiltin):
     def simple_call(self, *args):
