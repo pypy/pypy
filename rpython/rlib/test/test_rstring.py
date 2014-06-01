@@ -6,10 +6,17 @@ from rpython.rlib.rstring import search, SEARCH_FIND, SEARCH_RFIND, SEARCH_COUNT
 from rpython.rtyper.test.tool import BaseRtypingTest
 
 def test_split():
-    def check_split(value, *args, **kwargs):
+    def check_split(value, sub, *args, **kwargs):
         result = kwargs['res']
-        assert split(value, *args) == result
-        assert split(list(value), *args) == [list(i) for i in result]
+        assert split(value, sub, *args) == result
+        assert split(value, buffer(sub), *args) == result
+
+        list_result = [list(i) for i in result]
+        assert split(list(value), sub, *args) == list_result
+        assert split(list(value), buffer(sub), *args) == list_result
+
+        assert split(buffer(value), sub, *args) == result
+        assert split(buffer(value), buffer(sub), *args) == result
 
     check_split("", 'x', res=[''])
     check_split("a", "a", 1, res=['', ''])
@@ -39,10 +46,17 @@ def test_split_unicode():
     py.test.raises(ValueError, split, u'abc', u'')
 
 def test_rsplit():
-    def check_rsplit(value, *args, **kwargs):
+    def check_rsplit(value, sub, *args, **kwargs):
         result = kwargs['res']
-        assert rsplit(value, *args) == result
-        assert rsplit(list(value), *args) == [list(i) for i in result]
+        assert rsplit(value, sub, *args) == result
+        assert rsplit(value, buffer(sub), *args) == result
+
+        list_result = [list(i) for i in result]
+        assert rsplit(list(value), sub, *args) == list_result
+        assert rsplit(list(value), buffer(sub), *args) == list_result
+
+        assert rsplit(buffer(value), sub, *args) == result
+        assert rsplit(buffer(value), buffer(sub), *args) == result
 
     check_rsplit("a", "a", 1, res=['', ''])
     check_rsplit(" ", " ", 1, res=['', ''])
@@ -69,10 +83,13 @@ def test_rsplit_unicode():
     py.test.raises(ValueError, rsplit, u"abc", u'')
 
 def test_string_replace():
-    def check_replace(value, *args, **kwargs):
+    def check_replace(value, sub, *args, **kwargs):
         result = kwargs['res']
-        assert replace(value, *args) == result
-        assert replace(list(value), *args) == list(result)
+        assert replace(value, sub, *args) == result
+        assert replace(value, buffer(sub), *args) == result
+
+        assert replace(list(value), sub, *args) == list(result)
+        assert replace(list(value), buffer(sub), *args) == list(result)
         
     check_replace('one!two!three!', '!', '@', 1, res='one@two!three!')
     check_replace('one!two!three!', '!', '', res='onetwothree')
