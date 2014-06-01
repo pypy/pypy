@@ -1,6 +1,6 @@
 import types
 
-from rpython.annotator import description, model as annmodel
+from rpython.annotator import description
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import callparse
@@ -8,8 +8,8 @@ from rpython.rtyper.lltypesystem import rclass, llmemory
 from rpython.rtyper.lltypesystem.lltype import (typeOf, Void, ForwardReference,
     Struct, Bool, Char, Ptr, malloc, nullptr, Array, Signed)
 from rpython.rtyper.rmodel import Repr, inputconst
-from rpython.rtyper.rpbc import (AbstractClassesPBCRepr, AbstractMethodsPBCRepr,
-    OverriddenFunctionPBCRepr, AbstractMultipleFrozenPBCRepr,
+from rpython.rtyper.rpbc import (
+    AbstractClassesPBCRepr, AbstractMultipleFrozenPBCRepr,
     AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr,
     SingleFrozenPBCRepr, get_concrete_calltable)
 from rpython.rtyper.typesystem import getfunctionptr
@@ -302,46 +302,7 @@ class __extend__(pairtype(SmallFunctionSetPBCRepr, SmallFunctionSetPBCRepr)):
         else:
             return v
 
-
-class MethodsPBCRepr(AbstractMethodsPBCRepr):
-    """Representation selected for a PBC of the form {func: classdef...}.
-    It assumes that all the methods come from the same name in a base
-    classdef."""
-
-    def rtype_simple_call(self, hop):
-        return self.redispatch_call(hop, call_args=False)
-
-    def rtype_call_args(self, hop):
-        return self.redispatch_call(hop, call_args=True)
-
-    def redispatch_call(self, hop, call_args):
-        r_class = self.r_im_self.rclass
-        mangled_name, r_func = r_class.clsfields[self.methodname]
-        assert isinstance(r_func, (FunctionsPBCRepr,
-                                   OverriddenFunctionPBCRepr,
-                                   SmallFunctionSetPBCRepr))
-        # s_func = r_func.s_pbc -- not precise enough, see
-        # test_precise_method_call_1.  Build a more precise one...
-        funcdescs = [desc.funcdesc for desc in hop.args_s[0].descriptions]
-        s_func = annmodel.SomePBC(funcdescs, subset_of=r_func.s_pbc)
-        v_im_self = hop.inputarg(self, arg=0)
-        v_cls = self.r_im_self.getfield(v_im_self, '__class__', hop.llops)
-        v_func = r_class.getclsfield(v_cls, self.methodname, hop.llops)
-
-        hop2 = self.add_instance_arg_to_hop(hop, call_args)
-        hop2.v_s_insertfirstarg(v_func, s_func)   # insert 'function'
-
-        if type(hop2.args_r[0]) is SmallFunctionSetPBCRepr and type(r_func) is FunctionsPBCRepr:
-            hop2.args_r[0] = FunctionsPBCRepr(self.rtyper, s_func)
-        else:
-            hop2.args_v[0] = hop2.llops.convertvar(hop2.args_v[0], r_func, hop2.args_r[0])
-
-        # now hop2 looks like simple_call(function, self, args...)
-        return hop2.dispatch()
-
-
 # ____________________________________________________________
-
 
 class ClassesPBCRepr(AbstractClassesPBCRepr):
     """Representation selected for a PBC of class(es)."""
@@ -359,10 +320,10 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
         # "my_instantiate = typeptr.instantiate"
         c_name = hop.inputconst(Void, 'instantiate')
         v_instantiate = hop.genop('getfield', [vtypeptr, c_name],
-                                 resulttype = rclass.OBJECT_VTABLE.instantiate)
+                                 resulttype=rclass.OBJECT_VTABLE.instantiate)
         # "my_instantiate()"
         v_inst = hop.genop('indirect_call', [v_instantiate, c_graphs],
-                           resulttype = rclass.OBJECTPTR)
+                           resulttype=rclass.OBJECTPTR)
         return hop.genop('cast_pointer', [v_inst], resulttype=r_instance)
 
     def getlowleveltype(self):

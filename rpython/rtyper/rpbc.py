@@ -21,8 +21,8 @@ def small_cand(rtyper, s_pbc):
 
 class __extend__(annmodel.SomePBC):
     def rtyper_makerepr(self, rtyper):
-        from rpython.rtyper.lltypesystem.rpbc import (FunctionsPBCRepr,
-            SmallFunctionSetPBCRepr, ClassesPBCRepr, MethodsPBCRepr)
+        from rpython.rtyper.lltypesystem.rpbc import (
+            FunctionsPBCRepr, SmallFunctionSetPBCRepr, ClassesPBCRepr)
         kind = self.getKind()
         if issubclass(kind, description.FunctionDesc):
             sample = self.any_description()
@@ -748,7 +748,7 @@ def adjust_shape(hop2, s_shape):
     s_shape = hop2.rtyper.annotator.bookkeeper.immutablevalue(new_shape)
     hop2.v_s_insertfirstarg(c_shape, s_shape) # reinsert adjusted shape
 
-class AbstractMethodsPBCRepr(Repr):
+class MethodsPBCRepr(Repr):
     """Representation selected for a PBC of MethodDescs.
     It assumes that all the methods come from the same name and have
     been read from instances with a common base."""
@@ -808,6 +808,42 @@ class AbstractMethodsPBCRepr(Repr):
             _, s_shape = hop2.r_s_popfirstarg()
             adjust_shape(hop2, s_shape)
         return hop2
+
+    def rtype_simple_call(self, hop):
+        return self.redispatch_call(hop, call_args=False)
+
+    def rtype_call_args(self, hop):
+        return self.redispatch_call(hop, call_args=True)
+
+    def redispatch_call(self, hop, call_args):
+        from rpython.rtyper.lltypesystem.rpbc import (
+            FunctionsPBCRepr, SmallFunctionSetPBCRepr)
+        r_class = self.r_im_self.rclass
+        mangled_name, r_func = r_class.clsfields[self.methodname]
+        assert isinstance(r_func, (FunctionsPBCRepr,
+                                   OverriddenFunctionPBCRepr,
+                                   SmallFunctionSetPBCRepr))
+        # s_func = r_func.s_pbc -- not precise enough, see
+        # test_precise_method_call_1.  Build a more precise one...
+        funcdescs = [desc.funcdesc for desc in hop.args_s[0].descriptions]
+        s_func = annmodel.SomePBC(funcdescs, subset_of=r_func.s_pbc)
+        v_im_self = hop.inputarg(self, arg=0)
+        v_cls = self.r_im_self.getfield(v_im_self, '__class__', hop.llops)
+        v_func = r_class.getclsfield(v_cls, self.methodname, hop.llops)
+
+        hop2 = self.add_instance_arg_to_hop(hop, call_args)
+        hop2.v_s_insertfirstarg(v_func, s_func)   # insert 'function'
+
+        if (type(hop2.args_r[0]) is SmallFunctionSetPBCRepr and
+                type(r_func) is FunctionsPBCRepr):
+            hop2.args_r[0] = FunctionsPBCRepr(self.rtyper, s_func)
+        else:
+            hop2.args_v[0] = hop2.llops.convertvar(
+                hop2.args_v[0], r_func, hop2.args_r[0])
+
+        # now hop2 looks like simple_call(function, self, args...)
+        return hop2.dispatch()
+
 # ____________________________________________________________
 
 def samesig(funcs):
