@@ -588,7 +588,7 @@ class InstanceRepr(AbstractInstanceRepr):
         # Two choices: the first gives a fast answer but it can change
         # (typically only once) during the life of the object.
         #uid = r_uint(cast_ptr_to_int(i))
-        uid = llop.gc_id(lltype.Signed, i)
+        uid = r_uint(llop.gc_id(lltype.Signed, i))
         #
         nameLen = len(instance.typeptr.name)
         nameString = rstr.mallocstr(nameLen-1)
