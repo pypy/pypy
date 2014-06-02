@@ -13,7 +13,9 @@ class Buffer(object):
         raise NotImplementedError
 
     def __len__(self):
-        return self.getlength()
+        res = self.getlength()
+        assert res >= 0
+        return res
 
     def as_str(self):
         "Returns an interp-level string with the whole content of the buffer."
