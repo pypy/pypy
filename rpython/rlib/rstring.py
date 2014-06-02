@@ -16,29 +16,6 @@ from rpython.tool.pairtype import pairtype
 
 # -------------- public API for string functions -----------------------
 
-@specialize.argtype(0, 1)
-def _get_access_functions(value, other):
-    if (not (isinstance(value, str) or isinstance(value, unicode)) or
-        not (isinstance(other, str) or isinstance(other, unicode))):
-
-        def find(obj, other, start, end):
-            return search(obj, other, start, end, SEARCH_FIND)
-        def rfind(obj, other, start, end):
-            return search(obj, other, start, end, SEARCH_RFIND)
-        def count(obj, other, start, end):
-            return search(obj, other, start, end, SEARCH_COUNT)
-    else:
-        assert isinstance(value, str) or isinstance(value, unicode)
-        assert isinstance(other, str) or isinstance(other, unicode)
-        def find(obj, other, start, end):
-            return obj.find(other, start, end)
-        def rfind(obj, other, start, end):
-            return obj.rfind(other, start, end)
-        def count(obj, other, start, end):
-            return obj.count(other, start, end)
-
-    return find, rfind, count
-
 @specialize.argtype(0)
 def _isspace(char):
     if isinstance(char, str):
@@ -79,7 +56,6 @@ def split(value, by=None, maxsplit=-1):
             i = j + 1
         return res
 
-    find, _, count = _get_access_functions(value, by)
     bylen = len(by)
     if bylen == 0:
         raise ValueError("empty separator")
@@ -88,16 +64,16 @@ def split(value, by=None, maxsplit=-1):
     if bylen == 1:
         # fast path: uses str.rfind(character) and str.count(character)
         by = by[0]    # annotator hack: string -> char
-        count = count(value, by, 0, len(value))
-        if 0 <= maxsplit < count:
-            count = maxsplit
-        res = newlist_hint(count + 1)
-        while count > 0:
+        cnt = count(value, by, 0, len(value))
+        if 0 <= maxsplit < cnt:
+            cnt = maxsplit
+        res = newlist_hint(cnt + 1)
+        while cnt > 0:
             next = find(value, by, start, len(value))
             assert next >= 0 # cannot fail due to the value.count above
             res.append(value[start:next])
             start = next + bylen
-            count -= 1
+            cnt -= 1
         res.append(value[start:len(value)])
         return res
 
@@ -110,6 +86,7 @@ def split(value, by=None, maxsplit=-1):
         next = find(value, by, start, len(value))
         if next < 0:
             break
+        assert start >= 0
         res.append(value[start:next])
         start = next + bylen
         maxsplit -= 1   # NB. if it's already < 0, it stays < 0
@@ -158,7 +135,6 @@ def rsplit(value, by=None, maxsplit=-1):
         res = newlist_hint(min(maxsplit + 1, len(value)))
     else:
         res = []
-    _, rfind, _ = _get_access_functions(value, by)
     end = len(value)
     bylen = len(by)
     if bylen == 0:
@@ -190,7 +166,6 @@ def replace(input, sub, by, maxsplit=-1):
     if maxsplit == 0:
         return input
 
-    find, _, count = _get_access_functions(input, sub)
 
     if not sub:
         upper = len(input)
@@ -214,12 +189,12 @@ def replace(input, sub, by, maxsplit=-1):
         builder.append_slice(input, upper, len(input))
     else:
         # First compute the exact result size
-        count = count(input, sub, 0, len(input))
-        if count > maxsplit and maxsplit > 0:
-            count = maxsplit
+        cnt = count(input, sub, 0, len(input))
+        if cnt > maxsplit and maxsplit > 0:
+            cnt = maxsplit
         diff_len = len(by) - len(sub)
         try:
-            result_size = ovfcheck(diff_len * count)
+            result_size = ovfcheck(diff_len * cnt)
             result_size = ovfcheck(result_size + len(input))
         except OverflowError:
             raise
@@ -280,8 +255,28 @@ def endswith(u_self, suffix, start=0, end=sys.maxint):
             return False
     return True
 
-# Stolen form rpython.rtyper.lltypesytem.rstr
-# TODO: Ask about what to do with this...
+@specialize.argtype(0, 1)
+def find(value, other, start, end):
+    if ((isinstance(value, str) or isinstance(value, unicode)) and
+        (isinstance(other, str) or isinstance(other, unicode))):
+        return value.find(other, start, end)
+    return _search(value, other, start, end, SEARCH_FIND)
+
+@specialize.argtype(0, 1)
+def rfind(value, other, start, end):
+    if ((isinstance(value, str) or isinstance(value, unicode)) and
+        (isinstance(other, str) or isinstance(other, unicode))):
+        return value.rfind(other, start, end)
+    return _search(value, other, start, end, SEARCH_RFIND)
+
+@specialize.argtype(0, 1)
+def count(value, other, start, end):
+    if ((isinstance(value, str) or isinstance(value, unicode)) and
+        (isinstance(other, str) or isinstance(other, unicode))):
+        return value.count(other, start, end)
+    return _search(value, other, start, end, SEARCH_COUNT)
+
+# -------------- substring searching helper ----------------
 
 SEARCH_COUNT = 0
 SEARCH_FIND = 1
@@ -294,7 +289,7 @@ def bloom(mask, c):
     return mask & (1 << (ord(c) & (BLOOM_WIDTH - 1)))
 
 @specialize.argtype(0, 1)
-def search(value, other, start, end, mode):
+def _search(value, other, start, end, mode):
     if start < 0:
         start = 0
     if end > len(value):

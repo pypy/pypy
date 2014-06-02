@@ -2,7 +2,8 @@ import sys, py
 
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
 from rpython.rlib.rstring import replace, startswith, endswith
-from rpython.rlib.rstring import search, SEARCH_FIND, SEARCH_RFIND, SEARCH_COUNT
+from rpython.rlib.rstring import find, rfind, count
+from rpython.rlib.buffer import StringBuffer
 from rpython.rtyper.test.tool import BaseRtypingTest
 
 def test_split():
@@ -216,22 +217,22 @@ def test_unicode_builder():
     assert isinstance(s.build(), unicode)
 
 def test_search():
-    def check_search(value, sub, *args, **kwargs):
+    def check_search(func, value, sub, *args, **kwargs):
         result = kwargs['res']
-        assert search(value, sub, *args) == result
-        assert search(list(value), sub, *args) == result
+        assert func(value, sub, *args) == result
+        assert func(list(value), sub, *args) == result
 
-    check_search('one two three', 'ne', 0, 13, SEARCH_FIND, res=1)
-    check_search('one two three', 'ne', 5, 13, SEARCH_FIND, res=-1)
-    check_search('one two three', '', 0, 13, SEARCH_FIND, res=0)
+    check_search(find, 'one two three', 'ne', 0, 13, res=1)
+    check_search(find, 'one two three', 'ne', 5, 13, res=-1)
+    check_search(find, 'one two three', '', 0, 13, res=0)
 
-    check_search('one two three', 'e', 0, 13, SEARCH_RFIND, res=12)
-    check_search('one two three', 'e', 0, 1, SEARCH_RFIND, res=-1)
-    check_search('one two three', '', 0, 13, SEARCH_RFIND, res=13)
+    check_search(rfind, 'one two three', 'e', 0, 13, res=12)
+    check_search(rfind, 'one two three', 'e', 0, 1, res=-1)
+    check_search(rfind, 'one two three', '', 0, 13, res=13)
 
-    check_search('one two three', 'e', 0, 13, SEARCH_COUNT, res=3)
-    check_search('one two three', 'e', 0, 1, SEARCH_COUNT, res=0)
-    check_search('one two three', '', 0, 13, SEARCH_RFIND, res=13)
+    check_search(count, 'one two three', 'e', 0, 13, res=3)
+    check_search(count, 'one two three', 'e', 0, 1, res=0)
+    check_search(count, 'one two three', '', 0, 13, res=14)
 
 
 class TestTranslates(BaseRtypingTest):
@@ -251,6 +252,20 @@ class TestTranslates(BaseRtypingTest):
             return res
         res = self.interpret(fn, [])
         assert res
+
+    def test_buffer_parameter(self):
+        def fn():
+            res = True
+            res = res and split('a//b//c//d', StringBuffer('//')) == ['a', 'b', 'c', 'd']
+            res = res and split(u'a//b//c//d', StringBuffer('//')) == ['a', 'b', 'c', 'd']
+            res = res and rsplit('a//b//c//d', StringBuffer('//')) == ['a', 'b', 'c', 'd']
+            res = res and find('a//b//c//d', StringBuffer('//'), 0, 10) != -1
+            res = res and rfind('a//b//c//d', StringBuffer('//'), 0, 10) != -1
+            res = res and count('a//b//c//d', StringBuffer('//'), 0, 10) != 0
+            return res
+        res = self.interpret(fn, [])
+        assert res
+
 
     def test_replace(self):
         def fn():
