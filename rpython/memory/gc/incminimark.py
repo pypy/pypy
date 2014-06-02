@@ -1630,6 +1630,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 (size_gc_header + self.get_size(obj))
         #
         # clean up a bit more after the last pinned object
+        llarena.arena_reset(prev, self.nursery_real_top - prev, 0)
         llarena.arena_reset(prev, self.initial_cleanup, 2)
         nursery_barriers.append(prev + self.initial_cleanup)
         #
