@@ -21,9 +21,6 @@ corresponding Unix manual entries for more information on calls."""
     if os.name == 'nt':
         del appleveldefs['urandom'] # at interp on win32
         appleveldefs.update({
-            'popen2': 'app_posix.popen2',
-            'popen3': 'app_posix.popen3',
-            'popen4': 'app_posix.popen4',
             'startfile': 'app_startfile.startfile',
         })
 
