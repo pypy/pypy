@@ -4,8 +4,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize, newlist_hint
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rstring import (
-    search, SEARCH_FIND, SEARCH_RFIND, SEARCH_COUNT, endswith, replace, rsplit,
-    split, startswith)
+    find, rfind, count, endswith, replace, rsplit, split, startswith)
 from rpython.rlib.buffer import Buffer
 
 from pypy.interpreter.error import OperationError, oefmt
@@ -46,8 +45,14 @@ class StringMethods(object):
             other = self._op_val(space, w_sub)
             return space.newbool(value.find(other) >= 0)
 
-        buffer = _get_buffer(space, w_sub)
-        res = search(value, buffer, 0, len(value), SEARCH_FIND)
+        from pypy.objspace.std.bytesobject import W_BytesObject
+        if isinstance(w_sub, W_BytesObject):
+            other = self._op_val(space, w_sub)
+            res = find(value, other, 0, len(value))
+        else:
+            buffer = _get_buffer(space, w_sub)
+            res = find(value, buffer, 0, len(value))
+
         return space.newbool(res >= 0)
 
     def descr_add(self, space, w_other):
@@ -149,8 +154,16 @@ class StringMethods(object):
             return space.newint(value.count(self._op_val(space, w_sub), start,
                                             end))
 
-        buffer = _get_buffer(space, w_sub)
-        res = search(value, buffer, start, end, SEARCH_COUNT)
+        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
+        from pypy.objspace.std.bytesobject import W_BytesObject
+        if isinstance(w_sub, W_BytearrayObject):
+            res = count(value, w_sub.data, start, end)
+        elif isinstance(w_sub, W_BytesObject):
+            res = count(value, w_sub._value, start, end)
+        else:
+            buffer = _get_buffer(space, w_sub)
+            res = count(value, buffer, start, end)
+
         return space.wrap(max(res, 0))
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
@@ -226,8 +239,16 @@ class StringMethods(object):
             res = value.find(self._op_val(space, w_sub), start, end)
             return space.wrap(res)
 
-        buffer = _get_buffer(space, w_sub)
-        res = search(value, buffer, start, end, SEARCH_FIND)
+        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
+        from pypy.objspace.std.bytesobject import W_BytesObject
+        if isinstance(w_sub, W_BytearrayObject):
+            res = find(value, w_sub.data, start, end)
+        elif isinstance(w_sub, W_BytesObject):
+            res = find(value, w_sub._value, start, end)
+        else:
+            buffer = _get_buffer(space, w_sub)
+            res = find(value, buffer, start, end)
+
         return space.wrap(res)
 
     def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
@@ -237,18 +258,32 @@ class StringMethods(object):
             res = value.rfind(self._op_val(space, w_sub), start, end)
             return space.wrap(res)
 
-        buffer = _get_buffer(space, w_sub)
-        res = search(value, buffer, start, end, SEARCH_RFIND)
+        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
+        from pypy.objspace.std.bytesobject import W_BytesObject
+        if isinstance(w_sub, W_BytearrayObject):
+            res = rfind(value, w_sub.data, start, end)
+        elif isinstance(w_sub, W_BytesObject):
+            res = rfind(value, w_sub._value, start, end)
+        else:
+            buffer = _get_buffer(space, w_sub)
+            res = rfind(value, buffer, start, end)
+
         return space.wrap(res)
 
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
 
+        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
+        from pypy.objspace.std.bytesobject import W_BytesObject
         if self._use_rstr_ops(space, w_sub):
             res = value.find(self._op_val(space, w_sub), start, end)
+        elif isinstance(w_sub, W_BytearrayObject):
+            res = find(value, w_sub.data, start, end)
+        elif isinstance(w_sub, W_BytesObject):
+            res = find(value, w_sub._value, start, end)
         else:
             buffer = _get_buffer(space, w_sub)
-            res = search(value, buffer, start, end, SEARCH_FIND)
+            res = find(value, buffer, start, end)
 
         if res < 0:
             raise oefmt(space.w_ValueError,
@@ -258,11 +293,17 @@ class StringMethods(object):
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
 
+        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
+        from pypy.objspace.std.bytesobject import W_BytesObject
         if self._use_rstr_ops(space, w_sub):
             res = value.rfind(self._op_val(space, w_sub), start, end)
+        elif isinstance(w_sub, W_BytearrayObject):
+            res = rfind(value, w_sub.data, start, end)
+        elif isinstance(w_sub, W_BytesObject):
+            res = rfind(value, w_sub._value, start, end)
         else:
             buffer = _get_buffer(space, w_sub)
-            res = search(value, buffer, start, end, SEARCH_RFIND)
+            res = rfind(value, buffer, start, end)
 
         if res < 0:
             raise oefmt(space.w_ValueError,
@@ -456,7 +497,7 @@ class StringMethods(object):
             if sublen == 0:
                 raise oefmt(space.w_ValueError, "empty separator")
 
-            pos = search(value, sub, 0, len(value), SEARCH_FIND)
+            pos = find(value, sub, 0, len(value))
             if pos != -1 and isinstance(self, W_BytearrayObject):
                 w_sub = self._new_from_buffer(sub)
 
@@ -486,7 +527,7 @@ class StringMethods(object):
             if sublen == 0:
                 raise oefmt(space.w_ValueError, "empty separator")
 
-            pos = search(value, sub, 0, len(value), SEARCH_RFIND)
+            pos = rfind(value, sub, 0, len(value))
             if pos != -1 and isinstance(self, W_BytearrayObject):
                 w_sub = self._new_from_buffer(sub)
 
@@ -502,12 +543,14 @@ class StringMethods(object):
     @unwrap_spec(count=int)
     def descr_replace(self, space, w_old, w_new, count=-1):
         input = self._val(space)
+
         sub = self._op_val(space, w_old)
         by = self._op_val(space, w_new)
         try:
             res = replace(input, sub, by, count)
         except OverflowError:
             raise oefmt(space.w_OverflowError, "replace string is too long")
+
         return self._new(res)
 
     @unwrap_spec(maxsplit=int)
@@ -518,11 +561,17 @@ class StringMethods(object):
             res = split(value, maxsplit=maxsplit)
             return self._newlist_unwrapped(space, res)
 
-        by = self._op_val(space, w_sep)
-        bylen = len(by)
-        if bylen == 0:
-            raise oefmt(space.w_ValueError, "empty separator")
-        res = split(value, by, maxsplit)
+        if self._use_rstr_ops(space, w_sep):
+            by = self._op_val(space, w_sep)
+            if len(by) == 0:
+                raise oefmt(space.w_ValueError, "empty separator")
+            res = split(value, by, maxsplit)
+        else:
+            by = _get_buffer(space, w_sep)
+            if len(by) == 0:
+                raise oefmt(space.w_ValueError, "empty separator")
+            res = split(value, by, maxsplit)
+
         return self._newlist_unwrapped(space, res)
 
     @unwrap_spec(maxsplit=int)
@@ -533,11 +582,17 @@ class StringMethods(object):
             res = rsplit(value, maxsplit=maxsplit)
             return self._newlist_unwrapped(space, res)
 
-        by = self._op_val(space, w_sep)
-        bylen = len(by)
-        if bylen == 0:
-            raise oefmt(space.w_ValueError, "empty separator")
-        res = rsplit(value, by, maxsplit)
+        if self._use_rstr_ops(space, w_sep):
+            by = self._op_val(space, w_sep)
+            if len(by) == 0:
+                raise oefmt(space.w_ValueError, "empty separator")
+            res = rsplit(value, by, maxsplit)
+        else:
+            by = _get_buffer(space, w_sep)
+            if len(by) == 0:
+                raise oefmt(space.w_ValueError, "empty separator")
+            res = rsplit(value, by, maxsplit)
+
         return self._newlist_unwrapped(space, res)
 
     @unwrap_spec(keepends=bool)
@@ -574,7 +629,10 @@ class StringMethods(object):
                                               end))
 
     def _startswith(self, space, value, w_prefix, start, end):
-        return startswith(value, self._op_val(space, w_prefix), start, end)
+        if self._use_rstr_ops(space, w_prefix):
+            return startswith(value, self._op_val(space, w_prefix), start, end)
+        else:
+            return startswith(value, _get_buffer(space, w_prefix), start, end)
 
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end,
@@ -588,7 +646,10 @@ class StringMethods(object):
                                             end))
 
     def _endswith(self, space, value, w_prefix, start, end):
-        return endswith(value, self._op_val(space, w_prefix), start, end)
+        if self._use_rstr_ops(space, w_prefix):
+            return endswith(value, self._op_val(space, w_prefix), start, end)
+        else:
+            return endswith(value, _get_buffer(space, w_prefix), start, end)
 
     def _strip(self, space, w_chars, left, right):
         "internal function called by str_xstrip methods"

@@ -12,6 +12,7 @@ from pypy.interpreter.signature import Signature
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
+from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.util import get_positive_index
 
 NON_HEX_MSG = "non-hexadecimal number found in fromhex() arg at position %d"
@@ -43,8 +44,7 @@ class W_BytearrayObject(W_Root):
         return W_BytearrayObject(value)
 
     def _new_from_buffer(self, buffer):
-        length = buffer.getlength()
-        return W_BytearrayObject([buffer.getitem(i) for i in range(length)])
+        return W_BytearrayObject([buffer[i] for i in range(len(buffer))])
 
     def _new_from_list(self, value):
         return W_BytearrayObject(value)
@@ -313,61 +313,52 @@ class W_BytearrayObject(W_Root):
         min_length = min(len(value), buffer_len)
         return space.newbool(_memcmp(value, buffer, min_length) != 0)
 
-    def descr_lt(self, space, w_other):
-        try:
-            buffer = _get_buffer(space, w_other)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-            raise
-
+    def _comparison_helper(self, space, w_other):
         value = self._val(space)
-        buffer_len = buffer.getlength()
 
-        cmp = _memcmp(value, buffer, min(len(value), buffer_len))
-        return space.newbool(cmp < 0 or (cmp == 0 and len(value) < buffer_len))
+        if isinstance(w_other, W_BytearrayObject):
+            other = w_other.data
+            other_len = len(other)
+            cmp = _memcmp(value, other, min(len(value), len(other)))
+        elif isinstance(w_other, W_BytesObject):
+            other = self._op_val(space, w_other)
+            other_len = len(other)
+            cmp = _memcmp(value, other, min(len(value), len(other)))
+        else:
+            try:
+                buffer = _get_buffer(space, w_other)
+            except OperationError as e:
+                if e.match(space, space.w_TypeError):
+                    return False, 0, 0
+                raise
+            other_len = len(buffer)
+            cmp = _memcmp(value, buffer, min(len(value), len(buffer)))
+
+        return True, cmp, other_len
+
+    def descr_lt(self, space, w_other):
+        success, cmp, other_len = self._comparison_helper(space, w_other)
+        if not success:
+            return space.w_NotImplemented
+        return space.newbool(cmp < 0 or (cmp == 0 and self._len() < other_len))
 
     def descr_le(self, space, w_other):
-        try:
-            buffer = _get_buffer(space, w_other)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-            raise
-
-        value = self._val(space)
-        buffer_len = buffer.getlength()
-
-        cmp = _memcmp(value, buffer, min(len(value), buffer_len))
-        return space.newbool(cmp < 0 or (cmp == 0 and len(value) <= buffer_len))
+        success, cmp, other_len = self._comparison_helper(space, w_other)
+        if not success:
+            return space.w_NotImplemented
+        return space.newbool(cmp < 0 or (cmp == 0 and self._len() <= other_len))
 
     def descr_gt(self, space, w_other):
-        try:
-            buffer = _get_buffer(space, w_other)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-            raise
-
-        value = self._val(space)
-        buffer_len = buffer.getlength()
-
-        cmp = _memcmp(value, buffer, min(len(value), buffer_len))
-        return space.newbool(cmp > 0 or (cmp == 0 and len(value) > buffer_len))
+        success, cmp, other_len = self._comparison_helper(space, w_other)
+        if not success:
+            return space.w_NotImplemented
+        return space.newbool(cmp > 0 or (cmp == 0 and self._len() > other_len))
 
     def descr_ge(self, space, w_other):
-        try:
-            buffer = _get_buffer(space, w_other)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-            raise
-
-        value = self._val(space)
-        buffer_len = buffer.getlength()
-
-        cmp = _memcmp(value, buffer, min(len(value), buffer_len))
-        return space.newbool(cmp > 0 or (cmp == 0 and len(value) >= buffer_len))
+        success, cmp, other_len = self._comparison_helper(space, w_other)
+        if not success:
+            return space.w_NotImplemented
+        return space.newbool(cmp > 0 or (cmp == 0 and self._len() >= other_len))
 
     def descr_iter(self, space):
         return space.newseqiter(self)
@@ -377,10 +368,16 @@ class W_BytearrayObject(W_Root):
             self.data += w_other.data
             return self
 
-        buffer = _get_buffer(space, w_other)
-        for i in range(buffer.getlength()):
-            self.data.append(buffer.getitem(i))
+        if isinstance(w_other, W_BytesObject):
+            self._inplace_add(self._op_val(space, w_other))
+        else:
+            self._inplace_add(_get_buffer(space, w_other))
         return self
+
+    @specialize.argtype(1)
+    def _inplace_add(self, other):
+        for i in range(len(other)):
+            self.data.append(other[i])
 
     def descr_inplace_mul(self, space, w_times):
         try:
@@ -469,18 +466,20 @@ class W_BytearrayObject(W_Root):
         if isinstance(w_other, W_BytearrayObject):
             return self._new(self.data + w_other.data)
 
+        if isinstance(w_other, W_BytesObject):
+            return self._add(self._op_val(space, w_other))
+
         try:
             buffer = _get_buffer(space, w_other)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
+        return self._add(buffer)
 
-        buffer_len = buffer.getlength()
-        data = list(self.data + ['\0'] * buffer_len)
-        for i in range(buffer_len):
-            data[len(self.data) + i] = buffer.getitem(i)
-        return self._new(data)
+    @specialize.argtype(1)
+    def _add(self, other):
+        return self._new(self.data + [other[i] for i in range(len(other))])
 
     def descr_reverse(self, space):
         self.data.reverse()
@@ -1232,11 +1231,11 @@ class BytearrayBuffer(Buffer):
         self.data[index] = char
 
 
-@specialize.argtype(0)
+@specialize.argtype(1)
 def _memcmp(selfvalue, buffer, length):
     for i in range(length):
-        if selfvalue[i] < buffer.getitem(i):
+        if selfvalue[i] < buffer[i]:
             return -1
-        if selfvalue[i] > buffer.getitem(i):
+        if selfvalue[i] > buffer[i]:
             return 1
     return 0
