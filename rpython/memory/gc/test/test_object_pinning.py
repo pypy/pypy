@@ -3,9 +3,6 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, llarena
 from rpython.memory.gc.incminimark import IncrementalMiniMarkGC, WORD
 from test_direct import BaseDirectGCTest
 
-# YYY
-from rpython.rlib.debug import debug_print
-
 S = lltype.GcForwardReference()
 S.become(lltype.GcStruct('pinning_test_struct',
                          ('someInt', lltype.Signed),

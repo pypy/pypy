@@ -692,7 +692,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             "nursery_cleanup not a divisor of nursery_size - initial_cleanup")
         ll_assert(llmemory.raw_malloc_usage(totalsize) <= size,
             "totalsize > nursery_cleanup")
-        debug_print("resetting from %r to %r" % (self.nursery_top, self.nursery_top + size))
         llarena.arena_reset(self.nursery_top, size, 2)
         self.nursery_top += size
     move_nursery_top._always_inline_ = True
