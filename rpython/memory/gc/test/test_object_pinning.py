@@ -1,7 +1,10 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena
-from rpython.memory.gc.incminimark import IncrementalMiniMarkGC
+from rpython.memory.gc.incminimark import IncrementalMiniMarkGC, WORD
 from test_direct import BaseDirectGCTest
+
+# YYY
+from rpython.rlib.debug import debug_print
 
 S = lltype.GcForwardReference()
 S.become(lltype.GcStruct('pinning_test_struct',
@@ -148,31 +151,224 @@ class TestIncminimark(PinningGCTest):
         adr = llmemory.cast_ptr_to_adr(self.stackroots[0])
         assert not self.gc.is_in_nursery(adr)
 
-    def test_pin_shadow_3(self):
-        ptr = self.malloc(S)
-        adr = llmemory.cast_ptr_to_adr(ptr)
-        ptr.someInt = 100 # not used, just nice to have for identification
-        self.stackroots.append(ptr)
-        self.gc.id(ptr) # allocate shadow
+    def test_pin_nursery_top_scenario1(self):
+        ptr1 = self.malloc(S)
+        adr1 = llmemory.cast_ptr_to_adr(ptr1)
+        ptr1.someInt = 101
+        self.stackroots.append(ptr1)
+        assert self.gc.pin(adr1)
+        
+        ptr2 = self.malloc(S)
+        adr2 = llmemory.cast_ptr_to_adr(ptr2)
+        ptr2.someInt = 102
+        self.stackroots.append(ptr2)
+        assert self.gc.pin(adr2)
 
-        assert self.gc.pin(adr)
-        self.gc.minor_collection() # object stays in nursery
-        assert self.gc.is_in_nursery(adr)
+        ptr3 = self.malloc(S)
+        adr3 = llmemory.cast_ptr_to_adr(ptr3)
+        ptr3.someInt = 103
+        self.stackroots.append(ptr3)
+        assert self.gc.pin(adr3)
 
-        self.gc.unpin(adr)
-        # we still have a pinned object at the beginning. There is no space left
-        # to malloc an object before the pinned one.
-        assert self.gc.is_in_nursery(adr)
-        assert self.gc.nursery_free == self.gc.nursery
-        assert self.gc.nursery_top == self.gc.nursery
+        # scenario: no minor collection happened, only three mallocs
+        # and pins
+        #
+        # +- nursery                           nursery_real_top -+
+        # |                                                      |
+        # v                                                      v
+        # +--------+--------+--------+---------------------...---+
+        # | pinned | pinned | pinned | empty                     |
+        # +--------+--------+--------+---------------------...---+
+        #                            ^                           ^
+        #                            |                           |
+        #              nursery_free -+                           |
+        #                                           nursery_top -+
+        #
+        assert adr3 < self.gc.nursery_free
+        assert self.gc.nursery_free < self.gc.nursery_top
+        assert self.gc.nursery_top == self.gc.nursery_real_top
 
+    def test_pin_nursery_top_scenario2(self):
+        ptr1 = self.malloc(S)
+        adr1 = llmemory.cast_ptr_to_adr(ptr1)
+        ptr1.someInt = 101
+        self.stackroots.append(ptr1)
+        assert self.gc.pin(adr1)
+        
+        ptr2 = self.malloc(S)
+        adr2 = llmemory.cast_ptr_to_adr(ptr2)
+        ptr2.someInt = 102
+        self.stackroots.append(ptr2)
+        assert self.gc.pin(adr2)
+
+        ptr3 = self.malloc(S)
+        adr3 = llmemory.cast_ptr_to_adr(ptr3)
+        ptr3.someInt = 103
+        self.stackroots.append(ptr3)
+        assert self.gc.pin(adr3)
+
+        # scenario: after first GC minor collection
+        #
+        # +- nursery                           nursery_real_top -+
+        # |                                                      |
+        # v                                                      v
+        # +--------+--------+--------+---------------------...---+
+        # | pinned | pinned | pinned | empty                     |
+        # +--------+--------+--------+---------------------...---+
+        # ^
+        # |
+        # +- nursery_free
+        # +- nursery_top
+        #
         self.gc.minor_collection()
-        # we don't have a pinned object any more.  There is now space left at
-        # the beginning of our nursery for new objects.
-        adr = llmemory.cast_ptr_to_adr(self.stackroots[0])
-        assert not self.gc.is_in_nursery(adr)
+
+        assert self.gc.nursery_free == self.gc.nursery_top
+        assert self.gc.nursery_top == self.gc.nursery
+        assert self.gc.nursery_top < adr3
+        assert adr3 < self.gc.nursery_real_top
+
+    def test_pin_nursery_top_scenario3(self):
+        ptr1 = self.malloc(S)
+        adr1 = llmemory.cast_ptr_to_adr(ptr1)
+        ptr1.someInt = 101
+        self.stackroots.append(ptr1)
+        assert self.gc.pin(adr1)
+        
+        ptr2 = self.malloc(S)
+        adr2 = llmemory.cast_ptr_to_adr(ptr2)
+        ptr2.someInt = 102
+        self.stackroots.append(ptr2)
+        assert self.gc.pin(adr2)
+
+        ptr3 = self.malloc(S)
+        adr3 = llmemory.cast_ptr_to_adr(ptr3)
+        ptr3.someInt = 103
+        self.stackroots.append(ptr3)
+        assert self.gc.pin(adr3)
+
+        # scenario: after unpinning first object and a minor
+        # collection
+        #
+        # +- nursery                           nursery_real_top -+
+        # |                                                      |
+        # v                                                      v
+        # +--------+--------+--------+---------------------...---+
+        # | empty  | pinned | pinned | empty                     |
+        # +--------+--------+--------+---------------------...---+
+        # ^        ^
+        # |        |
+        # |        +- nursery_top
+        # +- nursery_free
+        #
+        self.gc.unpin(adr1)
+        self.gc.minor_collection()
+
         assert self.gc.nursery_free == self.gc.nursery
-        assert self.gc.nursery_top > self.gc.nursery
+        assert self.gc.nursery_top > self.gc.nursery_free
+        assert self.gc.nursery_top < adr2
+        assert adr3 < self.gc.nursery_real_top
+
+    def test_pin_nursery_top_scenario4(self):
+        ptr1 = self.malloc(S)
+        adr1 = llmemory.cast_ptr_to_adr(ptr1)
+        ptr1.someInt = 101
+        self.stackroots.append(ptr1)
+        assert self.gc.pin(adr1)
+        
+        ptr2 = self.malloc(S)
+        adr2 = llmemory.cast_ptr_to_adr(ptr2)
+        ptr2.someInt = 102
+        self.stackroots.append(ptr2)
+        assert self.gc.pin(adr2)
+
+        ptr3 = self.malloc(S)
+        adr3 = llmemory.cast_ptr_to_adr(ptr3)
+        ptr3.someInt = 103
+        self.stackroots.append(ptr3)
+        assert self.gc.pin(adr3)
+
+        # scenario: after unpinning first & second object and a minor
+        # collection
+        #
+        # +- nursery                           nursery_real_top -+
+        # |                                                      |
+        # v                                                      v
+        # +-----------------+--------+---------------------...---+
+        # | empty           | pinned | empty                     |
+        # +-----------------+--------+---------------------...---+
+        # ^                 ^
+        # |                 |
+        # |                 +- nursery_top
+        # +- nursery_free
+        #
+        self.gc.unpin(adr1)
+        self.gc.unpin(adr2)
+        self.gc.minor_collection()
+
+        assert self.gc.nursery_free == self.gc.nursery
+        assert self.gc.nursery_free < self.gc.nursery_top
+        assert self.gc.nursery_top < adr3
+        assert adr3 < self.gc.nursery_real_top
+        
+    def test_pin_nursery_top_scenario5(self):
+        ptr1 = self.malloc(S)
+        adr1 = llmemory.cast_ptr_to_adr(ptr1)
+        ptr1.someInt = 101
+        self.stackroots.append(ptr1)
+        assert self.gc.pin(adr1)
+        
+        ptr2 = self.malloc(S)
+        adr2 = llmemory.cast_ptr_to_adr(ptr2)
+        ptr2.someInt = 102
+        self.stackroots.append(ptr2)
+        assert self.gc.pin(adr2)
+
+        ptr3 = self.malloc(S)
+        adr3 = llmemory.cast_ptr_to_adr(ptr3)
+        ptr3.someInt = 103
+        self.stackroots.append(ptr3)
+        assert self.gc.pin(adr3)
+
+        # scenario: no minor collection happened, only three mallocs
+        # and pins
+        #
+        # +- nursery                           nursery_real_top -+
+        # |                                                      |
+        # v                                                      v
+        # +--------+--------+--------+---------------------...---+
+        # | pinned | pinned | pinned | empty                     |
+        # +--------+--------+--------+---------------------...---+
+        #                            ^                           ^
+        #                            |                           |
+        #              nursery_free -+                           |
+        #                                           nursery_top -+
+        #
+        assert adr3 < self.gc.nursery_free
+        assert self.gc.nursery_free < self.gc.nursery_top
+        assert self.gc.nursery_top == self.gc.nursery_real_top
+
+        # scenario: unpin everything and minor collection
+        #
+        # +- nursery                           nursery_real_top -+
+        # |                                                      |
+        # v                                                      v
+        # +----------------------------------+-------------...---+
+        # | reset arena                      | empty (not reset) |
+        # +----------------------------------+-------------...---+
+        # ^                                  ^
+        # |                                  |
+        # +- nursery_free                    |
+        #                       nursery_top -+
+        #
+        self.gc.unpin(adr1)
+        self.gc.unpin(adr2)
+        self.gc.unpin(adr3)
+        self.gc.minor_collection()
+
+        assert self.gc.nursery_free == self.gc.nursery
+        # the following assert is important: make sure that
+        # we did not reset the whole arena used as the nursery
+        assert self.gc.nursery_top < self.gc.nursery_real_top
 
     def test_collect_dead_pinned_objects(self):
         # prepare three object, where two are stackroots
