@@ -692,11 +692,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
             "nursery_cleanup not a divisor of nursery_size - initial_cleanup")
         ll_assert(llmemory.raw_malloc_usage(totalsize) <= size,
             "totalsize > nursery_cleanup")
+        debug_print("resetting from %r to %r" % (self.nursery_top, self.nursery_top + size))
         llarena.arena_reset(self.nursery_top, size, 2)
         self.nursery_top += size
     move_nursery_top._always_inline_ = True
 
-    def collect_and_reserve(self, prev_result, totalsize):
+    def collect_and_reserve(self, prev_nursery_free, totalsize):
         """To call when nursery_free overflows nursery_top.
         First check if the nursery_top is the real top, otherwise we
         can just move the top of one cleanup and continue
@@ -734,11 +735,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # enough space till we reach the real top of the nursery.
                 if self.nursery_top < self.nursery_real_top:
                     self.move_nursery_top(totalsize)
-                    return prev_result
+                    return prev_nursery_free
                 #
                 self.minor_collection()
-                if minor_collection_count == 0:
-                    minor_collection_count += 1
+                minor_collection_count += 1
+                if minor_collection_count == 1:
                     #
                     # If the gc_state is not STATE_SCANNING, we're in the middle of
                     # an incremental major collection.  In this case, always progress
@@ -755,15 +756,16 @@ class IncrementalMiniMarkGC(MovingGCBase):
                         if self.nursery_free + totalsize > self.nursery_top:
                             #
                             if self.nursery_free + totalsize > self.nursery_real_top:
+                                # still not enough space, we need to collect.
+                                # maybe nursery contains too many pinned objects (see
+                                # assert below).
                                 self.minor_collection()
-                                # then the nursery is empty (except pinned objects)
                             else:
                                 # execute loop one more time. This should find
-                                # enough space in most cases to allocate the
-                                # object
+                                # enough space to allocate the object
                                 pass
                 else:
-                    ll_assert(minor_collection_count < 1,
+                    ll_assert(minor_collection_count == 2,
                         "Seeing minor_collection() at least twice. "
                         "Too many pinned objects?")
             #
@@ -1627,17 +1629,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
             prev = prev + pinned_obj_size + \
                 (size_gc_header + self.get_size(obj))
         #
-        # clear the rest of the arena
-        # XXX resetting just to self.nursery_top may be enough? (groggi)
-        llarena.arena_reset(prev, self.nursery_real_top - prev, 2)
-        #                         ^^^ calculate the size of the last continuous
-        #                             arena block.
+        # clean up a bit more after the last pinned object
+        llarena.arena_reset(prev, self.initial_cleanup, 2)
+        nursery_barriers.append(prev + self.initial_cleanup)
         #
-        self.surviving_pinned_objects.delete()
         self.nursery_barriers = nursery_barriers
+        self.surviving_pinned_objects.delete()
+        #
         # XXX gc-minimark-pinning does a debug_rotate_nursery() here (groggi)
         self.nursery_free = self.nursery
-        self.nursery_barriers.append(self.nursery_real_top)
         self.nursery_top = self.nursery_barriers.popleft()
 
         debug_print("minor collect, total memory used:",
