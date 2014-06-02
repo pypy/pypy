@@ -32,9 +32,10 @@ PY_FROZEN = 7
 IMP_HOOK = 9
 
 SO = '.pyd' if _WIN32 else '.so'
-DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
+PREFIX = 'pypy3-'
+DEFAULT_SOABI = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
 
-PYC_TAG = 'pypy-%d%d' % PYPY_VERSION[:2]
+PYC_TAG = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
 
 @specialize.memo()
 def get_so_extension(space):

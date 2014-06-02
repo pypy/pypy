@@ -697,9 +697,9 @@ class AppTestImport(BaseImportTest):
     def test_cache_from_source(self):
         import imp
         pycfile = imp.cache_from_source('a/b/c.py')
-        assert pycfile.startswith('a/b/__pycache__/c.pypy-')
+        assert pycfile.startswith('a/b/__pycache__/c.pypy3-')
         assert pycfile.endswith('.pyc')
-        assert imp.source_from_cache('a/b/__pycache__/c.pypy-17.pyc'
+        assert imp.source_from_cache('a/b/__pycache__/c.pypy3-17.pyc'
                                      ) == 'a/b/c.py'
         raises(ValueError, imp.source_from_cache, 'a/b/c.py')
 
