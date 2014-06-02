@@ -25,18 +25,18 @@ def startfile(filepath, operation=None):
     #
     if operation is None:
         operation = w.NULL
-    if isinstance(filepath, str):
-        if isinstance(operation, unicode):
+    if isinstance(filepath, bytes):
+        if isinstance(operation, str):
             operation = operation.encode("ascii")
         rc = w.lib.ShellExecuteA(w.NULL, operation, filepath,
                                  w.NULL, w.NULL, w.SW_SHOWNORMAL)
-    elif isinstance(filepath, unicode):
-        if isinstance(operation, str):
+    elif isinstance(filepath, str):
+        if isinstance(operation, bytes):
             operation = operation.decode("ascii")
         rc = w.lib.ShellExecuteW(w.NULL, operation, filepath,
                                  w.NULL, w.NULL, w.SW_SHOWNORMAL)
     else:
-        raise TypeError("argument 1 must be str or unicode")
+        raise TypeError("argument 1 must be str or bytes")
     rc = int(w.cast("uintptr_t", rc))
     if rc <= 32:
         code, msg = w.getwinerror()
