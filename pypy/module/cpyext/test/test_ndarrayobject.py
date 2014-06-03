@@ -301,4 +301,63 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
         array = ndarray((3, 4), dtype='d')
         assert mod.check_array(array) is array
         raises(TypeError, "mod.check_array(42)")
-        
+
+    def test_ufunc(self):
+        from _numpypy.multiarray import ndarray
+        mod = self.import_extension('foo', [
+                ("create_ufunc",  "METH_NOARGS",
+                """
+                void double_times2(char **args, npy_intp *dimensions,
+                              npy_intp* steps, void* data)
+                {
+                    npy_intp i;
+                    npy_intp n = dimensions[0];
+                    char *in = args[0], *out=args[1];
+                    npy_intp in_step = steps[0], out_step = steps[1];
+                    double tmp;
+
+                    for (i = 0; i < n; i++) {
+                        /*BEGIN main ufunc computation*/
+                        tmp = *(double *)in;
+                        tmp *=2.0;
+                        *((double *)out) = tmp;
+                        /*END main ufunc computation*/
+
+                        in += in_step;
+                        out += out_step;
+                    };
+                void int_times2(char **args, npy_intp *dimensions,
+                              npy_intp* steps, void* data)
+                {
+                    npy_intp i;
+                    npy_intp n = dimensions[0];
+                    char *in = args[0], *out=args[1];
+                    npy_intp in_step = steps[0], out_step = steps[1];
+                    int tmp;
+
+                    for (i = 0; i < n; i++) {
+                        /*BEGIN main ufunc computation*/
+                        tmp = *(int *)in;
+                        tmp *=2.0;
+                        *((int *)out) = tmp;
+                        /*END main ufunc computation*/
+
+                        in += in_step;
+                        out += out_step;
+                    };
+                 }
+                PyUFuncGenericFunction funcs[] = {&double_times2, &int_times2};
+                char types[] = { NPY_DOUBLE,NPY_DOUBLE, NPY_INT, NPY_INT };
+                void *args[] = {NULL, NULL};
+                return PyUFunc_FromFuncAndDataAndSignature(funcs, args, types, 2, 1, 1,
+                                    PyUFunc_None, "times2",
+                                    "times2_docstring", 0, "()->()");
+
+                """
+                ),
+                ], prologue='''#include "numpy/ndarraytypes.h"
+                               #include <numpy/ufuncobject.h>''')
+        times2 = mod.create_ufunc()
+        arr = ndarray((3, 4), dtype='i')
+        out = times2(arr)
+        assert (out == [6, 8]).all()
