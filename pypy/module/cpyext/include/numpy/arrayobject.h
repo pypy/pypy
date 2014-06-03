@@ -22,6 +22,8 @@ extern "C" {
 
 PyAPI_DATA(PyTypeObject) PyArray_Type;
 
+#ifndef _NPY_COMMON_H_
+#define _NPY_COMMON_H_
 typedef unsigned char npy_bool;
 typedef unsigned char npy_uint8;
 typedef unsigned short npy_uint16;
@@ -33,12 +35,14 @@ typedef long npy_intp;
 #ifndef NPY_INTP_FMT
 #define NPY_INTP_FMT "ld"
 #endif
+#endif
 #ifndef import_array
 #define import_array()
 #endif
 
 #define NPY_MAXDIMS 32
 
+#ifndef NDARRAYTYPES_H
 typedef struct {
     npy_intp *ptr;
     int len;
@@ -72,19 +76,6 @@ enum NPY_TYPES {    NPY_BOOL=0,
                     /* The number of types not including the new 1.6 types */
                     NPY_NTYPES_ABI_COMPATIBLE=21
 };
-
-#define NPY_INT8      NPY_BYTE
-#define NPY_UINT8     NPY_UBYTE
-#define NPY_INT16     NPY_SHORT
-#define NPY_UINT16    NPY_USHORT
-#define NPY_INT32     NPY_INT
-#define NPY_UINT32    NPY_UINT
-#define NPY_INT64     NPY_LONG
-#define NPY_UINT64    NPY_ULONG
-#define NPY_FLOAT32   NPY_FLOAT
-#define NPY_FLOAT64   NPY_DOUBLE
-#define NPY_COMPLEX32 NPY_CFLOAT
-#define NPY_COMPLEX64 NPY_CDOUBLE
 
 #define PyTypeNum_ISBOOL(type)      ((type) == NPY_BOOL)
 #define PyTypeNum_ISINTEGER(type)  (((type) >= NPY_BYTE) && \
@@ -166,6 +157,21 @@ enum NPY_TYPES {    NPY_BOOL=0,
 #define PyArray_ISONESEGMENT(arr)  (1)
 #define PyArray_ISNOTSWAPPED(arr)  (1)
 #define PyArray_ISBYTESWAPPED(arr) (0)
+
+#endif
+
+#define NPY_INT8      NPY_BYTE
+#define NPY_UINT8     NPY_UBYTE
+#define NPY_INT16     NPY_SHORT
+#define NPY_UINT16    NPY_USHORT
+#define NPY_INT32     NPY_INT
+#define NPY_UINT32    NPY_UINT
+#define NPY_INT64     NPY_LONG
+#define NPY_UINT64    NPY_ULONG
+#define NPY_FLOAT32   NPY_FLOAT
+#define NPY_FLOAT64   NPY_DOUBLE
+#define NPY_COMPLEX32 NPY_CFLOAT
+#define NPY_COMPLEX64 NPY_CDOUBLE
 
 
 /* functions */

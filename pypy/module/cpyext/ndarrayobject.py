@@ -11,6 +11,7 @@ from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.ctors import array
 from pypy.module.micronumpy.descriptor import get_dtype_cache, W_Dtype
 from pypy.module.micronumpy.concrete import ConcreteArray
+from pypy.module.micronumpy import ufuncs
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 
 NPY_C_CONTIGUOUS   = 0x0001
@@ -252,3 +253,10 @@ def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, fla
         return simple_new(space, nd, dims, typenum,
             order=order, owning=owning, w_subtype=w_subtype)
 
+@cpython_api([PyObject, rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
+              Py_ssize_t, Py_ssize_t, rffi.CCHARP, rffi.CCHARP, Py_ssize_t,
+              rffi.CCHARP], PyObject)
+def _PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
+                    nin, nout, identity, name, doc, check_return, signature):
+    return ufuncs.ufunc_from_func_and_data_and_signature(funcs, data, types,
+                 ntypes, nin, nout, identity, name, doc, check_return, signature)
