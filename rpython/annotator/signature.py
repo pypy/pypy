@@ -106,12 +106,11 @@ class Sig(object):
         for i, argtype in enumerate(self.argtypes):
             if isinstance(argtype, (types.FunctionType, types.MethodType)):
                 argtype = argtype(*inputcells)
-            if isinstance(argtype, lltype.LowLevelType) and\
-                argtype is lltype.Void:
+            if argtype is lltype.Void:
                 # XXX the mapping between Void and annotation
                 # is not quite well defined
                 s_input = inputcells[i]
-                assert isinstance(s_input, annmodel.SomePBC)
+                assert isinstance(s_input, (annmodel.SomePBC, annmodel.SomeNone))
                 assert s_input.is_constant()
                 args_s.append(s_input)
             elif argtype is None:

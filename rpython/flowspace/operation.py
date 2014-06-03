@@ -14,6 +14,7 @@ from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
 from rpython.flowspace.specialcase import register_flow_sc
 from rpython.annotator.model import SomeTuple
+from rpython.annotator.argument import ArgumentsForTranslation
 from rpython.flowspace.specialcase import SPECIAL_CASES
 
 
@@ -511,6 +512,9 @@ class SimpleCall(SingleDispatchMixin, CallOp):
                 return sc(ctx, *args_w)
         return ctx.do_op(self)
 
+    def build_args(self, args_s):
+        return ArgumentsForTranslation(list(args_s))
+
 
 class CallArgs(SingleDispatchMixin, CallOp):
     opname = 'call_args'
@@ -528,6 +532,10 @@ class CallArgs(SingleDispatchMixin, CallOp):
                 raise FlowingError(
                     "should not call %r with keyword arguments" % (fn,))
         return ctx.do_op(self)
+
+    def build_args(self, args_s):
+        return ArgumentsForTranslation.fromshape(args_s[0].const,
+                                                list(args_s[1:]))
 
 
 # Other functions that get directly translated to SpaceOperators

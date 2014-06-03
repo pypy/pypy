@@ -1,10 +1,12 @@
 import py
+
 from rpython.flowspace.model import SpaceOperation, Constant, Variable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.unsimplify import varoftype
 from rpython.rlib import jit
+from rpython.jit.codewriter import support, call
 from rpython.jit.codewriter.call import CallControl
-from rpython.jit.codewriter import support
+
 
 class FakePolicy:
     def look_inside_graph(self, graph):
@@ -151,18 +153,19 @@ def test_guess_call_kind_and_calls_from_graphs():
 
 # ____________________________________________________________
 
-def test_get_jitcode():
+def test_get_jitcode(monkeypatch):
     from rpython.jit.codewriter.test.test_flatten import FakeCPU
     class FakeRTyper:
         class annotator:
             translator = None
         class type_system:
             name = 'lltypesystem'
-            @staticmethod
-            def getcallable(graph):
-                F = lltype.FuncType([], lltype.Signed)
-                return lltype.functionptr(F, 'bar')
-    #
+
+    def getfunctionptr(graph):
+        F = lltype.FuncType([], lltype.Signed)
+        return lltype.functionptr(F, 'bar')
+
+    monkeypatch.setattr(call, 'getfunctionptr', getfunctionptr)
     cc = CallControl(FakeCPU(FakeRTyper()))
     class somegraph:
         name = "foo"

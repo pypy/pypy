@@ -380,6 +380,10 @@ class BlackholeInterpreter(object):
 
     # ----------
 
+    @arguments("i", returns="i")
+    def bhimpl_int_same_as(a):
+        return a
+
     @arguments("i", "i", returns="i")
     def bhimpl_int_add(a, b):
         return intmask(a + b)

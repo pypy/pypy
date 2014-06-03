@@ -165,7 +165,7 @@ def is_frozen(space, w_name):
 
 def lock_held(space):
     if space.config.objspace.usemodules.thread:
-        return space.wrap(importing.getimportlock(space).lock_held())
+        return space.wrap(importing.getimportlock(space).lock_held_by_anyone())
     else:
         return space.w_False
 
