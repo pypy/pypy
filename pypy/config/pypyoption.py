@@ -328,7 +328,6 @@ def set_pypy_opt_level(config, level):
 
     # tweaks some parameters with STM
     if config.translation.stm:
-        config.objspace.std.suggest(methodcachesizeexp=9)
         # having both mapdict and methodcache together is a bad idea:
         # it creates many conflicts
         if config.objspace.std.withmapdict:
