@@ -152,7 +152,8 @@ class TestUfuncFromCFunc(object):
         from pypy.module.micronumpy.ctors import array
         int32_dtype = get_dtype_cache(space).w_int32dtype
         float64_dtype = get_dtype_cache(space).w_float64dtype
-        func = from_cfunc([cfuncs.double_times2, cfuncs.int_times2], None,
+        data = ffi.new('char *[2]')
+        func = from_cfunc([cfuncs.double_times2, cfuncs.int_times2], data,
                           [float64_dtype, float64_dtype, int32_dtype, int32_dtype],
                            1, 1, 0, 'times2', 'times2_doc', 0, '()->()',
                             )

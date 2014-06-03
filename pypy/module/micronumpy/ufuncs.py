@@ -465,9 +465,9 @@ class W_Ufunc2(W_Ufunc):
 
 class W_UfuncGeneric(W_Ufunc):
     _immutable_fields_ = ["funcs", "signature", "nin", "nout", "nargs",
-                          "dtypes"]
+                          "dtypes", "data"]
 
-    def __init__(self, funcs, name, identity, nin, nout, dtypes, signature):
+    def __init__(self, funcs, name, identity, data, nin, nout, dtypes, signature):
         # XXX make sure funcs, signature, dtypes, nin, nout are consistent
 
         # These don't matter, we use the signature and dtypes for determining
@@ -480,7 +480,12 @@ class W_UfuncGeneric(W_Ufunc):
         self.dtypes = dtypes
         self.nin = nin
         self.nout = nout
+        self.data = data
         self.nargs = nin + max(nout, 1) # ufuncs can always be called with an out=<> kwarg
+        if len(dtypes) % len(funcs) != 0 or len(dtypes) / len(funcs) != self.nargs:
+            raise oefmt(space.w_ValueError,
+                "generic ufunc with %d functions, %d arguments, but %d dtypes",
+                len(funcs), self.nargs, len(dtypes))
         self.signature = signature
 
     def reduce(self, space, w_obj, w_axis, keepdims=False, out=None, dtype=None,
@@ -488,11 +493,12 @@ class W_UfuncGeneric(W_Ufunc):
         raise oefmt(space.w_NotImplementedError, 'not implemented yet')
 
     def call(self, space, args_w):
+        from pypy.module._cffi_backend import newtype, func as _func
         out = None
         inargs = []
         for i in range(self.nin):
             inargs.append(convert_to_array(space, args_w[i]))
-        outargs = []
+        outargs = [None] * self.nout
         for i in range(min(self.nout, len(args_w)-self.nin)):
             out = args_w[i+self.nin]
             if space.is_w(out, space.w_None):
@@ -501,22 +507,41 @@ class W_UfuncGeneric(W_Ufunc):
                 if not isinstance(out, W_NDimArray):
                     raise oefmt(space.w_TypeError, 'output must be an array')
                 outargs.append(out)
-        index = self.alloc_outargs(space, inargs, outargs)
+        index = self.type_resolver(space, inargs, outargs)
+        self.alloc_outargs(space, index, inargs, outargs)
         func, dims, steps = self.prep_call(space, index, inargs, outargs)
-        data = [] # allocate a ll array of pointers and
-                  # initialize to [x.data for x in inargs+outargs]
-        func(data, dims, steps, None)
+        for i in range(len(inargs)):
+            # XXX FAIL
+            self.data[i] = inargs[i].implementation.get_storage_as_int(space)
+        for j in range(len(outargs)):
+            self.data[i + j] = rffi.cast(rffi.CCHARP,
+                            outargs[j].implementation.get_storage_as_int(space))
+        func(self.data, dims, steps, None)
+        if len(outargs)>1:
+            return outargs
+        return outargs[0]
 
-    def alloc_outargs(self, space, inargs, outargs):
-        # Find a match for the inargs.dtype in self.dtypes,
-        # then use the result dtype to verify/allocate outargs
+    def type_resolver(self, space, index, outargs):
+        # Find a match for the inargs.dtype in self.dtypes, like
+        # linear_search_type_resolver in numy ufunc_type_resolutions.c
         return 0
+
+    def alloc_outargs(self, space, index, inargs, outargs):
+        # Any None outarg should be allocated here
+        temp_shape = inargs[0].get_shape() # XXX wrong!!!
+        dtype = inargs[0].get_dtype() # XXX wrong!!!
+        order = inargs[0].get_order()
+        for i in range(len(outargs)):
+            if outargs[i] is None:
+                outargs[i] = W_NDimArray.from_shape(space, temp_shape, dtype, order)
+
 
     def prep_call(self, space, index, inargs, outargs):
         # Use the index and signature to determine
         # dims and steps for function call
         return self.funcs[index], [inargs[0].get_shape()[0]], \
-                 [inargs[0].get_strides()[0], outargs[0].get_strides()[0]]
+                 [inargs[0].implementation.get_strides()[0],
+                  outargs[0].implementation.get_strides()[0]]
 
 
 W_Ufunc.typedef = TypeDef("numpy.ufunc",
@@ -848,5 +873,5 @@ def get(space):
 
 def ufunc_from_func_and_data_and_signature(funcs, data, dtypes, nin, nout,
                 identity, name, doc, check_return, signature):
-    return W_UfuncGeneric(funcs, name, identity, nin, nout, dtypes, signature)
+    return W_UfuncGeneric(funcs, name, identity, data, nin, nout, dtypes, signature)
     pass
