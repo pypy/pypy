@@ -937,15 +937,12 @@ class EmptyListStrategy(ListStrategy):
             w_list.lstorage = strategy.erase(floatlist)
             return
 
-        # XXX: listview_bytes works for bytes but not for strings, and the
-        # strategy works for strings but not for bytes. Disable it for now,
-        # but we'll need to fix it
-        ##byteslist = space.listview_bytes(w_iterable)
-        ##if byteslist is not None:
-        ##    w_list.strategy = strategy = space.fromcache(BytesListStrategy)
-        ##    # need to copy because intlist can share with w_iterable
-        ##    w_list.lstorage = strategy.erase(byteslist[:])
-        ##    return
+        byteslist = space.listview_bytes(w_iterable)
+        if byteslist is not None:
+            w_list.strategy = strategy = space.fromcache(BytesListStrategy)
+            # need to copy because intlist can share with w_iterable
+            w_list.lstorage = strategy.erase(byteslist[:])
+            return
 
         unilist = space.listview_unicode(w_iterable)
         if unilist is not None:
