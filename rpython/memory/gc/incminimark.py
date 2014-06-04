@@ -732,7 +732,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # otherwise we are forced to clean up the nursery.
                 if self.nursery_top < self.nursery_real_top:
                     self.move_nursery_top(totalsize)
-                    return prev_nursery_free
+                    return prev_result
                 #
                 self.minor_collection()
                 minor_collection_count += 1
