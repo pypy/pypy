@@ -1598,11 +1598,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.surviving_pinned_objects.length()
         while self.surviving_pinned_objects.non_empty():
             #
-            # prepare information about the surviving pinned object
             next = self.surviving_pinned_objects.pop()
             assert next >= prev
             #
-            # clear the arena between the last pinned object or arena start
+            # clear the arena between the last pinned object (or arena start)
             # and the pinned object
             pinned_obj_size = llarena.getfakearenaaddress(next) - prev
             llarena.arena_reset(prev, pinned_obj_size, 2)
