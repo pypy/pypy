@@ -1289,18 +1289,16 @@ class FunctionWriter(object):
         self.w('{t2.V} = ptrtoint {arg2.TV} to {t2.T}'.format(**locals()))
         self.w('{result.V} = sub {t1.TV}, {t2.V}'.format(**locals()))
 
-    def _adr_op(int_op):
-        def f(self, result, arg1, arg2):
-            t1 = self._tmp(LLVMSigned)
-            t2 = self._tmp(LLVMSigned)
-            self.w('{t1.V} = ptrtoint {arg1.TV} to {t1.T}'.format(**locals()))
-            int_op # reference to include it in locals()
-            self.w('{t2.V} = {int_op} {t1.TV}, {arg2.V}'.format(**locals()))
-            self.w('{result.V} = inttoptr {t2.TV} to {result.T}'
-                    .format(**locals()))
-        return f
-    op_adr_add = _adr_op('add')
-    op_adr_sub = _adr_op('sub')
+    def op_adr_add(self, result, addr, offset):
+        self.w('{result.V} = getelementptr {addr.TV}, {offset.TV}'
+                .format(**locals()))
+
+    def op_adr_sub(self, result, addr, offset):
+        offset_neg = self._tmp(LLVMSigned)
+        self.w('{offset_neg.V} = sub {offset.T} 0, {offset.V}'
+                .format(**locals()))
+        self.w('{result.V} = getelementptr {addr.TV}, {offset_neg.TV}'
+                .format(**locals()))
 
     def op_float_neg(self, result, var):
         self.w('{result.V} = fsub {var.T} -0.0, {var.V}'.format(**locals()))
