@@ -46,6 +46,10 @@ try:
     from __pypy__ import hidden_applevel
 except ImportError:
     hidden_applevel = lambda f: f
+try:
+    from _ast import PyCF_ACCEPT_NULL_BYTES
+except ImportError:
+    PyCF_ACCEPT_NULL_BYTES = 0
 import errno
 import sys
 
@@ -589,11 +593,6 @@ def run_command_line(interactive,
         elif run_stdin:
             # handle the case where no command/filename/module is specified
             # on the command-line.
-
-            try:
-                from _ast import PyCF_ACCEPT_NULL_BYTES
-            except ImportError:
-                PyCF_ACCEPT_NULL_BYTES = 0
 
             # update sys.path *after* loading site.py, in case there is a
             # "site.py" file in the script's directory. Only run this if we're
