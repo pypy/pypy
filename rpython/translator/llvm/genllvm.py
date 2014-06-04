@@ -79,17 +79,18 @@ class Type(object):
                 orig_ptr_type = lltype.Ptr(lltype.typeOf(export_obj))
                 orig_ptr = lltype._ptr(orig_ptr_type, export_obj)
                 orig_ptr_type_llvm = database.get_type(orig_ptr_type)
-                ptr_type.refs[obj] = 'bitcast({} to {}*)'.format(
+                ptr_type.refs[obj] = 'bitcast({} to {})'.format(
                         orig_ptr_type_llvm.repr_type_and_value(orig_ptr),
-                        self.repr_type())
+                        ptr_type.repr_type())
                 return
         else:
             global_attrs += 'internal '
             name = database.unique_name('@global')
         if self.varsize:
             extra_len = self.get_extra_len(obj)
-            ptr_type.refs[obj] = 'bitcast({}* {} to {}*)'.format(
-                    self.repr_type(extra_len), name, self.repr_type(None))
+            ptr_type.refs[obj] = 'bitcast({} {} to {})'.format(
+                    ptr_type.repr_type(extra_len), name,
+                    ptr_type.repr_type(None))
         else:
             ptr_type.refs[obj] = name
         hash_ = database.genllvm.gcpolicy.get_prebuilt_hash(obj)
@@ -360,16 +361,21 @@ LLVMChar = PRIMITIVES[lltype.Char]
 
 
 class PtrType(BasePtrType):
-    def __init__(self, to=None):
+    def __init__(self):
         self.refs = {None: 'null'}
-        if to is not None:
-            self.to = to
+
+    @classmethod
+    def to(cls, to):
+        # call __new__ to prevent __init__ from being called
+        self = cls.__new__(cls)
+        self.to = to
+        return self
 
     def setup_from_lltype(self, db, type):
         self.to = db.get_type(type.TO)
 
     def repr_type(self, extra_len=None):
-        return self.to.repr_type() + '*'
+        return self.to.repr_type(extra_len) + '*'
 
     def repr_of_type(self):
         if not hasattr(self, 'to'):
@@ -400,8 +406,8 @@ class PtrType(BasePtrType):
                 gep = GEP(None, None)
                 to = parent_type.add_indices(gep, child)
                 self.refs[obj] = (
-                        'bitcast({}* getelementptr inbounds({}, {}) to {})'
-                        .format(to.repr_type(), parent_ref,
+                        'bitcast({} getelementptr inbounds({}, {}) to {})'
+                        .format(PtrType.to(to).repr_type(), parent_ref,
                                 ', '.join(gep.indices), self.repr_type()))
             else:
                 self.to.repr_ref(self, obj)
@@ -1174,9 +1180,9 @@ class FunctionWriter(object):
 
     def _get_element(self, result, var, *fields):
         if result.type is not LLVMVoid:
-            t = self._tmp()
+            t = self._tmp(PtrType.to(result.type))
             self._get_element_ptr(var, fields, t)
-            self.w('{result.V} = load {result.T}* {t.V}'.format(**locals()))
+            self.w('{result.V} = load {t.TV}'.format(**locals()))
     op_getfield = op_bare_getfield = _get_element
     op_getinteriorfield = op_bare_getinteriorfield = _get_element
     op_getarrayitem = op_bare_getarrayitem = _get_element
@@ -1185,25 +1191,25 @@ class FunctionWriter(object):
         fields = rest[:-1]
         value = rest[-1]
         if value.type is not LLVMVoid:
-            t = self._tmp()
+            t = self._tmp(PtrType.to(value.type))
             self._get_element_ptr(var, fields, t)
-            self.w('store {value.TV}, {value.T}* {t.V}'.format(**locals()))
+            self.w('store {value.TV}, {t.TV}'.format(**locals()))
     op_setfield = op_bare_setfield = _set_element
     op_setinteriorfield = op_bare_setinteriorfield = _set_element
     op_setarrayitem = op_bare_setarrayitem = _set_element
 
     def op_direct_fieldptr(self, result, ptr, field):
-        t = self._tmp(PtrType(result.type.to.of))
+        t = self._tmp(PtrType.to(result.type.to.of))
         self._get_element_ptr(ptr, [field], t)
         self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
 
     def op_direct_arrayitems(self, result, ptr):
-        t = self._tmp(PtrType(result.type.to.of))
+        t = self._tmp(PtrType.to(result.type.to.of))
         self._get_element_ptr(ptr, [ConstantRepr(LLVMSigned, 0)], t)
         self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
 
     def op_direct_ptradd(self, result, var, val):
-        t = self._tmp(PtrType(result.type.to.of))
+        t = self._tmp(PtrType.to(result.type.to.of))
         self.w('{t.V} = getelementptr inbounds {var.TV}, i64 0, {val.TV}'
                 .format(**locals()))
         self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
@@ -1222,7 +1228,7 @@ class FunctionWriter(object):
                 gep.add_field_index(1)
             else:
                 gep.add_field_index(0)
-            t = self._tmp(PtrType(LLVMSigned))
+            t = self._tmp(PtrType.to(LLVMSigned))
             gep.assign(t)
             self.w('{result.V} = load {t.TV}'.format(**locals()))
     op_getinteriorarraysize = op_getarraysize
@@ -1322,9 +1328,9 @@ class FunctionWriter(object):
         self.op_direct_call(result, get_repr(raw_free), ptr)
 
     def _get_addr(self, ptr_to, addr, offset):
-        t1 = self._tmp(PtrType(LLVMChar))
-        t2 = self._tmp(PtrType(LLVMChar))
-        t3 = self._tmp(PtrType(ptr_to))
+        t1 = self._tmp(PtrType.to(LLVMChar))
+        t2 = self._tmp(PtrType.to(LLVMChar))
+        t3 = self._tmp(PtrType.to(ptr_to))
         self._cast(t1, addr)
         self.w('{t2.V} = getelementptr inbounds {t1.TV}, {offset.TV}'
                 .format(**locals()))
