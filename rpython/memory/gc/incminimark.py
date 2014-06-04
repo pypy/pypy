@@ -696,16 +696,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.nursery_top += size
     move_nursery_top._always_inline_ = True
 
-    def collect_and_reserve(self, prev_nursery_free, totalsize):
+    def collect_and_reserve(self, prev_result, totalsize):
         """To call when nursery_free overflows nursery_top.
-        First check if the nursery_top is the real top, otherwise we
-        can just move the top of one cleanup and continue
+        In case of pinned objects try to reserve 'totalsize' between
+        two pinned objects. In this case we can just continue.
+        Otherwise check first if the nursery_top is the real top,
+        if not we can just move the top of one cleanup and continue.
 
         Do a minor collection, and possibly also a major collection,
         and finally reserve 'totalsize' bytes at the start of the
         now-empty nursery.
         """
-        # XXX update doc to contain nursery_barrier (groggi)
+        # be careful: 'nursery_free' may have been changed by the caller.
+        # 'prev_result' contains the expected address for the new object.
 
         # keep track how many iteration we've gone trough
         minor_collection_count = 0
@@ -717,21 +720,16 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 size_gc_header = self.gcheaderbuilder.size_gc_header
                 pinned_obj_size = size_gc_header + self.get_size(
                     self.nursery_top + size_gc_header)
-                    # ^^^ nursery_top points to the beginning of the header of
-                    # the next object. To get the right address to call
-                    # get_size(), we need to add the header to the address.
                 #
                 # move search area to the next free memory block in the
                 # nursery.
                 self.nursery_free = self.nursery_top + pinned_obj_size
                 self.nursery_top = self.nursery_barriers.popleft()
-                # XXX should we progress a step in the major collection?
-                # in original version this is always done if we call this
-                # function. (groggi)
             else:
                 #
-                # no barriers (i.e. pinned objects) left. Check if there is
-                # enough space till we reach the real top of the nursery.
+                # no barriers (i.e. pinned objects) after 'nursery_free'.
+                # if possible just enlarge the used part of the nursery.
+                # otherwise we are forced to clean up the nursery.
                 if self.nursery_top < self.nursery_real_top:
                     self.move_nursery_top(totalsize)
                     return prev_nursery_free
@@ -750,8 +748,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                         self.major_collection_step()
                         #
                         # The nursery might not be empty now, because of
-                        # execute_finalizers().  If it is almost full again,
-                        # we need to fix it with another call to minor_collection().
+                        # execute_finalizers() or pinned objects.  If it is almost
+                        # full again, we need to fix it with another call to
+                        # minor_collection().
                         if self.nursery_free + totalsize > self.nursery_top:
                             #
                             if self.nursery_free + totalsize > self.nursery_real_top:
@@ -769,8 +768,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                         "Too many pinned objects?")
             #
             # attempt to get 'totalzise' out of the nursery now.  This may
-            # fail again, and then we loop. Should be the uncommon case.
-            # XXX measure "uncommon" case (groggi)
+            # fail again, and then we loop.
             result = self.nursery_free
             self.nursery_free = result + totalsize
             if self.nursery_free <= self.nursery_top:
@@ -1512,7 +1510,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # are evaluated anew as part of a minor collection.
         self.nursery_barriers.delete()
         #
-        # Keeps track of surviving pinned objects. See also `_trace_drag_out()`
+        # Keeps track of surviving pinned objects. See also '_trace_drag_out()'
         # where this stack is filled.
         self.surviving_pinned_objects = self.AddressStack()
         #
