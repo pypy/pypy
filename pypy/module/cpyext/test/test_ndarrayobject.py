@@ -359,9 +359,7 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                         out += out_step;
                     };
                 }; ''')
-        print 'calling mod.create_ufunc'
         times2 = mod.create_ufunc()
         arr = ndarray((3, 4), dtype='i')
-        print 'calling times2 from test_ndarrayobject'
         out = times2(arr)
         assert (out == [6, 8]).all()

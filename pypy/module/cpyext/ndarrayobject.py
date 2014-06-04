@@ -256,17 +256,17 @@ def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, fla
 npy_intpp = rffi.LONGP
 GenericUfunc = lltype.FuncType([rffi.CArrayPtr(rffi.CCHARP), npy_intpp, npy_intpp,
                                       rffi.VOIDP], rffi.VOIDP)
-@cpython_api([rffi.CArrayPtr(GenericUfunc), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
+gufunctype = lltype.Ptr(GenericUfunc)
+@cpython_api([rffi.CArrayPtr(lltype.Ptr(GenericUfunc)), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
               Py_ssize_t, Py_ssize_t, rffi.CCHARP, rffi.CCHARP, Py_ssize_t,
               rffi.CCHARP], PyObject)
 def _PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
                     nin, nout, identity, name, doc, check_return, signature):
-    funcs_w = [None]*ntypes
-    dtypes_w = [None]*ntypes
+    funcs_w = [None] * ntypes
+    dtypes_w = [None] * ntypes * (nin + nout)
     for i in range(ntypes):
-        funcs_w[i] = space.wrap(funcs[i])
-        dtypes_w[i] = get_dtype_cache(space).dtypes_by_char[types[i]]
-    w_funcs = space.newlist(funcs_w)
-    w_dtypes = space.newlist(dtypes_w)
-    return ufuncs.ufunc_from_func_and_data_and_signature(w_funcs, data, w_dtypes,
+        funcs_w[i] = rffi.cast(gufunctype, funcs[i])
+    for i in range(ntypes*(nin+nout)):
+        dtypes_w[i] = get_dtype_cache(space).dtypes_by_num[ord(types[i])]
+    return ufuncs.ufunc_from_func_and_data_and_signature(funcs_w, data, dtypes_w,
                  nin, nout, identity, name, doc, check_return, signature)

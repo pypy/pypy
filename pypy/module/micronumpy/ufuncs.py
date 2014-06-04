@@ -493,19 +493,24 @@ class W_UfuncGeneric(W_Ufunc):
         raise oefmt(space.w_NotImplementedError, 'not implemented yet')
 
     def call(self, space, args_w):
-        from pypy.module._cffi_backend import newtype, func as _func
+        #from pypy.module._cffi_backend import newtype, func as _func
         out = None
         inargs = []
+        if len(args_w) < self.nin:
+            raise oefmt(space.ValueError,
+                 '%s called with too few input args, expected at least %d got %d',
+                 self.name, self.nin, len(args_w))
         for i in range(self.nin):
             inargs.append(convert_to_array(space, args_w[i]))
         outargs = [None] * self.nout
         for i in range(min(self.nout, len(args_w)-self.nin)):
             out = args_w[i+self.nin]
-            if space.is_w(out, space.w_None):
+            if space.is_w(out, space.w_None) or out is None:
                 outargs.append(None)
             else:
                 if not isinstance(out, W_NDimArray):
-                    raise oefmt(space.w_TypeError, 'output must be an array')
+                    raise oefmt(space.w_TypeError,
+                         'output arg %d must be an array, not %s', i+self.nin, str(args_w[i+self.nin]))
                 outargs.append(out)
         index = self.type_resolver(space, inargs, outargs)
         self.alloc_outargs(space, index, inargs, outargs)
