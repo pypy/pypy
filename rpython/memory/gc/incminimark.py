@@ -1619,8 +1619,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         # clean up a bit more after the last pinned object
         llarena.arena_reset(prev, self.nursery_real_top - prev, 0)
-        llarena.arena_reset(prev, self.initial_cleanup, 2)
-        nursery_barriers.append(prev + self.initial_cleanup)
+        #
+        # now we want to have some amount of the nursery ready to be used
+        # after all the pinned objects.
+        if prev <= self.nursery_real_top - self.initial_cleanup:
+            llarena.arena_reset(prev, self.initial_cleanup, 2)
+            nursery_barriers.append(prev + self.initial_cleanup)
+        else:
+            llarena.arena_reset(prev, self.nursery_real_top - prev, 2)
+            nursery_barriers.append(self.nursery_real_top)
         #
         self.nursery_barriers = nursery_barriers
         self.surviving_pinned_objects.delete()

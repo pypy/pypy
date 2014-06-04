@@ -392,7 +392,7 @@ class TestIncminimark(PinningGCTest):
         assert ptr_stackroot_2.someInt == 100
         py.test.raises(RuntimeError, 'ptr_not_stackroot.someInt') # should be freed
 
-    def test_full_pinned_nursery_pin_fail(self):
+    def fill_nursery_with_pinned_objects(self):
         typeid = self.get_type_id(S)
         size = self.gc.fixed_size(typeid) + self.gc.gcheaderbuilder.size_gc_header
         raw_size = llmemory.raw_malloc_usage(size)
@@ -403,8 +403,17 @@ class TestIncminimark(PinningGCTest):
             ptr.someInt = 100 + instance_nr
             self.stackroots.append(ptr)
             self.gc.pin(adr)
+
+    def test_full_pinned_nursery_pin_fail(self):
+        self.fill_nursery_with_pinned_objects()
         # nursery should be full now, at least no space for another `S`. Next malloc should fail.
         py.test.raises(Exception, self.malloc, S)
+
+    def test_full_pinned_nursery_arena_reset(self):
+        # there were some bugs regarding the 'arena_reset()' calls at
+        # the end of the minor collection.  This test brought them to light.
+        self.fill_nursery_with_pinned_objects()
+        self.gc.minor_collection()
 
     def test_pinning_limit(self):
         for instance_nr in xrange(self.gc.max_number_of_pinned_objects):
