@@ -1,5 +1,5 @@
 from itertools import count
-from os import devnull, write
+from os import devnull, write, environ
 import py
 import re
 
@@ -1755,7 +1755,20 @@ class GenLLVM(object):
 
         exports.clear()
 
+    def _execute(self, args):
+        cmdexec(' '.join(map(str, args)))
+
     def _compile(self, shared=False):
+        # parse RPYTHON_LLVM_ASSEMBLY environment variable
+        llvm_assembly = environ.get('RPYTHON_LLVM_ASSEMBLY', 'false')
+        if llvm_assembly == 'true':
+            llvm_assembly = True
+        elif llvm_assembly == 'false':
+            llvm_assembly = False
+        else:
+            raise Exception("RPYTHON_LLVM_ASSEMBLY must be 'false' or 'true'.")
+
+        # merge ECIs
         eci = ExternalCompilationInfo(
             includes=['stdio.h', 'stdlib.h'],
             separate_module_sources=['\n'.join(self.sources)],
@@ -1763,46 +1776,54 @@ class GenLLVM(object):
         ).merge(*self.ecis).convert_sources_to_files()
 
         # compile c files to LLVM IR
-        include_dirs = ''.join('-I{} '.format(ic) for ic in eci.include_dirs)
-        ll_files = [str(self.main_ll_file)]
+        ll_files = [self.main_ll_file]
+        c_modules_dir = self.work_dir.join('c_modules')
+        c_modules_dir.mkdir()
+        c_args = ['clang', '-O3', '-emit-llvm', '-S']
+        c_args.extend('-I{}'.format(ic) for ic in eci.include_dirs)
         for c_file in eci.separate_module_files:
-            ll_file = str(local(c_file).new(dirname=self.work_dir, ext='.ll'))
+            ll_file = local(c_file).new(dirname=c_modules_dir, ext='.ll')
             ll_files.append(ll_file)
-            cmdexec('clang -O3 -Wall -Wno-unused -emit-llvm -S {}{} -o {}'
-                    .format(include_dirs, c_file, ll_file))
+            self._execute(c_args + [c_file, '-o', ll_file])
 
         # link LLVM IR into one module
-        linked_bc = self.work_dir.join('output_unoptimized.bc')
-        cmdexec('llvm-link {} -o {}'.format(' '.join(ll_files), linked_bc))
+        linked_file = self.work_dir.join('output_unoptimized.' +
+                                         ('ll' if llvm_assembly else 'bc'))
+        link_ir_args = ['llvm-link'] + ll_files + ['-o', linked_file]
+        self._execute(link_ir_args + (['-S'] if llvm_assembly else []))
 
         # optimize this module
-        optimized_bc = self.work_dir.join('output_optimized.bc')
-        cmdexec('opt -O3 {} -o {}'.format(linked_bc, optimized_bc))
+        optimized_file = self.work_dir.join('output_optimized.' +
+                                            ('ll' if llvm_assembly else 'bc'))
+        opt_args = ['opt', '-O3', linked_file, '-o', optimized_file]
+        self._execute(opt_args + (['-S'] if llvm_assembly else []))
 
         # compile object file
-        llc_add_opts = ''
-        link_add_opts = ''
-        if shared:
-            llc_add_opts += '-relocation-model=pic '
-            link_add_opts += '-shared '
+        llc_args = ['llc', '-O3']
         if self.translator.config.translation.gcrootfinder == 'llvmgcroot':
-            llc_add_opts += '-load {} '.format(self._compile_llvmgcroot())
-        object_file = self.work_dir.join(
-                'output.' + self.translator.platform.o_ext)
-        cmdexec('llc -O3 -filetype=obj {}{} -o {}'
-                .format(llc_add_opts, optimized_bc, object_file))
+            llc_args.append('-load')
+            llc_args.append(self._compile_llvmgcroot())
+        if shared:
+            llc_args.append('-relocation-model=pic')
+        if llvm_assembly:
+            object_file = self.work_dir.join('output.s')
+        else:
+            object_file = self.work_dir.join(
+                    'output.' + self.translator.platform.o_ext)
+            llc_args.append('-filetype=obj')
+        self._execute(llc_args + [optimized_file, '-o', object_file])
 
         # link executable
+        link_args = ['clang', '-O3', '-pthread']
+        link_args.extend('-L{}'.format(ld) for ld in eci.library_dirs)
+        link_args.extend('-l{}'.format(li) for li in eci.libraries)
+        link_args.extend('{}'.format(lf) for lf in eci.link_files)
         if shared:
+            link_args.append('-shared')
             output_file = object_file.new(ext=self.translator.platform.so_ext)
         else:
             output_file = object_file.new(ext=self.translator.platform.exe_ext)
-        cmdexec('clang -O3 -pthread {}{} {}{}{}-o {}'
-                .format(link_add_opts, object_file,
-                        ''.join('-L{} '.format(ld) for ld in eci.library_dirs),
-                        ''.join('-l{} '.format(li) for li in eci.libraries),
-                        ''.join('{} '.format(lf) for lf in eci.link_files),
-                        output_file))
+        self._execute(link_args + [object_file, '-o', output_file])
         return output_file
 
     def _compile_llvmgcroot(self):
