@@ -674,7 +674,9 @@ def run_command_line(interactive,
                     def execfile(filename, namespace):
                         with open(filename, 'rb') as f:
                             code = f.read()
-                        exec_(compile(code, filename, 'exec'), namespace)
+                        co = compile(code, filename, 'exec',
+                                     PyCF_ACCEPT_NULL_BYTES)
+                        exec_(co, namespace)
                     args = (execfile, filename, mainmodule.__dict__)
             success = run_toplevel(*args)
 
