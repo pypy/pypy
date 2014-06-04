@@ -28,7 +28,8 @@ in addition to any features explicitly specified.
     from pypy.interpreter.pyopcode import source_as_str
     ec = space.getexecutioncontext()
     if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
-                 consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8):
+                 consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8 |
+                 consts.PyCF_ACCEPT_NULL_BYTES):
         raise OperationError(space.w_ValueError,
                              space.wrap("compile() unrecognized flags"))
 

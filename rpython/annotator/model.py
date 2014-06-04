@@ -122,6 +122,9 @@ class SomeObject(object):
     def can_be_none(self):
         return True
 
+    def noneify(self):
+        raise UnionError(self, s_None)
+
     def nonnoneify(self):
         return self
 
@@ -258,10 +261,16 @@ class SomeString(SomeStringOrUnicode):
     "Stands for an object which is known to be a string."
     knowntype = str
 
+    def noneify(self):
+        return SomeString(can_be_None=True, no_nul=self.no_nul)
+
 
 class SomeUnicodeString(SomeStringOrUnicode):
     "Stands for an object which is known to be an unicode string"
     knowntype = unicode
+
+    def noneify(self):
+        return SomeUnicodeString(can_be_None=True, no_nul=self.no_nul)
 
 
 class SomeByteArray(SomeStringOrUnicode):
@@ -313,6 +322,9 @@ class SomeList(SomeObject):
     def can_be_none(self):
         return True
 
+    def noneify(self):
+        return SomeList(self.listdef)
+
 
 class SomeTuple(SomeObject):
     "Stands for a tuple of known length."
@@ -357,6 +369,9 @@ class SomeDict(SomeObject):
             return repr(const)
         else:
             return '{...%s...}' % (len(const),)
+
+    def noneify(self):
+        return type(self)(self.dictdef)
 
 class SomeOrderedDict(SomeDict):
     try:
@@ -417,6 +432,9 @@ class SomeInstance(SomeObject):
     def nonnoneify(self):
         return SomeInstance(self.classdef, can_be_None=False)
 
+    def noneify(self):
+        return SomeInstance(self.classdef, can_be_None=True)
+
 
 class SomePBC(SomeObject):
     """Stands for a global user instance, built prior to the analysis,
@@ -424,36 +442,32 @@ class SomePBC(SomeObject):
     immutable = True
 
     def __init__(self, descriptions, can_be_None=False, subset_of=None):
+        assert descriptions
         # descriptions is a set of Desc instances
         descriptions = set(descriptions)
         self.descriptions = descriptions
         self.can_be_None = can_be_None
         self.subset_of = subset_of
         self.simplify()
-        if self.isNone():
-            self.knowntype = type(None)
-            self.const = None
-        else:
-            knowntype = reduce(commonbase,
-                               [x.knowntype for x in descriptions])
-            if knowntype == type(Exception):
-                knowntype = type
-            if knowntype != object:
-                self.knowntype = knowntype
-            if len(descriptions) == 1 and not can_be_None:
-                # hack for the convenience of direct callers to SomePBC():
-                # only if there is a single object in descriptions
-                desc, = descriptions
-                if desc.pyobj is not None:
-                    self.const = desc.pyobj
-            elif len(descriptions) > 1:
-                from rpython.annotator.description import ClassDesc
-                if self.getKind() is ClassDesc:
-                    # a PBC of several classes: enforce them all to be
-                    # built, without support for specialization.  See
-                    # rpython/test/test_rpbc.test_pbc_of_classes_not_all_used
-                    for desc in descriptions:
-                        desc.getuniqueclassdef()
+        knowntype = reduce(commonbase, [x.knowntype for x in descriptions])
+        if knowntype == type(Exception):
+            knowntype = type
+        if knowntype != object:
+            self.knowntype = knowntype
+        if len(descriptions) == 1 and not can_be_None:
+            # hack for the convenience of direct callers to SomePBC():
+            # only if there is a single object in descriptions
+            desc, = descriptions
+            if desc.pyobj is not None:
+                self.const = desc.pyobj
+        elif len(descriptions) > 1:
+            from rpython.annotator.description import ClassDesc
+            if self.getKind() is ClassDesc:
+                # a PBC of several classes: enforce them all to be
+                # built, without support for specialization.  See
+                # rpython/test/test_rpbc.test_pbc_of_classes_not_all_used
+                for desc in descriptions:
+                    desc.getuniqueclassdef()
 
     def any_description(self):
         return iter(self.descriptions).next()
@@ -466,32 +480,26 @@ class SomePBC(SomeObject):
             kinds.add(x.__class__)
         if len(kinds) > 1:
             raise AnnotatorError("mixing several kinds of PBCs: %r" % kinds)
-        if not kinds:
-            raise ValueError("no 'kind' on the 'None' PBC")
         return kinds.pop()
 
     def simplify(self):
-        if self.descriptions:
-            # We check that the set only contains a single kind of Desc instance
-            kind = self.getKind()
-            # then we remove unnecessary entries in self.descriptions:
-            # some MethodDescs can be 'shadowed' by others
-            if len(self.descriptions) > 1:
-                kind.simplify_desc_set(self.descriptions)
-        else:
-            assert self.can_be_None, "use s_ImpossibleValue"
-
-    def isNone(self):
-        return len(self.descriptions) == 0
+        # We check that the set only contains a single kind of Desc instance
+        kind = self.getKind()
+        # then we remove unnecessary entries in self.descriptions:
+        # some MethodDescs can be 'shadowed' by others
+        if len(self.descriptions) > 1:
+            kind.simplify_desc_set(self.descriptions)
 
     def can_be_none(self):
         return self.can_be_None
 
     def nonnoneify(self):
-        if self.isNone():
-            return s_ImpossibleValue
-        else:
-            return SomePBC(self.descriptions, can_be_None=False)
+        return SomePBC(self.descriptions, can_be_None=False,
+                subset_of=self.subset_of)
+
+    def noneify(self):
+        return SomePBC(self.descriptions, can_be_None=True,
+                subset_of=self.subset_of)
 
     def fmt_descriptions(self, pbis):
         if hasattr(self, 'const'):
@@ -504,6 +512,23 @@ class SomePBC(SomeObject):
             return None
         else:
             return kt.__name__
+
+class SomeNone(SomeObject):
+    knowntype = type(None)
+    const = None
+
+    def __init__(self):
+        pass
+
+    def is_constant(self):
+        return True
+
+    def is_immutable_constant(self):
+        return True
+
+    def nonnoneify(self):
+        return s_ImpossibleValue
+
 
 class SomeConstantType(SomePBC):
     can_be_None = False
@@ -536,7 +561,15 @@ class SomeBuiltin(SomeObject):
 class SomeBuiltinMethod(SomeBuiltin):
     """ Stands for a built-in method which has got special meaning
     """
-    knowntype = MethodType
+    def __init__(self, analyser, s_self, methodname):
+        if isinstance(analyser, MethodType):
+            analyser = descriptor.InstanceMethod(
+                analyser.im_func,
+                analyser.im_self,
+                analyser.im_class)
+        self.analyser = analyser
+        self.s_self = s_self
+        self.methodname = methodname
 
 
 class SomeImpossibleValue(SomeObject):
@@ -549,7 +582,7 @@ class SomeImpossibleValue(SomeObject):
         return False
 
 
-s_None = SomePBC([], can_be_None=True)
+s_None = SomeNone()
 s_Bool = SomeBool()
 s_Int = SomeInteger()
 s_ImpossibleValue = SomeImpossibleValue()
@@ -567,6 +600,9 @@ class SomeWeakRef(SomeObject):
     def __init__(self, classdef):
         # 'classdef' is None for known-to-be-dead weakrefs.
         self.classdef = classdef
+
+    def noneify(self):
+        return SomeWeakRef(self.classdef)
 
 # ____________________________________________________________
 
@@ -639,7 +675,7 @@ def merge_knowntypedata(ktd1, ktd2):
 
 
 def not_const(s_obj):
-    if s_obj.is_constant() and not isinstance(s_obj, SomePBC):
+    if s_obj.is_constant() and not isinstance(s_obj, (SomePBC, SomeNone)):
         new_s_obj = SomeObject.__new__(s_obj.__class__)
         dic = new_s_obj.__dict__ = s_obj.__dict__.copy()
         if 'const' in dic:

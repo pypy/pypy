@@ -1,8 +1,9 @@
 """
 Type inference for user-defined classes.
 """
-from rpython.annotator.model import SomePBC, s_ImpossibleValue, unionof
-from rpython.annotator.model import SomeInteger, SomeTuple, SomeString, AnnotatorError
+from rpython.annotator.model import (
+    SomePBC, s_ImpossibleValue, unionof, s_None, SomeInteger,
+    SomeTuple, SomeString, AnnotatorError)
 from rpython.annotator import description
 
 
@@ -105,8 +106,7 @@ class Attribute(object):
         # check for method demotion and after-the-fact method additions
         if isinstance(s_newvalue, SomePBC):
             attr = self.name
-            if (not s_newvalue.isNone() and
-                s_newvalue.getKind() == description.MethodDesc):
+            if s_newvalue.getKind() == description.MethodDesc:
                 # is method
                 if homedef.classdesc.read_attribute(attr, None) is None:
                     if not homedef.check_missing_attribute_update(attr):
@@ -351,8 +351,10 @@ class ClassDef(object):
         if uplookup is not None:
             d.append(updesc.bind_self(self, flags))
 
-        if d or pbc.can_be_None:
+        if d:
             return SomePBC(d, can_be_None=pbc.can_be_None)
+        elif pbc.can_be_None:
+            return s_None
         else:
             return s_ImpossibleValue
 

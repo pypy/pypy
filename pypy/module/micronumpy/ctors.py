@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
+from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstring import strip_spaces
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import descriptor, loop
@@ -191,3 +192,62 @@ def fromstring(space, s, w_dtype=None, count=-1, sep=''):
         return _fromstring_bin(space, s, count, length, dtype)
     else:
         return _fromstring_text(space, s, count, sep, length, dtype)
+
+
+def _getbuffer(space, w_buffer):
+    try:
+        return space.writebuf_w(w_buffer)
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        return space.readbuf_w(w_buffer)
+
+
+@unwrap_spec(count=int, offset=int)
+def frombuffer(space, w_buffer, w_dtype=None, count=-1, offset=0):
+    dtype = space.interp_w(descriptor.W_Dtype,
+        space.call_function(space.gettypefor(descriptor.W_Dtype), w_dtype))
+    if dtype.elsize == 0:
+        raise oefmt(space.w_ValueError, "itemsize cannot be zero in type")
+
+    try:
+        buf = _getbuffer(space, w_buffer)
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_buffer = space.getattr(w_buffer, space.wrap('__buffer__'))
+        buf = _getbuffer(space, w_buffer)
+
+    ts = buf.getlength()
+    if offset < 0 or offset > ts:
+        raise oefmt(space.w_ValueError,
+                    "offset must be non-negative and no greater than "
+                    "buffer length (%d)", ts)
+
+    s = ts - offset
+    if offset:
+        buf = SubBuffer(buf, offset, s)
+
+    n = count
+    itemsize = dtype.elsize
+    assert itemsize > 0
+    if n < 0:
+        if s % itemsize != 0:
+            raise oefmt(space.w_ValueError,
+                        "buffer size must be a multiple of element size")
+        n = s / itemsize
+    else:
+        if s < n * itemsize:
+            raise oefmt(space.w_ValueError,
+                        "buffer is smaller than requested size")
+
+    try:
+        storage = buf.get_raw_address()
+    except ValueError:
+        a = W_NDimArray.from_shape(space, [n], dtype=dtype)
+        loop.fromstring_loop(space, a, dtype, itemsize, buf.as_str())
+        return a
+    else:
+        writable = not buf.readonly
+    return W_NDimArray.from_shape_and_storage(space, [n], storage, dtype=dtype,
+                                              w_base=w_buffer, writable=writable)

@@ -63,7 +63,10 @@ def detect_model_from_host_platform():
             'AMD64': MODEL_X86,    # win64
             'armv7l': MODEL_ARM,
             'armv6l': MODEL_ARM,
-            }[mach]
+            }.get(mach)
+
+    if result is None:
+        raise ProcessorAutodetectError, "unknown machine name %s" % mach
     #
     if result.startswith('x86'):
         if sys.maxint == 2**63-1:
@@ -78,7 +81,9 @@ def detect_model_from_host_platform():
     #
     if result.startswith('arm'):
         from rpython.jit.backend.arm.detect import detect_float
-        assert detect_float(), 'the JIT-compiler requires a vfp unit'
+        if not detect_float():
+            raise ProcessorAutodetectError(
+                'the JIT-compiler requires a vfp unit')
     #
     return result
 

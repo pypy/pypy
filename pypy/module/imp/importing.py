@@ -755,11 +755,11 @@ class ImportRLock:
         self.lockcounter = 0
 
     def lock_held_by_someone_else(self):
-        return self.lockowner is not None and not self.lock_held()
-
-    def lock_held(self):
         me = self.space.getexecutioncontext()   # used as thread ident
-        return self.lockowner is me
+        return self.lockowner is not None and self.lockowner is not me
+
+    def lock_held_by_anyone(self):
+        return self.lockowner is not None
 
     def acquire_lock(self):
         # this function runs with the GIL acquired so there is no race

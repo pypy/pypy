@@ -651,6 +651,8 @@ class ArrayBuffer(Buffer):
         array._charbuf_stop()
 
     def getslice(self, start, stop, step, size):
+        if size == 0:
+            return ''
         if step == 1:
             data = self.array._charbuf_start()
             try:
