@@ -53,7 +53,7 @@ class Repr(object):
         self._initialized = setupstate.INPROGRESS
         try:
             self._setup_repr()
-        except TyperError, e:
+        except TyperError:
             self._initialized = setupstate.BROKEN
             raise
         else:
@@ -344,17 +344,6 @@ class SimplePointerRepr(Repr):
         return lltype.nullptr(self.lowleveltype.TO)
 
 # ____________________________________________________________
-
-def inputdesc(reqtype, desc):
-    """Return a Constant for the given desc, of the requested type,
-    which can only be a Repr.
-    """
-    assert isinstance(reqtype, Repr)
-    value = reqtype.convert_desc(desc)
-    lltype = reqtype.lowleveltype
-    c = Constant(value)
-    c.concretetype = lltype
-    return c
 
 def inputconst(reqtype, value):
     """Return a Constant with the given value, of the requested type,

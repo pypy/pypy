@@ -85,7 +85,7 @@ def run_toplevel(f, *fargs, **fkwds):
             if softspace:
                 stdout.write('\n')
 
-    except SystemExit, e:
+    except SystemExit as e:
         handle_sys_exit(e)
     except:
         display_exception()
@@ -590,6 +590,11 @@ def run_command_line(interactive,
             # handle the case where no command/filename/module is specified
             # on the command-line.
 
+            try:
+                from _ast import PyCF_ACCEPT_NULL_BYTES
+            except ImportError:
+                PyCF_ACCEPT_NULL_BYTES = 0
+
             # update sys.path *after* loading site.py, in case there is a
             # "site.py" file in the script's directory. Only run this if we're
             # executing the interactive prompt, if we're running a script we
@@ -603,17 +608,17 @@ def run_command_line(interactive,
                 python_startup = readenv and os.getenv('PYTHONSTARTUP')
                 if python_startup:
                     try:
-                        f = open(python_startup)
-                        startup = f.read()
-                        f.close()
-                    except IOError, e:
+                        with open(python_startup) as f:
+                            startup = f.read()
+                    except IOError as e:
                         print >> sys.stderr, "Could not open PYTHONSTARTUP"
                         print >> sys.stderr, "IOError:", e
                     else:
                         def run_it():
                             co_python_startup = compile(startup,
                                                         python_startup,
-                                                        'exec')
+                                                        'exec',
+                                                        PyCF_ACCEPT_NULL_BYTES)
                             exec co_python_startup in mainmodule.__dict__
                         mainmodule.__file__ = python_startup
                         run_toplevel(run_it)
@@ -626,7 +631,8 @@ def run_command_line(interactive,
             else:
                 # If not interactive, just read and execute stdin normally.
                 def run_it():
-                    co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec')
+                    co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec',
+                                       PyCF_ACCEPT_NULL_BYTES)
                     exec co_stdin in mainmodule.__dict__
                 mainmodule.__file__ = '<stdin>'
                 success = run_toplevel(run_it)
@@ -660,7 +666,7 @@ def run_command_line(interactive,
                     args = (execfile, filename, mainmodule.__dict__)
             success = run_toplevel(*args)
 
-    except SystemExit, e:
+    except SystemExit as e:
         status = e.code
         if inspect_requested():
             display_exception()
@@ -676,7 +682,7 @@ def run_command_line(interactive,
                             readenv and os.getenv('PYPY_IRC_TOPIC'))
             success = run_toplevel(interactive_console, mainmodule,
                                    quiet=not irc_topic)
-        except SystemExit, e:
+        except SystemExit as e:
             status = e.code
         else:
             status = not success
@@ -726,10 +732,10 @@ def entry_point(executable, argv):
     setup_bootstrap_path(executable)
     try:
         cmdline = parse_command_line(argv)
-    except CommandLineError, e:
+    except CommandLineError as e:
         print_error(str(e))
         return 2
-    except SystemExit, e:
+    except SystemExit as e:
         return e.code or 0
     setup_and_fix_paths(**cmdline)
     return run_command_line(**cmdline)

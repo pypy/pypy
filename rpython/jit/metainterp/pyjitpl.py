@@ -167,12 +167,11 @@ class MIFrame(object):
 
     def make_result_of_lastop(self, resultbox):
         got_type = resultbox.type
-        # XXX disabled for now, conflicts with str_guard_value
-        #if not we_are_translated():
-        #    typeof = {'i': history.INT,
-        #              'r': history.REF,
-        #              'f': history.FLOAT}
-        #    assert typeof[self.jitcode._resulttypes[self.pc]] == got_type
+        if not we_are_translated():
+            typeof = {'i': history.INT,
+                      'r': history.REF,
+                      'f': history.FLOAT}
+            assert typeof[self.jitcode._resulttypes[self.pc]] == got_type
         target_index = ord(self.bytecode[self.pc-1])
         if got_type == history.INT:
             self.registers_i[target_index] = resultbox
@@ -230,6 +229,14 @@ class MIFrame(object):
             def opimpl_%s(self, b):
                 return self.execute(rop.%s, b)
         ''' % (_opimpl, _opimpl.upper())).compile()
+
+    @arguments("box")
+    def opimpl_int_same_as(self, box):
+        # for tests only: emits a same_as, forcing the result to be in a Box
+        resbox = history.BoxInt(box.getint())
+        self.metainterp._record_helper_nonpure_varargs(
+            rop.SAME_AS, resbox, None, [box])
+        return resbox
 
     @arguments("box")
     def opimpl_ptr_nonzero(self, box):
@@ -1321,14 +1328,14 @@ class MIFrame(object):
         self.metainterp.clear_exception()
         resbox = self.metainterp.execute_and_record_varargs(opnum, argboxes,
                                                             descr=descr)
-        if resbox is not None:
-            self.make_result_of_lastop(resbox)
-            # ^^^ this is done before handle_possible_exception() because we
-            # need the box to show up in get_list_of_active_boxes()
         if pure and self.metainterp.last_exc_value_box is None and resbox:
             resbox = self.metainterp.record_result_of_call_pure(resbox)
             exc = exc and not isinstance(resbox, Const)
         if exc:
+            if resbox is not None:
+                self.make_result_of_lastop(resbox)
+                # ^^^ this is done before handle_possible_exception() because we
+                # need the box to show up in get_list_of_active_boxes()
             self.metainterp.handle_possible_exception()
         else:
             self.metainterp.assert_no_exception()

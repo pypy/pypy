@@ -1029,6 +1029,9 @@ class AppTestArray(BaseArrayTests):
         raises(TypeError, "a[MyInt(0)]")
         raises(TypeError, "a[MyInt(0):MyInt(5)]")
 
+    def test_fresh_array_buffer_str(self):
+        assert str(buffer(self.array('i'))) == ''
+
 
 class AppTestArrayBuiltinShortcut(AppTestArray):
     spaceconfig = AppTestArray.spaceconfig.copy()

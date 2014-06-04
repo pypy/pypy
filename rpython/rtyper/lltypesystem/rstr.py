@@ -834,6 +834,7 @@ class LLHelpers(AbstractLLHelpers):
     def ll_stringslice_startonly(s1, start):
         return LLHelpers._ll_stringslice(s1, start, len(s1.chars))
 
+    @signature(types.any(), types.int(), types.int(), returns=types.any())
     def ll_stringslice_startstop(s1, start, stop):
         if jit.we_are_jitted():
             if stop > len(s1.chars):

@@ -458,9 +458,7 @@ class ReadBZ2Filter(Stream):
         return result
 
     def peek(self):
-        pos = self.pos
-        assert pos >= 0
-        return self.buffer[pos:]
+        return (self.pos, self.buffer)
 
     def try_to_find_file_descriptor(self):
         return self.stream.try_to_find_file_descriptor()

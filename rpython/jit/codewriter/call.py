@@ -9,6 +9,7 @@ from rpython.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
     QuasiImmutAnalyzer, RandomEffectsAnalyzer, effectinfo_from_writeanalyze,
     EffectInfo, CallInfoCollection)
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.typesystem import getfunctionptr
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
 from rpython.translator.backendopt.graphanalyze import DependencyTracker
@@ -168,7 +169,7 @@ class CallControl(object):
         because it is not needed there; it is only used by the blackhole
         interp to really do the call corresponding to 'inline_call' ops.
         """
-        fnptr = self.rtyper.type_system.getcallable(graph)
+        fnptr = getfunctionptr(graph)
         FUNC = lltype.typeOf(fnptr).TO
         assert self.rtyper.type_system.name == "lltypesystem"
         fnaddr = llmemory.cast_ptr_to_adr(fnptr)
