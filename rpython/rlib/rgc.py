@@ -29,13 +29,17 @@ def pin(obj):
     is important if multiple threads try to os.write() the same string:
     only one of them will succeed in pinning the string.)
 
+    It is expected that the time between pinning and unpinning an object
+    is short. Therefore the expected use case is a single function
+    invoking pin(obj) and unpin(obj) only a few lines of code apart.
+
     Note that this can return False for any reason, e.g. if the 'obj' is
     already non-movable or already pinned, if the GC doesn't support
     pinning, or if there are too many pinned objects.
+
+    Note further that pinning an object does not prevent it from being
+    collected if it is not used anymore.
     """
-    # XXX doc string based on gc-minimark-pinning branch
-    # XXX use doc string a basis for implementation behavior
-    # XXX update doc string to match actual behavior
     return False
 
 class PinEntry(ExtRegistryEntry):
@@ -56,7 +60,6 @@ def unpin(obj):
     """Unpin 'obj', allowing it to move again.
     Must only be called after a call to pin(obj) returned True.
     """
-    # XXX update doc string to match actual behavior
     raise AssertionError("pin() always returns False, "
                          "so unpin() should not be called")
 

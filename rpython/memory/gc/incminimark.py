@@ -952,14 +952,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return self.is_in_nursery(obj)
 
     def pin(self, obj):
-        # Tries to pin the given 'obj'.  On success this method returns True,
-        # otherwise False. There are multiple reasons why a call returns False
-        # and it should be always expected that pinning is likely to fail
-        # (return False).
-
-        # XXX what happens if nursery is full of pinned objects? (groggi)
-        # XXX what happens if pinned object references movable data? (groggi)
-
+        if self.pinned_objects_in_nursery >= self.max_number_of_pinned_objects:
+            return False
         if not self.is_in_nursery(obj):
             # Old objects are already non-moving, therefore pinning
             # makes no sense. If you run into this case, you may forgot
@@ -971,8 +965,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Reason: It would be possible that the first caller unpins
             # while the second caller thinks it's still pinned.
             return False
-        if self.pinned_objects_in_nursery >= self.max_number_of_pinned_objects:
-            return False
 
         self.header(obj).tid |= GCFLAG_PINNED
         self.pinned_objects_in_nursery += 1
@@ -980,10 +972,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
 
     def unpin(self, obj):
-        # Unpins a previously pinned 'obj'.  This should only be called
-        # after a pin(obj).
         ll_assert(self.header(obj).tid & GCFLAG_PINNED != 0,
             "unpin: object is already not pinned")
+        #
         self.header(obj).tid &= ~GCFLAG_PINNED
         self.pinned_objects_in_nursery -= 1
 
@@ -1506,12 +1497,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         debug_start("gc-minor")
         #
-        # All nursery barriers right now are invalid from this point on.  They
-        # are evaluated anew as part of a minor collection.
+        # All nursery barriers are invalid from this point on.  They
+        # are evaluated anew as part of the minor collection.
         self.nursery_barriers.delete()
         #
         # Keeps track of surviving pinned objects. See also '_trace_drag_out()'
-        # where this stack is filled.
+        # where this stack is filled.  Pinning an object only prevents it from
+        # being move, not from being collected if it is not used anymore.
         self.surviving_pinned_objects = self.AddressStack()
         #
         # The following counter keeps track of the amount of alive and pinned
