@@ -50,6 +50,8 @@ def fix_permissions(dirname):
         os.system("chmod -R a+rX %s" % dirname)
         os.system("chmod -R g-w %s" % dirname)
 
+sep_template = "\nThis copy of PyPy includes a copy of %s, which is licensed under the following terms:\n\n"
+
 def generate_license_linux(base_file, options):
     with open(base_file) as fid:
         txt = fid.read()
@@ -57,12 +59,16 @@ def generate_license_linux(base_file, options):
                 ("openssl", "openssl*", "copyright", 'LICENSE ISSUES'),
                ]
     if not options.no_tk:
-        searches += [("tk", "tk-dev", "copyright", "Copyright"),
-                     ("tcl", "tcl-dev", "copyright", "Copyright")]
+        name = 'Tcl/Tk'
+        txt += "License for '%s'" %name
+        txt += '\n' + "="*(14 + len(name)) + '\n'
+        txt += sep_template % name
+        with open('lib_pypy/_tkinter/license.terms', 'r') as fid:
+            txt += fid.read()
     for name, pat, fname, first_line in searches:
         txt += "License for '" + name + "'"
         txt += '\n' + "="*(14 + len(name)) + '\n'
-        txt += "\nThis copy of PyPy includes a copy of %s, which is licensed under the following terms:\n\n" % name
+        txt += sep_template % name
         dirs = glob.glob(options.license_base + "/" +pat)
         if not dirs:
             raise ValueError, "Could not find "+ options.license_base + "/" + pat
@@ -88,12 +94,16 @@ def generate_license_windows(base_file, options):
     with open(base_file) as fid:
         txt = fid.read()
     # shutil.copyfileobj(open("crtlicense.txt"), out) # We do not ship msvc runtime files
+    if not options.no_tk:
+        name = 'Tcl/Tk'
+        txt += "License for '%s'" %name
+        txt += '\n' + "="*(14 + len(name)) + '\n'
+        txt += sep_template % name
+        with open('lib_pypy/_tkinter/license.terms', 'r') as fid:
+            txt += fid.read()
     for name, pat, file in (("bzip2","bzip2-*", "LICENSE"),
-                      ("openssl", "openssl-*", "LICENSE"),
-                      ("Tcl", "tcl-8*", "license.terms"),
-                      ("Tk", "tk-8*", "license.terms"),
-                      ("Tix", "tix-*", "license.terms")):
-        txt += "\nThis copy of PyPy includes a copy of %s, which is licensed under the following terms:\n\n" % name
+                      ("openssl", "openssl-*", "LICENSE")):
+        txt += sep_template % name
         dirs = glob.glob(options.license_base + "/" +pat)
         if not dirs:
             raise ValueError, "Could not find "+ options.license_base + "/" + pat

@@ -122,5 +122,5 @@ def test_generate_license():
     license = package.generate_license(join(basedir,'LICENSE'), options)
     assert 'bzip2' in license
     assert 'openssl' in license
-    assert 'tcl' in license
+    assert 'Tcl' in license
 
