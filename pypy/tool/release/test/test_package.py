@@ -25,8 +25,9 @@ def test_dir_structure(test='test'):
     else:
         fake_pypy_c = False
     try:
-        builddir = package.package(py.path.local(pypydir).dirpath(), test,
+        retval, builddir = package.package(py.path.local(pypydir).dirpath(), test,
                                    rename_pypy_c)
+        assert retval == 0
         prefix = builddir.join(test)
         cpyver = '%d.%d' % CPYTHON_VERSION[:2]
         assert prefix.join('lib-python', cpyver, 'test').check()

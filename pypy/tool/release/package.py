@@ -149,6 +149,7 @@ add --without-{0} option to skip packaging binary CFFI extension.""".format(modu
             raise MissingDependenciesError(module)
 
 def create_package(basedir, options):
+    retval = 0
     name = options.name
     if not name:
         name = 'pypy-nightly'
@@ -175,7 +176,11 @@ def create_package(basedir, options):
                 'Bogus path: %r does not exist (see docstring for more info)'
                 % (os.path.dirname(str(pypy_c)),))
     if not options.no_cffi:
-        create_cffi_import_libraries(pypy_c, options)
+        try:
+            create_cffi_import_libraries(pypy_c, options)
+        except MissingDependenciesError:
+            # This is a non-fatal error
+            retval = -1
 
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
@@ -248,9 +253,14 @@ directory next to the dlls, as per build instructions."""
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
         shutil.copyfile(str(basedir.join('lib_pypy', file)),
                         str(pypydir.join('lib_pypy', file)))
-    license = generate_license(str(basedir.join('LICENSE')), options)
-    with open(str(pypydir.join('LICENSE')), 'w') as LICENSE:
-        LICENSE.write(license)
+    try:
+        license = generate_license(str(basedir.join('LICENSE')), options)
+        with open(str(pypydir.join('LICENSE')), 'w') as LICENSE:
+            LICENSE.write(license)
+    except:
+        # Non-fatal error, use original LICENCE file
+        import traceback;traceback.print_exc()
+        retval = -1
     #
     spdir = pypydir.ensure('site-packages', dir=True)
     shutil.copy(str(basedir.join('site-packages', 'README')), str(spdir))
@@ -309,13 +319,13 @@ using another platform..."""
         shutil.copy(archive, options.targetdir)
     else:
         print "Ready in %s" % (builddir,)
-    return builddir # for tests
+    return retval, builddir # for tests
 
 def package(*args):
     import argparse
     if sys.platform == 'win32':
         pypy_exe = 'pypy.exe'
-        license_base = os.path.join(basedir,'../local') # as on buildbot YMMV
+        license_base = os.path.join(basedir, r'..\..\..\local') # as on buildbot YMMV
     else:
         pypy_exe = 'pypy'
         license_base = '/usr/share/doc'
@@ -386,4 +396,5 @@ of the GPL license version 2 or any later version.
 
 if __name__ == '__main__':
     import sys
-    package(*sys.argv[1:])
+    retval, _ = package(*sys.argv[1:])
+    sys.exit(retval)
