@@ -307,6 +307,18 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
         mod = self.import_extension('foo', [
                 ("create_ufunc",  "METH_NOARGS",
                 """
+                PyUFuncGenericFunction funcs[] = {&double_times2, &int_times2};
+                char types[] = { NPY_DOUBLE,NPY_DOUBLE, NPY_INT, NPY_INT };
+                void *array_data[] = {NULL, NULL};
+                PyObject * retval = _PyUFunc_FromFuncAndDataAndSignature(funcs,
+                                    array_data, types, 2, 1, 1, PyUFunc_None,
+                                    "times2", "times2_docstring", 0, "()->()");
+                Py_INCREF(retval);
+                return retval;
+                """
+                ),
+                ], prologue='''#include "numpy/ndarraytypes.h"
+                #include <numpy/ufuncobject.h>
                 void double_times2(char **args, npy_intp *dimensions,
                               npy_intp* steps, void* data)
                 {
@@ -326,6 +338,7 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                         in += in_step;
                         out += out_step;
                     };
+                };
                 void int_times2(char **args, npy_intp *dimensions,
                               npy_intp* steps, void* data)
                 {
@@ -345,19 +358,10 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                         in += in_step;
                         out += out_step;
                     };
-                 }
-                PyUFuncGenericFunction funcs[] = {&double_times2, &int_times2};
-                char types[] = { NPY_DOUBLE,NPY_DOUBLE, NPY_INT, NPY_INT };
-                void *args[] = {NULL, NULL};
-                return PyUFunc_FromFuncAndDataAndSignature(funcs, args, types, 2, 1, 1,
-                                    PyUFunc_None, "times2",
-                                    "times2_docstring", 0, "()->()");
-
-                """
-                ),
-                ], prologue='''#include "numpy/ndarraytypes.h"
-                               #include <numpy/ufuncobject.h>''')
+                }; ''')
+        print 'calling mod.create_ufunc'
         times2 = mod.create_ufunc()
         arr = ndarray((3, 4), dtype='i')
+        print 'calling times2 from test_ndarrayobject'
         out = times2(arr)
         assert (out == [6, 8]).all()
