@@ -765,41 +765,41 @@ class Database(object):
                                 llvm_name)
 
 
-OPS = {
-}
-for type in ['int', 'uint', 'llong', 'ullong', 'lllong']:
-    OPS[type + '_lshift'] = 'shl'
-    OPS[type + '_rshift'] = 'lshr' if type[0] == 'u' else 'ashr'
-    OPS[type + '_add'] = 'add' if type[0] == 'u' else 'add nsw'
-    OPS[type + '_sub'] = 'sub' if type[0] == 'u' else 'sub nsw'
-    OPS[type + '_mul'] = 'mul' if type[0] == 'u' else 'mul nsw'
-    OPS[type + '_floordiv'] = 'udiv' if type[0] == 'u' else 'sdiv'
-    OPS[type + '_mod'] = 'urem' if type[0] == 'u' else 'srem'
-    for op in ['and', 'or', 'xor']:
-        OPS['{}_{}'.format(type, op)] = op
+def _setup_binary_ops():
+    ops = {}
 
-for type in ['float']:
-    for op in ['add', 'sub', 'mul', 'div']:
-        if op == 'div':
-            OPS['{}_truediv'.format(type)] = 'f' + op
-        else:
-            OPS['{}_{}'.format(type, op)] = 'f' + op
+    # arithmetic
+    for type in ['int', 'uint', 'llong', 'ullong', 'lllong']:
+        ops[type + '_lshift'] = 'shl'
+        ops[type + '_rshift'] = 'lshr' if type[0] == 'u' else 'ashr'
+        ops[type + '_add'] = 'add' if type[0] == 'u' else 'add nsw'
+        ops[type + '_sub'] = 'sub' if type[0] == 'u' else 'sub nsw'
+        ops[type + '_mul'] = 'mul' if type[0] == 'u' else 'mul nsw'
+        ops[type + '_floordiv'] = 'udiv' if type[0] == 'u' else 'sdiv'
+        ops[type + '_mod'] = 'urem' if type[0] == 'u' else 'srem'
+        for op in ['and', 'or', 'xor']:
+            ops['{}_{}'.format(type, op)] = op
+    for type in ['float']:
+        for op in ['add', 'sub', 'mul']:
+            ops['{}_{}'.format(type, op)] = 'f' + op
+        ops['{}_truediv'.format(type)] = 'fdiv'
 
-for type, prefix in [('char', 'u'), ('unichar', 'u'), ('int', 's'),
-                      ('uint', 'u'), ('llong', 's'), ('ullong', 'u'),
-                      ('lllong', 's'), ('adr', 's'), ('ptr', 's')]:
-    OPS[type + '_eq'] = 'icmp eq'
-    OPS[type + '_ne'] = 'icmp ne'
-    for op in ['gt', 'ge', 'lt', 'le']:
-        OPS['{}_{}'.format(type, op)] = 'icmp {}{}'.format(prefix, op)
+    # comparisons
+    for type, prefix in [('char', 'u'), ('unichar', 'u'), ('int', 's'),
+                         ('uint', 'u'), ('llong', 's'), ('ullong', 'u'),
+                         ('lllong', 's'), ('adr', 's'), ('ptr', 's')]:
+        ops[type + '_eq'] = 'icmp eq'
+        ops[type + '_ne'] = 'icmp ne'
+        for op in ['gt', 'ge', 'lt', 'le']:
+            ops['{}_{}'.format(type, op)] = 'icmp {}{}'.format(prefix, op)
+    for type in ['float']:
+        ops[type + '_ne'] = 'fcmp une'
+        for op in ['eq', 'gt', 'ge', 'lt', 'le']:
+            ops['{}_{}'.format(type, op)] = 'fcmp o' + op
 
-for type in ['float']:
-    OPS[type + '_ne'] = 'fcmp une'
-    for op in ['eq', 'gt', 'ge', 'lt', 'le']:
-        OPS['{}_{}'.format(type, op)] = 'fcmp o' + op
+    return ops
 
-del type
-del op
+BINARY_OPS = _setup_binary_ops()
 
 
 class ConstantRepr(object):
@@ -1013,8 +1013,8 @@ class FunctionWriter(object):
             opname = op.opname
             opres = get_repr(op.result)
             opargs = [get_repr(arg) for arg in op.args]
-            if opname in OPS:
-                binary_op = OPS[opname]
+            if opname in BINARY_OPS:
+                binary_op = BINARY_OPS[opname]
                 assert len(opargs) == 2
                 if ((opargs[0].type != opargs[1].type) and
                     (opargs[0].type.bitwidth != opargs[1].type.bitwidth) and
