@@ -322,7 +322,11 @@ using another platform..."""
     return retval, builddir # for tests
 
 def package(*args):
-    import argparse
+    try:
+        import argparse
+    except ImportError:
+        import imp
+        argparse = imp.load_source('argparse', 'lib-python/2.7/argparse.py')
     if sys.platform == 'win32':
         pypy_exe = 'pypy.exe'
         license_base = os.path.join(basedir, r'..\..\..\local') # as on buildbot YMMV
