@@ -494,6 +494,8 @@ class W_UfuncGeneric(W_Ufunc):
 
     def call(self, space, args_w):
         #from pypy.module._cffi_backend import newtype, func as _func
+        from rpython.rlib.rawstorage import alloc_raw_storage, raw_storage_setitem
+        from rpython.rtyper.lltypesystem import rffi, lltype
         out = None
         inargs = []
         if len(args_w) < self.nin:
@@ -515,13 +517,22 @@ class W_UfuncGeneric(W_Ufunc):
         index = self.type_resolver(space, inargs, outargs)
         self.alloc_outargs(space, index, inargs, outargs)
         func, dims, steps = self.prep_call(space, index, inargs, outargs)
+        psize = rffi.sizeof(rffi.VOIDP)
+        lsize = rffi.sizeof(rffi.LONG)
+        data = alloc_raw_storage(psize*self.nargs)
+        dims_p = alloc_raw_storage(lsize * len(dims))
+        steps_p = alloc_raw_storage(lsize * len(steps))
         for i in range(len(inargs)):
-            # XXX FAIL
-            self.data[i] = inargs[i].implementation.get_storage_as_int(space)
+            pdata = inargs[i].implementation.get_storage_as_int(space)
+            raw_storage_setitem(data, i * psize, pdata)
         for j in range(len(outargs)):
-            self.data[i + j] = rffi.cast(rffi.CCHARP,
-                            outargs[j].implementation.get_storage_as_int(space))
-        func(self.data, dims, steps, None)
+            pdata = outargs[j].implementation.get_storage_as_int(space)
+            raw_storage_setitem(data, (i + j) * psize, pdata)
+        for i in range(len(dims)):
+            raw_storage_setitem(dims_p, i * lsize, dims[i])
+            raw_storage_setitem(steps_p, i * lsize, steps[i])
+        print 'calling',func, hex(rffi.cast(lltype.Signed, func))
+        func(rffi.cast(rffi.CArrayPtr(rffi.CCHARP), data), rffi.cast(rffi.LONGP, dims_p), rffi.cast(rffi.LONGP, steps_p), rffi.cast(rffi.VOIDP, 0))
         if len(outargs)>1:
             return outargs
         return outargs[0]

@@ -257,7 +257,7 @@ npy_intpp = rffi.LONGP
 GenericUfunc = lltype.FuncType([rffi.CArrayPtr(rffi.CCHARP), npy_intpp, npy_intpp,
                                       rffi.VOIDP], rffi.VOIDP)
 gufunctype = lltype.Ptr(GenericUfunc)
-@cpython_api([rffi.CArrayPtr(lltype.Ptr(GenericUfunc)), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
+@cpython_api([rffi.CArrayPtr(gufunctype), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
               Py_ssize_t, Py_ssize_t, rffi.CCHARP, rffi.CCHARP, Py_ssize_t,
               rffi.CCHARP], PyObject)
 def _PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
@@ -265,7 +265,8 @@ def _PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
     funcs_w = [None] * ntypes
     dtypes_w = [None] * ntypes * (nin + nout)
     for i in range(ntypes):
-        funcs_w[i] = rffi.cast(gufunctype, funcs[i])
+        funcs_w[i] = funcs[i]
+        print 'function',i,'is',funcs[i], hex(rffi.cast(lltype.Signed, funcs[i]))
     for i in range(ntypes*(nin+nout)):
         dtypes_w[i] = get_dtype_cache(space).dtypes_by_num[ord(types[i])]
     return ufuncs.ufunc_from_func_and_data_and_signature(funcs_w, data, dtypes_w,

@@ -323,10 +323,13 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                               npy_intp* steps, void* data)
                 {
                     npy_intp i;
-                    npy_intp n = dimensions[0];
-                    char *in = args[0], *out=args[1];
-                    npy_intp in_step = steps[0], out_step = steps[1];
+                    npy_intp n;
+                    char *in, *out;
+                    npy_intp in_step, out_step;
                     double tmp;
+                    n = dimensions[0];
+                    in = args[0]; out=args[1];
+                    in_step = steps[0]; out_step = steps[1];
 
                     for (i = 0; i < n; i++) {
                         /*BEGIN main ufunc computation*/
