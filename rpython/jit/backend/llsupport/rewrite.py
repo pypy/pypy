@@ -316,7 +316,9 @@ class GcRewriterAssembler(object):
                           [ConstInt(kind), ConstInt(itemsize), v_length],
                           v_result, descr=arraydescr)
         self.newops.append(op)
-        self.write_barrier_applied[v_result] = None
+        # don't record v_result into self.write_barrier_applied:
+        # it can be a large, young array with card marking, and then
+        # the GC relies on the write barrier being called
         return True
 
     def gen_malloc_nursery_varsize_frame(self, sizebox, v_result):
