@@ -73,6 +73,7 @@ class RStringIO(object):
         self.__strings.append(buffer)
 
     def __slow_write(self, buffer):
+        assert buffer is not None # help annotator
         p = self.__pos
         assert p >= 0
         endp = p + len(buffer)
