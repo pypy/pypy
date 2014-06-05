@@ -257,7 +257,7 @@ class TestTranslates(BaseRtypingTest):
         def fn():
             res = True
             res = res and split('a//b//c//d', StringBuffer('//')) == ['a', 'b', 'c', 'd']
-            res = res and split(u'a//b//c//d', StringBuffer('//')) == ['a', 'b', 'c', 'd']
+            res = res and split(u'a//b//c//d', StringBuffer('//')) == [u'a', u'b', u'c', u'd']
             res = res and rsplit('a//b//c//d', StringBuffer('//')) == ['a', 'b', 'c', 'd']
             res = res and find('a//b//c//d', StringBuffer('//'), 0, 10) != -1
             res = res and rfind('a//b//c//d', StringBuffer('//'), 0, 10) != -1

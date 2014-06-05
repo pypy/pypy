@@ -257,22 +257,22 @@ def endswith(u_self, suffix, start=0, end=sys.maxint):
 
 @specialize.argtype(0, 1)
 def find(value, other, start, end):
-    if ((isinstance(value, str) or isinstance(value, unicode)) and
-        (isinstance(other, str) or isinstance(other, unicode))):
+    if ((isinstance(value, str) and isinstance(other, str)) or
+        (isinstance(value, unicode) and isinstance(other, unicode))):
         return value.find(other, start, end)
     return _search(value, other, start, end, SEARCH_FIND)
 
 @specialize.argtype(0, 1)
 def rfind(value, other, start, end):
-    if ((isinstance(value, str) or isinstance(value, unicode)) and
-        (isinstance(other, str) or isinstance(other, unicode))):
+    if ((isinstance(value, str) and isinstance(other, str)) or
+        (isinstance(value, unicode) and isinstance(other, unicode))):
         return value.rfind(other, start, end)
     return _search(value, other, start, end, SEARCH_RFIND)
 
 @specialize.argtype(0, 1)
 def count(value, other, start, end):
-    if ((isinstance(value, str) or isinstance(value, unicode)) and
-        (isinstance(other, str) or isinstance(other, unicode))):
+    if ((isinstance(value, str) and isinstance(other, str)) or
+        (isinstance(value, unicode) and isinstance(other, unicode))):
         return value.count(other, start, end)
     return _search(value, other, start, end, SEARCH_COUNT)
 
