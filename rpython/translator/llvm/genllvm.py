@@ -868,8 +868,9 @@ class GEP(object):
         self.indices.append('i32 {}'.format(index))
 
     def assign(self, result):
-        self.func_writer.w('{result.V} = getelementptr inbounds {ptr.TV}, {gep}'.format(
-                result=result, ptr=self.ptr, gep=', '.join(self.indices)))
+        fmt = '{result.V} = getelementptr inbounds {ptr.TV}, {indices}'
+        self.func_writer.w(fmt.format(result=result, ptr=self.ptr,
+                                      indices=', '.join(self.indices)))
 
 
 def _var_eq(res, inc):
@@ -953,7 +954,8 @@ class FunctionWriter(object):
             if block is graph.startblock:
                 for i in xrange(gcrootscount):
                     self.w('%gcroot{} = alloca i8*'.format(i))
-                    self.w('call void @llvm.gcroot(i8** %gcroot{}, i8* null)'.format(i))
+                    self.w('call void @llvm.gcroot(i8** %gcroot{}, i8* null)'
+                            .format(i))
                     self.w('store i8* null, i8** %gcroot{}'.format(i))
             else:
                 self.write_phi_nodes(block)
@@ -986,10 +988,11 @@ class FunctionWriter(object):
             self.w('br label %' + self.block_to_name[block.exits[0].target])
         elif block.exitswitch.concretetype is lltype.Bool:
             assert len(block.exits) == 2
-            true = self.block_to_name[block.exits[block.exits[1].llexitcase].target]
-            false = self.block_to_name[block.exits[block.exits[0].llexitcase].target]
+            true = block.exits[block.exits[1].llexitcase].target
+            false = block.exits[block.exits[0].llexitcase].target
             self.w('br i1 {}, label %{}, label %{}'.format(
-                    get_repr(block.exitswitch).V, true, false))
+                    get_repr(block.exitswitch).V, self.block_to_name[true],
+                    self.block_to_name[false]))
         else:
             default = None
             destinations = []
