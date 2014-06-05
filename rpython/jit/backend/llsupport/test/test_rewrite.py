@@ -435,16 +435,19 @@ class TestFramework(RewriteTests):
         nonstd_descr.itemsize = 8
         nonstd_descr_gcref = 123
         self.check_rewrite("""
-            [i0]
+            [i0, p1]
             p0 = new_array(i0, descr=nonstd_descr)
+            setarrayitem_gc(p0, i0, p1)
             jump(i0)
         """, """
-            [i0]
+            [i0, p1]
             p0 = call_malloc_gc(ConstClass(malloc_array_nonstandard), \
                                 64, 8,                                \
                                 %(nonstd_descr.lendescr.offset)d,     \
                                 6464, i0,                             \
                                 descr=malloc_array_nonstandard_descr)
+            cond_call_gc_wb_array(p0, i0, descr=wbdescr)
+            setarrayitem_gc(p0, i0, p1)
             jump(i0)
         """, nonstd_descr=nonstd_descr)
 
