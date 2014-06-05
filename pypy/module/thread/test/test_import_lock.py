@@ -63,7 +63,7 @@ class AppTestThread(GenericTestThread):
         assert done
 
     def test_lock_held_by_another_thread(self):
-        import thread, imp
+        import _thread as thread, imp
         lock_held = thread.allocate_lock()
         test_complete = thread.allocate_lock()
         lock_released = thread.allocate_lock()
