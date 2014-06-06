@@ -52,7 +52,8 @@ def fix_permissions(dirname):
 
 sep_template = "\nThis copy of PyPy includes a copy of %s, which is licensed under the following terms:\n\n"
 
-def generate_license_linux(base_file, options):
+def generate_license_linux(basedir, options):
+    base_file = str(basedir.join('LICENSE'))
     with open(base_file) as fid:
         txt = fid.read()
     searches = [("bzip2","libbz2-*", "copyright", '---------'),
@@ -63,7 +64,8 @@ def generate_license_linux(base_file, options):
         txt += "License for '%s'" %name
         txt += '\n' + "="*(14 + len(name)) + '\n'
         txt += sep_template % name
-        with open('lib_pypy/_tkinter/license.terms', 'r') as fid:
+        base_file = str(basedir.join('lib_pypy/_tkinter/license.terms'))
+        with open(base_file, 'r') as fid:
             txt += fid.read()
     for name, pat, fname, first_line in searches:
         txt += "License for '" + name + "'"
@@ -90,7 +92,8 @@ def generate_license_linux(base_file, options):
     txt += gdbm_bit
     return txt
 
-def generate_license_windows(base_file, options):
+def generate_license_windows(basedir, options):
+    base_file = str(basedir.join('LICENSE'))
     with open(base_file) as fid:
         txt = fid.read()
     # shutil.copyfileobj(open("crtlicense.txt"), out) # We do not ship msvc runtime files
@@ -99,7 +102,8 @@ def generate_license_windows(base_file, options):
         txt += "License for '%s'" %name
         txt += '\n' + "="*(14 + len(name)) + '\n'
         txt += sep_template % name
-        with open('lib_pypy/_tkinter/license.terms', 'r') as fid:
+        base_file = str(basedir.join('lib_pypy/_tkinter/license.terms'))
+        with open(base_file, 'r') as fid:
             txt += fid.read()
     for name, pat, file in (("bzip2","bzip2-*", "LICENSE"),
                       ("openssl", "openssl-*", "LICENSE")):
@@ -114,16 +118,9 @@ def generate_license_windows(base_file, options):
             txt += fid.read()
     return txt
 
-def generate_license_darwin(base_file, options):
+def generate_license_darwin(basedir, options):
     # where are copyright files on macos?
-    try:
-        return generate_license_linux(base_file, options)
-    except:
-        import traceback; traceback.print_exc()
-        pass
-    with open(base_file) as fid:
-        txt = fid.read()
-    return txt
+    return generate_license_linux(basedir, options)
 
 if sys.platform == 'win32':
     generate_license = generate_license_windows
@@ -254,12 +251,17 @@ directory next to the dlls, as per build instructions."""
         shutil.copyfile(str(basedir.join('lib_pypy', file)),
                         str(pypydir.join('lib_pypy', file)))
     try:
-        license = generate_license(str(basedir.join('LICENSE')), options)
+        license = generate_license(basedir, options)
         with open(str(pypydir.join('LICENSE')), 'w') as LICENSE:
             LICENSE.write(license)
     except:
         # Non-fatal error, use original LICENCE file
         import traceback;traceback.print_exc()
+        base_file = str(basedir.join('LICENSE'))
+        with open(base_file) as fid:
+            license = fid.read()
+        with open(str(pypydir.join('LICENSE')), 'w') as LICENSE:
+            LICENSE.write(license)
         retval = -1
     #
     spdir = pypydir.ensure('site-packages', dir=True)
