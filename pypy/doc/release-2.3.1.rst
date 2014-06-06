@@ -23,11 +23,12 @@ so we can finish those projects!  The three sub-projects are:
 * `STM`_ (software transactional memory): a preview will be released very soon,
   once we fix a few bugs
 
-* `NumPy`_ which is included in the PyPy 2.3 release. More details below.
+* `NumPy`_ which requires installation of our fork of upstream numpy, available `on bitbucket`_
 
 .. _`Py3k`: http://pypy.org/py3donate.html
 .. _`STM`: http://pypy.org/tmdonate2.html
 .. _`NumPy`: http://pypy.org/numpydonate.html
+.. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy   
 
 What is PyPy?
 =============
@@ -67,8 +68,10 @@ for more information see `whats-new`_:
 
 * A CFFI-based version of the gdbm module is now included in our downloads
 
-.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.3.1.html
+* Many issues were resolved_ since the 2.3 release on May 8
 
+.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.3.1.html
+.. _resolved: https://bitbucket.org/pypy/pypy/issues?status=resolved
 Please try it out and let us know what you think. We especially welcome
 success stories, we know you are using PyPy, please tell us about it!
 
