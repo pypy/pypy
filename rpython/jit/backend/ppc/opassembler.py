@@ -7,7 +7,7 @@ from rpython.jit.backend.ppc.locations import imm
 from rpython.jit.backend.ppc.locations import imm as make_imm_loc
 from rpython.jit.backend.ppc.arch import (IS_PPC_32, WORD, BACKCHAIN_SIZE,
                                           MAX_REG_PARAMS, MAX_FREG_PARAMS,
-                                          FORCE_INDEX_OFS)
+                                          FORCE_INDEX_OFS, JITFRAME_FIXED_SIZE)
 
 from rpython.jit.metainterp.history import (JitCellToken, TargetToken, Box,
                                             AbstractFailDescr, FLOAT, INT, REF)
@@ -15,25 +15,15 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.backend.ppc.helper.assembler import (Saved_Volatiles)
 from rpython.jit.backend.ppc.jump import remap_frame_layout
 from rpython.jit.backend.ppc.codebuilder import (OverwritingBuilder, scratch_reg,
-                                                 PPCBuilder)
+                                                 PPCBuilder, PPCGuardToken)
 from rpython.jit.backend.ppc.regalloc import TempPtr, TempInt
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.descr import InteriorFieldDescr
+from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.rtyper.lltypesystem import rstr, rffi, lltype
 from rpython.jit.metainterp.resoperation import rop
 
 NO_FORCE_INDEX = -1
-
-class GuardToken(object):
-    def __init__(self, descr, failargs, faillocs, offset, fcond=c.NE,
-                                        save_exc=False, is_invalidate=False):
-        self.descr = descr
-        self.offset = offset
-        self.is_invalidate = is_invalidate
-        self.failargs = failargs
-        self.faillocs = faillocs
-        self.save_exc = save_exc
-        self.fcond=fcond
 
 class IntOpAssembler(object):
         
@@ -246,18 +236,22 @@ class GuardOpAssembler(object):
     _mixin_ = True
 
     def _emit_guard(self, op, arglocs, fcond, save_exc=False,
-            is_guard_not_invalidated=False):
-        descr = op.getdescr()
-        assert isinstance(descr, AbstractFailDescr)
+                    is_guard_not_invalidated=False,
+                    is_guard_not_forced=False):
         pos = self.mc.currpos()
         self.mc.nop()     # has to be patched later on
-        self.pending_guards.append(GuardToken(descr,
-                                   failargs=op.getfailargs(),
-                                   faillocs=arglocs,
-                                   offset=pos,
-                                   fcond=fcond,
-                                   is_invalidate=is_guard_not_invalidated,
-                                   save_exc=save_exc))
+        token = self.build_guard_token(op, arglocs[0].value, arglocs[1:], pos,
+                                       fcond, save_exc, is_guard_not_invalidated,
+                                       is_guard_not_forced)
+        self.pending_guards.append(token)
+
+    def build_guard_token(self, op, frame_depth, arglocs, fcond, save_exc,
+                          is_guard_not_invalidated=False,
+                          is_guard_not_forced=False):
+        descr = op.getdescr()
+        gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
+        #token = PPCGuardToken()
+        return token
 
     def emit_guard_true(self, op, arglocs, regalloc):
         l0 = arglocs[0]
