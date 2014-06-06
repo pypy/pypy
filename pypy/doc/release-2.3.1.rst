@@ -27,7 +27,7 @@ so we can finish those projects!  The three sub-projects are:
 
 .. _`Py3k`: http://pypy.org/py3donate.html
 .. _`STM`: http://pypy.org/tmdonate2.html
-.. _ `NumPy`: http://pypy.org/numpydonate.html
+.. _`NumPy`: http://pypy.org/numpydonate.html
 
 What is PyPy?
 =============
@@ -68,7 +68,7 @@ for more information see `whats-new`_:
 * A CFFI-based version of the gdbm module is now included in our downloads
 
 .. _`HippyVM`: http://www.hippyvm.com
-.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.3.0.html
+.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.3.1.html
 
 Please try it out and let us know what you think. We especially welcome
 success stories, we know you are using PyPy, please tell us about it!
