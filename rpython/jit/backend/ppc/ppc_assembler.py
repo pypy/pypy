@@ -1115,21 +1115,26 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         #print "=== Loop start is at %s ===" % hex(r_uint(start))
         return start
 
+    def push_gcmap(self, mc, gcmap, push=False, store=False):
+        ptr = rffi.cast(lltype.Signed, gcmap)
+        if push:
+            with scratch_reg(mc):
+                mc.load_imm(r.SCRATCH.value, ptr)
+                mc.stdu(r.SCRATCH.value, r.SP.value, -WORD)
+        elif store:
+            assert False, "Not implemented"
+
+    def generate_quick_failure(self, guardtok):
+        startpos = self.mc.currpos()
+        fail_descr, target = self.store_info_on_descr(startpos, guardtok)
+        self.regalloc_push(fail_descr)
+        self.push_gcmap(self.mc, gcmap=guardtok.gcmap, push=True)
+        self.mc.call(target)
+        return startpos
+
     def write_pending_failure_recoveries(self):
         for tok in self.pending_guards:
-            descr = tok.descr
-            #generate the exit stub and the encoded representation
-            pos = self.mc.currpos()
-            tok.pos_recovery_stub = pos 
-
-            encoding_adr = self.gen_exit_stub(descr, tok.failargs,
-                                            tok.faillocs,
-                                            save_exc=tok.save_exc)
-
-            # store info on the descr
-            descr._ppc_frame_depth = tok.faillocs[0].getint()
-            descr._failure_recovery_code_adr = encoding_adr
-            descr._ppc_guard_pos = pos
+            tok.pos_recovery_stub = self.generate_quick_failure(tok)
 
     def process_pending_guards(self, block_start):
         clt = self.current_clt
