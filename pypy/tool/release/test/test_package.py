@@ -108,7 +108,7 @@ def test_fix_permissions(tmpdir):
     check(pypy,  0755)
 
 def test_generate_license():
-    from os.path import dirname, abspath, join
+    from os.path import dirname, abspath
     class Options(object):
         pass
     options = Options()
@@ -120,7 +120,7 @@ def test_generate_license():
         options.license_base = dirname(basedir) + '/local'
     else:
         options.license_base = '/usr/share/doc'
-    license = package.generate_license(join(basedir,'LICENSE'), options)
+    license = package.generate_license(py.path.local(basedir), options)
     assert 'bzip2' in license
     assert 'openssl' in license
     assert 'Tcl' in license
