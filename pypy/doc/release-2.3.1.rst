@@ -1,6 +1,6 @@
-=======================================
-PyPy 2.3 - Terrestrial Arthropod Trap
-=======================================
+=================================================
+PyPy 2.3.1 - Terrestrial Arthropod Trap Revisited
+=================================================
 
 We're pleased to announce PyPy 2.3.1, a feature-and-bugfix improvement over our
 recent release last month.
@@ -56,7 +56,7 @@ our new issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
 #pypy. Here is a summary of the user-facing changes;
 for more information see `whats-new`_:
 
-* The builting ``struct`` module was renamed to ``_struct``, solving issues
+* The built-in ``struct`` module was renamed to ``_struct``, solving issues
   with IDLE and other modules.
 
 * Support for compilation with gcc-4.9
@@ -67,7 +67,6 @@ for more information see `whats-new`_:
 
 * A CFFI-based version of the gdbm module is now included in our downloads
 
-.. _`HippyVM`: http://www.hippyvm.com
 .. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.3.1.html
 
 Please try it out and let us know what you think. We especially welcome
