@@ -1,6 +1,6 @@
-=======================================
-PyPy 2.3 - Terrestrial Arthropod Trap
-=======================================
+=================================================
+PyPy 2.3.1 - Terrestrial Arthropod Trap Revisited
+=================================================
 
 We're pleased to announce PyPy 2.3.1, a feature-and-bugfix improvement over our
 recent release last month.
@@ -23,11 +23,12 @@ so we can finish those projects!  The three sub-projects are:
 * `STM`_ (software transactional memory): a preview will be released very soon,
   once we fix a few bugs
 
-* `NumPy`_ which is included in the PyPy 2.3 release. More details below.
+* `NumPy`_ which requires installation of our fork of upstream numpy, available `on bitbucket`_
 
 .. _`Py3k`: http://pypy.org/py3donate.html
 .. _`STM`: http://pypy.org/tmdonate2.html
-.. _ `NumPy`: http://pypy.org/numpydonate.html
+.. _`NumPy`: http://pypy.org/numpydonate.html
+.. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy   
 
 What is PyPy?
 =============
@@ -56,7 +57,7 @@ our new issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
 #pypy. Here is a summary of the user-facing changes;
 for more information see `whats-new`_:
 
-* The builting ``struct`` module was renamed to ``_struct``, solving issues
+* The built-in ``struct`` module was renamed to ``_struct``, solving issues
   with IDLE and other modules.
 
 * Support for compilation with gcc-4.9
@@ -67,9 +68,10 @@ for more information see `whats-new`_:
 
 * A CFFI-based version of the gdbm module is now included in our downloads
 
-.. _`HippyVM`: http://www.hippyvm.com
-.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.3.0.html
+* Many issues were resolved_ since the 2.3 release on May 8
 
+.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.3.1.html
+.. _resolved: https://bitbucket.org/pypy/pypy/issues?status=resolved
 Please try it out and let us know what you think. We especially welcome
 success stories, we know you are using PyPy, please tell us about it!
 
