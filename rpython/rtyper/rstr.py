@@ -3,10 +3,13 @@ from rpython.rlib import jit
 from rpython.rtyper import rint
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Signed, Bool, Void, UniChar
-from rpython.rtyper.rmodel import IntegerRepr, IteratorRepr, inputconst, Repr
+from rpython.rtyper.rmodel import IteratorRepr, inputconst, Repr
+from rpython.rtyper.rint import IntegerRepr
+from rpython.rtyper.rfloat import FloatRepr
 from rpython.tool.pairtype import pairtype, pair
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.tool.staticmethods import StaticMethods
+from rpython.rlib.rstring import UnicodeBuilder
 
 
 class AbstractStringRepr(Repr):
@@ -25,100 +28,16 @@ class AbstractStringRepr(Repr):
         from rpython.rtyper.annlowlevel import hlstr
         value = hlstr(llvalue)
         assert value is not None
-        univalue, _ = self.rstr_decode_utf_8(
+        result = UnicodeBuilder(len(value))
+        self.rstr_decode_utf_8(
             value, len(value), 'strict', final=False,
             errorhandler=self.ll_raise_unicode_exception_decode,
-            allow_surrogates=False)
-        return self.ll.llunicode(univalue)
+            allow_surrogates=False, result=result)
+        return self.ll.llunicode(result.build())
 
     def ll_raise_unicode_exception_decode(self, errors, encoding, msg, s,
                                        startingpos, endingpos):
         raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
-
-
-class AbstractCharRepr(AbstractStringRepr):
-    def rtype_method_lower(self, hop):
-        char_repr = hop.args_r[0].char_repr
-        v_chr, = hop.inputargs(char_repr)
-        hop.exception_cannot_occur()
-        return hop.gendirectcall(self.ll.ll_lower_char, v_chr)
-
-    def rtype_method_upper(self, hop):
-        char_repr = hop.args_r[0].char_repr
-        v_chr, = hop.inputargs(char_repr)
-        hop.exception_cannot_occur()
-        return hop.gendirectcall(self.ll.ll_upper_char, v_chr)
-
-
-class AbstractUniCharRepr(AbstractStringRepr):
-    pass
-
-class AbstractUnicodeRepr(AbstractStringRepr):
-
-    def __init__(self, *args):
-        AbstractStringRepr.__init__(self, *args)
-        self.runicode_encode_utf_8 = None
-
-    def ensure_ll_encode_utf8(self):
-        from rpython.rlib.runicode import unicode_encode_utf_8_impl
-        self.runicode_encode_utf_8 = func_with_new_name(
-            unicode_encode_utf_8_impl, 'runicode_encode_utf_8')
-
-    def rtype_method_upper(self, hop):
-        raise TypeError("Cannot do toupper on unicode string")
-
-    def rtype_method_lower(self, hop):
-        raise TypeError("Cannot do tolower on unicode string")
-
-    @jit.elidable
-    def ll_encode_utf8(self, ll_s):
-        from rpython.rtyper.annlowlevel import hlunicode
-        s = hlunicode(ll_s)
-        assert s is not None
-        bytes = self.runicode_encode_utf_8(
-            s, len(s), 'strict',
-            errorhandler=self.ll_raise_unicode_exception_encode,
-            allow_surrogates=False)
-        return self.ll.llstr(bytes)
-
-    def ll_raise_unicode_exception_encode(self, errors, encoding, msg, u,
-                                          startingpos, endingpos):
-        raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
-
-class __extend__(annmodel.SomeString):
-    def rtyper_makerepr(self, rtyper):
-        from rpython.rtyper.lltypesystem.rstr import string_repr
-        return string_repr
-
-    def rtyper_makekey(self):
-        return self.__class__,
-
-class __extend__(annmodel.SomeUnicodeString):
-    def rtyper_makerepr(self, rtyper):
-        from rpython.rtyper.lltypesystem.rstr import unicode_repr
-        return unicode_repr
-
-    def rtyper_makekey(self):
-        return self.__class__,
-
-class __extend__(annmodel.SomeChar):
-    def rtyper_makerepr(self, rtyper):
-        from rpython.rtyper.lltypesystem.rstr import char_repr
-        return char_repr
-
-    def rtyper_makekey(self):
-        return self.__class__,
-
-class __extend__(annmodel.SomeUnicodeCodePoint):
-    def rtyper_makerepr(self, rtyper):
-        from rpython.rtyper.lltypesystem.rstr import unichar_repr
-        return unichar_repr
-
-    def rtyper_makekey(self):
-        return self.__class__,
-
-
-class __extend__(AbstractStringRepr):
 
     def _str_reprs(self, hop):
         return hop.args_r[0].repr, hop.args_r[1].repr
@@ -405,7 +324,7 @@ class __extend__(AbstractStringRepr):
             return hop.inputconst(hop.r_result, hop.s_result.const)
         repr = hop.args_r[0].repr
         v_str = hop.inputarg(repr, 0)
-        if repr == hop.r_result: # the argument is a unicode string already
+        if repr == hop.r_result:  # the argument is a unicode string already
             hop.exception_cannot_occur()
             return v_str
         hop.exception_is_here()
@@ -445,7 +364,46 @@ class __extend__(AbstractStringRepr):
         else:
             return self.ll.ll_constant('None')
 
-class __extend__(AbstractUnicodeRepr):
+    def rtype_getslice(r_str, hop):
+        string_repr = r_str.repr
+        v_str = hop.inputarg(string_repr, arg=0)
+        kind, vlist = hop.decompose_slice_args()
+        ll_fn = getattr(r_str.ll, 'll_stringslice_%s' % (kind,))
+        return hop.gendirectcall(ll_fn, v_str, *vlist)
+
+
+class AbstractUnicodeRepr(AbstractStringRepr):
+
+    def __init__(self, *args):
+        AbstractStringRepr.__init__(self, *args)
+        self.runicode_encode_utf_8 = None
+
+    def ensure_ll_encode_utf8(self):
+        from rpython.rlib.runicode import unicode_encode_utf_8_impl
+        self.runicode_encode_utf_8 = func_with_new_name(
+            unicode_encode_utf_8_impl, 'runicode_encode_utf_8')
+
+    def rtype_method_upper(self, hop):
+        raise TypeError("Cannot do toupper on unicode string")
+
+    def rtype_method_lower(self, hop):
+        raise TypeError("Cannot do tolower on unicode string")
+
+    @jit.elidable
+    def ll_encode_utf8(self, ll_s):
+        from rpython.rtyper.annlowlevel import hlunicode
+        s = hlunicode(ll_s)
+        assert s is not None
+        bytes = self.runicode_encode_utf_8(
+            s, len(s), 'strict',
+            errorhandler=self.ll_raise_unicode_exception_encode,
+            allow_surrogates=False)
+        return self.ll.llstr(bytes)
+
+    def ll_raise_unicode_exception_encode(self, errors, encoding, msg, u,
+                                          startingpos, endingpos):
+        raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
+
     def rtype_method_encode(self, hop):
         if not hop.args_s[1].is_constant():
             raise TyperError("encoding must be constant")
@@ -466,12 +424,129 @@ class __extend__(AbstractUnicodeRepr):
         else:
             raise TyperError("encoding %s not implemented" % (encoding, ))
 
+class BaseCharReprMixin(object):
+
+    def convert_const(self, value):
+        if not isinstance(value, str) or len(value) != 1:
+            raise TyperError("not a character: %r" % (value,))
+        return value
+
+    def get_ll_eq_function(self):
+        return None
+
+    def get_ll_hash_function(self):
+        return self.ll.ll_char_hash
+
+    get_ll_fasthash_function = get_ll_hash_function
+
+    def rtype_len(_, hop):
+        return hop.inputconst(Signed, 1)
+
+    def rtype_bool(_, hop):
+        assert not hop.args_s[0].can_be_None
+        return hop.inputconst(Bool, True)
+
+    def rtype_ord(_, hop):
+        repr = hop.args_r[0].char_repr
+        vlist = hop.inputargs(repr)
+        return hop.genop('cast_char_to_int', vlist, resulttype=Signed)
+
+    def _rtype_method_isxxx(_, llfn, hop):
+        repr = hop.args_r[0].char_repr
+        vlist = hop.inputargs(repr)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(llfn, vlist[0])
+
+    def rtype_method_isspace(self, hop):
+        return self._rtype_method_isxxx(self.ll.ll_char_isspace, hop)
+
+    def rtype_method_isdigit(self, hop):
+        return self._rtype_method_isxxx(self.ll.ll_char_isdigit, hop)
+
+    def rtype_method_isalpha(self, hop):
+        return self._rtype_method_isxxx(self.ll.ll_char_isalpha, hop)
+
+    def rtype_method_isalnum(self, hop):
+        return self._rtype_method_isxxx(self.ll.ll_char_isalnum, hop)
+
+    def rtype_method_isupper(self, hop):
+        return self._rtype_method_isxxx(self.ll.ll_char_isupper, hop)
+
+    def rtype_method_islower(self, hop):
+        return self._rtype_method_isxxx(self.ll.ll_char_islower, hop)
+
+
+class AbstractCharRepr(BaseCharReprMixin, AbstractStringRepr):
+    def rtype_method_lower(self, hop):
+        char_repr = hop.args_r[0].char_repr
+        v_chr, = hop.inputargs(char_repr)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(self.ll.ll_lower_char, v_chr)
+
+    def rtype_method_upper(self, hop):
+        char_repr = hop.args_r[0].char_repr
+        v_chr, = hop.inputargs(char_repr)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(self.ll.ll_upper_char, v_chr)
+
+    def ll_str(self, ch):
+        return self.ll.ll_chr2str(ch)
+
+
+class AbstractUniCharRepr(BaseCharReprMixin, AbstractStringRepr):
+
+    def ll_str(self, ch):
+        # xxx suboptimal, maybe
+        return str(unicode(ch))
+
+    def ll_unicode(self, ch):
+        return unicode(ch)
+
+
+class __extend__(annmodel.SomeString):
+    def rtyper_makerepr(self, rtyper):
+        from rpython.rtyper.lltypesystem.rstr import string_repr
+        return string_repr
+
+    def rtyper_makekey(self):
+        return self.__class__,
+
+class __extend__(annmodel.SomeUnicodeString):
+    def rtyper_makerepr(self, rtyper):
+        from rpython.rtyper.lltypesystem.rstr import unicode_repr
+        return unicode_repr
+
+    def rtyper_makekey(self):
+        return self.__class__,
+
+class __extend__(annmodel.SomeChar):
+    def rtyper_makerepr(self, rtyper):
+        from rpython.rtyper.lltypesystem.rstr import char_repr
+        return char_repr
+
+    def rtyper_makekey(self):
+        return self.__class__,
+
+class __extend__(annmodel.SomeUnicodeCodePoint):
+    def rtyper_makerepr(self, rtyper):
+        from rpython.rtyper.lltypesystem.rstr import unichar_repr
+        return unichar_repr
+
+    def rtyper_makekey(self):
+        return self.__class__,
+
 
 class __extend__(pairtype(AbstractStringRepr, Repr)):
     def rtype_mod((r_str, _), hop):
         # for the case where the 2nd argument is a tuple, see the
         # overriding rtype_mod() below
         return r_str.ll.do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
+
+
+class __extend__(pairtype(AbstractStringRepr, FloatRepr)):
+    def rtype_mod(_, hop):
+        from rpython.rtyper.lltypesystem.rstr import do_stringformat
+        return do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
 
 
 class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
@@ -512,15 +587,6 @@ class __extend__(pairtype(IntegerRepr, AbstractStringRepr)):
         return pair(r_str, r_int).rtype_mul(hop)
     rtype_inplace_mul = rtype_mul
 
-
-class __extend__(AbstractStringRepr):
-
-    def rtype_getslice(r_str, hop):
-        string_repr = r_str.repr
-        v_str = hop.inputarg(string_repr, arg=0)
-        kind, vlist = hop.decompose_slice_args()
-        ll_fn = getattr(r_str.ll, 'll_stringslice_%s' % (kind,))
-        return hop.gendirectcall(ll_fn, v_str, *vlist)
 
 class __extend__(pairtype(AbstractStringRepr, AbstractStringRepr)):
     def rtype_add((r_str1, r_str2), hop):
@@ -584,65 +650,6 @@ class __extend__(pairtype(AbstractStringRepr, AbstractCharRepr),
         hop.exception_cannot_occur()
         return hop.gendirectcall(r_str.ll.ll_contains, v_str, v_chr)
 
-
-class __extend__(AbstractCharRepr):
-    def ll_str(self, ch):
-        return self.ll.ll_chr2str(ch)
-
-class __extend__(AbstractUniCharRepr):
-    def ll_str(self, ch):
-        # xxx suboptimal, maybe
-        return str(unicode(ch))
-
-    def ll_unicode(self, ch):
-        return unicode(ch)
-
-class __extend__(AbstractCharRepr,
-                 AbstractUniCharRepr):
-
-    def convert_const(self, value):
-        if not isinstance(value, str) or len(value) != 1:
-            raise TyperError("not a character: %r" % (value,))
-        return value
-
-    def get_ll_eq_function(self):
-        return None
-
-    def get_ll_hash_function(self):
-        return self.ll.ll_char_hash
-
-    get_ll_fasthash_function = get_ll_hash_function
-
-    def rtype_len(_, hop):
-        return hop.inputconst(Signed, 1)
-
-    def rtype_bool(_, hop):
-        assert not hop.args_s[0].can_be_None
-        return hop.inputconst(Bool, True)
-
-    def rtype_ord(_, hop):
-        repr = hop.args_r[0].char_repr
-        vlist = hop.inputargs(repr)
-        return hop.genop('cast_char_to_int', vlist, resulttype=Signed)
-
-    def _rtype_method_isxxx(_, llfn, hop):
-        repr = hop.args_r[0].char_repr
-        vlist = hop.inputargs(repr)
-        hop.exception_cannot_occur()
-        return hop.gendirectcall(llfn, vlist[0])
-
-    def rtype_method_isspace(self, hop):
-        return self._rtype_method_isxxx(self.ll.ll_char_isspace, hop)
-    def rtype_method_isdigit(self, hop):
-        return self._rtype_method_isxxx(self.ll.ll_char_isdigit, hop)
-    def rtype_method_isalpha(self, hop):
-        return self._rtype_method_isxxx(self.ll.ll_char_isalpha, hop)
-    def rtype_method_isalnum(self, hop):
-        return self._rtype_method_isxxx(self.ll.ll_char_isalnum, hop)
-    def rtype_method_isupper(self, hop):
-        return self._rtype_method_isxxx(self.ll.ll_char_isupper, hop)
-    def rtype_method_islower(self, hop):
-        return self._rtype_method_isxxx(self.ll.ll_char_islower, hop)
 
 class __extend__(pairtype(AbstractCharRepr, IntegerRepr),
                  pairtype(AbstractUniCharRepr, IntegerRepr)):

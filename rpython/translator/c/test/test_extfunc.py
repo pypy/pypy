@@ -298,8 +298,8 @@ def test_chdir():
         return os.getcwd()
     f1 = compile(does_stuff, [str])
     if os.name == 'nt':
-        assert f1(os.environment['TEMP']) == os.path.realpath(os.environment['TEMP'])
-    else:    
+        assert f1(os.environ['TEMP']) == os.path.realpath(os.environ['TEMP'])
+    else:
         assert f1('/tmp') == os.path.realpath('/tmp')
 
 def test_mkdir_rmdir():

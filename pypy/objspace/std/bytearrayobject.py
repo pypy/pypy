@@ -221,7 +221,15 @@ class W_BytearrayObject(W_Root):
         # Good default if there are no replacements.
         buf = StringBuilder(len("bytearray(b'')") + len(s))
 
-        buf.append("bytearray(b'")
+        buf.append("bytearray(b")
+        quote = "'"
+        for c in s:
+            if c == '"':
+                quote = "'"
+                break
+            elif c == "'":
+                quote = '"'
+        buf.append(quote)
 
         for i in range(len(s)):
             c = s[i]
@@ -243,7 +251,8 @@ class W_BytearrayObject(W_Root):
             else:
                 buf.append(c)
 
-        buf.append("')")
+        buf.append(quote)
+        buf.append(")")
 
         return space.wrap(buf.build())
 

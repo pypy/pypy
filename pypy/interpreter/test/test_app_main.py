@@ -7,11 +7,7 @@ import sys, os, re, runpy, subprocess
 from rpython.tool.udir import udir
 from contextlib import contextmanager
 from pypy.conftest import pypydir
-from pypy.module.sys.version import PYPY_VERSION
 from lib_pypy._pypy_interact import irc_header
-
-is_release = PYPY_VERSION[3] == "final"
-
 
 banner = sys.version.splitlines()[0]
 
@@ -246,10 +242,6 @@ class TestInteraction:
         child = self.spawn([])
         child.expect('Python ')   # banner
         child.expect('>>> ')      # prompt
-        if is_release:
-            assert irc_header not in child.before
-        else:
-            assert irc_header in child.before
         child.sendline('[6*7]')
         child.expect(re.escape('[42]'))
         child.sendline('def f(x):')
@@ -268,6 +260,22 @@ class TestInteraction:
         child.expect('>>> ')
         child.sendline("'' in sys.path")
         child.expect("True")
+
+    def test_yes_irc_topic(self, monkeypatch):
+        monkeypatch.setenv('PYPY_IRC_TOPIC', '1')
+        child = self.spawn([])
+        child.expect(irc_header)   # banner
+
+    def test_maybe_irc_topic(self):
+        import sys
+        pypy_version_info = getattr(sys, 'pypy_version_info', sys.version_info)
+        irc_topic = pypy_version_info[3] != 'final'
+        child = self.spawn([])
+        child.expect('>>>')   # banner
+        if irc_topic:
+            assert irc_header in child.before
+        else:    
+            assert irc_header not in child.before
 
     def test_help(self):
         # test that -h prints the usage, including the name of the executable
@@ -929,6 +937,7 @@ class AppTestAppMain:
         # ----------------------------------------
         from pypy.module.sys.version import CPYTHON_VERSION, PYPY_VERSION
         cpy_ver = '%d.%d' % CPYTHON_VERSION[:2]
+        from lib_pypy._pypy_interact import irc_header
 
         goal_dir = os.path.dirname(app_main)
         # build a directory hierarchy like which contains both bin/pypy-c and
@@ -948,6 +957,7 @@ class AppTestAppMain:
         self.w_fake_exe = self.space.wrap(str(fake_exe))
         self.w_expected_path = self.space.wrap(expected_path)
         self.w_trunkdir = self.space.wrap(os.path.dirname(pypydir))
+        self.w_is_release = self.space.wrap(PYPY_VERSION[3] == "final")
 
         self.w_tmp_dir = self.space.wrap(tmp_dir)
 
@@ -1017,3 +1027,4 @@ class AppTestAppMain:
             # assert it did not crash
         finally:
             sys.path[:] = old_sys_path
+    

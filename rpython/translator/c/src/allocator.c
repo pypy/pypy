@@ -24,5 +24,10 @@
 #  include "src/obmalloc.c"
 
 #endif
+#elif defined _MSC_VER
+/* link will fail without some kind of definition for the functions */  
+  void *PyObject_Malloc(size_t n) { return NULL; }
+  void *PyObject_Realloc(void *p, size_t n) { return NULL; }
+  void PyObject_Free(void *p) {  }
 
 #endif  /* PYPY_STANDALONE */

@@ -585,7 +585,11 @@ class InstanceRepr(AbstractInstanceRepr):
         if not i:
             return rstr.null_str
         instance = cast_pointer(OBJECTPTR, i)
-        uid = r_uint(cast_ptr_to_int(i))
+        # Two choices: the first gives a fast answer but it can change
+        # (typically only once) during the life of the object.
+        #uid = r_uint(cast_ptr_to_int(i))
+        uid = r_uint(llop.gc_id(lltype.Signed, i))
+        #
         nameLen = len(instance.typeptr.name)
         nameString = rstr.mallocstr(nameLen-1)
         i = 0

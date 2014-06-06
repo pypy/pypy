@@ -8,8 +8,165 @@ from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned, Bool, Float,
     Char, UniChar, UnsignedLongLong, SignedLongLong, build_number, Number,
     cast_primitive, typeOf, SignedLongLongLong)
-from rpython.rtyper.rmodel import IntegerRepr, inputconst, log
+from rpython.rtyper.rfloat import FloatRepr
+from rpython.rtyper.rmodel import inputconst, log
 from rpython.tool.pairtype import pairtype
+
+class IntegerRepr(FloatRepr):
+    def __init__(self, lowleveltype, opprefix):
+        self.lowleveltype = lowleveltype
+        self._opprefix = opprefix
+        self.as_int = self
+
+    @property
+    def opprefix(self):
+        if self._opprefix is None:
+            raise TyperError("arithmetic not supported on %r, its size is too small" %
+                             self.lowleveltype)
+        return self._opprefix
+
+    def convert_const(self, value):
+        if isinstance(value, objectmodel.Symbolic):
+            return value
+        T = typeOf(value)
+        if isinstance(T, Number) or T is Bool:
+            return cast_primitive(self.lowleveltype, value)
+        raise TyperError("not an integer: %r" % (value,))
+
+    def get_ll_eq_function(self):
+        if getattr(self, '_opprefix', '?') is None:
+            return ll_eq_shortint
+        return None
+
+    def get_ll_ge_function(self):
+        return None
+    get_ll_gt_function = get_ll_ge_function
+    get_ll_lt_function = get_ll_ge_function
+    get_ll_le_function = get_ll_ge_function
+
+    def get_ll_hash_function(self):
+        if (sys.maxint == 2147483647 and
+            self.lowleveltype in (SignedLongLong, UnsignedLongLong)):
+            return ll_hash_long_long
+        return ll_hash_int
+
+    get_ll_fasthash_function = get_ll_hash_function
+
+    def get_ll_dummyval_obj(self, rtyper, s_value):
+        # if >= 0, then all negative values are special
+        if s_value.nonneg and self.lowleveltype is Signed:
+            return signed_repr    # whose ll_dummy_value is -1
+        else:
+            return None
+
+    ll_dummy_value = -1
+
+    def rtype_chr(_, hop):
+        vlist = hop.inputargs(Signed)
+        if hop.has_implicit_exception(ValueError):
+            hop.exception_is_here()
+            hop.gendirectcall(ll_check_chr, vlist[0])
+        else:
+            hop.exception_cannot_occur()
+        return hop.genop('cast_int_to_char', vlist, resulttype=Char)
+
+    def rtype_unichr(_, hop):
+        vlist = hop.inputargs(Signed)
+        if hop.has_implicit_exception(ValueError):
+            hop.exception_is_here()
+            hop.gendirectcall(ll_check_unichr, vlist[0])
+        else:
+            hop.exception_cannot_occur()
+        return hop.genop('cast_int_to_unichar', vlist, resulttype=UniChar)
+
+    def rtype_bool(self, hop):
+        assert self is self.as_int   # rtype_is_true() is overridden in BoolRepr
+        vlist = hop.inputargs(self)
+        return hop.genop(self.opprefix + 'is_true', vlist, resulttype=Bool)
+
+    #Unary arithmetic operations
+
+    def rtype_abs(self, hop):
+        self = self.as_int
+        vlist = hop.inputargs(self)
+        if hop.s_result.unsigned:
+            return vlist[0]
+        else:
+            return hop.genop(self.opprefix + 'abs', vlist, resulttype=self)
+
+    def rtype_abs_ovf(self, hop):
+        self = self.as_int
+        if hop.s_result.unsigned:
+            raise TyperError("forbidden uint_abs_ovf")
+        else:
+            vlist = hop.inputargs(self)
+            hop.has_implicit_exception(OverflowError) # record we know about it
+            hop.exception_is_here()
+            return hop.genop(self.opprefix + 'abs_ovf', vlist, resulttype=self)
+
+    def rtype_invert(self, hop):
+        self = self.as_int
+        vlist = hop.inputargs(self)
+        return hop.genop(self.opprefix + 'invert', vlist, resulttype=self)
+
+    def rtype_neg(self, hop):
+        self = self.as_int
+        vlist = hop.inputargs(self)
+        if hop.s_result.unsigned:
+            # implement '-r_uint(x)' with unsigned subtraction '0 - x'
+            zero = self.lowleveltype._defl()
+            vlist.insert(0, hop.inputconst(self.lowleveltype, zero))
+            return hop.genop(self.opprefix + 'sub', vlist, resulttype=self)
+        else:
+            return hop.genop(self.opprefix + 'neg', vlist, resulttype=self)
+
+    def rtype_neg_ovf(self, hop):
+        self = self.as_int
+        if hop.s_result.unsigned:
+            # this is supported (and turns into just 0-x) for rbigint.py
+            hop.exception_cannot_occur()
+            return self.rtype_neg(hop)
+        else:
+            vlist = hop.inputargs(self)
+            hop.has_implicit_exception(OverflowError) # record we know about it
+            hop.exception_is_here()
+            return hop.genop(self.opprefix + 'neg_ovf', vlist, resulttype=self)
+
+    def rtype_pos(self, hop):
+        self = self.as_int
+        vlist = hop.inputargs(self)
+        return vlist[0]
+
+    def rtype_int(self, hop):
+        if self.lowleveltype in (Unsigned, UnsignedLongLong):
+            raise TyperError("use intmask() instead of int(r_uint(...))")
+        vlist = hop.inputargs(Signed)
+        hop.exception_cannot_occur()
+        return vlist[0]
+
+    def rtype_float(_, hop):
+        vlist = hop.inputargs(Float)
+        hop.exception_cannot_occur()
+        return vlist[0]
+
+    @jit.elidable
+    def ll_str(self, i):
+        from rpython.rtyper.lltypesystem.ll_str import ll_int2dec
+        return ll_int2dec(i)
+
+    def rtype_hex(self, hop):
+        from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
+        self = self.as_int
+        varg = hop.inputarg(self, 0)
+        true = inputconst(Bool, True)
+        return hop.gendirectcall(ll_int2hex, varg, true)
+
+    def rtype_oct(self, hop):
+        from rpython.rtyper.lltypesystem.ll_str import ll_int2oct
+        self = self.as_int
+        varg = hop.inputarg(self, 0)
+        true = inputconst(Bool, True)
+        return hop.gendirectcall(ll_int2oct, varg, true)
 
 
 _integer_reprs = {}
@@ -235,155 +392,10 @@ def _rtype_compare_template(hop, func):
     repr = hop.rtyper.getrepr(annmodel.unionof(s_int1, s_int2)).as_int
     vlist = hop.inputargs(repr, repr)
     hop.exception_is_here()
-    return hop.genop(repr.opprefix+func, vlist, resulttype=Bool)
+    return hop.genop(repr.opprefix + func, vlist, resulttype=Bool)
 
 
 #
-
-class __extend__(IntegerRepr):
-
-    def convert_const(self, value):
-        if isinstance(value, objectmodel.Symbolic):
-            return value
-        T = typeOf(value)
-        if isinstance(T, Number) or T is Bool:
-            return cast_primitive(self.lowleveltype, value)
-        raise TyperError("not an integer: %r" % (value,))
-
-    def get_ll_eq_function(self):
-        if getattr(self, '_opprefix', '?') is None:
-            return ll_eq_shortint
-        return None
-
-    def get_ll_ge_function(self):
-        return None
-    get_ll_gt_function = get_ll_ge_function
-    get_ll_lt_function = get_ll_ge_function
-    get_ll_le_function = get_ll_ge_function
-
-    def get_ll_hash_function(self):
-        if (sys.maxint == 2147483647 and
-            self.lowleveltype in (SignedLongLong, UnsignedLongLong)):
-            return ll_hash_long_long
-        return ll_hash_int
-
-    get_ll_fasthash_function = get_ll_hash_function
-
-    def get_ll_dummyval_obj(self, rtyper, s_value):
-        # if >= 0, then all negative values are special
-        if s_value.nonneg and self.lowleveltype is Signed:
-            return signed_repr    # whose ll_dummy_value is -1
-        else:
-            return None
-
-    ll_dummy_value = -1
-
-    def rtype_chr(_, hop):
-        vlist = hop.inputargs(Signed)
-        if hop.has_implicit_exception(ValueError):
-            hop.exception_is_here()
-            hop.gendirectcall(ll_check_chr, vlist[0])
-        else:
-            hop.exception_cannot_occur()
-        return hop.genop('cast_int_to_char', vlist, resulttype=Char)
-
-    def rtype_unichr(_, hop):
-        vlist = hop.inputargs(Signed)
-        if hop.has_implicit_exception(ValueError):
-            hop.exception_is_here()
-            hop.gendirectcall(ll_check_unichr, vlist[0])
-        else:
-            hop.exception_cannot_occur()
-        return hop.genop('cast_int_to_unichar', vlist, resulttype=UniChar)
-
-    def rtype_bool(self, hop):
-        assert self is self.as_int   # rtype_is_true() is overridden in BoolRepr
-        vlist = hop.inputargs(self)
-        return hop.genop(self.opprefix + 'is_true', vlist, resulttype=Bool)
-
-    #Unary arithmetic operations
-
-    def rtype_abs(self, hop):
-        self = self.as_int
-        vlist = hop.inputargs(self)
-        if hop.s_result.unsigned:
-            return vlist[0]
-        else:
-            return hop.genop(self.opprefix + 'abs', vlist, resulttype=self)
-
-    def rtype_abs_ovf(self, hop):
-        self = self.as_int
-        if hop.s_result.unsigned:
-            raise TyperError("forbidden uint_abs_ovf")
-        else:
-            vlist = hop.inputargs(self)
-            hop.has_implicit_exception(OverflowError) # record we know about it
-            hop.exception_is_here()
-            return hop.genop(self.opprefix + 'abs_ovf', vlist, resulttype=self)
-
-    def rtype_invert(self, hop):
-        self = self.as_int
-        vlist = hop.inputargs(self)
-        return hop.genop(self.opprefix + 'invert', vlist, resulttype=self)
-
-    def rtype_neg(self, hop):
-        self = self.as_int
-        vlist = hop.inputargs(self)
-        if hop.s_result.unsigned:
-            # implement '-r_uint(x)' with unsigned subtraction '0 - x'
-            zero = self.lowleveltype._defl()
-            vlist.insert(0, hop.inputconst(self.lowleveltype, zero))
-            return hop.genop(self.opprefix + 'sub', vlist, resulttype=self)
-        else:
-            return hop.genop(self.opprefix + 'neg', vlist, resulttype=self)
-
-    def rtype_neg_ovf(self, hop):
-        self = self.as_int
-        if hop.s_result.unsigned:
-            # this is supported (and turns into just 0-x) for rbigint.py
-            hop.exception_cannot_occur()
-            return self.rtype_neg(hop)
-        else:
-            vlist = hop.inputargs(self)
-            hop.has_implicit_exception(OverflowError) # record we know about it
-            hop.exception_is_here()
-            return hop.genop(self.opprefix + 'neg_ovf', vlist, resulttype=self)
-
-    def rtype_pos(self, hop):
-        self = self.as_int
-        vlist = hop.inputargs(self)
-        return vlist[0]
-
-    def rtype_int(self, hop):
-        if self.lowleveltype in (Unsigned, UnsignedLongLong):
-            raise TyperError("use intmask() instead of int(r_uint(...))")
-        vlist = hop.inputargs(Signed)
-        hop.exception_cannot_occur()
-        return vlist[0]
-
-    def rtype_float(_, hop):
-        vlist = hop.inputargs(Float)
-        hop.exception_cannot_occur()
-        return vlist[0]
-
-    @jit.elidable
-    def ll_str(self, i):
-        from rpython.rtyper.lltypesystem.ll_str import ll_int2dec
-        return ll_int2dec(i)
-
-    def rtype_hex(self, hop):
-        from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
-        self = self.as_int
-        varg = hop.inputarg(self, 0)
-        true = inputconst(Bool, True)
-        return hop.gendirectcall(ll_int2hex, varg, true)
-
-    def rtype_oct(self, hop):
-        from rpython.rtyper.lltypesystem.ll_str import ll_int2oct
-        self = self.as_int
-        varg = hop.inputarg(self, 0)
-        true = inputconst(Bool, True)
-        return hop.gendirectcall(ll_int2oct, varg, true)
 
 def ll_hash_int(n):
     return intmask(n)
@@ -407,3 +419,38 @@ def ll_check_unichr(n):
         return
     else:
         raise ValueError
+
+#
+# _________________________ Conversions _________________________
+
+class __extend__(pairtype(IntegerRepr, FloatRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.lowleveltype == Unsigned and r_to.lowleveltype == Float:
+            log.debug('explicit cast_uint_to_float')
+            return llops.genop('cast_uint_to_float', [v], resulttype=Float)
+        if r_from.lowleveltype == Signed and r_to.lowleveltype == Float:
+            log.debug('explicit cast_int_to_float')
+            return llops.genop('cast_int_to_float', [v], resulttype=Float)
+        if r_from.lowleveltype == SignedLongLong and r_to.lowleveltype == Float:
+            log.debug('explicit cast_longlong_to_float')
+            return llops.genop('cast_longlong_to_float', [v], resulttype=Float)
+        if r_from.lowleveltype == UnsignedLongLong and r_to.lowleveltype == Float:
+            log.debug('explicit cast_ulonglong_to_float')
+            return llops.genop('cast_ulonglong_to_float', [v], resulttype=Float)
+        return NotImplemented
+
+class __extend__(pairtype(FloatRepr, IntegerRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.lowleveltype == Float and r_to.lowleveltype == Unsigned:
+            log.debug('explicit cast_float_to_uint')
+            return llops.genop('cast_float_to_uint', [v], resulttype=Unsigned)
+        if r_from.lowleveltype == Float and r_to.lowleveltype == Signed:
+            log.debug('explicit cast_float_to_int')
+            return llops.genop('cast_float_to_int', [v], resulttype=Signed)
+        if r_from.lowleveltype == Float and r_to.lowleveltype == SignedLongLong:
+            log.debug('explicit cast_float_to_longlong')
+            return llops.genop('cast_float_to_longlong', [v], resulttype=SignedLongLong)
+        if r_from.lowleveltype == Float and r_to.lowleveltype == UnsignedLongLong:
+            log.debug('explicit cast_float_to_ulonglong')
+            return llops.genop('cast_float_to_ulonglong', [v], resulttype=UnsignedLongLong)
+        return NotImplemented
