@@ -1349,19 +1349,20 @@ class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
 
     def definestr_string_builder_multiple_builds(cls):
         def fn(_):
-            s = StringBuilder(4)
             got = []
-            for i in range(50):
-                s.append(chr(33+i))
+            for j in range(3, 76, 5):
+                s = StringBuilder()
+                for i in range(j):
+                    s.append(chr(33+i))
+                    gc.collect()
                 got.append(s.build())
-                gc.collect()
             return ' '.join(got)
         return fn
 
     def test_string_builder_multiple_builds(self):
         res = self.run('string_builder_multiple_builds')
         assert res == ' '.join([''.join(map(chr, range(33, 33+length)))
-                                for length in range(1, 51)])
+                                for length in range(3, 76, 5)])
 
     def define_nursery_hash_base(cls):
         class A:
