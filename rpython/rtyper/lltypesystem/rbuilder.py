@@ -102,6 +102,10 @@ def ll_destroy_string_piece(piece):
     if piece.raw_ptr:
         lltype.free(piece.raw_ptr, flavor='raw')
 
+_SbRtti = lltype.getRuntimeTypeInfo(STRINGPIECE)
+def ll_string_piece_rtti(piece):
+    return _SbRtti
+
 STRINGBUILDER = lltype.GcStruct('stringbuilder',
     ('current_buf', lltype.Ptr(STR)),
     ('current_ofs', lltype.Signed),
@@ -153,7 +157,8 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
     def rtyper_new(self, hop):
         destrptr = hop.rtyper.annotate_helper_fn(
             ll_destroy_string_piece, [SomePtr(lltype.Ptr(STRINGPIECE))])
-        lltype.attachRuntimeTypeInfo(STRINGPIECE, destrptr=destrptr)
+        hop.rtyper.attachRuntimeTypeInfoFunc(STRINGPIECE, ll_string_piece_rtti,
+                                             STRINGPIECE, destrptr)
         return AbstractStringBuilderRepr.rtyper_new(self, hop)
 
     def empty(self):

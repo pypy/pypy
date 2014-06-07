@@ -943,6 +943,22 @@ class TestStandalone(StandaloneTests):
 
         self.compile(entry_point)
         # assert did not explode
+    
+    def test_unicode_builder(self):
+        from rpython.rlib.rstring import UnicodeBuilder
+
+        def entry_point(argv):
+            b = UnicodeBuilder()
+            b.append_multiple_char(u"\u1234", 9999)
+            u = b.build()
+            for unic in u:
+                print ord(unic)
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        out = cbuilder.cmdexec('')
+        assert out.split() == [str(0x1234)] * 9999
+
 
 class TestMaemo(TestStandalone):
     def setup_class(cls):
