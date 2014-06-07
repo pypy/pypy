@@ -166,6 +166,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         return nullptr(self.lowleveltype.TO)
 
     @classmethod
+    @jit.dont_look_inside
     def ll_new(cls, init_size):
         init_size = max(min(init_size, 1280), 32)
         ll_builder = lltype.malloc(cls.lowleveltype.TO)
@@ -180,6 +181,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         return ll_builder
 
     @staticmethod
+    @jit.dont_look_inside
     def ll_append(ll_builder, ll_str):
         lgt = len(ll_str.chars) * ll_builder.charsize      # in bytes
         ofs = ll_builder.current_ofs
@@ -196,6 +198,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
             # --- end ---
 
     @staticmethod
+    @jit.dont_look_inside
     def ll_append_char(ll_builder, char):
         ofs = ll_builder.current_ofs
         if ofs == ll_builder.current_end:
@@ -207,6 +210,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         ll_builder.current_ofs = ofs + ll_builder.charsize
 
     @staticmethod
+    @jit.dont_look_inside
     def ll_append_slice(ll_builder, ll_str, start, end):
         lgt = (end - start) * ll_builder.charsize      # in bytes
         ofs = ll_builder.current_ofs
@@ -224,7 +228,8 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
             # --- end ---
 
     @staticmethod
-    @jit.look_inside_iff(lambda ll_builder, char, times: jit.isconstant(times) and times <= 4)
+    #@jit.look_inside_iff(lambda ll_builder, char, times: jit.isconstant(times) and times <= 4)
+    @jit.dont_look_inside
     def ll_append_multiple_char(ll_builder, char, times):
         lgt = times * ll_builder.charsize     # in bytes
         ofs = ll_builder.current_ofs
@@ -242,6 +247,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
             # --- end ---
 
     @staticmethod
+    @jit.dont_look_inside
     def ll_append_charpsize(ll_builder, charp, size):
         lgt = size * ll_builder.charsize     # in bytes
         ofs = ll_builder.current_ofs
@@ -269,6 +275,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         return ll_builder.total_size - num_chars_missing_from_last_piece
 
     @classmethod
+    @jit.dont_look_inside
     def ll_build(cls, ll_builder):
         final_size = cls.ll_getlength(ll_builder)
         ll_assert(final_size >= 0, "negative final_size")
