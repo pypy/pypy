@@ -55,13 +55,13 @@ class TestStringBuilderDirect(object):
         assert hlstr(s) == "hello world\x000123456789abcdefghijklmn"
 
     def test_unicode(self):
-        sb = UnicodeBuilderRepr.ll_new(3)
+        sb = UnicodeBuilderRepr.ll_new(32)
         UnicodeBuilderRepr.ll_append_char(sb, u'x')
         UnicodeBuilderRepr.ll_append(sb, llunicode(u"abc"))
         UnicodeBuilderRepr.ll_append_slice(sb, llunicode(u"foobar"), 2, 5)
-        UnicodeBuilderRepr.ll_append_multiple_char(sb, u'y', 3)
+        UnicodeBuilderRepr.ll_append_multiple_char(sb, u'y', 30)
         u = UnicodeBuilderRepr.ll_build(sb)
-        assert hlunicode(u) == u"xabcobayyy"
+        assert hlunicode(u) == u"xabcoba" + u"y" * 30
 
 
 class TestStringBuilder(BaseRtypingTest):
@@ -78,25 +78,25 @@ class TestStringBuilder(BaseRtypingTest):
 
     def test_overallocation(self):
         def func():
-            s = StringBuilder(4)
-            s.append("abcd")
-            s.append("defg")
+            s = StringBuilder(34)
+            s.append("abcd" * 5)
+            s.append("defg" * 5)
             s.append("rty")
             return s.build()
         res = self.ll_to_string(self.interpret(func, []))
-        assert res == "abcddefgrty"
+        assert res == "abcd" * 5 + "defg" * 5 + "rty"
 
     def test_unicode(self):
         def func():
-            s = UnicodeBuilder()
+            s = UnicodeBuilder(32)
             s.append(u'a')
             s.append(u'abc')
             s.append(u'abcdef')
             s.append_slice(u'abc', 1, 2)
-            s.append_multiple_char(u'u', 4)
+            s.append_multiple_char(u'u', 40)
             return s.build()
         res = self.ll_to_unicode(self.interpret(func, []))
-        assert res == 'aabcabcdefbuuuu'
+        assert res == u'aabcabcdefb' + u'u' * 40
         assert isinstance(res, unicode)
 
     def test_string_getlength(self):
