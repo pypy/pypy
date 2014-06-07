@@ -271,11 +271,13 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         if buf:
             # fast-path: the result fits in a single buf.
             # it is already a GC string
+            ll_builder.current_buf = lltype.nullptr(lltype.typeOf(buf).TO)
             if final_size < len(buf.chars):
                 buf = rgc.ll_shrink_array(buf, final_size)
             return buf
 
         extra = ll_builder.extra_pieces
+        ll_assert(bool(extra), "build() twice on a StringBuilder")
         ll_builder.extra_pieces = lltype.nullptr(STRINGPIECE)
         result = cls.mallocfn(final_size)
         piece_lgt = ll_builder.current_ofs - rffi.cast(lltype.Signed, # in bytes
