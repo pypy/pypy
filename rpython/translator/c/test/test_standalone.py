@@ -945,19 +945,45 @@ class TestStandalone(StandaloneTests):
         # assert did not explode
     
     def test_unicode_builder(self):
+        import random
         from rpython.rlib.rstring import UnicodeBuilder
 
+        to_do = []
+        for i in range(15000):
+            to_do.append(random.randrange(0, 100000))
+        to_do.append(0)
+
+        expected = []
+        s = ''
+        for x in to_do:
+            if x < 1500:
+                expected.append("``%s''" % (s,))
+                s = ''
+            elif x < 20000:
+                s += chr(32 + (x & 63))
+            elif x < 30000:
+                s += chr(32 + (x & 63)) * (x % 93)
+            else:
+                s += str(x)
+        expected = '\n'.join(expected)
+
         def entry_point(argv):
-            b = UnicodeBuilder()
-            b.append_multiple_char(u"\u1234", 9999)
-            u = b.build()
-            for unic in u:
-                print ord(unic)
+            b = UnicodeBuilder(32)
+            for x in to_do:
+                if x < 1500:
+                    print "``%s''" % str(b.build())
+                    b = UnicodeBuilder(32)
+                elif x < 20000:
+                    b.append(unichr(32 + (x & 63)))
+                elif x < 30000:
+                    b.append_multiple_char(unichr(32 + (x & 63)), x % 93)
+                else:
+                    b.append(unicode(str(x)))
             return 0
 
         t, cbuilder = self.compile(entry_point)
         out = cbuilder.cmdexec('')
-        assert out.split() == [str(0x1234)] * 9999
+        assert out.strip() == expected
 
 
 class TestMaemo(TestStandalone):
