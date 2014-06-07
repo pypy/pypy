@@ -392,7 +392,8 @@ class AbstractStringBuilder(object):
 
     def build(self):
         result = self._tp("").join(self._l)
-        del self._l    # after build(), no further operation is allowed
+        assert len(result) == self._size
+        self._l = [result]
         return result
 
     def getlength(self):

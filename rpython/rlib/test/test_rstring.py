@@ -162,8 +162,9 @@ def test_string_builder():
     s.append_multiple_char('d', 4)
     result = s.build()
     assert result == "aabcabdddd"
-    py.test.raises(AttributeError, s.build)
-    py.test.raises(AttributeError, s.append, "x")
+    assert result == s.build()
+    s.append("x")
+    assert s.build() == result + "x"
 
 def test_unicode_builder():
     s = UnicodeBuilder()

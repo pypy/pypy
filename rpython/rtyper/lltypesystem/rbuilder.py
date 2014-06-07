@@ -284,9 +284,14 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         if buf:
             # fast-path: the result fits in a single buf.
             # it is already a GC string
-            ll_builder.current_buf = lltype.nullptr(lltype.typeOf(buf).TO)
-            if final_size < len(buf.chars):
+            if ll_builder.total_size != final_size:
+                ll_assert(final_size < ll_builder.total_size,
+                          "final_size > ll_builder.total_size?")
                 buf = rgc.ll_shrink_array(buf, final_size)
+                ll_builder.total_size = final_size
+                ll_builder.current_buf = buf
+                ll_builder.current_ofs = 0
+                ll_builder.current_end = 0
             return buf
 
         extra = ll_builder.extra_pieces
@@ -298,7 +303,10 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         ll_assert(piece_lgt == extra.piece_lgt - (ll_builder.current_end -
                                                   ll_builder.current_ofs),
                   "bogus last piece_lgt")
+        ll_builder.total_size = final_size
+        ll_builder.current_buf = result
         ll_builder.current_ofs = 0
+        ll_builder.current_end = 0
 
         # --- no GC! ---
         dst = ll_str2raw(result, final_size)

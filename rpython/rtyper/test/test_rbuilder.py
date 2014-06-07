@@ -63,6 +63,25 @@ class TestStringBuilderDirect(object):
         u = UnicodeBuilderRepr.ll_build(sb)
         assert hlunicode(u) == u"xabcoba" + u"y" * 30
 
+    def test_several_builds(self):
+        sb = StringBuilderRepr.ll_new(32)
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == ""
+        assert s == StringBuilderRepr.ll_build(sb)
+        assert s == StringBuilderRepr.ll_build(sb)
+        #
+        sb = StringBuilderRepr.ll_new(32)
+        StringBuilderRepr.ll_append(sb, llstr("abcdefgh" * 3))   # not full
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == "abcdefgh" * 3
+        assert s == StringBuilderRepr.ll_build(sb)
+        assert s == StringBuilderRepr.ll_build(sb)
+        StringBuilderRepr.ll_append(sb, llstr("extra"))    # overflow
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == "abcdefgh" * 3 + "extra"
+        assert s == StringBuilderRepr.ll_build(sb)
+        assert s == StringBuilderRepr.ll_build(sb)
+
 
 class TestStringBuilder(BaseRtypingTest):
     def test_simple(self):
