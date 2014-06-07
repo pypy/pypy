@@ -285,6 +285,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         ll_assert(piece_lgt == extra.piece_lgt - (ll_builder.current_end -
                                                   ll_builder.current_ofs),
                   "bogus last piece_lgt")
+        ll_builder.current_ofs = 0
 
         # --- no GC! ---
         dst = str2raw(result, final_size)
