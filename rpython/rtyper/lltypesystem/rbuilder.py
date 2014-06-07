@@ -10,6 +10,7 @@ from rpython.rtyper.lltypesystem.rstr import (STR, UNICODE, char_repr,
 from rpython.rtyper.rbuilder import AbstractStringBuilderRepr
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.llannotation import SomePtr
+from rpython.rtyper.annlowlevel import llstr
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rgc import must_be_light_finalizer
 
@@ -216,12 +217,20 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
 
     @staticmethod
     def ll_append_charpsize(ll_builder, charp, size):
-        XXX
-        used = ll_builder.used
-        if used + size > ll_builder.allocated:
-            ll_builder.grow(ll_builder, size)
-        ll_builder.copy_raw_to_string(charp, ll_builder.buf, used, size)
-        ll_builder.used += size
+        lgt = size
+        ofs = ll_builder.current_ofs
+        newofs = ofs + lgt
+        if newofs > ll_builder.current_end:
+            ll_str = llstr(rffi.charpsize2str(charp, size))
+            ll_builder.append_overflow(ll_builder, ll_str)
+        else:
+            ll_builder.current_ofs = newofs
+            # --- no GC! ---
+            raw = rffi.cast(rffi.CCHARP, ll_builder.current_buf)
+            rffi.c_memcpy(rffi.ptradd(raw, ofs),
+                          charp,
+                          lgt)
+            # --- end ---
 
     @staticmethod
     def ll_getlength(ll_builder):

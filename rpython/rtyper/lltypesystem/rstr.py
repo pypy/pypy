@@ -4,7 +4,7 @@ from rpython.annotator import model as annmodel
 from rpython.rlib import jit, types
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
-    _hash_string, keepalive_until_here, specialize)
+    _hash_string, keepalive_until_here, specialize, enforceargs)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
@@ -32,13 +32,13 @@ STR = GcForwardReference()
 UNICODE = GcForwardReference()
 
 def new_malloc(TP, name):
+    @enforceargs(int)
     def mallocstr(length):
         ll_assert(length >= 0, "negative string length")
         r = malloc(TP, length)
         if not we_are_translated() or not malloc_zero_filled:
             r.hash = 0
         return r
-    mallocstr._annspecialcase_ = 'specialize:semierased'
     return func_with_new_name(mallocstr, name)
 
 mallocstr = new_malloc(STR, 'mallocstr')

@@ -5,7 +5,7 @@ import py
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rtyper.annlowlevel import llstr, hlstr
 from rpython.rtyper.lltypesystem import rffi
-from rpython.rtyper.lltypesystem.rbuilder import StringBuilderRepr
+from rpython.rtyper.lltypesystem.rbuilder import StringBuilderRepr, UnicodeBuilderRepr
 from rpython.rtyper.test.tool import BaseRtypingTest
 
 
@@ -44,6 +44,24 @@ class TestStringBuilderDirect(object):
         StringBuilderRepr.ll_append(sb, llstr("def"))
         s = StringBuilderRepr.ll_build(sb)
         assert hlstr(s) == "abc" * 11 + "def"
+
+    def test_charp(self):
+        sb = StringBuilderRepr.ll_new(32)
+        with rffi.scoped_str2charp("hello world") as p:
+            StringBuilderRepr.ll_append_charpsize(sb, p, 12)
+        with rffi.scoped_str2charp("0123456789abcdefghijklmn") as p:
+            StringBuilderRepr.ll_append_charpsize(sb, p, 24)
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == "hello world\x000123456789abcdefghijklmn"
+
+    def test_unicode(self):
+        sb = UnicodeBuilderRepr.ll_new(3)
+        UnicodeBuilderRepr.ll_append_char(sb, u'x')
+        UnicodeBuilderRepr.ll_append(sb, llstr(u"abc"))
+        UnicodeBuilderRepr.ll_append_slice(sb, llstr(u"foobar"), 2, 5)
+        UnicodeBuilderRepr.ll_append_multiple_char(sb, u'y', 3)
+        u = UnicodeBuilderRepr.ll_build(sb)
+        assert u''.join(u.chars) == u"xabcobayyy"
 
 
 class TestStringBuilder(BaseRtypingTest):
