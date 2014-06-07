@@ -254,13 +254,14 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
 
     @staticmethod
     def ll_getlength(ll_builder):
-        XXX
-        return ll_builder.used
+        num_chars_missing_from_last_piece = (
+            (ll_builder.current_end - ll_builder.current_ofs)
+            // ll_builder.charsize)
+        return ll_builder.total_size - num_chars_missing_from_last_piece
 
     @classmethod
     def ll_build(cls, ll_builder):
-        final_size = (ll_builder.total_size -
-            (ll_builder.current_end - ll_builder.current_ofs) // ll_builder.charsize)
+        final_size = cls.ll_getlength(ll_builder)
         ll_assert(final_size >= 0, "negative final_size")
 
         buf = ll_builder.current_buf
