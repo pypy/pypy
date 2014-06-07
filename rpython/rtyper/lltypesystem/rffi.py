@@ -833,7 +833,9 @@ def make_string_mappings(strtype):
     def charpsize2str(cp, size):
         ll_str = mallocfn(size)
         copy_raw_to_string(cp, ll_str, 0, size)
-        return hlstrtype(ll_str)
+        result = hlstrtype(ll_str)
+        assert result is not None
+        return result
     charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,
