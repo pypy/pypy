@@ -943,7 +943,7 @@ class TestStandalone(StandaloneTests):
 
         self.compile(entry_point)
         # assert did not explode
-    
+
     def test_unicode_builder(self):
         import random
         from rpython.rlib.rstring import UnicodeBuilder
@@ -958,7 +958,8 @@ class TestStandalone(StandaloneTests):
         for x in to_do:
             if x < 1500:
                 expected.append("``%s''" % (s,))
-                s = ''
+                if x < 1000:
+                    s = ''
             elif x < 20000:
                 s += chr(32 + (x & 63))
             elif x < 30000:
@@ -972,7 +973,8 @@ class TestStandalone(StandaloneTests):
             for x in to_do:
                 if x < 1500:
                     print "``%s''" % str(b.build())
-                    b = UnicodeBuilder(32)
+                    if x < 1000:
+                        b = UnicodeBuilder(32)
                 elif x < 20000:
                     b.append(unichr(32 + (x & 63)))
                 elif x < 30000:
