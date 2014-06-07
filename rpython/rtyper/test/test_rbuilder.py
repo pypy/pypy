@@ -20,9 +20,30 @@ class TestStringBuilderDirect(object):
         assert hlstr(s) == "xabcobayyy"
 
     def test_nooveralloc(self):
-        sb = StringBuilderRepr.ll_new(3)
-        StringBuilderRepr.ll_append(sb, llstr("abc"))
-        assert StringBuilderRepr.ll_build(sb) == sb.buf
+        sb = StringBuilderRepr.ll_new(33)
+        StringBuilderRepr.ll_append(sb, llstr("abc" * 11))
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == "abc" * 11
+
+    def test_grow_when_append_char(self):
+        sb = StringBuilderRepr.ll_new(33)
+        StringBuilderRepr.ll_append(sb, llstr("abc" * 11))
+        StringBuilderRepr.ll_append_char(sb, "d")
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == "abc" * 11 + "d"
+
+    def test_grow_two_halves(self):
+        sb = StringBuilderRepr.ll_new(32)
+        StringBuilderRepr.ll_append(sb, llstr("abc" * 11))
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == "abc" * 11
+
+    def test_grow_when_exactly_full(self):
+        sb = StringBuilderRepr.ll_new(33)
+        StringBuilderRepr.ll_append(sb, llstr("abc" * 11))
+        StringBuilderRepr.ll_append(sb, llstr("def"))
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == "abc" * 11 + "def"
 
 
 class TestStringBuilder(BaseRtypingTest):

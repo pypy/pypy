@@ -1336,6 +1336,10 @@ def force_ptradd(ptr, n):
     """
     T = lltype.typeOf(ptr)
     typecheck_ptradd(T)
+    if not ptr and T.TO.OF == lltype.Char:
+        # special-case: support 'NULL + real_address_as_int'
+        assert not (0 <= n < 4096)
+        return force_cast(T, n)
     ctypes_item_type = get_ctypes_type(T.TO.OF)
     ctypes_arrayptr_type = get_ctypes_type(T)
     cptr = lltype2ctypes(ptr)
