@@ -14,6 +14,23 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rgc import must_be_light_finalizer
 
 
+# ------------------------------------------------------------
+# Basic idea:
+#
+# - A StringBuilder has a rstr.STR of the specified initial size
+#   (100 by default), which is filled gradually.
+#
+# - When it is full, we allocate extra buffers as *raw* memory
+#   held by STRINGPIECE objects.  The STRINGPIECE has a destructor
+#   that frees the memory, but usually the memory is freed explicitly
+#   at build() time.
+#
+# - The data is copied at most twice, and only once in case it fits
+#   into the initial size (and the GC supports shrinking the STR).
+#
+# ------------------------------------------------------------
+
+
 def new_grow_func(name, mallocfn, copycontentsfn):
     @enforceargs(None, int)
     def stringbuilder_grow(ll_builder, needed):
