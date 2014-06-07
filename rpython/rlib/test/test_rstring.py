@@ -160,7 +160,10 @@ def test_string_builder():
     s.append("a")
     s.append_slice("abc", 1, 2)
     s.append_multiple_char('d', 4)
-    assert s.build() == "aabcabdddd"
+    result = s.build()
+    assert result == "aabcabdddd"
+    py.test.raises(AttributeError, s.build)
+    py.test.raises(AttributeError, s.append, "x")
 
 def test_unicode_builder():
     s = UnicodeBuilder()
@@ -169,8 +172,9 @@ def test_unicode_builder():
     s.append_slice(u'abcdef', 1, 2)
     assert s.getlength() == len('aabcb')
     s.append_multiple_char(u'd', 4)
-    assert s.build() == 'aabcbdddd'
-    assert isinstance(s.build(), unicode)
+    result = s.build()
+    assert result == 'aabcbdddd'
+    assert isinstance(result, unicode)
 
 
 class TestTranslates(BaseRtypingTest):
