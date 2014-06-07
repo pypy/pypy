@@ -18,7 +18,7 @@ from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
 from rpython.annotator import description
 from rpython.annotator.signature import annotationoftype
-from rpython.annotator.argument import simple_args, complex_args
+from rpython.annotator.argument import simple_args
 from rpython.rlib.objectmodel import r_dict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
@@ -103,8 +103,9 @@ class Bookkeeper(object):
                 self.consider_call_site(call_op)
 
             for pbc, args_s in self.emulated_pbc_calls.itervalues():
-                self.consider_call_site_for_pbc(pbc, 'simple_call',
-                                                args_s, s_ImpossibleValue, None)
+                args = simple_args(args_s)
+                self.consider_call_site_for_pbc(pbc, args,
+                                                s_ImpossibleValue, None)
             self.emulated_pbc_calls = {}
         finally:
             self.leave()
@@ -152,16 +153,14 @@ class Bookkeeper(object):
             args_s = [lltype_to_annotation(adtmeth.ll_ptrtype)] + args_s
         if isinstance(s_callable, SomePBC):
             s_result = binding(call_op.result, s_ImpossibleValue)
-            self.consider_call_site_for_pbc(s_callable, call_op.opname, args_s,
+            args = call_op.build_args(args_s)
+            self.consider_call_site_for_pbc(s_callable, args,
                                             s_result, call_op)
 
-    def consider_call_site_for_pbc(self, s_callable, opname, args_s, s_result,
+    def consider_call_site_for_pbc(self, s_callable, args, s_result,
                                    call_op):
         descs = list(s_callable.descriptions)
-        if not descs:
-            return
         family = descs[0].getcallfamily()
-        args = self.build_args(opname, args_s)
         s_callable.getKind().consider_call_site(self, family, descs, args,
                                                 s_result, call_op)
 
@@ -452,9 +451,6 @@ class Bookkeeper(object):
         attr = s_attr.const
 
         descs = list(pbc.descriptions)
-        if not descs:
-            return s_ImpossibleValue
-
         first = descs[0]
         if len(descs) == 1:
             return first.s_read_attribute(attr)
@@ -495,8 +491,6 @@ class Bookkeeper(object):
         annotations).
         """
         descs = list(pbc.descriptions)
-        if not descs:
-            return s_ImpossibleValue
         first = descs[0]
         first.mergecallfamilies(*descs[1:])
 
@@ -561,12 +555,6 @@ class Bookkeeper(object):
         if pos is not None:
             assert self.annotator.binding(op.args[pos]) == s_type
         return op
-
-    def build_args(self, op, args_s):
-        if op == "simple_call":
-            return simple_args(args_s)
-        elif op == "call_args":
-            return complex_args(args_s)
 
     def ondegenerated(self, what, s_value, where=None, called_from_graph=None):
         self.annotator.ondegenerated(what, s_value, where=where,

@@ -1,7 +1,7 @@
 
 import py
 from pypy.conftest import pypydir
-from pypy.tool.release import package
+from pypy.tool.release import package, package
 from pypy.module.sys.version import  CPYTHON_VERSION
 import tarfile, zipfile, sys
 
@@ -25,8 +25,9 @@ def test_dir_structure(test='test'):
     else:
         fake_pypy_c = False
     try:
-        builddir = package.package(py.path.local(pypydir).dirpath(), test,
+        retval, builddir = package.package(py.path.local(pypydir).dirpath(), test,
                                    rename_pypy_c)
+        assert retval == 0
         prefix = builddir.join(test)
         cpyver = '%d.%d' % CPYTHON_VERSION[:2]
         assert prefix.join('lib-python', cpyver, 'test').check()
@@ -74,7 +75,6 @@ def test_dir_structure(test='test'):
             pypy_c.remove()
 
 def test_with_zipfile_module():
-    from pypy.tool.release import package
     prev = package.USE_ZIPFILE_MODULE
     try:
         package.USE_ZIPFILE_MODULE = True
@@ -106,3 +106,22 @@ def test_fix_permissions(tmpdir):
     check(file1, 0644)
     check(file2, 0644)
     check(pypy,  0755)
+
+def test_generate_license():
+    from os.path import dirname, abspath
+    class Options(object):
+        pass
+    options = Options()
+    basedir = dirname(dirname(dirname(dirname(dirname(abspath(__file__))))))
+    options.no_tk = False
+    if sys.platform == 'win32':
+        # Following recommended build setup at
+        # http://doc.pypy.org/en/latest/windows.html#abridged-method-for-ojit-builds-using-visual-studio-2008
+        options.license_base = dirname(basedir) + '/local'
+    else:
+        options.license_base = '/usr/share/doc'
+    license = package.generate_license(py.path.local(basedir), options)
+    assert 'bzip2' in license
+    assert 'openssl' in license
+    assert 'Tcl' in license
+
