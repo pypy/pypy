@@ -3,7 +3,7 @@ from __future__ import with_statement
 import py
 
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
-from rpython.rtyper.annlowlevel import llstr, hlstr
+from rpython.rtyper.annlowlevel import llstr, hlstr, llunicode, hlunicode
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem.rbuilder import StringBuilderRepr, UnicodeBuilderRepr
 from rpython.rtyper.test.tool import BaseRtypingTest
@@ -57,11 +57,11 @@ class TestStringBuilderDirect(object):
     def test_unicode(self):
         sb = UnicodeBuilderRepr.ll_new(3)
         UnicodeBuilderRepr.ll_append_char(sb, u'x')
-        UnicodeBuilderRepr.ll_append(sb, llstr(u"abc"))
-        UnicodeBuilderRepr.ll_append_slice(sb, llstr(u"foobar"), 2, 5)
+        UnicodeBuilderRepr.ll_append(sb, llunicode(u"abc"))
+        UnicodeBuilderRepr.ll_append_slice(sb, llunicode(u"foobar"), 2, 5)
         UnicodeBuilderRepr.ll_append_multiple_char(sb, u'y', 3)
         u = UnicodeBuilderRepr.ll_build(sb)
-        assert u''.join(u.chars) == u"xabcobayyy"
+        assert hlunicode(u) == u"xabcobayyy"
 
 
 class TestStringBuilder(BaseRtypingTest):

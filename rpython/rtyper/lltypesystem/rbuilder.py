@@ -1,7 +1,8 @@
 from rpython.rlib import rgc, jit
-from rpython.rlib.objectmodel import enforceargs
+from rpython.rlib.objectmodel import enforceargs, specialize
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.debug import ll_assert
+from rpython.rlib.rgc import must_be_light_finalizer
 from rpython.rtyper.rptr import PtrRepr
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.lltypesystem.lltype import staticAdtMethod, nullptr
@@ -10,9 +11,7 @@ from rpython.rtyper.lltypesystem.rstr import (STR, UNICODE, char_repr,
 from rpython.rtyper.rbuilder import AbstractStringBuilderRepr
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.llannotation import SomePtr
-from rpython.rtyper.annlowlevel import llstr
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rgc import must_be_light_finalizer
+from rpython.rtyper.annlowlevel import llstr, llunicode
 
 
 # ------------------------------------------------------------
@@ -42,14 +41,16 @@ def new_grow_funcs(name, mallocfn):
         except OverflowError:
             raise MemoryError
         needed &= ~7
+        #
         new_piece = lltype.malloc(STRINGPIECE)
-        new_piece.piece_size = needed
-        raw_ptr = lltype.malloc(rffi.CCHARP.TO, needed, flavor='raw')
+        charsize = ll_builder.charsize
+        new_piece.piece_lgt = needed * charsize
+        raw_ptr = lltype.malloc(rffi.CCHARP.TO, needed * charsize, flavor='raw')
         new_piece.raw_ptr = raw_ptr
         new_piece.prev_piece = ll_builder.extra_pieces
         ll_builder.extra_pieces = new_piece
         ll_builder.current_ofs = rffi.cast(lltype.Signed, raw_ptr)
-        ll_builder.current_end = rffi.cast(lltype.Signed, raw_ptr) + needed
+        ll_builder.current_end = rffi.cast(lltype.Signed, raw_ptr) + needed * charsize
         ll_builder.total_size += needed
         if ll_builder.current_buf:
             STRTYPE = lltype.typeOf(ll_builder.current_buf).TO
@@ -60,7 +61,7 @@ def new_grow_funcs(name, mallocfn):
     def stringbuilder_append_overflow(ll_builder, ll_str):
         # First, the part that still fits in the current piece
         ofs = ll_builder.current_ofs
-        part1 = ll_builder.current_end - ofs
+        part1 = ll_builder.current_end - ofs     # in bytes, not (uni)chars
         # --- no GC! ---
         raw = rffi.cast(rffi.CCHARP, ll_builder.current_buf)
         rffi.c_memcpy(rffi.ptradd(raw, ofs),
@@ -68,7 +69,8 @@ def new_grow_funcs(name, mallocfn):
                       part1)
         # --- end ---
         # Next, the remaining part, in a new piece
-        part2 = len(ll_str.chars) - part1
+        part1 //= ll_builder.charsize
+        part2 = len(ll_str.chars) - part1        # in (uni)chars
         ll_assert(part2 > 0, "append_overflow: no overflow")
         ofs = stringbuilder_grow(ll_builder, part2)
         ll_builder.current_ofs = ofs + part2
@@ -77,7 +79,7 @@ def new_grow_funcs(name, mallocfn):
         raw = lltype.nullptr(rffi.CCHARP.TO)
         rffi.c_memcpy(rffi.ptradd(raw, ofs),
                       str2raw(ll_str, part1),
-                      part2)
+                      part2 * ll_builder.charsize)
         # --- end ---
 
     return (func_with_new_name(stringbuilder_grow, '%s_grow' % name),
@@ -89,7 +91,7 @@ unicodebuilder_grows = new_grow_funcs('unicodebuilder', rstr.mallocunicode)
 
 STRINGPIECE = lltype.GcStruct('stringpiece',
     ('raw_ptr', rffi.CCHARP),
-    ('piece_size', lltype.Signed),
+    ('piece_lgt', lltype.Signed),        # in bytes
     ('prev_piece', lltype.Ptr(lltype.GcForwardReference())),
     rtti=True)
 STRINGPIECE.prev_piece.TO.become(STRINGPIECE)
@@ -109,24 +111,39 @@ STRINGBUILDER = lltype.GcStruct('stringbuilder',
         'grow': staticAdtMethod(stringbuilder_grows[0]),
         'append_overflow': staticAdtMethod(stringbuilder_grows[1]),
         'copy_raw_to_string': staticAdtMethod(rstr.copy_raw_to_string),
+        'charsize': 1,
     }
 )
 
 UNICODEBUILDER = lltype.GcStruct('unicodebuilder',
-    ('allocated', lltype.Signed),
-    ('used', lltype.Signed),
-    ('buf', lltype.Ptr(UNICODE)),
+    ('current_buf', lltype.Ptr(UNICODE)),
+    ('current_ofs', lltype.Signed),     # position measured in *bytes*
+    ('current_end', lltype.Signed),     # position measured in *bytes*
+    ('total_size', lltype.Signed),
+    ('extra_pieces', lltype.Ptr(STRINGPIECE)),
+    ('initial_buf', lltype.Ptr(UNICODE)),
     adtmeths={
         'grow': staticAdtMethod(unicodebuilder_grows[0]),
         'append_overflow': staticAdtMethod(unicodebuilder_grows[1]),
         'copy_raw_to_string': staticAdtMethod(rstr.copy_raw_to_unicode),
+        'charsize': rffi.sizeof(lltype.UniChar),
     }
 )
 
+@specialize.ll()
 def str2raw(ll_str, charoffset):
+    STRTYPE = lltype.typeOf(ll_str).TO
     raw_data = (llmemory.cast_ptr_to_adr(ll_str) +
-                llmemory.sizeof(STR, charoffset))
+                llmemory.sizeof(STRTYPE, charoffset))
     return rffi.cast(rffi.CCHARP, raw_data)
+
+@specialize.ll()
+def rawsetitem(raw, byteoffset, char):
+    raw = rffi.ptradd(raw, byteoffset)
+    if lltype.typeOf(char) == lltype.Char:
+        raw[0] = char
+    else:
+        rffi.cast(rffi.CWCHARP, raw)[0] = char
 
 
 class BaseStringBuilderRepr(AbstractStringBuilderRepr):
@@ -145,16 +162,17 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         init_size = max(min(init_size, 1280), 32)
         ll_builder = lltype.malloc(cls.lowleveltype.TO)
         ll_builder.current_buf = cls.mallocfn(init_size)
-        ofs = rffi.offsetof(STR, 'chars') + rffi.itemoffsetof(STR.chars, 0)
+        STRTYPE = lltype.typeOf(ll_builder.current_buf).TO
+        ofs = rffi.offsetof(STRTYPE, 'chars') + rffi.itemoffsetof(STRTYPE.chars, 0)
         ofs = llmemory.raw_malloc_usage(ofs)    # for direct run
         ll_builder.current_ofs = ofs
-        ll_builder.current_end = ofs + init_size
+        ll_builder.current_end = ofs + init_size * ll_builder.charsize
         ll_builder.total_size = init_size
         return ll_builder
 
     @staticmethod
     def ll_append(ll_builder, ll_str):
-        lgt = len(ll_str.chars)
+        lgt = len(ll_str.chars) * ll_builder.charsize      # in bytes
         ofs = ll_builder.current_ofs
         newofs = ofs + lgt
         if newofs > ll_builder.current_end:
@@ -175,14 +193,13 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
             ofs = ll_builder.grow(ll_builder, 1)
         # --- no GC! ---
         raw = rffi.cast(rffi.CCHARP, ll_builder.current_buf)
-        raw = rffi.ptradd(raw, ofs)
-        raw[0] = char
+        rawsetitem(raw, ofs, char)
         # --- end ---
-        ll_builder.current_ofs = ofs + 1
+        ll_builder.current_ofs = ofs + ll_builder.charsize
 
     @staticmethod
     def ll_append_slice(ll_builder, ll_str, start, end):
-        lgt = end - start
+        lgt = (end - start) * ll_builder.charsize      # in bytes
         ofs = ll_builder.current_ofs
         newofs = ofs + lgt
         if newofs > ll_builder.current_end:
@@ -200,7 +217,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
     @staticmethod
     @jit.look_inside_iff(lambda ll_builder, char, times: jit.isconstant(times) and times <= 4)
     def ll_append_multiple_char(ll_builder, char, times):
-        lgt = times
+        lgt = times * ll_builder.charsize     # in bytes
         ofs = ll_builder.current_ofs
         newofs = ofs + lgt
         if newofs > ll_builder.current_end:
@@ -211,24 +228,27 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
             # --- no GC! ---
             raw = rffi.cast(rffi.CCHARP, ll_builder.current_buf)
             while ofs < newofs:
-                raw[ofs] = char
-                ofs += 1
+                rawsetitem(raw, ofs, char)
+                ofs += ll_builder.charsize
             # --- end ---
 
     @staticmethod
     def ll_append_charpsize(ll_builder, charp, size):
-        lgt = size
+        lgt = size * ll_builder.charsize     # in bytes
         ofs = ll_builder.current_ofs
         newofs = ofs + lgt
         if newofs > ll_builder.current_end:
-            ll_str = llstr(rffi.charpsize2str(charp, size))
+            if ll_builder.charsize == 1:
+                ll_str = llstr(rffi.charpsize2str(charp, size))
+            else:
+                ll_str = llunicode(rffi.wcharpsize2unicode(charp, size))
             ll_builder.append_overflow(ll_builder, ll_str)
         else:
             ll_builder.current_ofs = newofs
             # --- no GC! ---
             raw = rffi.cast(rffi.CCHARP, ll_builder.current_buf)
             rffi.c_memcpy(rffi.ptradd(raw, ofs),
-                          charp,
+                          rffi.cast(rffi.CCHARP, charp),
                           lgt)
             # --- end ---
 
@@ -237,10 +257,10 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         XXX
         return ll_builder.used
 
-    @staticmethod
-    def ll_build(ll_builder):
-        final_size = ll_builder.total_size - (ll_builder.current_end -
-                                              ll_builder.current_ofs)
+    @classmethod
+    def ll_build(cls, ll_builder):
+        final_size = (ll_builder.total_size -
+            (ll_builder.current_end - ll_builder.current_ofs) // ll_builder.charsize)
         ll_assert(final_size >= 0, "negative final_size")
 
         buf = ll_builder.current_buf
@@ -253,28 +273,28 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
 
         extra = ll_builder.extra_pieces
         ll_builder.extra_pieces = lltype.nullptr(STRINGPIECE)
-        result = rstr.mallocstr(final_size)
-        piece_size = ll_builder.current_ofs - rffi.cast(lltype.Signed,
-                                                        extra.raw_ptr)
-        ll_assert(piece_size == extra.piece_size - (ll_builder.current_end -
-                                                    ll_builder.current_ofs),
-                  "bogus last piece_size")
+        result = cls.mallocfn(final_size)
+        piece_lgt = ll_builder.current_ofs - rffi.cast(lltype.Signed,   # in bytes
+                                                       extra.raw_ptr)
+        ll_assert(piece_lgt == extra.piece_lgt - (ll_builder.current_end -
+                                                  ll_builder.current_ofs),
+                  "bogus last piece_lgt")
 
         # --- no GC! ---
         dst = str2raw(result, final_size)
         while True:
-            dst = rffi.ptradd(dst, -piece_size)
-            rffi.c_memcpy(dst, extra.raw_ptr, piece_size)
+            dst = rffi.ptradd(dst, -piece_lgt)
+            rffi.c_memcpy(dst, extra.raw_ptr, piece_lgt)
             lltype.free(extra.raw_ptr, flavor='raw')
             extra.raw_ptr = lltype.nullptr(rffi.CCHARP.TO)
             extra = extra.prev_piece
             if not extra:
                 break
-            piece_size = extra.piece_size
+            piece_lgt = extra.piece_lgt
         # --- end ---
 
         initial_len = len(ll_builder.initial_buf.chars)
-        ll_assert(dst == str2raw(result, initial_len), "bad final piece size")
+        ll_assert(dst == str2raw(result, initial_len), "bad first piece size")
         rstr.copy_string_contents(ll_builder.initial_buf, result,
                                   0, 0, initial_len)
         return result
