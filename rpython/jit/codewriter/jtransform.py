@@ -253,7 +253,13 @@ class Transformer(object):
                         SpaceOperation("record_known_class", [op.args[0], const_vtable], None)]
 
     def rewrite_op_raw_malloc_usage(self, op):
-        pass
+        if self.cpu.translate_support_code or isinstance(op.args[0], Variable):
+            return   # the operation disappears
+        else:
+            # only for untranslated tests: get a real integer estimate
+            arg = op.args[0].value
+            arg = llmemory.raw_malloc_usage(arg)
+            return [Constant(arg, lltype.Signed)]
 
     def rewrite_op_jit_record_known_class(self, op):
         return SpaceOperation("record_known_class", [op.args[0], op.args[1]], None)

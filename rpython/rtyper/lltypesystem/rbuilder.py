@@ -137,6 +137,12 @@ UNICODEBUILDER = lltype.GcStruct('unicodebuilder',
 )
 
 
+def ll_baseofs(ll_str):
+    STRTYPE = lltype.typeOf(ll_str).TO
+    ofs = rffi.offsetof(STRTYPE, 'chars') + rffi.itemoffsetof(STRTYPE.chars, 0)
+    return llmemory.raw_malloc_usage(ofs)    # for direct run
+ll_baseofs._always_inline_ = True
+
 def ll_str2raw(ll_str, charoffset):
     STRTYPE = lltype.typeOf(ll_str).TO
     ofs = (rffi.offsetof(STRTYPE, 'chars') +
@@ -144,6 +150,7 @@ def ll_str2raw(ll_str, charoffset):
     ofs = llmemory.raw_malloc_usage(ofs)    # for direct run
     ofs += rffi.sizeof(STRTYPE.chars.OF) * charoffset
     return rffi.ptradd(rffi.cast(rffi.CCHARP, ll_str), ofs)
+ll_str2raw._always_inline_ = True
 
 def ll_rawsetitem(raw, byteoffset, char):
     raw = rffi.ptradd(raw, byteoffset)
@@ -151,6 +158,7 @@ def ll_rawsetitem(raw, byteoffset, char):
         raw[0] = char
     else:
         rffi.cast(rffi.CWCHARP, raw)[0] = char
+ll_rawsetitem._always_inline_ = True
 
 
 class BaseStringBuilderRepr(AbstractStringBuilderRepr):
@@ -166,23 +174,27 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         return nullptr(self.lowleveltype.TO)
 
     @classmethod
-    @jit.dont_look_inside
     def ll_new(cls, init_size):
         init_size = max(min(init_size, 1280), 32)
         ll_builder = lltype.malloc(cls.lowleveltype.TO)
         ll_builder.current_buf = cls.mallocfn(init_size)
-        STRTYPE = lltype.typeOf(ll_builder.current_buf).TO
-        ofs = (rffi.offsetof(STRTYPE, 'chars') +
-               rffi.itemoffsetof(STRTYPE.chars, 0))
-        ofs = llmemory.raw_malloc_usage(ofs)    # for direct run
+        ofs = ll_baseofs(ll_builder.current_buf)
         ll_builder.current_ofs = ofs
         ll_builder.current_end = ofs + init_size * ll_builder.charsize
         ll_builder.total_size = init_size
         return ll_builder
 
     @staticmethod
-    @jit.dont_look_inside
     def ll_append(ll_builder, ll_str):
+        if jit.we_are_jitted():
+            if BaseStringBuilderRepr._ll_jit_try_append_slice(
+                    ll_builder, ll_str, 0, len(ll_str.chars)):
+                return
+        BaseStringBuilderRepr._ll_append(ll_builder, ll_str)
+
+    @staticmethod
+    @jit.dont_look_inside
+    def _ll_append(ll_builder, ll_str):
         lgt = len(ll_str.chars) * ll_builder.charsize      # in bytes
         ofs = ll_builder.current_ofs
         newofs = ofs + lgt
@@ -198,8 +210,15 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
             # --- end ---
 
     @staticmethod
-    @jit.dont_look_inside
     def ll_append_char(ll_builder, char):
+        if jit.isvirtual(ll_builder):
+            BaseStringBuilderRepr._ll_jit_append_char(ll_builder, char)
+        else:
+            BaseStringBuilderRepr._ll_append_char(ll_builder, char)
+
+    @staticmethod
+    @jit.dont_look_inside
+    def _ll_append_char(ll_builder, char):
         ofs = ll_builder.current_ofs
         if ofs == ll_builder.current_end:
             ofs = ll_builder.grow(ll_builder, 1)
@@ -210,8 +229,62 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         ll_builder.current_ofs = ofs + ll_builder.charsize
 
     @staticmethod
+    def _ll_jit_append_char(ll_builder, char):
+        ofs = ll_builder.current_ofs
+        if bool(ll_builder.current_buf) and ofs < ll_builder.current_end:
+            ll_builder.current_ofs = ofs + ll_builder.charsize
+            buf = ll_builder.current_buf
+            index = (ofs - ll_baseofs(buf)) // ll_builder.charsize
+            buf.chars[index] = char
+            return
+        BaseStringBuilderRepr._ll_append_char(ll_builder, char)
+
+    @staticmethod
+    def ll_append_char_2(ll_builder, char0, char1):
+        if jit.isvirtual(ll_builder):
+            BaseStringBuilderRepr._ll_jit_append_char_2(ll_builder, char0,char1)
+        else:
+            BaseStringBuilderRepr._ll_append_char_2(ll_builder, char0, char1)
+
+    @staticmethod
     @jit.dont_look_inside
+    def _ll_append_char_2(ll_builder, char0, char1):
+        ofs = ll_builder.current_ofs
+        end = ofs + 2 * ll_builder.charsize
+        if end > ll_builder.current_end:
+            ofs = ll_builder.grow(ll_builder, 2)
+        ll_builder.current_ofs = end
+        # --- no GC! ---
+        raw = rffi.cast(rffi.CCHARP, ll_builder.current_buf)
+        ll_rawsetitem(raw, ofs, char0)
+        ll_rawsetitem(raw, ofs + ll_builder.charsize, char1)
+        # --- end ---
+
+    @staticmethod
+    def _ll_jit_append_char_2(ll_builder, char0, char1):
+        ofs = ll_builder.current_ofs
+        end = ofs + 2 * ll_builder.charsize
+        if bool(ll_builder.current_buf) and end <= ll_builder.current_end:
+            ll_builder.current_ofs = end
+            buf = ll_builder.current_buf
+            index = (ofs - ll_baseofs(buf)) // ll_builder.charsize
+            buf.chars[index] = char0
+            buf.chars[index + 1] = char1
+            return
+        BaseStringBuilderRepr._ll_append_char_2(ll_builder, char0, char1)
+
+    @staticmethod
     def ll_append_slice(ll_builder, ll_str, start, end):
+        if jit.we_are_jitted():
+            if BaseStringBuilderRepr._ll_jit_try_append_slice(
+                    ll_builder, ll_str, start, end - start):
+                return
+        BaseStringBuilderRepr._ll_append_slice(ll_builder, ll_str,
+                                               start, end)
+
+    @staticmethod
+    @jit.dont_look_inside
+    def _ll_append_slice(ll_builder, ll_str, start, end):
         lgt = (end - start) * ll_builder.charsize      # in bytes
         ofs = ll_builder.current_ofs
         newofs = ofs + lgt
@@ -228,9 +301,44 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
             # --- end ---
 
     @staticmethod
-    #@jit.look_inside_iff(lambda ll_builder, char, times: jit.isconstant(times) and times <= 4)
-    @jit.dont_look_inside
+    def _ll_jit_try_append_slice(ll_builder, ll_str, start, size):
+        if jit.isconstant(size):
+            if size == 0:
+                return True
+            if size == 1:
+                BaseStringBuilderRepr.ll_append_char(ll_builder,
+                                                     ll_str.chars[start])
+                return True
+            if size == 2:
+                BaseStringBuilderRepr.ll_append_char_2(ll_builder,
+                                                       ll_str.chars[start],
+                                                       ll_str.chars[start + 1])
+                return True
+        if jit.isvirtual(ll_builder) and bool(ll_builder.current_buf):
+            ofs = ll_builder.current_ofs
+            end = ofs + size * ll_builder.charsize
+            if end <= ll_builder.current_end:
+                ll_builder.current_ofs = end
+                buf = ll_builder.current_buf
+                index = (ofs - ll_baseofs(buf)) // ll_builder.charsize
+                if lltype.typeOf(buf).TO.chars.OF == lltype.Char:
+                    rstr.copy_string_contents(ll_str, buf, start, index, size)
+                else:
+                    rstr.copy_unicode_contents(ll_str, buf, start, index, size)
+                return True
+        return False     # use the fall-back path
+
+    @staticmethod
     def ll_append_multiple_char(ll_builder, char, times):
+        if jit.isvirtual(ll_builder):
+            if BaseStringBuilderRepr._ll_jit_try_append_multiple_char(
+                    ll_builder, char, times):
+                return
+        BaseStringBuilderRepr._ll_append_multiple_char(ll_builder, char, times)
+
+    @staticmethod
+    @jit.dont_look_inside
+    def _ll_append_multiple_char(ll_builder, char, times):
         lgt = times * ll_builder.charsize     # in bytes
         ofs = ll_builder.current_ofs
         newofs = ofs + lgt
@@ -245,6 +353,27 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
                 ll_rawsetitem(raw, ofs, char)
                 ofs += ll_builder.charsize
             # --- end ---
+
+    @staticmethod
+    def _ll_jit_try_append_multiple_char(ll_builder, char, size):
+        if jit.isconstant(size):
+            if size == 0:
+                return True
+            if size == 1:
+                BaseStringBuilderRepr.ll_append_char(ll_builder, char)
+                return True
+            if size == 2:
+                BaseStringBuilderRepr.ll_append_char_2(ll_builder, char, char)
+                return True
+            if size == 3:
+                BaseStringBuilderRepr.ll_append_char(ll_builder, char)
+                BaseStringBuilderRepr.ll_append_char_2(ll_builder, char, char)
+                return True
+            if size == 4:
+                BaseStringBuilderRepr.ll_append_char_2(ll_builder, char, char)
+                BaseStringBuilderRepr.ll_append_char_2(ll_builder, char, char)
+                return True
+        return False     # use the fall-back path
 
     @staticmethod
     @jit.dont_look_inside
@@ -275,15 +404,14 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         return ll_builder.total_size - num_chars_missing_from_last_piece
 
     @classmethod
-    @jit.dont_look_inside
+    @jit.look_inside_iff(lambda cls, ll_builder: jit.isvirtual(ll_builder))
     def ll_build(cls, ll_builder):
-        final_size = cls.ll_getlength(ll_builder)
-        ll_assert(final_size >= 0, "negative final_size")
-
         buf = ll_builder.current_buf
         if buf:
             # fast-path: the result fits in a single buf.
             # it is already a GC string
+            final_size = cls.ll_getlength(ll_builder)
+            ll_assert(final_size >= 0, "negative final_size")
             if ll_builder.total_size != final_size:
                 ll_assert(final_size < ll_builder.total_size,
                           "final_size > ll_builder.total_size?")
@@ -293,7 +421,14 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
                 ll_builder.current_ofs = 0
                 ll_builder.current_end = 0
             return buf
+        else:
+            return BaseStringBuilderRepr._ll_build_extra(cls, ll_builder)
 
+    @staticmethod
+    @jit.dont_look_inside
+    def _ll_build_extra(cls, ll_builder):
+        final_size = cls.ll_getlength(ll_builder)
+        ll_assert(final_size >= 0, "negative final_size")
         extra = ll_builder.extra_pieces
         ll_assert(bool(extra), "build() twice on a StringBuilder")
         ll_builder.extra_pieces = lltype.nullptr(STRINGPIECE)

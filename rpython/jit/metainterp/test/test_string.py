@@ -582,6 +582,188 @@ class StringTests:
         res = self.interp_operations(f, [13])
         assert res == 13
 
+    def test_stringbuilder_create(self):
+        jitdriver = JitDriver(reds=['n'], greens=[])
+        def f(n):
+            while n > 0:
+                jitdriver.jit_merge_point(n=n)
+                sb = UnicodeBuilder()
+                if sb.build() != u"":
+                    raise ValueError
+                n -= 1
+            return n
+        res = self.meta_interp(f, [10], backendopt=True)
+        assert res == 0
+        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+                           'jump': 1})
+
+    def test_stringbuilder_append_char(self):
+        jitdriver = JitDriver(reds=['n'], greens=[])
+        def f(n):
+            while n > 0:
+                jitdriver.jit_merge_point(n=n)
+                sb = UnicodeBuilder()
+                sb.append(u"a")
+                sb.append(unichr(n))
+                s = sb.build()
+                if len(s) != 2: raise ValueError
+                if s[0] != u"a": raise ValueError
+                if s[1] != unichr(n): raise ValueError
+                n -= 1
+            return n
+        res = self.meta_interp(f, [10], backendopt=True)
+        assert res == 0
+        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+                           'jump': 1})
+
+    def test_stringbuilder_append_1(self):
+        jitdriver = JitDriver(reds=['n'], greens=[])
+        def f(n):
+            while n > 0:
+                jitdriver.jit_merge_point(n=n)
+                sb = UnicodeBuilder()
+                sb.append(u"ab")
+                s = sb.build()
+                if len(s) != 2: raise ValueError
+                if s[0] != u"a": raise ValueError
+                if s[1] != u"b": raise ValueError
+                n -= 1
+            return n
+        res = self.meta_interp(f, [10], backendopt=True)
+        assert res == 0
+        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+                           'jump': 1})
+
+    def test_stringbuilder_append_2(self):
+        jitdriver = JitDriver(reds=['n'], greens=[])
+        def f(n):
+            while n > 0:
+                jitdriver.jit_merge_point(n=n)
+                sb = UnicodeBuilder()
+                sb.append(u"abc")
+                s = sb.build()
+                if len(s) != 3: raise ValueError
+                if s[0] != u"a": raise ValueError
+                if s[1] != u"b": raise ValueError
+                if s[2] != u"c": raise ValueError
+                n -= 1
+            return n
+        res = self.meta_interp(f, [10], backendopt=True)
+        assert res == 0
+        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+                           'jump': 1})
+
+    def test_stringbuilder_append_empty(self):
+        jitdriver = JitDriver(reds=['n'], greens=[])
+        def f(n):
+            while n > 0:
+                jitdriver.jit_merge_point(n=n)
+                sb = UnicodeBuilder()
+                sb.append(u"")
+                s = sb.build()
+                if len(s) != 0: raise ValueError
+                n -= 1
+            return n
+        res = self.meta_interp(f, [10], backendopt=True)
+        assert res == 0
+        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+                           'jump': 1})
+
+    def test_stringbuilder_append_len2_1(self):
+        jitdriver = JitDriver(reds=['n', 'str1'], greens=[])
+        def f(n):
+            str1 = unicode(str(n))
+            while n > 0:
+                jitdriver.jit_merge_point(n=n, str1=str1)
+                sb = UnicodeBuilder()
+                sb.append(str1)
+                sb.append(u"ab")
+                s = sb.build()
+                if len(s) != 4: raise ValueError
+                if s[0] != u"1": raise ValueError
+                if s[1] != u"0": raise ValueError
+                if s[2] != u"a": raise ValueError
+                if s[3] != u"b": raise ValueError
+                n -= 1
+            return n
+        res = self.meta_interp(f, [10], backendopt=True)
+        assert res == 0
+        self.check_resops(call=2)    # (ll_shrink_array) * 2 unroll
+
+    def test_stringbuilder_append_slice_1(self):
+        jitdriver = JitDriver(reds=['n'], greens=[])
+        def f(n):
+            while n > 0:
+                jitdriver.jit_merge_point(n=n)
+                sb = UnicodeBuilder()
+                sb.append_slice(u"abcdefghij", 1, n)
+                sb.append_slice(u"abcdefghij", 0, n)
+                s = sb.build()
+                if len(s) != 2 * n - 1: raise ValueError
+                n -= 1
+            return n
+        res = self.meta_interp(f, [10], backendopt=True)
+        assert res == 0
+        self.check_resops(call=2,     # (ll_shrink_array) * 2 unroll
+                          copyunicodecontent=4)
+
+    def test_stringbuilder_append_slice_2(self):
+        jitdriver = JitDriver(reds=['n'], greens=[])
+        def f(n):
+            while n > 0:
+                jitdriver.jit_merge_point(n=n)
+                sb = UnicodeBuilder()
+                sb.append_slice(u"fOo!", 1, 3)
+                s = sb.build()
+                if len(s) != 2: raise ValueError
+                if s[0] != u"O": raise ValueError
+                if s[1] != u"o": raise ValueError
+                n -= 1
+            return n
+        res = self.meta_interp(f, [10], backendopt=True)
+        assert res == 0
+        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+                           'jump': 1})
+
+    def test_stringbuilder_append_multiple_char_1(self):
+        jitdriver = JitDriver(reds=['n'], greens=[])
+        def f(n):
+            while n > 0:
+                jitdriver.jit_merge_point(n=n)
+                sb = UnicodeBuilder()
+                sb.append_multiple_char(u"x", 3)
+                s = sb.build()
+                if len(s) != 3: raise ValueError
+                if s[0] != u"x": raise ValueError
+                if s[1] != u"x": raise ValueError
+                if s[2] != u"x": raise ValueError
+                n -= 1
+            return n
+        res = self.meta_interp(f, [10], backendopt=True)
+        assert res == 0
+        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+                           'jump': 1})
+
+    def test_stringbuilder_append_multiple_char_2(self):
+        jitdriver = JitDriver(reds=['n'], greens=[])
+        def f(n):
+            while n > 0:
+                jitdriver.jit_merge_point(n=n)
+                sb = UnicodeBuilder()
+                sb.append_multiple_char(u"x", 5)
+                s = sb.build()
+                if len(s) != 5: raise ValueError
+                if s[0] != u"x": raise ValueError
+                if s[1] != u"x": raise ValueError
+                if s[2] != u"x": raise ValueError
+                if s[3] != u"x": raise ValueError
+                if s[4] != u"x": raise ValueError
+                n -= 1
+            return n
+        res = self.meta_interp(f, [10], backendopt=True)
+        assert res == 0
+        self.check_resops(call=4)    # (append, build) * 2 unroll
+
     def test_shrink_array(self):
         jitdriver = JitDriver(reds=['result', 'n'], greens=[])
         _str, _StringBuilder = self._str, self._StringBuilder
