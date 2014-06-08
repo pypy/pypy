@@ -133,7 +133,7 @@ def create_cffi_import_libraries(pypy_c, options):
     modules = ['_sqlite3']
     subprocess.check_call([str(pypy_c), '-c', 'import _sqlite3'])
     if not sys.platform == 'win32':
-        modules += ['_curses', 'syslog', 'gdbm', '_sqlite3']
+        modules += ['_curses', 'syslog', '_gdbm', '_sqlite3']
     if not options.no_tk:
         modules.append(('_tkinter'))
     for module in modules:
@@ -402,10 +402,10 @@ for third-party software incorporated in the PyPy distribution.
 
 '''
 
-gdbm_bit = '''gdbm
+gdbm_bit = '''_gdbm
 ----
 
-The gdbm module includes code from gdbm.h, which is distributed under the terms
+The _gdbm module includes code from gdbm.h, which is distributed under the terms
 of the GPL license version 2 or any later version.
 '''
 
