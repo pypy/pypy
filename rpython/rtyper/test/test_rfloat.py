@@ -227,7 +227,7 @@ class TestRfloat(BaseRtypingTest):
             # the Microsoft's msvcrt library.
             return formatd(x, 'F', 4)
 
-        f = compile(func, [float], gcpolicy="boehm")
+        f = compile(func, [float])
         assert f(10/3.0) == '3.3333'
 
     def test_string_to_float(self):
