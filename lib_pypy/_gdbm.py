@@ -1,4 +1,5 @@
 import cffi, os
+import sys
 
 ffi = cffi.FFI()
 ffi.cdef('''
@@ -50,8 +51,11 @@ class error(Exception):
     pass
 
 def _fromstr(key):
-    if not isinstance(key, str):
-        raise TypeError("gdbm mappings have string indices only")
+    if isinstance(key, str):
+        key = key.encode(sys.getdefaultencoding())
+    elif not isinstance(key, bytes):
+        msg = "gdbm mappings have bytes or string indices only, not {!r}"
+        raise TypeError(msg.format(type(key).__name__))
     return {'dptr': ffi.new("char[]", key), 'dsize': len(key)}
 
 class gdbm(object):
@@ -98,21 +102,27 @@ class gdbm(object):
         return lib.gdbm_exists(self.ll_dbm, _fromstr(key))
     has_key = __contains__
 
-    def __getitem__(self, key):
+    def get(self, key, default=None):
         self._check_closed()
         drec = lib.gdbm_fetch(self.ll_dbm, _fromstr(key))
         if not drec.dptr:
-            raise KeyError(key)
-        res = str(ffi.buffer(drec.dptr, drec.dsize))
+            return default
+        res = bytes(ffi.buffer(drec.dptr, drec.dsize))
         lib.free(drec.dptr)
         return res
+
+    def __getitem__(self, key):
+        value = self.get(key)
+        if value is None:
+            raise KeyError(key)
+        return value
 
     def keys(self):
         self._check_closed()
         l = []
         key = lib.gdbm_firstkey(self.ll_dbm)
         while key.dptr:
-            l.append(str(ffi.buffer(key.dptr, key.dsize)))
+            l.append(bytes(ffi.buffer(key.dptr, key.dsize)))
             nextkey = lib.gdbm_nextkey(self.ll_dbm, key)
             lib.free(key.dptr)
             key = nextkey
@@ -122,7 +132,7 @@ class gdbm(object):
         self._check_closed()
         key = lib.gdbm_firstkey(self.ll_dbm)
         if key.dptr:
-            res = str(ffi.buffer(key.dptr, key.dsize))
+            res = bytes(ffi.buffer(key.dptr, key.dsize))
             lib.free(key.dptr)
             return res
 
@@ -130,7 +140,7 @@ class gdbm(object):
         self._check_closed()
         key = lib.gdbm_nextkey(self.ll_dbm, _fromstr(key))
         if key.dptr:
-            res = str(ffi.buffer(key.dptr, key.dsize))
+            res = bytes(ffi.buffer(key.dptr, key.dsize))
             lib.free(key.dptr)
             return res
 
@@ -149,7 +159,18 @@ class gdbm(object):
         self._check_closed()
         lib.gdbm_sync(self.ll_dbm)
 
+    def setdefault(self, key, default=None):
+        value = self.get(key)
+        if value is not None:
+            return value
+        self[key] = default
+        return default
+
 def open(filename, flags='r', mode=0o666):
+    if not isinstance(filename, str):
+        raise TypeError("must be str, not %s" % type(filename).__name__)
+    filename = filename.encode(sys.getdefaultencoding())
+
     if flags[0] == 'r':
         iflags = lib.GDBM_READER
     elif flags[0] == 'w':
