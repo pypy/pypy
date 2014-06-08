@@ -31,6 +31,11 @@ from rpython.rtyper.annlowlevel import llstr, llunicode
 # ------------------------------------------------------------
 
 
+def always_inline(func):
+    func._always_inline_ = True
+    return func
+
+
 def new_grow_funcs(name, mallocfn):
 
     @enforceargs(None, int)
@@ -185,6 +190,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         return ll_builder
 
     @staticmethod
+    @always_inline
     def ll_append(ll_builder, ll_str):
         if jit.we_are_jitted():
             if BaseStringBuilderRepr._ll_jit_try_append_slice(
@@ -193,6 +199,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         BaseStringBuilderRepr._ll_append(ll_builder, ll_str)
 
     @staticmethod
+    @always_inline
     @jit.dont_look_inside
     def _ll_append(ll_builder, ll_str):
         lgt = len(ll_str.chars) * ll_builder.charsize      # in bytes
@@ -210,6 +217,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
             # --- end ---
 
     @staticmethod
+    @always_inline
     def ll_append_char(ll_builder, char):
         if jit.isvirtual(ll_builder):
             BaseStringBuilderRepr._ll_jit_append_char(ll_builder, char)
@@ -217,6 +225,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
             BaseStringBuilderRepr._ll_append_char(ll_builder, char)
 
     @staticmethod
+    @always_inline
     @jit.dont_look_inside
     def _ll_append_char(ll_builder, char):
         ofs = ll_builder.current_ofs
@@ -274,6 +283,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         BaseStringBuilderRepr._ll_append_char_2(ll_builder, char0, char1)
 
     @staticmethod
+    @always_inline
     def ll_append_slice(ll_builder, ll_str, start, end):
         if jit.we_are_jitted():
             if BaseStringBuilderRepr._ll_jit_try_append_slice(
@@ -329,6 +339,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         return False     # use the fall-back path
 
     @staticmethod
+    @always_inline
     def ll_append_multiple_char(ll_builder, char, times):
         if jit.isvirtual(ll_builder):
             if BaseStringBuilderRepr._ll_jit_try_append_multiple_char(
@@ -397,6 +408,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
             # --- end ---
 
     @staticmethod
+    @always_inline
     def ll_getlength(ll_builder):
         num_chars_missing_from_last_piece = (
             (ll_builder.current_end - ll_builder.current_ofs)
