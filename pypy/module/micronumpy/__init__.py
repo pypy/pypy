@@ -15,6 +15,7 @@ class MultiArrayModule(MixedModule):
         'empty': 'ctors.zeros',
         'empty_like': 'ctors.empty_like',
         'fromstring': 'ctors.fromstring',
+        'frombuffer': 'ctors.frombuffer',
 
         'concatenate': 'arrayops.concatenate',
         'count_nonzero': 'arrayops.count_nonzero',
@@ -23,7 +24,7 @@ class MultiArrayModule(MixedModule):
 
         'set_string_function': 'appbridge.set_string_function',
         'typeinfo': 'descriptor.get_dtype_cache(space).w_typeinfo',
-        'nditer': 'nditer.nditer',
+        'nditer': 'nditer.W_NDIter',
     }
     for c in ['MAXDIMS', 'CLIP', 'WRAP', 'RAISE']:
         interpleveldefs[c] = 'space.wrap(constants.%s)' % c

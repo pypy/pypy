@@ -457,9 +457,7 @@ class W_Ufunc2(W_Ufunc):
                           res_dtype, w_lhs, w_rhs, out)
 
 
-W_Ufunc.typedef = TypeDef("ufunc",
-    __module__ = "numpy",
-
+W_Ufunc.typedef = TypeDef("numpy.ufunc",
     __call__ = interp2app(W_Ufunc.descr_call),
     __repr__ = interp2app(W_Ufunc.descr_repr),
     __name__ = GetSetProperty(W_Ufunc.descr_get_name),
@@ -477,6 +475,8 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         promote_bools=False):
     if dt2 is None:
         return dt1
+    if dt1 is None:
+        return dt2
     # dt1.num should be <= dt2.num
     if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1

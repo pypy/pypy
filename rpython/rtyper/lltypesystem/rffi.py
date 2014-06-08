@@ -1,7 +1,7 @@
 import py
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import SomePtr
-from rpython.rtyper.lltypesystem import lltype, rstr
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr
 from rpython.rtyper.lltypesystem.llmemory import itemoffsetof
@@ -1136,3 +1136,12 @@ c_memcpy = llexternal("memcpy",
             lltype.Void,
             releasegil=False
         )
+
+from rpython.rtyper.annlowlevel import llstr
+from rpython.rtyper.lltypesystem.rstr import STR
+
+def get_buffer_from_str(data):
+    lldata = llstr(data)
+    data_start = cast_ptr_to_adr(lldata) + \
+      offsetof(STR, 'chars') + itemoffsetof(STR.chars, 0)
+    return cast(CCHARP, data_start)

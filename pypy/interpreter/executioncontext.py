@@ -205,11 +205,14 @@ class ExecutionContext(object):
     def sys_exc_info(self): # attn: the result is not the wrapped sys.exc_info() !!!
         """Implements sys.exc_info().
         Return an OperationError instance or None."""
-        frame = self.gettopframe_nohidden()
+        frame = self.gettopframe()
         while frame:
             if frame.last_exception is not None:
-                return frame.last_exception
-            frame = self.getnextframe_nohidden(frame)
+                if (not frame.hide() or
+                        frame.last_exception is
+                            get_cleared_operation_error(self.space)):
+                    return frame.last_exception
+            frame = frame.f_backref()
         return None
 
     def set_sys_exc_info(self, operror):

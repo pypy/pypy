@@ -131,7 +131,15 @@ class BaseArrayTests:
             raises(OverflowError, a.append, 2 ** (8 * b))
 
     def test_fromstring(self):
-        a = self.array('l')
+        a = self.array('b')
+        a.fromstring('Hi!')
+        assert len(a) == 3
+        assert a[0] == ord(b'H') and a[1] == ord(b'i') and a[2] == ord(b'!')
+        a = self.array('b')
+        a.fromstring(memoryview(b'xyz'))
+        assert len(a) == 3
+        assert a[0] == ord(b'x') and a[1] == ord(b'y') and a[2] == ord(b'z')
+        a = self.array('b')
         a.fromstring('')
         assert not len(a)
 
@@ -404,7 +412,6 @@ class BaseArrayTests:
     def test_buffer_write(self):
         a = self.array('b', b'hello')
         buf = memoryview(a)
-        print(repr(buf))
         try:
             buf[3] = b'L'
         except TypeError:
@@ -675,6 +682,8 @@ class BaseArrayTests:
         for i in a:
             b.append(i)
         assert repr(b) == "array('i', [1, 2, 3])"
+        assert hasattr(b, '__iter__')
+        assert next(b.__iter__()) == 1
 
     def test_lying_iterable(self):
         class lier(object):
@@ -1020,6 +1029,9 @@ class AppTestArray(BaseArrayTests):
         a = self.array('i', [1, 2, 3, 4, 5, 6])
         raises(TypeError, "a[MyInt(0)]")
         raises(TypeError, "a[MyInt(0):MyInt(5)]")
+
+    def test_fresh_array_buffer_bytes(self):
+        assert bytes(memoryview(self.array('i'))) == b''
 
 
 class AppTestArrayBuiltinShortcut(AppTestArray):

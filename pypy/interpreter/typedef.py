@@ -22,6 +22,7 @@ class TypeDef(object):
         else:
             bases = [__base]
         self.bases = bases
+        self.heaptype = False
         self.hasdict = '__dict__' in rawdict
         self.weakrefable = '__weakref__' in rawdict
         self.doc = rawdict.get('__doc__', None)
@@ -828,7 +829,7 @@ Function.typedef = TypeDef("function",
     __kwdefaults__ = getset_func_kwdefaults,
     __annotations__ = getset_func_annotations,
     __globals__ = interp_attrproperty_w('w_func_globals', cls=Function),
-    __closure__ = GetSetProperty( Function.fget_func_closure ),
+    __closure__ = GetSetProperty(Function.fget_func_closure),
     __module__ = getset___module__,
     __weakref__ = make_weakref_descr(Function),
 )

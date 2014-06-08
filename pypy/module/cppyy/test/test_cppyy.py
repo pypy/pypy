@@ -47,8 +47,6 @@ class AppTestCPPYY:
 
         res = t.get_overload("staticAddOneToInt").call(None, 1)
         assert res == 2
-        res = t.get_overload("staticAddOneToInt").call(None, 1L)
-        assert res == 2
         res = t.get_overload("staticAddOneToInt").call(None, 1, 2)
         assert res == 4
         res = t.get_overload("staticAddOneToInt").call(None, -1)

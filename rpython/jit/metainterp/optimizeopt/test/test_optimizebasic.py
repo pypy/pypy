@@ -5164,7 +5164,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_strunicode_loop(ops, expected)
 
     def test_call_pure_vstring_const(self):
-        py.test.skip("implement me")
         ops = """
         []
         p0 = newstr(3)
@@ -5180,6 +5179,25 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         call_pure_results = {
             (ConstInt(123), get_const_ptr_for_string("abc"),): ConstInt(5),
+        }
+        self.optimize_loop(ops, expected, call_pure_results)
+
+    def test_call_pure_quasiimmut(self):
+        ops = """
+        []
+        quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i0 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
+        i1 = call_pure(123, i0, descr=nonwritedescr)
+        finish(i1)
+        """
+        expected = """
+        []
+        guard_not_invalidated() []
+        finish(5)
+        """
+        call_pure_results = {
+            (ConstInt(123), ConstInt(-4247)): ConstInt(5),
         }
         self.optimize_loop(ops, expected, call_pure_results)
 

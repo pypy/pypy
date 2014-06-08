@@ -705,20 +705,20 @@ class Float(Primitive):
         return math.fabs(v)
 
     @simple_binary_op
+    def max(self, v1, v2):
+        return v1 if v1 >= v2 or rfloat.isnan(v1) else v2
+
+    @simple_binary_op
+    def min(self, v1, v2):
+        return v1 if v1 <= v2 or rfloat.isnan(v1) else v2
+
+    @simple_binary_op
     def fmax(self, v1, v2):
-        if rfloat.isnan(v2):
-            return v1
-        elif rfloat.isnan(v1):
-            return v2
-        return max(v1, v2)
+        return v1 if v1 >= v2 or rfloat.isnan(v2) else v2
 
     @simple_binary_op
     def fmin(self, v1, v2):
-        if rfloat.isnan(v2):
-            return v1
-        elif rfloat.isnan(v1):
-            return v2
-        return min(v1, v2)
+        return v1 if v1 <= v2 or rfloat.isnan(v2) else v2
 
     @simple_binary_op
     def fmod(self, v1, v2):

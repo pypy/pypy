@@ -15,8 +15,8 @@ from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.argument import Arguments
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from rpython.tool.sourcetools import func_renamer
@@ -230,11 +230,13 @@ def wrap_hashfunc(space, w_self, w_args, func):
 
 class CPyBuffer(Buffer):
     # Similar to Py_buffer
+    _immutable_ = True
 
     def __init__(self, ptr, size, w_obj):
         self.ptr = ptr
         self.size = size
         self.w_obj = w_obj # kept alive
+        self.readonly = True
 
     def getlength(self):
         return self.size

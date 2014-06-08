@@ -463,11 +463,10 @@ def descr__new__(space, w_subtype, __args__):
     W_Deque.__init__(space.interp_w(W_Deque, w_self), space)
     return w_self
 
-W_Deque.typedef = TypeDef("deque",
+W_Deque.typedef = TypeDef("collections.deque",
     __doc__ = """deque(iterable[, maxlen]) --> deque object
 
 Build an ordered collection accessible from endpoints only.""",
-    __module__ = '_collections',
     __new__ = interp2app(descr__new__),
     __init__ = interp2app(W_Deque.init),
     append     = interp2app(W_Deque.append),

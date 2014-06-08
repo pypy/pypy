@@ -1435,7 +1435,7 @@ class TestAnnotateTestCase:
             elif a==2:
                 raise X(1)
             elif a==3:
-                raise X,4
+                raise X(4)
             else:
                 try:
                     l[0]
@@ -3628,7 +3628,7 @@ class TestAnnotateTestCase:
         def f():
             e = OverflowError()
             lle = cast_instance_to_base_ptr(e)
-            raise Exception, lle
+            raise Exception(lle)
             # ^^^ instead, must cast back from a base ptr to an instance
         a = self.RPythonAnnotator()
         py.test.raises(AssertionError, a.build_types, f, [])

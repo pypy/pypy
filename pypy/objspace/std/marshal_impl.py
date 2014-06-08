@@ -448,12 +448,12 @@ def marshal_w__ANY(space, w_obj, m):
     # any unknown object implementing the buffer protocol is
     # accepted and encoded as a plain string
     try:
-        s = space.bufferstr_w(w_obj)
+        s = space.readbuf_w(w_obj)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
     else:
-        m.atom_str(TYPE_STRING, s)
+        m.atom_str(TYPE_STRING, s.as_str())
         return
 
     raise_exception(space, "unmarshallable object")

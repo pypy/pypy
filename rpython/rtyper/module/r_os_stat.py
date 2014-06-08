@@ -10,8 +10,10 @@ the tuples returned by os.stat().
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.flowspace.model import Constant
+from rpython.flowspace.operation import op
 from rpython.tool.pairtype import pairtype
-from rpython.rtyper.rmodel import Repr, IntegerRepr
+from rpython.rtyper.rmodel import Repr
+from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.module import ll_os_stat
 
@@ -35,8 +37,10 @@ class StatResultRepr(Repr):
         rtyper = self.rtyper
         s_index = rtyper.annotator.bookkeeper.immutablevalue(index)
         hop2 = hop.copy()
-        hop2.forced_opname = 'getitem'
-        hop2.args_v = [hop2.args_v[0], Constant(index)]
+        spaceop = op.getitem(hop.args_v[0], Constant(index))
+        spaceop.result = hop.spaceop.result
+        hop2.spaceop = spaceop
+        hop2.args_v = spaceop.args
         hop2.args_s = [self.s_tuple, s_index]
         hop2.args_r = [self.r_tuple, rtyper.getrepr(s_index)]
         return hop2.dispatch()
@@ -86,8 +90,10 @@ class StatvfsResultRepr(Repr):
         rtyper = self.rtyper
         s_index = rtyper.annotator.bookkeeper.immutablevalue(index)
         hop2 = hop.copy()
-        hop2.forced_opname = 'getitem'
-        hop2.args_v = [hop2.args_v[0], Constant(index)]
+        spaceop = op.getitem(hop.args_v[0], Constant(index))
+        spaceop.result = hop.spaceop.result
+        hop2.spaceop = spaceop
+        hop2.args_v = spaceop.args
         hop2.args_s = [self.s_tuple, s_index]
         hop2.args_r = [self.r_tuple, rtyper.getrepr(s_index)]
         return hop2.dispatch()

@@ -198,11 +198,11 @@ class OptIntBounds(Optimization):
             opnum = lastop.getopnum()
             args = lastop.getarglist()
             result = lastop.result
-            # If the INT_xxx_OVF was replaced with INT_xxx, then we can kill
-            # the GUARD_NO_OVERFLOW.
-            if (opnum == rop.INT_ADD or
-                opnum == rop.INT_SUB or
-                opnum == rop.INT_MUL):
+            # If the INT_xxx_OVF was replaced with INT_xxx or removed
+            # completely, then we can kill the GUARD_NO_OVERFLOW.
+            if (opnum != rop.INT_ADD_OVF and
+                opnum != rop.INT_SUB_OVF and
+                opnum != rop.INT_MUL_OVF):
                 return
             # Else, synthesize the non overflowing op for optimize_default to
             # reuse, as well as the reverse op
@@ -248,6 +248,9 @@ class OptIntBounds(Optimization):
     def optimize_INT_SUB_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
+        if v1 is v2:
+            self.make_constant_int(op.result, 0)
+            return
         resbound = v1.intbound.sub_bound(v2.intbound)
         if resbound.bounded():
             op = op.copy_and_change(rop.INT_SUB)

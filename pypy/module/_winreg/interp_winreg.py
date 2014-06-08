@@ -2,7 +2,7 @@ from __future__ import with_statement
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.error import OperationError, wrap_windowserror
+from pypy.interpreter.error import OperationError, wrap_windowserror, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rwinreg, rwin32
 from rpython.rlib.rarithmetic import r_uint, intmask
@@ -68,7 +68,7 @@ def new_HKEY(space, w_subtype, key):
 descr_HKEY_new = interp2app(new_HKEY)
 
 W_HKEY.typedef = TypeDef(
-    "_winreg.HKEYType",
+    "winreg.HKEYType",
     __doc__ = """\
 PyHKEY Object - A Python object, representing a win32 registry key.
 
@@ -212,7 +212,7 @@ the configuration registry.  This helps the registry perform efficiently.
 The key identified by the key parameter must have been opened with
 KEY_SET_VALUE access."""
     if typ != rwinreg.REG_SZ:
-        errstring = space.wrap("Type must be _winreg.REG_SZ")
+        errstring = space.wrap("Type must be winreg.REG_SZ")
         raise OperationError(space.w_ValueError, errstring)
     hkey = hkey_w(w_hkey, space)
     if space.is_w(w_subkey, space.w_None):
@@ -327,7 +327,14 @@ def convert_to_regdata(space, w_value, typ):
             buf = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
             buf[0] = '\0'
         else:
-            value = space.bufferstr_w(w_value)
+            try:
+                value = w_value.buffer_w(space, space.BUF_SIMPLE)
+            except TypeError:
+                raise oefmt(space.w_TypeError,
+                            "Objects of type '%T' can not be used as binary "
+                            "registry values", w_value)
+            else:
+                value = value.as_str()
             buflen = len(value)
             buf = rffi.str2charp(value)
 

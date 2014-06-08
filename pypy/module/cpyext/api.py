@@ -22,7 +22,6 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import StaticMethod
-from pypy.objspace.std.memoryview import W_MemoryView
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.micronumpy.base import W_NDimArray
@@ -475,7 +474,7 @@ def build_exported_objects():
         "PyLong_Type": "space.w_int",
         "PyComplex_Type": "space.w_complex",
         "PyByteArray_Type": "space.w_bytearray",
-        "PyMemoryView_Type": "space.gettypeobject(W_MemoryView.typedef)",
+        "PyMemoryView_Type": "space.w_memoryview",
         "PyArray_Type": "space.gettypeobject(W_NDimArray.typedef)",
         "PyBaseObject_Type": "space.w_object",
         'PyNone_Type': 'space.type(space.w_None)',
@@ -904,7 +903,9 @@ def generate_macros(export_symbols, prefix):
         ("SIZEOF_TIME_T", rffi.TIME_T),
         ("SIZEOF_LONG", rffi.LONG),
         ("SIZEOF_SHORT", rffi.SHORT),
-        ("SIZEOF_INT", rffi.INT)
+        ("SIZEOF_INT", rffi.INT),
+        ("SIZEOF_FLOAT", rffi.FLOAT),
+        ("SIZEOF_DOUBLE", rffi.DOUBLE),
     ]:
         pypy_macros.append("#define %s %s" % (macro_name, rffi.sizeof(size)))
     pypy_macros.append('')

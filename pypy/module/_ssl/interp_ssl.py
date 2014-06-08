@@ -430,7 +430,7 @@ class SSLSocket(W_Root):
 
         rwbuffer = None
         if not space.is_none(w_buf):
-            rwbuffer = space.rwbuffer_w(w_buf)
+            rwbuffer = space.getarg_w('w*', w_buf)
             lgt = rwbuffer.getlength()
             if num_bytes < 0 or num_bytes > lgt:
                 num_bytes = lgt

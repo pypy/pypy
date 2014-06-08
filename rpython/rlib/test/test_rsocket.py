@@ -3,6 +3,7 @@ from rpython.rlib import rsocket
 from rpython.rlib.rsocket import *
 import socket as cpy_socket
 
+
 def setup_module(mod):
     rsocket_startup()
 
@@ -60,6 +61,43 @@ def test_gethostbyname_ex():
         else:
             py.test.fail("could not find the localhost address in %r"
                          % (address_list,))
+
+def test_thread_safe_gethostbyname_ex():
+    import threading
+    nthreads = 10
+    domain = 'google.com'
+    result = [0] * nthreads
+    threads = [None] * nthreads
+    lock = threading.Lock()
+    def lookup_name(i):
+        name, aliases, address_list = gethostbyname_ex(domain, lock)
+        if name == domain:
+            result[i] += 1
+    for i in range(nthreads):
+        threads[i] = threading.Thread(target = lookup_name, args=[i])
+        threads[i].start()
+    for i in range(nthreads):
+        threads[i].join()
+    assert sum(result) == nthreads
+
+def test_thread_safe_gethostbyaddr():
+    import threading
+    nthreads = 10
+    ip = '8.8.8.8'
+    domain = gethostbyaddr(ip)[0]
+    result = [0] * nthreads
+    threads = [None] * nthreads
+    lock = threading.Lock()
+    def lookup_addr(ip, i):
+        name, aliases, address_list = gethostbyaddr(ip, lock)
+        if name == domain:
+            result[i] += 1
+    for i in range(nthreads):
+        threads[i] = threading.Thread(target = lookup_addr, args=[ip, i])
+        threads[i].start()
+    for i in range(nthreads):
+        threads[i].join()
+    assert sum(result) == nthreads
 
 def test_gethostbyaddr():
     try:

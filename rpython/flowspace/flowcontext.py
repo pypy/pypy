@@ -7,7 +7,6 @@ import types
 import __builtin__
 
 from rpython.tool.error import source_lines
-from rpython.tool.stdlib_opcode import host_bytecode_spec
 from rpython.rlib import rstackovf
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
@@ -305,8 +304,6 @@ compare_method = [
     ]
 
 class FlowContext(object):
-    opcode_method_names = host_bytecode_spec.method_names
-
     def __init__(self, graph, code):
         self.graph = graph
         func = graph.func

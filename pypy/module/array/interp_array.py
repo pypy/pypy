@@ -1,6 +1,7 @@
 from __future__ import with_statement
 
 from rpython.rlib import jit
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
@@ -9,7 +10,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)
@@ -138,8 +138,8 @@ class W_ArrayBase(W_Root):
         self.len = 0
         self.allocated = 0
 
-    def buffer_w(self, space):
-        return ArrayBuffer(self)
+    def buffer_w(self, space, flags):
+        return ArrayBuffer(self, False)
 
     def descr_append(self, space, w_x):
         """ append(x)
@@ -247,9 +247,8 @@ class W_ArrayBase(W_Root):
         self._charbuf_stop()
         return self.space.wrapbytes(s)
 
-    @unwrap_spec(s='bufferstr_or_u')
-    def descr_fromstring(self, space, s):
-        """fromstring(string)
+    def descr_fromstring(self, space, w_s):
+        """ fromstring(string)
 
         Appends items from the string, interpreting it as an array of
         machine values, as if it had been read from a file using the
@@ -257,6 +256,7 @@ class W_ArrayBase(W_Root):
 
         This method is deprecated. Use frombytes instead.
         """
+        s = space.getarg_w('s#', w_s)
         msg = "fromstring() is deprecated. Use frombytes() instead."
         space.warn(space.wrap(msg), self.space.w_DeprecationWarning)
         self.descr_frombytes(space, s)
@@ -303,7 +303,7 @@ class W_ArrayBase(W_Root):
             self.descr_frombytes(space, item)
             msg = "not enough items in file"
             raise OperationError(space.w_EOFError, space.wrap(msg))
-        self.descr_fromstring(space, item)
+        self.descr_fromstring(space, w_item)
 
     def descr_tofile(self, space, w_f):
         """ tofile(f)
@@ -488,6 +488,9 @@ class W_ArrayBase(W_Root):
             return
         return self.delitem(space, start, stop)
 
+    def descr_iter(self, space):
+        return space.newseqiter(self)
+
     def descr_add(self, space, w_other):
         raise NotImplementedError
 
@@ -508,9 +511,6 @@ class W_ArrayBase(W_Root):
 
     # Misc methods
 
-    def descr_iter(self, space):
-        return space.wrap(ArrayIterator(self))
-
     def descr_repr(self, space):
         if self.len == 0:
             return space.wrap("array('%s')" % self.typecode)
@@ -524,9 +524,8 @@ class W_ArrayBase(W_Root):
             return space.wrap(s)
 
 W_ArrayBase.typedef = TypeDef(
-    'array',
+    'array.array',
     __new__ = interp2app(w_array),
-    __module__ = 'array',
 
     __len__ = interp2app(W_ArrayBase.descr_len),
     __eq__ = interp2app(W_ArrayBase.descr_eq),
@@ -539,6 +538,7 @@ W_ArrayBase.typedef = TypeDef(
     __getitem__ = interp2app(W_ArrayBase.descr_getitem),
     __setitem__ = interp2app(W_ArrayBase.descr_setitem),
     __delitem__ = interp2app(W_ArrayBase.descr_delitem),
+    __iter__ = interp2app(W_ArrayBase.descr_iter),
 
     __add__ = interpindirect2app(W_ArrayBase.descr_add),
     __iadd__ = interpindirect2app(W_ArrayBase.descr_inplace_add),
@@ -547,7 +547,6 @@ W_ArrayBase.typedef = TypeDef(
     __radd__ = interp2app(W_ArrayBase.descr_radd),
     __rmul__ = interp2app(W_ArrayBase.descr_rmul),
 
-    __iter__ = interp2app(W_ArrayBase.descr_iter),
     __repr__ = interp2app(W_ArrayBase.descr_repr),
 
     itemsize = GetSetProperty(descr_itemsize),
@@ -628,9 +627,12 @@ for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
 
-class ArrayBuffer(RWBuffer):
-    def __init__(self, array):
+class ArrayBuffer(Buffer):
+    _immutable_ = True
+
+    def __init__(self, array, readonly):
         self.array = array
+        self.readonly = readonly
 
     def getlength(self):
         return self.array.len * self.array.itemsize
@@ -648,30 +650,19 @@ class ArrayBuffer(RWBuffer):
         data[index] = char
         array._charbuf_stop()
 
+    def getslice(self, start, stop, step, size):
+        if size == 0:
+            return ''
+        if step == 1:
+            data = self.array._charbuf_start()
+            try:
+                return rffi.charpsize2str(rffi.ptradd(data, start), size)
+            finally:
+                self.array._charbuf_stop()
+        return Buffer.getslice(self, start, stop, step, size)
+
     def get_raw_address(self):
         return self.array._charbuf_start()
-
-
-class ArrayIterator(W_Root):
-    def __init__(self, array):
-        self.index = 0
-        self.array = array
-
-    def iter_w(self, space):
-        return space.wrap(self)
-        
-    def next_w(self, space):
-        if self.index < self.array.len:
-            w_value = self.array.w_getitem(space, self.index)
-            self.index += 1
-            return w_value
-        raise OperationError(space.w_StopIteration, space.w_None)
-
-ArrayIterator.typedef = TypeDef(
-    'arrayiterator',
-    __iter__ = interp2app(ArrayIterator.iter_w),
-    __next__ = interp2app(ArrayIterator.next_w),
-    )
 
 
 def make_array(mytype):

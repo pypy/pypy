@@ -257,7 +257,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
         @classmethod
         def _malloc(cls, n=None):
             if not isinstance(n, int):
-                raise TypeError, "array length must be an int"
+                raise TypeError("array length must be an int")
             biggercls = get_ctypes_array_of_size(A, n)
             bigarray = allocate_ctypes(biggercls)
             if hasattr(bigarray, 'length'):

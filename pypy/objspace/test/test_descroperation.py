@@ -715,6 +715,17 @@ class AppTest_Descroperation:
                 return CannotConvertToBool()
         x = X()
         raises(MyError, "'foo' in x")
+
+    def test_64bit_hash(self):
+        import sys
+        class BigHash(object):
+            def __hash__(self):
+                return sys.maxsize + 2
+            def __eq__(self, other):
+                return isinstance(other, BigHash)
+        # previously triggered an OverflowError
+        d = {BigHash(): None}
+        assert BigHash() in d
         
             
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):

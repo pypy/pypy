@@ -433,15 +433,19 @@ class DescrOperation(object):
             raise oefmt(space.w_TypeError,
                         "'%T' objects are unhashable", w_obj)
         w_result = space.get_and_call_function(w_hash, w_obj)
-        w_resulttype = space.type(w_result)
-        if space.is_w(w_resulttype, space.w_int):
+        if not space.isinstance_w(w_result, space.w_int):
+            raise oefmt(space.w_TypeError,
+                        "__hash__ method should return an integer")
+
+        from pypy.objspace.std.intobject import (
+            W_AbstractIntObject, W_IntObject)
+        if type(w_result) is W_IntObject:
             return w_result
-        elif space.isinstance_w(w_result, space.w_int):
-            # be careful about subclasses of 'int'...
+        elif isinstance(w_result, W_IntObject):
             return space.wrap(space.int_w(w_result))
-        else:
-            raise OperationError(space.w_TypeError,
-                    space.wrap("__hash__() should return an int"))
+        # a non W_IntObject int, assume long-like
+        assert isinstance(w_result, W_AbstractIntObject)
+        return w_result.descr_hash(space)
 
     def userdel(space, w_obj):
         w_del = space.lookup(w_obj, '__del__')
@@ -632,13 +636,18 @@ for targetname, specialname, checkerspec in [
     l = ["space.isinstance_w(w_result, %s)" % x
                 for x in checkerspec]
     checker = " or ".join(l)
+    if targetname == 'index':
+        msg = "'%%T' object cannot be interpreted as an integer"
+    else:
+        msg = "unsupported operand type for %(targetname)s(): '%%T'"
+    msg = msg % locals()
     source = """if 1:
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:
                 raise oefmt(space.w_TypeError,
-                            "unsupported operand type for %(targetname)s(): "
-                            "'%%T'", w_obj)
+                            %(msg)r,
+                            w_obj)
             w_result = space.get_and_call_function(w_impl, w_obj)
 
             if %(checker)s:

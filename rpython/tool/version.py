@@ -2,7 +2,7 @@ import py
 import os
 from subprocess import Popen, PIPE
 import rpython
-rpythondir = os.path.dirname(os.path.abspath(rpython.__file__))
+rpythondir = os.path.dirname(os.path.realpath(rpython.__file__))
 rpythonroot = os.path.dirname(rpythondir)
 default_retval = '?', '?'
 

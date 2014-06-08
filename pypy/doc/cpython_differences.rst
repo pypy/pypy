@@ -58,7 +58,6 @@ List of extension modules that we support:
     math
     mmap
     operator
-    oracle
     parser
     posix
     pyexpat
@@ -348,5 +347,10 @@ Miscellaneous
   opposed to a dict proxy like in CPython. Mutating the dict will change the
   type and vice versa. For builtin types, a dictionary will be returned that
   cannot be changed (but still looks and behaves like a normal dictionary).
+
+* PyPy prints a random line from past #pypy IRC topics at startup in
+  interactive mode. In a released version, this behaviour is supressed, but
+  setting the environment variable PYPY_IRC_TOPIC will bring it back. Note that
+  downstream package providers have been known to totally disable this feature.
 
 .. include:: _ref.txt

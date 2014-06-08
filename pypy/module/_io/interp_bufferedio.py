@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.buffer import RWBuffer
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix
@@ -81,7 +81,7 @@ class W_BufferedIOBase(W_IOBase):
         self._unsupportedoperation(space, "detach")
 
     def readinto_w(self, space, w_buffer):
-        rwbuffer = space.rwbuffer_w(w_buffer)
+        rwbuffer = space.getarg_w('w*', w_buffer)
         length = rwbuffer.getlength()
         w_data = space.call_method(self, "read", space.wrap(length))
 
@@ -97,8 +97,7 @@ class W_BufferedIOBase(W_IOBase):
                    space.w_DeprecationWarning)
 
 W_BufferedIOBase.typedef = TypeDef(
-    '_BufferedIOBase', W_IOBase.typedef,
-    __module__ = "_io",
+    '_io._BufferedIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_BufferedIOBase),
     read = interp2app(W_BufferedIOBase.read_w),
     read1 = interp2app(W_BufferedIOBase.read1_w),
@@ -107,11 +106,14 @@ W_BufferedIOBase.typedef = TypeDef(
     readinto = interp2app(W_BufferedIOBase.readinto_w),
 )
 
-class RawBuffer(RWBuffer):
+class RawBuffer(Buffer):
+    _immutable_ = True
+
     def __init__(self, buf, start, length):
         self.buf = buf
         self.start = start
         self.length = length
+        self.readonly = False
 
     def getlength(self):
         return self.length
@@ -214,17 +216,16 @@ class BufferedMixin:
         return space.call_method(self.w_raw, "isatty")
 
     def repr_w(self, space):
-        typename = space.type(self).getname(space)
-        module = space.unicode_w(space.type(self).get_module())
+        typename = space.type(self).name.decode('utf-8')
         try:
             w_name = space.getattr(self, space.wrap("name"))
         except OperationError, e:
             if not e.match(space, space.w_AttributeError):
                 raise
-            return space.wrap(u"<%s.%s>" % (module, typename,))
+            return space.wrap(u"<%s>" % (typename,))
         else:
             name_repr = space.unicode_w(space.repr(w_name))
-            return space.wrap(u"<%s.%s name=%s>" % (module, typename, name_repr))
+            return space.wrap(u"<%s name=%s>" % (typename, name_repr))
 
     # ______________________________________________
 
@@ -708,7 +709,7 @@ class BufferedMixin:
     def write_w(self, space, w_data):
         self._check_init(space)
         self._check_closed(space, "write to closed file")
-        data = space.bufferstr_w(w_data)
+        data = space.getarg_w('y*', w_data).as_str()
         size = len(data)
 
         with self.lock:
@@ -851,11 +852,10 @@ class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
         self.state = STATE_OK
 
 W_BufferedReader.typedef = TypeDef(
-    'BufferedReader', W_BufferedIOBase.typedef,
+    '_io.BufferedReader', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedReader),
     __init__  = interp2app(W_BufferedReader.descr_init),
     __getstate__ = interp2app(W_BufferedReader.getstate_w),
-    __module__ = "_io",
 
     read = interp2app(W_BufferedReader.read_w),
     peek = interp2app(W_BufferedReader.peek_w),
@@ -900,11 +900,10 @@ class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
         self.state = STATE_OK
 
 W_BufferedWriter.typedef = TypeDef(
-    'BufferedWriter', W_BufferedIOBase.typedef,
+    '_io.BufferedWriter', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedWriter),
     __init__  = interp2app(W_BufferedWriter.descr_init),
     __getstate__ = interp2app(W_BufferedWriter.getstate_w),
-    __module__ = "_io",
 
     write = interp2app(W_BufferedWriter.write_w),
     flush = interp2app(W_BufferedWriter.flush_w),
@@ -993,8 +992,7 @@ methods = dict((method, interp2app(getattr(W_BufferedRWPair, method + '_w')))
                               'isatty'])
 
 W_BufferedRWPair.typedef = TypeDef(
-    'BufferedRWPair', W_BufferedIOBase.typedef,
-    __module__ = "_io",
+    '_io.BufferedRWPair', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedRWPair),
     __init__  = interp2app(W_BufferedRWPair.descr_init),
     __getstate__ = interp2app(W_BufferedRWPair.getstate_w),
@@ -1025,11 +1023,10 @@ class W_BufferedRandom(BufferedMixin, W_BufferedIOBase):
         self.state = STATE_OK
 
 W_BufferedRandom.typedef = TypeDef(
-    'BufferedRandom', W_BufferedIOBase.typedef,
+    '_io.BufferedRandom', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedRandom),
     __init__ = interp2app(W_BufferedRandom.descr_init),
     __getstate__ = interp2app(W_BufferedRandom.getstate_w),
-    __module__ = "_io",
 
     read = interp2app(W_BufferedRandom.read_w),
     peek = interp2app(W_BufferedRandom.peek_w),

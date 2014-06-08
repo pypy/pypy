@@ -16,9 +16,9 @@ enum fruit { kApple=78, kBanana=29, kCitrus=34 };
 class four_vector {
 public:
     four_vector(double x, double y, double z, double t) :
-        m_x(x), m_y(y), m_z(z), m_t(t), m_cc_called(false) {}
+        m_cc_called(false), m_x(x), m_y(y), m_z(z), m_t(t) {}
     four_vector(const four_vector& s) :
-        m_x(s.m_x), m_y(s.m_y), m_z(s.m_z), m_t(s.m_t), m_cc_called(true) {}
+        m_cc_called(true), m_x(s.m_x), m_y(s.m_y), m_z(s.m_z), m_t(s.m_t) {}
 
     double operator[](int i) {
        if (i == 0) return m_x;

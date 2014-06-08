@@ -3,7 +3,7 @@ from rpython.tool.udir import udir
 import os, sys, py
 
 if sys.platform != 'win32':
-    py.test.skip("_winreg is a win32 module")
+    py.test.skip("winreg is a win32 module")
 
 try:
     # To call SaveKey, the process must have Backup Privileges
@@ -140,11 +140,15 @@ class AppTestFfi:
             assert 0, "Did not raise"
 
     def test_SetValueEx(self):
-        from winreg import CreateKey, SetValueEx
+        from winreg import CreateKey, SetValueEx, REG_BINARY
         key = CreateKey(self.root_key, self.test_key_name)
         sub_key = CreateKey(key, "sub_key")
         for name, value, type in self.test_data:
             SetValueEx(sub_key, name, 0, type, value)
+        exc = raises(TypeError, SetValueEx, sub_key, 'test_name', None,
+                                            REG_BINARY, memoryview('abc'))
+        assert str(exc.value) == ("Objects of type 'memoryview' can not "
+                                  "be used as binary registry values")
 
     def test_readValues(self):
         from winreg import OpenKey, EnumValue, QueryValueEx, EnumKey

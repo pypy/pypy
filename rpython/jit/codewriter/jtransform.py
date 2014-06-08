@@ -24,8 +24,30 @@ def transform_graph(graph, cpu=None, callcontrol=None, portal_jd=None):
     """Transform a control flow graph to make it suitable for
     being flattened in a JitCode.
     """
+    constant_fold_ll_issubclass(graph, cpu)
     t = Transformer(cpu, callcontrol, portal_jd)
     t.transform(graph)
+
+def constant_fold_ll_issubclass(graph, cpu):
+    # ll_issubclass can be inserted by the inliner to check exception types.
+    # See corner case metainterp.test.test_exception:test_catch_different_class
+    if cpu is None:
+        return
+    excmatch = cpu.rtyper.exceptiondata.fn_exception_match
+    for block in list(graph.iterblocks()):
+        for i, op in enumerate(block.operations):
+            if (op.opname == 'direct_call' and
+                    all(isinstance(a, Constant) for a in op.args) and
+                    op.args[0].value._obj is excmatch._obj):
+                constant_result = excmatch(*[a.value for a in op.args[1:]])
+                block.operations[i] = SpaceOperation(
+                    'same_as',
+                    [Constant(constant_result, lltype.Bool)],
+                    op.result)
+                if block.exitswitch is op.result:
+                    block.exitswitch = None
+                    block.recloseblock(*[link for link in block.exits
+                                         if link.exitcase == constant_result])
 
 def integer_bounds(size, unsigned):
     if unsigned:
@@ -539,8 +561,10 @@ class Transformer(object):
             return [SpaceOperation('-live-', [], None), op1, None]
         if hints.get('force_virtualizable'):
             return SpaceOperation('hint_force_virtualizable', [op.args[0]], None)
-        else:
-            log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
+        if hints.get('force_no_const'):   # for tests only
+            assert getkind(op.args[0].concretetype) == 'int'
+            return SpaceOperation('int_same_as', [op.args[0]], op.result)
+        log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
     def _rewrite_raw_malloc(self, op, name, args):
         d = op.args[1].value.copy()

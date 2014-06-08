@@ -44,6 +44,10 @@ class AppTestStringObject(test_bytesobject.AppTestBytesObject):
         assert len(r) == 2
         assert len(t) == 4
 
+    def test_buffer(self):
+        s = b'a'.__add__(b'b')
+        assert memoryview(s) == b'ab'
+
     def test_add_strbuf(self):
         # make three strbuf objects
         s = b'a'.__add__(b'b')

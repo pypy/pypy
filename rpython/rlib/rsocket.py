@@ -18,9 +18,15 @@ a drop-in replacement for the 'socket' module.
 from rpython.rlib.objectmodel import instantiate, keepalive_until_here
 from rpython.rlib import _rsocket_rffi as _c
 from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rthread import dummy_lock
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
 INVALID_SOCKET = _c.INVALID_SOCKET
+from rpython.rlib import jit
+# Usage of @jit.dont_look_inside in this file is possibly temporary
+# and only because some lltypes declared in _rsocket_rffi choke the
+# JIT's codewriter right now (notably, FixedSizeArray).
+
 
 def mallocbuf(buffersize):
     return lltype.malloc(rffi.CCHARP.TO, buffersize, flavor='raw')
@@ -591,6 +597,7 @@ class RSocket(object):
         addrlen_p[0] = rffi.cast(_c.socklen_t, maxlen)
         return addr, addr.addr_p, addrlen_p
 
+    @jit.dont_look_inside
     def accept(self):
         """Wait for an incoming connection.
         Return (new socket fd, client address)."""
@@ -723,6 +730,7 @@ class RSocket(object):
             return make_socket(fd, self.family, self.type, self.proto,
                                SocketClass=SocketClass)
 
+    @jit.dont_look_inside
     def getpeername(self):
         """Return the address of the remote endpoint."""
         address, addr_p, addrlen_p = self._addrbuf()
@@ -737,6 +745,7 @@ class RSocket(object):
         address.addrlen = rffi.cast(lltype.Signed, addrlen)
         return address
 
+    @jit.dont_look_inside
     def getsockname(self):
         """Return the address of the local endpoint."""
         address, addr_p, addrlen_p = self._addrbuf()
@@ -751,6 +760,7 @@ class RSocket(object):
         address.addrlen = rffi.cast(lltype.Signed, addrlen)
         return address
 
+    @jit.dont_look_inside
     def getsockopt(self, level, option, maxlen):
         buf = mallocbuf(maxlen)
         try:
@@ -770,6 +780,7 @@ class RSocket(object):
             lltype.free(buf, flavor='raw')
         return result
 
+    @jit.dont_look_inside
     def getsockopt_int(self, level, option):
         flag_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
         try:
@@ -827,6 +838,7 @@ class RSocket(object):
         rwbuffer.setslice(0, buf)
         return len(buf)
 
+    @jit.dont_look_inside
     def recvfrom(self, buffersize, flags=0):
         """Like recv(buffersize, flags) but also return the sender's
         address."""
@@ -1124,31 +1136,33 @@ def gethost_common(hostname, hostent, addr=None):
         paddr = h_addr_list[i]
     return (rffi.charp2str(hostent.c_h_name), aliases, address_list)
 
-def gethostbyname_ex(name):
-    # XXX use gethostbyname_r() if available, and/or use locks if not
+def gethostbyname_ex(name, lock=dummy_lock):
+    # XXX use gethostbyname_r() if available instead of locks
     addr = gethostbyname(name)
-    hostent = _c.gethostbyname(name)
-    return gethost_common(name, hostent, addr)
+    with lock:
+        hostent = _c.gethostbyname(name)
+        return gethost_common(name, hostent, addr)
 
-def gethostbyaddr(ip):
-    # XXX use gethostbyaddr_r() if available, and/or use locks if not
+def gethostbyaddr(ip, lock=dummy_lock):
+    # XXX use gethostbyaddr_r() if available, instead of locks
     addr = makeipaddr(ip)
     assert isinstance(addr, IPAddress)
-    p, size = addr.lock_in_addr()
-    try:
-        hostent = _c.gethostbyaddr(p, size, addr.family)
-    finally:
-        addr.unlock()
-    return gethost_common(ip, hostent, addr)
+    with lock:
+        p, size = addr.lock_in_addr()
+        try:
+            hostent = _c.gethostbyaddr(p, size, addr.family)
+        finally:
+            addr.unlock()
+        return gethost_common(ip, hostent, addr)
 
 def getaddrinfo(host, port_or_service,
                 family=AF_UNSPEC, socktype=0, proto=0, flags=0,
                 address_to_fill=None):
     # port_or_service is a string, not an int (but try str(port_number)).
     assert port_or_service is None or isinstance(port_or_service, str)
-    if _c._MACOSX:
-        if port_or_service is None or port_or_service == '0':
-            port_or_service = '00'
+    if _c._MACOSX and flags & AI_NUMERICSERV and \
+            (port_or_service is None or port_or_service == '0'):
+        port_or_service = '00'
     hints = lltype.malloc(_c.addrinfo, flavor='raw', zero=True)
     rffi.setintfield(hints, 'c_ai_family',   family)
     rffi.setintfield(hints, 'c_ai_socktype', socktype)

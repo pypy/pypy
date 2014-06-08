@@ -516,24 +516,13 @@ class OptRewrite(Optimization):
         return False
 
     def optimize_CALL_PURE(self, op):
-        arg_consts = []
-        for i in range(op.numargs()):
-            arg = op.getarg(i)
-            const = self.get_constant_box(arg)
-            if const is None:
-                break
-            arg_consts.append(const)
-        else:
-            # all constant arguments: check if we already know the result
-            try:
-                result = self.optimizer.call_pure_results[arg_consts]
-            except KeyError:
-                pass
-            else:
-                # this removes a CALL_PURE with all constant arguments.
-                self.make_constant(op.result, result)
-                self.last_emitted_operation = REMOVED
-                return
+        # this removes a CALL_PURE with all constant arguments.
+        # Note that it's also done in pure.py.  For now we need both...
+        result = self._can_optimize_call_pure(op)
+        if result is not None:
+            self.make_constant(op.result, result)
+            self.last_emitted_operation = REMOVED
+            return
         self.emit_operation(op)
 
     def optimize_GUARD_NO_EXCEPTION(self, op):

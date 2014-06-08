@@ -611,6 +611,20 @@ class ExceptionTests:
         res = self.meta_interp(f, [0], inline=True)
         assert res == 30
 
+    def test_catch_different_class(self):
+        def g(i):
+            if i < 0:
+                raise KeyError
+            return i
+        def f(i):
+            MyError(i)
+            try:
+                return g(i)
+            except MyError as e:
+                return e.n
+        res = self.interp_operations(f, [5], backendopt=True)
+        assert res == 5
+
 
 class MyError(Exception):
     def __init__(self, n):

@@ -457,7 +457,7 @@ class W_RSocket(W_Root, RSocket):
 
     @unwrap_spec(nbytes=int, flags=int)
     def recv_into_w(self, space, w_buffer, nbytes=0, flags=0):
-        rwbuffer = space.rwbuffer_w(w_buffer)
+        rwbuffer = space.getarg_w('w*', w_buffer)
         lgt = rwbuffer.getlength()
         if nbytes == 0 or nbytes > lgt:
             nbytes = lgt
@@ -468,7 +468,7 @@ class W_RSocket(W_Root, RSocket):
 
     @unwrap_spec(nbytes=int, flags=int)
     def recvfrom_into_w(self, space, w_buffer, nbytes=0, flags=0):
-        rwbuffer = space.rwbuffer_w(w_buffer)
+        rwbuffer = space.getarg_w('w*', w_buffer)
         lgt = rwbuffer.getlength()
         if nbytes == 0 or nbytes > lgt:
             nbytes = lgt

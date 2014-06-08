@@ -1,11 +1,8 @@
 =======================
-What's new in PyPy 2.3+
+What's new in PyPy 2.4+
 =======================
 
 .. this is a revision shortly after release-2.3.x
-.. startrev: ba569fe1efdb
+.. startrev: 87fdc76bccb4
 
-.. branch: small-unroll-improvements
-Improve optimiziation of small allocation-heavy loops in the JIT
 
-.. branch: reflex-support

@@ -1173,13 +1173,13 @@ class Assembler386(BaseAssembler):
         self.mc.CVTSD2SS(loctmp, loc0)
         assert isinstance(resloc, RegLoc)
         assert isinstance(loctmp, RegLoc)
-        self.mc.MOVD_rx(resloc.value, loctmp.value)
+        self.mc.MOVD32_rx(resloc.value, loctmp.value)
 
     def genop_cast_singlefloat_to_float(self, op, arglocs, resloc):
         loc0, = arglocs
         assert isinstance(resloc, RegLoc)
         assert isinstance(loc0, RegLoc)
-        self.mc.MOVD_xr(resloc.value, loc0.value)
+        self.mc.MOVD32_xr(resloc.value, loc0.value)
         self.mc.CVTSS2SD_xx(resloc.value, resloc.value)
 
     def genop_convert_float_bytes_to_longlong(self, op, arglocs, resloc):
@@ -1187,7 +1187,7 @@ class Assembler386(BaseAssembler):
         if longlong.is_64_bit:
             assert isinstance(resloc, RegLoc)
             assert isinstance(loc0, RegLoc)
-            self.mc.MOVD(resloc, loc0)
+            self.mc.MOVDQ(resloc, loc0)
         else:
             self.mov(loc0, resloc)
 
@@ -1196,7 +1196,7 @@ class Assembler386(BaseAssembler):
         if longlong.is_64_bit:
             assert isinstance(resloc, RegLoc)
             assert isinstance(loc0, RegLoc)
-            self.mc.MOVD(resloc, loc0)
+            self.mc.MOVDQ(resloc, loc0)
         else:
             self.mov(loc0, resloc)
 
@@ -1262,7 +1262,7 @@ class Assembler386(BaseAssembler):
         loc = arglocs[0]
         assert isinstance(resloc, RegLoc)
         if isinstance(loc, RegLoc):
-            self.mc.MOVD_rx(resloc.value, loc.value)
+            self.mc.MOVD32_rx(resloc.value, loc.value)
         elif isinstance(loc, FrameLoc):
             self.mc.MOV_rb(resloc.value, loc.value)
         else:
@@ -1277,16 +1277,16 @@ class Assembler386(BaseAssembler):
             assert isinstance(loc1, RegLoc)
             assert isinstance(loc2, RegLoc)
             assert isinstance(resloc, RegLoc)
-            self.mc.MOVD_xr(loc2.value, loc1.value)
+            self.mc.MOVD32_xr(loc2.value, loc1.value)
             self.mc.PSRAD_xi(loc2.value, 31)    # -> 0 or -1
-            self.mc.MOVD_xr(resloc.value, loc1.value)
+            self.mc.MOVD32_xr(resloc.value, loc1.value)
             self.mc.PUNPCKLDQ_xx(resloc.value, loc2.value)
 
     def genop_llong_from_uint(self, op, arglocs, resloc):
         loc1, = arglocs
         assert isinstance(resloc, RegLoc)
         assert isinstance(loc1, RegLoc)
-        self.mc.MOVD_xr(resloc.value, loc1.value)
+        self.mc.MOVD32_xr(resloc.value, loc1.value)
 
     def genop_llong_eq(self, op, arglocs, resloc):
         loc1, loc2, locxtmp = arglocs
@@ -1571,8 +1571,8 @@ class Assembler386(BaseAssembler):
             self.mc.OR_rr(edx.value, eax.value)
         else:
             loc1, = arglocs
-            self.mc.MOVD_xr(loc1.value, edx.value)
-            self.mc.MOVD_xr(resloc.value, eax.value)
+            self.mc.MOVD32_xr(loc1.value, edx.value)
+            self.mc.MOVD32_xr(resloc.value, eax.value)
             self.mc.PUNPCKLDQ_xx(resloc.value, loc1.value)
 
     def genop_guard_guard_true(self, ign_1, guard_op, guard_token, locs, ign_2):

@@ -288,7 +288,9 @@ class Entry(ExtRegistryEntry):
     _about_ = make_sure_not_resized
 
     def compute_result_annotation(self, s_arg):
-        from rpython.annotator.model import SomeList
+        from rpython.annotator.model import SomeList, s_None
+        if s_None.contains(s_arg):
+            return s_arg    # only None: just return
         assert isinstance(s_arg, SomeList)
         # the logic behind it is that we try not to propagate
         # make_sure_not_resized, when list comprehension is not on

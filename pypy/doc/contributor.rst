@@ -99,6 +99,7 @@ appropriate measure but it's something)::
   Stian Andreassen
   Laurence Tratt
   Wanja Saatkamp
+  Ivan Sichmann Freitas
   Gerald Klix
   Mike Blume
   Oscar Nierstrasz
@@ -183,7 +184,9 @@ appropriate measure but it's something)::
   Alejandro J. Cura
   Jacob Oscarson
   Travis Francis Athougies
+  Ryan Gonzalez
   Kristjan Valur Jonsson
+  Sebastian Pawluś
   Neil Blakey-Milner
   anatoly techtonik
   Lutz Paelike
@@ -216,6 +219,7 @@ appropriate measure but it's something)::
   Michael Hudson-Doyle
   Anders Sigfridsson
   Yasir Suhail
+  rafalgalczynski@gmail.com
   Floris Bruynooghe
   Laurens Van Houtven
   Akira Li
@@ -245,6 +249,8 @@ appropriate measure but it's something)::
   Zooko Wilcox-O Hearn
   Tomer Chachamu
   Christopher Groskopf
+  Asmo Soinio
+  Stefan Marr
   jiaaro
   opassembler.py
   Antony Lee

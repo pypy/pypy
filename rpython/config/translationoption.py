@@ -17,13 +17,8 @@ DEFL_GC = "incminimark"   # XXX
 
 if sys.platform.startswith("linux"):
     DEFL_ROOTFINDER_WITHJIT = "asmgcc"
-    ROOTFINDERS = ["n/a", "shadowstack", "asmgcc"]
-elif compiler.name == 'msvc':    
-    DEFL_ROOTFINDER_WITHJIT = "shadowstack"
-    ROOTFINDERS = ["n/a", "shadowstack"]
 else:
     DEFL_ROOTFINDER_WITHJIT = "shadowstack"
-    ROOTFINDERS = ["n/a", "shadowstack", "asmgcc"]
 
 IS_64_BITS = sys.maxint > 2147483647
 
@@ -91,7 +86,7 @@ translation_optiondescription = OptionDescription(
                default=IS_64_BITS, cmdline="--gcremovetypeptr"),
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
-                 ROOTFINDERS,
+                 ["n/a", "shadowstack", "asmgcc"],
                  "shadowstack",
                  cmdline="--gcrootfinder",
                  requires={
@@ -372,9 +367,10 @@ def set_opt_level(config, level):
     # if we have specified strange inconsistent settings.
     config.translation.gc = config.translation.gc
 
-    # disallow asmgcc on OS/X
+    # disallow asmgcc on OS/X and on Win32
     if config.translation.gcrootfinder == "asmgcc":
-        assert sys.platform != "darwin"
+        assert sys.platform != "darwin", "'asmgcc' not supported on OS/X"
+        assert sys.platform != "win32",  "'asmgcc' not supported on Win32"
 
 # ----------------------------------------------------------------
 
