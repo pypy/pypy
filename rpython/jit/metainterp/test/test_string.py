@@ -552,7 +552,7 @@ class StringTests:
                 result += ord(b.build()[0])
                 n -= 1
             return result
-        res = self.meta_interp(main, [9])
+        res = self.meta_interp(main, [9], backendopt=True)
         assert res == main(9)
 
     def test_virtual_copystringcontent2(self):
@@ -568,7 +568,7 @@ class StringTests:
                 result += ord((b.build() + _str("xyz"))[0])
                 n -= 1
             return result
-        res = self.meta_interp(main, [9])
+        res = self.meta_interp(main, [9], backendopt=True)
         assert res == main(9)
 
     def test_bytearray(self):
@@ -778,7 +778,7 @@ class StringTests:
                 n -= 1
             return result
 
-        res = self.meta_interp(f, [9])
+        res = self.meta_interp(f, [9], backendopt=True)
         assert res == f(9)
         self.check_resops({
             'jump': 1, 'guard_true': 2, 'int_ge': 2, 'int_add': 2, 'int_sub': 2
