@@ -4197,6 +4197,13 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeTuple)
         assert s.items[1].const == 42
 
+    def test_unpack_none_gets_a_blocked_block(self):
+        def f(x):
+            a, b = x
+        a = self.RPythonAnnotator()
+        py.test.raises(annmodel.AnnotatorError,
+                       a.build_types, f, [annmodel.s_None])
+
 
 def g(n):
     return [0, 1, 2, n]
