@@ -219,7 +219,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
     @staticmethod
     @always_inline
     def ll_append_char(ll_builder, char):
-        if jit.isvirtual(ll_builder):
+        if jit.we_are_jitted():
             BaseStringBuilderRepr._ll_jit_append_char(ll_builder, char)
         else:
             BaseStringBuilderRepr._ll_append_char(ll_builder, char)
@@ -250,7 +250,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
 
     @staticmethod
     def ll_append_char_2(ll_builder, char0, char1):
-        if jit.isvirtual(ll_builder):
+        if jit.we_are_jitted():
             BaseStringBuilderRepr._ll_jit_append_char_2(ll_builder, char0,char1)
         else:
             BaseStringBuilderRepr._ll_append_char_2(ll_builder, char0, char1)
@@ -325,7 +325,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
                                                        ll_str.chars[start],
                                                        ll_str.chars[start + 1])
                 return True
-        if jit.isvirtual(ll_builder) and bool(ll_builder.current_buf):
+        if bool(ll_builder.current_buf):
             ofs = ll_builder.current_ofs
             end = ofs + size * ll_builder.charsize
             if end <= ll_builder.current_end:
