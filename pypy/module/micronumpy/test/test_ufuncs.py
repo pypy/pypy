@@ -2,6 +2,8 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.module.micronumpy.ufuncs import (find_binop_result_dtype,
         find_unaryop_result_dtype)
 from pypy.module.micronumpy.descriptor import get_dtype_cache
+from pypy.interpreter.gateway import interp2app
+from pypy.conftest import option
 
 
 try:
@@ -144,28 +146,43 @@ class TestUfuncCoercion(object):
         # promote bools, happens with sign ufunc
         assert find_unaryop_result_dtype(space, bool_dtype, promote_bools=True) is int8_dtype
 
-class TestUfuncFromCFunc(object):
-    def test_fromcfunc(self,space):
-        if not cfuncs:
-            skip('no cffi available')
-        from pypy.module.micronumpy.ufuncs import ufunc_from_func_and_data_and_signature as from_cfunc
-        from pypy.module.micronumpy.ctors import array
-        int32_dtype = get_dtype_cache(space).w_int32dtype
-        float64_dtype = get_dtype_cache(space).w_float64dtype
-        data = ffi.new('char *[2]')
-        func = from_cfunc([cfuncs.double_times2, cfuncs.int_times2], data,
-                          [float64_dtype, float64_dtype, int32_dtype, int32_dtype],
-                           1, 1, 0, 'times2', 'times2_doc', 0, '()->()',
-                            )
-        def get(i):
-            return w_result.getitem(space, [i]).value
-        for d in [int32_dtype, float64_dtype]:
-            w_array = array(space, space.wrap(range(10)), w_dtype=d)
-            w_result = func.call(space, [w_array])
-            for i in 10:
-                assert get(i) == 2*i
-
 class AppTestUfuncs(BaseNumpyAppTest):
+    def setup_class(cls):
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        if cfuncs:
+            def int_times2(space, __args__):
+                args, kwargs = __args__.unpack()
+                arr = map(space.unwrap, args)
+                # Assume arr is contiguous
+                addr = cfuncs.new('char *[2]')
+                addr[0] = arr[0].data
+                addr[1] = arr[1].data
+                dims = cfuncs.new('int *[1]')
+                dims[0] = arr[0].size
+                steps = cfuncs.new('int *[1]')
+                steps[0] = arr[0].strides[-1]
+                cfuncs.int_times2(addr, dims, steps, 0)
+            def double_times2(space, __args__):
+                args, kwargs = __args__.unpack()
+                arr = map(space.unwrap, args)
+                # Assume arr is contiguous
+                addr = cfuncs.new('char *[2]')
+                addr[0] = arr[0].data
+                addr[1] = arr[1].data
+                dims = cfuncs.new('int *[1]')
+                dims[0] = arr[0].size
+                steps = cfuncs.new('int *[1]')
+                steps[0] = arr[0].strides[-1]
+                cfuncs.double_times2(addr, dims, steps, 0)
+            if option.runappdirect:
+                times2 = cls.space.wrap([double_times2, int_times2])
+            else:
+                times2 = cls.space.wrap([interp2app(double_times2),
+                          interp2app(int_times2)])
+        else:
+            times2 = None
+        cls.w_times2 = cls.space.wrap(times2)
+
     def test_constants(self):
         import numpy as np
         assert np.FLOATING_POINT_SUPPORT == 1
@@ -180,26 +197,45 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, ufunc)
 
     def test_frompyfunc(self):
-        try:
-            from numpy import frompyfunc
-        except ImportError:
-            skip('frompyfunc not available')
         from numpy import ufunc, frompyfunc, arange, dtype
         def adder(a, b):
             return a+b
-        myufunc = frompyfunc(adder, 2, 1)
+        try:
+            myufunc = frompyfunc(adder, 2, 1)
+            int_func22 = frompyfunc(int, 2, 2)
+            int_func12 = frompyfunc(int, 1, 2)
+            retype = dtype(object)
+        except NotImplementedError as e:
+            assert 'object' in str(e)
+            # Use pypy specific extension for out_dtype
+            myufunc = frompyfunc(adder, 2, 1, out_dtype='match')
+            int_func22 = frompyfunc(int, 2, 2, out_dtype='match')
+            int_func12 = frompyfunc(int, 1, 2, out_dtype='match')
+            retype = dtype(int)
         assert isinstance(myufunc, ufunc)
         res = myufunc(arange(10), arange(10))
-        assert res.dtype == dtype(object)
+        assert res.dtype == retype
         assert all(res == arange(10) + arange(10))
         raises(TypeError, frompyfunc, 1, 2, 3)
-        int_func22 = frompyfunc(int, 2, 2)
         raises (ValueError, int_func22, arange(10))
-        int_func12 = frompyfunc(int, 1, 2)
         res = int_func12(arange(10))
         assert len(res) == 2
         assert isinstance(res, tuple)
         assert (res[0] == arange(10)).all()
+
+    def test_from_cffi_func(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('pypy-only test')
+        from numpy import frompyfunc, dtype, arange
+        if self.times2 is None:
+            skip('cffi not available')
+        ufunc = frompyfunc(self.times2, 1, 1, signature='()->()',
+                     dtypes=[dtype(float), dtype(float), dtype(int), dtype(int)],
+                    )
+        f = arange(10, dtype=int)
+        f2 = ufunc(f)
+        assert f2
 
     def test_ufunc_attrs(self):
         from numpy import add, multiply, sin

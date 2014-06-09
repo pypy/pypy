@@ -34,6 +34,7 @@ class UMathModule(MixedModule):
     appleveldefs = {}
     interpleveldefs = {
         'FLOATING_POINT_SUPPORT': 'space.wrap(1)',
+        'frompyfunc': 'ufuncs.frompyfunc',
         }
     # ufuncs
     for exposed, impl in [

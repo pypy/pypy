@@ -1,7 +1,8 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
+from pypy.interpreter.argument import Arguments
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import LONG_BIT, maxint
 from rpython.tool.sourcetools import func_with_new_name
@@ -464,25 +465,36 @@ class W_Ufunc2(W_Ufunc):
 
 
 class W_UfuncGeneric(W_Ufunc):
+    '''
+    Handle a number of python functions, each with a signature and dtypes.
+    The signature can specify how to create the inner loop, i.e.
+    (i,j),(j,k)->(i,k) for a dot-like matrix multiplication, and the dtypes
+    can specify the input, output args for the function. When called, the actual
+    function used will be resolved by examining the input arg's dtypes.
+
+    If dtypes == 'match', only one argument is provided and the output dtypes
+    will match the input dtype (not cpython numpy compatible)
+    '''
     _immutable_fields_ = ["funcs", "signature", "nin", "nout", "nargs",
                           "dtypes", "data"]
 
-    def __init__(self, funcs, name, identity, data, nin, nout, dtypes, signature):
+    def __init__(self, space, funcs, name, identity, nin, nout, dtypes, signature):
         # XXX make sure funcs, signature, dtypes, nin, nout are consistent
 
         # These don't matter, we use the signature and dtypes for determining
         # output dtype
         promote_to_largest = promote_to_float = promote_bools = False
-        int_only = allow_bool = allow_complex = complex_to_float = False
+        allow_bool = allow_complex = True
+        int_only = complex_to_float = False
         W_Ufunc.__init__(self, name, promote_to_largest, promote_to_float, promote_bools,
                          identity, int_only, allow_bool, allow_complex, complex_to_float)
         self.funcs = funcs
         self.dtypes = dtypes
         self.nin = nin
         self.nout = nout
-        self.data = data
         self.nargs = nin + max(nout, 1) # ufuncs can always be called with an out=<> kwarg
-        if len(dtypes) % len(funcs) != 0 or len(dtypes) / len(funcs) != self.nargs:
+        if dtypes != 'match' and (len(dtypes) % len(funcs) != 0 or
+                                  len(dtypes) / len(funcs) != self.nargs):
             raise oefmt(space.w_ValueError,
                 "generic ufunc with %d functions, %d arguments, but %d dtypes",
                 len(funcs), self.nargs, len(dtypes))
@@ -494,8 +506,6 @@ class W_UfuncGeneric(W_Ufunc):
 
     def call(self, space, args_w):
         #from pypy.module._cffi_backend import newtype, func as _func
-        from rpython.rlib.rawstorage import alloc_raw_storage, raw_storage_setitem
-        from rpython.rtyper.lltypesystem import rffi, lltype
         out = None
         inargs = []
         if len(args_w) < self.nin:
@@ -508,34 +518,17 @@ class W_UfuncGeneric(W_Ufunc):
         for i in range(min(self.nout, len(args_w)-self.nin)):
             out = args_w[i+self.nin]
             if space.is_w(out, space.w_None) or out is None:
-                outargs.append(None)
+                continue
             else:
                 if not isinstance(out, W_NDimArray):
                     raise oefmt(space.w_TypeError,
                          'output arg %d must be an array, not %s', i+self.nin, str(args_w[i+self.nin]))
-                outargs.append(out)
+                outargs[i] = out
         index = self.type_resolver(space, inargs, outargs)
         self.alloc_outargs(space, index, inargs, outargs)
-        func, dims, steps = self.prep_call(space, index, inargs, outargs)
-        psize = rffi.sizeof(rffi.VOIDP)
-        lsize = rffi.sizeof(rffi.LONG)
-        data = alloc_raw_storage(psize*self.nargs)
-        dims_p = alloc_raw_storage(lsize * len(dims))
-        steps_p = alloc_raw_storage(lsize * len(steps))
-        for i in range(len(inargs)):
-            pdata = inargs[i].implementation.get_storage_as_int(space)
-            raw_storage_setitem(data, i * psize, pdata)
-        for j in range(len(outargs)):
-            pdata = outargs[j].implementation.get_storage_as_int(space)
-            raw_storage_setitem(data, (i + j) * psize, pdata)
-        for i in range(len(dims)):
-            raw_storage_setitem(dims_p, i * lsize, dims[i])
-            raw_storage_setitem(steps_p, i * lsize, steps[i])
-        print 'calling',func, hex(rffi.cast(lltype.Signed, func))
-        func(rffi.cast(rffi.CArrayPtr(rffi.CCHARP), data), rffi.cast(rffi.LONGP, dims_p), rffi.cast(rffi.LONGP, steps_p), rffi.cast(rffi.VOIDP, 0))
-        if len(outargs)>1:
-            return outargs
-        return outargs[0]
+        # XXX handle inner-loop indexing
+        # XXX JIT_me
+        raise oefmt(space.w_NotImplementedError, 'not implemented yet')
 
     def type_resolver(self, space, index, outargs):
         # Find a match for the inargs.dtype in self.dtypes, like
@@ -887,7 +880,108 @@ class UfuncState(object):
 def get(space):
     return space.fromcache(UfuncState)
 
-def ufunc_from_func_and_data_and_signature(funcs, data, dtypes, nin, nout,
-                identity, name, doc, check_return, signature):
-    return W_UfuncGeneric(funcs, name, identity, data, nin, nout, dtypes, signature)
-    pass
+@unwrap_spec(nin=int, nout=int, signature=str, w_identity=WrappedDefault(None),
+             name=str, doc=str)
+def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
+     w_identity=None, name='', doc=''):
+    ''' frompyfunc(func, nin, nout) #cpython numpy compatible
+        frompyfunc(func, nin, nout, dtypes=None, signature='',
+                   identity=None, name='', doc='')
+
+    Takes an arbitrary Python function and returns a ufunc.
+
+    Can be used, for example, to add broadcasting to a built-in Python
+    function (see Examples section).
+
+    Parameters
+    ----------
+    func : Python function object
+        An arbitrary Python function or list of functions (if dtypes is specified).
+    nin : int
+        The number of input arguments.
+    nout : int
+        The number of arrays returned by `func`.
+    dtypes: None or [dtype, ...] of the input, output args for each function,
+               or 'match' to force output to exactly match input dtype
+    signature*: str, default=''
+         The mapping of input args to output args, defining the
+         inner-loop indexing
+    identity*: None (default) or int
+         For reduce-type ufuncs, the default value
+    name: str, default=''
+    doc: str, default=''
+
+    only one of out_dtype or signature may be specified
+
+    Returns
+    -------
+    out : ufunc
+        Returns a Numpy universal function (``ufunc``) object.
+
+    Notes
+    -----
+    If the signature and out_dtype are both missing, the returned ufunc always
+    returns PyObject arrays (cpython numpy compatability).
+
+    Examples
+    --------
+    Use frompyfunc to add broadcasting to the Python function ``oct``:
+
+    >>> oct_obj_array = np.frompyfunc(oct, 1, 1)
+    >>> oct_obj_array(np.array((10, 30, 100)))
+    array([012, 036, 0144], dtype=object)
+    >>> np.array((oct(10), oct(30), oct(100))) # for comparison
+    array(['012', '036', '0144'],
+          dtype='|S4')
+    >>> oct_array = np.frompyfunc(oct, 1, 1, out_dtype=str)
+    >>> oct_obj_array(np.array((10, 30, 100)))
+    array([012, 036, 0144], dtype='|S4')
+    '''
+    if (space.isinstance_w(w_func, space.w_tuple) or
+        space.isinstance_w(w_func, space.w_list)):
+        func = space.listview(w_func)
+        for w_f in func:
+            if not space.is_true(space.callable(w_f)):
+                raise oefmt(space.w_TypeError, 'func must be callable')
+    else:
+        if not space.is_true(space.callable(w_func)):
+            raise oefmt(space.w_TypeError, 'func must be callable')
+        func = [w_func]
+
+    if space.is_none(w_dtypes) and not signature:
+        raise oefmt(space.w_NotImplementedError,
+             'object dtype requested but not implemented')
+        #dtypes=[descriptor.get_dtype_cache(space).w_objectdtype]
+    elif space.isinstance_w(w_dtypes, space.w_str):
+        if not space.str_w(w_dtypes) == 'match':
+            raise oefmt(space.w_ValueError,
+                'unknown out_dtype value "%s"', space.str_w(w_dtypes))
+        dtypes = 'match'
+    elif (space.isinstance_w(w_dtypes, space.w_tuple) or
+            space.isinstance_w(w_dtypes, space.w_list)):
+            dtypes = space.listview(w_dtypes)
+            for i in range(len(dtypes)):
+                dtypes[i] = descriptor.decode_w_dtype(space, dtypes[i])
+    else:
+        raise oefmt(space.w_ValueError,
+            'dtypes must be None or a list of dtypes')
+
+    if space.is_none(w_identity):
+        identity = None
+    elif space.isinstance_w(w_identity, space.int_w):
+        identity = space.int_w(w_identity)
+    else:
+        raise oefmt(space.w_ValueError,
+            'identity must be 0, 1, or None')
+    if nin==1 and nout==1 and dtypes == 'match':
+        w_ret = W_Ufunc1(func[0], name)
+    elif nin==2 and nout==1 and dtypes == 'match':
+        def _func(calc_dtype, w_left, w_right):
+            arglist = space.wrap([w_left, w_right])
+            return space.call_args(func[0], Arguments.frompacked(space, arglist))
+        w_ret = W_Ufunc2(_func, name)
+    else:
+        w_ret = W_UfuncGeneric(space, func, name, identity, nin, nout, dtypes, signature)
+    if doc:
+        w_ret.w_doc = space.wrap(doc)
+    return w_ret
