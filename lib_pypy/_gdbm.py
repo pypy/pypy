@@ -47,7 +47,7 @@ except cffi.VerificationError as e:
     # failure must be due to missing gdbm dev libs
     raise ImportError('%s: %s' %(e.__class__.__name__, e))
 
-class error(Exception):
+class error(IOError):
     pass
 
 def _fromstr(key):
