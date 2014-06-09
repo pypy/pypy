@@ -342,7 +342,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
     @staticmethod
     @always_inline
     def ll_append_multiple_char(ll_builder, char, times):
-        if jit.isvirtual(ll_builder):
+        if jit.we_are_jitted(ll_builder):
             if BaseStringBuilderRepr._ll_jit_try_append_multiple_char(
                     ll_builder, char, times):
                 return
