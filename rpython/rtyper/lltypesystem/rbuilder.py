@@ -342,7 +342,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
     @staticmethod
     @always_inline
     def ll_append_multiple_char(ll_builder, char, times):
-        if jit.we_are_jitted(ll_builder):
+        if jit.we_are_jitted():
             if BaseStringBuilderRepr._ll_jit_try_append_multiple_char(
                     ll_builder, char, times):
                 return
@@ -417,7 +417,6 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         return ll_builder.total_size - num_chars_missing_from_last_piece
 
     @classmethod
-    @jit.look_inside_iff(lambda cls, ll_builder: jit.isvirtual(ll_builder))
     def ll_build(cls, ll_builder):
         buf = ll_builder.current_buf
         if buf:
