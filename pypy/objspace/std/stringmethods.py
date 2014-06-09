@@ -561,16 +561,10 @@ class StringMethods(object):
             res = split(value, maxsplit=maxsplit)
             return self._newlist_unwrapped(space, res)
 
-        if self._use_rstr_ops(space, w_sep):
-            by = self._op_val(space, w_sep)
-            if len(by) == 0:
-                raise oefmt(space.w_ValueError, "empty separator")
-            res = split(value, by, maxsplit)
-        else:
-            by = _get_buffer(space, w_sep)
-            if len(by) == 0:
-                raise oefmt(space.w_ValueError, "empty separator")
-            res = split(value, by, maxsplit)
+        by = self._op_val(space, w_sep)
+        if len(by) == 0:
+            raise oefmt(space.w_ValueError, "empty separator")
+        res = split(value, by, maxsplit)
 
         return self._newlist_unwrapped(space, res)
 
@@ -582,16 +576,10 @@ class StringMethods(object):
             res = rsplit(value, maxsplit=maxsplit)
             return self._newlist_unwrapped(space, res)
 
-        if self._use_rstr_ops(space, w_sep):
-            by = self._op_val(space, w_sep)
-            if len(by) == 0:
-                raise oefmt(space.w_ValueError, "empty separator")
-            res = rsplit(value, by, maxsplit)
-        else:
-            by = _get_buffer(space, w_sep)
-            if len(by) == 0:
-                raise oefmt(space.w_ValueError, "empty separator")
-            res = rsplit(value, by, maxsplit)
+        by = self._op_val(space, w_sep)
+        if len(by) == 0:
+            raise oefmt(space.w_ValueError, "empty separator")
+        res = rsplit(value, by, maxsplit)
 
         return self._newlist_unwrapped(space, res)
 
@@ -629,10 +617,7 @@ class StringMethods(object):
                                               end))
 
     def _startswith(self, space, value, w_prefix, start, end):
-        if self._use_rstr_ops(space, w_prefix):
-            return startswith(value, self._op_val(space, w_prefix), start, end)
-        else:
-            return startswith(value, _get_buffer(space, w_prefix), start, end)
+        return startswith(value, self._op_val(space, w_prefix), start, end)
 
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end,
@@ -646,10 +631,7 @@ class StringMethods(object):
                                             end))
 
     def _endswith(self, space, value, w_prefix, start, end):
-        if self._use_rstr_ops(space, w_prefix):
-            return endswith(value, self._op_val(space, w_prefix), start, end)
-        else:
-            return endswith(value, _get_buffer(space, w_prefix), start, end)
+        return endswith(value, self._op_val(space, w_prefix), start, end)
 
     def _strip(self, space, w_chars, left, right):
         "internal function called by str_xstrip methods"

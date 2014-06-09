@@ -56,6 +56,13 @@ def split(value, by=None, maxsplit=-1):
             i = j + 1
         return res
 
+    if isinstance(value, unicode):
+        assert isinstance(by, unicode)
+    if isinstance(value, str):
+        assert isinstance(by, str)
+    if isinstance(value, list):
+        assert isinstance(by, str)
+
     bylen = len(by)
     if bylen == 0:
         raise ValueError("empty separator")
@@ -130,6 +137,13 @@ def rsplit(value, by=None, maxsplit=-1):
 
         res.reverse()
         return res
+
+    if isinstance(value, unicode):
+        assert isinstance(by, unicode)
+    if isinstance(value, str):
+        assert isinstance(by, str)
+    if isinstance(value, list):
+        assert isinstance(by, str)
 
     if maxsplit > 0:
         res = newlist_hint(min(maxsplit + 1, len(value)))
