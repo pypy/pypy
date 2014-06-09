@@ -28,6 +28,13 @@ from rpython.rtyper.annlowlevel import llstr, llunicode
 # - The data is copied at most twice, and only once in case it fits
 #   into the initial size (and the GC supports shrinking the STR).
 #
+# XXX too much a mess to handle the case where the JIT sees this code.
+# Think about an easier alternative, like using raw_store(current_buf, ..)
+# uniformly, where current_buf is a GC pointer that can be NULL.  We'd
+# need support in the JIT to map that to virtual string index.  We'd also
+# need a way to express c_memcpy() below --- similar to copystrcontent,
+# but without the assumption that it's about a string (or unicode).
+#
 # ------------------------------------------------------------
 
 
