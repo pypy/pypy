@@ -533,3 +533,49 @@ class TestHeapCache(object):
             []
         )
         assert h.getarrayitem(box1, index1, descr1) is box3
+
+    def test_bug_missing_ignored_operations(self):
+        h = HeapCache()
+        h.new(box1)
+        h.new(box2)
+        h.setfield(box1, box2, descr1)
+        assert h.getfield(box1, descr1) is box2
+        h.invalidate_caches(rop.STRSETITEM, None, [])
+        h.invalidate_caches(rop.UNICODESETITEM, None, [])
+        h.invalidate_caches(rop.SETFIELD_RAW, None, [])
+        h.invalidate_caches(rop.SETARRAYITEM_RAW, None, [])
+        h.invalidate_caches(rop.SETINTERIORFIELD_RAW, None, [])
+        h.invalidate_caches(rop.RAW_STORE, None, [])
+        assert h.is_unescaped(box1)
+        assert h.is_unescaped(box2)
+        assert h.getfield(box1, descr1) is box2
+
+    def test_bug_heap_cache_is_cleared_but_not_is_unescaped(self):
+        # bug if only the getfield() link is cleared (heap_cache) but not
+        # the is_unescaped() flags: we can do later a GETFIELD(box1) which
+        # will give us a fresh box3, which is actually equal to box2.  This
+        # box3 is escaped, but box2 is still unescaped.  Bug shown e.g. by
+        # calling some residual code that changes the values on box3: then
+        # the content of box2 is still cached at the old value.
+        h = HeapCache()
+        h.new(box1)
+        h.new(box2)
+        h.setfield(box1, box2, descr1)
+        h.invalidate_caches(rop.SETFIELD_GC, None, [box1, box2])
+        assert h.getfield(box1, descr1) is box2
+        h.invalidate_caches(rop.CALL_MAY_FORCE, None, [])
+        assert h.is_unescaped(box1)
+        assert h.is_unescaped(box2)
+        assert h.getfield(box1, descr1) is box2
+
+    def test_is_likely_virtual(self):
+        h = HeapCache()
+        h.new(box1)
+        assert h.is_unescaped(box1)
+        assert h.is_likely_virtual(box1)
+        h.reset(reset_virtuals=False)
+        assert not h.is_unescaped(box1)
+        assert h.is_likely_virtual(box1)
+        h._escape(box1)
+        assert not h.is_unescaped(box1)
+        assert not h.is_likely_virtual(box1)

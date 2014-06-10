@@ -774,9 +774,10 @@ class __extend__(SomeNone):
         s.const = False
 
     def len(self):
-        # XXX: this None could later be generalized into an empty list,
-        # whose length is the constant 0; so let's tentatively answer 0.
-        return immutablevalue(0)
+        # This None could later be generalized into a list, for example.
+        # For now, we give the impossible answer (because len(None) would
+        # really crash translated code).  It can be generalized later.
+        return SomeImpossibleValue()
 
 #_________________________________________
 # weakrefs

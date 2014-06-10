@@ -468,7 +468,11 @@ class AbstractListIteratorRepr(IteratorRepr):
 #  done with it.  So in the sequel we don't bother checking for overflow
 #  when we compute "ll_length() + 1".
 
-@jit.look_inside_iff(lambda LIST, count, item: jit.isconstant(count) and count < 15)
+
+# jit note: this is normally special-cased by the oopspec,
+# but if item != const(0), then the special-casing fails and
+# we fall back to the look_inside_iff.
+@jit.look_inside_iff(lambda LIST, count, item: jit.isconstant(count) and count < 137)
 @jit.oopspec("newlist(count, item)")
 def ll_alloc_and_set(LIST, count, item):
     if count < 0:
@@ -483,7 +487,7 @@ def ll_alloc_and_set(LIST, count, item):
         check = item
     # as long as malloc is known to zero the allocated memory avoid zeroing
     # twice
-    if (not malloc_zero_filled) or check:
+    if jit.we_are_jitted() or (not malloc_zero_filled) or check:
         i = 0
         while i < count:
             l.ll_setitem_fast(i, item)
