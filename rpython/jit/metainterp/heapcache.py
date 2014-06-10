@@ -88,12 +88,8 @@ class HeapCache(object):
               opnum != rop.PTR_NE and
               opnum != rop.INSTANCE_PTR_EQ and
               opnum != rop.INSTANCE_PTR_NE):
-            idx = 0
             for box in argboxes:
-                # setarrayitem_gc don't escape its first argument
-                if not (idx == 0 and opnum in [rop.SETARRAYITEM_GC]):
-                    self._escape(box)
-                idx += 1
+                self._escape(box)
 
     def _escape(self, box):
         try:
