@@ -1,3 +1,4 @@
+import re, py
 from rpython.rlib.rsre import rsre_core
 from rpython.rlib.rsre.test.test_match import get_code, get_code_and_re
 
@@ -166,7 +167,10 @@ class TestSearch:
         assert res
 
     def test_empty_maxuntil_2(self):
-        r_code, r = get_code_and_re(r'X(.*?)+X')
+        try:
+            r_code, r = get_code_and_re(r'X(.*?)+X')
+        except re.error, e:
+            py.test.skip("older version of the stdlib: %s" % (e,))
         assert r.match('XfooXbarX').span() == (0, 5)
         assert r.match('XfooXbarX').span(1) == (4, 4)
         res = rsre_core.match(r_code, 'XfooXbarX')
