@@ -804,6 +804,25 @@ class StringTests:
         res = self.meta_interp(f, [10], backendopt=True)
         assert res == 0
 
+    def test_stringbuilder_bug3(self):
+        jitdriver = JitDriver(reds=['n'], greens=[])
+        IN = ['a' * 37, 'b' * 38, '22', '1', '333']
+        JOINED = ''.join(IN)
+        def f(n):
+            while n > 0:
+                jitdriver.jit_merge_point(n=n)
+                sb = StringBuilder(36)
+                for s in IN:
+                    sb.append(s)
+                s = sb.build()
+                if s != JOINED:
+                    raise ValueError
+                n -= 1
+            return n
+        f(10)
+        res = self.meta_interp(f, [10], backendopt=True)
+        assert res == 0
+
     def test_shrink_array(self):
         jitdriver = JitDriver(reds=['result', 'n'], greens=[])
         _str, _StringBuilder = self._str, self._StringBuilder
