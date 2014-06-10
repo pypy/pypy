@@ -14,8 +14,9 @@ class HeapCache(object):
         # escaped the trace or not (True means the box never escaped, False
         # means it did escape), its presences in the mapping shows that it was
         # allocated inside the trace
+        self.new_boxes = {}
         if reset_virtuals:
-            self.new_boxes = {}
+            self.likely_virtuals = {}      # only for jit.isvirtual()
         # Tracks which boxes should be marked as escaped when the key box
         # escapes.
         self.dependencies = {}
@@ -100,6 +101,10 @@ class HeapCache(object):
             if unescaped:
                 self.new_boxes[box] = False
         try:
+            del self.likely_virtuals[box]
+        except KeyError:
+            pass
+        try:
             deps = self.dependencies.pop(box)
         except KeyError:
             pass
@@ -114,7 +119,13 @@ class HeapCache(object):
             opnum == rop.SETARRAYITEM_RAW or
             opnum == rop.SETINTERIORFIELD_GC or
             opnum == rop.COPYSTRCONTENT or
-            opnum == rop.COPYUNICODECONTENT):
+            opnum == rop.COPYUNICODECONTENT or
+            opnum == rop.STRSETITEM or
+            opnum == rop.UNICODESETITEM or
+            opnum == rop.SETFIELD_RAW or
+            opnum == rop.SETARRAYITEM_RAW or
+            opnum == rop.SETINTERIORFIELD_RAW or
+            opnum == rop.RAW_STORE):
             return
         if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST or
             rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or
@@ -179,24 +190,17 @@ class HeapCache(object):
                                 if not self.is_unescaped(frombox):
                                     del cache[frombox]
                     return
-            else:
-                # Only invalidate things that are either escaped or arguments
-                for descr, boxes in self.heap_cache.iteritems():
-                    for box in boxes.keys():
-                        if not self.is_unescaped(box) or box in argboxes:
-                            del boxes[box]
-                for descr, indices in self.heap_array_cache.iteritems():
-                    for boxes in indices.itervalues():
-                        for box in boxes.keys():
-                            if not self.is_unescaped(box) or box in argboxes:
-                                del boxes[box]
-                return
 
-        # XXX when is it useful to clear() the complete dictionaries?
-        # isn't it enough in all cases to do the same as the two
-        # loops just above?
-        self.heap_cache.clear()
-        self.heap_array_cache.clear()
+        # Only invalidate things that are either escaped or arguments
+        for descr, boxes in self.heap_cache.iteritems():
+            for box in boxes.keys():
+                if not self.is_unescaped(box) or box in argboxes:
+                    del boxes[box]
+        for descr, indices in self.heap_array_cache.iteritems():
+            for boxes in indices.itervalues():
+                for box in boxes.keys():
+                    if not self.is_unescaped(box) or box in argboxes:
+                        del boxes[box]
 
     def is_class_known(self, box):
         return box in self.known_class_boxes
@@ -213,8 +217,12 @@ class HeapCache(object):
     def is_unescaped(self, box):
         return self.new_boxes.get(box, False)
 
+    def is_likely_virtual(self, box):
+        return box in self.likely_virtuals
+
     def new(self, box):
         self.new_boxes[box] = True
+        self.likely_virtuals[box] = None
 
     def new_array(self, box, lengthbox):
         self.new(box)
