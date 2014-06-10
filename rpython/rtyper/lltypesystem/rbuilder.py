@@ -283,8 +283,9 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         ofs = ll_builder.current_ofs
         end = ofs + 2 * ll_builder.charsize
         if uint_gt(end, ll_builder.current_end):
-            ofs = ll_builder.grow(ll_builder, 2)
-            end = ofs + 2 * ll_builder.charsize
+            BaseStringBuilderRepr._ll_append_char(ll_builder, char0)
+            BaseStringBuilderRepr._ll_append_char(ll_builder, char1)
+            return
         ll_builder.current_ofs = end
         # --- no GC! ---
         raw = rffi.cast(rffi.CCHARP, ll_builder.current_buf)
