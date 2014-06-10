@@ -22,6 +22,11 @@ from rpython.rlib.rthread import dummy_lock
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
 INVALID_SOCKET = _c.INVALID_SOCKET
+from rpython.rlib import jit
+# Usage of @jit.dont_look_inside in this file is possibly temporary
+# and only because some lltypes declared in _rsocket_rffi choke the
+# JIT's codewriter right now (notably, FixedSizeArray).
+
 
 def mallocbuf(buffersize):
     return lltype.malloc(rffi.CCHARP.TO, buffersize, flavor='raw')
@@ -592,6 +597,7 @@ class RSocket(object):
         addrlen_p[0] = rffi.cast(_c.socklen_t, maxlen)
         return addr, addr.addr_p, addrlen_p
 
+    @jit.dont_look_inside
     def accept(self):
         """Wait for an incoming connection.
         Return (new socket fd, client address)."""
@@ -724,6 +730,7 @@ class RSocket(object):
             return make_socket(fd, self.family, self.type, self.proto,
                                SocketClass=SocketClass)
 
+    @jit.dont_look_inside
     def getpeername(self):
         """Return the address of the remote endpoint."""
         address, addr_p, addrlen_p = self._addrbuf()
@@ -738,6 +745,7 @@ class RSocket(object):
         address.addrlen = rffi.cast(lltype.Signed, addrlen)
         return address
 
+    @jit.dont_look_inside
     def getsockname(self):
         """Return the address of the local endpoint."""
         address, addr_p, addrlen_p = self._addrbuf()
@@ -752,6 +760,7 @@ class RSocket(object):
         address.addrlen = rffi.cast(lltype.Signed, addrlen)
         return address
 
+    @jit.dont_look_inside
     def getsockopt(self, level, option, maxlen):
         buf = mallocbuf(maxlen)
         try:
@@ -771,6 +780,7 @@ class RSocket(object):
             lltype.free(buf, flavor='raw')
         return result
 
+    @jit.dont_look_inside
     def getsockopt_int(self, level, option):
         flag_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
         try:
@@ -828,6 +838,7 @@ class RSocket(object):
         rwbuffer.setslice(0, buf)
         return len(buf)
 
+    @jit.dont_look_inside
     def recvfrom(self, buffersize, flags=0):
         """Like recv(buffersize, flags) but also return the sender's
         address."""

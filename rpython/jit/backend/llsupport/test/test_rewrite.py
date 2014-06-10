@@ -435,16 +435,19 @@ class TestFramework(RewriteTests):
         nonstd_descr.itemsize = 8
         nonstd_descr_gcref = 123
         self.check_rewrite("""
-            [i0]
+            [i0, p1]
             p0 = new_array(i0, descr=nonstd_descr)
+            setarrayitem_gc(p0, i0, p1)
             jump(i0)
         """, """
-            [i0]
+            [i0, p1]
             p0 = call_malloc_gc(ConstClass(malloc_array_nonstandard), \
                                 64, 8,                                \
                                 %(nonstd_descr.lendescr.offset)d,     \
                                 6464, i0,                             \
                                 descr=malloc_array_nonstandard_descr)
+            cond_call_gc_wb_array(p0, i0, descr=wbdescr)
+            setarrayitem_gc(p0, i0, p1)
             jump(i0)
         """, nonstd_descr=nonstd_descr)
 
@@ -716,6 +719,24 @@ class TestFramework(RewriteTests):
             setfield_gc(p0, 8111, descr=tiddescr)
             setfield_gc(p0, 5, descr=clendescr)
             setarrayitem_gc(p0, i2, p1, descr=cdescr)
+            jump()
+        """)
+
+    def test_initialization_store_potentially_large_array(self):
+        # the write barrier cannot be omitted, because we might get
+        # an array with cards and the GC assumes that the write
+        # barrier is always called, even on young (but large) arrays
+        self.check_rewrite("""
+            [i0, p1, i2]
+            p0 = new_array(i0, descr=bdescr)
+            setarrayitem_gc(p0, i2, p1, descr=bdescr)
+            jump()
+        """, """
+            [i0, p1, i2]
+            p0 = call_malloc_nursery_varsize(0, 1, i0, descr=bdescr)
+            setfield_gc(p0, i0, descr=blendescr)
+            cond_call_gc_wb_array(p0, i2, descr=wbdescr)
+            setarrayitem_gc(p0, i2, p1, descr=bdescr)
             jump()
         """)
 

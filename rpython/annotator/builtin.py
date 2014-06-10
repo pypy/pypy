@@ -8,17 +8,14 @@ from rpython.annotator.model import (
     SomeUnicodeCodePoint, SomeFloat, unionof, SomeUnicodeString,
     SomePBC, SomeInstance, SomeDict, SomeList, SomeWeakRef, SomeIterator,
     SomeOrderedDict, SomeByteArray, add_knowntypedata, s_ImpossibleValue,)
-from rpython.rtyper.llannotation import (
-    SomeAddress, annotation_to_lltype, lltype_to_annotation, ll_to_annotation)
-from rpython.annotator.bookkeeper import getbookkeeper
+from rpython.annotator.bookkeeper import (
+    getbookkeeper, immutablevalue, BUILTIN_ANALYZERS, analyzer_for)
 from rpython.annotator import description
 from rpython.flowspace.model import Constant
 import rpython.rlib.rarithmetic
 import rpython.rlib.objectmodel
+from rpython.annotator.model import AnnotatorError
 
-# convenience only!
-def immutablevalue(x):
-    return getbookkeeper().immutablevalue(x)
 
 def constpropagate(func, args_s, s_result):
     """Returns s_result unless all args are constants, in which case the
@@ -43,14 +40,6 @@ def constpropagate(func, args_s, s_result):
         raise Exception("%s%r returned %r, which is not contained in %s" % (
             func, args, realresult, s_result))
     return s_realresult
-
-BUILTIN_ANALYZERS = {}
-
-def analyzer_for(func):
-    def wrapped(ann_func):
-        BUILTIN_ANALYZERS[func] = ann_func
-        return func
-    return wrapped
 
 # ____________________________________________________________
 
@@ -223,7 +212,7 @@ def builtin_hasattr(s_obj, s_attr):
 def builtin_tuple(s_iterable):
     if isinstance(s_iterable, SomeTuple):
         return s_iterable
-    return SomeObject()
+    raise AnnotatorError("tuple(): argument must be another tuple")
 
 def builtin_list(s_iterable):
     if isinstance(s_iterable, SomeList):
@@ -332,6 +321,7 @@ def robjmodel_r_ordereddict(s_eqfn, s_hashfn):
 
 @analyzer_for(rpython.rlib.objectmodel.hlinvoke)
 def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
+    from rpython.rtyper.llannotation import lltype_to_annotation
     from rpython.rtyper import rmodel
     from rpython.rtyper.error import TyperError
 
@@ -354,25 +344,6 @@ def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
 def robjmodel_keepalive_until_here(*args_s):
     return immutablevalue(None)
 
-@analyzer_for(rpython.rtyper.lltypesystem.llmemory.cast_ptr_to_adr)
-def llmemory_cast_ptr_to_adr(s):
-    from rpython.rtyper.llannotation import SomeInteriorPtr
-    assert not isinstance(s, SomeInteriorPtr)
-    return SomeAddress()
-
-@analyzer_for(rpython.rtyper.lltypesystem.llmemory.cast_adr_to_ptr)
-def llmemory_cast_adr_to_ptr(s, s_type):
-    assert s_type.is_constant()
-    return SomePtr(s_type.const)
-
-@analyzer_for(rpython.rtyper.lltypesystem.llmemory.cast_adr_to_int)
-def llmemory_cast_adr_to_int(s, s_mode=None):
-    return SomeInteger() # xxx
-
-@analyzer_for(rpython.rtyper.lltypesystem.llmemory.cast_int_to_adr)
-def llmemory_cast_int_to_adr(s):
-    return SomeAddress()
-
 try:
     import unicodedata
 except ImportError:
@@ -385,131 +356,6 @@ else:
 @analyzer_for(SomeOrderedDict.knowntype)
 def analyze():
     return SomeOrderedDict(getbookkeeper().getdictdef())
-
-
-
-# annotation of low-level types
-from rpython.rtyper.llannotation import SomePtr
-from rpython.rtyper.lltypesystem import lltype
-
-@analyzer_for(lltype.malloc)
-def malloc(s_T, s_n=None, s_flavor=None, s_zero=None, s_track_allocation=None,
-           s_add_memory_pressure=None):
-    assert (s_n is None or s_n.knowntype == int
-            or issubclass(s_n.knowntype, rpython.rlib.rarithmetic.base_int))
-    assert s_T.is_constant()
-    if s_n is not None:
-        n = 1
-    else:
-        n = None
-    if s_zero:
-        assert s_zero.is_constant()
-    if s_flavor is None:
-        p = lltype.malloc(s_T.const, n)
-        r = SomePtr(lltype.typeOf(p))
-    else:
-        assert s_flavor.is_constant()
-        assert s_track_allocation is None or s_track_allocation.is_constant()
-        assert (s_add_memory_pressure is None or
-                s_add_memory_pressure.is_constant())
-        # not sure how to call malloc() for the example 'p' in the
-        # presence of s_extraargs
-        r = SomePtr(lltype.Ptr(s_T.const))
-    return r
-
-@analyzer_for(lltype.free)
-def free(s_p, s_flavor, s_track_allocation=None):
-    assert s_flavor.is_constant()
-    assert s_track_allocation is None or s_track_allocation.is_constant()
-    # same problem as in malloc(): some flavors are not easy to
-    # malloc-by-example
-    #T = s_p.ll_ptrtype.TO
-    #p = lltype.malloc(T, flavor=s_flavor.const)
-    #lltype.free(p, flavor=s_flavor.const)
-
-@analyzer_for(lltype.render_immortal)
-def render_immortal(s_p, s_track_allocation=None):
-    assert s_track_allocation is None or s_track_allocation.is_constant()
-
-@analyzer_for(lltype.typeOf)
-def typeOf(s_val):
-    lltype = annotation_to_lltype(s_val, info="in typeOf(): ")
-    return immutablevalue(lltype)
-
-@analyzer_for(lltype.cast_primitive)
-def cast_primitive(T, s_v):
-    assert T.is_constant()
-    return ll_to_annotation(lltype.cast_primitive(T.const, annotation_to_lltype(s_v)._defl()))
-
-@analyzer_for(lltype.nullptr)
-def nullptr(T):
-    assert T.is_constant()
-    p = lltype.nullptr(T.const)
-    return immutablevalue(p)
-
-@analyzer_for(lltype.cast_pointer)
-def cast_pointer(PtrT, s_p):
-    assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
-    assert PtrT.is_constant()
-    cast_p = lltype.cast_pointer(PtrT.const, s_p.ll_ptrtype._defl())
-    return SomePtr(ll_ptrtype=lltype.typeOf(cast_p))
-
-@analyzer_for(lltype.cast_opaque_ptr)
-def cast_opaque_ptr(PtrT, s_p):
-    assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
-    assert PtrT.is_constant()
-    cast_p = lltype.cast_opaque_ptr(PtrT.const, s_p.ll_ptrtype._defl())
-    return SomePtr(ll_ptrtype=lltype.typeOf(cast_p))
-
-@analyzer_for(lltype.direct_fieldptr)
-def direct_fieldptr(s_p, s_fieldname):
-    assert isinstance(s_p, SomePtr), "direct_* of non-pointer: %r" % s_p
-    assert s_fieldname.is_constant()
-    cast_p = lltype.direct_fieldptr(s_p.ll_ptrtype._example(),
-                                    s_fieldname.const)
-    return SomePtr(ll_ptrtype=lltype.typeOf(cast_p))
-
-@analyzer_for(lltype.direct_arrayitems)
-def direct_arrayitems(s_p):
-    assert isinstance(s_p, SomePtr), "direct_* of non-pointer: %r" % s_p
-    cast_p = lltype.direct_arrayitems(s_p.ll_ptrtype._example())
-    return SomePtr(ll_ptrtype=lltype.typeOf(cast_p))
-
-@analyzer_for(lltype.direct_ptradd)
-def direct_ptradd(s_p, s_n):
-    assert isinstance(s_p, SomePtr), "direct_* of non-pointer: %r" % s_p
-    # don't bother with an example here: the resulting pointer is the same
-    return s_p
-
-@analyzer_for(lltype.cast_ptr_to_int)
-def cast_ptr_to_int(s_ptr): # xxx
-    return SomeInteger()
-
-@analyzer_for(lltype.cast_int_to_ptr)
-def cast_int_to_ptr(PtrT, s_int):
-    assert PtrT.is_constant()
-    return SomePtr(ll_ptrtype=PtrT.const)
-
-@analyzer_for(lltype.identityhash)
-def identityhash(s_obj):
-    assert isinstance(s_obj, SomePtr)
-    return SomeInteger()
-
-@analyzer_for(lltype.getRuntimeTypeInfo)
-def getRuntimeTypeInfo(T):
-    assert T.is_constant()
-    return immutablevalue(lltype.getRuntimeTypeInfo(T.const))
-
-@analyzer_for(lltype.runtime_type_info)
-def runtime_type_info(s_p):
-    assert isinstance(s_p, SomePtr), "runtime_type_info of non-pointer: %r" % s_p
-    return SomePtr(lltype.typeOf(lltype.runtime_type_info(s_p.ll_ptrtype._example())))
-
-@analyzer_for(lltype.Ptr)
-def constPtr(T):
-    assert T.is_constant()
-    return immutablevalue(lltype.Ptr(T.const))
-
 
 #________________________________
 # weakrefs
@@ -525,88 +371,9 @@ def weakref_ref(s_obj):
                         "a weakref to cannot be None")
     return SomeWeakRef(s_obj.classdef)
 
-
-from rpython.rtyper.lltypesystem import llmemory
-
-@analyzer_for(llmemory.weakref_create)
-def llweakref_create(s_obj):
-    if (not isinstance(s_obj, SomePtr) or
-        s_obj.ll_ptrtype.TO._gckind != 'gc'):
-        raise Exception("bad type for argument to weakref_create(): %r" % (
-            s_obj,))
-    return SomePtr(llmemory.WeakRefPtr)
-
-@analyzer_for(llmemory.weakref_deref )
-def llweakref_deref(s_ptrtype, s_wref):
-    if not (s_ptrtype.is_constant() and
-            isinstance(s_ptrtype.const, lltype.Ptr) and
-            s_ptrtype.const.TO._gckind == 'gc'):
-        raise Exception("weakref_deref() arg 1 must be a constant "
-                        "ptr type, got %s" % (s_ptrtype,))
-    if not (isinstance(s_wref, SomePtr) and
-            s_wref.ll_ptrtype == llmemory.WeakRefPtr):
-        raise Exception("weakref_deref() arg 2 must be a WeakRefPtr, "
-                        "got %s" % (s_wref,))
-    return SomePtr(s_ptrtype.const)
-
-@analyzer_for(llmemory.cast_ptr_to_weakrefptr)
-def llcast_ptr_to_weakrefptr(s_ptr):
-    assert isinstance(s_ptr, SomePtr)
-    return SomePtr(llmemory.WeakRefPtr)
-
-@analyzer_for(llmemory.cast_weakrefptr_to_ptr)
-def llcast_weakrefptr_to_ptr(s_ptrtype, s_wref):
-    if not (s_ptrtype.is_constant() and
-            isinstance(s_ptrtype.const, lltype.Ptr)):
-        raise Exception("cast_weakrefptr_to_ptr() arg 1 must be a constant "
-                        "ptr type, got %s" % (s_ptrtype,))
-    if not (isinstance(s_wref, SomePtr) and
-            s_wref.ll_ptrtype == llmemory.WeakRefPtr):
-        raise Exception("cast_weakrefptr_to_ptr() arg 2 must be a WeakRefPtr, "
-                        "got %s" % (s_wref,))
-    return SomePtr(s_ptrtype.const)
-
 #________________________________
 # non-gc objects
 
 @analyzer_for(rpython.rlib.objectmodel.free_non_gc_object)
 def robjmodel_free_non_gc_object(obj):
     pass
-
-
-#_________________________________
-# memory address
-
-@analyzer_for(llmemory.raw_malloc)
-def raw_malloc(s_size):
-    assert isinstance(s_size, SomeInteger) #XXX add noneg...?
-    return SomeAddress()
-
-@analyzer_for(llmemory.raw_malloc_usage)
-def raw_malloc_usage(s_size):
-    assert isinstance(s_size, SomeInteger) #XXX add noneg...?
-    return SomeInteger(nonneg=True)
-
-@analyzer_for(llmemory.raw_free)
-def raw_free(s_addr):
-    assert isinstance(s_addr, SomeAddress)
-
-@analyzer_for(llmemory.raw_memclear)
-def raw_memclear(s_addr, s_int):
-    assert isinstance(s_addr, SomeAddress)
-    assert isinstance(s_int, SomeInteger)
-
-@analyzer_for(llmemory.raw_memcopy)
-def raw_memcopy(s_addr1, s_addr2, s_int):
-    assert isinstance(s_addr1, SomeAddress)
-    assert isinstance(s_addr2, SomeAddress)
-    assert isinstance(s_int, SomeInteger) #XXX add noneg...?
-
-
-#_________________________________
-# offsetof/sizeof
-
-
-@analyzer_for(llmemory.offsetof)
-def offsetof(TYPE, fldname):
-    return SomeInteger()

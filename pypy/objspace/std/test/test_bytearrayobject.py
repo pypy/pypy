@@ -1,5 +1,6 @@
 from pypy import conftest
 
+
 class AppTestBytesArray:
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
@@ -49,7 +50,10 @@ class AppTestBytesArray:
     def test_repr(self):
         assert repr(bytearray()) == "bytearray(b'')"
         assert repr(bytearray('test')) == "bytearray(b'test')"
-        assert repr(bytearray("d'oh")) == r"bytearray(b'd\'oh')"
+        assert repr(bytearray("d'oh")) == r'bytearray(b"d\'oh")'
+        assert repr(bytearray('d"oh')) == 'bytearray(b\'d"oh\')'
+        assert repr(bytearray('d"\'oh')) == 'bytearray(b\'d"\\\'oh\')'
+        assert repr(bytearray('d\'"oh')) == 'bytearray(b\'d\\\'"oh\')'
 
     def test_str(self):
         assert str(bytearray()) == ""

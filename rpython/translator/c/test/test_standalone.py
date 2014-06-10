@@ -304,8 +304,13 @@ class TestStandalone(StandaloneTests):
         assert "  ll_strtod.o" in makefile
 
     def test_debug_print_start_stop(self):
+        import sys
         from rpython.rtyper.lltypesystem import rffi
-
+        if sys.platform == 'win32':
+            # ftell(stderr) is a bit different under subprocess.Popen
+            tell = 0
+        else:
+            tell = -1
         def entry_point(argv):
             x = "got:"
             debug_start  ("mycat")
@@ -327,7 +332,7 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point)
         # check with PYPYLOG undefined
         out, err = cbuilder.cmdexec("", err=True, env={})
-        assert out.strip() == 'got:a.-1.'
+        assert out.strip() == 'got:a.%d.' % tell
         assert 'toplevel' in err
         assert 'mycat' not in err
         assert 'foo 2 bar 3' not in err
@@ -336,7 +341,7 @@ class TestStandalone(StandaloneTests):
         assert 'bok' not in err
         # check with PYPYLOG defined to an empty string (same as undefined)
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ''})
-        assert out.strip() == 'got:a.-1.'
+        assert out.strip() == 'got:a.%d.' % tell
         assert 'toplevel' in err
         assert 'mycat' not in err
         assert 'foo 2 bar 3' not in err
@@ -345,7 +350,7 @@ class TestStandalone(StandaloneTests):
         assert 'bok' not in err
         # check with PYPYLOG=:- (means print to stderr)
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ':-'})
-        assert out.strip() == 'got:bcda.-1.'
+        assert out.strip() == 'got:bcda.%d.' % tell
         assert 'toplevel' in err
         assert '{mycat' in err
         assert 'mycat}' in err
@@ -374,20 +379,24 @@ class TestStandalone(StandaloneTests):
         assert 'bok' in data
         # check with PYPYLOG=somefilename
         path = udir.join('test_debug_xxx_prof.log')
-        out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': str(path)})
-        size = os.stat(str(path)).st_size
-        assert out.strip() == 'got:a.' + str(size) + '.'
-        assert not err
-        assert path.check(file=1)
-        data = path.read()
-        assert 'toplevel' in data
-        assert '{mycat' in data
-        assert 'mycat}' in data
-        assert 'foo 2 bar 3' not in data
-        assert '{cat2' in data
-        assert 'cat2}' in data
-        assert 'baz' not in data
-        assert 'bok' not in data
+        if str(path).find(':')>=0:
+            # bad choice of udir, there is a ':' in it which messes up the test
+            pass
+        else:    
+            out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': str(path)})
+            size = os.stat(str(path)).st_size
+            assert out.strip() == 'got:a.' + str(size) + '.'
+            assert not err
+            assert path.check(file=1)
+            data = path.read()
+            assert 'toplevel' in data
+            assert '{mycat' in data
+            assert 'mycat}' in data
+            assert 'foo 2 bar 3' not in data
+            assert '{cat2' in data
+            assert 'cat2}' in data
+            assert 'baz' not in data
+            assert 'bok' not in data
         # check with PYPYLOG=myc:somefilename   (includes mycat but not cat2)
         path = udir.join('test_debug_xxx_myc.log')
         out, err = cbuilder.cmdexec("", err=True,
@@ -1297,7 +1306,10 @@ class TestShared(StandaloneTests):
 
         t, cbuilder = self.compile(entry_point, shared=True,
                                    entrypoints=[f])
+        ext_suffix = '.so'
+        if cbuilder.eci.platform.name == 'msvc':
+            ext_suffix = '.dll'
         libname = cbuilder.executable_name.join('..', 'lib' +
-                                                cbuilder.modulename + '.so')
+                                      cbuilder.modulename + ext_suffix)
         lib = ctypes.CDLL(str(libname))
         assert lib.foo(13) == 16

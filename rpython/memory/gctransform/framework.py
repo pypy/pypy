@@ -60,6 +60,8 @@ def find_initializing_stores(collect_analyzer, graph):
                 if op.args[0] in mallocvars:
                     mallocvars[op.result] = True
             elif op.opname in ("setfield", "setarrayitem", "setinteriorfield"):
+                # note that 'mallocvars' only tracks fixed-size mallocs,
+                # so no risk that they use card marking
                 TYPE = op.args[-1].concretetype
                 if (op.args[0] in mallocvars and
                     isinstance(TYPE, lltype.Ptr) and
