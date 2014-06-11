@@ -810,6 +810,27 @@ class GCTest(object):
         else:
             assert res == 0 or res == 13
 
+    def test__is_pinned(self):
+        def fn(n):
+            from rpython.rlib.debug import debug_print
+            s = str(n)
+            if not rgc.can_move(s):
+                return 13
+            res = int(rgc.pin(s))
+            if res:
+                res += int(rgc._is_pinned(s))
+                rgc.unpin(s)
+            return res
+
+        res = self.interpret(fn, [10])
+        if not self.GCClass.moving_gc:
+            assert res == 13
+        elif self.GCClass.can_usually_pin_objects:
+            assert res == 2
+        else:
+            assert res == 0 or res == 13
+
+
 from rpython.rlib.objectmodel import UnboxedValue
 
 class TaggedBase(object):

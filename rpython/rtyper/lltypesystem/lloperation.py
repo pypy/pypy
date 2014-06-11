@@ -482,6 +482,7 @@ LL_OPERATIONS = {
     'gc_heap_stats'       : LLOp(canmallocgc=True),
     'gc_pin'              : LLOp(canrun=True), # XXX understand this, correct? (groggi)
     'gc_unpin'            : LLOp(canrun=True), # XXX understand this, correct? (groggi)
+    'gc_is__pinned'        : LLOp(canrun=True), # XXX understand this, correct? (groggi)
 
     'gc_get_rpy_roots'    : LLOp(),
     'gc_get_rpy_referents': LLOp(),

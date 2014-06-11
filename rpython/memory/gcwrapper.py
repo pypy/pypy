@@ -128,6 +128,9 @@ class GCManagedHeap(object):
     def unpin(self, addr):
         self.gc.unpin(addr)
 
+    def _is_pinned(self, addr):
+        return self.gc._is_pinned(addr)
+
     def weakref_create_getlazy(self, objgetter):
         # we have to be lazy in reading the llinterp variable containing
         # the 'obj' pointer, because the gc.malloc() call below could

@@ -466,6 +466,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                [s_gc, SomeAddress()],
                                annmodel.s_None)
 
+        self._is_pinned_ptr = getfn(GCClass._is_pinned,
+                                    [s_gc, SomeAddress()],
+                                    annmodel.SomeBool())
+
         self.write_barrier_ptr = None
         self.write_barrier_from_array_ptr = None
         if GCClass.needs_write_barrier:
@@ -985,6 +989,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
     def gct_gc_unpin(self, hop):
         op = hop.spaceop
         hop.genop("direct_call", [self.unpin_ptr, self.c_const_gc, op.args[0]])
+
+    def gct_gc__is_pinned(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call", [self._is_pinned_ptr, self.c_const_gc, op.args[0]],
+                    resultvar=op.result)
 
     def gct_gc_thread_run(self, hop):
         assert self.translator.config.translation.thread

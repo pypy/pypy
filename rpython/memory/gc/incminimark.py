@@ -960,23 +960,26 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # to check if can_move(obj) already returns True in which
             # case a call to pin() is unnecessary.
             return False
-        if self.header(obj).tid & GCFLAG_PINNED:
+        if self._is_pinned(obj):
             # Already pinned, we do not allow to pin it again.
             # Reason: It would be possible that the first caller unpins
             # while the second caller thinks it's still pinned.
             return False
-
+        #
         self.header(obj).tid |= GCFLAG_PINNED
         self.pinned_objects_in_nursery += 1
         return True
 
 
     def unpin(self, obj):
-        ll_assert(self.header(obj).tid & GCFLAG_PINNED != 0,
+        ll_assert(self._is_pinned(obj),
             "unpin: object is already not pinned")
         #
         self.header(obj).tid &= ~GCFLAG_PINNED
         self.pinned_objects_in_nursery -= 1
+
+    def _is_pinned(self, obj):
+        return (self.header(obj).tid & GCFLAG_PINNED) != 0
 
     def shrink_array(self, obj, smallerlength):
         #
@@ -1148,7 +1151,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # We are after a minor collection, and possibly after a major
         # collection step.  No object should be in the nursery (except
         # pinned ones)
-        if self.header(obj).tid & GCFLAG_PINNED == 0:
+        if not self._is_pinned(obj):
             ll_assert(not self.is_in_nursery(obj),
                       "object in nursery after collection")
             ll_assert(self.header(obj).tid & GCFLAG_VISITED_RMY == 0,
@@ -1204,7 +1207,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # All objects should have this flag, except if they
         # don't have any GC pointer
         typeid = self.get_type_id(obj)
-        if not self.header(obj).tid & GCFLAG_PINNED:
+        if not self._is_pinned(obj):
             # XXX do we need checks if the object is actually pinned? (groggi)
             if self.has_gcptr(typeid):
                 ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
@@ -1818,7 +1821,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             root.address[0] = self.get_forwarding_address(obj)
             return
             #
-        elif self.header(obj).tid & GCFLAG_PINNED:
+        elif self._is_pinned(obj):
             hdr = self.header(obj)
             if hdr.tid & GCFLAG_VISITED:
                 # already visited and keeping track of the object

@@ -182,6 +182,9 @@ class GCBase(object):
     def unpin(self, addr):
         pass
 
+    def _is_pinned(self, addr):
+        return False
+
     def set_max_heap_size(self, size):
         raise NotImplementedError
 

@@ -76,6 +76,24 @@ class UnpinEntry(ExtRegistryEntry):
                            resulttype=llmemory.Address)
         hop.genop('gc_unpin', [v_addr])
 
+def _is_pinned(obj):
+    """Method to check if 'obj' is pinned."""
+    return False
+
+class IsPinnedEntry(ExtRegistryEntry):
+    _about_ = _is_pinned
+
+    def compute_result_annotation(self, s_arg):
+        from rpython.annotator.model import s_Bool
+        return s_Bool
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        v_obj, = hop.inputargs(hop.args_r[0])
+        v_addr = hop.genop('cast_ptr_to_adr', [v_obj],
+                           resulttype=llmemory.Address)
+        return hop.genop('gc__is_pinned', [v_addr], resulttype=lltype.Bool)
+
 # ____________________________________________________________
 # Annotation and specialization
 
@@ -136,13 +154,16 @@ def _make_sure_does_not_move(p):
     on objects that are already a bit old, so have a chance to be
     already non-movable."""
     if not we_are_translated():
-        return
+        return True # XXX: check if True is the right return (groggi)
+    if _is_pinned(p):
+        return False
     i = 0
     while can_move(p):
         if i > 6:
             raise NotImplementedError("can't make object non-movable!")
         collect(i)
         i += 1
+    return True
 
 def _heap_stats():
     raise NotImplementedError # can't be run directly

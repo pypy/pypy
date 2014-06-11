@@ -31,6 +31,15 @@ class PinningGCTest(BaseDirectGCTest):
         py.test.raises(Exception,
             self.gc.unpin, llmemory.cast_ptr_to_adr(ptr))
 
+    def test__is_pinned(self):
+        ptr = self.malloc(S)
+        adr = llmemory.cast_ptr_to_adr(ptr)
+        assert not self.gc._is_pinned(adr)
+        assert self.gc.pin(adr)
+        assert self.gc._is_pinned(adr)
+        self.gc.unpin(adr)
+        assert not self.gc._is_pinned(adr)
+
     # XXX test with multiple mallocs, and only part of them is pinned
 
 

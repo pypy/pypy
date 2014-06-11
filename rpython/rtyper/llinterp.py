@@ -865,6 +865,9 @@ class LLFrame(object):
     def op_gc_unpin(self, obj):
         self.heap.unpin(obj)
 
+    def op_gc__is_pinned(self, obj):
+        return self.heap._is_pinned(obj)
+
     def op_gc_detach_callback_pieces(self):
         raise NotImplementedError("gc_detach_callback_pieces")
     def op_gc_reattach_callback_pieces(self):
