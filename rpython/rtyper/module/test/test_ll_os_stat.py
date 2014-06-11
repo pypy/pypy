@@ -22,13 +22,14 @@ class TestWin32Implementation:
         stat = ll_os_stat.make_win32_stat_impl('stat', ll_os.StringTraits())
         wstat = ll_os_stat.make_win32_stat_impl('stat', ll_os.UnicodeTraits())
         def check(f):
-            expected = os.stat(f).st_mtime
-            assert stat(f).st_mtime == expected
-            assert wstat(unicode(f)).st_mtime == expected
+            # msec resolution
+            expected = int(os.stat(f).st_mtime*1000)
+            assert int(stat(f).st_mtime*1000) == expected
+            assert int(wstat(unicode(f)).st_mtime*1000) == expected
 
         check('c:/')
         check(os.environ['TEMP'])
-        check('c:/pagefile.sys')
+        check(sys.executable)
 
     def test_fstat(self):
         fstat = ll_os_stat.make_win32_stat_impl('fstat', ll_os.StringTraits())
