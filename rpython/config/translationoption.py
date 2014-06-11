@@ -369,8 +369,8 @@ def set_opt_level(config, level):
 
     # disallow asmgcc on OS/X and on Win32
     if config.translation.gcrootfinder == "asmgcc":
-        assert sys.platform != "darwin", "'asmgcc' not supported on OS/X"
-        assert sys.platform != "win32",  "'asmgcc' not supported on Win32"
+        if sys.platform == "darwin" or sys.platform =="win32":
+            raise ConfigError("'asmgcc' not supported on this platform")
 
 # ----------------------------------------------------------------
 
