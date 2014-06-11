@@ -537,6 +537,8 @@ if hasattr(os, 'kill'):
     def test_kill_to_send_sigusr1():
         import signal
         from rpython.rlib import rsignal
+        if not 'SIGUSR1' in dir(signal):
+            py.test.skip("no SIGUSR1 available")
         def does_stuff():
             rsignal.pypysig_setflag(signal.SIGUSR1)
             os.kill(os.getpid(), signal.SIGUSR1)
