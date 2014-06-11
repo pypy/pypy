@@ -233,6 +233,8 @@ def execute_tests(run_param, testdirs, logfile, out):
     run_param.startup()
 
     N = run_param.parallel_runs
+    if N > 1:
+        out.write("running %d parallel test workers")
     failure = False
 
     for testname in testdirs:
@@ -353,7 +355,7 @@ def main(args):
                       help="configuration python file (optional)")
     parser.add_option("--root", dest="root", default=".",
                       help="root directory for the run")
-    parser.add_option("--parallel-runs", dest="parallel_runs", default=0,
+    parser.add_option("--parallel-runs", dest="parallel_runs", default=1,
                       type="int",
                       help="number of parallel test runs")
     parser.add_option("--dry-run", dest="dry_run", default=False,
@@ -389,6 +391,8 @@ def main(args):
         if py.path.local(config_py_file).check(file=1):
             print >>out, "using config", config_py_file
             execfile(config_py_file, run_param.__dict__)
+        else:
+            print >>out, "ignoring non-existant config", config_py_file
 
     if run_param.cherrypick:
         for p in run_param.cherrypick:
