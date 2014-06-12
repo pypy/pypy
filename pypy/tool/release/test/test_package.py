@@ -115,9 +115,8 @@ def test_generate_license():
     basedir = dirname(dirname(dirname(dirname(dirname(abspath(__file__))))))
     options.no_tk = False
     if sys.platform == 'win32':
-        # Following recommended build setup at
-        # http://doc.pypy.org/en/latest/windows.html#abridged-method-for-ojit-builds-using-visual-studio-2008
-        options.license_base = dirname(basedir) + '/local'
+         # as on buildbot YMMV
+        options.license_base = os.path.join(basedir, r'..\..\..\local')
     else:
         options.license_base = '/usr/share/doc'
     license = package.generate_license(py.path.local(basedir), options)
