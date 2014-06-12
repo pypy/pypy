@@ -54,19 +54,15 @@ def new_grow_funcs(name, mallocfn):
 
     @enforceargs(None, int)
     def stringbuilder_grow(ll_builder, needed):
-        try:
-            needed = ovfcheck(needed + ll_builder.total_size)
-        except OverflowError:
-            raise MemoryError
-        needed += 63
-        needed &= ~63
-        #
-        new_piece = lltype.malloc(STRINGPIECE)
         charsize = ll_builder.charsize
         try:
-            needed_chars = needed * charsize
+            needed = ovfcheck(needed + ll_builder.total_size)
+            needed = ovfcheck(needed + 63) & ~63
+            needed_chars = ovfcheck(needed * charsize)
         except OverflowError:
             raise MemoryError
+        #
+        new_piece = lltype.malloc(STRINGPIECE)
         new_piece.piece_lgt = needed_chars
         raw_ptr = lltype.malloc(rffi.CCHARP.TO, needed_chars, flavor='raw')
         new_piece.raw_ptr = raw_ptr
