@@ -234,7 +234,7 @@ def execute_tests(run_param, testdirs, logfile, out):
 
     N = run_param.parallel_runs
     if N > 1:
-        out.write("running %d parallel test workers")
+        out.write("running %d parallel test workers" % N)
     failure = False
 
     for testname in testdirs:
@@ -355,7 +355,7 @@ def main(args):
                       help="configuration python file (optional)")
     parser.add_option("--root", dest="root", default=".",
                       help="root directory for the run")
-    parser.add_option("--parallel-runs", dest="parallel_runs", default=1,
+    parser.add_option("--parallel-runs", dest="parallel_runs", default=0,
                       type="int",
                       help="number of parallel test runs")
     parser.add_option("--dry-run", dest="dry_run", default=False,
