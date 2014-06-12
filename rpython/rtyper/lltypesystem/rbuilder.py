@@ -54,12 +54,12 @@ def new_grow_funcs(name, mallocfn):
 
     @enforceargs(None, int)
     def stringbuilder_grow(ll_builder, needed):
-        needed += 7
         try:
             needed = ovfcheck(needed + ll_builder.total_size)
         except OverflowError:
             raise MemoryError
-        needed &= ~7
+        needed += 63
+        needed &= ~63
         #
         new_piece = lltype.malloc(STRINGPIECE)
         charsize = ll_builder.charsize
@@ -68,7 +68,7 @@ def new_grow_funcs(name, mallocfn):
         except OverflowError:
             raise MemoryError
         new_piece.piece_lgt = needed_chars
-        raw_ptr = lltype.malloc(rffi.CCHARP.TO, needed * charsize, flavor='raw')
+        raw_ptr = lltype.malloc(rffi.CCHARP.TO, needed_chars, flavor='raw')
         new_piece.raw_ptr = raw_ptr
         new_piece.prev_piece = ll_builder.extra_pieces
         ll_builder.extra_pieces = new_piece
@@ -201,7 +201,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
 
     @classmethod
     def ll_new(cls, init_size):
-        init_size = max(min(init_size, 1280), 32)
+        init_size = min(init_size, 1280)
         ll_builder = lltype.malloc(cls.lowleveltype.TO)
         ll_builder.current_buf = cls.mallocfn(init_size)
         ofs = ll_baseofs(ll_builder.current_buf)
