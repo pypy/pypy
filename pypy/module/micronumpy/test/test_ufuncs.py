@@ -208,9 +208,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
         except NotImplementedError as e:
             assert 'object' in str(e)
             # Use pypy specific extension for out_dtype
-            myufunc = frompyfunc(adder, 2, 1, out_dtype='match')
-            int_func22 = frompyfunc(int, 2, 2, out_dtype='match')
-            int_func12 = frompyfunc(int, 1, 2, out_dtype='match')
+            myufunc = frompyfunc(adder, 2, 1, dtypes=['match'])
+            int_func22 = frompyfunc(int, 2, 2, dtypes=['match'])
+            int_func12 = frompyfunc(int, 1, 2, dtypes=['match'])
             retype = dtype(int)
         assert isinstance(myufunc, ufunc)
         res = myufunc(arange(10), arange(10))

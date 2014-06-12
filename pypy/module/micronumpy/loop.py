@@ -85,6 +85,29 @@ setslice_driver = jit.JitDriver(name='numpy_setslice',
                                 greens = ['shapelen', 'dtype'],
                                 reds = 'auto')
 
+call_many_to_one_driver = jit.JitDriver(
+    name='numpy_call_many_to_one',
+    greens=['shapelen', 'func', 'res_dtype'],
+    reds='auto')
+
+def call_many_to_one(space, shape, func, res_dtype, w_in, out):
+    # out must hav been built. func needs no calc_type, is usually an
+    # external ufunc
+    iters_and_states = [i.create_iter(shape) for i in w_in]
+    shapelen = len(shape)
+    while not out_iter.done(out_state):
+        call_many_to_one_driver.jit_merge_point(shapelen=shapelen, func=func,
+                                     res_dtype=res_dtype)
+        vals = [None] + [i_s[0].getitem(i_s[1]) for i_s in iters_and_states]
+        arglist = space.wrap(vals)
+        out_val = space.call_args(func, Arguments.frompacked(space, arglist))
+        out_iter.setitem(out_state, out_val.convert_to(space, res_dtype))
+        for i in range(len(iters_and_states)):
+            iters_and_states[i][1] = iters_and_states[i][0].next(iters_and_states[i][1])
+        out_state = out_iter.next(out_state)
+    return out
+
+
 def setslice(space, shape, target, source):
     # note that unlike everything else, target and source here are
     # array implementations, not arrays

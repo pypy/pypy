@@ -527,8 +527,11 @@ class W_UfuncGeneric(W_Ufunc):
         index = self.type_resolver(space, inargs, outargs)
         self.alloc_outargs(space, index, inargs, outargs)
         # XXX handle inner-loop indexing
-        # XXX JIT_me
-        raise oefmt(space.w_NotImplementedError, 'not implemented yet')
+        if len(outargs) < 2:
+            return loop.call_many_to_one(space, new_shape, self.func,
+                                         res_dtype, inargs, outargs[0])
+        return loop.call_many_to_many(space, new_shape, self.func,
+                                     res_dtype, inargs, out)
 
     def type_resolver(self, space, index, outargs):
         # Find a match for the inargs.dtype in self.dtypes, like
@@ -951,8 +954,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     if space.is_none(w_dtypes) and not signature:
         raise oefmt(space.w_NotImplementedError,
              'object dtype requested but not implemented')
-        #dtypes=[descriptor.get_dtype_cache(space).w_objectdtype]
-    elif space.isinstance_w(w_dtypes, space.w_str):
+    if space.isinstance_w(w_dtypes, space.w_str):
         if not space.str_w(w_dtypes) == 'match':
             raise oefmt(space.w_ValueError,
                 'unknown out_dtype value "%s"', space.str_w(w_dtypes))
@@ -974,14 +976,17 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
         raise oefmt(space.w_ValueError,
             'identity must be 0, 1, or None')
     if nin==1 and nout==1 and dtypes == 'match':
-        w_ret = W_Ufunc1(func[0], name)
+        w_ret = W_Ufunc1(wrap_ext_func(func[0], name)
     elif nin==2 and nout==1 and dtypes == 'match':
-        def _func(calc_dtype, w_left, w_right):
-            arglist = space.wrap([w_left, w_right])
-            return space.call_args(func[0], Arguments.frompacked(space, arglist))
-        w_ret = W_Ufunc2(_func, name)
+        w_ret = W_Ufunc2(wrap_ext_func(func[0]), name)
     else:
         w_ret = W_UfuncGeneric(space, func, name, identity, nin, nout, dtypes, signature)
     if doc:
         w_ret.w_doc = space.wrap(doc)
     return w_ret
+
+def wrap_ext_func(func):
+    def _func(calc_dtype, w_left, w_right):
+        arglist = space.wrap([w_left, w_right])
+        return space.call_args(func, Arguments.frompacked(space, arglist))
+    return _func
