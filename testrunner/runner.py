@@ -234,7 +234,7 @@ def execute_tests(run_param, testdirs, logfile, out):
 
     N = run_param.parallel_runs
     if N > 1:
-        out.write("running %d parallel test workers" % N)
+        out.write("running %d parallel test workers\n" % N)
     failure = False
 
     for testname in testdirs:
