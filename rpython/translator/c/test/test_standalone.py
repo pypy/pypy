@@ -397,6 +397,22 @@ class TestStandalone(StandaloneTests):
             assert 'cat2}' in data
             assert 'baz' not in data
             assert 'bok' not in data
+        # check with PYPYLOG=+somefilename
+        path = udir.join('test_debug_xxx_prof_2.log')
+        out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': '+%s' % path})
+        size = os.stat(str(path)).st_size
+        assert out.strip() == 'got:a.' + str(size) + '.'
+        assert not err
+        assert path.check(file=1)
+        data = path.read()
+        assert 'toplevel' in data
+        assert '{mycat' in data
+        assert 'mycat}' in data
+        assert 'foo 2 bar 3' not in data
+        assert '{cat2' in data
+        assert 'cat2}' in data
+        assert 'baz' not in data
+        assert 'bok' not in data
         # check with PYPYLOG=myc:somefilename   (includes mycat but not cat2)
         path = udir.join('test_debug_xxx_myc.log')
         out, err = cbuilder.cmdexec("", err=True,
