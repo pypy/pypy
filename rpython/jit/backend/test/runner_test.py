@@ -344,9 +344,12 @@ class BaseBackendTest(Runner):
             assert res == 2 + i
 
     def test_finish(self):
+        from rpython.jit.backend.llsupport.llmodel import final_descr_rd_locs
+
         i0 = BoxInt()
         class UntouchableFailDescr(AbstractFailDescr):
             final_descr = True
+            rd_locs = final_descr_rd_locs
 
             def __setattr__(self, name, value):
                 if (name == 'index' or name == '_carry_around_for_tests'
