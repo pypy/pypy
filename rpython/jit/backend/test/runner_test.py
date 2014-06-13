@@ -3814,7 +3814,7 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("pointless test on non-asm")
-        from rpython.jit.backend.tool.viewcode import machine_code_dump
+        from rpython.jit.backend.tool.viewcode import machine_code_dump, ObjdumpNotFound
         import ctypes
         targettoken = TargetToken()
         ops = """
@@ -3852,13 +3852,17 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert mc[i].split("\t")[2].startswith(ops[i])
 
         data = ctypes.string_at(info.asmaddr, info.asmlen)
-        mc = list(machine_code_dump(data, info.asmaddr, cpuname))
-        lines = [line for line in mc if line.count('\t') >= 2]
-        checkops(lines, self.add_loop_instructions)
-        data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
-        mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
-        lines = [line for line in mc if line.count('\t') >= 2]
-        checkops(lines, self.bridge_loop_instructions)
+        try:
+            mc = list(machine_code_dump(data, info.asmaddr, cpuname))
+            lines = [line for line in mc if line.count('\t') >= 2]
+            checkops(lines, self.add_loop_instructions)
+            data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
+            mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
+            lines = [line for line in mc if line.count('\t') >= 2]
+            checkops(lines, self.bridge_loop_instructions)
+        except ObjdumpNotFound:
+            py.test.skip("requires (g)objdump")
+
 
 
     def test_compile_bridge_with_target(self):
