@@ -293,14 +293,13 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         return ll_builder.total_size - num_chars_missing_from_last_piece
 
     @staticmethod
+    @jit.look_inside_iff(lambda ll_builder: jit.isvirtual(ll_builder))
     def ll_build(ll_builder):
-        jit.conditional_call(bool(ll_builder.extra_pieces),
-                             BaseStringBuilderRepr._ll_fold_pieces, ll_builder)
-        # Here is the one remaining "unexpected" branch with the JIT.
-        # Too bad, but it seems it's the only reasonable way to support
-        # both virtual builders and avoid-shrink-if-size-doesn't-change
-        final_size = ll_builder.current_pos
-        if final_size != ll_builder.total_size:
+        # NB. usually the JIT doesn't look inside this function; it does
+        # so only in the simplest example where it could virtualize everything
+        if ll_builder.extra_pieces:
+            BaseStringBuilderRepr._ll_fold_pieces(ll_builder)
+        elif ll_builder.current_pos != ll_builder.total_size:
             BaseStringBuilderRepr._ll_shrink_final(ll_builder)
         return ll_builder.current_buf
 
