@@ -754,7 +754,6 @@ class GCTest(object):
         self.interpret(fn, [])
 
     def test_stringbuilder(self):
-        py.test.skip("cannot test here, because it's using ll2ctypes")
         def fn():
             s = StringBuilder(4)
             s.append("abcd")

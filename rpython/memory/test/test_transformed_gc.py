@@ -701,7 +701,6 @@ class GenericGCTests(GCTest):
         return fn
 
     def test_string_builder_over_allocation(self):
-        py.test.skip("cannot test here, because it's using ll2ctypes")
         fn = self.runner("string_builder_over_allocation")
         res = fn([])
         assert res == ord('y')
