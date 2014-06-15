@@ -342,15 +342,32 @@ def test_getaddrinfo_http():
     e = py.test.raises(GAIError, getaddrinfo, 'www.very-invalidaddress.com', None)
     assert isinstance(e.value.get_msg(), str)
 
-def test_getaddrinfo_pydotorg():
+def getaddrinfo_pydotorg(i, result):
     lst = getaddrinfo('python.org', None)
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
         if addr.get_host() == '140.211.10.69':
             found = True
-    assert found, lst
+    result[i] += found
 
+def test_getaddrinfo_pydotorg():
+    result = [0,]
+    getaddrinfo_pydotorg(0, result)
+    assert result[0] == 1
+
+def test_getaddrinfo_pydotorg_threadsafe():
+    import threading
+    nthreads = 10
+    result = [0] * nthreads
+    threads = [None] * nthreads
+    for i in range(nthreads):
+        threads[i] = threading.Thread(target = getaddrinfo_pydotorg, args=[i, result])
+        threads[i].start()
+    for i in range(nthreads):
+        threads[i].join()
+    assert sum(result) == nthreads
+ 
 def test_getaddrinfo_no_reverse_lookup():
     # It seems that getaddrinfo never runs a reverse lookup on Linux.
     # Python2.3 on Windows returns the hostname.
