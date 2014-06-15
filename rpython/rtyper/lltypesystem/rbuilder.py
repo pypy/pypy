@@ -60,7 +60,8 @@ def new_grow_funcs(name, mallocfn):
         #
         new_string = mallocfn(needed)
         #
-        old_piece = lltype.malloc(STRINGPIECE)
+        PIECE = lltype.typeOf(ll_builder.extra_pieces).TO
+        old_piece = lltype.malloc(PIECE)
         old_piece.buf = ll_builder.current_buf
         old_piece.prev_piece = ll_builder.extra_pieces
         ll_builder.extra_pieces = old_piece
@@ -106,16 +107,22 @@ STRINGBUILDER = lltype.GcStruct('stringbuilder',
     }
 )
 
+UNICODEPIECE = lltype.GcStruct('unicodepiece',
+    ('buf', lltype.Ptr(UNICODE)),
+    ('prev_piece', lltype.Ptr(lltype.GcForwardReference())))
+UNICODEPIECE.prev_piece.TO.become(UNICODEPIECE)
+
 UNICODEBUILDER = lltype.GcStruct('unicodebuilder',
     ('current_buf', lltype.Ptr(UNICODE)),
-    ('current_ofs', lltype.Signed),     # position measured in *bytes*
-    ('current_end', lltype.Signed),     # position measured in *bytes*
+    ('current_pos', lltype.Signed),
+    ('current_end', lltype.Signed),
     ('total_size', lltype.Signed),
-    ('extra_pieces', lltype.Ptr(STRINGPIECE)),
-    ('initial_buf', lltype.Ptr(UNICODE)),
+    ('skip', lltype.Signed),
+    ('extra_pieces', lltype.Ptr(UNICODEPIECE)),
     adtmeths={
         'grow': staticAdtMethod(unicodebuilder_grows[0]),
         'append_overflow': staticAdtMethod(unicodebuilder_grows[1]),
+        'copy_string_contents': staticAdtMethod(rstr.copy_unicode_contents),
         'copy_raw_to_string': staticAdtMethod(rstr.copy_raw_to_unicode),
     }
 )
@@ -338,7 +345,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         final_size = cls.ll_getlength(ll_builder)
         ll_assert(final_size >= 0, "negative final_size")
         extra = ll_builder.extra_pieces
-        ll_builder.extra_pieces = lltype.nullptr(STRINGPIECE)
+        ll_builder.extra_pieces = lltype.nullptr(lltype.typeOf(extra).TO)
         #
         result = cls.mallocfn(final_size)
         piece = ll_builder.current_buf
