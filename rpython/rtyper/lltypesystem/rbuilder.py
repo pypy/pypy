@@ -295,23 +295,18 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
     @staticmethod
     @jit.dont_look_inside
     def ll_append_charpsize(ll_builder, charp, size):
-        lgt = size * ll_builder.charsize     # in bytes
-        ofs = ll_builder.current_ofs
-        newofs = ofs + lgt
-        if uint_gt(newofs, ll_builder.current_end):
-            if ll_builder.charsize == 1:
-                ll_str = llstr(rffi.charpsize2str(charp, size))
-            else:
-                ll_str = llunicode(rffi.wcharpsize2unicode(charp, size))
-            ll_builder.append_overflow(ll_builder, ll_str)
-        else:
-            ll_builder.current_ofs = newofs
-            # --- no GC! ---
-            raw = rffi.cast(rffi.CCHARP, ll_builder.current_buf)
-            rffi.c_memcpy(rffi.ptradd(raw, ofs),
-                          rffi.cast(rffi.CCHARP, charp),
-                          lgt)
-            # --- end ---
+        part1 = ll_builder.current_end - ll_builder.current_pos
+        if size > part1:
+            # First, the part that still fits
+            ll_builder.copy_raw_to_string(charp, ll_builder.current_buf,
+                                          ll_builder.current_pos, part1)
+            charp = rffi.ptradd(charp, part1)
+            size -= part1
+            ll_builder.grow(ll_builder, size)
+        #
+        pos = ll_builder.current_pos
+        ll_builder.current_pos = pos + size
+        ll_builder.copy_raw_to_string(charp, ll_builder.current_buf, pos, size)
 
     @staticmethod
     @always_inline
