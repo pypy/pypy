@@ -888,6 +888,8 @@ class MIFrame(object):
                                     pc):
         self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
 
+    opimpl_conditional_call_r_v = opimpl_conditional_call_i_v
+
     @arguments("box", "box", "boxes2", "descr", "orgpc")
     def opimpl_conditional_call_ir_v(self, condbox, funcbox, argboxes,
                                      calldescr, pc):

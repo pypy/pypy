@@ -108,6 +108,7 @@ STRINGBUILDER = lltype.GcStruct('stringbuilder',
         'append_overflow_2': staticAdtMethod(stringbuilder_grows[2]),
         'copy_string_contents': staticAdtMethod(rstr.copy_string_contents),
         'copy_raw_to_string': staticAdtMethod(rstr.copy_raw_to_string),
+        'mallocfn': staticAdtMethod(rstr.mallocstr),
     }
 )
 
@@ -129,6 +130,7 @@ UNICODEBUILDER = lltype.GcStruct('unicodebuilder',
         'append_overflow_2': staticAdtMethod(unicodebuilder_grows[2]),
         'copy_string_contents': staticAdtMethod(rstr.copy_unicode_contents),
         'copy_raw_to_string': staticAdtMethod(rstr.copy_raw_to_unicode),
+        'mallocfn': staticAdtMethod(rstr.mallocunicode),
     }
 )
 
@@ -290,32 +292,36 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
             ll_builder.current_end - ll_builder.current_pos)
         return ll_builder.total_size - num_chars_missing_from_last_piece
 
-    @classmethod
-    def ll_build(cls, ll_builder):
-        if not ll_builder.extra_pieces:
-            # fast-path: the result fits in a single buf.
-            final_size = ll_builder.current_pos
-            buf = ll_builder.current_buf
-            if ll_builder.total_size != final_size:
-                ll_assert(final_size < ll_builder.total_size,
-                          "final_size > ll_builder.total_size?")
-                buf = rgc.ll_shrink_array(buf, final_size)
-                ll_builder.current_buf = buf
-                ll_builder.current_end = final_size
-                ll_builder.total_size = final_size
-            return buf
-        else:
-            return BaseStringBuilderRepr._ll_build_extra(cls, ll_builder)
+    @staticmethod
+    def ll_build(ll_builder):
+        jit.conditional_call(bool(ll_builder.extra_pieces),
+                             BaseStringBuilderRepr._ll_fold_pieces, ll_builder)
+        # Here is the one remaining "unexpected" branch with the JIT.
+        # Too bad, but it seems it's the only reasonable way to support
+        # both virtual builders and avoid-shrink-if-size-doesn't-change
+        final_size = ll_builder.current_pos
+        if final_size != ll_builder.total_size:
+            BaseStringBuilderRepr._ll_shrink_final(ll_builder)
+        return ll_builder.current_buf
 
     @staticmethod
-    @jit.dont_look_inside
-    def _ll_build_extra(cls, ll_builder):
-        final_size = cls.ll_getlength(ll_builder)
+    def _ll_shrink_final(ll_builder):
+        final_size = ll_builder.current_pos
+        ll_assert(final_size <= ll_builder.total_size,
+                  "final_size > ll_builder.total_size?")
+        buf = rgc.ll_shrink_array(ll_builder.current_buf, final_size)
+        ll_builder.current_buf = buf
+        ll_builder.current_end = final_size
+        ll_builder.total_size = final_size
+
+    @staticmethod
+    def _ll_fold_pieces(ll_builder):
+        final_size = BaseStringBuilderRepr.ll_getlength(ll_builder)
         ll_assert(final_size >= 0, "negative final_size")
         extra = ll_builder.extra_pieces
         ll_builder.extra_pieces = lltype.nullptr(lltype.typeOf(extra).TO)
         #
-        result = cls.mallocfn(final_size)
+        result = ll_builder.mallocfn(final_size)
         piece = ll_builder.current_buf
         piece_lgt = ll_builder.current_pos
         ll_assert(ll_builder.current_end == len(piece.chars),
@@ -336,7 +342,6 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
             piece_lgt = len(piece.chars)
             extra = extra.prev_piece
         ll_assert(dst == 0, "rbuilder build: underflow")
-        return result
 
     @classmethod
     def ll_bool(cls, ll_builder):
