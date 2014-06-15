@@ -1,6 +1,6 @@
 from rpython.rlib import rgc, jit
 from rpython.rlib.objectmodel import enforceargs
-from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from rpython.rlib.debug import ll_assert
 from rpython.rtyper.rptr import PtrRepr
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr
@@ -56,11 +56,12 @@ def new_grow_funcs(name, mallocfn):
         old_piece = lltype.malloc(PIECE)
         old_piece.buf = ll_builder.current_buf
         old_piece.prev_piece = ll_builder.extra_pieces
-        ll_builder.extra_pieces = old_piece
+        ll_assert(bool(old_piece.buf), "no buf??")
         ll_builder.current_buf = new_string
         ll_builder.current_pos = 0
         ll_builder.current_end = needed
         ll_builder.total_size = total_size
+        ll_builder.extra_pieces = old_piece
 
     def stringbuilder_append_overflow(ll_builder, ll_str, size):
         # First, the part that still fits in the current piece
@@ -138,7 +139,9 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
 
     @classmethod
     def ll_new(cls, init_size):
-        init_size = min(init_size, 1280)
+        # Clamp 'init_size' to be a value between 0 and 1280.
+        # Negative values are mapped to 1280.
+        init_size = intmask(min(r_uint(init_size), r_uint(1280)))
         ll_builder = lltype.malloc(cls.lowleveltype.TO)
         ll_builder.current_buf = cls.mallocfn(init_size)
         ll_builder.current_pos = 0
