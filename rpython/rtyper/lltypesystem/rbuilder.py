@@ -1,16 +1,14 @@
 from rpython.rlib import rgc, jit
-from rpython.rlib.objectmodel import enforceargs, specialize
+from rpython.rlib.objectmodel import enforceargs
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.debug import ll_assert
 from rpython.rtyper.rptr import PtrRepr
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper.lltypesystem import lltype, rffi, rstr
 from rpython.rtyper.lltypesystem.lltype import staticAdtMethod, nullptr
 from rpython.rtyper.lltypesystem.rstr import (STR, UNICODE, char_repr,
     string_repr, unichar_repr, unicode_repr)
 from rpython.rtyper.rbuilder import AbstractStringBuilderRepr
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rtyper.llannotation import SomePtr
-from rpython.rtyper.annlowlevel import llstr, llunicode
 
 
 # ------------------------------------------------------------
@@ -19,25 +17,19 @@ from rpython.rtyper.annlowlevel import llstr, llunicode
 # - A StringBuilder has a rstr.STR of the specified initial size
 #   (100 by default), which is filled gradually.
 #
-# - When it is full, we allocate extra buffers as *raw* memory
-#   held by STRINGPIECE objects.  The STRINGPIECE has a destructor
-#   that frees the memory, but usually the memory is freed explicitly
-#   at build() time.
+# - When it is full, we allocate extra buffers as an extra rstr.STR,
+#   and the already-filled one is added to a chained list of STRINGPIECE
+#   objects.
+#
+# - At build() time, we consolidate all these pieces into a single
+#   rstr.STR, which is both returned and re-attached to the StringBuilder,
+#   replacing the STRINGPIECEs.
 #
 # - The data is copied at most twice, and only once in case it fits
 #   into the initial size (and the GC supports shrinking the STR).
 #
-# XXX too much a mess to handle the case where the JIT sees this code.
-# Think about an easier alternative, like using raw_store(current_buf, ..)
-# uniformly, where current_buf is a GC pointer that can be NULL.  We'd
-# need support in the JIT to map that to virtual string index.  We'd also
-# need a way to express c_memcpy() below --- similar to copystrcontent,
-# but without the assumption that it's about a string (or unicode).
-#
-# XXX alternatively, a simpler solution might be to allocate all pieces
-# as GC-managed rstr.STR.  To avoid filling the old generation with
-# garbage we could add a weakref holding the most recently built chain
-# of STRs, and reuse it the next time if it's still there.
+# XXX in build(), we could try keeping around a global weakref to the
+# chain of STRINGPIECEs and reuse them the next time.
 #
 # ------------------------------------------------------------
 
@@ -140,16 +132,6 @@ UNICODEBUILDER = lltype.GcStruct('unicodebuilder',
 )
 
 
-@always_inline
-def ll_str2raw(ll_str, charoffset):
-    STRTYPE = lltype.typeOf(ll_str).TO
-    ofs = (rffi.offsetof(STRTYPE, 'chars') +
-           rffi.itemoffsetof(STRTYPE.chars, 0))
-    ofs = llmemory.raw_malloc_usage(ofs)    # for direct run
-    ofs += rffi.sizeof(STRTYPE.chars.OF) * charoffset
-    return rffi.ptradd(rffi.cast(rffi.CCHARP, ll_str), ofs)
-
-
 class BaseStringBuilderRepr(AbstractStringBuilderRepr):
     def empty(self):
         return nullptr(self.lowleveltype.TO)
@@ -181,6 +163,9 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
 
     @staticmethod
     def ll_append_char_2(ll_builder, char0, char1):
+        # this is only used by the JIT, when appending a small, known-length
+        # string.  Unlike two consecutive ll_append_char(), it can do that
+        # with only one conditional_call.
         ll_builder.skip = 2
         jit.conditional_call(
             ll_builder.current_end - ll_builder.current_pos < 2,
