@@ -1,6 +1,6 @@
 from rpython.rlib import rgc, jit
 from rpython.rlib.objectmodel import enforceargs, specialize
-from rpython.rlib.rarithmetic import ovfcheck, r_uint
+from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.debug import ll_assert
 from rpython.rtyper.rptr import PtrRepr
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
@@ -80,9 +80,19 @@ def new_grow_funcs(name, mallocfn):
         ll_builder.skip += part1
         stringbuilder_grow(ll_builder, size - part1)
 
+    def stringbuilder_append_overflow_2(ll_builder, char0):
+        # Overflow when writing two chars.  There are two cases depending
+        # on whether one char still fits or not.
+        if ll_builder.current_pos < ll_builder.current_end:
+            ll_builder.current_buf.chars[ll_builder.current_pos] = char0
+            ll_builder.skip = 1
+        stringbuilder_grow(ll_builder, 2)
+
     return (func_with_new_name(stringbuilder_grow, '%s_grow' % name),
             func_with_new_name(stringbuilder_append_overflow,
-                               '%s_append_overflow' % name))
+                               '%s_append_overflow' % name),
+            func_with_new_name(stringbuilder_append_overflow_2,
+                               '%s_append_overflow_2' % name))
 
 stringbuilder_grows = new_grow_funcs('stringbuilder', rstr.mallocstr)
 unicodebuilder_grows = new_grow_funcs('unicodebuilder', rstr.mallocunicode)
@@ -102,6 +112,7 @@ STRINGBUILDER = lltype.GcStruct('stringbuilder',
     adtmeths={
         'grow': staticAdtMethod(stringbuilder_grows[0]),
         'append_overflow': staticAdtMethod(stringbuilder_grows[1]),
+        'append_overflow_2': staticAdtMethod(stringbuilder_grows[2]),
         'copy_string_contents': staticAdtMethod(rstr.copy_string_contents),
         'copy_raw_to_string': staticAdtMethod(rstr.copy_raw_to_string),
     }
@@ -122,6 +133,7 @@ UNICODEBUILDER = lltype.GcStruct('unicodebuilder',
     adtmeths={
         'grow': staticAdtMethod(unicodebuilder_grows[0]),
         'append_overflow': staticAdtMethod(unicodebuilder_grows[1]),
+        'append_overflow_2': staticAdtMethod(unicodebuilder_grows[2]),
         'copy_string_contents': staticAdtMethod(rstr.copy_unicode_contents),
         'copy_raw_to_string': staticAdtMethod(rstr.copy_raw_to_unicode),
     }
@@ -169,40 +181,20 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
 
     @staticmethod
     def ll_append_char_2(ll_builder, char0, char1):
-        if jit.we_are_jitted():
-            BaseStringBuilderRepr._ll_jit_append_char_2(ll_builder, char0,char1)
-        else:
-            BaseStringBuilderRepr._ll_append_char_2(ll_builder, char0, char1)
-
-    @staticmethod
-    @jit.dont_look_inside
-    def _ll_append_char_2(ll_builder, char0, char1):
-        ofs = ll_builder.current_ofs
-        end = ofs + 2 * ll_builder.charsize
-        if uint_gt(end, ll_builder.current_end):
-            BaseStringBuilderRepr._ll_append_char(ll_builder, char0)
-            BaseStringBuilderRepr._ll_append_char(ll_builder, char1)
-            return
-        ll_builder.current_ofs = end
-        # --- no GC! ---
-        raw = rffi.cast(rffi.CCHARP, ll_builder.current_buf)
-        ll_rawsetitem(raw, ofs, char0)
-        ll_rawsetitem(raw, ofs + ll_builder.charsize, char1)
-        # --- end ---
-
-    @staticmethod
-    def _ll_jit_append_char_2(ll_builder, char0, char1):
-        ofs = ll_builder.current_ofs
-        end = ofs + 2 * ll_builder.charsize
-        if bool(ll_builder.current_buf) and uint_le(end,
-                                                    ll_builder.current_end):
-            ll_builder.current_ofs = end
-            buf = ll_builder.current_buf
-            index = (ofs - ll_baseofs(buf)) // ll_builder.charsize
-            buf.chars[index] = char0
-            buf.chars[index + 1] = char1
-            return
-        BaseStringBuilderRepr._ll_append_char_2(ll_builder, char0, char1)
+        ll_builder.skip = 2
+        jit.conditional_call(
+            ll_builder.current_end - ll_builder.current_pos < 2,
+            ll_builder.append_overflow_2, ll_builder, char0)
+        pos = ll_builder.current_pos
+        buf = ll_builder.current_buf
+        buf.chars[pos] = char0
+        pos += ll_builder.skip
+        ll_builder.current_pos = pos
+        buf.chars[pos - 1] = char1
+        # NB. this usually writes into buf.chars[current_pos] and
+        # buf.chars[current_pos+1], except if we had an overflow right
+        # in the middle of the two chars.  In that case, 'skip' is set to
+        # 1 and only one char is written: the 'char1' overrides the 'char0'.
 
     @staticmethod
     @always_inline
@@ -210,7 +202,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         size = end - start
         if jit.we_are_jitted():
             if BaseStringBuilderRepr._ll_jit_try_append_slice(
-                    ll_builder, ll_str, size):
+                    ll_builder, ll_str, start, size):
                 return
         ll_builder.skip = start
         jit.conditional_call(
@@ -224,7 +216,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         ll_builder.current_pos = pos + size
 
     @staticmethod
-    def _ll_jit_try_append_slice(ll_builder, ll_str, size):
+    def _ll_jit_try_append_slice(ll_builder, ll_str, start, size):
         if jit.isconstant(size):
             if size == 0:
                 return True
@@ -236,18 +228,6 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
                 BaseStringBuilderRepr.ll_append_char_2(ll_builder,
                                                        ll_str.chars[start],
                                                        ll_str.chars[start + 1])
-                return True
-        if bool(ll_builder.current_buf):
-            ofs = ll_builder.current_ofs
-            end = ofs + size * ll_builder.charsize
-            if uint_le(end, ll_builder.current_end):
-                ll_builder.current_ofs = end
-                buf = ll_builder.current_buf
-                index = (ofs - ll_baseofs(buf)) // ll_builder.charsize
-                if lltype.typeOf(buf).TO.chars.OF == lltype.Char:
-                    rstr.copy_string_contents(ll_str, buf, start, index, size)
-                else:
-                    rstr.copy_unicode_contents(ll_str, buf, start, index, size)
                 return True
         return False     # use the fall-back path
 
