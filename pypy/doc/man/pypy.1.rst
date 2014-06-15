@@ -95,13 +95,12 @@ ENVIRONMENT
 ``PYPYLOG``
     If set to a non-empty value, enable logging, the format is:
 
-    *fname*
+    *fname* or *+fname*
         logging for profiling: includes all
         ``debug_start``/``debug_stop`` but not any nested
         ``debug_print``.
         *fname* can be ``-`` to log to *stderr*.
-        Note that using a : in fname is a bad idea, Windows
-        users, beware.
+        The *+fname* form can be used if there is a *:* in fname
 
     ``:``\ *fname*
         Full logging, including ``debug_print``.
