@@ -198,8 +198,9 @@ class TestCompiled:
 
         def check_roundtrip(x, size):
             s = c_pack(x, size)
-            assert s == pack(x, size)
             if not isnan(x):
+                # pack uses copysign which is ambiguous for NAN
+                assert s == pack(x, size)
                 assert unpack(s) == x
                 assert c_unpack(s) == x
             else:
