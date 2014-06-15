@@ -10,20 +10,32 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 
 
 class TestStringBuilderDirect(object):
+    def test_nooveralloc(self):
+        sb = StringBuilderRepr.ll_new(33)
+        StringBuilderRepr.ll_append(sb, llstr("abc" * 11))
+        assert StringBuilderRepr.ll_getlength(sb) == 33
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == "abc" * 11
+        assert StringBuilderRepr.ll_getlength(sb) == 33
+
+    def test_shrinking(self):
+        sb = StringBuilderRepr.ll_new(100)
+        StringBuilderRepr.ll_append(sb, llstr("abc" * 11))
+        assert StringBuilderRepr.ll_getlength(sb) == 33
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == "abc" * 11
+        assert StringBuilderRepr.ll_getlength(sb) == 33
+
     def test_simple(self):
         sb = StringBuilderRepr.ll_new(3)
         StringBuilderRepr.ll_append_char(sb, 'x')
         StringBuilderRepr.ll_append(sb, llstr("abc"))
         StringBuilderRepr.ll_append_slice(sb, llstr("foobar"), 2, 5)
         StringBuilderRepr.ll_append_multiple_char(sb, 'y', 3)
+        assert StringBuilderRepr.ll_getlength(sb) == 10
         s = StringBuilderRepr.ll_build(sb)
         assert hlstr(s) == "xabcobayyy"
-
-    def test_nooveralloc(self):
-        sb = StringBuilderRepr.ll_new(33)
-        StringBuilderRepr.ll_append(sb, llstr("abc" * 11))
-        s = StringBuilderRepr.ll_build(sb)
-        assert hlstr(s) == "abc" * 11
+        assert StringBuilderRepr.ll_getlength(sb) == 10
 
     def test_grow_when_append_char(self):
         sb = StringBuilderRepr.ll_new(33)
