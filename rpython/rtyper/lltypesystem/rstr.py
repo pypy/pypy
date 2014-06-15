@@ -77,6 +77,10 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         # are obscurely essential to make sure that the strings stay alive
         # longer than the raw_memcopy().
         assert length >= 0
+        ll_assert(srcstart >= 0, "copystrc: negative srcstart")
+        ll_assert(srcstart + length <= len(src.chars), "copystrc: src ovf")
+        ll_assert(dststart >= 0, "copystrc: negative dststart")
+        ll_assert(dststart + length <= len(dst.chars), "copystrc: dst ovf")
         # from here, no GC operations can happen
         src = _get_raw_buf(SRC_TP, src, srcstart)
         dst = _get_raw_buf(DST_TP, dst, dststart)
