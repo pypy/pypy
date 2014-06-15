@@ -35,6 +35,11 @@ from rpython.rtyper.annlowlevel import llstr, llunicode
 # need a way to express c_memcpy() below --- similar to copystrcontent,
 # but without the assumption that it's about a string (or unicode).
 #
+# XXX alternatively, a simpler solution might be to allocate all pieces
+# as GC-managed rstr.STR.  To avoid filling the old generation with
+# garbage we could add a weakref holding the most recently built chain
+# of STRs, and reuse it the next time if it's still there.
+#
 # ------------------------------------------------------------
 
 
