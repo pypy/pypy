@@ -850,7 +850,7 @@ class TextCRLFFilter(Stream):
         self.do_flush = base.flush_buffers
         self.lfbuffer = ""
 
-    def read(self, n):
+    def read(self, n=-1):
         data = self.lfbuffer + self.do_read(n)
         self.lfbuffer = ""
         if data.endswith("\r"):
