@@ -352,7 +352,8 @@ We are using
   ``__init__``, ``__del__``, ``__len__``, ``__getitem__``, ``__setitem__``,
   ``__getslice__``, ``__setslice__``, and ``__iter__``. To handle slicing,
   ``__getslice__`` and ``__setslice__`` must be used; using ``__getitem__`` and
-   ``__setitem__`` for slicing isn't supported.
+   ``__setitem__`` for slicing isn't supported. Additionally, using negative
+   indices for slicing is still not support, even when using ``__getslice__``.
 
 This layout makes the number of types to take care about quite limited.
 
