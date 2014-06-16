@@ -190,17 +190,24 @@ class HeapCache(object):
                                 if not self.is_unescaped(frombox):
                                     del cache[frombox]
                     return
+            else:
+                # Only invalidate things that are either escaped or arguments
+                for descr, boxes in self.heap_cache.iteritems():
+                    for box in boxes.keys():
+                        if not self.is_unescaped(box) or box in argboxes:
+                            del boxes[box]
+                for descr, indices in self.heap_array_cache.iteritems():
+                    for boxes in indices.itervalues():
+                        for box in boxes.keys():
+                            if not self.is_unescaped(box) or box in argboxes:
+                                del boxes[box]
+                return
 
-        # Only invalidate things that are either escaped or arguments
-        for descr, boxes in self.heap_cache.iteritems():
-            for box in boxes.keys():
-                if not self.is_unescaped(box) or box in argboxes:
-                    del boxes[box]
-        for descr, indices in self.heap_array_cache.iteritems():
-            for boxes in indices.itervalues():
-                for box in boxes.keys():
-                    if not self.is_unescaped(box) or box in argboxes:
-                        del boxes[box]
+        # XXX not completely sure, but I *think* it is needed to reset() the
+        # state at least in the 'CALL_*' operations that release the GIL.  We
+        # tried to do only the kind of resetting done by the two loops just
+        # above, but hit an assertion in "pypy test_multiprocessing.py".
+        self.reset(reset_virtuals=False)
 
     def is_class_known(self, box):
         return box in self.known_class_boxes
