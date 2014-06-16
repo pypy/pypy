@@ -681,25 +681,25 @@ def make_string_mappings(strtype):
         from rpython.rtyper.lltypesystem.rstr import (STR as STRTYPE,
                                                       copy_string_to_raw,
                                                       copy_raw_to_string,
-                                                      copy_string_contents)
+                                                      copy_string_contents,
+                                                      mallocstr as mallocfn)
         from rpython.rtyper.annlowlevel import llstr as llstrtype
         from rpython.rtyper.annlowlevel import hlstr as hlstrtype
         TYPEP = CCHARP
         ll_char_type = lltype.Char
         lastchar = '\x00'
-        builder_class = StringBuilder
     else:
         from rpython.rtyper.lltypesystem.rstr import (
             UNICODE as STRTYPE,
             copy_unicode_to_raw as copy_string_to_raw,
             copy_raw_to_unicode as copy_raw_to_string,
-            copy_unicode_contents as copy_string_contents)
+            copy_unicode_contents as copy_string_contents,
+            mallocunicode as mallocfn)
         from rpython.rtyper.annlowlevel import llunicode as llstrtype
         from rpython.rtyper.annlowlevel import hlunicode as hlstrtype
         TYPEP = CWCHARP
         ll_char_type = lltype.UniChar
         lastchar = u'\x00'
-        builder_class = UnicodeBuilder
 
     # str -> char*
     def str2charp(s, track_allocation=True):
@@ -728,12 +728,7 @@ def make_string_mappings(strtype):
         size = 0
         while cp[size] != lastchar:
             size += 1
-        b = builder_class(size)
-        i = 0
-        while cp[i] != lastchar:
-            b.append(cp[i])
-            i += 1
-        return assert_str0(b.build())
+        return assert_str0(charpsize2str(cp, size))
 
     # str -> char*
     # Can't inline this because of the raw address manipulation.
@@ -829,18 +824,18 @@ def make_string_mappings(strtype):
     # char* -> str, with an upper bound on the length in case there is no \x00
     @enforceargs(None, int)
     def charp2strn(cp, maxlen):
-        b = builder_class(maxlen)
-        i = 0
-        while i < maxlen and cp[i] != lastchar:
-            b.append(cp[i])
-            i += 1
-        return assert_str0(b.build())
+        size = 0
+        while size < maxlen and cp[size] != lastchar:
+            size += 1
+        return assert_str0(charpsize2str(cp, size))
 
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):
-        b = builder_class(size)
-        b.append_charpsize(cp, size)
-        return b.build()
+        ll_str = mallocfn(size)
+        copy_raw_to_string(cp, ll_str, 0, size)
+        result = hlstrtype(ll_str)
+        assert result is not None
+        return result
     charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,

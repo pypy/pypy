@@ -960,6 +960,50 @@ class TestStandalone(StandaloneTests):
         self.compile(entry_point)
         # assert did not explode
 
+    def test_unicode_builder(self):
+        import random
+        from rpython.rlib.rstring import UnicodeBuilder
+
+        to_do = []
+        for i in range(15000):
+            to_do.append(random.randrange(0, 100000))
+        to_do.append(0)
+
+        expected = []
+        s = ''
+        for x in to_do:
+            if x < 1500:
+                expected.append("``%s''" % (s,))
+                if x < 1000:
+                    s = ''
+            elif x < 20000:
+                s += chr(32 + (x & 63))
+            elif x < 30000:
+                s += chr(32 + (x & 63)) * (x % 93)
+            else:
+                s += str(x)
+        expected = '\n'.join(expected)
+
+        def entry_point(argv):
+            b = UnicodeBuilder(32)
+            for x in to_do:
+                if x < 1500:
+                    print "``%s''" % str(b.build())
+                    if x < 1000:
+                        b = UnicodeBuilder(32)
+                elif x < 20000:
+                    b.append(unichr(32 + (x & 63)))
+                elif x < 30000:
+                    b.append_multiple_char(unichr(32 + (x & 63)), x % 93)
+                else:
+                    b.append(unicode(str(x)))
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        out = cbuilder.cmdexec('')
+        assert out.strip() == expected
+
+
 class TestMaemo(TestStandalone):
     def setup_class(cls):
         py.test.skip("TestMaemo: tests skipped for now")

@@ -1,64 +1,139 @@
 from rpython.rlib import rgc, jit
 from rpython.rlib.objectmodel import enforceargs
-from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask
+from rpython.rlib.debug import ll_assert
 from rpython.rtyper.rptr import PtrRepr
-from rpython.rtyper.lltypesystem import lltype, rstr
+from rpython.rtyper.lltypesystem import lltype, rffi, rstr
 from rpython.rtyper.lltypesystem.lltype import staticAdtMethod, nullptr
 from rpython.rtyper.lltypesystem.rstr import (STR, UNICODE, char_repr,
     string_repr, unichar_repr, unicode_repr)
 from rpython.rtyper.rbuilder import AbstractStringBuilderRepr
 from rpython.tool.sourcetools import func_with_new_name
 
-# Think about heuristics below, maybe we can come up with something
-# better or at least compare it with list heuristics
 
-GROW_FAST_UNTIL = 100 * 1024 * 1024      # 100 MB
+# ------------------------------------------------------------
+# Basic idea:
+#
+# - A StringBuilder has a rstr.STR of the specified initial size
+#   (100 by default), which is filled gradually.
+#
+# - When it is full, we allocate extra buffers as an extra rstr.STR,
+#   and the already-filled one is added to a chained list of STRINGPIECE
+#   objects.
+#
+# - At build() time, we consolidate all these pieces into a single
+#   rstr.STR, which is both returned and re-attached to the StringBuilder,
+#   replacing the STRINGPIECEs.
+#
+# - The data is copied at most twice, and only once in case it fits
+#   into the initial size (and the GC supports shrinking the STR).
+#
+# XXX in build(), we could try keeping around a global weakref to the
+# chain of STRINGPIECEs and reuse them the next time.
+#
+# ------------------------------------------------------------
 
-def new_grow_func(name, mallocfn, copycontentsfn):
+
+def always_inline(func):
+    func._always_inline_ = True
+    return func
+
+
+def new_grow_funcs(name, mallocfn):
+
     @enforceargs(None, int)
     def stringbuilder_grow(ll_builder, needed):
-        allocated = ll_builder.allocated
-        #if allocated < GROW_FAST_UNTIL:
-        #    new_allocated = allocated << 1
-        #else:
-        extra_size = allocated >> 2
         try:
-            new_allocated = ovfcheck(allocated + extra_size)
-            new_allocated = ovfcheck(new_allocated + needed)
+            needed = ovfcheck(needed + ll_builder.total_size)
+            needed = ovfcheck(needed + 63) & ~63
+            total_size = ll_builder.total_size + needed
         except OverflowError:
             raise MemoryError
-        newbuf = mallocfn(new_allocated)
-        copycontentsfn(ll_builder.buf, newbuf, 0, 0, ll_builder.used)
-        ll_builder.buf = newbuf
-        ll_builder.allocated = new_allocated
-    return func_with_new_name(stringbuilder_grow, name)
+        #
+        new_string = mallocfn(needed)
+        #
+        PIECE = lltype.typeOf(ll_builder.extra_pieces).TO
+        old_piece = lltype.malloc(PIECE)
+        old_piece.buf = ll_builder.current_buf
+        old_piece.prev_piece = ll_builder.extra_pieces
+        ll_assert(bool(old_piece.buf), "no buf??")
+        ll_builder.current_buf = new_string
+        ll_builder.current_pos = 0
+        ll_builder.current_end = needed
+        ll_builder.total_size = total_size
+        ll_builder.extra_pieces = old_piece
 
-stringbuilder_grow = new_grow_func('stringbuilder_grow', rstr.mallocstr,
-                                   rstr.copy_string_contents)
-unicodebuilder_grow = new_grow_func('unicodebuilder_grow', rstr.mallocunicode,
-                                    rstr.copy_unicode_contents)
+    def stringbuilder_append_overflow(ll_builder, ll_str, size):
+        # First, the part that still fits in the current piece
+        part1 = ll_builder.current_end - ll_builder.current_pos
+        start = ll_builder.skip
+        ll_builder.copy_string_contents(ll_str, ll_builder.current_buf,
+                                        start, ll_builder.current_pos,
+                                        part1)
+        ll_builder.skip += part1
+        stringbuilder_grow(ll_builder, size - part1)
+
+    def stringbuilder_append_overflow_2(ll_builder, char0):
+        # Overflow when writing two chars.  There are two cases depending
+        # on whether one char still fits or not.
+        if ll_builder.current_pos < ll_builder.current_end:
+            ll_builder.current_buf.chars[ll_builder.current_pos] = char0
+            ll_builder.skip = 1
+        stringbuilder_grow(ll_builder, 2)
+
+    return (func_with_new_name(stringbuilder_grow, '%s_grow' % name),
+            func_with_new_name(stringbuilder_append_overflow,
+                               '%s_append_overflow' % name),
+            func_with_new_name(stringbuilder_append_overflow_2,
+                               '%s_append_overflow_2' % name))
+
+stringbuilder_grows = new_grow_funcs('stringbuilder', rstr.mallocstr)
+unicodebuilder_grows = new_grow_funcs('unicodebuilder', rstr.mallocunicode)
+
+STRINGPIECE = lltype.GcStruct('stringpiece',
+    ('buf', lltype.Ptr(STR)),
+    ('prev_piece', lltype.Ptr(lltype.GcForwardReference())))
+STRINGPIECE.prev_piece.TO.become(STRINGPIECE)
 
 STRINGBUILDER = lltype.GcStruct('stringbuilder',
-    ('allocated', lltype.Signed),
-    ('used', lltype.Signed),
-    ('buf', lltype.Ptr(STR)),
+    ('current_buf', lltype.Ptr(STR)),
+    ('current_pos', lltype.Signed),
+    ('current_end', lltype.Signed),
+    ('total_size', lltype.Signed),
+    ('skip', lltype.Signed),
+    ('extra_pieces', lltype.Ptr(STRINGPIECE)),
     adtmeths={
-        'grow': staticAdtMethod(stringbuilder_grow),
+        'grow': staticAdtMethod(stringbuilder_grows[0]),
+        'append_overflow': staticAdtMethod(stringbuilder_grows[1]),
+        'append_overflow_2': staticAdtMethod(stringbuilder_grows[2]),
+        'copy_string_contents': staticAdtMethod(rstr.copy_string_contents),
         'copy_raw_to_string': staticAdtMethod(rstr.copy_raw_to_string),
+        'mallocfn': staticAdtMethod(rstr.mallocstr),
     }
 )
+
+UNICODEPIECE = lltype.GcStruct('unicodepiece',
+    ('buf', lltype.Ptr(UNICODE)),
+    ('prev_piece', lltype.Ptr(lltype.GcForwardReference())))
+UNICODEPIECE.prev_piece.TO.become(UNICODEPIECE)
 
 UNICODEBUILDER = lltype.GcStruct('unicodebuilder',
-    ('allocated', lltype.Signed),
-    ('used', lltype.Signed),
-    ('buf', lltype.Ptr(UNICODE)),
+    ('current_buf', lltype.Ptr(UNICODE)),
+    ('current_pos', lltype.Signed),
+    ('current_end', lltype.Signed),
+    ('total_size', lltype.Signed),
+    ('skip', lltype.Signed),
+    ('extra_pieces', lltype.Ptr(UNICODEPIECE)),
     adtmeths={
-        'grow': staticAdtMethod(unicodebuilder_grow),
+        'grow': staticAdtMethod(unicodebuilder_grows[0]),
+        'append_overflow': staticAdtMethod(unicodebuilder_grows[1]),
+        'append_overflow_2': staticAdtMethod(unicodebuilder_grows[2]),
+        'copy_string_contents': staticAdtMethod(rstr.copy_unicode_contents),
         'copy_raw_to_string': staticAdtMethod(rstr.copy_raw_to_unicode),
+        'mallocfn': staticAdtMethod(rstr.mallocunicode),
     }
 )
 
-MAX = 16*1024*1024
 
 class BaseStringBuilderRepr(AbstractStringBuilderRepr):
     def empty(self):
@@ -66,72 +141,206 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
 
     @classmethod
     def ll_new(cls, init_size):
-        if init_size < 0:
-            init_size = MAX
+        # Clamp 'init_size' to be a value between 0 and 1280.
+        # Negative values are mapped to 1280.
+        init_size = intmask(min(r_uint(init_size), r_uint(1280)))
         ll_builder = lltype.malloc(cls.lowleveltype.TO)
-        ll_builder.allocated = init_size
-        ll_builder.used = 0
-        ll_builder.buf = cls.mallocfn(init_size)
+        ll_builder.current_buf = cls.mallocfn(init_size)
+        ll_builder.current_pos = 0
+        ll_builder.current_end = init_size
+        ll_builder.total_size = init_size
         return ll_builder
 
     @staticmethod
+    @always_inline
     def ll_append(ll_builder, ll_str):
-        used = ll_builder.used
-        lgt = len(ll_str.chars)
-        needed = lgt + used
-        if needed > ll_builder.allocated:
-            ll_builder.grow(ll_builder, lgt)
-        ll_str.copy_contents(ll_str, ll_builder.buf, 0, used, lgt)
-        ll_builder.used = needed
+        BaseStringBuilderRepr.ll_append_slice(ll_builder, ll_str,
+                                              0, len(ll_str.chars))
 
     @staticmethod
+    @always_inline
     def ll_append_char(ll_builder, char):
-        if ll_builder.used == ll_builder.allocated:
-            ll_builder.grow(ll_builder, 1)
-        ll_builder.buf.chars[ll_builder.used] = char
-        ll_builder.used += 1
+        jit.conditional_call(ll_builder.current_pos == ll_builder.current_end,
+                             ll_builder.grow, ll_builder, 1)
+        pos = ll_builder.current_pos
+        ll_builder.current_pos = pos + 1
+        ll_builder.current_buf.chars[pos] = char
 
     @staticmethod
+    def ll_append_char_2(ll_builder, char0, char1):
+        # this is only used by the JIT, when appending a small, known-length
+        # string.  Unlike two consecutive ll_append_char(), it can do that
+        # with only one conditional_call.
+        ll_builder.skip = 2
+        jit.conditional_call(
+            ll_builder.current_end - ll_builder.current_pos < 2,
+            ll_builder.append_overflow_2, ll_builder, char0)
+        pos = ll_builder.current_pos
+        buf = ll_builder.current_buf
+        buf.chars[pos] = char0
+        pos += ll_builder.skip
+        ll_builder.current_pos = pos
+        buf.chars[pos - 1] = char1
+        # NB. this usually writes into buf.chars[current_pos] and
+        # buf.chars[current_pos+1], except if we had an overflow right
+        # in the middle of the two chars.  In that case, 'skip' is set to
+        # 1 and only one char is written: the 'char1' overrides the 'char0'.
+
+    @staticmethod
+    @always_inline
     def ll_append_slice(ll_builder, ll_str, start, end):
-        needed = end - start
-        used = ll_builder.used
-        if needed + used > ll_builder.allocated:
-            ll_builder.grow(ll_builder, needed)
-        assert needed >= 0
-        ll_str.copy_contents(ll_str, ll_builder.buf, start, used, needed)
-        ll_builder.used = needed + used
+        size = end - start
+        if jit.we_are_jitted():
+            if BaseStringBuilderRepr._ll_jit_try_append_slice(
+                    ll_builder, ll_str, start, size):
+                return
+        ll_builder.skip = start
+        jit.conditional_call(
+            size > ll_builder.current_end - ll_builder.current_pos,
+            ll_builder.append_overflow, ll_builder, ll_str, size)
+        start = ll_builder.skip
+        size = end - start
+        pos = ll_builder.current_pos
+        ll_builder.copy_string_contents(ll_str, ll_builder.current_buf,
+                                        start, pos, size)
+        ll_builder.current_pos = pos + size
 
     @staticmethod
-    @jit.look_inside_iff(lambda ll_builder, char, times: jit.isconstant(times) and times <= 4)
+    def _ll_jit_try_append_slice(ll_builder, ll_str, start, size):
+        if jit.isconstant(size):
+            if size == 0:
+                return True
+            if size == 1:
+                BaseStringBuilderRepr.ll_append_char(ll_builder,
+                                                     ll_str.chars[start])
+                return True
+            if size == 2:
+                BaseStringBuilderRepr.ll_append_char_2(ll_builder,
+                                                       ll_str.chars[start],
+                                                       ll_str.chars[start + 1])
+                return True
+        return False     # use the fall-back path
+
+    @staticmethod
+    @always_inline
     def ll_append_multiple_char(ll_builder, char, times):
-        used = ll_builder.used
-        if times + used > ll_builder.allocated:
+        if jit.we_are_jitted():
+            if BaseStringBuilderRepr._ll_jit_try_append_multiple_char(
+                    ll_builder, char, times):
+                return
+        BaseStringBuilderRepr._ll_append_multiple_char(ll_builder, char, times)
+
+    @staticmethod
+    @jit.dont_look_inside
+    def _ll_append_multiple_char(ll_builder, char, times):
+        part1 = ll_builder.current_end - ll_builder.current_pos
+        if times > part1:
+            times -= part1
+            buf = ll_builder.current_buf
+            for i in xrange(ll_builder.current_pos, ll_builder.current_end):
+                buf.chars[i] = char
             ll_builder.grow(ll_builder, times)
-        for i in range(times):
-            ll_builder.buf.chars[used] = char
-            used += 1
-        ll_builder.used = used
+        #
+        buf = ll_builder.current_buf
+        pos = ll_builder.current_pos
+        end = pos + times
+        ll_builder.current_pos = end
+        for i in xrange(pos, end):
+            buf.chars[i] = char
 
     @staticmethod
+    def _ll_jit_try_append_multiple_char(ll_builder, char, size):
+        if jit.isconstant(size):
+            if size == 0:
+                return True
+            if size == 1:
+                BaseStringBuilderRepr.ll_append_char(ll_builder, char)
+                return True
+            if size == 2:
+                BaseStringBuilderRepr.ll_append_char_2(ll_builder, char, char)
+                return True
+            if size == 3:
+                BaseStringBuilderRepr.ll_append_char(ll_builder, char)
+                BaseStringBuilderRepr.ll_append_char_2(ll_builder, char, char)
+                return True
+            if size == 4:
+                BaseStringBuilderRepr.ll_append_char_2(ll_builder, char, char)
+                BaseStringBuilderRepr.ll_append_char_2(ll_builder, char, char)
+                return True
+        return False     # use the fall-back path
+
+    @staticmethod
+    @jit.dont_look_inside
     def ll_append_charpsize(ll_builder, charp, size):
-        used = ll_builder.used
-        if used + size > ll_builder.allocated:
+        part1 = ll_builder.current_end - ll_builder.current_pos
+        if size > part1:
+            # First, the part that still fits
+            ll_builder.copy_raw_to_string(charp, ll_builder.current_buf,
+                                          ll_builder.current_pos, part1)
+            charp = rffi.ptradd(charp, part1)
+            size -= part1
             ll_builder.grow(ll_builder, size)
-        ll_builder.copy_raw_to_string(charp, ll_builder.buf, used, size)
-        ll_builder.used += size
+        #
+        pos = ll_builder.current_pos
+        ll_builder.current_pos = pos + size
+        ll_builder.copy_raw_to_string(charp, ll_builder.current_buf, pos, size)
 
     @staticmethod
+    @always_inline
     def ll_getlength(ll_builder):
-        return ll_builder.used
+        num_chars_missing_from_last_piece = (
+            ll_builder.current_end - ll_builder.current_pos)
+        return ll_builder.total_size - num_chars_missing_from_last_piece
 
     @staticmethod
+    @jit.look_inside_iff(lambda ll_builder: jit.isvirtual(ll_builder))
     def ll_build(ll_builder):
-        final_size = ll_builder.used
-        assert final_size >= 0
-        if final_size < ll_builder.allocated:
-            ll_builder.allocated = final_size
-            ll_builder.buf = rgc.ll_shrink_array(ll_builder.buf, final_size)
-        return ll_builder.buf
+        # NB. usually the JIT doesn't look inside this function; it does
+        # so only in the simplest example where it could virtualize everything
+        if ll_builder.extra_pieces:
+            BaseStringBuilderRepr._ll_fold_pieces(ll_builder)
+        elif ll_builder.current_pos != ll_builder.total_size:
+            BaseStringBuilderRepr._ll_shrink_final(ll_builder)
+        return ll_builder.current_buf
+
+    @staticmethod
+    def _ll_shrink_final(ll_builder):
+        final_size = ll_builder.current_pos
+        ll_assert(final_size <= ll_builder.total_size,
+                  "final_size > ll_builder.total_size?")
+        buf = rgc.ll_shrink_array(ll_builder.current_buf, final_size)
+        ll_builder.current_buf = buf
+        ll_builder.current_end = final_size
+        ll_builder.total_size = final_size
+
+    @staticmethod
+    def _ll_fold_pieces(ll_builder):
+        final_size = BaseStringBuilderRepr.ll_getlength(ll_builder)
+        ll_assert(final_size >= 0, "negative final_size")
+        extra = ll_builder.extra_pieces
+        ll_builder.extra_pieces = lltype.nullptr(lltype.typeOf(extra).TO)
+        #
+        result = ll_builder.mallocfn(final_size)
+        piece = ll_builder.current_buf
+        piece_lgt = ll_builder.current_pos
+        ll_assert(ll_builder.current_end == len(piece.chars),
+                  "bogus last piece_lgt")
+        ll_builder.total_size = final_size
+        ll_builder.current_buf = result
+        ll_builder.current_pos = final_size
+        ll_builder.current_end = final_size
+
+        dst = final_size
+        while True:
+            dst -= piece_lgt
+            ll_assert(dst >= 0, "rbuilder build: overflow")
+            ll_builder.copy_string_contents(piece, result, 0, dst, piece_lgt)
+            if not extra:
+                break
+            piece = extra.buf
+            piece_lgt = len(piece.chars)
+            extra = extra.prev_piece
+        ll_assert(dst == 0, "rbuilder build: underflow")
 
     @classmethod
     def ll_bool(cls, ll_builder):

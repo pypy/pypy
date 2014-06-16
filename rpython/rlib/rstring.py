@@ -356,31 +356,30 @@ INIT_SIZE = 100 # XXX tweak
 
 
 class AbstractStringBuilder(object):
+    # This is not the real implementation!
+
     def __init__(self, init_size=INIT_SIZE):
-        self.l = []
-        self.size = 0
+        self._l = []
+        self._size = 0
 
     def _grow(self, size):
-        try:
-            self.size = ovfcheck(self.size + size)
-        except OverflowError:
-            raise MemoryError
+        self._size += size
 
     def append(self, s):
-        assert isinstance(s, self.tp)
-        self.l.append(s)
+        assert isinstance(s, self._tp)
+        self._l.append(s)
         self._grow(len(s))
 
     def append_slice(self, s, start, end):
-        assert isinstance(s, self.tp)
+        assert isinstance(s, self._tp)
         assert 0 <= start <= end <= len(s)
         s = s[start:end]
-        self.l.append(s)
+        self._l.append(s)
         self._grow(len(s))
 
     def append_multiple_char(self, c, times):
-        assert isinstance(c, self.tp)
-        self.l.append(c * times)
+        assert isinstance(c, self._tp)
+        self._l.append(c * times)
         self._grow(times)
 
     def append_charpsize(self, s, size):
@@ -388,22 +387,25 @@ class AbstractStringBuilder(object):
         l = []
         for i in xrange(size):
             l.append(s[i])
-        self.l.append(self.tp("").join(l))
+        self._l.append(self._tp("").join(l))
         self._grow(size)
 
     def build(self):
-        return self.tp("").join(self.l)
+        result = self._tp("").join(self._l)
+        assert len(result) == self._size
+        self._l = [result]
+        return result
 
     def getlength(self):
-        return len(self.build())
+        return self._size
 
 
 class StringBuilder(AbstractStringBuilder):
-    tp = str
+    _tp = str
 
 
 class UnicodeBuilder(AbstractStringBuilder):
-    tp = unicode
+    _tp = unicode
 
 
 # ------------------------------------------------------------

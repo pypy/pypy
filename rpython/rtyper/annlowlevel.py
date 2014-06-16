@@ -79,13 +79,6 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
         return LowLevelAnnotatorPolicy.lowlevelspecialize(funcdesc, args_s, {})
     default_specialize = staticmethod(default_specialize)
 
-    def specialize__semierased(funcdesc, args_s):
-        a2l = annotation_to_lltype
-        l2a = lltype_to_annotation
-        args_s[:] = [l2a(a2l(s)) for s in args_s]
-        return LowLevelAnnotatorPolicy.default_specialize(funcdesc, args_s)
-    specialize__semierased = staticmethod(specialize__semierased)
-
     specialize__ll = default_specialize
 
     def specialize__ll_and_arg(funcdesc, args_s, *argindices):
