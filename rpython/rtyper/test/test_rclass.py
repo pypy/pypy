@@ -1193,6 +1193,69 @@ class TestRclass(BaseRtypingTest):
         assert self.interpret(f, [True]) == f(True)
         assert self.interpret(f, [False]) == f(False)
 
+    def test_indexing(self):
+        class A(object):
+            def __init__(self, data):
+                self.data = data
+
+            def __getitem__(self, i):
+                return self.data[i]
+
+            def __setitem__(self, i, v):
+                self.data[i] = v
+
+            def __getslice__(self, start, stop):
+                assert start >= 0
+                assert stop >= 0
+                return self.data[start:stop]
+
+            def __setslice__(self, start, stop, v):
+                assert start >= 0
+                assert stop >= 0
+                i = 0
+                for n in range(start, stop):
+                    self.data[n] = v[i]
+                    i += 1
+
+        def getitem(i):
+            a = A("abcdefg")
+            return a[i]
+
+        def setitem(i, v):
+            a = A([0] * 5)
+            a[i] = v
+            return a[i]
+
+        def getslice(start, stop):
+            a = A([1, 2, 3, 4, 5, 6])
+            sum = 0
+            for i in a[start:stop]:
+                sum += i
+            return sum
+
+        def setslice(start, stop, i):
+            a = A([0] * stop)
+            a[start:stop] = range(start, stop)
+            return a[i]
+
+        assert self.interpret(getitem, [0]) == getitem(0)
+        assert self.interpret(getitem, [1]) == getitem(1)
+        assert self.interpret(setitem, [0, 5]) == setitem(0, 5)
+        assert self.interpret(getslice, [0, 4]) == getslice(0, 4)
+        assert self.interpret(getslice, [1, 4]) == getslice(1, 4)
+        assert self.interpret(setslice, [4, 6, 5]) == setslice(4, 6, 5)
+
+    def test_len(self):
+        class A(object):
+            def __len__(self):
+                return 5
+
+        def fn():
+            a = A()
+            return len(a)
+
+        assert self.interpret(fn, []) == fn()
+
     def test_init_with_star_args(self):
         class Base(object):
             def __init__(self, a, b):

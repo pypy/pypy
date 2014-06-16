@@ -293,6 +293,11 @@ class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
         v_lst, v_factor = hop.inputargs(r_lst, Signed)
         return hop.gendirectcall(ll_mul, cRESLIST, v_lst, v_factor)
 
+class __extend__(pairtype(IntegerRepr, AbstractBaseListRepr)):
+    def rtype_mul((r_int, r_lst), hop):
+        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
+        v_factor, v_lst = hop.inputargs(Signed, r_lst)
+        return hop.gendirectcall(ll_mul, cRESLIST, v_lst, v_factor)
 
 class __extend__(pairtype(AbstractListRepr, IntegerRepr)):
 
