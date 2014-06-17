@@ -6,7 +6,7 @@ class HeapCache(object):
     def __init__(self):
         self.reset()
 
-    def reset(self, reset_virtuals=True):
+    def reset(self, reset_virtuals=True, trace_branch=True):
         # contains boxes where the class is already known
         self.known_class_boxes = {}
         # store the boxes that contain newly allocated objects, this maps the
@@ -14,14 +14,19 @@ class HeapCache(object):
         # escaped the trace or not (True means the box never escaped, False
         # means it did escape), its presences in the mapping shows that it was
         # allocated inside the trace
-        self.new_boxes = {}
+        if trace_branch:
+            self.new_boxes = {}
+        else:
+            for box in self.new_boxes:
+                self.new_boxes[box] = False
         if reset_virtuals:
             self.likely_virtuals = {}      # only for jit.isvirtual()
         # Tracks which boxes should be marked as escaped when the key box
         # escapes.
         self.dependencies = {}
         # contains frame boxes that are not virtualizables
-        self.nonstandard_virtualizables = {}
+        if trace_branch:
+            self.nonstandard_virtualizables = {}
 
         # heap cache
         # maps descrs to {from_box, to_box} dicts
@@ -207,7 +212,7 @@ class HeapCache(object):
         # state at least in the 'CALL_*' operations that release the GIL.  We
         # tried to do only the kind of resetting done by the two loops just
         # above, but hit an assertion in "pypy test_multiprocessing.py".
-        self.reset(reset_virtuals=False)
+        self.reset(reset_virtuals=False, trace_branch=False)
 
     def is_class_known(self, box):
         return box in self.known_class_boxes
