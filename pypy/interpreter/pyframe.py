@@ -164,12 +164,9 @@ class PyFrame(W_Root):
         for i in range(nfreevars):
             self.cells[i + ncellvars] = outer_func.closure[i]
 
-    def is_generator(self):
-        return self.getcode().co_flags & pycode.CO_GENERATOR
-            
     def run(self):
         """Start this frame's execution."""
-        if self.is_generator():
+        if self.getcode().co_flags & pycode.CO_GENERATOR:
             if self.getcode().co_flags & pycode.CO_YIELD_INSIDE_TRY:
                 from pypy.interpreter.generator import GeneratorIteratorWithDel
                 return self.space.wrap(GeneratorIteratorWithDel(self))
