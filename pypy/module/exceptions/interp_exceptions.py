@@ -187,7 +187,6 @@ class W_BaseException(W_Root):
         self.w_context = w_newcontext
 
     def descr_gettraceback(self, space):
-        from pypy.interpreter.pytraceback import PyTraceback
         tb = self.w_traceback
         if tb is not None and isinstance(tb, PyTraceback):
             # tb escapes to app level (see OperationError.get_traceback)
