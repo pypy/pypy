@@ -373,7 +373,7 @@ class TestIncminimark(PinningGCTest):
 
         assert self.gc.nursery_free == self.gc.nursery
         # the following assert is important: make sure that
-        # we did not reset the whole arena used as the nursery
+        # we did not reset the whole nursery
         assert self.gc.nursery_top < self.gc.nursery_real_top
 
     def test_collect_dead_pinned_objects(self):
