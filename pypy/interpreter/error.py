@@ -36,43 +36,10 @@ class OperationError(Exception):
 
     def setup(self, w_type, w_value=None):
         assert w_type is not None
-        from pypy.objspace.std.typeobject import W_TypeObject
         self.w_type = w_type
         self._w_value = w_value
-        # HACK: isinstance(w_type, W_TypeObject) won't translate under
-        # the fake objspace, but w_type.__class__ is W_TypeObject does
-        # and short circuits to a False constant there, causing the
-        # isinstance to be ignored =[
-        if (w_type is not None and w_type.__class__ is W_TypeObject and
-            isinstance(w_type, W_TypeObject)):
-            self.setup_context(w_type.space)
         if not we_are_translated():
             self.debug_excs = []
-
-    def setup_context(self, space):
-        # Implicit exception chaining
-        last_operror = space.getexecutioncontext().sys_exc_info()
-        if (last_operror is None or
-            last_operror is get_cleared_operation_error(space)):
-            return
-
-        # We must normalize the value right now to check for cycles
-        self.normalize_exception(space)
-        w_value = self.get_w_value(space)
-        w_last_value = last_operror.get_w_value(space)
-        if not space.is_w(w_value, w_last_value):
-            # Avoid reference cycles through the context chain. This is
-            # O(chain length) but context chains are usually very short.
-            w_obj = w_last_value
-            while True:
-                w_context = space.getattr(w_obj, space.wrap('__context__'))
-                if space.is_w(w_context, space.w_None):
-                    break
-                if space.is_w(w_context, w_value):
-                    space.setattr(w_obj, space.wrap('__context__'), space.w_None)
-                    break
-                w_obj = w_context
-            space.setattr(w_value, space.wrap('__context__'), w_last_value)
 
     def clear(self, space):
         # XXX remove this method.  The point is that we cannot always
@@ -349,6 +316,51 @@ class OperationError(Exception):
         executioncontext.leave() being called with got_exception=True.
         """
         self._application_traceback = traceback
+
+    def record_context(self, space, frame):
+        """Record a __context__ for this exception from the current
+        frame if one exists.
+
+        __context__ is otherwise lazily determined from the
+        traceback. However the current frame.last_exception must be
+        checked for a __context__ before this OperationError overwrites
+        it (making the previous last_exception unavailable later on).
+        """
+        last_exception = frame.last_exception
+        if (last_exception is not None and not frame.hide() or
+            last_exception is get_cleared_operation_error(space)):
+            # normalize w_value so setup_context can check for cycles
+            self.normalize_exception(space)
+            w_value = self.get_w_value(space)
+            w_context = setup_context(space, w_value,
+                                      last_exception.get_w_value(space))
+            space.setattr(w_value, space.wrap('__context__'), w_context)
+
+
+def setup_context(space, w_exc, w_last):
+    """Determine the __context__ for w_exc from w_last and break
+    reference cycles in the __context__ chain.
+    """
+    if space.is_w(w_exc, w_last):
+        w_last = space.w_None
+    # w_last may also be space.w_None if from ClearedOpErr
+    if not space.is_w(w_last, space.w_None):
+        # Avoid reference cycles through the context chain. This is
+        # O(chain length) but context chains are usually very short.
+        w_obj = w_last
+        while True:
+            # XXX: __context__ becomes not so lazy when we're forced to
+            # access it here! Could this be defered till later? Or at
+            # least limit the check to W_BaseException.w_context
+            # (avoiding W_BaseException._setup_context)
+            w_context = space.getattr(w_obj, space.wrap('__context__'))
+            if space.is_w(w_context, space.w_None):
+                break
+            if space.is_w(w_context, w_exc):
+                space.setattr(w_obj, space.wrap('__context__'), space.w_None)
+                break
+            w_obj = w_context
+    return w_last
 
 
 class ClearedOpErr:

@@ -369,6 +369,23 @@ class AppTestRaiseContext:
         else:
             fail("No exception raised")
 
+    def test_context_once_removed(self):
+        context = IndexError()
+        def func1():
+            func2()
+        def func2():
+            try:
+                1/0
+            except ZeroDivisionError as e:
+                assert e.__context__ is context
+            else:
+                fail('No exception raised')
+        try:
+            raise context
+        except:
+            func1()
+
+
 class AppTestTraceback:
 
     def test_raise_with___traceback__(self):

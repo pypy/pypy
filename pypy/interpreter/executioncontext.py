@@ -202,18 +202,21 @@ class ExecutionContext(object):
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
+    @staticmethod
+    def last_operr(space, frame):
+        while frame:
+            last = frame.last_exception
+            if (last is not None and
+                (not frame.hide() or
+                 last is get_cleared_operation_error(space))):
+                    return last
+            frame = frame.f_backref()
+        return None
+
     def sys_exc_info(self): # attn: the result is not the wrapped sys.exc_info() !!!
         """Implements sys.exc_info().
         Return an OperationError instance or None."""
-        frame = self.gettopframe()
-        while frame:
-            if frame.last_exception is not None:
-                if (not frame.hide() or
-                        frame.last_exception is
-                            get_cleared_operation_error(self.space)):
-                    return frame.last_exception
-            frame = frame.f_backref()
-        return None
+        return self.last_operr(self.space, self.gettopframe())
 
     def set_sys_exc_info(self, operror):
         frame = self.gettopframe_nohidden()
