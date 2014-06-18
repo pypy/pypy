@@ -45,16 +45,13 @@ def pin(obj):
 class PinEntry(ExtRegistryEntry):
     _about_ = pin
 
-    def compute_result_annotation(self, s_arg):
-        from rpython.annotator.model import s_Bool
-        return s_Bool
+    def compute_result_annotation(self, s_p):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeBool()
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-        v_obj, = hop.inputargs(hop.args_r[0])
-        v_addr = hop.genop('cast_ptr_to_adr', [v_obj],
-                           resulttype=llmemory.Address)
-        return hop.genop('gc_pin', [v_addr], resulttype=lltype.Bool)
+        return hop.genop('gc_pin', hop.args_v, resulttype=hop.r_result)
 
 def unpin(obj):
     """Unpin 'obj', allowing it to move again.
@@ -66,15 +63,12 @@ def unpin(obj):
 class UnpinEntry(ExtRegistryEntry):
     _about_ = unpin
 
-    def compute_result_annotation(self, s_arg):
+    def compute_result_annotation(self, s_p):
         pass
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-        v_obj, = hop.inputargs(hop.args_r[0])
-        v_addr = hop.genop('cast_ptr_to_adr', [v_obj],
-                           resulttype=llmemory.Address)
-        hop.genop('gc_unpin', [v_addr])
+        hop.genop('gc_unpin', hop.args_v)
 
 def _is_pinned(obj):
     """Method to check if 'obj' is pinned."""
@@ -83,16 +77,13 @@ def _is_pinned(obj):
 class IsPinnedEntry(ExtRegistryEntry):
     _about_ = _is_pinned
 
-    def compute_result_annotation(self, s_arg):
-        from rpython.annotator.model import s_Bool
-        return s_Bool
+    def compute_result_annotation(self, s_p):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeBool()
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-        v_obj, = hop.inputargs(hop.args_r[0])
-        v_addr = hop.genop('cast_ptr_to_adr', [v_obj],
-                           resulttype=llmemory.Address)
-        return hop.genop('gc__is_pinned', [v_addr], resulttype=lltype.Bool)
+        return hop.genop('gc__is_pinned', hop.args_v, resulttype=hop.r_result)
 
 # ____________________________________________________________
 # Annotation and specialization
