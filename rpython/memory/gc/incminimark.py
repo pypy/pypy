@@ -1601,33 +1601,32 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.surviving_pinned_objects.length()
         while self.surviving_pinned_objects.non_empty():
             #
-            next = self.surviving_pinned_objects.pop()
-            assert next >= prev
+            cur = self.surviving_pinned_objects.pop()
+            assert cur >= prev
             #
             # clear the arena between the last pinned object (or arena start)
             # and the pinned object
-            pinned_obj_size = llarena.getfakearenaaddress(next) - prev
+            pinned_obj_size = llarena.getfakearenaaddress(cur) - prev
             llarena.arena_reset(prev, pinned_obj_size, 2)
             #
             # clean up object's flags
-            obj = next + size_gc_header
+            obj = cur + size_gc_header
             self.header(obj).tid &= ~GCFLAG_VISITED
             #
             # create a new nursery barrier for the pinned object
-            nursery_barriers.append(next)
+            nursery_barriers.append(cur)
             #
-            # update 'prev' to the end of the 'next' object
+            # update 'prev' to the end of the 'cur' object
             prev = prev + pinned_obj_size + \
                 (size_gc_header + self.get_size(obj))
         #
-        # clean up a bit more after the last pinned object
+        # reset everything after the last pinned object till the end of the arena
         llarena.arena_reset(prev, self.nursery_real_top - prev, 0)
         #
-        # now we want to have some amount of the nursery ready to be used
-        # after all the pinned objects.
-        if prev <= self.nursery_real_top - self.initial_cleanup:
-            llarena.arena_reset(prev, self.initial_cleanup, 2)
-            nursery_barriers.append(prev + self.initial_cleanup)
+        # make sure we have some clean space to use after a minor collection
+        if self.nursery_real_top - prev >= self.nursery_cleanup:
+            llarena.arena_reset(prev, self.nursery_cleanup, 2)
+            nursery_barriers.append(prev + self.nursery_cleanup)
         else:
             llarena.arena_reset(prev, self.nursery_real_top - prev, 2)
             nursery_barriers.append(self.nursery_real_top)
