@@ -385,6 +385,27 @@ class AppTestRaiseContext:
         except:
             func1()
 
+    @py.test.mark.xfail(reason="A somewhat contrived case that may burden the "
+                        "JIT to fully support")
+    def test_frame_spanning_cycle_broken(self):
+        context = IndexError()
+        def func():
+            try:
+                1/0
+            except Exception as e1:
+                try:
+                    raise context
+                except Exception as e2:
+                    assert e2.__context__ is e1
+                    # XXX:
+                    assert e1.__context__ is None
+            else:
+                fail('No exception raised')
+        try:
+            raise context
+        except:
+            func()
+
 
 class AppTestTraceback:
 

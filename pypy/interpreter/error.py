@@ -332,15 +332,16 @@ class OperationError(Exception):
             # normalize w_value so setup_context can check for cycles
             self.normalize_exception(space)
             w_value = self.get_w_value(space)
-            w_context = setup_context(space, w_value,
-                                      last_exception.get_w_value(space))
+            w_last = last_exception.get_w_value(space)
+            w_context = setup_context(space, w_value, w_last, lazy=True)
             space.setattr(w_value, space.wrap('__context__'), w_context)
 
 
-def setup_context(space, w_exc, w_last):
+def setup_context(space, w_exc, w_last, lazy=False):
     """Determine the __context__ for w_exc from w_last and break
     reference cycles in the __context__ chain.
     """
+    from pypy.module.exceptions.interp_exceptions import W_BaseException
     if space.is_w(w_exc, w_last):
         w_last = space.w_None
     # w_last may also be space.w_None if from ClearedOpErr
@@ -349,15 +350,16 @@ def setup_context(space, w_exc, w_last):
         # O(chain length) but context chains are usually very short.
         w_obj = w_last
         while True:
-            # XXX: __context__ becomes not so lazy when we're forced to
-            # access it here! Could this be defered till later? Or at
-            # least limit the check to W_BaseException.w_context
-            # (avoiding W_BaseException._setup_context)
-            w_context = space.getattr(w_obj, space.wrap('__context__'))
-            if space.is_w(w_context, space.w_None):
+            assert isinstance(w_obj, W_BaseException)
+            if lazy:
+                w_context = w_obj.w_context
+            else:
+                # triggers W_BaseException._setup_context
+                w_context = space.getattr(w_obj, space.wrap('__context__'))
+            if space.is_none(w_context):
                 break
             if space.is_w(w_context, w_exc):
-                space.setattr(w_obj, space.wrap('__context__'), space.w_None)
+                w_obj.w_context = space.w_None
                 break
             w_obj = w_context
     return w_last
