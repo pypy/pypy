@@ -220,13 +220,36 @@ def make_func_for_size(N):
 unroll_func_for_size = unrolling_iterable([make_func_for_size(_n)
                                            for _n in range(2, MAX_N + 1)])
 
+@jit.unroll_safe
 def ll_jit_try_append_slice(ll_builder, ll_str, start, size):
     if jit.isconstant(size):
         if size == 0:
             return True
+        # a special case: if the builder's pos and end are still contants
+        # (typically if the builder is still virtual), and if 'size' fits,
+        # then we don't need any reallocation and can just set the
+        # characters in the buffer, in a way that won't force anything.
+        if (jit.isconstant(ll_builder.current_pos) and
+            jit.isconstant(ll_builder.current_end) and
+            size <= (ll_builder.current_end - ll_builder.current_pos) and
+            size <= 16):
+            pos = ll_builder.current_pos
+            buf = ll_builder.current_buf
+            stop = pos + size
+            ll_builder.current_pos = stop
+            while pos < stop:
+                buf.chars[pos] = ll_str.chars[start]
+                pos += 1
+                start += 1
+            return True
+        # turn appends of length 1 into ll_append_char().
         if size == 1:
             ll_append_char(ll_builder, ll_str.chars[start])
             return True
+        # turn appends of length 2 to 10 into residual calls to
+        # specialized functions, for the lengths 2 to 10, where
+        # gcc will optimize the known-length copy_string_contents()
+        # as much as possible.
         for func0, funcstart, for_size in unroll_func_for_size:
             if size == for_size:
                 if jit.isconstant(start) and start == 0:
@@ -263,9 +286,26 @@ def _ll_append_multiple_char(ll_builder, char, times):
     for i in xrange(pos, end):
         buf.chars[i] = char
 
+@jit.unroll_safe
 def ll_jit_try_append_multiple_char(ll_builder, char, size):
     if jit.isconstant(size):
         if size == 0:
+            return True
+        # a special case: if the builder's pos and end are still contants
+        # (typically if the builder is still virtual), and if 'size' fits,
+        # then we don't need any reallocation and can just set the
+        # characters in the buffer, in a way that won't force anything.
+        if (jit.isconstant(ll_builder.current_pos) and
+            jit.isconstant(ll_builder.current_end) and
+            size <= (ll_builder.current_end - ll_builder.current_pos) and
+            size <= 16):
+            pos = ll_builder.current_pos
+            buf = ll_builder.current_buf
+            stop = pos + size
+            ll_builder.current_pos = stop
+            while pos < stop:
+                buf.chars[pos] = char
+                pos += 1
             return True
         if size == 1:
             ll_append_char(ll_builder, char)
