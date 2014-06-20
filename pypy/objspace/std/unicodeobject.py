@@ -24,7 +24,7 @@ __all__ = ['W_UnicodeObject', 'wrapunicode', 'encode_object', 'decode_object',
 
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
-    _immutable_fields_ = ['_value']
+    _immutable_fields_ = ['_value', '_utf8?']
 
     def __init__(w_self, unistr):
         assert isinstance(unistr, unicode)

@@ -164,12 +164,9 @@ class PyFrame(W_Root):
         for i in range(nfreevars):
             self.cells[i + ncellvars] = outer_func.closure[i]
 
-    def is_generator(self):
-        return self.getcode().co_flags & pycode.CO_GENERATOR
-            
     def run(self):
         """Start this frame's execution."""
-        if self.is_generator():
+        if self.getcode().co_flags & pycode.CO_GENERATOR:
             if self.getcode().co_flags & pycode.CO_YIELD_INSIDE_TRY:
                 from pypy.interpreter.generator import GeneratorIteratorWithDel
                 return self.space.wrap(GeneratorIteratorWithDel(self))
@@ -514,10 +511,10 @@ class PyFrame(W_Root):
         for i in range(min(len(varnames), self.getcode().co_nlocals)):
             name = varnames[i]
             w_value = self.locals_stack_w[i]
-            w_name = self.space.wrap(name.decode('utf-8'))
             if w_value is not None:
-                self.space.setitem(self.w_locals, w_name, w_value)
+                self.space.setitem_str(self.w_locals, name, w_value)
             else:
+                w_name = self.space.wrap(name.decode('utf-8'))
                 try:
                     self.space.delitem(self.w_locals, w_name)
                 except OperationError as e:
@@ -537,8 +534,7 @@ class PyFrame(W_Root):
             except ValueError:
                 pass
             else:
-                w_name = self.space.wrap(name)
-                self.space.setitem(self.w_locals, w_name, w_value)
+                self.space.setitem_str(self.w_locals, name, w_value)
 
 
     @jit.unroll_safe
@@ -551,13 +547,9 @@ class PyFrame(W_Root):
         new_fastlocals_w = [None] * numlocals
 
         for i in range(min(len(varnames), numlocals)):
-            w_name = self.space.wrap(varnames[i].decode('utf-8'))
-            try:
-                w_value = self.space.getitem(self.w_locals, w_name)
-            except OperationError, e:
-                if not e.match(self.space, self.space.w_KeyError):
-                    raise
-            else:
+            name = varnames[i]
+            w_value = self.space.finditem_str(self.w_locals, name)
+            if w_value is not None:
                 new_fastlocals_w[i] = w_value
 
         self.setfastscope(new_fastlocals_w)
@@ -566,13 +558,8 @@ class PyFrame(W_Root):
         for i in range(len(freevarnames)):
             name = freevarnames[i]
             cell = self.cells[i]
-            w_name = self.space.wrap(name)
-            try:
-                w_value = self.space.getitem(self.w_locals, w_name)
-            except OperationError, e:
-                if not e.match(self.space, self.space.w_KeyError):
-                    raise
-            else:
+            w_value = self.space.finditem_str(self.w_locals, name)
+            if w_value is not None:
                 cell.set(w_value)
 
     @jit.unroll_safe
