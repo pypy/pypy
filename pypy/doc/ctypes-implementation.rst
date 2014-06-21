@@ -72,13 +72,17 @@ necessary; this too could be improved.
 Here is a list of the limitations and missing features of the
 current implementation:
 
-* ``ctypes.pythonapi`` lets you access the CPython C API emulation layer
-  of PyPy, at your own risks and without doing anything sensible about
-  the GIL.  Since PyPy 2.3, these functions are also named with an extra
-  "Py", for example ``PyPyInt_FromLong()``.  Basically, don't use this,
-  but it might more or less work in simple cases if you do.  (Obviously,
-  assuming the PyObject pointers you get have any particular fields in
-  any particular order is just going to crash.)
+* ``ctypes.pythonapi`` (Windows only) lets you access the CPython C API 
+  emulation layer. It does not work on PyPy at the moment, we are missing a
+  ``getfunc`` method for CDLL. Work was begun
+  to refactor the rpython implementation of _rawffi (in 
+  pypy/modules/_rawffi/alt) but that project has stalled. 
+
+  Note that even if it worked, our implementation would not do anything 
+  sensible about the GIL and the functions will be named with an extra
+  "Py", for example ``PyPyInt_FromLong()``.  Basically, don't use this.
+  Assuming the PyObject pointers you get have any particular fields in
+  any particular order is just going to crash.
 
 * We copy Python strings instead of having pointers to raw buffers
 

@@ -206,9 +206,9 @@ class AppTestApi(LeakCheckingTest):
         if sys.platform != "win32" or sys.version_info < (2, 6):
             skip("Windows Python >= 2.6 only")
         assert sys.dllhandle
-        assert sys.dllhandle.getaddressindll('PyPyErr_NewException')
-        import ctypes # slow
-        PyUnicode_GetDefaultEncoding = ctypes.pythonapi.PyPyUnicode_GetDefaultEncoding
+        assert sys.dllhandle.getaddressindll('cpyexttestErr_NewException')
+        import ctypes 
+        PyUnicode_GetDefaultEncoding = ctypes.pythonapi.cpyexttestUnicode_GetDefaultEncoding
         PyUnicode_GetDefaultEncoding.restype = ctypes.c_char_p
         assert PyUnicode_GetDefaultEncoding() == 'ascii'
 
