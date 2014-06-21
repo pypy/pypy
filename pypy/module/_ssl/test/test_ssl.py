@@ -241,6 +241,37 @@ class AppTestContext:
         ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
         assert _ssl.OP_ALL | _ssl.OP_NO_SSLv2 == ctx.options
 
+class AppTestSSLError:
+    spaceconfig = dict(usemodules=('_ssl', '_socket', 'binascii', 'thread'))
+
+    def test_str(self):
+        import _ssl
+        # The str() of a SSLError doesn't include the errno
+        e = _ssl.SSLError(1, "foo")
+        assert str(e) == "foo"
+        assert e.errno == 1
+        # Same for a subclass
+        e = _ssl.SSLZeroReturnError(1, "foo")
+        assert str(e) == "foo"
+        assert e.errno == 1
+
+    def test_subclass(self):
+        import ssl
+        import socket
+        # Check that the appropriate SSLError subclass is raised
+        # (this only tests one of them)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            s.listen(5)
+            c = socket.socket()
+            c.connect(s.getsockname())
+            c.setblocking(False)
+            with ctx.wrap_socket(c, False, do_handshake_on_connect=False) as c:
+                exc = raises(ssl.SSLWantReadError, c.do_handshake)
+                assert str(exc.value).startswith("The operation did not complete (read)"), s
+                # For compatibility
+                assert exc.value.errno == ssl.SSL_ERROR_WANT_READ
 
 
 SSL_CERTIFICATE = """
