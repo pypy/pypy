@@ -97,6 +97,11 @@ Papers
 Talks and Presentations 
 ----------------------------------
 
+*This part is no longer updated.*  The complete list is here__ (in
+alphabetical order).
+
+.. __: https://bitbucket.org/pypy/extradoc/src/extradoc/talk/
+
 Talks in 2010
 +++++++++++++
 
