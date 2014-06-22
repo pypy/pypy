@@ -304,6 +304,7 @@ class ThreadLocalReference(object):
             return getattr(self.local, 'value', None)
 
     @specialize.arg(0)
+    @jit.dont_look_inside
     def set(self, value):
         assert isinstance(value, self.Cls) or value is None
         if we_are_translated():
