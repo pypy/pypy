@@ -6,8 +6,6 @@ from pypy.interpreter.executioncontext import ExecutionContext
 
 ExecutionContext._signals_enabled = 0     # default value
 
-raw_thread_local = rthread.ThreadLocalReference(ExecutionContext)
-
 
 class OSThreadLocals:
     """Thread-local storage for OS-level threads.
@@ -16,8 +14,10 @@ class OSThreadLocals:
     os_thread.bootstrap()."""
 
     def __init__(self):
+        "NOT_RPYTHON"
         self._valuedict = {}   # {thread_ident: ExecutionContext()}
         self._cleanup_()
+        self.raw_thread_local = rthread.ThreadLocalReference(ExecutionContext)
 
     def _cleanup_(self):
         self._valuedict.clear()
@@ -35,7 +35,7 @@ class OSThreadLocals:
         self._valuedict[ident] = ec
         # This logic relies on hacks and _make_sure_does_not_move().
         # It only works because we keep the 'ec' alive in '_valuedict' too.
-        raw_thread_local.set(ec)
+        self.raw_thread_local.set(ec)
 
     def leave_thread(self, space):
         "Notification that the current thread is about to stop."
@@ -45,7 +45,7 @@ class OSThreadLocals:
             try:
                 thread_is_stopping(ec)
             finally:
-                raw_thread_local.set(None)
+                self.raw_thread_local.set(None)
                 ident = rthread.get_ident()
                 try:
                     del self._valuedict[ident]
@@ -53,7 +53,7 @@ class OSThreadLocals:
                     pass
 
     def get_ec(self):
-        ec = raw_thread_local.get()
+        ec = self.raw_thread_local.get()
         if not we_are_translated():
             assert ec is self._valuedict.get(rthread.get_ident(), None)
         return ec
