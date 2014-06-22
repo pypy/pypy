@@ -72,7 +72,7 @@ necessary; this too could be improved.
 Here is a list of the limitations and missing features of the
 current implementation:
 
-* ``ctypes.pythonapi`` (Windows only) lets you access the CPython C API 
+* ``ctypes.pythonapi`` lets you access the CPython C API 
   emulation layer. It does not work on PyPy at the moment, we are missing a
   ``getfunc`` method for CDLL. Work was begun
   to refactor the rpython implementation of _rawffi (in 
