@@ -10,6 +10,7 @@ from pypy.module.micronumpy import support, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.iterators import PureShapeIter, AxisIter, \
     AllButAxisIter
+from pypy.interpreter.argument import Arguments
 
 
 call2_driver = jit.JitDriver(
@@ -93,12 +94,13 @@ call_many_to_one_driver = jit.JitDriver(
 def call_many_to_one(space, shape, func, res_dtype, w_in, out):
     # out must hav been built. func needs no calc_type, is usually an
     # external ufunc
-    iters_and_states = [i.create_iter(shape) for i in w_in]
+    iters_and_states = [list(i.create_iter(shape)) for i in w_in]
     shapelen = len(shape)
+    out_iter, out_state = out.create_iter(shape)
     while not out_iter.done(out_state):
         call_many_to_one_driver.jit_merge_point(shapelen=shapelen, func=func,
                                      res_dtype=res_dtype)
-        vals = [None] + [i_s[0].getitem(i_s[1]) for i_s in iters_and_states]
+        vals = [i_s[0].getitem(i_s[1]) for i_s in iters_and_states]
         arglist = space.wrap(vals)
         out_val = space.call_args(func, Arguments.frompacked(space, arglist))
         out_iter.setitem(out_state, out_val.convert_to(space, res_dtype))
@@ -106,6 +108,39 @@ def call_many_to_one(space, shape, func, res_dtype, w_in, out):
             iters_and_states[i][1] = iters_and_states[i][0].next(iters_and_states[i][1])
         out_state = out_iter.next(out_state)
     return out
+
+call_many_to_many_driver = jit.JitDriver(
+    name='numpy_call_many_to_many',
+    greens=['shapelen', 'func', 'res_dtype'],
+    reds='auto')
+
+def call_many_to_many(space, shape, func, res_dtype, w_in, w_out):
+    # out must hav been built. func needs no calc_type, is usually an
+    # external ufunc
+    in_iters_and_states = [list(i.create_iter(shape)) for i in w_in]
+    shapelen = len(shape)
+    out_iters_and_states = [list(i.create_iter(shape)) for i in w_out]
+    # what does the function return?
+    while not out_iters_and_states[0][0].done(out_iters_and_states[0][1]):
+        call_many_to_many_driver.jit_merge_point(shapelen=shapelen, func=func,
+                                     res_dtype=res_dtype)
+        vals = [i_s[0].getitem(i_s[1]) for i_s in in_iters_and_states]
+        arglist = space.wrap(vals)
+        out_vals = space.call_args(func, Arguments.frompacked(space, arglist))
+        # XXX bad form
+        if not isinstance(out_vals,(list, tuple)):
+            out_iter, out_state = out_iters_and_states[0]
+            out_iter.setitem(out_state, out_vals.convert_to(space, res_dtype))
+            out_iters_and_states[0][1] = out_iters_and_states[0][0].next(out_iters_and_states[0][1])
+        else:    
+            for i in range(len(out_iters_and_states)):
+                out_iter, out_state = out_iters_and_states[i]
+                out_iter.setitem(out_state, out_vals[i].convert_to(space, res_dtype))
+                out_iters_and_states[i][1] = out_iters_and_states[i][0].next(out_iters_and_states[i][1])
+        for i in range(len(iters_and_states)):
+            in_iters_and_states[i][1] = in_iters_and_states[i][0].next(in_iters_and_states[i][1])
+    return out
+
 
 
 def setslice(space, shape, target, source):

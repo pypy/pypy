@@ -493,7 +493,7 @@ class W_UfuncGeneric(W_Ufunc):
         self.nin = nin
         self.nout = nout
         self.nargs = nin + max(nout, 1) # ufuncs can always be called with an out=<> kwarg
-        if dtypes != 'match' and (len(dtypes) % len(funcs) != 0 or
+        if dtypes[0] != 'match' and (len(dtypes) % len(funcs) != 0 or
                                   len(dtypes) / len(funcs) != self.nargs):
             raise oefmt(space.w_ValueError,
                 "generic ufunc with %d functions, %d arguments, but %d dtypes",
@@ -527,11 +527,13 @@ class W_UfuncGeneric(W_Ufunc):
         index = self.type_resolver(space, inargs, outargs)
         self.alloc_outargs(space, index, inargs, outargs)
         # XXX handle inner-loop indexing
+        new_shape = inargs[0].get_shape()
+        res_dtype = outargs[0].get_dtype()
         if len(outargs) < 2:
-            return loop.call_many_to_one(space, new_shape, self.func,
+            return loop.call_many_to_one(space, new_shape, self.funcs[index],
                                          res_dtype, inargs, outargs[0])
-        return loop.call_many_to_many(space, new_shape, self.func,
-                                     res_dtype, inargs, out)
+        return loop.call_many_to_many(space, new_shape, self.funcs[index],
+                                     res_dtype, inargs, outargs)
 
     def type_resolver(self, space, index, outargs):
         # Find a match for the inargs.dtype in self.dtypes, like
@@ -954,16 +956,14 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     if space.is_none(w_dtypes) and not signature:
         raise oefmt(space.w_NotImplementedError,
              'object dtype requested but not implemented')
-    if space.isinstance_w(w_dtypes, space.w_str):
-        if not space.str_w(w_dtypes) == 'match':
-            raise oefmt(space.w_ValueError,
-                'unknown out_dtype value "%s"', space.str_w(w_dtypes))
-        dtypes = 'match'
     elif (space.isinstance_w(w_dtypes, space.w_tuple) or
             space.isinstance_w(w_dtypes, space.w_list)):
             dtypes = space.listview(w_dtypes)
-            for i in range(len(dtypes)):
-                dtypes[i] = descriptor.decode_w_dtype(space, dtypes[i])
+            if space.str_w(dtypes[0]) == 'match':
+                dtypes = ['match',]
+            else:    
+                for i in range(len(dtypes)):
+                    dtypes[i] = descriptor.decode_w_dtype(space, dtypes[i])
     else:
         raise oefmt(space.w_ValueError,
             'dtypes must be None or a list of dtypes')
@@ -976,9 +976,9 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
         raise oefmt(space.w_ValueError,
             'identity must be 0, 1, or None')
     if nin==1 and nout==1 and dtypes == 'match':
-        w_ret = W_Ufunc1(wrap_ext_func(func[0], name)
+        w_ret = W_Ufunc1(wrap_ext_func(func[0], name))
     elif nin==2 and nout==1 and dtypes == 'match':
-        w_ret = W_Ufunc2(wrap_ext_func(func[0]), name)
+        w_ret = W_Ufunc2(wrap_ext_func(func[0], name))
     else:
         w_ret = W_UfuncGeneric(space, func, name, identity, nin, nout, dtypes, signature)
     if doc:
