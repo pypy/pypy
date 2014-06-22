@@ -281,14 +281,18 @@ def gc_thread_after_fork(result_of_fork, opaqueaddr):
 
 class ThreadLocalReference(object):
     _COUNT = 1
+    OPAQUEID = lltype.OpaqueType("ThreadLocalRef",
+                                 hints={"threadlocalref": True})
 
     def __init__(self, Cls):
         "NOT_RPYTHON: must be prebuilt"
         import thread
         self.Cls = Cls
         self.local = thread._local()      # <- NOT_RPYTHON
-        self.unique_id = ThreadLocalReference._COUNT
+        unique_id = ThreadLocalReference._COUNT
         ThreadLocalReference._COUNT += 1
+        self.opaque_id = lltype.opaqueptr(ThreadLocalReference.OPAQUEID,
+                                          'tlref%d' % unique_id)
 
     def _freeze_(self):
         return True
@@ -298,7 +302,7 @@ class ThreadLocalReference(object):
         if we_are_translated():
             from rpython.rtyper.lltypesystem import rclass
             from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-            ptr = llop.threadlocalref_get(rclass.OBJECTPTR, self.unique_id)
+            ptr = llop.threadlocalref_get(rclass.OBJECTPTR, self.opaque_id)
             return cast_base_ptr_to_instance(self.Cls, ptr)
         else:
             return getattr(self.local, 'value', None)
@@ -310,6 +314,6 @@ class ThreadLocalReference(object):
         if we_are_translated():
             from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
             ptr = cast_instance_to_base_ptr(value)
-            llop.threadlocalref_set(lltype.Void, self.unique_id, ptr)
+            llop.threadlocalref_set(lltype.Void, self.opaque_id, ptr)
         else:
             self.local.value = value
