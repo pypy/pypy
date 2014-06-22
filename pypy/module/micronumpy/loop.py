@@ -127,7 +127,8 @@ def call_many_to_many(space, shape, func, res_dtype, w_in, w_out):
         vals = [i_s[0].getitem(i_s[1]) for i_s in in_iters_and_states]
         arglist = space.wrap(vals)
         out_vals = space.call_args(func, Arguments.frompacked(space, arglist))
-        # XXX bad form
+        # XXX bad form - out_vals should be a list or tuple of boxes.
+        # but func can return anything, 
         if not isinstance(out_vals,(list, tuple)):
             out_iter, out_state = out_iters_and_states[0]
             out_iter.setitem(out_state, out_vals.convert_to(space, res_dtype))

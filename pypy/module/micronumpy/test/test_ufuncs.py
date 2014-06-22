@@ -201,19 +201,27 @@ class AppTestUfuncs(BaseNumpyAppTest):
         def adder(a, b):
             return a+b
         try:
-            myufunc = frompyfunc(adder, 2, 1)
+            adder_ufunc0 = frompyfunc(adder, 2, 1)
+            adder_ufunc1 = frompyfunc(adder, 2, 1)
             int_func22 = frompyfunc(int, 2, 2)
             int_func12 = frompyfunc(int, 1, 2)
             retype = dtype(object)
         except NotImplementedError as e:
+            # dtype of returned value is object, which is not supported yet
             assert 'object' in str(e)
             # Use pypy specific extension for out_dtype
-            myufunc = frompyfunc(adder, 2, 1, dtypes=['match'])
-            int_func22 = frompyfunc(int, 2, 2, dtypes=['match'])
-            int_func12 = frompyfunc(int, 1, 2, dtypes=['match'])
+            adder_ufunc0 = frompyfunc(adder, 2, 1, dtypes=['match'])
+            adder_ufunc1 = frompyfunc([adder, adder], 2, 1, dtypes=[int, float])
+            int_func22 = frompyfunc([int, int], 2, 2, signature='()->()',
+                                    dtypes=[int, int, float, int])
+            int_func12 = frompyfunc([int, int], 1, 2, signature='()->()',
+                                    dtypes=[int, int, float, int])
             retype = dtype(int)
-        assert isinstance(myufunc, ufunc)
-        res = myufunc(arange(10), arange(10))
+        assert isinstance(adder_ufunc1, ufunc)
+        res = adder_ufunc0(arange(10), arange(10))
+        assert res.dtype == retype
+        assert all(res == arange(10) + arange(10))
+        res = adder_ufunc1(arange(10), arange(10))
         assert res.dtype == retype
         assert all(res == arange(10) + arange(10))
         raises(TypeError, frompyfunc, 1, 2, 3)
