@@ -244,10 +244,8 @@ def _get_dllhandle(space):
     handle = space.fromcache(State).get_pythonapi_handle()
 
     # Make a dll object with it
-    from pypy.module._rawffi.interp_rawffi import W_CDLL
-    from rpython.rlib.clibffi import RawCDLL
-    cdll = RawCDLL(handle)
-    return space.wrap(W_CDLL(space, "python api", cdll))
+    from pypy.module._rawffi.alt.interp_funcptr import W_CDLL
+    return space.wrap(W_CDLL(space, "python api", -1, handle=handle))
 
 def getsizeof(space, w_object, w_default=None):
     """Not implemented on PyPy."""

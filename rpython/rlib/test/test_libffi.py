@@ -186,6 +186,24 @@ class TestLibffiMisc(BaseFfiTest):
         chain.arg(10)
         sleep.call(chain, lltype.Void, is_struct=False)
 
+    def test_dll_create(self):
+        if os.name == 'nt':
+            import sys
+            if not isinstance(sys.dllhandle, int):
+                py.test.skip('Run with cpython, not pypy')
+            dll = CDLL(None, handle=sys.dllhandle)
+        else:
+            dll = CDLL(None)
+        try:
+            # The pythonapi of the translating python
+            dll.getaddressindll('Py_OptimizeFlag')
+        except KeyError:
+            try:
+                dll.getaddressindll('PyPy_OptimizeFlag')
+            except KeyError:
+                assert False, 'could not find function in pythonapi'
+            
+
 class TestLibffiCall(BaseFfiTest):
     """
     Test various kind of calls through libffi.

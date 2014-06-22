@@ -11,7 +11,7 @@ from rpython.rlib import clibffi
 from rpython.rlib.clibffi import FUNCFLAG_CDECL, FUNCFLAG_STDCALL, \
         AbstractFuncPtr, push_arg_as_ffiptr, c_ffi_call, FFI_TYPE_STRUCT
 from rpython.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
-from rpython.rlib.rdynload import DLLHANDLE
+from rpython.rlib.rdynload import DLLHANDLE, _WIN32
 
 import os
 
@@ -413,9 +413,12 @@ class Func(AbstractFuncPtr):
 
 # XXX: it partially duplicate the code in clibffi.py
 class CDLL(object):
-    def __init__(self, libname, mode=-1):
+    def __init__(self, libname, mode=-1, handle=rffi.VOIDP):
         """Load the library, or raises DLOpenError."""
         self.lib = rffi.cast(DLLHANDLE, 0)
+        if handle is not rffi.VOIDP :
+            self.lib = rffi.cast(DLLHANDLE, handle)
+            return
         with rffi.scoped_str2charp(libname) as ll_libname:
             self.lib = dlopen(ll_libname, mode)
 
