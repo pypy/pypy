@@ -7,7 +7,7 @@ from rpython.rlib.buffer import Buffer, SubBuffer
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
 
 
 def _buffer_setitem(space, buf, w_index, w_obj):
@@ -173,6 +173,7 @@ Create a new memoryview object which references the given object.
     __repr__    = interp2app(W_MemoryView.descr_repr),
     __enter__   = interp2app(W_MemoryView.descr_enter),
     __exit__    = interp2app(W_MemoryView.descr_exit),
+    __weakref__ = make_weakref_descr(W_MemoryView),
     tobytes     = interp2app(W_MemoryView.descr_tobytes),
     tolist      = interp2app(W_MemoryView.descr_tolist),
     release     = interp2app(W_MemoryView.descr_release),

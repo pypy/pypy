@@ -87,6 +87,11 @@ class AppTestMemoryView:
     def test_hash(self):
         raises(TypeError, "hash(memoryview(b'hello'))")
 
+    def test_weakref(self):
+        import weakref
+        m = memoryview(b'hello')
+        weakref.ref(m)
+
     def test_getitem_only_ints(self):
         class MyInt(object):
           def __init__(self, x):
