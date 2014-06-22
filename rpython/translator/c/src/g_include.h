@@ -19,7 +19,6 @@
 #include "src/address.h"
 #include "src/unichar.h"
 #include "src/llgroup.h"
-#include "src/threadlocal.h"
 
 #include "src/instrument.h"
 #include "src/asm.h"

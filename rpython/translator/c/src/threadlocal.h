@@ -42,10 +42,8 @@ void RPyThreadTLS_Create(RPyThreadTLS *result);
 #endif
 
 
-struct pypy_opaque_ThreadLocalRef { void *gcref; };
-
-#define OP_THREADLOCALREF_SET(tlref, ptr, _)   tlref->gcref = ptr
-#define OP_THREADLOCALREF_GET(tlref, ptr)      ptr = tlref->gcref
+#define OP_THREADLOCALREF_SET(tlref, ptr, _) RPyThreadStaticTLS_Set(*tlref, ptr)
+#define OP_THREADLOCALREF_GET(tlref, ptr)   ptr = RPyThreadStaticTLS_Get(*tlref)
 
 
 #endif /* _SRC_THREADLOCAL_H */

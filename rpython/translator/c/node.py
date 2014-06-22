@@ -969,7 +969,7 @@ class ThreadLocalRefOpaqueNode(ContainerNode):
         return []
 
     def initializationexpr(self, decoration=''):
-        return ['{ NULL }']
+        return ['0']
 
     def startupcode(self):
         p = self.getptrname()

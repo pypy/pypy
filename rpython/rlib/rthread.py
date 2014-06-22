@@ -282,7 +282,9 @@ def gc_thread_after_fork(result_of_fork, opaqueaddr):
 class ThreadLocalReference(object):
     _COUNT = 1
     OPAQUEID = lltype.OpaqueType("ThreadLocalRef",
-                                 hints={"threadlocalref": True})
+                                 hints={"threadlocalref": True,
+                                        "external": "C",
+                                        "c_name": "RPyThreadStaticTLS"})
 
     def __init__(self, Cls):
         "NOT_RPYTHON: must be prebuilt"
