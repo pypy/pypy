@@ -919,6 +919,17 @@ class LLFrame(object):
     def op_stack_current(self):
         return 0
 
+    def op_threadlocalref_set(self, key, value):
+        try:
+            d = self.llinterpreter.tlrefsdict
+        except AttributeError:
+            d = self.llinterpreter.tlrefsdict = {}
+        d[key._obj] = value
+
+    def op_threadlocalref_get(self, key):
+        d = self.llinterpreter.tlrefsdict
+        return d[key._obj]
+
     # __________________________________________________________
     # operations on addresses
 
