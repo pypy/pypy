@@ -275,7 +275,9 @@ def gc_thread_after_fork(result_of_fork, opaqueaddr):
 
 # ____________________________________________________________
 #
-# Thread-locals.  Only for references that are not changed often.
+# Thread-locals.  Only for references that change "not too often" --
+# for now, the JIT compiles get() as a loop-invariant, so basically
+# don't change them.
 # KEEP THE REFERENCE ALIVE, THE GC DOES NOT FOLLOW THEM SO FAR!
 # We use _make_sure_does_not_move() to make sure the pointer will not move.
 

@@ -159,7 +159,7 @@ class FakeBuiltinCallControl:
             elif oopspecindex == EI.OS_RAW_FREE:
                 assert extraeffect == EI.EF_CANNOT_RAISE
             elif oopspecindex == EI.OS_THREADLOCALREF_GET:
-                assert extraeffect == None
+                assert extraeffect == EI.EF_LOOPINVARIANT
             else:
                 assert extraeffect == EI.EF_ELIDABLE_CANNOT_RAISE
         return 'calldescr-%d' % oopspecindex
