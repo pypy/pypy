@@ -85,7 +85,7 @@ class AppTestMemoryView:
         assert repr(memoryview(b'hello')).startswith('<memory at 0x')
 
     def test_hash(self):
-        raises(TypeError, "hash(memoryview(b'hello'))")
+        assert hash(memoryview(b'hello')) == hash(b'hello')
 
     def test_weakref(self):
         import weakref

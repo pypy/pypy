@@ -4,6 +4,7 @@ Implementation of the 'buffer' and 'memoryview' types.
 import operator
 
 from rpython.rlib.buffer import Buffer, SubBuffer
+from rpython.rlib.objectmodel import compute_hash
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
@@ -34,6 +35,7 @@ class W_MemoryView(W_Root):
     def __init__(self, buf):
         assert isinstance(buf, Buffer)
         self.buf = buf
+        self._hash = -1
 
     def buffer_w(self, space, flags):
         self._check_released(space)
@@ -142,6 +144,15 @@ class W_MemoryView(W_Root):
         else:
             return self.getrepr(space, u'memory')
 
+    def descr_hash(self, space):
+        if self._hash == -1:
+            self._check_released(space)
+            if not self.buf.readonly:
+                raise OperationError(space.w_ValueError, space.wrap(
+                        "cannot hash writable memoryview object"))
+            self._hash = compute_hash(self.buf.as_str())
+        return space.wrap(self._hash)
+
     def descr_release(self, space):
         self.buf = None
 
@@ -171,6 +182,7 @@ Create a new memoryview object which references the given object.
     __ne__      = interp2app(W_MemoryView.descr_ne),
     __setitem__ = interp2app(W_MemoryView.descr_setitem),
     __repr__    = interp2app(W_MemoryView.descr_repr),
+    __hash__      = interp2app(W_MemoryView.descr_hash),
     __enter__   = interp2app(W_MemoryView.descr_enter),
     __exit__    = interp2app(W_MemoryView.descr_exit),
     __weakref__ = make_weakref_descr(W_MemoryView),
