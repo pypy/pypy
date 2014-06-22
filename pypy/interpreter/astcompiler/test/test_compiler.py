@@ -965,6 +965,15 @@ class TestCompiler:
         yield self.st, 'x = list(d for d in [1] or [])', 'x', [1]
         yield self.st, 'y = [d for d in [1] or []]', 'y', [1]
 
+    def test_yield_from(self):
+        test = """if 1:
+        def f():
+            yield from range(3)
+        def g():
+            return list(f())
+        """
+        yield self.st, test, "g()", range(3)
+
 
 class AppTestCompiler:
 

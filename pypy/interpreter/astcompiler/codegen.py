@@ -871,11 +871,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_VALUE)
 
-    def visit_YieldFrom(self, yie):
-        # XXX not correctly implemented.
-        self.update_position(yie.lineno)
-        yie.value.walkabout(self)
-        self.emit_op(ops.YIELD_VALUE)
+    def visit_YieldFrom(self, yfr):
+        self.update_position(yfr.lineno)
+        yfr.value.walkabout(self)
+        self.emit_op(ops.GET_ITER)
+        self.load_const(self.space.w_None)
+        self.emit_op(ops.YIELD_FROM)
 
     def visit_Num(self, num):
         self.update_position(num.lineno)

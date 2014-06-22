@@ -401,6 +401,8 @@ class __extend__(pyframe.PyFrame):
                 self.WITH_CLEANUP(oparg, next_instr)
             elif opcode == opcodedesc.YIELD_VALUE.index:
                 self.YIELD_VALUE(oparg, next_instr)
+            elif opcode == opcodedesc.YIELD_FROM.index:
+                self.YIELD_FROM(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -999,6 +1001,34 @@ class __extend__(pyframe.PyFrame):
 
     def YIELD_VALUE(self, oparg, next_instr):
         raise Yield
+
+    def YIELD_FROM(self, oparg, next_instr):
+        space = self.space
+        w_value = self.popvalue()
+        w_gen = self.peekvalue()
+        try:
+            if space.is_none(w_value):
+                w_retval = space.next(w_gen)
+            else:
+                w_retval = space.call_method(w_gen, "send", w_value)
+        except OperationError as e:
+            if not e.match(self.space, self.space.w_StopIteration):
+                raise
+            self.popvalue()  # Remove iter from stack
+            try:
+                w_value = space.getattr(e.get_w_value(space), space.wrap("value"))
+            except OperationError as e:
+                if not e.match(self.space, self.space.w_AttributeError):
+                    raise
+                w_value = space.w_None
+            self.pushvalue(w_value)
+            return next_instr
+        else:
+            # iter remains on stack, w_retval is value to be yielded.
+            self.pushvalue(w_retval)
+            # and repeat...
+            self.last_instr = self.last_instr - 1
+            raise Yield
 
     def jump_absolute(self, jumpto, ec):
         # this function is overridden by pypy.module.pypyjit.interp_jit

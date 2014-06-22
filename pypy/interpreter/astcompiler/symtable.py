@@ -431,6 +431,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.scope.note_yield(yie)
         ast.GenericASTVisitor.visit_Yield(self, yie)
 
+    def visit_YieldFrom(self, yfr):
+        self.scope.note_yield(yfr)
+        ast.GenericASTVisitor.visit_YieldFrom(self, yfr)
+
     def visit_Global(self, glob):
         for name in glob.names:
             old_role = self.scope.lookup_role(name)
