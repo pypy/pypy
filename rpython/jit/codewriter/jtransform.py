@@ -1903,6 +1903,14 @@ class Transformer(object):
                              None)
         return [op0, op1]
 
+    def rewrite_op_threadlocalref_get(self, op):
+        opaqueid = op.args[0].value
+        op1 = self.prepare_builtin_call(op, 'threadlocalref_getter', [],
+                                        extra=(opaqueid,),
+                                        extrakey=opaqueid._obj)
+        return self.handle_residual_call(op1,
+            oopspecindex=EffectInfo.OS_THREADLOCALREF_GET)
+
 # ____________________________________________________________
 
 class NotSupported(Exception):

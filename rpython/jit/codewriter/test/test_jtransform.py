@@ -147,6 +147,7 @@ class FakeBuiltinCallControl:
              EI.OS_UNIEQ_LENGTHOK:       ([PUNICODE, PUNICODE], INT),
              EI.OS_RAW_MALLOC_VARSIZE_CHAR: ([INT], ARRAYPTR),
              EI.OS_RAW_FREE:             ([ARRAYPTR], lltype.Void),
+             EI.OS_THREADLOCALREF_GET:   ([], rclass.OBJECTPTR),
             }
             argtypes = argtypes[oopspecindex]
             assert argtypes[0] == [v.concretetype for v in op.args[1:]]
@@ -157,6 +158,8 @@ class FakeBuiltinCallControl:
                 assert extraeffect == EI.EF_CAN_RAISE
             elif oopspecindex == EI.OS_RAW_FREE:
                 assert extraeffect == EI.EF_CANNOT_RAISE
+            elif oopspecindex == EI.OS_THREADLOCALREF_GET:
+                assert extraeffect == None
             else:
                 assert extraeffect == EI.EF_ELIDABLE_CANNOT_RAISE
         return 'calldescr-%d' % oopspecindex
@@ -1299,6 +1302,23 @@ def test_cast_opaque_ptr():
     assert op1.args == [v1]
     assert op1.result is None
     assert op2 is None
+
+def test_threadlocalref_get():
+    from rpython.rtyper.lltypesystem import rclass
+    from rpython.rlib.rthread import ThreadLocalReference
+    OS_THREADLOCALREF_GET = effectinfo.EffectInfo.OS_THREADLOCALREF_GET
+    class Foo: pass
+    t = ThreadLocalReference(Foo)
+    v2 = varoftype(rclass.OBJECTPTR)
+    c_opaqueid = const(t.opaque_id)
+    op = SpaceOperation('threadlocalref_get', [c_opaqueid], v2)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op0 = tr.rewrite_operation(op)
+    assert op0.opname == 'residual_call_r_r'
+    assert op0.args[0].value == 'threadlocalref_getter' # pseudo-function as str
+    assert op0.args[1] == ListOfKind("ref", [])
+    assert op0.args[2] == 'calldescr-%d' % OS_THREADLOCALREF_GET
+    assert op0.result == v2
 
 def test_unknown_operation():
     op = SpaceOperation('foobar', [], varoftype(lltype.Void))
