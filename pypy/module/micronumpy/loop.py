@@ -103,7 +103,7 @@ def call_many_to_one(space, shape, func, res_dtype, w_in, out):
         vals = [i_s[0].getitem(i_s[1]) for i_s in iters_and_states]
         arglist = space.wrap(vals)
         out_val = space.call_args(func, Arguments.frompacked(space, arglist))
-        out_iter.setitem(out_state, out_val.convert_to(space, res_dtype))
+        out_iter.setitem(out_state, res_dtype.coerce(space, out_val))
         for i in range(len(iters_and_states)):
             iters_and_states[i][1] = iters_and_states[i][0].next(iters_and_states[i][1])
         out_state = out_iter.next(out_state)
@@ -131,16 +131,16 @@ def call_many_to_many(space, shape, func, res_dtype, w_in, w_out):
         # but func can return anything, 
         if not isinstance(out_vals,(list, tuple)):
             out_iter, out_state = out_iters_and_states[0]
-            out_iter.setitem(out_state, out_vals.convert_to(space, res_dtype))
+            out_iter.setitem(out_state, res_dtype.coerce(space, out_vals))
             out_iters_and_states[0][1] = out_iters_and_states[0][0].next(out_iters_and_states[0][1])
         else:    
             for i in range(len(out_iters_and_states)):
                 out_iter, out_state = out_iters_and_states[i]
                 out_iter.setitem(out_state, out_vals[i].convert_to(space, res_dtype))
                 out_iters_and_states[i][1] = out_iters_and_states[i][0].next(out_iters_and_states[i][1])
-        for i in range(len(iters_and_states)):
+        for i in range(len(in_iters_and_states)):
             in_iters_and_states[i][1] = in_iters_and_states[i][0].next(in_iters_and_states[i][1])
-    return out
+    return space.wrap(tuple(w_out))
 
 
 

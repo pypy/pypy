@@ -211,11 +211,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert 'object' in str(e)
             # Use pypy specific extension for out_dtype
             adder_ufunc0 = frompyfunc(adder, 2, 1, dtypes=['match'])
-            adder_ufunc1 = frompyfunc([adder, adder], 2, 1, dtypes=[int, float])
+            adder_ufunc1 = frompyfunc([adder, adder], 2, 1, dtypes=['match'])
             int_func22 = frompyfunc([int, int], 2, 2, signature='()->()',
-                                    dtypes=[int, int, float, int])
+                                    dtypes=['match'])
             int_func12 = frompyfunc([int, int], 1, 2, signature='()->()',
-                                    dtypes=[int, int, float, int])
+                                    dtypes=['match'])
             retype = dtype(int)
         assert isinstance(adder_ufunc1, ufunc)
         res = adder_ufunc0(arange(10), arange(10))
