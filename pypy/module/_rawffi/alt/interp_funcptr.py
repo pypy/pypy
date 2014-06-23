@@ -312,7 +312,7 @@ W_FuncPtr.typedef = TypeDef(
 # ========================================================================
 
 class W_CDLL(W_Root):
-    def __init__(self, space, name, mode, handle = rffi.VOIDP):
+    def __init__(self, space, name, mode):
         self.flags = libffi.FUNCFLAG_CDECL
         self.space = space
         if name is None:
@@ -320,7 +320,7 @@ class W_CDLL(W_Root):
         else:
             self.name = name
         try:
-            self.cdll = libffi.CDLL(name, mode, handle=handle)
+            self.cdll = libffi.CDLL(name, mode)
         except DLOpenError, e:
             raise wrap_dlopenerror(space, e, self.name)
 
