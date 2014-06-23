@@ -281,6 +281,11 @@ def gc_thread_after_fork(result_of_fork, opaqueaddr):
 # KEEP THE REFERENCE ALIVE, THE GC DOES NOT FOLLOW THEM SO FAR!
 # We use _make_sure_does_not_move() to make sure the pointer will not move.
 
+ecitl = ExternalCompilationInfo(
+    includes = ['src/threadlocal.h'],
+    separate_module_files = [translator_c_dir / 'src' / 'threadlocal.c'])
+ensure_threadlocal = rffi.llexternal_use_eci(ecitl)
+
 class ThreadLocalReference(object):
     _COUNT = 1
     OPAQUEID = lltype.OpaqueType("ThreadLocalRef",
@@ -320,6 +325,7 @@ class ThreadLocalReference(object):
                     gcref = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
                     _make_sure_does_not_move(gcref)
                 llop.threadlocalref_set(lltype.Void, opaque_id, ptr)
+                ensure_threadlocal()
             else:
                 self.local.value = value
 
