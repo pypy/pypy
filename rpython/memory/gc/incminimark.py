@@ -686,15 +686,23 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             self.minor_and_major_collection()
 
-    def move_nursery_top(self, totalsize):
-        size = self.nursery_cleanup
-        ll_assert(self.nursery_real_top - self.nursery_top >= size,
-            "nursery_cleanup not a divisor of nursery_size - initial_cleanup")
-        ll_assert(llmemory.raw_malloc_usage(totalsize) <= size,
-            "totalsize > nursery_cleanup")
+    def try_move_nursery_top(self, totalsize):
+        """Tries to move 'self.nursery_top' to accommodate
+        an object of 'totalsize'. Returns 'True' on success, otherwise
+        'False'. In case of failing (returned 'False') a minor collection
+        is needed."""
+
+        # in general we always move 'self.nursery_top' by 'self.nursery_cleanup'.
+        # However, because of the presence of pinned objects there are cases where
+        # the GC can't move by 'self.nursery_cleanup' without overflowing the arena.
+        # For such a case we use the space left in the nursery.
+        size = min(self.nursery_cleanup, self.nursery_real_top - self.nursery_top)
+        if llmemory.raw_malloc_usage(totalsize) > size:
+            return False
         llarena.arena_reset(self.nursery_top, size, 2)
         self.nursery_top += size
-    move_nursery_top._always_inline_ = True
+        return True
+    try_move_nursery_top._always_inline_ = True
 
     def collect_and_reserve(self, prev_result, totalsize):
         """To call when nursery_free overflows nursery_top.
@@ -728,10 +736,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             else:
                 #
                 # no barriers (i.e. pinned objects) after 'nursery_free'.
-                # if possible just enlarge the used part of the nursery.
-                # otherwise we are forced to clean up the nursery.
-                if self.nursery_top < self.nursery_real_top:
-                    self.move_nursery_top(totalsize)
+                # If possible just enlarge the used part of the nursery.
+                # Otherwise we are forced to clean up the nursery.
+                if self.try_move_nursery_top(totalsize):
                     return prev_result
                 #
                 self.minor_collection()
@@ -1623,13 +1630,16 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # reset everything after the last pinned object till the end of the arena
         llarena.arena_reset(prev, self.nursery_real_top - prev, 0)
         #
-        # make sure we have some clean space to use after a minor collection
-        if self.nursery_real_top - prev >= self.nursery_cleanup:
+        # We assume that there are only a few pinned objects. Therefore, if there
+        # is 'self.nursery_cleanup' space between the nursery's start ('self.nursery')
+        # and the last pinned object ('prev'), we conclude that there is enough zeroed
+        # space inside the arena to use for new allocation. Otherwise we fill
+        # the nursery with zeros for 'self.nursery_cleanup' of space.
+        if prev - self.nursery >= self.nursery_cleanup:
+            nursery_barriers.append(prev)
+        else:
             llarena.arena_reset(prev, self.nursery_cleanup, 2)
             nursery_barriers.append(prev + self.nursery_cleanup)
-        else:
-            llarena.arena_reset(prev, self.nursery_real_top - prev, 2)
-            nursery_barriers.append(self.nursery_real_top)
         #
         self.nursery_barriers = nursery_barriers
         self.surviving_pinned_objects.delete()
