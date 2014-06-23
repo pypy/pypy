@@ -733,6 +733,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # nursery.
                 self.nursery_free = self.nursery_top + pinned_obj_size
                 self.nursery_top = self.nursery_barriers.popleft()
+                #
+                # because we encountered a barrier, we also have to fix
+                # 'prev_result' as the one provided as a method parameter
+                # can't be used as there is no space between 'prev_result'
+                # and the barrier for 'totalsize'.
+                prev_result = self.nursery_free
             else:
                 #
                 # no barriers (i.e. pinned objects) after 'nursery_free'.
