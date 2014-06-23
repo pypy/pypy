@@ -7,7 +7,7 @@ from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import support, constants as NPY
-from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.iterators import PureShapeIter, AxisIter, \
     AllButAxisIter
 from pypy.interpreter.argument import Arguments
@@ -82,67 +82,89 @@ def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
         obj_state = obj_iter.next(obj_state)
     return out
 
-setslice_driver = jit.JitDriver(name='numpy_setslice',
-                                greens = ['shapelen', 'dtype'],
-                                reds = 'auto')
-
 call_many_to_one_driver = jit.JitDriver(
     name='numpy_call_many_to_one',
-    greens=['shapelen', 'func', 'res_dtype'],
+    greens=['shapelen', 'nin', 'func', 'res_dtype'],
     reds='auto')
 
-def call_many_to_one(space, shape, func, res_dtype, w_in, out):
+def call_many_to_one(space, shape, func, res_dtype, in_args, out):
     # out must hav been built. func needs no calc_type, is usually an
     # external ufunc
-    iters_and_states = [list(i.create_iter(shape)) for i in w_in]
+    nin = len(in_args)
+    in_iters = [None] * nin
+    in_states = [None] * nin
+    for i in range(nin):
+        assert isinstance(in_args[i], W_NDimArray)
+        in_iter, in_state = in_args[i].create_iter(shape)
+        in_iters[i] = in_iter
+        in_states[i] = in_state
     shapelen = len(shape)
+    assert isinstance(out, W_NDimArray)
     out_iter, out_state = out.create_iter(shape)
+    vals = [None] * nin
     while not out_iter.done(out_state):
         call_many_to_one_driver.jit_merge_point(shapelen=shapelen, func=func,
-                                     res_dtype=res_dtype)
-        vals = [i_s[0].getitem(i_s[1]) for i_s in iters_and_states]
-        arglist = space.wrap(vals)
+                                     res_dtype=res_dtype, nin=nin)
+        for i in range(nin):
+            vals[i] = in_iters[i].getitem(in_states[i])
+        arglist = space.newlist(vals)
         out_val = space.call_args(func, Arguments.frompacked(space, arglist))
         out_iter.setitem(out_state, res_dtype.coerce(space, out_val))
-        for i in range(len(iters_and_states)):
-            iters_and_states[i][1] = iters_and_states[i][0].next(iters_and_states[i][1])
+        for i in range(nin):
+            in_states[i] = in_iters[i].next(in_states[i])
         out_state = out_iter.next(out_state)
     return out
 
 call_many_to_many_driver = jit.JitDriver(
     name='numpy_call_many_to_many',
-    greens=['shapelen', 'func', 'res_dtype'],
+    greens=['shapelen', 'nin', 'nout', 'func', 'res_dtype'],
     reds='auto')
 
-def call_many_to_many(space, shape, func, res_dtype, w_in, w_out):
+def call_many_to_many(space, shape, func, res_dtype, in_args, out_args):
     # out must hav been built. func needs no calc_type, is usually an
     # external ufunc
-    in_iters_and_states = [list(i.create_iter(shape)) for i in w_in]
+    nin = len(in_args)
+    in_iters = [None] * nin
+    in_states = [None] * nin
+    nout = len(out_args)
+    out_iters = [None] * nout
+    out_states = [None] * nout
+    for i in range(nin):
+        assert isinstance(in_args[i], W_NDimArray)
+        in_iter, in_state = in_args[i].create_iter(shape)
+        in_iters[i] = in_iter
+        in_states[i] = in_state
+    for i in range(nout):
+        assert isinstance(out_args[i], W_NDimArray)
+        out_iter, out_state = out_args[i].create_iter(shape)
+        out_iters[i] = out_iter
+        out_states[i] = out_state
     shapelen = len(shape)
-    out_iters_and_states = [list(i.create_iter(shape)) for i in w_out]
+    vals = [None] * nin
     # what does the function return?
-    while not out_iters_and_states[0][0].done(out_iters_and_states[0][1]):
+    while not out_iters[0].done(out_states[0]):
         call_many_to_many_driver.jit_merge_point(shapelen=shapelen, func=func,
-                                     res_dtype=res_dtype)
-        vals = [i_s[0].getitem(i_s[1]) for i_s in in_iters_and_states]
-        arglist = space.wrap(vals)
+                                     res_dtype=res_dtype, nin=nin, nout=nout)
+        for i in range(nin):
+            vals[i] = in_iters[i].getitem(in_states[i])
+        arglist = space.newlist(vals)
         out_vals = space.call_args(func, Arguments.frompacked(space, arglist))
         # XXX bad form - out_vals should be a list or tuple of boxes.
         # but func can return anything, 
-        if not isinstance(out_vals,(list, tuple)):
-            out_iter, out_state = out_iters_and_states[0]
-            out_iter.setitem(out_state, res_dtype.coerce(space, out_vals))
-            out_iters_and_states[0][1] = out_iters_and_states[0][0].next(out_iters_and_states[0][1])
+        if not isinstance(out_vals, list) and not isinstance(out_vals, tuple):
+            out_iters[0].setitem(out_states[0], res_dtype.coerce(space, out_vals))
+            out_states[0] = out_iters[0].next(out_states[0])
         else:    
-            for i in range(len(out_iters_and_states)):
-                out_iter, out_state = out_iters_and_states[i]
-                out_iter.setitem(out_state, out_vals[i].convert_to(space, res_dtype))
-                out_iters_and_states[i][1] = out_iters_and_states[i][0].next(out_iters_and_states[i][1])
-        for i in range(len(in_iters_and_states)):
-            in_iters_and_states[i][1] = in_iters_and_states[i][0].next(in_iters_and_states[i][1])
-    return space.wrap(tuple(w_out))
+            for i in range(len(out_vals)):
+                out_iters[i].setitem(out_states[i], res_dtype.coerce(space, out_vals[i]))
+                out_states[i] = out_iters[i].next(out_states[i])
+        for i in range(nin):
+            in_states[i] = in_iters[i].next(in_states[i])
+    return space.newtuple([convert_to_array(space, o) for o in out_args])
 
-
+setslice_driver = jit.JitDriver(name='numpy_setslice',
+                                greens = ['shapelen', 'dtype'],
+                                reds = 'auto')
 
 def setslice(space, shape, target, source):
     # note that unlike everything else, target and source here are

@@ -21,8 +21,9 @@ def done_if_false(dtype, val):
 
 class W_Ufunc(W_Root):
     _immutable_fields_ = [
-        "name", "promote_to_largest", "promote_to_float", "promote_bools",
-        "identity", "int_only", "allow_bool", "allow_complex", "complex_to_float"
+        "name", "promote_to_largest", "promote_to_float", "promote_bools", "nin",
+        "identity", "int_only", "allow_bool", "allow_complex",
+        "complex_to_float", "nargs", "nout", "signature"
     ]
 
     def __init__(self, name, promote_to_largest, promote_to_float, promote_bools,
@@ -475,10 +476,9 @@ class W_UfuncGeneric(W_Ufunc):
     If dtypes == 'match', only one argument is provided and the output dtypes
     will match the input dtype (not cpython numpy compatible)
     '''
-    _immutable_fields_ = ["funcs", "signature", "nin", "nout", "nargs",
-                          "dtypes", "data"]
+    _immutable_fields_ = ["funcs", "dtypes", "data"]
 
-    def __init__(self, space, funcs, name, identity, nin, nout, dtypes, signature):
+    def __init__(self, space, funcs, name, identity, nin, nout, dtypes, signature, match_dtypes=False):
         # XXX make sure funcs, signature, dtypes, nin, nout are consistent
 
         # These don't matter, we use the signature and dtypes for determining
@@ -492,8 +492,9 @@ class W_UfuncGeneric(W_Ufunc):
         self.dtypes = dtypes
         self.nin = nin
         self.nout = nout
+        self.match_dtypes = match_dtypes
         self.nargs = nin + max(nout, 1) # ufuncs can always be called with an out=<> kwarg
-        if dtypes[0] != 'match' and (len(dtypes) % len(funcs) != 0 or
+        if not match_dtypes and (len(dtypes) % len(funcs) != 0 or
                                   len(dtypes) / len(funcs) != self.nargs):
             raise oefmt(space.w_ValueError,
                 "generic ufunc with %d functions, %d arguments, but %d dtypes",
@@ -509,7 +510,7 @@ class W_UfuncGeneric(W_Ufunc):
         out = None
         inargs = []
         if len(args_w) < self.nin:
-            raise oefmt(space.ValueError,
+            raise oefmt(space.w_ValueError,
                  '%s called with too few input args, expected at least %d got %d',
                  self.name, self.nin, len(args_w))
         for i in range(self.nin):
@@ -528,6 +529,7 @@ class W_UfuncGeneric(W_Ufunc):
         self.alloc_outargs(space, index, inargs, outargs)
         # XXX handle inner-loop indexing
         new_shape = inargs[0].get_shape()
+        assert isinstance(outargs[0], W_NDimArray)
         res_dtype = outargs[0].get_dtype()
         if len(outargs) < 2:
             return loop.call_many_to_one(space, new_shape, self.funcs[index],
@@ -548,7 +550,6 @@ class W_UfuncGeneric(W_Ufunc):
         for i in range(len(outargs)):
             if outargs[i] is None:
                 outargs[i] = W_NDimArray.from_shape(space, temp_shape, dtype, order)
-
 
     def prep_call(self, space, index, inargs, outargs):
         # Use the index and signature to determine
@@ -953,40 +954,33 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
             raise oefmt(space.w_TypeError, 'func must be callable')
         func = [w_func]
 
+    match_dtypes = False    
     if space.is_none(w_dtypes) and not signature:
         raise oefmt(space.w_NotImplementedError,
              'object dtype requested but not implemented')
     elif (space.isinstance_w(w_dtypes, space.w_tuple) or
             space.isinstance_w(w_dtypes, space.w_list)):
-            dtypes = space.listview(w_dtypes)
-            if space.str_w(dtypes[0]) == 'match':
-                dtypes = ['match',]
+            _dtypes = space.listview(w_dtypes)
+            if space.str_w(_dtypes[0]) == 'match':
+                dtypes = []
+                match_dtypes = True
             else:    
+                dtypes = [None]*len(_dtypes)
                 for i in range(len(dtypes)):
-                    dtypes[i] = descriptor.decode_w_dtype(space, dtypes[i])
+                    dtypes[i] = descriptor.decode_w_dtype(space, _dtypes[i])
     else:
         raise oefmt(space.w_ValueError,
             'dtypes must be None or a list of dtypes')
 
     if space.is_none(w_identity):
-        identity = None
-    elif space.isinstance_w(w_identity, space.int_w):
-        identity = space.int_w(w_identity)
-    else:
-        raise oefmt(space.w_ValueError,
-            'identity must be 0, 1, or None')
-    if nin==1 and nout==1 and dtypes[0] == 'match':
-        w_ret = W_Ufunc1(wrap_ext_func(space, func[0]), name)
-    elif nin==2 and nout==1 and dtypes[0] == 'match':
-        w_ret = W_Ufunc2(wrap_ext_func(space, func[0]), name)
-    else:
-        w_ret = W_UfuncGeneric(space, func, name, identity, nin, nout, dtypes, signature)
+        identity =  None
+    else:    
+        identity = \
+            descriptor.get_dtype_cache(space).w_longdtype.box(w_identity)
+
+    w_ret = W_UfuncGeneric(space, func, name, identity, nin, nout, dtypes, signature,
+                                match_dtypes=match_dtypes)
     if doc:
         w_ret.w_doc = space.wrap(doc)
     return w_ret
 
-def wrap_ext_func(space, func):
-    def _func(calc_dtype, w_left, w_right):
-        arglist = space.wrap([w_left, w_right])
-        return space.call_args(func, Arguments.frompacked(space, arglist))
-    return _func
