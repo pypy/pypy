@@ -1,4 +1,4 @@
-import gc
+import gc, time
 from rpython.rlib.rthread import *
 from rpython.translator.c.test.test_boehm import AbstractGCTestClass
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -28,6 +28,23 @@ def test_thread_error():
         pass
     else:
         py.test.fail("Did not raise")
+
+def test_tlref_untranslated():
+    class FooBar(object):
+        pass
+    t = ThreadLocalReference(FooBar)
+    results = []
+    def subthread():
+        x = FooBar()
+        results.append(t.get() is None)
+        t.set(x)
+        results.append(t.get() is x)
+        time.sleep(0.2)
+        results.append(t.get() is x)
+    for i in range(5):
+        start_new_thread(subthread, ())
+    time.sleep(0.5)
+    assert results == [True] * 15
 
 
 class AbstractThreadTests(AbstractGCTestClass):
@@ -198,6 +215,20 @@ class AbstractThreadTests(AbstractGCTestClass):
         res = fn()
         assert res >= 0.95
 
+    def test_tlref(self):
+        class FooBar(object):
+            pass
+        t = ThreadLocalReference(FooBar)
+        def f():
+            x1 = FooBar()
+            t.set(x1)
+            import gc; gc.collect()
+            assert t.get() is x1
+            return 42
+        fn = self.getcompiled(f, [])
+        res = fn()
+        assert res == 42
+
 #class TestRunDirectly(AbstractThreadTests):
 #    def getcompiled(self, f, argtypes):
 #        return f
@@ -208,4 +239,4 @@ class TestUsingBoehm(AbstractThreadTests):
     gcpolicy = 'boehm'
 
 class TestUsingFramework(AbstractThreadTests):
-    gcpolicy = 'generation'
+    gcpolicy = 'minimark'

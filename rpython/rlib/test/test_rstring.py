@@ -239,6 +239,7 @@ class TestTranslates(BaseRtypingTest):
             res = res and split('a//b//c//d', '//') == ['a', 'b', 'c', 'd']
             res = res and split(' a\ta\na b') == ['a', 'a', 'a', 'b']
             res = res and split('a//b//c//d', '//', 2) == ['a', 'b', 'c//d']
+            res = res and split('abcd,efghi', ',') == ['abcd', 'efghi']
             res = res and split(u'a//b//c//d', u'//') == [u'a', u'b', u'c', u'd']
             res = res and split(u'endcase test', u'test') == [u'endcase ', u'']
             res = res and rsplit('a|b|c|d', '|', 2) == ['a|b', 'c', 'd']

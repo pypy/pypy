@@ -508,7 +508,10 @@ def descr_new_funcptr(space, w_tp, addr, w_args, w_res, flags=FUNCFLAG_CDECL):
     argshapes = unpack_argshapes(space, w_args)
     resshape = unpack_resshape(space, w_res)
     ffi_args = [shape.get_basic_ffi_type() for shape in argshapes]
-    ffi_res = resshape.get_basic_ffi_type()
+    if resshape is not None:
+        ffi_res = resshape.get_basic_ffi_type()
+    else:
+        ffi_res = ffi_type_void
     try:
         ptr = RawFuncPtr('???', ffi_args, ffi_res, rffi.cast(rffi.VOIDP, addr),
                          flags)

@@ -71,13 +71,13 @@ class TestCall(BaseTestPyPyC):
                                     "getfield_gc", "guard_value",
                                     "guard_not_invalidated"]
         ops = entry_bridge.ops_by_id('add', opcode='LOAD_GLOBAL')
-        assert log.opnames(ops) == ["guard_not_invalidated"]
+        assert log.opnames(ops) == []
         #
         ops = entry_bridge.ops_by_id('call', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == []
         #
         assert entry_bridge.match_by_id('call', """
-            p38 = call(ConstClass(getexecutioncontext), descr=<Callr . EF=1>)
+            p38 = call(ConstClass(_ll_0_threadlocalref_getter___), descr=<Callr . EF=1 OS=5>)
             p39 = getfield_gc(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             i40 = force_token()
             p41 = getfield_gc(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
@@ -435,7 +435,7 @@ class TestCall(BaseTestPyPyC):
             p26 = getfield_gc(p7, descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy .*>)
             guard_value(p26, ConstPtr(ptr27), descr=...)
             guard_not_invalidated(descr=...)
-            p29 = call(ConstClass(getexecutioncontext), descr=<Callr . EF=1>)
+            p29 = call(ConstClass(_ll_0_threadlocalref_getter___), descr=<Callr . EF=1 OS=5>)
             p30 = getfield_gc(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             p31 = force_token()
             p32 = getfield_gc(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
@@ -448,7 +448,6 @@ class TestCall(BaseTestPyPyC):
             i39 = getfield_gc_pure(p37, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             i40 = int_add_ovf(i22, i39)
             guard_no_overflow(descr=...)
-            guard_not_invalidated(descr=...)
             --TICK--
         """)
 

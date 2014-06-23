@@ -35,7 +35,7 @@ OFF_T = config['off_t']
 FILE = lltype.Struct('FILE')  # opaque type maybe
 
 c_open = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], lltype.Ptr(FILE))
-c_close = llexternal('fclose', [lltype.Ptr(FILE)], rffi.INT)
+c_close = llexternal('fclose', [lltype.Ptr(FILE)], rffi.INT, releasegil=False)
 c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
                                  lltype.Ptr(FILE)], rffi.SIZE_T)
 c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
@@ -57,7 +57,7 @@ c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, lltype.Ptr(FILE)],
                      rffi.CCHARP)
 
 c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], lltype.Ptr(FILE))
-c_pclose = llexternal('pclose', [lltype.Ptr(FILE)], rffi.INT)
+c_pclose = llexternal('pclose', [lltype.Ptr(FILE)], rffi.INT, releasegil=False)
 
 BASE_BUF_SIZE = 4096
 BASE_LINE_SIZE = 100

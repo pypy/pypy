@@ -28,9 +28,13 @@ class TestStringBuilderDirect(object):
 
     def test_simple(self):
         sb = StringBuilderRepr.ll_new(3)
+        assert StringBuilderRepr.ll_getlength(sb) == 0
         StringBuilderRepr.ll_append_char(sb, 'x')
+        assert StringBuilderRepr.ll_getlength(sb) == 1
         StringBuilderRepr.ll_append(sb, llstr("abc"))
+        assert StringBuilderRepr.ll_getlength(sb) == 4
         StringBuilderRepr.ll_append_slice(sb, llstr("foobar"), 2, 5)
+        assert StringBuilderRepr.ll_getlength(sb) == 7
         StringBuilderRepr.ll_append_multiple_char(sb, 'y', 3)
         assert StringBuilderRepr.ll_getlength(sb) == 10
         s = StringBuilderRepr.ll_build(sb)

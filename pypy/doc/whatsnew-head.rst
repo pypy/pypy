@@ -22,3 +22,11 @@ forcing a bit more data (to be passed as arguments to
 conditional_calls). I would expect the net result to be a slight
 slow-down on some simple benchmarks and a speed-up on bigger
 programs.
+
+.. branch: ec-threadlocal
+Change the executioncontext's lookup to be done by reading a thread-
+local variable (which is implemented in C using '__thread' if
+possible, and pthread_getspecific() otherwise). On Linux x86 and
+x86-64, the JIT backend has a special optimization that lets it emit
+directly a single MOV from a %gs- or %fs-based address. It seems
+actually to give a good boost in performance.
