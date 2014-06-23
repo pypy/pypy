@@ -391,7 +391,8 @@ class AppTestSysModulePortedFromCPython:
         import sys
         if hasattr(sys, "getwindowsversion"):
             v = sys.getwindowsversion()
-            assert isinstance(v, tuple)
+            if '__pypy__' in sys.builtin_module_names:
+                assert isinstance(v, tuple)
             assert len(v) == 5
             assert isinstance(v[0], int)
             assert isinstance(v[1], int)
@@ -418,6 +419,14 @@ class AppTestSysModulePortedFromCPython:
         import sys
         if hasattr(sys, "winver"):
             assert sys.winver == sys.version[:3]
+
+    def test_no_dllhandle(self):
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            assert not hasattr(sys, 'dllhandle')
+        elif sys.platform == 'win32':
+            # only on cpython win32
+            assert hasattr(sys, 'dllhandle')
 
     def test_dlopenflags(self):
         import sys
@@ -486,7 +495,8 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(sys.version, basestring)
         assert isinstance(sys.warnoptions, list)
         vi = sys.version_info
-        assert isinstance(vi, tuple)
+        if '__pypy__' in sys.builtin_module_names:
+            assert isinstance(vi, tuple)
         assert len(vi) == 5
         assert isinstance(vi[0], int)
         assert isinstance(vi[1], int)
@@ -512,6 +522,8 @@ class AppTestSysModulePortedFromCPython:
 
     def test_pypy_attributes(self):
         import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("only on PyPy")
         assert isinstance(sys.pypy_objspaceclass, str)
         vi = sys.pypy_version_info
         assert isinstance(vi, tuple)
@@ -528,10 +540,14 @@ class AppTestSysModulePortedFromCPython:
 
     def test_subversion(self):
         import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("only on PyPy")
         assert sys.subversion == ('PyPy', '', '')
 
     def test__mercurial(self):
         import sys, re
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("only on PyPy")
         project, hgtag, hgid = sys._mercurial
         assert project == 'PyPy'
         # the tag or branch may be anything, including the empty string
