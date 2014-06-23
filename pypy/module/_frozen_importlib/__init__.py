@@ -24,8 +24,9 @@ class Module(MixedModule):
             source = fp.read()
         pathname = "<frozen importlib._bootstrap>"
         code_w = ec.compiler.compile(source, pathname, 'exec', 0)
-        w_dict = space.newdict()
-        space.setitem(w_dict, space.wrap('__name__'), self.w_name)
+        space.setitem(self.w_dict, space.wrap('__name__'), self.w_name)
+        space.setitem(self.w_dict, space.wrap('__builtins__'),
+                      space.wrap(space.builtin))
         code_w.exec_code(space, self.w_dict, self.w_dict)
 
     def startup(self, space):

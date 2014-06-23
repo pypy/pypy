@@ -79,10 +79,9 @@ def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None
         source = fp.read()
     pathname = "<frozen %s>" % modulename
     code_w = ec.compiler.compile(source, pathname, 'exec', 0)
-    w_dict = space.newdict()
     w_mod = add_module(space, space.wrap(modulename))
     space.setitem(space.sys.get('modules'), w_mod.w_name, w_mod)
-    space.setitem(w_dict, space.wrap('__name__'), w_mod.w_name)
+    space.setitem(w_mod.w_dict, space.wrap('__name__'), w_mod.w_name)
     code_w.exec_code(space, w_mod.w_dict, w_mod.w_dict)
     assert check_sys_modules_w(space, modulename)
     return w_mod
