@@ -930,6 +930,9 @@ class LLFrame(object):
         d = self.llinterpreter.tlrefsdict
         return d[key._obj]
 
+    def op_threadlocalref_getaddr(self, key):
+        raise NotImplementedError("threadlocalref_getaddr")
+
     # __________________________________________________________
     # operations on addresses
 
