@@ -130,6 +130,8 @@ class ThreadLocalRefDescr(AbstractDescr):
     # variable from anywhere.
 
     def __init__(self, opaque_id):
+        from rpython.rtyper.lltypesystem.lloperation import llop
+        from rpython.rtyper.lltypesystem import llmemory
         def get_tlref_addr():
             return llop.threadlocalref_getaddr(llmemory.Address, opaque_id)
         self.get_tlref_addr = get_tlref_addr

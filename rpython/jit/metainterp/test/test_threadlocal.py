@@ -4,7 +4,7 @@ from rpython.rlib.rthread import ThreadLocalReference
 from rpython.rlib.jit import dont_look_inside
 
 
-class TestThreadLocal(LLJitMixin):
+class ThreadLocalTest(object):
 
     def test_threadlocalref_get(self):
         class Foo:
@@ -24,3 +24,7 @@ class TestThreadLocal(LLJitMixin):
 
         res = self.interp_operations(f, [])
         assert res == 42
+
+
+class TestLLtype(ThreadLocalTest, LLJitMixin):
+    pass

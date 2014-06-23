@@ -28,6 +28,7 @@ typedef pthread_key_t RPyThreadTLS;
 #define RPyThreadStaticTLS_Create(tls)      (void)0
 #define RPyThreadStaticTLS_Get(tls)         tls
 #define RPyThreadStaticTLS_Set(tls, value)  tls = value
+#define OP_THREADLOCALREF_GETADDR(tlref, ptr)  ptr = tlref
 
 #endif
 

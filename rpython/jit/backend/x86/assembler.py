@@ -2351,10 +2351,29 @@ class Assembler386(BaseAssembler):
         assert isinstance(reg, RegLoc)
         self.mc.MOV_rr(reg.value, ebp.value)
 
+    def threadlocalref_get(self, op, resloc):
+        # this function is only called on Linux
+        from rpython.jit.codewriter.jitcode import ThreadLocalRefDescr
+        from rpython.jit.backend.x86 import stmtlocal
+        assert isinstance(resloc, RegLoc)
+        effectinfo = op.getdescr().get_extra_info()
+        assert len(effectinfo.extradescrs) == 1
+        ed = effectinfo.extradescrs[0]
+        assert isinstance(ed, ThreadLocalRefDescr)
+        addr1 = rffi.cast(lltype.Signed, ed.get_tlref_addr())
+        addr0 = stmtlocal.threadlocal_base()
+        addr = addr1 - addr0
+        assert rx86.fits_in_32bits(addr)
+        mc = self.mc
+        mc.writechar(stmtlocal.SEGMENT_TL)     # prefix
+        mc.MOV_rj(resloc.value, addr)
+
+
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST
 genop_llong_list = {}
 genop_math_list = {}
+genop_tlref_list = {}
 genop_guard_list = [Assembler386.not_implemented_op_guard] * rop._LAST
 
 for name, value in Assembler386.__dict__.iteritems():
