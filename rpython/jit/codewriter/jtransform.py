@@ -390,11 +390,15 @@ class Transformer(object):
         lst.append(v)
 
     def handle_residual_call(self, op, extraargs=[], may_call_jitcodes=False,
-                             oopspecindex=EffectInfo.OS_NONE):
+                             oopspecindex=EffectInfo.OS_NONE,
+                             extraeffect=None,
+                             extradescr=None):
         """A direct_call turns into the operation 'residual_call_xxx' if it
         is calling a function that we don't want to JIT.  The initial args
         of 'residual_call_xxx' are the function to call, and its calldescr."""
-        calldescr = self.callcontrol.getcalldescr(op, oopspecindex=oopspecindex)
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex=oopspecindex,
+                                                  extraeffect=extraeffect,
+                                                  extradescr=extradescr)
         op1 = self.rewrite_call(op, 'residual_call',
                                 [op.args[0]] + extraargs, calldescr=calldescr)
         if may_call_jitcodes or self.callcontrol.calldescr_canraise(calldescr):
@@ -1902,6 +1906,18 @@ class Transformer(object):
         op1 = SpaceOperation('jit_force_quasi_immutable', [v_inst, descr1],
                              None)
         return [op0, op1]
+
+    def rewrite_op_threadlocalref_get(self, op):
+        from rpython.jit.codewriter.jitcode import ThreadLocalRefDescr
+        opaqueid = op.args[0].value
+        op1 = self.prepare_builtin_call(op, 'threadlocalref_getter', [],
+                                        extra=(opaqueid,),
+                                        extrakey=opaqueid._obj)
+        extradescr = ThreadLocalRefDescr(opaqueid)
+        return self.handle_residual_call(op1,
+            oopspecindex=EffectInfo.OS_THREADLOCALREF_GET,
+            extraeffect=EffectInfo.EF_LOOPINVARIANT,
+            extradescr=[extradescr])
 
 # ____________________________________________________________
 

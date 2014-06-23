@@ -22,6 +22,12 @@ else:
 
 IS_64_BITS = sys.maxint > 2147483647
 
+SUPPORT__THREAD = (    # whether the particular C compiler supports __thread
+    sys.platform.startswith("linux"))     # Linux works
+    # OS/X doesn't work, because we still target 10.5/10.6 and the
+    # minimum required version is 10.7.  Windows doesn't work.  Please
+    # add other platforms here if it works on them.
+
 MAINDIR = os.path.dirname(os.path.dirname(__file__))
 CACHE_DIR = os.path.realpath(os.path.join(MAINDIR, '_cache'))
 
@@ -156,7 +162,8 @@ translation_optiondescription = OptionDescription(
     # portability options
     BoolOption("no__thread",
                "don't use __thread for implementing TLS",
-               default=False, cmdline="--no__thread", negation=False),
+               default=not SUPPORT__THREAD, cmdline="--no__thread",
+               negation=False),
     IntOption("make_jobs", "Specify -j argument to make for compilation"
               " (C backend only)",
               cmdline="--make-jobs", default=detect_number_of_processors()),

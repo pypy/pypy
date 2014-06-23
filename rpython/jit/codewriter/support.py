@@ -712,6 +712,11 @@ class LLtypeHelpers:
     build_ll_1_raw_free_no_track_allocation = (
         build_raw_free_builder(track_allocation=False))
 
+    def build_ll_0_threadlocalref_getter(opaqueid):
+        def _ll_0_threadlocalref_getter():
+            return llop.threadlocalref_get(rclass.OBJECTPTR, opaqueid)
+        return _ll_0_threadlocalref_getter
+
     def _ll_1_weakref_create(obj):
         return llop.weakref_create(llmemory.WeakRefPtr, obj)
 
