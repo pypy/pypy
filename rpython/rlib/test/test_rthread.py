@@ -222,6 +222,7 @@ class AbstractThreadTests(AbstractGCTestClass):
         def f():
             x1 = FooBar()
             t.set(x1)
+            import gc; gc.collect()
             assert t.get() is x1
             return 42
         fn = self.getcompiled(f, [])
@@ -238,4 +239,4 @@ class TestUsingBoehm(AbstractThreadTests):
     gcpolicy = 'boehm'
 
 class TestUsingFramework(AbstractThreadTests):
-    gcpolicy = 'generation'
+    gcpolicy = 'minimark'
