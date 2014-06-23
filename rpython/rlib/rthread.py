@@ -295,29 +295,31 @@ class ThreadLocalReference(object):
         self.local = thread._local()      # <- NOT_RPYTHON
         unique_id = ThreadLocalReference._COUNT
         ThreadLocalReference._COUNT += 1
-        self.opaque_id = lltype.opaqueptr(ThreadLocalReference.OPAQUEID,
-                                          'tlref%d' % unique_id)
+        opaque_id = lltype.opaqueptr(ThreadLocalReference.OPAQUEID,
+                                     'tlref%d' % unique_id)
+        self.opaque_id = opaque_id
+
+        def get():
+            if we_are_translated():
+                from rpython.rtyper.lltypesystem import rclass
+                from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
+                ptr = llop.threadlocalref_get(rclass.OBJECTPTR, opaque_id)
+                return cast_base_ptr_to_instance(Cls, ptr)
+            else:
+                return getattr(self.local, 'value', None)
+
+        @jit.dont_look_inside
+        def set(value):
+            assert isinstance(value, Cls) or value is None
+            if we_are_translated():
+                from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
+                ptr = cast_instance_to_base_ptr(value)
+                llop.threadlocalref_set(lltype.Void, opaque_id, ptr)
+            else:
+                self.local.value = value
+
+        self.get = get
+        self.set = set
 
     def _freeze_(self):
         return True
-
-    @specialize.arg(0)
-    def get(self):
-        if we_are_translated():
-            from rpython.rtyper.lltypesystem import rclass
-            from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-            ptr = llop.threadlocalref_get(rclass.OBJECTPTR, self.opaque_id)
-            return cast_base_ptr_to_instance(self.Cls, ptr)
-        else:
-            return getattr(self.local, 'value', None)
-
-    @specialize.arg(0)
-    @jit.dont_look_inside
-    def set(self, value):
-        assert isinstance(value, self.Cls) or value is None
-        if we_are_translated():
-            from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
-            ptr = cast_instance_to_base_ptr(value)
-            llop.threadlocalref_set(lltype.Void, self.opaque_id, ptr)
-        else:
-            self.local.value = value
