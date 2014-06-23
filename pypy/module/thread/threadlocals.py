@@ -84,8 +84,10 @@ class OSThreadLocals:
         ident = rthread.get_ident()
         ec = self.get_ec()
         assert ec is not None
+        old_sig = ec._signals_enabled
         if ident != self._mainthreadident:
-            ec._signals_enabled += 1
+            old_sig += 1
         self._cleanup_()
         self._mainthreadident = ident
         self._set_ec(ec)
+        ec._signals_enabled = old_sig
