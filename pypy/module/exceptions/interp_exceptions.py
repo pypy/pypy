@@ -33,11 +33,11 @@ BaseException
       +-- AssertionError
       +-- AttributeError
       +-- BufferError
-      +-- EnvironmentError
-      |    +-- IOError
-      |    +-- OSError
-      |         +-- WindowsError (Windows)
-      |         +-- VMSError (VMS)
+      +-- OSError
+      |    = EnvironmentError
+      |    = IOError
+      |    = WindowsError (Windows)
+      |    = VMSError (VMS)
       +-- EOFError
       +-- ImportError
       +-- LookupError
@@ -439,8 +439,8 @@ W_PendingDeprecationWarning = _new_exception('PendingDeprecationWarning',
                                              W_Warning,
        """Base class for warnings about features which will be deprecated in the future.""")
 
-class W_EnvironmentError(W_Exception):
-    """Base class for I/O related errors."""
+class W_OSError(W_Exception):
+    """OS system call failed."""
 
     def __init__(self, space):
         self.w_errno = space.w_None
@@ -484,21 +484,21 @@ class W_EnvironmentError(W_Exception):
             ))
         return W_BaseException.descr_str(self, space)
 
-W_EnvironmentError.typedef = TypeDef(
-    'EnvironmentError',
+W_OSError.typedef = TypeDef(
+    'OSError',
     W_Exception.typedef,
-    __doc__ = W_EnvironmentError.__doc__,
-    __new__ = _new(W_EnvironmentError),
-    __reduce__ = interp2app(W_EnvironmentError.descr_reduce),
-    __init__ = interp2app(W_EnvironmentError.descr_init),
-    __str__ = interp2app(W_EnvironmentError.descr_str),
-    errno    = readwrite_attrproperty_w('w_errno',    W_EnvironmentError),
-    strerror = readwrite_attrproperty_w('w_strerror', W_EnvironmentError),
-    filename = readwrite_attrproperty_w('w_filename', W_EnvironmentError),
+    __doc__ = W_OSError.__doc__,
+    __new__ = _new(W_OSError),
+    __reduce__ = interp2app(W_OSError.descr_reduce),
+    __init__ = interp2app(W_OSError.descr_init),
+    __str__ = interp2app(W_OSError.descr_str),
+    errno    = readwrite_attrproperty_w('w_errno',    W_OSError),
+    strerror = readwrite_attrproperty_w('w_strerror', W_OSError),
+    filename = readwrite_attrproperty_w('w_filename', W_OSError),
     )
 
-W_OSError = _new_exception('OSError', W_EnvironmentError,
-                           """OS system call failed.""")
+W_EnvironmentError = W_OSError
+W_IOError = W_OSError
 
 class W_WindowsError(W_OSError):
     """MS-Windows OS system call failed."""
@@ -642,9 +642,6 @@ W_ReferenceError = _new_exception('ReferenceError', W_Exception,
 
 W_NameError = _new_exception('NameError', W_Exception,
                              """Name not found globally.""")
-
-W_IOError = _new_exception('IOError', W_EnvironmentError,
-                           """I/O operation failed.""")
 
 
 class W_SyntaxError(W_Exception):

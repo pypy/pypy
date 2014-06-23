@@ -565,8 +565,7 @@ class W_RSocket(W_Root, RSocket):
 
 class SocketAPI:
     def __init__(self, space):
-        self.w_error = space.new_exception_class(
-            "_socket.error", space.w_IOError)
+        self.w_error = space.w_OSError
         self.w_herror = space.new_exception_class(
             "_socket.herror", self.w_error)
         self.w_gaierror = space.new_exception_class(

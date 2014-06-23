@@ -11,7 +11,7 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'select': 'interp_select.select',
-        'error' : 'space.fromcache(interp_select.Cache).w_error'
+        'error' : 'space.w_OSError',
     }
 
     if os.name =='posix':
