@@ -265,9 +265,9 @@ def _PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
     funcs_w = [None] * ntypes
     dtypes_w = [None] * ntypes * (nin + nout)
     for i in range(ntypes):
-        funcs_w[i] = funcs[i]
-        print 'function',i,'is',funcs[i], hex(rffi.cast(lltype.Signed, funcs[i]))
+        funcs_w[i] = space.wrap(funcs[i])
+        #print 'function',i,'is',funcs[i], hex(rffi.cast(lltype.Signed, funcs[i]))
     for i in range(ntypes*(nin+nout)):
         dtypes_w[i] = get_dtype_cache(space).dtypes_by_num[ord(types[i])]
-    return ufuncs.ufunc_from_func_and_data_and_signature(funcs_w, data, dtypes_w,
-                 nin, nout, identity, name, doc, check_return, signature)
+    return ufuncs.frompyfunc(space, space.newlist(funcs_w), nin, nout, dtypes_w,
+                 signature, identity, name, doc)
