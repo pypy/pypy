@@ -228,8 +228,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises (ValueError, int_func22, arange(10))
         res = int_func12(arange(10))
         assert len(res) == 2
-        # XXX makes ztranslation unhappy
-        # assert isinstance(res, tuple)
+        assert isinstance(res, tuple)
         assert (res[0] == arange(10)).all()
 
     def test_from_cffi_func(self):
