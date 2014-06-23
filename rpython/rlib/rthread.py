@@ -315,7 +315,8 @@ class ThreadLocalReference(object):
                 from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
                 from rpython.rlib.rgc import _make_sure_does_not_move
                 ptr = cast_instance_to_base_ptr(value)
-                _make_sure_does_not_move(ptr)
+                gcref = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
+                _make_sure_does_not_move(gcref)
                 llop.threadlocalref_set(lltype.Void, opaque_id, ptr)
             else:
                 self.local.value = value
