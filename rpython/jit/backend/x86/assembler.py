@@ -2357,7 +2357,7 @@ class Assembler386(BaseAssembler):
         from rpython.jit.backend.x86 import stmtlocal
         assert isinstance(resloc, RegLoc)
         effectinfo = op.getdescr().get_extra_info()
-        assert len(effectinfo.extradescrs) == 1
+        assert effectinfo.extradescrs is not None
         ed = effectinfo.extradescrs[0]
         assert isinstance(ed, ThreadLocalRefDescr)
         addr1 = rffi.cast(lltype.Signed, ed.get_tlref_addr())
