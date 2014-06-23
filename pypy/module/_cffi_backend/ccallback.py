@@ -183,9 +183,12 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         misc._raw_memclear(ll_res, SIZE_OF_FFI_ARG)
         return
     #
+    must_leave = False
     ec = None
+    space = callback.space
     try:
-        ec = cerrno.get_errno_container(callback.space)
+        must_leave = space.threadlocals.try_enter_thread(space)
+        ec = cerrno.get_errno_container(space)
         cerrno.save_errno_into(ec, e)
         extra_line = ''
         try:
@@ -206,5 +209,7 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         except OSError:
             pass
         callback.write_error_return_value(ll_res)
+    if must_leave:
+        space.threadlocals.leave_thread(space)
     if ec is not None:
         cerrno.restore_errno_from(ec)

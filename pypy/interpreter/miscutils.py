@@ -17,6 +17,9 @@ class ThreadLocals:
     def enter_thread(self, space):
         self._value = space.createexecutioncontext()
 
+    def try_enter_thread(self, space):
+        return False
+
     def signals_enabled(self):
         return True
 
