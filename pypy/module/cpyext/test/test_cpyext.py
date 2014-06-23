@@ -201,17 +201,6 @@ class AppTestApi(LeakCheckingTest):
         raises(ImportError, cpyext.load_module, "missing.file", "foo")
         raises(ImportError, cpyext.load_module, self.libc, "invalid.function")
 
-    def test_dllhandle(self):
-        import sys
-        if sys.platform != "win32" or sys.version_info < (2, 6):
-            skip("Windows Python >= 2.6 only")
-        assert sys.dllhandle
-        assert sys.dllhandle.getaddressindll('cpyexttestErr_NewException')
-        import ctypes 
-        PyUnicode_GetDefaultEncoding = ctypes.pythonapi.cpyexttestUnicode_GetDefaultEncoding
-        PyUnicode_GetDefaultEncoding.restype = ctypes.c_char_p
-        assert PyUnicode_GetDefaultEncoding() == 'ascii'
-
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 
     def setup_class(cls):
