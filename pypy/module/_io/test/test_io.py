@@ -56,7 +56,7 @@ class AppTestIoModule:
         import _io
         try:
             raise _io.BlockingIOError(42, "test blocking", 123)
-        except IOError as e:
+        except OSError as e:
             assert isinstance(e, _io.BlockingIOError)
             assert e.errno == 42
             assert e.strerror == "test blocking"

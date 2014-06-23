@@ -1807,6 +1807,7 @@ ObjSpace.ExceptionTable = [
     'BaseException',
     'BufferError',
     'BytesWarning',
+    'BlockingIOError',
     'DeprecationWarning',
     'EOFError',
     'EnvironmentError',

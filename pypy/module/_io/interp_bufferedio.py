@@ -12,20 +12,18 @@ from rpython.tool.sourcetools import func_renamer
 from pypy.module._io.interp_iobase import (
     W_IOBase, DEFAULT_BUFFER_SIZE, convert_size, trap_eintr,
     check_readable_w, check_writable_w, check_seekable_w)
-from pypy.module._io.interp_io import W_BlockingIOError
 from rpython.rlib import rthread
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
 
 
 def make_write_blocking_error(space, written):
-    w_type = space.gettypeobject(W_BlockingIOError.typedef)
     w_value = space.call_function(
-        w_type,
+        space.w_BlockingIOError,
         space.wrap(rposix.get_errno()),
         space.wrap("write could not complete without blocking"),
         space.wrap(written))
-    return OperationError(w_type, w_value)
+    return OperationError(space.w_BlockingIOError, w_value)
 
 
 class TryLock(object):
@@ -734,11 +732,8 @@ class BufferedMixin:
             try:
                 self._writer_flush_unlocked(space)
             except OperationError, e:
-                if not e.match(space, space.gettypeobject(
-                    W_BlockingIOError.typedef)):
+                if not e.match(space, space.w_BlockingIOError):
                     raise
-                w_exc = e.get_w_value(space)
-                assert isinstance(w_exc, W_BlockingIOError)
                 if self.readable:
                     self._reader_reset_buf()
                 # Make some place by shifting the buffer

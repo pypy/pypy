@@ -73,9 +73,10 @@ BaseException
 """
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
-    descr_set_dict, descr_del_dict)
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.typedef import (
+    TypeDef, GetSetProperty, interp_attrproperty,
+    descr_get_dict, descr_set_dict, descr_del_dict)
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, setup_context
 from pypy.interpreter.pytraceback import PyTraceback, check_traceback
 from rpython.rlib import rwin32
@@ -552,8 +553,45 @@ W_WindowsError.typedef = TypeDef(
     )
 
 # Various OSError subclasses added in Python 3.3
-W_BlockingIOError = _new_exception(
-    "BlockingIOError", W_OSError, "I/O operation would block.")
+class W_BlockingIOError(W_OSError):
+    "I/O operation would block."
+
+    def __init__(self, space):
+        W_OSError.__init__(self, space)
+        self.written = -1
+
+    def descr_init(self, space, args_w):
+        W_OSError.descr_init(self, space, args_w)
+        # BlockingIOError's 3rd argument can be the number of
+        # characters written.
+        if len(args_w) >= 3:
+            try:
+                written = space.int_w(args_w[2])
+            except OperationError:
+                pass
+            else:
+                self.written = written
+
+    def descr_get_written(self, space):
+        if self.written == -1:
+            raise OperationError(space.w_AttributeError,
+                                 space.wrap("characters_written"))
+        return space.wrap(self.written)
+
+    def descr_set_written(self, space, w_written):
+        self.written = space.int_w(w_written)
+
+
+W_BlockingIOError.typedef = TypeDef(
+    'BlockingIOError', W_OSError.typedef,
+    __doc__ = ("Exception raised when I/O would block on a non-blocking "
+               "I/O stream"),
+    __new__  = _new(W_BlockingIOError),
+    __init__ = interp2app(W_BlockingIOError.descr_init),
+    characters_written = GetSetProperty(W_BlockingIOError.descr_get_written,
+                                        W_BlockingIOError.descr_set_written),
+    )
+
 W_ConnectionError = _new_exception(
     "ConnectionError", W_OSError, "Connection error.")
 W_ChildProcessError = _new_exception(
