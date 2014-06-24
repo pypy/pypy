@@ -628,8 +628,10 @@ class AbstractX86CodeBuilder(object):
     MOVDQ_xb = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), stack_bp(2))
 
     MOVD32_rx = xmminsn('\x66', rex_nw, '\x0F\x7E', register(2, 8), register(1), '\xC0')
+    MOVD32_sx = xmminsn('\x66', rex_nw, '\x0F\x7E', register(2, 8), stack_sp(1))
     MOVD32_xr = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), register(2), '\xC0')
     MOVD32_xb = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), stack_bp(2))
+    MOVD32_xs = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), stack_sp(2))
 
     PSRAD_xi = xmminsn('\x66', rex_nw, '\x0F\x72', register(1), '\xE0', immediate(2, 'b'))
 

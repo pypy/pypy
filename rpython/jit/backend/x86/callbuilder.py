@@ -456,7 +456,7 @@ class CallBuilder64(CallBuilderX86):
             return
         #
         if self.restype == 'S':
-            self.mc.MOVD_xs(xmm0.value, 0)
+            self.mc.MOVD32_xs(xmm0.value, 0)
         else:
             assert self.restype == INT
             self.mc.MOV_rs(eax.value, 0)
