@@ -11,7 +11,6 @@ BACKEND_VERSIONS = {
     '0.7.1': '0.7',     # did not change
     '0.7.2': '0.7',     # did not change
     '0.8.1': '0.8',     # did not change (essentially)
-    '0.8.2': '0.8',     # did not change
     }
 
 def test_version():
@@ -26,7 +25,7 @@ def test_doc_version():
     content = open(p).read()
     #
     v = cffi.__version__
-    assert ("version = '%s'\n" % BACKEND_VERSIONS.get(v, v)) in content
+    assert ("version = '%s'\n" % v[:3]) in content
     assert ("release = '%s'\n" % v) in content
 
 def test_doc_version_file():

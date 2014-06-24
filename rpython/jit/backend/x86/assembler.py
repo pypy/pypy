@@ -1934,42 +1934,6 @@ class Assembler386(BaseAssembler):
         self._genop_call(op, arglocs, result_loc, is_call_release_gil=True)
         self._emit_guard_not_forced(guard_token)
 
-    def call_reacquire_gil(self, gcrootmap, save_loc):
-        # save the previous result (eax/xmm0) into the stack temporarily.
-        # XXX like with call_release_gil(), we assume that we don't need
-        # to save xmm0 in this case.
-        if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
-            self.mc.MOV_sr(WORD, save_loc.value)
-        # call the reopenstack() function (also reacquiring the GIL)
-        if gcrootmap.is_shadow_stack:
-            args = []
-            css = 0
-        else:
-            from rpython.memory.gctransform import asmgcroot
-            css = WORD * (PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS)
-            if IS_X86_32:
-                reg = eax
-            elif IS_X86_64:
-                reg = edi
-            self.mc.LEA_rs(reg.value, css)
-            args = [reg]
-        self._emit_call(imm(self.reacqgil_addr), args, can_collect=False)
-        #
-        # Now that we required the GIL, we can reload a possibly modified ebp
-        if not gcrootmap.is_shadow_stack:
-            # special-case: reload ebp from the css
-            from rpython.memory.gctransform import asmgcroot
-            index_of_ebp = css + WORD * (2+asmgcroot.INDEX_OF_EBP)
-            self.mc.MOV_rs(ebp.value, index_of_ebp)  # MOV EBP, [css.ebp]
-        #else:
-        #   for shadowstack, done for us by _reload_frame_if_necessary()
-        self._reload_frame_if_necessary(self.mc)
-        self.set_extra_stack_depth(self.mc, 0)
-        #
-        # restore the result from the stack
-        if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
-            self.mc.MOV_rs(save_loc.value, WORD)
-
     def imm(self, v):
         return imm(v)
 
