@@ -8,8 +8,8 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.codewriter import heaptracker
-from rpython.jit.metainterp.history import ConstPtr, AbstractDescr
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.history import ConstPtr, AbstractDescr, BoxPtr, ConstInt
+from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.backend.llsupport import symbolic, jitframe
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
@@ -92,26 +92,70 @@ class GcLLDescription(GcCache):
     def gc_malloc_unicode(self, num_elem):
         return self._bh_malloc_array(num_elem, self.unicode_descr)
 
-    def _record_constptrs(self, op, gcrefs_output_list):
+    class PinnedObjectTracker(object):
+        """Simple helper class to keep informations regarding the 'GcArray'
+        in one place that is used to double load pinned objects.
+        """
+        def __init__(self, cpu, size):
+            self._nextItem = 0
+            self._refArrayType = lltype.GcArray(llmemory.GCREF)
+            self.refArrayDescr = cpu.arraydescrof(self._refArrayType)
+            self._refArray = lltype.malloc(self._refArrayType, size)
+            self.refArrayGCREF = lltype.cast_opaque_ptr(llmemory.GCREF, self._refArray)
+
+        def add_ref(self, ref):
+            index = self._nextItem
+            self._nextItem += 1
+            #
+            self._refArray[index] = ref
+            return index
+
+    def _record_constptrs(self, op, gcrefs_output_list, pinnedObjTracker):
+        newops = []
         for i in range(op.numargs()):
             v = op.getarg(i)
             if isinstance(v, ConstPtr) and bool(v.value):
                 p = v.value
-                rgc._make_sure_does_not_move(p)
-                gcrefs_output_list.append(p)
+                if rgc._make_sure_does_not_move(p):
+                    gcrefs_output_list.append(p)
+                else:
+                    # encountered a moving pointer. Solve the problem by double
+                    # loading the address to the pointer each run of the JITed code.
+                    resultPtr = BoxPtr()
+                    arrayIndex = pinnedObjTracker.add_ref(p)
+                    loadOp = ResOperation(rop.GETARRAYITEM_GC,
+                        [ConstPtr(pinnedObjTracker.refArrayGCREF), ConstInt(arrayIndex)],
+                        resultPtr,
+                        descr=pinnedObjTracker.refArrayDescr)
+                    newops.append(loadOp)
+                    op.setarg(i, resultPtr)
+        #
         if op.is_guard() or op.getopnum() == rop.FINISH:
             llref = cast_instance_to_gcref(op.getdescr())
-            rgc._make_sure_does_not_move(llref)
+            if not rgc._make_sure_does_not_move(llref):
+                raise NotImplementedError("blub") # XXX handle (groggi)
             gcrefs_output_list.append(llref)
+        newops.append(op)
+        return newops
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         rewriter = GcRewriterAssembler(self, cpu)
         newops = rewriter.rewrite(operations)
         # record all GCREFs, because the GC (or Boehm) cannot see them and
         # keep them alive if they end up as constants in the assembler
+        
+        # XXX add comment (groggi)
+        # XXX handle size in a not constant way? Get it from the GC? (groggi)
+        pinnedObjTracker = self.PinnedObjectTracker(cpu, 100)
+        gcrefs_output_list.append(pinnedObjTracker.refArrayGCREF)
+        rgc._make_sure_does_not_move(pinnedObjTracker.refArrayGCREF)
+
+        newnewops = [] # XXX better name... (groggi)
+
         for op in newops:
-            self._record_constptrs(op, gcrefs_output_list)
-        return newops
+            ops = self._record_constptrs(op, gcrefs_output_list, pinnedObjTracker)
+            newnewops.extend(ops)
+        return newnewops
 
     @specialize.memo()
     def getframedescrs(self, cpu):
