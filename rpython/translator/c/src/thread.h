@@ -24,8 +24,8 @@ typedef enum RPyLockStatus {
 
 #endif /* !_WIN32 */
 
-
-void RPyGilYieldThread(void);
+void RPyGilAllocate(void);
+long RPyGilYieldThread(void);
 void RPyGilAcquire(void);
 
 #ifdef PYPY_USE_ASMGCC

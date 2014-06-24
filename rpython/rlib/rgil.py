@@ -11,13 +11,17 @@ eci = ExternalCompilationInfo(
     includes = ['src/thread.h'],
     separate_module_files = [translator_c_dir / 'src' / 'thread.c'],
     include_dirs = [translator_c_dir],
-    export_symbols = ['RPyGilYieldThread', 'RPyGilRelease',
+    export_symbols = ['RPyGilAllocate', 'RPyGilYieldThread', 'RPyGilRelease',
                       'RPyGilAcquire', 'RPyFetchFastGil'])
 
 llexternal = rffi.llexternal
 
 
-gil_yield_thread  = llexternal('RPyGilYieldThread', [], lltype.Void,
+gil_allocate      = llexternal('RPyGilAllocate', [], lltype.Void,
+                               _nowrapper=True, sandboxsafe=True,
+                               compilation_info=eci)
+
+gil_yield_thread  = llexternal('RPyGilYieldThread', [], lltype.Signed,
                                _nowrapper=True, sandboxsafe=True,
                                compilation_info=eci)
 

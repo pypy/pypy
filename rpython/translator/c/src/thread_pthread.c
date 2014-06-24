@@ -522,19 +522,16 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 long rpy_fastgil = 1;
 static pthread_mutex_t mutex_gil_stealer;
 static pthread_mutex_t mutex_gil;
-static pthread_once_t mutex_gil_once = PTHREAD_ONCE_INIT;
+long rpy_lock_ready = 0;
 
-static void init_mutex_gil(void)
+void RPyGilAllocate(void)
 {
+    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
     ASSERT_STATUS(pthread_mutex_init(&mutex_gil_stealer,
                                      pthread_mutexattr_default));
     ASSERT_STATUS(pthread_mutex_init(&mutex_gil, pthread_mutexattr_default));
     ASSERT_STATUS(pthread_mutex_lock(&mutex_gil));
-}
-
-static inline void prepare_mutexes(void)
-{
-    pthread_once(&mutex_gil_once, &init_mutex_gil);
+    rpy_lock_ready = 1;
 }
 
 static inline void timespec_add(struct timespec *t, long incr)
@@ -567,7 +564,7 @@ void RPyGilAcquire(void)
            first-in-first-out order, this will nicely give the threads
            a round-robin chance.
         */
-        prepare_mutexes();
+        assert(rpy_lock_ready);
         ASSERT_STATUS(pthread_mutex_lock(&mutex_gil_stealer));
 
         /* We are now the stealer thread.  Steals! */
@@ -638,13 +635,14 @@ void RPyGilRelease(void)
 }
 */
 
-void RPyGilYieldThread(void)
+long RPyGilYieldThread(void)
 {
     assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
+    if (!rpy_lock_ready)
+        return 0;
 
     /* Explicitly release the 'mutex_gil'.
      */
-    prepare_mutexes();
     ASSERT_STATUS(pthread_mutex_unlock(&mutex_gil));
 
     /* Now nobody has got the GIL, because 'mutex_gil' is released (but
@@ -654,4 +652,5 @@ void RPyGilYieldThread(void)
        its pthread_mutex_lock() and pthread_mutex_timedlock() now.
      */
     RPyGilAcquire();
+    return 1;
 }
