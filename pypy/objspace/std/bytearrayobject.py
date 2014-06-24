@@ -1,17 +1,18 @@
 """The builtin bytearray implementation"""
 
 from rpython.rlib.objectmodel import (
-    import_from_mixin, newlist_hint, resizelist_hint)
-from rpython.rlib.rstring import StringBuilder
+    import_from_mixin, newlist_hint, resizelist_hint, specialize)
+from rpython.rlib.buffer import Buffer
+from rpython.rlib.rstring import StringBuilder, ByteListBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.signature import Signature
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.stringmethods import StringMethods
+from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
+from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.util import get_positive_index
 
 NON_HEX_MSG = "non-hexadecimal number found in fromhex() arg at position %d"
@@ -20,15 +21,30 @@ NON_HEX_MSG = "non-hexadecimal number found in fromhex() arg at position %d"
 class W_BytearrayObject(W_Root):
     import_from_mixin(StringMethods)
 
-    def __init__(w_self, data):
-        w_self.data = data
+    def __init__(self, data):
+        self.data = data
 
-    def __repr__(w_self):
+    def __repr__(self):
         """representation for debugging purposes"""
-        return "%s(%s)" % (w_self.__class__.__name__, ''.join(w_self.data))
+        return "%s(%s)" % (self.__class__.__name__, ''.join(self.data))
+
+    def buffer_w(self, space, flags):
+        return BytearrayBuffer(self.data, False)
+
+    def readbuf_w(self, space):
+        return BytearrayBuffer(self.data, True)
+
+    def writebuf_w(self, space):
+        return BytearrayBuffer(self.data, False)
+
+    def charbuf_w(self, space):
+        return ''.join(self.data)
 
     def _new(self, value):
-        return W_BytearrayObject(_make_data(value))
+        return W_BytearrayObject(value)
+
+    def _new_from_buffer(self, buffer):
+        return W_BytearrayObject([buffer[i] for i in range(len(buffer))])
 
     def _new_from_list(self, value):
         return W_BytearrayObject(value)
@@ -47,19 +63,29 @@ class W_BytearrayObject(W_Root):
         return space.wrap(ord(character))
 
     def _val(self, space):
-        return space.bufferstr_w(self)
+        return self.data
 
-    def _op_val(self, space, w_other):
-        return space.bufferstr_new_w(w_other)
+    @staticmethod
+    def _use_rstr_ops(space, w_other):
+        return False
+
+    @staticmethod
+    def _op_val(space, w_other):
+        return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
 
     def _chr(self, char):
         assert len(char) == 1
         return str(char)[0]
 
-    _builder = StringBuilder
+    def _multi_chr(self, char):
+        return [char]
+
+    @staticmethod
+    def _builder(size=100):
+        return ByteListBuilder(size)
 
     def _newlist_unwrapped(self, space, res):
-        return space.newlist([W_BytearrayObject(_make_data(i)) for i in res])
+        return space.newlist([W_BytearrayObject(i) for i in res])
 
     def _isupper(self, ch):
         return ch.isupper()
@@ -209,7 +235,15 @@ class W_BytearrayObject(W_Root):
         # Good default if there are no replacements.
         buf = StringBuilder(len("bytearray(b'')") + len(s))
 
-        buf.append("bytearray(b'")
+        buf.append("bytearray(b")
+        quote = "'"
+        for c in s:
+            if c == '"':
+                quote = "'"
+                break
+            elif c == "'":
+                quote = '"'
+        buf.append(quote)
 
         for i in range(len(s)):
             c = s[i]
@@ -231,7 +265,8 @@ class W_BytearrayObject(W_Root):
             else:
                 buf.append(c)
 
-        buf.append("')")
+        buf.append(quote)
+        buf.append(")")
 
         return space.wrap(buf.build())
 
@@ -239,71 +274,110 @@ class W_BytearrayObject(W_Root):
         return space.wrap(''.join(self.data))
 
     def descr_eq(self, space, w_other):
+        if isinstance(w_other, W_BytearrayObject):
+            return space.newbool(self.data == w_other.data)
+
         try:
-            res = self._val(space) == self._op_val(space, w_other)
+            buffer = _get_buffer(space, w_other)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
-        return space.newbool(res)
+
+        value = self._val(space)
+        buffer_len = buffer.getlength()
+
+        if len(value) != buffer_len:
+            return space.newbool(False)
+
+        min_length = min(len(value), buffer_len)
+        return space.newbool(_memcmp(value, buffer, min_length) == 0)
 
     def descr_ne(self, space, w_other):
+        if isinstance(w_other, W_BytearrayObject):
+            return space.newbool(self.data != w_other.data)
+
         try:
-            res = self._val(space) != self._op_val(space, w_other)
+            buffer = _get_buffer(space, w_other)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
-        return space.newbool(res)
+
+        value = self._val(space)
+        buffer_len = buffer.getlength()
+
+        if len(value) != buffer_len:
+            return space.newbool(True)
+
+        min_length = min(len(value), buffer_len)
+        return space.newbool(_memcmp(value, buffer, min_length) != 0)
+
+    def _comparison_helper(self, space, w_other):
+        value = self._val(space)
+
+        if isinstance(w_other, W_BytearrayObject):
+            other = w_other.data
+            other_len = len(other)
+            cmp = _memcmp(value, other, min(len(value), len(other)))
+        elif isinstance(w_other, W_BytesObject):
+            other = self._op_val(space, w_other)
+            other_len = len(other)
+            cmp = _memcmp(value, other, min(len(value), len(other)))
+        else:
+            try:
+                buffer = _get_buffer(space, w_other)
+            except OperationError as e:
+                if e.match(space, space.w_TypeError):
+                    return False, 0, 0
+                raise
+            other_len = len(buffer)
+            cmp = _memcmp(value, buffer, min(len(value), len(buffer)))
+
+        return True, cmp, other_len
 
     def descr_lt(self, space, w_other):
-        try:
-            res = self._val(space) < self._op_val(space, w_other)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-            raise
-        return space.newbool(res)
+        success, cmp, other_len = self._comparison_helper(space, w_other)
+        if not success:
+            return space.w_NotImplemented
+        return space.newbool(cmp < 0 or (cmp == 0 and self._len() < other_len))
 
     def descr_le(self, space, w_other):
-        try:
-            res = self._val(space) <= self._op_val(space, w_other)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-            raise
-        return space.newbool(res)
+        success, cmp, other_len = self._comparison_helper(space, w_other)
+        if not success:
+            return space.w_NotImplemented
+        return space.newbool(cmp < 0 or (cmp == 0 and self._len() <= other_len))
 
     def descr_gt(self, space, w_other):
-        try:
-            res = self._val(space) > self._op_val(space, w_other)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-            raise
-        return space.newbool(res)
+        success, cmp, other_len = self._comparison_helper(space, w_other)
+        if not success:
+            return space.w_NotImplemented
+        return space.newbool(cmp > 0 or (cmp == 0 and self._len() > other_len))
 
     def descr_ge(self, space, w_other):
-        try:
-            res = self._val(space) >= self._op_val(space, w_other)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-            raise
-        return space.newbool(res)
+        success, cmp, other_len = self._comparison_helper(space, w_other)
+        if not success:
+            return space.w_NotImplemented
+        return space.newbool(cmp > 0 or (cmp == 0 and self._len() >= other_len))
 
     def descr_iter(self, space):
         return space.newseqiter(self)
 
-    def descr_buffer(self, space):
-        return BytearrayBuffer(self.data)
-
     def descr_inplace_add(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
             self.data += w_other.data
+            return self
+
+        if isinstance(w_other, W_BytesObject):
+            self._inplace_add(self._op_val(space, w_other))
         else:
-            self.data += self._op_val(space, w_other)
+            self._inplace_add(_get_buffer(space, w_other))
         return self
+
+    @specialize.argtype(1)
+    def _inplace_add(self, other):
+        for i in range(len(other)):
+            self.data.append(other[i])
 
     def descr_inplace_mul(self, space, w_times):
         try:
@@ -385,10 +459,31 @@ class W_BytearrayObject(W_Root):
         if space.isinstance_w(w_sub, space.w_int):
             char = space.int_w(w_sub)
             return _descr_contains_bytearray(self.data, space, char)
+
         return self._StringMethods_descr_contains(space, w_sub)
+
+    def descr_add(self, space, w_other):
+        if isinstance(w_other, W_BytearrayObject):
+            return self._new(self.data + w_other.data)
+
+        if isinstance(w_other, W_BytesObject):
+            return self._add(self._op_val(space, w_other))
+
+        try:
+            buffer = _get_buffer(space, w_other)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
+        return self._add(buffer)
+
+    @specialize.argtype(1)
+    def _add(self, other):
+        return self._new(self.data + [other[i] for i in range(len(other))])
 
     def descr_reverse(self, space):
         self.data.reverse()
+
 
 
 # ____________________________________________________________
@@ -432,12 +527,12 @@ def new_bytearray(space, w_bytearraytype, data):
 def makebytearraydata_w(space, w_source):
     # String-like argument
     try:
-        string = space.bufferstr_new_w(w_source)
+        buf = space.buffer_w(w_source, space.BUF_FULL_RO)
     except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
     else:
-        return [c for c in string]
+        return [c for c in buf.as_str()]
 
     # sequence of bytes
     w_iter = space.iter(w_source)
@@ -1011,7 +1106,6 @@ W_BytearrayObject.typedef = StdTypeDef(
 
     __init__ = interp2app(W_BytearrayObject.descr_init,
                           doc=BytearrayDocstrings.__init__.__doc__),
-    __buffer__ = interp2app(W_BytearrayObject.descr_buffer),
 
     __iadd__ = interp2app(W_BytearrayObject.descr_inplace_add,
                           doc=BytearrayDocstrings.__iadd__.__doc__),
@@ -1038,28 +1132,6 @@ W_BytearrayObject.typedef = StdTypeDef(
 
 init_signature = Signature(['source', 'encoding', 'errors'], None, None)
 init_defaults = [None, None, None]
-
-
-# XXX consider moving to W_BytearrayObject or remove
-def str_join__Bytearray_ANY(space, w_self, w_list):
-    list_w = space.listview(w_list)
-    if not list_w:
-        return W_BytearrayObject([])
-    data = w_self.data
-    newdata = []
-    for i in range(len(list_w)):
-        w_s = list_w[i]
-        if not (space.isinstance_w(w_s, space.w_str) or
-                space.isinstance_w(w_s, space.w_bytearray)):
-            raise oefmt(space.w_TypeError,
-                        "sequence item %d: expected string, %T found", i, w_s)
-
-        if data and i != 0:
-            newdata.extend(data)
-        newdata.extend([c for c in space.bufferstr_new_w(w_s)])
-    return W_BytearrayObject(newdata)
-
-_space_chars = ''.join([chr(c) for c in [9, 10, 11, 12, 13, 32]])
 
 
 # XXX share the code again with the stuff in listobject.py
@@ -1142,9 +1214,12 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
         start += step
 
 
-class BytearrayBuffer(RWBuffer):
-    def __init__(self, data):
+class BytearrayBuffer(Buffer):
+    _immutable_ = True
+
+    def __init__(self, data, readonly):
         self.data = data
+        self.readonly = readonly
 
     def getlength(self):
         return len(self.data)
@@ -1154,3 +1229,13 @@ class BytearrayBuffer(RWBuffer):
 
     def setitem(self, index, char):
         self.data[index] = char
+
+
+@specialize.argtype(1)
+def _memcmp(selfvalue, buffer, length):
+    for i in range(length):
+        if selfvalue[i] < buffer[i]:
+            return -1
+        if selfvalue[i] > buffer[i]:
+            return 1
+    return 0

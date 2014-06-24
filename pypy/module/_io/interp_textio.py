@@ -178,7 +178,7 @@ class W_IncrementalNewlineDecoder(W_Root):
             space.call_method(self.w_decoder, "setstate", w_state)
 
 W_IncrementalNewlineDecoder.typedef = TypeDef(
-    'IncrementalNewlineDecoder',
+    '_io.IncrementalNewlineDecoder',
     __new__ = generic_new_descr(W_IncrementalNewlineDecoder),
     __init__  = interp2app(W_IncrementalNewlineDecoder.descr_init),
 
@@ -255,7 +255,7 @@ class W_TextIOBase(W_IOBase):
 
 
 W_TextIOBase.typedef = TypeDef(
-    '_TextIOBase', W_IOBase.typedef,
+    '_io._TextIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_TextIOBase),
 
     read = interp2app(W_TextIOBase.read_w),
@@ -1015,11 +1015,10 @@ class W_TextIOWrapper(W_TextIOBase):
         self.chunk_size = size
 
 W_TextIOWrapper.typedef = TypeDef(
-    'TextIOWrapper', W_TextIOBase.typedef,
+    '_io.TextIOWrapper', W_TextIOBase.typedef,
     __new__ = generic_new_descr(W_TextIOWrapper),
     __init__  = interp2app(W_TextIOWrapper.descr_init),
     __repr__ = interp2app(W_TextIOWrapper.descr_repr),
-    __module__ = "_io",
 
     next = interp2app(W_TextIOWrapper.next_w),
     read = interp2app(W_TextIOWrapper.read_w),

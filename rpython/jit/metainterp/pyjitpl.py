@@ -11,7 +11,7 @@ from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
     ConstFloat, Box, TargetToken)
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
-from rpython.jit.metainterp.optimizeopt.util import args_dict_box
+from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print, make_sure_not_resized
@@ -167,12 +167,11 @@ class MIFrame(object):
 
     def make_result_of_lastop(self, resultbox):
         got_type = resultbox.type
-        # XXX disabled for now, conflicts with str_guard_value
-        #if not we_are_translated():
-        #    typeof = {'i': history.INT,
-        #              'r': history.REF,
-        #              'f': history.FLOAT}
-        #    assert typeof[self.jitcode._resulttypes[self.pc]] == got_type
+        if not we_are_translated():
+            typeof = {'i': history.INT,
+                      'r': history.REF,
+                      'f': history.FLOAT}
+            assert typeof[self.jitcode._resulttypes[self.pc]] == got_type
         target_index = ord(self.bytecode[self.pc-1])
         if got_type == history.INT:
             self.registers_i[target_index] = resultbox
@@ -230,6 +229,14 @@ class MIFrame(object):
             def opimpl_%s(self, b):
                 return self.execute(rop.%s, b)
         ''' % (_opimpl, _opimpl.upper())).compile()
+
+    @arguments("box")
+    def opimpl_int_same_as(self, box):
+        # for tests only: emits a same_as, forcing the result to be in a Box
+        resbox = history.BoxInt(box.getint())
+        self.metainterp._record_helper_nonpure_varargs(
+            rop.SAME_AS, resbox, None, [box])
+        return resbox
 
     @arguments("box")
     def opimpl_ptr_nonzero(self, box):
@@ -387,24 +394,17 @@ class MIFrame(object):
 
     @arguments("descr")
     def opimpl_new(self, sizedescr):
-        resbox = self.execute_with_descr(rop.NEW, sizedescr)
-        self.metainterp.heapcache.new(resbox)
-        return resbox
+        return self.metainterp.execute_new(sizedescr)
 
     @arguments("descr")
     def opimpl_new_with_vtable(self, sizedescr):
         cpu = self.metainterp.cpu
         cls = heaptracker.descr2vtable(cpu, sizedescr)
-        resbox = self.execute(rop.NEW_WITH_VTABLE, ConstInt(cls))
-        self.metainterp.heapcache.new(resbox)
-        self.metainterp.heapcache.class_now_known(resbox)
-        return resbox
+        return self.metainterp.execute_new_with_vtable(ConstInt(cls))
 
     @arguments("box", "descr")
     def opimpl_new_array(self, lengthbox, itemsizedescr):
-        resbox = self.execute_with_descr(rop.NEW_ARRAY, itemsizedescr, lengthbox)
-        self.metainterp.heapcache.new_array(resbox, lengthbox)
-        return resbox
+        return self.metainterp.execute_new_array(itemsizedescr, lengthbox)
 
     @specialize.arg(1)
     def _do_getarrayitem_gc_any(self, op, arraybox, indexbox, arraydescr):
@@ -467,10 +467,8 @@ class MIFrame(object):
     @arguments("box", "box", "box", "descr")
     def _opimpl_setarrayitem_gc_any(self, arraybox, indexbox, itembox,
                                     arraydescr):
-        self.execute_with_descr(rop.SETARRAYITEM_GC, arraydescr, arraybox,
-                                indexbox, itembox)
-        self.metainterp.heapcache.setarrayitem(
-                arraybox, indexbox, itembox, arraydescr)
+        self.metainterp.execute_setarrayitem_gc(arraydescr, arraybox,
+                                                indexbox, itembox)
 
     opimpl_setarrayitem_gc_i = _opimpl_setarrayitem_gc_any
     opimpl_setarrayitem_gc_r = _opimpl_setarrayitem_gc_any
@@ -623,21 +621,22 @@ class MIFrame(object):
         tobox = self.metainterp.heapcache.getfield(box, fielddescr)
         if tobox is valuebox:
             return
-        # The following test is disabled because buggy.  It is supposed
+        self.metainterp.execute_setfield_gc(fielddescr, box, valuebox)
+        # The following logic is disabled because buggy.  It is supposed
         # to be: not(we're writing null into a freshly allocated object)
         # but the bug is that is_unescaped() can be True even after the
         # field cache is cleared --- see test_ajit:test_unescaped_write_zero
-        if 1:  # tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
-            self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
-        self.metainterp.heapcache.setfield(box, valuebox, fielddescr)
+        #
+        # if tobox is not None or not self.metainterp.heapcache.is_unescaped(box) or not isinstance(valuebox, Const) or valuebox.nonnull():
+        #   self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
+        # self.metainterp.heapcache.setfield(box, valuebox, fielddescr)
     opimpl_setfield_gc_i = _opimpl_setfield_gc_any
     opimpl_setfield_gc_r = _opimpl_setfield_gc_any
     opimpl_setfield_gc_f = _opimpl_setfield_gc_any
 
     @arguments("box", "box", "box", "descr")
     def _opimpl_setinteriorfield_gc_any(self, array, index, value, descr):
-        self.execute_with_descr(rop.SETINTERIORFIELD_GC, descr,
-                                array, index, value)
+        self.metainterp.execute_setinteriorfield_gc(descr, array, index, value)
     opimpl_setinteriorfield_gc_i = _opimpl_setinteriorfield_gc_any
     opimpl_setinteriorfield_gc_f = _opimpl_setinteriorfield_gc_any
     opimpl_setinteriorfield_gc_r = _opimpl_setinteriorfield_gc_any
@@ -664,8 +663,8 @@ class MIFrame(object):
 
     @arguments("box", "box", "box", "descr")
     def _opimpl_raw_store(self, addrbox, offsetbox, valuebox, arraydescr):
-        self.execute_with_descr(rop.RAW_STORE, arraydescr,
-                                addrbox, offsetbox, valuebox)
+        self.metainterp.execute_raw_store(arraydescr,
+                                          addrbox, offsetbox, valuebox)
     opimpl_raw_store_i = _opimpl_raw_store
     opimpl_raw_store_f = _opimpl_raw_store
 
@@ -889,6 +888,8 @@ class MIFrame(object):
                                     pc):
         self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
 
+    opimpl_conditional_call_r_v = opimpl_conditional_call_i_v
+
     @arguments("box", "box", "boxes2", "descr", "orgpc")
     def opimpl_conditional_call_ir_v(self, condbox, funcbox, argboxes,
                                      calldescr, pc):
@@ -1049,10 +1050,7 @@ class MIFrame(object):
             # much less expensive to blackhole out of.
             saved_pc = self.pc
             self.pc = orgpc
-            resumedescr = compile.ResumeAtPositionDescr()
-            self.metainterp.capture_resumedata(resumedescr, orgpc)
-
-            self.metainterp.reached_loop_header(greenboxes, redboxes, resumedescr)
+            self.metainterp.reached_loop_header(greenboxes, redboxes)
             self.pc = saved_pc
             # no exception, which means that the jit_merge_point did not
             # close the loop.  We have to put the possibly-modified list
@@ -1177,11 +1175,13 @@ class MIFrame(object):
     def _opimpl_isconstant(self, box):
         return ConstInt(isinstance(box, Const))
 
-    opimpl_int_isconstant = opimpl_ref_isconstant = _opimpl_isconstant
+    opimpl_int_isconstant = _opimpl_isconstant
+    opimpl_ref_isconstant = _opimpl_isconstant
+    opimpl_float_isconstant = _opimpl_isconstant
 
     @arguments("box")
     def _opimpl_isvirtual(self, box):
-        return ConstInt(self.metainterp.heapcache.is_unescaped(box))
+        return ConstInt(self.metainterp.heapcache.is_likely_virtual(box))
 
     opimpl_ref_isvirtual = _opimpl_isvirtual
 
@@ -1330,14 +1330,14 @@ class MIFrame(object):
         self.metainterp.clear_exception()
         resbox = self.metainterp.execute_and_record_varargs(opnum, argboxes,
                                                             descr=descr)
-        if resbox is not None:
-            self.make_result_of_lastop(resbox)
-            # ^^^ this is done before handle_possible_exception() because we
-            # need the box to show up in get_list_of_active_boxes()
         if pure and self.metainterp.last_exc_value_box is None and resbox:
             resbox = self.metainterp.record_result_of_call_pure(resbox)
             exc = exc and not isinstance(resbox, Const)
         if exc:
+            if resbox is not None:
+                self.make_result_of_lastop(resbox)
+                # ^^^ this is done before handle_possible_exception() because we
+                # need the box to show up in get_list_of_active_boxes()
             self.metainterp.handle_possible_exception()
         else:
             self.metainterp.assert_no_exception()
@@ -1422,6 +1422,8 @@ class MIFrame(object):
             return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
 
     def do_conditional_call(self, condbox, funcbox, argboxes, descr, pc):
+        if isinstance(condbox, ConstInt) and condbox.value == 0:
+            return   # so that the heapcache can keep argboxes virtual
         allboxes = self._build_allboxes(funcbox, argboxes, descr)
         effectinfo = descr.get_extra_info()
         assert not effectinfo.check_forces_virtual_or_virtualizable()
@@ -1656,7 +1658,7 @@ class MetaInterp(object):
         self.forced_virtualizable = None
         self.partial_trace = None
         self.retracing_from = -1
-        self.call_pure_results = args_dict_box()
+        self.call_pure_results = args_dict()
         self.heapcache = HeapCache()
 
         self.call_ids = []
@@ -1784,16 +1786,16 @@ class MetaInterp(object):
             moreargs = [box] + extraargs
         else:
             moreargs = list(extraargs)
-        metainterp_sd = self.staticdata
         if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
-            resumedescr = compile.ResumeGuardForcedDescr(metainterp_sd,
+            resumedescr = compile.ResumeGuardForcedDescr(self.staticdata,
                                                          self.jitdriver_sd)
         elif opnum == rop.GUARD_NOT_INVALIDATED:
             resumedescr = compile.ResumeGuardNotInvalidated()
+        elif opnum == rop.GUARD_FUTURE_CONDITION:
+            resumedescr = compile.ResumeAtPositionDescr()
         else:
             resumedescr = compile.ResumeGuardDescr()
-        guard_op = self.history.record(opnum, moreargs, None,
-                                             descr=resumedescr)
+        guard_op = self.history.record(opnum, moreargs, None, descr=resumedescr)
         self.capture_resumedata(resumedescr, resumepc)
         self.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
         # count
@@ -1892,6 +1894,41 @@ class MetaInterp(object):
         op = self.history.record(opnum, argboxes, resbox, descr)
         self.attach_debug_info(op)
         return resbox
+
+    def execute_new_with_vtable(self, known_class):
+        resbox = self.execute_and_record(rop.NEW_WITH_VTABLE, None,
+                                         known_class)
+        self.heapcache.new(resbox)
+        self.heapcache.class_now_known(resbox)
+        return resbox
+
+    def execute_new(self, typedescr):
+        resbox = self.execute_and_record(rop.NEW, typedescr)
+        self.heapcache.new(resbox)
+        return resbox
+
+    def execute_new_array(self, itemsizedescr, lengthbox):
+        resbox = self.execute_and_record(rop.NEW_ARRAY, itemsizedescr,
+                                         lengthbox)
+        self.heapcache.new_array(resbox, lengthbox)
+        return resbox
+
+    def execute_setfield_gc(self, fielddescr, box, valuebox):
+        self.execute_and_record(rop.SETFIELD_GC, fielddescr, box, valuebox)
+        self.heapcache.setfield(box, valuebox, fielddescr)
+
+    def execute_setarrayitem_gc(self, arraydescr, arraybox, indexbox, itembox):
+        self.execute_and_record(rop.SETARRAYITEM_GC, arraydescr,
+                                arraybox, indexbox, itembox)
+        self.heapcache.setarrayitem(arraybox, indexbox, itembox, arraydescr)
+
+    def execute_setinteriorfield_gc(self, descr, array, index, value):
+        self.execute_and_record(rop.SETINTERIORFIELD_GC, descr,
+                                array, index, value)
+
+    def execute_raw_store(self, arraydescr, addrbox, offsetbox, valuebox):
+        self.execute_and_record(rop.RAW_STORE, arraydescr,
+                                addrbox, offsetbox, valuebox)
 
 
     def attach_debug_info(self, op):
@@ -2062,7 +2099,7 @@ class MetaInterp(object):
             else:
                 duplicates[box] = None
 
-    def reached_loop_header(self, greenboxes, redboxes, resumedescr):
+    def reached_loop_header(self, greenboxes, redboxes):
         self.heapcache.reset(reset_virtuals=False)
 
         duplicates = {}
@@ -2077,7 +2114,11 @@ class MetaInterp(object):
                                               duplicates)
             live_arg_boxes += self.virtualizable_boxes
             live_arg_boxes.pop()
-        #
+
+        # generate a dummy guard just before the JUMP so that unroll can use it
+        # when it's creating artificial guards.
+        self.generate_guard(rop.GUARD_FUTURE_CONDITION)
+
         assert len(self.virtualref_boxes) == 0, "missing virtual_ref_finish()?"
         # Called whenever we reach the 'loop_header' hint.
         # First, attempt to make a bridge:
@@ -2087,7 +2128,7 @@ class MetaInterp(object):
         #   from the interpreter.
         if not self.partial_trace:
             # FIXME: Support a retrace to be a bridge as well as a loop
-            self.compile_trace(live_arg_boxes, resumedescr)
+            self.compile_trace(live_arg_boxes)
 
         # raises in case it works -- which is the common case, hopefully,
         # at least for bridges starting from a guard.
@@ -2112,7 +2153,7 @@ class MetaInterp(object):
                         raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP) # For now
                 # Found!  Compile it as a loop.
                 # raises in case it works -- which is the common case
-                self.compile_loop(original_boxes, live_arg_boxes, start, resumedescr)
+                self.compile_loop(original_boxes, live_arg_boxes, start)
                 # creation of the loop was cancelled!
                 self.cancel_count += 1
                 if self.staticdata.warmrunnerdesc:
@@ -2121,7 +2162,7 @@ class MetaInterp(object):
                         if self.cancel_count > memmgr.max_unroll_loops:
                             self.compile_loop_or_abort(original_boxes,
                                                        live_arg_boxes,
-                                                       start, resumedescr)
+                                                       start)
                 self.staticdata.log('cancelled, tracing more...')
 
         # Otherwise, no loop found so far, so continue tracing.
@@ -2226,7 +2267,7 @@ class MetaInterp(object):
         return token
 
     def compile_loop(self, original_boxes, live_arg_boxes, start,
-                     resume_at_jump_descr, try_disabling_unroll=False):
+                     try_disabling_unroll=False):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
         if not self.partial_trace:
@@ -2239,13 +2280,12 @@ class MetaInterp(object):
             target_token = compile.compile_retrace(self, greenkey, start,
                                                    original_boxes[num_green_args:],
                                                    live_arg_boxes[num_green_args:],
-                                                   resume_at_jump_descr, self.partial_trace,
+                                                   self.partial_trace,
                                                    self.resumekey)
         else:
             target_token = compile.compile_loop(self, greenkey, start,
                                                 original_boxes[num_green_args:],
                                                 live_arg_boxes[num_green_args:],
-                                                resume_at_jump_descr,
                                      try_disabling_unroll=try_disabling_unroll)
             if target_token is not None:
                 assert isinstance(target_token, TargetToken)
@@ -2259,18 +2299,18 @@ class MetaInterp(object):
             self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
 
     def compile_loop_or_abort(self, original_boxes, live_arg_boxes,
-                              start, resume_at_jump_descr):
+                              start):
         """Called after we aborted more than 'max_unroll_loops' times.
         As a last attempt, try to compile the loop with unrolling disabled.
         """
         if not self.partial_trace:
             self.compile_loop(original_boxes, live_arg_boxes, start,
-                              resume_at_jump_descr, try_disabling_unroll=True)
+                              try_disabling_unroll=True)
         #
         self.staticdata.log('cancelled too many times!')
         raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
 
-    def compile_trace(self, live_arg_boxes, resume_at_jump_descr):
+    def compile_trace(self, live_arg_boxes):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
         target_jitcell_token = self.get_procedure_token(greenkey, True)
@@ -2280,7 +2320,7 @@ class MetaInterp(object):
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
                             descr=target_jitcell_token)
         try:
-            target_token = compile.compile_trace(self, self.resumekey, resume_at_jump_descr)
+            target_token = compile.compile_trace(self, self.resumekey)
         finally:
             self.history.operations.pop()     # remove the JUMP
         if target_token is not None: # raise if it *worked* correctly

@@ -196,29 +196,136 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         except OSError, e:
             assert e.errno == errno.EBADF
             assert e.strerror == os.strerror(errno.EBADF)
-            assert e.filename == None
+            assert e.filename is None
 
     def test_SetFromErrnoWithFilename(self):
-        import sys
-        if sys.platform != 'win32':
-            skip("callbacks through ll2ctypes modify errno")
         import errno, os
 
         module = self.import_extension('foo', [
                 ("set_from_errno", "METH_NOARGS",
                  '''
                  errno = EBADF;
-                 PyErr_SetFromErrnoWithFilename(PyExc_OSError, "blyf");
+                 PyErr_SetFromErrnoWithFilename(PyExc_OSError, "/path/to/file");
                  return NULL;
                  '''),
                 ],
                 prologue="#include <errno.h>")
-        try:
-            module.set_from_errno()
-        except OSError, e:
-            assert e.filename == "blyf"
-            assert e.errno == errno.EBADF
-            assert e.strerror == os.strerror(errno.EBADF)
+        exc_info = raises(OSError, module.set_from_errno)
+        assert exc_info.value.filename == "/path/to/file"
+        assert exc_info.value.errno == errno.EBADF
+        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+
+    def test_SetFromErrnoWithFilename_NULL(self):
+        import errno, os
+
+        module = self.import_extension('foo', [
+                ("set_from_errno", "METH_NOARGS",
+                 '''
+                 errno = EBADF;
+                 PyErr_SetFromErrnoWithFilename(PyExc_OSError, NULL);
+                 return NULL;
+                 '''),
+                ],
+                prologue="#include <errno.h>")
+        exc_info = raises(OSError, module.set_from_errno)
+        assert exc_info.value.filename is None
+        assert exc_info.value.errno == errno.EBADF
+        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+
+    def test_SetFromErrnoWithFilenameObject__PyString(self):
+        import errno, os
+
+        module = self.import_extension('foo', [
+                ("set_from_errno", "METH_NOARGS",
+                 '''
+                 PyObject *filenameObject = PyString_FromString("/path/to/file");
+                 errno = EBADF;
+                 PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, filenameObject);
+                 Py_DECREF(filenameObject);
+                 return NULL;
+                 '''),
+                ],
+                prologue="#include <errno.h>")
+        exc_info = raises(OSError, module.set_from_errno)
+        assert exc_info.value.filename == "/path/to/file"
+        assert exc_info.value.errno == errno.EBADF
+        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+
+    def test_SetFromErrnoWithFilenameObject__PyInt(self):
+        import errno, os
+
+        module = self.import_extension('foo', [
+                ("set_from_errno", "METH_NOARGS",
+                 '''
+                 PyObject *intObject = PyInt_FromLong(3);
+                 errno = EBADF;
+                 PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, intObject);
+                 Py_DECREF(intObject);
+                 return NULL;
+                 '''),
+                ],
+                prologue="#include <errno.h>")
+        exc_info = raises(OSError, module.set_from_errno)
+        assert exc_info.value.filename == 3
+        assert exc_info.value.errno == errno.EBADF
+        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+
+    def test_SetFromErrnoWithFilenameObject__PyList(self):
+        import errno, os
+
+        module = self.import_extension('foo', [
+                ("set_from_errno", "METH_NOARGS",
+                 '''
+                 PyObject *lst = Py_BuildValue("[iis]", 1, 2, "three");
+                 errno = EBADF;
+                 PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, lst);
+                 Py_DECREF(lst);
+                 return NULL;
+                 '''),
+                ],
+                prologue="#include <errno.h>")
+        exc_info = raises(OSError, module.set_from_errno)
+        assert exc_info.value.filename == [1, 2, "three"]
+        assert exc_info.value.errno == errno.EBADF
+        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+
+    def test_SetFromErrnoWithFilenameObject__PyTuple(self):
+        import errno, os
+
+        module = self.import_extension('foo', [
+                ("set_from_errno", "METH_NOARGS",
+                 '''
+                 PyObject *tuple = Py_BuildValue("(iis)", 1, 2, "three");
+                 errno = EBADF;
+                 PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, tuple);
+                 Py_DECREF(tuple);
+                 return NULL;
+                 '''),
+                ],
+                prologue="#include <errno.h>")
+        exc_info = raises(OSError, module.set_from_errno)
+        assert exc_info.value.filename == (1, 2, "three")
+        assert exc_info.value.errno == errno.EBADF
+        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+
+    def test_SetFromErrnoWithFilenameObject__Py_None(self):
+        import errno, os
+
+        module = self.import_extension('foo', [
+                ("set_from_errno", "METH_NOARGS",
+                 '''
+                 PyObject *none = Py_BuildValue("");
+                 errno = EBADF;
+                 PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, none);
+                 Py_DECREF(none);
+                 return NULL;
+                 '''),
+                ],
+                prologue="#include <errno.h>")
+        exc_info = raises(OSError, module.set_from_errno)
+        assert exc_info.value.filename is None
+        assert exc_info.value.errno == errno.EBADF
+        assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_PyErr_Display(self):
         module = self.import_extension('foo', [

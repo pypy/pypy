@@ -1,43 +1,20 @@
 import types
 
-from rpython.annotator import description, model as annmodel
+from rpython.annotator import description
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import callparse
 from rpython.rtyper.lltypesystem import rclass, llmemory
 from rpython.rtyper.lltypesystem.lltype import (typeOf, Void, ForwardReference,
     Struct, Bool, Char, Ptr, malloc, nullptr, Array, Signed)
-from rpython.rtyper.rmodel import Repr, TyperError, inputconst
-from rpython.rtyper.rpbc import (AbstractClassesPBCRepr, AbstractMethodsPBCRepr,
-    OverriddenFunctionPBCRepr, AbstractMultipleFrozenPBCRepr,
+from rpython.rtyper.rmodel import Repr, inputconst
+from rpython.rtyper.rpbc import (
+    AbstractClassesPBCRepr, AbstractMultipleFrozenPBCRepr,
     AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr,
-    SingleFrozenPBCRepr, MethodOfFrozenPBCRepr, none_frozen_pbc_repr,
-    get_concrete_calltable)
+    SingleFrozenPBCRepr, get_concrete_calltable)
+from rpython.rtyper.typesystem import getfunctionptr
 from rpython.tool.pairtype import pairtype
 
-
-def rtype_is_None(robj1, rnone2, hop, pos=0):
-    if isinstance(robj1.lowleveltype, Ptr):
-        v1 = hop.inputarg(robj1, pos)
-        return hop.genop('ptr_iszero', [v1], resulttype=Bool)
-    elif robj1.lowleveltype == llmemory.Address:
-        v1 = hop.inputarg(robj1, pos)
-        cnull = hop.inputconst(llmemory.Address, robj1.null_instance())
-        return hop.genop('adr_eq', [v1, cnull], resulttype=Bool)
-    elif robj1 == none_frozen_pbc_repr:
-        return hop.inputconst(Bool, True)
-    elif isinstance(robj1, SmallFunctionSetPBCRepr):
-        if robj1.s_pbc.can_be_None:
-            v1 = hop.inputarg(robj1, pos)
-            return hop.genop('char_eq', [v1, inputconst(Char, '\000')],
-                             resulttype=Bool)
-        else:
-            return inputconst(Bool, False)
-    else:
-        raise TyperError('rtype_is_None of %r' % (robj1))
-
-
-# ____________________________________________________________
 
 class MultipleFrozenPBCRepr(AbstractMultipleFrozenPBCRepr):
     """Representation selected for multiple non-callable pre-built constants."""
@@ -182,10 +159,10 @@ class SmallFunctionSetPBCRepr(Repr):
         return self.convert_desc(funcdesc)
 
     def rtype_simple_call(self, hop):
-        return self.call('simple_call', hop)
+        return self.call(hop)
 
     def rtype_call_args(self, hop):
-        return self.call('call_args', hop)
+        return self.call(hop)
 
     def dispatcher(self, shape, index, argtypes, resulttype):
         key = shape, index, tuple(argtypes), resulttype
@@ -218,14 +195,14 @@ class SmallFunctionSetPBCRepr(Repr):
             links[-1].llexitcase = chr(i)
         startblock.closeblock(*links)
         self.rtyper.annotator.translator.graphs.append(graph)
-        ll_ret = self.rtyper.type_system.getcallable(graph)
+        ll_ret = getfunctionptr(graph)
         #FTYPE = FuncType
         c_ret = self._dispatch_cache[key] = inputconst(typeOf(ll_ret), ll_ret)
         return c_ret
 
-    def call(self, opname, hop):
+    def call(self, hop):
         bk = self.rtyper.annotator.bookkeeper
-        args = bk.build_args(opname, hop.args_s[1:])
+        args = hop.spaceop.build_args(hop.args_s[1:])
         s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
         descs = list(s_pbc.descriptions)
         vfcs = description.FunctionDesc.variant_for_call_site
@@ -233,7 +210,7 @@ class SmallFunctionSetPBCRepr(Repr):
         row_of_graphs = self.callfamily.calltables[shape][index]
         anygraph = row_of_graphs.itervalues().next()  # pick any witness
         vlist = [hop.inputarg(self, arg=0)]
-        vlist += callparse.callparse(self.rtyper, anygraph, hop, opname)
+        vlist += callparse.callparse(self.rtyper, anygraph, hop)
         rresult = callparse.getrresult(self.rtyper, anygraph)
         hop.exception_is_here()
         v_dispatcher = self.dispatcher(shape, index, [v.concretetype for v in vlist[1:]], rresult.lowleveltype)
@@ -325,51 +302,7 @@ class __extend__(pairtype(SmallFunctionSetPBCRepr, SmallFunctionSetPBCRepr)):
         else:
             return v
 
-
-class MethodsPBCRepr(AbstractMethodsPBCRepr):
-    """Representation selected for a PBC of the form {func: classdef...}.
-    It assumes that all the methods come from the same name in a base
-    classdef."""
-
-    def rtype_simple_call(self, hop):
-        return self.redispatch_call(hop, call_args=False)
-
-    def rtype_call_args(self, hop):
-        return self.redispatch_call(hop, call_args=True)
-
-    def redispatch_call(self, hop, call_args):
-        r_class = self.r_im_self.rclass
-        mangled_name, r_func = r_class.clsfields[self.methodname]
-        assert isinstance(r_func, (FunctionsPBCRepr,
-                                   OverriddenFunctionPBCRepr,
-                                   SmallFunctionSetPBCRepr))
-        # s_func = r_func.s_pbc -- not precise enough, see
-        # test_precise_method_call_1.  Build a more precise one...
-        funcdescs = [desc.funcdesc for desc in hop.args_s[0].descriptions]
-        s_func = annmodel.SomePBC(funcdescs, subset_of=r_func.s_pbc)
-        v_im_self = hop.inputarg(self, arg=0)
-        v_cls = self.r_im_self.getfield(v_im_self, '__class__', hop.llops)
-        v_func = r_class.getclsfield(v_cls, self.methodname, hop.llops)
-
-        hop2 = self.add_instance_arg_to_hop(hop, call_args)
-        opname = 'simple_call'
-        if call_args:
-            opname = 'call_args'
-        hop2.forced_opname = opname
-
-        hop2.v_s_insertfirstarg(v_func, s_func)   # insert 'function'
-
-        if type(hop2.args_r[0]) is SmallFunctionSetPBCRepr and type(r_func) is FunctionsPBCRepr:
-            hop2.args_r[0] = FunctionsPBCRepr(self.rtyper, s_func)
-        else:
-            hop2.args_v[0] = hop2.llops.convertvar(hop2.args_v[0], r_func, hop2.args_r[0])
-
-        # now hop2 looks like simple_call(function, self, args...)
-        return hop2.dispatch()
-
-
 # ____________________________________________________________
-
 
 class ClassesPBCRepr(AbstractClassesPBCRepr):
     """Representation selected for a PBC of class(es)."""
@@ -387,10 +320,10 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
         # "my_instantiate = typeptr.instantiate"
         c_name = hop.inputconst(Void, 'instantiate')
         v_instantiate = hop.genop('getfield', [vtypeptr, c_name],
-                                 resulttype = rclass.OBJECT_VTABLE.instantiate)
+                                 resulttype=rclass.OBJECT_VTABLE.instantiate)
         # "my_instantiate()"
         v_inst = hop.genop('indirect_call', [v_instantiate, c_graphs],
-                           resulttype = rclass.OBJECTPTR)
+                           resulttype=rclass.OBJECTPTR)
         return hop.genop('cast_pointer', [v_inst], resulttype=r_instance)
 
     def getlowleveltype(self):

@@ -232,8 +232,8 @@ class GcRewriterAssembler(object):
         self.emitting_an_operation_that_can_collect()
         op = ResOperation(rop.CALL_MALLOC_GC, args, v_result, descr)
         self.newops.append(op)
-        # mark 'v_result' as freshly malloced, so not needing a write barrier
-        self.write_barrier_applied[v_result] = None
+        # In general, don't add v_result to write_barrier_applied:
+        # v_result might be a large young array.
 
     def gen_malloc_fixedsize(self, size, typeid, v_result):
         """Generate a CALL_MALLOC_GC(malloc_fixedsize_fn, ...).
@@ -251,6 +251,9 @@ class GcRewriterAssembler(object):
             args = [ConstInt(addr), ConstInt(size)]
             descr = self.gc_ll_descr.malloc_fixedsize_descr
         self._gen_call_malloc_gc(args, v_result, descr)
+        # mark 'v_result' as freshly malloced, so not needing a write barrier
+        # (this is always true because it's a fixed-size object)
+        self.write_barrier_applied[v_result] = None
 
     def gen_boehm_malloc_array(self, arraydescr, v_num_elem, v_result):
         """Generate a CALL_MALLOC_GC(malloc_array_fn, ...) for Boehm."""
@@ -316,7 +319,9 @@ class GcRewriterAssembler(object):
                           [ConstInt(kind), ConstInt(itemsize), v_length],
                           v_result, descr=arraydescr)
         self.newops.append(op)
-        self.write_barrier_applied[v_result] = None
+        # don't record v_result into self.write_barrier_applied:
+        # it can be a large, young array with card marking, and then
+        # the GC relies on the write barrier being called
         return True
 
     def gen_malloc_nursery_varsize_frame(self, sizebox, v_result):

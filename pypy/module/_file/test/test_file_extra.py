@@ -200,6 +200,10 @@ class BaseROTests:
         assert f.closed == True
 
     def test_repr(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names and \
+                sys.version_info < (2, 7, 4):
+            skip("see cpython issue14161")
         assert repr(self.file).startswith(
             "<open file %r, mode '%s' at 0x" %
             (self.expected_filename, self.expected_mode))
@@ -382,6 +386,32 @@ class AppTestAFewExtra:
         assert len(somelines) > 200
         assert somelines == lines[:len(somelines)]
 
+    def test_writelines(self):
+        import array
+        fn = self.temptestfile
+        with file(fn, 'w') as f:
+            f.writelines(['abc'])
+            f.writelines([u'def'])
+            exc = raises(TypeError, f.writelines, [array.array('c', 'ghi')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+            exc = raises(TypeError, f.writelines, [memoryview('jkl')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+        assert open(fn, 'r').readlines() == ['abcdef']
+
+        with file(fn, 'wb') as f:
+            f.writelines(['abc'])
+            f.writelines([u'def'])
+            exc = raises(TypeError, f.writelines, [array.array('c', 'ghi')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+            exc = raises(TypeError, f.writelines, [memoryview('jkl')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+        assert open(fn, 'rb').readlines() == ['abcdef']
+
+        with file(fn, 'wb') as f:
+            exc = raises(TypeError, f.writelines, ['abc', memoryview('def')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+        assert open(fn, 'rb').readlines() == []
+
     def test_nasty_writelines(self):
         # The stream lock should be released between writes
         fn = self.temptestfile
@@ -524,7 +554,7 @@ class AppTestAFewExtra:
         f = open(fn)
         exc = raises(EnvironmentError, f.truncate, 3)
         if sys.platform == 'win32':
-            assert exc.value.winerror == 5 # ERROR_ACCESS_DENIED
+            assert exc.value.errno == 5 # ERROR_ACCESS_DENIED
         else:
             # CPython explicitely checks the file mode
             # PyPy relies on the libc to raise the error

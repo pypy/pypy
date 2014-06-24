@@ -56,6 +56,9 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
                 assert s_obj.is_constant(), "ambiguous low-level helper specialization"
                 key.append(KeyComp(s_obj.const))
                 new_args_s.append(s_obj)
+            elif isinstance(s_obj, annmodel.SomeNone):
+                key.append(KeyComp(None))
+                new_args_s.append(s_obj)
             else:
                 new_args_s.append(annmodel.not_const(s_obj))
                 try:
@@ -75,13 +78,6 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
     def default_specialize(funcdesc, args_s):
         return LowLevelAnnotatorPolicy.lowlevelspecialize(funcdesc, args_s, {})
     default_specialize = staticmethod(default_specialize)
-
-    def specialize__semierased(funcdesc, args_s):
-        a2l = annotation_to_lltype
-        l2a = lltype_to_annotation
-        args_s[:] = [l2a(a2l(s)) for s in args_s]
-        return LowLevelAnnotatorPolicy.default_specialize(funcdesc, args_s)
-    specialize__semierased = staticmethod(specialize__semierased)
 
     specialize__ll = default_specialize
 
@@ -483,7 +479,7 @@ class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
             assert False
 
     def specialize_call(self, hop):
-        from rpython.rtyper import rpbc
+        from rpython.rtyper.rnone import NoneRepr
         PTR = hop.r_result.lowleveltype
         if isinstance(PTR, lltype.Ptr):
             T = lltype.Ptr
@@ -493,7 +489,7 @@ class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
             assert False
 
         hop.exception_cannot_occur()
-        if isinstance(hop.args_r[1], rpbc.NoneFrozenPBCRepr):
+        if isinstance(hop.args_r[1], NoneRepr):
             return hop.inputconst(PTR, null)
         v_arg = hop.inputarg(hop.args_r[1], arg=1)
         assert isinstance(v_arg.concretetype, T)

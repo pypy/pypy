@@ -1,13 +1,15 @@
-import os, sys
+import os, sys, py
 from rpython.tool.udir import udir
 from rpython.rlib.jit import JitDriver, unroll_parameters, set_param
 from rpython.rlib.jit import PARAMETERS, dont_look_inside
 from rpython.rlib.jit import promote
 from rpython.rlib import jit_hooks
+from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rthread import ThreadLocalReference
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.test.support import CCompiledMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
-
+from rpython.config.config import ConfigError
 
 class TranslationTest(CCompiledMixin):
     CPUClass = getcpuclass()
@@ -21,12 +23,17 @@ class TranslationTest(CCompiledMixin):
         # - profiler
         # - full optimizer
         # - floats neg and abs
+        # - threadlocalref_get
 
         class Frame(object):
             _virtualizable_ = ['i']
 
             def __init__(self, i):
                 self.i = i
+
+        class Foo(object):
+            pass
+        t = ThreadLocalReference(Foo)
 
         @dont_look_inside
         def myabs(x):
@@ -56,6 +63,7 @@ class TranslationTest(CCompiledMixin):
                 k = myabs(j)
                 if k - abs(j):  raise ValueError
                 if k - abs(-j): raise ValueError
+                if t.get().nine != 9: raise ValueError
             return chr(total % 253)
         #
         from rpython.rtyper.lltypesystem import lltype, rffi
@@ -78,8 +86,12 @@ class TranslationTest(CCompiledMixin):
             return res
         #
         def main(i, j):
+            foo = Foo()
+            foo.nine = -(i + j)
+            t.set(foo)
             a_char = f(i, j)
             a_float = libffi_stuff(i, j)
+            keepalive_until_here(foo)
             return ord(a_char) * 10 + int(a_float)
         expected = main(40, -49)
         res = self.meta_interp(main, [40, -49])
@@ -252,6 +264,9 @@ class TranslationRemoveTypePtrTest(CCompiledMixin):
         try:
             res = self.meta_interp(main, [400])
             assert res == main(400)
+        except ConfigError,e:
+            assert str(e).startswith('invalid value asmgcc')
+            py.test.skip('asmgcc not supported')
         finally:
             del os.environ['PYPYLOG']
 

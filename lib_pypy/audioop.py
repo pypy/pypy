@@ -350,7 +350,7 @@ def tomono(cp, size, fac1, fac2):
         r_sample = getsample(cp, size, i + 1)
 
         sample = (l_sample * fac1) + (r_sample * fac2)
-        sample = clip(sample)
+        sample = int(clip(sample))
 
         _put_sample(result, size, i // 2, sample)
 
@@ -501,7 +501,7 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
 
                 # slice off extra bytes
                 trim_index = (out_i * bytes_per_frame) - len(retval)
-                retval = _buffer(retval)[:trim_index]
+                retval = retval[:trim_index]
 
                 return (retval, (d, tuple(samps)))
 

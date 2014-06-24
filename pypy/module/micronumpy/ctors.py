@@ -1,11 +1,11 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
+from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstring import strip_spaces
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.module.micronumpy import descriptor, loop, ufuncs
+from pypy.module.micronumpy import descriptor, loop
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.converters import shape_converter
-from pypy.module.micronumpy.strides import find_shape_and_elems
 
 
 def build_scalar(space, w_dtype, w_state):
@@ -27,6 +27,8 @@ def build_scalar(space, w_dtype, w_state):
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
 def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
           ndmin=0):
+    from pypy.module.micronumpy import strides
+
     # for anything that isn't already an array, try __array__ method first
     if not isinstance(w_object, W_NDimArray):
         w___array__ = space.lookup(w_object, "__array__")
@@ -47,6 +49,8 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         order = 'C'
     else:
         order = space.str_w(w_order)
+        if order == 'K':
+            order = 'C'
         if order != 'C':  # or order != 'F':
             raise oefmt(space.w_ValueError, "Unknown order: %s", order)
 
@@ -68,12 +72,9 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         return w_ret
 
     # not an array or incorrect dtype
-    shape, elems_w = find_shape_and_elems(space, w_object, dtype)
+    shape, elems_w = strides.find_shape_and_elems(space, w_object, dtype)
     if dtype is None or (dtype.is_str_or_unicode() and dtype.elsize < 1):
-        for w_elem in elems_w:
-            if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
-                w_elem = w_elem.get_scalar_value()
-            dtype = ufuncs.find_dtype_for_scalar(space, w_elem, dtype)
+        dtype = strides.find_dtype_for_seq(space, elems_w, dtype)
         if dtype is None:
             dtype = descriptor.get_dtype_cache(space).w_float64dtype
         elif dtype.is_str_or_unicode() and dtype.elsize < 1:
@@ -83,10 +84,10 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     if ndmin > len(shape):
         shape = [1] * (ndmin - len(shape)) + shape
     w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
-    arr_iter = w_arr.create_iter()
-    for w_elem in elems_w:
-        arr_iter.setitem(dtype.coerce(space, w_elem))
-        arr_iter.next()
+    if len(elems_w) == 1:
+        w_arr.set_scalar_value(dtype.coerce(space, elems_w[0]))
+    else:
+        loop.assign(space, w_arr, elems_w)
     return w_arr
 
 
@@ -102,7 +103,7 @@ def zeros(space, w_shape, w_dtype=None, w_order=None):
 @unwrap_spec(subok=bool)
 def empty_like(space, w_a, w_dtype=None, w_order=None, subok=True):
     w_a = convert_to_array(space, w_a)
-    if w_dtype is None:
+    if space.is_none(w_dtype):
         dtype = w_a.get_dtype()
     else:
         dtype = space.interp_w(descriptor.W_Dtype,
@@ -156,10 +157,10 @@ def _fromstring_text(space, s, count, sep, length, dtype):
             "string is smaller than requested size"))
 
     a = W_NDimArray.from_shape(space, [num_items], dtype=dtype)
-    ai = a.create_iter()
+    ai, state = a.create_iter()
     for val in items:
-        ai.setitem(val)
-        ai.next()
+        ai.setitem(state, val)
+        state = ai.next(state)
 
     return space.wrap(a)
 
@@ -191,3 +192,62 @@ def fromstring(space, s, w_dtype=None, count=-1, sep=''):
         return _fromstring_bin(space, s, count, length, dtype)
     else:
         return _fromstring_text(space, s, count, sep, length, dtype)
+
+
+def _getbuffer(space, w_buffer):
+    try:
+        return space.writebuf_w(w_buffer)
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        return space.readbuf_w(w_buffer)
+
+
+@unwrap_spec(count=int, offset=int)
+def frombuffer(space, w_buffer, w_dtype=None, count=-1, offset=0):
+    dtype = space.interp_w(descriptor.W_Dtype,
+        space.call_function(space.gettypefor(descriptor.W_Dtype), w_dtype))
+    if dtype.elsize == 0:
+        raise oefmt(space.w_ValueError, "itemsize cannot be zero in type")
+
+    try:
+        buf = _getbuffer(space, w_buffer)
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_buffer = space.getattr(w_buffer, space.wrap('__buffer__'))
+        buf = _getbuffer(space, w_buffer)
+
+    ts = buf.getlength()
+    if offset < 0 or offset > ts:
+        raise oefmt(space.w_ValueError,
+                    "offset must be non-negative and no greater than "
+                    "buffer length (%d)", ts)
+
+    s = ts - offset
+    if offset:
+        buf = SubBuffer(buf, offset, s)
+
+    n = count
+    itemsize = dtype.elsize
+    assert itemsize > 0
+    if n < 0:
+        if s % itemsize != 0:
+            raise oefmt(space.w_ValueError,
+                        "buffer size must be a multiple of element size")
+        n = s / itemsize
+    else:
+        if s < n * itemsize:
+            raise oefmt(space.w_ValueError,
+                        "buffer is smaller than requested size")
+
+    try:
+        storage = buf.get_raw_address()
+    except ValueError:
+        a = W_NDimArray.from_shape(space, [n], dtype=dtype)
+        loop.fromstring_loop(space, a, dtype, itemsize, buf.as_str())
+        return a
+    else:
+        writable = not buf.readonly
+    return W_NDimArray.from_shape_and_storage(space, [n], storage, dtype=dtype,
+                                              w_base=w_buffer, writable=writable)

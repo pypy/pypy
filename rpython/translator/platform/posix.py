@@ -253,6 +253,9 @@ class GnuMakefile(object):
         if fpath.dirpath() == self.makefile_dir:
             return fpath.basename
         elif fpath.dirpath().dirpath() == self.makefile_dir.dirpath():
+            assert fpath.relto(self.makefile_dir.dirpath()), (
+                "%r should be relative to %r" % (
+                    fpath, self.makefile_dir.dirpath()))
             path = '../' + fpath.relto(self.makefile_dir.dirpath())
             return path.replace('\\', '/')
         else:

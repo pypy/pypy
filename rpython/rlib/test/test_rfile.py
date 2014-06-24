@@ -1,8 +1,8 @@
-
 import os, sys, py
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.tool.udir import udir
 from rpython.rlib import rfile
+
 
 class TestFile(BaseRtypingTest):
     def setup_class(cls):
@@ -78,6 +78,22 @@ class TestFile(BaseRtypingTest):
 
         f()
         self.interpret(f, [])
+
+    def test_fdopen(self):
+        fname = str(self.tmpdir.join('file_4a'))
+
+        def f():
+            f = open(fname, "w")
+            new_fno = os.dup(f.fileno())
+            f2 = os.fdopen(new_fno, "w")
+            f.close()
+            f2.write("xxx")
+            f2.close()
+
+        f()
+        assert open(fname).read() == "xxx"
+        self.interpret(f, [])
+        assert open(fname).read() == "xxx"
 
     def test_fileno(self):
         fname = str(self.tmpdir.join('file_5'))
@@ -207,6 +223,7 @@ class TestPopen(object):
         r = f.close()
         assert s == "%s\n" % printval
         assert os.WEXITSTATUS(r) == retval
+
 
 class TestPopenR(BaseRtypingTest):
     def setup_class(cls):

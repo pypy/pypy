@@ -4,16 +4,16 @@ from rpython.annotator import model as annmodel
 from rpython.rlib import jit, types
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
-    _hash_string, keepalive_until_here, specialize)
+    _hash_string, keepalive_until_here, specialize, enforceargs)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import ll_str, llmemory
-from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.lltype import (GcStruct, Signed, Array, Char,
     UniChar, Ptr, malloc, Bool, Void, GcArray, nullptr, cast_primitive,
     typeOf, staticAdtMethod, GcForwardReference)
-from rpython.rtyper.rmodel import inputconst, Repr, IntegerRepr
+from rpython.rtyper.rmodel import inputconst, Repr
+from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rstr import (AbstractStringRepr, AbstractCharRepr,
     AbstractUniCharRepr, AbstractStringIteratorRepr, AbstractLLHelpers,
     AbstractUnicodeRepr)
@@ -32,13 +32,13 @@ STR = GcForwardReference()
 UNICODE = GcForwardReference()
 
 def new_malloc(TP, name):
+    @enforceargs(int)
     def mallocstr(length):
         ll_assert(length >= 0, "negative string length")
         r = malloc(TP, length)
         if not we_are_translated() or not malloc_zero_filled:
             r.hash = 0
         return r
-    mallocstr._annspecialcase_ = 'specialize:semierased'
     return func_with_new_name(mallocstr, name)
 
 mallocstr = new_malloc(STR, 'mallocstr')
@@ -77,6 +77,10 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         # are obscurely essential to make sure that the strings stay alive
         # longer than the raw_memcopy().
         assert length >= 0
+        ll_assert(srcstart >= 0, "copystrc: negative srcstart")
+        ll_assert(srcstart + length <= len(src.chars), "copystrc: src ovf")
+        ll_assert(dststart >= 0, "copystrc: negative dststart")
+        ll_assert(dststart + length <= len(dst.chars), "copystrc: dst ovf")
         # from here, no GC operations can happen
         src = _get_raw_buf(SRC_TP, src, srcstart)
         dst = _get_raw_buf(DST_TP, dst, dststart)
@@ -108,6 +112,8 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     copy_string_to_raw = func_with_new_name(copy_string_to_raw, 'copy_%s_to_raw' % name)
 
     @jit.dont_look_inside
+    @signature(types.any(), types.any(), types.int(), types.int(),
+               returns=types.none())
     def copy_raw_to_string(ptrsrc, dst, dststart, length):
         # xxx Warning: same note as above apply: don't do this at home
         assert length >= 0
@@ -832,6 +838,7 @@ class LLHelpers(AbstractLLHelpers):
     def ll_stringslice_startonly(s1, start):
         return LLHelpers._ll_stringslice(s1, start, len(s1.chars))
 
+    @signature(types.any(), types.int(), types.int(), returns=types.any())
     def ll_stringslice_startstop(s1, start, stop):
         if jit.we_are_jitted():
             if stop > len(s1.chars):

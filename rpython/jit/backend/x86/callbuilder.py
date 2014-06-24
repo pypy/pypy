@@ -258,8 +258,8 @@ class CallBuilder32(CallBuilderX86):
             # a float or a long long return
             if self.restype == 'L':     # long long
                 # move eax/edx -> xmm0
-                self.mc.MOVD_xr(resloc.value^1, edx.value)
-                self.mc.MOVD_xr(resloc.value,   eax.value)
+                self.mc.MOVD32_xr(resloc.value^1, edx.value)
+                self.mc.MOVD32_xr(resloc.value,   eax.value)
                 self.mc.PUNPCKLDQ_xx(resloc.value, resloc.value^1)
             else:
                 # float: we have to go via the stack
@@ -413,7 +413,7 @@ class CallBuilder64(CallBuilderX86):
                 if isinstance(src, ImmedLoc):
                     self.mc.MOV(X86_64_SCRATCH_REG, src)
                     src = X86_64_SCRATCH_REG
-                self.mc.MOVD(dst, src)
+                self.mc.MOVD32(dst, src)
         # Finally remap the arguments in the main regs
         remap_frame_layout(self.asm, src_locs, dst_locs, X86_64_SCRATCH_REG)
 
@@ -425,7 +425,7 @@ class CallBuilder64(CallBuilderX86):
         if self.restype == 'S':
             # singlefloat return: use MOVD to load the target register
             # from the lower 32 bits of XMM0
-            self.mc.MOVD(self.resloc, xmm0)
+            self.mc.MOVD32(self.resloc, xmm0)
         else:
             CallBuilderX86.load_result(self)
 
@@ -440,9 +440,8 @@ class CallBuilder64(CallBuilderX86):
         #
         if self.restype == 'S':
             # singlefloat return: use MOVD to store the lower 32 bits
-            # of XMM0 into [ESP] (nb. this is actually MOVQ, so will
-            # store 64 bits instead of only 32, but that's fine)
-            self.mc.MOVD_sx(0, xmm0.value)
+            # of XMM0 into [ESP]
+            self.mc.MOVD32_sx(0, xmm0.value)
         else:
             assert self.restype == INT
             self.mc.MOV_sr(0, eax.value)

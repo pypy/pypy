@@ -1,10 +1,10 @@
 import py
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import SomePtr
-from rpython.rtyper.lltypesystem import lltype, rstr
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr
-from rpython.rtyper.lltypesystem.llmemory import itemoffsetof, raw_memcopy
+from rpython.rtyper.lltypesystem.llmemory import itemoffsetof
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import Symbolic
@@ -679,23 +679,27 @@ def make_string_mappings(strtype):
 
     if strtype is str:
         from rpython.rtyper.lltypesystem.rstr import (STR as STRTYPE,
-                                                      copy_string_to_raw)
+                                                      copy_string_to_raw,
+                                                      copy_raw_to_string,
+                                                      copy_string_contents,
+                                                      mallocstr as mallocfn)
         from rpython.rtyper.annlowlevel import llstr as llstrtype
         from rpython.rtyper.annlowlevel import hlstr as hlstrtype
         TYPEP = CCHARP
         ll_char_type = lltype.Char
         lastchar = '\x00'
-        builder_class = StringBuilder
     else:
         from rpython.rtyper.lltypesystem.rstr import (
             UNICODE as STRTYPE,
-            copy_unicode_to_raw as copy_string_to_raw)
+            copy_unicode_to_raw as copy_string_to_raw,
+            copy_raw_to_unicode as copy_raw_to_string,
+            copy_unicode_contents as copy_string_contents,
+            mallocunicode as mallocfn)
         from rpython.rtyper.annlowlevel import llunicode as llstrtype
         from rpython.rtyper.annlowlevel import hlunicode as hlstrtype
         TYPEP = CWCHARP
         ll_char_type = lltype.UniChar
         lastchar = u'\x00'
-        builder_class = UnicodeBuilder
 
     # str -> char*
     def str2charp(s, track_allocation=True):
@@ -724,12 +728,7 @@ def make_string_mappings(strtype):
         size = 0
         while cp[size] != lastchar:
             size += 1
-        b = builder_class(size)
-        i = 0
-        while cp[i] != lastchar:
-            b.append(cp[i])
-            i += 1
-        return assert_str0(b.build())
+        return assert_str0(charpsize2str(cp, size))
 
     # str -> char*
     # Can't inline this because of the raw address manipulation.
@@ -803,17 +802,10 @@ def make_string_mappings(strtype):
             return hlstrtype(gc_buf)
 
         new_buf = lltype.malloc(STRTYPE, needed_size)
-        str_chars_offset = (offsetof(STRTYPE, 'chars') + \
-                            itemoffsetof(STRTYPE.chars, 0))
         if gc_buf:
-            src = cast_ptr_to_adr(gc_buf) + str_chars_offset
+            copy_string_contents(gc_buf, new_buf, 0, 0, needed_size)
         else:
-            src = cast_ptr_to_adr(raw_buf) + itemoffsetof(TYPEP.TO, 0)
-        dest = cast_ptr_to_adr(new_buf) + str_chars_offset
-        raw_memcopy(src, dest,
-                    llmemory.sizeof(ll_char_type) * needed_size)
-        keepalive_until_here(gc_buf)
-        keepalive_until_here(new_buf)
+            copy_raw_to_string(raw_buf, new_buf, 0, needed_size)
         return hlstrtype(new_buf)
 
     # (char*, str) -> None
@@ -832,18 +824,18 @@ def make_string_mappings(strtype):
     # char* -> str, with an upper bound on the length in case there is no \x00
     @enforceargs(None, int)
     def charp2strn(cp, maxlen):
-        b = builder_class(maxlen)
-        i = 0
-        while i < maxlen and cp[i] != lastchar:
-            b.append(cp[i])
-            i += 1
-        return assert_str0(b.build())
+        size = 0
+        while size < maxlen and cp[size] != lastchar:
+            size += 1
+        return assert_str0(charpsize2str(cp, size))
 
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):
-        b = builder_class(size)
-        b.append_charpsize(cp, size)
-        return b.build()
+        ll_str = mallocfn(size)
+        copy_raw_to_string(cp, ll_str, 0, size)
+        result = hlstrtype(ll_str)
+        assert result is not None
+        return result
     charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,

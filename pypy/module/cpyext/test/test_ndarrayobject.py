@@ -246,9 +246,9 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                 ("test_FromAny", "METH_NOARGS",
                 '''
                 npy_intp dims[2] ={2, 3};
-                PyObject * obj1 = PyArray_SimpleNew(2, dims, 1);
+                PyObject * obj2, * obj1 = PyArray_SimpleNew(2, dims, 1);
                 PyArray_FILLWBYTE(obj1, 42);
-                PyObject * obj2 = _PyArray_FromAny(obj1, NULL, 0, 0, 0, NULL);
+                obj2 = _PyArray_FromAny(obj1, NULL, 0, 0, 0, NULL);
                 Py_DECREF(obj1);
                 return obj2;
                 '''
@@ -256,9 +256,9 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                  ("test_FromObject", "METH_NOARGS",
                 '''
                 npy_intp dims[2] ={2, 3};
-                PyObject * obj1 = PyArray_SimpleNew(2, dims, 1);
+                PyObject  * obj2, * obj1 = PyArray_SimpleNew(2, dims, 1);
                 PyArray_FILLWBYTE(obj1, 42);
-                PyObject * obj2 = _PyArray_FromObject(obj1, 12, 0, 0);
+                obj2 = _PyArray_FromObject(obj1, 12, 0, 0);
                 Py_DECREF(obj1);
                 return obj2;
                 '''

@@ -1,4 +1,3 @@
-
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.conftest import cdir
@@ -102,6 +101,24 @@ def start_new_thread(x, y):
     assert len(y) == 0
     return rffi.cast(lltype.Signed, ll_start_new_thread(x))
 
+class DummyLock(object):
+    def acquire(self, flag):
+        return True
+
+    def release(self):
+        pass
+
+    def _freeze_(self):
+        return True
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, *args):
+        pass
+
+dummy_lock = DummyLock()
+
 class Lock(object):
     """ Container for low-level implementation
     of a lock object
@@ -141,6 +158,9 @@ class Lock(object):
 
     def __exit__(self, *args):
         self.release()
+
+    def _cleanup_(self):
+        raise Exception("seeing a prebuilt rpython.rlib.rthread.Lock instance")
 
 # ____________________________________________________________
 #
@@ -241,3 +261,65 @@ def gc_thread_after_fork(result_of_fork, opaqueaddr):
         llop.gc_thread_after_fork(lltype.Void, result_of_fork, opaqueaddr)
     else:
         assert opaqueaddr == llmemory.NULL
+
+# ____________________________________________________________
+#
+# Thread-locals.  Only for references that change "not too often" --
+# for now, the JIT compiles get() as a loop-invariant, so basically
+# don't change them.
+# KEEP THE REFERENCE ALIVE, THE GC DOES NOT FOLLOW THEM SO FAR!
+# We use _make_sure_does_not_move() to make sure the pointer will not move.
+
+ecitl = ExternalCompilationInfo(
+    includes = ['src/threadlocal.h'],
+    separate_module_files = [translator_c_dir / 'src' / 'threadlocal.c'])
+ensure_threadlocal = rffi.llexternal_use_eci(ecitl)
+
+class ThreadLocalReference(object):
+    _COUNT = 1
+    OPAQUEID = lltype.OpaqueType("ThreadLocalRef",
+                                 hints={"threadlocalref": True,
+                                        "external": "C",
+                                        "c_name": "RPyThreadStaticTLS"})
+
+    def __init__(self, Cls):
+        "NOT_RPYTHON: must be prebuilt"
+        import thread
+        self.Cls = Cls
+        self.local = thread._local()      # <- NOT_RPYTHON
+        unique_id = ThreadLocalReference._COUNT
+        ThreadLocalReference._COUNT += 1
+        opaque_id = lltype.opaqueptr(ThreadLocalReference.OPAQUEID,
+                                     'tlref%d' % unique_id)
+        self.opaque_id = opaque_id
+
+        def get():
+            if we_are_translated():
+                from rpython.rtyper.lltypesystem import rclass
+                from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
+                ptr = llop.threadlocalref_get(rclass.OBJECTPTR, opaque_id)
+                return cast_base_ptr_to_instance(Cls, ptr)
+            else:
+                return getattr(self.local, 'value', None)
+
+        @jit.dont_look_inside
+        def set(value):
+            assert isinstance(value, Cls) or value is None
+            if we_are_translated():
+                from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
+                from rpython.rlib.rgc import _make_sure_does_not_move
+                from rpython.rlib.objectmodel import running_on_llinterp
+                ptr = cast_instance_to_base_ptr(value)
+                if not running_on_llinterp:
+                    gcref = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
+                    _make_sure_does_not_move(gcref)
+                llop.threadlocalref_set(lltype.Void, opaque_id, ptr)
+                ensure_threadlocal()
+            else:
+                self.local.value = value
+
+        self.get = get
+        self.set = set
+
+    def _freeze_(self):
+        return True

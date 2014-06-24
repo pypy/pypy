@@ -181,6 +181,10 @@ def find_shape_and_elems(space, w_iterable, dtype):
         return [], [w_iterable]
     if isinstance(w_iterable, W_NDimArray) and w_iterable.is_scalar():
         return [], [w_iterable]
+    return _find_shape_and_elems(space, w_iterable, is_rec_type)
+
+
+def _find_shape_and_elems(space, w_iterable, is_rec_type):
     shape = [space.len_w(w_iterable)]
     batch = space.listview(w_iterable)
     while True:
@@ -210,28 +214,23 @@ def find_shape_and_elems(space, w_iterable, dtype):
         batch = new_batch
 
 
-def to_coords(space, shape, size, order, w_item_or_slice):
-    '''Returns a start coord, step, and length.
-    '''
-    start = lngth = step = 0
-    if not (space.isinstance_w(w_item_or_slice, space.w_int) or
-            space.isinstance_w(w_item_or_slice, space.w_slice)):
-        raise OperationError(space.w_IndexError,
-                             space.wrap('unsupported iterator index'))
+def find_dtype_for_seq(space, elems_w, dtype):
+    from pypy.module.micronumpy.ufuncs import find_dtype_for_scalar
+    if len(elems_w) == 1:
+        w_elem = elems_w[0]
+        if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
+            w_elem = w_elem.get_scalar_value()
+        return find_dtype_for_scalar(space, w_elem, dtype)
+    return _find_dtype_for_seq(space, elems_w, dtype)
 
-    start, stop, step, lngth = space.decode_index4(w_item_or_slice, size)
 
-    coords = [0] * len(shape)
-    i = start
-    if order == 'C':
-        for s in range(len(shape) -1, -1, -1):
-            coords[s] = i % shape[s]
-            i //= shape[s]
-    else:
-        for s in range(len(shape)):
-            coords[s] = i % shape[s]
-            i //= shape[s]
-    return coords, step, lngth
+def _find_dtype_for_seq(space, elems_w, dtype):
+    from pypy.module.micronumpy.ufuncs import find_dtype_for_scalar
+    for w_elem in elems_w:
+        if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
+            w_elem = w_elem.get_scalar_value()
+        dtype = find_dtype_for_scalar(space, w_elem, dtype)
+    return dtype
 
 
 @jit.unroll_safe
@@ -259,14 +258,16 @@ def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
 
 
 @jit.unroll_safe
-def shape_agreement_multiple(space, array_list):
+def shape_agreement_multiple(space, array_list, shape=None):
     """ call shape_agreement recursively, allow elements from array_list to
     be None (like w_out)
     """
-    shape = array_list[0].get_shape()
-    for arr in array_list[1:]:
+    for arr in array_list:
         if not space.is_none(arr):
-            shape = shape_agreement(space, shape, arr)
+            if shape is None:
+                shape = arr.get_shape()
+            else:
+                shape = shape_agreement(space, shape, arr)
     return shape
 
 

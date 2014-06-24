@@ -64,6 +64,10 @@ def compile_extension_module(space, modname, **kwds):
         kwds["libraries"] = [api_library]
         # '%s' undefined; assuming extern returning int
         kwds["compile_extra"] = ["/we4013"]
+        # prevent linking with PythonXX.lib
+        w_maj, w_min = space.fixedview(space.sys.get('version_info'), 5)[:2]
+        kwds["link_extra"] = ["/NODEFAULTLIB:Python%d%d.lib" %
+                              (space.int_w(w_maj), space.int_w(w_min))]
     elif sys.platform == 'darwin':
         kwds["link_files"] = [str(api_library + '.dylib')]
     else:
@@ -179,6 +183,19 @@ class AppTestApi(LeakCheckingTest):
         from rpython.rlib.clibffi import get_libc_name
         cls.w_libc = cls.space.wrap(get_libc_name())
 
+    def setup_method(self, meth):
+        freeze_refcnts(self)
+
+    def teardown_method(self, meth):
+        self.cleanup_references(self.space)
+        # XXX: like AppTestCpythonExtensionBase.teardown_method:
+        # find out how to disable check_and_print_leaks() if the
+        # test failed
+        assert not self.check_and_print_leaks(), (
+            "Test leaks or loses object(s).  You should also check if "
+            "the test actually passed in the first place; if it failed "
+            "it is likely to reach this place.")
+
     def test_load_error(self):
         import cpyext
         raises(ImportError, cpyext.load_module, "missing.file", "foo")
@@ -284,9 +301,9 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 space.sys.get('modules'),
                 space.wrap(name))
 
-        @unwrap_spec(modname=str, prologue=str, PY_SSIZE_T_CLEAN=bool)
+        @unwrap_spec(modname=str, prologue=str, more_init=str, PY_SSIZE_T_CLEAN=bool)
         def import_extension(space, modname, w_functions, prologue="",
-                             PY_SSIZE_T_CLEAN=False):
+                             more_init="", PY_SSIZE_T_CLEAN=False):
             functions = space.unwrap(w_functions)
             methods_table = []
             codes = []
@@ -309,6 +326,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             };
             """ % ('\n'.join(methods_table),)
             init = """Py_InitModule("%s", methods);""" % (modname,)
+            if more_init:
+                init += more_init
             return import_module(space, name=modname, init=init, body=body,
                                  PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
 
@@ -354,13 +373,12 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         for name in self.imported_module_names:
             self.unimport_module(name)
         self.cleanup_references(self.space)
-        if self.check_and_print_leaks():
-            assert False, (
-                "Test leaks or loses object(s).  You should also check if "
-                "the test actually passed in the first place; if it failed "
-                "it is likely to reach this place.")
-            # XXX find out how to disable check_and_print_leaks() if the
-            # XXX test failed...
+        # XXX: find out how to disable check_and_print_leaks() if the
+        # test failed...
+        assert not self.check_and_print_leaks(), (
+            "Test leaks or loses object(s).  You should also check if "
+            "the test actually passed in the first place; if it failed "
+            "it is likely to reach this place.")
 
 
 class AppTestCpythonExtension(AppTestCpythonExtensionBase):
@@ -624,30 +642,30 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         body = """
         static PyObject* foo_pi(PyObject* self, PyObject *args)
         {
-            PyObject *true = Py_True;
-            int refcnt = true->ob_refcnt;
+            PyObject *true_obj = Py_True;
+            int refcnt = true_obj->ob_refcnt;
             int refcnt_after;
-            Py_INCREF(true);
-            Py_INCREF(true);
-            PyBool_Check(true);
-            refcnt_after = true->ob_refcnt;
-            Py_DECREF(true);
-            Py_DECREF(true);
+            Py_INCREF(true_obj);
+            Py_INCREF(true_obj);
+            PyBool_Check(true_obj);
+            refcnt_after = true_obj->ob_refcnt;
+            Py_DECREF(true_obj);
+            Py_DECREF(true_obj);
             fprintf(stderr, "REFCNT %i %i\\n", refcnt, refcnt_after);
             return PyBool_FromLong(refcnt_after == refcnt+2 && refcnt < 3);
         }
         static PyObject* foo_bar(PyObject* self, PyObject *args)
         {
-            PyObject *true = Py_True;
+            PyObject *true_obj = Py_True;
             PyObject *tup = NULL;
-            int refcnt = true->ob_refcnt;
+            int refcnt = true_obj->ob_refcnt;
             int refcnt_after;
 
             tup = PyTuple_New(1);
-            Py_INCREF(true);
-            if (PyTuple_SetItem(tup, 0, true) < 0)
+            Py_INCREF(true_obj);
+            if (PyTuple_SetItem(tup, 0, true_obj) < 0)
                 return NULL;
-            refcnt_after = true->ob_refcnt;
+            refcnt_after = true_obj->ob_refcnt;
             Py_DECREF(tup);
             fprintf(stderr, "REFCNT2 %i %i\\n", refcnt, refcnt_after);
             return PyBool_FromLong(refcnt_after == refcnt);

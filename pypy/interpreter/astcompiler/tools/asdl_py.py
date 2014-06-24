@@ -352,6 +352,7 @@ class AppExposeVisitor(ASDLVisitor):
         if needs_init:
             self.emit("__init__=interp2app(%s_init)," % (name,), 1)
         self.emit(")")
+        self.emit("%s.typedef.heaptype = True" % name)
         self.emit("")
 
     def make_init(self, name, fields):
@@ -459,6 +460,7 @@ class AppExposeVisitor(ASDLVisitor):
                         self.emit("raise OperationError(space.w_TypeError, "
                                   "space.w_None)", 3)
             else:
+                save_original_object = True
                 level = 2
                 if field.opt and field.type.value != "int":
                     self.emit("if space.is_w(w_new_value, space.w_None):", 2)
@@ -596,13 +598,19 @@ class AST(W_Root):
         w_type = space.type(self)
         w_fields = w_type.getdictvalue(space, "_fields")
         for w_name in space.fixedview(w_fields):
-            space.setitem(w_dict, w_name,
+            try:
+                space.setitem(w_dict, w_name,
                           space.getattr(self, w_name))
+            except OperationError:
+                pass
         w_attrs = space.findattr(w_type, space.wrap("_attributes"))
         if w_attrs:
             for w_name in space.fixedview(w_attrs):
-                space.setitem(w_dict, w_name,
+                try:
+                    space.setitem(w_dict, w_name,
                               space.getattr(self, w_name))
+                except OperationError:
+                    pass
         return space.newtuple([space.type(self),
                                space.newtuple([]),
                                w_dict])
@@ -662,10 +670,9 @@ def AST_init(space, w_self, __args__):
     for field, w_value in kwargs_w.iteritems():
         space.setattr(w_self, space.wrap(field), w_value)
 
-AST.typedef = typedef.TypeDef("AST",
+AST.typedef = typedef.TypeDef("_ast.AST",
     _fields=_FieldsWrapper([]),
     _attributes=_FieldsWrapper([]),
-    __module__='_ast',
     __reduce__=interp2app(AST.reduce_w),
     __setstate__=interp2app(AST.setstate_w),
     __dict__ = typedef.GetSetProperty(typedef.descr_get_dict,

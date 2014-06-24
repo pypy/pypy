@@ -187,7 +187,7 @@ Couldn't the JIT dump and reload already-compiled machine code?
 
 No, we found no way of doing that.  The JIT generates machine code
 containing a large number of constant addresses --- constant at the time
-the machine code is written.  The vast majority is probably not at all
+the machine code is generated.  The vast majority is probably not at all
 constants that you find in the executable, with a nice link name.  E.g.
 the addresses of Python classes are used all the time, but Python
 classes don't come statically from the executable; they are created anew
@@ -212,12 +212,16 @@ translation to various languages, stackless features,
 garbage collection, implementation of various things like arbitrarily long
 integers, etc. 
 
-Currently, we have preliminary versions of a JavaScript interpreter
-(Leonardo Santagada as his Summer of PyPy project), a `Prolog interpreter`_
-(Carl Friedrich Bolz as his Bachelor thesis), and a `SmallTalk interpreter`_
+Currently, we have `Topaz`_, a Ruby interpreter; `Hippy`_, a PHP
+interpreter; preliminary versions of a `JavaScript interpreter`_
+(Leonardo Santagada as his Summer of PyPy project); a `Prolog interpreter`_
+(Carl Friedrich Bolz as his Bachelor thesis); and a `SmallTalk interpreter`_
 (produced during a sprint).  On the `PyPy bitbucket page`_ there is also a
 Scheme and an Io implementation; both of these are unfinished at the moment.
 
+.. _`Topaz`: http://topazruby.com/
+.. _`Hippy`: http://morepypy.blogspot.ch/2012/07/hello-everyone.html
+.. _`JavaScript interpreter`: https://bitbucket.org/pypy/lang-js/
 .. _`Prolog interpreter`: https://bitbucket.org/cfbolz/pyrolog/
 .. _`SmallTalk interpreter`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
 .. _`PyPy bitbucket page`: https://bitbucket.org/pypy/
@@ -314,7 +318,7 @@ We have our own "RPython standard library" in ``rpython.rlib.*``.
 
 To read more about the RPython limitations read the `RPython description`_.
 
-.. _`RPython description`: coding-guide.html#restricted-python
+.. _`RPython description`: coding-guide.html#rpython-definition
 
 ---------------------------------------------------------------
 Does RPython have anything to do with Zope's Restricted Python?
@@ -425,12 +429,27 @@ To learn more about backends take a look at the `translation document`_.
 Could we use LLVM?
 ------------------
 
-There is a (static) translation backend using LLVM in the branch
-``llvm-translation-backend``.  It can translate PyPy with or without the JIT on
-Linux.
+In theory yes.  But we tried to use it 5 or 6 times already, as a
+translation backend or as a JIT backend --- and failed each time.
 
-Using LLVM as our JIT backend looks interesting as well -- we made an attempt,
-but it failed: LLVM has no way to patch the generated machine code.
+In more details: using LLVM as a (static) translation backend is
+pointless nowadays because you can generate C code and compile it with
+clang.  (Note that compiling PyPy with clang gives a result that is not
+faster than compiling it with gcc.)  We might in theory get extra
+benefits from LLVM's GC integration, but this requires more work on the
+LLVM side before it would be remotely useful.  Anyway, it could be
+interfaced via a custom primitive in the C code.  (The latest such
+experimental backend is in the branch ``llvm-translation-backend``,
+which can translate PyPy with or without the JIT on Linux.)
+
+On the other hand, using LLVM as our JIT backend looks interesting as
+well --- but again we made an attempt, and it failed: LLVM has no way to
+patch the generated machine code.
+
+So the position of the core PyPy developers is that if anyone wants to
+make an N+1'th attempt with LLVM, they are welcome, and will be happy to
+provide help in the IRC channel, but they are left with the burden of proof
+that (a) it works and (b) it gives important benefits.
 
 ----------------------
 How do I compile PyPy?
@@ -439,6 +458,19 @@ How do I compile PyPy?
 See the `getting-started`_ guide.
 
 .. _`getting-started`: getting-started-python.html
+
+------------------------------------------
+Compiling PyPy swaps or runs out of memory
+------------------------------------------
+
+This is documented (here__ and here__).  It needs 4 GB of RAM to run
+"rpython targetpypystandalone" on top of PyPy, a bit more when running
+on CPython.  If you have less than 4 GB it will just swap forever (or
+fail if you don't have enough swap).  On 32-bit, divide the numbers by
+two.
+
+.. __: http://pypy.org/download.html#building-from-source
+.. __: https://pypy.readthedocs.org/en/latest/getting-started-python.html#translating-the-pypy-python-interpreter
 
 .. _`how do I compile my own interpreters`:
 

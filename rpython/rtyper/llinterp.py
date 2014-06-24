@@ -643,7 +643,7 @@ class LLFrame(object):
         return frame.eval()
 
     def op_direct_call(self, f, *args):
-        FTYPE = self.llinterpreter.typer.type_system.derefType(lltype.typeOf(f))
+        FTYPE = lltype.typeOf(f).TO
         return self.perform_call(f, FTYPE.ARGS, args)
 
     def op_indirect_call(self, f, *args):
@@ -918,6 +918,20 @@ class LLFrame(object):
 
     def op_stack_current(self):
         return 0
+
+    def op_threadlocalref_set(self, key, value):
+        try:
+            d = self.llinterpreter.tlrefsdict
+        except AttributeError:
+            d = self.llinterpreter.tlrefsdict = {}
+        d[key._obj] = value
+
+    def op_threadlocalref_get(self, key):
+        d = self.llinterpreter.tlrefsdict
+        return d[key._obj]
+
+    def op_threadlocalref_getaddr(self, key):
+        raise NotImplementedError("threadlocalref_getaddr")
 
     # __________________________________________________________
     # operations on addresses

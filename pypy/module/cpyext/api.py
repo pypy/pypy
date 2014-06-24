@@ -25,7 +25,6 @@ from pypy.interpreter.function import StaticMethod
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
-from pypy.module.__builtin__.interp_memoryview import W_MemoryView
 from pypy.module.micronumpy.base import W_NDimArray
 from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import is_valid_fd, validate_fd
@@ -474,7 +473,7 @@ def build_exported_objects():
         "PyLong_Type": "space.w_long",
         "PyComplex_Type": "space.w_complex",
         "PyByteArray_Type": "space.w_bytearray",
-        "PyMemoryView_Type": "space.gettypeobject(W_MemoryView.typedef)",
+        "PyMemoryView_Type": "space.w_memoryview",
         "PyArray_Type": "space.gettypeobject(W_NDimArray.typedef)",
         "PyBaseObject_Type": "space.w_object",
         'PyNone_Type': 'space.type(space.w_None)',
@@ -903,7 +902,9 @@ def generate_macros(export_symbols, prefix):
         ("SIZEOF_TIME_T", rffi.TIME_T),
         ("SIZEOF_LONG", rffi.LONG),
         ("SIZEOF_SHORT", rffi.SHORT),
-        ("SIZEOF_INT", rffi.INT)
+        ("SIZEOF_INT", rffi.INT),
+        ("SIZEOF_FLOAT", rffi.FLOAT),
+        ("SIZEOF_DOUBLE", rffi.DOUBLE),
     ]:
         pypy_macros.append("#define %s %s" % (macro_name, rffi.sizeof(size)))
     pypy_macros.append('')

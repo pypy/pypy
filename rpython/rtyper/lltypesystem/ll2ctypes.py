@@ -257,7 +257,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
         @classmethod
         def _malloc(cls, n=None):
             if not isinstance(n, int):
-                raise TypeError, "array length must be an int"
+                raise TypeError("array length must be an int")
             biggercls = get_ctypes_array_of_size(A, n)
             bigarray = allocate_ctypes(biggercls)
             if hasattr(bigarray, 'length'):
@@ -358,6 +358,12 @@ def build_new_ctypes_type(T, delayed_builders):
 
     if isinstance(T, lltype.Ptr):
         if isinstance(T.TO, lltype.FuncType):
+            functype = ctypes.CFUNCTYPE
+            if sys.platform == 'win32':
+                from rpython.rlib.clibffi import FFI_STDCALL, FFI_DEFAULT_ABI
+                if getattr(T.TO, 'ABI', FFI_DEFAULT_ABI) == FFI_STDCALL:
+                    # for win32 system call
+                    functype = ctypes.WINFUNCTYPE
             argtypes = [get_ctypes_type(ARG) for ARG in T.TO.ARGS
                         if ARG is not lltype.Void]
             if T.TO.RESULT is lltype.Void:
@@ -366,10 +372,10 @@ def build_new_ctypes_type(T, delayed_builders):
                 restype = get_ctypes_type(T.TO.RESULT)
             try:
                 kwds = {'use_errno': True}
-                return ctypes.CFUNCTYPE(restype, *argtypes, **kwds)
+                return functype(restype, *argtypes, **kwds)
             except TypeError:
                 # unexpected 'use_errno' argument, old ctypes version
-                return ctypes.CFUNCTYPE(restype, *argtypes)
+                return functype(restype, *argtypes)
         elif isinstance(T.TO, lltype.OpaqueType):
             return ctypes.c_void_p
         else:
@@ -942,6 +948,11 @@ def ctypes2lltype(T, cobj):
                         REAL_T = lltype.Ptr(REAL_TYPE)
                         cobj = ctypes.cast(cobj, get_ctypes_type(REAL_T))
                     container = lltype._struct(REAL_TYPE)
+                # obscuuuuuuuuure: 'cobj' is a ctypes pointer, which is
+                # mutable; and so if we save away the 'cobj' object
+                # itself, it might suddenly later be unexpectedly
+                # modified!  Make a copy.
+                cobj = ctypes.cast(cobj, type(cobj))
                 struct_use_ctypes_storage(container, cobj)
                 if REAL_TYPE != T.TO:
                     p = container._as_ptr()
@@ -1166,6 +1177,8 @@ def get_ctypes_callable(funcptr, calling_conv):
         # XXX magic: on Windows try to load the function from 'kernel32' too
         if cfunc is None and hasattr(ctypes, 'windll'):
             cfunc = get_on_lib(ctypes.windll.kernel32, funcname)
+        if cfunc is None and hasattr(ctypes, 'windll'):
+            cfunc = get_on_lib(ctypes.cdll.msvcrt, funcname)
 
     if cfunc is None:
         # function name not found in any of the libraries

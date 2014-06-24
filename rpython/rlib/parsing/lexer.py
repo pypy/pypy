@@ -8,7 +8,7 @@ class Token(object):
         self.source_pos = source_pos
 
     def copy(self):
-        return Token(self.name, self.source, self.source_pos)
+        return self.__class__(self.name, self.source, self.source_pos)
 
     def __eq__(self, other):
         # for testing only
@@ -57,9 +57,9 @@ class Lexer(object):
         self.ignore = dict.fromkeys(ignore)
         self.matcher = self.automaton.make_lexing_code()
 
-    def get_runner(self, text, eof=False):
+    def get_runner(self, text, eof=False, token_class=None):
         return LexingDFARunner(self.matcher, self.automaton, text,
-                               self.ignore, eof)
+                               self.ignore, eof, token_class=token_class)
 
     def tokenize(self, text, eof=False):
         """Return a list of Token's from text."""
@@ -107,7 +107,7 @@ class AbstractLexingDFARunner(deterministic.DFARunner):
         self.matcher = matcher
         self.lineno = 0
         self.columnno = 0
-        
+
     def find_next_token(self):
         while 1:
             self.state = 0
@@ -126,8 +126,8 @@ class AbstractLexingDFARunner(deterministic.DFARunner):
                 i = ~i
                 stop = self.last_matched_index + 1
                 assert stop >= 0
-                if start == stop:   
-                    source_pos = SourcePos(i - 1, self.lineno, self.columnno)
+                if start == stop:
+                    source_pos = self.token_position_class(i - 1, self.lineno, self.columnno)
                     raise deterministic.LexerError(self.text, self.state,
                                                    source_pos)
                 source = self.text[start:stop]
@@ -147,7 +147,7 @@ class AbstractLexingDFARunner(deterministic.DFARunner):
                     else:
                         raise StopIteration
                 return result
-            source_pos = SourcePos(i - 1, self.lineno, self.columnno)
+            source_pos = self.token_position_class(i - 1, self.lineno, self.columnno)
             raise deterministic.LexerError(self.text, self.state, source_pos)
 
     def adjust_position(self, token):
@@ -158,7 +158,7 @@ class AbstractLexingDFARunner(deterministic.DFARunner):
             self.columnno += len(token)
         else:
             self.columnno = token.rfind("\n")
-    
+
 #    def inner_loop(self, i):
 #        while i < len(self.text):
 #            char = self.text[i]
@@ -184,7 +184,17 @@ class AbstractLexingDFARunner(deterministic.DFARunner):
         return self
 
 class LexingDFARunner(AbstractLexingDFARunner):
-    def __init__(self, matcher, automaton, text, ignore, eof=False):
+    def __init__(self, matcher, automaton, text, ignore, eof=False,
+                 token_class=None):
+
+        if not token_class:
+            self.token_class = Token
+            self.token_position_class = SourcePos
+
+        else:
+            self.token_class = token_class
+            self.token_position_class = token_class.source_position_class
+
         AbstractLexingDFARunner.__init__(self, matcher, automaton, text, eof)
         self.ignore = ignore
 
@@ -193,8 +203,10 @@ class LexingDFARunner(AbstractLexingDFARunner):
 
     def make_token(self, index, state, text, eof=False):
         assert (eof and state == -1) or 0 <= state < len(self.automaton.names)
-        source_pos = SourcePos(index, self.lineno, self.columnno)
+
+        source_pos = self.token_position_class(index, self.lineno, self.columnno)
         if eof:
-            return Token("EOF", "EOF", source_pos)
-        return Token(self.automaton.names[self.last_matched_state],
-                     text, source_pos)
+            return self.token_class("EOF", "EOF", source_pos)
+
+        return self.token_class(self.automaton.names[self.last_matched_state],
+                                text, source_pos)

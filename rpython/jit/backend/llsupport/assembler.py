@@ -15,7 +15,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
     # 'b'ridge, 'l'abel or # 'e'ntry point
-    ('i', lltype.Signed),
+    ('i', lltype.Signed),      # first field, at offset 0
     ('type', lltype.Char),
     ('number', lltype.Signed)
 )
@@ -64,7 +64,6 @@ class BaseAssembler(object):
         self.cpu = cpu
         self.memcpy_addr = 0
         self.rtyper = cpu.rtyper
-        self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
         self._debug = False
 
     def setup_once(self):
@@ -142,15 +141,16 @@ class BaseAssembler(object):
         else:
             coeff = 2
         for pos in descr.rd_locs:
-            if pos == -1:
+            pos = rffi.cast(lltype.Signed, pos)
+            if pos == 0xFFFF:
                 continue
-            elif pos < GPR_REGS * WORD:
-                locs.append(self.cpu.gen_regs[pos // WORD])
-            elif pos < (GPR_REGS + XMM_REGS * coeff) * WORD:
-                pos = (pos // WORD - GPR_REGS) // coeff
+            elif pos < GPR_REGS:
+                locs.append(self.cpu.gen_regs[pos])
+            elif pos < GPR_REGS + XMM_REGS * coeff:
+                pos = (pos - GPR_REGS) // coeff
                 locs.append(self.cpu.float_regs[pos])
             else:
-                i = pos // WORD - self.cpu.JITFRAME_FIXED_SIZE
+                i = pos - self.cpu.JITFRAME_FIXED_SIZE
                 assert i >= 0
                 tp = inputargs[input_i].type
                 locs.append(self.new_stack_loc(i, pos, tp))
@@ -168,12 +168,15 @@ class BaseAssembler(object):
         fail_descr = cast_instance_to_gcref(guardtok.faildescr)
         fail_descr = rffi.cast(lltype.Signed, fail_descr)
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        positions = [0] * len(guardtok.fail_locs)
+        positions = [rffi.cast(rffi.USHORT, 0)] * len(guardtok.fail_locs)
         for i, loc in enumerate(guardtok.fail_locs):
             if loc is None:
-                positions[i] = -1
+                position = 0xFFFF
             elif loc.is_stack():
-                positions[i] = loc.value - base_ofs
+                assert (loc.value & (WORD - 1)) == 0, \
+                    "store_info_on_descr: misaligned"
+                position = (loc.value - base_ofs) // WORD
+                assert 0 < position < 0xFFFF, "store_info_on_descr: overflow!"
             else:
                 assert loc is not self.cpu.frame_reg # for now
                 if self.cpu.IS_64_BIT:
@@ -181,10 +184,10 @@ class BaseAssembler(object):
                 else:
                     coeff = 2
                 if loc.is_float():
-                    v = len(self.cpu.gen_regs) + loc.value * coeff
+                    position = len(self.cpu.gen_regs) + loc.value * coeff
                 else:
-                    v = self.cpu.all_reg_indexes[loc.value]
-                positions[i] = v * WORD
+                    position = self.cpu.all_reg_indexes[loc.value]
+            positions[i] = rffi.cast(rffi.USHORT, position)
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
         # we want the descr to keep alive
@@ -265,14 +268,8 @@ class BaseAssembler(object):
     def _append_debugging_code(self, operations, tp, number, token):
         counter = self._register_counter(tp, number, token)
         c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
-        box = BoxInt()
-        box2 = BoxInt()
-        ops = [ResOperation(rop.GETFIELD_RAW, [c_adr],
-                            box, descr=self.debug_counter_descr),
-               ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
-               ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
-                            None, descr=self.debug_counter_descr)]
-        operations.extend(ops)
+        operations.append(
+            ResOperation(rop.INCREMENT_DEBUG_COUNTER, [c_adr], None))
 
     def _register_counter(self, tp, number, token):
         # YYY very minor leak -- we need the counters to stay alive

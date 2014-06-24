@@ -273,6 +273,5 @@ class _Foo:
 def noConst(x):
     """Helper function for tests, returning 'x' as a BoxInt/BoxPtr
     even if it is a ConstInt/ConstPtr."""
-    f1 = _Foo(); f2 = _Foo()
-    f1.x = x; f2.x = 0
-    return f1.x
+    from rpython.rlib import jit
+    return jit.hint(x, force_no_const=True)

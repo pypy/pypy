@@ -380,6 +380,10 @@ class BlackholeInterpreter(object):
 
     # ----------
 
+    @arguments("i", returns="i")
+    def bhimpl_int_same_as(a):
+        return a
+
     @arguments("i", "i", returns="i")
     def bhimpl_int_add(a, b):
         return intmask(a + b)
@@ -887,6 +891,10 @@ class BlackholeInterpreter(object):
     def bhimpl_int_isconstant(x):
         return False
 
+    @arguments("f", returns="i")
+    def bhimpl_float_isconstant(x):
+        return False
+
     @arguments("r", returns="i")
     def bhimpl_ref_isconstant(x):
         return False
@@ -1081,6 +1089,11 @@ class BlackholeInterpreter(object):
     def bhimpl_conditional_call_i_v(cpu, condition, func, args_i, calldescr):
         if condition:
             cpu.bh_call_v(func, args_i, None, None, calldescr)
+
+    @arguments("cpu", "i", "i", "R", "d")
+    def bhimpl_conditional_call_r_v(cpu, condition, func, args_r, calldescr):
+        if condition:
+            cpu.bh_call_v(func, None, args_r, None, calldescr)
 
     @arguments("cpu", "i", "i", "I", "R", "d")
     def bhimpl_conditional_call_ir_v(cpu, condition, func, args_i, args_r,

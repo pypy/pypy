@@ -183,8 +183,11 @@ class TestRx86_32(object):
         g = open(inputname, 'w')
         g.write('\x09.string "%s"\n' % BEGIN_TAG)
         #
-        if instrname == 'MOVD' and self.WORD == 8:
-            instrname = 'MOVQ'
+        if instrname == 'MOVDQ':
+            if self.WORD == 8:
+                instrname = 'MOVQ'
+            else:
+                instrname = 'MOVD'
             if argmodes == 'xb':
                 py.test.skip('"as" uses an undocumented alternate encoding??')
         #

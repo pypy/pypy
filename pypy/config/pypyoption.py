@@ -113,7 +113,7 @@ def get_module_validator(modname):
             try:
                 for name in modlist:
                     __import__(name)
-            except (ImportError, CompilationError, py.test.skip.Exception), e:
+            except (ImportError, CompilationError, py.test.skip.Exception) as e:
                 errcls = e.__class__.__name__
                 raise Exception(
                     "The module %r is disabled\n" % (modname,) +
@@ -217,7 +217,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "make instances really small but slow without the JIT",
                    default=False,
                    requires=[("objspace.std.getattributeshortcut", True),
-                             ("objspace.std.withmethodcache", True),
+                             ("objspace.std.withtypeversion", True),
                        ]),
 
         BoolOption("withrangelist",

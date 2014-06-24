@@ -37,10 +37,10 @@ an outout-buffering stream.
 import os, sys, errno
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, intmask
-from rpython.rlib import rposix
+from rpython.rlib import rposix, nonconst
 from rpython.rlib.rstring import StringBuilder
 
-from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
+from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_APPEND
 O_BINARY = getattr(os, "O_BINARY", 0)
 
 #          (basemode, plus)
@@ -48,8 +48,8 @@ OS_MODE = {('r', False): O_RDONLY,
            ('r', True):  O_RDWR,
            ('w', False): O_WRONLY | O_CREAT | O_TRUNC,
            ('w', True):  O_RDWR   | O_CREAT | O_TRUNC,
-           ('a', False): O_WRONLY | O_CREAT,
-           ('a', True):  O_RDWR   | O_CREAT,
+           ('a', False): O_WRONLY | O_CREAT | O_APPEND,
+           ('a', True):  O_RDWR   | O_CREAT | O_APPEND,
            }
 
 class MyNotImplementedError(Exception):
@@ -159,6 +159,8 @@ def construct_stream_tower(stream, buffering, universal, reading, writing,
             stream = TextInputFilter(stream)
     elif not binary and os.linesep == '\r\n':
         stream = TextCRLFFilter(stream)
+    if nonconst.NonConstant(False):
+        stream.flush_buffers()     # annotation workaround for untranslated tests
     return stream
 
 
@@ -193,7 +195,7 @@ if sys.platform == "win32":
             # Truncate.  Note that this may grow the file!
             handle = get_osfhandle(fd)
             if not SetEndOfFile(handle):
-                raise WindowsError(GetLastError(),
+                raise OSError(GetLastError(),
                                    "Could not truncate file")
         finally:
             # we restore the file pointer position in any case
@@ -234,11 +236,12 @@ class Stream(object):
         while True:
             # "peeks" on the underlying stream to see how many characters
             # we can safely read without reading past an end-of-line
-            peeked = self.peek()
-            pn = peeked.find("\n")
+            startindex, peeked = self.peek()
+            assert 0 <= startindex <= len(peeked)
+            pn = peeked.find("\n", startindex)
             if pn < 0:
                 pn = len(peeked)
-            c = self.read(pn + 1)
+            c = self.read(pn - startindex + 1)
             if not c:
                 break
             result.append(c)
@@ -265,7 +268,7 @@ class Stream(object):
         pass
 
     def peek(self):
-        return ''
+        return (0, '')
 
     def try_to_find_file_descriptor(self):
         return -1
@@ -553,7 +556,7 @@ class BufferingInputStream(Stream):
             else:
                 difpos = offset
             if -self.pos <= difpos <= currentsize:
-                self.pos += difpos
+                self.pos += intmask(difpos)
                 return
             if whence == 1:
                 offset -= currentsize
@@ -705,9 +708,7 @@ class BufferingInputStream(Stream):
         return "".join(chunks)
 
     def peek(self):
-        pos = self.pos
-        assert pos >= 0
-        return self.buf[pos:]
+        return (self.pos, self.buf)
 
     write      = PassThrough("write",     flush_buffers=True)
     truncate   = PassThrough("truncate",  flush_buffers=True)
@@ -851,7 +852,7 @@ class TextCRLFFilter(Stream):
         self.do_flush = base.flush_buffers
         self.lfbuffer = ""
 
-    def read(self, n):
+    def read(self, n=-1):
         data = self.lfbuffer + self.do_read(n)
         self.lfbuffer = ""
         if data.endswith("\r"):
@@ -970,12 +971,13 @@ class TextInputFilter(Stream):
         while True:
             # "peeks" on the underlying stream to see how many characters
             # we can safely read without reading past an end-of-line
-            peeked = self.base.peek()
-            pn = peeked.find("\n")
-            pr = peeked.find("\r")
+            startindex, peeked = self.base.peek()
+            assert 0 <= startindex <= len(peeked)
+            pn = peeked.find("\n", startindex)
+            pr = peeked.find("\r", startindex)
             if pn < 0: pn = len(peeked)
             if pr < 0: pr = len(peeked)
-            c = self.read(min(pn, pr) + 1)
+            c = self.read(min(pn, pr) - startindex + 1)
             if not c:
                 break
             result.append(c)
@@ -1028,7 +1030,7 @@ class TextInputFilter(Stream):
                 self.buf = ""
 
     def peek(self):
-        return self.buf
+        return (0, self.buf)
 
     write      = PassThrough("write",     flush_buffers=True)
     truncate   = PassThrough("truncate",  flush_buffers=True)
