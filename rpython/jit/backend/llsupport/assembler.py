@@ -310,7 +310,7 @@ class BaseAssembler(object):
         # Before doing an external call, 'rpy_fastgil' is initialized to
         # be equal to css.  This function is called if we find out after
         # the call that it is no longer equal to css.  See description
-        # in transator/c/src/thread_pthread.c.
+        # in translator/c/src/thread_pthread.c.
 
         if old_rpy_fastgil == 0:
             # this case occurs if some other thread stole the GIL but

@@ -154,11 +154,13 @@ def llexternal(name, args, result, _callable=None,
 
         argnames = ', '.join(['a%d' % i for i in range(len(args))])
         source = py.code.Source("""
-            def call_external_function(%(argnames)s):
-                aroundstate.before()
+            def call_external_function(%(argnames)s)e
+                before = aroundstate.before
+                if before: before()
                 # NB. it is essential that no exception checking occurs here!
                 res = funcptr(%(argnames)s)
-                aroundstate.after()
+                after = aroundstate.after
+                if after: after()
                 return res
         """ % locals())
         miniglobals = {'aroundstate': aroundstate,
@@ -293,7 +295,7 @@ def _make_wrapper_for(TP, callable, invoke_around_handlers=True,
                 aroundstate.leave_callback()
             # here we don't hold the GIL any more. As in the wrapper() produced
             # by llexternal, it is essential that no exception checking occurs
-            # after the call to leave_calback().
+            # after the call to leave_callback().
             return result
     """ % locals())
     miniglobals = locals().copy()
