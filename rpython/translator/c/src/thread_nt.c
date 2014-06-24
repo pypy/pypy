@@ -196,7 +196,7 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 /* GIL code                                                 */
 /************************************************************/
 
-typedef HANDLE mutex_t;
+typedef HANDLE mutex_t;   /* a semaphore, on Windows */
 
 static void gil_fatal(const char *msg) {
     fprintf(stderr, "Fatal error in the GIL: %s\n", msg);
@@ -204,9 +204,9 @@ static void gil_fatal(const char *msg) {
 }
 
 static inline void mutex_init(mutex_t *mutex) {
-    *mutex = CreateMutex(NULL, 0, NULL);
+    *mutex = CreateSemaphore(NULL, 1, 1, NULL);
     if (*mutex == NULL)
-        gil_fatal("CreateMutex failed");
+        gil_fatal("CreateSemaphore failed");
 }
 
 static inline void mutex_lock(mutex_t *mutex) {
@@ -214,7 +214,7 @@ static inline void mutex_lock(mutex_t *mutex) {
 }
 
 static inline void mutex_unlock(mutex_t *mutex) {
-    ReleaseMutex(*mutex);
+    ReleaseSemaphore(*mutex, 1, NULL);
 }
 
 static inline int mutex_lock_timeout(mutex_t *mutex, double delay)
