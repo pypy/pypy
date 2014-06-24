@@ -1,5 +1,6 @@
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib import rgil
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 class AbstractCallBuilder(object):

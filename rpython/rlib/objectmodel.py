@@ -584,11 +584,13 @@ def invoke_around_extcall(before, after):
     rffi.aroundstate.after = after
     rffi.aroundstate.enter_callback = after
     rffi.aroundstate.leave_callback = before
-    # the 'aroundstate' contains regular function and not ll pointers to them,
-    # but let's call llhelper() anyway to force their annotation
-    from rpython.rtyper.annlowlevel import llhelper
-    llhelper(rffi.AroundFnPtr, before)
-    llhelper(rffi.AroundFnPtr, after)
+    # force the annotation of before() and after()
+    from rpython.rlib.nonconst import NonConstant
+    if NonConstant(0):
+        if before:
+            before()
+        if after:
+            after()
 
 def is_in_callback():
     from rpython.rtyper.lltypesystem import rffi
