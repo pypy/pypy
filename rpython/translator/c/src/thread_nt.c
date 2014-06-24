@@ -244,7 +244,4 @@ void RPyGilAcquire(void)
     InterlockedDecrement(&pending_acquires);
 }
 
-#ifdef RPY_FASTGIL
 # error "XXX implement me"
-InterlockedExchangePointer
-#endif
