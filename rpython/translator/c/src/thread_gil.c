@@ -106,6 +106,7 @@ void RPyGilAcquire(void)
 
         errno = old_errno;
     }
+    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
 
 #ifdef PYPY_USE_ASMGCC
     if (old_fastgil != 0) {
@@ -122,7 +123,6 @@ void RPyGilAcquire(void)
 #else
     assert(old_fastgil == 0);
 #endif
-    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
     return;
 }
 
