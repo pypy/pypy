@@ -196,52 +196,35 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 /* GIL code                                                 */
 /************************************************************/
 
-static volatile LONG pending_acquires = -1;
-static CRITICAL_SECTION mutex_gil;
-static HANDLE cond_gil;
+typedef HANDLE mutex_t;
 
-long RPyGilAllocate(void)
-{
-    pending_acquires = 0;
-    InitializeCriticalSection(&mutex_gil);
-    EnterCriticalSection(&mutex_gil);
-    cond_gil = CreateEvent (NULL, FALSE, FALSE, NULL);
-    return 1;
+static void gil_fatal(const char *msg) {
+    fprintf(stderr, "Fatal error in the GIL: %s\n", msg);
+    abort();
 }
 
-long RPyGilYieldThread(void)
-{
-    /* can be called even before RPyGilAllocate(), but in this case,
-       pending_acquires will be -1 */
-    if (pending_acquires <= 0)
-        return 0;
-    InterlockedIncrement(&pending_acquires);
-    PulseEvent(cond_gil);
-
-    /* hack: the three following lines do a pthread_cond_wait(), and
-       normally specifying a timeout of INFINITE would be fine.  But the
-       first and second operations are not done atomically, so there is a
-       (small) risk that PulseEvent misses the WaitForSingleObject().
-       In this case the process will just sleep a few milliseconds. */
-    LeaveCriticalSection(&mutex_gil);
-    WaitForSingleObject(cond_gil, 15);
-    EnterCriticalSection(&mutex_gil);
-
-    InterlockedDecrement(&pending_acquires);
-    return 1;
+static inline void mutex_init(mutex_t *mutex) {
+    *mutex = CreateMutex(NULL, 0, NULL);
+    if (*mutex == NULL)
+        gil_fatal("CreateMutex failed");
 }
 
-void RPyGilRelease(void)
-{
-    LeaveCriticalSection(&mutex_gil);
-    PulseEvent(cond_gil);
+static inline void mutex_lock(mutex_t *mutex) {
+    WaitForSingleObject(*mutex, INFINITE);
 }
 
-void RPyGilAcquire(void)
-{
-    InterlockedIncrement(&pending_acquires);
-    EnterCriticalSection(&mutex_gil);
-    InterlockedDecrement(&pending_acquires);
+static inline void mutex_unlock(mutex_t *mutex) {
+    ReleaseMutex(*mutex);
 }
 
-# error "XXX implement me"
+static inline int mutex_lock_timeout(mutex_t *mutex, double delay)
+{
+    DWORD result = WaitForSingleObject(*mutex, (DWORD)(delay * 1000.0 + 0.9));
+    return (result != WAIT_TIMEOUT);
+}
+
+#define lock_test_and_set(ptr, value)  InterlockedExchangeAcquire(ptr, value)
+#define atomic_increment(ptr)          InterlockedIncrement(ptr)
+#define atomic_decrement(ptr)          InterlockedDecrement(ptr)
+
+#include "src/thread_gil.c"
