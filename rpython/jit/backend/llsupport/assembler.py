@@ -312,7 +312,7 @@ class BaseAssembler(object):
         if old_rpy_fastgil == 0:
             # this case occurs if some other thread stole the GIL but
             # released it again.  What occurred here is that we changed
-            # 'rpy_fastgil' from 0 to 1, thus successfully requiring the
+            # 'rpy_fastgil' from 0 to 1, thus successfully reaquiring the
             # GIL.
             pass
 
