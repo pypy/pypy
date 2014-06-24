@@ -575,22 +575,18 @@ def hlinvoke(repr, llcallable, *args):
     raise TypeError, "hlinvoke is meant to be rtyped and not called direclty"
 
 def invoke_around_extcall(before, after):
-    """Call before() before any external function call, and after() after.
-    ONLY FOR TESTS!
-    """
-    # NOTE: the hooks are cleared during translation!
+    # NOTE: the hooks are cleared during translation!  To be effective
+    # in a compiled program they must be set at run-time.
     from rpython.rtyper.lltypesystem import rffi
     rffi.aroundstate.before = before
     rffi.aroundstate.after = after
-    rffi.aroundstate.enter_callback = after
-    rffi.aroundstate.leave_callback = before
-    # force the annotation of before() and after()
-    from rpython.rlib.nonconst import NonConstant
-    if NonConstant(0):
-        if before:
-            before()
-        if after:
-            after()
+    # the 'aroundstate' contains regular function and not ll pointers to them,
+    # but let's call llhelper() anyway to force their annotation
+    from rpython.rtyper.annlowlevel import llhelper
+    if before is not None:
+        llhelper(rffi.AroundFnPtr, before)
+    if after is not None:
+        llhelper(rffi.AroundFnPtr, after)
 
 def is_in_callback():
     from rpython.rtyper.lltypesystem import rffi
