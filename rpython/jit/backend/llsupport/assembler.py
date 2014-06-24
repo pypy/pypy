@@ -307,11 +307,21 @@ class BaseAssembler(object):
     @staticmethod
     @rgc.no_collect
     def _reacquire_gil_asmgcc(css, old_rpy_fastgil):
-        # Only called if rpy_fastgil was reset to a different value
-        # by another thread or by a callback.  See description in
-        # transator/c/src/thread_pthread.c.
-        if not old_rpy_fastgil:
-            # first reacquire the GIL
+        # Before doing an external call, 'rpy_fastgil' is initialized to
+        # be equal to css.  This function is called if we find out after
+        # the call that it is no longer equal to css.  See description
+        # in transator/c/src/thread_pthread.c.
+
+        if old_rpy_fastgil == 0:
+            # this case occurs if some other thread stole the GIL but
+            # released it again.  What occurred here is that we changed
+            # 'rpy_fastgil' from 0 to 1, thus successfully requiring the
+            # GIL.
+            pass
+
+        elif old_rpy_fastgil == 1:
+            # 'rpy_fastgil' was (and still is) locked by someone else.
+            # We need to wait for the regular mutex.
             after = rffi.aroundstate.after
             if after:
                 after()
@@ -326,6 +336,7 @@ class BaseAssembler(object):
             oth.prev = asmgcroot.gcrootanchor
             asmgcroot.gcrootanchor.next = oth
             next.prev = oth
+
         # similar to trackgcroot.py:pypy_asm_stackwalk, second part:
         # detach the 'css' from the chained list
         from rpython.memory.gctransform import asmgcroot
@@ -339,14 +350,15 @@ class BaseAssembler(object):
     @rgc.no_collect
     def _reacquire_gil_shadowstack():
         # Simplified version of _reacquire_gil_asmgcc(): in shadowstack mode,
-        # rpy_fastgil contains only 0 or 1, and this must only be called when
-        # the old value stored in rpy_fastgil was 0.
+        # 'rpy_fastgil' contains only zero or non-zero, and this is only
+        # called when the old value stored in 'rpy_fastgil' was non-zero
+        # (i.e. still locked, must wait with the regular mutex)
         after = rffi.aroundstate.after
         if after:
             after()
 
     _REACQGIL0_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
-    _REACQGIL2_FUNC = lltype.Ptr(lltype.FuncType([rffi.CCHARP, rffi.CCHARP],
+    _REACQGIL2_FUNC = lltype.Ptr(lltype.FuncType([rffi.CCHARP, lltype.Signed],
                                                  lltype.Void))
 
     def _build_release_gil(self, gcrootmap):
