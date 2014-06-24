@@ -858,7 +858,10 @@ class FunctionGcRootTracker(object):
         return []
 
     def _visit_xchg(self, line):
-        # only support the format used in VALGRIND_DISCARD_TRANSLATIONS
+        # ignore the 'rpy_fastgil' atomic exchange
+        if 'rpy_fastgil' in line:
+            return []
+        # support the format used in VALGRIND_DISCARD_TRANSLATIONS
         # which is to use a marker no-op "xchgl %ebx, %ebx"
         match = self.r_binaryinsn.match(line)
         source = match.group("source")
