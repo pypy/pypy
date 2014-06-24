@@ -37,7 +37,7 @@
 */
 
 long rpy_fastgil = 1;
-long rpy_waiting_threads = -1;
+long rpy_waiting_threads = -42;    /* GIL not initialized */
 static mutex_t mutex_gil_stealer;
 static mutex_t mutex_gil;
 
@@ -67,7 +67,7 @@ void RPyGilAcquire(void)
 
         /* Register me as one of the threads that is actively waiting
            for the GIL.  The number of such threads is found in
-           rpy_lock_ready. */
+           rpy_waiting_threads. */
         assert(rpy_waiting_threads >= 0);
         atomic_increment(&rpy_waiting_threads);
 
@@ -140,7 +140,7 @@ void RPyGilRelease(void)
 long RPyGilYieldThread(void)
 {
     /* can be called even before RPyGilAllocate(), but in this case,
-       'rpy_waiting_threads' will be -1. */
+       'rpy_waiting_threads' will be -42. */
     assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
     if (rpy_waiting_threads <= 0)
         return 0;
