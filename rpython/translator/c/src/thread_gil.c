@@ -123,7 +123,6 @@ void RPyGilAcquire(void)
 #else
     assert(old_fastgil == 0);
 #endif
-    return;
 }
 
 /*
@@ -153,7 +152,8 @@ long RPyGilYieldThread(void)
        rpy_fastgil is still locked).  Call RPyGilAcquire().  It will
        enqueue ourselves at the end of the 'mutex_gil_stealer' queue.
        If there is no other waiting thread, it will fall through both
-       its pthread_mutex_lock() and pthread_mutex_timedlock() now.
+       its mutex_lock() and mutex_lock_timeout() now.  But that's
+       unlikely, because we tested above that 'rpy_waiting_threads > 0'.
      */
     RPyGilAcquire();
     return 1;
