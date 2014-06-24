@@ -82,7 +82,7 @@ void RPyGilAcquire(void)
             /* Sleep for one interval of time.  We may be woken up earlier
                if 'mutex_gil' is released.
             */
-            if (mutex_lock_timeout(&mutex_gil, 0.001)) {   /* 1 ms... */
+            if (mutex_lock_timeout(&mutex_gil, 0.0001)) {   /* 0.1 ms... */
                 /* We arrive here if 'mutex_gil' was recently released
                    and we just relocked it.
                  */

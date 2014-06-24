@@ -219,7 +219,7 @@ static inline void mutex_unlock(mutex_t *mutex) {
 
 static inline int mutex_lock_timeout(mutex_t *mutex, double delay)
 {
-    DWORD result = WaitForSingleObject(*mutex, (DWORD)(delay * 1000.0 + 0.9));
+    DWORD result = WaitForSingleObject(*mutex, (DWORD)(delay * 1000.0 + 0.999));
     return (result != WAIT_TIMEOUT);
 }
 
