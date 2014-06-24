@@ -1,6 +1,7 @@
 import py
 from rpython.conftest import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 
 # these functions manipulate directly the GIL, whose definition does not
 # escape the C code itself
@@ -12,6 +13,8 @@ eci = ExternalCompilationInfo(
     include_dirs = [translator_c_dir],
     export_symbols = ['RPyGilYieldThread', 'RPyGilRelease',
                       'RPyGilAcquire', 'RPyFetchFastGil'])
+
+llexternal = rffi.llexternal
 
 
 gil_yield_thread  = llexternal('RPyGilYieldThread', [], lltype.Void,

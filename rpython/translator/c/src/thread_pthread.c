@@ -519,13 +519,7 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
      value of 'rpy_fastgil' to 1.
 */
 
-#ifdef PYPY_USE_ASMGCC
-# define RPY_FASTGIL_LOCKED(x)   (x == 1)
-#else
-# define RPY_FASTGIL_LOCKED(x)   (x != 0)
-#endif
-
-Signed rpy_fastgil = 1;
+long rpy_fastgil = 1;
 static pthread_mutex_t mutex_gil_stealer;
 static pthread_mutex_t mutex_gil;
 static pthread_once_t mutex_gil_once = PTHREAD_ONCE_INIT;
@@ -558,7 +552,7 @@ void RPyGilAcquire(void)
 {
     /* Acquires the GIL.  Note: this function saves and restores 'errno'.
      */
-    Signed old_fastgil = __sync_lock_test_and_set(&rpy_fastgil, 1);
+    long old_fastgil = __sync_lock_test_and_set(&rpy_fastgil, 1);
 
     if (!RPY_FASTGIL_LOCKED(old_fastgil)) {
         /* The fastgil was not previously locked: success.
@@ -606,7 +600,6 @@ void RPyGilAcquire(void)
                 if (!RPY_FASTGIL_LOCKED(old_fastgil))
                     /* yes, got a non-held value!  Now we hold it. */
                     break;
-                }
             }
             /* Otherwise, loop back. */
         }

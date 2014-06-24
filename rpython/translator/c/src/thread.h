@@ -28,13 +28,19 @@ typedef enum RPyLockStatus {
 void RPyGilYieldThread(void);
 void RPyGilAcquire(void);
 
-extern Signed rpy_fastgil;
+#ifdef PYPY_USE_ASMGCC
+# define RPY_FASTGIL_LOCKED(x)   (x == 1)
+#else
+# define RPY_FASTGIL_LOCKED(x)   (x != 0)
+#endif
+
+extern long rpy_fastgil;
 
 static inline void RPyGilRelease(void) {
-    assert(RPY_FASTGIL_HELD(rpy_fastgil));
+    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
     rpy_fastgil = 0;
 }
-static inline Signed *RPyFetchFastGil(void) {
+static inline long *RPyFetchFastGil(void) {
     return &rpy_fastgil;
 }
 
