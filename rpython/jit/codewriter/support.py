@@ -229,6 +229,13 @@ def _ll_1_gc_id(ptr):
     return llop.gc_id(lltype.Signed, ptr)
 
 
+def _ll_1_gc_pin(ptr):
+    return llop.gc_pin(lltype.Bool, ptr)
+
+def _ll_1_gc_unpin(ptr):
+    llop.gc_unpin(lltype.Void, ptr)
+
+
 @oopspec("jit.force_virtual(inst)")
 def _ll_1_jit_force_virtual(inst):
     return llop.jit_force_virtual(lltype.typeOf(inst), inst)
