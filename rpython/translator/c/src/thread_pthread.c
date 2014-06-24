@@ -484,35 +484,48 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 
 /* Idea:
 
-   - "The GIL" is a composite concept.  "The GIL is locked" means
-     that the global variable 'rpy_fastgil' is zero *and* the
-     'mutex_gil' is acquired.  Conversely, "the GIL is unlocked" means
-     that rpy_fastgil != 0 *or* mutex_gil is released.  It should never
-     be the case that these two conditions are true at the same time.
+   - "The GIL" is a composite concept.  There are two locks, and "the
+     GIL is locked" when both are locked.
+
+   - The first lock is a simple global variable 'rpy_fastgil'.  With
+     shadowstack, we use the most portable definition: 0 means unlocked
+     and != 0 means locked.  With asmgcc, 0 means unlocked but only 1
+     means locked.  A different value means unlocked too, but the value
+     is used by the JIT to contain the stack top for stack root scanning.
+
+   - The second lock is a regular mutex.  In the fast path, it is never
+     unlocked.  Remember that "the GIL is unlocked" means that either
+     the first or the second lock is unlocked.  It should never be the
+     case that both are unlocked at the same time.
 
    - Let's call "thread 1" the thread with the GIL.  Whenever it does an
-     external function call, it sets 'rpy_fastgil' to a non-null value.
+     external function call, it sets 'rpy_fastgil' to 0 (unlocked).
      This is the cheapest way to release the GIL.  When it returns from
-     the function call, this thread attempts to atomically reset
-     rpy_fastgil to zero.  In the common case where it works, thread 1
+     the function call, this thread attempts to atomically change
+     'rpy_fastgil' to 1.  In the common case where it works, thread 1
      has got the GIL back and so continues to run.
 
-   - But "thread 2" is eagerly waiting for thread 1 to become blocked in
-     some long-running call.  About every millisecond it checks if
-     'rpy_fastgil' is non-null, by atomically resetting it to zero.
-     If it was non-null, it means that the GIL was not actually locked,
-     and thread 2 has now got the GIL.
+   - Say "thread 2" is eagerly waiting for thread 1 to become blocked in
+     some long-running call.  Regularly, it checks if 'rpy_fastgil' is 0
+     and tries to atomically change it to 1.  If it succeeds, it means
+     that the GIL was not previously locked.  Thread 2 has now got the GIL.
 
-   - If there are more threads, they are really sleeping, waiting on the
-     'mutex_gil_stealer' held by thread 2.
+   - If there are more than 2 threads, the rest is really sleeping by
+     waiting on the 'mutex_gil_stealer' held by thread 2.
 
    - An additional mechanism is used for when thread 1 wants to
      explicitly yield the GIL to thread 2: it does so by releasing
      'mutex_gil' (which is otherwise not released) but keeping the
-     value of 'rpy_fastgil' to zero.
+     value of 'rpy_fastgil' to 1.
 */
 
-void *rpy_fastgil = NULL;
+#ifdef PYPY_USE_ASMGCC
+# define RPY_FASTGIL_LOCKED(x)   (x == 1)
+#else
+# define RPY_FASTGIL_LOCKED(x)   (x != 0)
+#endif
+
+Signed rpy_fastgil = 1;
 static pthread_mutex_t mutex_gil_stealer;
 static pthread_mutex_t mutex_gil;
 static pthread_once_t mutex_gil_once = PTHREAD_ONCE_INIT;
@@ -530,26 +543,6 @@ static inline void prepare_mutexes(void)
     pthread_once(&mutex_gil_once, &init_mutex_gil);
 }
 
-static inline void *atomic_xchg(void **ptr, void *value)
-{
-    void *result;
-#if defined(__amd64__)
-    asm volatile ("xchgq %0, %2  /* automatically locked */"
-                  : "=r"(result) : "0"(value), "m"(*ptr) : "memory");
-#elif defined(__i386__)
-    asm volatile ("xchgl %0, %2  /* automatically locked */"
-                  : "=r"(result) : "0"(value), "m"(*ptr) : "memory");
-#else
-    /* requires gcc >= 4.1 */
-    while (1) {
-        result = *ptr;
-        if (__sync_bool_compare_and_swap(ptr, result, value))
-            break;
-    }
-#endif
-    return result;
-}
-
 static inline void timespec_add(struct timespec *t, long incr)
 {
     long nsec = t->tv_nsec + incr;
@@ -565,12 +558,11 @@ void RPyGilAcquire(void)
 {
     /* Acquires the GIL.  Note: this function saves and restores 'errno'.
      */
-    void *old_fastgil = atomic_xchg(&rpy_fastgil, NULL);
+    Signed old_fastgil = __sync_lock_test_and_set(&rpy_fastgil, 1);
 
-    if (old_fastgil != NULL) {
-        /* If we get a non-NULL value, it means that no other thread had the
-           GIL, and the exchange was successful.  'mutex_gil' should still
-           be locked at this point.
+    if (!RPY_FASTGIL_LOCKED(old_fastgil)) {
+        /* The fastgil was not previously locked: success.
+           'mutex_gil' should still be locked at this point.
         */
     }
     else {
@@ -602,29 +594,29 @@ void RPyGilAcquire(void)
                 /* We arrive here if 'mutex_gil' was recently released
                    and we just relocked it.
                  */
-                assert(rpy_fastgil == NULL);
-                old_fastgil = (void *)1;
+                old_fastgil = 0;
                 break;
             }
 
             /* Busy-looping here.  Try to look again if 'rpy_fastgil' is
-               non-NULL.
+               released.
             */
-            if (rpy_fastgil != NULL) {
-                old_fastgil = atomic_xchg(&rpy_fastgil, NULL);
-                if (old_fastgil != NULL) {
-                    /* yes, got a non-NULL value! */
+            if (!RPY_FASTGIL_LOCKED(rpy_fastgil)) {
+                old_fastgil = __sync_lock_test_and_set(&rpy_fastgil, 1);
+                if (!RPY_FASTGIL_LOCKED(old_fastgil))
+                    /* yes, got a non-held value!  Now we hold it. */
                     break;
                 }
             }
             /* Otherwise, loop back. */
         }
+        ASSERT_STATUS(pthread_mutex_unlock(&mutex_gil_stealer));
 
         errno = old_errno;
     }
 
 #ifdef PYPY_USE_ASMGCC
-    if (old_fastgil != (void *)1) {
+    if (old_fastgil != 0) {
         /* this case only occurs from the JIT compiler */
         struct pypy_ASM_FRAMEDATA_HEAD0 *new =
             (struct pypy_ASM_FRAMEDATA_HEAD0 *)old_fastgil;
@@ -636,8 +628,9 @@ void RPyGilAcquire(void)
         next->as_prev = new;
     }
 #else
-    assert(old_fastgil == (void *)1);
+    assert(old_fastgil == 0);
 #endif
+    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
     return;
 }
 
@@ -654,7 +647,7 @@ void RPyGilRelease(void)
 
 void RPyGilYieldThread(void)
 {
-    assert(rpy_fastgil == NULL);
+    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
 
     /* Explicitly release the 'mutex_gil'.
      */
@@ -662,7 +655,7 @@ void RPyGilYieldThread(void)
     ASSERT_STATUS(pthread_mutex_unlock(&mutex_gil));
 
     /* Now nobody has got the GIL, because 'mutex_gil' is released (but
-       rpy_fastgil is still zero).  Call RPyGilAcquire().  It will
+       rpy_fastgil is still locked).  Call RPyGilAcquire().  It will
        enqueue ourselves at the end of the 'mutex_gil_stealer' queue.
        If there is no other waiting thread, it will fall through both
        its pthread_mutex_lock() and pthread_mutex_timedlock() now.
