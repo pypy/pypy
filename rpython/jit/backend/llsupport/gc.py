@@ -141,9 +141,6 @@ class GcLLDescription(GcCache):
         newops.append(op)
         return newops
 
-    if not we_are_translated():
-        last_pinned_object_tracker = None
-
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         rewriter = GcRewriterAssembler(self, cpu)
         newops = rewriter.rewrite(operations)
