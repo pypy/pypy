@@ -19,8 +19,7 @@ eci = ExternalCompilationInfo(
     include_dirs = [translator_c_dir],
     export_symbols = ['RPyThreadGetIdent', 'RPyThreadLockInit',
                       'RPyThreadAcquireLock', 'RPyThreadAcquireLockTimed',
-                      'RPyThreadReleaseLock', 'RPyGilAllocate',
-                      'RPyGilYieldThread', 'RPyGilRelease', 'RPyGilAcquire',
+                      'RPyThreadReleaseLock',
                       'RPyThreadGetStackSize', 'RPyThreadSetStackSize',
                       'RPyOpaqueDealloc_ThreadLock',
                       'RPyThreadAfterFork']
@@ -76,16 +75,6 @@ c_thread_releaselock_NOAUTO = llexternal('RPyThreadReleaseLock',
                                          [TLOCKP], lltype.Void,
                                          _nowrapper=True)
 
-# these functions manipulate directly the GIL, whose definition does not
-# escape the C code itself
-gil_allocate     = llexternal('RPyGilAllocate', [], lltype.Signed,
-                              _nowrapper=True)
-gil_yield_thread = llexternal('RPyGilYieldThread', [], lltype.Signed,
-                              _nowrapper=True)
-gil_release      = llexternal('RPyGilRelease', [], lltype.Void,
-                              _nowrapper=True)
-gil_acquire      = llexternal('RPyGilAcquire', [], lltype.Void,
-                              _nowrapper=True)
 
 def allocate_lock():
     return Lock(allocate_ll_lock())
