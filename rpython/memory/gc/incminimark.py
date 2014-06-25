@@ -169,7 +169,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     inline_simple_malloc_varsize = True
     needs_write_barrier = True
     prebuilt_gc_objects_are_static_roots = False
-    malloc_zero_filled = True    # xxx experiment with False
+    malloc_zero_filled = False    # xxx experiment with False
     gcflag_extra = GCFLAG_EXTRA
 
     # All objects start with a HDR, i.e. with a field 'tid' which contains
