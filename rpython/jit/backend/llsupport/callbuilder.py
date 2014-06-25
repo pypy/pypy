@@ -1,5 +1,4 @@
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
-from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import rgil
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -46,10 +45,7 @@ class AbstractCallBuilder(object):
     def emit_call_release_gil(self):
         """Emit a CALL_RELEASE_GIL, including calls to releasegil_addr
         and reacqgil_addr."""
-        if we_are_translated():
-            fastgil = rffi.cast(lltype.Signed, rgil.gil_fetch_fastgil())
-        else:
-            fastgil = "NOT TRANSLATED"
+        fastgil = rffi.cast(lltype.Signed, rgil.gil_fetch_fastgil())
         self.select_call_release_gil_mode()
         self.prepare_arguments()
         self.push_gcmap_for_call_release_gil()

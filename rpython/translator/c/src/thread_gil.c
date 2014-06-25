@@ -122,17 +122,6 @@ void RPyGilAcquire(void)
 #endif
 }
 
-/*
-void RPyGilRelease(void)
-{
-    Releases the GIL in order to do an external function call.
-    We assume that the common case is that the function call is
-    actually very short, and optimize accordingly.
-
-    Note: this function is defined as a 'static inline' in thread.h.
-}
-*/
-
 long RPyGilYieldThread(void)
 {
     /* can be called even before RPyGilAllocate(), but in this case,
@@ -154,4 +143,27 @@ long RPyGilYieldThread(void)
      */
     RPyGilAcquire();
     return 1;
+}
+
+/********** for tests only **********/
+
+/* These functions are usually defined as a macros RPyXyz() in thread.h
+   which get translated into calls to _RpyXyz().  But for tests we need
+   the real functions to exists in the library as well.
+*/
+
+#undef RPyGilRelease
+void RPyGilRelease(void)
+{
+    /* Releases the GIL in order to do an external function call.
+       We assume that the common case is that the function call is
+       actually very short, and optimize accordingly.
+    */
+    _RPyGilRelease();
+}
+
+#undef RPyFetchFastGil
+long *RPyFetchFastGil(void)
+{
+    return _RPyFetchFastGil();
 }
