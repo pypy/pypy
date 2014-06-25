@@ -155,7 +155,6 @@ class GcLLDescription(GcCache):
         pinned_obj_tracker = PinnedObjectTracker(cpu, 100)
         if not we_are_translated():
             self.last_pinned_object_tracker = pinned_obj_tracker
-            print "blub: %r" % self.last_pinned_object_tracker
         gcrefs_output_list.append(pinned_obj_tracker.ref_array_gcref)
         rgc._make_sure_does_not_move(pinned_obj_tracker.ref_array_gcref)
 
