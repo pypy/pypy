@@ -19,6 +19,26 @@ from rpython.jit.backend.llsupport.descr import get_call_descr
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
 from rpython.memory.gctransform import asmgcroot
 
+class PinnedObjectTracker(object):
+    """Simple helper class to keep informations regarding the 'GcArray'
+    in one place that is used to double load pinned objects.
+    """
+
+    _ref_array_type = lltype.GcArray(llmemory.GCREF)
+
+    def __init__(self, cpu, size):
+        self._next_item = 0
+        self._ref_array = lltype.malloc(PinnedObjectTracker._ref_array_type, size)
+        self.ref_array_descr = cpu.arraydescrof(PinnedObjectTracker._ref_array_type)
+        self.ref_array_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, self._ref_array)
+
+    def add_ref(self, ref):
+        index = self._next_item
+        self._next_item += 1
+        #
+        self._ref_array[index] = ref
+        return index
+
 # ____________________________________________________________
 
 class GcLLDescription(GcCache):
@@ -92,25 +112,7 @@ class GcLLDescription(GcCache):
     def gc_malloc_unicode(self, num_elem):
         return self._bh_malloc_array(num_elem, self.unicode_descr)
 
-    class PinnedObjectTracker(object):
-        """Simple helper class to keep informations regarding the 'GcArray'
-        in one place that is used to double load pinned objects.
-        """
-        def __init__(self, cpu, size):
-            self._nextItem = 0
-            self._refArrayType = lltype.GcArray(llmemory.GCREF)
-            self.refArrayDescr = cpu.arraydescrof(self._refArrayType)
-            self._refArray = lltype.malloc(self._refArrayType, size)
-            self.refArrayGCREF = lltype.cast_opaque_ptr(llmemory.GCREF, self._refArray)
-
-        def add_ref(self, ref):
-            index = self._nextItem
-            self._nextItem += 1
-            #
-            self._refArray[index] = ref
-            return index
-
-    def _record_constptrs(self, op, gcrefs_output_list, pinnedObjTracker):
+    def _record_constptrs(self, op, gcrefs_output_list, pinned_obj_tracker):
         newops = []
         for i in range(op.numargs()):
             v = op.getarg(i)
@@ -119,16 +121,17 @@ class GcLLDescription(GcCache):
                 if rgc._make_sure_does_not_move(p):
                     gcrefs_output_list.append(p)
                 else:
-                    # encountered a moving pointer. Solve the problem by double
-                    # loading the address to the pointer each run of the JITed code.
-                    resultPtr = BoxPtr()
-                    arrayIndex = pinnedObjTracker.add_ref(p)
-                    loadOp = ResOperation(rop.GETARRAYITEM_GC,
-                        [ConstPtr(pinnedObjTracker.refArrayGCREF), ConstInt(arrayIndex)],
-                        resultPtr,
-                        descr=pinnedObjTracker.refArrayDescr)
-                    newops.append(loadOp)
-                    op.setarg(i, resultPtr)
+                    # encountered a pointer that points to a possibly moving object.
+                    # Solve the problem by double loading the address to the object
+                    # each run of the JITed code.
+                    result_ptr = BoxPtr()
+                    array_index = pinned_obj_tracker.add_ref(p)
+                    load_op = ResOperation(rop.GETARRAYITEM_GC,
+                        [ConstPtr(pinned_obj_tracker.ref_array_gcref), ConstInt(array_index)],
+                        result_ptr,
+                        descr=pinned_obj_tracker.ref_array_descr)
+                    newops.append(load_op)
+                    op.setarg(i, result_ptr)
         #
         if op.is_guard() or op.getopnum() == rop.FINISH:
             llref = cast_instance_to_gcref(op.getdescr())
@@ -138,6 +141,9 @@ class GcLLDescription(GcCache):
         newops.append(op)
         return newops
 
+    if not we_are_translated():
+        last_pinned_object_tracker = None
+
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         rewriter = GcRewriterAssembler(self, cpu)
         newops = rewriter.rewrite(operations)
@@ -146,14 +152,17 @@ class GcLLDescription(GcCache):
         
         # XXX add comment (groggi)
         # XXX handle size in a not constant way? Get it from the GC? (groggi)
-        pinnedObjTracker = self.PinnedObjectTracker(cpu, 100)
-        gcrefs_output_list.append(pinnedObjTracker.refArrayGCREF)
-        rgc._make_sure_does_not_move(pinnedObjTracker.refArrayGCREF)
+        pinned_obj_tracker = PinnedObjectTracker(cpu, 100)
+        if not we_are_translated():
+            self.last_pinned_object_tracker = pinned_obj_tracker
+            print "blub: %r" % self.last_pinned_object_tracker
+        gcrefs_output_list.append(pinned_obj_tracker.ref_array_gcref)
+        rgc._make_sure_does_not_move(pinned_obj_tracker.ref_array_gcref)
 
         newnewops = [] # XXX better name... (groggi)
 
         for op in newops:
-            ops = self._record_constptrs(op, gcrefs_output_list, pinnedObjTracker)
+            ops = self._record_constptrs(op, gcrefs_output_list, pinned_obj_tracker)
             newnewops.extend(ops)
         return newnewops
 

@@ -299,6 +299,7 @@ class AbstractLLCPU(AbstractCPU):
         return ofs, size, sign
     unpack_fielddescr_size._always_inline_ = True
 
+    @specialize.memo()
     def arraydescrof(self, A):
         return get_array_descr(self.gc_ll_descr, A)
 
