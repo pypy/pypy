@@ -32,32 +32,32 @@ class CConfig(object):
 config = platform.configure(CConfig)
 
 OFF_T = config['off_t']
-FILE = lltype.Struct('FILE')  # opaque type maybe
+FILEP = rffi.COpaquePtr("FILE")
 
-c_open = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], lltype.Ptr(FILE))
-c_close = llexternal('fclose', [lltype.Ptr(FILE)], rffi.INT, releasegil=False)
+c_open = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP)
+c_close = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
 c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
-                                 lltype.Ptr(FILE)], rffi.SIZE_T)
+                                 FILEP], rffi.SIZE_T)
 c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
-                               lltype.Ptr(FILE)], rffi.SIZE_T)
-c_feof = llexternal('feof', [lltype.Ptr(FILE)], rffi.INT)
-c_ferror = llexternal('ferror', [lltype.Ptr(FILE)], rffi.INT)
-c_clearerror = llexternal('clearerr', [lltype.Ptr(FILE)], lltype.Void)
-c_fseek = llexternal('fseek', [lltype.Ptr(FILE), rffi.LONG, rffi.INT],
+                               FILEP], rffi.SIZE_T)
+c_feof = llexternal('feof', [FILEP], rffi.INT)
+c_ferror = llexternal('ferror', [FILEP], rffi.INT)
+c_clearerror = llexternal('clearerr', [FILEP], lltype.Void)
+c_fseek = llexternal('fseek', [FILEP, rffi.LONG, rffi.INT],
                      rffi.INT)
-c_tmpfile = llexternal('tmpfile', [], lltype.Ptr(FILE))
-c_fileno = llexternal(fileno, [lltype.Ptr(FILE)], rffi.INT)
+c_tmpfile = llexternal('tmpfile', [], FILEP)
+c_fileno = llexternal(fileno, [FILEP], rffi.INT)
 c_fdopen = llexternal(('_' if os.name == 'nt' else '') + 'fdopen',
-                      [rffi.INT, rffi.CCHARP], lltype.Ptr(FILE))
-c_ftell = llexternal('ftell', [lltype.Ptr(FILE)], rffi.LONG)
-c_fflush = llexternal('fflush', [lltype.Ptr(FILE)], rffi.INT)
+                      [rffi.INT, rffi.CCHARP], FILEP)
+c_ftell = llexternal('ftell', [FILEP], rffi.LONG)
+c_fflush = llexternal('fflush', [FILEP], rffi.INT)
 c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)
 
-c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, lltype.Ptr(FILE)],
+c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP],
                      rffi.CCHARP)
 
-c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], lltype.Ptr(FILE))
-c_pclose = llexternal('pclose', [lltype.Ptr(FILE)], rffi.INT, releasegil=False)
+c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], FILEP)
+c_pclose = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
 
 BASE_BUF_SIZE = 4096
 BASE_LINE_SIZE = 100
@@ -157,7 +157,7 @@ class RFile(object):
         ll_f = self.ll_file
         if ll_f:
             # double close is allowed
-            self.ll_file = lltype.nullptr(FILE)
+            self.ll_file = lltype.nullptr(FILEP.TO)
             res = self._do_close(ll_f)
             if res == -1:
                 errno = rposix.get_errno()
