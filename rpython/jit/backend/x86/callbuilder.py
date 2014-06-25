@@ -126,10 +126,10 @@ class CallBuilderX86(AbstractCallBuilder):
             self.asm.set_extra_stack_depth(self.mc, -delta * WORD)
             css_value = eax
         #
-        self.mc.MOV(heap(fastgil), css_value)
-        #
         if not we_are_translated():        # for testing: we should not access
-            self.mc.ADD(ebp, imm(1))       # ebp any more
+            self.mc.ADD(ebp, imm(1))       # ebp any more; and ignore 'fastgil'
+        else:
+            self.mc.MOV(heap(fastgil), css_value)
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         from rpython.jit.backend.x86.assembler import heap
@@ -160,7 +160,9 @@ class CallBuilderX86(AbstractCallBuilder):
             mc.LEA_rs(css_value.value, css)
         #
         mc.MOV(old_value, imm(1))
-        if rx86.fits_in_32bits(fastgil):
+        if not we_are_translated():
+            mc.MOV(old_value, css_value)       # for testing: ignore 'fastgil'
+        elif rx86.fits_in_32bits(fastgil):
             mc.XCHG_rj(old_value.value, fastgil)
         else:
             mc.MOV_ri(X86_64_SCRATCH_REG.value, fastgil)

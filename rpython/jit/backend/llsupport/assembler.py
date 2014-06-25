@@ -359,9 +359,7 @@ class BaseAssembler(object):
                                                  lltype.Void))
 
     def _build_release_gil(self, gcrootmap):
-        if gcrootmap is None:
-            pass
-        elif gcrootmap.is_shadow_stack:
+        if gcrootmap is None or gcrootmap.is_shadow_stack:
             reacqgil_func = llhelper(self._REACQGIL0_FUNC,
                                      self._reacquire_gil_shadowstack)
             self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
