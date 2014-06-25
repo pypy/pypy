@@ -40,6 +40,11 @@ class RewriteTests(object):
         pinned_obj_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, pinned_obj_ptr)
         assert rgc.pin(pinned_obj_gcref)
         #
+        notpinned_obj_type = lltype.GcStruct('NOT_PINNED_STRUCT', ('my_int', lltype.Signed))
+        notpinned_obj_my_int_descr = get_field_descr(self.gc_ll_descr, notpinned_obj_type, 'my_int')
+        notpinned_obj_ptr = lltype.malloc(notpinned_obj_type)
+        notpinned_obj_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, notpinned_obj_ptr)
+        #
         ref_array_descr = self.cpu.arraydescrof(PinnedObjectTracker._ref_array_type)
         #
         vtable_descr = self.gc_ll_descr.fielddescr_vtable
@@ -124,4 +129,19 @@ class TestFramework(RewriteTests):
             []
             p1 = getarrayitem_gc(ConstPtr(ref_array_gcref), 0, descr=ref_array_descr)
             i0 = getfield_gc(p1, descr=pinned_obj_my_int_descr)
+            """)
+
+    def test_simple_getfield_twice(self):
+        self.check_rewrite("""
+            []
+            i0 = getfield_gc(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
+            i1 = getfield_gc(ConstPtr(notpinned_obj_gcref), descr=notpinned_obj_my_int_descr)
+            i2 = getfield_gc(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
+            """, """
+            []
+            p1 = getarrayitem_gc(ConstPtr(ref_array_gcref), 0, descr=ref_array_descr)
+            i0 = getfield_gc(p1, descr=pinned_obj_my_int_descr)
+            i1 = getfield_gc(ConstPtr(notpinned_obj_gcref), descr=notpinned_obj_my_int_descr)
+            p2 = getarrayitem_gc(ConstPtr(ref_array_gcref), 1, descr=ref_array_descr)
+            i2 = getfield_gc(p2, descr=pinned_obj_my_int_descr)
             """)
