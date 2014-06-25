@@ -21,27 +21,27 @@ class TestCellDict(object):
         w_key = self.FakeString(key)
         d.setitem(w_key, 1)
         v2 = strategy.version
-        assert v1 is not v2
+        assert v1 is v2          # doesn't change when adding new keys
         assert d.getitem(w_key) == 1
-        assert d.strategy.getdictvalue_no_unwrapping(d, key) == 1
+        assert d.strategy.dictvalue_no_unwrapping(d, key) == 1
 
         d.setitem(w_key, 2)
         v3 = strategy.version
         assert v2 is not v3
         assert d.getitem(w_key) == 2
-        assert d.strategy.getdictvalue_no_unwrapping(d, key).w_value == 2
+        assert d.strategy.dictvalue_no_unwrapping(d, key).w_value == 2
 
         d.setitem(w_key, 3)
         v4 = strategy.version
         assert v3 is v4
         assert d.getitem(w_key) == 3
-        assert d.strategy.getdictvalue_no_unwrapping(d, key).w_value == 3
+        assert d.strategy.dictvalue_no_unwrapping(d, key).w_value == 3
 
         d.delitem(w_key)
         v5 = strategy.version
         assert v5 is not v4
         assert d.getitem(w_key) is None
-        assert d.strategy.getdictvalue_no_unwrapping(d, key) is None
+        py.test.raises(KeyError, d.strategy.dictvalue_no_unwrapping, d, key)
 
     def test_same_key_set_twice(self):
         strategy = ModuleDictStrategy(space)
@@ -52,7 +52,7 @@ class TestCellDict(object):
         x = object()
         d.setitem("a", x)
         v2 = strategy.version
-        assert v1 is not v2
+        assert v1 is v2
         d.setitem("a", x)
         v3 = strategy.version
         assert v2 is v3

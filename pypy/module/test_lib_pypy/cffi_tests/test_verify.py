@@ -1906,3 +1906,60 @@ def test_ptr_to_opaque():
     p = lib.f2(42)
     x = lib.f1(p)
     assert x == 42
+
+def _run_in_multiple_threads(test1):
+    test1()
+    import sys
+    try:
+        import thread
+    except ImportError:
+        import _thread as thread
+    errors = []
+    def wrapper(lock):
+        try:
+            test1()
+        except:
+            errors.append(sys.exc_info())
+        lock.release()
+    locks = []
+    for i in range(10):
+        _lock = thread.allocate_lock()
+        _lock.acquire()
+        thread.start_new_thread(wrapper, (_lock,))
+        locks.append(_lock)
+    for _lock in locks:
+        _lock.acquire()
+        if errors:
+            raise errors[0][1]
+
+def test_errno_working_even_with_pypys_jit():
+    ffi = FFI()
+    ffi.cdef("int f(int);")
+    lib = ffi.verify("""
+        #include <errno.h>
+        int f(int x) { return (errno = errno + x); }
+    """)
+    @_run_in_multiple_threads
+    def test1():
+        ffi.errno = 0
+        for i in range(10000):
+            e = lib.f(1)
+            assert e == i + 1
+            assert ffi.errno == e
+        for i in range(10000):
+            ffi.errno = i
+            e = lib.f(42)
+            assert e == i + 42
+
+def test_getlasterror_working_even_with_pypys_jit():
+    if sys.platform != 'win32':
+        py.test.skip("win32-only test")
+    ffi = FFI()
+    ffi.cdef("void SetLastError(DWORD);")
+    lib = ffi.dlopen("Kernel32.dll")
+    @_run_in_multiple_threads
+    def test1():
+        for i in range(10000):
+            n = (1 << 29) + i
+            lib.SetLastError(n)
+            assert ffi.getwinerror()[0] == n
