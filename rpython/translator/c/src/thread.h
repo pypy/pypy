@@ -1,7 +1,6 @@
 #ifndef __PYPY_THREAD_H
 #define __PYPY_THREAD_H
 #include <assert.h>
-#include "common_header.h"
 
 #define RPY_TIMEOUT_T long long
 

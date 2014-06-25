@@ -782,7 +782,7 @@ gcrootanchor.prev = gcrootanchor
 gcrootanchor.next = gcrootanchor
 c_gcrootanchor = Constant(gcrootanchor, ASM_FRAMEDATA_HEAD_PTR)
 
-eci = ExternalCompilationInfo(pre_include_bits=['#define PYPY_USE_ASMGCC'])
+eci = ExternalCompilationInfo(compile_extra=['-DPYPY_USE_ASMGCC'])
 
 pypy_asm_stackwalk = rffi.llexternal('pypy_asm_stackwalk',
                                      [ASM_CALLBACK_PTR,
