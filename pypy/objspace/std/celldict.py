@@ -16,7 +16,7 @@ class VersionTag(object):
 
 
 class ModuleCell(W_Root):
-    def __init__(self, w_value):
+    def __init__(self, w_value=None):
         self.w_value = w_value
 
     def __repr__(self):
@@ -49,24 +49,17 @@ class ModuleDictStrategy(DictStrategy):
         return self.erase({})
 
     def mutated(self):
-        # A mutation means changing an existing key to point to a new value.
-        # A value is either a regular wrapped object, or a ModuleCell if we
-        # detect mutations.  It means that each existing key can only trigger
-        # a mutation at most once.
         self.version = VersionTag()
 
-    def dictvalue_no_unwrapping(self, w_dict, key):
+    def getdictvalue_no_unwrapping(self, w_dict, key):
         # NB: it's important to promote self here, so that self.version is a
         # no-op due to the quasi-immutable field
         self = jit.promote(self)
-        return self._dictvalue_no_unwrapping_pure(self.version, w_dict, key)
+        return self._getdictvalue_no_unwrapping_pure(self.version, w_dict, key)
 
     @jit.elidable_promote('0,1,2')
-    def _dictvalue_no_unwrapping_pure(self, version, w_dict, key):
-        # may raise KeyError.  If it does, then the JIT is prevented from
-        # considering this function as elidable.  This is what lets us add
-        # new keys to the dictionary without changing the version.
-        return self.unerase(w_dict.dstorage)[key]
+    def _getdictvalue_no_unwrapping_pure(self, version, w_dict, key):
+        return self.unerase(w_dict.dstorage).get(key, None)
 
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
@@ -77,20 +70,17 @@ class ModuleDictStrategy(DictStrategy):
             w_dict.setitem(w_key, w_value)
 
     def setitem_str(self, w_dict, key, w_value):
-        try:
-            cell = self.dictvalue_no_unwrapping(w_dict, key)
-        except KeyError:
-            pass
-        else:
-            if isinstance(cell, ModuleCell):
-                cell.w_value = w_value
-                return
+        cell = self.getdictvalue_no_unwrapping(w_dict, key)
+        if isinstance(cell, ModuleCell):
+            cell.w_value = w_value
+            return
+        if cell is not None:
             # If the new value and the current value are the same, don't
             # create a level of indirection, or mutate the version.
             if self.space.is_w(w_value, cell):
                 return
             w_value = ModuleCell(w_value)
-            self.mutated()
+        self.mutated()
         self.unerase(w_dict.dstorage)[key] = w_value
 
     def setdefault(self, w_dict, w_key, w_default):
@@ -140,10 +130,7 @@ class ModuleDictStrategy(DictStrategy):
             return w_dict.getitem(w_key)
 
     def getitem_str(self, w_dict, key):
-        try:
-            cell = self.dictvalue_no_unwrapping(w_dict, key)
-        except KeyError:
-            return None
+        cell = self.getdictvalue_no_unwrapping(w_dict, key)
         return unwrap_cell(cell)
 
     def w_keys(self, w_dict):
