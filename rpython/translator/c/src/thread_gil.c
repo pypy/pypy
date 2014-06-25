@@ -1,3 +1,7 @@
+#ifdef PYPY_USE_ASMGCC
+# include "structdef.h"
+# include "forwarddecl.h"
+#endif
 
 /* Idea:
 
