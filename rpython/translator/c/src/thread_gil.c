@@ -68,7 +68,7 @@ void RPyGilAcquire(void)
     }
     else {
         /* Otherwise, another thread is busy with the GIL. */
-        int old_errno = errno;
+        SAVE_ERRNO();
 
         /* Register me as one of the threads that is actively waiting
            for the GIL.  The number of such threads is found in
@@ -109,7 +109,7 @@ void RPyGilAcquire(void)
         atomic_decrement(&rpy_waiting_threads);
         mutex_unlock(&mutex_gil_stealer);
 
-        errno = old_errno;
+        RESTORE_ERRNO();
     }
     assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
 

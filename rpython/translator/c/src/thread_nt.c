@@ -227,4 +227,9 @@ static inline int mutex_lock_timeout(mutex_t *mutex, double delay)
 #define atomic_increment(ptr)          InterlockedIncrement(ptr)
 #define atomic_decrement(ptr)          InterlockedDecrement(ptr)
 
+#define SAVE_ERRNO()      int saved_errno = errno; \
+                          DWORD saved_lasterr = GetLastError()
+#define RESTORE_ERRNO()   errno = saved_errno; \
+                          SetLastError(saved_lasterr)
+
 #include "src/thread_gil.c"

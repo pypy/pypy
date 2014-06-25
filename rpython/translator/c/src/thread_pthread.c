@@ -517,4 +517,7 @@ static inline int mutex_lock_timeout(mutex_t *mutex, double delay) {
 #define atomic_increment(ptr)          __sync_fetch_and_add(ptr, 1)
 #define atomic_decrement(ptr)          __sync_fetch_and_sub(ptr, 1)
 
+#define SAVE_ERRNO()      int saved_errno = errno
+#define RESTORE_ERRNO()   errno = saved_errno
+
 #include "src/thread_gil.c"
