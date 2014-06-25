@@ -56,7 +56,7 @@ void RPyGilAllocate(void)
 
 void RPyGilAcquire(void)
 {
-    /* Acquires the GIL.  Note: this function saves and restores 'errno'.
+    /* Acquires the GIL.
      */
     long old_fastgil = lock_test_and_set(&rpy_fastgil, 1);
 
@@ -67,7 +67,6 @@ void RPyGilAcquire(void)
     }
     else {
         /* Otherwise, another thread is busy with the GIL. */
-        int old_errno = errno;
 
         /* Register me as one of the threads that is actively waiting
            for the GIL.  The number of such threads is found in
@@ -107,8 +106,6 @@ void RPyGilAcquire(void)
         }
         atomic_decrement(&rpy_waiting_threads);
         mutex_unlock(&mutex_gil_stealer);
-
-        errno = old_errno;
     }
     assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
 

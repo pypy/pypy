@@ -70,9 +70,7 @@ after_thread_switch = lambda: None     # hook for signal.py
 def before_external_call():
     # this function must not raise, in such a way that the exception
     # transformer knows that it cannot raise!
-    e = get_errno()
     rgil.gil_release()
-    set_errno(e)
 before_external_call._gctransformer_hint_cannot_collect_ = True
 before_external_call._dont_reach_me_in_del_ = True
 
