@@ -47,7 +47,7 @@ class WeakValueDictionary(weakref.WeakValueDictionary):
 
 class _uninitialized(object):
     def __init__(self, TYPE):
-        self.TYPE = TYPE
+        self._TYPE = TYPE
     def __repr__(self):
         return '<Uninitialized %r>'%(self.TYPE,)
 

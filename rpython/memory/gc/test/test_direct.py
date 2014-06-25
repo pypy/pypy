@@ -46,7 +46,6 @@ class DirectRootWalker(object):
         if collect_stack_root:
             stackroots = self.tester.stackroots
             a = lltype.malloc(ADDR_ARRAY, len(stackroots), flavor='raw')
-            zero_gc_pointers_inside(a, ADDR_ARRAY)
             for i in range(len(a)):
                 a[i] = llmemory.cast_ptr_to_adr(stackroots[i])
             a_base = lltype.direct_arrayitems(a)

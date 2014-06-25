@@ -57,7 +57,6 @@ import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.llmemory import raw_malloc_usage
-from rpython.memory.gctypelayout import zero_gc_pointers
 from rpython.memory.gc.base import GCBase, MovingGCBase
 from rpython.memory.gc import env
 from rpython.memory.support import mangle_hash
