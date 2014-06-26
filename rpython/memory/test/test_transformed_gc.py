@@ -767,7 +767,7 @@ class GenericMovingGCTests(GenericGCTests):
         def g():
             r = lltype.malloc(P)
             r.x = 1
-            p = llop.do_malloc_fixedsize_clear(llmemory.GCREF)  # placeholder
+            p = llop.do_malloc_fixedsize(llmemory.GCREF)  # placeholder
             p = lltype.cast_opaque_ptr(lltype.Ptr(P), p)
             p.x = r.x
             return p.x
@@ -794,10 +794,10 @@ class GenericMovingGCTests(GenericGCTests):
 
             type_id = layoutbuilder.get_type_id(P)
             #
-            # now fix the do_malloc_fixedsize_clear in the graph of g
+            # now fix the do_malloc_fixedsize in the graph of g
             graph = graphof(translator, g)
             for op in graph.startblock.operations:
-                if op.opname == 'do_malloc_fixedsize_clear':
+                if op.opname == 'do_malloc_fixedsize':
                     op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
                                Constant(False, lltype.Bool), # has_finalizer
@@ -815,7 +815,7 @@ class GenericMovingGCTests(GenericGCTests):
     def define_do_malloc_operations_in_call(cls):
         P = lltype.GcStruct('P', ('x', lltype.Signed))
         def g():
-            llop.do_malloc_fixedsize_clear(llmemory.GCREF)  # placeholder
+            llop.do_malloc_fixedsize(llmemory.GCREF)  # placeholder
         def f():
             q = lltype.malloc(P)
             q.x = 1
@@ -831,10 +831,10 @@ class GenericMovingGCTests(GenericGCTests):
             layoutbuilder = cls.ensure_layoutbuilder(translator)
             type_id = layoutbuilder.get_type_id(P)
             #
-            # now fix the do_malloc_fixedsize_clear in the graph of g
+            # now fix the do_malloc_fixedsize in the graph of g
             graph = graphof(translator, g)
             for op in graph.startblock.operations:
-                if op.opname == 'do_malloc_fixedsize_clear':
+                if op.opname == 'do_malloc_fixedsize':
                     op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
                                Constant(False, lltype.Bool), # has_finalizer
