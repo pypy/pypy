@@ -332,6 +332,9 @@ void RPyThreadAfterFork(void)
 		p->locked = was_locked;
 		p = next;
 	}
+    /* Also reinitialize the 'mutex_gil' mutexes, and resets the
+       number of other waiting threads to zero. */
+    RPyGilAllocate();
 }
 
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock)
