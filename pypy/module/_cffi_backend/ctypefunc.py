@@ -156,8 +156,8 @@ class W_CTypeFunc(W_CTypePtrBase):
                     data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
                     flag = get_mustfree_flag(data)
                     if flag == 1:
-                        raw_string = rffi.cast(rffi.CCHARPP, data)[0]
-                        lltype.free(raw_string, flavor='raw')
+                        raw_cdata = rffi.cast(rffi.CCHARPP, data)[0]
+                        lltype.free(raw_cdata, flavor='raw')
             lltype.free(buffer, flavor='raw')
         return w_res
 
