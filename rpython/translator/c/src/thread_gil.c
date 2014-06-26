@@ -54,10 +54,10 @@ void RPyGilAcquire(void)
 {
     /* Acquires the GIL.
 
-       XXX Note: this function saves and restores 'errno'. This is
-       needed for now because it may be *followed* by reading the
-       'errno', although it's kind of bogus: it should be read before
-       calling RPyGilAcquire().
+       Note: in the slow path, this function saves and restores 'errno'.
+       This is needed for now because it may be *followed* by reading
+       the 'errno'.  It's a bit strange, because we could read the errno
+       before calling RPyGilAcquire(), but it's simpler this way.
      */
     long old_fastgil = lock_test_and_set(&rpy_fastgil, 1);
 
