@@ -438,6 +438,8 @@ class Transformer(object):
         elif oopspec_name.endswith('dict.lookup'):
             # also ordereddict.lookup
             prepare = self._handle_dict_lookup_call
+        elif oopspec_name.startswith('rposix.'):
+            prepare = self._handle_rposix_call
         else:
             prepare = self.prepare_builtin_call
         try:
@@ -1895,6 +1897,16 @@ class Transformer(object):
     def _handle_rgc_call(self, op, oopspec_name, args):
         if oopspec_name == 'rgc.ll_shrink_array':
             return self._handle_oopspec_call(op, args, EffectInfo.OS_SHRINK_ARRAY, EffectInfo.EF_CAN_RAISE)
+        else:
+            raise NotImplementedError(oopspec_name)
+
+    def _handle_rposix_call(self, op, oopspec_name, args):
+        if oopspec_name == 'rposix.get_errno':
+            return self._handle_oopspec_call(op, args, EffectInfo.OS_GET_ERRNO,
+                                             EffectInfo.EF_CANNOT_RAISE)
+        elif oopspec_name == 'rposix.set_errno':
+            return self._handle_oopspec_call(op, args, EffectInfo.OS_SET_ERRNO,
+                                             EffectInfo.EF_CANNOT_RAISE)
         else:
             raise NotImplementedError(oopspec_name)
 

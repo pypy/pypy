@@ -3,7 +3,7 @@ from rpython.tool.udir import udir
 from rpython.rlib.jit import JitDriver, unroll_parameters, set_param
 from rpython.rlib.jit import PARAMETERS, dont_look_inside
 from rpython.rlib.jit import promote
-from rpython.rlib import jit_hooks
+from rpython.rlib import jit_hooks, rposix
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rthread import ThreadLocalReference
 from rpython.jit.backend.detect_cpu import getcpuclass
@@ -24,6 +24,7 @@ class TranslationTest(CCompiledMixin):
         # - full optimizer
         # - floats neg and abs
         # - threadlocalref_get
+        # - get_errno, set_errno
 
         class Frame(object):
             _virtualizable_ = ['i']
@@ -64,6 +65,8 @@ class TranslationTest(CCompiledMixin):
                 if k - abs(j):  raise ValueError
                 if k - abs(-j): raise ValueError
                 if t.get().nine != 9: raise ValueError
+                rposix.set_errno(total)
+                if rposix.get_errno() != total: raise ValueError
             return chr(total % 253)
         #
         from rpython.rtyper.lltypesystem import lltype, rffi

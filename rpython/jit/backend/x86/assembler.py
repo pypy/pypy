@@ -2325,12 +2325,38 @@ class Assembler386(BaseAssembler):
         ed = effectinfo.extradescrs[0]
         assert isinstance(ed, ThreadLocalRefDescr)
         addr1 = rffi.cast(lltype.Signed, ed.get_tlref_addr())
+        # 'addr1' is the address is the current thread, but we assume that
+        # it is a thread-local at a constant offset from %fs/%gs.
         addr0 = stmtlocal.threadlocal_base()
         addr = addr1 - addr0
         assert rx86.fits_in_32bits(addr)
         mc = self.mc
-        mc.writechar(stmtlocal.SEGMENT_TL)     # prefix
-        mc.MOV_rj(resloc.value, addr)
+        mc.writechar(stmtlocal.SEGMENT_TL)     # prefix: %fs or %gs
+        mc.MOV_rj(resloc.value, addr)          # memory read
+
+    def get_set_errno(self, op, loc, issue_a_write):
+        # this function is only called on Linux
+        from rpython.jit.backend.x86 import stmtlocal
+        addr = stmtlocal.get_errno_tl()
+        assert rx86.fits_in_32bits(addr)
+        mc = self.mc
+        mc.writechar(stmtlocal.SEGMENT_TL)     # prefix: %fs or %gs
+        # !!important: the *next* instruction must be the one using 'addr'!!
+        if issue_a_write:
+            if isinstance(loc, RegLoc):
+                mc.MOV32_jr(addr, loc.value)       # memory write from reg
+            else:
+                assert isinstance(loc, ImmedLoc)
+                newvalue = loc.value
+                newvalue = rffi.cast(rffi.INT, newvalue)
+                newvalue = rffi.cast(lltype.Signed, newvalue)
+                mc.MOV32_ji(addr, newvalue)        # memory write immediate
+        else:
+            assert isinstance(loc, RegLoc)
+            if IS_X86_32:
+                mc.MOV_rj(loc.value, addr)         # memory read
+            elif IS_X86_64:
+                mc.MOVSX32_rj(loc.value, addr)     # memory read, sign-extend
 
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
