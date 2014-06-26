@@ -133,6 +133,8 @@ class GCBase(object):
         """For testing.  The interface used by the gctransformer is
         the four malloc_[fixed,var]size[_clear]() functions.
         """
+        #TODO:check if the zero flag is unuseful now. If so, remove it
+        
         # Rules about fallbacks in case of missing malloc methods:
         #  * malloc_fixedsize_clear() and malloc_varsize_clear() are mandatory
         #  * malloc_fixedsize() and malloc_varsize() fallback to the above
@@ -149,14 +151,14 @@ class GCBase(object):
             assert not needs_finalizer
             itemsize = self.varsize_item_sizes(typeid)
             offset_to_length = self.varsize_offset_to_length(typeid)
-            if zero and not hasattr(self, 'malloc_varsize'):
+            if not hasattr(self, 'malloc_varsize'):
                 malloc_varsize = self.malloc_varsize_clear
             else:
                 malloc_varsize = self.malloc_varsize
             ref = malloc_varsize(typeid, length, size, itemsize,
                                  offset_to_length)
         else:
-            if zero and not hasattr(self, 'malloc_fixedsize'):
+            if not hasattr(self, 'malloc_fixedsize'):
                 malloc_fixedsize = self.malloc_fixedsize_clear
             else:
                 malloc_fixedsize = self.malloc_fixedsize

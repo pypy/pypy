@@ -665,15 +665,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                                   has_light_finalizer)
 
         if not op.opname.endswith('_varsize') and not flags.get('varsize'):
+            #TODO:check if it's safe to remove the zero-flag
             zero = flags.get('zero', False)
             if (self.malloc_fast_ptr is not None and
                 not c_has_finalizer.value and
                 (self.malloc_fast_is_clearing or not zero)):
                 malloc_ptr = self.malloc_fast_ptr
-            
-            #elif zero:
-                #malloc_ptr = self.malloc_fixedsize_clear_ptr
-            
             else:
                 malloc_ptr = self.malloc_fixedsize_ptr
             args = [self.c_const_gc, c_type_id, c_size,
