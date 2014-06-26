@@ -39,3 +39,7 @@ are threads waiting to acquire the GIL, one of them is actively
 checking the global number every 0.1 ms to 1 ms.  Overall, JIT loops
 full of external function calls now run a bit faster (if no thread was
 started yet), or a *lot* faster (if threads were started already).
+
+.. branch: jit-get-errno
+Optimize the errno handling in the JIT, notably around external
+function calls. Linux-only.
