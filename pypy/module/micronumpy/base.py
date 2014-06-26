@@ -18,7 +18,12 @@ class ArrayArgumentException(Exception):
     pass
 
 
-class W_NDimArray(W_Root):
+class W_NumpyObject(W_Root):
+    """Base class for ndarrays and scalars (aka boxes)."""
+    _attrs_ = []
+
+
+class W_NDimArray(W_NumpyObject):
     __metaclass__ = extendabletype
 
     def __init__(self, implementation):

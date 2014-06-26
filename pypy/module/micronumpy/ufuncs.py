@@ -385,10 +385,15 @@ class W_Ufunc2(W_Ufunc):
         else:
             [w_lhs, w_rhs] = args_w
             w_out = None
-        w_lhs = convert_to_array(space, w_lhs)
-        w_rhs = convert_to_array(space, w_rhs)
-        w_ldtype = w_lhs.get_dtype()
-        w_rdtype = w_rhs.get_dtype()
+        if (isinstance(w_lhs, boxes.W_GenericBox) and
+                isinstance(w_rhs, boxes.W_GenericBox)):
+            w_ldtype = w_lhs.get_dtype(space)
+            w_rdtype = w_rhs.get_dtype(space)
+        else:
+            w_lhs = convert_to_array(space, w_lhs)
+            w_rhs = convert_to_array(space, w_rhs)
+            w_ldtype = w_lhs.get_dtype()
+            w_rdtype = w_rhs.get_dtype()
         if w_ldtype.is_str() and w_rdtype.is_str() and \
                 self.comparison_func:
             pass
@@ -451,6 +456,8 @@ class W_Ufunc2(W_Ufunc):
             else:
                 out = arr
             return out
+        assert isinstance(w_lhs, W_NDimArray)
+        assert isinstance(w_rhs, W_NDimArray)
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)
         return loop.call2(space, new_shape, self.func, calc_dtype,

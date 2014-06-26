@@ -1,4 +1,3 @@
-from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.mixedmodule import MixedModule
@@ -14,7 +13,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import constants as NPY
-from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.base import W_NDimArray, W_NumpyObject
 from pypy.module.micronumpy.concrete import VoidBoxStorage
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
 
@@ -126,7 +125,7 @@ class ComplexBox(Box):
         return ret
 
 
-class W_GenericBox(W_Root):
+class W_GenericBox(W_NumpyObject):
     _attrs_ = ['w_flags']
 
     def descr__new__(space, w_subtype, __args__):
@@ -135,6 +134,12 @@ class W_GenericBox(W_Root):
 
     def get_dtype(self, space):
         return self._get_dtype(space)
+
+    def is_scalar(self):
+        return True
+
+    def get_scalar_value(self):
+        return self
 
     def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
