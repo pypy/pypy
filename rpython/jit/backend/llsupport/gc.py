@@ -410,7 +410,7 @@ class GcLLDescr_framework(GcLLDescription):
             if self.DEBUG:
                 self._random_usage_of_xmm_registers()
             type_id = rffi.cast(llgroup.HALFWORD, 0)    # missing here
-            return llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
+            return llop1.do_malloc_fixedsize(llmemory.GCREF,
                                                    type_id, size,
                                                    False, False, False)
 
@@ -423,7 +423,7 @@ class GcLLDescr_framework(GcLLDescription):
             assert num_elem >= 0, 'num_elem should be >= 0'
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             check_typeid(type_id)
-            return llop1.do_malloc_varsize_clear(
+            return llop1.do_malloc_varsize(
                 llmemory.GCREF,
                 type_id, num_elem, self.standard_array_basesize, itemsize,
                 self.standard_array_length_ofs)
@@ -437,7 +437,7 @@ class GcLLDescr_framework(GcLLDescription):
             occur e.g. with arrays of floats on Win32."""
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             check_typeid(type_id)
-            return llop1.do_malloc_varsize_clear(
+            return llop1.do_malloc_varsize(
                 llmemory.GCREF,
                 type_id, num_elem, basesize, itemsize, lengthofs)
         self.generate_function('malloc_array_nonstandard',
@@ -455,7 +455,7 @@ class GcLLDescr_framework(GcLLDescription):
 
         def malloc_str(length):
             type_id = llop.extract_ushort(llgroup.HALFWORD, str_type_id)
-            return llop1.do_malloc_varsize_clear(
+            return llop1.do_malloc_varsize(
                 llmemory.GCREF,
                 type_id, length, str_basesize, str_itemsize,
                 str_ofs_length)
@@ -464,7 +464,7 @@ class GcLLDescr_framework(GcLLDescription):
 
         def malloc_unicode(length):
             type_id = llop.extract_ushort(llgroup.HALFWORD, unicode_type_id)
-            return llop1.do_malloc_varsize_clear(
+            return llop1.do_malloc_varsize(
                 llmemory.GCREF,
                 type_id, length, unicode_basesize, unicode_itemsize,
                 unicode_ofs_length)
@@ -479,7 +479,7 @@ class GcLLDescr_framework(GcLLDescription):
                 self._random_usage_of_xmm_registers()
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             check_typeid(type_id)
-            return llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
+            return llop1.do_malloc_fixedsize(llmemory.GCREF,
                                                    type_id, size,
                                                    False, False, False)
         self.generate_function('malloc_big_fixedsize', malloc_big_fixedsize,
@@ -490,7 +490,7 @@ class GcLLDescr_framework(GcLLDescription):
         llop1 = self.llop1
         type_id = llop.extract_ushort(llgroup.HALFWORD, sizedescr.tid)
         check_typeid(type_id)
-        return llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
+        return llop1.do_malloc_fixedsize(llmemory.GCREF,
                                                type_id, sizedescr.size,
                                                False, False, False)
 
@@ -499,7 +499,7 @@ class GcLLDescr_framework(GcLLDescription):
         llop1 = self.llop1
         type_id = llop.extract_ushort(llgroup.HALFWORD, arraydescr.tid)
         check_typeid(type_id)
-        return llop1.do_malloc_varsize_clear(llmemory.GCREF,
+        return llop1.do_malloc_varsize(llmemory.GCREF,
                                              type_id, num_elem,
                                              arraydescr.basesize,
                                              arraydescr.itemsize,

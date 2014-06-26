@@ -520,7 +520,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             debug_stop("gc-debug")
 
 
-    def malloc_fixedsize_clear(self, typeid, size,
+    def malloc_fixedsize(self, typeid, size,
                                needs_finalizer=False,
                                is_finalizer_light=False,
                                contains_weakptr=False):
@@ -572,7 +572,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 
-    def malloc_varsize_clear(self, typeid, length, size, itemsize,
+    def malloc_varsize(self, typeid, length, size, itemsize,
                              offset_to_length):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nonvarsize = size_gc_header + size

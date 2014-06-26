@@ -273,16 +273,17 @@ class BaseFrameworkGCTransformer(GCTransformer):
         s_gcref = SomePtr(llmemory.GCREF)
         gcdata = self.gcdata
         translator = self.translator
+        if hasattr(GCClass, 'malloc_fixedsize_clear'):
+            malloc_fixedsize_clear_meth = GCClass.malloc_fixedsize_clear.im_func
+            self.malloc_fixedsize_clear_ptr = getfn(
+                malloc_fixedsize_clear_meth,
+                [s_gc, s_typeid16,
+                annmodel.SomeInteger(nonneg=True),
+                annmodel.SomeBool(),
+                annmodel.SomeBool(),
+                annmodel.SomeBool()], s_gcref,
+                inline = False)
 
-        malloc_fixedsize_clear_meth = GCClass.malloc_fixedsize_clear.im_func
-        self.malloc_fixedsize_clear_ptr = getfn(
-            malloc_fixedsize_clear_meth,
-            [s_gc, s_typeid16,
-             annmodel.SomeInteger(nonneg=True),
-             annmodel.SomeBool(),
-             annmodel.SomeBool(),
-             annmodel.SomeBool()], s_gcref,
-            inline = False)
         if hasattr(GCClass, 'malloc_fixedsize'):
             malloc_fixedsize_meth = GCClass.malloc_fixedsize.im_func
             self.malloc_fixedsize_ptr = getfn(
@@ -296,10 +297,16 @@ class BaseFrameworkGCTransformer(GCTransformer):
         else:
             malloc_fixedsize_meth = None
             self.malloc_fixedsize_ptr = self.malloc_fixedsize_clear_ptr
-        self.malloc_varsize_clear_ptr = getfn(
-            GCClass.malloc_varsize_clear.im_func,
-            [s_gc, s_typeid16]
-            + [annmodel.SomeInteger(nonneg=True) for i in range(4)], s_gcref)
+            if hasattr(GCClass, 'malloc_varsize'):
+                self.malloc_varsize_ptr = getfn(
+                    GCClass.malloc_varsize.im_func,
+                    [s_gc, s_typeid16]
+                    + [annmodel.SomeInteger(nonneg=True) for i in range(4)], s_gcref)
+            else:
+                self.malloc_varsize_ptr = getfn(
+                    GCClass.malloc_varsize_clear.im_func,
+                    [s_gc, s_typeid16]
+                    + [annmodel.SomeInteger(nonneg=True) for i in range(4)], s_gcref)
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc, annmodel.SomeInteger()], annmodel.s_None)
         self.can_move_ptr = getfn(GCClass.can_move.im_func,
@@ -358,24 +365,28 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         # in some GCs we can also inline the common case of
         # malloc_varsize(typeid, length, (3 constant sizes), True, False)
+        self.malloc_varsize_fast_ptr = None
         if getattr(GCClass, 'inline_simple_malloc_varsize', False):
             # make a copy of this function so that it gets annotated
             # independently and the constants are folded inside
-            malloc_varsize_clear_fast = func_with_new_name(
-                GCClass.malloc_varsize_clear.im_func,
-                "malloc_varsize_clear_fast")
+            if hasattr(GCClass, 'malloc_varsize'):
+                malloc_varsize_fast = func_with_new_name(
+                    GCClass.malloc_varsize.im_func,
+                    "malloc_varsize_fast")
+            elif hasattr(GCClass, 'malloc_varsize_clear'):
+                 malloc_varsize_fast = func_with_new_name(
+                    GCClass.malloc_varsize_clear.im_func,
+                    "malloc_varsize_clear_fast")
             s_False = annmodel.SomeBool()
             s_False.const = False
-            self.malloc_varsize_clear_fast_ptr = getfn(
-                malloc_varsize_clear_fast,
+            self.malloc_varsize_fast_ptr = getfn(
+                malloc_varsize_fast,
                 [s_gc, s_typeid16,
-                 annmodel.SomeInteger(nonneg=True),
-                 annmodel.SomeInteger(nonneg=True),
-                 annmodel.SomeInteger(nonneg=True),
-                 annmodel.SomeInteger(nonneg=True)], s_gcref,
+                annmodel.SomeInteger(nonneg=True),
+                annmodel.SomeInteger(nonneg=True),
+                annmodel.SomeInteger(nonneg=True),
+                annmodel.SomeInteger(nonneg=True)], s_gcref,
                 inline = True)
-        else:
-            self.malloc_varsize_clear_fast_ptr = None
 
         if getattr(GCClass, 'malloc_varsize_nonmovable', False):
             malloc_nonmovable = func_with_new_name(
@@ -654,14 +665,15 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                                   has_light_finalizer)
 
         if not op.opname.endswith('_varsize') and not flags.get('varsize'):
-            #malloc_ptr = self.malloc_fixedsize_ptr
             zero = flags.get('zero', False)
             if (self.malloc_fast_ptr is not None and
                 not c_has_finalizer.value and
                 (self.malloc_fast_is_clearing or not zero)):
                 malloc_ptr = self.malloc_fast_ptr
-            elif zero:
-                malloc_ptr = self.malloc_fixedsize_clear_ptr
+            
+            #elif zero:
+                #malloc_ptr = self.malloc_fixedsize_clear_ptr
+            
             else:
                 malloc_ptr = self.malloc_fixedsize_ptr
             args = [self.c_const_gc, c_type_id, c_size,
@@ -681,10 +693,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 malloc_ptr = self.malloc_varsize_nonmovable_ptr
                 args = [self.c_const_gc, c_type_id, v_length]
             else:
-                if self.malloc_varsize_clear_fast_ptr is not None:
-                    malloc_ptr = self.malloc_varsize_clear_fast_ptr
+                if self.malloc_varsize_fast_ptr is not None:
+                    malloc_ptr = self.malloc_varsize_fast_ptr
                 else:
-                    malloc_ptr = self.malloc_varsize_clear_ptr
+                    malloc_ptr = self.malloc_varsize_ptr
                 args = [self.c_const_gc, c_type_id, v_length, c_size,
                         c_varitemsize, c_ofstolength]
         livevars = self.push_roots(hop)
@@ -830,28 +842,28 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call",
                   [self.root_walker.gc_start_fresh_new_state_ptr])
 
-    def gct_do_malloc_fixedsize_clear(self, hop):
+    def gct_do_malloc_fixedsize(self, hop):
         # used by the JIT (see rpython.jit.backend.llsupport.gc)
         op = hop.spaceop
         [v_typeid, v_size,
          v_has_finalizer, v_has_light_finalizer, v_contains_weakptr] = op.args
         livevars = self.push_roots(hop)
         hop.genop("direct_call",
-                  [self.malloc_fixedsize_clear_ptr, self.c_const_gc,
+                  [self.malloc_fixedsize_ptr, self.c_const_gc,
                    v_typeid, v_size,
                    v_has_finalizer, v_has_light_finalizer,
                    v_contains_weakptr],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
 
-    def gct_do_malloc_varsize_clear(self, hop):
+    def gct_do_malloc_varsize(self, hop):
         # used by the JIT (see rpython.jit.backend.llsupport.gc)
         op = hop.spaceop
         [v_typeid, v_length, v_size, v_itemsize,
          v_offset_to_length] = op.args
         livevars = self.push_roots(hop)
         hop.genop("direct_call",
-                  [self.malloc_varsize_clear_ptr, self.c_const_gc,
+                  [self.malloc_varsize_ptr, self.c_const_gc,
                    v_typeid, v_length, v_size, v_itemsize,
                    v_offset_to_length],
                   resultvar=op.result)
