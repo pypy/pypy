@@ -510,6 +510,10 @@ static inline void mutex1_unlock(mutex1_t *mutex) {
 /************************************************************/
 #if defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0
 /************************************************************/
+/* NB. the test above should cover two features: clock_gettime() and
+   pthread_mutex_timedlock().  It's unclear that there is a measurable
+   benefit in using pthread_mutex_timedlock(), but there is certainly
+   one in using clock_gettime(). */
 
 #define mutex2_t      mutex1_t
 #define mutex2_init   mutex1_init
