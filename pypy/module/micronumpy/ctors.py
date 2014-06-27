@@ -33,12 +33,13 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     if not isinstance(w_object, W_NDimArray):
         w___array__ = space.lookup(w_object, "__array__")
         if w___array__ is not None:
-            if space.is_none(w_dtype):
+            if w_dtype is None:
                 w_dtype = space.w_None
             w_array = space.get_and_call_function(w___array__, w_object, w_dtype)
             if isinstance(w_array, W_NDimArray):
-                # feed w_array back into array() for other properties
-                return array(space, w_array, w_dtype, False, w_order, subok, ndmin)
+                # continue with w_array, but do further operations in place
+                w_object = w_array
+                copy = False
             else:
                 raise oefmt(space.w_ValueError,
                             "object __array__ method not producing an array")
