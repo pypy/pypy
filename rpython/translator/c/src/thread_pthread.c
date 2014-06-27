@@ -508,7 +508,14 @@ static inline void mutex_unlock(mutex_t *mutex) {
 }
 static inline int mutex_lock_timeout(mutex_t *mutex, double delay) {
     struct timespec t;
+#if defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0
     clock_gettime(CLOCK_REALTIME, &t);
+#else
+    struct timeval tv;
+    RPY_GETTIMEOFDAY(&tv);
+    t.tv_sec = tv.tv_sec;
+    t.tv_nsec = tv.tv_usec * 1000 + 999;
+#endif
     timespec_add(&t, delay);
     int error_from_timedlock = pthread_mutex_timedlock(mutex, &t);
     if (error_from_timedlock == ETIMEDOUT)
