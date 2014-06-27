@@ -223,7 +223,12 @@ static inline int mutex_lock_timeout(mutex_t *mutex, double delay)
     return (result != WAIT_TIMEOUT);
 }
 
+#ifdef _M_IA64
+/* On Itanium, use 'acquire' memory ordering semantics */
 #define lock_test_and_set(ptr, value)  InterlockedExchangeAcquire(ptr, value)
+#else
+#define lock_test_and_set(ptr, value)  InterlockedExchange(ptr, value)
+#endif
 #define atomic_increment(ptr)          InterlockedIncrement(ptr)
 #define atomic_decrement(ptr)          InterlockedDecrement(ptr)
 

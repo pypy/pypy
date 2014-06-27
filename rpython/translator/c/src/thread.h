@@ -12,6 +12,7 @@ typedef enum RPyLockStatus {
 
 #ifdef _WIN32
 #include "thread_nt.h"
+#define inline _inline
 #else
 
 /* We should check if unistd.h defines _POSIX_THREADS, but sometimes
