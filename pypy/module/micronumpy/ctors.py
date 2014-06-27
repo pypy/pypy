@@ -24,6 +24,20 @@ def build_scalar(space, w_dtype, w_state):
     return box
 
 
+def try_array_method(space, w_object, w_dtype=None):
+    w___array__ = space.lookup(w_object, "__array__")
+    if w___array__ is None:
+        return None
+    if w_dtype is None:
+        w_dtype = space.w_None
+    w_array = space.get_and_call_function(w___array__, w_object, w_dtype)
+    if isinstance(w_array, W_NDimArray):
+        return w_array
+    else:
+        raise oefmt(space.w_ValueError,
+                    "object __array__ method not producing an array")
+
+
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
 def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
           ndmin=0):
@@ -31,18 +45,11 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
 
     # for anything that isn't already an array, try __array__ method first
     if not isinstance(w_object, W_NDimArray):
-        w___array__ = space.lookup(w_object, "__array__")
-        if w___array__ is not None:
-            if w_dtype is None:
-                w_dtype = space.w_None
-            w_array = space.get_and_call_function(w___array__, w_object, w_dtype)
-            if isinstance(w_array, W_NDimArray):
-                # continue with w_array, but do further operations in place
-                w_object = w_array
-                copy = False
-            else:
-                raise oefmt(space.w_ValueError,
-                            "object __array__ method not producing an array")
+        w_array = try_array_method(space, w_object, w_dtype)
+        if w_array is not None:
+            # continue with w_array, but do further operations in place
+            w_object = w_array
+            copy = False
 
     dtype = descriptor.decode_w_dtype(space, w_dtype)
 
