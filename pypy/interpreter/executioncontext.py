@@ -496,6 +496,13 @@ class PeriodicAsyncAction(AsyncAction):
     """
 
 
+class UserDelCallback(object):
+    def __init__(self, w_obj, callback, descrname):
+        self.w_obj = w_obj
+        self.callback = callback
+        self.descrname = descrname
+        self.next = None
+
 class UserDelAction(AsyncAction):
     """An action that invokes all pending app-level __del__() method.
     This is done as an action instead of immediately when the
@@ -506,12 +513,18 @@ class UserDelAction(AsyncAction):
 
     def __init__(self, space):
         AsyncAction.__init__(self, space)
-        self.dying_objects = []
+        self.dying_objects = None
+        self.dying_objects_last = None
         self.finalizers_lock_count = 0
         self.enabled_at_app_level = True
 
     def register_callback(self, w_obj, callback, descrname):
-        self.dying_objects.append((w_obj, callback, descrname))
+        cb = UserDelCallback(w_obj, callback, descrname)
+        if self.dying_objects_last is None:
+            self.dying_objects = cb
+        else:
+            self.dying_objects_last.next = cb
+        self.dying_objects_last = cb
         self.fire()
 
     def perform(self, executioncontext, frame):
@@ -525,13 +538,13 @@ class UserDelAction(AsyncAction):
         # avoid too deep recursions of the kind of __del__ being called
         # while in the middle of another __del__ call.
         pending = self.dying_objects
-        self.dying_objects = []
+        self.dying_objects = None
+        self.dying_objects_last = None
         space = self.space
-        for i in range(len(pending)):
-            w_obj, callback, descrname = pending[i]
-            pending[i] = (None, None, None)
+        while pending is not None:
             try:
-                callback(w_obj)
+                pending.callback(pending.w_obj)
             except OperationError, e:
-                e.write_unraisable(space, descrname, w_obj)
+                e.write_unraisable(space, pending.descrname, pending.w_obj)
                 e.clear(space)   # break up reference cycles
+            pending = pending.next
