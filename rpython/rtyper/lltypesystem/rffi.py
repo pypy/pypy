@@ -193,11 +193,20 @@ def llexternal(name, args, result, _callable=None,
         else:
             # ...well, unless it's a macro, in which case we still have
             # to hide it from the JIT...
-            @jit.dont_look_inside
-            def call_external_function(*args):
-                return funcptr(*args)
+            argnames = ', '.join(['a%d' % i for i in range(len(args))])
+            source = py.code.Source("""
+                def call_external_function(%(argnames)s):
+                    return funcptr(%(argnames)s)
+            """ % locals())
+            miniglobals = {'funcptr':     funcptr,
+                           '__name__':    __name__,
+                           }
+            exec source.compile() in miniglobals
+            call_external_function = miniglobals['call_external_function']
             call_external_function = func_with_new_name(call_external_function,
                                                         'ccall_' + name)
+            call_external_function = jit.dont_look_inside(
+                call_external_function)
 
     unrolling_arg_tps = unrolling_iterable(enumerate(args))
     def wrapper(*args):
