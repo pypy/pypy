@@ -483,8 +483,16 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
         abort();                                        \
     }
 
-static inline void timespec_add(struct timespec *t, double incr)
+static inline void timespec_delay(struct timespec *t, double incr)
 {
+#ifdef CLOCK_REALTIME
+    clock_gettime(CLOCK_REALTIME, &t);
+#else
+    struct timeval tv;
+    RPY_GETTIMEOFDAY(&tv);
+    t->tv_sec = tv.tv_sec;
+    t->tv_nsec = tv.tv_usec * 1000 + 999;
+#endif
     /* assumes that "incr" is not too large, less than 1 second */
     long nsec = t->tv_nsec + (long)(incr * 1000000000.0);
     if (nsec >= 1000000000) {
@@ -506,42 +514,6 @@ static inline void mutex1_lock(mutex1_t *mutex) {
 static inline void mutex1_unlock(mutex1_t *mutex) {
     ASSERT_STATUS(pthread_mutex_unlock(mutex));
 }
-
-/************************************************************/
-#if defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0
-/************************************************************/
-/* NB. the test above should cover two features: clock_gettime() and
-   pthread_mutex_timedlock().  It's unclear that there is a measurable
-   benefit in using pthread_mutex_timedlock(), but there is certainly
-   one in using clock_gettime(). */
-
-#define mutex2_t      mutex1_t
-#define mutex2_init   mutex1_init
-#define mutex2_lock   mutex1_lock
-#define mutex2_unlock mutex1_unlock
-
-static inline void mutex2_init_locked(mutex2_t *mutex) {
-    mutex2_init(mutex);
-    mutex2_lock(mutex);
-}
-
-static inline void mutex2_loop_start(mutex2_t *mutex) { }
-static inline void mutex2_loop_stop(mutex2_t *mutex) { }
-
-static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay) {
-    struct timespec t;
-    clock_gettime(CLOCK_REALTIME, &t);
-    timespec_add(&t, delay);
-    int error_from_timedlock = pthread_mutex_timedlock(mutex, &t);
-    if (error_from_timedlock == ETIMEDOUT)
-        return 0;
-    ASSERT_STATUS(error_from_timedlock);
-    return 1;
-}
-
-/************************************************************/
-#else
-/************************************************************/
 
 typedef struct {
     char locked;
@@ -569,11 +541,7 @@ static inline void mutex2_loop_stop(mutex2_t *mutex) {
 static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay) {
     if (mutex->locked) {
         struct timespec t;
-        struct timeval tv;
-        RPY_GETTIMEOFDAY(&tv);
-        t.tv_sec = tv.tv_sec;
-        t.tv_nsec = tv.tv_usec * 1000 + 999;
-        timespec_add(&t, delay);
+        timespec_delay(&t, delay);
         int error_from_timedwait = pthread_cond_timedwait(
                                        &mutex->cond, &mutex->mut, &t);
         if (error_from_timedwait != ETIMEDOUT) {
@@ -584,11 +552,6 @@ static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay) {
     mutex->locked = 1;
     return result;
 }
-
-/************************************************************/
-#endif                                     /* _POSIX_TIMERS */
-/************************************************************/
-
 
 #define lock_test_and_set(ptr, value)  __sync_lock_test_and_set(ptr, value)
 #define atomic_increment(ptr)          __sync_fetch_and_add(ptr, 1)
