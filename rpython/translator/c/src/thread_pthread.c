@@ -486,7 +486,7 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 static inline void timespec_delay(struct timespec *t, double incr)
 {
 #ifdef CLOCK_REALTIME
-    clock_gettime(CLOCK_REALTIME, &t);
+    clock_gettime(CLOCK_REALTIME, t);
 #else
     struct timeval tv;
     RPY_GETTIMEOFDAY(&tv);
