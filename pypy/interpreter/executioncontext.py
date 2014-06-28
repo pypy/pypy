@@ -548,3 +548,23 @@ class UserDelAction(AsyncAction):
                 e.write_unraisable(space, pending.descrname, pending.w_obj)
                 e.clear(space)   # break up reference cycles
             pending = pending.next
+        #
+        # Note: 'dying_objects' used to be just a regular list instead
+        # of a chained list.  This was the cause of "leaks" if we have a
+        # program that constantly creates new objects with finalizers.
+        # Here is why: say 'dying_objects' is a long list, and there
+        # are n instances in it.  Then we spend some time in this
+        # function, possibly triggering more GCs, but keeping the list
+        # of length n alive.  Then the list is suddenly freed at the
+        # end, and we return to the user program.  At this point the
+        # GC limit is still very high, because just before, there was
+        # a list of length n alive.  Assume that the program continues
+        # to allocate a lot of instances with finalizers.  The high GC
+        # limit means that it could allocate a lot of instances before
+        # reaching it --- possibly more than n.  So the whole procedure
+        # repeats with higher and higher values of n.
+        #
+        # This does not occur in the current implementation because
+        # there is no list of length n: if n is large, then the GC
+        # will run several times while walking the list, but it will
+        # see lower and lower memory usage, with no lower bound of n.
