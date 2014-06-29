@@ -7,6 +7,7 @@ from rpython.rlib.rarithmetic import LONG_BIT, maxint
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import boxes, descriptor, loop, constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
+from pypy.module.micronumpy.ctors import numpify
 from pypy.module.micronumpy.strides import shape_agreement
 
 
@@ -16,6 +17,13 @@ def done_if_true(dtype, val):
 
 def done_if_false(dtype, val):
     return not dtype.itemtype.bool(val)
+
+def _get_dtype(space, w_npyobj):
+    if isinstance(w_npyobj, boxes.W_GenericBox):
+        return w_npyobj.get_dtype(space)
+    else:
+        assert isinstance(w_npyobj, W_NDimArray)
+        return w_npyobj.get_dtype()
 
 
 class W_Ufunc(W_Root):
@@ -385,15 +393,10 @@ class W_Ufunc2(W_Ufunc):
         else:
             [w_lhs, w_rhs] = args_w
             w_out = None
-        if (isinstance(w_lhs, boxes.W_GenericBox) and
-                isinstance(w_rhs, boxes.W_GenericBox)):
-            w_ldtype = w_lhs.get_dtype(space)
-            w_rdtype = w_rhs.get_dtype(space)
-        else:
-            w_lhs = convert_to_array(space, w_lhs)
-            w_rhs = convert_to_array(space, w_rhs)
-            w_ldtype = w_lhs.get_dtype()
-            w_rdtype = w_rhs.get_dtype()
+        w_lhs = numpify(space, w_lhs)
+        w_rhs = numpify(space, w_rhs)
+        w_ldtype = _get_dtype(space, w_lhs)
+        w_rdtype = _get_dtype(space, w_rhs)
         if w_ldtype.is_str() and w_rdtype.is_str() and \
                 self.comparison_func:
             pass
@@ -456,7 +459,11 @@ class W_Ufunc2(W_Ufunc):
             else:
                 out = arr
             return out
+        if isinstance(w_lhs, boxes.W_GenericBox):
+            w_lhs = W_NDimArray.from_scalar(space, w_lhs)
         assert isinstance(w_lhs, W_NDimArray)
+        if isinstance(w_rhs, boxes.W_GenericBox):
+            w_rhs = W_NDimArray.from_scalar(space, w_rhs)
         assert isinstance(w_rhs, W_NDimArray)
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)

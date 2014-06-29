@@ -4,7 +4,8 @@ from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstring import strip_spaces
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import descriptor, loop
-from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
+from pypy.module.micronumpy.base import (
+    W_NDimArray, convert_to_array, W_NumpyObject)
 from pypy.module.micronumpy.converters import shape_converter
 
 
@@ -98,6 +99,17 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
     else:
         loop.assign(space, w_arr, elems_w)
     return w_arr
+
+
+def numpify(space, w_object):
+    """Convert the object to a W_NumpyObject"""
+    if isinstance(w_object, W_NumpyObject):
+        return w_object
+    w_res = array(space, w_object)
+    if w_res.is_scalar():
+        return w_res.get_scalar_value()
+    else:
+        return w_res
 
 
 def zeros(space, w_shape, w_dtype=None, w_order=None):
