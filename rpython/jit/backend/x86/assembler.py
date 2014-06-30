@@ -2353,8 +2353,12 @@ class Assembler386(BaseAssembler):
                     assert isinstance(loc_index, ImmedLoc)
                     cardindex = loc_index.value >> card_bits
                     if isinstance(loc_base, RegLoc):
-                        mc.MOV_ri(r11.value, cardindex << 4)     # 32/64bit
-                        mc.ADD_rr(r11.value, loc_base.value)
+                        if rx86.fits_in_32bits(write_locks_base + cardindex):
+                            write_locks_base += cardindex
+                            mc.MOV_rr(r11.value, loc_base.value)
+                        else:
+                            mc.MOV_ri(r11.value, cardindex << 4)    # 32/64bit
+                            mc.ADD_rr(r11.value, loc_base.value)
                         mc.SHR_ri(r11.value, 4)
                     else:
                         mc.MOV_ri(r11.value, cardindex + (loc_base.value >> 4))
