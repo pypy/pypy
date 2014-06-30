@@ -30,3 +30,16 @@ possible, and pthread_getspecific() otherwise). On Linux x86 and
 x86-64, the JIT backend has a special optimization that lets it emit
 directly a single MOV from a %gs- or %fs-based address. It seems
 actually to give a good boost in performance.
+
+.. branch: fast-gil
+A faster way to handle the GIL, particularly in JIT code. The GIL is
+now a composite of two concepts: a global number (it's just set from
+1 to 0 and back around CALL_RELEASE_GIL), and a real mutex. If there
+are threads waiting to acquire the GIL, one of them is actively
+checking the global number every 0.1 ms to 1 ms.  Overall, JIT loops
+full of external function calls now run a bit faster (if no thread was
+started yet), or a *lot* faster (if threads were started already).
+
+.. branch: jit-get-errno
+Optimize the errno handling in the JIT, notably around external
+function calls. Linux-only.

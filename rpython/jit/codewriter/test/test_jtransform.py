@@ -148,6 +148,8 @@ class FakeBuiltinCallControl:
              EI.OS_RAW_MALLOC_VARSIZE_CHAR: ([INT], ARRAYPTR),
              EI.OS_RAW_FREE:             ([ARRAYPTR], lltype.Void),
              EI.OS_THREADLOCALREF_GET:   ([], rclass.OBJECTPTR),
+             EI.OS_GET_ERRNO:            ([], INT),
+             EI.OS_SET_ERRNO:            ([INT], lltype.Void),
             }
             argtypes = argtypes[oopspecindex]
             assert argtypes[0] == [v.concretetype for v in op.args[1:]]
@@ -156,7 +158,9 @@ class FakeBuiltinCallControl:
                 assert extraeffect == EI.EF_ELIDABLE_CAN_RAISE
             elif oopspecindex == EI.OS_RAW_MALLOC_VARSIZE_CHAR:
                 assert extraeffect == EI.EF_CAN_RAISE
-            elif oopspecindex == EI.OS_RAW_FREE:
+            elif oopspecindex in (EI.OS_RAW_FREE,
+                                  EI.OS_GET_ERRNO,
+                                  EI.OS_SET_ERRNO):
                 assert extraeffect == EI.EF_CANNOT_RAISE
             elif oopspecindex == EI.OS_THREADLOCALREF_GET:
                 assert extraeffect == EI.EF_LOOPINVARIANT
@@ -1319,6 +1323,38 @@ def test_threadlocalref_get():
     assert op0.args[1] == ListOfKind("ref", [])
     assert op0.args[2] == 'calldescr-%d' % OS_THREADLOCALREF_GET
     assert op0.result == v2
+
+def test_get_errno():
+    # test that the oopspec is present and correctly transformed
+    from rpython.rlib import rposix
+    FUNC = lltype.FuncType([], lltype.Signed)
+    func = lltype.functionptr(FUNC, 'get_errno', _callable=rposix.get_errno)
+    v3 = varoftype(lltype.Signed)
+    op = SpaceOperation('direct_call', [const(func)], v3)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op1 = tr.rewrite_operation(op)
+    assert op1.opname == 'residual_call_r_i'
+    assert op1.args[0].value == func
+    assert op1.args[1] == ListOfKind('ref', [])
+    assert op1.args[2] == 'calldescr-%d' % effectinfo.EffectInfo.OS_GET_ERRNO
+    assert op1.result == v3
+
+def test_set_errno():
+    # test that the oopspec is present and correctly transformed
+    from rpython.rlib import rposix
+    FUNC = lltype.FuncType([lltype.Signed], lltype.Void)
+    func = lltype.functionptr(FUNC, 'set_errno', _callable=rposix.set_errno)
+    v1 = varoftype(lltype.Signed)
+    v3 = varoftype(lltype.Void)
+    op = SpaceOperation('direct_call', [const(func), v1], v3)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op1 = tr.rewrite_operation(op)
+    assert op1.opname == 'residual_call_ir_v'
+    assert op1.args[0].value == func
+    assert op1.args[1] == ListOfKind('int', [v1])
+    assert op1.args[2] == ListOfKind('ref', [])
+    assert op1.args[3] == 'calldescr-%d' % effectinfo.EffectInfo.OS_SET_ERRNO
+    assert op1.result == v3
 
 def test_unknown_operation():
     op = SpaceOperation('foobar', [], varoftype(lltype.Void))

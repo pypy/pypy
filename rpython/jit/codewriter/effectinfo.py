@@ -23,6 +23,8 @@ class EffectInfo(object):
     OS_SHRINK_ARRAY             = 3    # rgc.ll_shrink_array
     OS_DICT_LOOKUP              = 4    # ll_dict_lookup
     OS_THREADLOCALREF_GET       = 5    # llop.threadlocalref_get
+    OS_GET_ERRNO                = 6    # rposix.get_errno
+    OS_SET_ERRNO                = 7    # rposix.set_errno
     #
     OS_STR_CONCAT               = 22   # "stroruni.concat"
     OS_STR_SLICE                = 23   # "stroruni.slice"

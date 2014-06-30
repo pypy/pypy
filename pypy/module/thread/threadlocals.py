@@ -27,6 +27,12 @@ class OSThreadLocals:
         "Notification that the current thread is about to start running."
         self._set_ec(space.createexecutioncontext())
 
+    def try_enter_thread(self, space):
+        if rthread.get_ident() in self._valuedict:
+            return False
+        self.enter_thread(space)
+        return True
+
     def _set_ec(self, ec):
         ident = rthread.get_ident()
         if self._mainthreadident == 0 or self._mainthreadident == ident:

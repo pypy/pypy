@@ -15,17 +15,18 @@ a drop-in replacement for the 'socket' module.
 # It's unclear if makefile() and SSL support belong here or only as
 # app-level code for PyPy.
 
+from rpython.rlib import _rsocket_rffi as _c, jit, rgc
 from rpython.rlib.objectmodel import instantiate, keepalive_until_here
-from rpython.rlib import _rsocket_rffi as _c
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.rthread import dummy_lock
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
-INVALID_SOCKET = _c.INVALID_SOCKET
-from rpython.rlib import jit
+
+
 # Usage of @jit.dont_look_inside in this file is possibly temporary
 # and only because some lltypes declared in _rsocket_rffi choke the
 # JIT's codewriter right now (notably, FixedSizeArray).
+INVALID_SOCKET = _c.INVALID_SOCKET
 
 
 def mallocbuf(buffersize):
@@ -86,6 +87,7 @@ class Address(object):
         self.addr_p = addr
         self.addrlen = addrlen
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         if self.addr_p:
             lltype.free(self.addr_p, flavor='raw', track_allocation=False)
@@ -493,8 +495,8 @@ def make_null_address(family):
 class RSocket(object):
     """RPython-level socket object.
     """
-    _mixin_ = True        # for interp_socket.py
     fd = _c.INVALID_SOCKET
+
     def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0,
                  fd=_c.INVALID_SOCKET):
         """Create a new socket."""
@@ -509,6 +511,7 @@ class RSocket(object):
         self.proto = proto
         self.timeout = defaults.timeout
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         fd = self.fd
         if fd != _c.INVALID_SOCKET:

@@ -443,6 +443,10 @@ def _make_ffi_library(ffi, libname, flags):
                 for enumname, enumval in zip(tp.enumerators, tp.enumvalues):
                     if enumname not in library.__dict__:
                         library.__dict__[enumname] = enumval
+            for key, val in ffi._parser._int_constants.items():
+                if key not in library.__dict__:
+                    library.__dict__[key] = val
+
             copied_enums.append(True)
             if name in library.__dict__:
                 return

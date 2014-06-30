@@ -693,11 +693,28 @@ class RegAlloc(BaseRegalloc):
         self.perform_math(op, [loc0], loc0)
 
     TLREF_SUPPORT = sys.platform.startswith('linux')
+    ERRNO_SUPPORT = sys.platform.startswith('linux')
 
     def _consider_threadlocalref_get(self, op):
         if self.TLREF_SUPPORT:
             resloc = self.force_allocate_reg(op.result)
             self.assembler.threadlocalref_get(op, resloc)
+        else:
+            self._consider_call(op)
+
+    def _consider_get_errno(self, op):
+        if self.ERRNO_SUPPORT:
+            resloc = self.force_allocate_reg(op.result)
+            self.assembler.get_set_errno(op, resloc, issue_a_write=False)
+        else:
+            self._consider_call(op)
+
+    def _consider_set_errno(self, op):
+        if self.ERRNO_SUPPORT:
+            # op.getarg(0) is the function set_errno; op.getarg(1) is
+            # the new errno value
+            loc0 = self.rm.make_sure_var_in_reg(op.getarg(1))
+            self.assembler.get_set_errno(op, loc0, issue_a_write=True)
         else:
             self._consider_call(op)
 
@@ -780,6 +797,10 @@ class RegAlloc(BaseRegalloc):
                 return self._consider_math_sqrt(op)
             if oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
                 return self._consider_threadlocalref_get(op)
+            if oopspecindex == EffectInfo.OS_GET_ERRNO:
+                return self._consider_get_errno(op)
+            if oopspecindex == EffectInfo.OS_SET_ERRNO:
+                return self._consider_set_errno(op)
         self._consider_call(op)
 
     def consider_call_may_force(self, op, guard_op):
