@@ -72,14 +72,11 @@ necessary; this too could be improved.
 Here is a list of the limitations and missing features of the
 current implementation:
 
-* ``ctypes.pythonapi`` lets you access the CPython C API 
-  emulation layer. It does not work on PyPy.
-
-  Note that even if it worked, our implementation would not do anything 
-  sensible about the GIL and the functions will be named with an extra
-  "Py", for example ``PyPyInt_FromLong()``.  Basically, don't use this.
-  Assuming the PyObject pointers you get have any particular fields in
-  any particular order is just going to crash.
+* ``ctypes.pythonapi`` is missing.  In previous versions, it was present
+  and redirected to the `cpyext` C API emulation layer, but our
+  implementation did not do anything sensible about the GIL and the
+  functions were named with an extra "Py", for example
+  ``PyPyInt_FromLong()``.  It was removed for being unhelpful.
 
 * We copy Python strings instead of having pointers to raw buffers
 

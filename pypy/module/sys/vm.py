@@ -233,8 +233,6 @@ def getwindowsversion(space):
 def get_dllhandle(space):
     if not space.config.objspace.usemodules.cpyext:
         return space.wrap(0)
-    if not space.config.objspace.usemodules._rawffi:
-        return space.wrap(0)
 
     return _get_dllhandle(space)
 
@@ -249,8 +247,8 @@ def _get_dllhandle(space):
     # cdll = RawCDLL(handle)
     # return space.wrap(W_CDLL(space, "python api", cdll))
     # Provide a cpython-compatible int
-    from rpython.rtyper.lltypesystem import rffi
-    return space.wrap(rffi.cast(rffi.INT, handle))
+    from rpython.rtyper.lltypesystem import lltype
+    return space.wrap(rffi.cast(lltype.Signed, handle))
 
 def getsizeof(space, w_object, w_default=None):
     """Not implemented on PyPy."""

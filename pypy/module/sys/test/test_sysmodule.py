@@ -420,13 +420,9 @@ class AppTestSysModulePortedFromCPython:
         if hasattr(sys, "winver"):
             assert sys.winver == sys.version[:3]
 
-    def test_no_dllhandle(self):
+    def test_dllhandle(self):
         import sys
-        if '__pypy__' in sys.builtin_module_names:
-            assert not hasattr(sys, 'dllhandle')
-        elif sys.platform == 'win32':
-            # only on cpython win32
-            assert hasattr(sys, 'dllhandle')
+        assert hasattr(sys, 'dllhandle') == (sys.platform == 'win32')
 
     def test_dlopenflags(self):
         import sys

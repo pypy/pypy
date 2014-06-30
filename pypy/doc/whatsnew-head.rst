@@ -46,4 +46,4 @@ function calls. Linux-only.
 
 .. branch: disable_pythonapi
 Remove non-functioning ctypes.pyhonapi and ctypes.PyDLL, document this
-incompatability with cpython. Recast sys.dllhandle to an int.
+incompatibility with cpython. Recast sys.dllhandle to an int.
