@@ -141,6 +141,12 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
             lltype.Signed, rstm.adr_write_slowpath)
         hop.genop("cast_int_to_ptr", [c_write_slowpath], resultvar=op.result)
 
+    def gct_get_write_barrier_from_array_failing_case(self, hop):
+        op = hop.spaceop
+        c_write_slowpath = rmodel.inputconst(
+            lltype.Signed, rstm.adr_write_slowpath_card_extra)
+        hop.genop("cast_int_to_ptr", [c_write_slowpath], resultvar=op.result)
+
     def gct_gc_can_move(self, hop):
         hop.rename('stm_can_move')
 

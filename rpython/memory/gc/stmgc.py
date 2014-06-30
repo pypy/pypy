@@ -34,6 +34,7 @@ class StmGC(MovingGCBase):
     VISIT_FPTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
 
     JIT_WB_IF_FLAG = 0x01            # value of _STM_GCFLAG_WRITE_BARRIER
+    JIT_WB_CARDS_SET = 0x08          # value of _STM_GCFLAG_CARDS_SET
     stm_fast_alloc = 66*1024         # value of _STM_FAST_ALLOC in stmgc.h
     minimal_size_in_nursery = 16     # hard-coded lower limit
 

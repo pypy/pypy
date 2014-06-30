@@ -302,9 +302,11 @@ class WriteBarrierDescr(AbstractDescr):
                 self.extract_flag_byte(self.jit_wb_cards_set))
             #
             # the x86 backend uses the following "accidental" facts to
-            # avoid one instruction:
-            assert self.jit_wb_cards_set_byteofs == self.jit_wb_if_flag_byteofs
-            assert self.jit_wb_cards_set_singlebyte == -0x80
+            # avoid one instruction (not with stm):
+            if not gc_ll_descr.stm:
+                assert (self.jit_wb_cards_set_byteofs ==
+                        self.jit_wb_if_flag_byteofs)
+                assert self.jit_wb_cards_set_singlebyte == -0x80
         else:
             self.jit_wb_cards_set = 0
 

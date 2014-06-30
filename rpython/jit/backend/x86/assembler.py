@@ -451,13 +451,17 @@ class Assembler386(BaseAssembler):
             # A final TEST8 before the RET, for the caller.  Careful to
             # not follow this instruction with another one that changes
             # the status of the CPU flags!
-            if IS_X86_32:
-                mc.MOV_rs(eax.value, 3*WORD)
+            if stm:
+                mc.TEST8_rr(eax.value | BYTE_REG_FLAG,
+                            eax.value | BYTE_REG_FLAG)
             else:
-                mc.MOV_rs(eax.value, WORD)
-            mc.TEST8(addr_add_const(self.SEGMENT_GC, eax,
-                                    descr.jit_wb_if_flag_byteofs),
-                     imm(-0x80))
+                if IS_X86_32:
+                    mc.MOV_rs(eax.value, 3*WORD)
+                else:
+                    mc.MOV_rs(eax.value, WORD)
+                mc.TEST8(addr_add_const(self.SEGMENT_GC, eax,
+                                        descr.jit_wb_if_flag_byteofs),
+                         imm(-0x80))
         #
 
         if not for_frame:
@@ -2218,15 +2222,17 @@ class Assembler386(BaseAssembler):
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
         #
+        stm = self.cpu.gc_ll_descr.stm
         card_marking = False
         mask = descr.jit_wb_if_flag_singlebyte
         if array and descr.jit_wb_cards_set != 0:
-            # assumptions the rest of the function depends on:
-            assert (descr.jit_wb_cards_set_byteofs ==
-                    descr.jit_wb_if_flag_byteofs)
-            assert descr.jit_wb_cards_set_singlebyte == -0x80
+            if not stm:
+                # assumptions the rest of the function depends on:
+                assert (descr.jit_wb_cards_set_byteofs ==
+                        descr.jit_wb_if_flag_byteofs)
+                assert descr.jit_wb_cards_set_singlebyte == -0x80
+                mask = descr.jit_wb_if_flag_singlebyte | -0x80
             card_marking = True
-            mask = descr.jit_wb_if_flag_singlebyte | -0x80
         #
         loc_base = arglocs[0]
         if is_frame:
@@ -2242,10 +2248,18 @@ class Assembler386(BaseAssembler):
         # for cond_call_gc_wb_array, also add another fast path:
         # if GCFLAG_CARDS_SET, then we can just set one bit and be done
         if card_marking:
-            # GCFLAG_CARDS_SET is in this byte at 0x80, so this fact can
-            # been checked by the status flags of the previous TEST8
-            mc.J_il8(rx86.Conditions['S'], 0) # patched later
-            js_location = mc.get_relative_pos()
+            if stm:
+                loc2 = addr_add_const(self.SEGMENT_GC, loc_base,
+                                      descr.jit_wb_cards_set_byteofs)
+                mask2 = descr.jit_wb_cards_set_singlebyte
+                mc.TEST8(loc2, imm(mask2))
+                mc.J_il8(rx86.Conditions['NZ'], 0) # patched later
+                js_location = mc.get_relative_pos()
+            else:
+                # GCFLAG_CARDS_SET is in this byte at 0x80, so this fact can
+                # been checked by the status flags of the previous TEST8
+                mc.J_il8(rx86.Conditions['S'], 0) # patched later
+                js_location = mc.get_relative_pos()
         else:
             js_location = 0
 
@@ -2266,7 +2280,7 @@ class Assembler386(BaseAssembler):
         #
         if not is_frame:
             mc.PUSH(loc_base)
-            if self.cpu.gc_ll_descr.stm:
+            if stm:
                 # get the num and ref components of the stm_location, and
                 # push them to the stack.  It's 16 bytes, so alignment is
                 # still ok.  The one or three words pushed here are removed
@@ -2286,7 +2300,10 @@ class Assembler386(BaseAssembler):
             # The helper ends again with a check of the flag in the object.
             # So here, we can simply write again a 'JNS', which will be
             # taken if GCFLAG_CARDS_SET is still not set.
-            mc.J_il8(rx86.Conditions['NS'], 0) # patched later
+            if stm:
+                mc.J_il8(rx86.Conditions['Z'], 0) # patched later
+            else:
+                mc.J_il8(rx86.Conditions['NS'], 0) # patched later
             jns_location = mc.get_relative_pos()
             #
             # patch the JS above
@@ -2297,7 +2314,56 @@ class Assembler386(BaseAssembler):
             # case GCFLAG_CARDS_SET: emit a few instructions to do
             # directly the card flag setting
             loc_index = arglocs[1]
-            if isinstance(loc_index, RegLoc):
+
+            if stm:
+                # must write the value CARD_MARKED into the byte at:
+                #     write_locks_base + (object >> 4) + (index / CARD_SIZE)
+                #
+                write_locks_base = rstm.adr__stm_write_slowpath_card_extra_base
+                if rstm.CARD_SIZE == 32:
+                    card_bits = 5
+                elif rstm.CARD_SIZE == 64:
+                    card_bits = 6
+                elif rstm.CARD_SIZE == 128:
+                    card_bits = 7
+                else:
+                    raise AssertionError("CARD_SIZE should be 32/64/128")
+                #
+                # idea:  mov r11, loc_base    # the object
+                #        and r11, ~15         # align
+                #        lea r11, [loc_index + r11<<(card_bits-4)]
+                #        shr r11, card_bits
+                #        mov [r11 + write_locks_base], card_marked
+                r11 = X86_64_SCRATCH_REG
+                if isinstance(loc_index, RegLoc):
+                    if isinstance(loc_base, RegLoc):
+                        mc.MOV_rr(r11.value, loc_base.value)
+                        mc.AND_ri(r11.value, ~15)
+                    else:
+                        assert isinstance(loc_base, ImmedLoc)
+                        mc.MOV_ri(r11.value, loc_base.value & ~15)  # 32/64bit
+                    mc.LEA_ra(r11.value, (self.SEGMENT_NO,
+                                          loc_index.value,
+                                          r11.value,
+                                          card_bits - 4,
+                                          0))
+                    mc.SHR_ri(r11.value, card_bits)
+                else:
+                    # XXX these cases could be slightly more optimized
+                    assert isinstance(loc_index, ImmedLoc)
+                    cardindex = loc_index.value >> card_bits
+                    if isinstance(loc_base, RegLoc):
+                        mc.MOV_ri(r11.value, cardindex << 4)     # 32/64bit
+                        mc.ADD_rr(r11.value, loc_base.value)
+                        mc.SHR_ri(r11.value, 4)
+                    else:
+                        mc.MOV_ri(r11.value, cardindex + (loc_base.value >> 4))
+                #
+                assert rx86.fits_in_32bits(write_locks_base), "XXX"
+                mc.MOV8_mi((self.SEGMENT_NO, r11.value, write_locks_base),
+                           rstm.CARD_MARKED)
+
+            elif isinstance(loc_index, RegLoc):
                 if IS_X86_64 and isinstance(loc_base, RegLoc):
                     # copy loc_index into r11
                     tmp1 = X86_64_SCRATCH_REG

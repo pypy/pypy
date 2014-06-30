@@ -51,7 +51,7 @@ class TestStm(RewriteTests):
         self.gc_ll_descr = GcLLDescr_framework(gcdescr, None, None, None,
                                                really_not_translated=True)
         self.gc_ll_descr.write_barrier_descr.has_write_barrier_from_array = (
-            lambda cpu: False)   # for now
+            lambda cpu: True)
         self.gc_ll_descr.minimal_size_in_nursery = 16
         #
         class FakeCPU(BaseFakeCPU):
@@ -515,9 +515,9 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, i1, p2, p3, i3, p4]
-            cond_call_gc_wb(p1, descr=wbdescr)
+            cond_call_gc_wb_array(p1, i1, descr=wbdescr)
             setarrayitem_gc(p1, i1, p2, descr=adescr)
-            cond_call_gc_wb(p3, descr=wbdescr)
+            cond_call_gc_wb_array(p3, i3, descr=wbdescr)
             setarrayitem_gc(p3, i3, p4, descr=adescr)
 
             jump()
@@ -532,9 +532,10 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, p2, i2, p3, i3]
-            cond_call_gc_wb(p1, descr=wbdescr)
+            cond_call_gc_wb_array(p1, i2, descr=wbdescr)
             setarrayitem_gc(p1, i2, p2, descr=adescr)
             i4 = read_timestamp()
+            cond_call_gc_wb_array(p1, i3, descr=wbdescr)
             setarrayitem_gc(p1, i3, p3, descr=adescr)
 
             jump()
@@ -549,9 +550,10 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, p2, i2, p3, i3]
-            cond_call_gc_wb(p1, descr=wbdescr)
+            cond_call_gc_wb_array(p1, i2, descr=wbdescr)
             setinteriorfield_gc(p1, i2, p2, descr=intzdescr)
             i4 = read_timestamp()
+            cond_call_gc_wb_array(p1, i3, descr=wbdescr)
             setinteriorfield_gc(p1, i3, p3, descr=intzdescr)
 
             jump()
@@ -1115,7 +1117,7 @@ class TestStm(RewriteTests):
             setfield_gc(p1, 8111, descr=tiddescr)
             setfield_gc(p1, 5, descr=clendescr)
             label(p1, i2, p3)
-            cond_call_gc_wb(p1, descr=wbdescr)
+            cond_call_gc_wb_array(p1, i2, descr=wbdescr)
             setarrayitem_gc(p1, i2, p3, descr=cdescr)
         """)
 

@@ -25,6 +25,12 @@ adr_jmpbuf_ptr = (
 adr_segment_base = (
     CFlexSymbolic('((long)&STM_SEGMENT->segment_base)'))
 adr_write_slowpath = CFlexSymbolic('((long)&_stm_write_slowpath)')
+adr_write_slowpath_card_extra = (
+    CFlexSymbolic('((long)&_stm_write_slowpath_card_extra)'))
+adr__stm_write_slowpath_card_extra_base = (
+    CFlexSymbolic('((long)&_stm_write_slowpath_card_extra_base)'))
+CARD_MARKED = CFlexSymbolic('_STM_CARD_MARKED')
+CARD_SIZE   = CFlexSymbolic('_STM_CARD_SIZE')
 
 adr__pypy_stm_become_inevitable = (
     CFlexSymbolic('((long)&_pypy_stm_become_inevitable)'))

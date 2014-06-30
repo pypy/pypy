@@ -416,17 +416,13 @@ class GcRewriterAssembler(object):
             self.gen_write_barrier(val, op.stm_location)
         self.newops.append(op)
 
-    def handle_write_barrier_setinteriorfield(self, op):
-        val = op.getarg(0)
-        if self.must_apply_write_barrier(val, op.getarg(2)):
-            self.gen_write_barrier(val, op.stm_location)
-        self.newops.append(op)
-
     def handle_write_barrier_setarrayitem(self, op):
         val = op.getarg(0)
         if self.must_apply_write_barrier(val, op.getarg(2)):
             self.gen_write_barrier_array(val, op.getarg(1), op.stm_location)
         self.newops.append(op)
+
+    handle_write_barrier_setinteriorfield = handle_write_barrier_setarrayitem
 
     def gen_write_barrier(self, v_base, stm_location):
         write_barrier_descr = self.gc_ll_descr.write_barrier_descr
