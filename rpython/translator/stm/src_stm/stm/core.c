@@ -236,6 +236,23 @@ static bool obj_should_use_cards(object_t *obj)
     return (size >= _STM_MIN_CARD_OBJ_SIZE);
 }
 
+char _stm_write_slowpath_card_extra(object_t *obj)
+{
+    /* the PyPy JIT calls this function directly if it finds that an
+       array doesn't have the GCFLAG_CARDS_SET */
+    bool mark_card = obj_should_use_cards(obj);
+    write_slowpath_common(obj, mark_card);
+    return mark_card;
+}
+
+char *_stm_write_slowpath_card_extra_base(void)
+{
+    /* for the PyPy JIT: _stm_write_slowpath_card_extra_base[obj >> 4]
+       is the byte that must be set to CARD_MARKED.  The logic below
+       does the same, but more explicitly. */
+    return (char *)write_locks - WRITELOCK_START + 1;
+}
+
 void _stm_write_slowpath_card(object_t *obj, uintptr_t index)
 {
     /* If CARDS_SET is not set so far, issue a normal write barrier.
@@ -243,8 +260,7 @@ void _stm_write_slowpath_card(object_t *obj, uintptr_t index)
        card marking instead.
     */
     if (!(obj->stm_flags & GCFLAG_CARDS_SET)) {
-        bool mark_card = obj_should_use_cards(obj);
-        write_slowpath_common(obj, mark_card);
+        char mark_card = _stm_write_slowpath_card_extra(obj);
         if (!mark_card)
             return;
     }

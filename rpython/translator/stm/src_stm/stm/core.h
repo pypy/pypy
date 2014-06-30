@@ -226,10 +226,10 @@ static stm_thread_local_t *stm_all_thread_locals = NULL;
 static uint8_t write_locks[WRITELOCK_END - WRITELOCK_START];
 
 enum /* card values for write_locks */ {
-    CARD_CLEAR = 0,             /* card not used at all */
-    CARD_MARKED = 100,            /* card marked for tracing in the next gc */
-    CARD_MARKED_OLD = 101,        /* card was marked before, but cleared
-                                     in a GC */
+    CARD_CLEAR = 0,                 /* card not used at all */
+    CARD_MARKED = _STM_CARD_MARKED, /* card marked for tracing in the next gc */
+    CARD_MARKED_OLD = 101,          /* card was marked before, but cleared
+                                       in a GC */
 };
 
 
