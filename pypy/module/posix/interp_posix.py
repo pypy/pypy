@@ -582,7 +582,7 @@ entries '.' and '..' even if they are present in the directory."""
         else:
             dirname = space.str0_w(w_dirname)
             result = rposix.listdir(dirname)
-            return space.newlist_bytes(result)
+            return space.newlist_bytes(result[:])
     except OSError, e:
         raise wrap_oserror2(space, e, w_dirname)
 
