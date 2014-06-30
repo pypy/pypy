@@ -453,12 +453,15 @@ class TestSTMTranslated(CompiledSTMTests):
 
     def test_stm_write_card(self):
         LST = lltype.GcArray(lltype.Signed)
-        lst = lltype.malloc(LST, 100, immortal=True)
+        lst = lltype.malloc(LST, 1000, immortal=True)
+        LST2 = lltype.GcArray(lltype.Ptr(LST))
+        lst2 = lltype.malloc(LST2, 1000, immortal=True)
         def main(argv):
             lst[42] = 43
+            lst2[999] = lst
             llop.stm_commit_if_not_atomic(lltype.Void)
             llop.stm_start_inevitable_if_not_atomic(lltype.Void)
-            print 'did not crash', lst[42]
+            print 'did not crash', lst2[999][42]
             return 0
 
         t, cbuilder = self.compile(main)
