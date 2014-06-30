@@ -41,6 +41,12 @@ bool _stm_was_written(object_t *obj)
     return (obj->stm_flags & _STM_GCFLAG_WRITE_BARRIER) == 0;
 }
 
+
+bool _stm_was_written_card(object_t *obj)
+{
+    return obj->stm_flags & _STM_GCFLAG_CARDS_SET;
+}
+
 #ifdef STM_TESTS
 uintptr_t _stm_get_private_page(uintptr_t pagenum)
 {
@@ -62,6 +68,13 @@ long _stm_count_objects_pointing_to_nursery(void)
     return list_count(STM_PSEGMENT->objects_pointing_to_nursery);
 }
 
+long _stm_count_old_objects_with_cards(void)
+{
+    if (STM_PSEGMENT->old_objects_with_cards == NULL)
+        return -1;
+    return list_count(STM_PSEGMENT->old_objects_with_cards);
+}
+
 object_t *_stm_enum_modified_old_objects(long index)
 {
     return (object_t *)list_item(
@@ -72,6 +85,12 @@ object_t *_stm_enum_objects_pointing_to_nursery(long index)
 {
     return (object_t *)list_item(
         STM_PSEGMENT->objects_pointing_to_nursery, index);
+}
+
+object_t *_stm_enum_old_objects_with_cards(long index)
+{
+    return (object_t *)list_item(
+        STM_PSEGMENT->old_objects_with_cards, index);
 }
 
 uint64_t _stm_total_allocated(void)

@@ -108,6 +108,7 @@ typedef struct stm_thread_local_s {
 /* this should use llvm's coldcc calling convention,
    but it's not exposed to C code so far */
 void _stm_write_slowpath(object_t *);
+void _stm_write_slowpath_card(object_t *, uintptr_t);
 object_t *_stm_allocate_slowpath(ssize_t);
 object_t *_stm_allocate_external(ssize_t);
 void _stm_become_inevitable(const char*);
@@ -121,6 +122,7 @@ char *_stm_real_address(object_t *o);
 #include <stdbool.h>
 bool _stm_was_read(object_t *obj);
 bool _stm_was_written(object_t *obj);
+bool _stm_was_written_card(object_t *obj);
 uintptr_t _stm_get_private_page(uintptr_t pagenum);
 bool _stm_in_transaction(stm_thread_local_t *tl);
 char *_stm_get_segment_base(long index);
@@ -138,12 +140,18 @@ void _stm_stop_safe_point(void);
 void _stm_set_nursery_free_count(uint64_t free_count);
 long _stm_count_modified_old_objects(void);
 long _stm_count_objects_pointing_to_nursery(void);
+long _stm_count_old_objects_with_cards(void);
 object_t *_stm_enum_modified_old_objects(long index);
 object_t *_stm_enum_objects_pointing_to_nursery(long index);
+object_t *_stm_enum_old_objects_with_cards(long index);
 uint64_t _stm_total_allocated(void);
 #endif
 
 #define _STM_GCFLAG_WRITE_BARRIER      0x01
+#define _STM_GCFLAG_CARDS_SET          0x08
+#define _STM_CARD_SIZE                 32     /* must be >= 32 */
+#define _STM_MIN_CARD_COUNT            17
+#define _STM_MIN_CARD_OBJ_SIZE         (_STM_CARD_SIZE * _STM_MIN_CARD_COUNT)
 #define _STM_NSE_SIGNAL_MAX     _STM_TIME_N
 #define _STM_FAST_ALLOC           (66*1024)
 
@@ -214,6 +222,20 @@ static inline void stm_write(object_t *obj)
         _stm_write_slowpath(obj);
 }
 
+/* The following is a GC-optimized barrier that works on the granularity
+   of CARD_SIZE.  It can be used on any array object, but it is only
+   useful with those that were internally marked with GCFLAG_HAS_CARDS.
+   It has the same purpose as stm_write() for TM.
+   'index' is the array-item-based position within the object, which
+   is measured in units returned by stmcb_get_card_base_itemsize().
+*/
+__attribute__((always_inline))
+static inline void stm_write_card(object_t *obj, uintptr_t index)
+{
+    if (UNLIKELY((obj->stm_flags & _STM_GCFLAG_WRITE_BARRIER) != 0))
+        _stm_write_slowpath_card(obj, index);
+}
+
 /* Must be provided by the user of this library.
    The "size rounded up" must be a multiple of 8 and at least 16.
    "Tracing" an object means enumerating all GC references in it,
@@ -224,6 +246,16 @@ static inline void stm_write(object_t *obj)
 */
 extern ssize_t stmcb_size_rounded_up(struct object_s *);
 extern void stmcb_trace(struct object_s *, void (object_t **));
+/* a special trace-callback that is only called for the marked
+   ranges of indices (using stm_write_card(o, index)) */
+extern void stmcb_trace_cards(struct object_s *, void (object_t **),
+                              uintptr_t start, uintptr_t stop);
+/* this function will be called on objects that support cards.
+   It returns the base_offset (in bytes) inside the object from
+   where the indices start, and item_size (in bytes) for the size of
+   one item */
+extern void stmcb_get_card_base_itemsize(struct object_s *,
+                                         uintptr_t offset_itemsize[2]);
 extern void stmcb_commit_soon(void);
 
 
@@ -248,6 +280,7 @@ static inline object_t *stm_allocate(ssize_t size_rounded_up)
 
     return (object_t *)p;
 }
+
 
 /* Allocate a weakref object. Weakref objects have a
    reference to an object at the byte-offset

@@ -66,6 +66,8 @@ static void minor_trace_if_young(object_t **pobj)
     object_t *obj = *pobj;
     object_t *nobj;
     uintptr_t nobj_sync_now;
+    char *realobj;
+    size_t size;
 
     if (obj == NULL)
         return;
@@ -76,8 +78,6 @@ static void minor_trace_if_young(object_t **pobj)
            to GCWORD_MOVED.  In that case, the forwarding location, i.e.
            where the object moved to, is stored in the second word in 'obj'. */
         object_t *TLPREFIX *pforwarded_array = (object_t *TLPREFIX *)obj;
-        char *realobj;
-        size_t size;
 
         if (obj->stm_flags & GCFLAG_HAS_SHADOW) {
             /* ^^ the single check above detects both already-moved objects
@@ -150,6 +150,7 @@ static void minor_trace_if_young(object_t **pobj)
 
     /* Must trace the object later */
     LIST_APPEND(STM_PSEGMENT->objects_pointing_to_nursery, nobj_sync_now);
+    _cards_cleared_in_object(get_priv_segment(STM_SEGMENT->segment_num), nobj);
 }
 
 static void collect_roots_in_nursery(void)
@@ -184,30 +185,217 @@ static void collect_roots_in_nursery(void)
     minor_trace_if_young(&tl->thread_local_obj);
 }
 
-static inline void _collect_now(object_t *obj)
+static void _cards_cleared_in_object(struct stm_priv_segment_info_s *pseg, object_t *obj)
+{
+#ifndef NDEBUG
+    struct object_s *realobj = (struct object_s *)REAL_ADDRESS(pseg->pub.segment_base, obj);
+    size_t size = stmcb_size_rounded_up(realobj);
+
+    if (size < _STM_MIN_CARD_OBJ_SIZE)
+        return;                 /* too small for cards */
+
+    uintptr_t first_card_index = get_write_lock_idx((uintptr_t)obj);
+    uintptr_t card_index = 1;
+    uintptr_t last_card_index = get_index_to_card_index(size - 1); /* max valid index */
+
+    OPT_ASSERT(write_locks[first_card_index] <= NB_SEGMENTS_MAX
+               || write_locks[first_card_index] == 255); /* see gcpage.c */
+    while (card_index <= last_card_index) {
+        uintptr_t card_lock_idx = first_card_index + card_index;
+        assert(write_locks[card_lock_idx] == CARD_CLEAR);
+        card_index++;
+    }
+
+    assert(!(realobj->stm_flags & GCFLAG_CARDS_SET));
+#endif
+}
+
+static void _verify_cards_cleared_in_all_lists(struct stm_priv_segment_info_s *pseg)
+{
+#ifndef NDEBUG
+    LIST_FOREACH_R(
+        pseg->modified_old_objects, object_t * /*item*/,
+        _cards_cleared_in_object(pseg, item));
+
+    if (pseg->large_overflow_objects) {
+        LIST_FOREACH_R(
+            pseg->large_overflow_objects, object_t * /*item*/,
+            _cards_cleared_in_object(pseg, item));
+    }
+    if (pseg->objects_pointing_to_nursery) {
+        LIST_FOREACH_R(
+            pseg->objects_pointing_to_nursery, object_t * /*item*/,
+            _cards_cleared_in_object(pseg, item));
+    }
+    LIST_FOREACH_R(
+        pseg->old_objects_with_cards, object_t * /*item*/,
+        _cards_cleared_in_object(pseg, item));
+#endif
+}
+
+static void _reset_object_cards(struct stm_priv_segment_info_s *pseg,
+                                object_t *obj, uint8_t mark_value,
+                                bool mark_all)
+{
+#pragma push_macro("STM_PSEGMENT")
+#pragma push_macro("STM_SEGMENT")
+#undef STM_PSEGMENT
+#undef STM_SEGMENT
+    struct object_s *realobj = (struct object_s *)REAL_ADDRESS(pseg->pub.segment_base, obj);
+    size_t size = stmcb_size_rounded_up(realobj);
+
+    OPT_ASSERT(size >= _STM_MIN_CARD_OBJ_SIZE);
+    assert(IMPLY(mark_value == CARD_CLEAR, !mark_all)); /* not necessary */
+    assert(IMPLY(mark_all, mark_value == CARD_MARKED_OLD)); /* set *all* to OLD */
+    assert(IMPLY(IS_OVERFLOW_OBJ(pseg, realobj),
+                 mark_value == CARD_CLEAR)); /* overflows are always CLEARed */
+
+    uintptr_t first_card_index = get_write_lock_idx((uintptr_t)obj);
+    uintptr_t card_index = 1;
+    uintptr_t last_card_index = get_index_to_card_index(size - 1); /* max valid index */
+
+    OPT_ASSERT(write_locks[first_card_index] <= NB_SEGMENTS
+               || write_locks[first_card_index] == 255); /* see gcpage.c */
+
+    dprintf(("mark cards of %p, size %lu with %d, all: %d\n",
+             obj, size, mark_value, mark_all));
+    dprintf(("obj has %lu cards\n", last_card_index));
+    while (card_index <= last_card_index) {
+        uintptr_t card_lock_idx = first_card_index + card_index;
+
+        if (mark_all || write_locks[card_lock_idx] != CARD_CLEAR) {
+            /* dprintf(("mark card %lu,wl:%lu of %p with %d\n", */
+            /*          card_index, card_lock_idx, obj, mark_value)); */
+            write_locks[card_lock_idx] = mark_value;
+        }
+        card_index++;
+    }
+
+    realobj->stm_flags &= ~GCFLAG_CARDS_SET;
+
+#pragma pop_macro("STM_SEGMENT")
+#pragma pop_macro("STM_PSEGMENT")
+}
+
+
+static void _trace_card_object(object_t *obj)
+{
+    assert(!_is_in_nursery(obj));
+    assert(obj->stm_flags & GCFLAG_CARDS_SET);
+    assert(obj->stm_flags & GCFLAG_WRITE_BARRIER);
+
+    dprintf(("_trace_card_object(%p)\n", obj));
+    bool obj_is_overflow = IS_OVERFLOW_OBJ(STM_PSEGMENT, obj);
+    uint8_t mark_value = obj_is_overflow ? CARD_CLEAR : CARD_MARKED_OLD;
+
+    struct object_s *realobj = (struct object_s *)REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
+    size_t size = stmcb_size_rounded_up(realobj);
+
+    uintptr_t first_card_index = get_write_lock_idx((uintptr_t)obj);
+    uintptr_t card_index = 1;
+    uintptr_t last_card_index = get_index_to_card_index(size - 1); /* max valid index */
+
+    OPT_ASSERT(write_locks[first_card_index] <= NB_SEGMENTS_MAX
+               || write_locks[first_card_index] == 255); /* see gcpage.c */
+
+    /* XXX: merge ranges */
+    while (card_index <= last_card_index) {
+        uintptr_t card_lock_idx = first_card_index + card_index;
+        if (write_locks[card_lock_idx] == CARD_MARKED) {
+            /* clear or set to old: */
+            write_locks[card_lock_idx] = mark_value;
+
+            uintptr_t start = get_card_index_to_index(card_index);
+            uintptr_t stop = get_card_index_to_index(card_index + 1);
+
+            dprintf(("trace_cards on %p with start:%lu stop:%lu\n",
+                     obj, start, stop));
+            stmcb_trace_cards(realobj, &minor_trace_if_young,
+                              start, stop);
+
+        }
+
+        /* all cards should be cleared on overflow objs */
+        assert(IMPLY(obj_is_overflow,
+                     write_locks[card_lock_idx] == CARD_CLEAR));
+
+        card_index++;
+    }
+    obj->stm_flags &= ~GCFLAG_CARDS_SET;
+}
+
+
+
+static inline void _collect_now(object_t *obj, bool was_definitely_young)
 {
     assert(!_is_young(obj));
 
-    /* We must not have GCFLAG_WRITE_BARRIER so far.  Add it now. */
-    assert(!(obj->stm_flags & GCFLAG_WRITE_BARRIER));
-    obj->stm_flags |= GCFLAG_WRITE_BARRIER;
+    dprintf(("_collect_now: %p\n", obj));
 
-    /* Trace the 'obj' to replace pointers to nursery with pointers
-       outside the nursery, possibly forcing nursery objects out and
-       adding them to 'objects_pointing_to_nursery' as well. */
-    char *realobj = REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
-    stmcb_trace((struct object_s *)realobj, &minor_trace_if_young);
+    if (!(obj->stm_flags & GCFLAG_WRITE_BARRIER)) {
+        /* Trace the 'obj' to replace pointers to nursery with pointers
+           outside the nursery, possibly forcing nursery objects out and
+           adding them to 'objects_pointing_to_nursery' as well. */
+        char *realobj = REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
+        stmcb_trace((struct object_s *)realobj, &minor_trace_if_young);
+
+        obj->stm_flags |= GCFLAG_WRITE_BARRIER;
+        if (obj->stm_flags & GCFLAG_CARDS_SET) {
+            /* all objects that had WB cleared need to be fully synchronised
+               on commit, so we have to mark all their cards */
+            struct stm_priv_segment_info_s *pseg = get_priv_segment(
+                STM_SEGMENT->segment_num);
+
+            /* stm_wb-slowpath should never have triggered for young objs */
+            assert(!was_definitely_young);
+
+            if (!IS_OVERFLOW_OBJ(STM_PSEGMENT, obj)) {
+                _reset_object_cards(pseg, obj, CARD_MARKED_OLD, true); /* mark all */
+            } else {
+                /* simply clear overflow */
+                _reset_object_cards(pseg, obj, CARD_CLEAR, false);
+            }
+        }
+    }
+    /* else traced in collect_cardrefs_to_nursery if necessary */
+}
+
+
+static void collect_cardrefs_to_nursery(void)
+{
+    dprintf(("collect_cardrefs_to_nursery\n"));
+    struct list_s *lst = STM_PSEGMENT->old_objects_with_cards;
+
+    while (!list_is_empty(lst)) {
+        object_t *obj = (object_t*)list_pop_item(lst);
+
+        assert(!_is_young(obj));
+
+        if (!(obj->stm_flags & GCFLAG_CARDS_SET)) {
+            /* handled in _collect_now() */
+            continue;
+        }
+
+        /* traces cards, clears marked cards or marks them old if
+           necessary */
+        _trace_card_object(obj);
+
+        assert(!(obj->stm_flags & GCFLAG_CARDS_SET));
+    }
 }
 
 static void collect_oldrefs_to_nursery(void)
 {
+    dprintf(("collect_oldrefs_to_nursery\n"));
     struct list_s *lst = STM_PSEGMENT->objects_pointing_to_nursery;
 
     while (!list_is_empty(lst)) {
         uintptr_t obj_sync_now = list_pop_item(lst);
         object_t *obj = (object_t *)(obj_sync_now & ~FLAG_SYNC_LARGE);
 
-        _collect_now(obj);
+        bool was_definitely_young = (obj_sync_now & FLAG_SYNC_LARGE);
+        _collect_now(obj, was_definitely_young);
+        assert(!(obj->stm_flags & GCFLAG_CARDS_SET));
 
         if (obj_sync_now & FLAG_SYNC_LARGE) {
             /* this was a large object.  We must either synchronize the
@@ -215,13 +403,15 @@ static void collect_oldrefs_to_nursery(void)
                WRITE_BARRIER flag and traced into it to fix its
                content); or add the object to 'large_overflow_objects'.
             */
+            struct stm_priv_segment_info_s *pseg = get_priv_segment(STM_SEGMENT->segment_num);
             if (STM_PSEGMENT->minor_collect_will_commit_now) {
                 acquire_privatization_lock();
-                synchronize_object_now(obj);
+                synchronize_object_now(obj, true); /* ignore cards! */
                 release_privatization_lock();
             } else {
                 LIST_APPEND(STM_PSEGMENT->large_overflow_objects, obj);
             }
+            _cards_cleared_in_object(pseg, obj);
         }
 
         /* the list could have moved while appending */
@@ -231,12 +421,15 @@ static void collect_oldrefs_to_nursery(void)
 
 static void collect_modified_old_objects(void)
 {
-    LIST_FOREACH_R(STM_PSEGMENT->modified_old_objects, object_t * /*item*/,
-                   _collect_now(item));
+    dprintf(("collect_modified_old_objects\n"));
+    LIST_FOREACH_R(
+        STM_PSEGMENT->modified_old_objects, object_t * /*item*/,
+        _collect_now(item, false));
 }
 
 static void collect_roots_from_markers(uintptr_t num_old)
 {
+    dprintf(("collect_roots_from_markers\n"));
     /* visit the marker objects */
     struct list_s *mlst = STM_PSEGMENT->modified_old_objects_markers;
     STM_PSEGMENT->modified_old_objects_markers_num_old = list_count(mlst);
@@ -255,6 +448,11 @@ static void collect_roots_from_markers(uintptr_t num_old)
 
 static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
 {
+#pragma push_macro("STM_PSEGMENT")
+#pragma push_macro("STM_SEGMENT")
+#undef STM_PSEGMENT
+#undef STM_SEGMENT
+    dprintf(("throw_away_nursery\n"));
     /* reset the nursery by zeroing it */
     size_t nursery_used;
     char *realnursery;
@@ -280,10 +478,11 @@ static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
         wlog_t *item;
 
         TREE_LOOP_FORWARD(*pseg->young_outside_nursery, item) {
-            assert(!_is_in_nursery((object_t *)item->addr));
+            object_t *obj = (object_t*)item->addr;
+
             /* mark slot as unread */
             ((struct stm_read_marker_s *)
-             (pseg->pub.segment_base + (item->addr >> 4)))->rm = 0;
+             (pseg->pub.segment_base + (((uintptr_t)obj) >> 4)))->rm = 0;
 
             _stm_large_free(stm_object_pages + item->addr);
         } TREE_LOOP_END;
@@ -292,7 +491,29 @@ static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
     }
 
     tree_clear(pseg->nursery_objects_shadows);
+
+
+    /* modified_old_objects' cards get cleared in push_modified_to_other_segments
+       or reset_modified_from_other_segments. Objs in old_objs_with_cards but not
+       in modified_old_objs are overflow objects and handled here: */
+    if (pseg->large_overflow_objects != NULL) {
+        /* some overflow objects may have cards when aborting, clear them too */
+        LIST_FOREACH_R(pseg->large_overflow_objects, object_t * /*item*/,
+            {
+                struct object_s *realobj = (struct object_s *)
+                    REAL_ADDRESS(pseg->pub.segment_base, item);
+
+                if (realobj->stm_flags & GCFLAG_CARDS_SET) {
+                    /* CARDS_SET is enough since other HAS_CARDS objs
+                       are already cleared */
+                    _reset_object_cards(pseg, item, CARD_CLEAR, false);
+                }
+            });
+    }
+
     return nursery_used;
+#pragma pop_macro("STM_SEGMENT")
+#pragma pop_macro("STM_PSEGMENT")
 }
 
 #define MINOR_NOTHING_TO_DO(pseg)                                       \
@@ -354,7 +575,9 @@ static void _do_minor_collection(bool commit)
 
     collect_roots_in_nursery();
 
+    collect_cardrefs_to_nursery();
     collect_oldrefs_to_nursery();
+    assert(list_is_empty(STM_PSEGMENT->old_objects_with_cards));
 
     /* now all surviving nursery objects have been moved out */
     stm_move_young_weakrefs();
@@ -428,6 +651,7 @@ object_t *_stm_allocate_external(ssize_t size_rounded_up)
 
     char *result = allocate_outside_nursery_large(size_rounded_up);
     object_t *o = (object_t *)(result - stm_object_pages);
+
     tree_insert(STM_PSEGMENT->young_outside_nursery, (uintptr_t)o, 0);
 
     memset(REAL_ADDRESS(STM_SEGMENT->segment_base, o), 0, size_rounded_up);
@@ -529,6 +753,7 @@ static object_t *allocate_shadow(object_t *obj)
     memcpy(realnobj, realobj, size);
 
     obj->stm_flags |= GCFLAG_HAS_SHADOW;
+
     tree_insert(STM_PSEGMENT->nursery_objects_shadows,
                 (uintptr_t)obj, (uintptr_t)nobj);
     return nobj;

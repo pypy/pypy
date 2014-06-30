@@ -195,7 +195,7 @@ static bool contention_management(uint8_t other_segment_num,
         /* tell the other to commit ASAP, since it causes aborts */
         signal_other_to_commit_soon(contmgr.other_pseg);
 
-        dprintf(("abort in contention\n"));
+        dprintf(("abort in contention: kind %d\n", kind));
         STM_SEGMENT->nursery_end = abort_category;
         marker_contention(kind, false, other_segment_num, obj);
         abort_with_mutex();
