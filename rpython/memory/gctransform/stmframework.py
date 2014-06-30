@@ -33,6 +33,17 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                                      llannotation.SomePtr(GCClass.VISIT_FPTR)],
                   annmodel.s_None))
         #
+        def pypy_stmcb_trace_cards(obj, visit_fn, start, stop):
+            gc.trace_partial(obj, start, stop, invokecallback, visit_fn)
+        pypy_stmcb_trace_cards.c_name = "pypy_stmcb_trace_cards"
+        self.autoregister_ptrs.append(
+            getfn(pypy_stmcb_trace_cards,
+                  [llannotation.SomeAddress(),
+                   llannotation.SomePtr(GCClass.VISIT_FPTR),
+                   annmodel.s_Int,
+                   annmodel.s_Int],
+                  annmodel.s_None))
+        #
         def pypy_stmcb_get_card_base_itemsize(obj, offset_itemsize):
             gc.get_card_base_itemsize(obj, offset_itemsize)
         pypy_stmcb_get_card_base_itemsize.c_name = (

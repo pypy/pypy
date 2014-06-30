@@ -12,6 +12,7 @@ __thread uintptr_t pypy_stm_nursery_low_fill_mark_saved;
 extern Signed pypy_stmcb_size_rounded_up(void*);
 extern void pypy_stmcb_get_card_base_itemsize(void*, uintptr_t[]);
 extern void pypy_stmcb_trace(void*, void(*)(void*));
+extern void pypy_stmcb_trace_cards(void*, void(*)(void*), uintptr_t, uintptr_t);
 
 inline ssize_t stmcb_size_rounded_up(struct object_s *obj) {
     ssize_t result = pypy_stmcb_size_rounded_up(obj);
@@ -27,6 +28,11 @@ inline void stmcb_get_card_base_itemsize(struct object_s *obj,
 
 inline void stmcb_trace(struct object_s *obj, void visit(object_t **)) {
     pypy_stmcb_trace(obj, (void(*)(void*))visit);
+}
+
+inline void stmcb_trace_cards(struct object_s *obj, void visit(object_t **),
+                              uintptr_t start, uintptr_t stop) {
+    pypy_stmcb_trace_cards(obj, (void(*)(void*))visit, start, stop);
 }
 
 inline void stmcb_commit_soon()
