@@ -103,13 +103,29 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
 
 def numpify(space, w_object):
     """Convert the object to a W_NumpyObject"""
+    # XXX: code duplication with _array()
+    from pypy.module.micronumpy import strides
     if isinstance(w_object, W_NumpyObject):
         return w_object
-    w_res = array(space, w_object)
-    if w_res.is_scalar():
-        return w_res.get_scalar_value()
+    # for anything that isn't already an array, try __array__ method first
+    w_array = try_array_method(space, w_object)
+    if w_array is not None:
+        return w_array
+
+    shape, elems_w = strides.find_shape_and_elems(space, w_object, None)
+    dtype = strides.find_dtype_for_seq(space, elems_w, None)
+    if dtype is None:
+        dtype = descriptor.get_dtype_cache(space).w_float64dtype
+    elif dtype.is_str_or_unicode() and dtype.elsize < 1:
+        # promote S0 -> S1, U0 -> U1
+        dtype = descriptor.variable_dtype(space, dtype.char + '1')
+
+    if len(elems_w) == 1:
+        return dtype.coerce(space, elems_w[0])
     else:
-        return w_res
+        w_arr = W_NDimArray.from_shape(space, shape, dtype)
+        loop.assign(space, w_arr, elems_w)
+        return w_arr
 
 
 def zeros(space, w_shape, w_dtype=None, w_order=None):
