@@ -34,6 +34,8 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                   annmodel.s_None))
         #
         def pypy_stmcb_trace_cards(obj, visit_fn, start, stop):
+            if not gc.has_gcptr_in_varsize(gc.get_type_id(obj)):
+                return    # there are cards, but they don't need tracing
             gc.trace_partial(obj, start, stop, invokecallback, visit_fn)
         pypy_stmcb_trace_cards.c_name = "pypy_stmcb_trace_cards"
         self.autoregister_ptrs.append(

@@ -456,6 +456,8 @@ class TestSTMTranslated(CompiledSTMTests):
         lst = lltype.malloc(LST, 100, immortal=True)
         def main(argv):
             lst[42] = 43
+            llop.stm_commit_if_not_atomic(lltype.Void)
+            llop.stm_start_inevitable_if_not_atomic(lltype.Void)
             print 'did not crash', lst[42]
             return 0
 
