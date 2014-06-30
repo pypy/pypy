@@ -205,8 +205,7 @@ class AppTestApi(LeakCheckingTest):
         import sys
         if sys.platform != "win32" or sys.version_info < (2, 6):
             skip("Windows Python >= 2.6 only")
-        assert sys.dllhandle
-        assert sys.dllhandle.getaddressindll('cpyexttestErr_NewException')
+        assert isinstance(sys.dllhandle, int)
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 

@@ -243,11 +243,14 @@ def _get_dllhandle(space):
     from pypy.module.cpyext.api import State
     handle = space.fromcache(State).get_pythonapi_handle()
 
-    # Make a dll object with it
-    from pypy.module._rawffi.interp_rawffi import W_CDLL
-    from rpython.rlib.clibffi import RawCDLL
-    cdll = RawCDLL(handle)
-    return space.wrap(W_CDLL(space, "python api", cdll))
+    # It used to be a CDLL
+    # from pypy.module._rawffi.interp_rawffi import W_CDLL
+    # from rpython.rlib.clibffi import RawCDLL
+    # cdll = RawCDLL(handle)
+    # return space.wrap(W_CDLL(space, "python api", cdll))
+    # Provide a cpython-compatible int
+    from rpython.rtyper.lltypesystem import rffi
+    return space.wrap(rffi.cast(rffi.INT, handle))
 
 def getsizeof(space, w_object, w_default=None):
     """Not implemented on PyPy."""
