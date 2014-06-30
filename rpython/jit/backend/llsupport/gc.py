@@ -297,7 +297,6 @@ class WriteBarrierDescr(AbstractDescr):
         #
         if hasattr(GCClass, 'JIT_WB_CARDS_SET'):
             self.jit_wb_cards_set = GCClass.JIT_WB_CARDS_SET
-            self.jit_wb_card_page_shift = GCClass.JIT_WB_CARD_PAGE_SHIFT
             self.jit_wb_cards_set_byteofs, self.jit_wb_cards_set_singlebyte = (
                 self.extract_flag_byte(self.jit_wb_cards_set))
             #
@@ -307,6 +306,7 @@ class WriteBarrierDescr(AbstractDescr):
                 assert (self.jit_wb_cards_set_byteofs ==
                         self.jit_wb_if_flag_byteofs)
                 assert self.jit_wb_cards_set_singlebyte == -0x80
+                self.jit_wb_card_page_shift = GCClass.JIT_WB_CARD_PAGE_SHIFT
         else:
             self.jit_wb_cards_set = 0
 

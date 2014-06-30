@@ -451,9 +451,9 @@ class Assembler386(BaseAssembler):
             # A final TEST8 before the RET, for the caller.  Careful to
             # not follow this instruction with another one that changes
             # the status of the CPU flags!
-            if stm:
-                mc.TEST8_rr(eax.value | BYTE_REG_FLAG,
-                            eax.value | BYTE_REG_FLAG)
+            if self.cpu.gc_ll_descr.stm:
+                mc.TEST8_rr(eax.value | rx86.BYTE_REG_FLAG,
+                            eax.value | rx86.BYTE_REG_FLAG)
             else:
                 if IS_X86_32:
                     mc.MOV_rs(eax.value, 3*WORD)
