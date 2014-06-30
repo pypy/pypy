@@ -43,3 +43,7 @@ started yet), or a *lot* faster (if threads were started already).
 .. branch: jit-get-errno
 Optimize the errno handling in the JIT, notably around external
 function calls. Linux-only.
+
+.. branch: disable_pythonapi
+Remove non-functioning ctypes.pyhonapi and ctypes.PyDLL, document this
+incompatability with cpython. Recast sys.dllhandle to an int.
