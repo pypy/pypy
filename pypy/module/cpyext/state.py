@@ -62,6 +62,14 @@ class State:
         else:
             api.setup_library(self.space)
 
+    def install_dll(self, eci):
+        """NOT_RPYTHON
+        Called when the dll has been compiled"""
+        if sys.platform == 'win32':
+            self.get_pythonapi_handle = rffi.llexternal(
+                'pypy_get_pythonapi_handle', [], DLLHANDLE,
+                compilation_info=eci)
+
     def startup(self, space):
         "This function is called when the program really starts"
 

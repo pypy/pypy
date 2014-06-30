@@ -65,7 +65,7 @@ List of extension modules that we support:
     signal
     struct
     symbol
-    sys (without sys.dllhandle on windows)
+    sys
     termios
     thread
     time

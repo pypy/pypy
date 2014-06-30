@@ -108,6 +108,12 @@ class Module(MixedModule):
             # don't get the filesystemencoding at translation time
             assert self.filesystemencoding is None
 
+        else:
+            if _WIN:
+                from pypy.module.sys import vm
+                w_handle = vm.get_dllhandle(space)
+                space.setitem(self.w_dict, space.wrap("dllhandle"), w_handle)
+
     def getmodule(self, name):
         space = self.space
         w_modules = self.get('modules')
