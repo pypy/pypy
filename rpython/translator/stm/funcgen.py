@@ -62,7 +62,11 @@ def stm_write(funcgen, op):
     assert isinstance(op.args[0].concretetype, lltype.Ptr)
     assert op.args[0].concretetype.TO._gckind == 'gc'
     arg0 = funcgen.expr(op.args[0])
-    return 'stm_write((object_t *)%s);' % (arg0,)
+    if len(op.args) == 1:
+        return 'stm_write((object_t *)%s);' % (arg0,)
+    else:
+        arg1 = funcgen.expr(op.args[1])
+        return 'stm_write_card((object_t *)%s, %s);' % (arg0, arg1)
 
 def stm_can_move(funcgen, op):
     arg0 = funcgen.expr(op.args[0])

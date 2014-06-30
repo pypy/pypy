@@ -32,6 +32,16 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
             getfn(pypy_stmcb_trace, [llannotation.SomeAddress(),
                                      llannotation.SomePtr(GCClass.VISIT_FPTR)],
                   annmodel.s_None))
+        #
+        def pypy_stmcb_get_card_base_itemsize(obj, offset_itemsize):
+            gc.get_card_base_itemsize(obj, offset_itemsize)
+        pypy_stmcb_get_card_base_itemsize.c_name = (
+            "pypy_stmcb_get_card_base_itemsize")
+        self.autoregister_ptrs.append(
+            getfn(pypy_stmcb_get_card_base_itemsize,
+                  [llannotation.SomeAddress(),
+                   llannotation.SomePtr(rffi.CArrayPtr(lltype.Unsigned))],
+                  annmodel.s_None))
 
     def build_root_walker(self):
         return StmRootWalker(self)
@@ -87,6 +97,11 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                 if var_needsgc(hop.spaceop.args[-1]):
                     raise Exception("in stm_ignored block: write of a gc "
                                     "pointer")
+            elif self._set_into_gc_array_part(hop.spaceop) is not None:
+                self.write_barrier_from_array_calls += 1
+                v_index = self._set_into_gc_array_part(hop.spaceop)
+                assert v_index.concretetype == lltype.Signed
+                hop.genop("stm_write", [v_struct, v_index])
             else:
                 self.write_barrier_calls += 1
                 hop.genop("stm_write", [v_struct])

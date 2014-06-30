@@ -43,6 +43,14 @@ class StmGC(MovingGCBase):
     def get_type_id(self, obj):
         return llop.stm_addr_get_tid(llgroup.HALFWORD, obj)
 
+    def get_card_base_itemsize(self, obj, offset_itemsize):
+        typeid = self.get_type_id(obj)
+        assert self.is_varsize(typeid)
+        ofs = self.fixed_size(typeid)
+        isz = self.varsize_item_sizes(typeid)
+        offset_itemsize[0] = rffi.cast(lltype.Unsigned, ofs)
+        offset_itemsize[1] = rffi.cast(lltype.Unsigned, isz)
+
     def setup(self):
         # Hack: MovingGCBase.setup() sets up stuff related to id(), which
         # we implement differently anyway.  So directly call GCBase.setup().

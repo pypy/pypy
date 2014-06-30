@@ -451,6 +451,20 @@ class TestSTMTranslated(CompiledSTMTests):
         data = cbuilder.cmdexec('')
         assert 'did not crash 84\n' in data
 
+    def test_stm_write_card(self):
+        lst = [0] * 100
+        def main(argv):
+            lst[42] = 43
+            print 'did not crash', lst[42]
+            return 0
+
+        t, cbuilder = self.compile(main)
+        first_op = t.graphs[0].startblock.operations[0]
+        assert first_op.opnames ==  opnames[0] == 'stm_write'
+        assert first_op.args[1].value == 42
+        data = cbuilder.cmdexec('')
+        assert 'did not crash 43\n' in data
+
     def test_float_inf_nan_in_struct(self):
         mylist = [float("inf"), float("-inf"), float("nan")]
         def main(argv):
