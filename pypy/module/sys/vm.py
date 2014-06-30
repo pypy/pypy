@@ -247,7 +247,7 @@ def _get_dllhandle(space):
     # cdll = RawCDLL(handle)
     # return space.wrap(W_CDLL(space, "python api", cdll))
     # Provide a cpython-compatible int
-    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem import lltype, rffi
     return space.wrap(rffi.cast(lltype.Signed, handle))
 
 def getsizeof(space, w_object, w_default=None):
