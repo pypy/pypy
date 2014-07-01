@@ -15,7 +15,7 @@
 #endif
 
 
-#define NB_PAGES            (1500*256)    // 1500MB
+#define NB_PAGES            (2500*256)    // 2500MB
 #define NB_SEGMENTS         STM_NB_SEGMENTS
 #define NB_SEGMENTS_MAX     240    /* don't increase NB_SEGMENTS past this */
 #define MAP_PAGES_FLAGS     (MAP_SHARED | MAP_ANONYMOUS | MAP_NORESERVE)
