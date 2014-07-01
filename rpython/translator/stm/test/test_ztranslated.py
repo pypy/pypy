@@ -90,6 +90,7 @@ class TestSTMTranslated(CompiledSTMTests):
 
     def test_should_break_transaction(self):
         def entry_point(argv):
+            rstm.hint_commit_soon()
             print '<', int(rstm.should_break_transaction()), '>'
             return 0
         t, cbuilder = self.compile(entry_point)
@@ -213,7 +214,7 @@ class TestSTMTranslated(CompiledSTMTests):
         S = lltype.GcStruct('S', ('got_exception', OBJECTPTR))
         PS = lltype.Ptr(S)
         perform_transaction = rstm.make_perform_transaction(check, PS)
-        
+
         from rpython.rtyper.lltypesystem import lltype
         R = lltype.GcStruct('R', ('x', lltype.Signed))
         S1 = lltype.Struct('S1', ('r', lltype.Ptr(R)))
@@ -281,6 +282,11 @@ class TestSTMTranslated(CompiledSTMTests):
             Parent().xy = 0
             globf.xy = -2
             globf.yx = 'hi there %d' % len(argv)
+
+            # make sure perform_transaction breaks the transaction:
+            rstm.hint_commit_soon()
+            assert rstm.should_break_transaction()
+
             perform_transaction(lltype.nullptr(PS.TO))
             return 0
         t, cbuilder = self.compile(main)
@@ -378,6 +384,9 @@ class TestSTMTranslated(CompiledSTMTests):
         perform_transaction = rstm.make_perform_transaction(check, PS)
 
         def main(argv):
+            # make sure perform_transaction breaks the transaction:
+            rstm.hint_commit_soon()
+            assert rstm.should_break_transaction()
             perform_transaction(lltype.nullptr(PS.TO))
             return 0
 
@@ -589,8 +598,8 @@ class TestSTMTranslated(CompiledSTMTests):
                 'File "/tmp/foobaz.py", line 73, in bar\n'
                 'stopping bar\n') in data
         assert ('starting some_extremely_longish_and_boring_function_name\n'
-                'File "...bla/br/project/foobaz.py", line 81,'
-                ' in some_extremely_longish_a...\n') in data
+                'File "<bla/br/project/foobaz.py", line 81,'
+                ' in some_extremely_longish_a>\n') in data
 
     def test_pypy_marker_2(self):
         import time
@@ -619,6 +628,11 @@ class TestSTMTranslated(CompiledSTMTests):
             llop.stm_setup_expand_marker_for_pypy(
                 lltype.Void, pycode1,
                 "co_filename", "co_name", "co_firstlineno", "co_lnotab")
+
+            # make sure perform_transaction breaks the transaction:
+            rstm.hint_commit_soon()
+            assert rstm.should_break_transaction()
+
             perform_transaction(lltype.malloc(S))
             return 0
         #

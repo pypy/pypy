@@ -42,7 +42,8 @@ inline void stmcb_commit_soon()
         if (((long)pypy_stm_nursery_low_fill_mark_saved) > 0) {
             pypy_stm_nursery_low_fill_mark_saved = 0;
         }
-    } else if (((long)pypy_stm_nursery_low_fill_mark) > 0) {
+    } else {
+        /* if (((long)pypy_stm_nursery_low_fill_mark) > 0)  */
         /* if not set to unlimited by pypy_stm_setup() (s.b.) */
         pypy_stm_nursery_low_fill_mark = 0;
     }
