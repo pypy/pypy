@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.conftest import cdir
+from rpython.translator import cdir
 import py
 from rpython.rlib import jit, rgc
 from rpython.rlib.debug import ll_assert
@@ -59,7 +59,7 @@ c_thread_lock_dealloc_NOAUTO = llexternal('RPyOpaqueDealloc_ThreadLock',
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
                                   rffi.INT,
                                   releasegil=True)    # release the GIL
-c_thread_acquirelock_timed = llexternal('RPyThreadAcquireLockTimed', 
+c_thread_acquirelock_timed = llexternal('RPyThreadAcquireLockTimed',
                                         [TLOCKP, rffi.LONGLONG, rffi.INT],
                                         rffi.INT,
                                         releasegil=True)    # release the GIL
