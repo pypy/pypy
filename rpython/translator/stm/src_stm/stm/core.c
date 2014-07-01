@@ -68,6 +68,7 @@ static void write_slowpath_overflow_obj(object_t *obj, bool mark_card)
         /* Card marking.  Don't remove GCFLAG_WRITE_BARRIER because we
            need to come back to _stm_write_slowpath_card() for every
            card to mark.  Add GCFLAG_CARDS_SET. */
+        assert(!(obj->stm_flags & GCFLAG_CARDS_SET));
         obj->stm_flags |= GCFLAG_CARDS_SET;
         assert(STM_PSEGMENT->old_objects_with_cards);
         LIST_APPEND(STM_PSEGMENT->old_objects_with_cards, obj);
@@ -245,12 +246,13 @@ char _stm_write_slowpath_card_extra(object_t *obj)
     return mark_card;
 }
 
-char *_stm_write_slowpath_card_extra_base(void)
+long _stm_write_slowpath_card_extra_base(void)
 {
     /* for the PyPy JIT: _stm_write_slowpath_card_extra_base[obj >> 4]
        is the byte that must be set to CARD_MARKED.  The logic below
        does the same, but more explicitly. */
-    return (char *)write_locks - WRITELOCK_START + 1;
+    return (((long)write_locks) - WRITELOCK_START + 1)
+        + 0x4000000000000000L;   // <- workaround for a clang bug :-(
 }
 
 void _stm_write_slowpath_card(object_t *obj, uintptr_t index)
@@ -945,6 +947,24 @@ static void abort_data_structures_from_segment_num(int segment_num)
 
     /* throw away the content of the nursery */
     long bytes_in_nursery = throw_away_nursery(pseg);
+
+    /* modified_old_objects' cards get cleared in
+       reset_modified_from_other_segments. Objs in old_objs_with_cards but not
+       in modified_old_objs are overflow objects and handled here: */
+    if (pseg->large_overflow_objects != NULL) {
+        /* some overflow objects may have cards when aborting, clear them too */
+        LIST_FOREACH_R(pseg->large_overflow_objects, object_t * /*item*/,
+            {
+                struct object_s *realobj = (struct object_s *)
+                    REAL_ADDRESS(pseg->pub.segment_base, item);
+
+                if (realobj->stm_flags & GCFLAG_CARDS_SET) {
+                    /* CARDS_SET is enough since other HAS_CARDS objs
+                       are already cleared */
+                    _reset_object_cards(pseg, item, CARD_CLEAR, false);
+                }
+            });
+    }
 
     /* reset all the modified objects (incl. re-adding GCFLAG_WRITE_BARRIER) */
     reset_modified_from_other_segments(segment_num);

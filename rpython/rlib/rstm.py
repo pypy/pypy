@@ -28,7 +28,7 @@ adr_write_slowpath = CFlexSymbolic('((long)&_stm_write_slowpath)')
 adr_write_slowpath_card_extra = (
     CFlexSymbolic('((long)&_stm_write_slowpath_card_extra)'))
 adr__stm_write_slowpath_card_extra_base = (
-    CFlexSymbolic('((long)_stm_write_slowpath_card_extra_base())'))
+   CFlexSymbolic('(_stm_write_slowpath_card_extra_base()-0x4000000000000000L)'))
 CARD_MARKED = CFlexSymbolic('_STM_CARD_MARKED')
 CARD_SIZE   = CFlexSymbolic('_STM_CARD_SIZE')
 
