@@ -62,7 +62,7 @@ c_thread_lock_dealloc_NOAUTO = llexternal('RPyOpaqueDealloc_ThreadLock',
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
                                   rffi.INT,
                                   releasegil=True)    # release the GIL
-c_thread_acquirelock_timed = llexternal('RPyThreadAcquireLockTimed', 
+c_thread_acquirelock_timed = llexternal('RPyThreadAcquireLockTimed',
                                         [TLOCKP, rffi.LONGLONG, rffi.INT],
                                         rffi.INT,
                                         releasegil=True)    # release the GIL
@@ -97,9 +97,11 @@ def allocate_lock():
 
 @specialize.arg(0)
 def ll_start_new_thread(func):
-    if rgc.stm_is_enabled:
-        from rpython.rlib.rstm import register_invoke_around_extcall
+    if rgc.stm_is_enabled():
+        from rpython.rlib.rstm import (register_invoke_around_extcall,
+                                       set_transaction_length)
         register_invoke_around_extcall()
+        set_transaction_length(1.0)
     ident = c_thread_start(func)
     if ident == -1:
         raise error("can't start new thread")
