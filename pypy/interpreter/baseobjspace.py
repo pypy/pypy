@@ -967,6 +967,13 @@ class ObjSpace(object):
         """
         return self.unpackiterable(w_iterable, expected_length)
 
+    def listview_no_unpack(self, w_iterable):
+        """ Same as listview() if cheap.  If 'w_iterable' is something like
+        a generator, for example, then return None instead.
+        May return None anyway.
+        """
+        return None
+
     def listview_bytes(self, w_list):
         """ Return a list of unwrapped strings out of a list of strings. If the
         argument is not a list or does not contain only strings, return None.
