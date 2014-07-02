@@ -674,6 +674,10 @@ def make_array(mytype):
                 return rffi.cast(mytype.itemtype, item)
             #
             # "regular" case: it fits in an rpython integer (lltype.Signed)
+            # or it is a float
+            return self.item_from_int_or_float(item)
+
+        def item_from_int_or_float(self, item):
             result = rffi.cast(mytype.itemtype, item)
             if mytype.canoverflow:
                 if rffi.cast(lltype.Signed, result) != item:
@@ -686,8 +690,8 @@ def make_array(mytype):
                                % mytype.bytes)
                     if not mytype.signed:
                         msg = 'un' + msg      # 'signed' => 'unsigned'
-                    raise OperationError(space.w_OverflowError,
-                                         space.wrap(msg))
+                    raise OperationError(self.space.w_OverflowError,
+                                         self.space.wrap(msg))
             return result
 
         def __del__(self):
@@ -734,27 +738,32 @@ def make_array(mytype):
         def fromsequence(self, w_seq):
             space = self.space
             oldlen = self.len
+            newlen = oldlen
             try:
-                new = space.len_w(w_seq)
-                self.setlen(self.len + new)
-            except OperationError:
-                pass
-
-            i = 0
-            try:
-                if mytype.typecode == 'u':
-                    myiter = space.unpackiterable
+                # optimized case for arrays of integers or floats
+                if mytype.unwrap == 'int_w':
+                    lst = space.listview_int(w_seq)
+                elif mytype.unwrap == 'float_w':
+                    lst = space.listview_float(w_seq)
                 else:
-                    myiter = space.listview
-                for w_i in myiter(w_seq):
-                    if oldlen + i >= self.len:
-                        self.setlen(oldlen + i + 1)
-                    self.buffer[oldlen + i] = self.item_w(w_i)
-                    i += 1
-            except OperationError:
-                self.setlen(oldlen + i)
-                raise
-            self.setlen(oldlen + i)
+                    lst = None
+                if lst is not None:
+                    self.setlen(oldlen + len(lst))
+                    buf = self.buffer
+                    for num in lst:
+                        buf[newlen] = self.item_from_int_or_float(num)
+                        newlen += 1
+                    return
+                #
+                # this is the general case
+                lst_w = space.listview(w_seq)
+                self.setlen(oldlen + len(lst_w))
+                for w_num in lst_w:
+                    self.buffer[newlen] = self.item_w(w_num)
+                    newlen += 1
+            finally:
+                if self.len != newlen:
+                    self.setlen(newlen)
 
         def extend(self, w_iterable, accept_different_array=False):
             space = self.space
