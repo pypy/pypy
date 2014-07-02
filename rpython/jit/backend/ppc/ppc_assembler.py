@@ -9,7 +9,8 @@ from rpython.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                           FPR_SAVE_AREA, NONVOLATILES_FLOAT,
                                           FLOAT_INT_CONVERSION, FORCE_INDEX,
                                           SIZE_LOAD_IMM_PATCH_SP,
-                                          FORCE_INDEX_OFS, LR_BC_OFFSET)
+                                          FORCE_INDEX_OFS, LR_BC_OFFSET,
+                                          JITFRAME_FIXED_SIZE)
 from rpython.jit.backend.ppc.helper.assembler import Saved_Volatiles
 from rpython.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import rpython.jit.backend.ppc.register as r
@@ -783,6 +784,10 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             operations = newoperations
         return operations
 
+    def update_frame_depth(self, frame_depth):
+        baseofs = self.cpu.get_baseofs_of_frame_field()
+        self.current_clt.frame_info.update_frame_depth(baseofs, frame_depth)
+
     def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         clt.allgcrefs = []
@@ -813,11 +818,11 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         frame_info = self.datablockwrapper.malloc_aligned(jitframe.JITFRAMEINFO_SIZE,
                                                           alignment=WORD)
         clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
-        clt.allgcreafs = []
-        clt.frame_info.clear()
 
         direct_bootstrap_code = self.mc.currpos()
         frame_depth = self.compute_frame_depth(spilling_area, param_depth)
+        frame_depth += JITFRAME_FIXED_SIZE
+        self.update_frame_depth(frame_depth)
         self.gen_bootstrap_code(start_pos, frame_depth)
 
         self.write_pending_failure_recoveries()
