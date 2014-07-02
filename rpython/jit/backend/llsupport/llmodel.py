@@ -180,7 +180,7 @@ class AbstractLLCPU(AbstractCPU):
         STACK_CHECK_SLOWPATH = lltype.Ptr(lltype.FuncType([lltype.Signed],
                                                           lltype.Void))
         def insert_stack_check():
-            assert not self.cpu.gc_ll_descr.stm
+            assert not self.gc_ll_descr.stm
             endaddr = rstack._stack_get_end_adr()
             lengthaddr = rstack._stack_get_length_adr()
             f = llhelper(STACK_CHECK_SLOWPATH, rstack.stack_check_slowpath)

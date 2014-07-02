@@ -126,13 +126,12 @@ class CallBuilderX86(AbstractCallBuilder):
             self.asm.set_extra_stack_depth(self.mc, -delta * WORD)
             css_value = eax
         #
-        self.mc.MOV(heap(fastgil), css_value)
+        self.mc.MOV(heap(self.asm.SEGMENT_NO, fastgil), css_value)
         #
         if not we_are_translated():        # for testing: we should not access
             self.mc.ADD(ebp, imm(1))       # ebp any more; and ignore 'fastgil'
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
-        from rpython.jit.backend.x86.assembler import heap
         from rpython.jit.backend.x86 import rx86
         #
         # check if we need to call the reacqgil() function or not
@@ -161,10 +160,11 @@ class CallBuilderX86(AbstractCallBuilder):
         #
         mc.MOV(old_value, imm(1))
         if rx86.fits_in_32bits(fastgil):
-            mc.XCHG_rj(old_value.value, fastgil)
+            mc.XCHG_rj(old_value.value, (self.asm.SEGMENT_NO, fastgil))
         else:
             mc.MOV_ri(X86_64_SCRATCH_REG.value, fastgil)
-            mc.XCHG_rm(old_value.value, (X86_64_SCRATCH_REG.value, 0))
+            mc.XCHG_rm(old_value.value,
+                       (self.asm.SEGMENT_NO, X86_64_SCRATCH_REG.value, 0))
         mc.CMP(old_value, css_value)
         mc.J_il8(rx86.Conditions['E'], 0)
         je_location = mc.get_relative_pos()
