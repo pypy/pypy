@@ -2,12 +2,12 @@ import types
 
 from rpython.annotator import model as annmodel, description
 from rpython.flowspace.model import Constant
+from rpython.annotator.argument import simple_args
 from rpython.rtyper import rclass, callparse
-from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.lltypesystem.lltype import typeOf, Void, Bool
+from rpython.rtyper.lltypesystem.lltype import typeOf, Void
 from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
-    inputdesc, warning, impossible_repr)
+    warning, impossible_repr)
 from rpython.tool.pairtype import pair, pairtype
 
 
@@ -21,11 +21,8 @@ def small_cand(rtyper, s_pbc):
 
 class __extend__(annmodel.SomePBC):
     def rtyper_makerepr(self, rtyper):
-        from rpython.rtyper.lltypesystem.rpbc import (FunctionsPBCRepr,
-            SmallFunctionSetPBCRepr, ClassesPBCRepr, MethodsPBCRepr,
-            MethodOfFrozenPBCRepr)
-        if self.isNone():
-            return none_frozen_pbc_repr
+        from rpython.rtyper.lltypesystem.rpbc import (
+            FunctionsPBCRepr, SmallFunctionSetPBCRepr, ClassesPBCRepr)
         kind = self.getKind()
         if issubclass(kind, description.FunctionDesc):
             sample = self.any_description()
@@ -290,7 +287,7 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         bk = self.rtyper.annotator.bookkeeper
         descs = list(s_pbc.descriptions)
         vfcs = description.FunctionDesc.variant_for_call_site
-        args = bk.build_args("simple_call", args_s)
+        args = simple_args(args_s)
         shape, index = vfcs(bk, self.callfamily, descs, args, op)
         funcdesc, = descs
         row_of_one_graph = self.callfamily.calltables[shape][index]
@@ -299,14 +296,14 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         return inputconst(typeOf(llfn), llfn)
 
     def rtype_simple_call(self, hop):
-        return self.call('simple_call', hop)
+        return self.call(hop)
 
     def rtype_call_args(self, hop):
-        return self.call('call_args', hop)
+        return self.call(hop)
 
-    def call(self, opname, hop):
+    def call(self, hop):
         bk = self.rtyper.annotator.bookkeeper
-        args = bk.build_args(opname, hop.args_s[1:])
+        args = hop.spaceop.build_args(hop.args_s[1:])
         s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
         descs = list(s_pbc.descriptions)
         vfcs = description.FunctionDesc.variant_for_call_site
@@ -316,7 +313,7 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         vfn = hop.inputarg(self, arg=0)
         vlist = [self.convert_to_concrete_llfn(vfn, shape, index,
                                                hop.llops)]
-        vlist += callparse.callparse(self.rtyper, anygraph, hop, opname)
+        vlist += callparse.callparse(self.rtyper, anygraph, hop)
         rresult = callparse.getrresult(self.rtyper, anygraph)
         hop.exception_is_here()
         if isinstance(vlist[0], Constant):
@@ -498,7 +495,9 @@ class __extend__(pairtype(SingleFrozenPBCRepr, AbstractMultipleFrozenPBCRepr)):
         frozendesc1 = r_pbc1.frozendesc
         access = frozendesc1.queryattrfamily()
         if access is r_pbc2.access_set:
-            return inputdesc(r_pbc2, frozendesc1)
+            value = r_pbc2.convert_desc(frozendesc1)
+            lltype = r_pbc2.lowleveltype
+            return Constant(value, lltype)
         return NotImplemented
 
 class __extend__(pairtype(AbstractMultipleUnrelatedFrozenPBCRepr,
@@ -582,56 +581,6 @@ class __extend__(pairtype(MethodOfFrozenPBCRepr, MethodOfFrozenPBCRepr)):
 
     def convert_from_to((r_from, r_to), v, llops):
         return pair(r_from.r_im_self, r_to.r_im_self).convert_from_to(v, llops)
-
-# __ None ____________________________________________________
-class NoneFrozenPBCRepr(Repr):
-    lowleveltype = Void
-
-    def rtype_bool(self, hop):
-        return Constant(False, Bool)
-
-    def none_call(self, hop):
-        raise TyperError("attempt to call constant None")
-
-    def ll_str(self, none):
-        return llstr("None")
-
-    def get_ll_eq_function(self):
-        return None
-
-    def get_ll_hash_function(self):
-        return ll_none_hash
-
-    rtype_simple_call = none_call
-    rtype_call_args = none_call
-
-none_frozen_pbc_repr = NoneFrozenPBCRepr()
-
-def ll_none_hash(_):
-    return 0
-
-
-class __extend__(pairtype(Repr, NoneFrozenPBCRepr)):
-
-    def convert_from_to((r_from, _), v, llops):
-        return inputconst(Void, None)
-
-    def rtype_is_((robj1, rnone2), hop):
-        from rpython.rtyper.lltypesystem.rpbc import rtype_is_None
-        if hop.s_result.is_constant():
-            return hop.inputconst(Bool, hop.s_result.const)
-        return rtype_is_None(robj1, rnone2, hop)
-
-class __extend__(pairtype(NoneFrozenPBCRepr, Repr)):
-
-    def convert_from_to((_, r_to), v, llops):
-        return inputconst(r_to, None)
-
-    def rtype_is_((rnone1, robj2), hop):
-        from rpython.rtyper.lltypesystem.rpbc import rtype_is_None
-        if hop.s_result.is_constant():
-            return hop.inputconst(Bool, hop.s_result.const)
-        return rtype_is_None(robj2, rnone1, hop, pos=1)
 
 # ____________________________________________________________
 
@@ -799,7 +748,7 @@ def adjust_shape(hop2, s_shape):
     s_shape = hop2.rtyper.annotator.bookkeeper.immutablevalue(new_shape)
     hop2.v_s_insertfirstarg(c_shape, s_shape) # reinsert adjusted shape
 
-class AbstractMethodsPBCRepr(Repr):
+class MethodsPBCRepr(Repr):
     """Representation selected for a PBC of MethodDescs.
     It assumes that all the methods come from the same name and have
     been read from instances with a common base."""
@@ -807,9 +756,6 @@ class AbstractMethodsPBCRepr(Repr):
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
         self.s_pbc = s_pbc
-        if s_pbc.isNone():
-            raise TyperError("unsupported: variable of type "
-                             "bound-method-object or None")
         mdescs = list(s_pbc.descriptions)
         methodname = mdescs[0].name
         classdef = mdescs[0].selfclassdef
@@ -862,6 +808,42 @@ class AbstractMethodsPBCRepr(Repr):
             _, s_shape = hop2.r_s_popfirstarg()
             adjust_shape(hop2, s_shape)
         return hop2
+
+    def rtype_simple_call(self, hop):
+        return self.redispatch_call(hop, call_args=False)
+
+    def rtype_call_args(self, hop):
+        return self.redispatch_call(hop, call_args=True)
+
+    def redispatch_call(self, hop, call_args):
+        from rpython.rtyper.lltypesystem.rpbc import (
+            FunctionsPBCRepr, SmallFunctionSetPBCRepr)
+        r_class = self.r_im_self.rclass
+        mangled_name, r_func = r_class.clsfields[self.methodname]
+        assert isinstance(r_func, (FunctionsPBCRepr,
+                                   OverriddenFunctionPBCRepr,
+                                   SmallFunctionSetPBCRepr))
+        # s_func = r_func.s_pbc -- not precise enough, see
+        # test_precise_method_call_1.  Build a more precise one...
+        funcdescs = [desc.funcdesc for desc in hop.args_s[0].descriptions]
+        s_func = annmodel.SomePBC(funcdescs, subset_of=r_func.s_pbc)
+        v_im_self = hop.inputarg(self, arg=0)
+        v_cls = self.r_im_self.getfield(v_im_self, '__class__', hop.llops)
+        v_func = r_class.getclsfield(v_cls, self.methodname, hop.llops)
+
+        hop2 = self.add_instance_arg_to_hop(hop, call_args)
+        hop2.v_s_insertfirstarg(v_func, s_func)   # insert 'function'
+
+        if (type(hop2.args_r[0]) is SmallFunctionSetPBCRepr and
+                type(r_func) is FunctionsPBCRepr):
+            hop2.args_r[0] = FunctionsPBCRepr(self.rtyper, s_func)
+        else:
+            hop2.args_v[0] = hop2.llops.convertvar(
+                hop2.args_v[0], r_func, hop2.args_r[0])
+
+        # now hop2 looks like simple_call(function, self, args...)
+        return hop2.dispatch()
+
 # ____________________________________________________________
 
 def samesig(funcs):

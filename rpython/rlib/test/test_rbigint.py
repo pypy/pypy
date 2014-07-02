@@ -12,6 +12,7 @@ from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError)
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
+from rpython.translator.c.test.test_standalone import StandaloneTests
 
 
 class TestRLong(object):
@@ -849,3 +850,17 @@ class TestTranslatable(object):
         py.test.raises(InvalidSignednessError, i.tobytes, 3, 'little', signed=False)
         py.test.raises(OverflowError, i.tobytes, 2, 'little', signed=True)
 
+
+class TestTranslated(StandaloneTests):
+
+    def test_gcc_4_9(self):
+        MIN = -sys.maxint-1
+
+        def entry_point(argv):
+            print rbigint.fromint(MIN+1)._digits
+            print rbigint.fromint(MIN)._digits
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        data = cbuilder.cmdexec('hi there')
+        assert data == '[%d]\n[0, 1]\n' % sys.maxint

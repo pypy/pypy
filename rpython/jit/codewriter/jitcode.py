@@ -117,6 +117,26 @@ class SwitchDictDescr(AbstractDescr):
         raise NotImplementedError
 
 
+class ThreadLocalRefDescr(AbstractDescr):
+    # A special descr used as the extradescr in a call to a
+    # threadlocalref_get function.  If the backend supports it,
+    # it can use this 'get_tlref_addr()' to get the address *in the
+    # current thread* of the thread-local variable.  If, on the current
+    # platform, the "__thread" variables are implemented as an offset
+    # from some base register (e.g. %fs on x86-64), then the backend will
+    # immediately substract the current value of the base register.
+    # This gives an offset from the base register, and this can be
+    # written down in an assembler instruction to load the "__thread"
+    # variable from anywhere.
+
+    def __init__(self, opaque_id):
+        from rpython.rtyper.lltypesystem.lloperation import llop
+        from rpython.rtyper.lltypesystem import llmemory
+        def get_tlref_addr():
+            return llop.threadlocalref_getaddr(llmemory.Address, opaque_id)
+        self.get_tlref_addr = get_tlref_addr
+
+
 class LiveVarsInfo(object):
     def __init__(self, live_i, live_r, live_f):
         self.live_i = live_i

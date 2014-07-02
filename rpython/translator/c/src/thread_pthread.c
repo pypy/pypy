@@ -332,6 +332,9 @@ void RPyThreadAfterFork(void)
 		p->locked = was_locked;
 		p = next;
 	}
+    /* Also reinitialize the 'mutex_gil' mutexes, and resets the
+       number of other waiting threads to zero. */
+    RPyGilAllocate();
 }
 
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock)
@@ -472,118 +475,89 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 /* GIL code                                                 */
 /************************************************************/
 
-#ifdef __llvm__
-#  define HAS_ATOMIC_ADD
-#endif
-
-#ifdef __GNUC__
-#  if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)
-#    define HAS_ATOMIC_ADD
-#  endif
-#endif
-
-#ifdef HAS_ATOMIC_ADD
-#  define atomic_add __sync_fetch_and_add
-#else
-#  if defined(__amd64__)
-#    define atomic_add(ptr, value)  asm volatile ("lock addq %0, %1"        \
-                                 : : "ri"(value), "m"(*(ptr)) : "memory")
-#  elif defined(__i386__)
-#    define atomic_add(ptr, value)  asm volatile ("lock addl %0, %1"        \
-                                 : : "ri"(value), "m"(*(ptr)) : "memory")
-#  else
-#    error "Please use gcc >= 4.1 or write a custom 'asm' for your CPU."
-#  endif
-#endif
+#include <time.h>
 
 #define ASSERT_STATUS(call)                             \
     if (call != 0) {                                    \
-        fprintf(stderr, "Fatal error: " #call "\n");    \
+        perror("Fatal error: " #call);                  \
         abort();                                        \
     }
 
-static void _debug_print(const char *msg)
+static inline void timespec_delay(struct timespec *t, double incr)
 {
-#if 0
-    int col = (int)pthread_self();
-    col = 31 + ((col / 8) % 8);
-    fprintf(stderr, "\033[%dm%s\033[0m", col, msg);
+#ifdef CLOCK_REALTIME
+    clock_gettime(CLOCK_REALTIME, t);
+#else
+    struct timeval tv;
+    RPY_GETTIMEOFDAY(&tv);
+    t->tv_sec = tv.tv_sec;
+    t->tv_nsec = tv.tv_usec * 1000 + 999;
 #endif
-}
-
-static volatile long pending_acquires = -1;
-static pthread_mutex_t mutex_gil;
-static pthread_cond_t cond_gil;
-
-static void assert_has_the_gil(void)
-{
-#ifdef RPY_ASSERT
-    assert(pthread_mutex_trylock(&mutex_gil) != 0);
-    assert(pending_acquires >= 0);
-#endif
-}
-
-long RPyGilAllocate(void)
-{
-    int status, error = 0;
-    _debug_print("RPyGilAllocate\n");
-    pending_acquires = -1;
-
-    status = pthread_mutex_init(&mutex_gil,
-                                pthread_mutexattr_default);
-    CHECK_STATUS("pthread_mutex_init[GIL]");
-
-    status = pthread_cond_init(&cond_gil,
-                               pthread_condattr_default);
-    CHECK_STATUS("pthread_cond_init[GIL]");
-
-    if (error == 0) {
-        pending_acquires = 0;
-        RPyGilAcquire();
+    /* assumes that "incr" is not too large, less than 1 second */
+    long nsec = t->tv_nsec + (long)(incr * 1000000000.0);
+    if (nsec >= 1000000000) {
+        t->tv_sec += 1;
+        nsec -= 1000000000;
+        assert(nsec < 1000000000);
     }
-    return (error == 0);
+    t->tv_nsec = nsec;
 }
 
-long RPyGilYieldThread(void)
-{
-    /* can be called even before RPyGilAllocate(), but in this case,
-       pending_acquires will be -1 */
-#ifdef RPY_ASSERT
-    if (pending_acquires >= 0)
-        assert_has_the_gil();
-#endif
-    if (pending_acquires <= 0)
-        return 0;
-    atomic_add(&pending_acquires, 1L);
-    _debug_print("{");
-    ASSERT_STATUS(pthread_cond_signal(&cond_gil));
-    ASSERT_STATUS(pthread_cond_wait(&cond_gil, &mutex_gil));
-    _debug_print("}");
-    atomic_add(&pending_acquires, -1L);
-    assert_has_the_gil();
-    return 1;
+typedef pthread_mutex_t mutex1_t;
+
+static inline void mutex1_init(mutex1_t *mutex) {
+    ASSERT_STATUS(pthread_mutex_init(mutex, pthread_mutexattr_default));
+}
+static inline void mutex1_lock(mutex1_t *mutex) {
+    ASSERT_STATUS(pthread_mutex_lock(mutex));
+}
+static inline void mutex1_unlock(mutex1_t *mutex) {
+    ASSERT_STATUS(pthread_mutex_unlock(mutex));
 }
 
-void RPyGilRelease(void)
-{
-    _debug_print("RPyGilRelease\n");
-#ifdef RPY_ASSERT
-    assert(pending_acquires >= 0);
-#endif
-    assert_has_the_gil();
-    ASSERT_STATUS(pthread_mutex_unlock(&mutex_gil));
-    ASSERT_STATUS(pthread_cond_signal(&cond_gil));
+typedef struct {
+    char locked;
+    pthread_mutex_t mut;
+    pthread_cond_t cond;
+} mutex2_t;
+
+static inline void mutex2_init_locked(mutex2_t *mutex) {
+    mutex->locked = 1;
+    ASSERT_STATUS(pthread_mutex_init(&mutex->mut, pthread_mutexattr_default));
+    ASSERT_STATUS(pthread_cond_init(&mutex->cond, pthread_condattr_default));
+}
+static inline void mutex2_unlock(mutex2_t *mutex) {
+    ASSERT_STATUS(pthread_mutex_lock(&mutex->mut));
+    mutex->locked = 0;
+    ASSERT_STATUS(pthread_mutex_unlock(&mutex->mut));
+    ASSERT_STATUS(pthread_cond_signal(&mutex->cond));
+}
+static inline void mutex2_loop_start(mutex2_t *mutex) {
+    ASSERT_STATUS(pthread_mutex_lock(&mutex->mut));
+}
+static inline void mutex2_loop_stop(mutex2_t *mutex) {
+    ASSERT_STATUS(pthread_mutex_unlock(&mutex->mut));
+}
+static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay) {
+    if (mutex->locked) {
+        struct timespec t;
+        timespec_delay(&t, delay);
+        int error_from_timedwait = pthread_cond_timedwait(
+                                       &mutex->cond, &mutex->mut, &t);
+        if (error_from_timedwait != ETIMEDOUT) {
+            ASSERT_STATUS(error_from_timedwait);
+        }
+    }
+    int result = !mutex->locked;
+    mutex->locked = 1;
+    return result;
 }
 
-void RPyGilAcquire(void)
-{
-    _debug_print("about to RPyGilAcquire...\n");
-#ifdef RPY_ASSERT
-    assert(pending_acquires >= 0);
-#endif
-    atomic_add(&pending_acquires, 1L);
-    ASSERT_STATUS(pthread_mutex_lock(&mutex_gil));
-    atomic_add(&pending_acquires, -1L);
-    assert_has_the_gil();
-    _debug_print("RPyGilAcquire\n");
-}
+#define lock_test_and_set(ptr, value)  __sync_lock_test_and_set(ptr, value)
+#define atomic_increment(ptr)          __sync_fetch_and_add(ptr, 1)
+#define atomic_decrement(ptr)          __sync_fetch_and_sub(ptr, 1)
+
+#define SAVE_ERRNO()      int saved_errno = errno
+#define RESTORE_ERRNO()   errno = saved_errno
+
+#include "src/thread_gil.c"

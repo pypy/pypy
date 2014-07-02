@@ -794,13 +794,18 @@ for targetname, specialname, checkerspec in [
     l = ["space.isinstance_w(w_result, %s)" % x
                 for x in checkerspec]
     checker = " or ".join(l)
+    if targetname == 'index':
+        msg = "'%%T' object cannot be interpreted as an index"
+    else:
+        msg = "unsupported operand type for %(targetname)s(): '%%T'"
+    msg = msg % locals()
     source = """if 1:
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:
                 raise oefmt(space.w_TypeError,
-                            "unsupported operand type for %(targetname)s(): "
-                            "'%%T'", w_obj)
+                            %(msg)r,
+                            w_obj)
             w_result = space.get_and_call_function(w_impl, w_obj)
 
             if %(checker)s:

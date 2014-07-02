@@ -946,6 +946,15 @@ class TestRlist(BaseRtypingTest):
         for arg in (1, 9, 0, -1, -27):
             res = self.interpret(fn, [arg])
             assert res == fn(arg)
+        def fn(i):
+            lst =  i * [i, i + 1]
+            ret = len(lst)
+            if ret:
+                ret *= lst[-1]
+            return ret
+        for arg in (1, 9, 0, -1, -27):
+            res = self.interpret(fn, [arg])
+            assert res == fn(arg)
 
     def test_list_inplace_multiply(self):
         def fn(i):

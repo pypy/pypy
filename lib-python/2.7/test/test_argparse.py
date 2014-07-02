@@ -48,6 +48,9 @@ class TempDirMixin(object):
 
     def tearDown(self):
         os.chdir(self.old_dir)
+        import gc
+        # Force a collection which should close FileType() options
+        gc.collect()
         for root, dirs, files in os.walk(self.temp_dir, topdown=False):
             for name in files:
                 os.chmod(os.path.join(self.temp_dir, name), stat.S_IWRITE)

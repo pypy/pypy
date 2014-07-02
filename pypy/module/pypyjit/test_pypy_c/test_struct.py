@@ -1,4 +1,16 @@
+import sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
+
+
+if sys.maxsize == 2 ** 63 - 1:
+    extra = """
+        i8 = int_ge(i4, -2147483648)
+        guard_true(i8, descr=...)
+        i9 = int_le(i4, 2147483647)
+        guard_true(i9, descr=...)
+    """
+else:
+    extra = ""
 
 
 class TestStruct(BaseTestPyPyC):
@@ -20,10 +32,7 @@ class TestStruct(BaseTestPyPyC):
         assert loop.match_by_id("struct", """
             guard_not_invalidated(descr=...)
             # struct.pack
-            i8 = int_ge(i4, -2147483648)
-            guard_true(i8, descr=...)
-            i9 = int_le(i4, 2147483647)
-            guard_true(i9, descr=...)
+            %s
             i11 = int_and(i4, 255)
             i13 = int_rshift(i4, 8)
             i14 = int_and(i13, 255)
@@ -41,7 +50,7 @@ class TestStruct(BaseTestPyPyC):
             guard_false(i28, descr=...)
             i30 = int_lshift(i20, 24)
             i31 = int_or(i26, i30)
-        """)
+        """ % extra)
 
     def test_struct_object(self):
         def main(n):
@@ -60,10 +69,7 @@ class TestStruct(BaseTestPyPyC):
         assert loop.match_by_id('struct', """
             guard_not_invalidated(descr=...)
             # struct.pack
-            i8 = int_ge(i4, -2147483648)
-            guard_true(i8, descr=...)
-            i9 = int_le(i4, 2147483647)
-            guard_true(i9, descr=...)
+            %s
             i11 = int_and(i4, 255)
             i13 = int_rshift(i4, 8)
             i14 = int_and(i13, 255)
@@ -81,4 +87,4 @@ class TestStruct(BaseTestPyPyC):
             guard_false(i28, descr=...)
             i30 = int_lshift(i20, 24)
             i31 = int_or(i26, i30)
-        """)
+        """ % extra)

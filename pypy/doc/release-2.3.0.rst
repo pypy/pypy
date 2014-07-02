@@ -1,5 +1,5 @@
 =======================================
-PyPy 2.3 - Easier Than Ever
+PyPy 2.3 - Terrestrial Arthropod Trap
 =======================================
 
 We're pleased to announce PyPy 2.3, which targets version 2.7.6 of the Python
@@ -93,7 +93,7 @@ for more information see `whats-new`_:
 * Fix handling of tp_name for type objects
 
 .. _`HippyVM`: http://www.hippyvm.com
-.. _`whats-new`: :http://doc.pypy.org/en/latest/whatsnew-2.3.0.html
+.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.3.0.html
 
 
 New Platforms and Features

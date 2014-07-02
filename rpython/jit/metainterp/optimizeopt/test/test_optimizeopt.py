@@ -3339,6 +3339,21 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_fold_int_sub_ovf_xx(self):
+        ops = """
+        [i0]
+        i1 = int_sub_ovf(i0, i0)
+        guard_no_overflow() []
+        escape(i1)
+        jump(i1)
+        """
+        expected = """
+        []
+        escape(0)
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
     def test_fold_partially_constant_shift(self):
         ops = """
         [i0]

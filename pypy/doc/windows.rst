@@ -10,8 +10,14 @@ PyPy supports only being translated as a 32bit program, even on
 64bit Windows.  See at the end of this page for what is missing
 for a full 64bit translation.
 
-To build pypy-c you need a C compiler.  Microsoft Visual Studio is
-preferred, but can also use the mingw32 port of gcc.
+To build pypy-c you need a working python environment, and a C compiler.
+It is possible to translate with a CPython 2.6 or later, but this is not
+the preferred way, because it will take a lot longer to run – depending
+on your architecture, between two and three times as long. So head to 
+`our downloads`_ and get the latest stable version.
+
+Microsoft Visual Studio is preferred as a compiler, but there are reports 
+of success with the mingw32 port of gcc.
 
 
 Translating PyPy with Visual Studio
@@ -34,9 +40,19 @@ Multi-threaded DLL (/MD) runtime environment.
 **Note:** PyPy is currently not supported for 64 bit Windows, and translation
 will fail in this case.
 
-The compiler is all you need to build pypy-c, but it will miss some
+Python and a C compiler are all you need to build pypy, but it will miss some
 modules that relies on third-party libraries.  See below how to get
 and build them.
+
+Please see the `non-windows instructions`_ for more information, especially note
+that translation is RAM-hungry. A standard translation requires around 4GB, so
+special preparations are necessary, or you may want to use the method in the
+notes of the `build instructions`_ to reduce memory usage at the price of a
+slower translation::
+
+    set PYPY_GC_MAX_DELTA=200MB
+    pypy --jit loop_longevity=300 ../../rpython/bin/rpython -Ojit targetpypystandalone
+    set PYPY_GC_MAX_DELTA=
 
 Preping Windows for the Large Build
 -----------------------------------
@@ -52,9 +68,10 @@ Windows 64bit.
 
 Then you need to execute::
 
-    editbin /largeaddressaware pypy.exe
+    editbin /largeaddressaware translator.exe
 
-on the pypy.exe file you compiled.
+where ``translator.exe`` is the pypy.exe or cpython.exe you will use to 
+translate with. 
 
 Installing external packages
 ----------------------------
@@ -244,7 +261,9 @@ environment variable CC to the compliter exe, testing will use it.
 .. _`msys for mingw`: http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29   
 .. _`libffi source files`: http://sourceware.org/libffi/
 .. _`RPython translation toolchain`: translation.html
-
+.. _`our downloads`: http://pypy.org/download.html   
+.. _`non-windows instructions`: getting-started-python.html#translating-the-pypy-python-interpreter
+.. _`build instructions`: http://pypy.org/download.html#building-from-source
 
 What is missing for a full 64-bit translation
 ---------------------------------------------

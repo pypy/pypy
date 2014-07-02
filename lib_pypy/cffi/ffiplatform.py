@@ -38,6 +38,7 @@ def _build(tmpdir, ext):
     import distutils.errors
     #
     dist = Distribution({'ext_modules': [ext]})
+    dist.parse_config_files()
     options = dist.get_option_dict('build_ext')
     options['force'] = ('ffiplatform', True)
     options['build_lib'] = ('ffiplatform', tmpdir)

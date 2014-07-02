@@ -1,4 +1,5 @@
 from rpython.rlib import rthread
+from rpython.rlib.objectmodel import we_are_translated
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.executioncontext import ExecutionContext
 
@@ -16,15 +17,17 @@ class BaseThreadLocals(object):
         pass
 
     def signals_enabled(self):
-        ec = self.getvalue()
-        return ec._signals_enabled
+        ec = self.get_ec()
+        return ec is not None and ec._signals_enabled
 
     def enable_signals(self, space):
-        ec = self.getvalue()
+        ec = self.get_ec()
+        assert ec is not None
         ec._signals_enabled += 1
 
     def disable_signals(self, space):
-        ec = self.getvalue()
+        ec = self.get_ec()
+        assert ec is not None
         new = ec._signals_enabled - 1
         if new < 0:
             raise wrap_thread_error(space,
@@ -39,82 +42,68 @@ class OSThreadLocals(BaseThreadLocals):
     os_thread.bootstrap()."""
 
     def __init__(self):
+        "NOT_RPYTHON"
         self._valuedict = {}   # {thread_ident: ExecutionContext()}
         self._cleanup_()
+        self.raw_thread_local = rthread.ThreadLocalReference(ExecutionContext)
 
     def _cleanup_(self):
         self._valuedict.clear()
-        self._clear_cache()
         self._mainthreadident = 0
 
-    def _clear_cache(self):
-        # Cache function: fast minicaching for the common case.  Relies
-        # on the GIL.
-        self._mostrecentkey = 0
-        self._mostrecentvalue = None
+    def enter_thread(self, space):
+        "Notification that the current thread is about to start running."
+        self._set_ec(space.createexecutioncontext())
 
-    def getvalue(self):
+    def try_enter_thread(self, space):
+        if rthread.get_ident() in self._valuedict:
+            return False
+        self.enter_thread(space)
+        return True
+
+    def _set_ec(self, ec):
         ident = rthread.get_ident()
-        if ident == self._mostrecentkey:
-            result = self._mostrecentvalue
-        else:
-            value = self._valuedict.get(ident, None)
-            # slow path: update the minicache
-            self._mostrecentkey = ident
-            self._mostrecentvalue = value
-            result = value
-        return result
-
-    def setvalue(self, value):
-        ident = rthread.get_ident()
-        if value is not None:
-            if self._mainthreadident == 0:
-                value._signals_enabled = 1    # the main thread is enabled
-                self._mainthreadident = ident
-            self._valuedict[ident] = value
-        else:
-            try:
-                del self._valuedict[ident]
-            except KeyError:
-                pass
-        # clear the minicache to prevent it from containing an outdated value
-        self._clear_cache()
-
-    def signals_enabled(self):
-        ec = self.getvalue()
-        return ec is not None and ec._signals_enabled
-
-    def enable_signals(self, space):
-        ec = self.getvalue()
-        ec._signals_enabled += 1
-
-    def disable_signals(self, space):
-        ec = self.getvalue()
-        new = ec._signals_enabled - 1
-        if new < 0:
-            raise wrap_thread_error(space,
-                "cannot disable signals in thread not enabled for signals")
-        ec._signals_enabled = new
-
-    def getallvalues(self):
-        return self._valuedict
+        if self._mainthreadident == 0 or self._mainthreadident == ident:
+            ec._signals_enabled = 1    # the main thread is enabled
+            self._mainthreadident = ident
+        self._valuedict[ident] = ec
+        # This logic relies on hacks and _make_sure_does_not_move().
+        # It only works because we keep the 'ec' alive in '_valuedict' too.
+        self.raw_thread_local.set(ec)
 
     def leave_thread(self, space):
         "Notification that the current thread is about to stop."
         from pypy.module.thread.os_local import thread_is_stopping
-        ec = self.getvalue()
+        ec = self.get_ec()
         if ec is not None:
             try:
                 thread_is_stopping(ec)
             finally:
-                self.setvalue(None)
+                self.raw_thread_local.set(None)
+                ident = rthread.get_ident()
+                try:
+                    del self._valuedict[ident]
+                except KeyError:
+                    pass
+
+    def get_ec(self):
+        ec = self.raw_thread_local.get()
+        if not we_are_translated():
+            assert ec is self._valuedict.get(rthread.get_ident(), None)
+        return ec
+
+    def getallvalues(self):
+        return self._valuedict
 
     def reinit_threads(self, space):
         "Called in the child process after a fork()"
         ident = rthread.get_ident()
-        ec = self.getvalue()
+        ec = self.get_ec()
+        assert ec is not None
+        old_sig = ec._signals_enabled
         if ident != self._mainthreadident:
-            ec._signals_enabled += 1
+            old_sig += 1
         self._cleanup_()
         self._mainthreadident = ident
-        self.setvalue(ec)
+        self._set_ec(ec)
+        ec._signals_enabled = old_sig

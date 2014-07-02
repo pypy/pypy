@@ -177,7 +177,7 @@ class rbigint(object):
 
         if intval < 0:
             sign = -1
-            ival = r_uint(-intval)
+            ival = -r_uint(intval)
         elif intval > 0:
             sign = 1
             ival = r_uint(intval)

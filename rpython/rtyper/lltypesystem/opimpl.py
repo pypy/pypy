@@ -179,6 +179,12 @@ def op_direct_arrayitems(obj):
 def op_direct_ptradd(obj, index):
     checkptr(obj)
     assert is_valid_int(index)
+    if not obj:
+        raise AssertionError("direct_ptradd on null pointer")
+        ## assert isinstance(index, int)
+        ## assert not (0 <= index < 4096)
+        ## from rpython.rtyper.lltypesystem import rffi
+        ## return rffi.cast(lltype.typeOf(obj), index)
     return lltype.direct_ptradd(obj, index)
 
 

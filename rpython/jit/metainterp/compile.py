@@ -626,6 +626,11 @@ class ResumeGuardDescr(ResumeDescr):
             result = result and not metainterp_sd.cpu.guard_already_patched(self)
         return result
 
+    def get_index_of_guard_value(self):
+        if (self.status & self.ST_TYPE_MASK) == 0:
+            return -1
+        return intmask(self.status >> self.ST_SHIFT)
+
     def start_compiling(self):
         # start tracing and compiling from this guard.
         self.status |= self.ST_BUSY_FLAG
