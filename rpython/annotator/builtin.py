@@ -344,29 +344,6 @@ def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
 def robjmodel_keepalive_until_here(*args_s):
     return immutablevalue(None)
 
-@analyzer_for(rpython.rtyper.lltypesystem.llmemory.cast_ptr_to_adr)
-def llmemory_cast_ptr_to_adr(s):
-    from rpython.rtyper.llannotation import SomeInteriorPtr
-    assert not isinstance(s, SomeInteriorPtr)
-    return SomeAddress()
-
-@analyzer_for(rpython.rtyper.lltypesystem.llmemory.cast_adr_to_ptr)
-def llmemory_cast_adr_to_ptr(s, s_type):
-    assert s_type.is_constant()
-    return SomePtr(s_type.const)
-
-@analyzer_for(rpython.rtyper.lltypesystem.llmemory.cast_adr_to_int)
-def llmemory_cast_adr_to_int(s, s_mode=None):
-    return SomeInteger() # xxx
-
-@analyzer_for(rpython.rtyper.lltypesystem.llmemory.cast_adr_to_uint_symbolic)
-def llmemory_cast_adr_to_uint_symbolic(s):
-    return SomeInteger(unsigned=True)
-
-@analyzer_for(rpython.rtyper.lltypesystem.llmemory.cast_int_to_adr)
-def llmemory_cast_int_to_adr(s):
-    return SomeAddress()
-
 try:
     import unicodedata
 except ImportError:

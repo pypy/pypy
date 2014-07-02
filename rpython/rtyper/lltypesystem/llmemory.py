@@ -769,12 +769,16 @@ def cast_adr_to_int(adr, mode="emulated"):
         res = cast(lltype.Signed, res)
     return res
 
-def cast_adr_to_uint_symbolic(adr):
-    return adr._cast_to_uint()
-
 @analyzer_for(cast_adr_to_int)
 def ann_cast_adr_to_int(s, s_mode=None):
     return SomeInteger()  # xxx
+
+def cast_adr_to_uint_symbolic(adr):
+    return adr._cast_to_uint()
+
+@analyzer_for(cast_adr_to_uint_symbolic)
+def ann_cast_adr_to_uint_symbolic(s):
+    return SomeInteger(unsigned=True)
 
 
 _NONGCREF = lltype.Ptr(lltype.OpaqueType('NONGCREF'))
