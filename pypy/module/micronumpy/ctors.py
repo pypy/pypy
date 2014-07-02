@@ -91,13 +91,19 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     return w_arr
 
 
-def zeros(space, w_shape, w_dtype=None, w_order=None):
+def _zeros_or_empty(space, w_shape, w_dtype, w_order, zero):
     dtype = space.interp_w(descriptor.W_Dtype,
         space.call_function(space.gettypefor(descriptor.W_Dtype), w_dtype))
     if dtype.is_str_or_unicode() and dtype.elsize < 1:
         dtype = descriptor.variable_dtype(space, dtype.char + '1')
     shape = shape_converter(space, w_shape, dtype)
-    return W_NDimArray.from_shape(space, shape, dtype=dtype)
+    return W_NDimArray.from_shape(space, shape, dtype=dtype, zero=zero)
+
+def empty(space, w_shape, w_dtype=None, w_order=None):
+    return _zeros_or_empty(space, w_shape, w_dtype, w_order, zero=False)
+
+def zeros(space, w_shape, w_dtype=None, w_order=None):
+    return _zeros_or_empty(space, w_shape, w_dtype, w_order, zero=True)
 
 
 @unwrap_spec(subok=bool)
@@ -111,7 +117,8 @@ def empty_like(space, w_a, w_dtype=None, w_order=None, subok=True):
         if dtype.is_str_or_unicode() and dtype.elsize < 1:
             dtype = descriptor.variable_dtype(space, dtype.char + '1')
     return W_NDimArray.from_shape(space, w_a.get_shape(), dtype=dtype,
-                                  w_instance=w_a if subok else None)
+                                  w_instance=w_a if subok else None,
+                                  zero=False)
 
 
 def _fromstring_text(space, s, count, sep, length, dtype):

@@ -2,6 +2,20 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestNumSupport(BaseNumpyAppTest):
+    def test_zeros(self):
+        from numpypy import zeros, empty
+        a = zeros(3)
+        assert len(a) == 3
+        assert a[0] == a[1] == a[2] == 0
+        a = empty(1000)
+        assert len(a) == 1000
+        for i in range(1000):
+            if a[i] != 0:
+                break
+        else:
+            raise AssertionError(
+                "empty() returned a zeroed out array of length 1000 (unlikely)")
+
     def test_where(self):
         from numpypy import where, ones, zeros, array
         a = [1, 2, 3, 0, -3]
