@@ -153,33 +153,6 @@ class TestIncminimark(PinningGCTest):
         # ^^^ should not be possible, struct is already old and won't
         # move.
 
-    def test_groggi(self):
-        # Test if we handle the case that an old object can point
-        # to a pinned object and keeps the pinned object alive by
-        # that.
-        #
-        # create the young pinned object and attach it to the old object
-        pinned_ptr = self.malloc(S)
-        pinned_ptr.someInt = 6
-        assert self.gc.pin(llmemory.cast_ptr_to_adr(pinned_ptr))
-        #
-        # create the old object that will point to a pinned object
-        old_ptr = self.malloc(S)
-        old_ptr.someInt = 999
-        self.stackroots.append(old_ptr)
-        self.write(self.stackroots[0], 'next', pinned_ptr)
-        self.gc.collect()
-        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(self.stackroots[0]))
-        #
-        # let's check if everything stays in place before/after a collection
-        assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(pinned_ptr))
-        self.gc.collect()
-        assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(pinned_ptr))
-        #
-        self.stackroots[0].next.someInt = 100
-        self.gc.collect()
-        assert self.stackroots[0].next.someInt == 100
-
     def test_pin_malloc_pin(self):
         first_ptr = self.malloc(S)
         first_ptr.someInt = 101
