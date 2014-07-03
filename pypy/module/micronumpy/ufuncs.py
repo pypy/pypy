@@ -312,8 +312,8 @@ class W_Ufunc1(W_Ufunc):
             out = args_w[1]
             if space.is_w(out, space.w_None):
                 out = None
-        w_obj = convert_to_array(space, w_obj)
-        dtype = w_obj.get_dtype()
+        w_obj = numpify(space, w_obj)
+        dtype = _get_dtype(space, w_obj)
         if dtype.is_flexible():
             raise OperationError(space.w_TypeError,
                       space.wrap('Not implemented for this type'))
@@ -323,7 +323,7 @@ class W_Ufunc1(W_Ufunc):
             raise oefmt(space.w_TypeError,
                 "ufunc %s not supported for the input type", self.name)
         calc_dtype = find_unaryop_result_dtype(space,
-                                  w_obj.get_dtype(),
+                                  dtype,
                                   promote_to_float=self.promote_to_float,
                                   promote_bools=self.promote_bools)
         if out is not None:
@@ -353,6 +353,7 @@ class W_Ufunc1(W_Ufunc):
             else:
                 out.fill(space, w_val)
             return out
+        assert isinstance(w_obj, W_NDimArray)
         shape = shape_agreement(space, w_obj.get_shape(), out,
                                 broadcast_down=False)
         return loop.call1(space, shape, self.func, calc_dtype, res_dtype,
