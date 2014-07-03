@@ -479,12 +479,20 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 
 #define ASSERT_STATUS(call)                             \
     if (call != 0) {                                    \
-        fprintf(stderr, "Fatal error: " #call "\n");    \
+        perror("Fatal error: " #call);                  \
         abort();                                        \
     }
 
-static inline void timespec_add(struct timespec *t, double incr)
+static inline void timespec_delay(struct timespec *t, double incr)
 {
+#ifdef CLOCK_REALTIME
+    clock_gettime(CLOCK_REALTIME, t);
+#else
+    struct timeval tv;
+    RPY_GETTIMEOFDAY(&tv);
+    t->tv_sec = tv.tv_sec;
+    t->tv_nsec = tv.tv_usec * 1000 + 999;
+#endif
     /* assumes that "incr" is not too large, less than 1 second */
     long nsec = t->tv_nsec + (long)(incr * 1000000000.0);
     if (nsec >= 1000000000) {
@@ -495,27 +503,56 @@ static inline void timespec_add(struct timespec *t, double incr)
     t->tv_nsec = nsec;
 }
 
-typedef pthread_mutex_t mutex_t;
+typedef pthread_mutex_t mutex1_t;
 
-static inline void mutex_init(mutex_t *mutex) {
+static inline void mutex1_init(mutex1_t *mutex) {
     ASSERT_STATUS(pthread_mutex_init(mutex, pthread_mutexattr_default));
 }
-static inline void mutex_lock(mutex_t *mutex) {
+static inline void mutex1_lock(mutex1_t *mutex) {
     ASSERT_STATUS(pthread_mutex_lock(mutex));
 }
-static inline void mutex_unlock(mutex_t *mutex) {
+static inline void mutex1_unlock(mutex1_t *mutex) {
     ASSERT_STATUS(pthread_mutex_unlock(mutex));
 }
-static inline int mutex_lock_timeout(mutex_t *mutex, double delay) {
-    struct timespec t;
-    clock_gettime(CLOCK_REALTIME, &t);
-    timespec_add(&t, delay);
-    int error_from_timedlock = pthread_mutex_timedlock(mutex, &t);
-    if (error_from_timedlock == ETIMEDOUT)
-        return 0;
-    ASSERT_STATUS(error_from_timedlock);
-    return 1;
+
+typedef struct {
+    char locked;
+    pthread_mutex_t mut;
+    pthread_cond_t cond;
+} mutex2_t;
+
+static inline void mutex2_init_locked(mutex2_t *mutex) {
+    mutex->locked = 1;
+    ASSERT_STATUS(pthread_mutex_init(&mutex->mut, pthread_mutexattr_default));
+    ASSERT_STATUS(pthread_cond_init(&mutex->cond, pthread_condattr_default));
 }
+static inline void mutex2_unlock(mutex2_t *mutex) {
+    ASSERT_STATUS(pthread_mutex_lock(&mutex->mut));
+    mutex->locked = 0;
+    ASSERT_STATUS(pthread_mutex_unlock(&mutex->mut));
+    ASSERT_STATUS(pthread_cond_signal(&mutex->cond));
+}
+static inline void mutex2_loop_start(mutex2_t *mutex) {
+    ASSERT_STATUS(pthread_mutex_lock(&mutex->mut));
+}
+static inline void mutex2_loop_stop(mutex2_t *mutex) {
+    ASSERT_STATUS(pthread_mutex_unlock(&mutex->mut));
+}
+static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay) {
+    if (mutex->locked) {
+        struct timespec t;
+        timespec_delay(&t, delay);
+        int error_from_timedwait = pthread_cond_timedwait(
+                                       &mutex->cond, &mutex->mut, &t);
+        if (error_from_timedwait != ETIMEDOUT) {
+            ASSERT_STATUS(error_from_timedwait);
+        }
+    }
+    int result = !mutex->locked;
+    mutex->locked = 1;
+    return result;
+}
+
 #define lock_test_and_set(ptr, value)  __sync_lock_test_and_set(ptr, value)
 #define atomic_increment(ptr)          __sync_fetch_and_add(ptr, 1)
 #define atomic_decrement(ptr)          __sync_fetch_and_sub(ptr, 1)

@@ -38,15 +38,14 @@
 
 long rpy_fastgil = 1;
 long rpy_waiting_threads = -42;    /* GIL not initialized */
-static mutex_t mutex_gil_stealer;
-static mutex_t mutex_gil;
+static mutex1_t mutex_gil_stealer;
+static mutex2_t mutex_gil;
 
 void RPyGilAllocate(void)
 {
     assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
-    mutex_init(&mutex_gil_stealer);
-    mutex_init(&mutex_gil);
-    mutex_lock(&mutex_gil);
+    mutex1_init(&mutex_gil_stealer);
+    mutex2_init_locked(&mutex_gil);
     rpy_waiting_threads = 0;
 }
 
@@ -80,14 +79,15 @@ void RPyGilAcquire(void)
            first-in-first-out order, this will nicely give the threads
            a round-robin chance.
         */
-        mutex_lock(&mutex_gil_stealer);
+        mutex1_lock(&mutex_gil_stealer);
+        mutex2_loop_start(&mutex_gil);
 
         /* We are now the stealer thread.  Steals! */
         while (1) {
             /* Sleep for one interval of time.  We may be woken up earlier
                if 'mutex_gil' is released.
             */
-            if (mutex_lock_timeout(&mutex_gil, 0.0001)) {   /* 0.1 ms... */
+            if (mutex2_lock_timeout(&mutex_gil, 0.0001)) {   /* 0.1 ms... */
                 /* We arrive here if 'mutex_gil' was recently released
                    and we just relocked it.
                  */
@@ -107,7 +107,8 @@ void RPyGilAcquire(void)
             /* Otherwise, loop back. */
         }
         atomic_decrement(&rpy_waiting_threads);
-        mutex_unlock(&mutex_gil_stealer);
+        mutex2_loop_stop(&mutex_gil);
+        mutex1_unlock(&mutex_gil_stealer);
 
         RESTORE_ERRNO();
     }
@@ -140,7 +141,7 @@ long RPyGilYieldThread(void)
 
     /* Explicitly release the 'mutex_gil'.
      */
-    mutex_unlock(&mutex_gil);
+    mutex2_unlock(&mutex_gil);
 
     /* Now nobody has got the GIL, because 'mutex_gil' is released (but
        rpy_fastgil is still locked).  Call RPyGilAcquire().  It will

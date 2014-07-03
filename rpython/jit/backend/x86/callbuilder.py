@@ -132,7 +132,6 @@ class CallBuilderX86(AbstractCallBuilder):
             self.mc.ADD(ebp, imm(1))       # ebp any more; and ignore 'fastgil'
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
-        from rpython.jit.backend.x86.assembler import heap
         from rpython.jit.backend.x86 import rx86
         #
         # check if we need to call the reacqgil() function or not

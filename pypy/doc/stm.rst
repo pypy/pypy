@@ -92,9 +92,9 @@ Current status
   We're busy fixing them as we find them; feel free to `report bugs`_.
 
 * It runs with an overhead as low as 20% on examples like "richards".
-  There are also other examples with higher overheads --up to 10x for
-  "translate.py"-- which we are still trying to understand.  One suspect
-  is our partial GC implementation, see below.
+  There are also other examples with higher overheads --currently up to
+  2x for "translate.py"-- which we are still trying to understand.
+  One suspect is our partial GC implementation, see below.
 
 * Currently limited to 1.5 GB of RAM (this is just a parameter in
   `core.h`__).  Memory overflows are not correctly handled; they cause
@@ -111,9 +111,8 @@ Current status
 
 * The GC is new; although clearly inspired by PyPy's regular GC, it
   misses a number of optimizations for now.  Programs allocating large
-  numbers of small objects that don't immediately die, as well as
-  programs that modify large lists or dicts, suffer from these missing
-  optimizations.
+  numbers of small objects that don't immediately die (surely a common
+  situation) suffer from these missing optimizations.
 
 * The GC has no support for destructors: the ``__del__`` method is never
   called (including on file objects, which won't be closed for you).

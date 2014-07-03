@@ -669,7 +669,7 @@ class TestFramework(RewriteTests):
             jump(p1, p2)
         """, """
             [p1, p2]
-            cond_call_gc_wb(p1, descr=wbdescr)
+            cond_call_gc_wb_array(p1, 0, descr=wbdescr)
             setinteriorfield_gc(p1, 0, p2, descr=interiorzdescr)
             jump(p1, p2)
         """, interiorzdescr=interiorzdescr)

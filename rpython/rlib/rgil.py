@@ -1,5 +1,5 @@
 import py
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 

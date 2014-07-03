@@ -499,7 +499,7 @@ _oplist = [
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
     'SETINTERIORFIELD_GC/3d',
-    'SETINTERIORFIELD_RAW/3d',    # only used by llsupport/rewrite.py
+    'SETINTERIORFIELD_RAW/3d',    # right now, only used by tests
     'RAW_STORE/3d',
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',

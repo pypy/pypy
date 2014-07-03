@@ -540,18 +540,21 @@ def _ll_dict_del(d, i):
     # avoid extra branches.
 
 def ll_dict_resize(d):
-    old_entries = d.entries
-    old_size = len(old_entries)
     # make a 'new_size' estimate and shrink it if there are many
     # deleted entry markers.  See CPython for why it is a good idea to
     # quadruple the dictionary size as long as it's not too big.
     num_items = d.num_items + 1
     if num_items > 50000: new_estimate = num_items * 2
     else:                 new_estimate = num_items * 4
+    _ll_dict_resize_to(d, new_estimate)
+ll_dict_resize.oopspec = 'dict.resize(d)'
+
+def _ll_dict_resize_to(d, new_estimate):
     new_size = DICT_INITSIZE
     while new_size <= new_estimate:
         new_size *= 2
-    #
+    old_entries = d.entries
+    old_size = len(d.entries)
     d.entries = lltype.typeOf(old_entries).TO.allocate(new_size)
     d.num_items = 0
     d.resize_counter = new_size * 2
@@ -563,7 +566,6 @@ def ll_dict_resize(d):
             ll_dict_insertclean(d, entry.key, entry.value, hash)
         i += 1
     old_entries.delete()
-ll_dict_resize.oopspec = 'dict.resize(d)'
 
 # ------- a port of CPython's dictobject.c's lookdict implementation -------
 PERTURB_SHIFT = 5
@@ -816,6 +818,16 @@ def ll_clear(d):
 ll_clear.oopspec = 'dict.clear(d)'
 
 def ll_update(dic1, dic2):
+    # Prescale 'dic1', assuming that most items don't collide.
+    # If this assumption is false, 'dic1' becomes at most two times too large.
+    #  * dic2.num_items = upper bound on the number of items added
+    #  * (dic1.resize_counter - 1) // 3 = room left in dic1
+    #  so, if dic2 has 1 item, we need dic1.resize_counter > 3
+    #      if dic2 has 2 items we need dic1.resize_counter > 6  etc.
+    if not (dic1.resize_counter > dic2.num_items * 3):
+        new_estimate = (dic1.num_items + dic2.num_items) * 2
+        _ll_dict_resize_to(dic1, new_estimate)
+    #
     entries = dic2.entries
     d2len = len(entries)
     i = 0

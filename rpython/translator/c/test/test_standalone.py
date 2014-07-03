@@ -13,7 +13,7 @@ from rpython.translator.backendopt import all
 from rpython.translator.c.genc import CStandaloneBuilder, ExternalCompilationInfo
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.tool.udir import udir
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.conftest import option
 
 def setup_module(module):
@@ -382,7 +382,7 @@ class TestStandalone(StandaloneTests):
         if str(path).find(':')>=0:
             # bad choice of udir, there is a ':' in it which messes up the test
             pass
-        else:    
+        else:
             out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': str(path)})
             size = os.stat(str(path)).st_size
             assert out.strip() == 'got:a.' + str(size) + '.'

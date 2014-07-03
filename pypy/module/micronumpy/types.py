@@ -117,8 +117,11 @@ class BaseType(object):
     def __repr__(self):
         return self.__class__.__name__
 
-    def malloc(self, size):
-        return alloc_raw_storage(size, track_allocation=False, zero=True)
+    def malloc(self, size, zero=True):
+        if zero:
+            return alloc_raw_storage(size, track_allocation=False, zero=True)
+        else:
+            return alloc_raw_storage(size, track_allocation=False, zero=False)
 
 class Primitive(object):
     _mixin_ = True

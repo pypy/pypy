@@ -22,9 +22,11 @@ class BasePosix(Platform):
         return ['-l%s' % lib for lib in libraries]
 
     def _libdirs(self, library_dirs):
+        assert '' not in library_dirs
         return ['-L%s' % ldir for ldir in library_dirs]
 
     def _includedirs(self, include_dirs):
+        assert '' not in include_dirs
         return ['-I%s' % idir for idir in include_dirs]
 
     def _linkfiles(self, link_files):
