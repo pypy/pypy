@@ -974,6 +974,15 @@ class TestCompiler:
         """
         yield self.st, test, "g()", range(3)
 
+    def test__class__global(self):
+        source = """if 1:
+        class X:
+           global __class__
+           def f(self):
+               super()
+        """
+        py.test.raises(SyntaxError, self.simple_test, source, None, None)
+
 
 class AppTestCompiler:
 
