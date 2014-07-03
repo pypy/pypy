@@ -740,6 +740,7 @@ class _r_dictkey(object):
         return repr(self.key)
 
 
+@specialize.call_location()
 def prepare_dict_update(dict, n_elements):
     """RPython hint that the given dict (or r_dict) will soon be
     enlarged by n_elements."""

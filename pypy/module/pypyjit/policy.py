@@ -13,19 +13,21 @@ class PyPyJitIface(JitHookInterface):
         cache = space.fromcache(Cache)
         if cache.in_recursion:
             return
-        if space.is_true(cache.w_abort_hook):
+        w_abort_hook = cache.w_abort_hook
+        assert w_abort_hook is not None
+        if space.is_true(w_abort_hook):
             cache.in_recursion = True
             oplist_w = wrap_oplist(space, logops, operations)
             try:
                 try:
-                    space.call_function(cache.w_abort_hook,
+                    space.call_function(w_abort_hook,
                         space.wrap(jitdriver.name),
                         wrap_greenkey(space, jitdriver, greenkey, greenkey_repr),
                         space.wrap(Counters.counter_names[reason]),
                         space.newlist(oplist_w)
                     )
                 except OperationError, e:
-                    e.write_unraisable(space, "jit hook ", cache.w_abort_hook)
+                    e.write_unraisable(space, "jit hook ", w_abort_hook)
             finally:
                 cache.in_recursion = False
 
