@@ -418,3 +418,20 @@ class AppTestBuiltinApp:
             def f():
                 return __class__
         assert X.f() is X
+
+    def test_obscure_super_errors(self):
+        """
+        def f():
+            super()
+        raises(RuntimeError, f)
+        def f(x):
+            del x
+            super()
+        raises(RuntimeError, f, None)
+        class X:
+            def f(x):
+                nonlocal __class__
+                del __class__
+                super()
+        raises(RuntimeError, X().f)
+        """
