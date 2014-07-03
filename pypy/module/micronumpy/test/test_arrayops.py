@@ -3,18 +3,27 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestNumSupport(BaseNumpyAppTest):
     def test_zeros(self):
-        from numpypy import zeros, empty
+        from numpypy import zeros
         a = zeros(3)
         assert len(a) == 3
         assert a[0] == a[1] == a[2] == 0
-        a = empty(1000)
-        assert len(a) == 1000
+
+    def test_empty(self):
+        from numpypy import empty
+        import gc
         for i in range(1000):
-            if a[i] != 0:
-                break
+            a = empty(3)
+            assert len(a) == 3
+            if not (a[0] == a[1] == a[2] == 0):
+                break     # done
+            a[0] = 1.23
+            a[1] = 4.56
+            a[2] = 7.89
+            del a
+            gc.collect()
         else:
             raise AssertionError(
-                "empty() returned a zeroed out array of length 1000 (unlikely)")
+                "empty() returned a zeroed out array every time")
 
     def test_where(self):
         from numpypy import where, ones, zeros, array
