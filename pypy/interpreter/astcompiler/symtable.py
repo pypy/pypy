@@ -240,7 +240,7 @@ class FunctionScope(Scope):
     def note_symbol(self, identifier, role):
         # Special-case super: it counts as a use of __class__
         if role == SYM_USED and identifier == 'super':
-            self.note_symbol('@__class__', SYM_USED)
+            self.note_symbol('__class__', SYM_USED)
         return Scope.note_symbol(self, identifier, role)
 
     def note_yield(self, yield_node):
@@ -298,12 +298,12 @@ class ClassScope(Scope):
         return misc.mangle(name, self.name)
 
     def _pass_special_names(self, local, new_bound):
-        assert '@__class__' in local
-        new_bound['@__class__'] = None
+        assert '__class__' in local
+        new_bound['__class__'] = None
 
     def _finalize_cells(self, free):
         for name, role in self.symbols.iteritems():
-            if role == SCOPE_LOCAL and name in free and name == '@__class__':
+            if role == SCOPE_LOCAL and name in free and name == '__class__':
                 self.symbols[name] = SCOPE_CELL
                 del free[name]
 
@@ -392,7 +392,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
             clsdef.kwargs.walkabout(self)
         self.visit_sequence(clsdef.decorator_list)
         self.push_scope(ClassScope(clsdef), clsdef)
-        self.note_symbol('@__class__', SYM_ASSIGNED)
+        self.note_symbol('__class__', SYM_ASSIGNED)
         self.note_symbol('__locals__', SYM_PARAM)
         self.visit_sequence(clsdef.body)
         self.pop_scope()

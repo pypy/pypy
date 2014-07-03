@@ -400,3 +400,21 @@ class AppTestBuiltinApp:
         assert x.y == 42
         del x.x
         assert x.z == 42
+
+    def test___class___variable(self):
+        class X:
+            def f(self):
+                return __class__
+        assert X().f() is X
+
+        class X:
+            @classmethod
+            def f(cls):
+                return __class__
+        assert X.f() is X
+
+        class X:
+            @staticmethod
+            def f():
+                return __class__
+        assert X.f() is X

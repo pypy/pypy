@@ -1354,10 +1354,10 @@ class ClassCodeGenerator(PythonCodeGenerator):
         # compile the body proper
         self._handle_body(cls.body)
         # return the (empty) __class__ cell
-        scope = self.scope.lookup("@__class__")
+        scope = self.scope.lookup("__class__")
         if scope == symtable.SCOPE_CELL:
             # Return the cell where to store __class__
-            self.emit_op_arg(ops.LOAD_CLOSURE, self.cell_vars["@__class__"])
+            self.emit_op_arg(ops.LOAD_CLOSURE, self.cell_vars["__class__"])
         else:
             # This happens when nobody references the cell
             self.load_const(self.space.w_None)
