@@ -273,7 +273,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
         s_gcref = SomePtr(llmemory.GCREF)
         gcdata = self.gcdata
         translator = self.translator
-        if hasattr(GCClass, 'malloc_fixedsize_clear'):
+        #use the GC flag to find which malloc method to use
+        #malloc_zero_filled == Ture -> malloc_fixedsize/varsize_clear
+        #malloc_zero_filled == Flase -> malloc_fixedsize/varsize
+        malloc_fixedsize_meth = None
+        if GCClass.malloc_zero_filled:
             malloc_fixedsize_clear_meth = GCClass.malloc_fixedsize_clear.im_func
             self.malloc_fixedsize_clear_ptr = getfn(
                 malloc_fixedsize_clear_meth,
@@ -283,8 +287,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 annmodel.SomeBool(),
                 annmodel.SomeBool()], s_gcref,
                 inline = False)
+            self.malloc_fixedsize_ptr = self.malloc_fixedsize_clear_ptr
+            self.malloc_varsize_ptr = getfn(
+                    GCClass.malloc_varsize_clear.im_func,
+                    [s_gc, s_typeid16]
+                    + [annmodel.SomeInteger(nonneg=True) for i in range(4)], s_gcref)
 
-        if hasattr(GCClass, 'malloc_fixedsize'):
+        else:
             malloc_fixedsize_meth = GCClass.malloc_fixedsize.im_func
             self.malloc_fixedsize_ptr = getfn(
                 malloc_fixedsize_meth,
@@ -294,19 +303,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
                  annmodel.SomeBool(),
                  annmodel.SomeBool()], s_gcref,
                 inline = False)
-        else:
-            malloc_fixedsize_meth = None
-            self.malloc_fixedsize_ptr = self.malloc_fixedsize_clear_ptr
-            if hasattr(GCClass, 'malloc_varsize'):
-                self.malloc_varsize_ptr = getfn(
+            self.malloc_varsize_ptr = getfn(
                     GCClass.malloc_varsize.im_func,
                     [s_gc, s_typeid16]
                     + [annmodel.SomeInteger(nonneg=True) for i in range(4)], s_gcref)
-            else:
-                self.malloc_varsize_ptr = getfn(
-                    GCClass.malloc_varsize_clear.im_func,
-                    [s_gc, s_typeid16]
-                    + [annmodel.SomeInteger(nonneg=True) for i in range(4)], s_gcref)
+        
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc, annmodel.SomeInteger()], annmodel.s_None)
         self.can_move_ptr = getfn(GCClass.can_move.im_func,

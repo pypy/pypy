@@ -151,14 +151,14 @@ class GCBase(object):
             assert not needs_finalizer
             itemsize = self.varsize_item_sizes(typeid)
             offset_to_length = self.varsize_offset_to_length(typeid)
-            if not hasattr(self, 'malloc_varsize'):
+            if self.malloc_zero_filled:
                 malloc_varsize = self.malloc_varsize_clear
             else:
                 malloc_varsize = self.malloc_varsize
             ref = malloc_varsize(typeid, length, size, itemsize,
                                  offset_to_length)
         else:
-            if not hasattr(self, 'malloc_fixedsize'):
+            if self.malloc_zero_filled:
                 malloc_fixedsize = self.malloc_fixedsize_clear
             else:
                 malloc_fixedsize = self.malloc_fixedsize
