@@ -492,6 +492,23 @@ class DictStrategy(object):
     def view_as_kwargs(self, w_dict):
         return (None, None)
 
+    def getiterkeys(self, w_dict):
+        raise NotImplementedError
+
+    def getitervalues(self, w_dict):
+        raise NotImplementedError
+
+    def getiteritems(self, w_dict):
+        raise NotImplementedError
+
+    def rev_update1_dict_dict(self, w_dict, w_updatedict):
+        iteritems = self.iteritems(w_dict)
+        while True:
+            w_key, w_value = iteritems.next_item()
+            if w_key is None:
+                break
+            w_updatedict.setitem(w_key, w_value)
+
 
 class EmptyDictStrategy(DictStrategy):
     erase, unerase = rerased.new_erasing_pair("empty")
@@ -593,11 +610,13 @@ class EmptyDictStrategy(DictStrategy):
     # ---------- iterator interface ----------------
 
     def getiterkeys(self, w_dict):
-        return iter([None])
-    getitervalues = getiterkeys
+        return iter([])
+
+    def getitervalues(self, w_dict):
+        return iter([])
 
     def getiteritems(self, w_dict):
-        return iter([(None, None)])
+        return iter([])
 
 
 # Iterator Implementation base classes
@@ -725,9 +744,29 @@ def create_iterator_classes(dictimpl, override_next_item=None):
 
     def iteritems(self, w_dict):
         return IterClassItems(self.space, self, w_dict)
+
+    @jit.look_inside_iff(lambda self, w_dict, w_updatedict:
+                         w_dict_unrolling_heuristic(w_dict))
+    def rev_update1_dict_dict(self, w_dict, w_updatedict):
+        if override_next_item is not None:
+            # this is very similar to the general version, but the difference
+            # is that it is specialized to call a specific next_item()
+            iteritems = IterClassItems(self.space, self, w_dict)
+            while True:
+                w_key, w_value = iteritems.next_item()
+                if w_key is None:
+                    break
+                w_updatedict.setitem(w_key, w_value)
+        else:
+            for key, value in self.getiteritems(w_dict):
+                w_key = wrapkey(self.space, key)
+                w_value = wrapvalue(self.space, value)
+                w_updatedict.setitem(w_key, w_value)
+
     dictimpl.iterkeys = iterkeys
     dictimpl.itervalues = itervalues
     dictimpl.iteritems = iteritems
+    dictimpl.rev_update1_dict_dict = rev_update1_dict_dict
 
 create_iterator_classes(EmptyDictStrategy)
 
@@ -1063,15 +1102,8 @@ def update1(space, w_dict, w_data):
         update1_keys(space, w_dict, w_data, data_w)
 
 
-@jit.look_inside_iff(lambda space, w_dict, w_data:
-                     w_dict_unrolling_heuristic(w_data))
 def update1_dict_dict(space, w_dict, w_data):
-    iterator = w_data.iteritems()
-    while True:
-        w_key, w_value = iterator.next_item()
-        if w_key is None:
-            break
-        w_dict.setitem(w_key, w_value)
+    w_data.strategy.rev_update1_dict_dict(w_data, w_dict)
 
 
 def update1_pairs(space, w_dict, data_w):
