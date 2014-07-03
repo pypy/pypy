@@ -286,6 +286,11 @@ class DictRepr(AbstractDictRepr):
         hop.exception_cannot_occur()
         return hop.gendirectcall(ll_update, v_dic1, v_dic2)
 
+    def rtype_method__prepare_dict_update(self, hop):
+        v_dict, v_num = hop.inputargs(self, lltype.Signed)
+        hop.exception_cannot_occur()
+        hop.gendirectcall(ll_prepare_dict_update, v_dict, v_num)
+
     def _rtype_method_kvi(self, hop, ll_func):
         v_dic, = hop.inputargs(self)
         r_list = hop.r_result
@@ -543,13 +548,14 @@ def ll_dict_resize(d):
     # make a 'new_size' estimate and shrink it if there are many
     # deleted entry markers.  See CPython for why it is a good idea to
     # quadruple the dictionary size as long as it's not too big.
-    num_items = d.num_items + 1
-    if num_items > 50000: new_estimate = num_items * 2
-    else:                 new_estimate = num_items * 4
-    _ll_dict_resize_to(d, new_estimate)
+    # (Quadrupling comes from '(d.num_items + d.num_items + 1) * 2'
+    # as long as num_items is not too large.)
+    num_extra = min(d.num_items + 1, 30000)
+    _ll_dict_resize_to(d, num_extra)
 ll_dict_resize.oopspec = 'dict.resize(d)'
 
-def _ll_dict_resize_to(d, new_estimate):
+def _ll_dict_resize_to(d, num_extra):
+    new_estimate = (d.num_items + num_extra) * 2
     new_size = DICT_INITSIZE
     while new_size <= new_estimate:
         new_size *= 2
@@ -818,16 +824,7 @@ def ll_clear(d):
 ll_clear.oopspec = 'dict.clear(d)'
 
 def ll_update(dic1, dic2):
-    # Prescale 'dic1', assuming that most items don't collide.
-    # If this assumption is false, 'dic1' becomes at most two times too large.
-    #  * dic2.num_items = upper bound on the number of items added
-    #  * (dic1.resize_counter - 1) // 3 = room left in dic1
-    #  so, if dic2 has 1 item, we need dic1.resize_counter > 3
-    #      if dic2 has 2 items we need dic1.resize_counter > 6  etc.
-    if not (dic1.resize_counter > dic2.num_items * 3):
-        new_estimate = (dic1.num_items + dic2.num_items) * 2
-        _ll_dict_resize_to(dic1, new_estimate)
-    #
+    ll_prepare_dict_update(dic1, dic2.num_items)
     entries = dic2.entries
     d2len = len(entries)
     i = 0
@@ -841,6 +838,16 @@ def ll_update(dic1, dic2):
             _ll_dict_setitem_lookup_done(dic1, key, value, hash, j)
         i += 1
 ll_update.oopspec = 'dict.update(dic1, dic2)'
+
+def ll_prepare_dict_update(d, num_extra):
+    # Prescale 'd' for 'num_extra' items, assuming that most items don't
+    # collide.  If this assumption is false, 'd' becomes too large by at
+    # most 'num_extra'.  The logic is based on:
+    #      (d.resize_counter - 1) // 3 = room left in d
+    #  so, if num_extra == 1, we need d.resize_counter > 3
+    #      if num_extra == 2, we need d.resize_counter > 6  etc.
+    jit.conditional_call(d.resize_counter <= num_extra * 3,
+                         _ll_dict_resize_to, d, num_extra)
 
 # this is an implementation of keys(), values() and items()
 # in a single function.

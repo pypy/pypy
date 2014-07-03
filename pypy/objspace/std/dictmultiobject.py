@@ -1,8 +1,9 @@
 """The builtin dict implementation"""
 
-from rpython.rlib import jit, rerased
+from rpython.rlib import jit, rerased, objectmodel
 from rpython.rlib.debug import mark_dict_non_null
 from rpython.rlib.objectmodel import newlist_hint, r_dict, specialize
+from rpython.rlib.unroll import SpecTag
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -509,6 +510,9 @@ class DictStrategy(object):
                 break
             w_updatedict.setitem(w_key, w_value)
 
+    def prepare_update(self, w_dict, num_extra):
+        pass
+
 
 class EmptyDictStrategy(DictStrategy):
     erase, unerase = rerased.new_erasing_pair("empty")
@@ -748,20 +752,32 @@ def create_iterator_classes(dictimpl, override_next_item=None):
     @jit.look_inside_iff(lambda self, w_dict, w_updatedict:
                          w_dict_unrolling_heuristic(w_dict))
     def rev_update1_dict_dict(self, w_dict, w_updatedict):
+        # the logic is to call prepare_dict_update() after the first setitem():
+        # it gives the w_updatedict a chance to switch its strategy.
         if override_next_item is not None:
             # this is very similar to the general version, but the difference
             # is that it is specialized to call a specific next_item()
             iteritems = IterClassItems(self.space, self, w_dict)
+            spec = _SPEC1
             while True:
                 w_key, w_value = iteritems.next_item()
                 if w_key is None:
                     break
                 w_updatedict.setitem(w_key, w_value)
+                if spec is _SPEC1:
+                    spec = _SPEC2
+                    w_updatedict.strategy.prepare_update(w_updatedict,
+                                                         w_dict.length() - 1)
         else:
+            spec = _SPEC1
             for key, value in self.getiteritems(w_dict):
                 w_key = wrapkey(self.space, key)
                 w_value = wrapvalue(self.space, value)
                 w_updatedict.setitem(w_key, w_value)
+                if spec is _SPEC1:
+                    spec = _SPEC2
+                    w_updatedict.strategy.prepare_update(w_updatedict,
+                                                         w_dict.length() - 1)
 
     dictimpl.iterkeys = iterkeys
     dictimpl.itervalues = itervalues
@@ -769,6 +785,9 @@ def create_iterator_classes(dictimpl, override_next_item=None):
     dictimpl.rev_update1_dict_dict = rev_update1_dict_dict
 
 create_iterator_classes(EmptyDictStrategy)
+
+_SPEC1 = SpecTag()
+_SPEC2 = SpecTag()
 
 
 # concrete subclasses of the above
@@ -883,6 +902,10 @@ class AbstractTypedStrategy(object):
 
     def getiteritems(self, w_dict):
         return self.unerase(w_dict.dstorage).iteritems()
+
+    def prepare_update(self, w_dict, num_extra):
+        objectmodel.prepare_dict_update(self.unerase(w_dict.dstorage),
+                                        num_extra)
 
 
 class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):

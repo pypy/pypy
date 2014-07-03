@@ -388,6 +388,9 @@ class __extend__(SomeDict):
             return SomeImpossibleValue()
         dct1.dictdef.union(dct2.dictdef)
 
+    def method__prepare_dict_update(dct, num):
+        pass
+
     def method_keys(self):
         return getbookkeeper().newlist(self.dictdef.read_key())
 
