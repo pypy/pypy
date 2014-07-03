@@ -347,7 +347,7 @@ class TestCompiler:
                 A().m()
             except ImportError as e:
                 msg = str(e)
-            ''', "msg", "No module named __foo__")
+            ''', "msg", "No module named '__foo__'")
 
     def test_if_stmts(self):
         yield self.st, "a = 42\nif a > 10: a += 2", "a", 44
