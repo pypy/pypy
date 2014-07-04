@@ -366,4 +366,8 @@ typedef _Bool bool_t;
 #else
 typedef unsigned char bool_t;
 #endif
+
+#if !defined(RPY_ASSERT) && !defined(RPY_LL_ASSERT)
+#  define NDEBUG
+#endif
 '''
