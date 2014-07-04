@@ -17,17 +17,11 @@ import sys, thread, collections, cStringIO, linecache
 try:
     from __pypy__.thread import atomic
 except ImportError:
-    # Not a STM-enabled PyPy.  We can still provide a version of 'atomic'
-    # that is good enough for our purposes.  With this limited version,
+    # Not a STM-enabled PyPy.  We can use a regular lock for 'atomic',
+    # which is good enough for our purposes.  With this limited version,
     # an atomic block in thread X will not prevent running thread Y, if
     # thread Y is not within an atomic block at all.
-    _atomic_global_lock = thread.allocate_lock()
-    class _Atomic(object):
-        def __enter__(self):
-            _atomic_global_lock.acquire()
-        def __exit__(self, *args):
-            _atomic_global_lock.release()
-    atomic = _Atomic()
+    atomic = thread.allocate_lock()
 
 try:
     from __pypy__.thread import signals_enabled
