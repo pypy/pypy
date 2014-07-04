@@ -233,40 +233,40 @@ class SSLObject(W_Root):
                     return self.space.wrap('')
                 raise ssl_error(self.space, "Socket closed without SSL shutdown handshake")
 
-        raw_buf, gc_buf = rffi.alloc_buffer(num_bytes)
-        while True:
-            err = 0
+        with rffi.scoped_alloc_buffer(num_bytes) as buf:
+            while True:
+                err = 0
 
-            count = libssl_SSL_read(self.ssl, raw_buf, num_bytes)
-            err = libssl_SSL_get_error(self.ssl, count)
+                count = libssl_SSL_read(self.ssl, buf.raw, num_bytes)
+                err = libssl_SSL_get_error(self.ssl, count)
 
-            if err == SSL_ERROR_WANT_READ:
-                sockstate = check_socket_and_wait_for_timeout(self.space,
-                    self.w_socket, False)
-            elif err == SSL_ERROR_WANT_WRITE:
-                sockstate = check_socket_and_wait_for_timeout(self.space,
-                    self.w_socket, True)
-            elif (err == SSL_ERROR_ZERO_RETURN and
-                  libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN):
-                return self.space.wrap("")
-            else:
-                sockstate = SOCKET_OPERATION_OK
+                if err == SSL_ERROR_WANT_READ:
+                    sockstate = check_socket_and_wait_for_timeout(self.space,
+                        self.w_socket, False)
+                elif err == SSL_ERROR_WANT_WRITE:
+                    sockstate = check_socket_and_wait_for_timeout(self.space,
+                        self.w_socket, True)
+                elif (err == SSL_ERROR_ZERO_RETURN and
+                   libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN):
+                    return self.space.wrap("")
+                else:
+                    sockstate = SOCKET_OPERATION_OK
 
-            if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise ssl_error(self.space, "The read operation timed out")
-            elif sockstate == SOCKET_IS_NONBLOCKING:
-                break
+                if sockstate == SOCKET_HAS_TIMED_OUT:
+                    raise ssl_error(self.space, "The read operation timed out")
+                elif sockstate == SOCKET_IS_NONBLOCKING:
+                    break
 
-            if err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE:
-                continue
-            else:
-                break
+                if err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE:
+                    continue
+                else:
+                    break
 
-        if count <= 0:
-            raise _ssl_seterror(self.space, self, count)
+            if count <= 0:
+                raise _ssl_seterror(self.space, self, count)
 
-        result = rffi.str_from_buffer(raw_buf, gc_buf, num_bytes, count)
-        rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+            result = buf.str(count)
+
         return self.space.wrap(result)
 
     def _refresh_nonblocking(self, space):
