@@ -61,13 +61,17 @@ def get_version(space):
     ver = "%d.%d.%d" % (PYPY_VERSION[0], PYPY_VERSION[1], PYPY_VERSION[2])
     if PYPY_VERSION[3] != "final":
         ver = ver + "-%s%d" %(PYPY_VERSION[3], PYPY_VERSION[4])
-    return space.wrap("%d.%d.%d (%s, %s, %s)\n[PyPy %s%s]" % (
+    extra = ''
+    if space.config.translation.stm:
+        extra = '-STM'
+    return space.wrap("%d.%d.%d (%s, %s, %s)\n[PyPy%s %s%s]" % (
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1],
         CPYTHON_VERSION[2],
         get_repo_version_info(root=pypyroot)[1],
         date,
         time,
+        extra,
         ver,
         compiler_version()))
 
