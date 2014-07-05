@@ -41,7 +41,7 @@ align = memory_alignment()
 
 class Type(object):
     varsize = False
-    gc_header = False
+    needs_gc_header = False
 
     def repr_type(self, extra_len=None):
         return self.typestr
@@ -415,11 +415,11 @@ class PtrType(BasePtrType):
 
 
 class StructType(Type):
-    def setup(self, name, fields, gc_header):
+    def setup(self, name, fields, needs_gc_header):
         self.name = name
-        self.gc_header = gc_header
+        self.needs_gc_header = needs_gc_header
         fields = list(fields)
-        if gc_header:
+        if needs_gc_header:
             fields = database.genllvm.gcpolicy.get_gc_fields() + fields
         elif all(t is LLVMVoid for t, f in fields):
             fields.append((LLVMSigned, '_fill'))
@@ -437,8 +437,8 @@ class StructType(Type):
             return
         fields = ((db.get_type(type._flds[f]), f) for f in type._names)
         is_gc = type._gckind == 'gc'
-        gc_header = is_gc and type._first_struct() == (None, None)
-        self.setup('%' + type._name, fields, gc_header)
+        needs_gc_header = is_gc and type._first_struct() == (None, None)
+        self.setup('%' + type._name, fields, needs_gc_header)
 
     def repr_type(self, extra_len=None):
         if extra_len not in self.size_variants:
@@ -463,7 +463,7 @@ class StructType(Type):
         return self.name[1:]
 
     def is_zero(self, value):
-        if self.gc_header:
+        if self.needs_gc_header:
             return False
         elif self.fldnames_wo_voids == ['_fill']:
             return True
@@ -476,7 +476,7 @@ class StructType(Type):
     def repr_value(self, value, extra_len=None):
         if self.is_zero(value):
             return 'zeroinitializer'
-        if self.gc_header:
+        if self.needs_gc_header:
             data = database.genllvm.gcpolicy.get_gc_field_values(value)
             data.extend(getattr(value, fn) for _, fn in self.fields[1:])
         else:
@@ -576,7 +576,7 @@ class ArrayType(Type):
     varsize = True
 
     def setup(self, of, is_gc):
-        self.gc_header = is_gc
+        self.needs_gc_header = is_gc
         self.bare_array_type = BareArrayType()
         self.bare_array_type.setup(of, None)
         self.struct_type = StructType()
@@ -605,7 +605,7 @@ class ArrayType(Type):
         return self.struct_type.repr_type_and_value(ArrayHelper(value))
 
     def add_indices(self, gep, index):
-        if self.gc_header:
+        if self.needs_gc_header:
             gep.add_field_index(2)
         else:
             gep.add_field_index(1)
@@ -749,7 +749,7 @@ class Database(object):
                 class_ = _LL_TO_LLVM[type.__class__]
             self.types[type] = ret = class_()
             ret.setup_from_lltype(self, type)
-            if ret.gc_header:
+            if ret.needs_gc_header:
                 _llvm_needs_header[type] = database.genllvm.gcpolicy \
                         .get_gc_fields_lltype() # hint for ll2ctypes
             return ret
@@ -1227,7 +1227,7 @@ class FunctionWriter(object):
             self.w('{result.V} = add {result.T} 0, {type.length}'
                     .format(**locals()))
         else:
-            if type.gc_header:
+            if type.needs_gc_header:
                 gep.add_field_index(1)
             else:
                 gep.add_field_index(0)
