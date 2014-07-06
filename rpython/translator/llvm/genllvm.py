@@ -55,7 +55,7 @@ class Type(object):
     def get_extra_len(self, value):
         raise NotImplementedError("Override in subclass.")
 
-    def repr_value(self, obj):
+    def repr_value(self, value):
         raise NotImplementedError("Override in subclass.")
 
     def repr_type_and_value(self, value):
@@ -714,14 +714,16 @@ class OpaqueType(Type):
             ptr_type.refs[obj] = 'null'
 
 
-_LL_TO_LLVM = {lltype.Ptr: PtrType,
-               lltype.Struct: StructType, lltype.GcStruct: StructType,
-               lltype.Array: ArrayType, lltype.GcArray: ArrayType,
-               lltype.FixedSizeArray: BareArrayType,
-               lltype.FuncType: FuncType,
-               lltype.OpaqueType: OpaqueType, lltype.GcOpaqueType: OpaqueType,
-               llgroup.GroupType: GroupType,
-               llmemory._WeakRefType: OpaqueType}
+_LL_TO_LLVM = {
+    lltype.Ptr: PtrType,
+    lltype.Struct: StructType, lltype.GcStruct: StructType,
+    lltype.Array: ArrayType, lltype.GcArray: ArrayType,
+    lltype.FixedSizeArray: BareArrayType,
+    lltype.FuncType: FuncType,
+    lltype.OpaqueType: OpaqueType, lltype.GcOpaqueType: OpaqueType,
+    llgroup.GroupType: GroupType,
+    llmemory._WeakRefType: OpaqueType,
+}
 
 class Database(object):
     identifier_regex = re.compile('^[%@][a-zA-Z$._][a-zA-Z$._0-9]*$')
