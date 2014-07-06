@@ -47,3 +47,6 @@ function calls. Linux-only.
 .. branch: disable_pythonapi
 Remove non-functioning ctypes.pyhonapi and ctypes.PyDLL, document this
 incompatibility with cpython. Recast sys.dllhandle to an int.
+
+.. branch: scalar-operations
+Fix performance regression on ufunc(<scalar>, <scalar>) in numpy.
