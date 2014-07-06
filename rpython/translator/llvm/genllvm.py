@@ -1839,7 +1839,7 @@ class GenLLVM(object):
         gc_cpp = this_file.new(basename='PyPyGC.cpp')
         gc_lib = this_file.new(purebasename='PyPyGC',
                                ext=self.translator.platform.so_ext)
-        cflags = cmdexec('llvm-config --cxxflags').strip()
+        cflags = cmdexec('llvm-config --cxxflags').strip() + ' -fno-rtti'
         cmdexec('clang {} -shared {} -o {}'.format(cflags, gc_cpp, gc_lib))
         return gc_lib
 
