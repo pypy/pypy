@@ -51,7 +51,7 @@ class Type(object):
         return self.typestr
 
     def repr_of_type(self):
-        return self.repr_type()
+        return self.typestr
 
     def is_zero(self, value):
         raise NotImplementedError("Override in subclass.")
@@ -438,21 +438,21 @@ class StructType(Type):
     def setup_from_lltype(self, db, type):
         if (type._hints.get('typeptr', False) and
             db.genllvm.translator.config.translation.gcremovetypeptr):
-            self.setup('%' + type._name, [], True)
+            self.setup(type._name, [], True)
             return
         fields = ((db.get_type(type._flds[f]), f) for f in type._names)
         is_gc = type._gckind == 'gc'
         needs_gc_header = is_gc and type._first_struct() == (None, None)
-        self.setup('%' + type._name, fields, needs_gc_header)
+        self.setup(type._name, fields, needs_gc_header)
 
     def repr_type(self, extra_len=None):
         if extra_len not in self.size_variants:
             if extra_len is not None:
-                name = self.name + '_plus_{}'.format(extra_len)
+                name = '%{}_plus_{}'.format(self.name, extra_len)
             elif self.varsize:
-                name = self.name + '_varsize'
+                name = '%{}_varsize'.format(self.name)
             else:
-                name = self.name
+                name = '%{}'.format(self.name)
             self.size_variants[extra_len] = name = database.unique_name(name)
             lastname = self.fldnames_wo_voids[-1]
             tmp = ('    {semicolon}{fldtype}{comma} ; {fldname}\n'.format(
@@ -465,7 +465,7 @@ class StructType(Type):
         return self.size_variants[extra_len]
 
     def repr_of_type(self):
-        return self.name[1:]
+        return self.name
 
     def is_zero(self, value):
         if self.needs_gc_header:
@@ -586,7 +586,7 @@ class ArrayType(Type):
         self.bare_array_type.setup(of, None)
         self.struct_type = StructType()
         fields = [(LLVMSigned, 'len'), (self.bare_array_type, 'items')]
-        self.struct_type.setup('%array_of_' + of.repr_of_type(), fields, is_gc)
+        self.struct_type.setup('array_of_' + of.repr_of_type(), fields, is_gc)
 
     def setup_from_lltype(self, db, type):
         self.setup(db.get_type(type.OF), type._gckind == 'gc')
@@ -648,7 +648,7 @@ class GroupType(Type):
                     'getelementptr inbounds({}* {}, i64 0, i32 {})'
                     .format(self.typestr, groupname, i))
         struct_type = StructType()
-        struct_type.setup(self.typestr, fields, False)
+        struct_type.setup('group_' + obj.name, fields, False)
         database.f.write('{} = global {}\n'.format(
                 groupname, struct_type.repr_type_and_value(group)))
 
