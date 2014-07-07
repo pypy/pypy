@@ -407,7 +407,7 @@ class PtrType(BasePtrType):
                 to = parent_type.add_indices(gep, child)
                 self.refs[obj] = (
                         'bitcast({} getelementptr inbounds({}, {}) to {})'
-                        .format(PtrType.to(to).repr_type(), parent_ref,
+                        .format(PtrType.tmp(to).repr_type(), parent_ref,
                                 ', '.join(gep.indices), self.repr_type()))
             else:
                 self.to.repr_ref(self, obj)
@@ -1185,7 +1185,7 @@ class FunctionWriter(object):
 
     def _get_element(self, result, var, *fields):
         if result.type is not LLVMVoid:
-            t = self._tmp(PtrType.to(result.type))
+            t = self._tmp(PtrType.tmp(result.type))
             self._get_element_ptr(var, fields, t)
             self.w('{result.V} = load {t.TV}'.format(**locals()))
     op_getfield = op_bare_getfield = _get_element
@@ -1196,7 +1196,7 @@ class FunctionWriter(object):
         fields = rest[:-1]
         value = rest[-1]
         if value.type is not LLVMVoid:
-            t = self._tmp(PtrType.to(value.type))
+            t = self._tmp(PtrType.tmp(value.type))
             self._get_element_ptr(var, fields, t)
             self.w('store {value.TV}, {t.TV}'.format(**locals()))
     op_setfield = op_bare_setfield = _set_element
@@ -1204,17 +1204,17 @@ class FunctionWriter(object):
     op_setarrayitem = op_bare_setarrayitem = _set_element
 
     def op_direct_fieldptr(self, result, ptr, field):
-        t = self._tmp(PtrType.to(result.type.to.of))
+        t = self._tmp(PtrType.tmp(result.type.to.of))
         self._get_element_ptr(ptr, [field], t)
         self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
 
     def op_direct_arrayitems(self, result, ptr):
-        t = self._tmp(PtrType.to(result.type.to.of))
+        t = self._tmp(PtrType.tmp(result.type.to.of))
         self._get_element_ptr(ptr, [ConstantRepr(LLVMSigned, 0)], t)
         self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
 
     def op_direct_ptradd(self, result, var, val):
-        t = self._tmp(PtrType.to(result.type.to.of))
+        t = self._tmp(PtrType.tmp(result.type.to.of))
         self.w('{t.V} = getelementptr inbounds {var.TV}, i64 0, {val.TV}'
                 .format(**locals()))
         self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
@@ -1233,7 +1233,7 @@ class FunctionWriter(object):
                 gep.add_field_index(1)
             else:
                 gep.add_field_index(0)
-            t = self._tmp(PtrType.to(LLVMSigned))
+            t = self._tmp(PtrType.tmp(LLVMSigned))
             gep.assign(t)
             self.w('{result.V} = load {t.TV}'.format(**locals()))
     op_getinteriorarraysize = op_getarraysize
@@ -1333,9 +1333,9 @@ class FunctionWriter(object):
         self.op_direct_call(result, get_repr(raw_free), ptr)
 
     def _get_addr(self, ptr_to, addr, offset):
-        t1 = self._tmp(PtrType.to(LLVMChar))
-        t2 = self._tmp(PtrType.to(LLVMChar))
-        t3 = self._tmp(PtrType.to(ptr_to))
+        t1 = self._tmp(PtrType.tmp(LLVMChar))
+        t2 = self._tmp(PtrType.tmp(LLVMChar))
+        t3 = self._tmp(PtrType.tmp(ptr_to))
         self._cast(t1, addr)
         self.w('{t2.V} = getelementptr inbounds {t1.TV}, {offset.TV}'
                 .format(**locals()))
