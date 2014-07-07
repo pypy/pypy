@@ -365,7 +365,7 @@ class PtrType(BasePtrType):
         self.refs = {None: 'null'}
 
     @classmethod
-    def to(cls, to):
+    def tmp(cls, to):
         # call __new__ to prevent __init__ from being called
         self = cls.__new__(cls)
         self.to = to
