@@ -13,6 +13,7 @@ from rpython.memory.gctransform.llvmgcroot import (
 from rpython.memory.gctransform.refcounting import RefcountingGCTransformer
 from rpython.memory.gctransform.shadowstack import (
      ShadowStackFrameworkGCTransformer)
+from rpython.memory.gctypelayout import WEAKREF, convert_weakref_to
 from rpython.rlib import exports
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.objectmodel import (Symbolic, ComputedIntSymbolic,
@@ -42,6 +43,9 @@ align = memory_alignment()
 class Type(object):
     varsize = False
     needs_gc_header = False
+
+    def setup_from_lltype(self, db, type):
+        pass
 
     def repr_type(self, extra_len=None):
         return self.typestr
@@ -94,7 +98,8 @@ class Type(object):
         else:
             ptr_type.refs[obj] = name
         hash_ = database.genllvm.gcpolicy.get_prebuilt_hash(obj)
-        if (obj._TYPE._hints.get('immutable', False) and
+        if (hasattr(obj._TYPE, '_hints') and
+            obj._TYPE._hints.get('immutable', False) and
             obj._TYPE._gckind != 'gc'):
             global_attrs += 'constant'
         else:
@@ -346,7 +351,7 @@ PRIMITIVES = {
     lltype.Float: FloatType('double', 64),
     lltype.SingleFloat: FloatType('float', 32),
     lltype.LongFloat: FloatType('x86_fp80', 80),
-    llmemory.Address: LLVMAddress
+    llmemory.Address: LLVMAddress,
 }
 
 for type in rffi.NUMBER_TYPES + [lltype.Char, lltype.UniChar]:
@@ -692,26 +697,39 @@ class FuncType(Type):
 
 
 class OpaqueType(Type):
-    typestr = '{}'
-
-    def setup_from_lltype(self, db, type):
-        pass
+    typestr = 'i8'
 
     def repr_of_type(self):
         return 'opaque'
 
     def is_zero(self, value):
-        return True
+        raise ValueError("value is opaque")
 
     def repr_ref(self, ptr_type, obj):
         if hasattr(obj, 'container'):
-            ptr_type.refs[obj] = 'bitcast({} to {{}}*)'.format(
-                    get_repr(obj.container._as_ptr()).TV)
-        elif isinstance(obj, llmemory._wref):
-            ptr_type.refs[obj] = 'bitcast({} to {{}}*)'.format(
-                    get_repr(obj._converted_weakref).TV)
+            realvalue = get_repr(lltype.cast_opaque_ptr(
+                    lltype.Ptr(lltype.typeOf(obj.container)), obj._as_ptr()))
+            ptr_type.refs[obj] = 'bitcast({.TV} to i8*)'.format(realvalue)
         else:
-            ptr_type.refs[obj] = 'null'
+            raise ValueError("value is opaque")
+
+
+class WeakRefType(Type):
+    def setup_from_lltype(self, db, type):
+        self.struct_type = StructType()
+        self.struct_type.setup_from_lltype(db, WEAKREF)
+
+    def repr_type(self, extra_len=None):
+        return self.struct_type.repr_type(extra_len)
+
+    def repr_of_type(self):
+        return 'weakref'
+
+    def is_zero(self, value):
+        return self.struct_type.is_zero(value._converted_weakref)
+
+    def repr_value(self, value):
+        return self.struct_type.repr_value(value._converted_weakref)
 
 
 _LL_TO_LLVM = {
@@ -722,7 +740,7 @@ _LL_TO_LLVM = {
     lltype.FuncType: FuncType,
     lltype.OpaqueType: OpaqueType, lltype.GcOpaqueType: OpaqueType,
     llgroup.GroupType: GroupType,
-    llmemory._WeakRefType: OpaqueType,
+    llmemory._WeakRefType: WeakRefType,
 }
 
 class Database(object):
@@ -1520,10 +1538,9 @@ class GCPolicy(object):
             elif type is llmemory.GCREF.TO and hasattr(value, 'container'):
                 self._consider_constant(value.ORIGTYPE.TO, value.container)
             elif type is llmemory.WeakRef:
-                from rpython.memory.gctypelayout import convert_weakref_to
                 wrapper = convert_weakref_to(value._dereference())
                 self._consider_constant(wrapper._TYPE, wrapper)
-                value._converted_weakref = wrapper
+                value._converted_weakref = wrapper._obj
             self.gctransformer.consider_constant(type, value)
 
             p, c = lltype.parentlink(value)
@@ -1560,7 +1577,14 @@ class GCPolicy(object):
 
 
 class FrameworkGCPolicy(GCPolicy):
-    RttiType = OpaqueType
+    class RttiType(Type):
+        typestr = '{}'
+
+        def is_zero(self, value):
+            return True
+
+        def repr_ref(self, ptr_type, obj):
+            ptr_type.refs[obj] = 'null'
 
     def __init__(self, genllvm):
         GCPolicy.__init__(self, genllvm)
