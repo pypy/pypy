@@ -795,6 +795,10 @@ def gen_startupcode(f, database):
     print >> f, 'char *RPython_StartupCode(void) {'
     print >> f, '\tchar *error = NULL;'
 
+    if database.with_stm:
+        print >> f, '\t/* XXX temporary workaround for late_initializations */'
+        print >> f, '\tsyscall(SYS_arch_prctl, ARCH_SET_GS, (uint64_t)0);'
+
     # put float infinities in global constants, we should not have so many of them for now to make
     # a table+loop preferable
     for dest, value in database.late_initializations:
@@ -896,6 +900,14 @@ def gen_source(database, modulename, targetdir,
 
     filename = targetdir.join(modulename + '.c')
     f = filename.open('w')
+    if database.with_stm:
+        print >> f, '/* XXX temporary, for SYS_arch_prctl below */'
+        print >> f, '#define _GNU_SOURCE'
+        print >> f, '#include <unistd.h>'
+        print >> f, '#include <sys/syscall.h>'
+        print >> f, '#include <sys/prctl.h>'
+        print >> f, '#include <asm/prctl.h>'
+        print >> f
     incfilename = targetdir.join('common_header.h')
     fi = incfilename.open('w')
     fi.write('#ifndef _PY_COMMON_HEADER_H\n#define _PY_COMMON_HEADER_H\n')
