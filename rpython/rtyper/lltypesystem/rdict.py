@@ -805,6 +805,8 @@ def ll_clear(d):
 ll_clear.oopspec = 'dict.clear(d)'
 
 def ll_update(dic1, dic2):
+    if dic1 == dic2:
+        return
     ll_prepare_dict_update(dic1, dic2.num_items)
     entries = dic2.entries
     d2len = len(entries)
@@ -827,7 +829,13 @@ def ll_prepare_dict_update(d, num_extra):
     #      (d.resize_counter - 1) // 3 = room left in d
     #  so, if num_extra == 1, we need d.resize_counter > 3
     #      if num_extra == 2, we need d.resize_counter > 6  etc.
-    jit.conditional_call(d.resize_counter <= num_extra * 3,
+    # Note however a further hack: if num_extra <= d.num_items,
+    # we avoid calling _ll_dict_resize_to here.  This is to handle
+    # the case where dict.update() actually has a lot of collisions.
+    # If num_extra is much greater than d.num_items the conditional_call
+    # will trigger anyway, which is really the goal.
+    x = num_extra - d.num_items
+    jit.conditional_call(d.resize_counter <= x * 3,
                          _ll_dict_resize_to, d, num_extra)
 
 # this is an implementation of keys(), values() and items()
