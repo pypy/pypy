@@ -3,7 +3,6 @@
 from rpython.rlib import jit, rerased, objectmodel
 from rpython.rlib.debug import mark_dict_non_null
 from rpython.rlib.objectmodel import newlist_hint, r_dict, specialize
-from rpython.rlib.unroll import SpecTag
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -759,35 +758,51 @@ def create_iterator_classes(dictimpl, override_next_item=None):
             # this is very similar to the general version, but the difference
             # is that it is specialized to call a specific next_item()
             iteritems = IterClassItems(self.space, self, w_dict)
-            spec = _SPEC1
+            w_key, w_value = iteritems.next_item()
+            if w_key is None:
+                return
+            w_updatedict.setitem(w_key, w_value)
+            w_updatedict.strategy.prepare_update(w_updatedict,
+                                                 w_dict.length() - 1)
             while True:
                 w_key, w_value = iteritems.next_item()
                 if w_key is None:
-                    break
+                    return
                 w_updatedict.setitem(w_key, w_value)
-                if spec is _SPEC1:
-                    spec = _SPEC2
-                    w_updatedict.strategy.prepare_update(w_updatedict,
-                                                         w_dict.length() - 1)
         else:
-            spec = _SPEC1
             iteritems = self.getiteritems(w_dict)
-            for key, value in iteritems:
-                if spec is not _SPEC3:
-                    if (setitem_untyped is not None and
-                            self is w_updatedict.strategy):
-                        dstorage = w_updatedict.dstorage
-                        spec = _SPEC3
-                    else:
+            if not same_strategy(self, w_updatedict):
+                # Different strategy.  Try to copy one item of w_dict
+                for key, value in iteritems:
+                    w_key = wrapkey(self.space, key)
+                    w_value = wrapvalue(self.space, value)
+                    w_updatedict.setitem(w_key, w_value)
+                    break
+                else:
+                    return     # w_dict is completely empty, nothing to do
+                count = w_dict.length() - 1
+                w_updatedict.strategy.prepare_update(w_updatedict, count)
+                # If the strategy is still different, continue the slow way
+                if not same_strategy(self, w_updatedict):
+                    for key, value in iteritems:
                         w_key = wrapkey(self.space, key)
                         w_value = wrapvalue(self.space, value)
                         w_updatedict.setitem(w_key, w_value)
-                if spec is _SPEC3:
-                    setitem_untyped(self, dstorage, key, value)
-                if spec is _SPEC1:
-                    spec = _SPEC2
-                    w_updatedict.strategy.prepare_update(w_updatedict,
-                                                         w_dict.length() - 1)
+                    return     # done
+            else:
+                # Same strategy.
+                self.prepare_update(w_updatedict, w_dict.length())
+            #
+            # Use setitem_untyped() to speed up copying without
+            # wrapping/unwrapping the key.
+            assert setitem_untyped is not None
+            dstorage = w_updatedict.dstorage
+            for key, value in iteritems:
+                setitem_untyped(self, dstorage, key, value)
+
+    def same_strategy(self, w_otherdict):
+        return (setitem_untyped is not None and
+                w_otherdict.strategy is self)
 
     dictimpl.iterkeys = iterkeys
     dictimpl.itervalues = itervalues
@@ -795,10 +810,6 @@ def create_iterator_classes(dictimpl, override_next_item=None):
     dictimpl.rev_update1_dict_dict = rev_update1_dict_dict
 
 create_iterator_classes(EmptyDictStrategy)
-
-_SPEC1 = SpecTag()    # first iteration
-_SPEC2 = SpecTag()    # all other iteration
-_SPEC3 = SpecTag()    # same strategy with setitem_untyped()
 
 
 # concrete subclasses of the above
