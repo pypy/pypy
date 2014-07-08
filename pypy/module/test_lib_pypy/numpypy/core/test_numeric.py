@@ -248,13 +248,3 @@ class AppTestNumeric(BaseNumpyAppTest):
         assert d.shape == (3, 3)
         assert d.dtype == dtype('int32')
         assert (d == [[1, 0, 0], [0, 1, 0], [0, 0, 1]]).all()
-
-    def test_scalar_iter(self):
-        from numpypy import int8, int16, int32, int64, float32, float64
-        for t in int8, int16, int32, int64, float32, float64:
-            try:
-                iter(t(17))
-            except TypeError:
-                pass
-            else:
-                assert False, "%s object should not be iterable." % t
