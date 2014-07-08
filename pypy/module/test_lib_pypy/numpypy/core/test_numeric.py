@@ -248,3 +248,5 @@ class AppTestNumeric(BaseNumpyAppTest):
         assert d.shape == (3, 3)
         assert d.dtype == dtype('int32')
         assert (d == [[1, 0, 0], [0, 1, 0], [0, 0, 1]]).all()
+
+
