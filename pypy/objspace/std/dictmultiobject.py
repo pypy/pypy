@@ -701,7 +701,12 @@ def create_iterator_classes(dictimpl, override_next_item=None):
         wrapvalue = lambda space, value: value
     else:
         wrapvalue = dictimpl.wrapvalue.im_func
-    setitem_untyped = getattr(dictimpl, 'setitem_untyped', None)
+    if not hasattr(dictimpl, 'setitem_untyped'):
+        setitem_untyped = None
+    else:
+        setitem_untyped = dictimpl.setitem_untyped.im_func
+        setitem_untyped = func_with_new_name(setitem_untyped,
+            'setitem_untyped_%s' % dictimpl.__name__)
 
     class IterClassKeys(BaseKeyIterator):
         def __init__(self, space, strategy, impl):
