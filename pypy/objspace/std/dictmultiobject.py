@@ -699,9 +699,10 @@ def create_iterator_classes(dictimpl, override_next_item=None):
     else:
         wrapkey = dictimpl.wrapkey.im_func
     if not hasattr(dictimpl, 'wrapvalue'):
-        wrapvalue = lambda space, key: key
+        wrapvalue = lambda space, value: value
     else:
         wrapvalue = dictimpl.wrapvalue.im_func
+    setitem_untyped = getattr(dictimpl, 'setitem_untyped', None)
 
     class IterClassKeys(BaseKeyIterator):
         def __init__(self, space, strategy, impl):
@@ -770,10 +771,19 @@ def create_iterator_classes(dictimpl, override_next_item=None):
                                                          w_dict.length() - 1)
         else:
             spec = _SPEC1
-            for key, value in self.getiteritems(w_dict):
-                w_key = wrapkey(self.space, key)
-                w_value = wrapvalue(self.space, value)
-                w_updatedict.setitem(w_key, w_value)
+            iteritems = self.getiteritems(w_dict)
+            for key, value in iteritems:
+                if spec is not _SPEC3:
+                    if (setitem_untyped is not None and
+                            self is w_updatedict.strategy):
+                        dstorage = w_updatedict.dstorage
+                        spec = _SPEC3
+                    else:
+                        w_key = wrapkey(self.space, key)
+                        w_value = wrapvalue(self.space, value)
+                        w_updatedict.setitem(w_key, w_value)
+                if spec is _SPEC3:
+                    setitem_untyped(self, dstorage, key, value)
                 if spec is _SPEC1:
                     spec = _SPEC2
                     w_updatedict.strategy.prepare_update(w_updatedict,
@@ -786,8 +796,9 @@ def create_iterator_classes(dictimpl, override_next_item=None):
 
 create_iterator_classes(EmptyDictStrategy)
 
-_SPEC1 = SpecTag()
-_SPEC2 = SpecTag()
+_SPEC1 = SpecTag()    # first iteration
+_SPEC2 = SpecTag()    # all other iteration
+_SPEC3 = SpecTag()    # same strategy with setitem_untyped()
 
 
 # concrete subclasses of the above
@@ -906,6 +917,9 @@ class AbstractTypedStrategy(object):
     def prepare_update(self, w_dict, num_extra):
         objectmodel.prepare_dict_update(self.unerase(w_dict.dstorage),
                                         num_extra)
+
+    def setitem_untyped(self, dstorage, key, w_value):
+        self.unerase(dstorage)[key] = w_value
 
 
 class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
