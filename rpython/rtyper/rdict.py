@@ -81,6 +81,8 @@ class AbstractDictIteratorRepr(rmodel.IteratorRepr):
         hop.exception_is_here()
         v_index = hop.gendirectcall(self._ll_dictnext, v_iter)
         if variant == 'items' and hop.r_result.lowleveltype != lltype.Void:
+            # this allocates the tuple for the result, directly in the function
+            # where it will be used (likely).  This will let it be removed.
             c1 = hop.inputconst(lltype.Void, hop.r_result.lowleveltype.TO)
             cflags = hop.inputconst(lltype.Void, {'flavor': 'gc'})
             v_result = hop.genop('malloc', [c1, cflags],
