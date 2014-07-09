@@ -73,21 +73,17 @@ def do_what_I_mean(space):
     return space.wrap(42)
 
 
-def _nameof(cls):
-    return cls.__name__
-_nameof._annspecialcase_ = 'specialize:memo'
-
 def strategy(space, w_obj):
     """ strategy(dict or list or set)
 
     Return the underlying strategy currently used by a dict, list or set object
     """
     if isinstance(w_obj, W_DictMultiObject):
-        name = _nameof(w_obj.strategy.__class__)
+        name = w_obj.strategy.__class__.__name__
     elif isinstance(w_obj, W_ListObject):
-        name = _nameof(w_obj.strategy.__class__)
+        name = w_obj.strategy.__class__.__name__
     elif isinstance(w_obj, W_BaseSetObject):
-        name = _nameof(w_obj.strategy.__class__)
+        name = w_obj.strategy.__class__.__name__
     else:
         raise OperationError(space.w_TypeError,
                              space.wrap("expecting dict or list or set object"))
