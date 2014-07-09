@@ -1,5 +1,5 @@
 from rpython.rtyper.rmodel import inputconst, log
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.virtualizable import TOKEN_NONE
 from rpython.jit.metainterp.virtualizable import TOKEN_TRACING_RESCALL
@@ -19,7 +19,7 @@ class VirtualRefInfo:
         self.jit_virtual_ref_vtable = lltype.malloc(rclass.OBJECT_VTABLE,
                                                     zero=True, flavor='raw',
                                                     immortal=True)
-        self.jit_virtual_ref_vtable.name = rclass.alloc_array_name(
+        self.jit_virtual_ref_vtable.name = rstr.string_repr.convert_const(
             'jit_virtual_ref')
         # build some constants
         adr = llmemory.cast_ptr_to_adr(self.jit_virtual_ref_vtable)
