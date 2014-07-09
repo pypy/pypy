@@ -488,8 +488,7 @@ def getlogin(space):
         cur = os.getlogin()
     except OSError, e:
         raise wrap_oserror(space, e)
-    else:
-        return space.wrap(cur)
+    return space.fsdecode(space.wrapbytes(cur))
 
 # ____________________________________________________________
 
@@ -693,14 +692,21 @@ def symlink(space, w_src, w_dst):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path='fsencode')
-def readlink(space, path):
+def readlink(space, w_path):
     "Return a string representing the path to which the symbolic link points."
+    is_unicode = space.isinstance_w(w_path, space.w_unicode)
+    if is_unicode:
+        path = space.fsencode_w(w_path)
+    else:
+        path = space.bytes0_w(w_path)
     try:
         result = os.readlink(path)
     except OSError, e:
-        raise wrap_oserror(space, e, path)
-    return space.wrap(result)
+        raise wrap_oserror2(space, e, w_path)
+    w_result = space.wrapbytes(result)
+    if is_unicode:
+        return space.fsdecode(w_result)
+    return w_result
 
 before_fork_hooks = []
 after_fork_child_hooks = []
@@ -890,7 +896,8 @@ def uname(space):
         r = os.uname()
     except OSError, e:
         raise wrap_oserror(space, e)
-    l_w = [space.wrap(i) for i in [r[0], r[1], r[2], r[3], r[4]]]
+    l_w = [space.fsdecode(space.wrapbytes(i))
+           for i in [r[0], r[1], r[2], r[3], r[4]]]
     return space.newtuple(l_w)
 
 def getuid(space):
@@ -1217,7 +1224,7 @@ for name in RegisterOs.w_star:
 @unwrap_spec(fd=c_int)
 def ttyname(space, fd):
     try:
-        return space.wrap(os.ttyname(fd))
+        return space.fsdecode(space.wrapbytes(os.ttyname(fd)))
     except OSError, e:
         raise wrap_oserror(space, e)
 
@@ -1352,7 +1359,7 @@ def ctermid(space):
 
     Return the name of the controlling terminal for this process.
     """
-    return space.wrap(os.ctermid())
+    return space.fsdecode(space.wrapbytes(os.ctermid()))
 
 @unwrap_spec(fd=c_int)
 def device_encoding(space, fd):
