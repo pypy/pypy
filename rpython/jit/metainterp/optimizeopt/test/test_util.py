@@ -81,10 +81,10 @@ class LLtypeMixin(object):
         return box.getref(rclass.OBJECTPTR).typeptr
 
     node_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
-    node_vtable.name = rclass.alloc_array_name('node')
+    node_vtable.name = rstr.string_repr.convert_const('node')
     node_vtable_adr = llmemory.cast_ptr_to_adr(node_vtable)
     node_vtable2 = lltype.malloc(OBJECT_VTABLE, immortal=True)
-    node_vtable2.name = rclass.alloc_array_name('node2')
+    node_vtable2.name = rstr.string_repr.convert_const('node2')
     node_vtable_adr2 = llmemory.cast_ptr_to_adr(node_vtable2)
     cpu = runner.LLGraphCPU(None)
 
@@ -331,7 +331,7 @@ class FakeMetaInterpStaticData(object):
     def get_name_from_address(self, addr):
         # hack
         try:
-            return "".join(addr.ptr.name)[:-1] # remove \x00
+            return "".join(addr.ptr.name.chars)
         except AttributeError:
             return ""
 
