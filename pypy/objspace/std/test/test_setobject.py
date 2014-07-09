@@ -967,3 +967,28 @@ class AppTestAppSetTest:
         assert strategy(s) == "IntegerSetStrategy"
         s.update(set())
         assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3])
+        s |= set()
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3]).difference(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3])
+        s.difference_update(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3]).symmetric_difference(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3])
+        s.symmetric_difference_update(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3]).intersection(set())
+        assert strategy(s) == "EmptySetStrategy"
+        #
+        s = set([1, 2, 3])
+        s.intersection_update(set())
+        assert strategy(s) == "EmptySetStrategy"
