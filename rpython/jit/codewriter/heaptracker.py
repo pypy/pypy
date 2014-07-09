@@ -1,4 +1,4 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
 from rpython.rlib.objectmodel import we_are_translated
 
 
@@ -66,7 +66,7 @@ def setup_cache_gcstruct2vtable(cpu):
 def set_testing_vtable_for_gcstruct(GCSTRUCT, vtable, name):
     # only for tests that need to register the vtable of their malloc'ed
     # structures in case they are GcStruct inheriting from OBJECT.
-    vtable.name = rstr.string_repr.convert_const(name)
+    vtable.name = rclass.alloc_array_name(name)
     testing_gcstruct2vtable[GCSTRUCT] = vtable
 
 testing_gcstruct2vtable = {}
