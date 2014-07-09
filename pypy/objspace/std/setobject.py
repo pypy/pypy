@@ -1181,7 +1181,8 @@ class AbstractUnwrappedSetStrategy(object):
             d_other = self.unerase(w_other.sstorage)
             d_set.update(d_other)
             return
-
+        if w_other.length() == 0:
+            return
         w_set.switch_to_object_strategy(self.space)
         w_set.update(w_other)
 
