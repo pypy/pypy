@@ -698,8 +698,8 @@ class TestMMapFile(BaseTestBufferingInputStreamTests):
         return streamio.MMapFile(self.fd, mmapmode)
 
     def test_write(self):
-        if os.name == "posix":
-            return # write() does't work on Unix :-(
+        if os.name == "posix" or os.name == 'nt':
+            return # write() does't work on Unix nor on win32:-(
         file = self.makeStream(mode="w")
         file.write("BooHoo\n")
         file.write("Barf\n")

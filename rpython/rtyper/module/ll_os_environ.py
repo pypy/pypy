@@ -60,7 +60,7 @@ class OsEnvironController(Controller):
 
 # ____________________________________________________________
 # Access to the 'environ' external variable
-
+prefix = ''
 if sys.platform.startswith('darwin'):
     CCHARPPP = rffi.CArrayPtr(rffi.CCHARPP)
     _os_NSGetEnviron = rffi.llexternal(
@@ -77,6 +77,7 @@ elif _WIN32:
         rffi.CCHARPP, '_environ', eci)
     get__wenviron, _set__wenviron = rffi.CExternVariable(
         CWCHARPP, '_wenviron', eci, c_type='wchar_t **')
+    prefix = '_'    
 else:
     os_get_environ, _os_set_environ = rffi.CExternVariable(
         rffi.CCHARPP, 'environ', ExternalCompilationInfo())
@@ -117,7 +118,7 @@ def r_putenv(name, value):
 
 os_getenv = rffi.llexternal('getenv', [rffi.CCHARP], rffi.CCHARP,
                             releasegil=False)
-os_putenv = rffi.llexternal('putenv', [rffi.CCHARP], rffi.INT)
+os_putenv = rffi.llexternal(prefix + 'putenv', [rffi.CCHARP], rffi.INT)
 if _WIN32:
     _wgetenv = rffi.llexternal('_wgetenv', [rffi.CWCHARP], rffi.CWCHARP,
                                compilation_info=eci, releasegil=False)

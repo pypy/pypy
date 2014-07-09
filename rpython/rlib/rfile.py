@@ -32,32 +32,32 @@ class CConfig(object):
 config = platform.configure(CConfig)
 
 OFF_T = config['off_t']
-FILE = lltype.Struct('FILE')  # opaque type maybe
+FILEP = rffi.COpaquePtr("FILE")
 
-c_open = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], lltype.Ptr(FILE))
-c_close = llexternal('fclose', [lltype.Ptr(FILE)], rffi.INT)
+c_open = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP)
+c_close = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
 c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
-                                 lltype.Ptr(FILE)], rffi.SIZE_T)
+                                 FILEP], rffi.SIZE_T)
 c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
-                               lltype.Ptr(FILE)], rffi.SIZE_T)
-c_feof = llexternal('feof', [lltype.Ptr(FILE)], rffi.INT)
-c_ferror = llexternal('ferror', [lltype.Ptr(FILE)], rffi.INT)
-c_clearerror = llexternal('clearerr', [lltype.Ptr(FILE)], lltype.Void)
-c_fseek = llexternal('fseek', [lltype.Ptr(FILE), rffi.LONG, rffi.INT],
+                               FILEP], rffi.SIZE_T)
+c_feof = llexternal('feof', [FILEP], rffi.INT)
+c_ferror = llexternal('ferror', [FILEP], rffi.INT)
+c_clearerror = llexternal('clearerr', [FILEP], lltype.Void)
+c_fseek = llexternal('fseek', [FILEP, rffi.LONG, rffi.INT],
                      rffi.INT)
-c_tmpfile = llexternal('tmpfile', [], lltype.Ptr(FILE))
-c_fileno = llexternal(fileno, [lltype.Ptr(FILE)], rffi.INT)
+c_tmpfile = llexternal('tmpfile', [], FILEP)
+c_fileno = llexternal(fileno, [FILEP], rffi.INT)
 c_fdopen = llexternal(('_' if os.name == 'nt' else '') + 'fdopen',
-                      [rffi.INT, rffi.CCHARP], lltype.Ptr(FILE))
-c_ftell = llexternal('ftell', [lltype.Ptr(FILE)], rffi.LONG)
-c_fflush = llexternal('fflush', [lltype.Ptr(FILE)], rffi.INT)
+                      [rffi.INT, rffi.CCHARP], FILEP)
+c_ftell = llexternal('ftell', [FILEP], rffi.LONG)
+c_fflush = llexternal('fflush', [FILEP], rffi.INT)
 c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)
 
-c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, lltype.Ptr(FILE)],
+c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP],
                      rffi.CCHARP)
 
-c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], lltype.Ptr(FILE))
-c_pclose = llexternal('pclose', [lltype.Ptr(FILE)], rffi.INT)
+c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], FILEP)
+c_pclose = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
 
 BASE_BUF_SIZE = 4096
 BASE_LINE_SIZE = 100
@@ -157,7 +157,7 @@ class RFile(object):
         ll_f = self.ll_file
         if ll_f:
             # double close is allowed
-            self.ll_file = lltype.nullptr(FILE)
+            self.ll_file = lltype.nullptr(FILEP.TO)
             res = self._do_close(ll_f)
             if res == -1:
                 errno = rposix.get_errno()
@@ -188,16 +188,13 @@ class RFile(object):
             finally:
                 lltype.free(buf, flavor='raw')
         else:
-            raw_buf, gc_buf = rffi.alloc_buffer(size)
-            try:
-                returned_size = c_fread(raw_buf, 1, size, ll_file)
+            with rffi.scoped_alloc_buffer(size) as buf:
+                returned_size = c_fread(buf.raw, 1, size, ll_file)
                 returned_size = intmask(returned_size)  # is between 0 and size
                 if returned_size == 0:
                     if not c_feof(ll_file):
                         raise _error(ll_file)
-                s = rffi.str_from_buffer(raw_buf, gc_buf, size, returned_size)
-            finally:
-                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+                s = buf.str(returned_size)
             return s
 
     def seek(self, pos, whence=0):
@@ -270,25 +267,21 @@ class RFile(object):
 
     def readline(self):
         if self.ll_file:
-            raw_buf, gc_buf = rffi.alloc_buffer(BASE_LINE_SIZE)
-            try:
-                c = self._readline1(raw_buf)
+            with rffi.scoped_alloc_buffer(BASE_LINE_SIZE) as buf:
+                c = self._readline1(buf.raw)
                 if c >= 0:
-                    return rffi.str_from_buffer(raw_buf, gc_buf,
-                                                BASE_LINE_SIZE, c)
+                    return buf.str(c)
                 #
                 # this is the rare case: the line is longer than BASE_LINE_SIZE
                 s = StringBuilder()
                 while True:
-                    s.append_charpsize(raw_buf, BASE_LINE_SIZE - 1)
-                    c = self._readline1(raw_buf)
+                    s.append_charpsize(buf.raw, BASE_LINE_SIZE - 1)
+                    c = self._readline1(buf.raw)
                     if c >= 0:
                         break
                 #
-                s.append_charpsize(raw_buf, c)
+                s.append_charpsize(buf.raw, c)
                 return s.build()
-            finally:
-                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         raise ValueError("I/O operation on closed file")
 
 

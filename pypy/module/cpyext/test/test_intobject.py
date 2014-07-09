@@ -150,7 +150,7 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
                 /*tp_methods*/          0,
                 /*tp_members*/          enum_members,
                 /*tp_getset*/           0,
-                /*tp_base*/             &PyInt_Type,
+                /*tp_base*/             0, /* set to &PyInt_Type in init function for MSVC */
                 /*tp_dict*/             0,
                 /*tp_descr_get*/        0,
                 /*tp_descr_set*/        0,
@@ -159,7 +159,9 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
                 /*tp_alloc*/            0,
                 /*tp_new*/              0
             };
-            """)
+            """, more_init = '''
+            Enum_Type.tp_base = &PyInt_Type;
+            ''')
 
         a = module.newEnum("ULTIMATE_ANSWER", 42)
         assert type(a).__name__ == "Enum"
@@ -173,12 +175,13 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
                 ("test_int", "METH_NOARGS",
                 """
                 PyObject * obj = PyInt_FromLong(42);
+                PyObject * val;
                 if (!PyInt_Check(obj)) {
                     Py_DECREF(obj);
                     PyErr_SetNone(PyExc_ValueError);
                     return NULL;
                 }
-                PyObject * val = PyInt_FromLong(((PyIntObject *)obj)->ob_ival);
+                val = PyInt_FromLong(((PyIntObject *)obj)->ob_ival);
                 Py_DECREF(obj);
                 return val;
                 """

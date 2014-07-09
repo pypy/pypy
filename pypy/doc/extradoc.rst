@@ -8,6 +8,9 @@ Papers
 *Articles about PyPy published so far, most recent first:* (bibtex_ file)
 
 
+* `A Way Forward in Parallelising Dynamic Languages`_,
+  R. Meier, A. Rigo
+
 * `Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages`_,
   C.F. Bolz, A. Cuni, M. Fijalkowski, M. Leuschel, S. Pedroni, A. Rigo
 
@@ -71,6 +74,7 @@ Papers
 
 
 .. _bibtex: https://bitbucket.org/pypy/extradoc/raw/tip/talk/bibtex.bib
+.. _`A Way Forward in Parallelising Dynamic Languages`: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/icooolps2014/position-paper.pdf
 .. _`Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages`: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/icooolps2011/jit-hints.pdf
 .. _`Allocation Removal by Partial Evaluation in a Tracing JIT`: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/pepm2011/bolz-allocation-removal.pdf
 .. _`Towards a Jitting VM for Prolog Execution`: http://www.stups.uni-duesseldorf.de/mediawiki/images/a/a7/Pub-BoLeSch2010.pdf
@@ -92,6 +96,11 @@ Papers
 
 Talks and Presentations 
 ----------------------------------
+
+*This part is no longer updated.*  The complete list is here__ (in
+alphabetical order).
+
+.. __: https://bitbucket.org/pypy/extradoc/src/extradoc/talk/
 
 Talks in 2010
 +++++++++++++

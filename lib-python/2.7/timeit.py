@@ -55,11 +55,6 @@ instructions.
 import gc
 import sys
 import time
-try:
-    import itertools
-except ImportError:
-    # Must be an older Python version (see timeit() below)
-    itertools = None
 
 __all__ = ["Timer"]
 
@@ -81,7 +76,8 @@ template = """
 def inner(_it, _timer):
     %(setup)s
     _t0 = _timer()
-    for _i in _it:
+    while _it > 0:
+        _it -= 1
         %(stmt)s
     _t1 = _timer()
     return _t1 - _t0
@@ -96,7 +92,8 @@ def _template_func(setup, func):
     def inner(_it, _timer, _func=func):
         setup()
         _t0 = _timer()
-        for _i in _it:
+        while _it > 0:
+            _it -= 1
             _func()
         _t1 = _timer()
         return _t1 - _t0
@@ -133,9 +130,19 @@ class Timer:
             else:
                 raise ValueError("setup is neither a string nor callable")
             self.src = src # Save for traceback display
-            code = compile(src, dummy_src_name, "exec")
-            exec code in globals(), ns
-            self.inner = ns["inner"]
+            def make_inner():
+                # PyPy tweak: recompile the source code each time before
+                # calling inner(). There are situations like Issue #1776
+                # where PyPy tries to reuse the JIT code from before,
+                # but that's not going to work: the first thing the
+                # function does is the "-s" statement, which may declare
+                # new classes (here a namedtuple). We end up with
+                # bridges from the inner loop; more and more of them
+                # every time we call inner().
+                code = compile(src, dummy_src_name, "exec")
+                exec code in globals(), ns
+                return ns["inner"]
+            self.make_inner = make_inner
         elif hasattr(stmt, '__call__'):
             self.src = None
             if isinstance(setup, basestring):
@@ -144,7 +151,8 @@ class Timer:
                     exec _setup in globals(), ns
             elif not hasattr(setup, '__call__'):
                 raise ValueError("setup is neither a string nor callable")
-            self.inner = _template_func(setup, stmt)
+            inner = _template_func(setup, stmt)
+            self.make_inner = lambda: inner
         else:
             raise ValueError("stmt is neither a string nor callable")
 
@@ -185,15 +193,12 @@ class Timer:
         to one million.  The main statement, the setup statement and
         the timer function to be used are passed to the constructor.
         """
-        if itertools:
-            it = itertools.repeat(None, number)
-        else:
-            it = [None] * number
+        inner = self.make_inner()
         gcold = gc.isenabled()
         if '__pypy__' not in sys.builtin_module_names:
             gc.disable()    # only do that on CPython
         try:
-            timing = self.inner(it, self.timer)
+            timing = inner(number, self.timer)
         finally:
             if gcold:
                 gc.enable()

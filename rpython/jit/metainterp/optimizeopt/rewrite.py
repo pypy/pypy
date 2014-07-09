@@ -394,6 +394,7 @@ class OptRewrite(Optimization):
         val = self.getvalue(arg)
         if val.is_constant():
             if val.box.same_constant(CONST_0):
+                self.last_emitted_operation = REMOVED
                 return
             op = op.copy_and_change(rop.CALL, args=op.getarglist()[1:])
         self.emit_operation(op)

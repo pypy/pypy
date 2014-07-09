@@ -3,6 +3,7 @@
 
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_uint
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
@@ -83,6 +84,8 @@ if not _WIN32:
         # XXX this would never work on top of ll2ctypes, because
         # ctypes are calling dlerror itself, unsure if I can do much in this
         # area (nor I would like to)
+        if not we_are_translated():
+            return "error info not available, not translated"
         res = c_dlerror()
         if not res:
             return ""

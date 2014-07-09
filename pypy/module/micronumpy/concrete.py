@@ -369,9 +369,11 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
 
 
 class ConcreteArray(ConcreteArrayNotOwning):
-    def __init__(self, shape, dtype, order, strides, backstrides, storage=lltype.nullptr(RAW_STORAGE)):
+    def __init__(self, shape, dtype, order, strides, backstrides,
+                 storage=lltype.nullptr(RAW_STORAGE), zero=True):
         if storage == lltype.nullptr(RAW_STORAGE):
-            storage = dtype.itemtype.malloc(support.product(shape) * dtype.elsize)
+            storage = dtype.itemtype.malloc(support.product(shape) *
+                                            dtype.elsize, zero=zero)
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         storage)
 

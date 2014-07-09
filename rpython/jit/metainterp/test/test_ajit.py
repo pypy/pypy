@@ -1435,6 +1435,16 @@ class BasicTests:
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
         self.check_resops(guard_class=0, guard_value=6)
+        #
+        # The original 'guard_class' is rewritten to be directly 'guard_value'.
+        # Check that this rewrite does not interfere with the descr, which
+        # should be a full-fledged multivalued 'guard_value' descr.
+        if self.basic:
+            for loop in get_stats().get_all_loops():
+                for op in loop.get_operations():
+                    if op.getopname() == "guard_value":
+                        descr = op.getdescr()
+                        assert descr.get_index_of_guard_value() >= 0
 
     def test_merge_guardnonnull_guardclass(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
