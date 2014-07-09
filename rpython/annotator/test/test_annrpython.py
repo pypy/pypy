@@ -4276,6 +4276,15 @@ class TestAnnotateTestCase:
         py.test.raises(annmodel.AnnotatorError,
                        a.build_types, f, [annmodel.s_None])
 
+    def test_class___name__(self):
+        class Abc(object):
+            pass
+        def f():
+            return Abc().__class__.__name__
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeString)
+
 
 def g(n):
     return [0, 1, 2, n]
