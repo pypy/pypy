@@ -11,7 +11,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gctypelayout import TypeLayoutBuilder
 from rpython.rlib.rarithmetic import LONG_BIT, is_valid_int
 from rpython.memory.gc import minimark, incminimark
-from rpython.memory.gctypelayout import zero_gc_pointers, zero_gc_pointers_inside
+from rpython.memory.gctypelayout import zero_gc_pointers_inside
 WORD = LONG_BIT // 8
 
 ADDR_ARRAY = lltype.Array(llmemory.Address)
@@ -108,12 +108,13 @@ class BaseDirectGCTest(object):
         addr = self.gc.malloc(self.get_type_id(TYPE), n, zero=True)
         obj_ptr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
         #TODO: only zero fields if there is gc filed add something like has_gc_ptr()
-        zero_gc_pointers_inside(obj_ptr, TYPE)
+        if not self.gc.malloc_zero_filled:
+            zero_gc_pointers_inside(obj_ptr, TYPE)
         return obj_ptr
 
 
 class DirectGCTest(BaseDirectGCTest):
-
+    
     def test_simple(self):
         p = self.malloc(S)
         p.x = 5
@@ -666,3 +667,9 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
 
 class TestIncrementalMiniMarkGCFull(DirectGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
+    def test_no_cleanup(self):
+        p = self.malloc(S)
+        import pytest
+        with pytest.raises(lltype.UninitializedMemoryAccess):
+            x1 = p.x
+        
