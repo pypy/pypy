@@ -509,8 +509,6 @@ medium- and long-term future work involves reducing this overhead :-)
 The last two lines are special; they are an internal marker read by
 ``transactional_memory.print_abort_info()``.
 
-These statistics are not printed out for the main thread, for now.
-
 
 Reference to implementation details
 -----------------------------------
