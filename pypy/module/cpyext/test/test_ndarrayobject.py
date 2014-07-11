@@ -212,8 +212,14 @@ class TestNDArrayObject(BaseApiTest):
         res = api._PyArray_SimpleNewFromData(0, ptr_s, 15, ptr_a)
         assert res.get_scalar_value().real == 3.
         assert res.get_scalar_value().imag == 4.
+    
+    def test_Ufunc_FromFuncAndDataAndSignature(self. space, api):
+        ufunc = api._PyUFunc_FromFuncAndDataAndSignature(space, funcs, data,
+                        types, ntypes, nin, nout, identity, doc, check_return,
+                        signature)
 
-class AppTestCNumber(AppTestCpythonExtensionBase):
+
+class AppTestNDArray(AppTestCpythonExtensionBase):
     def test_ndarray_object_c(self):
         mod = self.import_extension('foo', [
                 ("test_simplenew", "METH_NOARGS",
