@@ -427,6 +427,12 @@ class W_BytesObject(W_AbstractBytesObject):
     _val = bytes_w
 
     @staticmethod
+    def _use_rstr_ops(space, w_other):
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        return (isinstance(w_other, W_BytesObject) or
+                isinstance(w_other, W_UnicodeObject))
+
+    @staticmethod
     def _op_val(space, w_other):
         try:
             return space.bytes_w(w_other)

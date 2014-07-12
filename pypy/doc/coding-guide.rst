@@ -105,7 +105,7 @@ something much lower-level and involved, say something like::
         while True:
             try:
                 w_key = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise       # re-raise other app-level exceptions
                 break
@@ -348,8 +348,12 @@ We are using
 
 **objects**
 
-  Normal rules apply. Special methods are not honoured, except ``__init__``,
-  ``__del__`` and ``__iter__``.
+  Normal rules apply. The only special methods that are honoured are
+  ``__init__``, ``__del__``, ``__len__``, ``__getitem__``, ``__setitem__``,
+  ``__getslice__``, ``__setslice__``, and ``__iter__``. To handle slicing,
+  ``__getslice__`` and ``__setslice__`` must be used; using ``__getitem__`` and
+   ``__setitem__`` for slicing isn't supported. Additionally, using negative
+   indices for slicing is still not support, even when using ``__getslice__``.
 
 This layout makes the number of types to take care about quite limited.
 
@@ -567,7 +571,7 @@ To catch a specific application-level exception::
 
     try:
         ...
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_XxxError):
             raise
         ...

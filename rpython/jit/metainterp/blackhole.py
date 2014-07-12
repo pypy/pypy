@@ -1090,6 +1090,11 @@ class BlackholeInterpreter(object):
         if condition:
             cpu.bh_call_v(func, args_i, None, None, calldescr)
 
+    @arguments("cpu", "i", "i", "R", "d")
+    def bhimpl_conditional_call_r_v(cpu, condition, func, args_r, calldescr):
+        if condition:
+            cpu.bh_call_v(func, None, args_r, None, calldescr)
+
     @arguments("cpu", "i", "i", "I", "R", "d")
     def bhimpl_conditional_call_ir_v(cpu, condition, func, args_i, args_r,
                                      calldescr):

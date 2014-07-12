@@ -308,9 +308,9 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 space.sys.get('modules'),
                 space.wrap(name))
 
-        @unwrap_spec(modname=str, prologue=str, PY_SSIZE_T_CLEAN=bool)
+        @unwrap_spec(modname=str, prologue=str, more_init=str, PY_SSIZE_T_CLEAN=bool)
         def import_extension(space, modname, w_functions, prologue="",
-                             PY_SSIZE_T_CLEAN=False):
+                             more_init="", PY_SSIZE_T_CLEAN=False):
             functions = space.unwrap(w_functions)
             methods_table = []
             codes = []
@@ -340,6 +340,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             };
             """ % dict(methods='\n'.join(methods_table), modname=modname)
             init = """PyObject *mod = PyModule_Create(&moduledef);"""
+            if more_init:
+                init += more_init
             return import_module(space, name=modname, init=init, body=body,
                                  PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
 

@@ -174,7 +174,9 @@ class AppTestBytesArray:
         assert bytearray(b'hello').rindex(b'l') == 3
         assert bytearray(b'hello').index(bytearray(b'e')) == 1
         assert bytearray(b'hello').find(b'l') == 2
+        assert bytearray(b'hello').find(b'l', -2) == 3
         assert bytearray(b'hello').rfind(b'l') == 3
+
 
         # these checks used to not raise in pypy but they should
         raises(TypeError, bytearray(b'hello').index, ord('e'))
@@ -449,6 +451,7 @@ class AppTestBytesArray:
         u = b.decode('utf-8')
         assert isinstance(u, str)
         assert u == 'abcdefghi'
+        assert b.decode().encode() == b
 
     def test_int(self):
         assert int(bytearray(b'-1234')) == -1234

@@ -826,7 +826,9 @@ class RSocket(object):
         elif timeout == 0:
             raw_buf, gc_buf = rffi.alloc_buffer(buffersize)
             try:
-                read_bytes = _c.socketrecv(self.fd, raw_buf, buffersize, flags)
+                read_bytes = _c.socketrecv(self.fd,
+                                           rffi.cast(rffi.VOIDP, raw_buf),
+                                           buffersize, flags)
                 if read_bytes >= 0:
                     return rffi.str_from_buffer(raw_buf, gc_buf, buffersize, read_bytes)
             finally:
@@ -1318,7 +1320,8 @@ if hasattr(_c, 'inet_ntop'):
         try:
             dstbuf = mallocbuf(dstsize)
             try:
-                res = _c.inet_ntop(family, srcbuf, dstbuf, dstsize)
+                res = _c.inet_ntop(family, rffi.cast(rffi.VOIDP, srcbuf),
+                                   dstbuf, dstsize)
                 if not res:
                     raise last_error()
                 return rffi.charp2str(res)

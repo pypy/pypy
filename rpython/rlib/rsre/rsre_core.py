@@ -418,32 +418,33 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
                 marks = p.marks
                 enum = p.enum.move_to_next_result(ctx)
             #
-            # zero-width match protection
             min = ctx.pat(ppos+1)
-            if self.num_pending >= min:
-                while enum is not None and ptr == ctx.match_end:
-                    enum = enum.move_to_next_result(ctx)
-                    # matched marks for zero-width assertions
-                    marks = ctx.match_marks
-            #
             if enum is not None:
                 # matched one more 'item'.  record it and continue.
+                last_match_length = ctx.match_end - ptr
                 self.pending = Pending(ptr, marks, enum, self.pending)
                 self.num_pending += 1
                 ptr = ctx.match_end
                 marks = ctx.match_marks
-                match_more = True
-            else:
-                # 'item' no longer matches.
-                if self.num_pending >= min:
-                    # try to match 'tail' if we have enough 'item'
-                    result = sre_match(ctx, tailppos, ptr, marks)
-                    if result is not None:
-                        self.subresult = result
-                        self.cur_ptr = ptr
-                        self.cur_marks = marks
-                        return self
-                match_more = False
+                if last_match_length == 0 and self.num_pending >= min:
+                    # zero-width protection: after an empty match, if there
+                    # are enough matches, don't try to match more.  Instead,
+                    # fall through to trying to match 'tail'.
+                    pass
+                else:
+                    match_more = True
+                    continue
+
+            # 'item' no longer matches.
+            if self.num_pending >= min:
+                # try to match 'tail' if we have enough 'item'
+                result = sre_match(ctx, tailppos, ptr, marks)
+                if result is not None:
+                    self.subresult = result
+                    self.cur_ptr = ptr
+                    self.cur_marks = marks
+                    return self
+            match_more = False
 
 class MinUntilMatchResult(AbstractUntilMatchResult):
 

@@ -905,7 +905,7 @@ class interp2app(W_Root):
                     "use unwrap_spec(...=WrappedDefault(default))" % (
                     self._code.identifier, name, defaultval))
                 defs_w.append(None)
-            else:
+            elif name != '__args__' and name != 'args_w':
                 spec = unwrap_spec[i]
                 if isinstance(defaultval, str) and spec not in [str]:
                     defs_w.append(space.wrapbytes(defaultval))

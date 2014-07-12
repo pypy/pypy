@@ -1934,42 +1934,6 @@ class Assembler386(BaseAssembler):
         self._genop_call(op, arglocs, result_loc, is_call_release_gil=True)
         self._emit_guard_not_forced(guard_token)
 
-    def call_reacquire_gil(self, gcrootmap, save_loc):
-        # save the previous result (eax/xmm0) into the stack temporarily.
-        # XXX like with call_release_gil(), we assume that we don't need
-        # to save xmm0 in this case.
-        if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
-            self.mc.MOV_sr(WORD, save_loc.value)
-        # call the reopenstack() function (also reacquiring the GIL)
-        if gcrootmap.is_shadow_stack:
-            args = []
-            css = 0
-        else:
-            from rpython.memory.gctransform import asmgcroot
-            css = WORD * (PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS)
-            if IS_X86_32:
-                reg = eax
-            elif IS_X86_64:
-                reg = edi
-            self.mc.LEA_rs(reg.value, css)
-            args = [reg]
-        self._emit_call(imm(self.reacqgil_addr), args, can_collect=False)
-        #
-        # Now that we required the GIL, we can reload a possibly modified ebp
-        if not gcrootmap.is_shadow_stack:
-            # special-case: reload ebp from the css
-            from rpython.memory.gctransform import asmgcroot
-            index_of_ebp = css + WORD * (2+asmgcroot.INDEX_OF_EBP)
-            self.mc.MOV_rs(ebp.value, index_of_ebp)  # MOV EBP, [css.ebp]
-        #else:
-        #   for shadowstack, done for us by _reload_frame_if_necessary()
-        self._reload_frame_if_necessary(self.mc)
-        self.set_extra_stack_depth(self.mc, 0)
-        #
-        # restore the result from the stack
-        if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
-            self.mc.MOV_rs(save_loc.value, WORD)
-
     def imm(self, v):
         return imm(v)
 
@@ -2351,10 +2315,29 @@ class Assembler386(BaseAssembler):
         assert isinstance(reg, RegLoc)
         self.mc.MOV_rr(reg.value, ebp.value)
 
+    def threadlocalref_get(self, op, resloc):
+        # this function is only called on Linux
+        from rpython.jit.codewriter.jitcode import ThreadLocalRefDescr
+        from rpython.jit.backend.x86 import stmtlocal
+        assert isinstance(resloc, RegLoc)
+        effectinfo = op.getdescr().get_extra_info()
+        assert effectinfo.extradescrs is not None
+        ed = effectinfo.extradescrs[0]
+        assert isinstance(ed, ThreadLocalRefDescr)
+        addr1 = rffi.cast(lltype.Signed, ed.get_tlref_addr())
+        addr0 = stmtlocal.threadlocal_base()
+        addr = addr1 - addr0
+        assert rx86.fits_in_32bits(addr)
+        mc = self.mc
+        mc.writechar(stmtlocal.SEGMENT_TL)     # prefix
+        mc.MOV_rj(resloc.value, addr)
+
+
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST
 genop_llong_list = {}
 genop_math_list = {}
+genop_tlref_list = {}
 genop_guard_list = [Assembler386.not_implemented_op_guard] * rop._LAST
 
 for name, value in Assembler386.__dict__.iteritems():

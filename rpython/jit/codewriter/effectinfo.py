@@ -22,6 +22,7 @@ class EffectInfo(object):
     OS_STR2UNICODE              = 2    # "str.str2unicode"
     OS_SHRINK_ARRAY             = 3    # rgc.ll_shrink_array
     OS_DICT_LOOKUP              = 4    # ll_dict_lookup
+    OS_THREADLOCALREF_GET       = 5    # llop.threadlocalref_get
     #
     OS_STR_CONCAT               = 22   # "stroruni.concat"
     OS_STR_SLICE                = 23   # "stroruni.slice"

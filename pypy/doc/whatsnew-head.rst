@@ -3,6 +3,30 @@ What's new in PyPy 2.4+
 =======================
 
 .. this is a revision shortly after release-2.3.x
-.. startrev: 87fdc76bccb4
+.. startrev: ca9b7cf02cf4
 
+.. branch: fix-bytearray-complexity
+Bytearray operations no longer copy the bytearray unnecessarily
 
+Added support for ``__getitem__``, ``__setitem__``, ``__getslice__``,
+``__setslice__``,  and ``__len__`` to RPython
+
+.. branch: stringbuilder2-perf
+Give the StringBuilder a more flexible internal structure, with a
+chained list of strings instead of just one string. This make it
+more efficient when building large strings, e.g. with cStringIO().
+
+Also, use systematically jit.conditional_call() instead of regular
+branches. This lets the JIT make more linear code, at the cost of
+forcing a bit more data (to be passed as arguments to
+conditional_calls). I would expect the net result to be a slight
+slow-down on some simple benchmarks and a speed-up on bigger
+programs.
+
+.. branch: ec-threadlocal
+Change the executioncontext's lookup to be done by reading a thread-
+local variable (which is implemented in C using '__thread' if
+possible, and pthread_getspecific() otherwise). On Linux x86 and
+x86-64, the JIT backend has a special optimization that lets it emit
+directly a single MOV from a %gs- or %fs-based address. It seems
+actually to give a good boost in performance.

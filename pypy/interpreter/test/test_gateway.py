@@ -738,6 +738,22 @@ class TestGateway:
             never_called
         py.test.raises(AssertionError, space.wrap, gateway.interp2app_temp(g))
 
+    def test_unwrap_spec_default_applevel_bug2(self):
+        space = self.space
+        def g(space, w_x, w_y=None, __args__=None):
+            return w_x
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_42 = space.call_function(w_g, space.wrap(42))
+        assert space.int_w(w_42) == 42
+        py.test.raises(gateway.OperationError, space.call_function, w_g)
+        #
+        def g(space, w_x, w_y=None, args_w=None):
+            return w_x
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_42 = space.call_function(w_g, space.wrap(42))
+        assert space.int_w(w_42) == 42
+        py.test.raises(gateway.OperationError, space.call_function, w_g)
+
     def test_interp2app_doc(self):
         space = self.space
         def f(space, w_x):

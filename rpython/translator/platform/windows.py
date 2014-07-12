@@ -240,9 +240,12 @@ class MsvcPlatform(Platform):
             stderr = stdout + stderr
             errorfile = outname.new(ext='errors')
             errorfile.write(stderr, mode='wb')
-            stderrlines = stderr.splitlines()
-            for line in stderrlines:
-                log.ERROR(line)
+            if self.log_errors:
+                stderrlines = stderr.splitlines()
+                for line in stderrlines:
+                    log.Error(line)
+                # ^^^ don't use ERROR, because it might actually be fine.
+                # Also, ERROR confuses lib-python/conftest.py.
             raise CompilationError(stdout, stderr)
 
 

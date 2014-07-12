@@ -31,8 +31,6 @@ def create_entry_point(space, w_dict):
     if w_dict is not None: # for tests
         w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
         w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
-        w_call_finish_gateway = space.wrap(gateway.interp2app(call_finish))
-        w_call_startup_gateway = space.wrap(gateway.interp2app(call_startup))
         withjit = space.config.objspace.usemodules.pypyjit
 
     def entry_point(argv):
@@ -54,7 +52,7 @@ def create_entry_point(space, w_dict):
             argv = argv[:1] + argv[3:]
         try:
             try:
-                space.call_function(w_run_toplevel, w_call_startup_gateway)
+                space.startup()
                 if rlocale.HAVE_LANGINFO:
                     try:
                         rlocale.setlocale(rlocale.LC_ALL, '')
@@ -76,7 +74,7 @@ def create_entry_point(space, w_dict):
                 return 1
         finally:
             try:
-                space.call_function(w_run_toplevel, w_call_finish_gateway)
+                space.finish()
             except OperationError, e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
@@ -191,11 +189,6 @@ def create_entry_point(space, w_dict):
                          'pypy_thread_attach': pypy_thread_attach,
                          'pypy_setup_home': pypy_setup_home}
 
-def call_finish(space):
-    space.finish()
-
-def call_startup(space):
-    space.startup()
 
 # _____ Define and setup target ___
 

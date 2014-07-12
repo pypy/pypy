@@ -253,7 +253,13 @@ class Transformer(object):
                         SpaceOperation("record_known_class", [op.args[0], const_vtable], None)]
 
     def rewrite_op_raw_malloc_usage(self, op):
-        pass
+        if self.cpu.translate_support_code or isinstance(op.args[0], Variable):
+            return   # the operation disappears
+        else:
+            # only for untranslated tests: get a real integer estimate
+            arg = op.args[0].value
+            arg = llmemory.raw_malloc_usage(arg)
+            return [Constant(arg, lltype.Signed)]
 
     def rewrite_op_jit_record_known_class(self, op):
         return SpaceOperation("record_known_class", [op.args[0], op.args[1]], None)
@@ -384,11 +390,15 @@ class Transformer(object):
         lst.append(v)
 
     def handle_residual_call(self, op, extraargs=[], may_call_jitcodes=False,
-                             oopspecindex=EffectInfo.OS_NONE):
+                             oopspecindex=EffectInfo.OS_NONE,
+                             extraeffect=None,
+                             extradescr=None):
         """A direct_call turns into the operation 'residual_call_xxx' if it
         is calling a function that we don't want to JIT.  The initial args
         of 'residual_call_xxx' are the function to call, and its calldescr."""
-        calldescr = self.callcontrol.getcalldescr(op, oopspecindex=oopspecindex)
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex=oopspecindex,
+                                                  extraeffect=extraeffect,
+                                                  extradescr=extradescr)
         op1 = self.rewrite_call(op, 'residual_call',
                                 [op.args[0]] + extraargs, calldescr=calldescr)
         if may_call_jitcodes or self.callcontrol.calldescr_canraise(calldescr):
@@ -1896,6 +1906,18 @@ class Transformer(object):
         op1 = SpaceOperation('jit_force_quasi_immutable', [v_inst, descr1],
                              None)
         return [op0, op1]
+
+    def rewrite_op_threadlocalref_get(self, op):
+        from rpython.jit.codewriter.jitcode import ThreadLocalRefDescr
+        opaqueid = op.args[0].value
+        op1 = self.prepare_builtin_call(op, 'threadlocalref_getter', [],
+                                        extra=(opaqueid,),
+                                        extrakey=opaqueid._obj)
+        extradescr = ThreadLocalRefDescr(opaqueid)
+        return self.handle_residual_call(op1,
+            oopspecindex=EffectInfo.OS_THREADLOCALREF_GET,
+            extraeffect=EffectInfo.EF_LOOPINVARIANT,
+            extradescr=[extradescr])
 
 # ____________________________________________________________
 
