@@ -55,7 +55,7 @@ def create_entry_point(space, w_dict):
                 space.startup()
                 if rlocale.HAVE_LANGINFO:
                     try:
-                        rlocale.setlocale(rlocale.LC_ALL, '')
+                        rlocale.setlocale(rlocale.LC_CTYPE, '')
                     except rlocale.LocaleError:
                         pass
                 w_executable = space.fsdecode(space.wrapbytes(argv[0]))
