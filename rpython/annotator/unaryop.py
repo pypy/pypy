@@ -9,7 +9,7 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
     SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
-    s_Bool, s_None, unionof, add_knowntypedata, NoNulChar, AsciiChar,
+    s_Bool, s_None, unionof, add_knowntypedata, NoNulChar, AsciiChar, AnyChar,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator import builtin
@@ -177,6 +177,9 @@ class __extend__(SomeFloat):
         if self.is_immutable_constant():
             return getbookkeeper().immutablevalue(bool(self.const))
         return s_Bool
+
+    def str(self):
+        return SomeString(charkind=AsciiChar)
 
 class __extend__(SomeInteger):
 
@@ -506,26 +509,20 @@ class __extend__(SomeString,
         return self.basestringclass(charkind=self.charkind)
 
     def op_contains(self, s_element):
-        if self.is_constant() and self.const.isalnum():
-            r = SomeBool()
+        r = SomeBool()
+        knowntypedata = {}
+        if self.charkind != AnyChar():
             bk = getbookkeeper()
             op = bk._find_current_op(opname="contains", arity=2, pos=0, s_type=self)
-            # raise TypeError(op.args)
-            knowntypedata = {}
             add_knowntypedata(knowntypedata, True, [op.args[1]],
-                              SomeString(charkind=AsciiChar()))
-            r.set_knowntypedata(knowntypedata)
-            return r
-        elif s_element.is_constant() and s_element.const == "\0":
-            r = SomeBool()
+                              s_element.basestringclass(charkind=self.charkind))
+        if s_element.is_constant() and s_element.const == "\0":
             bk = getbookkeeper()
             op = bk._find_current_op(opname="contains", arity=2, pos=0, s_type=self)
-            knowntypedata = {}
             add_knowntypedata(knowntypedata, False, [op.args[0]], self.nonnulify())
+        if knowntypedata:
             r.set_knowntypedata(knowntypedata)
-            return r
-        else:
-            return SomeObject.op_contains(self, s_element)
+        return r
     op_contains.can_only_throw = []
 
     def method_format(self, *args):

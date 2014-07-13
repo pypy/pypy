@@ -3875,11 +3875,15 @@ class TestAnnotateTestCase:
             if i in chars:
                 return i
             else:
-                return None
+                return 'z'
         a = self.RPythonAnnotator()
         s = a.build_types(f, [annmodel.SomeString(charkind=annmodel.AnyChar())])
         assert isinstance(s, annmodel.SomeString)
-        assert s.can_be_None
+        assert s.charkind.is_ascii
+        #
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeChar(charkind=annmodel.AnyChar())])
+        assert isinstance(s, annmodel.SomeString)
         assert s.charkind.is_ascii
 
     def test_no___call__(self):
