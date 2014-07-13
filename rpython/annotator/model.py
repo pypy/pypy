@@ -223,6 +223,7 @@ class AnyChar(object):
     """A character of any value."""
     no_nul = False
     is_ascii = False
+    is_utf8 = False
 
     _instances = {}
 
@@ -259,7 +260,24 @@ class NoNulChar(AnyChar):
             return AnyChar()
 NoNulChar._register()
 
-class AsciiChar(NoNulChar):
+class Utf8Char(NoNulChar):
+    """A character compatible with utf8 encoding.
+
+    Does not mean that the string can always be decoded with utf8,
+    specially for slices or single characters. This kind indicates that
+    utf8 is the encoding to use when converting to unicode."""
+    is_utf8 = True
+
+    def union(self, other):
+        if other.is_utf8:
+            return self
+        elif other.no_nul:
+            return NoNulChar()
+        else:
+            return AnyChar()
+Utf8Char._register()
+
+class AsciiChar(Utf8Char):
     """A character in the range(1, 128).
 
     Strings of this kind can be decoded faster to unicode."""
@@ -269,6 +287,8 @@ class AsciiChar(NoNulChar):
     def union(self, other):
         if other.is_ascii:
             return self
+        elif other.is_utf8:
+            return Utf8Char()
         elif other.no_nul:
             return NoNulChar()
         else:
@@ -277,6 +297,8 @@ AsciiChar._register()
 
 
 def charkind_from_const(value):
+    # Probably no need to handle utf-8, we don't have such constants
+    # in pypy code.
     try:
         value.decode('ascii')
     except UnicodeDecodeError:
