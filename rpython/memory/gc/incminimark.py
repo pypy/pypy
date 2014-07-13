@@ -380,8 +380,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Counter tracking how many pinned objects currently reside inside
         # the nursery.
         self.pinned_objects_in_nursery = 0
-        # TTT XXX
-        self.pinned_objects_keep_alive = self.AddressStack()
         #
         # Allocate a nursery.  In case of auto_nursery_size, start by
         # allocating a very small nursery, enough to do things like look
@@ -1603,15 +1601,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # them or make them old.
         if self.young_rawmalloced_objects:
             self.free_young_rawmalloced_objects()
-
-        #
-        # In case we have to keep some pinned objects alive, add them
-        # to 'surviving_pinned_objects'. Such a case comes up if an old
-        # object references a pinned young one (pinned object inside
-        # the nursery). See '_trace_drag_out' for more details.
-        if self.pinned_objects_keep_alive.non_empty():
-            self.pinned_objects_keep_alive.foreach(
-                self._populate_to_surviving_pinned_objects, None)
         #
         # All live nursery objects are out of the nursery or pinned inside
         # the nursery.  Create nursery barriers to protect the pinned object,
@@ -1631,7 +1620,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # clear the arena between the last pinned object (or arena start)
             # and the pinned object
             pinned_obj_size = llarena.getfakearenaaddress(cur) - prev
-            debug_print("before A")
             llarena.arena_reset(prev, pinned_obj_size, 2)
             #
             # clean up object's flags
@@ -1646,7 +1634,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 (size_gc_header + self.get_size(obj))
         #
         # reset everything after the last pinned object till the end of the arena
-        debug_print("before B")
         llarena.arena_reset(prev, self.nursery_real_top - prev, 0)
         #
         # We assume that there are only a few pinned objects. Therefore, if there
@@ -1657,7 +1644,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if prev - self.nursery >= self.nursery_cleanup:
             nursery_barriers.append(prev)
         else:
-            debug_print("before C")
             llarena.arena_reset(prev, self.nursery_cleanup, 2)
             nursery_barriers.append(prev + self.nursery_cleanup)
         #
@@ -1679,12 +1665,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         debug_stop("gc-minor")
 
-    def _populate_to_surviving_pinned_objects(self, obj, ignored):
-        self.surviving_pinned_objects.append(obj)
-        # we have to update the counter each time, because it was set to 0
-        # at the start of the *minor* collection. The 'obj' survives
-        # *major* collections and therefore also multiple minor collections.
-        self.pinned_objects_in_nursery += 1
 
     def collect_roots_in_nursery(self):
         # we don't need to trace prebuilt GcStructs during a minor collect:
@@ -1696,7 +1676,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             callback = IncrementalMiniMarkGC._trace_drag_out1_marking_phase
         else:
             callback = IncrementalMiniMarkGC._trace_drag_out1
-        #
         self.root_walker.walk_roots(
             callback,     # stack roots
             callback,     # static in prebuilt non-gc
@@ -1793,7 +1772,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         """obj must not be in the nursery.  This copies all the
         young objects it references out of the nursery.
         """
-        self.trace(obj, self._trace_drag_out, obj)
+        self.trace(obj, self._trace_drag_out, None)
 
     def trace_and_drag_out_of_nursery_partial(self, obj, start, stop):
         """Like trace_and_drag_out_of_nursery(), but limited to the array
@@ -1822,18 +1801,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if not self.header(obj).tid & GCFLAG_VISITED:
             self.more_objects_to_trace.append(obj)
 
-    def _trace_drag_out(self, root, parent):
-        # 'parent' is only set if we visit a pinned objects that is referenced
-        # by an other object. This is used to handle pinned object specially in
-        # such a case.
+    def _trace_drag_out(self, root, ignored):
         obj = root.address[0]
         #print '_trace_drag_out(%x: %r)' % (hash(obj.ptr._obj), obj)
-        debug_print('_trace_drag_out(%x: %r)' % (hash(obj.ptr._obj), obj))
         #
         # If 'obj' is not in the nursery, nothing to change -- expect
         # that we must set GCFLAG_VISITED_RMY on young raw-malloced objects.
         if not self.is_in_nursery(obj):
-            debug_print("\tnot in nursery")
             # cache usage trade-off: I think that it is a better idea to
             # check if 'obj' is in young_rawmalloced_objects with an access
             # to this (small) dictionary, rather than risk a lot of cache
@@ -1844,7 +1818,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self._visit_young_rawmalloced_object(obj)
             return
         #
-        debug_print("\tin nursery")
         size_gc_header = self.gcheaderbuilder.size_gc_header
         if self.header(obj).tid & (GCFLAG_HAS_SHADOW | GCFLAG_PINNED) == 0:
             #
@@ -1868,29 +1841,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if hdr.tid & GCFLAG_VISITED:
                 # already visited and keeping track of the object
                 return
-            #
-            if parent:
-                # pinned object is referenced by an other object.
-                # We must keep the pinned object alive between
-                # major collections for the case that an old
-                # object references the young pinned object as
-                # the old one is only visited every major collection.
-                debug_print("-> added to keep alive:", obj)
-                debug_print("-> ... because of parent:", parent)
-                self.pinned_objects_keep_alive.append(obj - size_gc_header)
-                self.write_barrier(parent)
-            else:
-                debug_print("-> usual pinned object")
-                self.surviving_pinned_objects.append(
-                    llarena.getfakearenaaddress(obj - size_gc_header))
-                self.pinned_objects_in_nursery += 1
-            #
             hdr.tid |= GCFLAG_VISITED
-            debug_print("\tstate:", self.gc_state)
             # XXX add additional checks for unsupported pinned objects (groggi)
             # XXX implement unsupported object types with pinning
             ll_assert(not self.header(obj).tid & GCFLAG_HAS_CARDS,
                 "pinned object with GCFLAG_HAS_CARDS not supported")
+            self.surviving_pinned_objects.append(
+                llarena.getfakearenaaddress(obj - size_gc_header))
+            self.pinned_objects_in_nursery += 1
             return
         else:
             # First visit to an object that has already a shadow.
@@ -2059,8 +2017,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.more_objects_to_trace = self.AddressStack()
             #END SCANNING
         elif self.gc_state == STATE_MARKING:
-            self.pinned_objects_keep_alive.delete()
-            self.pinned_objects_keep_alive = self.AddressStack()
             debug_print("number of objects to mark",
                         self.objects_to_trace.length(),
                         "plus",
@@ -2188,8 +2144,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             pass #XXX which exception to raise here. Should be unreachable.
 
-        debug_print("BLUB:", self.pinned_objects_keep_alive.length())
-
         debug_print("stopping, now in gc state: ", GC_STATES[self.gc_state])
         debug_stop("gc-collect-step")
 
@@ -2256,7 +2210,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         # Add the roots from the other sources.
         self.root_walker.walk_roots(
-            IncrementalMiniMarkGC._collect_ref_stk2, # stack roots
+            IncrementalMiniMarkGC._collect_ref_stk, # stack roots
             IncrementalMiniMarkGC._collect_ref_stk, # static in prebuilt non-gc structures
             None)   # we don't need the static in all prebuilt gc objects
         #
@@ -2273,17 +2227,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
     @staticmethod
     def _collect_obj(obj, objects_to_trace):
         objects_to_trace.append(obj)
-
-    def _collect_ref_stk2(self, root):
-        obj = root.address[0]
-        llop.debug_nonnull_pointer(lltype.Void, obj)
-        hdr = self.header(obj)
-        if hdr.tid & GCFLAG_PINNED:
-            # XXX think really hard about this (groggi):
-            # is a pinned object found on stack already
-            # being traced?
-            return
-        self.objects_to_trace.append(obj)
 
     def _collect_ref_stk(self, root):
         obj = root.address[0]
@@ -2308,7 +2251,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return size_to_track
 
     def visit(self, obj):
-        debug_print("visit:", obj)
         #
         # 'obj' is a live object.  Check GCFLAG_VISITED to know if we
         # have already seen it before.
@@ -2319,15 +2261,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # flag set, then the object should be in 'prebuilt_root_objects',
         # and the GCFLAG_VISITED will be reset at the end of the
         # collection.
-        #
-        # XXX pinned object case doc (groggi)
         hdr = self.header(obj)
-        if hdr.tid & GCFLAG_PINNED:
-            if self.gc_state == STATE_MARKING:
-                debug_print("STATE MARKING AND PINNED, ADD")
-                self.pinned_objects_keep_alive.append(obj - self.gcheaderbuilder.size_gc_header)
-            return 0
-        elif hdr.tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
+        if hdr.tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS | GCFLAG_PINNED):
+            # XXX ^^^ update doc in any way because of GCFLAG_PINNED addition? (groggi)
             return 0
         #
         # It's the first time.  We set the flag VISITED.  The trick is
