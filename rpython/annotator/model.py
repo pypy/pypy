@@ -670,8 +670,8 @@ s_None = SomeNone()
 s_Bool = SomeBool()
 s_Int = SomeInteger()
 s_ImpossibleValue = SomeImpossibleValue()
-s_Str0 = SomeString(charkind=NoNulChar)
-s_Unicode0 = SomeUnicodeString(charkind=NoNulChar)
+s_Str0 = SomeString(charkind=NoNulChar())
+s_Unicode0 = SomeUnicodeString(charkind=NoNulChar())
 
 
 # ____________________________________________________________
