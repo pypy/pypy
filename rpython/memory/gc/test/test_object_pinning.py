@@ -149,6 +149,29 @@ class TestIncminimark(PinningGCTest):
         self.gc.collect()
         assert self.stackroots[0].next.someInt == 100
 
+    def test_old_and_stackroots_point_to_pinned(self):
+        # In this test case we point to a pinned object from an old object
+        # *and* from the stackroots
+        old_ptr = self.malloc(S)
+        old_ptr.someInt = 999
+        self.stackroots.append(old_ptr)
+        self.gc.collect() # old_ptr is now old
+        old_ptr = self.stackroots[0]
+        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(old_ptr))
+
+        pinned_ptr = self.malloc(S)
+        pinned_ptr.someInt = 111
+        assert self.gc.pin(llmemory.cast_ptr_to_adr(pinned_ptr))
+
+        self.stackroots.append(pinned_ptr)
+        self.write(old_ptr, 'next', pinned_ptr)
+        
+        self.gc.collect()
+        # done with preparation. do some basic checks
+        assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(pinned_ptr))
+        assert pinned_ptr.someInt == 111
+        assert self.stackroots[0].next == pinned_ptr
+
     def test_pin_old(self):
         ptr = self.malloc(S)
         ptr.someInt = 100
