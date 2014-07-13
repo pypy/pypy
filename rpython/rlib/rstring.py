@@ -523,15 +523,9 @@ class Entry(ExtRegistryEntry):
     _about_ = assert_str0
 
     def compute_result_annotation(self, s_obj):
-        if s_None.contains(s_obj):
+        if s_None.contains(s_obj):  # probably a future str_or_None
             return s_obj
-        assert isinstance(s_obj, (SomeString, SomeUnicodeString))
-        if s_obj.charkind.no_nul:
-            return s_obj
-        new_s_obj = SomeObject.__new__(s_obj.__class__)
-        new_s_obj.__dict__ = s_obj.__dict__.copy()
-        new_s_obj.charkind = NoNulChar()
-        return new_s_obj
+        return s_obj.nonnulify()
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()

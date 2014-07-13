@@ -220,7 +220,10 @@ class SomeBool(SomeInteger):
 # Character classes.
 
 class AnyChar(object):
+    """A character of any value."""
     no_nul = False
+    is_ascii = False
+
     _instances = {}
 
     def __new__(cls):
@@ -244,6 +247,9 @@ class AnyChar(object):
 AnyChar._register()
 
 class NoNulChar(AnyChar):
+    """Any character except NUL '\0'.
+    Strings of this kind can be converted to char* with no loss."""
+
     no_nul = True
 
     def union(self, other):
@@ -253,12 +259,34 @@ class NoNulChar(AnyChar):
             return AnyChar()
 NoNulChar._register()
 
-AsciiChar = AnyChar  # So far
+class AsciiChar(NoNulChar):
+    """A character in the range(1, 128).
+
+    Strings of this kind can be decoded faster to unicode."""
+
+    is_ascii = True
+
+    def union(self, other):
+        if other.is_ascii:
+            return self
+        elif other.no_nul:
+            return NoNulChar()
+        else:
+            return AnyChar()
+AsciiChar._register()
+
 
 def charkind_from_const(value):
+    try:
+        value.decode('ascii')
+    except UnicodeDecodeError:
+        pass
+    else:
+        return AsciiChar()
     if '\x00' not in value:
         return NoNulChar()
     return AnyChar()
+
 
 class SomeStringOrUnicode(SomeObject):
     """Base class for shared implementation of SomeString,
@@ -284,14 +312,16 @@ class SomeStringOrUnicode(SomeObject):
         return self.can_be_None
 
     def nonnoneify(self):
-        return self.__class__(can_be_None=False,
-                              charkind=self.charkind)
+        return self.basestringclass(can_be_None=False, charkind=self.charkind)
+
+    def noneify(self):
+        return self.basestringclass(can_be_None=True, charkind=self.charkind)
 
     def nonnulify(self):
-        if self.charkind == NoNulChar():
-            charkind = NoNulChar()
-        elif self.charkind == AnyChar():
-            charkind = NoNulChar()
+        if self.charkind.no_nul:
+            return self
+        assert type(self.charkind) is AnyChar  # so far the only one.
+        charkind = NoNulChar()
         return self.__class__(can_be_None=self.can_be_None, charkind=charkind)
 
 
@@ -299,16 +329,10 @@ class SomeString(SomeStringOrUnicode):
     "Stands for an object which is known to be a string."
     knowntype = str
 
-    def noneify(self):
-        return SomeString(can_be_None=True, charkind=self.charkind)
-
 
 class SomeUnicodeString(SomeStringOrUnicode):
     "Stands for an object which is known to be an unicode string"
     knowntype = unicode
-
-    def noneify(self):
-        return SomeUnicodeString(can_be_None=True, charkind=self.charkind)
 
 
 class SomeByteArray(SomeStringOrUnicode):

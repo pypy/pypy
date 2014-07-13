@@ -487,7 +487,7 @@ class __extend__(SomeString,
 
     def method_split(self, patt, max=-1):
         if max == -1 and patt.is_constant() and patt.const == "\0":
-            charkind = NoNulChar
+            charkind = NoNulChar()
         else:
             charkind = self.charkind
         s_item = self.basestringclass(charkind=charkind)
