@@ -46,7 +46,8 @@ class PinningGCTest(BaseDirectGCTest):
 class TestIncminimark(PinningGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
 
-    def test_simple_pin(self):
+    def test_simple_pin_stack(self):
+        # create object, pin it and point from stackroots to it
         ptr = self.malloc(S)
         ptr.someInt = 100
         self.stackroots.append(ptr)
@@ -59,26 +60,33 @@ class TestIncminimark(PinningGCTest):
         assert self.gc.is_in_nursery(adr)
         assert ptr.someInt == 100
 
-    def test_simple_pin_unpin(self):
+    def test_simple_pin_unpin_stack(self):
         ptr = self.malloc(S)
         ptr.someInt = 100
+        
         self.stackroots.append(ptr)
+        
         adr = llmemory.cast_ptr_to_adr(ptr)
-        # check if pin worked
         assert self.gc.pin(adr)
+        
         self.gc.collect()
+
         assert self.gc.is_in_nursery(adr)
         assert ptr.someInt == 100
+        
         # unpin and check if object is gone from nursery
         self.gc.unpin(adr)
         self.gc.collect()
         py.test.raises(RuntimeError, 'ptr.someInt')
+        
+        # check if we object is still accessible
         ptr_old = self.stackroots[0]
+        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(ptr_old))
         assert ptr_old.someInt == 100
 
     def test_pin_referenced_from_stackroot_young(self):
         #
-        # create both objects and reference the pinned one
+        # create two objects and reference the pinned one
         # from the one that will be moved out of the
         # nursery.
         root_ptr = self.malloc(S)
@@ -114,7 +122,7 @@ class TestIncminimark(PinningGCTest):
             assert "freed" in str(ex)
 
     def test_old_points_to_pinned(self):
-        # Test if we handle the case that an old object can point
+        # Test if we handle the case that an already old object can point
         # to a pinned object and keeps the pinned object alive by
         # that.
         #
@@ -123,7 +131,8 @@ class TestIncminimark(PinningGCTest):
         old_ptr.someInt = 999
         self.stackroots.append(old_ptr)
         self.gc.collect()
-        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(self.stackroots[0]))
+        assert not self.gc.is_in_nursery(
+                llmemory.cast_ptr_to_adr(self.stackroots[0]))
         #
         # create the young pinned object and attach it to the old object
         pinned_ptr = self.malloc(S)
@@ -178,11 +187,11 @@ class TestIncminimark(PinningGCTest):
         ptr.someInt = 100
         assert self.gc.pin(adr)
         self.gc.id(ptr) # allocate shadow
-        self.gc.minor_collection()
+        self.gc.collect()
         assert self.gc.is_in_nursery(adr)
         assert ptr.someInt == 100
         self.gc.unpin(adr)
-        self.gc.minor_collection() # move to shadow
+        self.gc.collect() # move to shadow
         adr = llmemory.cast_ptr_to_adr(self.stackroots[0])
         assert not self.gc.is_in_nursery(adr)
 
@@ -193,11 +202,11 @@ class TestIncminimark(PinningGCTest):
         ptr.someInt = 100
         assert self.gc.pin(adr)
         self.gc.identityhash(ptr) # allocate shadow
-        self.gc.minor_collection()
+        self.gc.collect()
         assert self.gc.is_in_nursery(adr)
         assert ptr.someInt == 100
         self.gc.unpin(adr)
-        self.gc.minor_collection() # move to shadow
+        self.gc.collect() # move to shadow
         adr = llmemory.cast_ptr_to_adr(self.stackroots[0])
         assert not self.gc.is_in_nursery(adr)
 
@@ -270,7 +279,7 @@ class TestIncminimark(PinningGCTest):
         # +- nursery_free
         # +- nursery_top
         #
-        self.gc.minor_collection()
+        self.gc.collect()
 
         assert self.gc.nursery_free == self.gc.nursery_top
         assert self.gc.nursery_top == self.gc.nursery
@@ -311,7 +320,7 @@ class TestIncminimark(PinningGCTest):
         # +- nursery_free
         #
         self.gc.unpin(adr1)
-        self.gc.minor_collection()
+        self.gc.collect()
 
         assert self.gc.nursery_free == self.gc.nursery
         assert self.gc.nursery_top > self.gc.nursery_free
@@ -353,7 +362,7 @@ class TestIncminimark(PinningGCTest):
         #
         self.gc.unpin(adr1)
         self.gc.unpin(adr2)
-        self.gc.minor_collection()
+        self.gc.collect()
 
         assert self.gc.nursery_free == self.gc.nursery
         assert self.gc.nursery_free < self.gc.nursery_top
@@ -413,7 +422,7 @@ class TestIncminimark(PinningGCTest):
         self.gc.unpin(adr1)
         self.gc.unpin(adr2)
         self.gc.unpin(adr3)
-        self.gc.minor_collection()
+        self.gc.collect()
 
         assert self.gc.nursery_free == self.gc.nursery
         # the following assert is important: make sure that
@@ -438,7 +447,7 @@ class TestIncminimark(PinningGCTest):
         assert self.gc.pin(llmemory.cast_ptr_to_adr(ptr_stackroot_2))
         assert self.gc.pinned_objects_in_nursery == 3
 
-        self.gc.minor_collection()
+        self.gc.collect()
         # now the one not on the stack should be gone.
         assert self.gc.pinned_objects_in_nursery == 2
         assert ptr_stackroot_1.someInt == 100
@@ -466,7 +475,7 @@ class TestIncminimark(PinningGCTest):
         # there were some bugs regarding the 'arena_reset()' calls at
         # the end of the minor collection.  This test brought them to light.
         self.fill_nursery_with_pinned_objects()
-        self.gc.minor_collection()
+        self.gc.collect()
 
     def test_pinning_limit(self):
         for instance_nr in xrange(self.gc.max_number_of_pinned_objects):
