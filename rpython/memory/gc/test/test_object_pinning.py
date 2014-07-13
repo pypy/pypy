@@ -156,7 +156,7 @@ class TestIncminimark(PinningGCTest):
         obj_ptr.someInt = 999
         self.stackroots.append(obj_ptr)
         if make_old:
-            self.gc.collect() # old_ptr is now old
+            self.gc.collect()
             obj_ptr = self.stackroots[0]
             assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(obj_ptr))
         else:
