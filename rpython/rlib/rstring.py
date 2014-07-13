@@ -3,7 +3,7 @@
 import sys
 
 from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
-    SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePBC)
+    SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePBC, NoNulChar)
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import newlist_hint, specialize
@@ -523,15 +523,9 @@ class Entry(ExtRegistryEntry):
     _about_ = assert_str0
 
     def compute_result_annotation(self, s_obj):
-        if s_None.contains(s_obj):
+        if s_None.contains(s_obj):  # probably a future str_or_None
             return s_obj
-        assert isinstance(s_obj, (SomeString, SomeUnicodeString))
-        if s_obj.no_nul:
-            return s_obj
-        new_s_obj = SomeObject.__new__(s_obj.__class__)
-        new_s_obj.__dict__ = s_obj.__dict__.copy()
-        new_s_obj.no_nul = True
-        return new_s_obj
+        return s_obj.nonnulify()
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
@@ -548,7 +542,7 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self, s_obj):
         if not isinstance(s_obj, (SomeString, SomeUnicodeString)):
             return s_obj
-        if not s_obj.no_nul:
+        if not s_obj.charkind.no_nul:
             raise ValueError("Value is not no_nul")
 
     def specialize_call(self, hop):

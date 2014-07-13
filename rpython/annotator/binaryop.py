@@ -9,7 +9,7 @@ from rpython.annotator.model import (
     SomeDict, SomeUnicodeCodePoint, SomeUnicodeString,
     SomeTuple, SomeImpossibleValue, s_ImpossibleValue, SomeInstance,
     SomeBuiltinMethod, SomeIterator, SomePBC, SomeNone, SomeFloat, s_None,
-    SomeByteArray, SomeWeakRef, SomeSingleFloat,
+    SomeByteArray, SomeWeakRef, SomeSingleFloat, AnyChar, AsciiChar,
     SomeLongFloat, SomeType, SomeConstantType, unionof, UnionError,
     read_can_only_throw, add_knowntypedata,
     merge_knowntypedata,)
@@ -372,12 +372,14 @@ class __extend__(pairtype(SomeString, SomeString)):
 
     def union((str1, str2)):
         can_be_None = str1.can_be_None or str2.can_be_None
-        no_nul = str1.no_nul and str2.no_nul
-        return SomeString(can_be_None=can_be_None, no_nul=no_nul)
+        charkind = str1.charkind.union(str2.charkind)
+        return SomeString(can_be_None=can_be_None,
+                          charkind=charkind)
 
     def add((str1, str2)):
         # propagate const-ness to help getattr(obj, 'prefix' + const_name)
-        result = SomeString(no_nul=str1.no_nul and str2.no_nul)
+        charkind = str1.charkind.union(str2.charkind)
+        result = SomeString(charkind=charkind)
         if str1.is_immutable_constant() and str2.is_immutable_constant():
             result.const = str1.const + str2.const
         return result
@@ -407,8 +409,8 @@ class __extend__(pairtype(SomeString, SomeByteArray),
 class __extend__(pairtype(SomeChar, SomeChar)):
 
     def union((chr1, chr2)):
-        no_nul = chr1.no_nul and chr2.no_nul
-        return SomeChar(no_nul=no_nul)
+        charkind = chr1.charkind.union(chr2.charkind)
+        return SomeChar(charkind=charkind)
 
 
 class __extend__(pairtype(SomeChar, SomeUnicodeCodePoint),
@@ -442,17 +444,15 @@ class __extend__(pairtype(SomeString, SomeTuple),
                                                   SomeUnicodeString))):
                 raise AnnotatorError(
                     "string formatting mixing strings and unicode not supported")
-        no_nul = s_string.no_nul
+        charkind = s_string.charkind
         for s_item in s_tuple.items:
-            if isinstance(s_item, SomeFloat):
-                pass   # or s_item is a subclass, like SomeInteger
-            elif (isinstance(s_item, SomeString) or
-                  isinstance(s_item, SomeUnicodeString)) and s_item.no_nul:
-                pass
+            if isinstance(s_item, SomeFloat):  # or a subclass, like SomeInteger
+                charkind = charkind.union(AsciiChar())
+            elif isinstance(s_item, (SomeString, SomeUnicodeString)):
+                charkind = charkind.union(s_item.charkind)
             else:
-                no_nul = False
-                break
-        return s_string.__class__(no_nul=no_nul)
+                charkind = AnyChar()  # Be conservative
+        return s_string.__class__(charkind=charkind)
 
 
 class __extend__(pairtype(SomeString, SomeObject),
@@ -616,19 +616,19 @@ class __extend__(pairtype(SomeList, SomeInteger)):
 class __extend__(pairtype(SomeString, SomeInteger)):
 
     def getitem((str1, int2)):
-        return SomeChar(no_nul=str1.no_nul)
+        return SomeChar(charkind=str1.charkind)
     getitem.can_only_throw = []
 
     getitem_key = getitem
 
     def getitem_idx((str1, int2)):
-        return SomeChar(no_nul=str1.no_nul)
+        return SomeChar(charkind=str1.charkind)
     getitem_idx.can_only_throw = [IndexError]
 
     getitem_idx_key = getitem_idx
 
-    def mul((str1, int2)): # xxx do we want to support this
-        return SomeString(no_nul=str1.no_nul)
+    def mul((str1, int2)):
+        return SomeString(charkind=str1.charkind)
 
 class __extend__(pairtype(SomeUnicodeString, SomeInteger)):
     def getitem((str1, int2)):

@@ -36,11 +36,14 @@ def unicode():
 
 
 def unicode0():
-    return model.SomeUnicodeString(no_nul=True)
+    return model.s_Unicode0()
 
 
 def str(can_be_None=False):
-    return model.SomeString(can_be_None=can_be_None)
+    if can_be_None:
+        return model.SomeString().noneify()
+    else:
+        return model.SomeString()
 
 
 def bytearray():
@@ -48,7 +51,7 @@ def bytearray():
 
 
 def str0():
-    return model.SomeString(no_nul=True)
+    return model.s_str0
 
 
 def char():

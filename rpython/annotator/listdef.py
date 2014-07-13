@@ -1,4 +1,4 @@
-from rpython.annotator.model import s_ImpossibleValue
+from rpython.annotator.model import s_ImpossibleValue, s_Str0
 from rpython.annotator.model import SomeList, SomeString
 from rpython.annotator.model import unionof, TLS, UnionError, AnnotatorError
 
@@ -210,5 +210,5 @@ class ListDef(object):
         #else: it's fine, don't set immutable=True at all (see
         #      test_can_merge_immutable_list_with_regular_list)
 
-s_list_of_strings = SomeList(ListDef(None, SomeString(no_nul=True),
+s_list_of_strings = SomeList(ListDef(None, s_Str0,
                                      resized = True))

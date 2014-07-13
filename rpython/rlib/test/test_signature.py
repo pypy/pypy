@@ -119,8 +119,8 @@ def test_str0():
     @signature(types.unicode0(), returns=types.str0())
     def f(u):
         return 'str'
-    assert getsig(f) == [model.SomeUnicodeString(no_nul=True),
-                         model.SomeString(no_nul=True)]
+    assert getsig(f) == [model.SomeUnicodeString.s_Str0,
+                         model.SomeString.s_Unicode0]
 
 def test_ptr():
     policy = LowLevelAnnotatorPolicy()

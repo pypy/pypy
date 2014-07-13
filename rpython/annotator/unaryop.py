@@ -9,7 +9,7 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
     SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
-    s_Bool, s_None, unionof, add_knowntypedata,
+    s_Bool, s_None, unionof, add_knowntypedata, NoNulChar,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator import builtin
@@ -459,13 +459,13 @@ class __extend__(SomeString,
         return SomeInteger(nonneg=True)
 
     def method_strip(self, chr=None):
-        return self.basestringclass(no_nul=self.no_nul)
+        return self.basestringclass(charkind=self.charkind)
 
     def method_lstrip(self, chr=None):
-        return self.basestringclass(no_nul=self.no_nul)
+        return self.basestringclass(charkind=self.charkind)
 
     def method_rstrip(self, chr=None):
-        return self.basestringclass(no_nul=self.no_nul)
+        return self.basestringclass(charkind=self.charkind)
 
     def method_join(self, s_list):
         if s_None.contains(s_list):
@@ -475,8 +475,8 @@ class __extend__(SomeString,
             if isinstance(self, SomeUnicodeString):
                 return immutablevalue(u"")
             return immutablevalue("")
-        no_nul = self.no_nul and s_item.no_nul
-        return self.basestringclass(no_nul=no_nul)
+        charkind = self.charkind.union(s_item.charkind)
+        return self.basestringclass(charkind=charkind)
 
     def iter(self):
         return SomeIterator(self)
@@ -487,23 +487,23 @@ class __extend__(SomeString,
 
     def method_split(self, patt, max=-1):
         if max == -1 and patt.is_constant() and patt.const == "\0":
-            no_nul = True
+            charkind = NoNulChar()
         else:
-            no_nul = self.no_nul
-        s_item = self.basestringclass(no_nul=no_nul)
+            charkind = self.charkind
+        s_item = self.basestringclass(charkind=charkind)
         return getbookkeeper().newlist(s_item)
 
     def method_rsplit(self, patt, max=-1):
-        s_item = self.basestringclass(no_nul=self.no_nul)
+        s_item = self.basestringclass(charkind=self.charkind)
         return getbookkeeper().newlist(s_item)
 
     def method_replace(self, s1, s2):
-        return self.basestringclass(no_nul=self.no_nul and s2.no_nul)
+        return self.basestringclass(
+            charkind=self.charkind.union(s2.charkind))
 
     def getslice(self, s_start, s_stop):
         check_negative_slice(s_start, s_stop)
-        result = self.basestringclass(no_nul=self.no_nul)
-        return result
+        return self.basestringclass(charkind=self.charkind)
 
     def op_contains(self, s_element):
         if s_element.is_constant() and s_element.const == "\0":
