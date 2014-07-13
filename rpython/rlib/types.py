@@ -51,7 +51,7 @@ def bytearray():
 
 
 def str0():
-    return model.s_str0
+    return model.s_Str0
 
 
 def char():
