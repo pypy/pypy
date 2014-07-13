@@ -46,7 +46,7 @@ class PinningGCTest(BaseDirectGCTest):
 class TestIncminimark(PinningGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
 
-    def test_simple_pin_stack(self):
+    def simple_pin_stack(self, collect_func):
         # create object, pin it and point from stackroots to it
         ptr = self.malloc(S)
         ptr.someInt = 100
@@ -55,12 +55,18 @@ class TestIncminimark(PinningGCTest):
         adr = llmemory.cast_ptr_to_adr(ptr)
         assert self.gc.pin(adr)
 
-        self.gc.collect()
+        collect_func()
         
         assert self.gc.is_in_nursery(adr)
         assert ptr.someInt == 100
 
-    def test_simple_pin_unpin_stack(self):
+    def test_simple_pin_stack_full_collect(self):
+        self.simple_pin_stack(self.gc.collect)
+
+    def test_simple_pin_stack_minor_collect(self):
+        self.simple_pin_stack(self.gc.minor_collection)
+
+    def simple_pin_unpin_stack(self, collect_func):
         ptr = self.malloc(S)
         ptr.someInt = 100
         
@@ -69,20 +75,26 @@ class TestIncminimark(PinningGCTest):
         adr = llmemory.cast_ptr_to_adr(ptr)
         assert self.gc.pin(adr)
         
-        self.gc.collect()
+        collect_func()
 
         assert self.gc.is_in_nursery(adr)
         assert ptr.someInt == 100
         
         # unpin and check if object is gone from nursery
         self.gc.unpin(adr)
-        self.gc.collect()
+        collect_func()
         py.test.raises(RuntimeError, 'ptr.someInt')
         
         # check if we object is still accessible
         ptr_old = self.stackroots[0]
         assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(ptr_old))
         assert ptr_old.someInt == 100
+
+    def test_simple_pin_unpin_stack_full_collect(self):
+        self.simple_pin_unpin_stack(self.gc.collect)
+
+    def test_simple_pin_unpin_stack_minor_collect(self):
+        self.simple_pin_unpin_stack(self.gc.minor_collection)
 
     def test_pin_referenced_from_stackroot_young(self):
         #
@@ -150,7 +162,7 @@ class TestIncminimark(PinningGCTest):
         assert self.stackroots[0].next.someInt == 100
 
     def not_pinned_and_stackroots_point_to_pinned(self, make_old):
-        # In this test case we point to a pinned object from an old object
+        # In this test case we point to a pinned object from an (old) object
         # *and* from the stackroots
         obj_ptr = self.malloc(S)
         obj_ptr.someInt = 999
