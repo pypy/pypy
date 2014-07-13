@@ -241,7 +241,8 @@ class AnyChar(object):
         if TLS.check_str_without_nul:
             if self.no_nul != other.no_nul:
                 return False
-        return True
+        return (self.is_ascii == other.is_ascii and
+                self.is_utf8 == other.is_utf8)
 
     def union(self, other):
         return self

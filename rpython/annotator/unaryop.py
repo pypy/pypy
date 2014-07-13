@@ -9,7 +9,7 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
     SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
-    s_Bool, s_None, unionof, add_knowntypedata, NoNulChar,
+    s_Bool, s_None, unionof, add_knowntypedata, NoNulChar, AsciiChar,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator import builtin
@@ -506,7 +506,17 @@ class __extend__(SomeString,
         return self.basestringclass(charkind=self.charkind)
 
     def op_contains(self, s_element):
-        if s_element.is_constant() and s_element.const == "\0":
+        if self.is_constant() and self.const.isalnum():
+            r = SomeBool()
+            bk = getbookkeeper()
+            op = bk._find_current_op(opname="contains", arity=2, pos=0, s_type=self)
+            # raise TypeError(op.args)
+            knowntypedata = {}
+            add_knowntypedata(knowntypedata, True, [op.args[1]],
+                              SomeString(charkind=AsciiChar()))
+            r.set_knowntypedata(knowntypedata)
+            return r
+        elif s_element.is_constant() and s_element.const == "\0":
             r = SomeBool()
             bk = getbookkeeper()
             op = bk._find_current_op(opname="contains", arity=2, pos=0, s_type=self)

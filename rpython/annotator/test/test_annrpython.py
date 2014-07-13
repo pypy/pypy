@@ -3869,6 +3869,19 @@ class TestAnnotateTestCase:
         assert s.can_be_None
         assert s.charkind.no_nul
 
+    def test_contains_ascii(self):
+        chars = '01234567890abcdef'
+        def f(i):
+            if i in chars:
+                return i
+            else:
+                return None
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeString(charkind=annmodel.AnyChar())])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.can_be_None
+        assert s.charkind.is_ascii
+
     def test_no___call__(self):
         class X(object):
             def __call__(self):
