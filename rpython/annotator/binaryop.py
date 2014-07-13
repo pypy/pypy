@@ -376,6 +376,16 @@ class __extend__(pairtype(SomeString, SomeString)):
         return SomeString(can_be_None=can_be_None,
                           charkind=charkind)
 
+    def improve((obj, improvement)):
+        if obj.charkind.union(improvement.charkind) is obj.charkind:
+            charkind = improvement.charkind
+        else:
+            charkind = obj.charkind
+        if type(obj) is SomeString:
+            return type(improvement)(charkind=charkind)
+        else:
+            return type(obj)(charkind=charkind)
+
     def add((str1, str2)):
         # propagate const-ness to help getattr(obj, 'prefix' + const_name)
         charkind = str1.charkind.union(str2.charkind)
@@ -458,8 +468,15 @@ class __extend__(pairtype(SomeString, SomeTuple),
 class __extend__(pairtype(SomeString, SomeObject),
                  pairtype(SomeUnicodeString, SomeObject)):
 
-    def mod((s_string, args)):
-        return s_string.__class__()
+    def mod((s_string, s_item)):
+        charkind = s_string.charkind
+        if isinstance(s_item, SomeFloat):  # or a subclass, like SomeInteger
+            charkind = charkind.union(AsciiChar())
+        elif isinstance(s_item, (SomeString, SomeUnicodeString)):
+            charkind = charkind.union(s_item.charkind)
+        else:
+            charkind = AnyChar()  # Be conservative
+        return s_string.__class__(charkind=charkind)
 
 class __extend__(pairtype(SomeFloat, SomeFloat)):
 
