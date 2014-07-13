@@ -181,8 +181,7 @@ envitems_llimpl, getenv_llimpl, putenv_llimpl = make_env_impls()
 register_external(r_envitems, [], [(str0, str0)],
                   export_name='ll_os.ll_os_envitems',
                   llimpl=envitems_llimpl)
-register_external(r_getenv, [str0],
-                  annmodel.SomeString(can_be_None=True, no_nul=True),
+register_external(r_getenv, [str0], str0.noneify(),
                   export_name='ll_os.ll_os_getenv',
                   llimpl=getenv_llimpl)
 register_external(r_putenv, [str0, str0], annmodel.s_None,

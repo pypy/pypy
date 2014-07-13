@@ -12,7 +12,8 @@ from rpython.annotator.model import (SomeOrderedDict,
     SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
     s_None, s_ImpossibleValue, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
-    SomeWeakRef, SomeByteArray, SomeConstantType)
+    SomeWeakRef, SomeByteArray, SomeConstantType,
+    charkind_from_const)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
@@ -230,11 +231,11 @@ class Bookkeeper(object):
             else:
                 raise Exception("seeing a prebuilt long (value %s)" % hex(x))
         elif issubclass(tp, str): # py.lib uses annotated str subclasses
-            no_nul = not '\x00' in x
+            charkind = charkind_from_const(x)
             if len(x) == 1:
-                result = SomeChar(no_nul=no_nul)
+                result = SomeChar(charkind=charkind)
             else:
-                result = SomeString(no_nul=no_nul)
+                result = SomeString(charkind=charkind)
         elif tp is unicode:
             if len(x) == 1:
                 result = SomeUnicodeCodePoint()

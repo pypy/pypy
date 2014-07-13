@@ -138,7 +138,7 @@ class TestExtFuncEntry:
         assert isinstance(s, annmodel.SomeString)
 
     def test_str0(self):
-        str0 = annmodel.SomeString(no_nul=True)
+        str0 = annmodel.s_Str0
         def os_open(s):
             pass
         register_external(os_open, [str0], None)
@@ -156,7 +156,7 @@ class TestExtFuncEntry:
         a.build_types(g, [str0])  # Does not raise
 
     def test_list_of_str0(self):
-        str0 = annmodel.SomeString(no_nul=True)
+        str0 = annmodel.s_Str0
         def os_execve(l):
             pass
         register_external(os_execve, [[str0]], None)

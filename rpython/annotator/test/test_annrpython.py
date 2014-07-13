@@ -428,7 +428,7 @@ class TestAnnotateTestCase:
             return ''.join(g(n))
         s = a.build_types(f, [int])
         assert s.knowntype == str
-        assert s.no_nul
+        assert s.charkind.no_nul
 
     def test_str_split(self):
         a = self.RPythonAnnotator()
@@ -441,26 +441,26 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert isinstance(s, annmodel.SomeList)
         s_item = s.listdef.listitem.s_value
-        assert s_item.no_nul
+        assert s_item.charkind.no_nul
 
     def test_str_split_nul(self):
         def f(n):
             return n.split('\0')[0]
         a = self.RPythonAnnotator()
         a.translator.config.translation.check_str_without_nul = True
-        s = a.build_types(f, [annmodel.SomeString(no_nul=False, can_be_None=False)])
+        s = a.build_types(f, [annmodel.SomeString()])
         assert isinstance(s, annmodel.SomeString)
         assert not s.can_be_None
-        assert s.no_nul
+        assert s.charkind.no_nul
 
         def g(n):
             return n.split('\0', 1)[0]
         a = self.RPythonAnnotator()
         a.translator.config.translation.check_str_without_nul = True
-        s = a.build_types(g, [annmodel.SomeString(no_nul=False, can_be_None=False)])
+        s = a.build_types(g, [annmodel.SomeString()])
         assert isinstance(s, annmodel.SomeString)
         assert not s.can_be_None
-        assert not s.no_nul
+        assert not s.charkind.no_nul
 
     def test_str_splitlines(self):
         a = self.RPythonAnnotator()
@@ -479,8 +479,9 @@ class TestAnnotateTestCase:
                 return a_str.rstrip(' ')
             else:
                 return a_str.lstrip(' ')
-        s = a.build_types(f, [int, annmodel.SomeString(no_nul=True)])
-        assert s.no_nul
+        s = a.build_types(f, [int, annmodel.SomeString(
+                    charkind=annmodel.NoNulChar)])
+        assert s.charkind.no_nul
 
     def test_str_mul(self):
         a = self.RPythonAnnotator()
@@ -2016,7 +2017,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
         assert s.can_be_None
-        assert s.no_nul
+        assert s.charkind.no_nul
 
     def test_str_or_None(self):
         def f(a):
@@ -2032,7 +2033,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
         assert s.can_be_None
-        assert s.no_nul
+        assert s.charkind.no_nul
 
     def test_emulated_pbc_call_simple(self):
         def f(a,b):
@@ -2098,15 +2099,16 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeString)
-        assert s.no_nul
+        assert s.charkind.no_nul
 
     def test_mul_str0(self):
         def f(s):
             return s*10
         a = self.RPythonAnnotator()
-        s = a.build_types(f, [annmodel.SomeString(no_nul=True)])
+        s = a.build_types(f, [annmodel.SomeString(
+                    charkind=annmodel.NoNulChar())])
         assert isinstance(s, annmodel.SomeString)
-        assert s.no_nul
+        assert s.charkind.no_nul
 
     def test_getitem_str0(self):
         def f(s, n):
@@ -2120,10 +2122,11 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         a.translator.config.translation.check_str_without_nul = True
 
-        s = a.build_types(f, [annmodel.SomeString(no_nul=True),
+        s = a.build_types(f, [annmodel.SomeString(
+                    charkind=annmodel.NoNulChar()),
                               annmodel.SomeInteger()])
         assert isinstance(s, annmodel.SomeString)
-        assert s.no_nul
+        assert s.charkind.no_nul
 
     def test_non_none_and_none_with_isinstance(self):
         class A(object):
@@ -3353,7 +3356,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [str])
         assert isinstance(s, annmodel.SomeString)
-        assert s.no_nul
+        assert s.charkind.no_nul
 
         def f(x):
             return u'a'.replace(x, u'b')
@@ -3861,10 +3864,10 @@ class TestAnnotateTestCase:
                 return i
         a = self.RPythonAnnotator()
         a.translator.config.translation.check_str_without_nul = True
-        s = a.build_types(f, [annmodel.SomeString(no_nul=False)])
+        s = a.build_types(f, [annmodel.SomeString(charkind=annmodel.AnyChar())])
         assert isinstance(s, annmodel.SomeString)
         assert s.can_be_None
-        assert s.no_nul
+        assert s.charkind.no_nul
 
     def test_no___call__(self):
         class X(object):
@@ -3884,7 +3887,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(fn, [])
         assert isinstance(s, annmodel.SomeString)
-        assert s.no_nul
+        assert s.charkind.no_nul
 
     def test_os_getenv(self):
         import os
@@ -3893,7 +3896,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(fn, [])
         assert isinstance(s, annmodel.SomeString)
-        assert s.no_nul
+        assert s.charkind.no_nul
 
     def test_base_iter(self):
         class A(object):

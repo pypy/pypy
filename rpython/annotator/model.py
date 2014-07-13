@@ -217,6 +217,49 @@ class SomeBool(SomeInteger):
             self.knowntypedata = knowntypedata
 
 
+# Character classes.
+
+class AnyChar(object):
+    no_nul = False
+    _instances = {}
+
+    def __new__(cls):
+        return cls._instances[cls]
+
+    @classmethod
+    def _register(cls):
+        cls._instances[cls] = object.__new__(cls)
+
+    def __repr__(self):
+        return type(self).__name__
+
+    def __eq__(self, other):
+        if TLS.check_str_without_nul:
+            if self.no_nul != other.no_nul:
+                return False
+        return True
+
+    def union(self, other):
+        return self
+AnyChar._register()
+
+class NoNulChar(AnyChar):
+    no_nul = True
+
+    def union(self, other):
+        if other.no_nul:
+            return self
+        else:
+            return AnyChar()
+NoNulChar._register()
+
+AsciiChar = AnyChar  # So far
+
+def charkind_from_const(value):
+    if '\x00' not in value:
+        return NoNulChar()
+    return AnyChar()
+
 class SomeStringOrUnicode(SomeObject):
     """Base class for shared implementation of SomeString,
     SomeUnicodeString and SomeByteArray.
@@ -225,36 +268,31 @@ class SomeStringOrUnicode(SomeObject):
 
     immutable = True
     can_be_None = False
-    no_nul = False  # No NUL character in the string.
 
-    def __init__(self, can_be_None=False, no_nul=False):
+    def __init__(self, can_be_None=False, charkind=None):
         assert type(self) is not SomeStringOrUnicode
         if can_be_None:
             self.can_be_None = True
-        if no_nul:
-            assert self.immutable   #'no_nul' cannot be used with SomeByteArray
-            self.no_nul = True
+        if charkind:
+            # charkind cannot be used with SomeByteArray
+            assert self.immutable
+            self.charkind = charkind
+        else:
+            self.charkind = AnyChar()
 
     def can_be_none(self):
         return self.can_be_None
 
-    def __eq__(self, other):
-        if self.__class__ is not other.__class__:
-            return False
-        d1 = self.__dict__
-        d2 = other.__dict__
-        if not TLS.check_str_without_nul:
-            d1 = d1.copy()
-            d1['no_nul'] = 0
-            d2 = d2.copy()
-            d2['no_nul'] = 0
-        return d1 == d2
-
     def nonnoneify(self):
-        return self.__class__(can_be_None=False, no_nul=self.no_nul)
+        return self.__class__(can_be_None=False,
+                              charkind=self.charkind)
 
     def nonnulify(self):
-        return self.__class__(can_be_None=self.can_be_None, no_nul=True)
+        if self.charkind == NoNulChar():
+            charkind = NoNulChar()
+        elif self.charkind == AnyChar():
+            charkind = NoNulChar()
+        return self.__class__(can_be_None=self.can_be_None, charkind=charkind)
 
 
 class SomeString(SomeStringOrUnicode):
@@ -262,7 +300,7 @@ class SomeString(SomeStringOrUnicode):
     knowntype = str
 
     def noneify(self):
-        return SomeString(can_be_None=True, no_nul=self.no_nul)
+        return SomeString(can_be_None=True, charkind=self.charkind)
 
 
 class SomeUnicodeString(SomeStringOrUnicode):
@@ -270,7 +308,7 @@ class SomeUnicodeString(SomeStringOrUnicode):
     knowntype = unicode
 
     def noneify(self):
-        return SomeUnicodeString(can_be_None=True, no_nul=self.no_nul)
+        return SomeUnicodeString(can_be_None=True, charkind=self.charkind)
 
 
 class SomeByteArray(SomeStringOrUnicode):
@@ -282,18 +320,18 @@ class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
     can_be_None = False
 
-    def __init__(self, no_nul=False):    # no 'can_be_None' argument here
-        if no_nul:
-            self.no_nul = True
+    def __init__(self, charkind=None):
+        # no 'can_be_None' argument here
+        SomeString.__init__(self, charkind=charkind)
 
 
 class SomeUnicodeCodePoint(SomeUnicodeString):
     "Stands for an object known to be a unicode codepoint."
     can_be_None = False
 
-    def __init__(self, no_nul=False):    # no 'can_be_None' argument here
-        if no_nul:
-            self.no_nul = True
+    def __init__(self, charkind=False):
+        # no 'can_be_None' argument here
+        SomeUnicodeString.__init__(self, charkind=charkind)
 
 SomeString.basestringclass = SomeString
 SomeString.basecharclass = SomeChar
@@ -586,8 +624,8 @@ s_None = SomeNone()
 s_Bool = SomeBool()
 s_Int = SomeInteger()
 s_ImpossibleValue = SomeImpossibleValue()
-s_Str0 = SomeString(no_nul=True)
-s_Unicode0 = SomeUnicodeString(no_nul=True)
+s_Str0 = SomeString(charkind=NoNulChar)
+s_Unicode0 = SomeUnicodeString(charkind=NoNulChar)
 
 
 # ____________________________________________________________

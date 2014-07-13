@@ -230,16 +230,14 @@ def load_string_nonul(loader):
         raise ValueError("expected a string")
     length = readlong(loader)
     return assert_str0(readstr(loader, length))
-add_loader(annmodel.SomeString(can_be_None=False, no_nul=True),
-           load_string_nonul)
+add_loader(annmodel.s_Str0, load_string_nonul)
 
 def load_string(loader):
     if readchr(loader) != TYPE_STRING:
         raise ValueError("expected a string")
     length = readlong(loader)
     return readstr(loader, length)
-add_loader(annmodel.SomeString(can_be_None=False, no_nul=False),
-           load_string)
+add_loader(annmodel.SomeString(), load_string)
 
 def load_string_or_none_nonul(loader):
     t = readchr(loader)
@@ -250,8 +248,7 @@ def load_string_or_none_nonul(loader):
         return None
     else:
         raise ValueError("expected a string or None")
-add_loader(annmodel.SomeString(can_be_None=True, no_nul=True),
-           load_string_or_none_nonul)
+add_loader(annmodel.s_Str0.noneify(), load_string_or_none_nonul)
 
 def load_string_or_none(loader):
     t = readchr(loader)
@@ -262,8 +259,7 @@ def load_string_or_none(loader):
         return None
     else:
         raise ValueError("expected a string or None")
-add_loader(annmodel.SomeString(can_be_None=True, no_nul=False),
-           load_string_or_none)
+add_loader(annmodel.SomeString().noneify(), load_string_or_none)
 
 # ____________________________________________________________
 #
