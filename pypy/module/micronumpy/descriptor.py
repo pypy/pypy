@@ -73,7 +73,7 @@ class W_Dtype(W_Root):
             self.base = subdtype.base
 
     def __repr__(self):
-        if self.fields is not None:
+        if self.fields:
             return '<DType %r>' % self.fields
         return '<DType %r>' % self.itemtype
 
@@ -256,7 +256,7 @@ class W_Dtype(W_Root):
 
     def _compute_hash(self, space, x):
         from rpython.rlib.rarithmetic import intmask
-        if self.fields is None and self.subdtype is None:
+        if not self.fields and self.subdtype is None:
             endian = self.byteorder
             if endian == NPY.NATIVE:
                 endian = NPY.NATBYTE
@@ -269,7 +269,7 @@ class W_Dtype(W_Root):
             if self.is_flexible():
                 y = intmask((1000003 * y) ^ self.alignment)
             return intmask((1000003 * x) ^ y)
-        if self.fields is not None:
+        if self.fields:
             for name, (offset, subdtype) in self.fields.iteritems():
                 assert isinstance(subdtype, W_Dtype)
                 y = intmask(1000003 * (0x345678 ^ compute_hash(name)))

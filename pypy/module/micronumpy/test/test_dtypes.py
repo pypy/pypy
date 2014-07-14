@@ -428,6 +428,8 @@ class AppTestDtypes(BaseAppTestDtypes):
         for t in [np.int_, np.float_]:
             dt = np.dtype(t)
             dt1 = dt.newbyteorder().newbyteorder()
+            assert dt.isbuiltin
+            assert not dt1.isbuiltin
             dt2 = dt.newbyteorder("<")
             dt3 = dt.newbyteorder(">")
             assert dt.byteorder != dt1.byteorder
