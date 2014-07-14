@@ -153,12 +153,10 @@ class W_GenericBox(W_NumpyObject):
         raise OperationError(space.w_IndexError, space.wrap(
             "invalid index to scalar variable"))
 
-    '''    
     def descr_iter(self, space):
         # Making numpy scalar non-iterable with a valid __getitem__ method
         raise oefmt(space.w_TypeError,
                     "'%T' object is not iterable", self)
-    '''
 
     def descr_str(self, space):
         return space.wrap(self.get_dtype(space).itemtype.str_format(self))
@@ -513,6 +511,9 @@ class W_VoidBox(W_FlexibleBox):
             return space.wrap(dtype.itemtype.to_str(read_val))
         return read_val
 
+    def descr_iter(self, space):
+        return space.newseqiter(self)
+
     def descr_setitem(self, space, w_item, w_value):
         if space.isinstance_w(w_item, space.w_basestring):
             item = space.str_w(w_item)
@@ -562,7 +563,7 @@ W_GenericBox.typedef = TypeDef("numpy.generic",
     __new__ = interp2app(W_GenericBox.descr__new__.im_func),
 
     __getitem__ = interp2app(W_GenericBox.descr_getitem),
-    #__iter__ = interp2app(W_GenericBox.descr_iter),
+    __iter__ = interp2app(W_GenericBox.descr_iter),
     __str__ = interp2app(W_GenericBox.descr_str),
     __repr__ = interp2app(W_GenericBox.descr_str),
     __format__ = interp2app(W_GenericBox.descr_format),
@@ -784,6 +785,7 @@ W_VoidBox.typedef = TypeDef("numpy.void", W_FlexibleBox.typedef,
     __new__ = interp2app(W_VoidBox.descr__new__.im_func),
     __getitem__ = interp2app(W_VoidBox.descr_getitem),
     __setitem__ = interp2app(W_VoidBox.descr_setitem),
+    __iter__ = interp2app(W_VoidBox.descr_iter),
 )
 
 W_CharacterBox.typedef = TypeDef("numpy.character", W_FlexibleBox.typedef,
