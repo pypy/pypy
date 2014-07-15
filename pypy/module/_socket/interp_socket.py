@@ -168,12 +168,11 @@ class W_Socket(W_Root):
 
     def destructor(self):
         assert isinstance(self, W_Socket)
-        if self.fd != rsocket.INVALID_SOCKET:
+        if self.sock.fd != rsocket.INVALID_SOCKET:
             try:
                 self._dealloc_warn()
             finally:
                 self.close_w(self.space)
-    # --XXX--
 
     def get_type_w(self, space):
         return space.wrap(self.sock.type)
@@ -278,7 +277,7 @@ class W_Socket(W_Root):
         Close the socket object without closing the underlying file descriptor.
         The object cannot be used after this call, but the file descriptor
         can be reused for other purposes.  The file descriptor is returned."""
-        fd = self.detach()
+        fd = self.sock.detach()
         return space.wrap(intmask(fd))
 
     def getpeername_w(self, space):
@@ -670,8 +669,8 @@ shutdown(how) -- shut down traffic in one or both directions
  [*] not available on all platforms!""",
     __new__ = interp2app(W_Socket.descr_new.im_func),
     __init__ = interp2app(W_Socket.descr_init),
-    type = interp_attrproperty('type', W_Socket),
-    proto = interp_attrproperty('proto', W_Socket),
-    family = interp_attrproperty('family', W_Socket),
+    type = GetSetProperty(W_Socket.get_type_w),
+    proto = GetSetProperty(W_Socket.get_proto_w),
+    family = GetSetProperty(W_Socket.get_family_w),
     ** socketmethods
     )
