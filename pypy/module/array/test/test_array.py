@@ -404,6 +404,10 @@ class BaseArrayTests:
         raises(ValueError, self.array('i').tounicode)
         assert self.array('u', 'hello').tounicode() == 'hello'
 
+    def test_empty_tostring(self):
+        a = self.array('l')
+        assert a.tostring() == b''
+
     def test_buffer(self):
         a = self.array('h', b'Hi')
         buf = memoryview(a)

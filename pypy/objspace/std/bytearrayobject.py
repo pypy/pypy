@@ -33,6 +33,8 @@ class W_BytearrayObject(W_Root):
         return BytearrayBuffer(self.data, False)
 
     def _new(self, value):
+        if value is self.data:
+            value = value[:]
         return W_BytearrayObject(value)
 
     def _new_from_buffer(self, buffer):

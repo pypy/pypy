@@ -3,13 +3,16 @@ from rpython.tool.udir import udir
 from rpython.rlib.jit import JitDriver, unroll_parameters, set_param
 from rpython.rlib.jit import PARAMETERS, dont_look_inside
 from rpython.rlib.jit import promote
-from rpython.rlib import jit_hooks
+from rpython.rlib import jit_hooks, rposix
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rthread import ThreadLocalReference
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.test.support import CCompiledMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.config.config import ConfigError
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import lltype, rffi
+
 
 class TranslationTest(CCompiledMixin):
     CPUClass = getcpuclass()
@@ -24,6 +27,8 @@ class TranslationTest(CCompiledMixin):
         # - full optimizer
         # - floats neg and abs
         # - threadlocalref_get
+        # - get_errno, set_errno
+        # - llexternal with macro=True
 
         class Frame(object):
             _virtualizable_ = ['i']
@@ -35,9 +40,15 @@ class TranslationTest(CCompiledMixin):
             pass
         t = ThreadLocalReference(Foo)
 
-        @dont_look_inside
-        def myabs(x):
-            return abs(x)
+        eci = ExternalCompilationInfo(post_include_bits=['''
+#define pypy_my_fabs(x)  fabs(x)
+'''])
+        myabs1 = rffi.llexternal('pypy_my_fabs', [lltype.Float],
+                                 lltype.Float, macro=True, releasegil=False,
+                                 compilation_info=eci)
+        myabs2 = rffi.llexternal('pypy_my_fabs', [lltype.Float],
+                                 lltype.Float, macro=True, releasegil=True,
+                                 compilation_info=eci)
 
         jitdriver = JitDriver(greens = [],
                               reds = ['total', 'frame', 'j'],
@@ -60,13 +71,14 @@ class TranslationTest(CCompiledMixin):
                 frame.i -= 1
                 j *= -0.712
                 if j + (-j):    raise ValueError
-                k = myabs(j)
+                k = myabs1(myabs2(j))
                 if k - abs(j):  raise ValueError
                 if k - abs(-j): raise ValueError
                 if t.get().nine != 9: raise ValueError
+                rposix.set_errno(total)
+                if rposix.get_errno() != total: raise ValueError
             return chr(total % 253)
         #
-        from rpython.rtyper.lltypesystem import lltype, rffi
         from rpython.rlib.libffi import types, CDLL, ArgChain
         from rpython.rlib.test.test_clibffi import get_libm_name
         libm_name = get_libm_name(sys.platform)

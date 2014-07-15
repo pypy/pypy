@@ -267,7 +267,7 @@ class FunctionCodeGenerator(object):
                     # Emit default case
                     yield 'default:'
                     if defaultlink is None:
-                        yield '\tassert(!"bad switch!!");'
+                        yield '\tassert(!"bad switch!!"); abort();'
                     else:
                         for op in self.gen_link(defaultlink):
                             yield '\t' + op

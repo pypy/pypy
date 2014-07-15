@@ -1032,3 +1032,35 @@ class AppTestAppSetTest:
         # did not work before because of an optimization that swaps both
         # operands when the first set is larger than the second
         assert type(frozenset([1, 2]) & set([2])) is frozenset
+
+    def test_update_bug_strategy(self):
+        from __pypy__ import strategy
+        s = set([1, 2, 3])
+        assert strategy(s) == "IntegerSetStrategy"
+        s.update(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3])
+        s |= set()
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3]).difference(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3])
+        s.difference_update(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3]).symmetric_difference(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3])
+        s.symmetric_difference_update(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3]).intersection(set())
+        assert strategy(s) == "EmptySetStrategy"
+        #
+        s = set([1, 2, 3])
+        s.intersection_update(set())
+        assert strategy(s) == "EmptySetStrategy"

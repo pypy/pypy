@@ -21,11 +21,22 @@ static long pypy__threadlocal_base(void)
     asm("%s" : "=r"(result));
     return result;
 }
+static long pypy__get_errno_tl(void)
+{
+    return ((long)&errno) - pypy__threadlocal_base();
+}
 ''' % _instruction])
 
 
 threadlocal_base = rffi.llexternal(
     'pypy__threadlocal_base',
+    [], lltype.Signed,
+    compilation_info=eci,
+    _nowrapper=True,
+    ) #transactionsafe=True)
+
+get_errno_tl = rffi.llexternal(
+    'pypy__get_errno_tl',
     [], lltype.Signed,
     compilation_info=eci,
     _nowrapper=True,

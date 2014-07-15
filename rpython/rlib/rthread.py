@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.conftest import cdir
+from rpython.translator import cdir
 import py
 from rpython.rlib import jit, rgc
 from rpython.rlib.debug import ll_assert
@@ -19,8 +19,7 @@ eci = ExternalCompilationInfo(
     include_dirs = [translator_c_dir],
     export_symbols = ['RPyThreadGetIdent', 'RPyThreadLockInit',
                       'RPyThreadAcquireLock', 'RPyThreadAcquireLockTimed',
-                      'RPyThreadReleaseLock', 'RPyGilAllocate',
-                      'RPyGilYieldThread', 'RPyGilRelease', 'RPyGilAcquire',
+                      'RPyThreadReleaseLock',
                       'RPyThreadGetStackSize', 'RPyThreadSetStackSize',
                       'RPyOpaqueDealloc_ThreadLock',
                       'RPyThreadAfterFork']
@@ -60,7 +59,7 @@ c_thread_lock_dealloc_NOAUTO = llexternal('RPyOpaqueDealloc_ThreadLock',
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
                                   rffi.INT,
                                   releasegil=True)    # release the GIL
-c_thread_acquirelock_timed = llexternal('RPyThreadAcquireLockTimed', 
+c_thread_acquirelock_timed = llexternal('RPyThreadAcquireLockTimed',
                                         [TLOCKP, rffi.LONGLONG, rffi.INT],
                                         rffi.INT,
                                         releasegil=True)    # release the GIL
@@ -76,16 +75,6 @@ c_thread_releaselock_NOAUTO = llexternal('RPyThreadReleaseLock',
                                          [TLOCKP], lltype.Void,
                                          _nowrapper=True)
 
-# these functions manipulate directly the GIL, whose definition does not
-# escape the C code itself
-gil_allocate     = llexternal('RPyGilAllocate', [], lltype.Signed,
-                              _nowrapper=True)
-gil_yield_thread = llexternal('RPyGilYieldThread', [], lltype.Signed,
-                              _nowrapper=True)
-gil_release      = llexternal('RPyGilRelease', [], lltype.Void,
-                              _nowrapper=True)
-gil_acquire      = llexternal('RPyGilAcquire', [], lltype.Void,
-                              _nowrapper=True)
 
 def allocate_lock():
     return Lock(allocate_ll_lock())

@@ -1,6 +1,6 @@
 import py, random
 
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rffi
 from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from rpython.rtyper.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
 
@@ -331,7 +331,7 @@ class FakeMetaInterpStaticData(object):
     def get_name_from_address(self, addr):
         # hack
         try:
-            return "".join(addr.ptr.name)[:-1] # remove \x00
+            return "".join(addr.ptr.name.chars)
         except AttributeError:
             return ""
 

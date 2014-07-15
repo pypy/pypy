@@ -580,13 +580,15 @@ entries '.' and '..' even if they are present in the directory."""
                 else:
                     w_bytes = space.wrapbytes(result[i])
                     result_w[i] = space.fsdecode(w_bytes)
+            return space.newlist(result_w)
         else:
             dirname = space.str0_w(w_dirname)
             result = rposix.listdir(dirname)
-            result_w = [space.wrapbytes(s) for s in result]
+            # The list comprehension is a workaround for an obscure translation
+            # bug.
+            return space.newlist_bytes([x for x in result])
     except OSError, e:
         raise wrap_oserror2(space, e, w_dirname)
-    return space.newlist(result_w)
 
 def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."

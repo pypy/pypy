@@ -654,8 +654,11 @@ class ObjSpace(object):
         else:
             # translated case follows.  self.threadlocals is either from
             # 'pypy.interpreter.miscutils' or 'pypy.module.thread.threadlocals'.
-            # the result is assumed to be non-null: enter_thread() was called.
-            return self.threadlocals.get_ec()
+            # the result is assumed to be non-null: enter_thread() was called
+            # by space.startup().
+            ec = self.threadlocals.get_ec()
+            assert ec is not None
+            return ec
 
     def _freeze_(self):
         return True
@@ -956,6 +959,13 @@ class ObjSpace(object):
         """ A non-fixed view of w_iterable. Don't modify the result
         """
         return self.unpackiterable(w_iterable, expected_length)
+
+    def listview_no_unpack(self, w_iterable):
+        """ Same as listview() if cheap.  If 'w_iterable' is something like
+        a generator, for example, then return None instead.
+        May return None anyway.
+        """
+        return None
 
     def listview_bytes(self, w_list):
         """ Return a list of unwrapped strings out of a list of strings. If the
