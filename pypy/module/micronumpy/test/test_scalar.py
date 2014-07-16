@@ -292,7 +292,6 @@ class AppTestScalar(BaseNumpyAppTest):
             assert np.isnan(b/a)
 
     def test_scalar_iter(self):
-        skip('not implemented yet')
         from numpypy import int8, int16, int32, int64, float32, float64
         for t in int8, int16, int32, int64, float32, float64:
             try:
