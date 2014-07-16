@@ -133,11 +133,11 @@ class SSLObject(W_Root):
         self._issuer[0] = '\0'
         self.shutdown_seen_zero = False
 
-    def server(self):
-        return self.space.wrap(rffi.charp2str(self._server))
+    def server(self, space):
+        return space.wrap(rffi.charp2str(self._server))
 
-    def issuer(self):
-        return self.space.wrap(rffi.charp2str(self._issuer))
+    def issuer(self, space):
+        return space.wrap(rffi.charp2str(self._issuer))
 
     def __del__(self):
         self.enqueue_for_destruction(self.space, SSLObject.destructor,
@@ -155,21 +155,21 @@ class SSLObject(W_Root):
         lltype.free(self._issuer, flavor='raw')
 
     @unwrap_spec(data='bufferstr')
-    def write(self, data):
+    def write(self, space, data):
         """write(s) -> len
 
         Writes the string s into the SSL object.  Returns the number
         of bytes written."""
-        self._refresh_nonblocking(self.space)
+        self._refresh_nonblocking(space)
 
-        sockstate = check_socket_and_wait_for_timeout(self.space,
+        sockstate = check_socket_and_wait_for_timeout(space,
             self.w_socket, True)
         if sockstate == SOCKET_HAS_TIMED_OUT:
-            raise ssl_error(self.space, "The write operation timed out")
+            raise ssl_error(space, "The write operation timed out")
         elif sockstate == SOCKET_HAS_BEEN_CLOSED:
-            raise ssl_error(self.space, "Underlying socket has been closed.")
+            raise ssl_error(space, "Underlying socket has been closed.")
         elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
-            raise ssl_error(self.space, "Underlying socket too large for select().")
+            raise ssl_error(space, "Underlying socket too large for select().")
 
         num_bytes = 0
         while True:
@@ -179,18 +179,18 @@ class SSLObject(W_Root):
             err = libssl_SSL_get_error(self.ssl, num_bytes)
 
             if err == SSL_ERROR_WANT_READ:
-                sockstate = check_socket_and_wait_for_timeout(self.space,
+                sockstate = check_socket_and_wait_for_timeout(space,
                     self.w_socket, False)
             elif err == SSL_ERROR_WANT_WRITE:
-                sockstate = check_socket_and_wait_for_timeout(self.space,
+                sockstate = check_socket_and_wait_for_timeout(space,
                     self.w_socket, True)
             else:
                 sockstate = SOCKET_OPERATION_OK
 
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise ssl_error(self.space, "The write operation timed out")
+                raise ssl_error(space, "The write operation timed out")
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
-                raise ssl_error(self.space, "Underlying socket has been closed.")
+                raise ssl_error(space, "Underlying socket has been closed.")
             elif sockstate == SOCKET_IS_NONBLOCKING:
                 break
 
@@ -200,38 +200,38 @@ class SSLObject(W_Root):
                 break
 
         if num_bytes > 0:
-            return self.space.wrap(num_bytes)
+            return space.wrap(num_bytes)
         else:
-            raise _ssl_seterror(self.space, self, num_bytes)
+            raise _ssl_seterror(space, self, num_bytes)
 
-    def pending(self):
+    def pending(self, space):
         """pending() -> count
 
         Returns the number of already decrypted bytes available for read,
         pending on the connection."""
         count = libssl_SSL_pending(self.ssl)
         if count < 0:
-            raise _ssl_seterror(self.space, self, count)
-        return self.space.wrap(count)
+            raise _ssl_seterror(space, self, count)
+        return space.wrap(count)
 
     @unwrap_spec(num_bytes=int)
-    def read(self, num_bytes=1024):
+    def read(self, space, num_bytes=1024):
         """read([len]) -> string
 
         Read up to len bytes from the SSL socket."""
 
         count = libssl_SSL_pending(self.ssl)
         if not count:
-            sockstate = check_socket_and_wait_for_timeout(self.space,
-                self.w_socket, False)
+            sockstate = check_socket_and_wait_for_timeout(space, self.w_socket,
+                                                          False)
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise ssl_error(self.space, "The read operation timed out")
+                raise ssl_error(space, "The read operation timed out")
             elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
-                raise ssl_error(self.space, "Underlying socket too large for select().")
+                raise ssl_error(space, "Underlying socket too large for select().")
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
                 if libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN:
-                    return self.space.wrap('')
-                raise ssl_error(self.space, "Socket closed without SSL shutdown handshake")
+                    return space.wrap('')
+                raise ssl_error(space, "Socket closed without SSL shutdown handshake")
 
         with rffi.scoped_alloc_buffer(num_bytes) as buf:
             while True:
@@ -241,19 +241,19 @@ class SSLObject(W_Root):
                 err = libssl_SSL_get_error(self.ssl, count)
 
                 if err == SSL_ERROR_WANT_READ:
-                    sockstate = check_socket_and_wait_for_timeout(self.space,
+                    sockstate = check_socket_and_wait_for_timeout(space,
                         self.w_socket, False)
                 elif err == SSL_ERROR_WANT_WRITE:
-                    sockstate = check_socket_and_wait_for_timeout(self.space,
+                    sockstate = check_socket_and_wait_for_timeout(space,
                         self.w_socket, True)
                 elif (err == SSL_ERROR_ZERO_RETURN and
                    libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN):
-                    return self.space.wrap("")
+                    return space.wrap("")
                 else:
                     sockstate = SOCKET_OPERATION_OK
 
                 if sockstate == SOCKET_HAS_TIMED_OUT:
-                    raise ssl_error(self.space, "The read operation timed out")
+                    raise ssl_error(space, "The read operation timed out")
                 elif sockstate == SOCKET_IS_NONBLOCKING:
                     break
 
@@ -263,11 +263,11 @@ class SSLObject(W_Root):
                     break
 
             if count <= 0:
-                raise _ssl_seterror(self.space, self, count)
+                raise _ssl_seterror(space, self, count)
 
             result = buf.str(count)
 
-        return self.space.wrap(result)
+        return space.wrap(result)
 
     def _refresh_nonblocking(self, space):
         # just in case the blocking state of the socket has been changed
@@ -361,18 +361,18 @@ class SSLObject(W_Root):
             ssl_err = libssl_SSL_get_error(self.ssl, ret)
             if ssl_err == SSL_ERROR_WANT_READ:
                 sockstate = check_socket_and_wait_for_timeout(
-                    self.space, self.w_socket, False)
+                    space, self.w_socket, False)
             elif ssl_err == SSL_ERROR_WANT_WRITE:
                 sockstate = check_socket_and_wait_for_timeout(
-                    self.space, self.w_socket, True)
+                    space, self.w_socket, True)
             else:
                 break
 
             if sockstate == SOCKET_HAS_TIMED_OUT:
                 if ssl_err == SSL_ERROR_WANT_READ:
-                    raise ssl_error(self.space, "The read operation timed out")
+                    raise ssl_error(space, "The read operation timed out")
                 else:
-                    raise ssl_error(self.space, "The write operation timed out")
+                    raise ssl_error(space, "The write operation timed out")
             elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
                 raise ssl_error(space, "Underlying socket too large for select().")
             elif sockstate != SOCKET_OPERATION_OK:
@@ -410,7 +410,7 @@ class SSLObject(W_Root):
         return space.newtuple([w_name, w_proto, w_bits])
 
     @unwrap_spec(der=bool)
-    def peer_certificate(self, der=False):
+    def peer_certificate(self, space, der=False):
         """peer_certificate([der=False]) -> certificate
 
         Returns the certificate for the peer.  If no certificate was provided,
@@ -422,7 +422,7 @@ class SSLObject(W_Root):
         peer certificate, or None if no certificate was provided.  This will
         return the certificate even if it wasn't validated."""
         if not self.peer_cert:
-            return self.space.w_None
+            return space.w_None
 
         if der:
             # return cert in DER-encoded format
@@ -430,20 +430,19 @@ class SSLObject(W_Root):
                 buf_ptr[0] = lltype.nullptr(rffi.CCHARP.TO)
                 length = libssl_i2d_X509(self.peer_cert, buf_ptr)
                 if length < 0:
-                    raise _ssl_seterror(self.space, self, length)
+                    raise _ssl_seterror(space, self, length)
                 try:
                     # this is actually an immutable bytes sequence
-                    return self.space.wrap(rffi.charpsize2str(buf_ptr[0],
-                                                              length))
+                    return space.wrap(rffi.charpsize2str(buf_ptr[0], length))
                 finally:
                     libssl_OPENSSL_free(buf_ptr[0])
         else:
             verification = libssl_SSL_CTX_get_verify_mode(
                 libssl_SSL_get_SSL_CTX(self.ssl))
             if not verification & SSL_VERIFY_PEER:
-                return self.space.newdict()
+                return space.newdict()
             else:
-                return _decode_certificate(self.space, self.peer_cert)
+                return _decode_certificate(space, self.peer_cert)
 
 def _decode_certificate(space, certificate, verbose=False):
     w_retval = space.newdict()
