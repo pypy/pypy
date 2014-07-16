@@ -433,9 +433,9 @@ class SSLSocket(W_Root):
                 err = libssl_SSL_get_error(self.ssl, count)
 
                 if err == SSL_ERROR_WANT_READ:
-                    sockstate = checkwait(space, self.w_socket, False)
+                    sockstate = checkwait(space, w_socket, False)
                 elif err == SSL_ERROR_WANT_WRITE:
-                    sockstate = checkwait(space, self.w_socket, True)
+                    sockstate = checkwait(space, w_socket, True)
                 elif (err == SSL_ERROR_ZERO_RETURN and
                    libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN):
                     if space.is_none(w_buf):
@@ -462,7 +462,7 @@ class SSLSocket(W_Root):
 
         if rwbuffer is not None:
             rwbuffer.setslice(0, result)
-            return self.space.wrap(count)
+            return space.wrap(count)
         else:
             return space.wrapbytes(result)
 
