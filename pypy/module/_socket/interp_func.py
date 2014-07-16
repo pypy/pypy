@@ -1,9 +1,13 @@
-from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.module._socket.interp_socket import (
-    converted_error, W_RSocket, addr_as_object, fill_from_object, get_error)
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import SocketError, INVALID_SOCKET
+
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
+from pypy.module._socket.interp_socket import (
+    converted_error, W_Socket, addr_as_object, fill_from_object, get_error,
+    ipaddr_from_object
+)
+
 
 def gethostname(space):
     """gethostname() -> string
@@ -156,10 +160,13 @@ def socketpair(space, family=rsocket.socketpair_default_family,
     AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
     """
     try:
-        sock1, sock2 = rsocket.socketpair(family, type, proto, W_RSocket)
+        sock1, sock2 = rsocket.socketpair(family, type, proto)
     except SocketError, e:
         raise converted_error(space, e)
-    return space.newtuple([space.wrap(sock1), space.wrap(sock2)])
+    return space.newtuple([
+        space.wrap(W_Socket(sock1)),
+        space.wrap(W_Socket(sock2))
+    ])
 
 # The following 4 functions refuse all negative numbers, like CPython 2.6.
 # They could also check that the argument is not too large, but CPython 2.6

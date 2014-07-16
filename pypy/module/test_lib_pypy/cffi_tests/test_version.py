@@ -6,19 +6,20 @@ def setup_module(mod):
     if '_cffi_backend' in sys.builtin_module_names:
         py.test.skip("this is embedded version")
 
-BACKEND_VERSIONS = {
-    '0.4.2': '0.4',     # did not change
-    '0.7.1': '0.7',     # did not change
-    '0.7.2': '0.7',     # did not change
-    '0.8.1': '0.8',     # did not change (essentially)
-    '0.8.2': '0.8',     # did not change
-    }
+#BACKEND_VERSIONS = {
+#    '0.4.2': '0.4',     # did not change
+#    '0.7.1': '0.7',     # did not change
+#    '0.7.2': '0.7',     # did not change
+#    '0.8.1': '0.8',     # did not change (essentially)
+#    '0.8.4': '0.8.3',   # did not change
+#    }
 
 def test_version():
     v = cffi.__version__
     version_info = '.'.join(str(i) for i in cffi.__version_info__)
     assert v == version_info
-    assert BACKEND_VERSIONS.get(v, v) == _cffi_backend.__version__
+    #v = BACKEND_VERSIONS.get(v, v)
+    assert v == _cffi_backend.__version__
 
 def test_doc_version():
     parent = os.path.dirname(os.path.dirname(__file__))
@@ -26,7 +27,7 @@ def test_doc_version():
     content = open(p).read()
     #
     v = cffi.__version__
-    assert ("version = '%s'\n" % BACKEND_VERSIONS.get(v, v)) in content
+    assert ("version = '%s'\n" % v[:3]) in content
     assert ("release = '%s'\n" % v) in content
 
 def test_doc_version_file():
@@ -49,5 +50,5 @@ def test_c_version():
     v = cffi.__version__
     p = os.path.join(parent, 'c', 'test_c.py')
     content = open(p).read()
-    assert (('assert __version__ == "%s"' % BACKEND_VERSIONS.get(v, v))
-            in content)
+    #v = BACKEND_VERSIONS.get(v, v)
+    assert (('assert __version__ == "%s"' % v) in content)

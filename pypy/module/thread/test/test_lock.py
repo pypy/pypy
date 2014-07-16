@@ -60,6 +60,29 @@ class AppTestLock(GenericTestThread):
         assert lock.acquire(False) is False
         assert lock.acquire(True, timeout=.1) is False
 
+    def test_ping_pong(self):
+        # The purpose of this test is that doing a large number of ping-pongs
+        # between two threads, using locks, should complete in a reasonable
+        # time on a translated pypy with -A.  If the GIL logic causes too
+        # much sleeping, then it will fail.
+        import _thread as thread, time
+        COUNT = 100000 if self.runappdirect else 50
+        lock1 = thread.allocate_lock()
+        lock2 = thread.allocate_lock()
+        def fn():
+            for i in range(COUNT):
+                lock1.acquire()
+                lock2.release()
+        lock2.acquire()
+        print("STARTING")
+        start = time.time()
+        thread.start_new_thread(fn, ())
+        for i in range(COUNT):
+            lock2.acquire()
+            lock1.release()
+        stop = time.time()
+        assert stop - start < 30.0    # ~0.6 sec on pypy-c-jit
+
 
 def test_compile_lock():
     from rpython.rlib import rgc

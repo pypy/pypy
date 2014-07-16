@@ -46,11 +46,11 @@ def PyList_GetItem(space, w_list, index):
     IndexError exception."""
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
-    wrappeditems = w_list.getitems()
-    if index < 0 or index >= len(wrappeditems):
+    if index < 0 or index >= w_list.length():
         raise OperationError(space.w_IndexError, space.wrap(
             "list index out of range"))
-    return borrow_from(w_list, wrappeditems[index])
+    w_item = w_list.getitem(index)
+    return borrow_from(w_list, w_item)
 
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)

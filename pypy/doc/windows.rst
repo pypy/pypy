@@ -132,19 +132,23 @@ The zlib compression library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Download http://www.gzip.org/zlib/zlib-1.2.3.tar.gz and extract it in
-the base directory.  Then compile::
+the base directory.  Then compile as a static library::
 
     cd zlib-1.2.3
     nmake -f win32\Makefile.msc
-    copy zlib1.dll <somewhere in the PATH>\zlib.dll
+    copy zlib1.lib <somewhere in LIB>
+    copy zlib.h zconf.h <somewhere in INCLUDE>
 
 The bz2 compression library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Get the same version of bz2 used by python and compile as a static library::
 
     svn export http://svn.python.org/projects/external/bzip2-1.0.6
     cd bzip2-1.0.6
     nmake -f makefile.msc
-    copy bzip.dll <somewhere in the PATH>\bzip.dll
+    copy libbz2.lib <somewhere in LIB>
+    copy bzlib.h <somewhere in INCLUDE>
+
     
 The sqlite3 database library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -166,7 +170,8 @@ Multi-threaded DLL (/MD) and build the solution (the ``expat`` project
 is actually enough for pypy).
 
 Then, copy the file ``win32\bin\release\libexpat.dll`` somewhere in
-your PATH.
+your PATH, ``win32\bin\release\libexpat.lib`` somewhere in LIB, and
+both ``lib\expat.h`` and ``lib\expat_external.h`` somewhere in INCLUDE.
 
 The OpenSSL library
 ~~~~~~~~~~~~~~~~~~~

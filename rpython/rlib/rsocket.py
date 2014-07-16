@@ -15,17 +15,18 @@ a drop-in replacement for the 'socket' module.
 # It's unclear if makefile() and SSL support belong here or only as
 # app-level code for PyPy.
 
+from rpython.rlib import _rsocket_rffi as _c, jit, rgc
 from rpython.rlib.objectmodel import instantiate, keepalive_until_here
-from rpython.rlib import _rsocket_rffi as _c
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.rthread import dummy_lock
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
-INVALID_SOCKET = _c.INVALID_SOCKET
-from rpython.rlib import jit
+
+
 # Usage of @jit.dont_look_inside in this file is possibly temporary
 # and only because some lltypes declared in _rsocket_rffi choke the
 # JIT's codewriter right now (notably, FixedSizeArray).
+INVALID_SOCKET = _c.INVALID_SOCKET
 
 
 def mallocbuf(buffersize):
@@ -86,6 +87,7 @@ class Address(object):
         self.addr_p = addr
         self.addrlen = addrlen
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         if self.addr_p:
             lltype.free(self.addr_p, flavor='raw', track_allocation=False)
@@ -493,8 +495,8 @@ def make_null_address(family):
 class RSocket(object):
     """RPython-level socket object.
     """
-    _mixin_ = True        # for interp_socket.py
     fd = _c.INVALID_SOCKET
+
     def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0,
                  fd=_c.INVALID_SOCKET):
         """Create a new socket."""
@@ -509,6 +511,7 @@ class RSocket(object):
         self.proto = proto
         self.timeout = defaults.timeout
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         fd = self.fd
         if fd != _c.INVALID_SOCKET:
@@ -824,13 +827,12 @@ class RSocket(object):
         if timeout == 1:
             raise SocketTimeout
         elif timeout == 0:
-            raw_buf, gc_buf = rffi.alloc_buffer(buffersize)
-            try:
-                read_bytes = _c.socketrecv(self.fd, raw_buf, buffersize, flags)
+            with rffi.scoped_alloc_buffer(buffersize) as buf:
+                read_bytes = _c.socketrecv(self.fd,
+                                           rffi.cast(rffi.VOIDP, buf.raw),
+                                           buffersize, flags)
                 if read_bytes >= 0:
-                    return rffi.str_from_buffer(raw_buf, gc_buf, buffersize, read_bytes)
-            finally:
-                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+                    return buf.str(read_bytes)
         raise self.error_handler()
 
     def recvinto(self, rwbuffer, nbytes, flags=0):
@@ -847,11 +849,10 @@ class RSocket(object):
         if timeout == 1:
             raise SocketTimeout
         elif timeout == 0:
-            raw_buf, gc_buf = rffi.alloc_buffer(buffersize)
-            try:
+            with rffi.scoped_alloc_buffer(buffersize) as buf:
                 address, addr_p, addrlen_p = self._addrbuf()
                 try:
-                    read_bytes = _c.recvfrom(self.fd, raw_buf, buffersize, flags,
+                    read_bytes = _c.recvfrom(self.fd, buf.raw, buffersize, flags,
                                              addr_p, addrlen_p)
                     addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
                 finally:
@@ -862,10 +863,8 @@ class RSocket(object):
                         address.addrlen = addrlen
                     else:
                         address = None
-                    data = rffi.str_from_buffer(raw_buf, gc_buf, buffersize, read_bytes)
+                    data = buf.str(read_bytes)
                     return (data, address)
-            finally:
-                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         raise self.error_handler()
 
     def recvfrom_into(self, rwbuffer, nbytes, flags=0):
@@ -1318,7 +1317,8 @@ if hasattr(_c, 'inet_ntop'):
         try:
             dstbuf = mallocbuf(dstsize)
             try:
-                res = _c.inet_ntop(family, srcbuf, dstbuf, dstsize)
+                res = _c.inet_ntop(family, rffi.cast(rffi.VOIDP, srcbuf),
+                                   dstbuf, dstsize)
                 if not res:
                     raise last_error()
                 return rffi.charp2str(res)

@@ -45,6 +45,7 @@ class GenericTestThread:
     spaceconfig = dict(usemodules=('thread', 'rctime', 'signal'))
 
     def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
         if cls.runappdirect:
             cls.w_NORMAL_TIMEOUT = NORMAL_TIMEOUT
             def plain_waitfor(cls, condition, delay=1):

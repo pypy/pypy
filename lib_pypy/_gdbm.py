@@ -75,8 +75,8 @@ class gdbm(object):
 
     def _raise_from_errno(self):
         if ffi.errno:
-            raise error(os.strerror(ffi.errno))
-        raise error(lib.gdbm_strerror(lib.gdbm_errno))
+            raise error(ffi.errno, os.strerror(ffi.errno))
+        raise error(lib.gdbm_errno, lib.gdbm_strerror(lib.gdbm_errno))
 
     def __len__(self):
         if self.size < 0:
@@ -151,7 +151,7 @@ class gdbm(object):
 
     def _check_closed(self):
         if not self.ll_dbm:
-            raise error("GDBM object has already been closed")
+            raise error(0, "GDBM object has already been closed")
 
     __del__ = close
 
@@ -180,7 +180,7 @@ def open(filename, flags='r', mode=0o666):
     elif flags[0] == 'n':
         iflags = lib.GDBM_NEWDB
     else:
-        raise error("First flag must be one of 'r', 'w', 'c' or 'n'")
+        raise error(0, "First flag must be one of 'r', 'w', 'c' or 'n'")
     for flag in flags[1:]:
         if flag == 'f':
             iflags |= lib.GDBM_FAST
@@ -189,7 +189,7 @@ def open(filename, flags='r', mode=0o666):
         elif flag == 'u':
             iflags |= lib.GDBM_NOLOCK
         else:
-            raise error("Flag '%s' not supported" % flag)
+            raise error(0, "Flag '%s' not supported" % flag)
     return gdbm(filename, iflags, mode)
 
 open_flags = "rwcnfsu"

@@ -290,3 +290,13 @@ class AppTestScalar(BaseNumpyAppTest):
             assert np.isnan(b/a)
             b = t(0.)
             assert np.isnan(b/a)
+
+    def test_scalar_iter(self):
+        from numpypy import int8, int16, int32, int64, float32, float64
+        for t in int8, int16, int32, int64, float32, float64:
+            try:
+                iter(t(17))
+            except TypeError:
+                pass
+            else:
+                assert False, "%s object should not be iterable." % t

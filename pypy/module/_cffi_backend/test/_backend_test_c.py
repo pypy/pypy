@@ -3188,4 +3188,4 @@ def test_packed_with_bitfields():
 
 def test_version():
     # this test is here mostly for PyPy
-    assert __version__ == "0.8.2"
+    assert __version__ == "0.8.6"
