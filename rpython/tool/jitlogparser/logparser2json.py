@@ -35,7 +35,7 @@ def main(progname, logfilename, outfilename):
                      if not loop.descr.startswith('bridge')]
     storage.loop_dict = create_loop_dict(loops)
     json.dump([loop.force_asm().as_json() for loop in storage.loops],
-              open(outfilename, "w"))
+              open(outfilename, "w"), indent=4)
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
