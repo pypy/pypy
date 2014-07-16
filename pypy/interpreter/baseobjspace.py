@@ -1459,9 +1459,7 @@ class ObjSpace(object):
             return buf.as_str()
 
     def str_or_None_w(self, w_obj):
-        if self.is_w(w_obj, self.w_None):
-            return None
-        return self.str_w(w_obj)
+        return None if self.is_none(w_obj) else self.str_w(w_obj)
 
     def str_w(self, w_obj):
         """
