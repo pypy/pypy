@@ -28,7 +28,8 @@ for donation`_.
 Introduction
 ============
 
-``pypy-stm`` is a variant of the regular PyPy interpreter.  With caveats_
+``pypy-stm`` is a variant of the regular PyPy interpreter.  (This
+version supports Python 2.7; see below for `Python 3`_.)  With caveats_
 listed below, it should be in theory within 20%-50% slower than a
 regular PyPy, comparing the JIT version in both cases (but see below!).
 It is called
@@ -92,9 +93,9 @@ Current status
   We're busy fixing them as we find them; feel free to `report bugs`_.
 
 * It runs with an overhead as low as 20% on examples like "richards".
-  There are also other examples with higher overheads --up to 10x for
-  "translate.py"-- which we are still trying to understand.  One suspect
-  is our partial GC implementation, see below.
+  There are also other examples with higher overheads --currently up to
+  2x for "translate.py"-- which we are still trying to understand.
+  One suspect is our partial GC implementation, see below.
 
 * Currently limited to 1.5 GB of RAM (this is just a parameter in
   `core.h`__).  Memory overflows are not correctly handled; they cause
@@ -111,9 +112,8 @@ Current status
 
 * The GC is new; although clearly inspired by PyPy's regular GC, it
   misses a number of optimizations for now.  Programs allocating large
-  numbers of small objects that don't immediately die, as well as
-  programs that modify large lists or dicts, suffer from these missing
-  optimizations.
+  numbers of small objects that don't immediately die (surely a common
+  situation) suffer from these missing optimizations.
 
 * The GC has no support for destructors: the ``__del__`` method is never
   called (including on file objects, which won't be closed for you).
@@ -135,6 +135,25 @@ Current status
 
 .. _`report bugs`: https://bugs.pypy.org/
 .. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/translator/stm/src_stm/stm/core.h
+
+
+
+Python 3
+========
+
+In this document I describe "pypy-stm", which is based on PyPy's Python
+2.7 interpreter.  Supporting Python 3 should take about half an
+afternoon of work.  Obviously, what I *don't* mean is that by tomorrow
+you can have a finished and polished "pypy3-stm" product.  General py3k
+work is still missing; and general stm work is also still missing.  But
+they are rather independent from each other, as usual in PyPy.  The
+required afternoon of work will certainly be done one of these days now
+that the internal interfaces seem to stabilize.
+
+The same is true for other languages implemented in the RPython
+framework, although the amount of work to put there might vary, because
+the STM framework within RPython is currently targeting the PyPy
+interpreter and other ones might have slightly different needs.
 
 
 
@@ -489,8 +508,6 @@ medium- and long-term future work involves reducing this overhead :-)
 
 The last two lines are special; they are an internal marker read by
 ``transactional_memory.print_abort_info()``.
-
-These statistics are not printed out for the main thread, for now.
 
 
 Reference to implementation details

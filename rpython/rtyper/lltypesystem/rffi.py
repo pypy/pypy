@@ -95,6 +95,8 @@ def llexternal(name, args, result, _callable=None,
                 name, macro, ext_type, compilation_info)
         else:
             _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
+    else:
+        assert macro is None, "'macro' is useless if you specify '_callable'"
     if elidable_function:
         _callable._elidable_function_ = True
     kwds = {}
@@ -172,7 +174,13 @@ def llexternal(name, args, result, _callable=None,
         call_external_function._dont_inline_ = True
         call_external_function._annspecialcase_ = 'specialize:ll'
         call_external_function._gctransformer_hint_close_stack_ = True
-        call_external_function._call_aroundstate_target_ = funcptr
+        #
+        # '_call_aroundstate_target_' is used by the JIT to generate a
+        # CALL_RELEASE_GIL directly to 'funcptr'.  This doesn't work if
+        # 'funcptr' might be a C macro, though.
+        if macro is None:
+            call_external_function._call_aroundstate_target_ = funcptr
+        #
         call_external_function = func_with_new_name(call_external_function,
                                                     'ccall_' + name)
         # don't inline, as a hack to guarantee that no GC pointer is alive
@@ -180,7 +188,25 @@ def llexternal(name, args, result, _callable=None,
     else:
         # if we don't have to invoke the aroundstate, we can just call
         # the low-level function pointer carelessly
-        call_external_function = funcptr
+        if macro is None:
+            call_external_function = funcptr
+        else:
+            # ...well, unless it's a macro, in which case we still have
+            # to hide it from the JIT...
+            argnames = ', '.join(['a%d' % i for i in range(len(args))])
+            source = py.code.Source("""
+                def call_external_function(%(argnames)s):
+                    return funcptr(%(argnames)s)
+            """ % locals())
+            miniglobals = {'funcptr':     funcptr,
+                           '__name__':    __name__,
+                           }
+            exec source.compile() in miniglobals
+            call_external_function = miniglobals['call_external_function']
+            call_external_function = func_with_new_name(call_external_function,
+                                                        'ccall_' + name)
+            call_external_function = jit.dont_look_inside(
+                call_external_function)
 
     unrolling_arg_tps = unrolling_iterable(enumerate(args))
     def wrapper(*args):

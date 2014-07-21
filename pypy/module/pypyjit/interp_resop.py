@@ -56,6 +56,7 @@ def set_compile_hook(space, w_hook):
     jit hook won't be called for that.
     """
     cache = space.fromcache(Cache)
+    assert w_hook is not None
     cache.w_compile_hook = w_hook
     cache.in_recursion = NonConstant(False)
 
@@ -90,6 +91,7 @@ def set_abort_hook(space, w_hook):
     as attributes on JitLoopInfo object.
     """
     cache = space.fromcache(Cache)
+    assert w_hook is not None
     cache.w_abort_hook = w_hook
     cache.in_recursion = NonConstant(False)
 

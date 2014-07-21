@@ -223,6 +223,20 @@ class AppTestBytesArray:
         check(bytearray('abc').rstrip(memoryview('c')), 'ab')
         check(bytearray('aba').strip('a'), 'b')
 
+    def test_xjust_no_mutate(self):
+        # a previous regression
+        b = bytearray(b'')
+        assert b.ljust(1) == bytearray(b' ')
+        assert not len(b)
+
+        b2 = b.ljust(0)
+        b2 += b' '
+        assert not len(b)
+
+        b2 = b.rjust(0)
+        b2 += b' '
+        assert not len(b)
+
     def test_split(self):
         # methods that should return a sequence of bytearrays
         def check(result, expected):

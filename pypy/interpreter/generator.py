@@ -61,6 +61,13 @@ return next yielded value or raise StopIteration."""
         return self.send_ex(w_arg)
 
     def send_ex(self, w_arg, operr=None):
+        pycode = self.pycode
+        if jit.we_are_jitted() and should_not_inline(pycode):
+            generatorentry_driver.jit_merge_point(gen=self, w_arg=w_arg,
+                                                  operr=operr, pycode=pycode)
+        return self._send_ex(w_arg, operr)
+
+    def _send_ex(self, w_arg, operr):
         space = self.space
         if self.running:
             raise OperationError(space.w_ValueError,
@@ -72,8 +79,7 @@ return next yielded value or raise StopIteration."""
             if operr is None:
                 operr = OperationError(space.w_StopIteration, space.w_None)
             raise operr
-        # XXX it's not clear that last_instr should be promoted at all
-        # but as long as it is necessary for call_assembler, let's do it early
+
         last_instr = jit.promote(frame.last_instr)
         if last_instr == -1:
             if w_arg and not space.is_w(w_arg, space.w_None):
@@ -214,3 +220,38 @@ class GeneratorIteratorWithDel(GeneratorIterator):
                                                  "interrupting generator of ")
                     break
                 block = block.previous
+
+
+
+def get_printable_location_genentry(bytecode):
+    return '%s <generator>' % (bytecode.get_repr(),)
+generatorentry_driver = jit.JitDriver(greens=['pycode'],
+                                      reds=['gen', 'w_arg', 'operr'],
+                                      get_printable_location =
+                                          get_printable_location_genentry,
+                                      name='generatorentry')
+
+from pypy.tool.stdlib_opcode import HAVE_ARGUMENT, opmap
+YIELD_VALUE = opmap['YIELD_VALUE']
+
+@jit.elidable_promote()
+def should_not_inline(pycode):
+    # Should not inline generators with more than one "yield",
+    # as an approximative fix (see issue #1782).  There are cases
+    # where it slows things down; for example calls to a simple
+    # generator that just produces a few simple values with a few
+    # consecutive "yield" statements.  It fixes the near-infinite
+    # slow-down in issue #1782, though...
+    count_yields = 0
+    code = pycode.co_code
+    n = len(code)
+    i = 0
+    while i < n:
+        c = code[i]
+        op = ord(c)
+        if op == YIELD_VALUE:
+            count_yields += 1
+        i += 1
+        if op >= HAVE_ARGUMENT:
+            i += 2
+    return count_yields >= 2
