@@ -1266,20 +1266,38 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
 def gen_zero_gc_pointers(TYPE, v, llops, previous_steps=None):
     if previous_steps is None:
         previous_steps = []
-    assert isinstance(TYPE, lltype.Struct)
-    for name in TYPE._names:
-        c_name = rmodel.inputconst(lltype.Void, name)
-        FIELD = getattr(TYPE, name)
-        if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
-            c_null = rmodel.inputconst(FIELD, lltype.nullptr(FIELD.TO))
-            if not previous_steps:
-                llops.genop('bare_setfield', [v, c_name, c_null])
-            else:
-                llops.genop('bare_setinteriorfield',
+    assert (isinstance(TYPE, lltype.Struct) or isinstance(TYPE, lltype.Array))
+    if isinstance(TYPE, lltype.Struct):
+        for name in TYPE._names:
+            c_name = rmodel.inputconst(lltype.Void, name)
+            FIELD = getattr(TYPE, name)
+            #handle ptr field in GcStruct
+            if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
+                c_null = rmodel.inputconst(FIELD, lltype.nullptr(FIELD.TO))
+                if not previous_steps:
+                    llops.genop('bare_setfield', [v, c_name, c_null])
+                else:
+                    llops.genop('bare_setinteriorfield',
                             [v] + previous_steps + [c_name, c_null])
-        elif isinstance(FIELD, lltype.Struct):
-            gen_zero_gc_pointers(FIELD, v, llops, previous_steps + [c_name])
-
+            #handle inside GcStruct field
+            elif isinstance(FIELD, lltype.Struct):
+                gen_zero_gc_pointers(FIELD, v, llops, previous_steps + [c_name])
+            #handle inside GcArray field 
+            elif isinstance(FIELD, lltype.Array):
+                gen_zero_gc_pointers(FIELD, v, llops, previous_steps + [c_name])
+    if isinstance(TYPE, lltype.Array):
+        ITEM = TYPE.OF
+        if previous_steps:
+            v = llop.genop('getinteriorfield',[v]+previous_steps)
+        arr_size = llops.genop('getarraysize',[v])
+        for i in range(arr_size):
+            #handle an array of GcPtr
+            if isinstance(ITEM, lltype.Ptr) and ITEM._needsgc():
+                c_null = rmodel.inputconst(ITEM, lltype.nullptr(ITEM.TO))
+                llops.genop('bare_setarrayitem',[v, i, c_null])
+            if isinstance(ITEM, lltype.Struct) or isinstance(ITEM, lltype.GcArray):
+                array_item = llops.genop('getarrayitem',[v,i])
+                gen_zero_gc_pointers(FIELD, array_item, llops, previous_steps)
 # ____________________________________________________________
 
 
