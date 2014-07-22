@@ -1,11 +1,10 @@
 from __future__ import with_statement
 from pypy.module.thread.test.support import GenericTestThread
-from pypy.module.__pypy__.interp_atomic import bdecode
 from rpython.rtyper.lltypesystem import rffi
 
 
 def test_bdecode(space):
-
+    from pypy.module.__pypy__.interp_atomic import bdecode
     def bdec(s, expected):
         p = rffi.str2charp(s)
         w_obj, q = bdecode(space, p)
@@ -27,7 +26,7 @@ class AppTestAtomic(GenericTestThread):
         from __pypy__ import thread
         for atomic in thread.atomic, thread.exclusive_atomic:
             with atomic:
-                pass
+                assert thread.is_atomic()
             try:
                 with atomic:
                     raise ValueError
@@ -38,22 +37,28 @@ class AppTestAtomic(GenericTestThread):
         from __pypy__ import thread
         with thread.atomic:
             with thread.atomic:
-                pass
+                assert thread.is_atomic()
+            assert thread.is_atomic()
+        assert not thread.is_atomic()
 
     def test_nest_composable_below_exclusive(self):
         from __pypy__ import thread
         with thread.exclusive_atomic:
             with thread.atomic:
                 with thread.atomic:
-                    pass
+                    assert thread.is_atomic()
+                assert thread.is_atomic()
+            assert thread.is_atomic()
+        assert not thread.is_atomic()
 
     def test_nest_exclusive_fails(self):
         from __pypy__ import thread
         try:
             with thread.exclusive_atomic:
                 with thread.exclusive_atomic:
-                    pass
+                    assert thread.is_atomic()
         except thread.error, e:
+            assert not thread.is_atomic()
             assert e.message == "exclusive_atomic block can't be entered inside another atomic block"
 
     def test_nest_exclusive_fails2(self):
@@ -61,6 +66,8 @@ class AppTestAtomic(GenericTestThread):
         try:
             with thread.atomic:
                 with thread.exclusive_atomic:
-                    pass
+                    assert thread.is_atomic()
+                assert thread.is_atomic()
         except thread.error, e:
+            assert not thread.is_atomic()
             assert e.message == "exclusive_atomic block can't be entered inside another atomic block"

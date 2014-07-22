@@ -60,6 +60,15 @@ change the limit (or at least lower it) with setsegmentlimit().
     else:
         return space.wrap(1)
 
+def is_atomic(space):
+    if space.config.translation.stm:
+        from rpython.rlib.rstm import is_atomic
+        return space.wrap(is_atomic())
+    else:
+        giltl = space.threadlocals
+        return space.wrap(giltl.is_atomic)
+
+
 @unwrap_spec(mintime=float)
 def longest_abort_info(space, mintime=0.0):
     if space.config.translation.stm:
