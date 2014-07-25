@@ -497,9 +497,6 @@ W_OSError.typedef = TypeDef(
     filename = readwrite_attrproperty_w('w_filename', W_OSError),
     )
 
-W_EnvironmentError = W_OSError
-W_IOError = W_OSError
-
 class W_WindowsError(W_OSError):
     """MS-Windows OS system call failed."""
 

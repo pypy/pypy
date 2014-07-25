@@ -4,7 +4,6 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (
     TypeDef, interp_attrproperty, generic_new_descr)
-from pypy.module.exceptions.interp_exceptions import W_IOError
 from pypy.module._io.interp_fileio import W_FileIO
 from pypy.module._io.interp_textio import W_TextIOWrapper
 from rpython.rtyper.module.ll_os_stat import STAT_FIELD_TYPES
