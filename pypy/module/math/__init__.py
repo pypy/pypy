@@ -23,6 +23,7 @@ class Module(MixedModule):
        'frexp'          : 'interp_math.frexp',
        'degrees'        : 'interp_math.degrees',
        'log'            : 'interp_math.log',
+       'log2'           : 'interp_math.log2',
        'log10'          : 'interp_math.log10',
        'fmod'           : 'interp_math.fmod',
        'atan'           : 'interp_math.atan',
