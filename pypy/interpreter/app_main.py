@@ -317,7 +317,6 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
 # Order is significant!
 sys_flags = (
     "debug",
-    "division_warning",
     "inspect",
     "interactive",
     "optimize",
