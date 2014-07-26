@@ -1,8 +1,8 @@
-RPython
-=======
+RPython Language
+================
 
-RPython Definition
-------------------
+Definition
+----------
 
 RPython is a restricted subset of Python that is amenable to static analysis.
 Although there are additions to the language and some things might surprisingly
