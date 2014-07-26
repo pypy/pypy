@@ -67,6 +67,9 @@ class AppTestDialect(object):
                 kwargs = {name: value}
                 raises(TypeError, _csv.register_dialect, 'foo1', **kwargs)
 
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', lineterminator=4)
+        assert exc_info.value.args[0] == '"lineterminator" must be a string'
+
     def test_bool_arg(self):
         # boolean arguments take *any* object and use its truth-value
         import _csv
