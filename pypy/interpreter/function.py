@@ -404,6 +404,12 @@ class Function(W_Root):
                                                 "to a string object"))
             raise
 
+    def fget_func_qualname(self, space):
+        return self.fget_func_name(space)
+
+    def fset_func_qualname(self, space, w_name):
+        return self.fset_func_name(space, w_name)
+
     def fdel_func_doc(self, space):
         self.w_doc = space.w_None
 

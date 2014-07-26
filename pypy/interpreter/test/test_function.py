@@ -146,6 +146,10 @@ class AppTestFunctionIntrospection:
         assert 日本.__name__ == '日本'
         """
 
+    def test_qualname(self):
+        def f(): pass
+        assert hasattr(f, '__qualname__')
+
 
 class AppTestFunction:
     def test_simple_call(self):
