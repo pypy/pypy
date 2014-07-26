@@ -82,7 +82,6 @@ from rpython.rlib.objectmodel import specialize
 # XXX update doc string to contain object pinning (groggi)
 
 WORD = LONG_BIT // 8
-NULL = llmemory.NULL
 
 first_gcflag = 1 << (LONG_BIT//2)
 
@@ -302,10 +301,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # it gives a lower bound on the allowed size of the nursery.
         self.nonlarge_max = large_object - 1
         #
-        self.nursery      = NULL
-        self.nursery_free = NULL
-        self.nursery_top  = NULL
-        self.nursery_real_top = NULL
+        self.nursery      = llmemory.NULL
+        self.nursery_free = llmemory.NULL
+        self.nursery_top  = llmemory.NULL
+        self.nursery_real_top = llmemory.NULL
         self.debug_tiny_nursery = -1
         self.debug_rotating_nurseries = lltype.nullptr(NURSARRAY)
         self.extra_threshold = 0
@@ -1509,7 +1508,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # dict of shadows.
         obj = obj + self.gcheaderbuilder.size_gc_header
         shadow = self.nursery_objects_shadows.get(obj)
-        if shadow != NULL:
+        if shadow != llmemory.NULL:
             # visit shadow to keep it alive
             # XXX seems like it is save to set GCFLAG_VISITED, however
             # should be double checked
@@ -1685,7 +1684,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         debug_stop("gc-minor")
 
     def _visit_old_objects_pointing_to_pinned(self, obj, ignore):
-        self.trace(obj, self._trace_drag_out, NULL)
+        self.trace(obj, self._trace_drag_out, llmemory.NULL)
 
     def collect_roots_in_nursery(self):
         # we don't need to trace prebuilt GcStructs during a minor collect:
@@ -1802,14 +1801,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
         ll_assert(start < stop, "empty or negative range "
                                 "in trace_and_drag_out_of_nursery_partial()")
         #print 'trace_partial:', start, stop, '\t', obj
-        self.trace_partial(obj, start, stop, self._trace_drag_out, NULL)
+        self.trace_partial(obj, start, stop, self._trace_drag_out, llmemory.NULL)
 
 
     def _trace_drag_out1(self, root):
-        self._trace_drag_out(root, NULL)
+        self._trace_drag_out(root, llmemory.NULL)
 
     def _trace_drag_out1_marking_phase(self, root):
-        self._trace_drag_out(root, NULL)
+        self._trace_drag_out(root, llmemory.NULL)
         #
         # We are in the MARKING state: we must also record this object
         # if it was young.  Don't bother with old objects in general,
@@ -1864,7 +1863,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 return
             hdr.tid |= GCFLAG_VISITED
             #
-            if parent != NULL:
+            if parent != llmemory.NULL:
                 self.old_objects_pointing_to_pinned.append(parent)
             #
             # XXX add additional checks for unsupported pinned objects (groggi)
@@ -1877,7 +1876,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             # First visit to an object that has already a shadow.
             newobj = self.nursery_objects_shadows.get(obj)
-            ll_assert(newobj != NULL, "GCFLAG_HAS_SHADOW but no shadow found")
+            ll_assert(newobj != llmemory.NULL, "GCFLAG_HAS_SHADOW but no shadow found")
             newhdr = newobj - size_gc_header
             #
             # Remove the flag GCFLAG_HAS_SHADOW, so that it doesn't get
@@ -2352,7 +2351,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # collection
         if self.header(obj).tid & GCFLAG_HAS_SHADOW:
             shadow = self.nursery_objects_shadows.get(obj)
-            ll_assert(shadow != NULL,
+            ll_assert(shadow != llmemory.NULL,
                       "GCFLAG_HAS_SHADOW but no shadow found")
         else:
             shadow = self._allocate_shadow(obj)
