@@ -34,7 +34,7 @@ are three functions related to that coming from the ``pypyjit`` module:
     aborted due to some reason.
 
     The hook will be invoked with the siagnture:
-    ``hook(jitdriver_name, greenkey, reason)``
+    ``hook(jitdriver_name, greenkey, reason, oplist)``
 
     Reason is a string, the meaning of other arguments is the same
     as attributes on JitLoopInfo object

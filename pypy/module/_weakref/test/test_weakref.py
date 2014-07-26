@@ -15,6 +15,10 @@ class AppTestWeakref(object):
         gc.collect()
         assert ref() is None
 
+    def test_missing_arg(self):
+        import _weakref
+        raises(TypeError, _weakref.ref)
+
     def test_callback(self):
         import _weakref, gc
         class A(object):

@@ -37,7 +37,7 @@ an outout-buffering stream.
 import os, sys, errno
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, intmask
-from rpython.rlib import rposix
+from rpython.rlib import rposix, nonconst
 from rpython.rlib.rstring import StringBuilder
 
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_APPEND
@@ -159,6 +159,8 @@ def construct_stream_tower(stream, buffering, universal, reading, writing,
             stream = TextInputFilter(stream)
     elif not binary and os.linesep == '\r\n':
         stream = TextCRLFFilter(stream)
+    if nonconst.NonConstant(False):
+        stream.flush_buffers()     # annotation workaround for untranslated tests
     return stream
 
 
@@ -850,7 +852,7 @@ class TextCRLFFilter(Stream):
         self.do_flush = base.flush_buffers
         self.lfbuffer = ""
 
-    def read(self, n):
+    def read(self, n=-1):
         data = self.lfbuffer + self.do_read(n)
         self.lfbuffer = ""
         if data.endswith("\r"):

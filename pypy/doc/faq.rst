@@ -150,14 +150,18 @@ Python programs we generally are 3 times the speed of CPython 2.7.
 You might be interested in our `benchmarking site`_ and our
 :doc:`jit documentation <rpython:jit/index>`.
 
-Note that the JIT has a very high warm-up cost, meaning that the
-programs are slow at the beginning.  If you want to compare the timings
-with CPython, even relatively simple programs need to run *at least* one
-second, preferrably at least a few seconds.  Large, complicated programs
-need even more time to warm-up the JIT.
+`Your tests are not a benchmark`_: tests tend to be slow under PyPy
+because they run exactly once; if they are good tests, they exercise
+various corner cases in your code.  This is a bad case for JIT
+compilers.  Note also that our JIT has a very high warm-up cost, meaning
+that any program is slow at the beginning.  If you want to compare the
+timings with CPython, even relatively simple programs need to run *at
+least* one second, preferrably at least a few seconds.  Large,
+complicated programs need even more time to warm-up the JIT.
 
 .. _benchmarking site: http://speed.pypy.org
 
+.. _your tests are not a benchmark: http://alexgaynor.net/2013/jul/15/your-tests-are-not-benchmark/
 
 Couldn't the JIT dump and reload already-compiled machine code?
 ---------------------------------------------------------------

@@ -205,12 +205,7 @@ class AppTestApi(LeakCheckingTest):
         import sys
         if sys.platform != "win32" or sys.version_info < (2, 6):
             skip("Windows Python >= 2.6 only")
-        assert sys.dllhandle
-        assert sys.dllhandle.getaddressindll('PyPyErr_NewException')
-        import ctypes # slow
-        PyUnicode_GetDefaultEncoding = ctypes.pythonapi.PyPyUnicode_GetDefaultEncoding
-        PyUnicode_GetDefaultEncoding.restype = ctypes.c_char_p
-        assert PyUnicode_GetDefaultEncoding() == 'ascii'
+        assert isinstance(sys.dllhandle, int)
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 
@@ -301,9 +296,9 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 space.sys.get('modules'),
                 space.wrap(name))
 
-        @unwrap_spec(modname=str, prologue=str, PY_SSIZE_T_CLEAN=bool)
+        @unwrap_spec(modname=str, prologue=str, more_init=str, PY_SSIZE_T_CLEAN=bool)
         def import_extension(space, modname, w_functions, prologue="",
-                             PY_SSIZE_T_CLEAN=False):
+                             more_init="", PY_SSIZE_T_CLEAN=False):
             functions = space.unwrap(w_functions)
             methods_table = []
             codes = []
@@ -326,6 +321,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             };
             """ % ('\n'.join(methods_table),)
             init = """Py_InitModule("%s", methods);""" % (modname,)
+            if more_init:
+                init += more_init
             return import_module(space, name=modname, init=init, body=body,
                                  PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
 

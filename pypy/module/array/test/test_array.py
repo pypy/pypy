@@ -418,6 +418,10 @@ class BaseArrayTests:
         assert self.array('u', unicode('hello')).tounicode() == \
                unicode('hello')
 
+    def test_empty_tostring(self):
+        a = self.array('l')
+        assert a.tostring() == b''
+
     def test_buffer(self):
         a = self.array('h', 'Hi')
         buf = buffer(a)
@@ -1028,6 +1032,9 @@ class AppTestArray(BaseArrayTests):
         a = self.array('i', [1, 2, 3, 4, 5, 6])
         raises(TypeError, "a[MyInt(0)]")
         raises(TypeError, "a[MyInt(0):MyInt(5)]")
+
+    def test_fresh_array_buffer_str(self):
+        assert str(buffer(self.array('i'))) == ''
 
 
 class AppTestArrayBuiltinShortcut(AppTestArray):

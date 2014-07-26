@@ -101,7 +101,7 @@ something much lower-level and involved, say something like::
         while True:
             try:
                 w_key = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise       # re-raise other app-level exceptions
                 break
@@ -271,7 +271,7 @@ To catch a specific application-level exception::
 
     try:
         ...
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_XxxError):
             raise
         ...

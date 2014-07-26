@@ -4,7 +4,7 @@ from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.jit.metainterp import history
+from rpython.jit.metainterp import history, compile
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.backend.model import AbstractCPU
 from rpython.jit.backend.llsupport import symbolic, jitframe
@@ -342,10 +342,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def _decode_pos(self, deadframe, index):
         descr = self.get_latest_descr(deadframe)
-        if descr.final_descr:
-            assert index == 0
-            return 0
-        return descr.rd_locs[index]
+        return rffi.cast(lltype.Signed, descr.rd_locs[index]) * WORD
 
     def get_int_value(self, deadframe, index):
         pos = self._decode_pos(deadframe, index)
@@ -659,3 +656,8 @@ class AbstractLLCPU(AbstractCPU):
             calldescr.verify_types(args_i, args_r, args_f, history.VOID)
         # the 'i' return value is ignored (and nonsense anyway)
         calldescr.call_stub_i(func, args_i, args_r, args_f)
+
+
+final_descr_rd_locs = [rffi.cast(rffi.USHORT, 0)]
+history.BasicFinalDescr.rd_locs = final_descr_rd_locs
+compile._DoneWithThisFrameDescr.rd_locs = final_descr_rd_locs

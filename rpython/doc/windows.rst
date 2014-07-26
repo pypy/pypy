@@ -9,8 +9,16 @@ PyPy supports only being translated as a 32bit program, even on
 64bit Windows.  See at the end of this page for what is missing
 for a full 64bit translation.
 
-To build pypy-c you need a C compiler.  Microsoft Visual Studio is
-preferred, but can also use the mingw32 port of gcc.
+To build pypy-c you need a working python environment, and a C compiler.
+It is possible to translate with a CPython 2.6 or later, but this is not
+the preferred way, because it will take a lot longer to run – depending
+on your architecture, between two and three times as long. So head to
+`our downloads`_ and get the latest stable version.
+
+Microsoft Visual Studio is preferred as a compiler, but there are reports
+of success with the mingw32 port of gcc.
+
+.. _our downloads: http://pypy.org/download.html
 
 
 Translating PyPy with Visual Studio
@@ -32,9 +40,21 @@ the Multi-threaded DLL (/MD) runtime environment.
 **Note:** The RPython translator does currently not support 64 bit Windows, and
 translation will fail in this case.
 
-The compiler is all you need to build pypy-c, but it will miss some
+Python and a C compiler are all you need to build pypy, but it will miss some
 modules that relies on third-party libraries.  See below how to get
 and build them.
+
+Please see the :ref:`non-windows instructions <translating-the-pypy-python-interpreter>` for more information, especially note
+that translation is RAM-hungry. A standard translation requires around 4GB, so
+special preparations are necessary, or you may want to use the method in the
+notes of the `build instructions`_ to reduce memory usage at the price of a
+slower translation::
+
+    set PYPY_GC_MAX_DELTA=200MB
+    pypy --jit loop_longevity=300 ../../rpython/bin/rpython -Ojit targetpypystandalone
+    set PYPY_GC_MAX_DELTA=
+
+.. _build instructions: http://pypy.org/download.html#building-from-source
 
 
 Preparing Windows for the large build
@@ -51,9 +71,10 @@ Windows 64bit.
 
 Then you need to execute::
 
-    editbin /largeaddressaware pypy.exe
+    editbin /largeaddressaware translator.exe
 
-on the pypy.exe file you compiled.
+where ``translator.exe`` is the pypy.exe or cpython.exe you will use to
+translate with.
 
 
 Installing external packages
@@ -79,7 +100,7 @@ Then expand it into the base directory (base_dir) and modify your environment to
     set INCLUDE=<base_dir>\include;<base_dir>\tcltk\include;%INCLUDE%
     set LIB=<base_dir>\lib;<base_dir>\tcltk\lib;%LIB%
 
-Now you should be good to go. Read on for more information. 
+Now you should be good to go. Read on for more information.
 
 
 The Boehm garbage collector
@@ -92,7 +113,7 @@ You may get it at
 http://hboehm.info/gc/gc_source/gc-7.1.tar.gz
 
 Versions 7.0 and 7.1 are known to work; the 6.x series won't work with
-RPython. Unpack this folder in the base directory. 
+RPython. Unpack this folder in the base directory.
 The default GC_abort(...) function in misc.c will try to open a MessageBox.
 You may want to disable this with the following patch::
 
@@ -107,7 +128,7 @@ You may want to disable this with the following patch::
               (void) MessageBoxA(NULL, msg, "Fatal error in gc", MB_ICONERROR|MB_OK);
                #   else
                       GC_err_printf("%s\n", msg);
-    
+
 Then open a command prompt::
 
     cd gc-7.1
@@ -119,20 +140,23 @@ The zlib compression library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Download http://www.gzip.org/zlib/zlib-1.2.3.tar.gz and extract it in
-the base directory.  Then compile::
+the base directory.  Then compile as a static library::
 
     cd zlib-1.2.3
     nmake -f win32\Makefile.msc
-    copy zlib1.dll <somewhere in the PATH>\zlib.dll
+    copy zlib1.lib <somewhere in LIB>
+    copy zlib.h zconf.h <somewhere in INCLUDE>
 
 
 The bz2 compression library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Get the same version of bz2 used by python and compile as a static library::
 
     svn export http://svn.python.org/projects/external/bzip2-1.0.6
     cd bzip2-1.0.6
     nmake -f makefile.msc
-    copy bzip.dll <somewhere in the PATH>\bzip.dll
+    copy libbz2.lib <somewhere in LIB>
+    copy bzlib.h <somewhere in INCLUDE>
 
 
 The sqlite3 database library
@@ -155,7 +179,8 @@ Multi-threaded DLL (/MD) and build the solution (the ``expat`` project
 is actually enough for PyPy).
 
 Then, copy the file ``win32\bin\release\libexpat.dll`` somewhere in
-your PATH.
+your PATH, ``win32\bin\release\libexpat.lib`` somewhere in LIB, and
+both ``lib\expat.h`` and ``lib\expat_external.h`` somewhere in INCLUDE.
 
 
 The OpenSSL library
@@ -179,13 +204,13 @@ Tkinter is imported via cffi, so the module is optional. To recreate the tcltk
 directory found for the release script, create the dlls, libs, headers and
 runtime by running::
 
-	svn export http://svn.python.org/projects/external/tcl-8.5.2.1 tcl85 
+	svn export http://svn.python.org/projects/external/tcl-8.5.2.1 tcl85
 	svn export http://svn.python.org/projects/external/tk-8.5.2.0 tk85
-	cd tcl85\win 
-	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 DEBUG=0 INSTALLDIR=..\..\tcltk clean all 
+	cd tcl85\win
+	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 DEBUG=0 INSTALLDIR=..\..\tcltk clean all
 	nmake -f makefile.vc DEBUG=0 INSTALLDIR=..\..\tcltk install
-	cd ..\..\tk85\win 
-	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 clean all 
+	cd ..\..\tk85\win
+	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 clean all
 	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 install
 
 Now you should have a tcktk\bin, tcltk\lib, and tcltk\include directory ready
@@ -262,7 +287,7 @@ The main blocker is that we assume that the integer type of RPython is
 large enough to (occasionally) contain a pointer value cast to an
 integer.  The simplest fix is to make sure that it is so, but it will
 give the following incompatibility between CPython and PyPy on Win64:
-  
+
 CPython: ``sys.maxint == 2**32-1, sys.maxsize == 2**64-1``
 
 PyPy: ``sys.maxint == sys.maxsize == 2**64-1``

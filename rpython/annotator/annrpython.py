@@ -10,6 +10,7 @@ from rpython.flowspace.model import (Variable, Constant, FunctionGraph,
                                       c_last_exception, checkgraph)
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature
+from rpython.annotator.argument import simple_args
 from rpython.annotator.bookkeeper import Bookkeeper
 
 import py
@@ -91,7 +92,7 @@ class RPythonAnnotator(object):
 
     def get_call_parameters(self, function, args_s, policy):
         desc = self.bookkeeper.getdesc(function)
-        args = self.bookkeeper.build_args("simple_call", args_s[:])
+        args = simple_args(args_s)
         result = []
         def schedule(graph, inputcells):
             result.append((graph, inputcells))
