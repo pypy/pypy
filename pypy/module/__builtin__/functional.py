@@ -753,6 +753,12 @@ class W_Zip(W_Map):
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         return W_Map.next_w(self)
 
+    def descr_reduce(self, space):
+        w_zip = space.getattr(space.getbuiltinmodule('builtins'),
+                space.wrap('zip'))
+        return space.newtuple([w_zip, space.newtuple(self.iterators_w)])
+
+
 def W_Zip___new__(space, w_subtype, args_w):
     r = space.allocate_instance(W_Zip, w_subtype)
     r.__init__(space, None, args_w)
@@ -763,6 +769,7 @@ W_Zip.typedef = TypeDef(
         __new__  = interp2app(W_Zip___new__),
         __iter__ = interp2app(W_Zip.iter_w),
         __next__ = interp2app(W_Zip.next_w),
+        __reduce__ = interp2app(W_Zip.descr_reduce),
         __doc__  = """\
 Return a zip object whose .__next__() method returns a tuple where
 the i-th element comes from the i-th iterable argument.  The .__next__()
