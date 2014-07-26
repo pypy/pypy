@@ -52,11 +52,8 @@ def dir(*args):
     dir_meth = lookup_special(obj, "__dir__")
     if dir_meth is not None:
         result = dir_meth()
-        if isinstance(result, tuple):
-            result = list(result)
         if not isinstance(result, list):
-            raise TypeError("__dir__() must return a list, not %r" % (
-                type(result),))
+            result = list(result)  # Will throw TypeError if not iterable
         result.sort()
         return result
     elif isinstance(obj, types.ModuleType):
