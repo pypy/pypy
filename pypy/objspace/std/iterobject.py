@@ -30,10 +30,6 @@ class W_AbstractSeqIterObject(W_Root):
         raise NotImplementedError
 
     def descr_reduce(self, space):
-        """
-        XXX to do: remove this __reduce__ method and do
-        a registration with copy_reg, instead.
-        """
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod = space.getbuiltinmodule('_pickle_support')
         mod = space.interp_w(MixedModule, w_mod)
@@ -125,10 +121,6 @@ class W_ReverseSeqIterObject(W_Root):
         self.index = space.int_w(self.w_len) + index
 
     def descr_reduce(self, space):
-        """
-        XXX to do: remove this __reduce__ method and do
-        a registration with copy_reg, instead.
-        """
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod = space.getbuiltinmodule('_pickle_support')
         mod = space.interp_w(MixedModule, w_mod)
