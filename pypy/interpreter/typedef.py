@@ -950,11 +950,13 @@ Cell.typedef = TypeDef("cell",
 Cell.typedef.acceptable_as_base_class = False
 
 Ellipsis.typedef = TypeDef("Ellipsis",
+    __new__ = interp2app(lambda space, w_type: space.w_Ellipsis),
     __repr__ = interp2app(Ellipsis.descr__repr__),
 )
 Ellipsis.typedef.acceptable_as_base_class = False
 
 NotImplemented.typedef = TypeDef("NotImplemented",
+    __new__ = interp2app(lambda space, w_type: space.w_NotImplemented),
     __repr__ = interp2app(NotImplemented.descr__repr__),
 )
 NotImplemented.typedef.acceptable_as_base_class = False
