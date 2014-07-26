@@ -166,6 +166,18 @@ class AppTestZlib(object):
         dco = zlib.decompressobj()
         assert dco.flush() == b""
 
+    def test_decompress_eof(self):
+        import zlib
+        x = b'x\x9cK\xcb\xcf\x07\x00\x02\x82\x01E'  # 'foo'
+        dco = zlib.decompressobj()
+        assert dco.eof == False
+        dco.decompress(x[:-5])
+        assert dco.eof == False
+        dco.decompress(x[-5:])
+        assert dco.eof == True
+        dco.flush()
+        assert dco.eof == True
+
     def test_decompress_incomplete_stream(self):
         import zlib
         # This is 'foo', deflated

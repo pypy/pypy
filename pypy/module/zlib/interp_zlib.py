@@ -1,7 +1,7 @@
 import sys
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty_bytes
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty_bytes, interp_attrproperty
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import keepalive_until_here
@@ -231,6 +231,7 @@ class Decompress(ZLibObject):
         ZLibObject.__init__(self, space)
         self.unused_data = ''
         self.unconsumed_tail = ''
+        self.eof = False
         try:
             self.stream = rzlib.inflateInit(wbits)
         except rzlib.RZlibError, e:
@@ -238,7 +239,7 @@ class Decompress(ZLibObject):
         except ValueError:
             raise OperationError(space.w_ValueError,
                                  space.wrap("Invalid initialization option"))
-
+        
     def __del__(self):
         """Automatically free the resources used by the stream."""
         if self.stream:
@@ -280,6 +281,7 @@ class Decompress(ZLibObject):
             raise zlib_error(space, e.msg)
 
         string, finished, unused_len = result
+        self.eof = finished
         self._save_unconsumed_input(data, finished, unused_len)
         return space.wrapbytes(string)
 
@@ -327,6 +329,7 @@ Decompress.typedef = TypeDef(
     flush = interp2app(Decompress.flush),
     unused_data = interp_attrproperty_bytes('unused_data', Decompress),
     unconsumed_tail = interp_attrproperty_bytes('unconsumed_tail', Decompress),
+    eof = interp_attrproperty('eof', Decompress),
     __doc__ = """decompressobj([wbits]) -- Return a decompressor object.
 
 Optional arg wbits is the window buffer size.
