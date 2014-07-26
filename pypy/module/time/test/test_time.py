@@ -42,7 +42,7 @@ class AppTestTime:
         res = time.ctime(0)
         assert isinstance(res, str)
         time.ctime(time.time())
-        raises(ValueError, time.ctime, 1E200)
+        raises(OverflowError, time.ctime, 1E200)
         raises(OverflowError, time.ctime, 10**900)
         for year in [-100, 100, 1000, 2000, 10000]:
             try:
@@ -68,8 +68,8 @@ class AppTestTime:
         assert 0 <= (t1 - t0) < 1.2
         t = time.time()
         assert time.gmtime(t) == time.gmtime(t)
-        raises(ValueError, time.gmtime, 2**64)
-        raises(ValueError, time.gmtime, -2**64)
+        raises(OverflowError, time.gmtime, 2**64)
+        raises(OverflowError, time.gmtime, -2**64)
 
     def test_localtime(self):
         import time

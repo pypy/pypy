@@ -368,7 +368,7 @@ def _get_inttime(space, w_seconds):
     # input doesn't fit in a time_t; call it an error.
     diff = seconds - rffi.cast(lltype.Float, t)
     if diff <= -1.0 or diff >= 1.0:
-        raise OperationError(space.w_ValueError,
+        raise OperationError(space.w_OverflowError,
                       space.wrap("timestamp out of range for platform time_t"))
     return t
 
