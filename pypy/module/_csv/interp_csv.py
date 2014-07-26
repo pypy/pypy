@@ -34,10 +34,15 @@ def _get_int(space, w_src, default):
         return default
     return space.int_w(w_src)
 
-def _get_str(space, w_src, default):
+def _get_str(space, w_src, default, attrname):
     if w_src is None:
         return default
-    return space.unicode_w(w_src)
+    try:
+        return space.unicode_w(w_src)
+    except OperationError as e:
+        if e.match(space, space.w_TypeError):
+            raise oefmt(space.w_TypeError, '"%s" must be a string', attrname)
+        raise
 
 def _get_char(space, w_src, default, name):
     if w_src is None:
@@ -91,7 +96,7 @@ def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
     dialect.delimiter = _get_char(space, w_delimiter, u',', 'delimiter')
     dialect.doublequote = _get_bool(space, w_doublequote, True)
     dialect.escapechar = _get_char(space, w_escapechar, u'\0', 'escapechar')
-    dialect.lineterminator = _get_str(space, w_lineterminator, u'\r\n')
+    dialect.lineterminator = _get_str(space, w_lineterminator, u'\r\n', 'lineterminator')
     dialect.quotechar = _get_char(space, w_quotechar, u'"', 'quotechar')
     tmp_quoting = _get_int(space, w_quoting, QUOTE_MINIMAL)
     dialect.skipinitialspace = _get_bool(space, w_skipinitialspace, False)

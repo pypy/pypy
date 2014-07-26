@@ -244,7 +244,7 @@ class W_ArrayBase(W_Root):
         """
         size = self.len
         if size == 0:
-            return space.wrap('')
+            return space.wrapbytes('')
         cbuf = self._charbuf_start()
         s = rffi.charpsize2str(cbuf, size * self.itemsize)
         self._charbuf_stop()

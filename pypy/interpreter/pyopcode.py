@@ -204,7 +204,7 @@ class __extend__(pyframe.PyFrame):
             elif opcode == opcodedesc.BREAK_LOOP.index:
                 next_instr = self.BREAK_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.CONTINUE_LOOP.index:
-                next_instr = self.CONTINUE_LOOP(oparg, next_instr)
+                return self.CONTINUE_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.FOR_ITER.index:
                 next_instr = self.FOR_ITER(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_FORWARD.index:
@@ -1022,7 +1022,6 @@ class __extend__(pyframe.PyFrame):
                     raise
                 w_value = space.w_None
             self.pushvalue(w_value)
-            return next_instr
         else:
             # iter remains on stack, w_retval is value to be yielded.
             self.pushvalue(w_retval)

@@ -1,4 +1,5 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.pyobject import make_ref
 
 class TestExceptions(BaseApiTest):
@@ -27,3 +28,16 @@ class TestExceptions(BaseApiTest):
         api.PyException_SetCause(w_exc, make_ref(space, w_cause))
         assert space.is_w(api.PyException_GetCause(w_exc), w_cause)
 
+
+class AppTestExceptions(AppTestCpythonExtensionBase):
+
+    def test_OSError_aliases(self):
+        module = self.import_extension('foo', [
+            ("get_aliases", "METH_NOARGS",
+             """
+                 return PyTuple_Pack(2,
+                                     PyExc_EnvironmentError,
+                                     PyExc_IOError);
+             """),
+            ])
+        assert module.get_aliases() == (OSError, OSError)

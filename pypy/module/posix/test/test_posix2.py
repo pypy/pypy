@@ -17,7 +17,7 @@ def setup_module(mod):
     usemodules = ['binascii', 'posix', 'signal', 'struct', 'rctime']
     # py3k os.open uses subprocess, requiring the following per platform
     if os.name != 'nt':
-        usemodules += ['fcntl', 'select']
+        usemodules += ['fcntl', 'select', '_posixsubprocess']
     else:
         usemodules += ['_rawffi', 'thread']
     mod.space = gettestobjspace(usemodules=usemodules)
@@ -1042,6 +1042,12 @@ class AppTestPosix:
         # just ensure it returns something reasonable
         assert encoding is None or type(encoding) is str
 
+    def test_rtld_constants(self):
+        # check presence of major RTLD_* constants
+        self.posix.RTLD_LAZY
+        self.posix.RTLD_NOW
+        self.posix.RTLD_GLOBAL
+        self.posix.RTLD_LOCAL
 
 class AppTestEnvironment(object):
     def setup_class(cls):
