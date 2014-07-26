@@ -96,6 +96,29 @@ class TestIncminimark(PinningGCTest):
     def test_simple_pin_unpin_stack_minor_collect(self):
         self.simple_pin_unpin_stack(self.gc.minor_collection)
 
+    def test_pinned_obj_collected_after_old_object_collected(self):
+        root_ptr = self.malloc(S)
+        root_ptr.someInt = 999
+        self.stackroots.append(root_ptr)
+        self.gc.collect()
+
+        root_ptr = self.stackroots[0]
+        next_ptr = self.malloc(S)
+        next_ptr.someInt = 111
+        assert self.gc.pin(llmemory.cast_ptr_to_adr(next_ptr))
+        self.write(root_ptr, 'next', next_ptr)
+        self.gc.collect()
+        # check still alive
+        assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(root_ptr.next))
+        self.stackroots.remove(root_ptr)
+        self.gc.collect()
+        # root_ptr was collected and therefore also the pinned object should
+        # be gone
+        try:
+            next_ptr.someInt = 101
+        except RuntimeError as ex:
+            assert "freed" in str(ex)
+
     def test_pin_referenced_from_stackroot_young(self):
         #
         # create two objects and reference the pinned one
