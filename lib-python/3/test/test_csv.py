@@ -766,8 +766,9 @@ class TestDialectValidity(unittest.TestCase):
         mydialect.quotechar = "''"
         with self.assertRaises(csv.Error) as cm:
             mydialect()
+        # NOTE: Patched exception message since cpython uses bad grammar (cpython issue22076)
         self.assertEqual(str(cm.exception),
-                         '"quotechar" must be an 1-character string')
+                         '"quotechar" must be a 1-character string')
 
         mydialect.quotechar = 4
         with self.assertRaises(csv.Error) as cm:
@@ -789,14 +790,16 @@ class TestDialectValidity(unittest.TestCase):
         mydialect.delimiter = ":::"
         with self.assertRaises(csv.Error) as cm:
             mydialect()
+        # NOTE: Patched exception message since cpython uses bad grammar (cpython issue22076)
         self.assertEqual(str(cm.exception),
-                         '"delimiter" must be an 1-character string')
+                         '"delimiter" must be a 1-character string')
 
         mydialect.delimiter = ""
         with self.assertRaises(csv.Error) as cm:
             mydialect()
+        # NOTE: Patched exception message since cpython uses bad grammar (cpython issue22076)
         self.assertEqual(str(cm.exception),
-                         '"delimiter" must be an 1-character string')
+                         '"delimiter" must be a 1-character string')
 
         mydialect.delimiter = b","
         with self.assertRaises(csv.Error) as cm:
