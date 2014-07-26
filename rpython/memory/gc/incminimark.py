@@ -1685,7 +1685,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         debug_stop("gc-minor")
 
     def _visit_old_objects_pointing_to_pinned(self, obj, ignore):
-        self.trace(obj, self._trace_drag_out, None)
+        self.trace(obj, self._trace_drag_out, NULL)
 
     def collect_roots_in_nursery(self):
         # we don't need to trace prebuilt GcStructs during a minor collect:
@@ -1802,14 +1802,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
         ll_assert(start < stop, "empty or negative range "
                                 "in trace_and_drag_out_of_nursery_partial()")
         #print 'trace_partial:', start, stop, '\t', obj
-        self.trace_partial(obj, start, stop, self._trace_drag_out, None)
+        self.trace_partial(obj, start, stop, self._trace_drag_out, NULL)
 
 
     def _trace_drag_out1(self, root):
-        self._trace_drag_out(root, None)
+        self._trace_drag_out(root, NULL)
 
     def _trace_drag_out1_marking_phase(self, root):
-        self._trace_drag_out(root, None)
+        self._trace_drag_out(root, NULL)
         #
         # We are in the MARKING state: we must also record this object
         # if it was young.  Don't bother with old objects in general,
@@ -1864,7 +1864,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 return
             hdr.tid |= GCFLAG_VISITED
             #
-            if parent:
+            if parent != NULL:
                 self.old_objects_pointing_to_pinned.append(parent)
             #
             # XXX add additional checks for unsupported pinned objects (groggi)
