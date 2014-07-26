@@ -282,9 +282,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.add_none_to_final_return = False
         mod.body.walkabout(self)
 
-    def _make_function(self, code, num_defaults=0):
+    def _make_function(self, code, num_defaults=0, w_qualname=None):
         """Emit the opcodes to turn a code object into a function."""
+        if w_qualname is None:
+            w_qualname = self.space.wrap(code.co_name.decode('utf-8'))
         code_index = self.add_const(code)
+        qualname_index = self.add_const(w_qualname)
         if code.co_freevars:
             # Load cell and free vars to pass on.
             for free in code.co_freevars:
@@ -296,9 +299,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_op_arg(ops.LOAD_CLOSURE, index)
             self.emit_op_arg(ops.BUILD_TUPLE, len(code.co_freevars))
             self.emit_op_arg(ops.LOAD_CONST, code_index)
+            self.emit_op_arg(ops.LOAD_CONST, qualname_index)
             self.emit_op_arg(ops.MAKE_CLOSURE, num_defaults)
         else:
             self.emit_op_arg(ops.LOAD_CONST, code_index)
+            self.emit_op_arg(ops.LOAD_CONST, qualname_index)
             self.emit_op_arg(ops.MAKE_FUNCTION, num_defaults)
 
     def _visit_kwonlydefaults(self, args):
@@ -597,7 +602,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.POP_TOP)
             if handler.name:
                 ## generate the equivalent of:
-                ## 
+                ##
                 ## try:
                 ##     # body
                 ## except type as name:
@@ -1084,7 +1089,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._make_call(0,
                         call.args, call.keywords,
                         call.starargs, call.kwargs)
-    
+
     def _call_has_no_star_args(self, call):
         return not call.starargs and not call.kwargs
 

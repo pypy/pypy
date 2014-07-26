@@ -147,8 +147,11 @@ class AppTestFunctionIntrospection:
         """
 
     def test_qualname(self):
-        def f(): pass
+        def f():
+            pass
         assert hasattr(f, '__qualname__')
+        expected = 'AppTestFunctionIntrospection.test_qualname.<locals>.f'
+        assert f.__qualname__ == expected
 
 
 class AppTestFunction:
