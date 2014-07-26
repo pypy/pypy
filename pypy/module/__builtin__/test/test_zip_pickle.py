@@ -3,12 +3,16 @@ class AppTestZipPickle:
     def test_zip_pickle(self):
         import pickle
 
-        def pickle_unpickle(obj):
-            d = pickle.dumps(obj)
-            return pickle.loads(d)
+        def check_pickle_unpickle(itr):
+            d = pickle.dumps(itr)
+            itr_ = pickle.loads(d)
+            lst, lst_ = list(itr), list(itr_)
+            assert lst == lst_
 
-        z1 = zip([1, 2, 3], [4, 5, 6])
-        z1_ = pickle_unpickle(z1)
-        l1, l1_ = list(z1), list(z1_)
+        check_pickle_unpickle(zip([1, 2, 3], [4, 5, 6]))
+        check_pickle_unpickle(zip())
 
-        assert l1 == l1_
+        a = iter("abc")
+        b = iter("cdef")
+        next(b)
+        check_pickle_unpickle(zip(a, b))
