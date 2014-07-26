@@ -224,35 +224,47 @@ class TestIncminimark(PinningGCTest):
         assert first_ptr.someInt == 101
         assert second_ptr.someInt == 102
 
-    def test_pin_shadow_1(self):
+    def pin_shadow_1(self, collect_func):
         ptr = self.malloc(S)
         adr = llmemory.cast_ptr_to_adr(ptr)
         self.stackroots.append(ptr)
         ptr.someInt = 100
         assert self.gc.pin(adr)
         self.gc.id(ptr) # allocate shadow
-        self.gc.collect()
+        collect_func()
         assert self.gc.is_in_nursery(adr)
         assert ptr.someInt == 100
         self.gc.unpin(adr)
-        self.gc.collect() # move to shadow
+        collect_func() # move to shadow
         adr = llmemory.cast_ptr_to_adr(self.stackroots[0])
         assert not self.gc.is_in_nursery(adr)
 
-    def test_pin_shadow_2(self):
+    def test_pin_shadow_1_minor(self):
+        self.pin_shadow_1(self.gc.minor_collection)
+
+    def test_pin_shadow_1_full(self):
+        self.pin_shadow_1(self.gc.collect)
+
+    def pin_shadow_2(self, collect_func):
         ptr = self.malloc(S)
         adr = llmemory.cast_ptr_to_adr(ptr)
         self.stackroots.append(ptr)
         ptr.someInt = 100
         assert self.gc.pin(adr)
         self.gc.identityhash(ptr) # allocate shadow
-        self.gc.collect()
+        collect_func()
         assert self.gc.is_in_nursery(adr)
         assert ptr.someInt == 100
         self.gc.unpin(adr)
-        self.gc.collect() # move to shadow
+        collect_func() # move to shadow
         adr = llmemory.cast_ptr_to_adr(self.stackroots[0])
         assert not self.gc.is_in_nursery(adr)
+
+    def test_pin_shadow_2_minor(self):
+        self.pin_shadow_2(self.gc.minor_collection)
+
+    def test_pin_shadow_2_full(self):
+        self.pin_shadow_2(self.gc.collect)
 
     def test_pin_nursery_top_scenario1(self):
         ptr1 = self.malloc(S)
