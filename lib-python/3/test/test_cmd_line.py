@@ -341,6 +341,9 @@ class CmdLineTest(unittest.TestCase):
     def test_hash_randomization(self):
         # Verify that -R enables hash randomization:
         self.verify_valid_flag('-R')
+        if test.support.check_impl_detail(cpython=False):
+            # PyPy doesn't support hash randomization
+            return
         hashes = []
         for i in range(2):
             code = 'print(hash("spam"))'
