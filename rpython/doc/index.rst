@@ -1,7 +1,23 @@
 Welcome to RPython's documentation!
 ===================================
 
-* :doc:`contents`
+Table of Contents
+-----------------
+
+.. toctree::
+   :maxdepth: 1
+
+   getting-started
+   faq
+   rpython
+   rlib
+   rffi
+   translation
+   rtyper
+   garbage_collection
+   cli-backend
+   windows
+
 
 Indices and tables
 ==================
@@ -9,4 +25,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
