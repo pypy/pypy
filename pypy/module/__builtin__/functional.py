@@ -667,6 +667,12 @@ class W_Map(W_Root):
         # the loop is out of the way of the JIT
         return [self.space.next(w_elem) for w_elem in self.iterators_w]
 
+    def descr_reduce(self, space):
+        w_map = space.getattr(space.getbuiltinmodule('builtins'),
+                space.wrap('map'))
+        args = [self.w_fun] + self.iterators_w
+        return space.newtuple([w_map, space.newtuple(args)])
+
 
 def W_Map___new__(space, w_subtype, w_fun, args_w):
     if len(args_w) == 0:
@@ -681,6 +687,7 @@ W_Map.typedef = TypeDef(
         __new__  = interp2app(W_Map___new__),
         __iter__ = interp2app(W_Map.iter_w),
         __next__ = interp2app(W_Map.next_w),
+        __reduce__ = interp2app(W_Map.descr_reduce),
         __doc__ = """\ 
 Make an iterator that computes the function using arguments from
 each of the iterables.  Stops when the shortest iterable is exhausted.""")
