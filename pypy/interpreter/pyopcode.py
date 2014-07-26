@@ -1022,7 +1022,6 @@ class __extend__(pyframe.PyFrame):
                     raise
                 w_value = space.w_None
             self.pushvalue(w_value)
-            return next_instr
         else:
             # iter remains on stack, w_retval is value to be yielded.
             self.pushvalue(w_retval)
