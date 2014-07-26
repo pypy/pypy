@@ -711,6 +711,13 @@ class W_Filter(W_Root):
             if pred ^ self.reverse:
                 return w_obj
 
+    def descr_reduce(self, space):
+        w_filter = space.getattr(space.getbuiltinmodule('builtins'),
+                space.wrap('filter'))
+        args = [space.w_None if self.no_predicate else self.w_predicate,
+                self.iterable]
+        return space.newtuple([w_filter, space.newtuple(args)])
+
 
 def W_Filter___new__(space, w_subtype, w_predicate, w_iterable):
     r = space.allocate_instance(W_Filter, w_subtype)
@@ -722,6 +729,7 @@ W_Filter.typedef = TypeDef(
         __new__  = interp2app(W_Filter___new__),
         __iter__ = interp2app(W_Filter.iter_w),
         __next__ = interp2app(W_Filter.next_w),
+        __reduce__ = interp2app(W_Filter.descr_reduce),
         __doc__  = """\
 Return an iterator yielding those items of iterable for which function(item)
 is true. If function is None, return the items that are true.""")
