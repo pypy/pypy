@@ -17,7 +17,7 @@ def setup_module(mod):
     usemodules = ['binascii', 'posix', 'signal', 'struct', 'rctime']
     # py3k os.open uses subprocess, requiring the following per platform
     if os.name != 'nt':
-        usemodules += ['fcntl', 'select']
+        usemodules += ['fcntl', 'select', '_posixsubprocess']
     else:
         usemodules += ['_rawffi', 'thread']
     mod.space = gettestobjspace(usemodules=usemodules)
