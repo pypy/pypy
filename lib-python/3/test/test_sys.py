@@ -169,7 +169,8 @@ class SysModuleTest(unittest.TestCase):
                 sys.setcheckinterval(n)
                 self.assertEqual(sys.getcheckinterval(), n)
 
-    @unittest.skipUnless(threading, 'Threading required for this test.')
+    @unittest.skipUnless(hasattr(sys, 'getswitchinterval') and threading,
+                         'New GIL & threading required for this test.')
     def test_switchinterval(self):
         self.assertRaises(TypeError, sys.setswitchinterval)
         self.assertRaises(TypeError, sys.setswitchinterval, "a")
