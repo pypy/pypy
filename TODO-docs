@@ -4,18 +4,19 @@ Documentation TODO
 General
 -------
 
-* structure documentation and add appropriate toctrees
-* integrate numerous getting started documents into something more useful
-  (eg. "Installing PyPy", "Building PyPy from source", "Playing with the
-  RPython Toolchain", "Write your own interpreter in RPython")
+* structure documentation and add appropriate toctrees (mostly done)
 * architecture documents don't really show the separation between PyPy and RPython
+  * architecture.rst is duplicate (both pypy and rpython)
 * where should the documentation about coding style etc. be put?
+  * we don't really document coding style
+  * w_* convention?
 
 
 Cleanup
 ~~~~~~~
 
-* remove documentation for removed features
+* remove documentation on removed features
+  * various object spaces
 * update / remove dead links
 
 
@@ -29,11 +30,6 @@ Meta
 RPython
 -------
 
-* remove duplication between translation.rst and rtyper.rst.
-* rename / move rpython.rst?
-
-
-PyPy
-----
-
-* divide user documentation, developer documentation, and academical stuff
+* make translation.rst a high-level overview and move details in their own
+  documents
+* redo various outdated pictures in translation.rst
