@@ -482,7 +482,7 @@ class W_Range(W_Root):
     def descr_hash(self, space):
         if space.eq_w(self.w_length, space.wrap(0)):
             w_tup = space.newtuple([self.w_length, space.w_None, space.w_None])
-        elif space.eq_w(self.w_length, space.wrap(0)):
+        elif space.eq_w(self.w_length, space.wrap(1)):
             w_tup = space.newtuple([self.w_length, self.w_start, space.w_None])
         else:
             w_tup = space.newtuple([self.w_length, self.w_start, self.w_step])
