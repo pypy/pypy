@@ -4,11 +4,10 @@ Implements the Distutils 'build_ext' command, for building extension
 modules (currently limited to C extensions, should accommodate C++
 extensions ASAP)."""
 
-import sys, os, re
+import sys, os, re, imp
 from distutils.core import Command
 from distutils.errors import *
 from distutils.sysconfig import customize_compiler, get_python_version
-from distutils.sysconfig import get_config_h_filename
 from distutils.dep_util import newer_group
 from distutils.extension import Extension
 from distutils.util import get_platform
@@ -35,6 +34,11 @@ extension_name_re = re.compile \
 def show_compilers ():
     from distutils.ccompiler import show_compilers
     show_compilers()
+
+def _get_c_extension_suffix():
+    for ext, mod, typ in imp.get_suffixes():
+        if typ == imp.C_EXTENSION:
+            return ext
 
 
 class build_ext(Command):
@@ -204,11 +208,16 @@ class build_ext(Command):
 
             # Append the source distribution include and library directories,
             # this allows distutils on windows to work in the source tree
-            self.include_dirs.append(os.path.dirname(get_config_h_filename()))
+            if 0:
+                # pypy has no config_h_filename directory
+                self.include_dirs.append(os.path.dirname(get_config_h_filename()))
             _sys_home = getattr(sys, '_home', None)
             if _sys_home:
                 self.library_dirs.append(_sys_home)
-            if MSVC_VERSION >= 9:
+            if 1:
+                # pypy has no PCBuild directory
+                pass
+            elif MSVC_VERSION >= 9:
                 # Use the .lib files for the correct architecture
                 if self.plat_name == 'win32':
                     suffix = ''
@@ -675,10 +684,18 @@ class build_ext(Command):
         # OS/2 has an 8 character module (extension) limit :-(
         if os.name == "os2":
             ext_path[len(ext_path) - 1] = ext_path[len(ext_path) - 1][:8]
+        # PyPy tweak: first try to get the C extension suffix from
+        # 'imp'.  If it fails we fall back to the 'SO' config var, like
+        # the previous version of this code did.  This should work for
+        # CPython too.  The point is that on PyPy with cpyext, the
+        # config var 'SO' is just ".so" but we want to return
+        # ".pypy-VERSION.so" instead.
+        ext_suffix = _get_c_extension_suffix()
+        if ext_suffix is None:
+            ext_suffix = get_config_var('EXT_SUFFIX')     # fall-back
         # extensions in debug_mode are named 'module_d.pyd' under windows
-        ext_suffix = get_config_var('EXT_SUFFIX')
         if os.name == 'nt' and self.debug:
-            return os.path.join(*ext_path) + '_d' + ext_suffix
+            ext_suffix = '_d.pyd'
         return os.path.join(*ext_path) + ext_suffix
 
     def get_export_symbols(self, ext):
