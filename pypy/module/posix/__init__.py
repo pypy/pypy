@@ -1,5 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.module.ll_os import RegisterOs
+from rpython.rlib import rdynload
 
 import os
 exec 'import %s as posix' % os.name
@@ -172,6 +173,12 @@ corresponding Unix manual entries for more information on calls."""
     for name in RegisterOs.w_star:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.' + name
+
+    for _name in ["RTLD_LAZY", "RTLD_NOW", "RTLD_GLOBAL", "RTLD_LOCAL",
+                  "RTLD_NODELETE", "RTLD_NOLOAD", "RTLD_DEEPBIND"]:
+        if getattr(rdynload.cConfig, _name) is not None:
+            interpleveldefs[_name] = 'space.wrap(%d)' % (
+                getattr(rdynload.cConfig, _name),)
 
     # os.py uses this list to build os.supports_dir_fd() and os.supports_fd().
     # Fill with e.g. HAVE_FCHDIR, when os.chdir() supports file descriptors.

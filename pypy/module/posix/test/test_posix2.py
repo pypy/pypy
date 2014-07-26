@@ -1042,6 +1042,12 @@ class AppTestPosix:
         # just ensure it returns something reasonable
         assert encoding is None or type(encoding) is str
 
+    def test_rtld_constants(self):
+        # check presence of major RTLD_* constants
+        self.posix.RTLD_LAZY
+        self.posix.RTLD_NOW
+        self.posix.RTLD_GLOBAL
+        self.posix.RTLD_LOCAL
 
 class AppTestEnvironment(object):
     def setup_class(cls):
