@@ -484,7 +484,7 @@ class AppTestRange:
         for a in test_ranges:
             for b in test_ranges:
                 if a == b:
-                    assert (hash(a), hash(b))
+                    assert hash(a) == hash(b)
 
         # Ranges are unequal to other types (even sequence types)
         assert (range(0) == ()) is False
