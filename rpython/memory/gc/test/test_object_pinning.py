@@ -119,6 +119,10 @@ class TestIncminimark(PinningGCTest):
         except RuntimeError as ex:
             assert "freed" in str(ex)
 
+    # XXX more tests like the one above. Make list of all possible cases and
+    # write tests for each one. Also: minor/full major collection tests maybe
+    # needed
+
     def test_pin_referenced_from_stackroot_young(self):
         #
         # create two objects and reference the pinned one
