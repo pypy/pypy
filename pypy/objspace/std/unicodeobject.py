@@ -1166,7 +1166,7 @@ def unicode_to_decimal_w(space, w_unistr):
             except KeyError:
                 pass
         result[i] = unichr(uchr)
-    return unicodehelper.encode_utf8(space, u''.join(result))
+    return unicodehelper.encode_utf8(space, u''.join(result), allow_surrogates=True)
 
 
 _repr_function, _ = make_unicode_escape_function(
