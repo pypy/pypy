@@ -12,6 +12,7 @@ from pypy.interpreter.error import OperationError, oefmt
 cwd = py.path.local(__file__).dirpath()
 eci = ExternalCompilationInfo(
     includes=[cwd.join('tscmp.h')],
+    include_dirs=[str(cwd)],
     separate_module_files=[cwd.join('tscmp.c')],
     export_symbols=['pypy_tscmp'])
 
