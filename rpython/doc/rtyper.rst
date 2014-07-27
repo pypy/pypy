@@ -1,3 +1,5 @@
+.. _rtyper:
+
 The RPython Typer
 =================
 
@@ -10,25 +12,26 @@ The RPython Typer lives in the directory :source:`rpython/rtyper/`.
 Overview
 --------
 
-The RPython Typer is the bridge between the :ref:`Annotator <annotator>` and the low-level code
-generators.  The annotations of the :ref:`Annotator <annotator>` are high-level, in the sense
-that they describe RPython types like lists or instances of user-defined
-classes.  In general, though, to emit code we need to represent these
-high-level annotations in the low-level model of the target language; for C,
-this means structures and pointers and arrays.  The Typer both determines the
-appropriate low-level type for each annotation, and tries to replace *all*
-operations in the control flow graphs with one or a few low-level operations.
-Just like low-level types, there is only a fairly restricted set of low-level
-operations, along the lines of reading or writing from or to a field of a
-structure.
+The RPython Typer is the bridge between the :ref:`Annotator <annotator>` and
+the code generators.  The annotations of the :ref:`Annotator <annotator>` are
+high-level, in the sense that they describe RPython types like lists or
+instances of user-defined classes.
 
-In theory, this step is optional; some code generators might be able to read
-the high-level types directly.  However, we expect that case to be the
-exception.  "Compiling" high-level types into low-level ones is rather more
-messy than one would expect.  This was the motivation for making this step
-explicit and isolated in a single place.  After Typing, the graphs can only
-contain very few operations, which makes the job of the code generators much
-simpler.
+To emit code we need to represent these high-level annotations in the low-level
+model of the target language; for C, this means structures and pointers and
+arrays.  The Typer both determines the appropriate low-level type for each
+annotation and replaces each high-level operation in the control flow graphs
+with one or a few low-level operations.  Just like low-level types, there is
+only a fairly restricted set of low-level operations, along the lines of
+reading or writing from or to a field of a structure.
+
+In theory, this step is optional; a code generator might be able to read the
+high-level types directly.  Our experience, however, suggests that this is very
+unlikely to be practical.  "Compiling" high-level types into low-level ones is
+rather more messy than one would expect.  This was the motivation for making
+this step explicit and isolated in a single place.  After RTyping, the graphs
+only contain operations that already live on the level of the target language,
+making the job of the code generators much simpler.
 
 
 Example: Integer operations

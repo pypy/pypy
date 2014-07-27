@@ -435,67 +435,10 @@ unrelated annotations if they are not used in a general way through the
 parent class.
 
 
-.. _rpython-typer:
-
 The RPython Typer
 -----------------
 
-:source:`rpython/rtyper/`
-
-The RTyper is the first place where the choice of backend makes a
-difference; as outlined above we are assuming that ANSI C is the target.
-
-The RPython Typer is the bridge between the Annotator_ and the code
-generator.  The information computed by the annotator is high-level, in
-the sense that it describe RPython types like lists or instances of
-user-defined classes.
-
-To emit code we need to represent these high-level annotations in the
-low-level model of the target language; for C, this means structures and
-pointers and arrays.  The Typer both determines the appropriate low-level type
-for each annotation and replaces each high-level operation in the control flow
-graphs with one or a few low-level operations.  Just like low-level types,
-there is only a fairly restricted set of low-level operations, along the lines
-of reading or writing from or to a field of a structure.
-
-In theory, this step is optional; a code generator might be able to read
-directly the high-level types.  Our experience, however, suggests that this is
-very unlikely to be practical.  "Compiling" high-level types into low-level
-ones is rather more messy than one would expect and this was the motivation
-for making this step explicit and isolated in a single place.  After RTyping,
-the graphs only contain operations that already live on the level of the
-target language, which makes the job of the code generators much simpler.
-
-For more detailed information, see the :doc:`documentation for the RTyper <rtyper>`.
-
-.. _documentation for the RTyper: rtyper.html
-
-
-Example: Integer operations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Integer operations are make an easy example.  Assume a graph containing the
-following operation::
-
-    v3 = add(v1, v2)
-
-annotated::
-
-    v1 -> SomeInteger()
-    v2 -> SomeInteger()
-    v3 -> SomeInteger()
-
-then obviously we want to type it and replace it with::
-
-    v3 = int_add(v1, v2)
-
-where -- in C notation -- all three variables v1, v2 and v3 are typed ``int``.
-This is done by attaching an attribute ``concretetype`` to v1, v2 and v3
-(which might be instances of Variable or possibly Constant).  In our model,
-this ``concretetype`` is ``pypy.rpython.lltypesystem.lltype.Signed``.  Of
-course, the purpose of replacing the operation called ``add`` with
-``int_add`` is that code generators no longer have to worry about what kind
-of addition (or concatenation maybe?) it means.
+See :doc:`rtyper`.
 
 
 .. _optional-transformations:
