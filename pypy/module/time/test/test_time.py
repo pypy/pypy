@@ -11,6 +11,7 @@ class AppTestTime:
         assert isinstance(time.timezone, int)
         assert isinstance(time.tzname, tuple)
         assert isinstance(time.__doc__, str)
+        assert isinstance(time._STRUCT_TM_ITEMS, int)
 
     def test_sleep(self):
         import sys
