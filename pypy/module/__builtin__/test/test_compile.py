@@ -67,23 +67,50 @@ class C:
         for to_compile in [code, tree]:
             compiled = compile(to_compile, "<test>", "exec", optimize=2)
 
-            # check that the docstrings are really gone
-            marshalled = str(marshal.dumps(compiled))
-            assert 'module_doc' not in marshalled
-            assert 'func_doc' not in marshalled
-            assert 'class_doc' not in marshalled
-
-            # try to execute the bytecode and see what we get
             ns = {}
             exec(compiled, ns)
             assert '__doc__' not in ns
             assert ns['f'].__doc__ is None
             assert ns['C'].__doc__ is None
 
+            # Check that the docstrings are gone from the bytecode and not just
+            # inaccessible.
+            marshalled = str(marshal.dumps(compiled))
+            assert 'module_doc' not in marshalled
+            assert 'func_doc' not in marshalled
+            assert 'class_doc' not in marshalled
+
+
+class TestOptimizeO:
+    """Test interaction of -O flag and optimize parameter of compile."""
+
+    def test_O_optmize_0(self):
+        """Test that assert is not ignored if -O flag is set but optimize=0."""
+        space = self.space
+        space.sys.debug = False  # imitate -O
+
+        w_res = space.appexec([], """():
+            assert False  # check that our -O imitation hack works
+            try:
+                exec(compile('assert False', '', 'exec', optimize=0))
+            except AssertionError:
+                return True
+            else:
+                return False
+        """)
+        assert space.unwrap(w_res)
+
+    def test_O_optimize__1(self):
+        """Test that assert is ignored with -O and optimize=-1."""
+        space = self.space
+        space.sys.debug = False  # imitate -O
+
+        space.appexec([], """():
+            exec(compile('assert False', '', 'exec', optimize=-1))
+        """)
+
 
 # TODO: Check the value of __debug__ inside of the compiled block!
 #       According to the documentation, it should follow the optimize flag.
-#       However, cpython3.3 behaves the same way as PyPy (__debug__ follows
+#       However, cpython3.5.0a0 behaves the same way as PyPy (__debug__ follows
 #       -O, -OO flags of the interpreter).
-# TODO: It would also be good to test that with the assert is not removed and
-#       is executed when -O flag is set but optimize=0.
