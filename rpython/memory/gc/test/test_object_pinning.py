@@ -83,7 +83,11 @@ class TestIncminimark(PinningGCTest):
         # unpin and check if object is gone from nursery
         self.gc.unpin(adr)
         collect_func()
-        py.test.raises(RuntimeError, 'ptr.someInt')
+        try:
+            assert ptr.someInt == 100
+            assert False
+        except RuntimeError as ex:
+            assert "freed" in str(ex)
         
         # check if we object is still accessible
         ptr_old = self.stackroots[0]
@@ -116,6 +120,7 @@ class TestIncminimark(PinningGCTest):
         # be gone
         try:
             next_ptr.someInt = 101
+            assert False
         except RuntimeError as ex:
             assert "freed" in str(ex)
 
@@ -157,6 +162,7 @@ class TestIncminimark(PinningGCTest):
         try:
             # should fail as this was the pinned object that is now collected
             next_ptr.someInt = 0
+            assert False
         except RuntimeError as ex:
             assert "freed" in str(ex)
 
@@ -219,6 +225,117 @@ class TestIncminimark(PinningGCTest):
 
     def test_young_and_stackroots_point_to_pinned(self):
         self.not_pinned_and_stackroots_point_to_pinned(make_old=False)
+
+    def test_old_points_to_old_points_to_pinned_1(self):
+        #
+        # Scenario:
+        # stackroots points to 'root_ptr'. 'root_ptr' points to 'next_ptr'.
+        # 'next_ptr' points to the young and pinned 'pinned_ptr'. Here we
+        # remove the reference to 'next_ptr' from 'root_ptr' and check if it
+        # behaves as expected.
+        #
+        root_ptr = self.malloc(S)
+        root_ptr.someInt = 100
+        self.stackroots.append(root_ptr)
+        self.gc.collect()
+        root_ptr = self.stackroots[0]
+        #
+        next_ptr = self.malloc(S)
+        next_ptr.someInt = 200
+        self.write(root_ptr, 'next', next_ptr)
+        self.gc.collect()
+        next_ptr = root_ptr.next
+        #
+        # check if everything is as expected
+        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(root_ptr))
+        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(next_ptr))
+        assert root_ptr.someInt == 100
+        assert next_ptr.someInt == 200
+        #
+        pinned_ptr = self.malloc(S)
+        pinned_ptr.someInt = 300
+        assert self.gc.pin(llmemory.cast_ptr_to_adr(pinned_ptr))
+        self.write(next_ptr, 'next', pinned_ptr)
+        self.gc.collect()
+        #
+        # validate everything is as expected with 3 rounds of GC collecting
+        for _ in range(3):
+            self.gc.collect()
+            assert next_ptr.next == pinned_ptr
+            assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(pinned_ptr))
+            assert pinned_ptr.someInt == 300
+            assert root_ptr.someInt == 100
+            assert next_ptr.someInt == 200
+        #
+        # remove the reference to the pinned object
+        self.write(next_ptr, 'next', root_ptr)
+        self.gc.minor_collection()
+        # the minor collection visits all old objects pointing to pinned ones.
+        # therefore the pinned object should be gone
+        try:
+            pinned_ptr.someInt == 300
+            assert False
+        except RuntimeError as ex:
+            assert "freed" in str(ex)
+
+    def test_old_points_to_old_points_to_pinned_2(self):
+        #
+        # Scenario:
+        # stackroots points to 'root_ptr'. 'root_ptr' points to 'next_ptr'.
+        # 'next_ptr' points to the young and pinned 'pinned_ptr'. Here we
+        # remove 'root_ptr' from the stackroots and check if it behaves as
+        # expected.
+        #
+        root_ptr = self.malloc(S)
+        root_ptr.someInt = 100
+        self.stackroots.append(root_ptr)
+        self.gc.collect()
+        root_ptr = self.stackroots[0]
+        #
+        next_ptr = self.malloc(S)
+        next_ptr.someInt = 200
+        self.write(root_ptr, 'next', next_ptr)
+        self.gc.collect()
+        next_ptr = root_ptr.next
+        #
+        # check if everything is as expected
+        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(root_ptr))
+        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(next_ptr))
+        assert root_ptr.someInt == 100
+        assert next_ptr.someInt == 200
+        #
+        pinned_ptr = self.malloc(S)
+        pinned_ptr.someInt = 300
+        assert self.gc.pin(llmemory.cast_ptr_to_adr(pinned_ptr))
+        self.write(next_ptr, 'next', pinned_ptr)
+        self.gc.collect()
+        #
+        # validate everything is as expected with 3 rounds of GC collecting
+        for _ in range(3):
+            self.gc.collect()
+            assert next_ptr.next == pinned_ptr
+            assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(pinned_ptr))
+            assert pinned_ptr.someInt == 300
+            assert root_ptr.someInt == 100
+            assert next_ptr.someInt == 200
+        #
+        # remove the root from stackroots
+        self.stackroots.remove(root_ptr)
+        self.gc.minor_collection()
+        #
+        # the minor collection will still visit 'next_ptr', although
+        # 'root_ptr' is not part of the stackroots anymore. This makes
+        # sense as 'next_ptr' is removed only in the next major collection
+        assert next_ptr.next.someInt == 300
+        #
+        # now we do a major collection and everything should be gone
+        self.gc.collect()
+        try:
+            pinned_ptr.someInt == 300
+            assert False
+        except RuntimeError as ex:
+            assert "freed" in str(ex)
+
 
     def test_pin_old(self):
         ptr = self.malloc(S)
@@ -535,7 +652,11 @@ class TestIncminimark(PinningGCTest):
         assert self.gc.pinned_objects_in_nursery == 2
         assert ptr_stackroot_1.someInt == 100
         assert ptr_stackroot_2.someInt == 100
-        py.test.raises(RuntimeError, 'ptr_not_stackroot.someInt') # should be freed
+        try:
+            ptr_not_stackroot.someInt = 100
+            assert False
+        except RuntimeError as ex:
+            assert "freed" in str(ex)
 
     def fill_nursery_with_pinned_objects(self):
         typeid = self.get_type_id(S)
