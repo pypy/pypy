@@ -188,3 +188,25 @@ class AppTestOperator:
         raises(TypeError, operator.indexOf, None, None)
         assert operator.indexOf([4, 3, 2, 1], 3) == 1
         raises(ValueError, operator.indexOf, [4, 3, 2, 1], 0)
+
+    def test_compare_digest_buffer(self):
+        import operator
+        assert operator._compare_digest(b'asd', b'asd')
+        assert not operator._compare_digest(b'asd', b'qwe')
+        assert not operator._compare_digest(b'asd', b'asdq')
+
+    def test_compare_digest_nonbuffer(self):
+        import operator
+        exc = raises(TypeError, operator._compare_digest, 'asd', b'asd')
+        assert str(exc.value) == "'str' does not support the buffer interface"
+
+    def test_compare_digest_nonascii(self):
+        import operator
+        exc = raises(TypeError, operator._compare_digest, 'G\u00d3bi', 'G\u00d3bi')
+        assert str(exc.value) == "comparing strings with non-ASCII characters is not supported";
+
+    def test_compare_digest_ascii(self):
+        import operator
+        assert operator._compare_digest('asd', 'asd')
+        assert not operator._compare_digest('asd', 'qwe')
+        assert not operator._compare_digest('asd', 'asdq')
