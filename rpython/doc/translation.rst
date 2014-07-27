@@ -635,11 +635,35 @@ How It Fits Together
 As should be clear by now, the translation toolchain of PyPy is a flexible
 and complicated beast, formed from many separate components.
 
-The following image summarizes the various parts of the toolchain as of the
-0.9 release, with the default translation to C highlighted:
+.. digraph:: translation
 
-.. image:: _static/pypy-translation-0.9.png
-   :align: center
+   graph [fontname = "Sans-Serif", size="6.00"]
+   node [fontname = "Sans-Serif"]
+   edge [fontname = "Sans-Serif"]
+
+   subgraph legend {
+     "Input or Output" [shape=ellipse, style=filled]
+     "Transformation Step" [shape=box, style="rounded,filled"]
+     // Invisible egde to make sure they are placed vertically
+     "Input or Output" -> "Transformation Step" [style=invis]
+   }
+
+   "Input Program" [shape=ellipse]
+   "Flow Analysis" [shape=box, style=rounded]
+   "Annotator" [shape=box, style=rounded]
+   "RTyper" [shape=box, style=rounded]
+   "Backend Optimizations (optional)" [shape=box, style=rounded]
+   "Exception Transformer" [shape=box, style=rounded]
+   "GC Transformer" [shape=box, style=rounded]
+   "GenC" [shape=box, style=rounded]
+   "ANSI C code" [shape=ellipse]
+
+   "Input Program" -> "Flow Analysis" -> "Annotator" -> "RTyper"
+   -> "Backend Optimizations (optional)" -> "Exception Transformer"
+   -> "GC Transformer"
+   "RTyper" -> "Exception Transformer" [style=dotted]
+   "GC Transformer" -> "GenC" -> "ANSI C code"
+   // "GC Transformer" -> "GenLLVM" -> "LLVM IR"
 
 A detail that has not yet been emphasized is the interaction of the
 various components.  It makes for a nice presentation to say that
