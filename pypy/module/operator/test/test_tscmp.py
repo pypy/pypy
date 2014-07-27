@@ -1,5 +1,4 @@
 from pypy.module.operator.tscmp import pypy_tscmp
-from rpython.rtyper.lltypesystem.rffi import scoped_nonmovingbuffer
 
 class TestTimingSafeCompare:
     def test_tscmp_neq(self):
