@@ -31,17 +31,15 @@ def compare_digest(space, w_a, w_b):
     if (space.isinstance_w(w_a, space.w_unicode) and
         space.isinstance_w(w_b, space.w_unicode)):
         try:
-            a_value = space.call_method(w_a, "encode", space.wrap("ascii"))
-            b_value = space.call_method(w_b, "encode", space.wrap("ascii"))
-            return compare_digest_buffer(space, a_value, b_value)
+            w_a = space.call_method(w_a, 'encode', space.wrap('ascii'))
+            w_b = space.call_method(w_b, 'encode', space.wrap('ascii'))
         except OperationError as e:
             if not e.match(space, space.w_UnicodeEncodeError):
                 raise
             raise oefmt(space.w_TypeError,
                         "comparing strings with non-ASCII characters is not "
                         "supported")
-    else:
-        return compare_digest_buffer(space, w_a, w_b)
+    return compare_digest_buffer(space, w_a, w_b)
 
 
 def compare_digest_buffer(space, w_a, w_b):
