@@ -4,7 +4,8 @@ Implements the Distutils 'build_ext' command, for building extension
 modules (currently limited to C extensions, should accommodate C++
 extensions ASAP)."""
 
-import sys, os, re, imp
+import sys, os, re
+import importlib.machinery
 from distutils.core import Command
 from distutils.errors import *
 from distutils.sysconfig import customize_compiler, get_python_version
@@ -36,9 +37,8 @@ def show_compilers ():
     show_compilers()
 
 def _get_c_extension_suffix():
-    for ext, mod, typ in imp.get_suffixes():
-        if typ == imp.C_EXTENSION:
-            return ext
+    suffixes = importlib.machinery.EXTENSION_SUFFIXES
+    return suffixes[0] if suffixes else None
 
 
 class build_ext(Command):

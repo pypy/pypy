@@ -40,8 +40,8 @@ def _make_module_list_dir(dir, suffs, prefix=''):
     return sorted(set(l))
 
 def _make_module_list():
-    import imp
-    suffs = [x[0] for x in imp.get_suffixes() if x[0] != '.pyc']
+    import importlib.machinery
+    suffs = [x for x in importlib.machinery.all_suffixes() if x != '.pyc']
     suffs.sort(reverse=True)
     _packages[''] = list(sys.builtin_module_names)
     for dir in sys.path:
