@@ -134,6 +134,9 @@ elif _WIN:
         ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
         ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT)])
 
+# XXX: optionally support the 2 additional tz fields
+_STRUCT_TM_ITEMS = 9
+
 class cConfig:
     pass
 
