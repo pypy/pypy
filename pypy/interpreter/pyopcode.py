@@ -128,13 +128,7 @@ class __extend__(pyframe.PyFrame):
         block = self.unrollstack(SApplicationException.kind)
         if block is None:
             # no handler found for the OperationError
-            if we_are_translated():
-                raise operr
-            else:
-                # try to preserve the CPython-level traceback
-                import sys
-                tb = sys.exc_info()[2]
-                raise OperationError, operr, tb
+            raise operr
         else:
             unroller = SApplicationException(operr)
             next_instr = block.handle(self, unroller)
