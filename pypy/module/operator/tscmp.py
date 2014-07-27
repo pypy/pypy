@@ -39,4 +39,4 @@ def compare_digest_buffer(space, w_a, w_b):
     b = space.bufferstr_w(w_b)
     with rffi.scoped_nonmovingbuffer(a) as a_buffer:
         with rffi.scoped_nonmovingbuffer(b) as b_buffer:
-            return space.wrap(pypy_tscmp(a_buffer, b_buffer, len(a), len(b)))
+            return space.wrap(rffi.cast(lltype.Bool, pypy_tscmp(a_buffer, b_buffer, len(a), len(b))))
