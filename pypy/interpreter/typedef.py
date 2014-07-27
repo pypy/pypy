@@ -926,6 +926,7 @@ Cell.typedef = TypeDef("cell",
     __cmp__      = interp2app(Cell.descr__cmp__),
     __hash__     = None,
     __reduce__   = interp2app(Cell.descr__reduce__),
+    __repr__     = interp2app(Cell.descr__repr__),
     __setstate__ = interp2app(Cell.descr__setstate__),
     cell_contents= GetSetProperty(Cell.descr__cell_contents, cls=Cell),
 )
