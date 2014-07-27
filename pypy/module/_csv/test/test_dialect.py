@@ -80,6 +80,21 @@ class AppTestDialect(object):
         _csv.register_dialect('foo1', strict=_csv)    # :-/
         assert _csv.get_dialect('foo1').strict == True
 
+    def test_delimiter(self):
+        import _csv
+
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', delimiter=":::")
+        assert exc_info.value.args[0] == '"delimiter" must be a 1-character string'
+
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', delimiter="")
+        assert exc_info.value.args[0] == '"delimiter" must be a 1-character string'
+
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', delimiter=b",")
+        assert exc_info.value.args[0] == '"delimiter" must be string, not bytes'
+
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', delimiter=4)
+        assert exc_info.value.args[0] == '"delimiter" must be string, not int'
+
     def test_line_terminator(self):
         # lineterminator can be the empty string
         import _csv
