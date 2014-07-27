@@ -244,18 +244,12 @@ class FunctionScope(Scope):
         return Scope.note_symbol(self, identifier, role)
 
     def note_yield(self, yield_node):
-        if self.return_with_value:
-            raise SyntaxError("'return' with argument inside generator",
-                              self.ret.lineno, self.ret.col_offset)
         self.is_generator = True
         if self._in_try_body_depth > 0:
             self.has_yield_inside_try = True
 
     def note_return(self, ret):
         if ret.value:
-            if self.is_generator:
-                raise SyntaxError("'return' with argument inside generator",
-                                  ret.lineno, ret.col_offset)
             self.return_with_value = True
             self.ret = ret
 

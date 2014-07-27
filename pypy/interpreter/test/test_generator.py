@@ -301,6 +301,21 @@ res = f()
             raise StopIteration
         assert tuple(f()) == (1,)
 
+    def test_yield_return(self):
+        """
+        def f():
+            yield 1
+            return 2
+        g = f()
+        assert next(g) == 1
+        try:
+            next(g)
+        except StopIteration as e:
+            assert e.value == 2
+        else:
+            assert False, 'Expected StopIteration'
+            """
+
 
 def test_should_not_inline(space):
     from pypy.interpreter.generator import should_not_inline
