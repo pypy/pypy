@@ -597,9 +597,7 @@ The C Backend
 
 :source:`rpython/translator/c/`
 
-GenC is usually the most actively maintained backend -- everyone working on
-PyPy has a C compiler, for one thing -- and is usually where new features are
-implemented first.
+This is currently the sole code generation backend.
 
 
 A Historical Note
@@ -613,20 +611,6 @@ annotator, and even the concept of the RTyper didn't exist yet.  More
 recently, the fact that preparing the graphs for source generation
 ("databasing") and actually generating the source are best considered
 separately has become clear.
-
-
-Other backends
---------------
-
-Use the :config:`translation.backend` option to choose which backend to use.
-
-
-.. _extfunccalls:
-
-External Function Calls
------------------------
-
-The external function call approach is described in :doc:`rffi <rffi>` documentation.
 
 
 How It Fits Together
