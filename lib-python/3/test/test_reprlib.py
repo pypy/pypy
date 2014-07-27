@@ -182,9 +182,13 @@ class ReprTests(unittest.TestCase):
         self.assertRegex(r(x), r'<cell at 0x.*\.\.\..*>')
 
     def test_descriptors(self):
-        eq = self.assertEqual
         # method descriptors
-        eq(repr(dict.items), "<method 'items' of 'dict' objects>")
+        self.assertTrue(any((
+            # cpython
+            repr(dict.items) == "<method 'items' of 'dict' objects>",
+            # pypy
+            repr(dict.items).startswith("<function items at 0x"),
+        )))
         # XXX member descriptors
         # XXX attribute descriptors
         # XXX slot descriptors
