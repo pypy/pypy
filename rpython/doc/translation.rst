@@ -55,17 +55,12 @@ steps (see also the figure below):
    variable can contain at run-time, building flow graphs using the
    :ref:`Flow Object Space <flow-object-space>` as it encounters them.
 
-3. :ref:`rpython-typer` (or RTyper) uses the high-level information
-   inferred by the Annotator to turn the operations in the control flow
-   graphs into low-level operations.
+3. The :ref:`RPython Typer <rtyper>` (or RTyper) uses the high-level
+   information inferred by the Annotator to turn the operations in the control
+   flow graphs into low-level operations.
 
-4. After RTyping there are two, rather different, `optional
-   transformations <optional-transformations>` which can be applied -- the "backend
-   optimizations" which are intended to make the resulting program go
-   faster, and the "stackless transform" which transforms the program
-   into a form of continuation passing style which allows the
-   implementation of coroutines and other forms of non-standard
-   control flow.
+4. After the RTyper there are several optional `optimizations`_ which can be
+   applied and are intended to make the resulting program go faster.
 
 5. The next step is `preparing the graphs for source generation`_, which
    involves computing the names that the various functions and types in
@@ -441,21 +436,10 @@ The RPython Typer
 See :doc:`rtyper`.
 
 
-.. _optional-transformations:
-
-The Optional Transformations
-----------------------------
-
-Between RTyping and C source generation there are two optional transforms:
-the "backend optimizations" and the "stackless transform". See also
-`D07.1 Massive Parallelism and Translation Aspects`_ for further details.
-
-.. _Technical report:
-.. _D07.1 Massive Parallelism and Translation Aspects: https://bitbucket.org/pypy/extradoc/raw/ee3059291497/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
-
+.. _optimizations:
 
 Backend Optimizations
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
 The point of the backend optimizations are to make the compiled program run
 faster.  Compared to many parts of the PyPy translator, which are very unlike
@@ -464,7 +448,7 @@ know how compilers work.
 
 
 Function Inlining
-+++++++++++++++++
+~~~~~~~~~~~~~~~~~
 
 To reduce the overhead of the many function calls that occur when running the
 PyPy interpreter we implemented function inlining. This is an optimization
@@ -502,7 +486,7 @@ size greater than a predefined limit.
 
 
 Malloc Removal
-++++++++++++++
+~~~~~~~~~~~~~~
 
 Since RPython is a garbage collected language there is a lot of heap memory
 allocation going on all the time, which would either not occur at all in a more
@@ -542,7 +526,7 @@ common) situation.
 
 
 Escape Analysis and Stack Allocation
-++++++++++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Another technique to reduce the memory allocation penalty is to use stack
 allocation for objects that can be proved not to life longer than the stack
