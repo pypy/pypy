@@ -375,21 +375,28 @@ class MsvcPlatform(Platform):
         for rule in rules:
             m.rule(*rule)
 
+        if len(headers_to_precompile)>0 and self.version >= 80:
+            # at least from VS2013 onwards we need to include PCH
+            # objects in the final link command
+            linkobjs = 'stdafx.obj @<<\n$(OBJECTS)\n<<'
+        else:
+            linkobjs = '@<<\n$(OBJECTS)\n<<'
+
         if self.version < 80:
             m.rule('$(TARGET)', '$(OBJECTS)',
                     [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) /out:$@' +\
-                      ' $(LIBDIRS) $(LIBS) @<<\n$(OBJECTS)\n<<',
+                      ' $(LIBDIRS) $(LIBS) ' + linkobjs,
                    ])
         else:
             m.rule('$(TARGET)', '$(OBJECTS)',
                     [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + \
                       ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST' + \
-                      ' /MANIFESTFILE:$*.manifest @<<\n$(OBJECTS)\n<<',
+                      ' /MANIFESTFILE:$*.manifest ' + linkobjs,
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
         m.rule('debugmode_$(TARGET)', '$(OBJECTS)',
                 [ '$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' + \
-                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) @<<\n$(OBJECTS)\n<<',
+                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) ' + linkobjs,
                 ])
 
         if shared:
