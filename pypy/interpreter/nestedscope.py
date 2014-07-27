@@ -69,8 +69,9 @@ class Cell(W_Root):
         if self.w_value is None:
             content = "empty"
         else:
-            content = "%s object at 0x%x" % (space.type(self.w_value).name, uid(self.w_value))
-        s = "<cell at 0x%x: %s>" % (uid(self), content)
+            content = "%s object at 0x%s" % (space.type(self.w_value).name,
+                                             self.w_value.getaddrstring(space))
+        s = "<cell at 0x%s: %s>" % (self.getaddrstring(space), content)
         return space.wrap(s.decode('utf-8'))
 
     def descr__cell_contents(self, space):
