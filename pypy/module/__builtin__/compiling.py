@@ -43,13 +43,12 @@ in addition to any features explicitly specified.
             space.w_ValueError,
             space.wrap("compile() arg 3 must be 'exec', 'eval' or 'single'"))
 
-    # XXX: optimize flag is not used
-
     if space.isinstance_w(w_source, space.gettypeobject(ast.AST.typedef)):
         ast_node = space.interp_w(ast.mod, w_source)
         ast_node.sync_app_attrs(space)
         ec.compiler.validate_ast(ast_node)
-        code = ec.compiler.compile_ast(ast_node, filename, mode, flags)
+        code = ec.compiler.compile_ast(ast_node, filename, mode, flags,
+                optimize=optimize)
         return space.wrap(code)
 
     flags |= consts.PyCF_SOURCE_IS_UTF8
@@ -59,7 +58,8 @@ in addition to any features explicitly specified.
     if flags & consts.PyCF_ONLY_AST:
         code = ec.compiler.compile_to_ast(source, filename, mode, flags)
     else:
-        code = ec.compiler.compile(source, filename, mode, flags)
+        code = ec.compiler.compile(source, filename, mode, flags,
+                optimize=optimize)
     return space.wrap(code)
 
 
