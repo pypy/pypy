@@ -307,9 +307,10 @@ class IntTestCases(unittest.TestCase):
                 try:
                     int(TruncReturnsNonIntegral())
                 except TypeError as e:
-                    self.assertEqual(str(e),
-                                      "__trunc__ returned non-Integral"
-                                      " (type NonIntegral)")
+                    if support.check_impl_detail(pypy=False):
+                        self.assertEqual(str(e),
+                                          "__trunc__ returned non-Integral"
+                                          " (type NonIntegral)")
                 else:
                     self.fail("Failed to raise TypeError with %s" %
                               ((base, trunc_result_base),))

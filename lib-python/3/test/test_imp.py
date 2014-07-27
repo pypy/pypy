@@ -317,6 +317,7 @@ class PEP3147Tests(unittest.TestCase):
 
     @unittest.skipUnless(sys.implementation.cache_tag is not None,
                          'requires sys.implementation.cache_tag not be None')
+    @support.impl_detail("PyPy ignores the optimize flag", pypy=False)
     def test_cache_from_source(self):
         # Given the path to a .py file, return the path to its PEP 3147
         # defined .pyc file (i.e. under __pycache__).
@@ -338,6 +339,7 @@ class PEP3147Tests(unittest.TestCase):
                               'file{}.pyc'.format(self.tag))
         self.assertEqual(imp.cache_from_source(path, True), expect)
 
+    @support.impl_detail("PyPy ignores the optimize flag", pypy=False)
     def test_cache_from_source_optimized(self):
         # Given the path to a .py file, return the path to its PEP 3147
         # defined .pyo file (i.e. under __pycache__).

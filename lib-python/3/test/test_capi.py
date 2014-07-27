@@ -110,6 +110,8 @@ class CAPITest(unittest.TestCase):
         self.assertRaises(TypeError, _posixsubprocess.fork_exec,
                           Z(),[b'1'],3,[1, 2],5,6,7,8,9,10,11,12,13,14,15,16,17)
 
+@unittest.skipIf(support.check_impl_detail(pypy=True),
+                 'Py_AddPendingCall not currently supported.')
 @unittest.skipUnless(threading, 'Threading required for this test.')
 class TestPendingCalls(unittest.TestCase):
 
@@ -327,6 +329,8 @@ class SkipitemTest(unittest.TestCase):
         self.assertRaises(ValueError, _testcapi.parse_tuple_and_keywords,
                           (), {}, b'', [42])
 
+@unittest.skipIf(support.check_impl_detail(pypy=True),
+                 'Not currently supported under PyPy')
 @unittest.skipUnless(threading, 'Threading required for this test.')
 class TestThreadState(unittest.TestCase):
 
