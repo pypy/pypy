@@ -39,9 +39,6 @@ Directory                                 explanation/links
 :source:`rpython/translator/c/`           the :ref:`GenC backend <genc>`, producing C code
                                           from an RPython program (generally via the :doc:`rtyper <rtyper>`)
 
-:source:`rpython/translator/cli/`         the :doc:`CLI backend <cli-backend>` for `.NET`_
-                                          (Microsoft CLR or Mono_)
-
 :source:`rpython/translator/jvm/`         the Java backend
 
 :source:`rpython/translator/tool/`        helper tools for translation

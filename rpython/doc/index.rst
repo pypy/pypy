@@ -28,7 +28,6 @@ Table of Contents
    translation
    rtyper
    garbage_collection
-   cli-backend
    windows
 
 
