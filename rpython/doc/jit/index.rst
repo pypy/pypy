@@ -16,11 +16,16 @@ JIT documentation
 Content
 -------
 
+.. toctree::
+   :hidden:
+
+   overview
+   pyjitpl5
+   virtualizable
+
 - :doc:`Overview <overview>`: motivating our approach
 
 - :doc:`Notes <pyjitpl5>` about the current work in PyPy
-
-- :doc:`Hooks <pypy:jit-hooks>` debugging facilities available to a python programmer
 
 - :doc:`Virtulizable <virtualizable>` how virtualizables work and what they are
   (in other words how to make frames more efficient).
