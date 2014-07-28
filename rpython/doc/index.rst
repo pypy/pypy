@@ -14,21 +14,53 @@ collection strategies, and optimizations applied, including whether or not to
 have a JIT in the first place.
 
 
-Table of Contents
+General
+-------
+
+.. toctree::
+   :maxdepth: 1
+
+   architecture
+   faq
+
+
+User Documentation
+------------------
+
+These documents are mainly interesting for users of interpreters written in
+RPython.
+
+.. toctree::
+   :maxdepth: 1
+
+   arm
+   windows
+
+
+Writing your own interpreter in RPython
+---------------------------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   rpython
+   rlib
+   rffi
+
+
+RPython internals
 -----------------
 
 .. toctree::
    :maxdepth: 1
 
+   glossary
    getting-started
-   faq
-   rpython
-   rlib
-   rffi
+   dir-reference
+   jit/index
    translation
    rtyper
    garbage_collection
-   windows
 
 
 Indices and tables
