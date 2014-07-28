@@ -7,7 +7,7 @@ from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Void
 from rpython.rtyper.rmodel import Repr, getgcflavor, inputconst
 from rpython.rlib.objectmodel import UnboxedValue
-from rpython.tool.pairtype import pairtype
+from rpython.tool.pairtype import pair, pairtype
 
 
 class FieldListAccessor(object):
@@ -471,14 +471,77 @@ class AbstractInstanceRepr(Repr):
                 break
 
 
+def create_forwarding_func(name):
+    def f((r_ins, r_obj), hop):
+        return r_ins._emulate_call(hop, name)
+    return f
+
 class __extend__(pairtype(AbstractInstanceRepr, Repr)):
-    def rtype_getitem((r_ins, r_obj), hop):
-        return r_ins._emulate_call(hop, "__getitem__")
+    rtype_getitem = create_forwarding_func('__getitem__')
+    rtype_setitem = create_forwarding_func('__setitem__')
+    rtype_add = create_forwarding_func('__add__')
+    rtype_mul = create_forwarding_func('__mul__')
 
-    def rtype_setitem((r_ins, r_obj), hop):
-        return r_ins._emulate_call(hop, "__setitem__")
+    rtype_inplace_add = rtype_add
+    rtype_inplace_mul = rtype_mul
 
+    def rtype_eq((r_ins, r_other), hop):
+        if r_ins.classdef.classdesc.lookup('__eq__'):
+            return r_ins._emulate_call(hop, '__eq__')
+        return super(pairtype(AbstractInstanceRepr, Repr),
+                     pair(r_ins, r_other)).rtype_eq(hop)
 
+    def rtype_ne((r_ins, r_other), hop):
+        if r_ins.classdef.classdesc.lookup('__ne__'):
+            return r_ins._emulate_call(hop, '__ne__')
+        return super(pairtype(AbstractInstanceRepr, Repr),
+                     pair(r_ins, r_other)).rtype_ne(hop)
+
+class __extend__(pairtype(AbstractInstanceRepr, AbstractInstanceRepr)):
+    def rtype_eq((r_ins, r_other), hop):
+        if r_ins.classdef.classdesc.lookup('__eq__'):
+            return r_ins._emulate_call(hop, '__eq__')
+        elif r_other.classdef.classdesc.lookup('__eq__'):
+            # Reverse the order of the arguments before the call to __eq__
+            hop2 = hop.copy()
+            hop2.args_r = hop.args_r[::-1]
+            hop2.args_s = hop.args_s[::-1]
+            hop2.args_v = hop.args_v[::-1]
+            return r_other._emulate_call(hop2, '__eq__')
+        return pair(r_ins, r_other).rtype_is_(hop)
+
+    def rtype_ne((r_ins, r_other), hop):
+        if r_ins.classdef.classdesc.lookup('__ne__'):
+            return r_ins._emulate_call(hop, '__ne__')
+        elif r_other.classdef.classdesc.lookup('__ne__'):
+            # Reverse the order of the arguments before the call to __ne__
+            hop2 = hop.copy()
+            hop2.args_r = hop.args_r[::-1]
+            hop2.args_s = hop.args_s[::-1]
+            hop2.args_v = hop.args_v[::-1]
+            return r_other._emulate_call(hop2, '__ne__')
+        return pair(r_ins, r_other)._rtype_ne(hop)
+
+class __extend__(pairtype(Repr, AbstractInstanceRepr)):
+    def rtype_eq((r_other, r_ins), hop):
+        if r_ins.classdef.classdesc.lookup('__eq__'):
+            hop2 = hop.copy()
+            hop2.args_r = hop.args_r[::-1]
+            hop2.args_s = hop.args_s[::-1]
+            hop2.args_v = hop.args_v[::-1]
+            return r_ins._emulate_call(hop2, '__eq__')
+        return super(pairtype(Repr, AbstractInstanceRepr),
+                     pair(r_other, r_ins)).rtype_eq(hop)
+
+    def rtype_ne((r_other, r_ins), hop):
+        if r_ins.classdef.classdesc.lookup('__ne__'):
+            hop2 = hop.copy()
+            hop2.args_r = hop.args_r[::-1]
+            hop2.args_s = hop.args_s[::-1]
+            hop2.args_v = hop.args_v[::-1]
+            return r_ins._emulate_call(hop2, '__ne__')
+        return super(pairtype(Repr, AbstractInstanceRepr),
+                     pair(r_other, r_ins)).rtype_ne(hop)
 
 # ____________________________________________________________
 

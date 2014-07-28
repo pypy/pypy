@@ -2780,6 +2780,42 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert s.knowntype == int
 
+    def test__eq__in_sub_class(self):
+        class Base(object):
+            pass
+        class A(Base):
+            def __eq__(self, other):
+                return True
+
+        def f(a):
+            if a:
+                o = Base()
+            else:
+                o = A()
+
+            return o == Base()
+
+        a = self.RPythonAnnotator()
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f,  [int])
+
+    def test__ne__in_sub_class(self):
+        class Base(object):
+            pass
+        class A(Base):
+            def __ne__(self, other):
+                return True
+
+        def f(a):
+            if a:
+                o = Base()
+            else:
+                o = A()
+
+            return o != Base()
+
+        a = self.RPythonAnnotator()
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f,  [int])
+
     def test_chr_out_of_bounds(self):
         def g(n, max):
             if n < max:

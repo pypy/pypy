@@ -647,10 +647,8 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
         r_ins = getinstancerepr(r_ins1.rtyper, basedef, r_ins1.gcflavor)
         return pairtype(Repr, Repr).rtype_is_(pair(r_ins, r_ins), hop)
 
-    rtype_eq = rtype_is_
-
-    def rtype_ne(rpair, hop):
-        v = rpair.rtype_eq(hop)
+    def _rtype_ne(rpair, hop):
+        v = rpair.rtype_is_(hop)
         return hop.genop("bool_not", [v], resulttype=Bool)
 
 # ____________________________________________________________

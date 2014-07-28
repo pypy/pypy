@@ -476,6 +476,17 @@ class ClassDesc(Desc):
                 if self.pyobj not in classdef.FORCE_ATTRIBUTES_INTO_CLASSES:
                     self.all_enforced_attrs = []    # no attribute allowed
 
+        if (self.lookup('__eq__') and
+            not all(b.lookup('__eq__') for b in self.getallbases())):
+            raise AnnotatorError("A class may only define a __eq__ method if "
+                                 "the class at the base of its heirarchy also "
+                                  "has a __eq__ method.")
+        if (self.lookup('__ne__') and
+            not all(b.lookup('__ne__') for b in self.getallbases())):
+            raise AnnotatorError("A class may only define a __ne__ method if "
+                                 "the class at the base of its heirarchy also "
+                                  "has a __ne__ method.")
+
     def add_source_attribute(self, name, value, mixin=False):
         if isinstance(value, types.FunctionType):
             # for debugging

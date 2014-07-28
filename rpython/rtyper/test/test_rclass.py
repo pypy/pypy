@@ -1290,3 +1290,87 @@ class TestRclass(BaseRtypingTest):
             return cls[k](a, b).b
 
         assert self.interpret(f, [1, 4, 7]) == 7
+
+    def test_overriding_eq(self):
+        class Base(object):
+            def __eq__(self, other):
+                return self is other
+        class A(Base):
+            def __eq__(self, other):
+                return True
+
+        def f(a):
+            if a:
+                o = Base()
+            else:
+                o = A()
+
+            return o == Base()
+
+        assert self.interpret(f, [0]) == f(0)
+        assert self.interpret(f, [1]) == f(1)
+
+    def test_eq_reversed(self):
+        class A(object):
+            def __eq__(self, other):
+                return not bool(other)
+
+        def f(a):
+            return (a == A()) == (A() == a)
+        assert self.interpret(f, [0]) == f(0)
+        assert self.interpret(f, [1]) == f(1)
+
+    def test_eq_without_ne(self):
+        class A(object):
+            def __eq__(self, other):
+                return False
+
+        def f():
+            a = A()
+            return a != A()
+
+        assert self.interpret(f, []) == f()
+
+    def test_overriding_ne(self):
+        class Base(object):
+            def __ne__(self, other):
+                return self is other
+        class A(Base):
+            def __ne__(self, other):
+                return True
+
+        def f(a):
+            if a:
+                o = Base()
+            else:
+                o = A()
+
+            return o != Base()
+
+        assert self.interpret(f, [0]) == f(0)
+        assert self.interpret(f, [1]) == f(1)
+
+    def test_ne_reversed(self):
+        class A(object):
+            def __ne__(self, other):
+                return not bool(other)
+
+        def f(a):
+            return (a != A()) == (A() != a)
+        assert self.interpret(f, [0]) == f(0)
+        assert self.interpret(f, [1]) == f(1)
+
+    def test_arithmetic_ops(self):
+        class A(object):
+            def __add__(self, other):
+                return other + other
+
+            def __mul__(self, other):
+                return other * other
+
+        def f(a):
+            o = A()
+            return (o + a) + (o * a)
+
+        for i in range(10):
+            assert self.interpret(f, [i]) == f(i)

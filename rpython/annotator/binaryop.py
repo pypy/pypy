@@ -718,6 +718,19 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
             thistype = pairtype(SomeInstance, SomeInstance)
             return super(thistype, pair(ins1, ins2)).improve()
 
+    def eq((s_obj1, s_obj2)):
+        if s_obj1.classdef.classdesc.lookup('__eq__'):
+            return s_obj1._emulate_call("__eq__", s_obj2)
+        elif s_obj2.classdef.classdesc.lookup('__eq__'):
+            return s_obj2._emulate_call("__eq__", s_obj1)
+        return s_Bool
+
+    def ne((s_obj1, s_obj2)):
+        if s_obj1.classdef.classdesc.lookup('__ne__'):
+            return s_obj1._emulate_call("__ne__", s_obj2)
+        elif s_obj2.classdef.classdesc.lookup('__ne__'):
+            return s_obj2._emulate_call("__ne__", s_obj1)
+        return s_Bool
 
 class __extend__(pairtype(SomeInstance, SomeObject)):
     def getitem((s_ins, s_idx)):
@@ -725,6 +738,33 @@ class __extend__(pairtype(SomeInstance, SomeObject)):
 
     def setitem((s_ins, s_idx), s_value):
         return s_ins._emulate_call("__setitem__", s_idx, s_value)
+
+    def add((s_ins, s_other)):
+        return s_ins._emulate_call("__add__", s_other)
+
+    def mul((s_ins, s_other)):
+        return s_ins._emulate_call("__mul__", s_other)
+
+    def eq((s_ins, s_obj)):
+        if s_ins.classdef.classdesc.lookup('__eq__'):
+            return s_ins._emulate_call("__eq__", s_obj)
+        return super(pairtype(SomeInstance, SomeObject), pair(s_ins, s_obj)).eq()
+
+    def ne((s_ins, s_obj)):
+        if s_ins.classdef.classdesc.lookup('__ne__'):
+            return s_ins._emulate_call("__ne__", s_obj)
+        return super(pairtype(SomeInstance, SomeObject), pair(s_ins, s_obj)).ne()
+
+class __extend__(pairtype(SomeObject, SomeInstance)):
+    def eq((s_obj, s_ins)):
+        if s_ins.classdef.classdesc.lookup('__eq__'):
+            return s_ins._emulate_call("__eq__", s_obj)
+        return super(pairtype(SomeObject, SomeInstance), pair(s_obj, s_ins)).eq()
+
+    def ne((s_obj, s_ins)):
+        if s_ins.classdef.classdesc.lookup('__ne__'):
+            return s_ins._emulate_call("__ne__", s_obj)
+        return super(pairtype(SomeObject, SomeInstance), pair(s_obj, s_ins)).ne()
 
 
 class __extend__(pairtype(SomeIterator, SomeIterator)):
