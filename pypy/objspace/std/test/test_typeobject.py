@@ -716,6 +716,26 @@ class AppTestTypeObject:
             pass
         raises(TypeError, "class D(A, C): pass")
 
+    def test_dir(self):
+        class A(object):
+            a_var = None
+            def a_meth(self):
+                pass
+
+        class C(A):
+            c_var = None
+            def c_meth(self):
+                pass
+
+        C_items = dir(C)
+        assert C_items == sorted(C_items)
+        assert C_items != C.__dir__(C)  # as in cpython
+
+        assert 'a_var' in C_items
+        assert 'c_var' in C_items
+        assert 'a_meth' in C_items
+        assert 'c_meth' in C_items
+
     def test_data_descriptor_without_get(self):
         """
         class Descr(object):

@@ -68,6 +68,12 @@ class AppTest_ModuleObject:
         m = type(_pypy_interact).__new__(type(_pypy_interact))
         assert repr(m).startswith("<module '?'")
 
+    def test_dir(self):
+        import sys
+        items = sys.__dir__()
+        assert items == sorted(items)
+        assert items == dir(sys)
+
     def test_package(self):
         import sys
         import os

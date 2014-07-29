@@ -19,6 +19,43 @@ def descr__repr__(space, w_obj):
                 classname = u'%s.%s' % (modulename, classname)
     return w_obj.getrepr(space, u'%s object' % (classname,))
 
+def descr__dir__(space, w_obj):
+    w_result = space.appexec([w_obj], """(obj):
+        def _classdir(klass):
+            Dict = {}
+            try:
+                Dict.update(klass.__dict__)
+            except AttributeError: pass
+            try:
+                # XXX - Use of .__mro__ would be suggested, if the existance
+                #   of that attribute could be guarranted.
+                bases = klass.__bases__
+            except AttributeError: pass
+            else:
+                try:
+                    #Note that since we are only interested in the keys,
+                    #  the order we merge classes is unimportant
+                    for base in bases:
+                        Dict.update(_classdir(base))
+                except TypeError: pass
+            return Dict
+
+        Dict = {}
+        try:
+            if isinstance(obj.__dict__, dict):
+                Dict.update(obj.__dict__)
+        except AttributeError:
+            pass
+        try:
+            Dict.update(_classdir(obj.__class__))
+        except AttributeError:
+            pass
+        result = list(Dict.keys())
+        result.sort()
+        return result
+    """)
+    return w_result
+
 def descr__str__(space, w_obj):
     w_type = space.type(w_obj)
     w_impl = w_type.lookup("__repr__")
@@ -219,6 +256,7 @@ object_typedef = StdTypeDef("object",
     __delattr__ = gateway.interp2app(Object.descr__delattr__.im_func),
     __str__ = gateway.interp2app(descr__str__),
     __repr__ = gateway.interp2app(descr__repr__),
+    __dir__ = gateway.interp2app(descr__dir__),
     __class__ = GetSetProperty(descr__class__, descr_set___class__),
     __doc__ = '''The most base type''',
     __new__ = gateway.interp2app(descr__new__),
