@@ -1,9 +1,11 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import (
+    TypeDef, interp_attrproperty_bytes, interp_attrproperty)
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.module.thread.os_lock import Lock
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import LONGLONG_MASK, r_ulonglong
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
@@ -21,7 +23,7 @@ eci = platform.configure_external_library(
     'lzma', eci,
     [dict(prefix='lzma-')])
 if not eci:
-    raise ImportError("Could not find bzip2 library")
+    raise ImportError("Could not find lzma library")
 
 
 class CConfig:
@@ -48,6 +50,8 @@ constant_names = '''
     LZMA_RUN LZMA_FINISH
     LZMA_OK LZMA_GET_CHECK LZMA_NO_CHECK LZMA_STREAM_END
     LZMA_PRESET_DEFAULT
+    LZMA_CHECK_ID_MAX
+    LZMA_TELL_ANY_CHECK LZMA_TELL_NO_CHECK
     '''.split()
 for name in constant_names:
     setattr(CConfig, name, platform.ConstantInteger(name))
@@ -57,12 +61,12 @@ class cConfig(object):
 for k, v in platform.configure(CConfig).items():
     setattr(cConfig, k, v)
 
-
 for name in constant_names:
     globals()[name] = getattr(cConfig, name)
 lzma_stream = lltype.Ptr(cConfig.lzma_stream)
 lzma_options_lzma = lltype.Ptr(cConfig.lzma_options_lzma)
 BUFSIZ = cConfig.BUFSIZ
+LZMA_CHECK_UNKNOWN = LZMA_CHECK_ID_MAX + 1
 
 def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=
@@ -75,6 +79,9 @@ lzma_bool = rffi.INT
 lzma_lzma_preset = external('lzma_lzma_preset', [lzma_options_lzma, rffi.UINT], lzma_bool)
 lzma_alone_encoder = external('lzma_alone_encoder', [lzma_stream, lzma_options_lzma], lzma_ret)
 lzma_end = external('lzma_end', [lzma_stream], lltype.Void)
+
+lzma_auto_decoder = external('lzma_auto_decoder', [lzma_stream, rffi.LONG, rffi.INT], lzma_ret)
+lzma_get_check = external('lzma_get_check', [lzma_stream], rffi.INT)
 
 lzma_code = external('lzma_code', [lzma_stream, lzma_action], rffi.INT)
 
@@ -171,8 +178,8 @@ class W_LZMACompressor(W_Root):
         lzma_end(self.lzs)
         lltype.free(self.lzs, flavor='raw')
 
-    def _init_alone(self, space, preset, w_filter):
-        if space.is_none(w_filter):
+    def _init_alone(self, space, preset, w_filters):
+        if space.is_none(w_filters):
             with lltype.scoped_alloc(lzma_options_lzma.TO) as options:
                 if lzma_lzma_preset(options, preset):
                     raise_error(space, "Invalid compression preset: %d", preset)
@@ -185,9 +192,9 @@ class W_LZMACompressor(W_Root):
     @unwrap_spec(format=int,
                  w_check=WrappedDefault(None),
                  w_preset=WrappedDefault(None), 
-                 w_filter=WrappedDefault(None))
+                 w_filters=WrappedDefault(None))
     def descr_new(space, w_subtype, format=FORMAT_XZ, 
-                  w_check=None, w_preset=None, w_filter=None):
+                  w_check=None, w_preset=None, w_filters=None):
         w_self = space.allocate_instance(W_LZMACompressor, w_subtype)
         self = space.interp_w(W_LZMACompressor, w_self)
         W_LZMACompressor.__init__(self, space, format)
@@ -198,7 +205,7 @@ class W_LZMACompressor(W_Root):
             preset = space.int_w(w_preset)
 
         if format == FORMAT_ALONE:
-            self._init_alone(space, preset, w_filter)
+            self._init_alone(space, preset, w_filters)
         else:
             raise NotImplementedError
 
@@ -221,11 +228,11 @@ class W_LZMACompressor(W_Root):
 
     def _compress(self, space, data, action):
         datasize = len(data)
-        with OutBuffer(self.lzs) as out:
-            with lltype.scoped_alloc(rffi.CCHARP.TO, datasize) as in_buf:
-                for i in range(datasize):
-                    in_buf[i] = data[i]
+        with lltype.scoped_alloc(rffi.CCHARP.TO, datasize) as in_buf:
+            for i in range(datasize):
+                in_buf[i] = data[i]
 
+            with OutBuffer(self.lzs) as out:
                 self.lzs.c_next_in = in_buf
                 rffi.setintfield(self.lzs, 'c_avail_in', datasize)
 
@@ -241,7 +248,7 @@ class W_LZMACompressor(W_Root):
                     elif rffi.getintfield(self.lzs, 'c_avail_out') == 0:
                         out.prepare_next_chunk()
 
-            return out.make_result_string()
+                return out.make_result_string()
 
 
 W_LZMACompressor.typedef = TypeDef("LZMACompressor",
@@ -252,9 +259,89 @@ W_LZMACompressor.typedef = TypeDef("LZMACompressor",
 
 
 class W_LZMADecompressor(W_Root):
-    pass
+    def __init__(self, space, format):
+        self.format = format
+        self.lock = Lock(space)
+        self.eof = False
+        self.lzs = lltype.malloc(lzma_stream.TO, flavor='raw', zero=True)
+        self.check = LZMA_CHECK_UNKNOWN
+        self.unused_data = ''
+
+    def __del__(self):
+        lzma_end(self.lzs)
+        lltype.free(self.lzs, flavor='raw')
+
+    @staticmethod
+    @unwrap_spec(format=int,
+                 w_memlimit=WrappedDefault(None),
+                 w_filters=WrappedDefault(None))
+    def descr_new(space, w_subtype, format=FORMAT_AUTO,
+                  w_memlimit=None, w_filters=None):
+        w_self = space.allocate_instance(W_LZMADecompressor, w_subtype)
+        self = space.interp_w(W_LZMADecompressor, w_self)
+        W_LZMADecompressor.__init__(self, space, format)
+
+        if space.is_none(w_memlimit):
+            memlimit = r_ulonglong(LONGLONG_MASK)
+        else:
+            memlimit = space.r_ulonglong_w(w_memlimit)
+
+        decoder_flags = LZMA_TELL_ANY_CHECK | LZMA_TELL_NO_CHECK
+
+        if format == FORMAT_AUTO:
+            lzret = lzma_auto_decoder(self.lzs, memlimit, decoder_flags)
+            _catch_lzma_error(space, lzret)
+        else:
+            raise NotImplementedError
+
+        return w_self
+
+    @unwrap_spec(data='bufferstr')
+    def decompress_w(self, space, data):
+        with self.lock:
+            if self.eof:
+                raise oefmt(space.w_EOFError, "Already at end of stream")
+            result = self._decompress(space, data)
+        return space.wrapbytes(result)
+
+    def _decompress(self, space, data):
+        datasize = len(data)
+
+        with lltype.scoped_alloc(rffi.CCHARP.TO, datasize) as in_buf:
+            for i in range(datasize):
+                in_buf[i] = data[i]
+
+            with OutBuffer(self.lzs) as out:
+                self.lzs.c_next_in = in_buf
+                rffi.setintfield(self.lzs, 'c_avail_in', datasize)
+
+                while True:
+                    lzret = lzma_code(self.lzs, LZMA_RUN)
+                    _catch_lzma_error(space, lzret)
+                    if lzret == LZMA_GET_CHECK or lzret == LZMA_NO_CHECK:
+                        self.check = lzma_get_check(self.lzs)
+                    if lzret == LZMA_STREAM_END:
+                        self.eof = True
+                        if rffi.getintfield(self.lzs, 'c_avail_in') > 0:
+                            unused = [self.lzs.c_next_in[i]
+                                      for i in range(
+                                    rffi.getintfield(self.lzs,
+                                                     'c_avail_in'))]
+                            self.unused_data = "".join(unused)
+                            break
+                    if rffi.getintfield(self.lzs, 'c_avail_in') == 0:
+                        break
+                    elif rffi.getintfield(self.lzs, 'c_avail_out') == 0:
+                        out.prepare_next_chunk()
+
+                return out.make_result_string()
+
 
 W_LZMADecompressor.typedef = TypeDef("LZMADecompressor",
+    __new__ = interp2app(W_LZMADecompressor.descr_new),
+    decompress = interp2app(W_LZMADecompressor.decompress_w),
+    eof = interp_attrproperty("eof", W_LZMADecompressor),
+    unused_data = interp_attrproperty_bytes("unused_data", W_LZMADecompressor),
 )
 
 

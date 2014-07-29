@@ -13,4 +13,5 @@ class AppTestBZ2File:
                               b'\xff\xff\xff\x00$\x9b\x8afg\x91'
                               b'(\xcb\xde\xfa\x03\r\x1eQT\xbe'
                               b't\x9e\xdfI]\xff\xf4\x9d\x80\x00')
-
+        decompressed = lzma.decompress(compressed)
+        assert decompressed == b'Insert Data Here'
