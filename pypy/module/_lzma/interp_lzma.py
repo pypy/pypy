@@ -78,7 +78,7 @@ lzma_bool = rffi.INT
 
 lzma_lzma_preset = external('lzma_lzma_preset', [lzma_options_lzma, rffi.UINT], lzma_bool)
 lzma_alone_encoder = external('lzma_alone_encoder', [lzma_stream, lzma_options_lzma], lzma_ret)
-lzma_end = external('lzma_end', [lzma_stream], lltype.Void)
+lzma_end = external('lzma_end', [lzma_stream], lltype.Void, releasegil=False)
 
 lzma_auto_decoder = external('lzma_auto_decoder', [lzma_stream, rffi.LONG, rffi.INT], lzma_ret)
 lzma_get_check = external('lzma_get_check', [lzma_stream], rffi.INT)
