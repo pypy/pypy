@@ -738,16 +738,14 @@ def descr__dir(space, w_type):
                 Dict.update(klass.__dict__)
             except AttributeError: pass
             try:
-                # XXX - Use of .__mro__ would be suggested, if the existance
-                #   of that attribute could be guarranted.
-                bases = klass.__bases__
+                bases = klass.__mro__
             except AttributeError: pass
             else:
                 try:
                     #Note that since we are only interested in the keys,
                     #  the order we merge classes is unimportant
                     for base in bases:
-                        Dict.update(_classdir(base))
+                        Dict.update(base.__dict__)
                 except TypeError: pass
             return Dict
 
