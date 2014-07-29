@@ -193,8 +193,8 @@ class W_LZMACompressor(W_Root):
                  w_check=WrappedDefault(None),
                  w_preset=WrappedDefault(None), 
                  w_filters=WrappedDefault(None))
-    def descr_new(space, w_subtype, format=FORMAT_XZ, 
-                  w_check=None, w_preset=None, w_filters=None):
+    def descr_new_comp(space, w_subtype, format=FORMAT_XZ, 
+                       w_check=None, w_preset=None, w_filters=None):
         w_self = space.allocate_instance(W_LZMACompressor, w_subtype)
         self = space.interp_w(W_LZMACompressor, w_self)
         W_LZMACompressor.__init__(self, space, format)
@@ -252,7 +252,7 @@ class W_LZMACompressor(W_Root):
 
 
 W_LZMACompressor.typedef = TypeDef("LZMACompressor",
-    __new__ = interp2app(W_LZMACompressor.descr_new),
+    __new__ = interp2app(W_LZMACompressor.descr_new_comp),
     compress = interp2app(W_LZMACompressor.compress_w),
     flush = interp2app(W_LZMACompressor.flush_w),
 )
@@ -275,8 +275,8 @@ class W_LZMADecompressor(W_Root):
     @unwrap_spec(format=int,
                  w_memlimit=WrappedDefault(None),
                  w_filters=WrappedDefault(None))
-    def descr_new(space, w_subtype, format=FORMAT_AUTO,
-                  w_memlimit=None, w_filters=None):
+    def descr_new_dec(space, w_subtype, format=FORMAT_AUTO,
+                      w_memlimit=None, w_filters=None):
         w_self = space.allocate_instance(W_LZMADecompressor, w_subtype)
         self = space.interp_w(W_LZMADecompressor, w_self)
         W_LZMADecompressor.__init__(self, space, format)
@@ -338,7 +338,7 @@ class W_LZMADecompressor(W_Root):
 
 
 W_LZMADecompressor.typedef = TypeDef("LZMADecompressor",
-    __new__ = interp2app(W_LZMADecompressor.descr_new),
+    __new__ = interp2app(W_LZMADecompressor.descr_new_dec),
     decompress = interp2app(W_LZMADecompressor.decompress_w),
     eof = interp_attrproperty("eof", W_LZMADecompressor),
     unused_data = interp_attrproperty_bytes("unused_data", W_LZMADecompressor),
