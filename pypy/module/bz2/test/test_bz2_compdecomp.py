@@ -41,7 +41,7 @@ def teardown_module(mod):
     interp_bz2.SMALLCHUNK = mod.OLD_SMALLCHUNK
 
 class AppTestBZ2Compressor(CheckAllocation):
-    spaceconfig = dict(usemodules=('bz2',))
+    spaceconfig = dict(usemodules=('bz2', 'rctime'))
 
     def setup_class(cls):
         cls.w_TEXT = cls.space.wrapbytes(TEXT)
@@ -53,6 +53,8 @@ class AppTestBZ2Compressor(CheckAllocation):
                 return space.wrapbytes(decompress(cls, data))
             cls.w_decompress = cls.space.wrap(gateway.interp2app(decompress_w))
         cls.w_HUGE_OK = cls.space.wrap(HUGE_OK)
+
+        cls.space.appexec([], """(): import warnings""")  # Work around a recursion limit
 
     def test_creation(self):
         from bz2 import BZ2Compressor
@@ -108,12 +110,14 @@ class AppTestBZ2Compressor(CheckAllocation):
 
 
 class AppTestBZ2Decompressor(CheckAllocation):
-    spaceconfig = dict(usemodules=('bz2',))
+    spaceconfig = dict(usemodules=('bz2', 'rctime'))
 
     def setup_class(cls):
         cls.w_TEXT = cls.space.wrapbytes(TEXT)
         cls.w_DATA = cls.space.wrapbytes(DATA)
         cls.w_BUGGY_DATA = cls.space.wrapbytes(BUGGY_DATA)
+
+        cls.space.appexec([], """(): import warnings""")  # Work around a recursion limit
 
     def test_creation(self):
         from bz2 import BZ2Decompressor
@@ -184,7 +188,7 @@ class AppTestBZ2Decompressor(CheckAllocation):
 
 
 class AppTestBZ2ModuleFunctions(CheckAllocation):
-    spaceconfig = dict(usemodules=('bz2',))
+    spaceconfig = dict(usemodules=('bz2', 'rctime'))
 
     def setup_class(cls):
         cls.w_TEXT = cls.space.wrapbytes(TEXT)

@@ -316,6 +316,24 @@ res = f()
             assert False, 'Expected StopIteration'
             """
 
+    def test_yield_from_return(self):
+        """
+        def f1():
+            result = yield from f2()
+            return result
+        def f2():
+            yield 1
+            return 2
+        g = f1()
+        assert next(g) == 1
+        try:
+            next(g)
+        except StopIteration as e:
+            assert e.value == 2
+        else:
+            assert False, 'Expected StopIteration'
+            """
+
 
 def test_should_not_inline(space):
     from pypy.interpreter.generator import should_not_inline

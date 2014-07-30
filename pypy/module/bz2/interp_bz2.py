@@ -330,7 +330,7 @@ class W_BZ2Compressor(W_Root):
             res = out.make_result_string()
             return self.space.wrapbytes(res)
 
-W_BZ2Compressor.typedef = TypeDef("BZ2Compressor",
+W_BZ2Compressor.typedef = TypeDef("_bz2.BZ2Compressor",
     __doc__ = W_BZ2Compressor.__doc__,
     __new__ = interp2app(descr_compressor__new__),
     compress = interp2app(W_BZ2Compressor.compress),
@@ -426,98 +426,10 @@ class W_BZ2Decompressor(W_Root):
                 return self.space.wrapbytes(res)
 
 
-W_BZ2Decompressor.typedef = TypeDef("BZ2Decompressor",
+W_BZ2Decompressor.typedef = TypeDef("_bz2.BZ2Decompressor",
     __doc__ = W_BZ2Decompressor.__doc__,
     __new__ = interp2app(descr_decompressor__new__),
     unused_data = interp_attrproperty_bytes("unused_data", W_BZ2Decompressor),
     eof = GetSetProperty(W_BZ2Decompressor.eof_w),
     decompress = interp2app(W_BZ2Decompressor.decompress),
 )
-
-
-@unwrap_spec(data='bufferstr', compresslevel=int)
-def compress(space, data, compresslevel=9):
-    """compress(data [, compresslevel=9]) -> string
-
-    Compress data in one shot. If you want to compress data sequentially,
-    use an instance of BZ2Compressor instead. The compresslevel parameter, if
-    given, must be a number between 1 and 9."""
-
-    if compresslevel < 1 or compresslevel > 9:
-        raise OperationError(space.w_ValueError,
-            space.wrap("compresslevel must be between 1 and 9"))
-
-    with lltype.scoped_alloc(bz_stream.TO, zero=True) as bzs:
-        in_bufsize = len(data)
-
-        with lltype.scoped_alloc(rffi.CCHARP.TO, in_bufsize) as in_buf:
-            for i in range(in_bufsize):
-                in_buf[i] = data[i]
-            bzs.c_next_in = in_buf
-            rffi.setintfield(bzs, 'c_avail_in', in_bufsize)
-
-            # conforming to bz2 manual, this is large enough to fit compressed
-            # data in one shot. We will check it later anyway.
-            with OutBuffer(bzs,
-                           in_bufsize + (in_bufsize / 100 + 1) + 600) as out:
-
-                bzerror = BZ2_bzCompressInit(bzs, compresslevel, 0, 0)
-                if bzerror != BZ_OK:
-                    _catch_bz2_error(space, bzerror)
-
-                while True:
-                    bzerror = BZ2_bzCompress(bzs, BZ_FINISH)
-                    if bzerror == BZ_STREAM_END:
-                        break
-                    elif bzerror != BZ_FINISH_OK:
-                        BZ2_bzCompressEnd(bzs)
-                        _catch_bz2_error(space, bzerror)
-
-                    if rffi.getintfield(bzs, 'c_avail_out') == 0:
-                        out.prepare_next_chunk()
-
-                res = out.make_result_string()
-                BZ2_bzCompressEnd(bzs)
-                return space.wrapbytes(res)
-
-@unwrap_spec(data='bufferstr')
-def decompress(space, data):
-    """decompress(data) -> decompressed data
-
-    Decompress data in one shot. If you want to decompress data sequentially,
-    use an instance of BZ2Decompressor instead."""
-
-    in_bufsize = len(data)
-    if in_bufsize == 0:
-        return space.wrapbytes("")
-
-    with lltype.scoped_alloc(bz_stream.TO, zero=True) as bzs:
-        with lltype.scoped_alloc(rffi.CCHARP.TO, in_bufsize) as in_buf:
-            for i in range(in_bufsize):
-                in_buf[i] = data[i]
-            bzs.c_next_in = in_buf
-            rffi.setintfield(bzs, 'c_avail_in', in_bufsize)
-
-            with OutBuffer(bzs) as out:
-                bzerror = BZ2_bzDecompressInit(bzs, 0, 0)
-                if bzerror != BZ_OK:
-                    _catch_bz2_error(space, bzerror)
-
-                while True:
-                    bzerror = BZ2_bzDecompress(bzs)
-                    if bzerror == BZ_STREAM_END:
-                        break
-                    if bzerror != BZ_OK:
-                        BZ2_bzDecompressEnd(bzs)
-                    _catch_bz2_error(space, bzerror)
-
-                    if rffi.getintfield(bzs, 'c_avail_in') == 0:
-                        BZ2_bzDecompressEnd(bzs)
-                        raise OperationError(space.w_ValueError, space.wrap(
-                            "couldn't find end of stream"))
-                    elif rffi.getintfield(bzs, 'c_avail_out') == 0:
-                        out.prepare_next_chunk()
-
-                res = out.make_result_string()
-                BZ2_bzDecompressEnd(bzs)
-                return space.wrapbytes(res)

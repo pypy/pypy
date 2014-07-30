@@ -268,10 +268,7 @@ class TestPythonAstCompiler:
 
     def test_return_in_generator(self):
         code = 'def f():\n return None\n yield 19\n'
-        e = py.test.raises(OperationError, self.compiler.compile, code, '', 'single', 0)
-        ex = e.value
-        ex.normalize_exception(self.space)
-        assert ex.match(self.space, self.space.w_SyntaxError)
+        self.compiler.compile(code, '', 'single', 0)
 
     def test_yield_in_finally(self):
         code ='def f():\n try:\n  yield 19\n finally:\n  pass\n'
