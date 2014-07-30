@@ -330,7 +330,7 @@ class W_BZ2Compressor(W_Root):
             res = out.make_result_string()
             return self.space.wrapbytes(res)
 
-W_BZ2Compressor.typedef = TypeDef("BZ2Compressor",
+W_BZ2Compressor.typedef = TypeDef("_bz2.BZ2Compressor",
     __doc__ = W_BZ2Compressor.__doc__,
     __new__ = interp2app(descr_compressor__new__),
     compress = interp2app(W_BZ2Compressor.compress),
@@ -426,7 +426,7 @@ class W_BZ2Decompressor(W_Root):
                 return self.space.wrapbytes(res)
 
 
-W_BZ2Decompressor.typedef = TypeDef("BZ2Decompressor",
+W_BZ2Decompressor.typedef = TypeDef("_bz2.BZ2Decompressor",
     __doc__ = W_BZ2Decompressor.__doc__,
     __new__ = interp2app(descr_decompressor__new__),
     unused_data = interp_attrproperty_bytes("unused_data", W_BZ2Decompressor),
