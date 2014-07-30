@@ -295,14 +295,19 @@ class ThreadPoolWaitTests(ThreadPoolMixin, WaitTests, unittest.TestCase):
         event = threading.Event()
         def future_func():
             event.wait()
-        oldswitchinterval = sys.getswitchinterval()
-        sys.setswitchinterval(1e-6)
+        newgil = hasattr(sys, 'getswitchinterval')
+        if newgil:
+            geti, seti = sys.getswitchinterval, sys.setswitchinterval
+        else:
+            geti, seti = sys.getcheckinterval, sys.setcheckinterval
+        oldinterval = geti()
+        seti(1e-6 if newgil else 1)
         try:
             fs = {self.executor.submit(future_func) for i in range(100)}
             event.set()
             futures.wait(fs, return_when=futures.ALL_COMPLETED)
         finally:
-            sys.setswitchinterval(oldswitchinterval)
+            seti(oldinterval)
 
 
 class ProcessPoolWaitTests(ProcessPoolMixin, WaitTests, unittest.TestCase):
