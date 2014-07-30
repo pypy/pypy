@@ -24,3 +24,84 @@ class AppTestDir:
             def __dir__(self):
                 return 42
         raises(TypeError, dir, Foo())
+
+    def test_dir_traceback(self):
+        """Test dir() of traceback."""
+        import sys
+
+        try:
+            raise IndexError
+        except:
+            assert len(dir(sys.exc_info()[2])) == 4
+
+    def test_dir_object_inheritance(self):
+        """Dir should behave the same regardless of inheriting from object."""
+        class A:
+            pass
+
+        class B(object):
+            pass
+        assert dir(A) == dir(B)
+
+    def test_dir_sanity(self):
+        """Test that dir returns reasonable items."""
+        class A(object):
+            a = 1
+
+        class B(A):
+            y = 2
+
+        b = B()
+        b.z = 1
+
+        names = dir(b)
+        for name in 'ayz':
+            assert name in names
+
+        assert '__doc__' in names
+        assert '__module__' in names
+        assert '__dict__' in names
+        assert '__dir__' in names
+        assert '__weakref__' in names
+        assert '__class__' in names
+        assert '__format__' in names
+        # Not an exhaustive list, but will be enough if dir is very broken.
+
+    def test_dir_module(self):
+        import sys
+        assert dir(sys) == list(sorted(sys.__dict__))
+
+    def test_dir_list(self):
+        """Check that dir([]) has methods from list and from object."""
+        names = dir([])
+
+        dct = {}
+        dct.update(list.__dict__)
+        dct.update(object.__dict__)
+
+        assert names == sorted(dct)
+
+    def test_dir_builtins(self):
+        """Test that builtin objects have sane __dir__()."""
+        import sys
+
+        def check_dir(obj):
+            print(dir(obj))
+            assert sorted(obj.__dir__()) == dir(obj)
+
+        for builtin in [sys, object(), [], {}, {1}, "", 1, (), sys,
+                map(ord, "abc"), filter(None, "abc"), zip([1, 2], [3, 4]),
+                compile('1', '', 'exec')]:
+            check_dir(builtin)
+
+    def test_dir_type(self):
+        """Test .__dir__() and dir(...) behavior on types.
+
+        * t.__dir__() throws a TypeError,
+        * dir(t) == sorted(t().__dir__())
+
+        This is the behavior that I observe with cpython3.3.2.
+        """
+        for t in [int, list, tuple, set, str]:
+            raises(TypeError, t.__dir__)
+            assert dir(t) == sorted(t().__dir__())
