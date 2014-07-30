@@ -104,6 +104,15 @@ entirely memset)
 
 ------------------------------------------------------------
 
+hg diff -r b0339cb53372^2 -r dd8e2f69fe96^2 : these trunk changes are
+missing in the stmgc-c7 branch of PyPy.  In particular, reduce the diff
+between stmgc-c7 and default (kill rstm.ThreadLocalRef, etc)
+    
+------------------------------------------------------------
+
+there are in PyPy-STM crashes related to markers (with the JIT?).
+Also, some markers logic is missing with the JIT.
+
 
 
 
