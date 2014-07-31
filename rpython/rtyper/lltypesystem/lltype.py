@@ -1154,7 +1154,12 @@ class _abstract_ptr(object):
                 type(other).__name__,))
         if self._TYPE != other._TYPE:
             raise TypeError("comparing %r and %r" % (self._TYPE, other._TYPE))
-        return self._obj == other._obj
+        try:
+            return self._obj == other._obj
+        except DelayedPointer:
+            # if one of the two pointers is delayed, they cannot
+            # possibly be equal unless they are the same _ptr instance
+            return self is other
 
     def __ne__(self, other):
         return not (self == other)
