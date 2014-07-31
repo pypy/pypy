@@ -640,7 +640,7 @@ Another possibility is to use cls.space.appexec, for example::
             assert self.result == 2 ** 6
 
 which executes the code string function with the given arguments at app level.
-Note the use of ``w_result`` in ``setup_class`` but self.result in the test 
+Note the use of ``w_result`` in ``setup_class`` but self.result in the test.
 Here is how to define an app level class  in ``setup_class`` that can be used
 in subsequent tests::
 
