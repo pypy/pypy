@@ -714,6 +714,22 @@ with somtehing as stuff:
         else:
             py.test.fail("Did not raise")
 
+    def test_signature_kwargname(self):
+        from pypy.interpreter.pycode import cpython_code_signature
+        from pypy.interpreter.signature import Signature
+
+        snippet = 'def f(a, b, m=1, n=2, **kwargs): pass'
+        containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
+        co = containing_co.co_consts_w[2]
+        sig = cpython_code_signature(co)
+        assert sig == Signature(['a', 'b', 'm', 'n'], None, 'kwargs', [])
+
+        snippet = 'def f(a, b, *, m=1, n=2, **kwargs): pass'
+        containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
+        co = containing_co.co_consts_w[4]
+        sig = cpython_code_signature(co)
+        assert sig == Signature(['a', 'b'], None, 'kwargs', ['m', 'n'])
+
 
 class AppTestCompiler:
 
