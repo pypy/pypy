@@ -129,7 +129,7 @@ class Module(W_Root):
             w__dict__ = space.getattr(self, space.wrap('__dict__'))
             result = space.listview(w__dict__)
             w_result = space.wrap(result)
-            w_result.sort(False)
+            space.call_method(w_result, 'sort')
             return w_result
         except OperationError as e:
             if e.match(space, space.w_AttributeError):
