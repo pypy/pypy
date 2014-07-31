@@ -325,7 +325,7 @@ Miscellaneous
 * directly calling the internal magic methods of a few built-in types
   with invalid arguments may have a slightly different result.  For
   example, ``[].__add__(None)`` and ``(2).__add__(None)`` both return
-  ``NotImplemented`` on PyPy; on CPython, only the later does, and the
+  ``NotImplemented`` on PyPy; on CPython, only the latter does, and the
   former raises ``TypeError``.  (Of course, ``[]+None`` and ``2+None``
   both raise ``TypeError`` everywhere.)  This difference is an
   implementation detail that shows up because of internal C-level slots

@@ -443,7 +443,7 @@ it is executed.
 
 Adding an entry under pypy/module (e.g. mymodule) entails automatic
 creation of a new config option (such as --withmod-mymodule and
---withoutmod-mymodule (the later being the default)) for py.py and
+--withoutmod-mymodule (the latter being the default)) for py.py and
 translate.py.
 
 
