@@ -519,6 +519,9 @@ class AppTestSysModulePortedFromCPython:
         # PEP 421 requires that .name be lower case.
         assert sys.implementation.name == sys.implementation.name.lower()
 
+        ns1 = type(sys.implementation)(x=1, y=2, w=3)
+        assert repr(ns1) == "namespace(w=3, x=1, y=2)"
+
     def test_settrace(self):
         import sys
         counts = []
