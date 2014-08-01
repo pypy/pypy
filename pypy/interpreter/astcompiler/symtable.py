@@ -136,6 +136,7 @@ class Scope(object):
                 err = "no binding for nonlocal '%s' found" % (name,)
                 raise SyntaxError(err, self.lineno, self.col_offset)
             self.symbols[name] = SCOPE_FREE
+            self.free_vars.append(name)
             free[name] = None
         elif flags & SYM_BOUND:
             self.symbols[name] = SCOPE_LOCAL
