@@ -11,7 +11,8 @@ def validate_ast(space, node):
 
 
 class ValidationError(Exception):
-    """Signals an invalid AST"""
+    def __init__(self, message):
+        self.message = message
 
 
 def expr_context_name(ctx):
