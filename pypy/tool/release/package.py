@@ -74,7 +74,7 @@ def generate_license_linux(basedir, options):
         dirs = glob.glob(options.license_base + "/" +pat)
         if not dirs:
             raise ValueError, "Could not find "+ options.license_base + "/" + pat
-        if len(dirs) > 2:
+        if len(dirs) > 1:
             raise ValueError, "Multiple copies of "+pat
         dir = dirs[0]
         with open(os.path.join(dir, fname)) as fid:
