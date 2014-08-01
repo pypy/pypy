@@ -730,6 +730,30 @@ type(name, bases, dict) -> a new type""")
     else:
         return space.get(w_result, space.w_None, w_type)
 
+def descr__dir(space, w_type):
+    w_result = space.appexec([w_type], """(obj):
+        def _classdir(klass):
+            Dict = {}
+            try:
+                Dict.update(klass.__dict__)
+            except AttributeError: pass
+            try:
+                bases = klass.__mro__
+            except AttributeError: pass
+            else:
+                try:
+                    #Note that since we are only interested in the keys,
+                    #  the order we merge classes is unimportant
+                    for base in bases:
+                        Dict.update(base.__dict__)
+                except TypeError: pass
+            return Dict
+
+        result = list(_classdir(obj).keys())
+        return result
+    """)
+    return w_result
+
 def descr__flags(space, w_type):
     from copy_reg import _HEAPTYPE
     _CPYTYPE = 1 # used for non-heap types defined in C
@@ -803,6 +827,7 @@ type_typedef = StdTypeDef("type",
     __mro__ = GetSetProperty(descr_get__mro__),
     __dict__ = GetSetProperty(descr_get_dict),
     __doc__ = GetSetProperty(descr__doc),
+    __dir__ = gateway.interp2app(descr__dir),
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),
     __module__ = GetSetProperty(descr_get__module, descr_set__module),

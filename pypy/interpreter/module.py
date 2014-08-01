@@ -123,3 +123,14 @@ class Module(W_Root):
         except OperationError:
             __file__ = u'?'
         return space.wrap(u"<module %s from %s>" % (name, __file__))
+
+    def descr_module__dir__(self, space):
+        try:
+            w__dict__ = space.getattr(self, space.wrap('__dict__'))
+            result = space.listview(w__dict__)
+            w_result = space.wrap(result)
+            return w_result
+        except OperationError as e:
+            if e.match(space, space.w_AttributeError):
+                return space.wrap([])
+            raise
