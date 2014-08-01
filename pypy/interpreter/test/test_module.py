@@ -71,8 +71,7 @@ class AppTest_ModuleObject:
     def test_dir(self):
         import sys
         items = sys.__dir__()
-        assert items == sorted(items)
-        assert items == dir(sys)
+        assert sorted(items) == dir(sys)
 
     def test_package(self):
         import sys

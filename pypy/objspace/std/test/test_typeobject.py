@@ -728,7 +728,6 @@ class AppTestTypeObject:
                 pass
 
         C_items = dir(C)
-        assert C_items == sorted(C_items)
         assert C_items != C.__dir__(C)  # as in cpython
 
         assert 'a_var' in C_items

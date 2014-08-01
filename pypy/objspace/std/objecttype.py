@@ -49,7 +49,6 @@ def descr__dir__(space, w_obj):
         except AttributeError:
             pass
         result = list(Dict.keys())
-        result.sort()
         return result
     """)
     return w_result

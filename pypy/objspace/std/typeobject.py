@@ -750,7 +750,6 @@ def descr__dir(space, w_type):
             return Dict
 
         result = list(_classdir(obj).keys())
-        result.sort()
         return result
     """)
     return w_result
