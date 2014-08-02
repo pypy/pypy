@@ -910,6 +910,7 @@ BuiltinFunction.typedef.acceptable_as_base_class = False
 PyTraceback.typedef = TypeDef("traceback",
     __reduce__ = interp2app(PyTraceback.descr__reduce__),
     __setstate__ = interp2app(PyTraceback.descr__setstate__),
+    __dir__ = interp2app(PyTraceback.descr__dir__),
     tb_frame = interp_attrproperty('frame', cls=PyTraceback),
     tb_lasti = interp_attrproperty('lasti', cls=PyTraceback),
     tb_lineno = GetSetProperty(PyTraceback.descr_tb_lineno),

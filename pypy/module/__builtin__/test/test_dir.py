@@ -32,7 +32,9 @@ class AppTestDir:
         try:
             raise IndexError
         except:
-            assert len(dir(sys.exc_info()[2])) == 4
+            tb_dir = dir(sys.exc_info()[2])
+            assert tb_dir == ['tb_frame', 'tb_lasti', 'tb_lineno', 'tb_next']
+
 
     def test_dir_object_inheritance(self):
         """Dir should behave the same regardless of inheriting from object."""
