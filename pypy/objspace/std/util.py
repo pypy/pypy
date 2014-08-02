@@ -1,3 +1,5 @@
+from pypy.interpreter import gateway
+
 def negate(f):
     """Create a function which calls `f` and negates its result.  When the
     result is ``space.w_NotImplemented``, ``space.w_NotImplemented`` is

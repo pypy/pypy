@@ -7,8 +7,8 @@ import sys
 
 from __pypy__ import lookup_special
 
-def _caller_locals(): 
-    return sys._getframe(0).f_locals 
+def _caller_locals():
+    return sys._getframe(0).f_locals
 
 def vars(*obj):
     """Return a dictionary of all the attributes currently bound in obj.  If
@@ -18,11 +18,10 @@ def vars(*obj):
         return _caller_locals()
     elif len(obj) != 1:
         raise TypeError("vars() takes at most 1 argument.")
-    else:
-        try:
-            return obj[0].__dict__
-        except AttributeError:
-            raise TypeError("vars() argument must have __dict__ attribute")
+    try:
+        return obj[0].__dict__
+    except AttributeError:
+        raise TypeError("vars() argument must have __dict__ attribute")
 
 def dir(*args):
     """dir([object]) -> list of strings
@@ -38,15 +37,13 @@ def dir(*args):
         attributes of its class's base classes.
     """
     if len(args) > 1:
-        raise TypeError("dir expected at most 1 arguments, got %d"
-                        % len(args))
+        raise TypeError("dir expected at most 1 arguments, got %d" % len(args))
     if len(args) == 0:
         local_names = list(_caller_locals().keys()) # 2 stackframes away
         local_names.sort()
         return local_names
 
     obj = args[0]
-
     dir_meth = lookup_special(obj, "__dir__")
     if dir_meth is not None:
         result = dir_meth()
