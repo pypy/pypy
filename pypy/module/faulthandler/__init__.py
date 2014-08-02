@@ -9,4 +9,6 @@ class Module(MixedModule):
         'disable': 'interp_faulthandler.disable',
         'is_enabled': 'interp_faulthandler.is_enabled',
         'register': 'interp_faulthandler.register',
+
+        'dump_traceback': 'interp_faulthandler.dump_traceback',
     }
