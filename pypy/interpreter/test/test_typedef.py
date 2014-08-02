@@ -394,13 +394,6 @@ class AppTestTypeDef:
         # differs from .im_class in case the method is
         # defined in some parent class of l's actual class
 
-    def test_classmethod_im_class(self):
-        class Foo(object):
-            @classmethod
-            def bar(cls):
-                pass
-        assert Foo.bar.im_class is type
-
     def test_func_closure(self):
         x = 2
         def f():
