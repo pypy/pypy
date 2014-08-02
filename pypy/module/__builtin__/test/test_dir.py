@@ -87,14 +87,10 @@ class AppTestDir:
         """Test that builtin objects have sane __dir__()."""
         import sys
 
-        def check_dir(obj):
-            print(dir(obj))
-            assert sorted(obj.__dir__()) == dir(obj)
-
         for builtin in [sys, object(), [], {}, {1}, "", 1, (), sys,
                 map(ord, "abc"), filter(None, "abc"), zip([1, 2], [3, 4]),
                 compile('1', '', 'exec')]:
-            check_dir(builtin)
+            assert sorted(builtin.__dir__()) == dir(builtin)
 
     def test_dir_type(self):
         """Test .__dir__() and dir(...) behavior on types.
