@@ -78,22 +78,13 @@ def _classdir(klass):
     recursively.
     """
     names = set()
-    try:
-        names.update(klass.__dict__)
-    except AttributeError:
-        pass
-    try:
-        # XXX - Use of .__mro__ would be suggested, if the existance of
-        # that attribute could be guarranted.
-        bases = klass.__bases__
-    except AttributeError:
-        pass
-    else:
-        try:
-            # Note that since we are only interested in the keys, the
-            # order we merge classes is unimportant
-            for base in bases:
-                names.update(_classdir(base))
-        except TypeError:
-            pass
+    ns = getattr(klass, '__dict__', None)
+    if ns is not None:
+        names.update(ns)
+    bases = getattr(klass, '__bases__', None)
+    if bases is not None:
+        # Note that since we are only interested in the keys, the order
+        # we merge classes is unimportant
+        for base in bases:
+            names.update(_classdir(base))
     return names
