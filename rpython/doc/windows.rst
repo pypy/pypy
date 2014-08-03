@@ -306,7 +306,7 @@ Such a hacked CPython is what you'll use in the next steps.  We'll call
 it CPython64/64.
 
 It is probably not too much work if the goal is only to get a translated
-PyPy executable, and to run all tests before transaction.  But you need
+PyPy executable, and to run all tests before translation.  But you need
 to start somewhere, and you should start with some tests in
 rpython/translator/c/test/, like ``test_standalone.py`` and
 ``test_newgc.py``: try to have them pass on top of CPython64/64.
