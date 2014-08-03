@@ -61,7 +61,7 @@ zlib
 bz2
     libbz2
 
-lzma (required for PyPy3)
+lzma (PyPy3 only)
     liblzma
 
 sqlite3
@@ -84,14 +84,14 @@ On Debian, this is the command to install all build-time dependencies::
     apt-get install gcc make libffi-dev pkg-config libz-dev libbz2-dev \
     libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev
 
-For PyPy3 you will also need ``liblzma-dev``.
+For the optional lzma module on PyPy3 you will also need ``liblzma-dev``.
 
 On Fedora::
 
     yum install gcc make libffi-devel pkgconfig zlib-devel bzip2-devel \
     lib-sqlite3-devel ncurses-devel expat-devel openssl-devel
 
-For PyPy3 you will also need ``xz-devel``.
+For the optional lzma module on PyPy3 you will also need ``xz-devel``.
 
 On Mac OS X, most of these build-time dependencies are installed alongside
 the Developer Tools. However, note that in order for the installation to
