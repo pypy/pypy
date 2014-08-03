@@ -27,14 +27,11 @@ class AppTestDir:
 
     def test_dir_traceback(self):
         """Test dir() of traceback."""
-        import sys
-
         try:
             raise IndexError
-        except:
-            tb_dir = dir(sys.exc_info()[2])
+        except Exception as e:
+            tb_dir = dir(e.__traceback__)
             assert tb_dir == ['tb_frame', 'tb_lasti', 'tb_lineno', 'tb_next']
-
 
     def test_dir_object_inheritance(self):
         """Dir should behave the same regardless of inheriting from object."""
