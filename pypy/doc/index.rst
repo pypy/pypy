@@ -110,7 +110,7 @@ Meeting PyPy developers
 .. _here: http://www.tismer.com/pypy/irc-logs/pypy/
 .. _Development mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
 .. _Commit mailing list: http://mail.python.org/mailman/listinfo/pypy-commit
-.. _Development bug/feature tracker: https://bugs.pypy.org/
+.. _Development bug/feature tracker: https://bitbucket.org/pypy/pypy/issues?status=new&status=open
 
 
 Indices and tables
