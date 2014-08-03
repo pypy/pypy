@@ -314,7 +314,7 @@ rpython/translator/c/test/, like ``test_standalone.py`` and
 Keep in mind that this runs small translations, and some details may go
 wrong.  The most obvious one is to check that it produces C files that
 use the integer type ``Signed`` --- but what is ``Signed`` defined to?
-It should be equal to ``long`` on every other platforms, but on Win64 it
+It should be equal to ``long`` on every other platform, but on Win64 it
 should be something like ``long long``.
 
 What is more generally needed is to review all the C files in
