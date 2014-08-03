@@ -69,17 +69,6 @@ def dir(*args):
         klass = getattr(obj, '__class__', None)
         if klass is not None:
             names.update(_classdir(klass))
-
-        ## Comment from object.c:
-        ## /* Merge in __members__ and __methods__ (if any).
-        ## XXX Would like this to go away someday; for now, it's
-        ## XXX needed to get at im_self etc of method objects. */
-        for attr in '__members__', '__methods__':
-            l = getattr(obj, attr, None)
-            if not isinstance(l, list):
-                continue
-            names.extend(item for item in l if isinstance(item, str))
-
         return sorted(names)
 
 def _classdir(klass):
