@@ -13,6 +13,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 FORMAT_AUTO, FORMAT_XZ, FORMAT_ALONE, FORMAT_RAW = range(4)
+R_LONGLONG_MASK = r_ulonglong(LONGLONG_MASK)
 
 
 eci = ExternalCompilationInfo(
@@ -282,7 +283,7 @@ class W_LZMADecompressor(W_Root):
         W_LZMADecompressor.__init__(self, space, format)
 
         if space.is_none(w_memlimit):
-            memlimit = r_ulonglong(LONGLONG_MASK)
+            memlimit = R_LONGLONG_MASK
         else:
             memlimit = space.r_ulonglong_w(w_memlimit)
 
