@@ -39,9 +39,7 @@ def dir(*args):
     if len(args) > 1:
         raise TypeError("dir expected at most 1 arguments, got %d" % len(args))
     if len(args) == 0:
-        local_names = list(_caller_locals().keys()) # 2 stackframes away
-        local_names.sort()
-        return local_names
+        return sorted(_caller_locals().keys()) # 2 stackframes away
 
     import types
     obj = args[0]
