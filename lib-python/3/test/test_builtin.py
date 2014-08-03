@@ -424,9 +424,7 @@ class BuiltinTest(unittest.TestCase):
         try:
             raise IndexError
         except:
-            methods = [meth for meth in dir(sys.exc_info()[2])
-                       if not meth.startswith('_')]
-            self.assertEqual(len(methods), 4)
+            self.assertEqual(len(dir(sys.exc_info()[2])), 4)
 
         # test that object has a __dir__()
         self.assertEqual(sorted([].__dir__()), dir([]))
