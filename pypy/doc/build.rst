@@ -61,9 +61,6 @@ zlib
 bz2
     libbz2
 
-lzma
-    liblzma
-
 sqlite3
     libsqlite3
 
@@ -82,18 +79,38 @@ building PyPy, otherwise the resulting binary will not contain these modules.
 On Debian, this is the command to install all build-time dependencies::
 
     apt-get install gcc make libffi-dev pkg-config libz-dev libbz2-dev \
-    liblzma-dev libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev
+    libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev
 
 On Fedora::
 
     yum install gcc make libffi-devel pkgconfig zlib-devel bzip2-devel \
-    xz-devel lib-sqlite3-devel ncurses-devel expat-devel openssl-devel
+    lib-sqlite3-devel ncurses-devel expat-devel openssl-devel
 
 On Mac OS X, most of these build-time dependencies are installed alongside
 the Developer Tools. However, note that in order for the installation to
 find them you may need to run::
 
     xcode-select --install
+
+
+Python 3.3
+~~~~~~~~~~
+
+For versions of PyPy that implement Python 3.3 and later you will
+also need:
+
+lzma
+    liblzma
+
+On Debian. install it using::
+
+    apt-get install liblzma-dev
+
+On Fedora::
+
+    yum install xz-devel
+
+TODO: Mac OS X
 
 
 Run the translation
