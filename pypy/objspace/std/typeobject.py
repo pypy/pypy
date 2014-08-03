@@ -731,28 +731,8 @@ type(name, bases, dict) -> a new type""")
         return space.get(w_result, space.w_None, w_type)
 
 def descr__dir(space, w_type):
-    w_result = space.appexec([w_type], """(obj):
-        def _classdir(klass):
-            Dict = {}
-            try:
-                Dict.update(klass.__dict__)
-            except AttributeError: pass
-            try:
-                bases = klass.__mro__
-            except AttributeError: pass
-            else:
-                try:
-                    #Note that since we are only interested in the keys,
-                    #  the order we merge classes is unimportant
-                    for base in bases:
-                        Dict.update(base.__dict__)
-                except TypeError: pass
-            return Dict
-
-        result = list(_classdir(obj).keys())
-        return result
-    """)
-    return w_result
+    from pypy.objspace.std.util import _classdir
+    return space.call_function(space.w_list, _classdir(space, w_type))
 
 def descr__flags(space, w_type):
     from copy_reg import _HEAPTYPE

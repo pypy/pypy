@@ -44,12 +44,9 @@ def dir(*args):
         return local_names
 
     obj = args[0]
-    dir_meth = lookup_special(obj, "__dir__")
+    dir_meth = lookup_special(obj, '__dir__')
     if dir_meth is not None:
-        result = dir_meth()
-        if not isinstance(result, list):
-            result = list(result)  # Will throw TypeError if not iterable
-        result.sort()
-        return result
-
-    return []  # we should never reach here since object.__dir__ exists
+        # Will throw TypeError if not iterable
+        return sorted(dir_meth())
+    # we should never reach here since object.__dir__ exists
+    return []

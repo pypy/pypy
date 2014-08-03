@@ -20,38 +20,8 @@ def descr__repr__(space, w_obj):
     return w_obj.getrepr(space, u'%s object' % (classname,))
 
 def descr__dir__(space, w_obj):
-    w_result = space.appexec([w_obj], """(obj):
-        def _classdir(klass):
-            Dict = {}
-            try:
-                Dict.update(klass.__dict__)
-            except AttributeError: pass
-            try:
-                bases = klass.__mro__
-            except AttributeError: pass
-            else:
-                try:
-                    #Note that since we are only interested in the keys,
-                    #  the order we merge classes is unimportant
-                    for base in bases:
-                        Dict.update(base.__dict__)
-                except TypeError: pass
-            return Dict
-
-        Dict = {}
-        try:
-            if isinstance(obj.__dict__, dict):
-                Dict.update(obj.__dict__)
-        except AttributeError:
-            pass
-        try:
-            Dict.update(_classdir(obj.__class__))
-        except AttributeError:
-            pass
-        result = list(Dict.keys())
-        return result
-    """)
-    return w_result
+    from pypy.objspace.std.util import _objectdir
+    return space.call_function(space.w_list, _objectdir(space, w_obj))
 
 def descr__str__(space, w_obj):
     w_type = space.type(w_obj)

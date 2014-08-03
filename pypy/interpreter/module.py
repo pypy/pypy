@@ -129,4 +129,4 @@ class Module(W_Root):
         if not space.isinstance_w(w_dict, space.w_dict):
             raise oefmt(space.w_TypeError, "%N.__dict__ is not a dictionary",
                         self)
-        return space.newlist(space.listview(w_dict))
+        return space.call_function(space.w_list, w_dict)
