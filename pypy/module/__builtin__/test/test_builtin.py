@@ -224,13 +224,15 @@ class AppTestBuiltinApp:
         assert dir(Foo("a_mod")) == ["blah"]
 
     def test_dir_custom_lookup(self):
+        """
         class M(type):
             def __dir__(self, *args): return ["14"]
-        class X(object):
-            __metaclass__ = M
+        class X(metaclass=M):
+            pass
         x = X()
         x.__dir__ = lambda x: ["14"]
         assert dir(x) != ["14"]
+        """
 
     def test_format(self):
         assert format(4) == "4"
