@@ -44,7 +44,9 @@ def dir(*args):
     obj = args[0]
     dir_meth = lookup_special(obj, '__dir__')
     if dir_meth is not None:
+        # obscure: lookup_special won't bind None.__dir__!
+        result = dir_meth(obj) if obj is None else dir_meth()
         # Will throw TypeError if not iterable
-        return sorted(dir_meth())
+        return sorted(result)
     # we should never reach here since object.__dir__ exists
     return []

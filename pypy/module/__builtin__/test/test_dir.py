@@ -100,3 +100,6 @@ class AppTestDir:
         for t in [int, list, tuple, set, str]:
             raises(TypeError, t.__dir__)
             assert dir(t) == sorted(t().__dir__())
+
+    def test_dir_none(self):
+        assert dir(None) == sorted(None.__dir__())
