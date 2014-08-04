@@ -150,16 +150,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)
         if cfuncs:
+            print 'cfuncs.int_times2',cfuncs.int_times2
             def int_times2(space, __args__):
                 args, kwargs = __args__.unpack()
                 arr = map(space.unwrap, args)
                 # Assume arr is contiguous
-                addr = cfuncs.new('char *[2]')
+                addr = ffi.new('char *[3]')
                 addr[0] = arr[0].data
                 addr[1] = arr[1].data
-                dims = cfuncs.new('int *[1]')
+                dims = ffi.new('int *[1]')
                 dims[0] = arr[0].size
-                steps = cfuncs.new('int *[1]')
+                steps = ffi.new('int *[1]')
                 steps[0] = arr[0].strides[-1]
                 cfuncs.int_times2(addr, dims, steps, 0)
             def double_times2(space, __args__):
@@ -175,10 +176,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 steps[0] = arr[0].strides[-1]
                 cfuncs.double_times2(addr, dims, steps, 0)
             if option.runappdirect:
-                times2 = cls.space.wrap([double_times2, int_times2])
+                times2 = cls.space.wrap([int_times2, double_times2])
             else:
-                times2 = cls.space.wrap([interp2app(double_times2),
-                          interp2app(int_times2)])
+                times2 = cls.space.wrap([interp2app(int_times2),
+                            interp2app(double_times2),
+                          ])
         else:
             times2 = None
         cls.w_times2 = cls.space.wrap(times2)
@@ -233,13 +235,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_from_cffi_func(self):
         import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            skip('pypy-only test')
+        #if '__pypy__' not in sys.builtin_module_names:
+        #    skip('pypy-only test')
         from numpy import frompyfunc, dtype, arange
         if self.times2 is None:
             skip('cffi not available')
         ufunc = frompyfunc(self.times2, 1, 1, signature='()->()',
-                     dtypes=[dtype(float), dtype(float), dtype(int), dtype(int)],
+                     dtypes=[dtype(int), dtype(int),
+                             dtype(float), dtype(float)
+                            ]
                     )
         f = arange(10, dtype=int)
         f2 = ufunc(f)

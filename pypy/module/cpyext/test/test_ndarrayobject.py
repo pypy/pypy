@@ -214,6 +214,9 @@ class TestNDArrayObject(BaseApiTest):
         assert res.get_scalar_value().imag == 4.
     
     def test_Ufunc_FromFuncAndDataAndSignature(self. space, api):
+        PyUFuncGenericFunction funcs[] = {&double_times2, &int_times2};
+        char types[] = { NPY_DOUBLE,NPY_DOUBLE, NPY_INT, NPY_INT };
+        void *array_data[] = {NULL, NULL};
         ufunc = api._PyUFunc_FromFuncAndDataAndSignature(space, funcs, data,
                         types, ntypes, nin, nout, identity, doc, check_return,
                         signature)

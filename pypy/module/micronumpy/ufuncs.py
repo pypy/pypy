@@ -542,10 +542,21 @@ class W_UfuncGeneric(W_Ufunc):
                 outargs[i] = out
         index = self.type_resolver(space, inargs, outargs)
         self.alloc_outargs(space, index, inargs, outargs)
-        # XXX handle inner-loop indexing
         new_shape = inargs[0].get_shape()
         assert isinstance(outargs[0], W_NDimArray)
         res_dtype = outargs[0].get_dtype()
+        # XXX handle inner-loop indexing
+        sign_parts = self.signature.split('->')
+        if len(sign_parts) == 2 and sign_parts[0].strip() == '()' \
+                                and sign_parts[1].strip() == '()':
+                                        
+            arglist = space.newlist(inargs + outargs)
+            func = self.funcs[index]
+            # XXXX TODO in test_ufuncs's test_from_cffi_func, 
+            # XXXX func is an app-level python function, 
+            # XXXX how do we call it?
+            assert False
+            return
         if len(outargs) < 2:
             return loop.call_many_to_one(space, new_shape, self.funcs[index],
                                          res_dtype, inargs, outargs[0])
@@ -968,7 +979,6 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
         if not space.is_true(space.callable(w_func)):
             raise oefmt(space.w_TypeError, 'func must be callable')
         func = [w_func]
-
     match_dtypes = False    
     if space.is_none(w_dtypes) and not signature:
         raise oefmt(space.w_NotImplementedError,
@@ -976,13 +986,15 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     elif (space.isinstance_w(w_dtypes, space.w_tuple) or
             space.isinstance_w(w_dtypes, space.w_list)):
             _dtypes = space.listview(w_dtypes)
-            if space.str_w(_dtypes[0]) == 'match':
+            if space.isinstance_w(_dtypes[0], space.w_str) and space.str_w(_dtypes[0]) == 'match':
                 dtypes = []
                 match_dtypes = True
             else:    
                 dtypes = [None]*len(_dtypes)
                 for i in range(len(dtypes)):
+                    print 'decoding',_dtypes[i]
                     dtypes[i] = descriptor.decode_w_dtype(space, _dtypes[i])
+                    print 'got',dtypes[i]
     else:
         raise oefmt(space.w_ValueError,
             'dtypes must be None or a list of dtypes')
