@@ -139,7 +139,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             out_flat = out_array.flat
             for i in range(in_array.size):
                 out_flat[i] = in_flat[i] * 2
-        def double_times2(space, __args__):
+        def double_times2(in_array, out_array):
             assert in_array.dtype == float
             in_flat = in_array.flat
             out_flat = out_array.flat
@@ -147,7 +147,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 out_flat[i] = in_flat[i] * 2
         from numpy import frompyfunc, dtype, arange
         ufunc = frompyfunc([int_times2, double_times2], 1, 1, 
-                            signature='()->()',
                             dtypes=[dtype(int), dtype(int),
                             dtype(float), dtype(float)
                             ]
