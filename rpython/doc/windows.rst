@@ -339,9 +339,9 @@ bad idea.  Look only at CPython64/64.
 The major intermediate goal is to get a translation of PyPy with ``-O2``
 with a minimal set of modules, starting with ``--no-allworkingmodules``;
 you need to use CPython64/64 to run this translation too.  Check
-carefully the warnings of the C compiler at the end.  I think that MSVC
-is lenient in that by default a lot of mismatches of integer sizes are
-reported as warnings.
+carefully the warnings of the C compiler at the end. By default, MSVC
+reports a lot of mismatches of integer sizes as warnings instead of
+errors.
 
 Then you need to review ``pypy/module/*/`` for ``LONG-versus-Signed``
 issues.  At some time during this review, we get a working translated
