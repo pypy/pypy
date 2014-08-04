@@ -552,11 +552,10 @@ class W_UfuncGeneric(W_Ufunc):
                                         
             arglist = space.newlist(inargs + outargs)
             func = self.funcs[index]
-            # XXXX TODO in test_ufuncs's test_from_cffi_func, 
-            # XXXX func is an app-level python function, 
-            # XXXX how do we call it?
-            assert False
-            return
+            space.call_function(func, *(inargs + outargs))
+            if len(outargs) < 2:
+                return outargs[0]
+            return outargs
         if len(outargs) < 2:
             return loop.call_many_to_one(space, new_shape, self.funcs[index],
                                          res_dtype, inargs, outargs[0])

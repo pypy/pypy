@@ -6,69 +6,6 @@ from pypy.interpreter.gateway import interp2app
 from pypy.conftest import option
 
 
-try:
-    import cffi
-    ffi = cffi.FFI()
-    if ffi.sizeof('int *') == ffi.sizeof('long'):
-        intp = 'long'
-    elif ffi.sizeof('int *') == ffi.sizeof('int'):
-        intp = 'int'
-    else:
-        raise ValueError('unknown size of int *')
-    ffi.cdef('''
-        void double_times2(char **args, {0} *dimensions,
-                            {0} * steps, void* data);
-        void int_times2(char **args, {0} **dimensions,
-                            {0} **steps, void* data);
-    '''.format(intp)
-    )
-    cfuncs = ffi.verify('''
-        void double_times2(char **args, {0} *dimensions,
-                            {0} * steps, void* data)
-    {{
-        {0} i;
-        {0} n = dimensions[0];
-        char *in = args[0], *out = args[1];
-        {0} in_step = steps[0], out_step = steps[1];
-
-        double tmp;
-
-        for (i = 0; i < n; i++) {{
-            /*BEGIN main ufunc computation*/
-            tmp = *(double *)in;
-            tmp *=2.0;
-            *((double *)out) = tmp;
-            /*END main ufunc computation*/
-
-            in += in_step;
-            out += out_step;
-        }}
-    }};
-        void int_times2(char **args, {0} *dimensions,
-                            {0} * steps, void* data)
-    {{
-        {0} i;
-        {0} n = dimensions[0];
-        char *in = args[0], *out = args[1];
-        {0} in_step = steps[0], out_step = steps[1];
-
-        int tmp;
-
-        for (i = 0; i < n; i++) {{
-            /*BEGIN main ufunc computation*/
-            tmp = *(int *)in;
-            tmp *=2.0;
-            *((int *)out) = tmp;
-            /*END main ufunc computation*/
-
-            in += in_step;
-            out += out_step;
-        }}
-    }}
-    '''.format(intp))
-except ImportError:
-    cfuncs = None
-
 class TestUfuncCoercion(object):
     def test_binops(self, space):
         bool_dtype = get_dtype_cache(space).w_booldtype
@@ -147,44 +84,6 @@ class TestUfuncCoercion(object):
         assert find_unaryop_result_dtype(space, bool_dtype, promote_bools=True) is int8_dtype
 
 class AppTestUfuncs(BaseNumpyAppTest):
-    def setup_class(cls):
-        BaseNumpyAppTest.setup_class.im_func(cls)
-        if cfuncs:
-            print 'cfuncs.int_times2',cfuncs.int_times2
-            def int_times2(space, __args__):
-                args, kwargs = __args__.unpack()
-                arr = map(space.unwrap, args)
-                # Assume arr is contiguous
-                addr = ffi.new('char *[3]')
-                addr[0] = arr[0].data
-                addr[1] = arr[1].data
-                dims = ffi.new('int *[1]')
-                dims[0] = arr[0].size
-                steps = ffi.new('int *[1]')
-                steps[0] = arr[0].strides[-1]
-                cfuncs.int_times2(addr, dims, steps, 0)
-            def double_times2(space, __args__):
-                args, kwargs = __args__.unpack()
-                arr = map(space.unwrap, args)
-                # Assume arr is contiguous
-                addr = cfuncs.new('char *[2]')
-                addr[0] = arr[0].data
-                addr[1] = arr[1].data
-                dims = cfuncs.new('int *[1]')
-                dims[0] = arr[0].size
-                steps = cfuncs.new('int *[1]')
-                steps[0] = arr[0].strides[-1]
-                cfuncs.double_times2(addr, dims, steps, 0)
-            if option.runappdirect:
-                times2 = cls.space.wrap([int_times2, double_times2])
-            else:
-                times2 = cls.space.wrap([interp2app(int_times2),
-                            interp2app(double_times2),
-                          ])
-        else:
-            times2 = None
-        cls.w_times2 = cls.space.wrap(times2)
-
     def test_constants(self):
         import numpy as np
         assert np.FLOATING_POINT_SUPPORT == 1
@@ -198,7 +97,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert add.__name__ == 'add'
         raises(TypeError, ufunc)
 
-    def test_frompyfunc(self):
+    def test_frompyfunc_innerloop(self):
         from numpy import ufunc, frompyfunc, arange, dtype
         def adder(a, b):
             return a+b
@@ -233,21 +132,32 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert isinstance(res, tuple)
         assert (res[0] == arange(10)).all()
 
-    def test_from_cffi_func(self):
-        import sys
-        #if '__pypy__' not in sys.builtin_module_names:
-        #    skip('pypy-only test')
+    def test_frompyfunc_outerloop(self):
+        def int_times2(in_array, out_array):
+            assert in_array.dtype == int
+            in_flat = in_array.flat
+            out_flat = out_array.flat
+            for i in range(in_array.size):
+                out_flat[i] = in_flat[i] * 2
+        def double_times2(space, __args__):
+            assert in_array.dtype == float
+            in_flat = in_array.flat
+            out_flat = out_array.flat
+            for i in range(in_array.size):
+                out_flat[i] = in_flat[i] * 2
         from numpy import frompyfunc, dtype, arange
-        if self.times2 is None:
-            skip('cffi not available')
-        ufunc = frompyfunc(self.times2, 1, 1, signature='()->()',
-                     dtypes=[dtype(int), dtype(int),
-                             dtype(float), dtype(float)
+        ufunc = frompyfunc([int_times2, double_times2], 1, 1, 
+                            signature='()->()',
+                            dtypes=[dtype(int), dtype(int),
+                            dtype(float), dtype(float)
                             ]
                     )
-        f = arange(10, dtype=int)
-        f2 = ufunc(f)
-        assert f2
+        ai = arange(10, dtype=int)
+        ai2 = ufunc(ai)
+        assert all(ai2 == ai * 2)
+        af = arange(10, dtype=float)
+        af2 = ufunc(af)
+        assert all(af2 == af * 2)
 
     def test_ufunc_attrs(self):
         from numpy import add, multiply, sin
