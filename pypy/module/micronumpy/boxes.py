@@ -511,6 +511,9 @@ class W_VoidBox(W_FlexibleBox):
             return space.wrap(dtype.itemtype.to_str(read_val))
         return read_val
 
+    def descr_iter(self, space):
+        return space.newseqiter(self)
+
     def descr_setitem(self, space, w_item, w_value):
         if space.isinstance_w(w_item, space.w_basestring):
             item = space.str_w(w_item)
@@ -782,6 +785,7 @@ W_VoidBox.typedef = TypeDef("numpy.void", W_FlexibleBox.typedef,
     __new__ = interp2app(W_VoidBox.descr__new__.im_func),
     __getitem__ = interp2app(W_VoidBox.descr_getitem),
     __setitem__ = interp2app(W_VoidBox.descr_setitem),
+    __iter__ = interp2app(W_VoidBox.descr_iter),
 )
 
 W_CharacterBox.typedef = TypeDef("numpy.character", W_FlexibleBox.typedef,

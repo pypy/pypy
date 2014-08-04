@@ -42,7 +42,7 @@ class LLFatalError(Exception):
         return ': '.join([str(x) for x in self.args])
 
 def type_name(etype):
-    return ''.join(etype.name).rstrip('\x00')
+    return ''.join(etype.name.chars)
 
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
@@ -145,7 +145,7 @@ class LLInterpreter(object):
         assert isinstance(exc, LLException)
         klass, inst = exc.args[0], exc.args[1]
         for cls in enumerate_exceptions_top_down():
-            if "".join(klass.name).rstrip("\0") == cls.__name__:
+            if "".join(klass.name.chars) == cls.__name__:
                 return cls
         raise ValueError("couldn't match exception, maybe it"
                       " has RPython attributes like OSError?")

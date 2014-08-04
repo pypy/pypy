@@ -435,14 +435,14 @@ class VGenericEngine(object):
                     enumerator, enumerator, enumvalue))
             prnt('    char buf[64];')
             prnt('    if ((%s) < 0)' % enumerator)
-            prnt('        snprintf(buf, 63, "%%ld", (long)(%s));' % enumerator)
+            prnt('        sprintf(buf, "%%ld", (long)(%s));' % enumerator)
             prnt('    else')
-            prnt('        snprintf(buf, 63, "%%lu", (unsigned long)(%s));' %
+            prnt('        sprintf(buf, "%%lu", (unsigned long)(%s));' %
                  enumerator)
-            prnt('    snprintf(out_error, 255,'
+            prnt('    sprintf(out_error,'
                              ' "%s has the real value %s, not %s",')
             prnt('            "%s", buf, "%d");' % (
-                enumerator, enumvalue))
+                enumerator[:100], enumvalue))
             prnt('    return -1;')
             prnt('  }')
         prnt('  return 0;')

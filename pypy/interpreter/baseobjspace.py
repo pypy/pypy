@@ -665,8 +665,11 @@ class ObjSpace(object):
         else:
             # translated case follows.  self.threadlocals is either from
             # 'pypy.interpreter.miscutils' or 'pypy.module.thread.threadlocals'.
-            # the result is assumed to be non-null: enter_thread() was called.
-            return self.threadlocals.get_ec()
+            # the result is assumed to be non-null: enter_thread() was called
+            # by space.startup().
+            ec = self.threadlocals.get_ec()
+            assert ec is not None
+            return ec
 
     def _freeze_(self):
         return True
@@ -1498,9 +1501,7 @@ class ObjSpace(object):
             return buf.as_str()
 
     def str_or_None_w(self, w_obj):
-        if self.is_w(w_obj, self.w_None):
-            return None
-        return self.str_w(w_obj)
+        return None if self.is_none(w_obj) else self.str_w(w_obj)
 
     def str_w(self, w_obj):
         return w_obj.str_w(self)
