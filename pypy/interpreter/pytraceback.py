@@ -52,7 +52,7 @@ class PyTraceback(baseobjspace.W_Root):
 
     def descr__dir__(self, space):
         return space.newlist([space.wrap(n) for n in
-            ('tb_frame', 'tb_next', 'tb_lasti', 'tb_lineno')])
+            ['tb_frame', 'tb_next', 'tb_lasti', 'tb_lineno']])
 
 
 def record_application_traceback(space, operror, frame, last_instruction):
