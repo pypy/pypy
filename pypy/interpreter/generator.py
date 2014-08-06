@@ -99,7 +99,7 @@ return next yielded value or raise StopIteration."""
             # if the frame is now marked as finished, it was RETURNed from
             if frame.frame_finished_execution:
                 self.frame = None
-                raise OperationError(space.w_StopIteration, space.w_None)
+                raise OperationError(space.w_StopIteration, w_result)
             else:
                 return w_result     # YIELDed
         finally:

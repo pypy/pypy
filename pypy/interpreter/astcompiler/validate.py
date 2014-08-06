@@ -14,6 +14,9 @@ class ValidationError(Exception):
     def __init__(self, message):
         self.message = message
 
+    def __str__(self):
+        return self.message
+
 
 def expr_context_name(ctx):
     if not 1 <= ctx <= len(ast.expr_context_to_class):

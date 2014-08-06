@@ -670,8 +670,8 @@ class W_Map(W_Root):
     def descr_reduce(self, space):
         w_map = space.getattr(space.getbuiltinmodule('builtins'),
                 space.wrap('map'))
-        args = [self.w_fun] + self.iterators_w
-        return space.newtuple([w_map, space.newtuple(args)])
+        args_w = [self.w_fun] + self.iterators_w
+        return space.newtuple([w_map, space.newtuple(args_w)])
 
 
 def W_Map___new__(space, w_subtype, w_fun, args_w):
@@ -721,9 +721,9 @@ class W_Filter(W_Root):
     def descr_reduce(self, space):
         w_filter = space.getattr(space.getbuiltinmodule('builtins'),
                 space.wrap('filter'))
-        args = [space.w_None if self.no_predicate else self.w_predicate,
-                self.iterable]
-        return space.newtuple([w_filter, space.newtuple(args)])
+        args_w = [space.w_None if self.no_predicate else self.w_predicate,
+                  self.iterable]
+        return space.newtuple([w_filter, space.newtuple(args_w)])
 
 
 def W_Filter___new__(space, w_subtype, w_predicate, w_iterable):

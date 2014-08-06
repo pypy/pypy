@@ -287,7 +287,8 @@ def _determine_encoding(space, encoding, w_buffer):
     try:
         w_locale = space.call_method(space.builtin, '__import__',
                                      space.wrap('locale'))
-        w_encoding = space.call_method(w_locale, 'getpreferredencoding')
+        w_encoding = space.call_method(w_locale, 'getpreferredencoding',
+                                       space.w_False)
     except OperationError as e:
         # getpreferredencoding() may also raise ImportError
         if not e.match(space, space.w_ImportError):

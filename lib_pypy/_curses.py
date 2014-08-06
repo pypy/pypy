@@ -309,11 +309,9 @@ lib = ffi.verify("""
 #endif
 
 int _m_ispad(WINDOW *win) {
-#if defined WINDOW_HAS_FLAGS
+    // <curses.h> may not have _flags (and possibly _ISPAD),
+    // but for now let's assume that <ncurses.h> always has it
     return (win->_flags & _ISPAD);
-#else
-    return 0;
-#endif
 }
 
 void _m_getsyx(int *yx) {

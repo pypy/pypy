@@ -19,6 +19,10 @@ def descr__repr__(space, w_obj):
                 classname = u'%s.%s' % (modulename, classname)
     return w_obj.getrepr(space, u'%s object' % (classname,))
 
+def descr__dir__(space, w_obj):
+    from pypy.objspace.std.util import _objectdir
+    return space.call_function(space.w_list, _objectdir(space, w_obj))
+
 def descr__str__(space, w_obj):
     w_type = space.type(w_obj)
     w_impl = w_type.lookup("__repr__")
@@ -120,7 +124,7 @@ def descr___format__(space, w_obj, w_format_spec):
         raise OperationError(space.w_TypeError, space.wrap(msg))
     if space.len_w(w_format_spec) > 0:
         msg = "object.__format__ with a non-empty format string is deprecated"
-        space.warn(space.wrap(msg), space.w_PendingDeprecationWarning)
+        space.warn(space.wrap(msg), space.w_DeprecationWarning)
     return space.format(w_as_str, w_format_spec)
 
 def descr___subclasshook__(space, __args__):
@@ -219,6 +223,7 @@ object_typedef = StdTypeDef("object",
     __delattr__ = gateway.interp2app(Object.descr__delattr__.im_func),
     __str__ = gateway.interp2app(descr__str__),
     __repr__ = gateway.interp2app(descr__repr__),
+    __dir__ = gateway.interp2app(descr__dir__),
     __class__ = GetSetProperty(descr__class__, descr_set___class__),
     __doc__ = '''The most base type''',
     __new__ = gateway.interp2app(descr__new__),

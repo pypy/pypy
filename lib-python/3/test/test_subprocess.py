@@ -1314,6 +1314,7 @@ class POSIXProcessTestCase(BaseTestCase):
                         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE, preexec_fn=raise_it)
 
+    @support.impl_detail("PyPy's _posixsubprocess doesn't have to disable gc")
     def test_preexec_gc_module_failure(self):
         # This tests the code that disables garbage collection if the child
         # process will execute any Python.
@@ -1964,6 +1965,7 @@ class POSIXProcessTestCase(BaseTestCase):
         ident = id(p)
         pid = p.pid
         del p
+        support.gc_collect()
         # check that p is in the active processes list
         self.assertIn(ident, [id(o) for o in subprocess._active])
 
@@ -1983,6 +1985,7 @@ class POSIXProcessTestCase(BaseTestCase):
         ident = id(p)
         pid = p.pid
         del p
+        support.gc_collect()
         os.kill(pid, signal.SIGKILL)
         # check that p is in the active processes list
         self.assertIn(ident, [id(o) for o in subprocess._active])

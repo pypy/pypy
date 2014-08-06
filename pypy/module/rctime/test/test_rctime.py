@@ -11,6 +11,7 @@ class AppTestRCTime:
         assert isinstance(rctime.timezone, int)
         assert isinstance(rctime.tzname, tuple)
         assert isinstance(rctime.__doc__, str)
+        assert isinstance(rctime._STRUCT_TM_ITEMS, int)
 
     def test_sleep(self):
         import time as rctime

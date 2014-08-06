@@ -87,6 +87,8 @@ class AppTestBZ2File: #(CheckAllocation):
                 gateway.interp2app(create_broken_temp_file_w))
         cls.w_random_data = cls.space.wrapbytes(RANDOM_DATA)
 
+        cls.space.appexec([], """(): import warnings""")  # Work around a recursion limit
+
     def test_attributes(self):
         from bz2 import BZ2File
 

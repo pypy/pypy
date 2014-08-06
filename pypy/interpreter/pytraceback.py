@@ -50,6 +50,10 @@ class PyTraceback(baseobjspace.W_Root):
         self.lasti = space.int_w(w_lasti)
         self.next = space.interp_w(PyTraceback, w_next, can_be_None=True)
 
+    def descr__dir__(self, space):
+        return space.newlist([space.wrap(n) for n in
+            ['tb_frame', 'tb_next', 'tb_lasti', 'tb_lineno']])
+
 
 def record_application_traceback(space, operror, frame, last_instruction):
     if frame.pycode.hidden_applevel:

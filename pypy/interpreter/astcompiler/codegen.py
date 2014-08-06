@@ -244,7 +244,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(op, self.add_name(container, identifier))
 
     def possible_docstring(self, node):
-        if isinstance(node, ast.Expr):
+        if isinstance(node, ast.Expr) and self.compile_info.optimize < 2:
             expr_value = node.value
             if isinstance(expr_value, ast.Str):
                 return expr_value

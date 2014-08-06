@@ -35,6 +35,7 @@ class Module(MixedModule):
                     'indexOf']
 
     interpleveldefs = {}
+    interpleveldefs['_compare_digest'] = 'tscmp.compare_digest'
 
     for name in interp_names:
         interpleveldefs[name] = 'interp_operator.%s' % name

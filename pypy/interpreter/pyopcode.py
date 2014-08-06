@@ -1006,13 +1006,14 @@ class __extend__(pyframe.PyFrame):
             else:
                 w_retval = space.call_method(w_gen, "send", w_value)
         except OperationError as e:
-            if not e.match(self.space, self.space.w_StopIteration):
+            if not e.match(space, space.w_StopIteration):
                 raise
             self.popvalue()  # Remove iter from stack
+            e.normalize_exception(space)
             try:
                 w_value = space.getattr(e.get_w_value(space), space.wrap("value"))
             except OperationError as e:
-                if not e.match(self.space, self.space.w_AttributeError):
+                if not e.match(space, space.w_AttributeError):
                     raise
                 w_value = space.w_None
             self.pushvalue(w_value)

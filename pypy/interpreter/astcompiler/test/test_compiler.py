@@ -808,6 +808,28 @@ class TestCompiler:
             return y"""
         yield self.st, test, "f()", 4
 
+    def test_nonlocal_from_arg(self):
+        test = """if 1:
+        def test1(x):
+            def test2():
+                nonlocal x
+                def test3():
+                    return x
+                return test3()
+            return test2()"""
+        yield self.st, test, "test1(2)", 2
+
+    def test_class_nonlocal_from_arg(self):
+        test = """if 1:
+        def f(x):
+            class c:
+                nonlocal x
+                x += 1
+                def get(self):
+                    return x
+            return c().get()"""
+        yield self.st, test, "f(3)", 4
+
     def test_lots_of_loops(self):
         source = "for x in y: pass\n" * 1000
         compile_with_astcompiler(source, 'exec', self.space)

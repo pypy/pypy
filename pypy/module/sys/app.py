@@ -129,6 +129,17 @@ class SimpleNamespace:
     def __dict__(self):
         return self._ns
 
+    def __repr__(self, recurse=set()):
+        ident = id(self)
+        if ident in recurse:
+            return "namespace(...)"
+        recurse.add(ident)
+        try:
+            pairs = ('%s=%r' % item for item in sorted(self._ns.items()))
+            return "namespace(%s)" % ', '.join(pairs)
+        finally:
+            recurse.remove(ident)
+
 
 implementation = SimpleNamespace(
     name='pypy',
