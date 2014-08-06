@@ -904,11 +904,11 @@ class LLFrame(object):
     def op_gc_gcflag_extra(self, subopnum, *args):
         return self.heap.gcflag_extra(subopnum, *args)
 
-    def op_do_malloc_fixedsize_clear(self):
-        raise NotImplementedError("do_malloc_fixedsize_clear")
+    def op_do_malloc_fixedsize(self):
+        raise NotImplementedError("do_malloc_fixedsize")
 
-    def op_do_malloc_varsize_clear(self):
-        raise NotImplementedError("do_malloc_varsize_clear")
+    def op_do_malloc_varsize(self):
+        raise NotImplementedError("do_malloc_varsize")
 
     def op_get_write_barrier_failing_case(self):
         raise NotImplementedError("get_write_barrier_failing_case")
