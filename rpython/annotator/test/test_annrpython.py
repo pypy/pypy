@@ -2543,14 +2543,14 @@ class TestAnnotateTestCase:
         def f():
             return A()
         a = self.RPythonAnnotator()
-        py.test.raises(Exception, a.build_types, f, [])
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f, [])
         #
         class B(object):
             pass
         x = B()
         def g():
             return isinstance(x, A)
-        py.test.raises(Exception, a.build_types, g, [])
+        py.test.raises(annmodel.AnnotatorError, a.build_types, g, [])
 
     def test_import_from_mixin(self):
         class M(object):

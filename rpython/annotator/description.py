@@ -420,8 +420,8 @@ class ClassDesc(Desc):
             baselist = list(cls.__bases__)
 
             if cls.__dict__.get('_mixin_', False):
-                raise Exception("cannot use directly the class %r because it"
-                                " is a _mixin_" % (cls,))
+                raise AnnotatorError("cannot use directly the class %r because "
+                                     "it is a _mixin_" % (cls,))
 
             # special case: skip BaseException in Python 2.5, and pretend
             # that all exceptions ultimately inherit from Exception instead
