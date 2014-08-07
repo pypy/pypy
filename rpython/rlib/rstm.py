@@ -184,39 +184,3 @@ def make_perform_transaction(func, CONTAINERP):
     perform_transaction._transaction_break_ = True
     #
     return perform_transaction
-
-# ____________________________________________________________
-
-class ThreadLocalReference(object):
-    _COUNT = 1
-
-    def __init__(self, Cls):
-        "NOT_RPYTHON: must be prebuilt"
-        import thread
-        self.Cls = Cls
-        self.local = thread._local()      # <- NOT_RPYTHON
-        self.unique_id = ThreadLocalReference._COUNT
-        ThreadLocalReference._COUNT += 1
-
-    def _freeze_(self):
-        return True
-
-    @specialize.arg(0)
-    def get(self):
-        if we_are_translated():
-            from rpython.rtyper.lltypesystem import rclass
-            from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-            ptr = llop.stm_threadlocalref_get(rclass.OBJECTPTR, self.unique_id)
-            return cast_base_ptr_to_instance(self.Cls, ptr)
-        else:
-            return getattr(self.local, 'value', None)
-
-    @specialize.arg(0)
-    def set(self, value):
-        assert isinstance(value, self.Cls) or value is None
-        if we_are_translated():
-            from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
-            ptr = cast_instance_to_base_ptr(value)
-            llop.stm_threadlocalref_set(lltype.Void, self.unique_id, ptr)
-        else:
-            self.local.value = value

@@ -209,11 +209,13 @@ class W_File(W_AbstractStream):
             while size > 0:
                 # "peeks" on the underlying stream to see how many chars
                 # we can safely read without reading past an end-of-line
-                peeked = stream.peek()
-                pn = peeked.find("\n", 0, size)
+                startindex, peeked = stream.peek()
+                assert 0 <= startindex <= len(peeked)
+                endindex = startindex + size
+                pn = peeked.find("\n", startindex, endindex)
                 if pn < 0:
-                    pn = min(size-1, len(peeked))
-                c = stream.read(pn + 1)
+                    pn = min(endindex - 1, len(peeked))
+                c = stream.read(pn - startindex + 1)
                 if not c:
                     break
                 result.append(c)

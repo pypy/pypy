@@ -1,7 +1,6 @@
 from rpython.translator.stm.inevitable import insert_turn_inevitable
 from rpython.translator.stm.readbarrier import insert_stm_read_barrier
 from rpython.translator.stm.jitdriver import reorganize_around_jit_driver
-from rpython.translator.stm.threadlocalref import transform_tlref
 from rpython.translator.c.support import log
 
 
@@ -19,14 +18,12 @@ class STMTransformer(object):
         self.translator.stm_transformation_applied = True
 
     def transform_after_gc(self):
-        self.start_log(2)
-        self.transform_threadlocalref()
-        self.print_logs(2)
+        pass     # nothing to do here in the current version
 
     def transform_after_complete(self):
-        self.start_log(3)
+        self.start_log(2)
         self.transform_read_barrier()
-        self.print_logs(3)
+        self.print_logs(2)
 
     def transform_read_barrier(self):
         self.read_barrier_counts = 0
@@ -41,9 +38,6 @@ class STMTransformer(object):
     def transform_jit_driver(self):
         for graph in self.translator.graphs:
             reorganize_around_jit_driver(self, graph)
-
-    def transform_threadlocalref(self):
-        transform_tlref(self.translator)
 
     def start_log(self, step):
         log.info("Software Transactional Memory transformation, step %d"

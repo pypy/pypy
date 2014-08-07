@@ -28,7 +28,8 @@ for donation`_.
 Introduction
 ============
 
-``pypy-stm`` is a variant of the regular PyPy interpreter.  With caveats_
+``pypy-stm`` is a variant of the regular PyPy interpreter.  (This
+version supports Python 2.7; see below for `Python 3`_.)  With caveats_
 listed below, it should be in theory within 20%-50% slower than a
 regular PyPy, comparing the JIT version in both cases (but see below!).
 It is called
@@ -134,6 +135,25 @@ Current status
 
 .. _`report bugs`: https://bugs.pypy.org/
 .. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/translator/stm/src_stm/stm/core.h
+
+
+
+Python 3
+========
+
+In this document I describe "pypy-stm", which is based on PyPy's Python
+2.7 interpreter.  Supporting Python 3 should take about half an
+afternoon of work.  Obviously, what I *don't* mean is that by tomorrow
+you can have a finished and polished "pypy3-stm" product.  General py3k
+work is still missing; and general stm work is also still missing.  But
+they are rather independent from each other, as usual in PyPy.  The
+required afternoon of work will certainly be done one of these days now
+that the internal interfaces seem to stabilize.
+
+The same is true for other languages implemented in the RPython
+framework, although the amount of work to put there might vary, because
+the STM framework within RPython is currently targeting the PyPy
+interpreter and other ones might have slightly different needs.
 
 
 
@@ -488,8 +508,6 @@ medium- and long-term future work involves reducing this overhead :-)
 
 The last two lines are special; they are an internal marker read by
 ``transactional_memory.print_abort_info()``.
-
-These statistics are not printed out for the main thread, for now.
 
 
 Reference to implementation details

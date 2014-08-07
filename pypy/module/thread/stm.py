@@ -1,5 +1,7 @@
 """
 Software Transactional Memory emulation of the GIL.
+
+XXX this module may contain near-duplicated code from the non-STM variants
 """
 
 from pypy.module.thread.threadlocals import BaseThreadLocals
@@ -23,8 +25,6 @@ class FakeWeakKeyDictionary:
     def set(self, key, value):
         self.d[key] = value
 
-
-ec_cache = rstm.ThreadLocalReference(ExecutionContext)
 
 def initialize_execution_context(ec):
     """Called from ExecutionContext.__init__()."""
@@ -55,17 +55,6 @@ class STMThreadLocals(BaseThreadLocals):
         #
         assert space.actionflag.setcheckinterval_callback is None
         space.actionflag.setcheckinterval_callback = setcheckinterval_callback
-        self.seen_main_ec = False
-
-    def getvalue(self):
-        return ec_cache.get()
-
-    def setvalue(self, value):
-        if not self.seen_main_ec and value is not None:
-            value._signals_enabled = 1    # the main thread is enabled
-            self._mainthreadident = rthread.get_ident()
-            self.seen_main_ec = True
-        ec_cache.set(value)
 
     def getallvalues(self):
         raise ValueError

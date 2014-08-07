@@ -1,7 +1,10 @@
 import sys
 
+from rpython.tool.udir import udir
+
 class AppTestBuiltinApp:
     def setup_class(cls):
+        space = cls.space
         class X(object):
             def __eq__(self, other):
                 raise OverflowError
@@ -11,18 +14,25 @@ class AppTestBuiltinApp:
         try:
             d[X()]
         except OverflowError:
-            cls.w_sane_lookup = cls.space.wrap(True)
+            cls.w_sane_lookup = space.wrap(True)
         except KeyError:
-            cls.w_sane_lookup = cls.space.wrap(False)
+            cls.w_sane_lookup = space.wrap(False)
         # starting with CPython 2.6, when the stack is almost out, we
         # can get a random error, instead of just a RuntimeError.
         # For example if an object x has a __getattr__, we can get
         # AttributeError if attempting to call x.__getattr__ runs out
         # of stack.  That's annoying, so we just work around it.
         if cls.runappdirect:
-            cls.w_safe_runtimerror = cls.space.wrap(True)
+            cls.w_safe_runtimerror = space.wrap(True)
         else:
-            cls.w_safe_runtimerror = cls.space.wrap(sys.version_info < (2, 6))
+            cls.w_safe_runtimerror = space.wrap(sys.version_info < (2, 6))
+
+        emptyfile = udir.join('emptyfile.py')
+        emptyfile.write('')
+        nullbytes = udir.join('nullbytes.py')
+        nullbytes.write('#abc\x00def\n')
+        cls.w_emptyfile = space.wrap(str(emptyfile))
+        cls.w_nullbytes = space.wrap(str(nullbytes))
 
     def test_builtin_names(self):
         import __builtin__
@@ -431,7 +441,7 @@ class AppTestBuiltinApp:
         assert setattr(x, 'x', 11) == None
         assert delattr(x, 'x') == None
         # To make this test, we need autopath to work in application space.
-        #self.assertEquals(execfile('emptyfile.py'), None)
+        assert execfile(self.emptyfile) == None
 
     def test_divmod(self):
         assert divmod(15,10) ==(1,5)
@@ -610,6 +620,23 @@ def fn(): pass
         firstlineno = co.co_firstlineno
         assert firstlineno == 2
 
+    def test_compile_null_bytes(self):
+        raises(TypeError, compile, '\x00', 'mymod', 'exec', 0)
+        src = "#abc\x00def\n"
+        raises(TypeError, compile, src, 'mymod', 'exec')
+        raises(TypeError, compile, src, 'mymod', 'exec', 0)
+        execfile(self.nullbytes) # works
+
+    def test_compile_null_bytes_flag(self):
+        try:
+            from _ast import PyCF_ACCEPT_NULL_BYTES
+        except ImportError:
+            skip('PyPy only (requires _ast.PyCF_ACCEPT_NULL_BYTES)')
+        raises(SyntaxError, compile, '\x00', 'mymod', 'exec',
+               PyCF_ACCEPT_NULL_BYTES)
+        src = "#abc\x00def\n"
+        compile(src, 'mymod', 'exec', PyCF_ACCEPT_NULL_BYTES)  # works
+
     def test_print_function(self):
         import __builtin__
         import sys
@@ -710,7 +737,6 @@ class AppTestGetattrWithGetAttributeShortcut(AppTestGetattr):
 
 class TestInternal:
     def test_execfile(self, space):
-        from rpython.tool.udir import udir
         fn = str(udir.join('test_execfile'))
         f = open(fn, 'w')
         print >>f, "i=42"

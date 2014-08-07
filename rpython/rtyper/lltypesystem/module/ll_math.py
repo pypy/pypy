@@ -3,7 +3,7 @@ import math
 import py
 import sys
 
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.rlib import jit, rposix
 from rpython.rlib.rfloat import INFINITY, NAN, isfinite, isinf, isnan
 from rpython.rtyper.lltypesystem import lltype, rffi

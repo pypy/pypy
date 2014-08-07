@@ -1,10 +1,10 @@
 import os
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.conftest import cdir as cdir2
 
 
-cdir = os.path.abspath(os.path.join(cdir2, '..', 'stm'))
+cdir = os.path.realpath(os.path.join(os.path.dirname(__file__)))
+cdir2 = os.path.realpath(os.path.join(cdir, '..', 'c'))
 
 _f = open(os.path.join(cdir, 'src_stm', 'stmgcintf.c'), 'r')
 separate_source = _f.read()

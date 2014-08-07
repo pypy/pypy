@@ -353,6 +353,11 @@ class AppTestFfi:
         assert ptr[0] == rawcall.buffer
         ptr.free()
 
+    def test_raw_callable_returning_void(self):
+        import _rawffi
+        _rawffi.FuncPtr(0, [], None)
+        # assert did not crash
+
     def test_short_addition(self):
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)

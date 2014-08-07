@@ -12,6 +12,7 @@ typedef enum RPyLockStatus {
 
 #ifdef _WIN32
 #include "thread_nt.h"
+#define inline _inline
 #else
 
 /* We should check if unistd.h defines _POSIX_THREADS, but sometimes
@@ -24,9 +25,26 @@ typedef enum RPyLockStatus {
 
 #endif /* !_WIN32 */
 
-long RPyGilAllocate(void);
+void RPyGilAllocate(void);
 long RPyGilYieldThread(void);
-void RPyGilRelease(void);
 void RPyGilAcquire(void);
+#define RPyGilRelease _RPyGilRelease
+#define RPyFetchFastGil _RPyFetchFastGil
+
+#ifdef PYPY_USE_ASMGCC
+# define RPY_FASTGIL_LOCKED(x)   (x == 1)
+#else
+# define RPY_FASTGIL_LOCKED(x)   (x != 0)
+#endif
+
+extern long rpy_fastgil;
+
+static inline void _RPyGilRelease(void) {
+    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
+    rpy_fastgil = 0;
+}
+static inline long *_RPyFetchFastGil(void) {
+    return &rpy_fastgil;
+}
 
 #endif

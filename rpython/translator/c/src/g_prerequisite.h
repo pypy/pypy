@@ -28,3 +28,6 @@
 #else
 #define rpy_duck()  /* nothing */
 #endif
+
+
+#include "src/threadlocal.h"

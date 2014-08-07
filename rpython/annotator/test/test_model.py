@@ -130,8 +130,9 @@ def test_blocked_inference2():
     py.test.raises(AnnotatorError, compile_function, blocked_inference)
 
 
-if __name__ == '__main__':
-    for name, value in globals().items():
-        if name.startswith('test_'):
-            value()
-
+def test_not_const():
+    s_int = SomeInteger()
+    s_int.const = 2
+    assert s_int != SomeInteger()
+    assert not_const(s_int) == SomeInteger()
+    assert not_const(s_None) == s_None

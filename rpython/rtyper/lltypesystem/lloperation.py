@@ -440,12 +440,6 @@ LL_OPERATIONS = {
 
     'stm_hint_commit_soon':   LLOp(canrun=True),
 
-    'stm_threadlocalref_get': LLOp(sideeffects=False),
-    'stm_threadlocalref_set': LLOp(canmallocgc=True), # may allocate new array,
-                                                      # see threadlocalref.py
-    'stm_threadlocal_get':    LLOp(sideeffects=False),
-    'stm_threadlocal_set':    LLOp(),
-
     'stm_increment_atomic':   LLOp(),
     'stm_decrement_atomic':   LLOp(),
     'stm_get_atomic':         LLOp(sideeffects=False),
@@ -613,6 +607,10 @@ LL_OPERATIONS = {
     'decode_arg_def':       LLOp(canraise=(Exception,)),
     'getslice':             LLOp(canraise=(Exception,)),
     'check_and_clear_exc':  LLOp(),
+
+    'threadlocalref_get':   LLOp(sideeffects=False),
+    'threadlocalref_getaddr': LLOp(sideeffects=False),
+    'threadlocalref_set':   LLOp(),
 
     # __________ debugging __________
     'debug_view':           LLOp(),

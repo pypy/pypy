@@ -2,7 +2,7 @@ from rpython.annotator import model as annmodel, unaryop, binaryop, description
 from rpython.flowspace.model import Constant
 from rpython.rtyper.error import TyperError, MissingRTypeOperation
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.lltypesystem.lltype import (Void, Bool, Float, typeOf,
+from rpython.rtyper.lltypesystem.lltype import (Void, Bool, typeOf,
     LowLevelType, isCompatibleType)
 from rpython.tool.pairtype import pairtype, extendabletype, pair
 
@@ -53,7 +53,7 @@ class Repr(object):
         self._initialized = setupstate.INPROGRESS
         try:
             self._setup_repr()
-        except TyperError, e:
+        except TyperError:
             self._initialized = setupstate.BROKEN
             raise
         else:
@@ -268,8 +268,8 @@ class __extend__(annmodel.SomeIterator):
             return EnumerateIteratorRepr(r_baseiter)
         return r_container.make_iterator_repr(*self.variant)
 
-    def rtyper_makekey_ex(self, rtyper):
-        return self.__class__, rtyper.makekey(self.s_container), self.variant
+    def rtyper_makekey(self):
+        return self.__class__, self.s_container.rtyper_makekey(), self.variant
 
 
 class __extend__(annmodel.SomeImpossibleValue):
@@ -322,32 +322,6 @@ class __extend__(pairtype(Repr, Repr)):
         return NotImplemented
 
 # ____________________________________________________________
-# Primitive Repr classes, in the same hierarchical order as
-# the corresponding SomeObjects
-
-class FloatRepr(Repr):
-    lowleveltype = Float
-
-class IntegerRepr(FloatRepr):
-    def __init__(self, lowleveltype, opprefix):
-        self.lowleveltype = lowleveltype
-        self._opprefix = opprefix
-        self.as_int = self
-
-    def _get_opprefix(self):
-        if self._opprefix is None:
-            raise TyperError("arithmetic not supported on %r, its size is too small" %
-                             self.lowleveltype)
-        return self._opprefix
-
-    opprefix = property(_get_opprefix)
-
-class BoolRepr(IntegerRepr):
-    lowleveltype = Bool
-    # NB. no 'opprefix' here.  Use 'as_int' systematically.
-    def __init__(self):
-        from rpython.rtyper.rint import signed_repr
-        self.as_int = signed_repr
 
 class VoidRepr(Repr):
     lowleveltype = Void
@@ -370,17 +344,6 @@ class SimplePointerRepr(Repr):
         return lltype.nullptr(self.lowleveltype.TO)
 
 # ____________________________________________________________
-
-def inputdesc(reqtype, desc):
-    """Return a Constant for the given desc, of the requested type,
-    which can only be a Repr.
-    """
-    assert isinstance(reqtype, Repr)
-    value = reqtype.convert_desc(desc)
-    lltype = reqtype.lowleveltype
-    c = Constant(value)
-    c.concretetype = lltype
-    return c
 
 def inputconst(reqtype, value):
     """Return a Constant with the given value, of the requested type,

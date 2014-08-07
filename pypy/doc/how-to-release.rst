@@ -28,11 +28,6 @@ Release Steps
   pypy/doc/tool/makecontributor.py generates the list of contributors
 * rename pypy/doc/whatsnew_head.rst to whatsnew_VERSION.rst
   and create a fresh whatsnew_head.rst after the release
-* merge PYPY_IRC_TOPIC environment variable handling from previous release
-  in pypy/doc/getting-started-dev.rst, pypy/doc/man/pypy.1.rst, and
-  pypy/interpreter/app_main.py so release versions will not print a random
-  IRC topic by default.
-* change the tracker to have a new release tag to file bugs against
 * go to pypy/tool/release and run:
   force-builds.py <release branch>
 * wait for builds to complete, make sure there are no failures

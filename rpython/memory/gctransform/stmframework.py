@@ -160,7 +160,6 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
 
     gct_stm_become_globally_unique_transaction      = _gct_with_roots_pushed
     gct_stm_perform_transaction                     = _gct_with_roots_pushed
-    gct_stm_threadlocalref_set                      = _gct_with_roots_pushed
 
 
 class StmRootWalker(BaseRootWalker):

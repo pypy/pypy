@@ -184,6 +184,9 @@ class InsnCannotFollowEsp(InsnStackAdjust):
     def __init__(self):
         self.delta = -7.25     # use this non-integer value as a marker
 
+class InsnPushed(InsnStackAdjust):
+    pass
+
 class InsnStop(Insn):
     _args_ = ['reason']
     def __init__(self, reason='?'):

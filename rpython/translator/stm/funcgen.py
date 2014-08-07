@@ -175,15 +175,6 @@ def stm_set_transaction_length(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     return 'pypy_stm_set_transaction_length(%s);' % (arg0,)
 
-def stm_threadlocal_get(funcgen, op):
-    result = funcgen.expr(op.result)
-    return '%s = (%s)stm_thread_local.thread_local_obj;' % (
-        result, cdecl(funcgen.lltypename(op.result), ''))
-
-def stm_threadlocal_set(funcgen, op):
-    arg0 = funcgen.expr(op.args[0])
-    return 'stm_thread_local.thread_local_obj = (object_t *)%s;' % (arg0,)
-
 def stm_perform_transaction(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     arg1 = funcgen.expr(op.args[1])

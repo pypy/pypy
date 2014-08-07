@@ -240,9 +240,10 @@ class TestSTMTranslated(CompiledSTMTests):
         assert '42\n' in data, "got: %r" % (data,)
 
     def test_threadlocalref(self):
+        from rpython.rlib import rthread
         class FooBar(object):
             pass
-        t = rstm.ThreadLocalReference(FooBar)
+        t = rthread.ThreadLocalReference(FooBar)
         def main(argv):
             x = FooBar()
             assert t.get() is None

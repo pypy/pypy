@@ -24,7 +24,8 @@ in addition to any features explicitly specified.
 """
     ec = space.getexecutioncontext()
     if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
-                 consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8):
+                 consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8 |
+                 consts.PyCF_ACCEPT_NULL_BYTES):
         raise OperationError(space.w_ValueError,
                              space.wrap("compile() unrecognized flags"))
 
@@ -53,9 +54,10 @@ in addition to any features explicitly specified.
     else:
         source = space.readbuf_w(w_source).as_str()
 
-    if '\x00' in source:
-        raise OperationError(space.w_TypeError, space.wrap(
-            "compile() expected string without null bytes"))
+    if not (flags & consts.PyCF_ACCEPT_NULL_BYTES):
+        if '\x00' in source:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "compile() expected string without null bytes"))
 
     if flags & consts.PyCF_ONLY_AST:
         code = ec.compiler.compile_to_ast(source, filename, mode, flags)

@@ -948,6 +948,11 @@ def ctypes2lltype(T, cobj):
                         REAL_T = lltype.Ptr(REAL_TYPE)
                         cobj = ctypes.cast(cobj, get_ctypes_type(REAL_T))
                     container = lltype._struct(REAL_TYPE)
+                # obscuuuuuuuuure: 'cobj' is a ctypes pointer, which is
+                # mutable; and so if we save away the 'cobj' object
+                # itself, it might suddenly later be unexpectedly
+                # modified!  Make a copy.
+                cobj = ctypes.cast(cobj, type(cobj))
                 struct_use_ctypes_storage(container, cobj)
                 if REAL_TYPE != T.TO:
                     p = container._as_ptr()
