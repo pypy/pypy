@@ -36,7 +36,6 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_unique_id
-from rpython.jit.backend.x86 import stmtlocal
 from rpython.rlib import rstm, nonconst
 
 
@@ -2723,6 +2722,7 @@ class Assembler386(BaseAssembler):
         """
         if self.SEGMENT_TL != self.SEGMENT_NO:
             # only for STM and not during tests
+            from rpython.jit.backend.x86 import stmtlocal
             adr -= stmtlocal.threadlocal_base()
             assert rx86.fits_in_32bits(adr)
         return heap(self.SEGMENT_TL, adr)
@@ -2743,7 +2743,7 @@ class Assembler386(BaseAssembler):
         addr0 = stmtlocal.threadlocal_base()
         addr = addr1 - addr0
         assert rx86.fits_in_32bits(addr)
-        self.mc.MOV_rj(resloc.value, (stmtlocal.SEGMENT_TL, addr))
+        self.mc.MOV_rj(resloc.value, (self.SEGMENT_TL, addr))
 
     def get_set_errno(self, op, loc, issue_a_write):
         # this function is only called on Linux
@@ -2751,7 +2751,7 @@ class Assembler386(BaseAssembler):
         addr = stmtlocal.get_errno_tl()
         assert rx86.fits_in_32bits(addr)
         mc = self.mc
-        SEGTL = stmtlocal.SEGMENT_TL
+        SEGTL = self.SEGMENT_TL
         if issue_a_write:
             if isinstance(loc, RegLoc):
                 mc.MOV32_jr((SEGTL, addr), loc.value)  # memory write from reg
