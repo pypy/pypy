@@ -7,33 +7,7 @@ from pypy.interpreter.executioncontext import ExecutionContext
 ExecutionContext._signals_enabled = 0     # default value
 
 
-class BaseThreadLocals(object):
-    _mainthreadident = 0
-
-    def initialize(self, space):
-        pass
-
-    def setup_threads(self, space):
-        pass
-
-    def signals_enabled(self):
-        ec = self.getvalue()
-        return ec._signals_enabled
-
-    def enable_signals(self, space):
-        ec = self.getvalue()
-        ec._signals_enabled += 1
-
-    def disable_signals(self, space):
-        ec = self.getvalue()
-        new = ec._signals_enabled - 1
-        if new < 0:
-            raise wrap_thread_error(space,
-                "cannot disable signals in thread not enabled for signals")
-        ec._signals_enabled = new
-
-
-class OSThreadLocals(BaseThreadLocals):
+class OSThreadLocals:
     """Thread-local storage for OS-level threads.
     For memory management, this version depends on explicit notification when
     a thread finishes.  This works as long as the thread was started by
@@ -48,6 +22,12 @@ class OSThreadLocals(BaseThreadLocals):
     def _cleanup_(self):
         self._valuedict.clear()
         self._mainthreadident = 0
+
+    def initialize(self, space):
+        pass     # for the STMThreadLocals subclass
+
+    def setup_threads(self, space):
+        pass     # for the STMThreadLocals subclass
 
     def enter_thread(self, space):
         "Notification that the current thread is about to start running."

@@ -4,7 +4,7 @@ Software Transactional Memory emulation of the GIL.
 XXX this module may contain near-duplicated code from the non-STM variants
 """
 
-from pypy.module.thread.threadlocals import BaseThreadLocals
+from pypy.module.thread.threadlocals import OSThreadLocals
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.gateway import W_Root, interp2app
@@ -42,7 +42,7 @@ def _fill_untranslated(ec):
         initialize_execution_context(ec)
 
 
-class STMThreadLocals(BaseThreadLocals):
+class STMThreadLocals(OSThreadLocals):
     threads_running = False
     _immutable_fields_ = ['threads_running?']
 
@@ -56,11 +56,9 @@ class STMThreadLocals(BaseThreadLocals):
         assert space.actionflag.setcheckinterval_callback is None
         space.actionflag.setcheckinterval_callback = setcheckinterval_callback
 
-    def getallvalues(self):
-        raise ValueError
-
-    def leave_thread(self, space):
-        self.setvalue(None)
+    # XXX?
+    #def getallvalues(self):
+    #    raise ValueError
 
     def setup_threads(self, space):
         if not self.threads_running:
@@ -71,14 +69,6 @@ class STMThreadLocals(BaseThreadLocals):
                               rstm.after_external_call,
                               rstm.enter_callback_call,
                               rstm.leave_callback_call)
-
-    def reinit_threads(self, space):
-        self.setup_threads(space)
-        ident = rthread.get_ident()
-        if ident != self._mainthreadident:
-            ec = self.getvalue()
-            ec._signals_enabled += 1
-            self._mainthreadident = ident
 
     def configure_transaction_length(self, space):
         if self.threads_running:
