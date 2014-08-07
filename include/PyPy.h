@@ -53,6 +53,12 @@ int pypy_execute_source(char *source);
 int pypy_execute_source_ptr(char *source, void* ptr);
 
 
+/* Windows hackery */
+#if defined(_MSC_VER)
+#  pragma comment(lib,"python27.lib")
+#endif
+
+
 #ifdef __cplusplus
 }
 #endif
