@@ -11,7 +11,6 @@ from rpython.rtyper import rtyper
 from rpython.rtyper.rmodel import inputconst
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
-from rpython.rlib.debug import ll_assert
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.tool.sourcetools import func_with_new_name
@@ -270,9 +269,6 @@ class ExceptionTransformer(object):
         if need_exc_matching:
             assert lastblock.exitswitch == c_last_exception
             if not self.raise_analyzer.can_raise(lastblock.operations[-1]):
-                #print ("operation %s cannot raise, but has exception"
-                #       " guarding in graph %s" % (lastblock.operations[-1],
-                #                                  graph))
                 lastblock.exitswitch = None
                 lastblock.recloseblock(lastblock.exits[0])
                 lastblock.exits[0].exitcase = None
@@ -393,10 +389,6 @@ class ExceptionTransformer(object):
         return newgraph, SpaceOperation("direct_call", [fptr] + callargs, op.result)
 
     def gen_exc_check(self, block, returnblock, normalafterblock=None):
-        #var_exc_occured = Variable()
-        #var_exc_occured.concretetype = lltype.Bool
-        #block.operations.append(SpaceOperation("safe_call", [self.rpyexc_occured_ptr], var_exc_occured))
-
         llops = rtyper.LowLevelOpList(None)
 
         spaceop = block.operations[-1]
@@ -425,9 +417,8 @@ class ExceptionTransformer(object):
         l0.exitcase = l0.llexitcase = True
 
         block.recloseblock(l0, l)
-
         insert_zeroing_op = False
-        if spaceop.opname == 'malloc':
+        if spaceop.opname in ['malloc','malloc_varsize']:
             flavor = spaceop.args[1].value['flavor']
             if flavor == 'gc':
                 insert_zeroing_op = True
