@@ -405,7 +405,7 @@ longer be understood by older implementations of the eval loop (usually
 due to the addition of new opcodes).
 
 """
-_RAW_MAGIC_NUMBER = 3230 | ord('\r') << 16 | ord('\n') << 24
+_RAW_MAGIC_NUMBER = 64 | ord('\r') << 16 | ord('\n') << 24
 _MAGIC_BYTES = bytes(_RAW_MAGIC_NUMBER >> n & 0xff for n in range(0, 25, 8))
 
 _PYCACHE = '__pycache__'
