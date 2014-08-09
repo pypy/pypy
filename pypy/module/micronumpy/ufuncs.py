@@ -562,10 +562,19 @@ class W_UfuncGeneric(W_Ufunc):
         return loop.call_many_to_many(space, new_shape, self.funcs[index],
                                      res_dtype, inargs, outargs)
 
-    def type_resolver(self, space, index, outargs):
-        # Find a match for the inargs.dtype in self.dtypes, like
-        # linear_search_type_resolver in numy ufunc_type_resolutions.c
-        return 0
+    def type_resolver(self, space, inargs, outargs):
+         # Find a match for the inargs.dtype in self.dtypes, like
+         # linear_search_type_resolver in numy ufunc_type_resolutions.c
+        for i in range(0, len(self.dtypes), self.nargs):
+            if inargs[0].get_dtype() == self.dtypes[i]:
+                break
+        else:
+            if len(self.funcs) < 2:
+                return 0
+            raise oefmt(space.w_TypeError,
+                         'input dtype %s did not match any known dtypes',
+                                              str(inargs[0].get_dtype()))
+        return i / self.nargs
 
     def alloc_outargs(self, space, index, inargs, outargs):
         # Any None outarg should be allocated here
@@ -991,9 +1000,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
             else:    
                 dtypes = [None]*len(_dtypes)
                 for i in range(len(dtypes)):
-                    print 'decoding',_dtypes[i]
                     dtypes[i] = descriptor.decode_w_dtype(space, _dtypes[i])
-                    print 'got',dtypes[i]
     else:
         raise oefmt(space.w_ValueError,
             'dtypes must be None or a list of dtypes')

@@ -112,10 +112,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert 'object' in str(e)
             # Use pypy specific extension for out_dtype
             adder_ufunc0 = frompyfunc(adder, 2, 1, dtypes=['match'])
-            adder_ufunc1 = frompyfunc([adder, adder], 2, 1, dtypes=['match'])
-            int_func22 = frompyfunc([int, int], 2, 2, signature='()->()',
+            adder_ufunc1 = frompyfunc([adder, adder], 2, 1, 
+                            dtypes=[int, int, int, float, float, float])
+            int_func22 = frompyfunc([int, int], 2, 2, signature='(i)->(i)',
                                     dtypes=['match'])
-            int_func12 = frompyfunc([int, int], 1, 2, signature='()->()',
+            int_func12 = frompyfunc([int], 1, 2, signature='(i)->(i)',
                                     dtypes=['match'])
             retype = dtype(int)
         assert isinstance(adder_ufunc1, ufunc)
@@ -139,7 +140,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             out_flat = out_array.flat
             for i in range(in_array.size):
                 out_flat[i] = in_flat[i] * 2
-        def double_times2(space, __args__):
+        def double_times2(in_array, out_array):
             assert in_array.dtype == float
             in_flat = in_array.flat
             out_flat = out_array.flat
