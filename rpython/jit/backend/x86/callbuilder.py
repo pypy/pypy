@@ -129,7 +129,7 @@ class CallBuilderX86(AbstractCallBuilder):
         self.mc.MOV(heap(fastgil), css_value)
         #
         if not we_are_translated():        # for testing: we should not access
-            self.mc.ADD(ebp, imm(1))       # ebp any more; and ignore 'fastgil'
+            self.mc.ADD(ebp, imm(1))       # ebp any more
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         from rpython.jit.backend.x86 import rx86
