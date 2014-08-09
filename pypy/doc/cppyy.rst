@@ -109,7 +109,7 @@ If you downloaded or built the whole of ROOT, ``REFLEXHOME`` should be equal
 to ``ROOTSYS``.
 
 The following is optional, and is only to show how pypy-c can be build
-:ref:`from source <translate-pypy>`, for example to get at the main development branch of cppyy.
+:doc:`from source <build>`, for example to get at the main development branch of cppyy.
 The :doc:`backend documentation <cppyy_backend>` has more details on the backend-specific
 prerequisites.
 
