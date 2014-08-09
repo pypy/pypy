@@ -93,6 +93,14 @@ On Fedora::
 
 For the optional lzma module on PyPy3 you will also need ``xz-devel``.
 
+On SLES11::
+
+    zypper install gcc make python-devel pkg-config \
+    zlib-devel libopenssl-devel libbz2-devel sqlite3-devel \
+    libexpat-devel libffi-devel python-curses
+
+For the optional lzma module on PyPy3 you will also need ``xz-devel``.
+
 On Mac OS X, most of these build-time dependencies are installed alongside
 the Developer Tools. However, note that in order for the installation to
 find them you may need to run::
