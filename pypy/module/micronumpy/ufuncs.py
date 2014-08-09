@@ -541,10 +541,13 @@ class W_UfuncGeneric(W_Ufunc):
                          'output arg %d must be an array, not %s', i+self.nin, str(args_w[i+self.nin]))
                 outargs[i] = out
         index = self.type_resolver(space, inargs, outargs)
-        self.alloc_outargs(space, index, inargs, outargs)
-        new_shape = inargs[0].get_shape()
-        assert isinstance(outargs[0], W_NDimArray)
-        res_dtype = outargs[0].get_dtype()
+        outargs = self.alloc_outargs(space, index, inargs, outargs)
+        inargs0 = inargs[0]
+        outargs0 = outargs[0]
+        assert isinstance(inargs0, W_NDimArray)
+        assert isinstance(outargs0, W_NDimArray)
+        new_shape = inargs0.get_shape()
+        res_dtype = outargs0.get_dtype()
         # XXX handle inner-loop indexing
         sign_parts = self.signature.split('->')
         if len(sign_parts) == 2 and sign_parts[0].strip() == '()' \
@@ -552,10 +555,11 @@ class W_UfuncGeneric(W_Ufunc):
                                         
             arglist = space.newlist(inargs + outargs)
             func = self.funcs[index]
-            space.call_function(func, *(inargs + outargs))
+            arglist = space.newlist(inargs + outargs)
+            space.call_args(func, Arguments.frompacked(space, arglist))
             if len(outargs) < 2:
-                return outargs[0]
-            return outargs
+                return outargs0
+            return space.newtuple(outargs)
         if len(outargs) < 2:
             return loop.call_many_to_one(space, new_shape, self.funcs[index],
                                          res_dtype, inargs, outargs[0])
@@ -563,27 +567,34 @@ class W_UfuncGeneric(W_Ufunc):
                                      res_dtype, inargs, outargs)
 
     def type_resolver(self, space, inargs, outargs):
-         # Find a match for the inargs.dtype in self.dtypes, like
-         # linear_search_type_resolver in numy ufunc_type_resolutions.c
+        # Find a match for the inargs.dtype in self.dtypes, like
+        # linear_search_type_resolver in numy ufunc_type_resolutions.c
+        inargs0 = inargs[0]
+        assert isinstance(inargs0, W_NDimArray)
         for i in range(0, len(self.dtypes), self.nargs):
-            if inargs[0].get_dtype() == self.dtypes[i]:
+            if inargs0.get_dtype() == self.dtypes[i]:
                 break
         else:
             if len(self.funcs) < 2:
                 return 0
             raise oefmt(space.w_TypeError,
                          'input dtype %s did not match any known dtypes',
-                                              str(inargs[0].get_dtype()))
+                                              str(inargs0.get_dtype()))
         return i / self.nargs
 
     def alloc_outargs(self, space, index, inargs, outargs):
         # Any None outarg should be allocated here
-        temp_shape = inargs[0].get_shape() # XXX wrong!!!
-        dtype = inargs[0].get_dtype() # XXX wrong!!!
-        order = inargs[0].get_order()
+        inargs0 = inargs[0]
+        assert isinstance(inargs0, W_NDimArray)
+        temp_shape = inargs0.get_shape() # XXX wrong!!!
+        dtype = inargs0.get_dtype() # XXX wrong!!!
+        order = inargs0.get_order()
         for i in range(len(outargs)):
             if outargs[i] is None:
                 outargs[i] = W_NDimArray.from_shape(space, temp_shape, dtype, order)
+        for i in range(len(outargs)):
+            assert isinstance(outargs[i], W_NDimArray)
+        return outargs    
 
     def prep_call(self, space, index, inargs, outargs):
         # Use the index and signature to determine

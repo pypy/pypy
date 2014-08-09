@@ -94,8 +94,9 @@ def call_many_to_one(space, shape, func, res_dtype, in_args, out):
     in_iters = [None] * nin
     in_states = [None] * nin
     for i in range(nin):
-        assert isinstance(in_args[i], W_NDimArray)
-        in_iter, in_state = in_args[i].create_iter(shape)
+        in_i = in_args[i]
+        assert isinstance(in_i, W_NDimArray)
+        in_iter, in_state = in_i.create_iter(shape)
         in_iters[i] = in_iter
         in_states[i] = in_state
     shapelen = len(shape)
@@ -130,13 +131,15 @@ def call_many_to_many(space, shape, func, res_dtype, in_args, out_args):
     out_iters = [None] * nout
     out_states = [None] * nout
     for i in range(nin):
-        assert isinstance(in_args[i], W_NDimArray)
-        in_iter, in_state = in_args[i].create_iter(shape)
+        in_i = in_args[i]
+        assert isinstance(in_i, W_NDimArray)
+        in_iter, in_state = in_i.create_iter(shape)
         in_iters[i] = in_iter
         in_states[i] = in_state
     for i in range(nout):
-        assert isinstance(out_args[i], W_NDimArray)
-        out_iter, out_state = out_args[i].create_iter(shape)
+        out_i = in_args[i]
+        assert isinstance(out_i, W_NDimArray)
+        out_iter, out_state = out_i.create_iter(shape)
         out_iters[i] = out_iter
         out_states[i] = out_state
     shapelen = len(shape)
