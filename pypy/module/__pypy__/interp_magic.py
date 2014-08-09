@@ -2,7 +2,9 @@ from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyframe import PyFrame
 from rpython.rlib.objectmodel import we_are_translated
+from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.listobject import W_ListObject
+from pypy.objspace.std.setobject import W_BaseSetObject
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import MapAttrCache
 from rpython.rlib import rposix, rgc
@@ -70,12 +72,23 @@ def lookup_special(space, w_obj, meth):
 def do_what_I_mean(space):
     return space.wrap(42)
 
-def list_strategy(space, w_list):
-    if isinstance(w_list, W_ListObject):
-        return space.wrap(w_list.strategy._applevel_repr)
+
+def strategy(space, w_obj):
+    """ strategy(dict or list or set)
+
+    Return the underlying strategy currently used by a dict, list or set object
+    """
+    if isinstance(w_obj, W_DictMultiObject):
+        name = w_obj.strategy.__class__.__name__
+    elif isinstance(w_obj, W_ListObject):
+        name = w_obj.strategy.__class__.__name__
+    elif isinstance(w_obj, W_BaseSetObject):
+        name = w_obj.strategy.__class__.__name__
     else:
-        w_msg = space.wrap("Can only get the list strategy of a list")
-        raise OperationError(space.w_TypeError, w_msg)
+        raise OperationError(space.w_TypeError,
+                             space.wrap("expecting dict or list or set object"))
+    return space.wrap(name)
+
 
 @unwrap_spec(fd='c_int')
 def validate_fd(space, fd):

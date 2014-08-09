@@ -1123,6 +1123,8 @@ class UsingFrameworkTest(object):
             #
             fd1 = os.open(filename1, os.O_WRONLY | os.O_CREAT, 0666)
             fd2 = os.open(filename2, os.O_WRONLY | os.O_CREAT, 0666)
+            # try to ensure we get twice the exact same output below
+            gc.collect(); gc.collect(); gc.collect()
             rgc.dump_rpy_heap(fd1)
             rgc.dump_rpy_heap(fd2)      # try twice in a row
             keepalive_until_here(s2)
@@ -1360,6 +1362,23 @@ class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
         res = self.run('string_builder_multiple_builds')
         assert res == ' '.join([''.join(map(chr, range(33, 33+length)))
                                 for length in range(1, 51)])
+
+    def definestr_string_builder_multiple_builds_2(cls):
+        def fn(_):
+            got = []
+            for j in range(3, 76, 5):
+                s = StringBuilder()
+                for i in range(j):
+                    s.append(chr(33+i))
+                    gc.collect()
+                got.append(s.build())
+            return ' '.join(got)
+        return fn
+
+    def test_string_builder_multiple_builds_2(self):
+        res = self.run('string_builder_multiple_builds_2')
+        assert res == ' '.join([''.join(map(chr, range(33, 33+length)))
+                                for length in range(3, 76, 5)])
 
     def define_nursery_hash_base(cls):
         class A:

@@ -8,8 +8,6 @@ class RStringIO(object):
     The fastest path through this code is for the case of a bunch of write()
     followed by getvalue().
     """
-    _mixin_ = True        # for interp_stringio.py
-
     def __init__(self):
         self.init()
 
@@ -73,6 +71,7 @@ class RStringIO(object):
         self.__strings.append(buffer)
 
     def __slow_write(self, buffer):
+        assert buffer is not None # help annotator
         p = self.__pos
         assert p >= 0
         endp = p + len(buffer)

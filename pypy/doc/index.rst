@@ -40,7 +40,7 @@ Index of various topics:
 
 * `FAQ`_: some frequently asked questions.
 
-* `Release 2.2.1`_: the latest official release
+* `Release 2.3.1`_: the latest official release
 
 * `PyPy Blog`_: news and status info about PyPy 
 
@@ -102,7 +102,7 @@ on the `development mailing list`_.
 .. _Python: http://docs.python.org/index.html
 .. _`more...`: architecture.html#mission-statement 
 .. _`PyPy blog`: http://morepypy.blogspot.com/
-.. _`development bug/feature tracker`: https://bugs.pypy.org
+.. _`development bug/feature tracker`: https://bitbucket.org/pypy/pypy/issues
 .. _here: http://www.tismer.com/pypy/irc-logs/pypy/
 .. _`Mercurial commit mailing list`: http://mail.python.org/mailman/listinfo/pypy-commit
 .. _`development mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev
@@ -110,7 +110,7 @@ on the `development mailing list`_.
 .. _`Getting Started`: getting-started.html
 .. _`Papers`: extradoc.html
 .. _`Videos`: video-index.html
-.. _`Release 2.2.1`: http://pypy.org/download.html
+.. _`Release 2.3.1`: http://pypy.org/download.html
 .. _`speed.pypy.org`: http://speed.pypy.org
 .. _`RPython toolchain`: translation.html
 .. _`potential project ideas`: project-ideas.html

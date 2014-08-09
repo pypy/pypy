@@ -333,7 +333,7 @@ class W_FileIO(W_RawIOBase):
     def write_w(self, space, w_data):
         self._check_closed(space)
         self._check_writable(space)
-        data = space.bufferstr_w(w_data)
+        data = space.getarg_w('s*', w_data).as_str()
 
         try:
             n = os.write(self.fd, data)
@@ -366,7 +366,7 @@ class W_FileIO(W_RawIOBase):
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)
         self._check_readable(space)
-        rwbuffer = space.rwbuffer_w(w_buffer)
+        rwbuffer = space.getarg_w('w*', w_buffer)
         length = rwbuffer.getlength()
         try:
             buf = os.read(self.fd, length)
@@ -429,7 +429,7 @@ class W_FileIO(W_RawIOBase):
         return w_size
 
 W_FileIO.typedef = TypeDef(
-    'FileIO', W_RawIOBase.typedef,
+    '_io.FileIO', W_RawIOBase.typedef,
     __new__  = interp2app(W_FileIO.descr_new.im_func),
     __init__  = interp2app(W_FileIO.descr_init),
     __repr__ = interp2app(W_FileIO.repr_w),

@@ -46,26 +46,42 @@ class AppTest(object):
         assert x == 42
 
     def test_list_strategy(self):
-        from __pypy__ import list_strategy
+        from __pypy__ import strategy
 
         l = [1, 2, 3]
-        assert list_strategy(l) == "int"
+        assert strategy(l) == "IntegerListStrategy"
         l = ["a", "b", "c"]
-        assert list_strategy(l) == "bytes"
+        assert strategy(l) == "BytesListStrategy"
         l = [u"a", u"b", u"c"]
-        assert list_strategy(l) == "unicode"
+        assert strategy(l) == "UnicodeListStrategy"
         l = [1.1, 2.2, 3.3]
-        assert list_strategy(l) == "float"
+        assert strategy(l) == "FloatListStrategy"
         l = range(3)
-        assert list_strategy(l) == "simple_range"
+        assert strategy(l) == "SimpleRangeListStrategy"
         l = range(1, 2)
-        assert list_strategy(l) == "range"
+        assert strategy(l) == "RangeListStrategy"
         l = [1, "b", 3]
-        assert list_strategy(l) == "object"
+        assert strategy(l) == "ObjectListStrategy"
         l = []
-        assert list_strategy(l) == "empty"
+        assert strategy(l) == "EmptyListStrategy"
         o = 5
-        raises(TypeError, list_strategy, 5)
+        raises(TypeError, strategy, 5)
+
+    def test_dict_strategy(self):
+        from __pypy__ import strategy
+
+        d = {}
+        assert strategy(d) == "EmptyDictStrategy"
+        d = {1: None, 5: None}
+        assert strategy(d) == "IntDictStrategy"
+
+    def test_set_strategy(self):
+        from __pypy__ import strategy
+
+        s = set()
+        assert strategy(s) == "EmptySetStrategy"
+        s = set([2, 3, 4])
+        assert strategy(s) == "IntegerSetStrategy"
 
 
 class AppTestJitFeatures(object):

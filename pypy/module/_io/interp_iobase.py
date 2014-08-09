@@ -288,7 +288,7 @@ class W_IOBase(W_Root):
                     break
 
 W_IOBase.typedef = TypeDef(
-    '_IOBase',
+    '_io._IOBase',
     __new__ = generic_new_descr(W_IOBase),
     __enter__ = interp2app(W_IOBase.enter_w),
     __exit__ = interp2app(W_IOBase.exit_w),
@@ -359,7 +359,7 @@ class W_RawIOBase(W_IOBase):
         return space.wrap(builder.build())
 
 W_RawIOBase.typedef = TypeDef(
-    '_RawIOBase', W_IOBase.typedef,
+    '_io._RawIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_RawIOBase),
 
     read = interp2app(W_RawIOBase.read_w),

@@ -1435,6 +1435,16 @@ class BasicTests:
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
         self.check_resops(guard_class=0, guard_value=6)
+        #
+        # The original 'guard_class' is rewritten to be directly 'guard_value'.
+        # Check that this rewrite does not interfere with the descr, which
+        # should be a full-fledged multivalued 'guard_value' descr.
+        if self.basic:
+            for loop in get_stats().get_all_loops():
+                for op in loop.get_operations():
+                    if op.getopname() == "guard_value":
+                        descr = op.getdescr()
+                        assert descr.get_index_of_guard_value() >= 0
 
     def test_merge_guardnonnull_guardclass(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
@@ -3329,6 +3339,25 @@ class BaseLLtypeTests(BasicTests):
         assert res == main(1, 10, 2)
         self.check_resops(call=0)
 
+    def test_look_inside_iff_const_float(self):
+        @look_inside_iff(lambda arg: isconstant(arg))
+        def f(arg):
+            return arg + 0.5
+
+        driver = JitDriver(greens = [], reds = ['n', 'total'])
+
+        def main(n):
+            total = 0.0
+            while n > 0:
+                driver.jit_merge_point(n=n, total=total)
+                total = f(total)
+                n -= 1
+            return total
+
+        res = self.meta_interp(main, [10], enable_opts='')
+        assert res == 5.0
+        self.check_resops(call=1)
+
     def test_look_inside_iff_virtual(self):
         # There's no good reason for this to be look_inside_iff, but it's a test!
         @look_inside_iff(lambda arg, n: isvirtual(arg))
@@ -3398,6 +3427,26 @@ class BaseLLtypeTests(BasicTests):
         self.check_resops({'int_gt': 2, 'strlen': 2, 'guard_true': 2,
                            'int_sub': 2, 'jump': 1, 'call': 2,
                            'guard_no_exception': 2, 'int_add': 4})
+
+    def test_elidable_method(self):
+        py.test.skip("not supported so far: @elidable methods")
+        class A(object):
+            @elidable
+            def meth(self):
+                return 41
+        class B(A):
+            @elidable
+            def meth(self):
+                return 42
+        x = B()
+        def callme(x):
+            return x.meth()
+        def f():
+            callme(A())
+            return callme(x)
+        res = self.interp_operations(f, [])
+        assert res == 42
+        self.check_operations_history({'finish': 1})
 
     def test_look_inside_iff_const_getarrayitem_gc_pure(self):
         driver = JitDriver(greens=['unroll'], reds=['s', 'n'])

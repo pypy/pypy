@@ -1,21 +1,22 @@
-from pypy.interpreter.buffer import RWBuffer
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
-from pypy.objspace.std.memoryview import W_Buffer
+from pypy.objspace.std.bufferobject import W_Buffer
 
+from rpython.rlib.buffer import Buffer
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 
-class LLBuffer(RWBuffer):
+class LLBuffer(Buffer):
     _immutable_ = True
 
     def __init__(self, raw_cdata, size):
         self.raw_cdata = raw_cdata
         self.size = size
+        self.readonly = False
 
     def getlength(self):
         return self.size
@@ -32,7 +33,7 @@ class LLBuffer(RWBuffer):
     def getslice(self, start, stop, step, size):
         if step == 1:
             return rffi.charpsize2str(rffi.ptradd(self.raw_cdata, start), size)
-        return RWBuffer.getslice(self, start, stop, step, size)
+        return Buffer.getslice(self, start, stop, step, size)
 
     def setslice(self, start, string):
         raw_cdata = rffi.ptradd(self.raw_cdata, start)
@@ -46,9 +47,16 @@ class MiniBuffer(W_Buffer):
         W_Buffer.__init__(self, buffer)
         self.keepalive = keepalive
 
+    def descr_setitem(self, space, w_index, w_obj):
+        try:
+            W_Buffer.descr_setitem(self, space, w_index, w_obj)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                e.w_type = space.w_ValueError
+            raise
+
 MiniBuffer.typedef = TypeDef(
-    "buffer",
-    __module__ = "_cffi_backend",
+    "_cffi_backend.buffer",
     __len__ = interp2app(MiniBuffer.descr_len),
     __getitem__ = interp2app(MiniBuffer.descr_getitem),
     __setitem__ = interp2app(MiniBuffer.descr_setitem),

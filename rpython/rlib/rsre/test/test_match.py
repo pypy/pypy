@@ -267,3 +267,8 @@ class TestMatch:
         match = rsre_core.match(r, "abbbbbbbbbcdef")
         assert match
         assert match.match_end == 11
+
+    def test_empty_maxuntil(self):
+        r = get_code("\\{\\{((?:.*?)+)\\}\\}")
+        match = rsre_core.match(r, "{{a}}{{b}}")
+        assert match.group(1) == "a"

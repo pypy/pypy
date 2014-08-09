@@ -130,8 +130,7 @@ class W_CDataIter(W_Root):
         return self.ctitem.convert_to_object(result)
 
 W_CDataIter.typedef = TypeDef(
-    'CDataIter',
-    __module__ = '_cffi_backend',
+    '_cffi_backend.CDataIter',
     __iter__ = interp2app(W_CDataIter.iter_w),
     next = interp2app(W_CDataIter.next_w),
     )

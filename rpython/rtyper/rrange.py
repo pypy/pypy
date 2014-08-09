@@ -2,7 +2,8 @@ from rpython.flowspace.model import Constant
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Signed, Void, Ptr
 from rpython.rtyper.rlist import dum_nocheck, dum_checkidx
-from rpython.rtyper.rmodel import Repr, IntegerRepr, IteratorRepr
+from rpython.rtyper.rmodel import Repr, IteratorRepr
+from rpython.rtyper.rint import IntegerRepr
 from rpython.tool.pairtype import pairtype
 
 

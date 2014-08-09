@@ -25,6 +25,12 @@ class AppTestTextIO:
         t = _io.TextIOWrapper(b)
         assert t.readable()
         assert t.seekable()
+        #
+        class CustomFile(object):
+            def isatty(self): return 'YES'
+            readable = writable = seekable = lambda self: False
+        t = _io.TextIOWrapper(CustomFile())
+        assert t.isatty() == 'YES'
 
     def test_default_implementations(self):
         import _io

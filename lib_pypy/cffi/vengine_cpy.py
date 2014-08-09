@@ -89,43 +89,54 @@ class VCPythonEngine(object):
         # by generate_cpy_function_method().
         prnt('static PyMethodDef _cffi_methods[] = {')
         self._generate("method")
-        prnt('  {"_cffi_setup", _cffi_setup, METH_VARARGS},')
-        prnt('  {NULL, NULL}    /* Sentinel */')
+        prnt('  {"_cffi_setup", _cffi_setup, METH_VARARGS, NULL},')
+        prnt('  {NULL, NULL, 0, NULL}    /* Sentinel */')
         prnt('};')
         prnt()
         #
         # standard init.
         modname = self.verifier.get_module_name()
-        if sys.version_info >= (3,):
-            prnt('static struct PyModuleDef _cffi_module_def = {')
-            prnt('  PyModuleDef_HEAD_INIT,')
-            prnt('  "%s",' % modname)
-            prnt('  NULL,')
-            prnt('  -1,')
-            prnt('  _cffi_methods,')
-            prnt('  NULL, NULL, NULL, NULL')
-            prnt('};')
-            prnt()
-            initname = 'PyInit_%s' % modname
-            createmod = 'PyModule_Create(&_cffi_module_def)'
-            errorcase = 'return NULL'
-            finalreturn = 'return lib'
-        else:
-            initname = 'init%s' % modname
-            createmod = 'Py_InitModule("%s", _cffi_methods)' % modname
-            errorcase = 'return'
-            finalreturn = 'return'
+        constants = self._chained_list_constants[False]
+        prnt('#if PY_MAJOR_VERSION >= 3')
+        prnt()
+        prnt('static struct PyModuleDef _cffi_module_def = {')
+        prnt('  PyModuleDef_HEAD_INIT,')
+        prnt('  "%s",' % modname)
+        prnt('  NULL,')
+        prnt('  -1,')
+        prnt('  _cffi_methods,')
+        prnt('  NULL, NULL, NULL, NULL')
+        prnt('};')
+        prnt()
         prnt('PyMODINIT_FUNC')
-        prnt('%s(void)' % initname)
+        prnt('PyInit_%s(void)' % modname)
         prnt('{')
         prnt('  PyObject *lib;')
-        prnt('  lib = %s;' % createmod)
-        prnt('  if (lib == NULL || %s < 0)' % (
-            self._chained_list_constants[False],))
-        prnt('    %s;' % errorcase)
-        prnt('  _cffi_init();')
-        prnt('  %s;' % finalreturn)
+        prnt('  lib = PyModule_Create(&_cffi_module_def);')
+        prnt('  if (lib == NULL)')
+        prnt('    return NULL;')
+        prnt('  if (%s < 0 || _cffi_init() < 0) {' % (constants,))
+        prnt('    Py_DECREF(lib);')
+        prnt('    return NULL;')
+        prnt('  }')
+        prnt('  return lib;')
         prnt('}')
+        prnt()
+        prnt('#else')
+        prnt()
+        prnt('PyMODINIT_FUNC')
+        prnt('init%s(void)' % modname)
+        prnt('{')
+        prnt('  PyObject *lib;')
+        prnt('  lib = Py_InitModule("%s", _cffi_methods);' % modname)
+        prnt('  if (lib == NULL)')
+        prnt('    return;')
+        prnt('  if (%s < 0 || _cffi_init() < 0)' % (constants,))
+        prnt('    return;')
+        prnt('  return;')
+        prnt('}')
+        prnt()
+        prnt('#endif')
 
     def load_library(self):
         # XXX review all usages of 'self' here!
@@ -394,7 +405,7 @@ class VCPythonEngine(object):
             meth = 'METH_O'
         else:
             meth = 'METH_VARARGS'
-        self._prnt('  {"%s", _cffi_f_%s, %s},' % (name, name, meth))
+        self._prnt('  {"%s", _cffi_f_%s, %s, NULL},' % (name, name, meth))
 
     _loading_cpy_function = _loaded_noop
 
@@ -481,8 +492,8 @@ class VCPythonEngine(object):
         if tp.fldnames is None:
             return     # nothing to do with opaque structs
         layoutfuncname = '_cffi_layout_%s_%s' % (prefix, name)
-        self._prnt('  {"%s", %s, METH_NOARGS},' % (layoutfuncname,
-                                                   layoutfuncname))
+        self._prnt('  {"%s", %s, METH_NOARGS, NULL},' % (layoutfuncname,
+                                                         layoutfuncname))
 
     def _loading_struct_or_union(self, tp, prefix, name, module):
         if tp.fldnames is None:
@@ -589,13 +600,7 @@ class VCPythonEngine(object):
                                                           'variable type'),))
             assert delayed
         else:
-            prnt('  if (LONG_MIN <= (%s) && (%s) <= LONG_MAX)' % (name, name))
-            prnt('    o = PyInt_FromLong((long)(%s));' % (name,))
-            prnt('  else if ((%s) <= 0)' % (name,))
-            prnt('    o = PyLong_FromLongLong((long long)(%s));' % (name,))
-            prnt('  else')
-            prnt('    o = PyLong_FromUnsignedLongLong('
-                 '(unsigned long long)(%s));' % (name,))
+            prnt('  o = _cffi_from_c_int_const(%s);' % name)
         prnt('  if (o == NULL)')
         prnt('    return -1;')
         if size_too:
@@ -632,13 +637,18 @@ class VCPythonEngine(object):
     # ----------
     # enums
 
+    def _enum_funcname(self, prefix, name):
+        # "$enum_$1" => "___D_enum____D_1"
+        name = name.replace('$', '___D_')
+        return '_cffi_e_%s_%s' % (prefix, name)
+
     def _generate_cpy_enum_decl(self, tp, name, prefix='enum'):
         if tp.partial:
             for enumerator in tp.enumerators:
                 self._generate_cpy_const(True, enumerator, delayed=False)
             return
         #
-        funcname = '_cffi_e_%s_%s' % (prefix, name)
+        funcname = self._enum_funcname(prefix, name)
         prnt = self._prnt
         prnt('static int %s(PyObject *lib)' % funcname)
         prnt('{')
@@ -760,17 +770,30 @@ cffimod_header = r'''
 #include <Python.h>
 #include <stddef.h>
 
-#ifdef MS_WIN32
-#include <malloc.h>   /* for alloca() */
-typedef __int8 int8_t;
-typedef __int16 int16_t;
-typedef __int32 int32_t;
-typedef __int64 int64_t;
-typedef unsigned __int8 uint8_t;
-typedef unsigned __int16 uint16_t;
-typedef unsigned __int32 uint32_t;
-typedef unsigned __int64 uint64_t;
-typedef unsigned char _Bool;
+/* this block of #ifs should be kept exactly identical between
+   c/_cffi_backend.c, cffi/vengine_cpy.py, cffi/vengine_gen.py */
+#if defined(_MSC_VER)
+# include <malloc.h>   /* for alloca() */
+# if _MSC_VER < 1600   /* MSVC < 2010 */
+   typedef __int8 int8_t;
+   typedef __int16 int16_t;
+   typedef __int32 int32_t;
+   typedef __int64 int64_t;
+   typedef unsigned __int8 uint8_t;
+   typedef unsigned __int16 uint16_t;
+   typedef unsigned __int32 uint32_t;
+   typedef unsigned __int64 uint64_t;
+# else
+#  include <stdint.h>
+# endif
+# if _MSC_VER < 1800   /* MSVC < 2013 */
+   typedef unsigned char _Bool;
+# endif
+#else
+# include <stdint.h>
+# if (defined (__SVR4) && defined (__sun)) || defined(_AIX)
+#  include <alloca.h>
+# endif
 #endif
 
 #if PY_MAJOR_VERSION < 3
@@ -795,6 +818,15 @@ typedef unsigned char _Bool;
 #define _cffi_to_c_double PyFloat_AsDouble
 #define _cffi_to_c_float PyFloat_AsDouble
 
+#define _cffi_from_c_int_const(x)                                        \
+    (((x) > 0) ?                                                         \
+        ((unsigned long long)(x) <= (unsigned long long)LONG_MAX) ?      \
+            PyInt_FromLong((long)(x)) :                                  \
+            PyLong_FromUnsignedLongLong((unsigned long long)(x)) :       \
+        ((long long)(x) >= (long long)LONG_MIN) ?                        \
+            PyInt_FromLong((long)(x)) :                                  \
+            PyLong_FromLongLong((long long)(x)))
+
 #define _cffi_from_c_int(x, type)                                        \
     (((type)-1) > 0 ?   /* unsigned */                                   \
         (sizeof(type) < sizeof(long) ? PyInt_FromLong(x) :               \
@@ -804,14 +836,14 @@ typedef unsigned char _Bool;
                                         PyLong_FromLongLong(x)))
 
 #define _cffi_to_c_int(o, type)                                          \
-    (sizeof(type) == 1 ? (((type)-1) > 0 ? _cffi_to_c_u8(o)              \
-                                         : _cffi_to_c_i8(o)) :           \
-     sizeof(type) == 2 ? (((type)-1) > 0 ? _cffi_to_c_u16(o)             \
-                                         : _cffi_to_c_i16(o)) :          \
-     sizeof(type) == 4 ? (((type)-1) > 0 ? _cffi_to_c_u32(o)             \
-                                         : _cffi_to_c_i32(o)) :          \
-     sizeof(type) == 8 ? (((type)-1) > 0 ? _cffi_to_c_u64(o)             \
-                                         : _cffi_to_c_i64(o)) :          \
+    (sizeof(type) == 1 ? (((type)-1) > 0 ? (type)_cffi_to_c_u8(o)        \
+                                         : (type)_cffi_to_c_i8(o)) :     \
+     sizeof(type) == 2 ? (((type)-1) > 0 ? (type)_cffi_to_c_u16(o)       \
+                                         : (type)_cffi_to_c_i16(o)) :    \
+     sizeof(type) == 4 ? (((type)-1) > 0 ? (type)_cffi_to_c_u32(o)       \
+                                         : (type)_cffi_to_c_i32(o)) :    \
+     sizeof(type) == 8 ? (((type)-1) > 0 ? (type)_cffi_to_c_u64(o)       \
+                                         : (type)_cffi_to_c_i64(o)) :    \
      (Py_FatalError("unsupported size for type " #type), 0))
 
 #define _cffi_to_c_i8                                                    \
@@ -885,25 +917,32 @@ static PyObject *_cffi_setup(PyObject *self, PyObject *args)
     return PyBool_FromLong(was_alive);
 }
 
-static void _cffi_init(void)
+static int _cffi_init(void)
 {
-    PyObject *module = PyImport_ImportModule("_cffi_backend");
-    PyObject *c_api_object;
+    PyObject *module, *c_api_object = NULL;
 
+    module = PyImport_ImportModule("_cffi_backend");
     if (module == NULL)
-        return;
+        goto failure;
 
     c_api_object = PyObject_GetAttrString(module, "_C_API");
     if (c_api_object == NULL)
-        return;
+        goto failure;
     if (!PyCapsule_CheckExact(c_api_object)) {
-        Py_DECREF(c_api_object);
         PyErr_SetNone(PyExc_ImportError);
-        return;
+        goto failure;
     }
     memcpy(_cffi_exports, PyCapsule_GetPointer(c_api_object, "cffi"),
            _CFFI_NUM_EXPORTS * sizeof(void *));
+
+    Py_DECREF(module);
     Py_DECREF(c_api_object);
+    return 0;
+
+  failure:
+    Py_XDECREF(module);
+    Py_XDECREF(c_api_object);
+    return -1;
 }
 
 #define _cffi_type(num) ((CTypeDescrObject *)PyList_GET_ITEM(_cffi_types, num))

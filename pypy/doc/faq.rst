@@ -171,15 +171,20 @@ Python programs we generally are 3 times the speed of CPython 2.7.
 You might be interested in our `benchmarking site`_ and our 
 `jit documentation`_.
 
-Note that the JIT has a very high warm-up cost, meaning that the
-programs are slow at the beginning.  If you want to compare the timings
-with CPython, even relatively simple programs need to run *at least* one
-second, preferrably at least a few seconds.  Large, complicated programs
-need even more time to warm-up the JIT.
+`Your tests are not a benchmark`_: tests tend to be slow under PyPy
+because they run exactly once; if they are good tests, they exercise
+various corner cases in your code.  This is a bad case for JIT
+compilers.  Note also that our JIT has a very high warm-up cost, meaning
+that any program is slow at the beginning.  If you want to compare the
+timings with CPython, even relatively simple programs need to run *at
+least* one second, preferrably at least a few seconds.  Large,
+complicated programs need even more time to warm-up the JIT.
 
 .. _`benchmarking site`: http://speed.pypy.org
 
 .. _`jit documentation`: jit/index.html
+
+.. _`your tests are not a benchmark`: http://alexgaynor.net/2013/jul/15/your-tests-are-not-benchmark/
 
 ---------------------------------------------------------------
 Couldn't the JIT dump and reload already-compiled machine code?
@@ -318,7 +323,7 @@ We have our own "RPython standard library" in ``rpython.rlib.*``.
 
 To read more about the RPython limitations read the `RPython description`_.
 
-.. _`RPython description`: coding-guide.html#restricted-python
+.. _`RPython description`: coding-guide.html#rpython-definition
 
 ---------------------------------------------------------------
 Does RPython have anything to do with Zope's Restricted Python?
@@ -465,9 +470,13 @@ Compiling PyPy swaps or runs out of memory
 
 This is documented (here__ and here__).  It needs 4 GB of RAM to run
 "rpython targetpypystandalone" on top of PyPy, a bit more when running
-on CPython.  If you have less than 4 GB it will just swap forever (or
-fail if you don't have enough swap).  On 32-bit, divide the numbers by
-two.
+on top of CPython.  If you have less than 4 GB free, it will just swap
+forever (or fail if you don't have enough swap).  And we mean *free:*
+if the machine has 4 GB *in total,* then it will swap.
+
+On 32-bit, divide the numbers by two.  (We didn't try recently, but in
+the past it was possible to compile a 32-bit version on a 2 GB Linux
+machine with nothing else running: no Gnome/KDE, for example.)
 
 .. __: http://pypy.org/download.html#building-from-source
 .. __: https://pypy.readthedocs.org/en/latest/getting-started-python.html#translating-the-pypy-python-interpreter

@@ -866,25 +866,25 @@ class BackendTests:
 
     def test_enum(self):
         ffi = FFI(backend=self.Backend())
-        ffi.cdef("enum foo { A, B, CC, D };")
-        assert ffi.string(ffi.cast("enum foo", 0)) == "A"
-        assert ffi.string(ffi.cast("enum foo", 2)) == "CC"
-        assert ffi.string(ffi.cast("enum foo", 3)) == "D"
+        ffi.cdef("enum foo { A0, B0, CC0, D0 };")
+        assert ffi.string(ffi.cast("enum foo", 0)) == "A0"
+        assert ffi.string(ffi.cast("enum foo", 2)) == "CC0"
+        assert ffi.string(ffi.cast("enum foo", 3)) == "D0"
         assert ffi.string(ffi.cast("enum foo", 4)) == "4"
-        ffi.cdef("enum bar { A, B=-2, CC, D, E };")
-        assert ffi.string(ffi.cast("enum bar", 0)) == "A"
-        assert ffi.string(ffi.cast("enum bar", -2)) == "B"
-        assert ffi.string(ffi.cast("enum bar", -1)) == "CC"
-        assert ffi.string(ffi.cast("enum bar", 1)) == "E"
+        ffi.cdef("enum bar { A1, B1=-2, CC1, D1, E1 };")
+        assert ffi.string(ffi.cast("enum bar", 0)) == "A1"
+        assert ffi.string(ffi.cast("enum bar", -2)) == "B1"
+        assert ffi.string(ffi.cast("enum bar", -1)) == "CC1"
+        assert ffi.string(ffi.cast("enum bar", 1)) == "E1"
         assert ffi.cast("enum bar", -2) != ffi.cast("enum bar", -2)
         assert ffi.cast("enum foo", 0) != ffi.cast("enum bar", 0)
         assert ffi.cast("enum bar", 0) != ffi.cast("int", 0)
-        assert repr(ffi.cast("enum bar", -1)) == "<cdata 'enum bar' -1: CC>"
+        assert repr(ffi.cast("enum bar", -1)) == "<cdata 'enum bar' -1: CC1>"
         assert repr(ffi.cast("enum foo", -1)) == (  # enums are unsigned, if
             "<cdata 'enum foo' 4294967295>")        # they contain no neg value
-        ffi.cdef("enum baz { A=0x1000, B=0x2000 };")
-        assert ffi.string(ffi.cast("enum baz", 0x1000)) == "A"
-        assert ffi.string(ffi.cast("enum baz", 0x2000)) == "B"
+        ffi.cdef("enum baz { A2=0x1000, B2=0x2000 };")
+        assert ffi.string(ffi.cast("enum baz", 0x1000)) == "A2"
+        assert ffi.string(ffi.cast("enum baz", 0x2000)) == "B2"
 
     def test_enum_in_struct(self):
         ffi = FFI(backend=self.Backend())
@@ -1323,6 +1323,16 @@ class BackendTests:
         e = ffi.cast("enum e", 0)
         assert ffi.string(e) == "AA"     # pick the first one arbitrarily
 
+    def test_enum_refer_previous_enum_value(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("enum e { AA, BB=2, CC=4, DD=BB, EE, FF=CC, GG=FF };")
+        assert ffi.string(ffi.cast("enum e", 2)) == "BB"
+        assert ffi.string(ffi.cast("enum e", 3)) == "EE"
+        assert ffi.sizeof("char[DD]") == 2
+        assert ffi.sizeof("char[EE]") == 3
+        assert ffi.sizeof("char[FF]") == 4
+        assert ffi.sizeof("char[GG]") == 4
+
     def test_nested_anonymous_struct(self):
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
@@ -1544,6 +1554,7 @@ class BackendTests:
         ffi2.include(ffi1)
         p = ffi2.cast("enum foo", 1)
         assert ffi2.string(p) == "FB"
+        assert ffi2.sizeof("char[FC]") == 2
 
     def test_include_typedef_2(self):
         backend = self.Backend()
@@ -1564,10 +1575,32 @@ class BackendTests:
         assert ffi.alignof("struct is_packed") == 1
         s = ffi.new("struct is_packed[2]")
         s[0].b = 42623381
-        s[0].a = 'X'
+        s[0].a = b'X'
         s[1].b = -4892220
-        s[1].a = 'Y'
+        s[1].a = b'Y'
         assert s[0].b == 42623381
-        assert s[0].a == 'X'
+        assert s[0].a == b'X'
         assert s[1].b == -4892220
-        assert s[1].a == 'Y'
+        assert s[1].a == b'Y'
+
+    def test_define_integer_constant(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            #define DOT_0 0
+            #define DOT 100
+            #define DOT_OCT 0100l
+            #define DOT_HEX 0x100u
+            #define DOT_HEX2 0X10
+            #define DOT_UL 1000UL
+            enum foo {AA, BB=DOT, CC};
+        """)
+        lib = ffi.dlopen(None)
+        assert ffi.string(ffi.cast("enum foo", 100)) == "BB"
+        assert lib.DOT_0 == 0
+        assert lib.DOT == 100
+        assert lib.DOT_OCT == 0o100
+        assert lib.DOT_HEX == 0x100
+        assert lib.DOT_HEX2 == 0x10
+        assert lib.DOT_UL == 1000
+
+

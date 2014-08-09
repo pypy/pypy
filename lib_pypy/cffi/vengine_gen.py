@@ -249,10 +249,10 @@ class VGenericEngine(object):
                     prnt('  /* %s */' % str(e))   # cannot verify it, ignore
         prnt('}')
         self.export_symbols.append(layoutfuncname)
-        prnt('ssize_t %s(ssize_t i)' % (layoutfuncname,))
+        prnt('intptr_t %s(intptr_t i)' % (layoutfuncname,))
         prnt('{')
         prnt('  struct _cffi_aligncheck { char x; %s y; };' % cname)
-        prnt('  static ssize_t nums[] = {')
+        prnt('  static intptr_t nums[] = {')
         prnt('    sizeof(%s),' % cname)
         prnt('    offsetof(struct _cffi_aligncheck, y),')
         for fname, ftype, fbitsize in tp.enumfields():
@@ -276,7 +276,7 @@ class VGenericEngine(object):
             return     # nothing to do with opaque structs
         layoutfuncname = '_cffi_layout_%s_%s' % (prefix, name)
         #
-        BFunc = self.ffi._typeof_locked("ssize_t(*)(ssize_t)")[0]
+        BFunc = self.ffi._typeof_locked("intptr_t(*)(intptr_t)")[0]
         function = module.load_function(BFunc, layoutfuncname)
         layout = []
         num = 0
@@ -410,13 +410,18 @@ class VGenericEngine(object):
     # ----------
     # enums
 
+    def _enum_funcname(self, prefix, name):
+        # "$enum_$1" => "___D_enum____D_1"
+        name = name.replace('$', '___D_')
+        return '_cffi_e_%s_%s' % (prefix, name)
+
     def _generate_gen_enum_decl(self, tp, name, prefix='enum'):
         if tp.partial:
             for enumerator in tp.enumerators:
                 self._generate_gen_const(True, enumerator)
             return
         #
-        funcname = '_cffi_e_%s_%s' % (prefix, name)
+        funcname = self._enum_funcname(prefix, name)
         self.export_symbols.append(funcname)
         prnt = self._prnt
         prnt('int %s(char *out_error)' % funcname)
@@ -430,14 +435,14 @@ class VGenericEngine(object):
                     enumerator, enumerator, enumvalue))
             prnt('    char buf[64];')
             prnt('    if ((%s) < 0)' % enumerator)
-            prnt('        snprintf(buf, 63, "%%ld", (long)(%s));' % enumerator)
+            prnt('        sprintf(buf, "%%ld", (long)(%s));' % enumerator)
             prnt('    else')
-            prnt('        snprintf(buf, 63, "%%lu", (unsigned long)(%s));' %
+            prnt('        sprintf(buf, "%%lu", (unsigned long)(%s));' %
                  enumerator)
-            prnt('    snprintf(out_error, 255,'
+            prnt('    sprintf(out_error,'
                              ' "%s has the real value %s, not %s",')
             prnt('            "%s", buf, "%d");' % (
-                enumerator, enumvalue))
+                enumerator[:100], enumvalue))
             prnt('    return -1;')
             prnt('  }')
         prnt('  return 0;')
@@ -453,7 +458,7 @@ class VGenericEngine(object):
         else:
             BType = self.ffi._typeof_locked("char[]")[0]
             BFunc = self.ffi._typeof_locked("int(*)(char*)")[0]
-            funcname = '_cffi_e_%s_%s' % (prefix, name)
+            funcname = self._enum_funcname(prefix, name)
             function = module.load_function(BFunc, funcname)
             p = self.ffi.new(BType, 256)
             if function(p) < 0:
@@ -547,20 +552,29 @@ cffimod_header = r'''
 #include <errno.h>
 #include <sys/types.h>   /* XXX for ssize_t on some platforms */
 
-#ifdef _WIN32
-#  include <Windows.h>
-#  define snprintf _snprintf
-typedef __int8 int8_t;
-typedef __int16 int16_t;
-typedef __int32 int32_t;
-typedef __int64 int64_t;
-typedef unsigned __int8 uint8_t;
-typedef unsigned __int16 uint16_t;
-typedef unsigned __int32 uint32_t;
-typedef unsigned __int64 uint64_t;
-typedef SSIZE_T ssize_t;
-typedef unsigned char _Bool;
-#else
+/* this block of #ifs should be kept exactly identical between
+   c/_cffi_backend.c, cffi/vengine_cpy.py, cffi/vengine_gen.py */
+#if defined(_MSC_VER)
+# include <malloc.h>   /* for alloca() */
+# if _MSC_VER < 1600   /* MSVC < 2010 */
+   typedef __int8 int8_t;
+   typedef __int16 int16_t;
+   typedef __int32 int32_t;
+   typedef __int64 int64_t;
+   typedef unsigned __int8 uint8_t;
+   typedef unsigned __int16 uint16_t;
+   typedef unsigned __int32 uint32_t;
+   typedef unsigned __int64 uint64_t;
+# else
 #  include <stdint.h>
+# endif
+# if _MSC_VER < 1800   /* MSVC < 2013 */
+   typedef unsigned char _Bool;
+# endif
+#else
+# include <stdint.h>
+# if (defined (__SVR4) && defined (__sun)) || defined(_AIX)
+#  include <alloca.h>
+# endif
 #endif
 '''

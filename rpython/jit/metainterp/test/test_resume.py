@@ -4,7 +4,7 @@ import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.jit.metainterp.optimizeopt.optimizer import OptValue
 from rpython.jit.metainterp.optimizeopt.virtualize import VirtualValue, VArrayValue
-from rpython.jit.metainterp.optimizeopt.virtualize import VStructValue
+from rpython.jit.metainterp.optimizeopt.virtualize import VStructValue, AbstractVirtualValue
 from rpython.jit.metainterp.resume import *
 from rpython.jit.metainterp.history import BoxInt, BoxPtr, ConstInt
 from rpython.jit.metainterp.history import ConstPtr, ConstFloat
@@ -31,7 +31,55 @@ class FakeOptimizer(object):
         except KeyError:
             value = self.values[box] = OptValue(box)
         return value
-        
+
+
+# ____________________________________________________________
+
+def dump_storage(storage, liveboxes):
+    "For profiling only."
+    debug_start("jit-resume")
+    if have_debug_prints():
+        debug_print('Log storage', compute_unique_id(storage))
+        frameinfo = storage.rd_frame_info_list
+        while frameinfo is not None:
+            try:
+                jitcodename = frameinfo.jitcode.name
+            except AttributeError:
+                jitcodename = str(compute_unique_id(frameinfo.jitcode))
+            debug_print('\tjitcode/pc', jitcodename,
+                        frameinfo.pc,
+                        'at', compute_unique_id(frameinfo))
+            frameinfo = frameinfo.prev
+        numb = storage.rd_numb
+        while numb:
+            debug_print('\tnumb', str([untag(numb.nums[i])
+                                       for i in range(len(numb.nums))]),
+                        'at', compute_unique_id(numb))
+            numb = numb.prev
+        for const in storage.rd_consts:
+            debug_print('\tconst', const.repr_rpython())
+        for box in liveboxes:
+            if box is None:
+                debug_print('\tbox', 'None')
+            else:
+                debug_print('\tbox', box.repr_rpython())
+        if storage.rd_virtuals is not None:
+            for virtual in storage.rd_virtuals:
+                if virtual is None:
+                    debug_print('\t\t', 'None')
+                else:
+                    virtual.debug_prints()
+        if storage.rd_pendingfields:
+            debug_print('\tpending setfields')
+            for i in range(len(storage.rd_pendingfields)):
+                lldescr = storage.rd_pendingfields[i].lldescr
+                num = storage.rd_pendingfields[i].num
+                fieldnum = storage.rd_pendingfields[i].fieldnum
+                itemindex = storage.rd_pendingfields[i].itemindex
+                debug_print("\t\t", str(lldescr), str(untag(num)), str(untag(fieldnum)), itemindex)
+
+    debug_stop("jit-resume")
+
 
 def test_tag():
     assert tag(3, 1) == rffi.r_short(3<<2|1)
@@ -65,6 +113,26 @@ def test_vinfo():
     v1.set_content([1, 2, 4])
     assert v1.equals([1, 2, 4])
     assert not v1.equals([1, 2, 6])
+
+def test_reuse_vinfo():
+    class FakeVInfo(object):
+        def set_content(self, fieldnums):
+            self.fieldnums = fieldnums
+        def equals(self, fieldnums):
+            return self.fieldnums == fieldnums
+    class FakeVirtualValue(AbstractVirtualValue):
+        def visitor_dispatch_virtual_type(self, *args):
+            return FakeVInfo()
+    modifier = ResumeDataVirtualAdder(None, None)
+    v1 = FakeVirtualValue(None, None)
+    vinfo1 = modifier.make_virtual_info(v1, [1, 2, 4])
+    vinfo2 = modifier.make_virtual_info(v1, [1, 2, 4])
+    assert vinfo1 is vinfo2
+    vinfo3 = modifier.make_virtual_info(v1, [1, 2, 6])
+    assert vinfo3 is not vinfo2
+    vinfo4 = modifier.make_virtual_info(v1, [1, 2, 6])
+    assert vinfo3 is vinfo4
+
 
 class MyMetaInterp:
     _already_allocated_resume_virtuals = None

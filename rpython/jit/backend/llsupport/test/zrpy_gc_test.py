@@ -107,7 +107,9 @@ def compile(f, gc, **kwds):
 def run(cbuilder, args=''):
     #
     pypylog = udir.join('test_zrpy_gc.log')
-    data = cbuilder.cmdexec(args, env={'PYPYLOG': ':%s' % pypylog})
+    env = os.environ.copy()
+    env['PYPYLOG'] = ':%s' % pypylog
+    data = cbuilder.cmdexec(args, env=env)
     return data.strip()
 
 # ______________________________________________________________________
@@ -179,8 +181,9 @@ class BaseFrameworkTests(object):
 
     def run(self, name, n=2000):
         pypylog = udir.join('TestCompileFramework.log')
-        env = {'PYPYLOG': ':%s' % pypylog,
-               'PYPY_NO_INLINE_MALLOC': '1'}
+        env = os.environ.copy()
+        env['PYPYLOG'] = ':%s' % pypylog
+        env['PYPY_NO_INLINE_MALLOC'] = '1'
         self._run(name, n, env)
         env['PYPY_NO_INLINE_MALLOC'] = ''
         self._run(name, n, env)

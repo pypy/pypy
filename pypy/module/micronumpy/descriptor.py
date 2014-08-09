@@ -1,3 +1,4 @@
+import string
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -5,7 +6,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty, interp_attrproperty_w)
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, compute_hash
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
 from pypy.module.micronumpy import types, boxes, base, support, constants as NPY
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
@@ -28,9 +29,11 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
 
     if not space.is_none(out):
         return out
-    dtype = w_arr_list[0].get_dtype()
-    for w_arr in w_arr_list[1:]:
-        dtype = find_binop_result_dtype(space, dtype, w_arr.get_dtype())
+    dtype = None
+    for w_arr in w_arr_list:
+        if not space.is_none(w_arr):
+            dtype = find_binop_result_dtype(space, dtype, w_arr.get_dtype())
+    assert dtype is not None
     out = base.W_NDimArray.from_shape(space, shape, dtype)
     return out
 
@@ -70,7 +73,7 @@ class W_Dtype(W_Root):
             self.base = subdtype.base
 
     def __repr__(self):
-        if self.fields is not None:
+        if self.fields:
             return '<DType %r>' % self.fields
         return '<DType %r>' % self.itemtype
 
@@ -128,12 +131,15 @@ class W_Dtype(W_Root):
         return dtype
 
     def get_name(self):
-        return self.w_box_type.name
+        name = self.w_box_type.name
+        if name.startswith('numpy.'):
+            name = name[6:]
+        if name.endswith('_'):
+            name = name[:-1]
+        return name
 
     def descr_get_name(self, space):
         name = self.get_name()
-        if name[-1] == '_':
-            name = name[:-1]
         if self.is_flexible() and self.elsize != 0:
             return space.wrap(name + str(self.elsize * 8))
         return space.wrap(name)
@@ -248,8 +254,38 @@ class W_Dtype(W_Root):
     def descr_ne(self, space, w_other):
         return space.wrap(not self.eq(space, w_other))
 
+    def _compute_hash(self, space, x):
+        from rpython.rlib.rarithmetic import intmask
+        if not self.fields and self.subdtype is None:
+            endian = self.byteorder
+            if endian == NPY.NATIVE:
+                endian = NPY.NATBYTE
+            flags = 0
+            y = 0x345678
+            y = intmask((1000003 * y) ^ ord(self.kind[0]))
+            y = intmask((1000003 * y) ^ ord(endian[0]))
+            y = intmask((1000003 * y) ^ flags)
+            y = intmask((1000003 * y) ^ self.elsize)
+            if self.is_flexible():
+                y = intmask((1000003 * y) ^ self.alignment)
+            return intmask((1000003 * x) ^ y)
+        if self.fields:
+            for name, (offset, subdtype) in self.fields.iteritems():
+                assert isinstance(subdtype, W_Dtype)
+                y = intmask(1000003 * (0x345678 ^ compute_hash(name)))
+                y = intmask(1000003 * (y ^ compute_hash(offset)))
+                y = intmask(1000003 * (y ^ subdtype._compute_hash(space,
+                                                                 0x345678)))
+                x = intmask(x ^ y)
+        if self.subdtype is not None:
+            for s in self.shape:
+                x = intmask((1000003 * x) ^ compute_hash(s))
+            x = self.base._compute_hash(space, x)
+        return x
+
     def descr_hash(self, space):
-        return space.hash(self.descr_reduce(space))
+        return space.wrap(self._compute_hash(space, 0x345678))
+
 
     def descr_str(self, space):
         if self.fields:
@@ -468,6 +504,23 @@ def dtype_from_spec(space, w_spec):
         return dtype_from_list(space, w_lst, True)
 
 
+def _check_for_commastring(s):
+    if s[0] in string.digits or s[0] in '<>=|' and s[1] in string.digits:
+        return True
+    if s[0] == '(' and s[1] == ')' or s[0] in '<>=|' and s[1] == '(' and s[2] == ')':
+        return True
+    sqbracket = 0
+    for c in s:
+        if c == ',':
+            if sqbracket == 0:
+                return True
+        elif c == '[':
+            sqbracket += 1
+        elif c == ']':
+            sqbracket -= 1
+    return False
+
+
 def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=None):
     # w_align and w_copy are necessary for pickling
     cache = get_dtype_cache(space)
@@ -497,7 +550,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
         return w_dtype
     elif space.isinstance_w(w_dtype, space.w_str):
         name = space.str_w(w_dtype)
-        if ',' in name:
+        if _check_for_commastring(name):
             return dtype_from_spec(space, w_dtype)
         cname = name[1:] if name[0] == NPY.OPPBYTE else name
         try:
@@ -508,7 +561,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
             if name[0] == NPY.OPPBYTE:
                 dtype = dtype.descr_newbyteorder(space)
             return dtype
-        if name[0] in 'VSUc' or name[0] in '<>=|' and name[1] in 'VSUc':
+        if name[0] in 'VSUca' or name[0] in '<>=|' and name[1] in 'VSUca':
             return variable_dtype(space, name)
         raise oefmt(space.w_TypeError, 'data type "%s" not understood', name)
     elif space.isinstance_w(w_dtype, space.w_list):
@@ -536,8 +589,7 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
     raise oefmt(space.w_TypeError, "data type not understood")
 
 
-W_Dtype.typedef = TypeDef("dtype",
-    __module__ = "numpy",
+W_Dtype.typedef = TypeDef("numpy.dtype",
     __new__ = interp2app(descr__new__),
 
     type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
@@ -589,7 +641,7 @@ def variable_dtype(space, name):
             raise oefmt(space.w_TypeError, "data type not understood")
     if char == NPY.CHARLTR:
         return new_string_dtype(space, 1, NPY.CHARLTR)
-    elif char == NPY.STRINGLTR:
+    elif char == NPY.STRINGLTR or char == NPY.STRINGLTR2:
         return new_string_dtype(space, size)
     elif char == NPY.UNICODELTR:
         return new_unicode_dtype(space, size)
@@ -799,7 +851,7 @@ class DtypeCache(object):
             w_box_type=space.gettypefor(boxes.W_ULongBox),
         )
         aliases = {
-            NPY.BOOL:        ['bool', 'bool8'],
+            NPY.BOOL:        ['bool_', 'bool8'],
             NPY.BYTE:        ['byte'],
             NPY.UBYTE:       ['ubyte'],
             NPY.SHORT:       ['short'],
@@ -814,8 +866,8 @@ class DtypeCache(object):
             NPY.CFLOAT:      ['csingle'],
             NPY.CDOUBLE:     ['complex', 'cfloat', 'cdouble'],
             NPY.CLONGDOUBLE: ['clongdouble', 'clongfloat'],
-            NPY.STRING:      ['string', 'str'],
-            NPY.UNICODE:     ['unicode'],
+            NPY.STRING:      ['string_', 'str'],
+            NPY.UNICODE:     ['unicode_'],
         }
         self.alternate_constructors = {
             NPY.BOOL:     [space.w_bool],

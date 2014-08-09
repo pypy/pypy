@@ -220,7 +220,7 @@ class Marshaller(_Base):
         space = self.space
         if space.type(w_obj).is_heaptype():
             try:
-                buf = space.buffer_w(w_obj)
+                buf = space.readbuf_w(w_obj)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -327,21 +327,8 @@ class StringMarshaller(Marshaller):
 
 
 def invalid_typecode(space, u, tc):
-    # %r not supported in rpython
-    #u.raise_exc('invalid typecode in unmarshal: %r' % tc)
-    c = ord(tc)
-    if c < 16:
-        s = '\\x0%x' % c
-    elif c < 32 or c > 126:
-        s = '\\x%x' % c
-    elif tc == '\\':
-        s = r'\\'
-    else:
-        s = tc
-    q = "'"
-    if s[0] == "'":
-        q = '"'
-    u.raise_exc('invalid typecode in unmarshal: ' + q + s + q)
+    u.raise_exc("bad marshal data (unknown type code)")
+
 
 def register(codes, func):
     """NOT_RPYTHON"""
@@ -476,13 +463,7 @@ class StringUnmarshaller(Unmarshaller):
     # Unmarshaller with inlined buffer string
     def __init__(self, space, w_str):
         Unmarshaller.__init__(self, space, None)
-        try:
-            self.bufstr = space.bufferstr_w(w_str)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            raise OperationError(space.w_TypeError, space.wrap(
-                'marshal.loads() arg must be string or buffer'))
+        self.bufstr = space.getarg_w('s#', w_str)
         self.bufpos = 0
         self.limit = len(self.bufstr)
 

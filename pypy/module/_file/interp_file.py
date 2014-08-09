@@ -209,11 +209,13 @@ class W_File(W_AbstractStream):
             while size > 0:
                 # "peeks" on the underlying stream to see how many chars
                 # we can safely read without reading past an end-of-line
-                peeked = stream.peek()
-                pn = peeked.find("\n", 0, size)
+                startindex, peeked = stream.peek()
+                assert 0 <= startindex <= len(peeked)
+                endindex = startindex + size
+                pn = peeked.find("\n", startindex, endindex)
                 if pn < 0:
-                    pn = min(size-1, len(peeked))
-                c = stream.read(pn + 1)
+                    pn = min(endindex - 1, len(peeked))
+                c = stream.read(pn - startindex + 1)
                 if not c:
                     break
                 result.append(c)
@@ -267,9 +269,14 @@ class W_File(W_AbstractStream):
 
     def direct_write(self, w_data):
         space = self.space
-        if not self.binary and space.isinstance_w(w_data, space.w_unicode):
-            w_data = space.call_method(w_data, "encode", space.wrap(self.encoding), space.wrap(self.errors))
-        data = space.bufferstr_w(w_data)
+        if self.binary:
+            data = space.getarg_w('s*', w_data).as_str()
+        else:
+            if space.isinstance_w(w_data, space.w_unicode):
+                w_data = space.call_method(w_data, "encode",
+                                           space.wrap(self.encoding),
+                                           space.wrap(self.errors))
+            data = space.charbuf_w(w_data)
         self.do_direct_write(data)
 
     def do_direct_write(self, data):
@@ -455,21 +462,24 @@ producing strings. This is equivalent to calling write() for each string."""
 
         space = self.space
         self.check_closed()
-        w_iterator = space.iter(w_lines)
-        while True:
-            try:
-                w_line = space.next(w_iterator)
-            except OperationError, e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break  # done
+        lines = space.fixedview(w_lines)
+        for i, w_line in enumerate(lines):
+            if not space.isinstance_w(w_line, space.w_str):
+                try:
+                    line = w_line.charbuf_w(space)
+                except TypeError:
+                    raise OperationError(space.w_TypeError, space.wrap(
+                        "writelines() argument must be a sequence of strings"))
+                else:
+                    lines[i] = space.wrap(line)
+        for w_line in lines:
             self.file_write(w_line)
 
     def file_readinto(self, w_rwbuffer):
         """readinto() -> Undocumented.  Don't use this; it may go away."""
         # XXX not the most efficient solution as it doesn't avoid the copying
         space = self.space
-        rwbuffer = space.rwbuffer_w(w_rwbuffer)
+        rwbuffer = space.writebuf_w(w_rwbuffer)
         w_data = self.file_read(rwbuffer.getlength())
         data = space.str_w(w_data)
         rwbuffer.setslice(0, data)

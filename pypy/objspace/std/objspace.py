@@ -24,7 +24,7 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.longobject import W_LongObject, newlong
-from pypy.objspace.std.memoryview import W_Buffer
+from pypy.objspace.std.bufferobject import W_Buffer
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.iterobject import W_SeqIterObject
@@ -421,14 +421,19 @@ class StdObjSpace(ObjSpace):
         assert expected_length >= 0
         return self.fixedview(w_obj, expected_length, unroll=True)
 
-    def listview(self, w_obj, expected_length=-1):
+    def listview_no_unpack(self, w_obj):
         if type(w_obj) is W_ListObject:
-            t = w_obj.getitems()
+            return w_obj.getitems()
         elif isinstance(w_obj, W_AbstractTupleObject) and self._uses_tuple_iter(w_obj):
-            t = w_obj.getitems_copy()
+            return w_obj.getitems_copy()
         elif isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
-            t = w_obj.getitems()
+            return w_obj.getitems()
         else:
+            return None
+
+    def listview(self, w_obj, expected_length=-1):
+        t = self.listview_no_unpack(w_obj)
+        if t is None:
             return ObjSpace.unpackiterable(self, w_obj, expected_length)
         if expected_length != -1 and len(t) != expected_length:
             raise self._wrap_expected_length(expected_length, len(t))
