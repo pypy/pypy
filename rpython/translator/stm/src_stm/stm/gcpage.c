@@ -525,17 +525,15 @@ static inline bool largemalloc_keep_object_at(char *data)
     /* this is called by _stm_largemalloc_sweep() */
     object_t *obj = (object_t *)(data - stm_object_pages);
     if (!mark_visited_test_and_clear(obj)) {
-#ifndef NDEBUG
         /* This is actually needed in order to avoid random write-read
-           conflicts with objects read and freed long in the past. Still,
-           it is probably rare enough so that we don't need this additional
-           overhead. (test_random hits it sometimes) */
+           conflicts with objects read and freed long in the past.
+           It is probably rare enough, but still, we want to avoid any
+           false conflict. (test_random hits it sometimes) */
         long i;
         for (i = 1; i <= NB_SEGMENTS; i++) {
             ((struct stm_read_marker_s *)
              (get_segment_base(i) + (((uintptr_t)obj) >> 4)))->rm = 0;
         }
-#endif
         return false;
     }
     return true;

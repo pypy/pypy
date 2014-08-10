@@ -14,6 +14,8 @@
 #include <limits.h>
 #include <unistd.h>
 
+#include "stm/rewind_setjmp.h"
+
 #if LONG_MAX == 2147483647
 # error "Requires a 64-bit environment"
 #endif
@@ -26,7 +28,6 @@ typedef TLPREFIX struct stm_segment_info_s stm_segment_info_t;
 typedef TLPREFIX struct stm_read_marker_s stm_read_marker_t;
 typedef TLPREFIX struct stm_creation_marker_s stm_creation_marker_t;
 typedef TLPREFIX char stm_char;
-typedef void* stm_jmpbuf_t[5];  /* for use with __builtin_setjmp() */
 
 struct stm_read_marker_s {
     /* In every segment, every object has a corresponding read marker.
@@ -45,7 +46,6 @@ struct stm_segment_info_s {
     stm_char *nursery_current;
     uintptr_t nursery_end;
     struct stm_thread_local_s *running_thread;
-    stm_jmpbuf_t *jmpbuf_ptr;
 };
 #define STM_SEGMENT           ((stm_segment_info_t *)4352)
 
@@ -80,6 +80,8 @@ enum stm_time_e {
 typedef struct stm_thread_local_s {
     /* every thread should handle the shadow stack itself */
     struct stm_shadowentry_s *shadowstack, *shadowstack_base;
+    /* rewind_setjmp's interface */
+    rewind_jmp_thread rjthread;
     /* a generic optional thread-local object */
     object_t *thread_local_obj;
     /* in case this thread runs a transaction that aborts,
@@ -115,7 +117,6 @@ long _stm_write_slowpath_card_extra_base(void);
 object_t *_stm_allocate_slowpath(ssize_t);
 object_t *_stm_allocate_external(ssize_t);
 void _stm_become_inevitable(const char*);
-void _stm_start_transaction(stm_thread_local_t *, stm_jmpbuf_t *);
 void _stm_collectable_safe_point(void);
 
 /* for tests, but also used in duhton: */
@@ -327,39 +328,41 @@ void stm_teardown(void);
 void stm_register_thread_local(stm_thread_local_t *tl);
 void stm_unregister_thread_local(stm_thread_local_t *tl);
 
+/* At some key places, like the entry point of the thread and in the
+   function with the interpreter's dispatch loop, you need to declare
+   a local variable of type 'rewind_jmp_buf' and call these macros. */
+#define stm_rewind_jmp_enterframe(tl, rjbuf)       \
+    rewind_jmp_enterframe(&(tl)->rjthread, rjbuf)
+#define stm_rewind_jmp_leaveframe(tl, rjbuf)       \
+    rewind_jmp_leaveframe(&(tl)->rjthread, rjbuf)
+
 /* Starting and ending transactions.  stm_read(), stm_write() and
    stm_allocate() should only be called from within a transaction.
-   Use the macro STM_START_TRANSACTION() to start a transaction that
-   can be restarted using the 'jmpbuf' (a local variable of type
-   stm_jmpbuf_t). */
-#define STM_START_TRANSACTION(tl, jmpbuf)  ({                   \
-    while (__builtin_setjmp(jmpbuf) == 1) { /*redo setjmp*/ }   \
-    _stm_start_transaction(tl, &jmpbuf);                        \
-})
-
-/* Start an inevitable transaction, if it's going to return from the
-   current function immediately. */
-static inline void stm_start_inevitable_transaction(stm_thread_local_t *tl) {
-    _stm_start_transaction(tl, NULL);
-}
-
-/* Commit a transaction. */
+   The stm_start_transaction() call returns the number of times it
+   returned, starting at 0.  If it is > 0, then the transaction was
+   aborted and restarted this number of times. */
+long stm_start_transaction(stm_thread_local_t *tl);
+void stm_start_inevitable_transaction(stm_thread_local_t *tl);
 void stm_commit_transaction(void);
 
-/* Abort the currently running transaction. */
+/* Abort the currently running transaction.  This function never
+   returns: it jumps back to the stm_start_transaction(). */
 void stm_abort_transaction(void) __attribute__((noreturn));
 
-/* Turn the current transaction inevitable.  The 'jmpbuf' passed to
-   STM_START_TRANSACTION() is not going to be used any more after
-   this call (but the stm_become_inevitable() itself may still abort). */
+/* Turn the current transaction inevitable.
+   The stm_become_inevitable() itself may still abort. */
+#ifdef STM_NO_AUTOMATIC_SETJMP
+int stm_is_inevitable(void);
+#else
+static inline int stm_is_inevitable(void) {
+    return !rewind_jmp_armed(&STM_SEGMENT->running_thread->rjthread); 
+}
+#endif
 static inline void stm_become_inevitable(stm_thread_local_t *tl,
                                          const char* msg) {
     assert(STM_SEGMENT->running_thread == tl);
-    if (STM_SEGMENT->jmpbuf_ptr != NULL)
+    if (!stm_is_inevitable())
         _stm_become_inevitable(msg);
-}
-static inline int stm_is_inevitable(void) {
-    return (STM_SEGMENT->jmpbuf_ptr == NULL);
 }
 
 /* Forces a safe-point if needed.  Normally not needed: this is
