@@ -11,6 +11,7 @@ from rpython.rtyper import rtyper
 from rpython.rtyper.rmodel import inputconst
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
+from rpython.rlib.debug import ll_assert
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.tool.sourcetools import func_with_new_name
