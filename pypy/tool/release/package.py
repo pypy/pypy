@@ -3,9 +3,8 @@
 It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
-    package.py [--options]
+    package.py [--options] pypy-VER-PLATFORM
 
-Usually you would do:   package.py --version-name pypy-VER-PLATFORM
 The output is found in the directory from --builddir,
 by default /tmp/usession-YOURNAME/build/.
 """
