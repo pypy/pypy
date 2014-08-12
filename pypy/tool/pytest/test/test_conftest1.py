@@ -6,34 +6,34 @@ innertest = py.path.local(__file__).dirpath('conftest1_innertest.py')
 pytest_plugins = "pytester"
 
 class TestPyPyTests:
-    def test_selection_by_keyword_interp(self, testdir): 
-        sorter = testdir.inline_run("-k", "interplevel", innertest, )
+    def test_selection_by_keyword_interp(self, testdir):
+        sorter = testdir.inline_run("-m", "interplevel", innertest, )
         passed, skipped, failed = sorter.listoutcomes()
         assert len(passed) == 2, len(passed)
-        assert not skipped and not failed 
+        assert not skipped and not failed
         assert "test_something" in passed[0].nodeid
         assert "test_method" in passed[1].nodeid
 
-    def test_selection_by_keyword_app(self, testdir): 
-        sorter = testdir.inline_run("-k", "applevel -docstring", innertest)
+    def test_selection_by_keyword_app(self, testdir):
+        sorter = testdir.inline_run("-m", "applevel -docstring", innertest)
         passed, skipped, failed = sorter.listoutcomes()
-        assert len(passed) == 3
-        assert failed == []
-        assert skipped == []
+        assert len(passed) == 4
+        assert not skipped
+        assert len(failed) == 2
         assert "app_test_something" in passed[0].nodeid
         assert "test_method_app" in passed[1].nodeid
 
     def test_runappdirect(self, testdir):
-        sorter = testdir.inline_run(innertest, '-k', 'applevel -docstring',
+        sorter = testdir.inline_run(innertest, '-m', 'applevel -docstring',
                                     '--runappdirect')
         passed, skipped, failed = sorter.listoutcomes()
-        assert len(passed) == 3
+        assert len(passed) == 4
         print passed
         assert "app_test_something" in passed[0].nodeid
         assert "test_method_app" in passed[1].nodeid
         
     def test_docstring_in_methods(self, testdir): 
-        sorter = testdir.inline_run("-k", "AppTestSomething test_code_in_docstring",
+        sorter = testdir.inline_run("-k", "AppTestSomething and test_code_in_docstring",
                                     innertest)
         passed, skipped, failed = sorter.listoutcomes()
         assert len(passed) == 1

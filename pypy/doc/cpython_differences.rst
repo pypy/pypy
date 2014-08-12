@@ -74,9 +74,6 @@ List of extension modules that we support:
     zipimport
     zlib
 
-  When translated to Java or .NET, the list is smaller; see
-  `pypy/config/pypyoption.py`_ for details.
-
   When translated on Windows, a few Unix-only modules are skipped,
   and the following module is built instead:
 

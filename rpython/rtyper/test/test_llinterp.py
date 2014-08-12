@@ -129,7 +129,7 @@ def interpret_raises(exc, func, values, view='auto', viewbefore='auto',
     info = py.test.raises(LLException, "interp.eval_graph(graph, values)")
     try:
         got = interp.find_exception(info.value)
-    except ValueError, message:
+    except ValueError as message:
         got = 'None %r' % message
     assert got is exc, "wrong exception type, expected %r got %r" % (exc, got)
 

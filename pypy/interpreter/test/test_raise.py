@@ -256,6 +256,7 @@ class AppTestRaise:
             fail("Did not raise")
 
     def test_obscure_bases(self):
+        """
         # this test checks bug-to-bug cpython compatibility
         e = ValueError()
         e.__bases__ = (5,)
@@ -267,20 +268,21 @@ class AppTestRaise:
         # explodes on CPython and py.test, not sure why
 
         flag = False
-        class A(BaseException):
-            class __metaclass__(type):
-                def __getattribute__(self, name):
-                    if flag and name == '__bases__':
-                        fail("someone read bases attr")
-                    else:
-                        return type.__getattribute__(self, name)
-
+        class metaclass(type):
+            def __getattribute__(self, name):
+                if flag and name == '__bases__':
+                    fail("someone read bases attr")
+                else:
+                    return type.__getattribute__(self, name)
+        class A(BaseException, metaclass=metaclass):
+            pass
         try:
             a = A()
             flag = True
             raise a
         except A:
             pass
+        """
 
     def test_new_returns_bad_instance(self):
         class MyException(Exception):

@@ -108,51 +108,11 @@ class Source(object):
     def getstatementrange(self, lineno, assertion=False):
         """ return (start, end) tuple which spans the minimal
             statement region which containing the given lineno.
-            raise an IndexError if no such statementrange can be found.
         """
-        # XXX there must be a better than these heuristic ways ...
-        # XXX there may even be better heuristics :-)
         if not (0 <= lineno < len(self)):
             raise IndexError("lineno out of range")
-
-        # 1. find the start of the statement
-        from codeop import compile_command
-        end = None
-        for start in range(lineno, -1, -1):
-            if assertion:
-                line = self.lines[start]
-                # the following lines are not fully tested, change with care
-                if 'super' in line and 'self' in line and '__init__' in line:
-                    raise IndexError("likely a subclass")
-                if "assert" not in line and "raise" not in line:
-                    continue
-            trylines = self.lines[start:lineno+1]
-            # quick hack to indent the source and get it as a string in one go
-            trylines.insert(0, 'if xxx:')
-            trysource = '\n '.join(trylines)
-            #              ^ space here
-            try:
-                compile_command(trysource)
-            except (SyntaxError, OverflowError, ValueError):
-                continue
-
-            # 2. find the end of the statement
-            for end in range(lineno+1, len(self)+1):
-                trysource = self[start:end]
-                if trysource.isparseable():
-                    return start, end
-                if end == start + 100:   # XXX otherwise, it takes forever
-                    break                # XXX
-        if end is None:
-            raise IndexError("no valid source range around line %d " % (lineno,))
+        ast, start, end = getstatementrange_ast(lineno, self)
         return start, end
-
-    def getblockend(self, lineno):
-        # XXX
-        lines = [x + '\n' for x in self.lines[lineno:]]
-        blocklines = inspect.getblock(lines)
-        #print blocklines
-        return lineno + len(blocklines) - 1
 
     def deindent(self, offset=None):
         """ return a new source object deindented by offset.
@@ -356,3 +316,106 @@ def deindent(lines, offset=None):
     # Add any lines we didn't see. E.g. if an exception was raised.
     newlines.extend(lines[len(newlines):])
     return newlines
+
+def get_statement_startend(lineno, nodelist):
+    from bisect import bisect_right
+    # lineno starts at 0
+    nextlineno = None
+    while 1:
+        lineno_list = [x.lineno-1 for x in nodelist] # ast indexes start at 1
+        insert_index = bisect_right(lineno_list, lineno)
+        if insert_index >= len(nodelist):
+            insert_index -= 1
+        elif lineno < (nodelist[insert_index].lineno - 1) and insert_index > 0:
+            insert_index -= 1
+            assert lineno >= (nodelist[insert_index].lineno - 1)
+        nextnode = nodelist[insert_index]
+
+        try:
+            nextlineno = nodelist[insert_index+1].lineno - 1
+        except IndexError:
+            pass
+        lastnodelist = nodelist
+        nodelist = getnodelist(nextnode)
+        if not nodelist:
+            start, end = nextnode.lineno-1, nextlineno
+            start = min(lineno, start)
+            assert start <= lineno  and (end is None or lineno < end)
+            #print "returning", start, end
+            return start, end
+
+def getnodelist(node):
+    import _ast
+    l = []
+    #print "node", node, "fields", node._fields, "lineno", getattr(node, "lineno", 0) - 1
+    for subname in "test", "type", "body", "handlers", "orelse", "finalbody":
+        attr = getattr(node, subname, None)
+        if attr is not None:
+            if isinstance(attr, list):
+                l.extend(attr)
+            elif hasattr(attr, "lineno"):
+                l.append(attr)
+    #print "returning nodelist", l
+    return l
+
+def getstatementrange_ast(lineno, source, assertion=False, astnode=None):
+    if astnode is None:
+        content = str(source)
+        if sys.version_info < (2,7):
+            content += "\n"
+        try:
+            astnode = compile(content, "source", "exec", 1024)  # 1024 for AST
+        except ValueError:
+            start, end = getstatementrange_old(lineno, source, assertion)
+            return None, start, end
+    start, end = get_statement_startend(lineno, getnodelist(astnode))
+    # we need to correct the end:
+    # - ast-parsing strips comments
+    # - else statements do not have a separate lineno
+    # - there might be empty lines
+    if end is None:
+        end = len(source.lines)
+    while end:
+        line = source.lines[end-1].lstrip()
+        if (not line or line.startswith("#") or line.startswith("else:") or
+            line.startswith("finally:")):
+            end -= 1
+        else:
+            break
+    return astnode, start, end
+
+def getstatementrange_old(lineno, source, assertion=False):
+    """ return (start, end) tuple which spans the minimal
+        statement region which containing the given lineno.
+        raise an IndexError if no such statementrange can be found.
+    """
+    # XXX this logic is only used on python2.4 and below
+    # 1. find the start of the statement
+    from codeop import compile_command
+    for start in range(lineno, -1, -1):
+        if assertion:
+            line = source.lines[start]
+            # the following lines are not fully tested, change with care
+            if 'super' in line and 'self' in line and '__init__' in line:
+                raise IndexError("likely a subclass")
+            if "assert" not in line and "raise" not in line:
+                continue
+        trylines = source.lines[start:lineno+1]
+        # quick hack to prepare parsing an indented line with
+        # compile_command() (which errors on "return" outside defs)
+        trylines.insert(0, 'def xxx():')
+        trysource = '\n '.join(trylines)
+        #              ^ space here
+        try:
+            compile_command(trysource)
+        except (SyntaxError, OverflowError, ValueError):
+            continue
+
+        # 2. find the end of the statement
+        for end in range(lineno+1, len(source)+1):
+            trysource = source[start:end]
+            if trysource.isparseable():
+                return start, end
+    raise SyntaxError("no valid source range around line %d " % (lineno,))
+
+
