@@ -47,6 +47,74 @@ class TestIncminimark(PinningGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
     from rpython.memory.gc.incminimark import STATE_SCANNING
 
+    def test_pin_old(self):
+        # scenario: try pinning an old object. This should be not possible and
+        # we want to make sure everything stays as it is.
+        old_ptr = self.malloc(S)
+        old_ptr.someInt = 900
+        self.stackroots.append(old_ptr)
+        assert self.stackroots[0] == old_ptr # test assumption
+        self.gc.collect()
+        old_ptr = self.stackroots[0]
+        # now we try to pin it
+        old_adr = llmemory.cast_ptr_to_adr(old_ptr)
+        assert not self.gc.is_in_nursery(old_adr)
+        assert not self.gc.pin(old_adr)
+        assert self.gc.pinned_objects_in_nursery == 0
+
+    
+    def pin_pin_pinned_object_count(self, collect_func):
+        # scenario: pin two objects that are referenced from stackroots. Check
+        # if the pinned objects count is correct, even after an other collection
+        pinned1_ptr = self.malloc(S)
+        pinned1_ptr.someInt = 100
+        self.stackroots.append(pinned1_ptr)
+        #
+        pinned2_ptr = self.malloc(S)
+        pinned2_ptr.someInt = 200
+        self.stackroots.append(pinned2_ptr)
+        #
+        assert self.gc.pin(llmemory.cast_ptr_to_adr(pinned1_ptr))
+        assert self.gc.pinned_objects_in_nursery == 1
+        assert self.gc.pin(llmemory.cast_ptr_to_adr(pinned2_ptr))
+        assert self.gc.pinned_objects_in_nursery == 2
+        #
+        collect_func()
+        #
+        assert self.gc.pinned_objects_in_nursery == 2
+
+    def test_pin_pin_pinned_object_count_minor_collection(self):
+        self.pin_pin_pinned_object_count(self.gc.minor_collection)
+
+    def test_pin_pin_pinned_object_count_major_collection(self):
+        self.pin_pin_pinned_object_count(self.gc.collect)
+
+
+    def pin_unpin_pinned_object_count(self, collect_func):
+        # scenario: pin an object and check the pinned object count. Unpin it
+        # and check the count again.
+        pinned_ptr = self.malloc(S)
+        pinned_ptr.someInt = 100
+        self.stackroots.append(pinned_ptr)
+        pinned_adr = llmemory.cast_ptr_to_adr(pinned_ptr)
+        #
+        assert self.gc.pinned_objects_in_nursery == 0
+        assert self.gc.pin(pinned_adr)
+        assert self.gc.pinned_objects_in_nursery == 1
+        collect_func()
+        assert self.gc.pinned_objects_in_nursery == 1
+        self.gc.unpin(pinned_adr)
+        assert self.gc.pinned_objects_in_nursery == 0
+        collect_func()
+        assert self.gc.pinned_objects_in_nursery == 0
+
+    def test_pin_unpin_pinned_object_count_minor_collection(self):
+        self.pin_unpin_pinned_object_count(self.gc.minor_collection)
+
+    def test_pin_unpin_pinned_object_count_major_collection(self):
+        self.pin_unpin_pinned_object_count(self.gc.collect)
+
+
     def pinned_obj_in_stackroot(self, collect_func):
         # scenario: a pinned object that is part of the stack roots. Check if
         # it is not moved
@@ -342,7 +410,7 @@ class TestIncminimark(PinningGCTest):
         root_ptr = self.malloc(S)
         root_ptr.someInt = 900
         self.stackroots.append(root_ptr)
-        assert self.stackroots[0] == old_ptr # validate assumption
+        assert self.stackroots[0] == root_ptr # validate assumption
         #
         pinned_ptr = self.malloc(S)
         pinned_ptr.someInt = 100
@@ -364,9 +432,9 @@ class TestIncminimark(PinningGCTest):
         assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(root_ptr))
         assert self.gc.is_in_nursery(pinned_adr)
         # and as 'root_ptr' object is now old, it should be tracked specially
-        should_be_root_ptr = self.gc.old_objects_pointing_to_pinned.pop()
-        assert should_be_root_ptr == root_ptr
-        self.gc.old_objects_pointing_to_pinned.push(should_be_root_ptr)
+        should_be_root_adr = self.gc.old_objects_pointing_to_pinned.pop()
+        assert should_be_root_adr == llmemory.cast_ptr_to_adr(root_ptr)
+        self.gc.old_objects_pointing_to_pinned.append(should_be_root_adr)
         # check that old object still points to the pinned one as expected
         assert root_ptr.next == pinned_ptr
 
@@ -376,8 +444,6 @@ class TestIncminimark(PinningGCTest):
     def test_pin_referenced_from_young_in_stackroots_major_collection(self):
         self.pin_referenced_from_young_in_stackroots(self.gc.collect)
 
-
-    # XXX REMOVE THIS COMMENT copied ones:
 
     def pin_shadow_1(self, collect_func):
         ptr = self.malloc(S)
@@ -394,11 +460,12 @@ class TestIncminimark(PinningGCTest):
         adr = llmemory.cast_ptr_to_adr(self.stackroots[0])
         assert not self.gc.is_in_nursery(adr)
 
-    def test_pin_shadow_1_minor(self):
+    def test_pin_shadow_1_minor_collection(self):
         self.pin_shadow_1(self.gc.minor_collection)
 
-    def test_pin_shadow_1_full(self):
+    def test_pin_shadow_1_major_collection(self):
         self.pin_shadow_1(self.gc.collect)
+
 
     def pin_shadow_2(self, collect_func):
         ptr = self.malloc(S)
@@ -415,11 +482,12 @@ class TestIncminimark(PinningGCTest):
         adr = llmemory.cast_ptr_to_adr(self.stackroots[0])
         assert not self.gc.is_in_nursery(adr)
 
-    def test_pin_shadow_2_minor(self):
+    def test_pin_shadow_2_minor_collection(self):
         self.pin_shadow_2(self.gc.minor_collection)
 
-    def test_pin_shadow_2_full(self):
+    def test_pin_shadow_2_major_collection(self):
         self.pin_shadow_2(self.gc.collect)
+
 
     def test_pin_nursery_top_scenario1(self):
         ptr1 = self.malloc(S)
@@ -457,6 +525,7 @@ class TestIncminimark(PinningGCTest):
         assert adr3 < self.gc.nursery_free
         assert self.gc.nursery_free < self.gc.nursery_top
         assert self.gc.nursery_top == self.gc.nursery_real_top
+
 
     def test_pin_nursery_top_scenario2(self):
         ptr1 = self.malloc(S)
@@ -496,6 +565,7 @@ class TestIncminimark(PinningGCTest):
         assert self.gc.nursery_top == self.gc.nursery
         assert self.gc.nursery_top < adr3
         assert adr3 < self.gc.nursery_real_top
+
 
     def test_pin_nursery_top_scenario3(self):
         ptr1 = self.malloc(S)
@@ -537,6 +607,7 @@ class TestIncminimark(PinningGCTest):
         assert self.gc.nursery_top > self.gc.nursery_free
         assert self.gc.nursery_top < adr2
         assert adr3 < self.gc.nursery_real_top
+
 
     def test_pin_nursery_top_scenario4(self):
         ptr1 = self.malloc(S)
@@ -580,6 +651,7 @@ class TestIncminimark(PinningGCTest):
         assert self.gc.nursery_top < adr3
         assert adr3 < self.gc.nursery_real_top
         
+
     def test_pin_nursery_top_scenario5(self):
         ptr1 = self.malloc(S)
         adr1 = llmemory.cast_ptr_to_adr(ptr1)
@@ -640,6 +712,7 @@ class TestIncminimark(PinningGCTest):
         # we did not reset the whole nursery
         assert self.gc.nursery_top < self.gc.nursery_real_top
 
+
     def fill_nursery_with_pinned_objects(self):
         typeid = self.get_type_id(S)
         size = self.gc.fixed_size(typeid) + self.gc.gcheaderbuilder.size_gc_header
@@ -654,7 +727,8 @@ class TestIncminimark(PinningGCTest):
 
     def test_full_pinned_nursery_pin_fail(self):
         self.fill_nursery_with_pinned_objects()
-        # nursery should be full now, at least no space for another `S`. Next malloc should fail.
+        # nursery should be full now, at least no space for another `S`.
+        # Next malloc should fail.
         py.test.raises(Exception, self.malloc, S)
 
     def test_full_pinned_nursery_arena_reset(self):
@@ -693,7 +767,9 @@ class TestIncminimark(PinningGCTest):
             self.stackroots.append(ptr)
             self.gc.pin(adr)
         #
-        # nursery should be full now, at least no space for another `S`. Next malloc should fail.
+        # nursery should be full now, at least no space for another `S`.
+        # Next malloc should fail.
         py.test.raises(Exception, self.malloc, S)
-    test_full_pinned_nursery_pin_fail.GC_PARAMS = {'max_number_of_pinned_objects': 50}
+    test_full_pinned_nursery_pin_fail.GC_PARAMS = \
+            {'max_number_of_pinned_objects': 50}
 
