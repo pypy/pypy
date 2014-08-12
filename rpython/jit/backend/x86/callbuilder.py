@@ -3,7 +3,7 @@ from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.history import INT, FLOAT
 from rpython.jit.backend.x86.arch import (WORD, IS_X86_64, IS_X86_32,
-                                          PASS_ON_MY_FRAME)
+                                          PASS_ON_MY_FRAME, FRAME_FIXED_SIZE)
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
@@ -251,9 +251,16 @@ class CallBuilder32(CallBuilderX86):
             # convention this particular function takes, which would
             # avoid these two extra MOVs... but later.  The ebp register
             # is unused here: it will be reloaded from the shadowstack.
+            # (This doesn't work during testing, though. Hack hack hack.)
+            save_ebp = not self.asm.cpu.gc_ll_descr.is_shadow_stack()
+            ofs = WORD * (FRAME_FIXED_SIZE - 1)
+            if save_ebp:    # only for testing (or with Boehm)
+                self.mc.MOV_sr(ofs, ebp.value)
             self.mc.MOV(ebp, esp)
             self.mc.CALL(self.fnloc)
             self.mc.MOV(esp, ebp)
+            if save_ebp:    # only for testing (or with Boehm)
+                self.mc.MOV_rs(ebp.value, ofs)
         else:
             self.mc.CALL(self.fnloc)
             if self.callconv != FFI_DEFAULT_ABI:
