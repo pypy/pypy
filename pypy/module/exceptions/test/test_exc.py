@@ -147,6 +147,28 @@ class AppTestExc(object):
         assert SystemExit("x").code == "x"
         assert SystemExit(1, 2).code == (1, 2)
 
+    def test_sys_exit(self):
+        import sys
+
+        exc = raises(SystemExit, sys.exit)
+        assert exc.value.code is None
+
+        exc = raises(SystemExit, sys.exit, 0)
+        assert exc.value.code == 0
+
+        exc = raises(SystemExit, sys.exit, 1)
+        assert exc.value.code == 1
+
+        exc = raises(SystemExit, sys.exit, 2)
+        assert exc.value.code == 2
+
+        exc = raises(SystemExit, sys.exit, (1, 2, 3))
+        assert exc.value.code == (1, 2, 3)
+
+    def test_str_unicode(self):
+        e = ValueError('àèì')
+        assert str(e) == 'àèì'
+
     def test_unicode_decode_error(self):
         from exceptions import UnicodeDecodeError
         ud = UnicodeDecodeError("x", "y", 1, 5, "bah")
