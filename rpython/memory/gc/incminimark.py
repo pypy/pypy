@@ -2026,8 +2026,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
         debug_start("gc-collect-step")
         debug_print("starting gc state: ", GC_STATES[self.gc_state])
         # Debugging checks
-        ll_assert(self.nursery_free == self.nursery,
-                  "nursery not empty in major_collection_step()")
+        if self.pinned_objects_in_nursery == 0:
+            ll_assert(self.nursery_free == self.nursery,
+                      "nursery not empty in major_collection_step()")
+        else:
+            # XXX try to add some similar check to the above one for the case
+            # that the nursery still contains some pinned objects (groggi)
+            pass
         self.debug_check_consistency()
 
 
