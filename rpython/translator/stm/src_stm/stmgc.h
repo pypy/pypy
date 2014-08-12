@@ -332,9 +332,20 @@ void stm_unregister_thread_local(stm_thread_local_t *tl);
    function with the interpreter's dispatch loop, you need to declare
    a local variable of type 'rewind_jmp_buf' and call these macros. */
 #define stm_rewind_jmp_enterframe(tl, rjbuf)       \
-    rewind_jmp_enterframe(&(tl)->rjthread, rjbuf)
+    rewind_jmp_enterframe(&(tl)->rjthread, rjbuf, (tl)->shadowstack)
 #define stm_rewind_jmp_leaveframe(tl, rjbuf)       \
-    rewind_jmp_leaveframe(&(tl)->rjthread, rjbuf)
+    rewind_jmp_leaveframe(&(tl)->rjthread, rjbuf, (tl)->shadowstack)
+#define stm_rewind_jmp_setjmp(tl)                  \
+    rewind_jmp_setjmp(&(tl)->rjthread, (tl)->shadowstack)
+#define stm_rewind_jmp_longjmp(tl)                 \
+    rewind_jmp_longjmp(&(tl)->rjthread)
+#define stm_rewind_jmp_forget(tl)                  \
+    rewind_jmp_forget(&(tl)->rjthread)
+#define stm_rewind_jmp_restore_shadowstack(tl)  do {     \
+    assert(rewind_jmp_armed(&(tl)->rjthread));           \
+    (tl)->shadowstack = (struct stm_shadowentry_s *)     \
+        rewind_jmp_restore_shadowstack(&(tl)->rjthread); \
+} while (0)
 
 /* Starting and ending transactions.  stm_read(), stm_write() and
    stm_allocate() should only be called from within a transaction.

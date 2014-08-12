@@ -394,7 +394,7 @@ long stm_start_transaction(stm_thread_local_t *tl)
 #ifdef STM_NO_AUTOMATIC_SETJMP
     long repeat_count = 0;    /* test/support.py */
 #else
-    long repeat_count = rewind_jmp_setjmp(&tl->rjthread);
+    long repeat_count = stm_rewind_jmp_setjmp(tl);
 #endif
     _stm_start_transaction(tl, false);
     return repeat_count;
@@ -829,7 +829,7 @@ void stm_commit_transaction(void)
     dprintf(("commit_transaction\n"));
 
     assert(STM_SEGMENT->nursery_end == NURSERY_END);
-    rewind_jmp_forget(&STM_SEGMENT->running_thread->rjthread);
+    stm_rewind_jmp_forget(STM_SEGMENT->running_thread);
 
     /* if a major collection is required, do it here */
     if (is_major_collection_requested()) {
@@ -984,12 +984,23 @@ static void abort_data_structures_from_segment_num(int segment_num)
     reset_modified_from_other_segments(segment_num);
     _verify_cards_cleared_in_all_lists(pseg);
 
-    /* reset the tl->shadowstack and thread_local_obj to their original
-       value before the transaction start */
+    /* reset tl->shadowstack and thread_local_obj to their original
+       value before the transaction start.  Also restore the content
+       of the shadowstack here. */
     stm_thread_local_t *tl = pseg->pub.running_thread;
+#ifdef STM_NO_AUTOMATIC_SETJMP
+    /* In tests, we don't save and restore the shadowstack correctly.
+       Be sure to not change items below shadowstack_at_start_of_transaction.
+       There is no such restrictions in non-Python-based tests. */
     assert(tl->shadowstack >= pseg->shadowstack_at_start_of_transaction);
-    pseg->shadowstack_at_abort = tl->shadowstack;
     tl->shadowstack = pseg->shadowstack_at_start_of_transaction;
+#else
+    /* NB. careful, this function might be called more than once to
+       abort a given segment.  Make sure that
+       stm_rewind_jmp_restore_shadowstack() is idempotent. */
+    stm_rewind_jmp_restore_shadowstack(tl);
+    assert(tl->shadowstack == pseg->shadowstack_at_start_of_transaction);
+#endif
     tl->thread_local_obj = pseg->threadlocal_at_start_of_transaction;
     tl->last_abort__bytes_in_nursery = bytes_in_nursery;
 
@@ -1064,7 +1075,7 @@ static void abort_with_mutex(void)
 #ifdef STM_NO_AUTOMATIC_SETJMP
     _test_run_abort(tl);
 #else
-    rewind_jmp_longjmp(&tl->rjthread);
+    stm_rewind_jmp_longjmp(tl);
 #endif
 }
 
@@ -1079,7 +1090,7 @@ void _stm_become_inevitable(const char *msg)
         marker_fetch_inev();
         wait_for_end_of_inevitable_transaction(NULL);
         STM_PSEGMENT->transaction_state = TS_INEVITABLE;
-        rewind_jmp_forget(&STM_SEGMENT->running_thread->rjthread);
+        stm_rewind_jmp_forget(STM_SEGMENT->running_thread);
         clear_callbacks_on_abort();
     }
     else {

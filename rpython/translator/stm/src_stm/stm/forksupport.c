@@ -185,7 +185,7 @@ static void fork_abort_thread(long i)
 
     rewind_jmp_buf rjbuf;
     stm_rewind_jmp_enterframe(tl, &rjbuf);
-    if (rewind_jmp_setjmp(&tl->rjthread) == 0) {
+    if (stm_rewind_jmp_setjmp(tl) == 0) {
 #ifndef NDEBUG
         pr->running_pthread = pthread_self();
 #endif
@@ -194,7 +194,7 @@ static void fork_abort_thread(long i)
         strcpy(pr->marker_self, "fork");
         stm_abort_transaction();
     }
-    rewind_jmp_forget(&tl->rjthread);
+    stm_rewind_jmp_forget(tl);
     stm_rewind_jmp_leaveframe(tl, &rjbuf);
 }
 
