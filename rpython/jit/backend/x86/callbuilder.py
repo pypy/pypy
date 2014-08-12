@@ -1,3 +1,4 @@
+import sys
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.history import INT, FLOAT
@@ -14,6 +15,8 @@ from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
 # darwin requires the stack to be 16 bytes aligned on calls.
 # Same for gcc 4.5.0, better safe than sorry
 CALL_ALIGN = 16 // WORD
+
+stdcall_or_cdecl = sys.platform == "win32"
 
 def align_stack_words(words):
     return (words + CALL_ALIGN - 1) & ~(CALL_ALIGN-1)
@@ -43,11 +46,6 @@ class CallBuilderX86(AbstractCallBuilder):
             from rpython.memory.gctransform import asmgcroot
             self.stack_max = PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS
             assert self.stack_max >= 3
-
-    def emit_raw_call(self):
-        self.mc.CALL(self.fnloc)
-        if self.callconv != FFI_DEFAULT_ABI:
-            self.current_esp += self._fix_stdcall(self.callconv)
 
     def subtract_esp_aligned(self, count):
         if count > 0:
@@ -246,6 +244,21 @@ class CallBuilder32(CallBuilderX86):
             self.fnloc = RawEspLoc(p - WORD, INT)
 
 
+    def emit_raw_call(self):
+        if stdcall_or_cdecl and self.is_call_release_gil:
+            # Dynamically accept both stdcall and cdecl functions.
+            # We could try to detect from pyjitpl which calling
+            # convention this particular function takes, which would
+            # avoid these two extra MOVs... but later.  The ebp register
+            # is unused here: it will be reloaded from the shadowstack.
+            self.mc.MOV(ebp, esp)
+            self.mc.CALL(self.fnloc)
+            self.mc.MOV(esp, ebp)
+        else:
+            self.mc.CALL(self.fnloc)
+            if self.callconv != FFI_DEFAULT_ABI:
+                self.current_esp += self._fix_stdcall(self.callconv)
+
     def _fix_stdcall(self, callconv):
         from rpython.rlib.clibffi import FFI_STDCALL
         assert callconv == FFI_STDCALL
@@ -417,8 +430,9 @@ class CallBuilder64(CallBuilderX86):
         remap_frame_layout(self.asm, src_locs, dst_locs, X86_64_SCRATCH_REG)
 
 
-    def _fix_stdcall(self, callconv):
-        assert 0     # should not occur on 64-bit
+    def emit_raw_call(self):
+        assert self.callconv == FFI_DEFAULT_ABI
+        self.mc.CALL(self.fnloc)
 
     def load_result(self):
         if self.restype == 'S':
