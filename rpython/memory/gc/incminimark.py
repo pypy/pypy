@@ -1569,8 +1569,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # objects. This way we populate 'surviving_pinned_objects'
         # with pinned object that are (only) visible from an old
         # object.
-        self.old_objects_pointing_to_pinned.foreach(
+        # Additionally we create a new list as it may be that an old object
+        # no longer points to a pinned one and we want them to remove from
+        # the list.
+        if self.old_objects_pointing_to_pinned.non_empty():
+            current_old_objects_pointing_to_pinned = \
+                    self.old_objects_pointing_to_pinned
+            #
+            self.old_objects_pointing_to_pinned = self.AddressStack()
+            # visit the ones we know of
+            current_old_objects_pointing_to_pinned.foreach(
                 self._visit_old_objects_pointing_to_pinned, None)
+            current_old_objects_pointing_to_pinned.delete()
         #
         while True:
             # If we are using card marking, do a partial trace of the arrays
@@ -1684,7 +1694,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         debug_stop("gc-minor")
 
     def _visit_old_objects_pointing_to_pinned(self, obj, ignore):
-        self.trace(obj, self._trace_drag_out, llmemory.NULL)
+        self.trace(obj, self._trace_drag_out, obj)
 
     def collect_roots_in_nursery(self):
         # we don't need to trace prebuilt GcStructs during a minor collect:
