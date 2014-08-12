@@ -12,6 +12,7 @@ from rpython.memory.gctypelayout import TypeLayoutBuilder
 from rpython.rlib.rarithmetic import LONG_BIT, is_valid_int
 from rpython.memory.gc import minimark, incminimark
 from rpython.memory.gctypelayout import zero_gc_pointers_inside
+from rpython.rlib.debug import debug_print
 WORD = LONG_BIT // 8
 
 ADDR_ARRAY = lltype.Array(llmemory.Address)
@@ -670,8 +671,10 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
     def test_malloc_fixedsize_no_cleanup(self):
         p = self.malloc(S)
         import pytest
+        #ensure the memory is uninitialized
         with pytest.raises(lltype.UninitializedMemoryAccess):
             x1 = p.x
+        #ensure all the ptr fields are zeroed
         assert p.prev == lltype.nullptr(S)
         assert p.next == lltype.nullptr(S)
     
@@ -686,6 +689,52 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
     def test_malloc_varsize_no_cleanup2(self):
         p = self.malloc(VAR,100)
         for i in range(100):
+            print type(p[0])
             assert p[0] == lltype.nullptr(S)
-        assert False
 
+    def test_malloc_struct_of_ptr_arr(self):
+        S2 = lltype.GcForwardReference()
+        S2.become(lltype.GcStruct('S2',
+                         ('gcptr_arr', VAR)))
+        s2 = self.malloc(S2)
+        s2.gcptr_arr = self.malloc(VAR,100)
+        for i in range(100):
+            assert s2.gcptr_arr[i] == lltype.nullptr(S)
+
+    def test_malloc_struct_of_ptr_struct(self):
+        S3 = lltype.GcForwardReference()
+        S3.become(lltype.GcStruct('S3',
+                         ('gcptr_struct', S),
+                         ('prev', lltype.Ptr(S)),
+                         ('next', lltype.Ptr(S))))
+        s3 = self.malloc(S3)
+        assert s3.gcptr_struct.prev == lltype.nullptr(S)
+        assert s3.gcptr_struct.next == lltype.nullptr(S)
+
+    def test_malloc_array_of_ptr_struct(self):
+        ARR_OF_PTR_STRUCT = lltype.GcArray(lltype.Ptr(S))
+        arr_of_ptr_struct = self.malloc(ARR_OF_PTR_STRUCT,5)
+        for i in range(5):
+            assert arr_of_ptr_struct[i] == lltype.nullptr(S)
+            assert arr_of_ptr_struct[i] == lltype.nullptr(S)
+            arr_of_ptr_struct[i] = self.malloc(S)
+            assert arr_of_ptr_struct[i].prev == lltype.nullptr(S)
+            assert arr_of_ptr_struct[i].next == lltype.nullptr(S)
+
+
+    def test_malloc_array_of_ptr_arr(self):
+        ARR_OF_PTR_ARR = lltype.GcArray(lltype.Ptr(lltype.GcArray(lltype.Ptr(S))))
+        arr_of_ptr_arr = lltype.malloc(ARR_OF_PTR_ARR, 10)
+        for i in range(10):
+            assert arr_of_ptr_arr[i] == lltype.nullptr(lltype.GcArray(lltype.Ptr(S)))
+        for i in range(10):
+            arr_of_ptr_arr[i] = self.malloc(lltype.GcArray(lltype.Ptr(S)), i)
+            debug_print (arr_of_ptr_arr[i])
+            for elem in arr_of_ptr_arr[i]:
+                debug_print(elem)
+                assert elem == lltype.nullptr(S)
+                elem = self.malloc(S)
+                #assert elem.prev == lltype.nullptr(S)
+                #assert elem.next == lltype.nullptr(S)
+
+            
