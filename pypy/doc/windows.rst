@@ -296,7 +296,7 @@ Such a hacked CPython is what you'll use in the next steps.  We'll call
 it CPython64/64.
 
 It is probably not too much work if the goal is only to get a translated
-PyPy executable, and to run all tests before transaction.  But you need
+PyPy executable, and to run all tests before translation.  But you need
 to start somewhere, and you should start with some tests in
 rpython/translator/c/test/, like ``test_standalone.py`` and
 ``test_newgc.py``: try to have them pass on top of CPython64/64.
@@ -304,7 +304,7 @@ rpython/translator/c/test/, like ``test_standalone.py`` and
 Keep in mind that this runs small translations, and some details may go
 wrong.  The most obvious one is to check that it produces C files that
 use the integer type ``Signed`` --- but what is ``Signed`` defined to?
-It should be equal to ``long`` on every other platforms, but on Win64 it
+It should be equal to ``long`` on every other platform, but on Win64 it
 should be something like ``long long``.
 
 What is more generally needed is to review all the C files in
@@ -315,11 +315,11 @@ any other platform, so feel free to.
 
 Then, these two C types have corresponding RPython types: ``rffi.LONG``
 and ``lltype.Signed`` respectively.  The first should really correspond
-to the C ``long``.  Add tests that check that integers casted to one
+to the C ``long``.  Add tests that check that integers cast to one
 type or the other really have 32 and 64 bits respectively, on Win64.
 
 Once these basic tests work, you need to review ``rpython/rlib/`` for
-usages of ``rffi.LONG`` versus ``lltype.Signed``.  The goal would be to
+uses of ``rffi.LONG`` versus ``lltype.Signed``.  The goal would be to
 fix some more ``LONG-versus-Signed`` issues, by fixing the tests --- as
 always run on top of CPython64/64.  Note that there was some early work
 done in ``rpython/rlib/rarithmetic`` with the goal of running all the
@@ -329,14 +329,14 @@ bad idea.  Look only at CPython64/64.
 The major intermediate goal is to get a translation of PyPy with ``-O2``
 with a minimal set of modules, starting with ``--no-allworkingmodules``;
 you need to use CPython64/64 to run this translation too.  Check
-carefully the warnings of the C compiler at the end.  I think that MSVC
-is "nice" in the sense that by default a lot of mismatches of integer
-sizes are reported as warnings.
+carefully the warnings of the C compiler at the end. By default, MSVC
+reports a lot of mismatches of integer sizes as warnings instead of
+errors.
 
 Then you need to review ``pypy/module/*/`` for ``LONG-versus-Signed``
 issues.  At some time during this review, we get a working translated
 PyPy on Windows 64 that includes all ``--translationmodules``, i.e.
-everything needed to run translations.  When we are there, the hacked
+everything needed to run translations.  Once we have that, the hacked
 CPython64/64 becomes much less important, because we can run future
 translations on top of this translated PyPy.  As soon as we get there,
 please *distribute* the translated PyPy.  It's an essential component

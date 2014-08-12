@@ -301,6 +301,20 @@ res = f()
             raise StopIteration
         assert tuple(f()) == (1,)
 
+    def test_exception_is_cleared_by_yield(self):
+        def f():
+            try:
+                foobar
+            except NameError:
+                yield 5
+                raise    # should raise "no active exception to re-raise"
+        gen = f()
+        gen.next()  # --> 5
+        try:
+            gen.next()
+        except TypeError:
+            pass
+
 
 def test_should_not_inline(space):
     from pypy.interpreter.generator import should_not_inline

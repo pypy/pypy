@@ -1,10 +1,12 @@
-""" (disabled by default) create result information in a plain text file. """
+""" log machine-parseable test session result information in a plain
+text file.
+"""
 
 import py
 
 def pytest_addoption(parser):
     group = parser.getgroup("terminal reporting", "resultlog plugin options")
-    group.addoption('--resultlog', action="store", dest="resultlog",
+    group.addoption('--resultlog', '--result-log', action="store",
         metavar="path", default=None,
         help="path for machine-readable result log.")
 
@@ -51,25 +53,16 @@ class ResultLog(object):
         self.config = config
         self.logfile = logfile # preferably line buffered
 
-    def write_log_entry(self, testpath, lettercode, longrepr, sections=[]):
+    def write_log_entry(self, testpath, lettercode, longrepr):
         py.builtin.print_("%s %s" % (lettercode, testpath), file=self.logfile)
         for line in longrepr.splitlines():
             py.builtin.print_(" %s" % line, file=self.logfile)
-        for key, text in sections:
-            # py.io.StdCaptureFD may send in unicode
-            if isinstance(text, unicode):
-                text = text.encode('utf-8')
-            py.builtin.print_(" ", file=self.logfile)
-            py.builtin.print_(" -------------------- %s --------------------"
-                              % key.rstrip(), file=self.logfile)
-            py.builtin.print_(" %s" % (text.rstrip().replace('\n', '\n '),),
-                              file=self.logfile)
 
     def log_outcome(self, report, lettercode, longrepr):
         testpath = getattr(report, 'nodeid', None)
         if testpath is None:
             testpath = report.fspath
-        self.write_log_entry(testpath, lettercode, longrepr, report.sections)
+        self.write_log_entry(testpath, lettercode, longrepr)
 
     def pytest_runtest_logreport(self, report):
         if report.when != "call" and report.passed:
@@ -92,7 +85,7 @@ class ResultLog(object):
         if not report.passed:
             if report.failed:
                 code = "F"
-                longrepr = str(report.longrepr.reprcrash)
+                longrepr = str(report.longrepr)
             else:
                 assert report.skipped
                 code = "S"
