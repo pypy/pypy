@@ -12,9 +12,12 @@ from pypy.module.micronumpy.ctors import array
 from pypy.module.micronumpy.descriptor import get_dtype_cache, W_Dtype
 from pypy.module.micronumpy.concrete import ConcreteArray
 from pypy.module.micronumpy import ufuncs
-from rpython.rlib.rawstorage import RAW_STORAGE_PTR
+from rpython.rlib.rawstorage import (RAW_STORAGE_PTR, raw_storage_getitem, raw_storage_setitem,
+        free_raw_storage, alloc_raw_storage)
+from rpython.rlib.rarithmetic import LONG_BIT, _get_bitsize
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.argument import Arguments
 from pypy.interpreter.gateway import interp2app
 
 NPY_C_CONTIGUOUS   = 0x0001
@@ -257,31 +260,44 @@ def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, fla
             order=order, owning=owning, w_subtype=w_subtype)
 
 npy_intpp = rffi.LONGP
+LONG_SIZE = LONG_BIT / 8
+CCHARP_SIZE = _get_bitsize('P') / 8
+
 class W_GenericUFuncCaller(W_Root):
     def __init__(self, func):
         self.func = func
         
     def descr_call(self, space, __args__):
         args_w, kwds_w = __args__.unpack()
-        datap = rffi.CFixedArray(rffi.CCHARP, len(args_w))
-        dim_p = rffi.CFixedArray(npy_intpp, len(args_w))
-        stepp = rffi.CFixedArray(npy_intpp, len(args_w))
-        data = rffi.VOIDP
-        for i in len(args_w):
-            arg_i = args[i]
+        dataps = alloc_raw_storage(CCHARP_SIZE * len(args_w), track_allocation=False)
+        dims = alloc_raw_storage(LONG_SIZE * len(args_w), track_allocation=False)
+        steps = alloc_raw_storage(LONG_SIZE * len(args_w), track_allocation=False)
+        user_data = None
+        for i in range(len(args_w)):
+            arg_i = args_w[i]
             assert isinstance(arg_i, W_NDimArray)
-            datap[i] = cffi.cast(rffi.CCHARP, args.implementation.storage)
+            raw_storage_setitem(dataps, CCHARP_SIZE * i, rffi.cast(rffi.CCHARP, arg_i.implementation.storage))
             #This assumes we iterate over the last dimension?
-            dim_p[i] = arg_i.get_shape()[0]
-            stepp[i] = arg_i.get_strides()[0]
-        space.call_args(self.func, datap, dim_p, stepp, data)      
+            raw_storage_setitem(dims, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_shape()[0]))
+            raw_storage_setitem(steps, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.implementation.strides[0]))
+        try:
+            import pdb;pdb.set_trace()
+            self.func(rffi.cast(rffi.CArrayPtr(rffi.CCHARP), dataps), 
+                      rffi.cast(npy_intpp, dims), rffi.cast(npy_intpp, steps), user_data)
+        except:
+            import traceback; traceback.print_exc()
+            raise
+        finally:
+            free_raw_storage(dataps, track_allocation=False)
+            free_raw_storage(dims, track_allocation=False)
+            free_raw_storage(steps, track_allocation=False)
 
 W_GenericUFuncCaller.typedef = TypeDef("hiddenclass",
     __call__ = interp2app(W_GenericUFuncCaller.descr_call),
 )
 
 GenericUfunc = lltype.FuncType([rffi.CArrayPtr(rffi.CCHARP), npy_intpp, npy_intpp,
-                                      rffi.VOIDP], rffi.VOIDP)
+                                      rffi.VOIDP], lltype.Void)
 gufunctype = lltype.Ptr(GenericUfunc)
 @cpython_api([rffi.CArrayPtr(gufunctype), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
               Py_ssize_t, Py_ssize_t, rffi.CCHARP, rffi.CCHARP, Py_ssize_t,
@@ -299,5 +315,6 @@ def _PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
     w_signature = rffi.charp2str(signature)
     w_doc = rffi.charp2str(doc)
     w_name = rffi.charp2str(name)
-    return ufuncs.frompyfunc(space, w_funcs, nin, nout, w_dtypes,
+    ufunc_generic = ufuncs.frompyfunc(space, w_funcs, nin, nout, w_dtypes,
                  w_signature, identity, w_name, w_doc)
+    return ufunc_generic             
