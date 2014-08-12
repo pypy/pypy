@@ -1,7 +1,7 @@
+import py
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
-
 from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.descriptor import get_dtype_cache
 
@@ -213,14 +213,16 @@ class TestNDArrayObject(BaseApiTest):
         assert res.get_scalar_value().real == 3.
         assert res.get_scalar_value().imag == 4.
     
-    def test_Ufunc_FromFuncAndDataAndSignature(self. space, api):
+    def _test_Ufunc_FromFuncAndDataAndSignature(self, space, api):
+        py.test.skip('preliminary non-translated test')
+        '''
         PyUFuncGenericFunction funcs[] = {&double_times2, &int_times2};
         char types[] = { NPY_DOUBLE,NPY_DOUBLE, NPY_INT, NPY_INT };
         void *array_data[] = {NULL, NULL};
         ufunc = api._PyUFunc_FromFuncAndDataAndSignature(space, funcs, data,
                         types, ntypes, nin, nout, identity, doc, check_return,
                         signature)
-
+        '''
 
 class AppTestNDArray(AppTestCpythonExtensionBase):
     def test_ndarray_object_c(self):

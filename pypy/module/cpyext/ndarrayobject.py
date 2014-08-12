@@ -13,6 +13,9 @@ from pypy.module.micronumpy.descriptor import get_dtype_cache, W_Dtype
 from pypy.module.micronumpy.concrete import ConcreteArray
 from pypy.module.micronumpy import ufuncs
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
+from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.gateway import interp2app
 
 NPY_C_CONTIGUOUS   = 0x0001
 NPY_F_CONTIGUOUS   = 0x0002
@@ -254,6 +257,29 @@ def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, fla
             order=order, owning=owning, w_subtype=w_subtype)
 
 npy_intpp = rffi.LONGP
+class W_GenericUFuncCaller(W_Root):
+    def __init__(self, func):
+        self.func = func
+        
+    def descr_call(self, space, __args__):
+        args_w, kwds_w = __args__.unpack()
+        datap = rffi.CFixedArray(rffi.CCHARP, len(args_w))
+        dim_p = rffi.CFixedArray(npy_intpp, len(args_w))
+        stepp = rffi.CFixedArray(npy_intpp, len(args_w))
+        data = rffi.VOIDP
+        for i in len(args_w):
+            arg_i = args[i]
+            assert isinstance(arg_i, W_NDimArray)
+            datap[i] = cffi.cast(rffi.CCHARP, args.implementation.storage)
+            #This assumes we iterate over the last dimension?
+            dim_p[i] = arg_i.get_shape()[0]
+            stepp[i] = arg_i.get_strides()[0]
+        space.call_args(self.func, datap, dim_p, stepp, data)      
+
+W_GenericUFuncCaller.typedef = TypeDef("hiddenclass",
+    __call__ = interp2app(W_GenericUFuncCaller.descr_call),
+)
+
 GenericUfunc = lltype.FuncType([rffi.CArrayPtr(rffi.CCHARP), npy_intpp, npy_intpp,
                                       rffi.VOIDP], rffi.VOIDP)
 gufunctype = lltype.Ptr(GenericUfunc)
@@ -265,9 +291,13 @@ def _PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
     funcs_w = [None] * ntypes
     dtypes_w = [None] * ntypes * (nin + nout)
     for i in range(ntypes):
-        funcs_w[i] = space.wrap(funcs[i])
-        #print 'function',i,'is',funcs[i], hex(rffi.cast(lltype.Signed, funcs[i]))
+        funcs_w[i] = W_GenericUFuncCaller(funcs[i])
     for i in range(ntypes*(nin+nout)):
         dtypes_w[i] = get_dtype_cache(space).dtypes_by_num[ord(types[i])]
-    return ufuncs.frompyfunc(space, space.newlist(funcs_w), nin, nout, dtypes_w,
-                 signature, identity, name, doc)
+    w_funcs = space.newlist(funcs_w)
+    w_dtypes = space.newlist(dtypes_w)
+    w_signature = rffi.charp2str(signature)
+    w_doc = rffi.charp2str(doc)
+    w_name = rffi.charp2str(name)
+    return ufuncs.frompyfunc(space, w_funcs, nin, nout, w_dtypes,
+                 w_signature, identity, w_name, w_doc)
