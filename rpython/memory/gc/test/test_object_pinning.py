@@ -45,328 +45,339 @@ class PinningGCTest(BaseDirectGCTest):
 
 class TestIncminimark(PinningGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
+    from rpython.memory.gc.incminimark import STATE_SCANNING
 
-    def simple_pin_stack(self, collect_func):
-        # create object, pin it and point from stackroots to it
+    def pinned_obj_in_stackroot(self, collect_func):
+        # scenario: a pinned object that is part of the stack roots. Check if
+        # it is not moved
+        #
         ptr = self.malloc(S)
         ptr.someInt = 100
         self.stackroots.append(ptr)
-
-        adr = llmemory.cast_ptr_to_adr(ptr)
-        assert self.gc.pin(adr)
-
-        collect_func()
+        assert self.stackroots[0] == ptr # validate our assumption
         
-        assert self.gc.is_in_nursery(adr)
+        adr = llmemory.cast_ptr_to_adr(ptr)
+        assert self.gc.is_in_nursery(adr) # to be sure
+        assert self.gc.pin(adr)
+        #
+        # the object shouldn't move from now on
+        collect_func()
+        #
+        # check if it is still at the same location as expected
+        adr_after_collect = llmemory.cast_ptr_to_adr(self.stackroots[0])
+        assert self.gc.is_in_nursery(adr_after_collect)
+        assert adr == adr_after_collect
+        assert self.gc._is_pinned(adr)
         assert ptr.someInt == 100
+        assert self.gc.pinned_objects_in_nursery == 1
 
-    def test_simple_pin_stack_full_collect(self):
-        self.simple_pin_stack(self.gc.collect)
+    def test_pinned_obj_in_stackroot_minor_collection(self):
+        self.pinned_obj_in_stackroot(self.gc.minor_collection)
 
-    def test_simple_pin_stack_minor_collect(self):
-        self.simple_pin_stack(self.gc.minor_collection)
+    def test_pinned_obj_in_stackroot_full_major_collection(self):
+        self.pinned_obj_in_stackroot(self.gc.collect)
 
-    def simple_pin_unpin_stack(self, collect_func):
+    def test_pinned_obj_in_stackroots_stepwise_major_collection(self):
+        # scenario: same as for 'pinned_obj_in_stackroot' with minor change
+        # that we do stepwise major collection and check in each step for
+        # a correct state
+        #
         ptr = self.malloc(S)
         ptr.someInt = 100
-        
         self.stackroots.append(ptr)
-        
-        adr = llmemory.cast_ptr_to_adr(ptr)
-        assert self.gc.pin(adr)
-        
-        collect_func()
+        assert self.stackroots[0] == ptr # validate our assumption
 
+        adr = llmemory.cast_ptr_to_adr(ptr)
         assert self.gc.is_in_nursery(adr)
-        assert ptr.someInt == 100
-        
-        # unpin and check if object is gone from nursery
-        self.gc.unpin(adr)
-        collect_func()
-        try:
+        assert self.gc.pin(adr)
+        #
+        # the object shouldn't move from now on. Do a full round of major
+        # steps and check each time for correct state
+        #
+        # check that we start at the expected point
+        assert self.gc.gc_state == self.STATE_SCANNING
+        done = False
+        while not done:
+            self.gc.debug_gc_step()
+            # check that the pinned object didn't move
+            ptr_after_collection = self.stackroots[0]
+            adr_after_collection = llmemory.cast_ptr_to_adr(ptr_after_collection)
+            assert self.gc.is_in_nursery(adr_after_collection)
+            assert adr == adr_after_collection
+            assert self.gc._is_pinned(adr)
             assert ptr.someInt == 100
-            assert False
-        except RuntimeError as ex:
-            assert "freed" in str(ex)
-        
-        # check if we object is still accessible
-        ptr_old = self.stackroots[0]
-        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(ptr_old))
-        assert ptr_old.someInt == 100
+            assert self.gc.pinned_objects_in_nursery == 1
+            # as the object is referenced from the stackroots, the gc internal
+            # 'old_objects_pointing_to_pinned' should be empty
+            assert not self.gc.old_objects_pointing_to_pinned.non_empty()
+            #
+            # break condition
+            done = self.gc.gc_state == self.STATE_SCANNING
 
-    def test_simple_pin_unpin_stack_full_collect(self):
-        self.simple_pin_unpin_stack(self.gc.collect)
-
-    def test_simple_pin_unpin_stack_minor_collect(self):
-        self.simple_pin_unpin_stack(self.gc.minor_collection)
-
-    def test_pinned_obj_collected_after_old_object_collected(self):
-        root_ptr = self.malloc(S)
-        root_ptr.someInt = 999
-        self.stackroots.append(root_ptr)
-        self.gc.collect()
-
-        root_ptr = self.stackroots[0]
-        next_ptr = self.malloc(S)
-        next_ptr.someInt = 111
-        assert self.gc.pin(llmemory.cast_ptr_to_adr(next_ptr))
-        self.write(root_ptr, 'next', next_ptr)
-        self.gc.collect()
-        # check still alive
-        assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(root_ptr.next))
-        self.stackroots.remove(root_ptr)
-        self.gc.collect()
-        # root_ptr was collected and therefore also the pinned object should
-        # be gone
-        try:
-            next_ptr.someInt = 101
-            assert False
-        except RuntimeError as ex:
-            assert "freed" in str(ex)
-
-    # XXX more tests like the one above. Make list of all possible cases and
-    # write tests for each one. Also: minor/full major collection tests maybe
-    # needed
-
-    def test_pin_referenced_from_stackroot_young(self):
-        #
-        # create two objects and reference the pinned one
-        # from the one that will be moved out of the
-        # nursery.
-        root_ptr = self.malloc(S)
-        next_ptr = self.malloc(S)
-        self.write(root_ptr, 'next', next_ptr)
-        self.stackroots.append(root_ptr)
-        #
-        next_ptr.someInt = 100
-        root_ptr.someInt = 999
-        #
-        next_adr = llmemory.cast_ptr_to_adr(next_ptr)
-        assert self.gc.pin(next_adr)
-        #
-        # in this step the 'root_ptr' object will be
-        # outside the nursery, pointing to the still
-        # young (because it's pinned) 'next_ptr'.
-        self.gc.collect()
-        #
-        root_ptr = self.stackroots[0]
-        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(root_ptr))
-        assert self.gc.is_in_nursery(next_adr)
-        assert next_ptr.someInt == 100
-        assert root_ptr.next == next_ptr
-        #
-        # now we remove the reference to the pinned object and do a collect
-        # to check if the pinned object was removed from nursery.
-        self.write(root_ptr, 'next', lltype.nullptr(S))
-        self.gc.collect()
-        try:
-            # should fail as this was the pinned object that is now collected
-            next_ptr.someInt = 0
-            assert False
-        except RuntimeError as ex:
-            assert "freed" in str(ex)
-
-    def test_old_points_to_pinned(self):
-        # Test if we handle the case that an already old object can point
-        # to a pinned object and keeps the pinned object alive by
-        # that.
-        #
-        # create the old object that will point to a pinned object
-        old_ptr = self.malloc(S)
-        old_ptr.someInt = 999
-        self.stackroots.append(old_ptr)
-        self.gc.collect()
-        assert not self.gc.is_in_nursery(
-                llmemory.cast_ptr_to_adr(self.stackroots[0]))
-        #
-        # create the young pinned object and attach it to the old object
-        pinned_ptr = self.malloc(S)
-        pinned_ptr.someInt = 6
-        assert self.gc.pin(llmemory.cast_ptr_to_adr(pinned_ptr))
-        self.write(self.stackroots[0], 'next', pinned_ptr)
-        #
-        # let's check if everything stays in place before/after a collection
-        assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(pinned_ptr))
-        self.gc.collect()
-        assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(pinned_ptr))
-        #
-        self.stackroots[0].next.someInt = 100
-        self.gc.collect()
-        assert self.stackroots[0].next.someInt == 100
-
-    def not_pinned_and_stackroots_point_to_pinned(self, make_old):
-        # In this test case we point to a pinned object from an (old) object
-        # *and* from the stackroots
-        obj_ptr = self.malloc(S)
-        obj_ptr.someInt = 999
-        self.stackroots.append(obj_ptr)
-        if make_old:
-            self.gc.collect()
-            obj_ptr = self.stackroots[0]
-            assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(obj_ptr))
-        else:
-            assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(obj_ptr))
-
-        pinned_ptr = self.malloc(S)
-        pinned_ptr.someInt = 111
-        assert self.gc.pin(llmemory.cast_ptr_to_adr(pinned_ptr))
-
-        self.stackroots.append(pinned_ptr)
-        self.write(obj_ptr, 'next', pinned_ptr)
-        
-        self.gc.collect()
-        # done with preparation. do some basic checks
-        assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(pinned_ptr))
-        assert pinned_ptr.someInt == 111
-        assert self.stackroots[0].next == pinned_ptr
-
-    def test_old_and_stackroots_point_to_pinned(self):
-        self.not_pinned_and_stackroots_point_to_pinned(make_old=True)
-
-    def test_young_and_stackroots_point_to_pinned(self):
-        self.not_pinned_and_stackroots_point_to_pinned(make_old=False)
-
-    def test_old_points_to_old_points_to_pinned_1(self):
-        #
-        # Scenario:
-        # stackroots points to 'root_ptr'. 'root_ptr' points to 'next_ptr'.
-        # 'next_ptr' points to the young and pinned 'pinned_ptr'. Here we
-        # remove the reference to 'next_ptr' from 'root_ptr' and check if it
-        # behaves as expected.
-        #
-        root_ptr = self.malloc(S)
-        root_ptr.someInt = 100
-        self.stackroots.append(root_ptr)
-        self.gc.collect()
-        root_ptr = self.stackroots[0]
-        #
-        next_ptr = self.malloc(S)
-        next_ptr.someInt = 200
-        self.write(root_ptr, 'next', next_ptr)
-        self.gc.collect()
-        next_ptr = root_ptr.next
-        #
-        # check if everything is as expected
-        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(root_ptr))
-        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(next_ptr))
-        assert root_ptr.someInt == 100
-        assert next_ptr.someInt == 200
-        #
-        pinned_ptr = self.malloc(S)
-        pinned_ptr.someInt = 300
-        assert self.gc.pin(llmemory.cast_ptr_to_adr(pinned_ptr))
-        self.write(next_ptr, 'next', pinned_ptr)
-        self.gc.collect()
-        #
-        # validate everything is as expected with 3 rounds of GC collecting
-        for _ in range(3):
-            self.gc.collect()
-            assert next_ptr.next == pinned_ptr
-            assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(pinned_ptr))
-            assert pinned_ptr.someInt == 300
-            assert root_ptr.someInt == 100
-            assert next_ptr.someInt == 200
-        #
-        # remove the reference to the pinned object
-        self.write(next_ptr, 'next', root_ptr)
-        self.gc.minor_collection()
-        # the minor collection visits all old objects pointing to pinned ones.
-        # therefore the pinned object should be gone
-        try:
-            pinned_ptr.someInt == 300
-            assert False
-        except RuntimeError as ex:
-            assert "freed" in str(ex)
-
-    def test_old_points_to_old_points_to_pinned_2(self):
-        #
-        # Scenario:
-        # stackroots points to 'root_ptr'. 'root_ptr' points to 'next_ptr'.
-        # 'next_ptr' points to the young and pinned 'pinned_ptr'. Here we
-        # remove 'root_ptr' from the stackroots and check if it behaves as
-        # expected.
-        #
-        root_ptr = self.malloc(S)
-        root_ptr.someInt = 100
-        self.stackroots.append(root_ptr)
-        self.gc.collect()
-        root_ptr = self.stackroots[0]
-        #
-        next_ptr = self.malloc(S)
-        next_ptr.someInt = 200
-        self.write(root_ptr, 'next', next_ptr)
-        self.gc.collect()
-        next_ptr = root_ptr.next
-        #
-        # check if everything is as expected
-        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(root_ptr))
-        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(next_ptr))
-        assert root_ptr.someInt == 100
-        assert next_ptr.someInt == 200
-        #
-        pinned_ptr = self.malloc(S)
-        pinned_ptr.someInt = 300
-        assert self.gc.pin(llmemory.cast_ptr_to_adr(pinned_ptr))
-        self.write(next_ptr, 'next', pinned_ptr)
-        self.gc.collect()
-        #
-        # validate everything is as expected with 3 rounds of GC collecting
-        for _ in range(3):
-            self.gc.collect()
-            assert next_ptr.next == pinned_ptr
-            assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(pinned_ptr))
-            assert pinned_ptr.someInt == 300
-            assert root_ptr.someInt == 100
-            assert next_ptr.someInt == 200
-        #
-        # remove the root from stackroots
-        self.stackroots.remove(root_ptr)
-        self.gc.minor_collection()
-        #
-        # the minor collection will still visit 'next_ptr', although
-        # 'root_ptr' is not part of the stackroots anymore. This makes
-        # sense as 'next_ptr' is removed only in the next major collection
-        assert next_ptr.next.someInt == 300
-        #
-        # now we do a major collection and everything should be gone
-        self.gc.collect()
-        try:
-            pinned_ptr.someInt == 300
-            assert False
-        except RuntimeError as ex:
-            assert "freed" in str(ex)
-
-
-    def test_pin_old(self):
+    
+    def pin_unpin_moved_stackroot(self, collect_func):
+        # scenario: test if the pinned object is moved after being unpinned.
+        # the second part of the scenario is the tested one. The first part
+        # is already tests by other tests.
         ptr = self.malloc(S)
         ptr.someInt = 100
         self.stackroots.append(ptr)
-        self.gc.collect()
-        ptr = self.stackroots[0]
+        assert self.stackroots[0] == ptr # validate our assumption
+
         adr = llmemory.cast_ptr_to_adr(ptr)
-        assert ptr.someInt == 100
-        assert not self.gc.is_in_nursery(adr)
-        assert not self.gc.pin(adr)
-        # ^^^ should not be possible, struct is already old and won't
-        # move.
+        assert self.gc.pin(adr)
 
-    def test_pin_malloc_pin(self):
-        first_ptr = self.malloc(S)
-        first_ptr.someInt = 101
-        self.stackroots.append(first_ptr)
-        assert self.gc.pin(llmemory.cast_ptr_to_adr(first_ptr))
+        collect_func()
+        #
+        # from here on the test really starts. previouse logic is already tested
+        #
+        self.gc.unpin(adr)
+        assert not self.gc._is_pinned(adr)
+        assert self.gc.is_in_nursery(adr)
+        #
+        # now we do another collection and the object should be moved out of
+        # the nursery.
+        collect_func()
+        new_adr = llmemory.cast_ptr_to_adr(self.stackroots[0])
+        assert not self.gc.is_in_nursery(new_adr)
+        assert self.stackroots[0].someInt == 100
+        with py.test.raises(RuntimeError) as exinfo:
+            ptr.someInt = 200
+        assert "freed" in str(exinfo.value)
 
+    def test_pin_unpin_moved_stackroot_minor_collection(self):
+        self.pin_unpin_moved_stackroot(self.gc.minor_collection)
+
+    def test_pin_unpin_moved_stackroot_major_collection(self):
+        self.pin_unpin_moved_stackroot(self.gc.collect)
+
+    
+    def pin_referenced_from_old(self, collect_func):
+        # scenario: an old object points to a pinned one. Check if the pinned
+        # object is correctly kept in the nursery and not moved.
+        #
+        # create old object
+        old_ptr = self.malloc(S)
+        old_ptr.someInt = 900
+        self.stackroots.append(old_ptr)
+        assert self.stackroots[0] == old_ptr # validate our assumption
+        collect_func() # make it old: move it out of the nursery
+        old_ptr = self.stackroots[0]
+        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(old_ptr))
+        #
+        # create young pinned one and let the old one reference the young one
+        pinned_ptr = self.malloc(S)
+        pinned_ptr.someInt = 100
+        self.write(old_ptr, 'next', pinned_ptr)
+        pinned_adr = llmemory.cast_ptr_to_adr(pinned_ptr)
+        assert self.gc.pin(pinned_adr)
+        assert self.gc.is_in_nursery(pinned_adr)
+        assert old_ptr.next.someInt == 100
+        assert self.gc.pinned_objects_in_nursery == 1
+        #
+        # do a collection run and make sure the pinned one didn't move
+        collect_func()
+        assert old_ptr.next.someInt == pinned_ptr.someInt == 100
+        assert llmemory.cast_ptr_to_adr(old_ptr.next) == pinned_adr
+        assert self.gc.is_in_nursery(pinned_adr)
+        
+    def test_pin_referenced_from_old_minor_collection(self):
+        self.pin_referenced_from_old(self.gc.minor_collection)
+
+    def test_pin_referenced_from_old_major_collection(self):
+        self.pin_referenced_from_old(self.gc.collect)
+
+    def test_pin_referenced_from_old_stepwise_major_collection(self):
+        # scenario: same as in 'pin_referenced_from_old'. However,
+        # this time we do a major collection step by step and check
+        # between steps that the states are as expected.
+        #
+        # create old object
+        old_ptr = self.malloc(S)
+        old_ptr.someInt = 900
+        self.stackroots.append(old_ptr)
+        assert self.stackroots[0] == old_ptr # validate our assumption
+        self.gc.minor_collection() # make it old: move it out of the nursery
+        old_ptr = self.stackroots[0]
+        old_adr = llmemory.cast_ptr_to_adr(old_ptr)
+        assert not self.gc.is_in_nursery(old_adr)
+        #
+        # create young pinned one and let the old one reference the young one
+        pinned_ptr = self.malloc(S)
+        pinned_ptr.someInt = 100
+        self.write(old_ptr, 'next', pinned_ptr)
+        pinned_adr = llmemory.cast_ptr_to_adr(pinned_ptr)
+        assert self.gc.pin(pinned_adr)
+        assert self.gc.is_in_nursery(pinned_adr)
+        assert old_ptr.next.someInt == 100
+        assert self.gc.pinned_objects_in_nursery == 1
+        #
+        # stepwise major collection with validation between steps
+        # check that we start at the expected point
+        assert self.gc.gc_state == self.STATE_SCANNING
+        done = False
+        while not done:
+            self.gc.debug_gc_step()
+            #
+            # make sure pinned object didn't move
+            assert old_ptr.next.someInt == pinned_ptr.someInt == 100
+            assert llmemory.cast_ptr_to_adr(old_ptr.next) == pinned_adr
+            assert self.gc.is_in_nursery(pinned_adr)
+            assert self.gc.pinned_objects_in_nursery == 1
+            #
+            # validate that the old object is part of the internal list
+            # 'old_objects_pointing_to_pinned' as expected.
+            should_be_old_adr = self.gc.old_objects_pointing_to_pinned.pop()
+            assert should_be_old_adr == old_adr
+            self.gc.old_objects_pointing_to_pinned.append(should_be_old_adr)
+            #
+            # break condition
+            done = self.gc.gc_state == self.STATE_SCANNING
+
+    
+    def pin_referenced_from_old_remove_ref(self, collect_func):
+        # scenario: an old object points to a pinned one. We remove the
+        # reference from the old one. So nothing points to the pinned object.
+        # After this the pinned object should be collected (it's dead).
+        #
+        # Create the objects and get them to our initial state (this is not
+        # tested here, should be already tested by other tests)
+        old_ptr = self.malloc(S)
+        old_ptr.someInt = 900
+        self.stackroots.append(old_ptr)
+        assert self.stackroots[0] == old_ptr # check assumption
+        collect_func() # make it old
+        old_ptr = self.stackroots[0]
+        #
+        pinned_ptr = self.malloc(S)
+        pinned_ptr.someInt = 100
+        self.write(old_ptr, 'next', pinned_ptr)
+        pinned_adr = llmemory.cast_ptr_to_adr(pinned_ptr)
+        assert self.gc.pin(pinned_adr)
+        #
+        collect_func()
+        # from here on we have our initial state for this test.
+        #
+        # first check some basic assumptions.
+        assert self.gc.is_in_nursery(pinned_adr)
+        assert self.gc._is_pinned(pinned_adr)
+        # remove the reference
+        self.write(old_ptr, 'next', lltype.nullptr(S))
+        # from now on the pinned object is dead. Do a collection and make sure
+        # old object still there and the pinned one is gone.
+        collect_func()
+        assert self.stackroots[0].someInt == 900
+        assert not self.gc.old_objects_pointing_to_pinned.non_empty()
+        with py.test.raises(RuntimeError) as exinfo:
+            pinned_ptr.someInt = 200
+        assert "freed" in str(exinfo.value)
+
+    def test_pin_referenced_from_old_remove_ref_minor_collection(self):
+        self.pin_referenced_from_old_remove_ref(self.gc.minor_collection)
+
+    def test_pin_referenced_from_old_remove_ref_major_collection(self):
+        self.pin_referenced_from_old_remove_ref(self.gc.collect)
+
+
+    def pin_referenced_from_old_remove_old(self, collect_func):
+        # scenario: an old object referenced a pinned object. After removing
+        # the stackroot reference to the old object, bot objects (old and pinned)
+        # must be collected.
+        # This test is important as we expect not reachable pinned objects to
+        # be collected. At the same time we have an internal list of objects
+        # pointing to pinned ones and we must make sure that because of it the
+        # old/pinned object survive.
+        #
+        # create the objects and get them to the initial state for this test.
+        # Everything on the way to the initial state should be covered by
+        # other tests.
+        old_ptr = self.malloc(S)
+        old_ptr.someInt = 900
+        self.stackroots.append(old_ptr)
+        collect_func()
+        old_ptr = self.stackroots[0]
+        #
+        pinned_ptr = self.malloc(S)
+        pinned_ptr.someInt = 100
+        self.write(old_ptr, 'next', pinned_ptr)
+        assert self.gc.pin(llmemory.cast_ptr_to_adr(pinned_ptr))
+        #
+        collect_func()
+        #
+        # now we have our initial state: old object referenced from stackroots.
+        # Old object referencing a young pinned one. Next step is to make some
+        # basic checks that we got the expected state.
+        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(old_ptr))
+        assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(pinned_ptr))
+        assert pinned_ptr == old_ptr.next
+        #
+        # now we remove the old object from the stackroots...
+        self.stackroots.remove(old_ptr)
+        # ... and do a major collection (otherwise the old object wouldn't be
+        # gone).
         self.gc.collect()
-        assert first_ptr.someInt == 101
+        # check that both objects are gone
+        assert not self.gc.old_objects_pointing_to_pinned.non_empty()
+        with py.test.raises(RuntimeError) as exinfo_old:
+            old_ptr.someInt = 800
+        assert "freed" in str(exinfo_old.value)
+        #
+        with py.test.raises(RuntimeError) as exinfo_pinned:
+            pinned_ptr.someInt = 200
+        assert "freed" in str(exinfo_pinned.value)
 
-        second_ptr = self.malloc(S)
-        second_ptr.someInt = 102
-        self.stackroots.append(second_ptr)
-        assert self.gc.pin(llmemory.cast_ptr_to_adr(second_ptr))
+    def test_pin_referenced_from_old_remove_old_minor_collection(self):
+        self.pin_referenced_from_old_remove_old(self.gc.minor_collection)
 
-        self.gc.collect()
-        assert first_ptr.someInt == 101
-        assert second_ptr.someInt == 102
+    def test_pin_referenced_from_old_remove_old_major_collection(self):
+        self.pin_referenced_from_old_remove_old(self.gc.collect)
+
+
+    def pin_referenced_from_young_in_stackroots(self, collect_func):
+        # scenario: a young object is referenced from the stackroots. This
+        # young object points to a young pinned object. We check if everything
+        # behaves as expected after a collection: the young object is moved out
+        # of the nursery while the pinned one stays where it is.
+        #
+        root_ptr = self.malloc(S)
+        root_ptr.someInt = 900
+        self.stackroots.append(root_ptr)
+        assert self.stackroots[0] == old_ptr # validate assumption
+        #
+        pinned_ptr = self.malloc(S)
+        pinned_ptr.someInt = 100
+        self.write(root_ptr, 'next', pinned_ptr)
+        pinned_adr = llmemory.cast_ptr_to_adr(pinned_ptr)
+        assert self.gc.pin(pinned_adr)
+        # check both are in nursery
+        assert self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(root_ptr))
+        assert self.gc.is_in_nursery(pinned_adr)
+        #
+        # no old object yet pointing to a pinned one
+        assert not self.gc.old_objects_pointing_to_pinned.non_empty()
+        #
+        # now we do a collection and check if the result is as expected
+        collect_func()
+        #
+        # check if objects are where we expect them
+        root_ptr = self.stackroots[0]
+        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(root_ptr))
+        assert self.gc.is_in_nursery(pinned_adr)
+        # and as 'root_ptr' object is now old, it should be tracked specially
+        should_be_root_ptr = self.gc.old_objects_pointing_to_pinned.pop()
+        assert should_be_root_ptr == root_ptr
+        self.gc.old_objects_pointing_to_pinned.push(should_be_root_ptr)
+        # check that old object still points to the pinned one as expected
+        assert root_ptr.next == pinned_ptr
+
+    def test_pin_referenced_from_young_in_stackroots_minor_collection(self):
+        self.pin_referenced_from_young_in_stackroots(self.gc.minor_collection)
+
+    def test_pin_referenced_from_young_in_stackroots_major_collection(self):
+        self.pin_referenced_from_young_in_stackroots(self.gc.collect)
+
+
+    # XXX REMOVE THIS COMMENT copied ones:
 
     def pin_shadow_1(self, collect_func):
         ptr = self.malloc(S)
@@ -629,35 +640,6 @@ class TestIncminimark(PinningGCTest):
         # we did not reset the whole nursery
         assert self.gc.nursery_top < self.gc.nursery_real_top
 
-    def test_collect_dead_pinned_objects(self):
-        # prepare three object, where two are stackroots
-        ptr_stackroot_1 = self.malloc(S)
-        ptr_stackroot_1.someInt = 100
-        self.stackroots.append(ptr_stackroot_1)
-
-        ptr_not_stackroot = self.malloc(S)
-
-        ptr_stackroot_2 = self.malloc(S)
-        ptr_stackroot_2.someInt = 100
-        self.stackroots.append(ptr_stackroot_2)
-
-        # pin all three objects
-        assert self.gc.pin(llmemory.cast_ptr_to_adr(ptr_stackroot_1))
-        assert self.gc.pin(llmemory.cast_ptr_to_adr(ptr_not_stackroot))
-        assert self.gc.pin(llmemory.cast_ptr_to_adr(ptr_stackroot_2))
-        assert self.gc.pinned_objects_in_nursery == 3
-
-        self.gc.collect()
-        # now the one not on the stack should be gone.
-        assert self.gc.pinned_objects_in_nursery == 2
-        assert ptr_stackroot_1.someInt == 100
-        assert ptr_stackroot_2.someInt == 100
-        try:
-            ptr_not_stackroot.someInt = 100
-            assert False
-        except RuntimeError as ex:
-            assert "freed" in str(ex)
-
     def fill_nursery_with_pinned_objects(self):
         typeid = self.get_type_id(S)
         size = self.gc.fixed_size(typeid) + self.gc.gcheaderbuilder.size_gc_header
@@ -714,3 +696,4 @@ class TestIncminimark(PinningGCTest):
         # nursery should be full now, at least no space for another `S`. Next malloc should fail.
         py.test.raises(Exception, self.malloc, S)
     test_full_pinned_nursery_pin_fail.GC_PARAMS = {'max_number_of_pinned_objects': 50}
+
