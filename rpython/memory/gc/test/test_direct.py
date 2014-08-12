@@ -107,7 +107,7 @@ class BaseDirectGCTest(object):
     def malloc(self, TYPE, n=None):
         addr = self.gc.malloc(self.get_type_id(TYPE), n, zero=True)
         obj_ptr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
-        #TODO: only zero fields if there is gc filed add something like has_gc_ptr()
+        
         if not self.gc.malloc_zero_filled:
             zero_gc_pointers_inside(obj_ptr, TYPE)
         return obj_ptr
@@ -667,9 +667,25 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
 
 class TestIncrementalMiniMarkGCFull(DirectGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
-    def test_no_cleanup(self):
+    def test_malloc_fixedsize_no_cleanup(self):
         p = self.malloc(S)
         import pytest
         with pytest.raises(lltype.UninitializedMemoryAccess):
             x1 = p.x
-        
+        assert p.prev == lltype.nullptr(S)
+        assert p.next == lltype.nullptr(S)
+    
+    def test_malloc_varsize_no_cleanup(self):
+        x = lltype.Signed
+        VAR1 = lltype.GcArray(x)
+        p = self.malloc(VAR1,5)
+        import pytest
+        with pytest.raises(lltype.UninitializedMemoryAccess):
+            x1 = p[0]
+
+    def test_malloc_varsize_no_cleanup2(self):
+        p = self.malloc(VAR,100)
+        for i in range(100):
+            assert p[0] == lltype.nullptr(S)
+        assert False
+

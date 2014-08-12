@@ -1,6 +1,7 @@
 import py
 import inspect
 
+from rpython.rlib.objectmodel import compute_hash, compute_identity_hash
 from rpython.translator.c import gc
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import SomePtr
@@ -13,6 +14,7 @@ from rpython.rlib import rgc
 from rpython.conftest import option
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import LONG_BIT
+import pdb
 
 WORD = LONG_BIT // 8
 
@@ -154,7 +156,6 @@ class GCTest(object):
 
 class GenericGCTests(GCTest):
     GC_CAN_SHRINK_ARRAY = False
-
     def define_instances(cls):
         class A(object):
             pass
@@ -709,7 +710,6 @@ class GenericMovingGCTests(GenericGCTests):
     GC_CAN_MOVE = True
     GC_CAN_MALLOC_NONMOVABLE = False
     GC_CAN_TEST_ID = False
-
     def define_many_ids(cls):
         class A(object):
             pass
@@ -1118,6 +1118,7 @@ class TestGenerationGC(GenericMovingGCTests):
     def test_adr_of_nursery(self):
         run = self.runner("adr_of_nursery")
         res = run([])
+    
 
 class TestGenerationalNoFullCollectGC(GCTest):
     # test that nursery is doing its job and that no full collection
@@ -1178,7 +1179,7 @@ class TestHybridGC(TestGenerationGC):
                          'large_object': 8*WORD,
                          'translated_to_c': False}
             root_stack_depth = 200
-
+    
     def define_ref_from_rawmalloced_to_regular(cls):
         import gc
         S = lltype.GcStruct('S', ('x', lltype.Signed))
@@ -1232,8 +1233,7 @@ class TestHybridGC(TestGenerationGC):
 
     def test_malloc_nonmovable_fixsize(self):
         py.test.skip("not supported")
-
-
+    
 class TestMiniMarkGC(TestHybridGC):
     gcname = "minimark"
     GC_CAN_TEST_ID = True
@@ -1250,7 +1250,7 @@ class TestMiniMarkGC(TestHybridGC):
                          'translated_to_c': False,
                          }
             root_stack_depth = 200
-
+    
     def define_no_clean_setarrayitems(cls):
         # The optimization find_clean_setarrayitems() in
         # gctransformer/framework.py does not work with card marking.
@@ -1275,6 +1275,29 @@ class TestMiniMarkGC(TestHybridGC):
         run = self.runner("no_clean_setarrayitems")
         res = run([])
         assert res == 123
+    
+    def define_nursery_hash_base(cls):
+        class A:
+            pass
+        def fn():
+            objects = []
+            hashes = []
+            for i in range(200):
+                rgc.collect(0)     # nursery-only collection, if possible
+                obj = A()
+                objects.append(obj)
+                hashes.append(compute_identity_hash(obj))
+            unique = {}
+            for i in range(len(objects)):
+                assert compute_identity_hash(objects[i]) == hashes[i]
+                unique[hashes[i]] = None
+            return len(unique)
+        return fn
+
+    def test_nursery_hash_base(self):
+        res = self.runner('nursery_hash_base')
+        assert res >= 195
+        assert False
 
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcname = "incminimark"
@@ -1292,8 +1315,58 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
                          'translated_to_c': False,
                          }
             root_stack_depth = 200
+    
+    def define_malloc_array_of_gcptr(self):
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        A = lltype.GcArray(lltype.Ptr(S))
+        def f():
+            lst = lltype.malloc(A, 5, zero= False)
+            return (lst[0] == lltype.nullptr(S) 
+                    and lst[1] == lltype.nullptr(S)
+                    and lst[2] == lltype.nullptr(S)
+                    and lst[3] == lltype.nullptr(S)
+                    and lst[4] == lltype.nullptr(S))
+        return f
+    
+    def test_malloc_array_of_gcptr(self):
+        run = self.runner('malloc_array_of_gcptr')
+        res = run([])
+        assert not res
+    '''
+    def define_malloc_struct_of_gcptr(cls):
+        S1 = lltype.GcStruct('S', ('x', lltype.Signed))
+        S = lltype.GcStruct('S',
+                                 ('x', lltype.Signed),
+                                 ('filed1', lltype.Ptr(S1)),
+                                 ('filed2', lltype.Ptr(S1)))
+        s0 = lltype.malloc(S)
+        def f():
+            return (s0.filed1 == lltype.nullptr(S1) and s0.filed2 == lltype.nullptr(S1))
+        return f
 
+    def test_malloc_struct_of_gcptr(self):
+        run = self.runner("malloc_struct_of_gcptr")
+        res = run([])
+        assert res
+    '''
+    '''
+    def define_malloc_struct_of_gcptr(cls):
+        S = lltype.GcForwardReference()
+        S.become(lltype.GcStruct('S',
+                                 ('x', lltype.Signed),
+                                 ('prev', lltype.Ptr(S)),
+                                 ('next', lltype.Ptr(S))))
+        s0 = lltype.malloc(S,zero = False)
+        def f():
+            return s0.next == lltype.nullptr(S)
+        return f
 
+    def test_malloc_struct_of_gcptr(self):
+        run = self.runner("malloc_struct_of_gcptr")
+        pdb.set_trace()
+        res = run([])
+        assert res
+    '''
 # ________________________________________________________________
 # tagged pointers
 
