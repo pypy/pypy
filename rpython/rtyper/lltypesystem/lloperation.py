@@ -480,9 +480,9 @@ LL_OPERATIONS = {
     'gc_writebarrier':      LLOp(canrun=True),
     'gc_writebarrier_before_copy': LLOp(canrun=True),
     'gc_heap_stats'       : LLOp(canmallocgc=True),
-    'gc_pin'              : LLOp(canrun=True), # XXX understand this, correct? (groggi)
-    'gc_unpin'            : LLOp(canrun=True), # XXX understand this, correct? (groggi)
-    'gc__is_pinned'        : LLOp(canrun=True), # XXX understand this, correct? (groggi)
+    'gc_pin'              : LLOp(canrun=True),
+    'gc_unpin'            : LLOp(canrun=True),
+    'gc__is_pinned'        : LLOp(canrun=True),
 
     'gc_get_rpy_roots'    : LLOp(),
     'gc_get_rpy_referents': LLOp(),
