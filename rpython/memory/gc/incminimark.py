@@ -1225,13 +1225,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # but this flag is progressively removed in the sweeping phase.
 
         # All objects should have this flag, except if they
-        # don't have any GC pointer
+        # don't have any GC pointer or are pinned objects
         typeid = self.get_type_id(obj)
-        if not self._is_pinned(obj):
-            # XXX do we need checks if the object is actually pinned? (groggi)
-            if self.has_gcptr(typeid):
-                ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
-                          "missing GCFLAG_TRACK_YOUNG_PTRS")
+        if self.has_gcptr(typeid) and not self._is_pinned(obj):
+            ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
+                      "missing GCFLAG_TRACK_YOUNG_PTRS")
         # the GCFLAG_FINALIZATION_ORDERING should not be set between coll.
         ll_assert(self.header(obj).tid & GCFLAG_FINALIZATION_ORDERING == 0,
                   "unexpected GCFLAG_FINALIZATION_ORDERING")
@@ -1530,15 +1528,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         # Keeps track of surviving pinned objects. See also '_trace_drag_out()'
         # where this stack is filled.  Pinning an object only prevents it from
-        # being move, not from being collected if it is not used anymore.
+        # being moved, not from being collected if it is not reachable anymore.
         self.surviving_pinned_objects = self.AddressStack()
         #
         # The following counter keeps track of the amount of alive and pinned
-        # objects inside the nursery.  The counter is reset, as we have to
-        # check which pinned objects are actually still alive. Pinning an
-        # object does not prevent the removal of an object, if it's not used
-        # anymore.
-        # XXX is this true? does it make sense? (groggi)
+        # objects inside the nursery.
         self.pinned_objects_in_nursery = 0
         #
         # Before everything else, remove from 'old_objects_pointing_to_young'
