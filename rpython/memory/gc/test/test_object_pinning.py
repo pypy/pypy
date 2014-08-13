@@ -40,6 +40,13 @@ class PinningGCTest(BaseDirectGCTest):
         self.gc.unpin(adr)
         assert not self.gc._is_pinned(adr)
 
+    def test_prebuilt_not_pinnable(self):
+        ptr = lltype.malloc(S, immortal=True)
+        self.consider_constant(ptr)
+        assert not self.gc.pin(llmemory.cast_ptr_to_adr(ptr))
+        self.gc.collect()
+        assert not self.gc.pin(llmemory.cast_ptr_to_adr(ptr))
+
     # XXX test with multiple mallocs, and only part of them is pinned
 
 
@@ -443,6 +450,41 @@ class TestIncminimark(PinningGCTest):
 
     def test_pin_referenced_from_young_in_stackroots_major_collection(self):
         self.pin_referenced_from_young_in_stackroots(self.gc.collect)
+
+
+    def pin_referenced_from_prebuilt(self, collect_func):
+        # scenario: a prebuilt object points to a pinned object. Check if the
+        # pinned object doesn't move and is still accessible.
+        #
+        prebuilt_ptr = lltype.malloc(S, immortal=True)
+        prebuilt_ptr.someInt = 900
+        self.consider_constant(prebuilt_ptr)
+        prebuilt_adr = llmemory.cast_ptr_to_adr(prebuilt_ptr)
+        collect_func()
+        #        
+        pinned_ptr = self.malloc(S)
+        pinned_ptr.someInt = 100
+        self.write(prebuilt_ptr, 'next', pinned_ptr)
+        pinned_adr = llmemory.cast_ptr_to_adr(pinned_ptr)
+        assert self.gc.pin(pinned_adr)
+        #
+        # check if everything is as expected
+        assert not self.gc.is_in_nursery(prebuilt_adr)
+        assert self.gc.is_in_nursery(pinned_adr)
+        assert pinned_ptr == prebuilt_ptr.next
+        assert pinned_ptr.someInt == 100
+        #
+        # do a collection and check again
+        collect_func()
+        assert self.gc.is_in_nursery(pinned_adr)
+        assert pinned_ptr == prebuilt_ptr.next
+        assert pinned_ptr.someInt == 100
+
+    def test_pin_referenced_from_prebuilt_minor_collection(self):
+        self.pin_referenced_from_prebuilt(self.gc.minor_collection)
+
+    def test_pin_referenced_from_prebuilt_major_collection(self):
+        self.pin_referenced_from_prebuilt(self.gc.collect)
 
 
     def pin_shadow_1(self, collect_func):
