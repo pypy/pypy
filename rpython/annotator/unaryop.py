@@ -7,18 +7,15 @@ from __future__ import absolute_import
 from rpython.flowspace.operation import op
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
-    SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeFloat, SomeIterator,
-    SomePBC, SomeType, s_ImpossibleValue,
+    SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
+    SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
     s_Bool, s_None, unionof, add_knowntypedata,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
-from rpython.annotator.bookkeeper import getbookkeeper
+from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
 from rpython.annotator.model import AnnotatorError
-
-# convenience only!
-def immutablevalue(x):
-    return getbookkeeper().immutablevalue(x)
+from rpython.annotator.argument import simple_args, complex_args
 
 UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])
@@ -112,7 +109,7 @@ class __extend__(SomeObject):
         except AttributeError:
             return None
         else:
-            return SomeBuiltin(analyser, self, name)
+            return SomeBuiltinMethod(analyser, self, name)
 
     def getattr(self, s_attr):
         # get a SomeBuiltin if the SomeObject has
@@ -137,10 +134,10 @@ class __extend__(SomeObject):
         return self   # default unbound __get__ implementation
 
     def simple_call(self, *args_s):
-        return self.call(getbookkeeper().build_args("simple_call", args_s))
+        return self.call(simple_args(args_s))
 
     def call_args(self, *args_s):
-        return self.call(getbookkeeper().build_args("call_args", args_s))
+        return self.call(complex_args(args_s))
 
     def call(self, args, implicit_init=False):
         raise AnnotatorError("Cannot prove that the object is callable")
@@ -390,6 +387,9 @@ class __extend__(SomeDict):
         if s_None.contains(dct2):
             return SomeImpossibleValue()
         dct1.dictdef.union(dct2.dictdef)
+
+    def method__prepare_dict_update(dct, num):
+        pass
 
     def method_keys(self):
         return getbookkeeper().newlist(self.dictdef.read_key())
@@ -686,36 +686,51 @@ class __extend__(SomeInstance):
         if not self.can_be_None:
             s.const = True
 
-    def iter(self):
-        s_iterable = self._true_getattr('__iter__')
+    def _emulate_call(self, meth_name, *args_s):
         bk = getbookkeeper()
+        s_attr = self._true_getattr(meth_name)
         # record for calltables
-        bk.emulate_pbc_call(bk.position_key, s_iterable, [])
-        return s_iterable.call(bk.build_args("simple_call", []))
+        bk.emulate_pbc_call(bk.position_key, s_attr, args_s)
+        return s_attr.call(simple_args(args_s))
+
+    def iter(self):
+        return self._emulate_call('__iter__')
 
     def next(self):
-        s_next = self._true_getattr('next')
-        bk = getbookkeeper()
-        # record for calltables
-        bk.emulate_pbc_call(bk.position_key, s_next, [])
-        return s_next.call(bk.build_args("simple_call", []))
+        return self._emulate_call('next')
+
+    def len(self):
+        return self._emulate_call('__len__')
+
+    def getslice(self, s_start, s_stop):
+        return self._emulate_call('__getslice__', s_start, s_stop)
+
+    def setslice(self, s_start, s_stop, s_iterable):
+        return self._emulate_call('__setslice__', s_start, s_stop, s_iterable)
 
 class __extend__(SomeBuiltin):
+    def simple_call(self, *args):
+        return self.analyser(*args)
+
+    def call(self, args, implicit_init=False):
+        args_s, kwds = args.unpack()
+        # prefix keyword arguments with 's_'
+        kwds_s = {}
+        for key, s_value in kwds.items():
+            kwds_s['s_'+key] = s_value
+        return self.analyser(*args_s, **kwds_s)
+
+
+class __extend__(SomeBuiltinMethod):
     def _can_only_throw(self, *args):
         analyser_func = getattr(self.analyser, 'im_func', None)
         can_only_throw = getattr(analyser_func, 'can_only_throw', None)
         if can_only_throw is None or isinstance(can_only_throw, list):
             return can_only_throw
-        if self.s_self is not None:
-            return can_only_throw(self.s_self, *args)
-        else:
-            return can_only_throw(*args)
+        return can_only_throw(self.s_self, *args)
 
     def simple_call(self, *args):
-        if self.s_self is not None:
-            return self.analyser(self.s_self, *args)
-        else:
-            return self.analyser(*args)
+        return self.analyser(self.s_self, *args)
     simple_call.can_only_throw = _can_only_throw
 
     def call(self, args, implicit_init=False):
@@ -724,22 +739,23 @@ class __extend__(SomeBuiltin):
         kwds_s = {}
         for key, s_value in kwds.items():
             kwds_s['s_'+key] = s_value
-        if self.s_self is not None:
-            return self.analyser(self.s_self, *args_s, **kwds_s)
-        else:
-            return self.analyser(*args_s, **kwds_s)
+        return self.analyser(self.s_self, *args_s, **kwds_s)
 
 
 class __extend__(SomePBC):
 
     def getattr(self, s_attr):
+        assert s_attr.is_constant()
+        if s_attr.const == '__name__':
+            from rpython.annotator.description import ClassDesc
+            if self.getKind() is ClassDesc:
+                return SomeString()
         bookkeeper = getbookkeeper()
         return bookkeeper.pbc_getattr(self, s_attr)
     getattr.can_only_throw = []
 
     def setattr(self, s_attr, s_value):
-        if not self.isNone():
-            raise AnnotatorError("Cannot modify attribute of a pre-built constant")
+        raise AnnotatorError("Cannot modify attribute of a pre-built constant")
 
     def call(self, args):
         bookkeeper = getbookkeeper()
@@ -750,19 +766,34 @@ class __extend__(SomePBC):
         return SomePBC(d, can_be_None=self.can_be_None)
 
     def bool_behavior(self, s):
-        if self.isNone():
-            s.const = False
-        elif not self.can_be_None:
+        if not self.can_be_None:
             s.const = True
 
     def len(self):
-        if self.isNone():
-            # this None could later be generalized into an empty list,
-            # whose length is the constant 0; so let's tentatively answer 0.
-            return immutablevalue(0)
-        else:
-            # This should probably never happen
-            raise AnnotatorError("Cannot call len on a pbc")
+        raise AnnotatorError("Cannot call len on a pbc")
+
+class __extend__(SomeNone):
+    def bind_callables_under(self, classdef, name):
+        return self
+
+    def getattr(self, s_attr):
+        return s_ImpossibleValue
+    getattr.can_only_throw = []
+
+    def setattr(self, s_attr, s_value):
+        return None
+
+    def call(self, args):
+        return s_ImpossibleValue
+
+    def bool_behavior(self, s):
+        s.const = False
+
+    def len(self):
+        # This None could later be generalized into a list, for example.
+        # For now, we give the impossible answer (because len(None) would
+        # really crash translated code).  It can be generalized later.
+        return SomeImpossibleValue()
 
 #_________________________________________
 # weakrefs

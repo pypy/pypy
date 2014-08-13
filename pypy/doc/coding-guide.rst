@@ -105,7 +105,7 @@ something much lower-level and involved, say something like::
         while True:
             try:
                 w_key = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise       # re-raise other app-level exceptions
                 break
@@ -348,8 +348,12 @@ We are using
 
 **objects**
 
-  Normal rules apply. Special methods are not honoured, except ``__init__``,
-  ``__del__`` and ``__iter__``.
+  Normal rules apply. The only special methods that are honoured are
+  ``__init__``, ``__del__``, ``__len__``, ``__getitem__``, ``__setitem__``,
+  ``__getslice__``, ``__setslice__``, and ``__iter__``. To handle slicing,
+  ``__getslice__`` and ``__setslice__`` must be used; using ``__getitem__`` and
+   ``__setitem__`` for slicing isn't supported. Additionally, using negative
+   indices for slicing is still not support, even when using ``__getslice__``.
 
 This layout makes the number of types to take care about quite limited.
 
@@ -567,7 +571,7 @@ To catch a specific application-level exception::
 
     try:
         ...
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_XxxError):
             raise
         ...
@@ -736,15 +740,15 @@ it is executed.
 
 Adding an entry under pypy/module (e.g. mymodule) entails automatic
 creation of a new config option (such as --withmod-mymodule and
---withoutmod-mymodule (the later being the default)) for py.py and
+--withoutmod-mymodule (the latter being the default)) for py.py and
 translate.py.
 
 Testing modules in ``lib_pypy/``
 --------------------------------
 
-You can go to the `lib_pypy/pypy_test/`_ directory and invoke the testing tool
+You can go to the `pypy/module/test_lib_pypy/`_ directory and invoke the testing tool
 ("py.test" or "python ../../pypy/test_all.py") to run tests against the
-lib_pypy hierarchy.  Note, that tests in `lib_pypy/pypy_test/`_ are allowed
+lib_pypy hierarchy.  Note, that tests in `pypy/module/test_lib_pypy/`_ are allowed
 and encouraged to let their tests run at interpreter level although
 `lib_pypy/`_ modules eventually live at PyPy's application level.
 This allows us to quickly test our python-coded reimplementations
@@ -835,15 +839,6 @@ for the next milestone, both from an E-Mail and from a
 web interface.
 
 .. _`development tracker`: https://bugs.pypy.org/
-
-use your codespeak login or register
-------------------------------------
-
-If you have an existing codespeak account, you can use it to login within the
-tracker. Else, you can `register with the tracker`_ easily.
-
-
-.. _`register with the tracker`: https://bugs.pypy.org/user?@template=register
 .. _`roundup`: http://roundup.sourceforge.net/
 
 
@@ -936,7 +931,7 @@ Another possibility is to use cls.space.appexec, for example::
             assert self.result == 2 ** 6
 
 which executes the code string function with the given arguments at app level.
-Note the use of ``w_result`` in ``setup_class`` but self.result in the test 
+Note the use of ``w_result`` in ``setup_class`` but self.result in the test.
 Here is how to define an app level class  in ``setup_class`` that can be used
 in subsequent tests::
 

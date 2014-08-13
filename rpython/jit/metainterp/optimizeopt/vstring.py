@@ -199,22 +199,22 @@ class VStringPlainValue(VAbstractStringValue):
             offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
         return offsetbox
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            charboxes = []
-            for value in self._chars:
-                if value is not None:
-                    box = value.get_key_box()
-                else:
-                    box = None
-                charboxes.append(box)
-            modifier.register_virtual_fields(self.keybox, charboxes)
-            for value in self._chars:
-                if value is not None:
-                    value.get_args_for_fail(modifier)
+    def _visitor_walk_recursive(self, visitor):
+        charboxes = []
+        for value in self._chars:
+            if value is not None:
+                box = value.get_key_box()
+            else:
+                box = None
+            charboxes.append(box)
+        visitor.register_virtual_fields(self.keybox, charboxes)
+        for value in self._chars:
+            if value is not None:
+                value.visitor_walk_recursive(visitor)
 
-    def _make_virtual(self, modifier):
-        return modifier.make_vstrplain(self.mode is mode_unicode)
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vstrplain(self.mode is mode_unicode)
 
 
 class VStringConcatValue(VAbstractStringValue):
@@ -256,18 +256,18 @@ class VStringConcatValue(VAbstractStringValue):
                                                  offsetbox, mode)
         return offsetbox
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            # we don't store the lengthvalue in guards, because the
-            # guard-failed code starts with a regular STR_CONCAT again
-            leftbox = self.left.get_key_box()
-            rightbox = self.right.get_key_box()
-            modifier.register_virtual_fields(self.keybox, [leftbox, rightbox])
-            self.left.get_args_for_fail(modifier)
-            self.right.get_args_for_fail(modifier)
+    def _visitor_walk_recursive(self, visitor):
+        # we don't store the lengthvalue in guards, because the
+        # guard-failed code starts with a regular STR_CONCAT again
+        leftbox = self.left.get_key_box()
+        rightbox = self.right.get_key_box()
+        visitor.register_virtual_fields(self.keybox, [leftbox, rightbox])
+        self.left.visitor_walk_recursive(visitor)
+        self.right.visitor_walk_recursive(visitor)
 
-    def _make_virtual(self, modifier):
-        return modifier.make_vstrconcat(self.mode is mode_unicode)
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vstrconcat(self.mode is mode_unicode)
 
 
 class VStringSliceValue(VAbstractStringValue):
@@ -302,18 +302,18 @@ class VStringSliceValue(VAbstractStringValue):
                                 self.vstart.force_box(string_optimizer), offsetbox,
                                 lengthbox, mode)
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            boxes = [self.vstr.get_key_box(),
-                     self.vstart.get_key_box(),
-                     self.vlength.get_key_box()]
-            modifier.register_virtual_fields(self.keybox, boxes)
-            self.vstr.get_args_for_fail(modifier)
-            self.vstart.get_args_for_fail(modifier)
-            self.vlength.get_args_for_fail(modifier)
+    def _visitor_walk_recursive(self, visitor):
+        boxes = [self.vstr.get_key_box(),
+                 self.vstart.get_key_box(),
+                 self.vlength.get_key_box()]
+        visitor.register_virtual_fields(self.keybox, boxes)
+        self.vstr.visitor_walk_recursive(visitor)
+        self.vstart.visitor_walk_recursive(visitor)
+        self.vlength.visitor_walk_recursive(visitor)
 
-    def _make_virtual(self, modifier):
-        return modifier.make_vstrslice(self.mode is mode_unicode)
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vstrslice(self.mode is mode_unicode)
 
 
 def copy_str_content(string_optimizer, srcbox, targetbox,

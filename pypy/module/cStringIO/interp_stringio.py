@@ -3,6 +3,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.rlib.rStringIO import RStringIO
+from rpython.rlib.objectmodel import import_from_mixin
 
 
 class W_InputOutputType(W_Root):
@@ -144,7 +145,9 @@ class W_InputType(W_InputOutputType):
 
 # ____________________________________________________________
 
-class W_OutputType(RStringIO, W_InputOutputType):
+class W_OutputType(W_InputOutputType):
+    import_from_mixin(RStringIO)
+
     def __init__(self, space):
         self.init()
         self.space = space
@@ -160,10 +163,10 @@ class W_OutputType(RStringIO, W_InputOutputType):
             raise OperationError(space.w_IOError, space.wrap("negative size"))
         self.truncate(size)
 
-    @unwrap_spec(buffer='bufferstr')
-    def descr_write(self, buffer):
+    def descr_write(self, space, w_buffer):
+        buffer = space.getarg_w('s*', w_buffer)
         self.check_closed()
-        self.write(buffer)
+        self.write(buffer.as_str())
 
     def descr_writelines(self, w_lines):
         self.check_closed()
@@ -236,5 +239,5 @@ def StringIO(space, w_string=None):
     if space.is_none(w_string):
         return space.wrap(W_OutputType(space))
     else:
-        string = space.bufferstr_w(w_string)
+        string = space.getarg_w('s*', w_string).as_str()
         return space.wrap(W_InputType(space, string))

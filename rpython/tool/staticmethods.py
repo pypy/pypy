@@ -10,11 +10,5 @@ class AbstractMethods(type):
 class StaticMethods(AbstractMethods):
     """
     Metaclass that turns plain methods into staticmethods.
-    """    
-    decorator = staticmethod
-
-class ClassMethods(AbstractMethods):
     """
-    Metaclass that turns plain methods into classmethods.
-    """    
-    decorator = classmethod
+    decorator = staticmethod

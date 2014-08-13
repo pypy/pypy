@@ -36,13 +36,11 @@ class FdWriteCapture(object):
         return self._value
 
 lib_m = 'm'
-has_sinf = True
 if sys.platform == 'win32':
     #there is a small chance this fails on Mingw via environ $CC
     import distutils.ccompiler
     if distutils.ccompiler.get_default_compiler() == 'msvc':
         lib_m = 'msvcrt'
-        has_sinf = False
 
 class TestFunction(object):
     Backend = CTypesBackend
@@ -57,8 +55,8 @@ class TestFunction(object):
         assert x == math.sin(1.23)
 
     def test_sinf(self):
-        if not has_sinf:
-            py.test.skip("sinf not available")
+        if sys.platform == 'win32':
+            py.test.skip("no sinf found in the Windows stdlib")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
             float sinf(float x);
@@ -405,3 +403,18 @@ class TestFunction(object):
             if wr() is not None:
                 import gc; gc.collect()
         assert wr() is None    # 'data' does not leak
+
+    def test_windows_stdcall(self):
+        if sys.platform != 'win32':
+            py.test.skip("Windows-only test")
+        if self.Backend is CTypesBackend:
+            py.test.skip("not with the ctypes backend")
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            BOOL QueryPerformanceFrequency(LONGLONG *lpFrequency);
+        """)
+        m = ffi.dlopen("Kernel32.dll")
+        p_freq = ffi.new("LONGLONG *")
+        res = m.QueryPerformanceFrequency(p_freq)
+        assert res != 0
+        assert p_freq[0] != 0

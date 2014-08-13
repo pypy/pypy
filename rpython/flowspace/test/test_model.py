@@ -13,7 +13,7 @@ def sample_function(i):
 class pieces:
     """ The manually-built graph corresponding to the sample_function().
     """
-    i = Variable("i")
+    i0 = Variable("i0")
     i1 = Variable("i1")
     i2 = Variable("i2")
     i3 = Variable("i3")
@@ -25,12 +25,12 @@ class pieces:
     conditionop = SpaceOperation("gt", [i1, Constant(0)], conditionres)
     addop = SpaceOperation("add", [sum2, i2], sum3)
     decop = SpaceOperation("sub", [i2, Constant(1)], i3)
-    startblock = Block([i])
+    startblock = Block([i0])
     headerblock = Block([i1, sum1])
     whileblock = Block([i2, sum2])
 
     graph = FunctionGraph("f", startblock)
-    startblock.closeblock(Link([i, Constant(0)], headerblock))
+    startblock.closeblock(Link([i0, Constant(0)], headerblock))
     headerblock.operations.append(conditionop)
     headerblock.exitswitch = conditionres
     headerblock.closeblock(Link([sum1], graph.returnblock, False),
@@ -55,7 +55,7 @@ def test_copygraph():
 def test_graphattributes():
     assert graph.startblock is pieces.startblock
     assert graph.returnblock is pieces.headerblock.exits[0].target
-    assert graph.getargs() == [pieces.i]
+    assert graph.getargs() == [pieces.i0]
     assert [graph.getreturnvar()] == graph.returnblock.inputargs
     assert graph.source == inspect.getsource(sample_function)
 

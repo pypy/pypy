@@ -3,10 +3,10 @@
 from rpython.rlib.jit import we_are_jitted
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin)
+from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder, replace
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import StringBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
@@ -430,6 +430,7 @@ class W_BytesObject(W_AbstractBytesObject):
     _immutable_fields_ = ['_value']
 
     def __init__(self, str):
+        assert str is not None
         self._value = str
 
     def __repr__(self):
@@ -442,8 +443,18 @@ class W_BytesObject(W_AbstractBytesObject):
     def str_w(self, space):
         return self._value
 
-    def buffer_w(w_self, space):
-        return StringBuffer(w_self._value)
+    def buffer_w(self, space, flags):
+        space.check_buf_flags(flags, True)
+        return StringBuffer(self._value)
+
+    def readbuf_w(self, space):
+        return StringBuffer(self._value)
+
+    def writebuf_w(self, space):
+        raise OperationError(space.w_TypeError, space.wrap(
+            "Cannot use string as modifiable buffer"))
+
+    charbuf_w = str_w
 
     def listview_bytes(self):
         return _create_list_from_bytes(self._value)
@@ -467,12 +478,22 @@ class W_BytesObject(W_AbstractBytesObject):
     def _len(self):
         return len(self._value)
 
-    def _val(self, space):
-        return self._value
+    _val = str_w
 
-    def _op_val(self, space, w_other):
-        return space.bufferstr_w(w_other)
-        #return w_other._value
+    @staticmethod
+    def _use_rstr_ops(space, w_other):
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        return (isinstance(w_other, W_BytesObject) or
+                isinstance(w_other, W_UnicodeObject))
+
+    @staticmethod
+    def _op_val(space, w_other):
+        try:
+            return space.str_w(w_other)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+        return space.charbuf_w(w_other)
 
     def _chr(self, char):
         assert len(char) == 1

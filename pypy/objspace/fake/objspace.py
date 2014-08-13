@@ -4,6 +4,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.sliceobject import W_SliceObject
+from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.objectmodel import instantiate, we_are_translated, specialize
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
@@ -38,6 +39,9 @@ class W_MyObject(W_Root):
 
     def setclass(self, space, w_subtype):
         is_root(w_subtype)
+
+    def buffer_w(self, space, flags):
+        return StringBuffer("foobar")
 
     def str_w(self, space):
         return NonConstant("foobar")
@@ -295,11 +299,6 @@ class FakeObjSpace(ObjSpace):
         ec._py_repr = None
         return ec
 
-    def buffer_w(self, w_obj):
-        from pypy.interpreter.buffer import Buffer
-        is_root(w_obj)
-        return Buffer()
-
     def unicode_from_object(self, w_obj):
         return w_some_obj()
 
@@ -315,6 +314,9 @@ class FakeObjSpace(ObjSpace):
         t = TranslationContext(config=config)
         self.t = t     # for debugging
         ann = t.buildannotator()
+        def _do_startup():
+            self.threadlocals.enter_thread(self)
+        ann.build_types(_do_startup, [], complete_now=False)
         if func is not None:
             ann.build_types(func, argtypes, complete_now=False)
         if seeobj_w:
@@ -342,7 +344,7 @@ class FakeObjSpace(ObjSpace):
                      ObjSpace.ExceptionTable +
                      ['int', 'str', 'float', 'long', 'tuple', 'list',
                       'dict', 'unicode', 'complex', 'slice', 'bool',
-                      'basestring', 'object', 'bytearray']):
+                      'basestring', 'object', 'bytearray', 'buffer']):
             setattr(space, 'w_' + name, w_some_obj())
         space.w_type = w_some_type()
         #

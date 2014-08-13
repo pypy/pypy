@@ -394,6 +394,7 @@ class OptRewrite(Optimization):
         val = self.getvalue(arg)
         if val.is_constant():
             if val.box.same_constant(CONST_0):
+                self.last_emitted_operation = REMOVED
                 return
             op = op.copy_and_change(rop.CALL, args=op.getarglist()[1:])
         self.emit_operation(op)
@@ -516,24 +517,13 @@ class OptRewrite(Optimization):
         return False
 
     def optimize_CALL_PURE(self, op):
-        arg_consts = []
-        for i in range(op.numargs()):
-            arg = op.getarg(i)
-            const = self.get_constant_box(arg)
-            if const is None:
-                break
-            arg_consts.append(const)
-        else:
-            # all constant arguments: check if we already know the result
-            try:
-                result = self.optimizer.call_pure_results[arg_consts]
-            except KeyError:
-                pass
-            else:
-                # this removes a CALL_PURE with all constant arguments.
-                self.make_constant(op.result, result)
-                self.last_emitted_operation = REMOVED
-                return
+        # this removes a CALL_PURE with all constant arguments.
+        # Note that it's also done in pure.py.  For now we need both...
+        result = self._can_optimize_call_pure(op)
+        if result is not None:
+            self.make_constant(op.result, result)
+            self.last_emitted_operation = REMOVED
+            return
         self.emit_operation(op)
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
@@ -542,6 +532,9 @@ class OptRewrite(Optimization):
             # so we also kill the following GUARD_NO_EXCEPTION
             return
         self.emit_operation(op)
+
+    def optimize_GUARD_FUTURE_CONDITION(self, op):
+        pass # just remove it
 
     def optimize_INT_FLOORDIV(self, op):
         v1 = self.getvalue(op.getarg(0))

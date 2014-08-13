@@ -291,14 +291,9 @@ class W_PyCTypeObject(W_TypeObject):
         convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
         convert_member_defs(space, dict_w, pto.c_tp_members, self)
 
-        full_name = rffi.charp2str(pto.c_tp_name)
-        if '.' in full_name:
-            module_name, extension_name = rsplit(full_name, ".", 1)
-            dict_w["__module__"] = space.wrap(module_name)
-        else:
-            extension_name = full_name
+        name = rffi.charp2str(pto.c_tp_name)
 
-        W_TypeObject.__init__(self, space, extension_name,
+        W_TypeObject.__init__(self, space, name,
             bases_w or [space.w_object], dict_w)
         if not space.is_true(space.issubtype(self, space.w_type)):
             self.flag_cpytype = True
@@ -518,7 +513,7 @@ def type_attach(space, py_obj, w_type):
         from pypy.module.cpyext.stringobject import PyString_AsString
         pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
     else:
-        pto.c_tp_name = rffi.str2charp(w_type.getname(space))
+        pto.c_tp_name = rffi.str2charp(w_type.name)
     pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
     pto.c_tp_itemsize = 0
     # uninitialized fields:

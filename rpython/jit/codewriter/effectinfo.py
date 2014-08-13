@@ -22,6 +22,9 @@ class EffectInfo(object):
     OS_STR2UNICODE              = 2    # "str.str2unicode"
     OS_SHRINK_ARRAY             = 3    # rgc.ll_shrink_array
     OS_DICT_LOOKUP              = 4    # ll_dict_lookup
+    OS_THREADLOCALREF_GET       = 5    # llop.threadlocalref_get
+    OS_GET_ERRNO                = 6    # rposix.get_errno
+    OS_SET_ERRNO                = 7    # rposix.set_errno
     #
     OS_STR_CONCAT               = 22   # "stroruni.concat"
     OS_STR_SLICE                = 23   # "stroruni.slice"
@@ -166,6 +169,12 @@ class EffectInfo(object):
 
     def is_call_release_gil(self):
         return bool(self.call_release_gil_target)
+
+    def __repr__(self):
+        more = ''
+        if self.oopspecindex:
+            more = ' OS=%r' % (self.oopspecindex,)
+        return '<EffectInfo 0x%x: EF=%r%s>' % (id(self), self.extraeffect, more)
 
 
 def frozenset_or_none(x):

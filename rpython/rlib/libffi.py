@@ -109,11 +109,11 @@ IS_32_BIT = (r_uint.BITS == 32)
 def _check_type(TYPE):
     if isinstance(TYPE, lltype.Ptr):
         if TYPE.TO._gckind != 'raw':
-            raise TypeError, "Can only push raw values to C, not 'gc'"
+            raise TypeError("Can only push raw values to C, not 'gc'")
         # XXX probably we should recursively check for struct fields here,
         # lets just ignore that for now
         if isinstance(TYPE.TO, lltype.Array) and 'nolength' not in TYPE.TO._hints:
-            raise TypeError, "Can only push to C arrays without length info"
+            raise TypeError("Can only push to C arrays without length info")
 
 
 class ArgChain(object):
@@ -136,7 +136,7 @@ class ArgChain(object):
         elif TYPE is rffi.FLOAT:
             cls = SingleFloatArg
         else:
-            raise TypeError, 'Unsupported argument type: %s' % TYPE
+            raise TypeError('Unsupported argument type: %s' % TYPE)
         self._append(cls(val))
         return self
 
@@ -247,8 +247,8 @@ class Func(AbstractFuncPtr):
         # assuming that argchain is completely virtual.
         self = jit.promote(self)
         if argchain.numargs != len(self.argtypes):
-            raise TypeError, 'Wrong number of arguments: %d expected, got %d' %\
-                (len(self.argtypes), argchain.numargs)
+            raise TypeError('Wrong number of arguments: %d expected, got %d' %
+                (len(self.argtypes), argchain.numargs))
         ll_args = self._prepare()
         i = 0
         arg = argchain.first
@@ -273,7 +273,7 @@ class Func(AbstractFuncPtr):
         elif RESULT is lltype.Void:
             return self._do_call_void(self.funcsym, ll_args)
         else:
-            raise TypeError, 'Unsupported result type: %s' % RESULT
+            raise TypeError('Unsupported result type: %s' % RESULT)
         #
         return rffi.cast(RESULT, res)
 
@@ -430,7 +430,7 @@ class CDLL(object):
 
     def getpointer_by_ordinal(self, name, argtypes, restype,
                               flags=FUNCFLAG_CDECL):
-        return Func('by_ordinal', argtypes, restype, 
+        return Func('by_ordinal', argtypes, restype,
                     dlsym_byordinal(self.lib, name),
                     flags=flags, keepalive=self)
     def getaddressindll(self, name):

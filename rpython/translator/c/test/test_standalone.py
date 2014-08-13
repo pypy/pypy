@@ -13,7 +13,7 @@ from rpython.translator.backendopt import all
 from rpython.translator.c.genc import CStandaloneBuilder, ExternalCompilationInfo
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.tool.udir import udir
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.conftest import option
 
 def setup_module(module):
@@ -304,8 +304,13 @@ class TestStandalone(StandaloneTests):
         assert "  ll_strtod.o" in makefile
 
     def test_debug_print_start_stop(self):
+        import sys
         from rpython.rtyper.lltypesystem import rffi
-
+        if sys.platform == 'win32':
+            # ftell(stderr) is a bit different under subprocess.Popen
+            tell = 0
+        else:
+            tell = -1
         def entry_point(argv):
             x = "got:"
             debug_start  ("mycat")
@@ -327,7 +332,7 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point)
         # check with PYPYLOG undefined
         out, err = cbuilder.cmdexec("", err=True, env={})
-        assert out.strip() == 'got:a.-1.'
+        assert out.strip() == 'got:a.%d.' % tell
         assert 'toplevel' in err
         assert 'mycat' not in err
         assert 'foo 2 bar 3' not in err
@@ -336,7 +341,7 @@ class TestStandalone(StandaloneTests):
         assert 'bok' not in err
         # check with PYPYLOG defined to an empty string (same as undefined)
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ''})
-        assert out.strip() == 'got:a.-1.'
+        assert out.strip() == 'got:a.%d.' % tell
         assert 'toplevel' in err
         assert 'mycat' not in err
         assert 'foo 2 bar 3' not in err
@@ -345,7 +350,7 @@ class TestStandalone(StandaloneTests):
         assert 'bok' not in err
         # check with PYPYLOG=:- (means print to stderr)
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ':-'})
-        assert out.strip() == 'got:bcda.-1.'
+        assert out.strip() == 'got:bcda.%d.' % tell
         assert 'toplevel' in err
         assert '{mycat' in err
         assert 'mycat}' in err
@@ -374,7 +379,27 @@ class TestStandalone(StandaloneTests):
         assert 'bok' in data
         # check with PYPYLOG=somefilename
         path = udir.join('test_debug_xxx_prof.log')
-        out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': str(path)})
+        if str(path).find(':')>=0:
+            # bad choice of udir, there is a ':' in it which messes up the test
+            pass
+        else:
+            out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': str(path)})
+            size = os.stat(str(path)).st_size
+            assert out.strip() == 'got:a.' + str(size) + '.'
+            assert not err
+            assert path.check(file=1)
+            data = path.read()
+            assert 'toplevel' in data
+            assert '{mycat' in data
+            assert 'mycat}' in data
+            assert 'foo 2 bar 3' not in data
+            assert '{cat2' in data
+            assert 'cat2}' in data
+            assert 'baz' not in data
+            assert 'bok' not in data
+        # check with PYPYLOG=+somefilename
+        path = udir.join('test_debug_xxx_prof_2.log')
+        out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': '+%s' % path})
         size = os.stat(str(path)).st_size
         assert out.strip() == 'got:a.' + str(size) + '.'
         assert not err
@@ -935,6 +960,50 @@ class TestStandalone(StandaloneTests):
         self.compile(entry_point)
         # assert did not explode
 
+    def test_unicode_builder(self):
+        import random
+        from rpython.rlib.rstring import UnicodeBuilder
+
+        to_do = []
+        for i in range(15000):
+            to_do.append(random.randrange(0, 100000))
+        to_do.append(0)
+
+        expected = []
+        s = ''
+        for x in to_do:
+            if x < 1500:
+                expected.append("``%s''" % (s,))
+                if x < 1000:
+                    s = ''
+            elif x < 20000:
+                s += chr(32 + (x & 63))
+            elif x < 30000:
+                s += chr(32 + (x & 63)) * (x % 93)
+            else:
+                s += str(x)
+        expected = '\n'.join(expected)
+
+        def entry_point(argv):
+            b = UnicodeBuilder(32)
+            for x in to_do:
+                if x < 1500:
+                    print "``%s''" % str(b.build())
+                    if x < 1000:
+                        b = UnicodeBuilder(32)
+                elif x < 20000:
+                    b.append(unichr(32 + (x & 63)))
+                elif x < 30000:
+                    b.append_multiple_char(unichr(32 + (x & 63)), x % 93)
+                else:
+                    b.append(unicode(str(x)))
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        out = cbuilder.cmdexec('')
+        assert out.strip() == expected
+
+
 class TestMaemo(TestStandalone):
     def setup_class(cls):
         py.test.skip("TestMaemo: tests skipped for now")
@@ -1297,7 +1366,10 @@ class TestShared(StandaloneTests):
 
         t, cbuilder = self.compile(entry_point, shared=True,
                                    entrypoints=[f])
+        ext_suffix = '.so'
+        if cbuilder.eci.platform.name == 'msvc':
+            ext_suffix = '.dll'
         libname = cbuilder.executable_name.join('..', 'lib' +
-                                                cbuilder.modulename + '.so')
+                                      cbuilder.modulename + ext_suffix)
         lib = ctypes.CDLL(str(libname))
         assert lib.foo(13) == 16

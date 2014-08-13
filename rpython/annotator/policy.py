@@ -30,7 +30,7 @@ class AnnotatorPolicy(object):
             except (KeyboardInterrupt, SystemExit):
                 raise
             except:
-                raise Exception, "broken specialize directive parms: %s" % directive
+                raise Exception("broken specialize directive parms: %s" % directive)
         name = name.replace(':', '__')
         try:
             specializer = getattr(pol, name)

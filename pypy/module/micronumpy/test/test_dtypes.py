@@ -47,6 +47,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert d.kind == 'b'
         assert dtype(d) is d
         assert dtype('bool') is d
+        assert dtype('bool_') is d
         assert dtype('|b1') is d
         b = '>' if sys.byteorder == 'little' else '<'
         assert dtype(b + 'i4') is not dtype(b + 'i4')
@@ -63,10 +64,12 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert dtype(int).names is None
         assert dtype(int).hasobject is False
         assert dtype(int).subdtype is None
+        assert dtype(str) is dtype('string') is dtype('string_')
+        assert dtype(unicode) is dtype('unicode') is dtype('unicode_')
 
         assert dtype(None) is dtype(float)
 
-        for d in [dtype('<c8'), dtype('>i4')]:
+        for d in [dtype('<c8'), dtype('>i4'), dtype('bool')]:
             for key in ["d[2]", "d['z']", "d[None]"]:
                 exc = raises(KeyError, key)
                 assert exc.value[0] == "There are no fields in dtype %s." % str(d)
@@ -189,6 +192,9 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert repr(d) == "dtype([('f0', '<f8')])"
         assert str(d) == "[('f0', '<f8')]"
         d = dtype('S5')
+        assert repr(d) == "dtype('S5')"
+        assert str(d) == "|S5"
+        d = dtype('a5')
         assert repr(d) == "dtype('S5')"
         assert str(d) == "|S5"
         d = dtype('U5')
@@ -362,15 +368,30 @@ class AppTestDtypes(BaseAppTestDtypes):
         d5 = numpy.dtype([('f0', 'i4'), ('f1', d2)])
         d6 = numpy.dtype([('f0', 'i4'), ('f1', d3)])
         import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            assert hash(d1) == hash(d2)
-            assert hash(d1) != hash(d3)
-            assert hash(d4) == hash(d5)
-            assert hash(d4) != hash(d6)
-        else:
-            for d in [d1, d2, d3, d4, d5, d6]:
-                raises(TypeError, hash, d)
+        assert hash(d1) == hash(d2)
+        assert hash(d1) != hash(d3)
+        assert hash(d4) == hash(d5)
+        assert hash(d4) != hash(d6)
 
+    def test_record_hash(self):
+        from numpy import dtype
+        # make sure the fields hash return different value
+        # for different order of field in a structure
+
+        # swap names
+        t1 = dtype([('x', '<f4'), ('y', '<i4')])
+        t2 = dtype([('y', '<f4'), ('x', '<i4')])
+        assert hash(t1) != hash(t2)
+
+        # swap types
+        t3 = dtype([('x', '<f4'), ('y', '<i4')])
+        t4 = dtype([('x', '<i4'), ('y', '<f4')])
+        assert hash(t3) != hash(t4)
+
+        # swap offsets
+        t5 = dtype([('x', '<f4'), ('y', '<i4')])
+        t6 = dtype([('y', '<i4'), ('x', '<f4')])
+        assert hash(t5) != hash(t6)
     def test_pickle(self):
         import numpy as np
         from numpypy import array, dtype
@@ -407,6 +428,8 @@ class AppTestDtypes(BaseAppTestDtypes):
         for t in [np.int_, np.float_]:
             dt = np.dtype(t)
             dt1 = dt.newbyteorder().newbyteorder()
+            assert dt.isbuiltin
+            assert not dt1.isbuiltin
             dt2 = dt.newbyteorder("<")
             dt3 = dt.newbyteorder(">")
             assert dt.byteorder != dt1.byteorder

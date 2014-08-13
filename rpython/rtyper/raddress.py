@@ -4,7 +4,8 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.llmemory import (NULL, Address,
     cast_adr_to_int, fakeaddress, sizeof)
-from rpython.rtyper.rmodel import Repr, IntegerRepr
+from rpython.rtyper.rmodel import Repr
+from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rptr import PtrRepr
 from rpython.tool.pairtype import pairtype
 

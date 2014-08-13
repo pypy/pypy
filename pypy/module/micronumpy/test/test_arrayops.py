@@ -2,6 +2,29 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestNumSupport(BaseNumpyAppTest):
+    def test_zeros(self):
+        from numpypy import zeros
+        a = zeros(3)
+        assert len(a) == 3
+        assert a[0] == a[1] == a[2] == 0
+
+    def test_empty(self):
+        from numpypy import empty
+        import gc
+        for i in range(1000):
+            a = empty(3)
+            assert len(a) == 3
+            if not (a[0] == a[1] == a[2] == 0):
+                break     # done
+            a[0] = 1.23
+            a[1] = 4.56
+            a[2] = 7.89
+            del a
+            gc.collect()
+        else:
+            raise AssertionError(
+                "empty() returned a zeroed out array every time")
+
     def test_where(self):
         from numpypy import where, ones, zeros, array
         a = [1, 2, 3, 0, -3]

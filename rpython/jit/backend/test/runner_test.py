@@ -344,9 +344,12 @@ class BaseBackendTest(Runner):
             assert res == 2 + i
 
     def test_finish(self):
+        from rpython.jit.backend.llsupport.llmodel import final_descr_rd_locs
+
         i0 = BoxInt()
         class UntouchableFailDescr(AbstractFailDescr):
             final_descr = True
+            rd_locs = final_descr_rd_locs
 
             def __setattr__(self, name, value):
                 if (name == 'index' or name == '_carry_around_for_tests'
@@ -3811,7 +3814,7 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("pointless test on non-asm")
-        from rpython.jit.backend.tool.viewcode import machine_code_dump
+        from rpython.jit.backend.tool.viewcode import machine_code_dump, ObjdumpNotFound
         import ctypes
         targettoken = TargetToken()
         ops = """
@@ -3849,13 +3852,17 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert mc[i].split("\t")[2].startswith(ops[i])
 
         data = ctypes.string_at(info.asmaddr, info.asmlen)
-        mc = list(machine_code_dump(data, info.asmaddr, cpuname))
-        lines = [line for line in mc if line.count('\t') >= 2]
-        checkops(lines, self.add_loop_instructions)
-        data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
-        mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
-        lines = [line for line in mc if line.count('\t') >= 2]
-        checkops(lines, self.bridge_loop_instructions)
+        try:
+            mc = list(machine_code_dump(data, info.asmaddr, cpuname))
+            lines = [line for line in mc if line.count('\t') >= 2]
+            checkops(lines, self.add_loop_instructions)
+            data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
+            mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
+            lines = [line for line in mc if line.count('\t') >= 2]
+            checkops(lines, self.bridge_loop_instructions)
+        except ObjdumpNotFound:
+            py.test.skip("requires (g)objdump")
+
 
 
     def test_compile_bridge_with_target(self):
@@ -4347,3 +4354,10 @@ class LLtypeBackendTest(BaseBackendTest):
                                'void')
         assert foo[0] == 1789201
         lltype.free(foo, flavor='raw')
+
+    def test_cast_float_to_singlefloat(self):
+        if not self.cpu.supports_singlefloats:
+            py.test.skip("requires singlefloats")
+        res = self.execute_operation(rop.CAST_FLOAT_TO_SINGLEFLOAT,
+                                   [boxfloat(12.5)], 'int')
+        assert res.getint() == struct.unpack("I", struct.pack("f", 12.5))[0]

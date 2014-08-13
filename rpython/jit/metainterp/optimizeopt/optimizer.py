@@ -31,6 +31,12 @@ class LenBound(object):
     def clone(self):
         return LenBound(self.mode, self.descr, self.bound.clone())
 
+    def generalization_of(self, other):
+        return (other is not None and
+                self.mode == other.mode and
+                self.descr == other.descr and
+                self.bound.contains_bound(other.bound))
+
 class OptValue(object):
     __metaclass__ = extendabletype
     _attrs_ = ('box', 'known_class', 'last_guard', 'level', 'intbound', 'lenbound')
@@ -129,13 +135,21 @@ class OptValue(object):
     def force_at_end_of_preamble(self, already_forced, optforce):
         return self
 
-    def get_args_for_fail(self, modifier):
+    # visitor API
+
+    def visitor_walk_recursive(self, visitor):
         pass
 
-    def make_virtual_info(self, modifier, fieldnums):
-        #raise NotImplementedError # should not be called on this level
-        assert fieldnums is None
-        return modifier.make_not_virtual(self)
+    @specialize.argtype(1)
+    def visitor_dispatch_virtual_type(self, visitor):
+        if self.is_virtual():
+            return self._visitor_dispatch_virtual_type(visitor)
+        else:
+            return visitor.visit_not_virtual(self)
+
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
+        assert 0, "unreachable"
 
     def is_constant(self):
         return self.level == LEVEL_CONSTANT
@@ -332,6 +346,21 @@ class Optimization(object):
 
     def forget_numberings(self, box):
         self.optimizer.forget_numberings(box)
+
+    def _can_optimize_call_pure(self, op):
+        arg_consts = []
+        for i in range(op.numargs()):
+            arg = op.getarg(i)
+            const = self.optimizer.get_constant_box(arg)
+            if const is None:
+                return None
+            arg_consts.append(const)
+        else:
+            # all constant arguments: check if we already know the result
+            try:
+                return self.optimizer.call_pure_results[arg_consts]
+            except KeyError:
+                return None
 
 
 class Optimizer(Optimization):

@@ -387,3 +387,16 @@ class AppTestTypeDef:
         # because it's a regular method, and .__objclass__
         # differs from .im_class in case the method is
         # defined in some parent class of l's actual class
+
+    def test_classmethod_im_class(self):
+        class Foo(object):
+            @classmethod
+            def bar(cls):
+                pass
+        assert Foo.bar.im_class is type
+
+    def test_func_closure(self):
+        x = 2
+        def f():
+            return x
+        assert f.__closure__[0].cell_contents is x

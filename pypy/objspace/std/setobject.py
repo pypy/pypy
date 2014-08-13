@@ -1060,10 +1060,14 @@ class AbstractUnwrappedSetStrategy(object):
         return storage, strategy
 
     def symmetric_difference(self, w_set, w_other):
+        if w_other.length() == 0:
+            return w_set.copy_real()
         storage, strategy = self._symmetric_difference_base(w_set, w_other)
         return w_set.from_storage_and_strategy(storage, strategy)
 
     def symmetric_difference_update(self, w_set, w_other):
+        if w_other.length() == 0:
+            return
         storage, strategy = self._symmetric_difference_base(w_set, w_other)
         w_set.strategy = strategy
         w_set.sstorage = storage
@@ -1091,6 +1095,7 @@ class AbstractUnwrappedSetStrategy(object):
     def _intersect_wrapped(self, w_set, w_other):
         result = newset(self.space)
         for key in self.unerase(w_set.sstorage):
+            self.intersect_jmp.jit_merge_point()
             w_key = self.wrap(key)
             if w_other.has_key(w_key):
                 result[w_key] = None
@@ -1180,7 +1185,8 @@ class AbstractUnwrappedSetStrategy(object):
             d_other = self.unerase(w_other.sstorage)
             d_set.update(d_other)
             return
-
+        if w_other.length() == 0:
+            return
         w_set.switch_to_object_strategy(self.space)
         w_set.update(w_other)
 
@@ -1200,6 +1206,9 @@ class BytesSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("bytes")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
+
+    intersect_jmp = jit.JitDriver(greens = [], reds = 'auto',
+                                  name='set(bytes).intersect')
 
     def get_empty_storage(self):
         return self.erase({})
@@ -1237,6 +1246,9 @@ class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 
+    intersect_jmp = jit.JitDriver(greens = [], reds = 'auto',
+                                  name='set(unicode).intersect')
+
     def get_empty_storage(self):
         return self.erase({})
 
@@ -1272,6 +1284,9 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("integer")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
+
+    intersect_jmp = jit.JitDriver(greens = [], reds = 'auto',
+                                  name='set(int).intersect')
 
     def get_empty_storage(self):
         return self.erase({})
@@ -1310,6 +1325,9 @@ class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("object")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
+
+    intersect_jmp = jit.JitDriver(greens = [], reds = 'auto',
+                                  name='set(object).intersect')
 
     def get_empty_storage(self):
         return self.erase(self.get_empty_dict())
@@ -1354,6 +1372,9 @@ class IdentitySetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("identityset")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
+
+    intersect_jmp = jit.JitDriver(greens = [], reds = 'auto',
+                                  name='set(identity).intersect')
 
     def get_empty_storage(self):
         return self.erase({})

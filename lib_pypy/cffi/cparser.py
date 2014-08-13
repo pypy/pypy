@@ -24,6 +24,7 @@ _r_enum_dotdotdot = re.compile(r"__dotdotdot\d+__$")
 _r_partial_array = re.compile(r"\[\s*\.\.\.\s*\]")
 _r_words = re.compile(r"\w+|\S")
 _parser_cache = None
+_r_int_literal = re.compile(r"^0?x?[0-9a-f]+u?l?$", re.IGNORECASE)
 
 def _get_parser():
     global _parser_cache
@@ -99,6 +100,7 @@ class Parser(object):
         self._structnode2type = weakref.WeakKeyDictionary()
         self._override = False
         self._packed = False
+        self._int_constants = {}
 
     def _parse(self, csource):
         csource, macros = _preprocess(csource)
@@ -128,9 +130,10 @@ class Parser(object):
         finally:
             if lock is not None:
                 lock.release()
-        return ast, macros
+        # csource will be used to find buggy source text
+        return ast, macros, csource
 
-    def convert_pycparser_error(self, e, csource):
+    def _convert_pycparser_error(self, e, csource):
         # xxx look for ":NUM:" at the start of str(e) and try to interpret
         # it as a line number
         line = None
@@ -142,6 +145,12 @@ class Parser(object):
                 csourcelines = csource.splitlines()
                 if 1 <= linenum <= len(csourcelines):
                     line = csourcelines[linenum-1]
+        return line
+
+    def convert_pycparser_error(self, e, csource):
+        line = self._convert_pycparser_error(e, csource)
+
+        msg = str(e)
         if line:
             msg = 'cannot parse "%s"\n%s' % (line.strip(), msg)
         else:
@@ -160,14 +169,9 @@ class Parser(object):
             self._packed = prev_packed
 
     def _internal_parse(self, csource):
-        ast, macros = self._parse(csource)
+        ast, macros, csource = self._parse(csource)
         # add the macros
-        for key, value in macros.items():
-            value = value.strip()
-            if value != '...':
-                raise api.CDefError('only supports the syntax "#define '
-                                    '%s ..." for now (literally)' % key)
-            self._declare('macro ' + key, value)
+        self._process_macros(macros)
         # find the first "__dotdotdot__" and use that as a separator
         # between the repeated typedefs and the real csource
         iterator = iter(ast.ext)
@@ -175,27 +179,61 @@ class Parser(object):
             if decl.name == '__dotdotdot__':
                 break
         #
-        for decl in iterator:
-            if isinstance(decl, pycparser.c_ast.Decl):
-                self._parse_decl(decl)
-            elif isinstance(decl, pycparser.c_ast.Typedef):
-                if not decl.name:
-                    raise api.CDefError("typedef does not declare any name",
-                                        decl)
-                if (isinstance(decl.type.type, pycparser.c_ast.IdentifierType)
-                        and decl.type.type.names == ['__dotdotdot__']):
-                    realtype = model.unknown_type(decl.name)
-                elif (isinstance(decl.type, pycparser.c_ast.PtrDecl) and
-                      isinstance(decl.type.type, pycparser.c_ast.TypeDecl) and
-                      isinstance(decl.type.type.type,
-                                 pycparser.c_ast.IdentifierType) and
-                      decl.type.type.type.names == ['__dotdotdot__']):
-                    realtype = model.unknown_ptr_type(decl.name)
+        try:
+            for decl in iterator:
+                if isinstance(decl, pycparser.c_ast.Decl):
+                    self._parse_decl(decl)
+                elif isinstance(decl, pycparser.c_ast.Typedef):
+                    if not decl.name:
+                        raise api.CDefError("typedef does not declare any name",
+                                            decl)
+                    if (isinstance(decl.type.type, pycparser.c_ast.IdentifierType)
+                            and decl.type.type.names == ['__dotdotdot__']):
+                        realtype = model.unknown_type(decl.name)
+                    elif (isinstance(decl.type, pycparser.c_ast.PtrDecl) and
+                          isinstance(decl.type.type, pycparser.c_ast.TypeDecl) and
+                          isinstance(decl.type.type.type,
+                                     pycparser.c_ast.IdentifierType) and
+                          decl.type.type.type.names == ['__dotdotdot__']):
+                        realtype = model.unknown_ptr_type(decl.name)
+                    else:
+                        realtype = self._get_type(decl.type, name=decl.name)
+                    self._declare('typedef ' + decl.name, realtype)
                 else:
-                    realtype = self._get_type(decl.type, name=decl.name)
-                self._declare('typedef ' + decl.name, realtype)
+                    raise api.CDefError("unrecognized construct", decl)
+        except api.FFIError as e:
+            msg = self._convert_pycparser_error(e, csource)
+            if msg:
+                e.args = (e.args[0] + "\n    *** Err: %s" % msg,)
+            raise
+
+    def _add_constants(self, key, val):
+        if key in self._int_constants:
+            raise api.FFIError(
+                "multiple declarations of constant: %s" % (key,))
+        self._int_constants[key] = val
+
+    def _process_macros(self, macros):
+        for key, value in macros.items():
+            value = value.strip()
+            match = _r_int_literal.search(value)
+            if match is not None:
+                int_str = match.group(0).lower().rstrip("ul")
+
+                # "010" is not valid oct in py3
+                if (int_str.startswith("0") and
+                        int_str != "0" and
+                        not int_str.startswith("0x")):
+                    int_str = "0o" + int_str[1:]
+
+                pyvalue = int(int_str, 0)
+                self._add_constants(key, pyvalue)
+            elif value == '...':
+                self._declare('macro ' + key, value)
             else:
-                raise api.CDefError("unrecognized construct", decl)
+                raise api.CDefError('only supports the syntax "#define '
+                                    '%s ..." (literally) or "#define '
+                                    '%s 0x1FF" for now' % (key, key))
 
     def _parse_decl(self, decl):
         node = decl.type
@@ -227,7 +265,7 @@ class Parser(object):
                     self._declare('variable ' + decl.name, tp)
 
     def parse_type(self, cdecl):
-        ast, macros = self._parse('void __dummy(\n%s\n);' % cdecl)
+        ast, macros = self._parse('void __dummy(\n%s\n);' % cdecl)[:2]
         assert not macros
         exprnode = ast.ext[-1].type.args.params[0]
         if isinstance(exprnode, pycparser.c_ast.ID):
@@ -306,7 +344,8 @@ class Parser(object):
                 if ident == 'void':
                     return model.void_type
                 if ident == '__dotdotdot__':
-                    raise api.FFIError('bad usage of "..."')
+                    raise api.FFIError(':%d: bad usage of "..."' %
+                            typenode.coord.line)
                 return resolve_common_type(ident)
             #
             if isinstance(type, pycparser.c_ast.Struct):
@@ -333,7 +372,8 @@ class Parser(object):
             return self._get_struct_union_enum_type('union', typenode, name,
                                                     nested=True)
         #
-        raise api.FFIError("bad or unsupported type declaration")
+        raise api.FFIError(":%d: bad or unsupported type declaration" %
+                typenode.coord.line)
 
     def _parse_function_type(self, typenode, funcname=None):
         params = list(getattr(typenode.args, 'params', []))
@@ -499,6 +539,10 @@ class Parser(object):
         if (isinstance(exprnode, pycparser.c_ast.UnaryOp) and
                 exprnode.op == '-'):
             return -self._parse_constant(exprnode.expr)
+        # load previously defined int constant
+        if (isinstance(exprnode, pycparser.c_ast.ID) and
+                exprnode.name in self._int_constants):
+            return self._int_constants[exprnode.name]
         #
         if partial_length_ok:
             if (isinstance(exprnode, pycparser.c_ast.ID) and
@@ -506,8 +550,8 @@ class Parser(object):
                 self._partial_length = True
                 return '...'
         #
-        raise api.FFIError("unsupported expression: expected a "
-                           "simple numeric constant")
+        raise api.FFIError(":%d: unsupported expression: expected a "
+                           "simple numeric constant" % exprnode.coord.line)
 
     def _build_enum_type(self, explicit_name, decls):
         if decls is not None:
@@ -522,6 +566,7 @@ class Parser(object):
                 if enum.value is not None:
                     nextenumvalue = self._parse_constant(enum.value)
                 enumvalues.append(nextenumvalue)
+                self._add_constants(enum.name, nextenumvalue)
                 nextenumvalue += 1
             enumvalues = tuple(enumvalues)
             tp = model.EnumType(explicit_name, enumerators, enumvalues)
@@ -535,3 +580,5 @@ class Parser(object):
             kind = name.split(' ', 1)[0]
             if kind in ('typedef', 'struct', 'union', 'enum'):
                 self._declare(name, tp)
+        for k, v in other._int_constants.items():
+            self._add_constants(k, v)

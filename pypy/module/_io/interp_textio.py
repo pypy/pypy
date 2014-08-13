@@ -178,7 +178,7 @@ class W_IncrementalNewlineDecoder(W_Root):
             space.call_method(self.w_decoder, "setstate", w_state)
 
 W_IncrementalNewlineDecoder.typedef = TypeDef(
-    'IncrementalNewlineDecoder',
+    '_io.IncrementalNewlineDecoder',
     __new__ = generic_new_descr(W_IncrementalNewlineDecoder),
     __init__  = interp2app(W_IncrementalNewlineDecoder.descr_init),
 
@@ -255,7 +255,7 @@ class W_TextIOBase(W_IOBase):
 
 
 W_TextIOBase.typedef = TypeDef(
-    '_TextIOBase', W_IOBase.typedef,
+    '_io._TextIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_TextIOBase),
 
     read = interp2app(W_TextIOBase.read_w),
@@ -457,6 +457,10 @@ class W_TextIOWrapper(W_TextIOBase):
     def seekable_w(self, space):
         self._check_init(space)
         return space.call_method(self.w_buffer, "seekable")
+
+    def isatty_w(self, space):
+        self._check_init(space)
+        return space.call_method(self.w_buffer, "isatty")
 
     def fileno_w(self, space):
         self._check_init(space)
@@ -1015,11 +1019,10 @@ class W_TextIOWrapper(W_TextIOBase):
         self.chunk_size = size
 
 W_TextIOWrapper.typedef = TypeDef(
-    'TextIOWrapper', W_TextIOBase.typedef,
+    '_io.TextIOWrapper', W_TextIOBase.typedef,
     __new__ = generic_new_descr(W_TextIOWrapper),
     __init__  = interp2app(W_TextIOWrapper.descr_init),
     __repr__ = interp2app(W_TextIOWrapper.descr_repr),
-    __module__ = "_io",
 
     next = interp2app(W_TextIOWrapper.next_w),
     read = interp2app(W_TextIOWrapper.read_w),
@@ -1036,6 +1039,7 @@ W_TextIOWrapper.typedef = TypeDef(
     readable = interp2app(W_TextIOWrapper.readable_w),
     writable = interp2app(W_TextIOWrapper.writable_w),
     seekable = interp2app(W_TextIOWrapper.seekable_w),
+    isatty = interp2app(W_TextIOWrapper.isatty_w),
     fileno = interp2app(W_TextIOWrapper.fileno_w),
     name = GetSetProperty(W_TextIOWrapper.name_get_w),
     buffer = interp_attrproperty_w("w_buffer", cls=W_TextIOWrapper),

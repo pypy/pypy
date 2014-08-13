@@ -7,10 +7,10 @@
 extern "C" {
 #endif // ifdef __cplusplus
 
-    typedef long cppyy_scope_t;
+    typedef unsigned long cppyy_scope_t;
     typedef cppyy_scope_t cppyy_type_t;
-    typedef long cppyy_object_t;
-    typedef long cppyy_method_t;
+    typedef unsigned long cppyy_object_t;
+    typedef unsigned long cppyy_method_t;
     typedef long cppyy_index_t;
     typedef void* (*cppyy_methptrgetter_t)(cppyy_object_t);
 
@@ -48,7 +48,7 @@ extern "C" {
     cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_scope_t scope, cppyy_index_t idx);
 
     /* handling of function argument buffer ----------------------------------- */
-    void*  cppyy_allocate_function_args(size_t nargs);
+    void*  cppyy_allocate_function_args(int nargs);
     void   cppyy_deallocate_function_args(void* args);
     size_t cppyy_function_arg_sizeof();
     size_t cppyy_function_arg_typeoffset();
@@ -66,7 +66,7 @@ extern "C" {
     int cppyy_is_subtype(cppyy_type_t derived, cppyy_type_t base);
 
     /* calculate offsets between declared and actual type, up-cast: direction > 0; down-cast: direction < 0 */
-    size_t cppyy_base_offset(cppyy_type_t derived, cppyy_type_t base, cppyy_object_t address, int direction);
+    ptrdiff_t cppyy_base_offset(cppyy_type_t derived, cppyy_type_t base, cppyy_object_t address, int direction);
 
     /* method/function reflection information --------------------------------- */
     int cppyy_num_methods(cppyy_scope_t scope);
@@ -89,19 +89,19 @@ extern "C" {
     cppyy_index_t cppyy_get_global_operator(
         cppyy_scope_t scope, cppyy_scope_t lc, cppyy_scope_t rc, const char* op);
 
-    /* method properties -----------------------------------------------------  */
+    /* method properties ------------------------------------------------------ */
     int cppyy_is_constructor(cppyy_type_t type, cppyy_index_t idx);
     int cppyy_is_staticmethod(cppyy_type_t type, cppyy_index_t idx);
 
-    /* data member reflection information ------------------------------------  */
+    /* data member reflection information ------------------------------------- */
     int cppyy_num_datamembers(cppyy_scope_t scope);
     char* cppyy_datamember_name(cppyy_scope_t scope, int datamember_index);
     char* cppyy_datamember_type(cppyy_scope_t scope, int datamember_index);
-    size_t cppyy_datamember_offset(cppyy_scope_t scope, int datamember_index);
+    ptrdiff_t cppyy_datamember_offset(cppyy_scope_t scope, int datamember_index);
 
     int cppyy_datamember_index(cppyy_scope_t scope, const char* name);
 
-    /* data member properties ------------------------------------------------  */
+    /* data member properties ------------------------------------------------- */
     int cppyy_is_publicdata(cppyy_type_t type, int datamember_index);
     int cppyy_is_staticdata(cppyy_type_t type, int datamember_index);
 
@@ -112,8 +112,6 @@ extern "C" {
 
     cppyy_object_t cppyy_charp2stdstring(const char* str);
     cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr);
-    void cppyy_assign2stdstring(cppyy_object_t ptr, const char* str);
-    void cppyy_free_stdstring(cppyy_object_t ptr);
 
 #ifdef __cplusplus
 }

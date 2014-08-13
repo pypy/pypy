@@ -16,6 +16,7 @@ if _MS_WINDOWS:
 
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.rarithmetic import intmask, r_uint
+from pypy.module._rawffi.buffer import RawFFIBuffer
 from pypy.module._rawffi.tracker import tracker
 
 TYPEMAP = {
@@ -352,8 +353,13 @@ class W_DataInstance(W_Root):
         lltype.free(self.ll_buffer, flavor='raw')
         self.ll_buffer = lltype.nullptr(rffi.VOIDP.TO)
 
-    def buffer_w(self, space):
-        from pypy.module._rawffi.buffer import RawFFIBuffer
+    def buffer_w(self, space, flags):
+        return RawFFIBuffer(self)
+
+    def readbuf_w(self, space):
+        return RawFFIBuffer(self)
+
+    def writebuf_w(self, space):
         return RawFFIBuffer(self)
 
     def getrawsize(self):
@@ -502,7 +508,10 @@ def descr_new_funcptr(space, w_tp, addr, w_args, w_res, flags=FUNCFLAG_CDECL):
     argshapes = unpack_argshapes(space, w_args)
     resshape = unpack_resshape(space, w_res)
     ffi_args = [shape.get_basic_ffi_type() for shape in argshapes]
-    ffi_res = resshape.get_basic_ffi_type()
+    if resshape is not None:
+        ffi_res = resshape.get_basic_ffi_type()
+    else:
+        ffi_res = ffi_type_void
     try:
         ptr = RawFuncPtr('???', ffi_args, ffi_res, rffi.cast(rffi.VOIDP, addr),
                          flags)
