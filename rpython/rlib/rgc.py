@@ -46,11 +46,8 @@ def pin(obj):
     Note further that pinning an object does not prevent it from being
     collected if it is not used anymore.
     """
-    if we_are_translated():
-        return False
-    else:
-        pinned_objects.append(obj)
-        return True
+    pinned_objects.append(obj)
+    return True
         
 
 class PinEntry(ExtRegistryEntry):
@@ -68,11 +65,7 @@ def unpin(obj):
     """Unpin 'obj', allowing it to move again.
     Must only be called after a call to pin(obj) returned True.
     """
-    if we_are_translated():
-        raise AssertionError("pin() always returns False, "
-                             "so unpin() should not be called")
-    else:
-        pinned_objects.remove(obj)
+    pinned_objects.remove(obj)
         
 
 class UnpinEntry(ExtRegistryEntry):
@@ -87,7 +80,7 @@ class UnpinEntry(ExtRegistryEntry):
 
 def _is_pinned(obj):
     """Method to check if 'obj' is pinned."""
-    return False
+    return obj in pinned_objects
 
 class IsPinnedEntry(ExtRegistryEntry):
     _about_ = _is_pinned
@@ -160,9 +153,12 @@ def _make_sure_does_not_move(p):
     on objects that are already a bit old, so have a chance to be
     already non-movable."""
     if not we_are_translated():
-        return p not in pinned_objects
+        # for testing purpose
+        return not _is_pinned(p)
     #
     if _is_pinned(p):
+        # although a pinned object can't move we must return 'False'.  A pinned
+        # object can be unpinned any time and becomes movable.
         return False
     i = 0
     while can_move(p):
