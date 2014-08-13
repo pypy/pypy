@@ -53,7 +53,7 @@ def pin(obj):
 class PinEntry(ExtRegistryEntry):
     _about_ = pin
 
-    def compute_result_annotation(self, s_p):
+    def compute_result_annotation(self, s_obj):
         from rpython.annotator import model as annmodel
         return annmodel.SomeBool()
 
@@ -71,7 +71,7 @@ def unpin(obj):
 class UnpinEntry(ExtRegistryEntry):
     _about_ = unpin
 
-    def compute_result_annotation(self, s_p):
+    def compute_result_annotation(self, s_obj):
         pass
 
     def specialize_call(self, hop):
@@ -85,7 +85,7 @@ def _is_pinned(obj):
 class IsPinnedEntry(ExtRegistryEntry):
     _about_ = _is_pinned
 
-    def compute_result_annotation(self, s_p):
+    def compute_result_annotation(self, s_obj):
         from rpython.annotator import model as annmodel
         return annmodel.SomeBool()
 
