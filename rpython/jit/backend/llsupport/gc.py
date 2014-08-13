@@ -135,8 +135,7 @@ class GcLLDescription(GcCache):
         #
         if op.is_guard() or op.getopnum() == rop.FINISH:
             llref = cast_instance_to_gcref(op.getdescr())
-            if not rgc._make_sure_does_not_move(llref):
-                raise NotImplementedError("blub") # XXX handle (groggi)
+            assert rgc._make_sure_does_not_move(llref)
             gcrefs_output_list.append(llref)
         newops.append(op)
         return newops
