@@ -407,7 +407,8 @@ class DummyValueBuilder(object):
     def __ne__(self, other):
         return not (self == other)
 
-    def build_ll_dummy_value(self):
+    @property
+    def ll_dummy_value(self):
         TYPE = self.TYPE
         try:
             return self.rtyper.cache_dummy_values[TYPE]
@@ -419,8 +420,6 @@ class DummyValueBuilder(object):
                 p = lltype.malloc(TYPE, immortal=True)
             self.rtyper.cache_dummy_values[TYPE] = p
             return p
-
-    ll_dummy_value = property(build_ll_dummy_value)
 
 
 # logging/warning
