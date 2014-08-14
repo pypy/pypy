@@ -279,3 +279,16 @@ class TestTransform:
 
         res = self.interpret_inevitable(f1, [])
         assert res is None
+
+    def test_threadlocal(self):
+        from rpython.rlib.rthread import ThreadLocalReference
+        opaque_id = lltype.opaqueptr(ThreadLocalReference.OPAQUEID, "foobar")
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        def f1():
+            x = lltype.malloc(X)
+            llop.threadlocalref_set(lltype.Void, opaque_id, x)
+            y = llop.threadlocalref_get(lltype.Ptr(X), opaque_id)
+            return x == y
+
+        res = self.interpret_inevitable(f1, [])
+        assert res is None
