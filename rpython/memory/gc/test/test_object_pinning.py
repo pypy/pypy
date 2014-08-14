@@ -6,7 +6,8 @@ from test_direct import BaseDirectGCTest
 S = lltype.GcForwardReference()
 S.become(lltype.GcStruct('pinning_test_struct',
                          ('someInt', lltype.Signed),
-                         ('next', lltype.Ptr(S))))
+                         ('next', lltype.Ptr(S)),
+                         ('data', lltype.Ptr(S))))
 
 class PinningGCTest(BaseDirectGCTest):
 
@@ -485,6 +486,41 @@ class TestIncminimark(PinningGCTest):
 
     def test_pin_referenced_from_prebuilt_major_collection(self):
         self.pin_referenced_from_prebuilt(self.gc.collect)
+
+
+    def test_old_objects_pointing_to_pinned_not_exploading(self):
+        # scenario: two old object, each pointing twice to a pinned object.
+        # The internal 'old_objects_pointing_to_pinned' should contain
+        # always two objects.
+        # In previous implementation the list exploded (grew with every minor
+        # collection), hence this test.
+        old1_ptr = self.malloc(S)
+        old1_ptr.someInt = 900
+        self.stackroots.append(old1_ptr)
+        
+        old2_ptr = self.malloc(S)
+        old2_ptr.someInt = 800
+        self.stackroots.append(old2_ptr)
+        
+        pinned_ptr = self.malloc(S)
+        pinned_ptr.someInt = 100
+        assert self.gc.pin(llmemory.cast_ptr_to_adr(pinned_ptr))
+        
+        self.write(old1_ptr, 'next', pinned_ptr)
+        self.write(old1_ptr, 'data', pinned_ptr)
+        self.write(old2_ptr, 'next', pinned_ptr)
+        self.write(old2_ptr, 'data', pinned_ptr)
+
+        self.gc.collect()
+        old1_ptr = self.stackroots[0]
+        old2_ptr = self.stackroots[1]
+        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(old1_ptr))
+        assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(old2_ptr))
+
+        # do multiple rounds to make sure
+        for _ in range(10):
+            assert self.gc.old_objects_pointing_to_pinned.length() == 2
+            self.gc.debug_gc_step()
 
 
     def pin_shadow_1(self, collect_func):
