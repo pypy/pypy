@@ -112,8 +112,8 @@ class GcLLDescription(GcCache):
     def gc_malloc_unicode(self, num_elem):
         return self._bh_malloc_array(num_elem, self.unicode_descr)
 
-    def _record_constptrs(self, op, gcrefs_output_list, pinned_obj_tracker):
-        newops = []
+    def _record_constptrs(self, op, gcrefs_output_list, moving_output_list):
+        moving_output_list[op] = []
         for i in range(op.numargs()):
             v = op.getarg(i)
             if isinstance(v, ConstPtr) and bool(v.value):
@@ -121,22 +121,34 @@ class GcLLDescription(GcCache):
                 if rgc._make_sure_does_not_move(p):
                     gcrefs_output_list.append(p)
                 else:
-                    # encountered a pointer that points to a possibly moving object.
-                    # Solve the problem by double loading the address to the object
-                    # each run of the JITed code.
-                    result_ptr = BoxPtr()
-                    array_index = pinned_obj_tracker.add_ref(p)
-                    load_op = ResOperation(rop.GETARRAYITEM_GC,
-                        [ConstPtr(pinned_obj_tracker.ref_array_gcref), ConstInt(array_index)],
-                        result_ptr,
-                        descr=pinned_obj_tracker.ref_array_descr)
-                    newops.append(load_op)
-                    op.setarg(i, result_ptr)
+                    moving_output_list[op].append(i)
         #
         if op.is_guard() or op.getopnum() == rop.FINISH:
             llref = cast_instance_to_gcref(op.getdescr())
             assert rgc._make_sure_does_not_move(llref)
             gcrefs_output_list.append(llref)
+        #
+        if len(moving_output_list[op]) == 0:
+            del moving_output_list[op]
+
+    def _rewrite_constptrs(self, op, moving_output_list, pinned_obj_tracker):
+        newops = []
+        for arg_i in moving_output_list[op]:
+            v = op.getarg(arg_i)
+            # assert to make sure we got what we expected
+            assert isinstance(v, ConstPtr)
+            assert bool(v.value)
+            p = v.value
+            result_ptr = BoxPtr()
+            array_index = pinned_obj_tracker.add_ref(p)
+            load_op = ResOperation(rop.GETARRAYITEM_GC,
+                    [ConstPtr(pinned_obj_tracker.ref_array_gcref),
+                        ConstInt(array_index)],
+                    result_ptr,
+                    descr=pinned_obj_tracker.ref_array_descr)
+            newops.append(load_op)
+            op.setarg(arg_i, result_ptr)
+        #
         newops.append(op)
         return newops
 
@@ -147,18 +159,27 @@ class GcLLDescription(GcCache):
         # keep them alive if they end up as constants in the assembler
         
         # XXX add comment (groggi)
-        # XXX handle size in a not constant way? Get it from the GC? (groggi)
-        pinned_obj_tracker = PinnedObjectTracker(cpu, 100)
-        if not we_are_translated():
-            self.last_pinned_object_tracker = pinned_obj_tracker
-        gcrefs_output_list.append(pinned_obj_tracker.ref_array_gcref)
-        rgc._make_sure_does_not_move(pinned_obj_tracker.ref_array_gcref)
-
+       
         newnewops = [] # XXX better name... (groggi)
 
+        moving_output_list = {}
         for op in newops:
-            ops = self._record_constptrs(op, gcrefs_output_list, pinned_obj_tracker)
-            newnewops.extend(ops)
+            self._record_constptrs(op, gcrefs_output_list, moving_output_list)
+        #
+        if len(moving_output_list) > 0:
+            pinned_obj_tracker = PinnedObjectTracker(cpu, len(moving_output_list))
+            if not we_are_translated():
+                self.last_pinned_object_tracker = pinned_obj_tracker
+            gcrefs_output_list.append(pinned_obj_tracker.ref_array_gcref)
+            rgc._make_sure_does_not_move(pinned_obj_tracker.ref_array_gcref)
+
+            for op in newops:
+                if op in moving_output_list:
+                    reops = self._rewrite_constptrs(op, moving_output_list,
+                            pinned_obj_tracker)
+                    newnewops.extend(reops)
+                else:
+                    newnewops.append(op)
         return newnewops
 
     @specialize.memo()
