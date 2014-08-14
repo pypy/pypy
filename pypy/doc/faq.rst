@@ -154,6 +154,17 @@ one.  It would in fact push forward *more* GIL-ish behavior, like
 declaring that some sections of the code should run without releasing
 the GIL in the middle (these are called *atomic sections* in STM).
 
+--------------------------------------------------
+Is PyPy more clever than CPython about Tail Calls?
+--------------------------------------------------
+
+No.  PyPy follows the Python language design, including the built-in
+debugger features.  `This prevents tail calls.`__  Neither the JIT
+nor Stackless__ change anything to that.
+
+.. __: http://neopythonic.blogspot.com.au/2009/04/final-words-on-tail-calls.html
+.. __: stackless.html
+
 ------------------------------------------
 How do I write extension modules for PyPy?
 ------------------------------------------
