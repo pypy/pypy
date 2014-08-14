@@ -147,12 +147,12 @@ whether some effects are ok or not for the user (i.e. the Python
 programmer).
 
 Instead, since 2012, there is work going on on a still very experimental
-Software Transactional Memory (STM) version of PyPy.  This should give
-an alternative PyPy which internally has no GIL, while at the same time
+`Software Transactional Memory`_ (STM) version of PyPy.  This should give
+an alternative PyPy which works without a GIL, while at the same time
 continuing to give the Python programmer the complete illusion of having
-one.  It would in fact push forward *more* GIL-ish behavior, like
-declaring that some sections of the code should run without releasing
-the GIL in the middle (these are called *atomic sections* in STM).
+one.
+
+.. _`Software Transactional Memory`: stm.html
 
 --------------------------------------------------
 Is PyPy more clever than CPython about Tail Calls?
