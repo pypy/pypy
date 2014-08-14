@@ -364,6 +364,17 @@ static inline void mark_visit_object(object_t *obj, char *segment_base)
     mark_trace(obj, segment_base);
 }
 
+static void *mark_visit_objects_from_ss(void *_, const void *slice, size_t size)
+{
+    const struct stm_shadowentry_s *p, *end;
+    p = (const struct stm_shadowentry_s *)slice;
+    end = (const struct stm_shadowentry_s *)(slice + size);
+    for (; p < end; p++)
+        if ((((uintptr_t)p->ss) & 3) == 0)
+            mark_visit_object(p->ss, stm_object_pages);
+    return NULL;
+}
+
 static void mark_visit_from_roots(void)
 {
     if (testing_prebuilt_objs != NULL) {
@@ -393,10 +404,14 @@ static void mark_visit_from_roots(void)
 
     long i;
     for (i = 1; i <= NB_SEGMENTS; i++) {
-        if (get_priv_segment(i)->transaction_state != TS_NONE)
+        if (get_priv_segment(i)->transaction_state != TS_NONE) {
             mark_visit_object(
                 get_priv_segment(i)->threadlocal_at_start_of_transaction,
                 get_segment_base(i));
+            stm_rewind_jmp_enum_shadowstack(
+                get_segment(i)->running_thread,
+                mark_visit_objects_from_ss);
+        }
     }
 }
 

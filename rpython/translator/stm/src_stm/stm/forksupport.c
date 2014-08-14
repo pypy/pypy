@@ -182,20 +182,18 @@ static void fork_abort_thread(long i)
     assert(tl->associated_segment_num == i);
     assert(pr->transaction_state == TS_REGULAR);
     set_gs_register(get_segment_base(i));
+    assert(STM_SEGMENT->segment_num == i);
 
-    rewind_jmp_buf rjbuf;
-    stm_rewind_jmp_enterframe(tl, &rjbuf);
-    if (stm_rewind_jmp_setjmp(tl) == 0) {
+    s_mutex_lock();
 #ifndef NDEBUG
-        pr->running_pthread = pthread_self();
+    pr->running_pthread = pthread_self();
 #endif
-        pr->pub.running_thread->shadowstack = (
-            pr->shadowstack_at_start_of_transaction);
-        strcpy(pr->marker_self, "fork");
-        stm_abort_transaction();
-    }
+    strcpy(pr->marker_self, "fork");
+    tl->shadowstack = NULL;
+    pr->shadowstack_at_start_of_transaction = NULL;
     stm_rewind_jmp_forget(tl);
-    stm_rewind_jmp_leaveframe(tl, &rjbuf);
+    abort_with_mutex_no_longjmp();
+    s_mutex_unlock();
 }
 
 static void forksupport_child(void)

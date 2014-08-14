@@ -329,8 +329,6 @@ static void _stm_start_transaction(stm_thread_local_t *tl, bool inevitable)
 {
     assert(!_stm_in_transaction(tl));
 
-    s_mutex_lock();
-
   retry:
     if (inevitable) {
         wait_for_end_of_inevitable_transaction(tl);
@@ -391,6 +389,7 @@ static void _stm_start_transaction(stm_thread_local_t *tl, bool inevitable)
 
 long stm_start_transaction(stm_thread_local_t *tl)
 {
+    s_mutex_lock();
 #ifdef STM_NO_AUTOMATIC_SETJMP
     long repeat_count = 0;    /* test/support.py */
 #else
@@ -402,6 +401,7 @@ long stm_start_transaction(stm_thread_local_t *tl)
 
 void stm_start_inevitable_transaction(stm_thread_local_t *tl)
 {
+    s_mutex_lock();
     _stm_start_transaction(tl, true);
 }
 
@@ -998,7 +998,11 @@ static void abort_data_structures_from_segment_num(int segment_num)
     /* NB. careful, this function might be called more than once to
        abort a given segment.  Make sure that
        stm_rewind_jmp_restore_shadowstack() is idempotent. */
-    stm_rewind_jmp_restore_shadowstack(tl);
+    /* we need to do this here and not directly in rewind_longjmp() because
+       that is called when we already released everything (safe point)
+       and a concurrent major GC could mess things up. */
+    if (tl->shadowstack != NULL)
+        stm_rewind_jmp_restore_shadowstack(tl);
     assert(tl->shadowstack == pseg->shadowstack_at_start_of_transaction);
 #endif
     tl->thread_local_obj = pseg->threadlocal_at_start_of_transaction;
@@ -1025,7 +1029,7 @@ int stm_is_inevitable(void)
 }
 #endif
 
-static void abort_with_mutex(void)
+static stm_thread_local_t *abort_with_mutex_no_longjmp(void)
 {
     assert(_has_mutex());
     dprintf(("~~~ ABORT\n"));
@@ -1058,6 +1062,12 @@ static void abort_with_mutex(void)
     /* Broadcast C_ABORTED to wake up contention.c */
     cond_broadcast(C_ABORTED);
 
+    return tl;
+}
+
+static void abort_with_mutex(void)
+{
+    stm_thread_local_t *tl = abort_with_mutex_no_longjmp();
     s_mutex_unlock();
 
     /* It seems to be a good idea, at least in some examples, to sleep
@@ -1075,6 +1085,7 @@ static void abort_with_mutex(void)
 #ifdef STM_NO_AUTOMATIC_SETJMP
     _test_run_abort(tl);
 #else
+    s_mutex_lock();
     stm_rewind_jmp_longjmp(tl);
 #endif
 }

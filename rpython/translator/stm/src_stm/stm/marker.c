@@ -19,10 +19,9 @@ static void marker_fetch(stm_thread_local_t *tl, uintptr_t marker[2])
     struct stm_shadowentry_s *current = tl->shadowstack - 1;
     struct stm_shadowentry_s *base = tl->shadowstack_base;
 
-    /* The shadowstack_base contains STM_STACK_MARKER_OLD, which is
-       a convenient stopper for the loop below but which shouldn't
-       be returned. */
-    assert(base->ss == (object_t *)STM_STACK_MARKER_OLD);
+    /* The shadowstack_base contains -1, which is a convenient stopper for
+       the loop below but which shouldn't be returned. */
+    assert(base->ss == (object_t *)-1);
 
     while (!(((uintptr_t)current->ss) & 1)) {
         current--;

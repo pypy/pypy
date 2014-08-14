@@ -157,26 +157,21 @@ static void collect_roots_in_nursery(void)
 {
     stm_thread_local_t *tl = STM_SEGMENT->running_thread;
     struct stm_shadowentry_s *current = tl->shadowstack;
-    struct stm_shadowentry_s *base = tl->shadowstack_base;
-    while (1) {
-        --current;
-        OPT_ASSERT(current >= base);
+    struct stm_shadowentry_s *finalbase = tl->shadowstack_base;
+    struct stm_shadowentry_s *ssbase;
+    ssbase = (struct stm_shadowentry_s *)tl->rjthread.moved_off_ssbase;
+    if (ssbase == NULL)
+        ssbase = finalbase;
+    else
+        assert(finalbase <= ssbase && ssbase <= current);
 
+    while (current > ssbase) {
+        --current;
         uintptr_t x = (uintptr_t)current->ss;
 
         if ((x & 3) == 0) {
             /* the stack entry is a regular pointer (possibly NULL) */
             minor_trace_if_young(&current->ss);
-        }
-        else if (x == STM_STACK_MARKER_NEW) {
-            /* the marker was not already seen: mark it as seen,
-               but continue looking more deeply in the shadowstack */
-            current->ss = (object_t *)STM_STACK_MARKER_OLD;
-        }
-        else if (x == STM_STACK_MARKER_OLD) {
-            /* the marker was already seen: we can stop the
-               root stack tracing at this point */
-            break;
         }
         else {
             /* it is an odd-valued marker, ignore */
