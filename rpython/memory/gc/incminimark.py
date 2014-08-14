@@ -1805,7 +1805,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         ll_assert(start < stop, "empty or negative range "
                                 "in trace_and_drag_out_of_nursery_partial()")
         #print 'trace_partial:', start, stop, '\t', obj
-        self.trace_partial(obj, start, stop, self._trace_drag_out, llmemory.NULL)
+        self.trace_partial(obj, start, stop, self._trace_drag_out, obj)
 
 
     def _trace_drag_out1(self, root):
