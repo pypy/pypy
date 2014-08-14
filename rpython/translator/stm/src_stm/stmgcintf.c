@@ -248,7 +248,7 @@ void _pypy_stm_become_inevitable(const char *msg)
 
 void pypy_stm_become_globally_unique_transaction(void)
 {
-    if (STM_SEGMENT->jmpbuf_ptr != NULL) {
+    if (!stm_is_inevitable()) {
         _pypy_stm_inev_state();
     }
     stm_become_globally_unique_transaction(&stm_thread_local, "for the JIT");
