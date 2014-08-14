@@ -138,6 +138,14 @@ GCFLAG_VISITED_RMY   = first_gcflag << 8
 # details.
 GCFLAG_PINNED        = first_gcflag << 9
 
+# The following flag is set only on objects outside the nursery
+# (i.e. old objects).  Therefore we can reuse GCFLAG_PINNED as it is used for
+# the same feature (object pinning) and GCFLAG_PINNED is only used on nursery
+# objects.
+# If this flag is set, the flagged object is already an element of
+# 'old_objects_pointing_to_pinned' and doesn't have to be added again.
+GCFLAG_PINNED_OBJECT_PARENT_KNOWN = GCFLAG_PINNED
+
 _GCFLAG_FIRST_UNUSED = first_gcflag << 10    # the first unused bit
 
 
@@ -1676,6 +1684,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.nursery_free = self.nursery
         self.nursery_top = self.nursery_barriers.popleft()
 
+        # clear GCFLAG_PINNED_OBJECT_PARENT_KNOWN from all parents in the list.
         self.old_objects_pointing_to_pinned.foreach(
                 self._reset_flag_old_objects_pointing_to_pinned, None)
 
@@ -1691,8 +1700,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         debug_stop("gc-minor")
 
     def _reset_flag_old_objects_pointing_to_pinned(self, obj, ignore):
-        assert self.header(obj).tid & GCFLAG_PINNED
-        self.header(obj).tid &= ~GCFLAG_PINNED
+        assert self.header(obj).tid & GCFLAG_PINNED_OBJECT_PARENT_KNOWN
+        self.header(obj).tid &= ~GCFLAG_PINNED_OBJECT_PARENT_KNOWN
 
     def _visit_old_objects_pointing_to_pinned(self, obj, ignore):
         self.trace(obj, self._trace_drag_out, obj)
@@ -1871,7 +1880,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             hdr = self.header(obj)
             # track parent of pinned object specially
             if parent != llmemory.NULL and \
-                    not self.header(parent).tid & GCFLAG_PINNED:
+                not self.header(parent).tid & GCFLAG_PINNED_OBJECT_PARENT_KNOWN:
                 #
                 self.old_objects_pointing_to_pinned.append(parent)
                 self.header(parent).tid |= GCFLAG_PINNED
