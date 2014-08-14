@@ -2102,18 +2102,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 #objects_to_trace processed fully, can move on to sweeping
                 self.ac.mass_free_prepare()
                 self.start_free_rawmalloc_objects()
+                #
+                # get rid of objects pointing to pinned objects that were not
+                # visited
+                new_old_objects_pointing_to_pinned = self.AddressStack()
+                self.old_objects_pointing_to_pinned.foreach(
+                        self._sweep_old_objects_pointing_to_pinned,
+                        new_old_objects_pointing_to_pinned)
+                self.old_objects_pointing_to_pinned.delete()
+                self.old_objects_pointing_to_pinned = new_old_objects_pointing_to_pinned
                 self.gc_state = STATE_SWEEPING
             #END MARKING
         elif self.gc_state == STATE_SWEEPING:
-            #
-            # get rid of objects pointing to pinned objects that were not
-            # visited
-            new_old_objects_pointing_to_pinned = self.AddressStack()
-            self.old_objects_pointing_to_pinned.foreach(
-                    self._sweep_old_objects_pointing_to_pinned,
-                    new_old_objects_pointing_to_pinned)
-            self.old_objects_pointing_to_pinned.delete()
-            self.old_objects_pointing_to_pinned = new_old_objects_pointing_to_pinned
             #
             if self.raw_malloc_might_sweep.non_empty():
                 # Walk all rawmalloced objects and free the ones that don't
