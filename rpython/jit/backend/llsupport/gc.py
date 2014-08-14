@@ -27,15 +27,17 @@ class PinnedObjectTracker(object):
     _ref_array_type = lltype.GcArray(llmemory.GCREF)
 
     def __init__(self, cpu, size):
+        self._size = size
         self._next_item = 0
         self._ref_array = lltype.malloc(PinnedObjectTracker._ref_array_type, size)
         self.ref_array_descr = cpu.arraydescrof(PinnedObjectTracker._ref_array_type)
         self.ref_array_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, self._ref_array)
+        self.const_ptr_gcref_array = ConstPtr(self.ref_array_gcref)
 
     def add_ref(self, ref):
         index = self._next_item
+        assert index < self._size
         self._next_item += 1
-        #
         self._ref_array[index] = ref
         return index
 
@@ -142,7 +144,7 @@ class GcLLDescription(GcCache):
             result_ptr = BoxPtr()
             array_index = pinned_obj_tracker.add_ref(p)
             load_op = ResOperation(rop.GETARRAYITEM_GC,
-                    [ConstPtr(pinned_obj_tracker.ref_array_gcref),
+                    [pinned_obj_tracker.const_ptr_gcref_array,
                         ConstInt(array_index)],
                     result_ptr,
                     descr=pinned_obj_tracker.ref_array_descr)
