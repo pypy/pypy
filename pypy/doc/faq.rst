@@ -159,10 +159,12 @@ Is PyPy more clever than CPython about Tail Calls?
 --------------------------------------------------
 
 No.  PyPy follows the Python language design, including the built-in
-debugger features.  `This prevents tail calls.`__  Neither the JIT
-nor Stackless__ change anything to that.
+debugger features.  This prevents tail calls, as summarized by Guido
+van Rossum in two__ blog__ posts.  Moreover, neither the JIT nor
+Stackless__ change anything to that.
 
-.. __: http://neopythonic.blogspot.com.au/2009/04/final-words-on-tail-calls.html
+.. __: http://neopythonic.blogspot.com/2009/04/tail-recursion-elimination.html
+.. __: http://neopythonic.blogspot.com/2009/04/final-words-on-tail-calls.html
 .. __: stackless.html
 
 ------------------------------------------
