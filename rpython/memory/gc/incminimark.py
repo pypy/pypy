@@ -1676,6 +1676,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.nursery_free = self.nursery
         self.nursery_top = self.nursery_barriers.popleft()
 
+        self.old_objects_pointing_to_pinned.foreach(
+                self._reset_flag_old_objects_pointing_to_pinned, None)
+
         debug_print("minor collect, total memory used:",
                     self.get_total_memory_used())
         debug_print("number of pinned objects:",
@@ -1686,6 +1689,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.root_walker.finished_minor_collection()
         #
         debug_stop("gc-minor")
+
+    def _reset_flag_old_objects_pointing_to_pinned(self, obj, ignore):
+        assert self.header(obj).tid & GCFLAG_PINNED
+        self.header(obj).tid &= ~GCFLAG_PINNED
 
     def _visit_old_objects_pointing_to_pinned(self, obj, ignore):
         self.trace(obj, self._trace_drag_out, obj)
@@ -1863,8 +1870,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         elif self._is_pinned(obj):
             hdr = self.header(obj)
             # track parent of pinned object specially
-            if parent != llmemory.NULL:
+            if parent != llmemory.NULL and \
+                    not self.header(parent).tid & GCFLAG_PINNED:
+                #
                 self.old_objects_pointing_to_pinned.append(parent)
+                self.header(parent).tid |= GCFLAG_PINNED
 
             if hdr.tid & GCFLAG_VISITED:
                 # already visited and keeping track of the object
