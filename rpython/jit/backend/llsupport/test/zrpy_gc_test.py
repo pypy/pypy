@@ -775,3 +775,32 @@ class CompileFrameworkTests(BaseFrameworkTests):
 
     def test_compile_framework_call_assembler(self):
         self.run('compile_framework_call_assembler')
+
+    def define_pinned_simple(cls):
+        from rpython.rlib.jit import promote
+        class H:
+            inst = None
+        helper = H()
+
+        @dont_look_inside
+        def get_y():
+            if not helper.inst:
+                helper.inst = X()
+                helper.inst.x = 101
+                assert rgc.pin(helper.inst)
+            else:
+                assert rgc._is_pinned(helper.inst)
+            return helper.inst
+
+        def fn(n, x, *args):
+            t = get_y()
+            promote(t)
+            t.x += 11
+            n -= 1
+            return (n, x) + args
+
+        return None, fn, None
+
+    def test_pinned_simple(self):
+        self.run('pinned_simple')
+
