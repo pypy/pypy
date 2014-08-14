@@ -322,8 +322,9 @@ class ThreadLocalReference(object):
                 from rpython.rlib.objectmodel import running_on_llinterp
                 ptr = cast_instance_to_base_ptr(value)
                 if not running_on_llinterp:
-                    gcref = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
-                    _make_sure_does_not_move(gcref)
+                    if ptr:
+                        gcref = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
+                        _make_sure_does_not_move(gcref)
                 llop.threadlocalref_set(lltype.Void, opaque_id, ptr)
                 ensure_threadlocal()
             else:
