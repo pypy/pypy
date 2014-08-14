@@ -182,7 +182,10 @@ class GcLLDescription(GcCache):
                     newnewops.extend(reops)
                 else:
                     newnewops.append(op)
-        return newnewops
+            #
+            return newnewops
+        else:
+            return newops
 
     @specialize.memo()
     def getframedescrs(self, cpu):
