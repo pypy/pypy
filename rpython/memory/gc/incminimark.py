@@ -1862,13 +1862,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
         elif self._is_pinned(obj):
             hdr = self.header(obj)
+            # track parent of pinned object specially
+            if parent != llmemory.NULL:
+                self.old_objects_pointing_to_pinned.append(parent)
+
             if hdr.tid & GCFLAG_VISITED:
                 # already visited and keeping track of the object
                 return
             hdr.tid |= GCFLAG_VISITED
-            #
-            if parent != llmemory.NULL:
-                self.old_objects_pointing_to_pinned.append(parent)
             #
             # XXX add additional checks for unsupported pinned objects (groggi)
             ll_assert(not self.header(obj).tid & GCFLAG_HAS_CARDS,
