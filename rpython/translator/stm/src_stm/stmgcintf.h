@@ -39,7 +39,7 @@ void pypy_stm_setup_expand_marker(long co_filename_ofs,
 static inline void pypy_stm_become_inevitable(const char *msg)
 {
     assert(STM_SEGMENT->running_thread == &stm_thread_local);
-    if (STM_SEGMENT->jmpbuf_ptr != NULL) {
+    if (!stm_is_inevitable()) {
         _pypy_stm_become_inevitable(msg);
     }
 }
@@ -92,8 +92,7 @@ static inline long pypy_stm_get_atomic(void) {
 long pypy_stm_enter_callback_call(void);
 void pypy_stm_leave_callback_call(long);
 void pypy_stm_set_transaction_length(double);
-void pypy_stm_perform_transaction(object_t *, int(object_t *, int));
-void pypy_stm_start_transaction(stm_jmpbuf_t *, volatile long *);
+void pypy_stm_perform_transaction(object_t *, int(object_t *, int));//XXX
 
 static inline int pypy_stm_should_break_transaction(void)
 {
