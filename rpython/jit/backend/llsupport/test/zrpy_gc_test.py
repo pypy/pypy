@@ -804,3 +804,48 @@ class CompileFrameworkTests(BaseFrameworkTests):
     def test_pinned_simple(self):
         self.run('pinned_simple')
 
+    def define_pinned_unpin(cls):
+        from rpython.rlib.jit import promote
+        class H:
+            inst = None
+            pinned = False
+            count_pinned = 0
+            count_unpinned = 0
+        helper = H()
+
+        @dont_look_inside
+        def get_y(n):
+            if not helper.inst:
+                helper.inst = X()
+                helper.inst.x = 101
+                helper.pinned = True
+                assert rgc.pin(helper.inst)
+            elif n < 100 and helper.pinned:
+                rgc.unpin(helper.inst)
+                helper.pinned = False
+            #
+            if helper.pinned:
+                assert rgc._is_pinned(helper.inst)
+                helper.count_pinned += 1
+            else:
+                assert not rgc._is_pinned(helper.inst)
+                helper.count_unpinned += 1
+            return helper.inst
+
+        def fn(n, x, *args):
+            t = get_y(n)
+            promote(t)
+            assert t.x == 101
+            n -= 1
+            return (n, x) + args
+
+        def after(n, x, *args):
+            assert helper.count_pinned > 0
+            assert helper.count_unpinned > 0
+            assert not helper.pinned
+
+        return None, fn, after
+
+    def test_pinned_unpin(self):
+        self.run('pinned_unpin')
+
