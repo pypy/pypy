@@ -787,9 +787,9 @@ class CompileFrameworkTests(BaseFrameworkTests):
             if not helper.inst:
                 helper.inst = X()
                 helper.inst.x = 101
-                assert rgc.pin(helper.inst)
+                check(rgc.pin(helper.inst))
             else:
-                assert rgc._is_pinned(helper.inst)
+                check(rgc._is_pinned(helper.inst))
             return helper.inst
 
         def fn(n, x, *args):
@@ -819,30 +819,30 @@ class CompileFrameworkTests(BaseFrameworkTests):
                 helper.inst = X()
                 helper.inst.x = 101
                 helper.pinned = True
-                assert rgc.pin(helper.inst)
+                check(rgc.pin(helper.inst))
             elif n < 100 and helper.pinned:
                 rgc.unpin(helper.inst)
                 helper.pinned = False
             #
             if helper.pinned:
-                assert rgc._is_pinned(helper.inst)
+                check(rgc._is_pinned(helper.inst))
                 helper.count_pinned += 1
             else:
-                assert not rgc._is_pinned(helper.inst)
+                check(not rgc._is_pinned(helper.inst))
                 helper.count_unpinned += 1
             return helper.inst
 
         def fn(n, x, *args):
             t = get_y(n)
             promote(t)
-            assert t.x == 101
+            check(t.x == 101)
             n -= 1
             return (n, x) + args
 
         def after(n, x, *args):
-            assert helper.count_pinned > 0
-            assert helper.count_unpinned > 0
-            assert not helper.pinned
+            check(helper.count_pinned > 0)
+            check(helper.count_unpinned > 0)
+            check(not helper.pinned)
 
         return None, fn, after
 
