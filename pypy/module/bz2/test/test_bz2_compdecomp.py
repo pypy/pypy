@@ -108,6 +108,13 @@ class AppTestBZ2Compressor(CheckAllocation):
         data += bz2c.flush()
         assert self.decompress(data) == self.TEXT
 
+    def test_compressor_pickle_error(self):
+        from bz2 import BZ2Compressor
+        import pickle
+
+        exc = raises(TypeError, pickle.dumps, BZ2Compressor())
+        assert exc.value.args[0] == "cannot serialize '_bz2.BZ2Compressor' object"
+
 
 class AppTestBZ2Decompressor(CheckAllocation):
     spaceconfig = dict(usemodules=('bz2', 'rctime'))
@@ -185,6 +192,13 @@ class AppTestBZ2Decompressor(CheckAllocation):
         decompressed_data = bz2d.decompress(self.BUGGY_DATA)
         assert decompressed_data == b''
         raises(IOError, bz2d.decompress, self.BUGGY_DATA)
+
+    def test_decompressor_pickle_error(self):
+        from bz2 import BZ2Decompressor
+        import pickle
+
+        exc = raises(TypeError, pickle.dumps, BZ2Decompressor())
+        assert exc.value.args[0] == "cannot serialize '_bz2.BZ2Decompressor' object"
 
 
 class AppTestBZ2ModuleFunctions(CheckAllocation):
