@@ -18,6 +18,7 @@ from rpython.jit.backend.llsupport.descr import get_array_descr
 from rpython.jit.backend.llsupport.descr import get_call_descr
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
 from rpython.memory.gctransform import asmgcroot
+from rpython.rtyper.lltypesystem import llmemory
 
 class PinnedObjectTracker(object):
     """Simple helper class to keep informations regarding the 'GcArray'
@@ -26,21 +27,26 @@ class PinnedObjectTracker(object):
 
     _ref_array_type = lltype.GcArray(llmemory.GCREF)
 
-    def __init__(self, cpu, size):
-        self._size = size
-        self._next_item = 0
+    def __init__(self, cpu, pointers):
+        # prepare GC array to hold the pointers
+        size = len(pointers)
         self._ref_array = lltype.malloc(PinnedObjectTracker._ref_array_type, size)
         self.ref_array_descr = cpu.arraydescrof(PinnedObjectTracker._ref_array_type)
         self.ref_array_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, self._ref_array)
         self.const_ptr_gcref_array = ConstPtr(self.ref_array_gcref)
+        #
+        # assign each pointer an index and put the pointer into the GC array
+        self._indexes = {}
+        for index in range(len(pointers)):
+            ptr = pointers[index]
+            self._indexes[llmemory.cast_ptr_to_adr(ptr)] = llmemory.cast_int_to_adr(index)
+            self._ref_array[index] = ptr
 
-    def add_ref(self, ref):
-        index = self._next_item
-        assert index < self._size
-        self._next_item += 1
-        self._ref_array[index] = ref
+    def add_ref(self, ptr):
+        assert llmemory.cast_ptr_to_adr(ptr) in self._indexes
+        index = llmemory.cast_adr_to_int(self._indexes[llmemory.cast_ptr_to_adr(ptr)])
+        assert ptr == self._ref_array[index]
         return index
-
 # ____________________________________________________________
 
 class GcLLDescription(GcCache):
@@ -114,7 +120,8 @@ class GcLLDescription(GcCache):
     def gc_malloc_unicode(self, num_elem):
         return self._bh_malloc_array(num_elem, self.unicode_descr)
 
-    def _record_constptrs(self, op, gcrefs_output_list, moving_output_list):
+    def _record_constptrs(self, op, gcrefs_output_list, moving_output_list,
+            known_pointers):
         moving_output_list[op] = []
         for i in range(op.numargs()):
             v = op.getarg(i)
@@ -124,6 +131,8 @@ class GcLLDescription(GcCache):
                     gcrefs_output_list.append(p)
                 else:
                     moving_output_list[op].append(i)
+                    if p not in known_pointers:
+                        known_pointers.append(p)
         #
         if op.is_guard() or op.getopnum() == rop.FINISH:
             llref = cast_instance_to_gcref(op.getdescr())
@@ -165,11 +174,13 @@ class GcLLDescription(GcCache):
         newnewops = [] # XXX better name... (groggi)
 
         moving_output_list = {}
+        known_pointers = []
         for op in newops:
-            self._record_constptrs(op, gcrefs_output_list, moving_output_list)
+            self._record_constptrs(op, gcrefs_output_list, moving_output_list,
+                    known_pointers)
         #
         if len(moving_output_list) > 0:
-            pinned_obj_tracker = PinnedObjectTracker(cpu, len(moving_output_list))
+            pinned_obj_tracker = PinnedObjectTracker(cpu, known_pointers)
             if not we_are_translated():
                 self.last_pinned_object_tracker = pinned_obj_tracker
             gcrefs_output_list.append(pinned_obj_tracker.ref_array_gcref)
