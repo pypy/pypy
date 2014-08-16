@@ -483,16 +483,12 @@ class JitDriver(object):
     name = 'jitdriver'
     inline_jit_merge_point = False
     _store_last_enter_jit = None
-    stm_do_transaction_breaks = False
-    stm_report_location = None
 
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
-                 name='jitdriver', check_untranslated=True,
-                 stm_do_transaction_breaks=None,
-                 stm_report_location=None):
+                 name='jitdriver', check_untranslated=True):
         if greens is not None:
             self.greens = greens
         self.name = name
@@ -528,10 +524,6 @@ class JitDriver(object):
         self.can_never_inline = can_never_inline
         self.should_unroll_one_iteration = should_unroll_one_iteration
         self.check_untranslated = check_untranslated
-        if stm_do_transaction_breaks is not None:
-            self.stm_do_transaction_breaks = stm_do_transaction_breaks
-        if stm_report_location is not None:
-            self.stm_report_location = stm_report_location
 
     def _freeze_(self):
         return True
@@ -826,6 +818,9 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             v_red = hop.inputarg(r_red, arg=i)
             reds_v.append(v_red)
         hop.exception_cannot_occur()
+        if self.instance.__name__ == 'jit_merge_point':
+            if hop.rtyper.annotator.translator.config.translation.stm:
+                hop.genop('stm_rewind_jmp_frame', [], resulttype=lltype.Void)
         vlist = [hop.inputconst(lltype.Void, self.instance.__name__),
                  hop.inputconst(lltype.Void, driver)]
         vlist.extend(greens_v)

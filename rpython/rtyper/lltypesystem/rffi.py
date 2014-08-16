@@ -318,8 +318,11 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
             if aroundstate is not None:
                 if aroundstate.enter_callback is not None:
                     token = aroundstate.enter_callback()
-                elif aroundstate.after is not None:
-                    aroundstate.after()
+                    llop.stm_rewind_jmp_frame(lltype.Void, 1)
+                else:
+                    after = aroundstate.after
+                    if after is not None:
+                        after()
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
@@ -336,9 +339,12 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
             stackcounter.stacks_counter -= 1
             if aroundstate is not None:
                 if aroundstate.leave_callback is not None:
+                    llop.stm_rewind_jmp_frame(lltype.Void, 2)
                     aroundstate.leave_callback(token)
-                elif aroundstate.before is not None:
-                    aroundstate.before()
+                else:
+                    before = aroundstate.before
+                    if before is not None:
+                        before()
             # here we don't hold the GIL any more. As in the wrapper() produced
             # by llexternal, it is essential that no exception checking occurs
             # after the call to before().

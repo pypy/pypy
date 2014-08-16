@@ -167,55 +167,11 @@ static long _pypy_stm_start_transaction(void)
     return counter;
 }
 
-void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
-{   /* must save roots around this call */
-    //
-    // XXX this function should be killed!  We no longer need a
-    // callback-based approach at all.
-
-#ifndef NDEBUG
-    struct stm_shadowentry_s *volatile v_old_shadowstack =
-        stm_thread_local.shadowstack;
-#endif
-    rewind_jmp_buf rjbuf;
-    stm_rewind_jmp_enterframe(&stm_thread_local, &rjbuf);
-    //STM_PUSH_ROOT(stm_thread_local, STM_STACK_MARKER_NEW);
-    STM_PUSH_ROOT(stm_thread_local, arg);
-
-    while (1) {
-        long counter;
-        if (pypy_stm_should_break_transaction()) { //pypy_stm_ready_atomic == 1) {
-            /* Not in an atomic transaction; but it might be an inevitable
-               transaction.
-             */
-            assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
-
-            stm_commit_transaction();
-
-            counter = _pypy_stm_start_transaction();
-        }
-        else {
-            /* In an atomic transaction */
-            //assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
-            counter = 0;
-        }
-
-        /* invoke the callback in the new transaction */
-        STM_POP_ROOT(stm_thread_local, arg);
-        assert(v_old_shadowstack == stm_thread_local.shadowstack);// - 1);
-        STM_PUSH_ROOT(stm_thread_local, arg);
-
-        long result = callback(arg, counter);
-        if (result <= 0)
-            break;
-    }
-
-    STM_POP_ROOT_RET(stm_thread_local);             /* pop the 'arg' */
-    //uintptr_t x = (uintptr_t)STM_POP_ROOT_RET(stm_thread_local);
-    //assert(x == STM_STACK_MARKER_NEW || x == STM_STACK_MARKER_OLD);
-    assert(v_old_shadowstack == stm_thread_local.shadowstack);
-
-    stm_rewind_jmp_leaveframe(&stm_thread_local, &rjbuf);
+void pypy_stm_transaction_break(void)
+{
+    assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
+    stm_commit_transaction();
+    _pypy_stm_start_transaction();
 }
 
 void _pypy_stm_inev_state(void)

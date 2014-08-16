@@ -1,5 +1,6 @@
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import CDefinedIntSymbolic
+from rpython.rlib.rgc import stm_is_enabled
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -40,6 +41,18 @@ adr_pypy_stm_start_transaction = (
     CFlexSymbolic('((long)&pypy_stm_start_transaction)'))
 
 
+def rewind_jmp_frame():
+    """At some key places, like the entry point of the thread and in the
+    function with the interpreter's dispatch loop, this must be called
+    (it turns into a marker in the caller's function).  There is one
+    automatically in any jit.jit_merge_point()."""
+    # special-cased below
+
+def possible_transaction_break():
+    if stm_is_enabled():
+        if llop.stm_should_break_transaction(lltype.Bool):
+            llop.stm_transaction_break(lltype.Void)
+
 def jit_stm_transaction_break_point():
     # XXX REFACTOR AWAY
     if we_are_translated():
@@ -75,6 +88,10 @@ def partial_commit_and_resume_other_threads():
 def should_break_transaction():
     return we_are_translated() and (
         llop.stm_should_break_transaction(lltype.Bool))
+
+@dont_look_inside
+def break_transaction():
+    llop.stm_break_transaction(lltype.Void)
 
 @dont_look_inside
 def set_transaction_length(fraction):
@@ -161,26 +178,13 @@ def reset_longest_abort_info():
 
 # ____________________________________________________________
 
-def make_perform_transaction(func, CONTAINERP):
-    from rpython.rtyper.annlowlevel import llhelper
-    from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
-    from rpython.translator.stm.stmgcintf import CALLBACK_TX
-    #
-    def _stm_callback(llcontainer, retry_counter):
-        llcontainer = rffi.cast(CONTAINERP, llcontainer)
-        retry_counter = rffi.cast(lltype.Signed, retry_counter)
-        try:
-            res = func(llcontainer, retry_counter)
-        except Exception, e:
-            res = 0     # ends perform_transaction() and returns
-            lle = cast_instance_to_base_ptr(e)
-            llcontainer.got_exception = lle
-        return rffi.cast(rffi.INT_real, res)
-    #
-    @dont_look_inside
-    def perform_transaction(llcontainer):
-        llcallback = llhelper(CALLBACK_TX, _stm_callback)
-        llop.stm_perform_transaction(lltype.Void, llcontainer, llcallback)
-    perform_transaction._transaction_break_ = True
-    #
-    return perform_transaction
+class _Entry(ExtRegistryEntry):
+    _about_ = rewind_jmp_frame
+
+    def compute_result_annotation(self):
+        pass
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        if hop.rtyper.annotator.translator.config.translation.stm:
+            hop.genop('stm_rewind_jmp_frame', [], resulttype=lltype.Void)

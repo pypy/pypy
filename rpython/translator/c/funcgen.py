@@ -1,5 +1,4 @@
 import sys
-from rpython.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from rpython.translator.c.support import cdecl
 from rpython.translator.c.support import llvalue_from_constant, gen_assignments
 from rpython.translator.c.support import c_string_constant, barebonearray
@@ -24,17 +23,7 @@ class FunctionCodeGenerator(object):
     Collects information about a function which we have to generate
     from a flow graph.
     """
-
-    if USESLOTS:
-        __slots__ = """graph db gcpolicy
-                       exception_policy
-                       more_ll_values
-                       vars all_cached_consts
-                       illtypes
-                       functionname
-                       blocknum
-                       innerloops
-                       oldgraph""".split()
+    use_stm_rewind_jmp_frame = False
 
     def __init__(self, graph, db, exception_policy=None, functionname=None):
         graph._seen_by_the_backend = True
@@ -75,6 +64,11 @@ class FunctionCodeGenerator(object):
         for block in self.graph.iterblocks():
             mix.extend(block.inputargs)
             for op in block.operations:
+                if op.opname == 'stm_rewind_jmp_frame':
+                    if len(op.args) == 0:
+                        self.use_stm_rewind_jmp_frame = "automatic"
+                    elif not self.use_stm_rewind_jmp_frame:
+                        self.use_stm_rewind_jmp_frame = True
                 mix.extend(op.args)
                 mix.append(op.result)
             for link in block.exits:
@@ -203,6 +197,11 @@ class FunctionCodeGenerator(object):
     # ____________________________________________________________
 
     def cfunction_body(self):
+        if self.use_stm_rewind_jmp_frame:
+            yield 'rewind_jmp_buf rjbuf1;'
+            if self.use_stm_rewind_jmp_frame == "automatic":
+                yield 'stm_rewind_jmp_enterframe(&stm_thread_local, &rjbuf1);'
+        #
         graph = self.graph
         yield 'goto block0;'    # to avoid a warning "this label is not used"
 
@@ -221,6 +220,9 @@ class FunctionCodeGenerator(object):
             if len(block.exits) == 0:
                 assert len(block.inputargs) == 1
                 # regular return block
+                if self.use_stm_rewind_jmp_frame == "automatic":
+                    yield ('stm_rewind_jmp_leaveframe('
+                               '&stm_thread_local, &rjbuf1);')
                 retval = self.expr(block.inputargs[0])
                 if self.exception_policy != "exc_helper":
                     yield 'RPY_DEBUG_RETURN();'
@@ -920,5 +922,3 @@ class FunctionCodeGenerator(object):
                 self.expr(op.args[0]))
         else:
             return None    # use the default
-
-assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)

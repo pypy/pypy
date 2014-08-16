@@ -175,11 +175,8 @@ def stm_set_transaction_length(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     return 'pypy_stm_set_transaction_length(%s);' % (arg0,)
 
-def stm_perform_transaction(funcgen, op):
-    arg0 = funcgen.expr(op.args[0])
-    arg1 = funcgen.expr(op.args[1])
-    return ('pypy_stm_perform_transaction((object_t *)%s, '
-            '(int(*)(object_t *, int))%s);' % (arg0, arg1))
+def stm_transaction_break(funcgen, op):
+    return 'pypy_stm_transaction_break();'
 
 def stm_increment_atomic(funcgen, op):
     return 'pypy_stm_increment_atomic();'
@@ -259,3 +256,11 @@ def stm_reset_longest_marker_state(funcgen, op):
             'stm_thread_local.longest_marker_time = 0.0;\n'
             'stm_thread_local.longest_marker_self[0] = 0;\n'
             'stm_thread_local.longest_marker_other[0] = 0;')
+
+def stm_rewind_jmp_frame(funcgen, op):
+    if len(op.args) == 0:
+        return '/* automatic stm_rewind_jmp_frame */'
+    elif op.args[0].value == 1:
+        return 'stm_rewind_jmp_enterframe(&stm_thread_local, &rjbuf1);'
+    else:
+        return 'stm_rewind_jmp_leaveframe(&stm_thread_local, &rjbuf1);'

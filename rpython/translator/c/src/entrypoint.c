@@ -49,6 +49,11 @@ int pypy_main_function(int argc, char *argv[])
     errmsg = RPython_StartupCode();
     if (errmsg) goto error;
 
+#ifdef RPY_STM
+    rewind_jmp_buf rjbuf;
+    stm_rewind_jmp_enterframe(&stm_thread_local, &rjbuf);
+#endif
+
     exitcode = STANDALONE_ENTRY_POINT(argc, argv);
 
     pypy_debug_alloc_results();
@@ -59,6 +64,10 @@ int pypy_main_function(int argc, char *argv[])
     }
 
     pypy_malloc_counters_results();
+
+#ifdef RPY_STM
+    stm_rewind_jmp_leaveframe(&stm_thread_local, &rjbuf);
+#endif
 
     RPython_TeardownCode();
     return exitcode;
