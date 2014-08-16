@@ -309,9 +309,9 @@ res = f()
                 yield 5
                 raise    # should raise "no active exception to re-raise"
         gen = f()
-        gen.next()  # --> 5
+        next(gen)  # --> 5
         try:
-            gen.next()
+            next(gen)
         except TypeError:
             pass
 
