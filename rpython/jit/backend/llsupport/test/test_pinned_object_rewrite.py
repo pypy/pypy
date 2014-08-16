@@ -3,7 +3,7 @@ from rpython.jit.backend.llsupport.descr import get_size_descr,\
      get_field_descr, get_array_descr, ArrayDescr, FieldDescr,\
      SizeDescrWithVTable, get_interiorfield_descr
 from rpython.jit.backend.llsupport.gc import GcLLDescr_boehm,\
-     GcLLDescr_framework, PinnedObjectTracker
+     GcLLDescr_framework, MovableObjectTracker
 from rpython.jit.backend.llsupport import jitframe, gc
 from rpython.jit.metainterp.gc import get_description
 from rpython.jit.tool.oparser import parse
@@ -45,7 +45,7 @@ class RewriteTests(object):
         notpinned_obj_ptr = lltype.malloc(notpinned_obj_type)
         notpinned_obj_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, notpinned_obj_ptr)
         #
-        ref_array_descr = self.cpu.arraydescrof(PinnedObjectTracker._ref_array_type)
+        ptr_array_descr = self.cpu.arraydescrof(MovableObjectTracker.ptr_array_type)
         #
         vtable_descr = self.gc_ll_descr.fielddescr_vtable
         O = lltype.GcStruct('O', ('parent', rclass.OBJECT),
@@ -92,9 +92,9 @@ class RewriteTests(object):
                                                         [])
         # make the array containing the GCREF's accessible inside the tests.
         # This must be done after we call 'rewrite_assembler'. Before that
-        # call 'last_pinned_object_tracker' is None or filled with some old
+        # call 'last_moving_obj_tracker' is None or filled with some old
         # value.
-        namespace['ref_array_gcref'] = self.gc_ll_descr.last_pinned_object_tracker.ref_array_gcref
+        namespace['ptr_array_gcref'] = self.gc_ll_descr.last_moving_obj_tracker.ptr_array_gcref
         expected = parse(to_operations % Evaluator(namespace),
                          namespace=namespace)
         equaloplists(operations, expected.operations)
@@ -127,7 +127,7 @@ class TestFramework(RewriteTests):
             i0 = getfield_gc(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
             """, """
             []
-            p1 = getarrayitem_gc(ConstPtr(ref_array_gcref), 0, descr=ref_array_descr)
+            p1 = getarrayitem_gc(ConstPtr(ptr_array_gcref), 0, descr=ptr_array_descr)
             i0 = getfield_gc(p1, descr=pinned_obj_my_int_descr)
             """)
 
@@ -139,9 +139,9 @@ class TestFramework(RewriteTests):
             i2 = getfield_gc(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
             """, """
             []
-            p1 = getarrayitem_gc(ConstPtr(ref_array_gcref), 0, descr=ref_array_descr)
+            p1 = getarrayitem_gc(ConstPtr(ptr_array_gcref), 0, descr=ptr_array_descr)
             i0 = getfield_gc(p1, descr=pinned_obj_my_int_descr)
             i1 = getfield_gc(ConstPtr(notpinned_obj_gcref), descr=notpinned_obj_my_int_descr)
-            p2 = getarrayitem_gc(ConstPtr(ref_array_gcref), 1, descr=ref_array_descr)
+            p2 = getarrayitem_gc(ConstPtr(ptr_array_gcref), 1, descr=ptr_array_descr)
             i2 = getfield_gc(p2, descr=pinned_obj_my_int_descr)
             """)

@@ -20,32 +20,36 @@ from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
 from rpython.memory.gctransform import asmgcroot
 from rpython.rtyper.lltypesystem import llmemory
 
-class PinnedObjectTracker(object):
-    """Simple helper class to keep informations regarding the 'GcArray'
-    in one place that is used to double load pinned objects.
-    """
+class MovableObjectTracker(object):
 
-    _ref_array_type = lltype.GcArray(llmemory.GCREF)
+    ptr_array_type = lltype.GcArray(llmemory.GCREF)
 
-    def __init__(self, cpu, pointers):
-        # prepare GC array to hold the pointers
-        size = len(pointers)
-        self._ref_array = lltype.malloc(PinnedObjectTracker._ref_array_type, size)
-        self.ref_array_descr = cpu.arraydescrof(PinnedObjectTracker._ref_array_type)
-        self.ref_array_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, self._ref_array)
-        self.const_ptr_gcref_array = ConstPtr(self.ref_array_gcref)
+    def __init__(self, cpu, const_pointers):
+        size = len(const_pointers)
+        # check that there are any moving object (i.e. chaning pointers).
+        # Otherwise there is no reason for an instance of this class.
+        assert size > 0
         #
-        # assign each pointer an index and put the pointer into the GC array
+        # prepare GC array to hold the pointers that may change
+        self.ptr_array = lltype.malloc(MovableObjectTracker.ptr_array_type, size)
+        self.ptr_array_descr = cpu.arraydescrof(MovableObjectTracker.ptr_array_type)
+        self.ptr_array_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, self.ptr_array)
+        # use always the same ConstPtr to access the array
+        # (easer to read JIT trace)
+        self.const_ptr_gcref_array = ConstPtr(self.ptr_array_gcref)
+        #
+        # assign each pointer an index and put the pointer into the GC array.
+        # as pointers and addresses are not a good key to use before translation
+        # ConstPtrs are used as the key for the dict.
         self._indexes = {}
-        for index in range(len(pointers)):
-            ptr = pointers[index]
-            self._indexes[llmemory.cast_ptr_to_adr(ptr)] = llmemory.cast_int_to_adr(index)
-            self._ref_array[index] = ptr
+        for index in range(size):
+            ptr = const_pointers[index]
+            self._indexes[ptr] = index
+            self.ptr_array[index] = ptr.value
 
-    def add_ref(self, ptr):
-        assert llmemory.cast_ptr_to_adr(ptr) in self._indexes
-        index = llmemory.cast_adr_to_int(self._indexes[llmemory.cast_ptr_to_adr(ptr)])
-        assert ptr == self._ref_array[index]
+    def get_array_index(self, const_ptr):
+        index = self._indexes[const_ptr]
+        assert const_ptr.value == self.ptr_array[index]
         return index
 # ____________________________________________________________
 
@@ -120,9 +124,9 @@ class GcLLDescription(GcCache):
     def gc_malloc_unicode(self, num_elem):
         return self._bh_malloc_array(num_elem, self.unicode_descr)
 
-    def _record_constptrs(self, op, gcrefs_output_list, moving_output_list,
-            known_pointers):
-        moving_output_list[op] = []
+    def _record_constptrs(self, op, gcrefs_output_list, ops_with_movable_const_ptr,
+            changeable_const_pointers):
+        ops_with_movable_const_ptr[op] = []
         for i in range(op.numargs()):
             v = op.getarg(i)
             if isinstance(v, ConstPtr) and bool(v.value):
@@ -130,33 +134,31 @@ class GcLLDescription(GcCache):
                 if rgc._make_sure_does_not_move(p):
                     gcrefs_output_list.append(p)
                 else:
-                    moving_output_list[op].append(i)
-                    if p not in known_pointers:
-                        known_pointers.append(p)
+                    ops_with_movable_const_ptr[op].append(i)
+                    if v not in changeable_const_pointers:
+                        changeable_const_pointers.append(v)
         #
         if op.is_guard() or op.getopnum() == rop.FINISH:
             llref = cast_instance_to_gcref(op.getdescr())
             assert rgc._make_sure_does_not_move(llref)
             gcrefs_output_list.append(llref)
         #
-        if len(moving_output_list[op]) == 0:
-            del moving_output_list[op]
+        if len(ops_with_movable_const_ptr[op]) == 0:
+            del ops_with_movable_const_ptr[op]
 
-    def _rewrite_constptrs(self, op, moving_output_list, pinned_obj_tracker):
+    def _rewrite_changeable_constptrs(self, op, ops_with_movable_const_ptr, moving_obj_tracker):
         newops = []
-        for arg_i in moving_output_list[op]:
+        for arg_i in ops_with_movable_const_ptr[op]:
             v = op.getarg(arg_i)
             # assert to make sure we got what we expected
             assert isinstance(v, ConstPtr)
-            assert bool(v.value)
-            p = v.value
             result_ptr = BoxPtr()
-            array_index = pinned_obj_tracker.add_ref(p)
+            array_index = moving_obj_tracker.get_array_index(v)
             load_op = ResOperation(rop.GETARRAYITEM_GC,
-                    [pinned_obj_tracker.const_ptr_gcref_array,
+                    [moving_obj_tracker.const_ptr_gcref_array,
                         ConstInt(array_index)],
                     result_ptr,
-                    descr=pinned_obj_tracker.ref_array_descr)
+                    descr=moving_obj_tracker.ptr_array_descr)
             newops.append(load_op)
             op.setarg(arg_i, result_ptr)
         #
@@ -166,37 +168,48 @@ class GcLLDescription(GcCache):
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         rewriter = GcRewriterAssembler(self, cpu)
         newops = rewriter.rewrite(operations)
-        # record all GCREFs, because the GC (or Boehm) cannot see them and
-        # keep them alive if they end up as constants in the assembler
-        
-        # XXX add comment (groggi)
-       
-        newnewops = [] # XXX better name... (groggi)
 
-        moving_output_list = {}
-        known_pointers = []
-        for op in newops:
-            self._record_constptrs(op, gcrefs_output_list, moving_output_list,
-                    known_pointers)
+        # the key is an operation that contains a ConstPtr as an argument and
+        # this ConstPtrs pointer might change as it points to an object that
+        # can't be made non-moving (e.g. the object is pinned).
+        ops_with_movable_const_ptr = {}
         #
-        if len(moving_output_list) > 0:
-            pinned_obj_tracker = PinnedObjectTracker(cpu, known_pointers)
-            if not we_are_translated():
-                self.last_pinned_object_tracker = pinned_obj_tracker
-            gcrefs_output_list.append(pinned_obj_tracker.ref_array_gcref)
-            rgc._make_sure_does_not_move(pinned_obj_tracker.ref_array_gcref)
-
-            for op in newops:
-                if op in moving_output_list:
-                    reops = self._rewrite_constptrs(op, moving_output_list,
-                            pinned_obj_tracker)
-                    newnewops.extend(reops)
-                else:
-                    newnewops.append(op)
+        # a list of such not really constant ConstPtrs.
+        changeable_const_pointers = []
+        for op in newops:
+            # record all GCREFs, because the GC (or Boehm) cannot see them and
+            # keep them alive if they end up as constants in the assembler.
+            # If such a GCREF can change and we can't make the object it points
+            # to non-movable, we have to handle it seperatly. Such GCREF's are
+            # returned as ConstPtrs in 'changeable_const_pointers' and the
+            # affected operation is returned in 'op_with_movable_const_ptr'.
+            # For this special case see 'rewrite_changeable_constptrs'.
+            self._record_constptrs(op, gcrefs_output_list,
+                    ops_with_movable_const_ptr, changeable_const_pointers)
+        #
+        # handle pointers that are not guaranteed to stay the same
+        if len(ops_with_movable_const_ptr) > 0:
+            moving_obj_tracker = MovableObjectTracker(cpu, changeable_const_pointers)
             #
-            return newnewops
-        else:
-            return newops
+            if not we_are_translated():
+                # used for testing
+                self.last_moving_obj_tracker = moving_obj_tracker
+            # make sure the array containing the pointers is not collected by
+            # the GC (or Boehm)
+            gcrefs_output_list.append(moving_obj_tracker.ptr_array_gcref)
+            rgc._make_sure_does_not_move(moving_obj_tracker.ptr_array_gcref)
+
+            ops = newops
+            newops = []
+            for op in ops:
+                if op in ops_with_movable_const_ptr:
+                    rewritten_ops = self._rewrite_changeable_constptrs(op,
+                            ops_with_movable_const_ptr, moving_obj_tracker)
+                    newops.extend(rewritten_ops)
+                else:
+                    newops.append(op)
+        #
+        return newops
 
     @specialize.memo()
     def getframedescrs(self, cpu):
