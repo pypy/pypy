@@ -2,7 +2,7 @@ from __future__ import with_statement
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty_bytes
 from pypy.interpreter.typedef import GetSetProperty
@@ -269,8 +269,7 @@ class W_BZ2Compressor(W_Root):
         lltype.free(self.bzs, flavor='raw')
 
     def __getstate__(self):
-        raise OperationError(self.space.w_TypeError,
-            self.space.wrap("cannot serialize '_bz2.BZ2Compressor' object"))
+        raise oefmt(self.space.w_TypeError, "cannot serialize '%T' object", self)
 
     @unwrap_spec(data='bufferstr')
     def compress(self, data):
@@ -378,8 +377,7 @@ class W_BZ2Decompressor(W_Root):
         lltype.free(self.bzs, flavor='raw')
 
     def __getstate__(self):
-        raise OperationError(self.space.w_TypeError,
-            self.space.wrap("cannot serialize '_bz2.BZ2Decompressor' object"))
+        raise oefmt(self.space.w_TypeError, "cannot serialize '%T' object", self)
 
     def eof_w(self, space):
         if self.running:
