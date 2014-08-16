@@ -307,12 +307,12 @@ res = f()
                 foobar
             except NameError:
                 yield 5
-                raise    # should raise "no active exception to re-raise"
+                raise
         gen = f()
         next(gen)  # --> 5
         try:
             next(gen)
-        except TypeError:
+        except NameError:
             pass
 
 
