@@ -314,14 +314,16 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
         raises(TypeError, "mod.check_array(42)")
 
     def test_ufunc(self):
-        from _numpypy.multiarray import ndarray
+        from _numpypy.multiarray import arange
         mod = self.import_extension('foo', [
                 ("create_ufunc",  "METH_NOARGS",
                 """
                 PyUFuncGenericFunction funcs[] = {&double_times2, &int_times2};
                 char types[] = { NPY_DOUBLE,NPY_DOUBLE, NPY_INT, NPY_INT };
                 void *array_data[] = {NULL, NULL};
-                PyObject * retval = _PyUFunc_FromFuncAndDataAndSignature(funcs,
+                PyObject * retval;
+                /* XXX should be 'funcs', not 'funcs[1]' but how to define an array of function pointers? */
+                retval = _PyUFunc_FromFuncAndDataAndSignature(funcs[1],
                                     array_data, types, 2, 1, 1, PyUFunc_None,
                                     "times2", "times2_docstring", 0, "()->()");
                 Py_INCREF(retval);
@@ -361,7 +363,6 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                     char *in = args[0], *out=args[1];
                     npy_intp in_step = steps[0], out_step = steps[1];
                     int tmp;
-
                     for (i = 0; i < n; i++) {
                         /*BEGIN main ufunc computation*/
                         tmp = *(int *)in;
@@ -374,6 +375,6 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                     };
                 }; ''')
         times2 = mod.create_ufunc()
-        arr = ndarray((3, 4), dtype='i')
+        arr = arange(12, dtype='i').reshape(3, 4)
         out = times2(arr)
-        assert (out == [6, 8]).all()
+        assert (out == arr * 2).all()

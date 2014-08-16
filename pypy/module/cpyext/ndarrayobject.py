@@ -277,11 +277,10 @@ class W_GenericUFuncCaller(W_Root):
             arg_i = args_w[i]
             assert isinstance(arg_i, W_NDimArray)
             raw_storage_setitem(dataps, CCHARP_SIZE * i, rffi.cast(rffi.CCHARP, arg_i.implementation.storage))
-            #This assumes we iterate over the last dimension?
-            raw_storage_setitem(dims, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_shape()[0]))
-            raw_storage_setitem(steps, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.implementation.strides[0]))
+            #This assumes we iterate over the whole array (it should be a view...)
+            raw_storage_setitem(dims, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_size()))
+            raw_storage_setitem(steps, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_dtype().elsize))
         try:
-            import pdb;pdb.set_trace()
             self.func(rffi.cast(rffi.CArrayPtr(rffi.CCHARP), dataps), 
                       rffi.cast(npy_intpp, dims), rffi.cast(npy_intpp, steps), user_data)
         except:
@@ -299,7 +298,7 @@ W_GenericUFuncCaller.typedef = TypeDef("hiddenclass",
 GenericUfunc = lltype.FuncType([rffi.CArrayPtr(rffi.CCHARP), npy_intpp, npy_intpp,
                                       rffi.VOIDP], lltype.Void)
 gufunctype = lltype.Ptr(GenericUfunc)
-@cpython_api([rffi.CArrayPtr(gufunctype), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
+@cpython_api([gufunctype, rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
               Py_ssize_t, Py_ssize_t, rffi.CCHARP, rffi.CCHARP, Py_ssize_t,
               rffi.CCHARP], PyObject)
 def _PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
@@ -307,7 +306,7 @@ def _PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
     funcs_w = [None] * ntypes
     dtypes_w = [None] * ntypes * (nin + nout)
     for i in range(ntypes):
-        funcs_w[i] = W_GenericUFuncCaller(funcs[i])
+        funcs_w[i] = W_GenericUFuncCaller(funcs)
     for i in range(ntypes*(nin+nout)):
         dtypes_w[i] = get_dtype_cache(space).dtypes_by_num[ord(types[i])]
     w_funcs = space.newlist(funcs_w)
