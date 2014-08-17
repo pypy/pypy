@@ -268,7 +268,7 @@ class W_BZ2Compressor(W_Root):
         BZ2_bzCompressEnd(self.bzs)
         lltype.free(self.bzs, flavor='raw')
 
-    def __getstate__(self):
+    def descr_getstate(self):
         raise oefmt(self.space.w_TypeError, "cannot serialize '%T' object", self)
 
     @unwrap_spec(data='bufferstr')
@@ -336,7 +336,7 @@ class W_BZ2Compressor(W_Root):
 W_BZ2Compressor.typedef = TypeDef("_bz2.BZ2Compressor",
     __doc__ = W_BZ2Compressor.__doc__,
     __new__ = interp2app(descr_compressor__new__),
-    __getstate__ = interp2app(W_BZ2Compressor.__getstate__),
+    __getstate__ = interp2app(W_BZ2Compressor.descr_getstate),
     compress = interp2app(W_BZ2Compressor.compress),
     flush = interp2app(W_BZ2Compressor.flush),
 )
@@ -376,7 +376,7 @@ class W_BZ2Decompressor(W_Root):
         BZ2_bzDecompressEnd(self.bzs)
         lltype.free(self.bzs, flavor='raw')
 
-    def __getstate__(self):
+    def descr_getstate(self):
         raise oefmt(self.space.w_TypeError, "cannot serialize '%T' object", self)
 
     def eof_w(self, space):
@@ -436,7 +436,7 @@ class W_BZ2Decompressor(W_Root):
 W_BZ2Decompressor.typedef = TypeDef("_bz2.BZ2Decompressor",
     __doc__ = W_BZ2Decompressor.__doc__,
     __new__ = interp2app(descr_decompressor__new__),
-    __getstate__ = interp2app(W_BZ2Decompressor.__getstate__),
+    __getstate__ = interp2app(W_BZ2Decompressor.descr_getstate),
     unused_data = interp_attrproperty_bytes("unused_data", W_BZ2Decompressor),
     eof = GetSetProperty(W_BZ2Decompressor.eof_w),
     decompress = interp2app(W_BZ2Decompressor.decompress),
