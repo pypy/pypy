@@ -215,7 +215,7 @@ class Option(object):
         self._name = name
         self.doc = doc
         self.cmdline = cmdline
-        
+
     def validate(self, value):
         raise NotImplementedError('abstract base class')
 
@@ -361,7 +361,7 @@ class IntOption(Option):
     def setoption(self, config, value, who):
         try:
             super(IntOption, self).setoption(config, int(value), who)
-        except TypeError, e:
+        except TypeError as e:
             raise ConfigError(*e.args)
 
 
@@ -382,13 +382,13 @@ class FloatOption(Option):
     def setoption(self, config, value, who):
         try:
             super(FloatOption, self).setoption(config, float(value), who)
-        except TypeError, e:
+        except TypeError as e:
             raise ConfigError(*e.args)
 
 
 class StrOption(Option):
     opt_type = 'string'
-    
+
     def __init__(self, name, doc, default=None, cmdline=DEFAULT_OPTION_NAME):
         super(StrOption, self).__init__(name, doc, cmdline)
         self.default = default
@@ -399,7 +399,7 @@ class StrOption(Option):
     def setoption(self, config, value, who):
         try:
             super(StrOption, self).setoption(config, value, who)
-        except TypeError, e:
+        except TypeError as e:
             raise ConfigError(*e.args)
 
 
@@ -447,7 +447,7 @@ class OptionDescription(object):
 
     def getpaths(self, include_groups=False, currpath=None):
         """returns a list of all paths in self, recursively
-        
+
             currpath should not be provided (helps with recursion)
         """
         if currpath is None:
@@ -492,15 +492,15 @@ class OptHelpFormatter(optparse.TitledHelpFormatter):
                     defl = "default"
             else:
                 defl = "default: %s" % val
-                
+
         if option.type == 'choice':
             choices = option.choices
-            
+
         if choices is not None:
             choices = "%s=%s" % (option.metavar, '|'.join(choices))
         else:
             choices = ""
-        
+
         if '%default' in option.help:
             if choices and defl:
                 sep = ", "
@@ -511,7 +511,7 @@ class OptHelpFormatter(optparse.TitledHelpFormatter):
                 defl = ""
             return option.help.replace("%default", defl)
         elif choices:
-            return option.help + ' [%s]' % choices 
+            return option.help + ' [%s]' % choices
 
         return option.help
 
@@ -537,7 +537,7 @@ class ConfigUpdate(object):
         try:
             value = self.convert_from_cmdline(value)
             self.config.setoption(self.option._name, value, who='cmdline')
-        except ConfigError, e:
+        except ConfigError as e:
             # This OptionValueError is going to exit the translate.py process.
             # Now is the last chance to print the warnings, which might give
             # more information...  hack.

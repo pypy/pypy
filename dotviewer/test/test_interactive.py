@@ -34,6 +34,23 @@ _generated____4 -> _generated____7
 }
 '''
 
+SOURCE2=r'''digraph f {
+  a; d; e; f; g; h; i; j; k; l;
+  a -> d [penwidth=1, style="setlinewidth(1)"];
+  d -> e [penwidth=2, style="setlinewidth(2)"];
+  e -> f [penwidth=4, style="setlinewidth(4)"];
+  f -> g [penwidth=8, style="setlinewidth(8)"];
+  g -> h [penwidth=16, style="setlinewidth(16)"];
+  h -> i [penwidth=32, style="setlinewidth(32)"];
+  i -> j [penwidth=64, style="setlinewidth(64)"];
+  j -> k [penwidth=128, style="setlinewidth(128)"];
+  k -> l [penwidth=256, style="setlinewidth(256)"];
+}'''
+
+
+
+
+
 def setup_module(mod):
     if not option.pygame:
         py.test.skip("--pygame not enabled")
@@ -160,4 +177,11 @@ def test_fixedfont():
     dotfile = udir.join('graph1.dot')
     page = MyPage(str(dotfile))
     page.fixedfont = True
+    graphclient.display_page(page)
+
+def test_linewidth():
+    udir.join("graph2.dot").write(SOURCE2)
+    from dotviewer import graphpage, graphclient
+    dotfile = udir.join('graph2.dot')
+    page = graphpage.DotFileGraphPage(str(dotfile))
     graphclient.display_page(page)

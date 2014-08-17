@@ -1,7 +1,10 @@
 import sys
 
+from rpython.tool.udir import udir
+
 class AppTestBuiltinApp:
     def setup_class(cls):
+        space = cls.space
         class X(object):
             def __eq__(self, other):
                 raise OverflowError
@@ -11,18 +14,36 @@ class AppTestBuiltinApp:
         try:
             d[X()]
         except OverflowError:
-            cls.w_sane_lookup = cls.space.wrap(True)
+            cls.w_sane_lookup = space.wrap(True)
         except KeyError:
-            cls.w_sane_lookup = cls.space.wrap(False)
+            cls.w_sane_lookup = space.wrap(False)
         # starting with CPython 2.6, when the stack is almost out, we
         # can get a random error, instead of just a RuntimeError.
         # For example if an object x has a __getattr__, we can get
         # AttributeError if attempting to call x.__getattr__ runs out
         # of stack.  That's annoying, so we just work around it.
         if cls.runappdirect:
-            cls.w_safe_runtimerror = cls.space.wrap(True)
+            cls.w_safe_runtimerror = space.wrap(True)
         else:
-            cls.w_safe_runtimerror = cls.space.wrap(sys.version_info < (2, 6))
+            cls.w_safe_runtimerror = space.wrap(sys.version_info < (2, 6))
+
+        emptyfile = udir.join('emptyfile.py')
+        emptyfile.write('')
+        nullbytes = udir.join('nullbytes.py')
+        nullbytes.write('#abc\x00def\n')
+        cls.w_emptyfile = space.wrap(str(emptyfile))
+        cls.w_nullbytes = space.wrap(str(nullbytes))
+
+    def test_builtin_names(self):
+        import __builtin__
+        assert __builtin__.None is None
+        assert __builtin__.False is False
+        assert __builtin__.True is True
+
+        assert __builtin__.buffer is buffer
+        assert __builtin__.bytes is str
+        assert __builtin__.dict is dict
+        assert __builtin__.memoryview is memoryview
 
     def test_bytes_alias(self):
         assert bytes is str
@@ -46,6 +67,15 @@ class AppTestBuiltinApp:
         assert bin(2L) == "0b10"
         assert bin(-2L) == "-0b10"
         raises(TypeError, bin, 0.)
+        class C(object):
+            def __index__(self):
+                return 42
+        assert bin(C()) == bin(42)
+        class D(object):
+            def __int__(self):
+                return 42
+        exc = raises(TypeError, bin, D())
+        assert "index" in exc.value.message
 
     def test_unichr(self):
         import sys
@@ -83,10 +113,21 @@ class AppTestBuiltinApp:
     def test_locals(self):
         def f():
             return locals()
+
         def g(c=0, b=0, a=0):
             return locals()
+
         assert f() == {}
-        assert g() == {'a':0, 'b':0, 'c':0}
+        assert g() == {'a': 0, 'b': 0, 'c': 0}
+
+    def test_locals_deleted_local(self):
+        def f():
+            a = 3
+            locals()
+            del a
+            return locals()
+
+        assert f() == {}
 
     def test_dir(self):
         def f():
@@ -252,25 +293,9 @@ class AppTestBuiltinApp:
         assert next(x) == 3
 
     def test_xrange_args(self):
-##        # xrange() attributes are deprecated and were removed in Python 2.3.
-##        x = xrange(2)
-##        assert x.start == 0
-##        assert x.stop == 2
-##        assert x.step == 1
-
-##        x = xrange(2,10,2)
-##        assert x.start == 2
-##        assert x.stop == 10
-##        assert x.step == 2
-
-##        x = xrange(2.3, 10.5, 2.4)
-##        assert x.start == 2
-##        assert x.stop == 10
-##        assert x.step == 2
-
         raises(ValueError, xrange, 0, 1, 0)
 
-    def test_xrange_repr(self): 
+    def test_xrange_repr(self):
         assert repr(xrange(1)) == 'xrange(1)'
         assert repr(xrange(1,2)) == 'xrange(1, 2)'
         assert repr(xrange(1,2,3)) == 'xrange(1, 4, 3)'
@@ -296,14 +321,14 @@ class AppTestBuiltinApp:
     def test_xrange_len(self):
         x = xrange(33)
         assert len(x) == 33
-        x = xrange(33.2)
-        assert len(x) == 33
+        exc = raises(TypeError, xrange, 33.2)
+        assert "integer" in str(exc.value)
         x = xrange(33,0,-1)
         assert len(x) == 33
         x = xrange(33,0)
         assert len(x) == 0
-        x = xrange(33,0.2)
-        assert len(x) == 0
+        exc = raises(TypeError, xrange, 33, 0.2)
+        assert "integer" in str(exc.value)
         x = xrange(0,33)
         assert len(x) == 33
         x = xrange(0,33,-1)
@@ -329,7 +354,7 @@ class AppTestBuiltinApp:
         raises(TypeError, xrange, 1, 3+2j)
         raises(TypeError, xrange, 1, 2, '1')
         raises(TypeError, xrange, 1, 2, 3+2j)
-    
+
     def test_sorted(self):
         l = []
         sorted_l = sorted(l)
@@ -348,7 +373,7 @@ class AppTestBuiltinApp:
         assert sorted_l is not l
         assert sorted_l == ['C', 'b', 'a']
         raises(TypeError, sorted, [], reverse=None)
-        
+
     def test_reversed_simple_sequences(self):
         l = range(5)
         rev = reversed(l)
@@ -364,8 +389,8 @@ class AppTestBuiltinApp:
                 return 42
         obj = SomeClass()
         assert reversed(obj) == 42
-    
-        
+
+
     def test_cmp(self):
         assert cmp(9,9) == 0
         assert cmp(0,9) < 0
@@ -398,7 +423,7 @@ class AppTestBuiltinApp:
         raises(RuntimeError, cmp, a, c)
         # okay, now break the cycles
         a.pop(); b.pop(); c.pop()
-        
+
     def test_coerce(self):
         assert coerce(1, 2)    == (1, 2)
         assert coerce(1L, 2L)  == (1L, 2L)
@@ -416,7 +441,7 @@ class AppTestBuiltinApp:
         assert setattr(x, 'x', 11) == None
         assert delattr(x, 'x') == None
         # To make this test, we need autopath to work in application space.
-        #self.assertEquals(execfile('emptyfile.py'), None)
+        assert execfile(self.emptyfile) == None
 
     def test_divmod(self):
         assert divmod(15,10) ==(1,5)
@@ -465,7 +490,7 @@ class AppTestBuiltinApp:
         assert eval("1+2") == 3
         assert eval(" \t1+2\n") == 3
         assert eval("len([])") == 0
-        assert eval("len([])", {}) == 0        
+        assert eval("len([])", {}) == 0
         # cpython 2.4 allows this (raises in 2.3)
         assert eval("3", None, None) == 3
         i = 4
@@ -475,6 +500,14 @@ class AppTestBuiltinApp:
     def test_compile(self):
         co = compile('1+2', '?', 'eval')
         assert eval(co) == 3
+        co = compile(buffer('1+2'), '?', 'eval')
+        assert eval(co) == 3
+        exc = raises(TypeError, compile, chr(0), '?', 'eval')
+        assert str(exc.value) == "compile() expected string without null bytes"
+        exc = raises(TypeError, compile, unichr(0), '?', 'eval')
+        assert str(exc.value) == "compile() expected string without null bytes"
+        exc = raises(TypeError, compile, memoryview('1+2'), '?', 'eval')
+        assert str(exc.value) == "expected a readable buffer object"
         compile("from __future__ import with_statement", "<test>", "exec")
         raises(SyntaxError, compile, '-', '?', 'eval')
         raises(ValueError, compile, '"\\xt"', '?', 'eval')
@@ -482,10 +515,27 @@ class AppTestBuiltinApp:
         raises(ValueError, compile, "\n", "<string>", "exec", 0xff)
         raises(TypeError, compile, '1+2', 12, 34)
 
+    def test_compile_error_message(self):
+        import re
+        compile('# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
+        compile(b'\xef\xbb\xbf\n', 'dummy', 'exec')
+        compile(b'\xef\xbb\xbf# -*- coding: utf-8 -*-\n', 'dummy', 'exec')
+        exc = raises(SyntaxError, compile,
+            b'# -*- coding: fake -*-\n', 'dummy', 'exec')
+        assert 'fake' in str(exc.value)
+        exc = raises(SyntaxError, compile,
+            b'\xef\xbb\xbf# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
+        assert 'iso-8859-15' in str(exc.value)
+        assert 'BOM' in str(exc.value)
+        exc = raises(SyntaxError, compile,
+            b'\xef\xbb\xbf# -*- coding: fake -*-\n', 'dummy', 'exec')
+        assert 'fake' in str(exc.value)
+        assert 'BOM' in str(exc.value)
+
     def test_unicode_compile(self):
         try:
             compile(u'-', '?', 'eval')
-        except SyntaxError, e:
+        except SyntaxError as e:
             assert e.lineno == 1
 
     def test_unicode_encoding_compile(self):
@@ -569,6 +619,23 @@ def fn(): pass
         co = compile(src, 'mymod', 'exec')
         firstlineno = co.co_firstlineno
         assert firstlineno == 2
+
+    def test_compile_null_bytes(self):
+        raises(TypeError, compile, '\x00', 'mymod', 'exec', 0)
+        src = "#abc\x00def\n"
+        raises(TypeError, compile, src, 'mymod', 'exec')
+        raises(TypeError, compile, src, 'mymod', 'exec', 0)
+        execfile(self.nullbytes) # works
+
+    def test_compile_null_bytes_flag(self):
+        try:
+            from _ast import PyCF_ACCEPT_NULL_BYTES
+        except ImportError:
+            skip('PyPy only (requires _ast.PyCF_ACCEPT_NULL_BYTES)')
+        raises(SyntaxError, compile, '\x00', 'mymod', 'exec',
+               PyCF_ACCEPT_NULL_BYTES)
+        src = "#abc\x00def\n"
+        compile(src, 'mymod', 'exec', PyCF_ACCEPT_NULL_BYTES)  # works
 
     def test_print_function(self):
         import __builtin__
@@ -670,7 +737,6 @@ class AppTestGetattrWithGetAttributeShortcut(AppTestGetattr):
 
 class TestInternal:
     def test_execfile(self, space):
-        from rpython.tool.udir import udir
         fn = str(udir.join('test_execfile'))
         f = open(fn, 'w')
         print >>f, "i=42"
@@ -683,15 +749,15 @@ class TestInternal:
         w_value = space.getitem(w_dict, space.wrap('i'))
         assert space.eq_w(w_value, space.wrap(42))
 
-    def test_execfile_different_lineendings(self, space): 
+    def test_execfile_different_lineendings(self, space):
         from rpython.tool.udir import udir
         d = udir.ensure('lineending', dir=1)
-        dos = d.join('dos.py') 
-        f = dos.open('wb') 
+        dos = d.join('dos.py')
+        f = dos.open('wb')
         f.write("x=3\r\n\r\ny=4\r\n")
-        f.close() 
+        f.close()
         space.appexec([space.wrap(str(dos))], """
-            (filename): 
+            (filename):
                 d = {}
                 execfile(filename, d)
                 assert d['x'] == 3
@@ -699,12 +765,12 @@ class TestInternal:
         """)
 
         unix = d.join('unix.py')
-        f = unix.open('wb') 
+        f = unix.open('wb')
         f.write("x=5\n\ny=6\n")
-        f.close() 
+        f.close()
 
         space.appexec([space.wrap(str(unix))], """
-            (filename): 
+            (filename):
                 d = {}
                 execfile(filename, d)
                 assert d['x'] == 5

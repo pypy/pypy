@@ -118,12 +118,13 @@ class StrTest(unittest.TestCase):
         except MemoryError:
             pass # acceptable on 32-bit
 
-    @precisionbigmemtest(size=_2G-1, memuse=2)
+    @precisionbigmemtest(size=_2G-1, memuse=4)
     def test_decodeascii(self, size):
         return self.basic_encode_test(size, 'ascii', c='A')
 
     @precisionbigmemtest(size=_4G // 5, memuse=6+2)
     def test_unicode_repr_oflw(self, size):
+        self.skipTest("test crashes - see issue #14904")
         try:
             s = u"\uAAAA"*size
             r = repr(s)
@@ -485,7 +486,7 @@ class StrTest(unittest.TestCase):
         self.assertEqual(s.count('.'), 3)
         self.assertEqual(s.count('-'), size * 2)
 
-    @bigmemtest(minsize=_2G + 10, memuse=2)
+    @bigmemtest(minsize=_2G + 10, memuse=5)
     def test_repr_small(self, size):
         s = '-' * size
         s = repr(s)
@@ -497,7 +498,6 @@ class StrTest(unittest.TestCase):
         # repr() will create a string four times as large as this 'binary
         # string', but we don't want to allocate much more than twice
         # size in total.  (We do extra testing in test_repr_large())
-        size = size // 5 * 2
         s = '\x00' * size
         s = repr(s)
         self.assertEqual(len(s), size * 4 + 2)
@@ -541,7 +541,7 @@ class StrTest(unittest.TestCase):
         self.assertEqual(len(s), size * 2)
         self.assertEqual(s.count('.'), size * 2)
 
-    @bigmemtest(minsize=_2G + 20, memuse=1)
+    @bigmemtest(minsize=_2G + 20, memuse=2)
     def test_slice_and_getitem(self, size):
         SUBSTR = '0123456789'
         sublen = len(SUBSTR)

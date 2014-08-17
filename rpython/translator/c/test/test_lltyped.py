@@ -1,5 +1,6 @@
 import py
 from rpython.rtyper.lltypesystem.lltype import *
+from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.c.test.test_genc import compile
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -314,14 +315,14 @@ class TestLowLevelType(object):
         from rpython.rtyper.lltypesystem.rstr import STR
         from rpython.rtyper.lltypesystem import rffi, llmemory, lltype
         P = lltype.Ptr(lltype.FixedSizeArray(lltype.Char, 1))
-        
+
         def f():
             a = llstr("xyz")
             b = (llmemory.cast_ptr_to_adr(a) + llmemory.offsetof(STR, 'chars')
                  + llmemory.itemoffsetof(STR.chars, 0))
             buf = rffi.cast(rffi.VOIDP, b)
             return buf[2]
-        
+
         fn = self.getcompiled(f, [])
         res = fn()
         assert res == 'z'
@@ -645,10 +646,7 @@ class TestLowLevelType(object):
             def llf():
                 s = ''
                 for i in range(5):
-                    print i
-                    print s
                     s += a[i]
-                print s
                 assert s == "85?!" + lastchar
             fn = self.getcompiled(llf, [])
             fn()
@@ -730,7 +728,6 @@ class TestLowLevelType(object):
             s = ''
             for i in range(4):
                 s += a[i]
-            print s
             return s == 'abcd'
         fn = self.getcompiled(llf, [])
         assert fn()
@@ -941,3 +938,21 @@ class TestLowLevelType(object):
         assert fn(0) == 10
         assert fn(1) == 10 + 521
         assert fn(2) == 10 + 34
+
+    def test_const_char_star(self):
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+
+        eci = ExternalCompilationInfo(includes=["stdlib.h"])
+        atoi = rffi.llexternal('atoi', [rffi.CONST_CCHARP], rffi.INT,
+                               compilation_info=eci)
+
+        def f(n):
+            s = malloc(rffi.CCHARP.TO, 2, flavor='raw')
+            s[0] = '9'
+            s[1] = '\0'
+            res = atoi(rffi.cast(rffi.CONST_CCHARP, s))
+            free(s, flavor='raw')
+            return res
+
+        fn = self.getcompiled(f, [int])
+        assert fn(0) == 9

@@ -1,6 +1,7 @@
 """Tests for multiple JitDrivers."""
+import py
 from rpython.rlib.jit import JitDriver, unroll_safe, set_param
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.metainterp.warmspot import get_stats
 
 
@@ -142,9 +143,51 @@ class MultipleJitDriversTests(object):
         stats = get_stats()
         assert stats.aborted_keys == [None, None]
 
+    def test_inline_across_languages(self):
+        py.test.skip("why does this not work")
+        driver_weird = JitDriver(
+            greens = ["pc", "bc"],
+            reds = ["acc", "x", "y", "z"])
+
+        def interp1(bc, x, y, z):
+            pc = 0
+            acc = 0
+            while True:
+                driver_weird.jit_merge_point(bc=bc, pc=pc, acc=acc, x=x, y=y, z=z)
+                op = ord(bc[pc])
+                pc += 1
+                if op == 0:
+                    acc += x
+                if op == 1:
+                    acc += y
+                if op == 2:
+                    acc *= z
+                if op == 3:
+                    pc = 0
+                if pc >= len(bc):
+                    break
+            return acc
+
+        driver = JitDriver(
+                greens = ["substract"],
+                reds = ["x"],
+        )
+        def interp2(x):
+            substract = interp1('\x00', 0, 0, 0)
+            while True:
+                driver.jit_merge_point(substract=substract, x=x)
+                substract += 1
+                if x < 0:
+                    break
+                if substract == 10:
+                    # computes x + 1 * (-1)
+                    x = interp1('\x01\x02\x00', x, 1, -1)
+                    substract = 0
+        interp2(100)
+        self.meta_interp(interp2, [100], listcomp=True, backendopt=True,
+                         listops=True, inline=True)
+        self.check_resops(call_assembler=0)
+
 
 class TestLLtype(MultipleJitDriversTests, LLJitMixin):
-    pass
-
-class TestOOtype(MultipleJitDriversTests, OOJitMixin):
     pass

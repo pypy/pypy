@@ -85,7 +85,7 @@ class BasicGcPolicy(object):
     def OP_GC_THREAD_AFTER_FORK(self, funcgen, op):
         return ''
 
-    def OP_GC_ASSUME_YOUNG_POINTERS(self, funcgen, op):
+    def OP_GC_WRITEBARRIER(self, funcgen, op):
         return ''
 
     def OP_GC_STACK_BOTTOM(self, funcgen, op):
@@ -404,7 +404,7 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
                self.tid_fieldname(tid_field),
                funcgen.expr(c_skipoffset)))
 
-    def OP_GC_ASSUME_YOUNG_POINTERS(self, funcgen, op):
+    def OP_GC_WRITEBARRIER(self, funcgen, op):
         raise Exception("the FramewokGCTransformer should handle this")
 
     def OP_GC_GCFLAG_EXTRA(self, funcgen, op):

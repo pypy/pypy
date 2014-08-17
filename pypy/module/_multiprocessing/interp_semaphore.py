@@ -28,7 +28,7 @@ if sys.platform == 'win32':
         'CreateSemaphoreA', [rffi.VOIDP, rffi.LONG, rffi.LONG, rwin32.LPCSTR],
         rwin32.HANDLE)
     _CloseHandle = rwin32.winexternal('CloseHandle', [rwin32.HANDLE],
-        rwin32.BOOL, threadsafe=False)
+        rwin32.BOOL, releasegil=False)
     _ReleaseSemaphore = rwin32.winexternal(
         'ReleaseSemaphore', [rwin32.HANDLE, rffi.LONG, rffi.LONGP],
         rwin32.BOOL)
@@ -82,8 +82,8 @@ else:
     _sem_open = external('sem_open',
                          [rffi.CCHARP, rffi.INT, rffi.INT, rffi.UINT],
                          SEM_T)
-    # tread sem_close as not threadsafe for now to be able to use the __del__
-    _sem_close = external('sem_close', [SEM_T], rffi.INT, threadsafe=False)
+    # sem_close is releasegil=False to be able to use it in the __del__
+    _sem_close = external('sem_close', [SEM_T], rffi.INT, releasegil=False)
     _sem_unlink = external('sem_unlink', [rffi.CCHARP], rffi.INT)
     _sem_wait = external('sem_wait', [SEM_T], rffi.INT)
     _sem_trywait = external('sem_trywait', [SEM_T], rffi.INT)

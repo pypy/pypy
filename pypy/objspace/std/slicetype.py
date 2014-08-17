@@ -1,4 +1,4 @@
-from pypy.interpreter import baseobjspace, gateway
+from pypy.interpreter import gateway
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all

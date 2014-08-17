@@ -1,5 +1,5 @@
 import sys
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import jit
 
@@ -27,13 +27,10 @@ class ExecutionContext(object):
     def __init__(self, space):
         self.space = space
         self.topframeref = jit.vref_None
-        # tracing: space.frame_trace_action.fire() must be called to ensure
-        # that tracing occurs whenever self.w_tracefunc or self.is_tracing
-        # is modified.
-        self.w_tracefunc = None        # if not None, no JIT
+        self.w_tracefunc = None
         self.is_tracing = 0
         self.compiler = space.createcompiler()
-        self.profilefunc = None        # if not None, no JIT
+        self.profilefunc = None
         self.w_profilefuncarg = None
 
     def gettopframe(self):
@@ -76,9 +73,6 @@ class ExecutionContext(object):
                 frame_vref()
             jit.virtual_ref_finish(frame_vref, frame)
 
-        if self.w_tracefunc is not None and not frame.hide():
-            self.space.frame_trace_action.fire()
-
     # ________________________________________________________________
 
     def c_call_trace(self, frame, w_func, args=None):
@@ -115,33 +109,85 @@ class ExecutionContext(object):
 
     def call_trace(self, frame):
         "Trace the call of a function"
-        if self.w_tracefunc is not None or self.profilefunc is not None:
+        if self.gettrace() is not None or self.profilefunc is not None:
             self._trace(frame, 'call', self.space.w_None)
             if self.profilefunc:
                 frame.is_being_profiled = True
 
     def return_trace(self, frame, w_retval):
         "Trace the return from a function"
-        if self.w_tracefunc is not None:
-            return_from_hidden = self._trace(frame, 'return', w_retval)
-            # special case: if we are returning from a hidden function,
-            # then maybe we have to fire() the action again; otherwise
-            # it will not be called.  See test_trace_hidden_prints.
-            if return_from_hidden:
-                self.space.frame_trace_action.fire()
+        if self.gettrace() is not None:
+            self._trace(frame, 'return', w_retval)
 
     def bytecode_trace(self, frame, decr_by=TICK_COUNTER_STEP):
         "Trace function called before each bytecode."
         # this is split into a fast path and a slower path that is
         # not invoked every time bytecode_trace() is.
+        self.bytecode_only_trace(frame)
         actionflag = self.space.actionflag
         if actionflag.decrement_ticker(decr_by) < 0:
             actionflag.action_dispatcher(self, frame)     # slow path
     bytecode_trace._always_inline_ = True
 
+    def bytecode_only_trace(self, frame):
+        """
+        Like bytecode_trace() but doesn't invoke any other events besides the
+        trace function.
+        """
+        if (frame.w_f_trace is None or self.is_tracing or
+            self.gettrace() is None):
+            return
+        self.run_trace_func(frame)
+    bytecode_only_trace._always_inline_ = True
+
+    @jit.unroll_safe
+    def run_trace_func(self, frame):
+        code = frame.pycode
+        if frame.instr_lb <= frame.last_instr < frame.instr_ub:
+            if frame.last_instr < frame.instr_prev_plus_one:
+                # We jumped backwards in the same line.
+                self._trace(frame, 'line', self.space.w_None)
+        else:
+            size = len(code.co_lnotab) / 2
+            addr = 0
+            line = code.co_firstlineno
+            p = 0
+            lineno = code.co_lnotab
+            while size > 0:
+                c = ord(lineno[p])
+                if (addr + c) > frame.last_instr:
+                    break
+                addr += c
+                if c:
+                    frame.instr_lb = addr
+
+                line += ord(lineno[p + 1])
+                p += 2
+                size -= 1
+
+            if size > 0:
+                while True:
+                    size -= 1
+                    if size < 0:
+                        break
+                    addr += ord(lineno[p])
+                    if ord(lineno[p + 1]):
+                        break
+                    p += 2
+                frame.instr_ub = addr
+            else:
+                frame.instr_ub = sys.maxint
+
+            if frame.instr_lb == frame.last_instr: # At start of line!
+                frame.f_lineno = line
+                self._trace(frame, 'line', self.space.w_None)
+
+        frame.instr_prev_plus_one = frame.last_instr + 1
+
     def bytecode_trace_after_exception(self, frame):
         "Like bytecode_trace(), but without increasing the ticker."
         actionflag = self.space.actionflag
+        self.bytecode_only_trace(frame)
         if actionflag.get_ticker() < 0:
             actionflag.action_dispatcher(self, frame)     # slow path
     bytecode_trace_after_exception._always_inline_ = 'try'
@@ -152,18 +198,21 @@ class ExecutionContext(object):
     def exception_trace(self, frame, operationerr):
         "Trace function called upon OperationError."
         operationerr.record_interpreter_traceback()
-        if self.w_tracefunc is not None:
+        if self.gettrace() is not None:
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
     def sys_exc_info(self): # attn: the result is not the wrapped sys.exc_info() !!!
         """Implements sys.exc_info().
         Return an OperationError instance or None."""
-        frame = self.gettopframe_nohidden()
+        frame = self.gettopframe()
         while frame:
             if frame.last_exception is not None:
-                return frame.last_exception
-            frame = self.getnextframe_nohidden(frame)
+                if (not frame.hide() or
+                        frame.last_exception is
+                            get_cleared_operation_error(self.space)):
+                    return frame.last_exception
+            frame = frame.f_backref()
         return None
 
     def set_sys_exc_info(self, operror):
@@ -171,6 +220,18 @@ class ExecutionContext(object):
         if frame:     # else, the exception goes nowhere and is lost
             frame.last_exception = operror
 
+    def clear_sys_exc_info(self):
+        # Find the frame out of which sys_exc_info() would return its result,
+        # and hack this frame's last_exception to become the cleared
+        # OperationError (which is different from None!).
+        frame = self.gettopframe_nohidden()
+        while frame:
+            if frame.last_exception is not None:
+                frame.last_exception = get_cleared_operation_error(self.space)
+                break
+            frame = self.getnextframe_nohidden(frame)
+
+    @jit.dont_look_inside
     def settrace(self, w_func):
         """Set the global trace function."""
         if self.space.is_w(w_func, self.space.w_None):
@@ -178,10 +239,12 @@ class ExecutionContext(object):
         else:
             self.force_all_frames()
             self.w_tracefunc = w_func
-            self.space.frame_trace_action.fire()
+            # Increase the JIT's trace_limit when we have a tracefunc, it
+            # generates a ton of extra ops.
+            jit.set_param(None, 'trace_limit', 10000)
 
     def gettrace(self):
-        return self.w_tracefunc
+        return jit.promote(self.w_tracefunc)
 
     def setprofile(self, w_func):
         """Set the global trace function."""
@@ -221,20 +284,19 @@ class ExecutionContext(object):
         is_tracing = self.is_tracing
         self.is_tracing = 0
         try:
-            self.space.frame_trace_action.fire()
             return self.space.call(w_func, w_args)
         finally:
             self.is_tracing = is_tracing
 
     def _trace(self, frame, event, w_arg, operr=None):
         if self.is_tracing or frame.hide():
-            return True
+            return
 
         space = self.space
 
         # Tracing cases
         if event == 'call':
-            w_callback = self.w_tracefunc
+            w_callback = self.gettrace()
         else:
             w_callback = frame.w_f_trace
 
@@ -260,7 +322,6 @@ class ExecutionContext(object):
             finally:
                 self.is_tracing -= 1
                 frame.locals2fast()
-                space.frame_trace_action.fire()
 
         # Profile cases
         if self.profilefunc is not None:
@@ -269,7 +330,7 @@ class ExecutionContext(object):
                     event == 'c_call' or
                     event == 'c_return' or
                     event == 'c_exception'):
-                return False
+                return
 
             last_exception = frame.last_exception
             if event == 'leaveframe':
@@ -289,7 +350,6 @@ class ExecutionContext(object):
             finally:
                 frame.last_exception = last_exception
                 self.is_tracing -= 1
-        return False
 
     def checksignals(self):
         """Similar to PyErr_CheckSignals().  If called in the main thread,
@@ -310,6 +370,9 @@ class AbstractActionFlag(object):
     the GIL.  And whether we have threads or not, it is forced to zero
     whenever we fire any of the asynchronous actions.
     """
+
+    _immutable_fields_ = ["checkinterval_scaled?"]
+
     def __init__(self):
         self._periodic_actions = []
         self._nonperiodic_actions = []
@@ -367,7 +430,7 @@ class AbstractActionFlag(object):
     def _rebuild_action_dispatcher(self):
         periodic_actions = unrolling_iterable(self._periodic_actions)
 
-        @jit.dont_look_inside
+        @jit.unroll_safe
         def action_dispatcher(ec, frame):
             # periodic actions (first reset the bytecode counter)
             self.reset_ticker(self.checkinterval_scaled)
@@ -433,6 +496,13 @@ class PeriodicAsyncAction(AsyncAction):
     """
 
 
+class UserDelCallback(object):
+    def __init__(self, w_obj, callback, descrname):
+        self.w_obj = w_obj
+        self.callback = callback
+        self.descrname = descrname
+        self.next = None
+
 class UserDelAction(AsyncAction):
     """An action that invokes all pending app-level __del__() method.
     This is done as an action instead of immediately when the
@@ -443,79 +513,58 @@ class UserDelAction(AsyncAction):
 
     def __init__(self, space):
         AsyncAction.__init__(self, space)
-        self.dying_objects = []
+        self.dying_objects = None
+        self.dying_objects_last = None
         self.finalizers_lock_count = 0
         self.enabled_at_app_level = True
 
     def register_callback(self, w_obj, callback, descrname):
-        self.dying_objects.append((w_obj, callback, descrname))
+        cb = UserDelCallback(w_obj, callback, descrname)
+        if self.dying_objects_last is None:
+            self.dying_objects = cb
+        else:
+            self.dying_objects_last.next = cb
+        self.dying_objects_last = cb
         self.fire()
 
     def perform(self, executioncontext, frame):
         if self.finalizers_lock_count > 0:
             return
+        self._run_finalizers()
+
+    def _run_finalizers(self):
         # Each call to perform() first grabs the self.dying_objects
         # and replaces it with an empty list.  We do this to try to
         # avoid too deep recursions of the kind of __del__ being called
         # while in the middle of another __del__ call.
         pending = self.dying_objects
-        self.dying_objects = []
+        self.dying_objects = None
+        self.dying_objects_last = None
         space = self.space
-        for i in range(len(pending)):
-            w_obj, callback, descrname = pending[i]
-            pending[i] = (None, None, None)
+        while pending is not None:
             try:
-                callback(w_obj)
+                pending.callback(pending.w_obj)
             except OperationError, e:
-                e.write_unraisable(space, descrname, w_obj)
+                e.write_unraisable(space, pending.descrname, pending.w_obj)
                 e.clear(space)   # break up reference cycles
-
-class FrameTraceAction(AsyncAction):
-    """An action that calls the local trace functions (w_f_trace)."""
-
-    def perform(self, executioncontext, frame):
-        if (frame.w_f_trace is None or executioncontext.is_tracing or
-            executioncontext.w_tracefunc is None):
-            return
-        code = frame.pycode
-        if frame.instr_lb <= frame.last_instr < frame.instr_ub:
-            if frame.last_instr < frame.instr_prev_plus_one:
-                # We jumped backwards in the same line.
-                executioncontext._trace(frame, 'line', self.space.w_None)
-        else:
-            size = len(code.co_lnotab) / 2
-            addr = 0
-            line = code.co_firstlineno
-            p = 0
-            lineno = code.co_lnotab
-            while size > 0:
-                c = ord(lineno[p])
-                if (addr + c) > frame.last_instr:
-                    break
-                addr += c
-                if c:
-                    frame.instr_lb = addr
-
-                line += ord(lineno[p + 1])
-                p += 2
-                size -= 1
-
-            if size > 0:
-                while True:
-                    size -= 1
-                    if size < 0:
-                        break
-                    addr += ord(lineno[p])
-                    if ord(lineno[p + 1]):
-                        break
-                    p += 2
-                frame.instr_ub = addr
-            else:
-                frame.instr_ub = sys.maxint
-
-            if frame.instr_lb == frame.last_instr: # At start of line!
-                frame.f_lineno = line
-                executioncontext._trace(frame, 'line', self.space.w_None)
-
-        frame.instr_prev_plus_one = frame.last_instr + 1
-        self.space.frame_trace_action.fire()     # continue tracing
+            pending = pending.next
+        #
+        # Note: 'dying_objects' used to be just a regular list instead
+        # of a chained list.  This was the cause of "leaks" if we have a
+        # program that constantly creates new objects with finalizers.
+        # Here is why: say 'dying_objects' is a long list, and there
+        # are n instances in it.  Then we spend some time in this
+        # function, possibly triggering more GCs, but keeping the list
+        # of length n alive.  Then the list is suddenly freed at the
+        # end, and we return to the user program.  At this point the
+        # GC limit is still very high, because just before, there was
+        # a list of length n alive.  Assume that the program continues
+        # to allocate a lot of instances with finalizers.  The high GC
+        # limit means that it could allocate a lot of instances before
+        # reaching it --- possibly more than n.  So the whole procedure
+        # repeats with higher and higher values of n.
+        #
+        # This does not occur in the current implementation because
+        # there is no list of length n: if n is large, then the GC
+        # will run several times while walking the list, but it will
+        # see lower and lower memory usage, with no lower bound of n.

@@ -1,12 +1,12 @@
 """The unicode/str format() method"""
 
+import sys
 import string
 
-from pypy.interpreter.error import OperationError
-from rpython.rlib import rstring, runicode, rlocale, rarithmetic, rfloat, jit
+from pypy.interpreter.error import OperationError, oefmt
+from rpython.rlib import rstring, runicode, rlocale, rfloat, jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rfloat import copysign, formatd
-from rpython.tool import sourcetools
 
 
 @specialize.argtype(1)
@@ -19,14 +19,12 @@ def _parse_int(space, s, start, end):
     result = 0
     i = start
     while i < end:
-        c = ord(s[i])
-        if ord("0") <= c <= ord("9"):
-            try:
-                result = rarithmetic.ovfcheck(result * 10)
-            except OverflowError:
-                msg = "too many decimal digits in format string"
-                raise OperationError(space.w_ValueError, space.wrap(msg))
-            result += c - ord("0")
+        digit = ord(s[i]) - ord('0')
+        if 0 <= digit <= 9:
+            if result > (sys.maxint - digit) / 10:
+                raise oefmt(space.w_ValueError,
+                            "too many decimal digits in format string")
+            result = result * 10 + digit
         else:
             break
         i += 1
@@ -384,8 +382,8 @@ def format_method(space, w_string, args, is_unicode):
 class NumberSpec(object):
     pass
 
-class BaseFormatter(object):
 
+class BaseFormatter(object):
     def format_int_or_long(self, w_num, kind):
         raise NotImplementedError
 
@@ -463,7 +461,6 @@ def make_formatting_class():
                 if not got_align:
                     self._align = "="
                 i += 1
-            start_i = i
             self._width, i = _parse_int(self.space, spec, i, length)
             if length != i and spec[i] == ",":
                 self._thousands_sep = True
@@ -578,7 +575,6 @@ def make_formatting_class():
             return space.wrap(self._pad(string))
 
         def _get_locale(self, tp):
-            space = self.space
             if tp == "n":
                 dec, thousands, grouping = rlocale.numeric_formatting()
             elif self._thousands_sep:
@@ -675,12 +671,10 @@ def make_formatting_class():
             grouping = self._loc_grouping
             min_width = spec.n_min_width
             grouping_state = 0
-            count = 0
             left = spec.n_digits
             n_ts = len(self._loc_thousands)
             need_separator = False
             done = False
-            groupings = len(grouping)
             previous = 0
             while True:
                 group = ord(grouping[grouping_state])

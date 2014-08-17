@@ -145,6 +145,8 @@ def get_L2cache_linux2():
         return get_L2cache_linux2_sparc()
     return -1
 
+get_L2cache_linux3 = get_L2cache_linux2
+
 
 def get_L2cache_linux2_cpuinfo(filename="/proc/cpuinfo", label='cache size'):
     debug_start("gc-hardware")
@@ -215,9 +217,12 @@ def get_L2cache_linux2_sparc():
             fd = os.open('/sys/devices/system/cpu/cpu' + assert_str0(str(cpu))
                          + '/l2_cache_size', os.O_RDONLY, 0644)
             try:
-                number = int(os.read(fd, 4096))
+                line = os.read(fd, 4096)
             finally:
                 os.close(fd)
+            end = len(line) - 1
+            assert end > 0
+            number = int(line[:end])
         except OSError:
             break
         if number < L2cache:

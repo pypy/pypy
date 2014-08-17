@@ -40,11 +40,6 @@ def test_llinterp():
     res = interpret(f, [sys.maxint])
     assert res == 1
 
-def test_oointerp():
-    from rpython.rtyper.test.test_llinterp import interpret
-    res = interpret(f, [sys.maxint], type_system='ootype')
-    assert res == 1
-
 def test_c_translation():
     from rpython.translator.c.test.test_genc import compile
     fn = compile(f, [int])

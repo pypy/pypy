@@ -1,5 +1,7 @@
-from rpython.translator.simplify import get_graph, get_funcobj
+from rpython.rtyper.lltypesystem.lltype import DelayedPointer
+from rpython.translator.simplify import get_graph
 from rpython.tool.algo.unionfind import UnionFind
+from rpython.rtyper.lltypesystem import rclass
 
 
 class GraphAnalyzer(object):
@@ -52,7 +54,10 @@ class GraphAnalyzer(object):
         return self.bottom_result()
 
     def analyze_external_call(self, op, seen=None):
-        funcobj = get_funcobj(op.args[0].value)
+        try:
+            funcobj = op.args[0].value._obj
+        except DelayedPointer:
+            return self.bottom_result()
         result = self.bottom_result()
         if hasattr(funcobj, '_callbacks'):
             bk = self.translator.annotator.bookkeeper
@@ -62,9 +67,6 @@ class GraphAnalyzer(object):
                     result = self.join_two_results(
                         result, self.analyze_direct_call(graph, seen))
         return result
-
-    def analyze_external_method(self, op, TYPE, meth):
-        return self.top_result()
 
     def analyze_link(self, graph, link):
         return self.bottom_result()
@@ -96,14 +98,6 @@ class GraphAnalyzer(object):
             if self.verbose and x:
                 self.dump_info('analyze_indirect_call(%s): %r' % (graphs, x))
             return x
-        elif op.opname == "oosend":
-            name = op.args[0].value
-            TYPE = op.args[1].concretetype
-            _, meth = TYPE._lookup(name)
-            graph = getattr(meth, 'graph', None)
-            if graph is None:
-                return self.analyze_external_method(op, TYPE, meth)
-            return self.analyze_oosend(TYPE, name, seen)
         x = self.analyze_simple_operation(op, graphinfo)
         if self.verbose and x:
             self.dump_info('%s: %r' % (op, x))
@@ -162,10 +156,6 @@ class GraphAnalyzer(object):
             if self.is_top_result(result):
                 break
         return self.finalize_builder(result)
-
-    def analyze_oosend(self, TYPE, name, seen=None):
-        graphs = TYPE._lookup_graphs(name)
-        return self.analyze_indirect_call(graphs, seen)
 
     def analyze_all(self, graphs=None):
         if graphs is None:

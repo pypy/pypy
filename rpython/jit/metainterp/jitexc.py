@@ -62,7 +62,7 @@ class ContinueRunningNormally(JitException):
 
 
 def _get_standard_error(rtyper, Class):
-    exdata = rtyper.getexceptiondata()
+    exdata = rtyper.exceptiondata
     clsdef = rtyper.annotator.bookkeeper.getuniqueclassdef(Class)
     evalue = exdata.get_standard_ll_exc_instance(rtyper, clsdef)
     return evalue

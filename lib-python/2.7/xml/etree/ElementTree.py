@@ -683,8 +683,8 @@ class ElementTree(object):
         return list(self.iter(tag))
 
     ##
-    # Finds the first toplevel element with given tag.
-    # Same as getroot().find(path).
+    # Same as getroot().find(path), starting at the root of the
+    # tree.
     #
     # @param path What element to look for.
     # @keyparam namespaces Optional namespace prefix map.
@@ -704,10 +704,9 @@ class ElementTree(object):
         return self._root.find(path, namespaces)
 
     ##
-    # Finds the element text for the first toplevel element with given
-    # tag.  Same as getroot().findtext(path).
+    # Same as getroot().findtext(path), starting at the root of the tree.
     #
-    # @param path What toplevel element to look for.
+    # @param path What element to look for.
     # @param default What to return if the element was not found.
     # @keyparam namespaces Optional namespace prefix map.
     # @return The text content of the first matching element, or the
@@ -729,8 +728,7 @@ class ElementTree(object):
         return self._root.findtext(path, default, namespaces)
 
     ##
-    # Finds all toplevel elements with the given tag.
-    # Same as getroot().findall(path).
+    # Same as getroot().findall(path), starting at the root of the tree.
     #
     # @param path What element to look for.
     # @keyparam namespaces Optional namespace prefix map.
@@ -779,11 +777,12 @@ class ElementTree(object):
     # @param file A file name, or a file object opened for writing.
     # @param **options Options, given as keyword arguments.
     # @keyparam encoding Optional output encoding (default is US-ASCII).
-    # @keyparam method Optional output method ("xml", "html", "text" or
-    #     "c14n"; default is "xml").
     # @keyparam xml_declaration Controls if an XML declaration should
     #     be added to the file.  Use False for never, True for always,
     #     None for only if not US-ASCII or UTF-8.  None is default.
+    # @keyparam default_namespace Sets the default XML namespace (for "xmlns").
+    # @keyparam method Optional output method ("xml", "html", "text" or
+    #     "c14n"; default is "xml").
 
     def write(self, file_or_filename,
               # keyword arguments
@@ -945,7 +944,7 @@ def _serialize_xml(write, elem, encoding, qnames, namespaces):
         write(_escape_cdata(elem.tail, encoding))
 
 HTML_EMPTY = ("area", "base", "basefont", "br", "col", "frame", "hr",
-              "img", "input", "isindex", "link", "meta" "param")
+              "img", "input", "isindex", "link", "meta", "param")
 
 try:
     HTML_EMPTY = set(HTML_EMPTY)
@@ -989,15 +988,15 @@ def _serialize_html(write, elem, encoding, qnames, namespaces):
                     # FIXME: handle boolean attributes
                     write(" %s=\"%s\"" % (qnames[k], v))
             write(">")
-            tag = tag.lower()
+            ltag = tag.lower()
             if text:
-                if tag == "script" or tag == "style":
+                if ltag == "script" or ltag == "style":
                     write(_encode(text, encoding))
                 else:
                     write(_escape_cdata(text, encoding))
             for e in elem:
                 _serialize_html(write, e, encoding, qnames, None)
-            if tag not in HTML_EMPTY:
+            if ltag not in HTML_EMPTY:
                 write("</" + tag + ">")
     if elem.tail:
         write(_escape_cdata(elem.tail, encoding))

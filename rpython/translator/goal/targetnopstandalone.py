@@ -19,4 +19,4 @@ def entry_point(argv):
 # _____ Define and setup target ___
 
 def target(*args):
-    return entry_point, None
+    return entry_point

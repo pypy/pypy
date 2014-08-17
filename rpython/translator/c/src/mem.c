@@ -49,7 +49,7 @@ void pypy_debug_alloc_results(void)
   if (count > 0)
     {
       char *env = getenv("PYPY_ALLOC");
-      fprintf(stderr, "debug_alloc.h: %ld mallocs left", count);
+      fprintf(stderr, "mem.c: %ld mallocs left", count);
       if (env && *env)
         {
           fprintf(stderr, " (most recent first):\n");
@@ -114,6 +114,11 @@ void pypy_check_stack_count(void)
     while (fd != anchor) {
         got += 1;
         fd = ((void* *) (((char *)fd) + sizeof(void*)))[0];
+    }
+    if (rpy_fastgil != 1) {
+        RPyAssert(rpy_fastgil != 0,
+                          "pypy_check_stack_count doesn't have the GIL");
+        got++;  /* <= the extra one currently stored in rpy_fastgil */
     }
     RPyAssert(got == stacks_counter - 1,
               "bad stacks_counter or non-closed stacks around");

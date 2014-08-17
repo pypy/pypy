@@ -1,5 +1,5 @@
 import py, sys
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.jit import JitDriver, dont_look_inside
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask
 from rpython.jit.codewriter.policy import StopAtXPolicy
@@ -43,7 +43,7 @@ class ExceptionTests:
         def check(n):
             if n % 2:
                 raise ValueError
-        
+
         def f(n):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n)
@@ -65,7 +65,7 @@ class ExceptionTests:
         def check(n):
             if n % 2 == 0:
                 raise ValueError
-        
+
         def f(n):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n)
@@ -116,7 +116,7 @@ class ExceptionTests:
                 return e.n
         def f(n):
             return a(n)
-        
+
         res = self.interp_operations(f, [-4])
         assert res == -40
 
@@ -476,7 +476,7 @@ class ExceptionTests:
 
         class SomeException(Exception):
             pass
-        
+
         def portal(n):
             while n > 0:
                 jitdriver.can_enter_jit(n=n)
@@ -525,7 +525,7 @@ class ExceptionTests:
         def x(n):
             if n == 1:
                 raise MyError(n)
-        
+
         def f(n):
             try:
                 while n > 0:
@@ -535,7 +535,7 @@ class ExceptionTests:
                     n -= 1
             except MyError:
                 z()
-        
+
         def z():
             raise ValueError
 
@@ -611,14 +611,25 @@ class ExceptionTests:
         res = self.meta_interp(f, [0], inline=True)
         assert res == 30
 
+    def test_catch_different_class(self):
+        def g(i):
+            if i < 0:
+                raise KeyError
+            return i
+        def f(i):
+            MyError(i)
+            try:
+                return g(i)
+            except MyError as e:
+                return e.n
+        res = self.interp_operations(f, [5], backendopt=True)
+        assert res == 5
+
 
 class MyError(Exception):
     def __init__(self, n):
         self.n = n
 
-
-class TestOOtype(ExceptionTests, OOJitMixin):
-    pass
 
 class TestLLtype(ExceptionTests, LLJitMixin):
     pass

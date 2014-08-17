@@ -36,6 +36,27 @@ class ThreadModule(MixedModule):
     }
 
 
+class IntOpModule(MixedModule):
+    appleveldefs = {}
+    interpleveldefs = {
+        'int_add':         'interp_intop.int_add',
+        'int_sub':         'interp_intop.int_sub',
+        'int_mul':         'interp_intop.int_mul',
+        'int_floordiv':    'interp_intop.int_floordiv',
+        'int_mod':         'interp_intop.int_mod',
+        'int_lshift':      'interp_intop.int_lshift',
+        'int_rshift':      'interp_intop.int_rshift',
+        'uint_rshift':     'interp_intop.uint_rshift',
+    }
+
+
+class OsModule(MixedModule):
+    appleveldefs = {}
+    interpleveldefs = {
+        'real_getenv': 'interp_os.real_getenv'
+    }
+
+
 class Module(MixedModule):
     appleveldefs = {
     }
@@ -48,17 +69,18 @@ class Module(MixedModule):
         'debug_print'               : 'interp_debug.debug_print',
         'debug_stop'                : 'interp_debug.debug_stop',
         'debug_print_once'          : 'interp_debug.debug_print_once',
+        'debug_flush'               : 'interp_debug.debug_flush',
         'builtinify'                : 'interp_magic.builtinify',
         'lookup_special'            : 'interp_magic.lookup_special',
         'do_what_I_mean'            : 'interp_magic.do_what_I_mean',
-        'list_strategy'             : 'interp_magic.list_strategy',
         'validate_fd'               : 'interp_magic.validate_fd',
         'resizelist_hint'           : 'interp_magic.resizelist_hint',
         'newlist_hint'              : 'interp_magic.newlist_hint',
         'add_memory_pressure'       : 'interp_magic.add_memory_pressure',
         'newdict'                   : 'interp_dict.newdict',
-        'dictstrategy'              : 'interp_dict.dictstrategy',
+        'strategy'                  : 'interp_magic.strategy',  # dict,set,list
         'set_debug'                 : 'interp_magic.set_debug',
+        'locals_to_fast'            : 'interp_magic.locals_to_fast',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
@@ -67,6 +89,8 @@ class Module(MixedModule):
         "builders": BuildersModule,
         "time": TimeModule,
         "thread": ThreadModule,
+        "intop": IntOpModule,
+        "os": OsModule,
     }
 
     def setup_after_space_initialization(self):

@@ -953,10 +953,6 @@ class AppTestOptimizer:
         assert i > -1
         assert isinstance(co.co_consts[i], frozenset)
 
-
-class AppTestCallMethod(object):
-    spaceconfig = {'objspace.opcodes.CALL_METHOD': True}
-        
     def test_call_method_kwargs(self):
         source = """def _f(a):
             return a.f(a=a)

@@ -67,7 +67,7 @@ class Checkers:
             except (py.error.ENOENT, py.error.ENOTDIR, py.error.EBUSY):
                 # EBUSY feels not entirely correct,
                 # but its kind of necessary since ENOMEDIUM
-                # is not accessible in python     
+                # is not accessible in python
                 for name in self._depend_on_existence:
                     if name in kw:
                         if kw.get(name):
@@ -177,7 +177,7 @@ newline will be removed from the end of each line. """
                 exists=1  # exists
 
             You can specify multiple checker definitions, for example::
-                
+
                 path.check(file=1, link=1)  # a link pointing to a file
         """
         if not kw:
@@ -223,6 +223,10 @@ newline will be removed from the end of each line. """
             return strself[len(strrelpath):]
         return ""
 
+    def ensure_dir(self, *args):
+        """ ensure the path joined with args is a directory. """
+        return self.ensure(*args, **{"dir": True})
+
     def bestrelpath(self, dest):
         """ return a string which is a relative path from self
             (assumed to be a directory) to dest such that
@@ -249,6 +253,14 @@ newline will be removed from the end of each line. """
         except AttributeError:
             return str(dest)
 
+    def exists(self):
+        return self.check()
+
+    def isdir(self):
+        return self.check(dir=1)
+
+    def isfile(self):
+        return self.check(file=1)
 
     def parts(self, reverse=False):
         """ return a root-first list of all ancestor directories
@@ -261,8 +273,8 @@ newline will be removed from the end of each line. """
             current = current.dirpath()
             if last == current:
                 break
-            l.insert(0, current)
-        if reverse:
+            l.append(current)
+        if not reverse:
             l.reverse()
         return l
 
@@ -331,7 +343,7 @@ class Visitor:
         if isinstance(fil, str):
             fil = FNMatcher(fil)
         if isinstance(rec, str):
-            self.rec = fnmatch(fil)
+            self.rec = FNMatcher(rec)
         elif not hasattr(rec, '__call__') and rec:
             self.rec = lambda path: True
         else:
@@ -364,12 +376,14 @@ class Visitor:
 class FNMatcher:
     def __init__(self, pattern):
         self.pattern = pattern
+
     def __call__(self, path):
         pattern = self.pattern
         if pattern.find(path.sep) == -1:
             name = path.basename
         else:
             name = str(path) # path.strpath # XXX svn?
-            pattern = '*' + path.sep + pattern
+            if not os.path.isabs(pattern):
+                pattern = '*' + path.sep + pattern
         return py.std.fnmatch.fnmatch(name, pattern)
 

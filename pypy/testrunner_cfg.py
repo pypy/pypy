@@ -2,8 +2,8 @@
 import os
 
 DIRS_SPLIT = [
-    'translator/c', 'translator/jvm', 'rlib',
-    'rpython/memory', 'jit/metainterp', 'rpython/test',
+    'translator/c', 'rlib',
+    'memory/test', 'jit/metainterp',
     'jit/backend/arm', 'jit/backend/x86',
 ]
 

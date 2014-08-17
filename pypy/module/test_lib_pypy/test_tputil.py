@@ -39,7 +39,7 @@ class AppTest_make_proxy:
         l = []
 
         def f(*args):
-            print args
+            print(args)
 
         tp = make_proxy(f, type=A)
         #tp.__getslice__(0, 1)

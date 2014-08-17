@@ -1,12 +1,12 @@
 import sys
+from errno import EINTR
 
 from rpython.rlib import rpoll, rsocket
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import (
-    OperationError, operationerrfmt, wrap_oserror)
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
@@ -80,8 +80,9 @@ class W_BaseConnection(W_Root):
             raise OperationError(space.w_IOError,
                                  space.wrap("connection is read-only"))
 
-    @unwrap_spec(buf='bufferstr', offset='index', size='index')
-    def send_bytes(self, space, buf, offset=0, size=PY_SSIZE_T_MIN):
+    @unwrap_spec(offset='index', size='index')
+    def send_bytes(self, space, w_buf, offset=0, size=PY_SSIZE_T_MIN):
+        buf = space.getarg_w('s*', w_buf).as_str()
         length = len(buf)
         self._check_writable(space)
         if offset < 0:
@@ -122,7 +123,7 @@ class W_BaseConnection(W_Root):
 
     @unwrap_spec(offset='index')
     def recv_bytes_into(self, space, w_buffer, offset=0):
-        rwbuffer = space.rwbuffer_w(w_buffer)
+        rwbuffer = space.writebuf_w(w_buffer)
         length = rwbuffer.getlength()
 
         res, newbuf = self.do_recv_string(
@@ -149,7 +150,7 @@ class W_BaseConnection(W_Root):
         w_pickled = space.call_method(
             w_picklemodule, "dumps", w_obj, w_protocol)
 
-        buf = space.bufferstr_w(w_pickled)
+        buf = space.str_w(w_pickled)
         self.do_send_string(space, buf, 0, len(buf))
 
     def recv(self, space):
@@ -307,6 +308,9 @@ class W_FileConnection(W_BaseConnection):
             try:
                 count = self.WRITE(data)
             except OSError, e:
+                if e.errno == EINTR:
+                    space.getexecutioncontext().checksignals()
+                    continue
                 raise wrap_oserror(space, e)
             size -= count
             message = rffi.ptradd(message, count)
@@ -318,6 +322,9 @@ class W_FileConnection(W_BaseConnection):
             try:
                 data = self.READ(remaining)
             except OSError, e:
+                if e.errno == EINTR:
+                    space.getexecutioncontext().checksignals()
+                    continue
                 raise wrap_oserror(space, e)
             count = len(data)
             if count == 0:
@@ -341,16 +348,13 @@ class W_FileConnection(W_BaseConnection):
 
     def do_poll(self, space, timeout):
         if not self._check_fd():
-            raise OperationError(space.w_IOError, space.wrap(
-                "handle out of range in select()"))
-
-        r, w, e = rpoll.select([self.fd], [], [], timeout)
+            raise oefmt(space.w_IOError, "handle out of range in select()")
+        r, w, e = rpoll.select([self.fd], [], [], timeout, handle_eintr=True)
         return bool(r)
 
 W_FileConnection.typedef = TypeDef(
-    'Connection', W_BaseConnection.typedef,
+    '_multiprocessing.Connection', W_BaseConnection.typedef,
     __new__ = interp2app(W_FileConnection.descr_new_file.im_func),
-    __module__ = '_multiprocessing',
     fileno = interp2app(W_FileConnection.fileno),
 )
 
@@ -403,9 +407,8 @@ class W_PipeConnection(W_BaseConnection):
 
             if (result == 0 and
                 rwin32.GetLastError() == ERROR_NO_SYSTEM_RESOURCES):
-                raise operationerrfmt(
-                    space.w_ValueError,
-                    "Cannot send %d bytes over connection", size)
+                raise oefmt(space.w_ValueError,
+                            "Cannot send %d bytes over connection", size)
         finally:
             rffi.free_charp(charp)
             lltype.free(written_ptr, flavor='raw')
@@ -530,8 +533,7 @@ class W_PipeConnection(W_BaseConnection):
 
 if sys.platform == 'win32':
     W_PipeConnection.typedef = TypeDef(
-        'PipeConnection', W_BaseConnection.typedef,
+        '_multiprocessing.PipeConnection', W_BaseConnection.typedef,
         __new__ = interp2app(W_PipeConnection.descr_new_pipe.im_func),
-        __module__ = '_multiprocessing',
         fileno = interp2app(W_PipeConnection.fileno),
     )

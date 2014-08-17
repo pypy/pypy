@@ -135,8 +135,7 @@ class AppTestZipImport:
             importer = zipimport.zipimporter(os.path.join(zip_path, '_pkg'))
             assert zip_path in zipimport._zip_directory_cache
             file_set = set(zipimport._zip_directory_cache[zip_path].iterkeys())
-            compare_set = set(path.replace(os.path.sep, '/') + '.py'
-                              for path in self.created_paths)
+            compare_set = set(path + '.py' for path in self.created_paths)
             assert file_set == compare_set
         finally:
             self.cleanup_zipfile(self.created_paths)

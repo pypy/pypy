@@ -33,16 +33,11 @@ class Module(MixedModule):
 
     interpleveldefs = {
         # constants
+        '__debug__'     : '(space.w_True)',
         'None'          : '(space.w_None)',
         'False'         : '(space.w_False)',
         'True'          : '(space.w_True)',
-        '__debug__'     : '(space.w_True)',      # XXX
-        'type'          : '(space.w_type)',
-        'object'        : '(space.w_object)',
         'bytes'         : '(space.w_str)',
-        'unicode'       : '(space.w_unicode)',
-        'buffer'        : 'interp_memoryview.W_Buffer',
-        'memoryview'    : 'interp_memoryview.W_MemoryView',
 
         'file'          : 'state.get(space).w_file',
         'open'          : 'state.get(space).w_file',
@@ -102,26 +97,26 @@ class Module(MixedModule):
     }
 
     def pick_builtin(self, w_globals):
-       "Look up the builtin module to use from the __builtins__ global"
-       # pick the __builtins__ roughly in the same way CPython does it
-       # this is obscure and slow
-       space = self.space
-       try:
-           w_builtin = space.getitem(w_globals, space.wrap('__builtins__'))
-       except OperationError, e:
-           if not e.match(space, space.w_KeyError):
-               raise
-       else:
-           if w_builtin is space.builtin:   # common case
-               return space.builtin
-           if space.isinstance_w(w_builtin, space.w_dict):
+        "Look up the builtin module to use from the __builtins__ global"
+        # pick the __builtins__ roughly in the same way CPython does it
+        # this is obscure and slow
+        space = self.space
+        try:
+            w_builtin = space.getitem(w_globals, space.wrap('__builtins__'))
+        except OperationError, e:
+            if not e.match(space, space.w_KeyError):
+                raise
+        else:
+            if w_builtin is space.builtin:   # common case
+                return space.builtin
+            if space.isinstance_w(w_builtin, space.w_dict):
                 return module.Module(space, None, w_builtin)
-           if isinstance(w_builtin, module.Module):
-               return w_builtin
-       # no builtin! make a default one.  Give them None, at least.
-       builtin = module.Module(space, None)
-       space.setitem(builtin.w_dict, space.wrap('None'), space.w_None)
-       return builtin
+            if isinstance(w_builtin, module.Module):
+                return w_builtin
+        # no builtin! make a default one.  Give them None, at least.
+        builtin = module.Module(space, None)
+        space.setitem(builtin.w_dict, space.wrap('None'), space.w_None)
+        return builtin
 
     def setup_after_space_initialization(self):
         """NOT_RPYTHON"""

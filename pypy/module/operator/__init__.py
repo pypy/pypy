@@ -50,6 +50,7 @@ class Module(MixedModule):
         '__concat__' : 'concat',
         '__contains__' : 'contains',
         'sequenceIncludes' : 'contains',
+        '__index__' : 'index',
         '__delitem__' : 'delitem',
         '__div__' : 'div',
         '__eq__' : 'eq',

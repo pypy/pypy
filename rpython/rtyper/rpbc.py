@@ -2,18 +2,17 @@ import types
 
 from rpython.annotator import model as annmodel, description
 from rpython.flowspace.model import Constant
+from rpython.annotator.argument import simple_args
 from rpython.rtyper import rclass, callparse
-from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.lltypesystem.lltype import typeOf, Void, Bool
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
-    inputdesc, warning, impossible_repr)
+    warning, impossible_repr)
 from rpython.tool.pairtype import pair, pairtype
 
 
 def small_cand(rtyper, s_pbc):
-    if 1 < len(s_pbc.descriptions) < rtyper.getconfig().translation.withsmallfuncsets and \
-           hasattr(rtyper.type_system.rpbc, 'SmallFunctionSetPBCRepr'):
+    if 1 < len(s_pbc.descriptions) < rtyper.getconfig().translation.withsmallfuncsets:
         callfamily = s_pbc.any_description().getcallfamily()
         concretetable, uniquerows = get_concrete_calltable(rtyper, callfamily)
         if len(uniquerows) == 1 and (not s_pbc.subset_of or small_cand(rtyper, s_pbc.subset_of)):
@@ -22,8 +21,8 @@ def small_cand(rtyper, s_pbc):
 
 class __extend__(annmodel.SomePBC):
     def rtyper_makerepr(self, rtyper):
-        if self.isNone():
-            return none_frozen_pbc_repr
+        from rpython.rtyper.lltypesystem.rpbc import (
+            FunctionsPBCRepr, SmallFunctionSetPBCRepr, ClassesPBCRepr)
         kind = self.getKind()
         if issubclass(kind, description.FunctionDesc):
             sample = self.any_description()
@@ -32,20 +31,20 @@ class __extend__(annmodel.SomePBC):
                 if sample.overridden:
                     getRepr = OverriddenFunctionPBCRepr
                 else:
-                    getRepr = rtyper.type_system.rpbc.FunctionsPBCRepr
+                    getRepr = FunctionsPBCRepr
                     if small_cand(rtyper, self):
-                        getRepr = rtyper.type_system.rpbc.SmallFunctionSetPBCRepr
+                        getRepr = SmallFunctionSetPBCRepr
             else:
                 getRepr = getFrozenPBCRepr
         elif issubclass(kind, description.ClassDesc):
             # user classes
-            getRepr = rtyper.type_system.rpbc.ClassesPBCRepr
+            getRepr = ClassesPBCRepr
         elif issubclass(kind, description.MethodDesc):
-            getRepr = rtyper.type_system.rpbc.MethodsPBCRepr
+            getRepr = MethodsPBCRepr
         elif issubclass(kind, description.FrozenDesc):
             getRepr = getFrozenPBCRepr
         elif issubclass(kind, description.MethodOfFrozenDesc):
-            getRepr = rtyper.type_system.rpbc.MethodOfFrozenPBCRepr
+            getRepr = MethodOfFrozenPBCRepr
         else:
             raise TyperError("unexpected PBC kind %r" % (kind,))
 
@@ -59,14 +58,6 @@ class __extend__(annmodel.SomePBC):
         else:
             t = ()
         return tuple([self.__class__, self.can_be_None]+lst)+t
-
-##builtin_descriptor_type = (
-##    type(len),                            # type 'builtin_function_or_method'
-##    type(list.append),                    # type 'method_descriptor'
-##    type(type(None).__repr__),            # type 'wrapper_descriptor'
-##    type(type.__dict__['__dict__']),      # type 'getset_descriptor'
-##    type(type.__dict__['__flags__']),     # type 'member_descriptor'
-##    )
 
 # ____________________________________________________________
 
@@ -122,7 +113,7 @@ def build_concrete_calltable(rtyper, callfamily):
                 llfn = rtyper.getcallable(graph)
                 concreterow[funcdesc] = llfn
             assert len(concreterow) > 0
-            concreterow.fntype = typeOf(llfn)   # 'llfn' from the loop above
+            concreterow.fntype = lltype.typeOf(llfn)# 'llfn' from the loop above
                                          # (they should all have the same type)
             concreterows[shape, index] = concreterow
 
@@ -170,7 +161,7 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         self.callfamily = s_pbc.any_description().getcallfamily()
         if len(s_pbc.descriptions) == 1 and not s_pbc.can_be_None:
             # a single function
-            self.lowleveltype = Void
+            self.lowleveltype = lltype.Void
         else:
             concretetable, uniquerows = get_concrete_calltable(self.rtyper,
                                                                self.callfamily)
@@ -196,23 +187,13 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         funcdesc = self.s_pbc.any_description()
         return funcdesc.get_s_signatures(shape)
 
-##    def function_signatures(self):
-##        if self._function_signatures is None:
-##            self._function_signatures = {}
-##            for func in self.s_pbc.prebuiltinstances:
-##                if func is not None:
-##                    self._function_signatures[func] = getsignature(self.rtyper,
-##                                                                   func)
-##            assert self._function_signatures
-##        return self._function_signatures
-
     def convert_desc(self, funcdesc):
         # get the whole "column" of the call table corresponding to this desc
         try:
             return self.funccache[funcdesc]
         except KeyError:
             pass
-        if self.lowleveltype is Void:
+        if self.lowleveltype is lltype.Void:
             result = None
         else:
             llfns = {}
@@ -244,7 +225,7 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
             value = value.im_func   # unbound method -> bare function
         elif isinstance(value, staticmethod):
             value = value.__get__(42) # hackish, get the function wrapped by staticmethod
-        if self.lowleveltype is Void:
+        if self.lowleveltype is lltype.Void:
             return None
         if value is None:
             null = self.rtyper.type_system.null_callable(self.lowleveltype)
@@ -258,34 +239,38 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         'index' and 'shape' tells which of its items we are interested in.
         """
         assert v.concretetype == self.lowleveltype
-        if self.lowleveltype is Void:
+        if self.lowleveltype is lltype.Void:
             assert len(self.s_pbc.descriptions) == 1
                                       # lowleveltype wouldn't be Void otherwise
             funcdesc, = self.s_pbc.descriptions
             row_of_one_graph = self.callfamily.calltables[shape][index]
             graph = row_of_one_graph[funcdesc]
             llfn = self.rtyper.getcallable(graph)
-            return inputconst(typeOf(llfn), llfn)
+            return inputconst(lltype.typeOf(llfn), llfn)
         elif len(self.uniquerows) == 1:
             return v
         else:
             # 'v' is a Struct pointer, read the corresponding field
             row = self.concretetable[shape, index]
-            cname = inputconst(Void, row.attrname)
+            cname = inputconst(lltype.Void, row.attrname)
             return self.get_specfunc_row(llop, v, cname, row.fntype)
 
     def get_unique_llfn(self):
         # try to build a unique low-level function.  Avoid to use
         # whenever possible!  Doesn't work with specialization, multiple
         # different call sites, etc.
-        if self.lowleveltype is not Void:
+        if self.lowleveltype is not lltype.Void:
             raise TyperError("cannot pass multiple functions here")
         assert len(self.s_pbc.descriptions) == 1
                                   # lowleveltype wouldn't be Void otherwise
         funcdesc, = self.s_pbc.descriptions
-        if len(self.callfamily.calltables) != 1:
+        tables = []        # find the simple call in the calltable
+        for shape, table in self.callfamily.calltables.items():
+            if not shape[1] and not shape[2]:
+                tables.append(table)
+        if len(tables) != 1:
             raise TyperError("cannot pass a function with various call shapes")
-        table, = self.callfamily.calltables.values()
+        table, = tables
         graphs = []
         for row in table:
             if funcdesc in row:
@@ -296,17 +281,29 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         if graphs != [graph]*len(graphs):
             raise TyperError("cannot pass a specialized function here")
         llfn = self.rtyper.getcallable(graph)
-        return inputconst(typeOf(llfn), llfn)
+        return inputconst(lltype.typeOf(llfn), llfn)
+
+    def get_concrete_llfn(self, s_pbc, args_s, op):
+        bk = self.rtyper.annotator.bookkeeper
+        descs = list(s_pbc.descriptions)
+        vfcs = description.FunctionDesc.variant_for_call_site
+        args = simple_args(args_s)
+        shape, index = vfcs(bk, self.callfamily, descs, args, op)
+        funcdesc, = descs
+        row_of_one_graph = self.callfamily.calltables[shape][index]
+        graph = row_of_one_graph[funcdesc]
+        llfn = self.rtyper.getcallable(graph)
+        return inputconst(lltype.typeOf(llfn), llfn)
 
     def rtype_simple_call(self, hop):
-        return self.call('simple_call', hop)
+        return self.call(hop)
 
     def rtype_call_args(self, hop):
-        return self.call('call_args', hop)
+        return self.call(hop)
 
-    def call(self, opname, hop):
+    def call(self, hop):
         bk = self.rtyper.annotator.bookkeeper
-        args = bk.build_args(opname, hop.args_s[1:])
+        args = hop.spaceop.build_args(hop.args_s[1:])
         s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
         descs = list(s_pbc.descriptions)
         vfcs = description.FunctionDesc.variant_for_call_site
@@ -316,13 +313,13 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         vfn = hop.inputarg(self, arg=0)
         vlist = [self.convert_to_concrete_llfn(vfn, shape, index,
                                                hop.llops)]
-        vlist += callparse.callparse(self.rtyper, anygraph, hop, opname)
+        vlist += callparse.callparse(self.rtyper, anygraph, hop)
         rresult = callparse.getrresult(self.rtyper, anygraph)
         hop.exception_is_here()
         if isinstance(vlist[0], Constant):
             v = hop.genop('direct_call', vlist, resulttype = rresult)
         else:
-            vlist.append(hop.inputconst(Void, row_of_graphs.values()))
+            vlist.append(hop.inputconst(lltype.Void, row_of_graphs.values()))
             v = hop.genop('indirect_call', vlist, resulttype = rresult)
         if hop.r_result is impossible_repr:
             return None      # see test_always_raising_methods
@@ -334,10 +331,10 @@ class __extend__(pairtype(AbstractFunctionsPBCRepr, AbstractFunctionsPBCRepr)):
         # this check makes sense because both source and dest repr are FunctionsPBCRepr
         if r_fpbc1.lowleveltype == r_fpbc2.lowleveltype:
             return v
-        if r_fpbc1.lowleveltype is Void:
+        if r_fpbc1.lowleveltype is lltype.Void:
             return inputconst(r_fpbc2, r_fpbc1.s_pbc.const)
-        if r_fpbc2.lowleveltype is Void:
-            return inputconst(Void, None)
+        if r_fpbc2.lowleveltype is lltype.Void:
+            return inputconst(lltype.Void, None)
         return NotImplemented
 
 class OverriddenFunctionPBCRepr(Repr):
@@ -345,13 +342,15 @@ class OverriddenFunctionPBCRepr(Repr):
         self.rtyper = rtyper
         self.s_pbc = s_pbc
         assert len(s_pbc.descriptions) == 1
-        self.lowleveltype = Void
+        self.lowleveltype = lltype.Void
 
     def rtype_simple_call(self, hop):
         from rpython.rtyper.rspecialcase import rtype_call_specialcase
         return rtype_call_specialcase(hop)
 
 def getFrozenPBCRepr(rtyper, s_pbc):
+    from rpython.rtyper.lltypesystem.rpbc import (
+        MultipleUnrelatedFrozenPBCRepr, MultipleFrozenPBCRepr)
     descs = list(s_pbc.descriptions)
     assert len(descs) >= 1
     if len(descs) == 1 and not s_pbc.can_be_None:
@@ -364,15 +363,13 @@ def getFrozenPBCRepr(rtyper, s_pbc):
                 try:
                     return rtyper.pbc_reprs['unrelated']
                 except KeyError:
-                    rpbc = rtyper.type_system.rpbc
-                    result = rpbc.MultipleUnrelatedFrozenPBCRepr(rtyper)
+                    result = MultipleUnrelatedFrozenPBCRepr(rtyper)
                     rtyper.pbc_reprs['unrelated'] = result
                     return result
         try:
             return rtyper.pbc_reprs[access]
         except KeyError:
-            result = rtyper.type_system.rpbc.MultipleFrozenPBCRepr(rtyper,
-                                                                   access)
+            result = MultipleFrozenPBCRepr(rtyper, access)
             rtyper.pbc_reprs[access] = result
             rtyper.add_pendingsetup(result)
             return result
@@ -380,7 +377,7 @@ def getFrozenPBCRepr(rtyper, s_pbc):
 
 class SingleFrozenPBCRepr(Repr):
     """Representation selected for a single non-callable pre-built constant."""
-    lowleveltype = Void
+    lowleveltype = lltype.Void
 
     def __init__(self, frozendesc):
         self.frozendesc = frozendesc
@@ -415,7 +412,7 @@ class AbstractMultipleUnrelatedFrozenPBCRepr(CanBeNull, Repr):
             return self.converted_pbc_cache[frozendesc]
         except KeyError:
             r = self.rtyper.getrepr(annmodel.SomePBC([frozendesc]))
-            if r.lowleveltype is Void:
+            if r.lowleveltype is lltype.Void:
                 # must create a new empty structure, as a placeholder
                 pbc = self.create_instance()
             else:
@@ -465,7 +462,7 @@ class AbstractMultipleFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
             result = self.create_instance()
             self.pbc_cache[frozendesc] = result
             for attr, (mangled_name, r_value) in self.fieldmap.items():
-                if r_value.lowleveltype is Void:
+                if r_value.lowleveltype is lltype.Void:
                     continue
                 try:
                     thisattrvalue = frozendesc.attrcache[attr]
@@ -482,7 +479,7 @@ class AbstractMultipleFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
             return hop.inputconst(hop.r_result, hop.s_result.const)
 
         attr = hop.args_s[1].const
-        vpbc, vattr = hop.inputargs(self, Void)
+        vpbc, vattr = hop.inputargs(self, lltype.Void)
         v_res = self.getfield(vpbc, attr, hop.llops)
         mangled_name, r_res = self.fieldmap[attr]
         return hop.llops.convertvar(v_res, r_res, hop.r_result)
@@ -498,13 +495,15 @@ class __extend__(pairtype(SingleFrozenPBCRepr, AbstractMultipleFrozenPBCRepr)):
         frozendesc1 = r_pbc1.frozendesc
         access = frozendesc1.queryattrfamily()
         if access is r_pbc2.access_set:
-            return inputdesc(r_pbc2, frozendesc1)
+            value = r_pbc2.convert_desc(frozendesc1)
+            lltype = r_pbc2.lowleveltype
+            return Constant(value, lltype)
         return NotImplemented
 
 class __extend__(pairtype(AbstractMultipleUnrelatedFrozenPBCRepr,
                           SingleFrozenPBCRepr)):
     def convert_from_to((r_pbc1, r_pbc2), v, llops):
-        return inputconst(Void, r_pbc2.frozendesc)
+        return inputconst(lltype.Void, r_pbc2.frozendesc)
 
 
 class MethodOfFrozenPBCRepr(Repr):
@@ -583,52 +582,6 @@ class __extend__(pairtype(MethodOfFrozenPBCRepr, MethodOfFrozenPBCRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         return pair(r_from.r_im_self, r_to.r_im_self).convert_from_to(v, llops)
 
-# __ None ____________________________________________________
-class NoneFrozenPBCRepr(Repr):
-    lowleveltype = Void
-
-    def rtype_is_true(self, hop):
-        return Constant(False, Bool)
-
-    def none_call(self, hop):
-        raise TyperError("attempt to call constant None")
-
-    def ll_str(self, none):
-        return llstr("None")
-
-    def get_ll_hash_function(self):
-        return ll_none_hash
-
-    rtype_simple_call = none_call
-    rtype_call_args = none_call
-
-none_frozen_pbc_repr = NoneFrozenPBCRepr()
-
-def ll_none_hash(_):
-    return 0
-
-
-class __extend__(pairtype(Repr, NoneFrozenPBCRepr)):
-
-    def convert_from_to((r_from, _), v, llops):
-        return inputconst(Void, None)
-
-    def rtype_is_((robj1, rnone2), hop):
-        if hop.s_result.is_constant():
-            return hop.inputconst(Bool, hop.s_result.const)
-        return hop.rtyper.type_system.rpbc.rtype_is_None(robj1, rnone2, hop)
-
-class __extend__(pairtype(NoneFrozenPBCRepr, Repr)):
-
-    def convert_from_to((_, r_to), v, llops):
-        return inputconst(r_to, None)
-
-    def rtype_is_((rnone1, robj2), hop):
-        if hop.s_result.is_constant():
-            return hop.inputconst(Bool, hop.s_result.const)
-        return hop.rtyper.type_system.rpbc.rtype_is_None(
-                                                robj2, rnone1, hop, pos=1)
-
 # ____________________________________________________________
 
 class AbstractClassesPBCRepr(Repr):
@@ -641,7 +594,7 @@ class AbstractClassesPBCRepr(Repr):
         #    raise TyperError("unsupported: variable of type "
         #                     "class-pointer or None")
         if s_pbc.is_constant():
-            self.lowleveltype = Void
+            self.lowleveltype = lltype.Void
         else:
             self.lowleveltype = self.getlowleveltype()
 
@@ -664,7 +617,7 @@ class AbstractClassesPBCRepr(Repr):
     def convert_desc(self, desc):
         if desc not in self.s_pbc.descriptions:
             raise TyperError("%r not in %r" % (desc, self))
-        if self.lowleveltype is Void:
+        if self.lowleveltype is lltype.Void:
             return None
         subclassdef = desc.getuniqueclassdef()
         r_subclass = rclass.getclassrepr(self.rtyper, subclassdef)
@@ -672,7 +625,7 @@ class AbstractClassesPBCRepr(Repr):
 
     def convert_const(self, cls):
         if cls is None:
-            if self.lowleveltype is Void:
+            if self.lowleveltype is lltype.Void:
                 return None
             else:
                 T = self.lowleveltype
@@ -686,8 +639,15 @@ class AbstractClassesPBCRepr(Repr):
             return hop.inputconst(hop.r_result, hop.s_result.const)
         else:
             attr = hop.args_s[1].const
+            if attr == '__name__':
+                from rpython.rtyper.lltypesystem import rstr
+                class_repr = rclass.getclassrepr(self.rtyper, None)
+                vcls, vattr = hop.inputargs(class_repr, lltype.Void)
+                cname = inputconst(lltype.Void, 'name')
+                return hop.genop('getfield', [vcls, cname],
+                                 resulttype = lltype.Ptr(rstr.STR))
             access_set, class_repr = self.get_access_set(attr)
-            vcls, vattr = hop.inputargs(class_repr, Void)
+            vcls, vattr = hop.inputargs(class_repr, lltype.Void)
             v_res = class_repr.getpbcfield(vcls, access_set, attr, hop.llops)
             s_res = access_set.s_value
             r_res = self.rtyper.getrepr(s_res)
@@ -716,7 +676,7 @@ class AbstractClassesPBCRepr(Repr):
 
         if len(self.s_pbc.descriptions) == 1:
             # instantiating a single class
-            if self.lowleveltype is not Void:
+            if self.lowleveltype is not lltype.Void:
                 assert 0, "XXX None-or-1-class instantation not implemented"
             assert isinstance(s_instance, annmodel.SomeInstance)
             classdef = s_instance.classdef
@@ -773,7 +733,7 @@ class __extend__(pairtype(AbstractClassesPBCRepr, rclass.AbstractClassRepr)):
         # turn a PBC of classes to a standard pointer-to-vtable class repr
         if r_clspbc.lowleveltype == r_cls.lowleveltype:
             return v
-        if r_clspbc.lowleveltype is Void:
+        if r_clspbc.lowleveltype is lltype.Void:
             return inputconst(r_cls, r_clspbc.s_pbc.const)
         # convert from ptr-to-object-vtable to ptr-to-more-precise-vtable
         return r_cls.fromclasstype(v, llops)
@@ -783,10 +743,10 @@ class __extend__(pairtype(AbstractClassesPBCRepr, AbstractClassesPBCRepr)):
         # this check makes sense because both source and dest repr are ClassesPBCRepr
         if r_clspbc1.lowleveltype == r_clspbc2.lowleveltype:
             return v
-        if r_clspbc1.lowleveltype is Void:
+        if r_clspbc1.lowleveltype is lltype.Void:
             return inputconst(r_clspbc2, r_clspbc1.s_pbc.const)
-        if r_clspbc2.lowleveltype is Void:
-            return inputconst(Void, r_clspbc2.s_pbc.const)
+        if r_clspbc2.lowleveltype is lltype.Void:
+            return inputconst(lltype.Void, r_clspbc2.s_pbc.const)
         return NotImplemented
 
 def adjust_shape(hop2, s_shape):
@@ -795,7 +755,7 @@ def adjust_shape(hop2, s_shape):
     s_shape = hop2.rtyper.annotator.bookkeeper.immutablevalue(new_shape)
     hop2.v_s_insertfirstarg(c_shape, s_shape) # reinsert adjusted shape
 
-class AbstractMethodsPBCRepr(Repr):
+class MethodsPBCRepr(Repr):
     """Representation selected for a PBC of MethodDescs.
     It assumes that all the methods come from the same name and have
     been read from instances with a common base."""
@@ -803,9 +763,6 @@ class AbstractMethodsPBCRepr(Repr):
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
         self.s_pbc = s_pbc
-        if s_pbc.isNone():
-            raise TyperError("unsupported: variable of type "
-                             "bound-method-object or None")
         mdescs = list(s_pbc.descriptions)
         methodname = mdescs[0].name
         classdef = mdescs[0].selfclassdef
@@ -824,15 +781,7 @@ class AbstractMethodsPBCRepr(Repr):
                                  "classes with no common base: %r" % (mdescs,))
 
         self.methodname = methodname
-        # for ootype, the right thing to do is to always keep the most precise
-        # type of the instance, while for lltype we want to cast it to the
-        # type where the method is actually defined. See also
-        # test_rclass.test_method_specialized_with_subclass and
-        # rtyper.attach_methods_to_subclasses
-        if self.rtyper.type_system.name == 'ootypesystem':
-            self.classdef = classdef
-        else:
-            self.classdef = classdef.locate_attribute(methodname)
+        self.classdef = classdef.locate_attribute(methodname)
         # the low-level representation is just the bound 'self' argument.
         self.s_im_self = annmodel.SomeInstance(self.classdef, flags=flags)
         self.r_im_self = rclass.getinstancerepr(rtyper, self.classdef)
@@ -866,17 +815,43 @@ class AbstractMethodsPBCRepr(Repr):
             _, s_shape = hop2.r_s_popfirstarg()
             adjust_shape(hop2, s_shape)
         return hop2
-# ____________________________________________________________
 
-##def getsignature(rtyper, func):
-##    f = rtyper.getcallable(func)
-##    graph = rtyper.type_system_deref(f).graph
-##    rinputs = [rtyper.bindingrepr(v) for v in graph.getargs()]
-##    if graph.getreturnvar() in rtyper.annotator.bindings:
-##        rresult = rtyper.bindingrepr(graph.getreturnvar())
-##    else:
-##        rresult = Void
-##    return f, rinputs, rresult
+    def rtype_simple_call(self, hop):
+        return self.redispatch_call(hop, call_args=False)
+
+    def rtype_call_args(self, hop):
+        return self.redispatch_call(hop, call_args=True)
+
+    def redispatch_call(self, hop, call_args):
+        from rpython.rtyper.lltypesystem.rpbc import (
+            FunctionsPBCRepr, SmallFunctionSetPBCRepr)
+        r_class = self.r_im_self.rclass
+        mangled_name, r_func = r_class.clsfields[self.methodname]
+        assert isinstance(r_func, (FunctionsPBCRepr,
+                                   OverriddenFunctionPBCRepr,
+                                   SmallFunctionSetPBCRepr))
+        # s_func = r_func.s_pbc -- not precise enough, see
+        # test_precise_method_call_1.  Build a more precise one...
+        funcdescs = [desc.funcdesc for desc in hop.args_s[0].descriptions]
+        s_func = annmodel.SomePBC(funcdescs, subset_of=r_func.s_pbc)
+        v_im_self = hop.inputarg(self, arg=0)
+        v_cls = self.r_im_self.getfield(v_im_self, '__class__', hop.llops)
+        v_func = r_class.getclsfield(v_cls, self.methodname, hop.llops)
+
+        hop2 = self.add_instance_arg_to_hop(hop, call_args)
+        hop2.v_s_insertfirstarg(v_func, s_func)   # insert 'function'
+
+        if (type(hop2.args_r[0]) is SmallFunctionSetPBCRepr and
+                type(r_func) is FunctionsPBCRepr):
+            hop2.args_r[0] = FunctionsPBCRepr(self.rtyper, s_func)
+        else:
+            hop2.args_v[0] = hop2.llops.convertvar(
+                hop2.args_v[0], r_func, hop2.args_r[0])
+
+        # now hop2 looks like simple_call(function, self, args...)
+        return hop2.dispatch()
+
+# ____________________________________________________________
 
 def samesig(funcs):
     import inspect

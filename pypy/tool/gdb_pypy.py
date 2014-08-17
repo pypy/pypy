@@ -8,8 +8,6 @@ Or, alternatively:
 (gdb) python execfile('/path/to/gdb_pypy.py')
 """
 
-from __future__ import with_statement
-
 import re
 import sys
 import os.path
@@ -38,9 +36,9 @@ def find_field_with_suffix(val, suffix):
     if len(names) == 1:
         return val[names[0]]
     elif len(names) == 0:
-        raise KeyError, "cannot find field *%s" % suffix
+        raise KeyError("cannot find field *%s" % suffix)
     else:
-        raise KeyError, "too many matching fields: %s" % ', '.join(names)
+        raise KeyError("too many matching fields: %s" % ', '.join(names))
 
 def lookup(val, suffix):
     """
@@ -58,7 +56,6 @@ def lookup(val, suffix):
 class RPyType(Command):
     """
     Prints the RPython type of the expression (remember to dereference it!)
-    It assumes to find ``typeids.txt`` in the current directory.
     E.g.:
 
     (gdb) rpy_type *l_v123
@@ -76,18 +73,29 @@ class RPyType(Command):
 
     def invoke(self, arg, from_tty):
         # some magic code to automatically reload the python file while developing
-        ## from pypy.tool import gdb_pypy
-        ## reload(gdb_pypy)
-        ## gdb_pypy.RPyType.prog2typeids = self.prog2typeids # persist the cache
-        ## self.__class__ = gdb_pypy.RPyType
-        print self.do_invoke(arg, from_tty)
+        from pypy.tool import gdb_pypy
+        try:
+            reload(gdb_pypy)
+        except:
+            import imp
+            imp.reload(gdb_pypy)
+        gdb_pypy.RPyType.prog2typeids = self.prog2typeids # persist the cache
+        self.__class__ = gdb_pypy.RPyType
+        print (self.do_invoke(arg, from_tty).decode('latin-1'))
 
     def do_invoke(self, arg, from_tty):
-        obj = self.gdb.parse_and_eval(arg)
-        hdr = lookup(obj, '_gcheader')
-        tid = hdr['h_tid']
-        offset = tid & 0xFFFFFFFF # 64bit only
-        offset = int(offset) # convert from gdb.Value to python int
+        try:
+            offset = int(arg)
+        except ValueError:
+            obj = self.gdb.parse_and_eval(arg)
+            hdr = lookup(obj, '_gcheader')
+            tid = hdr['h_tid']
+            if sys.maxsize < 2**32:
+                offset = tid & 0xFFFF     # 32bit
+            else:
+                offset = tid & 0xFFFFFFFF # 64bit
+            offset = int(offset) # convert from gdb.Value to python int
+
         typeids = self.get_typeids()
         if offset in typeids:
             return typeids[offset]
@@ -95,7 +103,10 @@ class RPyType(Command):
             return 'Cannot find the type with offset %d' % offset
 
     def get_typeids(self):
-        progspace = self.gdb.current_progspace()
+        try:
+            progspace = self.gdb.current_progspace()
+        except AttributeError:
+            progspace = None
         try:
             return self.prog2typeids[progspace]
         except KeyError:
@@ -103,25 +114,72 @@ class RPyType(Command):
             self.prog2typeids[progspace] = typeids
             return typeids
 
-    def load_typeids(self, progspace):
+    def load_typeids(self, progspace=None):
         """
         Returns a mapping offset --> description
         """
-        exename = progspace.filename
-        root = os.path.dirname(exename)
-        typeids_txt = os.path.join(root, 'typeids.txt')
-        if not os.path.exists(typeids_txt):
-            newroot = os.path.dirname(root)
-            typeids_txt = os.path.join(newroot, 'typeids.txt')
-        print 'loading', typeids_txt
-        typeids = {}
-        with open(typeids_txt) as f:
-            for line in f:
-                member, descr = map(str.strip, line.split(None, 1))
-                expr = "((char*)(&pypy_g_typeinfo.%s)) - (char*)&pypy_g_typeinfo" % member
-                offset = int(self.gdb.parse_and_eval(expr))
-                typeids[offset] = descr
-        return typeids
+        import tempfile
+        import zlib
+        vname = 'pypy_g_rpython_memory_gctypelayout_GCData.gcd_inst_typeids_z'
+        length = int(self.gdb.parse_and_eval('*(long*)%s' % vname))
+        vstart = '(char*)(((long*)%s)+1)' % vname
+        with tempfile.NamedTemporaryFile('rb') as fobj:
+            self.gdb.execute('dump binary memory %s %s %s+%d' %
+                             (fobj.name, vstart, vstart, length))
+            data = fobj.read()
+        return TypeIdsMap(zlib.decompress(data).splitlines(True), self.gdb)
+
+
+class TypeIdsMap(object):
+    def __init__(self, lines, gdb):
+        self.lines = lines
+        self.gdb = gdb
+        self.line2offset = {0: 0}
+        self.offset2descr = {0: "(null typeid)"}
+
+    def __getitem__(self, key):
+        value = self.get(key)
+        if value is None:
+            raise KeyError(key)
+        return value
+
+    def __contains__(self, key):
+        return self.get(key) is not None
+
+    def _fetchline(self, linenum):
+        if linenum in self.line2offset:
+            return self.line2offset[linenum]
+        line = self.lines[linenum]
+        member, descr = [x.strip() for x in line.split(None, 1)]
+        if sys.maxsize < 2**32:
+            TIDT = "int*"
+        else:
+            TIDT = "char*"
+        expr = ("((%s)(&pypy_g_typeinfo.%s)) - (%s)&pypy_g_typeinfo"
+                   % (TIDT, member.decode("latin-1"), TIDT))
+        offset = int(self.gdb.parse_and_eval(expr))
+        self.line2offset[linenum] = offset
+        self.offset2descr[offset] = descr
+        #print '%r -> %r -> %r' % (linenum, offset, descr)
+        return offset
+
+    def get(self, offset, default=None):
+        # binary search through the lines, asking gdb to parse stuff lazily
+        if offset in self.offset2descr:
+            return self.offset2descr[offset]
+        if not (0 < offset < sys.maxsize):
+            return None
+        linerange = (0, len(self.lines))
+        while linerange[0] < linerange[1]:
+            linemiddle = (linerange[0] + linerange[1]) >> 1
+            offsetmiddle = self._fetchline(linemiddle)
+            if offsetmiddle == offset:
+                return self.offset2descr[offset]
+            elif offsetmiddle < offset:
+                linerange = (linemiddle + 1, linerange[1])
+            else:
+                linerange = (linerange[0], linemiddle)
+        return None
 
 
 def is_ptr(type, gdb):
@@ -155,11 +213,16 @@ class RPyStringPrinter(object):
         items = chars['items']
         res = []
         for i in range(min(length, MAX_DISPLAY_LENGTH)):
+            c = items[i]
             try:
-                res.append(chr(items[i]))
+                res.append(chr(c))
             except ValueError:
                 # it's a gdb.Value so it has "121 'y'" as repr
-                res.append(chr(int(str(items[0]).split(" ")[0])))
+                try:
+                    res.append(chr(int(str(c).split(" ")[0])))
+                except ValueError:
+                    # meh?
+                    res.append(repr(c))
         if length > MAX_DISPLAY_LENGTH:
             res.append('...')
         string = ''.join(res)

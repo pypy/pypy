@@ -1,5 +1,5 @@
 
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t)
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
@@ -153,9 +153,8 @@ def PySequence_SetItem(space, w_o, i, w_v):
     is the equivalent of the Python statement o[i] = v.  This function does
     not steal a reference to v."""
     if PyDict_Check(space, w_o) or not PySequence_Check(space, w_o):
-        raise operationerrfmt(space.w_TypeError,
-                              "'%T' object does not support item assignment",
-                              w_o)
+        raise oefmt(space.w_TypeError,
+                    "'%T' object does not support item assignment", w_o)
     space.setitem(w_o, space.wrap(i), w_v)
     return 0
 

@@ -65,6 +65,23 @@ class stat_result:
         if self.st_ctime is None:
             self.__dict__['st_ctime'] = self[9]
 
+
+class statvfs_result:
+    __metaclass__ = structseqtype
+
+    name = osname + ".statvfs_result"
+
+    f_bsize = structseqfield(0)
+    f_frsize = structseqfield(1)
+    f_blocks = structseqfield(2)
+    f_bfree = structseqfield(3)
+    f_bavail = structseqfield(4)
+    f_files = structseqfield(5)
+    f_ffree = structseqfield(6)
+    f_favail = structseqfield(7)
+    f_flag = structseqfield(8)
+    f_namemax = structseqfield(9)
+
 if osname == 'posix':
     # POSIX: we want to check the file descriptor when fdopen() is called,
     # not later when we read or write data.  So we call fstat(), letting

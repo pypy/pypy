@@ -106,7 +106,6 @@ class GCManagedHeap(object):
                         assert (type(index) is int    # <- fast path
                                 or lltype.typeOf(index) == lltype.Signed)
                         self.gc.write_barrier_from_array(
-                            llmemory.cast_ptr_to_adr(newvalue),
                             llmemory.cast_ptr_to_adr(toplevelcontainer),
                             index)
                         wb = False
@@ -114,7 +113,6 @@ class GCManagedHeap(object):
             #
             if wb:
                 self.gc.write_barrier(
-                    llmemory.cast_ptr_to_adr(newvalue),
                     llmemory.cast_ptr_to_adr(toplevelcontainer))
         llheap.setinterior(toplevelcontainer, inneraddr, INNERTYPE, newvalue)
 
@@ -196,6 +194,9 @@ class LLInterpRootWalker:
     def _walk_prebuilt_gc(self, collect):    # debugging only!  not RPython
         for obj in self.gcheap._all_prebuilt_gc:
             collect(llmemory.cast_ptr_to_adr(obj._as_ptr()))
+
+    def finished_minor_collection(self):
+        pass
 
 
 class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):

@@ -379,48 +379,23 @@ class TestRegalloc(object):
 
 
     def test_hint_frame_locations_1(self):
-        py.test.skip("xxx")
-        b0, = newboxes(0)
-        fm = TFrameManager()
-        loc123 = FakeFramePos(123, INT)
-        fm.hint_frame_locations[b0] = loc123
-        assert fm.get_frame_depth() == 0
-        loc = fm.loc(b0)
-        assert loc == loc123
-        assert fm.get_frame_depth() == 124
-
-    def test_hint_frame_locations_2(self):
-        py.test.skip("xxx")
-        b0, b1, b2 = newboxes(0, 1, 2)
-        longevity = {b0: (0, 1), b1: (0, 2), b2: (0, 2)}
-        fm = TFrameManager()
-        asm = MockAsm()
-        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
-        rm.force_allocate_reg(b0)
-        rm.force_allocate_reg(b1)
-        rm.force_allocate_reg(b2)
-        rm.force_spill_var(b0)
-        loc = rm.loc(b0)
-        assert isinstance(loc, FakeFramePos)
-        assert fm.get_loc_index(loc) == 0
-        rm.position = 1
-        assert fm.used == [True]
-        rm.possibly_free_var(b0)
-        assert fm.used == [False]
-        #
-        fm.hint_frame_locations[b1] = loc
-        rm.force_spill_var(b1)
-        loc1 = rm.loc(b1)
-        assert loc1 == loc
-        assert fm.used == [True]
-        #
-        fm.hint_frame_locations[b2] = loc
-        rm.force_spill_var(b2)
-        loc2 = rm.loc(b2)
-        assert loc2 != loc1     # because it was not free
-        assert fm.used == [True, True]
-        #
-        rm._check_invariants()
+        for hint_value in range(11):
+            b0, = newboxes(0)
+            fm = TFrameManager()
+            fm.hint_frame_pos[b0] = hint_value
+            blist = newboxes(*range(10))
+            for b1 in blist:
+                fm.loc(b1)
+            for b1 in blist:
+                fm.mark_as_free(b1)
+            assert fm.get_frame_depth() == 10
+            loc = fm.loc(b0)
+            if hint_value < 10:
+                expected = hint_value
+            else:
+                expected = 0
+            assert fm.get_loc_index(loc) == expected
+            assert fm.get_frame_depth() == 10
 
     def test_linkedlist(self):
         class Loc(object):

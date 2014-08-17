@@ -80,7 +80,7 @@ jitdriver = JitDriver(greens=['pc', 'bytecode'],
                       get_printable_location=get_printable_location)
 
 class Frame(object):
-    _virtualizable2_ = ['stackpos', 'stack[*]']
+    _virtualizable_ = ['stackpos', 'stack[*]']
     
     def __init__(self, bytecode):
         self.bytecode = bytecode

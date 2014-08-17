@@ -174,7 +174,6 @@ class AppTestImport:
             import notapackage
 
         import warnings
-        
         warnings.simplefilter('error', ImportWarning)
         try:
             raises(ImportWarning, imp)
@@ -412,7 +411,7 @@ class AppTestImport:
     def test_future_relative_import_level_1(self):
         from pkg import relative_c
         assert relative_c.inpackage == 1
-    
+
     def test_future_relative_import_level_2(self):
         from pkg.pkg1 import relative_d
         assert relative_d.inpackage == 1
@@ -573,13 +572,12 @@ class AppTestImport:
 
     def test_reimport_builtin_simple_case_1(self):
         import sys, time
-        del time.tzset
+        del time.clock
         del sys.modules['time']
         import time
-        assert hasattr(time, 'tzset')
+        assert hasattr(time, 'clock')
 
     def test_reimport_builtin_simple_case_2(self):
-        skip("fix me")
         import sys, time
         time.foo = "bar"
         del sys.modules['time']
@@ -587,20 +585,19 @@ class AppTestImport:
         assert not hasattr(time, 'foo')
 
     def test_reimport_builtin(self):
-        skip("fix me")
         import sys, time
         oldpath = sys.path
-        time.tzset = "<test_reimport_builtin removed this>"
+        time.tzname = "<test_reimport_builtin removed this>"
 
         del sys.modules['time']
         import time as time1
         assert sys.modules['time'] is time1
 
-        assert time.tzset == "<test_reimport_builtin removed this>"
+        assert time.tzname == "<test_reimport_builtin removed this>"
 
-        reload(time1)   # don't leave a broken time.tzset behind
+        reload(time1)   # don't leave a broken time.tzname behind
         import time
-        assert time.tzset != "<test_reimport_builtin removed this>"
+        assert time.tzname != "<test_reimport_builtin removed this>"
 
     def test_reload_infinite(self):
         import infinite_reload
@@ -670,14 +667,15 @@ class AppTestImport:
         import imp
         import pkg
         import os
-
-        info = ('.py', 'r', imp.PY_SOURCE)
         pathname = os.path.join(os.path.dirname(pkg.__file__), 'a.py')
-        
         module = imp.load_module('a', open(pathname),
                                  'invalid_path_name', ('.py', 'r', imp.PY_SOURCE))
         assert module.__name__ == 'a'
         assert module.__file__ == 'invalid_path_name'
+
+    def test_crash_load_module(self):
+        import imp
+        raises(ValueError, imp.load_module, "", "", "", [1, 2, 3, 4])
 
 
 class TestAbi:
@@ -988,6 +986,7 @@ class TestPycStuff:
         assert ret == 42
 
     def test_pyc_magic_changes(self):
+        py.test.skip("For now, PyPy generates only one kind of .pyc files")
         # test that the pyc files produced by a space are not reimportable
         # from another, if they differ in what opcodes they support
         allspaces = [self.space]
@@ -1123,7 +1122,7 @@ class AppTestImportHooks(object):
             def load_module(self, name):
                 sys.modules[name] = sys
                 return sys
-        
+
         def importer_for_path(path):
             if path == "xxx":
                 return Importer()

@@ -1,4 +1,4 @@
-import py
+import py, sys
 from pypy.interpreter.astcompiler import codegen, astbuilder, symtable, optimize
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions
@@ -867,6 +867,9 @@ class TestCompiler:
 
 class AppTestCompiler:
 
+    def setup_class(cls):
+        cls.w_maxunicode = cls.space.wrap(sys.maxunicode)
+
     def test_docstring_not_loaded(self):
         import StringIO, dis, sys
         ns = {}
@@ -881,22 +884,47 @@ class AppTestCompiler:
         assert "0 ('hi')" not in output.getvalue()
 
     def test_print_to(self):
-         exec """if 1:
-         from StringIO import StringIO
-         s = StringIO()
-         print >> s, "hi", "lovely!"
-         assert s.getvalue() == "hi lovely!\\n"
-         s = StringIO()
-         print >> s, "hi", "lovely!",
-         assert s.getvalue() == "hi lovely!"
-         """ in {}
+        exec """if 1:
+        from StringIO import StringIO
+        s = StringIO()
+        print >> s, "hi", "lovely!"
+        assert s.getvalue() == "hi lovely!\\n"
+        s = StringIO()
+        print >> s, "hi", "lovely!",
+        assert s.getvalue() == "hi lovely!"
+        """ in {}
 
     def test_assert_with_tuple_arg(self):
         try:
             assert False, (3,)
         except AssertionError, e:
             assert str(e) == "(3,)"
-        
+
+    # BUILD_LIST_FROM_ARG is PyPy specific
+    @py.test.mark.skipif('config.option.runappdirect')
+    def test_build_list_from_arg_length_hint(self):
+        hint_called = [False]
+        class Foo(object):
+            def __length_hint__(self):
+                hint_called[0] = True
+                return 5
+            def __iter__(self):
+                for i in range(5):
+                    yield i
+        l = [a for a in Foo()]
+        assert hint_called[0]
+        assert l == list(range(5))
+
+    def test_unicode_in_source(self):
+        import sys
+        d = {}
+        exec '# -*- coding: utf-8 -*-\n\nu = u"\xf0\x9f\x92\x8b"' in d
+        if sys.maxunicode > 65535 and self.maxunicode > 65535:
+            expected_length = 1
+        else:
+            expected_length = 2
+        assert len(d['u']) == expected_length
+
 
 class TestOptimizations:
     def count_instructions(self, source):

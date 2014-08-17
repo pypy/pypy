@@ -371,10 +371,9 @@ class CDLL(object):
             self._handle = handle
 
     def __repr__(self):
-        return "<%s '%s', handle %r at %x>" % \
-               (self.__class__.__name__, self._name,
-                (self._handle),
-                id(self) & (_sys.maxint*2 + 1))
+        return "<%s '%s', handle %r at 0x%x>" % (
+            self.__class__.__name__, self._name, self._handle,
+            id(self) & (_sys.maxint * 2 + 1))
 
 
     def __getattr__(self, name):
@@ -390,12 +389,13 @@ class CDLL(object):
             func.__name__ = name_or_ordinal
         return func
 
-class PyDLL(CDLL):
-    """This class represents the Python library itself.  It allows to
-    access Python API functions.  The GIL is not released, and
-    Python exceptions are handled correctly.
-    """
-    _func_flags_ = _FUNCFLAG_CDECL | _FUNCFLAG_PYTHONAPI
+# Not in PyPy
+#class PyDLL(CDLL):
+#    """This class represents the Python library itself.  It allows to
+#    access Python API functions.  The GIL is not released, and
+#    Python exceptions are handled correctly.
+#    """
+#    _func_flags_ = _FUNCFLAG_CDECL | _FUNCFLAG_PYTHONAPI
 
 if _os.name in ("nt", "ce"):
 
@@ -448,15 +448,8 @@ class LibraryLoader(object):
         return self._dlltype(name)
 
 cdll = LibraryLoader(CDLL)
-pydll = LibraryLoader(PyDLL)
-
-if _os.name in ("nt", "ce"):
-    pythonapi = PyDLL("python dll", None, _sys.dllhandle)
-elif _sys.platform == "cygwin":
-    pythonapi = PyDLL("libpython%d.%d.dll" % _sys.version_info[:2])
-else:
-    pythonapi = PyDLL(None)
-
+# not on PyPy
+#pydll = LibraryLoader(PyDLL)
 
 if _os.name in ("nt", "ce"):
     windll = LibraryLoader(WinDLL)

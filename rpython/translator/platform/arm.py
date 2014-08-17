@@ -17,6 +17,7 @@ else:
 
 class ARM(Linux):
     name = "arm"
+    shared_only = ('-fPIC',)
 
     available_librarydirs = [SB2 + '/lib/arm-linux-gnueabi/',
                              SB2 + '/lib/arm-linux-gnueabihf/',

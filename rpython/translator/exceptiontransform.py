@@ -5,14 +5,14 @@ from rpython.translator.backendopt import canraise, inline
 from rpython.flowspace.model import Block, Constant, Variable, Link, \
     c_last_exception, SpaceOperation, FunctionGraph, mkentrymap
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.lltypesystem import lloperation
+from rpython.rtyper.lltypesystem.rclass import ll_inst_type
 from rpython.rtyper import rtyper
 from rpython.rtyper.rmodel import inputconst
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
-from rpython.rlib.rarithmetic import r_singlefloat
+from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
 from rpython.rlib.debug import ll_assert
-from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -22,6 +22,7 @@ PrimitiveErrorValue = {lltype.Signed: -1,
                        lltype.UnsignedLongLong: r_ulonglong(-1),
                        lltype.Float: -1.0,
                        lltype.SingleFloat: r_singlefloat(-1.0),
+                       lltype.LongFloat: r_longfloat(-1.0),
                        lltype.Char: chr(255),
                        lltype.UniChar: unichr(0xFFFF), # XXX is this always right?
                        lltype.Bool: True,
@@ -37,8 +38,6 @@ def error_value(T):
         return PrimitiveErrorValue[T]
     elif isinstance(T, lltype.Ptr):
         return lltype.nullptr(T.TO)
-    elif isinstance(T, ootype.OOType):
-        return ootype.null(T)
     assert 0, "not implemented yet"
 
 def error_constant(T):
@@ -47,18 +46,17 @@ def error_constant(T):
 def constant_value(llvalue):
     return Constant(llvalue, lltype.typeOf(llvalue))
 
-class BaseExceptionTransformer(object):
+class ExceptionTransformer(object):
 
     def __init__(self, translator):
         self.translator = translator
         self.raise_analyzer = canraise.RaiseAnalyzer(translator)
-        edata = translator.rtyper.getexceptiondata()
+        edata = translator.rtyper.exceptiondata
         self.lltype_of_exception_value = edata.lltype_of_exception_value
         self.lltype_of_exception_type = edata.lltype_of_exception_type
         self.mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
         exc_data, null_type, null_value = self.setup_excdata()
 
-        rclass = translator.rtyper.type_system.rclass
         (assertion_error_ll_exc_type,
          assertion_error_ll_exc) = self.get_builtin_exception(AssertionError)
         (n_i_error_ll_exc_type,
@@ -108,7 +106,7 @@ class BaseExceptionTransformer(object):
 
         def rpyexc_restore_exception(evalue):
             if evalue:
-                exc_data.exc_type = rclass.ll_inst_type(evalue)
+                exc_data.exc_type = ll_inst_type(evalue)
                 exc_data.exc_value = evalue
 
         self.rpyexc_occured_ptr = self.build_func(
@@ -166,19 +164,18 @@ class BaseExceptionTransformer(object):
         return fn
 
     def build_func(self, name, fn, inputtypes, rettype, **kwds):
-        l2a = annmodel.lltype_to_annotation
+        l2a = lltype_to_annotation
         graph = self.mixlevelannotator.getgraph(fn, map(l2a, inputtypes), l2a(rettype))
-        return self.constant_func(name, inputtypes, rettype, graph, 
+        return self.constant_func(name, inputtypes, rettype, graph,
                                   exception_policy="exc_helper", **kwds)
 
     def get_builtin_exception(self, Class):
-        edata = self.translator.rtyper.getexceptiondata()
-        rclass = self.translator.rtyper.type_system.rclass
+        edata = self.translator.rtyper.exceptiondata
         bk = self.translator.annotator.bookkeeper
         error_def = bk.getuniqueclassdef(Class)
         error_ll_exc = edata.get_standard_ll_exc_instance(
             self.translator.rtyper, error_def)
-        error_ll_exc_type = rclass.ll_inst_type(error_ll_exc)
+        error_ll_exc_type = ll_inst_type(error_ll_exc)
         return error_ll_exc_type, error_ll_exc
 
     def transform_completely(self):
@@ -249,7 +246,7 @@ class BaseExceptionTransformer(object):
         if block.exitswitch == c_last_exception:
             need_exc_matching = True
             last_operation -= 1
-        elif (len(block.exits) == 1 and 
+        elif (len(block.exits) == 1 and
               block.exits[0].target is graph.returnblock and
               len(block.operations) and
               (block.exits[0].args[0].concretetype is lltype.Void or
@@ -369,7 +366,7 @@ class BaseExceptionTransformer(object):
                 opargs.append(var)
         newop = SpaceOperation(op.opname, opargs, result)
         startblock = Block(inputargs)
-        startblock.operations.append(newop) 
+        startblock.operations.append(newop)
         newgraph = FunctionGraph("dummy_exc1", startblock)
         startblock.closeblock(Link([result], newgraph.returnblock))
         newgraph.returnblock.inputargs[0].concretetype = op.result.concretetype
@@ -393,7 +390,7 @@ class BaseExceptionTransformer(object):
         startblock.exits[True].target = excblock
         startblock.exits[True].args = []
         fptr = self.constant_func("dummy_exc1", ARGTYPES, op.result.concretetype, newgraph)
-        return newgraph, SpaceOperation("direct_call", [fptr] + callargs, op.result) 
+        return newgraph, SpaceOperation("direct_call", [fptr] + callargs, op.result)
 
     def gen_exc_check(self, block, returnblock, normalafterblock=None):
         #var_exc_occured = Variable()
@@ -405,7 +402,6 @@ class BaseExceptionTransformer(object):
         spaceop = block.operations[-1]
         alloc_shortcut = self.check_for_alloc_shortcut(spaceop)
 
-        # XXX: does alloc_shortcut make sense also for ootype?
         if alloc_shortcut:
             var_no_exc = self.gen_nonnull(spaceop.result, llops)
         else:
@@ -462,9 +458,6 @@ class BaseExceptionTransformer(object):
                 0, SpaceOperation('zero_gc_pointers_inside',
                                   [v_result_after],
                                   varoftype(lltype.Void)))
-
-
-class LLTypeExceptionTransformer(BaseExceptionTransformer):
 
     def setup_excdata(self):
         EXCDATA = lltype.Struct('ExcData',
@@ -538,61 +531,3 @@ class LLTypeExceptionTransformer(BaseExceptionTransformer):
             "RPyGetExcValueAddr",
             rpyexc_get_exc_value_addr,
             [], llmemory.Address)
-
-
-class OOTypeExceptionTransformer(BaseExceptionTransformer):
-
-    def setup_excdata(self):
-        EXCDATA = ootype.Record({'exc_type': self.lltype_of_exception_type,
-                                 'exc_value': self.lltype_of_exception_value})
-        self.EXCDATA = EXCDATA
-
-        exc_data = ootype.new(EXCDATA)
-        null_type = ootype.null(self.lltype_of_exception_type)
-        null_value = ootype.null(self.lltype_of_exception_value)
-
-        self.exc_data_ptr = exc_data
-        self.cexcdata = Constant(exc_data, self.EXCDATA)
-
-        self.c_null_etype = Constant(null_type, self.lltype_of_exception_type)
-        self.c_null_evalue = Constant(null_value, self.lltype_of_exception_value)
-
-        return exc_data, null_type, null_value
-
-    def constant_func(self, name, inputtypes, rettype, graph, **kwds):
-        FUNC_TYPE = ootype.StaticMethod(inputtypes, rettype)
-        fn_ptr = ootype.static_meth(FUNC_TYPE, name, graph=graph, **kwds)
-        return Constant(fn_ptr, FUNC_TYPE)
-
-    def gen_getfield(self, name, llops):
-        c_name = inputconst(lltype.Void, name)
-        return llops.genop('oogetfield', [self.cexcdata, c_name],
-                           resulttype = self.EXCDATA._field_type(name))
-
-    def gen_setfield(self, name, v_value, llops):
-        c_name = inputconst(lltype.Void, name)
-        llops.genop('oosetfield', [self.cexcdata, c_name, v_value])
-
-    def gen_isnull(self, v, llops):
-        nonnull = self.gen_nonnull(v, llops)
-        return llops.genop('bool_not', [nonnull], lltype.Bool)
-
-    def gen_nonnull(self, v, llops):
-        return llops.genop('oononnull', [v], lltype.Bool)
-
-    def same_obj(self, obj1, obj2):
-        return obj1 is obj2
-
-    def check_for_alloc_shortcut(self, spaceop):
-        return False
-
-    def build_extra_funcs(self):
-        pass
-
-def ExceptionTransformer(translator):
-    type_system = translator.rtyper.type_system.name
-    if type_system == 'lltypesystem':
-        return LLTypeExceptionTransformer(translator)
-    else:
-        assert type_system == 'ootypesystem'
-        return OOTypeExceptionTransformer(translator)

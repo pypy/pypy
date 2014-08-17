@@ -37,7 +37,7 @@ except ImportError:
     import random
 
 if _reflex:
-   gROOT.SetBatch(True)
+    gROOT.SetBatch(True)
 
 # Create a new ROOT binary machine independent file.
 # Note that this file may contain any kind of ROOT objects, histograms,

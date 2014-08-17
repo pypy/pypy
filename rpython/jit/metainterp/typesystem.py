@@ -1,29 +1,18 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
-from rpython.rtyper.ootypesystem import ootype
-from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, llstr, oostr
+from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, llstr
 from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
-from rpython.rtyper.annlowlevel import cast_instance_to_base_obj
 from rpython.jit.metainterp import history
 from rpython.jit.codewriter import heaptracker
 from rpython.rlib.objectmodel import r_dict, specialize
 
 def deref(T):
-    if isinstance(T, lltype.Ptr):
-        return T.TO
-    assert isinstance(T, ootype.OOType)
-    return T
+    assert isinstance(T, lltype.Ptr)
+    return T.TO
+
 
 def fieldType(T, name):
-    if isinstance(T, lltype.Struct):
-        return getattr(T, name)
-    elif isinstance(T, (ootype.Instance, ootype.Record)):
-##         if name == '__class__':
-##             # XXX hack hack hack
-##             return ootype.Class
-        _, FIELD = T._lookup_field(name)
-        return FIELD
-    else:
-        assert False
+    assert isinstance(T, lltype.Struct)
+    return getattr(T, name)
 
 def arrayItem(ARRAY):
     try:
@@ -63,7 +52,10 @@ class LLTypeHelper(TypeSystemHelper):
         return FUNCTYPE, FUNCPTRTYPE
 
     def get_superclass(self, TYPE):
-        return lltype.Ptr(TYPE.TO._first_struct()[1])
+        SUPER = TYPE.TO._first_struct()[1]
+        if SUPER is None:
+            return None
+        return lltype.Ptr(SUPER)
 
     def cast_to_instance_maybe(self, TYPE, instance):
         return lltype.cast_pointer(TYPE, instance)
@@ -132,7 +124,7 @@ class LLTypeHelper(TypeSystemHelper):
     def cast_to_ref(self, value):
         return lltype.cast_opaque_ptr(llmemory.GCREF, value)
     cast_to_ref._annspecialcase_ = 'specialize:ll'
-    
+
     def getaddr_for_box(self, box):
         return box.getaddr()
 
@@ -143,104 +135,4 @@ def rd_hash(ref):
     assert ref
     return lltype.identityhash(ref)
 
-# ____________________________________________________________
-
-class OOTypeHelper(TypeSystemHelper):
-
-    name = 'ootype'
-    functionptr = staticmethod(ootype.static_meth)
-    nullptr = staticmethod(ootype.null)
-    cast_instance_to_base_ref = staticmethod(cast_instance_to_base_obj)
-    BASETYPE = ootype.Object
-    BoxRef = history.BoxObj
-    ConstRef = history.ConstObj
-    loops_done_with_this_frame_ref = None # patched by compile.py
-    NULLREF = history.ConstObj.value
-    CONST_NULL = history.ConstObj(NULLREF)
-    CVAL_NULLREF = None # patched by optimizeopt.py
-    
-    def new_ConstRef(self, x):
-        obj = ootype.cast_to_object(x)
-        return history.ConstObj(obj)
-
-    def get_typeptr(self, obj):
-        return ootype.classof(obj)
-
-    def get_FuncType(self, ARGS, RESULT):
-        FUNCTYPE = ootype.StaticMethod(ARGS, RESULT)
-        return FUNCTYPE, FUNCTYPE
-
-    def get_superclass(self, TYPE):
-        return TYPE._superclass
-
-    def cast_to_instance_maybe(self, TYPE, instance):
-        return instance
-    cast_to_instance_maybe._annspecialcase_ = 'specialize:arg(1)'
-
-    def cast_fnptr_to_root(self, fnptr):
-        return ootype.cast_to_object(fnptr)
-
-    def cls_of_box(self, cpu, box):
-        obj = box.getref(ootype.ROOT)
-        oocls = ootype.classof(obj)
-        return history.ConstObj(ootype.cast_to_object(oocls))
-
-    def subclassOf(self, cpu, clsbox1, clsbox2):
-        cls1 = clsbox1.getref(ootype.Class)
-        cls2 = clsbox2.getref(ootype.Class)
-        return ootype.subclassof(cls1, cls2)
-
-    def get_exception_box(self, etype):
-        return history.ConstObj(etype)
-
-    def get_exc_value_box(self, evalue):
-        return history.BoxObj(evalue)
-
-    def get_exception_obj(self, evaluebox):
-        # only works when translated
-        obj = evaluebox.getref(ootype.ROOT)
-        return cast_base_ptr_to_instance(Exception, obj)
-
-    def cast_to_baseclass(self, value):
-        return ootype.cast_from_object(ootype.ROOT, value)
-
-    @specialize.ll()
-    def getlength(self, array):
-        return array.ll_length()
-
-    @specialize.ll()
-    def getarrayitem(self, array, i):
-        return array.ll_getitem_fast(i)
-
-    @specialize.ll()
-    def setarrayitem(self, array, i, newvalue):
-        array.ll_setitem_fast(i, newvalue)
-
-    def conststr(self, str):
-        oo = oostr(str)
-        return history.ConstObj(ootype.cast_to_object(oo))
-
-    # A dict whose keys are refs (like the .value of BoxObj).
-    # It is a normal dict on ootype.  Two copies, to avoid conflicts
-    # with the value type.
-    def new_ref_dict(self):
-        return {}
-    def new_ref_dict_2(self):
-        return {}
-
-    def cast_vtable_to_hashable(self, cpu, obj):
-        return ootype.cast_to_object(obj)
-
-    def cast_from_ref(self, TYPE, value):
-        return ootype.cast_from_object(TYPE, value)
-    cast_from_ref._annspecialcase_ = 'specialize:arg(1)'
-
-    def cast_to_ref(self, value):
-        return ootype.cast_to_object(value)
-    cast_to_ref._annspecialcase_ = 'specialize:ll'
-
-    def getaddr_for_box(self, box):
-        return box.getref_base()
-    
 llhelper = LLTypeHelper()
-oohelper = OOTypeHelper()

@@ -357,7 +357,7 @@ class LowLevelDatabase(object):
                 yield node
 
     def get_lltype_of_exception_value(self):
-        exceptiondata = self.translator.rtyper.getexceptiondata()
+        exceptiondata = self.translator.rtyper.exceptiondata
         return exceptiondata.lltype_of_exception_value
 
     def getstructdeflist(self):

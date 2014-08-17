@@ -13,7 +13,7 @@ from rpython.rlib import jit
 # Constants and exposed functions
 
 from rpython.rlib.rsre import rsre_core
-from rpython.rlib.rsre.rsre_char import MAGIC, CODESIZE, getlower, set_unicode_db
+from rpython.rlib.rsre.rsre_char import MAGIC, CODESIZE, MAXREPEAT, getlower, set_unicode_db
 
 
 @unwrap_spec(char_ord=int, flags=int)
@@ -34,8 +34,8 @@ set_unicode_db(pypy.objspace.std.unicodeobject.unicodedb)
 
 def slice_w(space, ctx, start, end, w_default):
     if 0 <= start <= end:
-        if isinstance(ctx, rsre_core.StrMatchContext):
-            return space.wrap(ctx._string[start:end])
+        if isinstance(ctx, rsre_core.BufMatchContext):
+            return space.wrap(ctx._buffer.getslice(start, end, 1, end-start))
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
             return space.wrap(ctx._unicodestr[start:end])
         else:
@@ -98,7 +98,7 @@ class W_SRE_Pattern(W_Root):
                              space.wrap("cannot copy this pattern object"))
 
     def make_ctx(self, w_string, pos=0, endpos=sys.maxint):
-        """Make a StrMatchContext or a UnicodeMatchContext for searching
+        """Make a BufMatchContext or a UnicodeMatchContext for searching
         in the given w_string object."""
         space = self.space
         if pos < 0:
@@ -114,12 +114,14 @@ class W_SRE_Pattern(W_Root):
             return rsre_core.UnicodeMatchContext(self.code, unicodestr,
                                                  pos, endpos, self.flags)
         else:
-            str = space.bufferstr_w(w_string)
-            if pos > len(str):
-                pos = len(str)
-            if endpos > len(str):
-                endpos = len(str)
-            return rsre_core.StrMatchContext(self.code, str,
+            buf = space.readbuf_w(w_string)
+            size = buf.getlength()
+            assert size >= 0
+            if pos > size:
+                pos = size
+            if endpos > size:
+                endpos = size
+            return rsre_core.BufMatchContext(self.code, buf,
                                              pos, endpos, self.flags)
 
     def getmatch(self, ctx, found):
@@ -415,7 +417,13 @@ class W_SRE_Match(W_Root):
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
-            w_groupnum = space.getitem(self.srepat.w_groupindex, w_arg)
+            try:
+                w_groupnum = space.getitem(self.srepat.w_groupindex, w_arg)
+            except OperationError, e:
+                if not e.match(space, space.w_KeyError):
+                    raise
+                raise OperationError(space.w_IndexError,
+                                     space.wrap("no such group"))
             groupnum = space.int_w(w_groupnum)
         if groupnum == 0:
             return self.ctx.match_start, self.ctx.match_end
@@ -471,8 +479,8 @@ class W_SRE_Match(W_Root):
 
     def fget_string(self, space):
         ctx = self.ctx
-        if isinstance(ctx, rsre_core.StrMatchContext):
-            return space.wrap(ctx._string)
+        if isinstance(ctx, rsre_core.BufMatchContext):
+            return space.wrap(ctx._buffer.as_str())
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
             return space.wrap(ctx._unicodestr)
         else:

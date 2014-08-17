@@ -402,7 +402,7 @@ def test_mass_free_half_page_becomes_more_free():
 
 # ____________________________________________________________
 
-def test_random():
+def test_random(incremental=False):
     import random
     pagesize = hdrsize + 24*WORD
     num_pages = 3
@@ -428,30 +428,52 @@ def test_random():
                 raise DoneTesting
         a.mark_freed = my_mark_freed
     ac.allocate_new_arena = my_allocate_new_arena
+
+    def allocate_object(live_objects):
+        size_class = random.randrange(1, 7)
+        obj = ac.malloc(size_class * WORD)
+        at = (obj.arena, obj.offset)
+        assert at not in live_objects
+        live_objects[at] = size_class * WORD
+
     try:
         while True:
             #
             # Allocate some more objects
             for i in range(random.randrange(50, 100)):
-                size_class = random.randrange(1, 7)
-                obj = ac.malloc(size_class * WORD)
-                at = (obj.arena, obj.offset)
-                assert at not in live_objects
-                live_objects[at] = size_class * WORD
+                allocate_object(live_objects)
             #
             # Free half the objects, randomly
             ok_to_free = OkToFree(ac, lambda obj: random.random() < 0.5,
                                   multiarenas=True)
-            ac.mass_free(ok_to_free)
+            live_objects_extra = {}
+            fresh_extra = 0
+            if not incremental:
+                ac.mass_free(ok_to_free)
+            else:
+                ac.mass_free_prepare()
+                while not ac.mass_free_incremental(ok_to_free,
+                                                   random.randrange(1, 3)):
+                    print '[]'
+                    prev = ac.total_memory_used
+                    allocate_object(live_objects_extra)
+                    fresh_extra += ac.total_memory_used - prev
             #
             # Check that we have seen all objects
             assert sorted(ok_to_free.seen) == sorted(live_objects)
-            surviving_total_size = 0
+            surviving_total_size = fresh_extra
             for at, freed in ok_to_free.seen.items():
                 if freed:
                     del live_objects[at]
                 else:
                     surviving_total_size += live_objects[at]
             assert ac.total_memory_used == surviving_total_size
+            #
+            assert not (set(live_objects) & set(live_objects_extra))
+            live_objects.update(live_objects_extra)
+            #
     except DoneTesting:
         pass
+
+def test_random_incremental():
+    test_random(incremental=True)

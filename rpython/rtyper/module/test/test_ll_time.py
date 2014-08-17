@@ -1,14 +1,14 @@
 
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 #from rpython.translator.c.test.test_genc import compile
 
 import time, sys
 
-class BaseTestTime(BaseRtypingTest):
+class TestTime(BaseRtypingTest):
     def test_time_time(self):
         def fn():
             return time.time()
-        
+
         t0 = time.time()
         res0 = self.interpret(fn, [])
         t1 = time.time()
@@ -54,9 +54,3 @@ class BaseTestTime(BaseRtypingTest):
         t1 = time.time()
         assert t0 <= t1
         assert t1 - t0 >= 0.15
-
-class TestLLType(BaseTestTime, LLRtypeMixin):
-    pass
-
-class TestOOType(BaseTestTime, OORtypeMixin):
-    pass

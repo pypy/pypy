@@ -21,9 +21,9 @@ class CodeWriter(object):
         self.callcontrol = CallControl(cpu, jitdrivers_sd)
         self._seen_files = set()
 
-    def transform_func_to_jitcode(self, func, values, type_system='lltype'):
+    def transform_func_to_jitcode(self, func, values):
         """For testing."""
-        rtyper = support.annotate(func, values, type_system=type_system)
+        rtyper = support.annotate(func, values)
         graph = rtyper.annotator.translator.graphs[0]
         jitcode = JitCode("test")
         self.transform_graph_to_jitcode(graph, jitcode, True)

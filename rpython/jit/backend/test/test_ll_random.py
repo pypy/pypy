@@ -112,11 +112,7 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
         self.vtable_counter += 1
         S = self.get_random_structure_type(r, with_vtable=vtable, cache=False)
         name = S._name
-        vtable.name = lltype.malloc(lltype.Array(lltype.Char), len(name)+1,
-                                    immortal=True)
-        for i in range(len(name)):
-            vtable.name[i] = name[i]
-        vtable.name[len(name)] = '\x00'
+        vtable.name = rclass.alloc_array_name(name)
         self.structure_types_and_vtables.append((S, vtable))
         #
         heaptracker.register_known_gctype(self.cpu, vtable, S)
@@ -502,6 +498,7 @@ class CopyUnicodeContentOperation(AbstractCopyContentOperation,
 # 3. raising call and wrong guard_exception
 # 4. raising call and guard_no_exception
 # 5. non raising call and guard_exception
+# (6. test of a cond_call, always non-raising and guard_no_exception)
 
 class BaseCallOperation(test_random.AbstractOperation):
     def non_raising_func_code(self, builder, r):
@@ -648,6 +645,34 @@ class RaisingCallOperationWrongGuardException(BaseCallOperation):
         builder.guard_op = op
         builder.loop.operations.append(op)
 
+# 6. a conditional call (for now always with no exception raised)
+class CondCallOperation(BaseCallOperation):
+    def produce_into(self, builder, r):
+        fail_subset = builder.subset_of_intvars(r)
+        v_cond = builder.get_bool_var(r)
+        subset = builder.subset_of_intvars(r)[:4]
+        for i in range(len(subset)):
+            if r.random() < 0.35:
+                subset[i] = ConstInt(r.random_integer())
+        #
+        seen = []
+        def call_me(*args):
+            if len(seen) == 0:
+                seen.append(args)
+            else:
+                assert seen[0] == args
+        #
+        TP = lltype.FuncType([lltype.Signed] * len(subset), lltype.Void)
+        ptr = llhelper(lltype.Ptr(TP), call_me)
+        c_addr = ConstAddr(llmemory.cast_ptr_to_adr(ptr), builder.cpu)
+        args = [v_cond, c_addr] + subset
+        descr = self.getcalldescr(builder, TP)
+        self.put(builder, args, descr)
+        op = ResOperation(rop.GUARD_NO_EXCEPTION, [], None,
+                          descr=builder.getfaildescr())
+        op.setfailargs(fail_subset)
+        builder.loop.operations.append(op)
+
 # ____________________________________________________________
 
 OPERATIONS = test_random.OPERATIONS[:]
@@ -684,6 +709,7 @@ for i in range(2):
     OPERATIONS.append(RaisingCallOperationGuardNoException(rop.CALL))
     OPERATIONS.append(RaisingCallOperationWrongGuardException(rop.CALL))
     OPERATIONS.append(CallOperationException(rop.CALL))
+    OPERATIONS.append(CondCallOperation(rop.COND_CALL))
 OPERATIONS.append(GuardNonNullClassOperation(rop.GUARD_NONNULL_CLASS))
 
 LLtypeOperationBuilder.OPERATIONS = OPERATIONS

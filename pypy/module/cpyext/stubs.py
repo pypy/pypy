@@ -1528,25 +1528,6 @@ def PyModule_AddStringMacro(space, module, macro):
     """
     raise NotImplementedError
 
-@cpython_api([PyObjectP, PyObjectP], rffi.INT_real, error=-1)
-def PyNumber_Coerce(space, p1, p2):
-    """This function takes the addresses of two variables of type PyObject*.  If
-    the objects pointed to by *p1 and *p2 have the same type, increment their
-    reference count and return 0 (success). If the objects can be converted to a
-    common numeric type, replace *p1 and *p2 by their converted value (with
-    'new' reference counts), and return 0. If no conversion is possible, or if
-    some other error occurs, return -1 (failure) and don't increment the
-    reference counts.  The call PyNumber_Coerce(&o1, &o2) is equivalent to the
-    Python statement o1, o2 = coerce(o1, o2)."""
-    raise NotImplementedError
-
-@cpython_api([PyObjectP, PyObjectP], rffi.INT_real, error=-1)
-def PyNumber_CoerceEx(space, p1, p2):
-    """This function is similar to PyNumber_Coerce(), except that it returns
-    1 when the conversion is not possible and when no error is raised.
-    Reference counts are still not increased in this case."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, rffi.INT_real], PyObject)
 def PyNumber_ToBase(space, n, base):
     """Returns the integer n converted to base as a string with a base

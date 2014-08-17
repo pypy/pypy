@@ -2,13 +2,13 @@
 
 from rpython.rtyper.lltypesystem.lltype import malloc
 from rpython.rtyper.lltypesystem.rstr import LLHelpers, UNICODE
-from rpython.rtyper.test.tool import LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_rstr import AbstractTestRstr
 import py
 
 # ====> test_rstr.py
 
-class BaseTestRUnicode(AbstractTestRstr):
+class TestRUnicode(AbstractTestRstr, BaseRtypingTest):
     const = unicode
     constchar = unichr
 
@@ -26,7 +26,7 @@ class BaseTestRUnicode(AbstractTestRstr):
             else:
                 y = const('xx')
             return unicode(y)
-        
+
         const = str
         assert self.ll_to_unicode(self.interpret(f, [1])) == f(1)
 
@@ -167,7 +167,7 @@ class BaseTestRUnicode(AbstractTestRstr):
         def errorhandler(errors, encoding, msg, s,
                          startingpos, endingpos):
             raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
-        
+
         strings = [u'àèì'.encode('utf-8'), u'ìòéà'.encode('utf-8')]
         def f(n):
             x = strings[n]
@@ -282,8 +282,7 @@ class BaseTestRUnicode(AbstractTestRstr):
     test_int_valueerror = unsupported
     test_float = unsupported
     test_hlstr = unsupported
-
-class TestLLtype(BaseTestRUnicode, LLRtypeMixin):
+    test_strip_multiple_chars = unsupported
 
     def test_hash_via_type(self):
         from rpython.rlib.objectmodel import compute_hash
@@ -297,6 +296,3 @@ class TestLLtype(BaseTestRUnicode, LLRtypeMixin):
 
         res = self.interpret(f, [5])
         assert res == 0
-
-class TestOOtype(BaseTestRUnicode, OORtypeMixin):
-    pass

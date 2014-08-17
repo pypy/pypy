@@ -1,8 +1,10 @@
 import sys
+import os
 from rpython.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
-from rpython.config.config import ChoiceOption, StrOption, Config
+from rpython.config.config import ChoiceOption, StrOption, Config, ConflictConfigError
 from rpython.config.config import ConfigError
 from rpython.config.support import detect_number_of_processors
+from rpython.translator.platform import platform as compiler
 
 DEFL_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
@@ -11,7 +13,7 @@ DEFL_PROF_BASED_INLINE_THRESHOLD = 32.4
 DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD = 32.4
 DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
-DEFL_GC = "minimark"
+DEFL_GC = "incminimark"   # XXX
 
 if sys.platform.startswith("linux"):
     DEFL_ROOTFINDER_WITHJIT = "asmgcc"
@@ -19,6 +21,15 @@ else:
     DEFL_ROOTFINDER_WITHJIT = "shadowstack"
 
 IS_64_BITS = sys.maxint > 2147483647
+
+SUPPORT__THREAD = (    # whether the particular C compiler supports __thread
+    sys.platform.startswith("linux"))     # Linux works
+    # OS/X doesn't work, because we still target 10.5/10.6 and the
+    # minimum required version is 10.7.  Windows doesn't work.  Please
+    # add other platforms here if it works on them.
+
+MAINDIR = os.path.dirname(os.path.dirname(__file__))
+CACHE_DIR = os.path.realpath(os.path.join(MAINDIR, '_cache'))
 
 PLATFORMS = [
     'maemo',
@@ -33,20 +44,11 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline="--continuation",
                requires=[("translation.type_system", "lltype")]),
     ChoiceOption("type_system", "Type system to use when RTyping",
-                 ["lltype", "ootype"], cmdline=None, default="lltype",
-                 requires={
-                     "ootype": [
-                                ("translation.backendopt.constfold", False),
-                                ("translation.backendopt.clever_malloc_removal", False),
-                                ("translation.gc", "boehm"), # it's not really used, but some jit code expects a value here
-                                ]
-                     }),
+                 ["lltype"], cmdline=None, default="lltype"),
     ChoiceOption("backend", "Backend to use for code generation",
-                 ["c", "cli", "jvm"], default="c",
+                 ["c"], default="c",
                  requires={
                      "c":      [("translation.type_system", "lltype")],
-                     "cli":    [("translation.type_system", "ootype")],
-                     "jvm":    [("translation.type_system", "ootype")],
                      },
                  cmdline="-b --backend"),
 
@@ -59,7 +61,7 @@ translation_optiondescription = OptionDescription(
     # gc
     ChoiceOption("gc", "Garbage Collection Strategy",
                  ["boehm", "ref", "semispace", "statistics",
-                  "generation", "hybrid", "minimark", "none"],
+                  "generation", "hybrid", "minimark",'incminimark', "none"],
                   "ref", requires={
                      "ref": [("translation.rweakref", False), # XXX
                              ("translation.gctransformer", "ref")],
@@ -72,6 +74,7 @@ translation_optiondescription = OptionDescription(
                      "boehm": [("translation.continuation", False),  # breaks
                                ("translation.gctransformer", "boehm")],
                      "minimark": [("translation.gctransformer", "framework")],
+                     "incminimark": [("translation.gctransformer", "framework")],
                      },
                   cmdline="--gc"),
     ChoiceOption("gctransformer", "GC transformer that is used - internal",
@@ -159,18 +162,13 @@ translation_optiondescription = OptionDescription(
     # portability options
     BoolOption("no__thread",
                "don't use __thread for implementing TLS",
-               default=False, cmdline="--no__thread", negation=False),
-##  --- not supported since a long time.  Use the env vars CFLAGS/LDFLAGS.
-##    StrOption("compilerflags", "Specify flags for the C compiler",
-##               cmdline="--cflags"),
-##    StrOption("linkerflags", "Specify flags for the linker (C backend only)",
-##               cmdline="--ldflags"),
+               default=not SUPPORT__THREAD, cmdline="--no__thread",
+               negation=False),
     IntOption("make_jobs", "Specify -j argument to make for compilation"
               " (C backend only)",
               cmdline="--make-jobs", default=detect_number_of_processors()),
 
     # Flags of the TranslationContext:
-    BoolOption("simplifying", "Simplify flow graphs", default=True),
     BoolOption("list_comprehension_operations",
                "When true, look for and special-case the sequence of "
                "operations that results from a list comprehension and "
@@ -187,11 +185,9 @@ translation_optiondescription = OptionDescription(
     BoolOption("lldebug",
                "If true, makes an lldebug build", default=False,
                cmdline="--lldebug"),
-
-    # options for ootype
-    OptionDescription("ootype", "Object Oriented Typesystem options", [
-        BoolOption("mangle", "Mangle names of class members", default=True),
-    ]),
+    BoolOption("lldebug0",
+               "If true, makes an lldebug0 build", default=False,
+               cmdline="--lldebug0"),
 
     OptionDescription("backendopt", "Backend Optimization Options", [
         # control inlining
@@ -270,16 +266,11 @@ translation_optiondescription = OptionDescription(
                              ('translation.backendopt.constfold', False)])
     ]),
 
-    OptionDescription("cli", "GenCLI options", [
-        BoolOption("trace_calls", "Trace function calls", default=False,
-                   cmdline="--cli-trace-calls"),
-        BoolOption("exception_transformer", "Use exception transformer", default=False),
-    ]),
     ChoiceOption("platform",
                  "target platform", ['host'] + PLATFORMS, default='host',
                  cmdline='--platform',
-                 requires={"arm": [("translation.gcrootfinder", "shadowstack")]},
-                 suggests={"arm": [("translation.jit_backend", "arm")]}),
+                 suggests={"arm": [("translation.gcrootfinder", "shadowstack"),
+                                   ("translation.jit_backend", "arm")]}),
 
 ])
 
@@ -341,13 +332,6 @@ OPT_TABLE = {
     'jit':  DEFL_GC + '  extraopts     jit',
     }
 
-def final_check_config(config):
-    # XXX: this should be a real config option, but it is hard to refactor it;
-    # instead, we "just" patch it from here
-    from rpython.rlib import rfloat
-    if config.translation.type_system == 'ootype':
-        rfloat.USE_SHORT_FLOAT_REPR = False
-
 def set_opt_level(config, level):
     """Apply optimization suggestions on the 'config'.
     The optimizations depend on the selected level and possibly on the backend.
@@ -389,6 +373,11 @@ def set_opt_level(config, level):
     # finally, make the choice of the gc definitive.  This will fail
     # if we have specified strange inconsistent settings.
     config.translation.gc = config.translation.gc
+
+    # disallow asmgcc on OS/X and on Win32
+    if config.translation.gcrootfinder == "asmgcc":
+        if sys.platform == "darwin" or sys.platform =="win32":
+            raise ConfigError("'asmgcc' not supported on this platform")
 
 # ----------------------------------------------------------------
 

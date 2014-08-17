@@ -163,7 +163,7 @@ class ExtFuncEntry(ExtRegistryEntry):
         fakeimpl = getattr(self, fake_method_name, self.instance)
         if impl:
             if hasattr(self, fake_method_name):
-                # If we have both an {ll,oo}impl and a {ll,oo}fakeimpl,
+                # If we have both an llimpl and an llfakeimpl,
                 # we need a wrapper that selects the proper one and calls it
                 from rpython.tool.sourcetools import func_with_new_name
                 # Using '*args' is delicate because this wrapper is also
@@ -214,16 +214,14 @@ class ExtFuncEntry(ExtRegistryEntry):
         return hop.genop('direct_call', vlist, r_result)
 
 def register_external(function, args, result=None, export_name=None,
-                       llimpl=None, ooimpl=None,
-                       llfakeimpl=None, oofakeimpl=None,
-                       sandboxsafe=False):
+                       llimpl=None, llfakeimpl=None, sandboxsafe=False):
     """
     function: the RPython function that will be rendered as an external function (e.g.: math.floor)
     args: a list containing the annotation of the arguments
     result: surprisingly enough, the annotation of the result
     export_name: the name of the function as it will be seen by the backends
-    llimpl, ooimpl: optional; if provided, these RPython functions are called instead of the target function
-    llfakeimpl, oofakeimpl: optional; if provided, they are called by the llinterpreter
+    llimpl: optional; if provided, this RPython function is called instead of the target function
+    llfakeimpl: optional; if provided, called by the llinterpreter
     sandboxsafe: use True if the function performs no I/O (safe for --sandbox)
     """
 
@@ -247,12 +245,8 @@ def register_external(function, args, result=None, export_name=None,
         name = export_name
         if llimpl:
             lltypeimpl = staticmethod(llimpl)
-        if ooimpl:
-            ootypeimpl = staticmethod(ooimpl)
         if llfakeimpl:
             lltypefakeimpl = staticmethod(llfakeimpl)
-        if oofakeimpl:
-            ootypefakeimpl = staticmethod(oofakeimpl)
 
     if export_name:
         FunEntry.__name__ = export_name

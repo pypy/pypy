@@ -1,17 +1,19 @@
-
 # -*- coding: utf-8 -*-
 
+from __future__ import division, print_function  # for test_app2interp_future
 from pypy.interpreter import gateway, argument
 from pypy.interpreter.gateway import ObjSpace, W_Root, WrappedDefault
 from pypy.interpreter.signature import Signature
 import py
 import sys
 
+
 class FakeFunc(object):
     def __init__(self, space, name):
         self.space = space
         self.name = name
         self.defs_w = []
+
 
 class TestBuiltinCode:
     def test_signature(self):
@@ -89,8 +91,8 @@ class TestBuiltinCode:
         w_result = code.funcrun(FakeFunc(self.space, "c"), args)
         assert self.space.eq_w(w_result, w(1020))
 
-class TestGateway:
 
+class TestGateway:
     def test_app2interp(self):
         w = self.space.wrap
         def app_g3(a, b):
@@ -116,6 +118,14 @@ class TestGateway:
         assert self.space.int_w(gg(self.space, w(3), args)) == 23
         args = gateway.Arguments(self.space, [w(6)], ['hello', 'world'], [w(7), w(8)])
         assert self.space.int_w(gg(self.space, w(3), args)) == 213
+
+    def test_app2interp_future(self):
+        w = self.space.wrap
+        def app_g3(a, b):
+            print(end='')
+            return a / b
+        g3 = gateway.app2interp_temp(app_g3)
+        assert self.space.eq_w(g3(self.space, w(1), w(4),), w(0.25))
 
     def test_interp2app(self):
         space = self.space
@@ -457,6 +467,8 @@ class TestGateway:
                        space.mul(space.wrap(sys.maxint), space.wrap(-7)))
 
     def test_interp2app_unwrap_spec_typechecks(self):
+        from rpython.rlib.rarithmetic import r_longlong
+
         space = self.space
         w = space.wrap
         def g3_id(space, x):
@@ -490,6 +502,12 @@ class TestGateway:
         assert space.eq_w(space.call_function(w_app_g3_f,w(1L)),w(1.0))
         raises(gateway.OperationError,space.call_function,w_app_g3_f,w(None))
         raises(gateway.OperationError,space.call_function,w_app_g3_f,w("foo"))
+
+        app_g3_r = gateway.interp2app_temp(g3_id,
+                                           unwrap_spec=[gateway.ObjSpace,
+                                                        r_longlong])
+        w_app_g3_r = space.wrap(app_g3_r)
+        raises(gateway.OperationError,space.call_function,w_app_g3_r,w(1.0))
 
     def test_interp2app_unwrap_spec_unicode(self):
         space = self.space
@@ -597,6 +615,32 @@ class TestGateway:
         assert space.is_true(w_res)
         assert called == [w_app_f, w_app_f]
 
+    def test_interp2app_fastcall_method_with_space(self):
+        class W_X(W_Root):
+            def descr_f(self, space, w_x):
+                return w_x
+
+        app_f = gateway.interp2app_temp(W_X.descr_f, unwrap_spec=['self',
+                                        gateway.ObjSpace, gateway.W_Root])
+
+        w_app_f = self.space.wrap(app_f)
+
+        assert isinstance(w_app_f.code, gateway.BuiltinCode2)
+
+        called = []
+        fastcall_2 = w_app_f.code.fastcall_2
+        def witness_fastcall_2(space, w_func, w_a, w_b):
+            called.append(w_func)
+            return fastcall_2(space, w_func, w_a, w_b)
+
+        w_app_f.code.fastcall_2 = witness_fastcall_2
+        space = self.space
+
+        w_res = space.call_function(w_app_f, W_X(), space.wrap(3))
+
+        assert space.is_true(w_res)
+        assert called == [w_app_f]
+
     def test_plain(self):
         space = self.space
 
@@ -682,6 +726,34 @@ class TestGateway:
             never_called
         py.test.raises(AssertionError, space.wrap, gateway.interp2app_temp(g))
 
+    def test_unwrap_spec_default_applevel_bug2(self):
+        space = self.space
+        def g(space, w_x, w_y=None, __args__=None):
+            return w_x
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_42 = space.call_function(w_g, space.wrap(42))
+        assert space.int_w(w_42) == 42
+        py.test.raises(gateway.OperationError, space.call_function, w_g)
+        #
+        def g(space, w_x, w_y=None, args_w=None):
+            return w_x
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_42 = space.call_function(w_g, space.wrap(42))
+        assert space.int_w(w_42) == 42
+        py.test.raises(gateway.OperationError, space.call_function, w_g)
+
+    def test_interp2app_doc(self):
+        space = self.space
+        def f(space, w_x):
+            """foo"""
+        w_f = space.wrap(gateway.interp2app_temp(f))
+        assert space.unwrap(space.getattr(w_f, space.wrap('__doc__'))) == 'foo'
+        #
+        def g(space, w_x):
+            never_called
+        w_g = space.wrap(gateway.interp2app_temp(g, doc='bar'))
+        assert space.unwrap(space.getattr(w_g, space.wrap('__doc__'))) == 'bar'
+
 
 class AppTestPyTestMark:
     @py.test.mark.unlikely_to_exist
@@ -690,7 +762,6 @@ class AppTestPyTestMark:
 
 
 class TestPassThroughArguments:
-
     def test_pass_trough_arguments0(self):
         space = self.space
 
@@ -786,13 +857,8 @@ y = a.m(33)
         assert len(called) == 1
         assert isinstance(called[0], argument.Arguments)
 
-class TestPassThroughArguments_CALL_METHOD(TestPassThroughArguments):
-    spaceconfig = dict(usemodules=('itertools',), **{
-            "objspace.opcodes.CALL_METHOD": True
-            })
 
 class AppTestKeywordsToBuiltinSanity(object):
-
     def test_type(self):
         class X(object):
             def __init__(self, **kw):
@@ -831,4 +897,3 @@ class AppTestKeywordsToBuiltinSanity(object):
 
         d.update(**{clash: 33})
         dict.update(d, **{clash: 33})
-

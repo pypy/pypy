@@ -1,59 +1,49 @@
 """
 A file that invokes translation of PyPy with the JIT enabled.
 
-Run it with py.test -s --pdb pypyjit.py [--ootype]
+Run it with py.test -s --pdb pypyjit.py
 
 """
 
 import py, os
 
-from pypy.objspace.std import Space
-from rpython.config.translationoption import set_opt_level
-from pypy.config.pypyoption import get_pypy_config, set_pypy_opt_level
-from pypy.objspace.std import multimethod
-from rpython.rtyper.annlowlevel import llhelper, llstr, oostr, hlstr
-from rpython.rtyper.lltypesystem.rstr import STR
-from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.ootypesystem import ootype
-from pypy.interpreter.pycode import PyCode
-from rpython.translator.goal import unixcheckpoint
-
-if not hasattr(py.test.config.option, 'ootype'):
+try:
+    py.test.config.option.runappdirect
+except AttributeError:
     import sys
     print >> sys.stderr, __doc__
     sys.exit(2)
 
-if py.test.config.option.ootype:
-    BACKEND = 'cli'
-else:
-    BACKEND = 'c'
+from pypy.objspace.std import Space
+from rpython.config.translationoption import set_opt_level
+from pypy.config.pypyoption import get_pypy_config, set_pypy_opt_level
+from pypy.objspace.std import multimethod
+from rpython.rtyper.annlowlevel import llhelper, llstr, hlstr
+from rpython.rtyper.lltypesystem.rstr import STR
+from rpython.rtyper.lltypesystem import lltype
+from pypy.interpreter.pycode import PyCode
+from rpython.translator.goal import unixcheckpoint
 
 config = get_pypy_config(translating=True)
 config.translation.backendopt.inline_threshold = 0.1
 config.translation.gc = 'boehm'
 config.translating = True
+config.translation.rweakref = False
 set_opt_level(config, level='jit')
 config.objspace.allworkingmodules = False
 config.objspace.usemodules.pypyjit = True
 config.objspace.usemodules.array = False
-config.objspace.usemodules._weakref = True
+config.objspace.usemodules._weakref = False
 config.objspace.usemodules._sre = False
 config.objspace.usemodules._lsprof = False
 #
-config.objspace.usemodules._ffi = True
+config.objspace.usemodules._rawffi = False
 config.objspace.usemodules.micronumpy = False
 #
 set_pypy_opt_level(config, level='jit')
 
-if BACKEND == 'c':
-    config.objspace.std.multimethods = 'mrd'
-    multimethod.Installer = multimethod.InstallerVersion2
-elif BACKEND == 'cli':
-    config.objspace.std.multimethods = 'doubledispatch'
-    multimethod.Installer = multimethod.InstallerVersion1
-    config.translation.backend = 'cli'
-else:
-    assert False
+config.objspace.std.multimethods = 'mrd'
+multimethod.Installer = multimethod.InstallerVersion2
 print config
 
 import sys, pdb
@@ -82,13 +72,8 @@ def read_code():
     code = ec.compiler.compile(source, filename, 'exec', 0)
     return llstr(space.str_w(dumps(space, code, space.wrap(2))))
 
-if BACKEND == 'c':
-    FPTR = lltype.Ptr(lltype.FuncType([], lltype.Ptr(STR)))
-    read_code_ptr = llhelper(FPTR, read_code)
-else:
-    llstr = oostr
-    FUNC = ootype.StaticMethod([], ootype.String)
-    read_code_ptr = llhelper(FUNC, read_code)
+FPTR = lltype.Ptr(lltype.FuncType([], lltype.Ptr(STR)))
+read_code_ptr = llhelper(FPTR, read_code)
 
 def entry_point():
     from pypy.module.marshal.interp_marshal import loads
@@ -117,13 +102,8 @@ def test_run_translation():
 
     from rpython.jit.codewriter.codewriter import CodeWriter
     CodeWriter.debug = True
-    from rpython.jit.tl.pypyjit_child import run_child, run_child_ootype
-    if BACKEND == 'c':
-        run_child(globals(), locals())
-    elif BACKEND == 'cli':
-        run_child_ootype(globals(), locals())
-    else:
-        assert False
+    from pypy.tool.pypyjit_child import run_child
+    run_child(globals(), locals())
 
 
 if __name__ == '__main__':

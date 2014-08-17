@@ -154,6 +154,7 @@ class VStringPlainValue(VAbstractStringValue):
         return self._chars[index]     # may return None!
 
     def setitem(self, index, charvalue):
+        assert self.is_virtual()
         assert isinstance(charvalue, optimizer.OptValue)
         assert self._chars[index] is None, (
             "setitem() on an already-initialized location")
@@ -198,22 +199,22 @@ class VStringPlainValue(VAbstractStringValue):
             offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
         return offsetbox
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            charboxes = []
-            for value in self._chars:
-                if value is not None:
-                    box = value.get_key_box()
-                else:
-                    box = None
-                charboxes.append(box)
-            modifier.register_virtual_fields(self.keybox, charboxes)
-            for value in self._chars:
-                if value is not None:
-                    value.get_args_for_fail(modifier)
+    def _visitor_walk_recursive(self, visitor):
+        charboxes = []
+        for value in self._chars:
+            if value is not None:
+                box = value.get_key_box()
+            else:
+                box = None
+            charboxes.append(box)
+        visitor.register_virtual_fields(self.keybox, charboxes)
+        for value in self._chars:
+            if value is not None:
+                value.visitor_walk_recursive(visitor)
 
-    def _make_virtual(self, modifier):
-        return modifier.make_vstrplain(self.mode is mode_unicode)
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vstrplain(self.mode is mode_unicode)
 
 
 class VStringConcatValue(VAbstractStringValue):
@@ -255,18 +256,18 @@ class VStringConcatValue(VAbstractStringValue):
                                                  offsetbox, mode)
         return offsetbox
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            # we don't store the lengthvalue in guards, because the
-            # guard-failed code starts with a regular STR_CONCAT again
-            leftbox = self.left.get_key_box()
-            rightbox = self.right.get_key_box()
-            modifier.register_virtual_fields(self.keybox, [leftbox, rightbox])
-            self.left.get_args_for_fail(modifier)
-            self.right.get_args_for_fail(modifier)
+    def _visitor_walk_recursive(self, visitor):
+        # we don't store the lengthvalue in guards, because the
+        # guard-failed code starts with a regular STR_CONCAT again
+        leftbox = self.left.get_key_box()
+        rightbox = self.right.get_key_box()
+        visitor.register_virtual_fields(self.keybox, [leftbox, rightbox])
+        self.left.visitor_walk_recursive(visitor)
+        self.right.visitor_walk_recursive(visitor)
 
-    def _make_virtual(self, modifier):
-        return modifier.make_vstrconcat(self.mode is mode_unicode)
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vstrconcat(self.mode is mode_unicode)
 
 
 class VStringSliceValue(VAbstractStringValue):
@@ -301,18 +302,18 @@ class VStringSliceValue(VAbstractStringValue):
                                 self.vstart.force_box(string_optimizer), offsetbox,
                                 lengthbox, mode)
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            boxes = [self.vstr.get_key_box(),
-                     self.vstart.get_key_box(),
-                     self.vlength.get_key_box()]
-            modifier.register_virtual_fields(self.keybox, boxes)
-            self.vstr.get_args_for_fail(modifier)
-            self.vstart.get_args_for_fail(modifier)
-            self.vlength.get_args_for_fail(modifier)
+    def _visitor_walk_recursive(self, visitor):
+        boxes = [self.vstr.get_key_box(),
+                 self.vstart.get_key_box(),
+                 self.vlength.get_key_box()]
+        visitor.register_virtual_fields(self.keybox, boxes)
+        self.vstr.visitor_walk_recursive(visitor)
+        self.vstart.visitor_walk_recursive(visitor)
+        self.vlength.visitor_walk_recursive(visitor)
 
-    def _make_virtual(self, modifier):
-        return modifier.make_vstrslice(self.mode is mode_unicode)
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vstrslice(self.mode is mode_unicode)
 
 
 def copy_str_content(string_optimizer, srcbox, targetbox,
@@ -387,8 +388,6 @@ def _strgetitem(string_optimizer, strbox, indexbox, mode, resbox=None):
 
 class OptString(optimizer.Optimization):
     "Handling of strings and unicodes."
-    def new(self):
-        return OptString()
 
     def make_vstring_plain(self, box, source_op, mode):
         vvalue = VStringPlainValue(box, source_op, mode)
@@ -512,22 +511,28 @@ class OptString(optimizer.Optimization):
         srcstart = self.getvalue(op.getarg(2))
         dststart = self.getvalue(op.getarg(3))
         length = self.getvalue(op.getarg(4))
+        dst_virtual = (isinstance(dst, VStringPlainValue) and dst.is_virtual())
 
         if length.is_constant() and length.box.getint() == 0:
             return
         elif ((src.is_virtual() or src.is_constant()) and
-              isinstance(dst, VStringPlainValue) and dst.is_virtual() and
               srcstart.is_constant() and dststart.is_constant() and
-              length.is_constant()):
+              length.is_constant() and
+              (length.force_box(self).getint() < 20 or ((src.is_virtual() or src.is_constant()) and dst_virtual))):
             src_start = srcstart.force_box(self).getint()
             dst_start = dststart.force_box(self).getint()
-            # 'length' must be <= MAX_CONST_LEN here, because 'dst' is a
-            # VStringPlainValue, which is limited to MAX_CONST_LEN.
             actual_length = length.force_box(self).getint()
-            assert actual_length <= MAX_CONST_LEN
             for index in range(actual_length):
                 vresult = self.strgetitem(src, optimizer.ConstantValue(ConstInt(index + src_start)), mode)
-                dst.setitem(index + dst_start, vresult)
+                if dst_virtual:
+                    dst.setitem(index + dst_start, vresult)
+                else:
+                    new_op = ResOperation(mode.STRSETITEM, [
+                        dst.force_box(self),
+                        ConstInt(index + dst_start),
+                        vresult.force_box(self),
+                    ], None)
+                    self.emit_operation(new_op)
         else:
             copy_str_content(self,
                 src.force_box(self),
@@ -752,8 +757,10 @@ class OptString(optimizer.Optimization):
     def propagate_forward(self, op):
         dispatch_opt(self, op)
 
+
 dispatch_opt = make_dispatcher_method(OptString, 'optimize_',
         default=OptString.emit_operation)
+
 
 def _findall_call_oopspec():
     prefix = 'opt_call_stroruni_'

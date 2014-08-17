@@ -1,6 +1,6 @@
 from rpython.translator.platform import platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.module._rawffi.interp_rawffi import TYPEMAP
+from pypy.module._rawffi.interp_rawffi import TYPEMAP, TYPEMAP_FLOAT_LETTERS
 from pypy.module._rawffi.tracker import Tracker
 
 import os, sys, py
@@ -211,6 +211,7 @@ class AppTestFfi:
         cls.w_platform = space.wrap(platform.name)
         cls.w_sizes_and_alignments = space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
+        cls.w_float_typemap = space.wrap(TYPEMAP_FLOAT_LETTERS)
 
     def test_libload(self):
         import _rawffi
@@ -222,7 +223,8 @@ class AppTestFfi:
             _rawffi.CDLL("xxxxx_this_name_does_not_exist_xxxxx")
         except OSError, e:
             print e
-            assert str(e).startswith("xxxxx_this_name_does_not_exist_xxxxx: ")
+            assert str(e).startswith(
+                "Cannot load library xxxxx_this_name_does_not_exist_xxxxx: ")
         else:
             raise AssertionError("did not fail??")
 
@@ -321,6 +323,16 @@ class AppTestFfi:
         assert res == u'xx'
         a.free()
 
+    def test_rawstring2charp(self):
+        import _rawffi
+        A = _rawffi.Array('c')
+        a = A(10, 'x'*10)
+        _rawffi.rawstring2charp(a.buffer, "foobar")
+        assert ''.join([a[i] for i in range(10)]) == "foobarxxxx"
+        _rawffi.rawstring2charp(a.buffer, buffer("baz"))
+        assert ''.join([a[i] for i in range(10)]) == "bazbarxxxx"
+        a.free()
+
     def test_raw_callable(self):
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
@@ -340,6 +352,11 @@ class AppTestFfi:
         ptr = rawcall.byptr()
         assert ptr[0] == rawcall.buffer
         ptr.free()
+
+    def test_raw_callable_returning_void(self):
+        import _rawffi
+        _rawffi.FuncPtr(0, [], None)
+        # assert did not crash
 
     def test_short_addition(self):
         import _rawffi
@@ -478,7 +495,7 @@ class AppTestFfi:
         assert x.C == 1
         x.free()
 
-    def test_structure_bitfields(self):
+    def test_structure_bitfields_varied(self):
         import _rawffi
         X = _rawffi.Structure([('A', 'I', 1),
                                ('B', 'I', 2),
@@ -492,67 +509,69 @@ class AppTestFfi:
         assert x.C == -1
         x.free()
 
+    def test_structure_bitfields_int(self):
+        import _rawffi
         Y = _rawffi.Structure([('a', 'i', 1),
                                ('b', 'i', 30),
                                ('c', 'i', 1)])
         y = Y()
-        y.a, y.b, y.c = -1, -7, 0
-        assert (y.a, y.b, y.c) == (-1, -7, 0)
+        y.a, y.b, y.c = -1, -7, 1
+        assert (y.a, y.b, y.c) == (-1, -7, -1)
+        y.free()
+
+    def test_structure_bitfields_uint(self):
+        import _rawffi
+        Y = _rawffi.Structure([('a', 'I', 1),
+                               ('b', 'I', 30),
+                               ('c', 'I', 1)])
+        y = Y()
+        y.a, y.b, y.c = 7, (1 << 29) | 1, 7
+        assert (y.a, y.b, y.c) == (1, (1 << 29) | 1, 1)
         y.free()
 
     def test_structure_bitfields_longlong(self):
         import _rawffi
-        Z = _rawffi.Structure([('a', 'Q', 1),
+        Y = _rawffi.Structure([('a', 'q', 1),
+                               ('b', 'q', 62),
+                               ('c', 'q', 1)])
+        y = Y()
+        y.a, y.b, y.c = -1, -7, 1
+        assert (y.a, y.b, y.c) == (-1, -7, -1)
+        y.free()
+
+    def test_structure_bitfields_ulonglong(self):
+        import _rawffi
+        Y = _rawffi.Structure([('a', 'Q', 1),
                                ('b', 'Q', 62),
                                ('c', 'Q', 1)])
-        z = Z()
-        z.a, z.b, z.c = 7, 0x1000000000000001, 7
-        assert (z.a, z.b, z.c) == (1, 0x1000000000000001, 1)
-        z.free()
-
-    def test_structure_ulonglong_bitfields(self):
-        import _rawffi
-        X = _rawffi.Structure([('A', 'Q', 1),
-                               ('B', 'Q', 62),
-                               ('C', 'Q', 1)])
-        x = X()
-        x.A, x.B, x.C = 7, 0x1000000000000001, 7
-        assert x.A == 1
-        assert x.B == 0x1000000000000001
-        assert x.C == 1
-        x.free()
-
-    def test_structure_longlong_bitfields(self):
-        import _rawffi
-        Y = _rawffi.Structure([('a', 'q', 1),
-                               ('b', 'q', 61),
-                               ('c', 'q', 1)])
         y = Y()
-        y.a, y.b, y.c = 0, -7, 0
-        assert (y.a, y.b, y.c) == (0, -7, 0)
+        y.a, y.b, y.c = 7, (1 << 61) | 1, 7
+        assert (y.a, y.b, y.c) == (1, (1 << 61) | 1, 1)
         y.free()
 
-    def test_structure_ulonglong_bitfields(self):
+    def test_structure_bitfields_single_signed(self):
         import _rawffi
-        X = _rawffi.Structure([('A', 'Q', 1),
-                               ('B', 'Q', 62),
-                               ('C', 'Q', 1)])
-        x = X()
-        x.A, x.B, x.C = 7, 0x1000000000000001, 7
-        assert x.A == 1
-        assert x.B == 0x1000000000000001
-        assert x.C == 1
-        x.free()
+        for s in [('i', 32), ('q', 64)]:
+            Y = _rawffi.Structure([('a',) + s])
+            y = Y()
+            y.a = 10
+            assert y.a == 10
+            val = (1 << (s[1] - 1)) | 1
+            y.a = val
+            assert y.a == val - (1 << s[1])
+            y.free()
 
-    def test_structure_longlong_bitfields(self):
+    def test_structure_bitfields_single_unsigned(self):
         import _rawffi
-        Y = _rawffi.Structure([('a', 'q', 1),
-                               ('b', 'q', 61),
-                               ('c', 'q', 1)])
-        y = Y()
-        y.a, y.b, y.c = 0, -7, 0
-        assert (y.a, y.b, y.c) == (0, -7, 0)
-        y.free()
+        for s in [('I', 32), ('Q', 64)]:
+            Y = _rawffi.Structure([('a',) + s])
+            y = Y()
+            y.a = 10
+            assert y.a == 10
+            val = (1 << (s[1] - 1)) | 1
+            y.a = val
+            assert y.a == val
+            y.free()
 
     def test_invalid_bitfields(self):
         import _rawffi
@@ -730,7 +749,6 @@ class AppTestFfi:
         finally:
             sys.stderr = orig
 
-
     def test_setattr_struct(self):
         import _rawffi
         X = _rawffi.Structure([('value1', 'i'), ('value2', 'i')])
@@ -748,8 +766,18 @@ class AppTestFfi:
     def test_sizes_and_alignments(self):
         import _rawffi
         for k, (s, a) in self.sizes_and_alignments.iteritems():
+            print k,s,a
             assert _rawffi.sizeof(k) == s
             assert _rawffi.alignment(k) == a
+
+    def test_unaligned(self):
+        import _rawffi
+        for k in self.float_typemap:
+            S = _rawffi.Structure([('pad', 'c'), ('value', k)], pack=1)
+            s = S()
+            s.value = 4
+            assert s.value == 4
+            s.free()
 
     def test_array_addressof(self):
         import _rawffi
@@ -1061,21 +1089,27 @@ class AppTestFfi:
         s = S(autofree=True)
         b = buffer(s)
         assert len(b) == 40
-        b[4] = 'X'
-        b[:3] = 'ABC'
-        assert b[:6] == 'ABC\x00X\x00'
+        b[4] = b'X'
+        b[:3] = b'ABC'
+        assert b[:6] == b'ABC\x00X\x00'
 
         A = _rawffi.Array('c')
         a = A(10, autofree=True)
-        a[3] = 'x'
+        a[3] = b'x'
         b = buffer(a)
         assert len(b) == 10
-        assert b[3] == 'x'
-        b[6] = 'y'
-        assert a[6] == 'y'
-        b[3:5] = 'zt'
-        assert a[3] == 'z'
-        assert a[4] == 't'
+        assert b[3] == b'x'
+        b[6] = b'y'
+        assert a[6] == b'y'
+        b[3:5] = b'zt'
+        assert a[3] == b'z'
+        assert a[4] == b't'
+
+        b = memoryview(a)
+        assert len(b) == 10
+        assert b[3] == b'z'
+        b[3] = b'x'
+        assert b[3] == b'x'
 
     def test_union(self):
         import _rawffi
@@ -1095,6 +1129,14 @@ class AppTestFfi:
         S2E = _rawffi.Structure([('bah', (EMPTY, 1))])
         S2E.get_ffi_type()     # does not hang
 
+    def test_overflow_error(self):
+        import _rawffi
+        A = _rawffi.Array('d')
+        arg1 = A(1)
+        raises(OverflowError, "arg1[0] = 10**900")
+        arg1.free()
+
+
 class AppTestAutoFree:
     spaceconfig = dict(usemodules=['_rawffi', 'struct'])
 
@@ -1108,24 +1150,32 @@ class AppTestAutoFree:
         gc.collect()
         gc.collect()
         S = _rawffi.Structure([('x', 'i')])
-        oldnum = _rawffi._num_of_allocated_objects()
+        try:
+            oldnum = _rawffi._num_of_allocated_objects()
+        except RuntimeError:
+            oldnum = '?'
         s = S(autofree=True)
         s.x = 3
         s = None
         gc.collect()
-        assert oldnum == _rawffi._num_of_allocated_objects()
+        if oldnum != '?':
+            assert oldnum == _rawffi._num_of_allocated_objects()
 
     def test_array_autofree(self):
         import gc, _rawffi
         gc.collect()
-        oldnum = _rawffi._num_of_allocated_objects()
+        try:
+            oldnum = _rawffi._num_of_allocated_objects()
+        except RuntimeError:
+            oldnum = '?'
 
         A = _rawffi.Array('c')
         a = A(6, 'xxyxx\x00', autofree=True)
         assert _rawffi.charp2string(a.buffer) == 'xxyxx'
         a = None
         gc.collect()
-        assert oldnum == _rawffi._num_of_allocated_objects()
+        if oldnum != '?':
+            assert oldnum == _rawffi._num_of_allocated_objects()
 
     def teardown_class(cls):
         Tracker.DO_TRACING = False

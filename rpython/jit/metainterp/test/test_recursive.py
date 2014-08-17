@@ -3,7 +3,7 @@ from rpython.rlib.jit import JitDriver, hint, set_param
 from rpython.rlib.jit import unroll_safe, dont_look_inside, promote
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import fatalerror
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.rtyper.annlowlevel import hlstr
 from rpython.jit.metainterp.warmspot import get_stats
@@ -33,7 +33,7 @@ class RecursiveTests:
         myjitdriver = JitDriver(greens=[], reds=['n', 'm'])
         class Error(Exception):
             pass
-        
+
         def f(n):
             m = n - 2
             while True:
@@ -246,7 +246,7 @@ class RecursiveTests:
 
         class Exc(Exception):
             pass
-        
+
         def f(code, n):
             pc = 0
             while pc < len(code):
@@ -286,7 +286,7 @@ class RecursiveTests:
             return "%s %d %s" % (code, pc, code[pc])
         myjitdriver = JitDriver(greens=['pc', 'code'], reds=['n'],
                                 get_printable_location=p)
-        
+
         def f(code, n):
             pc = 0
             while pc < len(code):
@@ -309,7 +309,7 @@ class RecursiveTests:
             return n
         def main(n):
             set_param(None, 'threshold', 3)
-            set_param(None, 'trace_eagerness', 5)            
+            set_param(None, 'trace_eagerness', 5)
             return f("c-l", n)
         expected = main(100)
         res = self.meta_interp(main, [100], enable_opts='', inline=True)
@@ -328,7 +328,7 @@ class RecursiveTests:
             if n > 0:
                 return recursive(n - 1) + 1
             return 0
-        def loop(n):            
+        def loop(n):
             set_param(myjitdriver, "threshold", 10)
             pc = 0
             while n:
@@ -342,7 +342,7 @@ class RecursiveTests:
         assert res == 0
         self.check_max_trace_length(TRACE_LIMIT)
         self.check_enter_count_at_most(10) # maybe
-        self.check_aborted_count(7)
+        self.check_aborted_count(6)
 
     def test_trace_limit_bridge(self):
         def recursive(n):
@@ -411,8 +411,7 @@ class RecursiveTests:
                 self.i7 = i7
                 self.i8 = i8
                 self.i9 = i9
-                
-        
+
         def loop(n):
             i = 0
             o = A(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
@@ -426,7 +425,7 @@ class RecursiveTests:
 
         res = self.meta_interp(loop, [20], failargs_limit=FAILARGS_LIMIT,
                                listops=True)
-        self.check_aborted_count(5)
+        self.check_aborted_count(4)
 
     def test_max_failure_args_exc(self):
         FAILARGS_LIMIT = 10
@@ -444,8 +443,7 @@ class RecursiveTests:
                 self.i7 = i7
                 self.i8 = i8
                 self.i9 = i9
-                
-        
+
         def loop(n):
             i = 0
             o = A(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
@@ -467,7 +465,7 @@ class RecursiveTests:
         res = self.meta_interp(main, [20], failargs_limit=FAILARGS_LIMIT,
                                listops=True)
         assert not res
-        self.check_aborted_count(5)        
+        self.check_aborted_count(4)
 
     def test_set_param_inlining(self):
         myjitdriver = JitDriver(greens=[], reds=['n', 'recurse'])
@@ -480,7 +478,7 @@ class RecursiveTests:
                     myjitdriver.can_enter_jit(n=n, recurse=recurse)
             return n
         TRACE_LIMIT = 66
- 
+
         def main(inline):
             set_param(None, "threshold", 10)
             set_param(None, 'function_threshold', 60)
@@ -502,7 +500,7 @@ class RecursiveTests:
             return "'%s' at %d: %s" % (code, pc, code[pc])
         myjitdriver = JitDriver(greens=['pc', 'code'], reds=['n'],
                                 get_printable_location=p)
-        
+
         def f(code, n):
             pc = 0
             while pc < len(code):
@@ -543,7 +541,7 @@ class RecursiveTests:
             return "%s %d %s" % (code, pc, code[pc])
         myjitdriver = JitDriver(greens=['pc', 'code'], reds=['n'],
                                 get_printable_location=p)
-        
+
         def f(code, n):
             pc = 0
             while pc < len(code):
@@ -576,7 +574,7 @@ class RecursiveTests:
                 result += f('-c-----------l-', i+100)
         self.meta_interp(g, [10], backendopt=True)
         self.check_aborted_count(1)
-        self.check_resops(call=0, call_assembler=2)        
+        self.check_resops(call=0, call_assembler=2)
         self.check_jitcell_token_count(2)
 
     def test_directly_call_assembler(self):
@@ -643,7 +641,7 @@ class RecursiveTests:
         # exactly the same logic as the previous test, but with 'frame.j'
         # instead of just 'j'
         class Frame(object):
-            _virtualizable2_ = ['j']
+            _virtualizable_ = ['j']
             def __init__(self, j):
                 self.j = j
 
@@ -717,7 +715,7 @@ class RecursiveTests:
         class MyException(Exception):
             def __init__(self, x):
                 self.x = x
-        
+
         driver = JitDriver(greens = ['codeno'], reds = ['i'],
                            get_printable_location = lambda codeno : str(codeno))
 
@@ -736,7 +734,7 @@ class RecursiveTests:
                 raise MyException(1)
 
         self.meta_interp(portal, [2], inline=True)
-        self.check_history(call_assembler=1)        
+        self.check_history(call_assembler=1)
 
     def test_directly_call_assembler_fail_guard(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'k'],
@@ -765,11 +763,11 @@ class RecursiveTests:
         class Thing(object):
             def __init__(self, val):
                 self.val = val
-        
+
         class Frame(object):
-            _virtualizable2_ = ['thing']
-        
-        driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
+            _virtualizable_ = ['thing']
+
+        driver = JitDriver(greens = ['codeno'], reds = ['i', 's', 'frame'],
                            virtualizables = ['frame'],
                            get_printable_location = lambda codeno : str(codeno))
 
@@ -781,32 +779,36 @@ class RecursiveTests:
 
         def portal(codeno, frame):
             i = 0
+            s = 0
             while i < 10:
-                driver.can_enter_jit(frame=frame, codeno=codeno, i=i)
-                driver.jit_merge_point(frame=frame, codeno=codeno, i=i)
+                driver.can_enter_jit(frame=frame, codeno=codeno, i=i, s=s)
+                driver.jit_merge_point(frame=frame, codeno=codeno, i=i, s=s)
                 nextval = frame.thing.val
                 if codeno == 0:
                     subframe = Frame()
                     subframe.thing = Thing(nextval)
                     nextval = portal(1, subframe)
+                    s += subframe.thing.val
                 frame.thing = Thing(nextval + 1)
                 i += 1
             return frame.thing.val
 
         res = self.meta_interp(main, [0], inline=True)
+        self.check_resops(call=0, cond_call=0) # got removed by optimization
         assert res == main(0)
 
     def test_directly_call_assembler_virtualizable_reset_token(self):
+        py.test.skip("not applicable any more, I think")
         from rpython.rtyper.lltypesystem import lltype
         from rpython.rlib.debug import llinterpcall
 
         class Thing(object):
             def __init__(self, val):
                 self.val = val
-        
+
         class Frame(object):
-            _virtualizable2_ = ['thing']
-        
+            _virtualizable_ = ['thing']
+
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
                            virtualizables = ['frame'],
                            get_printable_location = lambda codeno : str(codeno))
@@ -854,10 +856,10 @@ class RecursiveTests:
         class Thing(object):
             def __init__(self, val):
                 self.val = val
-        
+
         class Frame(object):
-            _virtualizable2_ = ['thing']
-        
+            _virtualizable_ = ['thing']
+
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
                            virtualizables = ['frame'],
                            get_printable_location = lambda codeno : str(codeno))
@@ -907,7 +909,7 @@ class RecursiveTests:
                                 virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['l[*]', 's']
+            _virtualizable_ = ['l[*]', 's']
 
             def __init__(self, l, s):
                 self = hint(self, access_directly=True,
@@ -918,7 +920,7 @@ class RecursiveTests:
         def main(codeno, n, a):
             frame = Frame([a, a+1, a+2, a+3], 0)
             return f(codeno, n, a, frame)
-        
+
         def f(codeno, n, a, frame):
             x = 0
             while n > 0:
@@ -948,10 +950,10 @@ class RecursiveTests:
         class Thing(object):
             def __init__(self, val):
                 self.val = val
-        
+
         class Frame(object):
-            _virtualizable2_ = ['thing']
-        
+            _virtualizable_ = ['thing']
+
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
                            virtualizables = ['frame'],
                            get_printable_location = lambda codeno : str(codeno))
@@ -1195,7 +1197,7 @@ class RecursiveTests:
 
     def test_trace_from_start_always(self):
         from rpython.rlib.nonconst import NonConstant
-        
+
         driver = JitDriver(greens = ['c'], reds = ['i', 'v'])
 
         def portal(c, i, v):
@@ -1220,7 +1222,7 @@ class RecursiveTests:
 
     def test_trace_from_start_does_not_prevent_inlining(self):
         driver = JitDriver(greens = ['c', 'bc'], reds = ['i'])
-        
+
         def portal(bc, c, i):
             while True:
                 driver.jit_merge_point(c=c, bc=bc, i=i)
@@ -1229,7 +1231,7 @@ class RecursiveTests:
                     c += 1
                 else:
                     return
-                if c == 10: # bc == 0                    
+                if c == 10: # bc == 0
                     c = 0
                     if i >= 100:
                         return
@@ -1265,7 +1267,4 @@ class RecursiveTests:
 
 
 class TestLLtype(RecursiveTests, LLJitMixin):
-    pass
-
-class TestOOtype(RecursiveTests, OOJitMixin):
     pass

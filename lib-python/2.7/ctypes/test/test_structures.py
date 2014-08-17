@@ -1,6 +1,7 @@
 import unittest
 from ctypes import *
 from struct import calcsize
+import _testcapi
 
 class SubclassesTest(unittest.TestCase):
     def test_subclass(self):
@@ -107,7 +108,7 @@ class StructureTestCase(unittest.TestCase):
     def test_emtpy(self):
         # I had problems with these
         #
-        # Although these are patological cases: Empty Structures!
+        # Although these are pathological cases: Empty Structures!
         class X(Structure):
             _fields_ = []
 
@@ -197,6 +198,14 @@ class StructureTestCase(unittest.TestCase):
         d = {"_fields_": [("a", c_byte),
                           ("b", c_longlong)],
              "_pack_": -1}
+        self.assertRaises(ValueError, type(Structure), "X", (Structure,), d)
+
+        # Issue 15989
+        d = {"_fields_": [("a", c_byte)],
+             "_pack_": _testcapi.INT_MAX + 1}
+        self.assertRaises(ValueError, type(Structure), "X", (Structure,), d)
+        d = {"_fields_": [("a", c_byte)],
+             "_pack_": _testcapi.UINT_MAX + 2}
         self.assertRaises(ValueError, type(Structure), "X", (Structure,), d)
 
     def test_initializers(self):

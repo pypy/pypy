@@ -1,22 +1,17 @@
 import py
-from rpython.translator.backendopt.malloc import LLTypeMallocRemover, OOTypeMallocRemover
+from rpython.translator.backendopt.malloc import LLTypeMallocRemover
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator import simplify
 from rpython.flowspace.model import checkgraph, Block, mkentrymap
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.ootypesystem import ootype
 from rpython.rlib import objectmodel
 from rpython.conftest import option
 
-class BaseMallocRemovalTest(object):
-    type_system = None
-    MallocRemover = None
-
-    def _skip_oo(self, msg):
-        if self.type_system == 'ootype':
-            py.test.skip(msg)
+class TestMallocRemoval(object):
+    type_system = 'lltype'
+    MallocRemover = LLTypeMallocRemover
 
     def check_malloc_removed(cls, graph):
         remover = cls.MallocRemover()
@@ -39,7 +34,7 @@ class BaseMallocRemovalTest(object):
         remover = self.MallocRemover()
         t = TranslationContext()
         t.buildannotator().build_types(fn, signature)
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         graph = graphof(t, fn)
         if inline is not None:
             from rpython.translator.backendopt.inline import auto_inline_graphs
@@ -153,10 +148,6 @@ class BaseMallocRemovalTest(object):
         assert 'debug_fatalerror' in found_operations
 
 
-
-class TestLLTypeMallocRemoval(BaseMallocRemovalTest):
-    type_system = 'lltype'
-    MallocRemover = LLTypeMallocRemover
 
     def test_dont_remove_with__del__(self):
         import os
@@ -349,35 +340,3 @@ class TestLLTypeMallocRemoval(BaseMallocRemovalTest):
             u[0].s.x = x
             return u[0].s.x
         graph = self.check(f, [int], [42], 42)
-
-
-class TestOOTypeMallocRemoval(BaseMallocRemovalTest):
-    type_system = 'ootype'
-    MallocRemover = OOTypeMallocRemover
-
-    def test_oononnull(self):
-        FOO = ootype.Instance('Foo', ootype.ROOT)
-        def fn():
-            s = ootype.new(FOO)
-            return bool(s)
-        self.check(fn, [], [], True)
-
-    def test_classattr_as_defaults(self):
-        class Bar:
-            foo = 41
-        
-        def fn():
-            x = Bar()
-            x.foo += 1
-            return x.foo
-        self.check(fn, [], [], 42)
-
-    def test_fn5(self):
-        # don't test this in ootype because the class attribute access
-        # is turned into an oosend which prevents malloc removal to
-        # work unless we inline first. See test_classattr in
-        # test_inline.py
-        py.test.skip("oosend prevents malloc removal")
-
-    def test_bogus_cast_pointer(self):
-        py.test.skip("oosend prevents malloc removal")

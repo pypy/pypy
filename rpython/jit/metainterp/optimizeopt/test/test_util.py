@@ -1,14 +1,12 @@
 import py, random
 
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr
-from rpython.rtyper.ootypesystem import ootype
+from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rffi
 from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from rpython.rtyper.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
 
 from rpython.jit.backend.llgraph import runner
 from rpython.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
-                                         Const, TreeLoop, BoxObj,
-                                         ConstObj, AbstractDescr,
+                                         Const, TreeLoop, AbstractDescr,
                                          JitCellToken, TargetToken)
 from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
 from rpython.jit.metainterp.optimize import InvalidLoop
@@ -18,6 +16,7 @@ from rpython.jit.tool.oparser import parse, pure_parse
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
 from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
+from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.resoperation import rop, opname, ResOperation
 from rpython.jit.metainterp.optimizeopt.unroll import Inliner
@@ -93,6 +92,7 @@ class LLtypeMixin(object):
     NODE.become(lltype.GcStruct('NODE', ('parent', OBJECT),
                                         ('value', lltype.Signed),
                                         ('floatval', lltype.Float),
+                                        ('charval', lltype.Char),
                                         ('next', lltype.Ptr(NODE))))
     NODE2 = lltype.GcStruct('NODE2', ('parent', NODE),
                                      ('other', lltype.Ptr(NODE)))
@@ -109,6 +109,7 @@ class LLtypeMixin(object):
     nodesize2 = cpu.sizeof(NODE2)
     valuedescr = cpu.fielddescrof(NODE, 'value')
     floatdescr = cpu.fielddescrof(NODE, 'floatval')
+    chardescr = cpu.fielddescrof(NODE, 'charval')
     nextdescr = cpu.fielddescrof(NODE, 'next')
     otherdescr = cpu.fielddescrof(NODE2, 'other')
 
@@ -180,31 +181,36 @@ class LLtypeMixin(object):
     plaincalldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                      EffectInfo.MOST_GENERAL)
     nonwritedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                    EffectInfo([], [], [], []))
+                                    EffectInfo([], [], [], [], [], []))
     writeadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                  EffectInfo([], [], [adescr], []))
+                                  EffectInfo([], [], [], [adescr], [], []))
     writearraydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                  EffectInfo([], [], [adescr], [arraydescr]))
+                                  EffectInfo([], [], [], [adescr], [arraydescr],
+                                             []))
     readadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                 EffectInfo([adescr], [], [], []))
+                                 EffectInfo([adescr], [], [], [], [], []))
     mayforcevirtdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                 EffectInfo([nextdescr], [], [], [],
+                 EffectInfo([nextdescr], [], [], [], [], [],
                             EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE,
                             can_invalidate=True))
     arraycopydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-             EffectInfo([], [arraydescr], [], [arraydescr],
+             EffectInfo([], [arraydescr], [], [], [arraydescr], [],
                         EffectInfo.EF_CANNOT_RAISE,
                         oopspecindex=EffectInfo.OS_ARRAYCOPY))
 
     raw_malloc_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-             EffectInfo([], [], [], [],
+             EffectInfo([], [], [], [], [], [],
                         EffectInfo.EF_CAN_RAISE,
                         oopspecindex=EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR))
     raw_free_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-             EffectInfo([], [], [], [],
+             EffectInfo([], [], [], [], [], [],
                         EffectInfo.EF_CANNOT_RAISE,
                         oopspecindex=EffectInfo.OS_RAW_FREE))
 
+    chararray = lltype.GcArray(lltype.Char)
+    chararraydescr = cpu.arraydescrof(chararray)
+    u2array = lltype.GcArray(rffi.USHORT)
+    u2arraydescr = cpu.arraydescrof(u2array)
 
     # array of structs (complex data)
     complexarray = lltype.GcArray(
@@ -221,7 +227,15 @@ class LLtypeMixin(object):
                                                   hints={'nolength': True}))
     rawarraydescr_char = cpu.arraydescrof(lltype.Array(lltype.Char,
                                                        hints={'nolength': True}))
+    rawarraydescr_float = cpu.arraydescrof(lltype.Array(lltype.Float,
+                                                        hints={'nolength': True}))
 
+    fc_array = lltype.GcArray(
+        lltype.Struct(
+            "floatchar", ("float", lltype.Float), ("char", lltype.Char)))
+    fc_array_descr = cpu.arraydescrof(fc_array)
+    fc_array_floatdescr = cpu.interiorfielddescrof(fc_array, "float")
+    fc_array_chardescr = cpu.interiorfielddescrof(fc_array, "char")
 
     for _name, _os in [
         ('strconcatdescr',               'OS_STR_CONCAT'),
@@ -238,17 +252,18 @@ class LLtypeMixin(object):
         _oopspecindex = getattr(EffectInfo, _os)
         locals()[_name] = \
             cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
                            oopspecindex=_oopspecindex))
         #
         _oopspecindex = getattr(EffectInfo, _os.replace('STR', 'UNI'))
         locals()[_name.replace('str', 'unicode')] = \
             cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
                            oopspecindex=_oopspecindex))
 
     s2u_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-            EffectInfo([], [], [], [], oopspecindex=EffectInfo.OS_STR2UNICODE))
+            EffectInfo([], [], [], [], [], [],
+                       oopspecindex=EffectInfo.OS_STR2UNICODE))
     #
 
     class LoopToken(AbstractDescr):
@@ -256,12 +271,19 @@ class LLtypeMixin(object):
     asmdescr = LoopToken() # it can be whatever, it's not a descr though
 
     from rpython.jit.metainterp.virtualref import VirtualRefInfo
+
     class FakeWarmRunnerDesc:
         pass
     FakeWarmRunnerDesc.cpu = cpu
     vrefinfo = VirtualRefInfo(FakeWarmRunnerDesc)
     virtualtokendescr = vrefinfo.descr_virtual_token
     virtualforceddescr = vrefinfo.descr_forced
+    FUNC = lltype.FuncType([], lltype.Void)
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                    can_invalidate=False,
+                    oopspecindex=EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE)
+    clear_vable = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
+
     jit_virtual_ref_vtable = vrefinfo.jit_virtual_ref_vtable
     jvr_vtable_adr = llmemory.cast_ptr_to_adr(jit_virtual_ref_vtable)
 
@@ -275,77 +297,7 @@ class LLtypeMixin(object):
 
     namespace = locals()
 
-class OOtypeMixin_xxx_disabled(object):
-    type_system = 'ootype'
-
-##    def get_class_of_box(self, box):
-##        root = box.getref(ootype.ROOT)
-##        return ootype.classof(root)
-
-##    cpu = runner.OOtypeCPU(None)
-##    NODE = ootype.Instance('NODE', ootype.ROOT, {})
-##    NODE._add_fields({'value': ootype.Signed,
-##                      'floatval' : ootype.Float,
-##                      'next': NODE})
-##    NODE2 = ootype.Instance('NODE2', NODE, {'other': NODE})
-
-##    node_vtable = ootype.runtimeClass(NODE)
-##    node_vtable_adr = ootype.cast_to_object(node_vtable)
-##    node_vtable2 = ootype.runtimeClass(NODE2)
-##    node_vtable_adr2 = ootype.cast_to_object(node_vtable2)
-
-##    node = ootype.new(NODE)
-##    nodebox = BoxObj(ootype.cast_to_object(node))
-##    myptr = nodebox.value
-##    myptr2 = ootype.cast_to_object(ootype.new(NODE))
-##    nodebox2 = BoxObj(ootype.cast_to_object(node))
-##    valuedescr = cpu.fielddescrof(NODE, 'value')
-##    floatdescr = cpu.fielddescrof(NODE, 'floatval')
-##    nextdescr = cpu.fielddescrof(NODE, 'next')
-##    otherdescr = cpu.fielddescrof(NODE2, 'other')
-##    nodesize = cpu.typedescrof(NODE)
-##    nodesize2 = cpu.typedescrof(NODE2)
-
-##    arraydescr = cpu.arraydescrof(ootype.Array(ootype.Signed))
-##    floatarraydescr = cpu.arraydescrof(ootype.Array(ootype.Float))
-
-##    # a plain Record
-##    S = ootype.Record({'a': ootype.Signed, 'b': NODE})
-##    ssize = cpu.typedescrof(S)
-##    adescr = cpu.fielddescrof(S, 'a')
-##    bdescr = cpu.fielddescrof(S, 'b')
-##    sbox = BoxObj(ootype.cast_to_object(ootype.new(S)))
-##    arraydescr2 = cpu.arraydescrof(ootype.Array(S))
-
-##    T = ootype.Record({'c': ootype.Signed,
-##                       'd': ootype.Array(NODE)})
-##    tsize = cpu.typedescrof(T)
-##    cdescr = cpu.fielddescrof(T, 'c')
-##    ddescr = cpu.fielddescrof(T, 'd')
-##    arraydescr3 = cpu.arraydescrof(ootype.Array(NODE))
-
-##    U = ootype.Instance('U', ootype.ROOT, {'one': ootype.Array(NODE)})
-##    usize = cpu.typedescrof(U)
-##    onedescr = cpu.fielddescrof(U, 'one')
-##    u_vtable = ootype.runtimeClass(U)
-##    u_vtable_adr = ootype.cast_to_object(u_vtable)
-
-##    # force a consistent order
-##    valuedescr.sort_key()
-##    nextdescr.sort_key()
-##    adescr.sort_key()
-##    bdescr.sort_key()
-
-##    FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
-##    nonwritedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT) # XXX fix ootype
-
-##    cpu.class_sizes = {node_vtable_adr: cpu.typedescrof(NODE),
-##                       node_vtable_adr2: cpu.typedescrof(NODE2),
-##                       u_vtable_adr: cpu.typedescrof(U)}
-##    namespace = locals()
-
 # ____________________________________________________________
-
 
 
 class Fake(object):
@@ -367,17 +319,28 @@ class FakeMetaInterpStaticData(object):
         def log_loop(*args):
             pass
 
+    class logger_ops:
+        repr_of_resop = repr
+
     class warmrunnerdesc:
         class memory_manager:
             retrace_limit = 5
             max_retrace_guards = 15
+        jitcounter = DeterministicJitCounter()
+
+    def get_name_from_address(self, addr):
+        # hack
+        try:
+            return "".join(addr.ptr.name.chars)
+        except AttributeError:
+            return ""
 
 class Storage(compile.ResumeGuardDescr):
     "for tests."
     def __init__(self, metainterp_sd=None, original_greenkey=None):
         self.metainterp_sd = metainterp_sd
         self.original_greenkey = original_greenkey
-    def store_final_boxes(self, op, boxes):
+    def store_final_boxes(self, op, boxes, metainterp_sd):
         op.setfailargs(boxes)
     def __eq__(self, other):
         return type(self) is type(other)      # xxx obscure
@@ -392,11 +355,21 @@ def _sortboxes(boxes):
 
 class BaseTest(object):
 
-    def parse(self, s, boxkinds=None):
+    def parse(self, s, boxkinds=None, want_fail_descr=True):
+        if want_fail_descr:
+            invent_fail_descr = self.invent_fail_descr
+        else:
+            invent_fail_descr = lambda *args: None
         return parse(s, self.cpu, self.namespace,
                      type_system=self.type_system,
                      boxkinds=boxkinds,
-                     invent_fail_descr=self.invent_fail_descr)
+                     invent_fail_descr=invent_fail_descr)
+
+    def add_guard_future_condition(self, res):
+        # invent a GUARD_FUTURE_CONDITION to not have to change all tests
+        if res.operations[-1].getopnum() == rop.JUMP:
+            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], None, descr=self.invent_fail_descr(None, -1, []))
+            res.operations.insert(-1, guard)
 
     def invent_fail_descr(self, model, opnum, fail_args):
         if fail_args is None:
@@ -434,6 +407,7 @@ class BaseTest(object):
         optimize_trace(metainterp_sd, loop, self.enable_opts)
 
     def unroll_and_optimize(self, loop, call_pure_results=None):
+        self.add_guard_future_condition(loop)
         operations =  loop.operations
         jumpop = operations[-1]
         assert jumpop.getopnum() == rop.JUMP
@@ -445,9 +419,8 @@ class BaseTest(object):
 
         preamble = TreeLoop('preamble')
         preamble.inputargs = inputargs
-        preamble.resume_at_jump_descr = FakeDescrWithSnapshot()
 
-        token = JitCellToken() 
+        token = JitCellToken()
         preamble.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(token))] + \
                               operations +  \
                               [ResOperation(rop.LABEL, jump_args, None, descr=token)]
@@ -456,11 +429,10 @@ class BaseTest(object):
         assert preamble.operations[-1].getopnum() == rop.LABEL
 
         inliner = Inliner(inputargs, jump_args)
-        loop.resume_at_jump_descr = preamble.resume_at_jump_descr
         loop.operations = [preamble.operations[-1]] + \
                           [inliner.inline_op(op, clone=False) for op in cloned_operations] + \
                           [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jump_args],
-                                        None, descr=token)] 
+                                        None, descr=token)]
                           #[inliner.inline_op(jumpop)]
         assert loop.operations[-1].getopnum() == rop.JUMP
         assert loop.operations[0].getopnum() == rop.LABEL
@@ -479,25 +451,13 @@ class BaseTest(object):
             preamble.operations.insert(-1, op)
 
         return preamble
-        
+
 
 class FakeDescr(compile.ResumeGuardDescr):
     def clone_if_mutable(self):
         return FakeDescr()
     def __eq__(self, other):
         return isinstance(other, FakeDescr)
-
-class FakeDescrWithSnapshot(compile.ResumeGuardDescr):
-    class rd_snapshot:
-        class prev:
-            prev = None
-            boxes = []
-        boxes = []
-    def clone_if_mutable(self):
-        return FakeDescrWithSnapshot()
-    def __eq__(self, other):
-        return isinstance(other, Storage) or isinstance(other, FakeDescrWithSnapshot)
-
 
 def convert_old_style_to_targets(loop, jump):
     newloop = TreeLoop(loop.name)

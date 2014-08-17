@@ -35,3 +35,23 @@ def test_match():
         return int("aaaaaa" == g.group(0))
     assert interpret(f, [3]) == 1
     assert interpret(f, [0]) == 3
+
+def test_translates():
+    from rpython.rlib.rsre import rsre_re
+    def f(i):
+        if i:
+            s = "aaaaaa"
+        else:
+            s = "caaaaa"
+        print rsre_re.match("(a|b)aa", s)
+        print rsre_re.match("a{4}", s)
+        print rsre_re.search("(a|b)aa", s)
+        print rsre_re.search("a{4}", s)
+        for x in rsre_re.findall("(a|b)a", s):  print x
+        for x in rsre_re.findall("a{2}", s):    print x
+        for x in rsre_re.finditer("(a|b)a", s): print x
+        for x in rsre_re.finditer("a{2}", s):   print x
+        for x in rsre_re.split("(a|b)a", s):    print x
+        for x in rsre_re.split("a{2}", s):      print x
+        return 0
+    interpret(f, [3])  # assert does not crash

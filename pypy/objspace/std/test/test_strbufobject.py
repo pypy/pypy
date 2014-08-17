@@ -1,8 +1,8 @@
 import py
 
-from pypy.objspace.std.test import test_stringobject
+from pypy.objspace.std.test import test_bytesobject
 
-class AppTestStringObject(test_stringobject.AppTestStringObject):
+class AppTestStringObject(test_bytesobject.AppTestBytesObject):
     spaceconfig = {"objspace.std.withstrbuf": True}
 
     def test_basic(self):
@@ -43,6 +43,11 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         assert len(s) == 2
         assert len(r) == 2
         assert len(t) == 4
+
+    def test_buffer(self):
+        s = b'a'.__add__(b'b')
+        assert buffer(s) == buffer(b'ab')
+        assert memoryview(s) == b'ab'
 
     def test_add_strbuf(self):
         # make three strbuf objects

@@ -155,9 +155,7 @@ def exc_clear(space):
 to exc_info() will return (None,None,None) until another exception is
 raised and caught in the current thread or the execution stack returns to a
 frame where another exception is being handled."""
-    operror = space.getexecutioncontext().sys_exc_info()
-    if operror is not None:
-        operror.clear(space)
+    space.getexecutioncontext().clear_sys_exc_info()
 
 def settrace(space, w_func):
     """Set the global debug tracing function.  It will be called on each
@@ -235,8 +233,6 @@ def getwindowsversion(space):
 def get_dllhandle(space):
     if not space.config.objspace.usemodules.cpyext:
         return space.wrap(0)
-    if not space.config.objspace.usemodules._rawffi:
-        return space.wrap(0)
 
     return _get_dllhandle(space)
 
@@ -245,10 +241,14 @@ def _get_dllhandle(space):
     from pypy.module.cpyext.api import State
     handle = space.fromcache(State).get_pythonapi_handle()
 
-    # Make a dll object with it
-    from pypy.module._rawffi.interp_rawffi import W_CDLL, RawCDLL
-    cdll = RawCDLL(handle)
-    return space.wrap(W_CDLL(space, "python api", cdll))
+    # It used to be a CDLL
+    # from pypy.module._rawffi.interp_rawffi import W_CDLL
+    # from rpython.rlib.clibffi import RawCDLL
+    # cdll = RawCDLL(handle)
+    # return space.wrap(W_CDLL(space, "python api", cdll))
+    # Provide a cpython-compatible int
+    from rpython.rtyper.lltypesystem import lltype, rffi
+    return space.wrap(rffi.cast(lltype.Signed, handle))
 
 def getsizeof(space, w_object, w_default=None):
     """Not implemented on PyPy."""

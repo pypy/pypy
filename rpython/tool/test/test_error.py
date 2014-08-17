@@ -3,11 +3,9 @@
 """
 
 from rpython.translator.translator import TranslationContext
-from rpython.tool.error import AnnotatorError
 from rpython.annotator.model import UnionError
 
 import py
-
 
 def compile_function(function, annotation=[]):
     t = TranslationContext()
@@ -15,20 +13,6 @@ def compile_function(function, annotation=[]):
 
 class AAA(object):
     pass
-
-def test_blocked_inference1():
-    def blocked_inference():
-        return AAA().m()
-
-    py.test.raises(AnnotatorError, compile_function, blocked_inference)
-
-def test_blocked_inference2():
-    def blocked_inference():
-        a = AAA()
-        b = a.x
-        return b
-
-    py.test.raises(AnnotatorError, compile_function, blocked_inference)
 
 def test_someobject():
     def someobject_degeneration(n):

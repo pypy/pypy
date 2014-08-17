@@ -7,19 +7,17 @@ Command-line options for translate:
 
 import os
 import sys
-from rpython.conftest import cache_dir
-
 import py
-# clean up early rpython/_cache
-try:
-    py.path.local(cache_dir).remove()
-except Exception:
-    pass
-
 from rpython.config.config import (to_optparse, OptionDescription, BoolOption,
     ArbitraryOption, StrOption, IntOption, Config, ChoiceOption, OptHelpFormatter)
 from rpython.config.translationoption import (get_combined_translation_config,
-    set_opt_level, final_check_config, OPT_LEVELS, DEFAULT_OPT_LEVEL, set_platform)
+    set_opt_level, OPT_LEVELS, DEFAULT_OPT_LEVEL, set_platform, CACHE_DIR)
+
+# clean up early rpython/_cache
+try:
+    py.path.local(CACHE_DIR).remove()
+except Exception:
+    pass
 
 
 GOALS = [
@@ -180,9 +178,6 @@ def parse_options_and_load_target():
     if 'handle_config' in targetspec_dic:
         targetspec_dic['handle_config'](config, translateconfig)
 
-    # perform checks (if any) on the final config
-    final_check_config(config)
-
     return targetspec_dic, translateconfig, config, args
 
 def show_help(translateconfig, opt_parser, targetspec_dic, config):
@@ -249,17 +244,19 @@ def main():
         tb = None
         if got_error:
             import traceback
-            errmsg = ["Error:\n"]
+            stacktrace_errmsg = ["Error:\n"]
             exc, val, tb = sys.exc_info()
-            errmsg.extend([" %s" % line for line in traceback.format_exception(exc, val, tb)])
+            stacktrace_errmsg.extend([" %s" % line for line in traceback.format_tb(tb)])
+            summary_errmsg = traceback.format_exception_only(exc, val)
             block = getattr(val, '__annotator_block', None)
             if block:
                 class FileLike:
                     def write(self, s):
-                        errmsg.append(" %s" % s)
-                errmsg.append("Processing block:\n")
+                        summary_errmsg.append(" %s" % s)
+                summary_errmsg.append("Processing block:\n")
                 t.about(block, FileLike())
-            log.ERROR(''.join(errmsg))
+            log.info(''.join(stacktrace_errmsg))
+            log.ERROR(''.join(summary_errmsg))
         else:
             log.event('Done.')
 
@@ -287,8 +284,6 @@ def main():
                                                        default_goal='compile')
         log_config(translateconfig, "translate.py configuration")
         if config.translation.jit:
-            if 'jitpolicy' not in targetspec_dic:
-                raise Exception('target has no jitpolicy defined.')
             if (translateconfig.goals != ['annotate'] and
                 translateconfig.goals != ['rtype']):
                 drv.set_extra_goals(['pyjitpl'])

@@ -1,6 +1,6 @@
 from rpython.annotator import model as annmodel
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.rmodel import IntegerRepr
+from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rstr import AbstractStringRepr
 from rpython.tool.pairtype import pairtype
 
@@ -57,4 +57,5 @@ class __extend__(annmodel.SomeByteArray):
         return self.__class__,
 
     def rtyper_makerepr(self, rtyper):
-        return rtyper.type_system.rbytearray.bytearray_repr
+        from rpython.rtyper.lltypesystem.rbytearray import bytearray_repr
+        return bytearray_repr

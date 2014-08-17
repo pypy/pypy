@@ -15,10 +15,11 @@ def ensure__main__(space):
     space.setitem(w_modules, w_main, mainmodule)
     return mainmodule
 
+
 def compilecode(space, source, filename, cmd='exec'):
     w = space.wrap
-    w_code = space.builtin.call('compile', 
-             w(source), w(filename), w(cmd), w(0), w(0))
+    w_code = space.builtin.call(
+        'compile', w(source), w(filename), w(cmd), w(0), w(0))
     pycode = space.interp_w(eval.Code, w_code)
     return pycode
 
@@ -28,7 +29,7 @@ def _run_eval_string(source, filename, space, eval):
         cmd = 'eval'
     else:
         cmd = 'exec'
- 
+
     try:
         if space is None:
             from pypy.objspace.std import StdObjSpace
@@ -55,17 +56,21 @@ def _run_eval_string(source, filename, space, eval):
         operationerr.record_interpreter_traceback()
         raise
 
+
 def run_string(source, filename=None, space=None):
     _run_eval_string(source, filename, space, False)
+
 
 def eval_string(source, filename=None, space=None):
     return _run_eval_string(source, filename, space, True)
 
+
 def run_file(filename, space=None):
-    if __name__=='__main__':
+    if __name__ == '__main__':
         print "Running %r with %r" % (filename, space)
     istring = open(filename).read()
     run_string(istring, filename, space)
+
 
 def run_module(module_name, args, space=None):
     """Implements PEP 338 'Executing modules as scripts', overwriting
@@ -89,7 +94,6 @@ def run_module(module_name, args, space=None):
     return space.call_function(w_run_module, w(module_name), space.w_None,
                                w('__main__'), space.w_True)
 
-# ____________________________________________________________
 
 def run_toplevel(space, f, verbose=False):
     """Calls f() and handle all OperationErrors.
@@ -134,7 +138,7 @@ def run_toplevel(space, f, verbose=False):
                     exitcode = 0
                 else:
                     try:
-                        exitcode = space.int_w(w_exitcode)
+                        exitcode = space.int_w(w_exitcode, allow_conversion=False)
                     except OperationError:
                         # not an integer: print it to stderr
                         msg = space.str_w(space.str(w_exitcode))

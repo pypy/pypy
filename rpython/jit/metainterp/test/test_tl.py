@@ -1,6 +1,6 @@
 import py
 from rpython.jit.codewriter.policy import StopAtXPolicy
-from rpython.jit.metainterp.test.support import OOJitMixin, LLJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 
 
 class ToyLanguageTests:
@@ -140,9 +140,6 @@ class ToyLanguageTests:
             for meth in methods:
                 meth_func = meth.im_func
                 del meth_func._jit_look_inside_
-
-class TestOOtype(ToyLanguageTests, OOJitMixin):
-    pass
 
 class TestLLtype(ToyLanguageTests, LLJitMixin):
     pass

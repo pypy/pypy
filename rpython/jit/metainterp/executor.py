@@ -79,6 +79,11 @@ def do_call(cpu, metainterp, argboxes, descr):
 do_call_loopinvariant = do_call
 do_call_may_force = do_call
 
+def do_cond_call(cpu, metainterp, argboxes, descr):
+    condbox = argboxes[0]
+    if condbox.getint():
+        do_call(cpu, metainterp, argboxes[1:], descr)
+
 def do_getarrayitem_gc(cpu, _, arraybox, indexbox, arraydescr):
     array = arraybox.getref_base()
     index = indexbox.getint()
@@ -172,9 +177,8 @@ def do_setfield_gc(cpu, _, structbox, itembox, fielddescr):
 
 def do_setfield_raw(cpu, _, structbox, itembox, fielddescr):
     struct = structbox.getint()
-    if fielddescr.is_pointer_field():
-        cpu.bh_setfield_raw_r(struct, itembox.getref_base(), fielddescr)
-    elif fielddescr.is_float_field():
+    assert not fielddescr.is_pointer_field()
+    if fielddescr.is_float_field():
         cpu.bh_setfield_raw_f(struct, itembox.getfloatstorage(), fielddescr)
     else:
         cpu.bh_setfield_raw_i(struct, itembox.getint(), fielddescr)
@@ -278,22 +282,6 @@ def do_keepalive(cpu, _, x):
 
 # ____________________________________________________________
 
-##def do_force_token(cpu):
-##    raise NotImplementedError
-
-##def do_virtual_ref(cpu, box1, box2):
-##    raise NotImplementedError
-
-##def do_virtual_ref_finish(cpu, box1, box2):
-##    raise NotImplementedError
-
-##def do_debug_merge_point(cpu, box1):
-##    from rpython.jit.metainterp.warmspot import get_stats
-##    loc = box1._get_str()
-##    get_stats().add_merge_point_location(loc)
-
-# ____________________________________________________________
-
 
 def _make_execute_list():
     execute_by_num_args = {}
@@ -344,6 +332,7 @@ def _make_execute_list():
                     continue
             if value in (rop.FORCE_TOKEN,
                          rop.CALL_ASSEMBLER,
+                         rop.INCREMENT_DEBUG_COUNTER,
                          rop.COND_CALL_GC_WB,
                          rop.COND_CALL_GC_WB_ARRAY,
                          rop.DEBUG_MERGE_POINT,

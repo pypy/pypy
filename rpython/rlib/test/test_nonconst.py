@@ -17,8 +17,6 @@ def test_nonconst():
     s = a.build_types(nonconst_f, [])
     assert s.knowntype is int
     assert not hasattr(s, 'const')
-    #rtyper = a.translator.buildrtyper(type_system="ootype")
-    #rtyper.specialize()
 
 
 def test_nonconst_list():
@@ -41,8 +39,6 @@ def test_nonconst_instance():
 
     a = RPythonAnnotator()
     s = a.build_types(nonconst_i, [])
-    rtyper = a.translator.buildrtyper(type_system="ootype")
-    rtyper.specialize()
     if option.view:
         a.translator.view()
     assert isinstance(s, SomeInstance)
@@ -58,7 +54,5 @@ def test_bool_nonconst():
     assert s.knowntype is bool
     assert not hasattr(s, 'const')
 
-    rtyper = a.translator.buildrtyper(type_system="ootype")
-    rtyper.specialize()
     if option.view:
         a.translator.view()

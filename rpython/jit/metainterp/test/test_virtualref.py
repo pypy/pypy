@@ -27,14 +27,14 @@ class VRefTests(object):
             x1 = vref()                  # jit_force_virtual
             virtual_ref_finish(vref, x)
         #
-        _get_jitcodes(self, self.CPUClass, fn, [], self.type_system)
+        _get_jitcodes(self, self.CPUClass, fn, [])
         graph = self.all_graphs[0]
         assert graph.name == 'fn'
         self.vrefinfo.replace_force_virtual_with_call([graph])
         #
         def check_call(op, fname):
             assert op.opname == 'direct_call'
-            assert op.args[0].value._obj._name == fname
+            assert op.args[0].value._obj._name.startswith(fname)
         #
         ops = [op for block, op in graph.iterblockops()]
         check_call(ops[-3], 'virtual_ref')

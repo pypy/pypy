@@ -97,9 +97,8 @@ def test_remove_same_as_nonconst():
 
 
 def test_remove_unaryops():
-    # We really want to use remove_unaryops for things like ooupcast and
-    # oodowncast in dynamically typed languages, but it's easier to test
-    # it with operations on ints here.
+    # We really want to use remove_unaryops for more complex operations, but
+    # it's easier to test it with operations on ints here.
     def f(x):
         i = llop.int_invert(lltype.Signed, x)
         i = llop.int_add(lltype.Signed, x, 1)

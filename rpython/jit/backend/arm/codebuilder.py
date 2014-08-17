@@ -178,6 +178,30 @@ class AbstractARMBuilder(object):
                 | (dm & 0xF))
         self.write32(instr)
 
+    def VMOV_sc(self, dest, src):
+        """move a single precision vfp register[src] to a core reg[dest]"""
+        self._VMOV_32bit(src, dest, to_arm_register=1)
+
+    def VMOV_cs(self, dest, src):
+        """move a core register[src] to a single precision vfp
+        register[dest]"""
+        self._VMOV_32bit(dest, src, to_arm_register=0)
+
+    def _VMOV_32bit(self, float_reg, core_reg, to_arm_register, cond=cond.AL):
+        """This instruction transfers the contents of a single-precision VFP
+           register to an ARM core register, or the contents of an ARM core
+           register to a single-precision VFP register.
+        """
+        instr = (cond << 28
+                | 0xE << 24
+                | to_arm_register << 20
+                | ((float_reg >> 1) & 0xF) << 16
+                | core_reg << 12
+                | 0xA << 8
+                | (float_reg & 0x1) << 7
+                | 1 << 4)
+        self.write32(instr)
+
     def VMOV_cc(self, dd, dm, cond=cond.AL):
         sz = 1  # for 64-bit mode
         instr = (cond << 28
@@ -198,8 +222,16 @@ class AbstractARMBuilder(object):
         self._VCVT(target, source, cond, 0, 1)
 
     def _VCVT(self, target, source, cond, opc2, sz):
-        D = 0
-        M = 0
+        # A8.6.295
+        to_integer = (opc2 >> 2) & 1
+        if to_integer:
+            D = target & 1
+            target >>= 1
+            M = (source >> 4) & 1
+        else:
+            M = source & 1
+            source >>= 1
+            D = (target >> 4) & 1
         op = 1
         instr = (cond << 28
                 | 0xEB8 << 16
@@ -216,8 +248,8 @@ class AbstractARMBuilder(object):
 
     def _VCVT_single_double(self, target, source, cond, sz):
         # double_to_single = (sz == '1');
-        D = 0
-        M = 0
+        D = target & 1 if sz else (target >> 4) & 1
+        M = (source >> 4) & 1 if sz else source & 1
         instr = (cond << 28
                 | 0xEB7 << 16
                 | 0xAC << 4

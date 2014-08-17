@@ -46,6 +46,24 @@ def test_getlogin():
     data = getllimpl(os.getlogin)()
     assert data == expected
 
+def test_statvfs():
+    if not hasattr(os, 'statvfs'):
+        py.test.skip('posix specific function')
+    try:
+        os.statvfs('.')
+    except OSError, e:
+        py.test.skip("the underlying os.statvfs() failed: %s" % e)
+    getllimpl(os.statvfs)('.')
+
+def test_fstatvfs():
+    if not hasattr(os, 'fstatvfs'):
+        py.test.skip('posix specific function')
+    try:
+        os.fstatvfs(0)
+    except OSError, e:
+        py.test.skip("the underlying os.fstatvfs() failed: %s" % e)
+    getllimpl(os.fstatvfs)(0)
+
 def test_utimes():
     if os.name != 'nt':
         py.test.skip('Windows specific feature')
@@ -56,6 +74,11 @@ def test_utimes():
     fname = udir.join('test_utimes.txt')
     fname.ensure()
     t1 = 1159195039.25
+    compile(f, (str, float))(str(fname), t1)
+    assert t1 == os.stat(str(fname)).st_mtime
+    if sys.version_info < (2, 7):
+        py.test.skip('requires Python 2.7')
+    t1 = 5000000000.0
     compile(f, (str, float))(str(fname), t1)
     assert t1 == os.stat(str(fname)).st_mtime
 
@@ -69,7 +92,7 @@ def test__getfullpathname():
     assert data == posix._getfullpathname(stuff)
     # the most intriguing failure of ntpath.py should not repeat, here:
     assert not data.endswith(stuff)
-    
+
 def test_getcwd():
     data = getllimpl(os.getcwd)()
     assert data == os.getcwd()
@@ -86,8 +109,8 @@ def test_chdir():
             # the ctypes call seems not to work in the Wing debugger
             return
         assert str(buf.value).lower() == pwd.lower()
-        # ctypes returns the drive letter in uppercase, 
-        # os.getcwd does not, 
+        # ctypes returns the drive letter in uppercase,
+        # os.getcwd does not,
         # but there may be uppercase in os.getcwd path
 
     pwd = os.getcwd()
@@ -280,11 +303,10 @@ class TestOsExpect(ExpectTest):
     def setup_class(cls):
         if not hasattr(os, 'ttyname'):
             py.test.skip("no ttyname")
-    
+
     def test_ttyname(self):
         def f():
             import os
-            import py
             from rpython.rtyper.test.test_llinterp import interpret
 
             def ll_to_string(s):

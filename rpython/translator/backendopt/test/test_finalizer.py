@@ -10,18 +10,16 @@ from rpython.conftest import option
 from rpython.rlib import rgc
 
 
-class BaseFinalizerAnalyzerTests(object):
+class TestFinalizerAnalyzer(object):
     """ Below are typical destructors that we encounter in pypy
     """
 
-    type_system = None
-    
     def analyze(self, func, sig, func_to_analyze=None, backendopt=False):
         if func_to_analyze is None:
             func_to_analyze = func
         t = TranslationContext()
         t.buildannotator().build_types(func, sig)
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         if backendopt:
             backend_optimizations(t)
         if option.view:
@@ -61,14 +59,10 @@ def test_various_ops():
                                                           v3], None))
     assert not f.analyze(SpaceOperation('bare_setfield', [v1, Constant('z'),
                                                           v4], None))
-    
-        
-class TestLLType(BaseFinalizerAnalyzerTests):
-    type_system = 'lltype'
 
     def test_malloc(self):
         S = lltype.GcStruct('S')
-        
+
         def f():
             return lltype.malloc(S)
 
@@ -77,7 +71,7 @@ class TestLLType(BaseFinalizerAnalyzerTests):
 
     def test_raw_free_getfield(self):
         S = lltype.Struct('S')
-        
+
         class A(object):
             def __init__(self):
                 self.x = lltype.malloc(S, flavor='raw')
@@ -100,7 +94,7 @@ class TestLLType(BaseFinalizerAnalyzerTests):
         def g():
             p = lltype.malloc(C, 3, flavor='raw')
             f(p)
-        
+
         def f(p):
             c(rffi.ptradd(p, 0))
             lltype.free(p, flavor='raw')
@@ -112,7 +106,7 @@ class TestLLType(BaseFinalizerAnalyzerTests):
         class B(object):
             def __init__(self):
                 self.counter = 1
-        
+
         class A(object):
             def __init__(self):
                 self.x = B()
@@ -137,6 +131,3 @@ class TestLLType(BaseFinalizerAnalyzerTests):
             pass
         self.analyze(g, []) # did not explode
         py.test.raises(FinalizerError, self.analyze, f, [])
-
-class TestOOType(BaseFinalizerAnalyzerTests):
-    type_system = 'ootype'

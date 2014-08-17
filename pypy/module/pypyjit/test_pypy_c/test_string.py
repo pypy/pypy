@@ -80,39 +80,11 @@ class TestString(BaseTestPyPyC):
             i23 = strgetitem(p10, i19)
             p25 = newstr(1)
             strsetitem(p25, 0, i23)
-            p28 = call(ConstClass(strip_spaces), p25, descr=<Callr . r EF=4>)
+            p93 = call(ConstClass(fromstr), p25, 16, descr=<Callr . ri EF=3>)
             guard_no_exception(descr=...)
-            i29 = strlen(p28)
-            i30 = int_is_true(i29)
-            guard_true(i30, descr=...)
-            i32 = int_sub(i29, 1)
-            i33 = strgetitem(p28, i32)
-            i35 = int_eq(i33, 108)
-            guard_false(i35, descr=...)
-            i37 = int_eq(i33, 76)
-            guard_false(i37, descr=...)
-            i39 = strgetitem(p28, 0)
-            i41 = int_eq(i39, 45)
-            guard_false(i41, descr=...)
-            i43 = int_eq(i39, 43)
-            guard_false(i43, descr=...)
-            i43 = call(ConstClass(ll_startswith__rpy_stringPtr_rpy_stringPtr), p28, ConstPtr(ptr42), descr=<Calli 1 rr EF=0>)
-            guard_false(i43, descr=...)
-            i46 = call(ConstClass(ll_startswith__rpy_stringPtr_rpy_stringPtr), p28, ConstPtr(ptr45), descr=<Calli 1 rr EF=0>)
-            guard_false(i46, descr=...)
-            p51 = new_with_vtable(...)
-            setfield_gc(p51, _, descr=...)    # 7 setfields, but the order is dict-order-dependent
-            setfield_gc(p51, _, descr=...)
-            setfield_gc(p51, _, descr=...)
-            setfield_gc(p51, _, descr=...)
-            setfield_gc(p51, _, descr=...)
-            setfield_gc(p51, _, descr=...)
-            setfield_gc(p51, _, descr=...)
-            p55 = call(ConstClass(parse_digit_string), p51, descr=<Callr . r EF=4>)
+            i94 = call(ConstClass(rbigint.toint), p93, descr=<Calli . r EF=3>)
             guard_no_exception(descr=...)
-            i57 = call(ConstClass(rbigint.toint), p55, descr=<Calli . r EF=3>)
-            guard_no_exception(descr=...)
-            i58 = int_add_ovf(i6, i57)
+            i95 = int_add_ovf(i6, i94)
             guard_no_overflow(descr=...)
             --TICK--
             jump(..., descr=...)
@@ -130,39 +102,37 @@ class TestString(BaseTestPyPyC):
         assert log.result == main(1000)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            i7 = int_gt(i4, 0)
-            guard_true(i7, descr=...)
+            i79 = int_gt(i74, 0)
+            guard_true(i79, descr=...)
             guard_not_invalidated(descr=...)
-            p9 = call(ConstClass(ll_int2dec__Signed), i4, descr=<Callr . i EF=3>)
+            p80 = call(ConstClass(ll_int2dec__Signed), i74, descr=<Callr . i EF=3>)
             guard_no_exception(descr=...)
-            i10 = strlen(p9)
-            i11 = int_is_true(i10)
-            guard_true(i11, descr=...)
-            i13 = strgetitem(p9, 0)
-            i15 = int_eq(i13, 45)
-            guard_false(i15, descr=...)
-            i17 = int_sub(0, i10)
-            i19 = int_gt(i10, 23)
-            guard_false(i19, descr=...)
-            p21 = newstr(23)
-            copystrcontent(p9, p21, 0, 0, i10)
-            i25 = int_add(1, i10)
-            i26 = int_gt(i25, 23)
-            guard_false(i26, descr=...)
-            strsetitem(p21, i10, 32)
-            i29 = int_add(i10, 1)
-            i30 = int_add(i10, i25)
-            i31 = int_gt(i30, 23)
-            guard_false(i31, descr=...)
-            copystrcontent(p9, p21, 0, i25, i10)
-            i33 = int_lt(i30, 23)
-            guard_true(i33, descr=...)
-            p35 = call(ConstClass(ll_shrink_array__rpy_stringPtr_Signed), p21, i30, descr=<Callr . ri EF=4 OS=3>)
+            i85 = strlen(p80)
+            p86 = new(descr=<SizeDescr .+>)
+            p88 = newstr(23)
+            setfield_gc(..., descr=<Field. stringbuilder.+>)
+            setfield_gc(..., descr=<Field. stringbuilder.+>)
+            setfield_gc(..., descr=<Field. stringbuilder.+>)
+            call(ConstClass(ll_append_res0__stringbuilderPtr_rpy_stringPtr), p86, p80, descr=<Callv 0 rr EF=4>)
             guard_no_exception(descr=...)
-            i37 = strlen(p35)
-            i38 = int_add_ovf(i5, i37)
+            i89 = getfield_gc(p86, descr=<FieldS stringbuilder.current_pos .+>)
+            i90 = getfield_gc(p86, descr=<FieldS stringbuilder.current_end .+>)
+            i91 = int_eq(i89, i90)
+            cond_call(i91, ConstClass(ll_grow_by__stringbuilderPtr_Signed), p86, 1, descr=<Callv 0 ri EF=4>)
+            guard_no_exception(descr=...)
+            i92 = getfield_gc(p86, descr=<FieldS stringbuilder.current_pos .+>)
+            i93 = int_add(i92, 1)
+            p94 = getfield_gc(p86, descr=<FieldP stringbuilder.current_buf .+>)
+            strsetitem(p94, i92, 32)
+            setfield_gc(p86, i93, descr=<FieldS stringbuilder.current_pos .+>)
+            call(ConstClass(ll_append_res0__stringbuilderPtr_rpy_stringPtr), p86, p80, descr=<Callv 0 rr EF=4>)
+            guard_no_exception(descr=...)
+            p95 = call(..., descr=<Callr . r EF=4>)     # ll_build
+            guard_no_exception(descr=...)
+            i96 = strlen(p95)
+            i97 = int_add_ovf(i71, i96)
             guard_no_overflow(descr=...)
-            i40 = int_sub(i4, 1)
+            i98 = int_sub(i74, 1)
             --TICK--
             jump(..., descr=...)
         """)
@@ -189,7 +159,7 @@ class TestString(BaseTestPyPyC):
         loops = log.loops_by_filename(self.filepath)
         assert len(loops) == 1
         for loop in loops:
-            loop.match_by_id('getattr','''
+            assert loop.match_by_id('getattr','''
             guard_not_invalidated?
             i32 = strlen(p31)
             i34 = int_add(5, i32)
@@ -218,11 +188,11 @@ class TestString(BaseTestPyPyC):
         assert log.result == main(1000)
         loops = log.loops_by_filename(self.filepath)
         loop, = loops
-        loop.match_by_id('callone', '''
+        assert loop.match_by_id('callone', '''
             p114 = call(ConstClass(ll_lower__rpy_stringPtr), p113, descr=<Callr . r EF=3>)
             guard_no_exception(descr=...)
             ''')
-        loop.match_by_id('calltwo', '')    # nothing
+        assert loop.match_by_id('calltwo', '')    # nothing
 
     def test_move_method_call_out_of_loop(self):
         def main(n):
@@ -236,7 +206,7 @@ class TestString(BaseTestPyPyC):
         assert log.result == main(1000)
         loops = log.loops_by_filename(self.filepath)
         loop, = loops
-        loop.match_by_id('callone', '')    # nothing
+        assert loop.match_by_id('callone', '')    # nothing
 
     def test_lookup_codec(self):
         log = self.run("""
@@ -248,12 +218,34 @@ class TestString(BaseTestPyPyC):
             return i
         """, [1000])
         loop, = log.loops_by_filename(self.filepath)
-        loop.match("""
+        assert loop.match("""
         i45 = int_lt(i43, i26)
         guard_true(i45, descr=...)
         i46 = int_add(i43, 1)
         setfield_gc(p15, i46, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current 8>)
         guard_not_invalidated(descr=...)
+        --TICK--
+        jump(..., descr=...)
+        """)
+
+    def test_decode_ascii(self):
+        log = self.run("""
+        def main(n):
+            for i in xrange(n):
+                unicode('abc')
+            return i
+        """, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+        i49 = int_lt(i47, i24)
+        guard_true(i49, descr=...)
+        i50 = int_add(i47, 1)
+        setfield_gc(p15, i50, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current 8>)
+        guard_not_invalidated(descr=...)
+        p52 = call(ConstClass(str_decode_ascii__raise_unicode_exception_decode), ConstPtr(ptr38), 3, 1, descr=<Callr . rii EF=4>)
+        guard_no_exception(descr=...)
+        p53 = getfield_gc_pure(p52, descr=<FieldP tuple2.item0 .>)
+        guard_nonnull(p53, descr=...)
         --TICK--
         jump(..., descr=...)
         """)

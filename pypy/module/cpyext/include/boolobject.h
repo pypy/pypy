@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+#define PyBoolObject PyIntObject
+
 #define Py_False ((PyObject *) &_Py_ZeroStruct)
 #define Py_True ((PyObject *) &_Py_TrueStruct)
 

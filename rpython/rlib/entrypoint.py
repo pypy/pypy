@@ -78,8 +78,9 @@ def entrypoint(key, argtypes, c_name=None):
 # registered
 
 RPython_StartupCode = rffi.llexternal('RPython_StartupCode', [], lltype.Void,
-                                      _nowrapper=True)
+                                      _nowrapper=True,
+                                      random_effects_on_gcobjs=True)
 
 @entrypoint('main', [], c_name='rpython_startup_code')
 def rpython_startup_code():
-    return RPython_StartupCode()
+    RPython_StartupCode()

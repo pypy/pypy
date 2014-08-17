@@ -1,13 +1,13 @@
 """
 String formatting routines.
 """
-from pypy.interpreter.error import OperationError
-from pypy.objspace.std.unicodetype import unicode_from_object
+import sys
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit
-from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rfloat import formatd, DTSF_ALT, isnan, isinf
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.rarithmetic import INT_MAX
 from rpython.tool.sourcetools import func_with_new_name
 
 
@@ -161,7 +161,6 @@ def make_formatter_subclass(do_unicode):
         const = str
 
     class StringFormatter(BaseStringFormatter):
-
         def __init__(self, space, fmt, values_w, w_valuedict):
             BaseStringFormatter.__init__(self, space, values_w, w_valuedict)
             self.fmt = fmt    # either a string or a unicode
@@ -218,7 +217,7 @@ def make_formatter_subclass(do_unicode):
 
             self.peel_flags()
 
-            self.width = self.peel_num()
+            self.width = self.peel_num('width', sys.maxint)
             if self.width < 0:
                 # this can happen:  '%*s' % (-5, "hi")
                 self.f_ljust = True
@@ -226,7 +225,7 @@ def make_formatter_subclass(do_unicode):
 
             if self.peekchr() == '.':
                 self.forward()
-                self.prec = self.peel_num()
+                self.prec = self.peel_num('prec', INT_MAX)
                 if self.prec < 0:
                     self.prec = 0    # this can happen:  '%.*f' % (-5, 3)
             else:
@@ -264,23 +263,26 @@ def make_formatter_subclass(do_unicode):
 
         # Same as getmappingkey
         @jit.unroll_safe
-        def peel_num(self):
+        def peel_num(self, name, maxval):
             space = self.space
             c = self.peekchr()
             if c == '*':
                 self.forward()
                 w_value = self.nextinputvalue()
-                return space.int_w(maybe_int(space, w_value))
+                if name == 'width':
+                    return space.int_w(w_value)
+                elif name == 'prec':
+                    return space.c_int_w(w_value)
+                else:
+                    assert False
             result = 0
             while True:
-                n = ord(c) - ord('0')
-                if not (0 <= n < 10):
+                digit = ord(c) - ord('0')
+                if not (0 <= digit <= 9):
                     break
-                try:
-                    result = ovfcheck(ovfcheck(result * 10) + n)
-                except OverflowError:
-                    raise OperationError(space.w_OverflowError,
-                                         space.wrap("precision too large"))
+                if result > (maxval - digit) / 10:
+                    raise oefmt(space.w_ValueError, "%s too big", name)
+                result = result * 10 + digit
                 self.forward()
                 c = self.peekchr()
             return result
@@ -377,6 +379,19 @@ def make_formatter_subclass(do_unicode):
         std_wp._annspecialcase_ = 'specialize:argtype(1)'
 
         def std_wp_number(self, r, prefix=''):
+            result = self.result
+            if len(prefix) == 0 and len(r) >= self.width:
+                # this is strictly a fast path: no prefix, and no padding
+                # needed.  It is more efficient code both in the non-jit
+                # case (less testing stuff) and in the jit case (uses only
+                # result.append(), and no startswith() if not f_sign and
+                # not f_blank).
+                if self.f_sign and not r.startswith('-'):
+                    result.append(const('+'))
+                elif self.f_blank and not r.startswith('-'):
+                    result.append(const(' '))
+                result.append(const(r))
+                return
             # add a '+' or ' ' sign if necessary
             sign = r.startswith('-')
             if not sign:
@@ -389,7 +404,6 @@ def make_formatter_subclass(do_unicode):
             # do the padding requested by self.width and the flags,
             # without building yet another RPython string but directly
             # by pushing the pad character into self.result
-            result = self.result
             padding = self.width - len(r) - len(prefix)
             if padding <= 0:
                 padding = 0
@@ -441,6 +455,7 @@ def make_formatter_subclass(do_unicode):
                 if not got_unicode:
                     w_value = space.call_function(space.w_unicode, w_value)
                 else:
+                    from pypy.objspace.std.unicodeobject import unicode_from_object
                     w_value = unicode_from_object(space, w_value)
                 s = space.unicode_w(w_value)
             self.std_wp(s)
@@ -543,7 +558,10 @@ def maybe_float(space, w_value):
 
 def format_num_helper_generator(fmt, digits):
     def format_num_helper(space, w_value):
-        w_value = maybe_int(space, w_value)
+        try:
+            w_value = maybe_int(space, w_value)
+        except OperationError:
+            w_value = space.long(w_value)
         try:
             value = space.int_w(w_value)
             return fmt % (value,)

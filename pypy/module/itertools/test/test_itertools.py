@@ -304,6 +304,11 @@ class AppTestItertools:
 
         raises(TypeError, itertools.islice, [], 0, 0, 0, 0)
 
+        # why not TypeError? Because CPython
+        raises(ValueError, itertools.islice, [], "a", 1, 2)
+        raises(ValueError, itertools.islice, [], 0, "a", 2)
+        raises(ValueError, itertools.islice, [], 0, 1, "a")
+
     def test_chain(self):
         import itertools
         
@@ -856,6 +861,28 @@ class AppTestItertools26:
         prod = product('abc', repeat=0)
         assert prod.next() == ()
         raises (StopIteration, prod.next)
+
+    def test_product_powers_of_two(self):
+        from itertools import product
+        assert list(product()) == [()]
+        assert list(product('ab')) == [('a',), ('b',)]
+        assert list(product('ab', 'cd')) == [
+            ('a', 'c'), ('a', 'd'),
+            ('b', 'c'), ('b', 'd')]
+        assert list(product('ab', 'cd', 'ef')) == [
+            ('a', 'c', 'e'), ('a', 'c', 'f'),
+            ('a', 'd', 'e'), ('a', 'd', 'f'),
+            ('b', 'c', 'e'), ('b', 'c', 'f'),
+            ('b', 'd', 'e'), ('b', 'd', 'f')]
+
+    def test_product_empty_item(self):
+        from itertools import product
+        assert list(product('')) == []
+        assert list(product('ab', '')) == []
+        assert list(product('', 'cd')) == []
+        assert list(product('ab', 'cd', '')) == []
+        assert list(product('ab', '', 'ef')) == []
+        assert list(product('', 'cd', 'ef')) == []
 
     def test_permutations(self):
         from itertools import permutations

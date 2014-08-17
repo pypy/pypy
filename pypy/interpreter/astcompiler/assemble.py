@@ -412,7 +412,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                     done = True
                     break
         if block.next_block and not done:
-            max_depth = self._next_stack_depth_walk(block.next_block, depth)
+            self._next_stack_depth_walk(block.next_block, depth)
 
     def _build_lnotab(self, blocks):
         """Build the line number table for tracebacks and tracing."""

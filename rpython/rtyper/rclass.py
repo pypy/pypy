@@ -1,9 +1,13 @@
 import types
 
+from rpython.flowspace.model import Constant
+from rpython.flowspace.operation import op
 from rpython.annotator import description, model as annmodel
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Void
 from rpython.rtyper.rmodel import Repr, getgcflavor, inputconst
+from rpython.rlib.objectmodel import UnboxedValue
+from rpython.tool.pairtype import pairtype
 
 
 class FieldListAccessor(object):
@@ -25,15 +29,15 @@ class FieldListAccessor(object):
     def __repr__(self):
         return '<FieldListAccessor for %s>' % getattr(self, 'TYPE', '?')
 
-    def _freeze_(self):
-        return True
 
 class ImmutableRanking(object):
     def __init__(self, name, is_immutable):
         self.name = name
         self.is_immutable = is_immutable
+
     def __nonzero__(self):
         return self.is_immutable
+
     def __repr__(self):
         return '<%s>' % self.name
 
@@ -52,7 +56,8 @@ def getclassrepr(rtyper, classdef):
     try:
         result = rtyper.class_reprs[classdef]
     except KeyError:
-        result = rtyper.type_system.rclass.ClassRepr(rtyper, classdef)
+        from rpython.rtyper.lltypesystem.rclass import ClassRepr
+        result = ClassRepr(rtyper, classdef)
         rtyper.class_reprs[classdef] = result
         rtyper.add_pendingsetup(result)
     return result
@@ -73,26 +78,25 @@ def getinstancerepr(rtyper, classdef, default_flavor='gc'):
 
 
 def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
-    from rpython.rlib.objectmodel import UnboxedValue
-    from rpython.flowspace.model import Constant
+    from rpython.rtyper.rvirtualizable import VirtualizableInstanceRepr
 
     if classdef is None:
         unboxed = []
-        virtualizable2 = False
+        virtualizable = False
     else:
         unboxed = [subdef for subdef in classdef.getallsubdefs()
                           if subdef.classdesc.pyobj is not None and
                              issubclass(subdef.classdesc.pyobj, UnboxedValue)]
-        virtualizable2 = classdef.classdesc.read_attribute('_virtualizable2_',
+        virtualizable = classdef.classdesc.read_attribute('_virtualizable_',
                                                            Constant(False)).value
     config = rtyper.annotator.translator.config
     usetagging = len(unboxed) != 0 and config.translation.taggedpointers
 
-    if virtualizable2:
+    if virtualizable:
         assert len(unboxed) == 0
         assert gcflavor == 'gc'
-        return rtyper.type_system.rvirtualizable2.Virtualizable2InstanceRepr(rtyper, classdef)
-    elif usetagging and rtyper.type_system.name == 'lltypesystem':
+        return VirtualizableInstanceRepr(rtyper, classdef)
+    elif usetagging:
         # the UnboxedValue class and its parent classes need a
         # special repr for their instances
         if len(unboxed) != 1:
@@ -102,7 +106,8 @@ def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
         from rpython.rtyper.lltypesystem import rtagged
         return rtagged.TaggedInstanceRepr(rtyper, classdef, unboxed[0])
     else:
-        return rtyper.type_system.rclass.InstanceRepr(rtyper, classdef, gcflavor)
+        from rpython.rtyper.lltypesystem.rclass import InstanceRepr
+        return InstanceRepr(rtyper, classdef, gcflavor)
 
 
 class MissingRTypeAttribute(TyperError):
@@ -150,11 +155,11 @@ class AbstractClassRepr(Repr):
         # special-casing for methods:
         #  if s_value is SomePBC([MethodDescs...])
         #  return a PBC representing the underlying functions
-        if isinstance(s_value, annmodel.SomePBC):
-            if not s_value.isNone() and s_value.getKind() == description.MethodDesc:
-                s_value = self.classdef.lookup_filter(s_value)
-                funcdescs = [mdesc.funcdesc for mdesc in s_value.descriptions]
-                return annmodel.SomePBC(funcdescs)
+        if (isinstance(s_value, annmodel.SomePBC) and
+                s_value.getKind() == description.MethodDesc):
+            s_value = self.classdef.lookup_filter(s_value)
+            funcdescs = [mdesc.funcdesc for mdesc in s_value.descriptions]
+            return annmodel.SomePBC(funcdescs)
         return None   # not a method
 
     def get_ll_eq_function(self):
@@ -298,7 +303,7 @@ class AbstractInstanceRepr(Repr):
                         fieldname, base, self))
 
     def hook_access_field(self, vinst, cname, llops, flags):
-        pass        # for virtualizables; see rvirtualizable2.py
+        pass        # for virtualizables; see rvirtualizable.py
 
     def hook_setfield(self, vinst, fieldname, llops):
         if self.is_quasi_immutable(fieldname):
@@ -382,11 +387,11 @@ class AbstractInstanceRepr(Repr):
     def rtype_setattr(self, hop):
         raise NotImplementedError
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         raise NotImplementedError
 
     def _emulate_call(self, hop, meth_name):
-        vinst, = hop.inputargs(self)
+        vinst = hop.args_v[0]
         clsdef = hop.args_s[0].classdef
         s_unbound_attr = clsdef.find_attribute(meth_name).getvalue()
         s_attr = clsdef.lookup_filter(s_unbound_attr, meth_name,
@@ -398,9 +403,10 @@ class AbstractInstanceRepr(Repr):
         r_method = self.rtyper.getrepr(s_attr)
         r_method.get_method_from_instance(self, vinst, hop.llops)
         hop2 = hop.copy()
-        hop2.spaceop.opname = 'simple_call'
-        hop2.args_r = [r_method]
-        hop2.args_s = [s_attr]
+        hop2.spaceop = op.simple_call(*hop.spaceop.args)
+        hop2.spaceop.result = hop.spaceop.result
+        hop2.args_r[0] = r_method
+        hop2.args_s[0] = s_attr
         return hop2.dispatch()
 
     def rtype_iter(self, hop):
@@ -408,6 +414,15 @@ class AbstractInstanceRepr(Repr):
 
     def rtype_next(self, hop):
         return self._emulate_call(hop, 'next')
+
+    def rtype_getslice(self, hop):
+        return self._emulate_call(hop, "__getslice__")
+
+    def rtype_setslice(self, hop):
+        return self._emulate_call(hop, "__setslice__")
+
+    def rtype_len(self, hop):
+        return self._emulate_call(hop, "__len__")
 
     def ll_str(self, i):
         raise NotImplementedError
@@ -455,6 +470,16 @@ class AbstractInstanceRepr(Repr):
             if len(seen) == oldlength:
                 break
 
+
+class __extend__(pairtype(AbstractInstanceRepr, Repr)):
+    def rtype_getitem((r_ins, r_obj), hop):
+        return r_ins._emulate_call(hop, "__getitem__")
+
+    def rtype_setitem((r_ins, r_obj), hop):
+        return r_ins._emulate_call(hop, "__setitem__")
+
+
+
 # ____________________________________________________________
 
 def rtype_new_instance(rtyper, classdef, llops, classcallhop=None):
@@ -466,34 +491,24 @@ def ll_inst_hash(ins):
         return 0    # for None
     else:
         from rpython.rtyper.lltypesystem import lltype
-        return lltype.identityhash(ins)     # also works for ootype
+        return lltype.identityhash(ins)
 
 
 _missing = object()
 
 def fishllattr(inst, name, default=_missing):
     from rpython.rtyper.lltypesystem import lltype
-    from rpython.rtyper.ootypesystem import ootype
-    if isinstance(inst, (ootype._instance, ootype._view)):
-        # XXX: we need to call ootypesystem.rclass.mangle, but we
-        # can't because we don't have a config object
-        mangled = 'o' + name
-        if default is _missing:
-            return getattr(inst, mangled)
-        else:
-            return getattr(inst, mangled, default)
-    else:
-        p = widest = lltype.normalizeptr(inst)
-        while True:
-            try:
-                return getattr(p, 'inst_' + name)
-            except AttributeError:
-                pass
-            try:
-                p = p.super
-            except AttributeError:
-                break
-        if default is _missing:
-            raise AttributeError("%s has no field %s" % (lltype.typeOf(widest),
-                                                         name))
-        return default
+    p = widest = lltype.normalizeptr(inst)
+    while True:
+        try:
+            return getattr(p, 'inst_' + name)
+        except AttributeError:
+            pass
+        try:
+            p = p.super
+        except AttributeError:
+            break
+    if default is _missing:
+        raise AttributeError("%s has no field %s" % (lltype.typeOf(widest),
+                                                        name))
+    return default

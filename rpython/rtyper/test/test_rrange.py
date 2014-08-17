@@ -1,20 +1,21 @@
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.rrange import ll_rangelen, ll_rangeitem, ll_rangeitem_nonneg, dum_nocheck
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.lltypesystem import rrange
+from rpython.rtyper.test.tool import BaseRtypingTest
 
 
-class BaseTestRrange(BaseRtypingTest):
+class TestRrange(BaseRtypingTest):
 
     def test_rlist_range(self):
         def test1(start, stop, step, varstep):
             expected = range(start, stop, step)
             length = len(expected)
             if varstep:
-                l = self.rrange.ll_newrangest(start, stop, step)
+                l = rrange.ll_newrangest(start, stop, step)
                 step = l.step
             else:
-                RANGE = self.rrange.RangeRepr(step).RANGE
-                l = self.rrange.ll_newrange(RANGE, start, stop)
+                RANGE = rrange.RangeRepr(step).RANGE
+                l = rrange.ll_newrange(RANGE, start, stop)
             assert ll_rangelen(l, step) == length
             lst = [ll_rangeitem(dum_nocheck, l, i, step) for i in range(length)]
             assert lst == expected
@@ -183,12 +184,3 @@ class BaseTestRrange(BaseRtypingTest):
             return 5
         res = self.interpret(fn, [1])
         assert res == 20
-
-
-
-class TestLLtype(BaseTestRrange, LLRtypeMixin):
-    from rpython.rtyper.lltypesystem import rrange 
-
-
-class TestOOtype(BaseTestRrange, OORtypeMixin):
-    from rpython.rtyper.ootypesystem import rrange 

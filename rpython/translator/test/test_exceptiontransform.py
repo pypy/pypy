@@ -26,13 +26,17 @@ def interpret(func, values):
         _already_transformed[t] = True
     return interp.eval_graph(graph, values)
 
-class BaseTestExceptionTransform:
-    type_system = None
+class TestExceptionTransform:
+    type_system = 'lltype'
+
+    def compile(self, fn, inputargs):
+        from rpython.translator.c.test.test_genc import compile
+        return compile(fn, inputargs)
 
     def transform_func(self, fn, inputtypes, backendopt=False):
         t = TranslationContext()
         t.buildannotator().build_types(fn, inputtypes)
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         if option.view:
             t.view()
         if backendopt:
@@ -45,9 +49,6 @@ class BaseTestExceptionTransform:
             t.view()
         return t, g
 
-    def compile(self, fn, inputargs):
-        raise NotImplementedError
-    
     def test_simple(self):
         def one():
             return 1
@@ -57,15 +58,13 @@ class BaseTestExceptionTransform:
             return one()
 
         t, g = self.transform_func(foo, [])
-        assert len(list(g.iterblocks())) == 2 # graph does not change 
+        assert len(list(g.iterblocks())) == 2 # graph does not change
         result = interpret(foo, [])
         assert result == 1
         f = self.compile(foo, [])
         assert f() == 1
 
     def test_passthrough(self):
-        if self.type_system == 'ootype':
-            py.test.skip("XXX")
         def one(x):
             if x:
                 raise ValueError()
@@ -144,8 +143,6 @@ class BaseTestExceptionTransform:
         assert result == 2
 
     def test_raises(self):
-        if self.type_system == 'ootype':
-            py.test.skip("XXX")
         def foo(x):
             if x:
                 raise ValueError()
@@ -161,7 +158,7 @@ class BaseTestExceptionTransform:
             return x + 1
         t = TranslationContext()
         t.buildannotator().build_types(f, [int])
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         g = graphof(t, f)
         etrafo = exceptiontransform.ExceptionTransformer(t)
         etrafo.create_exception_handling(g)
@@ -173,10 +170,10 @@ class BaseTestExceptionTransform:
             raise ValueError
         t = TranslationContext()
         t.buildannotator().build_types(f, [int])
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         g = graphof(t, f)
         etrafo = exceptiontransform.ExceptionTransformer(t)
-        etrafo.create_exception_handling(g)    
+        etrafo.create_exception_handling(g)
         assert etrafo.raise_analyzer.analyze_direct_call(g)
 
     def test_reraise_is_not_raise(self):
@@ -207,14 +204,6 @@ class BaseTestExceptionTransform:
         result = f(1)
         assert result == -42
 
-
-class TestLLType(BaseTestExceptionTransform):
-    type_system = 'lltype'
-
-    def compile(self, fn, inputargs):
-        from rpython.translator.c.test.test_genc import compile
-        return compile(fn, inputargs)
-
     def test_needs_keepalive(self):
         check_debug_build()
         from rpython.rtyper.lltypesystem import lltype
@@ -244,7 +233,7 @@ class TestLLType(BaseTestExceptionTransform):
             return s.x
         t = TranslationContext()
         t.buildannotator().build_types(f, [int])
-        t.buildrtyper(type_system=self.type_system).specialize()
+        t.buildrtyper().specialize()
         g = graphof(t, f)
         etrafo = exceptiontransform.ExceptionTransformer(t)
         etrafo.create_exception_handling(g)
@@ -279,11 +268,3 @@ class TestLLType(BaseTestExceptionTransform):
         f = self.compile(foo, [])
         res = f()
         assert res == 42
-
-
-class TestOOType(BaseTestExceptionTransform):
-    type_system = 'ootype'
-
-    def compile(self, fn, inputargs):
-        from rpython.translator.cli.test.runtest import compile_function
-        return compile_function(fn, inputargs, auto_raise_exc=True, exctrans=True)

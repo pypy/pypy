@@ -159,6 +159,8 @@ def interpret_exitcode(exitcode, test, logdata=""):
             else:
                 msg = "Killed by %s." % getsignalname(-exitcode)
             extralog = "! %s\n %s\n" % (test, msg)
+        else:
+            extralog = "  (somefailed=True in %s)\n" % (test,)
     else:
         failure = False
     return failure, extralog
@@ -231,6 +233,8 @@ def execute_tests(run_param, testdirs, logfile, out):
     run_param.startup()
 
     N = run_param.parallel_runs
+    if N > 1:
+        out.write("running %d parallel test workers\n" % N)
     failure = False
 
     for testname in testdirs:
@@ -261,7 +265,8 @@ def execute_tests(run_param, testdirs, logfile, out):
         done += 1
         failure = failure or somefailed
 
-        heading = "__ %s [%d done in total] " % (testname, done)
+        heading = "__ %s [%d done in total, somefailed=%s] " % (
+            testname, done, somefailed)
         
         out.write(heading + (79-len(heading))*'_'+'\n')
 
@@ -386,6 +391,8 @@ def main(args):
         if py.path.local(config_py_file).check(file=1):
             print >>out, "using config", config_py_file
             execfile(config_py_file, run_param.__dict__)
+        else:
+            print >>out, "ignoring non-existant config", config_py_file
 
     if run_param.cherrypick:
         for p in run_param.cherrypick:

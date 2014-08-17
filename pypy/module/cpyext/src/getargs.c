@@ -53,7 +53,7 @@ PyArg_Parse(PyObject *args, const char *format, ...)
 }
 
 int
-_PyArg_Parse_SizeT(PyObject *args, char *format, ...)
+_PyArg_Parse_SizeT(PyObject *args, const char *format, ...)
 {
     int retval;
     va_list va;
@@ -78,7 +78,7 @@ PyArg_ParseTuple(PyObject *args, const char *format, ...)
 }
 
 int
-_PyArg_ParseTuple_SizeT(PyObject *args, char *format, ...)
+_PyArg_ParseTuple_SizeT(PyObject *args, const char *format, ...)
 {
     int retval;
     va_list va;
@@ -109,7 +109,7 @@ PyArg_VaParse(PyObject *args, const char *format, va_list va)
 }
 
 int
-_PyArg_VaParse_SizeT(PyObject *args, char *format, va_list va)
+_PyArg_VaParse_SizeT(PyObject *args, const char *format, va_list va)
 {
     va_list lva;
 

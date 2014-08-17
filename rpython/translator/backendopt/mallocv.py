@@ -252,7 +252,7 @@ class MallocVirtualizer(object):
     def __init__(self, graphs, rtyper, verbose=False):
         self.graphs = graphs
         self.rtyper = rtyper
-        self.excdata = rtyper.getexceptiondata()
+        self.excdata = rtyper.exceptiondata
         self.graphbuilders = {}
         self.specialized_graphs = {}
         self.specgraphorigin = {}

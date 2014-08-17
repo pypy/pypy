@@ -5,12 +5,10 @@ import copy
 from rpython.rlib.rerased import *
 from rpython.annotator import model as annmodel
 from rpython.annotator.annrpython import RPythonAnnotator
-from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
-from rpython.rtyper.ootypesystem.rclass import OBJECT
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 
 def make_annotator():
     a = RPythonAnnotator()
@@ -185,7 +183,12 @@ def test_annotate_prebuilt_int():
     s = a.build_types(f, [int])
     assert isinstance(s, annmodel.SomeInteger)
 
-class BaseTestRErased(BaseRtypingTest):
+class TestRErased(BaseRtypingTest):
+    ERASED_TYPE = llmemory.GCREF
+    UNERASED_TYPE = OBJECTPTR
+    def castable(self, TO, var):
+        return lltype.castable(TO, lltype.typeOf(var)) > 0
+
     def interpret(self, *args, **kwargs):
         kwargs["taggedpointers"] = True
         return BaseRtypingTest.interpret(self, *args, **kwargs)
@@ -295,23 +298,6 @@ class BaseTestRErased(BaseRtypingTest):
         self.interpret(l, [0])
         self.interpret(l, [1])
         self.interpret(l, [2])
-
-class TestLLtype(BaseTestRErased, LLRtypeMixin):
-    ERASED_TYPE = llmemory.GCREF
-    UNERASED_TYPE = OBJECTPTR
-    def castable(self, TO, var):
-        return lltype.castable(TO, lltype.typeOf(var)) > 0
-
-from rpython.rtyper.ootypesystem.ootype import Object
-
-class TestOOtype(BaseTestRErased, OORtypeMixin):
-    ERASED_TYPE = Object
-    UNERASED_TYPE = OBJECT
-    def castable(self, TO, var):
-        return ootype.isSubclass(lltype.typeOf(var), TO)
-    @py.test.mark.xfail
-    def test_prebuilt_erased(self):
-        super(TestOOtype, self).test_prebuilt_erased()
 
 def test_union():
     s_e1 = SomeErased()

@@ -12,22 +12,6 @@ import sys
 
 counts = {}
 
-## def print_call_chain(ob):
-##     import sys
-##     f = sys._getframe(1)
-##     stack = []
-##     flag = False
-##     while f:
-##         if f.f_locals.get('self') is ob:
-##             stack.append((f.f_code.co_name, f.f_locals.get('TYPE')))
-##             if not flag:
-##                 counts[f.f_code.co_name] = counts.get(f.f_code.co_name, 0) + 1
-##                 print counts
-##                 flag = True
-##         f = f.f_back
-##     stack.reverse()
-##     for i, (a, b) in enumerate(stack):
-##         print ' '*i, a, repr(b)[:100-i-len(a)], id(b)
 
 ADDRESS_VOID_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
 

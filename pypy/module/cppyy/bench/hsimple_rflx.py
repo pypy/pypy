@@ -80,14 +80,14 @@ kUPDATE = 1000
 for i in xrange(2500000):
  # Generate random values.
 #   px, py = random.gauss(0, 1), random.gauss(0, 1)
-   px, py = random.Gaus(0, 1), random.Gaus(0, 1)
+    px, py = random.Gaus(0, 1), random.Gaus(0, 1)
 #   pt = (px*px + py*py)**0.5
-   pt = math.sqrt(px*px + py*py)
+    pt = math.sqrt(px*px + py*py)
 #   pt = (px*px + py*py)
 #   random = rndm(1)
 
  # Fill histograms.
-   hpx.Fill(pt)
+    hpx.Fill(pt)
 #   hpxpyFill( px, py )
 #   hprofFill( px, pz )
 #   ntupleFill( px, py, pz, random, i )
@@ -105,7 +105,7 @@ for i in xrange(2500000):
 
 #gBenchmark.Show( 'hsimple' )
 
-hpx.Print() 
+hpx.Print()
 
 # Save all objects in this file.
 #hpx.SetFillColor( 0 )

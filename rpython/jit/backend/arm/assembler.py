@@ -29,6 +29,7 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.backend.arm import callbuilder
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 class AssemblerARM(ResOpAssembler):
 
@@ -62,20 +63,21 @@ class AssemblerARM(ResOpAssembler):
         self.current_clt = looptoken.compiled_loop_token
         self.mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         self.pending_guards = []
-        assert self.datablockwrapper is None
+        #assert self.datablockwrapper is None --- but obscure case
+        # possible, e.g. getting MemoryError and continuing
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
                                                         allblocks)
         self.mc.datablockwrapper = self.datablockwrapper
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
+        self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
 
     def teardown(self):
         self.current_clt = None
         self._regalloc = None
         self.mc = None
         self.pending_guards = None
-        assert self.datablockwrapper is None
 
     def setup_failure_recovery(self):
         self.failure_recovery_code = [0, 0, 0, 0]
@@ -258,6 +260,23 @@ class AssemblerARM(ResOpAssembler):
             self.wb_slowpath[4] = rawstart
         else:
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
+
+    def _build_cond_call_slowpath(self, supports_floats, callee_only):
+        """ This builds a general call slowpath, for whatever call happens to
+        come.
+        """
+        mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
+        #
+        self._push_all_regs_to_jitframe(mc, [], self.cpu.supports_floats, callee_only)
+        ## args are in their respective positions
+        mc.PUSH([r.ip.value, r.lr.value])
+        mc.BLX(r.r4.value)
+        self._reload_frame_if_necessary(mc)
+        self._pop_all_regs_from_jitframe(mc, [], supports_floats,
+                                      callee_only)
+        # return
+        mc.POP([r.ip.value, r.pc.value])
+        return mc.materialize(self.cpu.asmmemmgr, [])
 
     def _build_malloc_slowpath(self, kind):
         """ While arriving on slowpath, we have a gcpattern on stack 0.
@@ -553,7 +572,8 @@ class AssemblerARM(ResOpAssembler):
             self.mc.BL(self.stack_check_slowpath, c=c.HI)      # call if ip > lr
 
     # cpu interface
-    def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
+    def assemble_loop(self, logger, loopname, inputargs, operations, looptoken,
+                      log):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         looptoken.compiled_loop_token = clt
         clt._debug_nbargs = len(inputargs)
@@ -602,6 +622,9 @@ class AssemblerARM(ResOpAssembler):
                     'loop.asm')
 
         ops_offset = self.mc.ops_offset
+        if logger is not None:
+            logger.log_loop(inputargs, operations, 0, "rewritten",
+                            name=loopname, ops_offset=ops_offset)
         self.teardown()
 
         debug_start("jit-backend-addr")
@@ -626,8 +649,8 @@ class AssemblerARM(ResOpAssembler):
             frame_depth = max(frame_depth, target_frame_depth)
         return frame_depth
 
-    def assemble_bridge(self, faildescr, inputargs, operations,
-                                                    original_loop_token, log):
+    def assemble_bridge(self, logger, faildescr, inputargs, operations,
+                        original_loop_token, log):
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
@@ -676,6 +699,9 @@ class AssemblerARM(ResOpAssembler):
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
+        if logger:
+            logger.log_bridge(inputargs, operations, "rewritten",
+                              ops_offset=ops_offset)
         self.teardown()
 
         debug_bridge(descr_number, rawstart, codeendpos)
@@ -872,7 +898,7 @@ class AssemblerARM(ResOpAssembler):
             relative_offset = tok.pos_recovery_stub - tok.offset
             guard_pos = block_start + tok.offset
             if not tok.is_guard_not_invalidated:
-                # patch the guard jumpt to the stub
+                # patch the guard jump to the stub
                 # overwrite the generate NOP with a B_offs to the pos of the
                 # stub
                 mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
@@ -1463,7 +1489,9 @@ class AssemblerARM(ResOpAssembler):
 
 
 def not_implemented(msg):
-    os.write(2, '[ARM/asm] %s\n' % msg)
+    msg = '[ARM/asm] %s\n' % msg
+    if we_are_translated():
+        llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
 
 

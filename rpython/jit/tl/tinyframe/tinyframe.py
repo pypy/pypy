@@ -214,7 +214,7 @@ driver = JitDriver(greens = ['i', 'code'], reds = ['self'],
                    virtualizables = ['self'])
 
 class Frame(object):
-    _virtualizable2_ = ['registers[*]', 'code']
+    _virtualizable_ = ['registers[*]', 'code']
     
     def __init__(self, code, arg=None):
         self = hint(self, access_directly=True, fresh_virtualizable=True)

@@ -3,7 +3,6 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, make_ref, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rthread
-from pypy.module.thread import os_thread
 
 PyInterpreterStateStruct = lltype.ForwardReference()
 PyInterpreterState = lltype.Ptr(PyInterpreterStateStruct)
@@ -16,6 +15,9 @@ PyThreadState = lltype.Ptr(cpython_struct(
     [('interp', PyInterpreterState),
      ('dict', PyObject),
      ]))
+
+class NoThreads(Exception):
+    pass
 
 @cpython_api([], PyThreadState, error=CANNOT_FAIL)
 def PyEval_SaveThread(space):
@@ -45,10 +47,15 @@ def PyEval_RestoreThread(space, tstate):
 
 @cpython_api([], lltype.Void)
 def PyEval_InitThreads(space):
+    if not space.config.translation.thread:
+        raise NoThreads
+    from pypy.module.thread import os_thread
     os_thread.setup_threads(space)
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyEval_ThreadsInitialized(space):
+    if not space.config.translation.thread:
+        return 0
     return 1
 
 # XXX: might be generally useful
@@ -197,19 +204,21 @@ def PyEval_ReleaseThread(space, tstate):
         # Before external call is after running Python
         rffi.aroundstate.before()
 
-PyGILState_STATE = rffi.COpaquePtr('PyGILState_STATE',
-                                   typedef='PyGILState_STATE',
-                                   compilation_info=CConfig._compilation_info_)
+PyGILState_STATE = rffi.INT
 
 @cpython_api([], PyGILState_STATE, error=CANNOT_FAIL)
 def PyGILState_Ensure(space):
+    # XXX XXX XXX THIS IS A VERY MINIMAL IMPLEMENTATION THAT WILL HAPPILY
+    # DEADLOCK IF CALLED TWICE ON THE SAME THREAD, OR CRASH IF CALLED IN A
+    # NEW THREAD.  We should very carefully follow what CPython does instead.
     if rffi.aroundstate.after:
         # After external call is before entering Python
         rffi.aroundstate.after()
-    return 0
+    return rffi.cast(PyGILState_STATE, 0)
 
 @cpython_api([PyGILState_STATE], lltype.Void)
 def PyGILState_Release(space, state):
+    # XXX XXX XXX We should very carefully follow what CPython does instead.
     if rffi.aroundstate.before:
         # Before external call is after running Python
         rffi.aroundstate.before()
@@ -232,7 +241,8 @@ def PyThreadState_New(space, interp):
     """Create a new thread state object belonging to the given interpreter
     object.  The global interpreter lock need not be held, but may be held if
     it is necessary to serialize calls to this function."""
-    rthread.gc_thread_prepare()
+    if not space.config.translation.thread:
+        raise NoThreads
     # PyThreadState_Get will allocate a new execution context,
     # we need to protect gc and other globals with the GIL.
     rffi.aroundstate.after()
@@ -246,6 +256,8 @@ def PyThreadState_New(space, interp):
 def PyThreadState_Clear(space, tstate):
     """Reset all information in a thread state object.  The global
     interpreter lock must be held."""
+    if not space.config.translation.thread:
+        raise NoThreads
     Py_DecRef(space, tstate.c_dict)
     tstate.c_dict = lltype.nullptr(PyObject.TO)
     space.threadlocals.leave_thread(space)

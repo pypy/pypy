@@ -3,9 +3,9 @@ import py
 import sys, os
 
 from rpython.rtyper.lltypesystem.module.ll_os_path import Implementation as impl
-from rpython.rtyper.module.support import ll_strcpy
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.tool.udir import udir
+
 
 def test_exists():
     filename = impl.to_rstr(str(py.path.local(__file__)))

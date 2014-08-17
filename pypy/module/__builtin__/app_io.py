@@ -4,6 +4,7 @@ Plain Python definition of the builtin I/O-related functions.
 """
 
 import sys
+from _ast import PyCF_ACCEPT_NULL_BYTES
 
 def execfile(filename, glob=None, loc=None):
     """execfile(filename[, globals[, locals]])
@@ -24,7 +25,8 @@ globals and locals.  If only globals is given, locals defaults to it."""
     finally:
         f.close()
     #Don't exec the source directly, as this loses the filename info
-    co = compile(source.rstrip()+"\n", filename, 'exec')
+    co = compile(source.rstrip()+"\n", filename, 'exec',
+                 PyCF_ACCEPT_NULL_BYTES)
     exec co in glob, loc
 
 def _write_prompt(stdout, prompt):

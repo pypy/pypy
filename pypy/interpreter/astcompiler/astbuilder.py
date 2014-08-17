@@ -285,7 +285,6 @@ class ASTBuilder(object):
                         exec_node.column)
 
     def handle_assert_stmt(self, assert_node):
-        child_count = len(assert_node.children)
         expr = self.handle_expr(assert_node.children[1])
         msg = None
         if len(assert_node.children) == 4:
@@ -1061,7 +1060,6 @@ class ASTBuilder(object):
         if negative:
             raw = "-" + raw
         w_num_str = self.space.wrap(raw)
-        w_index = None
         w_base = self.space.wrap(base)
         if raw[-1] in "lL":
             tp = self.space.w_long

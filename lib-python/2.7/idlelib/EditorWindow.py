@@ -172,13 +172,13 @@ class EditorWindow(object):
                 'recent-files.lst')
         self.text_frame = text_frame = Frame(top)
         self.vbar = vbar = Scrollbar(text_frame, name='vbar')
-        self.width = idleConf.GetOption('main','EditorWindow','width')
+        self.width = idleConf.GetOption('main','EditorWindow','width', type='int')
         text_options = {
                 'name': 'text',
                 'padx': 5,
                 'wrap': 'none',
                 'width': self.width,
-                'height': idleConf.GetOption('main', 'EditorWindow', 'height')}
+                'height': idleConf.GetOption('main', 'EditorWindow', 'height', type='int')}
         if TkVersion >= 8.5:
             # Starting with tk 8.5 we have to set the new tabstyle option
             # to 'wordprocessor' to achieve the same display of tabs as in
@@ -255,7 +255,8 @@ class EditorWindow(object):
         if idleConf.GetOption('main', 'EditorWindow', 'font-bold', type='bool'):
             fontWeight='bold'
         text.config(font=(idleConf.GetOption('main', 'EditorWindow', 'font'),
-                          idleConf.GetOption('main', 'EditorWindow', 'font-size'),
+                          idleConf.GetOption('main', 'EditorWindow',
+                                             'font-size', type='int'),
                           fontWeight))
         text_frame.pack(side=LEFT, fill=BOTH, expand=1)
         text.pack(side=TOP, fill=BOTH, expand=1)
@@ -344,6 +345,36 @@ class EditorWindow(object):
         self.askyesno = tkMessageBox.askyesno
         self.askinteger = tkSimpleDialog.askinteger
         self.showerror = tkMessageBox.showerror
+
+        self._highlight_workaround()  # Fix selection tags on Windows
+
+    def _highlight_workaround(self):
+        # On Windows, Tk removes painting of the selection
+        # tags which is different behavior than on Linux and Mac.
+        # See issue14146 for more information.
+        if not sys.platform.startswith('win'):
+            return
+
+        text = self.text
+        text.event_add("<<Highlight-FocusOut>>", "<FocusOut>")
+        text.event_add("<<Highlight-FocusIn>>", "<FocusIn>")
+        def highlight_fix(focus):
+            sel_range = text.tag_ranges("sel")
+            if sel_range:
+                if focus == 'out':
+                    HILITE_CONFIG = idleConf.GetHighlight(
+                            idleConf.CurrentTheme(), 'hilite')
+                    text.tag_config("sel_fix", HILITE_CONFIG)
+                    text.tag_raise("sel_fix")
+                    text.tag_add("sel_fix", *sel_range)
+                elif focus == 'in':
+                    text.tag_remove("sel_fix", "1.0", "end")
+
+        text.bind("<<Highlight-FocusOut>>",
+                lambda ev: highlight_fix("out"))
+        text.bind("<<Highlight-FocusIn>>",
+                lambda ev: highlight_fix("in"))
+
 
     def _filename_to_unicode(self, filename):
         """convert filename to unicode in order to display it in Tk"""
@@ -436,7 +467,6 @@ class EditorWindow(object):
     ]
 
     if macosxSupport.runningAsOSXApp():
-        del menu_specs[-3]
         menu_specs[-2] = ("windows", "_Window")
 
 
@@ -470,7 +500,6 @@ class EditorWindow(object):
     rmenu = None
 
     def right_menu_event(self, event):
-        self.text.tag_remove("sel", "1.0", "end")
         self.text.mark_set("insert", "@%d,%d" % (event.x, event.y))
         if not self.rmenu:
             self.make_rmenu()
@@ -479,22 +508,57 @@ class EditorWindow(object):
         iswin = sys.platform[:3] == 'win'
         if iswin:
             self.text.config(cursor="arrow")
+
+        for item in self.rmenu_specs:
+            try:
+                label, eventname, verify_state = item
+            except ValueError: # see issue1207589
+                continue
+
+            if verify_state is None:
+                continue
+            state = getattr(self, verify_state)()
+            rmenu.entryconfigure(label, state=state)
+
         rmenu.tk_popup(event.x_root, event.y_root)
         if iswin:
             self.text.config(cursor="ibeam")
 
     rmenu_specs = [
-        # ("Label", "<<virtual-event>>"), ...
-        ("Close", "<<close-window>>"), # Example
+        # ("Label", "<<virtual-event>>", "statefuncname"), ...
+        ("Close", "<<close-window>>", None), # Example
     ]
 
     def make_rmenu(self):
         rmenu = Menu(self.text, tearoff=0)
-        for label, eventname in self.rmenu_specs:
-            def command(text=self.text, eventname=eventname):
-                text.event_generate(eventname)
-            rmenu.add_command(label=label, command=command)
+        for item in self.rmenu_specs:
+            label, eventname = item[0], item[1]
+            if label is not None:
+                def command(text=self.text, eventname=eventname):
+                    text.event_generate(eventname)
+                rmenu.add_command(label=label, command=command)
+            else:
+                rmenu.add_separator()
         self.rmenu = rmenu
+
+    def rmenu_check_cut(self):
+        return self.rmenu_check_copy()
+
+    def rmenu_check_copy(self):
+        try:
+            indx = self.text.index('sel.first')
+        except TclError:
+            return 'disabled'
+        else:
+            return 'normal' if indx else 'disabled'
+
+    def rmenu_check_paste(self):
+        try:
+            self.text.tk.call('tk::GetSelection', self.text, 'CLIPBOARD')
+        except TclError:
+            return 'disabled'
+        else:
+            return 'normal'
 
     def about_dialog(self, event=None):
         aboutDialog.AboutDialog(self.top,'About IDLE')
@@ -625,7 +689,7 @@ class EditorWindow(object):
         # XXX Ought to insert current file's directory in front of path
         try:
             (f, file, (suffix, mode, type)) = _find_module(name)
-        except (NameError, ImportError), msg:
+        except (NameError, ImportError) as msg:
             tkMessageBox.showerror("Import error", str(msg), parent=self.text)
             return
         if type != imp.PY_SOURCE:
@@ -735,7 +799,8 @@ class EditorWindow(object):
         if idleConf.GetOption('main','EditorWindow','font-bold',type='bool'):
             fontWeight='bold'
         self.text.config(font=(idleConf.GetOption('main','EditorWindow','font'),
-                idleConf.GetOption('main','EditorWindow','font-size'),
+                idleConf.GetOption('main','EditorWindow','font-size',
+                                   type='int'),
                 fontWeight))
 
     def RemoveKeybindings(self):
@@ -768,7 +833,11 @@ class EditorWindow(object):
                     menuEventDict[menu[0]][prepstr(item[0])[1]] = item[1]
         for menubarItem in self.menudict.keys():
             menu = self.menudict[menubarItem]
-            end = menu.index(END) + 1
+            end = menu.index(END)
+            if end is None:
+                # Skip empty menus
+                continue
+            end += 1
             for index in range(0, end):
                 if menu.type(index) == 'command':
                     accel = menu.entrycget(index, 'accelerator')
@@ -825,11 +894,8 @@ class EditorWindow(object):
         "Load and update the recent files list and menus"
         rf_list = []
         if os.path.exists(self.recent_files_path):
-            rf_list_file = open(self.recent_files_path,'r')
-            try:
+            with  open(self.recent_files_path, 'r') as rf_list_file:
                 rf_list = rf_list_file.readlines()
-            finally:
-                rf_list_file.close()
         if new_file:
             new_file = os.path.abspath(new_file) + '\n'
             if new_file in rf_list:
@@ -856,7 +922,7 @@ class EditorWindow(object):
         # for each edit window instance, construct the recent files menu
         for instance in self.top.instance_dict.keys():
             menu = instance.recent_files_menu
-            menu.delete(1, END)  # clear, and rebuild:
+            menu.delete(0, END)  # clear, and rebuild:
             for i, file_name in enumerate(rf_list):
                 file_name = file_name.rstrip()  # zap \n
                 # make unicode string to display non-ASCII chars correctly
@@ -1395,6 +1461,7 @@ class EditorWindow(object):
     def tabify_region_event(self, event):
         head, tail, chars, lines = self.get_region()
         tabwidth = self._asktabwidth()
+        if tabwidth is None: return
         for pos in range(len(lines)):
             line = lines[pos]
             if line:
@@ -1406,6 +1473,7 @@ class EditorWindow(object):
     def untabify_region_event(self, event):
         head, tail, chars, lines = self.get_region()
         tabwidth = self._asktabwidth()
+        if tabwidth is None: return
         for pos in range(len(lines)):
             lines[pos] = lines[pos].expandtabs(tabwidth)
         self.set_region(head, tail, chars, lines)
@@ -1499,7 +1567,7 @@ class EditorWindow(object):
             parent=self.text,
             initialvalue=self.indentwidth,
             minvalue=2,
-            maxvalue=16) or self.tabwidth
+            maxvalue=16)
 
     # Guess indentwidth from text content.
     # Return guessed indentwidth.  This should not be believed unless
@@ -1581,7 +1649,7 @@ class IndentSearcher(object):
         try:
             try:
                 _tokenize.tokenize(self.readline, self.tokeneater)
-            except _tokenize.TokenError:
+            except (_tokenize.TokenError, SyntaxError):
                 # since we cut off the tokenizer early, we can trigger
                 # spurious errors
                 pass

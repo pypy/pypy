@@ -4,7 +4,23 @@ from .tklib import tklib, tkffi
 from . import TclError
 from .tclobj import TclObject, FromObj, AsObj, TypeCache
 
+import contextlib
 import sys
+import threading
+import time
+
+
+class _DummyLock(object):
+    "A lock-like object that does not do anything"
+    def acquire(self):
+        pass
+    def release(self):
+        pass
+    def __enter__(self):
+        pass
+    def __exit__(self, *exc):
+        pass
+
 
 def varname_converter(input):
     if isinstance(input, TclObject):
@@ -37,17 +53,18 @@ class _CommandData(object):
     def PythonCmd(clientData, interp, argc, argv):
         self = tkffi.from_handle(clientData)
         assert self.app.interp == interp
-        try:
-            args = [tkffi.string(arg) for arg in argv[1:argc]]
-            result = self.func(*args)
-            obj = AsObj(result)
-            tklib.Tcl_SetObjResult(interp, obj)
-        except:
-            self.app.errorInCmd = True
-            self.app.exc_info = sys.exc_info()
-            return tklib.TCL_ERROR
-        else:
-            return tklib.TCL_OK
+        with self.app._tcl_lock_released():
+            try:
+                args = [tkffi.string(arg) for arg in argv[1:argc]]
+                result = self.func(*args)
+                obj = AsObj(result)
+                tklib.Tcl_SetObjResult(interp, obj)
+            except:
+                self.app.errorInCmd = True
+                self.app.exc_info = sys.exc_info()
+                return tklib.TCL_ERROR
+            else:
+                return tklib.TCL_OK
 
     @tkffi.callback("Tcl_CmdDeleteProc")
     def PythonCmdDelete(clientData):
@@ -58,6 +75,8 @@ class _CommandData(object):
 
 
 class TkApp(object):
+    _busywaitinterval = 0.02  # 20ms.
+
     def __new__(cls, screenName, baseName, className,
                 interactive, wantobjects, wantTk, sync, use):
         if not wantobjects:
@@ -72,6 +91,12 @@ class TkApp(object):
         self.dispatching = False
         self.quitMainLoop = False
         self.errorInCmd = False
+
+        if not self.threaded:
+            # TCL is not thread-safe, calls needs to be serialized.
+            self._tcl_lock = threading.Lock()
+        else:
+            self._tcl_lock = _DummyLock()
 
         self._typeCache = TypeCache()
         self._commands = {}
@@ -133,6 +158,13 @@ class TkApp(object):
         if self.threaded and self.thread_id != tklib.Tcl_GetCurrentThread():
             raise RuntimeError("Calling Tcl from different appartment")
 
+    @contextlib.contextmanager
+    def _tcl_lock_released(self):
+        "Context manager to temporarily release the tcl lock."
+        self._tcl_lock.release()
+        yield
+        self._tcl_lock.acquire()
+
     def loadtk(self):
         # We want to guard against calling Tk_Init() multiple times
         err = tklib.Tcl_Eval(self.interp, "info exists     tk_version")
@@ -159,22 +191,25 @@ class TkApp(object):
         flags=tklib.TCL_LEAVE_ERR_MSG
         if global_only:
             flags |= tklib.TCL_GLOBAL_ONLY
-        res = tklib.Tcl_GetVar2Ex(self.interp, name1, name2, flags)
-        if not res:
-            self.raiseTclError()
-        assert self._wantobjects
-        return FromObj(self, res)
+        with self._tcl_lock:
+            res = tklib.Tcl_GetVar2Ex(self.interp, name1, name2, flags)
+            if not res:
+                self.raiseTclError()
+            assert self._wantobjects
+            return FromObj(self, res)
 
     def _setvar(self, name1, value, global_only=False):
         name1 = varname_converter(name1)
+        # XXX Acquire tcl lock???
         newval = AsObj(value)
         flags=tklib.TCL_LEAVE_ERR_MSG
         if global_only:
             flags |= tklib.TCL_GLOBAL_ONLY
-        res = tklib.Tcl_SetVar2Ex(self.interp, name1, tkffi.NULL,
-                                  newval, flags)
-        if not res:
-            self.raiseTclError()
+        with self._tcl_lock:
+            res = tklib.Tcl_SetVar2Ex(self.interp, name1, tkffi.NULL,
+                                      newval, flags)
+            if not res:
+                self.raiseTclError()
 
     def _unsetvar(self, name1, name2=None, global_only=False):
         name1 = varname_converter(name1)
@@ -183,9 +218,10 @@ class TkApp(object):
         flags=tklib.TCL_LEAVE_ERR_MSG
         if global_only:
             flags |= tklib.TCL_GLOBAL_ONLY
-        res = tklib.Tcl_UnsetVar2(self.interp, name1, name2, flags)
-        if res == tklib.TCL_ERROR:
-            self.raiseTclError()
+        with self._tcl_lock:
+            res = tklib.Tcl_UnsetVar2(self.interp, name1, name2, flags)
+            if res == tklib.TCL_ERROR:
+                self.raiseTclError()
 
     def getvar(self, name1, name2=None):
         return self._var_invoke(self._getvar, name1, name2)
@@ -219,9 +255,10 @@ class TkApp(object):
         if self.threaded and self.thread_id != tklib.Tcl_GetCurrentThread():
             raise NotImplementedError("Call from another thread")
 
-        res = tklib.Tcl_CreateCommand(
-            self.interp, cmdName, _CommandData.PythonCmd,
-            clientData, _CommandData.PythonCmdDelete)
+        with self._tcl_lock:
+            res = tklib.Tcl_CreateCommand(
+                self.interp, cmdName, _CommandData.PythonCmd,
+                clientData, _CommandData.PythonCmdDelete)
         if not res:
             raise TclError("can't create Tcl command")
 
@@ -229,7 +266,8 @@ class TkApp(object):
         if self.threaded and self.thread_id != tklib.Tcl_GetCurrentThread():
             raise NotImplementedError("Call from another thread")
 
-        res = tklib.Tcl_DeleteCommand(self.interp, cmdName)
+        with self._tcl_lock:
+            res = tklib.Tcl_DeleteCommand(self.interp, cmdName)
         if res == -1:
             raise TclError("can't delete Tcl command")
 
@@ -256,11 +294,12 @@ class TkApp(object):
                 tklib.Tcl_IncrRefCount(obj)
                 objects[i] = obj
 
-            res = tklib.Tcl_EvalObjv(self.interp, argc, objects, flags)
-            if res == tklib.TCL_ERROR:
-                self.raiseTclError()
-            else:
-                result = self._callResult()
+            with self._tcl_lock:
+                res = tklib.Tcl_EvalObjv(self.interp, argc, objects, flags)
+                if res == tklib.TCL_ERROR:
+                    self.raiseTclError()
+                else:
+                    result = self._callResult()
         finally:
             for obj in objects:
                 if obj:
@@ -280,28 +319,55 @@ class TkApp(object):
 
     def eval(self, script):
         self._check_tcl_appartment()
-        res = tklib.Tcl_Eval(self.interp, script)
-        if res == tklib.TCL_ERROR:
-            self.raiseTclError()
-        return tkffi.string(tklib.Tcl_GetStringResult(self.interp))
+        with self._tcl_lock:
+            res = tklib.Tcl_Eval(self.interp, script)
+            if res == tklib.TCL_ERROR:
+                self.raiseTclError()
+            return tkffi.string(tklib.Tcl_GetStringResult(self.interp))
 
     def evalfile(self, filename):
         self._check_tcl_appartment()
-        res = tklib.Tcl_EvalFile(self.interp, filename)
-        if res == tklib.TCL_ERROR:
-            self.raiseTclError()
-        return tkffi.string(tklib.Tcl_GetStringResult(self.interp))
+        with self._tcl_lock:
+            res = tklib.Tcl_EvalFile(self.interp, filename)
+            if res == tklib.TCL_ERROR:
+                self.raiseTclError()
+            return tkffi.string(tklib.Tcl_GetStringResult(self.interp))
 
     def split(self, arg):
-        if isinstance(arg, tuple):
+        if isinstance(arg, TclObject):
+            objc = tkffi.new("int*")
+            objv = tkffi.new("Tcl_Obj***")
+            status = tklib.Tcl_ListObjGetElements(self.interp, arg._value, objc, objv)
+            if status == tklib.TCL_ERROR:
+                return FromObj(self, arg._value)
+            if objc == 0:
+                return ''
+            elif objc == 1:
+                return FromObj(self, objv[0][0])
+            result = []
+            for i in range(objc[0]):
+                result.append(FromObj(self, objv[0][i]))
+            return tuple(result)
+        elif isinstance(arg, tuple):
             return self._splitObj(arg)
-        else:
-            return self._split(arg)
+        elif isinstance(arg, unicode):
+            arg = arg.encode('utf8')
+        return self._split(arg)
 
     def splitlist(self, arg):
-        if isinstance(arg, tuple):
+        if isinstance(arg, TclObject):
+            objc = tkffi.new("int*")
+            objv = tkffi.new("Tcl_Obj***")
+            status = tklib.Tcl_ListObjGetElements(self.interp, arg._value, objc, objv)
+            if status == tklib.TCL_ERROR:
+                self.raiseTclError()
+            result = []
+            for i in range(objc[0]):
+                result.append(FromObj(self, objv[0][i]))
+            return tuple(result)
+        elif isinstance(arg, tuple):
             return arg
-        if isinstance(arg, unicode):
+        elif isinstance(arg, unicode):
             arg = arg.encode('utf8')
 
         argc = tkffi.new("int*")
@@ -318,23 +384,34 @@ class TkApp(object):
     def _splitObj(self, arg):
         if isinstance(arg, tuple):
             size = len(arg)
+            result = None
             # Recursively invoke SplitObj for all tuple items.
             # If this does not return a new object, no action is
             # needed.
-            result = None
-            newelems = (self._splitObj(elem) for elem in arg)
-            for elem, newelem in zip(arg, newelems):
-                if elem is not newelem:
-                    return newelems
-        elif isinstance(arg, str):
+            for i in range(size):
+                elem = arg[i]
+                newelem = self._splitObj(elem)
+                if result is None:
+                    if newelem == elem:
+                        continue
+                    result = [None] * size
+                    for k in range(i):
+                        result[k] = arg[k]
+                result[i] = newelem
+            if result is not None:
+                return tuple(result)
+        elif isinstance(arg, basestring):
             argc = tkffi.new("int*")
             argv = tkffi.new("char***")
-            res = tklib.Tcl_SplitList(tkffi.NULL, arg, argc, argv)
-            if res == tklib.TCL_ERROR:
+            if isinstance(arg, unicode):
+                arg = arg.encode('utf-8')
+            list_ = str(arg)
+            res = tklib.Tcl_SplitList(tkffi.NULL, list_, argc, argv)
+            if res != tklib.TCL_OK:
                 return arg
             tklib.Tcl_Free(argv[0])
             if argc[0] > 1:
-                return self._split(arg)
+                return self._split(list_)
         return arg
 
     def _split(self, arg):
@@ -351,10 +428,10 @@ class TkApp(object):
             if argc[0] == 0:
                 return ""
             elif argc[0] == 1:
-                return argv[0][0]
+                return tkffi.string(argv[0][0])
             else:
-                return (self._split(argv[0][i])
-                        for i in range(argc[0]))
+                return tuple(self._split(argv[0][i])
+                             for i in range(argc[0]))
         finally:
             tklib.Tcl_Free(argv[0])
 
@@ -375,7 +452,10 @@ class TkApp(object):
             if self.threaded:
                 result = tklib.Tcl_DoOneEvent(0)
             else:
-                raise NotImplementedError("TCL configured without threads")
+                with self._tcl_lock:
+                    result = tklib.Tcl_DoOneEvent(tklib.TCL_DONT_WAIT)
+                if result == 0:
+                    time.sleep(self._busywaitinterval)
 
             if result < 0:
                 break

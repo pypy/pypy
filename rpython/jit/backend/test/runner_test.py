@@ -6,8 +6,7 @@ from rpython.jit.metainterp.history import (AbstractFailDescr,
                                          BoxInt, Box, BoxPtr,
                                          JitCellToken, TargetToken,
                                          ConstInt, ConstPtr,
-                                         BoxObj,
-                                         ConstObj, BoxFloat, ConstFloat)
+                                         BoxFloat, ConstFloat)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.typesystem import deref
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -55,7 +54,7 @@ class Runner(object):
         for box in inputargs:
             if isinstance(box, BoxInt):
                 args.append(box.getint())
-            elif isinstance(box, (BoxPtr, BoxObj)):
+            elif isinstance(box, BoxPtr):
                 args.append(box.getref_base())
             elif isinstance(box, BoxFloat):
                 args.append(box.getfloatstorage())
@@ -345,9 +344,12 @@ class BaseBackendTest(Runner):
             assert res == 2 + i
 
     def test_finish(self):
+        from rpython.jit.backend.llsupport.llmodel import final_descr_rd_locs
+
         i0 = BoxInt()
         class UntouchableFailDescr(AbstractFailDescr):
             final_descr = True
+            rd_locs = final_descr_rd_locs
 
             def __setattr__(self, name, value):
                 if (name == 'index' or name == '_carry_around_for_tests'
@@ -2141,11 +2143,9 @@ class LLtypeBackendTest(BaseBackendTest):
             s = lltype.malloc(S)
             s.tid = value
             sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
-            t = lltype.malloc(S)
-            tgcref = lltype.cast_opaque_ptr(llmemory.GCREF, t)
             del record[:]
             self.execute_operation(rop.COND_CALL_GC_WB,
-                                   [BoxPtr(sgcref), ConstPtr(tgcref)],
+                                   [BoxPtr(sgcref)],
                                    'void', descr=WriteBarrierDescr())
             if cond:
                 assert record == [rffi.cast(lltype.Signed, sgcref)]
@@ -2180,7 +2180,7 @@ class LLtypeBackendTest(BaseBackendTest):
             sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
             del record[:]
             self.execute_operation(rop.COND_CALL_GC_WB_ARRAY,
-                       [BoxPtr(sgcref), ConstInt(123), BoxPtr(sgcref)],
+                       [BoxPtr(sgcref), ConstInt(123)],
                        'void', descr=WriteBarrierDescr())
             if cond:
                 assert record == [rffi.cast(lltype.Signed, sgcref)]
@@ -2245,7 +2245,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 del record[:]
                 box_index = BoxIndexCls((9<<7) + 17)
                 self.execute_operation(rop.COND_CALL_GC_WB_ARRAY,
-                           [BoxPtr(sgcref), box_index, BoxPtr(sgcref)],
+                           [BoxPtr(sgcref), box_index],
                            'void', descr=WriteBarrierDescr())
                 if cond in [0, 1]:
                     assert record == [rffi.cast(lltype.Signed, s.data)]
@@ -2265,6 +2265,43 @@ class LLtypeBackendTest(BaseBackendTest):
                 if cond == 1:
                     value |= 32768
                 assert s.data.tid == value
+
+    def test_cond_call(self):
+        def func_void(*args):
+            called.append(args)
+
+        for i in range(5):
+            called = []
+        
+            FUNC = self.FuncType([lltype.Signed] * i, lltype.Void)
+            func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
+            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                             EffectInfo.MOST_GENERAL)
+
+            ops = '''
+            [i0, i1, i2, i3, i4, i5, i6, f0, f1]
+            cond_call(i1, ConstClass(func_ptr), %s)
+            guard_false(i0, descr=faildescr) [i1, i2, i3, i4, i5, i6, f0, f1]
+            ''' % ', '.join(['i%d' % (j + 2) for j in range(i)] + ["descr=calldescr"])
+            loop = parse(ops, namespace={'faildescr': BasicFailDescr(),
+                                         'func_ptr': func_ptr,
+                                         'calldescr': calldescr})
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            f1 = longlong.getfloatstorage(1.2)
+            f2 = longlong.getfloatstorage(3.4)
+            frame = self.cpu.execute_token(looptoken, 1, 0, 1, 2, 3, 4, 5, f1, f2)
+            assert not called
+            for j in range(5):
+                assert self.cpu.get_int_value(frame, j) == j
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 6)) == 1.2
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 7)) == 3.4
+            frame = self.cpu.execute_token(looptoken, 1, 1, 1, 2, 3, 4, 5, f1, f2)
+            assert called == [tuple(range(1, i + 1))]
+            for j in range(4):
+                assert self.cpu.get_int_value(frame, j + 1) == j + 1
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 6)) == 1.2
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 7)) == 3.4
 
     def test_force_operations_returning_void(self):
         values = []
@@ -2406,6 +2443,32 @@ class LLtypeBackendTest(BaseBackendTest):
         assert self.cpu.get_int_value(deadframe, 2) == 10
         assert values == [1, 10]
         assert self.cpu.get_savedata_ref(deadframe) == random_gcref
+
+    def test_guard_not_forced_2(self):
+        cpu = self.cpu
+        i0 = BoxInt()
+        i1 = BoxInt()
+        tok = BoxPtr()
+        faildescr = BasicFailDescr(1)
+        ops = [
+        ResOperation(rop.INT_ADD, [i0, ConstInt(10)], i1),
+        ResOperation(rop.FORCE_TOKEN, [], tok),
+        ResOperation(rop.GUARD_NOT_FORCED_2, [], None, descr=faildescr),
+        ResOperation(rop.FINISH, [tok], None, descr=BasicFinalDescr(0))
+        ]
+        ops[-2].setfailargs([i1])
+        looptoken = JitCellToken()
+        self.cpu.compile_loop([i0], ops, looptoken)
+        deadframe = self.cpu.execute_token(looptoken, 20)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 0
+        frame = self.cpu.get_ref_value(deadframe, 0)
+        # actually, we should get the same pointer in 'frame' and 'deadframe'
+        # but it is not the case on LLGraph
+        if not getattr(self.cpu, 'is_llgraph', False):
+            assert frame == deadframe
+        deadframe2 = self.cpu.force(frame)
+        assert self.cpu.get_int_value(deadframe2, 0) == 30
 
     def test_call_to_c_function(self):
         from rpython.rlib.libffi import CDLL, types, ArgChain, FUNCFLAG_CDECL
@@ -3676,7 +3739,7 @@ class LLtypeBackendTest(BaseBackendTest):
             assert False, 'should not be called'
         from rpython.jit.codewriter.effectinfo import EffectInfo
 
-        effectinfo = EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE, EffectInfo.OS_MATH_SQRT)
+        effectinfo = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE, EffectInfo.OS_MATH_SQRT)
         FPTR = self.Ptr(self.FuncType([lltype.Float], lltype.Float))
         func_ptr = llhelper(FPTR, math_sqrt)
         FUNC = deref(FPTR)
@@ -3751,7 +3814,7 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("pointless test on non-asm")
-        from rpython.jit.backend.tool.viewcode import machine_code_dump
+        from rpython.jit.backend.tool.viewcode import machine_code_dump, ObjdumpNotFound
         import ctypes
         targettoken = TargetToken()
         ops = """
@@ -3789,13 +3852,17 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert mc[i].split("\t")[2].startswith(ops[i])
 
         data = ctypes.string_at(info.asmaddr, info.asmlen)
-        mc = list(machine_code_dump(data, info.asmaddr, cpuname))
-        lines = [line for line in mc if line.count('\t') >= 2]
-        checkops(lines, self.add_loop_instructions)
-        data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
-        mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
-        lines = [line for line in mc if line.count('\t') >= 2]
-        checkops(lines, self.bridge_loop_instructions)
+        try:
+            mc = list(machine_code_dump(data, info.asmaddr, cpuname))
+            lines = [line for line in mc if line.count('\t') >= 2]
+            checkops(lines, self.add_loop_instructions)
+            data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
+            mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
+            lines = [line for line in mc if line.count('\t') >= 2]
+            checkops(lines, self.bridge_loop_instructions)
+        except ObjdumpNotFound:
+            py.test.skip("requires (g)objdump")
+
 
 
     def test_compile_bridge_with_target(self):
@@ -3918,8 +3985,12 @@ class LLtypeBackendTest(BaseBackendTest):
             p = rawstorage.alloc_raw_storage(31)
             for i in range(31):
                 p[i] = '\xDD'
-            value = rffi.cast(T, 0x4243444546474849)
+            value = rffi.cast(T, -0x4243444546474849)
             rawstorage.raw_storage_setitem(p, 16, value)
+            got = self.cpu.bh_raw_load_i(rffi.cast(lltype.Signed, p), 16,
+                                         arraydescr)
+            assert got == rffi.cast(lltype.Signed, value)
+            #
             loop = parse(ops, self.cpu, namespace=locals())
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
@@ -3945,6 +4016,11 @@ class LLtypeBackendTest(BaseBackendTest):
                 p[i] = '\xDD'
             value = rffi.cast(T, 1.12e20)
             rawstorage.raw_storage_setitem(p, 16, value)
+            got = self.cpu.bh_raw_load_f(rffi.cast(lltype.Signed, p), 16,
+                                         arraydescr)
+            got = longlong.getrealfloat(got)
+            assert got == rffi.cast(lltype.Float, value)
+            #
             loop = parse(ops, self.cpu, namespace=locals())
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
@@ -3955,22 +4031,58 @@ class LLtypeBackendTest(BaseBackendTest):
             assert result == rffi.cast(lltype.Float, value)
             rawstorage.free_raw_storage(p)
 
+    def test_raw_load_singlefloat(self):
+        if not self.cpu.supports_singlefloats:
+            py.test.skip("requires singlefloats")
+        from rpython.rlib import rawstorage
+        for T in [rffi.FLOAT]:
+            ops = """
+            [i0, i1]
+            i2 = raw_load(i0, i1, descr=arraydescr)
+            finish(i2)
+            """
+            arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
+            p = rawstorage.alloc_raw_storage(31)
+            for i in range(31):
+                p[i] = '\xDD'
+            value = rffi.cast(T, 1.12e20)
+            rawstorage.raw_storage_setitem(p, 16, value)
+            got = self.cpu.bh_raw_load_i(rffi.cast(lltype.Signed, p), 16,
+                                         arraydescr)
+            assert got == longlong.singlefloat2int(value)
+            #
+            loop = parse(ops, self.cpu, namespace=locals())
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            deadframe = self.cpu.execute_token(looptoken,
+                                               rffi.cast(lltype.Signed, p), 16)
+            result = self.cpu.get_int_value(deadframe, 0)
+            assert result == longlong.singlefloat2int(value)
+            rawstorage.free_raw_storage(p)
+
     def test_raw_store_int(self):
         from rpython.rlib import rawstorage
         for T in [rffi.UCHAR, rffi.SIGNEDCHAR,
                   rffi.USHORT, rffi.SHORT,
                   rffi.UINT, rffi.INT,
                   rffi.ULONG, rffi.LONG]:
+            arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
+            p = rawstorage.alloc_raw_storage(31)
+            value = (-0x4243444546474849) & sys.maxint
+            self.cpu.bh_raw_store_i(rffi.cast(lltype.Signed, p), 16, value,
+                                    arraydescr)
+            result = rawstorage.raw_storage_getitem(T, p, 16)
+            assert result == rffi.cast(T, value)
+            rawstorage.free_raw_storage(p)
+            #
             ops = """
             [i0, i1, i2]
             raw_store(i0, i1, i2, descr=arraydescr)
             finish()
             """
-            arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
             p = rawstorage.alloc_raw_storage(31)
             for i in range(31):
                 p[i] = '\xDD'
-            value = 0x4243444546474849 & sys.maxint
             loop = parse(ops, self.cpu, namespace=locals())
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
@@ -3985,16 +4097,24 @@ class LLtypeBackendTest(BaseBackendTest):
             py.test.skip("requires floats")
         from rpython.rlib import rawstorage
         for T in [rffi.DOUBLE]:
+            arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
+            p = rawstorage.alloc_raw_storage(31)
+            value = 1.23e20
+            self.cpu.bh_raw_store_f(rffi.cast(lltype.Signed, p), 16,
+                                    longlong.getfloatstorage(value),
+                                    arraydescr)
+            result = rawstorage.raw_storage_getitem(T, p, 16)
+            assert result == rffi.cast(T, value)
+            rawstorage.free_raw_storage(p)
+            #
             ops = """
             [i0, i1, f2]
             raw_store(i0, i1, f2, descr=arraydescr)
             finish()
             """
-            arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
             p = rawstorage.alloc_raw_storage(31)
             for i in range(31):
                 p[i] = '\xDD'
-            value = 1.23e20
             loop = parse(ops, self.cpu, namespace=locals())
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
@@ -4003,6 +4123,41 @@ class LLtypeBackendTest(BaseBackendTest):
                                    longlong.getfloatstorage(value))
             result = rawstorage.raw_storage_getitem(T, p, 16)
             assert result == rffi.cast(T, value)
+            rawstorage.free_raw_storage(p)
+
+    def test_raw_store_singlefloat(self):
+        if not self.cpu.supports_singlefloats:
+            py.test.skip("requires singlefloats")
+        from rpython.rlib import rawstorage
+        for T in [rffi.FLOAT]:
+            arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
+            p = rawstorage.alloc_raw_storage(31)
+            value = rffi.cast(T, 1.23e20)
+            self.cpu.bh_raw_store_i(rffi.cast(lltype.Signed, p), 16,
+                                    longlong.singlefloat2int(value),
+                                    arraydescr)
+            result = rawstorage.raw_storage_getitem(T, p, 16)
+            assert (rffi.cast(lltype.Float, result) ==
+                    rffi.cast(lltype.Float, value))
+            rawstorage.free_raw_storage(p)
+            #
+            ops = """
+            [i0, i1, i2]
+            raw_store(i0, i1, i2, descr=arraydescr)
+            finish()
+            """
+            p = rawstorage.alloc_raw_storage(31)
+            for i in range(31):
+                p[i] = '\xDD'
+            loop = parse(ops, self.cpu, namespace=locals())
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            self.cpu.execute_token(looptoken,
+                                   rffi.cast(lltype.Signed, p), 16,
+                                   longlong.singlefloat2int(value))
+            result = rawstorage.raw_storage_getitem(T, p, 16)
+            assert (rffi.cast(lltype.Float, result) ==
+                    rffi.cast(lltype.Float, value))
             rawstorage.free_raw_storage(p)
 
     def test_forcing_op_with_fail_arg_in_reg(self):
@@ -4190,3 +4345,19 @@ class LLtypeBackendTest(BaseBackendTest):
         assert rffi.cast(lltype.Signed, a[0]) == -7654
         assert rffi.cast(lltype.Signed, a[1]) == 777
         lltype.free(a, flavor='raw')
+
+    def test_increment_debug_counter(self):
+        foo = lltype.malloc(rffi.CArray(lltype.Signed), 1, flavor='raw')
+        foo[0] = 1789200
+        self.execute_operation(rop.INCREMENT_DEBUG_COUNTER,
+                               [ConstInt(rffi.cast(lltype.Signed, foo))],
+                               'void')
+        assert foo[0] == 1789201
+        lltype.free(foo, flavor='raw')
+
+    def test_cast_float_to_singlefloat(self):
+        if not self.cpu.supports_singlefloats:
+            py.test.skip("requires singlefloats")
+        res = self.execute_operation(rop.CAST_FLOAT_TO_SINGLEFLOAT,
+                                   [boxfloat(12.5)], 'int')
+        assert res.getint() == struct.unpack("I", struct.pack("f", 12.5))[0]

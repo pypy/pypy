@@ -7,6 +7,7 @@ import sys, os, re, runpy, subprocess
 from rpython.tool.udir import udir
 from contextlib import contextmanager
 from pypy.conftest import pypydir
+from lib_pypy._pypy_interact import irc_header
 
 banner = sys.version.splitlines()[0]
 
@@ -48,7 +49,7 @@ def getscript_in_dir(source):
     pdir = _get_next_path(ext='')
     p = pdir.ensure(dir=1).join('__main__.py')
     p.write(str(py.code.Source(source)))
-    # return relative path for testing purposes 
+    # return relative path for testing purposes
     return py.path.local().bestrelpath(pdir)
 
 demo_script = getscript("""
@@ -259,6 +260,22 @@ class TestInteraction:
         child.expect('>>> ')
         child.sendline("'' in sys.path")
         child.expect("True")
+
+    def test_yes_irc_topic(self, monkeypatch):
+        monkeypatch.setenv('PYPY_IRC_TOPIC', '1')
+        child = self.spawn([])
+        child.expect(irc_header)   # banner
+
+    def test_maybe_irc_topic(self):
+        import sys
+        pypy_version_info = getattr(sys, 'pypy_version_info', sys.version_info)
+        irc_topic = pypy_version_info[3] != 'final'
+        child = self.spawn([])
+        child.expect('>>>')   # banner
+        if irc_topic:
+            assert irc_header in child.before
+        else:    
+            assert irc_header not in child.before
 
     def test_help(self):
         # test that -h prints the usage, including the name of the executable
@@ -706,6 +723,20 @@ class TestNonInteractive:
         assert 'hello world\n' in data
         assert '42\n' in data
 
+    def test_putenv_fires_interactive_within_process(self):
+        try:
+            import __pypy__
+        except ImportError:
+            py.test.skip("This can be only tested on PyPy with real_getenv")
+
+        # should be noninteractive when piped in
+        data = 'import os\nos.putenv("PYTHONINSPECT", "1")\n'
+        self.run('', senddata=data, expect_prompt=False)
+
+        # should go interactive with -c
+        data = data.replace('\n', ';')
+        self.run("-c '%s'" % data, expect_prompt=True)
+
     def test_option_S_copyright(self):
         data = self.run('-S -i', expect_prompt=True, expect_banner=True)
         assert 'copyright' not in data
@@ -906,6 +937,7 @@ class AppTestAppMain:
         # ----------------------------------------
         from pypy.module.sys.version import CPYTHON_VERSION, PYPY_VERSION
         cpy_ver = '%d.%d' % CPYTHON_VERSION[:2]
+        from lib_pypy._pypy_interact import irc_header
 
         goal_dir = os.path.dirname(app_main)
         # build a directory hierarchy like which contains both bin/pypy-c and
@@ -925,10 +957,12 @@ class AppTestAppMain:
         self.w_fake_exe = self.space.wrap(str(fake_exe))
         self.w_expected_path = self.space.wrap(expected_path)
         self.w_trunkdir = self.space.wrap(os.path.dirname(pypydir))
+        self.w_is_release = self.space.wrap(PYPY_VERSION[3] == "final")
 
         self.w_tmp_dir = self.space.wrap(tmp_dir)
 
-        foo_py = prefix.join('foo.py').write("pass")
+        foo_py = prefix.join('foo.py')
+        foo_py.write("pass")
         self.w_foo_py = self.space.wrap(str(foo_py))
 
     def test_setup_bootstrap_path(self):
@@ -940,6 +974,8 @@ class AppTestAppMain:
 
         sys.path.append(self.goal_dir)
         # make sure cwd does not contain a stdlib
+        if self.tmp_dir.startswith(self.trunkdir):
+            skip('TMPDIR is inside the PyPy source')
         os.chdir(self.tmp_dir)
         tmp_pypy_c = os.path.join(self.tmp_dir, 'pypy-c')
         try:
@@ -971,7 +1007,7 @@ class AppTestAppMain:
             pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', 'pypy-c')
             app_main.setup_bootstrap_path(pypy_c)
             newpath = sys.path[:]
-            # we get at least lib_pypy 
+            # we get at least lib_pypy
             # lib-python/X.Y.Z, and maybe more (e.g. plat-linux2)
             assert len(newpath) >= 2
             for p in newpath:
@@ -991,3 +1027,4 @@ class AppTestAppMain:
             # assert it did not crash
         finally:
             sys.path[:] = old_sys_path
+    

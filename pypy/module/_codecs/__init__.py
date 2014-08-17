@@ -18,10 +18,10 @@ class Module(MixedModule):
 
    The builtin Unicode codecs use the following interface:
 
-     <encoding>_encode(Unicode_object[,errors='strict']) -> 
+     <encoding>_encode(Unicode_object[,errors='strict']) ->
          (string object, bytes consumed)
 
-     <encoding>_decode(char_buffer_obj[,errors='strict']) -> 
+     <encoding>_decode(char_buffer_obj[,errors='strict']) ->
         (Unicode object, bytes consumed)
 
    <encoding>_encode() interfaces also accept non-Unicode object as
@@ -72,8 +72,8 @@ Copyright (c) Corporation for National Research Initiatives.
          'utf_32_le_decode' : 'interp_codecs.utf_32_le_decode',
          'utf_32_le_encode' : 'interp_codecs.utf_32_le_encode',
          'utf_32_ex_decode' : 'interp_codecs.utf_32_ex_decode',
-         'charbuffer_encode': 'interp_codecs.buffer_encode',
-         'readbuffer_encode': 'interp_codecs.buffer_encode',
+         'charbuffer_encode': 'interp_codecs.charbuffer_encode',
+         'readbuffer_encode': 'interp_codecs.readbuffer_encode',
          'charmap_decode'   : 'interp_codecs.charmap_decode',
          'charmap_encode'   : 'interp_codecs.charmap_encode',
          'escape_encode'    : 'interp_codecs.escape_encode',
@@ -90,8 +90,7 @@ Copyright (c) Corporation for National Research Initiatives.
         "NOT_RPYTHON"
 
         # mbcs codec is Windows specific, and based on rffi.
-        if (hasattr(runicode, 'str_decode_mbcs') and
-            space.config.translation.type_system != 'ootype'):
+        if (hasattr(runicode, 'str_decode_mbcs')):
             self.interpleveldefs['mbcs_encode'] = 'interp_codecs.mbcs_encode'
             self.interpleveldefs['mbcs_decode'] = 'interp_codecs.mbcs_decode'
 

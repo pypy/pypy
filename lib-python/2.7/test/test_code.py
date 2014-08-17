@@ -82,6 +82,7 @@ consts: ("'doc string'", 'None')
 
 import unittest
 import weakref
+import _testcapi
 from test import test_support
 
 
@@ -104,9 +105,7 @@ def dump(co):
 
 class CodeTest(unittest.TestCase):
 
-    @test_support.impl_detail("test for PyCode_NewEmpty")
     def test_newempty(self):
-        import _testcapi
         co = _testcapi.code_newempty("filename", "funcname", 15)
         self.assertEqual(co.co_filename, "filename")
         self.assertEqual(co.co_name, "funcname")

@@ -1,7 +1,7 @@
 import py
 from rpython.rlib.jit import JitDriver
 from rpython.jit.metainterp.test import test_loop
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 
 allopts = ALL_OPTS_NAMES.split(':')
@@ -22,4 +22,4 @@ for optnum in range(len(allopts)):
 
 del TestLLtype # No need to run the last set twice
 del TestLoopNoUnrollLLtype # This case is take care of by test_loop
-        
+

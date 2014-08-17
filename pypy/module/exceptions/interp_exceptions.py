@@ -207,9 +207,8 @@ def _new(cls, basecls=None):
     return interp2app(descr_new_base_exception)
 
 W_BaseException.typedef = TypeDef(
-    'BaseException',
+    'exceptions.BaseException',
     __doc__ = W_BaseException.__doc__,
-    __module__ = 'exceptions',
     __new__ = _new(W_BaseException),
     __init__ = interp2app(W_BaseException.descr_init),
     __str__ = interp2app(W_BaseException.descr_str),
@@ -244,10 +243,9 @@ def _new_exception(name, base, docstring, **kwargs):
     for k, v in kwargs.items():
         kwargs[k] = interp2app(v.__get__(None, realbase))
     W_Exc.typedef = TypeDef(
-        name,
+        'exceptions.' + name,
         base.typedef,
         __doc__ = W_Exc.__doc__,
-        __module__ = 'exceptions',
         **kwargs
     )
     W_Exc.typedef.applevel_subclasses_base = realbase
@@ -312,10 +310,9 @@ class W_UnicodeTranslateError(W_UnicodeError):
         """)
 
 W_UnicodeTranslateError.typedef = TypeDef(
-    'UnicodeTranslateError',
+    'exceptions.UnicodeTranslateError',
     W_UnicodeError.typedef,
     __doc__ = W_UnicodeTranslateError.__doc__,
-    __module__ = 'exceptions',
     __new__ = _new(W_UnicodeTranslateError),
     __init__ = interp2app(W_UnicodeTranslateError.descr_init),
     __str__ = interp2app(W_UnicodeTranslateError.descr_str),
@@ -396,10 +393,9 @@ class W_EnvironmentError(W_StandardError):
         return W_BaseException.descr_str(self, space)
 
 W_EnvironmentError.typedef = TypeDef(
-    'EnvironmentError',
+    'exceptions.EnvironmentError',
     W_StandardError.typedef,
     __doc__ = W_EnvironmentError.__doc__,
-    __module__ = 'exceptions',
     __new__ = _new(W_EnvironmentError),
     __reduce__ = interp2app(W_EnvironmentError.descr_reduce),
     __init__ = interp2app(W_EnvironmentError.descr_init),
@@ -446,14 +442,16 @@ class W_WindowsError(W_OSError):
 
     if hasattr(rwin32, 'build_winerror_to_errno'):
         _winerror_to_errno, _default_errno = rwin32.build_winerror_to_errno()
+        # Python 2 doesn't map ERROR_DIRECTORY (267) to ENOTDIR but
+        # Python 3 (CPython issue #12802) and build_winerror_to_errno do
+        del _winerror_to_errno[267]
     else:
         _winerror_to_errno, _default_errno = {}, 22 # EINVAL
 
 W_WindowsError.typedef = TypeDef(
-    "WindowsError",
+    "exceptions.WindowsError",
     W_OSError.typedef,
     __doc__  = W_WindowsError.__doc__,
-    __module__ = 'exceptions',
     __new__  = _new(W_WindowsError),
     __init__ = interp2app(W_WindowsError.descr_init),
     __str__  = interp2app(W_WindowsError.descr_str),
@@ -554,14 +552,13 @@ class W_SyntaxError(W_StandardError):
             return W_StandardError.descr_repr(self, space)
 
 W_SyntaxError.typedef = TypeDef(
-    'SyntaxError',
+    'exceptions.SyntaxError',
     W_StandardError.typedef,
     __new__ = _new(W_SyntaxError),
     __init__ = interp2app(W_SyntaxError.descr_init),
     __str__ = interp2app(W_SyntaxError.descr_str),
     __repr__ = interp2app(W_SyntaxError.descr_repr),
     __doc__ = W_SyntaxError.__doc__,
-    __module__ = 'exceptions',
     msg      = readwrite_attrproperty_w('w_msg', W_SyntaxError),
     filename = readwrite_attrproperty_w('w_filename', W_SyntaxError),
     lineno   = readwrite_attrproperty_w('w_lineno', W_SyntaxError),
@@ -590,12 +587,11 @@ class W_SystemExit(W_BaseException):
         W_BaseException.descr_init(self, space, args_w)
 
 W_SystemExit.typedef = TypeDef(
-    'SystemExit',
+    'exceptions.SystemExit',
     W_BaseException.typedef,
     __new__ = _new(W_SystemExit),
     __init__ = interp2app(W_SystemExit.descr_init),
     __doc__ = W_SystemExit.__doc__,
-    __module__ = 'exceptions',
     code    = readwrite_attrproperty_w('w_code', W_SystemExit)
 )
 
@@ -655,10 +651,9 @@ class W_UnicodeDecodeError(W_UnicodeError):
         """)
 
 W_UnicodeDecodeError.typedef = TypeDef(
-    'UnicodeDecodeError',
+    'exceptions.UnicodeDecodeError',
     W_UnicodeError.typedef,
     __doc__ = W_UnicodeDecodeError.__doc__,
-    __module__ = 'exceptions',
     __new__ = _new(W_UnicodeDecodeError),
     __init__ = interp2app(W_UnicodeDecodeError.descr_init),
     __str__ = interp2app(W_UnicodeDecodeError.descr_str),
@@ -750,10 +745,9 @@ class W_UnicodeEncodeError(W_UnicodeError):
         """)
 
 W_UnicodeEncodeError.typedef = TypeDef(
-    'UnicodeEncodeError',
+    'exceptions.UnicodeEncodeError',
     W_UnicodeError.typedef,
     __doc__ = W_UnicodeEncodeError.__doc__,
-    __module__ = 'exceptions',
     __new__ = _new(W_UnicodeEncodeError),
     __init__ = interp2app(W_UnicodeEncodeError.descr_init),
     __str__ = interp2app(W_UnicodeEncodeError.descr_str),

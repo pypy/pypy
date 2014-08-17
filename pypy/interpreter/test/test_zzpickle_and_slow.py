@@ -226,6 +226,10 @@ class AppTestInterpObjectPickling:
         restore_top_frame(f1, saved) 
         f2     = pickle.loads(pckl)
 
+    def test_frame_setstate_crash(self):
+        import sys
+        raises(ValueError, sys._getframe().__setstate__, [])
+
     def test_pickle_traceback(self):
         def f():
             try:

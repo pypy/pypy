@@ -254,23 +254,26 @@ class MimeTypes:
                 i += 1
 
         default_encoding = sys.getdefaultencoding()
-        with _winreg.OpenKey(_winreg.HKEY_CLASSES_ROOT,
-                             r'MIME\Database\Content Type') as mimedb:
-            for ctype in enum_types(mimedb):
+        with _winreg.OpenKey(_winreg.HKEY_CLASSES_ROOT, '') as hkcr:
+            for subkeyname in enum_types(hkcr):
                 try:
-                    with _winreg.OpenKey(mimedb, ctype) as key:
-                        suffix, datatype = _winreg.QueryValueEx(key,
-                                                                'Extension')
+                    with _winreg.OpenKey(hkcr, subkeyname) as subkey:
+                        # Only check file extensions
+                        if not subkeyname.startswith("."):
+                            continue
+                        # raises EnvironmentError if no 'Content Type' value
+                        mimetype, datatype = _winreg.QueryValueEx(
+                            subkey, 'Content Type')
+                        if datatype != _winreg.REG_SZ:
+                            continue
+                        try:
+                            mimetype = mimetype.encode(default_encoding)
+                            subkeyname = subkeyname.encode(default_encoding)
+                        except UnicodeEncodeError:
+                            continue
+                        self.add_type(mimetype, subkeyname, strict)
                 except EnvironmentError:
                     continue
-                if datatype != _winreg.REG_SZ:
-                    continue
-                try:
-                    suffix = suffix.encode(default_encoding) # omit in 3.x!
-                except UnicodeEncodeError:
-                    continue
-                self.add_type(ctype, suffix, strict)
-
 
 def guess_type(url, strict=True):
     """Guess the type of a file based on its URL.
@@ -386,12 +389,14 @@ def _default_mime_types():
         '.taz': '.tar.gz',
         '.tz': '.tar.gz',
         '.tbz2': '.tar.bz2',
+        '.txz': '.tar.xz',
         }
 
     encodings_map = {
         '.gz': 'gzip',
         '.Z': 'compress',
         '.bz2': 'bzip2',
+        '.xz': 'xz',
         }
 
     # Before adding new types, make sure they are either registered with IANA,
@@ -432,11 +437,12 @@ def _default_mime_types():
         '.hdf'    : 'application/x-hdf',
         '.htm'    : 'text/html',
         '.html'   : 'text/html',
+        '.ico'    : 'image/vnd.microsoft.icon',
         '.ief'    : 'image/ief',
         '.jpe'    : 'image/jpeg',
         '.jpeg'   : 'image/jpeg',
         '.jpg'    : 'image/jpeg',
-        '.js'     : 'application/x-javascript',
+        '.js'     : 'application/javascript',
         '.ksh'    : 'text/plain',
         '.latex'  : 'application/x-latex',
         '.m1v'    : 'video/mpeg',

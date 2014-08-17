@@ -6,10 +6,10 @@ from rpython.translator.sandbox.sandlib import SandboxedProc
 from rpython.translator.sandbox.sandlib import SimpleIOSandboxedProc
 from rpython.translator.sandbox.sandlib import VirtualizedSandboxedProc
 from rpython.translator.sandbox.sandlib import VirtualizedSocketProc
-from rpython.translator.sandbox.test.test_sandbox import compile
+from rpython.translator.sandbox.test.test_sandbox import compile, supported
 from rpython.translator.sandbox.vfs import Dir, File, RealDir, RealFile
 
-
+@supported
 class MockSandboxedProc(SandboxedProc):
     """A sandbox process wrapper that replays expected syscalls."""
 
@@ -35,7 +35,7 @@ class MockSandboxedProc(SandboxedProc):
     do_ll_os__ll_os_write = _make_method("write")
     do_ll_os__ll_os_close = _make_method("close")
 
-
+@supported
 def test_lib():
     def entry_point(argv):
         fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)
@@ -63,6 +63,7 @@ def test_lib():
     proc.handle_forever()
     assert proc.seen == len(proc.expected)
 
+@supported
 def test_foobar():
     py.test.skip("to be updated")
     foobar = rffi.llexternal("foobar", [rffi.CCHARP], rffi.LONG)
@@ -79,6 +80,7 @@ def test_foobar():
     proc.handle_forever()
     assert proc.seen == len(proc.expected)
 
+@supported
 def test_simpleio():
     def entry_point(argv):
         print "Please enter a number:"
@@ -100,22 +102,24 @@ def test_simpleio():
     assert output == "Please enter a number:\nThe double is: 42\n"
     assert error == ""
 
+@supported
 def test_socketio():
     class SocketProc(VirtualizedSocketProc, SimpleIOSandboxedProc):
         def build_virtual_root(self):
             pass
-    
+
     def entry_point(argv):
         fd = os.open("tcp://python.org:80", os.O_RDONLY, 0777)
         os.write(fd, 'GET /\n')
-        print os.read(fd, 30)
+        print os.read(fd, 50)
         return 0
     exe = compile(entry_point)
 
     proc = SocketProc([exe])
     output, error = proc.communicate("")
-    assert output.startswith('<!DOCTYPE')
+    assert output.startswith('HTTP/1.0 503 Service Unavailable')
 
+@supported
 def test_oserror():
     def entry_point(argv):
         try:
@@ -133,6 +137,7 @@ def test_oserror():
     assert proc.seen == len(proc.expected)
 
 
+@supported
 class SandboxedProcWithFiles(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
     """A sandboxed process with a simple virtualized filesystem.
 
@@ -145,6 +150,7 @@ class SandboxedProcWithFiles(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
             'this.pyc': RealFile(__file__),
              })
 
+@supported
 def test_too_many_opens():
     def entry_point(argv):
         try:
@@ -186,6 +192,7 @@ def test_too_many_opens():
     assert output == "All ok!\n"
     assert error == ""
 
+@supported
 def test_fstat():
     def compare(a, b, i):
         if a != b:
@@ -219,6 +226,7 @@ def test_fstat():
     assert output == "All ok!\n"
     assert error == ""
 
+@supported
 def test_lseek():
     def char_should_be(c, should):
         if c != should:
@@ -248,6 +256,7 @@ def test_lseek():
     assert output == "All ok!\n"
     assert error == ""
 
+@supported
 def test_getuid():
     def entry_point(argv):
         import os

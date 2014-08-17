@@ -1,4 +1,4 @@
-import sys
+import sys, py
 
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib import jit
@@ -344,7 +344,7 @@ class TestLLtype(LLJitMixin):
                                     virtualizables = ['frame'])
 
         class Frame(object):
-            _virtualizable2_ = ['l[*]', 's']
+            _virtualizable_ = ['l[*]', 's']
 
             def __init__(self, a, s):
                 self = jit.hint(self, access_directly=True, fresh_virtualizable=True)
@@ -647,6 +647,7 @@ class TestLLtype(LLJitMixin):
         self.check_operations_history(guard_class=0)
 
     def test_dont_record_setfield_gc_zeros(self):
+        py.test.skip("see test_unescaped_write_zero in test_ajit")
         class A(object):
             pass
 

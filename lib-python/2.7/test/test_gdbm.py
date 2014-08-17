@@ -74,6 +74,40 @@ class TestGdbm(unittest.TestCase):
         size2 = os.path.getsize(filename)
         self.assertTrue(size1 > size2 >= size0)
 
+    def test_sync(self):
+        # check if sync works at all, not sure how to check it
+        self.g = gdbm.open(filename, 'cf')
+        self.g['x'] = 'x' * 10000
+        self.g.sync()
+
+    def test_get_key(self):
+        self.g = gdbm.open(filename, 'cf')
+        self.g['x'] = 'x' * 10000
+        self.g.close()
+        self.g = gdbm.open(filename, 'r')
+        self.assertEquals(self.g['x'], 'x' * 10000)
+
+    def test_key_with_null_bytes(self):
+        key = 'a\x00b'
+        value = 'c\x00d'
+        self.g = gdbm.open(filename, 'cf')
+        self.g[key] = value
+        self.g.close()
+        self.g = gdbm.open(filename, 'r')
+        self.assertEquals(self.g[key], value)
+        self.assertTrue(key in self.g)
+        self.assertTrue(self.g.has_key(key))
+
+    def test_unicode_key(self):
+        key = u'ab'
+        value = u'cd'
+        self.g = gdbm.open(filename, 'cf')
+        self.g[key] = value
+        self.g.close()
+        self.g = gdbm.open(filename, 'r')
+        self.assertEquals(self.g[key], value)
+        self.assertTrue(key in self.g)
+        self.assertTrue(self.g.has_key(key))
 
 def test_main():
     run_unittest(TestGdbm)

@@ -65,7 +65,8 @@ def test_open_read_write_seek_close():
 
     f1 = compile(does_stuff, [])
     f1()
-    assert open(filename, 'r').read() == "hello world\n"
+    with open(filename, 'r') as fid:
+        assert fid.read() == "hello world\n"
     os.unlink(filename)
 
 def test_big_read():
@@ -184,6 +185,7 @@ def test_os_stat_raises_winerror():
             os.stat("nonexistentdir/nonexistentfile")
         except WindowsError, e:
             return e.winerror
+        return 0    
     f = compile(call_stat, [])
     res = f()
     expected = call_stat()
@@ -264,25 +266,6 @@ def test_time_time():
     assert t0 <= res <= t1
 
 
-def test_parts_to_float():
-    from rpython.rlib.rfloat import parts_to_float
-    def fn(sign, beforept, afterpt, exponent):
-        return parts_to_float(sign, beforept, afterpt, exponent)
-
-    f = compile(fn, [str, str, str, str])
-
-    data = [
-    (("","1","","")     , 1.0),
-    (("-","1","","")    , -1.0),
-    (("-","1","5","")   , -1.5),
-    (("-","1","5","2")  , -1.5e2),
-    (("-","1","5","+2") , -1.5e2),
-    (("-","1","5","-2") , -1.5e-2),
-    ]
-
-    for parts, val in data:
-        assert f(*parts) == val
-
 def test_formatd():
     from rpython.rlib.rfloat import formatd
     def fn(x):
@@ -315,8 +298,10 @@ def test_chdir():
         os.chdir(path)
         return os.getcwd()
     f1 = compile(does_stuff, [str])
-    # different on windows please
-    assert f1('/tmp') == os.path.realpath('/tmp')
+    if os.name == 'nt':
+        assert f1(os.environ['TEMP']) == os.path.realpath(os.environ['TEMP'])
+    else:
+        assert f1('/tmp') == os.path.realpath('/tmp')
 
 def test_mkdir_rmdir():
     def does_stuff(path, delete):
@@ -453,7 +438,7 @@ if hasattr(os, 'getpid'):
         f1 = compile(does_stuff, [])
         res = f1()
         assert res != os.getpid()
-        
+
 if hasattr(os, 'getpgrp'):
     def test_os_getpgrp():
         def does_stuff():
@@ -553,6 +538,8 @@ if hasattr(os, 'kill'):
     def test_kill_to_send_sigusr1():
         import signal
         from rpython.rlib import rsignal
+        if not 'SIGUSR1' in dir(signal):
+            py.test.skip("no SIGUSR1 available")
         def does_stuff():
             rsignal.pypysig_setflag(signal.SIGUSR1)
             os.kill(os.getpid(), signal.SIGUSR1)
@@ -643,7 +630,7 @@ def _real_getenv(var):
     elif output.startswith('T'):
         return output[1:]
     else:
-        raise ValueError, 'probing for env var returned %r' % (output,)
+        raise ValueError('probing for env var returned %r' % (output,))
 
 def test_dictlike_environ_getitem():
     def fn(s):

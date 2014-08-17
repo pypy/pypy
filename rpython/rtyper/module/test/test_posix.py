@@ -1,5 +1,6 @@
 import py
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.rtyper.annlowlevel import hlstr
 from rpython.tool.udir import udir
 from rpython.rlib.rarithmetic import is_valid_int
 
@@ -10,7 +11,7 @@ def setup_module(module):
     testf = udir.join('test.txt')
     module.path = testf.strpath
 
-class BaseTestPosix(BaseRtypingTest):
+class TestPosix(BaseRtypingTest):
 
     def setup_method(self, meth):
         # prepare/restore the file before each test
@@ -70,7 +71,7 @@ class BaseTestPosix(BaseRtypingTest):
         def f(fi, pos):
             posix.lseek(fi, pos, 0)
         fi = os.open(path, os.O_RDONLY, 0777)
-        func = self.interpret(f, [fi, 5]) 
+        func = self.interpret(f, [fi, 5])
         res = os.read(fi, 2)
         assert res =='is'
 
@@ -129,11 +130,11 @@ class BaseTestPosix(BaseRtypingTest):
                     return 1
                 except OSError:
                     return 2
-            
+
             assert self.interpret(f, []) == 1
             os.unlink(path)
             assert self.interpret(f, []) == 2
-    
+
     def test_close(self):
         def f(fi):
             return posix.close(fi)
@@ -148,7 +149,7 @@ class BaseTestPosix(BaseRtypingTest):
             def f(fi,len):
                 os.ftruncate(fi,len)
             fi = os.open(path,os.O_RDWR,0777)
-            func = self.interpret(f,[fi,6]) 
+            func = self.interpret(f,[fi,6])
             assert os.fstat(fi).st_size == 6
 
     if hasattr(os, 'getuid'):
@@ -176,6 +177,27 @@ class BaseTestPosix(BaseRtypingTest):
                 return os.sysconf(i)
             assert self.interpret(f, [13]) == f(13)
 
+    if hasattr(os, 'confstr'):
+        def test_os_confstr(self):
+            def f(i):
+                try:
+                    return os.confstr(i)
+                except OSError:
+                    return "oooops!!"
+            some_value = os.confstr_names.values()[-1]
+            res = self.interpret(f, [some_value])
+            assert hlstr(res) == f(some_value)
+            res = self.interpret(f, [94781413])
+            assert hlstr(res) == "oooops!!"
+
+    if hasattr(os, 'pathconf'):
+        def test_os_pathconf(self):
+            def f(i):
+                return os.pathconf("/tmp", i)
+            i = os.pathconf_names["PC_NAME_MAX"]
+            some_value = self.interpret(f, [i])
+            assert some_value >= 31
+
     if hasattr(os, 'chroot'):
         def test_os_chroot(self):
             def f():
@@ -197,9 +219,7 @@ class BaseTestPosix(BaseRtypingTest):
 
             for value in [0, 1, 127, 128, 255]:
                 res = self.interpret(fun, [value])
-                assert res == fun(value)        
-
-class TestLLtype(BaseTestPosix, LLRtypeMixin):
+                assert res == fun(value)
 
     if hasattr(os, 'getgroups'):
         def test_getgroups(self):
@@ -208,18 +228,77 @@ class TestLLtype(BaseTestPosix, LLRtypeMixin):
             ll_a = self.interpret(f, [])
             assert self.ll_to_list(ll_a) == f()
 
-class TestOOtype(BaseTestPosix, OORtypeMixin):
-    def test_fstat(self):
-        py.test.skip("ootypesystem does not support os.fstat")
+    if hasattr(os, 'setgroups'):
+        def test_setgroups(self):
+            def f():
+                try:
+                    os.setgroups(os.getgroups())
+                except OSError:
+                    pass
+            self.interpret(f, [])
 
-    def test_os_chroot(self):
-        py.test.skip("ootypesystem does not support os.chroot")
+    if hasattr(os, 'initgroups'):
+        def test_initgroups(self):
+            def f():
+                try:
+                    os.initgroups('sUJJeumz', 4321)
+                except OSError:
+                    return 1
+                return 0
+            res = self.interpret(f, [])
+            assert res == 1
 
-    def test_stat(self):
-        py.test.skip("ootypesystem does not support os.stat")
+    if hasattr(os, 'tcgetpgrp'):
+        def test_tcgetpgrp(self):
+            def f(fd):
+                try:
+                    return os.tcgetpgrp(fd)
+                except OSError:
+                    return 42
+            res = self.interpret(f, [9999])
+            assert res == 42
 
-    def test_stat_exception(self):
-        py.test.skip("ootypesystem does not support os.stat")
+    if hasattr(os, 'tcsetpgrp'):
+        def test_tcsetpgrp(self):
+            def f(fd, pgrp):
+                try:
+                    os.tcsetpgrp(fd, pgrp)
+                except OSError:
+                    return 1
+                return 0
+            res = self.interpret(f, [9999, 1])
+            assert res == 1
 
-    def test_chown(self):
-        py.test.skip("ootypesystem does not support os.chown")
+    if hasattr(os, 'getresuid'):
+        def test_getresuid(self):
+            def f():
+                a, b, c = os.getresuid()
+                return a + b * 37 + c * 1291
+            res = self.interpret(f, [])
+            a, b, c = os.getresuid()
+            assert res == a + b * 37 + c * 1291
+
+    if hasattr(os, 'getresgid'):
+        def test_getresgid(self):
+            def f():
+                a, b, c = os.getresgid()
+                return a + b * 37 + c * 1291
+            res = self.interpret(f, [])
+            a, b, c = os.getresgid()
+            assert res == a + b * 37 + c * 1291
+
+    if hasattr(os, 'setresuid'):
+        def test_setresuid(self):
+            def f():
+                a, b, c = os.getresuid()
+                a = (a + 1) - 1
+                os.setresuid(a, b, c)
+            self.interpret(f, [])
+
+    if hasattr(os, 'setresgid'):
+        def test_setresgid(self):
+            def f():
+                a, b, c = os.getresgid()
+                a = (a + 1) - 1
+                os.setresgid(a, b, c)
+            self.interpret(f, [])

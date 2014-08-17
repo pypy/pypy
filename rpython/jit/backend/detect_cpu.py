@@ -20,10 +20,11 @@ MODEL_PPC_64      = 'ppc-64'
 
 def detect_model_from_c_compiler():
     # based on http://sourceforge.net/p/predef/wiki/Architectures/
+    # and http://msdn.microsoft.com/en-us/library/b0084kay.aspx
     mapping = {
-        MODEL_X86_64: ['__amd64__', '__amd64', '__x86_64__', '__x86_64'],
-        MODEL_ARM:    ['__arm__', '__thumb__'],
-        MODEL_X86:    ['i386', '__i386', '__i386__', '__i686__'],
+        MODEL_X86_64: ['__amd64__', '__amd64', '__x86_64__', '__x86_64', '_M_X64', '_M_AMD64'],
+        MODEL_ARM:    ['__arm__', '__thumb__','_M_ARM_EP'],
+        MODEL_X86:    ['i386', '__i386', '__i386__', '__i686__','_M_IX86'],
         MODEL_PPC_64: ['__powerpc64__'],
     }
     for k, v in mapping.iteritems():
@@ -62,22 +63,30 @@ def detect_model_from_host_platform():
             'AMD64': MODEL_X86,    # win64
             'armv7l': MODEL_ARM,
             'armv6l': MODEL_ARM,
-            }[mach]
+            }.get(mach)
+
+    if result is None:
+        raise ProcessorAutodetectError, "unknown machine name %s" % mach
     #
     if result.startswith('x86'):
         if sys.maxint == 2**63-1:
             result = MODEL_X86_64
         else:
             assert sys.maxint == 2**31-1
-            from rpython.jit.backend.x86.detect_sse2 import detect_sse2
-            if detect_sse2():
+            from rpython.jit.backend.x86 import detect_sse2
+            if detect_sse2.detect_sse2():
                 result = MODEL_X86
             else:
                 result = MODEL_X86_NO_SSE2
+            if detect_sse2.detect_x32_mode():
+                raise ProcessorAutodetectError(
+                    'JITting in x32 mode is not implemented')
     #
     if result.startswith('arm'):
         from rpython.jit.backend.arm.detect import detect_float
-        assert detect_float(), 'the JIT-compiler requires a vfp unit'
+        if not detect_float():
+            raise ProcessorAutodetectError(
+                'the JIT-compiler requires a vfp unit')
     #
     return result
 
@@ -99,8 +108,6 @@ def getcpuclassname(backend_name="auto"):
         return "rpython.jit.backend.x86.runner", "CPU386_NO_SSE2"
     elif backend_name == MODEL_X86_64:
         return "rpython.jit.backend.x86.runner", "CPU_X86_64"
-    #elif backend_name == 'cli':
-    #    return "rpython.jit.backend.cli.runner", "CliCPU"
     elif backend_name == MODEL_ARM:
         return "rpython.jit.backend.arm.runner", "CPU_ARM"
     else:

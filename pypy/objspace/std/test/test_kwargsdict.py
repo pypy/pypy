@@ -73,7 +73,7 @@ def test_limit_size():
     for i in range(100):
         assert d.setitem_str("d%s" % i, 4) is None
     assert d.strategy is not strategy
-    assert "StringDictStrategy" == d.strategy.__class__.__name__
+    assert "BytesDictStrategy" == d.strategy.__class__.__name__
 
 def test_keys_doesnt_wrap():
     space = FakeSpace()

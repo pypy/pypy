@@ -147,7 +147,8 @@ class BaseTestRegalloc(object):
         assert ([box.type for box in bridge.inputargs] ==
                 [box.type for box in guard_op.getfailargs()])
         faildescr = guard_op.getdescr()
-        self.cpu.compile_bridge(faildescr, bridge.inputargs, bridge.operations,
+        self.cpu.compile_bridge(faildescr, bridge.inputargs,
+                                bridge.operations,
                                 loop._jitcelltoken)
         return bridge
 
@@ -335,7 +336,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         '''
         self.interpret(ops, [0, 0, 3, 0])
         assert self.getints(3) == [1, -3, 10]
-        
+
     def test_compare_memory_result_survives(self):
         ops = '''
         [i0, i1, i2, i3]
@@ -409,7 +410,7 @@ class TestRegallocSimple(BaseTestRegalloc):
 
 
 class TestRegallocCompOps(BaseTestRegalloc):
-    
+
     def test_cmp_op_0(self):
         ops = '''
         [i0, i3]
@@ -575,7 +576,7 @@ class TestRegallocFloats(BaseTestRegalloc):
 class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
     def setup_class(cls):
         py.test.skip("skip for now, not sure what do we do")
-    
+
     def expected_frame_depth(self, num_call_args, num_pushed_input_args=0):
         # Assumes the arguments are all non-float
         if not self.cpu.IS_64_BIT:
@@ -612,7 +613,7 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         ops = '''
         [i0, i1,  i2, i3, i4, i5, i6, i7, i8, i9]
         i10 = call(ConstClass(f1ptr), i0, descr=f1_calldescr)
-        i11 = call(ConstClass(f2ptr), i10, i1, descr=f2_calldescr)        
+        i11 = call(ConstClass(f2ptr), i10, i1, descr=f2_calldescr)
         guard_false(i5) [i11, i1,  i2, i3, i4, i5, i6, i7, i8, i9]
         '''
         loop = self.interpret(ops, [4, 7, 9, 9 ,9, 9, 9, 9, 9, 9])
@@ -649,7 +650,7 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
 
         ops = '''
         [i2, i0, i1]
-        i3 = call(ConstClass(f2ptr), i2, i1, descr=f2_calldescr)        
+        i3 = call(ConstClass(f2ptr), i2, i1, descr=f2_calldescr)
         guard_false(i0, descr=fdescr2) [i3, i0]
         '''
         bridge = self.attach_bridge(ops, loop, -2)
@@ -676,7 +677,7 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
 
         ops = '''
         [i2]
-        i3 = call(ConstClass(f1ptr), i2, descr=f1_calldescr)        
+        i3 = call(ConstClass(f1ptr), i2, descr=f1_calldescr)
         guard_false(i3, descr=fdescr2) [i3]
         '''
         bridge = self.attach_bridge(ops, loop, -2)

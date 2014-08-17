@@ -9,8 +9,6 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
-USE_SHORT_FLOAT_REPR = True # XXX make it a translation option?
-
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(includes=["float.h"])
 
@@ -27,89 +25,42 @@ del float_constants, int_constants, const
 
 globals().update(rffi_platform.configure(CConfig))
 
+INVALID_MSG = "invalid literal for float()"
+
+def string_to_float(s):
+    """
+    Conversion of string to float.
+    This version tries to only raise on invalid literals.
+    Overflows should be converted to infinity whenever possible.
+
+    Expects an unwrapped string and return an unwrapped float.
+    """
+    from rpython.rlib.rstring import strip_spaces, ParseStringError
+
+    s = strip_spaces(s)
+    if not s:
+        raise ParseStringError(INVALID_MSG)
+
+    low = s.lower()
+    if low == "-inf" or low == "-infinity":
+        return -INFINITY
+    elif low == "inf" or low == "+inf":
+        return INFINITY
+    elif low == "infinity" or low == "+infinity":
+        return INFINITY
+    elif low == "nan" or low == "+nan":
+        return NAN
+    elif low == "-nan":
+        return -NAN
+
+    try:
+        return rstring_to_float(s)
+    except ValueError:
+        raise ParseStringError(INVALID_MSG)
+
 def rstring_to_float(s):
-    return rstring_to_float_impl(s)
-
-def rstring_to_float_impl(s):
-    if USE_SHORT_FLOAT_REPR:
-        from rpython.rlib.rdtoa import strtod
-        return strtod(s)
-    sign, before_point, after_point, exponent = break_up_float(s)
-    if not before_point and not after_point:
-        raise ValueError
-    return parts_to_float(sign, before_point, after_point, exponent)
-
-def oo_rstring_to_float(s):
-    from rpython.rtyper.annlowlevel import oostr
-    from rpython.rtyper.ootypesystem import ootype
-    lls = oostr(s)
-    return ootype.ooparse_float(lls)
-
-register_external(rstring_to_float, [SomeString(can_be_None=False)], float,
-                  llimpl=rstring_to_float_impl,
-                  ooimpl=oo_rstring_to_float,
-                  sandboxsafe=True)
-
-
-# float as string  -> sign, beforept, afterpt, exponent
-def break_up_float(s):
-    i = 0
-
-    sign = ''
-    before_point = ''
-    after_point = ''
-    exponent = ''
-
-    if s[i] in '+-':
-        sign = s[i]
-        i += 1
-
-    while i < len(s) and s[i] in '0123456789':
-        before_point += s[i]
-        i += 1
-
-    if i == len(s):
-        return sign, before_point, after_point, exponent
-
-    if s[i] == '.':
-        i += 1
-        while i < len(s) and s[i] in '0123456789':
-            after_point += s[i]
-            i += 1
-
-        if i == len(s):
-            return sign, before_point, after_point, exponent
-
-    if s[i] not in  'eE':
-        raise ValueError
-
-    i += 1
-    if i == len(s):
-        raise ValueError
-
-    if s[i] in '-+':
-        exponent += s[i]
-        i += 1
-
-    if i == len(s):
-        raise ValueError
-
-    while i < len(s) and s[i] in '0123456789':
-        exponent += s[i]
-        i += 1
-
-    if i != len(s):
-        raise ValueError
-
-    return sign, before_point, after_point, exponent
-
-# string -> float helper
-
-def parts_to_float(sign, beforept, afterpt, exponent):
-    "NOT_RPYTHON"
-    if not exponent:
-        exponent = '0'
-    return float("%s%s.%se%s" % (sign, beforept, afterpt, exponent))
+    from rpython.rlib.rdtoa import strtod
+    return strtod(s)
 
 # float -> string
 
@@ -118,47 +69,16 @@ DTSF_STR_PRECISION = 12
 DTSF_SIGN      = 0x1
 DTSF_ADD_DOT_0 = 0x2
 DTSF_ALT       = 0x4
+DTSF_CUT_EXP_0 = 0x8
 
 DIST_FINITE   = 1
 DIST_NAN      = 2
 DIST_INFINITY = 3
 
-# Equivalent to CPython's PyOS_double_to_string
-def _formatd(x, code, precision, flags):
-    "NOT_RPYTHON"
-    if flags & DTSF_ALT:
-        alt = '#'
-    else:
-        alt = ''
-
-    if code == 'r':
-        fmt = "%r"
-    else:
-        fmt = "%%%s.%d%s" % (alt, precision, code)
-    s = fmt % (x,)
-
-    if flags & DTSF_ADD_DOT_0:
-        # We want float numbers to be recognizable as such,
-        # i.e., they should contain a decimal point or an exponent.
-        # However, %g may print the number as an integer;
-        # in such cases, we append ".0" to the string.
-        for c in s:
-            if c in '.eE':
-                break
-        else:
-            s += '.0'
-    elif code == 'r' and s.endswith('.0'):
-        s = s[:-2]
-
-    return s
-
 @objectmodel.enforceargs(float, SomeChar(), int, int)
 def formatd(x, code, precision, flags=0):
-    if USE_SHORT_FLOAT_REPR:
-        from rpython.rlib.rdtoa import dtoa_formatd
-        return dtoa_formatd(x, code, precision, flags)
-    else:
-        return _formatd(x, code, precision, flags)
+    from rpython.rlib.rdtoa import dtoa_formatd
+    return dtoa_formatd(x, code, precision, flags)
 
 def double_to_string(value, tp, precision, flags):
     if isfinite(value):
@@ -175,12 +95,6 @@ def round_double(value, ndigits, half_even=False):
 
     Specify half_even=True to round half even instead.
     """
-    if USE_SHORT_FLOAT_REPR:
-        return round_double_short_repr(value, ndigits, half_even)
-    else:
-        return round_double_fallback_repr(value, ndigits, half_even)
-
-def round_double_short_repr(value, ndigits, half_even):
     # The basic idea is very simple: convert and round the double to
     # a decimal string using _Py_dg_dtoa, then convert that decimal
     # string back to a double with _Py_dg_strtod.  There's one minor
@@ -265,46 +179,6 @@ def round_double_short_repr(value, ndigits, half_even):
 
     return sign * rstring_to_float(strvalue)
 
-# fallback version, to be used when correctly rounded
-# binary<->decimal conversions aren't available
-def round_double_fallback_repr(value, ndigits, half_even):
-    if ndigits >= 0:
-        if ndigits > 22:
-            # pow1 and pow2 are each safe from overflow, but
-            # pow1*pow2 ~= pow(10.0, ndigits) might overflow
-            pow1 = math.pow(10.0, ndigits - 22)
-            pow2 = 1e22
-        else:
-            pow1 = math.pow(10.0, ndigits)
-            pow2 = 1.0
-
-        y = (value * pow1) * pow2
-        # if y overflows, then rounded value is exactly x
-        if isinf(y):
-            return value
-
-    else:
-        pow1 = math.pow(10.0, -ndigits);
-        pow2 = 1.0 # unused; for translation
-        y = value / pow1
-
-    if half_even:
-        z = round_away(y)
-        if math.fabs(y - z) == 0.5:
-            z = 2.0 * round_away(y / 2.0)
-    else:
-        if y >= 0.0:
-            z = math.floor(y + 0.5)
-        else:
-            z = math.ceil(y - 0.5)
-        if math.fabs(y - z) == 1.0:   # obscure case, see the test
-            z = y
-
-    if ndigits >= 0:
-        z = (z / pow2) / pow1
-    else:
-        z *= pow1
-    return z
 
 INFINITY = 1e200 * 1e200
 NAN = abs(INFINITY / INFINITY)    # bah, INF/INF gives us -NAN?

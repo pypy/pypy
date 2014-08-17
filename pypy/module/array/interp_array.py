@@ -1,16 +1,23 @@
 from __future__ import with_statement
 
-from pypy.interpreter.buffer import RWBuffer
-from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app, unwrap_spec, interpindirect2app
-from pypy.interpreter.typedef import GetSetProperty, make_weakref_descr, TypeDef
-from pypy.interpreter.baseobjspace import W_Root
-from pypy.module._file.interp_file import W_File
 from rpython.rlib import jit
+from rpython.rlib.buffer import Buffer
+from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck, widen
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
+
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import (
+    interp2app, interpindirect2app, unwrap_spec)
+from pypy.interpreter.typedef import (
+    GetSetProperty, TypeDef, make_weakref_descr)
+from pypy.interpreter.generator import GeneratorIterator
+from pypy.module._file.interp_file import W_File
+from pypy.objspace.std.floatobject import W_FloatObject
 
 
 @unwrap_spec(typecode=str)
@@ -36,7 +43,7 @@ def w_array(space, w_cls, typecode, __args__):
             if len(__args__.arguments_w) > 0:
                 w_initializer = __args__.arguments_w[0]
                 if space.type(w_initializer) is space.w_str:
-                    a.descr_fromstring(space, space.str_w(w_initializer))
+                    a.descr_fromstring(space, w_initializer)
                 elif space.type(w_initializer) is space.w_list:
                     a.descr_fromlist(space, w_initializer)
                 else:
@@ -56,12 +63,12 @@ def descr_itemsize(space, self):
 def descr_typecode(space, self):
     return space.wrap(self.typecode)
 
-arr_eq_driver = jit.JitDriver(greens = ['comp_func'], reds = 'auto')
+arr_eq_driver = jit.JitDriver(name='array_eq_driver', greens=['comp_func'],
+                              reds='auto')
 EQ, NE, LT, LE, GT, GE = range(6)
 
 def compare_arrays(space, arr1, arr2, comp_op):
-    if (not isinstance(arr1, W_ArrayBase) or
-        not isinstance(arr2, W_ArrayBase)):
+    if not (isinstance(arr1, W_ArrayBase) and isinstance(arr2, W_ArrayBase)):
         return space.w_NotImplemented
     if comp_op == EQ and arr1.len != arr2.len:
         return space.w_False
@@ -125,6 +132,12 @@ class W_ArrayBase(W_Root):
         self.space = space
         self.len = 0
         self.allocated = 0
+
+    def readbuf_w(self, space):
+        return ArrayBuffer(self, True)
+
+    def writebuf_w(self, space):
+        return ArrayBuffer(self, False)
 
     def descr_append(self, space, w_x):
         """ append(x)
@@ -215,27 +228,32 @@ class W_ArrayBase(W_Root):
         Convert the array to an array of machine values and return the string
         representation.
         """
+        size = self.len
+        if size == 0:
+            return space.wrap('')
         cbuf = self._charbuf_start()
-        s = rffi.charpsize2str(cbuf, self.len * self.itemsize)
+        s = rffi.charpsize2str(cbuf, size * self.itemsize)
         self._charbuf_stop()
         return self.space.wrap(s)
 
-    @unwrap_spec(s=str)
-    def descr_fromstring(self, space, s):
+    def descr_fromstring(self, space, w_s):
         """ fromstring(string)
 
         Appends items from the string, interpreting it as an array of machine
         values,as if it had been read from a file using the fromfile() method).
         """
+        s = space.getarg_w('s#', w_s)
         if len(s) % self.itemsize != 0:
             msg = 'string length not a multiple of item size'
             raise OperationError(self.space.w_ValueError, self.space.wrap(msg))
         oldlen = self.len
         new = len(s) / self.itemsize
+        if not new:
+            return
         self.setlen(oldlen + new)
         cbuf = self._charbuf_start()
-        for i in range(len(s)):
-            cbuf[oldlen * self.itemsize + i] = s[i]
+        copy_string_to_raw(llstr(s), rffi.ptradd(cbuf, oldlen * self.itemsize),
+                           0, len(s))
         self._charbuf_stop()
 
     @unwrap_spec(w_f=W_File, n=int)
@@ -256,17 +274,17 @@ class W_ArrayBase(W_Root):
             elems = max(0, len(item) - (len(item) % self.itemsize))
             if n != 0:
                 item = item[0:elems]
-            self.descr_fromstring(space, item)
+            self.descr_fromstring(space, space.wrap(item))
             msg = "not enough items in file"
             raise OperationError(space.w_EOFError, space.wrap(msg))
-        self.descr_fromstring(space, item)
+        self.descr_fromstring(space, w_item)
 
     @unwrap_spec(w_f=W_File)
     def descr_tofile(self, space, w_f):
         """ tofile(f)
 
-        Write all items (as machine values) to the file object f.  Also called as
-        write.
+        Write all items (as machine values) to the file object f.  Also
+        called as write.
         """
         w_s = self.descr_tostring(space)
         space.call_method(w_f, 'write', w_s)
@@ -348,8 +366,8 @@ class W_ArrayBase(W_Root):
     def descr_byteswap(self, space):
         """ byteswap()
 
-        Byteswap all items of the array.  If the items in the array are not 1, 2,
-        4, or 8 bytes in size, RuntimeError is raised.
+        Byteswap all items of the array.  If the items in the array are
+        not 1, 2, 4, or 8 bytes in size, RuntimeError is raised.
         """
         if self.itemsize not in [1, 2, 4, 8]:
             msg = "byteswap not supported for this array"
@@ -407,7 +425,6 @@ class W_ArrayBase(W_Root):
     def descr_getslice(self, space, w_i, w_j):
         return space.getitem(self, space.newslice(w_i, w_j, space.w_None))
 
-
     def descr_setitem(self, space, w_idx, w_item):
         "x.__setitem__(i, y) <==> x[i]=y"
         if space.isinstance_w(w_idx, space.w_slice):
@@ -432,7 +449,11 @@ class W_ArrayBase(W_Root):
         return self.delitem(space, start, stop)
 
     def descr_delslice(self, space, w_start, w_stop):
-        self.descr_delitem(space, space.newslice(w_start, w_stop, space.w_None))
+        self.descr_delitem(space, space.newslice(w_start, w_stop,
+                                                 space.w_None))
+
+    def descr_iter(self, space):
+        return space.newseqiter(self)
 
     def descr_add(self, space, w_other):
         raise NotImplementedError
@@ -454,9 +475,6 @@ class W_ArrayBase(W_Root):
 
     # Misc methods
 
-    def descr_buffer(self, space):
-        return space.wrap(ArrayBuffer(self))
-
     def descr_repr(self, space):
         if self.len == 0:
             return space.wrap("array('%s')" % self.typecode)
@@ -474,9 +492,8 @@ class W_ArrayBase(W_Root):
             return space.wrap(s)
 
 W_ArrayBase.typedef = TypeDef(
-    'array',
+    'array.array',
     __new__ = interp2app(w_array),
-    __module__   = 'array',
 
     __len__ = interp2app(W_ArrayBase.descr_len),
     __eq__ = interp2app(W_ArrayBase.descr_eq),
@@ -492,6 +509,7 @@ W_ArrayBase.typedef = TypeDef(
     __setslice__ = interp2app(W_ArrayBase.descr_setslice),
     __delitem__ = interp2app(W_ArrayBase.descr_delitem),
     __delslice__ = interp2app(W_ArrayBase.descr_delslice),
+    __iter__ = interp2app(W_ArrayBase.descr_iter),
 
     __add__ = interpindirect2app(W_ArrayBase.descr_add),
     __iadd__ = interpindirect2app(W_ArrayBase.descr_inplace_add),
@@ -500,7 +518,6 @@ W_ArrayBase.typedef = TypeDef(
     __radd__ = interp2app(W_ArrayBase.descr_radd),
     __rmul__ = interp2app(W_ArrayBase.descr_rmul),
 
-    __buffer__ = interp2app(W_ArrayBase.descr_buffer),
     __repr__ = interp2app(W_ArrayBase.descr_repr),
 
     itemsize = GetSetProperty(descr_itemsize),
@@ -532,7 +549,8 @@ W_ArrayBase.typedef = TypeDef(
 
 
 class TypeCode(object):
-    def __init__(self, itemtype, unwrap, canoverflow=False, signed=False):
+    def __init__(self, itemtype, unwrap, canoverflow=False, signed=False,
+                 method='__int__'):
         self.itemtype = itemtype
         self.bytes = rffi.sizeof(itemtype)
         self.arraytype = lltype.Array(itemtype, hints={'nolength': True})
@@ -540,11 +558,12 @@ class TypeCode(object):
         self.signed = signed
         self.canoverflow = canoverflow
         self.w_class = None
+        self.method = method
 
         if self.canoverflow:
             assert self.bytes <= rffi.sizeof(rffi.ULONG)
             if self.bytes == rffi.sizeof(rffi.ULONG) and not signed and \
-                   self.unwrap == 'int_w':
+                    self.unwrap == 'int_w':
                 # Treat this type as a ULONG
                 self.unwrap = 'bigint_w'
                 self.canoverflow = False
@@ -554,8 +573,8 @@ class TypeCode(object):
         return True
 
 types = {
-    'c': TypeCode(lltype.Char,        'str_w'),
-    'u': TypeCode(lltype.UniChar,     'unicode_w'),
+    'c': TypeCode(lltype.Char,        'str_w', method=''),
+    'u': TypeCode(lltype.UniChar,     'unicode_w', method=''),
     'b': TypeCode(rffi.SIGNEDCHAR,    'int_w', True, True),
     'B': TypeCode(rffi.UCHAR,         'int_w', True),
     'h': TypeCode(rffi.SHORT,         'int_w', True, True),
@@ -567,16 +586,19 @@ types = {
                                                     # rbigint.touint() which
                                                     # corresponds to the
                                                     # C-type unsigned long
-    'f': TypeCode(lltype.SingleFloat, 'float_w'),
-    'd': TypeCode(lltype.Float,       'float_w'),
+    'f': TypeCode(lltype.SingleFloat, 'float_w', method='__float__'),
+    'd': TypeCode(lltype.Float,       'float_w', method='__float__'),
     }
 for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
 
-class ArrayBuffer(RWBuffer):
-    def __init__(self, array):
+class ArrayBuffer(Buffer):
+    _immutable_ = True
+
+    def __init__(self, array, readonly):
         self.array = array
+        self.readonly = readonly
 
     def getlength(self):
         return self.array.len * self.array.itemsize
@@ -594,11 +616,27 @@ class ArrayBuffer(RWBuffer):
         data[index] = char
         array._charbuf_stop()
 
+    def getslice(self, start, stop, step, size):
+        if size == 0:
+            return ''
+        if step == 1:
+            data = self.array._charbuf_start()
+            try:
+                return rffi.charpsize2str(rffi.ptradd(data, start), size)
+            finally:
+                self.array._charbuf_stop()
+        return Buffer.getslice(self, start, stop, step, size)
+
     def get_raw_address(self):
         return self.array._charbuf_start()
 
+
 def make_array(mytype):
     W_ArrayBase = globals()['W_ArrayBase']
+
+    unpack_driver = jit.JitDriver(name='unpack_array',
+                                  greens=['tp'],
+                                  reds=['self', 'w_iterator'])
 
     class W_Array(W_ArrayBase):
         itemsize = mytype.bytes
@@ -613,7 +651,20 @@ def make_array(mytype):
         def item_w(self, w_item):
             space = self.space
             unwrap = getattr(space, mytype.unwrap)
-            item = unwrap(w_item)
+            try:
+                item = unwrap(w_item)
+            except OperationError, e:
+                if isinstance(w_item, W_FloatObject):
+                    # Odd special case from cpython
+                    raise
+                if mytype.method != '' and e.match(space, space.w_TypeError):
+                    try:
+                        item = unwrap(space.call_method(w_item, mytype.method))
+                    except OperationError:
+                        raise oefmt(space.w_TypeError,
+                                    "array item must be " + mytype.unwrap[:-2])
+                else:
+                    raise
             if mytype.unwrap == 'bigint_w':
                 try:
                     item = item.touint()
@@ -631,6 +682,10 @@ def make_array(mytype):
                 return rffi.cast(mytype.itemtype, item)
             #
             # "regular" case: it fits in an rpython integer (lltype.Signed)
+            # or it is a float
+            return self.item_from_int_or_float(item)
+
+        def item_from_int_or_float(self, item):
             result = rffi.cast(mytype.itemtype, item)
             if mytype.canoverflow:
                 if rffi.cast(lltype.Signed, result) != item:
@@ -643,8 +698,8 @@ def make_array(mytype):
                                % mytype.bytes)
                     if not mytype.signed:
                         msg = 'un' + msg      # 'signed' => 'unsigned'
-                    raise OperationError(space.w_OverflowError,
-                                         space.wrap(msg))
+                    raise OperationError(self.space.w_OverflowError,
+                                         self.space.wrap(msg))
             return result
 
         def __del__(self):
@@ -666,14 +721,13 @@ def make_array(mytype):
                         some = 0
                     self.allocated = size + some
                     if zero:
-                        new_buffer = lltype.malloc(mytype.arraytype,
-                                                   self.allocated, flavor='raw',
-                                                   add_memory_pressure=True,
-                                                   zero=True)
+                        new_buffer = lltype.malloc(
+                            mytype.arraytype, self.allocated, flavor='raw',
+                            add_memory_pressure=True, zero=True)
                     else:
-                        new_buffer = lltype.malloc(mytype.arraytype,
-                                                   self.allocated, flavor='raw',
-                                                   add_memory_pressure=True)
+                        new_buffer = lltype.malloc(
+                            mytype.arraytype, self.allocated, flavor='raw',
+                            add_memory_pressure=True)
                         for i in range(min(size, self.len)):
                             new_buffer[i] = self.buffer[i]
                 else:
@@ -692,27 +746,65 @@ def make_array(mytype):
         def fromsequence(self, w_seq):
             space = self.space
             oldlen = self.len
-            try:
-                new = space.len_w(w_seq)
-                self.setlen(self.len + new)
-            except OperationError:
-                pass
+            newlen = oldlen
 
-            i = 0
-            try:
-                if mytype.typecode == 'u':
-                    myiter = space.unpackiterable
-                else:
-                    myiter = space.listview
-                for w_i in myiter(w_seq):
-                    if oldlen + i >= self.len:
-                        self.setlen(oldlen + i + 1)
-                    self.buffer[oldlen + i] = self.item_w(w_i)
-                    i += 1
-            except OperationError:
-                self.setlen(oldlen + i)
-                raise
-            self.setlen(oldlen + i)
+            # optimized case for arrays of integers or floats
+            if mytype.unwrap == 'int_w':
+                lst = space.listview_int(w_seq)
+            elif mytype.unwrap == 'float_w':
+                lst = space.listview_float(w_seq)
+            else:
+                lst = None
+            if lst is not None:
+                self.setlen(oldlen + len(lst))
+                try:
+                    buf = self.buffer
+                    for num in lst:
+                        buf[newlen] = self.item_from_int_or_float(num)
+                        newlen += 1
+                except OperationError:
+                    self.setlen(newlen)
+                    raise
+                return
+
+            # this is the common case: w_seq is a list or a tuple
+            lst_w = space.listview_no_unpack(w_seq)
+            if lst_w is not None:
+                self.setlen(oldlen + len(lst_w))
+                buf = self.buffer
+                try:
+                    for w_num in lst_w:
+                        # note: self.item_w() might invoke arbitrary code.
+                        # In case it resizes the same array, then strange
+                        # things may happen, but as we don't reload 'buf'
+                        # we know that one is big enough for all items
+                        # (so at least we avoid crashes)
+                        buf[newlen] = self.item_w(w_num)
+                        newlen += 1
+                except OperationError:
+                    if buf == self.buffer:
+                        self.setlen(newlen)
+                    raise
+                return
+
+            self._fromiterable(w_seq)
+
+        def _fromiterable(self, w_seq):
+            # a more careful case if w_seq happens to be a very large
+            # iterable: don't copy the items into some intermediate list
+            w_iterator = self.space.iter(w_seq)
+            tp = self.space.type(w_iterator)
+            while True:
+                unpack_driver.jit_merge_point(tp=tp, self=self,
+                                              w_iterator=w_iterator)
+                space = self.space
+                try:
+                    w_item = space.next(w_iterator)
+                except OperationError, e:
+                    if not e.match(space, space.w_StopIteration):
+                        raise
+                    break  # done
+                self.descr_append(space, w_item)
 
         def extend(self, w_iterable, accept_different_array=False):
             space = self.space
@@ -755,8 +847,9 @@ def make_array(mytype):
 
         def descr_append(self, space, w_x):
             x = self.item_w(w_x)
-            self.setlen(self.len + 1)
-            self.buffer[self.len - 1] = x
+            index = self.len
+            self.setlen(index + 1)
+            self.buffer[index] = x
 
         # List interface
         def descr_count(self, space, w_val):
@@ -853,9 +946,6 @@ def make_array(mytype):
                     self.buffer[i] = w_item.buffer[j]
                     j += 1
 
-        # We can't look into this function until ptradd works with things (in the
-        # JIT) other than rffi.CCHARP
-        @jit.dont_look_inside
         def delitem(self, space, i, j):
             if i < 0:
                 i += self.len
@@ -870,9 +960,9 @@ def make_array(mytype):
             if i >= j:
                 return None
             oldbuffer = self.buffer
-            self.buffer = lltype.malloc(mytype.arraytype,
-                          max(self.len - (j - i), 0), flavor='raw',
-                          add_memory_pressure=True)
+            self.buffer = lltype.malloc(
+                mytype.arraytype, max(self.len - (j - i), 0), flavor='raw',
+                add_memory_pressure=True)
             if i:
                 rffi.c_memcpy(
                     rffi.cast(rffi.VOIDP, self.buffer),
@@ -891,16 +981,23 @@ def make_array(mytype):
                 lltype.free(oldbuffer, flavor='raw')
 
         # Add and mul methods
-
         def descr_add(self, space, w_other):
             if not isinstance(w_other, W_Array):
                 return space.w_NotImplemented
             a = mytype.w_class(space)
             a.setlen(self.len + w_other.len, overallocate=False)
-            for i in range(self.len):
-                a.buffer[i] = self.buffer[i]
-            for i in range(w_other.len):
-                a.buffer[i + self.len] = w_other.buffer[i]
+            if self.len:
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, a.buffer),
+                    rffi.cast(rffi.VOIDP, self.buffer),
+                    self.len * mytype.bytes
+                )
+            if w_other.len:
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, rffi.ptradd(a.buffer, self.len)),
+                    rffi.cast(rffi.VOIDP, w_other.buffer),
+                    w_other.len * mytype.bytes
+                )
             return a
 
         def descr_inplace_add(self, space, w_other):
@@ -909,8 +1006,12 @@ def make_array(mytype):
             oldlen = self.len
             otherlen = w_other.len
             self.setlen(oldlen + otherlen)
-            for i in range(otherlen):
-                self.buffer[oldlen + i] = w_other.buffer[i]
+            if otherlen:
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, rffi.ptradd(self.buffer, oldlen)),
+                    rffi.cast(rffi.VOIDP, w_other.buffer),
+                    otherlen * mytype.bytes
+                )
             return self
 
         def descr_mul(self, space, w_repeat):

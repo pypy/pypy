@@ -4,14 +4,11 @@ from rpython.rlib.jit import vref_None, non_virtual_ref, InvalidVirtualRef
 from rpython.rlib._jit_vref import SomeVRef
 from rpython.annotator import model as annmodel
 from rpython.annotator.annrpython import RPythonAnnotator
-from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
-from rpython.rtyper.ootypesystem.rclass import OBJECT
 from rpython.rtyper.lltypesystem import lltype
 
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 
-from rpython.rtyper.ootypesystem import ootype
 
 class X(object):
     pass
@@ -91,7 +88,11 @@ def test_annotate_4():
     assert s.s_instance.can_be_None
     assert s.s_instance.classdef == a.bookkeeper.getuniqueclassdef(X)
 
-class BaseTestVRef(BaseRtypingTest):
+class TestVRef(BaseRtypingTest):
+    OBJECTTYPE = OBJECTPTR
+    def castable(self, TO, var):
+        return lltype.castable(TO, lltype.typeOf(var)) > 0
+
     def test_rtype_1(self):
         def f():
             return virtual_ref(X())
@@ -144,14 +145,3 @@ class BaseTestVRef(BaseRtypingTest):
             return vref.virtual
         x = self.interpret(f, [])
         assert x is False
-
-
-class TestLLtype(BaseTestVRef, LLRtypeMixin):
-    OBJECTTYPE = OBJECTPTR
-    def castable(self, TO, var):
-        return lltype.castable(TO, lltype.typeOf(var)) > 0
-
-class TestOOtype(BaseTestVRef, OORtypeMixin):
-    OBJECTTYPE = OBJECT 
-    def castable(self, TO, var):
-        return ootype.isSubclass(lltype.typeOf(var), TO)

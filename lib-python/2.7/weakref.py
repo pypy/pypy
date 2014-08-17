@@ -48,7 +48,14 @@ class WeakValueDictionary(UserDict.UserDict):
         def remove(wr, selfref=ref(self)):
             self = selfref()
             if self is not None:
-                del self.data[wr.key]
+                # Changed this for PyPy: made more resistent.  The
+                # issue is that in some corner cases, self.data
+                # might already be changed or removed by the time
+                # this weakref's callback is called.  If that is
+                # the case, we don't want to randomly kill an
+                # unrelated entry.
+                if self.data.get(wr.key) is wr:
+                    del self.data[wr.key]
         self._remove = remove
         UserDict.UserDict.__init__(self, *args, **kw)
 
@@ -160,22 +167,26 @@ class WeakValueDictionary(UserDict.UserDict):
         try:
             o = self.data.pop(key)()
         except KeyError:
+            o = None
+        if o is None:
             if args:
                 return args[0]
-            raise
-        if o is None:
             raise KeyError, key
         else:
             return o
+        # The logic above was fixed in PyPy
 
     def setdefault(self, key, default=None):
         try:
-            wr = self.data[key]
+            o = self.data[key]()
         except KeyError:
+            o = None
+        if o is None:
             self.data[key] = KeyedRef(default, self._remove, key)
             return default
         else:
-            return wr()
+            return o
+        # The logic above was fixed in PyPy
 
     def update(self, dict=None, **kwargs):
         d = self.data

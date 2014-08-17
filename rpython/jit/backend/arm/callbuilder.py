@@ -227,32 +227,60 @@ class SoftFloatCallBuilder(ARMCallbuilder):
 
 class HardFloatCallBuilder(ARMCallbuilder):
 
+    next_arg_vfp = 0
+    next_arg_svfp = 0
+
+    def get_next_vfp(self, tp):
+        assert tp in 'fS'
+        if self.next_arg_vfp == -1:
+            return None
+        if tp == 'S':
+            i = self.next_arg_svfp
+            next_vfp = (i >> 1) + 1
+            if not (i + 1) & 1: # i is even
+                self.next_arg_vfp = max(self.next_arg_vfp, next_vfp)
+                self.next_arg_svfp = self.next_arg_vfp << 1
+            else:
+                self.next_arg_svfp += 1
+                self.next_arg_vfp = next_vfp
+            lst = r.svfp_argument_regs
+        else: # 64bit double
+            i = self.next_arg_vfp
+            self.next_arg_vfp += 1
+            if self.next_arg_svfp >> 1 == i:
+                self.next_arg_svfp = self.next_arg_vfp << 1
+            lst = r.vfp_argument_regs
+        try:
+            return lst[i]
+        except IndexError:
+            self.next_arg_vfp = self.next_arg_svfp = -1
+            return None
+
     def prepare_arguments(self):
         non_float_locs = []
         non_float_regs = []
         float_locs = []
         float_regs = []
         stack_args = []
+        singlefloats = None
 
         arglocs = self.arglocs
         argtypes = self.argtypes
 
         count = 0                      # stack alignment counter
         on_stack = 0
-        for arg in arglocs:
-            if arg.type != FLOAT:
-                if len(non_float_regs) < len(r.argument_regs):
-                    reg = r.argument_regs[len(non_float_regs)]
-                    non_float_locs.append(arg)
-                    non_float_regs.append(reg)
-                else:  # non-float argument that needs to go on the stack
-                    count += 1
-                    on_stack += 1
-                    stack_args.append(arg)
-            else:
-                if len(float_regs) < len(r.vfp_argument_regs):
-                    reg = r.vfp_argument_regs[len(float_regs)]
+        for i in range(len(arglocs)):
+            argtype = INT
+            if i < len(argtypes) and argtypes[i] == 'S':
+                argtype = argtypes[i]
+            arg = arglocs[i]
+            if arg.is_float():
+                argtype = FLOAT
+                reg = self.get_next_vfp(argtype)
+                if reg:
+                    assert len(float_regs) < len(r.vfp_argument_regs)
                     float_locs.append(arg)
+                    assert reg not in float_regs
                     float_regs.append(reg)
                 else:  # float argument that needs to go on the stack
                     if count % 2 != 0:
@@ -261,6 +289,27 @@ class HardFloatCallBuilder(ARMCallbuilder):
                         on_stack += 1
                     stack_args.append(arg)
                     on_stack += 2
+            elif argtype == 'S':
+                # Singlefloat argument
+                if singlefloats is None:
+                    singlefloats = []
+                tgt = self.get_next_vfp(argtype)
+                if tgt:
+                    singlefloats.append((arg, tgt))
+                else:  # Singlefloat argument that needs to go on the stack
+                       # treated the same as a regular core register argument
+                    count += 1
+                    on_stack += 1
+                    stack_args.append(arg)
+            else:
+                if len(non_float_regs) < len(r.argument_regs):
+                    reg = r.argument_regs[len(non_float_regs)]
+                    non_float_locs.append(arg)
+                    non_float_regs.append(reg)
+                else:  # non-float argument that needs to go on the stack
+                    count += 1
+                    on_stack += 1
+                    stack_args.append(arg)
         # align the stack
         if count % 2 != 0:
             stack_args.append(None)
@@ -275,13 +324,28 @@ class HardFloatCallBuilder(ARMCallbuilder):
             non_float_locs.append(self.fnloc)
             non_float_regs.append(r.r4)
             self.fnloc = r.r4
-        # remap values stored in core registers
-        remap_frame_layout(self.asm, non_float_locs, non_float_regs, r.ip)
         # remap values stored in vfp registers
         remap_frame_layout(self.asm, float_locs, float_regs, r.vfp_ip)
+        if singlefloats:
+            for src, dest in singlefloats:
+                if src.is_float():
+                    assert 0, 'unsupported case'
+                if src.is_stack():
+                    # use special VLDR for 32bit
+                    self.asm.regalloc_mov(src, r.ip)
+                    src = r.ip
+                if src.is_imm():
+                    self.mc.gen_load_int(r.ip.value, src.value)
+                    src = r.ip
+                if src.is_core_reg():
+                    self.mc.VMOV_cs(dest.value, src.value)
+        # remap values stored in core registers
+        remap_frame_layout(self.asm, non_float_locs, non_float_regs, r.ip)
 
     def load_result(self):
         resloc = self.resloc
+        if self.restype == 'S':
+            self.mc.VMOV_sc(resloc.value, r.s0.value)
         # ensure the result is wellformed and stored in the correct location
         if resloc is not None and resloc.is_core_reg():
             self._ensure_result_bit_extension(resloc,

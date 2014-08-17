@@ -1,5 +1,6 @@
 from pypy import conftest
 
+
 class AppTestBytesArray:
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
@@ -49,7 +50,10 @@ class AppTestBytesArray:
     def test_repr(self):
         assert repr(bytearray()) == "bytearray(b'')"
         assert repr(bytearray('test')) == "bytearray(b'test')"
-        assert repr(bytearray("d'oh")) == r"bytearray(b'd\'oh')"
+        assert repr(bytearray("d'oh")) == r'bytearray(b"d\'oh")'
+        assert repr(bytearray('d"oh')) == 'bytearray(b\'d"oh\')'
+        assert repr(bytearray('d"\'oh')) == 'bytearray(b\'d"\\\'oh\')'
+        assert repr(bytearray('d\'"oh')) == 'bytearray(b\'d\\\'"oh\')'
 
     def test_str(self):
         assert str(bytearray()) == ""
@@ -134,6 +138,7 @@ class AppTestBytesArray:
 
     def test_iter(self):
         assert list(bytearray('hello')) == [104, 101, 108, 108, 111]
+        assert list(bytearray('hello').__iter__()) == [104, 101, 108, 108, 111]
 
     def test_compare(self):
         assert bytearray('hello') == bytearray('hello')
@@ -173,7 +178,9 @@ class AppTestBytesArray:
         assert bytearray('hello').rindex('l') == 3
         assert bytearray('hello').index(bytearray('e')) == 1
         assert bytearray('hello').find('l') == 2
+        assert bytearray('hello').find('l', -2) == 3
         assert bytearray('hello').rfind('l') == 3
+
 
         # these checks used to not raise in pypy but they should
         raises(TypeError, bytearray('hello').index, ord('e'))
@@ -215,6 +222,20 @@ class AppTestBytesArray:
         check(bytearray('abc').lstrip(memoryview('a')), 'bc')
         check(bytearray('abc').rstrip(memoryview('c')), 'ab')
         check(bytearray('aba').strip('a'), 'b')
+
+    def test_xjust_no_mutate(self):
+        # a previous regression
+        b = bytearray(b'')
+        assert b.ljust(1) == bytearray(b' ')
+        assert not len(b)
+
+        b2 = b.ljust(0)
+        b2 += b' '
+        assert not len(b)
+
+        b2 = b.rjust(0)
+        b2 += b' '
+        assert not len(b)
 
     def test_split(self):
         # methods that should return a sequence of bytearrays
@@ -425,16 +446,17 @@ class AppTestBytesArray:
         b = bytearray('abcdefghi')
         buf = buffer(b)
         assert buf[2] == 'c'
-        buf[3] = 'D'
-        assert b == 'abcDefghi'
-        buf[4:6] = 'EF'
-        assert b == 'abcDEFghi'
+        exc = raises(TypeError, "buf[2] = 'D'")
+        assert str(exc.value) == "buffer is read-only"
+        exc = raises(TypeError, "buf[4:6] = 'EF'")
+        assert str(exc.value) == "buffer is read-only"
 
     def test_decode(self):
         b = bytearray('abcdefghi')
         u = b.decode('utf-8')
         assert isinstance(u, unicode)
         assert u == u'abcdefghi'
+        assert b.decode().encode() == b
 
     def test_int(self):
         assert int(bytearray('-1234')) == -1234
@@ -462,3 +484,11 @@ class AppTestBytesArray:
         for i in range(count):
             b[i:i+1] = 'y'
         assert str(b) == 'y' * count
+
+    def test_partition_return_copy(self):
+        b = bytearray(b'foo')
+        assert b.partition(b'x')[0] is not b
+
+    def test_split_whitespace(self):
+        b = bytearray(b'\x09\x0A\x0B\x0C\x0D\x1C\x1D\x1E\x1F')
+        assert b.split() == [b'\x1c\x1d\x1e\x1f']

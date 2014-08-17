@@ -3,6 +3,7 @@ import inspect
 
 from rpython.translator.c import gc
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
 from rpython.memory.gctransform import framework, shadowstack
 from rpython.rtyper.lltypesystem.lloperation import llop, void
@@ -45,6 +46,8 @@ class GCTest(object):
     taggedpointers = False
 
     def setup_class(cls):
+        cls.marker = lltype.malloc(rffi.CArray(lltype.Signed), 1,
+                                   flavor='raw', zero=True)
         funcs0 = []
         funcs2 = []
         cleanups = []
@@ -96,7 +99,7 @@ class GCTest(object):
 
         from rpython.translator.c.genc import CStandaloneBuilder
 
-        s_args = annmodel.SomePtr(lltype.Ptr(ARGS))
+        s_args = SomePtr(lltype.Ptr(ARGS))
         t = rtype(entrypoint, [s_args], gcname=cls.gcname,
                   taggedpointers=cls.taggedpointers)
 
@@ -744,12 +747,18 @@ class GenericMovingGCTests(GenericGCTests):
     def ensure_layoutbuilder(cls, translator):
         jit2gc = getattr(translator, '_jit2gc', None)
         if jit2gc:
+            assert 'invoke_after_minor_collection' in jit2gc
             return jit2gc['layoutbuilder']
+        marker = cls.marker
         GCClass = cls.gcpolicy.transformerclass.GCClass
         layoutbuilder = framework.TransformerLayoutBuilder(translator, GCClass)
         layoutbuilder.delay_encoding()
+
+        def seeme():
+            marker[0] += 1
         translator._jit2gc = {
             'layoutbuilder': layoutbuilder,
+            'invoke_after_minor_collection': seeme,
         }
         return layoutbuilder
 
@@ -768,6 +777,15 @@ class GenericMovingGCTests(GenericGCTests):
                 g()
                 i += 1
             return 0
+
+        if cls.gcname == 'incminimark':
+            marker = cls.marker
+            def cleanup():
+                assert marker[0] > 0
+                marker[0] = 0
+        else:
+            cleanup = None
+
         def fix_graph_of_g(translator):
             from rpython.translator.translator import graphof
             from rpython.flowspace.model import Constant
@@ -788,7 +806,7 @@ class GenericMovingGCTests(GenericGCTests):
                     break
             else:
                 assert 0, "oups, not found"
-        return f, None, fix_graph_of_g
+        return f, cleanup, fix_graph_of_g
 
     def test_do_malloc_operations(self):
         run = self.runner("do_malloc_operations")
@@ -810,7 +828,7 @@ class GenericMovingGCTests(GenericGCTests):
             from rpython.translator.translator import graphof
             from rpython.flowspace.model import Constant
             from rpython.rtyper.lltypesystem import rffi
-            layoutbuilder = cls.ensure_layoutbuilder(translator)            
+            layoutbuilder = cls.ensure_layoutbuilder(translator)
             type_id = layoutbuilder.get_type_id(P)
             #
             # now fix the do_malloc_fixedsize_clear in the graph of g
@@ -1099,7 +1117,7 @@ class TestGenerationGC(GenericMovingGCTests):
 
     def test_adr_of_nursery(self):
         run = self.runner("adr_of_nursery")
-        res = run([])        
+        res = run([])
 
 class TestGenerationalNoFullCollectGC(GCTest):
     # test that nursery is doing its job and that no full collection
@@ -1186,7 +1204,7 @@ class TestHybridGC(TestGenerationGC):
         res = run([100, 100])
         assert res == 200
 
-    def define_assume_young_pointers(cls):
+    def define_write_barrier_direct(cls):
         from rpython.rlib import rgc
         S = lltype.GcForwardReference()
         S.become(lltype.GcStruct('S',
@@ -1198,8 +1216,7 @@ class TestHybridGC(TestGenerationGC):
             s = lltype.malloc(S)
             s.x = 42
             llop.bare_setfield(lltype.Void, s0, void('next'), s)
-            llop.gc_assume_young_pointers(lltype.Void,
-                                          llmemory.cast_ptr_to_adr(s0))
+            llop.gc_writebarrier(lltype.Void, llmemory.cast_ptr_to_adr(s0))
             rgc.collect(0)
             return s0.next.x
 
@@ -1208,8 +1225,8 @@ class TestHybridGC(TestGenerationGC):
 
         return f, cleanup, None
 
-    def test_assume_young_pointers(self):
-        run = self.runner("assume_young_pointers")
+    def test_write_barrier_direct(self):
+        run = self.runner("write_barrier_direct")
         res = run([])
         assert res == 42
 
@@ -1258,6 +1275,24 @@ class TestMiniMarkGC(TestHybridGC):
         run = self.runner("no_clean_setarrayitems")
         res = run([])
         assert res == 123
+
+class TestIncrementalMiniMarkGC(TestMiniMarkGC):
+    gcname = "incminimark"
+
+    class gcpolicy(gc.BasicFrameworkGcPolicy):
+        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
+            from rpython.memory.gc.incminimark import IncrementalMiniMarkGC \
+                                                      as GCClass
+            GC_PARAMS = {'nursery_size': 32*WORD,
+                         'page_size': 16*WORD,
+                         'arena_size': 64*WORD,
+                         'small_request_threshold': 5*WORD,
+                         'large_object': 8*WORD,
+                         'card_page_indices': 4,
+                         'translated_to_c': False,
+                         }
+            root_stack_depth = 200
+
 
 # ________________________________________________________________
 # tagged pointers

@@ -1,7 +1,7 @@
 import py
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest
 
-class BaseTestRemptydict(BaseRtypingTest):
+class TestRemptydict(BaseRtypingTest):
     def test_empty_dict(self):
         class A:
             pass
@@ -26,16 +26,3 @@ class BaseTestRemptydict(BaseRtypingTest):
             return n
         res = self.interpret(f, [])
         assert res == 0
-
-class TestLLtype(BaseTestRemptydict, LLRtypeMixin):
-    pass
-
-class TestOOtype(BaseTestRemptydict, OORtypeMixin):
-    def test_almost_empty_dict(self):
-        def f(flag):
-            d = {}
-            if flag:
-                d[None] = None
-            return None in d
-        assert self.interpret(f, [True]) is True
-        assert self.interpret(f, [False]) is False

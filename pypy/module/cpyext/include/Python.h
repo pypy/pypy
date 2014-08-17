@@ -24,6 +24,7 @@
 #  include <limits.h>
 # endif
 # include <io.h>
+# include <sys/types.h>   /* for 'off_t' */
 # define Py_DEPRECATED(VERSION_UNUSED)
 # ifdef Py_BUILD_CORE
 #  define PyAPI_FUNC(RTYPE) __declspec(dllexport) RTYPE
@@ -125,6 +126,9 @@ typedef long Py_ssize_t;
 #include "fileobject.h"
 #include "pysignals.h"
 #include "pythread.h"
+
+/* Missing definitions */
+#include "missing.h"
 
 // XXX This shouldn't be included here
 #include "structmember.h"

@@ -11,14 +11,14 @@ from rpython.rtyper.test.test_llinterp import interpret, gengraph
 def test_check_annotation():
     class Error(Exception):
         pass
-    
+
     def checker(ann, bk):
         from rpython.annotator.model import SomeList, SomeInteger
         if not isinstance(ann, SomeList):
             raise Error()
         if not isinstance(ann.listdef.listitem.s_value, SomeInteger):
             raise Error()
-    
+
     def f(x):
         result = [x]
         check_annotation(result, checker)
@@ -50,8 +50,17 @@ def test_make_sure_not_resized():
         result.append(4)
         return len(result)
 
-    py.test.raises(ListChangeUnallowed, interpret, f, [], 
+    py.test.raises(ListChangeUnallowed, interpret, f, [],
                    list_comprehension_operations=True)
+
+def test_make_sure_not_resized_annorder():
+    def f(n):
+        if n > 5:
+            result = None
+        else:
+            result = [1,2,3]
+        make_sure_not_resized(result)
+    interpret(f, [10])
 
 def test_mark_dict_non_null():
     def f():
@@ -98,11 +107,5 @@ class DebugTests(object):
                 ]),
             ]
 
-
-class TestLLType(DebugTests):
     def interpret(self, f, args):
         return interpret(f, args, type_system='lltype')
-
-class TestOOType(DebugTests):
-    def interpret(self, f, args):
-        return interpret(f, args, type_system='ootype')

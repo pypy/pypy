@@ -52,10 +52,12 @@ class BlackholeInterpBuilder(object):
         self.setup_descrs(asm.descrs)
         self.metainterp_sd = metainterp_sd
         self.num_interpreters = 0
-        self._cleanup_()
+        self.blackholeinterps = []
 
     def _cleanup_(self):
-        self.blackholeinterps = []
+        # XXX don't assign a different list to blackholeinterp here,
+        # it confuses the annotator a lot
+        del self.blackholeinterps[:]
 
     def setup_insns(self, insns):
         assert len(insns) <= 256, "too many instructions!"
@@ -377,6 +379,10 @@ class BlackholeInterpreter(object):
     copy_constants._annspecialcase_ = 'specialize:arglistitemtype(1)'
 
     # ----------
+
+    @arguments("i", returns="i")
+    def bhimpl_int_same_as(a):
+        return a
 
     @arguments("i", "i", returns="i")
     def bhimpl_int_add(a, b):
@@ -885,6 +891,10 @@ class BlackholeInterpreter(object):
     def bhimpl_int_isconstant(x):
         return False
 
+    @arguments("f", returns="i")
+    def bhimpl_float_isconstant(x):
+        return False
+
     @arguments("r", returns="i")
     def bhimpl_ref_isconstant(x):
         return False
@@ -1074,6 +1084,29 @@ class BlackholeInterpreter(object):
     def bhimpl_residual_call_irf_v(cpu, func, args_i,args_r,args_f,calldescr):
         return cpu.bh_call_v(func, args_i, args_r, args_f, calldescr)
 
+    # conditional calls - note that they cannot return stuff
+    @arguments("cpu", "i", "i", "I", "d")
+    def bhimpl_conditional_call_i_v(cpu, condition, func, args_i, calldescr):
+        if condition:
+            cpu.bh_call_v(func, args_i, None, None, calldescr)
+
+    @arguments("cpu", "i", "i", "R", "d")
+    def bhimpl_conditional_call_r_v(cpu, condition, func, args_r, calldescr):
+        if condition:
+            cpu.bh_call_v(func, None, args_r, None, calldescr)
+
+    @arguments("cpu", "i", "i", "I", "R", "d")
+    def bhimpl_conditional_call_ir_v(cpu, condition, func, args_i, args_r,
+                                     calldescr):
+        if condition:
+            cpu.bh_call_v(func, args_i, args_r, None, calldescr)
+
+    @arguments("cpu", "i", "i", "I", "R", "F", "d")
+    def bhimpl_conditional_call_irf_v(cpu, condition, func, args_i, args_r,
+                                      args_f, calldescr):
+        if condition:
+            cpu.bh_call_v(func, args_i, args_r, args_f, calldescr)
+
     @arguments("cpu", "j", "R", returns="i")
     def bhimpl_inline_call_r_i(cpu, jitcode, args_r):
         return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
@@ -1245,14 +1278,15 @@ class BlackholeInterpreter(object):
     def bhimpl_getfield_raw_i(cpu, struct, fielddescr):
         return cpu.bh_getfield_raw_i(struct, fielddescr)
     @arguments("cpu", "i", "d", returns="r")
-    def bhimpl_getfield_raw_r(cpu, struct, fielddescr):
+    def _bhimpl_getfield_raw_r(cpu, struct, fielddescr):
+        # only for 'getfield_raw_r_pure'
         return cpu.bh_getfield_raw_r(struct, fielddescr)
     @arguments("cpu", "i", "d", returns="f")
     def bhimpl_getfield_raw_f(cpu, struct, fielddescr):
         return cpu.bh_getfield_raw_f(struct, fielddescr)
 
     bhimpl_getfield_raw_i_pure = bhimpl_getfield_raw_i
-    bhimpl_getfield_raw_r_pure = bhimpl_getfield_raw_r
+    bhimpl_getfield_raw_r_pure = _bhimpl_getfield_raw_r
     bhimpl_getfield_raw_f_pure = bhimpl_getfield_raw_f
 
     @arguments("cpu", "r", "i", "d")
@@ -1272,9 +1306,6 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "i", "i", "d")
     def bhimpl_setfield_raw_i(cpu, struct, newvalue, fielddescr):
         cpu.bh_setfield_raw_i(struct, newvalue, fielddescr)
-    @arguments("cpu", "i", "r", "d")
-    def bhimpl_setfield_raw_r(cpu, struct, newvalue, fielddescr):
-        cpu.bh_setfield_raw_r(struct, newvalue, fielddescr)
     @arguments("cpu", "i", "f", "d")
     def bhimpl_setfield_raw_f(cpu, struct, newvalue, fielddescr):
         cpu.bh_setfield_raw_f(struct, newvalue, fielddescr)
@@ -1301,6 +1332,10 @@ class BlackholeInterpreter(object):
     def bhimpl_jit_force_quasi_immutable(cpu, struct, mutatefielddescr):
         from rpython.jit.metainterp import quasiimmut
         quasiimmut.do_force_quasi_immutable(cpu, struct, mutatefielddescr)
+
+    @arguments("r")
+    def bhimpl_hint_force_virtualizable(r):
+        pass
 
     @arguments("cpu", "d", returns="r")
     def bhimpl_new(cpu, descr):

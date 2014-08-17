@@ -684,3 +684,17 @@ class AppTestStacklet(BaseAppTest):
         execfile(self.translated, d)
         d['set_fast_mode']()
         d['test_various_depths']()
+
+    def test_exc_info_doesnt_follow_continuations(self):
+        import sys
+        from _continuation import continulet
+        #
+        def f1(c1):
+            return sys.exc_info()
+        #
+        c1 = continulet(f1)
+        try:
+            1 // 0
+        except ZeroDivisionError:
+            got = c1.switch()
+        assert got == (None, None, None)

@@ -318,12 +318,13 @@ class AppTest_Descroperation:
             raises(TypeError, operate, A())
 
     def test_missing_getattribute(self):
-        class X(object): pass
+        class X(object):
+            pass
 
         class Y(X):
-          class __metaclass__(type):
-            def mro(cls):
-              return [cls, X]
+            class __metaclass__(type):
+                def mro(cls):
+                    return [cls, X]
 
         x = X()
         x.__class__ = Y
@@ -331,8 +332,10 @@ class AppTest_Descroperation:
 
     def test_silly_but_consistent_order(self):
         # incomparable objects sort by type name :-/
-        class A(object): pass
-        class zz(object): pass
+        class A(object):
+            pass
+        class zz(object):
+            pass
         assert A() < zz()
         assert zz() > A()
         # if in doubt, CPython sorts numbers before non-numbers
@@ -718,8 +721,19 @@ class AppTest_Descroperation:
                 return CannotConvertToBool()
         x = X()
         raises(MyError, "'foo' in x")
-        
-            
+
+    def test___cmp___fake_int(self):
+        class MyInt(object):
+            def __init__(self, x):
+                self.x = x
+            def __int__(self):
+                return self.x
+        class X(object):
+            def __cmp__(self, other):
+                return MyInt(0)
+
+        assert X() == 'hello'
+
 
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):
     spaceconfig = {'objspace.std.builtinshortcut': True}

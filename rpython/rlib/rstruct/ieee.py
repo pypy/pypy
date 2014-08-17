@@ -163,7 +163,7 @@ def float_pack(x, size):
         # Raise on overflow (in some circumstances, may want to return
         # infinity instead).
         if exp >= MAX_EXP - MIN_EXP + 2:
-             raise OverflowError("float too large to pack in this format")
+            raise OverflowError("float too large to pack in this format")
 
     # check constraints
     if not objectmodel.we_are_translated():
@@ -219,7 +219,7 @@ def float_pack80(x, size):
         # Raise on overflow (in some circumstances, may want to return
         # infinity instead).
         if exp >= MAX_EXP - MIN_EXP + 2:
-             raise OverflowError("float too large to pack in this format")
+            raise OverflowError("float too large to pack in this format")
 
     # check constraints
     if not objectmodel.we_are_translated():

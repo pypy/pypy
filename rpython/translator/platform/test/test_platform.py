@@ -59,34 +59,6 @@ class TestPlatform(object):
         res = self.platform.execute(executable)
         self.check_res(res)
 
-    def test_900_files(self):
-        txt = '#include <stdio.h>\n'
-        for i in range(900):
-            txt += 'int func%03d();\n' % i
-        txt += 'int main() {\n    int j=0;'    
-        for i in range(900):
-            txt += '    j += func%03d();\n' % i
-        txt += '    printf("%d\\n", j);\n'
-        txt += '    return 0;};\n'
-        cfile = udir.join('test_900_files.c')
-        cfile.write(txt)
-        cfiles = [cfile]
-        for i in range(900):
-            cfile2 = udir.join('implement%03d.c' %i)
-            cfile2.write('''
-                int func%03d()
-            {
-                return %d;
-            }
-            ''' % (i, i))
-            cfiles.append(cfile2)
-        mk = self.platform.gen_makefile(cfiles, ExternalCompilationInfo(), path=udir)
-        mk.write()
-        self.platform.execute_makefile(mk)
-        res = self.platform.execute(udir.join('test_900_files'))
-        self.check_res(res, '%d\n' %sum(range(900)))
-
-
     def test_nice_errors(self):
         cfile = udir.join('test_nice_errors.c')
         cfile.write('')

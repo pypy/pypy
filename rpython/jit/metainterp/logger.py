@@ -17,6 +17,10 @@ class Logger(object):
             debug_start("jit-log-noopt-loop")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-loop")
+        elif type == "rewritten":
+            debug_start("jit-log-rewritten-loop")
+            logops = self._log_operations(inputargs, operations, ops_offset)
+            debug_stop("jit-log-rewritten-loop")
         elif number == -2:
             debug_start("jit-log-compiling-loop")
             logops = self._log_operations(inputargs, operations, ops_offset)
@@ -35,6 +39,10 @@ class Logger(object):
             debug_start("jit-log-noopt-bridge")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-bridge")
+        elif extra == "rewritten":
+            debug_start("jit-log-rewritten-bridge")
+            logops = self._log_operations(inputargs, operations, ops_offset)
+            debug_stop("jit-log-rewritten-bridge")            
         elif extra == "compiling":
             debug_start("jit-log-compiling-bridge")
             logops = self._log_operations(inputargs, operations, ops_offset)
@@ -63,6 +71,9 @@ class Logger(object):
 
     def _make_log_operations(self):
         return LogOperations(self.metainterp_sd, self.guard_number)
+
+    def repr_of_resop(self, op):
+        return LogOperations(self.metainterp_sd, self.guard_number).repr_of_resop(op)
 
 
 class LogOperations(object):
@@ -95,8 +106,9 @@ class LogOperations(object):
         elif isinstance(arg, BoxInt):
             return 'i' + str(mv)
         elif isinstance(arg, self.ts.ConstRef):
-            # XXX for ootype, this should also go through get_name_from_address
-            return 'ConstPtr(ptr' + str(mv) + ')'
+            if arg.value:
+                return 'ConstPtr(ptr' + str(mv) + ')'
+            return 'ConstPtr(null)'
         elif isinstance(arg, self.ts.BoxRef):
             return 'p' + str(mv)
         elif isinstance(arg, ConstFloat):

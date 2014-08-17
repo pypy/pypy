@@ -225,9 +225,9 @@ def PyString_Concat(space, ref, w_newpart):
 
     if w_newpart is None or not PyString_Check(space, ref[0]) or \
             not PyString_Check(space, w_newpart):
-         Py_DecRef(space, ref[0])
-         ref[0] = lltype.nullptr(PyObject.TO)
-         return
+        Py_DecRef(space, ref[0])
+        ref[0] = lltype.nullptr(PyObject.TO)
+        return
     w_str = from_ref(space, ref[0])
     w_newstr = space.add(w_str, w_newpart)
     Py_DecRef(space, ref[0])
@@ -275,7 +275,7 @@ def PyString_InternInPlace(space, string):
     Py_DecRef(space, string[0])
     string[0] = make_ref(space, w_str)
 
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
+@cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
 def PyString_AsEncodedObject(space, w_str, encoding, errors):
     """Encode a string object using the codec registered for encoding and return
     the result as Python object. encoding and errors have the same meaning as
@@ -294,7 +294,7 @@ def PyString_AsEncodedObject(space, w_str, encoding, errors):
         w_errors = space.wrap(rffi.charp2str(errors))
     return space.call_method(w_str, 'encode', w_encoding, w_errors)
 
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
+@cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
 def PyString_AsDecodedObject(space, w_str, encoding, errors):
     """Decode a string object by passing it to the codec registered
     for encoding and return the result as Python object. encoding and

@@ -7,7 +7,7 @@ from rpython.rlib import clibffi, rweakref, jit
 from rpython.rlib.objectmodel import compute_unique_id, keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, rffi
 
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._cffi_backend import cerrno, misc
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN, W_CTypeFunc
@@ -26,9 +26,8 @@ class W_CDataCallback(W_CData):
         W_CData.__init__(self, space, raw_closure, ctype)
         #
         if not space.is_true(space.callable(w_callable)):
-            raise operationerrfmt(space.w_TypeError,
-                                  "expected a callable object, not %T",
-                                  w_callable)
+            raise oefmt(space.w_TypeError,
+                        "expected a callable object, not %T", w_callable)
         self.w_callable = w_callable
         #
         fresult = self.getfunctype().ctitem
@@ -54,6 +53,13 @@ class W_CDataCallback(W_CData):
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
             raise OperationError(space.w_SystemError,
                 space.wrap("libffi failed to build this callback"))
+        #
+        # We must setup the GIL here, in case the callback is invoked in
+        # some other non-Pythonic thread.  This is the same as cffi on
+        # CPython.
+        if space.config.translation.thread:
+            from pypy.module.thread.os_thread import setup_threads
+            setup_threads(space)
 
     def get_closure(self):
         return rffi.cast(clibffi.FFI_CLOSUREP, self._cdata)
@@ -177,9 +183,12 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         misc._raw_memclear(ll_res, SIZE_OF_FFI_ARG)
         return
     #
+    must_leave = False
     ec = None
+    space = callback.space
     try:
-        ec = cerrno.get_errno_container(callback.space)
+        must_leave = space.threadlocals.try_enter_thread(space)
+        ec = cerrno.get_errno_container(space)
         cerrno.save_errno_into(ec, e)
         extra_line = ''
         try:
@@ -200,5 +209,7 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         except OSError:
             pass
         callback.write_error_return_value(ll_res)
+    if must_leave:
+        space.threadlocals.leave_thread(space)
     if ec is not None:
         cerrno.restore_errno_from(ec)

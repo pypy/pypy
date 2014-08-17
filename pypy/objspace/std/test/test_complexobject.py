@@ -3,7 +3,6 @@ from pypy.objspace.std.complexobject import W_ComplexObject, \
     pow__Complex_Complex_ANY
 from pypy.objspace.std import complextype as cobjtype
 from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std import StdObjSpace
 
 EPS = 1e-9
@@ -83,9 +82,7 @@ class TestW_ComplexObject:
 
 
 class AppTestAppComplexTest:
-    spaceconfig = {
-        "usemodules": ["binascii", "rctime"]
-    }
+    spaceconfig = {"usemodules": ["binascii", "rctime"]}
 
     def w_check_div(self, x, y):
         """Compute complex z=x*y, and check that z/x==y and z/y==x."""
@@ -184,6 +181,14 @@ class AppTestAppComplexTest:
         assert not large == (5+0j)
         assert (5+0j) != large
         assert large != (5+0j)
+
+    def test_richcompare_boundaries(self):
+        z = 9007199254740992+0j
+        i = 9007199254740993
+        assert not complex.__eq__(z, i)
+        assert not complex.__eq__(z, long(i))
+        assert complex.__ne__(z, i)
+        assert complex.__ne__(z, long(i))
 
     def test_mod(self):
         raises(ZeroDivisionError, (1+1j).__mod__, 0+0j)
@@ -301,6 +306,8 @@ class AppTestAppComplexTest:
         assert self.almost_equal(complex("-1"), -1)
         assert self.almost_equal(complex("+1"), +1)
         assert self.almost_equal(complex(" ( +3.14-6J ) "), 3.14-6j)
+        exc = raises(ValueError, complex, " ( +3.14- 6J ) ")
+        assert str(exc.value) == "complex() arg is a malformed string"
 
         class complex2(complex):
             pass
@@ -376,7 +383,6 @@ class AppTestAppComplexTest:
         #
         assert cmath.polar(1) == (1.0, 0.0)
         raises(TypeError, "cmath.polar(Obj(1))")
-        
 
     def test_hash(self):
         for x in xrange(-30, 30):
@@ -396,7 +402,9 @@ class AppTestAppComplexTest:
         assert j(100 + 0j) == 100 + 0j
         assert isinstance(j(100), j)
         assert j(100L + 0j) == 100 + 0j
-        assert j("100 + 0j") == 100 + 0j
+        assert j("100+0j") == 100 + 0j
+        exc = raises(ValueError, j, "100 + 0j")
+        assert str(exc.value) == "complex() arg is a malformed string"
         x = j(1+0j)
         x.foo = 42
         assert x.foo == 42

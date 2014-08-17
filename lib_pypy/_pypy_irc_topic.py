@@ -165,6 +165,63 @@ N enaqbz dhbgr
 Nyy rkprcgoybpxf frrz fnar.
 N cvax tyvggrel ebgngvat ynzoqn
 "vg'f yvxryl grzcbenel hagvy sberire" nevtb
+"Lbh xabj jung'f avpr nobhg EClguba?  Ybatre fjbeq svtugf."
+nccneragyl pbashfvba vf n srngher
+nccneragyl pbashfvba vf n srngher... be vf vg?
+ClCl 1.7 eryrnfrq
+vs lbh jnag gb or penml, lbh qba'g unir gb sbepr vg
+vs lbh jnag vg gb or iveghny, lbh fubhyq abg sbepr vg
+<Nyrk_Tnlabe> svwny: V whfg... fgnegrq pbqvat naq fhqqragyl... nobzvangvba
+fabj, fabj! :-)
+fabj, fabj, fabj, fabj
+clcl 1.8 eryrnfrq
+vg jnf srj lnxf gbb yngr
+ClCl vf n enpr orgjrra hf funivat lnxf, naq gur havirefr gelvat gb cebqhpr zber naq zber lnxf
+Jevgvat na SC7 nabalzbhf cebcbfny sbe ClCl vf yvxr znxvat n gi nq sbe n uvtu cresbeznapr fcbegf pne jvgubhg orvat noyr gb zragvba vgf zbqry be znahsnpghere
+Fabj, fabj (ntnva)
+Fgvyy fabjvat
+thrff jung, fabj
+"lbh haqrerfgvzngr gur vzcbegnapr bs zvpebnepuvgrpgher" "ab, vg'f zber gung jr ner fgvyy unccvyl va gur ynaq bs ernpunoyr sehvg"
+Jub nz V?  Naq vs lrf, ubj znal?
+ClCl vf nyjnlf n cynfzn
+"genafyngvba gbbypunva" = "EClgure"?  gb jevgr vagrEClguref va
+"sberire" va clcl grezf zrnaf yvxr srj zbaguf :)
+"Onu.  PClguba bofphevgl. - Nezva Evtb"
+svwny: pna V vavgvngr lbh ba gur (rnfl ohg) aba-gevivny gbcvp bs jevgvat P shapgvba glcrf? :-)
+nyy fbsgjner vzcebirzragf unccra ol n ovg
+gur genprf qba'g yvr
+:-) be engure ":-/" bss-ol-bar-xrl reebe
+Be Nezva Evtb. V guvax ur'f noyr gb haqrefgnaq k86 gur jnl Plcure pna frr jbzra va gur zngevk.
+V zvtug, ohg abobql erfcrpgf zr
+cerohvyg vafgnapr Ryyvcfvf unf ab nggevohgr 'reeab'
+guvf frnfba'f svefg "fabj! fabj!" vf urer
+ClCl 2.0 orgn1 eryrnfrq - orggre yngr guna arire
+Fjvgreynaq 2012: zber fabj va Qrprzore guna rire fvapr clcl fgnegrq
+Fjvgmreynaq 2012: zber fabj va Qrprzore guna rire fvapr clcl fgnegrq
+<nevtngb> n sngny reebe, ol qrsvavgvba, vf sngny
+<nagbphav> V'z tynq gung jr cebtenz va Clguba naq jr qba'g qrny jvgu gubfr vffhrf rirel qnl. Ncneg gur snpg gung jr unir gb qrny jvgu gurz naljnl, vg frrzf
+unccl arj lrne!
+"zrffl" vf abg n whqtrzrag, ohg whfg n snpg bs pbzcyvpngrqarff
+n ybg bs fabj
+qb lbh xabj nobhg n gbnfgre jvgu 8XO bs ENZ naq 64XO bs EBZ?
+vg'f orra fabjvat rirelqnl sbe n juvyr, V pna'g whfg chg "fabj, fabj" hc urer rirel qnl
+fabjonyy svtugf!
+sbejneq pbzcngvovyvgl jvgu bcgvzvmngvbaf gung unira'g orra vairagrq lrg
+jr fgvyy unir gb jevgr fbsgjner jvgu n zrgnfcnpr ohooyr va vg
+cebonoyl gur ynfg gvzr va gur frnfba, ohg: fabj, fabj!
+ClCl 2.0-orgn2 eryrnfrq
+Gur ceboyrz vf gung sbe nyzbfg nal aba-gevivny cebtenz, vg'f abg pyrne jung 'pbeerpg' zrnaf.
+ClCl 2.0 nyzbfg eryrnfrq
+ClCl 2.0 eryrnfrq
+WVG pbzcvyref fubhyq or jevggra ol crbcyr jub npghnyyl unir snvgu va WVG pbzcvyref' novyvgl gb znxrf guvatf tb fpernzvat snfg
+ClCl 2.0.1 eryrnfrq
+arire haqrerfgvzngr gur vzcebonoyr jura lbh qb fbzrguvat ng 2TUm
+ClCl 2.0.2 eryrnfrq
+nyy jr arrq vf n angvir Cebybt znpuvar
+V haqrefgnaq ubj qravnyvfz vf n onq qrohttvat grpuavdhr
+rirel IZ fubhyq pbzr jvgu arheny argjbex genvarq gb erpbtavmr zvpeborapuznexf naq enaqbzyl syhpghngr gurz +/-9000%
+lbh qvq abg nccebnpu clcl sebz gur rnfl raq: fgz, gura wvg. vg'f n ovg gur Abegu snpr
+va ClCl orvat bayl zbqrengryl zntvp vf n tbbq guvat <psobym>
 """
 
 from string import ascii_uppercase, ascii_lowercase

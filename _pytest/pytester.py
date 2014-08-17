@@ -1,14 +1,20 @@
-""" (disabled by default) support for testing py.test and py.test plugins. """
+""" (disabled by default) support for testing pytest and pytest plugins. """
 
 import py, pytest
 import sys, os
+import codecs
 import re
-import inspect
 import time
 from fnmatch import fnmatch
 from _pytest.main import Session, EXIT_OK
 from py.builtin import print_
 from _pytest.core import HookRelay
+
+
+def get_public_names(l):
+    """Only return names from iterator l without a leading underscore."""
+    return [x for x in l if x[0] != "_"]
+
 
 def pytest_addoption(parser):
     group = parser.getgroup("pylib")
@@ -20,7 +26,6 @@ def pytest_addoption(parser):
 def pytest_configure(config):
     # This might be called multiple times. Only take the first.
     global _pytest_fullpath
-    import pytest
     try:
         _pytest_fullpath
     except NameError:
@@ -76,7 +81,8 @@ class HookRecorder:
 
     def finish_recording(self):
         for recorder in self._recorders.values():
-            self._pluginmanager.unregister(recorder)
+            if self._pluginmanager.isregistered(recorder):
+                self._pluginmanager.unregister(recorder)
         self._recorders.clear()
 
     def _makecallparser(self, method):
@@ -114,7 +120,6 @@ class HookRecorder:
 
     def contains(self, entries):
         __tracebackhide__ = True
-        from py.builtin import print_
         i = 0
         entries = list(entries)
         backlocals = py.std.sys._getframe(1).f_locals
@@ -132,7 +137,7 @@ class HookRecorder:
                     break
                 print_("NONAMEMATCH", name, "with", call)
             else:
-                py.test.fail("could not find %r check %r" % (name, check))
+                pytest.fail("could not find %r check %r" % (name, check))
 
     def popcall(self, name):
         __tracebackhide__ = True
@@ -142,7 +147,7 @@ class HookRecorder:
                 return call
         lines = ["could not find call %r, in:" % (name,)]
         lines.extend(["  %s" % str(x) for x in self.calls])
-        py.test.fail("\n".join(lines))
+        pytest.fail("\n".join(lines))
 
     def getcall(self, name):
         l = self.getcalls(name)
@@ -194,10 +199,7 @@ class TmpTestdir:
             except py.error.EEXIST:
                 continue
             break
-        # we need to create another subdir
-        # because Directory.collect() currently loads
-        # conftest.py from sibling directories
-        self.tmpdir = tmpdir.mkdir(name)
+        self.tmpdir = tmpdir
         self.plugins = []
         self._syspathremove = []
         self.chdir() # always chdir
@@ -244,8 +246,10 @@ class TmpTestdir:
         ret = None
         for name, value in items:
             p = self.tmpdir.join(name).new(ext=ext)
-            source = py.builtin._totext(py.code.Source(value)).lstrip()
-            p.write(source.encode("utf-8"), "wb")
+            source = py.builtin._totext(py.code.Source(value)).strip()
+            content = source.encode("utf-8") # + "\n"
+            #content = content.rstrip() + "\n"
+            p.write(content, "wb")
             if ret is None:
                 ret = p
         return ret
@@ -253,9 +257,6 @@ class TmpTestdir:
 
     def makefile(self, ext, *args, **kwargs):
         return self._makefile(ext, args, kwargs)
-
-    def makeini(self, source):
-        return self.makefile('cfg', setup=source)
 
     def makeconftest(self, source):
         return self.makepyfile(conftest=source)
@@ -318,7 +319,7 @@ class TmpTestdir:
         # used from runner functional tests
         item = self.getitem(source)
         # the test class where we are called from wants to provide the runner
-        testclassinstance = py.builtin._getimself(self.request.function)
+        testclassinstance = self.request.instance
         runner = testclassinstance.getrunner()
         return runner(item)
 
@@ -355,7 +356,7 @@ class TmpTestdir:
         if not plugins:
             plugins = []
         plugins.append(Collect())
-        ret = self.pytestmain(list(args), plugins=[Collect()])
+        ret = pytest.main(list(args), plugins=plugins)
         reprec = rec[0]
         reprec.ret = ret
         assert len(rec) == 1
@@ -368,30 +369,33 @@ class TmpTestdir:
                 break
         else:
             args.append("--basetemp=%s" % self.tmpdir.dirpath('basetemp'))
-        import _pytest.core
-        config = _pytest.core._prepareconfig(args, self.plugins)
-        # the in-process pytest invocation needs to avoid leaking FDs
-        # so we register a "reset_capturings" callmon the capturing manager
-        # and make sure it gets called
-        config._cleanup.append(
-            config.pluginmanager.getplugin("capturemanager").reset_capturings)
         import _pytest.config
-        self.request.addfinalizer(
-            lambda: _pytest.config.pytest_unconfigure(config))
+        config = _pytest.config._prepareconfig(args, self.plugins)
+        # we don't know what the test will do with this half-setup config
+        # object and thus we make sure it gets unconfigured properly in any
+        # case (otherwise capturing could still be active, for example)
+        def ensure_unconfigure():
+            if hasattr(config.pluginmanager, "_config"):
+                config.pluginmanager.do_unconfigure(config)
+            config.pluginmanager.ensure_shutdown()
+
+        self.request.addfinalizer(ensure_unconfigure)
         return config
 
     def parseconfigure(self, *args):
         config = self.parseconfig(*args)
-        config.pluginmanager.do_configure(config)
+        config.do_configure()
         self.request.addfinalizer(lambda:
-        config.pluginmanager.do_unconfigure(config))
+        config.do_unconfigure())
         return config
 
     def getitem(self,  source, funcname="test_func"):
-        for item in self.getitems(source):
+        items = self.getitems(source)
+        for item in items:
             if item.name == funcname:
                 return item
-        assert 0, "%r item not found in module:\n%s" %(funcname, source)
+        assert 0, "%r item not found in module:\n%s\nitems: %s" %(
+                  funcname, source, items)
 
     def getitems(self,  source):
         modcol = self.getmodulecol(source)
@@ -417,18 +421,8 @@ class TmpTestdir:
             str(os.getcwd()), env.get('PYTHONPATH', '')]))
         kw['env'] = env
         #print "env", env
-        return py.std.subprocess.Popen(cmdargs, stdout=stdout, stderr=stderr, **kw)
-
-    def pytestmain(self, *args, **kwargs):
-        class ResetCapturing:
-            @pytest.mark.trylast
-            def pytest_unconfigure(self, config):
-                capman = config.pluginmanager.getplugin("capturemanager")
-                capman.reset_capturings()
-        plugins = kwargs.setdefault("plugins", [])
-        rc = ResetCapturing()
-        plugins.append(rc)
-        return pytest.main(*args, **kwargs)
+        return py.std.subprocess.Popen(cmdargs,
+                                       stdout=stdout, stderr=stderr, **kw)
 
     def run(self, *cmdargs):
         return self._run(*cmdargs)
@@ -438,27 +432,34 @@ class TmpTestdir:
         p1 = self.tmpdir.join("stdout")
         p2 = self.tmpdir.join("stderr")
         print_("running", cmdargs, "curdir=", py.path.local())
-        f1 = p1.open("wb")
-        f2 = p2.open("wb")
-        now = time.time()
-        popen = self.popen(cmdargs, stdout=f1, stderr=f2,
-            close_fds=(sys.platform != "win32"))
-        ret = popen.wait()
-        f1.close()
-        f2.close()
-        out = p1.read("rb")
-        out = getdecoded(out).splitlines()
-        err = p2.read("rb")
-        err = getdecoded(err).splitlines()
-        def dump_lines(lines, fp):
-            try:
-                for line in lines:
-                    py.builtin.print_(line, file=fp)
-            except UnicodeEncodeError:
-                print("couldn't print to %s because of encoding" % (fp,))
-        dump_lines(out, sys.stdout)
-        dump_lines(err, sys.stderr)
+        f1 = codecs.open(str(p1), "w", encoding="utf8")
+        f2 = codecs.open(str(p2), "w", encoding="utf8")
+        try:
+            now = time.time()
+            popen = self.popen(cmdargs, stdout=f1, stderr=f2,
+                close_fds=(sys.platform != "win32"))
+            ret = popen.wait()
+        finally:
+            f1.close()
+            f2.close()
+        f1 = codecs.open(str(p1), "r", encoding="utf8")
+        f2 = codecs.open(str(p2), "r", encoding="utf8")
+        try:
+            out = f1.read().splitlines()
+            err = f2.read().splitlines()
+        finally:
+            f1.close()
+            f2.close()
+        self._dump_lines(out, sys.stdout)
+        self._dump_lines(err, sys.stderr)
         return RunResult(ret, out, err, time.time()-now)
+
+    def _dump_lines(self, lines, fp):
+        try:
+            for line in lines:
+                py.builtin.print_(line, file=fp)
+        except UnicodeEncodeError:
+            print("couldn't print to %s because of encoding" % (fp,))
 
     def runpybin(self, scriptname, *args):
         fullargs = self._getpybinargs(scriptname) + args
@@ -466,12 +467,12 @@ class TmpTestdir:
 
     def _getpybinargs(self, scriptname):
         if not self.request.config.getvalue("notoolsonpath"):
-            # XXX we rely on script refering to the correct environment
+            # XXX we rely on script referring to the correct environment
             # we cannot use "(py.std.sys.executable,script)"
-            # becaue on windows the script is e.g. a py.test.exe
-            return (py.std.sys.executable, _pytest_fullpath,)
+            # because on windows the script is e.g. a py.test.exe
+            return (py.std.sys.executable, _pytest_fullpath,) # noqa
         else:
-            py.test.skip("cannot run %r with --no-tools-on-path" % scriptname)
+            pytest.skip("cannot run %r with --no-tools-on-path" % scriptname)
 
     def runpython(self, script, prepend=True):
         if prepend:
@@ -508,20 +509,23 @@ class TmpTestdir:
 
     def spawn_pytest(self, string, expect_timeout=10.0):
         if self.request.config.getvalue("notoolsonpath"):
-            py.test.skip("--no-tools-on-path prevents running pexpect-spawn tests")
+            pytest.skip("--no-tools-on-path prevents running pexpect-spawn tests")
         basetemp = self.tmpdir.mkdir("pexpect")
         invoke = " ".join(map(str, self._getpybinargs("py.test")))
         cmd = "%s --basetemp=%s %s" % (invoke, basetemp, string)
         return self.spawn(cmd, expect_timeout=expect_timeout)
 
     def spawn(self, cmd, expect_timeout=10.0):
-        pexpect = py.test.importorskip("pexpect", "2.4")
+        pexpect = pytest.importorskip("pexpect", "3.0")
         if hasattr(sys, 'pypy_version_info') and '64' in py.std.platform.machine():
             pytest.skip("pypy-64 bit not supported")
         if sys.platform == "darwin":
             pytest.xfail("pexpect does not work reliably on darwin?!")
-        logfile = self.tmpdir.join("spawn.out")
-        child = pexpect.spawn(cmd, logfile=logfile.open("w"))
+        if sys.platform.startswith("freebsd"):
+            pytest.xfail("pexpect does not work reliably on freebsd")
+        logfile = self.tmpdir.join("spawn.out").open("wb")
+        child = pexpect.spawn(cmd, logfile=logfile)
+        self.request.addfinalizer(logfile.close)
         child.timeout = expect_timeout
         return child
 
@@ -586,9 +590,10 @@ class ReportRecorder(object):
         passed = []
         skipped = []
         failed = []
-        for rep in self.getreports("pytest_runtest_logreport"):
+        for rep in self.getreports(
+            "pytest_collectreport pytest_runtest_logreport"):
             if rep.passed:
-                if rep.when == "call":
+                if getattr(rep, "when", None) == "call":
                     passed.append(rep)
             elif rep.skipped:
                 skipped.append(rep)
@@ -651,6 +656,12 @@ class LineMatcher:
             else:
                 raise ValueError("line %r not found in output" % line)
 
+    def get_lines_after(self, fnline):
+        for i, line in enumerate(self.lines):
+            if fnline == line or fnmatch(line, fnline):
+                return self.lines[i+1:]
+        raise ValueError("line %r not found in output" % fnline)
+
     def fnmatch_lines(self, lines2):
         def show(arg1, arg2):
             py.builtin.print_(arg1, arg2, file=py.std.sys.stderr)
@@ -677,4 +688,4 @@ class LineMatcher:
                     show("    and:", repr(nextline))
                 extralines.append(nextline)
             else:
-                py.test.fail("remains unmatched: %r, see stderr" % (line,))
+                pytest.fail("remains unmatched: %r, see stderr" % (line,))

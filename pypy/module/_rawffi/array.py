@@ -13,18 +13,9 @@ from pypy.module._rawffi.interp_rawffi import unwrap_value, wrap_value
 from pypy.module._rawffi.interp_rawffi import TYPEMAP
 from pypy.module._rawffi.interp_rawffi import size_alignment
 from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
+from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from rpython.rlib.rarithmetic import r_uint
-
-def push_elem(ll_array, pos, value):
-    TP = lltype.typeOf(value)
-    ll_array = rffi.cast(rffi.CArrayPtr(TP), ll_array)
-    ll_array[pos] = value
-push_elem._annspecialcase_ = 'specialize:argtype(2)'
-
-def get_elem(ll_array, pos, ll_t):
-    ll_array = rffi.cast(rffi.CArrayPtr(ll_t), ll_array)
-    return ll_array[pos]
-get_elem._annspecialcase_ = 'specialize:arg(2)'
+from rpython.rlib import rgc
 
 
 class W_Array(W_DataShape):
@@ -57,7 +48,7 @@ class W_Array(W_DataShape):
                                                 " array length"))
             for num in range(iterlength):
                 w_item = items_w[num]
-                unwrap_value(space, push_elem, result.ll_buffer, num,
+                unwrap_value(space, write_ptr, result.ll_buffer, num,
                              self.itemcode, w_item)
         return space.wrap(result)
 
@@ -118,7 +109,7 @@ class W_ArrayInstance(W_DataInstance):
             raise segfault_exception(space, "setting element of freed array")
         if num >= self.length or num < 0:
             raise OperationError(space.w_IndexError, space.w_None)
-        unwrap_value(space, push_elem, self.ll_buffer, num,
+        unwrap_value(space, write_ptr, self.ll_buffer, num,
                      self.shape.itemcode, w_value)
 
     def descr_setitem(self, space, w_index, w_value):
@@ -136,7 +127,7 @@ class W_ArrayInstance(W_DataInstance):
             raise segfault_exception(space, "accessing elements of freed array")
         if num >= self.length or num < 0:
             raise OperationError(space.w_IndexError, space.w_None)
-        return wrap_value(space, get_elem, self.ll_buffer, num,
+        return wrap_value(space, read_ptr, self.ll_buffer, num,
                           self.shape.itemcode)
 
     def descr_getitem(self, space, w_index):
@@ -202,7 +193,7 @@ class W_ArrayInstance(W_DataInstance):
 
     def setslice(self, space, w_slice, w_value):
         start, stop = self.decodeslice(space, w_slice)
-        value = space.bufferstr_w(w_value)
+        value = space.str_w(w_value)
         if start + len(value) != stop:
             raise OperationError(space.w_ValueError,
                                  space.wrap("cannot resize array"))
@@ -216,7 +207,6 @@ W_ArrayInstance.typedef = TypeDef(
     __setitem__ = interp2app(W_ArrayInstance.descr_setitem),
     __getitem__ = interp2app(W_ArrayInstance.descr_getitem),
     __len__     = interp2app(W_ArrayInstance.getlength),
-    __buffer__  = interp2app(W_ArrayInstance.descr_buffer),
     buffer      = GetSetProperty(W_ArrayInstance.getbuffer),
     shape       = interp_attrproperty('shape', W_ArrayInstance),
     free        = interp2app(W_ArrayInstance.free),
@@ -230,6 +220,7 @@ class W_ArrayInstanceAutoFree(W_ArrayInstance):
     def __init__(self, space, shape, length):
         W_ArrayInstance.__init__(self, space, shape, length, 0)
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         if self.ll_buffer:
             self._free()
@@ -240,7 +231,6 @@ W_ArrayInstanceAutoFree.typedef = TypeDef(
     __setitem__ = interp2app(W_ArrayInstance.descr_setitem),
     __getitem__ = interp2app(W_ArrayInstance.descr_getitem),
     __len__     = interp2app(W_ArrayInstance.getlength),
-    __buffer__  = interp2app(W_ArrayInstance.descr_buffer),
     buffer      = GetSetProperty(W_ArrayInstance.getbuffer),
     shape       = interp_attrproperty('shape', W_ArrayInstance),
     byptr       = interp2app(W_ArrayInstance.byptr),

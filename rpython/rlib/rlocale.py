@@ -177,12 +177,8 @@ def numeric_formatting_impl():
     grouping = rffi.charp2str(conv.c_grouping)
     return decimal_point, thousands_sep, grouping
 
-def oo_numeric_formatting():
-    return '.', '', ''
-
 register_external(numeric_formatting, [], (str, str, str),
                   llimpl=numeric_formatting_impl,
-                  ooimpl=oo_numeric_formatting,
                   sandboxsafe=True)
 
 
@@ -197,11 +193,11 @@ def setlocale(category, locale):
         raise LocaleError("unsupported locale setting")
     return rffi.charp2str(ll_result)
 
-isalpha = external('isalpha', [rffi.INT], rffi.INT, oo_primitive='locale_isalpha')
-isupper = external('isupper', [rffi.INT], rffi.INT, oo_primitive='locale_isupper')
-islower = external('islower', [rffi.INT], rffi.INT, oo_primitive='locale_islower')
-tolower = external('tolower', [rffi.INT], rffi.INT, oo_primitive='locale_tolower')
-isalnum = external('isalnum', [rffi.INT], rffi.INT, oo_primitive='locale_isalnum')
+isalpha = external('isalpha', [rffi.INT], rffi.INT)
+isupper = external('isupper', [rffi.INT], rffi.INT)
+islower = external('islower', [rffi.INT], rffi.INT)
+tolower = external('tolower', [rffi.INT], rffi.INT)
+isalnum = external('isalnum', [rffi.INT], rffi.INT)
 
 if HAVE_LANGINFO:
     _nl_langinfo = external('nl_langinfo', [rffi.INT], rffi.CCHARP)

@@ -1,10 +1,10 @@
 import py
 from rpython.rlib.jit import JitDriver, promote, elidable, set_param
 from rpython.jit.codewriter.policy import StopAtXPolicy
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 
 class SendTests(object):
-    
+
     def test_green_send(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['counter'])
         lst = ["123", "45"]
@@ -149,7 +149,7 @@ class SendTests(object):
         def f(y):
             while y > 0:
                 myjitdriver.can_enter_jit(y=y)
-                myjitdriver.jit_merge_point(y=y)                
+                myjitdriver.jit_merge_point(y=y)
                 w = externfn(y)
                 w.foo()
                 y -= 1
@@ -343,8 +343,8 @@ class SendTests(object):
                                policy=StopAtXPolicy(State.externfn.im_func))
         assert res == f(198)
         # we get two TargetTokens, one for the loop and one for the preamble
-        self.check_jitcell_token_count(1)        
-        self.check_target_token_count(2)        
+        self.check_jitcell_token_count(1)
+        self.check_target_token_count(2)
 
     def test_indirect_call_unknown_object_3(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'z', 'state'])
@@ -436,7 +436,7 @@ class SendTests(object):
         # and 1 bridge going from the
         # loop back to the loop
         self.check_trace_count(2)        # preamble/loop  and  1 bridge
-        self.check_jitcell_token_count(1) 
+        self.check_jitcell_token_count(1)
         self.check_target_token_count(3) # preamble, Int1, Int2
         self.check_aborted_count(0)
 
@@ -521,7 +521,7 @@ class SendTests(object):
 
     def test_recursive_call_to_portal_from_blackhole(self):
         from rpython.rtyper.annlowlevel import hlstr
-        
+
         myjitdriver = JitDriver(greens = ['k'], reds = ['n'])
         def f(n, k):
             while n >= 0:
@@ -633,10 +633,6 @@ class SendTests(object):
             return obj.n
         res = self.meta_interp(fn, [20], policy=StopAtXPolicy(extern))
         assert res == 21
-
-
-class TestOOtype(SendTests, OOJitMixin):
-    pass
 
 class TestLLtype(SendTests, LLJitMixin):
     pass

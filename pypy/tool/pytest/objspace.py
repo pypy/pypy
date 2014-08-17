@@ -37,7 +37,6 @@ def maketestobjspace(config=None):
     space.setitem(space.builtin.w_dict, space.wrap('skip'),
                   space.wrap(appsupport.app_skip))
     space.raises_w = appsupport.raises_w.__get__(space)
-    space.eq_w = appsupport.eq_w.__get__(space)
     return space
 
 
@@ -93,6 +92,9 @@ class TinyObjSpace(object):
 
     def is_true(self, obj):
         return bool(obj)
+
+    def is_none(self, obj):
+        return obj is None
 
     def str_w(self, w_str):
         return w_str
