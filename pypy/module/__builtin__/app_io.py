@@ -57,13 +57,14 @@ is printed without a trailing newline before reading."""
     return line
 
 def print_(*args, **kwargs):
-    r"""print(value, ..., sep=' ', end='\n', file=sys.stdout)
+    r"""print(value, ..., sep=' ', end='\n', file=sys.stdout, flush=False)
 
     Prints the values to a stream, or to sys.stdout by default.
     Optional keyword arguments:
-    file: a file-like object (stream); defaults to the current sys.stdout.
-    sep:  string inserted between values, default a space.
-    end:  string appended after the last value, default a newline.
+    file:  a file-like object (stream); defaults to the current sys.stdout.
+    sep:   string inserted between values, default a space.
+    end:   string appended after the last value, default a newline.
+    flush: whether to forcibly flush the stream.
     """
     fp = kwargs.pop("file", None)
     if fp is None:
@@ -80,6 +81,7 @@ def print_(*args, **kwargs):
     if end is not None:
         if not isinstance(end, str):
             raise TypeError("end must be None or a string")
+    flush = kwargs.pop('flush', None)
     if kwargs:
         raise TypeError("invalid keyword arguments to print()")
     if sep is None:
@@ -91,3 +93,5 @@ def print_(*args, **kwargs):
             write(sep)
         write(arg)
     write(end)
+    if flush:
+        fp.flush()
