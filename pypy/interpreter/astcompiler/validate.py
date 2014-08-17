@@ -295,7 +295,7 @@ class AstValidator(ast.ASTVisitor):
         pass
 
     def visit_BoolOp(self, node):
-        if len(node.values) < 2:
+        if self._len(node.values) < 2:
             raise ValidationError("BoolOp with less than 2 values")
         self._validate_exprs(node.values)
 

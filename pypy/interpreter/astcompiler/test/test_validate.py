@@ -237,6 +237,8 @@ class TestASTValidator:
     def test_boolop(self):
         b = ast.BoolOp(ast.And, [], 0, 0)
         self.expr(b, "less than 2 values")
+        b = ast.BoolOp(ast.And, None, 0, 0)
+        self.expr(b, "less than 2 values")
         b = ast.BoolOp(ast.And, [ast.Num(self.space.wrap(3), 0, 0)], 0, 0)
         self.expr(b, "less than 2 values")
         b = ast.BoolOp(ast.And, [ast.Num(self.space.wrap(4), 0, 0), None], 0, 0)
