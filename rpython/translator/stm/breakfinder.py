@@ -7,7 +7,6 @@ TRANSACTION_BREAK = set([
     'stm_start_if_not_atomic',
     #'stm_partial_commit_and_resume_other_threads', # new priv_revision
     #'jit_assembler_call',
-    #'jit_stm_transaction_break_point',
     'stm_enter_callback_call',
     'stm_leave_callback_call',
     ])

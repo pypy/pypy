@@ -436,7 +436,7 @@ LL_OPERATIONS = {
     'stm_leave_callback_call':            LLOp(),
     'stm_transaction_break':              LLOp(canmallocgc=True),
     'stm_should_break_transaction':       LLOp(sideeffects=False),
-    'stm_rewind_jmp_frame':               LLOp(),
+    'stm_rewind_jmp_frame':               LLOp(canrun=True),
     'stm_set_transaction_length':         LLOp(),
 
     'stm_hint_commit_soon':   LLOp(canrun=True),
@@ -521,8 +521,6 @@ LL_OPERATIONS = {
     'jit_assembler_call': LLOp(canrun=True,   # similar to an 'indirect_call'
                                canraise=(Exception,),
                                canmallocgc=True),
-    'jit_stm_transaction_break_point' : LLOp(canrun=True,canmallocgc=True),
-    'jit_stm_should_break_transaction' : LLOp(canrun=True),
 
     # __________ GC operations __________
 

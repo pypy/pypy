@@ -943,7 +943,6 @@ class LLFrame(object):
     op_stm_initialize = _stm_not_implemented
     op_stm_finalize = _stm_not_implemented
     op_stm_perform_transaction = _stm_not_implemented
-    op_stm_should_break_transaction = _stm_not_implemented
     op_stm_commit_transaction = _stm_not_implemented
     op_stm_begin_inevitable_transaction = _stm_not_implemented
     op_stm_barrier = _stm_not_implemented
@@ -970,6 +969,9 @@ class LLFrame(object):
     op_stm_become_inevitable = _stm_not_implemented
     op_stm_stop_all_other_threads = _stm_not_implemented
     op_stm_partial_commit_and_resume_other_threads = _stm_not_implemented
+
+    def op_stm_should_break_transaction(self):
+        return False
 
     def op_threadlocalref_set(self, key, value):
         try:

@@ -51,13 +51,6 @@ class HeapCache(object):
         self.input_indirections = {}
         self.output_indirections = {}
 
-
-        # to do some of the work of optimizeopt/stm.py, we have a similar
-        # logic here:
-        self.stm_break_wanted = True
-
-
-
     def _input_indirection(self, box):
         return self.input_indirections.get(box, box)
 
@@ -137,11 +130,8 @@ class HeapCache(object):
             opnum == rop.SETFIELD_RAW or
             opnum == rop.SETARRAYITEM_RAW or
             opnum == rop.SETINTERIORFIELD_RAW or
-            opnum == rop.RAW_STORE):
-            return
-        if opnum in (rop.GUARD_NOT_FORCED, rop.GUARD_NOT_FORCED_2,
-                     rop.STM_HINT_COMMIT_SOON):
-            self.stm_break_wanted = True
+            opnum == rop.RAW_STORE or
+            opnum == rop.STM_HINT_COMMIT_SOON):
             return
         if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST or
             rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or
@@ -207,7 +197,6 @@ class HeapCache(object):
                                     del cache[frombox]
                     return
             else:
-                self.stm_break_wanted = True
                 # Only invalidate things that are either escaped or arguments
                 for descr, boxes in self.heap_cache.iteritems():
                     for box in boxes.keys():
@@ -225,8 +214,6 @@ class HeapCache(object):
         # tried to do only the kind of resetting done by the two loops just
         # above, but hit an assertion in "pypy test_multiprocessing.py".
         self.reset(reset_virtuals=False, trace_branch=False)
-
-        self.stm_break_wanted = True
 
     def is_class_known(self, box):
         return box in self.known_class_boxes
@@ -338,6 +325,3 @@ class HeapCache(object):
     def replace_box(self, oldbox, newbox):
         self.input_indirections[self._output_indirection(newbox)] = self._input_indirection(oldbox)
         self.output_indirections[self._input_indirection(oldbox)] = self._output_indirection(newbox)
-
-    def stm_break_done(self):
-        self.stm_break_wanted = False

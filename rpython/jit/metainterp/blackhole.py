@@ -908,18 +908,15 @@ class BlackholeInterpreter(object):
         return False
 
 
-    @arguments("i", returns="i")
-    def bhimpl_stm_should_break_transaction(if_there_is_no_other):
-        return False
-
-
-    @arguments()
-    def bhimpl_stm_transaction_break():
-        pass
+    @arguments(returns="i")
+    def bhimpl_stm_should_break_transaction():
+        from rpython.rlib import rstm
+        return rstm.should_break_transaction()
 
     @arguments()
     def bhimpl_stm_hint_commit_soon():
-        pass
+        from rpython.rlib import rstm
+        rstm.hint_commit_soon()
 
 
     # ----------

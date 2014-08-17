@@ -186,52 +186,16 @@ class MIFrame(object):
             raise AssertionError("bad result box type")
 
     # ------------------------------
-    def _record_stm_transaction_break(self, really_wanted):
-        # records an unconditional stm_transaction_break
-        mi = self.metainterp
-        mi.vable_and_vrefs_before_residual_call()
-        mi._record_helper_nonpure_varargs(
-            rop.STM_TRANSACTION_BREAK, None, None,
-            [history.ConstInt(really_wanted)])
-        mi.vrefs_after_residual_call()
-        mi.vable_after_residual_call()
-        #
-        if not really_wanted:
-            # we're about the return ConstInt(0), which will go into the
-            # jitcode's %iN variable.  But it will be captured by the
-            # GUARD_NOT_FORCED's resume data too.  It is essential that we
-            # don't capture the old, stale value!  Also, store ConstInt(1)
-            # to make sure that upon resuming we'll see a result of 1 (XXX
-            # unsure if it's needed, but it shouldn't hurt).
-            self.make_result_of_lastop(ConstInt(1))
-        #
-        mi.generate_guard(rop.GUARD_NOT_FORCED, None)
-        self.metainterp.heapcache.stm_break_done()
-
-
-    @arguments("int")
-    def opimpl_stm_should_break_transaction(self, if_there_is_no_other):
-        val = bool(if_there_is_no_other)
-        mi = self.metainterp
-        if val:
-            # app-level loop: only one of these per loop is really needed
-            resbox = history.BoxInt(0)
-            mi.history.record(rop.STM_SHOULD_BREAK_TRANSACTION, [], resbox)
-            self.metainterp.heapcache.stm_break_done()
-            return resbox
-        else:
-            # between byte-code instructions: only keep if it is
-            # likely that we are inevitable here
-            if self.metainterp.heapcache.stm_break_wanted:
-                self._record_stm_transaction_break(False)
-            return ConstInt(0)
 
     @arguments()
-    def opimpl_stm_transaction_break(self):
-        # always wanted: inserted after we compile a bridge because there
-        # were just too many breaks and we failed the should_break&guard
-        # because of that
-        self._record_stm_transaction_break(True)
+    def opimpl_stm_should_break_transaction(self):
+        # XXX make it return BoxInt(1) instead of BoxInt(0) if there
+        # is an inevitable transaction, because it's likely that there
+        # will always be an inevitable transaction here
+        resbox = history.BoxInt(0)
+        mi = self.metainterp
+        mi.history.record(rop.STM_SHOULD_BREAK_TRANSACTION, [], resbox)
+        return resbox
 
     @arguments()
     def opimpl_stm_hint_commit_soon(self):
@@ -1855,8 +1819,6 @@ class MetaInterp(object):
         if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
             resumedescr = compile.ResumeGuardForcedDescr(self.staticdata,
                                                          self.jitdriver_sd)
-            # for detecting stm breaks that are needed
-            self.heapcache.invalidate_caches(opnum, resumedescr, moreargs)
         elif opnum == rop.GUARD_NOT_INVALIDATED:
             resumedescr = compile.ResumeGuardNotInvalidated()
         elif opnum == rop.GUARD_FUTURE_CONDITION:

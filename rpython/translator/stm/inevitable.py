@@ -18,8 +18,7 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'gc_adr_of_root_stack_top', 'gc_add_memory_pressure',
     'weakref_create', 'weakref_deref',
     'jit_assembler_call', 'gc_writebarrier',
-    'shrink_array', 'jit_stm_transaction_break_point',
-    'jit_stm_should_break_transaction',
+    'shrink_array',
     'threadlocalref_get', 'threadlocalref_set',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())

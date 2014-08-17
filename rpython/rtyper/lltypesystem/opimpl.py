@@ -715,10 +715,7 @@ op_raw_load.need_result_type = True
 def op_jit_assembler_call(funcptr, *args):
     return funcptr(*args)
 
-def op_jit_stm_should_break_transaction(if_there_is_no_other):
-    return False
-
-def op_jit_stm_transaction_break_point():
+def op_stm_rewind_jmp_frame():
     pass
 
 def op_stm_hint_commit_soon():

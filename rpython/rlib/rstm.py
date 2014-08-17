@@ -46,47 +46,13 @@ def rewind_jmp_frame():
     function with the interpreter's dispatch loop, this must be called
     (it turns into a marker in the caller's function).  There is one
     automatically in any jit.jit_merge_point()."""
-    # special-cased below
+    # special-cased below: the emitted operation must be placed
+    # directly in the caller's graph
 
 def possible_transaction_break():
     if stm_is_enabled():
         if llop.stm_should_break_transaction(lltype.Bool):
-            llop.stm_transaction_break(lltype.Void)
-
-# Typical usage of the following two functions:
-#
-# just after jit_merge_point:
-#         if rstm.jit_stm_should_break_transaction(False):
-#             rstm.jit_stm_transaction_break_point()
-#
-# just before can_enter_jit:
-#         if rstm.jit_stm_should_break_transaction(True):
-#             rstm.jit_stm_transaction_break_point()
-#
-# resulting JIT trace (common case):
-#      ...
-#      call_release_gil(...)
-#      stm_transaction_break(0)     # in-line, because we expect "inevitable"
-#      guard_not_forced()
-#      ...
-#      i1 = stm_should_break_transaction()
-#      guard_false(i1)              # out-of-line, because rarely needed
-#      jump()
-#
-def jit_stm_transaction_break_point():
-    # XXX REFACTOR AWAY
-    if we_are_translated():
-        llop.jit_stm_transaction_break_point(lltype.Void)
-
-@specialize.arg(0)
-def jit_stm_should_break_transaction(if_there_is_no_other):
-    # XXX REFACTOR AWAY
-    # if_there_is_no_other means that we use this point only
-    # if there is no other break point in the trace.
-    # If it is False, the point may be used if it comes right
-    # after a CALL_RELEASE_GIL
-    return llop.jit_stm_should_break_transaction(lltype.Bool,
-                                                 if_there_is_no_other)
+            break_transaction()
 
 def hint_commit_soon():
     """As the name says, just a hint. Maybe calling it
@@ -104,7 +70,6 @@ def stop_all_other_threads():
 def partial_commit_and_resume_other_threads():
     pass    # for now
 
-@dont_look_inside
 def should_break_transaction():
     return we_are_translated() and (
         llop.stm_should_break_transaction(lltype.Bool))
