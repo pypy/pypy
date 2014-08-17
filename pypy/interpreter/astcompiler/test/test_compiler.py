@@ -1034,6 +1034,13 @@ class AppTestCompiler:
         exec('# -*- coding: utf-8 -*-\n\nu = "\xf0\x9f\x92\x8b"', d)
         assert len(d['u']) == 4
 
+    def test_kw_defaults_None(self):
+        import _ast
+        source = "def foo(self, *args, name): pass"
+        ast = compile(source, '', 'exec', _ast.PyCF_ONLY_AST)
+        # compiling the produced AST previously triggered a crash
+        compile(ast, '', 'exec')
+
 
 class TestOptimizations:
     def count_instructions(self, source):

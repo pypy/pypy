@@ -2416,7 +2416,8 @@ class arguments(AST):
                 self.kw_defaults = None
         if self.kw_defaults is not None:
             for node in self.kw_defaults:
-                node.sync_app_attrs(space)
+                if node:
+                    node.sync_app_attrs(space)
 
 class arg(AST):
 
