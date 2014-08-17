@@ -295,9 +295,8 @@ W_GenericUFuncCaller.typedef = TypeDef("hiddenclass",
 GenericUfunc = lltype.FuncType([rffi.CArrayPtr(rffi.CCHARP), npy_intpp, npy_intpp,
                                       rffi.VOIDP], lltype.Void)
 gufunctype = lltype.Ptr(GenericUfunc)
-# XXX the signature is wrong, it should be an array of gufunctype, but
-# XXX rffi.CArrayPtr(gufunctype) does not seem to work ???
-@cpython_api([gufunctype, rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
+# XXX single rffi.CArrayPtr(gufunctype) does not work, this does, why???
+@cpython_api([rffi.CArrayPtr(rffi.CArrayPtr(gufunctype)), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
               Py_ssize_t, Py_ssize_t, rffi.CCHARP, rffi.CCHARP, Py_ssize_t,
               rffi.CCHARP], PyObject)
 def _PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
@@ -305,8 +304,7 @@ def _PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
     funcs_w = [None] * ntypes
     dtypes_w = [None] * ntypes * (nin + nout)
     for i in range(ntypes):
-        # XXX this should be 'funcs[i]' not 'funcs'
-        funcs_w[i] = W_GenericUFuncCaller(funcs)
+        funcs_w[i] = W_GenericUFuncCaller(rffi.cast(gufunctype, funcs[i]))
     for i in range(ntypes*(nin+nout)):
         dtypes_w[i] = get_dtype_cache(space).dtypes_by_num[ord(types[i])]
     w_funcs = space.newlist(funcs_w)
