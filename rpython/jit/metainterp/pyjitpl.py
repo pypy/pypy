@@ -1849,7 +1849,7 @@ class MetaInterp(object):
             self.framestack[-1].pc = saved_pc
 
     def create_empty_history(self):
-        self.history = history.History(self.staticdata)
+        self.history = history.History()
         self.staticdata.stats.set_history(self.history)
 
     def _all_constants(self, *boxes):
@@ -2453,7 +2453,7 @@ class MetaInterp(object):
         rstack._stack_criticalcode_start()
         try:
             self.portal_call_depth = -1 # always one portal around
-            self.history = history.History(self.staticdata)
+            self.history = history.History()
             inputargs_and_holes = self.rebuild_state_after_failure(resumedescr,
                                                                    deadframe)
             self.history.inputargs = [box for box in inputargs_and_holes if box]

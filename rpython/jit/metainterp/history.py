@@ -759,10 +759,9 @@ def _list_all_operations(result, operations, omit_finish=True):
 # ____________________________________________________________
 
 class History(object):
-    def __init__(self, metainterp_sd):
+    def __init__(self):
         self.inputargs = None
         self.operations = []
-        self.config = metainterp_sd.config
         self.stm_location = None
 
     def record(self, opnum, argboxes, resbox, descr=None):
