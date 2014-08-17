@@ -53,6 +53,26 @@ def possible_transaction_break():
         if llop.stm_should_break_transaction(lltype.Bool):
             llop.stm_transaction_break(lltype.Void)
 
+# Typical usage of the following two functions:
+#
+# just after jit_merge_point:
+#         if rstm.jit_stm_should_break_transaction(False):
+#             rstm.jit_stm_transaction_break_point()
+#
+# just before can_enter_jit:
+#         if rstm.jit_stm_should_break_transaction(True):
+#             rstm.jit_stm_transaction_break_point()
+#
+# resulting JIT trace (common case):
+#      ...
+#      call_release_gil(...)
+#      stm_transaction_break(0)     # in-line, because we expect "inevitable"
+#      guard_not_forced()
+#      ...
+#      i1 = stm_should_break_transaction()
+#      guard_false(i1)              # out-of-line, because rarely needed
+#      jump()
+#
 def jit_stm_transaction_break_point():
     # XXX REFACTOR AWAY
     if we_are_translated():
