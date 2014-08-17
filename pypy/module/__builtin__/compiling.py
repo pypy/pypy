@@ -39,9 +39,8 @@ in addition to any features explicitly specified.
                              space.wrap("compile() arg 3 must be 'exec' "
                                         "or 'eval' or 'single'"))
 
-    if space.isinstance_w(w_source, space.gettypeobject(ast.AST.typedef)):
-        ast_node = space.interp_w(ast.mod, w_source)
-        ast_node.sync_app_attrs(space)
+    if space.isinstance_w(w_source, space.gettypeobject(ast.W_AST.typedef)):
+        ast_node = ast.mod.from_object(space, w_source)
         code = ec.compiler.compile_ast(ast_node, filename, mode, flags)
         return space.wrap(code)
 
@@ -60,10 +59,12 @@ in addition to any features explicitly specified.
                 "compile() expected string without null bytes"))
 
     if flags & consts.PyCF_ONLY_AST:
-        code = ec.compiler.compile_to_ast(source, filename, mode, flags)
+        mode = ec.compiler.compile_to_ast(str_, filename, mode, flags)
+        w_node = node.to_object(space)
+        return w_node
     else:
         code = ec.compiler.compile(source, filename, mode, flags)
-    return space.wrap(code)
+        return space.wrap(code)
 
 
 def eval(space, w_code, w_globals=None, w_locals=None):
