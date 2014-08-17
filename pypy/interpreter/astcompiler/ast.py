@@ -10,7 +10,7 @@ from pypy.interpreter.gateway import interp2app
 
 def raise_attriberr(space, w_obj, name):
     raise oefmt(space.w_AttributeError,
-                \"'%T' object has no attribute '%s'\", w_obj, name)
+                "'%T' object has no attribute '%s'", w_obj, name)
 
 
 def check_string(space, w_obj):
