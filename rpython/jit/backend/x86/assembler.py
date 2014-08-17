@@ -915,7 +915,16 @@ class Assembler386(BaseAssembler):
             self.mc.MOV(self.heap_shadowstack_top(), ecx)
         else:
             # SUB [rootstacktop], WORD
-            self.mc.SUB(self.heap_shadowstack_top(), WORD)
+            gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+            rst = gcrootmap.get_root_stack_top_addr()
+            if rx86.fits_in_32bits(rst):
+                # SUB [rootstacktop], WORD
+                self.mc.SUB_ji8((self.SEGMENT_NO, rst), WORD)
+            else:
+                # MOV ebx, rootstacktop
+                # SUB [ebx], WORD
+                self.mc.MOV_ri(ebx.value, rst)
+                self.mc.SUB_mi8((self.SEGMENT_NO, ebx.value, 0), WORD)
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # some minimal sanity checking
@@ -2616,7 +2625,7 @@ class Assembler386(BaseAssembler):
         else:
             self.implement_guard(guard_token, 'AE')  # JAE goes to "no, don't"
 
-    def genop_guard_stm_transaction_break(self, op, guard_op, guard_token,
+    def XXXgenop_guard_stm_transaction_break(self, op, guard_op, guard_token,
                                           arglocs, result_loc):
         assert self.cpu.gc_ll_descr.stm
         if not we_are_translated():

@@ -74,7 +74,7 @@ class BaseAssembler(object):
             self.gc_minimal_size_in_nursery = gc_ll_descr.minimal_size_in_nursery
         else:
             self.gc_minimal_size_in_nursery = 0
-        if hasattr(gc_ll_descr, 'gcheaderbuilder'):
+        if getattr(gc_ll_descr, 'gcheaderbuilder', None) is not None:
             self.gc_size_of_header = gc_ll_descr.gcheaderbuilder.size_gc_header
         else:
             self.gc_size_of_header = WORD # for tests

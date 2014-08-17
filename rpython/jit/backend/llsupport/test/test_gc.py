@@ -184,7 +184,7 @@ class TestFramework(object):
         rewriter = GcRewriterAssembler(gc_ll_descr, None)
         newops = rewriter.newops
         v_base = BoxPtr()
-        rewriter.gen_write_barrier(v_base)
+        rewriter.gen_write_barrier(v_base, stm_location=None)
         assert llop1.record == []
         assert len(newops) == 1
         assert newops[0].getopnum() == rop.COND_CALL_GC_WB
