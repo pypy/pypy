@@ -208,6 +208,7 @@ class sha256(object):
     block_size = SHA_BLOCKSIZE
 
     def __init__(self, s=None):
+        self.name = 'sha256'
         self._sha = sha_init()
         if s:
             sha_update(self._sha, s)
@@ -230,6 +231,7 @@ class sha224(sha256):
     digest_size = digestsize = 28
 
     def __init__(self, s=None):
+        self.name = 'sha224'
         self._sha = sha224_init()
         if s:
             sha_update(self._sha, s)
