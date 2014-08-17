@@ -1,7 +1,44 @@
 import os
+import py
 
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.interpreter.error import OperationError, oefmt
 
+cwd = py.path.local(__file__).dirpath()
+eci = ExternalCompilationInfo(
+    includes=[cwd.join('faulthandler.h')],
+    include_dirs=[str(cwd)],
+    separate_module_files=[cwd.join('faulthandler.c')],
+    export_symbols=['pypy_faulthandler_read_null',
+                    'pypy_faulthandler_sigsegv',
+                    'pypy_faulthandler_sigfpe',
+                    'pypy_faulthandler_sigabrt',
+                    'pypy_faulthandler_sigbus',
+                    'pypy_faulthandler_sigill',
+                    ])
+
+def llexternal(*args, **kwargs):
+    kwargs.setdefault('releasegil', False)
+    kwargs.setdefault('compilation_info', eci)
+    return rffi.llexternal(*args, **kwargs)
+
+pypy_faulthandler_read_null = llexternal(
+    'pypy_faulthandler_read_null', [], lltype.Void)
+pypy_faulthandler_read_null_nogil = llexternal(
+    'pypy_faulthandler_read_null', [], lltype.Void,
+    releasegil=True)
+pypy_faulthandler_sigsegv = llexternal(
+    'pypy_faulthandler_sigsegv', [], lltype.Void)
+pypy_faulthandler_sigfpe = llexternal(
+    'pypy_faulthandler_sigfpe', [], lltype.Void)
+pypy_faulthandler_sigabrt = llexternal(
+    'pypy_faulthandler_sigabrt', [], lltype.Void)
+pypy_faulthandler_sigbus = llexternal(
+    'pypy_faulthandler_sigbus', [], lltype.Void)
+pypy_faulthandler_sigill = llexternal(
+    'pypy_faulthandler_sigill', [], lltype.Void)
 
 class FatalErrorState(object):
     def __init__(self, space):
@@ -43,3 +80,25 @@ def dump_traceback(space, w_file, w_all_threads):
 
         frame = frame.f_backref()
  
+
+@unwrap_spec(w_release_gil=WrappedDefault(False))
+def read_null(space, w_release_gil):
+    if space.is_true(w_release_gil):
+        pypy_faulthandler_read_null_nogil()
+    else:
+        pypy_faulthandler_read_null()
+
+def sigsegv():
+    pypy_faulthandler_sigsegv()
+
+def sigfpe():
+    pypy_faulthandler_sigfpe()
+
+def sigabrt():
+    pypy_faulthandler_sigabrt()
+
+def sigbus():
+    pypy_faulthandler_sigbus()
+
+def sigill():
+    pypy_faulthandler_sigill()
