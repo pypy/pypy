@@ -73,7 +73,7 @@ class TestSTMTranslated(CompiledSTMTests):
             rthread.start_new_thread(threadfn, ())
             while glob.seen is None:
                 llop.stm_commit_if_not_atomic(lltype.Void)
-                llop.stm_start_inevitable_if_not_atomic(lltype.Void)
+                llop.stm_start_if_not_atomic(lltype.Void)
             return glob.seen.value
         #
         t, cbuilder = self.compile(entry_point)
@@ -470,7 +470,7 @@ class TestSTMTranslated(CompiledSTMTests):
             lst[42] = 43
             lst2[999] = lst
             llop.stm_commit_if_not_atomic(lltype.Void)
-            llop.stm_start_inevitable_if_not_atomic(lltype.Void)
+            llop.stm_start_if_not_atomic(lltype.Void)
             print 'did not crash', lst2[999][42]
             return 0
 

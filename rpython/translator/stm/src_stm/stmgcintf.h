@@ -53,6 +53,15 @@ static inline void pypy_stm_commit_if_not_atomic(void) {
     }
     errno = e;
 }
+static inline void pypy_stm_start_if_not_atomic(void) {
+    if (pypy_stm_ready_atomic == 1) {
+        int e = errno;
+        stm_start_transaction(&stm_thread_local);
+        _pypy_stm_initialize_nursery_low_fill_mark(0);
+        _pypy_stm_inev_state();
+        errno = e;
+    }
+}
 static inline void pypy_stm_start_inevitable_if_not_atomic(void) {
     if (pypy_stm_ready_atomic == 1) {
         int e = errno;
@@ -89,8 +98,8 @@ static inline void pypy_stm_decrement_atomic(void) {
 static inline long pypy_stm_get_atomic(void) {
     return pypy_stm_ready_atomic - 1;
 }
-long pypy_stm_enter_callback_call(void);
-void pypy_stm_leave_callback_call(long);
+long pypy_stm_enter_callback_call(void *);
+void pypy_stm_leave_callback_call(void *, long);
 void pypy_stm_set_transaction_length(double);
 void pypy_stm_transaction_break(void);
 

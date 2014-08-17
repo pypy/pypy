@@ -89,41 +89,45 @@ void pypy_stm_teardown(void)
     /* stm_teardown() not called here for now; it's mostly for tests */
 }
 
-long pypy_stm_enter_callback_call(void)
+long pypy_stm_enter_callback_call(void *rjbuf)
 {
     if (pypy_stm_ready_atomic == 0) {
         /* first time we see this thread */
         assert(pypy_transaction_length >= 0);
         int e = errno;
         pypy_stm_register_thread_local();
+        stm_rewind_jmp_enterframe(&stm_thread_local, (rewind_jmp_buf *)rjbuf);
         errno = e;
         pypy_stm_ready_atomic = 1;
-        pypy_stm_start_inevitable_if_not_atomic();
+        pypy_stm_start_if_not_atomic();
         return 1;
     }
     else {
         /* callback from C code, itself called from Python code */
-        pypy_stm_start_inevitable_if_not_atomic();
+        stm_rewind_jmp_enterframe(&stm_thread_local, (rewind_jmp_buf *)rjbuf);
+        pypy_stm_start_if_not_atomic();
         return 0;
     }
 }
 
-void pypy_stm_leave_callback_call(long token)
+void pypy_stm_leave_callback_call(void *rjbuf, long token)
 {
+    int e = errno;
     if (token == 1) {
         /* if we're returning into foreign C code that was not itself
            called from Python code, then we're ignoring the atomic
            status and committing anyway. */
-        int e = errno;
         pypy_stm_ready_atomic = 1;
         stm_commit_transaction();
         pypy_stm_ready_atomic = 0;
+        stm_rewind_jmp_leaveframe(&stm_thread_local, (rewind_jmp_buf *)rjbuf);
         pypy_stm_unregister_thread_local();
-        errno = e;
     }
     else {
         pypy_stm_commit_if_not_atomic();
+        stm_rewind_jmp_leaveframe(&stm_thread_local, (rewind_jmp_buf *)rjbuf);
     }
+    errno = e;
 }
 
 void _pypy_stm_initialize_nursery_low_fill_mark(long v_counter)

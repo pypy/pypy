@@ -4,8 +4,7 @@ from rpython.translator.stm import funcgen
 
 TRANSACTION_BREAK = set([
     'stm_commit_if_not_atomic',
-    'stm_start_inevitable_if_not_atomic',
-    #'stm_perform_transaction',
+    'stm_start_if_not_atomic',
     #'stm_partial_commit_and_resume_other_threads', # new priv_revision
     #'jit_assembler_call',
     #'jit_stm_transaction_break_point',

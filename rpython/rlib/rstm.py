@@ -125,21 +125,21 @@ before_external_call._transaction_break_ = True
 def after_external_call():
     if we_are_translated():
         # starts a new transaction if we are not atomic already
-        llop.stm_start_inevitable_if_not_atomic(lltype.Void)
+        llop.stm_start_if_not_atomic(lltype.Void)
 after_external_call._dont_reach_me_in_del_ = True
 after_external_call._transaction_break_ = True
 
 @dont_look_inside
-def enter_callback_call():
+def enter_callback_call(rjbuf):
     if we_are_translated():
-        return llop.stm_enter_callback_call(lltype.Signed)
+        return llop.stm_enter_callback_call(lltype.Signed, rjbuf)
 enter_callback_call._dont_reach_me_in_del_ = True
 enter_callback_call._transaction_break_ = True
 
 @dont_look_inside
-def leave_callback_call(token):
+def leave_callback_call(rjbuf, token):
     if we_are_translated():
-        llop.stm_leave_callback_call(lltype.Void, token)
+        llop.stm_leave_callback_call(lltype.Void, rjbuf, token)
 leave_callback_call._dont_reach_me_in_del_ = True
 leave_callback_call._transaction_break_ = True
 

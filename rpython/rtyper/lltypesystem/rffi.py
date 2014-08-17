@@ -315,10 +315,10 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     source = py.code.Source(r"""
         def wrapper(%(args)s):    # no *args - no GIL for mallocing the tuple
             token = 0
+            rjbuf = llop.stm_rewind_jmp_frame(llmemory.Address, 1)
             if aroundstate is not None:
                 if aroundstate.enter_callback is not None:
-                    token = aroundstate.enter_callback()
-                    llop.stm_rewind_jmp_frame(lltype.Void, 1)
+                    token = aroundstate.enter_callback(rjbuf)
                 else:
                     after = aroundstate.after
                     if after is not None:
@@ -339,8 +339,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
             stackcounter.stacks_counter -= 1
             if aroundstate is not None:
                 if aroundstate.leave_callback is not None:
-                    llop.stm_rewind_jmp_frame(lltype.Void, 2)
-                    aroundstate.leave_callback(token)
+                    aroundstate.leave_callback(rjbuf, token)
                 else:
                     before = aroundstate.before
                     if before is not None:
@@ -355,13 +354,16 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     miniglobals['os'] = os
     miniglobals['we_are_translated'] = we_are_translated
     miniglobals['stackcounter'] = stackcounter
+    miniglobals['llmemory'] = llmemory
     exec source.compile() in miniglobals
     return miniglobals['wrapper']
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
-EnterCallbackFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Signed))
-LeaveCallbackFnPtr = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
+EnterCallbackFnPtr = lltype.Ptr(lltype.FuncType([llmemory.Address],
+                                                lltype.Signed))
+LeaveCallbackFnPtr = lltype.Ptr(lltype.FuncType([llmemory.Address,
+                                                 lltype.Signed], lltype.Void))
 
 class AroundState:
     _alloc_flavor_ = "raw"

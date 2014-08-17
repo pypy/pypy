@@ -156,16 +156,18 @@ def stm_pop_root_into(funcgen, op):
 def stm_commit_if_not_atomic(funcgen, op):
    return 'pypy_stm_commit_if_not_atomic();'
 
-def stm_start_inevitable_if_not_atomic(funcgen, op):
-    return 'pypy_stm_start_inevitable_if_not_atomic();'
+def stm_start_if_not_atomic(funcgen, op):
+    return 'pypy_stm_start_if_not_atomic();'
 
 def stm_enter_callback_call(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
     result = funcgen.expr(op.result)
-    return '%s = pypy_stm_enter_callback_call();' % (result,)
+    return '%s = pypy_stm_enter_callback_call(%s);' % (result, arg0)
 
 def stm_leave_callback_call(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
-    return 'pypy_stm_leave_callback_call(%s);' % (arg0,)
+    arg1 = funcgen.expr(op.args[1])
+    return 'pypy_stm_leave_callback_call(%s, %s);' % (arg0, arg1)
 
 def stm_should_break_transaction(funcgen, op):
     result = funcgen.expr(op.result)
@@ -259,8 +261,10 @@ def stm_reset_longest_marker_state(funcgen, op):
 
 def stm_rewind_jmp_frame(funcgen, op):
     if len(op.args) == 0:
+        assert op.result.concretetype is lltype.Void
         return '/* automatic stm_rewind_jmp_frame */'
     elif op.args[0].value == 1:
-        return 'stm_rewind_jmp_enterframe(&stm_thread_local, &rjbuf1);'
+        assert op.result.concretetype is llmemory.Address
+        return '%s = &rjbuf1;' % (funcgen.expr(op.result),)
     else:
-        return 'stm_rewind_jmp_leaveframe(&stm_thread_local, &rjbuf1);'
+        assert False, op.args[0].value

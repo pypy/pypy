@@ -430,7 +430,7 @@ LL_OPERATIONS = {
     'stm_push_root':          LLOp(),
     'stm_pop_root_into':      LLOp(),
     'stm_commit_if_not_atomic':           LLOp(canmallocgc=True),
-    'stm_start_inevitable_if_not_atomic': LLOp(canmallocgc=True),
+    'stm_start_if_not_atomic':            LLOp(canmallocgc=True),
     'stm_abort_and_retry':                LLOp(canmallocgc=True),
     'stm_enter_callback_call':            LLOp(canmallocgc=True),
     'stm_leave_callback_call':            LLOp(),
