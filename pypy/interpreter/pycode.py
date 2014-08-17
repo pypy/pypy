@@ -61,7 +61,7 @@ def cpython_code_signature(code):
     else:
         varargname = None
     if code.co_flags & CO_VARKEYWORDS:
-        kwargname = code.co_varnames[argcount+kwonlyargcount]
+        kwargname = code.co_varnames[argcount + kwonlyargcount]
         argcount += 1
     else:
         kwargname = None
