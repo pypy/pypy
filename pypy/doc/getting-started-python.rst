@@ -50,12 +50,16 @@ the version you have is not 4.2 or you will run into `this bug`_.
      libz-dev libbz2-dev libncurses-dev libexpat1-dev \
      libssl-dev libgc-dev python-sphinx python-greenlet
 
+   For the optional lzma module on PyPy3 you will also need ``liblzma-dev``.
+
    On a Fedora-16 box these are::
 
      [user@fedora-or-rh-box ~]$ sudo yum install \
      gcc make python-devel libffi-devel lib-sqlite3-devel pkgconfig \
      zlib-devel bzip2-devel ncurses-devel expat-devel \
      openssl-devel gc-devel python-sphinx python-greenlet
+
+   For the optional lzma module on PyPy3 you will also need ``xz-devel``.
 
    On SLES11:
 
@@ -74,6 +78,7 @@ the version you have is not 4.2 or you will run into `this bug`_.
    * ``pkg-config`` (to help us locate libffi files)
    * ``libz-dev`` (for the optional ``zlib`` module)
    * ``libbz2-dev`` (for the optional ``bz2`` module)
+   * ``liblzma`` (for the optional ``lzma`` module, PyPy3 only)
    * ``libsqlite3-dev`` (for the optional ``sqlite3`` module via cffi)
    * ``libncurses-dev`` (for the optional ``_minimal_curses`` module)
    * ``libexpat1-dev`` (for the optional ``pyexpat`` module)

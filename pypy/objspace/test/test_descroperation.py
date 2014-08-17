@@ -19,8 +19,8 @@ class Test_DescrOperation:
         class Meta(type):
             def __subclasscheck__(mcls, cls):
                 return False
-        class Base:
-            __metaclass__ = Meta
+        class Base(metaclass=Meta):
+            pass
         class Sub(Base):
             pass
         return Base, Sub""")
@@ -306,17 +306,20 @@ class AppTest_Descroperation:
             raises(TypeError, operate, A())
 
     def test_missing_getattribute(self):
+        """
         class X(object):
             pass
 
-        class Y(X):
-            class __metaclass__(type):
-                def mro(cls):
-                    return [cls, X]
+        class metaclass(type):
+            def mro(cls):
+                return [cls, X]
+        class Y(X, metaclass=metaclass):
+            pass
 
         x = X()
         x.__class__ = Y
         raises(AttributeError, getattr, x, 'a')
+        """
 
     def test_unordeable_types(self):
         class A(object): pass

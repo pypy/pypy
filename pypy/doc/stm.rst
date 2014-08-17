@@ -63,8 +63,7 @@ Getting Started
 
 Development is done in the branch `stmgc-c7`_.  If you are only
 interested in trying it out, you can download a Ubuntu binary here__
-(``pypy-2.3.x-stm*.tar.bz2``, Ubuntu 12.04-14.04; these versions are
-release mode, but not stripped of debug symbols).  The current version
+(``pypy-stm-2.3*.tar.bz2``, Ubuntu 12.04-14.04).  The current version
 supports four "segments", which means that it will run up to four
 threads in parallel.
 
@@ -79,7 +78,7 @@ the branch `stmgc-c7`_ of PyPy and run::
    rpython/bin/rpython -Ojit --stm pypy/goal/targetpypystandalone.py
 
 .. _`stmgc-c7`: https://bitbucket.org/pypy/pypy/src/stmgc-c7/
-.. __: http://cobra.cs.uni-duesseldorf.de/~buildmaster/misc/
+.. __: https://bitbucket.org/pypy/pypy/downloads/
 .. __: http://clang.llvm.org/get_started.html
 .. __: https://bitbucket.org/pypy/stmgc/src/default/c7/llvmfix/
 

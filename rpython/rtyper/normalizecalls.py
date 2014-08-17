@@ -62,6 +62,8 @@ def raise_call_table_too_complex_error(callfamily, annotator):
             msg.append("the following functions:")
             msg.append("    %s" % ("\n    ".join(pfg), ))
             msg.append("are called with inconsistent numbers of arguments")
+            msg.append("(and/or the argument names are different, which is"
+                       " not supported in this case)")
             if shape1[0] != shape2[0]:
                 msg.append("sometimes with %s arguments, sometimes with %s" % (shape1[0], shape2[0]))
             else:
