@@ -270,7 +270,7 @@ class sha384(sha512):
 def test():
     import _sha512
 
-    a_str = "just a test string"
+    a_str = b"just a test string"
 
     assert _sha512.sha512().hexdigest() == sha512().hexdigest()
     assert _sha512.sha512(a_str).hexdigest() == sha512(a_str).hexdigest()
