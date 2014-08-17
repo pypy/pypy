@@ -37,3 +37,30 @@ class AppTestSHA:
         assert _sha.sha1().digest_size == 20
         assert _sha.sha1().digestsize == 20
         assert _sha.sha1().block_size == 64
+
+        assert _sha.sha().name == 'sha'
+        assert _sha.sha1().name == 'sha1'
+
+
+class AppTestSHA256:
+    spaceconfig = dict(usemodules=('struct',))
+
+    def setup_class(cls):
+        cls.w__sha256 = import_lib_pypy(cls.space, '_sha256')
+
+    def test_attributes(self):
+        _sha256 = self._sha256
+        assert _sha256.sha224().name == 'sha224'
+        assert _sha256.sha256().name == 'sha256'
+
+
+class AppTestSHA512:
+    spaceconfig = dict(usemodules=('struct',))
+
+    def setup_class(cls):
+        cls.w__sha512 = import_lib_pypy(cls.space, '_sha512')
+
+    def test_attributes(self):
+        _sha512 = self._sha512
+        assert _sha512.sha384().name == 'sha384'
+        assert _sha512.sha512().name == 'sha512'
