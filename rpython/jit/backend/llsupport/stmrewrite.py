@@ -23,14 +23,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.newops.append(op)
             return
         # ----------  transaction breaks  ----------
-        if opnum == rop.STM_SHOULD_BREAK_TRANSACTION:
-            self.handle_should_break_transaction(op)
-            return
-        if opnum == rop.STM_TRANSACTION_BREAK:
-            self.emitting_an_operation_that_can_collect()
-            self.next_op_may_be_in_new_transaction()
-            self.newops.append(op)
-            return
         if opnum == rop.STM_HINT_COMMIT_SOON:
             self._do_stm_call('stm_hint_commit_soon', [], None,
                               op.stm_location)
@@ -84,12 +76,17 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.next_op_may_be_in_new_transaction()
             self.newops.append(op)
             return
-        # ----------  jumps, finish, other ignored ops  ----------
-        if opnum in (rop.JUMP, rop.FINISH, rop.FORCE_TOKEN,
+        # ----------  other ignored ops  ----------
+        if opnum in (rop.STM_SHOULD_BREAK_TRANSACTION, rop.FORCE_TOKEN,
                      rop.READ_TIMESTAMP, rop.MARK_OPAQUE_PTR,
                      rop.JIT_DEBUG, rop.KEEPALIVE,
                      rop.QUASIIMMUT_FIELD, rop.RECORD_KNOWN_CLASS,
                      ):
+            self.newops.append(op)
+            return
+        # ----------  jump, finish  ----------
+        if opnum == rop.JUMP or opnum == rop.FINISH:
+            self.add_dummy_allocation()
             self.newops.append(op)
             return
         # ----------  fall-back  ----------
@@ -122,7 +119,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.newops.append(op1)
             self.read_barrier_applied[v_ptr] = None
 
-    def handle_should_break_transaction(self, op):
+    def add_dummy_allocation(self):
         if not self.does_any_allocation:
             # do a fake allocation since this is needed to check
             # for requested safe-points:
@@ -133,9 +130,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             v_result = BoxPtr()
             assert self._op_malloc_nursery is None # no ongoing allocation
             self.gen_malloc_nursery(size, v_result)
-
-        self.newops.append(op)
-
 
     def must_apply_write_barrier(self, val, v=None):
         return val not in self.write_barrier_applied
