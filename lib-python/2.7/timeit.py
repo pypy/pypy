@@ -131,6 +131,14 @@ class Timer:
                 raise ValueError("setup is neither a string nor callable")
             self.src = src # Save for traceback display
             def make_inner():
+                # PyPy tweak: recompile the source code each time before
+                # calling inner(). There are situations like Issue #1776
+                # where PyPy tries to reuse the JIT code from before,
+                # but that's not going to work: the first thing the
+                # function does is the "-s" statement, which may declare
+                # new classes (here a namedtuple). We end up with
+                # bridges from the inner loop; more and more of them
+                # every time we call inner().
                 code = compile(src, dummy_src_name, "exec")
                 exec code in globals(), ns
                 return ns["inner"]

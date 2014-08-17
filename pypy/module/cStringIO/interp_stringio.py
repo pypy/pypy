@@ -3,6 +3,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.rlib.rStringIO import RStringIO
+from rpython.rlib.objectmodel import import_from_mixin
 
 
 class W_InputOutputType(W_Root):
@@ -144,7 +145,9 @@ class W_InputType(W_InputOutputType):
 
 # ____________________________________________________________
 
-class W_OutputType(RStringIO, W_InputOutputType):
+class W_OutputType(W_InputOutputType):
+    import_from_mixin(RStringIO)
+
     def __init__(self, space):
         self.init()
         self.space = space

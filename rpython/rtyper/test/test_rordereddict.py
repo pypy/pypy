@@ -138,12 +138,12 @@ class TestRDictDirect(object):
         rordereddict.ll_dict_setitem(ll_d, llstr("j"), 2)
         ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
         ll_iter = rordereddict.ll_dictiter(ITER, ll_d)
-        ll_iterkeys = rordereddict.ll_dictnext_group['keys']
-        next = ll_iterkeys(lltype.Signed, ll_iter)
-        assert hlstr(next) == "k"
-        next = ll_iterkeys(lltype.Signed, ll_iter)
-        assert hlstr(next) == "j"
-        py.test.raises(StopIteration, ll_iterkeys, lltype.Signed, ll_iter)
+        ll_dictnext = rordereddict._ll_dictnext
+        num = ll_dictnext(ll_iter)
+        assert hlstr(ll_d.entries[num].key) == "k"
+        num = ll_dictnext(ll_iter)
+        assert hlstr(ll_d.entries[num].key) == "j"
+        py.test.raises(StopIteration, ll_dictnext, ll_iter)
 
     def test_popitem(self):
         DICT = self._get_str_dict()

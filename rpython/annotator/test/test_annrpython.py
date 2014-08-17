@@ -2536,6 +2536,22 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert s.const == 2
 
+    def test_cannot_use_directly_mixin(self):
+        class A(object):
+            _mixin_ = True
+        #
+        def f():
+            return A()
+        a = self.RPythonAnnotator()
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f, [])
+        #
+        class B(object):
+            pass
+        x = B()
+        def g():
+            return isinstance(x, A)
+        py.test.raises(annmodel.AnnotatorError, a.build_types, g, [])
+
     def test_import_from_mixin(self):
         class M(object):
             def f(self):
@@ -4275,6 +4291,15 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         py.test.raises(annmodel.AnnotatorError,
                        a.build_types, f, [annmodel.s_None])
+
+    def test_class___name__(self):
+        class Abc(object):
+            pass
+        def f():
+            return Abc().__class__.__name__
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeString)
 
 
 def g(n):

@@ -62,6 +62,7 @@ class __extend__(pyframe.PyFrame):
             try:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
             except ExitFrame:
+                self.last_exception = None
                 return self.popvalue()
             finally:
                 rstm.pop_marker()

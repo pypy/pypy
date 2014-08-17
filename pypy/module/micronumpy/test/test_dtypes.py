@@ -368,15 +368,30 @@ class AppTestDtypes(BaseAppTestDtypes):
         d5 = numpy.dtype([('f0', 'i4'), ('f1', d2)])
         d6 = numpy.dtype([('f0', 'i4'), ('f1', d3)])
         import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            assert hash(d1) == hash(d2)
-            assert hash(d1) != hash(d3)
-            assert hash(d4) == hash(d5)
-            assert hash(d4) != hash(d6)
-        else:
-            for d in [d1, d2, d3, d4, d5, d6]:
-                raises(TypeError, hash, d)
+        assert hash(d1) == hash(d2)
+        assert hash(d1) != hash(d3)
+        assert hash(d4) == hash(d5)
+        assert hash(d4) != hash(d6)
 
+    def test_record_hash(self):
+        from numpy import dtype
+        # make sure the fields hash return different value
+        # for different order of field in a structure
+
+        # swap names
+        t1 = dtype([('x', '<f4'), ('y', '<i4')])
+        t2 = dtype([('y', '<f4'), ('x', '<i4')])
+        assert hash(t1) != hash(t2)
+
+        # swap types
+        t3 = dtype([('x', '<f4'), ('y', '<i4')])
+        t4 = dtype([('x', '<i4'), ('y', '<f4')])
+        assert hash(t3) != hash(t4)
+
+        # swap offsets
+        t5 = dtype([('x', '<f4'), ('y', '<i4')])
+        t6 = dtype([('y', '<i4'), ('x', '<f4')])
+        assert hash(t5) != hash(t6)
     def test_pickle(self):
         import numpy as np
         from numpypy import array, dtype
@@ -413,6 +428,8 @@ class AppTestDtypes(BaseAppTestDtypes):
         for t in [np.int_, np.float_]:
             dt = np.dtype(t)
             dt1 = dt.newbyteorder().newbyteorder()
+            assert dt.isbuiltin
+            assert not dt1.isbuiltin
             dt2 = dt.newbyteorder("<")
             dt3 = dt.newbyteorder(">")
             assert dt.byteorder != dt1.byteorder

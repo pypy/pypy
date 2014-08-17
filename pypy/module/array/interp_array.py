@@ -228,8 +228,11 @@ class W_ArrayBase(W_Root):
         Convert the array to an array of machine values and return the string
         representation.
         """
+        size = self.len
+        if size == 0:
+            return space.wrap('')
         cbuf = self._charbuf_start()
-        s = rffi.charpsize2str(cbuf, self.len * self.itemsize)
+        s = rffi.charpsize2str(cbuf, size * self.itemsize)
         self._charbuf_stop()
         return self.space.wrap(s)
 

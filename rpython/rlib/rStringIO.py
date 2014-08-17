@@ -8,8 +8,6 @@ class RStringIO(object):
     The fastest path through this code is for the case of a bunch of write()
     followed by getvalue().
     """
-    _mixin_ = True        # for interp_stringio.py
-
     def __init__(self):
         self.init()
 

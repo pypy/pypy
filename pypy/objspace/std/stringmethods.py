@@ -455,7 +455,7 @@ class StringMethods(object):
         d = width - len(value)
         if d > 0:
             fillchar = self._multi_chr(fillchar[0])
-            value += d * fillchar
+            value = value + fillchar * d
 
         return self._new(value)
 
