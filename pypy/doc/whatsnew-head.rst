@@ -54,3 +54,6 @@ Fix performance regression on ufunc(<scalar>, <scalar>) in numpy.
 .. branch: pytest-25
 Update our copies of py.test and pylib to versions 2.5.2 and 1.4.20, 
 respectively.
+
+.. branch: split-ast-classes
+Classes in the ast module are now distinct from structures used by the compiler.
