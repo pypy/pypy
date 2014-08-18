@@ -95,6 +95,10 @@ class CallBuilderX86(AbstractCallBuilder):
     def call_releasegil_addr_and_move_real_arguments(self, fastgil):
         from rpython.jit.backend.x86.assembler import heap
         #
+        if self.asm.cpu.gc_ll_descr.stm:
+            self.call_stm_before_ex_call()
+            return
+        #
         if not self.asm._is_asmgcc():
             # shadowstack: change 'rpy_fastgil' to 0 (it should be
             # non-zero right now).
@@ -131,6 +135,10 @@ class CallBuilderX86(AbstractCallBuilder):
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         from rpython.jit.backend.x86 import rx86
+        #
+        if self.asm.cpu.gc_ll_descr.stm:
+            self.call_stm_after_ex_call()
+            return
         #
         # check if we need to call the reacqgil() function or not
         # (to acquiring the GIL, remove the asmgcc head from
@@ -481,6 +489,41 @@ class CallBuilder64(CallBuilderX86):
         else:
             assert self.restype == INT
             self.mc.MOV_rs(eax.value, 0)
+
+    def call_stm_before_ex_call(self):
+        # XXX slowish: before any CALL_RELEASE_GIL, invoke the
+        # pypy_stm_commit_if_not_atomic() function.  Messy because
+        # we need to save the register arguments first.
+        #
+        n = min(self.next_arg_gpr, len(self.ARGUMENTS_GPR))
+        for i in range(n):
+            self.mc.PUSH_r(self.ARGUMENTS_GPR[i].value)    # PUSH gpr arg
+        m = min(self.next_arg_xmm, len(self.ARGUMENTS_XMM))
+        extra = m + ((n + m) & 1)
+        # in total the stack is moved down by (n + extra) words,
+        # which needs to be an even value for alignment:
+        assert ((n + extra) & 1) == 0
+        if extra > 0:
+            self.mc.SUB_ri(esp.value, extra * WORD)        # SUB rsp, extra
+            for i in range(m):
+                self.mc.MOVSD_sx(i * WORD, self.ARGUMENTS_XMM[i].value)
+                                                           # MOVSD [rsp+..], xmm
+        #
+        self.mc.CALL(imm(rstm.adr_pypy_stm_commit_if_not_atomic))
+        #
+        if extra > 0:
+            for i in range(m):
+                self.mc.MOVSD_xs(self.ARGUMENTS_XMM[i].value, i * WORD)
+            self.mc.ADD_ri(esp.value, extra * WORD)
+        for i in range(n-1, -1, -1):
+            self.mc.POP_r(self.ARGUMENTS_GPR[i].value)
+
+    def call_stm_after_ex_call(self):
+        # after any CALL_RELEASE_GIL, invoke the
+        # pypy_stm_start_if_not_atomic() function
+        self.save_result_value_reacq()
+        self.mc.CALL(imm(rstm.adr_pypy_stm_start_if_not_atomic))
+        self.restore_result_value_reacq()
 
 
 if IS_X86_32:

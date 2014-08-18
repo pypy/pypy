@@ -361,6 +361,8 @@ class BaseAssembler(object):
                                                  lltype.Void))
 
     def _build_release_gil(self, gcrootmap):
+        if self.gc_ll_descr.stm:
+            return
         if gcrootmap is None or gcrootmap.is_shadow_stack:
             reacqgil_func = llhelper(self._REACQGIL0_FUNC,
                                      self._reacquire_gil_shadowstack)

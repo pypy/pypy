@@ -35,6 +35,10 @@ CARD_SIZE   = CFlexSymbolic('_STM_CARD_SIZE')
 
 adr_pypy__rewind_jmp_copy_stack_slice = (
     CFlexSymbolic('((long)&pypy__rewind_jmp_copy_stack_slice)'))
+adr_pypy_stm_commit_if_not_atomic = (
+    CFlexSymbolic('((long)&pypy_stm_commit_if_not_atomic)'))
+adr_pypy_stm_start_if_not_atomic = (
+    CFlexSymbolic('((long)&pypy_stm_start_if_not_atomic)'))
 
 
 def rewind_jmp_frame():

@@ -1,5 +1,5 @@
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
-from rpython.rlib import rgil
+from rpython.rlib import rgc, rgil
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
@@ -45,7 +45,10 @@ class AbstractCallBuilder(object):
     def emit_call_release_gil(self):
         """Emit a CALL_RELEASE_GIL, including calls to releasegil_addr
         and reacqgil_addr."""
-        fastgil = rffi.cast(lltype.Signed, rgil.gil_fetch_fastgil())
+        if rgc.stm_is_enabled():
+            fastgil = 0
+        else:
+            fastgil = rffi.cast(lltype.Signed, rgil.gil_fetch_fastgil())
         self.select_call_release_gil_mode()
         self.prepare_arguments()
         self.push_gcmap_for_call_release_gil()
