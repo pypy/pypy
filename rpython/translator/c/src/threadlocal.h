@@ -24,10 +24,15 @@ typedef pthread_key_t RPyThreadTLS;
 
 #ifdef USE___THREAD
 
-#define RPyThreadStaticTLS                  __thread long
+#ifdef RPY_STM
+# define RPY_THREAD_LOCAL_TYPE   pypy_object0_t *
+#else
+# define RPY_THREAD_LOCAL_TYPE   void *
+#endif
+#define RPyThreadStaticTLS                  __thread RPY_THREAD_LOCAL_TYPE
 #define RPyThreadStaticTLS_Create(tls)      (void)0
 #define RPyThreadStaticTLS_Get(tls)         tls
-#define RPyThreadStaticTLS_Set(tls, value)  tls = (long)value
+#define RPyThreadStaticTLS_Set(tls, value)  tls = (RPY_THREAD_LOCAL_TYPE)value
 #define OP_THREADLOCALREF_GETADDR(tlref, ptr)  ptr = tlref
 
 #endif
