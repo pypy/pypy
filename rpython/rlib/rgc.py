@@ -242,7 +242,6 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
         i = 0
         while i < length:
             copy_item(source, dest, i + source_start, i + dest_start)
-            dest[i + dest_start] = source[i + source_start]
             i += 1
         return
     source_addr = llmemory.cast_ptr_to_adr(source)

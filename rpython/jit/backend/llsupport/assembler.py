@@ -74,9 +74,9 @@ class BaseAssembler(object):
             self.gc_minimal_size_in_nursery = gc_ll_descr.minimal_size_in_nursery
         else:
             self.gc_minimal_size_in_nursery = 0
-        if hasattr(gc_ll_descr, 'gcheaderbuilder'):
+        try:
             self.gc_size_of_header = gc_ll_descr.gcheaderbuilder.size_gc_header
-        else:
+        except AttributeError:
             self.gc_size_of_header = WORD # for tests
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         # building the barriers needs to happen before these:
@@ -114,7 +114,8 @@ class BaseAssembler(object):
                                    self._build_cond_call_slowpath(True, True)]
 
         self._build_stack_check_slowpath()
-        self._build_release_gil(gc_ll_descr.gcrootmap)
+        if not gc_ll_descr.stm:
+            self._build_release_gil(gc_ll_descr.gcrootmap)
         if not self._debug:
             # if self._debug is already set it means that someone called
             # set_debug by hand before initializing the assembler. Leave it

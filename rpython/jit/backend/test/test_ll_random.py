@@ -112,11 +112,7 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
         self.vtable_counter += 1
         S = self.get_random_structure_type(r, with_vtable=vtable, cache=False)
         name = S._name
-        vtable.name = lltype.malloc(lltype.Array(lltype.Char), len(name)+1,
-                                    immortal=True)
-        for i in range(len(name)):
-            vtable.name[i] = name[i]
-        vtable.name[len(name)] = '\x00'
+        vtable.name = rclass.alloc_array_name(name)
         self.structure_types_and_vtables.append((S, vtable))
         #
         heaptracker.register_known_gctype(self.cpu, vtable, S)

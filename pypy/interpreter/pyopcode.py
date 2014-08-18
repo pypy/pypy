@@ -18,7 +18,6 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.tool.stdlib_opcode import bytecode_spec
-from rpython.rlib.jit import we_are_jitted
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
@@ -44,14 +43,6 @@ def binaryoperation(operationname):
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
 
 
-# ____________________________________________________________
-
-stmonly_jitdriver = jit.JitDriver(greens=[], reds=['next_instr', 'ec',
-                                                   'self', 'co_code'],
-                                  stm_do_transaction_breaks=True)
-
-# ____________________________________________________________
-
 opcodedesc = bytecode_spec.opcodedesc
 HAVE_ARGUMENT = bytecode_spec.HAVE_ARGUMENT
 
@@ -65,17 +56,13 @@ class __extend__(pyframe.PyFrame):
         # For the sequel, force 'next_instr' to be unsigned for performance
         next_instr = r_uint(next_instr)
         co_code = pycode.co_code
+        rstm.rewind_jmp_frame()
         while True:
-            if self.space.config.translation.stm:
-                # only used for no-jit. The jit-jitdriver is
-                # in interp_jit.py
-                stmonly_jitdriver.jit_merge_point(
-                    self=self, co_code=co_code,
-                    next_instr=next_instr, ec=ec)
             rstm.push_marker(intmask(next_instr) * 2 + 1, self.pycode)
             try:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
             except ExitFrame:
+                self.last_exception = None
                 return self.popvalue()
             finally:
                 rstm.pop_marker()
@@ -165,6 +152,7 @@ class __extend__(pyframe.PyFrame):
                 ec.bytecode_only_trace(self)
             else:
                 ec.bytecode_trace(self)
+            rstm.possible_transaction_break()
             next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
             next_instr += 1
@@ -199,7 +187,7 @@ class __extend__(pyframe.PyFrame):
                 else:
                     unroller = SReturnValue(w_returnvalue)
                     next_instr = block.handle(self, unroller)
-                    # now inside a 'finally' block
+                    return next_instr    # now inside a 'finally' block
             elif opcode == opcodedesc.END_FINALLY.index:
                 unroller = self.end_finally()
                 if isinstance(unroller, SuspendedUnroller):
@@ -211,12 +199,13 @@ class __extend__(pyframe.PyFrame):
                         raise Return
                     else:
                         next_instr = block.handle(self, unroller)
+                return next_instr
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
                 return self.jump_absolute(oparg, ec)
             elif opcode == opcodedesc.BREAK_LOOP.index:
                 next_instr = self.BREAK_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.CONTINUE_LOOP.index:
-                next_instr = self.CONTINUE_LOOP(oparg, next_instr)
+                return self.CONTINUE_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.FOR_ITER.index:
                 next_instr = self.FOR_ITER(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_FORWARD.index:
@@ -456,22 +445,6 @@ class __extend__(pyframe.PyFrame):
 
             if jit.we_are_jitted():
                 return next_instr
-
-            if self.space.config.translation.stm:
-                # with STM, if should_break_transaction(), then it is a good
-                # idea to leave and let _dispatch_stm_breaking_transaction()
-                # break the transaction.  But avoid doing it if we are in a
-                # tail-call position: if the next opcode is RETURN_VALUE, or
-                # one of the opcodes in the one of the sequences
-                #    * POP_TOP/LOAD_CONST/RETURN_VALUE
-                #    * POP_TOP/LOAD_FAST/RETURN_VALUE
-                if rstm.should_break_transaction():
-                    opcode = ord(co_code[next_instr])
-                    if opcode not in (opcodedesc.RETURN_VALUE.index,
-                                      opcodedesc.POP_TOP.index,
-                                      opcodedesc.LOAD_CONST.index,
-                                      opcodedesc.LOAD_FAST.index):
-                        return next_instr
 
             rstm.update_marker_num(intmask(next_instr) * 2 + 1)
 

@@ -42,7 +42,7 @@ class LLFatalError(Exception):
         return ': '.join([str(x) for x in self.args])
 
 def type_name(etype):
-    return ''.join(etype.name).rstrip('\x00')
+    return ''.join(etype.name.chars)
 
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
@@ -157,7 +157,7 @@ class LLInterpreter(object):
         assert isinstance(exc, LLException)
         klass, inst = exc.args[0], exc.args[1]
         for cls in enumerate_exceptions_top_down():
-            if "".join(klass.name).rstrip("\0") == cls.__name__:
+            if "".join(klass.name.chars) == cls.__name__:
                 return cls
         raise ValueError("couldn't match exception, maybe it"
                       " has RPython attributes like OSError?")
@@ -943,7 +943,6 @@ class LLFrame(object):
     op_stm_initialize = _stm_not_implemented
     op_stm_finalize = _stm_not_implemented
     op_stm_perform_transaction = _stm_not_implemented
-    op_stm_should_break_transaction = _stm_not_implemented
     op_stm_commit_transaction = _stm_not_implemented
     op_stm_begin_inevitable_transaction = _stm_not_implemented
     op_stm_barrier = _stm_not_implemented
@@ -970,6 +969,9 @@ class LLFrame(object):
     op_stm_become_inevitable = _stm_not_implemented
     op_stm_stop_all_other_threads = _stm_not_implemented
     op_stm_partial_commit_and_resume_other_threads = _stm_not_implemented
+
+    def op_stm_should_break_transaction(self):
+        return False
 
     def op_threadlocalref_set(self, key, value):
         try:

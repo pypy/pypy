@@ -16,7 +16,7 @@ else:
 #        +--------------------+    <== aligned to 16 bytes
 #        |   return address   |
 #        +--------------------+               ------------------------.
-#        | resume buf (if STM)|                  STM_FRAME_FIXED_SIZE |
+#        | rewind_jmp_buf(STM)|                  STM_FRAME_FIXED_SIZE |
 #        +--------------------+           ----------------------.     |
 #        |    saved regs      |                FRAME_FIXED_SIZE |     |
 #        +--------------------+       --------------------.     |     |
@@ -46,18 +46,9 @@ else:
 assert PASS_ON_MY_FRAME >= 12       # asmgcc needs at least JIT_USE_WORDS + 3
 
 
-# The STM resume buffer (on x86-64) is four words wide.  Actually, clang
-# uses three words (see test_stm.py): rbp, rip, rsp.  But the value of
-# rbp is not interesting for the JIT-generated machine code.  So the
-# STM_JMPBUF_OFS is the offset from the stack top to the start of the
-# buffer, with only words at offset +1 and +2 in this buffer being
-# meaningful.  We use ebp, i.e. the word at offset +0, to store the
-# resume counter.
-
-STM_RESUME_BUF_WORDS  = 4
-STM_FRAME_FIXED_SIZE  = FRAME_FIXED_SIZE + STM_RESUME_BUF_WORDS
-STM_JMPBUF_OFS        = WORD * FRAME_FIXED_SIZE
-STM_JMPBUF_OFS_RBP    = STM_JMPBUF_OFS + 0 * WORD
-STM_JMPBUF_OFS_RIP    = STM_JMPBUF_OFS + 1 * WORD
-STM_JMPBUF_OFS_RSP    = STM_JMPBUF_OFS + 2 * WORD
-STM_OLD_SHADOWSTACK   = STM_JMPBUF_OFS + 3 * WORD
+# The STM rewind_jmp_buf (on x86-64) is two words wide:
+STM_REWIND_JMP_BUF_WORDS  = 2
+STM_FRAME_FIXED_SIZE      = FRAME_FIXED_SIZE + STM_REWIND_JMP_BUF_WORDS
+STM_JMPBUF_OFS            = WORD * FRAME_FIXED_SIZE
+STM_SHADOWSTACK_BASE_OFS  = STM_JMPBUF_OFS + 0 * WORD
+STM_PREV_OFS              = STM_JMPBUF_OFS + 1 * WORD

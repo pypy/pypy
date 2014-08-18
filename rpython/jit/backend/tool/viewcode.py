@@ -116,7 +116,7 @@ def load_symbols(filename):
     p = subprocess.Popen(symbollister % filename, shell=True,
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
-    if not p.returncode:
+    if p.returncode:
         raise Exception('Encountered an error running nm: %s' %
                         stderr)
     for line in stdout.splitlines(True):

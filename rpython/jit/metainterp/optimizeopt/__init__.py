@@ -8,7 +8,6 @@ from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
 from rpython.jit.metainterp.optimizeopt.simplify import OptSimplify
 from rpython.jit.metainterp.optimizeopt.pure import OptPure
 from rpython.jit.metainterp.optimizeopt.earlyforce import OptEarlyForce
-from rpython.jit.metainterp.optimizeopt.stm import OptSTM
 from rpython.rlib.jit import PARAMETERS, ENABLE_ALL_OPTS
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
@@ -35,9 +34,6 @@ assert ENABLE_ALL_OPTS == ALL_OPTS_NAMES, (
 def build_opt_chain(metainterp_sd, enable_opts):
     optimizations = []
     unroll = 'unroll' in enable_opts    # 'enable_opts' is normally a dict
-    if metainterp_sd.config.translation.stm:
-        optimizations.append(OptSTM())
-        
     for name, opt in unroll_all_opts:
         if name in enable_opts:
             if opt is not None:

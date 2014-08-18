@@ -534,30 +534,6 @@ class TestHeapCache(object):
         )
         assert h.getarrayitem(box1, index1, descr1) is box3
 
-    def test_stm_break(self):
-        h = HeapCache()
-        assert h.stm_break_wanted
-        h.stm_break_done()
-        assert not h.stm_break_wanted
-        # loop headers
-        h.reset()
-        assert h.stm_break_wanted
-        h.stm_break_done()
-        assert not h.stm_break_wanted
-        # call that may make the transaction inevitable
-        h.invalidate_caches(
-            rop.CALL, FakeCallDescr(FakeEffectinfo.EF_RANDOM_EFFECTS), [box1]
-        )
-        assert h.stm_break_wanted
-        h.stm_break_done()
-        # unknown op
-        h.invalidate_caches(rop.JIT_DEBUG, None, [box1, lengthbox2, box2])
-        assert h.stm_break_wanted
-        h.stm_break_done()
-        # GUARD_NOT_FORCED
-        h.invalidate_caches(rop.GUARD_NOT_FORCED, None, [])
-        assert h.stm_break_wanted
-
     def test_bug_missing_ignored_operations(self):
         h = HeapCache()
         h.new(box1)

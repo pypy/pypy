@@ -229,8 +229,7 @@ class Frame(object):
         
 def make_interp(supports_call, jitted=True):
     myjitdriver = JitDriver(greens = ['pc', 'code'],
-                            reds = ['frame', 'pool'],
-                            stm_do_transaction_breaks=True)
+                            reds = ['frame', 'pool'])
 
     def interp(code='', pc=0, inputarg=0, pool=None):
         if not isinstance(code,str):
@@ -250,9 +249,6 @@ def make_interp(supports_call, jitted=True):
             if jitted:
                 myjitdriver.jit_merge_point(frame=frame,
                                             code=code, pc=pc, pool=pool)
-                # nothing inbetween!
-                if rstm.jit_stm_should_break_transaction(False):
-                    rstm.jit_stm_transaction_break_point()
             opcode = ord(code[pc])
             pc += 1
             stack = frame.stack
@@ -353,8 +349,7 @@ def make_interp(supports_call, jitted=True):
                 pc += char2int(code[pc])
                 pc += 1
                 if jitted and old_pc > pc:
-                    if rstm.jit_stm_should_break_transaction(True):
-                        rstm.jit_stm_transaction_break_point()
+                    rstm.possible_transaction_break()
                     myjitdriver.can_enter_jit(code=code, pc=pc, frame=frame,
                                               pool=pool)
                 
@@ -364,8 +359,7 @@ def make_interp(supports_call, jitted=True):
                     old_pc = pc
                     pc += char2int(code[pc]) + 1
                     if jitted and old_pc > pc:
-                        if rstm.jit_stm_should_break_transaction(True):
-                            rstm.jit_stm_transaction_break_point()
+                        rstm.possible_transaction_break()
                         myjitdriver.can_enter_jit(code=code, pc=pc, frame=frame,
                                                   pool=pool)
                 else:
@@ -377,8 +371,7 @@ def make_interp(supports_call, jitted=True):
                     old_pc = pc
                     pc += offset
                     if jitted and old_pc > pc:
-                        if rstm.jit_stm_should_break_transaction(True):
-                            rstm.jit_stm_transaction_break_point()
+                        rstm.possible_transaction_break()
                         myjitdriver.can_enter_jit(code=code, pc=pc, frame=frame,
                                                   pool=pool)
                         

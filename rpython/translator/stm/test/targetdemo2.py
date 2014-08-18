@@ -1,6 +1,6 @@
 import time
 from rpython.rlib import rthread
-from rpython.rlib import rstm, jit
+from rpython.rlib import rstm
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.objectmodel import compute_identity_hash
 from rpython.rlib.debug import ll_assert
@@ -65,12 +65,6 @@ def check_chained_list(node):
     print "check ok!"
 
 
-jitdriver_hash   = jit.JitDriver(greens=[], reds=['value', 'self'])
-jitdriver_inev   = jit.JitDriver(greens=[], reds=['value', 'self'])
-jitdriver_ptreq  = jit.JitDriver(greens=[], reds=['self'])
-jitdriver_really = jit.JitDriver(greens=[], reds=['value', 'self'])
-
-
 class ThreadRunner(object):
     arg = None
 
@@ -94,7 +88,7 @@ class ThreadRunner(object):
     def do_run_really(self):
         value = 0
         while True:
-            jitdriver_really.jit_merge_point(self=self, value=value)
+            rstm.possible_transaction_break()
             if not self.run_really(value):
                 break
             value += 1
@@ -115,7 +109,7 @@ class ThreadRunner(object):
         return (value+1) < glob.LENGTH
 
     def do_check_ptr_equality(self):
-        jitdriver_ptreq.jit_merge_point(self=self)
+        rstm.possible_transaction_break()
         self.check_ptr_equality(0)
 
     def check_ptr_equality(self, foo):
@@ -129,7 +123,7 @@ class ThreadRunner(object):
     def do_check_inev(self):
         value = 0
         while True:
-            jitdriver_inev.jit_merge_point(self=self, value=value)
+            rstm.possible_transaction_break()
             if not self.check_inev(value):
                 break
             value += 1
@@ -157,7 +151,7 @@ class ThreadRunner(object):
     def do_check_hash(self):
         value = 0
         while True:
-            jitdriver_hash.jit_merge_point(self=self, value=value)
+            rstm.possible_transaction_break()
             value = self.check_hash(value)
             if value >= glob.LENGTH:
                 break

@@ -929,15 +929,18 @@ def test_promote_2():
     assert block.operations[1].result is None
     assert block.exits[0].args == [v1]
 
-def test_jit_stm_transaction_break_point():
-    py.test.skip("XXX?")
-    op = SpaceOperation('jit_stm_transaction_break_point',
-                        [Constant(1, lltype.Signed)], lltype.Void)
+def test_stm_should_break_transaction():
+    op = SpaceOperation('stm_should_break_transaction', [], lltype.Bool)
     tr = Transformer()
     op2 = tr.rewrite_operation(op)
-    assert op2.opname == 'stm_transaction_break'
-    assert op2.args[0].value == 1
-    
+    assert op2.opname == 'stm_should_break_transaction'
+
+def test_stm_rewind_jmp_frame():
+    op = SpaceOperation('stm_rewind_jmp_frame', [], lltype.Void)
+    tr = Transformer()
+    op2 = tr.rewrite_operation(op)
+    assert op2 == []
+
 def test_jit_merge_point_1():
     class FakeJitDriverSD:
         index = 42

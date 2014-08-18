@@ -21,7 +21,7 @@ class TranslationTest(CCompiledMixin):
         # this is a basic test that tries to hit a number of features and their
         # translation:
         # - jitting of loops and bridges
-        # - virtualizables
+        # - two virtualizable types
         # - set_param interface
         # - profiler
         # - full optimizer
@@ -79,22 +79,28 @@ class TranslationTest(CCompiledMixin):
                 if rposix.get_errno() != total: raise ValueError
             return chr(total % 253)
         #
+        class Virt2(object):
+            _virtualizable_ = ['i']
+            def __init__(self, i):
+                self.i = i
         from rpython.rlib.libffi import types, CDLL, ArgChain
         from rpython.rlib.test.test_clibffi import get_libm_name
         libm_name = get_libm_name(sys.platform)
-        jitdriver2 = JitDriver(greens=[], reds = ['i', 'func', 'res', 'x'])
+        jitdriver2 = JitDriver(greens=[], reds = ['v2', 'func', 'res', 'x'],
+                               virtualizables = ['v2'])
         def libffi_stuff(i, j):
             lib = CDLL(libm_name)
             func = lib.getpointer('fabs', [types.double], types.double)
             res = 0.0
             x = float(j)
-            while i > 0:
-                jitdriver2.jit_merge_point(i=i, res=res, func=func, x=x)
+            v2 = Virt2(i)
+            while v2.i > 0:
+                jitdriver2.jit_merge_point(v2=v2, res=res, func=func, x=x)
                 promote(func)
                 argchain = ArgChain()
                 argchain.arg(x)
                 res = func.call(argchain, rffi.DOUBLE)
-                i -= 1
+                v2.i -= 1
             return res
         #
         def main(i, j):

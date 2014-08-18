@@ -1,5 +1,6 @@
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import CDefinedIntSymbolic
+from rpython.rlib.rgc import stm_is_enabled
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -12,16 +13,16 @@ class CFlexSymbolic(CDefinedIntSymbolic):
 TID = rffi.UINT
 tid_offset = CFlexSymbolic('offsetof(struct rpyobj_s, tid)')
 stm_nb_segments = CFlexSymbolic('STM_NB_SEGMENTS')
-stm_stack_marker_new = CFlexSymbolic('STM_STACK_MARKER_NEW')
-stm_stack_marker_old = CFlexSymbolic('STM_STACK_MARKER_OLD')
 adr_nursery_free = CFlexSymbolic('((long)&STM_SEGMENT->nursery_current)')
 adr_nursery_top  = CFlexSymbolic('((long)&STM_SEGMENT->nursery_end)')
 adr_pypy_stm_nursery_low_fill_mark = (
     CFlexSymbolic('((long)&pypy_stm_nursery_low_fill_mark)'))
+adr_rjthread_head = (
+    CFlexSymbolic('((long)&stm_thread_local.rjthread.head)'))
+adr_rjthread_moved_off_base = (
+    CFlexSymbolic('((long)&stm_thread_local.rjthread.moved_off_base)'))
 adr_transaction_read_version = (
     CFlexSymbolic('((long)&STM_SEGMENT->transaction_read_version)'))
-adr_jmpbuf_ptr = (
-    CFlexSymbolic('((long)&STM_SEGMENT->jmpbuf_ptr)'))
 adr_segment_base = (
     CFlexSymbolic('((long)&STM_SEGMENT->segment_base)'))
 adr_write_slowpath = CFlexSymbolic('((long)&_stm_write_slowpath)')
@@ -32,28 +33,26 @@ adr__stm_write_slowpath_card_extra_base = (
 CARD_MARKED = CFlexSymbolic('_STM_CARD_MARKED')
 CARD_SIZE   = CFlexSymbolic('_STM_CARD_SIZE')
 
-adr__pypy_stm_become_inevitable = (
-    CFlexSymbolic('((long)&_pypy_stm_become_inevitable)'))
-adr_stm_commit_transaction = (
-    CFlexSymbolic('((long)&stm_commit_transaction)'))
-adr_pypy_stm_start_transaction = (
-    CFlexSymbolic('((long)&pypy_stm_start_transaction)'))
+adr_pypy__rewind_jmp_copy_stack_slice = (
+    CFlexSymbolic('((long)&pypy__rewind_jmp_copy_stack_slice)'))
+adr_pypy_stm_commit_if_not_atomic = (
+    CFlexSymbolic('((long)&pypy_stm_commit_if_not_atomic)'))
+adr_pypy_stm_start_if_not_atomic = (
+    CFlexSymbolic('((long)&pypy_stm_start_if_not_atomic)'))
 
 
-def jit_stm_transaction_break_point():
-    # XXX REFACTOR AWAY
-    if we_are_translated():
-        llop.jit_stm_transaction_break_point(lltype.Void)
+def rewind_jmp_frame():
+    """At some key places, like the entry point of the thread and in the
+    function with the interpreter's dispatch loop, this must be called
+    (it turns into a marker in the caller's function).  There is one
+    automatically in any jit.jit_merge_point()."""
+    # special-cased below: the emitted operation must be placed
+    # directly in the caller's graph
 
-@specialize.arg(0)
-def jit_stm_should_break_transaction(if_there_is_no_other):
-    # XXX REFACTOR AWAY
-    # if_there_is_no_other means that we use this point only
-    # if there is no other break point in the trace.
-    # If it is False, the point may be used if it comes right
-    # after a CALL_RELEASE_GIL
-    return llop.jit_stm_should_break_transaction(lltype.Bool,
-                                                 if_there_is_no_other)
+def possible_transaction_break():
+    if stm_is_enabled():
+        if llop.stm_should_break_transaction(lltype.Bool):
+            break_transaction()
 
 def hint_commit_soon():
     """As the name says, just a hint. Maybe calling it
@@ -71,10 +70,13 @@ def stop_all_other_threads():
 def partial_commit_and_resume_other_threads():
     pass    # for now
 
-@dont_look_inside
 def should_break_transaction():
     return we_are_translated() and (
         llop.stm_should_break_transaction(lltype.Bool))
+
+@dont_look_inside
+def break_transaction():
+    llop.stm_transaction_break(lltype.Void)
 
 @dont_look_inside
 def set_transaction_length(fraction):
@@ -108,21 +110,21 @@ before_external_call._transaction_break_ = True
 def after_external_call():
     if we_are_translated():
         # starts a new transaction if we are not atomic already
-        llop.stm_start_inevitable_if_not_atomic(lltype.Void)
+        llop.stm_start_if_not_atomic(lltype.Void)
 after_external_call._dont_reach_me_in_del_ = True
 after_external_call._transaction_break_ = True
 
 @dont_look_inside
-def enter_callback_call():
+def enter_callback_call(rjbuf):
     if we_are_translated():
-        return llop.stm_enter_callback_call(lltype.Signed)
+        return llop.stm_enter_callback_call(lltype.Signed, rjbuf)
 enter_callback_call._dont_reach_me_in_del_ = True
 enter_callback_call._transaction_break_ = True
 
 @dont_look_inside
-def leave_callback_call(token):
+def leave_callback_call(rjbuf, token):
     if we_are_translated():
-        llop.stm_leave_callback_call(lltype.Void, token)
+        llop.stm_leave_callback_call(lltype.Void, rjbuf, token)
 leave_callback_call._dont_reach_me_in_del_ = True
 leave_callback_call._transaction_break_ = True
 
@@ -161,26 +163,13 @@ def reset_longest_abort_info():
 
 # ____________________________________________________________
 
-def make_perform_transaction(func, CONTAINERP):
-    from rpython.rtyper.annlowlevel import llhelper
-    from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
-    from rpython.translator.stm.stmgcintf import CALLBACK_TX
-    #
-    def _stm_callback(llcontainer, retry_counter):
-        llcontainer = rffi.cast(CONTAINERP, llcontainer)
-        retry_counter = rffi.cast(lltype.Signed, retry_counter)
-        try:
-            res = func(llcontainer, retry_counter)
-        except Exception, e:
-            res = 0     # ends perform_transaction() and returns
-            lle = cast_instance_to_base_ptr(e)
-            llcontainer.got_exception = lle
-        return rffi.cast(rffi.INT_real, res)
-    #
-    @dont_look_inside
-    def perform_transaction(llcontainer):
-        llcallback = llhelper(CALLBACK_TX, _stm_callback)
-        llop.stm_perform_transaction(lltype.Void, llcontainer, llcallback)
-    perform_transaction._transaction_break_ = True
-    #
-    return perform_transaction
+class _Entry(ExtRegistryEntry):
+    _about_ = rewind_jmp_frame
+
+    def compute_result_annotation(self):
+        pass
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        if hop.rtyper.annotator.translator.config.translation.stm:
+            hop.genop('stm_rewind_jmp_frame', [], resulttype=lltype.Void)

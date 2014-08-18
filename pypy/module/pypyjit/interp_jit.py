@@ -44,8 +44,7 @@ class PyPyJitDriver(JitDriver):
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               should_unroll_one_iteration =
                               should_unroll_one_iteration,
-                              name='pypyjit',
-                              stm_do_transaction_breaks=True)
+                              name='pypyjit')
 
 class __extend__(PyFrame):
 
@@ -56,9 +55,6 @@ class __extend__(PyFrame):
             pypyjitdriver.jit_merge_point(ec=ec,
                 frame=self, next_instr=next_instr, pycode=pycode,
                 is_being_profiled=self.is_being_profiled)
-            if self.space.threadlocals.threads_running: # quasi-immutable field
-                if rstm.jit_stm_should_break_transaction(False):
-                    rstm.jit_stm_transaction_break_point()
 
             co_code = pycode.co_code
             self.valuestackdepth = hint(self.valuestackdepth, promote=True)
@@ -89,8 +85,7 @@ class __extend__(PyFrame):
             ec.bytecode_trace(self, decr_by)
             jumpto = r_uint(self.last_instr)
             if self.space.threadlocals.threads_running: # quasi-immutable field
-                if rstm.jit_stm_should_break_transaction(True):
-                    rstm.jit_stm_transaction_break_point()
+                rstm.possible_transaction_break()
         #
         pypyjitdriver.can_enter_jit(frame=self, ec=ec, next_instr=jumpto,
                                     pycode=self.getcode(),

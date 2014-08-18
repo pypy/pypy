@@ -188,16 +188,13 @@ class RFile(object):
             finally:
                 lltype.free(buf, flavor='raw')
         else:
-            raw_buf, gc_buf = rffi.alloc_buffer(size)
-            try:
-                returned_size = c_fread(raw_buf, 1, size, ll_file)
+            with rffi.scoped_alloc_buffer(size) as buf:
+                returned_size = c_fread(buf.raw, 1, size, ll_file)
                 returned_size = intmask(returned_size)  # is between 0 and size
                 if returned_size == 0:
                     if not c_feof(ll_file):
                         raise _error(ll_file)
-                s = rffi.str_from_buffer(raw_buf, gc_buf, size, returned_size)
-            finally:
-                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+                s = buf.str(returned_size)
             return s
 
     def seek(self, pos, whence=0):
@@ -270,25 +267,21 @@ class RFile(object):
 
     def readline(self):
         if self.ll_file:
-            raw_buf, gc_buf = rffi.alloc_buffer(BASE_LINE_SIZE)
-            try:
-                c = self._readline1(raw_buf)
+            with rffi.scoped_alloc_buffer(BASE_LINE_SIZE) as buf:
+                c = self._readline1(buf.raw)
                 if c >= 0:
-                    return rffi.str_from_buffer(raw_buf, gc_buf,
-                                                BASE_LINE_SIZE, c)
+                    return buf.str(c)
                 #
                 # this is the rare case: the line is longer than BASE_LINE_SIZE
                 s = StringBuilder()
                 while True:
-                    s.append_charpsize(raw_buf, BASE_LINE_SIZE - 1)
-                    c = self._readline1(raw_buf)
+                    s.append_charpsize(buf.raw, BASE_LINE_SIZE - 1)
+                    c = self._readline1(buf.raw)
                     if c >= 0:
                         break
                 #
-                s.append_charpsize(raw_buf, c)
+                s.append_charpsize(buf.raw, c)
                 return s.build()
-            finally:
-                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         raise ValueError("I/O operation on closed file")
 
 

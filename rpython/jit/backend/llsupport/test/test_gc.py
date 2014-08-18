@@ -2,7 +2,7 @@ import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.jit.backend.llsupport import jitframe, gc, descr
+from rpython.jit.backend.llsupport import jitframe, gc, descr, gcmap
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.metainterp.gc import get_description
 from rpython.jit.metainterp.history import BoxPtr, BoxInt, ConstPtr
@@ -184,7 +184,7 @@ class TestFramework(object):
         rewriter = GcRewriterAssembler(gc_ll_descr, None)
         newops = rewriter.newops
         v_base = BoxPtr()
-        rewriter.gen_write_barrier(v_base)
+        rewriter.gen_write_barrier(v_base, stm_location=None)
         assert llop1.record == []
         assert len(newops) == 1
         assert newops[0].getopnum() == rop.COND_CALL_GC_WB
@@ -242,7 +242,8 @@ def test_custom_tracer():
     frame_info = lltype.malloc(jitframe.JITFRAMEINFO, zero=True, flavor='raw')
     frame = lltype.malloc(jitframe.JITFRAME, 200, zero=True)
     frame.jf_frame_info = frame_info
-    frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 4, flavor='raw')
+    frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 4 + gcmap.GCMAP_STM_LOCATION,
+                                   flavor='raw')
     if sys.maxint == 2**31 - 1:
         max = r_uint(2 ** 31)
     else:
@@ -263,6 +264,7 @@ def test_custom_tracer():
         if isinstance(TP, lltype.Ptr) and TP.TO._gckind == 'gc': 
             assert all_addrs[counter] == frame_adr + jitframe.getofs(name)
             counter += 1
+    assert counter == 5
     # gcpattern
     assert all_addrs[5] == indexof(0)
     assert all_addrs[6] == indexof(1)
@@ -271,13 +273,18 @@ def test_custom_tracer():
     assert all_addrs[9] == indexof(7)
     if sys.maxint == 2**31 - 1:
         assert all_addrs[10] == indexof(31)
-        assert all_addrs[11] == indexof(33 + 32)
+        assert all_addrs[11] == indexof(65)
+        assert all_addrs[12] == indexof(68)
+        assert all_addrs[13] == indexof(69)
+        assert all_addrs[14] == indexof(71)
     else:
         assert all_addrs[10] == indexof(63)
-        assert all_addrs[11] == indexof(65 + 64)
+        assert all_addrs[11] == indexof(129)
+        assert all_addrs[12] == indexof(132)
+        assert all_addrs[13] == indexof(133)
+        assert all_addrs[14] == indexof(135)
 
-    assert len(all_addrs) == 5 + 6 + 4
-    # 5 static fields, 4 addresses from gcmap, 2 from gcpattern
+    assert len(all_addrs) == 15
     lltype.free(frame_info, flavor='raw')
     lltype.free(frame.jf_gcmap, flavor='raw')
 

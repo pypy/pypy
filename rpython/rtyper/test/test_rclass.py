@@ -440,6 +440,25 @@ class TestRclass(BaseRtypingTest):
         res = self.interpret(f, [3])
         assert res == ~0x0200 & 0x3ff
 
+    def test_class___name__(self):
+        class ACLS(object): pass
+        class Bcls(ACLS): pass
+        class CCls(ACLS): pass
+        def nameof(cls):
+            return cls.__name__
+        nameof._annspecialcase_ = "specialize:memo"
+        def f(i):
+            if i == 1: x = ACLS()
+            elif i == 2: x = Bcls()
+            else: x = CCls()
+            return nameof(x.__class__)
+        res = self.interpret(f, [1])
+        assert ''.join(res.chars) == 'ACLS'
+        res = self.interpret(f, [2])
+        assert ''.join(res.chars) == 'Bcls'
+        res = self.interpret(f, [3])
+        assert ''.join(res.chars) == 'CCls'
+
     def test_hash_preservation(self):
         from rpython.rlib.objectmodel import current_object_addr_as_int
         from rpython.rlib.objectmodel import compute_identity_hash

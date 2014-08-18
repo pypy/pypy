@@ -75,7 +75,6 @@ class UnrollOptimizer(Optimization):
 
         start_label = loop.operations[0]
         if start_label.getopnum() == rop.LABEL:
-            loop.is_really_loop = True
             loop.operations = loop.operations[1:]
             # We need to emit the label op before import_state() as emitting it
             # will clear heap caches

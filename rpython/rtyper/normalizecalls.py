@@ -62,6 +62,8 @@ def raise_call_table_too_complex_error(callfamily, annotator):
             msg.append("the following functions:")
             msg.append("    %s" % ("\n    ".join(pfg), ))
             msg.append("are called with inconsistent numbers of arguments")
+            msg.append("(and/or the argument names are different, which is"
+                       " not supported in this case)")
             if shape1[0] != shape2[0]:
                 msg.append("sometimes with %s arguments, sometimes with %s" % (shape1[0], shape2[0]))
             else:
@@ -93,7 +95,12 @@ def normalize_calltable_row_signature(annotator, shape, row):
         return False   # nothing to do, all signatures already match
 
     shape_cnt, shape_keys, shape_star = shape
-    assert not shape_star, "XXX not implemented"
+    if shape_star:
+        raise TyperError(
+            "not implemented: a call is done with a '*' argument, and the"
+            " multiple functions or methods that it can go to don't have"
+            " all the same signature (different argument names or defaults)."
+            " The call can go to:\n%s" % '\n'.join(map(repr, graphs)))
 
     # for the first 'shape_cnt' arguments we need to generalize to
     # a common type

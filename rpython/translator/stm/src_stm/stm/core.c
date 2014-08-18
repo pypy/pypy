@@ -325,14 +325,12 @@ static void reset_transaction_read_version(void)
     STM_SEGMENT->transaction_read_version = 1;
 }
 
-void _stm_start_transaction(stm_thread_local_t *tl, stm_jmpbuf_t *jmpbuf)
+static void _stm_start_transaction(stm_thread_local_t *tl, bool inevitable)
 {
     assert(!_stm_in_transaction(tl));
 
-    s_mutex_lock();
-
   retry:
-    if (jmpbuf == NULL) {
+    if (inevitable) {
         wait_for_end_of_inevitable_transaction(tl);
     }
 
@@ -347,11 +345,9 @@ void _stm_start_transaction(stm_thread_local_t *tl, stm_jmpbuf_t *jmpbuf)
     STM_PSEGMENT->signalled_to_commit_soon = false;
     STM_PSEGMENT->safe_point = SP_RUNNING;
     STM_PSEGMENT->marker_inev[1] = 0;
-    if (jmpbuf == NULL)
+    if (inevitable)
         marker_fetch_inev();
-    STM_PSEGMENT->transaction_state = (jmpbuf != NULL ? TS_REGULAR
-                                                      : TS_INEVITABLE);
-    STM_SEGMENT->jmpbuf_ptr = jmpbuf;
+    STM_PSEGMENT->transaction_state = (inevitable ? TS_INEVITABLE : TS_REGULAR);
 #ifndef NDEBUG
     STM_PSEGMENT->running_pthread = pthread_self();
 #endif
@@ -389,6 +385,24 @@ void _stm_start_transaction(stm_thread_local_t *tl, stm_jmpbuf_t *jmpbuf)
 #endif
 
     check_nursery_at_transaction_start();
+}
+
+long stm_start_transaction(stm_thread_local_t *tl)
+{
+    s_mutex_lock();
+#ifdef STM_NO_AUTOMATIC_SETJMP
+    long repeat_count = 0;    /* test/support.py */
+#else
+    long repeat_count = stm_rewind_jmp_setjmp(tl);
+#endif
+    _stm_start_transaction(tl, false);
+    return repeat_count;
+}
+
+void stm_start_inevitable_transaction(stm_thread_local_t *tl)
+{
+    s_mutex_lock();
+    _stm_start_transaction(tl, true);
 }
 
 
@@ -815,7 +829,7 @@ void stm_commit_transaction(void)
     dprintf(("commit_transaction\n"));
 
     assert(STM_SEGMENT->nursery_end == NURSERY_END);
-    STM_SEGMENT->jmpbuf_ptr = NULL;
+    stm_rewind_jmp_forget(STM_SEGMENT->running_thread);
 
     /* if a major collection is required, do it here */
     if (is_major_collection_requested()) {
@@ -893,7 +907,7 @@ reset_modified_from_other_segments(int segment_num)
                WRITE_BARRIER flag, unless they have been modified
                recently.  Ignore the old flag; after copying from the
                other segment, we should have the flag. */
-            assert(item->stm_flags & GCFLAG_WRITE_BARRIER);
+            assert(((struct object_s *)dst)->stm_flags & GCFLAG_WRITE_BARRIER);
 
             /* write all changes to the object before we release the
                write lock below.  This is needed because we need to
@@ -970,12 +984,27 @@ static void abort_data_structures_from_segment_num(int segment_num)
     reset_modified_from_other_segments(segment_num);
     _verify_cards_cleared_in_all_lists(pseg);
 
-    /* reset the tl->shadowstack and thread_local_obj to their original
-       value before the transaction start */
+    /* reset tl->shadowstack and thread_local_obj to their original
+       value before the transaction start.  Also restore the content
+       of the shadowstack here. */
     stm_thread_local_t *tl = pseg->pub.running_thread;
+#ifdef STM_NO_AUTOMATIC_SETJMP
+    /* In tests, we don't save and restore the shadowstack correctly.
+       Be sure to not change items below shadowstack_at_start_of_transaction.
+       There is no such restrictions in non-Python-based tests. */
     assert(tl->shadowstack >= pseg->shadowstack_at_start_of_transaction);
-    pseg->shadowstack_at_abort = tl->shadowstack;
     tl->shadowstack = pseg->shadowstack_at_start_of_transaction;
+#else
+    /* NB. careful, this function might be called more than once to
+       abort a given segment.  Make sure that
+       stm_rewind_jmp_restore_shadowstack() is idempotent. */
+    /* we need to do this here and not directly in rewind_longjmp() because
+       that is called when we already released everything (safe point)
+       and a concurrent major GC could mess things up. */
+    if (tl->shadowstack != NULL)
+        stm_rewind_jmp_restore_shadowstack(tl);
+    assert(tl->shadowstack == pseg->shadowstack_at_start_of_transaction);
+#endif
     tl->thread_local_obj = pseg->threadlocal_at_start_of_transaction;
     tl->last_abort__bytes_in_nursery = bytes_in_nursery;
 
@@ -988,7 +1017,19 @@ static void abort_data_structures_from_segment_num(int segment_num)
 #pragma pop_macro("STM_PSEGMENT")
 }
 
-static void abort_with_mutex(void)
+#ifdef STM_NO_AUTOMATIC_SETJMP
+void _test_run_abort(stm_thread_local_t *tl) __attribute__((noreturn));
+int stm_is_inevitable(void)
+{
+    switch (STM_PSEGMENT->transaction_state) {
+    case TS_REGULAR: return 0;
+    case TS_INEVITABLE: return 1;
+    default: abort();
+    }
+}
+#endif
+
+static stm_thread_local_t *abort_with_mutex_no_longjmp(void)
 {
     assert(_has_mutex());
     dprintf(("~~~ ABORT\n"));
@@ -997,10 +1038,9 @@ static void abort_with_mutex(void)
 
     abort_data_structures_from_segment_num(STM_SEGMENT->segment_num);
 
-    stm_jmpbuf_t *jmpbuf_ptr = STM_SEGMENT->jmpbuf_ptr;
+    stm_thread_local_t *tl = STM_SEGMENT->running_thread;
 
     /* clear memory registered on the thread-local */
-    stm_thread_local_t *tl = STM_SEGMENT->running_thread;
     if (tl->mem_clear_on_abort)
         memset(tl->mem_clear_on_abort, 0, tl->mem_bytes_to_clear_on_abort);
 
@@ -1022,6 +1062,12 @@ static void abort_with_mutex(void)
     /* Broadcast C_ABORTED to wake up contention.c */
     cond_broadcast(C_ABORTED);
 
+    return tl;
+}
+
+static void abort_with_mutex(void)
+{
+    stm_thread_local_t *tl = abort_with_mutex_no_longjmp();
     s_mutex_unlock();
 
     /* It seems to be a good idea, at least in some examples, to sleep
@@ -1036,9 +1082,12 @@ static void abort_with_mutex(void)
     */
     usleep(1);
 
-    assert(jmpbuf_ptr != NULL);
-    assert(jmpbuf_ptr != (stm_jmpbuf_t *)-1);    /* for tests only */
-    __builtin_longjmp(*jmpbuf_ptr, 1);
+#ifdef STM_NO_AUTOMATIC_SETJMP
+    _test_run_abort(tl);
+#else
+    s_mutex_lock();
+    stm_rewind_jmp_longjmp(tl);
+#endif
 }
 
 void _stm_become_inevitable(const char *msg)
@@ -1052,12 +1101,11 @@ void _stm_become_inevitable(const char *msg)
         marker_fetch_inev();
         wait_for_end_of_inevitable_transaction(NULL);
         STM_PSEGMENT->transaction_state = TS_INEVITABLE;
-        STM_SEGMENT->jmpbuf_ptr = NULL;
+        stm_rewind_jmp_forget(STM_SEGMENT->running_thread);
         clear_callbacks_on_abort();
     }
     else {
         assert(STM_PSEGMENT->transaction_state == TS_INEVITABLE);
-        assert(STM_SEGMENT->jmpbuf_ptr == NULL);
     }
 
     s_mutex_unlock();

@@ -1292,9 +1292,6 @@ class RegAlloc(BaseRegalloc):
                                                 need_lower_byte=True)
             self.perform(op, [], resloc)
 
-    def consider_stm_transaction_break(self, op, guard_op):
-        self.perform_with_guard(op, guard_op, [], None)
-
     def consider_jump(self, op):
         assembler = self.assembler
         assert self.jump_target_descr is None
@@ -1444,7 +1441,6 @@ for name, value in RegAlloc.__dict__.iteritems():
             or num == rop.CALL_MAY_FORCE
             or num == rop.CALL_ASSEMBLER
             or num == rop.CALL_RELEASE_GIL
-            or num == rop.STM_TRANSACTION_BREAK
             or num == rop.STM_SHOULD_BREAK_TRANSACTION):
             oplist_with_guard[num] = value
             oplist[num] = add_none_argument(value)

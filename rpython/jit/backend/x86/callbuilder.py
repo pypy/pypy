@@ -1,8 +1,9 @@
+import sys
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.history import INT, FLOAT
 from rpython.jit.backend.x86.arch import (WORD, IS_X86_64, IS_X86_32,
-                                          PASS_ON_MY_FRAME)
+                                          PASS_ON_MY_FRAME, FRAME_FIXED_SIZE)
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
@@ -14,6 +15,8 @@ from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
 # darwin requires the stack to be 16 bytes aligned on calls.
 # Same for gcc 4.5.0, better safe than sorry
 CALL_ALIGN = 16 // WORD
+
+stdcall_or_cdecl = sys.platform == "win32"
 
 def align_stack_words(words):
     return (words + CALL_ALIGN - 1) & ~(CALL_ALIGN-1)
@@ -43,11 +46,6 @@ class CallBuilderX86(AbstractCallBuilder):
             from rpython.memory.gctransform import asmgcroot
             self.stack_max = PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS
             assert self.stack_max >= 3
-
-    def emit_raw_call(self):
-        self.mc.CALL(self.fnloc)
-        if self.callconv != FFI_DEFAULT_ABI:
-            self.current_esp += self._fix_stdcall(self.callconv)
 
     def subtract_esp_aligned(self, count):
         if count > 0:
@@ -97,6 +95,10 @@ class CallBuilderX86(AbstractCallBuilder):
     def call_releasegil_addr_and_move_real_arguments(self, fastgil):
         from rpython.jit.backend.x86.assembler import heap
         #
+        if self.asm.cpu.gc_ll_descr.stm:
+            self.call_stm_before_ex_call()
+            return
+        #
         if not self.asm._is_asmgcc():
             # shadowstack: change 'rpy_fastgil' to 0 (it should be
             # non-zero right now).
@@ -129,10 +131,14 @@ class CallBuilderX86(AbstractCallBuilder):
         self.mc.MOV(heap(self.asm.SEGMENT_NO, fastgil), css_value)
         #
         if not we_are_translated():        # for testing: we should not access
-            self.mc.ADD(ebp, imm(1))       # ebp any more; and ignore 'fastgil'
+            self.mc.ADD(ebp, imm(1))       # ebp any more
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         from rpython.jit.backend.x86 import rx86
+        #
+        if self.asm.cpu.gc_ll_descr.stm:
+            self.call_stm_after_ex_call()
+            return
         #
         # check if we need to call the reacqgil() function or not
         # (to acquiring the GIL, remove the asmgcc head from
@@ -246,6 +252,28 @@ class CallBuilder32(CallBuilderX86):
         if not self.fnloc_is_immediate:    # the last "argument" pushed above
             self.fnloc = RawEspLoc(p - WORD, INT)
 
+
+    def emit_raw_call(self):
+        if stdcall_or_cdecl and self.is_call_release_gil:
+            # Dynamically accept both stdcall and cdecl functions.
+            # We could try to detect from pyjitpl which calling
+            # convention this particular function takes, which would
+            # avoid these two extra MOVs... but later.  The ebp register
+            # is unused here: it will be reloaded from the shadowstack.
+            # (This doesn't work during testing, though. Hack hack hack.)
+            save_ebp = not self.asm.cpu.gc_ll_descr.is_shadow_stack()
+            ofs = WORD * (FRAME_FIXED_SIZE - 1)
+            if save_ebp:    # only for testing (or with Boehm)
+                self.mc.MOV_sr(ofs, ebp.value)
+            self.mc.MOV(ebp, esp)
+            self.mc.CALL(self.fnloc)
+            self.mc.MOV(esp, ebp)
+            if save_ebp:    # only for testing (or with Boehm)
+                self.mc.MOV_rs(ebp.value, ofs)
+        else:
+            self.mc.CALL(self.fnloc)
+            if self.callconv != FFI_DEFAULT_ABI:
+                self.current_esp += self._fix_stdcall(self.callconv)
 
     def _fix_stdcall(self, callconv):
         from rpython.rlib.clibffi import FFI_STDCALL
@@ -418,8 +446,9 @@ class CallBuilder64(CallBuilderX86):
         remap_frame_layout(self.asm, src_locs, dst_locs, X86_64_SCRATCH_REG)
 
 
-    def _fix_stdcall(self, callconv):
-        assert 0     # should not occur on 64-bit
+    def emit_raw_call(self):
+        assert self.callconv == FFI_DEFAULT_ABI
+        self.mc.CALL(self.fnloc)
 
     def load_result(self):
         if self.restype == 'S':
@@ -460,6 +489,43 @@ class CallBuilder64(CallBuilderX86):
         else:
             assert self.restype == INT
             self.mc.MOV_rs(eax.value, 0)
+
+    def call_stm_before_ex_call(self):
+        from rpython.rlib import rstm
+        # XXX slowish: before any CALL_RELEASE_GIL, invoke the
+        # pypy_stm_commit_if_not_atomic() function.  Messy because
+        # we need to save the register arguments first.
+        #
+        n = min(self.next_arg_gpr, len(self.ARGUMENTS_GPR))
+        for i in range(n):
+            self.mc.PUSH_r(self.ARGUMENTS_GPR[i].value)    # PUSH gpr arg
+        m = min(self.next_arg_xmm, len(self.ARGUMENTS_XMM))
+        extra = m + ((n + m) & 1)
+        # in total the stack is moved down by (n + extra) words,
+        # which needs to be an even value for alignment:
+        assert ((n + extra) & 1) == 0
+        if extra > 0:
+            self.mc.SUB_ri(esp.value, extra * WORD)        # SUB rsp, extra
+            for i in range(m):
+                self.mc.MOVSD_sx(i * WORD, self.ARGUMENTS_XMM[i].value)
+                                                           # MOVSD [rsp+..], xmm
+        #
+        self.mc.CALL(imm(rstm.adr_pypy_stm_commit_if_not_atomic))
+        #
+        if extra > 0:
+            for i in range(m):
+                self.mc.MOVSD_xs(self.ARGUMENTS_XMM[i].value, i * WORD)
+            self.mc.ADD_ri(esp.value, extra * WORD)
+        for i in range(n-1, -1, -1):
+            self.mc.POP_r(self.ARGUMENTS_GPR[i].value)
+
+    def call_stm_after_ex_call(self):
+        from rpython.rlib import rstm
+        # after any CALL_RELEASE_GIL, invoke the
+        # pypy_stm_start_if_not_atomic() function
+        self.save_result_value_reacq()
+        self.mc.CALL(imm(rstm.adr_pypy_stm_start_if_not_atomic))
+        self.restore_result_value_reacq()
 
 
 if IS_X86_32:

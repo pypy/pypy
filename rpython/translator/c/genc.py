@@ -379,6 +379,11 @@ class CStandaloneBuilder(CBuilder):
             #Since there is no GetErrorMode, do a double Set
             old_mode = SetErrorMode(flags)
             SetErrorMode(old_mode | flags)
+        if env is None:
+            envrepr = ''
+        else:
+            envrepr = ' [env=%r]' % (env,)
+        log.cmdexec('%s %s%s' % (self.executable_name, args, envrepr))
         res = self.translator.platform.execute(self.executable_name, args,
                                                env=env)
         if sys.platform == 'win32':
@@ -919,14 +924,6 @@ def gen_source(database, modulename, targetdir,
 
     filename = targetdir.join(modulename + '.c')
     f = filename.open('w')
-    if database.with_stm:
-        print >> f, '/* XXX temporary, for SYS_arch_prctl below */'
-        print >> f, '#define _GNU_SOURCE'
-        print >> f, '#include <unistd.h>'
-        print >> f, '#include <sys/syscall.h>'
-        print >> f, '#include <sys/prctl.h>'
-        print >> f, '#include <asm/prctl.h>'
-        print >> f
     incfilename = targetdir.join('common_header.h')
     fi = incfilename.open('w')
     fi.write('#ifndef _PY_COMMON_HEADER_H\n#define _PY_COMMON_HEADER_H\n')
@@ -935,6 +932,12 @@ def gen_source(database, modulename, targetdir,
     # Header
     #
     print >> f, '#include "common_header.h"'
+    if database.with_stm:
+        print >> f, '/* XXX temporary, for SYS_arch_prctl below */'
+        print >> f, '#include <unistd.h>'
+        print >> f, '#include <sys/syscall.h>'
+        print >> f, '#include <sys/prctl.h>'
+        print >> f, '#include <asm/prctl.h>'
     print >> f
     commondefs(defines)
     for key, value in defines.items():

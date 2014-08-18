@@ -523,6 +523,8 @@ class FunctionGcRootTracker(object):
         'movnt', 'mfence', 'lfence', 'sfence',
         # bit manipulations
         'andn', 'bextr', 'blsi', 'blsmask', 'blsr', 'tzcnt', 'lzcnt',
+        # uh, this can occur with a 'call' on the following line...
+        'rex64',
     ])
 
     # a partial list is hopefully good enough for now; it's all to support

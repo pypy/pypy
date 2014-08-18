@@ -1418,20 +1418,9 @@ class Transformer(object):
                                           [v], None))
         return ops
 
-    def rewrite_op_jit_stm_should_break_transaction(self, op):
-        assert isinstance(op.args[0], Constant)
-        
-        arg = int(op.args[0].value)
-        c_arg = Constant(arg, lltype.Signed)
+    def rewrite_op_stm_rewind_jmp_frame(self, op):
+        return []
 
-        return [SpaceOperation('stm_should_break_transaction',
-                               [c_arg], op.result),
-                SpaceOperation('-live-', [], None),]
-
-    def rewrite_op_jit_stm_transaction_break_point(self, op):
-        return [SpaceOperation('stm_transaction_break', [], op.result),
-                SpaceOperation('-live-', [], None),]
-    
     def rewrite_op_jit_marker(self, op):
         key = op.args[0].value
         jitdriver = op.args[1].value

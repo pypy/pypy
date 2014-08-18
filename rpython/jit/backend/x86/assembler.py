@@ -19,8 +19,7 @@ from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_
 from rpython.jit.backend.x86.arch import (
     FRAME_FIXED_SIZE, WORD, IS_X86_64, JITFRAME_FIXED_SIZE, IS_X86_32,
     PASS_ON_MY_FRAME, STM_FRAME_FIXED_SIZE, STM_JMPBUF_OFS,
-    STM_JMPBUF_OFS_RIP, STM_JMPBUF_OFS_RSP, STM_JMPBUF_OFS_RBP,
-    STM_OLD_SHADOWSTACK)
+    STM_SHADOWSTACK_BASE_OFS, STM_PREV_OFS)
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
@@ -838,35 +837,6 @@ class Assembler386(BaseAssembler):
 
     def _call_footer(self):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if self.cpu.gc_ll_descr.stm and we_are_translated():
-            # call _pypy_stm_become_inevitable() if the current jmpbuf is set
-            # to this frame, because we're about to leave.  This is if
-            # we called a pypy_stm_start_transaction() earlier.
-            assert IS_X86_64
-            mc = self.mc
-            #
-            # load the address of the jmpbuf
-            mc.LEA_rs(edi.value, STM_JMPBUF_OFS)
-            # compare it with the currently-stored jmpbuf
-            mc.CMP_rj(edi.value, (self.SEGMENT_GC, rstm.adr_jmpbuf_ptr))
-            # if they differ (or if jmpbuf_ptr is already NULL), nothing to do
-            mc.J_il8(rx86.Conditions['NE'], 0) # patched later
-            jne_location = mc.get_relative_pos()
-            #
-            # if they are equal, we need to become inevitable now
-            mc.XOR_rr(edi.value, edi.value)
-            mc.CALL(imm(rstm.adr__pypy_stm_become_inevitable))
-            # there could have been a collection in the call above;
-            # reload the frame into ebp (but we don't need to apply the
-            # write barrier to it now)
-            mc.MOV(ecx, self.heap_shadowstack_top())
-            mc.MOV_rm(ebp.value, (self.SEGMENT_NO, ecx.value, -WORD))
-            #
-            # this is where the JNE above jumps
-            offset = mc.get_relative_pos() - jne_location
-            assert 0 < offset <= 127
-            mc.overwrite(jne_location-1, chr(offset))
-
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_footer_shadowstack()
 
@@ -886,36 +856,80 @@ class Assembler386(BaseAssembler):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         return self.heap_tl(gcrootmap.get_root_stack_top_addr())
 
+    def heap_rjthread_head(self):
+        """STM: Return an AddressLoc for '&stm_thread_local.rjthread.head'."""
+        return self.heap_tl(rstm.adr_rjthread_head)
+
+    def heap_rjthread_moved_off_base(self):
+        """STM: AddressLoc for '&stm_thread_local.rjthread.moved_off_base'."""
+        return self.heap_tl(rstm.adr_rjthread_moved_off_base)
+
     def _call_header_shadowstack(self):
         # put the frame in ebp on the shadowstack for the GC to find
         # (ebp is a writeable object and does not need a write-barrier
         # again (ensured by the code calling the loop))
-        self.mc.MOV(ebx, self.heap_shadowstack_top())
+        mc = self.mc
+        mc.MOV(ebx, self.heap_shadowstack_top())
+        mc.MOV_mr((self.SEGMENT_NO, ebx.value, 0), ebp.value)
+                                                      # MOV [ebx], ebp
         if self.cpu.gc_ll_descr.stm:
-            self.mc.MOV_mi((self.SEGMENT_NO, ebx.value, 0),
-                           rstm.stm_stack_marker_new) # MOV [ebx], MARKER_NEW
-            self.mc.MOV_mr((self.SEGMENT_NO, ebx.value, WORD),
-                           ebp.value)                 # MOV [ebx+WORD], ebp
-            self.mc.MOV_sr(STM_OLD_SHADOWSTACK, ebx.value)
-                                                      # MOV [esp+xx], ebx
-            self.mc.ADD_ri(ebx.value, 2 * WORD)
+            # inlining stm_rewind_jmp_enterframe()
+            r11 = X86_64_SCRATCH_REG
+            rjh = self.heap_rjthread_head()
+            mc.ADD_ri(ebx.value, 1)                  # ADD ebx, 1
+            mc.MOV(r11, rjh)                         # MOV r11, [rjthread.head]
+            mc.MOV_sr(STM_SHADOWSTACK_BASE_OFS, ebx.value)
+                                                     # MOV [esp+ssbase], ebx
+            mc.ADD_ri(ebx.value, WORD-1)             # ADD ebx, 7
+            mc.MOV_sr(STM_PREV_OFS, r11.value)       # MOV [esp+prev], r11
+            mc.MOV(self.heap_shadowstack_top(), ebx) # MOV [rootstacktop], ebx
+            mc.LEA_rs(r11.value, STM_JMPBUF_OFS)     # LEA r11, [esp+bufofs]
+            mc.MOV(rjh, r11)                         # MOV [rjthread.head], r11
+        #
         else:
-            self.mc.MOV_mr((self.SEGMENT_NO, ebx.value, 0),
-                           ebp.value)                 # MOV [ebx], ebp
-            self.mc.ADD_ri(ebx.value, WORD)
-        self.mc.MOV(self.heap_shadowstack_top(), ebx) # MOV [rootstacktop], ebx
+            mc.ADD_ri(ebx.value, WORD)               # ADD ebx, WORD
+            mc.MOV(self.heap_shadowstack_top(), ebx) # MOV [rootstacktop], ebx
 
     def _call_footer_shadowstack(self):
+        mc = self.mc
         if self.cpu.gc_ll_descr.stm:
             # STM: in the rare case where we need realloc_frame, the new
             # frame is pushed on top of the old one.  It's even possible
             # that this occurs more than once.  So we have to restore
             # the old shadowstack by looking up its original saved value.
-            self.mc.MOV_rs(ecx.value, STM_OLD_SHADOWSTACK)
-            self.mc.MOV(self.heap_shadowstack_top(), ecx)
+            # The rest of this is inlining stm_rewind_jmp_leaveframe().
+            r11 = X86_64_SCRATCH_REG
+            rjh = self.heap_rjthread_head()
+            rjmovd_o_b = self.heap_rjthread_moved_off_base()
+            mc.MOV_rs(ebx.value, STM_SHADOWSTACK_BASE_OFS)
+                                                      # MOV ebx, [esp+ssbase]
+            mc.MOV_rs(r11.value, STM_PREV_OFS)        # MOV r11, [esp+prev]
+            mc.SUB_ri(ebx.value, 1)                   # SUB ebx, 1
+            mc.MOV(self.heap_shadowstack_top(), ebx)  # MOV [rootstacktop], ebx
+            mc.LEA_rs(ebx.value, STM_JMPBUF_OFS)      # LEA ebx, [esp+bufofs]
+            mc.MOV(rjh, r11)                          # MOV [rjthread.head], r11
+            mc.CMP(ebx, rjmovd_o_b)                   # CMP ebx, [rjth.movd_o_b]
+            mc.J_il8(rx86.Conditions['NE'], 0)        # JNE label_below
+            jne_location = mc.get_relative_pos()
+            #
+            mc.CALL(imm(rstm.adr_pypy__rewind_jmp_copy_stack_slice))
+            #
+            # patch the JNE above
+            offset = mc.get_relative_pos() - jne_location
+            assert 0 < offset <= 127
+            mc.overwrite(jne_location-1, chr(offset))
         else:
             # SUB [rootstacktop], WORD
-            self.mc.SUB(self.heap_shadowstack_top(), WORD)
+            gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+            rst = gcrootmap.get_root_stack_top_addr()
+            if rx86.fits_in_32bits(rst):
+                # SUB [rootstacktop], WORD
+                mc.SUB_ji8((self.SEGMENT_NO, rst), WORD)
+            else:
+                # MOV ebx, rootstacktop
+                # SUB [ebx], WORD
+                mc.MOV_ri(ebx.value, rst)
+                mc.SUB_mi8((self.SEGMENT_NO, ebx.value, 0), WORD)
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # some minimal sanity checking
@@ -2615,78 +2629,6 @@ class Assembler386(BaseAssembler):
             self.implement_guard(guard_token, 'B')   # JB goes to "yes, break"
         else:
             self.implement_guard(guard_token, 'AE')  # JAE goes to "no, don't"
-
-    def genop_guard_stm_transaction_break(self, op, guard_op, guard_token,
-                                          arglocs, result_loc):
-        assert self.cpu.gc_ll_descr.stm
-        if not we_are_translated():
-            return     # tests only
-
-        gcmap = self._regalloc.get_gcmap()
-        self._store_force_index(guard_op)
-
-        mc = self.mc
-        self._generate_cmp_break_transaction()
-        # use JAE to jump over the following piece of code if we don't need
-        # to break the transaction now
-        mc.J_il(rx86.Conditions['AE'], 0xfffff)    # patched later
-        jae_location = mc.get_relative_pos()
-
-        # This is the case in which we have to do the same as the logic
-        # in pypy_stm_perform_transaction().  We know that we're not in
-        # an atomic transaction (otherwise the jump above always triggers).
-        # So we only have to do the following three operations:
-        #     stm_commit_transaction();
-        #     __builtin_setjmp(jmpbuf);
-        #     pypy_stm_start_transaction(&jmpbuf);
-
-        # save all registers and the gcmap
-        self.push_gcmap(mc, gcmap, store=True)
-        grp_regs = self._regalloc.rm.reg_bindings.values()
-        xmm_regs = self._regalloc.xrm.reg_bindings.values()
-        self._push_pop_regs_to_frame(True, mc, grp_regs, xmm_regs)
-        #
-        # call stm_commit_transaction()
-        mc.CALL(imm(rstm.adr_stm_commit_transaction))
-        #
-        # update the two words in the STM_RESUME_BUF, as described
-        # in arch.py.  The "learip" pseudo-instruction turns into
-        # what is, in gnu as syntax: lea 0(%rip), %rax (the 0 is
-        # four bytes, patched just below)
-        mc.LEARIP_rl32(eax.value, 0)
-        learip_location = mc.get_relative_pos()
-        mc.MOV_sr(STM_JMPBUF_OFS_RIP, eax.value)
-        mc.MOV_sr(STM_JMPBUF_OFS_RSP, esp.value)
-        mc.XOR(ebp, ebp)
-        mc.MOV_sr(STM_JMPBUF_OFS_RBP, ebp.value)
-        #
-        offset = mc.get_relative_pos() - learip_location
-        assert 0 < offset <= 127
-        mc.overwrite32(learip_location - 4, offset)
-        # ** HERE ** is the place an aborted transaction retries
-        # (when resuming, ebp is garbage, but the STM_RESUME_BUF is
-        # still correct in case of repeated aborting)
-        #
-        # call pypy_stm_start_transaction(&jmpbuf, &v_counter)
-        # where v_counter is abusively stored in the jmpbuf at
-        # the location for ebp (so that the value in v_counter
-        # is here found in ebp, if we needed it).
-        mc.LEA_rs(edi.value, STM_JMPBUF_OFS)
-        mc.LEA_rs(esi.value, STM_JMPBUF_OFS_RBP)
-        mc.CALL(imm(rstm.adr_pypy_stm_start_transaction))
-        #
-        # reload ebp with the frame now
-        self._reload_frame_if_necessary(self.mc)
-        #
-        # restore regs
-        self._push_pop_regs_to_frame(False, mc, grp_regs, xmm_regs)
-        #
-        self._emit_guard_not_forced(guard_token)
-
-        # patch the JAE above (note that we also skip the guard_not_forced
-        # in the common situation where we jump over the code above)
-        offset = mc.get_relative_pos() - jae_location
-        mc.overwrite32(jae_location - 4, offset)
 
     def genop_discard_stm_read(self, op, arglocs):
         if not IS_X86_64:

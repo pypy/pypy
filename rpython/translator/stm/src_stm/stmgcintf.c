@@ -89,41 +89,45 @@ void pypy_stm_teardown(void)
     /* stm_teardown() not called here for now; it's mostly for tests */
 }
 
-long pypy_stm_enter_callback_call(void)
+long pypy_stm_enter_callback_call(void *rjbuf)
 {
     if (pypy_stm_ready_atomic == 0) {
         /* first time we see this thread */
         assert(pypy_transaction_length >= 0);
         int e = errno;
         pypy_stm_register_thread_local();
+        stm_rewind_jmp_enterframe(&stm_thread_local, (rewind_jmp_buf *)rjbuf);
         errno = e;
         pypy_stm_ready_atomic = 1;
-        pypy_stm_start_inevitable_if_not_atomic();
+        pypy_stm_start_if_not_atomic();
         return 1;
     }
     else {
         /* callback from C code, itself called from Python code */
-        pypy_stm_start_inevitable_if_not_atomic();
+        stm_rewind_jmp_enterframe(&stm_thread_local, (rewind_jmp_buf *)rjbuf);
+        pypy_stm_start_if_not_atomic();
         return 0;
     }
 }
 
-void pypy_stm_leave_callback_call(long token)
+void pypy_stm_leave_callback_call(void *rjbuf, long token)
 {
+    int e = errno;
     if (token == 1) {
         /* if we're returning into foreign C code that was not itself
            called from Python code, then we're ignoring the atomic
            status and committing anyway. */
-        int e = errno;
         pypy_stm_ready_atomic = 1;
         stm_commit_transaction();
         pypy_stm_ready_atomic = 0;
+        stm_rewind_jmp_leaveframe(&stm_thread_local, (rewind_jmp_buf *)rjbuf);
         pypy_stm_unregister_thread_local();
-        errno = e;
     }
     else {
         pypy_stm_commit_if_not_atomic();
+        stm_rewind_jmp_leaveframe(&stm_thread_local, (rewind_jmp_buf *)rjbuf);
     }
+    errno = e;
 }
 
 void _pypy_stm_initialize_nursery_low_fill_mark(long v_counter)
@@ -155,87 +159,23 @@ void _pypy_stm_initialize_nursery_low_fill_mark(long v_counter)
     pypy_stm_nursery_low_fill_mark = _stm_nursery_start + limit;
 }
 
-void pypy_stm_start_transaction(stm_jmpbuf_t *jmpbuf_ptr,
-                                volatile long *v_counter)
+static long _pypy_stm_start_transaction(void)
 {
     pypy_stm_nursery_low_fill_mark = 1;  /* will be set to a correct value below */
-    _stm_start_transaction(&stm_thread_local, jmpbuf_ptr);
+    long counter = stm_start_transaction(&stm_thread_local);
 
-    _pypy_stm_initialize_nursery_low_fill_mark(*v_counter);
-    *v_counter = *v_counter + 1;
+    _pypy_stm_initialize_nursery_low_fill_mark(counter);
 
     pypy_stm_ready_atomic = 1; /* reset after abort */
+
+    return counter;
 }
 
-void pypy_stm_perform_transaction(object_t *arg, int callback(object_t *, int))
-{   /* must save roots around this call */
-    stm_jmpbuf_t jmpbuf;
-    long volatile v_counter = 0;
-    int (*volatile v_callback)(object_t *, int) = callback;
-#ifndef NDEBUG
-    struct stm_shadowentry_s *volatile v_old_shadowstack =
-        stm_thread_local.shadowstack;
-#endif
-
-    //STM_PUSH_ROOT(stm_thread_local, STM_STACK_MARKER_NEW);
-    STM_PUSH_ROOT(stm_thread_local, arg);
-
-    while (1) {
-        long counter;
-
-        if (pypy_stm_should_break_transaction()) { //pypy_stm_ready_atomic == 1) {
-            /* Not in an atomic transaction; but it might be an inevitable
-               transaction.
-             */
-            assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
-
-            stm_commit_transaction();
-
-            /* After setjmp(), the local variables v_* are preserved because
-               they are volatile.  The other local variables should be
-               declared below than this point only.
-            */
-            while (__builtin_setjmp(jmpbuf) == 1) { /*redo setjmp*/ }
-            counter = v_counter;
-            pypy_stm_start_transaction(&jmpbuf, &v_counter);
-        }
-        else {
-            /* In an atomic transaction */
-            //assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
-            counter = v_counter;
-        }
-
-        /* invoke the callback in the new transaction */
-        STM_POP_ROOT(stm_thread_local, arg);
-        assert(v_old_shadowstack == stm_thread_local.shadowstack);// - 1);
-        STM_PUSH_ROOT(stm_thread_local, arg);
-
-        long result = v_callback(arg, counter);
-        if (result <= 0)
-            break;
-        v_counter = 0;
-    }
-
-    if (STM_SEGMENT->jmpbuf_ptr == &jmpbuf) {
-        /* we can't leave this function leaving a non-inevitable
-           transaction whose jmpbuf points into this function.
-           we could break the transaction here but we instead rely
-           on the caller to break it. Since we have to use an inevitable
-           transaction anyway, using the current one may be cheaper.
-        */
-        _stm_become_inevitable("perform_transaction left with inevitable");
-    }
-    /* double-check */
-    if (pypy_stm_ready_atomic == 1) {
-    }
-    else {
-        assert(pypy_stm_nursery_low_fill_mark == (uintptr_t) -1);
-    }
-
-    STM_POP_ROOT_RET(stm_thread_local);             /* pop the 'arg' */
-    //uintptr_t x = (uintptr_t)STM_POP_ROOT_RET(stm_thread_local);
-    //assert(x == STM_STACK_MARKER_NEW || x == STM_STACK_MARKER_OLD);
-    assert(v_old_shadowstack == stm_thread_local.shadowstack);
+void pypy_stm_transaction_break(void)
+{
+    assert(pypy_stm_nursery_low_fill_mark != (uintptr_t) -1);
+    stm_commit_transaction();
+    _pypy_stm_start_transaction();
 }
 
 void _pypy_stm_inev_state(void)
@@ -268,7 +208,7 @@ void _pypy_stm_become_inevitable(const char *msg)
 
 void pypy_stm_become_globally_unique_transaction(void)
 {
-    if (STM_SEGMENT->jmpbuf_ptr != NULL) {
+    if (!stm_is_inevitable()) {
         _pypy_stm_inev_state();
     }
     stm_become_globally_unique_transaction(&stm_thread_local, "for the JIT");

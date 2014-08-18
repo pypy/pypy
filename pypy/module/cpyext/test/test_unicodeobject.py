@@ -442,8 +442,8 @@ class TestUnicode(BaseApiTest):
 
     def test_copy(self, space, api):
         w_x = space.wrap(u"abcd\u0660")
-        target_chunk, _ = rffi.alloc_unicodebuffer(space.int_w(space.len(w_x)))
-        #lltype.malloc(Py_UNICODE, space.int_w(space.len(w_x)), flavor='raw')
+        count1 = space.int_w(space.len(w_x))
+        target_chunk = lltype.malloc(rffi.CWCHARP.TO, count1, flavor='raw')
 
         x_chunk = api.PyUnicode_AS_UNICODE(w_x)
         api.Py_UNICODE_COPY(target_chunk, x_chunk, 4)

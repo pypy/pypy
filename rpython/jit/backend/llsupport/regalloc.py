@@ -650,8 +650,7 @@ class BaseRegalloc(object):
     def can_merge_with_next_guard(self, op, i, operations):
         if (op.getopnum() == rop.CALL_MAY_FORCE or
             op.getopnum() == rop.CALL_ASSEMBLER or
-            op.getopnum() == rop.CALL_RELEASE_GIL or
-            op.getopnum() == rop.STM_TRANSACTION_BREAK):
+            op.getopnum() == rop.CALL_RELEASE_GIL):
             assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
             return True
         if (not op.is_comparison() and

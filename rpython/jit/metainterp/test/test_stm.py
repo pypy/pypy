@@ -11,63 +11,10 @@ from rpython.rlib import rstm
 class STMTests:
     def test_simple(self):
         def g():
-            return rstm.jit_stm_should_break_transaction(False)
+            return rstm.should_break_transaction()
         res = self.interp_operations(g, [], translationoptions={"stm":True})
         assert res == False
-        self.check_operations_history(stm_transaction_break=1,
-                                      stm_should_break_transaction=0)
-
-    def test_not_removed(self):
-        import time
-        def g():
-            time.sleep(0)
-            return rstm.jit_stm_should_break_transaction(False)
-        res = self.interp_operations(g, [], translationoptions={"stm":True})
-        assert res == False
-        self.check_operations_history(stm_transaction_break=1,
-                                      call_may_force=1,
-                                      stm_should_break_transaction=0)
-
-    def test_not_removed2(self):
-        def g():
-            return rstm.jit_stm_should_break_transaction(True)
-        res = self.interp_operations(g, [], translationoptions={"stm":True})
-        assert res == False
-        self.check_operations_history(stm_transaction_break=0,
-                                      stm_should_break_transaction=1)
-
-    def test_transaction_break(self):
-        def g():
-            rstm.jit_stm_transaction_break_point()
-            return 42
-        self.interp_operations(g, [], translationoptions={"stm":True})
-        self.check_operations_history({'stm_transaction_break':1,
-                                       'guard_not_forced':1})
-
-    def test_heapcache(self):
-        import time
-        def g():
-            rstm.jit_stm_should_break_transaction(True) # keep (start of loop)
-            rstm.jit_stm_should_break_transaction(False)
-            time.sleep(0)
-            rstm.jit_stm_should_break_transaction(False) # keep (after guard_not_forced)
-            rstm.jit_stm_should_break_transaction(False)
-            rstm.jit_stm_should_break_transaction(True) # keep (True)
-            rstm.jit_stm_should_break_transaction(True) # keep (True)
-            rstm.jit_stm_should_break_transaction(False)
-            rstm.hint_commit_soon()
-            rstm.jit_stm_should_break_transaction(False) # keep
-            rstm.jit_stm_should_break_transaction(False)
-            return 42
-        res = self.interp_operations(g, [], translationoptions={"stm":True})
-        assert res == 42
-        self.check_operations_history({
-            'stm_transaction_break':2,
-            'stm_hint_commit_soon':1,
-            'stm_should_break_transaction':3,
-            'guard_not_forced':3,
-            'guard_no_exception':1,
-            'call_may_force':1})
+        self.check_operations_history(stm_should_break_transaction=1)
 
     def test_debug_merge_points(self):
         myjitdriver = JitDriver(greens = ['a'], reds = ['x', 'res'])

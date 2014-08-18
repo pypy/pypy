@@ -77,16 +77,6 @@ static void _stm_expand_marker_for_pypy(
     long fnlen = 1, nlen = 1, line = 0;
     char *fn = "?", *name = "?";
 
-#ifdef RPY_STM_JIT
-    if (odd_number == STM_STACK_MARKER_NEW ||
-        odd_number == STM_STACK_MARKER_OLD) {
-        assert(o);
-        /* XXX ji_jf_forward */
-        /* XXX */
-        o = NULL;
-    }
-#endif
-
     if (o) {
         co_filename   =_fetch_rpsspace0(segment_base, o, g_co_filename_ofs);
         co_name       =_fetch_rpsspace0(segment_base, o, g_co_name_ofs);

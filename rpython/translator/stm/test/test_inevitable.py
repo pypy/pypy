@@ -120,7 +120,7 @@ class TestTransform:
             lltype.free(p, flavor='raw')
 
         res = self.interpret_inevitable(f1, [])
-        assert res is None
+        assert res == 'free'
 
     def test_raw_malloc_2(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
@@ -130,7 +130,7 @@ class TestTransform:
             llmemory.raw_free(addr)
 
         res = self.interpret_inevitable(f1, [])
-        assert res is None
+        assert res == 'raw_free'
 
     def test_unknown_raw_free(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
@@ -276,6 +276,19 @@ class TestTransform:
         def f1():
             return llop.raw_load(
                 lltype.Signed, llmemory.cast_ptr_to_adr(x1), 0, True)
+
+        res = self.interpret_inevitable(f1, [])
+        assert res is None
+
+    def test_threadlocal(self):
+        from rpython.rlib.rthread import ThreadLocalReference
+        opaque_id = lltype.opaqueptr(ThreadLocalReference.OPAQUEID, "foobar")
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        def f1():
+            x = lltype.malloc(X)
+            llop.threadlocalref_set(lltype.Void, opaque_id, x)
+            y = llop.threadlocalref_get(lltype.Ptr(X), opaque_id)
+            return x == y
 
         res = self.interpret_inevitable(f1, [])
         assert res is None

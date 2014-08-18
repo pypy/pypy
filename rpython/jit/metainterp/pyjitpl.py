@@ -186,52 +186,16 @@ class MIFrame(object):
             raise AssertionError("bad result box type")
 
     # ------------------------------
-    def _record_stm_transaction_break(self, really_wanted):
-        # records an unconditional stm_transaction_break
-        mi = self.metainterp
-        mi.vable_and_vrefs_before_residual_call()
-        mi._record_helper_nonpure_varargs(
-            rop.STM_TRANSACTION_BREAK, None, None,
-            [history.ConstInt(really_wanted)])
-        mi.vrefs_after_residual_call()
-        mi.vable_after_residual_call()
-        #
-        if not really_wanted:
-            # we're about the return ConstInt(0), which will go into the
-            # jitcode's %iN variable.  But it will be captured by the
-            # GUARD_NOT_FORCED's resume data too.  It is essential that we
-            # don't capture the old, stale value!  Also, store ConstInt(1)
-            # to make sure that upon resuming we'll see a result of 1 (XXX
-            # unsure if it's needed, but it shouldn't hurt).
-            self.make_result_of_lastop(ConstInt(1))
-        #
-        mi.generate_guard(rop.GUARD_NOT_FORCED, None)
-        self.metainterp.heapcache.stm_break_done()
-
-
-    @arguments("int")
-    def opimpl_stm_should_break_transaction(self, if_there_is_no_other):
-        val = bool(if_there_is_no_other)
-        mi = self.metainterp
-        if val:
-            # app-level loop: only one of these per loop is really needed
-            resbox = history.BoxInt(0)
-            mi.history.record(rop.STM_SHOULD_BREAK_TRANSACTION, [], resbox)
-            self.metainterp.heapcache.stm_break_done()
-            return resbox
-        else:
-            # between byte-code instructions: only keep if it is
-            # likely that we are inevitable here
-            if self.metainterp.heapcache.stm_break_wanted:
-                self._record_stm_transaction_break(False)
-            return ConstInt(0)
 
     @arguments()
-    def opimpl_stm_transaction_break(self):
-        # always wanted: inserted after we compile a bridge because there
-        # were just too many breaks and we failed the should_break&guard
-        # because of that
-        self._record_stm_transaction_break(True)
+    def opimpl_stm_should_break_transaction(self):
+        # XXX make it return BoxInt(1) instead of BoxInt(0) if there
+        # is an inevitable transaction, because it's likely that there
+        # will always be an inevitable transaction here
+        resbox = history.BoxInt(0)
+        mi = self.metainterp
+        mi.history.record(rop.STM_SHOULD_BREAK_TRANSACTION, [], resbox)
+        return resbox
 
     @arguments()
     def opimpl_stm_hint_commit_soon(self):
@@ -1440,49 +1404,53 @@ class MIFrame(object):
     def do_residual_call(self, funcbox, argboxes, descr, pc,
                          assembler_call=False,
                          assembler_call_jd=None):
-        # First build allboxes: it may need some reordering from the
-        # list provided in argboxes, depending on the order in which
-        # the arguments are expected by the function
-        #
-        allboxes = self._build_allboxes(funcbox, argboxes, descr)
-        effectinfo = descr.get_extra_info()
-        if (assembler_call or
-                effectinfo.check_forces_virtual_or_virtualizable()):
-            # residual calls require attention to keep virtualizables in-sync
-            self.metainterp.clear_exception()
-            if effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
-                resbox = self._do_jit_force_virtual(allboxes, descr, pc)
+        debug_start("jit-residual-call")
+        try:
+            # First build allboxes: it may need some reordering from the
+            # list provided in argboxes, depending on the order in which
+            # the arguments are expected by the function
+            #
+            allboxes = self._build_allboxes(funcbox, argboxes, descr)
+            effectinfo = descr.get_extra_info()
+            if (assembler_call or
+                    effectinfo.check_forces_virtual_or_virtualizable()):
+                # residual calls require attention to keep virtualizables in-sync
+                self.metainterp.clear_exception()
+                if effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
+                    resbox = self._do_jit_force_virtual(allboxes, descr, pc)
+                    if resbox is not None:
+                        return resbox
+                self.metainterp.vable_and_vrefs_before_residual_call()
+                resbox = self.metainterp.execute_and_record_varargs(
+                    rop.CALL_MAY_FORCE, allboxes, descr=descr)
+                if effectinfo.is_call_release_gil():
+                    self.metainterp.direct_call_release_gil()
+                self.metainterp.vrefs_after_residual_call()
+                vablebox = None
+                if assembler_call:
+                    vablebox = self.metainterp.direct_assembler_call(
+                        assembler_call_jd)
                 if resbox is not None:
-                    return resbox
-            self.metainterp.vable_and_vrefs_before_residual_call()
-            resbox = self.metainterp.execute_and_record_varargs(
-                rop.CALL_MAY_FORCE, allboxes, descr=descr)
-            if effectinfo.is_call_release_gil():
-                self.metainterp.direct_call_release_gil()
-            self.metainterp.vrefs_after_residual_call()
-            vablebox = None
-            if assembler_call:
-                vablebox = self.metainterp.direct_assembler_call(
-                    assembler_call_jd)
-            if resbox is not None:
-                self.make_result_of_lastop(resbox)
-            self.metainterp.vable_after_residual_call(funcbox)
-            self.metainterp.generate_guard(rop.GUARD_NOT_FORCED, None)
-            if vablebox is not None:
-                self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
-            self.metainterp.handle_possible_exception()
-            # XXX refactor: direct_libffi_call() is a hack
-            if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
-                self.metainterp.direct_libffi_call()
-            return resbox
-        else:
-            effect = effectinfo.extraeffect
-            if effect == effectinfo.EF_LOOPINVARIANT:
-                return self.execute_varargs(rop.CALL_LOOPINVARIANT, allboxes,
-                                            descr, False, False)
-            exc = effectinfo.check_can_raise()
-            pure = effectinfo.check_is_elidable()
-            return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
+                    self.make_result_of_lastop(resbox)
+                self.metainterp.vable_after_residual_call(funcbox)
+                self.metainterp.generate_guard(rop.GUARD_NOT_FORCED, None)
+                if vablebox is not None:
+                    self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
+                self.metainterp.handle_possible_exception()
+                # XXX refactor: direct_libffi_call() is a hack
+                if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
+                    self.metainterp.direct_libffi_call()
+                return resbox
+            else:
+                effect = effectinfo.extraeffect
+                if effect == effectinfo.EF_LOOPINVARIANT:
+                    return self.execute_varargs(rop.CALL_LOOPINVARIANT, allboxes,
+                                                descr, False, False)
+                exc = effectinfo.check_can_raise()
+                pure = effectinfo.check_is_elidable()
+                return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
+        finally:
+            debug_stop("jit-residual-call")
 
     def do_conditional_call(self, condbox, funcbox, argboxes, descr, pc):
         if isinstance(condbox, ConstInt) and condbox.value == 0:
@@ -1855,8 +1823,6 @@ class MetaInterp(object):
         if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
             resumedescr = compile.ResumeGuardForcedDescr(self.staticdata,
                                                          self.jitdriver_sd)
-            # for detecting stm breaks that are needed
-            self.heapcache.invalidate_caches(opnum, resumedescr, moreargs)
         elif opnum == rop.GUARD_NOT_INVALIDATED:
             resumedescr = compile.ResumeGuardNotInvalidated()
         elif opnum == rop.GUARD_FUTURE_CONDITION:
@@ -1887,7 +1853,7 @@ class MetaInterp(object):
             self.framestack[-1].pc = saved_pc
 
     def create_empty_history(self):
-        self.history = history.History(self.staticdata)
+        self.history = history.History()
         self.staticdata.stats.set_history(self.history)
 
     def _all_constants(self, *boxes):
@@ -2491,7 +2457,7 @@ class MetaInterp(object):
         rstack._stack_criticalcode_start()
         try:
             self.portal_call_depth = -1 # always one portal around
-            self.history = history.History(self.staticdata)
+            self.history = history.History()
             inputargs_and_holes = self.rebuild_state_after_failure(resumedescr,
                                                                    deadframe)
             self.history.inputargs = [box for box in inputargs_and_holes if box]

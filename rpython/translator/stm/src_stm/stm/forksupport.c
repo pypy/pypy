@@ -177,21 +177,23 @@ static void forksupport_parent(void)
 static void fork_abort_thread(long i)
 {
     struct stm_priv_segment_info_s *pr = get_priv_segment(i);
+    stm_thread_local_t *tl = pr->pub.running_thread;
     dprintf(("forksupport_child: abort in seg%ld\n", i));
-    assert(pr->pub.running_thread->associated_segment_num == i);
+    assert(tl->associated_segment_num == i);
     assert(pr->transaction_state == TS_REGULAR);
     set_gs_register(get_segment_base(i));
+    assert(STM_SEGMENT->segment_num == i);
 
-    stm_jmpbuf_t jmpbuf;
-    if (__builtin_setjmp(jmpbuf) == 0) {
-        pr->pub.jmpbuf_ptr = &jmpbuf;
+    s_mutex_lock();
 #ifndef NDEBUG
-        pr->running_pthread = pthread_self();
+    pr->running_pthread = pthread_self();
 #endif
-        pr->pub.running_thread->shadowstack = (
-            pr->shadowstack_at_start_of_transaction);
-        stm_abort_transaction();
-    }
+    strcpy(pr->marker_self, "fork");
+    tl->shadowstack = NULL;
+    pr->shadowstack_at_start_of_transaction = NULL;
+    stm_rewind_jmp_forget(tl);
+    abort_with_mutex_no_longjmp();
+    s_mutex_unlock();
 }
 
 static void forksupport_child(void)

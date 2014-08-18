@@ -18,8 +18,8 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'gc_adr_of_root_stack_top', 'gc_add_memory_pressure',
     'weakref_create', 'weakref_deref',
     'jit_assembler_call', 'gc_writebarrier',
-    'shrink_array', 'jit_stm_transaction_break_point',
-    'jit_stm_should_break_transaction',
+    'shrink_array',
+    'threadlocalref_get', 'threadlocalref_set',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
@@ -37,7 +37,7 @@ FREES   = set(['free', 'raw_free'])
 
 # ____________________________________________________________
 
-def should_turn_inevitable_getter_setter(op, fresh_mallocs):
+def should_turn_inevitable_getter_setter(op):
     # Getters and setters are allowed if their first argument is a GC pointer.
     # If it is a RAW pointer, and it is a read from a non-immutable place,
     # and it doesn't use the hint 'stm_dont_track_raw_accesses', then they
@@ -52,7 +52,7 @@ def should_turn_inevitable_getter_setter(op, fresh_mallocs):
         return False
     if S._hints.get('stm_dont_track_raw_accesses', False):
         return False
-    return not fresh_mallocs.is_fresh_malloc(op.args[0])
+    return True
 
 def should_turn_inevitable_call(op):
     if op.opname == 'direct_call':
@@ -77,7 +77,7 @@ def should_turn_inevitable_call(op):
     assert False
 
 
-def should_turn_inevitable(op, block, fresh_mallocs):
+def should_turn_inevitable(op, block):
     # Always-allowed operations never cause a 'turn inevitable'
     if op.opname in ALWAYS_ALLOW_OPERATIONS:
         return False
@@ -86,22 +86,17 @@ def should_turn_inevitable(op, block, fresh_mallocs):
     if op.opname in GETTERS:
         if op.result.concretetype is lltype.Void:
             return False
-        return should_turn_inevitable_getter_setter(op, fresh_mallocs)
+        return should_turn_inevitable_getter_setter(op)
     if op.opname in SETTERS:
         if op.args[-1].concretetype is lltype.Void:
             return False
-        return should_turn_inevitable_getter_setter(op, fresh_mallocs)
+        return should_turn_inevitable_getter_setter(op)
     #
     # Mallocs & Frees
     if op.opname in MALLOCS:
         return False
     if op.opname in FREES:
-        # We can only run a CFG in non-inevitable mode from start
-        # to end in one transaction (every free gets called once
-        # for every fresh malloc). No need to turn inevitable.
-        # If the transaction is splitted, the remaining parts of the
-        # CFG will always run in inevitable mode anyways.
-        return not fresh_mallocs.is_fresh_malloc(op.args[0])
+        return True
     #
     # Function calls
     if op.opname == 'direct_call' or op.opname == 'indirect_call':
@@ -117,12 +112,10 @@ def turn_inevitable_op(info):
                           varoftype(lltype.Void))
 
 def insert_turn_inevitable(graph):
-    from rpython.translator.backendopt.writeanalyze import FreshMallocs
-    fresh_mallocs = FreshMallocs(graph)
     for block in graph.iterblocks():
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
-            inev = should_turn_inevitable(op, block, fresh_mallocs)
+            inev = should_turn_inevitable(op, block)
             if inev:
                 if not isinstance(inev, str):
                     inev = op.opname
