@@ -24,7 +24,7 @@ class GilAnalyzer(graphanalyze.BoolGraphAnalyzer):
         return False
 
     def analyze_simple_operation(self, op, graphinfo):
-        if op.opname == 'stm_break_transaction':
+        if op.opname == 'stm_transaction_break':
             return True
         return False
 

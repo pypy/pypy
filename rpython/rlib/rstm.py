@@ -17,12 +17,10 @@ adr_nursery_free = CFlexSymbolic('((long)&STM_SEGMENT->nursery_current)')
 adr_nursery_top  = CFlexSymbolic('((long)&STM_SEGMENT->nursery_end)')
 adr_pypy_stm_nursery_low_fill_mark = (
     CFlexSymbolic('((long)&pypy_stm_nursery_low_fill_mark)'))
-adr_rjthread = (
-    CFlexSymbolic('((long)&stm_thread_local.rjthread'))
 adr_rjthread_head = (
-    CFlexSymbolic('((long)&stm_thread_local.rjthread.head'))
+    CFlexSymbolic('((long)&stm_thread_local.rjthread.head)'))
 adr_rjthread_moved_off_base = (
-    CFlexSymbolic('((long)&stm_thread_local.rjthread.moved_off_base'))
+    CFlexSymbolic('((long)&stm_thread_local.rjthread.moved_off_base)'))
 adr_transaction_read_version = (
     CFlexSymbolic('((long)&STM_SEGMENT->transaction_read_version)'))
 adr_segment_base = (
@@ -74,7 +72,7 @@ def should_break_transaction():
 
 @dont_look_inside
 def break_transaction():
-    llop.stm_break_transaction(lltype.Void)
+    llop.stm_transaction_break(lltype.Void)
 
 @dont_look_inside
 def set_transaction_length(fraction):

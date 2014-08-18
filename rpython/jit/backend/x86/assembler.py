@@ -856,10 +856,6 @@ class Assembler386(BaseAssembler):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         return self.heap_tl(gcrootmap.get_root_stack_top_addr())
 
-    def heap_rjthread(self):
-        """STM: Return an AddressLoc for '&stm_thread_local.rjthread'."""
-        return self.heap_tl(rstm.adr_rjthread)
-
     def heap_rjthread_head(self):
         """STM: Return an AddressLoc for '&stm_thread_local.rjthread.head'."""
         return self.heap_tl(rstm.adr_rjthread_head)
@@ -878,17 +874,17 @@ class Assembler386(BaseAssembler):
                                                       # MOV [ebx], ebp
         if self.cpu.gc_ll_descr.stm:
             # inlining stm_rewind_jmp_enterframe()
-            r11v = X86_64_SCRATCH_REG.value
+            r11 = X86_64_SCRATCH_REG
             rjh = self.heap_rjthread_head()
-            mc.ADD_ri8(ebx.value, 1)                 # ADD ebx, 1
-            mc.MOV_rm(r11v, rjh)                     # MOV r11, [rjthread.head]
+            mc.ADD_ri(ebx.value, 1)                  # ADD ebx, 1
+            mc.MOV(r11, rjh)                         # MOV r11, [rjthread.head]
             mc.MOV_sr(STM_SHADOWSTACK_BASE_OFS, ebx.value)
                                                      # MOV [esp+ssbase], ebx
-            mc.ADD_ri8(ebx.value, WORD-1)            # ADD ebx, 7
-            mc.MOV_sr(STM_PREV_OFS, r11v)            # MOV [esp+prev], r11
+            mc.ADD_ri(ebx.value, WORD-1)             # ADD ebx, 7
+            mc.MOV_sr(STM_PREV_OFS, r11.value)       # MOV [esp+prev], r11
             mc.MOV(self.heap_shadowstack_top(), ebx) # MOV [rootstacktop], ebx
-            mc.LEA_rs(r11v, STM_JMPBUF_OFS)          # LEA r11, [esp+bufofs]
-            mc.MOV_mr(rjh, r11v)                     # MOV [rjthread.head], r11
+            mc.LEA_rs(r11.value, STM_JMPBUF_OFS)     # LEA r11, [esp+bufofs]
+            mc.MOV(rjh, r11)                         # MOV [rjthread.head], r11
         #
         else:
             mc.ADD_ri(ebx.value, WORD)               # ADD ebx, WORD
@@ -902,16 +898,16 @@ class Assembler386(BaseAssembler):
             # that this occurs more than once.  So we have to restore
             # the old shadowstack by looking up its original saved value.
             # The rest of this is inlining stm_rewind_jmp_leaveframe().
-            r11v = X86_64_SCRATCH_REG.value
+            r11 = X86_64_SCRATCH_REG
             rjh = self.heap_rjthread_head()
             rjmovd_o_b = self.heap_rjthread_moved_off_base()
-            adr_rjthread_moved_off_base
-            mc.MOV_rs(r11v, STM_SHADOWSTACK_BASE_OFS) # MOV r11, [esp+ssbase]
-            mc.MOV_rs(ebx.value, STM_PREV_OFS)        # MOV ebx, [esp+prev]
-            mc.MOV(self.heap_shadowstack_top(), r11v) # MOV [rootstacktop], r11
-            mc.LEA_rs(r11v, STM_JMPBUF_OFS)           # LEA r11, [esp+bufofs]
-            mc.MOV_mr(rjh, ebx.value)                 # MOV [rjthread.head], ebx
-            mc.CMP_rm(r11v, rjmovd_o_b)               # CMP r11, [rjth.movd_o_b]
+            mc.MOV_rs(ebx.value, STM_SHADOWSTACK_BASE_OFS)
+                                                      # MOV ebx, [esp+ssbase]
+            mc.MOV_rs(r11.value, STM_PREV_OFS)        # MOV r11, [esp+prev]
+            mc.MOV(self.heap_shadowstack_top(), ebx)  # MOV [rootstacktop], ebx
+            mc.LEA_rs(ebx.value, STM_JMPBUF_OFS)      # LEA ebx, [esp+bufofs]
+            mc.MOV(rjh, r11)                          # MOV [rjthread.head], r11
+            mc.CMP(ebx, rjmovd_o_b)                   # CMP ebx, [rjth.movd_o_b]
             mc.J_il8(rx86.Conditions['NE'], 0)        # JNE label_below
             jne_location = mc.get_relative_pos()
             #
