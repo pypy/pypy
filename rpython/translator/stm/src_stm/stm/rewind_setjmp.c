@@ -38,8 +38,17 @@ static void copy_stack(rewind_jmp_thread *rjthread, char *base, void *ssbase)
     size_t stack_size, ssstack_size;
 
     assert(rjthread->head != NULL);
-    stop = rjthread->head->frame_base;
     ssstop = rjthread->head->shadowstack_base;
+    if (((long)ssstop) & 1) {
+        /* PyPy's JIT: 'head->frame_base' is missing; use directly 'head',
+           which should be at the end of the frame (and doesn't need itself
+           to be copied because it contains immutable data only) */
+        ssstop = ((char *)ssstop) - 1;
+        stop = (char *)rjthread->head;
+    }
+    else {
+        stop = rjthread->head->frame_base;
+    }
     assert(stop >= base);
     assert(ssstop <= ssbase);
     stack_size = stop - base;

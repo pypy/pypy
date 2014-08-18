@@ -54,9 +54,12 @@ HEAD-----> | rewind_jmp_buf    |  |        |             |
 ************************************************************/
 
 typedef struct _rewind_jmp_buf {
-    char *frame_base;
     char *shadowstack_base;
     struct _rewind_jmp_buf *prev;
+    char *frame_base;
+    /* NB: PyPy's JIT has got details of this structure hard-coded,
+       as follows: it uses 2 words only (so frame_base is invalid)
+       and sets the lowest bit of 'shadowstack_base' to tell this */
 } rewind_jmp_buf;
 
 typedef struct {
@@ -72,6 +75,7 @@ typedef struct {
 
 /* remember the current stack and ss_stack positions */
 #define rewind_jmp_enterframe(rjthread, rjbuf, ss)   do {  \
+    assert((((long)(ss)) & 1) == 0);                       \
     (rjbuf)->frame_base = __builtin_frame_address(0);      \
     (rjbuf)->shadowstack_base = (char *)(ss);              \
     (rjbuf)->prev = (rjthread)->head;                      \
