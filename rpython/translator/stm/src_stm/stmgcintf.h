@@ -116,5 +116,10 @@ static inline int pypy_stm_should_break_transaction(void)
     /* NB. this logic is hard-coded in jit/backend/x86/assembler.py too */
 }
 
+static void pypy__rewind_jmp_copy_stack_slice(void)
+{
+    _rewind_jmp_copy_stack_slice(&stm_thread_local.rjthread);
+}
+
 
 #endif  /* _RPY_STMGCINTF_H */

@@ -1292,9 +1292,6 @@ class RegAlloc(BaseRegalloc):
                                                 need_lower_byte=True)
             self.perform(op, [], resloc)
 
-    def XXXconsider_stm_transaction_break(self, op, guard_op):
-        self.perform_with_guard(op, guard_op, [], None)
-
     def consider_jump(self, op):
         assembler = self.assembler
         assert self.jump_target_descr is None

@@ -13,12 +13,16 @@ class CFlexSymbolic(CDefinedIntSymbolic):
 TID = rffi.UINT
 tid_offset = CFlexSymbolic('offsetof(struct rpyobj_s, tid)')
 stm_nb_segments = CFlexSymbolic('STM_NB_SEGMENTS')
-stm_stack_marker_new = CFlexSymbolic('STM_STACK_MARKER_NEW')
-stm_stack_marker_old = CFlexSymbolic('STM_STACK_MARKER_OLD')
 adr_nursery_free = CFlexSymbolic('((long)&STM_SEGMENT->nursery_current)')
 adr_nursery_top  = CFlexSymbolic('((long)&STM_SEGMENT->nursery_end)')
 adr_pypy_stm_nursery_low_fill_mark = (
     CFlexSymbolic('((long)&pypy_stm_nursery_low_fill_mark)'))
+adr_rjthread = (
+    CFlexSymbolic('((long)&stm_thread_local.rjthread'))
+adr_rjthread_head = (
+    CFlexSymbolic('((long)&stm_thread_local.rjthread.head'))
+adr_rjthread_moved_off_base = (
+    CFlexSymbolic('((long)&stm_thread_local.rjthread.moved_off_base'))
 adr_transaction_read_version = (
     CFlexSymbolic('((long)&STM_SEGMENT->transaction_read_version)'))
 adr_jmpbuf_ptr = (
@@ -39,6 +43,8 @@ adr_stm_commit_transaction = (
     CFlexSymbolic('((long)&stm_commit_transaction)'))
 adr_pypy_stm_start_transaction = (
     CFlexSymbolic('((long)&pypy_stm_start_transaction)'))
+adr_pypy__rewind_jmp_copy_stack_slice = (
+    CFlexSymbolic('((long)&pypy__rewind_jmp_copy_stack_slice)'))
 
 
 def rewind_jmp_frame():
