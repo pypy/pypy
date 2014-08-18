@@ -837,35 +837,6 @@ class Assembler386(BaseAssembler):
 
     def _call_footer(self):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if self.cpu.gc_ll_descr.stm and we_are_translated():
-            # call _pypy_stm_become_inevitable() if the current jmpbuf is set
-            # to this frame, because we're about to leave.  This is if
-            # we called a pypy_stm_start_transaction() earlier.
-            assert IS_X86_64
-            mc = self.mc
-            #
-            # load the address of the jmpbuf
-            mc.LEA_rs(edi.value, STM_JMPBUF_OFS)
-            # compare it with the currently-stored jmpbuf
-            mc.CMP_rj(edi.value, (self.SEGMENT_GC, rstm.adr_jmpbuf_ptr))
-            # if they differ (or if jmpbuf_ptr is already NULL), nothing to do
-            mc.J_il8(rx86.Conditions['NE'], 0) # patched later
-            jne_location = mc.get_relative_pos()
-            #
-            # if they are equal, we need to become inevitable now
-            mc.XOR_rr(edi.value, edi.value)
-            mc.CALL(imm(rstm.adr__pypy_stm_become_inevitable))
-            # there could have been a collection in the call above;
-            # reload the frame into ebp (but we don't need to apply the
-            # write barrier to it now)
-            mc.MOV(ecx, self.heap_shadowstack_top())
-            mc.MOV_rm(ebp.value, (self.SEGMENT_NO, ecx.value, -WORD))
-            #
-            # this is where the JNE above jumps
-            offset = mc.get_relative_pos() - jne_location
-            assert 0 < offset <= 127
-            mc.overwrite(jne_location-1, chr(offset))
-
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_footer_shadowstack()
 

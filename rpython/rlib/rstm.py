@@ -25,8 +25,6 @@ adr_rjthread_moved_off_base = (
     CFlexSymbolic('((long)&stm_thread_local.rjthread.moved_off_base'))
 adr_transaction_read_version = (
     CFlexSymbolic('((long)&STM_SEGMENT->transaction_read_version)'))
-adr_jmpbuf_ptr = (
-    CFlexSymbolic('((long)&STM_SEGMENT->jmpbuf_ptr)'))
 adr_segment_base = (
     CFlexSymbolic('((long)&STM_SEGMENT->segment_base)'))
 adr_write_slowpath = CFlexSymbolic('((long)&_stm_write_slowpath)')
@@ -37,12 +35,6 @@ adr__stm_write_slowpath_card_extra_base = (
 CARD_MARKED = CFlexSymbolic('_STM_CARD_MARKED')
 CARD_SIZE   = CFlexSymbolic('_STM_CARD_SIZE')
 
-adr__pypy_stm_become_inevitable = (
-    CFlexSymbolic('((long)&_pypy_stm_become_inevitable)'))
-adr_stm_commit_transaction = (
-    CFlexSymbolic('((long)&stm_commit_transaction)'))
-adr_pypy_stm_start_transaction = (
-    CFlexSymbolic('((long)&pypy_stm_start_transaction)'))
 adr_pypy__rewind_jmp_copy_stack_slice = (
     CFlexSymbolic('((long)&pypy__rewind_jmp_copy_stack_slice)'))
 
