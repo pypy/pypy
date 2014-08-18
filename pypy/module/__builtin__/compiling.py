@@ -59,9 +59,8 @@ in addition to any features explicitly specified.
                 "compile() expected string without null bytes"))
 
     if flags & consts.PyCF_ONLY_AST:
-        mode = ec.compiler.compile_to_ast(str_, filename, mode, flags)
-        w_node = node.to_object(space)
-        return w_node
+        node = ec.compiler.compile_to_ast(source, filename, mode, flags)
+        return node.to_object(space)
     else:
         code = ec.compiler.compile(source, filename, mode, flags)
         return space.wrap(code)
