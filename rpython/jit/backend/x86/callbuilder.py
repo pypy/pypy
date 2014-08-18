@@ -491,6 +491,7 @@ class CallBuilder64(CallBuilderX86):
             self.mc.MOV_rs(eax.value, 0)
 
     def call_stm_before_ex_call(self):
+        from rpython.rlib import rstm
         # XXX slowish: before any CALL_RELEASE_GIL, invoke the
         # pypy_stm_commit_if_not_atomic() function.  Messy because
         # we need to save the register arguments first.
@@ -519,6 +520,7 @@ class CallBuilder64(CallBuilderX86):
             self.mc.POP_r(self.ARGUMENTS_GPR[i].value)
 
     def call_stm_after_ex_call(self):
+        from rpython.rlib import rstm
         # after any CALL_RELEASE_GIL, invoke the
         # pypy_stm_start_if_not_atomic() function
         self.save_result_value_reacq()
