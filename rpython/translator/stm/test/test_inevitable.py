@@ -120,7 +120,7 @@ class TestTransform:
             lltype.free(p, flavor='raw')
 
         res = self.interpret_inevitable(f1, [])
-        assert res is None
+        assert res == 'free'
 
     def test_raw_malloc_2(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
@@ -130,7 +130,7 @@ class TestTransform:
             llmemory.raw_free(addr)
 
         res = self.interpret_inevitable(f1, [])
-        assert res is None
+        assert res == 'raw_free'
 
     def test_unknown_raw_free(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
