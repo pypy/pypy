@@ -2124,12 +2124,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 #
                 # get rid of objects pointing to pinned objects that were not
                 # visited
-                new_old_objects_pointing_to_pinned = self.AddressStack()
-                self.old_objects_pointing_to_pinned.foreach(
-                        self._sweep_old_objects_pointing_to_pinned,
-                        new_old_objects_pointing_to_pinned)
-                self.old_objects_pointing_to_pinned.delete()
-                self.old_objects_pointing_to_pinned = new_old_objects_pointing_to_pinned
+                if self.old_objects_pointing_to_pinned.non_empty():
+                    new_old_objects_pointing_to_pinned = self.AddressStack()
+                    self.old_objects_pointing_to_pinned.foreach(
+                            self._sweep_old_objects_pointing_to_pinned,
+                            new_old_objects_pointing_to_pinned)
+                    self.old_objects_pointing_to_pinned.delete()
+                    self.old_objects_pointing_to_pinned = new_old_objects_pointing_to_pinned
                 self.gc_state = STATE_SWEEPING
             #END MARKING
         elif self.gc_state == STATE_SWEEPING:
