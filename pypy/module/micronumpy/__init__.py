@@ -12,7 +12,7 @@ class MultiArrayModule(MixedModule):
         'scalar' : 'ctors.build_scalar',
         'array': 'ctors.array',
         'zeros': 'ctors.zeros',
-        'empty': 'ctors.zeros',
+        'empty': 'ctors.empty',
         'empty_like': 'ctors.empty_like',
         'fromstring': 'ctors.fromstring',
         'frombuffer': 'ctors.frombuffer',

@@ -13,7 +13,15 @@ def get_hashed_dir(cfile):
     k1 = k1.lstrip('0x').rstrip('L')
     k2 = hex(binascii.crc32(key[1::2]) & 0xffffffff)
     k2 = k2.lstrip('0').rstrip('L')
-    output_dir = tempfile.gettempdir() + os.path.sep + 'tmp_%s%s' %(k1, k2)
+    try:
+        username = os.environ['USER']           #linux, et al
+    except KeyError:
+        try:
+            username = os.environ['USERNAME']   #windows
+        except KeyError:
+            username = os.getuid()
+    output_dir = tempfile.gettempdir() + os.path.sep + 'tmp_%s_%s%s' % (
+        username, k1, k2)
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     return output_dir

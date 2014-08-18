@@ -66,11 +66,7 @@ def setup_cache_gcstruct2vtable(cpu):
 def set_testing_vtable_for_gcstruct(GCSTRUCT, vtable, name):
     # only for tests that need to register the vtable of their malloc'ed
     # structures in case they are GcStruct inheriting from OBJECT.
-    namez = name + '\x00'
-    vtable.name = lltype.malloc(rclass.OBJECT_VTABLE.name.TO, len(namez),
-                                immortal=True)
-    for i in range(len(namez)):
-        vtable.name[i] = namez[i]
+    vtable.name = rclass.alloc_array_name(name)
     testing_gcstruct2vtable[GCSTRUCT] = vtable
 
 testing_gcstruct2vtable = {}

@@ -379,6 +379,19 @@ def make_formatter_subclass(do_unicode):
         std_wp._annspecialcase_ = 'specialize:argtype(1)'
 
         def std_wp_number(self, r, prefix=''):
+            result = self.result
+            if len(prefix) == 0 and len(r) >= self.width:
+                # this is strictly a fast path: no prefix, and no padding
+                # needed.  It is more efficient code both in the non-jit
+                # case (less testing stuff) and in the jit case (uses only
+                # result.append(), and no startswith() if not f_sign and
+                # not f_blank).
+                if self.f_sign and not r.startswith('-'):
+                    result.append(const('+'))
+                elif self.f_blank and not r.startswith('-'):
+                    result.append(const(' '))
+                result.append(const(r))
+                return
             # add a '+' or ' ' sign if necessary
             sign = r.startswith('-')
             if not sign:
@@ -391,7 +404,6 @@ def make_formatter_subclass(do_unicode):
             # do the padding requested by self.width and the flags,
             # without building yet another RPython string but directly
             # by pushing the pad character into self.result
-            result = self.result
             padding = self.width - len(r) - len(prefix)
             if padding <= 0:
                 padding = 0

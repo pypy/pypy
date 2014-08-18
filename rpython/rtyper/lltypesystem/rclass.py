@@ -22,6 +22,7 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import objectmodel
 from rpython.tool.identity_dict import identity_dict
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.lltypesystem import rstr
 
 #
 #  There is one "vtable" per user class, with the following structure:
@@ -32,7 +33,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 #          RuntimeTypeInfo * rtti;
 #          Signed subclassrange_min;  //this is also the id of the class itself
 #          Signed subclassrange_max;
-#          array { char } * name;
+#          RPyString * name;
 #          struct object * instantiate();
 #      }
 #
@@ -68,7 +69,7 @@ OBJECT_VTABLE.become(Struct('object_vtable',
                             ('subclassrange_min', Signed),
                             ('subclassrange_max', Signed),
                             ('rtti', Ptr(RuntimeTypeInfo)),
-                            ('name', Ptr(Array(Char))),
+                            ('name', Ptr(rstr.STR)),
                             ('hash', Signed),
                             ('instantiate', Ptr(FuncType([], OBJECTPTR))),
                             hints = {'immutable': True}))
@@ -90,11 +91,7 @@ def cast_vtable_to_typeptr(vtable):
     return vtable
 
 def alloc_array_name(name):
-    p = malloc(Array(Char), len(name)+1, immortal=True)
-    for i in range(len(name)):
-        p[i] = name[i]
-    p[len(name)] = '\x00'
-    return p
+    return rstr.string_repr.convert_const(name)
 
 
 class ClassRepr(AbstractClassRepr):
@@ -579,7 +576,6 @@ class InstanceRepr(AbstractInstanceRepr):
         return hop.genop('ptr_nonzero', [vinst], resulttype=Bool)
 
     def ll_str(self, i): # doesn't work for non-gc classes!
-        from rpython.rtyper.lltypesystem import rstr
         from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
         from rpython.rlib.rarithmetic import r_uint
         if not i:
@@ -590,14 +586,8 @@ class InstanceRepr(AbstractInstanceRepr):
         #uid = r_uint(cast_ptr_to_int(i))
         uid = r_uint(llop.gc_id(lltype.Signed, i))
         #
-        nameLen = len(instance.typeptr.name)
-        nameString = rstr.mallocstr(nameLen-1)
-        i = 0
-        while i < nameLen - 1:
-            nameString.chars[i] = instance.typeptr.name[i]
-            i += 1
         res =                        rstr.instance_str_prefix
-        res = rstr.ll_strconcat(res, nameString)
+        res = rstr.ll_strconcat(res, instance.typeptr.name)
         res = rstr.ll_strconcat(res, rstr.instance_str_infix)
         res = rstr.ll_strconcat(res, ll_int2hex(uid, False))
         res = rstr.ll_strconcat(res, rstr.instance_str_suffix)

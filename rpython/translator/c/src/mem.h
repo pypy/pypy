@@ -117,6 +117,9 @@ void boehm_gc_finalizer_notifier(void);
 #define OP_BOEHM_DISAPPEARING_LINK(link, obj, r)  /* nothing */
 #define OP_GC__DISABLE_FINALIZERS(r)  /* nothing */
 #define OP_GC__ENABLE_FINALIZERS(r)  /* nothing */
+#define GC_REGISTER_FINALIZER(a, b, c, d, e)  /* nothing */
+#define GC_gcollect()  /* nothing */
+#define GC_set_max_heap_size(a)  /* nothing */
 #endif
 
 /************************************************************/

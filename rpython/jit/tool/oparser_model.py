@@ -124,6 +124,15 @@ def get_model(use_mock):
 
     class ExtendedTreeLoop(model.TreeLoop):
 
+        def as_json(self):
+            return {
+                'comment': self.comment,
+                'name': self.name,
+                'operations': [op.as_json() for op in self.operations],
+                'inputargs': self.inputargs,
+                'last_offset': self.last_offset
+            }
+
         def getboxes(self):
             def opboxes(operations):
                 for op in operations:

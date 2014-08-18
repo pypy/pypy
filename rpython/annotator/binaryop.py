@@ -719,6 +719,14 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
             return super(thistype, pair(ins1, ins2)).improve()
 
 
+class __extend__(pairtype(SomeInstance, SomeObject)):
+    def getitem((s_ins, s_idx)):
+        return s_ins._emulate_call("__getitem__", s_idx)
+
+    def setitem((s_ins, s_idx), s_value):
+        return s_ins._emulate_call("__setitem__", s_idx, s_value)
+
+
 class __extend__(pairtype(SomeIterator, SomeIterator)):
 
     def union((iter1, iter2)):

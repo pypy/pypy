@@ -75,18 +75,51 @@ class AbstractDictIteratorRepr(rmodel.IteratorRepr):
     def rtype_next(self, hop):
         variant = self.variant
         v_iter, = hop.inputargs(self)
-        if variant in ('keys', 'values'):
-            c1 = hop.inputconst(lltype.Void, None)
-        else:
-            c1 = hop.inputconst(lltype.Void, hop.r_result.lowleveltype)
         # record that we know about these two possible exceptions
         hop.has_implicit_exception(StopIteration)
         hop.has_implicit_exception(RuntimeError)
         hop.exception_is_here()
-        v = hop.gendirectcall(self.ll_dictnext, c1, v_iter)
+        v_index = hop.gendirectcall(self._ll_dictnext, v_iter)
+        if variant == 'items' and hop.r_result.lowleveltype != lltype.Void:
+            # this allocates the tuple for the result, directly in the function
+            # where it will be used (likely).  This will let it be removed.
+            c1 = hop.inputconst(lltype.Void, hop.r_result.lowleveltype.TO)
+            cflags = hop.inputconst(lltype.Void, {'flavor': 'gc'})
+            v_result = hop.genop('malloc', [c1, cflags],
+                                 resulttype = hop.r_result.lowleveltype)
+        DICT = self.lowleveltype.TO.dict
+        c_dict = hop.inputconst(lltype.Void, 'dict')
+        v_dict = hop.genop('getfield', [v_iter, c_dict], resulttype=DICT)
+        ENTRIES = DICT.TO.entries
+        c_entries = hop.inputconst(lltype.Void, 'entries')
+        v_entries = hop.genop('getfield', [v_dict, c_entries],
+                              resulttype=ENTRIES)
+        if variant != 'values':
+            KEY = ENTRIES.TO.OF.key
+            c_key = hop.inputconst(lltype.Void, 'key')
+            v_key = hop.genop('getinteriorfield', [v_entries, v_index, c_key],
+                              resulttype=KEY)
+        if variant != 'keys':
+            VALUE = ENTRIES.TO.OF.value
+            c_value = hop.inputconst(lltype.Void, 'value')
+            v_value = hop.genop('getinteriorfield', [v_entries,v_index,c_value],
+                                resulttype=VALUE)
         if variant == 'keys':
-            return self.r_dict.recast_key(hop.llops, v)
+            return self.r_dict.recast_key(hop.llops, v_key)
         elif variant == 'values':
-            return self.r_dict.recast_value(hop.llops, v)
+            return self.r_dict.recast_value(hop.llops, v_value)
+        elif hop.r_result.lowleveltype == lltype.Void:
+            return hop.inputconst(lltype.Void, None)
         else:
-            return v
+            assert variant == 'items'
+            ITEM0 = v_result.concretetype.TO.item0
+            ITEM1 = v_result.concretetype.TO.item1
+            if ITEM0 != v_key.concretetype:
+                v_key = hop.genop('cast_pointer', [v_key], resulttype=ITEM0)
+            if ITEM1 != v_value.concretetype:
+                v_value = hop.genop('cast_pointer', [v_value], resulttype=ITEM1)
+            c_item0 = hop.inputconst(lltype.Void, 'item0')
+            c_item1 = hop.inputconst(lltype.Void, 'item1')
+            hop.genop('setfield', [v_result, c_item0, v_key])
+            hop.genop('setfield', [v_result, c_item1, v_value])
+            return v_result

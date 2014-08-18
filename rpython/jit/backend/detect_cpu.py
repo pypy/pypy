@@ -73,11 +73,14 @@ def detect_model_from_host_platform():
             result = MODEL_X86_64
         else:
             assert sys.maxint == 2**31-1
-            from rpython.jit.backend.x86.detect_sse2 import detect_sse2
-            if detect_sse2():
+            from rpython.jit.backend.x86 import detect_sse2
+            if detect_sse2.detect_sse2():
                 result = MODEL_X86
             else:
                 result = MODEL_X86_NO_SSE2
+            if detect_sse2.detect_x32_mode():
+                raise ProcessorAutodetectError(
+                    'JITting in x32 mode is not implemented')
     #
     if result.startswith('arm'):
         from rpython.jit.backend.arm.detect import detect_float

@@ -888,6 +888,8 @@ class MIFrame(object):
                                     pc):
         self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
 
+    opimpl_conditional_call_r_v = opimpl_conditional_call_i_v
+
     @arguments("box", "box", "boxes2", "descr", "orgpc")
     def opimpl_conditional_call_ir_v(self, condbox, funcbox, argboxes,
                                      calldescr, pc):
@@ -1179,7 +1181,7 @@ class MIFrame(object):
 
     @arguments("box")
     def _opimpl_isvirtual(self, box):
-        return ConstInt(self.metainterp.heapcache.is_unescaped(box))
+        return ConstInt(self.metainterp.heapcache.is_likely_virtual(box))
 
     opimpl_ref_isvirtual = _opimpl_isvirtual
 
@@ -1375,51 +1377,57 @@ class MIFrame(object):
     def do_residual_call(self, funcbox, argboxes, descr, pc,
                          assembler_call=False,
                          assembler_call_jd=None):
-        # First build allboxes: it may need some reordering from the
-        # list provided in argboxes, depending on the order in which
-        # the arguments are expected by the function
-        #
-        allboxes = self._build_allboxes(funcbox, argboxes, descr)
-        effectinfo = descr.get_extra_info()
-        if (assembler_call or
-                effectinfo.check_forces_virtual_or_virtualizable()):
-            # residual calls require attention to keep virtualizables in-sync
-            self.metainterp.clear_exception()
-            if effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
-                resbox = self._do_jit_force_virtual(allboxes, descr, pc)
+        debug_start("jit-residual-call")
+        try:
+            # First build allboxes: it may need some reordering from the
+            # list provided in argboxes, depending on the order in which
+            # the arguments are expected by the function
+            #
+            allboxes = self._build_allboxes(funcbox, argboxes, descr)
+            effectinfo = descr.get_extra_info()
+            if (assembler_call or
+                    effectinfo.check_forces_virtual_or_virtualizable()):
+                # residual calls require attention to keep virtualizables in-sync
+                self.metainterp.clear_exception()
+                if effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
+                    resbox = self._do_jit_force_virtual(allboxes, descr, pc)
+                    if resbox is not None:
+                        return resbox
+                self.metainterp.vable_and_vrefs_before_residual_call()
+                resbox = self.metainterp.execute_and_record_varargs(
+                    rop.CALL_MAY_FORCE, allboxes, descr=descr)
+                if effectinfo.is_call_release_gil():
+                    self.metainterp.direct_call_release_gil()
+                self.metainterp.vrefs_after_residual_call()
+                vablebox = None
+                if assembler_call:
+                    vablebox = self.metainterp.direct_assembler_call(
+                        assembler_call_jd)
                 if resbox is not None:
-                    return resbox
-            self.metainterp.vable_and_vrefs_before_residual_call()
-            resbox = self.metainterp.execute_and_record_varargs(
-                rop.CALL_MAY_FORCE, allboxes, descr=descr)
-            if effectinfo.is_call_release_gil():
-                self.metainterp.direct_call_release_gil()
-            self.metainterp.vrefs_after_residual_call()
-            vablebox = None
-            if assembler_call:
-                vablebox = self.metainterp.direct_assembler_call(
-                    assembler_call_jd)
-            if resbox is not None:
-                self.make_result_of_lastop(resbox)
-            self.metainterp.vable_after_residual_call(funcbox)
-            self.metainterp.generate_guard(rop.GUARD_NOT_FORCED, None)
-            if vablebox is not None:
-                self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
-            self.metainterp.handle_possible_exception()
-            # XXX refactor: direct_libffi_call() is a hack
-            if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
-                self.metainterp.direct_libffi_call()
-            return resbox
-        else:
-            effect = effectinfo.extraeffect
-            if effect == effectinfo.EF_LOOPINVARIANT:
-                return self.execute_varargs(rop.CALL_LOOPINVARIANT, allboxes,
-                                            descr, False, False)
-            exc = effectinfo.check_can_raise()
-            pure = effectinfo.check_is_elidable()
-            return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
+                    self.make_result_of_lastop(resbox)
+                self.metainterp.vable_after_residual_call(funcbox)
+                self.metainterp.generate_guard(rop.GUARD_NOT_FORCED, None)
+                if vablebox is not None:
+                    self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
+                self.metainterp.handle_possible_exception()
+                # XXX refactor: direct_libffi_call() is a hack
+                if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
+                    self.metainterp.direct_libffi_call()
+                return resbox
+            else:
+                effect = effectinfo.extraeffect
+                if effect == effectinfo.EF_LOOPINVARIANT:
+                    return self.execute_varargs(rop.CALL_LOOPINVARIANT, allboxes,
+                                                descr, False, False)
+                exc = effectinfo.check_can_raise()
+                pure = effectinfo.check_is_elidable()
+                return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
+        finally:
+            debug_stop("jit-residual-call")
 
     def do_conditional_call(self, condbox, funcbox, argboxes, descr, pc):
+        if isinstance(condbox, ConstInt) and condbox.value == 0:
+            return   # so that the heapcache can keep argboxes virtual
         allboxes = self._build_allboxes(funcbox, argboxes, descr)
         effectinfo = descr.get_extra_info()
         assert not effectinfo.check_forces_virtual_or_virtualizable()

@@ -15,10 +15,14 @@ class Logger(object):
     def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None, name=''):
         if type is None:
             debug_start("jit-log-noopt-loop")
+            debug_print("# Loop", number, '(%s)' % name, ":", "noopt",
+                        "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-loop")
         elif type == "rewritten":
             debug_start("jit-log-rewritten-loop")
+            debug_print("# Loop", number, '(%s)' % name, ":", type,
+                        "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-rewritten-loop")
         elif number == -2:
@@ -37,12 +41,18 @@ class Logger(object):
                    descr=None, ops_offset=None):
         if extra == "noopt":
             debug_start("jit-log-noopt-bridge")
+            debug_print("# bridge out of Guard",
+                        "0x%x" % compute_unique_id(descr),
+                        "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-bridge")
         elif extra == "rewritten":
             debug_start("jit-log-rewritten-bridge")
+            debug_print("# bridge out of Guard",
+                        "0x%x" % compute_unique_id(descr),
+                        "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
-            debug_stop("jit-log-rewritten-bridge")            
+            debug_stop("jit-log-rewritten-bridge")
         elif extra == "compiling":
             debug_start("jit-log-compiling-bridge")
             logops = self._log_operations(inputargs, operations, ops_offset)

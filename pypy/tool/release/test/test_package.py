@@ -18,9 +18,16 @@ def test_dir_structure(test='test'):
     pypy_c = py.path.local(pypydir).join('goal', basename)
     if not pypy_c.check():
         if sys.platform == 'win32':
-            assert False, "test on win32 requires exe"
-        pypy_c.write("#!/bin/sh")
-        pypy_c.chmod(0755)
+            import os, shutil
+            for d in os.environ['PATH'].split(';'):
+                if os.path.exists(os.path.join(d, 'cmd.exe')):
+                    shutil.copy(os.path.join(d, 'cmd.exe'), str(pypy_c))
+                    break
+            else:
+                assert False, 'could not find cmd.exe'
+        else:    
+            pypy_c.write("#!/bin/sh")
+            pypy_c.chmod(0755)
         fake_pypy_c = True
     else:
         fake_pypy_c = False
@@ -115,9 +122,8 @@ def test_generate_license():
     basedir = dirname(dirname(dirname(dirname(dirname(abspath(__file__))))))
     options.no_tk = False
     if sys.platform == 'win32':
-        # Following recommended build setup at
-        # http://doc.pypy.org/en/latest/windows.html#abridged-method-for-ojit-builds-using-visual-studio-2008
-        options.license_base = dirname(basedir) + '/local'
+         # as on buildbot YMMV
+        options.license_base = join(basedir, r'..\..\..\local')
     else:
         options.license_base = '/usr/share/doc'
     license = package.generate_license(py.path.local(basedir), options)

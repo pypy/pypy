@@ -55,8 +55,7 @@ class FFI(object):
             # _cffi_backend.so compiled.
             import _cffi_backend as backend
             from . import __version__
-            assert (backend.__version__ == __version__ or
-                    backend.__version__ == __version__[:3])
+            assert backend.__version__ == __version__
             # (If you insist you can also try to pass the option
             # 'backend=backend_ctypes.CTypesBackend()', but don't
             # rely on it!  It's probably not going to work well.)
@@ -443,6 +442,10 @@ def _make_ffi_library(ffi, libname, flags):
                 for enumname, enumval in zip(tp.enumerators, tp.enumvalues):
                     if enumname not in library.__dict__:
                         library.__dict__[enumname] = enumval
+            for key, val in ffi._parser._int_constants.items():
+                if key not in library.__dict__:
+                    library.__dict__[key] = val
+
             copied_enums.append(True)
             if name in library.__dict__:
                 return

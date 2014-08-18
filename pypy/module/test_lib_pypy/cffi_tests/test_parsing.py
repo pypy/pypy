@@ -162,9 +162,10 @@ def test_remove_comments():
 
 def test_define_not_supported_for_now():
     ffi = FFI(backend=FakeBackend())
-    e = py.test.raises(CDefError, ffi.cdef, "#define FOO 42")
-    assert str(e.value) == \
-           'only supports the syntax "#define FOO ..." for now (literally)'
+    e = py.test.raises(CDefError, ffi.cdef, '#define FOO "blah"')
+    assert str(e.value) == (
+        'only supports the syntax "#define FOO ..." (literally)'
+        ' or "#define FOO 0x1FF" for now')
 
 def test_unnamed_struct():
     ffi = FFI(backend=FakeBackend())

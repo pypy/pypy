@@ -49,7 +49,7 @@ def _get_hg_version(hgexe, root):
     try:
         p = Popen([str(hgexe), 'version', '-q'],
                   stdout=PIPE, stderr=PIPE, env=env)
-    except OSError, e:
+    except OSError as e:
         maywarn(e)
         return default_retval
 
@@ -107,7 +107,7 @@ def _get_git_version(root):
             [str(gitexe), 'rev-parse', 'HEAD'],
             stdout=PIPE, stderr=PIPE, cwd=root
             )
-    except OSError, e:
+    except OSError as e:
         maywarn(e, 'Git')
         return default_retval
     if p.wait() != 0:

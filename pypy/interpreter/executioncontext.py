@@ -496,6 +496,13 @@ class PeriodicAsyncAction(AsyncAction):
     """
 
 
+class UserDelCallback(object):
+    def __init__(self, w_obj, callback, descrname):
+        self.w_obj = w_obj
+        self.callback = callback
+        self.descrname = descrname
+        self.next = None
+
 class UserDelAction(AsyncAction):
     """An action that invokes all pending app-level __del__() method.
     This is done as an action instead of immediately when the
@@ -506,12 +513,18 @@ class UserDelAction(AsyncAction):
 
     def __init__(self, space):
         AsyncAction.__init__(self, space)
-        self.dying_objects = []
+        self.dying_objects = None
+        self.dying_objects_last = None
         self.finalizers_lock_count = 0
         self.enabled_at_app_level = True
 
     def register_callback(self, w_obj, callback, descrname):
-        self.dying_objects.append((w_obj, callback, descrname))
+        cb = UserDelCallback(w_obj, callback, descrname)
+        if self.dying_objects_last is None:
+            self.dying_objects = cb
+        else:
+            self.dying_objects_last.next = cb
+        self.dying_objects_last = cb
         self.fire()
 
     def perform(self, executioncontext, frame):
@@ -525,13 +538,33 @@ class UserDelAction(AsyncAction):
         # avoid too deep recursions of the kind of __del__ being called
         # while in the middle of another __del__ call.
         pending = self.dying_objects
-        self.dying_objects = []
+        self.dying_objects = None
+        self.dying_objects_last = None
         space = self.space
-        for i in range(len(pending)):
-            w_obj, callback, descrname = pending[i]
-            pending[i] = (None, None, None)
+        while pending is not None:
             try:
-                callback(w_obj)
+                pending.callback(pending.w_obj)
             except OperationError, e:
-                e.write_unraisable(space, descrname, w_obj)
+                e.write_unraisable(space, pending.descrname, pending.w_obj)
                 e.clear(space)   # break up reference cycles
+            pending = pending.next
+        #
+        # Note: 'dying_objects' used to be just a regular list instead
+        # of a chained list.  This was the cause of "leaks" if we have a
+        # program that constantly creates new objects with finalizers.
+        # Here is why: say 'dying_objects' is a long list, and there
+        # are n instances in it.  Then we spend some time in this
+        # function, possibly triggering more GCs, but keeping the list
+        # of length n alive.  Then the list is suddenly freed at the
+        # end, and we return to the user program.  At this point the
+        # GC limit is still very high, because just before, there was
+        # a list of length n alive.  Assume that the program continues
+        # to allocate a lot of instances with finalizers.  The high GC
+        # limit means that it could allocate a lot of instances before
+        # reaching it --- possibly more than n.  So the whole procedure
+        # repeats with higher and higher values of n.
+        #
+        # This does not occur in the current implementation because
+        # there is no list of length n: if n is large, then the GC
+        # will run several times while walking the list, but it will
+        # see lower and lower memory usage, with no lower bound of n.

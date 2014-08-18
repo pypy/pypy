@@ -81,6 +81,21 @@ class BaseTestRffi:
         xf = self.compile(f, [], backendopt=False)
         assert xf() == 4
 
+    def test_charp2str_exact_result(self):
+        from rpython.annotator.annrpython import RPythonAnnotator
+        from rpython.rtyper.llannotation import SomePtr
+        a = RPythonAnnotator()
+        s = a.build_types(charpsize2str, [SomePtr(CCHARP), int])
+        assert s.knowntype == str
+        assert s.can_be_None is False
+        assert s.no_nul is False
+        #
+        a = RPythonAnnotator()
+        s = a.build_types(charp2str, [SomePtr(CCHARP)])
+        assert s.knowntype == str
+        assert s.can_be_None is False
+        assert s.no_nul is True
+
     def test_string_reverse(self):
         c_source = py.code.Source("""
         #include <string.h>

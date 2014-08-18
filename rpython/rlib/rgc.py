@@ -313,6 +313,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
 
 
 @jit.oopspec('rgc.ll_shrink_array(p, smallerlength)')
+@enforceargs(None, int)
 @specialize.ll()
 def ll_shrink_array(p, smallerlength):
     from rpython.rtyper.lltypesystem.lloperation import llop

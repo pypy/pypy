@@ -842,8 +842,6 @@ class EmptyListStrategy(ListStrategy):
     W_Lists do not switch back to EmptyListStrategy when becoming empty again.
     """
 
-    _applevel_repr = "empty"
-
     def __init__(self, space):
         ListStrategy.__init__(self, space)
 
@@ -1102,8 +1100,6 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
        method providing only positive length. The storage is a one element tuple
        with positive integer storing length."""
 
-    _applevel_repr = "simple_range"
-
     erase, unerase = rerased.new_erasing_pair("simple_range")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
@@ -1175,8 +1171,6 @@ class RangeListStrategy(BaseRangeListStrategy):
     length and elements are calculated based on these values.  On any operation
     destroying the range (inserting, appending non-ints) the strategy is
     switched to IntegerListStrategy."""
-
-    _applevel_repr = "range"
 
     erase, unerase = rerased.new_erasing_pair("range")
     erase = staticmethod(erase)
@@ -1555,7 +1549,6 @@ class ObjectListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = None
-    _applevel_repr = "object"
 
     def unwrap(self, w_obj):
         return w_obj
@@ -1590,7 +1583,6 @@ class IntegerListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = 0
-    _applevel_repr = "int"
 
     def wrap(self, intval):
         return self.space.wrap(intval)
@@ -1644,7 +1636,6 @@ class FloatListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = 0.0
-    _applevel_repr = "float"
 
     def wrap(self, floatval):
         return self.space.wrap(floatval)
@@ -1677,7 +1668,6 @@ class BytesListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = None
-    _applevel_repr = "bytes"
 
     def wrap(self, stringval):
         return self.space.wrap(stringval)
@@ -1710,7 +1700,6 @@ class UnicodeListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = None
-    _applevel_repr = "unicode"
 
     def wrap(self, stringval):
         return self.space.wrap(stringval)

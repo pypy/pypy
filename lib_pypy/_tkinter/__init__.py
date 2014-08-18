@@ -30,6 +30,10 @@ def create(screenName=None, baseName=None, className=None,
     return TkApp(screenName, baseName, className,
                  interactive, wantobjects, wantTk, sync, use)
 
+def dooneevent(flags=0):
+    return tklib.Tcl_DoOneEvent(flags)
+
+
 def _flatten(item):
     def _flatten1(output, item, depth):
         if depth > 1000:

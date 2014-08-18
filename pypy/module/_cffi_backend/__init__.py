@@ -8,7 +8,7 @@ class Module(MixedModule):
     appleveldefs = {
         }
     interpleveldefs = {
-        '__version__': 'space.wrap("0.8.2")',
+        '__version__': 'space.wrap("0.8.6")',
 
         'load_library': 'libraryobj.load_library',
 

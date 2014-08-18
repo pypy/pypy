@@ -34,7 +34,7 @@ class VRefTests(object):
         #
         def check_call(op, fname):
             assert op.opname == 'direct_call'
-            assert op.args[0].value._obj._name == fname
+            assert op.args[0].value._obj._name.startswith(fname)
         #
         ops = [op for block, op in graph.iterblockops()]
         check_call(ops[-3], 'virtual_ref')

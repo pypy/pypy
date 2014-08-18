@@ -1006,15 +1006,12 @@ class RegisterOs(BaseLazyRegistering):
             if count < 0:
                 raise OSError(errno.EINVAL, None)
             rposix.validate_fd(fd)
-            raw_buf, gc_buf = rffi.alloc_buffer(count)
-            try:
-                void_buf = rffi.cast(rffi.VOIDP, raw_buf)
+            with rffi.scoped_alloc_buffer(count) as buf:
+                void_buf = rffi.cast(rffi.VOIDP, buf.raw)
                 got = rffi.cast(lltype.Signed, os_read(fd, void_buf, count))
                 if got < 0:
                     raise OSError(rposix.get_errno(), "os_read failed")
-                return rffi.str_from_buffer(raw_buf, gc_buf, count, got)
-            finally:
-                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+                return buf.str(got)
 
         return extdef([int, int], SomeString(can_be_None=True),
                       "ll_os.ll_os_read", llimpl=os_read_llimpl)

@@ -61,6 +61,7 @@ class __extend__(pyframe.PyFrame):
             while True:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
         except ExitFrame:
+            self.last_exception = None
             return self.popvalue()
 
     def handle_bytecode(self, co_code, next_instr, ec):
@@ -200,7 +201,7 @@ class __extend__(pyframe.PyFrame):
             elif opcode == opcodedesc.BREAK_LOOP.index:
                 next_instr = self.BREAK_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.CONTINUE_LOOP.index:
-                next_instr = self.CONTINUE_LOOP(oparg, next_instr)
+                return self.CONTINUE_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.FOR_ITER.index:
                 next_instr = self.FOR_ITER(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_FORWARD.index:
