@@ -2607,6 +2607,7 @@ class Assembler386(BaseAssembler):
         # so if it is followed with a JB, it will follow the jump if
         # we should break the transaction now.
         #
+        assert self.cpu.gc_ll_descr.stm
         if not IS_X86_64:
             todo()   # "needed for X86_64_SCRATCH_REG"
         psnlfm_adr = rstm.adr_pypy_stm_nursery_low_fill_mark
@@ -2631,6 +2632,7 @@ class Assembler386(BaseAssembler):
             self.implement_guard(guard_token, 'AE')  # JAE goes to "no, don't"
 
     def genop_discard_stm_read(self, op, arglocs):
+        assert self.cpu.gc_ll_descr.stm
         if not IS_X86_64:
             todo()   # "needed for X86_64_SCRATCH_REG"
         mc = self.mc

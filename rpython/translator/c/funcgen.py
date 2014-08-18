@@ -310,6 +310,8 @@ class FunctionCodeGenerator(object):
                 line = meth(self, op)
         elif op.opname.startswith('stm_'):
             if not self._is_stm():
+                if op.opname in ('stm_ignored_start', 'stm_ignored_stop'):
+                    return
                 raise AssertionError("STM transformation not applied.  "
                                      "You need '--stm'")
             from rpython.translator.stm import funcgen
