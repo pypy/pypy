@@ -264,15 +264,15 @@ LONG_SIZE = LONG_BIT / 8
 CCHARP_SIZE = _get_bitsize('P') / 8
 
 class W_GenericUFuncCaller(W_Root):
-    def __init__(self, func):
+    def __init__(self, func, data):
         self.func = func
+        self.data = data
         
     def descr_call(self, space, __args__):
         args_w, kwds_w = __args__.unpack()
         dataps = alloc_raw_storage(CCHARP_SIZE * len(args_w), track_allocation=False)
         dims = alloc_raw_storage(LONG_SIZE * len(args_w), track_allocation=False)
         steps = alloc_raw_storage(LONG_SIZE * len(args_w), track_allocation=False)
-        user_data = None
         for i in range(len(args_w)):
             arg_i = args_w[i]
             assert isinstance(arg_i, W_NDimArray)
@@ -282,7 +282,7 @@ class W_GenericUFuncCaller(W_Root):
             raw_storage_setitem(steps, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_dtype().elsize))
         try:
             self.func(rffi.cast(rffi.CArrayPtr(rffi.CCHARP), dataps), 
-                      rffi.cast(npy_intpp, dims), rffi.cast(npy_intpp, steps), user_data)
+                      rffi.cast(npy_intpp, dims), rffi.cast(npy_intpp, steps), self.data)
         finally:
             free_raw_storage(dataps, track_allocation=False)
             free_raw_storage(dims, track_allocation=False)
@@ -304,7 +304,7 @@ def _PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
     funcs_w = [None] * ntypes
     dtypes_w = [None] * ntypes * (nin + nout)
     for i in range(ntypes):
-        funcs_w[i] = W_GenericUFuncCaller(rffi.cast(gufunctype, funcs[i]))
+        funcs_w[i] = W_GenericUFuncCaller(rffi.cast(gufunctype, funcs[i]), data)
     for i in range(ntypes*(nin+nout)):
         dtypes_w[i] = get_dtype_cache(space).dtypes_by_num[ord(types[i])]
     w_funcs = space.newlist(funcs_w)
@@ -312,9 +312,7 @@ def _PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
     w_signature = rffi.charp2str(signature)
     w_doc = rffi.charp2str(doc)
     w_name = rffi.charp2str(name)
-    w_nin = int(nin)
-    w_nout = int(nout)
     w_identity = space.wrap(identity)
-    ufunc_generic = ufuncs.frompyfunc(space, w_funcs, w_nin, w_nout, w_dtypes,
+    ufunc_generic = ufuncs.frompyfunc(space, w_funcs, nin, nout, w_dtypes,
                  w_signature, w_identity, w_name, w_doc)
     return ufunc_generic             

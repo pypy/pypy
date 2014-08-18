@@ -1018,9 +1018,12 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
 
     if space.is_none(w_identity):
         identity =  None
-    else:    
+    elif space.isinstance_w(w_identity, space.w_int):
         identity = \
-            descriptor.get_dtype_cache(space).w_longdtype.box(w_identity)
+            descriptor.get_dtype_cache(space).w_longdtype.box(space.int_w(w_identity))
+    else:        
+        raise oefmt(space.w_ValueError,
+            'identity must be None or an int')
 
     w_ret = W_UfuncGeneric(space, func, name, identity, nin, nout, dtypes, signature,
                                 match_dtypes=match_dtypes)
