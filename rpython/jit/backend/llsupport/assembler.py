@@ -74,10 +74,11 @@ class BaseAssembler(object):
             self.gc_minimal_size_in_nursery = gc_ll_descr.minimal_size_in_nursery
         else:
             self.gc_minimal_size_in_nursery = 0
-        try:
-            self.gc_size_of_header = gc_ll_descr.gcheaderbuilder.size_gc_header
-        except AttributeError:
-            self.gc_size_of_header = WORD # for tests
+        gc_size_of_header = WORD  # for tests
+        if hasattr(gc_ll_descr, 'gcheaderbuilder'):
+            if hasattr(gc_ll_descr.gcheaderbuilder, 'size_gc_header'):
+                gc_size_of_header = gc_ll_descr.gcheaderbuilder.size_gc_header
+        self.gc_size_of_header = gc_size_of_header
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         # building the barriers needs to happen before these:
         self._build_failure_recovery(False, withfloats=False)
