@@ -44,8 +44,7 @@ class PyPyJitDriver(JitDriver):
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               should_unroll_one_iteration =
                               should_unroll_one_iteration,
-                              name='pypyjit',
-                              stm_do_transaction_breaks=True)
+                              name='pypyjit')
 
 class __extend__(PyFrame):
 
