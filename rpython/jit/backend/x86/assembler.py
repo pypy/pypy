@@ -904,6 +904,7 @@ class Assembler386(BaseAssembler):
             mc.MOV_rs(ebx.value, STM_SHADOWSTACK_BASE_OFS)
                                                       # MOV ebx, [esp+ssbase]
             mc.MOV_rs(r11.value, STM_PREV_OFS)        # MOV r11, [esp+prev]
+            mc.SUB_ri(ebx.value, 1)                   # SUB ebx, 1
             mc.MOV(self.heap_shadowstack_top(), ebx)  # MOV [rootstacktop], ebx
             mc.LEA_rs(ebx.value, STM_JMPBUF_OFS)      # LEA ebx, [esp+bufofs]
             mc.MOV(rjh, r11)                          # MOV [rjthread.head], r11
