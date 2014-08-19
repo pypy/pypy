@@ -159,7 +159,7 @@ void _pypy_stm_initialize_nursery_low_fill_mark(long v_counter)
     pypy_stm_nursery_low_fill_mark = _stm_nursery_start + limit;
 }
 
-static long _pypy_stm_start_transaction(void)
+long _pypy_stm_start_transaction(void)
 {
     pypy_stm_nursery_low_fill_mark = 1;  /* will be set to a correct value below */
     long counter = stm_start_transaction(&stm_thread_local);
