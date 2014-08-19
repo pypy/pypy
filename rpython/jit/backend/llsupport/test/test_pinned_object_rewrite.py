@@ -130,6 +130,7 @@ class TestFramework(RewriteTests):
             p1 = getarrayitem_gc(ConstPtr(ptr_array_gcref), 0, descr=ptr_array_descr)
             i0 = getfield_gc(p1, descr=pinned_obj_my_int_descr)
             """)
+        assert len(self.gc_ll_descr.last_moving_obj_tracker._indexes) == 1
 
     def test_simple_getfield_twice(self):
         self.check_rewrite("""
@@ -145,3 +146,4 @@ class TestFramework(RewriteTests):
             p2 = getarrayitem_gc(ConstPtr(ptr_array_gcref), 1, descr=ptr_array_descr)
             i2 = getfield_gc(p2, descr=pinned_obj_my_int_descr)
             """)
+        assert len(self.gc_ll_descr.last_moving_obj_tracker._indexes) == 2
