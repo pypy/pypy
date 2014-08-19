@@ -71,15 +71,15 @@ from rpython.rlib.objectmodel import specialize
 #  * young objects: allocated in the nursery if they are not too large, or
 #    raw-malloced otherwise.  The nursery is a fixed-size memory buffer of
 #    4MB by default.  When full, we do a minor collection;
-#    the surviving objects from the nursery are moved outside, and the
-#    non-surviving raw-malloced objects are freed.  All surviving objects
-#    become old.
+#    - surviving objects from the nursery are moved outside and become old,
+#    - non-surviving raw-malloced objects are freed,
+#    - and pinned objects are kept at their place inside the nursery and stay
+#      young.
 #
 #  * old objects: never move again.  These objects are either allocated by
 #    minimarkpage.py (if they are small), or raw-malloced (if they are not
 #    small).  Collected by regular mark-n-sweep during major collections.
 #
-# XXX update doc string to contain object pinning (groggi)
 
 WORD = LONG_BIT // 8
 
@@ -132,8 +132,8 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # a minor collection.
 GCFLAG_VISITED_RMY   = first_gcflag << 8
 
-# The following flag is set on nursery objects of which we expect not to
-# move.  This means that a young object with this flag is not moved out
+# The following flag is set on nursery objects to keep them in the nursery.
+# This means that a young object with this flag is not moved out
 # of the nursery during a minor collection. See pin()/unpin() for further
 # details.
 GCFLAG_PINNED        = first_gcflag << 9
@@ -264,7 +264,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # nursery. Has to fit at least one large object
         "nursery_cleanup": 32768 * WORD,
 
-        # Number of  objects that are allowed to be pinned in the nursery
+        # Number of objects that are allowed to be pinned in the nursery
         # at the same time.  Must be lesser than or equal to the chunk size
         # of an AddressStack.
         "max_number_of_pinned_objects": 100,
@@ -379,21 +379,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # minor collection.
         self.nursery_objects_shadows = self.AddressDict()
         #
-        # A sorted deque containing all pinned objects *before* the last
-        # minor collection. This deque must be consulted when considering
-        # next nursery ceiling.
+        # A sorted deque containing addresses of pinned objects.
+        # This collection is used to make sure we don't overwrite pinned objects.
+        # Each minor collection creates a new deque containing the active pinned
+        # objects. The addresses are used to set the next 'nursery_top'.
         self.nursery_barriers = self.AddressDeque()
         #
         # Counter tracking how many pinned objects currently reside inside
         # the nursery.
         self.pinned_objects_in_nursery = 0
         #
-        # Keeps track of objects pointing to pinned objects. These objects
-        # must be revisited every minor collection. Without this list
-        # any old object inside this list would only be visited in case a
-        # write barrier was triggered, which would result in not visiting
-        # the young pinned object and would therefore result in removing
-        # the pinned object.
+        # Keeps track of old objects pointing to pinned objects. These objects
+        # must be traced every minor collection. Without tracing them the
+        # referenced pinned object wouldn't be visited and therefore collected.
         self.old_objects_pointing_to_pinned = self.AddressStack()
         #
         # Allocate a nursery.  In case of auto_nursery_size, start by
@@ -708,8 +706,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         is needed."""
 
         # in general we always move 'self.nursery_top' by 'self.nursery_cleanup'.
-        # However, because of the presence of pinned objects there are cases where
-        # the GC can't move by 'self.nursery_cleanup' without overflowing the arena.
+        # However, because of the presence of pinned objects there are cases
+        # where the GC can't move by 'self.nursery_cleanup' without overflowing
+        # the arena.
         # For such a case we use the space left in the nursery.
         size = min(self.nursery_cleanup, self.nursery_real_top - self.nursery_top)
         if llmemory.raw_malloc_usage(totalsize) > size:
@@ -749,14 +748,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.nursery_free = self.nursery_top + pinned_obj_size
                 self.nursery_top = self.nursery_barriers.popleft()
                 #
-                # because we encountered a barrier, we also have to fix
-                # 'prev_result' as the one provided as a method parameter
-                # can't be used as there is no space between 'prev_result'
-                # and the barrier for 'totalsize'.
+                # because we encountered a barrier, we have to fix 'prev_result'.
+                # The one provided as parameter can't be used further as there
+                # is not enough space between 'prev_result' and and the barrier
+                # for an object of 'totalsize' size.
                 prev_result = self.nursery_free
             else:
                 #
-                # no barriers (i.e. pinned objects) after 'nursery_free'.
+                # no barriers (i.e. no pinned objects) after 'nursery_free'.
                 # If possible just enlarge the used part of the nursery.
                 # Otherwise we are forced to clean up the nursery.
                 if self.try_move_nursery_top(totalsize):
@@ -783,8 +782,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                             #
                             if self.nursery_free + totalsize > self.nursery_real_top:
                                 # still not enough space, we need to collect.
-                                # maybe nursery contains too many pinned objects (see
-                                # assert below).
+                                # maybe nursery contains too many pinned objects
+                                # (see assert below).
                                 self.minor_collection()
                             else:
                                 # execute loop one more time. This should find
@@ -803,7 +802,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 break
         #
         if self.debug_tiny_nursery >= 0:   # for debugging
-            # XXX solution for this assert? (groggi)
             ll_assert(not self.nursery_barriers.non_empty(),
                 "no support for nursery debug and pinning")
             if self.nursery_top - self.nursery_free > self.debug_tiny_nursery:
@@ -983,19 +981,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.pinned_objects_in_nursery >= self.max_number_of_pinned_objects:
             return False
         if not self.is_in_nursery(obj):
-            # Old objects are already non-moving, therefore pinning
+            # old objects are already non-moving, therefore pinning
             # makes no sense. If you run into this case, you may forgot
-            # to check if can_move(obj) already returns True in which
-            # case a call to pin() is unnecessary.
+            # to check can_move(obj).
             return False
         if self.has_gcptr(self.get_type_id(obj)):
             # objects containing GC pointers can't be pinned. If we would add
             # it, we would have to track all pinned objects and trace them
             # every minor collection to make sure the referenced object are
-            # kept alive.
+            # kept alive. Right now this is not a use case that's needed.
             return False
         if self._is_pinned(obj):
-            # Already pinned, we do not allow to pin it again.
+            # already pinned, we do not allow to pin it again.
             # Reason: It would be possible that the first caller unpins
             # while the second caller thinks it's still pinned.
             return False
@@ -1193,9 +1190,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             ll_assert(self.is_in_nursery(obj),
                       "pinned object not in nursery")
-            # XXX check if we can support that or if it makes no sense (groggi)
-            ll_assert(not self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS,
-                      "pinned nursery object with GCFLAG_TRACK_YOUNG_PTRS")
 
         if self.gc_state == STATE_SCANNING:
             self._debug_check_object_scanning(obj)
@@ -1544,9 +1538,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # where this stack is filled.  Pinning an object only prevents it from
         # being moved, not from being collected if it is not reachable anymore.
         self.surviving_pinned_objects = self.AddressStack()
-        #
-        # The following counter keeps track of the amount of alive and pinned
-        # objects inside the nursery.
+        # The following counter keeps track of alive and pinned young objects
+        # inside the nursery. We reset it here and increace it in
+        # '_trace_drag_out()'.
         self.pinned_objects_in_nursery = 0
         #
         # Before everything else, remove from 'old_objects_pointing_to_young'
@@ -1578,14 +1572,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # with pinned object that are (only) visible from an old
         # object.
         # Additionally we create a new list as it may be that an old object
-        # no longer points to a pinned one and we want them to remove from
-        # the list.
+        # no longer points to a pinned one. Such old objects won't be added
+        # again to 'old_objects_pointing_to_pinned'.
         if self.old_objects_pointing_to_pinned.non_empty():
             current_old_objects_pointing_to_pinned = \
                     self.old_objects_pointing_to_pinned
-            #
             self.old_objects_pointing_to_pinned = self.AddressStack()
-            # visit the ones we know of
             current_old_objects_pointing_to_pinned.foreach(
                 self._visit_old_objects_pointing_to_pinned, None)
             current_old_objects_pointing_to_pinned.delete()
@@ -1639,7 +1631,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.free_young_rawmalloced_objects()
         #
         # All live nursery objects are out of the nursery or pinned inside
-        # the nursery.  Create nursery barriers to protect the pinned object,
+        # the nursery.  Create nursery barriers to protect the pinned objects,
         # fill the rest of the nursery with zeros and reset the current nursery
         # pointer.
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -1673,10 +1665,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         llarena.arena_reset(prev, self.nursery_real_top - prev, 0)
         #
         # We assume that there are only a few pinned objects. Therefore, if there
-        # is 'self.nursery_cleanup' space between the nursery's start ('self.nursery')
-        # and the last pinned object ('prev'), we conclude that there is enough zeroed
-        # space inside the arena to use for new allocation. Otherwise we fill
-        # the nursery with zeros for 'self.nursery_cleanup' of space.
+        # is 'self.nursery_cleanup' space between the nursery's start
+        # ('self.nursery') and the last pinned object ('prev'), we conclude that
+        # there is enough zeroed space inside the arena to use for new
+        # allocation. Otherwise we fill the nursery with zeros for
+        # 'self.nursery_cleanup' of space.
         if prev - self.nursery >= self.nursery_cleanup:
             nursery_barriers.append(prev)
         else:
@@ -1884,21 +1877,25 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
         elif self._is_pinned(obj):
             hdr = self.header(obj)
-            # track parent of pinned object specially
+            #
+            # track parent of pinned object specially. This mus be done before
+            # checking for GCFLAG_VISITED: it may be that the same pinned object
+            # is reachable from multiple sources (e.g. two old objects pointing
+            # to the same pinned object). In such a case we need all parents
+            # of the pinned object in the list. Otherwise he pinned object could
+            # become dead and be removed just because the first parent of it
+            # is dead and collected.
             if parent != llmemory.NULL and \
                 not self.header(parent).tid & GCFLAG_PINNED_OBJECT_PARENT_KNOWN:
                 #
                 self.old_objects_pointing_to_pinned.append(parent)
                 self.header(parent).tid |= GCFLAG_PINNED
-
+            #
             if hdr.tid & GCFLAG_VISITED:
-                # already visited and keeping track of the object
                 return
+            #
             hdr.tid |= GCFLAG_VISITED
             #
-            # XXX add additional checks for unsupported pinned objects (groggi)
-            ll_assert(not self.header(obj).tid & GCFLAG_HAS_CARDS,
-                "pinned object with GCFLAG_HAS_CARDS not supported")
             self.surviving_pinned_objects.append(
                 llarena.getfakearenaaddress(obj - size_gc_header))
             self.pinned_objects_in_nursery += 1
@@ -2124,7 +2121,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # Light finalizers
                 if self.old_objects_with_light_finalizers.non_empty():
                     self.deal_with_old_objects_with_finalizers()
-                #objects_to_trace processed fully, can move on to sweeping
+                # objects_to_trace processed fully, can move on to sweeping
                 self.ac.mass_free_prepare()
                 self.start_free_rawmalloc_objects()
                 #
@@ -2136,7 +2133,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                             self._sweep_old_objects_pointing_to_pinned,
                             new_old_objects_pointing_to_pinned)
                     self.old_objects_pointing_to_pinned.delete()
-                    self.old_objects_pointing_to_pinned = new_old_objects_pointing_to_pinned
+                    self.old_objects_pointing_to_pinned = \
+                            new_old_objects_pointing_to_pinned
                 self.gc_state = STATE_SWEEPING
             #END MARKING
         elif self.gc_state == STATE_SWEEPING:
@@ -2333,9 +2331,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # flag set, then the object should be in 'prebuilt_root_objects',
         # and the GCFLAG_VISITED will be reset at the end of the
         # collection.
+        # Objects with GCFLAG_PINNED can't have gcptrs (see pin()), they can be
+        # ignored.
         hdr = self.header(obj)
         if hdr.tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS | GCFLAG_PINNED):
-            # XXX ^^^ update doc in any way because of GCFLAG_PINNED addition? (groggi)
             return 0
         #
         # It's the first time.  We set the flag VISITED.  The trick is
