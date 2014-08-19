@@ -617,7 +617,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
             result = self.nursery_free
-            self.nursery_free = result + totalsize
+            self.nursery_free = result + rawtotalsize
             if self.nursery_free > self.nursery_top:
                 result = self.collect_and_reserve(result, totalsize)
             #
