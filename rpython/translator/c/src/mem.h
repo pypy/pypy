@@ -16,13 +16,14 @@
 
 
 #ifdef RPY_STM
-void _pypy_stm_free(void *);
+void _pypy_stm_cb_free(void *);
+void _pypy_stm_op_free(void *);
 #define _OP_RAW_MALLOCED(r)       stm_call_on_abort(&stm_thread_local, r,   \
-                                                                _pypy_stm_free)
-#define _OP_RAW_STM_UNREGISTER(r) stm_call_on_abort(&stm_thread_local, r, NULL)
+                                                             _pypy_stm_cb_free)
+#define OP_FREE(p)                _pypy_stm_op_free(p)
 #else
-#define _OP_RAW_MALLOCED(r)         /* nothing */
-#define _OP_RAW_STM_UNREGISTER(r)   /* nothing */
+#define _OP_RAW_MALLOCED(r)       /* nothing */
+#define OP_FREE(p)                PyObject_Free(p); COUNT_FREE
 #endif
 
 
@@ -34,8 +35,7 @@ void _pypy_stm_free(void *);
 	}								\
     }
 
-#define OP_RAW_FREE(p, r) PyObject_Free(p); COUNT_FREE; \
-                          _OP_RAW_STM_UNREGISTER(p);
+#define OP_RAW_FREE(p, r) OP_FREE(p)
 
 #define OP_RAW_MEMCLEAR(p, size, r) memset((void*)p, 0, size)
 
@@ -53,8 +53,6 @@ void _pypy_stm_free(void *);
 #define OP_RAW_MEMMOVE(x,y,size,r) memmove(y,x,size);
 
 /************************************************************/
-
-#define OP_FREE(p)	OP_RAW_FREE(p, do_not_use)
 
 #ifndef COUNT_OP_MALLOCS
 
@@ -87,7 +85,11 @@ extern int count_mallocs, count_frees;
 
 #  define OP_TRACK_ALLOC_START(addr, r)  pypy_debug_alloc_start(addr, \
                                                                 __FUNCTION__)
-#  define OP_TRACK_ALLOC_STOP(addr, r)   pypy_debug_alloc_stop(addr)
+#  ifdef RPY_STM
+#    define OP_TRACK_ALLOC_STOP(addr, r)   /* nothing */
+#  else
+#    define OP_TRACK_ALLOC_STOP(addr, r)   pypy_debug_alloc_stop(addr)
+#  endif
 
 void pypy_debug_alloc_start(void*, const char*);
 void pypy_debug_alloc_stop(void*);

@@ -96,7 +96,7 @@ def should_turn_inevitable(op, block):
     if op.opname in MALLOCS:
         return False
     if op.opname in FREES:
-        return True
+        return False
     #
     # Function calls
     if op.opname == 'direct_call' or op.opname == 'indirect_call':

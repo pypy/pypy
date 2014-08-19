@@ -12,7 +12,7 @@ int try_pypy_debug_alloc_stop(void *);
 # else
 #  define try_pypy_debug_alloc_stop(p)  /* nothing */
 # endif
-void _pypy_stm_free(void *ptr)
+void _pypy_stm_cb_free(void *ptr)
 {
     /* This is called by src_stm/et.c when the transaction is aborted
        and the 'ptr' was malloced but not freed.  We have first to
@@ -23,6 +23,22 @@ void _pypy_stm_free(void *ptr)
     try_pypy_debug_alloc_stop(ptr);
     PyObject_Free(ptr);
     COUNT_FREE;
+}
+void _pypy_stm_op_free(void *ptr)
+{
+    /* Called when RPython code contains OP_FREE or OP_RAW_FREE.
+     */
+    if (stm_call_on_abort(&stm_thread_local, ptr, NULL) == 0) {
+        /* There is a running non-inevitable transaction, but the object
+           was not registered during it, which means that it was created
+           before.  In this case, we cannot immediately free it, but
+           only when a commit follows. */
+        stm_call_on_commit(&stm_thread_local, ptr, _pypy_stm_cb_free);
+    }
+    else {
+        /* In all other cases, free the object immediately. */
+        _pypy_stm_cb_free(ptr);
+    }
 }
 #endif
 
