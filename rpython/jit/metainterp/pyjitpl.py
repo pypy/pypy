@@ -187,14 +187,34 @@ class MIFrame(object):
 
     # ------------------------------
 
-    @arguments()
-    def opimpl_stm_should_break_transaction(self):
-        # XXX make it return BoxInt(1) instead of BoxInt(0) if there
-        # is an inevitable transaction, because it's likely that there
-        # will always be an inevitable transaction here
-        resbox = history.BoxInt(0)
-        mi = self.metainterp
-        mi.history.record(rop.STM_SHOULD_BREAK_TRANSACTION, [], resbox)
+    @arguments("int")
+    def opimpl_stm_should_break_transaction(self, keep):
+        # from rpython.rlib import rstm
+
+        record_break = False
+        resbox = history.ConstInt(0)
+
+        if bool(keep):
+            # always keep (i.c. end of loops)
+            resbox = history.BoxInt(0)
+            record_break = True
+
+        ## XXX: not working yet. we are always inevitable when tracing
+        # if we_are_translated() and rstm.is_inevitable():
+        #     # return BoxInt(1) if there is an inevitable
+        #     # transaction, because it's likely that there
+        #     # will always be an inevitable transaction here
+        #     resbox = history.BoxInt(1)
+        #     record_break = True
+
+        if record_break:
+            mi = self.metainterp
+            mi.history.record(rop.STM_SHOULD_BREAK_TRANSACTION, [], resbox)
+        else:
+            # don't record the should_break_transaction and optimize
+            # the guard away
+            pass
+
         return resbox
 
     @arguments()

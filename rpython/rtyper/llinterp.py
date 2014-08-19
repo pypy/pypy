@@ -956,6 +956,7 @@ class LLFrame(object):
     op_stm_enter_callback_call = _stm_not_implemented
     op_stm_leave_callback_call = _stm_not_implemented
     op_stm_get_atomic = _stm_not_implemented
+    op_stm_is_inevitable = _stm_not_implemented
     op_stm_change_atomic = _stm_not_implemented
     op_stm_set_transaction_length = _stm_not_implemented
     op_stm_hash = _stm_not_implemented
@@ -970,7 +971,7 @@ class LLFrame(object):
     op_stm_stop_all_other_threads = _stm_not_implemented
     op_stm_partial_commit_and_resume_other_threads = _stm_not_implemented
 
-    def op_stm_should_break_transaction(self):
+    def op_stm_should_break_transaction(self, keep):
         return False
 
     def op_threadlocalref_set(self, key, value):

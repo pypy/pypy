@@ -445,6 +445,8 @@ LL_OPERATIONS = {
     'stm_decrement_atomic':   LLOp(),
     'stm_get_atomic':         LLOp(sideeffects=False),
 
+    'stm_is_inevitable':      LLOp(sideeffects=False),
+
     'stm_ignored_start':      LLOp(canrun=True),
     'stm_ignored_stop':       LLOp(canrun=True),
 

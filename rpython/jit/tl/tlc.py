@@ -15,12 +15,12 @@ class Obj(object):
 
     def int_o(self): raise TypeError
     def to_string(self): raise TypeError
-    
+
     def add(self, other): raise TypeError
     def sub(self, other): raise TypeError
     def mul(self, other): raise TypeError
     def div(self, other): raise TypeError
-    
+
     def eq(self, other): raise TypeError
     def lt(self, other): raise TypeError
 
@@ -92,7 +92,7 @@ class Class(object):
         self.methods = {}
         for methname, pc in descr.methods:
             self.methods[methname] = pc
-    
+
 class InstanceObj(Obj):
 
     def __init__(self, cls):
@@ -226,7 +226,7 @@ class Frame(object):
         self.pc    = pc
         self.stack = []
 
-        
+
 def make_interp(supports_call, jitted=True):
     myjitdriver = JitDriver(greens = ['pc', 'code'],
                             reds = ['frame', 'pool'])
@@ -234,7 +234,7 @@ def make_interp(supports_call, jitted=True):
     def interp(code='', pc=0, inputarg=0, pool=None):
         if not isinstance(code,str):
             raise TypeError("code '%s' should be a string" % str(code))
-        
+
         if pool is None:
             pool = ConstantPool()
         args = [IntObj(inputarg)]
@@ -255,7 +255,7 @@ def make_interp(supports_call, jitted=True):
 
             if opcode == NOP:
                 pass
-            
+
             elif opcode == NIL:
                 stack.append(nil)
 
@@ -268,7 +268,7 @@ def make_interp(supports_call, jitted=True):
 
             elif opcode == CDR:
                 stack.append(stack.pop().cdr())
-                
+
             elif opcode == PUSH:
                 stack.append(IntObj(char2int(code[pc])))
                 pc += 1
@@ -349,32 +349,32 @@ def make_interp(supports_call, jitted=True):
                 pc += char2int(code[pc])
                 pc += 1
                 if jitted and old_pc > pc:
-                    rstm.possible_transaction_break()
+                    rstm.possible_transaction_break(1)
                     myjitdriver.can_enter_jit(code=code, pc=pc, frame=frame,
                                               pool=pool)
-                
+
             elif opcode == BR_COND:
                 cond = stack.pop()
                 if cond.t():
                     old_pc = pc
                     pc += char2int(code[pc]) + 1
                     if jitted and old_pc > pc:
-                        rstm.possible_transaction_break()
+                        rstm.possible_transaction_break(1)
                         myjitdriver.can_enter_jit(code=code, pc=pc, frame=frame,
                                                   pool=pool)
                 else:
                     pc += 1
-                
+
             elif opcode == BR_COND_STK:
                 offset = stack.pop().int_o()
                 if stack.pop().t():
                     old_pc = pc
                     pc += offset
                     if jitted and old_pc > pc:
-                        rstm.possible_transaction_break()
+                        rstm.possible_transaction_break(1)
                         myjitdriver.can_enter_jit(code=code, pc=pc, frame=frame,
                                                   pool=pool)
-                        
+
 
             elif supports_call and opcode == CALL:
                 offset = char2int(code[pc])
@@ -451,7 +451,7 @@ def make_interp(supports_call, jitted=True):
             return frame.stack[-1]
         else:
             return None
-    
+
     return interp, interp_eval
 
 

@@ -11,7 +11,7 @@ from rpython.rlib import rstm
 class STMTests:
     def test_simple(self):
         def g():
-            return rstm.should_break_transaction()
+            return rstm.should_break_transaction(1)
         res = self.interp_operations(g, [], translationoptions={"stm":True})
         assert res == False
         self.check_operations_history(stm_should_break_transaction=1)

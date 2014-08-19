@@ -152,7 +152,7 @@ class __extend__(pyframe.PyFrame):
                 ec.bytecode_only_trace(self)
             else:
                 ec.bytecode_trace(self)
-            rstm.possible_transaction_break()
+            rstm.possible_transaction_break(0)
             next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
             next_instr += 1

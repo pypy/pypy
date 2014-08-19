@@ -85,7 +85,7 @@ class __extend__(PyFrame):
             ec.bytecode_trace(self, decr_by)
             jumpto = r_uint(self.last_instr)
             if self.space.threadlocals.threads_running: # quasi-immutable field
-                rstm.possible_transaction_break()
+                rstm.possible_transaction_break(1)
         #
         pypyjitdriver.can_enter_jit(frame=self, ec=ec, next_instr=jumpto,
                                     pycode=self.getcode(),

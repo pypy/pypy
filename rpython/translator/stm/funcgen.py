@@ -190,6 +190,10 @@ def stm_get_atomic(funcgen, op):
     result = funcgen.expr(op.result)
     return '%s = pypy_stm_get_atomic();' % (result,)
 
+def stm_is_inevitable(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = stm_is_inevitable();' % (result,)
+
 def stm_abort_and_retry(funcgen, op):
     return 'stm_abort_transaction();'
 

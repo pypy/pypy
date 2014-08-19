@@ -49,9 +49,13 @@ def rewind_jmp_frame():
     # special-cased below: the emitted operation must be placed
     # directly in the caller's graph
 
-def possible_transaction_break():
+@specialize.arg(0)
+def possible_transaction_break(keep):
+    """ keep: should be True for checks that are absolutely
+    needed. False means the JIT only keeps the check if it
+    thinks that it helps """
     if stm_is_enabled():
-        if llop.stm_should_break_transaction(lltype.Bool):
+        if llop.stm_should_break_transaction(lltype.Bool, keep):
             break_transaction()
 
 def hint_commit_soon():
@@ -70,9 +74,10 @@ def stop_all_other_threads():
 def partial_commit_and_resume_other_threads():
     pass    # for now
 
-def should_break_transaction():
+@specialize.arg(0)
+def should_break_transaction(keep):
     return we_are_translated() and (
-        llop.stm_should_break_transaction(lltype.Bool))
+        llop.stm_should_break_transaction(lltype.Bool, keep))
 
 @dont_look_inside
 def break_transaction():
@@ -93,6 +98,10 @@ def decrement_atomic():
 @dont_look_inside
 def is_atomic():
     return llop.stm_get_atomic(lltype.Signed)
+
+@dont_look_inside
+def is_inevitable():
+    return llop.stm_is_inevitable(lltype.Signed)
 
 @dont_look_inside
 def abort_and_retry():
