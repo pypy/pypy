@@ -23,6 +23,12 @@ class X(object):
 
     next = None
 
+class Y(object):
+    # for pinning tests we need an object without references to other
+    # objects
+    def __init__(self, x=0):
+        self.x = x
+
 class CheckError(Exception):
     pass
 
@@ -788,7 +794,7 @@ class CompileFrameworkTests(BaseFrameworkTests):
         @dont_look_inside
         def get_y():
             if not helper.inst:
-                helper.inst = X()
+                helper.inst = Y()
                 helper.inst.x = 101
                 check(rgc.pin(helper.inst))
             else:
@@ -818,7 +824,7 @@ class CompileFrameworkTests(BaseFrameworkTests):
         @dont_look_inside
         def get_y(n):
             if not helper.inst:
-                helper.inst = X()
+                helper.inst = Y()
                 helper.inst.x = 101
                 helper.pinned = True
                 check(rgc.pin(helper.inst))
@@ -862,14 +868,14 @@ class CompileFrameworkTests(BaseFrameworkTests):
         @dont_look_inside
         def get_instances():
             if not helper.initialised:
-                helper.inst1 = X()
+                helper.inst1 = Y()
                 helper.inst1.x = 101
                 check(rgc.pin(helper.inst1))
                 #
-                helper.inst2 = X()
+                helper.inst2 = Y()
                 helper.inst2.x = 102
                 #
-                helper.inst3 = X()
+                helper.inst3 = Y()
                 helper.inst3.x = 103
                 check(rgc.pin(helper.inst3))
                 #
