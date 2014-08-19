@@ -28,6 +28,14 @@ Optimize them manually...
 
 ------------------------------------------------------------
 
+stm_read() should also be optimized (moved out of loops). E.g.
+quick_sort.py suffers a 30% slowdown because it uses deque.locate()
+extensively. This method happens to have a *very* tight loop 
+where the read barrier has a big negative effect and could 
+actually be moved out.
+
+------------------------------------------------------------
+
 __pypy__.thread.getsegmentlimit():
 
 XXX This limit is so far a compile time option (STM_NB_SEGMENTS in
