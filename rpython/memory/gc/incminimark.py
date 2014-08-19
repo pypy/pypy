@@ -988,6 +988,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # to check if can_move(obj) already returns True in which
             # case a call to pin() is unnecessary.
             return False
+        if self.has_gcptr(self.get_type_id(obj)):
+            # objects containing GC pointers can't be pinned. If we would add
+            # it, we would have to track all pinned objects and trace them
+            # every minor collection to make sure the referenced object are
+            # kept alive.
+            return False
         if self._is_pinned(obj):
             # Already pinned, we do not allow to pin it again.
             # Reason: It would be possible that the first caller unpins

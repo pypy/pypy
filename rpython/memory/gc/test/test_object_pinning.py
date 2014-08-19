@@ -3,29 +3,29 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, llarena
 from rpython.memory.gc.incminimark import IncrementalMiniMarkGC, WORD
 from test_direct import BaseDirectGCTest
 
-S = lltype.GcForwardReference()
-S.become(lltype.GcStruct('pinning_test_struct1',
-                         ('someInt', lltype.Signed),
-                         ('next', lltype.Ptr(S)),
-                         ('data', lltype.Ptr(S))))
-
 T = lltype.GcForwardReference()
 T.become(lltype.GcStruct('pinning_test_struct2',
                          ('someInt', lltype.Signed)))
+
+S = lltype.GcForwardReference()
+S.become(lltype.GcStruct('pinning_test_struct1',
+                         ('someInt', lltype.Signed),
+                         ('next', lltype.Ptr(T)),
+                         ('data', lltype.Ptr(T))))
 
 class PinningGCTest(BaseDirectGCTest):
 
     def test_pin_can_move(self):
         # even a pinned object is considered to be movable. Only the caller
         # of pin() knows if it is currently movable or not.
-        ptr = self.malloc(S)
+        ptr = self.malloc(T)
         adr = llmemory.cast_ptr_to_adr(ptr)
         assert self.gc.can_move(adr)
         assert self.gc.pin(adr)
         assert self.gc.can_move(adr)
 
     def test_pin_twice(self):
-        ptr = self.malloc(S)
+        ptr = self.malloc(T)
         adr = llmemory.cast_ptr_to_adr(ptr)
         assert self.gc.pin(adr)
         assert not self.gc.pin(adr)
@@ -37,7 +37,7 @@ class PinningGCTest(BaseDirectGCTest):
             self.gc.unpin, llmemory.cast_ptr_to_adr(ptr))
 
     def test__is_pinned(self):
-        ptr = self.malloc(S)
+        ptr = self.malloc(T)
         adr = llmemory.cast_ptr_to_adr(ptr)
         assert not self.gc._is_pinned(adr)
         assert self.gc.pin(adr)
@@ -46,7 +46,7 @@ class PinningGCTest(BaseDirectGCTest):
         assert not self.gc._is_pinned(adr)
 
     def test_prebuilt_not_pinnable(self):
-        ptr = lltype.malloc(S, immortal=True)
+        ptr = lltype.malloc(T, immortal=True)
         self.consider_constant(ptr)
         assert not self.gc.pin(llmemory.cast_ptr_to_adr(ptr))
         self.gc.collect()
@@ -58,6 +58,13 @@ class PinningGCTest(BaseDirectGCTest):
 class TestIncminimark(PinningGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
     from rpython.memory.gc.incminimark import STATE_SCANNING
+
+    def test_try_pin_gcref_containing_type(self):
+        # scenario: incminimark's object pinning can't pin objects that may
+        # contain GC pointers
+        obj = self.malloc(S)
+        assert not self.gc.pin(llmemory.cast_ptr_to_adr(obj))
+
 
     def test_pin_old(self):
         # scenario: try pinning an old object. This should be not possible and
@@ -78,11 +85,11 @@ class TestIncminimark(PinningGCTest):
     def pin_pin_pinned_object_count(self, collect_func):
         # scenario: pin two objects that are referenced from stackroots. Check
         # if the pinned objects count is correct, even after an other collection
-        pinned1_ptr = self.malloc(S)
+        pinned1_ptr = self.malloc(T)
         pinned1_ptr.someInt = 100
         self.stackroots.append(pinned1_ptr)
         #
-        pinned2_ptr = self.malloc(S)
+        pinned2_ptr = self.malloc(T)
         pinned2_ptr.someInt = 200
         self.stackroots.append(pinned2_ptr)
         #
@@ -105,7 +112,7 @@ class TestIncminimark(PinningGCTest):
     def pin_unpin_pinned_object_count(self, collect_func):
         # scenario: pin an object and check the pinned object count. Unpin it
         # and check the count again.
-        pinned_ptr = self.malloc(S)
+        pinned_ptr = self.malloc(T)
         pinned_ptr.someInt = 100
         self.stackroots.append(pinned_ptr)
         pinned_adr = llmemory.cast_ptr_to_adr(pinned_ptr)
@@ -131,7 +138,7 @@ class TestIncminimark(PinningGCTest):
         # scenario: a pinned object that is part of the stack roots. Check if
         # it is not moved
         #
-        ptr = self.malloc(S)
+        ptr = self.malloc(T)
         ptr.someInt = 100
         self.stackroots.append(ptr)
         assert self.stackroots[0] == ptr # validate our assumption
@@ -162,7 +169,7 @@ class TestIncminimark(PinningGCTest):
         # that we do stepwise major collection and check in each step for
         # a correct state
         #
-        ptr = self.malloc(S)
+        ptr = self.malloc(T)
         ptr.someInt = 100
         self.stackroots.append(ptr)
         assert self.stackroots[0] == ptr # validate our assumption
@@ -199,7 +206,7 @@ class TestIncminimark(PinningGCTest):
         # scenario: test if the pinned object is moved after being unpinned.
         # the second part of the scenario is the tested one. The first part
         # is already tests by other tests.
-        ptr = self.malloc(S)
+        ptr = self.malloc(T)
         ptr.someInt = 100
         self.stackroots.append(ptr)
         assert self.stackroots[0] == ptr # validate our assumption
@@ -246,7 +253,7 @@ class TestIncminimark(PinningGCTest):
         assert not self.gc.is_in_nursery(llmemory.cast_ptr_to_adr(old_ptr))
         #
         # create young pinned one and let the old one reference the young one
-        pinned_ptr = self.malloc(S)
+        pinned_ptr = self.malloc(T)
         pinned_ptr.someInt = 100
         self.write(old_ptr, 'next', pinned_ptr)
         pinned_adr = llmemory.cast_ptr_to_adr(pinned_ptr)
@@ -283,7 +290,7 @@ class TestIncminimark(PinningGCTest):
         assert not self.gc.is_in_nursery(old_adr)
         #
         # create young pinned one and let the old one reference the young one
-        pinned_ptr = self.malloc(S)
+        pinned_ptr = self.malloc(T)
         pinned_ptr.someInt = 100
         self.write(old_ptr, 'next', pinned_ptr)
         pinned_adr = llmemory.cast_ptr_to_adr(pinned_ptr)
@@ -329,7 +336,7 @@ class TestIncminimark(PinningGCTest):
         collect_func() # make it old
         old_ptr = self.stackroots[0]
         #
-        pinned_ptr = self.malloc(S)
+        pinned_ptr = self.malloc(T)
         pinned_ptr.someInt = 100
         self.write(old_ptr, 'next', pinned_ptr)
         pinned_adr = llmemory.cast_ptr_to_adr(pinned_ptr)
@@ -342,7 +349,7 @@ class TestIncminimark(PinningGCTest):
         assert self.gc.is_in_nursery(pinned_adr)
         assert self.gc._is_pinned(pinned_adr)
         # remove the reference
-        self.write(old_ptr, 'next', lltype.nullptr(S))
+        self.write(old_ptr, 'next', lltype.nullptr(T))
         # from now on the pinned object is dead. Do a collection and make sure
         # old object still there and the pinned one is gone.
         collect_func()
@@ -377,7 +384,7 @@ class TestIncminimark(PinningGCTest):
         collect_func()
         old_ptr = self.stackroots[0]
         #
-        pinned_ptr = self.malloc(S)
+        pinned_ptr = self.malloc(T)
         pinned_ptr.someInt = 100
         self.write(old_ptr, 'next', pinned_ptr)
         assert self.gc.pin(llmemory.cast_ptr_to_adr(pinned_ptr))
@@ -424,7 +431,7 @@ class TestIncminimark(PinningGCTest):
         self.stackroots.append(root_ptr)
         assert self.stackroots[0] == root_ptr # validate assumption
         #
-        pinned_ptr = self.malloc(S)
+        pinned_ptr = self.malloc(T)
         pinned_ptr.someInt = 100
         self.write(root_ptr, 'next', pinned_ptr)
         pinned_adr = llmemory.cast_ptr_to_adr(pinned_ptr)
@@ -467,7 +474,7 @@ class TestIncminimark(PinningGCTest):
         prebuilt_adr = llmemory.cast_ptr_to_adr(prebuilt_ptr)
         collect_func()
         #        
-        pinned_ptr = self.malloc(S)
+        pinned_ptr = self.malloc(T)
         pinned_ptr.someInt = 100
         self.write(prebuilt_ptr, 'next', pinned_ptr)
         pinned_adr = llmemory.cast_ptr_to_adr(pinned_ptr)
@@ -506,7 +513,7 @@ class TestIncminimark(PinningGCTest):
         old2_ptr.someInt = 800
         self.stackroots.append(old2_ptr)
         
-        pinned_ptr = self.malloc(S)
+        pinned_ptr = self.malloc(T)
         pinned_ptr.someInt = 100
         assert self.gc.pin(llmemory.cast_ptr_to_adr(pinned_ptr))
         
@@ -528,7 +535,7 @@ class TestIncminimark(PinningGCTest):
 
 
     def pin_shadow_1(self, collect_func):
-        ptr = self.malloc(S)
+        ptr = self.malloc(T)
         adr = llmemory.cast_ptr_to_adr(ptr)
         self.stackroots.append(ptr)
         ptr.someInt = 100
@@ -553,7 +560,7 @@ class TestIncminimark(PinningGCTest):
         # scenario: malloc two objects of different type and pin them. Do a
         # minor and major collection in between. This test showed a bug that was
         # present in a previous implementation of pinning.
-        obj1 = self.malloc(S)
+        obj1 = self.malloc(T)
         self.stackroots.append(obj1)
         assert self.gc.pin(llmemory.cast_ptr_to_adr(obj1))
         #
@@ -565,7 +572,7 @@ class TestIncminimark(PinningGCTest):
 
 
     def pin_shadow_2(self, collect_func):
-        ptr = self.malloc(S)
+        ptr = self.malloc(T)
         adr = llmemory.cast_ptr_to_adr(ptr)
         self.stackroots.append(ptr)
         ptr.someInt = 100
@@ -587,19 +594,19 @@ class TestIncminimark(PinningGCTest):
 
 
     def test_pin_nursery_top_scenario1(self):
-        ptr1 = self.malloc(S)
+        ptr1 = self.malloc(T)
         adr1 = llmemory.cast_ptr_to_adr(ptr1)
         ptr1.someInt = 101
         self.stackroots.append(ptr1)
         assert self.gc.pin(adr1)
         
-        ptr2 = self.malloc(S)
+        ptr2 = self.malloc(T)
         adr2 = llmemory.cast_ptr_to_adr(ptr2)
         ptr2.someInt = 102
         self.stackroots.append(ptr2)
         assert self.gc.pin(adr2)
 
-        ptr3 = self.malloc(S)
+        ptr3 = self.malloc(T)
         adr3 = llmemory.cast_ptr_to_adr(ptr3)
         ptr3.someInt = 103
         self.stackroots.append(ptr3)
@@ -625,19 +632,19 @@ class TestIncminimark(PinningGCTest):
 
 
     def test_pin_nursery_top_scenario2(self):
-        ptr1 = self.malloc(S)
+        ptr1 = self.malloc(T)
         adr1 = llmemory.cast_ptr_to_adr(ptr1)
         ptr1.someInt = 101
         self.stackroots.append(ptr1)
         assert self.gc.pin(adr1)
         
-        ptr2 = self.malloc(S)
+        ptr2 = self.malloc(T)
         adr2 = llmemory.cast_ptr_to_adr(ptr2)
         ptr2.someInt = 102
         self.stackroots.append(ptr2)
         assert self.gc.pin(adr2)
 
-        ptr3 = self.malloc(S)
+        ptr3 = self.malloc(T)
         adr3 = llmemory.cast_ptr_to_adr(ptr3)
         ptr3.someInt = 103
         self.stackroots.append(ptr3)
@@ -665,19 +672,19 @@ class TestIncminimark(PinningGCTest):
 
 
     def test_pin_nursery_top_scenario3(self):
-        ptr1 = self.malloc(S)
+        ptr1 = self.malloc(T)
         adr1 = llmemory.cast_ptr_to_adr(ptr1)
         ptr1.someInt = 101
         self.stackroots.append(ptr1)
         assert self.gc.pin(adr1)
         
-        ptr2 = self.malloc(S)
+        ptr2 = self.malloc(T)
         adr2 = llmemory.cast_ptr_to_adr(ptr2)
         ptr2.someInt = 102
         self.stackroots.append(ptr2)
         assert self.gc.pin(adr2)
 
-        ptr3 = self.malloc(S)
+        ptr3 = self.malloc(T)
         adr3 = llmemory.cast_ptr_to_adr(ptr3)
         ptr3.someInt = 103
         self.stackroots.append(ptr3)
@@ -707,19 +714,19 @@ class TestIncminimark(PinningGCTest):
 
 
     def test_pin_nursery_top_scenario4(self):
-        ptr1 = self.malloc(S)
+        ptr1 = self.malloc(T)
         adr1 = llmemory.cast_ptr_to_adr(ptr1)
         ptr1.someInt = 101
         self.stackroots.append(ptr1)
         assert self.gc.pin(adr1)
         
-        ptr2 = self.malloc(S)
+        ptr2 = self.malloc(T)
         adr2 = llmemory.cast_ptr_to_adr(ptr2)
         ptr2.someInt = 102
         self.stackroots.append(ptr2)
         assert self.gc.pin(adr2)
 
-        ptr3 = self.malloc(S)
+        ptr3 = self.malloc(T)
         adr3 = llmemory.cast_ptr_to_adr(ptr3)
         ptr3.someInt = 103
         self.stackroots.append(ptr3)
@@ -750,19 +757,19 @@ class TestIncminimark(PinningGCTest):
         
 
     def test_pin_nursery_top_scenario5(self):
-        ptr1 = self.malloc(S)
+        ptr1 = self.malloc(T)
         adr1 = llmemory.cast_ptr_to_adr(ptr1)
         ptr1.someInt = 101
         self.stackroots.append(ptr1)
         assert self.gc.pin(adr1)
         
-        ptr2 = self.malloc(S)
+        ptr2 = self.malloc(T)
         adr2 = llmemory.cast_ptr_to_adr(ptr2)
         ptr2.someInt = 102
         self.stackroots.append(ptr2)
         assert self.gc.pin(adr2)
 
-        ptr3 = self.malloc(S)
+        ptr3 = self.malloc(T)
         adr3 = llmemory.cast_ptr_to_adr(ptr3)
         ptr3.someInt = 103
         self.stackroots.append(ptr3)
@@ -811,12 +818,12 @@ class TestIncminimark(PinningGCTest):
 
 
     def fill_nursery_with_pinned_objects(self):
-        typeid = self.get_type_id(S)
+        typeid = self.get_type_id(T)
         size = self.gc.fixed_size(typeid) + self.gc.gcheaderbuilder.size_gc_header
         raw_size = llmemory.raw_malloc_usage(size)
         object_mallocs = self.gc.nursery_size // raw_size
         for instance_nr in xrange(object_mallocs):
-            ptr = self.malloc(S)
+            ptr = self.malloc(T)
             adr = llmemory.cast_ptr_to_adr(ptr)
             ptr.someInt = 100 + instance_nr
             self.stackroots.append(ptr)
@@ -824,9 +831,9 @@ class TestIncminimark(PinningGCTest):
 
     def test_full_pinned_nursery_pin_fail(self):
         self.fill_nursery_with_pinned_objects()
-        # nursery should be full now, at least no space for another `S`.
+        # nursery should be full now, at least no space for another `T`.
         # Next malloc should fail.
-        py.test.raises(Exception, self.malloc, S)
+        py.test.raises(Exception, self.malloc, T)
 
     def test_full_pinned_nursery_arena_reset(self):
         # there were some bugs regarding the 'arena_reset()' calls at
@@ -836,21 +843,21 @@ class TestIncminimark(PinningGCTest):
 
     def test_pinning_limit(self):
         for instance_nr in xrange(self.gc.max_number_of_pinned_objects):
-            ptr = self.malloc(S)
+            ptr = self.malloc(T)
             adr = llmemory.cast_ptr_to_adr(ptr)
             ptr.someInt = 100 + instance_nr
             self.stackroots.append(ptr)
             self.gc.pin(adr)
         #
         # now we reached the maximum amount of pinned objects
-        ptr = self.malloc(S)
+        ptr = self.malloc(T)
         adr = llmemory.cast_ptr_to_adr(ptr)
         self.stackroots.append(ptr)
         assert not self.gc.pin(adr)
     test_pinning_limit.GC_PARAMS = {'max_number_of_pinned_objects': 5}
 
     def test_full_pinned_nursery_pin_fail(self):
-        typeid = self.get_type_id(S)
+        typeid = self.get_type_id(T)
         size = self.gc.fixed_size(typeid) + self.gc.gcheaderbuilder.size_gc_header
         raw_size = llmemory.raw_malloc_usage(size)
         object_mallocs = self.gc.nursery_size // raw_size
@@ -858,15 +865,15 @@ class TestIncminimark(PinningGCTest):
         # but rather the case of a nursery full with pinned objects.
         assert object_mallocs < self.gc.max_number_of_pinned_objects
         for instance_nr in xrange(object_mallocs):
-            ptr = self.malloc(S)
+            ptr = self.malloc(T)
             adr = llmemory.cast_ptr_to_adr(ptr)
             ptr.someInt = 100 + instance_nr
             self.stackroots.append(ptr)
             self.gc.pin(adr)
         #
-        # nursery should be full now, at least no space for another `S`.
+        # nursery should be full now, at least no space for another `T`.
         # Next malloc should fail.
-        py.test.raises(Exception, self.malloc, S)
+        py.test.raises(Exception, self.malloc, T)
     test_full_pinned_nursery_pin_fail.GC_PARAMS = \
             {'max_number_of_pinned_objects': 50}
 
