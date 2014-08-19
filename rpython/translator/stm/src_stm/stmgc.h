@@ -413,15 +413,16 @@ long stm_can_move(object_t *);
 /* If the current transaction aborts later, invoke 'callback(key)'.  If
    the current transaction commits, then the callback is forgotten.  You
    can only register one callback per key.  You can call
-   'stm_call_on_abort(key, NULL)' to cancel an existing callback.
+   'stm_call_on_abort(key, NULL)' to cancel an existing callback
+   (returns 0 if there was no existing callback to cancel).
    Note: 'key' must be aligned to a multiple of 8 bytes. */
-void stm_call_on_abort(stm_thread_local_t *, void *key, void callback(void *));
+long stm_call_on_abort(stm_thread_local_t *, void *key, void callback(void *));
 
 /* If the current transaction commits later, invoke 'callback(key)'.  If
    the current transaction aborts, then the callback is forgotten.  Same
    restrictions as stm_call_on_abort().  If the transaction is or becomes
    inevitable, 'callback(key)' is called immediately. */
-void stm_call_on_commit(stm_thread_local_t *, void *key, void callback(void *));
+long stm_call_on_commit(stm_thread_local_t *, void *key, void callback(void *));
 
 
 /* Similar to stm_become_inevitable(), but additionally suspend all

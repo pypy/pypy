@@ -4,50 +4,51 @@
 #endif
 
 
-static bool register_callbacks(stm_thread_local_t *tl,
+static long register_callbacks(stm_thread_local_t *tl,
                                void *key, void callback(void *), long index)
 {
     if (!_stm_in_transaction(tl)) {
         /* check that the current thread-local is really running a
            transaction, and do nothing otherwise. */
-        return false;
+        return -1;
     }
 
     if (STM_PSEGMENT->transaction_state == TS_INEVITABLE) {
         /* ignore callbacks if we're in an inevitable transaction
            (which cannot abort) */
-        return false;
+        return -1;
     }
 
     struct tree_s *callbacks;
     callbacks = STM_PSEGMENT->callbacks_on_commit_and_abort[index];
 
     if (callback == NULL) {
-        /* ignore the return value: unregistered keys can be
-           "deleted" again */
-        tree_delete_item(callbacks, (uintptr_t)key);
+        /* double-unregistering works, but return 0 */
+        return tree_delete_item(callbacks, (uintptr_t)key);
     }
     else {
         /* double-registering the same key will crash */
         tree_insert(callbacks, (uintptr_t)key, (uintptr_t)callback);
+        return 1;
     }
-    return true;
 }
 
-void stm_call_on_commit(stm_thread_local_t *tl,
+long stm_call_on_commit(stm_thread_local_t *tl,
                        void *key, void callback(void *))
 {
-    if (!register_callbacks(tl, key, callback, 0)) {
+    long result = register_callbacks(tl, key, callback, 0);
+    if (result < 0 && callback != NULL) {
         /* no regular transaction running, invoke the callback
            immediately */
         callback(key);
     }
+    return result;
 }
 
-void stm_call_on_abort(stm_thread_local_t *tl,
+long stm_call_on_abort(stm_thread_local_t *tl,
                        void *key, void callback(void *))
 {
-    register_callbacks(tl, key, callback, 1);
+    return register_callbacks(tl, key, callback, 1);
 }
 
 static void invoke_and_clear_user_callbacks(long index)
