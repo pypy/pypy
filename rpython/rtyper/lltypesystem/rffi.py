@@ -803,14 +803,6 @@ def make_string_mappings(strtype):
         """
         Either free a non-moving buffer or keep the original storage alive.
         """
-        # We cannot rely on rgc.can_move(data) here, because its result
-        # might have changed since get_nonmovingbuffer().  Instead we check
-        # if 'buf' points inside 'data'.  This is only possible if we
-        # followed the 2nd case in get_nonmovingbuffer(); in the first case,
-        # 'buf' points to its own raw-malloced memory.
-        # XXX fix comment (groggi)
-
-
         if is_pinned:
             rgc.unpin(data)
         if is_raw:

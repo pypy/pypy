@@ -20,7 +20,6 @@ def set_max_heap_size(nbytes):
 
 # for test purposes we allow objects to be pinned and use
 # the following list to keep track of the pinned objects
-# XXX think about possible unexpected behavior (groggi)
 if not we_are_translated():
     pinned_objects = []
 
