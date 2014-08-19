@@ -4,10 +4,14 @@ from rpython.memory.gc.incminimark import IncrementalMiniMarkGC, WORD
 from test_direct import BaseDirectGCTest
 
 S = lltype.GcForwardReference()
-S.become(lltype.GcStruct('pinning_test_struct',
+S.become(lltype.GcStruct('pinning_test_struct1',
                          ('someInt', lltype.Signed),
                          ('next', lltype.Ptr(S)),
                          ('data', lltype.Ptr(S))))
+
+T = lltype.GcForwardReference()
+T.become(lltype.GcStruct('pinning_test_struct2',
+                         ('someInt', lltype.Signed)))
 
 class PinningGCTest(BaseDirectGCTest):
 
@@ -543,6 +547,21 @@ class TestIncminimark(PinningGCTest):
 
     def test_pin_shadow_1_major_collection(self):
         self.pin_shadow_1(self.gc.collect)
+
+
+    def test_malloc_different_types(self):
+        # scenario: malloc two objects of different type and pin them. Do a
+        # minor and major collection in between. This test showed a bug that was
+        # present in a previous implementation of pinning.
+        obj1 = self.malloc(S)
+        self.stackroots.append(obj1)
+        assert self.gc.pin(llmemory.cast_ptr_to_adr(obj1))
+        #
+        self.gc.collect()
+        #
+        obj2 = self.malloc(T)
+        self.stackroots.append(obj2)
+        assert self.gc.pin(llmemory.cast_ptr_to_adr(obj2))
 
 
     def pin_shadow_2(self, collect_func):
