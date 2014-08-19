@@ -20,6 +20,20 @@ class TestFile(BaseRtypingTest):
         self.interpret(f, [])
         assert open(fname, "r").read() == "dupa"
 
+    def test_open_buffering(self):
+        fname = str(self.tmpdir.join('file_1a'))
+
+        def f():
+            f = open(fname, 'w', 3)
+            f.write('dupa')
+            f2 = open(fname, 'r')
+            assert f2.read() == ''
+            f.close()
+            f2 = open(fname, 'r')
+            assert f2.read() == 'dupa'
+
+        self.interpret(f, [])
+
     def test_read_write(self):
         fname = str(self.tmpdir.join('file_2'))
 

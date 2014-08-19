@@ -97,6 +97,7 @@ class W_File(W_AbstractStream):
 
     def _when_reading_first_flush(self, otherfile):
         """Flush otherfile before reading from self."""
+        xxx
         self.stream = streamio.CallbackReadFilter(self.stream,
                                                   otherfile._try_to_flush)
 
@@ -115,6 +116,7 @@ class W_File(W_AbstractStream):
         self.direct_close()
         self.w_name = w_name
         self.check_mode_ok(mode)
+        xxx
         stream = dispatch_filename(streamio.open_file_as_stream)(
             self.space, w_name, mode, buffering, signal_checker(self.space))
         fd = stream.try_to_find_file_descriptor()
@@ -135,6 +137,7 @@ class W_File(W_AbstractStream):
         self.direct_close()
         self.w_name = self.space.wrap('<fdopen>')
         self.check_mode_ok(mode)
+        xxx
         stream = streamio.fdopen_as_stream(fd, mode, buffering,
                                            signal_checker(self.space))
         self.check_not_dir(fd)
