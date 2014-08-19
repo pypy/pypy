@@ -15,13 +15,15 @@ from __future__ import with_statement
 import sys, thread, collections, cStringIO, linecache
 
 try:
-    from __pypy__.thread import atomic
+    from __pypy__.thread import atomic, is_atomic
 except ImportError:
     # Not a STM-enabled PyPy.  We can use a regular lock for 'atomic',
     # which is good enough for our purposes.  With this limited version,
     # an atomic block in thread X will not prevent running thread Y, if
     # thread Y is not within an atomic block at all.
     atomic = thread.allocate_lock()
+    def is_atomic():
+        return atomic.locked()
 
 try:
     from __pypy__.thread import signals_enabled
