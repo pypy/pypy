@@ -60,8 +60,8 @@ def fetch_pyro():
 def build_unipycation(shared_dir):
     print("Translating unipycation...")
     sh.Command(sys.executable)(
-            os.path.join(shared_dir, "translate_unipycation.py"), "unipycation",
-            _out=sys.stdout, _err=sys.stderr)
+            os.path.join(shared_dir, "translate_unipycation.py"), SCRIPT_DIR,
+            PYRO_DIR, "unipycation", _out=sys.stdout, _err=sys.stderr)
 
 #
 # CONFIGURE
