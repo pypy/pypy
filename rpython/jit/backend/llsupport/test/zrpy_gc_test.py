@@ -10,6 +10,7 @@ from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.jit import JitDriver, dont_look_inside
 from rpython.rlib.jit import elidable, unroll_safe
+from rpython.rlib.jit import promote
 from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
 from rpython.tool.udir import udir
 from rpython.config.translationoption import DEFL_GC
@@ -780,7 +781,6 @@ class CompileFrameworkTests(BaseFrameworkTests):
         self.run('compile_framework_call_assembler')
 
     def define_pinned_simple(cls):
-        from rpython.rlib.jit import promote
         class H:
             inst = None
         helper = H()
@@ -808,7 +808,6 @@ class CompileFrameworkTests(BaseFrameworkTests):
         self.run('pinned_simple')
 
     def define_pinned_unpin(cls):
-        from rpython.rlib.jit import promote
         class H:
             inst = None
             pinned = False
@@ -852,3 +851,49 @@ class CompileFrameworkTests(BaseFrameworkTests):
     def test_pinned_unpin(self):
         self.run('pinned_unpin')
 
+    def define_multiple_pinned(cls):
+        class H:
+            inst1 = None
+            inst2 = None
+            inst3 = None
+            initialised = False
+        helper = H()
+
+        @dont_look_inside
+        def get_instances():
+            if not helper.initialised:
+                helper.inst1 = X()
+                helper.inst1.x = 101
+                check(rgc.pin(helper.inst1))
+                #
+                helper.inst2 = X()
+                helper.inst2.x = 102
+                #
+                helper.inst3 = X()
+                helper.inst3.x = 103
+                check(rgc.pin(helper.inst3))
+                #
+                helper.initialised = True
+            #
+            check(rgc._is_pinned(helper.inst1))
+            check(not rgc._is_pinned(helper.inst2))
+            check(rgc._is_pinned(helper.inst3))
+            return (helper.inst1, helper.inst2, helper.inst3)
+
+        def fn(n, x, *args):
+            inst1, inst2, inst3 = get_instances()
+            promote(inst1)
+            promote(inst2)
+            promote(inst3)
+            #
+            check(inst1.x == 101)
+            check(inst2.x == 102)
+            check(inst3.x == 103)
+            #
+            n -= 1
+            return (n, x) + args
+        
+        return None, fn, None
+
+    def test_multiple_pinned(self):
+        self.run('multiple_pinned')
