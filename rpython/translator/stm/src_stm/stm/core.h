@@ -133,8 +133,9 @@ struct stm_priv_segment_info_s {
        weakrefs never point to young objects and never contain NULL. */
     struct list_s *old_weakrefs;
 
-    /* Tree of 'key->callback' associations from stm_call_on_abort() */
-    struct tree_s *callbacks_on_abort;
+    /* Tree of 'key->callback' associations from stm_call_on_commit()
+       and stm_call_on_abort() (respectively, array items 0 and 1) */
+    struct tree_s *callbacks_on_commit_and_abort[2];
 
     /* Start time: to know approximately for how long a transaction has
        been running, in contention management */

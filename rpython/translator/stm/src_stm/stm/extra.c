@@ -4,55 +4,76 @@
 #endif
 
 
-void stm_call_on_abort(stm_thread_local_t *tl,
-                       void *key, void callback(void *))
+static bool register_callbacks(stm_thread_local_t *tl,
+                               void *key, void callback(void *), long index)
 {
     if (!_stm_in_transaction(tl)) {
         /* check that the current thread-local is really running a
            transaction, and do nothing otherwise. */
-        return;
+        return false;
     }
 
     if (STM_PSEGMENT->transaction_state == TS_INEVITABLE) {
         /* ignore callbacks if we're in an inevitable transaction
            (which cannot abort) */
-        return;
+        return false;
     }
+
+    struct tree_s *callbacks;
+    callbacks = STM_PSEGMENT->callbacks_on_commit_and_abort[index];
 
     if (callback == NULL) {
         /* ignore the return value: unregistered keys can be
            "deleted" again */
-        tree_delete_item(STM_PSEGMENT->callbacks_on_abort, (uintptr_t)key);
+        tree_delete_item(callbacks, (uintptr_t)key);
     }
     else {
         /* double-registering the same key will crash */
-        tree_insert(STM_PSEGMENT->callbacks_on_abort,
-                    (uintptr_t)key, (uintptr_t)callback);
+        tree_insert(callbacks, (uintptr_t)key, (uintptr_t)callback);
+    }
+    return true;
+}
+
+void stm_call_on_commit(stm_thread_local_t *tl,
+                       void *key, void callback(void *))
+{
+    if (!register_callbacks(tl, key, callback, 0)) {
+        /* no regular transaction running, invoke the callback
+           immediately */
+        callback(key);
     }
 }
 
-static void clear_callbacks_on_abort(void)
+void stm_call_on_abort(stm_thread_local_t *tl,
+                       void *key, void callback(void *))
 {
-    if (!tree_is_cleared(STM_PSEGMENT->callbacks_on_abort))
-        tree_clear(STM_PSEGMENT->callbacks_on_abort);
+    register_callbacks(tl, key, callback, 1);
 }
 
-static void invoke_and_clear_callbacks_on_abort(void)
+static void invoke_and_clear_user_callbacks(long index)
 {
-    wlog_t *item;
-    struct tree_s *callbacks = STM_PSEGMENT->callbacks_on_abort;
+    struct tree_s *callbacks;
+
+    /* clear the callbacks that we don't want to invoke at all */
+    callbacks = STM_PSEGMENT->callbacks_on_commit_and_abort[1 - index];
+    if (!tree_is_cleared(callbacks))
+        tree_clear(callbacks);
+
+    /* invoke the callbacks from the other group */
+    callbacks = STM_PSEGMENT->callbacks_on_commit_and_abort[index];
     if (tree_is_cleared(callbacks))
         return;
-    STM_PSEGMENT->callbacks_on_abort = tree_create();
+    STM_PSEGMENT->callbacks_on_commit_and_abort[index] = tree_create();
 
+    wlog_t *item;
     TREE_LOOP_FORWARD(*callbacks, item) {
         void *key = (void *)item->addr;
         void (*callback)(void *) = (void(*)(void *))item->val;
         assert(key != NULL);
         assert(callback != NULL);
 
-        /* The callback may call stm_call_on_abort(key, NULL).  It is
-           ignored, because 'callbacks_on_abort' was cleared already. */
+        /* The callback may call stm_call_on_abort(key, NULL).  It is ignored,
+           because 'callbacks_on_commit_and_abort' was cleared already. */
         callback(key);
 
     } TREE_LOOP_END;

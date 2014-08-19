@@ -417,6 +417,12 @@ long stm_can_move(object_t *);
    Note: 'key' must be aligned to a multiple of 8 bytes. */
 void stm_call_on_abort(stm_thread_local_t *, void *key, void callback(void *));
 
+/* If the current transaction commits later, invoke 'callback(key)'.  If
+   the current transaction aborts, then the callback is forgotten.  Same
+   restrictions as stm_call_on_abort().  If the transaction is or becomes
+   inevitable, 'callback(key)' is called immediately. */
+void stm_call_on_commit(stm_thread_local_t *, void *key, void callback(void *));
+
 
 /* Similar to stm_become_inevitable(), but additionally suspend all
    other threads.  A very heavy-handed way to make sure that no other

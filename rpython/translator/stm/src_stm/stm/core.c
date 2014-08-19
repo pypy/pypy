@@ -376,7 +376,8 @@ static void _stm_start_transaction(stm_thread_local_t *tl, bool inevitable)
     assert(list_is_empty(STM_PSEGMENT->young_weakrefs));
     assert(tree_is_cleared(STM_PSEGMENT->young_outside_nursery));
     assert(tree_is_cleared(STM_PSEGMENT->nursery_objects_shadows));
-    assert(tree_is_cleared(STM_PSEGMENT->callbacks_on_abort));
+    assert(tree_is_cleared(STM_PSEGMENT->callbacks_on_commit_and_abort[0]));
+    assert(tree_is_cleared(STM_PSEGMENT->callbacks_on_commit_and_abort[1]));
     assert(STM_PSEGMENT->objects_pointing_to_nursery == NULL);
     assert(STM_PSEGMENT->large_overflow_objects == NULL);
 #ifndef NDEBUG
@@ -851,7 +852,7 @@ void stm_commit_transaction(void)
         STM_PSEGMENT->overflow_number_has_been_used = false;
     }
 
-    clear_callbacks_on_abort();
+    invoke_and_clear_user_callbacks(0);   /* for commit */
 
     /* send what is hopefully the correct signals */
     if (STM_PSEGMENT->transaction_state == TS_INEVITABLE) {
@@ -1045,7 +1046,7 @@ static stm_thread_local_t *abort_with_mutex_no_longjmp(void)
         memset(tl->mem_clear_on_abort, 0, tl->mem_bytes_to_clear_on_abort);
 
     /* invoke the callbacks */
-    invoke_and_clear_callbacks_on_abort();
+    invoke_and_clear_user_callbacks(1);   /* for abort */
 
     int attribute_to = STM_TIME_RUN_ABORTED_OTHER;
 
@@ -1102,7 +1103,7 @@ void _stm_become_inevitable(const char *msg)
         wait_for_end_of_inevitable_transaction(NULL);
         STM_PSEGMENT->transaction_state = TS_INEVITABLE;
         stm_rewind_jmp_forget(STM_SEGMENT->running_thread);
-        clear_callbacks_on_abort();
+        invoke_and_clear_user_callbacks(0);   /* for commit */
     }
     else {
         assert(STM_PSEGMENT->transaction_state == TS_INEVITABLE);
