@@ -707,19 +707,7 @@ class W_BytesObject(W_AbstractBytesObject):
         new_is_unicode = space.isinstance_w(w_new, space.w_unicode)
         if old_is_unicode or new_is_unicode:
             self_as_uni = unicode_from_encoded_object(space, self, None, None)
-            if not old_is_unicode:
-                w_old = unicode_from_encoded_object(space, w_old, None, None)
-            if not new_is_unicode:
-                w_new = unicode_from_encoded_object(space, w_new, None, None)
-            input = self_as_uni._val(space)
-            sub = self_as_uni._op_val(space, w_old)
-            by = self_as_uni._op_val(space, w_new)
-            try:
-                res = replace(input, sub, by, count)
-            except OverflowError:
-                raise oefmt(space.w_OverflowError,
-                            "replace string is too long")
-            return self_as_uni._new(res)
+            return self_as_uni.descr_replace(space, w_old, w_new, count)
         return self._StringMethods_descr_replace(space, w_old, w_new, count)
 
     _StringMethods_descr_join = descr_join

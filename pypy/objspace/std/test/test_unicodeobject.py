@@ -956,10 +956,12 @@ class AppTestUnicodeString:
         assert not u'a'.isnumeric()
         assert u'\u2460'.isnumeric() # CIRCLED DIGIT ONE
 
-    def test_replace_autoconvert(self):
+    def test_replace_str_unicode(self):
         res = 'one!two!three!'.replace(u'!', u'@', 1)
         assert res == u'one@two!three!'
         assert type(res) == unicode
+        raises(UnicodeDecodeError, '\x80'.replace, 'a', u'b')
+        raises(UnicodeDecodeError, '\x80'.replace, u'a', 'b')
 
     def test_join_subclass(self):
         class UnicodeSubclass(unicode):
