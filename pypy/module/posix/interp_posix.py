@@ -159,7 +159,7 @@ def closerange(fd_low, fd_high):
 
 @unwrap_spec(fd=c_int, length=r_longlong)
 def ftruncate(space, fd, length):
-    """Truncate a file to a specified length."""
+    """Truncate a file (by file descriptor) to a specified length."""
     try:
         os.ftruncate(fd, length)
     except IOError, e:
@@ -172,6 +172,25 @@ def ftruncate(space, fd, length):
         raise AssertionError
     except OSError, e:
         raise wrap_oserror(space, e)
+
+def truncate(space, w_path, w_length):
+    """Truncate a file to a specified length."""
+    allocated_fd = False
+    fd = -1
+    try:
+        if space.isinstance_w(w_path, space.w_int):
+            w_fd = w_path
+        else:
+            w_fd = open(space, w_path, os.O_RDWR | os.O_CREAT)
+            allocated_fd = True
+
+        fd = space.c_filedescriptor_w(w_fd)
+        length = space.int_w(w_length)
+        return ftruncate(space, fd, length)
+
+    finally:
+        if allocated_fd and fd != -1:
+            close(space, fd)
 
 def fsync(space, w_fd):
     """Force write of file with filedescriptor to disk."""

@@ -976,6 +976,33 @@ class AppTestPosix:
                 data = f.read()
                 assert data == "who cares?"
 
+    if hasattr(os, 'ftruncate'):
+        def test_truncate(self):
+            posix = self.posix
+            dest = self.path
+
+            def mkfile(dest, size=4):
+                with open(dest, 'wb') as f:
+                    f.write(b'd' * size)
+
+            # Check invalid inputs
+            mkfile(dest)
+            raises(OSError, posix.truncate, dest, -1)
+            raises(OSError, posix.truncate, 1, 1)
+            raises(TypeError, posix.truncate, dest, None)
+            raises(TypeError, posix.truncate, None, None)
+
+            # Truncate via file descriptor
+            mkfile(dest)
+            with open(dest, 'wb') as f:
+                posix.truncate(f.fileno(), 1)
+            assert 1 == posix.stat(dest).st_size
+
+            # Truncate via filename
+            mkfile(dest)
+            posix.truncate(dest, 1)
+            assert 1 == posix.stat(dest).st_size
+
     try:
         os.getlogin()
     except (AttributeError, OSError):

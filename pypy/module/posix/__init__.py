@@ -86,6 +86,7 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['fchmod'] = 'interp_posix.fchmod'
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
+        interpleveldefs['truncate'] = 'interp_posix.truncate'
     if hasattr(os, 'fsync'):
         interpleveldefs['fsync'] = 'interp_posix.fsync'
     if hasattr(os, 'fdatasync'):
