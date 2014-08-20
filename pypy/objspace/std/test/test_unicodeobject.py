@@ -628,6 +628,13 @@ class AppTestUnicodeString:
         raises(ValueError, S.rpartition, u'')
         raises(TypeError, S.rpartition, None)
 
+    def test_partition_str_unicode(self):
+        x = 'abbbd'.rpartition(u'bb')
+        assert x == (u'ab', u'bb', u'd')
+        assert map(type, x) == [unicode, unicode, unicode]
+        raises(UnicodeDecodeError, '\x80'.partition, u'')
+        raises(UnicodeDecodeError, '\x80'.rpartition, u'')
+
     def test_mul(self):
         zero = 0
         assert type(u'' * zero) == type(zero * u'') == unicode

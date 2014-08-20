@@ -791,6 +791,20 @@ class W_BytesObject(W_AbstractBytesObject):
             return self_as_uni.descr_rindex(space, w_sub, w_start, w_end)
         return self._StringMethods_descr_rindex(space, w_sub, w_start, w_end)
 
+    _StringMethods_descr_partition = descr_partition
+    def descr_partition(self, space, w_sub):
+        if space.isinstance_w(w_sub, space.w_unicode):
+            self_as_uni = unicode_from_encoded_object(space, self, None, None)
+            return self_as_uni.descr_partition(space, w_sub)
+        return self._StringMethods_descr_partition(space, w_sub)
+
+    _StringMethods_descr_rpartition = descr_rpartition
+    def descr_rpartition(self, space, w_sub):
+        if space.isinstance_w(w_sub, space.w_unicode):
+            self_as_uni = unicode_from_encoded_object(space, self, None, None)
+            return self_as_uni.descr_rpartition(space, w_sub)
+        return self._StringMethods_descr_rpartition(space, w_sub)
+
     def _join_return_one(self, space, w_obj):
         return (space.is_w(space.type(w_obj), space.w_str) or
                 space.is_w(space.type(w_obj), space.w_unicode))
