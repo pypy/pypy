@@ -10,6 +10,7 @@ from pypy.module.micronumpy import boxes, descriptor, loop, constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.ctors import numpify
 from pypy.module.micronumpy.strides import shape_agreement
+from pypy.module.micronumpy.support import _parse_signature
 
 
 def done_if_true(dtype, val):
@@ -490,8 +491,10 @@ class W_UfuncGeneric(W_Ufunc):
 
     If dtypes == 'match', only one argument is provided and the output dtypes
     will match the input dtype (not cpython numpy compatible)
+
+    This is the parallel to PyUFuncOjbect, see include/numpy/ufuncobject.h
     '''
-    _immutable_fields_ = ["funcs", "dtypes", "data"]
+    _immutable_fields_ = ["funcs", "dtypes", "data", "match_dtypes"]
 
     def __init__(self, space, funcs, name, identity, nin, nout, dtypes, signature, match_dtypes=False):
         # XXX make sure funcs, signature, dtypes, nin, nout are consistent
@@ -515,6 +518,12 @@ class W_UfuncGeneric(W_Ufunc):
                 "generic ufunc with %d functions, %d arguments, but %d dtypes",
                 len(funcs), self.nargs, len(dtypes))
         self.signature = signature
+        #These will be filled in by _parse_signature
+        self.core_enabled = True    # False for scalar ufunc, True for generalized ufunc
+        self.core_num_dim_ix = 0 # number of distinct dimention names in signature
+        self.core_num_dims = [0] * self.nargs  # number of core dimensions of each nargs
+        self.core_offsets = [0] * self.nargs
+        self.core_dim_ixs = [0] * len(signature)
 
     def reduce(self, space, w_obj, w_axis, keepdims=False, out=None, dtype=None,
                cumulative=False):
@@ -1027,6 +1036,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
 
     w_ret = W_UfuncGeneric(space, func, name, identity, nin, nout, dtypes, signature,
                                 match_dtypes=match_dtypes)
+    _parse_signature(space, w_ret, w_ret.signature)
     if doc:
         w_ret.w_doc = space.wrap(doc)
     return w_ret
