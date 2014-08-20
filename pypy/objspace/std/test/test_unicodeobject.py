@@ -333,6 +333,17 @@ class AppTestUnicodeString:
         assert u'xyzzyhelloxyzzy'.lstrip('xyz') == u'helloxyzzy'
         assert u'xyzzyhelloxyzzy'.rstrip(u'xyz') == u'xyzzyhello'
 
+    def test_strip_str_unicode(self):
+        x = "--abc--".strip(u"-")
+        assert (x, type(x)) == (u"abc", unicode)
+        x = "--abc--".lstrip(u"-")
+        assert (x, type(x)) == (u"abc--", unicode)
+        x = "--abc--".rstrip(u"-")
+        assert (x, type(x)) == (u"--abc", unicode)
+        raises(UnicodeDecodeError, "\x80".strip, u"")
+        raises(UnicodeDecodeError, "\x80".lstrip, u"")
+        raises(UnicodeDecodeError, "\x80".rstrip, u"")
+
     def test_long_from_unicode(self):
         assert long(u'12345678901234567890') == 12345678901234567890
         assert int(u'12345678901234567890') == 12345678901234567890

@@ -747,6 +747,27 @@ class W_BytesObject(W_AbstractBytesObject):
             return self_as_uni.descr_rsplit(space, w_sep, maxsplit)
         return self._StringMethods_descr_rsplit(space, w_sep, maxsplit)
 
+    _StringMethods_descr_strip = descr_strip
+    def descr_strip(self, space, w_chars=None):
+        if w_chars is not None and space.isinstance_w(w_chars, space.w_unicode):
+            self_as_uni = unicode_from_encoded_object(space, self, None, None)
+            return self_as_uni.descr_strip(space, w_chars)
+        return self._StringMethods_descr_strip(space, w_chars)
+
+    _StringMethods_descr_lstrip = descr_lstrip
+    def descr_lstrip(self, space, w_chars=None):
+        if w_chars is not None and space.isinstance_w(w_chars, space.w_unicode):
+            self_as_uni = unicode_from_encoded_object(space, self, None, None)
+            return self_as_uni.descr_lstrip(space, w_chars)
+        return self._StringMethods_descr_lstrip(space, w_chars)
+
+    _StringMethods_descr_rstrip = descr_rstrip
+    def descr_rstrip(self, space, w_chars=None):
+        if w_chars is not None and space.isinstance_w(w_chars, space.w_unicode):
+            self_as_uni = unicode_from_encoded_object(space, self, None, None)
+            return self_as_uni.descr_rstrip(space, w_chars)
+        return self._StringMethods_descr_rstrip(space, w_chars)
+
     def _join_return_one(self, space, w_obj):
         return (space.is_w(space.type(w_obj), space.w_str) or
                 space.is_w(space.type(w_obj), space.w_unicode))
