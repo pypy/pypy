@@ -175,6 +175,24 @@ class AppTestUnicodeString:
         assert u'  a b c  '.rsplit(None, 0) == [u'  a b c']
         assert u''.rsplit('aaa') == [u'']
 
+    def test_split_rsplit_str_unicode(self):
+        x = 'abc'.split(u'b')
+        assert x == [u'a', u'c']
+        assert map(type, x) == [unicode, unicode]
+        x = 'abc'.rsplit(u'b')
+        assert x == [u'a', u'c']
+        assert map(type, x) == [unicode, unicode]
+        x = 'abc'.split(u'\u4321')
+        assert x == [u'abc']
+        assert map(type, x) == [unicode]
+        x = 'abc'.rsplit(u'\u4321')
+        assert x == [u'abc']
+        assert map(type, x) == [unicode]
+        raises(UnicodeDecodeError, '\x80'.split, u'a')
+        raises(UnicodeDecodeError, '\x80'.split, u'')
+        raises(UnicodeDecodeError, '\x80'.rsplit, u'a')
+        raises(UnicodeDecodeError, '\x80'.rsplit, u'')
+
     def test_center(self):
         s=u"a b"
         assert s.center(0) == u"a b"

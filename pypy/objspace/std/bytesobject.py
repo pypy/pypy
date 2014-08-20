@@ -731,6 +731,22 @@ class W_BytesObject(W_AbstractBytesObject):
             return space.wrap(self._val(space).join(l))
         return self._StringMethods_descr_join(space, w_list)
 
+    _StringMethods_descr_split = descr_split
+    @unwrap_spec(maxsplit=int)
+    def descr_split(self, space, w_sep=None, maxsplit=-1):
+        if w_sep is not None and space.isinstance_w(w_sep, space.w_unicode):
+            self_as_uni = unicode_from_encoded_object(space, self, None, None)
+            return self_as_uni.descr_split(space, w_sep, maxsplit)
+        return self._StringMethods_descr_split(space, w_sep, maxsplit)
+
+    _StringMethods_descr_rsplit = descr_rsplit
+    @unwrap_spec(maxsplit=int)
+    def descr_rsplit(self, space, w_sep=None, maxsplit=-1):
+        if w_sep is not None and space.isinstance_w(w_sep, space.w_unicode):
+            self_as_uni = unicode_from_encoded_object(space, self, None, None)
+            return self_as_uni.descr_rsplit(space, w_sep, maxsplit)
+        return self._StringMethods_descr_rsplit(space, w_sep, maxsplit)
+
     def _join_return_one(self, space, w_obj):
         return (space.is_w(space.type(w_obj), space.w_str) or
                 space.is_w(space.type(w_obj), space.w_unicode))
