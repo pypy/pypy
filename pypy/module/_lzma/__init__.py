@@ -8,6 +8,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'LZMACompressor': 'interp_lzma.W_LZMACompressor',
         'LZMADecompressor': 'interp_lzma.W_LZMADecompressor',
+        'LZMAError': 'interp_lzma.W_LZMAError',
         '_encode_filter_properties': 'interp_lzma.encode_filter_properties',
         '_decode_filter_properties': 'interp_lzma.decode_filter_properties',
         'FORMAT_AUTO': 'space.wrap(interp_lzma.FORMAT_AUTO)',

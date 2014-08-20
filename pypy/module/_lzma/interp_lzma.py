@@ -3,6 +3,7 @@ from pypy.interpreter.typedef import (
     TypeDef, interp_attrproperty_bytes, interp_attrproperty)
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.module.exceptions.interp_exceptions import _new_exception, W_Exception
 from pypy.module.thread.os_lock import Lock
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import LONGLONG_MASK, r_ulonglong
@@ -344,6 +345,9 @@ W_LZMADecompressor.typedef = TypeDef("LZMADecompressor",
     eof = interp_attrproperty("eof", W_LZMADecompressor),
     unused_data = interp_attrproperty_bytes("unused_data", W_LZMADecompressor),
 )
+
+
+W_LZMAError = _new_exception('LZMAError', W_Exception, 'Call to liblzma failed.')
 
 
 def encode_filter_properties(space, w_filter):

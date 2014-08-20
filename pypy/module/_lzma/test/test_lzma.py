@@ -15,3 +15,16 @@ class AppTestBZ2File:
                               b't\x9e\xdfI]\xff\xf4\x9d\x80\x00')
         decompressed = lzma.decompress(compressed)
         assert decompressed == b'Insert Data Here'
+
+    def test_exceptions(self):
+        import _lzma
+        import lzma
+
+        assert hasattr(_lzma, 'LZMAError')
+        assert hasattr(lzma, 'LZMAError')
+
+        assert _lzma.LZMAError is lzma.LZMAError
+        assert _lzma.LZMAError.__doc__ == 'Call to liblzma failed.'
+
+        exc = raises(_lzma.LZMAError, 'raise _lzma.LZMAError')
+        exc = raises(_lzma.LZMAError, 'raise _lzma.LZMAError("bad thing")')
