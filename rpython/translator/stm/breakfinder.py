@@ -9,6 +9,7 @@ TRANSACTION_BREAK = set([
     #'jit_assembler_call',
     'stm_enter_callback_call',
     'stm_leave_callback_call',
+    'stm_transaction_break',
     ])
 
 for tb in TRANSACTION_BREAK:

@@ -68,10 +68,7 @@ class LLSTMFrame(LLFrame):
     stm_ignored = False
 
     def eval(self):
-        self.gcptrs_actually_read = []
         result = LLFrame.eval(self)
-        for x in self.gcptrs_actually_read:
-            assert x in self.llinterpreter.tester.read_barriers
         return result
 
     def all_stm_ptrs(self):
@@ -83,9 +80,6 @@ class LLSTMFrame(LLFrame):
     def op_stm_read(self, obj):
         self.llinterpreter.tester.read_barriers.append(obj)
 
-    def op_stm_write(self, obj):
-        self.op_stm_read(obj)      # implicitly counts as a read barrier too
-
     def op_stm_ignored_start(self):
         assert self.stm_ignored == False
         self.stm_ignored = True
@@ -95,59 +89,50 @@ class LLSTMFrame(LLFrame):
         self.stm_ignored = False
 
     def op_getfield(self, obj, field):
-        if obj._TYPE.TO._gckind == 'gc':
-            if obj._TYPE.TO._immutable_field(field):
-                if not self.stm_ignored:
-                    self.gcptrs_actually_read.append(obj)
         return LLFrame.op_getfield(self, obj, field)
 
     def op_setfield(self, obj, fieldname, fieldvalue):
-        if obj._TYPE.TO._gckind == 'gc':
-            T = lltype.typeOf(fieldvalue)
-            if isinstance(T, lltype.Ptr) and T.TO._gckind == 'gc':
-                self.check_category(obj, 'W')
-            else:
-                self.check_category(obj, 'V')
-            # convert R -> Q all other pointers to the same object we can find
-            for p in self.all_stm_ptrs():
-                if p._category == 'R' and p._T == obj._T and p == obj:
-                    _stmptr._category.__set__(p, 'Q')
         return LLFrame.op_setfield(self, obj, fieldname, fieldvalue)
 
     def op_cast_pointer(self, RESTYPE, obj):
         if obj._TYPE.TO._gckind == 'gc':
-            cat = self.check_category(obj, None)
             p = opimpl.op_cast_pointer(RESTYPE, obj)
-            return _stmptr(p, cat)
+            return p
         return lltype.cast_pointer(RESTYPE, obj)
     op_cast_pointer.need_result_type = True
 
     def op_cast_opaque_ptr(self, RESTYPE, obj):
         if obj._TYPE.TO._gckind == 'gc':
-            cat = self.check_category(obj, None)
             p = lltype.cast_opaque_ptr(RESTYPE, obj)
-            return _stmptr(p, cat)
+            return p
         return LLFrame.op_cast_opaque_ptr(self, RESTYPE, obj)
     op_cast_opaque_ptr.need_result_type = True
 
     def op_malloc(self, obj, flags):
         assert flags['flavor'] == 'gc'
-        # convert all existing pointers W -> V
-        for p in self.all_stm_ptrs():
-            if p._category == 'W':
-                _stmptr._category.__set__(p, 'V')
         p = LLFrame.op_malloc(self, obj, flags)
-        ptr2 = _stmptr(p, 'W')
-        self.llinterpreter.tester.writemode.add(ptr2._obj)
+        ptr2 = p
         return ptr2
 
     def transaction_break(self):
-        # convert -> I all other pointers to the same object we can find
-        for p in self.all_stm_ptrs():
-            if p._category > 'I':
-                _stmptr._category.__set__(p, 'I')
+        pass
 
     def op_stm_commit_transaction(self):
+        self.transaction_break()
+
+    def op_stm_transaction_break(self):
+        self.transaction_break()
+
+    def op_stm_commit_if_not_atomic(self):
+        self.transaction_break()
+
+    def op_stm_start_if_not_atomic(self):
+        self.transaction_break()
+
+    def op_stm_enter_callback_call(self):
+        self.transaction_break()
+
+    def op_stm_leave_callback_call(self):
         self.transaction_break()
 
     def op_stm_begin_inevitable_transaction(self):

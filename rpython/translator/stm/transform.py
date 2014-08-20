@@ -1,5 +1,6 @@
 from rpython.translator.stm.inevitable import insert_turn_inevitable
 from rpython.translator.stm.readbarrier import insert_stm_read_barrier
+from rpython.translator.stm.breakfinder import TransactionBreakAnalyzer
 from rpython.translator.c.support import log
 
 
@@ -25,8 +26,12 @@ class STMTransformer(object):
 
     def transform_read_barrier(self):
         self.read_barrier_counts = 0
+        self.break_analyzer = TransactionBreakAnalyzer(self.translator)
+
         for graph in self.translator.graphs:
             insert_stm_read_barrier(self, graph)
+
+        del self.break_analyzer
         log.info("%d read barriers inserted" % (self.read_barrier_counts,))
 
     def transform_turn_inevitable(self):
