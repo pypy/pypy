@@ -197,7 +197,11 @@ static void _cards_cleared_in_object(struct stm_priv_segment_info_s *pseg, objec
                || write_locks[first_card_index] == 255); /* see gcpage.c */
     while (card_index <= last_card_index) {
         uintptr_t card_lock_idx = first_card_index + card_index;
-        assert(write_locks[card_lock_idx] == CARD_CLEAR);
+        if (write_locks[card_lock_idx] != CARD_CLEAR) {
+            /* could occur if the object is immediately re-locked by
+               another thread */
+            assert(write_locks[first_card_index] != 0);
+        }
         card_index++;
     }
 
