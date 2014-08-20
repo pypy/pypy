@@ -34,6 +34,14 @@ class TestLLType(BaseRtypingTest):
         res = self.interpret(f, [self.string_to_ll("abc")])
         assert res == 3
 
+    def test_llstr_const_char(self):
+        def f(arg):
+            s = llstr(hlstr(arg)[0])
+            return len(s.chars)
+
+        res = self.interpret(f, [self.string_to_ll("abc")])
+        assert res == 1
+
     def test_hlunicode(self):
         s = mallocunicode(3)
         s.chars[0] = u"a"

@@ -421,9 +421,13 @@ def make_string_entries(strtype):
                 return lltype_to_annotation(lltype.Ptr(UNICODE))
 
         def specialize_call(self, hop):
+            from rpython.rtyper.lltypesystem.rstr import (string_repr,
+                                                          unicode_repr)
             hop.exception_cannot_occur()
-            assert hop.args_r[0].lowleveltype == hop.r_result.lowleveltype
-            v_ll_str, = hop.inputargs(*hop.args_r)
+            if strtype is str:
+                v_ll_str = hop.inputarg(string_repr, 0)
+            else:
+                v_ll_str = hop.inputarg(unicode_repr, 0)
             return hop.genop('same_as', [v_ll_str],
                              resulttype = hop.r_result.lowleveltype)
 
