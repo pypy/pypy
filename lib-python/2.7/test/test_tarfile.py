@@ -158,6 +158,80 @@ class UstarReadTest(ReadTest):
         self._test_fileobj_link("symtype2", "ustar/regtype")
 
 
+class ListTest(ReadTest, unittest.TestCase):
+
+    # Override setUp to use default encoding (UTF-8)
+    def setUp(self):
+        self.tar = tarfile.open(self.tarname, mode=self.mode)
+
+    def test_list(self):
+        with test_support.captured_stdout() as t:
+            self.tar.list(verbose=False)
+        out = t.getvalue()
+        self.assertIn('ustar/conttype', out)
+        self.assertIn('ustar/regtype', out)
+        self.assertIn('ustar/lnktype', out)
+        self.assertIn('ustar' + ('/12345' * 40) + '67/longname', out)
+        self.assertIn('./ustar/linktest2/symtype', out)
+        self.assertIn('./ustar/linktest2/lnktype', out)
+        # Make sure it puts trailing slash for directory
+        self.assertIn('ustar/dirtype/', out)
+        self.assertIn('ustar/dirtype-with-size/', out)
+        # Make sure it is able to print non-ASCII characters
+        self.assertIn('ustar/umlauts-'
+                      '\xc4\xd6\xdc\xe4\xf6\xfc\xdf', out)
+        self.assertIn('misc/regtype-hpux-signed-chksum-'
+                      '\xc4\xd6\xdc\xe4\xf6\xfc\xdf', out)
+        self.assertIn('misc/regtype-old-v7-signed-chksum-'
+                      '\xc4\xd6\xdc\xe4\xf6\xfc\xdf', out)
+        # Make sure it prints files separated by one newline without any
+        # 'ls -l'-like accessories if verbose flag is not being used
+        # ...
+        # ustar/conttype
+        # ustar/regtype
+        # ...
+        self.assertRegexpMatches(out, r'ustar/conttype ?\r?\n'
+                                      r'ustar/regtype ?\r?\n')
+        # Make sure it does not print the source of link without verbose flag
+        self.assertNotIn('link to', out)
+        self.assertNotIn('->', out)
+
+    def test_list_verbose(self):
+        with test_support.captured_stdout() as t:
+            self.tar.list(verbose=True)
+        out = t.getvalue()
+        # Make sure it prints files separated by one newline with 'ls -l'-like
+        # accessories if verbose flag is being used
+        # ...
+        # ?rw-r--r-- tarfile/tarfile     7011 2003-01-06 07:19:43 ustar/conttype
+        # ?rw-r--r-- tarfile/tarfile     7011 2003-01-06 07:19:43 ustar/regtype
+        # ...
+        self.assertRegexpMatches(out, (r'-rw-r--r-- tarfile/tarfile\s+7011 '
+                                       r'\d{4}-\d\d-\d\d\s+\d\d:\d\d:\d\d '
+                                       r'ustar/\w+type ?\r?\n') * 2)
+        # Make sure it prints the source of link with verbose flag
+        self.assertIn('ustar/symtype -> regtype', out)
+        self.assertIn('./ustar/linktest2/symtype -> ../linktest1/regtype', out)
+        self.assertIn('./ustar/linktest2/lnktype link to '
+                      './ustar/linktest1/regtype', out)
+        self.assertIn('gnu' + ('/123' * 125) + '/longlink link to gnu' +
+                      ('/123' * 125) + '/longname', out)
+        self.assertIn('pax' + ('/123' * 125) + '/longlink link to pax' +
+                      ('/123' * 125) + '/longname', out)
+
+
+class GzipListTest(ListTest):
+    tarname = gzipname
+    mode = "r:gz"
+    taropen = tarfile.TarFile.gzopen
+
+
+class Bz2ListTest(ListTest):
+    tarname = bz2name
+    mode = "r:bz2"
+    taropen = tarfile.TarFile.bz2open
+
+
 class CommonReadTest(ReadTest):
 
     def test_empty_tarfile(self):
@@ -181,6 +255,14 @@ class CommonReadTest(ReadTest):
         open(tmpname, "wb").close()
         self.assertRaises(tarfile.ReadError, tarfile.open, tmpname, self.mode)
         self.assertRaises(tarfile.ReadError, tarfile.open, tmpname)
+
+    def test_non_existent_tarfile(self):
+        # Test for issue11513: prevent non-existent gzipped tarfiles raising
+        # multiple exceptions.
+        exctype = OSError if '|' in self.mode else IOError
+        with self.assertRaisesRegexp(exctype, "xxx") as ex:
+            tarfile.open("xxx", self.mode)
+        self.assertEqual(ex.exception.errno, errno.ENOENT)
 
     def test_ignore_zeros(self):
         # Test TarFile's ignore_zeros option.
@@ -206,6 +288,7 @@ class CommonReadTest(ReadTest):
 
 
 class MiscReadTest(CommonReadTest):
+    taropen = tarfile.TarFile.taropen
 
     def test_no_name_argument(self):
         fobj = open(self.tarname, "rb")
@@ -230,6 +313,17 @@ class MiscReadTest(CommonReadTest):
         fobj.name = ""
         tar = tarfile.open(fileobj=fobj, mode=self.mode)
         self.assertEqual(tar.name, None)
+
+    def test_illegal_mode_arg(self):
+        with open(tmpname, 'wb'):
+            pass
+        self.addCleanup(os.unlink, tmpname)
+        with self.assertRaisesRegexp(ValueError, 'mode must be '):
+            tar = self.taropen(tmpname, 'q')
+        with self.assertRaisesRegexp(ValueError, 'mode must be '):
+            tar = self.taropen(tmpname, 'rw')
+        with self.assertRaisesRegexp(ValueError, 'mode must be '):
+            tar = self.taropen(tmpname, '')
 
     def test_fileobj_with_offset(self):
         # Skip the first member and store values from the second member
@@ -266,7 +360,7 @@ class MiscReadTest(CommonReadTest):
     def test_fail_comp(self):
         # For Gzip and Bz2 Tests: fail with a ReadError on an uncompressed file.
         if self.mode == "r:":
-            return
+            self.skipTest('needs a gz or bz2 mode')
         self.assertRaises(tarfile.ReadError, tarfile.open, tarname, self.mode)
         fobj = open(tarname, "rb")
         self.assertRaises(tarfile.ReadError, tarfile.open, fileobj=fobj, mode=self.mode)
@@ -452,14 +546,12 @@ class DetectReadTest(unittest.TestCase):
     def test_detect_fileobj(self):
         self._test_modes(self._testfunc_fileobj)
 
+    @unittest.skipUnless(bz2, 'requires bz2')
     def test_detect_stream_bz2(self):
         # Originally, tarfile's stream detection looked for the string
         # "BZh91" at the start of the file. This is incorrect because
         # the '9' represents the blocksize (900kB). If the file was
         # compressed using another blocksize autodetection fails.
-        if not bz2:
-            return
-
         with open(tarname, "rb") as fobj:
             data = fobj.read()
 
@@ -646,6 +738,12 @@ class WriteTestBase(unittest.TestCase):
         tar.addfile(tarfile.TarInfo("foo"))
         tar.close()
         self.assertTrue(fobj.closed is False, "external fileobjs must never closed")
+        # Issue #20238: Incomplete gzip output with mode="w:gz"
+        data = fobj.getvalue()
+        del tar
+        test_support.gc_collect()
+        self.assertFalse(fobj.closed)
+        self.assertEqual(data, fobj.getvalue())
 
 
 class WriteTest(WriteTestBase):
@@ -967,6 +1065,22 @@ class WriteTest(WriteTestBase):
             os.unlink(temparchive)
             shutil.rmtree(tempdir)
 
+    def test_open_nonwritable_fileobj(self):
+        for exctype in IOError, EOFError, RuntimeError:
+            class BadFile(StringIO.StringIO):
+                first = True
+                def write(self, data):
+                    if self.first:
+                        self.first = False
+                        raise exctype
+
+            f = BadFile()
+            with self.assertRaises(exctype):
+                tar = tarfile.open(tmpname, self.mode, fileobj=f,
+                                   format=tarfile.PAX_FORMAT,
+                                   pax_headers={'non': 'empty'})
+            self.assertFalse(f.closed)
+
 class StreamWriteTest(WriteTestBase):
 
     mode = "w|"
@@ -996,12 +1110,11 @@ class StreamWriteTest(WriteTestBase):
         self.assertTrue(data.count("\0") == tarfile.RECORDSIZE,
                          "incorrect zero padding")
 
+    @unittest.skipIf(sys.platform == 'win32', 'not appropriate for Windows')
+    @unittest.skipUnless(hasattr(os, 'umask'), 'requires os.umask')
     def test_file_mode(self):
         # Test for issue #8464: Create files with correct
         # permissions.
-        if sys.platform == "win32" or not hasattr(os, "umask"):
-            return
-
         if os.path.exists(tmpname):
             os.remove(tmpname)
 
@@ -1384,15 +1497,13 @@ class AppendTest(unittest.TestCase):
         self._add_testfile()
         self._test(names=["foo", "bar"])
 
+    @unittest.skipUnless(gzip, 'requires gzip')
     def test_append_gz(self):
-        if gzip is None:
-            return
         self._create_testtar("w:gz")
         self.assertRaises(tarfile.ReadError, tarfile.open, tmpname, "a")
 
+    @unittest.skipUnless(bz2, 'requires bz2')
     def test_append_bz2(self):
-        if bz2 is None:
-            return
         self._create_testtar("w:bz2")
         self.assertRaises(tarfile.ReadError, tarfile.open, tmpname, "a")
 
@@ -1566,6 +1677,7 @@ class LinkEmulationTest(ReadTest):
 class GzipMiscReadTest(MiscReadTest):
     tarname = gzipname
     mode = "r:gz"
+    taropen = tarfile.TarFile.gzopen
 class GzipUstarReadTest(UstarReadTest):
     tarname = gzipname
     mode = "r:gz"
@@ -1581,6 +1693,7 @@ class GzipStreamWriteTest(StreamWriteTest):
 class Bz2MiscReadTest(MiscReadTest):
     tarname = bz2name
     mode = "r:bz2"
+    taropen = tarfile.TarFile.bz2open
 class Bz2UstarReadTest(UstarReadTest):
     tarname = bz2name
     mode = "r:bz2"
@@ -1633,6 +1746,7 @@ def test_main():
         MemberReadTest,
         GNUReadTest,
         PaxReadTest,
+        ListTest,
         WriteTest,
         StreamWriteTest,
         GNUWriteTest,
@@ -1664,6 +1778,7 @@ def test_main():
             GzipMiscReadTest,
             GzipUstarReadTest,
             GzipStreamReadTest,
+            GzipListTest,
             GzipWriteTest,
             GzipStreamWriteTest,
         ]
@@ -1678,6 +1793,7 @@ def test_main():
             Bz2MiscReadTest,
             Bz2UstarReadTest,
             Bz2StreamReadTest,
+            Bz2ListTest,
             Bz2WriteTest,
             Bz2StreamWriteTest,
             Bz2PartialReadTest,

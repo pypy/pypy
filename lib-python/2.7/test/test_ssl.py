@@ -192,9 +192,8 @@ class BasicSocketTests(unittest.TestCase):
         self.assertTrue(s.startswith("OpenSSL {:d}.{:d}.{:d}".format(major, minor, fix)),
                         (s, t))
 
+    @test_support.requires_resource('network')
     def test_ciphers(self):
-        if not test_support.is_resource_enabled('network'):
-            return
         remote = ("svn.python.org", 443)
         with test_support.transient_internet(remote[0]):
             s = ssl.wrap_socket(socket.socket(socket.AF_INET),
@@ -232,6 +231,13 @@ class BasicSocketTests(unittest.TestCase):
         self.assertRaises(socket.error, ss.recvfrom_into, bytearray(b'x'), 1)
         self.assertRaises(socket.error, ss.send, b'x')
         self.assertRaises(socket.error, ss.sendto, b'x', ('0.0.0.0', 0))
+
+    def test_unsupported_dtls(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.addCleanup(s.close)
+        with self.assertRaises(NotImplementedError) as cx:
+            ssl.wrap_socket(s, cert_reqs=ssl.CERT_NONE)
+        self.assertEqual(str(cx.exception), "only stream sockets are supported")
 
 
 class NetworkedTests(unittest.TestCase):
@@ -384,19 +390,24 @@ class NetworkedTests(unittest.TestCase):
 
     def test_get_server_certificate(self):
         with test_support.transient_internet("svn.python.org"):
-            pem = ssl.get_server_certificate(("svn.python.org", 443))
+            pem = ssl.get_server_certificate(("svn.python.org", 443),
+                                             ssl.PROTOCOL_SSLv23)
             if not pem:
                 self.fail("No server certificate on svn.python.org:443!")
 
             try:
-                pem = ssl.get_server_certificate(("svn.python.org", 443), ca_certs=CERTFILE)
+                pem = ssl.get_server_certificate(("svn.python.org", 443),
+                                                 ssl.PROTOCOL_SSLv23,
+                                                 ca_certs=CERTFILE)
             except ssl.SSLError:
                 #should fail
                 pass
             else:
                 self.fail("Got server certificate %s for svn.python.org!" % pem)
 
-            pem = ssl.get_server_certificate(("svn.python.org", 443), ca_certs=SVN_PYTHON_ORG_ROOT_CERT)
+            pem = ssl.get_server_certificate(("svn.python.org", 443),
+                                             ssl.PROTOCOL_SSLv23,
+                                             ca_certs=SVN_PYTHON_ORG_ROOT_CERT)
             if not pem:
                 self.fail("No server certificate on svn.python.org:443!")
             if test_support.verbose:
