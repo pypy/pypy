@@ -768,6 +768,13 @@ class W_BytesObject(W_AbstractBytesObject):
             return self_as_uni.descr_rstrip(space, w_chars)
         return self._StringMethods_descr_rstrip(space, w_chars)
 
+    _StringMethods_descr_count = descr_count
+    def descr_count(self, space, w_sub, w_start=None, w_end=None):
+        if space.isinstance_w(w_sub, space.w_unicode):
+            self_as_uni = unicode_from_encoded_object(space, self, None, None)
+            return self_as_uni.descr_count(space, w_sub, w_start, w_end)
+        return self._StringMethods_descr_count(space, w_sub, w_start, w_end)
+
     def _join_return_one(self, space, w_obj):
         return (space.is_w(space.type(w_obj), space.w_str) or
                 space.is_w(space.type(w_obj), space.w_unicode))

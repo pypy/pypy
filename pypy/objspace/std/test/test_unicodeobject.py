@@ -680,13 +680,23 @@ class AppTestUnicodeString:
         assert u"".count(u"") ==1
         assert u"Python".count(u"") ==7
         assert u"ab aaba".count(u"ab") ==2
-        assert 'aaa'.count('a') == 3
-        assert 'aaa'.count('b') == 0
-        assert 'aaa'.count('a', -1) == 1
-        assert 'aaa'.count('a', -10) == 3
-        assert 'aaa'.count('a', 0, -1) == 2
-        assert 'aaa'.count('a', 0, -10) == 0
-        assert 'ababa'.count('aba') == 1
+        assert u'aaa'.count(u'a') == 3
+        assert u'aaa'.count(u'b') == 0
+        assert u'aaa'.count(u'a', -1) == 1
+        assert u'aaa'.count(u'a', -10) == 3
+        assert u'aaa'.count(u'a', 0, -1) == 2
+        assert u'aaa'.count(u'a', 0, -10) == 0
+        assert u'ababa'.count(u'aba') == 1
+
+    def test_count_str_unicode(self):
+        assert 'aaa'.count(u'a') == 3
+        assert 'aaa'.count(u'b') == 0
+        assert 'aaa'.count(u'a', -1) == 1
+        assert 'aaa'.count(u'a', -10) == 3
+        assert 'aaa'.count(u'a', 0, -1) == 2
+        assert 'aaa'.count(u'a', 0, -10) == 0
+        assert 'ababa'.count(u'aba') == 1
+        raises(UnicodeDecodeError, '\x80'.count, u'')
 
     def test_swapcase(self):
         assert u'\xe4\xc4\xdf'.swapcase() == u'\xc4\xe4\xdf'
