@@ -775,6 +775,34 @@ class W_BytesObject(W_AbstractBytesObject):
             return self_as_uni.descr_count(space, w_sub, w_start, w_end)
         return self._StringMethods_descr_count(space, w_sub, w_start, w_end)
 
+    _StringMethods_descr_find = descr_find
+    def descr_find(self, space, w_sub, w_start=None, w_end=None):
+        if space.isinstance_w(w_sub, space.w_unicode):
+            self_as_uni = unicode_from_encoded_object(space, self, None, None)
+            return self_as_uni.descr_find(space, w_sub, w_start, w_end)
+        return self._StringMethods_descr_find(space, w_sub, w_start, w_end)
+
+    _StringMethods_descr_rfind = descr_rfind
+    def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
+        if space.isinstance_w(w_sub, space.w_unicode):
+            self_as_uni = unicode_from_encoded_object(space, self, None, None)
+            return self_as_uni.descr_rfind(space, w_sub, w_start, w_end)
+        return self._StringMethods_descr_rfind(space, w_sub, w_start, w_end)
+
+    _StringMethods_descr_index = descr_index
+    def descr_index(self, space, w_sub, w_start=None, w_end=None):
+        if space.isinstance_w(w_sub, space.w_unicode):
+            self_as_uni = unicode_from_encoded_object(space, self, None, None)
+            return self_as_uni.descr_index(space, w_sub, w_start, w_end)
+        return self._StringMethods_descr_index(space, w_sub, w_start, w_end)
+
+    _StringMethods_descr_rindex = descr_rindex
+    def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
+        if space.isinstance_w(w_sub, space.w_unicode):
+            self_as_uni = unicode_from_encoded_object(space, self, None, None)
+            return self_as_uni.descr_rindex(space, w_sub, w_start, w_end)
+        return self._StringMethods_descr_rindex(space, w_sub, w_start, w_end)
+
     def _join_return_one(self, space, w_obj):
         return (space.is_w(space.type(w_obj), space.w_str) or
                 space.is_w(space.type(w_obj), space.w_unicode))

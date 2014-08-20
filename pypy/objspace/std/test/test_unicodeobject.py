@@ -675,6 +675,16 @@ class AppTestUnicodeString:
     def test_rfind_corner_case(self):
         assert u'abc'.rfind('', 4) == -1
 
+    def test_find_index_str_unicode(self):
+        assert 'abcdefghiabc'.find(u'bc') == 1
+        assert 'abcdefghiabc'.rfind(u'abc') == 9
+        raises(UnicodeDecodeError, '\x80'.find, u'')
+        raises(UnicodeDecodeError, '\x80'.rfind, u'')
+        assert 'abcdefghiabc'.index(u'bc') == 1
+        assert 'abcdefghiabc'.rindex(u'abc') == 9
+        raises(UnicodeDecodeError, '\x80'.index, u'')
+        raises(UnicodeDecodeError, '\x80'.rindex, u'')
+
     def test_count(self):
         assert u"".count(u"x") ==0
         assert u"".count(u"") ==1
