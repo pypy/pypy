@@ -167,8 +167,7 @@ class BlockTransformer(object):
                     cat = None
                 output_categories.append(cat)
             newoperations = []
-            newargs = link.args
-            linkoperations.append((newargs, newoperations, output_categories))
+            linkoperations.append((newoperations, output_categories))
         #
         # Record how we'd like to patch the block, but don't do any
         # patching yet
@@ -179,7 +178,7 @@ class BlockTransformer(object):
         (_, _, linkoperations) = self.patch
         assert len(linkoperations) == len(self.block.exits)
         targetbts = []
-        for link, (_, _, output_categories) in zip(self.block.exits,
+        for link, (_, output_categories) in zip(self.block.exits,
                                                    linkoperations):
             targetblock = link.target
             if targetblock not in block_transformers:
@@ -215,9 +214,8 @@ class BlockTransformer(object):
         if switchv is not None:
             self.block.exitswitch = switchv
         assert len(linkoperations) == len(self.block.exits)
-        for link, (newargs, newoperations, _) in zip(self.block.exits,
+        for link, (newoperations, _) in zip(self.block.exits,
                                                      linkoperations):
-            link.args[:] = newargs
             if newoperations:
                 # must put them in a fresh block along the link
                 annotator = self.stmtransformer.translator.annotator
