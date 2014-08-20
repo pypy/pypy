@@ -19,12 +19,6 @@ def needs_barrier(frm, to):
 def is_gc_ptr(T):
     return isinstance(T, lltype.Ptr) and T.TO._gckind == 'gc'
 
-class Renaming(object):
-    def __init__(self, newvar, category):
-        self.newvar = newvar        # a Variable or a Constant
-        self.TYPE = newvar.concretetype
-        self.category = category
-
 
 
 class BlockTransformer(object):
@@ -93,43 +87,22 @@ class BlockTransformer(object):
 
     def flow_through_block(self):
 
-        def renfetch(v):
-            try:
-                return renamings[v]
-            except KeyError:
-                ren = Renaming(v, 'A')
-                renamings[v] = ren
-                return ren
+        def catfetch(v):
+            return cat_map.setdefault(v, 'A')
 
         def get_category_or_null(v):
             # 'v' is an original variable here, or a constant
             if isinstance(v, Constant) and not v.value:    # a NULL constant
                 return 'Z'
-            if v in renamings:
-                return renamings[v].category
+            if v in cat_map:
+                return cat_map[v]
             if isinstance(v, Constant):
                 return 'R'
             else:
                 return 'A'
 
-        def renamings_get(v):
-            try:
-                ren = renamings[v]
-            except KeyError:
-                return v       # unmodified
-            v2 = ren.newvar
-            if v2.concretetype == v.concretetype:
-                return v2
-            v3 = varoftype(v.concretetype)
-            newoperations.append(SpaceOperation('cast_pointer', [v2], v3))
-            if lltype.castable(ren.TYPE, v3.concretetype) > 0:
-                ren.TYPE = v3.concretetype
-            return v3
 
-        # note: 'renamings' maps old vars to new vars, but cast_pointers
-        # are done lazily.  It means that the two vars may not have
-        # exactly the same type.
-        renamings = {}   # {original-var: Renaming(newvar, category)}
+        cat_map = {} # var: category
         newoperations = []
         stmtransformer = self.stmtransformer
 
@@ -138,42 +111,38 @@ class BlockTransformer(object):
         for v, cat in zip(self.block.inputargs, self.inputargs_category):
             if is_gc_ptr(v.concretetype):
                 assert cat is not None
-                renamings[v] = Renaming(v, cat)
+                cat_map[v] = cat
 
         for op in self.block.operations:
             #
             if (op.opname in ('cast_pointer', 'same_as') and
                     is_gc_ptr(op.result.concretetype)):
-                renamings[op.result] = renfetch(op.args[0])
-                continue
+                cat_map[op.result] = catfetch(op.args[0])
+                assert not self.wants_a_barrier.get(op)
             #
             to = self.wants_a_barrier.get(op)
             if to is not None:
-                ren = renfetch(op.args[0])
-                frm = ren.category
+                var = op.args[0]
+                frm = catfetch(op.args[0])
                 if needs_barrier(frm, to):
                     stmtransformer.read_barrier_counts += 1
                     v_none = varoftype(lltype.Void)
                     newoperations.append(
-                        SpaceOperation('stm_read', [ren.newvar], v_none))
-                    ren.category = to
+                        SpaceOperation('stm_read', [var], v_none))
+                    cat_map[var] = to
             #
-            # XXX: from c4: we can probably just append the original op
-            newop = SpaceOperation(op.opname,
-                                   [renamings_get(v) for v in op.args],
-                                   op.result)
-            newoperations.append(newop)
+            newoperations.append(op)
             #
             if (stmtransformer.break_analyzer.analyze(op)
                 or op.opname == 'debug_stm_flush_barrier'):
                 # this operation can perform a transaction break:
                 # all pointers are lowered to 'A'
-                for ren in renamings.values():
-                    ren.category = 'A'
+                for v in cat_map.keys():
+                    cat_map[v] = 'A'
             #
             if op.opname in MALLOCS:
-                assert op.result not in renamings
-                renamings[op.result] = Renaming(op.result, 'R')
+                assert op.result not in cat_map
+                cat_map[op.result] = 'R'
             #
             if op.opname in ('setfield', 'setarrayitem', 'setinteriorfield',
                              'raw_store'):
@@ -181,10 +150,10 @@ class BlockTransformer(object):
                 # ops that need a write barrier also make the var 'R'
                 if (op.args[-1].concretetype is not lltype.Void
                     and is_gc_ptr(op.args[0].concretetype)):
-                    renfetch(op.args[0]).category = 'R'
+                    cat_map[op.args[0]] = 'R'
 
         if isinstance(self.block.exitswitch, Variable):
-            switchv = renamings_get(self.block.exitswitch)
+            switchv = self.block.exitswitch
         else:
             switchv = None
         blockoperations = newoperations
@@ -198,7 +167,7 @@ class BlockTransformer(object):
                     cat = None
                 output_categories.append(cat)
             newoperations = []
-            newargs = [renamings_get(v) for v in link.args]
+            newargs = link.args
             linkoperations.append((newargs, newoperations, output_categories))
         #
         # Record how we'd like to patch the block, but don't do any
