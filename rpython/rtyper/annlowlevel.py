@@ -422,11 +422,13 @@ def make_string_entries(strtype):
 
         def specialize_call(self, hop):
             hop.exception_cannot_occur()
-            assert hop.args_r[0].lowleveltype == hop.r_result.lowleveltype
             v_ll_str, = hop.inputargs(*hop.args_r)
-            return hop.genop('same_as', [v_ll_str],
-                             resulttype = hop.r_result.lowleveltype)
-
+            if hop.args_r[0].lowleveltype == hop.r_result.lowleveltype:
+                return hop.genop('same_as', [v_ll_str],
+                                 resulttype = hop.r_result.lowleveltype)
+            else:
+                return hop.gendirectcall(hop.args_r[0].ll.ll_chr2str, v_ll_str)
+        
     return hlstr, llstr
 
 hlstr, llstr = make_string_entries(str)
