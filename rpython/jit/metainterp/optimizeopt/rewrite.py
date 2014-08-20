@@ -47,15 +47,21 @@ class OptRewrite(Optimization):
 
 
     def find_rewritable_bool(self, op, args):
-        oldopnum = opboolinvers[op.getopnum()]
-        if oldopnum != -1:
+        try:
+            oldopnum = opboolinvers[op.getopnum()]
+        except KeyError:
+            pass
+        else:
             targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[0], args[1]],
                                                               None))
             if self.try_boolinvers(op, targs):
                 return True
 
-        oldopnum = opboolreflex[op.getopnum()] # FIXME: add INT_ADD, INT_MUL
-        if oldopnum != -1:
+        try:
+            oldopnum = opboolreflex[op.getopnum()] # FIXME: add INT_ADD, INT_MUL
+        except KeyError:
+            pass
+        else:
             targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
                                                               None))
             oldop = self.get_pure_result(targs)
@@ -63,14 +69,15 @@ class OptRewrite(Optimization):
                 self.make_equal_to(op.result, self.getvalue(oldop.result))
                 return True
 
-        reflex = opboolreflex[op.getopnum()]
-        if reflex != -1:
-            oldopnum = opboolinvers[reflex]
-            if oldopnum != -1:
-                targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
-                                                                  None))
-                if self.try_boolinvers(op, targs):
-                    return True
+        try:
+            oldopnum = opboolinvers[opboolreflex[op.getopnum()]]
+        except KeyError:
+            pass
+        else:
+            targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
+                                                              None))
+            if self.try_boolinvers(op, targs):
+                return True
 
         return False
 

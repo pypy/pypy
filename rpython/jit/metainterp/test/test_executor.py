@@ -326,13 +326,13 @@ def test_float_ops():
 
 def make_args_for_op(op, a, b):
     n=opname[op]
-    if n[0:3] == 'int' or n[0:4] == 'uint':
+    if n[0:3] == 'INT' or n[0:4] == 'UINT':
         arg1 = ConstInt(a)
         arg2 = ConstInt(b)
-    elif n[0:5] == 'float':
+    elif n[0:5] == 'FLOAT':
         arg1 = constfloat(float(a))
         arg2 = constfloat(float(b))
-    elif n[0:3] == 'ptr':
+    elif n[0:3] == 'PTR':
         arg1 = ConstPtr(rffi.cast(llmemory.GCREF, a))
         arg2 = ConstPtr(rffi.cast(llmemory.GCREF, b))
     else:
@@ -343,9 +343,7 @@ def make_args_for_op(op, a, b):
 
 def test_opboolinvers():
     cpu = FakeCPU()
-    for op1, op2 in enumerate(opboolinvers):
-        if op2 == -1:
-            continue
+    for op1, op2 in opboolinvers.items():
         for a in (1,2,3):
             for b in (1,2,3):
                 arg1, arg2 = make_args_for_op(op1, a, b)
@@ -355,9 +353,7 @@ def test_opboolinvers():
 
 def test_opboolreflex():
     cpu = FakeCPU()
-    for op1, op2 in enumerate(opboolreflex):
-        if op2 == -1:
-            continue
+    for op1, op2 in opboolreflex.items():
         for a in (1,2,3):
             for b in (1,2,3):
                 arg1, arg2 = make_args_for_op(op1, a, b)

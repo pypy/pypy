@@ -19,7 +19,7 @@ def _findall(Class, name_prefix, op_prefix=None):
             opname = name[len(name_prefix):]
             if opname.isupper():
                 assert hasattr(resoperation.rop, opname)
-    for value, name in enumerate(resoperation.opname):
+    for value, name in resoperation.opname.items():
         if op_prefix and not name.startswith(op_prefix):
             continue
         if hasattr(Class, name_prefix + name):

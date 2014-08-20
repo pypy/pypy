@@ -126,7 +126,10 @@ class AbstractResOp(object):
                                              ['descr=%r' % descr]))
 
     def getopname(self):
-        return opname[self.getopnum()]
+        try:
+            return opname[self.getopnum()].lower()
+        except KeyError:
+            return '<%d>' % self.getopnum()
 
     def is_guard(self):
         return rop._GUARD_FIRST <= self.getopnum() <= rop._GUARD_LAST
@@ -546,7 +549,7 @@ class rop(object):
     pass
 
 opclasses = []   # mapping numbers to the concrete ResOp class
-opname = []      # mapping numbers to the original names, for debugging
+opname = {}      # mapping numbers to the original names, for debugging
 oparity = []     # mapping numbers to the arity of the operation or -1
 opwithdescr = [] # mapping numbers to a flag "takes a descr"
 
@@ -568,16 +571,15 @@ def setup(debug_print=False):
             arity, withdescr, boolresult = -1, True, False       # default
         setattr(rop, name, i)
         if not name.startswith('_'):
+            opname[i] = name
             cls = create_class_for_op(name, i, arity, withdescr)
             cls._cls_has_bool_result = boolresult
         else:
-            name = '<%d>' % i
             cls = None
-        opname.append(name.lower())
         opclasses.append(cls)
         oparity.append(arity)
         opwithdescr.append(withdescr)
-    assert len(opclasses) == len(oparity) == len(opwithdescr) == len(_oplist) == len(opname)
+    assert len(opclasses) == len(oparity) == len(opwithdescr) == len(_oplist)
 
 def get_base_class(mixin, base):
     try:
@@ -617,10 +619,7 @@ def create_class_for_op(name, opnum, arity, withdescr):
 setup(__name__ == '__main__')   # print out the table when run directly
 del _oplist
 
-def opdict_to_list(d, default=-1):
-    return [d.get(i, default) for i in range(len(opname))]
-
-opboolinvers = opdict_to_list({
+opboolinvers = {
     rop.INT_EQ: rop.INT_NE,
     rop.INT_NE: rop.INT_EQ,
     rop.INT_LT: rop.INT_GE,
@@ -642,9 +641,9 @@ opboolinvers = opdict_to_list({
 
     rop.PTR_EQ: rop.PTR_NE,
     rop.PTR_NE: rop.PTR_EQ,
-})
+}
 
-opboolreflex = opdict_to_list({
+opboolreflex = {
     rop.INT_EQ: rop.INT_EQ,
     rop.INT_NE: rop.INT_NE,
     rop.INT_LT: rop.INT_GT,
@@ -666,7 +665,7 @@ opboolreflex = opdict_to_list({
 
     rop.PTR_EQ: rop.PTR_EQ,
     rop.PTR_NE: rop.PTR_NE,
-})
+}
 
 
 def get_deep_immutable_oplist(operations):
