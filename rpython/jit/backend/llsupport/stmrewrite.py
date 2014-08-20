@@ -27,6 +27,12 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self._do_stm_call('stm_hint_commit_soon', [], None,
                               op.stm_location)
             return
+        # ----------  jump, finish, guard_not_forced_2  ----------
+        if (opnum == rop.JUMP or opnum == rop.FINISH
+                or opnum == rop.GUARD_NOT_FORCED_2):
+            self.add_dummy_allocation()
+            self.newops.append(op)
+            return
         # ----------  pure operations, guards  ----------
         if op.is_always_pure() or op.is_guard() or op.is_ovf():
             self.newops.append(op)
@@ -82,11 +88,6 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                      rop.JIT_DEBUG, rop.KEEPALIVE,
                      rop.QUASIIMMUT_FIELD, rop.RECORD_KNOWN_CLASS,
                      ):
-            self.newops.append(op)
-            return
-        # ----------  jump, finish  ----------
-        if opnum == rop.JUMP or opnum == rop.FINISH:
-            self.add_dummy_allocation()
             self.newops.append(op)
             return
         # ----------  fall-back  ----------

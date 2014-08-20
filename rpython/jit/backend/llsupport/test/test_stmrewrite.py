@@ -1322,3 +1322,18 @@ class TestStm(RewriteTests):
         $DUMMYALLOC
         jump(i1)
         """)
+
+    def test_dummy_alloc_is_before_guard_not_forced_2(self):
+        self.check_rewrite("""
+        []
+        escape()
+        guard_not_forced_2() []
+        finish()
+        """, """
+        []
+        $INEV
+        escape()
+        $DUMMYALLOC
+        guard_not_forced_2() []
+        finish()
+        """)
