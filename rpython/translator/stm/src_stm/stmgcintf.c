@@ -96,7 +96,8 @@ long pypy_stm_enter_callback_call(void *rjbuf)
         assert(pypy_transaction_length >= 0);
         int e = errno;
         pypy_stm_register_thread_local();
-        stm_rewind_jmp_enterframe(&stm_thread_local, (rewind_jmp_buf *)rjbuf);
+        stm_rewind_jmp_enterprepframe(&stm_thread_local,
+                                      (rewind_jmp_buf *)rjbuf);
         errno = e;
         pypy_stm_ready_atomic = 1;
         pypy_stm_start_if_not_atomic();
@@ -104,7 +105,8 @@ long pypy_stm_enter_callback_call(void *rjbuf)
     }
     else {
         /* callback from C code, itself called from Python code */
-        stm_rewind_jmp_enterframe(&stm_thread_local, (rewind_jmp_buf *)rjbuf);
+        stm_rewind_jmp_enterprepframe(&stm_thread_local,
+                                      (rewind_jmp_buf *)rjbuf);
         pypy_stm_start_if_not_atomic();
         return 0;
     }
