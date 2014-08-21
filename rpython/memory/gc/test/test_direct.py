@@ -11,8 +11,9 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gctypelayout import TypeLayoutBuilder
 from rpython.rlib.rarithmetic import LONG_BIT, is_valid_int
 from rpython.memory.gc import minimark, incminimark
-from rpython.memory.gctypelayout import zero_gc_pointers_inside
+from rpython.memory.gctypelayout import zero_gc_pointers_inside, zero_gc_pointers
 from rpython.rlib.debug import debug_print
+import pdb
 WORD = LONG_BIT // 8
 
 ADDR_ARRAY = lltype.Array(llmemory.Address)
@@ -106,9 +107,9 @@ class BaseDirectGCTest(object):
         p[index] = newvalue
 
     def malloc(self, TYPE, n=None):
-        addr = self.gc.malloc(self.get_type_id(TYPE), n, zero=True)
+        addr = self.gc.malloc(self.get_type_id(TYPE), n)
+        debug_print(self.gc)
         obj_ptr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
-        
         if not self.gc.malloc_zero_filled:
             zero_gc_pointers_inside(obj_ptr, TYPE)
         return obj_ptr
@@ -684,22 +685,24 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         p = self.malloc(VAR1,5)
         import pytest
         with pytest.raises(lltype.UninitializedMemoryAccess):
+            assert isinstance(p[0], lltype._uninitialized)
             x1 = p[0]
 
     def test_malloc_varsize_no_cleanup2(self):
-        p = self.malloc(VAR,100)
+        #as VAR is GcArray so the ptr will don't need to be zeroed
+        p = self.malloc(VAR, 100)
         for i in range(100):
-            print type(p[0])
-            assert p[0] == lltype.nullptr(S)
+            assert p[i] == lltype.nullptr(S)
 
-    def test_malloc_struct_of_ptr_arr(self):
-        S2 = lltype.GcForwardReference()
-        S2.become(lltype.GcStruct('S2',
-                         ('gcptr_arr', VAR)))
-        s2 = self.malloc(S2)
-        s2.gcptr_arr = self.malloc(VAR,100)
-        for i in range(100):
-            assert s2.gcptr_arr[i] == lltype.nullptr(S)
+    def test_malloc_varsize_no_cleanup3(self):
+        VAR1 = lltype.Array(lltype.Ptr(S))
+        p1 = lltype.malloc(VAR1, 10, flavor='raw', track_allocation=False)
+        import pytest
+        with pytest.raises(lltype.UninitializedMemoryAccess):
+            for i in range(10):
+                assert p1[i] == lltype.nullptr(S)
+                p1[i]._free()
+            p1._free()
 
     def test_malloc_struct_of_ptr_struct(self):
         S3 = lltype.GcForwardReference()
@@ -721,20 +724,22 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
             assert arr_of_ptr_struct[i].prev == lltype.nullptr(S)
             assert arr_of_ptr_struct[i].next == lltype.nullptr(S)
 
-
+    #fail for now
     def test_malloc_array_of_ptr_arr(self):
         ARR_OF_PTR_ARR = lltype.GcArray(lltype.Ptr(lltype.GcArray(lltype.Ptr(S))))
         arr_of_ptr_arr = lltype.malloc(ARR_OF_PTR_ARR, 10)
+        self.stackroots.append(arr_of_ptr_arr)
         for i in range(10):
             assert arr_of_ptr_arr[i] == lltype.nullptr(lltype.GcArray(lltype.Ptr(S)))
         for i in range(10):
             arr_of_ptr_arr[i] = self.malloc(lltype.GcArray(lltype.Ptr(S)), i)
-            debug_print (arr_of_ptr_arr[i])
+            self.stackroots.append(arr_of_ptr_arr[i])
+            debug_print(arr_of_ptr_arr[i])
             for elem in arr_of_ptr_arr[i]:
-                debug_print(elem)
+                self.stackroots.append(elem)
                 assert elem == lltype.nullptr(S)
                 elem = self.malloc(S)
-                #assert elem.prev == lltype.nullptr(S)
-                #assert elem.next == lltype.nullptr(S)
+                assert elem.prev == lltype.nullptr(S)
+                assert elem.next == lltype.nullptr(S)
 
             
