@@ -45,7 +45,7 @@ JITFRAMEINFOPTR = lltype.Ptr(JITFRAMEINFO)
 # detailed explanation how it is on your architecture
 
 def jitframe_allocate(frame_info):
-    frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth, zero=True)
+    frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth)
     frame.jf_frame_info = frame_info
     return frame
 
