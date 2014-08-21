@@ -202,7 +202,7 @@ class FunctionCodeGenerator(object):
             if self.use_stm_rewind_jmp_frame == "automatic":
                 yield 'stm_rewind_jmp_enterframe(&stm_thread_local, &rjbuf1);'
             else:
-                yield 'stm_rewind_jmp_prepareframe(&rjbuf1);'
+                yield 'rewind_jmp_prepareframe(&rjbuf1);'
         #
         graph = self.graph
         yield 'goto block0;'    # to avoid a warning "this label is not used"
