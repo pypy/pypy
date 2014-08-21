@@ -232,8 +232,10 @@ Conversions from Application Level to Interpreter Level
 
 .. py:function:: unwrap(w_x)
 
-   Returns the interpreter-level equivalent of :py:obj:`w_x` -- use this **ONLY** for
-   testing! In most circumstances you should use the functions described below instead.
+   Returns the interpreter-level equivalent of :py:obj:`w_x` -- use this
+   **ONLY** for testing, because this method is not RPython and thus cannot be
+   translated! In most circumstances you should use the functions described
+   below instead.
 
 .. py:function:: is_true(w_x)
 
