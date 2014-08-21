@@ -31,11 +31,21 @@ class Poll(W_Root):
 
     @unwrap_spec(events="c_short")
     def register(self, space, w_fd, events=defaultevents):
+        if events < 0:
+            raise OperationError(
+                space.w_OverflowError,
+                space.wrap("Python int too large for C unsigned short"),
+            )
         fd = space.c_filedescriptor_w(w_fd)
         self.fddict[fd] = events
 
     @unwrap_spec(events=int)
     def modify(self, space, w_fd, events):
+        if events < 0:
+            raise OperationError(
+                space.w_OverflowError,
+                space.wrap("Python int too large for C unsigned short"),
+            )
         fd = space.c_filedescriptor_w(w_fd)
         if fd not in self.fddict:
             raise wrap_oserror(space, OSError(errno.ENOENT, "poll.modify"),
