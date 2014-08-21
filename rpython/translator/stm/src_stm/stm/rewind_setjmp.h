@@ -75,8 +75,13 @@ typedef struct {
 
 /* remember the current stack and ss_stack positions */
 #define rewind_jmp_enterframe(rjthread, rjbuf, ss)   do {  \
+    rewind_jmp_prepareframe(rjbuf);                        \
+    rewind_jmp_enterprepframe(rjthread, rjbuf, ss);        \
+} while (0)
+#define rewind_jmp_prepareframe(rjbuf)                     \
+    ((rjbuf)->frame_base = __builtin_frame_address(0))
+#define rewind_jmp_enterprepframe(rjthread, rjbuf, ss)   do {  \
     assert((((long)(ss)) & 1) == 0);                       \
-    (rjbuf)->frame_base = __builtin_frame_address(0);      \
     (rjbuf)->shadowstack_base = (char *)(ss);              \
     (rjbuf)->prev = (rjthread)->head;                      \
     (rjthread)->head = (rjbuf);                            \
