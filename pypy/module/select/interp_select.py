@@ -1,11 +1,13 @@
 import errno
 
 from rpython.rlib import _rsocket_rffi as _c, rpoll
+from rpython.rlib.rarithmetic import USHRT_MAX
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
-from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.gateway import (
+    Unwrapper, WrappedDefault, interp2app, unwrap_spec)
 from pypy.interpreter.typedef import TypeDef
 
 defaultevents = rpoll.POLLIN | rpoll.POLLOUT | rpoll.POLLPRI
@@ -24,28 +26,31 @@ def poll(space):
     return Poll()
 
 
+class UShortUnwrapper(Unwrapper):
+
+    def unwrap(self, space, w_value):
+        value = space.int_w(w_value)
+        if value < 0:
+            raise oefmt(space.w_OverflowError,
+                        "can't convert negative value to C unsigned short")
+        if value > USHRT_MAX:
+            raise oefmt(space.w_OverflowError,
+                        "Python int too large for C unsigned short")
+        return value
+
+
 class Poll(W_Root):
     def __init__(self):
         self.fddict = {}
         self.running = False
 
-    @unwrap_spec(events="c_short")
+    @unwrap_spec(events=UShortUnwrapper)
     def register(self, space, w_fd, events=defaultevents):
-        if events < 0:
-            raise OperationError(
-                space.w_OverflowError,
-                space.wrap("Python int too large for C unsigned short"),
-            )
         fd = space.c_filedescriptor_w(w_fd)
         self.fddict[fd] = events
 
-    @unwrap_spec(events=int)
+    @unwrap_spec(events=UShortUnwrapper)
     def modify(self, space, w_fd, events):
-        if events < 0:
-            raise OperationError(
-                space.w_OverflowError,
-                space.wrap("Python int too large for C unsigned short"),
-            )
         fd = space.c_filedescriptor_w(w_fd)
         if fd not in self.fddict:
             raise wrap_oserror(space, OSError(errno.ENOENT, "poll.modify"),

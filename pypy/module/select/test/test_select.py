@@ -220,11 +220,11 @@ class _AppTestSelect:
         pollster.register(1)
         raises(OverflowError, pollster.register, 0, -1)
         raises(OverflowError, pollster.register, 0, 1 << 64)
-        exc = raises(OverflowError, pollster.register, 0, 32768) # SHRT_MAX + 1
-        assert str(exc.value) == 'signed short integer is greater than maximum'
+        pollster.register(0, 32768) # SHRT_MAX + 1
         exc = raises(OverflowError, pollster.register, 0, -32768 - 1)
-        assert str(exc.value) == 'signed short integer is less than minimum'
-        raises(OverflowError, pollster.register, 0, 65535) # USHRT_MAX + 1
+        assert "unsigned" in str(exc.value)
+        pollster.register(0, 65535) # USHRT_MAX
+        raises(OverflowError, pollster.register, 0, 65536) # USHRT_MAX + 1
         raises(OverflowError, pollster.poll, 2147483648) # INT_MAX +  1
         raises(OverflowError, pollster.poll, -2147483648 - 1)
         raises(OverflowError, pollster.poll, 4294967296) # UINT_MAX + 1
