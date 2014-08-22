@@ -101,7 +101,7 @@ def _parse_signature(space, ufunc, signature):
             while signature[name_end] == ' ' or signature[name_end] == '\t':
                 name_end -= 1
             var_name = signature[i:name_end + 1]
-            if not all([_is_alpha_underscore(s) for s in var_name]):
+            if not all([_is_alnum_underscore(s) for s in var_name]):
                 raise oefmt(space.w_ValueError, '%s at %d in "%s"',
                     "expect dimension name", i, signature)
             if var_name not in var_names:
@@ -111,10 +111,6 @@ def _parse_signature(space, ufunc, signature):
             cur_core_dim += 1
             nd += 1
             i = next_comma
-            i = _next_non_white_space(signature, i + 1)
-            if signature[i] != ',' and signature[i] != ')' and signature[i] != '-':
-                raise oefmt(space.w_ValueError, '%s at %d in "%s"',
-                    "expect ',' or ')' or '-'", i, signature)
             if signature[i] == ',':
                 i = _next_non_white_space(signature, i + 1);
                 if signature[i] == ')':

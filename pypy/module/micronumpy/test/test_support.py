@@ -1,6 +1,8 @@
+from py.test import raises
 from pypy.module.micronumpy import support
 from pypy.module.micronumpy.ufuncs import W_UfuncGeneric
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.interpreter.error import OperationError
 
 class TestParseSignatureDirect(BaseNumpyAppTest):
     def test_signature_basic(self):
@@ -28,3 +30,24 @@ class TestParseSignatureDirect(BaseNumpyAppTest):
         ufunc = W_UfuncGeneric(space, funcs, name, identity, nin, nout, dtypes, signature)
         support._parse_signature(space, ufunc, ufunc.signature)
         assert ufunc.core_enabled == 1
+
+        nin = 2
+        nout = 1
+        signature = '(i1, i2),(J_1)->(_kAB)'
+        ufunc = W_UfuncGeneric(space, funcs, name, identity, nin, nout, dtypes, signature)
+        support._parse_signature(space, ufunc, ufunc.signature)
+        assert ufunc.core_enabled == 1
+
+        nin = 2
+        nout = 1
+        signature = '(i1  i2),(J_1)->(_kAB)'
+        ufunc = W_UfuncGeneric(space, funcs, name, identity, nin, nout, dtypes, signature)
+        exc = raises(OperationError, support._parse_signature, space, ufunc, ufunc.signature)
+        assert "expect dimension name" in exc.value.errorstr(space)
+
+        nin = 2
+        nout = 1
+        signature = '(i),i(->()'
+        ufunc = W_UfuncGeneric(space, funcs, name, identity, nin, nout, dtypes, signature)
+        exc = raises(OperationError, support._parse_signature, space, ufunc, ufunc.signature)
+        assert "expect '(' at 4" in exc.value.errorstr(space)
