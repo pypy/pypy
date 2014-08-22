@@ -218,6 +218,8 @@ class _AppTestSelect:
             skip("no select.poll() on this platform")
         pollster = select.poll()
         pollster.register(1)
+        raises(OverflowError, pollster.register, 0, -1)
+        raises(OverflowError, pollster.register, 0, 1 << 64)
         exc = raises(OverflowError, pollster.register, 0, 32768) # SHRT_MAX + 1
         assert str(exc.value) == 'signed short integer is greater than maximum'
         exc = raises(OverflowError, pollster.register, 0, -32768 - 1)
@@ -228,6 +230,9 @@ class _AppTestSelect:
         raises(OverflowError, pollster.poll, 4294967296) # UINT_MAX + 1
         exc = raises(TypeError, pollster.poll, '123')
         assert str(exc.value) == 'timeout must be an integer or None'
+
+        raises(OverflowError, pollster.modify, 1, -1)
+        raises(OverflowError, pollster.modify, 1, 1 << 64)
 
 
 class AppTestSelectWithPipes(_AppTestSelect):
