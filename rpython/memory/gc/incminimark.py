@@ -614,7 +614,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
-            result = self.collect_and_reserve(totalsize)
+            result = self.collect_and_reserve(rawtotalsize)
             #
             # Build the object.
             llarena.arena_reserve(result, totalsize)
@@ -670,7 +670,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
-            result = self.collect_and_reserve(totalsize)
+            result = self.collect_and_reserve(raw_malloc_usage(totalsize))
             #
             # Build the object.
             llarena.arena_reserve(result, totalsize)
