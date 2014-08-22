@@ -322,9 +322,6 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                 char types[] = { NPY_DOUBLE,NPY_DOUBLE, NPY_INT, NPY_INT };
                 void *array_data[] = {NULL, NULL};
                 PyObject * retval;
-                /* XXX should be 'funcs', not 'funcs[1]' but how to define an array of 
-                   function pointers in ndarrayobject.py? */
-                printf("calling w/funcs[0] = 0x%x, funcs[1] = 0x%x \\n", funcs[0], funcs[1]);   
                 retval = _PyUFunc_FromFuncAndDataAndSignature(funcs,
                                     array_data, types, 2, 1, 1, PyUFunc_None,
                                     "times2", "times2_docstring", 0, "()->()");

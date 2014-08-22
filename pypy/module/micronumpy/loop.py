@@ -137,7 +137,7 @@ def call_many_to_many(space, shape, func, res_dtype, in_args, out_args):
         in_iters[i] = in_iter
         in_states[i] = in_state
     for i in range(nout):
-        out_i = in_args[i]
+        out_i = out_args[i]
         assert isinstance(out_i, W_NDimArray)
         out_iter, out_state = out_i.create_iter(shape)
         out_iters[i] = out_iter

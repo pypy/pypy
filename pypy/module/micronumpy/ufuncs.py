@@ -558,10 +558,8 @@ class W_UfuncGeneric(W_Ufunc):
         new_shape = inargs0.get_shape()
         res_dtype = outargs0.get_dtype()
         # XXX handle inner-loop indexing
-        sign_parts = self.signature.split('->')
-        if len(sign_parts) == 2 and sign_parts[0].strip() == '()' \
-                                and sign_parts[1].strip() == '()':
-                                        
+        if not self.core_enabled:
+            # func is going to do all the work
             arglist = space.newlist(inargs + outargs)
             func = self.funcs[index]
             arglist = space.newlist(inargs + outargs)
@@ -1033,6 +1031,10 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     else:        
         raise oefmt(space.w_ValueError,
             'identity must be None or an int')
+
+    if len(signature) == 0:
+        # cpython compatability, func is of the form (i),(i)->(i)
+        signature = ','.join(['(i)'] * nin) + '->' + ','.join(['(i)'] * nout)
 
     w_ret = W_UfuncGeneric(space, func, name, identity, nin, nout, dtypes, signature,
                                 match_dtypes=match_dtypes)

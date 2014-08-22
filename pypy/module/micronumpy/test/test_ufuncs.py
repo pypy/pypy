@@ -114,9 +114,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
             adder_ufunc0 = frompyfunc(adder, 2, 1, dtypes=['match'])
             adder_ufunc1 = frompyfunc([adder, adder], 2, 1, 
                             dtypes=[int, int, int, float, float, float])
-            int_func22 = frompyfunc([int, int], 2, 2, signature='(i)->(i)',
+            int_func22 = frompyfunc([int, int], 2, 2, signature='(i),(i)->(i),(i)',
                                     dtypes=['match'])
-            int_func12 = frompyfunc([int], 1, 2, signature='(i)->(i)',
+            int_func12 = frompyfunc([int], 1, 2, signature='(i)->(i),(i)',
                                     dtypes=['match'])
             retype = dtype(int)
         assert isinstance(adder_ufunc1, ufunc)
