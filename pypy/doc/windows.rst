@@ -175,14 +175,14 @@ somewhere in INCLUDE.
 The OpenSSL library
 ~~~~~~~~~~~~~~~~~~~
 
-OpenSSL is complicated to build. CPython uses a build script, since we
-strive for cpython compatability this script is the easiest way to get the
-correct version and build options. As of CPython 3.4, the script is available
-at http://hg.python.org/cpython/file/30e8a8f22a2a/PCbuild/build_ssl.py
+OpenSSL needs a Perl interpreter to configure its makefile.  You may
+use the one distributed by ActiveState, or the one from cygwin.::
 
-    svn export http://svn.python.org/projects/external/openssl-1.0.1h
-    cd openssl-1.0.1h
-    python build_ssl.py Release Win32
+    svn export http://svn.python.org/projects/external/openssl-1.0.1i
+    cd openssl-1.0.1i
+    perl Configure VC-WIN32 no-idea no-mdc2
+    ms\do_ms.bat
+    nmake -f ms\nt.mak install
 
 Then, copy the files ``out32\*.lib`` somewhere in
 somewhere in LIB, and the entire ``include\openssl`` directory as-is somewhere
