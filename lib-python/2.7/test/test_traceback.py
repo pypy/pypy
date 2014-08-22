@@ -5,7 +5,7 @@ import sys
 import unittest
 from imp import reload
 from test.test_support import run_unittest, is_jython, Error, cpython_only
-from test.test_support import check_impl_detail
+from test.test_support import check_impl_detail, impl_detail
 
 import traceback
 
