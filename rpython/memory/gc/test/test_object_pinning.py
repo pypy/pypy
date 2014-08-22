@@ -54,6 +54,32 @@ class PinningGCTest(BaseDirectGCTest):
 
     # XXX test with multiple mallocs, and only part of them is pinned
 
+    def test_random(self):
+        # scenario: create bunch of objects. randomly pin, unpin, add to
+        # stackroots and remove from stackroots.
+        import random
+
+        for i in xrange(10**3):
+            obj = self.malloc(T)
+            obj.someInt = 100
+            #
+            if random.random() < 0.5:
+                self.stackroots.append(obj)
+                print("+stack")
+            if random.random() < 0.5:
+                self.gc.pin(llmemory.cast_ptr_to_adr(obj))
+                print("+pin")
+            self.gc.debug_gc_step()
+            for o in self.stackroots[:]:
+                assert o.someInt == 100
+                o_adr = llmemory.cast_ptr_to_adr(o)
+                if random.random() < 0.5 and self.gc._is_pinned(o_adr):
+                    print("-pin")
+                    self.gc.unpin(o_adr)
+                if random.random() < 0.5:
+                    print("-stack")
+                    self.stackroots.remove(o)
+
 
 class TestIncminimark(PinningGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
