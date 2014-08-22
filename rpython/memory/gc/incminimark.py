@@ -614,10 +614,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
-            result = self.nursery_free
-            self.nursery_free = result + rawtotalsize
-            if self.nursery_free > self.nursery_top:
-                result = self.collect_and_reserve(result, totalsize)
+            result = self.collect_and_reserve(totalsize)
             #
             # Build the object.
             llarena.arena_reserve(result, totalsize)
@@ -673,10 +670,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
-            result = self.nursery_free
-            self.nursery_free = result + totalsize
-            if self.nursery_free > self.nursery_top:
-                result = self.collect_and_reserve(result, totalsize)
+            result = self.collect_and_reserve(totalsize)
             #
             # Build the object.
             llarena.arena_reserve(result, totalsize)
@@ -718,19 +712,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return True
     try_move_nursery_top._always_inline_ = True
 
-    def collect_and_reserve(self, prev_result, totalsize):
-        """To call when nursery_free overflows nursery_top.
-        In case of pinned objects try to reserve 'totalsize' between
-        two pinned objects. In this case we can just continue.
-        Otherwise check first if the nursery_top is the real top,
-        if not we can just move the top of one cleanup and continue.
-
-        Do a minor collection, and possibly also a major collection,
-        and finally reserve 'totalsize' bytes at the start of the
-        now-empty nursery.
-        """
-        # be careful: 'nursery_free' may have been changed by the caller.
-        # 'prev_result' contains the expected address for the new object.
+    def collect_and_reserve(self, totalsize):
+        # XXX (groggi) comments, rename method, refactor (duplicate code)
+        #
+        # if enough space exists already, just use it
+        if self.nursery_free + totalsize <= self.nursery_top:
+            result = self.nursery_free
+            self.nursery_free = result + totalsize
+            return result
 
         # keep track how many iteration we've gone trough
         minor_collection_count = 0
@@ -747,19 +736,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # nursery.
                 self.nursery_free = self.nursery_top + pinned_obj_size
                 self.nursery_top = self.nursery_barriers.popleft()
-                #
-                # because we encountered a barrier, we have to fix 'prev_result'.
-                # The one provided as parameter can't be used further as there
-                # is not enough space between 'prev_result' and and the barrier
-                # for an object of 'totalsize' size.
-                prev_result = self.nursery_free
             else:
                 #
                 # no barriers (i.e. no pinned objects) after 'nursery_free'.
                 # If possible just enlarge the used part of the nursery.
                 # Otherwise we are forced to clean up the nursery.
                 if self.try_move_nursery_top(totalsize):
-                    return prev_result
+                    result = self.nursery_free
+                    self.nursery_free = result + totalsize
+                    return result
                 #
                 self.minor_collection()
                 minor_collection_count += 1
@@ -797,8 +782,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # attempt to get 'totalzise' out of the nursery now.  This may
             # fail again, and then we loop.
             result = self.nursery_free
-            self.nursery_free = result + totalsize
-            if self.nursery_free <= self.nursery_top:
+            if self.nursery_free + totalsize <= self.nursery_top:
+                self.nursery_free = result + totalsize
                 break
         #
         if self.debug_tiny_nursery >= 0:   # for debugging
