@@ -53,7 +53,7 @@ def setup_module(mod):
 
 class AppTestBZ2File(CheckAllocation):
     spaceconfig = {
-        "usemodules": ["bz2", "binascii", "rctime"]
+        'usemodules': ['bz2', 'binascii', 'rctime', 'struct']
     }
 
     def setup_class(cls):
