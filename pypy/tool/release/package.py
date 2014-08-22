@@ -164,8 +164,7 @@ def create_package(basedir, options):
 
     if sys.platform == 'win32':
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
-        win_extras = ['libpypy-c.dll', 'libexpat.dll', 'sqlite3.dll',
-                          'libeay32.dll', 'ssleay32.dll']
+        win_extras = ['libpypy-c.dll', 'sqlite3.dll']
         if not options.no_tk:
             win_extras += ['tcl85.dll', 'tk85.dll']
 

@@ -14,13 +14,16 @@ import py
 
 if sys.platform == "win32":
     libname = 'libexpat'
+    pre_include_bits = ["#define XML_STATIC"]
 else:
     libname = 'expat'
+    pre_include_bits = []
 eci = ExternalCompilationInfo(
     libraries=[libname],
     library_dirs=platform.preprocess_library_dirs([]),
     includes=['expat.h'],
     include_dirs=platform.preprocess_include_dirs([]),
+    pre_include_bits = pre_include_bits,
     )
 
 eci = rffi_platform.configure_external_library(
