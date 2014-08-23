@@ -122,7 +122,10 @@ def test():
         self.assertEqual(len(err), 4)
         self.assertEqual(err[1].strip(), "print(2)")
         self.assertIn("^", err[2])
-        self.assertEqual(err[1].find("p"), err[2].find("^"))
+        if check_impl_detail():
+            self.assertEqual(err[1].find("p"), err[2].find("^"))
+        if check_impl_detail(pypy=True):
+            self.assertEqual(err[1].find("2)") + 1, err[2].find("^"))
 
     def test_base_exception(self):
         # Test that exceptions derived from BaseException are formatted right
