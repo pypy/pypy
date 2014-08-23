@@ -72,7 +72,7 @@ class Cell(W_Root):
             content = "%s object at 0x%s" % (space.type(self.w_value).name,
                                              self.w_value.getaddrstring(space))
         s = "<cell at 0x%s: %s>" % (self.getaddrstring(space), content)
-        return space.wrap(s.decode('utf-8'))
+        return space.wrap(s)
 
     def descr__cell_contents(self, space):
         try:

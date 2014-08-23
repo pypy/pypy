@@ -62,7 +62,7 @@ class AppTestNestedScope:
 
     def test_cell_repr(self):
         import re
-        from reprlib import repr as r # Don't shadow builtin repr
+        from repr import repr as r # Don't shadow builtin repr
 
         def get_cell():
             x = 42
@@ -71,7 +71,7 @@ class AppTestNestedScope:
             return inner
         x = get_cell().__closure__[0]
         assert re.match(r'<cell at 0x[0-9A-Fa-f]+: int object at 0x[0-9A-Fa-f]+>', repr(x))
-        assert re.match(r'<cell at 0x.*\.\.\..*>', r(x))
+        assert re.match(r'<cell at.*\.\.\..*>', r(x))
 
         def get_cell():
             if False:
