@@ -253,3 +253,7 @@ class AppTestExc(object):
         assert fw.z == 1
         assert fw.xyz == (1, 2)
 
+    def test_unicode_error_uninitialized_str(self):
+        assert str(UnicodeEncodeError.__new__(UnicodeEncodeError)) == ""
+        assert str(UnicodeDecodeError.__new__(UnicodeDecodeError)) == ""
+        assert str(UnicodeTranslateError.__new__(UnicodeTranslateError)) == ""
