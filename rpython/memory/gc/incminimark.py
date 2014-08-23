@@ -2286,7 +2286,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _collect_ref_stk(self, root):
         obj = root.address[0]
         llop.debug_nonnull_pointer(lltype.Void, obj)
-        self.objects_to_trace.append(obj)
+        if not self._is_pinned(obj):
+            # XXX: check if this is the right way (groggi).
+            # A pinned object can be on the stack. Such an object is handled
+            # by minor collections and shouldn't be specially handled by
+            # major collections. Therefore we only add not pinned objects to the
+            # list below.
+            self.objects_to_trace.append(obj)
 
     def _collect_ref_rec(self, root, ignored):
         self.objects_to_trace.append(root.address[0])
