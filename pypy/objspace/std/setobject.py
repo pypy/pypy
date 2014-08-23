@@ -200,8 +200,7 @@ class W_BaseSetObject(W_Root):
     # correct answer here!
     def descr_lt(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap('can only compare to a set'))
+            return space.w_NotImplemented
 
         if self.length() >= w_other.length():
             return space.w_False
@@ -210,8 +209,7 @@ class W_BaseSetObject(W_Root):
 
     def descr_le(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap('can only compare to a set'))
+            return space.w_NotImplemented
 
         if self.length() > w_other.length():
             return space.w_False
@@ -219,8 +217,7 @@ class W_BaseSetObject(W_Root):
 
     def descr_gt(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap('can only compare to a set'))
+            return space.w_NotImplemented
 
         if self.length() <= w_other.length():
             return space.w_False
@@ -229,8 +226,7 @@ class W_BaseSetObject(W_Root):
 
     def descr_ge(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap('can only compare to a set'))
+            return space.w_NotImplemented
 
         if self.length() < w_other.length():
             return space.w_False
