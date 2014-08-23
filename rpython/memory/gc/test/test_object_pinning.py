@@ -69,14 +69,14 @@ class PinningGCTest(BaseDirectGCTest):
             if random.random() < 0.5:
                 self.gc.pin(llmemory.cast_ptr_to_adr(obj))
                 print("+pin")
-            self.gc.debug_gc_step()
+            self.gc.debug_gc_step(random.randint(1, 4))
             for o in self.stackroots[:]:
                 assert o.someInt == 100
                 o_adr = llmemory.cast_ptr_to_adr(o)
-                if random.random() < 0.5 and self.gc._is_pinned(o_adr):
+                if random.random() < 0.1 and self.gc._is_pinned(o_adr):
                     print("-pin")
                     self.gc.unpin(o_adr)
-                if random.random() < 0.5:
+                if random.random() < 0.1:
                     print("-stack")
                     self.stackroots.remove(o)
 
