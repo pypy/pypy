@@ -43,9 +43,9 @@ class TestPartial(unittest.TestCase):
         self.assertEqual(p.args, (1, 2))
         self.assertEqual(p.keywords, dict(a=10, b=20))
         # attributes should not be writable
-        self.assertRaises(TypeError, setattr, p, 'func', map)
-        self.assertRaises(TypeError, setattr, p, 'args', (1, 2))
-        self.assertRaises(TypeError, setattr, p, 'keywords', dict(a=1, b=2))
+        self.assertRaises((TypeError, AttributeError), setattr, p, 'func', map)
+        self.assertRaises((TypeError, AttributeError), setattr, p, 'args', (1, 2))
+        self.assertRaises((TypeError, AttributeError), setattr, p, 'keywords', dict(a=1, b=2))
 
         p = self.thetype(hex)
         try:
