@@ -449,8 +449,8 @@ class W_Socket(W_Root):
         if nbytes == 0:
             nbytes = lgt
         elif nbytes > lgt:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "nbytes is greater than the length of the buffer"))
+            raise oefmt(space.w_ValueError,
+                        "nbytes is greater than the length of the buffer")
         try:
             readlgt, addr = self.sock.recvfrom_into(rwbuffer, nbytes, flags)
             if addr:
