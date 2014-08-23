@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 
 class AppTestExc(object):
     spaceconfig = dict(usemodules=('exceptions',))

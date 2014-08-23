@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 class AppTestOperator:
     def test_equality(self):
