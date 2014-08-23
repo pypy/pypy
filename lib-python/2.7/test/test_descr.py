@@ -4452,7 +4452,7 @@ order (MRO) for bases """
         self.assertNotEqual(l.__add__, [5].__add__)
         self.assertNotEqual(l.__add__, l.__mul__)
         self.assertEqual(l.__add__.__name__, '__add__')
-        if hasattr(l.__add__, '__self__'):
+        if hasattr(l.__add__, '__objclass__'):
             # CPython
             self.assertIs(l.__add__.__self__, l)
             self.assertIs(l.__add__.__objclass__, list)
