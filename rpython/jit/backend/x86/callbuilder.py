@@ -164,6 +164,7 @@ class CallBuilderX86(AbstractCallBuilder):
             self.asm.set_extra_stack_depth(self.mc, -delta * WORD)
             css_value = eax
         #
+        # <--here--> would come a memory fence, if the CPU needed one.
         self.mc.MOV(heap(fastgil), css_value)
         #
         if not we_are_translated():        # for testing: we should not access
@@ -196,6 +197,8 @@ class CallBuilderX86(AbstractCallBuilder):
                 old_value = esi
             mc.LEA_rs(css_value.value, css)
         #
+        # Use XCHG as an atomic test-and-set-lock.  It also implicitly
+        # does a memory barrier.
         mc.MOV(old_value, imm(1))
         if rx86.fits_in_32bits(fastgil):
             mc.XCHG_rj(old_value.value, fastgil)
