@@ -466,7 +466,10 @@ producing strings. This is equivalent to calling write() for each string."""
         for i, w_line in enumerate(lines):
             if not space.isinstance_w(w_line, space.w_str):
                 try:
-                    line = w_line.charbuf_w(space)
+                    if self.binary:
+                        line = w_line.readbuf_w(space).as_str()
+                    else:
+                        line = w_line.charbuf_w(space)
                 except TypeError:
                     raise OperationError(space.w_TypeError, space.wrap(
                         "writelines() argument must be a sequence of strings"))

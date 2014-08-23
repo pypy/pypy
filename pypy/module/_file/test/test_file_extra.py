@@ -402,11 +402,12 @@ class AppTestAFewExtra:
         with file(fn, 'wb') as f:
             f.writelines(['abc'])
             f.writelines([u'def'])
-            exc = raises(TypeError, f.writelines, [array.array('c', 'ghi')])
-            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+            f.writelines([array.array('c', 'ghi')])
             exc = raises(TypeError, f.writelines, [memoryview('jkl')])
             assert str(exc.value) == "writelines() argument must be a sequence of strings"
-        assert open(fn, 'rb').readlines() == ['abcdef']
+        out = open(fn, 'rb').readlines()[0]
+        assert out[0:5] == 'abcd\x00'
+        assert out[-3:] == 'ghi'
 
         with file(fn, 'wb') as f:
             exc = raises(TypeError, f.writelines, ['abc', memoryview('def')])
