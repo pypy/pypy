@@ -921,14 +921,16 @@ def make_forwarding_method(method, writer=False, reader=False):
         if writer:
             if self.w_writer is None:
                 raise OperationError(
-                    space.w_ValueError, "I/O operation on uninitialized object"
+                    space.w_ValueError,
+                    space.wrap("I/O operation on uninitialized object")
                 )
             w_meth = space.getattr(self.w_writer, space.wrap(method))
             w_result = space.call_args(w_meth, __args__)
         if reader:
             if self.w_reader is None:
                 raise OperationError(
-                    space.w_ValueError, "I/O operation on uninitialized object"
+                    space.w_ValueError,
+                    space.wrap("I/O operation on uninitialized object")
                 )
             w_meth = space.getattr(self.w_reader, space.wrap(method))
             w_result = space.call_args(w_meth, __args__)
