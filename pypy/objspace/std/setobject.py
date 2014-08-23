@@ -178,7 +178,7 @@ class W_BaseSetObject(W_Root):
             return space.wrap(self.equals(w_other))
 
         if not space.isinstance_w(w_other, space.w_set):
-            return space.w_False
+            return space.w_NotImplemented
 
         # tested in test_builtinshortcut.py
         # XXX do not make new setobject here
@@ -190,7 +190,7 @@ class W_BaseSetObject(W_Root):
             return space.wrap(not self.equals(w_other))
 
         if not space.isinstance_w(w_other, space.w_set):
-            return space.w_True
+            return space.w_NotImplemented
 
         # XXX this is not tested
         w_other_as_set = self._newobj(space, w_other)
