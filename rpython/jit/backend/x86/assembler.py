@@ -1066,13 +1066,16 @@ class Assembler386(BaseAssembler):
         cb = callbuilder.CallBuilder(self, fnloc, arglocs)
         cb.emit_no_collect()
 
-    def _reload_frame_if_necessary(self, mc, align_stack=False):
+    def _reload_frame_if_necessary(self, mc, align_stack=False,
+                                   shadowstack_reg=None):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             if gcrootmap.is_shadow_stack:
-                rst = gcrootmap.get_root_stack_top_addr()
-                mc.MOV(ecx, heap(rst))
-                mc.MOV(ebp, mem(ecx, -WORD))
+                if shadowstack_reg is None:
+                    rst = gcrootmap.get_root_stack_top_addr()
+                    mc.MOV(ecx, heap(rst))
+                    shadowstack_reg = ecx
+                mc.MOV(ebp, mem(shadowstack_reg, -WORD))
         wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
             # frame never uses card marking, so we enforce this is not
