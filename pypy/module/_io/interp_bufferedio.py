@@ -921,7 +921,7 @@ def make_forwarding_method(method, writer=False, reader=False):
         if writer:
             if self.w_writer is None:
                 raise oefmt(space.w_ValueError,
-                            "I/O operation on uninitialized object"
+                            "I/O operation on uninitialized object")
             w_meth = space.getattr(self.w_writer, space.wrap(method))
             w_result = space.call_args(w_meth, __args__)
         if reader:
