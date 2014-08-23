@@ -597,6 +597,22 @@ class TestIncminimark(PinningGCTest):
         assert self.gc.pin(llmemory.cast_ptr_to_adr(obj2))
 
 
+    def test_objects_to_trace_bug(self):
+        # scenario: In a previous implementation there was a bug because of a
+        # dead pointer inside 'objects_to_trace'. This was caused by the first
+        # major collection step that added the pointer to the list and right
+        # after the collection step the object is unpinned and freed by the minor
+        # collection, leaving a dead pointer in the list.
+        pinned_ptr = self.malloc(T)
+        pinned_ptr.someInt = 101
+        self.stackroots.append(pinned_ptr)
+        pinned_adr = llmemory.cast_ptr_to_adr(pinned_ptr)
+        assert self.gc.pin(pinned_adr)
+        self.gc.debug_gc_step()
+        self.gc.unpin(pinned_adr)
+        self.gc.debug_gc_step()
+
+
     def pin_shadow_2(self, collect_func):
         ptr = self.malloc(T)
         adr = llmemory.cast_ptr_to_adr(ptr)
