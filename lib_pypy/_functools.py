@@ -16,6 +16,11 @@ class partial(object):
         self._args = args
         self._keywords = keywords or None
 
+    def __delattr__(self, key):
+        if key == '__dict__':
+            raise TypeError("a partial object's dictionary may not be deleted")
+        object.__delattr__(self, key)
+
     @property
     def func(self):
         return self._func

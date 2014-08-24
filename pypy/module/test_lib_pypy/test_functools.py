@@ -25,3 +25,8 @@ def test_immutable_attributes():
     partial = _functools.partial(object)
     with pytest.raises((TypeError, AttributeError)):
         partial.func = sum
+    with pytest.raises(TypeError) as exc:
+        del partial.__dict__
+    assert str(exc.value) == "a partial object's dictionary may not be deleted"
+    with pytest.raises(AttributeError):
+        del partial.zzz
