@@ -3291,7 +3291,7 @@ class arguments(AST):
         if self.kw_defaults is None:
             kw_defaults_w = []
         else:
-            kw_defaults_w = [node.to_object(space) for node in self.kw_defaults] # expr
+            kw_defaults_w = [node.to_object(space) if node is not None else space.w_None for node in self.kw_defaults] # expr
         w_kw_defaults = space.newlist(kw_defaults_w)
         space.setattr(w_node, space.wrap('kw_defaults'), w_kw_defaults)
         return w_node
