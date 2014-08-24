@@ -375,6 +375,11 @@ class AppTestAppSetTest:
         assert set() != set('abc')
         assert set('abc') != set('abd')
 
+        class X(set):
+            pass
+
+        raises(TypeError, cmp, X(), X())
+
     def test_libpython_equality(self):
         for thetype in [frozenset, set]:
             word = "aaaaaaaaawfpasrtarspawparst"

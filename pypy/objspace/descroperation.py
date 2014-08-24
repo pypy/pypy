@@ -452,7 +452,7 @@ class DescrOperation(object):
 
         # The real comparison
         if space.is_w(space.type(w_v), space.type(w_w)):
-            if space.is_w(space.type(w_v), space.w_set):
+            if space.isinstance_w(w_v, space.w_set):
                 raise OperationError(
                     space.w_TypeError,
                     space.wrap("cannot compare sets using cmp()")
