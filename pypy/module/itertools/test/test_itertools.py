@@ -246,6 +246,7 @@ class AppTestItertools:
             it = itertools.islice(it, *args)
             assert wr() is not None
             list(it)  # exhaust the iterator
+            import gc; gc.collect()
             assert wr() is None
             raises(StopIteration, next, it)
 
