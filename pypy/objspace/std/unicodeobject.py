@@ -1151,9 +1151,7 @@ W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 # to PyUnicode_TransformDecimalToASCII, which is much simpler. Here, we do the
 # equivalent plus the final step of encoding the result to utf-8.
 def unicode_to_decimal_w(space, w_unistr):
-    if not isinstance(w_unistr, W_UnicodeObject):
-        raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
-    unistr = w_unistr._value
+    unistr = w_unistr.unicode_w(space)
     result = [u'\0'] * len(unistr)
     for i in xrange(len(unistr)):
         uchr = ord(unistr[i])
