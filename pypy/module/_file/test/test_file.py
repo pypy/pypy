@@ -261,6 +261,17 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         with self.file(self.temppath, 'r') as f:
             raises(IOError, f.truncate, 100)
 
+    def test_write_full(self):
+        try:
+            f = self.file('/dev/full', 'w', 1)
+        except IOError:
+            skip("requires '/dev/full'")
+        try:
+            f.write('hello')
+            raises(IOError, f.write, '\n')
+        finally:
+            f.close()
+
 
 class AppTestNonblocking(object):
     def setup_class(cls):
