@@ -140,6 +140,35 @@ class AppTestOperator:
         assert operator.repeat(a, 0) == []
         raises(TypeError, operator.repeat, 6, 7)
 
+    def test_isMappingType(self):
+        import operator
+        assert not operator.isMappingType([])
+        assert operator.isMappingType(dict())
+        class M:
+            def __getitem__(self, key):
+                return 42
+        assert operator.isMappingType(M())
+        del M.__getitem__
+        assert not operator.isMappingType(M())
+        class M(object):
+            def __getitem__(self, key):
+                return 42
+        assert operator.isMappingType(M())
+        del M.__getitem__
+        assert not operator.isMappingType(M())
+        class M:
+            def __getitem__(self, key):
+                return 42
+            def __getslice__(self, key):
+                return 42
+        assert operator.isMappingType(M())
+        class M(object):
+            def __getitem__(self, key):
+                return 42
+            def __getslice__(self, key):
+                return 42
+        assert not operator.isMappingType(M())
+
     def test_isSequenceType(self):
         import operator
 
