@@ -250,6 +250,7 @@ class W_BZ2File(W_File):
     def direct_bz2__init__(self, w_name, mode='r', buffering=-1,
                            compresslevel=9):
         self.direct_close()
+        self.w_name = w_name
         # the stream should always be opened in binary mode
         if "b" not in mode:
             mode = mode + "b"

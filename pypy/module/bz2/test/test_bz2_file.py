@@ -97,6 +97,9 @@ class AppTestBZ2File(CheckAllocation):
         # a large buf size
         BZ2File(self.temppath, mode='w', buffering=4096)
 
+        exc = raises(IOError, BZ2File, 'xxx', 'r')
+        assert "'xxx'" in str(exc.value)
+
     def test_close(self):
         from bz2 import BZ2File
 
