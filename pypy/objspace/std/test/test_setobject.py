@@ -340,7 +340,7 @@ class AppTestAppSetTest:
     def test_compare(self):
         raises(TypeError, cmp, set('abc'), set('abd'))
         assert set('abc') != 'abc'
-        raises(TypeError, "set('abc') < 42")
+        assert not set('abc') < 42
         assert not (set('abc') < set('def'))
         assert not (set('abc') <= frozenset('abd'))
         assert not (set('abc') < frozenset('abd'))
@@ -374,6 +374,11 @@ class AppTestAppSetTest:
         assert (frozenset('abc') != set('abcd'))
         assert set() != set('abc')
         assert set('abc') != set('abd')
+
+        class X(set):
+            pass
+
+        raises(TypeError, cmp, X(), X())
 
     def test_libpython_equality(self):
         for thetype in [frozenset, set]:

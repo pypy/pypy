@@ -452,6 +452,11 @@ class DescrOperation(object):
 
         # The real comparison
         if space.is_w(space.type(w_v), space.type(w_w)):
+            if space.isinstance_w(w_v, space.w_set):
+                raise OperationError(
+                    space.w_TypeError,
+                    space.wrap("cannot compare sets using cmp()")
+                )
             # for object of the same type, prefer __cmp__ over rich comparison.
             w_cmp = space.lookup(w_v, '__cmp__')
             w_res = _invoke_binop(space, w_cmp, w_v, w_w)
