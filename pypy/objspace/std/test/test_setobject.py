@@ -339,6 +339,7 @@ class AppTestAppSetTest:
 
     def test_compare(self):
         raises(TypeError, cmp, set('abc'), set('abd'))
+        raises(TypeError, cmp, frozenset('abc'), frozenset('abd'))
         assert set('abc') != 'abc'
         assert not set('abc') < 42
         assert not (set('abc') < set('def'))
