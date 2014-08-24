@@ -73,9 +73,9 @@ def dis(x=None):
     if type(x) is types.InstanceType:
         x = x.__class__
     if hasattr(x, 'im_func'):
-        x = x.__func__
+        x = x.im_func
     if hasattr(x, 'func_code'):
-        x = x.__code__
+        x = x.func_code
     if hasattr(x, '__dict__'):
         xxx
         items = sorted(x.__dict__.items())
@@ -83,11 +83,11 @@ def dis(x=None):
             if type(x1) in (types.MethodType,
                             types.FunctionType,
                             types.CodeType,
-                            type):
+                            types.ClassType):
                 print("Disassembly of %s:" % name)
                 try:
                     dis(x1)
-                except TypeError as msg:
+                except TypeError, msg:
                     print("Sorry:", msg)
                 print()
     elif hasattr(x, 'co_code'):

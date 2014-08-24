@@ -2,18 +2,22 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.buffer import RWBuffer
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.rStringIO import RStringIO
 from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.objectmodel import import_from_mixin
 from pypy.module._io.interp_bufferedio import W_BufferedIOBase
 from pypy.module._io.interp_iobase import convert_size
-from pypy.objspace.std.memoryview import W_MemoryView
+from pypy.objspace.std.memoryobject import W_MemoryView
 import sys
 
 
-class BytesIOBuffer(RWBuffer):
+class BytesIOBuffer(Buffer):
+    _immutable_ = True
+
     def __init__(self, w_bytesio):
         self.w_bytesio = w_bytesio
+        self.readonly = False
 
     def getlength(self):
         return int(self.w_bytesio.getsize())
@@ -45,7 +49,9 @@ class BytesIOBuffer(RWBuffer):
             w_bytesio.seek(tell)
 
 
-class W_BytesIO(RStringIO, W_BufferedIOBase):
+class W_BytesIO(W_BufferedIOBase):
+    import_from_mixin(RStringIO)
+
     def __init__(self, space):
         W_BufferedIOBase.__init__(self, space, add_to_autoflusher=False)
         self.init()
@@ -82,7 +88,7 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
 
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)
-        rwbuffer = space.rwbuffer_w(w_buffer)
+        rwbuffer = space.getarg_w('w*', w_buffer)
         size = rwbuffer.getlength()
 
         output = self.read(size)
@@ -91,10 +97,7 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
 
     def write_w(self, space, w_data):
         self._check_closed(space)
-        if space.isinstance_w(w_data, space.w_unicode):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "bytes string of buffer expected"))
-        buf = space.bufferstr_w(w_data)
+        buf = space.buffer_w(w_data, space.BUF_CONTIG_RO).as_str()
         length = len(buf)
         if length <= 0:
             return space.wrap(0)
@@ -199,8 +202,7 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
             space.call_method(self.getdict(space), "update", w_dict)
 
 W_BytesIO.typedef = TypeDef(
-    'BytesIO', W_BufferedIOBase.typedef,
-    __module__ = "_io",
+    '_io.BytesIO', W_BufferedIOBase.typedef,
     __new__  = interp2app(W_BytesIO.descr_new.im_func),
     __init__  = interp2app(W_BytesIO.descr_init),
 

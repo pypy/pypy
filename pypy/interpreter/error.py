@@ -36,42 +36,10 @@ class OperationError(Exception):
 
     def setup(self, w_type, w_value=None):
         assert w_type is not None
-        from pypy.objspace.std.typeobject import W_TypeObject
         self.w_type = w_type
         self._w_value = w_value
-        # HACK: isinstance(w_type, W_TypeObject) won't translate under
-        # the fake objspace, but w_type.__class__ is W_TypeObject does
-        # and short circuits to a False constant there, causing the
-        # isinstance to be ignored =[
-        if (w_type is not None and w_type.__class__ is W_TypeObject and
-            isinstance(w_type, W_TypeObject)):
-            self.setup_context(w_type.space)
         if not we_are_translated():
             self.debug_excs = []
-
-    def setup_context(self, space):
-        # Implicit exception chaining
-        last_operror = space.getexecutioncontext().sys_exc_info()
-        if last_operror is None:
-            return
-
-        # We must normalize the value right now to check for cycles
-        self.normalize_exception(space)
-        w_value = self.get_w_value(space)
-        w_last_value = last_operror.get_w_value(space)
-        if not space.is_w(w_value, w_last_value):
-            # Avoid reference cycles through the context chain. This is
-            # O(chain length) but context chains are usually very short.
-            w_obj = w_last_value
-            while True:
-                w_context = space.getattr(w_obj, space.wrap('__context__'))
-                if space.is_w(w_context, space.w_None):
-                    break
-                if space.is_w(w_context, w_value):
-                    space.setattr(w_obj, space.wrap('__context__'), space.w_None)
-                    break
-                w_obj = w_context
-            space.setattr(w_value, space.wrap('__context__'), w_last_value)
 
     def clear(self, space):
         # XXX remove this method.  The point is that we cannot always
@@ -352,9 +320,60 @@ class OperationError(Exception):
         """
         self._application_traceback = traceback
 
-@specialize.memo()
+    def record_context(self, space, frame):
+        """Record a __context__ for this exception from the current
+        frame if one exists.
+
+        __context__ is otherwise lazily determined from the
+        traceback. However the current frame.last_exception must be
+        checked for a __context__ before this OperationError overwrites
+        it (making the previous last_exception unavailable later on).
+        """
+        last_exception = frame.last_exception
+        if (last_exception is not None and not frame.hide() or
+            last_exception is get_cleared_operation_error(space)):
+            # normalize w_value so setup_context can check for cycles
+            self.normalize_exception(space)
+            w_value = self.get_w_value(space)
+            w_last = last_exception.get_w_value(space)
+            w_context = setup_context(space, w_value, w_last, lazy=True)
+            space.setattr(w_value, space.wrap('__context__'), w_context)
+
+
+def setup_context(space, w_exc, w_last, lazy=False):
+    """Determine the __context__ for w_exc from w_last and break
+    reference cycles in the __context__ chain.
+    """
+    from pypy.module.exceptions.interp_exceptions import W_BaseException
+    if space.is_w(w_exc, w_last):
+        w_last = space.w_None
+    # w_last may also be space.w_None if from ClearedOpErr
+    if not space.is_w(w_last, space.w_None):
+        # Avoid reference cycles through the context chain. This is
+        # O(chain length) but context chains are usually very short.
+        w_obj = w_last
+        while True:
+            assert isinstance(w_obj, W_BaseException)
+            if lazy:
+                w_context = w_obj.w_context
+            else:
+                # triggers W_BaseException._setup_context
+                w_context = space.getattr(w_obj, space.wrap('__context__'))
+            if space.is_none(w_context):
+                break
+            if space.is_w(w_context, w_exc):
+                w_obj.w_context = space.w_None
+                break
+            w_obj = w_context
+    return w_last
+
+
+class ClearedOpErr:
+    def __init__(self, space):
+        self.operr = OperationError(space.w_None, space.w_None)
+
 def get_cleared_operation_error(space):
-    return OperationError(space.w_None, space.w_None)
+    return space.fromcache(ClearedOpErr).operr
 
 # ____________________________________________________________
 # optimization only: avoid the slowest operation -- the string
@@ -412,14 +431,14 @@ def get_operrcls2(valuefmt):
                     value = getattr(self, attr)
                     if fmt == 'd':
                         result = str(value).decode('ascii')
-                    elif fmt == '8':
-                        result = value.decode('utf-8')
                     elif fmt == 'R':
                         result = space.unicode_w(space.repr(value))
-                    elif fmt in 'NT':
-                        if fmt == 'T':
-                            value = space.type(value)
+                    elif fmt == 'T':
+                        result = space.type(value).name.decode('utf-8')
+                    elif fmt == 'N':
                         result = value.getname(space)
+                    elif fmt == '8':
+                        result = value.decode('utf-8')
                     else:
                         result = unicode(value)
                     lst[i + i + 1] = result
@@ -457,7 +476,7 @@ def oefmt(w_type, valuefmt, *args):
     %8 - The result of arg.decode('utf-8')
     %N - The result of w_arg.getname(space)
     %R - The result of space.unicode_w(space.repr(w_arg))
-    %T - The result of space.type(w_arg).getname(space)
+    %T - The result of space.type(w_arg).name
 
     """
     if not len(args):

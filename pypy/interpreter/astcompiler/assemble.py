@@ -7,7 +7,7 @@ from pypy.interpreter import pycode
 from pypy.tool import stdlib_opcode as ops
 
 from pypy.interpreter.error import OperationError
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib import rfloat
 
 
@@ -141,11 +141,12 @@ def _make_index_dict_filter(syms, flag):
             i += 1
     return result
 
-def _list_to_dict(l, offset=0):
+@specialize.argtype(0)
+def _iter_to_dict(iterable, offset=0):
     result = {}
     index = offset
-    for i in range(len(l)):
-        result[l[i]] = index
+    for item in iterable:
+        result[item] = index
         index += 1
     return result
 
@@ -161,10 +162,10 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.first_block = self.new_block()
         self.use_block(self.first_block)
         self.names = {}
-        self.var_names = _list_to_dict(scope.varnames)
+        self.var_names = _iter_to_dict(scope.varnames)
         self.cell_vars = _make_index_dict_filter(scope.symbols,
                                                  symtable.SCOPE_CELL)
-        self.free_vars = _list_to_dict(scope.free_vars, len(self.cell_vars))
+        self.free_vars = _iter_to_dict(scope.free_vars, len(self.cell_vars))
         self.w_consts = space.newdict()
         self.argcount = 0
         self.kwonlyargcount = 0

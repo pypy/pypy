@@ -283,8 +283,7 @@ class Arguments(object):
                     missing += 1
                     continue
                 name = signature.kwonlyargnames[i - co_argcount]
-                w_name = self.space.wrap(name)
-                w_def = self.space.finditem(w_kw_defs, w_name)
+                w_def = self.space.finditem_str(w_kw_defs, name)
                 if w_def is not None:
                     scope_w[i] = w_def
                 else:
@@ -351,10 +350,11 @@ class Arguments(object):
                 limit -= len(self.keyword_names_w)
             for i in range(len(self.keywords)):
                 if i < limit:
-                    w_key = space.wrap(self.keywords[i].decode('utf-8'))
+                    key = self.keywords[i]
+                    space.setitem_str(w_kwds, key, self.keywords_w[i])
                 else:
                     w_key = self.keyword_names_w[i - limit]
-                space.setitem(w_kwds, w_key, self.keywords_w[i])
+                    space.setitem(w_kwds, w_key, self.keywords_w[i])
         return w_args, w_kwds
 
 # JIT helper functions
@@ -446,10 +446,10 @@ def _collect_keyword_args(space, keywords, keywords_w, w_kwds, kwds_mapping,
                 break
         else:
             if i < limit:
-                w_key = space.wrap(keywords[i].decode('utf-8'))
+                space.setitem_str(w_kwds, keywords[i], keywords_w[i])
             else:
                 w_key = keyword_names_w[i - limit]
-            space.setitem(w_kwds, w_key, keywords_w[i])
+                space.setitem(w_kwds, w_key, keywords_w[i])
 
 #
 # ArgErr family of exceptions raised in case of argument mismatch.

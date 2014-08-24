@@ -58,7 +58,6 @@ List of extension modules that we support:
     math
     mmap
     operator
-    oracle
     parser
     posix
     pyexpat
@@ -74,9 +73,6 @@ List of extension modules that we support:
     unicodedata
     zipimport
     zlib
-
-  When translated to Java or .NET, the list is smaller; see
-  `pypy/config/pypyoption.py`_ for details.
 
   When translated on Windows, a few Unix-only modules are skipped,
   and the following module is built instead:
@@ -329,7 +325,7 @@ Miscellaneous
 * directly calling the internal magic methods of a few built-in types
   with invalid arguments may have a slightly different result.  For
   example, ``[].__add__(None)`` and ``(2).__add__(None)`` both return
-  ``NotImplemented`` on PyPy; on CPython, only the later does, and the
+  ``NotImplemented`` on PyPy; on CPython, only the latter does, and the
   former raises ``TypeError``.  (Of course, ``[]+None`` and ``2+None``
   both raise ``TypeError`` everywhere.)  This difference is an
   implementation detail that shows up because of internal C-level slots
@@ -348,5 +344,10 @@ Miscellaneous
   opposed to a dict proxy like in CPython. Mutating the dict will change the
   type and vice versa. For builtin types, a dictionary will be returned that
   cannot be changed (but still looks and behaves like a normal dictionary).
+
+* PyPy prints a random line from past #pypy IRC topics at startup in
+  interactive mode. In a released version, this behaviour is supressed, but
+  setting the environment variable PYPY_IRC_TOPIC will bring it back. Note that
+  downstream package providers have been known to totally disable this feature.
 
 .. include:: _ref.txt

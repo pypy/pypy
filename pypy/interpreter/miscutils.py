@@ -11,11 +11,14 @@ class ThreadLocals:
     """
     _value = None
 
-    def getvalue(self):
+    def get_ec(self):
         return self._value
 
-    def setvalue(self, value):
-        self._value = value
+    def enter_thread(self, space):
+        self._value = space.createexecutioncontext()
+
+    def try_enter_thread(self, space):
+        return False
 
     def signals_enabled(self):
         return True

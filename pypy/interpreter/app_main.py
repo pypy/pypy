@@ -37,12 +37,19 @@ PYTHONSTARTUP: file executed on interactive startup (no default)
 PYTHONPATH   : %r-separated list of directories prefixed to the
                default module search path.  The result is sys.path.
 PYTHONIOENCODING: Encoding[:errors] used for stdin/stdout/stderr.
+PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
+               topic at startup of interactive mode.
+PYPYLOG: If set to a non-empty value, enable logging.
 """
 
 try:
     from __pypy__ import hidden_applevel
 except ImportError:
     hidden_applevel = lambda f: f
+try:
+    from _ast import PyCF_ACCEPT_NULL_BYTES
+except ImportError:
+    PyCF_ACCEPT_NULL_BYTES = 0
 import errno
 import sys
 
@@ -113,6 +120,7 @@ def display_exception(e):
 
     except BaseException as e:
         try:
+            initstdio()
             stderr = sys.stderr
             print('Error calling sys.excepthook:', file=stderr)
             originalexcepthook(type(e), e, e.__traceback__)
@@ -309,7 +317,6 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
 # Order is significant!
 sys_flags = (
     "debug",
-    "division_warning",
     "inspect",
     "interactive",
     "optimize",
@@ -611,7 +618,8 @@ def run_command_line(interactive,
                         def run_it():
                             co_python_startup = compile(startup,
                                                         python_startup,
-                                                        'exec')
+                                                        'exec',
+                                                        PyCF_ACCEPT_NULL_BYTES)
                             exec_(co_python_startup, mainmodule.__dict__)
                         mainmodule.__file__ = python_startup
                         mainmodule.__cached__ = None
@@ -626,7 +634,8 @@ def run_command_line(interactive,
                 # If not interactive, just read and execute stdin normally.
                 @hidden_applevel
                 def run_it():
-                    co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec')
+                    co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec',
+                                       PyCF_ACCEPT_NULL_BYTES)
                     exec_(co_stdin, mainmodule.__dict__)
                 mainmodule.__file__ = '<stdin>'
                 mainmodule.__cached__ = None
@@ -667,7 +676,9 @@ def run_command_line(interactive,
                     def execfile(filename, namespace):
                         with open(filename, 'rb') as f:
                             code = f.read()
-                        exec_(compile(code, filename, 'exec'), namespace)
+                        co = compile(code, filename, 'exec',
+                                     PyCF_ACCEPT_NULL_BYTES)
+                        exec_(co, namespace)
                     args = (execfile, filename, mainmodule.__dict__)
             success = run_toplevel(*args)
 
@@ -682,7 +693,11 @@ def run_command_line(interactive,
     if inspect_requested():
         try:
             from _pypy_interact import interactive_console
-            success = run_toplevel(interactive_console, mainmodule, quiet)
+            pypy_version_info = getattr(sys, 'pypy_version_info', sys.version_info)
+            irc_topic = pypy_version_info[3] != 'final' or (
+                            readenv and os.getenv('PYPY_IRC_TOPIC'))
+            success = run_toplevel(interactive_console, mainmodule,
+                                   quiet=quiet or not irc_topic)
         except SystemExit as e:
             status = e.code
         else:

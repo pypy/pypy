@@ -75,7 +75,6 @@ def mbidecoder_new(space, w_subtype, errors=None):
 
 MultibyteIncrementalDecoder.typedef = TypeDef(
     'MultibyteIncrementalDecoder',
-    __module__ = '_multibytecodec',
     __new__ = interp2app(mbidecoder_new),
     decode  = interp2app(MultibyteIncrementalDecoder.decode_w),
     reset   = interp2app(MultibyteIncrementalDecoder.reset_w),
@@ -124,7 +123,6 @@ def mbiencoder_new(space, w_subtype, errors=None):
 
 MultibyteIncrementalEncoder.typedef = TypeDef(
     'MultibyteIncrementalEncoder',
-    __module__ = '_multibytecodec',
     __new__ = interp2app(mbiencoder_new),
     encode  = interp2app(MultibyteIncrementalEncoder.encode_w),
     reset   = interp2app(MultibyteIncrementalEncoder.reset_w),

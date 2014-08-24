@@ -37,7 +37,7 @@ class Scope(object):
         self.roles = {}
         self.varnames = []
         self.children = []
-        self.free_vars = []
+        self.free_vars = {}
         self.temp_name_counter = 1
         self.has_free = False
         self.child_has_free = False
@@ -136,7 +136,9 @@ class Scope(object):
                 err = "no binding for nonlocal '%s' found" % (name,)
                 raise SyntaxError(err, self.lineno, self.col_offset)
             self.symbols[name] = SCOPE_FREE
+            self.free_vars[name] = None
             free[name] = None
+            self.has_free = True
         elif flags & SYM_BOUND:
             self.symbols[name] = SCOPE_LOCAL
             local[name] = None
@@ -146,7 +148,7 @@ class Scope(object):
                 pass
         elif bound and name in bound:
             self.symbols[name] = SCOPE_FREE
-            self.free_vars.append(name)
+            self.free_vars[name] = None
             free[name] = None
             self.has_free = True
         elif name in globs:
@@ -203,7 +205,7 @@ class Scope(object):
             except KeyError:
                 if name in bound:
                     self.symbols[name] = SCOPE_FREE
-                    self.free_vars.append(name)
+                    self.free_vars[name] = None
             else:
                 if role_here & (SYM_BOUND | SYM_GLOBAL) and \
                         self._hide_bound_from_nested_scopes:
@@ -212,7 +214,7 @@ class Scope(object):
                     # scope.  We add the name to the class scope's list of free
                     # vars, so it will be passed through by the interpreter, but
                     # we leave the scope alone, so it can be local on its own.
-                    self.free_vars.append(name)
+                    self.free_vars[name] = None
         self._check_optimization()
         free.update(new_free)
 
@@ -240,22 +242,16 @@ class FunctionScope(Scope):
     def note_symbol(self, identifier, role):
         # Special-case super: it counts as a use of __class__
         if role == SYM_USED and identifier == 'super':
-            self.note_symbol('@__class__', SYM_USED)
+            self.note_symbol('__class__', SYM_USED)
         return Scope.note_symbol(self, identifier, role)
 
     def note_yield(self, yield_node):
-        if self.return_with_value:
-            raise SyntaxError("'return' with argument inside generator",
-                              self.ret.lineno, self.ret.col_offset)
         self.is_generator = True
         if self._in_try_body_depth > 0:
             self.has_yield_inside_try = True
 
     def note_return(self, ret):
         if ret.value:
-            if self.is_generator:
-                raise SyntaxError("'return' with argument inside generator",
-                                  ret.lineno, ret.col_offset)
             self.return_with_value = True
             self.ret = ret
 
@@ -298,12 +294,12 @@ class ClassScope(Scope):
         return misc.mangle(name, self.name)
 
     def _pass_special_names(self, local, new_bound):
-        assert '@__class__' in local
-        new_bound['@__class__'] = None
+        assert '__class__' in local
+        new_bound['__class__'] = None
 
     def _finalize_cells(self, free):
         for name, role in self.symbols.iteritems():
-            if role == SCOPE_LOCAL and name in free and name == '@__class__':
+            if role == SCOPE_LOCAL and name in free and name == '__class__':
                 self.symbols[name] = SCOPE_CELL
                 del free[name]
 
@@ -392,7 +388,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
             clsdef.kwargs.walkabout(self)
         self.visit_sequence(clsdef.decorator_list)
         self.push_scope(ClassScope(clsdef), clsdef)
-        self.note_symbol('@__class__', SYM_ASSIGNED)
+        self.note_symbol('__class__', SYM_ASSIGNED)
         self.note_symbol('__locals__', SYM_PARAM)
         self.visit_sequence(clsdef.body)
         self.pop_scope()
@@ -431,8 +427,15 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.scope.note_yield(yie)
         ast.GenericASTVisitor.visit_Yield(self, yie)
 
+    def visit_YieldFrom(self, yfr):
+        self.scope.note_yield(yfr)
+        ast.GenericASTVisitor.visit_YieldFrom(self, yfr)
+
     def visit_Global(self, glob):
         for name in glob.names:
+            if isinstance(self.scope, ClassScope) and name == '__class__':
+                raise SyntaxError("cannot make __class__ global",
+                                  glob.lineno, glob.col_offset)
             old_role = self.scope.lookup_role(name)
             if old_role & (SYM_USED | SYM_ASSIGNED):
                 if old_role & SYM_ASSIGNED:

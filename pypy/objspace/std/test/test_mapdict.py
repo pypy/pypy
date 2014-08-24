@@ -852,9 +852,11 @@ class AppTestWithMapDictAndCounters(object):
         assert res == (0, 1, 0)
 
     def test_custom_metaclass(self):
-        class A(object):
-            class __metaclass__(type):
-                pass
+        """
+        class metaclass(type):
+            pass
+        class A(metaclass=metaclass):
+            pass
         a = A()
         a.x = 42
         def f():
@@ -866,6 +868,7 @@ class AppTestWithMapDictAndCounters(object):
         assert res == (0, 1, 0)
         res = self.check(f, 'x')
         assert res == (0, 1, 0)
+        """
 
     def test_old_style_base(self):
         skip('py3k no longer has old style classes')

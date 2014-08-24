@@ -139,6 +139,13 @@ class AppTestBufferedReader:
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
         assert f.readinto(a) == 5
+        f.seek(0)
+        m = memoryview(bytearray(b"hello"))
+        assert f.readinto(m) == 5
+        exc = raises(TypeError, f.readinto, u"hello")
+        assert str(exc.value) == "must be read-write buffer, not str"
+        exc = raises(TypeError, f.readinto, memoryview(b"hello"))
+        assert str(exc.value) == "must be read-write buffer, not memoryview"
         f.close()
         assert a == b'a\nb\ncxxxxx'
 
@@ -250,6 +257,7 @@ class AppTestBufferedWriter:
         raw = _io.FileIO(self.tmpfile, 'w')
         f = _io.BufferedWriter(raw)
         f.write(b"abcd")
+        raises(TypeError, f.write, u"cd")
         f.close()
         assert self.readfile() == b"abcd"
 

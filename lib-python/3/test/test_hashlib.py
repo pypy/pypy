@@ -142,7 +142,7 @@ class HashLibTestCase(unittest.TestCase):
     def test_hexdigest(self):
         for cons in self.hash_constructors:
             h = cons()
-            assert isinstance(h.digest(), bytes), name
+            assert isinstance(h.digest(), bytes), cons.__name__
             self.assertEqual(hexstr(h.digest()), h.hexdigest())
 
     def test_large_update(self):

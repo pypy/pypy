@@ -223,7 +223,7 @@ class Marshaller(_Base):
         space = self.space
         if space.type(w_obj).is_heaptype():
             try:
-                buf = space.buffer_w(w_obj)
+                buf = space.readbuf_w(w_obj)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -466,15 +466,9 @@ class StringUnmarshaller(Unmarshaller):
     # Unmarshaller with inlined buffer string
     def __init__(self, space, w_str):
         Unmarshaller.__init__(self, space, None)
-        try:
-            self.bufstr = space.bufferstr_w(w_str)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            raise OperationError(space.w_TypeError, space.wrap(
-                'marshal.loads() arg must be string or buffer'))
+        self.buf = space.getarg_w('y*', w_str)
         self.bufpos = 0
-        self.limit = len(self.bufstr)
+        self.limit = self.buf.getlength()
 
     def raise_eof(self):
         space = self.space
@@ -487,14 +481,14 @@ class StringUnmarshaller(Unmarshaller):
         if newpos > self.limit:
             self.raise_eof()
         self.bufpos = newpos
-        return self.bufstr[pos : newpos]
+        return self.buf.getslice(pos, newpos, 1, newpos - pos)
 
     def get1(self):
         pos = self.bufpos
         if pos >= self.limit:
             self.raise_eof()
         self.bufpos = pos + 1
-        return self.bufstr[pos]
+        return self.buf.getitem(pos)
 
     def get_int(self):
         pos = self.bufpos
@@ -502,10 +496,10 @@ class StringUnmarshaller(Unmarshaller):
         if newpos > self.limit:
             self.raise_eof()
         self.bufpos = newpos
-        a = ord(self.bufstr[pos])
-        b = ord(self.bufstr[pos+1])
-        c = ord(self.bufstr[pos+2])
-        d = ord(self.bufstr[pos+3])
+        a = ord(self.buf.getitem(pos))
+        b = ord(self.buf.getitem(pos+1))
+        c = ord(self.buf.getitem(pos+2))
+        d = ord(self.buf.getitem(pos+3))
         if d & 0x80:
             d -= 0x100
         x = a | (b<<8) | (c<<16) | (d<<24)
@@ -517,10 +511,10 @@ class StringUnmarshaller(Unmarshaller):
         if newpos > self.limit:
             self.raise_eof()
         self.bufpos = newpos
-        a = ord(self.bufstr[pos])
-        b = ord(self.bufstr[pos+1])
-        c = ord(self.bufstr[pos+2])
-        d = ord(self.bufstr[pos+3])
+        a = ord(self.buf.getitem(pos))
+        b = ord(self.buf.getitem(pos+1))
+        c = ord(self.buf.getitem(pos+2))
+        d = ord(self.buf.getitem(pos+3))
         x = a | (b<<8) | (c<<16) | (d<<24)
         if x >= 0:
             return x

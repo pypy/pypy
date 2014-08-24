@@ -147,12 +147,25 @@ whether some effects are ok or not for the user (i.e. the Python
 programmer).
 
 Instead, since 2012, there is work going on on a still very experimental
-Software Transactional Memory (STM) version of PyPy.  This should give
-an alternative PyPy which internally has no GIL, while at the same time
+`Software Transactional Memory`_ (STM) version of PyPy.  This should give
+an alternative PyPy which works without a GIL, while at the same time
 continuing to give the Python programmer the complete illusion of having
-one.  It would in fact push forward *more* GIL-ish behavior, like
-declaring that some sections of the code should run without releasing
-the GIL in the middle (these are called *atomic sections* in STM).
+one.
+
+.. _`Software Transactional Memory`: stm.html
+
+--------------------------------------------------
+Is PyPy more clever than CPython about Tail Calls?
+--------------------------------------------------
+
+No.  PyPy follows the Python language design, including the built-in
+debugger features.  This prevents tail calls, as summarized by Guido
+van Rossum in two__ blog__ posts.  Moreover, neither the JIT nor
+Stackless__ change anything to that.
+
+.. __: http://neopythonic.blogspot.com/2009/04/tail-recursion-elimination.html
+.. __: http://neopythonic.blogspot.com/2009/04/final-words-on-tail-calls.html
+.. __: stackless.html
 
 ------------------------------------------
 How do I write extension modules for PyPy?
@@ -171,15 +184,20 @@ Python programs we generally are 3 times the speed of CPython 2.7.
 You might be interested in our `benchmarking site`_ and our 
 `jit documentation`_.
 
-Note that the JIT has a very high warm-up cost, meaning that the
-programs are slow at the beginning.  If you want to compare the timings
-with CPython, even relatively simple programs need to run *at least* one
-second, preferrably at least a few seconds.  Large, complicated programs
-need even more time to warm-up the JIT.
+`Your tests are not a benchmark`_: tests tend to be slow under PyPy
+because they run exactly once; if they are good tests, they exercise
+various corner cases in your code.  This is a bad case for JIT
+compilers.  Note also that our JIT has a very high warm-up cost, meaning
+that any program is slow at the beginning.  If you want to compare the
+timings with CPython, even relatively simple programs need to run *at
+least* one second, preferrably at least a few seconds.  Large,
+complicated programs need even more time to warm-up the JIT.
 
 .. _`benchmarking site`: http://speed.pypy.org
 
 .. _`jit documentation`: jit/index.html
+
+.. _`your tests are not a benchmark`: http://alexgaynor.net/2013/jul/15/your-tests-are-not-benchmark/
 
 ---------------------------------------------------------------
 Couldn't the JIT dump and reload already-compiled machine code?
@@ -465,9 +483,13 @@ Compiling PyPy swaps or runs out of memory
 
 This is documented (here__ and here__).  It needs 4 GB of RAM to run
 "rpython targetpypystandalone" on top of PyPy, a bit more when running
-on CPython.  If you have less than 4 GB it will just swap forever (or
-fail if you don't have enough swap).  On 32-bit, divide the numbers by
-two.
+on top of CPython.  If you have less than 4 GB free, it will just swap
+forever (or fail if you don't have enough swap).  And we mean *free:*
+if the machine has 4 GB *in total,* then it will swap.
+
+On 32-bit, divide the numbers by two.  (We didn't try recently, but in
+the past it was possible to compile a 32-bit version on a 2 GB Linux
+machine with nothing else running: no Gnome/KDE, for example.)
 
 .. __: http://pypy.org/download.html#building-from-source
 .. __: https://pypy.readthedocs.org/en/latest/getting-started-python.html#translating-the-pypy-python-interpreter

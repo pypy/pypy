@@ -82,6 +82,10 @@ class CConfig:
     SSL_OP_NO_TLSv1 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1")
     SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS = rffi_platform.ConstantInteger(
         "SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS")
+    SSL_OP_CIPHER_SERVER_PREFERENCE = rffi_platform.ConstantInteger(
+        "SSL_OP_CIPHER_SERVER_PREFERENCE")
+    SSL_OP_SINGLE_DH_USE = rffi_platform.ConstantInteger(
+        "SSL_OP_SINGLE_DH_USE")
     HAS_SNI = rffi_platform.Defined("SSL_CTRL_SET_TLSEXT_HOSTNAME")
     SSL_VERIFY_NONE = rffi_platform.ConstantInteger("SSL_VERIFY_NONE")
     SSL_VERIFY_PEER = rffi_platform.ConstantInteger("SSL_VERIFY_PEER")

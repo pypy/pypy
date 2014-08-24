@@ -1196,7 +1196,7 @@ order (MRO) for bases """
         self.assertEqual(Counted.counter, 0)
 
         # Test lookup leaks [SF bug 572567]
-        if hasattr(gc, 'get_objects'):
+        if hasattr(gc, 'get_objects') and support.check_impl_detail(pypy=False):
             class G(object):
                 def __eq__(self, other):
                     return False
@@ -3035,15 +3035,24 @@ order (MRO) for bases """
         class R(J):
             __slots__ = ["__dict__", "__weakref__"]
 
-        for cls, cls2 in ((G, H), (G, I), (I, H), (Q, R), (R, Q)):
+        if support.check_impl_detail(pypy=False):
+            lst = ((G, H), (G, I), (I, H), (Q, R), (R, Q))
+        else:
+            # Not supported in pypy: changing the __class__ of an object
+            # to another __class__ that just happens to have the same slots.
+            # If needed, we can add the feature, but what we'll likely do
+            # then is to allow mostly any __class__ assignment, even if the
+            # classes have different __slots__, because we it's easier.
+            lst = ((Q, R), (R, Q))
+        for cls, cls2 in lst:
             x = cls()
             x.a = 1
             x.__class__ = cls2
-            self.assertIs(x.__class__, cls2,
+            self.assertTrue(x.__class__ is cls2,
                    "assigning %r as __class__ for %r silently failed" % (cls2, x))
             self.assertEqual(x.a, 1)
             x.__class__ = cls
-            self.assertIs(x.__class__, cls,
+            self.assertTrue(x.__class__ is cls,
                    "assigning %r as __class__ for %r silently failed" % (cls, x))
             self.assertEqual(x.a, 1)
         for cls in G, J, K, L, M, N, P, R, list, Int:
@@ -3055,7 +3064,8 @@ order (MRO) for bases """
         # Issue5283: when __class__ changes in __del__, the wrong
         # type gets DECREF'd.
         class O(object):
-            pass
+            def __del__(self):
+                pass
         class A(object):
             def __del__(self):
                 self.__class__ = O
@@ -3118,7 +3128,8 @@ order (MRO) for bases """
             except TypeError:
                 pass
             else:
-                self.fail("%r's __dict__ can be modified" % cls)
+                if support.check_impl_detail(pypy=False):
+                    self.fail("%r's __dict__ can be modified" % cls)
 
         # Modules also disallow __dict__ assignment
         class Module1(types.ModuleType, Base):

@@ -22,6 +22,7 @@ class TypeDef(object):
         else:
             bases = [__base]
         self.bases = bases
+        self.heaptype = False
         self.hasdict = '__dict__' in rawdict
         self.weakrefable = '__weakref__' in rawdict
         self.doc = rawdict.get('__doc__', None)
@@ -778,6 +779,7 @@ Module.typedef = TypeDef("module",
     __new__ = interp2app(Module.descr_module__new__.im_func),
     __init__ = interp2app(Module.descr_module__init__),
     __repr__ = interp2app(Module.descr_module__repr__),
+    __dir__ = interp2app(Module.descr_module__dir__),
     __reduce__ = interp2app(Module.descr__reduce__),
     __dict__ = GetSetProperty(descr_get_dict, cls=Module), # module dictionaries are readonly attributes
     __doc__ = 'module(name[, doc])\n\nCreate a module object.\nThe name must be a string; the optional doc argument can have any type.'
@@ -828,7 +830,7 @@ Function.typedef = TypeDef("function",
     __kwdefaults__ = getset_func_kwdefaults,
     __annotations__ = getset_func_annotations,
     __globals__ = interp_attrproperty_w('w_func_globals', cls=Function),
-    __closure__ = GetSetProperty( Function.fget_func_closure ),
+    __closure__ = GetSetProperty(Function.fget_func_closure),
     __module__ = getset___module__,
     __weakref__ = make_weakref_descr(Function),
 )
@@ -908,6 +910,7 @@ BuiltinFunction.typedef.acceptable_as_base_class = False
 PyTraceback.typedef = TypeDef("traceback",
     __reduce__ = interp2app(PyTraceback.descr__reduce__),
     __setstate__ = interp2app(PyTraceback.descr__setstate__),
+    __dir__ = interp2app(PyTraceback.descr__dir__),
     tb_frame = interp_attrproperty('frame', cls=PyTraceback),
     tb_lasti = interp_attrproperty('lasti', cls=PyTraceback),
     tb_lineno = GetSetProperty(PyTraceback.descr_tb_lineno),
@@ -943,17 +946,20 @@ Cell.typedef = TypeDef("cell",
     __eq__       = interp2app(Cell.descr__eq__),
     __hash__     = None,
     __reduce__   = interp2app(Cell.descr__reduce__),
+    __repr__     = interp2app(Cell.descr__repr__),
     __setstate__ = interp2app(Cell.descr__setstate__),
     cell_contents= GetSetProperty(Cell.descr__cell_contents, cls=Cell),
 )
 Cell.typedef.acceptable_as_base_class = False
 
 Ellipsis.typedef = TypeDef("Ellipsis",
+    __new__ = interp2app(Ellipsis.descr_new_ellipsis),
     __repr__ = interp2app(Ellipsis.descr__repr__),
 )
 Ellipsis.typedef.acceptable_as_base_class = False
 
 NotImplemented.typedef = TypeDef("NotImplemented",
+    __new__ = interp2app(NotImplemented.descr_new_notimplemented),
     __repr__ = interp2app(NotImplemented.descr__repr__),
 )
 NotImplemented.typedef.acceptable_as_base_class = False

@@ -169,7 +169,8 @@ class SysModuleTest(unittest.TestCase):
                 sys.setcheckinterval(n)
                 self.assertEqual(sys.getcheckinterval(), n)
 
-    @unittest.skipUnless(threading, 'Threading required for this test.')
+    @unittest.skipUnless(hasattr(sys, 'getswitchinterval') and threading,
+                         'New GIL & threading required for this test.')
     def test_switchinterval(self):
         self.assertRaises(TypeError, sys.setswitchinterval)
         self.assertRaises(TypeError, sys.setswitchinterval, "a")
@@ -404,8 +405,10 @@ class SysModuleTest(unittest.TestCase):
         self.assertEqual(len(sys.float_info), 11)
         self.assertEqual(sys.float_info.radix, 2)
         self.assertEqual(len(sys.int_info), 2)
-        self.assertTrue(sys.int_info.bits_per_digit % 5 == 0)
-        self.assertTrue(sys.int_info.sizeof_digit >= 1)
+        if test.support.check_impl_detail(cpython=True):
+            self.assertTrue(sys.int_info.bits_per_digit % 5 == 0)
+        else:
+            self.assertTrue(sys.int_info.sizeof_digit >= 1)
         self.assertEqual(type(sys.int_info.bits_per_digit), int)
         self.assertEqual(type(sys.int_info.sizeof_digit), int)
         self.assertIsInstance(sys.hexversion, int)
@@ -502,6 +505,7 @@ class SysModuleTest(unittest.TestCase):
         self.assertTrue(repr(sys.flags))
         self.assertEqual(len(sys.flags), len(attrs))
 
+    @test.support.impl_detail("sys._clear_type_cache", pypy=False)
     def test_clear_type_cache(self):
         sys._clear_type_cache()
 
@@ -584,6 +588,7 @@ class SysModuleTest(unittest.TestCase):
         self.assertEqual(sys.implementation.name,
                          sys.implementation.name.lower())
 
+    @test.support.cpython_only
     def test_debugmallocstats(self):
         # Test sys._debugmallocstats()
         from test.script_helper import assert_python_ok

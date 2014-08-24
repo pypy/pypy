@@ -68,7 +68,7 @@ class BaseRtypingTest(object):
         return fnptr._obj._callable
 
     def class_name(self, value):
-        return "".join(value.super.typeptr.name)[:-1]
+        return ''.join(value.super.typeptr.name.chars)
 
     def read_attr(self, value, attr_name):
         value = value._obj

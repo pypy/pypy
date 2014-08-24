@@ -95,7 +95,7 @@ class TWriter(streamio.Stream):
         elif whence == 2:
             offset += len(self.buf)
         else:
-            raise ValueError, "whence should be 0, 1 or 2"
+            raise ValueError("whence should be 0, 1 or 2")
         if offset < 0:
             offset = 0
         self.pos = offset
@@ -698,8 +698,8 @@ class TestMMapFile(BaseTestBufferingInputStreamTests):
         return streamio.MMapFile(self.fd, mmapmode)
 
     def test_write(self):
-        if os.name == "posix":
-            return # write() does't work on Unix :-(
+        if os.name == "posix" or os.name == 'nt':
+            return # write() does't work on Unix nor on win32:-(
         file = self.makeStream(mode="w")
         file.write("BooHoo\n")
         file.write("Barf\n")
@@ -1103,6 +1103,21 @@ class TestDiskFile:
             file.write("hello")
         finally:
             signal(SIGALRM, SIG_DFL)
+
+    def test_append_mode(self):
+        tfn = str(udir.join('streamio-append-mode'))
+        fo = streamio.open_file_as_stream # shorthand
+        x = fo(tfn, 'w')
+        x.write('abc123')
+        x.close()
+
+        x = fo(tfn, 'a')
+        x.seek(0, 0)
+        x.write('456')
+        x.close()
+        x = fo(tfn, 'r')
+        assert x.read() == 'abc123456'
+        x.close()
 
 
 # Speed test

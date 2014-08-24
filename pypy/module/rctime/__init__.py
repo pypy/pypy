@@ -17,6 +17,7 @@ class Module(MixedModule):
         'mktime': 'interp_time.mktime',
         'strftime': 'interp_time.strftime',
         'sleep' : 'interp_time.sleep',
+        '_STRUCT_TM_ITEMS': 'space.wrap(interp_time._STRUCT_TM_ITEMS)',
     }
 
     if os.name == "posix":
@@ -38,5 +39,3 @@ class Module(MixedModule):
         from pypy.module.rctime import interp_time
 
         interp_time._init_timezone(space)
-        interp_time._init_accept2dyear(space)
-

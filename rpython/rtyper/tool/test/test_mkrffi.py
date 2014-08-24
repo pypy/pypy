@@ -60,16 +60,20 @@ class TestMkrffi(object):
         from rpython.translator.platform import platform
         from rpython.translator.tool.cbuild import ExternalCompilationInfo
         
+        if platform.name == 'msvc':
+            export = '__declspec(dllexport) '
+        else:
+            export = ''
         c_source = """
-        void *int_to_void_p(int arg) {}
+        {0} void *int_to_void_p(int arg) {{}}
 
-        struct random_strucutre {
+        {0} struct random_strucutre {{
           int one;
           int *two;
-        };
+        }};
 
-        struct random_structure* int_int_to_struct_p(int one, int two) {}
-        """
+        {0} struct random_structure* int_int_to_struct_p(int one, int two) {{}}
+        """.format(export)
 
         c_file = udir.join('rffilib.c')
         c_file.write(c_source)

@@ -56,7 +56,7 @@ class AppTestIoModule:
         import _io
         try:
             raise _io.BlockingIOError(42, "test blocking", 123)
-        except IOError as e:
+        except OSError as e:
             assert isinstance(e, _io.BlockingIOError)
             assert e.errno == 42
             assert e.strerror == "test blocking"
@@ -381,5 +381,12 @@ class AppTestOpen:
 
     def test_mod(self):
         import _io
-        assert all(t.__module__ in ('io', '_io') for t in vars(_io).values()
-                   if isinstance(t, type))
+        typemods = dict((t, t.__module__) for t in vars(_io).values()
+                        if isinstance(t, type))
+        for t, mod in typemods.items():
+            if t is _io.BlockingIOError:
+                assert mod == 'builtins'
+            elif t is _io.UnsupportedOperation:
+                assert mod == 'io'
+            else:
+                assert mod == '_io'

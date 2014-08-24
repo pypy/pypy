@@ -1039,10 +1039,14 @@ class AbstractUnwrappedSetStrategy(object):
         return storage, strategy
 
     def symmetric_difference(self, w_set, w_other):
+        if w_other.length() == 0:
+            return w_set.copy_real()
         storage, strategy = self._symmetric_difference_base(w_set, w_other)
         return w_set.from_storage_and_strategy(storage, strategy)
 
     def symmetric_difference_update(self, w_set, w_other):
+        if w_other.length() == 0:
+            return
         storage, strategy = self._symmetric_difference_base(w_set, w_other)
         w_set.strategy = strategy
         w_set.sstorage = storage
@@ -1160,7 +1164,8 @@ class AbstractUnwrappedSetStrategy(object):
             d_other = self.unerase(w_other.sstorage)
             d_set.update(d_other)
             return
-
+        if w_other.length() == 0:
+            return
         w_set.switch_to_object_strategy(self.space)
         w_set.update(w_other)
 
@@ -1584,8 +1589,6 @@ def _pick_correct_strategy(space, w_set, iterable_w):
         return
 
     # check for strings
-    # XXX:
-    """
     for w_item in iterable_w:
         if type(w_item) is not W_BytesObject:
             break
@@ -1593,7 +1596,6 @@ def _pick_correct_strategy(space, w_set, iterable_w):
         w_set.strategy = space.fromcache(BytesSetStrategy)
         w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
         return
-        """
 
     # check for unicode
     for w_item in iterable_w:

@@ -15,7 +15,8 @@ import types
 import unittest
 import warnings
 from operator import neg
-from test.support import TESTFN, unlink,  run_unittest, check_warnings
+from test.support import (
+    TESTFN, unlink,  run_unittest, check_warnings, check_impl_detail)
 try:
     import pty, signal
 except ImportError:
@@ -558,18 +559,21 @@ class BuiltinTest(unittest.TestCase):
         self.assertEqual((g, l), ({'a': 1}, {'b': 2}))
 
     def test_exec_globals(self):
-        code = compile("print('Hello World!')", "", "exec")
-        # no builtin function
-        self.assertRaisesRegex(NameError, "name 'print' is not defined",
-                               exec, code, {'__builtins__': {}})
-        # __builtins__ must be a mapping type
-        self.assertRaises(TypeError,
-                          exec, code, {'__builtins__': 123})
+        if check_impl_detail():
+            # strict __builtins__ compliance (CPython)
+            code = compile("print('Hello World!')", "", "exec")
+            # no builtin function
+            self.assertRaisesRegex(NameError, "name 'print' is not defined",
+                                   exec, code, {'__builtins__': {}})
+            # __builtins__ must be a mapping type
+            self.assertRaises(TypeError,
+                              exec, code, {'__builtins__': 123})
 
-        # no __build_class__ function
-        code = compile("class A: pass", "", "exec")
-        self.assertRaisesRegex(NameError, "__build_class__ not found",
-                               exec, code, {'__builtins__': {}})
+            # no __build_class__ function
+            code = compile("class A: pass", "", "exec")
+            if True:
+                self.assertRaisesRegex(NameError, "__build_class__ not found",
+                                       exec, code, {'__builtins__': {}})
 
         class frozendict_error(Exception):
             pass
@@ -579,7 +583,7 @@ class BuiltinTest(unittest.TestCase):
                 raise frozendict_error("frozendict is readonly")
 
         # read-only builtins
-        frozen_builtins = frozendict(__builtins__)
+        frozen_builtins = frozendict(builtins.__dict__)
         code = compile("__builtins__['superglobal']=2; print(superglobal)", "test", "exec")
         self.assertRaises(frozendict_error,
                           exec, code, {'__builtins__': frozen_builtins})

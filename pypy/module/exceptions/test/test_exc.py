@@ -292,3 +292,14 @@ class AppTestExc(object):
         assert ImportError("message", path="y").path == "y"
         raises(TypeError, ImportError, invalid="z")
 
+    def test_blockingioerror(self):
+        args = ("a", "b", "c", "d", "e")
+        for n in range(6):
+            e = BlockingIOError(*args[:n])
+            raises(AttributeError, getattr, e, 'characters_written')
+        e = BlockingIOError("a", "b", 3)
+        assert e.characters_written == 3
+        e.characters_written = 5
+        assert e.characters_written == 5
+
+

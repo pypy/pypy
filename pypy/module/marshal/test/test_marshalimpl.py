@@ -26,6 +26,10 @@ class AppTestMarshalMore:
         t = marshal.loads(s)
         assert type(t) is bytes and t == b'asd'
 
+        s = marshal.dumps(memoryview(b'asd'))
+        t = marshal.loads(s)
+        assert type(t) is bytes and t == b'asd'
+
     def test_unmarshal_evil_long(self):
         import marshal
         raises(ValueError, marshal.loads, b'l\x02\x00\x00\x00\x00\x00\x00\x00')

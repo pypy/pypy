@@ -1,8 +1,9 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import buffer
+from rpython.rlib.objectmodel import import_from_mixin
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, Py_buffer)
 from pypy.module.cpyext.pyobject import PyObject, Py_DecRef
-from pypy.interpreter import buffer
 
 @cpython_api([lltype.Ptr(Py_buffer), lltype.Char], rffi.INT_real, error=CANNOT_FAIL)
 def PyBuffer_IsContiguous(space, view, fortran):
@@ -13,7 +14,6 @@ def PyBuffer_IsContiguous(space, view, fortran):
     return 1
 
 class CBufferMixin(object):
-    _mixin_ = True
 
     def __init__(self, space, c_buf, c_len, w_obj):
         self.space = space
@@ -35,6 +35,9 @@ class CBufferMixin(object):
         return rffi.charpsize2str(rffi.cast(rffi.CCHARP, self.c_buf),
                                   self.c_len)
         
-class CBuffer(CBufferMixin, buffer.Buffer):
+class CBuffer(buffer.Buffer):
+    import_from_mixin(CBufferMixin)
+    _immutable_ = True
+
     def __del__(self):
         CBufferMixin.destructor(self)

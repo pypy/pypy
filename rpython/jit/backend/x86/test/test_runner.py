@@ -438,20 +438,26 @@ class TestX86(LLtypeBackendTest):
         if WORD != 4:
             py.test.skip("32-bit only test")
         from rpython.jit.backend.x86.regloc import eax, edx
-        from rpython.jit.backend.x86 import codebuf
+        from rpython.jit.backend.x86 import codebuf, callbuilder
         from rpython.jit.codewriter.effectinfo import EffectInfo
         from rpython.rlib.libffi import types, clibffi
         had_stdcall = hasattr(clibffi, 'FFI_STDCALL')
         if not had_stdcall:    # not running on Windows, but we can still test
             monkeypatch.setattr(clibffi, 'FFI_STDCALL', 12345, raising=False)
+            monkeypatch.setattr(callbuilder, 'stdcall_or_cdecl', True)
+        else:
+            assert callbuilder.stdcall_or_cdecl
         #
-        for ffi in [clibffi.FFI_DEFAULT_ABI, clibffi.FFI_STDCALL]:
+        for real_ffi, reported_ffi in [
+               (clibffi.FFI_DEFAULT_ABI, clibffi.FFI_DEFAULT_ABI),
+               (clibffi.FFI_STDCALL, clibffi.FFI_DEFAULT_ABI),
+               (clibffi.FFI_STDCALL, clibffi.FFI_STDCALL)]:
             cpu = self.cpu
             mc = codebuf.MachineCodeBlockWrapper()
             mc.MOV_rs(eax.value, 4)      # argument 1
             mc.MOV_rs(edx.value, 40)     # argument 10
             mc.SUB_rr(eax.value, edx.value)     # return arg1 - arg10
-            if ffi == clibffi.FFI_DEFAULT_ABI:
+            if real_ffi == clibffi.FFI_DEFAULT_ABI:
                 mc.RET()
             else:
                 mc.RET16_i(40)
@@ -459,7 +465,7 @@ class TestX86(LLtypeBackendTest):
             #
             calldescr = cpu._calldescr_dynamic_for_tests([types.slong] * 10,
                                                          types.slong)
-            calldescr.get_call_conv = lambda: ffi      # <==== hack
+            calldescr.get_call_conv = lambda: reported_ffi      # <==== hack
             # ^^^ we patch get_call_conv() so that the test also makes sense
             #     on Linux, because clibffi.get_call_conv() would always
             #     return FFI_DEFAULT_ABI on non-Windows platforms.

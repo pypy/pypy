@@ -143,9 +143,6 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_bufferstr(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
-    def visit_bufferstr_or_u(self, el, app_sig):
-        self.checked_space_method(el, app_sig)
-
     def visit_str_or_None(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
@@ -271,9 +268,6 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_bufferstr(self, typ):
         self.run_args.append("space.bufferstr_w(%s)" % (self.scopenext(),))
-
-    def visit_bufferstr_or_u(self, typ):
-        self.run_args.append("space.bufferstr_or_u_w(%s)" % (self.scopenext(),))
 
     def visit_str_or_None(self, typ):
         self.run_args.append("space.str_or_None_w(%s)" % (self.scopenext(),))
@@ -421,9 +415,6 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_bufferstr(self, typ):
         self.unwrap.append("space.bufferstr_w(%s)" % (self.nextarg(),))
-
-    def visit_bufferstr_or_u(self, typ):
-        self.unwrap.append("space.bufferstr_or_u_w(%s)" % (self.nextarg(),))
 
     def visit_str_or_None(self, typ):
         self.unwrap.append("space.str_or_None_w(%s)" % (self.nextarg(),))
@@ -939,7 +930,7 @@ class interp2app(W_Root):
                     "use unwrap_spec(...=WrappedDefault(default))" % (
                     self._code.identifier, name, defaultval))
                 defs_w.append(None)
-            else:
+            elif name != '__args__' and name != 'args_w':
                 spec = unwrap_spec[i]
                 if isinstance(defaultval, str) and spec not in [str]:
                     defs_w.append(space.wrapbytes(defaultval))
@@ -1126,7 +1117,9 @@ def appdef(source, applevel=ApplevelClass, filename=None):
                            return x+y
                     ''')
     """
+    prefix = ""
     if not isinstance(source, str):
+        flags = source.__code__.co_flags
         source = py.std.inspect.getsource(source).lstrip()
         while source.startswith(('@py.test.mark.', '@pytest.mark.')):
             # these decorators are known to return the same function
@@ -1135,12 +1128,21 @@ def appdef(source, applevel=ApplevelClass, filename=None):
             source = source[source.find('\n') + 1:].lstrip()
         assert source.startswith("def "), "can only transform functions"
         source = source[4:]
+        import __future__
+        if flags & __future__.CO_FUTURE_DIVISION:
+            prefix += "from __future__ import division\n"
+        if flags & __future__.CO_FUTURE_ABSOLUTE_IMPORT:
+            prefix += "from __future__ import absolute_import\n"
+        if flags & __future__.CO_FUTURE_PRINT_FUNCTION:
+            prefix += "from __future__ import print_function\n"
+        if flags & __future__.CO_FUTURE_UNICODE_LITERALS:
+            prefix += "from __future__ import unicode_literals\n"
     p = source.find('(')
     assert p >= 0
     funcname = source[:p].strip()
     source = source[p:]
     assert source.strip()
-    funcsource = "def %s%s\n" % (funcname, source)
+    funcsource = prefix + "def %s%s\n" % (funcname, source)
     #for debugging of wrong source code: py.std.parser.suite(funcsource)
     a = applevel(funcsource, filename=filename)
     return a.interphook(funcname)

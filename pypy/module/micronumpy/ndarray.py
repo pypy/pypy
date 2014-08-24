@@ -593,28 +593,36 @@ class __extend__(W_NDimArray):
     def descr_choose(self, space, w_choices, w_out=None, w_mode=None):
         return choose(space, self, w_choices, w_out, w_mode)
 
-    def descr_clip(self, space, w_min, w_max, w_out=None):
+    def descr_clip(self, space, w_min=None, w_max=None, w_out=None):
+        if space.is_none(w_min):
+            w_min = None
+        else:
+            w_min = convert_to_array(space, w_min)
+        if space.is_none(w_max):
+            w_max = None
+        else:
+            w_max = convert_to_array(space, w_max)
         if space.is_none(w_out):
             w_out = None
         elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                 "return arrays must be of ArrayType"))
-        min = convert_to_array(space, w_min)
-        max = convert_to_array(space, w_max)
-        shape = shape_agreement_multiple(space, [self, min, max, w_out])
-        out = descriptor.dtype_agreement(space, [self, min, max], shape, w_out)
-        loop.clip(space, self, shape, min, max, out)
+        if not w_min and not w_max:
+            raise oefmt(space.w_ValueError, "One of max or min must be given.")
+        shape = shape_agreement_multiple(space, [self, w_min, w_max, w_out])
+        out = descriptor.dtype_agreement(space, [self, w_min, w_max], shape, w_out)
+        loop.clip(space, self, shape, w_min, w_max, out)
         return out
 
     def descr_get_ctypes(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "ctypes not implemented yet"))
 
-    def buffer_w(self, space):
-        return self.implementation.get_buffer(space)
+    def buffer_w(self, space, flags):
+        return self.implementation.get_buffer(space, True)
 
     def descr_get_data(self, space):
-        return space.newbuffer(self.buffer_w(space))
+        return space.newbuffer(self.implementation.get_buffer(space, False))
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):
@@ -721,6 +729,8 @@ class __extend__(W_NDimArray):
         ret = W_NDimArray.from_shape(
             space, v.get_shape(), descriptor.get_dtype_cache(space).w_longdtype)
         app_searchsort(space, self, v, space.wrap(side), ret)
+        if ret.is_scalar():
+            return ret.get_scalar_value()
         return ret
 
     def descr_setasflat(self, space, w_v):
@@ -1178,7 +1188,10 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("unsupported param"))
 
-        buf = space.buffer_w(w_buffer)
+        try:
+            buf = space.writebuf_w(w_buffer)
+        except OperationError:
+            buf = space.readbuf_w(w_buffer)
         try:
             raw_ptr = buf.get_raw_address()
         except ValueError:
@@ -1196,7 +1209,7 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
                                                   w_subtype=w_subtype,
                                                   w_base=w_buffer,
-                                                  writable=buf.is_writable())
+                                                  writable=not buf.readonly)
 
     order = order_converter(space, w_order, NPY.CORDER)
     if order == NPY.CORDER:
@@ -1288,8 +1301,7 @@ app_searchsort = applevel(r"""
         return result
 """, filename=__file__).interphook('searchsort')
 
-W_NDimArray.typedef = TypeDef("ndarray",
-    __module__ = "numpy",
+W_NDimArray.typedef = TypeDef("numpy.ndarray",
     __new__ = interp2app(descr_new_array),
 
     __len__ = interp2app(W_NDimArray.descr_len),
@@ -1455,8 +1467,7 @@ def _reconstruct(space, w_subtype, w_shape, w_dtype):
     return descr_new_array(space, w_subtype, w_shape, w_dtype)
 
 
-W_FlatIterator.typedef = TypeDef("flatiter",
-    __module__ = "numpy",
+W_FlatIterator.typedef = TypeDef("numpy.flatiter",
     __iter__ = interp2app(W_FlatIterator.descr_iter),
     __getitem__ = interp2app(W_FlatIterator.descr_getitem),
     __setitem__ = interp2app(W_FlatIterator.descr_setitem),

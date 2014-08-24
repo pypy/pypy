@@ -32,7 +32,8 @@ class Function(W_Root):
                           'w_func_globals?',
                           'closure?[*]',
                           'defs_w?[*]',
-                          'name?']
+                          'name?',
+                          'w_kw_defs?']
 
     def __init__(self, space, code, w_globals=None, defs_w=[], w_kw_defs=None,
                  closure=None, w_ann=None, forcename=None):

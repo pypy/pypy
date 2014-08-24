@@ -54,7 +54,7 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         module = self.import_module(name='array')
         arr = module.array('i', [1,2,3,4])
         # XXX big-endian
-        assert memoryview(arr).tobytes() == (b'\x01\0\0\0'
-                                             b'\x02\0\0\0'
-                                             b'\x03\0\0\0'
-                                             b'\x04\0\0\0')
+        assert bytes(arr) == (b'\x01\0\0\0'
+                              b'\x02\0\0\0'
+                              b'\x03\0\0\0'
+                              b'\x04\0\0\0')

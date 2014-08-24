@@ -934,7 +934,7 @@ def select_function_code_generators(fnobj, db, functionname):
     elif hasattr(fnobj._callable, "c_name"):
         return []
     else:
-        raise ValueError, "don't know how to generate code for %r" % (fnobj,)
+        raise ValueError("don't know how to generate code for %r" % (fnobj,))
 
 class ExtType_OpaqueNode(ContainerNode):
     nodekind = 'rpyopaque'
@@ -959,12 +959,30 @@ class ExtType_OpaqueNode(ContainerNode):
                 args.append('0')
         yield 'RPyOpaque_SETUP_%s(%s);' % (T.tag, ', '.join(args))
 
+class ThreadLocalRefOpaqueNode(ContainerNode):
+    nodekind = 'tlrefopaque'
+
+    def basename(self):
+        return self.obj._name
+
+    def enum_dependencies(self):
+        return []
+
+    def initializationexpr(self, decoration=''):
+        return ['0']
+
+    def startupcode(self):
+        p = self.getptrname()
+        yield 'RPyThreadStaticTLS_Create(%s);' % (p,)
+
 
 def opaquenode_factory(db, T, obj):
     if T == RuntimeTypeInfo:
         return db.gcpolicy.rtti_node_factory()(db, T, obj)
     if T.hints.get("render_structure", False):
         return ExtType_OpaqueNode(db, T, obj)
+    if T.hints.get("threadlocalref", False):
+        return ThreadLocalRefOpaqueNode(db, T, obj)
     raise Exception("don't know about %r" % (T,))
 
 

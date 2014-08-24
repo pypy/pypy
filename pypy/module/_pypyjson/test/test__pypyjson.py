@@ -188,3 +188,11 @@ class AppTest(object):
         # http://json.org/JSON_checker/test/fail25.json
         s = '["\ttab\tcharacter\tin\tstring\t"]'
         raises(ValueError, "_pypyjson.loads(s)")
+
+    def test_keys_reuse(self):
+        import _pypyjson
+        s = '[{"a_key": 1, "b_\xe9": 2}, {"a_key": 3, "b_\xe9": 4}]'
+        rval = _pypyjson.loads(s)
+        (a, b), (c, d) = sorted(rval[0]), sorted(rval[1])
+        assert a is c
+        assert b is d

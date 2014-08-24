@@ -541,6 +541,10 @@ LL_OPERATIONS = {
     'getslice':             LLOp(canraise=(Exception,)),
     'check_and_clear_exc':  LLOp(),
 
+    'threadlocalref_get':   LLOp(sideeffects=False),
+    'threadlocalref_getaddr': LLOp(sideeffects=False),
+    'threadlocalref_set':   LLOp(),
+
     # __________ debugging __________
     'debug_view':           LLOp(),
     'debug_print':          LLOp(canrun=True),

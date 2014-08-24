@@ -2,9 +2,9 @@ import py
 import sys
 
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator import cdir
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform as platform
-from rpython.conftest import cdir
 
 libdir = py.path.local(cdir).join('src', 'libmpdec')
 

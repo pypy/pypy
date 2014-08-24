@@ -118,7 +118,7 @@ class W_SRE_Pattern(W_Root):
             return rsre_core.UnicodeMatchContext(self.code, unicodestr,
                                                  pos, endpos, self.flags)
         else:
-            buf = space.buffer_w(w_string)
+            buf = space.readbuf_w(w_string)
             if (not space.is_none(self.w_pattern) and
                 space.isinstance_w(self.w_pattern, space.w_unicode)):
                 raise OperationError(space.w_TypeError, space.wrap(

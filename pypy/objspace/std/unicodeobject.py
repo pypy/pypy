@@ -2,7 +2,8 @@
 
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin)
-from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.buffer import StringBuffer
+from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.runicode import (
     make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
     unicode_encode_ascii, unicode_encode_utf_8)
@@ -23,7 +24,7 @@ __all__ = ['W_UnicodeObject', 'wrapunicode', 'encode_object', 'decode_object',
 
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
-    _immutable_fields_ = ['_value']
+    _immutable_fields_ = ['_value', '_utf8?']
 
     def __init__(w_self, unistr):
         assert isinstance(unistr, unicode)
@@ -93,10 +94,16 @@ class W_UnicodeObject(W_Root):
     def _len(self):
         return len(self._value)
 
-    def _val(self, space):
-        return self._value
+    _val = unicode_w
 
-    def _op_val(self, space, w_other):
+    @staticmethod
+    def _use_rstr_ops(space, w_other):
+        # Always return true because we always need to copy the other
+        # operand(s) before we can do comparisons
+        return True
+
+    @staticmethod
+    def _op_val(space, w_other):
         if isinstance(w_other, W_UnicodeObject):
             return w_other._value
         raise oefmt(space.w_TypeError,
@@ -511,12 +518,12 @@ def decode_object(space, w_obj, encoding, errors):
     if errors is None or errors == 'strict':
         if encoding == 'ascii':
             # XXX error handling
-            s = space.bufferstr_w(w_obj)
+            s = space.charbuf_w(w_obj)
             eh = unicodehelper.decode_error_handler(space)
             return space.wrap(str_decode_ascii(
                     s, len(s), None, final=True, errorhandler=eh)[0])
         if encoding == 'utf-8':
-            s = space.bufferstr_w(w_obj)
+            s = space.charbuf_w(w_obj)
             eh = unicodehelper.decode_error_handler(space)
             return space.wrap(str_decode_utf_8(
                     s, len(s), None, final=True, errorhandler=eh)[0])
@@ -1159,7 +1166,7 @@ def unicode_to_decimal_w(space, w_unistr):
             except KeyError:
                 pass
         result[i] = unichr(uchr)
-    return unicodehelper.encode_utf8(space, u''.join(result))
+    return unicodehelper.encode_utf8(space, u''.join(result), allow_surrogates=True)
 
 
 _repr_function, _ = make_unicode_escape_function(

@@ -256,6 +256,7 @@ class AppTestRaise:
             fail("Did not raise")
 
     def test_obscure_bases(self):
+        """
         # this test checks bug-to-bug cpython compatibility
         e = ValueError()
         e.__bases__ = (5,)
@@ -267,20 +268,21 @@ class AppTestRaise:
         # explodes on CPython and py.test, not sure why
 
         flag = False
-        class A(BaseException):
-            class __metaclass__(type):
-                def __getattribute__(self, name):
-                    if flag and name == '__bases__':
-                        fail("someone read bases attr")
-                    else:
-                        return type.__getattribute__(self, name)
-
+        class metaclass(type):
+            def __getattribute__(self, name):
+                if flag and name == '__bases__':
+                    fail("someone read bases attr")
+                else:
+                    return type.__getattribute__(self, name)
+        class A(BaseException, metaclass=metaclass):
+            pass
         try:
             a = A()
             flag = True
             raise a
         except A:
             pass
+        """
 
     def test_new_returns_bad_instance(self):
         class MyException(Exception):
@@ -368,6 +370,44 @@ class AppTestRaiseContext:
             assert e.__context__.__context__ is None
         else:
             fail("No exception raised")
+
+    def test_context_once_removed(self):
+        context = IndexError()
+        def func1():
+            func2()
+        def func2():
+            try:
+                1/0
+            except ZeroDivisionError as e:
+                assert e.__context__ is context
+            else:
+                fail('No exception raised')
+        try:
+            raise context
+        except:
+            func1()
+
+    @py.test.mark.xfail(reason="A somewhat contrived case that may burden the "
+                        "JIT to fully support")
+    def test_frame_spanning_cycle_broken(self):
+        context = IndexError()
+        def func():
+            try:
+                1/0
+            except Exception as e1:
+                try:
+                    raise context
+                except Exception as e2:
+                    assert e2.__context__ is e1
+                    # XXX:
+                    assert e1.__context__ is None
+            else:
+                fail('No exception raised')
+        try:
+            raise context
+        except:
+            func()
+
 
 class AppTestTraceback:
 

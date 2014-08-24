@@ -4,7 +4,7 @@ from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import Py_buffer, cpython_api
 from pypy.module.cpyext.pyobject import PyObject, from_ref
 from pypy.module.cpyext.buffer import CBuffer
-from pypy.objspace.std.memoryview import W_MemoryView
+from pypy.objspace.std.memoryobject import W_MemoryView
 
 @cpython_api([PyObject], PyObject)
 def PyMemoryView_FromObject(space, w_obj):

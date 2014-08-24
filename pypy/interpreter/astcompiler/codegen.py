@@ -244,7 +244,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(op, self.add_name(container, identifier))
 
     def possible_docstring(self, node):
-        if isinstance(node, ast.Expr):
+        if isinstance(node, ast.Expr) and self.compile_info.optimize < 2:
             expr_value = node.value
             if isinstance(expr_value, ast.Str):
                 return expr_value
@@ -435,9 +435,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.error("illegal expression for augmented assignment", assign)
 
     def visit_Assert(self, asrt):
+        if self.compile_info.optimize >= 1:
+            return
         self.update_position(asrt.lineno)
         end = self.new_block()
-        self.emit_jump(ops.JUMP_IF_NOT_DEBUG, end)
+        if self.compile_info.optimize != 0:
+            self.emit_jump(ops.JUMP_IF_NOT_DEBUG, end)
         asrt.test.accept_jump_if(self, True, end)
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "AssertionError")
         if asrt.msg:
@@ -871,11 +874,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_VALUE)
 
-    def visit_YieldFrom(self, yie):
-        # XXX not correctly implemented.
-        self.update_position(yie.lineno)
-        yie.value.walkabout(self)
-        self.emit_op(ops.YIELD_VALUE)
+    def visit_YieldFrom(self, yfr):
+        self.update_position(yfr.lineno)
+        yfr.value.walkabout(self)
+        self.emit_op(ops.GET_ITER)
+        self.load_const(self.space.w_None)
+        self.emit_op(ops.YIELD_FROM)
 
     def visit_Num(self, num):
         self.update_position(num.lineno)
@@ -1353,10 +1357,10 @@ class ClassCodeGenerator(PythonCodeGenerator):
         # compile the body proper
         self._handle_body(cls.body)
         # return the (empty) __class__ cell
-        scope = self.scope.lookup("@__class__")
+        scope = self.scope.lookup("__class__")
         if scope == symtable.SCOPE_CELL:
             # Return the cell where to store __class__
-            self.emit_op_arg(ops.LOAD_CLOSURE, self.cell_vars["@__class__"])
+            self.emit_op_arg(ops.LOAD_CLOSURE, self.cell_vars["__class__"])
         else:
             # This happens when nobody references the cell
             self.load_const(self.space.w_None)

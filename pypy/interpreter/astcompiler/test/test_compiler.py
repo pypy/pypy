@@ -347,7 +347,7 @@ class TestCompiler:
                 A().m()
             except ImportError as e:
                 msg = str(e)
-            ''', "msg", "No module named __foo__")
+            ''', "msg", "No module named '__foo__'")
 
     def test_if_stmts(self):
         yield self.st, "a = 42\nif a > 10: a += 2", "a", 44
@@ -808,6 +808,28 @@ class TestCompiler:
             return y"""
         yield self.st, test, "f()", 4
 
+    def test_nonlocal_from_arg(self):
+        test = """if 1:
+        def test1(x):
+            def test2():
+                nonlocal x
+                def test3():
+                    return x
+                return test3()
+            return test2()"""
+        yield self.st, test, "test1(2)", 2
+
+    def test_class_nonlocal_from_arg(self):
+        test = """if 1:
+        def f(x):
+            class c:
+                nonlocal x
+                x += 1
+                def get(self):
+                    return x
+            return c().get()"""
+        yield self.st, test, "f(3)", 4
+
     def test_lots_of_loops(self):
         source = "for x in y: pass\n" * 1000
         compile_with_astcompiler(source, 'exec', self.space)
@@ -965,6 +987,24 @@ class TestCompiler:
         yield self.st, 'x = list(d for d in [1] or [])', 'x', [1]
         yield self.st, 'y = [d for d in [1] or []]', 'y', [1]
 
+    def test_yield_from(self):
+        test = """if 1:
+        def f():
+            yield from range(3)
+        def g():
+            return list(f())
+        """
+        yield self.st, test, "g()", range(3)
+
+    def test__class__global(self):
+        source = """if 1:
+        class X:
+           global __class__
+           def f(self):
+               super()
+        """
+        py.test.raises(SyntaxError, self.simple_test, source, None, None)
+
 
 class AppTestCompiler:
 
@@ -1011,6 +1051,13 @@ class AppTestCompiler:
         d = {}
         exec('# -*- coding: utf-8 -*-\n\nu = "\xf0\x9f\x92\x8b"', d)
         assert len(d['u']) == 4
+
+    def test_kw_defaults_None(self):
+        import _ast
+        source = "def foo(self, *args, name): pass"
+        ast = compile(source, '', 'exec', _ast.PyCF_ONLY_AST)
+        # compiling the produced AST previously triggered a crash
+        compile(ast, '', 'exec')
 
 
 class TestOptimizations:

@@ -8,7 +8,6 @@ from pypy.interpreter.error import OperationError
 
 
 class PackFormatIterator(FormatIterator):
-
     def __init__(self, space, args_w, size):
         self.space = space
         self.args_w = args_w
@@ -95,11 +94,11 @@ class PackFormatIterator(FormatIterator):
 
 
 class UnpackFormatIterator(FormatIterator):
-
-    def __init__(self, space, input):
+    def __init__(self, space, buf):
         self.space = space
-        self.input = input
-        self.inputpos = 0
+        self.buf = buf
+        self.length = buf.getlength()
+        self.pos = 0
         self.result_w = []     # list of wrapped objects
 
     # See above comment on operate.
@@ -114,18 +113,18 @@ class UnpackFormatIterator(FormatIterator):
     _operate_is_specialized_ = True
 
     def align(self, mask):
-        self.inputpos = (self.inputpos + mask) & ~mask
+        self.pos = (self.pos + mask) & ~mask
 
     def finished(self):
-        if self.inputpos != len(self.input):
+        if self.pos != self.length:
             raise StructError("unpack str size too long for format")
 
     def read(self, count):
-        end = self.inputpos + count
-        if end > len(self.input):
+        end = self.pos + count
+        if end > self.length:
             raise StructError("unpack str size too short for format")
-        s = self.input[self.inputpos : end]
-        self.inputpos = end
+        s = self.buf.getslice(self.pos, end, 1, count)
+        self.pos = end
         return s
 
     @specialize.argtype(1)

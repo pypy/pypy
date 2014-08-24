@@ -84,6 +84,7 @@ def test_whatsnew():
     startrev, documented = parse_doc(last_whatsnew)
     merged, branch = get_merged_branches(ROOT, startrev, '')
     merged.discard('default')
+    merged.discard('py3k')
     merged.discard('')
     not_documented = merged.difference(documented)
     not_merged = documented.difference(merged)

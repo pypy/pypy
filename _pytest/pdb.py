@@ -16,6 +16,12 @@ def pytest_configure(config):
     if config.getvalue("usepdb"):
         config.pluginmanager.register(PdbInvoke(), 'pdbinvoke')
 
+    old_trace = py.std.pdb.set_trace
+    def fin():
+        py.std.pdb.set_trace = old_trace
+    py.std.pdb.set_trace = pytest.set_trace
+    config._cleanup.append(fin)
+
 class pytestPDB:
     """ Pseudo PDB that defers to the real pdb. """
     item = None
@@ -50,35 +56,49 @@ def pytest_make_collect_report(__multicall__, collector):
 
 def pytest_runtest_makereport():
     pytestPDB.item = None
-    
+
 class PdbInvoke:
-    @pytest.mark.tryfirst
-    def pytest_runtest_makereport(self, item, call, __multicall__):
-        rep = __multicall__.execute()
-        if not call.excinfo or \
-            call.excinfo.errisinstance(pytest.skip.Exception) or \
-            call.excinfo.errisinstance(py.std.bdb.BdbQuit):
-            return rep
-        if "xfail" in rep.keywords:
-            return rep
-        # we assume that the above execute() suspended capturing
-        # XXX we re-use the TerminalReporter's terminalwriter
-        # because this seems to avoid some encoding related troubles
-        # for not completely clear reasons.
-        tw = item.config.pluginmanager.getplugin("terminalreporter")._tw
-        tw.line()
-        tw.sep(">", "traceback")
-        rep.toterminal(tw)
-        tw.sep(">", "entering PDB")
-        # A doctest.UnexpectedException is not useful for post_mortem.
-        # Use the underlying exception instead:
-        #if isinstance(call.excinfo.value, py.std.doctest.UnexpectedException):
-        #    tb = call.excinfo.value.exc_info[2]
-        #else:
-        tb = call.excinfo._excinfo[2]
+    def pytest_exception_interact(self, node, call, report):
+        return _enter_pdb(node, call.excinfo, report)
+
+    def pytest_internalerror(self, excrepr, excinfo):
+        for line in str(excrepr).split("\n"):
+            sys.stderr.write("INTERNALERROR> %s\n" %line)
+            sys.stderr.flush()
+        tb = _postmortem_traceback(excinfo)
         post_mortem(tb)
-        rep._pdbshown = True
-        return rep
+
+
+def _enter_pdb(node, excinfo, rep):
+    # XXX we re-use the TerminalReporter's terminalwriter
+    # because this seems to avoid some encoding related troubles
+    # for not completely clear reasons.
+    tw = node.config.pluginmanager.getplugin("terminalreporter")._tw
+    tw.line()
+    tw.sep(">", "traceback")
+    rep.toterminal(tw)
+    tw.sep(">", "entering PDB")
+    tb = _postmortem_traceback(excinfo)
+    post_mortem(tb)
+    rep._pdbshown = True
+    return rep
+
+
+def _postmortem_traceback(excinfo):
+    # A doctest.UnexpectedException is not useful for post_mortem.
+    # Use the underlying exception instead:
+    if isinstance(excinfo.value, py.std.doctest.UnexpectedException):
+        return excinfo.value.exc_info[2]
+    else:
+        return excinfo._excinfo[2]
+
+
+def _find_last_non_hidden_frame(stack):
+    i = max(0, len(stack) - 1)
+    while i and stack[i][0].f_locals.get("__tracebackhide__", False):
+        i -= 1
+    return i
+
 
 def post_mortem(t):
     pdb = py.std.pdb
@@ -86,9 +106,7 @@ def post_mortem(t):
         def get_stack(self, f, t):
             stack, i = pdb.Pdb.get_stack(self, f, t)
             if f is None:
-                i = max(0, len(stack) - 1)
-                while i and stack[i][0].f_locals.get("__tracebackhide__", False):
-                    i-=1
+                i = _find_last_non_hidden_frame(stack)
             return stack, i
     p = Pdb()
     p.reset()

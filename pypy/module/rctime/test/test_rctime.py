@@ -5,12 +5,12 @@ class AppTestRCTime:
 
     def test_attributes(self):
         import time as rctime
-        assert isinstance(rctime.accept2dyear, int)
         assert isinstance(rctime.altzone, int)
         assert isinstance(rctime.daylight, int)
         assert isinstance(rctime.timezone, int)
         assert isinstance(rctime.tzname, tuple)
         assert isinstance(rctime.__doc__, str)
+        assert isinstance(rctime._STRUCT_TM_ITEMS, int)
 
     def test_sleep(self):
         import time as rctime
@@ -42,7 +42,7 @@ class AppTestRCTime:
         res = rctime.ctime(0)
         assert isinstance(res, str)
         rctime.ctime(rctime.time())
-        raises(ValueError, rctime.ctime, 1E200)
+        raises(OverflowError, rctime.ctime, 1E200)
         raises(OverflowError, rctime.ctime, 10**900)
         for year in [-100, 100, 1000, 2000, 10000]:
             try:
@@ -68,8 +68,8 @@ class AppTestRCTime:
         assert 0 <= (t1 - t0) < 1.2
         t = rctime.time()
         assert rctime.gmtime(t) == rctime.gmtime(t)
-        raises(ValueError, rctime.gmtime, 2**64)
-        raises(ValueError, rctime.gmtime, -2**64)
+        raises(OverflowError, rctime.gmtime, 2**64)
+        raises(OverflowError, rctime.gmtime, -2**64)
 
     def test_localtime(self):
         import time as rctime
@@ -100,22 +100,16 @@ class AppTestRCTime:
         res = rctime.mktime(rctime.localtime())
         assert isinstance(res, float)
 
+        # year cannot be -1
         ltime = rctime.localtime()
-        rctime.accept2dyear == 0
         ltime = list(ltime)
         ltime[0] = -1
-        raises(ValueError, rctime.mktime, tuple(ltime))
-        rctime.accept2dyear == 1
+        raises(OverflowError, rctime.mktime, tuple(ltime))
 
-        ltime = list(ltime)
-        ltime[0] = 67
-        ltime = tuple(ltime)
-        if os.name != "nt" and sys.maxsize < 1<<32:   # time_t may be 64bit
-            raises(OverflowError, rctime.mktime, ltime)
-
+        # year cannot be 100
         ltime = list(ltime)
         ltime[0] = 100
-        raises(ValueError, rctime.mktime, tuple(ltime))
+        raises(OverflowError, rctime.mktime, tuple(ltime))
 
         t = rctime.time()
         assert int(rctime.mktime(rctime.localtime(t))) == int(t)
@@ -167,28 +161,6 @@ class AppTestRCTime:
         asc = rctime.asctime((bigyear, 6, 1) + (0,)*6)
         assert asc[-len(str(bigyear)):] == str(bigyear)
         raises(OverflowError, rctime.asctime, (bigyear + 1,) + (0,)*8)
-
-    def test_accept2dyear_access(self):
-        import time as rctime
-
-        accept2dyear = rctime.accept2dyear
-        del rctime.accept2dyear
-        try:
-            # with year >= 1900 this shouldn't need to access accept2dyear
-            assert rctime.asctime((2000,) + (0,) * 8).split()[-1] == '2000'
-        finally:
-            rctime.accept2dyear = accept2dyear
-
-    def test_accept2dyear_bad(self):
-        import time as rctime
-        class X:
-            def __bool__(self):
-                raise RuntimeError('boo')
-        orig, rctime.accept2dyear = rctime.accept2dyear, X()
-        try:
-            raises(RuntimeError, rctime.asctime, (200,)  + (0,) * 8)
-        finally:
-            rctime.accept2dyear = orig
 
     def test_struct_time(self):
         import time as rctime
@@ -280,7 +252,7 @@ class AppTestRCTime:
         raises(TypeError, rctime.strftime, ())
         raises(TypeError, rctime.strftime, (1,))
         raises(TypeError, rctime.strftime, range(8))
-        exp = '2000 01 01 00 00 00 1 001'
+        exp = '0 01 01 00 00 00 1 001'
         assert rctime.strftime("%Y %m %d %H %M %S %w %j", (0,)*9) == exp
 
         # Guard against invalid/non-supported format string
@@ -294,6 +266,23 @@ class AppTestRCTime:
             assert rctime.strftime('%f') == 'f'
         else:
             assert rctime.strftime('%f') == '%f'
+
+    def test_strftime_y2k(self):
+        '''Port of cpython's datetimetester.test_strftime_y2k.'''
+        import time as rctime
+
+        ltime = list(rctime.gmtime())
+        for y in (1, 49, 70, 99, 100, 999, 1000, 1970):
+            ltime[0] = y
+
+            def fmt(template):
+                return rctime.strftime(template, tuple(ltime))
+
+            if fmt('%Y') != '%04d' % y:
+                # Year 42 returns '42', not padded
+                assert fmt("%Y") == '%d' % y
+                # '0042' is obtained anyway
+                assert fmt("%4Y") == '%04d' % y
 
     def test_strftime_ext(self):
         import time as rctime
@@ -313,9 +302,6 @@ class AppTestRCTime:
         # of the time tuple.
 
         # check year
-        if rctime.accept2dyear:
-            raises(ValueError, rctime.strftime, '', (-1, 1, 1, 0, 0, 0, 0, 1, -1))
-            raises(ValueError, rctime.strftime, '', (100, 1, 1, 0, 0, 0, 0, 1, -1))
         rctime.strftime('', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
         rctime.strftime('', (0, 1, 1, 0, 0, 0, 0, 1, -1))
 

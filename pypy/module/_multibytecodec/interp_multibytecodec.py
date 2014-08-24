@@ -46,7 +46,6 @@ class MultibyteCodec(W_Root):
 
 MultibyteCodec.typedef = TypeDef(
     'MultibyteCodec',
-    __module__ = '_multibytecodec',
     decode = interp2app(MultibyteCodec.decode),
     encode = interp2app(MultibyteCodec.encode),
     )

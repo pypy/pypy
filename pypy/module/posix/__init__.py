@@ -1,5 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.module.ll_os import RegisterOs
+from rpython.rlib import rdynload
 
 import os
 exec 'import %s as posix' % os.name
@@ -22,9 +23,6 @@ corresponding Unix manual entries for more information on calls."""
     if os.name == 'nt':
         del appleveldefs['urandom'] # at interp on win32
         appleveldefs.update({
-            'popen2': 'app_posix.popen2',
-            'popen3': 'app_posix.popen3',
-            'popen4': 'app_posix.popen4',
             'startfile': 'app_startfile.startfile',
         })
 
@@ -88,6 +86,7 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['fchmod'] = 'interp_posix.fchmod'
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
+        interpleveldefs['truncate'] = 'interp_posix.truncate'
     if hasattr(os, 'fsync'):
         interpleveldefs['fsync'] = 'interp_posix.fsync'
     if hasattr(os, 'fdatasync'):
@@ -175,6 +174,12 @@ corresponding Unix manual entries for more information on calls."""
     for name in RegisterOs.w_star:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.' + name
+
+    for _name in ["RTLD_LAZY", "RTLD_NOW", "RTLD_GLOBAL", "RTLD_LOCAL",
+                  "RTLD_NODELETE", "RTLD_NOLOAD", "RTLD_DEEPBIND"]:
+        if getattr(rdynload.cConfig, _name) is not None:
+            interpleveldefs[_name] = 'space.wrap(%d)' % (
+                getattr(rdynload.cConfig, _name),)
 
     # os.py uses this list to build os.supports_dir_fd() and os.supports_fd().
     # Fill with e.g. HAVE_FCHDIR, when os.chdir() supports file descriptors.

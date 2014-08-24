@@ -116,7 +116,7 @@ class TranslationContext(object):
                 print >>f, "   ",op
             print >>f, '--end--'
             return
-        raise TypeError, "don't know about %r" % x
+        raise TypeError("don't know about %r" % x)
 
 
     def view(self):

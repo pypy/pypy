@@ -9,7 +9,7 @@ from http.cookies import SimpleCookie
 
 from test.support import (
     TestFailed, TESTFN, run_with_locale, no_tracing,
-    _2G, _4G, bigmemtest,
+    _2G, _4G, bigmemtest, check_impl_detail
     )
 
 from pickle import bytes_types

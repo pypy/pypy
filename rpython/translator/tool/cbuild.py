@@ -361,4 +361,8 @@ STANDARD_DEFINES = '''
    typedef unsigned long Unsigned;
 #  define SIGNED_MIN LONG_MIN
 #endif
+
+#if !defined(RPY_ASSERT) && !defined(RPY_LL_ASSERT)
+#  define NDEBUG
+#endif
 '''

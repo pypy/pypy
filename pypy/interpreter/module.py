@@ -3,7 +3,7 @@ Module objects.
 """
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.objectmodel import we_are_translated
 
 
@@ -123,3 +123,10 @@ class Module(W_Root):
         except OperationError:
             __file__ = u'?'
         return space.wrap(u"<module %s from %s>" % (name, __file__))
+
+    def descr_module__dir__(self, space):
+        w_dict = space.getattr(self, space.wrap('__dict__'))
+        if not space.isinstance_w(w_dict, space.w_dict):
+            raise oefmt(space.w_TypeError, "%N.__dict__ is not a dictionary",
+                        self)
+        return space.call_function(space.w_list, w_dict)

@@ -1,3 +1,4 @@
+# encoding: utf-8
 from rpython.tool.udir import udir
 import os
 
@@ -54,6 +55,20 @@ class AppTestFileIO:
             fd = os.open(self.tmpdir, os.O_RDONLY)
             raises(IOError, _io.FileIO, fd, "rb")
             os.close(fd)
+
+    def test_open_non_existent_unicode(self):
+        import _io
+        import os
+        path = os.path.join(self.tmpdir, '_pypy-日本')
+        try:
+            os.fsencode(path)
+        except UnicodeEncodeError:
+            import sys
+            skip("can't run this test with %s as filesystem encoding" %
+                 sys.getfilesystemencoding())
+        exc = raises(IOError, _io.FileIO, path)
+        expected = "[Errno 2] No such file or directory: %r" % path
+        assert str(exc.value) == expected
 
     def test_readline(self):
         import _io
@@ -135,6 +150,13 @@ class AppTestFileIO:
         a = bytearray(b'x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
         assert f.readinto(a) == 10
+        f.seek(0)
+        m = memoryview(bytearray(b"helloworld"))
+        assert f.readinto(m) == 10
+        exc = raises(TypeError, f.readinto, u"hello")
+        assert str(exc.value) == "must be read-write buffer, not str"
+        exc = raises(TypeError, f.readinto, memoryview(b"hello"))
+        assert str(exc.value) == "must be read-write buffer, not memoryview"
         f.close()
         assert a == b'a\nb\nc\0\0\0\0\0'
         #

@@ -49,7 +49,7 @@ def excepthook_failsafe(exctype, value):
     except:
         return False    # got an exception again... ignore, report the original
 
-def exit(exitcode=0):
+def exit(exitcode=None):
     """Exit the interpreter by raising SystemExit(exitcode).
 If the exitcode is omitted or None, it defaults to zero (i.e., success).
 If the exitcode is numeric, it will be used as the system exit status.
@@ -94,20 +94,19 @@ class sysflags(metaclass=structseqtype):
     name = "sys.flags"
 
     debug = structseqfield(0)
-    division_warning = structseqfield(1)
-    inspect = structseqfield(2)
-    interactive = structseqfield(3)
-    optimize = structseqfield(4)
-    dont_write_bytecode = structseqfield(5)
-    no_user_site = structseqfield(6)
-    no_site = structseqfield(7)
-    ignore_environment = structseqfield(8)
-    verbose = structseqfield(9)
-    bytes_warning = structseqfield(10)
-    quiet = structseqfield(11)
-    hash_randomization = structseqfield(12)
+    inspect = structseqfield(1)
+    interactive = structseqfield(2)
+    optimize = structseqfield(3)
+    dont_write_bytecode = structseqfield(4)
+    no_user_site = structseqfield(5)
+    no_site = structseqfield(6)
+    ignore_environment = structseqfield(7)
+    verbose = structseqfield(8)
+    bytes_warning = structseqfield(9)
+    quiet = structseqfield(10)
+    hash_randomization = structseqfield(11)
 
-null_sysflags = sysflags((0,)*13)
+null_sysflags = sysflags((0,)*12)
 null__xoptions = {}
 
 
@@ -129,6 +128,17 @@ class SimpleNamespace:
     @property
     def __dict__(self):
         return self._ns
+
+    def __repr__(self, recurse=set()):
+        ident = id(self)
+        if ident in recurse:
+            return "namespace(...)"
+        recurse.add(ident)
+        try:
+            pairs = ('%s=%r' % item for item in sorted(self._ns.items()))
+            return "namespace(%s)" % ', '.join(pairs)
+        finally:
+            recurse.remove(ident)
 
 
 implementation = SimpleNamespace(

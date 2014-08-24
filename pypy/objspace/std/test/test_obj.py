@@ -105,6 +105,16 @@ class AppTestObject:
                 return 123456
         assert A().__str__() == 123456
 
+    def test_object_dir(self):
+        class A(object):
+            a_var = None
+
+        assert hasattr(object, '__dir__')
+        obj = A()
+        obj_items = dir(obj)
+        assert obj_items == sorted(obj_items)
+        assert obj_items == sorted(object.__dir__(obj))
+
 
     def test_is_on_primitives(self):
         if self.cpython_apptest:

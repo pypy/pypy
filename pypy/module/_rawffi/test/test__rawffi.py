@@ -354,6 +354,11 @@ class AppTestFfi:
         assert ptr[0] == rawcall.buffer
         ptr.free()
 
+    def test_raw_callable_returning_void(self):
+        import _rawffi
+        _rawffi.FuncPtr(0, [], None)
+        # assert did not crash
+
     def test_short_addition(self):
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
@@ -1092,6 +1097,12 @@ class AppTestFfi:
         b[3:5] = b'zt'
         assert a[3] == b'z'
         assert a[4] == b't'
+
+        b = memoryview(a)
+        assert len(b) == 10
+        assert b[3] == b'z'
+        b[3] = b'x'
+        assert b[3] == b'x'
 
     def test_union(self):
         import _rawffi

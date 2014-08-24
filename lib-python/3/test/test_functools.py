@@ -45,6 +45,8 @@ class TestPartial(unittest.TestCase):
         self.assertEqual(p.args, (1, 2))
         self.assertEqual(p.keywords, dict(a=10, b=20))
         # attributes should not be writable
+        if not support.check_impl_detail():
+            return
         self.assertRaises(AttributeError, setattr, p, 'func', map)
         self.assertRaises(AttributeError, setattr, p, 'args', (1, 2))
         self.assertRaises(AttributeError, setattr, p, 'keywords', dict(a=1, b=2))
@@ -136,6 +138,7 @@ class TestPartial(unittest.TestCase):
         p = proxy(f)
         self.assertEqual(f.func, p.func)
         f = None
+        support.gc_collect()
         self.assertRaises(ReferenceError, getattr, p, 'func')
 
     def test_with_bound_and_unbound_methods(self):
@@ -192,9 +195,13 @@ class TestPartial(unittest.TestCase):
                 raise IndexError
 
         f = self.thetype(object)
-        self.assertRaisesRegex(SystemError,
-                "new style getargs format but argument is not a tuple",
-                f.__setstate__, BadSequence())
+        if support.check_impl_detail(pypy=True):
+            # CPython fails, pypy does not :-)
+            f.__setstate__(BadSequence())
+        else:
+            self.assertRaisesRegex(SystemError,
+                    "new style getargs format but argument is not a tuple",
+                    f.__setstate__, BadSequence())
 
 class PartialSubclass(functools.partial):
     pass
@@ -223,7 +230,7 @@ class TestUpdateWrapper(unittest.TestCase):
                       updated=functools.WRAPPER_UPDATES):
         # Check attributes were assigned
         for name in assigned:
-            self.assertTrue(getattr(wrapper, name) is getattr(wrapped, name))
+            self.assertTrue(getattr(wrapper, name) == getattr(wrapped, name))
         # Check attributes were updated
         for name in updated:
             wrapper_attr = getattr(wrapper, name)

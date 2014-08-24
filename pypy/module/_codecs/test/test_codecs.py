@@ -277,7 +277,7 @@ class AppTestPartialEvaluation:
                 assert enc == b"a\x00\x00\x00"
 
     def test_unicode_internal_decode(self):
-        import sys
+        import sys, _codecs, array
         if sys.maxunicode == 65535: # UCS2 build
             if sys.byteorder == "big":
                 bytes = b"\x00a"
@@ -292,6 +292,8 @@ class AppTestPartialEvaluation:
                 bytes2 = b"\x98\x00\x01\x00"
             assert bytes2.decode("unicode_internal") == "\U00010098"
         assert bytes.decode("unicode_internal") == "a"
+        assert _codecs.unicode_internal_decode(array.array('b', bytes))[0] == u"a"
+        assert _codecs.unicode_internal_decode(memoryview(bytes))[0] == u"a"
 
     def test_raw_unicode_escape(self):
         import _codecs
@@ -428,14 +430,12 @@ class AppTestPartialEvaluation:
         for (i, line) in enumerate(reader):
             assert line == s[i]
 
-    def test_readbuffer_encode(self):
-        import _codecs
-        assert _codecs.readbuffer_encode("") ==  (b"", 0)
-
-    def test_readbuffer_encode_array(self):
+    def test_buffer_encode(self):
         import _codecs, array
         assert (_codecs.readbuffer_encode(array.array('b', b'spam')) ==
                 (b'spam', 4))
+        assert _codecs.readbuffer_encode(u"test") == (b'test', 4)
+        assert _codecs.readbuffer_encode("") ==  (b"", 0)
 
     def test_utf8sig(self):
         import codecs
@@ -760,10 +760,10 @@ class AppTestPartialEvaluation:
         toencode = u'caf\xe9', b'caf\xe9'
         try:
             # test for non-latin1 codepage, more general test needed
-            import _winreg
-            key = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE,
+            import winreg
+            key = winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE,
                         r'System\CurrentControlSet\Control\Nls\CodePage')
-            if _winreg.QueryValueEx(key, 'ACP')[0] == u'1255':  # non-latin1
+            if winreg.QueryValueEx(key, 'ACP')[0] == u'1255':  # non-latin1
                 toencode = u'caf\xbf',b'caf\xbf'
         except:
             assert False, 'cannot test mbcs on this windows system, check code page'

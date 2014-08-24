@@ -69,15 +69,21 @@ class CompileInfo(object):
       import.
     * hidden_applevel: Will this code unit and sub units be hidden at the
       applevel?
+    * optimize: optimization level:
+        -1 = same as interpreter,
+         0 = no optmiziation,
+         1 = remove asserts,
+         2 = remove docstrings.
     """
 
     def __init__(self, filename, mode="exec", flags=0, future_pos=(0, 0),
-                 hidden_applevel=False):
+                 hidden_applevel=False, optimize=-1):
         rstring.check_str0(filename)
         self.filename = filename
         self.mode = mode
         self.encoding = None
         self.flags = flags
+        self.optimize = optimize
         self.last_future_import = future_pos
         self.hidden_applevel = hidden_applevel
 

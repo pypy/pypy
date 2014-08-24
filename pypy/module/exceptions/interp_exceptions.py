@@ -33,11 +33,11 @@ BaseException
       +-- AssertionError
       +-- AttributeError
       +-- BufferError
-      +-- EnvironmentError
-      |    +-- IOError
-      |    +-- OSError
-      |         +-- WindowsError (Windows)
-      |         +-- VMSError (VMS)
+      +-- OSError
+      |    = EnvironmentError
+      |    = IOError
+      |    = WindowsError (Windows)
+      |    = VMSError (VMS)
       +-- EOFError
       +-- ImportError
       +-- LookupError
@@ -73,11 +73,12 @@ BaseException
 """
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
-    descr_set_dict, descr_del_dict)
+from pypy.interpreter.typedef import (
+    TypeDef, GetSetProperty, interp_attrproperty,
+    descr_get_dict, descr_set_dict, descr_del_dict)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError
-from pypy.interpreter.pytraceback import check_traceback
+from pypy.interpreter.error import OperationError, setup_context
+from pypy.interpreter.pytraceback import PyTraceback, check_traceback
 from rpython.rlib import rwin32
 
 
@@ -163,7 +164,27 @@ class W_BaseException(W_Root):
         self.suppress_context = True
 
     def descr_getcontext(self, space):
-        return self.w_context
+        w_context = self.w_context
+        if w_context is None:
+            self.w_context = w_context = self._setup_context(space)
+        return w_context
+
+    def _setup_context(self, space):
+        """Lazily determine __context__ from w_traceback"""
+        # XXX: w_traceback can be overwritten: it's not necessarily the
+        # authoratative traceback!
+        last_operr = None
+        w_traceback = self.w_traceback
+        if w_traceback is not None and isinstance(w_traceback, PyTraceback):
+            ec = space.getexecutioncontext()
+            # search for __context__ beginning in the previous frame. A
+            # __context__ from the top most frame would have already
+            # been handled by OperationError.record_context
+            last_operr = ec.last_operr(space, w_traceback.frame.f_backref())
+        if last_operr is None:
+            # no __context__
+            return space.w_None
+        return setup_context(space, self, last_operr.get_w_value(space))
 
     def descr_setcontext(self, space, w_newcontext):
         if not (space.is_w(w_newcontext, space.w_None) or
@@ -174,7 +195,6 @@ class W_BaseException(W_Root):
         self.w_context = w_newcontext
 
     def descr_gettraceback(self, space):
-        from pypy.interpreter.pytraceback import PyTraceback
         tb = self.w_traceback
         if tb is not None and isinstance(tb, PyTraceback):
             # tb escapes to app level (see OperationError.get_traceback)
@@ -232,7 +252,6 @@ def _new(cls, basecls=None):
 W_BaseException.typedef = TypeDef(
     'BaseException',
     __doc__ = W_BaseException.__doc__,
-    __module__ = 'builtins',
     __new__ = _new(W_BaseException),
     __init__ = interp2app(W_BaseException.descr_init),
     __str__ = interp2app(W_BaseException.descr_str),
@@ -276,7 +295,6 @@ def _new_exception(name, base, docstring, **kwargs):
         name,
         base.typedef,
         __doc__ = W_Exc.__doc__,
-        __module__ = 'builtins',
         **kwargs
     )
     W_Exc.typedef.applevel_subclasses_base = realbase
@@ -367,7 +385,6 @@ W_UnicodeTranslateError.typedef = TypeDef(
     'UnicodeTranslateError',
     W_UnicodeError.typedef,
     __doc__ = W_UnicodeTranslateError.__doc__,
-    __module__ = 'builtins',
     __new__ = _new(W_UnicodeTranslateError),
     __init__ = interp2app(W_UnicodeTranslateError.descr_init),
     __str__ = interp2app(W_UnicodeTranslateError.descr_str),
@@ -422,8 +439,8 @@ W_PendingDeprecationWarning = _new_exception('PendingDeprecationWarning',
                                              W_Warning,
        """Base class for warnings about features which will be deprecated in the future.""")
 
-class W_EnvironmentError(W_Exception):
-    """Base class for I/O related errors."""
+class W_OSError(W_Exception):
+    """OS system call failed."""
 
     def __init__(self, space):
         self.w_errno = space.w_None
@@ -454,35 +471,31 @@ class W_EnvironmentError(W_Exception):
     def descr_str(self, space):
         if (not space.is_w(self.w_errno, space.w_None) and
             not space.is_w(self.w_strerror, space.w_None)):
-            errno = space.str_w(space.str(self.w_errno))
-            strerror = space.str_w(space.str(self.w_strerror))
+            errno = space.unicode_w(space.str(self.w_errno))
+            strerror = space.unicode_w(space.str(self.w_strerror))
             if not space.is_w(self.w_filename, space.w_None):
-                return space.wrap("[Errno %s] %s: %s" % (
+                return space.wrap(u"[Errno %s] %s: %s" % (
                     errno,
                     strerror,
-                    space.str_w(space.repr(self.w_filename))))
-            return space.wrap("[Errno %s] %s" % (
+                    space.unicode_w(space.repr(self.w_filename))))
+            return space.wrap(u"[Errno %s] %s" % (
                 errno,
                 strerror,
             ))
         return W_BaseException.descr_str(self, space)
 
-W_EnvironmentError.typedef = TypeDef(
-    'EnvironmentError',
+W_OSError.typedef = TypeDef(
+    'OSError',
     W_Exception.typedef,
-    __doc__ = W_EnvironmentError.__doc__,
-    __module__ = 'builtins',
-    __new__ = _new(W_EnvironmentError),
-    __reduce__ = interp2app(W_EnvironmentError.descr_reduce),
-    __init__ = interp2app(W_EnvironmentError.descr_init),
-    __str__ = interp2app(W_EnvironmentError.descr_str),
-    errno    = readwrite_attrproperty_w('w_errno',    W_EnvironmentError),
-    strerror = readwrite_attrproperty_w('w_strerror', W_EnvironmentError),
-    filename = readwrite_attrproperty_w('w_filename', W_EnvironmentError),
+    __doc__ = W_OSError.__doc__,
+    __new__ = _new(W_OSError),
+    __reduce__ = interp2app(W_OSError.descr_reduce),
+    __init__ = interp2app(W_OSError.descr_init),
+    __str__ = interp2app(W_OSError.descr_str),
+    errno    = readwrite_attrproperty_w('w_errno',    W_OSError),
+    strerror = readwrite_attrproperty_w('w_strerror', W_OSError),
+    filename = readwrite_attrproperty_w('w_filename', W_OSError),
     )
-
-W_OSError = _new_exception('OSError', W_EnvironmentError,
-                           """OS system call failed.""")
 
 class W_WindowsError(W_OSError):
     """MS-Windows OS system call failed."""
@@ -507,13 +520,15 @@ class W_WindowsError(W_OSError):
     def descr_str(self, space):
         if (not space.is_w(self.w_winerror, space.w_None) and
             not space.is_w(self.w_strerror, space.w_None)):
+            winerror = space.int_w(self.w_winerror)
+            strerror = space.unicode_w(self.w_strerror)
             if not space.is_w(self.w_filename, space.w_None):
-                return space.wrap("[Error %d] %s: %s" % (
-                    space.int_w(self.w_winerror),
-                    space.str_w(self.w_strerror),
-                    space.str_w(self.w_filename)))
-            return space.wrap("[Error %d] %s" % (space.int_w(self.w_winerror),
-                                                 space.str_w(self.w_strerror)))
+                return space.wrap(u"[Error %d] %s: %s" % (
+                    winerror,
+                    strerror,
+                    space.unicode_w(self.w_filename)))
+            return space.wrap(u"[Error %d] %s" % (winerror,
+                                                  strerror))
         return W_BaseException.descr_str(self, space)
 
     if hasattr(rwin32, 'build_winerror_to_errno'):
@@ -528,7 +543,6 @@ W_WindowsError.typedef = TypeDef(
     "WindowsError",
     W_OSError.typedef,
     __doc__  = W_WindowsError.__doc__,
-    __module__ = 'builtins',
     __new__  = _new(W_WindowsError),
     __init__ = interp2app(W_WindowsError.descr_init),
     __str__  = interp2app(W_WindowsError.descr_str),
@@ -536,8 +550,45 @@ W_WindowsError.typedef = TypeDef(
     )
 
 # Various OSError subclasses added in Python 3.3
-W_BlockingIOError = _new_exception(
-    "BlockingIOError", W_OSError, "I/O operation would block.")
+class W_BlockingIOError(W_OSError):
+    "I/O operation would block."
+
+    def __init__(self, space):
+        W_OSError.__init__(self, space)
+        self.written = -1
+
+    def descr_init(self, space, args_w):
+        W_OSError.descr_init(self, space, args_w)
+        # BlockingIOError's 3rd argument can be the number of
+        # characters written.
+        if len(args_w) >= 3:
+            try:
+                written = space.int_w(args_w[2])
+            except OperationError:
+                pass
+            else:
+                self.written = written
+
+    def descr_get_written(self, space):
+        if self.written == -1:
+            raise OperationError(space.w_AttributeError,
+                                 space.wrap("characters_written"))
+        return space.wrap(self.written)
+
+    def descr_set_written(self, space, w_written):
+        self.written = space.int_w(w_written)
+
+
+W_BlockingIOError.typedef = TypeDef(
+    'BlockingIOError', W_OSError.typedef,
+    __doc__ = ("Exception raised when I/O would block on a non-blocking "
+               "I/O stream"),
+    __new__  = _new(W_BlockingIOError),
+    __init__ = interp2app(W_BlockingIOError.descr_init),
+    characters_written = GetSetProperty(W_BlockingIOError.descr_get_written,
+                                        W_BlockingIOError.descr_set_written),
+    )
+
 W_ConnectionError = _new_exception(
     "ConnectionError", W_OSError, "Connection error.")
 W_ChildProcessError = _new_exception(
@@ -588,9 +639,6 @@ W_ReferenceError = _new_exception('ReferenceError', W_Exception,
 
 W_NameError = _new_exception('NameError', W_Exception,
                              """Name not found globally.""")
-
-W_IOError = _new_exception('IOError', W_EnvironmentError,
-                           """I/O operation failed.""")
 
 
 class W_SyntaxError(W_Exception):
@@ -671,7 +719,6 @@ W_SyntaxError.typedef = TypeDef(
     __str__ = interp2app(W_SyntaxError.descr_str),
     __repr__ = interp2app(W_SyntaxError.descr_repr),
     __doc__ = W_SyntaxError.__doc__,
-    __module__ = 'builtins',
     msg      = readwrite_attrproperty_w('w_msg', W_SyntaxError),
     filename = readwrite_attrproperty_w('w_filename', W_SyntaxError),
     lineno   = readwrite_attrproperty_w('w_lineno', W_SyntaxError),
@@ -705,7 +752,6 @@ W_SystemExit.typedef = TypeDef(
     __new__ = _new(W_SystemExit),
     __init__ = interp2app(W_SystemExit.descr_init),
     __doc__ = W_SystemExit.__doc__,
-    __module__ = 'builtins',
     code    = readwrite_attrproperty_w('w_code', W_SystemExit)
 )
 
@@ -772,7 +818,6 @@ W_UnicodeDecodeError.typedef = TypeDef(
     'UnicodeDecodeError',
     W_UnicodeError.typedef,
     __doc__ = W_UnicodeDecodeError.__doc__,
-    __module__ = 'builtins',
     __new__ = _new(W_UnicodeDecodeError),
     __init__ = interp2app(W_UnicodeDecodeError.descr_init),
     __str__ = interp2app(W_UnicodeDecodeError.descr_str),
@@ -867,7 +912,6 @@ W_UnicodeEncodeError.typedef = TypeDef(
     'UnicodeEncodeError',
     W_UnicodeError.typedef,
     __doc__ = W_UnicodeEncodeError.__doc__,
-    __module__ = 'builtins',
     __new__ = _new(W_UnicodeEncodeError),
     __init__ = interp2app(W_UnicodeEncodeError.descr_init),
     __str__ = interp2app(W_UnicodeEncodeError.descr_str),

@@ -512,6 +512,7 @@ class ExceptionTests(unittest.TestCase):
         except MyException as e:
             pass
         obj = None
+        gc_collect()
         obj = wr()
         self.assertTrue(obj is None, "%s" % obj)
 
@@ -523,6 +524,7 @@ class ExceptionTests(unittest.TestCase):
         except MyException:
             pass
         obj = None
+        gc_collect()
         obj = wr()
         self.assertTrue(obj is None, "%s" % obj)
 
@@ -534,6 +536,7 @@ class ExceptionTests(unittest.TestCase):
         except:
             pass
         obj = None
+        gc_collect()
         obj = wr()
         self.assertTrue(obj is None, "%s" % obj)
 
@@ -546,6 +549,7 @@ class ExceptionTests(unittest.TestCase):
             except:
                 break
         obj = None
+        gc_collect() # XXX it seems it's not enough
         obj = wr()
         self.assertTrue(obj is None, "%s" % obj)
 
@@ -564,6 +568,7 @@ class ExceptionTests(unittest.TestCase):
             # must clear the latter manually for our test to succeed.
             e.__context__ = None
             obj = None
+            gc_collect()
             obj = wr()
             # guarantee no ref cycles on CPython (don't gc_collect)
             if check_impl_detail(cpython=False):
@@ -708,6 +713,7 @@ class ExceptionTests(unittest.TestCase):
         next(g)
         testfunc(g)
         g = obj = None
+        gc_collect()
         obj = wr()
         self.assertIs(obj, None)
 
@@ -761,6 +767,7 @@ class ExceptionTests(unittest.TestCase):
             raise Exception(MyObject())
         except:
             pass
+        gc_collect()
         self.assertEqual(e, (None, None, None))
 
     def testUnicodeChangeAttributes(self):
@@ -911,6 +918,7 @@ class ExceptionTests(unittest.TestCase):
             self.assertNotEqual(wr(), None)
         else:
             self.fail("MemoryError not raised")
+        gc_collect()
         self.assertEqual(wr(), None)
 
     @no_tracing
@@ -931,6 +939,7 @@ class ExceptionTests(unittest.TestCase):
             self.assertNotEqual(wr(), None)
         else:
             self.fail("RuntimeError not raised")
+        gc_collect()
         self.assertEqual(wr(), None)
 
     def test_errno_ENOTDIR(self):

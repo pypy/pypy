@@ -11,37 +11,32 @@ from rpython.tool.pairtype import pairtype
 
 class __extend__(annmodel.SomeBuiltin):
     def rtyper_makerepr(self, rtyper):
-        if self.s_self is None:
-            # built-in function case
-            if not self.is_constant():
-                raise TyperError("non-constant built-in function!")
-            return BuiltinFunctionRepr(self.const)
-        else:
-            # built-in method case
-            assert self.methodname is not None
-            result = BuiltinMethodRepr(rtyper, self.s_self, self.methodname)
-            return result
+        if not self.is_constant():
+            raise TyperError("non-constant built-in function!")
+        return BuiltinFunctionRepr(self.const)
+
     def rtyper_makekey(self):
-        if self.s_self is None:
-            # built-in function case
+        const = getattr(self, 'const', None)
+        if extregistry.is_registered(const):
+            const = extregistry.lookup(const)
+        return self.__class__, const
 
-            const = getattr(self, 'const', None)
+class __extend__(annmodel.SomeBuiltinMethod):
+    def rtyper_makerepr(self, rtyper):
+        assert self.methodname is not None
+        result = BuiltinMethodRepr(rtyper, self.s_self, self.methodname)
+        return result
 
-            if extregistry.is_registered(const):
-                const = extregistry.lookup(const)
-
-            return self.__class__, const
-        else:
-            # built-in method case
-            # NOTE: we hash by id of self.s_self here.  This appears to be
-            # necessary because it ends up in hop.args_s[0] in the method call,
-            # and there is no telling what information the called
-            # rtype_method_xxx() will read from that hop.args_s[0].
-            # See test_method_join in test_rbuiltin.
-            # There is no problem with self.s_self being garbage-collected and
-            # its id reused, because the BuiltinMethodRepr keeps a reference
-            # to it.
-            return (self.__class__, self.methodname, id(self.s_self))
+    def rtyper_makekey(self):
+        # NOTE: we hash by id of self.s_self here.  This appears to be
+        # necessary because it ends up in hop.args_s[0] in the method call,
+        # and there is no telling what information the called
+        # rtype_method_xxx() will read from that hop.args_s[0].
+        # See test_method_join in test_rbuiltin.
+        # There is no problem with self.s_self being garbage-collected and
+        # its id reused, because the BuiltinMethodRepr keeps a reference
+        # to it.
+        return (self.__class__, self.methodname, id(self.s_self))
 
 def call_args_expand(hop, takes_kwds = True):
     hop = hop.copy()
@@ -54,7 +49,6 @@ def call_args_expand(hop, takes_kwds = True):
         from rpython.rtyper.rtuple import TupleRepr
         if arguments.w_stararg != hop.nb_args - 3:
             raise TyperError("call pattern too complex")
-        hop.nb_args -= 1
         v_tuple = hop.args_v.pop()
         s_tuple = hop.args_s.pop()
         r_tuple = hop.args_r.pop()
@@ -62,7 +56,6 @@ def call_args_expand(hop, takes_kwds = True):
             raise TyperError("*arg must be a tuple")
         for i in range(len(r_tuple.items_r)):
             v_item = r_tuple.getitem_internal(hop.llops, v_tuple, i)
-            hop.nb_args += 1
             hop.args_v.append(v_item)
             hop.args_s.append(s_tuple.items[i])
             hop.args_r.append(r_tuple.items_r[i])
@@ -177,7 +170,7 @@ def parse_kwds(hop, *argspec_i_r):
             result.append(hop.inputarg(r, arg=i))
         else:
             result.append(None)
-    hop.nb_args -= len(lst)
+    del hop.args_v[hop.nb_args - len(lst):]
     return result
 
 def get_builtin_method_self(x):
@@ -367,8 +360,7 @@ def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
         (i_zero, None),
         (i_track_allocation, None),
         (i_add_memory_pressure, None))
-    (v_flavor, v_zero, v_track_allocation,
-     v_add_memory_pressure) = kwds_v
+    (v_flavor, v_zero, v_track_allocation, v_add_memory_pressure) = kwds_v
     flags = {'flavor': 'gc'}
     if v_flavor is not None:
         flags['flavor'] = v_flavor.value

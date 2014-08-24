@@ -132,12 +132,13 @@ def read(space, fd, buffersize):
     else:
         return space.wrapbytes(s)
 
-@unwrap_spec(fd=c_int, data='bufferstr')
-def write(space, fd, data):
+@unwrap_spec(fd=c_int)
+def write(space, fd, w_data):
     """Write a string to a file descriptor.  Return the number of bytes
 actually written, which may be smaller than len(data)."""
+    data = space.getarg_w('y*', w_data)
     try:
-        res = os.write(fd, data)
+        res = os.write(fd, data.as_str())
     except OSError, e:
         raise wrap_oserror(space, e)
     else:
@@ -158,7 +159,7 @@ def closerange(fd_low, fd_high):
 
 @unwrap_spec(fd=c_int, length=r_longlong)
 def ftruncate(space, fd, length):
-    """Truncate a file to a specified length."""
+    """Truncate a file (by file descriptor) to a specified length."""
     try:
         os.ftruncate(fd, length)
     except IOError, e:
@@ -171,6 +172,25 @@ def ftruncate(space, fd, length):
         raise AssertionError
     except OSError, e:
         raise wrap_oserror(space, e)
+
+def truncate(space, w_path, w_length):
+    """Truncate a file to a specified length."""
+    allocated_fd = False
+    fd = -1
+    try:
+        if space.isinstance_w(w_path, space.w_int):
+            w_fd = w_path
+        else:
+            w_fd = open(space, w_path, os.O_RDWR | os.O_CREAT)
+            allocated_fd = True
+
+        fd = space.c_filedescriptor_w(w_fd)
+        length = space.int_w(w_length)
+        return ftruncate(space, fd, length)
+
+    finally:
+        if allocated_fd and fd != -1:
+            close(space, fd)
 
 def fsync(space, w_fd):
     """Force write of file with filedescriptor to disk."""
@@ -487,8 +507,7 @@ def getlogin(space):
         cur = os.getlogin()
     except OSError, e:
         raise wrap_oserror(space, e)
-    else:
-        return space.wrap(cur)
+    return space.fsdecode(space.wrapbytes(cur))
 
 # ____________________________________________________________
 
@@ -579,13 +598,15 @@ entries '.' and '..' even if they are present in the directory."""
                 else:
                     w_bytes = space.wrapbytes(result[i])
                     result_w[i] = space.fsdecode(w_bytes)
+            return space.newlist(result_w)
         else:
             dirname = space.str0_w(w_dirname)
             result = rposix.listdir(dirname)
-            result_w = [space.wrapbytes(s) for s in result]
+            # The list comprehension is a workaround for an obscure translation
+            # bug.
+            return space.newlist_bytes([x for x in result])
     except OSError, e:
         raise wrap_oserror2(space, e, w_dirname)
-    return space.newlist(result_w)
 
 def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."
@@ -699,14 +720,21 @@ def symlink(space, w_src, w_dst):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path='fsencode')
-def readlink(space, path):
+def readlink(space, w_path):
     "Return a string representing the path to which the symbolic link points."
+    is_unicode = space.isinstance_w(w_path, space.w_unicode)
+    if is_unicode:
+        path = space.fsencode_w(w_path)
+    else:
+        path = space.bytes0_w(w_path)
     try:
         result = os.readlink(path)
     except OSError, e:
-        raise wrap_oserror(space, e, path)
-    return space.wrap(result)
+        raise wrap_oserror2(space, e, w_path)
+    w_result = space.wrapbytes(result)
+    if is_unicode:
+        return space.fsdecode(w_result)
+    return w_result
 
 before_fork_hooks = []
 after_fork_child_hooks = []
@@ -896,7 +924,8 @@ def uname(space):
         r = os.uname()
     except OSError, e:
         raise wrap_oserror(space, e)
-    l_w = [space.wrap(i) for i in [r[0], r[1], r[2], r[3], r[4]]]
+    l_w = [space.fsdecode(space.wrapbytes(i))
+           for i in [r[0], r[1], r[2], r[3], r[4]]]
     w_tuple = space.newtuple(l_w)
     w_uname_result = space.getattr(space.getbuiltinmodule(os.name),
                                    space.wrap('uname_result'))
@@ -1226,7 +1255,7 @@ for name in RegisterOs.w_star:
 @unwrap_spec(fd=c_int)
 def ttyname(space, fd):
     try:
-        return space.wrap(os.ttyname(fd))
+        return space.fsdecode(space.wrapbytes(os.ttyname(fd)))
     except OSError, e:
         raise wrap_oserror(space, e)
 
@@ -1361,7 +1390,7 @@ def ctermid(space):
 
     Return the name of the controlling terminal for this process.
     """
-    return space.wrap(os.ctermid())
+    return space.fsdecode(space.wrapbytes(os.ctermid()))
 
 @unwrap_spec(fd=c_int)
 def device_encoding(space, fd):

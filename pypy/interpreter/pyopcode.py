@@ -4,7 +4,7 @@ Implementation of a part of the standard Python opcodes.
 The rest, dealing with variables in optimized ways, is in nestedscope.py.
 """
 
-from rpython.rlib import jit, rstackovf
+from rpython.rlib import jit, rstackovf, rstring
 from rpython.rlib.debug import check_nonneg
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_uint, intmask
@@ -63,7 +63,10 @@ class __extend__(pyframe.PyFrame):
         try:
             while True:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
+        except Yield:
+            return self.popvalue()
         except ExitFrame:
+            self.last_exception = None
             return self.popvalue()
 
     def handle_bytecode(self, co_code, next_instr, ec):
@@ -204,7 +207,7 @@ class __extend__(pyframe.PyFrame):
             elif opcode == opcodedesc.BREAK_LOOP.index:
                 next_instr = self.BREAK_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.CONTINUE_LOOP.index:
-                next_instr = self.CONTINUE_LOOP(oparg, next_instr)
+                return self.CONTINUE_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.FOR_ITER.index:
                 next_instr = self.FOR_ITER(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_FORWARD.index:
@@ -401,6 +404,8 @@ class __extend__(pyframe.PyFrame):
                 self.WITH_CLEANUP(oparg, next_instr)
             elif opcode == opcodedesc.YIELD_VALUE.index:
                 self.YIELD_VALUE(oparg, next_instr)
+            elif opcode == opcodedesc.YIELD_FROM.index:
+                self.YIELD_FROM(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -1000,6 +1005,34 @@ class __extend__(pyframe.PyFrame):
     def YIELD_VALUE(self, oparg, next_instr):
         raise Yield
 
+    def YIELD_FROM(self, oparg, next_instr):
+        space = self.space
+        w_value = self.popvalue()
+        w_gen = self.peekvalue()
+        try:
+            if space.is_none(w_value):
+                w_retval = space.next(w_gen)
+            else:
+                w_retval = space.call_method(w_gen, "send", w_value)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            self.popvalue()  # Remove iter from stack
+            e.normalize_exception(space)
+            try:
+                w_value = space.getattr(e.get_w_value(space), space.wrap("value"))
+            except OperationError as e:
+                if not e.match(space, space.w_AttributeError):
+                    raise
+                w_value = space.w_None
+            self.pushvalue(w_value)
+        else:
+            # iter remains on stack, w_retval is value to be yielded.
+            self.pushvalue(w_retval)
+            # and repeat...
+            self.last_instr = self.last_instr - 1
+            raise Yield
+
     def jump_absolute(self, jumpto, ec):
         # this function is overridden by pypy.module.pypyjit.interp_jit
         check_nonneg(jumpto)
@@ -1548,19 +1581,26 @@ def source_as_str(space, w_source, funcname, what, flags):
 
     if space.isinstance_w(w_source, space.w_unicode):
         from pypy.interpreter.unicodehelper import encode
-        w_source = encode(space, w_source, 'utf-8')
-        source = space.bytes0_w(w_source)
+        w_source = encode(space, w_source)
+        source = space.bytes_w(w_source)
         flags |= consts.PyCF_IGNORE_COOKIE
     elif space.isinstance_w(w_source, space.w_bytes):
-        source = space.bytes0_w(w_source)
+        source = space.bytes_w(w_source)
     else:
         try:
-            source = space.bufferstr0_new_w(w_source)
+            buf = space.buffer_w(w_source, space.BUF_SIMPLE)
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
             raise oefmt(space.w_TypeError,
                         "%s() arg 1 must be a %s object", funcname, what)
+        source = buf.as_str()
+
+    if not (flags & consts.PyCF_ACCEPT_NULL_BYTES):
+        if '\x00' in source:
+            raise oefmt(space.w_TypeError,
+                        "source code string cannot contain null bytes")
+        source = rstring.assert_str0(source)
     return source, flags
 
 

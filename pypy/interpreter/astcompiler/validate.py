@@ -14,6 +14,9 @@ class ValidationError(Exception):
     def __init__(self, message):
         self.message = message
 
+    def __str__(self):
+        return self.message
+
 
 def expr_context_name(ctx):
     if not 1 <= ctx <= len(ast.expr_context_to_class):
@@ -292,7 +295,7 @@ class AstValidator(ast.ASTVisitor):
         pass
 
     def visit_BoolOp(self, node):
-        if len(node.values) < 2:
+        if self._len(node.values) < 2:
             raise ValidationError("BoolOp with less than 2 values")
         self._validate_exprs(node.values)
 

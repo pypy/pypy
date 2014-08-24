@@ -603,6 +603,11 @@ class ResumeGuardDescr(ResumeDescr):
         increment = jitdriver_sd.warmstate.increment_trace_eagerness
         return jitcounter.tick(hash, increment)
 
+    def get_index_of_guard_value(self):
+        if (self.status & self.ST_TYPE_MASK) == 0:
+            return -1
+        return intmask(self.status >> self.ST_SHIFT)
+
     def start_compiling(self):
         # start tracing and compiling from this guard.
         self.status |= self.ST_BUSY_FLAG

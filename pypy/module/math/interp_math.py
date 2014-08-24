@@ -228,6 +228,11 @@ def log(space, w_x, w_base=None):
             return math1(space, math.log, w_base)
     return _log_any(space, w_x, base)
 
+def log2(space, w_x):
+    """log2(x) -> the base 2 logarithm of x.
+    """
+    return _log_any(space, w_x, 2.0)
+
 def log10(space, w_x):
     """log10(x) -> the base 10 logarithm of x.
     """

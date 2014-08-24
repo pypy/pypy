@@ -928,7 +928,6 @@ class TestAstBuilder:
         expr = self.get_first_expr("yield")
         assert isinstance(expr, ast.Yield)
         assert expr.value is None
-        assert expr.is_from == 0
         expr = self.get_first_expr("yield x")
         assert isinstance(expr.value, ast.Name)
         assign = self.get_first_stmt("x = yield x")
@@ -937,8 +936,8 @@ class TestAstBuilder:
 
     def test_yield_from(self):
         expr = self.get_first_expr("yield from x")
+        assert isinstance(expr, ast.YieldFrom)
         assert isinstance(expr.value, ast.Name)
-        assert expr.is_from == 1
 
     def test_unaryop(self):
         unary_ops = (

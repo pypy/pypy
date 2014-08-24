@@ -96,7 +96,7 @@ class PythonAstCompiler(PyCodeCompiler):
 
     XXX: This class should override the baseclass implementation of
          compile_command() in order to optimize it, especially in case
-         of incomplete inputs (e.g. we shouldn't re-compile from sracth
+         of incomplete inputs (e.g. we shouldn't re-compile from scratch
          the whole source after having only added a new '\n')
     """
     def __init__(self, space, override_version=None):
@@ -106,7 +106,7 @@ class PythonAstCompiler(PyCodeCompiler):
         self.additional_rules = {}
         self.compiler_flags = self.future_flags.allowed_flags
 
-    def compile_ast(self, node, filename, mode, flags):
+    def compile_ast(self, node, filename, mode, flags, optimize=-1):
         if mode == 'eval':
             check = isinstance(node, ast.Expression)
         elif mode == 'exec':
@@ -123,7 +123,8 @@ class PythonAstCompiler(PyCodeCompiler):
         f_flags, f_lineno, f_col = fut
         future_pos = f_lineno, f_col
         flags |= f_flags
-        info = pyparse.CompileInfo(filename, mode, flags, future_pos)
+        info = pyparse.CompileInfo(filename, mode, flags, future_pos,
+                optimize=optimize)
         return self._compile_ast(node, info)
 
     def _compile_ast(self, node, info):
@@ -163,8 +164,9 @@ class PythonAstCompiler(PyCodeCompiler):
                                  e.wrap_info(space))
         return mod
 
-    def compile(self, source, filename, mode, flags, hidden_applevel=False):
+    def compile(self, source, filename, mode, flags, hidden_applevel=False,
+            optimize=-1):
         info = pyparse.CompileInfo(filename, mode, flags,
-                                   hidden_applevel=hidden_applevel)
+                hidden_applevel=hidden_applevel, optimize=optimize)
         mod = self._compile_to_ast(source, info)
         return self._compile_ast(mod, info)

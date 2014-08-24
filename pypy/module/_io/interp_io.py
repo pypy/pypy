@@ -4,7 +4,6 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (
     TypeDef, interp_attrproperty, generic_new_descr)
-from pypy.module.exceptions.interp_exceptions import W_IOError
 from pypy.module._io.interp_fileio import W_FileIO
 from pypy.module._io.interp_textio import W_TextIOWrapper
 from rpython.rtyper.module.ll_os_stat import STAT_FIELD_TYPES
@@ -15,26 +14,6 @@ class Cache:
         self.w_unsupportedoperation = space.new_exception_class(
             "io.UnsupportedOperation",
             space.newtuple([space.w_ValueError, space.w_IOError]))
-
-class W_BlockingIOError(W_IOError):
-    def __init__(self, space):
-        W_IOError.__init__(self, space)
-        self.written = 0
-
-    @unwrap_spec(written=int)
-    def descr_init(self, space, w_errno, w_strerror, written=0):
-        W_IOError.descr_init(self, space, [w_errno, w_strerror])
-        self.written = written
-
-W_BlockingIOError.typedef = TypeDef(
-    'BlockingIOError', W_IOError.typedef,
-    __module__ = 'io',
-    __doc__ = ("Exception raised when I/O would block "
-               "on a non-blocking I/O stream"),
-    __new__  = generic_new_descr(W_BlockingIOError),
-    __init__ = interp2app(W_BlockingIOError.descr_init),
-    characters_written = interp_attrproperty('written', W_BlockingIOError),
-    )
 
 DEFAULT_BUFFER_SIZE = 8 * 1024
 

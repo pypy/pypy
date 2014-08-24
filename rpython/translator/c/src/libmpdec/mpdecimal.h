@@ -37,7 +37,9 @@ extern "C" {
 
 
 #ifndef _MSC_VER
-  #include "pyconfig.h"
+  /* #include "pyconfig.h" */
+  /* PyPy change */
+  #include <stdint.h>
 #endif
 
 #include <stdio.h>

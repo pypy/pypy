@@ -37,7 +37,7 @@ working_modules.update([
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
     "_csv", "_pypyjson", "_posixsubprocess", # "cppyy", "micronumpy"
-    "faulthandler", "_decimal",
+    "faulthandler", "_lzma", "_decimal",
 ])
 
 translation_modules = default_modules.copy()
@@ -106,6 +106,7 @@ module_import_dependencies = {
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
     "_continuation": ["rpython.rlib.rstacklet"],
+    "_lzma"     : ["pypy.module._lzma.interp_lzma"],
     }
 
 def get_module_validator(modname):
@@ -116,7 +117,7 @@ def get_module_validator(modname):
             try:
                 for name in modlist:
                     __import__(name)
-            except (ImportError, CompilationError, py.test.skip.Exception), e:
+            except (ImportError, CompilationError, py.test.skip.Exception) as e:
                 errcls = e.__class__.__name__
                 raise Exception(
                     "The module %r is disabled\n" % (modname,) +

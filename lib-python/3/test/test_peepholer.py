@@ -81,10 +81,13 @@ class TestTranforms(unittest.TestCase):
             self.assertIn(elem, asm)
 
     def test_pack_unpack(self):
+        # On PyPy, "a, b = ..." is even more optimized, by removing
+        # the ROT_TWO.  But the ROT_TWO is not removed if assigning
+        # to more complex expressions, so check that.
         for line, elem in (
             ('a, = a,', 'LOAD_CONST',),
-            ('a, b = a, b', 'ROT_TWO',),
-            ('a, b, c = a, b, c', 'ROT_THREE',),
+            ('a[1], b = a, b', 'ROT_TWO',),
+            ('a, b[2], c = a, b, c', 'ROT_THREE',),
             ):
             asm = dis_single(line)
             self.assertIn(elem, asm)
@@ -92,6 +95,8 @@ class TestTranforms(unittest.TestCase):
             self.assertNotIn('UNPACK_TUPLE', asm)
 
     def test_folding_of_tuples_of_constants(self):
+        # On CPython, "a,b,c=1,2,3" turns into "a,b,c=<constant (1,2,3)>"
+        # but on PyPy, it turns into "a=1;b=2;c=3".
         for line, elem in (
             ('a = 1,2,3', '((1, 2, 3))'),
             ('("a","b","c")', "(('a', 'b', 'c'))"),
@@ -100,7 +105,8 @@ class TestTranforms(unittest.TestCase):
             ('((1, 2), 3, 4)', '(((1, 2), 3, 4))'),
             ):
             asm = dis_single(line)
-            self.assertIn(elem, asm)
+            self.assert_(elem in asm or (
+                line == 'a,b,c = 1,2,3' and 'UNPACK_TUPLE' not in asm))
             self.assertNotIn('BUILD_TUPLE', asm)
 
         # Long tuples should be folded too.

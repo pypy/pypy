@@ -178,8 +178,7 @@ class W_IncrementalNewlineDecoder(W_Root):
             space.call_method(self.w_decoder, "setstate", w_state)
 
 W_IncrementalNewlineDecoder.typedef = TypeDef(
-    'IncrementalNewlineDecoder',
-    __module__ = "_io",
+    '_io.IncrementalNewlineDecoder',
     __new__ = generic_new_descr(W_IncrementalNewlineDecoder),
     __init__  = interp2app(W_IncrementalNewlineDecoder.descr_init),
 
@@ -256,8 +255,7 @@ class W_TextIOBase(W_IOBase):
 
 
 W_TextIOBase.typedef = TypeDef(
-    '_TextIOBase', W_IOBase.typedef,
-    __module__ = "_io",
+    '_io._TextIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_TextIOBase),
 
     read = interp2app(W_TextIOBase.read_w),
@@ -289,7 +287,8 @@ def _determine_encoding(space, encoding, w_buffer):
     try:
         w_locale = space.call_method(space.builtin, '__import__',
                                      space.wrap('locale'))
-        w_encoding = space.call_method(w_locale, 'getpreferredencoding')
+        w_encoding = space.call_method(w_locale, 'getpreferredencoding',
+                                       space.w_False)
     except OperationError as e:
         # getpreferredencoding() may also raise ImportError
         if not e.match(space, space.w_ImportError):
@@ -469,10 +468,6 @@ class W_TextIOWrapper(W_TextIOBase):
             space.wrap("<_io.TextIOWrapper %s%sencoding=%r>"), w_args
         )
 
-    def isatty_w(self, space):
-        self._check_init(space)
-        return space.call_method(self.w_buffer, "isatty")
-
     def readable_w(self, space):
         self._check_init(space)
         return space.call_method(self.w_buffer, "readable")
@@ -484,6 +479,10 @@ class W_TextIOWrapper(W_TextIOBase):
     def seekable_w(self, space):
         self._check_init(space)
         return space.call_method(self.w_buffer, "seekable")
+
+    def isatty_w(self, space):
+        self._check_init(space)
+        return space.call_method(self.w_buffer, "isatty")
 
     def fileno_w(self, space):
         self._check_init(space)
@@ -1049,13 +1048,12 @@ class W_TextIOWrapper(W_TextIOBase):
         self.chunk_size = size
 
 W_TextIOWrapper.typedef = TypeDef(
-    'TextIOWrapper', W_TextIOBase.typedef,
+    '_io.TextIOWrapper', W_TextIOBase.typedef,
     __new__ = generic_new_descr(W_TextIOWrapper),
     __init__  = interp2app(W_TextIOWrapper.descr_init),
     __repr__ = interp2app(W_TextIOWrapper.descr_repr),
     __next__ = interp2app(W_TextIOWrapper.next_w),
     __getstate__ = interp2app(W_TextIOWrapper.getstate_w),
-    __module__ = "_io",
 
     read = interp2app(W_TextIOWrapper.read_w),
     readline = interp2app(W_TextIOWrapper.readline_w),
@@ -1068,10 +1066,10 @@ W_TextIOWrapper.typedef = TypeDef(
     close = interp2app(W_TextIOWrapper.close_w),
 
     line_buffering = interp_attrproperty("line_buffering", W_TextIOWrapper),
-    isatty = interp2app(W_TextIOWrapper.isatty_w),
     readable = interp2app(W_TextIOWrapper.readable_w),
     writable = interp2app(W_TextIOWrapper.writable_w),
     seekable = interp2app(W_TextIOWrapper.seekable_w),
+    isatty = interp2app(W_TextIOWrapper.isatty_w),
     fileno = interp2app(W_TextIOWrapper.fileno_w),
     _dealloc_warn = interp2app(W_TextIOWrapper._dealloc_warn_w),
     name = GetSetProperty(W_TextIOWrapper.name_get_w),

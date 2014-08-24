@@ -134,6 +134,9 @@ elif _WIN:
         ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
         ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT)])
 
+# XXX: optionally support the 2 additional tz fields
+_STRUCT_TM_ITEMS = 9
+
 class cConfig:
     pass
 
@@ -194,13 +197,6 @@ if _WIN:
 
 c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
                       rffi.SIZE_T)
-
-def _init_accept2dyear(space):
-    if os.environ.get("PYTHONY2K"):
-        accept2dyear = 0
-    else:
-        accept2dyear = 1
-    _set_module_object(space, "accept2dyear", space.wrap(accept2dyear))
 
 def _init_timezone(space):
     timezone = daylight = altzone = 0
@@ -364,7 +360,7 @@ def _get_inttime(space, w_seconds):
     # input doesn't fit in a time_t; call it an error.
     diff = seconds - rffi.cast(lltype.Float, t)
     if diff <= -1.0 or diff >= 1.0:
-        raise OperationError(space.w_ValueError,
+        raise OperationError(space.w_OverflowError,
                       space.wrap("timestamp out of range for platform time_t"))
     return t
 
@@ -431,21 +427,6 @@ def _gettmarg(space, w_tup, allowNone=True):
             # actually never happens, but makes annotator happy
             glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
             rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
-
-    if y < 1000:
-        w_accept2dyear = _get_module_object(space, "accept2dyear")
-        accept2dyear = space.is_true(w_accept2dyear)
-
-        if accept2dyear:
-            if 69 <= y <= 99:
-                y += 1900
-            elif 0 <= y <= 68:
-                y += 2000
-            else:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("year out of range"))
-            space.warn(space.wrap("Century info guessed for a 2-digit year."),
-                       space.w_DeprecationWarning)
 
     # tm_wday does not need checking of its upper-bound since taking "%
     #  7" in _gettmarg() automatically restricts the range.
