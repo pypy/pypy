@@ -409,7 +409,7 @@ def try_show(obj):
     elif isinstance(obj, Link):
         try_show(obj.prevblock)
     elif isinstance(obj, Block):
-        graph = obj.get_graph()
+        graph = obj._slowly_get_graph()
         if isinstance(graph, FunctionGraph):
             graph.show()
             return
