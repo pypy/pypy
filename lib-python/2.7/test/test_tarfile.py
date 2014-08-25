@@ -399,16 +399,16 @@ class MiscReadTest(CommonReadTest):
         # Test hardlink extraction (e.g. bug #857297).
         with tarfile.open(tarname, errorlevel=1, encoding="iso8859-1") as tar:
             tar.extract("ustar/regtype", TEMPDIR)
-            self.addCleanup(os.remove, os.path.join(TEMPDIR, "ustar/regtype"))
+            self.addCleanup(test_support.unlink, os.path.join(TEMPDIR, "ustar/regtype"))
 
             tar.extract("ustar/lnktype", TEMPDIR)
-            self.addCleanup(os.remove, os.path.join(TEMPDIR, "ustar/lnktype"))
+            self.addCleanup(test_support.unlink, os.path.join(TEMPDIR, "ustar/lnktype"))
             with open(os.path.join(TEMPDIR, "ustar/lnktype"), "rb") as f:
                 data = f.read()
             self.assertEqual(md5sum(data), md5_regtype)
 
             tar.extract("ustar/symtype", TEMPDIR)
-            self.addCleanup(os.remove, os.path.join(TEMPDIR, "ustar/symtype"))
+            self.addCleanup(test_support.unlink, os.path.join(TEMPDIR, "ustar/symtype"))
             with open(os.path.join(TEMPDIR, "ustar/symtype"), "rb") as f:
                 data = f.read()
             self.assertEqual(md5sum(data), md5_regtype)
