@@ -430,7 +430,7 @@ class _Stream:
                 else:
                     self._init_write_gz()
 
-            if comptype == "bz2":
+            elif comptype == "bz2":
                 try:
                     import bz2
                 except ImportError:
