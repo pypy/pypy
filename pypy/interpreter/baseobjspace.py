@@ -1529,13 +1529,6 @@ class ObjSpace(object):
         """
         return w_obj.float_w(self, allow_conversion)
 
-    def realstr_w(self, w_obj):
-        # Like str_w, but only works if w_obj is really of type 'str'.
-        if not self.isinstance_w(w_obj, self.w_str):
-            raise OperationError(self.w_TypeError,
-                                 self.wrap('argument must be a string'))
-        return self.str_w(w_obj)
-
     def unicode_w(self, w_obj):
         return w_obj.unicode_w(self)
 

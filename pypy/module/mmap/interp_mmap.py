@@ -196,7 +196,7 @@ class W_MMap(W_Root):
                         "mmap item value must be in range(0, 256)"))
             self.mmap.setitem(start, chr(value))
         else:
-            value = space.realstr_w(w_value)
+            value = space.bytes_w(w_value)
             if len(value) != length:
                 raise OperationError(space.w_ValueError,
                           space.wrap("mmap slice assignment is wrong size"))
