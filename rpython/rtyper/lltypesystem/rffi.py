@@ -393,7 +393,7 @@ def llexternal_use_eci(compilation_info):
     eci = eci.merge(compilation_info)
     return llexternal('PYPY_NO_OP', [], lltype.Void,
                       compilation_info=eci, sandboxsafe=True, _nowrapper=True,
-                      _callable=lambda: None)
+                      _callable=lambda: None, transactionsafe=True)
 
 def generate_macro_wrapper(name, macro, functype, eci):
     """Wraps a function-like macro inside a real function, and expose
