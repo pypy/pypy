@@ -37,7 +37,7 @@ compiler they can find.  In addition, the target architecture
 using a 32 bit Python and vice versa. By default pypy is built using the 
 Multi-threaded DLL (/MD) runtime environment.
 
-**Note:** PyPy is currently not supported for 64 bit Windows, and translation
+**Note:** PyPy is currently not supported for 64 bit Python, and translation
 will fail in this case.
 
 Python and a C compiler are all you need to build pypy, but it will miss some
@@ -136,7 +136,7 @@ the base directory.  Then compile as a static library::
 
     cd zlib-1.2.3
     nmake -f win32\Makefile.msc
-    copy zlib1.lib <somewhere in LIB>
+    copy zlib.lib <somewhere in LIB>
     copy zlib.h zconf.h <somewhere in INCLUDE>
 
 The bz2 compression library
@@ -165,27 +165,29 @@ http://sourceforge.net/projects/expat/ and extract it in the base
 directory.  Version 2.1.0 is known to pass tests. Then open the project 
 file ``expat.dsw`` with Visual
 Studio; follow the instruction for converting the project files,
-switch to the "Release" configuration, reconfigure the runtime for 
-Multi-threaded DLL (/MD) and build the solution (the ``expat`` project 
-is actually enough for pypy).
+switch to the "Release" configuration, use the ``expat_static`` project,
+reconfigure the runtime for Multi-threaded DLL (/MD) and build.
 
-Then, copy the file ``win32\bin\release\libexpat.dll`` somewhere in
-your PATH, ``win32\bin\release\libexpat.lib`` somewhere in LIB, and
-both ``lib\expat.h`` and ``lib\expat_external.h`` somewhere in INCLUDE.
+Then, copy the file ``win32\bin\release\libexpat.lib`` somewhere in
+somewhere in LIB, and both ``lib\expat.h`` and ``lib\expat_external.h``
+somewhere in INCLUDE.
 
 The OpenSSL library
 ~~~~~~~~~~~~~~~~~~~
 
 OpenSSL needs a Perl interpreter to configure its makefile.  You may
-use the one distributed by ActiveState, or the one from cygwin.  In
-both case the perl interpreter must be found on the PATH.
+use the one distributed by ActiveState, or the one from cygwin.::
 
-    svn export http://svn.python.org/projects/external/openssl-0.9.8y
-    cd openssl-0.9.8y
-    perl Configure VC-WIN32
+    svn export http://svn.python.org/projects/external/openssl-1.0.1i
+    cd openssl-1.0.1i
+    perl Configure VC-WIN32 no-idea no-mdc2
     ms\do_ms.bat
     nmake -f ms\nt.mak install
 
+Then, copy the files ``out32\*.lib`` somewhere in
+somewhere in LIB, and the entire ``include\openssl`` directory as-is somewhere
+in INCLUDE.
+    
 TkInter module support
 ~~~~~~~~~~~~~~~~~~~~~~
 

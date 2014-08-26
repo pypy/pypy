@@ -683,13 +683,14 @@ def rtype_builtin_isinstance(hop):
     if hop.s_result.is_constant():
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
-    if hop.args_s[1].is_constant() and hop.args_s[1].const == list:
-        if hop.args_s[0].knowntype != list:
-            raise TyperError("isinstance(x, list) expects x to be known statically to be a list or None")
-        rlist = hop.args_r[0]
-        vlist = hop.inputarg(rlist, arg=0)
-        cnone = hop.inputconst(rlist, None)
-        return hop.genop('ptr_ne', [vlist, cnone], resulttype=lltype.Bool)
+    if hop.args_s[1].is_constant() and hop.args_s[1].const in (str, list):
+        if hop.args_s[0].knowntype not in (str, list):
+            raise TyperError("isinstance(x, str/list) expects x to be known"
+                             " statically to be a str/list or None")
+        rstrlist = hop.args_r[0]
+        vstrlist = hop.inputarg(rstrlist, arg=0)
+        cnone = hop.inputconst(rstrlist, None)
+        return hop.genop('ptr_ne', [vstrlist, cnone], resulttype=lltype.Bool)
 
     assert isinstance(hop.args_r[0], rclass.InstanceRepr)
     return hop.args_r[0].rtype_isinstance(hop)

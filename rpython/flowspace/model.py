@@ -252,7 +252,7 @@ class Block(object):
         from rpython.translator.tool.graphpage import try_show
         try_show(self)
 
-    def get_graph(self):
+    def _slowly_get_graph(self):
         import gc
         pending = [self]   # pending blocks
         seen = {self: True, None: True}
