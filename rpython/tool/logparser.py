@@ -26,8 +26,8 @@ def parse_log_file(filename, verbose=True):
 
 def parse_log(lines, verbose=False):
     color = "(?:\x1b.*?m)?"
-    thread = "\d+#\s"
-    r_start = re.compile(color + thread + 
+    thread = "\d*#?\s?"
+    r_start = re.compile(color + thread +
                          r"\[([0-9a-fA-F]+)\] \{([\w-]+)" + color + "$")
     r_stop  = re.compile(color + thread +
                          r"\[([0-9a-fA-F]+)\] ([\w-]+)\}" + color + "$")
@@ -117,7 +117,7 @@ def kill_category(log, catprefix=''):
     for entry in log:
         if not entry[0].startswith(catprefix):
             if len(entry) > 3:
-                newlog.append(entry[:3] + 
+                newlog.append(entry[:3] +
                               (kill_category(entry[3], catprefix),))
             else:
                 newlog.append(entry)
