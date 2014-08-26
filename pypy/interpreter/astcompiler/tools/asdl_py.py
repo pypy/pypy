@@ -125,9 +125,14 @@ class ASTNodeVisitor(ASDLVisitor):
     def get_value_converter(self, field, value):
         if field.type.value in self.data.simple_types:
             return "%s_to_class[%s - 1]().to_object(space)" % (field.type, value)
+        elif field.type.value == "identifier":
+            wrapper = "space.wrap(%s.decode('utf-8'))" % (value,)
+            if field.opt:
+                wrapper += " if %s is not None else space.w_None" % (value,)
+            return wrapper
         elif field.type.value in ("object", "string"):
             return value
-        elif field.type.value in ("identifier", "int", "bool"):
+        elif field.type.value in ("int", "bool"):
             return "space.wrap(%s)" % (value,)
         else:
             wrapper = "%s.to_object(space)" % (value,)
@@ -147,7 +152,7 @@ class ASTNodeVisitor(ASDLVisitor):
         elif field.type.value in ("identifier",):
             if field.opt:
                 return "space.str_or_None_w(%s)" % (value,)
-            return "space.realstr_w(%s)" % (value,)
+            return "space.identifier_w(%s)" % (value,)
         elif field.type.value in ("int",):
             return "space.int_w(%s)" % (value,)
         elif field.type.value in ("bool",):
