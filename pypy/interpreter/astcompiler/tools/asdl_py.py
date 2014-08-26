@@ -153,7 +153,10 @@ class ASTNodeVisitor(ASDLVisitor):
         elif field.type.value in ("bool",):
             return "space.bool_w(%s)" % (value,)
         else:
-            return "%s.from_object(space, %s)" % (field.type, value)
+            extractor = "%s.from_object(space, %s)" % (field.type, value)
+            if field.opt:
+                extractor += " if %s is not None else None" % (value,)
+            return extractor
 
     def get_field_converter(self, field):
         if field.seq:
