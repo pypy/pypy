@@ -189,7 +189,7 @@ class MIFrame(object):
 
     @arguments("int")
     def opimpl_stm_should_break_transaction(self, keep):
-        # from rpython.rlib import rstm
+        from rpython.rlib import rstm
 
         record_break = False
         resbox = history.ConstInt(0)
@@ -199,13 +199,7 @@ class MIFrame(object):
             resbox = history.BoxInt(0)
             record_break = True
 
-        ## XXX: not working yet. we are always inevitable when tracing
-        # if we_are_translated() and rstm.is_inevitable():
-        #     # return BoxInt(1) if there is an inevitable
-        #     # transaction, because it's likely that there
-        #     # will always be an inevitable transaction here
-        #     resbox = history.BoxInt(1)
-        #     record_break = True
+        rstm.possible_transaction_break(0)
 
         if record_break:
             mi = self.metainterp
