@@ -159,6 +159,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
     gct_stm_become_inevitable                       = _gct_with_roots_pushed
     gct_stm_become_globally_unique_transaction      = _gct_with_roots_pushed
     gct_stm_transaction_break                       = _gct_with_roots_pushed
+    gct_stm_collect                                 = _gct_with_roots_pushed
 
 
 class StmRootWalker(BaseRootWalker):
