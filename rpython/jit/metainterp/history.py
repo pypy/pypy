@@ -155,6 +155,9 @@ class AbstractDescr(AbstractValue):
     def get_vinfo(self):
         raise NotImplementedError
 
+    def stm_should_track_raw_accesses(self):
+        return True
+
 class AbstractFailDescr(AbstractDescr):
     index = -1
     final_descr = False

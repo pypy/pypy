@@ -188,7 +188,8 @@ def _do_getfield_raw(cpu, pure, structbox, fielddescr):
         return BoxInt(cpu.bh_getfield_raw_i(struct, fielddescr, pure))
 
 def do_getfield_raw(cpu, _, structbox, fielddescr):
-    return _do_getfield_raw(cpu, False, structbox, fielddescr)
+    pure = not fielddescr.stm_should_track_raw_accesses()
+    return _do_getfield_raw(cpu, pure, structbox, fielddescr)
 
 def do_getfield_raw_pure(cpu, _, structbox, fielddescr):
     return _do_getfield_raw(cpu, True, structbox, fielddescr)

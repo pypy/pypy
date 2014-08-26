@@ -103,7 +103,7 @@ class FieldDescr(ArrayOrFieldDescr):
 
     def is_immutable(self):
         return self._immutable
-    
+
     def is_pointer_field(self):
         return self.flag == FLAG_POINTER
 
@@ -138,6 +138,9 @@ class FieldDescr(ArrayOrFieldDescr):
 
     def repr_of_descr(self):
         return '<Field%s %s %s>' % (self.flag, self.name, self.offset)
+
+    def stm_should_track_raw_accesses(self):
+        return not self.stm_dont_track_raw_accesses
 
 
 def get_field_descr(gccache, STRUCT, fieldname):
@@ -215,7 +218,7 @@ class ArrayDescr(ArrayOrFieldDescr):
 
     def is_immutable(self):
         return self._immutable
-    
+
     def is_array_of_pointers(self):
         return self.flag == FLAG_POINTER
 
@@ -295,7 +298,7 @@ class InteriorFieldDescr(AbstractDescr):
 
     def is_immutable(self):
         return self._immutable
-    
+
     def sort_key(self):
         return self.fielddescr.sort_key()
 
