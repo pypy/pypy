@@ -382,7 +382,7 @@ class FunctionDef(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_FunctionDef)
-        w_name = space.wrap(self.name)  # identifier
+        w_name = space.wrap(self.name.decode('utf-8'))  # identifier
         space.setattr(w_node, space.wrap('name'), w_name)
         w_args = self.args.to_object(space)  # arguments
         space.setattr(w_node, space.wrap('args'), w_args)
@@ -415,13 +415,13 @@ class FunctionDef(stmt):
         w_returns = get_field(space, w_node, 'returns', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _name = space.realstr_w(w_name)
+        _name = space.identifier_w(w_name)
         _args = arguments.from_object(space, w_args)
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         decorator_list_w = space.unpackiterable(w_decorator_list)
         _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
-        _returns = expr.from_object(space, w_returns)
+        _returns = expr.from_object(space, w_returns) if w_returns is not None else None
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return FunctionDef(_name, _args, _body, _decorator_list, _returns, _lineno, _col_offset)
@@ -461,7 +461,7 @@ class ClassDef(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_ClassDef)
-        w_name = space.wrap(self.name)  # identifier
+        w_name = space.wrap(self.name.decode('utf-8'))  # identifier
         space.setattr(w_node, space.wrap('name'), w_name)
         if self.bases is None:
             bases_w = []
@@ -508,13 +508,13 @@ class ClassDef(stmt):
         w_decorator_list = get_field(space, w_node, 'decorator_list', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _name = space.realstr_w(w_name)
+        _name = space.identifier_w(w_name)
         bases_w = space.unpackiterable(w_bases)
         _bases = [expr.from_object(space, w_item) for w_item in bases_w]
         keywords_w = space.unpackiterable(w_keywords)
         _keywords = [keyword.from_object(space, w_item) for w_item in keywords_w]
-        _starargs = expr.from_object(space, w_starargs)
-        _kwargs = expr.from_object(space, w_kwargs)
+        _starargs = expr.from_object(space, w_starargs) if w_starargs is not None else None
+        _kwargs = expr.from_object(space, w_kwargs) if w_kwargs is not None else None
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         decorator_list_w = space.unpackiterable(w_decorator_list)
@@ -555,7 +555,7 @@ class Return(stmt):
         w_value = get_field(space, w_node, 'value', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _value = expr.from_object(space, w_value)
+        _value = expr.from_object(space, w_value) if w_value is not None else None
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Return(_value, _lineno, _col_offset)
@@ -931,7 +931,7 @@ class With(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _context_expr = expr.from_object(space, w_context_expr)
-        _optional_vars = expr.from_object(space, w_optional_vars)
+        _optional_vars = expr.from_object(space, w_optional_vars) if w_optional_vars is not None else None
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         _lineno = space.int_w(w_lineno)
@@ -976,8 +976,8 @@ class Raise(stmt):
         w_cause = get_field(space, w_node, 'cause', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _exc = expr.from_object(space, w_exc)
-        _cause = expr.from_object(space, w_cause)
+        _exc = expr.from_object(space, w_exc) if w_exc is not None else None
+        _cause = expr.from_object(space, w_cause) if w_cause is not None else None
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Raise(_exc, _cause, _lineno, _col_offset)
@@ -1140,7 +1140,7 @@ class Assert(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _test = expr.from_object(space, w_test)
-        _msg = expr.from_object(space, w_msg)
+        _msg = expr.from_object(space, w_msg) if w_msg is not None else None
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Assert(_test, _msg, _lineno, _col_offset)
@@ -1208,7 +1208,7 @@ class ImportFrom(stmt):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_ImportFrom)
-        w_module = space.wrap(self.module)  # identifier
+        w_module = space.wrap(self.module.decode('utf-8')) if self.module is not None else space.w_None  # identifier
         space.setattr(w_node, space.wrap('module'), w_module)
         if self.names is None:
             names_w = []
@@ -1259,7 +1259,7 @@ class Global(stmt):
         if self.names is None:
             names_w = []
         else:
-            names_w = [space.wrap(node) for node in self.names] # identifier
+            names_w = [space.wrap(node.decode('utf-8')) for node in self.names] # identifier
         w_names = space.newlist(names_w)
         space.setattr(w_node, space.wrap('names'), w_names)
         w_lineno = space.wrap(self.lineno)  # int
@@ -1274,7 +1274,7 @@ class Global(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         names_w = space.unpackiterable(w_names)
-        _names = [space.realstr_w(w_item) for w_item in names_w]
+        _names = [space.identifier_w(w_item) for w_item in names_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Global(_names, _lineno, _col_offset)
@@ -1299,7 +1299,7 @@ class Nonlocal(stmt):
         if self.names is None:
             names_w = []
         else:
-            names_w = [space.wrap(node) for node in self.names] # identifier
+            names_w = [space.wrap(node.decode('utf-8')) for node in self.names] # identifier
         w_names = space.newlist(names_w)
         space.setattr(w_node, space.wrap('names'), w_names)
         w_lineno = space.wrap(self.lineno)  # int
@@ -1314,7 +1314,7 @@ class Nonlocal(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         names_w = space.unpackiterable(w_names)
-        _names = [space.realstr_w(w_item) for w_item in names_w]
+        _names = [space.identifier_w(w_item) for w_item in names_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Nonlocal(_names, _lineno, _col_offset)
@@ -2060,7 +2060,7 @@ class Yield(expr):
         w_value = get_field(space, w_node, 'value', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _value = expr.from_object(space, w_value)
+        _value = expr.from_object(space, w_value) if w_value is not None else None
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Yield(_value, _lineno, _col_offset)
@@ -2191,8 +2191,8 @@ class Call(expr):
         _args = [expr.from_object(space, w_item) for w_item in args_w]
         keywords_w = space.unpackiterable(w_keywords)
         _keywords = [keyword.from_object(space, w_item) for w_item in keywords_w]
-        _starargs = expr.from_object(space, w_starargs)
-        _kwargs = expr.from_object(space, w_kwargs)
+        _starargs = expr.from_object(space, w_starargs) if w_starargs is not None else None
+        _kwargs = expr.from_object(space, w_kwargs) if w_kwargs is not None else None
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Call(_func, _args, _keywords, _starargs, _kwargs, _lineno, _col_offset)
@@ -2354,7 +2354,7 @@ class Attribute(expr):
         w_node = space.call_function(get(space).w_Attribute)
         w_value = self.value.to_object(space)  # expr
         space.setattr(w_node, space.wrap('value'), w_value)
-        w_attr = space.wrap(self.attr)  # identifier
+        w_attr = space.wrap(self.attr.decode('utf-8'))  # identifier
         space.setattr(w_node, space.wrap('attr'), w_attr)
         w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)  # expr_context
         space.setattr(w_node, space.wrap('ctx'), w_ctx)
@@ -2372,7 +2372,7 @@ class Attribute(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = expr.from_object(space, w_value)
-        _attr = space.realstr_w(w_attr)
+        _attr = space.identifier_w(w_attr)
         _ctx = expr_context.from_object(space, w_ctx)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
@@ -2484,7 +2484,7 @@ class Name(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Name)
-        w_id = space.wrap(self.id)  # identifier
+        w_id = space.wrap(self.id.decode('utf-8'))  # identifier
         space.setattr(w_node, space.wrap('id'), w_id)
         w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)  # expr_context
         space.setattr(w_node, space.wrap('ctx'), w_ctx)
@@ -2500,7 +2500,7 @@ class Name(expr):
         w_ctx = get_field(space, w_node, 'ctx', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _id = space.realstr_w(w_id)
+        _id = space.identifier_w(w_id)
         _ctx = expr_context.from_object(space, w_ctx)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
@@ -2752,9 +2752,9 @@ class Slice(slice):
         w_lower = get_field(space, w_node, 'lower', True)
         w_upper = get_field(space, w_node, 'upper', True)
         w_step = get_field(space, w_node, 'step', True)
-        _lower = expr.from_object(space, w_lower)
-        _upper = expr.from_object(space, w_upper)
-        _step = expr.from_object(space, w_step)
+        _lower = expr.from_object(space, w_lower) if w_lower is not None else None
+        _upper = expr.from_object(space, w_upper) if w_upper is not None else None
+        _step = expr.from_object(space, w_step) if w_step is not None else None
         return Slice(_lower, _upper, _step)
 
 State.ast_type('Slice', 'slice', ['lower', 'upper', 'step'])
@@ -3198,7 +3198,7 @@ class ExceptHandler(excepthandler):
         w_node = space.call_function(get(space).w_ExceptHandler)
         w_type = self.type.to_object(space) if self.type is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('type'), w_type)
-        w_name = space.wrap(self.name)  # identifier
+        w_name = space.wrap(self.name.decode('utf-8')) if self.name is not None else space.w_None  # identifier
         space.setattr(w_node, space.wrap('name'), w_name)
         if self.body is None:
             body_w = []
@@ -3219,7 +3219,7 @@ class ExceptHandler(excepthandler):
         w_body = get_field(space, w_node, 'body', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _type = expr.from_object(space, w_type)
+        _type = expr.from_object(space, w_type) if w_type is not None else None
         _name = space.str_or_None_w(w_name)
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
@@ -3268,7 +3268,7 @@ class arguments(AST):
             args_w = [node.to_object(space) for node in self.args] # arg
         w_args = space.newlist(args_w)
         space.setattr(w_node, space.wrap('args'), w_args)
-        w_vararg = space.wrap(self.vararg)  # identifier
+        w_vararg = space.wrap(self.vararg.decode('utf-8')) if self.vararg is not None else space.w_None  # identifier
         space.setattr(w_node, space.wrap('vararg'), w_vararg)
         w_varargannotation = self.varargannotation.to_object(space) if self.varargannotation is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('varargannotation'), w_varargannotation)
@@ -3278,7 +3278,7 @@ class arguments(AST):
             kwonlyargs_w = [node.to_object(space) for node in self.kwonlyargs] # arg
         w_kwonlyargs = space.newlist(kwonlyargs_w)
         space.setattr(w_node, space.wrap('kwonlyargs'), w_kwonlyargs)
-        w_kwarg = space.wrap(self.kwarg)  # identifier
+        w_kwarg = space.wrap(self.kwarg.decode('utf-8')) if self.kwarg is not None else space.w_None  # identifier
         space.setattr(w_node, space.wrap('kwarg'), w_kwarg)
         w_kwargannotation = self.kwargannotation.to_object(space) if self.kwargannotation is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('kwargannotation'), w_kwargannotation)
@@ -3309,11 +3309,11 @@ class arguments(AST):
         args_w = space.unpackiterable(w_args)
         _args = [arg.from_object(space, w_item) for w_item in args_w]
         _vararg = space.str_or_None_w(w_vararg)
-        _varargannotation = expr.from_object(space, w_varargannotation)
+        _varargannotation = expr.from_object(space, w_varargannotation) if w_varargannotation is not None else None
         kwonlyargs_w = space.unpackiterable(w_kwonlyargs)
         _kwonlyargs = [arg.from_object(space, w_item) for w_item in kwonlyargs_w]
         _kwarg = space.str_or_None_w(w_kwarg)
-        _kwargannotation = expr.from_object(space, w_kwargannotation)
+        _kwargannotation = expr.from_object(space, w_kwargannotation) if w_kwargannotation is not None else None
         defaults_w = space.unpackiterable(w_defaults)
         _defaults = [expr.from_object(space, w_item) for w_item in defaults_w]
         kw_defaults_w = space.unpackiterable(w_kw_defaults)
@@ -3338,7 +3338,7 @@ class arg(AST):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_arg)
-        w_arg = space.wrap(self.arg)  # identifier
+        w_arg = space.wrap(self.arg.decode('utf-8'))  # identifier
         space.setattr(w_node, space.wrap('arg'), w_arg)
         w_annotation = self.annotation.to_object(space) if self.annotation is not None else space.w_None  # expr
         space.setattr(w_node, space.wrap('annotation'), w_annotation)
@@ -3348,8 +3348,8 @@ class arg(AST):
     def from_object(space, w_node):
         w_arg = get_field(space, w_node, 'arg', False)
         w_annotation = get_field(space, w_node, 'annotation', True)
-        _arg = space.realstr_w(w_arg)
-        _annotation = expr.from_object(space, w_annotation)
+        _arg = space.identifier_w(w_arg)
+        _annotation = expr.from_object(space, w_annotation) if w_annotation is not None else None
         return arg(_arg, _annotation)
 
 State.ast_type('arg', 'AST', ['arg', 'annotation'])
@@ -3369,7 +3369,7 @@ class keyword(AST):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_keyword)
-        w_arg = space.wrap(self.arg)  # identifier
+        w_arg = space.wrap(self.arg.decode('utf-8'))  # identifier
         space.setattr(w_node, space.wrap('arg'), w_arg)
         w_value = self.value.to_object(space)  # expr
         space.setattr(w_node, space.wrap('value'), w_value)
@@ -3379,7 +3379,7 @@ class keyword(AST):
     def from_object(space, w_node):
         w_arg = get_field(space, w_node, 'arg', False)
         w_value = get_field(space, w_node, 'value', False)
-        _arg = space.realstr_w(w_arg)
+        _arg = space.identifier_w(w_arg)
         _value = expr.from_object(space, w_value)
         return keyword(_arg, _value)
 
@@ -3399,9 +3399,9 @@ class alias(AST):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_alias)
-        w_name = space.wrap(self.name)  # identifier
+        w_name = space.wrap(self.name.decode('utf-8'))  # identifier
         space.setattr(w_node, space.wrap('name'), w_name)
-        w_asname = space.wrap(self.asname)  # identifier
+        w_asname = space.wrap(self.asname.decode('utf-8')) if self.asname is not None else space.w_None  # identifier
         space.setattr(w_node, space.wrap('asname'), w_asname)
         return w_node
 
@@ -3409,7 +3409,7 @@ class alias(AST):
     def from_object(space, w_node):
         w_name = get_field(space, w_node, 'name', False)
         w_asname = get_field(space, w_node, 'asname', True)
-        _name = space.realstr_w(w_name)
+        _name = space.identifier_w(w_name)
         _asname = space.str_or_None_w(w_asname)
         return alias(_name, _asname)
 
