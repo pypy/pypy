@@ -21,7 +21,7 @@ class ValidationError(Exception):
 def expr_context_name(ctx):
     if not 1 <= ctx <= len(ast.expr_context_to_class):
         return '??'
-    return ast.expr_context_to_class[ctx - 1].typedef.name
+    return ast.expr_context_to_class[ctx - 1].__name__[1:]
 
 def _check_context(expected_ctx, actual_ctx):
     if expected_ctx != actual_ctx:
