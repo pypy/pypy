@@ -977,12 +977,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
             hop.genop("direct_call", [self.root_walker.thread_run_ptr])
             self.pop_roots(hop, livevars)
 
-    def gct_gc_thread_run_ptr(self, hop):
-        assert self.translator.config.translation.thread
-        assert hasattr(self.root_walker, 'thread_run_ptr')
-        hop.genop("same_as", [self.root_walker.thread_run_ptr],
-                  resultvar=hop.spaceop.result)
-
     def gct_gc_thread_start(self, hop):
         assert self.translator.config.translation.thread
         if hasattr(self.root_walker, 'thread_start_ptr'):

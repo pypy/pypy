@@ -1,7 +1,6 @@
 import sys
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.metainterp.history import INT, FLOAT
 from rpython.jit.backend.x86.arch import (WORD, IS_X86_64, IS_X86_32,
                                           PASS_ON_MY_FRAME, FRAME_FIXED_SIZE)
@@ -21,8 +20,6 @@ stdcall_or_cdecl = sys.platform == "win32"
 
 def align_stack_words(words):
     return (words + CALL_ALIGN - 1) & ~(CALL_ALIGN-1)
-
-NO_ARG_FUNC_PTR = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
 
 class CallBuilderX86(AbstractCallBuilder):
@@ -94,30 +91,9 @@ class CallBuilderX86(AbstractCallBuilder):
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             if gcrootmap.is_shadow_stack and self.is_call_release_gil:
-                from rpython.jit.backend.x86.assembler import heap
-                from rpython.jit.backend.x86 import rx86
-                from rpython.rtyper.lltypesystem.lloperation import llop
-                #
-                # When doing a call_release_gil with shadowstack, there
-                # is the risk that the 'rpy_fastgil' was free but the
-                # current shadowstack can be the one of a different
-                # thread.  So here we check if the shadowstack pointer
-                # is still the same as before we released the GIL (saved
-                # in 'ebx'), and if not, we call 'thread_run'.
-                rst = gcrootmap.get_root_stack_top_addr()
-                mc = self.mc
-                mc.CMP(ebx, heap(rst))
-                mc.J_il8(rx86.Conditions['E'], 0)
-                je_location = mc.get_relative_pos()
-                # call 'thread_run'
-                t_run = llop.gc_thread_run_ptr(NO_ARG_FUNC_PTR)
-                mc.CALL(imm(rffi.cast(lltype.Signed, t_run)))
-                # patch the JE above
-                offset = mc.get_relative_pos() - je_location
-                assert 0 < offset <= 127
-                mc.overwrite(je_location-1, chr(offset))
+                # in this mode, 'ebx' happens to contain the shadowstack
+                # top at this point, so reuse it instead of loading it again
                 ssreg = ebx
-        #
         self.asm._reload_frame_if_necessary(self.mc, shadowstack_reg=ssreg)
         if self.change_extra_stack_depth:
             self.asm.set_extra_stack_depth(self.mc, 0)
@@ -206,8 +182,35 @@ class CallBuilderX86(AbstractCallBuilder):
             mc.MOV_ri(X86_64_SCRATCH_REG.value, fastgil)
             mc.XCHG_rm(old_value.value, (X86_64_SCRATCH_REG.value, 0))
         mc.CMP(old_value, css_value)
-        mc.J_il8(rx86.Conditions['E'], 0)
-        je_location = mc.get_relative_pos()
+        #
+        gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
+        if bool(gcrootmap) and gcrootmap.is_shadow_stack:
+            from rpython.jit.backend.x86.assembler import heap
+            #
+            # When doing a call_release_gil with shadowstack, there
+            # is the risk that the 'rpy_fastgil' was free but the
+            # current shadowstack can be the one of a different
+            # thread.  So here we check if the shadowstack pointer
+            # is still the same as before we released the GIL (saved
+            # in 'ebx'), and if not, we fall back to 'reacqgil_addr'.
+            mc.J_il8(rx86.Conditions['NE'], 0)
+            jne_location = mc.get_relative_pos()
+            # here, ecx is zero (so rpy_fastgil was not acquired)
+            rst = gcrootmap.get_root_stack_top_addr()
+            mc = self.mc
+            mc.CMP(ebx, heap(rst))
+            mc.J_il8(rx86.Conditions['E'], 0)
+            je_location = mc.get_relative_pos()
+            # revert the rpy_fastgil acquired above, so that the
+            # general 'reacqgil_addr' below can acquire it again...
+            mc.MOV(heap(fastgil), ecx)
+            # patch the JNE above
+            offset = mc.get_relative_pos() - jne_location
+            assert 0 < offset <= 127
+            mc.overwrite(jne_location-1, chr(offset))
+        else:
+            mc.J_il8(rx86.Conditions['E'], 0)
+            je_location = mc.get_relative_pos()
         #
         # Yes, we need to call the reacqgil() function
         self.save_result_value_reacq()
