@@ -1270,12 +1270,18 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         """Pushes the value stored in loc to the stack
         Can trash the current value of SCRATCH when pushing a stack
         loc"""
-        if loc.is_imm() or loc.is_imm_float():
-            assert 0, "not implemented yet"
-
         self.mc.addi(r.SP.value, r.SP.value, -WORD) # decrease stack pointer
         assert IS_PPC_64, 'needs to updated for ppc 32'
-        if loc.is_stack():
+
+        if loc.is_imm():
+            with scratch_reg(self.mc):
+                self.regalloc_mov(loc, r.SCRATCH)
+                self.mc.store(r.SCRATCH.value, r.SP.value, 0)
+        elif loc.is_imm_float():
+            with scratch_reg(self.mc):
+                self.regalloc_mov(loc, r.FP_SCRATCH)
+                self.mc.store(r.FP_SCRATCH.value, r.SP.value, 0)
+        elif loc.is_stack():
             # XXX this code has to be verified
             with scratch_reg(self.mc):
                 self.regalloc_mov(loc, r.SCRATCH)
