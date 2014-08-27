@@ -21,6 +21,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.ppc import locations
 from rpython.rtyper.lltypesystem import rffi, lltype, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.descr import ArrayDescr
 import rpython.jit.backend.ppc.register as r
@@ -494,8 +495,14 @@ class Regalloc(BaseRegalloc):
         return [loc1, res]
 
     def prepare_finish(self, op):
-        loc = self.loc(op.getarg(0))
-        self.possibly_free_var(op.getarg(0))
+        if op.numargs() > 0:
+            loc = self.loc(op.getarg(0))
+            self.possibly_free_var(op.getarg(0))
+        else:
+            descr = op.getdescr()
+            fail_descr = cast_instance_to_gcref(descr)
+            fail_descr = rffi.cast(lltype.Signed, fail_descr)
+            loc = imm(fail_descr)
         return [loc]
 
     def prepare_call_malloc_gc(self, op):
