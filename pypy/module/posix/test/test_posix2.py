@@ -320,7 +320,8 @@ class AppTestPosix:
         path = self.path
         posix = self.posix
         fd = posix.open(path, posix.O_RDONLY)
-        raises(OSError, posix.fdopen, fd, 'w')
+        exc = raises(OSError, posix.fdopen, fd, 'w')
+        assert str(exc.value) == "[Errno 22] Invalid argument"
         posix.close(fd)  # fd should not be closed
 
     def test_getcwd(self):

@@ -37,7 +37,7 @@ an outout-buffering stream.
 import os, sys, errno
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, intmask
-from rpython.rlib import rposix, nonconst
+from rpython.rlib import rposix, nonconst, _rsocket_rffi as _c
 from rpython.rlib.rstring import StringBuilder
 
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_APPEND
@@ -85,10 +85,26 @@ def open_file_as_stream(path, mode="r", buffering=-1, signal_checker=None):
 def _setfd_binary(fd):
     pass
 
+if hasattr(_c, 'fcntl'):
+    def _check_fd_mode(fd, reading, writing):
+        flags = intmask(_c.fcntl(fd, _c.F_GETFL, 0))
+        if flags & _c.O_RDWR:
+            return
+        elif flags & _c.O_WRONLY:
+            if not reading:
+                return
+        else:  # O_RDONLY
+            if not writing:
+                return
+        raise OSError(22, "Invalid argument")
+else:
+    def _check_fd_mode(fd, reading, writing):
+        # XXX
+        pass
+
 def fdopen_as_stream(fd, mode, buffering=-1, signal_checker=None):
-    # XXX XXX XXX you want do check whether the modes are compatible
-    # otherwise you get funny results
     os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
+    _check_fd_mode(fd, reading, writing)
     _setfd_binary(fd)
     stream = DiskFile(fd, signal_checker)
     return construct_stream_tower(stream, buffering, universal, reading,
