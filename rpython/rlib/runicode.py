@@ -906,6 +906,7 @@ def str_decode_utf_7(s, size, errors, final=False,
     elif inShift:
         pos = shiftOutStartPos # back off output
 
+    assert pos >= 0
     return result.build()[:pos], pos
 
 def unicode_encode_utf_7(s, size, errors, errorhandler=None):
