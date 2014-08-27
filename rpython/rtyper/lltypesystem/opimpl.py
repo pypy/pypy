@@ -715,8 +715,8 @@ op_raw_load.need_result_type = True
 def op_jit_assembler_call(funcptr, *args):
     return funcptr(*args)
 
-def op_stm_rewind_jmp_frame():
-    pass
+def op_stm_rewind_jmp_frame(x=None):
+    return llmemory.NULL
 
 def op_stm_hint_commit_soon():
     pass
