@@ -34,6 +34,9 @@ class AssemblerLocation(object):
     def is_imm_float(self):
         return False
 
+    def is_float(self):
+        return False
+
     def as_key(self):
         raise NotImplementedError
 
@@ -55,7 +58,7 @@ class RegisterLocation(AssemblerLocation):
 
 class FPRegisterLocation(RegisterLocation):
     _immutable_ = True
-    type = FLOAT 
+    type = FLOAT
     width = FWORD
 
     def __repr__(self):
@@ -65,6 +68,9 @@ class FPRegisterLocation(RegisterLocation):
         return False
 
     def is_fp_reg(self):
+        return True
+
+    def is_float(self):
         return True
 
     def as_key(self):
