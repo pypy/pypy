@@ -23,11 +23,11 @@ udir = py.path.local.make_numbered_dir(prefix='viewcode-', keep=2)
 tmpfile = str(udir.join('dump.tmp'))
 
 # hack hack
-import pypy.tool
-mod = new.module('pypy.tool.udir')
+import rpython.tool
+mod = new.module('rpython.tool.udir')
 mod.udir = udir
-sys.modules['pypy.tool.udir'] = mod
-pypy.tool.udir = mod
+sys.modules['rpython.tool.udir'] = mod
+rpython.tool.udir = mod
 
 # ____________________________________________________________
 # Some support code from Psyco.  There is more over there,
@@ -55,7 +55,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
     return format_code_dump_with_labels(originaddr, lines, label_list)
 
 def format_code_dump_with_labels(originaddr, lines, label_list):
-    from pypy.rlib.rarithmetic import r_uint
+    from rpython.rlib.rarithmetic import r_uint
     if not label_list:
         label_list = []
     originaddr = r_uint(originaddr)
@@ -344,7 +344,7 @@ def tab2columns(text):
 # http://codespeak.net/svn/user/arigo/hack/misc/graphlib.py
 # but needs to be a bit more subtle later
 
-from pypy.translator.tool.make_dot import DotGen
+from rpython.translator.tool.make_dot import DotGen
 from dotviewer.graphclient import display_page
 
 class Graph(DotGen):
@@ -413,7 +413,7 @@ if __name__ == '__main__':
         sys.exit(2)
     #
     import cStringIO
-    from pypy.tool import logparser
+    from rpython.tool import logparser
     log1 = logparser.parse_log_file(sys.argv[1])
     text1 = logparser.extract_category(log1, catprefix='jit-backend-dump')
     f = cStringIO.StringIO()
