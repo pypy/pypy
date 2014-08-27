@@ -13,26 +13,29 @@ class TypeCache(object):
         self.StringType = tklib.Tcl_GetObjType("string")
 
 
+def FromTclString(s):
+    # If the result contains any bytes with the top bit set, it's
+    # UTF-8 and we should decode it to Unicode.
+    try:
+        s.decode('ascii')
+    except UnicodeDecodeError:
+        try:
+            return s.decode('utf8')
+        except UnicodeDecodeError:
+            # Tcl encodes null character as \xc0\x80
+            try:
+                return s.replace('\xc0\x80', '\x00').decode('utf-8')
+            except UnicodeDecodeError:
+                pass
+    return s
+
+
 def FromObj(app, value):
     """Convert a TclObj pointer into a Python object."""
     typeCache = app._typeCache
     if not value.typePtr:
         buf = tkffi.buffer(value.bytes, value.length)
-        result = buf[:]
-        # If the result contains any bytes with the top bit set, it's
-        # UTF-8 and we should decode it to Unicode.
-        try:
-            result.decode('ascii')
-        except UnicodeDecodeError:
-            try:
-                result = result.decode('utf8')
-            except UnicodeDecodeError:
-                # Tcl encodes null character as \xc0\x80
-                try:
-                    result = result.replace('\xc0\x80', '\x00').decode('utf-8')
-                except UnicodeDecodeError:
-                    pass
-        return result
+        return FromTclString(buf[:])
 
     elif value.typePtr == typeCache.BooleanType:
         return bool(value.internalRep.longValue)

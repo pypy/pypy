@@ -2,7 +2,7 @@
 
 from .tklib import tklib, tkffi
 from . import TclError
-from .tclobj import TclObject, FromObj, AsObj, TypeCache
+from .tclobj import TclObject, FromObj, FromTclString, AsObj, TypeCache
 
 import contextlib
 import sys
@@ -55,7 +55,7 @@ class _CommandData(object):
         assert self.app.interp == interp
         with self.app._tcl_lock_released():
             try:
-                args = [tkffi.string(arg) for arg in argv[1:argc]]
+                args = [FromTclString(tkffi.string(arg)) for arg in argv[1:argc]]
                 result = self.func(*args)
                 obj = AsObj(result)
                 tklib.Tcl_SetObjResult(interp, obj)
