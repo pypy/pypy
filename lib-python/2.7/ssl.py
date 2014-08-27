@@ -115,11 +115,10 @@ class SSLSocket(socket):
             raise NotImplementedError("only stream sockets are supported")
         socket.__init__(self, _sock=sock._sock)
 
-        # "close" the original socket: it is not usable any more.
-        # this only calls _drop(), which should not actually call
-        # the operating system's close() because the reference
-        # counter is greater than 1 (we hold one too).
-        sock.close()
+        # "close" the original socket: it is not usable any more. which should
+        # not actually call the operating system's close() because the
+        # reference counter is greater than 1 (we hold one too).
+        sock._sock._drop()
 
         if ciphers is None and ssl_version != _SSLv2_IF_EXISTS:
             ciphers = _DEFAULT_CIPHERS
