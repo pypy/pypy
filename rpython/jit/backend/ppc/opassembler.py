@@ -1,4 +1,4 @@
-from rpython.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op, 
+from rpython.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op,
                                                       gen_emit_unary_cmp_op)
 from rpython.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import rpython.jit.backend.ppc.condition as c
@@ -240,7 +240,7 @@ class GuardOpAssembler(object):
                     is_guard_not_forced=False):
         pos = self.mc.currpos()
         self.mc.nop()     # has to be patched later on
-        token = self.build_guard_token(op, arglocs[0].value, arglocs[1:], pos,
+        token = self.build_guard_token(op, arglocs[0].value, arglocs[1:],
                                        fcond, save_exc, is_guard_not_invalidated,
                                        is_guard_not_forced)
         self.pending_guards.append(token)
@@ -249,8 +249,11 @@ class GuardOpAssembler(object):
                           is_guard_not_invalidated=False,
                           is_guard_not_forced=False):
         descr = op.getdescr()
+        offset = self.mc.currpos()
         gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
-        #token = PPCGuardToken()
+        token = PPCGuardToken(self.cpu, gcmap, descr, op.getfailargs(),
+                              arglocs, save_exc, frame_depth,
+                              is_guard_not_invalidated, is_guard_not_forced)
         return token
 
     def emit_guard_true(self, op, arglocs, regalloc):
