@@ -112,6 +112,7 @@ Tcl_ThreadId Tcl_GetCurrentThread();
 int Tcl_DoOneEvent(int flags);
 
 int Tk_GetNumMainWindows();
+void Tcl_FindExecutable(char *argv0);
 """)
 
 # XXX find a better way to detect paths
