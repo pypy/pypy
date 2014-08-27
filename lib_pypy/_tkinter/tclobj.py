@@ -11,7 +11,7 @@ class TypeCache(object):
         self.ListType = tklib.Tcl_GetObjType("list")
         self.ProcBodyType = tklib.Tcl_GetObjType("procbody")
         self.StringType = tklib.Tcl_GetObjType("string")
-        
+
 
 def FromObj(app, value):
     """Convert a TclObj pointer into a Python object."""
@@ -24,7 +24,14 @@ def FromObj(app, value):
         try:
             result.decode('ascii')
         except UnicodeDecodeError:
-            result = result.decode('utf8')
+            try:
+                result = result.decode('utf8')
+            except UnicodeDecodeError:
+                # Tcl encodes null character as \xc0\x80
+                try:
+                    result = result.replace('\xc0\x80', '\x00').decode('utf-8')
+                except UnicodeDecodeError:
+                    pass
         return result
 
     elif value.typePtr == typeCache.BooleanType:
