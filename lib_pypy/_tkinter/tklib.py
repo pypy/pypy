@@ -76,6 +76,11 @@ char *Tcl_GetString(Tcl_Obj* objPtr);
 char *Tcl_GetStringFromObj(Tcl_Obj* objPtr, int* lengthPtr);
 unsigned char *Tcl_GetByteArrayFromObj(Tcl_Obj* objPtr, int* lengthPtr);
 
+int Tcl_ExprBoolean(Tcl_Interp* interp, const char *expr, int *booleanPtr);
+int Tcl_ExprLong(Tcl_Interp* interp, const char *expr, long* longPtr);
+int Tcl_ExprDouble(Tcl_Interp* interp, const char *expr, double* doublePtr);
+int Tcl_ExprString(Tcl_Interp* interp, const char *expr);
+
 Tcl_UniChar *Tcl_GetUnicode(Tcl_Obj* objPtr);
 int Tcl_GetCharLength(Tcl_Obj* objPtr);
 
