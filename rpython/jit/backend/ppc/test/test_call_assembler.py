@@ -1,6 +1,7 @@
 import py
 from rpython.jit.metainterp.history import BoxInt, ConstInt
-from rpython.jit.metainterp.history import BoxPtr, ConstPtr, BasicFailDescr
+from rpython.jit.metainterp.history import (BoxPtr, ConstPtr, BasicFailDescr,
+                                            BasicFinalDescr)
 from rpython.jit.metainterp.history import JitCellToken
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.codewriter import heaptracker
@@ -54,7 +55,7 @@ class TestAssembler(object):
 
         for i in range(numargs + 1):
             namespace["fdescr%d" % i] = BasicFailDescr(i)
-        namespace["finishdescr"] = BasicFailDescr(numargs + 1)
+        namespace["finishdescr"] = BasicFinalDescr(numargs + 1)
 
         for i in range(1, numargs + 1):
             arglist = []
