@@ -168,6 +168,14 @@ class W_BaseSetObject(W_Root):
             w_currently_in_repr = ec._py_repr = space.newdict()
         return setrepr(space, w_currently_in_repr, self)
 
+    def descr_cmp(self, space, w_other):
+        if space.is_w(space.type(self), space.type(w_other)):
+            # hack hack until we get the expected result
+            raise OperationError(space.w_TypeError,
+                    space.wrap('cannot compare sets using cmp()'))
+        else:
+            return space.w_NotImplemented
+
     def descr_eq(self, space, w_other):
         if isinstance(w_other, W_BaseSetObject):
             return space.wrap(self.equals(w_other))
@@ -514,6 +522,7 @@ Build an unordered collection.""",
     __init__ = gateway.interp2app(W_BaseSetObject.descr_init),
     __repr__ = gateway.interp2app(W_BaseSetObject.descr_repr),
     __hash__ = None,
+    __cmp__ = gateway.interp2app(W_BaseSetObject.descr_cmp),
 
     # comparison operators
     __eq__ = gateway.interp2app(W_BaseSetObject.descr_eq),
@@ -613,6 +622,7 @@ Build an immutable unordered collection.""",
     __new__ = gateway.interp2app(W_FrozensetObject.descr_new2),
     __repr__ = gateway.interp2app(W_BaseSetObject.descr_repr),
     __hash__ = gateway.interp2app(W_FrozensetObject.descr_hash),
+    __cmp__ = gateway.interp2app(W_BaseSetObject.descr_cmp),
 
     # comparison operators
     __eq__ = gateway.interp2app(W_BaseSetObject.descr_eq),
