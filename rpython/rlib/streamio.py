@@ -731,16 +731,23 @@ class BufferingOutputStream(Stream):
 
     def __init__(self, base, bufsize=-1):
         self.base = base
-        self.do_write = base.write  # write more data
         self.do_tell  = base.tell   # return a byte offset
         if bufsize == -1:     # Get default from the class
             bufsize = self.bufsize
         self.bufsize = bufsize  # buffer size (hint only)
         self.buf = []
         self.buflen = 0
+        self.error = False
+
+    def do_write(self, data):
+        try:
+            self.base.write(data)
+        except:
+            self.error = True
+            raise
 
     def flush_buffers(self):
-        if self.buf:
+        if self.buf and not self.error:
             self.do_write(''.join(self.buf))
             self.buf = []
             self.buflen = 0
@@ -749,6 +756,7 @@ class BufferingOutputStream(Stream):
         return self.do_tell() + self.buflen
 
     def write(self, data):
+        self.error = False
         buflen = self.buflen
         datalen = len(data)
         if datalen + buflen < self.bufsize:
@@ -783,6 +791,7 @@ class LineBufferingOutputStream(BufferingOutputStream):
     """
 
     def write(self, data):
+        self.error = False
         p = data.rfind('\n') + 1
         assert p >= 0
         if self.buflen + len(data) < self.bufsize:

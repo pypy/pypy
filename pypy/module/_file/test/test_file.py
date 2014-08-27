@@ -269,6 +269,9 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         try:
             f.write('hello')
             raises(IOError, f.write, '\n')
+            f.write('zzz')
+            raises(IOError, f.flush)
+            f.flush()
         finally:
             f.close()
 
