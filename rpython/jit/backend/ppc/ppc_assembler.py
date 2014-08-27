@@ -32,7 +32,7 @@ from rpython.rlib import rgc
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.jit.backend.ppc.locations import StackLocation, get_spp_offset
+from rpython.jit.backend.ppc.locations import StackLocation, get_spp_offset, imm
 from rpython.rlib.jit import AsmInfo
 from rpython.rlib.objectmodel import compute_unique_id
 
@@ -196,6 +196,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
                                                    regs, fpregs)
 
         self.failure_recovery_func = failure_recovery_func
+        self.failure_recovery_code = [0, 0, 0]
 
     recovery_func_sign = lltype.Ptr(lltype.FuncType([lltype.Signed] * 3,
             lltype.Signed))
@@ -1124,7 +1125,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         ptr = rffi.cast(lltype.Signed, gcmap)
         if push:
             with scratch_reg(mc):
-                mc.load_imm(r.SCRATCH.value, ptr)
+                mc.load_imm(r.SCRATCH, ptr)
                 mc.stdu(r.SCRATCH.value, r.SP.value, -WORD)
         elif store:
             assert False, "Not implemented"
@@ -1132,7 +1133,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
     def generate_quick_failure(self, guardtok):
         startpos = self.mc.currpos()
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
-        self.regalloc_push(fail_descr)
+        self.regalloc_push(imm(fail_descr))
         self.push_gcmap(self.mc, gcmap=guardtok.gcmap, push=True)
         self.mc.call(target)
         return startpos
@@ -1144,13 +1145,13 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
     def process_pending_guards(self, block_start):
         clt = self.current_clt
         for tok in self.pending_guards:
-            descr = tok.descr
+            descr = tok.faildescr
             assert isinstance(descr, AbstractFailDescr)
             descr._ppc_block_start = block_start
 
-            if not tok.is_invalidate:
+            if not tok.is_guard_not_invalidated:
                 mc = PPCBuilder()
-                offset = descr._ppc_guard_pos - tok.offset
+                offset = tok.pos_recovery_stub - tok.offset
                 mc.b_cond_offset(offset, tok.fcond)
                 mc.prepare_insts_blocks(True)
                 mc.copy_to_raw_memory(block_start + tok.offset)
