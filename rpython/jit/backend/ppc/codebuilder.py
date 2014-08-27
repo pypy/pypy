@@ -6,6 +6,7 @@ from rpython.jit.backend.ppc.assembler import Assembler
 from rpython.jit.backend.ppc.arch import (IS_PPC_32, WORD, IS_PPC_64, 
                                        LR_BC_OFFSET)
 import rpython.jit.backend.ppc.register as r
+import rpython.jit.backend.ppc.condition as c
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.jit.backend.llsupport.assembler import GuardToken
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -923,15 +924,15 @@ else:
     def flush_icache(x, y): pass
 
 class PPCGuardToken(GuardToken):
-    # Passing fcond may be needed here
+    # We may have to find a suitable default value for fcond
     def __init__(self, cpu, gcmap, descr, failargs, faillocs, offset,
                  exc, frame_depth, is_guard_not_invalidated=False,
-                 is_guard_not_forced=False):
+                 is_guard_not_forced=False, fcond=c.EQ):
         GuardToken.__init__(self, cpu, gcmap, descr, failargs, faillocs, exc,
                             frame_depth, is_guard_not_invalidated,
                             is_guard_not_forced)
+        self.fcond = fcond
         self.offset = offset
-        #self.is_invalidate = is_invalidate
 
 class OverwritingBuilder(PPCAssembler):
     def __init__(self, cb, start, num_insts):
