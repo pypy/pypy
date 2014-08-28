@@ -8,7 +8,6 @@ Try:
     ./viewcode.py log               # also includes a pygame viewer
 """
 
-import autopath
 import new
 import operator
 import py
