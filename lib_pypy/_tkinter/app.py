@@ -450,8 +450,7 @@ class TkApp(object):
     def getint(self, s):
         if isinstance(s, int):
             return s
-        if isinstance(s, unicode):
-            s = str(s)
+        s = s.encode('utf-8')
         if '\x00' in s:
             raise TypeError
         v = tkffi.new("int*")
@@ -463,8 +462,7 @@ class TkApp(object):
     def getdouble(self, s):
         if isinstance(s, float):
             return s
-        if isinstance(s, unicode):
-            s = str(s)
+        s = s.encode('utf-8')
         if '\x00' in s:
             raise TypeError
         v = tkffi.new("double*")

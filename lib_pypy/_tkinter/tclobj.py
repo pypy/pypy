@@ -14,19 +14,14 @@ class TypeCache(object):
 
 
 def FromTclString(s):
-    # If the result contains any bytes with the top bit set, it's
-    # UTF-8 and we should decode it to Unicode.
     try:
-        s.decode('ascii')
+        return s.decode('utf8')
     except UnicodeDecodeError:
+        # Tcl encodes null character as \xc0\x80
         try:
-            return s.decode('utf8')
+            return s.replace('\xc0\x80', '\x00').decode('utf-8')
         except UnicodeDecodeError:
-            # Tcl encodes null character as \xc0\x80
-            try:
-                return s.replace('\xc0\x80', '\x00').decode('utf-8')
-            except UnicodeDecodeError:
-                pass
+            pass
     return s
 
 
