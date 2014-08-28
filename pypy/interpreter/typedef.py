@@ -833,6 +833,7 @@ Method.typedef = TypeDef(
     __repr__ = interp2app(Method.descr_method_repr),
     __reduce__ = interp2app(Method.descr_method__reduce__),
     __weakref__ = make_weakref_descr(Method),
+    __doc__ = """instancemethod(function, instance, class)\n\nCreate an instance method object."""
     )
 Method.typedef.acceptable_as_base_class = False
 
