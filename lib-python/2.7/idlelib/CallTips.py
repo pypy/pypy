@@ -177,7 +177,7 @@ def get_arg_text(ob):
     else:
         fob = ob
     # Try to build one for Python defined functions
-    if type(fob) in [types.FunctionType, types.LambdaType]:
+    if type(fob) in [types.FunctionType, types.LambdaType] and hasattr(fob.func_code, 'co_code'):
         argcount = fob.func_code.co_argcount
         real_args = fob.func_code.co_varnames[arg_offset:argcount]
         defaults = fob.func_defaults or []
