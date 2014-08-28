@@ -532,7 +532,7 @@ class BufferingInputStream(Stream):
     def flush_buffers(self):
         if self.buf:
             try:
-                self.do_seek(self.tell(), 0)
+                self.do_seek(self.pos - len(self.buf), 1)
             except (MyNotImplementedError, OSError):
                 pass
             else:
