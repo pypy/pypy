@@ -34,15 +34,15 @@ config = platform.configure(CConfig)
 OFF_T = config['off_t']
 FILEP = rffi.COpaquePtr("FILE")
 
-c_open = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP)
-c_close = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
+c_fopen = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP)
+c_fclose = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
 c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
                                  FILEP], rffi.SIZE_T)
 c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
                                FILEP], rffi.SIZE_T)
 c_feof = llexternal('feof', [FILEP], rffi.INT)
 c_ferror = llexternal('ferror', [FILEP], rffi.INT)
-c_clearerror = llexternal('clearerr', [FILEP], lltype.Void)
+c_clearerr = llexternal('clearerr', [FILEP], lltype.Void)
 c_fseek = llexternal('fseek', [FILEP, rffi.LONG, rffi.INT],
                      rffi.INT)
 c_tmpfile = llexternal('tmpfile', [], FILEP)
@@ -65,7 +65,7 @@ BASE_LINE_SIZE = 100
 
 def _error(ll_file):
     errno = c_ferror(ll_file)
-    c_clearerror(ll_file)
+    c_clearerr(ll_file)
     raise OSError(errno, os.strerror(errno))
 
 
@@ -77,7 +77,7 @@ def create_file(filename, mode="r", buffering=-1):
     try:
         ll_mode = rffi.str2charp(mode)
         try:
-            ll_f = c_open(ll_name, ll_mode)
+            ll_f = c_fopen(ll_name, ll_mode)
             if not ll_f:
                 errno = rposix.get_errno()
                 raise OSError(errno, os.strerror(errno))
@@ -164,7 +164,7 @@ class RFile(object):
                 raise OSError(errno, os.strerror(errno))
         return res
 
-    _do_close = staticmethod(c_close)    # overridden in RPopenFile
+    _do_close = staticmethod(c_fclose)    # overridden in RPopenFile
 
     def read(self, size=-1):
         # XXX CPython uses a more delicate logic here
