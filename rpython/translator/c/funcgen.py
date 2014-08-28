@@ -435,11 +435,14 @@ class FunctionCodeGenerator(object):
             if isinstance(ARGTYPE, ContainerType):
                 args[-1] = '*%s' % (args[-1],)
 
-        line = '%s(%s);' % (fnexpr, ', '.join(args))
-        if self.lltypemap(v_result) is not Void:
-            # skip assignment of 'void' return value
-            r = self.expr(v_result)
-            line = '%s = %s' % (r, line)
+        if fnexpr == 'NULL':
+            line = 'abort(); /* call to NULL */'
+        else:
+            line = '%s(%s);' % (fnexpr, ', '.join(args))
+            if self.lltypemap(v_result) is not Void:
+                # skip assignment of 'void' return value
+                r = self.expr(v_result)
+                line = '%s = %s' % (r, line)
         if targets:
             for graph in targets:
                 if getattr(graph, 'inhibit_tail_call', False):

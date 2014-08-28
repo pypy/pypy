@@ -956,3 +956,13 @@ class TestLowLevelType(object):
 
         fn = self.getcompiled(f, [int])
         assert fn(0) == 9
+
+    def test_call_null_funcptr(self):
+        fnptr = nullptr(FuncType([], Void))
+        def f(n):
+            if n > 10:
+                fnptr()    # never reached, or so we hope
+            return n
+
+        fn = self.getcompiled(f, [int])
+        assert fn(6) == 6
