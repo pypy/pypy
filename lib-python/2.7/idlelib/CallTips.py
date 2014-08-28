@@ -170,7 +170,7 @@ def get_arg_text(ob):
         fob = ob.im_func
         if ob.im_self is not None:
             arg_offset = 1
-    elif type(ob_call) == types.MethodType:
+    elif type(ob_call) == types.MethodType and hasattr(ob_call.im_func.func_code, 'co_code'):
         # a callable class instance
         fob = ob_call.im_func
         arg_offset = 1
@@ -200,7 +200,7 @@ def get_arg_text(ob):
     lines = (textwrap.wrap(argspec, _MAX_COLS, subsequent_indent=_INDENT)
             if len(argspec) > _MAX_COLS else [argspec] if argspec else [])
 
-    if isinstance(ob_call, types.MethodType):
+    if isinstance(ob_call, types.MethodType) and hasattr(ob_call.im_func.func_code, 'co_code'):
         doc = ob_call.__doc__
     else:
         doc = getattr(ob, "__doc__", "")
