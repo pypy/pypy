@@ -344,6 +344,7 @@ class GCBase(object):
                     break
                 obj = self.run_finalizers.popleft()
                 finalizer = self.getfinalizer(self.get_type_id(obj))
+                assert finalizer
                 finalizer(obj)
         finally:
             self.finalizer_lock_count -= 1

@@ -48,7 +48,7 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
                     LL_OPERATIONS[op.opname].canmallocgc)
 
 
-        
+
 def find_initializing_stores(collect_analyzer, graph):
     from rpython.flowspace.model import mkentrymap
     entrymap = mkentrymap(graph)
@@ -625,7 +625,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 # causes it to return True
                 raise Exception("'no_collect' function can trigger collection:"
                                 " %s\n%s" % (func, err.getvalue()))
-                
+
         if self.write_barrier_ptr:
             self.clean_sets = (
                 find_initializing_stores(self.collect_analyzer, graph))
@@ -1284,15 +1284,15 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
             ll_call_destructor(destrptr, v, typename)
         fptr = self.transformer.annotate_finalizer(ll_finalizer,
                 [llmemory.Address], lltype.Void)
-        g = destrptr._obj.graph
-        if self.translator.config.translation.stm:
-            light = False    # XXX no working finalizers with STM so far
-        else:
-            try:
+        try:
+            g = destrptr._obj.graph
+            if self.translator.config.translation.stm:
+                light = False    # XXX no working finalizers with STM so far
+            else:
                 analyzer = FinalizerAnalyzer(self.translator)
                 light = not analyzer.analyze_light_finalizer(g)
-            except lltype.DelayedPointer:
-                light = False    # XXX bah, too bad
+        except lltype.DelayedPointer:
+            light = False    # XXX bah, too bad
         return fptr, light
 
     def make_custom_trace_funcptr_for_type(self, TYPE):
