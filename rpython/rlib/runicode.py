@@ -874,13 +874,14 @@ def str_decode_utf_7(s, size, errors, final=False,
                     result.append(unichr(ord(ch)))
 
         elif ch == '+':
+            startingpos = pos
             pos += 1 # consume '+'
             if pos < size and s[pos] == '-': # '+-' encodes '+'
                 pos += 1
                 result.append(u'+')
             else: # begin base64-encoded section
                 inShift = 1
-                shiftOutStartPos = pos - 1
+                shiftOutStartPos = result.getlength()
                 base64bits = 0
                 base64buffer = 0
 
@@ -888,13 +889,14 @@ def str_decode_utf_7(s, size, errors, final=False,
             result.append(unichr(oc))
             pos += 1
         else:
+            startingpos = pos
             pos += 1
             msg = "unexpected special character"
             res, pos = errorhandler(errors, 'utf7', msg, s, pos-1, pos)
             result.append(res)
 
     # end of string
-
+    final_length = result.getlength()
     if inShift and final: # in shift sequence, no more to follow
         # if we're in an inconsistent state, that's an error
         if (surrogate or
@@ -904,10 +906,11 @@ def str_decode_utf_7(s, size, errors, final=False,
             res, pos = errorhandler(errors, 'utf7', msg, s, shiftOutStartPos, pos)
             result.append(res)
     elif inShift:
-        pos = shiftOutStartPos # back off output
+        pos = startingpos
+        final_length = shiftOutStartPos # back off output
 
-    assert pos >= 0
-    return result.build()[:pos], pos
+    assert final_length >= 0
+    return result.build()[:final_length], pos
 
 def unicode_encode_utf_7(s, size, errors, errorhandler=None):
     if size == 0:
