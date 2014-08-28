@@ -200,6 +200,46 @@ class W_MMap(W_Root):
                     self.mmap.setitem(start, value[i])
                     start += step
 
+    def descr_getslice(self, space, w_ilow, w_ihigh):
+        self.check_valid()
+        i = space.getindex_w(w_ilow, None)
+        j = space.getindex_w(w_ihigh, None)
+        if i < 0:
+            i = 0
+        elif i > self.mmap.size:
+            i = self.mmap.size
+        if j < 0:
+            j = 0
+        if j < i:
+            j = i
+        elif j > self.mmap.size:
+            j = self.mmap.size
+        return space.wrap(self.mmap.getslice(i, (j - i)))
+
+    def descr_setslice(self, space, w_ilow, w_ihigh, w_item):
+        self.check_valid()
+        i = space.getindex_w(w_ilow, None)
+        j = space.getindex_w(w_ihigh, None)
+        if i < 0:
+            i = 0
+        elif i > self.mmap.size:
+            i = self.mmap.size
+        if j < 0:
+            j = 0
+        if j < i:
+            j = i
+        elif j > self.mmap.size:
+            j = self.mmap.size
+        if not space.isinstance_w(w_item, space.w_str):
+            raise OperationError(space.w_IndexError, space.wrap(
+                "mmap slice assignment must be a string"))
+        value = space.realstr_w(w_item)
+        if len(value) != (j - i):
+            raise OperationError(space.w_IndexError, space.wrap(
+                "mmap slice assignment is wrong size"))
+        self.check_writeable()
+        self.mmap.setslice(i, value)
+
 if rmmap._POSIX:
 
     @unwrap_spec(fileno=int, length=int, flags=int,
@@ -255,6 +295,8 @@ W_MMap.typedef = TypeDef("mmap.mmap",
     __len__ = interp2app(W_MMap.__len__),
     __getitem__ = interp2app(W_MMap.descr_getitem),
     __setitem__ = interp2app(W_MMap.descr_setitem),
+    __getslice__ = interp2app(W_MMap.descr_getslice),
+    __setslice__ = interp2app(W_MMap.descr_setslice),
 )
 
 constants = rmmap.constants

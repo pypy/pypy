@@ -2943,6 +2943,60 @@ class TestHelpBiggerOptionals(HelpTestCase):
         0.1
         '''
 
+class TestShortColumns(HelpTestCase):
+    '''Test extremely small number of columns.
+
+    TestCase prevents "COLUMNS" from being too small in the tests themselves,
+    but we don't want any exceptions thrown in such case. Only ugly representation.
+    '''
+    def setUp(self):
+        env = test_support.EnvironmentVarGuard()
+        env.set("COLUMNS", '15')
+        self.addCleanup(env.__exit__)
+
+    parser_signature            = TestHelpBiggerOptionals.parser_signature
+    argument_signatures         = TestHelpBiggerOptionals.argument_signatures
+    argument_group_signatures   = TestHelpBiggerOptionals.argument_group_signatures
+    usage = '''\
+        usage: PROG
+               [-h]
+               [-v]
+               [-x]
+               [--y Y]
+               foo
+               bar
+        '''
+    help = usage + '''\
+
+        DESCRIPTION
+
+        positional arguments:
+          foo
+            FOO HELP
+          bar
+            BAR HELP
+
+        optional arguments:
+          -h, --help
+            show this
+            help
+            message and
+            exit
+          -v, --version
+            show
+            program's
+            version
+            number and
+            exit
+          -x
+            X HELP
+          --y Y
+            Y HELP
+
+        EPILOG
+    '''
+    version                     = TestHelpBiggerOptionals.version
+
 
 class TestHelpBiggerOptionalGroups(HelpTestCase):
     """Make sure that argument help aligns when options are longer"""
@@ -4402,6 +4456,12 @@ class TestNamespace(TestCase):
         self.assertTrue(ns1 != ns4)
         self.assertTrue(ns2 != ns3)
         self.assertTrue(ns2 != ns4)
+
+    def test_equality_returns_notimplemeted(self):
+        # See issue 21481
+        ns = argparse.Namespace(a=1, b=2)
+        self.assertIs(ns.__eq__(None), NotImplemented)
+        self.assertIs(ns.__ne__(None), NotImplemented)
 
 
 # ===================

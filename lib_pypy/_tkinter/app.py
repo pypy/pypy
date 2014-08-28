@@ -2,7 +2,7 @@
 
 from .tklib import tklib, tkffi
 from . import TclError
-from .tclobj import TclObject, FromObj, AsObj, TypeCache
+from .tclobj import TclObject, FromObj, FromTclString, AsObj, TypeCache
 
 import contextlib
 import sys
@@ -55,7 +55,7 @@ class _CommandData(object):
         assert self.app.interp == interp
         with self.app._tcl_lock_released():
             try:
-                args = [tkffi.string(arg) for arg in argv[1:argc]]
+                args = [FromTclString(tkffi.string(arg)) for arg in argv[1:argc]]
                 result = self.func(*args)
                 obj = AsObj(result)
                 tklib.Tcl_SetObjResult(interp, obj)
@@ -438,10 +438,76 @@ class TkApp(object):
     def getboolean(self, s):
         if isinstance(s, int):
             return s
+        if isinstance(s, unicode):
+            s = str(s)
+        if '\x00' in s:
+            raise TypeError
         v = tkffi.new("int*")
         res = tklib.Tcl_GetBoolean(self.interp, s, v)
         if res == tklib.TCL_ERROR:
             self.raiseTclError()
+        return bool(v[0])
+
+    def getint(self, s):
+        if isinstance(s, int):
+            return s
+        if isinstance(s, unicode):
+            s = str(s)
+        if '\x00' in s:
+            raise TypeError
+        v = tkffi.new("int*")
+        res = tklib.Tcl_GetInt(self.interp, s, v)
+        if res == tklib.TCL_ERROR:
+            self.raiseTclError()
+        return v[0]
+
+    def getdouble(self, s):
+        if isinstance(s, float):
+            return s
+        if isinstance(s, unicode):
+            s = str(s)
+        if '\x00' in s:
+            raise TypeError
+        v = tkffi.new("double*")
+        res = tklib.Tcl_GetDouble(self.interp, s, v)
+        if res == tklib.TCL_ERROR:
+            self.raiseTclError()
+        return v[0]
+
+    def exprboolean(self, s):
+        if '\x00' in s:
+            raise TypeError
+        v = tkffi.new("int*")
+        res = tklib.Tcl_ExprBoolean(self.interp, s, v)
+        if res == tklib.TCL_ERROR:
+            self.raiseTclError()
+        return v[0]
+
+    def exprlong(self, s):
+        if '\x00' in s:
+            raise TypeError
+        v = tkffi.new("long*")
+        res = tklib.Tcl_ExprLong(self.interp, s, v)
+        if res == tklib.TCL_ERROR:
+            self.raiseTclError()
+        return v[0]
+
+    def exprdouble(self, s):
+        if '\x00' in s:
+            raise TypeError
+        v = tkffi.new("double*")
+        res = tklib.Tcl_ExprDouble(self.interp, s, v)
+        if res == tklib.TCL_ERROR:
+            self.raiseTclError()
+        return v[0]
+
+    def exprstring(self, s):
+        if '\x00' in s:
+            raise TypeError
+        res = tklib.Tcl_ExprString(self.interp, s)
+        if res == tklib.TCL_ERROR:
+            self.raiseTclError()
+        return tkffi.string(tklib.Tcl_GetStringResult(self.interp))
 
     def mainloop(self, threshold):
         self._check_tcl_appartment()

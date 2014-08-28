@@ -8,7 +8,7 @@ from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
 from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
 from pypy.module.posix.interp_posix import dispatch_filename
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -299,8 +299,8 @@ class W_File(W_AbstractStream):
     def file_fdopen(self, fd, mode="r", buffering=-1):
         try:
             self.direct_fdopen(fd, mode, buffering)
-        except StreamErrors, e:
-            raise wrap_streamerror(self.space, e, self.w_name)
+        except OSError as e:
+            raise wrap_oserror(self.space, e)
 
     _exposed_method_names = []
 
@@ -466,7 +466,10 @@ producing strings. This is equivalent to calling write() for each string."""
         for i, w_line in enumerate(lines):
             if not space.isinstance_w(w_line, space.w_str):
                 try:
-                    line = w_line.charbuf_w(space)
+                    if self.binary:
+                        line = w_line.readbuf_w(space).as_str()
+                    else:
+                        line = w_line.charbuf_w(space)
                 except TypeError:
                     raise OperationError(space.w_TypeError, space.wrap(
                         "writelines() argument must be a sequence of strings"))
