@@ -434,7 +434,7 @@ LL_OPERATIONS = {
     'stm_abort_and_retry':                LLOp(canmallocgc=True),
     'stm_enter_callback_call':            LLOp(canmallocgc=True),
     'stm_leave_callback_call':            LLOp(),
-    'stm_transaction_break':              LLOp(canmallocgc=True),
+    'stm_transaction_break':              LLOp(canmallocgc=True, canrun=True),
     'stm_should_break_transaction':       LLOp(sideeffects=False),
     'stm_rewind_jmp_frame':               LLOp(canrun=True),
     'stm_set_transaction_length':         LLOp(),
