@@ -1830,8 +1830,8 @@ class CustomKeyCompareSort(CustomCompareSort):
 
 
 W_ListObject.typedef = StdTypeDef("list",
-    __doc__ = """list() -> new list
-list(sequence) -> new list initialized from sequence's items""",
+    __doc__ = """list() -> new empty list
+list(iterable) -> new list initialized from iterable's items""",
     __new__ = interp2app(W_ListObject.descr_new),
     __init__ = interp2app(W_ListObject.descr_init),
     __repr__ = interp2app(W_ListObject.descr_repr),

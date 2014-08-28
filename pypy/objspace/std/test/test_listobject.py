@@ -441,6 +441,9 @@ class AppTestListObject(object):
         cls.w_on_arm = cls.space.wrap(platform.machine().startswith('arm'))
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
+    def test_doc(self):
+        assert list.__doc__ == "list() -> new empty list\nlist(iterable) -> new list initialized from iterable's items"
+
     def test_getstrategyfromlist_w(self):
         l0 = ["a", "2", "a", True]
         # this raised TypeError on ListStrategies
