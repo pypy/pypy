@@ -32,6 +32,7 @@ class CConfig(object):
     _IONBF = platform.DefinedConstantInteger('_IONBF')
     _IOLBF = platform.DefinedConstantInteger('_IOLBF')
     _IOFBF = platform.DefinedConstantInteger('_IOFBF')
+    BUFSIZ = platform.DefinedConstantInteger('BUFSIZ')
 
 config = platform.configure(CConfig)
 
@@ -40,6 +41,7 @@ FILEP = rffi.COpaquePtr("FILE")
 _IONBF = config['_IONBF']
 _IOLBF = config['_IOLBF']
 _IOFBF = config['_IOFBF']
+BUFSIZ = config['BUFSIZ']
 
 c_fopen = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP)
 c_fclose = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
@@ -65,7 +67,7 @@ c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP],
 
 c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], FILEP)
 c_pclose = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
-c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T], lltype.Void)
+c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T], rffi.INT)
 
 BASE_BUF_SIZE = 4096
 BASE_LINE_SIZE = 100
@@ -92,8 +94,13 @@ def create_file(filename, mode="r", buffering=-1):
             lltype.free(ll_mode, flavor='raw')
     finally:
         lltype.free(ll_name, flavor='raw')
-    if buffering != -1:
-        c_setvbuf(ll_f, lltype.nullptr(rffi.CCHARP.TO), _IOFBF, buffering)
+    if buffering >= 0:
+        if buffering == 0:
+            c_setvbuf(ll_f, lltype.nullptr(rffi.CCHARP.TO), _IONBF, 0)
+        elif buffering == 1:
+            c_setvbuf(ll_f, lltype.nullptr(rffi.CCHARP.TO), _IOLBF, BUFSIZ)
+        else:
+            c_setvbuf(ll_f, lltype.nullptr(rffi.CCHARP.TO), _IOFBF, buffering)
     return RFile(ll_f)
 
 
