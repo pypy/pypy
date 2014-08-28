@@ -358,6 +358,7 @@ class W_ListObject(W_Root):
 
     @staticmethod
     def descr_new(space, w_listtype, __args__):
+        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
         w_obj = space.allocate_instance(W_ListObject, w_listtype)
         w_obj.clear(space)
         return w_obj
