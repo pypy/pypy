@@ -170,14 +170,16 @@ def get_arg_text(ob):
         fob = ob.im_func
         if ob.im_self is not None:
             arg_offset = 1
-    elif type(ob_call) == types.MethodType and hasattr(ob_call.im_func.func_code, 'co_code'):
+    elif type(ob_call) == types.MethodType and \
+            hasattr(ob_call.im_func.func_code, 'co_code'):
         # a callable class instance
         fob = ob_call.im_func
         arg_offset = 1
     else:
         fob = ob
     # Try to build one for Python defined functions
-    if type(fob) in [types.FunctionType, types.LambdaType] and hasattr(fob.func_code, 'co_code'):
+    if type(fob) in [types.FunctionType, types.LambdaType] and \
+            hasattr(fob.func_code, 'co_code'):
         argcount = fob.func_code.co_argcount
         real_args = fob.func_code.co_varnames[arg_offset:argcount]
         defaults = fob.func_defaults or []
@@ -200,7 +202,8 @@ def get_arg_text(ob):
     lines = (textwrap.wrap(argspec, _MAX_COLS, subsequent_indent=_INDENT)
             if len(argspec) > _MAX_COLS else [argspec] if argspec else [])
 
-    if isinstance(ob_call, types.MethodType) and hasattr(ob_call.im_func.func_code, 'co_code'):
+    if isinstance(ob_call, types.MethodType) and \
+            hasattr(ob_call.im_func.func_code, 'co_code'):
         doc = ob_call.__doc__
     else:
         doc = getattr(ob, "__doc__", "")
