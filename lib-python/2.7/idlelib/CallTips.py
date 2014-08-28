@@ -124,6 +124,7 @@ def _find_constructor(class_ob):
     # Given a class object, return a function object used for the
     # constructor (ie, __init__() ) or None if we can't find one.
     try:
+        class_ob.__init__.im_func.func_code.co_code
         return class_ob.__init__.im_func
     except AttributeError:
         for base in class_ob.__bases__:
