@@ -800,6 +800,7 @@ def str_decode_utf_7(s, size, errors, final=False,
     result = UnicodeBuilder(size)
     pos = 0
     shiftOutStartPos = 0
+    startinpos = 0
     while pos < size:
         ch = s[pos]
         oc = ord(ch)
@@ -874,7 +875,7 @@ def str_decode_utf_7(s, size, errors, final=False,
                     result.append(unichr(ord(ch)))
 
         elif ch == '+':
-            startingpos = pos
+            startinpos = pos
             pos += 1 # consume '+'
             if pos < size and s[pos] == '-': # '+-' encodes '+'
                 pos += 1
@@ -889,7 +890,7 @@ def str_decode_utf_7(s, size, errors, final=False,
             result.append(unichr(oc))
             pos += 1
         else:
-            startingpos = pos
+            startinpos = pos
             pos += 1
             msg = "unexpected special character"
             res, pos = errorhandler(errors, 'utf7', msg, s, pos-1, pos)
@@ -905,8 +906,9 @@ def str_decode_utf_7(s, size, errors, final=False,
             msg = "unterminated shift sequence"
             res, pos = errorhandler(errors, 'utf7', msg, s, shiftOutStartPos, pos)
             result.append(res)
+            final_length = result.getlength()
     elif inShift:
-        pos = startingpos
+        pos = startinpos
         final_length = shiftOutStartPos # back off output
 
     assert final_length >= 0
