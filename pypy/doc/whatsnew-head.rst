@@ -57,3 +57,6 @@ respectively.
 
 .. branch: split-ast-classes
 Classes in the ast module are now distinct from structures used by the compiler.
+
+.. branch: stdlib-2.7.8
+Upgrades from 2.7.6 to 2.7.8
