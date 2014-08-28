@@ -160,6 +160,20 @@ class AppTestAppSysTests:
         assert isinstance(li.bits_per_digit, int)
         assert isinstance(li.sizeof_digit, int)
 
+    def test_sys_exit(self):
+        import sys
+        exc = raises(SystemExit, sys.exit)
+        assert exc.value.code is None
+
+        exc = raises(SystemExit, sys.exit, 0)
+        assert exc.value.code == 0
+
+        exc = raises(SystemExit, sys.exit, 1)
+        assert exc.value.code == 1
+
+        exc = raises(SystemExit, sys.exit, (1, 2, 3))
+        assert exc.value.code == (1, 2, 3)
+
     def test_hash_info(self):
         import sys
         li = sys.hash_info
@@ -168,6 +182,7 @@ class AppTestAppSysTests:
         assert isinstance(li.inf, int)
         assert isinstance(li.nan, int)
         assert isinstance(li.imag, int)
+
 
 class AppTestSysModulePortedFromCPython:
     def setup_class(cls):

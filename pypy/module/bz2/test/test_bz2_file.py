@@ -54,7 +54,7 @@ class AppTestBZ2File: #(CheckAllocation):
     # XXX: CheckAllocation fails on py3 (seems to false positive on
     # BZ2File's RLocks)
     spaceconfig = {
-        "usemodules": ["bz2", "thread", "binascii", "rctime"]
+        'usemodules': ['bz2', 'binascii', 'rctime', 'struct', 'thread']
     }
 
     def setup_class(cls):
@@ -107,6 +107,9 @@ class AppTestBZ2File: #(CheckAllocation):
         BZ2File(self.temppath, mode='wb')
         # a large buf size
         BZ2File(self.temppath, mode='w', buffering=4096)
+
+        exc = raises(IOError, BZ2File, 'xxx', 'r')
+        assert "'xxx'" in str(exc.value)
 
     def test_close(self):
         from bz2 import BZ2File

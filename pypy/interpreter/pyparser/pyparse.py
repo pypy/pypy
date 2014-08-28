@@ -1,15 +1,15 @@
-from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error
 from pypy.interpreter.astcompiler import consts
 from rpython.rlib import rstring
 
-
-def recode_to_utf8(space, bytes, encoding=None):
+def recode_to_utf8(space, bytes, encoding):
     if encoding == 'utf-8':
         return bytes
     w_text = space.call_method(space.wrapbytes(bytes), "decode",
                                space.wrap(encoding))
+    if not space.isinstance_w(w_text, space.w_unicode):
+        raise error.SyntaxError("codec did not return a unicode object")
     w_recoded = space.call_method(w_text, "encode", space.wrap("utf-8"))
     return space.bytes_w(w_recoded)
 

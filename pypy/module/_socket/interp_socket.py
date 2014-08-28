@@ -489,8 +489,11 @@ class W_Socket(W_Root):
     def recvfrom_into_w(self, space, w_buffer, nbytes=0, flags=0):
         rwbuffer = space.getarg_w('w*', w_buffer)
         lgt = rwbuffer.getlength()
-        if nbytes == 0 or nbytes > lgt:
+        if nbytes == 0:
             nbytes = lgt
+        elif nbytes > lgt:
+            raise oefmt(space.w_ValueError,
+                        "nbytes is greater than the length of the buffer")
         try:
             readlgt, addr = self.sock.recvfrom_into(rwbuffer, nbytes, flags)
             if addr:

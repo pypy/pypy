@@ -67,6 +67,9 @@ class AppTestDialect(object):
                 kwargs = {name: value}
                 raises(TypeError, _csv.register_dialect, 'foo1', **kwargs)
 
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', lineterminator=4)
+        assert exc_info.value.args[0] == '"lineterminator" must be a string'
+
     def test_bool_arg(self):
         # boolean arguments take *any* object and use its truth-value
         import _csv
@@ -76,6 +79,21 @@ class AppTestDialect(object):
         assert _csv.get_dialect('foo1').skipinitialspace == True
         _csv.register_dialect('foo1', strict=_csv)    # :-/
         assert _csv.get_dialect('foo1').strict == True
+
+    def test_delimiter(self):
+        import _csv
+
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', delimiter=":::")
+        assert exc_info.value.args[0] == '"delimiter" must be a 1-character string'
+
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', delimiter="")
+        assert exc_info.value.args[0] == '"delimiter" must be a 1-character string'
+
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', delimiter=u",")
+        assert exc_info.value.args[0] == '"delimiter" must be string, not unicode'
+
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', delimiter=4)
+        assert exc_info.value.args[0] == '"delimiter" must be string, not int'
 
     def test_line_terminator(self):
         # lineterminator can be the empty string

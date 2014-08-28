@@ -29,12 +29,12 @@ class Poll(W_Root):
         self.fddict = {}
         self.running = False
 
-    @unwrap_spec(events="c_short")
+    @unwrap_spec(events="c_ushort")
     def register(self, space, w_fd, events=defaultevents):
         fd = space.c_filedescriptor_w(w_fd)
         self.fddict[fd] = events
 
-    @unwrap_spec(events=int)
+    @unwrap_spec(events="c_ushort")
     def modify(self, space, w_fd, events):
         fd = space.c_filedescriptor_w(w_fd)
         if fd not in self.fddict:

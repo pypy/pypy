@@ -1,5 +1,8 @@
-from pypy.interpreter.error import OperationError
+from rpython.rlib.objectmodel import specialize
+
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
+
 
 def index(space, w_a):
     return space.index(w_a)
@@ -64,7 +67,7 @@ def inv(space, w_obj,):
 
 def invert(space, w_obj,):
     'invert(a) -- Same as ~a.'
-    return space.invert(w_obj) 
+    return space.invert(w_obj)
 
 def is_(space, w_a, w_b):
     'is_(a,b) -- Same as a is b'
@@ -80,7 +83,7 @@ def le(space, w_a, w_b):
 
 def lshift(space, w_a, w_b):
     'lshift(a, b) -- Same as a << b.'
-    return space.lshift(w_a, w_b) 
+    return space.lshift(w_a, w_b)
 
 def lt(space, w_a, w_b):
     'lt(a, b) -- Same as a<b.'
@@ -96,7 +99,7 @@ def mul(space, w_a, w_b):
 
 def ne(space, w_a, w_b):
     'ne(a, b) -- Same as a!=b.'
-    return space.ne(w_a, w_b) 
+    return space.ne(w_a, w_b)
 
 def neg(space, w_obj,):
     'neg(a) -- Same as -a.'
@@ -112,7 +115,7 @@ def or_(space, w_a, w_b):
 
 def pos(space, w_obj,):
     'pos(a) -- Same as +a.'
-    return space.pos(w_obj) 
+    return space.pos(w_obj)
 
 def pow(space, w_a, w_b):
     'pow(a, b) -- Same as a**b.'
@@ -120,7 +123,7 @@ def pow(space, w_a, w_b):
 
 def rshift(space, w_a, w_b):
     'rshift(a, b) -- Same as a >> b.'
-    return space.rshift(w_a, w_b) 
+    return space.rshift(w_a, w_b)
 
 def setitem(space, w_obj, w_key, w_value):
     'setitem(a, b, c) -- Same as a[b] = c.'
@@ -128,7 +131,7 @@ def setitem(space, w_obj, w_key, w_value):
 
 def sub(space, w_a, w_b):
     'sub(a, b) -- Same as a - b.'
-    return space.sub(w_a, w_b) 
+    return space.sub(w_a, w_b)
 
 def truediv(space, w_a, w_b):
     'truediv(a, b) -- Same as a / b when __future__.division is in effect.'
@@ -158,7 +161,7 @@ def ifloordiv(space, w_a, w_b):
 
 def ilshift(space, w_a, w_b):
     'ilshift(a, b) -- Same as a <<= b.'
-    return space.inplace_lshift(w_a, w_b) 
+    return space.inplace_lshift(w_a, w_b)
 
 def imod(space, w_a, w_b):
     'imod(a, b) -- Same as a %= b.'
@@ -178,11 +181,11 @@ def ipow(space, w_a, w_b):
 
 def irshift(space, w_a, w_b):
     'irshift(a, b) -- Same as a >>= b.'
-    return space.inplace_rshift(w_a, w_b) 
+    return space.inplace_rshift(w_a, w_b)
 
 def isub(space, w_a, w_b):
     'isub(a, b) -- Same as a -= b.'
-    return space.inplace_sub(w_a, w_b) 
+    return space.inplace_sub(w_a, w_b)
 
 def itruediv(space, w_a, w_b):
     'itruediv(a, b) -- Same as a /= b when __future__.division is in effect.'
@@ -205,3 +208,33 @@ def iconcat(space, w_obj1, w_obj2):
 @unwrap_spec(default=int)
 def _length_hint(space, w_iterable, default):
     return space.wrap(space.length_hint(w_iterable, default))
+
+def compare_digest(space, w_a, w_b):
+    if (
+        space.isinstance_w(w_a, space.w_unicode) and
+        space.isinstance_w(w_b, space.w_unicode)
+    ):
+        return space.wrap(tscmp(space.unicode_w(w_a), space.unicode_w(w_b)))
+    if (
+        space.isinstance_w(w_a, space.w_unicode) or
+        space.isinstance_w(w_b, space.w_unicode)
+    ):
+        raise oefmt(
+            space.w_TypeError,
+            "unsupported operand types(s) or combination of types: '%N' and '%N'",
+            w_a,
+            w_b,
+        )
+    else:
+        return space.wrap(tscmp(space.bufferstr_w(w_a), space.bufferstr_w(w_b)))
+
+
+@specialize.argtype(0, 1)
+def tscmp(a, b):
+    len_a = len(a)
+    len_b = len(b)
+    length = min(len(a), len(b))
+    res = len_a ^ len_b
+    for i in xrange(length):
+        res |= ord(a[i]) ^ ord(b[i])
+    return res == 0

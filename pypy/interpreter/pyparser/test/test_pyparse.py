@@ -40,6 +40,13 @@ class TestPythonParserWithoutSpace:
         tree = self.parse("a日本 = 32")
         tree = self.parse("日本 = 32")
 
+    def test_non_unicode_codec(self):
+        exc = py.test.raises(SyntaxError, self.parse, """\
+# coding: string-escape
+\x70\x72\x69\x6e\x74\x20\x32\x2b\x32\x0a
+""").value
+        assert exc.msg == "codec did not return a unicode object"
+
     def test_syntax_error(self):
         parse = self.parse
         exc = py.test.raises(SyntaxError, parse, "name another for").value

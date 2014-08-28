@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 class AppTestOperator:
     def test_equality(self):
@@ -188,3 +189,110 @@ class AppTestOperator:
         raises(TypeError, operator.indexOf, None, None)
         assert operator.indexOf([4, 3, 2, 1], 3) == 1
         raises(ValueError, operator.indexOf, [4, 3, 2, 1], 0)
+
+    def test_compare_digest(self):
+        import operator
+
+        # Testing input type exception handling
+        a, b = 100, 200
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = 100, b"foobar"
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = b"foobar", 200
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = u"foobar", b"foobar"
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = b"foobar", u"foobar"
+        raises(TypeError, operator._compare_digest, a, b)
+
+        # Testing bytes of different lengths
+        a, b = b"foobar", b"foo"
+        assert not operator._compare_digest(a, b)
+        a, b = b"\xde\xad\xbe\xef", b"\xde\xad"
+        assert not operator._compare_digest(a, b)
+
+        # Testing bytes of same lengths, different values
+        a, b = b"foobar", b"foobaz"
+        assert not operator._compare_digest(a, b)
+        a, b = b"\xde\xad\xbe\xef", b"\xab\xad\x1d\xea"
+        assert not operator._compare_digest(a, b)
+
+        # Testing bytes of same lengths, same values
+        a, b = b"foobar", b"foobar"
+        assert operator._compare_digest(a, b)
+        a, b = b"\xde\xad\xbe\xef", b"\xde\xad\xbe\xef"
+        assert operator._compare_digest(a, b)
+
+        # Testing bytearrays of same lengths, same values
+        a, b = bytearray(b"foobar"), bytearray(b"foobar")
+        assert operator._compare_digest(a, b)
+
+        # Testing bytearrays of diffeent lengths
+        a, b = bytearray(b"foobar"), bytearray(b"foo")
+        assert not operator._compare_digest(a, b)
+
+        # Testing bytearrays of same lengths, different values
+        a, b = bytearray(b"foobar"), bytearray(b"foobaz")
+        assert not operator._compare_digest(a, b)
+
+        # Testing byte and bytearray of same lengths, same values
+        a, b = bytearray(b"foobar"), b"foobar"
+        assert operator._compare_digest(a, b)
+        assert operator._compare_digest(b, a)
+
+        # Testing byte bytearray of diffeent lengths
+        a, b = bytearray(b"foobar"), b"foo"
+        assert not operator._compare_digest(a, b)
+        assert not operator._compare_digest(b, a)
+
+        # Testing byte and bytearray of same lengths, different values
+        a, b = bytearray(b"foobar"), b"foobaz"
+        assert not operator._compare_digest(a, b)
+        assert not operator._compare_digest(b, a)
+
+        # Testing str of same lengths
+        a, b = "foobar", "foobar"
+        assert operator._compare_digest(a, b)
+
+        # Testing str of diffeent lengths
+        a, b = "foo", "foobar"
+        assert not operator._compare_digest(a, b)
+
+        # Testing bytes of same lengths, different values
+        a, b = "foobar", "foobaz"
+        assert not operator._compare_digest(a, b)
+
+        # Testing error cases
+        a, b = u"foobar", b"foobar"
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = b"foobar", u"foobar"
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = b"foobar", 1
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = 100, 200
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = "fooä", "fooä"
+        assert operator._compare_digest(a, b)
+
+        # subclasses are supported by ignore __eq__
+        class mystr(str):
+            def __eq__(self, other):
+                return False
+
+        a, b = mystr("foobar"), mystr("foobar")
+        assert operator._compare_digest(a, b)
+        a, b = mystr("foobar"), "foobar"
+        assert operator._compare_digest(a, b)
+        a, b = mystr("foobar"), mystr("foobaz")
+        assert not operator._compare_digest(a, b)
+
+        class mybytes(bytes):
+            def __eq__(self, other):
+                return False
+
+        a, b = mybytes(b"foobar"), mybytes(b"foobar")
+        assert operator._compare_digest(a, b)
+        a, b = mybytes(b"foobar"), b"foobar"
+        assert operator._compare_digest(a, b)
+        a, b = mybytes(b"foobar"), mybytes(b"foobaz")
+        assert not operator._compare_digest(a, b)

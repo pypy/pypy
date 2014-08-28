@@ -8,8 +8,9 @@ from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.tool import rffi_platform
 
-class error(Exception):
+class RThreadError(Exception):
     pass
+error = RThreadError
 
 translator_c_dir = py.path.local(cdir)
 

@@ -479,7 +479,7 @@ class AppTestAppFloatTest:
 
 class AppTestFloatHex:
     spaceconfig = {
-        "usemodules": ["binascii", "rctime"],
+        'usemodules': ['binascii', 'rctime', 'struct'],
     }
 
     def w_identical(self, x, y):

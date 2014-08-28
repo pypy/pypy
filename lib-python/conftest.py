@@ -506,8 +506,6 @@ class RunFileExternal(py.test.collect.File):
 # invoking in a separate process: py.py TESTFILE
 #
 import os
-import time
-import getpass
 
 class ReallyRunFileExternal(py.test.collect.Item):
     class ExternalFailure(Exception):
@@ -626,17 +624,11 @@ class ReallyRunFileExternal(py.test.collect.Item):
             timedout = test_stderr.rfind("KeyboardInterrupt") != -1
         if test_stderr.rfind(26*"=" + "skipped" + 26*"=") != -1:
             skipped = True
-        outcome = 'OK'
         if not exit_status:
             # match "FAIL" but not e.g. "FAILURE", which is in the output of a
             # test in test_zipimport_support.py
             if re.search(r'\bFAIL\b', test_stdout) or re.search('[^:]ERROR', test_stderr):
-                outcome = 'FAIL'
                 exit_status = 2
-        elif timedout:
-            outcome = "T/O"
-        else:
-            outcome = "ERR"
 
         return skipped, exit_status, test_stdout, test_stderr
 
