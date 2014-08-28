@@ -364,6 +364,7 @@ class W_ListObject(W_Root):
         return w_obj
 
     def descr_init(self, space, __args__):
+        """x.__init__(...) initializes x; see help(type(x)) for signature"""
         # this is on the silly side
         w_iterable, = __args__.parse_obj(
                 None, 'list', init_signature, init_defaults)
