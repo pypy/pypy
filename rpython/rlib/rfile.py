@@ -29,10 +29,19 @@ class CConfig(object):
 
     off_t = platform.SimpleType('off_t')
 
+    _IONBF = platform.DefinedConstantInteger('_IONBF')
+    _IOLBF = platform.DefinedConstantInteger('_IOLBF')
+    _IOFBF = platform.DefinedConstantInteger('_IOFBF')
+    BUFSIZ = platform.DefinedConstantInteger('BUFSIZ')
+
 config = platform.configure(CConfig)
 
 OFF_T = config['off_t']
 FILEP = rffi.COpaquePtr("FILE")
+_IONBF = config['_IONBF']
+_IOLBF = config['_IOLBF']
+_IOFBF = config['_IOFBF']
+BUFSIZ = config['BUFSIZ']
 
 c_fopen = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP)
 c_fclose = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
@@ -58,6 +67,7 @@ c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP],
 
 c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], FILEP)
 c_pclose = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
+c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T], rffi.INT)
 
 BASE_BUF_SIZE = 4096
 BASE_LINE_SIZE = 100
@@ -70,7 +80,6 @@ def _error(ll_file):
 
 
 def create_file(filename, mode="r", buffering=-1):
-    assert buffering == -1
     assert filename is not None
     assert mode is not None
     ll_name = rffi.str2charp(filename)
@@ -85,6 +94,13 @@ def create_file(filename, mode="r", buffering=-1):
             lltype.free(ll_mode, flavor='raw')
     finally:
         lltype.free(ll_name, flavor='raw')
+    if buffering >= 0:
+        if buffering == 0:
+            c_setvbuf(ll_f, lltype.nullptr(rffi.CCHARP.TO), _IONBF, 0)
+        elif buffering == 1:
+            c_setvbuf(ll_f, lltype.nullptr(rffi.CCHARP.TO), _IOLBF, BUFSIZ)
+        else:
+            c_setvbuf(ll_f, lltype.nullptr(rffi.CCHARP.TO), _IOFBF, buffering)
     return RFile(ll_f)
 
 
