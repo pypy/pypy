@@ -5,6 +5,7 @@
 # This version is based on cffi, and is a translation of _tkinter.c
 # from CPython, version 2.7.4.
 
+import os
 import sys
 
 class TclError(Exception):
@@ -54,4 +55,4 @@ def _flatten(item):
     return tuple(result)
 
 
-tklib.Tcl_FindExecutable(sys.executable)
+tklib.Tcl_FindExecutable(os.fsencode(sys.executable))
