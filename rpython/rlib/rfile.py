@@ -57,8 +57,8 @@ c_fdopen = llexternal(('_' if os.name == 'nt' else '') + 'fdopen',
                       [rffi.INT, rffi.CCHARP], FILEP)
 c_tmpfile = llexternal('tmpfile', [], FILEP)
 
-c_fclose = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
-c_pclose = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
+c_fclose = llexternal('fclose', [FILEP], rffi.INT)
+c_pclose = llexternal('pclose', [FILEP], rffi.INT)
 
 c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T],
                        rffi.INT)
