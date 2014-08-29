@@ -5,6 +5,7 @@ python builtin open()
 
 import os, stat, errno
 from rpython.rlib import rposix
+from rpython.rlib.objectmodel import enforceargs
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -186,9 +187,9 @@ class RFile(object):
         if not self.ll_file:
             raise ValueError("I/O operation on closed file")
 
+    @enforceargs(None, str)
     def write(self, value):
         self._check_closed()
-        assert value is not None
         ll_value = rffi.get_nonmovingbuffer(value)
         try:
             # note that since we got a nonmoving buffer, it is either raw
