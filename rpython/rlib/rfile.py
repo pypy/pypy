@@ -21,8 +21,6 @@ else:
     fileno = '_fileno'
 eci = ExternalCompilationInfo(includes=includes)
 
-def llexternal(*args, **kwargs):
-    return rffi.llexternal(*args, compilation_info=eci, **kwargs)
 
 class CConfig(object):
     _compilation_info_ = eci
@@ -36,12 +34,19 @@ class CConfig(object):
 
 config = platform.configure(CConfig)
 
-OFF_T = config['off_t']
 FILEP = rffi.COpaquePtr("FILE")
+OFF_T = config['off_t']
 _IONBF = config['_IONBF']
 _IOLBF = config['_IOLBF']
 _IOFBF = config['_IOFBF']
 BUFSIZ = config['BUFSIZ']
+
+BASE_BUF_SIZE = 4096
+BASE_LINE_SIZE = 100
+
+
+def llexternal(*args, **kwargs):
+    return rffi.llexternal(*args, compilation_info=eci, **kwargs)
 
 c_fopen = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP)
 c_fclose = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
@@ -68,9 +73,6 @@ c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP],
 c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], FILEP)
 c_pclose = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
 c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T], rffi.INT)
-
-BASE_BUF_SIZE = 4096
-BASE_LINE_SIZE = 100
 
 
 def _error(ll_file):
@@ -111,6 +113,7 @@ def create_temp_rfile():
         raise OSError(errno, os.strerror(errno))
     return RFile(res)
 
+
 def create_fdopen_rfile(fd, mode="r"):
     assert mode is not None
     ll_mode = rffi.str2charp(mode)
@@ -122,6 +125,7 @@ def create_fdopen_rfile(fd, mode="r"):
     finally:
         lltype.free(ll_mode, flavor='raw')
     return RFile(ll_f)
+
 
 def create_popen_file(command, type):
     ll_command = rffi.str2charp(command)
