@@ -56,15 +56,11 @@ class W_File(W_AbstractStream):
         except OSError as e:
             raise wrap_oserror_as_ioerror(self.space, e, self.w_name)
 
-    def fdopenstream(self, stream, fd, mode, w_name=None):
-        self.fd = fd
+    def fdopenstream(self, stream, mode):
+        self.stream = stream
         self.mode = mode
         self.binary = "b" in mode
-        if w_name is not None:
-            self.w_name = w_name
-        self.stream = stream
-        if stream.flushable():
-            getopenstreams(self.space)[stream] = None
+        getopenstreams(self.space)[stream] = None
 
     def check_not_dir(self, fd):
         try:
@@ -114,9 +110,8 @@ class W_File(W_AbstractStream):
         self.direct_close()
         self.check_mode_ok(mode)
         self.w_name = w_name
-        self.stream = rfile.create_file(self.space.str_w(w_name), mode, buffering)
-        self.mode = mode
-        self.binary = "b" in mode
+        stream = rfile.create_file(self.space.str_w(w_name), mode, buffering)
+        self.fdopenstream(stream, mode)
 
     def direct___enter__(self):
         self.check_closed()
@@ -132,20 +127,19 @@ class W_File(W_AbstractStream):
         self.direct_close()
         self.check_mode_ok(mode)
         self.w_name = self.space.wrap('<fdopen>')
-        self.stream = rfile.create_fdopen_rfile(fd, mode)
-        self.mode = mode
-        self.binary = "b" in mode
+        stream = rfile.create_fdopen_rfile(fd, mode)
+        self.fdopenstream(stream, mode)
 
     def direct_close(self):
         stream = self.stream
         if stream is not None:
             #self.newlines = self.stream.getnewlines()
             self.stream = None
-            #openstreams = getopenstreams(self.space)
-            #try:
-            #    del openstreams[stream]
-            #except KeyError:
-            #    pass
+            openstreams = getopenstreams(self.space)
+            try:
+                del openstreams[stream]
+            except KeyError:
+                pass
             # close the stream.  If cffi_fileobj is None, we close the
             # underlying fileno too.  Otherwise, we leave that to
             # cffi_fileobj.close().
