@@ -192,29 +192,7 @@ class W_File(W_AbstractStream):
     @unwrap_spec(size=int)
     def direct_readline(self, size=-1):
         stream = self.getstream()
-        return stream.readline()
-        if size < 0:
-            return stream.readline()
-        else:
-            # very inefficient unless there is a peek()
-            result = StringBuilder()
-            while size > 0:
-                # "peeks" on the underlying stream to see how many chars
-                # we can safely read without reading past an end-of-line
-                startindex, peeked = stream.peek()
-                assert 0 <= startindex <= len(peeked)
-                endindex = startindex + size
-                pn = peeked.find("\n", startindex, endindex)
-                if pn < 0:
-                    pn = min(endindex - 1, len(peeked))
-                c = stream.read(pn - startindex + 1)
-                if not c:
-                    break
-                result.append(c)
-                if c.endswith('\n'):
-                    break
-                size -= len(c)
-            return result.build()
+        return stream.readline(size)
 
     @unwrap_spec(size=int)
     def direct_readlines(self, size=0):
