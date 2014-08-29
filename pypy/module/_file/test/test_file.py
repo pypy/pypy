@@ -87,10 +87,12 @@ class AppTestFile(object):
             f.close()
 
     def test_badmode(self):
-        raises(ValueError, self.file, "foo", "bar")
+        exc = raises(ValueError, self.file, "foo", "bar")
+        assert str(exc.value) == "mode string must begin with one of 'r', 'w', 'a' or 'U', not 'bar'"
 
     def test_wraposerror(self):
-        raises(IOError, self.file, "hopefully/not/existant.bar")
+        exc = raises(IOError, self.file, "hopefully/not/existant.bar")
+        assert str(exc.value) == "[Errno 2] No such file or directory: 'hopefully/not/existant.bar'"
 
     def test_correct_file_mode(self):
         import os
