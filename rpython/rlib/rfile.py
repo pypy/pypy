@@ -3,7 +3,7 @@ be used directly and instead it's magically appearing each time you call
 python builtin open()
 """
 
-import os
+import os, stat, errno
 from rpython.rlib import rposix
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rstring import StringBuilder
@@ -79,9 +79,20 @@ c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T], r
 
 
 def _error(ll_file):
-    errno = c_ferror(ll_file)
+    err = c_ferror(ll_file)
     c_clearerr(ll_file)
-    raise OSError(errno, os.strerror(errno))
+    raise OSError(err, os.strerror(err))
+
+
+def _dircheck(ll_file):
+    try:
+        st = os.fstat(c_fileno(ll_file))
+    except OSError:
+        pass
+    else:
+        if stat.S_ISDIR(st[0]):
+            err = errno.EISDIR
+            raise OSError(err, os.strerror(err))
 
 
 def create_file(filename, mode="r", buffering=-1):
@@ -97,6 +108,7 @@ def create_file(filename, mode="r", buffering=-1):
             lltype.free(ll_mode, flavor='raw')
     finally:
         lltype.free(ll_name, flavor='raw')
+    _dircheck(ll_f)
     if buffering >= 0:
         if buffering == 0:
             c_setvbuf(ll_f, lltype.nullptr(rffi.CCHARP.TO), _IONBF, 0)
@@ -124,6 +136,7 @@ def create_fdopen_rfile(fd, mode="r"):
             raise OSError(errno, os.strerror(errno))
     finally:
         lltype.free(ll_mode, flavor='raw')
+    _dircheck(ll_f)
     return RFile(ll_f)
 
 

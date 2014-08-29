@@ -1,4 +1,4 @@
-import os, sys, py
+import os, sys, py, errno
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.tool.udir import udir
 from rpython.rlib import rfile
@@ -17,8 +17,36 @@ class TestFile(BaseRtypingTest):
             f.write("dupa")
             f.close()
 
+        f()
         self.interpret(f, [])
         assert open(fname, "r").read() == "dupa"
+
+    def test_open_errors(self):
+        def f():
+            try:
+                open('zzz')
+            except OSError as e:
+                assert e.errno == errno.ENOENT
+            else:
+                assert False
+
+            try:
+                open('.')
+            except OSError as e:
+                assert e.errno == errno.EISDIR
+            else:
+                assert False
+
+            fd = os.open('.', os.O_RDONLY, 0777)
+            try:
+                os.fdopen(fd)
+            except OSError as e:
+                assert e.errno == errno.EISDIR
+            else:
+                assert False
+            os.close(fd)
+
+        self.interpret(f, [])
 
     def test_open_buffering_line(self):
         fname = str(self.tmpdir.join('file_1a'))
