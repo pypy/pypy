@@ -112,10 +112,28 @@ class TestFile(BaseRtypingTest):
 
         def f():
             f = open(fname, "w")
+            try:
+                f.read()
+            except exc as e:
+                assert e.errno == errno
+            else:
+                assert False
+            try:
+                f.readline()
+            except exc as e:
+                assert e.errno == errno
+            else:
+                assert False
             f.write("dupa\x00dupb")
             f.close()
             for mode in ['r', 'U']:
                 f2 = open(fname, mode)
+                try:
+                    f2.write('')
+                except exc as e:
+                    assert e.errno == errno
+                else:
+                    assert False
                 dupa = f2.read(0)
                 assert dupa == ""
                 dupa = f2.read()
@@ -132,7 +150,9 @@ class TestFile(BaseRtypingTest):
                 assert dupa == "dupa\x00dupb"
                 f2.close()
 
+        exc = IOError; errno = None
         f()
+        exc = OSError; errno = 0
         self.interpret(f, [])
 
     def test_read_sequentially(self):
@@ -188,11 +208,19 @@ class TestFile(BaseRtypingTest):
             new_fno = os.dup(f.fileno())
             f2 = os.fdopen(new_fno, "w")
             f.close()
+            try:
+                f2.read()
+            except exc as e:
+                assert e.errno == errno
+            else:
+                assert False
             f2.write("xxx")
             f2.close()
 
+        exc = IOError; errno = None
         f()
         assert open(fname).read() == "xxx"
+        exc = OSError; errno = 0
         self.interpret(f, [])
         assert open(fname).read() == "xxx"
 
@@ -249,8 +277,18 @@ class TestFile(BaseRtypingTest):
             data = f.read()
             assert data == "hello w"
             f.close()
+            f = open(fname)
+            try:
+                f.truncate()
+            except exc as e:
+                assert e.errno == errno
+            else:
+                assert False
+            f.close()
 
+        exc = IOError; errno = None
         f()
+        exc = OSError; errno = 0
         self.interpret(f, [])
 
 
