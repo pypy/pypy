@@ -28,6 +28,8 @@ class W_File(W_AbstractStream):
     w_name   = None
     mode     = "<uninitialized file>"
     binary   = False
+    readable = False
+    writable = False
     softspace= 0     # Required according to file object docs
     encoding = None
     errors   = None
@@ -57,6 +59,12 @@ class W_File(W_AbstractStream):
         self.stream = stream
         self.mode = mode
         self.binary = "b" in mode
+        if 'r' in mode or 'U' in mode:
+            self.readable = True
+        if 'w' in mode or 'a' in mode:
+            self.writable = True
+        if '+' in mode:
+            self.readable = self.writable = True
         getopenstreams(self.space)[stream] = None
 
     def check_closed(self):
@@ -64,6 +72,16 @@ class W_File(W_AbstractStream):
             raise OperationError(self.space.w_ValueError,
                 self.space.wrap("I/O operation on closed file")
             )
+
+    def check_readable(self):
+        if not self.readable:
+            raise OperationError(self.space.w_IOError, self.space.wrap(
+                "File not open for reading"))
+
+    def check_writable(self):
+        if not self.writable:
+            raise OperationError(self.space.w_IOError, self.space.wrap(
+                "File not open for writing"))
 
     def getstream(self):
         """Return self.stream or raise an app-level ValueError if missing
@@ -140,16 +158,19 @@ class W_File(W_AbstractStream):
     @unwrap_spec(n=int)
     def direct_read(self, n=-1):
         stream = self.getstream()
+        self.check_readable()
         return stream.read(n)
 
     @unwrap_spec(size=int)
     def direct_readline(self, size=-1):
         stream = self.getstream()
+        self.check_readable()
         return stream.readline(size)
 
     @unwrap_spec(size=int)
     def direct_readlines(self, size=0):
         stream = self.getstream()
+        self.check_readable()
         # this is implemented as: .read().split('\n')
         # except that it keeps the \n in the resulting strings
         if size <= 0:
@@ -183,6 +204,7 @@ class W_File(W_AbstractStream):
 
     def direct_truncate(self, w_size=None):  # note: a wrapped size!
         stream = self.getstream()
+        self.check_writable()
         space = self.space
         if space.is_none(w_size):
             size = stream.tell()
@@ -192,6 +214,7 @@ class W_File(W_AbstractStream):
 
     def direct_write(self, w_data):
         space = self.space
+        self.check_writable()
         if self.binary:
             data = space.getarg_w('s*', w_data).as_str()
         else:
@@ -389,6 +412,7 @@ producing strings. This is equivalent to calling write() for each string."""
 
         space = self.space
         self.check_closed()
+        self.check_writable()
         lines = space.fixedview(w_lines)
         for i, w_line in enumerate(lines):
             if not space.isinstance_w(w_line, space.w_str):

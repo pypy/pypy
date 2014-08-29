@@ -555,15 +555,7 @@ class AppTestAFewExtra:
         import errno, sys
         f = open(fn)
         exc = raises(IOError, f.truncate, 3)
-        # CPython explicitly checks the file mode
-        # PyPy relies on the libc to raise the error
-        if '__pypy__' not in sys.builtin_module_names:
-            assert str(exc.value) == "File not open for writing"
-        else:
-            if sys.platform == 'win32':
-                assert exc.value.errno == 5 # ERROR_ACCESS_DENIED
-            else:
-                assert exc.value.errno == errno.EINVAL
+        assert str(exc.value) == "File not open for writing"
         f.close()
 
     def test_readinto(self):

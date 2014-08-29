@@ -188,6 +188,7 @@ class RFile(object):
 
     def write(self, value):
         self._check_closed()
+        assert value is not None
         ll_value = rffi.get_nonmovingbuffer(value)
         try:
             # note that since we got a nonmoving buffer, it is either raw
