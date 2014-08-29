@@ -149,6 +149,8 @@ class AppTestFile(object):
             u'\xe9'.encode(sys.getfilesystemencoding())
         except UnicodeEncodeError:
             skip("encoding not good enough")
+        exc = raises(IOError, self.file, 'zzz' + u'\xe9', 'r')
+        assert str(exc.value) == "[Errno 2] No such file or directory: u'zzz\\xe9'"
         f = self.file(self.temppath + u'\xe9', "w")
         f.close()
 
