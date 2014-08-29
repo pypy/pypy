@@ -161,27 +161,7 @@ class W_File(W_AbstractStream):
     @unwrap_spec(n=int)
     def direct_read(self, n=-1):
         stream = self.getstream()
-        if n < 0:
-            return stream.read()
-        else:
-            result = StringBuilder(n)
-            while n > 0:
-                try:
-                    data = stream.read(n)
-                except OSError, e:
-                    # a special-case only for read() (similar to CPython, which
-                    # also loses partial data with other methods): if we get
-                    # EAGAIN after already some data was received, return it.
-                    if is_wouldblock_error(e):
-                        got = result.build()
-                        if len(got) > 0:
-                            return got
-                    raise
-                if not data:
-                    break
-                n -= len(data)
-                result.append(data)
-            return result.build()
+        return stream.read(n)
 
     @unwrap_spec(size=int)
     def direct_readline(self, size=-1):
