@@ -140,14 +140,14 @@ class TestFile(BaseRtypingTest):
         fname = str(self.tmpdir.join('file_trunc'))
 
         def f():
-            f = open(fname, "w")
-            f.write("xyz")
+            f = open(fname, "w+b")
+            f.write("hello world")
+            f.seek(7)
+            f.truncate()
             f.seek(0)
-            f.truncate(2)
+            data = f.read()
+            assert data == "hello w"
             f.close()
-            f2 = open(fname)
-            assert f2.read() == "xy"
-            f2.close()
 
         f()
         self.interpret(f, [])

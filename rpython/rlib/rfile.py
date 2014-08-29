@@ -233,6 +233,7 @@ class RFile(object):
         if self.ll_file:
             if arg == -1:
                 arg = self.tell()
+            self.flush()
             res = c_ftruncate(self.fileno(), arg)
             if res == -1:
                 errno = rposix.get_errno()
