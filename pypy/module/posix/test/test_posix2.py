@@ -284,14 +284,6 @@ class AppTestPosix:
         finally:
             os.chdir(cwdb)
 
-    def test_fdopen_keeps_fd_open_on_errors(self):
-        path = self.path
-        posix = self.posix
-        fd = posix.open(path, posix.O_RDONLY)
-        exc = raises(OSError, posix.fdopen, fd, 'w')
-        assert str(exc.value) == "[Errno 22] Invalid argument"
-        posix.close(fd)  # fd should not be closed
-
     def test_getcwdb(self):
         assert isinstance(self.posix.getcwdb(), bytes)
 
