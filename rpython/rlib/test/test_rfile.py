@@ -62,6 +62,8 @@ class TestFile(BaseRtypingTest):
 
         self.interpret(f, [])
 
+    @py.test.mark.skipif("sys.platform == 'win32'")
+    # http://msdn.microsoft.com/en-us/library/86cebhfs.aspx
     def test_open_buffering_line(self):
         fname = str(self.tmpdir.join('file_1a'))
 
