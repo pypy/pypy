@@ -16,6 +16,13 @@ class TestFile(BaseRtypingTest):
             f = open(fname, "w")
             f.write("dupa")
             f.close()
+            try:
+                f.write("dupb")
+            except ValueError:
+                pass
+            else:
+                assert False
+            f.close()
 
         f()
         self.interpret(f, [])
