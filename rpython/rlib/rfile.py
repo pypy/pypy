@@ -82,8 +82,6 @@ def _error(ll_file):
 
 
 def create_file(filename, mode="r", buffering=-1):
-    assert filename is not None
-    assert mode is not None
     ll_name = rffi.str2charp(filename)
     try:
         ll_mode = rffi.str2charp(mode)
@@ -115,7 +113,6 @@ def create_temp_rfile():
 
 
 def create_fdopen_rfile(fd, mode="r"):
-    assert mode is not None
     ll_mode = rffi.str2charp(mode)
     try:
         ll_f = c_fdopen(rffi.cast(rffi.INT, fd), ll_mode)
@@ -147,18 +144,18 @@ class RFile(object):
     def __init__(self, ll_file):
         self.ll_file = ll_file
 
-    def write(self, value):
-        assert value is not None
-        ll_file = self.ll_file
-        if not ll_file:
+    def _check_closed(self):
+        if not self.ll_file:
             raise ValueError("I/O operation on closed file")
-        assert value is not None
+
+    def write(self, value):
+        self._check_closed()
         ll_value = rffi.get_nonmovingbuffer(value)
         try:
             # note that since we got a nonmoving buffer, it is either raw
             # or already cannot move, so the arithmetics below are fine
             length = len(value)
-            bytes = c_fwrite(ll_value, 1, length, ll_file)
+            bytes = c_fwrite(ll_value, 1, length, self.ll_file)
             if bytes != length:
                 errno = rposix.get_errno()
                 raise OSError(errno, os.strerror(errno))
@@ -174,11 +171,11 @@ class RFile(object):
         The actual return value may be determined with os.WEXITSTATUS.
         """
         res = 0
-        ll_f = self.ll_file
-        if ll_f:
+        ll_file = self.ll_file
+        if ll_file:
             # double close is allowed
             self.ll_file = lltype.nullptr(FILEP.TO)
-            res = self._do_close(ll_f)
+            res = self._do_close(ll_file)
             if res == -1:
                 errno = rposix.get_errno()
                 raise OSError(errno, os.strerror(errno))
@@ -188,9 +185,8 @@ class RFile(object):
 
     def read(self, size=-1):
         # XXX CPython uses a more delicate logic here
+        self._check_closed()
         ll_file = self.ll_file
-        if not ll_file:
-            raise ValueError("I/O operation on closed file")
         if size < 0:
             # read the entire contents
             buf = lltype.malloc(rffi.CCHARP.TO, BASE_BUF_SIZE, flavor='raw')
@@ -218,58 +214,51 @@ class RFile(object):
             return s
 
     def seek(self, pos, whence=0):
-        ll_file = self.ll_file
-        if not ll_file:
-            raise ValueError("I/O operation on closed file")
-        res = c_fseek(ll_file, pos, whence)
+        self._check_closed()
+        res = c_fseek(self.ll_file, pos, whence)
         if res == -1:
             errno = rposix.get_errno()
             raise OSError(errno, os.strerror(errno))
 
     def fileno(self):
-        if self.ll_file:
-            return intmask(c_fileno(self.ll_file))
-        raise ValueError("I/O operation on closed file")
+        self._check_closed()
+        return intmask(c_fileno(self.ll_file))
 
     def tell(self):
-        if self.ll_file:
-            res = intmask(c_ftell(self.ll_file))
-            if res == -1:
-                errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
-            return res
-        raise ValueError("I/O operation on closed file")
+        self._check_closed()
+        res = intmask(c_ftell(self.ll_file))
+        if res == -1:
+            errno = rposix.get_errno()
+            raise OSError(errno, os.strerror(errno))
+        return res
 
     def flush(self):
-        if self.ll_file:
-            res = c_fflush(self.ll_file)
-            if res != 0:
-                errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
-            return
-        raise ValueError("I/O operation on closed file")
+        self._check_closed()
+        res = c_fflush(self.ll_file)
+        if res != 0:
+            errno = rposix.get_errno()
+            raise OSError(errno, os.strerror(errno))
 
     def truncate(self, arg=-1):
-        if self.ll_file:
-            if arg == -1:
-                arg = self.tell()
-            self.flush()
-            res = c_ftruncate(self.fileno(), arg)
-            if res == -1:
-                errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
-            return
-        raise ValueError("I/O operation on closed file")
+        self._check_closed()
+        if arg == -1:
+            arg = self.tell()
+        self.flush()
+        res = c_ftruncate(self.fileno(), arg)
+        if res == -1:
+            errno = rposix.get_errno()
+            raise OSError(errno, os.strerror(errno))
 
     def __del__(self):
         self.close()
 
     def _readline1(self, raw_buf):
-        result = c_fgets(raw_buf, BASE_LINE_SIZE, self.ll_file)
+        ll_file = self.ll_file
+        result = c_fgets(raw_buf, BASE_LINE_SIZE, ll_file)
         if not result:
-            if c_feof(self.ll_file):   # ok
+            if c_feof(ll_file):   # ok
                 return 0
-            raise _error(self.ll_file)
+            raise _error(ll_file)
         #
         # Assume that fgets() works as documented, and additionally
         # never writes beyond the final \0, which the CPython
@@ -287,23 +276,22 @@ class RFile(object):
         return strlen
 
     def readline(self):
-        if self.ll_file:
-            with rffi.scoped_alloc_buffer(BASE_LINE_SIZE) as buf:
+        self._check_closed()
+        with rffi.scoped_alloc_buffer(BASE_LINE_SIZE) as buf:
+            c = self._readline1(buf.raw)
+            if c >= 0:
+                return buf.str(c)
+            #
+            # this is the rare case: the line is longer than BASE_LINE_SIZE
+            s = StringBuilder()
+            while True:
+                s.append_charpsize(buf.raw, BASE_LINE_SIZE - 1)
                 c = self._readline1(buf.raw)
                 if c >= 0:
-                    return buf.str(c)
-                #
-                # this is the rare case: the line is longer than BASE_LINE_SIZE
-                s = StringBuilder()
-                while True:
-                    s.append_charpsize(buf.raw, BASE_LINE_SIZE - 1)
-                    c = self._readline1(buf.raw)
-                    if c >= 0:
-                        break
-                #
-                s.append_charpsize(buf.raw, c)
-                return s.build()
-        raise ValueError("I/O operation on closed file")
+                    break
+            #
+            s.append_charpsize(buf.raw, c)
+            return s.build()
 
 
 class RPopenFile(RFile):
