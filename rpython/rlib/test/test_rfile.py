@@ -63,6 +63,13 @@ class TestFile(BaseRtypingTest):
             dupa = f2.read()
             assert dupa == "dupa\x00dupb"
             f2.seek(0)
+            dupa = f2.readline(0)
+            assert dupa == ""
+            dupa = f2.readline(2)
+            assert dupa == "du"
+            dupa = f2.readline(100)
+            assert dupa == "pa\x00dupb"
+            f2.seek(0)
             dupa = f2.readline()
             assert dupa == "dupa\x00dupb"
             f2.close()
