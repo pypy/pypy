@@ -232,16 +232,12 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
 
     def test_exception_from_close(self):
         import os
-        if os.name == 'nt':
-            skip("crashes on nt")
         f = self.file(self.temppath, 'w')
         os.close(f.fileno())
         raises(IOError, f.close)    # bad file descriptor
 
     def test_exception_from_del(self):
         import os, gc, sys, cStringIO
-        if os.name == 'nt':
-            skip("crashes on nt")
         f = self.file(self.temppath, 'w')
         g = cStringIO.StringIO()
         preverr = sys.stderr
