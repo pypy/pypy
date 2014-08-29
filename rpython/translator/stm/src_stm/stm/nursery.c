@@ -289,6 +289,9 @@ static void _trace_card_object(object_t *obj)
 
     struct object_s *realobj = (struct object_s *)REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
     size_t size = stmcb_size_rounded_up(realobj);
+    uintptr_t offset_itemsize[2];
+    stmcb_get_card_base_itemsize(realobj, offset_itemsize);
+    size = (size - offset_itemsize[0]) / offset_itemsize[1];
 
     uintptr_t first_card_index = get_write_lock_idx((uintptr_t)obj);
     uintptr_t card_index = 1;
@@ -311,7 +314,6 @@ static void _trace_card_object(object_t *obj)
                      obj, start, stop));
             stmcb_trace_cards(realobj, &minor_trace_if_young,
                               start, stop);
-
         }
 
         /* all cards should be cleared on overflow objs */
