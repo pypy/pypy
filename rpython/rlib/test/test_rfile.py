@@ -23,7 +23,7 @@ class TestFile(BaseRtypingTest):
 
     def test_open_errors(self):
         def f(exc):
-            def g():
+            def g(run):
                 try:
                     open('zzz', 'badmode')
                 except ValueError:
@@ -61,17 +61,18 @@ class TestFile(BaseRtypingTest):
                     assert os.name == 'nt' and e.errno == errno.EACCES
                 else:
                     assert os.name != 'nt'
-                    try:
-                        os.fdopen(fd)
-                    except exc as e:
-                        assert e.errno == errno.EISDIR
-                    else:
-                        assert False
+                    if run:
+                        try:
+                            os.fdopen(fd)
+                        except exc as e:
+                            assert e.errno == errno.EISDIR
+                        else:
+                            assert False
                     os.close(fd)
             return g
 
-        f(IOError)()
-        self.interpret(f(OSError), [])
+        f(IOError)(sys.version_info >= (2, 7, 9))
+        self.interpret(f(OSError), [True])
 
     @py.test.mark.skipif("sys.platform == 'win32'")
     # http://msdn.microsoft.com/en-us/library/86cebhfs.aspx
