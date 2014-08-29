@@ -2,7 +2,7 @@ import py
 import os
 import stat
 import errno
-from rpython.rlib import streamio
+from rpython.rlib import streamio, rfile
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
@@ -97,9 +97,8 @@ class W_File(W_AbstractStream):
 
     def _when_reading_first_flush(self, otherfile):
         """Flush otherfile before reading from self."""
-        xxx
-        self.stream = streamio.CallbackReadFilter(self.stream,
-                                                  otherfile._try_to_flush)
+        #self.stream = streamio.CallbackReadFilter(self.stream,
+        #                                          otherfile._try_to_flush)
 
     def _try_to_flush(self):
         stream = self.stream
@@ -114,14 +113,11 @@ class W_File(W_AbstractStream):
     @unwrap_spec(mode=str, buffering=int)
     def direct___init__(self, w_name, mode='r', buffering=-1):
         self.direct_close()
-        self.w_name = w_name
         self.check_mode_ok(mode)
-        xxx
-        stream = dispatch_filename(streamio.open_file_as_stream)(
-            self.space, w_name, mode, buffering, signal_checker(self.space))
-        fd = stream.try_to_find_file_descriptor()
-        self.check_not_dir(fd)
-        self.fdopenstream(stream, fd, mode)
+        self.w_name = w_name
+        self.stream = rfile.create_file(self.space.str_w(w_name), mode, buffering)
+        self.mode = mode
+        #self.binary = "b" in mode
 
     def direct___enter__(self):
         self.check_closed()
@@ -135,37 +131,30 @@ class W_File(W_AbstractStream):
 
     def direct_fdopen(self, fd, mode='r', buffering=-1):
         self.direct_close()
-        self.w_name = self.space.wrap('<fdopen>')
         self.check_mode_ok(mode)
-        xxx
-        stream = streamio.fdopen_as_stream(fd, mode, buffering,
-                                           signal_checker(self.space))
-        self.check_not_dir(fd)
-        self.fdopenstream(stream, fd, mode)
+        self.w_name = self.space.wrap('<fdopen>')
+        self.stream = rfile.create_fdopen_rfile(fd, mode)
+        self.mode = mode
+        #self.binary = "b" in mode
 
     def direct_close(self):
         stream = self.stream
         if stream is not None:
-            self.newlines = self.stream.getnewlines()
+            #self.newlines = self.stream.getnewlines()
             self.stream = None
-            self.fd = -1
-            openstreams = getopenstreams(self.space)
-            try:
-                del openstreams[stream]
-            except KeyError:
-                pass
+            #openstreams = getopenstreams(self.space)
+            #try:
+            #    del openstreams[stream]
+            #except KeyError:
+            #    pass
             # close the stream.  If cffi_fileobj is None, we close the
             # underlying fileno too.  Otherwise, we leave that to
             # cffi_fileobj.close().
-            cffifo = self.cffi_fileobj
-            self.cffi_fileobj = None
-            stream.close1(cffifo is None)
-            if cffifo is not None:
-                cffifo.close()
+            stream.close()
 
     def direct_fileno(self):
-        self.getstream()    # check if the file is still open
-        return self.fd
+        stream = self.getstream()    # check if the file is still open
+        return stream.fileno()
 
     def direct_flush(self):
         self.getstream().flush()
@@ -180,7 +169,7 @@ class W_File(W_AbstractStream):
     def direct_read(self, n=-1):
         stream = self.getstream()
         if n < 0:
-            return stream.readall()
+            return stream.read()
         else:
             result = StringBuilder(n)
             while n > 0:
@@ -204,6 +193,7 @@ class W_File(W_AbstractStream):
     @unwrap_spec(size=int)
     def direct_readline(self, size=-1):
         stream = self.getstream()
+        return stream.readline()
         if size < 0:
             return stream.readline()
         else:
@@ -233,7 +223,7 @@ class W_File(W_AbstractStream):
         # this is implemented as: .read().split('\n')
         # except that it keeps the \n in the resulting strings
         if size <= 0:
-            data = stream.readall()
+            data = stream.read()
         else:
             data = stream.read(size)
         result = []
@@ -292,8 +282,8 @@ class W_File(W_AbstractStream):
     direct_xreadlines = direct___iter__
 
     def direct_isatty(self):
-        self.getstream()    # check if the file is still open
-        return os.isatty(self.fd)
+        stream = self.getstream()    # check if the file is still open
+        return os.isatty(stream.fileno())
 
     # ____________________________________________________________
     #
@@ -339,8 +329,8 @@ class W_File(W_AbstractStream):
                 try:
                     try:
                         result = self.direct_%(name)s(%(callsig)s)
-                    except StreamErrors, e:
-                        raise wrap_streamerror(space, e, self.w_name)
+                    except OSError as e:
+                        raise wrap_oserror_as_ioerror(self.space, e, self.w_name)
                 finally:
                     self.unlock()
                 return %(wrapresult)s
@@ -512,7 +502,8 @@ def descr_file_closed(space, file):
 
 def descr_file_newlines(space, file):
     if file.stream:
-        newlines = file.stream.getnewlines()
+        #newlines = file.stream.getnewlines()
+        newlines = file.newlines
     else:
         newlines = file.newlines
     if newlines == 0:
