@@ -116,7 +116,7 @@ class W_File(W_AbstractStream):
         self.w_name = w_name
         self.stream = rfile.create_file(self.space.str_w(w_name), mode, buffering)
         self.mode = mode
-        #self.binary = "b" in mode
+        self.binary = "b" in mode
 
     def direct___enter__(self):
         self.check_closed()
@@ -134,7 +134,7 @@ class W_File(W_AbstractStream):
         self.w_name = self.space.wrap('<fdopen>')
         self.stream = rfile.create_fdopen_rfile(fd, mode)
         self.mode = mode
-        #self.binary = "b" in mode
+        self.binary = "b" in mode
 
     def direct_close(self):
         stream = self.stream
