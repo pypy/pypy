@@ -254,26 +254,37 @@ class RFile(object):
 
     def _readline1(self, raw_buf):
         ll_file = self.ll_file
+        for i in range(BASE_LINE_SIZE):
+            raw_buf[i] = '\n'
+
         result = c_fgets(raw_buf, BASE_LINE_SIZE, ll_file)
         if not result:
             if c_feof(ll_file):   # ok
                 return 0
             raise _error(ll_file)
-        #
+
         # Assume that fgets() works as documented, and additionally
         # never writes beyond the final \0, which the CPython
         # fileobject.c says appears to be the case everywhere.
         # The only case where the buffer was not big enough is the
         # case where the buffer is full, ends with \0, and doesn't
         # end with \n\0.
-        strlen = 0
-        while raw_buf[strlen] != '\0':
-            strlen += 1
-        if (strlen == BASE_LINE_SIZE - 1 and
-                raw_buf[BASE_LINE_SIZE - 2] != '\n'):
-            return -1    # overflow!
-        # common case
-        return strlen
+
+        p = 0
+        while raw_buf[p] != '\n':
+            p += 1
+            if p == BASE_LINE_SIZE:
+                # fgets read whole buffer without finding newline
+                return -1
+        # p points to first \n
+
+        if p + 1 < BASE_LINE_SIZE and raw_buf[p + 1] == '\0':
+            # \n followed by \0, fgets read and found newline
+            return p + 1
+        else:
+            # \n not followed by \0, fgets read but didnt find newline
+            assert p > 0 and raw_buf[p - 1] == '\0'
+            return p - 1
 
     def readline(self):
         self._check_closed()
