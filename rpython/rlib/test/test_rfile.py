@@ -60,6 +60,8 @@ class TestFile(BaseRtypingTest):
             f.write("dupa\x00dupb")
             f.close()
             f2 = open(fname)
+            dupa = f2.read(0)
+            assert dupa == ""
             dupa = f2.read()
             assert dupa == "dupa\x00dupb"
             f2.seek(0)

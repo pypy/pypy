@@ -190,7 +190,9 @@ class RFile(object):
         # XXX CPython uses a more delicate logic here
         self._check_closed()
         ll_file = self.ll_file
-        if size < 0:
+        if size == 0:
+            return ""
+        elif size < 0:
             # read the entire contents
             buf = lltype.malloc(rffi.CCHARP.TO, BASE_BUF_SIZE, flavor='raw')
             try:
@@ -206,7 +208,7 @@ class RFile(object):
                     s.append_charpsize(buf, returned_size)
             finally:
                 lltype.free(buf, flavor='raw')
-        else:
+        else:  # size > 0
             with rffi.scoped_alloc_buffer(size) as buf:
                 returned_size = c_fread(buf.raw, 1, size, ll_file)
                 returned_size = intmask(returned_size)  # is between 0 and size
