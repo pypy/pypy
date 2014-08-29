@@ -22,46 +22,59 @@ class TestFile(BaseRtypingTest):
         assert open(fname, "r").read() == "dupa"
 
     def test_open_errors(self):
-        def f():
-            try:
-                open('zzz', 'badmode')
-            except ValueError:
-                pass
-            else:
-                assert False
+        def f(exc):
+            def g():
+                try:
+                    open('zzz', 'badmode')
+                except ValueError:
+                    pass
+                else:
+                    assert False
 
-            try:
-                open('zzz')
-            except OSError as e:
-                assert e.errno == errno.ENOENT
-            else:
-                assert False
+                try:
+                    open('zzz')
+                except exc as e:
+                    assert e.errno == errno.ENOENT
+                else:
+                    assert False
 
-            try:
-                open('.')
-            except OSError as e:
-                assert e.errno == errno.EISDIR
-            else:
-                assert False
+                try:
+                    open('.')
+                except exc as e:
+                    if os.name == 'posix':
+                        assert e.errno == errno.EISDIR
+                    else:
+                        assert e.errno == errno.EACCES
+                else:
+                    assert False
 
-            try:
-                os.fdopen(42, "badmode")
-            except ValueError:
-                pass
-            else:
-                assert False
+                try:
+                    os.fdopen(42, "badmode")
+                except ValueError:
+                    pass
+                else:
+                    assert False
 
-            fd = os.open('.', os.O_RDONLY, 0777)
-            try:
-                os.fdopen(fd)
-            except OSError as e:
-                assert e.errno == errno.EISDIR
-            else:
-                assert False
-            os.close(fd)
+                try:
+                    fd = os.open('.', os.O_RDONLY, 0777)
+                except OSError as e:
+                    assert os.name == 'nt' and e.errno == errno.EACCES
+                else:
+                    assert os.name != 'nt'
+                    try:
+                        os.fdopen(fd)
+                    except exc as e:
+                        assert e.errno == errno.EISDIR
+                    else:
+                        assert False
+                    os.close(fd)
+            return g
 
-        self.interpret(f, [])
+        f(IOError)()
+        self.interpret(f(OSError), [])
 
+    @py.test.mark.skipif("sys.platform == 'win32'")
+    # http://msdn.microsoft.com/en-us/library/86cebhfs.aspx
     def test_open_buffering_line(self):
         fname = str(self.tmpdir.join('file_1a'))
 
