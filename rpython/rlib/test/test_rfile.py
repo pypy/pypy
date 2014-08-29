@@ -57,13 +57,17 @@ class TestFile(BaseRtypingTest):
 
         def f():
             f = open(fname, "w")
-            f.write("dupa")
+            f.write("dupa\x00dupb")
             f.close()
             f2 = open(fname)
             dupa = f2.read()
-            assert dupa == "dupa"
+            assert dupa == "dupa\x00dupb"
+            f2.seek(0)
+            dupa = f2.readline()
+            assert dupa == "dupa\x00dupb"
             f2.close()
 
+        f()
         self.interpret(f, [])
 
     def test_read_sequentially(self):
