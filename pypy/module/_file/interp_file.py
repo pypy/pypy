@@ -6,7 +6,7 @@ from rpython.rlib import streamio, rfile
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
-from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
+from pypy.module._file.interp_stream import W_AbstractStream
 from pypy.module.posix.interp_posix import dispatch_filename
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
@@ -53,9 +53,8 @@ class W_File(W_AbstractStream):
         assert isinstance(self, W_File)
         try:
             self.direct_close()
-        except StreamErrors, e:
-            operr = wrap_streamerror(self.space, e, self.w_name)
-            raise operr
+        except OSError as e:
+            raise wrap_oserror_as_ioerror(self.space, e, self.w_name)
 
     def fdopenstream(self, stream, fd, mode, w_name=None):
         self.fd = fd

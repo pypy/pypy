@@ -13,7 +13,7 @@ class Module(MixedModule):
 
     def shutdown(self, space):
         # at shutdown, flush all open streams.  Ignore I/O errors.
-        from pypy.module._file.interp_file import getopenstreams, StreamErrors
+        from pypy.module._file.interp_file import getopenstreams
         openstreams = getopenstreams(space)
         while openstreams:
             for stream in openstreams.keys():
@@ -24,7 +24,7 @@ class Module(MixedModule):
                 else:
                     try:
                         stream.flush()
-                    except StreamErrors:
+                    except OSError:
                         pass
 
     def setup_after_space_initialization(self):
