@@ -24,6 +24,13 @@ class TestFile(BaseRtypingTest):
     def test_open_errors(self):
         def f():
             try:
+                open('zzz', 'badmode')
+            except ValueError:
+                pass
+            else:
+                assert False
+
+            try:
                 open('zzz')
             except OSError as e:
                 assert e.errno == errno.ENOENT
@@ -34,6 +41,13 @@ class TestFile(BaseRtypingTest):
                 open('.')
             except OSError as e:
                 assert e.errno == errno.EISDIR
+            else:
+                assert False
+
+            try:
+                os.fdopen(42, "badmode")
+            except ValueError:
+                pass
             else:
                 assert False
 
@@ -87,22 +101,23 @@ class TestFile(BaseRtypingTest):
             f = open(fname, "w")
             f.write("dupa\x00dupb")
             f.close()
-            f2 = open(fname)
-            dupa = f2.read(0)
-            assert dupa == ""
-            dupa = f2.read()
-            assert dupa == "dupa\x00dupb"
-            f2.seek(0)
-            dupa = f2.readline(0)
-            assert dupa == ""
-            dupa = f2.readline(2)
-            assert dupa == "du"
-            dupa = f2.readline(100)
-            assert dupa == "pa\x00dupb"
-            f2.seek(0)
-            dupa = f2.readline()
-            assert dupa == "dupa\x00dupb"
-            f2.close()
+            for mode in ['r', 'U']:
+                f2 = open(fname, mode)
+                dupa = f2.read(0)
+                assert dupa == ""
+                dupa = f2.read()
+                assert dupa == "dupa\x00dupb"
+                f2.seek(0)
+                dupa = f2.readline(0)
+                assert dupa == ""
+                dupa = f2.readline(2)
+                assert dupa == "du"
+                dupa = f2.readline(100)
+                assert dupa == "pa\x00dupb"
+                f2.seek(0)
+                dupa = f2.readline()
+                assert dupa == "dupa\x00dupb"
+                f2.close()
 
         f()
         self.interpret(f, [])

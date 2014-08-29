@@ -95,7 +95,28 @@ def _dircheck(ll_file):
             raise OSError(err, os.strerror(err))
 
 
+def _sanitize_mode(mode):
+    if len(mode) == 0:
+        raise ValueError("empty mode string")
+    upos = mode.find('U')
+    if upos >= 0:
+        mode = mode[:upos] + mode[upos+1:]
+        first = mode[0:1]
+        if first == 'w' or first == 'a':
+            raise ValueError("universal newline mode can only be used with "
+                             "modes starting with 'r'")
+        if first != 'r':
+            mode = 'r' + mode
+        if 'b' not in mode:
+            mode = mode[0] + 'b' + mode[1:]
+    elif mode[0] != 'r' and mode[0] != 'w' and mode[0] != 'a':
+        raise ValueError("mode string must begin with one of 'r', 'w', 'a' "
+                         "or 'U', not '%s'" % mode)
+    return mode
+
+
 def create_file(filename, mode="r", buffering=-1):
+    mode = _sanitize_mode(mode)
     ll_name = rffi.str2charp(filename)
     try:
         ll_mode = rffi.str2charp(mode)
@@ -128,6 +149,7 @@ def create_temp_rfile():
 
 
 def create_fdopen_rfile(fd, mode="r"):
+    mode = _sanitize_mode(mode)
     ll_mode = rffi.str2charp(mode)
     try:
         ll_f = c_fdopen(rffi.cast(rffi.INT, fd), ll_mode)
