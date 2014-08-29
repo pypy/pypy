@@ -72,6 +72,8 @@ class AppTestFile(object):
         except AttributeError:
             fdopen = os.fdopen      # when running with -A
         fd = os.open(self.temppath, os.O_WRONLY | os.O_CREAT)
+        exc = raises(ValueError, fdopen, fd, "badmode")
+        assert str(exc.value) == "mode string must begin with one of 'r', 'w', 'a' or 'U', not 'badmode'"
         f2 = fdopen(fd, "a")
         f2.seek(0, 2)
         f2.write("bar\nboo")

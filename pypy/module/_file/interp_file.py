@@ -59,12 +59,6 @@ class W_File(W_AbstractStream):
         self.binary = "b" in mode
         getopenstreams(self.space)[stream] = None
 
-    def check_mode_ok(self, mode):
-        if (not mode or mode[0] not in ['r', 'w', 'a', 'U'] or
-            ('U' in mode and ('w' in mode or 'a' in mode))):
-            space = self.space
-            raise oefmt(space.w_ValueError, "invalid mode: '%s'", mode)
-
     def check_closed(self):
         if self.stream is None:
             raise OperationError(self.space.w_ValueError,
@@ -95,7 +89,6 @@ class W_File(W_AbstractStream):
     @unwrap_spec(mode=str, buffering=int)
     def direct___init__(self, w_name, mode='r', buffering=-1):
         self.direct_close()
-        self.check_mode_ok(mode)
         self.w_name = w_name
         stream = rfile.create_file(fsencode_w(self.space, w_name), mode, buffering)
         self.fdopenstream(stream, mode)
@@ -112,7 +105,6 @@ class W_File(W_AbstractStream):
 
     def direct_fdopen(self, fd, mode='r', buffering=-1):
         self.direct_close()
-        self.check_mode_ok(mode)
         self.w_name = self.space.wrap('<fdopen>')
         stream = rfile.create_fdopen_rfile(fd, mode)
         self.fdopenstream(stream, mode)
@@ -230,6 +222,8 @@ class W_File(W_AbstractStream):
     def file_fdopen(self, fd, mode="r", buffering=-1):
         try:
             self.direct_fdopen(fd, mode, buffering)
+        except ValueError as e:
+            raise OperationError(self.space.w_ValueError, self.space.wrap(str(e)))
         except OSError as e:
             raise wrap_oserror(self.space, e)
 
@@ -267,6 +261,8 @@ class W_File(W_AbstractStream):
                 try:
                     try:
                         result = self.direct_%(name)s(%(callsig)s)
+                    except ValueError as e:
+                        raise OperationError(space.w_ValueError, space.wrap(str(e)))
                     except OSError as e:
                         raise wrap_oserror_as_ioerror(self.space, e, self.w_name)
                 finally:
