@@ -33,7 +33,6 @@ class W_File(W_AbstractStream):
     softspace= 0     # Required according to file object docs
     encoding = None
     errors   = None
-    fd       = -1
     cffi_fileobj = None    # pypy/module/_cffi_backend
 
     newlines = 0     # Updated when the stream is closed
@@ -61,16 +60,6 @@ class W_File(W_AbstractStream):
         self.mode = mode
         self.binary = "b" in mode
         getopenstreams(self.space)[stream] = None
-
-    def check_not_dir(self, fd):
-        try:
-            st = os.fstat(fd)
-        except OSError:
-            pass
-        else:
-            if (stat.S_ISDIR(st[0])):
-                ose = OSError(errno.EISDIR, '')
-                raise wrap_oserror_as_ioerror(self.space, ose, self.w_name)
 
     def check_mode_ok(self, mode):
         if (not mode or mode[0] not in ['r', 'w', 'a', 'U'] or
