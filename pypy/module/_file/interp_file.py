@@ -7,7 +7,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
 from pypy.module._file.interp_stream import W_AbstractStream
-from pypy.module.posix.interp_posix import dispatch_filename
+from pypy.module.posix.interp_posix import fsencode_w
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
@@ -99,7 +99,7 @@ class W_File(W_AbstractStream):
         self.direct_close()
         self.check_mode_ok(mode)
         self.w_name = w_name
-        stream = rfile.create_file(self.space.str_w(w_name), mode, buffering)
+        stream = rfile.create_file(fsencode_w(self.space, w_name), mode, buffering)
         self.fdopenstream(stream, mode)
 
     def direct___enter__(self):
