@@ -52,31 +52,34 @@ def llexternal(*args, **kwargs):
     return rffi.llexternal(*args, compilation_info=eci, **kwargs)
 
 c_fopen = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP)
-c_fclose = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
-c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
-                                 FILEP], rffi.SIZE_T)
-c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T,
-                               FILEP], rffi.SIZE_T)
-c_feof = llexternal('feof', [FILEP], rffi.INT)
-c_ferror = llexternal('ferror', [FILEP], rffi.INT)
-c_clearerr = llexternal('clearerr', [FILEP], lltype.Void)
-c_fseek = llexternal('fseek', [FILEP, rffi.LONG, rffi.INT],
-                     rffi.INT)
-c_tmpfile = llexternal('tmpfile', [], FILEP)
-c_fileno = llexternal(fileno, [FILEP], rffi.INT)
+c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], FILEP)
 c_fdopen = llexternal(('_' if os.name == 'nt' else '') + 'fdopen',
                       [rffi.INT, rffi.CCHARP], FILEP)
-c_ftell = llexternal('ftell', [FILEP], rffi.LONG)
+c_tmpfile = llexternal('tmpfile', [], FILEP)
+
+c_fclose = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
+c_pclose = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
+
+c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T],
+                       rffi.INT)
+
+c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True)
+c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP], rffi.CCHARP)
+c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
+                     rffi.SIZE_T)
+
+c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
+                      rffi.SIZE_T)
 c_fflush = llexternal('fflush', [FILEP], rffi.INT)
 c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)
 
-c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True)
-c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP],
-                     rffi.CCHARP)
+c_fseek = llexternal('fseek', [FILEP, rffi.LONG, rffi.INT], rffi.INT)
+c_ftell = llexternal('ftell', [FILEP], rffi.LONG)
+c_fileno = llexternal(fileno, [FILEP], rffi.INT)
 
-c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], FILEP)
-c_pclose = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
-c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T], rffi.INT)
+c_feof = llexternal('feof', [FILEP], rffi.INT)
+c_ferror = llexternal('ferror', [FILEP], rffi.INT)
+c_clearerr = llexternal('clearerr', [FILEP], lltype.Void)
 
 
 def _error(ll_file):
@@ -141,14 +144,6 @@ def create_file(filename, mode="r", buffering=-1):
     return RFile(ll_f)
 
 
-def create_temp_rfile():
-    res = c_tmpfile()
-    if not res:
-        errno = rposix.get_errno()
-        raise OSError(errno, os.strerror(errno))
-    return RFile(res)
-
-
 def create_fdopen_rfile(fd, mode="r"):
     mode = _sanitize_mode(mode)
     ll_mode = rffi.str2charp(mode)
@@ -161,6 +156,14 @@ def create_fdopen_rfile(fd, mode="r"):
         lltype.free(ll_mode, flavor='raw')
     _dircheck(ll_f)
     return RFile(ll_f)
+
+
+def create_temp_rfile():
+    res = c_tmpfile()
+    if not res:
+        errno = rposix.get_errno()
+        raise OSError(errno, os.strerror(errno))
+    return RFile(res)
 
 
 def create_popen_file(command, type):
