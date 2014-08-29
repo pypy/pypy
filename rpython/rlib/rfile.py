@@ -137,7 +137,7 @@ def create_file(filename, mode="r", buffering=-1):
             c_setvbuf(ll_f, lltype.nullptr(rffi.CCHARP.TO), _IOLBF, BUFSIZ)
         else:
             c_setvbuf(ll_f, lltype.nullptr(rffi.CCHARP.TO), _IOFBF, buffering)
-    return RFile(ll_f, mode)
+    return RFile(ll_f)
 
 
 def create_temp_rfile():
@@ -159,7 +159,7 @@ def create_fdopen_rfile(fd, mode="r"):
     finally:
         lltype.free(ll_mode, flavor='raw')
     _dircheck(ll_f)
-    return RFile(ll_f, mode)
+    return RFile(ll_f)
 
 
 def create_popen_file(command, type):
@@ -179,33 +179,15 @@ def create_popen_file(command, type):
 
 
 class RFile(object):
-    readable = False
-    writable = False
-
-    def __init__(self, ll_file, mode='+'):
+    def __init__(self, ll_file):
         self.ll_file = ll_file
-        if 'r' in mode:
-            self.readable = True
-        if 'w' in mode or 'a' in mode:
-            self.writable = True
-        if '+' in mode:
-            self.readable = self.writable = True
 
     def _check_closed(self):
         if not self.ll_file:
             raise ValueError("I/O operation on closed file")
 
-    def _check_reading(self):
-        if not self.readable:
-            raise OSError(0, "File not open for reading")
-
-    def _check_writing(self):
-        if not self.writable:
-            raise OSError(0, "File not open for writing")
-
     def write(self, value):
         self._check_closed()
-        self._check_writing()
         assert value is not None
         ll_value = rffi.get_nonmovingbuffer(value)
         try:
@@ -243,7 +225,6 @@ class RFile(object):
     def read(self, size=-1):
         # XXX CPython uses a more delicate logic here
         self._check_closed()
-        self._check_reading()
         ll_file = self.ll_file
         if size == 0:
             return ""
@@ -301,7 +282,6 @@ class RFile(object):
 
     def truncate(self, arg=-1):
         self._check_closed()
-        self._check_writing()
         if arg == -1:
             arg = self.tell()
         self.flush()
@@ -349,7 +329,6 @@ class RFile(object):
 
     def readline(self, size=-1):
         self._check_closed()
-        self._check_reading()
         if size == 0:
             return ""
         elif size < 0:
