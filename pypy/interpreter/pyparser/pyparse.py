@@ -8,8 +8,6 @@ def recode_to_utf8(space, bytes, encoding):
         return bytes
     w_text = space.call_method(space.wrapbytes(bytes), "decode",
                                space.wrap(encoding))
-    if not space.isinstance_w(w_text, space.w_unicode):
-        raise error.SyntaxError("codec did not return a unicode object")
     w_recoded = space.call_method(w_text, "encode", space.wrap("utf-8"))
     return space.bytes_w(w_recoded)
 
