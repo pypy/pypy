@@ -1,18 +1,16 @@
 import py
 import os
-import stat
 import errno
-from rpython.rlib import streamio, rfile
+from rpython.rlib import rfile
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
-from rpython.rlib.rstring import StringBuilder
 from pypy.module._file.interp_stream import W_AbstractStream
 from pypy.module.posix.interp_posix import fsencode_w
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.streamutil import wrap_streamerror, wrap_oserror_as_ioerror
+from pypy.interpreter.streamutil import wrap_oserror_as_ioerror
 
 
 class W_File(W_AbstractStream):
