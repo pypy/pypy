@@ -31,6 +31,7 @@ class CConfig(object):
     _IOLBF = platform.DefinedConstantInteger('_IOLBF')
     _IOFBF = platform.DefinedConstantInteger('_IOFBF')
     BUFSIZ = platform.DefinedConstantInteger('BUFSIZ')
+    EOF = platform.DefinedConstantInteger('EOF')
 
 config = platform.configure(CConfig)
 
@@ -40,6 +41,7 @@ _IONBF = config['_IONBF']
 _IOLBF = config['_IOLBF']
 _IOFBF = config['_IOFBF']
 BUFSIZ = config['BUFSIZ']
+EOF = config['EOF']
 
 BASE_BUF_SIZE = 4096
 BASE_LINE_SIZE = 100
@@ -67,6 +69,7 @@ c_ftell = llexternal('ftell', [FILEP], rffi.LONG)
 c_fflush = llexternal('fflush', [FILEP], rffi.INT)
 c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)
 
+c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True)
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP],
                      rffi.CCHARP)
 
@@ -286,22 +289,38 @@ class RFile(object):
             assert p > 0 and raw_buf[p - 1] == '\0'
             return p - 1
 
-    def readline(self):
+    def readline(self, size=-1):
         self._check_closed()
-        with rffi.scoped_alloc_buffer(BASE_LINE_SIZE) as buf:
-            c = self._readline1(buf.raw)
-            if c >= 0:
-                return buf.str(c)
-            #
-            # this is the rare case: the line is longer than BASE_LINE_SIZE
-            s = StringBuilder()
-            while True:
-                s.append_charpsize(buf.raw, BASE_LINE_SIZE - 1)
+        if size == 0:
+            return ""
+        elif size < 0:
+            with rffi.scoped_alloc_buffer(BASE_LINE_SIZE) as buf:
                 c = self._readline1(buf.raw)
                 if c >= 0:
+                    return buf.str(c)
+
+                # this is the rare case: the line is longer than BASE_LINE_SIZE
+                s = StringBuilder()
+                while True:
+                    s.append_charpsize(buf.raw, BASE_LINE_SIZE - 1)
+                    c = self._readline1(buf.raw)
+                    if c >= 0:
+                        break
+                s.append_charpsize(buf.raw, c)
+            return s.build()
+        else:  # size > 0
+            ll_file = self.ll_file
+            s = StringBuilder()
+            while s.getlength() < size:
+                c = c_getc(ll_file)
+                if c == EOF:
+                    if c_ferror(ll_file):
+                        raise _error(ll_file)
                     break
-            #
-            s.append_charpsize(buf.raw, c)
+                c = chr(c)
+                s.append(c)
+                if c == '\n':
+                    break
             return s.build()
 
 
