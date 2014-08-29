@@ -29,7 +29,7 @@ def raw_encode_basestring_ascii(space, w_string):
         w_string = space.call_method(w_string, 'decode', space.wrap('utf-8'))
 
     u = space.unicode_w(w_string)
-    sb = StringBuilder()
+    sb = StringBuilder(len(u))
     for c in u:
         if c <= u'~':
             if c == u'"' or c == u'\\':
