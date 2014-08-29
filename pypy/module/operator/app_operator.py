@@ -5,8 +5,10 @@ This module exports a set of operators as functions. E.g. operator.add(x,y) is
 equivalent to x+y.
 '''
 from __pypy__ import builtinify
+import types
 
-def countOf(a,b): 
+
+def countOf(a,b):
     'countOf(a, b) -- Return the number of times b occurs in a.'
     count = 0
     for x in a:
@@ -37,11 +39,11 @@ def indexOf(a, b):
         index += 1
     raise ValueError, 'sequence.index(x): x not in sequence'
 
-# XXX the following is approximative
 def isMappingType(obj,):
     'isMappingType(a) -- Return True if a has a mapping type, False otherwise.'
-    # XXX this is fragile and approximative anyway
-    return hasattr(obj, '__getitem__') and hasattr(obj, 'keys')
+    if isinstance(obj, types.InstanceType):
+        return hasattr(obj, '__getitem__')
+    return hasattr(obj, '__getitem__') and not hasattr(obj, '__getslice__')
 
 def isNumberType(obj,):
     'isNumberType(a) -- Return True if a has a numeric type, False otherwise.'
@@ -49,7 +51,9 @@ def isNumberType(obj,):
 
 def isSequenceType(obj,):
     'isSequenceType(a) -- Return True if a has a sequence type, False otherwise.'
-    return hasattr(obj, '__getitem__') and not hasattr(obj, 'keys')
+    if isinstance(obj, dict):
+        return False
+    return hasattr(obj, '__getitem__')
 
 def repeat(obj, num):
     'repeat(a, b) -- Return a * b, where a is a sequence, and b is an integer.'

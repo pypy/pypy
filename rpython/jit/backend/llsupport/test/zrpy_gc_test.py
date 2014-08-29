@@ -633,9 +633,9 @@ class CompileFrameworkTests(BaseFrameworkTests):
             return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
 
         def after(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
-            check(x.x == 1800 * 2 + 1850 * 2 + 200 - 150)
+            check(x.x == 1800 * 2 + 150 * 2 + 200 - 1850)
 
-        return before, f, None
+        return before, f, after
 
     def test_compile_framework_external_exception_handling(self):
         self.run('compile_framework_external_exception_handling')

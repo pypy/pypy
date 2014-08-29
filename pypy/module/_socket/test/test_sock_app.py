@@ -716,6 +716,11 @@ class AppTestSocketTCP:
         msg = buf[:len(MSG)]
         assert msg == MSG
 
+        conn.send(MSG)
+        buf = bytearray(8)
+        exc = raises(ValueError, cli.recvfrom_into, buf, 1024)
+        assert str(exc.value) == "nbytes is greater than the length of the buffer"
+
     def test_family(self):
         import socket
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

@@ -221,7 +221,7 @@ class AppTestFile(BaseROTests):
     expected_filename = str(udir.join('sample'))
     expected_mode = 'rb'
     extra_args = ()
-    spaceconfig = {"usemodules": ["binascii", "rctime"]}
+    spaceconfig = {'usemodules': ['binascii', 'rctime', 'struct']}
 
     def setup_method(self, method):
         space = self.space
@@ -281,7 +281,7 @@ class AppTestFdOpen(BaseROTests):
     expected_filename = '<fdopen>'
     expected_mode = 'rb'
     extra_args = ()
-    spaceconfig = {"usemodules": ["binascii", "rctime"]}
+    spaceconfig = {'usemodules': ['binascii', 'rctime', 'struct']}
 
     def setup_method(self, method):
         space = self.space
@@ -359,7 +359,8 @@ class AppTestLargeBufferUniversal(AppTestUniversalNewlines):
 #  A few extra tests
 
 class AppTestAFewExtra:
-    spaceconfig = {"usemodules": ['array', '_socket', 'binascii', 'rctime']}
+    spaceconfig = {'usemodules': ['_socket', 'array', 'binascii', 'rctime',
+                                  'struct']}
 
     def setup_method(self, method):
         fn = str(udir.join('temptestfile'))
@@ -401,11 +402,12 @@ class AppTestAFewExtra:
         with file(fn, 'wb') as f:
             f.writelines(['abc'])
             f.writelines([u'def'])
-            exc = raises(TypeError, f.writelines, [array.array('c', 'ghi')])
-            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+            f.writelines([array.array('c', 'ghi')])
             exc = raises(TypeError, f.writelines, [memoryview('jkl')])
             assert str(exc.value) == "writelines() argument must be a sequence of strings"
-        assert open(fn, 'rb').readlines() == ['abcdef']
+        out = open(fn, 'rb').readlines()[0]
+        assert out[0:5] == 'abcd\x00'
+        assert out[-3:] == 'ghi'
 
         with file(fn, 'wb') as f:
             exc = raises(TypeError, f.writelines, ['abc', memoryview('def')])

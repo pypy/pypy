@@ -78,9 +78,9 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
     # arrays with correct dtype
     if isinstance(w_object, W_NDimArray) and \
             (space.is_none(w_dtype) or w_object.get_dtype() is dtype):
-        if copy:
-            return w_object.descr_copy(space)
-        else:
+        if copy and (subok or type(w_object) is W_NDimArray):
+            return w_object.descr_copy(space, w_order)
+        elif not copy and (subok or type(w_object) is W_NDimArray):
             return w_object
 
     # not an array or incorrect dtype
