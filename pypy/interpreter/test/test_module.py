@@ -42,12 +42,9 @@ class AppTest_ModuleObject:
         bar = type(sys)('bar','docstring')
         assert bar.__doc__ == 'docstring'
 
-    def test___file__(self): 
-        import sys, os
-        if not hasattr(sys, "pypy_objspaceclass"):
-            skip("need PyPy for sys.__file__ checking")
-        assert sys.__file__ 
-        assert os.path.basename(sys.__file__) == 'sys'
+    def test___file__(self):
+        import sys
+        assert not hasattr(sys, '__file__')
 
     def test_repr(self):
         import sys
