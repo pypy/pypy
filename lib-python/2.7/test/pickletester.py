@@ -6,13 +6,15 @@ import cStringIO
 import pickletools
 import copy_reg
 
-from test.test_support import TestFailed, verbose, have_unicode, TESTFN, impl_detail
+from test.test_support import TestFailed, verbose, have_unicode, TESTFN
 try:
-    from test.test_support import _2G, _1M, precisionbigmemtest
+    from test.test_support import _2G, _1M, precisionbigmemtest, impl_detail
 except ImportError:
     # this import might fail when run on older Python versions by test_xpickle
     _2G = _1M = 0
     def precisionbigmemtest(*args, **kwargs):
+        return lambda self: None
+    def impl_detail(*args, **kwargs):
         return lambda self: None
 
 # Tests that try a number of pickle protocols should have a
