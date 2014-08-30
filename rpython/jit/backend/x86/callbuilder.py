@@ -301,6 +301,7 @@ class CallBuilder32(CallBuilderX86):
             save_ebp = not self.asm.cpu.gc_ll_descr.is_shadow_stack()
             ofs = WORD * (FRAME_FIXED_SIZE - 1)
             if save_ebp:    # only for testing (or with Boehm)
+                ofs -= self.current_esp
                 self.mc.MOV_sr(ofs, ebp.value)
             self.mc.MOV(ebp, esp)
             self.mc.CALL(self.fnloc)
