@@ -332,8 +332,8 @@ class AbstractARMBuilder(object):
                     | (rd & 0xF) << 12
                     | (rn & 0xF) << 16)
 
-    def DMB(self):
-        self.write32(0xf57ff05f)
+    def DMB(self, c=cond.AL):
+        self.write32(c << 28 | 0x157ff05f)
 
     DIV = binary_helper_call('int_div')
     MOD = binary_helper_call('int_mod')
