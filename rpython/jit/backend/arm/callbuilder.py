@@ -114,7 +114,7 @@ class ARMCallbuilder(AbstractCallBuilder):
         self.mc.STREX(r.r3.value, r.ip.value, r.r6.value, c=c.EQ)
                                                  # try to claim the lock
         self.mc.CMP_ri(r.r3.value, 0, cond=c.EQ) # did this succeed?
-        self.mc.DMB()
+        self.mc.DMB(c=c.EQ)
         # the success of the lock acquisition is defined by
         # 'EQ is true', or equivalently by 'r3 == 0'.
         #
