@@ -10,6 +10,7 @@ from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
 from rpython.jit.backend.arm.helper.assembler import count_reg_args
 from rpython.jit.backend.arm.helper.assembler import saved_registers
 from rpython.jit.backend.arm.helper.regalloc import check_imm_arg
+from rpython.jit.backend.arm.codebuilder import OverwritingBuilder
 
 
 class ARMCallbuilder(AbstractCallBuilder):
@@ -107,12 +108,12 @@ class ARMCallbuilder(AbstractCallBuilder):
         #     r5 == &root_stack_top
         #     r6 == fastgil
         #     r7 == previous value of root_stack_top
-        self.mc.LDREX(r.i3.value, r.r6.value)    # load the lock value
+        self.mc.LDREX(r.r3.value, r.r6.value)    # load the lock value
         self.mc.MOV_ri(r.ip.value, 1)
         self.mc.CMP_ri(r.r3.value, 0)            # is the lock free?
-        self.mc.STREX(r.r3.value, r.ipvalue, r.r6.value, c=cond.EQ)
+        self.mc.STREX(r.r3.value, r.ip.value, r.r6.value, c=c.EQ)
                                                  # try to claim the lock
-        self.mc.CMP_ri(r.r3.value, 0, c=cond.EQ) # did this succeed?
+        self.mc.CMP_ri(r.r3.value, 0, cond=c.EQ) # did this succeed?
         self.mc.DMB()
         # the success of the lock acquisition is defined by
         # 'EQ is true', or equivalently by 'r3 == 0'.
@@ -124,8 +125,8 @@ class ARMCallbuilder(AbstractCallBuilder):
             # thread.  So here we check if the shadowstack pointer
             # is still the same as before we released the GIL (saved
             # in 'r7'), and if not, we fall back to 'reacqgil_addr'.
-            self.mc.LDR_ri(r.ip.value, r.r5.value, c=cond.EQ)
-            self.mc.CMP_rr(r.ip.value, r.r7.value, c=cond.EQ)
+            self.mc.LDR_ri(r.ip.value, r.r5.value, cond=c.EQ)
+            self.mc.CMP_rr(r.ip.value, r.r7.value, cond=c.EQ)
             b1_location = self.mc.currpos()
             self.mc.BKPT()                       # BEQ below
             # there are two cases here: either EQ was false from
@@ -134,7 +135,7 @@ class ARMCallbuilder(AbstractCallBuilder):
             # release the fastgil here.  We know which case it is
             # by checking again r3.
             self.mc.CMP_ri(r.r3.value, 0)
-            self.mc.STR_ri(r.r3.value, r.r6.value, c=cond.EQ)
+            self.mc.STR_ri(r.r3.value, r.r6.value, cond=c.EQ)
         else:
             b1_location = self.mc.currpos()
             self.mc.BKPT()                       # BEQ below
@@ -144,7 +145,7 @@ class ARMCallbuilder(AbstractCallBuilder):
         with saved_registers(self.mc, gpr_to_save, vfp_to_save):
             self.mc.BL(self.asm.reacqgil_addr)
 
-        # replace b1_location with B(here, cond.EQ)
+        # replace b1_location with B(here, c.EQ)
         pmc = OverwritingBuilder(self.mc, b1_location, WORD)
         pmc.B_offs(self.mc.currpos(), c.EQ)
 
