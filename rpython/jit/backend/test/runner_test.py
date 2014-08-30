@@ -2702,6 +2702,9 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert r == result
 
     def test_call_release_gil_variable_function_and_arguments(self):
+        # NOTE NOTE NOTE
+        # This also works as a test for ctypes and libffi.
+        # On some platforms, one of these is buggy...
         from rpython.rlib.libffi import types
         from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
         from rpython.rlib.rarithmetic import r_singlefloat
