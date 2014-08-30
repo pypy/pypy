@@ -136,6 +136,34 @@ class JitCounter:
             return True
     tick._always_inline_ = True
 
+    def change_current_fraction(self, hash, new_fraction):
+        """Change the value stored for 'hash' to be the given 'new_fraction',
+        which should be a float equal to or slightly lower than 1.0.
+        """
+        p_entry = self.timetable[self._get_index(hash)]
+        subhash = self._get_subhash(hash)
+
+        # find in 'n' the index that will be overwritten: the first within
+        # range(5) that contains either the right subhash, or a null time
+        # (or, if there isn't any, then just n == 4 will do).
+        n = 0
+        while n < 4 and (p_entry.subhashes[n] != subhash and
+                         float(p_entry.times[n]) != 0.0):
+            n += 1
+
+        # move one step to the right all elements [n - 1, n - 2, ..., 0],
+        # (this overwrites the old item at index 'n')
+        while n > 0:
+            n -= 1
+            p_entry.subhashes[n + 1] = p_entry.subhashes[n]
+            p_entry.times[n + 1]     = p_entry.times[n]
+
+        # insert the new hash at index 0.  This is a good approximation,
+        # because change_current_fraction() should be used for
+        # new_fraction == value close to 1.0.
+        p_entry.subhashes[0] = rffi.cast(rffi.USHORT, subhash)
+        p_entry.times[0]     = r_singlefloat(new_fraction)
+
     def reset(self, hash):
         p_entry = self.timetable[self._get_index(hash)]
         subhash = self._get_subhash(hash)
