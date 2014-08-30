@@ -1991,6 +1991,10 @@ class MetaInterp(object):
             if greenkey_of_huge_function is not None:
                 warmrunnerstate.disable_noninlinable_function(
                     greenkey_of_huge_function)
+            if self.current_merge_points:
+                jd_sd = self.jitdriver_sd
+                greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
+                warmrunnerstate.JitCell.trace_next_iteration(greenkey)
             raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
 
     def _interpret(self):
