@@ -80,7 +80,7 @@ appropriate measure but it's something)::
   Martin Matusiak
   Konstantin Lopuhin
   John Witulski
-  wenzhu man
+  Wenzhu Man
   Greg Price
   Dario Bertini
   Mark Pearse
