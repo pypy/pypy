@@ -98,6 +98,9 @@ def _build_fd_set(space, list_w, ll_list, nfds):
     for w_f in list_w:
         fd = space.c_filedescriptor_w(w_f)
         if fd > nfds:
+            if _c.MAX_FD_SIZE is not None and fd >= _c.MAX_FD_SIZE:
+                raise oefmt(space.w_ValueError,
+                            "file descriptor out of range in select()")
             nfds = fd
         _c.FD_SET(fd, ll_list)
         fdlist.append(fd)
