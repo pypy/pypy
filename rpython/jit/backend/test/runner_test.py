@@ -2901,10 +2901,11 @@ class LLtypeBackendTest(BaseBackendTest):
                 getter_ptr(my_arg)
                 got.append(my_arg[0])
                 lltype.free(my_arg, flavor='raw')
-            different_values = ['%r != %r' % (a, b)
-                                    for a, b in zip(got, expected)
-                                        if a != b]
-            assert got == expected, ', '.join(different_values)
+            different_values = ['x%d: got %r, expected %r' % (i, a, b)
+                                for i, (a, b) in enumerate(zip(got, expected))
+                                if a != b]
+            assert got == expected, '\n'.join(
+                ['bad args, signature %r' % codes[1:]] + different_values)
 
 
     def test_guard_not_invalidated(self):
