@@ -280,6 +280,7 @@ class HardFloatCallBuilder(ARMCallbuilder):
             # 64bit double
             i = max(self.next_arg_vfp, (self.next_arg_svfp + 1) >> 1)
             if i >= len(r.vfp_argument_regs):
+                self.next_arg_svfp = 1000    # stop that sequence too
                 return None
             self.next_arg_vfp = i + 1
             return r.vfp_argument_regs[i]

@@ -32,3 +32,16 @@ def test_hf_vfp_registers_mixture():
                    r.s12, r.d7,
                    r.s13, None,
                    None,  None]
+
+def test_hf_vfp_registers_mixture_2():
+    hf = HardFloatCallBuilder.__new__(HardFloatCallBuilder)
+    got = [hf.get_next_vfp('f'), hf.get_next_vfp('f'),
+           hf.get_next_vfp('f'), hf.get_next_vfp('f'),
+           hf.get_next_vfp('f'), hf.get_next_vfp('f'),
+           hf.get_next_vfp('f'), hf.get_next_vfp('S'),
+           hf.get_next_vfp('f'), hf.get_next_vfp('S')]
+    assert got == [r.d0, r.d1,
+                   r.d2, r.d3,
+                   r.d4, r.d5,
+                   r.d6, r.s14,
+                   None, None]    # <- and not r.s15 for the last item
