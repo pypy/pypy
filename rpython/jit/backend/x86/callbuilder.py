@@ -295,19 +295,15 @@ class CallBuilder32(CallBuilderX86):
             # Dynamically accept both stdcall and cdecl functions.
             # We could try to detect from pyjitpl which calling
             # convention this particular function takes, which would
-            # avoid these two extra MOVs... but later.  The ebp register
-            # is unused here: it will be reloaded from the shadowstack.
-            # (This doesn't work during testing, though. Hack hack hack.)
-            save_ebp = not self.asm.cpu.gc_ll_descr.is_shadow_stack()
-            ofs = WORD * (FRAME_FIXED_SIZE - 1)
-            if save_ebp:    # only for testing (or with Boehm)
-                ofs -= self.current_esp
-                self.mc.MOV_sr(ofs, ebp.value)
-            self.mc.MOV(ebp, esp)
+            # avoid these two extra MOVs... but later.  Pick any
+            # caller-saved register here except ebx (used for shadowstack).
+            if IS_X86_32:
+                free_caller_save_reg = edi
+            else:
+                free_caller_save_reg = r14
+            self.mc.MOV(free_caller_save_reg, esp)
             self.mc.CALL(self.fnloc)
-            self.mc.MOV(esp, ebp)
-            if save_ebp:    # only for testing (or with Boehm)
-                self.mc.MOV_rs(ebp.value, ofs)
+            self.mc.MOV(esp, free_caller_save_reg)
         else:
             self.mc.CALL(self.fnloc)
             if self.callconv != FFI_DEFAULT_ABI:
