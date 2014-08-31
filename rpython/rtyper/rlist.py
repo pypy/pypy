@@ -2,7 +2,7 @@ from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
 from rpython.rlib import rgc, jit, types
 from rpython.rlib.debug import ll_assert
-from rpython.rlib.objectmodel import malloc_zero_filled
+from rpython.rlib.objectmodel import malloc_zero_filled, enforceargs
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck, widen, r_uint, intmask
 from rpython.rtyper.annlowlevel import ADTInterface
@@ -722,6 +722,7 @@ def ll_setitem(func, l, index, newitem):
     l.ll_setitem_fast(index, newitem)
 # no oopspec -- the function is inlined by the JIT
 
+@enforceargs(None, None, int)
 def ll_delitem_nonneg(func, l, index):
     ll_assert(index >= 0, "unexpectedly negative list delitem index")
     length = l.ll_length()

@@ -21,12 +21,12 @@
 /* Version parsed out into numeric values */
 #define PY_MAJOR_VERSION	2
 #define PY_MINOR_VERSION	7
-#define PY_MICRO_VERSION	6
+#define PY_MICRO_VERSION	8
 #define PY_RELEASE_LEVEL	PY_RELEASE_LEVEL_FINAL
 #define PY_RELEASE_SERIAL	0
 
 /* Version as a string */
-#define PY_VERSION		"2.7.6"
+#define PY_VERSION		"2.7.8"
 
 /* PyPy version as a string */
 #define PYPY_VERSION "2.3.1"

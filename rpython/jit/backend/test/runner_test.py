@@ -2702,6 +2702,9 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert r == result
 
     def test_call_release_gil_variable_function_and_arguments(self):
+        # NOTE NOTE NOTE
+        # This also works as a test for ctypes and libffi.
+        # On some platforms, one of these is buggy...
         from rpython.rlib.libffi import types
         from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
         from rpython.rlib.rarithmetic import r_singlefloat
@@ -3725,7 +3728,9 @@ class LLtypeBackendTest(BaseBackendTest):
         looptoken = JitCellToken()
         self.cpu.compile_loop(inputargs, operations, looptoken)
         # overflowing value:
-        deadframe = self.cpu.execute_token(looptoken, sys.maxint // 4 + 1)
+        unisize = self.cpu.gc_ll_descr.unicode_descr.itemsize
+        assert unisize in (2, 4)
+        deadframe = self.cpu.execute_token(looptoken, sys.maxint // unisize + 1)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == excdescr.identifier
         exc = self.cpu.grab_exc_value(deadframe)

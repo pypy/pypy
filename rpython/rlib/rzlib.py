@@ -12,12 +12,15 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 if compiler.name == "msvc":
-    libname = 'zlib1' # since version 1.1.4 and later, see http://www.zlib.net/DLL_FAQ.txt
+    libname = 'zlib' # use the static lib, not zlib1 which is dll import lib
+    testonly_libraries = ['zlib1']
 else:
     libname = 'z'
+    testonly_libraries = []
 eci = ExternalCompilationInfo(
         libraries=[libname],
-        includes=['zlib.h']
+        includes=['zlib.h'],
+        testonly_libraries = testonly_libraries
     )
 try:
     eci = rffi_platform.configure_external_library(

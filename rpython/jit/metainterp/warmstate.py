@@ -129,6 +129,49 @@ JC_DONT_TRACE_HERE = 0x02
 JC_TEMPORARY       = 0x04
 
 class BaseJitCell(object):
+    """Subclasses of BaseJitCell are used in tandem with the single
+    JitCounter instance to record places in the JIT-tracked user program
+    where something particular occurs with the JIT.  For some
+    'greenkeys' (e.g. Python bytecode position), we create one instance
+    of JitCell and attach it to that greenkey.  This is implemented
+    with jitcounter.install_new_cell(), but conceptually you can think
+    about JitCode instances as attached to some locations of the
+    app-level Python code.
+
+    We create subclasses of BaseJitCell --one per jitdriver-- so that
+    they can store greenkeys of different types.  
+
+    Note that we don't create a JitCell the first time we see a given
+    greenkey position in the interpreter.  At first, we only hash the
+    greenkey and use that in the JitCounter to record the number of
+    times we have seen it.  We only create a JitCell when the
+    JitCounter's total time value reaches 1.0 and we are starting to
+    JIT-compile.
+
+    A JitCell has a 'wref_procedure_token' that is non-None when we
+    actually have a compiled procedure for that greenkey.  (It is a
+    weakref, so that it could later be freed; in this case the JitCell
+    will likely be reclaimed a bit later by 'should_remove_jitcell()'.)
+
+    There are other less-common cases where we also create a JitCell: to
+    record some long-term flags about the greenkey.  In general, a
+    JitCell can have any combination of the following flags set:
+
+        JC_TRACING: we are now tracing the loop from this greenkey.
+        We'll likely end up with a wref_procedure_token, soonish.
+
+        JC_TEMPORARY: a "temporary" wref_procedure_token.
+        It's the procedure_token of a dummy loop that simply calls
+        back the interpreter.  Used for a CALL_ASSEMBLER where the
+        target was not compiled yet.  In this situation we are still
+        ticking the JitCounter for the same hash, until we reach the
+        threshold and start tracing the loop in earnest.
+
+        JC_DONT_TRACE_HERE: when tracing, don't inline calls to
+        this particular function.  (We only set this flag when aborting
+        due to a trace too long, so we use the same flag as a hint to
+        also mean "please trace from here as soon as possible".)
+    """
     flags = 0     # JC_xxx flags
     wref_procedure_token = None
     next = None

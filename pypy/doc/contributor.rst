@@ -25,8 +25,8 @@ appropriate measure but it's something)::
   Manuel Jacob
   Anders Chrigstrom
   Eric van Riet Paap
-  Wim Lavrijsen
   Ronan Lamy
+  Wim Lavrijsen
   Richard Emslie
   Alexander Schremmer
   Dan Villiom Podlaski Christiansen
@@ -35,10 +35,10 @@ appropriate measure but it's something)::
   Anders Lehmann
   Aurelien Campeas
   Niklaus Haldimann
+  Remi Meier
   Camillo Bruni
   Laura Creighton
   Toon Verwaest
-  Remi Meier
   Leonardo Santagada
   Seo Sanghyeon
   Romain Guillebert
@@ -50,6 +50,7 @@ appropriate measure but it's something)::
   Guido Wesdorp
   Lawrence Oluyede
   Bartosz Skowron
+  Gregor Wegberg
   Daniel Roberts
   Niko Matsakis
   Adrien Di Mascio
@@ -63,6 +64,7 @@ appropriate measure but it's something)::
   stian
   Michael Foord
   Stephan Diehl
+  Tyler Wade
   Stefan Schwarzer
   Valentino Volonghi
   Tomek Meka
@@ -75,43 +77,45 @@ appropriate measure but it's something)::
   Alexandre Fayolle
   Simon Burton
   Marius Gedminas
-  John Witulski
+  Martin Matusiak
   Konstantin Lopuhin
+  John Witulski
+  Wenzhu Man
   Greg Price
   Dario Bertini
   Mark Pearse
   Simon Cross
+  Ivan Sichmann Freitas
   Andreas Stührk
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
+  Stefano Rivera
   Paweł Piotr Przeradowski
   Paul deGrandis
   Ilya Osadchiy
   Tobias Oberstein
   Adrian Kuhn
   Boris Feigin
-  Stefano Rivera
   tav
   Taavi Burns
   Georg Brandl
+  Laurence Tratt
   Bert Freudenberg
   Stian Andreassen
-  Laurence Tratt
   Wanja Saatkamp
-  Ivan Sichmann Freitas
   Gerald Klix
   Mike Blume
   Oscar Nierstrasz
   Stefan H. Muller
+  Edd Barrett
   Jeremy Thurgood
-  Gregor Wegberg
   Rami Chowdhury
   Tobias Pape
-  Edd Barrett
   David Malcolm
   Eugene Oden
   Henry Mason
+  Vasily Kuznetsov
   Preston Timmons
   Jeff Terrace
   David Ripton
@@ -128,12 +132,11 @@ appropriate measure but it's something)::
   Nicholas Riley
   Jason Chu
   Igor Trindade Oliveira
+  Tim Felgentreff
   Rocco Moretti
   Gintautas Miliauskas
   Michael Twomey
   Lucian Branescu Mihaila
-  Tim Felgentreff
-  Tyler Wade
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
@@ -149,22 +152,22 @@ appropriate measure but it's something)::
   Aaron Iles
   Michael Cheng
   Justas Sadzevicius
-  Mikael Schönenberg
   Gasper Zejn
+  anatoly techtonik
   Neil Shepperd
-  Elmo Mäntynen
+  Mikael Schönenberg
+  Elmo M?ntynen
   Jonathan David Riehl
   Stanislaw Halik
   Anders Qvist
+  Corbin Simpson
   Chirag Jadwani
   Beatrice During
   Alex Perry
   Vincent Legoll
   Alan McIntyre
   Alexander Sedov
-  Corbin Simpson
   Christopher Pope
-  wenzhuman
   Christian Tismer 
   Marc Abramowitz
   Dan Stromberg
@@ -174,29 +177,33 @@ appropriate measure but it's something)::
   Carl Meyer
   Karl Ramm
   Pieter Zieschang
+  Sebastian Pawluś
   Gabriel
   Lukas Vacek
   Andrew Dalke
   Sylvain Thenault
   Nathan Taylor
   Vladimir Kryachko
+  Arjun Naik
+  Attila Gobi
   Jacek Generowicz
   Alejandro J. Cura
   Jacob Oscarson
   Travis Francis Athougies
   Ryan Gonzalez
+  Ian Foote
   Kristjan Valur Jonsson
-  Sebastian Pawluś
   Neil Blakey-Milner
-  anatoly techtonik
   Lutz Paelike
   Lucio Torre
   Lars Wassermann
+  Valentina Mukhamedzhanova
   Henrik Vendelbo
   Dan Buch
   Miguel de Val Borro
   Artur Lisiecki
   Sergey Kishchenko
+  Yichao Yu
   Ignas Mikalajunas
   Christoph Gerum
   Martin Blais
@@ -209,6 +216,7 @@ appropriate measure but it's something)::
   Bobby Impollonia
   timo@eistee.fritz.box
   Andrew Thompson
+  Yusei Tahara
   Ben Darnell
   Roberto De Ioris
   Juan Francisco Cantero Hurtado
@@ -219,6 +227,7 @@ appropriate measure but it's something)::
   Michael Hudson-Doyle
   Anders Sigfridsson
   Yasir Suhail
+  Jason Michalski
   rafalgalczynski@gmail.com
   Floris Bruynooghe
   Laurens Van Houtven
@@ -226,7 +235,6 @@ appropriate measure but it's something)::
   Gustavo Niemeyer
   Stephan Busemann
   Rafał Gałczyński
-  Yusei Tahara
   Christian Muirhead
   James Lan
   shoma hosaka
@@ -238,7 +246,6 @@ appropriate measure but it's something)::
   Chris Lambacher
   coolbutuseless@gmail.com
   Rodrigo Araújo
-  w31rd0
   Jim Baker
   James Robert
   Armin Ronacher
@@ -252,6 +259,7 @@ appropriate measure but it's something)::
   Asmo Soinio
   Stefan Marr
   jiaaro
+  Mads Kiilerich
   opassembler.py
   Antony Lee
   Jim Hunziker
@@ -261,11 +269,13 @@ appropriate measure but it's something)::
   soareschen
   Kurt Griffiths
   Mike Bayer
+  Matthew Miller
   Flavio Percoco
   Kristoffer Kleine
   yasirs
   Michael Chermside
   Anna Ravencroft
+  Dan Crosta
   Julien Phalip
   Dan Loewenherz
 

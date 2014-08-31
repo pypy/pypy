@@ -89,6 +89,7 @@ else:
 
 from socket import socket, _fileobject, error as socket_error
 from socket import getnameinfo as _getnameinfo
+from socket import SOL_SOCKET, SO_TYPE, SOCK_STREAM
 import base64        # for DER-to-PEM translation
 import errno
 
@@ -108,13 +109,16 @@ class SSLSocket(socket):
                  ssl_version=PROTOCOL_SSLv23, ca_certs=None,
                  do_handshake_on_connect=True,
                  suppress_ragged_eofs=True, ciphers=None):
+        # Can't use sock.type as other flags (such as SOCK_NONBLOCK) get
+        # mixed in.
+        if sock.getsockopt(SOL_SOCKET, SO_TYPE) != SOCK_STREAM:
+            raise NotImplementedError("only stream sockets are supported")
         socket.__init__(self, _sock=sock._sock)
 
-        # "close" the original socket: it is not usable any more.
-        # this only calls _drop(), which should not actually call
-        # the operating system's close() because the reference
-        # counter is greater than 1 (we hold one too).
-        sock.close()
+        # "close" the original socket: it is not usable any more. which should
+        # not actually call the operating system's close() because the
+        # reference counter is greater than 1 (we hold one too).
+        sock._sock._drop()
 
         if ciphers is None and ssl_version != _SSLv2_IF_EXISTS:
             ciphers = _DEFAULT_CIPHERS
