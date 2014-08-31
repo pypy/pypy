@@ -2,17 +2,14 @@ import py
 import os
 from rpython.rlib import rpath
 
-IS_WINDOWS = os.name == 'nt'
-
 def test_rabspath_relative(tmpdir):
     tmpdir.chdir()
     assert rpath.rabspath('foo') == os.path.realpath(str(tmpdir.join('foo')))
 
-@py.test.mark.skipif("IS_WINDOWS")
 def test_rabspath_absolute_posix():
-    assert rpath.rabspath('/foo') == '/foo'
+    assert rpath._posix_rabspath('/foo') == '/foo'
 
-@py.test.mark.skipif("IS_WINDOWS")
+@py.test.mark.skipif("os.name == 'nt'")
 def test_missing_current_dir(tmpdir):
     tmpdir1 = str(tmpdir) + '/temporary_removed'
     curdir1 = os.getcwd()
@@ -25,7 +22,25 @@ def test_missing_current_dir(tmpdir):
         os.chdir(curdir1)
     assert result == '.'
 
-@py.test.mark.skipif("not IS_WINDOWS")
+def test_rsplitdrive_nt():
+    assert rpath._nt_rsplitdrive('D:\\FOO/BAR') == ('D:', '\\FOO/BAR')
+    assert rpath._nt_rsplitdrive('//') == ('', '//')
+
+@py.test.mark.skipif("os.name != 'nt'")
 def test_rabspath_absolute_nt():
-    curdrive, _ = os.path.splitdrive(os.getcwd())
+    curdrive = _ = rpath._nt_rsplitdrive(os.getcwd())
+    assert len(curdrive) == 2 and curdrive[1] == ':'
     assert rpath.rabspath('\\foo') == '%s\\foo' % curdrive
+
+def test_risabs_posix():
+    assert rpath._posix_risabs('/foo/bar')
+    assert not rpath._posix_risabs('foo/bar')
+    assert not rpath._posix_risabs('\\foo\\bar')
+    assert not rpath._posix_risabs('C:\\foo\\bar')
+
+def test_risabs_nt():
+    assert rpath._nt_risabs('/foo/bar')
+    assert not rpath._nt_risabs('foo/bar')
+    assert rpath._nt_risabs('\\foo\\bar')
+    assert rpath._nt_risabs('C:\\FOO')
+    assert not rpath._nt_risabs('C:FOO')
