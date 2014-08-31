@@ -35,8 +35,12 @@ def find_executable(executable):
             for dir in path.split(os.pathsep):
                 fn = os.path.join(dir, executable)
                 if os.path.isfile(fn):
-                    executable = fn
-                    break
+                    # os.access checks using the user's real uid and gid.
+                    # Since pypy should not be run setuid/setgid, this
+                    # should be sufficient.
+                    if os.access(fn, os.X_OK):
+                        executable = fn
+                        break
     executable = rpath.rabspath(executable)
 
     # 'sys.executable' should not end up being an non-existing file;
