@@ -4191,9 +4191,6 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 23
         assert self.cpu.get_int_value(deadframe, 0) == 42
-        # make sure that force reads the registers from a zeroed piece of
-        # memory
-        assert values[0] == 0
 
     def test_compile_bridge_while_running(self):
         def func():
