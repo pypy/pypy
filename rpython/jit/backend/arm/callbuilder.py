@@ -276,29 +276,22 @@ class HardFloatCallBuilder(ARMCallbuilder):
 
     def get_next_vfp(self, tp):
         assert tp in 'fS'
-        if self.next_arg_vfp == -1:
-            return None
-        if tp == 'S':
+        if tp == 'f':
+            # 64bit double
+            i = max(self.next_arg_vfp, (self.next_arg_svfp + 1) >> 1)
+            if i >= len(r.vfp_argument_regs):
+                return None
+            self.next_arg_vfp = i + 1
+            return r.vfp_argument_regs[i]
+        else:
+            # 32bit float
             i = self.next_arg_svfp
-            next_vfp = (i >> 1) + 1
-            if not (i + 1) & 1: # i is even
-                self.next_arg_vfp = max(self.next_arg_vfp, next_vfp)
-                self.next_arg_svfp = self.next_arg_vfp << 1
-            else:
-                self.next_arg_svfp += 1
-                self.next_arg_vfp = next_vfp
-            lst = r.svfp_argument_regs
-        else: # 64bit double
-            i = self.next_arg_vfp
-            self.next_arg_vfp += 1
-            if self.next_arg_svfp >> 1 == i:
-                self.next_arg_svfp = self.next_arg_vfp << 1
-            lst = r.vfp_argument_regs
-        try:
-            return lst[i]
-        except IndexError:
-            self.next_arg_vfp = self.next_arg_svfp = -1
-            return None
+            if not (i & 1):     # if i is even
+                i = max(i, self.next_arg_vfp << 1)
+            if i >= len(r.svfp_argument_regs):
+                return None
+            self.next_arg_svfp = i + 1
+            return r.svfp_argument_regs[i]
 
     def prepare_arguments(self):
         non_float_locs = []
