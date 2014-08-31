@@ -1232,10 +1232,6 @@ class MIFrame(object):
             metainterp.history.record(rop.VIRTUAL_REF_FINISH,
                                       [vrefbox, nullbox], None)
 
-    @arguments()
-    def opimpl_ll_read_timestamp(self):
-        return self.metainterp.execute_and_record(rop.READ_TIMESTAMP, None)
-
     @arguments("box", "box", "box")
     def _opimpl_libffi_save_result(self, box_cif_description,
                                    box_exchange_buffer, box_result):

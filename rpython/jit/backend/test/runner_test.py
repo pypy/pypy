@@ -21,6 +21,9 @@ from rpython.jit.backend.detect_cpu import autodetect
 from rpython.jit.backend.llsupport import jitframe
 
 
+IS_32_BIT = sys.maxint < 2**32
+IS_64_BIT = sys.maxint > 2**32
+
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
 
@@ -1792,8 +1795,8 @@ class BaseBackendTest(Runner):
                                                c_nest, c_nest], 'void')
 
     def test_read_timestamp(self):
-        if not self.cpu.supports_longlong:
-            py.test.skip("longlong test")
+        if IS_32_BIT and not self.cpu.supports_longlong:
+            py.test.skip("read_timestamp returns a longlong")
         if sys.platform == 'win32':
             # windows quite often is very inexact (like the old Intel 8259 PIC),
             # so we stretch the time a little bit.
@@ -1809,16 +1812,29 @@ class BaseBackendTest(Runner):
         else:
             def wait_a_bit():
                 pass
+
+        from rpython.jit.codewriter.effectinfo import EffectInfo
+        from rpython.rlib import rtimer
+
+        effectinfo = EffectInfo([], [], [], [], [], [],
+                                EffectInfo.EF_CANNOT_RAISE,
+                                EffectInfo.OS_MATH_READ_TIMESTAMP)
+        FPTR = self.Ptr(self.FuncType([], lltype.SignedLongLong))
+        func_ptr = llhelper(FPTR, rtimer.read_timestamp)
+        FUNC = deref(FPTR)
+        funcbox = self.get_funcbox(self.cpu, func_ptr)
+
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, effectinfo)
         if longlong.is_64_bit:
-            got1 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
+            got1 = self.execute_operation(rop.CALL, [funcbox], 'int', calldescr)
             wait_a_bit()
-            got2 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
+            got2 = self.execute_operation(rop.CALL, [funcbox], 'int', calldescr)
             res1 = got1.getint()
             res2 = got2.getint()
         else:
-            got1 = self.execute_operation(rop.READ_TIMESTAMP, [], 'float')
+            got1 = self.execute_operation(rop.CALL, [funcbox],'float',calldescr)
             wait_a_bit()
-            got2 = self.execute_operation(rop.READ_TIMESTAMP, [], 'float')
+            got2 = self.execute_operation(rop.CALL, [funcbox],'float',calldescr)
             res1 = got1.getlonglong()
             res2 = got2.getlonglong()
         assert res1 < res2 < res1 + 2**32
@@ -1941,7 +1957,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_convert_float_bytes(self):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
-        if not self.cpu.supports_longlong:
+        if IS_32_BIT and not self.cpu.supports_longlong:
             py.test.skip("longlong test")
         t = 'int' if longlong.is_64_bit else 'float'
         res = self.execute_operation(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG,
@@ -2642,8 +2658,8 @@ class LLtypeBackendTest(BaseBackendTest):
             (types.double, 12.3475226, rffi.DOUBLE),
             (types.float,  r_singlefloat(-592.75), rffi.FLOAT),
             ]:
-            if sys.maxint < 2**32 and TP in (lltype.SignedLongLong,
-                                             lltype.UnsignedLongLong):
+            if IS_32_BIT and TP in (lltype.SignedLongLong,
+                                    lltype.UnsignedLongLong):
                 if not cpu.supports_longlong:
                     continue
             if TP == rffi.DOUBLE:
@@ -2722,7 +2738,7 @@ class LLtypeBackendTest(BaseBackendTest):
             (types.uint32, rffi.UINT),
             (types.sint32, rffi.INT),
             ]
-        if sys.maxint < 2**32 and cpu.supports_longlong:
+        if IS_32_BIT and cpu.supports_longlong:
             ALL_TYPES += [
                 (types.uint64, lltype.UnsignedLongLong),
                 (types.sint64, lltype.SignedLongLong),
@@ -3577,7 +3593,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 "%r: got %r, expected %r" % (RESTYPE, res.value, expected))
 
     def test_supports_longlong(self):
-        if sys.maxint > 2147483647:
+        if IS_64_BIT:
             assert not self.cpu.supports_longlong, (
                 "supports_longlong should be False on 64-bit platforms")
 

@@ -1910,6 +1910,12 @@ class Transformer(object):
         else:
             raise NotImplementedError(oopspec_name)
 
+    def rewrite_op_ll_read_timestamp(self, op):
+        op1 = self.prepare_builtin_call(op, "ll_read_timestamp", [])
+        return self.handle_residual_call(op1,
+            oopspecindex=EffectInfo.OS_MATH_READ_TIMESTAMP,
+            extraeffect=EffectInfo.EF_CANNOT_RAISE)
+
     def rewrite_op_jit_force_quasi_immutable(self, op):
         v_inst, c_fieldname = op.args
         descr1 = self.cpu.fielddescrof(v_inst.concretetype.TO,
