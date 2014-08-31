@@ -66,6 +66,7 @@ redirect_function(os.remove,  'os.unlink')
 
 redirect_function(os.path.isdir,   'rpython.rlib.rpath.risdir')
 redirect_function(os.path.isabs,   'rpython.rlib.rpath.risabs')
+redirect_function(os.path.normpath,'rpython.rlib.rpath.rnormpath')
 redirect_function(os.path.abspath, 'rpython.rlib.rpath.rabspath')
 redirect_function(os.path.join,    'rpython.rlib.rpath.rjoin')
 if hasattr(os.path, 'splitdrive'):

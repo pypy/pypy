@@ -29,6 +29,33 @@ def _posix_risabs(s):
     """Test whether a path is absolute"""
     return s.startswith('/')
 
+def _posix_rnormpath(path):
+    """Normalize path, eliminating double slashes, etc."""
+    slash, dot = '/', '.'
+    if path == '':
+        return dot
+    initial_slashes = path.startswith('/')
+    # POSIX allows one or two initial slashes, but treats three or more
+    # as single slash.
+    if (initial_slashes and
+        path.startswith('//') and not path.startswith('///')):
+        initial_slashes = 2
+    comps = path.split('/')
+    new_comps = []
+    for comp in comps:
+        if comp == '' or comp == '.':
+            continue
+        if (comp != '..' or (not initial_slashes and not new_comps) or
+             (new_comps and new_comps[-1] == '..')):
+            new_comps.append(comp)
+        elif new_comps:
+            new_comps.pop()
+    comps = new_comps
+    path = slash.join(comps)
+    if initial_slashes:
+        path = slash*initial_slashes + path
+    return path or dot
+
 def _posix_rabspath(path):
     """Return an absolute, **non-normalized** path.
       **This version does not let exceptions propagate.**"""
@@ -36,7 +63,7 @@ def _posix_rabspath(path):
         if not _posix_risabs(path):
             cwd = os.getcwd()
             path = _posix_rjoin(cwd, path)
-        return path
+        return _posix_rnormpath(path)
     except OSError:
         return path
 
@@ -64,6 +91,56 @@ def _nt_risabs(s):
     """Test whether a path is absolute"""
     s = _nt_rsplitdrive(s)[1]
     return s.startswith('/') or s.startswith('\\')
+
+def _nt_rnormpath(path):
+    """Normalize path, eliminating double slashes, etc."""
+    backslash, dot = '\\', '.'
+    if path.startswith(('\\\\.\\', '\\\\?\\')):
+        # in the case of paths with these prefixes:
+        # \\.\ -> device names
+        # \\?\ -> literal paths
+        # do not do any normalization, but return the path unchanged
+        return path
+    path = path.replace("/", "\\")
+    prefix, path = _nt_rsplitdrive(path)
+    # We need to be careful here. If the prefix is empty, and the path starts
+    # with a backslash, it could either be an absolute path on the current
+    # drive (\dir1\dir2\file) or a UNC filename (\\server\mount\dir1\file). It
+    # is therefore imperative NOT to collapse multiple backslashes blindly in
+    # that case.
+    # The code below preserves multiple backslashes when there is no drive
+    # letter. This means that the invalid filename \\\a\b is preserved
+    # unchanged, where a\\\b is normalised to a\b. It's not clear that there
+    # is any better behaviour for such edge cases.
+    if prefix == '':
+        # No drive letter - preserve initial backslashes
+        while path.startswith("\\"):
+            prefix = prefix + backslash
+            path = path[1:]
+    else:
+        # We have a drive letter - collapse initial backslashes
+        if path.startswith("\\"):
+            prefix = prefix + backslash
+            path = path.lstrip("\\")
+    comps = path.split("\\")
+    i = 0
+    while i < len(comps):
+        if comps[i] in ('.', ''):
+            del comps[i]
+        elif comps[i] == '..':
+            if i > 0 and comps[i-1] != '..':
+                del comps[i-1:i+1]
+                i -= 1
+            elif i == 0 and prefix.endswith("\\"):
+                del comps[i]
+            else:
+                i += 1
+        else:
+            i += 1
+    # If the path is now empty, substitute '.'
+    if not prefix and not comps:
+        comps.append(dot)
+    return prefix + backslash.join(comps)
 
 def _nt_rabspath(path):
     try:
@@ -138,11 +215,13 @@ def _nt_rjoin(path, p):
 if os.name == 'posix':
     sep = altsep = '/'
     risabs      = _posix_risabs
+    rnormpath   = _posix_rnormpath
     rabspath    = _posix_rabspath
     rjoin       = _posix_rjoin
 elif os.name == 'nt':
     sep, altsep = '\\', '/'
     risabs      = _nt_risabs
+    rnormpath   = _nt_rnormpath
     rabspath    = _nt_rabspath
     rsplitdrive = _nt_rsplitdrive
     rjoin       = _nt_rjoin
