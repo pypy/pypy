@@ -44,3 +44,8 @@ def test_risabs_nt():
     assert rpath._nt_risabs('\\foo\\bar')
     assert rpath._nt_risabs('C:\\FOO')
     assert not rpath._nt_risabs('C:FOO')
+
+def test_risdir(tmpdir):
+    assert rpath.risdir(tmpdir)
+    assert not rpath.risdir('_some_non_existant_file_')
+    assert not rpath.risdir(os.path.join(tmpdir, '_some_non_existant_file_'))

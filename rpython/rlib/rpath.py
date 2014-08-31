@@ -2,9 +2,28 @@
 Minimal (and limited) RPython version of some functions contained in os.path.
 """
 
-import os
+import os, stat
 from rpython.rlib import rposix
 
+
+# ____________________________________________________________
+#
+# Generic implementations in RPython for both POSIX and NT
+#
+
+def risdir(s):
+    """Return true if the pathname refers to an existing directory."""
+    try:
+        st = os.stat(s)
+    except OSError:
+        return False
+    return stat.S_ISDIR(st.st_mode)
+
+
+# ____________________________________________________________
+#
+# POSIX-only implementations
+#
 
 def _posix_risabs(s):
     """Test whether a path is absolute"""
@@ -35,6 +54,11 @@ def _posix_rjoin(a, b):
         path += '/' + b
     return path
 
+
+# ____________________________________________________________
+#
+# NT-only implementations
+#
 
 def _nt_risabs(s):
     """Test whether a path is absolute"""
@@ -106,6 +130,9 @@ def _nt_rjoin(path, p):
         result_drive and result_drive[-1] != ':'):
         return result_drive + '\\' + result_path
     return result_drive + result_path
+
+
+# ____________________________________________________________
 
 
 if os.name == 'posix':

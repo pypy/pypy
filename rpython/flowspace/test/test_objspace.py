@@ -1265,6 +1265,18 @@ class TestFlowObjSpace(Base):
         assert ops[1].opname == 'simple_call'
         assert ops[1].args[0].value is os.unlink
 
+    def test_rabspath(self):
+        import os.path
+        def f(s):
+            return os.path.abspath(s)
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        ops = graph.startblock.operations
+        assert ops[0].opname == 'simple_call'
+        #
+        from rpython.rlib import rpath
+        assert ops[0].args[0].value is rpath.rabspath
+
     def test_constfold_in(self):
         def f():
             if 'x' in "xyz":
