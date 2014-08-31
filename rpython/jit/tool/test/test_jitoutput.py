@@ -38,7 +38,7 @@ def test_really_run():
     assert info.ops.total == 2
     assert info.recorded_ops.total == 2
     assert info.recorded_ops.calls == 0
-    assert info.guards == 1
+    assert info.guards == 2
     assert info.opt_ops == 13
     assert info.opt_guards == 2
     assert info.forcings == 0

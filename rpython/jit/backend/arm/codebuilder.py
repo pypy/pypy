@@ -318,6 +318,23 @@ class AbstractARMBuilder(object):
                     | (rd & 0xF) << 12
                     | imm16 & 0xFFF)
 
+    def LDREX(self, rt, rn, c=cond.AL):
+        self.write32(c << 28
+                    | 0x01900f9f
+                    | (rt & 0xF) << 12
+                    | (rn & 0xF) << 16)
+
+    def STREX(self, rd, rt, rn, c=cond.AL):
+        """rd must not be the same register as rt or rn"""
+        self.write32(c << 28
+                    | 0x01800f90
+                    | (rt & 0xF)
+                    | (rd & 0xF) << 12
+                    | (rn & 0xF) << 16)
+
+    def DMB(self, c=cond.AL):
+        self.write32(c << 28 | 0x157ff05f)
+
     DIV = binary_helper_call('int_div')
     MOD = binary_helper_call('int_mod')
     UDIV = binary_helper_call('uint_div')

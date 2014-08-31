@@ -24,8 +24,30 @@ def transform_graph(graph, cpu=None, callcontrol=None, portal_jd=None):
     """Transform a control flow graph to make it suitable for
     being flattened in a JitCode.
     """
+    constant_fold_ll_issubclass(graph, cpu)
     t = Transformer(cpu, callcontrol, portal_jd)
     t.transform(graph)
+
+def constant_fold_ll_issubclass(graph, cpu):
+    # ll_issubclass can be inserted by the inliner to check exception types.
+    # See corner case metainterp.test.test_exception:test_catch_different_class
+    if cpu is None:
+        return
+    excmatch = cpu.rtyper.exceptiondata.fn_exception_match
+    for block in list(graph.iterblocks()):
+        for i, op in enumerate(block.operations):
+            if (op.opname == 'direct_call' and
+                    all(isinstance(a, Constant) for a in op.args) and
+                    op.args[0].value._obj is excmatch._obj):
+                constant_result = excmatch(*[a.value for a in op.args[1:]])
+                block.operations[i] = SpaceOperation(
+                    'same_as',
+                    [Constant(constant_result, lltype.Bool)],
+                    op.result)
+                if block.exitswitch is op.result:
+                    block.exitswitch = None
+                    block.recloseblock(*[link for link in block.exits
+                                         if link.exitcase == constant_result])
 
 def integer_bounds(size, unsigned):
     if unsigned:
@@ -231,7 +253,13 @@ class Transformer(object):
                         SpaceOperation("record_known_class", [op.args[0], const_vtable], None)]
 
     def rewrite_op_raw_malloc_usage(self, op):
-        pass
+        if self.cpu.translate_support_code or isinstance(op.args[0], Variable):
+            return   # the operation disappears
+        else:
+            # only for untranslated tests: get a real integer estimate
+            arg = op.args[0].value
+            arg = llmemory.raw_malloc_usage(arg)
+            return [Constant(arg, lltype.Signed)]
 
     def rewrite_op_jit_record_known_class(self, op):
         return SpaceOperation("record_known_class", [op.args[0], op.args[1]], None)
@@ -362,11 +390,15 @@ class Transformer(object):
         lst.append(v)
 
     def handle_residual_call(self, op, extraargs=[], may_call_jitcodes=False,
-                             oopspecindex=EffectInfo.OS_NONE):
+                             oopspecindex=EffectInfo.OS_NONE,
+                             extraeffect=None,
+                             extradescr=None):
         """A direct_call turns into the operation 'residual_call_xxx' if it
         is calling a function that we don't want to JIT.  The initial args
         of 'residual_call_xxx' are the function to call, and its calldescr."""
-        calldescr = self.callcontrol.getcalldescr(op, oopspecindex=oopspecindex)
+        calldescr = self.callcontrol.getcalldescr(op, oopspecindex=oopspecindex,
+                                                  extraeffect=extraeffect,
+                                                  extradescr=extradescr)
         op1 = self.rewrite_call(op, 'residual_call',
                                 [op.args[0]] + extraargs, calldescr=calldescr)
         if may_call_jitcodes or self.callcontrol.calldescr_canraise(calldescr):
@@ -403,6 +435,11 @@ class Transformer(object):
             prepare = self._handle_math_sqrt_call
         elif oopspec_name.startswith('rgc.'):
             prepare = self._handle_rgc_call
+        elif oopspec_name.endswith('dict.lookup'):
+            # also ordereddict.lookup
+            prepare = self._handle_dict_lookup_call
+        elif oopspec_name.startswith('rposix.'):
+            prepare = self._handle_rposix_call
         else:
             prepare = self.prepare_builtin_call
         try:
@@ -499,6 +536,16 @@ class Transformer(object):
 
     def rewrite_op_hint(self, op):
         hints = op.args[1].value
+
+        # hack: if there are both 'promote' and 'promote_string', kill
+        # one of them based on the type of the value
+        if hints.get('promote_string') and hints.get('promote'):
+            hints = hints.copy()
+            if op.args[0].concretetype == lltype.Ptr(rstr.STR):
+                del hints['promote']
+            else:
+                del hints['promote_string']
+
         if hints.get('promote') and op.args[0].concretetype is not lltype.Void:
             assert op.args[0].concretetype != lltype.Ptr(rstr.STR)
             kind = getkind(op.args[0].concretetype)
@@ -526,8 +573,10 @@ class Transformer(object):
             return [SpaceOperation('-live-', [], None), op1, None]
         if hints.get('force_virtualizable'):
             return SpaceOperation('hint_force_virtualizable', [op.args[0]], None)
-        else:
-            log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
+        if hints.get('force_no_const'):   # for tests only
+            assert getkind(op.args[0].concretetype) == 'int'
+            return SpaceOperation('int_same_as', [op.args[0]], op.result)
+        log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
     def _rewrite_raw_malloc(self, op, name, args):
         d = op.args[1].value.copy()
@@ -537,20 +586,18 @@ class Transformer(object):
         track_allocation = d.pop('track_allocation', True)
         if d:
             raise UnsupportedMallocFlags(d)
-        TYPE = op.args[0].value
         if zero:
             name += '_zero'
         if add_memory_pressure:
             name += '_add_memory_pressure'
         if not track_allocation:
             name += '_no_track_allocation'
+        TYPE = op.args[0].value
         op1 = self.prepare_builtin_call(op, name, args, (TYPE,), TYPE)
-        if name == 'raw_malloc_varsize':
-            ITEMTYPE = op.args[0].value.OF
-            if ITEMTYPE == lltype.Char:
-                return self._handle_oopspec_call(op1, args,
-                                                 EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR,
-                                                 EffectInfo.EF_CAN_RAISE)
+        if name.startswith('raw_malloc_varsize') and TYPE.OF == lltype.Char:
+            return self._handle_oopspec_call(op1, args,
+                                             EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR,
+                                             EffectInfo.EF_CAN_RAISE)
         return self.rewrite_op_direct_call(op1)
 
     def rewrite_op_malloc_varsize(self, op):
@@ -581,7 +628,7 @@ class Transformer(object):
             name += '_no_track_allocation'
         op1 = self.prepare_builtin_call(op, name, [op.args[0]], (STRUCT,),
                                         STRUCT)
-        if name == 'raw_free':
+        if name.startswith('raw_free'):
             return self._handle_oopspec_call(op1, [op.args[0]],
                                              EffectInfo.OS_RAW_FREE,
                                              EffectInfo.EF_CANNOT_RAISE)
@@ -827,8 +874,8 @@ class Transformer(object):
                     RESULT = lltype.Ptr(STRUCT)
                     assert RESULT == op.result.concretetype
                     return self._do_builtin_call(op, 'alloc_with_del', [],
-                                                 extra = (RESULT, vtable),
-                                                 extrakey = STRUCT)
+                                                 extra=(RESULT, vtable),
+                                                 extrakey=STRUCT)
             heaptracker.register_known_gctype(self.cpu, vtable, STRUCT)
             opname = 'new_with_vtable'
         else:
@@ -963,21 +1010,17 @@ class Transformer(object):
         return self._rewrite_equality(op, 'int_is_true')
 
     def rewrite_op_ptr_eq(self, op):
-        prefix = ''
         if self._is_rclass_instance(op.args[0]):
             assert self._is_rclass_instance(op.args[1])
             op = SpaceOperation('instance_ptr_eq', op.args, op.result)
-            prefix = 'instance_'
-        op1 = self._rewrite_equality(op, prefix + 'ptr_iszero')
+        op1 = self._rewrite_equality(op, 'ptr_iszero')
         return self._rewrite_cmp_ptrs(op1)
 
     def rewrite_op_ptr_ne(self, op):
-        prefix = ''
         if self._is_rclass_instance(op.args[0]):
             assert self._is_rclass_instance(op.args[1])
             op = SpaceOperation('instance_ptr_ne', op.args, op.result)
-            prefix = 'instance_'
-        op1 = self._rewrite_equality(op, prefix + 'ptr_nonzero')
+        op1 = self._rewrite_equality(op, 'ptr_nonzero')
         return self._rewrite_cmp_ptrs(op1)
 
     rewrite_op_ptr_iszero = _rewrite_cmp_ptrs
@@ -1231,7 +1274,7 @@ class Transformer(object):
                 op1 = self.prepare_builtin_call(op, "llong_%s", args)
                 op2 = self._handle_oopspec_call(op1, args,
                                                 EffectInfo.OS_LLONG_%s,
-                                           EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+                                                EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
                 if %r == "TO_INT":
                     assert op2.result.concretetype == lltype.Signed
                 return op2
@@ -1263,7 +1306,7 @@ class Transformer(object):
                 op1 = self.prepare_builtin_call(op, "ullong_%s", args)
                 op2 = self._handle_oopspec_call(op1, args,
                                                 EffectInfo.OS_LLONG_%s,
-                                           EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+                                                EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
                 return op2
         ''' % (_op, _oopspec.lower(), _oopspec)).compile()
 
@@ -1676,9 +1719,11 @@ class Transformer(object):
     # ----------
     # Strings and Unicodes.
 
-    def _handle_oopspec_call(self, op, args, oopspecindex, extraeffect=None):
+    def _handle_oopspec_call(self, op, args, oopspecindex, extraeffect=None,
+                             extradescr=None):
         calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
-                                                  extraeffect)
+                                                  extraeffect,
+                                                  extradescr=extradescr)
         if extraeffect is not None:
             assert (is_test_calldescr(calldescr)      # for tests
                     or calldescr.get_extra_info().extraeffect == extraeffect)
@@ -1842,9 +1887,26 @@ class Transformer(object):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_MATH_SQRT,
                                          EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
 
+    def _handle_dict_lookup_call(self, op, oopspec_name, args):
+        extradescr1 = self.cpu.fielddescrof(op.args[1].concretetype.TO,
+                                            'entries')
+        extradescr2 = self.cpu.arraydescrof(op.args[1].concretetype.TO.entries.TO)
+        return self._handle_oopspec_call(op, args, EffectInfo.OS_DICT_LOOKUP,
+                                         extradescr=[extradescr1, extradescr2])
+
     def _handle_rgc_call(self, op, oopspec_name, args):
         if oopspec_name == 'rgc.ll_shrink_array':
             return self._handle_oopspec_call(op, args, EffectInfo.OS_SHRINK_ARRAY, EffectInfo.EF_CAN_RAISE)
+        else:
+            raise NotImplementedError(oopspec_name)
+
+    def _handle_rposix_call(self, op, oopspec_name, args):
+        if oopspec_name == 'rposix.get_errno':
+            return self._handle_oopspec_call(op, args, EffectInfo.OS_GET_ERRNO,
+                                             EffectInfo.EF_CANNOT_RAISE)
+        elif oopspec_name == 'rposix.set_errno':
+            return self._handle_oopspec_call(op, args, EffectInfo.OS_SET_ERRNO,
+                                             EffectInfo.EF_CANNOT_RAISE)
         else:
             raise NotImplementedError(oopspec_name)
 
@@ -1856,6 +1918,18 @@ class Transformer(object):
         op1 = SpaceOperation('jit_force_quasi_immutable', [v_inst, descr1],
                              None)
         return [op0, op1]
+
+    def rewrite_op_threadlocalref_get(self, op):
+        from rpython.jit.codewriter.jitcode import ThreadLocalRefDescr
+        opaqueid = op.args[0].value
+        op1 = self.prepare_builtin_call(op, 'threadlocalref_getter', [],
+                                        extra=(opaqueid,),
+                                        extrakey=opaqueid._obj)
+        extradescr = ThreadLocalRefDescr(opaqueid)
+        return self.handle_residual_call(op1,
+            oopspecindex=EffectInfo.OS_THREADLOCALREF_GET,
+            extraeffect=EffectInfo.EF_LOOPINVARIANT,
+            extradescr=[extradescr])
 
 # ____________________________________________________________
 

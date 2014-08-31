@@ -57,7 +57,7 @@ class AbstractAttribute(object):
         return True
 
     def delete(self, obj, selector):
-        return None
+        pass
 
     def find_map_attr(self, selector):
         if jit.we_are_jitted():
@@ -291,6 +291,7 @@ class PlainAttribute(AbstractAttribute):
     def delete(self, obj, selector):
         if selector == self.selector:
             # ok, attribute is deleted
+            self.ever_mutated = True
             return self.back.copy(obj)
         new_obj = self.back.delete(obj, selector)
         if new_obj is not None:
@@ -872,8 +873,7 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             name = space.str_w(w_name)
             # We need to care for obscure cases in which the w_descr is
             # a TypeCell, which may change without changing the version_tag
-            assert space.config.objspace.std.withmethodcache
-            _, w_descr = w_type._pure_lookup_where_with_method_cache(
+            _, w_descr = w_type._pure_lookup_where_possibly_with_method_cache(
                 name, version_tag)
             #
             selector = ("", INVALID)
@@ -931,9 +931,8 @@ def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
     # in the class, this time taking care of the result: it can be either a
     # quasi-constant class attribute, or actually a TypeCell --- which we
     # must not cache.  (It should not be None here, but you never know...)
-    assert space.config.objspace.std.withmethodcache
-    _, w_method = w_type._pure_lookup_where_with_method_cache(name,
-                                                              version_tag)
+    _, w_method = w_type._pure_lookup_where_possibly_with_method_cache(
+        name, version_tag)
     if w_method is None or isinstance(w_method, TypeCell):
         return
     _fill_cache(pycode, nameindex, map, version_tag, -1, w_method)

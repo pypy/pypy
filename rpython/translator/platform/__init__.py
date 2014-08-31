@@ -100,7 +100,8 @@ class Platform(object):
         return ExecutionResult(returncode, stdout, stderr)
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
-                     shared=False):
+                     shared=False, headers_to_precompile=[],
+                     no_precompile_cfiles = []):
         raise NotImplementedError("Pure abstract baseclass")
 
     def __repr__(self):
@@ -169,6 +170,9 @@ class Platform(object):
         ofile = cfile.new(ext=ext)
         if ofile.relto(udir):
             return ofile
+        assert ofile.relto(rpythonroot), (
+            "%r should be relative to either %r or %r" % (
+                ofile, rpythonroot, udir))
         ofile = udir.join(ofile.relto(rpythonroot))
         ofile.dirpath().ensure(dir=True)
         return ofile
@@ -266,7 +270,7 @@ if sys.platform.startswith('linux'):
     # Only required on armhf and mips{,el}, not armel. But there's no way to
     # detect armhf without shelling out
     if (platform.architecture()[0] == '64bit'
-            or platform.machine().startswith(('arm', 'mips'))):
+            or platform.machine().startswith(('arm', 'mips', 'ppc'))):
         host_factory = LinuxPIC
     else:
         host_factory = Linux

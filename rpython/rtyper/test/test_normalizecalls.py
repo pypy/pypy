@@ -185,12 +185,32 @@ class TestNormalize(object):
     .+Sub1.fn
     .+Sub2.fn
 are called with inconsistent numbers of arguments
+\(and/or the argument names are different, which is not supported in this case\)
 sometimes with \d arguments, sometimes with \d
 the callers of these functions are:
     .+otherfunc
     .+dummyfn"""
         import re
         assert re.match(msg, excinfo.value.args[0])
+
+    def test_methods_with_named_arg_call(self):
+        class Base:
+            def fn(self, y):
+                raise NotImplementedError
+        class Sub1(Base):
+            def fn(self, y):
+                return 1 + y
+        class Sub2(Base):
+            def fn(self, x):    # different name!
+                return x - 2
+        def dummyfn(n):
+            if n == 1:
+                s = Sub1()
+            else:
+                s = Sub2()
+            return s.fn(*(n,))
+
+        py.test.raises(TyperError, self.rtype, dummyfn, [int], int)
 
 
 class PBase:

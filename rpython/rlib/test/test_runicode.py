@@ -4,6 +4,7 @@ import py
 import sys, random
 from rpython.rlib import runicode
 
+
 def test_unichr():
     assert runicode.UNICHR(0xffff) == u'\uffff'
     if runicode.MAXUNICODE > 0xffff:
@@ -14,6 +15,7 @@ def test_unichr():
     else:
         py.test.raises(ValueError, runicode.UNICHR, 0x10000)
     py.test.raises(TypeError, runicode.UNICHR, 'abc')
+
 
 def test_ord():
     assert runicode.ORD('a') == 97
@@ -118,7 +120,6 @@ class UnicodeTests(object):
 
 
 class TestDecoding(UnicodeTests):
-
     # XXX test bom recognition in utf-16
     # XXX test proper error handling
 
@@ -229,6 +230,9 @@ class TestDecoding(UnicodeTests):
         assert decode(s, 3, None) == (u'a+', 3)
         assert decode(s, 4, None) == (u'a+-', 4)
         assert decode(s, 5, None) == (u'a+-b', 5)
+
+        assert decode((27 * u"\u3042" + "\n").encode('utf7')[:28], 28, None) == (u'', 0)
+        assert decode('+MEI\n+MEIwQjBCMEIwQjBCMEIwQjBCMEIwQjBCMEIwQjBCMEIwQjBCMEIwQjBCMEIwQjBCME', 72, None) == (u'\u3042\n', 5)
 
     def test_utf7_surrogates(self):
         encode = self.getencoder('utf-7')
@@ -552,7 +556,6 @@ class TestUTF8Decoding(UnicodeTests):
             self.checkdecodeerror(s, "utf-8", 0, 3, addstuff=True,
                                   msg='invalid continuation byte')
 
-
     def test_issue8271(self):
         # From CPython
         # Issue #8271: during the decoding of an invalid UTF-8 byte sequence,
@@ -647,6 +650,7 @@ class TestUTF8Decoding(UnicodeTests):
             res = res.replace(FFFD, u'')
             assert decoder(seq, len(seq), 'ignore', final=True
                            ) == (res, len(seq))
+
 
 class TestEncoding(UnicodeTests):
     def test_all_ascii(self):
@@ -758,6 +762,7 @@ class TestEncoding(UnicodeTests):
         assert encoder(u' 12, 34 ', 8, None) == ' 12, 34 '
         py.test.raises(UnicodeEncodeError, encoder, u' 12, \u1234 ', 7, None)
         assert encoder(u'u\u1234', 2, 'replace') == 'u?'
+
 
 class TestTranslation(object):
     def setup_class(cls):

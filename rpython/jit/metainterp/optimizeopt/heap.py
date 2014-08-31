@@ -1,8 +1,10 @@
 import os
 
+from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.history import Const
 from rpython.jit.metainterp.jitexc import JitException
-from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS
+from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated
@@ -93,6 +95,11 @@ class CachedField(object):
             # possible aliasing).
             self.clear()
             self._lazy_setfield = None
+            if optheap.postponed_op:
+                for a in op.getarglist():
+                    if a is optheap.postponed_op.result:
+                        optheap.emit_postponed_op()
+                        break
             optheap.next_optimization.propagate_forward(op)
             if not can_cache:
                 return
@@ -168,6 +175,10 @@ class OptHeap(Optimization):
         self.cached_fields = {}
         # cached array items:  {array descr: {index: CachedField}}
         self.cached_arrayitems = {}
+        # cached dict items: {dict descr: {(optval, index): box-or-const}}
+        self.cached_dict_reads = {}
+        # cache of corresponding {array descrs: dict 'entries' field descr}
+        self.corresponding_array_descrs = {}
         #
         self._lazy_setfields_and_arrayitems = []
         self._remove_guard_not_invalidated = False
@@ -175,10 +186,17 @@ class OptHeap(Optimization):
         self.postponed_op = None
 
     def force_at_end_of_preamble(self):
+        self.cached_dict_reads.clear()
+        self.corresponding_array_descrs.clear()
         self.force_all_lazy_setfields_and_arrayitems()
 
     def flush(self):
+        self.cached_dict_reads.clear()
+        self.corresponding_array_descrs.clear()
         self.force_all_lazy_setfields_and_arrayitems()
+        self.emit_postponed_op()
+
+    def emit_postponed_op(self):
         if self.postponed_op:
             postponed_op = self.postponed_op
             self.postponed_op = None
@@ -206,6 +224,7 @@ class OptHeap(Optimization):
         del self._lazy_setfields_and_arrayitems[:]
         self.cached_fields.clear()
         self.cached_arrayitems.clear()
+        self.cached_dict_reads.clear()
 
     def field_cache(self, descr):
         try:
@@ -227,10 +246,7 @@ class OptHeap(Optimization):
 
     def emit_operation(self, op):
         self.emitting_operation(op)
-        if self.postponed_op:
-            postponed_op = self.postponed_op
-            self.postponed_op = None
-            self.next_optimization.propagate_forward(postponed_op)
+        self.emit_postponed_op()
         if (op.is_comparison() or op.getopnum() == rop.CALL_MAY_FORCE
             or op.is_ovf()):
             self.postponed_op = op
@@ -277,6 +293,44 @@ class OptHeap(Optimization):
         self.force_all_lazy_setfields_and_arrayitems()
         self.clean_caches()
 
+    def optimize_CALL(self, op):
+        # dispatch based on 'oopspecindex' to a method that handles
+        # specifically the given oopspec call.  For non-oopspec calls,
+        # oopspecindex is just zero.
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex == EffectInfo.OS_DICT_LOOKUP:
+            if self._optimize_CALL_DICT_LOOKUP(op):
+                return
+        self.emit_operation(op)
+
+    def _optimize_CALL_DICT_LOOKUP(self, op):
+        descrs = op.getdescr().get_extra_info().extradescrs
+        assert descrs        # translation hint
+        descr1 = descrs[0]
+        try:
+            d = self.cached_dict_reads[descr1]
+        except KeyError:
+            d = self.cached_dict_reads[descr1] = args_dict()
+            self.corresponding_array_descrs[descrs[1]] = descr1
+        args = self.optimizer.make_args_key(op)
+        try:
+            res_v = d[args]
+        except KeyError:
+            d[args] = self.getvalue(op.result)
+            return False
+        else:
+            self.make_equal_to(op.result, res_v)
+            self.last_emitted_operation = REMOVED
+            return True
+
+    def optimize_GUARD_NO_EXCEPTION(self, op):
+        if self.last_emitted_operation is REMOVED:
+            return
+        self.emit_operation(op)
+
+    optimize_GUARD_EXCEPTION = optimize_GUARD_NO_EXCEPTION
+
     def force_from_effectinfo(self, effectinfo):
         # XXX we can get the wrong complexity here, if the lists
         # XXX stored on effectinfo are large
@@ -285,9 +339,19 @@ class OptHeap(Optimization):
         for arraydescr in effectinfo.readonly_descrs_arrays:
             self.force_lazy_setarrayitem(arraydescr)
         for fielddescr in effectinfo.write_descrs_fields:
+            try:
+                del self.cached_dict_reads[fielddescr]
+            except KeyError:
+                pass
             self.force_lazy_setfield(fielddescr, can_cache=False)
         for arraydescr in effectinfo.write_descrs_arrays:
             self.force_lazy_setarrayitem(arraydescr, can_cache=False)
+            if arraydescr in self.corresponding_array_descrs:
+                dictdescr = self.corresponding_array_descrs.pop(arraydescr)
+                try:
+                    del self.cached_dict_reads[dictdescr]
+                except KeyError:
+                    pass # someone did it already
         if effectinfo.check_forces_virtual_or_virtualizable():
             vrefinfo = self.optimizer.metainterp_sd.virtualref_info
             self.force_lazy_setfield(vrefinfo.descr_forced)

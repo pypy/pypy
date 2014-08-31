@@ -11,7 +11,9 @@ def teardown_module(mod):
             os.unlink(i)
 
 class AppTestFcntl:
-    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios', 'select', 'rctime'))
+    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios',
+                                   'select', 'rctime'))
+
     def setup_class(cls):
         tmpprefix = str(udir.ensure('test_fcntl', dir=1).join('tmp_'))
         cls.w_tmp = cls.space.wrap(tmpprefix)
@@ -35,13 +37,24 @@ class AppTestFcntl:
         fcntl.fcntl(F(long(f.fileno())), 1)
         raises(TypeError, fcntl.fcntl, "foo")
         raises(TypeError, fcntl.fcntl, f, "foo")
-        raises(TypeError, fcntl.fcntl, F("foo"), 1)
+        exc = raises(TypeError, fcntl.fcntl, F("foo"), 1)
+        assert str(exc.value) == 'fileno() returned a non-integer'
+        exc = raises(ValueError, fcntl.fcntl, 2147483647 + 1, 1, 0)
+        assert str(exc.value) == 'file descriptor cannot be a negative integer (-1)'
+        exc = raises(ValueError, fcntl.fcntl, F(2147483647 + 1), 1, 0)
+        assert str(exc.value) == 'file descriptor cannot be a negative integer (-1)'
+        exc = raises(ValueError, fcntl.fcntl, -2147483648 - 1, 1, 0)
+        assert str(exc.value) == 'file descriptor cannot be a negative integer (-1)'
+        exc = raises(ValueError, fcntl.fcntl, F(-2147483648 - 1), 1, 0)
+        assert str(exc.value) == 'file descriptor cannot be a negative integer (-1)'
         raises(ValueError, fcntl.fcntl, -1, 1, 0)
         raises(ValueError, fcntl.fcntl, F(-1), 1, 0)
         raises(ValueError, fcntl.fcntl, F(long(-1)), 1, 0)
         assert fcntl.fcntl(f, 1, 0) == 0
         assert fcntl.fcntl(f, 2, "foo") == "foo"
         assert fcntl.fcntl(f, 2, buffer("foo")) == "foo"
+        exc = raises(TypeError, fcntl.fcntl, f, 2, memoryview("foo"))
+        assert 'integer' in str(exc.value)
 
         try:
             os.O_LARGEFILE
@@ -217,6 +230,18 @@ class AppTestFcntl:
             assert res == 0
             assert buf.tostring() == expected
 
+            buf = array.array('i', [0])
+            res = fcntl.ioctl(mfd, TIOCGPGRP, buffer(buf))
+            assert res == expected
+            assert buf.tostring() == '\x00' * 4
+
+            exc = raises(TypeError, fcntl.ioctl, mfd, TIOCGPGRP, memoryview('abc'))
+            assert 'integer' in str(exc.value)
+            exc = raises(TypeError, fcntl.ioctl, mfd, TIOCGPGRP, buffer(buf), False)
+            assert str(exc.value) == "ioctl requires a file or file descriptor, an integer and optionally an integer or buffer argument"
+            exc = raises(TypeError, fcntl.ioctl, mfd, TIOCGPGRP, memoryview('abc'), False)
+            assert str(exc.value) == "ioctl requires a file or file descriptor, an integer and optionally an integer or buffer argument"
+
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf, False)
             assert res == expected
 
@@ -240,6 +265,31 @@ class AppTestFcntl:
         mfd, sfd = pty.openpty()
         try:
             assert fcntl.ioctl(mfd, TCFLSH, TCIOFLUSH) == 0
+        finally:
+            os.close(mfd)
+            os.close(sfd)
+
+    def test_ioctl_signed_unsigned_code_param(self):
+        import fcntl
+        import os
+        import pty
+        import struct
+        import termios
+
+        mfd, sfd = pty.openpty()
+        try:
+            if termios.TIOCSWINSZ < 0:
+                set_winsz_opcode_maybe_neg = termios.TIOCSWINSZ
+                set_winsz_opcode_pos = termios.TIOCSWINSZ & 0xffffffffL
+            else:
+                set_winsz_opcode_pos = termios.TIOCSWINSZ
+                set_winsz_opcode_maybe_neg, = struct.unpack("i",
+                        struct.pack("I", termios.TIOCSWINSZ))
+
+            our_winsz = struct.pack("HHHH",80,25,0,0)
+            # test both with a positive and potentially negative ioctl code
+            new_winsz = fcntl.ioctl(mfd, set_winsz_opcode_pos, our_winsz)
+            new_winsz = fcntl.ioctl(mfd, set_winsz_opcode_maybe_neg, our_winsz)
         finally:
             os.close(mfd)
             os.close(sfd)

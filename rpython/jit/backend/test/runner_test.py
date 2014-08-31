@@ -344,9 +344,12 @@ class BaseBackendTest(Runner):
             assert res == 2 + i
 
     def test_finish(self):
+        from rpython.jit.backend.llsupport.llmodel import final_descr_rd_locs
+
         i0 = BoxInt()
         class UntouchableFailDescr(AbstractFailDescr):
             final_descr = True
+            rd_locs = final_descr_rd_locs
 
             def __setattr__(self, name, value):
                 if (name == 'index' or name == '_carry_around_for_tests'
@@ -2699,6 +2702,9 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert r == result
 
     def test_call_release_gil_variable_function_and_arguments(self):
+        # NOTE NOTE NOTE
+        # This also works as a test for ctypes and libffi.
+        # On some platforms, one of these is buggy...
         from rpython.rlib.libffi import types
         from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
         from rpython.rlib.rarithmetic import r_singlefloat
@@ -3722,7 +3728,9 @@ class LLtypeBackendTest(BaseBackendTest):
         looptoken = JitCellToken()
         self.cpu.compile_loop(inputargs, operations, looptoken)
         # overflowing value:
-        deadframe = self.cpu.execute_token(looptoken, sys.maxint // 4 + 1)
+        unisize = self.cpu.gc_ll_descr.unicode_descr.itemsize
+        assert unisize in (2, 4)
+        deadframe = self.cpu.execute_token(looptoken, sys.maxint // unisize + 1)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == excdescr.identifier
         exc = self.cpu.grab_exc_value(deadframe)
@@ -3736,7 +3744,7 @@ class LLtypeBackendTest(BaseBackendTest):
             assert False, 'should not be called'
         from rpython.jit.codewriter.effectinfo import EffectInfo
 
-        effectinfo = EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE, EffectInfo.OS_MATH_SQRT)
+        effectinfo = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE, EffectInfo.OS_MATH_SQRT)
         FPTR = self.Ptr(self.FuncType([lltype.Float], lltype.Float))
         func_ptr = llhelper(FPTR, math_sqrt)
         FUNC = deref(FPTR)
@@ -3811,7 +3819,7 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("pointless test on non-asm")
-        from rpython.jit.backend.tool.viewcode import machine_code_dump
+        from rpython.jit.backend.tool.viewcode import machine_code_dump, ObjdumpNotFound
         import ctypes
         targettoken = TargetToken()
         ops = """
@@ -3849,13 +3857,17 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert mc[i].split("\t")[2].startswith(ops[i])
 
         data = ctypes.string_at(info.asmaddr, info.asmlen)
-        mc = list(machine_code_dump(data, info.asmaddr, cpuname))
-        lines = [line for line in mc if line.count('\t') >= 2]
-        checkops(lines, self.add_loop_instructions)
-        data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
-        mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
-        lines = [line for line in mc if line.count('\t') >= 2]
-        checkops(lines, self.bridge_loop_instructions)
+        try:
+            mc = list(machine_code_dump(data, info.asmaddr, cpuname))
+            lines = [line for line in mc if line.count('\t') >= 2]
+            checkops(lines, self.add_loop_instructions)
+            data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
+            mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
+            lines = [line for line in mc if line.count('\t') >= 2]
+            checkops(lines, self.bridge_loop_instructions)
+        except ObjdumpNotFound:
+            py.test.skip("requires (g)objdump")
+
 
 
     def test_compile_bridge_with_target(self):
@@ -4338,3 +4350,19 @@ class LLtypeBackendTest(BaseBackendTest):
         assert rffi.cast(lltype.Signed, a[0]) == -7654
         assert rffi.cast(lltype.Signed, a[1]) == 777
         lltype.free(a, flavor='raw')
+
+    def test_increment_debug_counter(self):
+        foo = lltype.malloc(rffi.CArray(lltype.Signed), 1, flavor='raw')
+        foo[0] = 1789200
+        self.execute_operation(rop.INCREMENT_DEBUG_COUNTER,
+                               [ConstInt(rffi.cast(lltype.Signed, foo))],
+                               'void')
+        assert foo[0] == 1789201
+        lltype.free(foo, flavor='raw')
+
+    def test_cast_float_to_singlefloat(self):
+        if not self.cpu.supports_singlefloats:
+            py.test.skip("requires singlefloats")
+        res = self.execute_operation(rop.CAST_FLOAT_TO_SINGLEFLOAT,
+                                   [boxfloat(12.5)], 'int')
+        assert res.getint() == struct.unpack("I", struct.pack("f", 12.5))[0]

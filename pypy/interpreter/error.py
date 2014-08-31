@@ -226,9 +226,9 @@ class OperationError(Exception):
     def _exception_getclass(self, space, w_inst):
         w_type = space.exception_getclass(w_inst)
         if not space.exception_is_valid_class_w(w_type):
-            msg = ("exceptions must be old-style classes or derived "
-                   "from BaseException, not %N")
-            raise operationerrfmt(space.w_TypeError, msg, w_type)
+            raise oefmt(space.w_TypeError,
+                        "exceptions must be old-style classes or derived from "
+                        "BaseException, not %N", w_type)
         return w_type
 
     def write_unraisable(self, space, where, w_object=None,
@@ -299,9 +299,13 @@ class OperationError(Exception):
         """
         self._application_traceback = traceback
 
-@specialize.memo()
+
+class ClearedOpErr:
+    def __init__(self, space):
+        self.operr = OperationError(space.w_None, space.w_None)
+
 def get_cleared_operation_error(space):
-    return OperationError(space.w_None, space.w_None)
+    return space.fromcache(ClearedOpErr).operr
 
 # ____________________________________________________________
 # optimization only: avoid the slowest operation -- the string
@@ -358,9 +362,9 @@ def get_operrcls2(valuefmt):
                     value = getattr(self, attr)
                     if fmt == 'R':
                         result = space.str_w(space.repr(value))
-                    elif fmt in 'NT':
-                        if fmt == 'T':
-                            value = space.type(value)
+                    elif fmt == 'T':
+                        result = space.type(value).name
+                    elif fmt == 'N':
                         result = value.getname(space)
                     else:
                         result = str(value)
@@ -372,7 +376,6 @@ def get_operrcls2(valuefmt):
     return OpErrFmt, strings
 
 class OpErrFmtNoArgs(OperationError):
-
     def __init__(self, w_type, value):
         self._value = value
         self.setup(w_type)
@@ -383,15 +386,16 @@ class OpErrFmtNoArgs(OperationError):
             self._w_value = w_value = space.wrap(self._value)
         return w_value
 
-def get_operationerr_class(valuefmt):
+@specialize.memo()
+def get_operr_class(valuefmt):
     try:
         result = _fmtcache[valuefmt]
     except KeyError:
         result = _fmtcache[valuefmt] = get_operrcls2(valuefmt)
     return result
-get_operationerr_class._annspecialcase_ = 'specialize:memo'
 
-def operationerrfmt(w_type, valuefmt, *args):
+@specialize.arg(1)
+def oefmt(w_type, valuefmt, *args):
     """Equivalent to OperationError(w_type, space.wrap(valuefmt % args)).
     More efficient in the (common) case where the value is not actually
     needed.
@@ -400,14 +404,13 @@ def operationerrfmt(w_type, valuefmt, *args):
 
     %N - The result of w_arg.getname(space)
     %R - The result of space.str_w(space.repr(w_arg))
-    %T - The result of space.type(w_arg).getname(space)
+    %T - The result of space.type(w_arg).name
 
     """
     if not len(args):
         return OpErrFmtNoArgs(w_type, valuefmt)
-    OpErrFmt, strings = get_operationerr_class(valuefmt)
+    OpErrFmt, strings = get_operr_class(valuefmt)
     return OpErrFmt(w_type, strings, *args)
-operationerrfmt._annspecialcase_ = 'specialize:arg(1)'
 
 # ____________________________________________________________
 

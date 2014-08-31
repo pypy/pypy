@@ -131,10 +131,10 @@ class ReprTests(unittest.TestCase):
     def test_file(self):
         fp = open(unittest.__file__)
         self.assertTrue(repr(fp).startswith(
-            "<open file '%s', mode 'r' at 0x" % unittest.__file__))
+            "<open file %r, mode 'r' at 0x" % unittest.__file__))
         fp.close()
         self.assertTrue(repr(fp).startswith(
-            "<closed file '%s', mode 'r' at 0x" % unittest.__file__))
+            "<closed file %r, mode 'r' at 0x" % unittest.__file__))
 
     def test_lambda(self):
         self.assertTrue(repr(lambda x: x).startswith(
@@ -183,8 +183,15 @@ class ReprTests(unittest.TestCase):
         self.assertTrue(repr(x).startswith('<read-only buffer for 0x'))
 
     def test_cell(self):
-        # XXX Hmm? How to get at a cell object?
-        pass
+        def get_cell():
+            x = 42
+            def inner():
+                return x
+            return inner
+        x = get_cell().__closure__[0]
+        self.assertRegexpMatches(repr(x), r'<cell at 0x[0-9A-Fa-f]+: '
+                                          r'int object at 0x[0-9A-Fa-f]+>')
+        self.assertRegexpMatches(r(x), r'<cell at.*\.\.\..*>')
 
     def test_descriptors(self):
         eq = self.assertEqual
@@ -274,6 +281,7 @@ class foo(object):
         eq(repr(foo.foo),
                "<class '%s.foo'>" % foo.__name__)
 
+    @unittest.skip('need a suitable object')
     def test_object(self):
         # XXX Test the repr of a type with a really long tp_name but with no
         # tp_repr.  WIBNI we had ::Inline? :)
@@ -315,6 +323,7 @@ class aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
             '<bound method aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.amethod of <%s.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa instance at 0x' \
             % (qux.__name__,) ))
 
+    @unittest.skip('needs a built-in function with a really long name')
     def test_builtin_function(self):
         # XXX test built-in functions and methods with really long names
         pass

@@ -6,6 +6,8 @@ class Module(MixedModule):
 
     interpleveldefs = {
         "PyCF_ONLY_AST" : "space.wrap(%s)" % consts.PyCF_ONLY_AST,
+        "PyCF_ACCEPT_NULL_BYTES":
+                          "space.wrap(%s)" % consts.PyCF_ACCEPT_NULL_BYTES,
         "__version__"   : "space.wrap('82160')",  # from CPython's svn.
         }
     appleveldefs = {}
@@ -13,7 +15,7 @@ class Module(MixedModule):
 
 def _setup():
     defs = Module.interpleveldefs
-    for name, cls in ast.__dict__.iteritems():
-        if isinstance(cls, type) and issubclass(cls, ast.AST):
-            defs[name.lstrip("_")] = cls.__module__ + "." + name
+    defs['AST'] = "pypy.interpreter.astcompiler.ast.get(space).w_AST"
+    for (name, base, fields, attributes) in ast.State.AST_TYPES:
+        defs[name] = "pypy.interpreter.astcompiler.ast.get(space).w_" + name
 _setup()

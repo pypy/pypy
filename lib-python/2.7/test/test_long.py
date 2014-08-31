@@ -1,9 +1,10 @@
 import unittest
-from test import test_support
 import sys
 
 import random
 import math
+
+from test import test_int, test_support
 
 # Used for lazy formatting of failure messages
 class Frm(object):
@@ -78,8 +79,9 @@ if test_support.have_unicode:
         (unichr(0x200), ValueError),
 ]
 
+class LongTest(test_int.IntLongCommonTests, unittest.TestCase):
 
-class LongTest(unittest.TestCase):
+    ntype = long
 
     # Get quasi-random long consisting of ndigits digits (in base BASE).
     # quasi == the most-significant digit will not be 0, and the number
@@ -88,7 +90,7 @@ class LongTest(unittest.TestCase):
     # The sign of the number is also random.
 
     def getran(self, ndigits):
-        self.assertTrue(ndigits > 0)
+        self.assertGreater(ndigits, 0)
         nbits_hi = ndigits * SHIFT
         nbits_lo = nbits_hi - SHIFT + 1
         answer = 0L
@@ -587,7 +589,7 @@ class LongTest(unittest.TestCase):
             pass
         x = long2(1L<<100)
         y = int(x)
-        self.assertTrue(type(y) is long,
+        self.assertIs(type(y), long,
             "overflowing int conversion must return long not long subtype")
 
         # long -> Py_ssize_t conversion

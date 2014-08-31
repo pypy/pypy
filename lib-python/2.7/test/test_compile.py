@@ -1,3 +1,4 @@
+import math
 import unittest
 import sys
 import _ast
@@ -61,6 +62,34 @@ class TestSpecifics(unittest.TestCase):
             self.fail("variable is global and local")
         except SyntaxError:
             pass
+
+    def test_exec_functional_style(self):
+        # Exec'ing a tuple of length 2 works.
+        g = {'b': 2}
+        exec("a = b + 1", g)
+        self.assertEqual(g['a'], 3)
+
+        # As does exec'ing a tuple of length 3.
+        l = {'b': 3}
+        g = {'b': 5, 'c': 7}
+        exec("a = b + c", g, l)
+        self.assertNotIn('a', g)
+        self.assertEqual(l['a'], 10)
+
+        # Tuples not of length 2 or 3 are invalid.
+        with self.assertRaises(TypeError):
+            exec("a = b + 1",)
+
+        with self.assertRaises(TypeError):
+            exec("a = b + 1", {}, {}, {})
+
+        # Can't mix and match the two calling forms.
+        g = {'a': 3, 'b': 4}
+        l = {}
+        with self.assertRaises(TypeError):
+            exec("a = b + 1", g) in g
+        with self.assertRaises(TypeError):
+            exec("a = b + 1", g, l) in g, l
 
     def test_exec_with_general_mapping_for_locals(self):
 
@@ -493,8 +522,46 @@ if 1:
         self.assertRaises(TypeError, compile, ast, '<ast>', 'exec')
 
 
+class TestStackSize(unittest.TestCase):
+    # These tests check that the computed stack size for a code object
+    # stays within reasonable bounds (see issue #21523 for an example
+    # dysfunction).
+    N = 100
+
+    def check_stack_size(self, code):
+        # To assert that the alleged stack size is not O(N), we
+        # check that it is smaller than log(N).
+        if isinstance(code, str):
+            code = compile(code, "<foo>", "single")
+        max_size = math.ceil(math.log(len(code.co_code)))
+        self.assertLessEqual(code.co_stacksize, max_size)
+
+    def test_and(self):
+        self.check_stack_size("x and " * self.N + "x")
+
+    def test_or(self):
+        self.check_stack_size("x or " * self.N + "x")
+
+    def test_and_or(self):
+        self.check_stack_size("x and x or " * self.N + "x")
+
+    def test_chained_comparison(self):
+        self.check_stack_size("x < " * self.N + "x")
+
+    def test_if_else(self):
+        self.check_stack_size("x if x else " * self.N + "x")
+
+    def test_binop(self):
+        self.check_stack_size("x + " * self.N + "x")
+
+    def test_func_and(self):
+        code = "def f(x):\n"
+        code += "   x and x\n" * self.N
+        self.check_stack_size(code)
+
+
 def test_main():
-    test_support.run_unittest(TestSpecifics)
+    test_support.run_unittest(__name__)
 
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

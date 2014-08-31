@@ -1,11 +1,12 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import ClassMethod, Method, StaticMethod
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, interp_attrproperty, interp_attrproperty_w)
+from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
     METH_STATIC, METH_VARARGS, PyObject, PyObjectFields, bootstrap_function,
@@ -87,9 +88,9 @@ class W_PyCFunctionObject(W_Root):
                 self.name + "() takes no arguments"))
         elif flags & METH_O:
             if length != 1:
-                msg = "%s() takes exactly one argument (%d given)"
-                raise operationerrfmt(space.w_TypeError, msg,
-                                      self.name, length)
+                raise oefmt(space.w_TypeError,
+                            "%s() takes exactly one argument (%d given)",
+                            self.name, length)
             w_arg = space.getitem(w_args, space.wrap(0))
             return generic_cpy_call(space, func, w_self, w_arg)
         elif flags & METH_VARARGS:
@@ -158,7 +159,9 @@ class W_PyCWrapperObject(W_Root):
         self.doc = doc
         self.func = func
         pyo = rffi.cast(PyObject, pto)
-        self.w_objclass = from_ref(space, pyo)
+        w_type = from_ref(space, pyo)
+        assert isinstance(w_type, W_TypeObject)
+        self.w_objclass = w_type
 
     def call(self, space, w_self, w_args, w_kw):
         if self.wrapper_func is None:
@@ -166,16 +169,15 @@ class W_PyCWrapperObject(W_Root):
             return self.wrapper_func_kwds(space, w_self, w_args, self.func,
                                           w_kw)
         if space.is_true(w_kw):
-            raise operationerrfmt(
-                space.w_TypeError,
-                "wrapper %s doesn't take any keyword arguments",
-                self.method_name)
+            raise oefmt(space.w_TypeError,
+                        "wrapper %s doesn't take any keyword arguments",
+                        self.method_name)
         return self.wrapper_func(space, w_self, w_args, self.func)
 
     def descr_method_repr(self):
         return self.space.wrap("<slot wrapper '%s' of '%s' objects>" %
                                (self.method_name,
-                                self.w_objclass.getname(self.space)))
+                                self.w_objclass.name))
 
 def cwrapper_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCWrapperObject, w_self)

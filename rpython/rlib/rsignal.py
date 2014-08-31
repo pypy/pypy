@@ -1,7 +1,7 @@
 import signal as cpy_signal
 import sys
 import py
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo

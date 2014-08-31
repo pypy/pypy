@@ -27,7 +27,7 @@ NaN, PosInf, NegInf = _floatconstants()
 def linecol(doc, pos):
     lineno = doc.count('\n', 0, pos) + 1
     if lineno == 1:
-        colno = pos
+        colno = pos + 1
     else:
         colno = pos - doc.rindex('\n', 0, pos)
     return lineno, colno
@@ -61,6 +61,16 @@ BACKSLASH = {
 }
 
 DEFAULT_ENCODING = "utf-8"
+
+def _decode_uXXXX(s, pos):
+    esc = s[pos + 1:pos + 5]
+    if len(esc) == 4 and esc[1] not in 'xX':
+        try:
+            return int(esc, 16)
+        except ValueError:
+            pass
+    msg = "Invalid \\uXXXX escape"
+    raise ValueError(errmsg(msg, s, pos))
 
 def py_scanstring(s, end, encoding=None, strict=True):
     """Scan the string s for a JSON string. End is the index of the
@@ -115,25 +125,16 @@ def py_scanstring(s, end, encoding=None, strict=True):
             end += 1
         else:
             # Unicode escape sequence
-            esc = s[end + 1:end + 5]
-            next_end = end + 5
-            if len(esc) != 4:
-                msg = "Invalid \\uXXXX escape"
-                raise ValueError(errmsg(msg, s, end))
-            uni = int(esc, 16)
+            uni = _decode_uXXXX(s, end)
+            end += 5
             # Check for surrogate pair on UCS-4 systems
-            if 0xd800 <= uni <= 0xdbff and sys.maxunicode > 65535:
-                msg = "Invalid \\uXXXX\\uXXXX surrogate pair"
-                if not s[end + 5:end + 7] == '\\u':
-                    raise ValueError(errmsg(msg, s, end))
-                esc2 = s[end + 7:end + 11]
-                if len(esc2) != 4:
-                    raise ValueError(errmsg(msg, s, end))
-                uni2 = int(esc2, 16)
-                uni = 0x10000 + (((uni - 0xd800) << 10) | (uni2 - 0xdc00))
-                next_end += 6
+            if sys.maxunicode > 65535 and \
+               0xd800 <= uni <= 0xdbff and s[end:end + 2] == '\\u':
+                uni2 = _decode_uXXXX(s, end + 1)
+                if 0xdc00 <= uni2 <= 0xdfff:
+                    uni = 0x10000 + (((uni - 0xd800) << 10) | (uni2 - 0xdc00))
+                    end += 6
             char = unichr(uni)
-            end = next_end
         # Append the unescaped character
         _append(char)
     return u''.join(chunks), end
@@ -168,7 +169,8 @@ def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
                 pairs = object_hook(pairs)
             return pairs, end + 1
         elif nextchar != '"':
-            raise ValueError(errmsg("Expecting property name", s, end))
+            raise ValueError(errmsg(
+                "Expecting property name enclosed in double quotes", s, end))
     end += 1
     while True:
         key, end = scanstring(s, end, encoding, strict)
@@ -178,8 +180,7 @@ def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
         if s[end:end + 1] != ':':
             end = WHITESPACE.match(s, end).end()
             if s[end:end + 1] != ':':
-                raise ValueError(errmsg("Expecting : delimiter", s, end))
-
+                raise ValueError(errmsg("Expecting ':' delimiter", s, end))
         end += 1
 
         try:
@@ -208,7 +209,7 @@ def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
         if nextchar == '}':
             break
         elif nextchar != ',':
-            raise ValueError(errmsg("Expecting , delimiter", s, end - 1))
+            raise ValueError(errmsg("Expecting ',' delimiter", s, end - 1))
 
         try:
             nextchar = s[end]
@@ -223,8 +224,8 @@ def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
 
         end += 1
         if nextchar != '"':
-            raise ValueError(errmsg("Expecting property name", s, end - 1))
-
+            raise ValueError(errmsg(
+                "Expecting property name enclosed in double quotes", s, end - 1))
     if object_pairs_hook is not None:
         result = object_pairs_hook(pairs)
         return result, end
@@ -258,8 +259,7 @@ def JSONArray(s_and_end, scan_once):
         if nextchar == ']':
             break
         elif nextchar != ',':
-            raise ValueError(errmsg("Expecting , delimiter", s, end))
-
+            raise ValueError(errmsg("Expecting ',' delimiter", s, end))
         try:
             if s[end] in WHITESPACE_STR:
                 end += 1

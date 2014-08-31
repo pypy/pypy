@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import operationerrfmt
+from pypy.interpreter.error import oefmt
 from pypy.module._rawffi.alt.interp_ffitype import W_FFIType
 from pypy.module._rawffi.alt.type_converter import FromAppLevelConverter, ToAppLevelConverter
 
@@ -63,9 +63,9 @@ class W__StructDescr(W_Root):
 
     def define_fields(self, space, w_fields):
         if self.fields_w is not None:
-            raise operationerrfmt(space.w_ValueError,
-                                  "%s's fields has already been defined",
-                                  self.w_ffitype.name)
+            raise oefmt(space.w_ValueError,
+                        "%s's fields has already been defined",
+                        self.w_ffitype.name)
         fields_w = space.fixedview(w_fields)
         # note that the fields_w returned by compute_size_and_alignement has a
         # different annotation than the original: list(W_Root) vs list(W_Field)
@@ -86,8 +86,8 @@ class W__StructDescr(W_Root):
 
     def check_complete(self, space):
         if self.fields_w is None:
-            raise operationerrfmt(space.w_ValueError, "%s has an incomplete type",
-                                  self.w_ffitype.name)
+            raise oefmt(space.w_ValueError,
+                        "%s has an incomplete type", self.w_ffitype.name)
 
     def allocate(self, space):
         self.check_complete(space)
@@ -104,8 +104,7 @@ class W__StructDescr(W_Root):
         try:
             w_field = self.name2w_field[name]
         except KeyError:
-            raise operationerrfmt(space.w_AttributeError, '%s', name)
-
+            raise oefmt(space.w_AttributeError, '%s', name)
         return w_field.w_ffitype, w_field.offset
 
 

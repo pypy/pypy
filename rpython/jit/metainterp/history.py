@@ -108,6 +108,7 @@ class AbstractValue(object):
         raise NotImplementedError
 
     def getaddr(self):
+        "Only for raw addresses (BoxInt & ConstInt), not for GC addresses"
         raise NotImplementedError
 
     def sort_key(self):
@@ -275,7 +276,12 @@ class ConstFloat(Const):
 
     def same_constant(self, other):
         if isinstance(other, ConstFloat):
-            return self.value == other.value
+            # careful in this comparison: if self.value and other.value
+            # are both NaN, stored as regular floats (i.e. on 64-bit),
+            # then just using "==" would say False: two NaNs are always
+            # different from each other.
+            return (longlong.extract_bits(self.value) ==
+                    longlong.extract_bits(other.value))
         return False
 
     def nonnull(self):
@@ -315,9 +321,6 @@ class ConstPtr(Const):
             return lltype.identityhash(self.value)
         else:
             return 0
-
-    def getaddr(self):
-        return llmemory.cast_ptr_to_adr(self.value)
 
     def same_constant(self, other):
         if isinstance(other, ConstPtr):
@@ -489,9 +492,6 @@ class BoxPtr(Box):
         return lltype.cast_opaque_ptr(PTR, self.getref_base())
     getref._annspecialcase_ = 'specialize:arg(1)'
 
-    def getaddr(self):
-        return llmemory.cast_ptr_to_adr(self.value)
-
     def _get_hash_(self):
         if self.value:
             return lltype.identityhash(self.value)
@@ -628,7 +628,6 @@ class TreeLoop(object):
     call_pure_results = None
     logops = None
     quasi_immutable_deps = None
-    resume_at_jump_descr = None
 
     def _token(*args):
         raise Exception("TreeLoop.token is killed")

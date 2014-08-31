@@ -102,6 +102,8 @@ def execute_tests(run_param, testdirs, logfile):
     run_param.sessdir = sessdir
 
     N = run_param.parallel_runs
+    if N > 1:
+        out.write("running %d parallel test workers\n" % N)
     failure = False
 
     for testname in testdirs:
@@ -252,6 +254,8 @@ def main(opts, args, RunParamClass):
         if py.path.local(config_py_file).check(file=1):
             run_param.log("using config %s", config_py_file)
             execfile(config_py_file, run_param.__dict__)
+        else:
+            print >>out, "ignoring non-existant config", config_py_file
 
     if run_param.cherrypick:
         for p in run_param.cherrypick:
@@ -259,8 +263,15 @@ def main(opts, args, RunParamClass):
     else:
         run_param.collect_testdirs(testdirs)
 
-    if opts.dry_run:
-        run_param.log("%s", run_param.__dict__)
+    if opts.parallel_runs:
+        run_param.parallel_runs = opts.parallel_runs
+    if opts.timeout:
+        run_param.timeout = opts.timeout
+    run_param.dry_run = opts.dry_run
+
+    if run_param.dry_run:
+        print >>out, '\n'.join([str((k, getattr(run_param, k))) \
+                        for k in dir(run_param) if k[:2] != '__'])
 
     res = execute_tests(run_param, testdirs, logfile)
 

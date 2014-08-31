@@ -1,6 +1,6 @@
 import new
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict, descr_set_dict
@@ -10,17 +10,8 @@ from rpython.rlib import jit
 
 
 def raise_type_err(space, argument, expected, w_obj):
-    raise operationerrfmt(space.w_TypeError, "argument %s must be %s, not %T",
-                          argument, expected, w_obj)
-
-def unwrap_attr(space, w_attr):
-    try:
-        return space.str_w(w_attr)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        return "?"    # any string different from "__dict__" & co. is fine
-        # XXX it's not clear that we have to catch the TypeError...
+    raise oefmt(space.w_TypeError,
+                "argument %s must be %s, not %T", argument, expected, w_obj)
 
 def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
     if not space.isinstance_w(w_bases, space.w_tuple):
@@ -115,8 +106,8 @@ class W_ClassObject(W_Root):
                 return w_result
         return None
 
-    def descr_getattribute(self, space, w_attr):
-        name = unwrap_attr(space, w_attr)
+    @unwrap_spec(name=str)
+    def descr_getattribute(self, space, name):
         if name and name[0] == "_":
             if name == "__dict__":
                 return self.w_dict
@@ -126,10 +117,8 @@ class W_ClassObject(W_Root):
                 return space.newtuple(self.bases_w)
         w_value = self.lookup(space, name)
         if w_value is None:
-            raise operationerrfmt(
-                space.w_AttributeError,
-                "class %s has no attribute '%s'",
-                self.name, name)
+            raise oefmt(space.w_AttributeError,
+                        "class %s has no attribute '%s'", self.name, name)
 
         w_descr_get = space.lookup(w_value, '__get__')
         if w_descr_get is None:
@@ -137,7 +126,7 @@ class W_ClassObject(W_Root):
         return space.call_function(w_descr_get, w_value, space.w_None, self)
 
     def descr_setattr(self, space, w_attr, w_value):
-        name = unwrap_attr(space, w_attr)
+        name = space.str_w(w_attr)
         if name and name[0] == "_":
             if name == "__dict__":
                 self.setdict(space, w_value)
@@ -156,20 +145,17 @@ class W_ClassObject(W_Root):
         space.setitem(self.w_dict, w_attr, w_value)
 
     def descr_delattr(self, space, w_attr):
-        name = unwrap_attr(space, w_attr)
+        name = space.str_w(w_attr)
         if name in ("__dict__", "__name__", "__bases__"):
-            raise operationerrfmt(
-                space.w_TypeError,
-                "cannot delete attribute '%s'", name)
+            raise oefmt(space.w_TypeError,
+                        "cannot delete attribute '%s'", name)
         try:
             space.delitem(self.w_dict, w_attr)
         except OperationError, e:
             if not e.match(space, space.w_KeyError):
                 raise
-            raise operationerrfmt(
-                space.w_AttributeError,
-                "class %s has no attribute '%s'",
-                self.name, name)
+            raise oefmt(space.w_AttributeError,
+                        "class %s has no attribute '%s'", self.name, name)
 
     def descr_repr(self, space):
         mod = self.get_module_string(space)
@@ -184,7 +170,7 @@ class W_ClassObject(W_Root):
 
     def get_module_string(self, space):
         try:
-            w_mod = self.descr_getattribute(space, space.wrap("__module__"))
+            w_mod = self.descr_getattribute(space, "__module__")
         except OperationError, e:
             if not e.match(space, space.w_AttributeError):
                 raise
@@ -362,15 +348,14 @@ class W_InstanceObject(W_Root):
                 raise
         # not found at all
         if exc:
-            raise operationerrfmt(
-                space.w_AttributeError,
-                "%s instance has no attribute '%s'",
-                self.w_class.name, name)
+            raise oefmt(space.w_AttributeError,
+                        "%s instance has no attribute '%s'",
+                        self.w_class.name, name)
         else:
             return None
 
-    def descr_getattribute(self, space, w_attr):
-        name = space.str_w(w_attr)
+    @unwrap_spec(name=str)
+    def descr_getattribute(self, space, name):
         if len(name) >= 8 and name[0] == '_':
             if name == "__dict__":
                 return self.getdict(space)
@@ -379,7 +364,7 @@ class W_InstanceObject(W_Root):
         return self.getattr(space, name)
 
     def descr_setattr(self, space, w_name, w_value):
-        name = unwrap_attr(space, w_name)
+        name = space.str_w(w_name)
         w_meth = self.getattr_from_class(space, '__setattr__')
         if name and name[0] == "_":
             if name == '__dict__':
@@ -401,7 +386,7 @@ class W_InstanceObject(W_Root):
             self.setdictvalue(space, name, w_value)
 
     def descr_delattr(self, space, w_name):
-        name = unwrap_attr(space, w_name)
+        name = space.str_w(w_name)
         if name and name[0] == "_":
             if name == '__dict__':
                 # use setdict to raise the error
@@ -416,10 +401,9 @@ class W_InstanceObject(W_Root):
             space.call_function(w_meth, w_name)
         else:
             if not self.deldictvalue(space, name):
-                raise operationerrfmt(
-                    space.w_AttributeError,
-                    "%s instance has no attribute '%s'",
-                    self.w_class.name, name)
+                raise oefmt(space.w_AttributeError,
+                            "%s instance has no attribute '%s'",
+                            self.w_class.name, name)
 
     def descr_repr(self, space):
         w_meth = self.getattr(space, '__repr__', False)

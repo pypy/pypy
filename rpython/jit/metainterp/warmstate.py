@@ -7,7 +7,7 @@ from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.jit import PARAMETERS
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.annlowlevel import (hlstr, cast_base_ptr_to_instance,
     cast_object_to_ptr)
@@ -129,6 +129,49 @@ JC_DONT_TRACE_HERE = 0x02
 JC_TEMPORARY       = 0x04
 
 class BaseJitCell(object):
+    """Subclasses of BaseJitCell are used in tandem with the single
+    JitCounter instance to record places in the JIT-tracked user program
+    where something particular occurs with the JIT.  For some
+    'greenkeys' (e.g. Python bytecode position), we create one instance
+    of JitCell and attach it to that greenkey.  This is implemented
+    with jitcounter.install_new_cell(), but conceptually you can think
+    about JitCode instances as attached to some locations of the
+    app-level Python code.
+
+    We create subclasses of BaseJitCell --one per jitdriver-- so that
+    they can store greenkeys of different types.  
+
+    Note that we don't create a JitCell the first time we see a given
+    greenkey position in the interpreter.  At first, we only hash the
+    greenkey and use that in the JitCounter to record the number of
+    times we have seen it.  We only create a JitCell when the
+    JitCounter's total time value reaches 1.0 and we are starting to
+    JIT-compile.
+
+    A JitCell has a 'wref_procedure_token' that is non-None when we
+    actually have a compiled procedure for that greenkey.  (It is a
+    weakref, so that it could later be freed; in this case the JitCell
+    will likely be reclaimed a bit later by 'should_remove_jitcell()'.)
+
+    There are other less-common cases where we also create a JitCell: to
+    record some long-term flags about the greenkey.  In general, a
+    JitCell can have any combination of the following flags set:
+
+        JC_TRACING: we are now tracing the loop from this greenkey.
+        We'll likely end up with a wref_procedure_token, soonish.
+
+        JC_TEMPORARY: a "temporary" wref_procedure_token.
+        It's the procedure_token of a dummy loop that simply calls
+        back the interpreter.  Used for a CALL_ASSEMBLER where the
+        target was not compiled yet.  In this situation we are still
+        ticking the JitCounter for the same hash, until we reach the
+        threshold and start tracing the loop in earnest.
+
+        JC_DONT_TRACE_HERE: when tracing, don't inline calls to
+        this particular function.  (We only set this flag when aborting
+        due to a trace too long, so we use the same flag as a hint to
+        also mean "please trace from here as soon as possible".)
+    """
     flags = 0     # JC_xxx flags
     wref_procedure_token = None
     next = None
@@ -139,6 +182,9 @@ class BaseJitCell(object):
             if token and not token.invalidated:
                 return token
         return None
+
+    def has_seen_a_procedure_token(self):
+        return self.wref_procedure_token is not None
 
     def set_procedure_token(self, token, tmp=False):
         self.wref_procedure_token = self._makeref(token)
@@ -154,9 +200,14 @@ class BaseJitCell(object):
     def should_remove_jitcell(self):
         if self.get_procedure_token() is not None:
             return False    # don't remove JitCells with a procedure_token
-        # don't remove JitCells that are being traced, or JitCells with
-        # the "don't trace here" flag.  Other JitCells can be removed.
-        return (self.flags & (JC_TRACING | JC_DONT_TRACE_HERE)) == 0
+        if self.flags & JC_TRACING:
+            return False    # don't remove JitCells that are being traced
+        if self.flags & JC_DONT_TRACE_HERE:
+            # if we have this flag, and we *had* a procedure_token but
+            # we no longer have one, then remove me.  this prevents this
+            # JitCell from being immortal.
+            return self.has_seen_a_procedure_token()
+        return True   # Other JitCells can be removed.
 
 # ____________________________________________________________
 
@@ -312,7 +363,7 @@ class WarmEnterState(object):
             #
             assert 0, "should have raised"
 
-        def bound_reached(index, cell, *args):
+        def bound_reached(hash, cell, *args):
             if not confirm_enter_jit(*args):
                 return
             jitcounter.decay_all_counters()
@@ -322,7 +373,7 @@ class WarmEnterState(object):
             greenargs = args[:num_green_args]
             if cell is None:
                 cell = JitCell(*greenargs)
-                jitcounter.install_new_cell(index, cell)
+                jitcounter.install_new_cell(hash, cell)
             cell.flags |= JC_TRACING
             try:
                 metainterp.compile_and_run_once(jitdriver_sd, *args)
@@ -339,16 +390,16 @@ class WarmEnterState(object):
             # These few lines inline some logic that is also on the
             # JitCell class, to avoid computing the hash several times.
             greenargs = args[:num_green_args]
-            index = JitCell.get_index(*greenargs)
-            cell = jitcounter.lookup_chain(index)
+            hash = JitCell.get_uhash(*greenargs)
+            cell = jitcounter.lookup_chain(hash)
             while cell is not None:
                 if isinstance(cell, JitCell) and cell.comparekey(*greenargs):
                     break    # found
                 cell = cell.next
             else:
                 # not found. increment the counter
-                if jitcounter.tick(index, increment_threshold):
-                    bound_reached(index, None, *args)
+                if jitcounter.tick(hash, increment_threshold):
+                    bound_reached(hash, None, *args)
                 return
 
             # Here, we have found 'cell'.
@@ -359,15 +410,21 @@ class WarmEnterState(object):
                     # this function. don't trace a second time.
                     return
                 # attached by compile_tmp_callback().  count normally
-                if jitcounter.tick(index, increment_threshold):
-                    bound_reached(index, cell, *args)
+                if jitcounter.tick(hash, increment_threshold):
+                    bound_reached(hash, cell, *args)
                 return
             # machine code was already compiled for these greenargs
             procedure_token = cell.get_procedure_token()
             if procedure_token is None:
+                if cell.flags & JC_DONT_TRACE_HERE:
+                    if not cell.has_seen_a_procedure_token():
+                        # we're seeing a fresh JC_DONT_TRACE_HERE with no
+                        # procedure_token.  Compile now.
+                        bound_reached(hash, cell, *args)
+                        return
                 # it was an aborted compilation, or maybe a weakref that
                 # has been freed
-                jitcounter.cleanup_chain(index)
+                jitcounter.cleanup_chain(hash)
                 return
             if not confirm_enter_jit(*args):
                 return
@@ -422,7 +479,6 @@ class WarmEnterState(object):
         green_args_name_spec = unrolling_iterable([('g%d' % i, TYPE)
                      for i, TYPE in enumerate(jitdriver_sd._green_args_spec)])
         unwrap_greenkey = self.make_unwrap_greenkey()
-        random_initial_value = hash(self)
         #
         class JitCell(BaseJitCell):
             def __init__(self, *greenargs):
@@ -441,20 +497,20 @@ class WarmEnterState(object):
                 return True
 
             @staticmethod
-            def get_index(*greenargs):
-                x = random_initial_value
+            def get_uhash(*greenargs):
+                x = r_uint(-1888132534)
                 i = 0
                 for _, TYPE in green_args_name_spec:
                     item = greenargs[i]
-                    y = hash_whatever(TYPE, item)
-                    x = intmask((x ^ y) * 1405695061)  # prime number, 2**30~31
+                    y = r_uint(hash_whatever(TYPE, item))
+                    x = (x ^ y) * r_uint(1405695061)  # prime number, 2**30~31
                     i = i + 1
-                return jitcounter.get_index(x)
+                return x
 
             @staticmethod
             def get_jitcell(*greenargs):
-                index = JitCell.get_index(*greenargs)
-                cell = jitcounter.lookup_chain(index)
+                hash = JitCell.get_uhash(*greenargs)
+                cell = jitcounter.lookup_chain(hash)
                 while cell is not None:
                     if (isinstance(cell, JitCell) and
                             cell.comparekey(*greenargs)):
@@ -468,17 +524,23 @@ class WarmEnterState(object):
                 return JitCell.get_jitcell(*greenargs)
 
             @staticmethod
+            def trace_next_iteration(greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                hash = JitCell.get_uhash(*greenargs)
+                jitcounter.change_current_fraction(hash, 0.98)
+
+            @staticmethod
             def ensure_jit_cell_at_key(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
-                index = JitCell.get_index(*greenargs)
-                cell = jitcounter.lookup_chain(index)
+                hash = JitCell.get_uhash(*greenargs)
+                cell = jitcounter.lookup_chain(hash)
                 while cell is not None:
                     if (isinstance(cell, JitCell) and
                             cell.comparekey(*greenargs)):
                         return cell
                     cell = cell.next
                 newcell = JitCell(*greenargs)
-                jitcounter.install_new_cell(index, newcell)
+                jitcounter.install_new_cell(hash, newcell)
                 return newcell
         #
         self.JitCell = JitCell

@@ -7,7 +7,7 @@ from rpython.rlib import clibffi, rweakref, jit
 from rpython.rlib.objectmodel import compute_unique_id, keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, rffi
 
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._cffi_backend import cerrno, misc
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN, W_CTypeFunc
@@ -26,9 +26,8 @@ class W_CDataCallback(W_CData):
         W_CData.__init__(self, space, raw_closure, ctype)
         #
         if not space.is_true(space.callable(w_callable)):
-            raise operationerrfmt(space.w_TypeError,
-                                  "expected a callable object, not %T",
-                                  w_callable)
+            raise oefmt(space.w_TypeError,
+                        "expected a callable object, not %T", w_callable)
         self.w_callable = w_callable
         #
         fresult = self.getfunctype().ctitem
@@ -184,9 +183,12 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         misc._raw_memclear(ll_res, SIZE_OF_FFI_ARG)
         return
     #
+    must_leave = False
     ec = None
+    space = callback.space
     try:
-        ec = cerrno.get_errno_container(callback.space)
+        must_leave = space.threadlocals.try_enter_thread(space)
+        ec = cerrno.get_errno_container(space)
         cerrno.save_errno_into(ec, e)
         extra_line = ''
         try:
@@ -207,5 +209,7 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         except OSError:
             pass
         callback.write_error_return_value(ll_res)
+    if must_leave:
+        space.threadlocals.leave_thread(space)
     if ec is not None:
         cerrno.restore_errno_from(ec)

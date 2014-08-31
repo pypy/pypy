@@ -1,20 +1,17 @@
-
 """ This is a set of tools for standalone compiling of numpy expressions.
 It should not be imported by the module itself
 """
-
 import re
-
+from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 from pypy.interpreter.error import OperationError
-from pypy.module.micronumpy import interp_boxes
-from pypy.module.micronumpy.interp_dtype import get_dtype_cache
-from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.interp_numarray import array
-from pypy.module.micronumpy.interp_arrayops import where
-from pypy.module.micronumpy import interp_ufuncs
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib.nonconst import NonConstant
+from pypy.module.micronumpy import boxes, ufuncs
+from pypy.module.micronumpy.arrayops import where
+from pypy.module.micronumpy.ndarray import W_NDimArray
+from pypy.module.micronumpy.ctors import array
+from pypy.module.micronumpy.descriptor import get_dtype_cache
 
 
 class BogusBytecode(Exception):
@@ -40,7 +37,7 @@ SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
                         "unegative", "flat", "tostring","count_nonzero",
                         "argsort"]
 TWO_ARG_FUNCTIONS = ["dot", 'take']
-TWO_ARG_FUNCTIONS_OR_NONE = ['view']
+TWO_ARG_FUNCTIONS_OR_NONE = ['view', 'astype']
 THREE_ARG_FUNCTIONS = ['where']
 
 class W_TypeObject(W_Root):
@@ -74,6 +71,8 @@ class FakeSpace(object):
     def __init__(self):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
+        self.w_Ellipsis = special.Ellipsis()
+        self.w_NotImplemented = special.NotImplemented()
 
     def _freeze_(self):
         return True
@@ -92,7 +91,10 @@ class FakeSpace(object):
         return StringObject(NonConstant('foo'))
 
     def isinstance_w(self, w_obj, w_tp):
-        return w_obj.tp == w_tp
+        try:
+            return w_obj.tp == w_tp
+        except AttributeError:
+            return False
 
     def decode_index4(self, w_idx, size):
         if isinstance(w_idx, IntObject):
@@ -134,6 +136,11 @@ class FakeSpace(object):
     def newcomplex(self, r, i):
         return ComplexObject(r, i)
 
+    def getitem(self, obj, index):
+        assert isinstance(obj, ListObject)
+        assert isinstance(index, IntObject)
+        return obj.items[index.intval]
+
     def listview(self, obj, number=-1):
         assert isinstance(obj, ListObject)
         if number != -1:
@@ -146,14 +153,14 @@ class FakeSpace(object):
     def float(self, w_obj):
         if isinstance(w_obj, FloatObject):
             return w_obj
-        assert isinstance(w_obj, interp_boxes.W_GenericBox)
+        assert isinstance(w_obj, boxes.W_GenericBox)
         return self.float(w_obj.descr_float(self))
 
-    def float_w(self, w_obj):
+    def float_w(self, w_obj, allow_conversion=True):
         assert isinstance(w_obj, FloatObject)
         return w_obj.floatval
 
-    def int_w(self, w_obj):
+    def int_w(self, w_obj, allow_conversion=True):
         if isinstance(w_obj, IntObject):
             return w_obj.intval
         elif isinstance(w_obj, FloatObject):
@@ -178,21 +185,24 @@ class FakeSpace(object):
     def int(self, w_obj):
         if isinstance(w_obj, IntObject):
             return w_obj
-        assert isinstance(w_obj, interp_boxes.W_GenericBox)
+        assert isinstance(w_obj, boxes.W_GenericBox)
         return self.int(w_obj.descr_int(self))
 
     def str(self, w_obj):
         if isinstance(w_obj, StringObject):
             return w_obj
-        assert isinstance(w_obj, interp_boxes.W_GenericBox)
+        assert isinstance(w_obj, boxes.W_GenericBox)
         return self.str(w_obj.descr_str(self))
 
     def is_true(self, w_obj):
         assert isinstance(w_obj, BoolObject)
-        return w_obj.boolval
+        return bool(w_obj.intval)
 
     def is_w(self, w_obj, w_what):
         return w_obj is w_what
+
+    def eq_w(self, w_obj, w_what):
+        return w_obj == w_what
 
     def issubtype(self, w_type1, w_type2):
         return BoolObject(True)
@@ -209,10 +219,11 @@ class FakeSpace(object):
 
     def lookup(self, w_obj, name):
         w_type = self.type(w_obj)
-        return w_type.lookup(name)
+        if not self.is_none(w_type):
+            return w_type.lookup(name)
 
     def gettypefor(self, w_obj):
-        return None
+        return W_TypeObject(w_obj.typedef.name)
 
     def call_function(self, tp, w_dtype):
         return w_dtype
@@ -257,7 +268,7 @@ class FloatObject(W_Root):
 class BoolObject(W_Root):
     tp = FakeSpace.w_bool
     def __init__(self, boolval):
-        self.boolval = boolval
+        self.intval = boolval
 
 class IntObject(W_Root):
     tp = FakeSpace.w_int
@@ -382,6 +393,8 @@ class Operator(Node):
             w_res = w_lhs.descr_mul(interp.space, w_rhs)
         elif self.name == '-':
             w_res = w_lhs.descr_sub(interp.space, w_rhs)
+        elif self.name == '**':
+            w_res = w_lhs.descr_pow(interp.space, w_rhs)
         elif self.name == '->':
             if isinstance(w_rhs, FloatObject):
                 w_rhs = IntObject(int(w_rhs.floatval))
@@ -390,7 +403,7 @@ class Operator(Node):
         else:
             raise NotImplementedError
         if (not isinstance(w_res, W_NDimArray) and
-            not isinstance(w_res, interp_boxes.W_GenericBox)):
+            not isinstance(w_res, boxes.W_GenericBox)):
             dtype = get_dtype_cache(interp.space).w_float64dtype
             w_res = W_NDimArray.new_scalar(interp.space, dtype, w_res)
         return w_res
@@ -545,10 +558,10 @@ class FunctionCall(Node):
             elif self.name == "all":
                 w_res = arr.descr_all(interp.space)
             elif self.name == "unegative":
-                neg = interp_ufuncs.get(interp.space).negative
+                neg = ufuncs.get(interp.space).negative
                 w_res = neg.call(interp.space, [arr])
             elif self.name == "cos":
-                cos = interp_ufuncs.get(interp.space).cos
+                cos = ufuncs.get(interp.space).cos
                 w_res = cos.call(interp.space, [arr])
             elif self.name == "flat":
                 w_res = arr.descr_get_flatiter(interp.space)
@@ -590,6 +603,8 @@ class FunctionCall(Node):
             arg = self.args[1].execute(interp)
             if self.name == 'view':
                 w_res = arr.descr_view(interp.space, arg)
+            elif self.name == 'astype':
+                w_res = arr.descr_astype(interp.space, arg)
             else:
                 assert False
         else:
@@ -602,7 +617,7 @@ class FunctionCall(Node):
             dtype = get_dtype_cache(interp.space).w_int64dtype
         elif isinstance(w_res, BoolObject):
             dtype = get_dtype_cache(interp.space).w_booldtype
-        elif isinstance(w_res, interp_boxes.W_GenericBox):
+        elif isinstance(w_res, boxes.W_GenericBox):
             dtype = w_res.get_dtype(interp.space)
         else:
             dtype = None
@@ -614,7 +629,7 @@ _REGEXES = [
     (':', 'colon'),
     ('\w+', 'identifier'),
     ('\]', 'array_right'),
-    ('(->)|[\+\-\*\/]', 'operator'),
+    ('(->)|[\+\-\*\/]+', 'operator'),
     ('=', 'assign'),
     (',', 'comma'),
     ('\|', 'pipe'),

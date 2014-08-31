@@ -397,10 +397,10 @@ class RegisterOs(BaseLazyRegistering):
             includes = ['sys/time.h']
         else:
             includes = ['time.h']
+        eci = ExternalCompilationInfo(includes=includes)
+
         class CConfig:
-            _compilation_info_ = ExternalCompilationInfo(
-                includes=includes
-            )
+            _compilation_info_ = eci
             HAVE_UTIMES = platform.Has('utimes')
         config = platform.configure(CConfig)
 
@@ -409,21 +409,14 @@ class RegisterOs(BaseLazyRegistering):
 
         if config['HAVE_UTIMES']:
             class CConfig:
-                if not _WIN32:
-                    _compilation_info_ = ExternalCompilationInfo(
-                    includes = includes
-                    )
-                else:
-                    _compilation_info_ = ExternalCompilationInfo(
-                        includes = ['time.h']
-                    )
+                _compilation_info_ = eci
                 TIMEVAL = platform.Struct('struct timeval', [('tv_sec', rffi.LONG),
                                                              ('tv_usec', rffi.LONG)])
             config = platform.configure(CConfig)
             TIMEVAL = config['TIMEVAL']
             TIMEVAL2P = rffi.CArrayPtr(TIMEVAL)
             os_utimes = self.llexternal('utimes', [rffi.CCHARP, TIMEVAL2P],
-                                        rffi.INT, compilation_info=CConfig._compilation_info_)
+                                        rffi.INT, compilation_info=eci)
 
             def os_utime_platform(path, actime, modtime):
                 import math
@@ -1013,15 +1006,12 @@ class RegisterOs(BaseLazyRegistering):
             if count < 0:
                 raise OSError(errno.EINVAL, None)
             rposix.validate_fd(fd)
-            raw_buf, gc_buf = rffi.alloc_buffer(count)
-            try:
-                void_buf = rffi.cast(rffi.VOIDP, raw_buf)
+            with rffi.scoped_alloc_buffer(count) as buf:
+                void_buf = rffi.cast(rffi.VOIDP, buf.raw)
                 got = rffi.cast(lltype.Signed, os_read(fd, void_buf, count))
                 if got < 0:
                     raise OSError(rposix.get_errno(), "os_read failed")
-                return rffi.str_from_buffer(raw_buf, gc_buf, count, got)
-            finally:
-                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+                return buf.str(got)
 
         return extdef([int, int], SomeString(can_be_None=True),
                       "ll_os.ll_os_read", llimpl=os_read_llimpl)

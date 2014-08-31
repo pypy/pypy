@@ -1,5 +1,6 @@
-"""\
-minidom.py -- a lightweight DOM implementation.
+"""Simple implementation of the Level 1 DOM.
+
+Namespaces and other minor Level 2 features are also supported.
 
 parse("foo.xml")
 
@@ -356,9 +357,6 @@ class Attr(Node):
 
     def _get_localName(self):
         return self.nodeName.split(":", 1)[-1]
-
-    def _get_name(self):
-        return self.name
 
     def _get_specified(self):
         return self.specified

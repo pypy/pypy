@@ -25,7 +25,20 @@ def compile(f, gc='ref'):
                     check_str_without_nul=True)
     return str(t.compile())
 
+unsupported_platform = ('False', '')
+if sys.platform == 'win32':
+    unsupported_platform = ('True', 'sandbox not supported on this platform')
+    def test_unavailable():
+        def entry_point(argv):
+            fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)
+            os.close(fd)
+            return 0
+        exc = py.test.raises(TypeError, compile, entry_point)
+        assert str(exc).find('not supported') >= 0
 
+supported = py.test.mark.skipif(unsupported_platform[0], reason=unsupported_platform[1])
+
+@supported
 def test_open_dup():
     def entry_point(argv):
         fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)
@@ -43,6 +56,7 @@ def test_open_dup():
     f.close()
     assert tail == ""
 
+@supported
 def test_read_write():
     def entry_point(argv):
         fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)
@@ -65,6 +79,7 @@ def test_read_write():
     f.close()
     assert tail == ""
 
+@supported
 def test_dup2_access():
     def entry_point(argv):
         os.dup2(34, 56)
@@ -80,6 +95,7 @@ def test_dup2_access():
     f.close()
     assert tail == ""
 
+@supported
 def test_stat_ftruncate():
     from rpython.translator.sandbox.sandlib import RESULTTYPE_STATRESULT
     from rpython.rlib.rarithmetic import r_longlong
@@ -101,6 +117,7 @@ def test_stat_ftruncate():
     f.close()
     assert tail == ""
 
+@supported
 def test_time():
     def entry_point(argv):
         t = time.time()
@@ -116,6 +133,7 @@ def test_time():
     f.close()
     assert tail == ""
 
+@supported
 def test_getcwd():
     def entry_point(argv):
         t = os.getcwd()
@@ -131,6 +149,7 @@ def test_getcwd():
     f.close()
     assert tail == ""
 
+@supported
 def test_oserror():
     def entry_point(argv):
         try:
@@ -148,6 +167,7 @@ def test_oserror():
     f.close()
     assert tail == ""
 
+@supported
 def test_hybrid_gc():
     def entry_point(argv):
         l = []
@@ -172,6 +192,7 @@ def test_hybrid_gc():
     rescode = pipe.wait()
     assert rescode == 0
 
+@supported
 def test_segfault_1():
     class A:
         def __init__(self, m):
@@ -194,6 +215,7 @@ def test_segfault_1():
     e.close()
     assert 'Invalid RPython operation' in errors
 
+@supported
 def test_segfault_2():
     py.test.skip("hum, this is one example, but we need to be very careful")
     class Base:
@@ -226,6 +248,7 @@ def test_segfault_2():
     e.close()
     assert '...think what kind of errors to get...' in errors
 
+@supported
 def test_safe_alloc():
     from rpython.rlib.rmmap import alloc, free
 
@@ -246,6 +269,7 @@ def test_safe_alloc():
     rescode = pipe.wait()
     assert rescode == 0
 
+@supported
 def test_unsafe_mmap():
     py.test.skip("Since this stuff is unimplemented, it won't work anyway "
                  "however, the day it starts working, it should pass test")
@@ -271,6 +295,7 @@ def test_unsafe_mmap():
     rescode = pipe.wait()
     assert rescode == 0
 
+@supported
 class TestPrintedResults:
 
     def run(self, entry_point, args, expected):

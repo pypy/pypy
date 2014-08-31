@@ -222,7 +222,7 @@ Running PyPy's unit tests
 
 PyPy development always was and is still thoroughly test-driven.
 We use the flexible `py.test testing tool`_ which you can `install independently
-<http://pytest.org/getting-started.html>`_ and use for other projects.
+<http://pytest.org/latest/getting-started.html#getstarted>`_ and use for other projects.
 
 The PyPy source tree comes with an inlined version of ``py.test``
 which you can invoke by typing::
@@ -264,7 +264,7 @@ and running the regression test with the translated PyPy Python
 interpreter.
 
 .. _`py.test testing tool`: http://pytest.org
-.. _`py.test usage and invocations`: http://pytest.org/usage.html#usage
+.. _`py.test usage and invocations`: http://pytest.org/latest/usage.html#usage
 
 Special Introspection Features of the Untranslated Python Interpreter
 ---------------------------------------------------------------------
@@ -315,27 +315,27 @@ You may be interested in reading more about the distinction between
 
 .. _`trace example`:
 
-Tracing bytecode and operations on objects
-++++++++++++++++++++++++++++++++++++++++++
+Tracing bytecodes
++++++++++++++++++
 
-You can use the trace object space to monitor the interpretation
-of bytecodes in connection with object space operations.  To enable
-it, set ``__pytrace__=1`` on the interactive PyPy console::
+You can use a simple tracing mode to monitor the interpretation of
+bytecodes.  To enable it, set ``__pytrace__ = 1`` on the interactive
+PyPy console::
 
     >>>> __pytrace__ = 1
     Tracing enabled
-    >>>> a = 1 + 2
-    |- <<<< enter <inline>a = 1 + 2 @ 1 >>>>
-    |- 0    LOAD_CONST    0 (W_IntObject(1))
-    |- 3    LOAD_CONST    1 (W_IntObject(2))
-    |- 6    BINARY_ADD
-      |-    add(W_IntObject(1), W_IntObject(2))   -> W_IntObject(3)
-    |- 7    STORE_NAME    0 (a)
-      |-    hash(W_StringObject('a'))   -> W_IntObject(-468864544)
-      |-    int_w(W_IntObject(-468864544))   -> -468864544
-    |-10    LOAD_CONST    2 (<W_NoneObject()>)
-    |-13    RETURN_VALUE
-    |- <<<< leave <inline>a = 1 + 2 @ 1 >>>>
+    >>>> x = 5
+            <module>:           LOAD_CONST    0 (5)
+            <module>:           STORE_NAME    0 (x)
+            <module>:           LOAD_CONST    1 (None)
+            <module>:           RETURN_VALUE    0 
+    >>>> x
+            <module>:           LOAD_NAME    0 (x)
+            <module>:           PRINT_EXPR    0 
+    5
+            <module>:           LOAD_CONST    0 (None)
+            <module>:           RETURN_VALUE    0 
+    >>>>
 
 Demos
 -------
@@ -386,10 +386,10 @@ as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 
 .. _`full Python interpreter`: getting-started-python.html
 .. _`the blog`: http://morepypy.blogspot.com
-.. _`pypy-dev mailing list`: http://python.org/mailman/listinfo/pypy-dev
+.. _`pypy-dev mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev
 .. _`contact possibilities`: index.html
 
-.. _`py library`: http://pylib.org
+.. _`py library`: http://pylib.readthedocs.org/
 
 .. _`Spidermonkey`: http://www.mozilla.org/js/spidermonkey/
 

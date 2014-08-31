@@ -142,12 +142,13 @@ def read(space, fd, buffersize):
     else:
         return space.wrap(s)
 
-@unwrap_spec(fd=c_int, data='bufferstr')
-def write(space, fd, data):
+@unwrap_spec(fd=c_int)
+def write(space, fd, w_data):
     """Write a string to a file descriptor.  Return the number of bytes
 actually written, which may be smaller than len(data)."""
+    data = space.getarg_w('s*', w_data)
     try:
-        res = os.write(fd, data)
+        res = os.write(fd, data.as_str())
     except OSError, e:
         raise wrap_oserror(space, e)
     else:
@@ -577,13 +578,15 @@ entries '.' and '..' even if they are present in the directory."""
                 except OperationError, e:
                     # fall back to the original byte string
                     result_w[i] = w_bytes
+            return space.newlist(result_w)
         else:
             dirname = space.str0_w(w_dirname)
             result = rposix.listdir(dirname)
-            result_w = [space.wrap(s) for s in result]
+            # The list comprehension is a workaround for an obscure translation
+            # bug.
+            return space.newlist_bytes([x for x in result])
     except OSError, e:
         raise wrap_oserror2(space, e, w_dirname)
-    return space.newlist(result_w)
 
 def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."
@@ -868,8 +871,8 @@ second form is used, set the access and modified times to the current time.
         args_w = space.fixedview(w_tuple)
         if len(args_w) != 2:
             raise OperationError(space.w_TypeError, space.wrap(msg))
-        actime = space.float_w(args_w[0])
-        modtime = space.float_w(args_w[1])
+        actime = space.float_w(args_w[0], allow_conversion=False)
+        modtime = space.float_w(args_w[1], allow_conversion=False)
         dispatch_filename(rposix.utime, 2)(space, w_path, (actime, modtime))
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)

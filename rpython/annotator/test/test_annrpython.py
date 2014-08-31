@@ -1435,7 +1435,7 @@ class TestAnnotateTestCase:
             elif a==2:
                 raise X(1)
             elif a==3:
-                raise X,4
+                raise X(4)
             else:
                 try:
                     l[0]
@@ -2536,6 +2536,22 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert s.const == 2
 
+    def test_cannot_use_directly_mixin(self):
+        class A(object):
+            _mixin_ = True
+        #
+        def f():
+            return A()
+        a = self.RPythonAnnotator()
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f, [])
+        #
+        class B(object):
+            pass
+        x = B()
+        def g():
+            return isinstance(x, A)
+        py.test.raises(annmodel.AnnotatorError, a.build_types, g, [])
+
     def test_import_from_mixin(self):
         class M(object):
             def f(self):
@@ -2872,7 +2888,6 @@ class TestAnnotateTestCase:
         py.test.raises(Exception, a.build_types, fun, [s_nonneg, int])
 
     def test_sig_bug(self):
-        py.test.skip("_annenforceargs_ does not work for default arguments")
         def g(x, y=5):
             return y == 5
         g._annenforceargs_ = (int, int)
@@ -2880,7 +2895,8 @@ class TestAnnotateTestCase:
             return g(x)
         a = self.RPythonAnnotator()
         s = a.build_types(fun, [int])
-        assert not s.is_constant()
+        assert s.knowntype is bool
+        assert s.is_constant()
 
     def test_sig_list(self):
         def g(buf):
@@ -3628,7 +3644,7 @@ class TestAnnotateTestCase:
         def f():
             e = OverflowError()
             lle = cast_instance_to_base_ptr(e)
-            raise Exception, lle
+            raise Exception(lle)
             # ^^^ instead, must cast back from a base ptr to an instance
         a = self.RPythonAnnotator()
         py.test.raises(AssertionError, a.build_types, f, [])
@@ -3718,6 +3734,18 @@ class TestAnnotateTestCase:
             l1.append(n+1)
             a.lst = l1
             return a.lst
+
+        a = self.RPythonAnnotator()
+        py.test.raises(ListChangeUnallowed, a.build_types, f, [int])
+
+    def test_immutable_list_is_assigned_a_resizable_list(self):
+        class A:
+            _immutable_fields_ = 'lst[*]'
+        def f(n):
+            a = A()
+            foo = []
+            foo.append(n)
+            a.lst = foo
 
         a = self.RPythonAnnotator()
         py.test.raises(ListChangeUnallowed, a.build_types, f, [int])
@@ -3923,6 +3951,78 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         s = a.build_types(fn, [int])
+        assert isinstance(s, annmodel.SomeInteger)
+
+    def test_instance_getitem(self):
+        class A(object):
+            def __getitem__(self, i):
+                return i * i
+
+        def fn(i):
+            a = A()
+            return a[i]
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [int])
+        assert len(a.translator.graphs) == 2 # fn, __getitem__
+        assert isinstance(s, annmodel.SomeInteger)
+
+    def test_instance_setitem(self):
+        class A(object):
+            def __setitem__(self, i, v):
+                self.value = i * v
+
+        def fn(i, v):
+            a = A()
+            a[i] = v
+            return a.value
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [int, int])
+        assert len(a.translator.graphs) == 2 # fn, __setitem__
+        assert isinstance(s, annmodel.SomeInteger)
+
+    def test_instance_getslice(self):
+        class A(object):
+            def __getslice__(self, stop, start):
+                return "Test"[stop:start]
+
+        def fn():
+            a = A()
+            return a[0:2]
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert len(a.translator.graphs) == 2 # fn, __getslice__
+        assert isinstance(s, annmodel.SomeString)
+
+    def test_instance_setslice(self):
+        class A(object):
+            def __setslice__(self, stop, start, value):
+                self.value = value
+
+        def fn():
+            a = A()
+            a[0:2] = '00'
+            return a.value
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert len(a.translator.graphs) == 2 # fn, __setslice__
+        assert isinstance(s, annmodel.SomeString)
+
+    def test_instance_len(self):
+        class A(object):
+            def __len__(self):
+                return 0
+
+        def fn():
+            a = A()
+            return len(a)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert len(a.translator.graphs) == 2 # fn, __len__
         assert isinstance(s, annmodel.SomeInteger)
 
     def test_reversed(self):
@@ -4139,6 +4239,16 @@ class TestAnnotateTestCase:
             a.build_types(f, [str])
         assert ("Cannot prove that the object is callable" in exc.value.msg)
 
+    def test_UnionError_on_PBC(self):
+        l = ['a', 1]
+        def f(x):
+            l.append(x)
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.UnionError) as excinfo:
+            a.build_types(f, [int])
+        assert 'Happened at file' in excinfo.value.source
+        assert 'Known variable annotations:' in excinfo.value.source
+
     def test_str_format_error(self):
         def f(s, x):
             return s.format(x)
@@ -4159,6 +4269,69 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         assert isinstance(a.build_types(f, []), annmodel.SomeOrderedDict)
+
+    def test_enumerate_none(self):
+        # enumerate(None) can occur as an intermediate step during a full
+        # annotation, because the None will be generalized later to
+        # None-or-list for example
+        def f(flag):
+            if flag:
+                x = None
+            else:
+                x = [42]
+            return enumerate(x).next()
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeTuple)
+        assert s.items[1].const == 42
+
+    def test_unpack_none_gets_a_blocked_block(self):
+        def f(x):
+            a, b = x
+        a = self.RPythonAnnotator()
+        py.test.raises(annmodel.AnnotatorError,
+                       a.build_types, f, [annmodel.s_None])
+
+    def test_class___name__(self):
+        class Abc(object):
+            pass
+        def f():
+            return Abc().__class__.__name__
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeString)
+
+    def test_isinstance_str_1(self):
+        def g():
+            pass
+        def f(n):
+            if n > 5:
+                s = "foo"
+            else:
+                s = None
+            g()
+            return isinstance(s, str)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeBool)
+        assert not s.is_constant()
+
+    def test_isinstance_str_2(self):
+        def g():
+            pass
+        def f(n):
+            if n > 5:
+                s = "foo"
+            else:
+                s = None
+            g()
+            if isinstance(s, str):
+                return s
+            return ""
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeString)
+        assert not s.can_be_none()
 
 
 def g(n):

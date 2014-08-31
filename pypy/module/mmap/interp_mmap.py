@@ -2,8 +2,8 @@ from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.buffer import RWBuffer
 from rpython.rlib import rmmap, rarithmetic
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.rmmap import RValueError, RTypeError, RMMapError
 
 if rmmap.HAVE_LARGEFILE_SUPPORT:
@@ -16,6 +16,10 @@ class W_MMap(W_Root):
     def __init__(self, space, mmap_obj):
         self.space = space
         self.mmap = mmap_obj
+
+    def readbuf_w(self, space):
+        self.check_valid()
+        return MMapBuffer(self.space, self.mmap, True)
 
     def close(self):
         self.mmap.close()
@@ -36,10 +40,10 @@ class W_MMap(W_Root):
         self.check_valid()
         return self.space.wrap(self.mmap.read(num))
 
-    @unwrap_spec(tofind='bufferstr')
-    def find(self, tofind, w_start=None, w_end=None):
+    def find(self, w_tofind, w_start=None, w_end=None):
         self.check_valid()
         space = self.space
+        tofind = space.getarg_w('s#', w_tofind)
         if w_start is None:
             start = self.mmap.pos
         else:
@@ -50,10 +54,10 @@ class W_MMap(W_Root):
             end = space.getindex_w(w_end, None)
         return space.wrap(self.mmap.find(tofind, start, end))
 
-    @unwrap_spec(tofind='bufferstr')
-    def rfind(self, tofind, w_start=None, w_end=None):
+    def rfind(self, w_tofind, w_start=None, w_end=None):
         self.check_valid()
         space = self.space
+        tofind = space.getarg_w('s#', w_tofind)
         if w_start is None:
             start = self.mmap.pos
         else:
@@ -83,9 +87,9 @@ class W_MMap(W_Root):
         except OSError, e:
             raise mmap_error(self.space, e)
 
-    @unwrap_spec(data='bufferstr')
-    def write(self, data):
+    def write(self, w_data):
         self.check_valid()
+        data = self.space.getarg_w('s#', w_data)
         self.check_writeable()
         try:
             self.mmap.write(data)
@@ -196,9 +200,45 @@ class W_MMap(W_Root):
                     self.mmap.setitem(start, value[i])
                     start += step
 
-    def descr_buffer(self):
+    def descr_getslice(self, space, w_ilow, w_ihigh):
         self.check_valid()
-        return self.space.wrap(MMapBuffer(self.space, self.mmap))
+        i = space.getindex_w(w_ilow, None)
+        j = space.getindex_w(w_ihigh, None)
+        if i < 0:
+            i = 0
+        elif i > self.mmap.size:
+            i = self.mmap.size
+        if j < 0:
+            j = 0
+        if j < i:
+            j = i
+        elif j > self.mmap.size:
+            j = self.mmap.size
+        return space.wrap(self.mmap.getslice(i, (j - i)))
+
+    def descr_setslice(self, space, w_ilow, w_ihigh, w_item):
+        self.check_valid()
+        i = space.getindex_w(w_ilow, None)
+        j = space.getindex_w(w_ihigh, None)
+        if i < 0:
+            i = 0
+        elif i > self.mmap.size:
+            i = self.mmap.size
+        if j < 0:
+            j = 0
+        if j < i:
+            j = i
+        elif j > self.mmap.size:
+            j = self.mmap.size
+        if not space.isinstance_w(w_item, space.w_str):
+            raise OperationError(space.w_IndexError, space.wrap(
+                "mmap slice assignment must be a string"))
+        value = space.realstr_w(w_item)
+        if len(value) != (j - i):
+            raise OperationError(space.w_IndexError, space.wrap(
+                "mmap slice assignment is wrong size"))
+        self.check_writeable()
+        self.mmap.setslice(i, value)
 
 if rmmap._POSIX:
 
@@ -235,7 +275,7 @@ elif rmmap._MS_WINDOWS:
             raise mmap_error(space, e)
         return space.wrap(self)
 
-W_MMap.typedef = TypeDef("mmap",
+W_MMap.typedef = TypeDef("mmap.mmap",
     __new__ = interp2app(mmap),
     close = interp2app(W_MMap.close),
     read_byte = interp2app(W_MMap.read_byte),
@@ -251,12 +291,12 @@ W_MMap.typedef = TypeDef("mmap",
     flush = interp2app(W_MMap.flush),
     move = interp2app(W_MMap.move),
     resize = interp2app(W_MMap.resize),
-    __module__ = "mmap",
 
     __len__ = interp2app(W_MMap.__len__),
     __getitem__ = interp2app(W_MMap.descr_getitem),
     __setitem__ = interp2app(W_MMap.descr_setitem),
-    __buffer__ = interp2app(W_MMap.descr_buffer),
+    __getslice__ = interp2app(W_MMap.descr_getslice),
+    __setslice__ = interp2app(W_MMap.descr_setslice),
 )
 
 constants = rmmap.constants
@@ -287,10 +327,13 @@ def mmap_error(space, e):
 mmap_error._dont_inline_ = True
 
 
-class MMapBuffer(RWBuffer):
-    def __init__(self, space, mmap):
+class MMapBuffer(Buffer):
+    _immutable_ = True
+
+    def __init__(self, space, mmap, readonly):
         self.space = space
         self.mmap = mmap
+        self.readonly = readonly
 
     def getlength(self):
         return self.mmap.size
@@ -304,7 +347,7 @@ class MMapBuffer(RWBuffer):
         if step == 1:
             return self.mmap.getslice(start, size)
         else:
-            return RWBuffer.getslice(self, start, stop, step, size)
+            return Buffer.getslice(self, start, stop, step, size)
 
     def setitem(self, index, char):
         self.check_valid_writeable()
@@ -313,14 +356,6 @@ class MMapBuffer(RWBuffer):
     def setslice(self, start, string):
         self.check_valid_writeable()
         self.mmap.setslice(start, string)
-
-    def is_writable(self):
-        try:
-            self.mmap.check_writeable()
-        except RMMapError:
-            return False
-        else:
-            return True
 
     def get_raw_address(self):
         self.check_valid()

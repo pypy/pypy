@@ -25,19 +25,21 @@ class UnicodeWithEncoding:
     def as_unicode(self):
         return self.unistr
 
-class TestPosixUnicode:
+class BasePosixUnicodeOrAscii:
     def setup_method(self, method):
-        self.ufilename = (unicode(udir.join('test_open')) +
-                          u'\u65e5\u672c.txt') # "Japan"
+        self.ufilename = self._get_filename()
         try:
             f = file(self.ufilename, 'w')
         except UnicodeEncodeError:
             py.test.skip("encoding not good enough")
         f.write("test")
         f.close()
-
-        self.path  = UnicodeWithEncoding(self.ufilename)
-        self.path2 = UnicodeWithEncoding(self.ufilename + ".new")
+        if sys.platform == 'win32' and isinstance(self.ufilename, str):
+            self.path = self.ufilename
+            self.path2 = self.ufilename + ".new"
+        else:
+            self.path  = UnicodeWithEncoding(self.ufilename)
+            self.path2 = UnicodeWithEncoding(self.ufilename + ".new")
 
     def test_open(self):
         def f():
@@ -56,8 +58,11 @@ class TestPosixUnicode:
     def test_stat(self):
         def f():
             return rposix.stat(self.path).st_mtime
-
-        assert interpret(f, []) == os.stat(self.ufilename).st_mtime
+        if sys.platform == 'win32':
+            # double vs. float, be satisfied with sub-millisec resolution
+            assert abs(interpret(f, []) - os.stat(self.ufilename).st_mtime) < 1e-4
+        else:
+            assert interpret(f, []) == os.stat(self.ufilename).st_mtime
 
     def test_access(self):
         def f():
@@ -97,7 +102,13 @@ class TestPosixUnicode:
 
         if sys.platform == 'win32':
             def f():
-                return u', '.join(rposix.listdir(udir))
+                if isinstance(udir.as_unicode(), str):
+                    _udir = udir.as_unicode()
+                    _res = ', '
+                else:
+                    _udir = udir
+                    _res = u', '
+                return _res.join(rposix.listdir(_udir))
             result = interpret(f, [])
             assert os.path.basename(self.ufilename) in ll_to_string(result)
         else:
@@ -148,3 +159,13 @@ class TestPosixUnicode:
             rposix.unsetenv(self.path)
 
         interpret(f, []) # does not crash
+
+
+class TestPosixAscii(BasePosixUnicodeOrAscii):
+    def _get_filename(self):
+        return str(udir.join('test_open_ascii'))
+
+class TestPosixUnicode(BasePosixUnicodeOrAscii):
+    def _get_filename(self):
+        return (unicode(udir.join('test_open')) +
+                u'\u65e5\u672c.txt') # "Japan"

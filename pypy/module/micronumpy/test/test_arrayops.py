@@ -1,7 +1,30 @@
-
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
+
 class AppTestNumSupport(BaseNumpyAppTest):
+    def test_zeros(self):
+        from numpypy import zeros
+        a = zeros(3)
+        assert len(a) == 3
+        assert a[0] == a[1] == a[2] == 0
+
+    def test_empty(self):
+        from numpypy import empty
+        import gc
+        for i in range(1000):
+            a = empty(3)
+            assert len(a) == 3
+            if not (a[0] == a[1] == a[2] == 0):
+                break     # done
+            a[0] = 1.23
+            a[1] = 4.56
+            a[2] = 7.89
+            del a
+            gc.collect()
+        else:
+            raise AssertionError(
+                "empty() returned a zeroed out array every time")
+
     def test_where(self):
         from numpypy import where, ones, zeros, array
         a = [1, 2, 3, 0, -3]
@@ -41,8 +64,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         a[0] = 0
         assert (b == [1, 1, 1, 0, 0]).all()
 
-
-    def test_dot(self):
+    def test_dot_basic(self):
         from numpypy import array, dot, arange
         a = array(range(5))
         assert dot(a, a) == 30.0
@@ -69,7 +91,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert b.shape == (4, 3)
         c = dot(a, b)
         assert (c == [[[14, 38, 62], [38, 126, 214], [62, 214, 366]],
-                   [[86, 302, 518], [110, 390, 670], [134, 478, 822]]]).all()
+                      [[86, 302, 518], [110, 390, 670], [134, 478, 822]]]).all()
         c = dot(a, b[:, 2])
         assert (c == [[62, 214, 366], [518, 670, 822]]).all()
         a = arange(3*2*6).reshape((3,2,6))

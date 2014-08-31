@@ -44,6 +44,19 @@ class GrammarTest(support.TestCase):
             raise AssertionError("Syntax shouldn't have been valid")
 
 
+class TestMatrixMultiplication(GrammarTest):
+    def test_matrix_multiplication_operator(self):
+        self.validate("a @ b")
+        self.validate("a @= b")
+
+
+class TestYieldFrom(GrammarTest):
+    def test_matrix_multiplication_operator(self):
+        self.validate("yield from x")
+        self.validate("(yield from x) + y")
+        self.invalid_syntax("yield from")
+
+
 class TestRaiseChanges(GrammarTest):
     def test_2x_style_1(self):
         self.validate("raise")
@@ -73,7 +86,7 @@ class TestRaiseChanges(GrammarTest):
         self.invalid_syntax("raise E from")
 
 
-# Adapated from Python 3's Lib/test/test_grammar.py:GrammarTests.testFuncdef
+# Adaptated from Python 3's Lib/test/test_grammar.py:GrammarTests.testFuncdef
 class TestFunctionAnnotations(GrammarTest):
     def test_1(self):
         self.validate("""def f(x) -> list: pass""")
@@ -165,8 +178,8 @@ class TestParserIdempotency(support.TestCase):
         for filepath in support.all_project_files():
             with open(filepath, "rb") as fp:
                 encoding = tokenize.detect_encoding(fp.readline)[0]
-            self.assertTrue(encoding is not None,
-                            "can't detect encoding for %s" % filepath)
+            self.assertIsNotNone(encoding,
+                                 "can't detect encoding for %s" % filepath)
             with open(filepath, "r") as fp:
                 source = fp.read()
                 source = source.decode(encoding)

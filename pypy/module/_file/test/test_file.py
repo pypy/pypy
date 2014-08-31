@@ -60,7 +60,6 @@ class AppTestFile(object):
         finally:
             f.close()
 
-
     def test_fdopen(self):
         import os
         f = self.file(self.temppath, "w")
@@ -253,7 +252,28 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         assert os.strerror(errno.EBADF) in g.getvalue()
         # the following is a "nice to have" feature that CPython doesn't have
         if '__pypy__' in sys.builtin_module_names:
-            assert self.temppath in g.getvalue()
+            assert repr(self.temppath) in g.getvalue()
+
+    def test_truncate(self):
+        f = self.file(self.temppath, "w")
+        f.write("foo")
+        f.close()
+        with self.file(self.temppath, 'r') as f:
+            raises(IOError, f.truncate, 100)
+
+    def test_write_full(self):
+        try:
+            f = self.file('/dev/full', 'w', 1)
+        except IOError:
+            skip("requires '/dev/full'")
+        try:
+            f.write('hello')
+            raises(IOError, f.write, '\n')
+            f.write('zzz')
+            raises(IOError, f.flush)
+            f.flush()
+        finally:
+            f.close()
 
 
 class AppTestNonblocking(object):

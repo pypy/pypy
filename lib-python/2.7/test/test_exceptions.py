@@ -431,6 +431,12 @@ class ExceptionTests(unittest.TestCase):
         u.start = 1000
         self.assertEqual(str(u), "can't translate characters in position 1000-4: 965230951443685724997")
 
+    def test_unicode_errors_no_object(self):
+        # See issue #21134.
+        klasses = UnicodeEncodeError, UnicodeDecodeError, UnicodeTranslateError
+        for klass in klasses:
+            self.assertEqual(str(klass.__new__(klass)), "")
+
     def test_badisinstance(self):
         # Bug #2542: if issubclass(e, MyException) raises an exception,
         # it should be ignored
@@ -478,6 +484,18 @@ class ExceptionTests(unittest.TestCase):
             assert False, (3,)
         except AssertionError as e:
             self.assertEqual(str(e), "(3,)")
+
+    def test_bad_exception_clearing(self):
+        # See issue 16445: use of Py_XDECREF instead of Py_CLEAR in
+        # BaseException_set_message gave a possible way to segfault the
+        # interpreter.
+        class Nasty(str):
+            def __del__(message):
+                del e.message
+
+        e = ValueError(Nasty("msg"))
+        e.args = ()
+        del e.message
 
 
 # Helper class used by TestSameStrAndUnicodeMsg

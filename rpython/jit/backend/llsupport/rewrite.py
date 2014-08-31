@@ -232,8 +232,8 @@ class GcRewriterAssembler(object):
         self.emitting_an_operation_that_can_collect()
         op = ResOperation(rop.CALL_MALLOC_GC, args, v_result, descr)
         self.newops.append(op)
-        # mark 'v_result' as freshly malloced, so not needing a write barrier
-        self.write_barrier_applied[v_result] = None
+        # In general, don't add v_result to write_barrier_applied:
+        # v_result might be a large young array.
 
     def gen_malloc_fixedsize(self, size, typeid, v_result):
         """Generate a CALL_MALLOC_GC(malloc_fixedsize_fn, ...).
@@ -251,6 +251,9 @@ class GcRewriterAssembler(object):
             args = [ConstInt(addr), ConstInt(size)]
             descr = self.gc_ll_descr.malloc_fixedsize_descr
         self._gen_call_malloc_gc(args, v_result, descr)
+        # mark 'v_result' as freshly malloced, so not needing a write barrier
+        # (this is always true because it's a fixed-size object)
+        self.write_barrier_applied[v_result] = None
 
     def gen_boehm_malloc_array(self, arraydescr, v_num_elem, v_result):
         """Generate a CALL_MALLOC_GC(malloc_array_fn, ...) for Boehm."""
@@ -316,7 +319,9 @@ class GcRewriterAssembler(object):
                           [ConstInt(kind), ConstInt(itemsize), v_length],
                           v_result, descr=arraydescr)
         self.newops.append(op)
-        self.write_barrier_applied[v_result] = None
+        # don't record v_result into self.write_barrier_applied:
+        # it can be a large, young array with card marking, and then
+        # the GC relies on the write barrier being called
         return True
 
     def gen_malloc_nursery_varsize_frame(self, sizebox, v_result):
@@ -391,16 +396,6 @@ class GcRewriterAssembler(object):
                 #op = op.copy_and_change(rop.SETFIELD_RAW)
         self.newops.append(op)
 
-    def handle_write_barrier_setinteriorfield(self, op):
-        val = op.getarg(0)
-        if val not in self.write_barrier_applied:
-            v = op.getarg(2)
-            if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
-                                         bool(v.value)): # store a non-NULL
-                self.gen_write_barrier(val)
-                #op = op.copy_and_change(rop.SETINTERIORFIELD_RAW)
-        self.newops.append(op)
-
     def handle_write_barrier_setarrayitem(self, op):
         val = op.getarg(0)
         if val not in self.write_barrier_applied:
@@ -408,8 +403,10 @@ class GcRewriterAssembler(object):
             if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                          bool(v.value)): # store a non-NULL
                 self.gen_write_barrier_array(val, op.getarg(1))
-                #op = op.copy_and_change(rop.SETARRAYITEM_RAW)
+                #op = op.copy_and_change(rop.SET{ARRAYITEM,INTERIORFIELD}_RAW)
         self.newops.append(op)
+
+    handle_write_barrier_setinteriorfield = handle_write_barrier_setarrayitem
 
     def gen_write_barrier(self, v_base):
         write_barrier_descr = self.gc_ll_descr.write_barrier_descr

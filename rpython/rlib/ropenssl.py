@@ -5,10 +5,11 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.translator.platform import platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib._rsocket_rffi import MAX_FD_SIZE
 
 
 if sys.platform == 'win32' and platform.name != 'mingw32':
-    libraries = ['libeay32', 'ssleay32', 'zlib1',
+    libraries = ['libeay32', 'ssleay32', 'zlib',
                  'user32', 'advapi32', 'gdi32', 'msvcrt', 'ws2_32']
     includes = [
         # ssl.h includes winsock.h, which will conflict with our own
@@ -46,13 +47,6 @@ eci = rffi_platform.configure_external_library(
     [dict(prefix='openssl-',
           include_dir='inc32', library_dir='out32'),
      ])
-
-# WinSock does not use a bitmask in select, and uses
-# socket handles greater than FD_SETSIZE
-if sys.platform == 'win32':
-    MAX_FD_SIZE = None
-else:
-    from rpython.rlib._rsocket_rffi import FD_SETSIZE as MAX_FD_SIZE
 
 ASN1_STRING = lltype.Ptr(lltype.ForwardReference())
 ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')
@@ -105,6 +99,14 @@ class CConfig:
 
     NID_subject_alt_name = rffi_platform.ConstantInteger("NID_subject_alt_name")
     GEN_DIRNAME = rffi_platform.ConstantInteger("GEN_DIRNAME")
+    GEN_EMAIL = rffi_platform.ConstantInteger("GEN_EMAIL")
+    GEN_DNS = rffi_platform.ConstantInteger("GEN_DNS")
+    GEN_URI = rffi_platform.ConstantInteger("GEN_URI")
+    GEN_OTHERNAME = rffi_platform.ConstantInteger("GEN_OTHERNAME")
+    GEN_X400 = rffi_platform.ConstantInteger("GEN_X400")
+    GEN_EDIPARTY = rffi_platform.ConstantInteger("GEN_EDIPARTY")
+    GEN_IPADD = rffi_platform.ConstantInteger("GEN_IPADD")
+    GEN_RID = rffi_platform.ConstantInteger("GEN_RID")
 
     CRYPTO_LOCK = rffi_platform.ConstantInteger("CRYPTO_LOCK")
 
@@ -128,8 +130,7 @@ class CConfig:
          ('d2i', lltype.Ptr(X509V3_EXT_D2I))])
     GENERAL_NAME_st = rffi_platform.Struct(
         'struct GENERAL_NAME_st',
-        [('type', rffi.INT),
-         ])
+        [('type', rffi.INT)])
     EVP_MD_st = rffi_platform.Struct(
         'EVP_MD',
         [('md_size', rffi.INT),
@@ -260,6 +261,8 @@ ssl_external('X509V3_EXT_get', [X509_EXTENSION], X509V3_EXT_METHOD)
 
 ssl_external('OBJ_obj2txt',
              [rffi.CCHARP, rffi.INT, ASN1_OBJECT, rffi.INT], rffi.INT)
+ssl_external('ASN1_STRING_data', [ASN1_STRING], rffi.CCHARP)
+ssl_external('ASN1_STRING_length', [ASN1_STRING], rffi.INT)
 ssl_external('ASN1_STRING_to_UTF8', [rffi.CCHARPP, ASN1_STRING], rffi.INT)
 ssl_external('ASN1_TIME_print', [BIO, ASN1_TIME], rffi.INT)
 ssl_external('i2a_ASN1_INTEGER', [BIO, ASN1_INTEGER], rffi.INT)

@@ -1,5 +1,13 @@
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit
-from pypy.interpreter.error import OperationError
+
+
+def issequence_w(space, w_obj):
+    from pypy.module.micronumpy.base import W_NDimArray
+    return (space.isinstance_w(w_obj, space.w_tuple) or
+            space.isinstance_w(w_obj, space.w_list) or
+            isinstance(w_obj, W_NDimArray))
+
 
 def index_w(space, w_obj):
     try:
@@ -8,8 +16,8 @@ def index_w(space, w_obj):
         try:
             return space.int_w(space.int(w_obj))
         except OperationError:
-            raise OperationError(space.w_IndexError, space.wrap(
-                "cannot convert index to integer"))
+            raise oefmt(space.w_IndexError, "cannot convert index to integer")
+
 
 @jit.unroll_safe
 def product(s):
@@ -18,20 +26,17 @@ def product(s):
         i *= x
     return i
 
-@jit.unroll_safe
-def calc_strides(shape, dtype, order):
-    strides = []
-    backstrides = []
-    s = 1
-    shape_rev = shape[:]
-    if order == 'C':
-        shape_rev.reverse()
-    for sh in shape_rev:
-        slimit = max(sh, 1)
-        strides.append(s * dtype.get_size())
-        backstrides.append(s * (slimit - 1) * dtype.get_size())
-        s *= slimit
-    if order == 'C':
-        strides.reverse()
-        backstrides.reverse()
-    return strides, backstrides
+
+def check_and_adjust_index(space, index, size, axis):
+    if index < -size or index >= size:
+        if axis >= 0:
+            raise oefmt(space.w_IndexError,
+                        "index %d is out of bounds for axis %d with size %d",
+                        index, axis, size)
+        else:
+            raise oefmt(space.w_IndexError,
+                        "index %d is out of bounds for size %d",
+                        index, size)
+    if index < 0:
+        index += size
+    return index

@@ -76,7 +76,7 @@ install distribute_ and pip_:
 .. code-block:: console
 
     $ curl -O http://python-distribute.org/distribute_setup.py
-    $ curl -O https://raw.github.com/pypa/pip/master/contrib/get-pip.py
+    $ curl -O https://raw.githubusercontent.com/pypa/pip/master/contrib/get-pip.py
     $ ./pypy-2.1/bin/pypy distribute_setup.py
     $ ./pypy-2.1/bin/pypy get-pip.py
     $ ./pypy-2.1/bin/pip install pygments  # for example
@@ -145,11 +145,13 @@ Where to go from here
 After you successfully manage to get PyPy's source you can read more about:
 
  - `Building and using PyPy's Python interpreter`_
+ - `Embedding PyPy`_
  - `Learning more about the RPython toolchain and how to develop (with) PyPy`_
  - `Tutorial for how to write an interpreter with the RPython toolchain and make it fast`_
  - `Look at our benchmark results`_
 
 .. _`Building and using PyPy's Python interpreter`: getting-started-python.html
+.. _`Embedding PyPy`: embedding.html
 .. _`Learning more about the RPython toolchain and how to develop (with) PyPy`: getting-started-dev.html
 .. _`Tutorial for how to write an interpreter with the RPython toolchain and make it fast`: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
 .. _`Look at our benchmark results`: http://speed.pypy.org

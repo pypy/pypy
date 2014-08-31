@@ -14,9 +14,9 @@ from pypy.module.cpyext.typeobjectdefs import (
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.buffer import Buffer as W_Buffer
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from rpython.tool.sourcetools import func_renamer
@@ -39,8 +39,9 @@ def check_num_args(space, ob, n):
             space.wrap("PyArg_UnpackTuple() argument list is not a tuple"))
     if n == PyTuple_GET_SIZE(space, ob):
         return
-    raise operationerrfmt(space.w_TypeError,
-        "expected %d arguments, got %d", n, PyTuple_GET_SIZE(space, ob))
+    raise oefmt(space.w_TypeError,
+                "expected %d arguments, got %d",
+                n, PyTuple_GET_SIZE(space, ob))
 
 def wrap_init(space, w_self, w_args, func, w_kwargs):
     func_init = rffi.cast(initproc, func)
@@ -113,9 +114,8 @@ def wrap_descr_get(space, w_self, w_args, func):
     elif len(args_w) == 2:
         w_obj, w_type = args_w
     else:
-        raise operationerrfmt(
-            space.w_TypeError,
-            "expected 1 or 2 arguments, got %d", len(args_w))
+        raise oefmt(space.w_TypeError,
+                    "expected 1 or 2 arguments, got %d", len(args_w))
     if w_obj is space.w_None:
         w_obj = None
     if w_type is space.w_None:
@@ -228,13 +228,15 @@ def wrap_hashfunc(space, w_self, w_args, func):
     check_num_args(space, w_args, 0)
     return space.wrap(generic_cpy_call(space, func_target, w_self))
 
-class CPyBuffer(W_Buffer):
+class CPyBuffer(Buffer):
     # Similar to Py_buffer
+    _immutable_ = True
 
     def __init__(self, ptr, size, w_obj):
         self.ptr = ptr
         self.size = size
         self.w_obj = w_obj # kept alive
+        self.readonly = True
 
     def getlength(self):
         return self.size
@@ -249,7 +251,7 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
         size = generic_cpy_call(space, func_target, w_self, index, ptr)
         if size < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
-        return space.wrap(CPyBuffer(ptr[0], size, w_self))
+        return space.newbuffer(CPyBuffer(ptr[0], size, w_self))
 
 def get_richcmp_func(OP_CONST):
     def inner(space, w_self, w_args, func):
@@ -274,9 +276,9 @@ def wrap_cmpfunc(space, w_self, w_args, func):
 
     if not space.is_true(space.issubtype(space.type(w_self),
                                          space.type(w_other))):
-        raise operationerrfmt(space.w_TypeError,
-            "%T.__cmp__(x,y) requires y to be a '%T', not a '%T'",
-            w_self, w_self, w_other)
+        raise oefmt(space.w_TypeError,
+                    "%T.__cmp__(x,y) requires y to be a '%T', not a '%T'",
+                    w_self, w_self, w_other)
 
     return space.wrap(generic_cpy_call(space, func_target, w_self, w_other))
 

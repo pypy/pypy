@@ -1,7 +1,6 @@
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.stdtypedef import GetSetProperty, StdTypeDef
 from pypy.objspace.std.stdtypedef import StdObjSpaceMultiMethod
 from rpython.rlib.rfloat import string_to_float
@@ -39,21 +38,19 @@ def _split_complex(s):
         # ignore whitespace after bracket
         while i < slen and s[i] == ' ':
             i += 1
+        while slen > 0 and s[slen-1] == ' ':
+            slen -= 1
 
     # extract first number
     realstart = i
     pc = s[i]
     while i < slen and s[i] != ' ':
-        if s[i] in ('+','-') and pc not in ('e','E') and i != realstart:
+        if s[i] in ('+', '-') and pc not in ('e', 'E') and i != realstart:
             break
         pc = s[i]
         i += 1
 
     realstop = i
-
-    # ignore whitespace
-    while i < slen and s[i] == ' ':
-        i += 1
 
     # return appropriate strings is only one number is there
     if i >= slen:
@@ -76,20 +73,17 @@ def _split_complex(s):
     # find sign for imaginary part
     if s[i] == '-' or s[i] == '+':
         imagsign = s[i]
-    if imagsign == ' ':
+    else:
         raise ValueError
 
-    i+=1
-    # whitespace
-    while i < slen and s[i] == ' ':
-        i += 1
+    i += 1
     if i >= slen:
         raise ValueError
 
     imagstart = i
     pc = s[i]
     while i < slen and s[i] != ' ':
-        if s[i] in ('+','-') and pc not in ('e','E'):
+        if s[i] in ('+', '-') and pc not in ('e', 'E'):
             break
         pc = s[i]
         i += 1
@@ -97,14 +91,12 @@ def _split_complex(s):
     imagstop = i - 1
     if imagstop < 0:
         raise ValueError
-    if s[imagstop] not in ('j','J'):
+    if s[imagstop] not in ('j', 'J'):
         raise ValueError
     if imagstop < imagstart:
         raise ValueError
 
-    while i<slen and s[i] == ' ':
-        i += 1
-    if i <  slen:
+    if i < slen:
         raise ValueError
 
     realpart = s[realstart:realstop]
@@ -222,9 +214,8 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     # Check that it is not a string (on which space.float() would succeed).
     if (space.isinstance_w(w_complex, space.w_str) or
         space.isinstance_w(w_complex, space.w_unicode)):
-        raise operationerrfmt(space.w_TypeError,
-                              "complex number expected, got '%T'",
-                              w_complex)
+        raise oefmt(space.w_TypeError,
+                    "complex number expected, got '%T'", w_complex)
     #
     return (space.float_w(space.float(w_complex)), 0.0)
 

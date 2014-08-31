@@ -2,28 +2,22 @@
 Binary operations between SomeValues.
 """
 
-import py
 import operator
 from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import (
     SomeObject, SomeInteger, SomeBool, s_Bool, SomeString, SomeChar, SomeList,
-    SomeDict, SomeOrderedDict, SomeUnicodeCodePoint, SomeUnicodeString,
+    SomeDict, SomeUnicodeCodePoint, SomeUnicodeString,
     SomeTuple, SomeImpossibleValue, s_ImpossibleValue, SomeInstance,
-    SomeBuiltin, SomeIterator, SomePBC, SomeFloat, s_None, SomeByteArray,
-    SomeWeakRef, SomeSingleFloat,
+    SomeBuiltinMethod, SomeIterator, SomePBC, SomeNone, SomeFloat, s_None,
+    SomeByteArray, SomeWeakRef, SomeSingleFloat,
     SomeLongFloat, SomeType, SomeConstantType, unionof, UnionError,
     read_can_only_throw, add_knowntypedata,
     merge_knowntypedata,)
-from rpython.rtyper.llannotation import SomeAddress, SomeTypedAddressAccess
-from rpython.annotator.bookkeeper import getbookkeeper
+from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.flowspace.model import Variable, Constant
 from rpython.flowspace.operation import op
 from rpython.rlib import rarithmetic
 from rpython.annotator.model import AnnotatorError
-
-# convenience only!
-def immutablevalue(x):
-    return getbookkeeper().immutablevalue(x)
 
 BINARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 2])
@@ -725,6 +719,14 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
             return super(thistype, pair(ins1, ins2)).improve()
 
 
+class __extend__(pairtype(SomeInstance, SomeObject)):
+    def getitem((s_ins, s_idx)):
+        return s_ins._emulate_call("__getitem__", s_idx)
+
+    def setitem((s_ins, s_idx), s_value):
+        return s_ins._emulate_call("__setitem__", s_idx, s_value)
+
+
 class __extend__(pairtype(SomeIterator, SomeIterator)):
 
     def union((iter1, iter2)):
@@ -735,15 +737,14 @@ class __extend__(pairtype(SomeIterator, SomeIterator)):
         return SomeIterator(s_cont, *iter1.variant)
 
 
-class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
-
+class __extend__(pairtype(SomeBuiltinMethod, SomeBuiltinMethod)):
     def union((bltn1, bltn2)):
         if (bltn1.analyser != bltn2.analyser or
-            bltn1.methodname != bltn2.methodname or
-            bltn1.s_self is None or bltn2.s_self is None):
+                bltn1.methodname != bltn2.methodname):
             raise UnionError(bltn1, bltn2)
         s_self = unionof(bltn1.s_self, bltn2.s_self)
-        return SomeBuiltin(bltn1.analyser, s_self, methodname=bltn1.methodname)
+        return SomeBuiltinMethod(bltn1.analyser, s_self,
+                methodname=bltn1.methodname)
 
 class __extend__(pairtype(SomePBC, SomePBC)):
 
@@ -774,102 +775,52 @@ class __extend__(pairtype(SomeObject, SomeImpossibleValue)):
 
 # mixing Nones with other objects
 
-def _make_none_union(classname, constructor_args='', glob=None):
-    if glob is None:
-        glob = globals()
-    loc = locals()
-    source = py.code.Source("""
-        class __extend__(pairtype(%(classname)s, SomePBC)):
-            def union((obj, pbc)):
-                if pbc.isNone():
-                    return %(classname)s(%(constructor_args)s)
-                else:
-                    raise UnionError(pbc, obj)
+class __extend__(pairtype(SomeObject, SomeNone)):
+    def union((obj, none)):
+        return obj.noneify()
 
-        class __extend__(pairtype(SomePBC, %(classname)s)):
-            def union((pbc, obj)):
-                if pbc.isNone():
-                    return %(classname)s(%(constructor_args)s)
-                else:
-                    raise UnionError(pbc, obj)
-    """ % loc)
-    exec source.compile() in glob
+class __extend__(pairtype(SomeNone, SomeObject)):
+    def union((none, obj)):
+        return obj.noneify()
 
-_make_none_union('SomeInstance',   'classdef=obj.classdef, can_be_None=True')
-_make_none_union('SomeString',      'no_nul=obj.no_nul, can_be_None=True')
-_make_none_union('SomeUnicodeString', 'can_be_None=True')
-_make_none_union('SomeList',         'obj.listdef')
-_make_none_union('SomeOrderedDict',          'obj.dictdef')
-_make_none_union('SomeDict',          'obj.dictdef')
-_make_none_union('SomeWeakRef',         'obj.classdef')
+class __extend__(pairtype(SomeImpossibleValue, SomeNone)):
+    def union((imp1, none)):
+        return s_None
 
-# getitem on SomePBCs, in particular None fails
+class __extend__(pairtype(SomeNone, SomeImpossibleValue)):
+    def union((none, imp2)):
+        return s_None
+
 
 class __extend__(pairtype(SomePBC, SomeObject)):
     def getitem((pbc, o)):
-        if not pbc.isNone():
-            raise AnnotatorError("getitem on %r" % pbc)
-        return s_ImpossibleValue
+        raise AnnotatorError("getitem on %r" % pbc)
 
     def setitem((pbc, o), s_value):
-        if not pbc.isNone():
-            raise AnnotatorError("setitem on %r" % pbc)
+        raise AnnotatorError("setitem on %r" % pbc)
+
+class __extend__(pairtype(SomeNone, SomeObject)):
+    def getitem((none, o)):
+        return s_ImpossibleValue
+
+    def setitem((none, o), s_value):
+        return None
 
 class __extend__(pairtype(SomePBC, SomeString)):
     def add((pbc, o)):
-        if not pbc.isNone():
-            raise AnnotatorError('add on %r' % pbc)
+        raise AnnotatorError('add on %r' % pbc)
+
+class __extend__(pairtype(SomeNone, SomeString)):
+    def add((none, o)):
         return s_ImpossibleValue
 
 class __extend__(pairtype(SomeString, SomePBC)):
     def add((o, pbc)):
-        if not pbc.isNone():
-            raise AnnotatorError('add on %r' % pbc)
+        raise AnnotatorError('add on %r' % pbc)
+
+class __extend__(pairtype(SomeString, SomeNone)):
+    def add((o, none)):
         return s_ImpossibleValue
-
-# ____________________________________________________________
-# annotation of low-level types
-from rpython.rtyper.llannotation import (
-    SomePtr, ll_to_annotation, annotation_to_lltype, lltype_to_annotation)
-
-class __extend__(pairtype(SomePtr, SomePtr)):
-    def union((p1, p2)):
-        assert p1.ll_ptrtype == p2.ll_ptrtype,("mixing of incompatible pointer types: %r, %r" %
-                                               (p1.ll_ptrtype, p2.ll_ptrtype))
-        return SomePtr(p1.ll_ptrtype)
-
-class __extend__(pairtype(SomePtr, SomeInteger)):
-
-    def getitem((p, int1)):
-        example = p.ll_ptrtype._example()
-        try:
-            v = example[0]
-        except IndexError:
-            return None       # impossible value, e.g. FixedSizeArray(0)
-        return ll_to_annotation(v)
-    getitem.can_only_throw = []
-
-    def setitem((p, int1), s_value):   # just doing checking
-        example = p.ll_ptrtype._example()
-        if example[0] is not None:  # ignore Void s_value
-            v_lltype = annotation_to_lltype(s_value)
-            example[0] = v_lltype._defl()
-    setitem.can_only_throw = []
-
-class __extend__(pairtype(SomePtr, SomeObject)):
-    def union((p, obj)):
-        assert False, ("mixing pointer type %r with something else %r" % (p.ll_ptrtype, obj))
-
-    def getitem((p, obj)):
-        assert False,"ptr %r getitem index not an int: %r" % (p.ll_ptrtype, obj)
-
-    def setitem((p, obj), s_value):
-        assert False,"ptr %r setitem index not an int: %r" % (p.ll_ptrtype, obj)
-
-class __extend__(pairtype(SomeObject, SomePtr)):
-    def union((obj, p2)):
-        return pair(p2, obj).union()
-
 
 #_________________________________________
 # weakrefs
@@ -883,62 +834,5 @@ class __extend__(pairtype(SomeWeakRef, SomeWeakRef)):
         else:
             basedef = s_wrf1.classdef.commonbase(s_wrf2.classdef)
             if basedef is None:    # no common base class! complain...
-                return SomeObject()
+                raise UnionError(s_wrf1, s_wrf2)
         return SomeWeakRef(basedef)
-
-#_________________________________________
-# memory addresses
-
-class __extend__(pairtype(SomeAddress, SomeAddress)):
-    def union((s_addr1, s_addr2)):
-        return SomeAddress()
-
-    def sub((s_addr1, s_addr2)):
-        if s_addr1.is_null_address() and s_addr2.is_null_address():
-            return getbookkeeper().immutablevalue(0)
-        return SomeInteger()
-
-    def is_((s_addr1, s_addr2)):
-        assert False, "comparisons with is not supported by addresses"
-
-class __extend__(pairtype(SomeTypedAddressAccess, SomeTypedAddressAccess)):
-    def union((s_taa1, s_taa2)):
-        assert s_taa1.type == s_taa2.type
-        return s_taa1
-
-class __extend__(pairtype(SomeTypedAddressAccess, SomeInteger)):
-    def getitem((s_taa, s_int)):
-        return lltype_to_annotation(s_taa.type)
-    getitem.can_only_throw = []
-
-    def setitem((s_taa, s_int), s_value):
-        assert annotation_to_lltype(s_value) is s_taa.type
-    setitem.can_only_throw = []
-
-
-class __extend__(pairtype(SomeAddress, SomeInteger)):
-    def add((s_addr, s_int)):
-        return SomeAddress()
-
-    def sub((s_addr, s_int)):
-        return SomeAddress()
-
-class __extend__(pairtype(SomeAddress, SomeImpossibleValue)):
-    # need to override this specifically to hide the 'raise UnionError'
-    # of pairtype(SomeAddress, SomeObject).
-    def union((s_addr, s_imp)):
-        return s_addr
-
-class __extend__(pairtype(SomeImpossibleValue, SomeAddress)):
-    # need to override this specifically to hide the 'raise UnionError'
-    # of pairtype(SomeObject, SomeAddress).
-    def union((s_imp, s_addr)):
-        return s_addr
-
-class __extend__(pairtype(SomeAddress, SomeObject)):
-    def union((s_addr, s_obj)):
-        raise UnionError(s_addr, s_obj)
-
-class __extend__(pairtype(SomeObject, SomeAddress)):
-    def union((s_obj, s_addr)):
-        raise UnionError(s_obj, s_addr)

@@ -26,6 +26,16 @@ Here is what we have implemented so far, in historical order:
 Transparent Proxies
 ================================
 
+.. warning::
+
+    This is a feature that was tried experimentally long ago, and we
+    found no really good use cases.  The basic functionality is still
+    there, but we don't recommend using it.  Some of the examples below
+    might not work any more (e.g. you can't tproxy a list object any
+    more).  The rest can be done by hacking in standard Python.  If
+    anyone is interested in working on tproxy again, he is welcome, but
+    we don't regard this as an interesting extension.
+
 PyPy's Transparent Proxies allow routing of operations on objects
 to a callable.  Application level code can customize objects without
 interfering with the type system - ``type(proxied_list) is list`` holds true
@@ -185,6 +195,6 @@ lists, dicts, exceptions, tracebacks and frames.
 .. _`standard object space`: objspace.html#the-standard-object-space
 
 .. [D12.1] `High-Level Backends and Interpreter Feature Prototypes`, PyPy
-           EU-Report, 2007, http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
+           EU-Report, 2007, https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
 
 .. include:: _ref.txt

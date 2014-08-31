@@ -3,13 +3,13 @@ Primitives.
 """
 
 import sys
-from pypy.interpreter.error import operationerrfmt
 
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 
+from pypy.interpreter.error import oefmt
 from pypy.module._cffi_backend import cdataobj, misc
 from pypy.module._cffi_backend.ctypeobj import W_CType
 
@@ -34,18 +34,18 @@ class W_CTypePrimitive(W_CType):
         space = self.space
         s = space.str_w(w_ob)
         if len(s) != 1:
-            raise operationerrfmt(space.w_TypeError,
-                              "cannot cast string of length %d to ctype '%s'",
-                                  len(s), self.name)
+            raise oefmt(space.w_TypeError,
+                        "cannot cast string of length %d to ctype '%s'",
+                        len(s), self.name)
         return ord(s[0])
 
     def cast_unicode(self, w_ob):
         space = self.space
         s = space.unicode_w(w_ob)
         if len(s) != 1:
-            raise operationerrfmt(space.w_TypeError,
-                      "cannot cast unicode string of length %d to ctype '%s'",
-                                  len(s), self.name)
+            raise oefmt(space.w_TypeError,
+                        "cannot cast unicode string of length %d to ctype '%s'",
+                        len(s), self.name)
         return ord(s[0])
 
     def cast(self, w_ob):
@@ -76,8 +76,8 @@ class W_CTypePrimitive(W_CType):
     def _overflow(self, w_ob):
         space = self.space
         s = space.str_w(space.str(w_ob))
-        raise operationerrfmt(space.w_OverflowError,
-                              "integer %s does not fit '%s'", s, self.name)
+        raise oefmt(space.w_OverflowError,
+                    "integer %s does not fit '%s'", s, self.name)
 
     def string(self, cdataobj, maxlen):
         if self.size == 1:
@@ -182,8 +182,12 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
             value = misc.read_raw_long_data(cdata, self.size)
             return self.space.wrap(value)
         else:
-            value = misc.read_raw_signed_data(cdata, self.size)
-            return self.space.wrap(value)    # r_longlong => on 32-bit, 'long'
+            return self._convert_to_object_longlong(cdata)
+
+    def _convert_to_object_longlong(self, cdata):
+        # in its own function: LONGLONG may make the whole function jit-opaque
+        value = misc.read_raw_signed_data(cdata, self.size)
+        return self.space.wrap(value)    # r_longlong => on 32-bit, 'long'
 
     def convert_from_object(self, cdata, w_ob):
         if self.value_fits_long:
@@ -193,8 +197,12 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
                     self._overflow(w_ob)
             misc.write_raw_signed_data(cdata, value, self.size)
         else:
-            value = misc.as_long_long(self.space, w_ob)
-            misc.write_raw_signed_data(cdata, value, self.size)
+            self._convert_from_object_longlong(cdata, w_ob)
+
+    def _convert_from_object_longlong(self, cdata, w_ob):
+        # in its own function: LONGLONG may make the whole function jit-opaque
+        value = misc.as_long_long(self.space, w_ob)
+        misc.write_raw_signed_data(cdata, value, self.size)
 
     def get_vararg_type(self):
         if self.size < rffi.sizeof(rffi.INT):
@@ -264,8 +272,12 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
                     self._overflow(w_ob)
             misc.write_raw_unsigned_data(cdata, value, self.size)
         else:
-            value = misc.as_unsigned_long_long(self.space, w_ob, strict=True)
-            misc.write_raw_unsigned_data(cdata, value, self.size)
+            self._convert_from_object_longlong(cdata, w_ob)
+
+    def _convert_from_object_longlong(self, cdata, w_ob):
+        # in its own function: LONGLONG may make the whole function jit-opaque
+        value = misc.as_unsigned_long_long(self.space, w_ob, strict=True)
+        misc.write_raw_unsigned_data(cdata, value, self.size)
 
     def convert_to_object(self, cdata):
         if self.value_fits_ulong:
@@ -275,8 +287,12 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
             else:
                 return self.space.wrap(value)    # r_uint => 'long' object
         else:
-            value = misc.read_raw_unsigned_data(cdata, self.size)
-            return self.space.wrap(value)    # r_ulonglong => 'long' object
+            return self._convert_to_object_longlong(cdata)
+
+    def _convert_to_object_longlong(self, cdata):
+        # in its own function: LONGLONG may make the whole function jit-opaque
+        value = misc.read_raw_unsigned_data(cdata, self.size)
+        return self.space.wrap(value)    # r_ulonglong => 'long' object
 
     def get_vararg_type(self):
         if self.size < rffi.sizeof(rffi.INT):
@@ -330,9 +346,9 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         space = self.space
         if isinstance(w_ob, cdataobj.W_CData):
             if not isinstance(w_ob.ctype, W_CTypePrimitive):
-                raise operationerrfmt(space.w_TypeError,
-                                      "cannot cast ctype '%s' to ctype '%s'",
-                                      w_ob.ctype.name, self.name)
+                raise oefmt(space.w_TypeError,
+                            "cannot cast ctype '%s' to ctype '%s'",
+                            w_ob.ctype.name, self.name)
             w_ob = w_ob.convert_to_object()
         #
         if space.isinstance_w(w_ob, space.w_str):

@@ -130,7 +130,9 @@ def elidable_promote(promote_args='all'):
         if promote_args != 'all':
             args = [args[int(i)] for i in promote_args.split(",")]
         for arg in args:
-            code.append("    %s = hint(%s, promote=True)\n" % (arg, arg))
+            code.append( #use both hints, and let jtransform pick the right one
+                "    %s = hint(%s, promote=True, promote_string=True)\n" %
+                (arg, arg))
         code.append("    return _orig_func_unlikely_name(%s)\n" % (argstring, ))
         d = {"_orig_func_unlikely_name": func, "hint": hint}
         exec py.code.Source("\n".join(code)).compile() in d
@@ -338,6 +340,7 @@ def jit_callback(name):
 # ____________________________________________________________
 # VRefs
 
+@specialize.argtype(0)
 def virtual_ref(x):
     """Creates a 'vref' object that contains a reference to 'x'.  Calls
     to virtual_ref/virtual_ref_finish must be properly nested.  The idea
@@ -349,6 +352,7 @@ def virtual_ref(x):
     return DirectJitVRef(x)
 virtual_ref.oopspec = 'virtual_ref(x)'
 
+@specialize.argtype(1)
 def virtual_ref_finish(vref, x):
     """See docstring in virtual_ref(x)"""
     keepalive_until_here(x)   # otherwise the whole function call is removed
@@ -591,7 +595,7 @@ class JitDriver(object):
 
     def can_enter_jit(_self, **livevars):
         if _self.autoreds:
-            raise TypeError, "Cannot call can_enter_jit on a driver with reds='auto'"
+            raise TypeError("Cannot call can_enter_jit on a driver with reds='auto'")
         # special-cased by ExtRegistryEntry
         if _self.check_untranslated:
             _self._check_arguments(livevars, False)

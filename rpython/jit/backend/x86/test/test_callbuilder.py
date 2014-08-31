@@ -18,16 +18,14 @@ class FakeAssembler:
         self._log.append(('mov', src, dst))
 
 
-def test_base_case():
+def test_base_case(call_release_gil_mode=False):
     asm = FakeAssembler()
     cb = callbuilder.CallBuilder64(asm, ImmedLoc(12345), [ebx, ebx])
+    if call_release_gil_mode:
+        cb.select_call_release_gil_mode()
     cb.prepare_arguments()
     assert asm._log == [('mov', ebx, edi),
                         ('mov', ebx, esi)]
 
-def test_bug_call_release_gil():
-    asm = FakeAssembler()
-    cb = callbuilder.CallBuilder64(asm, ImmedLoc(12345), [ebx, ebx])
-    cb.select_call_release_gil_mode()
-    cb.prepare_arguments()
-    assert asm._log == [('mov', ebx, ecx)]
+def test_call_release_gil():
+    test_base_case(call_release_gil_mode=True)

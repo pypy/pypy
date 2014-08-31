@@ -13,6 +13,13 @@ except ImportError:
 
 zlib = import_module('zlib')
 
+requires_Compress_copy = unittest.skipUnless(
+        hasattr(zlib.compressobj(), "copy"),
+        'requires Compress.copy()')
+requires_Decompress_copy = unittest.skipUnless(
+        hasattr(zlib.decompressobj(), "copy"),
+        'requires Decompress.copy()')
+
 
 class ChecksumTestCase(unittest.TestCase):
     # checksum test cases
@@ -333,39 +340,39 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
                                         "mode=%i, level=%i") % (sync, level))
                 del obj
 
+    @unittest.skipUnless(hasattr(zlib, 'Z_SYNC_FLUSH'),
+                         'requires zlib.Z_SYNC_FLUSH')
     def test_odd_flush(self):
         # Test for odd flushing bugs noted in 2.0, and hopefully fixed in 2.1
         import random
+        # Testing on 17K of "random" data
 
-        if hasattr(zlib, 'Z_SYNC_FLUSH'):
-            # Testing on 17K of "random" data
+        # Create compressor and decompressor objects
+        co = zlib.compressobj(zlib.Z_BEST_COMPRESSION)
+        dco = zlib.decompressobj()
 
-            # Create compressor and decompressor objects
-            co = zlib.compressobj(zlib.Z_BEST_COMPRESSION)
-            dco = zlib.decompressobj()
-
-            # Try 17K of data
-            # generate random data stream
+        # Try 17K of data
+        # generate random data stream
+        try:
+            # In 2.3 and later, WichmannHill is the RNG of the bug report
+            gen = random.WichmannHill()
+        except AttributeError:
             try:
-                # In 2.3 and later, WichmannHill is the RNG of the bug report
-                gen = random.WichmannHill()
+                # 2.2 called it Random
+                gen = random.Random()
             except AttributeError:
-                try:
-                    # 2.2 called it Random
-                    gen = random.Random()
-                except AttributeError:
-                    # others might simply have a single RNG
-                    gen = random
-            gen.seed(1)
-            data = genblock(1, 17 * 1024, generator=gen)
+                # others might simply have a single RNG
+                gen = random
+        gen.seed(1)
+        data = genblock(1, 17 * 1024, generator=gen)
 
-            # compress, sync-flush, and decompress
-            first = co.compress(data)
-            second = co.flush(zlib.Z_SYNC_FLUSH)
-            expanded = dco.decompress(first + second)
+        # compress, sync-flush, and decompress
+        first = co.compress(data)
+        second = co.flush(zlib.Z_SYNC_FLUSH)
+        expanded = dco.decompress(first + second)
 
-            # if decompressed data is different from the input data, choke.
-            self.assertEqual(expanded, data, "17K random source doesn't match")
+        # if decompressed data is different from the input data, choke.
+        self.assertEqual(expanded, data, "17K random source doesn't match")
 
     def test_empty_flush(self):
         # Test that calling .flush() on unused objects works.
@@ -390,65 +397,104 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         y += dco.flush()
         self.assertEqual(y, 'foo')
 
-    if hasattr(zlib.compressobj(), "copy"):
-        def test_compresscopy(self):
-            # Test copying a compression object
-            data0 = HAMLET_SCENE
-            data1 = HAMLET_SCENE.swapcase()
-            c0 = zlib.compressobj(zlib.Z_BEST_COMPRESSION)
-            bufs0 = []
-            bufs0.append(c0.compress(data0))
+    def test_flush_with_freed_input(self):
+        # Issue #16411: decompressor accesses input to last decompress() call
+        # in flush(), even if this object has been freed in the meanwhile.
+        input1 = 'abcdefghijklmnopqrstuvwxyz'
+        input2 = 'QWERTYUIOPASDFGHJKLZXCVBNM'
+        data = zlib.compress(input1)
+        dco = zlib.decompressobj()
+        dco.decompress(data, 1)
+        del data
+        data = zlib.compress(input2)
+        self.assertEqual(dco.flush(), input1[1:])
 
-            c1 = c0.copy()
-            bufs1 = bufs0[:]
+    @requires_Compress_copy
+    def test_compresscopy(self):
+        # Test copying a compression object
+        data0 = HAMLET_SCENE
+        data1 = HAMLET_SCENE.swapcase()
+        c0 = zlib.compressobj(zlib.Z_BEST_COMPRESSION)
+        bufs0 = []
+        bufs0.append(c0.compress(data0))
 
-            bufs0.append(c0.compress(data0))
-            bufs0.append(c0.flush())
-            s0 = ''.join(bufs0)
+        c1 = c0.copy()
+        bufs1 = bufs0[:]
 
-            bufs1.append(c1.compress(data1))
-            bufs1.append(c1.flush())
-            s1 = ''.join(bufs1)
+        bufs0.append(c0.compress(data0))
+        bufs0.append(c0.flush())
+        s0 = ''.join(bufs0)
 
-            self.assertEqual(zlib.decompress(s0),data0+data0)
-            self.assertEqual(zlib.decompress(s1),data0+data1)
+        bufs1.append(c1.compress(data1))
+        bufs1.append(c1.flush())
+        s1 = ''.join(bufs1)
 
-        def test_badcompresscopy(self):
-            # Test copying a compression object in an inconsistent state
-            c = zlib.compressobj()
-            c.compress(HAMLET_SCENE)
-            c.flush()
-            self.assertRaises(ValueError, c.copy)
+        self.assertEqual(zlib.decompress(s0),data0+data0)
+        self.assertEqual(zlib.decompress(s1),data0+data1)
 
-    if hasattr(zlib.decompressobj(), "copy"):
-        def test_decompresscopy(self):
-            # Test copying a decompression object
-            data = HAMLET_SCENE
-            comp = zlib.compress(data)
+    @requires_Compress_copy
+    def test_badcompresscopy(self):
+        # Test copying a compression object in an inconsistent state
+        c = zlib.compressobj()
+        c.compress(HAMLET_SCENE)
+        c.flush()
+        self.assertRaises(ValueError, c.copy)
 
-            d0 = zlib.decompressobj()
-            bufs0 = []
-            bufs0.append(d0.decompress(comp[:32]))
+    def test_decompress_unused_data(self):
+        # Repeated calls to decompress() after EOF should accumulate data in
+        # dco.unused_data, instead of just storing the arg to the last call.
+        source = b'abcdefghijklmnopqrstuvwxyz'
+        remainder = b'0123456789'
+        y = zlib.compress(source)
+        x = y + remainder
+        for maxlen in 0, 1000:
+            for step in 1, 2, len(y), len(x):
+                dco = zlib.decompressobj()
+                data = b''
+                for i in range(0, len(x), step):
+                    if i < len(y):
+                        self.assertEqual(dco.unused_data, b'')
+                    if maxlen == 0:
+                        data += dco.decompress(x[i : i + step])
+                        self.assertEqual(dco.unconsumed_tail, b'')
+                    else:
+                        data += dco.decompress(
+                                dco.unconsumed_tail + x[i : i + step], maxlen)
+                data += dco.flush()
+                self.assertEqual(data, source)
+                self.assertEqual(dco.unconsumed_tail, b'')
+                self.assertEqual(dco.unused_data, remainder)
 
-            d1 = d0.copy()
-            bufs1 = bufs0[:]
+    @requires_Decompress_copy
+    def test_decompresscopy(self):
+        # Test copying a decompression object
+        data = HAMLET_SCENE
+        comp = zlib.compress(data)
 
-            bufs0.append(d0.decompress(comp[32:]))
-            s0 = ''.join(bufs0)
+        d0 = zlib.decompressobj()
+        bufs0 = []
+        bufs0.append(d0.decompress(comp[:32]))
 
-            bufs1.append(d1.decompress(comp[32:]))
-            s1 = ''.join(bufs1)
+        d1 = d0.copy()
+        bufs1 = bufs0[:]
 
-            self.assertEqual(s0,s1)
-            self.assertEqual(s0,data)
+        bufs0.append(d0.decompress(comp[32:]))
+        s0 = ''.join(bufs0)
 
-        def test_baddecompresscopy(self):
-            # Test copying a compression object in an inconsistent state
-            data = zlib.compress(HAMLET_SCENE)
-            d = zlib.decompressobj()
-            d.decompress(data)
-            d.flush()
-            self.assertRaises(ValueError, d.copy)
+        bufs1.append(d1.decompress(comp[32:]))
+        s1 = ''.join(bufs1)
+
+        self.assertEqual(s0,s1)
+        self.assertEqual(s0,data)
+
+    @requires_Decompress_copy
+    def test_baddecompresscopy(self):
+        # Test copying a compression object in an inconsistent state
+        data = zlib.compress(HAMLET_SCENE)
+        d = zlib.decompressobj()
+        d.decompress(data)
+        d.flush()
+        self.assertRaises(ValueError, d.copy)
 
     # Memory use of the following functions takes into account overallocation
 

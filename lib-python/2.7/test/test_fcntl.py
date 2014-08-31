@@ -8,9 +8,9 @@ import struct
 import sys
 import unittest
 from test.test_support import (verbose, TESTFN, unlink, run_unittest,
-    import_module)
+    import_module, cpython_only)
 
-# Skip test if no fnctl module.
+# Skip test if no fcntl module.
 fcntl = import_module('fcntl')
 
 
@@ -51,6 +51,12 @@ def get_lockdata():
 lockdata = get_lockdata()
 
 
+class BadFile:
+    def __init__(self, fn):
+        self.fn = fn
+    def fileno(self):
+        return self.fn
+
 class TestFcntl(unittest.TestCase):
 
     def setUp(self):
@@ -81,6 +87,29 @@ class TestFcntl(unittest.TestCase):
             rv = fcntl.fcntl(self.f, fcntl.F_SETLKW, lockdata)
         self.f.close()
 
+    def test_fcntl_bad_file(self):
+        with self.assertRaises(ValueError):
+            fcntl.fcntl(-1, fcntl.F_SETFL, os.O_NONBLOCK)
+        with self.assertRaises(ValueError):
+            fcntl.fcntl(BadFile(-1), fcntl.F_SETFL, os.O_NONBLOCK)
+        with self.assertRaises(TypeError):
+            fcntl.fcntl('spam', fcntl.F_SETFL, os.O_NONBLOCK)
+        with self.assertRaises(TypeError):
+            fcntl.fcntl(BadFile('spam'), fcntl.F_SETFL, os.O_NONBLOCK)
+
+    @cpython_only
+    def test_fcntl_bad_file_overflow(self):
+        from _testcapi import INT_MAX, INT_MIN
+        # Issue 15989
+        with self.assertRaises(ValueError):
+            fcntl.fcntl(INT_MAX + 1, fcntl.F_SETFL, os.O_NONBLOCK)
+        with self.assertRaises(ValueError):
+            fcntl.fcntl(BadFile(INT_MAX + 1), fcntl.F_SETFL, os.O_NONBLOCK)
+        with self.assertRaises(ValueError):
+            fcntl.fcntl(INT_MIN - 1, fcntl.F_SETFL, os.O_NONBLOCK)
+        with self.assertRaises(ValueError):
+            fcntl.fcntl(BadFile(INT_MIN - 1), fcntl.F_SETFL, os.O_NONBLOCK)
+
     def test_fcntl_64_bit(self):
         # Issue #1309352: fcntl shouldn't fail when the third arg fits in a
         # C 'long' but not in a C 'int'.
@@ -92,7 +121,10 @@ class TestFcntl(unittest.TestCase):
             self.skipTest("F_NOTIFY or DN_MULTISHOT unavailable")
         fd = os.open(os.path.dirname(os.path.abspath(TESTFN)), os.O_RDONLY)
         try:
+            # This will raise OverflowError if issue1309352 is present.
             fcntl.fcntl(fd, cmd, flags)
+        except IOError:
+            pass  # Running on a system that doesn't support these flags.
         finally:
             os.close(fd)
 

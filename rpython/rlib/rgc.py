@@ -15,7 +15,6 @@ collect = gc.collect
 
 def set_max_heap_size(nbytes):
     """Limit the heap size to n bytes.
-    So far only implemented by the Boehm GC and the semispace/generation GCs.
     """
     pass
 
@@ -232,6 +231,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
 
 
 @jit.oopspec('rgc.ll_shrink_array(p, smallerlength)')
+@enforceargs(None, int)
 @specialize.ll()
 def ll_shrink_array(p, smallerlength):
     from rpython.rtyper.lltypesystem.lloperation import llop

@@ -1,9 +1,10 @@
 import sys
 import os
 from rpython.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
-from rpython.config.config import ChoiceOption, StrOption, Config
+from rpython.config.config import ChoiceOption, StrOption, Config, ConflictConfigError
 from rpython.config.config import ConfigError
 from rpython.config.support import detect_number_of_processors
+from rpython.translator.platform import platform as compiler
 
 DEFL_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
@@ -20,6 +21,12 @@ else:
     DEFL_ROOTFINDER_WITHJIT = "shadowstack"
 
 IS_64_BITS = sys.maxint > 2147483647
+
+SUPPORT__THREAD = (    # whether the particular C compiler supports __thread
+    sys.platform.startswith("linux"))     # Linux works
+    # OS/X doesn't work, because we still target 10.5/10.6 and the
+    # minimum required version is 10.7.  Windows doesn't work.  Please
+    # add other platforms here if it works on them.
 
 MAINDIR = os.path.dirname(os.path.dirname(__file__))
 CACHE_DIR = os.path.realpath(os.path.join(MAINDIR, '_cache'))
@@ -155,7 +162,8 @@ translation_optiondescription = OptionDescription(
     # portability options
     BoolOption("no__thread",
                "don't use __thread for implementing TLS",
-               default=False, cmdline="--no__thread", negation=False),
+               default=not SUPPORT__THREAD, cmdline="--no__thread",
+               negation=False),
     IntOption("make_jobs", "Specify -j argument to make for compilation"
               " (C backend only)",
               cmdline="--make-jobs", default=detect_number_of_processors()),
@@ -366,9 +374,10 @@ def set_opt_level(config, level):
     # if we have specified strange inconsistent settings.
     config.translation.gc = config.translation.gc
 
-    # disallow asmgcc on OS/X
+    # disallow asmgcc on OS/X and on Win32
     if config.translation.gcrootfinder == "asmgcc":
-        assert sys.platform != "darwin"
+        if sys.platform == "darwin" or sys.platform =="win32":
+            raise ConfigError("'asmgcc' not supported on this platform")
 
 # ----------------------------------------------------------------
 

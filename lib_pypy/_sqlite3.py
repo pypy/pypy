@@ -38,6 +38,7 @@ except ImportError:
 
 if sys.version_info[0] >= 3:
     StandardError = Exception
+    cmp = lambda x, y: (x > y) - (x < y)
     long = int
     xrange = range
     basestring = unicode = str
@@ -775,8 +776,12 @@ class Connection(object):
             def collation_callback(context, len1, str1, len2, str2):
                 text1 = _ffi.buffer(str1, len1)[:]
                 text2 = _ffi.buffer(str2, len2)[:]
-
-                return callback(text1, text2)
+                try:
+                    ret = callback(text1, text2)
+                    assert isinstance(ret, (int, long))
+                    return cmp(ret, 0)
+                except Exception:
+                    return 0
 
             self.__collations[name] = collation_callback
 
@@ -799,7 +804,12 @@ class Connection(object):
                            "const char*, const char*)")
             def authorizer(userdata, action, arg1, arg2, dbname, source):
                 try:
-                    return int(callback(action, arg1, arg2, dbname, source))
+                    ret = callback(action, arg1, arg2, dbname, source)
+                    assert isinstance(ret, int)
+                    # try to detect cases in which cffi would swallow
+                    # OverflowError when casting the return value
+                    assert int(_ffi.cast('int', ret)) == ret
+                    return ret
                 except Exception:
                     return _lib.SQLITE_DENY
             self.__func_cache[callback] = authorizer
@@ -1359,15 +1369,18 @@ class Row(object):
         self.description = cursor.description
         self.values = values
 
+    def __len__(self):
+        return len(self.values)
+
     def __getitem__(self, item):
-        if type(item) is int:
+        if isinstance(item, (int, long)):
             return self.values[item]
         else:
             item = item.lower()
             for idx, desc in enumerate(self.description):
                 if desc[0].lower() == item:
                     return self.values[idx]
-            raise KeyError
+            raise IndexError("No item with that key")
 
     def keys(self):
         return [desc[0] for desc in self.description]

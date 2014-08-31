@@ -130,7 +130,7 @@ def check_computegcmaptable(format, path):
     elif format == 'darwin' or format == 'darwin64':
         py.test.skip("disabled on OS/X's terribly old gcc")
     else:
-        r_globallabel = re.compile(r"([\w]+)=[.]+")
+        r_globallabel = re.compile(r"([\w.]+)=[.]+")
     print
     print path.dirpath().basename + '/' + path.basename
     lines = path.readlines()

@@ -19,6 +19,11 @@ class AppTestAST:
         ast = self.ast
         assert isinstance(ast.__version__, str)
 
+    def test_flags(self):
+        from copy_reg import _HEAPTYPE
+        assert self.ast.AST.__flags__ & _HEAPTYPE == 0
+        assert self.ast.Module.__flags__ & _HEAPTYPE == _HEAPTYPE
+
     def test_build_ast(self):
         ast = self.ast
         mod = self.get_ast("x = 4")
@@ -218,19 +223,19 @@ from __future__ import generators""")
         x = ast.Num()
         assert x._fields == ('n',)
         exc = raises(AttributeError, getattr, x, 'n')
-        assert exc.value.args[0] == "'Num' object has no attribute 'n'"
+        assert str(exc.value) == "'Num' object has no attribute 'n'"
 
         x = ast.Num(42)
         assert x.n == 42
         exc = raises(AttributeError, getattr, x, 'lineno')
-        assert exc.value.args[0] == "'Num' object has no attribute 'lineno'"
+        assert str(exc.value) == "'Num' object has no attribute 'lineno'"
 
         y = ast.Num()
         x.lineno = y
         assert x.lineno == y
 
         exc = raises(AttributeError, getattr, x, 'foobar')
-        assert exc.value.args[0] == "'Num' object has no attribute 'foobar'"
+        assert str(exc.value) == "'Num' object has no attribute 'foobar'"
 
         x = ast.Num(lineno=2)
         assert x.lineno == 2
@@ -242,6 +247,62 @@ from __future__ import generators""")
 
         raises(TypeError, ast.Num, 1, 2)
         raises(TypeError, ast.Num, 1, 2, lineno=0)
+
+    def test_issue1680_nonseq(self):
+        # Test deleting an attribute manually
+
+        _ast = self.ast
+        mod = self.get_ast("self.attr")
+        assert isinstance(mod, _ast.Module)
+        assert len(mod.body) == 1
+        assert isinstance(mod.body[0], _ast.Expr)
+        assert isinstance(mod.body[0].value, _ast.Attribute)
+        assert isinstance(mod.body[0].value.value, _ast.Name)
+        attr = mod.body[0].value
+        assert hasattr(attr, 'value')
+        delattr(attr, 'value')
+        assert not hasattr(attr, 'value')
+
+        # Test using a node transformer to delete an attribute
+
+        tree = self.get_ast("self.attr2")
+
+        import ast
+        class RemoveSelf( ast.NodeTransformer ):
+          """NodeTransformer class to remove all references to 'self' in the ast"""
+          def visit_Name( self, node ):
+            if node.id == 'self':
+              return None
+            return node
+
+        assert hasattr(tree.body[0].value, 'value')
+        #print ast.dump( tree )
+        new_tree = RemoveSelf().visit( tree )
+        #print ast.dump( new_tree )
+        assert not hasattr(new_tree.body[0].value, 'value')
+
+        # Setting an attribute manually, then deleting it
+
+        mod = self.get_ast("class MyClass(object): pass")
+        import ast
+        assert isinstance(mod.body[0], _ast.ClassDef)
+        mod.body[0].name = 42
+        delattr(mod.body[0], 'name')
+        assert not hasattr(mod.body[0], 'name')
+
+    def test_issue1680_seq(self):
+        # Test deleting an attribute manually
+
+        _ast = self.ast
+        mod = self.get_ast("self.attr")
+        assert isinstance(mod, _ast.Module)
+        assert len(mod.body) == 1
+        assert isinstance(mod.body[0], _ast.Expr)
+        assert isinstance(mod.body[0].value, _ast.Attribute)
+        assert isinstance(mod.body[0].value.value, _ast.Name)
+        assert hasattr(mod, 'body')
+        delattr(mod, 'body')
+        assert not hasattr(mod, 'body')
 
     def test_node_identity(self):
         import _ast as ast
@@ -329,3 +390,38 @@ from __future__ import generators""")
         mod.body[0].body[0].handlers[0].lineno = 7
         mod.body[0].body[0].handlers[1].lineno = 6
         code = compile(mod, "<test>", "exec")
+
+    def test_dict_astNode(self):
+        import ast
+        num_node = ast.Num(n=2, lineno=2, col_offset=3)
+        dict_res = num_node.__dict__
+        assert dict_res == {'n':2, 'lineno':2, 'col_offset':3}
+
+    def test_issue1673_Num_notfullinit(self):
+        import ast
+        import copy
+        num_node = ast.Num(n=2,lineno=2)
+        assert num_node.n == 2
+        assert num_node.lineno == 2
+        num_node2 = copy.deepcopy(num_node)
+
+    def test_issue1673_Num_fullinit(self):
+        import ast
+        import copy
+        num_node = ast.Num(n=2,lineno=2,col_offset=3)
+        num_node2 = copy.deepcopy(num_node)
+        assert num_node.n == num_node2.n
+        assert num_node.lineno == num_node2.lineno
+        assert num_node.col_offset == num_node2.col_offset
+        dict_res = num_node2.__dict__
+        assert dict_res == {'n':2, 'lineno':2, 'col_offset':3}
+
+    def test_issue1673_Str(self):
+        import ast
+        import copy
+        str_node = ast.Str(n=2,lineno=2)
+        assert str_node.n == 2
+        assert str_node.lineno == 2
+        str_node2 = copy.deepcopy(str_node)
+        dict_res = str_node2.__dict__
+        assert dict_res == {'n':2, 'lineno':2}

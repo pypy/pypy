@@ -41,6 +41,7 @@ tkinter = _tkinter # b/w compat for export
 TclError = _tkinter.TclError
 from types import *
 from Tkconstants import *
+import re
 
 wantobjects = 1
 
@@ -57,6 +58,37 @@ except AttributeError: _tkinter.createfilehandler = None
 try: _tkinter.deletefilehandler
 except AttributeError: _tkinter.deletefilehandler = None
 
+
+_magic_re = re.compile(r'([\\{}])')
+_space_re = re.compile(r'([\s])')
+
+def _join(value):
+    """Internal function."""
+    return ' '.join(map(_stringify, value))
+
+def _stringify(value):
+    """Internal function."""
+    if isinstance(value, (list, tuple)):
+        if len(value) == 1:
+            value = _stringify(value[0])
+            if value[0] == '{':
+                value = '{%s}' % value
+        else:
+            value = '{%s}' % _join(value)
+    else:
+        if isinstance(value, str):
+            value = unicode(value, 'utf-8')
+        elif not isinstance(value, unicode):
+            value = str(value)
+        if not value:
+            value = '{}'
+        elif _magic_re.search(value):
+            # add '\' before special characters and spaces
+            value = _magic_re.sub(r'\\\1', value)
+            value = _space_re.sub(r'\\\1', value)
+        elif value[0] == '"' or _space_re.search(value):
+            value = '{%s}' % value
+    return value
 
 def _flatten(tuple):
     """Internal function."""
@@ -154,8 +186,12 @@ def _tkerror(err):
     """Internal function."""
     pass
 
-def _exit(code='0'):
-    """Internal function. Calling it will throw the exception SystemExit."""
+def _exit(code=0):
+    """Internal function. Calling it will raise the exception SystemExit."""
+    try:
+        code = int(code)
+    except ValueError:
+        pass
     raise SystemExit, code
 
 _varnum = 0
@@ -187,11 +223,13 @@ class Variable:
             _varnum += 1
         if value is not None:
             self.set(value)
-        elif not self._tk.call("info", "exists", self._name):
+        elif not self._tk.getboolean(self._tk.call("info", "exists", self._name)):
             self.set(self._default)
     def __del__(self):
         """Unset the variable in Tcl."""
-        self._tk.globalunsetvar(self._name)
+        if (self._tk is not None and
+            self._tk.getboolean(self._tk.call("info", "exists", self._name))):
+            self._tk.globalunsetvar(self._name)
     def __str__(self):
         """Return the name of the variable in Tcl."""
         return self._name
@@ -534,12 +572,19 @@ class Misc:
 
         The type keyword specifies the form in which the data is
         to be returned and should be an atom name such as STRING
-        or FILE_NAME.  Type defaults to STRING.
+        or FILE_NAME.  Type defaults to STRING, except on X11, where the default
+        is to try UTF8_STRING and fall back to STRING.
 
         This command is equivalent to:
 
         selection_get(CLIPBOARD)
         """
+        if 'type' not in kw and self._windowingsystem == 'x11':
+            try:
+                kw['type'] = 'UTF8_STRING'
+                return self.tk.call(('clipboard', 'get') + self._options(kw))
+            except TclError:
+                del kw['type']
         return self.tk.call(('clipboard', 'get') + self._options(kw))
 
     def clipboard_clear(self, **kw):
@@ -621,8 +666,16 @@ class Misc:
         A keyword parameter selection specifies the name of
         the selection and defaults to PRIMARY.  A keyword
         parameter displayof specifies a widget on the display
-        to use."""
+        to use. A keyword parameter type specifies the form of data to be
+        fetched, defaulting to STRING except on X11, where UTF8_STRING is tried
+        before STRING."""
         if 'displayof' not in kw: kw['displayof'] = self._w
+        if 'type' not in kw and self._windowingsystem == 'x11':
+            try:
+                kw['type'] = 'UTF8_STRING'
+                return self.tk.call(('selection', 'get') + self._options(kw))
+            except TclError:
+                del kw['type']
         return self.tk.call(('selection', 'get') + self._options(kw))
     def selection_handle(self, command, **kw):
         """Specify a function COMMAND to call if the X
@@ -1037,6 +1090,15 @@ class Misc:
         if displayof is None:
             return ('-displayof', self._w)
         return ()
+    @property
+    def _windowingsystem(self):
+        """Internal function."""
+        try:
+            return self._root()._windowingsystem_cached
+        except AttributeError:
+            ws = self._root()._windowingsystem_cached = \
+                        self.tk.call('tk', 'windowingsystem')
+            return ws
     def _options(self, cnf, kw = None):
         """Internal function."""
         if kw:
@@ -1058,7 +1120,7 @@ class Misc:
                             nv.append('%d' % item)
                         else:
                             # format it to proper Tcl code if it contains space
-                            nv.append(('{%s}' if ' ' in item else '%s') % item)
+                            nv.append(_stringify(item))
                     else:
                         v = ' '.join(nv)
                 res = res + ('-'+k, v)
@@ -1174,6 +1236,19 @@ class Misc:
         exc, val, tb = sys.exc_type, sys.exc_value, sys.exc_traceback
         root = self._root()
         root.report_callback_exception(exc, val, tb)
+
+    def _getconfigure(self, *args):
+        """Call Tcl configure command and return the result as a dict."""
+        cnf = {}
+        for x in self.tk.splitlist(self.tk.call(*args)):
+            x = self.tk.splitlist(x)
+            cnf[x[0][1:]] = (x[0][1:],) + x[1:]
+        return cnf
+
+    def _getconfigure1(self, *args):
+        x = self.tk.splitlist(self.tk.call(*args))
+        return (x[0][1:],) + x[1:]
+
     def _configure(self, cmd, cnf, kw):
         """Internal function."""
         if kw:
@@ -1181,15 +1256,9 @@ class Misc:
         elif cnf:
             cnf = _cnfmerge(cnf)
         if cnf is None:
-            cnf = {}
-            for x in self.tk.split(
-                    self.tk.call(_flatten((self._w, cmd)))):
-                cnf[x[0][1:]] = (x[0][1:],) + x[1:]
-            return cnf
+            return self._getconfigure(_flatten((self._w, cmd)))
         if type(cnf) is StringType:
-            x = self.tk.split(
-                    self.tk.call(_flatten((self._w, cmd, '-'+cnf))))
-            return (x[0][1:],) + x[1:]
+            return self._getconfigure1(_flatten((self._w, cmd, '-'+cnf)))
         self.tk.call(_flatten((self._w, cmd)) + self._options(cnf))
     # These used to be defined in Widget:
     def configure(self, cnf=None, **kw):
@@ -1211,8 +1280,8 @@ class Misc:
         raise TypeError("Tkinter objects don't support 'in' tests.")
     def keys(self):
         """Return a list of all resource names of this widget."""
-        return map(lambda x: x[0][1:],
-               self.tk.split(self.tk.call(self._w, 'configure')))
+        return [x[0][1:] for x in
+                self.tk.splitlist(self.tk.call(self._w, 'configure'))]
     def __str__(self):
         """Return the window path name of this widget."""
         return self._w
@@ -1267,6 +1336,21 @@ class Misc:
         return self._getints(self.tk.call(*args)) or None
 
     bbox = grid_bbox
+
+    def _gridconvvalue(self, value):
+        if isinstance(value, (str, _tkinter.Tcl_Obj)):
+            try:
+                svalue = str(value)
+                if not svalue:
+                    return None
+                elif '.' in svalue:
+                    return getdouble(svalue)
+                else:
+                    return getint(svalue)
+            except ValueError:
+                pass
+        return value
+
     def _grid_configure(self, command, index, cnf, kw):
         """Internal function."""
         if type(cnf) is StringType and not kw:
@@ -1285,22 +1369,14 @@ class Misc:
             for i in range(0, len(words), 2):
                 key = words[i][1:]
                 value = words[i+1]
-                if not value:
-                    value = None
-                elif '.' in value:
-                    value = getdouble(value)
-                else:
-                    value = getint(value)
-                dict[key] = value
+                dict[key] = self._gridconvvalue(value)
             return dict
         res = self.tk.call(
                   ('grid', command, self._w, index)
                   + options)
         if len(options) == 1:
-            if not res: return None
-            # In Tk 7.5, -width can be a float
-            if '.' in res: return getdouble(res)
-            return getint(res)
+            return self._gridconvvalue(res)
+
     def grid_columnconfigure(self, index, cnf={}, **kw):
         """Configure column INDEX of a grid.
 
@@ -1387,11 +1463,11 @@ class Misc:
 
     def image_names(self):
         """Return a list of all existing image names."""
-        return self.tk.call('image', 'names')
+        return self.tk.splitlist(self.tk.call('image', 'names'))
 
     def image_types(self):
         """Return a list of all available image types (e.g. phote bitmap)."""
-        return self.tk.call('image', 'types')
+        return self.tk.splitlist(self.tk.call('image', 'types'))
 
 
 class CallWrapper:
@@ -1505,7 +1581,10 @@ class Wm:
         if len(wlist) > 1:
             wlist = (wlist,) # Tk needs a list of windows here
         args = ('wm', 'colormapwindows', self._w) + wlist
-        return map(self._nametowidget, self.tk.call(args))
+        if wlist:
+            self.tk.call(args)
+        else:
+            return map(self._nametowidget, self.tk.splitlist(self.tk.call(args)))
     colormapwindows = wm_colormapwindows
     def wm_command(self, value=None):
         """Store VALUE in WM_COMMAND property. It is the command
@@ -1676,7 +1755,7 @@ class Tk(Misc, Wm):
         # ensure that self.tk is always _something_.
         self.tk = None
         if baseName is None:
-            import sys, os
+            import os
             baseName = os.path.basename(sys.argv[0])
             baseName, ext = os.path.splitext(baseName)
             if ext not in ('.py', '.pyc', '.pyo'):
@@ -1685,7 +1764,9 @@ class Tk(Misc, Wm):
         self.tk = _tkinter.create(screenName, baseName, className, interactive, wantobjects, useTk, sync, use)
         if useTk:
             self._loadtk()
-        self.readprofile(baseName, className)
+        if not sys.flags.ignore_environment:
+            # Issue #16248: Honor the -E flag to avoid code injection.
+            self.readprofile(baseName, className)
     def loadtk(self):
         if not self._tkloaded:
             self.tk.loadtk()
@@ -1818,7 +1899,7 @@ class Pack:
         for i in range(0, len(words), 2):
             key = words[i][1:]
             value = words[i+1]
-            if value[:1] == '.':
+            if str(value)[:1] == '.':
                 value = self._nametowidget(value)
             dict[key] = value
         return dict
@@ -1869,7 +1950,7 @@ class Place:
         for i in range(0, len(words), 2):
             key = words[i][1:]
             value = words[i+1]
-            if value[:1] == '.':
+            if str(value)[:1] == '.':
                 value = self._nametowidget(value)
             dict[key] = value
         return dict
@@ -1918,7 +1999,7 @@ class Grid:
         for i in range(0, len(words), 2):
             key = words[i][1:]
             value = words[i+1]
-            if value[:1] == '.':
+            if str(value)[:1] == '.':
                 value = self._nametowidget(value)
             dict[key] = value
         return dict
@@ -2488,22 +2569,19 @@ class Listbox(Widget, XView, YView):
     def activate(self, index):
         """Activate item identified by INDEX."""
         self.tk.call(self._w, 'activate', index)
-    def bbox(self, *args):
+    def bbox(self, index):
         """Return a tuple of X1,Y1,X2,Y2 coordinates for a rectangle
-        which encloses the item identified by index in ARGS."""
-        return self._getints(
-            self.tk.call((self._w, 'bbox') + args)) or None
+        which encloses the item identified by the given index."""
+        return self._getints(self.tk.call(self._w, 'bbox', index)) or None
     def curselection(self):
-        """Return list of indices of currently selected item."""
-        # XXX Ought to apply self._getints()...
-        return self.tk.splitlist(self.tk.call(
-            self._w, 'curselection'))
+        """Return the indices of currently selected item."""
+        return self._getints(self.tk.call(self._w, 'curselection')) or ()
     def delete(self, first, last=None):
-        """Delete items from FIRST to LAST (not included)."""
+        """Delete items from FIRST to LAST (included)."""
         self.tk.call(self._w, 'delete', first, last)
     def get(self, first, last=None):
-        """Get list of items from FIRST to LAST (not included)."""
-        if last:
+        """Get list of items from FIRST to LAST (included)."""
+        if last is not None:
             return self.tk.splitlist(self.tk.call(
                 self._w, 'get', first, last))
         else:
@@ -2536,7 +2614,7 @@ class Listbox(Widget, XView, YView):
         self.tk.call(self._w, 'selection', 'anchor', index)
     select_anchor = selection_anchor
     def selection_clear(self, first, last=None):
-        """Clear the selection from FIRST to LAST (not included)."""
+        """Clear the selection from FIRST to LAST (included)."""
         self.tk.call(self._w,
                  'selection', 'clear', first, last)
     select_clear = selection_clear
@@ -2546,7 +2624,7 @@ class Listbox(Widget, XView, YView):
             self._w, 'selection', 'includes', index))
     select_includes = selection_includes
     def selection_set(self, first, last=None):
-        """Set the selection from FIRST to LAST (not included) without
+        """Set the selection from FIRST to LAST (included) without
         changing the currently selected elements."""
         self.tk.call(self._w, 'selection', 'set', first, last)
     select_set = selection_set
@@ -2846,8 +2924,9 @@ class Text(Widget, XView, YView):
     def debug(self, boolean=None):
         """Turn on the internal consistency checks of the B-Tree inside the text
         widget according to BOOLEAN."""
-        return self.tk.getboolean(self.tk.call(
-            self._w, 'debug', boolean))
+        if boolean is None:
+            return self.tk.getboolean(self.tk.call(self._w, 'debug'))
+        self.tk.call(self._w, 'debug', boolean)
     def delete(self, index1, index2=None):
         """Delete the characters between INDEX1 and INDEX2 (not included)."""
         self.tk.call(self._w, 'delete', index1, index2)
@@ -3302,8 +3381,11 @@ class BitmapImage(Image):
         Valid resource names: background, data, file, foreground, maskdata, maskfile."""
         Image.__init__(self, 'bitmap', name, cnf, master, **kw)
 
-def image_names(): return _default_root.tk.call('image', 'names')
-def image_types(): return _default_root.tk.call('image', 'types')
+def image_names():
+    return _default_root.tk.splitlist(_default_root.tk.call('image', 'names'))
+
+def image_types():
+    return _default_root.tk.splitlist(_default_root.tk.call('image', 'types'))
 
 
 class Spinbox(Widget, XView):
@@ -3349,7 +3431,7 @@ class Spinbox(Widget, XView):
         bounding box may refer to a region outside the
         visible area of the window.
         """
-        return self.tk.call(self._w, 'bbox', index)
+        return self._getints(self.tk.call(self._w, 'bbox', index)) or None
 
     def delete(self, first, last=None):
         """Delete one or more elements of the spinbox.
@@ -3662,23 +3744,17 @@ class PanedWindow(Widget):
 
         """
         if cnf is None and not kw:
-            cnf = {}
-            for x in self.tk.split(
-                self.tk.call(self._w,
-                         'paneconfigure', tagOrId)):
-                cnf[x[0][1:]] = (x[0][1:],) + x[1:]
-            return cnf
+            return self._getconfigure(self._w, 'paneconfigure', tagOrId)
         if type(cnf) == StringType and not kw:
-            x = self.tk.split(self.tk.call(
-                self._w, 'paneconfigure', tagOrId, '-'+cnf))
-            return (x[0][1:],) + x[1:]
+            return self._getconfigure1(
+                self._w, 'paneconfigure', tagOrId, '-'+cnf)
         self.tk.call((self._w, 'paneconfigure', tagOrId) +
                  self._options(cnf, kw))
     paneconfig = paneconfigure
 
     def panes(self):
         """Returns an ordered list of the child panes."""
-        return self.tk.call(self._w, 'panes')
+        return self.tk.splitlist(self.tk.call(self._w, 'panes'))
 
 ######################################################################
 # Extensions:

@@ -269,7 +269,7 @@ class Pickler(object):
     def save(self, obj):
         # Check for persistent id (defined by a subclass)
         pid = self.persistent_id(obj)
-        if pid:
+        if pid is not None:
             self.save_pers(pid)
             return
 
@@ -1005,7 +1005,7 @@ class Unpickler(object):
         rep = self.readline()[:-1]
         for q in "\"'": # double or single quote
             if rep.startswith(q):
-                if not rep.endswith(q):
+                if len(rep) < 2 or not rep.endswith(q):
                     raise ValueError, "insecure string pickle"
                 rep = rep[len(q):-len(q)]
                 break
