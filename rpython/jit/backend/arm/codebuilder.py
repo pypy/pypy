@@ -339,6 +339,20 @@ class AbstractARMBuilder(object):
     MOD = binary_helper_call('int_mod')
     UDIV = binary_helper_call('uint_div')
 
+    def FMDRR(self, dm, rd, rn, c=cond.AL):
+        self.write32(c << 28
+                    | 0x0c400b10
+                    | (dm & 0xF)
+                    | (rd & 0xF) << 12
+                    | (rn & 0xF) << 16)
+
+    def FMRRD(self, rd, rn, dm, c=cond.AL):
+        self.write32(c << 28
+                    | 0x0c500b10
+                    | (dm & 0xF)
+                    | (rd & 0xF) << 12
+                    | (rn & 0xF) << 16)
+
     def _encode_reg_list(self, instr, regs):
         for reg in regs:
             instr |= 0x1 << reg
