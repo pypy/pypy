@@ -313,8 +313,8 @@ class HardFloatCallBuilder(ARMCallbuilder):
         argtypes = self.argtypes
 
         r_register_count = 0
-        count = 0                      # stack alignment counter
         on_stack = 0
+
         for i in range(len(arglocs)):
             argtype = INT
             if i < len(argtypes) and argtypes[i] == 'S':
@@ -342,6 +342,8 @@ class HardFloatCallBuilder(ARMCallbuilder):
                         longlong_mask |= 2
                         r_register_count = 4
                         continue
+                    elif r_register_count == 3:
+                        r_register_count = 4
                 else:
                     # A 64-bit float argument.  Goes into the next free v#
                     # register, or if none, to the stack aligned to an
@@ -354,9 +356,8 @@ class HardFloatCallBuilder(ARMCallbuilder):
                         float_regs.append(reg)
                         continue
                 # float or longlong argument that needs to go on the stack
-                if count % 2 != 0:
+                if on_stack & 1:   # odd: realign
                     stack_args.append(None)
-                    count = 0
                     on_stack += 1
                 stack_args.append(arg)
                 on_stack += 2
@@ -371,9 +372,8 @@ class HardFloatCallBuilder(ARMCallbuilder):
                     singlefloats.append((arg, tgt))
                 else:  # Singlefloat argument that needs to go on the stack
                        # treated the same as a regular core register argument
-                    count += 1
-                    on_stack += 1
                     stack_args.append(arg)
+                    on_stack += 1
             else:
                 # Regular one-word argument.  Goes into the next register
                 # free from the list r0, r1, r2, r3, or to the stack.
@@ -383,12 +383,11 @@ class HardFloatCallBuilder(ARMCallbuilder):
                     non_float_locs.append(arg)
                     non_float_regs.append(reg)
                 else:  # non-float argument that needs to go on the stack
-                    count += 1
-                    on_stack += 1
                     stack_args.append(arg)
+                    on_stack += 1
 
         # align the stack
-        if count % 2 != 0:
+        if on_stack & 1:    # odd: realign
             stack_args.append(None)
             on_stack += 1
         self._push_stack_args(stack_args, on_stack*WORD)
