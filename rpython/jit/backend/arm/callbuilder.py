@@ -80,15 +80,6 @@ class ARMCallbuilder(AbstractCallBuilder):
                 self.mc.gen_load_int(r.ip.value, n)
                 self.mc.SUB_rr(r.sp.value, r.sp.value, r.ip.value)
 
-    def _must_remap_fnloc(self):
-        fnloc = self.fnloc
-        if fnloc.is_stack():
-            return True
-        if self.is_call_release_gil:
-            if fnloc is r.r5 or fnloc is r.r6 or fnloc is r.r7:
-                return True
-        return False
-
     def call_releasegil_addr_and_move_real_arguments(self, fastgil):
         assert self.is_call_release_gil
         assert not self.asm._is_asmgcc()
@@ -121,7 +112,7 @@ class ARMCallbuilder(AbstractCallBuilder):
         self.mc.STREX(r.r3.value, r.ip.value, r.r6.value, c=c.EQ)
                                                  # try to claim the lock
         self.mc.CMP_ri(r.r3.value, 0, cond=c.EQ) # did this succeed?
-        self.mc.DMB(c=c.EQ)
+        self.mc.DMB()
         # the success of the lock acquisition is defined by
         # 'EQ is true', or equivalently by 'r3 == 0'.
         #
@@ -268,7 +259,7 @@ class SoftFloatCallBuilder(ARMCallbuilder):
         # or on the stack, which we can not access later
         # If this happens to be the case we remap the register to r4 and use r4
         # to call the function
-        if self.fnloc in r.argument_regs or self._must_remap_fnloc():
+        if not self.fnloc.is_imm():
             non_float_locs.append(self.fnloc)
             non_float_regs.append(r.r4)
             self.fnloc = r.r4
@@ -358,7 +349,6 @@ class HardFloatCallBuilder(ARMCallbuilder):
                     argtype = FLOAT
                     reg = self.get_next_vfp(argtype)
                     if reg:
-                        assert len(float_regs) < len(r.vfp_argument_regs)
                         float_locs.append(arg)
                         assert reg not in float_regs
                         float_regs.append(reg)
@@ -408,7 +398,7 @@ class HardFloatCallBuilder(ARMCallbuilder):
         # or on the stack, which we can not access later
         # If this happens to be the case we remap the register to r4 and use r4
         # to call the function
-        if self.fnloc in non_float_regs or self._must_remap_fnloc():
+        if not self.fnloc.is_imm():
             non_float_locs.append(self.fnloc)
             non_float_regs.append(r.r4)
             self.fnloc = r.r4
