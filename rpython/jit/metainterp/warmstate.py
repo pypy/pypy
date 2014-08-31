@@ -183,6 +183,9 @@ class BaseJitCell(object):
                 return token
         return None
 
+    def has_seen_a_procedure_token(self):
+        return self.wref_procedure_token is not None
+
     def set_procedure_token(self, token, tmp=False):
         self.wref_procedure_token = self._makeref(token)
         if tmp:
@@ -197,9 +200,14 @@ class BaseJitCell(object):
     def should_remove_jitcell(self):
         if self.get_procedure_token() is not None:
             return False    # don't remove JitCells with a procedure_token
-        # don't remove JitCells that are being traced, or JitCells with
-        # the "don't trace here" flag.  Other JitCells can be removed.
-        return (self.flags & (JC_TRACING | JC_DONT_TRACE_HERE)) == 0
+        if self.flags & JC_TRACING:
+            return False    # don't remove JitCells that are being traced
+        if self.flags & JC_DONT_TRACE_HERE:
+            # if we have this flag, and we *had* a procedure_token but
+            # we no longer have one, then remove me.  this prevents this
+            # JitCell from being immortal.
+            return self.has_seen_a_procedure_token()
+        return True   # Other JitCells can be removed.
 
 # ____________________________________________________________
 
@@ -408,6 +416,12 @@ class WarmEnterState(object):
             # machine code was already compiled for these greenargs
             procedure_token = cell.get_procedure_token()
             if procedure_token is None:
+                if cell.flags & JC_DONT_TRACE_HERE:
+                    if not cell.has_seen_a_procedure_token():
+                        # we're seeing a fresh JC_DONT_TRACE_HERE with no
+                        # procedure_token.  Compile now.
+                        bound_reached(hash, cell, *args)
+                        return
                 # it was an aborted compilation, or maybe a weakref that
                 # has been freed
                 jitcounter.cleanup_chain(hash)
@@ -508,6 +522,12 @@ class WarmEnterState(object):
             def get_jit_cell_at_key(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
                 return JitCell.get_jitcell(*greenargs)
+
+            @staticmethod
+            def trace_next_iteration(greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                hash = JitCell.get_uhash(*greenargs)
+                jitcounter.change_current_fraction(hash, 0.98)
 
             @staticmethod
             def ensure_jit_cell_at_key(greenkey):
