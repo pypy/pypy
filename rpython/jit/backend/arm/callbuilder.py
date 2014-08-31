@@ -441,6 +441,9 @@ class HardFloatCallBuilder(ARMCallbuilder):
         resloc = self.resloc
         if self.restype == 'S':
             self.mc.VMOV_sc(resloc.value, r.s0.value)
+        elif self.restype == 'L':
+            assert resloc.is_vfp_reg()
+            self.mc.FMDRR(resloc.value, r.r0.value, r.r1.value)
         # ensure the result is wellformed and stored in the correct location
         if resloc is not None and resloc.is_core_reg():
             self._ensure_result_bit_extension(resloc,
@@ -450,7 +453,10 @@ class HardFloatCallBuilder(ARMCallbuilder):
         if self.resloc is None:
             return [], []
         if self.resloc.is_vfp_reg():
-            return [], [r.d0]
+            if self.restype == 'L':      # long long
+                return [r.r0, r.r1], []
+            else:
+                return [], [r.d0]
         assert self.resloc.is_core_reg()
         return [r.r0], []
 
