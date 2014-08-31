@@ -2794,10 +2794,15 @@ class LLtypeBackendTest(BaseBackendTest):
                     var_name))
             export_symbols.append(fn_name)
             c_source.append('')
-            c_source.append('void %s(%s)' % (fn_name, ', '.join(fn_args)))
+            c_source.append('static void real%s(%s)' % (
+                fn_name, ', '.join(fn_args)))
             c_source.append('{')
             for i in range(len(ARGTYPES)):
                 c_source.append('    argcopy_%s_x%d = x%d;' % (fn_name, i, i))
+            c_source.append('}')
+            c_source.append('void *%s(void)' % fn_name)
+            c_source.append('{')
+            c_source.append('    return (void *)&real%s;' % fn_name)
             c_source.append('}')
             c_source.append('')
 
@@ -2810,13 +2815,12 @@ class LLtypeBackendTest(BaseBackendTest):
 
         for k in range(NB_TESTS):
             ARGTYPES, ffitypes, fn_name = all_tests[k]
-            func_ptr = rffi.llexternal(fn_name, ARGTYPES, lltype.Void,
-                                       compilation_info=eci, _nowrapper=True)
+            func_getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
+                                         compilation_info=eci, _nowrapper=True)
             load_factor = rnd.random()
             keepalive_factor = rnd.random()
             #
-            FPTR = lltype.typeOf(func_ptr)
-            funcbox = self.get_funcbox(cpu, func_ptr)
+            func_raw = func_getter_ptr()
             calldescr = cpu._calldescr_dynamic_for_tests(ffitypes, types.void)
             faildescr = BasicFailDescr(1)
             #
@@ -2836,7 +2840,7 @@ class LLtypeBackendTest(BaseBackendTest):
             print
             print codes
             #
-            argvalues = [funcbox.getint()]
+            argvalues = [func_raw]
             for TP in ARGTYPES:
                 r = (rnd.random() - 0.5) * 999999999999.9
                 r = rffi.cast(TP, r)
