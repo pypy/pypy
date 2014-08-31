@@ -38,9 +38,7 @@ class ARMCallbuilder(AbstractCallBuilder):
         if self.fnloc.is_imm():
             self.mc.BL(self.fnloc.value)
             return
-        if self.fnloc.is_stack():
-            self.asm.mov_loc_loc(self.fnloc, r.ip)
-            self.fnloc = r.ip
+        # --self.fnloc.is_stack() is always remapped to r4 here
         assert self.fnloc.is_core_reg()
         self.mc.BLX(self.fnloc.value)
 
@@ -81,6 +79,15 @@ class ARMCallbuilder(AbstractCallBuilder):
             else:
                 self.mc.gen_load_int(r.ip.value, n)
                 self.mc.SUB_rr(r.sp.value, r.sp.value, r.ip.value)
+
+    def _must_remap_fnloc(self):
+        fnloc = self.fnloc
+        if fnloc.is_stack():
+            return True
+        if self.is_call_release_gil:
+            if fnloc is r.r5 or fnloc is r.r6 or fnloc is r.r7:
+                return True
+        return False
 
     def call_releasegil_addr_and_move_real_arguments(self, fastgil):
         assert self.is_call_release_gil
@@ -261,7 +268,7 @@ class SoftFloatCallBuilder(ARMCallbuilder):
         # or on the stack, which we can not access later
         # If this happens to be the case we remap the register to r4 and use r4
         # to call the function
-        if self.fnloc in r.argument_regs or self.fnloc.is_stack():
+        if self.fnloc in r.argument_regs or self._must_remap_fnloc():
             non_float_locs.append(self.fnloc)
             non_float_regs.append(r.r4)
             self.fnloc = r.r4
@@ -366,7 +373,7 @@ class HardFloatCallBuilder(ARMCallbuilder):
         # or on the stack, which we can not access later
         # If this happens to be the case we remap the register to r4 and use r4
         # to call the function
-        if self.fnloc in non_float_regs or self.fnloc.is_stack():
+        if self.fnloc in non_float_regs or self._must_remap_fnloc():
             non_float_locs.append(self.fnloc)
             non_float_regs.append(r.r4)
             self.fnloc = r.r4
