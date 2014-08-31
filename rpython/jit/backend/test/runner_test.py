@@ -2757,6 +2757,12 @@ class LLtypeBackendTest(BaseBackendTest):
         export_symbols = []
 
         def prepare_c_source():
+            """Pick a random choice of argument types and length,
+            and build a C function with these arguments.  The C
+            function will simply copy them all into static global
+            variables.  There are then additional functions to fetch
+            them, one per argument, with a signature 'void(ARG *)'.
+            """
             POSSIBLE_TYPES = [rnd.choice(ALL_TYPES)
                               for i in range(random.randrange(2, 5))]
             load_factor = rnd.random()
