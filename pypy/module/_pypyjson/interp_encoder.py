@@ -37,16 +37,14 @@ def raw_encode_basestring_ascii(space, w_string):
         sb = StringBuilder(len(u))
         sb.append_slice(s, 0, first)
     else:
+        # We used to check if 'u' contains only safe characters, and return
+        # 'w_string' directly.  But this requires an extra pass over all
+        # characters, and the expected use case of this function, from
+        # json.encoder, will anyway re-encode a unicode result back to
+        # a string (with the ascii encoding).  So we may as well directly
+        # turn it into a string from here, and avoid the extra pass over
+        # all characters here.
         u = space.unicode_w(w_string)
-        for i in range(len(u)):
-            c = u[i]
-            if c >= u' ' and c <= u'~' and c != u'"' and c != u'\\':
-                pass
-            else:
-                break
-        else:
-            # the input is a unicode with only non-special ascii chars
-            return w_string
         sb = StringBuilder(len(u))
         first = 0
 
