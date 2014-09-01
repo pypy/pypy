@@ -153,7 +153,7 @@ class BaseAssembler(object):
                 i = pos - self.cpu.JITFRAME_FIXED_SIZE
                 assert i >= 0
                 tp = inputargs[input_i].type
-                locs.append(self.new_stack_loc(i, pos, tp))
+                locs.append(self.new_stack_loc(i, tp))
             input_i += 1
         return locs
 

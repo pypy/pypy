@@ -456,15 +456,12 @@ class StreamReader(Codec):
 
         # read until we get the required number of characters (if available)
         while True:
-            # can the request can be satisfied from the character buffer?
-            if chars < 0:
-                if size < 0:
-                    if self.charbuffer:
-                        break
-                elif len(self.charbuffer) >= size:
-                    break
-            else:
+            # can the request be satisfied from the character buffer?
+            if chars >= 0:
                 if len(self.charbuffer) >= chars:
+                    break
+            elif size >= 0:
+                if len(self.charbuffer) >= size:
                     break
             # we need more data
             if size < 0:

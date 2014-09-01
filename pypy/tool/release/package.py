@@ -3,9 +3,8 @@
 It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
-    package.py [--options]
+    package.py [--options] pypy-VER-PLATFORM
 
-Usually you would do:   package.py --version-name pypy-VER-PLATFORM
 The output is found in the directory from --builddir,
 by default /tmp/usession-YOURNAME/build/.
 """
@@ -52,13 +51,18 @@ def fix_permissions(dirname):
 
 sep_template = "\nThis copy of PyPy includes a copy of %s, which is licensed under the following terms:\n\n"
 
-def generate_license_linux(basedir, options):
+def generate_license(basedir, options):
     base_file = str(basedir.join('LICENSE'))
     with open(base_file) as fid:
         txt = fid.read()
-    searches = [("bzip2","libbz2-*", "copyright", '---------'),
-                ("openssl", "openssl*", "copyright", 'LICENSE ISSUES'),
-               ]
+    if sys.platform == 'win32':
+        # shutil.copyfileobj(open("crtlicense.txt"), out) # We do not ship
+        #   msvc runtime files, but otherwise we'd need this on Windows
+        searches = [("bzip2","bzip2-*", "LICENSE", ''),
+                    ("openssl", "openssl-*", "LICENSE", '')]
+    else:
+        searches = [("bzip2","libbz2-*dev", "copyright", '---------'),
+                    ("openssl", "openssl*", "copyright", 'LICENSE ISSUES')]
     if not options.no_tk:
         name = 'Tcl/Tk'
         txt += "License for '%s'" %name
@@ -73,9 +77,9 @@ def generate_license_linux(basedir, options):
         txt += sep_template % name
         dirs = glob.glob(options.license_base + "/" +pat)
         if not dirs:
-            raise ValueError, "Could not find "+ options.license_base + "/" + pat
-        if len(dirs) > 2:
-            raise ValueError, "Multiple copies of "+pat
+            raise ValueError, "Could not find %s/%s" % (options.license_base, pat)
+        if len(dirs) > 1:
+            raise ValueError, "Multiple copies of %r: %r" % (pat, dirs)
         dir = dirs[0]
         with open(os.path.join(dir, fname)) as fid:
             # Read up to the line dividing the packaging header from the actual copyright
@@ -91,43 +95,6 @@ def generate_license_linux(basedir, options):
     # Do something for gdbm, which is GPL
     txt += gdbm_bit
     return txt
-
-def generate_license_windows(basedir, options):
-    base_file = str(basedir.join('LICENSE'))
-    with open(base_file) as fid:
-        txt = fid.read()
-    # shutil.copyfileobj(open("crtlicense.txt"), out) # We do not ship msvc runtime files
-    if not options.no_tk:
-        name = 'Tcl/Tk'
-        txt += "License for '%s'" %name
-        txt += '\n' + "="*(14 + len(name)) + '\n'
-        txt += sep_template % name
-        base_file = str(basedir.join('lib_pypy/_tkinter/license.terms'))
-        with open(base_file, 'r') as fid:
-            txt += fid.read()
-    for name, pat, file in (("bzip2","bzip2-*", "LICENSE"),
-                      ("openssl", "openssl-*", "LICENSE")):
-        txt += sep_template % name
-        dirs = glob.glob(options.license_base + "/" +pat)
-        if not dirs:
-            raise ValueError, "Could not find "+ options.license_base + "/" + pat
-        if len(dirs) > 2:
-            raise ValueError, "Multiple copies of "+pat
-        dir = dirs[0]
-        with open(os.path.join(dir, file)) as fid:
-            txt += fid.read()
-    return txt
-
-def generate_license_darwin(basedir, options):
-    # where are copyright files on macos?
-    return generate_license_linux(basedir, options)
-
-if sys.platform == 'win32':
-    generate_license = generate_license_windows
-elif sys.platform == 'darwin':
-    generate_license = generate_license_darwin
-else:
-    generate_license = generate_license_linux
 
 def create_cffi_import_libraries(pypy_c, options):
     modules = ['_sqlite3']
@@ -197,8 +164,7 @@ def create_package(basedir, options):
 
     if sys.platform == 'win32':
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
-        win_extras = ['libpypy-c.dll', 'libexpat.dll', 'sqlite3.dll',
-                          'libeay32.dll', 'ssleay32.dll']
+        win_extras = ['libpypy-c.dll', 'sqlite3.dll']
         if not options.no_tk:
             win_extras += ['tcl85.dll', 'tk85.dll']
 
@@ -396,7 +362,9 @@ gdbm_bit = '''gdbm
 ----
 
 The gdbm module includes code from gdbm.h, which is distributed under the terms
-of the GPL license version 2 or any later version.
+of the GPL license version 2 or any later version.  Thus the gdbm module, provided in
+the file lib_pypy/gdbm.py, is redistributed under the terms of the GPL license as
+well.
 '''
 
 

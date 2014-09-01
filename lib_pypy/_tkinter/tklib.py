@@ -70,9 +70,16 @@ void Tcl_IncrRefCount(Tcl_Obj* objPtr);
 void Tcl_DecrRefCount(Tcl_Obj* objPtr);
 
 int Tcl_GetBoolean(Tcl_Interp* interp, const char* src, int* boolPtr);
+int Tcl_GetInt(Tcl_Interp* interp, const char* src, int* intPtr);
+int Tcl_GetDouble(Tcl_Interp* interp, const char* src, double* doublePtr);
 char *Tcl_GetString(Tcl_Obj* objPtr);
 char *Tcl_GetStringFromObj(Tcl_Obj* objPtr, int* lengthPtr);
 unsigned char *Tcl_GetByteArrayFromObj(Tcl_Obj* objPtr, int* lengthPtr);
+
+int Tcl_ExprBoolean(Tcl_Interp* interp, const char *expr, int *booleanPtr);
+int Tcl_ExprLong(Tcl_Interp* interp, const char *expr, long* longPtr);
+int Tcl_ExprDouble(Tcl_Interp* interp, const char *expr, double* doublePtr);
+int Tcl_ExprString(Tcl_Interp* interp, const char *expr);
 
 Tcl_UniChar *Tcl_GetUnicode(Tcl_Obj* objPtr);
 int Tcl_GetCharLength(Tcl_Obj* objPtr);
@@ -105,6 +112,7 @@ Tcl_ThreadId Tcl_GetCurrentThread();
 int Tcl_DoOneEvent(int flags);
 
 int Tk_GetNumMainWindows();
+void Tcl_FindExecutable(char *argv0);
 """)
 
 # XXX find a better way to detect paths

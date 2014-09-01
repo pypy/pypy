@@ -61,6 +61,7 @@ class __extend__(pyframe.PyFrame):
             while True:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
         except ExitFrame:
+            self.last_exception = None
             return self.popvalue()
 
     def handle_bytecode(self, co_code, next_instr, ec):

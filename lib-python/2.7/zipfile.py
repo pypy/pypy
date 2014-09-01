@@ -384,7 +384,7 @@ class ZipInfo (object):
         # Try to decode the extra field.
         extra = self.extra
         unpack = struct.unpack
-        while extra:
+        while len(extra) >= 4:
             tp, ln = unpack('<HH', extra[:4])
             if tp == 1:
                 if ln >= 24:
@@ -606,7 +606,11 @@ class ZipExtFile(io.BufferedIOBase):
         """Returns buffered bytes without advancing the position."""
         if n > len(self._readbuffer) - self._offset:
             chunk = self.read(n)
-            self._offset -= len(chunk)
+            if len(chunk) > self._offset:
+                self._readbuffer = chunk + self._readbuffer[self._offset:]
+                self._offset = 0
+            else:
+                self._offset -= len(chunk)
 
         # Return up to 512 bytes to reduce allocation overhead for tight loops.
         return self._readbuffer[self._offset: self._offset + 512]
@@ -918,10 +922,10 @@ class ZipFile(object):
     @comment.setter
     def comment(self, comment):
         # check for valid comment length
-        if len(comment) >= ZIP_MAX_COMMENT:
-            if self.debug:
-                print('Archive comment is too long; truncating to %d bytes'
-                        % ZIP_MAX_COMMENT)
+        if len(comment) > ZIP_MAX_COMMENT:
+            import warnings
+            warnings.warn('Archive comment is too long; truncating to %d bytes'
+                          % ZIP_MAX_COMMENT, stacklevel=2)
             comment = comment[:ZIP_MAX_COMMENT]
         self._comment = comment
         self._didModify = True
@@ -1085,8 +1089,8 @@ class ZipFile(object):
     def _writecheck(self, zinfo):
         """Check for errors before writing a file to the archive."""
         if zinfo.filename in self.NameToInfo:
-            if self.debug:      # Warning for duplicate names
-                print "Duplicate name:", zinfo.filename
+            import warnings
+            warnings.warn('Duplicate name: %r' % zinfo.filename, stacklevel=3)
         if self.mode not in ("w", "a"):
             raise RuntimeError, 'write() requires mode "w" or "a"'
         if not self.fp:

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from test import test_support
 from test.test_support import TESTFN, _4G, bigmemtest, import_module, findfile
 
@@ -328,6 +327,21 @@ class BZ2FileTest(BaseTest):
             self.assertRaises(ValueError, f.read)
             self.assertRaises(ValueError, f.readline)
             self.assertRaises(ValueError, f.readlines)
+
+    @unittest.skipIf(sys.platform == 'win32',
+                     'test depends on being able to delete a still-open file,'
+                     ' which is not possible on Windows')
+    def testInitNonExistentFile(self):
+        # Issue #19878: Should not segfault when __init__ with non-existent
+        # file for the second time.
+        self.createTempFile()
+        # Test close():
+        with BZ2File(self.filename, "wb") as f:
+            self.assertRaises(IOError, f.__init__, "non-existent-file")
+        # Test object deallocation without call to close():
+        f = bz2.BZ2File(self.filename)
+        self.assertRaises(IOError, f.__init__, "non-existent-file")
+        del f
 
 class BZ2CompressorTest(BaseTest):
     def testCompress(self):

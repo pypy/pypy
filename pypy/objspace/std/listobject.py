@@ -358,11 +358,13 @@ class W_ListObject(W_Root):
 
     @staticmethod
     def descr_new(space, w_listtype, __args__):
+        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
         w_obj = space.allocate_instance(W_ListObject, w_listtype)
         w_obj.clear(space)
         return w_obj
 
     def descr_init(self, space, __args__):
+        """x.__init__(...) initializes x; see help(type(x)) for signature"""
         # this is on the silly side
         w_iterable, = __args__.parse_obj(
                 None, 'list', init_signature, init_defaults)
@@ -1830,8 +1832,8 @@ class CustomKeyCompareSort(CustomCompareSort):
 
 
 W_ListObject.typedef = StdTypeDef("list",
-    __doc__ = """list() -> new list
-list(sequence) -> new list initialized from sequence's items""",
+    __doc__ = """list() -> new empty list
+list(iterable) -> new list initialized from iterable's items""",
     __new__ = interp2app(W_ListObject.descr_new),
     __init__ = interp2app(W_ListObject.descr_init),
     __repr__ = interp2app(W_ListObject.descr_repr),

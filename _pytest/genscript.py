@@ -1,5 +1,6 @@
-""" generate a single-file self-contained version of py.test """
+""" generate a single-file self-contained version of pytest """
 import py
+import sys
 
 def find_toplevel(name):
     for syspath in py.std.sys.path:
@@ -54,16 +55,26 @@ def pytest_addoption(parser):
     group = parser.getgroup("debugconfig")
     group.addoption("--genscript", action="store", default=None,
         dest="genscript", metavar="path",
-        help="create standalone py.test script at given target path.")
+        help="create standalone pytest script at given target path.")
 
 def pytest_cmdline_main(config):
     genscript = config.getvalue("genscript")
     if genscript:
+        tw = py.io.TerminalWriter()
+        deps =  ['py', '_pytest', 'pytest']
+        if sys.version_info < (2,7):
+            deps.append("argparse")
+            tw.line("generated script will run on python2.5-python3.3++")
+        else:
+            tw.line("WARNING: generated script will not run on python2.6 "
+                    "or below due to 'argparse' dependency. Use python2.6 "
+                    "to generate a python2.5/6 compatible script", red=True)
         script = generate_script(
-            'import py; raise SystemExit(py.test.cmdline.main())',
-            ['py', '_pytest', 'pytest'],
+            'import pytest; raise SystemExit(pytest.cmdline.main())',
+            deps,
         )
-
         genscript = py.path.local(genscript)
         genscript.write(script)
+        tw.line("generated pytest standalone script: %s" % genscript,
+                bold=True)
         return 0

@@ -561,6 +561,8 @@ class Regalloc(BaseRegalloc):
                 args = self.prepare_op_math_sqrt(op, fcond)
                 self.perform_math(op, args, fcond)
                 return
+            #if oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
+            #    ...
         return self._prepare_call(op)
 
     def _prepare_call(self, op, force_store=[], save_all_regs=False):
@@ -1293,10 +1295,10 @@ class Regalloc(BaseRegalloc):
     prepare_op_convert_longlong_bytes_to_float = prepare_float_op(base=False,
                               name='prepare_op_convert_longlong_bytes_to_float')
 
-    def prepare_op_read_timestamp(self, op, fcond):
-        loc = self.get_scratch_reg(INT)
-        res = self.vfprm.force_allocate_reg(op.result)
-        return [loc, res]
+    #def prepare_op_read_timestamp(self, op, fcond):
+    #    loc = self.get_scratch_reg(INT)
+    #    res = self.vfprm.force_allocate_reg(op.result)
+    #    return [loc, res]
 
     def prepare_op_cast_float_to_singlefloat(self, op, fcond):
         loc1 = self.make_sure_var_in_reg(op.getarg(0))

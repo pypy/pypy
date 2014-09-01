@@ -10,6 +10,7 @@ from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
 from rpython.jit.backend.arm.helper.assembler import count_reg_args
 from rpython.jit.backend.arm.helper.assembler import saved_registers
 from rpython.jit.backend.arm.helper.regalloc import check_imm_arg
+from rpython.jit.backend.arm.codebuilder import OverwritingBuilder
 
 
 class ARMCallbuilder(AbstractCallBuilder):
@@ -37,9 +38,7 @@ class ARMCallbuilder(AbstractCallBuilder):
         if self.fnloc.is_imm():
             self.mc.BL(self.fnloc.value)
             return
-        if self.fnloc.is_stack():
-            self.asm.mov_loc_loc(self.fnloc, r.ip)
-            self.fnloc = r.ip
+        # --self.fnloc.is_stack() is always remapped to r4 here
         assert self.fnloc.is_core_reg()
         self.mc.BLX(self.fnloc.value)
 
@@ -81,30 +80,84 @@ class ARMCallbuilder(AbstractCallBuilder):
                 self.mc.gen_load_int(r.ip.value, n)
                 self.mc.SUB_rr(r.sp.value, r.sp.value, r.ip.value)
 
-    def select_call_release_gil_mode(self):
-        AbstractCallBuilder.select_call_release_gil_mode(self)
+    def _must_remap_fnloc(self):
+        fnloc = self.fnloc
+        if fnloc.is_stack():
+            return True
+        if self.is_call_release_gil:
+            if fnloc is r.r5 or fnloc is r.r6 or fnloc is r.r7:
+                return True
+        return False
 
-    def call_releasegil_addr_and_move_real_arguments(self):
+    def call_releasegil_addr_and_move_real_arguments(self, fastgil):
+        assert self.is_call_release_gil
         assert not self.asm._is_asmgcc()
-        from rpython.jit.backend.arm.regalloc import CoreRegisterManager
-        with saved_registers(self.mc,
-                            CoreRegisterManager.save_around_call_regs):
-            self.mc.BL(self.asm.releasegil_addr)
+
+        # Save this thread's shadowstack pointer into r7, for later comparison
+        gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
+            rst = gcrootmap.get_root_stack_top_addr()
+            self.mc.gen_load_int(r.r5.value, rst)
+            self.mc.LDR_ri(r.r7.value, r.r5.value)
+
+        # change 'rpy_fastgil' to 0 (it should be non-zero right now)
+        self.mc.DMB()
+        self.mc.gen_load_int(r.r6.value, fastgil)
+        self.mc.MOV_ri(r.ip.value, 0)
+        self.mc.STR_ri(r.ip.value, r.r6.value)
 
         if not we_are_translated():                     # for testing: we should not access
             self.mc.ADD_ri(r.fp.value, r.fp.value, 1)   # fp any more
 
-    def move_real_result_and_call_reacqgil_addr(self):
+    def move_real_result_and_call_reacqgil_addr(self, fastgil):
+        # try to reacquire the lock.  The registers r5 to r7 are still
+        # valid from before the call:
+        #     r5 == &root_stack_top
+        #     r6 == fastgil
+        #     r7 == previous value of root_stack_top
+        self.mc.LDREX(r.r3.value, r.r6.value)    # load the lock value
+        self.mc.MOV_ri(r.ip.value, 1)
+        self.mc.CMP_ri(r.r3.value, 0)            # is the lock free?
+        self.mc.STREX(r.r3.value, r.ip.value, r.r6.value, c=c.EQ)
+                                                 # try to claim the lock
+        self.mc.CMP_ri(r.r3.value, 0, cond=c.EQ) # did this succeed?
+        self.mc.DMB(c=c.EQ)
+        # the success of the lock acquisition is defined by
+        # 'EQ is true', or equivalently by 'r3 == 0'.
+        #
+        if self.asm.cpu.gc_ll_descr.gcrootmap:
+            # When doing a call_release_gil with shadowstack, there
+            # is the risk that the 'rpy_fastgil' was free but the
+            # current shadowstack can be the one of a different
+            # thread.  So here we check if the shadowstack pointer
+            # is still the same as before we released the GIL (saved
+            # in 'r7'), and if not, we fall back to 'reacqgil_addr'.
+            self.mc.LDR_ri(r.ip.value, r.r5.value, cond=c.EQ)
+            self.mc.CMP_rr(r.ip.value, r.r7.value, cond=c.EQ)
+            b1_location = self.mc.currpos()
+            self.mc.BKPT()                       # BEQ below
+            # there are two cases here: either EQ was false from
+            # the beginning, or EQ was true at first but the CMP
+            # made it false.  In the second case we need to
+            # release the fastgil here.  We know which case it is
+            # by checking again r3.
+            self.mc.CMP_ri(r.r3.value, 0)
+            self.mc.STR_ri(r.r3.value, r.r6.value, cond=c.EQ)
+        else:
+            b1_location = self.mc.currpos()
+            self.mc.BKPT()                       # BEQ below
+        #
         # save the result we just got
-        assert not self.asm._is_asmgcc()
         gpr_to_save, vfp_to_save = self.get_result_locs()
         with saved_registers(self.mc, gpr_to_save, vfp_to_save):
             self.mc.BL(self.asm.reacqgil_addr)
 
+        # replace b1_location with B(here, c.EQ)
+        pmc = OverwritingBuilder(self.mc, b1_location, WORD)
+        pmc.B_offs(self.mc.currpos(), c.EQ)
+
         if not we_are_translated():                    # for testing: now we can accesss
             self.mc.SUB_ri(r.fp.value, r.fp.value, 1)  # fp again
-
-        #   for shadowstack, done for us by _reload_frame_if_necessary()
 
     def get_result_locs(self):
         raise NotImplementedError
@@ -215,7 +268,7 @@ class SoftFloatCallBuilder(ARMCallbuilder):
         # or on the stack, which we can not access later
         # If this happens to be the case we remap the register to r4 and use r4
         # to call the function
-        if self.fnloc in r.argument_regs or self.fnloc.is_stack():
+        if self.fnloc in r.argument_regs or self._must_remap_fnloc():
             non_float_locs.append(self.fnloc)
             non_float_regs.append(r.r4)
             self.fnloc = r.r4
@@ -320,7 +373,7 @@ class HardFloatCallBuilder(ARMCallbuilder):
         # or on the stack, which we can not access later
         # If this happens to be the case we remap the register to r4 and use r4
         # to call the function
-        if self.fnloc in non_float_regs or self.fnloc.is_stack():
+        if self.fnloc in non_float_regs or self._must_remap_fnloc():
             non_float_locs.append(self.fnloc)
             non_float_regs.append(r.r4)
             self.fnloc = r.r4

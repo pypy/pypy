@@ -185,6 +185,7 @@ class TestNormalize(object):
     .+Sub1.fn
     .+Sub2.fn
 are called with inconsistent numbers of arguments
+\(and/or the argument names are different, which is not supported in this case\)
 sometimes with \d arguments, sometimes with \d
 the callers of these functions are:
     .+otherfunc

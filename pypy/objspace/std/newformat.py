@@ -428,7 +428,7 @@ def make_formatting_class():
 
         def _parse_spec(self, default_type, default_align):
             space = self.space
-            self._fill_char = self._lit("\0")[0]
+            self._fill_char = self._lit(" ")[0]
             self._align = default_align
             self._alternate = False
             self._sign = "\0"
@@ -441,9 +441,11 @@ def make_formatting_class():
             length = len(spec)
             i = 0
             got_align = True
+            got_fill_char = False
             if length - i >= 2 and self._is_alignment(spec[i + 1]):
                 self._align = spec[i + 1]
                 self._fill_char = spec[i]
+                got_fill_char = True
                 i += 2
             elif length - i >= 1 and self._is_alignment(spec[i]):
                 self._align = spec[i]
@@ -456,7 +458,7 @@ def make_formatting_class():
             if length - i >= 1 and spec[i] == "#":
                 self._alternate = True
                 i += 1
-            if self._fill_char == "\0" and length - i >= 1 and spec[i] == "0":
+            if not got_fill_char and length - i >= 1 and spec[i] == "0":
                 self._fill_char = self._lit("0")[0]
                 if not got_align:
                     self._align = "="
@@ -569,8 +571,6 @@ def make_formatting_class():
                 assert precision >= 0
                 length = precision
                 string = string[:precision]
-            if self._fill_char == "\0":
-                self._fill_char = self._lit(" ")[0]
             self._calc_padding(string, length)
             return space.wrap(self._pad(string))
 
@@ -811,7 +811,7 @@ def make_formatting_class():
             self._get_locale(tp)
             spec = self._calc_num_width(n_prefix, sign_char, to_numeric, n_digits,
                                         n_remainder, False, result)
-            fill = self._lit(" ") if self._fill_char == "\0" else self._fill_char
+            fill = self._fill_char
             upper = self._type == "X"
             return self.space.wrap(self._fill_number(spec, result, to_numeric,
                                      to_prefix, fill, to_remainder, upper))
@@ -957,7 +957,7 @@ def make_formatting_class():
                 digits = result
             spec = self._calc_num_width(0, sign, to_number, n_digits,
                                         n_remainder, have_dec_point, digits)
-            fill = self._lit(" ") if self._fill_char == "\0" else self._fill_char
+            fill = self._fill_char
             return self.space.wrap(self._fill_number(spec, digits, to_number, 0,
                                       fill, to_remainder, False))
 
@@ -1092,8 +1092,6 @@ def make_formatting_class():
 
             out = self._builder()
             fill = self._fill_char
-            if fill == "\0":
-                fill = self._lit(" ")[0]
 
             #compose the string
             #add left padding

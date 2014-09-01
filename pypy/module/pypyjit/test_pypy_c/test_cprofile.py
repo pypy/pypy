@@ -26,9 +26,9 @@ class TestCProfile(BaseTestPyPyC):
         for method in ['append', 'pop']:
             loop, = log.loops_by_id(method)
             print loop.ops_by_id(method)
-            # on 32-bit, there is f1=read_timestamp(); ...;
-            # f2=read_timestamp(); f3=call(llong_sub,f1,f2)
-            # which should turn into a single PADDQ/PSUBQ
+            # on 32-bit, there is f1=call(read_timestamp); ...;
+            # f2=call(read_timestamp); f3=call(llong_sub,f1,f2)
+            # but all calls can be special-cased by the backend if supported
             if sys.maxint != 2147483647:
                 assert ' call(' not in repr(loop.ops_by_id(method))
             assert ' call_may_force(' not in repr(loop.ops_by_id(method))
