@@ -531,6 +531,7 @@ class LLHelpers(AbstractLLHelpers):
                 return diff
             i += 1
         return len1 - len2
+    ll_strcmp.oopspec = 'stroruni.cmp(s1, s2)'
 
     @jit.elidable
     def ll_streq(s1, s2):
