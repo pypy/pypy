@@ -1264,6 +1264,7 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
 
 
 def gen_zero_gc_pointers(TYPE, v, llops, previous_steps=None):
+    xxxx
     if previous_steps is None:
         previous_steps = []
     assert (isinstance(TYPE, lltype.Struct) or isinstance(TYPE, lltype.Array))
