@@ -1296,8 +1296,7 @@ class TestMiniMarkGC(TestHybridGC):
 
     def test_nursery_hash_base(self):
         res = self.runner('nursery_hash_base')
-        assert res >= 195
-        assert False
+        assert res([]) >= 195
 
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcname = "incminimark"
