@@ -416,6 +416,8 @@ def getstatementrange_old(lineno, source, assertion=False):
             trysource = source[start:end]
             if trysource.isparseable():
                 return start, end
+            if end == start + 100:   # XXX otherwise, it takes forever
+                break                # XXX
     raise SyntaxError("no valid source range around line %d " % (lineno,))
 
 
