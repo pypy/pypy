@@ -80,15 +80,6 @@ class ARMCallbuilder(AbstractCallBuilder):
                 self.mc.gen_load_int(r.ip.value, n)
                 self.mc.SUB_rr(r.sp.value, r.sp.value, r.ip.value)
 
-    def _must_remap_fnloc(self):
-        fnloc = self.fnloc
-        if fnloc.is_stack():
-            return True
-        if self.is_call_release_gil:
-            if fnloc is r.r5 or fnloc is r.r6 or fnloc is r.r7:
-                return True
-        return False
-
     def call_releasegil_addr_and_move_real_arguments(self, fastgil):
         assert self.is_call_release_gil
         assert not self.asm._is_asmgcc()
@@ -121,7 +112,7 @@ class ARMCallbuilder(AbstractCallBuilder):
         self.mc.STREX(r.r3.value, r.ip.value, r.r6.value, c=c.EQ)
                                                  # try to claim the lock
         self.mc.CMP_ri(r.r3.value, 0, cond=c.EQ) # did this succeed?
-        self.mc.DMB(c=c.EQ)
+        self.mc.DMB()
         # the success of the lock acquisition is defined by
         # 'EQ is true', or equivalently by 'r3 == 0'.
         #
@@ -268,7 +259,7 @@ class SoftFloatCallBuilder(ARMCallbuilder):
         # or on the stack, which we can not access later
         # If this happens to be the case we remap the register to r4 and use r4
         # to call the function
-        if self.fnloc in r.argument_regs or self._must_remap_fnloc():
+        if not self.fnloc.is_imm():
             non_float_locs.append(self.fnloc)
             non_float_regs.append(r.r4)
             self.fnloc = r.r4
@@ -285,29 +276,23 @@ class HardFloatCallBuilder(ARMCallbuilder):
 
     def get_next_vfp(self, tp):
         assert tp in 'fS'
-        if self.next_arg_vfp == -1:
-            return None
-        if tp == 'S':
+        if tp == 'f':
+            # 64bit double
+            i = max(self.next_arg_vfp, (self.next_arg_svfp + 1) >> 1)
+            if i >= len(r.vfp_argument_regs):
+                self.next_arg_svfp = 1000    # stop that sequence too
+                return None
+            self.next_arg_vfp = i + 1
+            return r.vfp_argument_regs[i]
+        else:
+            # 32bit float
             i = self.next_arg_svfp
-            next_vfp = (i >> 1) + 1
-            if not (i + 1) & 1: # i is even
-                self.next_arg_vfp = max(self.next_arg_vfp, next_vfp)
-                self.next_arg_svfp = self.next_arg_vfp << 1
-            else:
-                self.next_arg_svfp += 1
-                self.next_arg_vfp = next_vfp
-            lst = r.svfp_argument_regs
-        else: # 64bit double
-            i = self.next_arg_vfp
-            self.next_arg_vfp += 1
-            if self.next_arg_svfp >> 1 == i:
-                self.next_arg_svfp = self.next_arg_vfp << 1
-            lst = r.vfp_argument_regs
-        try:
-            return lst[i]
-        except IndexError:
-            self.next_arg_vfp = self.next_arg_svfp = -1
-            return None
+            if not (i & 1):     # if i is even
+                i = max(i, self.next_arg_vfp << 1)
+            if i >= len(r.svfp_argument_regs):
+                return None
+            self.next_arg_svfp = i + 1
+            return r.svfp_argument_regs[i]
 
     def prepare_arguments(self):
         non_float_locs = []
@@ -316,34 +301,64 @@ class HardFloatCallBuilder(ARMCallbuilder):
         float_regs = []
         stack_args = []
         singlefloats = None
+        longlong_mask = 0
 
         arglocs = self.arglocs
         argtypes = self.argtypes
 
-        count = 0                      # stack alignment counter
+        r_register_count = 0
         on_stack = 0
+
         for i in range(len(arglocs)):
             argtype = INT
             if i < len(argtypes) and argtypes[i] == 'S':
                 argtype = argtypes[i]
             arg = arglocs[i]
+
             if arg.is_float():
-                argtype = FLOAT
-                reg = self.get_next_vfp(argtype)
-                if reg:
-                    assert len(float_regs) < len(r.vfp_argument_regs)
-                    float_locs.append(arg)
-                    assert reg not in float_regs
-                    float_regs.append(reg)
-                else:  # float argument that needs to go on the stack
-                    if count % 2 != 0:
-                        stack_args.append(None)
-                        count = 0
-                        on_stack += 1
-                    stack_args.append(arg)
-                    on_stack += 2
+                if i < len(argtypes) and argtypes[i] == 'L':
+                    # A longlong argument.  It uses two regular argument
+                    # positions, but aligned to an even number.  This is
+                    # a bit strange, but it is the case even for registers:
+                    # it can be in r0-r1 or in r2-r3 but not in r1-r2.
+                    assert arg.is_float()
+                    if r_register_count == 0:
+                        # will temporarily load the register into d8
+                        float_locs.append(arg)
+                        float_regs.append(r.d8)
+                        longlong_mask |= 1
+                        r_register_count = 2
+                        continue
+                    elif r_register_count <= 2:
+                        # will temporarily load the register into d9
+                        float_locs.append(arg)
+                        float_regs.append(r.d9)
+                        longlong_mask |= 2
+                        r_register_count = 4
+                        continue
+                    elif r_register_count == 3:
+                        r_register_count = 4
+                else:
+                    # A 64-bit float argument.  Goes into the next free v#
+                    # register, or if none, to the stack aligned to an
+                    # even number of words.
+                    argtype = FLOAT
+                    reg = self.get_next_vfp(argtype)
+                    if reg:
+                        float_locs.append(arg)
+                        assert reg not in float_regs
+                        float_regs.append(reg)
+                        continue
+                # float or longlong argument that needs to go on the stack
+                if on_stack & 1:   # odd: realign
+                    stack_args.append(None)
+                    on_stack += 1
+                stack_args.append(arg)
+                on_stack += 2
+
             elif argtype == 'S':
-                # Singlefloat argument
+                # Singlefloat (32-bit) argument.  Goes into the next free
+                # v# register, or if none, to the stack in a single word.
                 if singlefloats is None:
                     singlefloats = []
                 tgt = self.get_next_vfp(argtype)
@@ -351,32 +366,36 @@ class HardFloatCallBuilder(ARMCallbuilder):
                     singlefloats.append((arg, tgt))
                 else:  # Singlefloat argument that needs to go on the stack
                        # treated the same as a regular core register argument
-                    count += 1
-                    on_stack += 1
                     stack_args.append(arg)
+                    on_stack += 1
             else:
-                if len(non_float_regs) < len(r.argument_regs):
-                    reg = r.argument_regs[len(non_float_regs)]
+                # Regular one-word argument.  Goes into the next register
+                # free from the list r0, r1, r2, r3, or to the stack.
+                if r_register_count < len(r.argument_regs):
+                    reg = r.argument_regs[r_register_count]
+                    r_register_count += 1
                     non_float_locs.append(arg)
                     non_float_regs.append(reg)
                 else:  # non-float argument that needs to go on the stack
-                    count += 1
-                    on_stack += 1
                     stack_args.append(arg)
+                    on_stack += 1
+
         # align the stack
-        if count % 2 != 0:
+        if on_stack & 1:    # odd: realign
             stack_args.append(None)
             on_stack += 1
         self._push_stack_args(stack_args, on_stack*WORD)
+
         # Check that the address of the function we want to call is not
         # currently stored in one of the registers used to pass the arguments
         # or on the stack, which we can not access later
         # If this happens to be the case we remap the register to r4 and use r4
         # to call the function
-        if self.fnloc in non_float_regs or self._must_remap_fnloc():
+        if not self.fnloc.is_imm():
             non_float_locs.append(self.fnloc)
             non_float_regs.append(r.r4)
             self.fnloc = r.r4
+
         # remap values stored in vfp registers
         remap_frame_layout(self.asm, float_locs, float_regs, r.vfp_ip)
         if singlefloats:
@@ -392,13 +411,22 @@ class HardFloatCallBuilder(ARMCallbuilder):
                     src = r.ip
                 if src.is_core_reg():
                     self.mc.VMOV_cs(dest.value, src.value)
+
         # remap values stored in core registers
         remap_frame_layout(self.asm, non_float_locs, non_float_regs, r.ip)
+        if longlong_mask & 1:
+            self.mc.FMRRD(r.r0.value, r.r1.value, r.d8.value)
+        if longlong_mask & 2:
+            self.mc.FMRRD(r.r2.value, r.r3.value, r.d9.value)
+
 
     def load_result(self):
         resloc = self.resloc
         if self.restype == 'S':
             self.mc.VMOV_sc(resloc.value, r.s0.value)
+        elif self.restype == 'L':
+            assert resloc.is_vfp_reg()
+            self.mc.FMDRR(resloc.value, r.r0.value, r.r1.value)
         # ensure the result is wellformed and stored in the correct location
         if resloc is not None and resloc.is_core_reg():
             self._ensure_result_bit_extension(resloc,
@@ -408,7 +436,10 @@ class HardFloatCallBuilder(ARMCallbuilder):
         if self.resloc is None:
             return [], []
         if self.resloc.is_vfp_reg():
-            return [], [r.d0]
+            if self.restype == 'L':      # long long
+                return [r.r0, r.r1], []
+            else:
+                return [], [r.d0]
         assert self.resloc.is_core_reg()
         return [r.r0], []
 
