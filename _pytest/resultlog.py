@@ -53,16 +53,23 @@ class ResultLog(object):
         self.config = config
         self.logfile = logfile # preferably line buffered
 
-    def write_log_entry(self, testpath, lettercode, longrepr):
+    def write_log_entry(self, testpath, lettercode, longrepr, sections=None):
         py.builtin.print_("%s %s" % (lettercode, testpath), file=self.logfile)
         for line in longrepr.splitlines():
             py.builtin.print_(" %s" % line, file=self.logfile)
+        if sections is not None:
+            for title, content in sections:
+                py.builtin.print_(" ---------- %s ----------" % (title,),
+                                  file=self.logfile)
+                for line in content.splitlines():
+                    py.builtin.print_(" %s" % line, file=self.logfile)
 
     def log_outcome(self, report, lettercode, longrepr):
         testpath = getattr(report, 'nodeid', None)
         if testpath is None:
             testpath = report.fspath
-        self.write_log_entry(testpath, lettercode, longrepr)
+        self.write_log_entry(testpath, lettercode, longrepr,
+                             getattr(report, 'sections', None))
 
     def pytest_runtest_logreport(self, report):
         if report.when != "call" and report.passed:

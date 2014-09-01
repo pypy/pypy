@@ -2718,12 +2718,11 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert r == result
 
     def test_call_release_gil_variable_function_and_arguments(self):
-        # NOTE NOTE NOTE
-        # This also works as a test for ctypes and libffi.
-        # On some platforms, one of these is buggy...
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
         from rpython.rlib.libffi import types
         from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
         from rpython.rlib.rarithmetic import r_singlefloat
+        from rpython.translator.c import primitive
 
         cpu = self.cpu
         rnd = random.Random(525)
@@ -2752,14 +2751,22 @@ class LLtypeBackendTest(BaseBackendTest):
                 (types.float,  rffi.FLOAT),
                 ] * 4
 
-        for k in range(100):
+        NB_TESTS = 100
+        c_source = []
+        all_tests = []
+        export_symbols = []
+
+        def prepare_c_source():
+            """Pick a random choice of argument types and length,
+            and build a C function with these arguments.  The C
+            function will simply copy them all into static global
+            variables.  There are then additional functions to fetch
+            them, one per argument, with a signature 'void(ARG *)'.
+            """
             POSSIBLE_TYPES = [rnd.choice(ALL_TYPES)
                               for i in range(random.randrange(2, 5))]
             load_factor = rnd.random()
             keepalive_factor = rnd.random()
-            #
-            def pseudo_c_function(*args):
-                seen.append(list(args))
             #
             ffitypes = []
             ARGTYPES = []
@@ -2767,10 +2774,53 @@ class LLtypeBackendTest(BaseBackendTest):
                 ffitype, TP = rnd.choice(POSSIBLE_TYPES)
                 ffitypes.append(ffitype)
                 ARGTYPES.append(TP)
+            fn_name = 'vartest%d' % k
+            all_tests.append((ARGTYPES, ffitypes, fn_name))
             #
-            FPTR = self.Ptr(self.FuncType(ARGTYPES, lltype.Void))
-            func_ptr = llhelper(FPTR, pseudo_c_function)
-            funcbox = self.get_funcbox(cpu, func_ptr)
+            fn_args = []
+            for i, ARG in enumerate(ARGTYPES):
+                arg_decl = primitive.cdecl(primitive.PrimitiveType[ARG],
+                                           'x%d' % i)
+                fn_args.append(arg_decl)
+                var_name = 'argcopy_%s_x%d' % (fn_name, i)
+                var_decl = primitive.cdecl(primitive.PrimitiveType[ARG],
+                                           var_name)
+                c_source.append('static %s;' % var_decl)
+                getter_name = '%s_get%d' % (fn_name, i)
+                export_symbols.append(getter_name)
+                c_source.append('void %s(%s) { *p = %s; }' % (
+                    getter_name,
+                    primitive.cdecl(primitive.PrimitiveType[ARG], '*p'),
+                    var_name))
+            export_symbols.append(fn_name)
+            c_source.append('')
+            c_source.append('static void real%s(%s)' % (
+                fn_name, ', '.join(fn_args)))
+            c_source.append('{')
+            for i in range(len(ARGTYPES)):
+                c_source.append('    argcopy_%s_x%d = x%d;' % (fn_name, i, i))
+            c_source.append('}')
+            c_source.append('void *%s(void)' % fn_name)
+            c_source.append('{')
+            c_source.append('    return (void *)&real%s;' % fn_name)
+            c_source.append('}')
+            c_source.append('')
+
+        for k in range(NB_TESTS):
+            prepare_c_source()
+
+        eci = ExternalCompilationInfo(
+            separate_module_sources=['\n'.join(c_source)],
+            export_symbols=export_symbols)
+
+        for k in range(NB_TESTS):
+            ARGTYPES, ffitypes, fn_name = all_tests[k]
+            func_getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
+                                         compilation_info=eci, _nowrapper=True)
+            load_factor = rnd.random()
+            keepalive_factor = rnd.random()
+            #
+            func_raw = func_getter_ptr()
             calldescr = cpu._calldescr_dynamic_for_tests(ffitypes, types.void)
             faildescr = BasicFailDescr(1)
             #
@@ -2790,7 +2840,7 @@ class LLtypeBackendTest(BaseBackendTest):
             print
             print codes
             #
-            argvalues = [funcbox.getint()]
+            argvalues = [func_raw]
             for TP in ARGTYPES:
                 r = (rnd.random() - 0.5) * 999999999999.9
                 r = rffi.cast(TP, r)
@@ -2840,16 +2890,26 @@ class LLtypeBackendTest(BaseBackendTest):
             looptoken = JitCellToken()
             self.cpu.compile_loop(argboxes, ops, looptoken)
             #
-            seen = []
             deadframe = self.cpu.execute_token(looptoken, *argvalues_normal)
             fail = self.cpu.get_latest_descr(deadframe)
             assert fail.identifier == 0
             expected = argvalues[1:]
-            [got] = seen
-            different_values = ['%r != %r' % (a, b)
-                                    for a, b in zip(got, expected)
-                                        if a != b]
-            assert got == expected, ', '.join(different_values)
+            got = []
+            for i, ARG in enumerate(ARGTYPES):
+                PARG = rffi.CArrayPtr(ARG)
+                getter_name = '%s_get%d' % (fn_name, i)
+                getter_ptr = rffi.llexternal(getter_name, [PARG], lltype.Void,
+                                             compilation_info=eci,
+                                             _nowrapper=True)
+                my_arg = lltype.malloc(PARG.TO, 1, zero=True, flavor='raw')
+                getter_ptr(my_arg)
+                got.append(my_arg[0])
+                lltype.free(my_arg, flavor='raw')
+            different_values = ['x%d: got %r, expected %r' % (i, a, b)
+                                for i, (a, b) in enumerate(zip(got, expected))
+                                if a != b]
+            assert got == expected, '\n'.join(
+                ['bad args, signature %r' % codes[1:]] + different_values)
 
 
     def test_guard_not_invalidated(self):

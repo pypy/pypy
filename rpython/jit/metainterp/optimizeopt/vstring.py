@@ -733,6 +733,25 @@ class OptString(optimizer.Optimization):
             return True
         return False
 
+    def opt_call_stroruni_STR_CMP(self, op, mode):
+        v1 = self.getvalue(op.getarg(1))
+        v2 = self.getvalue(op.getarg(2))
+        l1box = v1.getstrlen(None, mode, None)
+        l2box = v2.getstrlen(None, mode, None)
+        if (l1box is not None and l2box is not None and
+            isinstance(l1box, ConstInt) and
+            isinstance(l2box, ConstInt) and
+            l1box.value == l2box.value == 1):
+            # comparing two single chars
+            vchar1 = self.strgetitem(v1, optimizer.CVAL_ZERO, mode)
+            vchar2 = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)
+            seo = self.optimizer.send_extra_operation
+            seo(ResOperation(rop.INT_SUB, [vchar1.force_box(self),
+                                           vchar2.force_box(self)],
+                             op.result))
+            return True
+        return False
+
     def opt_call_SHRINK_ARRAY(self, op):
         v1 = self.getvalue(op.getarg(1))
         v2 = self.getvalue(op.getarg(2))
