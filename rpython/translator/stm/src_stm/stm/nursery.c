@@ -242,8 +242,12 @@ static void _reset_object_cards(struct stm_priv_segment_info_s *pseg,
 #undef STM_SEGMENT
     struct object_s *realobj = (struct object_s *)REAL_ADDRESS(pseg->pub.segment_base, obj);
     size_t size = stmcb_size_rounded_up(realobj);
-
     OPT_ASSERT(size >= _STM_MIN_CARD_OBJ_SIZE);
+
+    uintptr_t offset_itemsize[2];
+    stmcb_get_card_base_itemsize(realobj, offset_itemsize);
+    size = (size - offset_itemsize[0]) / offset_itemsize[1];
+
     assert(IMPLY(mark_value == CARD_CLEAR, !mark_all)); /* not necessary */
     assert(IMPLY(mark_all, mark_value == CARD_MARKED_OLD)); /* set *all* to OLD */
     assert(IMPLY(IS_OVERFLOW_OBJ(pseg, realobj),

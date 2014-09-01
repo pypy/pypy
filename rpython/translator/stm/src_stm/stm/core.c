@@ -232,8 +232,12 @@ static bool obj_should_use_cards(object_t *obj)
 {
     struct object_s *realobj = (struct object_s *)
         REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
-    size_t size = stmcb_size_rounded_up(realobj);
+    long supports = stmcb_obj_supports_cards(realobj);
+    if (!supports)
+        return 0;
 
+    /* check also if it makes sense: */
+    size_t size = stmcb_size_rounded_up(realobj);
     return (size >= _STM_MIN_CARD_OBJ_SIZE);
 }
 
@@ -591,13 +595,16 @@ static void _card_wise_synchronize_object_now(object_t *obj)
     assert(!(obj->stm_flags & GCFLAG_CARDS_SET));
     assert(!IS_OVERFLOW_OBJ(STM_PSEGMENT, obj));
 
+    uintptr_t offset_itemsize[2];
     struct object_s *realobj = (struct object_s *)REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
     size_t obj_size = stmcb_size_rounded_up(realobj);
     assert(obj_size >= 32);
+    stmcb_get_card_base_itemsize(realobj, offset_itemsize);
+    size_t real_idx_count = (obj_size - offset_itemsize[0]) / offset_itemsize[1];
 
     uintptr_t first_card_index = get_write_lock_idx((uintptr_t)obj);
     uintptr_t card_index = 1;
-    uintptr_t last_card_index = get_index_to_card_index(obj_size - 1); /* max valid index */
+    uintptr_t last_card_index = get_index_to_card_index(real_idx_count - 1); /* max valid index */
     long i, myself = STM_SEGMENT->segment_num;
 
     /* simple heuristic to check if probably the whole object is
@@ -618,7 +625,6 @@ static void _card_wise_synchronize_object_now(object_t *obj)
     /* Combine multiple marked cards and do a memcpy for them. We don't
        try yet to use page_copy() or otherwise take into account privatization
        of pages (except _has_private_page_in_range) */
-    uintptr_t offset_itemsize[2];
     bool all_cards_were_cleared = true;
 
     uintptr_t start_card_index = -1;
@@ -635,7 +641,6 @@ static void _card_wise_synchronize_object_now(object_t *obj)
                 /*     realobj, get_card_index_to_index(card_index)); */
                 if (all_cards_were_cleared) {
                     all_cards_were_cleared = false;
-                    stmcb_get_card_base_itemsize(realobj, offset_itemsize);
                 }
             }
         }

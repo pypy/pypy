@@ -260,6 +260,9 @@ extern void stmcb_trace_cards(struct object_s *, void (object_t **),
    one item */
 extern void stmcb_get_card_base_itemsize(struct object_s *,
                                          uintptr_t offset_itemsize[2]);
+/* returns whether this object supports cards. we will only call
+   stmcb_get_card_base_itemsize on objs that do so. */
+extern long stmcb_obj_supports_cards(struct object_s *);
 extern void stmcb_commit_soon(void);
 
 
@@ -368,7 +371,7 @@ void stm_abort_transaction(void) __attribute__((noreturn));
 int stm_is_inevitable(void);
 #else
 static inline int stm_is_inevitable(void) {
-    return !rewind_jmp_armed(&STM_SEGMENT->running_thread->rjthread); 
+    return !rewind_jmp_armed(&STM_SEGMENT->running_thread->rjthread);
 }
 #endif
 static inline void stm_become_inevitable(stm_thread_local_t *tl,
