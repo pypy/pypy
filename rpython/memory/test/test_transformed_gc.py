@@ -1319,7 +1319,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
         A = lltype.GcArray(lltype.Ptr(S))
         def f():
-            lst = lltype.malloc(A, 5, zero= False)
+            lst = lltype.malloc(A, 5)
             return (lst[0] == lltype.nullptr(S) 
                     and lst[1] == lltype.nullptr(S)
                     and lst[2] == lltype.nullptr(S)
@@ -1330,7 +1330,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     def test_malloc_array_of_gcptr(self):
         run = self.runner('malloc_array_of_gcptr')
         res = run([])
-        assert not res
+        assert res
 
     def define_malloc_struct_of_gcptr(cls):
         S1 = lltype.GcStruct('S', ('x', lltype.Signed))
