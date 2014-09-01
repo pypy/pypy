@@ -173,6 +173,13 @@ class ARMCallbuilder(AbstractCallBuilder):
 
 
 class SoftFloatCallBuilder(ARMCallbuilder):
+    # XXX Maybe we could kill this class and unify the remaining two
+    # XXX classes, by carefully checking if all methods here are doing
+    # XXX the exact same thing as the methods from HardFloatCallBuilder,
+    # XXX but simply forcing all BoxFloat arguments to be longlongs
+    # XXX (i.e. ignoring 'f' in favour of 'L'), and the same with
+    # XXX single-float arguments (ignoring 'S' in favour of 'i');
+    # XXX and the same for the return value.
 
     def get_result_locs(self):
         if self.resloc is None:
