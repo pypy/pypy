@@ -1381,20 +1381,29 @@ class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
                                 for length in range(3, 76, 5)])
 
     def define_nursery_hash_base(cls):
+        from rpython.rlib.debug import debug_print
+        
         class A:
             pass
         def fn():
             objects = []
             hashes = []
             for i in range(200):
+                debug_print("starting nursery collection", i)
                 rgc.collect(0)     # nursery-only collection, if possible
+                debug_print("finishing nursery collection", i)
                 obj = A()
                 objects.append(obj)
                 hashes.append(compute_identity_hash(obj))
             unique = {}
+            debug_print("objects", len(objects))
             for i in range(len(objects)):
+                debug_print(i)
                 assert compute_identity_hash(objects[i]) == hashes[i]
+                debug_print("storing in dict")
                 unique[hashes[i]] = None
+                debug_print("done")
+            debug_print("finished")
             return len(unique)
         return fn
 

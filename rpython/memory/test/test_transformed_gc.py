@@ -1331,7 +1331,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
         run = self.runner('malloc_array_of_gcptr')
         res = run([])
         assert not res
-    '''
+
     def define_malloc_struct_of_gcptr(cls):
         S1 = lltype.GcStruct('S', ('x', lltype.Signed))
         S = lltype.GcStruct('S',
@@ -1347,25 +1347,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
         run = self.runner("malloc_struct_of_gcptr")
         res = run([])
         assert res
-    '''
-    '''
-    def define_malloc_struct_of_gcptr(cls):
-        S = lltype.GcForwardReference()
-        S.become(lltype.GcStruct('S',
-                                 ('x', lltype.Signed),
-                                 ('prev', lltype.Ptr(S)),
-                                 ('next', lltype.Ptr(S))))
-        s0 = lltype.malloc(S,zero = False)
-        def f():
-            return s0.next == lltype.nullptr(S)
-        return f
 
-    def test_malloc_struct_of_gcptr(self):
-        run = self.runner("malloc_struct_of_gcptr")
-        pdb.set_trace()
-        res = run([])
-        assert res
-    '''
 # ________________________________________________________________
 # tagged pointers
 
