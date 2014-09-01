@@ -13,6 +13,7 @@ extern Signed pypy_stmcb_size_rounded_up(void*);
 extern void pypy_stmcb_get_card_base_itemsize(void*, uintptr_t[]);
 extern void pypy_stmcb_trace(void*, void(*)(void*));
 extern void pypy_stmcb_trace_cards(void*, void(*)(void*), uintptr_t, uintptr_t);
+extern Signed pypy_stmcb_obj_supports_cards(void*);
 
 inline ssize_t stmcb_size_rounded_up(struct object_s *obj) {
     ssize_t result = pypy_stmcb_size_rounded_up(obj);
@@ -28,6 +29,10 @@ inline void stmcb_get_card_base_itemsize(struct object_s *obj,
 
 inline void stmcb_trace(struct object_s *obj, void visit(object_t **)) {
     pypy_stmcb_trace(obj, (void(*)(void*))visit);
+}
+
+inline long stmcb_obj_supports_cards(struct object_s *obj) {
+    return pypy_stmcb_obj_supports_cards(obj);
 }
 
 inline void stmcb_trace_cards(struct object_s *obj, void visit(object_t **),

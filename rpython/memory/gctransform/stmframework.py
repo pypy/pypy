@@ -33,6 +33,14 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                                      llannotation.SomePtr(GCClass.VISIT_FPTR)],
                   annmodel.s_None))
         #
+        def pypy_stmcb_obj_supports_cards(obj):
+            typeid = gc.get_type_id(obj)
+            return gc.is_varsize(typeid)
+        pypy_stmcb_obj_supports_cards.c_name = "pypy_stmcb_obj_supports_cards"
+        self.autoregister_ptrs.append(
+            getfn(pypy_stmcb_obj_supports_cards, [llannotation.SomeAddress()],
+                  annmodel.SomeInteger()))
+        #
         def pypy_stmcb_trace_cards(obj, visit_fn, start, stop):
             typeid = gc.get_type_id(obj)
             if not gc.has_gcptr_in_varsize(typeid):
