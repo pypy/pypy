@@ -36,3 +36,27 @@ class TestIncrementalMiniMarkGC(test_minimark_gc.TestMiniMarkGC):
             return ref() is b
         res = self.interpret(f, [])
         assert res == True
+
+    def test_weakref_to_pinned(self):
+        import weakref
+        from rpython.rlib import rgc
+        class A(object):
+            pass
+        def g():
+            a = A()
+            assert rgc.pin(a)
+            a.x = 100
+            wr = weakref.ref(a)
+            llop.gc__collect(lltype.Void)
+            assert wr() is not None
+            assert a.x == 100
+            return wr
+        def f():
+            ref = g()
+            llop.gc__collect(lltype.Void, 1)
+            b = ref()
+            assert b is not None
+            b.x = 101
+            return ref() is b
+        res = self.interpret(f, [])
+        assert res == True
