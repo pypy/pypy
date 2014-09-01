@@ -3,6 +3,7 @@ from rpython.rlib import jit
 from rpython.rtyper import rint
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Signed, Bool, Void, UniChar
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.rmodel import IteratorRepr, inputconst, Repr
 from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rfloat import FloatRepr
@@ -384,10 +385,10 @@ class AbstractUnicodeRepr(AbstractStringRepr):
             unicode_encode_utf_8_impl, 'runicode_encode_utf_8')
 
     def rtype_method_upper(self, hop):
-        raise TypeError("Cannot do toupper on unicode string")
+        raise TyperError("Cannot do toupper on unicode string")
 
     def rtype_method_lower(self, hop):
-        raise TypeError("Cannot do tolower on unicode string")
+        raise TyperError("Cannot do tolower on unicode string")
 
     @jit.elidable
     def ll_encode_utf8(self, ll_s):
@@ -711,6 +712,11 @@ class __extend__(pairtype(AbstractUniCharRepr, AbstractUniCharRepr),
                  pairtype(AbstractUniCharRepr, AbstractCharRepr)):
     def rtype_eq(_, hop): return _rtype_unchr_compare_template(hop, 'eq')
     def rtype_ne(_, hop): return _rtype_unchr_compare_template(hop, 'ne')
+    def rtype_lt(_, hop): return _rtype_unchr_compare_template_ord(hop, 'lt')
+    def rtype_le(_, hop): return _rtype_unchr_compare_template_ord(hop, 'le')
+    def rtype_gt(_, hop): return _rtype_unchr_compare_template_ord(hop, 'gt')
+    def rtype_ge(_, hop): return _rtype_unchr_compare_template_ord(hop, 'ge')
+
 
 #Helper functions for comparisons
 
@@ -719,6 +725,18 @@ def _rtype_unchr_compare_template(hop, func):
     vlist = hop.inputargs(unichar_repr, unichar_repr)
     return hop.genop('unichar_' + func, vlist, resulttype=Bool)
 
+def _rtype_unchr_compare_template_ord(hop, func):
+    vlist = hop.inputargs(*hop.args_r)
+    vlist2 = []
+    for v in vlist:
+        if v.concretetype == lltype.Char:
+            v = hop.genop('cast_char_to_int', [v], resulttype=lltype.Signed)
+        elif v.concretetype == lltype.UniChar:
+            v = hop.genop('cast_unichar_to_int', [v], resulttype=lltype.Signed)
+        else:
+            assert 0, v.concretetype
+        vlist2.append(v)
+    return hop.genop('int_' + func, vlist2, resulttype=Bool)
 
 #
 # _________________________ Conversions _________________________
