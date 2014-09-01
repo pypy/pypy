@@ -41,9 +41,9 @@ def raw_encode_basestring_ascii(space, w_string):
         # 'w_string' directly.  But this requires an extra pass over all
         # characters, and the expected use case of this function, from
         # json.encoder, will anyway re-encode a unicode result back to
-        # a string (with the ascii encoding).  So we may as well directly
-        # turn it into a string from here, and avoid the extra pass over
-        # all characters here.
+        # a string (with the ascii encoding).  This requires two passes
+        # over the characters.  So we may as well directly turn it into a
+        # string here --- only one pass.
         u = space.unicode_w(w_string)
         sb = StringBuilder(len(u))
         first = 0
