@@ -1,4 +1,4 @@
-import os, sys, py, errno
+import os, sys, py, errno, gc
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.tool.udir import udir
 from rpython.rlib import rfile
@@ -266,6 +266,18 @@ class TestDirect:
     def setup_class(cls):
         cls.tmpdir = udir.join('test_rfile_direct')
         cls.tmpdir.ensure(dir=True)
+
+    def test_auto_close(self):
+        fname = str(self.tmpdir.join('file_auto_close'))
+        f = rfile.create_file(fname, 'w')
+        f.write('a')    # remains in buffers
+        assert os.path.getsize(fname) == 0
+        del f
+        for i in range(5):
+            if os.path.getsize(fname) != 0:
+                break
+            gc.collect()
+        assert os.path.getsize(fname) == 1
 
     def test_read_a_lot(self):
         fname = str(self.tmpdir.join('file_read_a_lot'))

@@ -60,11 +60,16 @@ c_tmpfile = llexternal('tmpfile', [], FILEP)
 c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T],
                        rffi.INT)
 
+c_fclose = llexternal('fclose', [FILEP], rffi.INT)
+c_pclose = llexternal('pclose', [FILEP], rffi.INT)
+
 # Note: the following two functions are called from __del__ methods,
 # so must be 'releasegil=False'.  Otherwise, a program using both
 # threads and the RFile class cannot translate.  See c684bf704d1f
-c_fclose = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
-c_pclose = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
+c_fclose_in_del = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
+c_pclose_in_del = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
+_fclose2 = (c_fclose, c_fclose_in_del)
+_pclose2 = (c_pclose, c_pclose_in_del)
 
 c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True)
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP], rffi.CCHARP)
@@ -183,16 +188,23 @@ def create_popen_file(command, type):
             lltype.free(ll_type, flavor='raw')
     finally:
         lltype.free(ll_command, flavor='raw')
-    return RFile(ll_file, c_pclose)
+    return RFile(ll_file, _pclose2)
 
 
 class RFile(object):
-    def __init__(self, ll_file, do_close=c_fclose):
+    def __init__(self, ll_file, close2=_fclose2):
         self._ll_file = ll_file
-        self._do_close = do_close
+        self._close2 = close2
 
     def __del__(self):
-        self.close()
+        """Closes the described file when the object's last reference
+        goes away.  Unlike an explicit call to close(), this is meant
+        as a last-resort solution and cannot release the GIL or return
+        an error code."""
+        ll_file = self._ll_file
+        if ll_file:
+            do_close = self._close2[1]
+            do_close(ll_file)       # return value ignored
 
     def close(self):
         """Closes the described file.
@@ -207,7 +219,8 @@ class RFile(object):
         if ll_file:
             # double close is allowed
             self._ll_file = lltype.nullptr(FILEP.TO)
-            res = self._do_close(ll_file)
+            do_close = self._close2[0]
+            res = do_close(ll_file)
             if res == -1:
                 errno = rposix.get_errno()
                 raise OSError(errno, os.strerror(errno))
