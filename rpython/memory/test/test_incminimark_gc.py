@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rlib import rgc
 
 from rpython.memory.test import test_minimark_gc
 
@@ -36,6 +37,16 @@ class TestIncrementalMiniMarkGC(test_minimark_gc.TestMiniMarkGC):
             return ref() is b
         res = self.interpret(f, [])
         assert res == True
+
+    def test_pin_weakref_not_implemented(self):
+        import weakref
+        class A:
+            pass
+        def f():
+            a = A()
+            ref = weakref.ref(a)
+            assert not rgc.pin(ref)
+        self.interpret(f, [])
 
     def test_weakref_to_pinned(self):
         import weakref

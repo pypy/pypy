@@ -970,16 +970,21 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # makes no sense. If you run into this case, you may forgot
             # to check can_move(obj).
             return False
-        if self.has_gcptr(self.get_type_id(obj)):
+        if self._is_pinned(obj):
+            # already pinned, we do not allow to pin it again.
+            # Reason: It would be possible that the first caller unpins
+            # while the second caller thinks it's still pinned.
+            return False
+        #
+        obj_type_id = self.get_type_id(obj)
+        if self.has_gcptr(obj_type_id):
             # objects containing GC pointers can't be pinned. If we would add
             # it, we would have to track all pinned objects and trace them
             # every minor collection to make sure the referenced object are
             # kept alive. Right now this is not a use case that's needed.
             return False
-        if self._is_pinned(obj):
-            # already pinned, we do not allow to pin it again.
-            # Reason: It would be possible that the first caller unpins
-            # while the second caller thinks it's still pinned.
+        if self.weakpointer_offset(obj_type_id) >= 0:
+            # for now we don't support pinning objects with weak pointers.
             return False
         #
         self.header(obj).tid |= GCFLAG_PINNED
