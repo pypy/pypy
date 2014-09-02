@@ -60,8 +60,11 @@ c_tmpfile = llexternal('tmpfile', [], FILEP)
 c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T],
                        rffi.INT)
 
-c_fclose = llexternal('fclose', [FILEP], rffi.INT)
-c_pclose = llexternal('pclose', [FILEP], rffi.INT)
+# Note: the following two functions are called from __del__ methods,
+# so must be 'releasegil=False'.  Otherwise, a program using both
+# threads and the RFile class cannot translate.  See c684bf704d1f
+c_fclose = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
+c_pclose = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
 
 c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True)
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP], rffi.CCHARP)
