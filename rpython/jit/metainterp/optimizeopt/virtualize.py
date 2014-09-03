@@ -158,8 +158,6 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 iteritems = list(iteritems)
                 iteritems.sort(key=lambda (x, y): x.sort_key())
             for ofs, value in iteritems:
-                if value.is_null():
-                    continue
                 subbox = value.force_box(optforce)
                 op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
                                   descr=ofs)
@@ -310,8 +308,6 @@ class VArrayValue(AbstractVArrayValue):
         for index in range(len(self._items)):
             subvalue = self._items[index]
             if subvalue is not self.constvalue:
-                if subvalue.is_null():
-                    continue
                 subbox = subvalue.force_box(optforce)
                 op = ResOperation(rop.SETARRAYITEM_GC,
                                   [box, ConstInt(index), subbox], None,
