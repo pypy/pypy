@@ -427,7 +427,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # the start of the nursery: we actually allocate a bit more for
         # the nursery than really needed, to simplify pointer arithmetic
         # in malloc_fixedsize_clear().  The few extra pages are never used
-        # anyway so it doesn't even count.
+        # anyway so it doesn't even counct.
         nursery = llarena.arena_malloc(self._nursery_memory_size(), 0)
         if not nursery:
             raise MemoryError("cannot allocate nursery")
@@ -830,9 +830,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # that one will occur very soon
             self.nursery_free = self.nursery_top
 
-    def can_malloc_nonmovable(self):
-        return True
-
     def can_optimize_clean_setarrayitems(self):
         if self.card_page_indices > 0:
             return False
@@ -867,20 +864,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         offset_to_length = self.varsize_offset_to_length(typeid)
         (obj + offset_to_length).signed[0] = smallerlength
         return True
-
-
-    def malloc_fixedsize_nonmovable(self, typeid):
-        obj = self.external_malloc(typeid, 0)
-        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
-
-    def malloc_varsize_nonmovable(self, typeid, length):
-        obj = self.external_malloc(typeid, length)
-        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
-
-    def malloc_nonmovable(self, typeid, length, zero):
-        # helper for testing, same as GCBase.malloc
-        return self.external_malloc(typeid, length or 0)    # None -> 0
-
 
     # ----------
     # Simple helpers

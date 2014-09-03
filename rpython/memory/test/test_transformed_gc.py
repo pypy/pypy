@@ -44,7 +44,6 @@ ARGS = lltype.FixedSizeArray(lltype.Signed, 3)
 class GCTest(object):
     gcpolicy = None
     GC_CAN_MOVE = False
-    GC_CAN_MALLOC_NONMOVABLE = True
     taggedpointers = False
 
     def setup_class(cls):
@@ -622,45 +621,6 @@ class GenericGCTests(GCTest):
         res = run([])
         assert res == self.GC_CAN_MOVE
 
-    def define_malloc_nonmovable(cls):
-        TP = lltype.GcArray(lltype.Char)
-        def func():
-            #try:
-            a = rgc.malloc_nonmovable(TP, 3, zero=True)
-            rgc.collect()
-            if a:
-                assert not rgc.can_move(a)
-                return 1
-            return 0
-            #except Exception, e:
-            #    return 2
-
-        return func
-
-    def test_malloc_nonmovable(self):
-        run = self.runner("malloc_nonmovable")
-        assert int(self.GC_CAN_MALLOC_NONMOVABLE) == run([])
-
-    def define_malloc_nonmovable_fixsize(cls):
-        S = lltype.GcStruct('S', ('x', lltype.Float))
-        TP = lltype.GcStruct('T', ('s', lltype.Ptr(S)))
-        def func():
-            try:
-                a = rgc.malloc_nonmovable(TP)
-                rgc.collect()
-                if a:
-                    assert not rgc.can_move(a)
-                    return 1
-                return 0
-            except Exception, e:
-                return 2
-
-        return func
-
-    def test_malloc_nonmovable_fixsize(self):
-        run = self.runner("malloc_nonmovable_fixsize")
-        assert run([]) == int(self.GC_CAN_MALLOC_NONMOVABLE)
-
     def define_shrink_array(cls):
         from rpython.rtyper.lltypesystem.rstr import STR
 
@@ -708,7 +668,6 @@ class GenericGCTests(GCTest):
 
 class GenericMovingGCTests(GenericGCTests):
     GC_CAN_MOVE = True
-    GC_CAN_MALLOC_NONMOVABLE = False
     GC_CAN_TEST_ID = False
     def define_many_ids(cls):
         class A(object):
@@ -1169,7 +1128,6 @@ class TestGenerationalNoFullCollectGC(GCTest):
 
 class TestHybridGC(TestGenerationGC):
     gcname = "hybrid"
-    GC_CAN_MALLOC_NONMOVABLE = True
 
     class gcpolicy(gc.BasicFrameworkGcPolicy):
         class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
@@ -1230,9 +1188,6 @@ class TestHybridGC(TestGenerationGC):
         run = self.runner("write_barrier_direct")
         res = run([])
         assert res == 42
-
-    def test_malloc_nonmovable_fixsize(self):
-        py.test.skip("not supported")
     
 class TestMiniMarkGC(TestHybridGC):
     gcname = "minimark"

@@ -388,17 +388,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 annmodel.SomeInteger(nonneg=True)], s_gcref,
                 inline = True)
 
-        if getattr(GCClass, 'malloc_varsize_nonmovable', False):
-            malloc_nonmovable = func_with_new_name(
-                GCClass.malloc_varsize_nonmovable.im_func,
-                "malloc_varsize_nonmovable")
-            self.malloc_varsize_nonmovable_ptr = getfn(
-                malloc_nonmovable,
-                [s_gc, s_typeid16,
-                 annmodel.SomeInteger(nonneg=True)], s_gcref)
-        else:
-            self.malloc_varsize_nonmovable_ptr = None
-
         if getattr(GCClass, 'raw_malloc_memory_pressure', False):
             def raw_malloc_memory_pressure_varsize(length, itemsize):
                 totalmem = length * itemsize
@@ -665,7 +654,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                                   has_light_finalizer)
 
         if not op.opname.endswith('_varsize') and not flags.get('varsize'):
-            #TODO:check if it's safe to remove the zero-flag
             zero = flags.get('zero', False)
             if (self.malloc_fast_ptr is not None and
                 not c_has_finalizer.value and
@@ -684,18 +672,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                               info_varsize.ofstolength)
             c_varitemsize = rmodel.inputconst(lltype.Signed,
                                               info_varsize.varitemsize)
-            if flags.get('nonmovable') and self.malloc_varsize_nonmovable_ptr:
-                # we don't have tests for such cases, let's fail
-                # explicitely
-                malloc_ptr = self.malloc_varsize_nonmovable_ptr
-                args = [self.c_const_gc, c_type_id, v_length]
+            if self.malloc_varsize_fast_ptr is not None:
+                malloc_ptr = self.malloc_varsize_fast_ptr
             else:
-                if self.malloc_varsize_fast_ptr is not None:
-                    malloc_ptr = self.malloc_varsize_fast_ptr
-                else:
-                    malloc_ptr = self.malloc_varsize_ptr
-                args = [self.c_const_gc, c_type_id, v_length, c_size,
-                        c_varitemsize, c_ofstolength]
+                malloc_ptr = self.malloc_varsize_ptr
+            args = [self.c_const_gc, c_type_id, v_length, c_size,
+                    c_varitemsize, c_ofstolength]
         livevars = self.push_roots(hop)
         v_result = hop.genop("direct_call", [malloc_ptr] + args,
                              resulttype=llmemory.GCREF)
@@ -1076,20 +1058,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=hop.spaceop.result)
         self.pop_roots(hop, livevars)
 
-    def gct_malloc_nonmovable_varsize(self, hop):
-        TYPE = hop.spaceop.result.concretetype
-        if self.gcdata.gc.can_malloc_nonmovable():
-            return self.gct_malloc_varsize(hop, {'nonmovable':True})
-        c = rmodel.inputconst(TYPE, lltype.nullptr(TYPE.TO))
-        return hop.cast_result(c)
-
-    def gct_malloc_nonmovable(self, hop):
-        TYPE = hop.spaceop.result.concretetype
-        if self.gcdata.gc.can_malloc_nonmovable():
-            return self.gct_malloc(hop, {'nonmovable':True})
-        c = rmodel.inputconst(TYPE, lltype.nullptr(TYPE.TO))
-        return hop.cast_result(c)
-
     def _set_into_gc_array_part(self, op):
         if op.opname == 'setarrayitem':
             return op.args[1]
@@ -1231,7 +1199,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 v_adr = llops.genop('adr_add', [v_a, c_fixedofs],
                                     resulttype=llmemory.Address)
                 llops.genop('raw_memclear', [v_adr, v_totalsize])
-            elif isinstance(TYPE, lltype.Struct):
+            elif isinstance(ITEM, lltype.Struct):
                 xxx
             return
         else:
