@@ -1194,6 +1194,20 @@ class UsingFrameworkTest(object):
     def test_gcflag_extra(self):
         self.run("gcflag_extra")
 
+    def define_check_zero_works(self):
+        S = lltype.GcStruct("s", ('x', lltype.Signed))
+        A = lltype.GcArray(lltype.Signed)
+        
+        def fn():
+            s = lltype.malloc(S, zero=True)
+            assert s.x == 0
+            a = lltype.malloc(A, 3, zero=True)
+            assert a[2] == 0
+            return 0
+        return fn
+
+    def test_check_zero_works(self):
+        self.run("check_zero_works")
 
 class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"

@@ -251,7 +251,7 @@ class ExceptionTransformer(object):
               len(block.operations) and
               (block.exits[0].args[0].concretetype is lltype.Void or
                block.exits[0].args[0] is block.operations[-1].result) and
-              block.operations[-1].opname != 'malloc'):     # special cases
+              block.operations[-1].opname not in ('malloc', 'malloc_varsize')):     # special cases
             last_operation -= 1
         lastblock = block
         for i in range(last_operation, -1, -1):
@@ -422,6 +422,7 @@ class ExceptionTransformer(object):
             flavor = spaceop.args[1].value['flavor']
             if flavor == 'gc':
                 insert_zeroing_op = True
+            true_zero = spaceop.args[1].value.get('zero', False)
         # NB. when inserting more special-cases here, keep in mind that
         # you also need to list the opnames in transform_block()
         # (see "special cases")
@@ -437,9 +438,12 @@ class ExceptionTransformer(object):
                 v_result_after = copyvar(None, v_result)
                 l0.args.append(v_result)
                 normalafterblock.inputargs.append(v_result_after)
+            if true_zero:
+                opname = "zero_everything_inside"
+            else:
+                opname = "zero_gc_pointers_inside"
             normalafterblock.operations.insert(
-                0, SpaceOperation('zero_gc_pointers_inside',
-                                  [v_result_after],
+                0, SpaceOperation(opname, [v_result_after],
                                   varoftype(lltype.Void)))
 
     def setup_excdata(self):

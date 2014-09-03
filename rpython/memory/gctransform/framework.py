@@ -867,6 +867,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
             TYPE = v_ob.concretetype.TO
             self.gen_zero_gc_pointers(TYPE, v_ob, hop.llops)
 
+    def gct_zero_everything_inside(self, hop):
+        if not self.malloc_zero_filled:
+            v_ob = hop.spaceop.args[0]
+            TYPE = v_ob.concretetype.TO
+            self.gen_zero_gc_pointers(TYPE, v_ob, hop.llops, everything=True)
+
     def gct_gc_writebarrier_before_copy(self, hop):
         op = hop.spaceop
         if not hasattr(self, 'wb_before_copy_ptr'):
@@ -1172,21 +1178,37 @@ class BaseFrameworkGCTransformer(GCTransformer):
     def pop_roots(self, hop, livevars):
         raise NotImplementedError
 
-    def gen_zero_gc_pointers(self, TYPE, v, llops, previous_steps=None):
+    def gen_zero_gc_pointers(self, TYPE, v, llops, previous_steps=None,
+                             everything=False):
         if isinstance(TYPE, lltype.Struct):
             for name in TYPE._names:
                 FIELD = getattr(TYPE, name)
-                if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
+                if ((isinstance(FIELD, lltype.Ptr) and FIELD._needsgc())
+                    or everything):
                     c_name = rmodel.inputconst(lltype.Void, name)
-                    c_null = rmodel.inputconst(FIELD, lltype.nullptr(FIELD.TO))
+                    c_null = rmodel.inputconst(FIELD, FIELD._defl())
                     llops.genop('bare_setfield', [v, c_name, c_null])
                 elif (isinstance(FIELD, lltype.Array) and
                       isinstance(FIELD.OF, lltype.Ptr) and FIELD.OF._needsgc()):
                     xxx
+         
             return
         elif isinstance(TYPE, lltype.Array):
             ITEM = TYPE.OF
-            if isinstance(ITEM, lltype.Ptr) and ITEM._needsgc():
+            if everything:
+                needs_clearing = True
+            elif isinstance(ITEM, lltype.Ptr) and ITEM._needsgc():
+                needs_clearing = True
+            elif isinstance(ITEM, lltype.Struct):
+                for SUBITEM in ITEM._flds.values():
+                    if isinstance(SUBITEM, lltype.Ptr) and SUBITEM._needsgc():
+                        needs_clearing = True
+                        break
+                else:
+                    needs_clearing = False
+            else:
+                needs_clearing = False
+            if needs_clearing:
                 v_size = llops.genop('getarraysize', [v],
                                      resulttype=lltype.Signed)
                 c_size = rmodel.inputconst(lltype.Signed, llmemory.sizeof(ITEM))
@@ -1199,8 +1221,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 v_adr = llops.genop('adr_add', [v_a, c_fixedofs],
                                     resulttype=llmemory.Address)
                 llops.genop('raw_memclear', [v_adr, v_totalsize])
-            elif isinstance(ITEM, lltype.Struct):
-                xxx
             return
         else:
             raise TypeError(TYPE)  
