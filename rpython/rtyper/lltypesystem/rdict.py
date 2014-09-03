@@ -616,22 +616,18 @@ def ll_dict_lookup(d, key, hash):
         i = i & mask
         # keep 'i' as a signed number here, to consistently pass signed
         # arguments to the small helper methods.
-        llop.debug_print(lltype.Void, "looking in", i)
         if not entries.everused(i):
             if freeslot == -1:
                 freeslot = intmask(i)
             return r_uint(freeslot) | HIGHEST_BIT
         elif entries.valid(i):
-            llop.debug_print(lltype.Void, "found!", hash, entries.hash(i))
             checkingkey = entries[i].key
             if direct_compare and checkingkey == key:
                 return i
             if d.keyeq is not None and entries.hash(i) == hash:
                 # correct hash, maybe the key is e.g. a different pointer to
                 # an equal object
-                llop.debug_print(lltype.Void, "hashes compare")
                 found = d.keyeq(checkingkey, key)
-                llop.debug_print(lltype.Void, "found", found)
                 if d.paranoia:
                     if (entries != d.entries or
                         not entries.valid(i) or entries[i].key != checkingkey):
