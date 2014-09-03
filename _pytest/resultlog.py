@@ -57,7 +57,7 @@ class ResultLog(object):
         _safeprint("%s %s" % (lettercode, testpath), file=self.logfile)
         for line in longrepr.splitlines():
             _safeprint(" %s" % line, file=self.logfile)
-        if sections is not None:
+        if 0 and sections is not None:   # XXX XXX USES TOO MUCH MEMORY??
             for title, content in sections:
                 _safeprint(" ---------- %s ----------" % (title,),
                            file=self.logfile)
