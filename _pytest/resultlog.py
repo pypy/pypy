@@ -109,4 +109,4 @@ class ResultLog(object):
 def _safeprint(s, file):
     if isinstance(s, unicode):
         s = s.encode('utf-8')
-    py.builtin.print_(s)
+    py.builtin.print_(s, file=file)
