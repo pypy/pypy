@@ -763,14 +763,13 @@ def make_string_mappings(strtype):
         """
         Either returns a non-moving copy or performs neccessary pointer
         arithmetic to return a pointer to the characters of a string if the
-        string is already nonmovable.  Must be followed by a
+        string is already nonmovable or could be pinned.  Must be followed by a
         free_nonmovingbuffer call.
 
         First bool returned indicates if 'data' was pinned. Second bool returned
-        indicates if we did a raw alloc because pinning didn't work. Bot bools
+        indicates if we did a raw alloc because pinning failed. Both bools
         should never be true at the same time.
         """
-        # XXX update doc string
 
         lldata = llstrtype(data)
         count = len(data)
@@ -801,7 +800,8 @@ def make_string_mappings(strtype):
     @jit.dont_look_inside
     def free_nonmovingbuffer(data, buf, is_pinned, is_raw):
         """
-        Either free a non-moving buffer or keep the original storage alive.
+        Keep 'data' alive and unpin it if it was pinned ('is_pinned' is true).
+        Otherwise free the non-moving copy ('is_raw' is true).
         """
         if is_pinned:
             rgc.unpin(data)
