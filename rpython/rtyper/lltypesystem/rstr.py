@@ -1152,6 +1152,7 @@ class LLHelpers(AbstractLLHelpers):
         return hop.gendirectcall(cls.ll_join_strs, size, vtemp)
     do_stringformat = classmethod(do_stringformat)
 
+    @jit.dont_look_inside
     def ll_string2list(RESLIST, src):
         length = len(src.chars)
         lst = RESLIST.ll_newlist(length)
