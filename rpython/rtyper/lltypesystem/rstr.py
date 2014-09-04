@@ -82,9 +82,9 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         ll_assert(dststart >= 0, "copystrc: negative dststart")
         ll_assert(dststart + length <= len(dst.chars), "copystrc: dst ovf")
         # from here, no GC operations can happen
-        src = _get_raw_buf(SRC_TP, src, srcstart)
-        dst = _get_raw_buf(DST_TP, dst, dststart)
-        llmemory.raw_memcopy(src, dst, llmemory.sizeof(CHAR_TP) * length)
+        asrc = _get_raw_buf(SRC_TP, src, srcstart)
+        adst = _get_raw_buf(DST_TP, dst, dststart)
+        llmemory.raw_memcopy(asrc, adst, llmemory.sizeof(CHAR_TP) * length)
         # end of "no GC" section
         keepalive_until_here(src)
         keepalive_until_here(dst)
@@ -102,10 +102,10 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         # xxx Warning: same note as above apply: don't do this at home
         assert length >= 0
         # from here, no GC operations can happen
-        src = _get_raw_buf(SRC_TP, src, srcstart)
-        adr = llmemory.cast_ptr_to_adr(ptrdst)
-        dstbuf = adr + llmemory.itemoffsetof(typeOf(ptrdst).TO, 0)
-        llmemory.raw_memcopy(src, dstbuf, llmemory.sizeof(CHAR_TP) * length)
+        asrc = _get_raw_buf(SRC_TP, src, srcstart)
+        adst = llmemory.cast_ptr_to_adr(ptrdst)
+        adst = adst + llmemory.itemoffsetof(typeOf(ptrdst).TO, 0)
+        llmemory.raw_memcopy(asrc, adst, llmemory.sizeof(CHAR_TP) * length)
         # end of "no GC" section
         keepalive_until_here(src)
     copy_string_to_raw._always_inline_ = True
@@ -118,11 +118,11 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         # xxx Warning: same note as above apply: don't do this at home
         assert length >= 0
         # from here, no GC operations can happen
-        dst = _get_raw_buf(SRC_TP, dst, dststart)
-        adr = llmemory.cast_ptr_to_adr(ptrsrc)
+        adst = _get_raw_buf(SRC_TP, dst, dststart)
+        asrc = llmemory.cast_ptr_to_adr(ptrsrc)
 
-        srcbuf = adr + llmemory.itemoffsetof(typeOf(ptrsrc).TO, 0)
-        llmemory.raw_memcopy(srcbuf, dst, llmemory.sizeof(CHAR_TP) * length)
+        asrc = asrc + llmemory.itemoffsetof(typeOf(ptrsrc).TO, 0)
+        llmemory.raw_memcopy(asrc, adst, llmemory.sizeof(CHAR_TP) * length)
         # end of "no GC" section
         keepalive_until_here(dst)
     copy_raw_to_string._always_inline_ = True
