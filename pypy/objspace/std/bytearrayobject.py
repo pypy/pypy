@@ -534,7 +534,7 @@ def makebytearraydata_w(space, w_source):
         if not e.match(space, space.w_TypeError):
             raise
     else:
-        return [c for c in buf.as_str()]
+        return list(buf.as_str())
 
     # sequence of bytes
     w_iter = space.iter(w_source)
