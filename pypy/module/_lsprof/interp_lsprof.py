@@ -175,7 +175,11 @@ class ProfilerContext(object):
 
     def _stop(self, profobj, entry):
         tt = profobj.ll_timer() - self.ll_t0
-        it = tt - self.ll_subt
+        ll_subt = self.ll_subt
+        if jit.isconstant(ll_subt) and not ll_subt:
+            it = tt       # for 32-bit JIT: avoid the 'call(llong_sub, tt, 0)'
+        else:
+            it = tt - ll_subt
         if self.previous:
             self.previous.ll_subt += tt
         entry._stop(tt, it)
