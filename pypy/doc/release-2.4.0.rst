@@ -5,6 +5,8 @@ PyPy 2.4 - ????????
 We're pleased to announce PyPy 2.4, a significant milestone on it's own right
 and the proud parent of our recent PyPy3 and STM releases.
 
+XXX this sentence is confusing, refactor
+
 This release contains several improvements and bugfixes.
 
 You can download the PyPy 2.4 release here:
@@ -16,7 +18,9 @@ project, and for those who donate to our three sub-projects.
 We've shown quite a bit of progress 
 but we're slowly running out of funds.
 Please consider donating more, or even better convince your employer to donate,
-so we can finish those projects!  The three sub-projects are:
+so we can finish those projects! We would like to also point out that in
+September, `the Python Software Foundation`_ will `match funds`_ for
+any donations up to $10k!  The three sub-projects are:
 
 * `Py3k`_ (supporting Python 3.x): We have released a Python 3.2.5 compatable version
    we call PyPy3 2.3.1, and are working toward a Python 3.3 compatable version
@@ -30,14 +34,18 @@ continue to try out new promising paths of acheiving a fast multithreaded python
 .. _`STM`: http://pypy.org/tmdonate2.html
 .. _`NumPy`: http://pypy.org/numpydonate.html
 .. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy   
+.. _`the Python Software Foundation`: https://www.python.org/psf/
+.. _`match funds`: http://morepypy.blogspot.com/2014/09/python-software-foundation-matching.html
 
 What is PyPy?
 =============
 
 PyPy is a very compliant Python interpreter, almost a drop-in replacement for
-CPython 2.7. It's fast (`pypy 2.3 and cpython 2.7.x`_ performance comparison;
+CPython 2.7. It's fast (`pypy 2.4 and cpython 2.7.x`_ performance comparison;
 note that cpython's speed has not changed since 2.7.2)
 due to its integrated tracing JIT compiler.
+
+XXX confusing sentence, rewrite
 
 This release supports x86 machines running Linux 32/64, Mac OS X 64, Windows,
 and OpenBSD,
@@ -47,21 +55,25 @@ While we support 32 bit python on Windows, work on the native Windows 64
 bit python is still stalling, we would welcome a volunteer
 to `handle that`_.
 
-.. _`pypy 2.3 and cpython 2.7.x`: http://speed.pypy.org
+.. _`pypy 2.4 and cpython 2.7.x`: http://speed.pypy.org
 .. _`handle that`: http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
 
 Highlights
 ==========
 
-Benchmarks improved after internal improvements in string and bytearray handling,
-and a major rewrite of the GIL handling. Many of these improvements are offshoots
-of the STM work.
+Benchmarks improved after internal improvements in string and
+bytearray handling, and a major rewrite of the GIL handling. This means
+that external calls are now a lot faster, especially the CFFI ones. It also
+means that a lot of corner cases when handling strings or bytearrays have
+better performance.
 
-We merged in Python's 2.7.8 stdlib in a record time of one week, proving the
-maturity of our underlying RPython code base and PyPy interpreter.
+PyPy now uses Python 2.7.8 standard library.
 
-We welcomed more than 12 new contributors, and conducted two Google Summer of Code
-projects XXX details?
+We welcomed more than 12 new contributors, and conducted two Google
+Summer of Code as well as other student projects not directly related
+to Summer of Code.
+
+XXX mention the work is ongoing and did not make it to 2.4?
 
 Issues reported with our previous release were fixed after reports from users on
 our new issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
@@ -74,7 +86,9 @@ for more information see `whats-new`_:
 handling, which becomes advantageous on large programs at the cost of slightly
 slower small *benchmark* type programs.
 
-* Boost performance of thread-local variables in both unjitted and jitted code
+* Boost performance of thread-local variables in both unjitted and jitted code,
+  this mostly affects errno handling on linux, which makes external calls
+  faster.
 
 * Move to a mixed polling and mutex GIL model that make mutli-threaded jitted
   code run *much* faster
@@ -85,13 +99,11 @@ slower small *benchmark* type programs.
 
 * Fix performance regression on ufunc(<scalar>, <scalar>) in numpy
 
-* Classes in the ast module are now distinct from structures used by the compiler,
-  which simplifies and speeds up translation of our source code to the PyPy binary
-  interpreter
+* Classes in the ast module are now distinct from structures used by
+  the compiler, which simplifies and speeds up translation of our
+  source code to the PyPy binary interpreter
 
 * Upgrade stdlib from 2.7.5 to 2.7.8
-
-* 
 
 * Many issues were resolved_ since the 2.3.1 release on June 8
 
