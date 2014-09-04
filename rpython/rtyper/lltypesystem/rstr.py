@@ -1152,6 +1152,24 @@ class LLHelpers(AbstractLLHelpers):
         return hop.gendirectcall(cls.ll_join_strs, size, vtemp)
     do_stringformat = classmethod(do_stringformat)
 
+    def ll_string2list(RESLIST, src):
+        length = len(src.chars)
+        lst = RESLIST.ll_newlist(length)
+        dst = lst.ll_items()
+        SRC = typeOf(src).TO     # STR or UNICODE
+        DST = typeOf(dst).TO     # GcArray
+        assert DST.OF is SRC.chars.OF
+        # from here, no GC operations can happen
+        asrc = llmemory.cast_ptr_to_adr(src) + (
+            llmemory.offsetof(SRC, 'chars') +
+            llmemory.itemoffsetof(SRC.chars, 0))
+        adst = llmemory.cast_ptr_to_adr(dst) + llmemory.itemoffsetof(DST, 0)
+        llmemory.raw_memcopy(asrc, adst, llmemory.sizeof(DST.OF) * length)
+        # end of "no GC" section
+        keepalive_until_here(src)
+        keepalive_until_here(dst)
+        return lst
+
 TEMP = GcArray(Ptr(STR))
 TEMP_UNICODE = GcArray(Ptr(UNICODE))
 
