@@ -529,6 +529,31 @@ def test_malloc_new():
     assert op1.opname == 'new'
     assert op1.args == [('sizedescr', S)]
 
+def test_malloc_new_zero():
+    SS = lltype.GcStruct('SS')
+    S = lltype.GcStruct('S', ('x', lltype.Ptr(SS)))
+    v = varoftype(lltype.Ptr(S))
+    op = SpaceOperation('malloc', [Constant(S, lltype.Void),
+                                   Constant({'flavor': 'gc'}, lltype.Void)], v)
+    op1, op2 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'new'
+    assert op1.args == [('sizedescr', S)]
+    assert op2.opname == 'zero_gc_pointers'
+    assert op2.args == [v]
+
+def test_malloc_new_zero_2():
+    SS = lltype.GcStruct('SS')
+    S = lltype.GcStruct('S', ('x', lltype.Ptr(SS)))
+    v = varoftype(lltype.Ptr(S))
+    op = SpaceOperation('malloc', [Constant(S, lltype.Void),
+                                   Constant({'flavor': 'gc',
+                                             'zero': True}, lltype.Void)], v)
+    op1, op2 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'new'
+    assert op1.args == [('sizedescr', S)]
+    assert op2.opname == 'zero_contents'
+    assert op2.args == [v]
+
 def test_malloc_new_with_vtable():
     vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
     S = lltype.GcStruct('S', ('parent', rclass.OBJECT))
@@ -1025,6 +1050,20 @@ def test_str_newstr():
     assert op1.opname == 'newstr'
     assert op1.args == [v1]
     assert op1.result == v2
+
+def test_malloc_varsize_zero():
+    c_A = Constant(lltype.GcArray(lltype.Signed), lltype.Void)
+    c_flags = Constant({"flavor": "gc"}, lltype.Void)
+    v1 = varoftype(lltype.Signed)
+    v2 = varoftype(c_A.value)
+    op = SpaceOperation('malloc_varsize', [c_A, c_flags, v1], v2)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'new_array'
+    c_flags = Constant({"flavor": "gc", "zero": True}, lltype.Void)
+    op = SpaceOperation('malloc_varsize', [c_A, c_flags, v1], v2)
+    op1, op2 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'new_array'
+    assert op2.opname == 'zero_contents'
 
 def test_str_concat():
     # test that the oopspec is present and correctly transformed

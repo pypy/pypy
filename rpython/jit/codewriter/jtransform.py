@@ -612,8 +612,14 @@ class Transformer(object):
             # XXX only strings or simple arrays for now
             ARRAY = op.args[0].value
             arraydescr = self.cpu.arraydescrof(ARRAY)
-            return SpaceOperation('new_array', [op.args[2], arraydescr],
-                                  op.result)
+            op1 = SpaceOperation('new_array', [op.args[2], arraydescr],
+                                 op.result)
+            if self._has_gcptrs_in(ARRAY):
+                return [op1, SpaceOperation('zero_gc_pointers', [op.result],
+                                            None)]
+            if op.args[1].value.get('zero', False):
+                return [op1, SpaceOperation('zero_contents', [op.result], None)]
+            return op1
 
     def rewrite_op_free(self, op):
         d = op.args[1].value.copy()
@@ -860,7 +866,11 @@ class Transformer(object):
         if op.args[1].value['flavor'] == 'raw':
             return self._rewrite_raw_malloc(op, 'raw_malloc_fixedsize', [])
         #
-        assert op.args[1].value == {'flavor': 'gc'}
+        if op.args[1].value.get('zero', False):
+            true_zero = True
+        else:
+            assert op.args[1].value == {'flavor': 'gc'}
+            true_zero = False
         STRUCT = op.args[0].value
         vtable = heaptracker.get_vtable_for_gcstruct(self.cpu, STRUCT)
         if vtable:
@@ -881,7 +891,24 @@ class Transformer(object):
         else:
             opname = 'new'
         sizedescr = self.cpu.sizeof(STRUCT)
-        return SpaceOperation(opname, [sizedescr], op.result)
+        op1 = SpaceOperation(opname, [sizedescr], op.result)
+        if true_zero:
+            return [op1, SpaceOperation('zero_contents', [op.result], None)]
+        if self._has_gcptrs_in(STRUCT):
+            return [op1, SpaceOperation('zero_gc_pointers', [op.result], None)]
+        return op1
+
+    def _has_gcptrs_in(self, STRUCT):
+        if isinstance(STRUCT, lltype.Array):
+            ITEM = STRUCT.OF
+            if isinstance(ITEM, lltype.Struct):
+                STRUCT = ITEM
+            else:
+                return isinstance(ITEM, lltype.Ptr) and ITEM._needsgc()
+        for FIELD in STRUCT._flds.values():
+            if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
+                return True
+        return False
 
     def rewrite_op_getinteriorarraysize(self, op):
         # only supports strings and unicodes
