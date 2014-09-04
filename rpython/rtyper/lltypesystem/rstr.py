@@ -1213,6 +1213,7 @@ class StringIteratorRepr(BaseStringIteratorRepr):
     external_item_repr = char_repr
     lowleveltype = Ptr(GcStruct('stringiter',
                                 ('string', string_repr.lowleveltype),
+                                ('length', Signed),
                                 ('index', Signed)))
 
 class UnicodeIteratorRepr(BaseStringIteratorRepr):
@@ -1220,6 +1221,7 @@ class UnicodeIteratorRepr(BaseStringIteratorRepr):
     external_item_repr = unichar_repr
     lowleveltype = Ptr(GcStruct('unicodeiter',
                                 ('string', unicode_repr.lowleveltype),
+                                ('length', Signed),
                                 ('index', Signed)))
 
 def ll_striter(string):
@@ -1231,16 +1233,16 @@ def ll_striter(string):
         raise TypeError("Unknown string type %s" % (typeOf(string),))
     iter = malloc(TP)
     iter.string = string
+    iter.length = len(string.chars)    # load this value only once
     iter.index = 0
     return iter
 
 def ll_strnext(iter):
-    chars = iter.string.chars
     index = iter.index
-    if index >= len(chars):
+    if index >= iter.length:
         raise StopIteration
     iter.index = index + 1
-    return chars[index]
+    return iter.string.chars[index]
 
 def ll_getnextindex(iter):
     return iter.index
