@@ -34,7 +34,7 @@ class TestCProfile(BaseTestPyPyC):
             r = re.compile(r" call[(]ConstClass[(](.+?)[)]")
             calls = r.findall(repr(loop.ops_by_id(method)))
             if sys.maxint == 2147483647:
-                assert len(calls) == 5
+                assert len(calls) == 6
             else:
                 assert len(calls) == 2
             for x in calls:
