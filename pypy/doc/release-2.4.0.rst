@@ -2,12 +2,8 @@
 PyPy 2.4 - ????????
 =================================================
 
-We're pleased to announce PyPy 2.4, a significant milestone on it's own right
-and the proud parent of our recent PyPy3 and STM releases.
-
-XXX this sentence is confusing, refactor
-
-This release contains several improvements and bugfixes.
+We're pleased to announce PyPy 2.4, which contains significant performance
+enhancements and bug fixes. 
 
 You can download the PyPy 2.4 release here:
 
@@ -28,7 +24,8 @@ any donations up to $10k!  The three sub-projects are:
 * `STM`_ (software transactional memory): We have release a first working version, and
 continue to try out new promising paths of acheiving a fast multithreaded python
 
-* `NumPy`_ which requires installation of our fork of upstream numpy, available `on bitbucket`_
+* `NumPy`_ which requires installation of our fork of upstream numpy, 
+available `on bitbucket`_
 
 .. _`Py3k`: http://pypy.org/py3donate.html
 .. _`STM`: http://pypy.org/tmdonate2.html
@@ -41,15 +38,12 @@ What is PyPy?
 =============
 
 PyPy is a very compliant Python interpreter, almost a drop-in replacement for
-CPython 2.7. It's fast (`pypy 2.4 and cpython 2.7.x`_ performance comparison;
-note that cpython's speed has not changed since 2.7.2)
+CPython 2.7. It's fast (`pypy 2.4 and cpython 2.7.x`_ performance comparison)
 due to its integrated tracing JIT compiler.
 
-XXX confusing sentence, rewrite
-
-This release supports x86 machines running Linux 32/64, Mac OS X 64, Windows,
-and OpenBSD,
-as well as newer ARM hardware (ARMv6 or ARMv7, with VFPv3) running Linux. 
+This release supports **x86** machines on most common operating systems 
+(Linux 32/64, Mac OS X 64, Windows, and OpenBSD),
+as well as newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux. 
 
 While we support 32 bit python on Windows, work on the native Windows 64
 bit python is still stalling, we would welcome a volunteer
@@ -70,10 +64,9 @@ better performance.
 PyPy now uses Python 2.7.8 standard library.
 
 We welcomed more than 12 new contributors, and conducted two Google
-Summer of Code as well as other student projects not directly related
-to Summer of Code.
+Summer of Code projects, as well as other student projects not
+directly related to Summer of Code.
 
-XXX mention the work is ongoing and did not make it to 2.4?
 
 Issues reported with our previous release were fixed after reports from users on
 our new issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
@@ -109,6 +102,9 @@ slower small *benchmark* type programs.
 
 .. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.3.1.html
 .. _resolved: https://bitbucket.org/pypy/pypy/issues?status=resolved
+
+We have further improvements on the way: rpython file handling and
+usable numpy linalg compatabiity should be merged soon.
 
 Please try it out and let us know what you think. We especially welcome
 success stories, we know you are using PyPy, please tell us about it!
