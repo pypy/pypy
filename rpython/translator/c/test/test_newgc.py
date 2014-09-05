@@ -1194,13 +1194,40 @@ class UsingFrameworkTest(object):
     def test_gcflag_extra(self):
         self.run("gcflag_extra")
 
+    def define_zeroing_class_works(self):
+        class A(object):
+            def __init__(self, x):
+                self.x = x
+
+        class BABA(A):
+            def __init__(self, y):
+                self.y = y
+
+        def fn(x):
+            if x > 3:
+                a = BABA(str(x))
+            else:
+                a = A(x)
+            assert not a.y
+            return 0
+
+        return fn
+
+    def test_zeroing_class_works(self):
+        self.run("zeroing_class_works", 13)
+
     def define_check_zero_works(self):
         S = lltype.GcStruct("s", ('x', lltype.Signed))
+        S2 = lltype.GcStruct("s2", ('parent',
+                                    lltype.Struct("s1", ("x", lltype.Signed))),
+                                    ('y', lltype.Signed))
         A = lltype.GcArray(lltype.Signed)
         
         def fn():
             s = lltype.malloc(S, zero=True)
             assert s.x == 0
+            s2 = lltype.malloc(S2, zero=True)
+            assert s2.parent.x == 0
             a = lltype.malloc(A, 3, zero=True)
             assert a[2] == 0
             return 0

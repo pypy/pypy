@@ -1180,14 +1180,26 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def gen_zero_gc_pointers(self, TYPE, v, llops, previous_steps=None,
                              everything=False):
+        if previous_steps is None:
+            previous_steps = []
         if isinstance(TYPE, lltype.Struct):
             for name in TYPE._names:
                 FIELD = getattr(TYPE, name)
+                c_name = rmodel.inputconst(lltype.Void, name)
+                if isinstance(FIELD, lltype.Struct):
+                    # parent
+                    self.gen_zero_gc_pointers(FIELD, v, llops,
+                                              previous_steps + [c_name],
+                                              everything=everything)
+                    continue
                 if ((isinstance(FIELD, lltype.Ptr) and FIELD._needsgc())
                     or everything):
-                    c_name = rmodel.inputconst(lltype.Void, name)
                     c_null = rmodel.inputconst(FIELD, FIELD._defl())
-                    llops.genop('bare_setfield', [v, c_name, c_null])
+                    if previous_steps:
+                        llops.genop('bare_setinteriorfield',
+                                [v] + previous_steps + [c_name, c_null])
+                    else:
+                        llops.genop('bare_setfield', [v, c_name, c_null])
                 elif (isinstance(FIELD, lltype.Array) and
                       isinstance(FIELD.OF, lltype.Ptr) and FIELD.OF._needsgc()):
                     xxx
