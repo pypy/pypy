@@ -643,8 +643,19 @@ class LLGraphCPU(model.AbstractCPU):
         array = lltype.malloc(arraydescr.A, length)
         return lltype.cast_opaque_ptr(llmemory.GCREF, array)
 
-    def bh_clear_array_contents(self, array, arraydescr):
-        pass # I think arrays are zero-initialized here anyhow
+    def bh_clear_array_contents(self, a, descr):
+        a = support.cast_arg(lltype.Ptr(descr.A), a)
+        ITEM = descr.A.OF
+        array = a._obj
+        if isinstance(ITEM, lltype.Struct):
+            for i in xrange(array.getlength()):
+                for name, FIELD in ITEM._flds.iteritems():
+                    null = FIELD._defl()
+                    setattr(array.getitem(i), name, null)
+        else:
+            null = ITEM._defl()
+            for i in xrange(array.getlength()):
+                array.setitem(i, null)
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
