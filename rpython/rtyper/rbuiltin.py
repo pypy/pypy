@@ -267,17 +267,19 @@ def rtype_object__init__(hop):
 
 def rtype_EnvironmentError__init__(hop):
     hop.exception_cannot_occur()
-    if hop.nb_args >= 2:
-        v_self = hop.args_v[0]
-        r_self = hop.args_r[0]
-        v_errno = hop.inputarg(lltype.Signed, arg=1)
-        r_self.setfield(v_self, 'errno', v_errno, hop.llops)
-        if hop.nb_args >= 3:
-            v_strerror = hop.inputarg(rstr.string_repr, arg=2)
-            r_self.setfield(v_self, 'strerror', v_strerror, hop.llops)
-            if hop.nb_args >= 4:
-                v_filename = hop.inputarg(rstr.string_repr, arg=3)
-                r_self.setfield(v_self, 'filename', v_filename, hop.llops)
+    if hop.nb_args <= 1:
+        raise TyperError("EnvironmentError() should be called with "
+                         "at least one argument")
+    v_self = hop.args_v[0]
+    r_self = hop.args_r[0]
+    v_errno = hop.inputarg(lltype.Signed, arg=1)
+    r_self.setfield(v_self, 'errno', v_errno, hop.llops)
+    if hop.nb_args >= 3:
+        v_strerror = hop.inputarg(rstr.string_repr, arg=2)
+        r_self.setfield(v_self, 'strerror', v_strerror, hop.llops)
+        if hop.nb_args >= 4:
+            v_filename = hop.inputarg(rstr.string_repr, arg=3)
+            r_self.setfield(v_self, 'filename', v_filename, hop.llops)
 
 def rtype_WindowsError__init__(hop):
     hop.exception_cannot_occur()
