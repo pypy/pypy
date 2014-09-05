@@ -2578,6 +2578,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # ----------
     # Weakrefs
 
+    # XXX (groggi): weakref pointing to pinned object not supported.
+    # XXX (groggi): missing asserts/checks for the missing feature.
+
     # The code relies on the fact that no weakref can be an old object
     # weakly pointing to a young object.  Indeed, weakrefs are immutable
     # so they cannot point to an object that was created after it.
