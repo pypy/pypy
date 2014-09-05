@@ -36,22 +36,44 @@ def test_simple():
 class TestException(BaseRtypingTest):
     def test_exception_with_arg(self):
         def g(n):
-            raise IOError(n, "?")
+            raise IOError(n)
         def h(n):
-            raise OSError(n, "?")
+            raise OSError(n, "?", None)
+        def i(n):
+            raise EnvironmentError(n, "?", "test")
+        def j(n):
+            raise IOError(0, "test")
         def f(n):
             try:
                 g(n)
             except IOError, e:
                 assert e.errno == 42
+                assert e.strerror is None
+                assert e.filename is None
             else:
                 assert False
             try:
                 h(n)
             except OSError, e:
                 assert e.errno == 42
+                assert e.strerror == "?"
+                assert e.filename is None
             else:
                 assert False
+            try:
+                i(n)
+            except EnvironmentError as e:
+                assert e.errno == 42
+                assert e.strerror == "?"
+                assert e.filename == "test"
+            else:
+                assert False
+            try:
+                j(n)
+            except (IOError, OSError) as e:
+                assert e.errno == 0
+                assert e.strerror == "test"
+                assert e.filename is None
         self.interpret(f, [42])
 
     def test_catch_incompatible_class(self):
