@@ -1215,6 +1215,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
             pass    # black -> gray
         elif self.header(obj).tid & GCFLAG_NO_HEAP_PTRS != 0:
             pass    # black -> white-but-prebuilt-so-dont-care
+        elif self._is_pinned(obj):
+            # black -> pinned: the pinned object is a white one as
+            # every minor collection visits them and takes care of
+            # visiting pinned objects.
+            # XXX (groggi) double check with fijal/armin
+            pass    # black -> pinned
         else:
             ll_assert(False, "black -> white pointer found")
 
