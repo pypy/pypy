@@ -227,7 +227,7 @@ class AppTestThread(GenericTestThread):
         import signal
 
         def f():
-            for x in range(5):
+            for x in range(40):
                 if waiting:
                     thread.interrupt_main()
                     return
@@ -236,7 +236,7 @@ class AppTestThread(GenericTestThread):
 
         def busy_wait():
             waiting.append(None)
-            for x in range(10):
+            for x in range(50):
                 print 'tick...', x  # <-force the GIL to be released, as
                 time.sleep(0.1)    #   time.sleep doesn't do non-translated
             waiting.pop()
@@ -245,6 +245,8 @@ class AppTestThread(GenericTestThread):
         signal.signal(signal.SIGINT, signal.default_int_handler)
 
         for i in range(100):
+            print
+            print "loop", i
             waiting = []
             thread.start_new_thread(f, ())
             raises(KeyboardInterrupt, busy_wait)
