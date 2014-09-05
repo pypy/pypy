@@ -25,61 +25,67 @@ class TestFile(BaseRtypingTest):
             f.close()
 
         f()
+        assert open(fname, "r").read() == "dupa"
         self.interpret(f, [])
         assert open(fname, "r").read() == "dupa"
 
     def test_open_errors(self):
-        def f(exc):
-            def g(run):
-                try:
-                    open('zzz', 'badmode')
-                except ValueError:
-                    pass
-                else:
-                    assert False
+        def f(run):
+            try:
+                open('zzz', 'badmode')
+            except ValueError:
+                pass
+            else:
+                assert False
 
-                try:
-                    open('zzz')
-                except exc as e:
-                    assert e.errno == errno.ENOENT
-                else:
-                    assert False
+            try:
+                open('zzz')
+            except IOError as e:
+                assert e.errno == errno.ENOENT
+            else:
+                assert False
 
-                try:
-                    open('.')
-                except exc as e:
-                    if os.name == 'posix':
+            try:
+                open('.')
+            except IOError as e:
+                if os.name == 'posix':
+                    assert e.errno == errno.EISDIR
+                else:
+                    assert e.errno == errno.EACCES
+            else:
+                assert False
+
+            try:
+                os.fdopen(42, "badmode")
+            except ValueError:
+                pass
+            else:
+                assert False
+
+            try:
+                fd = os.open('.', os.O_RDONLY, 0777)
+            except OSError as e:
+                assert os.name == 'nt' and e.errno == errno.EACCES
+            else:
+                assert os.name != 'nt'
+                if run:
+                    try:
+                        os.fdopen(fd)
+                    except IOError as e:
                         assert e.errno == errno.EISDIR
                     else:
-                        assert e.errno == errno.EACCES
-                else:
-                    assert False
+                        assert False
+                os.close(fd)
 
-                try:
-                    os.fdopen(42, "badmode")
-                except ValueError:
-                    pass
-                else:
-                    assert False
+            try:
+                os.fdopen(12345)
+            except OSError as e:
+                assert e.errno == errno.EBADF
+            else:
+                assert False
 
-                try:
-                    fd = os.open('.', os.O_RDONLY, 0777)
-                except OSError as e:
-                    assert os.name == 'nt' and e.errno == errno.EACCES
-                else:
-                    assert os.name != 'nt'
-                    if run:
-                        try:
-                            os.fdopen(fd)
-                        except exc as e:
-                            assert e.errno == errno.EISDIR
-                        else:
-                            assert False
-                    os.close(fd)
-            return g
-
-        f(IOError)(sys.version_info >= (2, 7, 9))
-        self.interpret(f(OSError), [True])
+        f(sys.version_info >= (2, 7, 9))
+        self.interpret(f, [True])
 
     @py.test.mark.skipif("sys.platform == 'win32'")
     # http://msdn.microsoft.com/en-us/library/86cebhfs.aspx
@@ -120,6 +126,12 @@ class TestFile(BaseRtypingTest):
 
         def f():
             f = open(fname, "w")
+            try:
+                f.read()
+            except IOError as e:
+                pass
+            else:
+                assert False
             f.write("dupa\x00dupb")
             f.close()
             for mode in ['r', 'U']:
@@ -162,6 +174,7 @@ class TestFile(BaseRtypingTest):
             assert d == "a"
             assert e == ""
 
+        f()
         self.interpret(f, [])
 
     def test_seek(self):
@@ -172,6 +185,12 @@ class TestFile(BaseRtypingTest):
             f.write("xxx")
             f.seek(0)
             assert f.read() == "xxx"
+            try:
+                f.seek(0, 42)
+            except IOError as e:
+                assert e.errno == errno.EINVAL
+            else:
+                assert False
             f.close()
 
         f()
@@ -214,6 +233,8 @@ class TestFile(BaseRtypingTest):
             finally:
                 f.close()
 
+        res = f()
+        assert res > 2
         res = self.interpret(f, [])
         assert res > 2
 
@@ -228,6 +249,8 @@ class TestFile(BaseRtypingTest):
             finally:
                 f.close()
 
+        res = f()
+        assert res == 3
         res = self.interpret(f, [])
         assert res == 3
 
@@ -243,6 +266,7 @@ class TestFile(BaseRtypingTest):
             f2.close()
             f.close()
 
+        f()
         self.interpret(f, [])
 
     def test_truncate(self):

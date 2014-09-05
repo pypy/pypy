@@ -93,7 +93,7 @@ c_clearerr = llexternal('clearerr', [FILEP], lltype.Void)
 def _error(ll_file):
     err = c_ferror(ll_file)
     c_clearerr(ll_file)
-    raise OSError(err, os.strerror(err))
+    raise IOError(err, os.strerror(err))
 
 
 def _dircheck(ll_file):
@@ -104,7 +104,7 @@ def _dircheck(ll_file):
     else:
         if stat.S_ISDIR(st[0]):
             err = errno.EISDIR
-            raise OSError(err, os.strerror(err))
+            raise IOError(err, os.strerror(err))
 
 
 def _sanitize_mode(mode):
@@ -136,7 +136,7 @@ def create_file(filename, mode="r", buffering=-1):
             ll_file = c_fopen(ll_name, ll_mode)
             if not ll_file:
                 errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
+                raise IOError(errno, os.strerror(errno))
         finally:
             lltype.free(ll_mode, flavor='raw')
     finally:
@@ -223,7 +223,7 @@ class RFile(object):
             res = do_close(ll_file)
             if res == -1:
                 errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
+                raise IOError(errno, os.strerror(errno))
         return res
 
     def _check_closed(self):
@@ -341,7 +341,7 @@ class RFile(object):
             bytes = c_fwrite(ll_value, 1, length, self._ll_file)
             if bytes != length:
                 errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
+                raise IOError(errno, os.strerror(errno))
         finally:
             rffi.free_nonmovingbuffer(value, ll_value)
 
@@ -350,7 +350,7 @@ class RFile(object):
         res = c_fflush(self._ll_file)
         if res != 0:
             errno = rposix.get_errno()
-            raise OSError(errno, os.strerror(errno))
+            raise IOError(errno, os.strerror(errno))
 
     def truncate(self, arg=-1):
         self._check_closed()
@@ -360,21 +360,21 @@ class RFile(object):
         res = c_ftruncate(self.fileno(), arg)
         if res == -1:
             errno = rposix.get_errno()
-            raise OSError(errno, os.strerror(errno))
+            raise IOError(errno, os.strerror(errno))
 
     def seek(self, pos, whence=0):
         self._check_closed()
         res = c_fseek(self._ll_file, pos, whence)
         if res == -1:
             errno = rposix.get_errno()
-            raise OSError(errno, os.strerror(errno))
+            raise IOError(errno, os.strerror(errno))
 
     def tell(self):
         self._check_closed()
         res = intmask(c_ftell(self._ll_file))
         if res == -1:
             errno = rposix.get_errno()
-            raise OSError(errno, os.strerror(errno))
+            raise IOError(errno, os.strerror(errno))
         return res
 
     def fileno(self):
