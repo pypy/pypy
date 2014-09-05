@@ -43,6 +43,8 @@ class TestException(BaseRtypingTest):
             raise EnvironmentError(n, "?", "test")
         def j(n):
             raise IOError(0, "test")
+        def k(n):
+            raise OSError
         def f(n):
             try:
                 g(n)
@@ -73,6 +75,12 @@ class TestException(BaseRtypingTest):
             except (IOError, OSError) as e:
                 assert e.errno == 0
                 assert e.strerror == "test"
+                assert e.filename is None
+            try:
+                k(n)
+            except EnvironmentError as e:
+                assert e.errno == 0
+                assert e.strerror is None
                 assert e.filename is None
         self.interpret(f, [42])
 
