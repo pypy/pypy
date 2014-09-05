@@ -36,20 +36,34 @@ def test_simple():
 class TestException(BaseRtypingTest):
     def test_exception_with_arg(self):
         def g(n):
-            raise IOError(n, "?")
+            raise IOError(n)
         def h(n):
             raise OSError(n, "?")
+        def i(n):
+            raise EnvironmentError(n, "?", "test")
         def f(n):
             try:
                 g(n)
             except IOError, e:
                 assert e.errno == 42
+                assert e.strerror is None
+                assert e.filename is None
             else:
                 assert False
             try:
                 h(n)
             except OSError, e:
                 assert e.errno == 42
+                assert e.strerror == "?"
+                assert e.filename is None
+            else:
+                assert False
+            try:
+                i(n)
+            except EnvironmentError as e:
+                assert e.errno == 42
+                assert e.strerror == "?"
+                assert e.filename == "test"
             else:
                 assert False
         self.interpret(f, [42])

@@ -264,27 +264,18 @@ def rtype_Exception__init__(hop):
 def rtype_object__init__(hop):
     hop.exception_cannot_occur()
 
-def rtype_IOError__init__(hop):
+def rtype_EnvironmentError__init__(hop):
     hop.exception_cannot_occur()
-    if hop.nb_args == 2:
-        raise TyperError("IOError() should not be called with "
-                         "a single argument")
-    if hop.nb_args >= 3:
+    if hop.nb_args >= 2:
         v_self = hop.args_v[0]
         r_self = hop.args_r[0]
         v_errno = hop.inputarg(lltype.Signed, arg=1)
         r_self.setfield(v_self, 'errno', v_errno, hop.llops)
-
-def rtype_OSError__init__(hop):
-    hop.exception_cannot_occur()
-    if hop.nb_args == 2:
-        raise TyperError("OSError() should not be called with "
-                         "a single argument")
-    if hop.nb_args >= 3:
-        v_self = hop.args_v[0]
-        r_self = hop.args_r[0]
-        v_errno = hop.inputarg(lltype.Signed, arg=1)
-        r_self.setfield(v_self, 'errno', v_errno, hop.llops)
+        if hop.nb_args >= 3:
+            v_strerror = hop.inputarg(hop.args_r[2], arg=2)
+        else:
+            v_strerror = None
+        r_self.setfield(v_self, 'strerror', v_strerror, hop.llops)
 
 def rtype_WindowsError__init__(hop):
     hop.exception_cannot_occur()
@@ -344,11 +335,8 @@ for name, value in globals().items():
         original = getattr(__builtin__, name[14:])
         BUILTIN_TYPER[original] = value
 
-BUILTIN_TYPER[getattr(IOError.__init__, 'im_func', IOError.__init__)] = (
-    rtype_IOError__init__)
-
-BUILTIN_TYPER[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (
-    rtype_OSError__init__)
+BUILTIN_TYPER[getattr(EnvironmentError.__init__, 'im_func', EnvironmentError.__init__)] = (
+    rtype_EnvironmentError__init__)
 
 try:
     WindowsError
