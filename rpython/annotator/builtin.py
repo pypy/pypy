@@ -255,6 +255,10 @@ for name, value in globals().items():
         BUILTIN_ANALYZERS[original] = value
 
 
+@analyzer_for(getattr(IOError.__init__, 'im_func', IOError.__init__))
+def IOError_init(s_self, *args):
+    pass
+
 @analyzer_for(getattr(OSError.__init__, 'im_func', OSError.__init__))
 def OSError_init(s_self, *args):
     pass

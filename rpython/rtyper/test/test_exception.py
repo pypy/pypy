@@ -36,14 +36,23 @@ def test_simple():
 class TestException(BaseRtypingTest):
     def test_exception_with_arg(self):
         def g(n):
+            raise IOError(n, "?")
+        def h(n):
             raise OSError(n, "?")
         def f(n):
             try:
                 g(n)
+            except IOError, e:
+                assert e.errno == 42
+            else:
+                assert False
+            try:
+                h(n)
             except OSError, e:
-                return e.errno
-        res = self.interpret(f, [42])
-        assert res == 42
+                assert e.errno == 42
+            else:
+                assert False
+        self.interpret(f, [42])
 
     def test_catch_incompatible_class(self):
         class MyError(Exception):

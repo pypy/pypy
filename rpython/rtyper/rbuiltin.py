@@ -264,6 +264,17 @@ def rtype_Exception__init__(hop):
 def rtype_object__init__(hop):
     hop.exception_cannot_occur()
 
+def rtype_IOError__init__(hop):
+    hop.exception_cannot_occur()
+    if hop.nb_args == 2:
+        raise TyperError("IOError() should not be called with "
+                         "a single argument")
+    if hop.nb_args >= 3:
+        v_self = hop.args_v[0]
+        r_self = hop.args_r[0]
+        v_errno = hop.inputarg(lltype.Signed, arg=1)
+        r_self.setfield(v_self, 'errno', v_errno, hop.llops)
+
 def rtype_OSError__init__(hop):
     hop.exception_cannot_occur()
     if hop.nb_args == 2:
@@ -332,6 +343,9 @@ for name, value in globals().items():
     if name.startswith('rtype_builtin_'):
         original = getattr(__builtin__, name[14:])
         BUILTIN_TYPER[original] = value
+
+BUILTIN_TYPER[getattr(IOError.__init__, 'im_func', IOError.__init__)] = (
+    rtype_IOError__init__)
 
 BUILTIN_TYPER[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (
     rtype_OSError__init__)

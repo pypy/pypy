@@ -438,8 +438,9 @@ class NoSuchAttrError(AnnotatorError):
 # ____________________________________________________________
 
 FORCE_ATTRIBUTES_INTO_CLASSES = {
+    IOError: {'errno': SomeInteger()},
     OSError: {'errno': SomeInteger()},
-    }
+}
 
 try:
     WindowsError
