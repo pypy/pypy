@@ -775,6 +775,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                 # enough space to allocate the object
                                 pass
                 else:
+                    # XXX (groggi) possible solutions:
+                    # - gc-incminimark-pinning-arealimit branch (pretty simple, downsides in regard what can be pinned)
+                    # - do raw_malloc (probably best idea, but also quit some code changes needed)
+                    # - make in some way sure that after a minor collection
+                    #   enough space can be reserved (probably a bad idea in regard to performance)
                     ll_assert(minor_collection_count == 2,
                         "Seeing minor_collection() at least twice. "
                         "Too many pinned objects?")
