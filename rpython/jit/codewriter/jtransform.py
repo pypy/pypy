@@ -615,11 +615,40 @@ class Transformer(object):
             op1 = SpaceOperation('new_array', [op.args[2], arraydescr],
                                  op.result)
             if self._has_gcptrs_in(ARRAY):
-                return [op1, SpaceOperation('zero_gc_pointers', [op.result],
-                                            None)]
+                return self.zero_contents(op1, op.result, ARRAY,
+                                          only_gc_pointers=True)
             if op.args[1].value.get('zero', False):
-                return [op1, SpaceOperation('zero_contents', [op.result], None)]
+                return self.zero_contents(op1, op.result, ARRAY)
             return op1
+
+    def zero_contents(self, prev_op, v, TYPE, only_gc_pointers=False):
+        ops = [prev_op]
+        if isinstance(TYPE, lltype.Struct):
+            for name, FIELD in TYPE._flds.iteritems():
+                if (not only_gc_pointers or
+                    isinstance(FIELD, lltype.Ptr) and FIELD._needsgc()):
+                    c_name = Constant(name, lltype.Void)
+                    c_null = Constant(FIELD._defl(), FIELD)
+                    op = SpaceOperation('setfield', [v, c_name, c_null],
+                                        None)
+                    self.extend_with(ops, self.rewrite_op_setfield(op))
+        elif isinstance(TYPE, lltype.Array):
+            arraydescr = self.cpu.arraydescrof(TYPE)
+            ops.append(SpaceOperation('clear_array_contents',
+                                      [v, arraydescr], None))
+        else:
+            raise TypeError("Expected struct or array, got '%r'", (TYPE,))
+        if len(ops) == 1:
+            return ops[0]
+        return ops
+
+    def extend_with(self, l, ops):
+        if ops is None:
+            return
+        if isinstance(ops, list):
+            l.extend(ops)
+        else:
+            l.append(ops)
 
     def rewrite_op_free(self, op):
         d = op.args[1].value.copy()
@@ -893,9 +922,10 @@ class Transformer(object):
         sizedescr = self.cpu.sizeof(STRUCT)
         op1 = SpaceOperation(opname, [sizedescr], op.result)
         if true_zero:
-            return [op1, SpaceOperation('zero_contents', [op.result], None)]
+            return self.zero_contents(op1, op.result, STRUCT)
         if self._has_gcptrs_in(STRUCT):
-            return [op1, SpaceOperation('zero_gc_pointers', [op.result], None)]
+            return self.zero_contents(op1, op.result, STRUCT,
+                                      only_gc_pointers=True)
         return op1
 
     def _has_gcptrs_in(self, STRUCT):

@@ -315,7 +315,8 @@ class RegAlloc(BaseRegalloc):
             self.assembler.mc.mark_op(op)
             self.rm.position = i
             self.xrm.position = i
-            if op.has_no_side_effect() and op.result not in self.longevity:
+            if (op.has_no_side_effect() and op.result not in self.longevity
+                and op.opnum != rop.CLEAR_ARRAY_CONTENTS):
                 i += 1
                 self.possibly_free_vars_for_op(op)
                 continue

@@ -18,10 +18,12 @@ from rpython.jit.backend.llsupport.descr import get_array_descr
 from rpython.jit.backend.llsupport.descr import get_call_descr
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
 from rpython.memory.gctransform import asmgcroot
+from rpython.jit.codewriter.effectinfo import EffectInfo
 
 # ____________________________________________________________
 
 class GcLLDescription(GcCache):
+    malloc_zero_filled = True
 
     def __init__(self, gcdescr, translator=None, rtyper=None):
         GcCache.__init__(self, translator is not None, rtyper)
@@ -32,6 +34,15 @@ class GcLLDescription(GcCache):
             self.fielddescr_vtable = get_field_descr(self, rclass.OBJECT,
                                                      'typeptr')
         self._generated_functions = []
+        self.memset_ptr = rffi.llexternal('memset', [lltype.Signed, rffi.INT,
+                                                     rffi.SIZE_T], lltype.Void,
+                                                     sandboxsafe=True,
+                                                     _nowrapper=True)
+        self.memset_ptr_as_int = heaptracker.adr2int(
+            llmemory.cast_ptr_to_adr(self.memset_ptr))
+        ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE)
+        self.memset_descr = get_call_descr(self, [lltype.Signed, rffi.INT,
+                                                  rffi.SIZE_T], lltype.Void, ei)
 
     def _setup_str(self):
         self.str_descr     = get_array_descr(self, rstr.STR)
@@ -377,6 +388,7 @@ class GcLLDescr_framework(GcLLDescription):
         from rpython.memory.gcheader import GCHeaderBuilder
         self.GCClass = self.layoutbuilder.GCClass
         self.moving_gc = self.GCClass.moving_gc
+        self.malloc_zero_filled = self.GCClass.malloc_zero_filled
         self.HDRPTR = lltype.Ptr(self.GCClass.HDR)
         self.gcheaderbuilder = GCHeaderBuilder(self.HDRPTR.TO)
         self.max_size_of_young_obj = self.GCClass.JIT_max_size_of_young_obj()

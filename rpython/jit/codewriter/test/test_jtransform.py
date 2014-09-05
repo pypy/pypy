@@ -538,12 +538,11 @@ def test_malloc_new_zero():
     op1, op2 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'new'
     assert op1.args == [('sizedescr', S)]
-    assert op2.opname == 'zero_gc_pointers'
-    assert op2.args == [v]
+    assert op2.opname == 'setfield_gc_r'
+    assert op2.args[0] == v
 
 def test_malloc_new_zero_2():
-    SS = lltype.GcStruct('SS')
-    S = lltype.GcStruct('S', ('x', lltype.Ptr(SS)))
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
     v = varoftype(lltype.Ptr(S))
     op = SpaceOperation('malloc', [Constant(S, lltype.Void),
                                    Constant({'flavor': 'gc',
@@ -551,8 +550,8 @@ def test_malloc_new_zero_2():
     op1, op2 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'new'
     assert op1.args == [('sizedescr', S)]
-    assert op2.opname == 'zero_contents'
-    assert op2.args == [v]
+    assert op2.opname == 'setfield_gc_i'
+    assert op2.args[0] == v
 
 def test_malloc_new_with_vtable():
     vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
@@ -1063,7 +1062,7 @@ def test_malloc_varsize_zero():
     op = SpaceOperation('malloc_varsize', [c_A, c_flags, v1], v2)
     op1, op2 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'new_array'
-    assert op2.opname == 'zero_contents'
+    assert op2.opname == 'clear_array_contents'
 
 def test_str_concat():
     # test that the oopspec is present and correctly transformed
