@@ -1,4 +1,5 @@
-
+import py
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module
 
 class TestModule: 
@@ -16,6 +17,18 @@ class TestModule:
         space.delattr(w_m, w('x'))
         space.raises_w(space.w_AttributeError,
                        space.delattr, w_m, w('x'))
+
+    def test___file__(self, space):
+        w = space.wrap
+        m = Module(space, space.wrap('m'))
+        py.test.raises(OperationError, space.getattr, w(m), w('__file__'))
+        m._cleanup_()
+        py.test.raises(OperationError, space.getattr, w(m), w('__file__'))
+        space.setattr(w(m), w('__file__'), w('m.py'))
+        space.getattr(w(m), w('__file__'))   # does not raise
+        m._cleanup_()
+        py.test.raises(OperationError, space.getattr, w(m), w('__file__'))
+
 
 class AppTest_ModuleObject: 
     def test_attr(self):
