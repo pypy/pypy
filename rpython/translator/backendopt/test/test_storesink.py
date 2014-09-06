@@ -134,3 +134,22 @@ class TestStoreSink(object):
             return n
 
         self.check(f, [int], 0)
+
+
+    def test_cfg_splits(self):
+        class A(object):
+            pass
+
+        def f(i):
+            a = A()
+            j = i
+            for i in range(i):
+                a.x = i
+                if i:
+                    j = a.x + a.x
+                else:
+                    j = a.x * 5
+            return j
+
+        self.check(f, [int], 0)
+
