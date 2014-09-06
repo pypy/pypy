@@ -153,3 +153,17 @@ class TestStoreSink(object):
 
         self.check(f, [int], 0)
 
+    def test_malloc_does_not_invalidate(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+
+        def f(i):
+            a = A()
+            a.x = i
+            b = B()
+            return a.x
+
+        self.check(f, [int], 0)
+

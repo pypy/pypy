@@ -95,7 +95,7 @@ def _storesink_block(block, cache, inputlink):
             field = op.args[1].value
             clear_cache_for(cache, target.concretetype, field)
             cache[target, field] = op.args[2]
-        elif has_side_effects(op):
+        elif has_side_effects(op) and op.opname not in ("malloc", "malloc_varsize"):
             cache.clear()
         newops.append(op)
     return newops, added_some_same_as
