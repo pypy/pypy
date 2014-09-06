@@ -88,14 +88,14 @@ def _storesink_block(block, cache, inputlink):
                 added_some_same_as = True
             else:
                 cache[tup] = op.result
-        elif op.opname in ['setarrayitem', 'setinteriorfield']:
+        elif op.opname in ('setarrayitem', 'setinteriorfield', "malloc", "malloc_varsize"):
             pass
         elif op.opname == 'setfield':
             target = op.args[0]
             field = op.args[1].value
             clear_cache_for(cache, target.concretetype, field)
             cache[target, field] = op.args[2]
-        elif has_side_effects(op) and op.opname not in ("malloc", "malloc_varsize"):
+        elif has_side_effects(op):
             cache.clear()
         newops.append(op)
     return newops, added_some_same_as
