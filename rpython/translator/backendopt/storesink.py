@@ -35,8 +35,10 @@ def storesink_graph(graph):
             elif op.opname in ['setarrayitem', 'setinteriorfield']:
                 pass
             elif op.opname == 'setfield':
-                clear_cache_for(cache, op.args[0].concretetype,
-                                op.args[1].value)
+                target = op.args[0]
+                field = op.args[1].value
+                clear_cache_for(cache, target.concretetype, field)
+                cache[target, field] = op.args[2]
             elif has_side_effects(op):
                 cache = {}
             newops.append(op)

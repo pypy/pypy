@@ -42,7 +42,7 @@ class TestStoreSink(object):
             a.x = i
             return a.x
 
-        self.check(f, [int], 1)
+        self.check(f, [int], 0)
 
     def test_simple(self):
         class A(object):
@@ -53,7 +53,7 @@ class TestStoreSink(object):
             a.x = i
             return a.x + a.x
 
-        self.check(f, [int], 1)
+        self.check(f, [int], 0)
 
     def test_irrelevant_setfield(self):
         class A(object):
@@ -67,7 +67,7 @@ class TestStoreSink(object):
             two = a.x
             return one + two
 
-        self.check(f, [int], 1)
+        self.check(f, [int], 0)
 
     def test_relevant_setfield(self):
         class A(object):
@@ -101,7 +101,7 @@ class TestStoreSink(object):
             two = a.x
             return one + two
 
-        self.check(f, [int], 1)
+        self.check(f, [int], 0)
 
     def test_subclass(self):
         class A(object):
@@ -119,7 +119,7 @@ class TestStoreSink(object):
             two = a.x
             return one + two
 
-        self.check(f, [int], 2)
+        self.check(f, [int], 1)
 
     def test_bug_1(self):
         class A(object):
@@ -133,4 +133,4 @@ class TestStoreSink(object):
                 return True
             return n
 
-        self.check(f, [int], 1)
+        self.check(f, [int], 0)
