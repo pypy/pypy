@@ -748,6 +748,20 @@ class AppTest_Descroperation:
         assert 1000 * oops() == 42
         assert '2'.__mul__(oops()) == '222'
 
+    def test_sequence_rmul_overrides_oldstyle(self):
+        class oops:
+            def __rmul__(self, other):
+                return 42
+            def __index__(self):
+                return 3
+        assert '2' * oops() == 42
+        assert [2] * oops() == 42
+        assert (2,) * oops() == 42
+        assert u'2' * oops() == 42
+        assert bytearray('2') * oops() == 42
+        assert 1000 * oops() == 42
+        assert '2'.__mul__(oops()) == '222'
+
     def test_sequence_radd_overrides(self):
         class A1(list):
             pass
