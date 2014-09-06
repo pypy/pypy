@@ -11,21 +11,20 @@ You can download the PyPy 2.4 release here:
 
 We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects.
-We've shown quite a bit of progress 
-but we're slowly running out of funds.
+We've shown quite a bit of progress, but we're slowly running out of funds.
 Please consider donating more, or even better convince your employer to donate,
 so we can finish those projects! We would like to also point out that in
 September, `the Python Software Foundation`_ will `match funds`_ for
 any donations up to $10k!  The three sub-projects are:
 
-* `Py3k`_ (supporting Python 3.x): We have released a Python 3.2.5 compatable version
-   we call PyPy3 2.3.1, and are working toward a Python 3.3 compatable version
+* `Py3k`_ (supporting Python 3.x): We have released a Python 3.2.5 compatible version
+   we call PyPy3 2.3.1, and are working toward a Python 3.3 compatible version
 
-* `STM`_ (software transactional memory): We have release a first working version, and
-continue to try out new promising paths of acheiving a fast multithreaded python
+* `STM`_ (software transactional memory): We have released a first working version,
+  and continue to try out new promising paths of achieving a fast multithreaded Python
 
 * `NumPy`_ which requires installation of our fork of upstream numpy, 
-available `on bitbucket`_
+  available `on bitbucket`_
 
 .. _`Py3k`: http://pypy.org/py3donate.html
 .. _`STM`: http://pypy.org/tmdonate2.html
@@ -55,11 +54,11 @@ to `handle that`_.
 Highlights
 ==========
 
-Benchmarks improved after internal improvements in string and
+Benchmarks improved after internal enhancements in string and
 bytearray handling, and a major rewrite of the GIL handling. This means
 that external calls are now a lot faster, especially the CFFI ones. It also
-means that a lot of corner cases when handling strings or bytearrays have
-better performance.
+means better performance in a lot of corner cases with handling strings or
+bytearrays.
 
 PyPy now uses Python 2.7.8 standard library.
 
@@ -76,8 +75,8 @@ for more information see `whats-new`_:
 * Reduced internal copying of bytearray operations
 
 * Tweak the internal structure of StringBuilder to speed up large string
-handling, which becomes advantageous on large programs at the cost of slightly
-slower small *benchmark* type programs.
+  handling, which becomes advantageous on large programs at the cost of slightly
+  slower small *benchmark* type programs.
 
 * Boost performance of thread-local variables in both unjitted and jitted code,
   this mostly affects errno handling on linux, which makes external calls
