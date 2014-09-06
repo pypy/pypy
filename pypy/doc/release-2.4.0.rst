@@ -86,7 +86,7 @@ slower small *benchmark* type programs.
 * Move to a mixed polling and mutex GIL model that make mutli-threaded jitted
   code run *much* faster
 
-* Optimize errno handling in linux
+* Optimize errno handling in linux (x86 and x86-64 only)
 
 * Remove ctypes pythonapi and ctypes.PyDLL, which never worked on PyPy
 
