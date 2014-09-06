@@ -417,6 +417,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             nursery_debug = env.read_uint_from_env('PYPY_GC_NURSERY_DEBUG')
             if nursery_debug > 0:
                 self.gc_nursery_debug = True
+            else:
+                self.gc_nursery_debug = False
             self.minor_collection()    # to empty the nursery
             llarena.arena_free(self.nursery)
             self.nursery_size = newsize
