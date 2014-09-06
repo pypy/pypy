@@ -6,9 +6,8 @@ Environment variables can be used to fine-tune the following parameters:
                          '4M'.  Small values
                          (like 1 or 1KB) are useful for debugging.
 
- PYPY_GC_NURSERY_CLEANUP The interval at which nursery is cleaned up. Must
-                         be smaller than the nursery size and bigger than the
-                         biggest object we can allotate in the nursery.
+ PYPY_GC_NURSERY_DEBUG   If set to non-zero, will fill nursery with garbage,
+                         to help debugging.
 
  PYPY_GC_INCREMENT_STEP  The size of memory marked during the marking step.
                          Default is size of nursery * 2. If you mark it too high
@@ -358,6 +357,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if not self.read_from_env:
             self.allocate_nursery()
             self.gc_increment_step = self.nursery_size * 4
+            self.gc_nursery_debug = False
         else:
             #
             defaultsize = self.nursery_size
@@ -414,6 +414,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             else:
                 self.gc_increment_step = newsize * 4
             #
+            nursery_debug = env.read_uint_from_env('PYPY_GC_NURSERY_DEBUG')
+            if nursery_debug > 0:
+                self.gc_nursery_debug = True
             self.minor_collection()    # to empty the nursery
             llarena.arena_free(self.nursery)
             self.nursery_size = newsize
@@ -1390,7 +1393,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         # All live nursery objects are out, and the rest dies.  Fill
         # the nursery up to the cleanup point with zeros
-        llarena.arena_reset(self.nursery, self.nursery_size, 0)
+        if self.gc_nursery_debug:
+            llarena.arena_reset(self.nursery, self.nursery_size, 3)
+        else:
+            llarena.arena_reset(self.nursery, self.nursery_size, 0)
         self.debug_rotate_nursery()
         self.nursery_free = self.nursery
         self.nursery_top = self.nursery + self.nursery_size

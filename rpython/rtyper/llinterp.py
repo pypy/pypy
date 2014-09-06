@@ -953,6 +953,9 @@ class LLFrame(object):
         checkadr(toaddr)
         llmemory.raw_memcopy(fromaddr, toaddr, size)
 
+    def op_raw_memset(self, addr, byte, size):
+        raise NotImplementedError
+
     op_raw_memmove = op_raw_memcopy # this is essentially the same here
 
     def op_raw_load(self, RESTYPE, addr, offset):

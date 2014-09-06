@@ -47,6 +47,7 @@ JITFRAMEINFOPTR = lltype.Ptr(JITFRAMEINFO)
 def jitframe_allocate(frame_info):
     frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth)
     frame.jf_frame_info = frame_info
+    frame.jf_extra_stack_depth = 0
     return frame
 
 def jitframe_resolve(frame):
