@@ -33,10 +33,8 @@ def storesink_graph(graph):
             cache = {}
 
         if block.operations:
-            newops, changed_block = _storesink_block(block, cache, inputlink)
+            changed_block = _storesink_block(block, cache, inputlink)
             added_some_same_as = changed_block or added_some_same_as
-            if changed_block:
-                block.operations = newops
         for link in block.exits:
             if len(entrymap[link.target]) == 1:
                 new_cache = _translate_cache(cache, link)
@@ -77,7 +75,6 @@ def _storesink_block(block, cache, inputlink):
                 del cache[k]
 
     added_some_same_as = False
-    newops = []
     for op in block.operations:
         if op.opname == 'getfield':
             tup = (op.args[0], op.args[1].value)
@@ -97,5 +94,4 @@ def _storesink_block(block, cache, inputlink):
             cache[target, field] = op.args[2]
         elif has_side_effects(op):
             cache.clear()
-        newops.append(op)
-    return newops, added_some_same_as
+    return added_some_same_as
