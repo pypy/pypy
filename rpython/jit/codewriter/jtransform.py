@@ -615,14 +615,13 @@ class Transformer(object):
             op1 = SpaceOperation('new_array', [op.args[2], arraydescr],
                                  op.result)
             if self._has_gcptrs_in(ARRAY):
-                return self.zero_contents(op1, op.result, ARRAY,
+                return self.zero_contents([op1], op.result, ARRAY,
                                           only_gc_pointers=True)
             if op.args[1].value.get('zero', False):
-                return self.zero_contents(op1, op.result, ARRAY)
+                return self.zero_contents([op1], op.result, ARRAY)
             return op1
 
-    def zero_contents(self, prev_op, v, TYPE, only_gc_pointers=False):
-        ops = [prev_op]
+    def zero_contents(self, ops, v, TYPE, only_gc_pointers=False):
         if isinstance(TYPE, lltype.Struct):
             for name, FIELD in TYPE._flds.iteritems():
                 if (not only_gc_pointers or
@@ -922,9 +921,9 @@ class Transformer(object):
         sizedescr = self.cpu.sizeof(STRUCT)
         op1 = SpaceOperation(opname, [sizedescr], op.result)
         if true_zero:
-            return self.zero_contents(op1, op.result, STRUCT)
+            return self.zero_contents([op1], op.result, STRUCT)
         if self._has_gcptrs_in(STRUCT):
-            return self.zero_contents(op1, op.result, STRUCT,
+            return self.zero_contents([op1], op.result, STRUCT,
                                       only_gc_pointers=True)
         return op1
 
@@ -1664,6 +1663,8 @@ class Transformer(object):
             v.concretetype = lltype.Signed
             ops.append(SpaceOperation('int_force_ge_zero', [v_length], v))
         ops.append(SpaceOperation('new_array', [v, arraydescr], op.result))
+        if self._has_gcptrs_in(op.result.concretetype.TO):
+            self.zero_contents(ops, op.result, op.result.concretetype.TO)
         return ops
 
     def do_fixed_list_len(self, op, args, arraydescr):

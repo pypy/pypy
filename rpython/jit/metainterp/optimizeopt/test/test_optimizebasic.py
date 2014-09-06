@@ -5461,6 +5461,17 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_clear_array_contents(self):
+        ops = """
+        []
+        p0 = new_array(2, descr=arraydescr)
+        clear_array_contents(p0, descr=arraydescr)
+        """
+        expected = """
+        []
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

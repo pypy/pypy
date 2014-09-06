@@ -284,7 +284,7 @@ class VArrayValue(AbstractVArrayValue):
 
     def setitem(self, index, itemvalue):
         assert isinstance(itemvalue, optimizer.OptValue)
-        self._items[index] = itemvalue
+        self._items[index] = itemvalue        
 
     def force_at_end_of_preamble(self, already_forced, optforce):
         # note that this method is on VArrayValue instead of
@@ -659,6 +659,12 @@ class OptVirtualize(optimizer.Optimization):
             self.make_varray(op.getdescr(), sizebox.getint(), op.result, op)
         else:
             self.emit_operation(op)
+
+    def optimize_CLEAR_ARRAY_CONTENTS(self, op):
+        v = self.getvalue(op.getarg(0))
+        if v.is_virtual():
+            return
+        self.emit_operation(op)
 
     def optimize_CALL(self, op):
         effectinfo = op.getdescr().get_extra_info()
