@@ -13,18 +13,26 @@ class AppTestThread(GenericTestThread):
         def f():
             lock.acquire()
             lock.release()
+        start = thread._count()
         try:
             try:
                 for i in range(1000):
                     thread.start_new_thread(f, ())
             finally:
                 lock.release()
-                # wait a bit to allow most threads to finish now
-                time.sleep(0.5)
         except (thread.error, MemoryError):
             cls.w_can_start_many_threads = space.wrap(False)
         else:
             cls.w_can_start_many_threads = space.wrap(True)
+        # wait a bit to allow all threads to finish now
+        remaining = thread._count()
+        retries = 0
+        while remaining > start:
+            retries += 1
+            if retries == 200:
+                raise Exception("the test's threads don't stop!")
+            time.sleep(0.2)
+            remaining = thread._count()
 
     def test_start_new_thread(self):
         import thread
