@@ -129,13 +129,25 @@ class TestFile(BaseRtypingTest):
             try:
                 f.read()
             except IOError as e:
-                pass
+                assert not e.errno
+            else:
+                assert False
+            try:
+                f.readline()
+            except IOError as e:
+                assert not e.errno
             else:
                 assert False
             f.write("dupa\x00dupb")
             f.close()
             for mode in ['r', 'U']:
                 f2 = open(fname, mode)
+                try:
+                    f2.write('')
+                except IOError as e:
+                    assert not e.errno
+                else:
+                    assert False
                 dupa = f2.read(0)
                 assert dupa == ""
                 dupa = f2.read()
@@ -215,6 +227,12 @@ class TestFile(BaseRtypingTest):
             new_fno = os.dup(f.fileno())
             f2 = os.fdopen(new_fno, "w")
             f.close()
+            try:
+                f2.read()
+            except IOError as e:
+                assert not e.errno
+            else:
+                assert False
             f2.write("xxx")
             f2.close()
 
@@ -280,6 +298,14 @@ class TestFile(BaseRtypingTest):
             f.seek(0)
             data = f.read()
             assert data == "hello w"
+            f.close()
+            f = open(fname)
+            try:
+                f.truncate()
+            except IOError as e:
+                assert not e.errno
+            else:
+                assert False
             f.close()
 
         f()
