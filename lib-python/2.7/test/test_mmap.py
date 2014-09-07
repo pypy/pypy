@@ -186,6 +186,10 @@ class MmapTests(unittest.TestCase):
             # later tests assume that the length hasn't changed.  We need to
             # repair that.
             if sys.platform.startswith('win'):
+                f.close()
+                f = open(TESTFN, 'r+b')
+                f.truncate(mapsize)
+                f.close()
                 self.fail("Opening mmap with size+1 should work on Windows.")
         else:
             # we expect a ValueError on Unix, but not on Windows
