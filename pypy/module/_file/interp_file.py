@@ -10,7 +10,6 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.streamutil import wrap_oserror_as_ioerror
 
 
 class W_File(W_AbstractStream):
@@ -52,8 +51,10 @@ class W_File(W_AbstractStream):
         assert isinstance(self, W_File)
         try:
             self.direct_close()
-        except OSError as e:
-            raise wrap_oserror_as_ioerror(self.space, e, self.w_name)
+        except IOError as e:
+            space = self.space
+            w_error = space.call_function(space.w_IOError, space.wrap(e.errno), space.wrap(e.strerror), self.w_name)
+            raise OperationError(space.w_IOError, w_error)
 
     def fdopenstream(self, stream, mode):
         self.stream = stream
@@ -276,8 +277,9 @@ class W_File(W_AbstractStream):
                         result = self.direct_%(name)s(%(callsig)s)
                     except ValueError as e:
                         raise OperationError(space.w_ValueError, space.wrap(str(e)))
-                    except OSError as e:
-                        raise wrap_oserror_as_ioerror(self.space, e, self.w_name)
+                    except IOError as e:
+                        w_error = space.call_function(space.w_IOError, space.wrap(e.errno), space.wrap(e.strerror), self.w_name)
+                        raise OperationError(space.w_IOError, w_error)
                 finally:
                     self.unlock()
                 return %(wrapresult)s
