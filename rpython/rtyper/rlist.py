@@ -1014,7 +1014,8 @@ def ll_inplace_mul(l, factor):
     return res
 ll_inplace_mul.oopspec = 'list.inplace_mul(l, factor)'
 
-
+@jit.look_inside_iff(lambda _, l, factor: jit.isvirtual(l) and
+                     jit.isconstant(factor) and factor < 10)
 def ll_mul(RESLIST, l, factor):
     length = l.ll_length()
     if factor < 0:
