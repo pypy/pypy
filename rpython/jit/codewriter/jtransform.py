@@ -630,7 +630,12 @@ class Transformer(object):
                     c_null = Constant(FIELD._defl(), FIELD)
                     op = SpaceOperation('setfield', [v, c_name, c_null],
                                         None)
-                    self.extend_with(ops, self.rewrite_op_setfield(op))
+                    self.extend_with(ops, self.rewrite_op_setfield(op,
+                                          override_type=TYPE))
+                elif isinstance(FIELD, lltype.Struct):
+                    # substruct
+                    self.zero_contents(ops, v, FIELD,
+                                       only_gc_pointers=only_gc_pointers)
         elif isinstance(TYPE, lltype.Array):
             arraydescr = self.cpu.arraydescrof(TYPE)
             ops.append(SpaceOperation('clear_array_contents',
@@ -793,13 +798,17 @@ class Transformer(object):
                    op1]
         return op1
 
-    def rewrite_op_setfield(self, op):
+    def rewrite_op_setfield(self, op, override_type=None):
         if self.is_typeptr_getset(op):
             # ignore the operation completely -- instead, it's done by 'new'
             return
         # turn the flow graph 'setfield' operation into our own version
         [v_inst, c_fieldname, v_value] = op.args
         RESULT = v_value.concretetype
+        if override_type is not None:
+            TYPE = override_type
+        else:
+            TYPE = v_inst.concretetype.TO
         if RESULT is lltype.Void:
             return
         # check for virtualizable
@@ -809,10 +818,12 @@ class Transformer(object):
             return [SpaceOperation('-live-', [], None),
                     SpaceOperation('setfield_vable_%s' % kind,
                                    [v_inst, v_value, descr], None)]
-        self.check_field_access(v_inst.concretetype.TO)
-        argname = getattr(v_inst.concretetype.TO, '_gckind', 'gc')
-        descr = self.cpu.fielddescrof(v_inst.concretetype.TO,
-                                      c_fieldname.value)
+        self.check_field_access(TYPE)
+        if override_type:
+            argname = 'gc'
+        else:
+            argname = getattr(TYPE, '_gckind', 'gc')
+        descr = self.cpu.fielddescrof(TYPE, c_fieldname.value)
         kind = getkind(RESULT)[0]
         if argname == 'raw' and kind == 'r':
             raise Exception("setfield_raw_r not supported")

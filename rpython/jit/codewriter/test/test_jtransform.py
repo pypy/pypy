@@ -553,6 +553,22 @@ def test_malloc_new_zero_2():
     assert op2.opname == 'setfield_gc_i'
     assert op2.args[0] == v
 
+def test_malloc_new_zero_nested():
+    S0 = lltype.GcStruct('S0')
+    S = lltype.Struct('S', ('x', lltype.Ptr(S0)))
+    S2 = lltype.GcStruct('S2', ('parent', S),
+                         ('xx', lltype.Ptr(S0)))
+    v = varoftype(lltype.Ptr(S2))
+    op = SpaceOperation('malloc', [Constant(S2, lltype.Void),
+                                   Constant({'flavor': 'gc'}, lltype.Void)], v)
+    op1, op2, op3 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'new'
+    assert op1.args == [('sizedescr', S2)]
+    assert op2.opname == 'setfield_gc_r'
+    assert op2.args[0] == v
+    assert op3.opname == 'setfield_gc_r'
+    assert op3.args[0] == v
+
 def test_malloc_new_with_vtable():
     vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
     S = lltype.GcStruct('S', ('parent', rclass.OBJECT))
