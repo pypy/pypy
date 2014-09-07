@@ -179,29 +179,27 @@ class MmapTests(unittest.TestCase):
         import sys
         f = open(TESTFN, "r+b")
         try:
-            m = mmap.mmap(f.fileno(), mapsize+1)
-        except ValueError:
-            # we do not expect a ValueError on Windows
-            # CAUTION:  This also changes the size of the file on disk, and
-            # later tests assume that the length hasn't changed.  We need to
-            # repair that.
+            try:
+                m = mmap.mmap(f.fileno(), mapsize+1)
+            except ValueError:
+                # we do not expect a ValueError on Windows
+                # CAUTION:  This also changes the size of the file on disk, and
+                # later tests assume that the length hasn't changed.  We need to
+                # repair that.
+                if sys.platform.startswith('win'):
+                    self.fail("Opening mmap with size+1 should work on Windows.")
+            else:
+                # we expect a ValueError on Unix, but not on Windows
+                if not sys.platform.startswith('win'):
+                    self.fail("Opening mmap with size+1 should raise ValueError.")
+                m.close()
+        finally:
+            f.close()
             if sys.platform.startswith('win'):
-                f.close()
+                # Repair damage from the resizing test.
                 f = open(TESTFN, 'r+b')
                 f.truncate(mapsize)
                 f.close()
-                self.fail("Opening mmap with size+1 should work on Windows.")
-        else:
-            # we expect a ValueError on Unix, but not on Windows
-            if not sys.platform.startswith('win'):
-                self.fail("Opening mmap with size+1 should raise ValueError.")
-            m.close()
-        f.close()
-        if sys.platform.startswith('win'):
-            # Repair damage from the resizing test.
-            f = open(TESTFN, 'r+b')
-            f.truncate(mapsize)
-            f.close()
 
         # Opening mmap with access=ACCESS_WRITE
         f = open(TESTFN, "r+b")
