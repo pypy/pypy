@@ -155,9 +155,11 @@ def create_file(filename, mode="r", buffering=-1):
 
 def create_fdopen_rfile(fd, mode="r"):
     mode = _sanitize_mode(mode)
+    fd = rffi.cast(rffi.INT, fd)
+    rposix.validate_fd(fd)
     ll_mode = rffi.str2charp(mode)
     try:
-        ll_file = c_fdopen(rffi.cast(rffi.INT, fd), ll_mode)
+        ll_file = c_fdopen(fd, ll_mode)
         if not ll_file:
             errno = rposix.get_errno()
             raise OSError(errno, os.strerror(errno))
