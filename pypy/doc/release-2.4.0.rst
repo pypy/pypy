@@ -7,8 +7,8 @@ enhancements and bug fixes.
 
 You can already download the PyPy 2.4-beta1 pre-release here:
 
-    ~~http://pypy.org/download.html~~
-    https://bitbucket.org/pypy/pypy/downloads
+<s>http://pypy.org/download.html</s>
+~~~~https://bitbucket.org/pypy/pypy/downloads~~~~
 
 We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects.
