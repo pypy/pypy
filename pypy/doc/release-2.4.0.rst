@@ -1,13 +1,14 @@
 =================================================
-PyPy 2.4 - ????????
+PyPy 2.4 - Snow White
 =================================================
 
 We're pleased to announce PyPy 2.4, which contains significant performance
 enhancements and bug fixes. 
 
-You can download the PyPy 2.4 release here:
+You can already download the PyPy 2.4-beta1 pre-release here:
 
-    http://pypy.org/download.html
+    ~~http://pypy.org/download.html~~
+    https://bitbucket.org/pypy/pypy/downloads
 
 We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects.
@@ -97,6 +98,9 @@ for more information see `whats-new`_:
 
 * Upgrade stdlib from 2.7.5 to 2.7.8
 
+* Win32 now links statically to zlib, expat, bzip, and openssl-1.0.1i.
+  No more missing DLLs
+  
 * Many issues were resolved_ since the 2.3.1 release on June 8
 
 .. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.3.1.html

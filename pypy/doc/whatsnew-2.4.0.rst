@@ -60,3 +60,7 @@ Classes in the ast module are now distinct from structures used by the compiler.
 
 .. branch: stdlib-2.7.8
 Upgrades from 2.7.6 to 2.7.8
+
+.. branch: cpybug-seq-radd-rmul
+Fix issue #1861 - cpython compatability madness
+
