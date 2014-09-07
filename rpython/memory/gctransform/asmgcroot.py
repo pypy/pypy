@@ -517,6 +517,8 @@ class AsmStackRootWalker(BaseRootWalker):
                       "anywhere I know, bug in asmgcc")
             # fish the depth
             extra_stack_depth = (ebp_in_caller + STACK_DEPTH_OFS).signed[0]
+            ll_assert((extra_stack_depth & (rffi.sizeof(lltype.Signed) - 1))
+                       == 0, "asmgcc: misaligned extra_stack_depth")
             extra_stack_depth //= rffi.sizeof(lltype.Signed)
             self._shape_decompressor.setjitframe(extra_stack_depth)
             return

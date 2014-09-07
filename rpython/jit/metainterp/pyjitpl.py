@@ -1232,10 +1232,6 @@ class MIFrame(object):
             metainterp.history.record(rop.VIRTUAL_REF_FINISH,
                                       [vrefbox, nullbox], None)
 
-    @arguments()
-    def opimpl_ll_read_timestamp(self):
-        return self.metainterp.execute_and_record(rop.READ_TIMESTAMP, None)
-
     @arguments("box", "box", "box")
     def _opimpl_libffi_save_result(self, box_cif_description,
                                    box_exchange_buffer, box_result):
@@ -1991,6 +1987,10 @@ class MetaInterp(object):
             if greenkey_of_huge_function is not None:
                 warmrunnerstate.disable_noninlinable_function(
                     greenkey_of_huge_function)
+                if self.current_merge_points:
+                    jd_sd = self.jitdriver_sd
+                    greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
+                    warmrunnerstate.JitCell.trace_next_iteration(greenkey)
             raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
 
     def _interpret(self):

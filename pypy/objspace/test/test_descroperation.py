@@ -734,6 +734,44 @@ class AppTest_Descroperation:
 
         assert X() == 'hello'
 
+    def test_sequence_rmul_overrides(self):
+        class oops(object):
+            def __rmul__(self, other):
+                return 42
+            def __index__(self):
+                return 3
+        assert '2' * oops() == 42
+        assert [2] * oops() == 42
+        assert (2,) * oops() == 42
+        assert u'2' * oops() == 42
+        assert bytearray('2') * oops() == 42
+        assert 1000 * oops() == 42
+        assert '2'.__mul__(oops()) == '222'
+
+    def test_sequence_rmul_overrides_oldstyle(self):
+        class oops:
+            def __rmul__(self, other):
+                return 42
+            def __index__(self):
+                return 3
+        assert '2' * oops() == 42
+        assert [2] * oops() == 42
+        assert (2,) * oops() == 42
+        assert u'2' * oops() == 42
+        assert bytearray('2') * oops() == 42
+        assert 1000 * oops() == 42
+        assert '2'.__mul__(oops()) == '222'
+
+    def test_sequence_radd_overrides(self):
+        class A1(list):
+            pass
+        class A2(list):
+            def __radd__(self, other):
+                return 42
+        assert [2] + A1([3]) == [2, 3]
+        assert type([2] + A1([3])) is list
+        assert [2] + A2([3]) == 42
+
 
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):
     spaceconfig = {'objspace.std.builtinshortcut': True}

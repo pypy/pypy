@@ -198,6 +198,16 @@ class _AppTestSelect:
         finally:
             writeend.close()
 
+    def test_select_descr_out_of_bounds(self):
+        import sys, select
+        raises(ValueError, select.select, [-1], [], [])
+        raises(ValueError, select.select, [], [-2], [])
+        raises(ValueError, select.select, [], [], [-3])
+        if sys.platform != 'win32':
+            raises(ValueError, select.select, [2000000000], [], [])
+            raises(ValueError, select.select, [], [2000000000], [])
+            raises(ValueError, select.select, [], [], [2000000000])
+
     def test_poll(self):
         import select
         if not hasattr(select, 'poll'):

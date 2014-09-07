@@ -63,6 +63,14 @@ c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T],
 c_fclose = llexternal('fclose', [FILEP], rffi.INT)
 c_pclose = llexternal('pclose', [FILEP], rffi.INT)
 
+# Note: the following two functions are called from __del__ methods,
+# so must be 'releasegil=False'.  Otherwise, a program using both
+# threads and the RFile class cannot translate.  See c684bf704d1f
+c_fclose_in_del = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
+c_pclose_in_del = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
+_fclose2 = (c_fclose, c_fclose_in_del)
+_pclose2 = (c_pclose, c_pclose_in_del)
+
 c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True)
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP], rffi.CCHARP)
 c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
@@ -85,7 +93,7 @@ c_clearerr = llexternal('clearerr', [FILEP], lltype.Void)
 def _error(ll_file):
     err = c_ferror(ll_file)
     c_clearerr(ll_file)
-    raise OSError(err, os.strerror(err))
+    raise IOError(err, os.strerror(err))
 
 
 def _dircheck(ll_file):
@@ -96,7 +104,7 @@ def _dircheck(ll_file):
     else:
         if stat.S_ISDIR(st[0]):
             err = errno.EISDIR
-            raise OSError(err, os.strerror(err))
+            raise IOError(err, os.strerror(err))
 
 
 def _sanitize_mode(mode):
@@ -128,7 +136,7 @@ def create_file(filename, mode="r", buffering=-1):
             ll_file = c_fopen(ll_name, ll_mode)
             if not ll_file:
                 errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
+                raise IOError(errno, os.strerror(errno))
         finally:
             lltype.free(ll_mode, flavor='raw')
     finally:
@@ -142,21 +150,23 @@ def create_file(filename, mode="r", buffering=-1):
             c_setvbuf(ll_file, buf, _IOLBF, BUFSIZ)
         else:
             c_setvbuf(ll_file, buf, _IOFBF, buffering)
-    return RFile(ll_file)
+    return RFile(ll_file, mode)
 
 
 def create_fdopen_rfile(fd, mode="r"):
     mode = _sanitize_mode(mode)
+    fd = rffi.cast(rffi.INT, fd)
+    rposix.validate_fd(fd)
     ll_mode = rffi.str2charp(mode)
     try:
-        ll_file = c_fdopen(rffi.cast(rffi.INT, fd), ll_mode)
+        ll_file = c_fdopen(fd, ll_mode)
         if not ll_file:
             errno = rposix.get_errno()
             raise OSError(errno, os.strerror(errno))
     finally:
         lltype.free(ll_mode, flavor='raw')
     _dircheck(ll_file)
-    return RFile(ll_file)
+    return RFile(ll_file, mode)
 
 
 def create_temp_rfile():
@@ -180,16 +190,32 @@ def create_popen_file(command, type):
             lltype.free(ll_type, flavor='raw')
     finally:
         lltype.free(ll_command, flavor='raw')
-    return RFile(ll_file, c_pclose)
+    return RFile(ll_file, close2=_pclose2)
 
 
 class RFile(object):
-    def __init__(self, ll_file, do_close=c_fclose):
+    _readable = False
+    _writable = False
+
+    def __init__(self, ll_file, mode='+', close2=_fclose2):
         self._ll_file = ll_file
-        self._do_close = do_close
+        if 'r' in mode:
+            self._readable = True
+        if 'w' in mode or 'a' in mode:
+            self._writable = True
+        if '+' in mode:
+            self._readable = self._writable = True
+        self._close2 = close2
 
     def __del__(self):
-        self.close()
+        """Closes the described file when the object's last reference
+        goes away.  Unlike an explicit call to close(), this is meant
+        as a last-resort solution and cannot release the GIL or return
+        an error code."""
+        ll_file = self._ll_file
+        if ll_file:
+            do_close = self._close2[1]
+            do_close(ll_file)       # return value ignored
 
     def close(self):
         """Closes the described file.
@@ -204,19 +230,29 @@ class RFile(object):
         if ll_file:
             # double close is allowed
             self._ll_file = lltype.nullptr(FILEP.TO)
-            res = self._do_close(ll_file)
+            do_close = self._close2[0]
+            res = do_close(ll_file)
             if res == -1:
                 errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
+                raise IOError(errno, os.strerror(errno))
         return res
 
     def _check_closed(self):
         if not self._ll_file:
             raise ValueError("I/O operation on closed file")
 
+    def _check_reading(self):
+        if not self._readable:
+            raise IOError(0, "File not open for reading")
+
+    def _check_writing(self):
+        if not self._writable:
+            raise IOError(0, "File not open for writing")
+
     def read(self, size=-1):
         # XXX CPython uses a more delicate logic here
         self._check_closed()
+        self._check_reading()
         ll_file = self._ll_file
         if size == 0:
             return ""
@@ -282,6 +318,7 @@ class RFile(object):
 
     def readline(self, size=-1):
         self._check_closed()
+        self._check_reading()
         if size == 0:
             return ""
         elif size < 0:
@@ -317,6 +354,7 @@ class RFile(object):
     @enforceargs(None, str)
     def write(self, value):
         self._check_closed()
+        self._check_writing()
         ll_value = rffi.get_nonmovingbuffer(value)
         try:
             # note that since we got a nonmoving buffer, it is either raw
@@ -325,7 +363,7 @@ class RFile(object):
             bytes = c_fwrite(ll_value, 1, length, self._ll_file)
             if bytes != length:
                 errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
+                raise IOError(errno, os.strerror(errno))
         finally:
             rffi.free_nonmovingbuffer(value, ll_value)
 
@@ -334,31 +372,32 @@ class RFile(object):
         res = c_fflush(self._ll_file)
         if res != 0:
             errno = rposix.get_errno()
-            raise OSError(errno, os.strerror(errno))
+            raise IOError(errno, os.strerror(errno))
 
     def truncate(self, arg=-1):
         self._check_closed()
+        self._check_writing()
         if arg == -1:
             arg = self.tell()
         self.flush()
         res = c_ftruncate(self.fileno(), arg)
         if res == -1:
             errno = rposix.get_errno()
-            raise OSError(errno, os.strerror(errno))
+            raise IOError(errno, os.strerror(errno))
 
     def seek(self, pos, whence=0):
         self._check_closed()
         res = c_fseek(self._ll_file, pos, whence)
         if res == -1:
             errno = rposix.get_errno()
-            raise OSError(errno, os.strerror(errno))
+            raise IOError(errno, os.strerror(errno))
 
     def tell(self):
         self._check_closed()
         res = intmask(c_ftell(self._ll_file))
         if res == -1:
             errno = rposix.get_errno()
-            raise OSError(errno, os.strerror(errno))
+            raise IOError(errno, os.strerror(errno))
         return res
 
     def fileno(self):

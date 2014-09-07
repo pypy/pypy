@@ -951,6 +951,7 @@ W_BytesObject.typedef = StdTypeDef(
     _formatter_field_name_split =
         interp2app(W_BytesObject.descr_formatter_field_name_split),
 )
+W_BytesObject.typedef.flag_sequence_bug_compat = True
 
 
 def string_escape_encode(s, quote):

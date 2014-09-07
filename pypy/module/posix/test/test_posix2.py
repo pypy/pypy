@@ -96,7 +96,7 @@ class AppTestPosix:
             need_sparse_files()
 
     def test_posix_is_pypy_s(self):
-        assert self.posix.__file__
+        assert hasattr(self.posix, '_statfields')
 
     def test_some_posix_basic_operation(self):
         path = self.path
@@ -282,13 +282,8 @@ class AppTestPosix:
         f = posix.fdopen(fd, "r")
         f.close()
 
-        # Ensure that fcntl is not faked
-        try:
-            import fcntl
-        except ImportError:
-            pass
-        else:
-            assert fcntl.__file__.endswith('pypy/module/fcntl')
+        # There used to be code here to ensure that fcntl is not faked
+        # but we can't do that cleanly any more
         exc = raises(OSError, posix.fdopen, fd)
         assert exc.value.errno == errno.EBADF
 

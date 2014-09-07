@@ -1567,7 +1567,7 @@ class Assembler386(BaseAssembler):
         else:
             assert 0, itemsize
 
-    def genop_read_timestamp(self, op, arglocs, resloc):
+    def genop_math_read_timestamp(self, op, arglocs, resloc):
         self.mc.RDTSC()
         if longlong.is_64_bit:
             self.mc.SHL_ri(edx.value, 32)
@@ -1764,7 +1764,7 @@ class Assembler386(BaseAssembler):
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.MOV_bi(ofs, 0)
 
-    def new_stack_loc(self, i, pos, tp):
+    def new_stack_loc(self, i, tp):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         return FrameLoc(i, get_ebp_ofs(base_ofs, i), tp)
 
