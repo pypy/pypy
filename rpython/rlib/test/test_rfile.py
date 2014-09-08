@@ -129,13 +129,13 @@ class TestFile(BaseRtypingTest):
             try:
                 f.read()
             except IOError as e:
-                assert not e.errno
+                pass
             else:
                 assert False
             try:
                 f.readline()
             except IOError as e:
-                assert not e.errno
+                pass
             else:
                 assert False
             f.write("dupa\x00dupb")
@@ -143,9 +143,9 @@ class TestFile(BaseRtypingTest):
             for mode in ['r', 'U']:
                 f2 = open(fname, mode)
                 try:
-                    f2.write('')
+                    f2.write('z')
                 except IOError as e:
-                    assert not e.errno
+                    pass
                 else:
                     assert False
                 dupa = f2.read(0)
@@ -185,6 +185,29 @@ class TestFile(BaseRtypingTest):
             assert c == "p"
             assert d == "a"
             assert e == ""
+
+        f()
+        self.interpret(f, [])
+
+    def test_read_universal(self):
+        fname = self.tmpdir.join('read_univ')
+        fname.write("dupa\ndupb\r\ndupc")
+        fname = str(fname)
+
+        def f():
+            f = open(fname, 'U')
+            assert f.read() == "dupa\ndupb\ndupc"
+            assert f.read() == ""
+            f.seek(0)
+            assert f.read(9) == "dupa\ndupb"
+            assert f.read(42) == "\ndupc"
+            assert f.read(1) == ""
+            f.seek(0)
+            assert f.readline() == "dupa\n"
+            assert f.readline() == "dupb\n"
+            assert f.readline() == "dupc"
+            assert f.readline() == ""
+            f.close()
 
         f()
         self.interpret(f, [])
@@ -230,7 +253,7 @@ class TestFile(BaseRtypingTest):
             try:
                 f2.read()
             except IOError as e:
-                assert not e.errno
+                pass
             else:
                 assert False
             f2.write("xxx")
@@ -303,7 +326,7 @@ class TestFile(BaseRtypingTest):
             try:
                 f.truncate()
             except IOError as e:
-                assert not e.errno
+                pass
             else:
                 assert False
             f.close()
