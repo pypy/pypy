@@ -2,7 +2,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.executor import execute
 from rpython.jit.codewriter.heaptracker import vtable2descr
 from rpython.jit.metainterp.history import Const, ConstInt, BoxInt
-from rpython.jit.metainterp.history import CONST_NULL, BoxPtr, CONST_FALSE
+from rpython.jit.metainterp.history import CONST_NULL, BoxPtr
 from rpython.jit.metainterp.optimizeopt import optimizer
 from rpython.jit.metainterp.optimizeopt.optimizer import OptValue, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
@@ -566,7 +566,7 @@ class OptVirtualize(optimizer.Optimization):
         tokenbox = BoxPtr()
         self.emit_operation(ResOperation(rop.FORCE_TOKEN, [], tokenbox))
         vrefvalue.setfield(descr_virtual_token, self.getvalue(tokenbox))
-        vrefvalue.setfield(descr_forced, CONST_FALSE)
+        vrefvalue.setfield(descr_forced, self.optimizer.cpu.ts.CVAL_NULLREF)
 
     def optimize_VIRTUAL_REF_FINISH(self, op):
         # This operation is used in two cases.  In normal cases, it
