@@ -343,6 +343,7 @@ class RFile(object):
             bytes = c_fwrite(ll_value, 1, length, self._ll_file)
             if bytes != length:
                 errno = rposix.get_errno()
+                c_clearerr(self._ll_file)
                 raise IOError(errno, os.strerror(errno))
         finally:
             rffi.free_nonmovingbuffer(value, ll_value)

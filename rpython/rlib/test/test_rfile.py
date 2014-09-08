@@ -143,7 +143,7 @@ class TestFile(BaseRtypingTest):
             for mode in ['r', 'U']:
                 f2 = open(fname, mode)
                 try:
-                    f2.write('')
+                    f2.write('z')
                 except IOError as e:
                     pass
                 else:
