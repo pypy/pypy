@@ -121,7 +121,7 @@ class W_File(W_AbstractStream):
     def direct_close(self):
         stream = self.stream
         if stream is not None:
-            #self.newlines = self.stream.getnewlines()
+            self.newlines = self.stream._newlinetypes
             self.stream = None
             openstreams = getopenstreams(self.space)
             try:
@@ -452,8 +452,7 @@ def descr_file_closed(space, file):
 
 def descr_file_newlines(space, file):
     if file.stream:
-        #newlines = file.stream.getnewlines()
-        newlines = file.newlines
+        newlines = file.stream._newlinetypes
     else:
         newlines = file.newlines
     if newlines == 0:
