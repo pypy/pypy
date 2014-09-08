@@ -77,6 +77,7 @@ _fclose2 = (c_fclose, c_fclose_in_del)
 _pclose2 = (c_pclose, c_pclose_in_del)
 
 c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True)
+c_ungetc = llexternal('ungetc', [rffi.INT, FILEP], rffi.INT)
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP], rffi.CCHARP)
 c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
                      rffi.SIZE_T)
@@ -466,6 +467,14 @@ class RFile(object):
         if res == -1:
             errno = rposix.get_errno()
             raise IOError(errno, os.strerror(errno))
+        if self._skipnextlf:
+            c = c_getc(self._ll_file)
+            if c == ord('\n'):
+                self._newlinetypes |= NEWLINE_CRLF
+                res += 1
+                self._skipnextlf = False
+            elif c != EOF:
+                c_ungetc(c, self._ll_file)
         return res
 
     def fileno(self):

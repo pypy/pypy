@@ -191,21 +191,26 @@ class TestFile(BaseRtypingTest):
 
     def test_read_universal(self):
         fname = self.tmpdir.join('read_univ')
-        fname.write("dupa\ndupb\r\ndupc")
+        fname.write("dupa\ndupb\r\ndupc\rdupd")
         fname = str(fname)
 
         def f():
             f = open(fname, 'U')
-            assert f.read() == "dupa\ndupb\ndupc"
+            assert f.read() == "dupa\ndupb\ndupc\ndupd"
             assert f.read() == ""
             f.seek(0)
-            assert f.read(9) == "dupa\ndupb"
-            assert f.read(42) == "\ndupc"
+            assert f.read(10) == "dupa\ndupb\n"
+            assert f.read(42) == "dupc\ndupd"
             assert f.read(1) == ""
             f.seek(0)
             assert f.readline() == "dupa\n"
+            assert f.tell() == 5
             assert f.readline() == "dupb\n"
-            assert f.readline() == "dupc"
+            assert f.tell() == 11
+            assert f.readline() == "dupc\n"
+            assert f.tell() == 16
+            assert f.readline() == "dupd"
+            assert f.tell() == 20
             assert f.readline() == ""
             f.close()
 
