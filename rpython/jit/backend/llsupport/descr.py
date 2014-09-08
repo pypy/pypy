@@ -95,6 +95,9 @@ class FieldDescr(ArrayOrFieldDescr):
         self.field_size = field_size
         self.flag = flag
 
+    def __repr__(self):
+        return 'FieldDescr<%s:%d>' % (self.name, self.offset)
+
     def is_pointer_field(self):
         return self.flag == FLAG_POINTER
 
