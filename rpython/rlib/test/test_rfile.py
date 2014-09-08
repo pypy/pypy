@@ -189,6 +189,23 @@ class TestFile(BaseRtypingTest):
         f()
         self.interpret(f, [])
 
+    def test_read_universal(self):
+        fname = self.tmpdir.join('read_univ')
+        fname.write("dupa\ndupb\r\ndupc")
+        fname = str(fname)
+
+        def f():
+            f = open(fname, 'U')
+            assert f.read() == "dupa\ndupb\ndupc"
+            f.close()
+            f = open(fname, 'U')
+            assert f.read(9) == "dupa\ndupb"
+            assert f.read(42) == "\ndupc"
+            f.close()
+
+        f()
+        self.interpret(f, [])
+
     def test_seek(self):
         fname = str(self.tmpdir.join('file_4'))
 

@@ -47,6 +47,11 @@ EOF = config['EOF']
 BASE_BUF_SIZE = 4096
 BASE_LINE_SIZE = 100
 
+NEWLINE_UNKNOWN = 0
+NEWLINE_CR = 1
+NEWLINE_LF = 2
+NEWLINE_CRLF = 4
+
 
 def llexternal(*args, **kwargs):
     return rffi.llexternal(*args, compilation_info=eci, **kwargs)
@@ -128,10 +133,10 @@ def _sanitize_mode(mode):
 
 
 def create_file(filename, mode="r", buffering=-1):
-    mode = _sanitize_mode(mode)
+    newmode = _sanitize_mode(mode)
     ll_name = rffi.str2charp(filename)
     try:
-        ll_mode = rffi.str2charp(mode)
+        ll_mode = rffi.str2charp(newmode)
         try:
             ll_file = c_fopen(ll_name, ll_mode)
             if not ll_file:
@@ -150,14 +155,14 @@ def create_file(filename, mode="r", buffering=-1):
             c_setvbuf(ll_file, buf, _IOLBF, BUFSIZ)
         else:
             c_setvbuf(ll_file, buf, _IOFBF, buffering)
-    return RFile(ll_file)
+    return RFile(ll_file, mode)
 
 
 def create_fdopen_rfile(fd, mode="r"):
-    mode = _sanitize_mode(mode)
+    newmode = _sanitize_mode(mode)
     fd = rffi.cast(rffi.INT, fd)
     rposix.validate_fd(fd)
-    ll_mode = rffi.str2charp(mode)
+    ll_mode = rffi.str2charp(newmode)
     try:
         ll_file = c_fdopen(fd, ll_mode)
         if not ll_file:
@@ -166,7 +171,7 @@ def create_fdopen_rfile(fd, mode="r"):
     finally:
         lltype.free(ll_mode, flavor='raw')
     _dircheck(ll_file)
-    return RFile(ll_file)
+    return RFile(ll_file, mode)
 
 
 def create_temp_rfile():
@@ -194,8 +199,14 @@ def create_popen_file(command, type):
 
 
 class RFile(object):
-    def __init__(self, ll_file, close2=_fclose2):
+    _univ_newline = False
+    _newlinetypes = NEWLINE_UNKNOWN
+    _skipnextlf = False
+
+    def __init__(self, ll_file, mode=None, close2=_fclose2):
         self._ll_file = ll_file
+        if mode is not None:
+            self._univ_newline = 'U' in mode
         self._close2 = close2
 
     def __del__(self):
@@ -232,6 +243,52 @@ class RFile(object):
         if not self._ll_file:
             raise ValueError("I/O operation on closed file")
 
+    def _fread(self, buf, n, stream):
+        if not self._univ_newline:
+            return c_fread(buf, 1, n, stream)
+
+        i = 0
+        dst = buf
+        newlinetypes = self._newlinetypes
+        skipnextlf = self._skipnextlf
+        while n:
+            nread = c_fread(dst, 1, n, stream)
+            if nread == 0:
+                break
+
+            src = dst
+            n -= nread
+            shortread = n != 0
+            while nread:
+                nread -= 1
+                c = src[0]
+                src = rffi.ptradd(src, 1)
+                if c == '\r':
+                    dst[0] = '\n'
+                    dst = rffi.ptradd(dst, 1)
+                    i += 1
+                    skipnextlf = True
+                elif skipnextlf and c == '\n':
+                    skipnextlf = False
+                    newlinetypes |= NEWLINE_CRLF
+                    n += 1
+                else:
+                    if c == '\n':
+                        newlinetypes |= NEWLINE_LF
+                    elif skipnextlf:
+                        newlinetypes |= NEWLINE_CR
+                    dst[0] = c
+                    dst = rffi.ptradd(dst, 1)
+                    i += 1
+                    skipnextlf = False
+            if shortread:
+                if skipnextlf and c_feof(stream):
+                    newlinetypes |= NEWLINE_CR
+                break
+        self._newlinetypes = newlinetypes
+        self._skipnextlf = skipnextlf
+        return i
+
     def read(self, size=-1):
         # XXX CPython uses a more delicate logic here
         self._check_closed()
@@ -244,7 +301,7 @@ class RFile(object):
             try:
                 s = StringBuilder()
                 while True:
-                    returned_size = c_fread(buf, 1, BASE_BUF_SIZE, ll_file)
+                    returned_size = self._fread(buf, BASE_BUF_SIZE, ll_file)
                     returned_size = intmask(returned_size)  # is between 0 and BASE_BUF_SIZE
                     if returned_size == 0:
                         if c_feof(ll_file):
@@ -256,7 +313,7 @@ class RFile(object):
                 lltype.free(buf, flavor='raw')
         else:  # size > 0
             with rffi.scoped_alloc_buffer(size) as buf:
-                returned_size = c_fread(buf.raw, 1, size, ll_file)
+                returned_size = self._fread(buf.raw, size, ll_file)
                 returned_size = intmask(returned_size)  # is between 0 and size
                 if returned_size == 0:
                     if not c_feof(ll_file):
