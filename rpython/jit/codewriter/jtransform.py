@@ -948,6 +948,9 @@ class Transformer(object):
         for FIELD in STRUCT._flds.values():
             if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
                 return True
+            elif isinstance(FIELD, lltype.Struct):
+                if self._has_gcptrs_in(FIELD):
+                    return True
         return False
 
     def rewrite_op_getinteriorarraysize(self, op):
