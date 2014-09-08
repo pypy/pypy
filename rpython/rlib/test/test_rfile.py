@@ -197,10 +197,16 @@ class TestFile(BaseRtypingTest):
         def f():
             f = open(fname, 'U')
             assert f.read() == "dupa\ndupb\ndupc"
-            f.close()
-            f = open(fname, 'U')
+            assert f.read() == ""
+            f.seek(0)
             assert f.read(9) == "dupa\ndupb"
             assert f.read(42) == "\ndupc"
+            assert f.read(1) == ""
+            f.seek(0)
+            assert f.readline() == "dupa\n"
+            assert f.readline() == "dupb\n"
+            assert f.readline() == "dupc"
+            assert f.readline() == ""
             f.close()
 
         f()

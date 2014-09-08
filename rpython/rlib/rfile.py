@@ -359,7 +359,7 @@ class RFile(object):
         self._check_closed()
         if size == 0:
             return ""
-        elif size < 0:
+        elif size < 0 and not self._univ_newline:
             with rffi.scoped_alloc_buffer(BASE_LINE_SIZE) as buf:
                 c = self._readline1(buf.raw)
                 if c >= 0:
@@ -374,19 +374,50 @@ class RFile(object):
                         break
                 s.append_charpsize(buf.raw, c)
             return s.build()
-        else:  # size > 0
+        else:  # size > 0 or self._univ_newline
             ll_file = self._ll_file
+            c = 0
             s = StringBuilder()
-            while s.getlength() < size:
-                c = c_getc(ll_file)
+            if self._univ_newline:
+                newlinetypes = self._newlinetypes
+                skipnextlf = self._skipnextlf
+                while size < 0 or s.getlength() < size:
+                    c = c_getc(ll_file)
+                    if c == EOF:
+                        break
+                    if skipnextlf:
+                        skipnextlf = False
+                        if c == ord('\n'):
+                            newlinetypes |= NEWLINE_CRLF
+                            c = c_getc(ll_file)
+                            if c == EOF:
+                                break
+                        else:
+                            newlinetypes |= NEWLINE_CR
+                    if c == ord('\r'):
+                        skipnextlf = True
+                        c = ord('\n')
+                    elif c == ord('\n'):
+                        newlinetypes |= NEWLINE_LF
+                    s.append(chr(c))
+                    if c == ord('\n'):
+                        break
                 if c == EOF:
-                    if c_ferror(ll_file):
-                        raise _error(ll_file)
-                    break
-                c = chr(c)
-                s.append(c)
-                if c == '\n':
-                    break
+                    if skipnextlf:
+                        newlinetypes |= NEWLINE_CR
+                self._newlinetypes = newlinetypes
+                self._skipnextlf = skipnextlf
+            else:
+                while s.getlength() < size:
+                    c = c_getc(ll_file)
+                    if c == EOF:
+                        break
+                    s.append(chr(c))
+                    if c == ord('\n'):
+                        break
+            if c == EOF:
+                if c_ferror(ll_file):
+                    raise _error(ll_file)
             return s.build()
 
     @enforceargs(None, str)
