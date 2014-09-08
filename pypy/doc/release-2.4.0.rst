@@ -62,7 +62,8 @@ Benchmarks improved after internal enhancements in string and
 bytearray handling, and a major rewrite of the GIL handling. This means
 that external calls are now a lot faster, especially the CFFI ones. It also
 means better performance in a lot of corner cases with handling strings or
-bytearrays.
+bytearrays. The main bugfix is handling of many socket objects in your
+program which in the long run used to "leak" memory.
 
 PyPy now uses Python 2.7.8 standard library.
 
@@ -110,7 +111,8 @@ for more information see `whats-new`_:
 .. _resolved: https://bitbucket.org/pypy/pypy/issues?status=resolved
 
 We have further improvements on the way: rpython file handling and
-usable numpy linalg compatabiity should be merged soon.
+usable numpy linalg compatabiity should be merged soon as well
+as improved GC and a bunch of smaller improvements.
 
 Please try it out and let us know what you think. We especially welcome
 success stories, we know you are using PyPy, please tell us about it!
