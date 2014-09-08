@@ -2,7 +2,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.executor import execute
 from rpython.jit.codewriter.heaptracker import vtable2descr
 from rpython.jit.metainterp.history import Const, ConstInt, BoxInt
-from rpython.jit.metainterp.history import CONST_NULL, BoxPtr
+from rpython.jit.metainterp.history import CONST_NULL, BoxPtr, CONST_FALSE
 from rpython.jit.metainterp.optimizeopt import optimizer
 from rpython.jit.metainterp.optimizeopt.optimizer import OptValue, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
@@ -556,6 +556,7 @@ class OptVirtualize(optimizer.Optimization):
         vrefinfo = self.optimizer.metainterp_sd.virtualref_info
         c_cls = vrefinfo.jit_virtual_ref_const_class
         descr_virtual_token = vrefinfo.descr_virtual_token
+        descr_forced = vrefinfo.descr_forced
         #
         # Replace the VIRTUAL_REF operation with a virtual structure of type
         # 'jit_virtual_ref'.  The jit_virtual_ref structure may be forced soon,
@@ -565,6 +566,7 @@ class OptVirtualize(optimizer.Optimization):
         tokenbox = BoxPtr()
         self.emit_operation(ResOperation(rop.FORCE_TOKEN, [], tokenbox))
         vrefvalue.setfield(descr_virtual_token, self.getvalue(tokenbox))
+        vrefvalue.setfield(descr_forced, CONST_FALSE)
 
     def optimize_VIRTUAL_REF_FINISH(self, op):
         # This operation is used in two cases.  In normal cases, it
