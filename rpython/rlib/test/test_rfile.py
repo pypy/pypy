@@ -129,13 +129,13 @@ class TestFile(BaseRtypingTest):
             try:
                 f.read()
             except IOError as e:
-                assert not e.errno
+                pass
             else:
                 assert False
             try:
                 f.readline()
             except IOError as e:
-                assert not e.errno
+                pass
             else:
                 assert False
             f.write("dupa\x00dupb")
@@ -145,7 +145,7 @@ class TestFile(BaseRtypingTest):
                 try:
                     f2.write('')
                 except IOError as e:
-                    assert not e.errno
+                    pass
                 else:
                     assert False
                 dupa = f2.read(0)
@@ -230,7 +230,7 @@ class TestFile(BaseRtypingTest):
             try:
                 f2.read()
             except IOError as e:
-                assert not e.errno
+                pass
             else:
                 assert False
             f2.write("xxx")
@@ -303,7 +303,7 @@ class TestFile(BaseRtypingTest):
             try:
                 f.truncate()
             except IOError as e:
-                assert not e.errno
+                pass
             else:
                 assert False
             f.close()

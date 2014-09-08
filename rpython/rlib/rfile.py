@@ -150,7 +150,7 @@ def create_file(filename, mode="r", buffering=-1):
             c_setvbuf(ll_file, buf, _IOLBF, BUFSIZ)
         else:
             c_setvbuf(ll_file, buf, _IOFBF, buffering)
-    return RFile(ll_file, mode)
+    return RFile(ll_file)
 
 
 def create_fdopen_rfile(fd, mode="r"):
@@ -166,7 +166,7 @@ def create_fdopen_rfile(fd, mode="r"):
     finally:
         lltype.free(ll_mode, flavor='raw')
     _dircheck(ll_file)
-    return RFile(ll_file, mode)
+    return RFile(ll_file)
 
 
 def create_temp_rfile():
@@ -194,17 +194,8 @@ def create_popen_file(command, type):
 
 
 class RFile(object):
-    _readable = False
-    _writable = False
-
-    def __init__(self, ll_file, mode='+', close2=_fclose2):
+    def __init__(self, ll_file, close2=_fclose2):
         self._ll_file = ll_file
-        if 'r' in mode:
-            self._readable = True
-        if 'w' in mode or 'a' in mode:
-            self._writable = True
-        if '+' in mode:
-            self._readable = self._writable = True
         self._close2 = close2
 
     def __del__(self):
@@ -241,18 +232,9 @@ class RFile(object):
         if not self._ll_file:
             raise ValueError("I/O operation on closed file")
 
-    def _check_reading(self):
-        if not self._readable:
-            raise IOError(0, "File not open for reading")
-
-    def _check_writing(self):
-        if not self._writable:
-            raise IOError(0, "File not open for writing")
-
     def read(self, size=-1):
         # XXX CPython uses a more delicate logic here
         self._check_closed()
-        self._check_reading()
         ll_file = self._ll_file
         if size == 0:
             return ""
@@ -318,7 +300,6 @@ class RFile(object):
 
     def readline(self, size=-1):
         self._check_closed()
-        self._check_reading()
         if size == 0:
             return ""
         elif size < 0:
@@ -354,7 +335,6 @@ class RFile(object):
     @enforceargs(None, str)
     def write(self, value):
         self._check_closed()
-        self._check_writing()
         ll_value = rffi.get_nonmovingbuffer(value)
         try:
             # note that since we got a nonmoving buffer, it is either raw
@@ -376,7 +356,6 @@ class RFile(object):
 
     def truncate(self, arg=-1):
         self._check_closed()
-        self._check_writing()
         if arg == -1:
             arg = self.tell()
         self.flush()
