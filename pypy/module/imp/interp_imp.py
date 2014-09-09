@@ -1,7 +1,7 @@
 from rpython.rlib import rfile
 from pypy.module.imp import importing
 from pypy.module._file.interp_file import W_File
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, exception_from_errno
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
 
@@ -32,7 +32,10 @@ def get_magic(space):
 
 def get_file(space, w_file, filename, mode):
     if space.is_none(w_file):
-        return rfile.create_file(filename, mode)
+        try:
+            return rfile.create_file(filename, mode)
+        except:
+            raise exception_from_errno(space, space.w_IOError)
     else:
         return space.interp_w(W_File, w_file).stream
 
