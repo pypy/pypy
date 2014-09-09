@@ -1128,6 +1128,8 @@ class ResOpAssembler(BaseAssembler):
         self.mc.VCVT_int_to_float(res.value, r.svfp_ip.value)
         return fcond
 
+    # the following five instructions are only ARMv7;
+    # regalloc.py won't call them at all on ARMv6
     emit_op_llong_add = gen_emit_float_op('llong_add', 'VADD_i64')
     emit_op_llong_sub = gen_emit_float_op('llong_sub', 'VSUB_i64')
     emit_op_llong_and = gen_emit_float_op('llong_and', 'VAND_i64')

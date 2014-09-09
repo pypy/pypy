@@ -460,6 +460,7 @@ class RFile(object):
         if res == -1:
             errno = rposix.get_errno()
             raise IOError(errno, os.strerror(errno))
+        self._skipnextlf = False
 
     def tell(self):
         self._check_closed()

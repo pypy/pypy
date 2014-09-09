@@ -190,9 +190,9 @@ class TestFile(BaseRtypingTest):
         self.interpret(f, [])
 
     def test_read_universal(self):
-        fname = self.tmpdir.join('read_univ')
-        fname.write("dupa\ndupb\r\ndupc\rdupd")
-        fname = str(fname)
+        fname = str(self.tmpdir.join('read_univ'))
+        with open(fname, 'wb') as f:
+            f.write("dupa\ndupb\r\ndupc\rdupd")
 
         def f():
             f = open(fname, 'U')
@@ -212,6 +212,11 @@ class TestFile(BaseRtypingTest):
             assert f.readline() == "dupd"
             assert f.tell() == 20
             assert f.readline() == ""
+            f.seek(0)
+            assert f.readline() == "dupa\n"
+            assert f.readline() == "dupb\n"
+            f.seek(4)
+            assert f.read(1) == "\n"
             f.close()
 
         f()
