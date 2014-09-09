@@ -56,7 +56,7 @@ class W_File(W_AbstractStream):
             w_error = space.call_function(space.w_IOError, space.wrap(e.errno), space.wrap(e.strerror), self.w_name)
             raise OperationError(space.w_IOError, w_error)
 
-    def fdopenstream(self, stream, mode):
+    def fdopenstream(self, stream, mode, w_name=None):
         self.stream = stream
         self.mode = mode
         self.binary = "b" in mode
@@ -66,6 +66,8 @@ class W_File(W_AbstractStream):
             self.writable = True
         if '+' in mode:
             self.readable = self.writable = True
+        if w_name is not None:
+            self.w_name = w_name
         getopenstreams(self.space)[stream] = None
 
     def check_closed(self):

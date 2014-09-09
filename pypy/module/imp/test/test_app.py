@@ -32,6 +32,7 @@ class AppTestImpModule:
         import os
         file, pathname, description = self.imp.find_module('StringIO')
         assert file is not None
+        assert file.name.endswith("StringIO.py")
         file.close()
         assert os.path.exists(pathname)
         pathname = pathname.lower()

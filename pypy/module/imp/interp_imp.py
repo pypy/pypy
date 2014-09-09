@@ -55,7 +55,7 @@ def find_module(space, w_name, w_path=None):
     if stream is not None:
         fileobj = W_File(space)
         fileobj.fdopenstream(
-            stream, find_info.filemode)
+            stream, find_info.filemode, w_filename)
         w_fileobj = space.wrap(fileobj)
     else:
         w_fileobj = space.w_None
