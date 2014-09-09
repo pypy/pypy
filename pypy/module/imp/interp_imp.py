@@ -4,7 +4,6 @@ from pypy.module._file.interp_file import W_File
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.streamutil import wrap_streamerror
 
 
 def get_suffixes(space):

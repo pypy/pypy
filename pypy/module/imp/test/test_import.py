@@ -4,7 +4,6 @@ from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 import pypy.interpreter.pycode
 from rpython.tool.udir import udir
-from rpython.rlib import streamio
 from pypy.tool.option import make_config
 from pypy.tool.pytest.objspace import maketestobjspace
 import pytest
@@ -103,12 +102,11 @@ def setup_directory_structure(space):
         w = space.wrap
         w_modname = w("compiled.x")
         filename = str(p.join("x.py"))
-        stream = streamio.open_file_as_stream(filename, "r")
+        stream = open(filename, "r")
         try:
             importing.load_source_module(
                 space, w_modname, w(importing.Module(space, w_modname)),
-                filename, stream.readall(),
-                stream.try_to_find_file_descriptor())
+                filename, stream.read(), stream.fileno())
         finally:
             stream.close()
         if space.config.objspace.usepycfiles:
@@ -757,11 +755,11 @@ class TestPycStuff:
         mtime = 12345
         co = compile('x = 42', '?', 'exec')
         cpathname = _testfile(importing.get_pyc_magic(space), mtime, co)
-        stream = streamio.open_file_as_stream(cpathname, "rb")
+        stream = open(cpathname, "rb")
         try:
             stream.seek(8, 0)
             w_code = importing.read_compiled_module(
-                    space, cpathname, stream.readall())
+                    space, cpathname, stream.read())
             pycode = w_code
         finally:
             stream.close()
@@ -778,7 +776,7 @@ class TestPycStuff:
         co = compile('x = 42', '?', 'exec')
         cpathname = _testfile(importing.get_pyc_magic(space), mtime, co)
         w_modulename = space.wrap('somemodule')
-        stream = streamio.open_file_as_stream(cpathname, "rb")
+        stream = open(cpathname, "rb")
         try:
             w_mod = space.wrap(Module(space, w_modulename))
             magic = importing._r_long(stream)
@@ -789,7 +787,7 @@ class TestPycStuff:
                                                    cpathname,
                                                    magic,
                                                    timestamp,
-                                                   stream.readall())
+                                                   stream.read())
         finally:
             stream.close()
         assert w_mod is w_ret
@@ -800,11 +798,11 @@ class TestPycStuff:
     def test_parse_source_module(self):
         space = self.space
         pathname = _testfilesource()
-        stream = streamio.open_file_as_stream(pathname, "r")
+        stream = open(pathname, "r")
         try:
             w_ret = importing.parse_source_module(space,
                                                   pathname,
-                                                  stream.readall())
+                                                  stream.read())
         finally:
             stream.close()
         pycode = w_ret
@@ -817,14 +815,14 @@ class TestPycStuff:
 
     def test_long_writes(self):
         pathname = str(udir.join('test.dat'))
-        stream = streamio.open_file_as_stream(pathname, "wb")
+        stream = open(pathname, "wb")
         try:
             importing._w_long(stream, 42)
             importing._w_long(stream, 12312)
             importing._w_long(stream, 128397198)
         finally:
             stream.close()
-        stream = streamio.open_file_as_stream(pathname, "rb")
+        stream = open(pathname, "rb")
         try:
             res = importing._r_long(stream)
             assert res == 42
@@ -840,12 +838,11 @@ class TestPycStuff:
         w_modulename = space.wrap('somemodule')
         w_mod = space.wrap(Module(space, w_modulename))
         pathname = _testfilesource()
-        stream = streamio.open_file_as_stream(pathname, "r")
+        stream = open(pathname, "r")
         try:
             w_ret = importing.load_source_module(
                 space, w_modulename, w_mod,
-                pathname, stream.readall(),
-                stream.try_to_find_file_descriptor())
+                pathname, stream.read(), stream.fileno())
         finally:
             stream.close()
         assert w_mod is w_ret
@@ -862,12 +859,11 @@ class TestPycStuff:
         w_modulename = space.wrap('somemodule')
         w_mod = space.wrap(Module(space, w_modulename))
         pathname = _testfilesource()
-        stream = streamio.open_file_as_stream(pathname, "r")
+        stream = open(pathname, "r")
         try:
             w_ret = importing.load_source_module(
                 space, w_modulename, w_mod,
-                pathname, stream.readall(),
-                stream.try_to_find_file_descriptor(),
+                pathname, stream.read(), stream.fileno(),
                 write_pyc=False)
         finally:
             stream.close()
@@ -879,14 +875,13 @@ class TestPycStuff:
         w_modulename = space.wrap('somemodule')
         w_mod = space.wrap(Module(space, w_modulename))
         pathname = _testfilesource()
-        stream = streamio.open_file_as_stream(pathname, "r")
+        stream = open(pathname, "r")
         try:
             space.setattr(space.sys, space.wrap('dont_write_bytecode'),
                           space.w_True)
             w_ret = importing.load_source_module(
                 space, w_modulename, w_mod,
-                pathname, stream.readall(),
-                stream.try_to_find_file_descriptor())
+                pathname, stream.read(), stream.fileno())
         finally:
             space.setattr(space.sys, space.wrap('dont_write_bytecode'),
                           space.w_False)
@@ -900,12 +895,11 @@ class TestPycStuff:
         w_modulename = space.wrap('somemodule')
         w_mod = space.wrap(Module(space, w_modulename))
         pathname = _testfilesource(source="<Syntax Error>")
-        stream = streamio.open_file_as_stream(pathname, "r")
+        stream = open(pathname, "r")
         try:
             w_ret = importing.load_source_module(
                 space, w_modulename, w_mod,
-                pathname, stream.readall(),
-                stream.try_to_find_file_descriptor())
+                pathname, stream.read(), stream.fileno())
         except OperationError:
             # OperationError("Syntax Error")
             pass
@@ -913,19 +907,18 @@ class TestPycStuff:
 
         cpathname = udir.join('test.pyc')
         assert not cpathname.check()
-        
+
     def test_load_source_module_importerror(self):
         # the .pyc file is created before executing the module
         space = self.space
         w_modulename = space.wrap('somemodule')
         w_mod = space.wrap(Module(space, w_modulename))
         pathname = _testfilesource(source="a = unknown_name")
-        stream = streamio.open_file_as_stream(pathname, "r")
+        stream = open(pathname, "r")
         try:
             w_ret = importing.load_source_module(
                 space, w_modulename, w_mod,
-                pathname, stream.readall(),
-                stream.try_to_find_file_descriptor())
+                pathname, stream.read(), stream.fileno())
         except OperationError:
             # OperationError("NameError", "global name 'unknown_name' is not defined")
             pass
@@ -939,11 +932,11 @@ class TestPycStuff:
         space = self.space
         pathname = _testfilesource()
         os.chmod(pathname, 0777)
-        stream = streamio.open_file_as_stream(pathname, "r")
+        stream = open(pathname, "r")
         try:
             w_ret = importing.parse_source_module(space,
                                                   pathname,
-                                                  stream.readall())
+                                                  stream.read())
         finally:
             stream.close()
         pycode = w_ret
@@ -969,11 +962,11 @@ class TestPycStuff:
         assert os.stat(cpathname).st_mode & 0111 == 0
 
         # read compiled module
-        stream = streamio.open_file_as_stream(cpathname, "rb")
+        stream = open(cpathname, "rb")
         try:
             stream.seek(8, 0)
             w_code = importing.read_compiled_module(space, cpathname,
-                                                    stream.readall())
+                                                    stream.read())
             pycode = w_code
         finally:
             stream.close()
@@ -1004,7 +997,7 @@ class TestPycStuff:
                 cpathname = _testfile(importing.get_pyc_magic(space1),
                                       mtime, co)
                 w_modulename = space2.wrap('somemodule')
-                stream = streamio.open_file_as_stream(cpathname, "rb")
+                stream = open(cpathname, "rb")
                 try:
                     w_mod = space2.wrap(Module(space2, w_modulename))
                     magic = importing._r_long(stream)
@@ -1017,7 +1010,7 @@ class TestPycStuff:
                                     cpathname,
                                     magic,
                                     timestamp,
-                                    stream.readall())
+                                    stream.read())
                 finally:
                     stream.close()
 
