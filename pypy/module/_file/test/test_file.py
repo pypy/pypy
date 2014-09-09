@@ -282,38 +282,6 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
             f.close()
 
 
-class AppTestNonblocking(object):
-    def setup_class(cls):
-        from pypy.module._file.interp_file import W_File
-
-        cls.old_read = os.read
-
-        if cls.runappdirect:
-            py.test.skip("works with internals of _file impl on py.py")
-        state = [0]
-        def read(fd, n=None):
-            if fd != 42:
-                return cls.old_read(fd, n)
-            if state[0] == 0:
-                state[0] += 1
-                return "xyz"
-            if state[0] < 3:
-                state[0] += 1
-                raise OSError(errno.EAGAIN, "xyz")
-            return ''
-        os.read = read
-        stdin = W_File(cls.space)
-        stdin.file_fdopen(42, 'rb', 1)
-        stdin.name = '<stdin>'
-        cls.w_stream = stdin
-
-    def teardown_class(cls):
-        os.read = cls.old_read
-
-    def test_nonblocking_file(self):
-        res = self.stream.read()
-        assert res == 'xyz'
-
 class AppTestConcurrency(object):
     # these tests only really make sense on top of a translated pypy-c,
     # because on top of py.py the inner calls to os.write() don't
