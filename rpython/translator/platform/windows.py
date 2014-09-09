@@ -100,8 +100,8 @@ class MsvcPlatform(Platform):
     cc = 'cl.exe'
     link = 'link.exe'
 
-    cflags = ('/MD', '/O2')
-    link_flags = ()
+    cflags = ('/MD', '/O2', '/Zi')
+    link_flags = ('/debug',)
     standalone_only = ()
     shared_only = ()
     environ = None
@@ -143,7 +143,6 @@ class MsvcPlatform(Platform):
         # Install debug options only when interpreter is in debug mode
         if sys.executable.lower().endswith('_d.exe'):
             self.cflags = ['/MDd', '/Z7', '/Od']
-            self.link_flags = ['/debug']
 
             # Increase stack size, for the linker and the stack check code.
             stack_size = 8 << 20  # 8 Mb
