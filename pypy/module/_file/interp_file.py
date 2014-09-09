@@ -217,6 +217,7 @@ class W_File(W_AbstractStream):
         self.do_direct_write(data)
 
     def do_direct_write(self, data):
+        assert data is not None
         self.softspace = 0
         self.getstream().write(data)
 
