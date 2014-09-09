@@ -11,8 +11,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root, CannotHaveLock
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
-from rpython.rlib import streamio, jit
-from rpython.rlib.streamio import StreamErrors
+from rpython.rlib import rfile, jit
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from pypy.module.sys.version import PYPY_VERSION
 
@@ -535,14 +534,15 @@ def find_module(space, modulename, w_modulename, partname, w_path,
             try:
                 if modtype in (PY_SOURCE, PY_COMPILED, C_EXTENSION):
                     assert suffix is not None
+                    assert filemode is not None
                     filename = filepart + suffix
-                    stream = streamio.open_file_as_stream(filename, filemode)
+                    stream = rfile.create_file(filename, filemode)
                     try:
                         return FindInfo(modtype, filename, stream, suffix, filemode)
                     except:
                         stream.close()
                         raise
-            except StreamErrors:
+            except EnvironmentError:
                 pass   # XXX! must not eat all exceptions, e.g.
                        # Out of file descriptors.
 
@@ -602,14 +602,14 @@ def load_module(space, w_modulename, find_info, reuse=False):
             if find_info.modtype == PY_SOURCE:
                 load_source_module(
                     space, w_modulename, w_mod,
-                    find_info.filename, find_info.stream.readall(),
-                    find_info.stream.try_to_find_file_descriptor())
+                    find_info.filename, find_info.stream.read(),
+                    find_info.stream.fileno())
                 return w_mod
             elif find_info.modtype == PY_COMPILED:
                 magic = _r_long(find_info.stream)
                 timestamp = _r_long(find_info.stream)
                 load_compiled_module(space, w_modulename, w_mod, find_info.filename,
-                                     magic, timestamp, find_info.stream.readall())
+                                     magic, timestamp, find_info.stream.read())
                 return w_mod
             elif find_info.modtype == PKG_DIRECTORY:
                 w_path = space.newlist([space.wrap(find_info.filename)])
@@ -879,7 +879,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
     if stream:
         # existing and up-to-date .pyc file
         try:
-            code_w = read_compiled_module(space, cpathname, stream.readall())
+            code_w = read_compiled_module(space, cpathname, stream.read())
         finally:
             stream.close()
         space.setattr(w_mod, w('__file__'), w(cpathname))
@@ -925,17 +925,10 @@ def _get_long(s):
         d -= 0x100
     return a | (b<<8) | (c<<16) | (d<<24)
 
-def _read_n(stream, n):
-    buf = ''
-    while len(buf) < n:
-        data = stream.read(n - len(buf))
-        if not data:
-            raise streamio.StreamError("end of file")
-        buf += data
-    return buf
-
 def _r_long(stream):
-    s = _read_n(stream, 4)
+    s = stream.read(4)
+    if len(s) != 4:
+        raise IOError("end of file")
     return _get_long(s)
 
 def _w_long(stream, x):
@@ -954,7 +947,7 @@ def check_compiled_module(space, pycfilename, expected_mtime):
     """
     stream = None
     try:
-        stream = streamio.open_file_as_stream(pycfilename, "rb")
+        stream = rfile.create_file(pycfilename, "rb")
         magic = _r_long(stream)
         if magic != get_pyc_magic(space):
             stream.close()
@@ -964,7 +957,7 @@ def check_compiled_module(space, pycfilename, expected_mtime):
             stream.close()
             return None
         return stream
-    except StreamErrors:
+    except EnvironmentError:
         if stream:
             stream.close()
         return None    # XXX! must not eat all exceptions, e.g.
@@ -1002,16 +995,17 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
 
     return w_mod
 
+O_BINARY = getattr(os, 'O_BINARY', 0)
+
 def open_exclusive(space, cpathname, mode):
     try:
         os.unlink(cpathname)
     except OSError:
         pass
 
-    flags = (os.O_EXCL|os.O_CREAT|os.O_WRONLY|os.O_TRUNC|
-             streamio.O_BINARY)
+    flags = (os.O_EXCL|os.O_CREAT|os.O_WRONLY|os.O_TRUNC|O_BINARY)
     fd = os.open(cpathname, flags, mode)
-    return streamio.fdopen_as_stream(fd, "wb")
+    return rfile.create_fdopen_rfile(fd, "wb")
 
 def write_compiled_module(space, co, cpathname, src_mode, src_mtime):
     """
@@ -1037,7 +1031,7 @@ def write_compiled_module(space, co, cpathname, src_mode, src_mtime):
     mode = src_mode & ~0111
     try:
         stream = open_exclusive(space, cpathname, mode)
-    except (OSError, StreamErrors):
+    except EnvironmentError:
         try:
             os.unlink(cpathname)
         except OSError:
@@ -1058,7 +1052,7 @@ def write_compiled_module(space, co, cpathname, src_mode, src_mtime):
             _w_long(stream, src_mtime)
         finally:
             stream.close()
-    except StreamErrors:
+    except EnvironmentError:
         try:
             os.unlink(cpathname)
         except OSError:

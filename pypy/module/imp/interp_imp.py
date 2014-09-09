@@ -1,7 +1,6 @@
+from rpython.rlib import rfile
 from pypy.module.imp import importing
 from pypy.module._file.interp_file import W_File
-from rpython.rlib import streamio
-from rpython.rlib.streamio import StreamErrors
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
@@ -32,15 +31,9 @@ def get_magic(space):
     d = x & 0xff
     return space.wrap(chr(a) + chr(b) + chr(c) + chr(d))
 
-def get_file(space, w_file, filename, filemode):
+def get_file(space, w_file, filename, mode):
     if space.is_none(w_file):
-        try:
-            return streamio.open_file_as_stream(filename, filemode)
-        except StreamErrors, e:
-            # XXX this is not quite the correct place, but it will do for now.
-            # XXX see the issue which I'm sure exists already but whose number
-            # XXX I cannot find any more...
-            raise wrap_streamerror(space, e)
+        return rfile.create_file(filename, mode)
     else:
         return space.interp_w(W_File, w_file).stream
 
@@ -60,8 +53,7 @@ def find_module(space, w_name, w_path=None):
     if stream is not None:
         fileobj = W_File(space)
         fileobj.fdopenstream(
-            stream, stream.try_to_find_file_descriptor(),
-            find_info.filemode, w_filename)
+            stream, find_info.filemode)
         w_fileobj = space.wrap(fileobj)
     else:
         w_fileobj = space.w_None
@@ -100,7 +92,7 @@ def load_source(space, w_modulename, w_filename, w_file=None):
 
     importing.load_source_module(
         space, w_modulename, w_mod,
-        filename, stream.readall(), stream.try_to_find_file_descriptor())
+        filename, stream.read(), stream.fileno())
     if space.is_none(w_file):
         stream.close()
     return w_mod
@@ -115,7 +107,7 @@ def _run_compiled_module(space, w_modulename, filename, w_file, w_module):
 
     importing.load_compiled_module(
         space, w_modulename, w_module, filename, magic, timestamp,
-        stream.readall())
+        stream.read())
     if space.is_none(w_file):
         stream.close()
 
