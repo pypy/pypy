@@ -212,6 +212,11 @@ class TestFile(BaseRtypingTest):
             assert f.readline() == "dupd"
             assert f.tell() == 20
             assert f.readline() == ""
+            f.seek(0)
+            assert f.readline() == "dupa\n"
+            assert f.readline() == "dupb\n"
+            f.seek(4)
+            assert f.read(1) == "\n"
             f.close()
 
         f()
