@@ -237,7 +237,7 @@ class OutBuffer(object):
 # Make the BZ2File type by internally inheriting from W_File.
 # XXX this depends on internal details of W_File to work properly.
 
-from pypy.module._file.interp_file import W_File
+from pypy.module.bz2.interp_file import W_File
 
 class W_BZ2File(W_File):
 
