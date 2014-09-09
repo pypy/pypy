@@ -36,7 +36,7 @@ def test_simple():
 class TestException(BaseRtypingTest):
     def test_exception_with_arg(self):
         def g(n):
-            raise IOError(n)
+            raise IOError("test")
         def h(n):
             raise OSError(n, "?", None)
         def i(n):
@@ -49,8 +49,8 @@ class TestException(BaseRtypingTest):
             try:
                 g(n)
             except IOError, e:
-                assert e.errno == 42
-                assert e.strerror is None
+                assert e.errno == 0
+                assert e.strerror == "test"
                 assert e.filename is None
             else:
                 assert False
