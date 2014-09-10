@@ -4,6 +4,9 @@ Implementation of interpreter-level 'sys' routines.
 import os
 import pypy
 
+from rpython.rlib import rfile
+from pypy.module._file.interp_file import W_File
+
 # ____________________________________________________________
 #
 
@@ -40,21 +43,18 @@ class IOState:
         if self.w_stdout is not None:
             return
 
-        from pypy.module._file.interp_file import W_File
+        i, o, e = rfile.create_stdio()
 
         stdin = W_File(space)
-        stdin.file_fdopen(0, "r", 1)
-        stdin.name = '<stdin>'
+        stdin.fdopenstream(i, "r", space.wrap("<stdin>"))
         self.w_stdin = space.wrap(stdin)
 
         stdout = W_File(space)
-        stdout.file_fdopen(1, "w", 1)
-        stdout.name = '<stdout>'
+        stdout.fdopenstream(o, "w", space.wrap("<stdout>"))
         self.w_stdout = space.wrap(stdout)
 
         stderr = W_File(space)
-        stderr.file_fdopen(2, "w", 0)
-        stderr.name = '<stderr>'
+        stderr.fdopenstream(e, "w", space.wrap("<stderr>"))
         self.w_stderr = space.wrap(stderr)
 
 def getio(space):
