@@ -7,10 +7,6 @@ enhancements and bug fixes.
 
 You can already download the PyPy 2.4-beta1 pre-release here:
 
-    https://bitbucket.org/pypy/pypy/downloads
-
-It should also soon be available on:
-
     http://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
@@ -87,7 +83,7 @@ for more information see `whats-new`_:
   this mostly affects errno handling on linux, which makes external calls
   faster.
 
-* Move to a mixed polling and mutex GIL model that make mutli-threaded jitted
+* Move to a mixed polling and mutex GIL model that make mutlithreaded jitted
   code run *much* faster
 
 * Optimize errno handling in linux (x86 and x86-64 only)
@@ -111,7 +107,7 @@ for more information see `whats-new`_:
 .. _resolved: https://bitbucket.org/pypy/pypy/issues?status=resolved
 
 We have further improvements on the way: rpython file handling,
-numpy linalg compatability, as well
+numpy linalg compatibility, as well
 as improved GC and many smaller improvements.
 
 Please try it out and let us know what you think. We especially welcome

@@ -220,6 +220,9 @@ class RFile(object):
             do_close = self._close2[1]
             do_close(ll_file)       # return value ignored
 
+    def _cleanup_(self):
+        self._ll_file = lltype.nullptr(FILEP.TO)
+
     def close(self):
         """Closes the described file.
 
@@ -481,3 +484,7 @@ class RFile(object):
     def fileno(self):
         self._check_closed()
         return intmask(c_fileno(self._ll_file))
+
+    def isatty(self):
+        self._check_closed()
+        return os.isatty(c_fileno(self._ll_file))
