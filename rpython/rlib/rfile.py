@@ -220,6 +220,9 @@ class RFile(object):
             do_close = self._close2[1]
             do_close(ll_file)       # return value ignored
 
+    def _cleanup_(self):
+        self._ll_file = lltype.nullptr(FILEP.TO)
+
     def close(self):
         """Closes the described file.
 
