@@ -323,6 +323,7 @@ class RFile(object):
                     if not c_feof(ll_file):
                         raise _error(ll_file)
                 s = buf.str(returned_size)
+                assert s is not None
             return s
 
     def _readline1(self, raw_buf):
