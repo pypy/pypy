@@ -24,7 +24,7 @@ class Module(MixedModule):
                 else:
                     try:
                         stream.flush()
-                    except OSError:
+                    except IOError:
                         pass
 
     def setup_after_space_initialization(self):
