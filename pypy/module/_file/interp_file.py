@@ -229,8 +229,7 @@ class W_File(W_AbstractStream):
     direct_xreadlines = direct___iter__
 
     def direct_isatty(self):
-        stream = self.getstream()    # check if the file is still open
-        return os.isatty(stream.fileno())
+        return self.getstream().isatty()
 
     # ____________________________________________________________
     #
