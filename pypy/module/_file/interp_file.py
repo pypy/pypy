@@ -533,6 +533,9 @@ def wrap_list_of_str(space, lst):
 
 class FileState:
     def __init__(self, space):
+        self._cleanup_()
+
+    def _cleanup_(self):
         self.openstreams = {}
 
 def getopenstreams(space):

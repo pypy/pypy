@@ -31,8 +31,10 @@ def get(space):
 
 class IOState:
     def __init__(self, space):
+        pass
+
+    def startup(self, space):
         from pypy.module._file.interp_file import W_File
-        self.space = space
 
         stdin = W_File(space)
         stdin.file_fdopen(0, "r", 1)
