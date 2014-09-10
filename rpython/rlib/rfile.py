@@ -484,3 +484,7 @@ class RFile(object):
     def fileno(self):
         self._check_closed()
         return intmask(c_fileno(self._ll_file))
+
+    def isatty(self):
+        self._check_closed()
+        return os.isatty(c_fileno(self._ll_file))

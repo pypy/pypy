@@ -279,6 +279,7 @@ class TestFile(BaseRtypingTest):
 
         def f():
             f = open(fname, "w")
+            assert not f.isatty()
             try:
                 return f.fileno()
             finally:
