@@ -4,6 +4,7 @@ Minimal (and limited) RPython version of some functions contained in os.path.
 
 import os, stat
 from rpython.rlib import rposix
+from rpython.rlib.objectmodel import enforceargs
 
 
 # ____________________________________________________________
@@ -11,6 +12,7 @@ from rpython.rlib import rposix
 # Generic implementations in RPython for both POSIX and NT
 #
 
+@enforceargs(str)
 def risdir(s):
     """Return true if the pathname refers to an existing directory."""
     try:
@@ -25,10 +27,12 @@ def risdir(s):
 # POSIX-only implementations
 #
 
+@enforceargs(str)
 def _posix_risabs(s):
     """Test whether a path is absolute"""
     return s.startswith('/')
 
+@enforceargs(str)
 def _posix_rnormpath(path):
     """Normalize path, eliminating double slashes, etc."""
     slash, dot = '/', '.'
@@ -56,6 +60,7 @@ def _posix_rnormpath(path):
         path = slash*initial_slashes + path
     return path or dot
 
+@enforceargs(str)
 def _posix_rabspath(path):
     """Return an absolute, **non-normalized** path.
       **This version does not let exceptions propagate.**"""
@@ -67,6 +72,7 @@ def _posix_rabspath(path):
     except OSError:
         return path
 
+@enforceargs(str, str)
 def _posix_rjoin(a, b):
     """Join two pathname components, inserting '/' as needed.
     If the second component is an absolute path, the first one
@@ -87,11 +93,13 @@ def _posix_rjoin(a, b):
 # NT-only implementations
 #
 
+@enforceargs(str)
 def _nt_risabs(s):
     """Test whether a path is absolute"""
     s = _nt_rsplitdrive(s)[1]
     return s.startswith('/') or s.startswith('\\')
 
+@enforceargs(str)
 def _nt_rnormpath(path):
     """Normalize path, eliminating double slashes, etc."""
     backslash, dot = '\\', '.'
@@ -142,6 +150,7 @@ def _nt_rnormpath(path):
         comps.append(dot)
     return prefix + backslash.join(comps)
 
+@enforceargs(str)
 def _nt_rabspath(path):
     try:
         if path == '':
@@ -150,6 +159,7 @@ def _nt_rabspath(path):
     except OSError:
         return path
 
+@enforceargs(str)
 def _nt_rsplitdrive(p):
     """Split a pathname into drive/UNC sharepoint and relative path
     specifiers.
@@ -177,6 +187,7 @@ def _nt_rsplitdrive(p):
             return p[:2], p[2:]
     return '', p
 
+@enforceargs(str, str)
 def _nt_rjoin(path, p):
     """Join two or more pathname components, inserting "\\" as needed."""
     result_drive, result_path = _nt_rsplitdrive(path)
