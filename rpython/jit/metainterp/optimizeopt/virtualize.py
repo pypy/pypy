@@ -662,12 +662,6 @@ class OptVirtualize(optimizer.Optimization):
         else:
             self.emit_operation(op)
 
-    def optimize_CLEAR_ARRAY_CONTENTS(self, op):
-        v = self.getvalue(op.getarg(0))
-        if v.is_virtual():
-            return
-        self.emit_operation(op)
-
     def optimize_CALL(self, op):
         effectinfo = op.getdescr().get_extra_info()
         if effectinfo.oopspecindex == EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR:

@@ -4439,21 +4439,3 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.execute_operation(rop.CAST_FLOAT_TO_SINGLEFLOAT,
                                    [boxfloat(12.5)], 'int')
         assert res.getint() == struct.unpack("I", struct.pack("f", 12.5))[0]
-
-    def test_clear_array_contents(self):
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-        if not isinstance(self.cpu, AbstractLLCPU):
-            py.test.skip("pointless test on non-asm")
-        oldval = self.cpu.gc_ll_descr.malloc_zero_filled
-        self.cpu.gc_ll_descr.malloc_zero_filled = False
-        try:
-            A = lltype.GcArray(lltype.Signed)
-            a = lltype.malloc(A, 3)
-            a[1] = 13
-            descr = self.cpu.arraydescrof(A)
-            ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
-            self.execute_operation(rop.CLEAR_ARRAY_CONTENTS,
-                                   [BoxPtr(ref)], 'void', descr=descr)
-            assert a[1] == 0
-        finally:
-            self.cpu.gc_ll_descr.malloc_zero_filled = oldval

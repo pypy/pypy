@@ -396,10 +396,6 @@ class MIFrame(object):
     def opimpl_new(self, sizedescr):
         return self.metainterp.execute_new(sizedescr)
 
-    @arguments("box", "descr")
-    def opimpl_clear_array_contents(self, box, descr):
-        self.metainterp.execute_and_record(rop.CLEAR_ARRAY_CONTENTS, descr, box)
-
     @arguments("descr")
     def opimpl_new_with_vtable(self, sizedescr):
         cpu = self.metainterp.cpu

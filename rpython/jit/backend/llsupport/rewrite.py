@@ -59,10 +59,6 @@ class GcRewriterAssembler(object):
             if op.is_malloc():
                 self.handle_malloc_operation(op)
                 continue
-            elif op.getopnum() == rop.CLEAR_ARRAY_CONTENTS:
-                if not self.gc_ll_descr.malloc_zero_filled:
-                    self.handle_clear_array_contents(op)
-                continue
             elif op.can_malloc():
                 self.emitting_an_operation_that_can_collect()
             elif op.getopnum() == rop.LABEL:
@@ -160,26 +156,6 @@ class GcRewriterAssembler(object):
                 self.gen_malloc_unicode(v_length, op.result)
             else:
                 raise NotImplementedError(op.getopname())
-
-    def handle_clear_array_contents(self, op):
-        # XXX this maybe should go to optimizer, so we can remove extra ops?
-        arraydescr = op.getdescr()
-        ofs, size, _ = self.cpu.unpack_arraydescr_size(arraydescr)
-        v_arr = op.getarg(0)
-        v_arr_plus_ofs = BoxInt()
-        v_arrsize = BoxInt()
-        v_totalsize = BoxInt()
-        gcdescr = self.gc_ll_descr
-        ops = [
-            ResOperation(rop.INT_ADD, [v_arr, ConstInt(size)], v_arr_plus_ofs),
-            ResOperation(rop.ARRAYLEN_GC, [v_arr], v_arrsize, descr=arraydescr),
-            ResOperation(rop.INT_MUL, [v_arrsize, ConstInt(size)], v_totalsize),
-            ResOperation(rop.CALL, [ConstInt(gcdescr.memset_ptr_as_int),
-                                    v_arr_plus_ofs,
-                                    ConstInt(0), v_totalsize], None,
-                                    descr=gcdescr.memset_descr),
-        ]
-        self.newops.extend(ops)
 
     def gen_malloc_frame(self, frame_info, frame, size_box):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)

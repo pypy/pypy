@@ -591,14 +591,6 @@ class AbstractLLCPU(AbstractCPU):
     def bh_new(self, sizedescr):
         return self.gc_ll_descr.gc_malloc(sizedescr)
 
-    def bh_clear_array_contents(self, ref, arraydescr):
-        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
-        arraysize = self.bh_arraylen_gc(ref, arraydescr)
-        totalsize = size * arraysize
-        adr = rffi.cast(lltype.Signed, ref) + ofs
-        self.gc_ll_descr.memset_ptr(adr, rffi.cast(rffi.INT, 0),
-                                    rffi.cast(rffi.SIZE_T, totalsize))
-
     def bh_new_with_vtable(self, vtable, sizedescr):
         res = self.gc_ll_descr.gc_malloc(sizedescr)
         if self.vtable_offset is not None:
