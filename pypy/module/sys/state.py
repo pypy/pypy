@@ -34,15 +34,9 @@ def get(space):
 
 class IOState:
     def __init__(self, space):
-        self._cleanup_()
-
-    def _cleanup_(self):
-        self.w_stdin = self.w_stdout = self.w_stderr = None
+        pass
 
     def startup(self, space):
-        if self.w_stdout is not None:
-            return
-
         i, o, e = rfile.create_stdio()
 
         stdin = W_File(space)
@@ -58,9 +52,7 @@ class IOState:
         self.w_stderr = space.wrap(stderr)
 
 def getio(space):
-    io = space.fromcache(IOState)
-    io.startup(space)
-    return io
+    return space.fromcache(IOState)
 
 
 def pypy_getudir(space):
