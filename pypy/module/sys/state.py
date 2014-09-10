@@ -36,17 +36,17 @@ class IOState:
 
         stdin = W_File(space)
         stdin.file_fdopen(0, "r", 1)
-        stdin.name = '<stdin>'
+        stdin.w_name = space.wrap('<stdin>')
         self.w_stdin = space.wrap(stdin)
 
         stdout = W_File(space)
         stdout.file_fdopen(1, "w", 1)
-        stdout.name = '<stdout>'
+        stdout.w_name = space.wrap('<stdout>')
         self.w_stdout = space.wrap(stdout)
 
         stderr = W_File(space)
         stderr.file_fdopen(2, "w", 0)
-        stderr.name = '<stderr>'
+        stderr.w_name = space.wrap('<stderr>')
         self.w_stderr = space.wrap(stderr)
 
         stdin._when_reading_first_flush(stdout)
