@@ -835,6 +835,21 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
 
+    def gct_do_malloc_fixedsize_clear(self, hop):
+        # used by the JIT (see rpython.jit.backend.llsupport.gc)
+        self.gct_do_malloc_fixedsize(hop)
+        if not self.malloc_zero_filled:
+            op = hop.spaceop
+            v_size = op.args[1]
+            c_fixedofs = rmodel.inputconst(lltype.Signed,
+                                           rffi.sizeof(lltype.Signed))
+            c_size = rmodel.inputconst(lltype.Signed, 1)
+            v_a = op.result
+            v_real_size = hop.genop('int_sub', [v_size, c_fixedofs],
+                                    resulttype=lltype.Signed)
+            self.emit_raw_memclear(hop.llops, v_real_size, c_size,
+                                   c_fixedofs, v_a)
+
     def gct_do_malloc_varsize(self, hop):
         # used by the JIT (see rpython.jit.backend.llsupport.gc)
         op = hop.spaceop
@@ -847,6 +862,17 @@ class BaseFrameworkGCTransformer(GCTransformer):
                    v_offset_to_length],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
+
+    def gct_do_malloc_varsize_clear(self, hop):
+        # used by the JIT (see rpython.jit.backend.llsupport.gc)
+        self.gct_do_malloc_fixedsize(hop)
+        if not self.malloc_zero_filled:
+            op = hop.spaceop
+            v_size = op.args[1]
+            c_fixedofs = op.args[2]
+            c_size = op.args[3]
+            v_a = op.result
+            self.emit_raw_memclear(hop.llops, v_size, c_size, c_fixedofs, v_a)
 
     def gct_get_write_barrier_failing_case(self, hop):
         op = hop.spaceop
@@ -1224,53 +1250,21 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 v_size = llops.genop('getarraysize', [v],
                                      resulttype=lltype.Signed)
                 c_size = rmodel.inputconst(lltype.Signed, llmemory.sizeof(ITEM))
-                v_totalsize = llops.genop('int_mul', [v_size, c_size],
-                                          resulttype=lltype.Signed)
                 v_a = llops.genop('cast_ptr_to_adr', [v],
                                   resulttype=llmemory.Address)
                 c_fixedofs = rmodel.inputconst(lltype.Signed,
                                               llmemory.itemoffsetof(TYPE))
-                v_adr = llops.genop('adr_add', [v_a, c_fixedofs],
-                                    resulttype=llmemory.Address)
-                llops.genop('raw_memclear', [v_adr, v_totalsize])
+                self.emit_raw_memclear(llops, v_size, c_size, c_fixedofs, v_a)
             return
         else:
-            raise TypeError(TYPE)  
-        xxxx
-        if previous_steps is None:
-            previous_steps = []
-        assert (isinstance(TYPE, lltype.Struct) or isinstance(TYPE, lltype.Array))
-        if isinstance(TYPE, lltype.Struct):
-            for name in TYPE._names:
-                c_name = rmodel.inputconst(lltype.Void, name)
-                FIELD = getattr(TYPE, name)
-                #handle ptr field in GcStruct
-                if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
-                    c_null = rmodel.inputconst(FIELD, lltype.nullptr(FIELD.TO))
-                    if not previous_steps:
-                        llops.genop('bare_setfield', [v, c_name, c_null])
-                    else:
-                        llops.genop('bare_setinteriorfield',
-                                [v] + previous_steps + [c_name, c_null])
-                #handle inside GcStruct field
-                elif isinstance(FIELD, lltype.Struct):
-                    gen_zero_gc_pointers(FIELD, v, llops, previous_steps + [c_name])
-                #handle inside GcArray field 
-                elif isinstance(FIELD, lltype.Array):
-                    gen_zero_gc_pointers(FIELD, v, llops, previous_steps + [c_name])
-        if isinstance(TYPE, lltype.Array):
-            ITEM = TYPE.OF
-            if previous_steps:
-                v = llop.genop('getinteriorfield',[v]+previous_steps)
-            arr_size = llops.genop('getarraysize',[v])
-            for i in range(arr_size):
-                #handle an array of GcPtr
-                if isinstance(ITEM, lltype.Ptr) and ITEM._needsgc():
-                    c_null = rmodel.inputconst(ITEM, lltype.nullptr(ITEM.TO))
-                    llops.genop('bare_setarrayitem',[v, i, c_null])
-                if isinstance(ITEM, lltype.Struct) or isinstance(ITEM, lltype.GcArray):
-                    array_item = llops.genop('getarrayitem',[v,i])
-                    gen_zero_gc_pointers(FIELD, array_item, llops, previous_steps)
+            raise TypeError(TYPE)
+
+    def emit_raw_memclear(self, llops, v_size, c_size, c_fixedofs, v_a):
+        v_totalsize = llops.genop('int_mul', [v_size, c_size],
+                                  resulttype=lltype.Signed)
+        v_adr = llops.genop('adr_add', [v_a, c_fixedofs],
+                            resulttype=llmemory.Address)
+        llops.genop('raw_memclear', [v_adr, v_totalsize])
 
 
 class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
