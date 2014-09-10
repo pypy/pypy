@@ -351,6 +351,13 @@ class TestDirect:
         cls.tmpdir = udir.join('test_rfile_direct')
         cls.tmpdir.ensure(dir=True)
 
+    def test_stdio(self):
+        i, o, e = rfile.create_stdio()
+        o.write("test\n")
+        i.close()
+        o.close()
+        e.close()
+
     def test_auto_close(self):
         fname = str(self.tmpdir.join('file_auto_close'))
         f = rfile.create_file(fname, 'w')

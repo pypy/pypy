@@ -38,6 +38,7 @@ config = platform.configure(CConfig)
 
 FILEP = rffi.COpaquePtr("FILE")
 OFF_T = config['off_t']
+
 _IONBF = config['_IONBF']
 _IOLBF = config['_IOLBF']
 _IOFBF = config['_IOFBF']
@@ -94,6 +95,10 @@ c_fileno = llexternal(fileno, [FILEP], rffi.INT)
 c_feof = llexternal('feof', [FILEP], rffi.INT)
 c_ferror = llexternal('ferror', [FILEP], rffi.INT)
 c_clearerr = llexternal('clearerr', [FILEP], lltype.Void)
+
+c_stdin = rffi.CExternVariable(FILEP, 'stdin', eci, c_type='FILE*')[0]
+c_stdout = rffi.CExternVariable(FILEP, 'stdout', eci, c_type='FILE*')[0]
+c_stderr = rffi.CExternVariable(FILEP, 'stderr', eci, c_type='FILE*')[0]
 
 
 def _error(ll_file):
@@ -199,6 +204,14 @@ def create_popen_file(command, type):
     return RFile(ll_file, close2=_pclose2)
 
 
+def create_stdio():
+    close2 = [None, None]
+    stdin = RFile(c_stdin(), close2=close2)
+    stdout = RFile(c_stdout(), close2=close2)
+    stderr = RFile(c_stderr(), close2=close2)
+    return stdin, stdout, stderr
+
+
 class RFile(object):
     _univ_newline = False
     _newlinetypes = NEWLINE_UNKNOWN
@@ -218,7 +231,8 @@ class RFile(object):
         ll_file = self._ll_file
         if ll_file:
             do_close = self._close2[1]
-            do_close(ll_file)       # return value ignored
+            if do_close:
+                do_close(ll_file)       # return value ignored
 
     def _cleanup_(self):
         self._ll_file = lltype.nullptr(FILEP.TO)
@@ -237,10 +251,11 @@ class RFile(object):
             # double close is allowed
             self._ll_file = lltype.nullptr(FILEP.TO)
             do_close = self._close2[0]
-            res = do_close(ll_file)
-            if res == -1:
-                errno = rposix.get_errno()
-                raise IOError(errno, os.strerror(errno))
+            if do_close:
+                res = do_close(ll_file)
+                if res == -1:
+                    errno = rposix.get_errno()
+                    raise IOError(errno, os.strerror(errno))
         return res
 
     def _check_closed(self):
