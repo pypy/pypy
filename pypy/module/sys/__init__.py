@@ -104,9 +104,6 @@ class Module(MixedModule):
     }
 
     def startup(self, space):
-        from pypy.module.sys.state import getio
-        getio(space).startup(space)
-
         if space.config.translating and not we_are_translated():
             # don't get the filesystemencoding at translation time
             assert self.filesystemencoding is None

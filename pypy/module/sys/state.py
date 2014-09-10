@@ -31,9 +31,15 @@ def get(space):
 
 class IOState:
     def __init__(self, space):
-        pass
+        self._cleanup_()
+
+    def _cleanup_(self):
+        self.w_stdin = self.w_stdout = self.w_stderr = None
 
     def startup(self, space):
+        if self.w_stdout is not None:
+            return
+
         from pypy.module._file.interp_file import W_File
 
         stdin = W_File(space)
@@ -52,7 +58,9 @@ class IOState:
         self.w_stderr = space.wrap(stderr)
 
 def getio(space):
-    return space.fromcache(IOState)
+    io = space.fromcache(IOState)
+    io.startup(space)
+    return io
 
 def pypy_getudir(space):
     """NOT_RPYTHON
