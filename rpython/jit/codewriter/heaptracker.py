@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.jit.backend.llsupport import symbolic
 
 
 def adr2int(addr):
@@ -125,3 +126,16 @@ def descr2vtable(cpu, descr):
     vtable = descr.as_vtable_size_descr()._corresponding_vtable
     vtable = llmemory.cast_ptr_to_adr(vtable)
     return adr2int(vtable)
+
+def offsets_of_gcptrs(gccache, STRUCT, res=None):
+    if res is None:
+        res = []
+    for name, FIELD in STRUCT._flds.iteritems():
+        if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
+            
+            offset, _ = symbolic.get_field_token(STRUCT, name,
+                                        gccache.translate_support_code)
+            res.append(offset)
+        elif isinstance(FIELD, lltype.Struct):
+            offsets_of_gcptrs(gccache, FIELD, res)
+    return res
