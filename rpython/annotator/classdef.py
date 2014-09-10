@@ -438,7 +438,9 @@ class NoSuchAttrError(AnnotatorError):
 # ____________________________________________________________
 
 FORCE_ATTRIBUTES_INTO_CLASSES = {
-    EnvironmentError: {'errno': SomeInteger(), 'strerror': SomeString(can_be_None=True), 'filename': SomeString(can_be_None=True)},
+    EnvironmentError: {'errno': SomeInteger(),
+                       'strerror': SomeString(can_be_None=True),
+                       'filename': SomeString(can_be_None=True)},
 }
 
 try:
@@ -455,4 +457,3 @@ except ImportError:
 else:
     FORCE_ATTRIBUTES_INTO_CLASSES[termios.error] = \
         {'args': SomeTuple([SomeInteger(), SomeString()])}
-

@@ -259,9 +259,6 @@ def ll_max(i1, i2):
         return i1
     return i2
 
-def rtype_Exception__init__(hop):
-    hop.exception_cannot_occur()
-
 def rtype_object__init__(hop):
     hop.exception_cannot_occur()
 
@@ -341,6 +338,9 @@ for name, value in globals().items():
         original = getattr(__builtin__, name[14:])
         BUILTIN_TYPER[original] = value
 
+BUILTIN_TYPER[getattr(object.__init__, 'im_func', object.__init__)] = (
+    rtype_object__init__)
+
 BUILTIN_TYPER[getattr(EnvironmentError.__init__, 'im_func', EnvironmentError.__init__)] = (
     rtype_EnvironmentError__init__)
 
@@ -353,8 +353,6 @@ else:
         getattr(WindowsError.__init__, 'im_func', WindowsError.__init__)] = (
         rtype_WindowsError__init__)
 
-BUILTIN_TYPER[getattr(object.__init__, 'im_func', object.__init__)] = (
-    rtype_object__init__)
 # annotation of low-level types
 
 def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
