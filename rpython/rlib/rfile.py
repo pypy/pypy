@@ -307,8 +307,10 @@ class RFile(object):
         dst = buf
         newlinetypes = self._newlinetypes
         skipnextlf = self._skipnextlf
+        assert n >= 0
         while n:
             nread = c_fread(dst, 1, n, stream)
+            assert nread <= n
             if nread == 0:
                 break
 
@@ -371,11 +373,11 @@ class RFile(object):
 
         s = StringBuilder()
         buffersize = size if size >= 0 else self._new_buffersize(0)
-        buf = lltype.malloc(rffi.CCHARP.TO, buffersize, flavor='raw')
+        remainsize = buffersize
+        buf = lltype.malloc(rffi.CCHARP.TO, remainsize, flavor='raw')
         try:
             while True:
-                assert buffersize >= 0
-                chunksize = intmask(self._fread(buf, buffersize, ll_file))
+                chunksize = intmask(self._fread(buf, remainsize, ll_file))
                 interrupted = (c_ferror(ll_file) and
                                rposix.get_errno() == errno.EINTR)
                 if interrupted:
@@ -391,14 +393,15 @@ class RFile(object):
                         break
                     raise _from_errno(IOError)
                 s.append_charpsize(buf, chunksize)
-                if chunksize < buffersize and not interrupted:
+                if chunksize < remainsize and not interrupted:
                     c_clearerr(ll_file)
                     break
                 if size >= 0:
                     break
                 buffersize = self._new_buffersize(buffersize)
+                remainsize = buffersize - s.getlength()
                 lltype.free(buf, flavor='raw')
-                buf = lltype.malloc(rffi.CCHARP.TO, buffersize, flavor='raw')
+                buf = lltype.malloc(rffi.CCHARP.TO, remainsize, flavor='raw')
         finally:
             lltype.free(buf, flavor='raw')
         return s.build()
