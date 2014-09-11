@@ -1107,7 +1107,7 @@ class AppTestAppMain:
             assert sys.executable == ''      # not executable!
             assert sys.path == old_sys_path + [self.goal_dir]
 
-            os.chmod(self.fake_exe, 0755)
+            os.chmod(self.fake_exe, 0o755)
             app_main.setup_bootstrap_path(self.fake_exe)
             assert sys.executable == self.fake_exe
             assert self.goal_dir not in sys.path
