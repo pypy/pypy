@@ -453,6 +453,16 @@ class AppTestFile25:
             s = os.read(f.fileno(), 10)
             assert s == 'bar\n'
 
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            with self.file(self.temppath, 'rb') as f:
+                f._setbufsize(0)
+                s = f.readline()
+                assert s == 'foo\n'
+                s = os.read(f.fileno(), 10)
+                assert s == 'bar\n'
+
+
 def test_flush_at_exit():
     from pypy import conftest
     from pypy.tool.option import make_config, make_objspace

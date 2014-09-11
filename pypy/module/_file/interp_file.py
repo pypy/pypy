@@ -231,6 +231,10 @@ class W_File(W_AbstractStream):
     def direct_isatty(self):
         return self.getstream().isatty()
 
+    @unwrap_spec(bufsize=int)
+    def descr_setbufsize(self, bufsize):
+        self.getstream()._setbufsize(bufsize)
+
     # ____________________________________________________________
     #
     # The 'file_' methods are the one exposed to app-level.
@@ -520,6 +524,7 @@ Note:  open() is an alias for file().
     __repr__ = interp2app(W_File.file__repr__),
     readinto = interp2app(W_File.file_readinto),
     writelines = interp2app(W_File.file_writelines),
+    _setbufsize = interp2app(W_File.descr_setbufsize),
     __exit__ = interp2app(W_File.file__exit__),
     __weakref__ = make_weakref_descr(W_File),
     **dict([(name, interp2app(getattr(W_File, 'file_' + name)))
