@@ -87,25 +87,26 @@ c_pclose_in_del = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
 _fclose2 = (c_fclose, c_fclose_in_del)
 _pclose2 = (c_pclose, c_pclose_in_del)
 
-c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True)
-c_ungetc = llexternal('ungetc', [rffi.INT, FILEP], rffi.INT)
+c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True, releasegil=False)
+c_ungetc = llexternal('ungetc', [rffi.INT, FILEP], rffi.INT, releasegil=False)
+
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP], rffi.CCHARP)
 c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
                      rffi.SIZE_T)
-
 c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
                       rffi.SIZE_T)
+
 c_fflush = llexternal('fflush', [FILEP], rffi.INT)
 c_fflush_nogil = llexternal('fflush', [FILEP], rffi.INT, releasegil=False)
 c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)
 
 c_fseek = llexternal('fseek', [FILEP, rffi.LONG, rffi.INT], rffi.INT)
 c_ftell = llexternal('ftell', [FILEP], rffi.LONG)
-c_fileno = llexternal(fileno, [FILEP], rffi.INT)
 
-c_feof = llexternal('feof', [FILEP], rffi.INT)
-c_ferror = llexternal('ferror', [FILEP], rffi.INT)
-c_clearerr = llexternal('clearerr', [FILEP], lltype.Void)
+c_fileno = llexternal(fileno, [FILEP], rffi.INT, releasegil=False)
+c_feof = llexternal('feof', [FILEP], rffi.INT, releasegil=False)
+c_ferror = llexternal('ferror', [FILEP], rffi.INT, releasegil=False)
+c_clearerr = llexternal('clearerr', [FILEP], lltype.Void, releasegil=False)
 
 c_stdin = llexternal('get_stdin', [], FILEP, _nowrapper=True)
 c_stdout = llexternal('get_stdout', [], FILEP, _nowrapper=True)
