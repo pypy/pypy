@@ -74,6 +74,7 @@ class TestFile(BaseApiTest):
             api.PyFile_WriteString(s, space.sys.get("stdout"))
         finally:
             rffi.free_charp(s)
+        space.call_method(space.sys.get("stdout"), "flush")
         out, err = capfd.readouterr()
         out = out.replace('\r\n', '\n')
         assert out == "test\n"
