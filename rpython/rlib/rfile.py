@@ -12,6 +12,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
+
 includes = ['stdio.h', 'sys/types.h']
 if os.name == "posix":
     includes += ['unistd.h']
@@ -20,7 +21,15 @@ if os.name == "posix":
 else:
     ftruncate = '_chsize'
     fileno = '_fileno'
-eci = ExternalCompilationInfo(includes=includes)
+
+stdio_streams = ['stdin', 'stdout', 'stderr']
+separate_module_sources = ['\n'.join('FILE* get_%s() { return %s; }' % (s, s)
+                                     for s in stdio_streams)]
+export_symbols = ['get_%s' % s for s in stdio_streams]
+
+eci = ExternalCompilationInfo(includes=includes,
+                              separate_module_sources=separate_module_sources,
+                              export_symbols=export_symbols)
 
 
 class CConfig(object):
@@ -96,9 +105,9 @@ c_feof = llexternal('feof', [FILEP], rffi.INT)
 c_ferror = llexternal('ferror', [FILEP], rffi.INT)
 c_clearerr = llexternal('clearerr', [FILEP], lltype.Void)
 
-c_stdin = rffi.CExternVariable(FILEP, 'stdin', eci, c_type='FILE*')[0]
-c_stdout = rffi.CExternVariable(FILEP, 'stdout', eci, c_type='FILE*')[0]
-c_stderr = rffi.CExternVariable(FILEP, 'stderr', eci, c_type='FILE*')[0]
+c_stdin = llexternal('get_stdin', [], FILEP, _nowrapper=True)
+c_stdout = llexternal('get_stdout', [], FILEP, _nowrapper=True)
+c_stderr = llexternal('get_stderr', [], FILEP, _nowrapper=True)
 
 
 def _from_errno(exc):
@@ -363,7 +372,7 @@ class RFile(object):
             else:
                 pos = c_ftell(ll_file)
                 if end > pos and pos >= 0:
-                    return currentsize + end - pos + 1
+                    return intmask(currentsize + end - pos + 1)
         # fstat didn't work
         return currentsize + (currentsize >> 3) + 6
 
