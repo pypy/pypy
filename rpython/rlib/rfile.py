@@ -25,10 +25,12 @@ else:
 stdio_streams = ['stdin', 'stdout', 'stderr']
 separate_module_sources = ['\n'.join('FILE* get_%s() { return %s; }' % (s, s)
                                      for s in stdio_streams)]
+post_include_bits = ['FILE* get_%s();' % s for s in stdio_streams]
 export_symbols = ['get_%s' % s for s in stdio_streams]
 
 eci = ExternalCompilationInfo(includes=includes,
                               separate_module_sources=separate_module_sources,
+                              post_include_bits=post_include_bits,
                               export_symbols=export_symbols)
 
 
