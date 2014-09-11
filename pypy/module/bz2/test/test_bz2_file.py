@@ -28,6 +28,11 @@ def setup_module(mod):
         data = DATA[:100]
         f.write(data, 'wb')
 
+    def create_short_temp_file():
+        f = py.test.ensuretemp("bz2").join("foo")
+        DATA = 'BZh91AY&SY\xd9b\x89]\x00\x00\x00\x03\x80\x04\x00\x02\x00\x0c\x00 \x00!\x9ah3M\x13<]\xc9\x14\xe1BCe\x8a%t'
+        f.write(DATA, 'wb')
+
     @unwrap_spec(data=str)
     def decompress(space, data):
         import popen2
@@ -43,10 +48,11 @@ def setup_module(mod):
 
     mod.TEXT = 'root:x:0:0:root:/root:/bin/bash\nbin:x:1:1:bin:/bin:\ndaemon:x:2:2:daemon:/sbin:\nadm:x:3:4:adm:/var/adm:\nlp:x:4:7:lp:/var/spool/lpd:\nsync:x:5:0:sync:/sbin:/bin/sync\nshutdown:x:6:0:shutdown:/sbin:/sbin/shutdown\nhalt:x:7:0:halt:/sbin:/sbin/halt\nmail:x:8:12:mail:/var/spool/mail:\nnews:x:9:13:news:/var/spool/news:\nuucp:x:10:14:uucp:/var/spool/uucp:\noperator:x:11:0:operator:/root:\ngames:x:12:100:games:/usr/games:\ngopher:x:13:30:gopher:/usr/lib/gopher-data:\nftp:x:14:50:FTP User:/var/ftp:/bin/bash\nnobody:x:65534:65534:Nobody:/home:\npostfix:x:100:101:postfix:/var/spool/postfix:\nniemeyer:x:500:500::/home/niemeyer:/bin/bash\npostgres:x:101:102:PostgreSQL Server:/var/lib/pgsql:/bin/bash\nmysql:x:102:103:MySQL server:/var/lib/mysql:/bin/bash\nwww:x:103:104::/var/www:/bin/false\n'
     mod.DATA = DATA
-    mod.DATA_CRLF = DATA_CRLF 
+    mod.DATA_CRLF = DATA_CRLF
     mod.create_temp_file = create_temp_file
-    mod.decompress = decompress
     mod.create_broken_temp_file = create_broken_temp_file
+    mod.create_short_temp_file = create_short_temp_file
+    mod.decompress = decompress
     s = 'abcdefghijklmnop'
     mod.RANDOM_DATA = ''.join([s[int(random.random() * len(s))] for i in range(30000)])
 
@@ -65,10 +71,12 @@ class AppTestBZ2File(CheckAllocation):
         if cls.runappdirect:
             cls.w_create_temp_file = create_temp_file
             cls.w_create_broken_temp_file = lambda self: create_broken_temp_file()
+            cls.w_create_short_temp_file = lambda self: create_short_temp_file()
             cls.w_decompress = lambda self, *args: decompress(cls.space, *args)
         else:
             cls.w_create_temp_file = cls.space.wrap(interp2app(create_temp_file))
             cls.w_create_broken_temp_file = cls.space.wrap(interp2app(create_broken_temp_file))
+            cls.w_create_short_temp_file = cls.space.wrap(interp2app(create_short_temp_file))
             cls.w_decompress = cls.space.wrap(interp2app(decompress))
         cls.w_random_data = cls.space.wrap(RANDOM_DATA)
 
@@ -362,11 +370,7 @@ class AppTestBZ2File(CheckAllocation):
     def test_readlines_bug_1191043(self):
         # readlines()/xreadlines() for files containing no newline
         from bz2 import BZ2File
-
-        DATA = 'BZh91AY&SY\xd9b\x89]\x00\x00\x00\x03\x80\x04\x00\x02\x00\x0c\x00 \x00!\x9ah3M\x13<]\xc9\x14\xe1BCe\x8a%t'
-        f = open(self.temppath, "wb")
-        f.write(DATA)
-        f.close()
+        self.create_short_temp_file()
 
         bz2f = BZ2File(self.temppath)
         lines = bz2f.readlines()
