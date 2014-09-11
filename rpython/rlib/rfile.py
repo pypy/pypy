@@ -100,6 +100,9 @@ if os.name == 'nt':
     c_flockfile = lambda ll_file: None
     c_funlockfile = lambda ll_file: None
     c_getc_unlocked = c_getc
+    USE_FGETS_IN_GETLINE = True
+else:
+    USE_FGETS_IN_GETLINE = False
 
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP], rffi.CCHARP)
 c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
@@ -435,7 +438,7 @@ class RFile(object):
             rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         return s.build()
 
-    def _readline1(self, raw_buf):
+    def _get_line_fgets_single(self, raw_buf):
         ll_file = self._ll_file
         for i in range(BASE_LINE_SIZE):
             raw_buf[i] = '\n'
@@ -470,97 +473,103 @@ class RFile(object):
             assert p > 0 and raw_buf[p - 1] == '\0'
             return p - 1
 
+    def _get_line_fgets(self):
+        with rffi.scoped_alloc_buffer(BASE_LINE_SIZE) as buf:
+            c = self._get_line_fgets_single(buf.raw)
+            if c >= 0:
+                return buf.str(c)
+
+            # this is the rare case: the line is longer than BASE_LINE_SIZE
+            s = StringBuilder()
+            while True:
+                s.append_charpsize(buf.raw, BASE_LINE_SIZE - 1)
+                c = self._get_line_fgets_single(buf.raw)
+                if c >= 0:
+                    break
+            s.append_charpsize(buf.raw, c)
+        return s.build()
+
+    def _get_line(self, size):
+        if USE_FGETS_IN_GETLINE and size < 0 and not self._univ_newline:
+            return self._get_line_fgets()
+
+        ll_file = self._ll_file
+        newlinetypes = self._newlinetypes
+        skipnextlf = self._skipnextlf
+        c = 0
+        s = StringBuilder()
+        while True:
+            c_flockfile(ll_file)
+            if self._univ_newline:
+                while size < 0 or s.getlength() < size:
+                    c = c_getc_unlocked(ll_file)
+                    if c == EOF:
+                        break
+                    if skipnextlf:
+                        skipnextlf = False
+                        if c == ord('\n'):
+                            newlinetypes |= NEWLINE_CRLF
+                            c = c_getc_unlocked(ll_file)
+                            if c == EOF:
+                                break
+                        else:
+                            newlinetypes |= NEWLINE_CR
+                    if c == ord('\r'):
+                        skipnextlf = True
+                        c = ord('\n')
+                    elif c == ord('\n'):
+                        newlinetypes |= NEWLINE_LF
+                    s.append(chr(c))
+                    if c == ord('\n'):
+                        break
+                if c == EOF:
+                    if c_ferror(ll_file) and rposix.get_errno() == errno.EINTR:
+                        c_funlockfile(ll_file)
+                        self._newlinetypes = newlinetypes
+                        self._skipnextlf = skipnextlf
+                        if self._signal_checker is not None:
+                            self._signal_checker()
+                        c_clearerr(ll_file)
+                        continue
+                    if skipnextlf:
+                        newlinetypes |= NEWLINE_CR
+            else:
+                while size < 0 or s.getlength() < size:
+                    c = c_getc_unlocked(ll_file)
+                    if c == EOF:
+                        break
+                    s.append(chr(c))
+                    if c == ord('\n'):
+                        break
+            c_funlockfile(ll_file)
+            self._newlinetypes = newlinetypes
+            self._skipnextlf = skipnextlf
+            if c == ord('\n'):
+                break
+            elif c == EOF:
+                if c_ferror(ll_file):
+                    if rposix.get_errno() == errno.EINTR:
+                        if self._signal_checker is not None:
+                            self._signal_checker()
+                        c_clearerr(ll_file)
+                        continue
+                    c_clearerr(ll_file)
+                    raise _from_errno(IOError)
+                c_clearerr(ll_file)
+                if self._signal_checker is not None:
+                    self._signal_checker()
+                break
+            else:
+                assert s.getlength() == size
+                break
+        return s.build()
+
     def readline(self, size=-1):
         self._check_closed()
         self._check_readable()
         if size == 0:
             return ""
-        elif size < 0 and not self._univ_newline:
-            with rffi.scoped_alloc_buffer(BASE_LINE_SIZE) as buf:
-                c = self._readline1(buf.raw)
-                if c >= 0:
-                    return buf.str(c)
-
-                # this is the rare case: the line is longer than BASE_LINE_SIZE
-                s = StringBuilder()
-                while True:
-                    s.append_charpsize(buf.raw, BASE_LINE_SIZE - 1)
-                    c = self._readline1(buf.raw)
-                    if c >= 0:
-                        break
-                s.append_charpsize(buf.raw, c)
-            return s.build()
-        else:  # size > 0 or self._univ_newline
-            ll_file = self._ll_file
-            newlinetypes = self._newlinetypes
-            skipnextlf = self._skipnextlf
-            c = 0
-            s = StringBuilder()
-            while True:
-                c_flockfile(ll_file)
-                if self._univ_newline:
-                    while size < 0 or s.getlength() < size:
-                        c = c_getc_unlocked(ll_file)
-                        if c == EOF:
-                            break
-                        if skipnextlf:
-                            skipnextlf = False
-                            if c == ord('\n'):
-                                newlinetypes |= NEWLINE_CRLF
-                                c = c_getc_unlocked(ll_file)
-                                if c == EOF:
-                                    break
-                            else:
-                                newlinetypes |= NEWLINE_CR
-                        if c == ord('\r'):
-                            skipnextlf = True
-                            c = ord('\n')
-                        elif c == ord('\n'):
-                            newlinetypes |= NEWLINE_LF
-                        s.append(chr(c))
-                        if c == ord('\n'):
-                            break
-                    if c == EOF:
-                        if c_ferror(ll_file) and rposix.get_errno() == errno.EINTR:
-                            c_funlockfile(ll_file)
-                            self._newlinetypes = newlinetypes
-                            self._skipnextlf = skipnextlf
-                            if self._signal_checker is not None:
-                                self._signal_checker()
-                            c_clearerr(ll_file)
-                            continue
-                        if skipnextlf:
-                            newlinetypes |= NEWLINE_CR
-                else:
-                    while s.getlength() < size:
-                        c = c_getc_unlocked(ll_file)
-                        if c == EOF:
-                            break
-                        s.append(chr(c))
-                        if c == ord('\n'):
-                            break
-                c_funlockfile(ll_file)
-                self._newlinetypes = newlinetypes
-                self._skipnextlf = skipnextlf
-                if c == ord('\n'):
-                    break
-                elif c == EOF:
-                    if c_ferror(ll_file):
-                        if rposix.get_errno() == errno.EINTR:
-                            if self._signal_checker is not None:
-                                self._signal_checker()
-                            c_clearerr(ll_file)
-                            continue
-                        c_clearerr(ll_file)
-                        raise _from_errno(IOError)
-                    c_clearerr(ll_file)
-                    if self._signal_checker is not None:
-                        self._signal_checker()
-                    break
-                else:
-                    assert s.getlength() == size
-                    break
-            return s.build()
+        return self._get_line(size)
 
     @enforceargs(None, str)
     def write(self, value):
