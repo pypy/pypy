@@ -346,7 +346,22 @@ class RFile(object):
         return i
 
     def _new_buffersize(self, currentsize):
-        # XXX use fstat if possible
+        ll_file = self._ll_file
+        try:
+            st = os.fstat(c_fileno(ll_file))
+        except OSError:
+            pass
+        else:
+            end = st.st_size
+            try:
+                pos = os.lseek(c_fileno(ll_file), 0, os.SEEK_CUR)
+            except OSError:
+                c_clearerr(ll_file)
+            else:
+                pos = c_ftell(ll_file)
+                if end > pos and pos >= 0:
+                    return currentsize + end - pos + 1
+        # fstat didn't work
         return currentsize + (currentsize >> 3) + 6
 
     def read(self, size=-1):
@@ -367,7 +382,7 @@ class RFile(object):
             while True:
                 if bytesrequested >= 0:
                     buffersize = bytesrequested - bytesread
-                    assert buffersize >= 0
+                assert buffersize >= 0
                 chunksize = intmask(self._fread(buf, buffersize, ll_file))
                 interrupted = (c_ferror(ll_file) and
                                rposix.get_errno() == errno.EINTR)
