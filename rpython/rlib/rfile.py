@@ -76,16 +76,21 @@ c_tmpfile = llexternal('tmpfile', [], FILEP)
 c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T],
                        rffi.INT)
 
-c_fclose = llexternal('fclose', [FILEP], rffi.INT)
-c_pclose = llexternal('pclose', [FILEP], rffi.INT)
-
-# Note: the following two functions are called from __del__ methods,
+# Note: the following functions are called from __del__ methods,
 # so must be 'releasegil=False'.  Otherwise, a program using both
 # threads and the RFile class cannot translate.  See c684bf704d1f
-c_fclose_in_del = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
-c_pclose_in_del = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
-_fclose2 = (c_fclose, c_fclose_in_del)
-_pclose2 = (c_pclose, c_pclose_in_del)
+_fflush = ('fflush', [FILEP], rffi.INT)
+c_fflush, c_fflush_nogil = (llexternal(*_fflush),
+                            llexternal(*_fflush, releasegil=False))
+_fclose = ('fclose', [FILEP], rffi.INT)
+c_fclose, c_fclose_nogil = (llexternal(*_fclose),
+                            llexternal(*_fclose, releasegil=False))
+_pclose = ('pclose', [FILEP], rffi.INT)
+c_pclose, c_pclose_nogil = (llexternal(*_pclose),
+                            llexternal(*_pclose, releasegil=False))
+
+_fclose2 = (c_fclose, c_fclose_nogil)
+_pclose2 = (c_pclose, c_pclose_nogil)
 
 c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True, releasegil=False)
 c_ungetc = llexternal('ungetc', [rffi.INT, FILEP], rffi.INT, releasegil=False)
@@ -96,8 +101,6 @@ c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
 c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
                       rffi.SIZE_T)
 
-c_fflush = llexternal('fflush', [FILEP], rffi.INT)
-c_fflush_nogil = llexternal('fflush', [FILEP], rffi.INT, releasegil=False)
 c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)
 
 c_fseek = llexternal('fseek', [FILEP, rffi.LONG, rffi.INT], rffi.INT)
