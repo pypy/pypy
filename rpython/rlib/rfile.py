@@ -89,8 +89,17 @@ c_pclose, c_pclose_nogil = (llexternal(*_pclose),
 _fclose2 = (c_fclose, c_fclose_nogil)
 _pclose2 = (c_pclose, c_pclose_nogil)
 
-c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True, releasegil=False)
+c_flockfile = llexternal('flockfile', [FILEP], lltype.Void, releasegil=False)
+c_funlockfile = llexternal('funlockfile', [FILEP], lltype.Void, releasegil=False)
+
+c_getc = llexternal('getc', [FILEP], rffi.INT, releasegil=False)
+c_getc_unlocked = llexternal('getc_unlocked', [FILEP], rffi.INT, releasegil=False)
 c_ungetc = llexternal('ungetc', [rffi.INT, FILEP], rffi.INT, releasegil=False)
+
+if os.name == 'nt':
+    c_flockfile = lambda ll_file: None
+    c_funlockfile = lambda ll_file: None
+    c_getc_unlocked = c_getc
 
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP], rffi.CCHARP)
 c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
@@ -488,16 +497,17 @@ class RFile(object):
             c = 0
             s = StringBuilder()
             while True:
+                c_flockfile(ll_file)
                 if self._univ_newline:
                     while size < 0 or s.getlength() < size:
-                        c = c_getc(ll_file)
+                        c = c_getc_unlocked(ll_file)
                         if c == EOF:
                             break
                         if skipnextlf:
                             skipnextlf = False
                             if c == ord('\n'):
                                 newlinetypes |= NEWLINE_CRLF
-                                c = c_getc(ll_file)
+                                c = c_getc_unlocked(ll_file)
                                 if c == EOF:
                                     break
                             else:
@@ -512,6 +522,7 @@ class RFile(object):
                             break
                     if c == EOF:
                         if c_ferror(ll_file) and rposix.get_errno() == errno.EINTR:
+                            c_funlockfile(ll_file)
                             self._newlinetypes = newlinetypes
                             self._skipnextlf = skipnextlf
                             if self._signal_checker is not None:
@@ -522,12 +533,13 @@ class RFile(object):
                             newlinetypes |= NEWLINE_CR
                 else:
                     while s.getlength() < size:
-                        c = c_getc(ll_file)
+                        c = c_getc_unlocked(ll_file)
                         if c == EOF:
                             break
                         s.append(chr(c))
                         if c == ord('\n'):
                             break
+                c_funlockfile(ll_file)
                 self._newlinetypes = newlinetypes
                 self._skipnextlf = skipnextlf
                 if c == ord('\n'):
