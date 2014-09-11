@@ -287,7 +287,7 @@ class RFile(object):
         if not self._univ_newline:
             return c_fread(buf, 1, n, stream)
 
-        i = 0
+        i = 0  # XXX how to do ptrdiff (dst - buf) instead?
         dst = buf
         newlinetypes = self._newlinetypes
         skipnextlf = self._skipnextlf
