@@ -849,6 +849,7 @@ W_BytesObject.typedef = StdTypeDef(
     fromhex = interp2app(W_BytesObject.descr_fromhex, as_classmethod=True),
     maketrans = interp2app(W_BytesObject.descr_maketrans, as_classmethod=True),
 )
+W_BytesObject.typedef.flag_sequence_bug_compat = True
 
 
 def string_escape_encode(s, quotes):

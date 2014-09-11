@@ -296,3 +296,9 @@ class AppTestOperator:
         assert operator._compare_digest(a, b)
         a, b = mybytes(b"foobar"), mybytes(b"foobaz")
         assert not operator._compare_digest(a, b)
+
+    def test_compare_digest_unicode(self):
+        import operator
+        assert operator._compare_digest(u'asd', u'asd')
+        assert not operator._compare_digest(u'asd', u'qwe')
+        raises(TypeError, operator._compare_digest, u'asd', b'qwe')

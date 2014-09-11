@@ -651,9 +651,16 @@ if WIN32:
         return rwin32.FormatError(errno)
     def gai_strerror_str(errno):
         return rwin32.FormatError(errno)
+
+    # WinSock does not use a bitmask in select, and uses
+    # socket handles greater than FD_SETSIZE
+    MAX_FD_SIZE = None
+
 else:
     from rpython.rlib.rposix import get_errno as geterrno
 
     socket_strerror_str = os.strerror
     def gai_strerror_str(errno):
         return rffi.charp2str(gai_strerror(errno))
+
+    MAX_FD_SIZE = FD_SETSIZE

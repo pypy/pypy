@@ -1,6 +1,4 @@
-from rpython.rlib.objectmodel import specialize
-
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 
 
@@ -208,33 +206,3 @@ def iconcat(space, w_obj1, w_obj2):
 @unwrap_spec(default=int)
 def _length_hint(space, w_iterable, default):
     return space.wrap(space.length_hint(w_iterable, default))
-
-def compare_digest(space, w_a, w_b):
-    if (
-        space.isinstance_w(w_a, space.w_unicode) and
-        space.isinstance_w(w_b, space.w_unicode)
-    ):
-        return space.wrap(tscmp(space.unicode_w(w_a), space.unicode_w(w_b)))
-    if (
-        space.isinstance_w(w_a, space.w_unicode) or
-        space.isinstance_w(w_b, space.w_unicode)
-    ):
-        raise oefmt(
-            space.w_TypeError,
-            "unsupported operand types(s) or combination of types: '%N' and '%N'",
-            w_a,
-            w_b,
-        )
-    else:
-        return space.wrap(tscmp(space.bufferstr_w(w_a), space.bufferstr_w(w_b)))
-
-
-@specialize.argtype(0, 1)
-def tscmp(a, b):
-    len_a = len(a)
-    len_b = len(b)
-    length = min(len(a), len(b))
-    res = len_a ^ len_b
-    for i in xrange(length):
-        res |= ord(a[i]) ^ ord(b[i])
-    return res == 0

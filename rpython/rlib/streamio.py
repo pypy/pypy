@@ -900,6 +900,13 @@ class TextCRLFFilter(Stream):
 
         return '\n'.join(result)
 
+    def readline(self):
+        line = self.base.readline()
+        limit = len(line) - 2
+        if limit >= 0 and line[limit] == '\r' and line[limit + 1] == '\n':
+            line = line[:limit] + '\n'
+        return line
+
     def tell(self):
         pos = self.base.tell()
         return pos - len(self.lfbuffer)

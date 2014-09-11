@@ -95,7 +95,7 @@ class AppTestPosix:
             need_sparse_files()
 
     def test_posix_is_pypy_s(self):
-        assert self.posix.__file__
+        assert hasattr(self.posix, '_statfields')
 
     def test_some_posix_basic_operation(self):
         path = self.path

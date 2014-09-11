@@ -1133,6 +1133,7 @@ W_UnicodeObject.typedef = StdTypeDef(
                            as_classmethod=True,
                            doc=UnicodeDocstrings.maketrans.__doc__),
 )
+W_UnicodeObject.typedef.flag_sequence_bug_compat = True
 
 
 def _create_list_from_unicode(value):
