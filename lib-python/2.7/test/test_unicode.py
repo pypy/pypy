@@ -644,8 +644,13 @@ class UnicodeTest(
                 return u'\u1234'
         self.assertEqual('%s' % Wrapper(), u'\u1234')
 
-    @test_support.cpython_only
     def test_formatting_huge_precision(self):
+        format_string = u"%.{}f".format(sys.maxsize + 1)
+        with self.assertRaises(ValueError):
+            result = format_string % 2.34
+
+    @test_support.cpython_only
+    def test_formatting_huge_precision_c_limits(self):
         from _testcapi import INT_MAX
         format_string = u"%.{}f".format(INT_MAX + 1)
         with self.assertRaises(ValueError):
@@ -1279,12 +1284,12 @@ class UnicodeTest(
         self.assertEqual(repr(s1()), '\\n')
         self.assertEqual(repr(s2()), '\\n')
 
+    # This test only affects 32-bit platforms because expandtabs can only take
+    # an int as the max value, not a 64-bit C long.  If expandtabs is changed
+    # to take a 64-bit long, this test should apply to all platforms.
+    @unittest.skipIf(sys.maxint > (1 << 32) or struct.calcsize('P') != 4,
+                     'only applies to 32-bit platforms')
     def test_expandtabs_overflows_gracefully(self):
-        # This test only affects 32-bit platforms because expandtabs can only take
-        # an int as the max value, not a 64-bit C long.  If expandtabs is changed
-        # to take a 64-bit long, this test should apply to all platforms.
-        if sys.maxint > (1 << 32) or struct.calcsize('P') != 4:
-            return
         self.assertRaises((OverflowError, MemoryError),
                           u't\tt\t'.expandtabs, sys.maxint)
 
@@ -1459,6 +1464,27 @@ class UnicodeTest(
         self.assertEqual(u'{0:10000}'.format(u'a'), u'a' + u' ' * 9999)
         self.assertEqual(u'{0:10000}'.format(u''), u' ' * 10000)
         self.assertEqual(u'{0:10000000}'.format(u''), u' ' * 10000000)
+
+        # issue 12546: use \x00 as a fill character
+        self.assertEqual('{0:\x00<6s}'.format('foo'), 'foo\x00\x00\x00')
+        self.assertEqual('{0:\x01<6s}'.format('foo'), 'foo\x01\x01\x01')
+        self.assertEqual('{0:\x00^6s}'.format('foo'), '\x00foo\x00\x00')
+        self.assertEqual('{0:^6s}'.format('foo'), ' foo  ')
+
+        self.assertEqual('{0:\x00<6}'.format(3), '3\x00\x00\x00\x00\x00')
+        self.assertEqual('{0:\x01<6}'.format(3), '3\x01\x01\x01\x01\x01')
+        self.assertEqual('{0:\x00^6}'.format(3), '\x00\x003\x00\x00\x00')
+        self.assertEqual('{0:<6}'.format(3), '3     ')
+
+        self.assertEqual('{0:\x00<6}'.format(3.14), '3.14\x00\x00')
+        self.assertEqual('{0:\x01<6}'.format(3.14), '3.14\x01\x01')
+        self.assertEqual('{0:\x00^6}'.format(3.14), '\x003.14\x00')
+        self.assertEqual('{0:^6}'.format(3.14), ' 3.14 ')
+
+        self.assertEqual('{0:\x00<12}'.format(3+2.0j), '(3+2j)\x00\x00\x00\x00\x00\x00')
+        self.assertEqual('{0:\x01<12}'.format(3+2.0j), '(3+2j)\x01\x01\x01\x01\x01\x01')
+        self.assertEqual('{0:\x00^12}'.format(3+2.0j), '\x00\x00\x00(3+2j)\x00\x00\x00')
+        self.assertEqual('{0:^12}'.format(3+2.0j), '   (3+2j)   ')
 
         # format specifiers for user defined type
         self.assertEqual(u'{0:abc}'.format(C()), u'abc')
@@ -1635,6 +1661,7 @@ class UnicodeTest(
         self.assertEqual("%s" % u, u'__unicode__ overridden')
         self.assertEqual("{}".format(u), '__unicode__ overridden')
 
+    @test_support.cpython_only
     def test_encode_decimal(self):
         from _testcapi import unicode_encodedecimal
         self.assertEqual(unicode_encodedecimal(u'123'),
@@ -1660,6 +1687,7 @@ class UnicodeTest(
         self.assertEqual(unicode_encodedecimal(u"123\u20ac\u0660", "replace"),
                          b'123?0')
 
+    @test_support.cpython_only
     def test_encode_decimal_with_surrogates(self):
         from _testcapi import unicode_encodedecimal
         tests = [(u'\U0001f49d', '&#128157;'),

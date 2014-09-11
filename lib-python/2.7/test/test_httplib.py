@@ -13,10 +13,12 @@ from test import test_support
 HOST = test_support.HOST
 
 class FakeSocket:
-    def __init__(self, text, fileclass=StringIO.StringIO):
+    def __init__(self, text, fileclass=StringIO.StringIO, host=None, port=None):
         self.text = text
         self.fileclass = fileclass
         self.data = ''
+        self.host = host
+        self.port = port
 
     def sendall(self, data):
         self.data += ''.join(data)
@@ -25,6 +27,9 @@ class FakeSocket:
         if mode != 'r' and mode != 'rb':
             raise httplib.UnimplementedFileMode()
         return self.fileclass(self.text)
+
+    def close(self):
+        pass
 
 class EPipeSocket(FakeSocket):
 
@@ -123,7 +128,7 @@ class HeaderTests(TestCase):
         conn.sock = FakeSocket(None)
         conn.putrequest('GET','/')
         conn.putheader('Content-length',42)
-        self.assertTrue('Content-length: 42' in conn._buffer)
+        self.assertIn('Content-length: 42', conn._buffer)
 
     def test_ipv6host_header(self):
         # Default host header on IPv6 transaction should wrapped by [] if
@@ -153,6 +158,8 @@ class BasicTest(TestCase):
         sock = FakeSocket(body)
         resp = httplib.HTTPResponse(sock)
         resp.begin()
+        self.assertEqual(resp.read(0), '')  # Issue #20007
+        self.assertFalse(resp.isclosed())
         self.assertEqual(resp.read(), 'Text')
         self.assertTrue(resp.isclosed())
 
@@ -464,7 +471,7 @@ class TimeoutTest(TestCase):
         HTTPConnection and into the socket.
         '''
         # default -- use global socket timeout
-        self.assertTrue(socket.getdefaulttimeout() is None)
+        self.assertIsNone(socket.getdefaulttimeout())
         socket.setdefaulttimeout(30)
         try:
             httpConn = httplib.HTTPConnection(HOST, TimeoutTest.PORT)
@@ -475,7 +482,7 @@ class TimeoutTest(TestCase):
         httpConn.close()
 
         # no timeout -- do not use global socket default
-        self.assertTrue(socket.getdefaulttimeout() is None)
+        self.assertIsNone(socket.getdefaulttimeout())
         socket.setdefaulttimeout(30)
         try:
             httpConn = httplib.HTTPConnection(HOST, TimeoutTest.PORT,
@@ -524,9 +531,48 @@ class HTTPSTimeoutTest(TestCase):
                 self.fail("Port incorrectly parsed: %s != %s" % (p, c.host))
 
 
+class TunnelTests(TestCase):
+    def test_connect(self):
+        response_text = (
+            'HTTP/1.0 200 OK\r\n\r\n'   # Reply to CONNECT
+            'HTTP/1.1 200 OK\r\n'       # Reply to HEAD
+            'Content-Length: 42\r\n\r\n'
+        )
+
+        def create_connection(address, timeout=None, source_address=None):
+            return FakeSocket(response_text, host=address[0], port=address[1])
+
+        conn = httplib.HTTPConnection('proxy.com')
+        conn._create_connection = create_connection
+
+        # Once connected, we should not be able to tunnel anymore
+        conn.connect()
+        self.assertRaises(RuntimeError, conn.set_tunnel, 'destination.com')
+
+        # But if close the connection, we are good.
+        conn.close()
+        conn.set_tunnel('destination.com')
+        conn.request('HEAD', '/', '')
+
+        self.assertEqual(conn.sock.host, 'proxy.com')
+        self.assertEqual(conn.sock.port, 80)
+        self.assertTrue('CONNECT destination.com' in conn.sock.data)
+        self.assertTrue('Host: destination.com' in conn.sock.data)
+
+        self.assertTrue('Host: proxy.com' not in conn.sock.data)
+
+        conn.close()
+
+        conn.request('PUT', '/', '')
+        self.assertEqual(conn.sock.host, 'proxy.com')
+        self.assertEqual(conn.sock.port, 80)
+        self.assertTrue('CONNECT destination.com' in conn.sock.data)
+        self.assertTrue('Host: destination.com' in conn.sock.data)
+
+
 def test_main(verbose=None):
     test_support.run_unittest(HeaderTests, OfflineTest, BasicTest, TimeoutTest,
-                              HTTPSTimeoutTest, SourceAddressTest)
+                              HTTPSTimeoutTest, SourceAddressTest, TunnelTests)
 
 if __name__ == '__main__':
     test_main()

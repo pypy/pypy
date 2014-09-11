@@ -1052,6 +1052,7 @@ W_BytearrayObject.typedef = StdTypeDef(
     reverse = interp2app(W_BytearrayObject.descr_reverse,
                          doc=BytearrayDocstrings.reverse.__doc__),
 )
+W_BytearrayObject.typedef.flag_sequence_bug_compat = True
 
 
 # XXX share the code again with the stuff in listobject.py

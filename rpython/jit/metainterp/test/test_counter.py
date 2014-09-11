@@ -106,3 +106,25 @@ def test_install_new_chain():
     assert jc.lookup_chain(104) is d3
     assert d3.next is d4
     assert d4.next is None
+
+
+def test_change_current_fraction():
+    jc = JitCounter()
+    incr = jc.compute_threshold(8)
+    # change_current_fraction() with a fresh new hash
+    jc.change_current_fraction(index2hash(jc, 104), 0.95)
+    r = jc.tick(index2hash(jc, 104), incr)
+    assert r is True
+    # change_current_fraction() with an already-existing hash
+    r = jc.tick(index2hash(jc, 104), incr)
+    assert r is False
+    jc.change_current_fraction(index2hash(jc, 104), 0.95)
+    r = jc.tick(index2hash(jc, 104), incr)
+    assert r is True
+    # change_current_fraction() with a smaller incr
+    incr = jc.compute_threshold(32)
+    jc.change_current_fraction(index2hash(jc, 104), 0.95)
+    r = jc.tick(index2hash(jc, 104), incr)
+    assert r is False
+    r = jc.tick(index2hash(jc, 104), incr)
+    assert r is True

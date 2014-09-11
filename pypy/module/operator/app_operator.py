@@ -6,7 +6,8 @@ equivalent to x+y.
 '''
 from __pypy__ import builtinify
 
-def countOf(a,b): 
+
+def countOf(a,b):
     'countOf(a, b) -- Return the number of times b occurs in a.'
     count = 0
     for x in a:

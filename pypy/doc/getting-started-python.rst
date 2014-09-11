@@ -111,6 +111,10 @@ the version you have is not 4.2 or you will run into `this bug`_.
    of your choice.  Typical example: ``--opt=2`` gives a good (but of
    course slower) Python interpreter without the JIT.
 
+   Consider using PyPy instead of CPython in the above command line,
+   as it is much faster.  (Note that ``rpython`` is a Python 2 program,
+   not Python 3; you need to run either PyPy 2 or CPython 2.)
+
 .. _`optimization level`: config/opt.html
 
 If everything works correctly this will create an executable

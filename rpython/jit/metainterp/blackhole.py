@@ -7,7 +7,6 @@ from rpython.rlib import longlong2float
 from rpython.rlib.debug import ll_assert, make_sure_not_resized
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
-from rpython.rlib.rtimer import read_timestamp
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -1381,10 +1380,6 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "r", "r", "i", "i", "i")
     def bhimpl_copyunicodecontent(cpu, src, dst, srcstart, dststart, length):
         cpu.bh_copyunicodecontent(src, dst, srcstart, dststart, length)
-
-    @arguments(returns=LONGLONG_TYPECODE)
-    def bhimpl_ll_read_timestamp():
-        return read_timestamp()
 
     def _libffi_save_result(self, cif_description, exchange_buffer, result):
         ARRAY = lltype.Ptr(rffi.CArray(lltype.typeOf(result)))

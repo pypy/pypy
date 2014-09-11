@@ -90,6 +90,13 @@ class AutoFileTests(unittest.TestCase):
         self.assertRaises(TypeError, self.f.writelines,
                           [NonString(), NonString()])
 
+    def testWritelinesBuffer(self):
+        self.f.writelines([array('c', 'abc')])
+        self.f.close()
+        self.f = open(TESTFN, 'rb')
+        buf = self.f.read()
+        self.assertEqual(buf, 'abc')
+
     def testRepr(self):
         # verify repr works
         self.assertTrue(repr(self.f).startswith("<open file '" + TESTFN))
@@ -427,6 +434,20 @@ class OtherFileTests(unittest.TestCase):
                 f.close()
         finally:
             os.unlink(TESTFN)
+
+    @unittest.skipUnless(os.name == 'posix', 'test requires a posix system.')
+    def test_write_full(self):
+        # Issue #17976
+        try:
+            f = open('/dev/full', 'w', 1)
+        except IOError:
+            self.skipTest("requires '/dev/full'")
+        try:
+            with self.assertRaises(IOError):
+                f.write('hello')
+                f.write('\n')
+        finally:
+            f.close()
 
 class FileSubclassTests(unittest.TestCase):
 

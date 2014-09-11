@@ -182,8 +182,12 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
             value = misc.read_raw_long_data(cdata, self.size)
             return self.space.wrap(value)
         else:
-            value = misc.read_raw_signed_data(cdata, self.size)
-            return self.space.wrap(value)    # r_longlong => on 32-bit, 'long'
+            return self._convert_to_object_longlong(cdata)
+
+    def _convert_to_object_longlong(self, cdata):
+        # in its own function: LONGLONG may make the whole function jit-opaque
+        value = misc.read_raw_signed_data(cdata, self.size)
+        return self.space.wrap(value)    # r_longlong => on 32-bit, 'long'
 
     def convert_from_object(self, cdata, w_ob):
         if self.value_fits_long:
@@ -193,8 +197,12 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
                     self._overflow(w_ob)
             misc.write_raw_signed_data(cdata, value, self.size)
         else:
-            value = misc.as_long_long(self.space, w_ob)
-            misc.write_raw_signed_data(cdata, value, self.size)
+            self._convert_from_object_longlong(cdata, w_ob)
+
+    def _convert_from_object_longlong(self, cdata, w_ob):
+        # in its own function: LONGLONG may make the whole function jit-opaque
+        value = misc.as_long_long(self.space, w_ob)
+        misc.write_raw_signed_data(cdata, value, self.size)
 
     def get_vararg_type(self):
         if self.size < rffi.sizeof(rffi.INT):
@@ -264,8 +272,12 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
                     self._overflow(w_ob)
             misc.write_raw_unsigned_data(cdata, value, self.size)
         else:
-            value = misc.as_unsigned_long_long(self.space, w_ob, strict=True)
-            misc.write_raw_unsigned_data(cdata, value, self.size)
+            self._convert_from_object_longlong(cdata, w_ob)
+
+    def _convert_from_object_longlong(self, cdata, w_ob):
+        # in its own function: LONGLONG may make the whole function jit-opaque
+        value = misc.as_unsigned_long_long(self.space, w_ob, strict=True)
+        misc.write_raw_unsigned_data(cdata, value, self.size)
 
     def convert_to_object(self, cdata):
         if self.value_fits_ulong:
@@ -275,8 +287,12 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
             else:
                 return self.space.wrap(value)    # r_uint => 'long' object
         else:
-            value = misc.read_raw_unsigned_data(cdata, self.size)
-            return self.space.wrap(value)    # r_ulonglong => 'long' object
+            return self._convert_to_object_longlong(cdata)
+
+    def _convert_to_object_longlong(self, cdata):
+        # in its own function: LONGLONG may make the whole function jit-opaque
+        value = misc.read_raw_unsigned_data(cdata, self.size)
+        return self.space.wrap(value)    # r_ulonglong => 'long' object
 
     def get_vararg_type(self):
         if self.size < rffi.sizeof(rffi.INT):
