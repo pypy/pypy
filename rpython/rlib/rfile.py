@@ -73,9 +73,6 @@ c_fdopen = llexternal(('_' if os.name == 'nt' else '') + 'fdopen',
                       [rffi.INT, rffi.CCHARP], FILEP)
 c_tmpfile = llexternal('tmpfile', [], FILEP)
 
-c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T],
-                       rffi.INT)
-
 # Note: the following functions are called from __del__ methods,
 # so must be 'releasegil=False'.  Otherwise, a program using both
 # threads and the RFile class cannot translate.  See c684bf704d1f
@@ -110,6 +107,8 @@ c_fileno = llexternal(fileno, [FILEP], rffi.INT, releasegil=False)
 c_feof = llexternal('feof', [FILEP], rffi.INT, releasegil=False)
 c_ferror = llexternal('ferror', [FILEP], rffi.INT, releasegil=False)
 c_clearerr = llexternal('clearerr', [FILEP], lltype.Void, releasegil=False)
+c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T],
+                       rffi.INT, releasegil=False)
 
 c_stdin = llexternal('get_stdin', [], FILEP, _nowrapper=True)
 c_stdout = llexternal('get_stdout', [], FILEP, _nowrapper=True)
@@ -254,6 +253,7 @@ class RFile(object):
                 bufsize = BUFSIZ
             else:
                 mode = _IOFBF
+            c_fflush_nogil(self._ll_file)
             if self._setbuf:
                 lltype.free(self._setbuf, flavor='raw')
             if mode == _IONBF:
