@@ -45,7 +45,6 @@ _IOFBF = config['_IOFBF']
 BUFSIZ = config['BUFSIZ']
 EOF = config['EOF']
 
-BASE_BUF_SIZE = 4096
 BASE_LINE_SIZE = 100
 
 NEWLINE_UNKNOWN = 0
@@ -346,6 +345,10 @@ class RFile(object):
         self._skipnextlf = skipnextlf
         return i
 
+    def _new_buffersize(self, currentsize):
+        # XXX use fstat if possible
+        return currentsize + (currentsize >> 3) + 6
+
     def read(self, size=-1):
         self._check_closed()
         self._check_readable()
@@ -353,7 +356,7 @@ class RFile(object):
 
         bytesrequested = size
         if bytesrequested < 0:
-            buffersize = BASE_BUF_SIZE
+            buffersize = self._new_buffersize(0)
         else:
             buffersize = bytesrequested
         bytesread = 0
@@ -387,6 +390,10 @@ class RFile(object):
                     break
                 if bytesrequested >= 0:
                     break
+                else:
+                    buffersize = self._new_buffersize(buffersize)
+                    lltype.free(buf, flavor='raw')
+                    buf = lltype.malloc(rffi.CCHARP.TO, buffersize, flavor='raw')
         finally:
             lltype.free(buf, flavor='raw')
         return s.build()
