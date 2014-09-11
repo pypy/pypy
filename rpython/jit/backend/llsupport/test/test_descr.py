@@ -15,9 +15,6 @@ def test_get_size_descr():
                              ('y', lltype.Ptr(T)))
     descr_s = get_size_descr(c0, S)
     descr_t = get_size_descr(c0, T)
-    assert descr_t.offsets_of_gcptrs == []
-    assert descr_s.offsets_of_gcptrs == [
-        symbolic.get_field_token(S, "y", False)[0]]
     assert descr_s.size == symbolic.get_size(S, False)
     assert descr_t.size == symbolic.get_size(T, False)
     assert descr_s.count_fields_if_immutable() == -1
