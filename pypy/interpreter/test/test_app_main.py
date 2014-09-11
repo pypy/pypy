@@ -755,7 +755,7 @@ class TestNonInteractive:
             time.sleep(1)
             # stdout flushed automatically here
             """)
-        cmdline = '%s -u "%s" %s' % (sys.executable, app_main, path)
+        cmdline = '%s "%s" %s' % (sys.executable, app_main, path)
         print 'POPEN:', cmdline
         child_in, child_out_err = os.popen4(cmdline)
         data = child_out_err.read(11)
@@ -763,6 +763,32 @@ class TestNonInteractive:
         child_in.close()
         data = child_out_err.read(11)
         assert data == '\x00(STDOUT)\n\x00'    # from stdout
+        child_out_err.close()
+
+    def test_non_interactive_stdout_line_buffered(self):
+        if os.name == 'nt':
+            try:
+                import __pypy__
+            except:
+                py.test.skip('app_main cannot run on non-pypy for windows')
+        path = getscript(r"""
+            import sys, time
+            sys.stdout.write('\x00(STDOUT)\n\x00')
+            time.sleep(1)
+            sys.stderr.write('\x00[STDERR]\n\x00')
+            time.sleep(1)
+            # stdout flushed automatically here
+            """)
+        cmdline = '%s "%s" -i %s' % (sys.executable, app_main, path)
+        print 'POPEN:', cmdline
+        child_in, child_out_err = os.popen4(cmdline)
+        data = child_out_err.read(10)
+        assert data == '\x00(STDOUT)\n'    # from stdout
+        data = child_out_err.read(11)
+        assert data == '\x00[STDERR]\n\x00'    # from stderr
+        child_in.close()
+        data = child_out_err.read(2)
+        assert data == '\n\x00'
         child_out_err.close()
 
     def test_non_interactive_stdout_unbuffered(self, monkeypatch):
@@ -787,8 +813,8 @@ class TestNonInteractive:
         assert data == '\x00(STDOUT)\n\x00'    # from stderr
         data = child_out_err.read(11)
         assert data == '\x00[STDERR]\n\x00'    # from stdout
-        child_out_err.close()
         child_in.close()
+        child_out_err.close()
 
     def test_proper_sys_path(self, tmpdir):
         data = self.run('-c "import _ctypes"', python_flags='-S')

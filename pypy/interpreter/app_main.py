@@ -222,20 +222,24 @@ def print_error(msg):
     print >> sys.stderr, 'usage: %s [options]' % (sys.executable,)
     print >> sys.stderr, 'Try `%s -h` for more information.' % (sys.executable,)
 
-def fdopen(fd, mode, bufsize=-1):
-    try:
-        fdopen = file.fdopen
-    except AttributeError:     # only on top of CPython, running tests
-        from os import fdopen
-    return fdopen(fd, mode, bufsize)
-
 def set_unbuffered_io():
-    sys.stdin  = sys.__stdin__  = fdopen(0, 'rb', 0)
-    sys.stdout = sys.__stdout__ = fdopen(1, 'wb', 0)
-    sys.stderr = sys.__stderr__ = fdopen(2, 'wb', 0)
+    try:
+        for f in [sys.__stdin__, sys.__stdout__, sys.__stderr__]:
+            f._setbufsize(0)
+    except AttributeError:
+        from os import fdopen
+        sys.stdin  = sys.__stdin__  = fdopen(0, 'rb', 0)
+        sys.stdout = sys.__stdout__ = fdopen(1, 'wb', 0)
+        sys.stderr = sys.__stderr__ = fdopen(2, 'wb', 0)
 
-def set_fully_buffered_io():
-    sys.stdout = sys.__stdout__ = fdopen(1, 'w')
+def set_line_buffered_io():
+    try:
+        for f in [sys.__stdin__, sys.__stdout__]:
+            f._setbufsize(1)
+    except AttributeError:
+        from os import fdopen
+        sys.stdin  = sys.__stdin__  = fdopen(0, 'rb', 1)
+        sys.stdout = sys.__stdout__ = fdopen(1, 'wb', 1)
 
 # ____________________________________________________________
 # Main entry point
@@ -511,8 +515,8 @@ def run_command_line(interactive,
 
     if unbuffered:
         set_unbuffered_io()
-    elif not sys.stdout.isatty():
-        set_fully_buffered_io()
+    elif interactive:
+        set_line_buffered_io()
 
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule
