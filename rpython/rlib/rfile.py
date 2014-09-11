@@ -315,27 +315,26 @@ class RFile(object):
         if not self._univ_newline:
             return c_fread(buf, 1, n, stream)
 
-        i = 0  # XXX how to do ptrdiff (dst - buf) instead?
-        dst = buf
+        i = 0
         newlinetypes = self._newlinetypes
         skipnextlf = self._skipnextlf
         assert n >= 0
         while n:
+            dst = rffi.ptradd(buf, i)
             nread = c_fread(dst, 1, n, stream)
             assert nread <= n
             if nread == 0:
                 break
 
-            src = dst
+            j = 0
             n -= nread
             shortread = n != 0
             while nread:
                 nread -= 1
-                c = src[0]
-                src = rffi.ptradd(src, 1)
+                c = dst[j]
+                j += 1
                 if c == '\r':
-                    dst[0] = '\n'
-                    dst = rffi.ptradd(dst, 1)
+                    buf[i] = '\n'
                     i += 1
                     skipnextlf = True
                 elif skipnextlf and c == '\n':
@@ -347,8 +346,7 @@ class RFile(object):
                         newlinetypes |= NEWLINE_LF
                     elif skipnextlf:
                         newlinetypes |= NEWLINE_CR
-                    dst[0] = c
-                    dst = rffi.ptradd(dst, 1)
+                    buf[i] = c
                     i += 1
                     skipnextlf = False
             if shortread:
