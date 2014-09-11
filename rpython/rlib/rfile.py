@@ -375,10 +375,10 @@ class RFile(object):
         s = StringBuilder()
         buffersize = size if size >= 0 else self._new_buffersize(0)
         remainsize = buffersize
-        buf = lltype.malloc(rffi.CCHARP.TO, remainsize, flavor='raw')
+        raw_buf, gc_buf = rffi.alloc_buffer(remainsize)
         try:
             while True:
-                chunksize = intmask(self._fread(buf, remainsize, ll_file))
+                chunksize = intmask(self._fread(raw_buf, remainsize, ll_file))
                 interrupted = (c_ferror(ll_file) and
                                rposix.get_errno() == errno.EINTR)
                 if interrupted:
@@ -394,7 +394,11 @@ class RFile(object):
                     if s.getlength() > 0 and rposix.get_errno() == errno.EAGAIN:
                         break
                     raise _from_errno(IOError)
-                s.append_charpsize(buf, chunksize)
+                elif chunksize == size:
+                    # we read everything in one call, try to avoid copy
+                    # (remainsize == size if chunksize == size)
+                    return rffi.str_from_buffer(raw_buf, gc_buf, remainsize, size)
+                s.append_charpsize(raw_buf, chunksize)
                 if chunksize < remainsize and not interrupted:
                     c_clearerr(ll_file)
                     break
@@ -402,10 +406,10 @@ class RFile(object):
                     break
                 buffersize = self._new_buffersize(buffersize)
                 remainsize = buffersize - s.getlength()
-                lltype.free(buf, flavor='raw')
-                buf = lltype.malloc(rffi.CCHARP.TO, remainsize, flavor='raw')
+                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+                raw_buf, gc_buf = rffi.alloc_buffer(remainsize)
         finally:
-            lltype.free(buf, flavor='raw')
+            rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         return s.build()
 
     def _readline1(self, raw_buf):
