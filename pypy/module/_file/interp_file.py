@@ -244,6 +244,10 @@ class W_File(W_AbstractStream):
             self.direct_fdopen(fd, mode, buffering)
         except ValueError as e:
             raise OperationError(self.space.w_ValueError, self.space.wrap(str(e)))
+        except IOError as e:
+            space = self.space
+            w_error = space.call_function(space.w_IOError, space.wrap(e.errno), space.wrap(e.strerror), self.w_name)
+            raise OperationError(space.w_IOError, w_error)
         except OSError as e:
             raise wrap_oserror(self.space, e)
 
