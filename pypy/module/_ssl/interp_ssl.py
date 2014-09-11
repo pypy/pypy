@@ -775,7 +775,7 @@ def checkwait(space, w_sock, writing):
             else:
                 r, w, e = rpoll.select([sock_fd], [], [], sock_timeout)
                 ready = r
-        except SelectError, e:
+        except rpoll.SelectError as e:
             message = e.get_msg()
             raise ssl_error(space, message, e.errno)
     if ready:
