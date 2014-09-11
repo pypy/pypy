@@ -101,10 +101,9 @@ c_stdout = rffi.CExternVariable(FILEP, 'stdout', eci, c_type='FILE*')[0]
 c_stderr = rffi.CExternVariable(FILEP, 'stderr', eci, c_type='FILE*')[0]
 
 
-def _error(ll_file):
-    err = c_ferror(ll_file)
-    c_clearerr(ll_file)
-    raise IOError(err, os.strerror(err))
+def _from_errno(exc):
+    err = rposix.get_errno()
+    return exc(err, os.strerror(err))
 
 
 def _dircheck(ll_file):
@@ -146,8 +145,7 @@ def create_file(filename, mode="r", buffering=-1):
         try:
             ll_file = c_fopen(ll_name, ll_mode)
             if not ll_file:
-                errno = rposix.get_errno()
-                raise IOError(errno, os.strerror(errno))
+                raise _from_errno(IOError)
         finally:
             lltype.free(ll_mode, flavor='raw')
     finally:
@@ -166,8 +164,7 @@ def create_fdopen_rfile(fd, mode="r", buffering=-1):
     try:
         ll_file = c_fdopen(fd, ll_mode)
         if not ll_file:
-            errno = rposix.get_errno()
-            raise OSError(errno, os.strerror(errno))
+            raise _from_errno(OSError)
     finally:
         lltype.free(ll_mode, flavor='raw')
     _dircheck(ll_file)
@@ -179,8 +176,7 @@ def create_fdopen_rfile(fd, mode="r", buffering=-1):
 def create_temp_rfile():
     res = c_tmpfile()
     if not res:
-        errno = rposix.get_errno()
-        raise OSError(errno, os.strerror(errno))
+        raise _from_errno(OSError)
     return RFile(res)
 
 
@@ -191,8 +187,7 @@ def create_popen_file(command, type):
         try:
             ll_file = c_popen(ll_command, ll_type)
             if not ll_file:
-                errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
+                raise _from_errno(OSError)
         finally:
             lltype.free(ll_type, flavor='raw')
     finally:
@@ -271,8 +266,7 @@ class RFile(object):
                 if do_close:
                     res = do_close(ll_file)
                     if res == -1:
-                        errno = rposix.get_errno()
-                        raise IOError(errno, os.strerror(errno))
+                        raise _from_errno(IOError)
             finally:
                 if self._setbuf:
                     lltype.free(self._setbuf, flavor='raw')
@@ -361,8 +355,7 @@ class RFile(object):
                     c_clearerr(ll_file)
                     if bytesread > 0 and rposix.get_errno() == errno.EAGAIN:
                         break
-                    err = rposix.get_errno()
-                    raise IOError(err, os.strerror(err))
+                    raise _from_errno(IOError)
                 s.append_charpsize(buf, chunksize)
                 bytesread += chunksize
                 if chunksize < buffersize and not interrupted:
@@ -381,9 +374,9 @@ class RFile(object):
 
         result = c_fgets(raw_buf, BASE_LINE_SIZE, ll_file)
         if not result:
-            if c_feof(ll_file):   # ok
-                return 0
-            raise _error(ll_file)
+            c_clearerr(ll_file)
+            # XXX check signals
+            return 0
 
         # Assume that fgets() works as documented, and additionally
         # never writes beyond the final \0, which the CPython
@@ -470,7 +463,9 @@ class RFile(object):
                         break
             if c == EOF:
                 if c_ferror(ll_file):
-                    raise _error(ll_file)
+                    c_clearerr(ll_file)
+                    raise _from_errno(IOError)
+                c_clearerr(ll_file)
             return s.build()
 
     @enforceargs(None, str)
@@ -483,9 +478,8 @@ class RFile(object):
             n = len(value)
             n2 = c_fwrite(ll_value, 1, n, self._ll_file)
             if n2 != n or c_ferror(self._ll_file):
-                errno = rposix.get_errno()
                 c_clearerr(self._ll_file)
-                raise IOError(errno, os.strerror(errno))
+                raise _from_errno(IOError)
         finally:
             rffi.free_nonmovingbuffer(value, ll_value)
 
@@ -493,8 +487,8 @@ class RFile(object):
         self._check_closed()
         res = c_fflush(self._ll_file)
         if res != 0:
-            errno = rposix.get_errno()
-            raise IOError(errno, os.strerror(errno))
+            c_clearerr(self._ll_file)
+            raise _from_errno(IOError)
 
     def truncate(self, arg=-1):
         self._check_closed()
@@ -502,24 +496,24 @@ class RFile(object):
             arg = self.tell()
         self.flush()
         res = c_ftruncate(self.fileno(), arg)
-        if res == -1:
-            errno = rposix.get_errno()
-            raise IOError(errno, os.strerror(errno))
+        if res != 0:
+            c_clearerr(self._ll_file)
+            raise _from_errno(IOError)
 
     def seek(self, pos, whence=0):
         self._check_closed()
         res = c_fseek(self._ll_file, pos, whence)
-        if res == -1:
-            errno = rposix.get_errno()
-            raise IOError(errno, os.strerror(errno))
+        if res != 0:
+            c_clearerr(self._ll_file)
+            raise _from_errno(IOError)
         self._skipnextlf = False
 
     def tell(self):
         self._check_closed()
         res = intmask(c_ftell(self._ll_file))
         if res == -1:
-            errno = rposix.get_errno()
-            raise IOError(errno, os.strerror(errno))
+            c_clearerr(self._ll_file)
+            raise _from_errno(IOError)
         if self._skipnextlf:
             c = c_getc(self._ll_file)
             if c == ord('\n'):
