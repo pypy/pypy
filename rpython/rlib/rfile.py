@@ -269,9 +269,6 @@ class RFile(object):
             if self._setbuf:
                 lltype.free(self._setbuf, flavor='raw')
 
-    def _cleanup_(self):
-        self._ll_file = lltype.nullptr(FILEP.TO)
-
     def close(self):
         """Closes the described file.
 
@@ -296,6 +293,9 @@ class RFile(object):
                     lltype.free(self._setbuf, flavor='raw')
                     self._setbuf = lltype.nullptr(rffi.CCHARP.TO)
         return res
+
+    def _cleanup_(self):
+        self._ll_file = lltype.nullptr(FILEP.TO)
 
     def _check_closed(self):
         if not self._ll_file:
