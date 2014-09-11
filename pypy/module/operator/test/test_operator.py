@@ -272,7 +272,7 @@ class AppTestOperator:
         a, b = 100, 200
         raises(TypeError, operator._compare_digest, a, b)
         a, b = "fooä", "fooä"
-        assert operator._compare_digest(a, b)
+        raises(TypeError, operator._compare_digest, a, b)
 
         # subclasses are supported by ignore __eq__
         class mystr(str):
