@@ -365,11 +365,14 @@ class TestFile(BaseRtypingTest):
         def f():
             f = open(fname, "w+b")
             f.write("hello world")
-            f.seek(7)
+            f.seek(6)
+            assert f.read(1) == 'w'
             f.truncate()
+            assert f.read(1) == ''
+            f.write('w')
             f.seek(0)
             data = f.read()
-            assert data == "hello w"
+            assert data == "hello ww"
             f.close()
             f = open(fname)
             try:

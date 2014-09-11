@@ -107,6 +107,7 @@ c_fileno = llexternal(fileno, [FILEP], rffi.INT, releasegil=False)
 c_feof = llexternal('feof', [FILEP], rffi.INT, releasegil=False)
 c_ferror = llexternal('ferror', [FILEP], rffi.INT, releasegil=False)
 c_clearerr = llexternal('clearerr', [FILEP], lltype.Void, releasegil=False)
+
 c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T],
                        rffi.INT, releasegil=False)
 
@@ -568,10 +569,21 @@ class RFile(object):
     def truncate(self, arg=-1):
         self._check_closed()
         self._check_writable()
+        pos = intmask(c_ftell(self._ll_file))
+        if pos == -1:
+            c_clearerr(self._ll_file)
+            raise _from_errno(IOError)
         if arg == -1:
-            arg = self.tell()
-        self.flush()
+            arg = pos
+        res = c_fflush(self._ll_file)
+        if res != 0:
+            c_clearerr(self._ll_file)
+            raise _from_errno(IOError)
         res = c_ftruncate(self.fileno(), arg)
+        if res != 0:
+            c_clearerr(self._ll_file)
+            raise _from_errno(IOError)
+        res = c_fseek(self._ll_file, pos, os.SEEK_SET)
         if res != 0:
             c_clearerr(self._ll_file)
             raise _from_errno(IOError)
