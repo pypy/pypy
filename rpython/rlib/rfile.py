@@ -205,7 +205,7 @@ def create_popen_file(command, type):
 
 
 def create_stdio():
-    close2 = [None, None]
+    close2 = (None, None)
     stdin = RFile(c_stdin(), close2=close2)
     stdout = RFile(c_stdout(), close2=close2)
     stderr = RFile(c_stderr(), close2=close2)
