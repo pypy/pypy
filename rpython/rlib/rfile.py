@@ -86,6 +86,7 @@ c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
 c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
                       rffi.SIZE_T)
 c_fflush = llexternal('fflush', [FILEP], rffi.INT)
+c_fflush_nogil = llexternal('fflush', [FILEP], rffi.INT, releasegil=False)
 c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)
 
 c_fseek = llexternal('fseek', [FILEP, rffi.LONG, rffi.INT], rffi.INT)
@@ -195,9 +196,14 @@ def create_popen_file(command, type):
     return RFile(ll_file, close2=_pclose2)
 
 
+def _check_and_flush(ll_file):
+    prev_fail = c_ferror(ll_file)
+    return c_fflush(ll_file) or (EOF if prev_fail else 0)
+
+
 def create_stdio():
-    close2 = (None, None)
-    stdin = RFile(c_stdin(), close2=close2)
+    close2 = (_check_and_flush, c_fflush_nogil)
+    stdin = RFile(c_stdin(), close2=(None, None))
     stdout = RFile(c_stdout(), close2=close2)
     stderr = RFile(c_stderr(), close2=close2)
     return stdin, stdout, stderr

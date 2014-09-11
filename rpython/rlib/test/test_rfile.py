@@ -389,12 +389,23 @@ class TestDirect:
         cls.tmpdir = udir.join('test_rfile_direct')
         cls.tmpdir.ensure(dir=True)
 
-    def test_stdio(self):
+    def test_stdio_close(self, capfd):
         i, o, e = rfile.create_stdio()
         o.write("test\n")
         i.close()
         o.close()
         e.close()
+        out, err = capfd.readouterr()
+        assert out == "test\n"
+
+    def test_stdio_del(self, capfd):
+        i, o, e = rfile.create_stdio()
+        o.write("test\n")
+        del i
+        del o
+        del e
+        out, err = capfd.readouterr()
+        assert out == "test\n"
 
     def test_auto_close(self):
         fname = str(self.tmpdir.join('file_auto_close'))
