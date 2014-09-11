@@ -57,6 +57,7 @@ class W_File(W_AbstractStream):
             raise OperationError(space.w_IOError, w_error)
 
     def fdopenstream(self, stream, mode, w_name=None):
+        stream._signal_checker = signal_checker(self.space)
         self.stream = stream
         self.mode = mode
         self.binary = "b" in mode

@@ -209,6 +209,7 @@ def create_stdio():
 
 
 class RFile(object):
+    _signal_checker = None
     _readable = True
     _writable = True
     _setbuf = lltype.nullptr(rffi.CCHARP.TO)
@@ -382,7 +383,8 @@ class RFile(object):
                                rposix.get_errno() == errno.EINTR)
                 if interrupted:
                     c_clearerr(ll_file)
-                    # XXX check signals
+                    if self._signal_checker is not None:
+                        self._signal_checker()
                 if chunksize == 0:
                     if interrupted:
                         continue
@@ -414,7 +416,8 @@ class RFile(object):
         result = c_fgets(raw_buf, BASE_LINE_SIZE, ll_file)
         if not result:
             c_clearerr(ll_file)
-            # XXX check signals
+            if self._signal_checker is not None:
+                self._signal_checker()
             return 0
 
         # Assume that fgets() works as documented, and additionally
