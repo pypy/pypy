@@ -204,6 +204,8 @@ def create_stdio():
 
 
 class RFile(object):
+    _readable = True
+    _writable = True
     _setbuf = lltype.nullptr(rffi.CCHARP.TO)
     _univ_newline = False
     _newlinetypes = NEWLINE_UNKNOWN
@@ -213,6 +215,13 @@ class RFile(object):
         self._ll_file = ll_file
         if mode is not None:
             self._univ_newline = 'U' in mode
+            self._readable = self._writable = False
+            if 'r' in mode or self._univ_newline:
+                self._readable = True
+            if 'w' in mode or 'a' in mode:
+                self._writable = True
+            if '+' in mode:
+                self._readable = self._writable = True
         self._close2 = close2
 
     def _setbufsize(self, bufsize):
@@ -277,6 +286,14 @@ class RFile(object):
         if not self._ll_file:
             raise ValueError("I/O operation on closed file")
 
+    def _check_readable(self):
+        if not self._readable:
+            raise IOError("File not open for reading")
+
+    def _check_writable(self):
+        if not self._writable:
+            raise IOError("File not open for writing")
+
     def _fread(self, buf, n, stream):
         if not self._univ_newline:
             return c_fread(buf, 1, n, stream)
@@ -325,6 +342,7 @@ class RFile(object):
 
     def read(self, size=-1):
         self._check_closed()
+        self._check_readable()
         ll_file = self._ll_file
 
         bytesrequested = size
@@ -403,6 +421,7 @@ class RFile(object):
 
     def readline(self, size=-1):
         self._check_closed()
+        self._check_readable()
         if size == 0:
             return ""
         elif size < 0 and not self._univ_newline:
@@ -471,6 +490,7 @@ class RFile(object):
     @enforceargs(None, str)
     def write(self, value):
         self._check_closed()
+        self._check_writable()
         ll_value = rffi.get_nonmovingbuffer(value)
         try:
             # note that since we got a nonmoving buffer, it is either raw
@@ -492,6 +512,7 @@ class RFile(object):
 
     def truncate(self, arg=-1):
         self._check_closed()
+        self._check_writable()
         if arg == -1:
             arg = self.tell()
         self.flush()
