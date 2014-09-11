@@ -153,18 +153,12 @@ def create_file(filename, mode="r", buffering=-1):
     finally:
         lltype.free(ll_name, flavor='raw')
     _dircheck(ll_file)
-    if buffering >= 0:
-        buf = lltype.nullptr(rffi.CCHARP.TO)
-        if buffering == 0:
-            c_setvbuf(ll_file, buf, _IONBF, 0)
-        elif buffering == 1:
-            c_setvbuf(ll_file, buf, _IOLBF, BUFSIZ)
-        else:
-            c_setvbuf(ll_file, buf, _IOFBF, buffering)
-    return RFile(ll_file, mode)
+    f = RFile(ll_file, mode)
+    f._setbufsize(buffering)
+    return f
 
 
-def create_fdopen_rfile(fd, mode="r"):
+def create_fdopen_rfile(fd, mode="r", buffering=-1):
     newmode = _sanitize_mode(mode)
     fd = rffi.cast(rffi.INT, fd)
     rposix.validate_fd(fd)
@@ -177,7 +171,9 @@ def create_fdopen_rfile(fd, mode="r"):
     finally:
         lltype.free(ll_mode, flavor='raw')
     _dircheck(ll_file)
-    return RFile(ll_file, mode)
+    f = RFile(ll_file, mode)
+    f._setbufsize(buffering)
+    return f
 
 
 def create_temp_rfile():
@@ -213,6 +209,7 @@ def create_stdio():
 
 
 class RFile(object):
+    _setbuf = lltype.nullptr(rffi.CCHARP.TO)
     _univ_newline = False
     _newlinetypes = NEWLINE_UNKNOWN
     _skipnextlf = False
@@ -222,6 +219,23 @@ class RFile(object):
         if mode is not None:
             self._univ_newline = 'U' in mode
         self._close2 = close2
+
+    def _setbufsize(self, bufsize):
+        if bufsize >= 0:
+            if bufsize == 0:
+                mode = _IONBF
+            elif bufsize == 1:
+                mode = _IOLBF
+                bufsize = BUFSIZ
+            else:
+                mode = _IOFBF
+            if self._setbuf:
+                lltype.free(self._setbuf, flavor='raw')
+            if mode == _IONBF:
+                self._setbuf = lltype.nullptr(rffi.CCHARP.TO)
+            else:
+                self._setbuf = lltype.malloc(rffi.CCHARP.TO, bufsize, flavor='raw')
+            c_setvbuf(self._ll_file, self._setbuf, mode, bufsize)
 
     def __del__(self):
         """Closes the described file when the object's last reference
@@ -233,6 +247,8 @@ class RFile(object):
             do_close = self._close2[1]
             if do_close:
                 do_close(ll_file)       # return value ignored
+            if self._setbuf:
+                lltype.free(self._setbuf, flavor='raw')
 
     def _cleanup_(self):
         self._ll_file = lltype.nullptr(FILEP.TO)
@@ -251,11 +267,16 @@ class RFile(object):
             # double close is allowed
             self._ll_file = lltype.nullptr(FILEP.TO)
             do_close = self._close2[0]
-            if do_close:
-                res = do_close(ll_file)
-                if res == -1:
-                    errno = rposix.get_errno()
-                    raise IOError(errno, os.strerror(errno))
+            try:
+                if do_close:
+                    res = do_close(ll_file)
+                    if res == -1:
+                        errno = rposix.get_errno()
+                        raise IOError(errno, os.strerror(errno))
+            finally:
+                if self._setbuf:
+                    lltype.free(self._setbuf, flavor='raw')
+                    self._setbuf = lltype.nullptr(rffi.CCHARP.TO)
         return res
 
     def _check_closed(self):
