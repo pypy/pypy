@@ -29,12 +29,6 @@ class Module(MixedModule):
         'maxsize'               : 'space.wrap(sys.maxint)',
         'byteorder'             : 'space.wrap(sys.byteorder)',
         'maxunicode'            : 'space.wrap(vm.MAXUNICODE)',
-        'stdin'                 : 'state.getio(space).w_stdin',
-        '__stdin__'             : 'state.getio(space).w_stdin',
-        'stdout'                : 'state.getio(space).w_stdout',
-        '__stdout__'            : 'state.getio(space).w_stdout',
-        'stderr'                : 'state.getio(space).w_stderr',
-        '__stderr__'            : 'state.getio(space).w_stderr',
         'pypy_objspaceclass'    : 'space.wrap(repr(space))',
         #'prefix'               : # added by pypy_initial_path() when it
         #'exec_prefix'          : # succeeds, pointing to trunk or /usr
@@ -105,7 +99,15 @@ class Module(MixedModule):
 
     def startup(self, space):
         from pypy.module.sys.state import getio
-        getio(space).startup(space)
+        io = getio(space)
+        io.startup(space)
+
+        for k in ["stdin", "__stdin__"]:
+            space.setitem(self.w_dict, space.wrap(k), io.stdin)
+        for k in ["stdout", "__stdout__"]:
+            space.setitem(self.w_dict, space.wrap(k), io.stdout)
+        for k in ["stderr", "__stderr__"]:
+            space.setitem(self.w_dict, space.wrap(k), io.stderr)
 
         if space.config.translating and not we_are_translated():
             # don't get the filesystemencoding at translation time

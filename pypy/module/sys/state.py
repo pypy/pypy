@@ -41,15 +41,15 @@ class IOState:
 
         stdin = W_File(space)
         stdin.fdopenstream(i, "r", space.wrap("<stdin>"))
-        self.w_stdin = space.wrap(stdin)
+        self.stdin = stdin
 
         stdout = W_File(space)
         stdout.fdopenstream(o, "w", space.wrap("<stdout>"))
-        self.w_stdout = space.wrap(stdout)
+        self.stdout = stdout
 
         stderr = W_File(space)
         stderr.fdopenstream(e, "w", space.wrap("<stderr>"))
-        self.w_stderr = space.wrap(stderr)
+        self.stderr = stderr
 
 def getio(space):
     return space.fromcache(IOState)
