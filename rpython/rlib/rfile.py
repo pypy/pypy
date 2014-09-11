@@ -330,37 +330,49 @@ class RFile(object):
         return i
 
     def read(self, size=-1):
-        # XXX CPython uses a more delicate logic here
         self._check_closed()
         ll_file = self._ll_file
-        if size == 0:
-            return ""
-        elif size < 0:
-            # read the entire contents
-            buf = lltype.malloc(rffi.CCHARP.TO, BASE_BUF_SIZE, flavor='raw')
-            try:
-                s = StringBuilder()
-                while True:
-                    returned_size = self._fread(buf, BASE_BUF_SIZE, ll_file)
-                    returned_size = intmask(returned_size)  # is between 0 and BASE_BUF_SIZE
-                    if returned_size == 0:
-                        if c_feof(ll_file):
-                            # ok, finished
-                            return s.build()
-                        raise _error(ll_file)
-                    s.append_charpsize(buf, returned_size)
-            finally:
-                lltype.free(buf, flavor='raw')
-        else:  # size > 0
-            with rffi.scoped_alloc_buffer(size) as buf:
-                returned_size = self._fread(buf.raw, size, ll_file)
-                returned_size = intmask(returned_size)  # is between 0 and size
-                if returned_size == 0:
-                    if not c_feof(ll_file):
-                        raise _error(ll_file)
-                s = buf.str(returned_size)
-                assert s is not None
-            return s
+
+        bytesrequested = size
+        if bytesrequested < 0:
+            buffersize = BASE_BUF_SIZE
+        else:
+            buffersize = bytesrequested
+        bytesread = 0
+
+        s = StringBuilder()
+        buf = lltype.malloc(rffi.CCHARP.TO, buffersize, flavor='raw')
+        try:
+            while True:
+                if bytesrequested >= 0:
+                    buffersize = bytesrequested - bytesread
+                    assert buffersize >= 0
+                chunksize = intmask(self._fread(buf, buffersize, ll_file))
+                interrupted = (c_ferror(ll_file) and
+                               rposix.get_errno() == errno.EINTR)
+                if interrupted:
+                    c_clearerr(ll_file)
+                    # XXX check signals
+                if chunksize == 0:
+                    if interrupted:
+                        continue
+                    if not c_ferror(ll_file):
+                        break
+                    c_clearerr(ll_file)
+                    if bytesread > 0 and rposix.get_errno() == errno.EAGAIN:
+                        break
+                    err = rposix.get_errno()
+                    raise IOError(err, os.strerror(err))
+                s.append_charpsize(buf, chunksize)
+                bytesread += chunksize
+                if chunksize < buffersize and not interrupted:
+                    c_clearerr(ll_file)
+                    break
+                if bytesrequested >= 0:
+                    break
+        finally:
+            lltype.free(buf, flavor='raw')
+        return s.build()
 
     def _readline1(self, raw_buf):
         ll_file = self._ll_file
