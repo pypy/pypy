@@ -612,8 +612,39 @@ class Transformer(object):
             # XXX only strings or simple arrays for now
             ARRAY = op.args[0].value
             arraydescr = self.cpu.arraydescrof(ARRAY)
-            return SpaceOperation('new_array', [op.args[2], arraydescr],
-                                  op.result)
+            op1 = SpaceOperation('new_array', [op.args[2], arraydescr],
+                                 op.result)
+            if self._has_gcptrs_in(ARRAY):
+                return self.zero_contents([op1], op.result, ARRAY,
+                                          only_gc_pointers=True)
+            if op.args[1].value.get('zero', False):
+                return self.zero_contents([op1], op.result, ARRAY)
+            return op1
+
+    def zero_contents(self, ops, v, TYPE, only_gc_pointers=False):
+        if isinstance(TYPE, lltype.Struct):
+            for name, FIELD in TYPE._flds.iteritems():
+                if (not only_gc_pointers or
+                    isinstance(FIELD, lltype.Ptr) and FIELD._needsgc()):
+                    c_name = Constant(name, lltype.Void)
+                    c_null = Constant(FIELD._defl(), FIELD)
+                    op = SpaceOperation('setfield', [v, c_name, c_null],
+                                        None)
+                    self.extend_with(ops, self.rewrite_op_setfield(op,
+                                          override_type=TYPE))
+                elif isinstance(FIELD, lltype.Struct):
+                    # substruct
+                    self.zero_contents(ops, v, FIELD,
+                                       only_gc_pointers=only_gc_pointers)
+        elif isinstance(TYPE, lltype.Array):
+            arraydescr = self.cpu.arraydescrof(TYPE)
+            ops.append(SpaceOperation('clear_array_contents',
+                                      [v, arraydescr], None))
+        else:
+            raise TypeError("Expected struct or array, got '%r'", (TYPE,))
+        if len(ops) == 1:
+            return ops[0]
+        return ops
 
     def extend_with(self, l, ops):
         if ops is None:
@@ -899,7 +930,28 @@ class Transformer(object):
         else:
             opname = 'new'
         sizedescr = self.cpu.sizeof(STRUCT)
-        return SpaceOperation(opname, [sizedescr], op.result)
+        op1 = SpaceOperation(opname, [sizedescr], op.result)
+        if true_zero:
+            return self.zero_contents([op1], op.result, STRUCT)
+        if self._has_gcptrs_in(STRUCT):
+            return self.zero_contents([op1], op.result, STRUCT,
+                                      only_gc_pointers=True)
+        return op1
+
+    def _has_gcptrs_in(self, STRUCT):
+        if isinstance(STRUCT, lltype.Array):
+            ITEM = STRUCT.OF
+            if isinstance(ITEM, lltype.Struct):
+                STRUCT = ITEM
+            else:
+                return isinstance(ITEM, lltype.Ptr) and ITEM._needsgc()
+        for FIELD in STRUCT._flds.values():
+            if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
+                return True
+            elif isinstance(FIELD, lltype.Struct):
+                if self._has_gcptrs_in(FIELD):
+                    return True
+        return False
 
     def rewrite_op_getinteriorarraysize(self, op):
         # only supports strings and unicodes
@@ -1625,6 +1677,8 @@ class Transformer(object):
             v.concretetype = lltype.Signed
             ops.append(SpaceOperation('int_force_ge_zero', [v_length], v))
         ops.append(SpaceOperation('new_array', [v, arraydescr], op.result))
+        if self._has_gcptrs_in(op.result.concretetype.TO):
+            self.zero_contents(ops, op.result, op.result.concretetype.TO)
         return ops
 
     def do_fixed_list_len(self, op, args, arraydescr):
