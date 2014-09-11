@@ -865,7 +865,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def gct_do_malloc_varsize_clear(self, hop):
         # used by the JIT (see rpython.jit.backend.llsupport.gc)
-        self.gct_do_malloc_fixedsize(hop)
+        self.gct_do_malloc_varsize(hop)
         if not self.malloc_zero_filled:
             op = hop.spaceop
             v_size = op.args[1]
