@@ -468,9 +468,9 @@ class RFile(object):
         try:
             # note that since we got a nonmoving buffer, it is either raw
             # or already cannot move, so the arithmetics below are fine
-            length = len(value)
-            bytes = c_fwrite(ll_value, 1, length, self._ll_file)
-            if bytes != length:
+            n = len(value)
+            n2 = c_fwrite(ll_value, 1, n, self._ll_file)
+            if n2 != n or c_ferror(self._ll_file):
                 errno = rposix.get_errno()
                 c_clearerr(self._ll_file)
                 raise IOError(errno, os.strerror(errno))
