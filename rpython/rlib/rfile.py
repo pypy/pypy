@@ -478,50 +478,71 @@ class RFile(object):
             return s.build()
         else:  # size > 0 or self._univ_newline
             ll_file = self._ll_file
+            newlinetypes = self._newlinetypes
+            skipnextlf = self._skipnextlf
             c = 0
             s = StringBuilder()
-            if self._univ_newline:
-                newlinetypes = self._newlinetypes
-                skipnextlf = self._skipnextlf
-                while size < 0 or s.getlength() < size:
-                    c = c_getc(ll_file)
-                    if c == EOF:
-                        break
-                    if skipnextlf:
-                        skipnextlf = False
+            while True:
+                if self._univ_newline:
+                    while size < 0 or s.getlength() < size:
+                        c = c_getc(ll_file)
+                        if c == EOF:
+                            break
+                        if skipnextlf:
+                            skipnextlf = False
+                            if c == ord('\n'):
+                                newlinetypes |= NEWLINE_CRLF
+                                c = c_getc(ll_file)
+                                if c == EOF:
+                                    break
+                            else:
+                                newlinetypes |= NEWLINE_CR
+                        if c == ord('\r'):
+                            skipnextlf = True
+                            c = ord('\n')
+                        elif c == ord('\n'):
+                            newlinetypes |= NEWLINE_LF
+                        s.append(chr(c))
                         if c == ord('\n'):
-                            newlinetypes |= NEWLINE_CRLF
-                            c = c_getc(ll_file)
-                            if c == EOF:
-                                break
-                        else:
+                            break
+                    if c == EOF:
+                        if c_ferror(ll_file) and rposix.get_errno() == errno.EINTR:
+                            self._newlinetypes = newlinetypes
+                            self._skipnextlf = skipnextlf
+                            if self._signal_checker is not None:
+                                self._signal_checker()
+                            c_clearerr(ll_file)
+                            continue
+                        if skipnextlf:
                             newlinetypes |= NEWLINE_CR
-                    if c == ord('\r'):
-                        skipnextlf = True
-                        c = ord('\n')
-                    elif c == ord('\n'):
-                        newlinetypes |= NEWLINE_LF
-                    s.append(chr(c))
-                    if c == ord('\n'):
-                        break
-                if c == EOF:
-                    if skipnextlf:
-                        newlinetypes |= NEWLINE_CR
+                else:
+                    while s.getlength() < size:
+                        c = c_getc(ll_file)
+                        if c == EOF:
+                            break
+                        s.append(chr(c))
+                        if c == ord('\n'):
+                            break
                 self._newlinetypes = newlinetypes
                 self._skipnextlf = skipnextlf
-            else:
-                while s.getlength() < size:
-                    c = c_getc(ll_file)
-                    if c == EOF:
-                        break
-                    s.append(chr(c))
-                    if c == ord('\n'):
-                        break
-            if c == EOF:
-                if c_ferror(ll_file):
+                if c == ord('\n'):
+                    break
+                elif c == EOF:
+                    if c_ferror(ll_file):
+                        if rposix.get_errno() == errno.EINTR:
+                            if self._signal_checker is not None:
+                                self._signal_checker()
+                            c_clearerr(ll_file)
+                            continue
+                        c_clearerr(ll_file)
+                        raise _from_errno(IOError)
                     c_clearerr(ll_file)
-                    raise _from_errno(IOError)
-                c_clearerr(ll_file)
+                    if self._signal_checker is not None:
+                        self._signal_checker()
+                    break
+                else:
+                    assert s.getlength() == size
+                    break
             return s.build()
 
     @enforceargs(None, str)
