@@ -54,15 +54,16 @@ class ResultLog(object):
         self.logfile = logfile # preferably line buffered
 
     def write_log_entry(self, testpath, lettercode, longrepr, sections=None):
-        py.builtin.print_("%s %s" % (lettercode, testpath), file=self.logfile)
+        _safeprint("%s %s" % (lettercode, testpath), file=self.logfile)
         for line in longrepr.splitlines():
-            py.builtin.print_(" %s" % line, file=self.logfile)
-        if sections is not None:
+            _safeprint(" %s" % line, file=self.logfile)
+        if sections is not None and (
+                lettercode in ('E', 'F')):    # to limit the size of logs
             for title, content in sections:
-                py.builtin.print_(" ---------- %s ----------" % (title,),
-                                  file=self.logfile)
+                _safeprint(" ---------- %s ----------" % (title,),
+                           file=self.logfile)
                 for line in content.splitlines():
-                    py.builtin.print_(" %s" % line, file=self.logfile)
+                    _safeprint(" %s" % line, file=self.logfile)
 
     def log_outcome(self, report, lettercode, longrepr):
         testpath = getattr(report, 'nodeid', None)
@@ -105,3 +106,8 @@ class ResultLog(object):
         if path is None:
             path = "cwd:%s" % py.path.local()
         self.write_log_entry(path, '!', str(excrepr))
+
+def _safeprint(s, file):
+    if isinstance(s, unicode):
+        s = s.encode('utf-8')
+    py.builtin.print_(s, file=file)

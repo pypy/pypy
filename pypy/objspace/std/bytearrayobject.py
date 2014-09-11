@@ -534,7 +534,7 @@ def makebytearraydata_w(space, w_source):
         if not e.match(space, space.w_TypeError):
             raise
     else:
-        return [c for c in buf.as_str()]
+        return list(buf.as_str())
 
     # sequence of bytes
     w_iter = space.iter(w_source)
@@ -1131,6 +1131,7 @@ W_BytearrayObject.typedef = StdTypeDef(
     reverse = interp2app(W_BytearrayObject.descr_reverse,
                          doc=BytearrayDocstrings.reverse.__doc__),
 )
+W_BytearrayObject.typedef.flag_sequence_bug_compat = True
 
 init_signature = Signature(['source', 'encoding', 'errors'], None, None)
 init_defaults = [None, None, None]

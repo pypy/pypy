@@ -61,13 +61,16 @@ class FdLoader(rmarshal.Loader):
     def need_more_data(self):
         buflen = self.buflen
         buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
-        buflen = rffi.cast(rffi.SIZE_T, buflen)
-        count = ll_read_not_sandboxed(self.fd, buf, buflen)
-        count = rffi.cast(lltype.Signed, count)
-        if count <= 0:
-            raise IOError
-        self.buf += ''.join([buf[i] for i in range(count)])
-        self.buflen *= 2
+        try:
+            buflen = rffi.cast(rffi.SIZE_T, buflen)
+            count = ll_read_not_sandboxed(self.fd, buf, buflen)
+            count = rffi.cast(lltype.Signed, count)
+            if count <= 0:
+                raise IOError
+            self.buf += ''.join([buf[i] for i in range(count)])
+            self.buflen *= 2
+        finally:
+            lltype.free(buf, flavor='raw')
 
 def sandboxed_io(buf):
     STDIN = 0

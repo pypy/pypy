@@ -91,6 +91,10 @@ class AppTestAppSysTests:
         assert isinstance(sys.__stderr__, file)
         assert isinstance(sys.__stdin__, file)
 
+        assert sys.__stdin__.name == "<stdin>"
+        assert sys.__stdout__.name == "<stdout>"
+        assert sys.__stderr__.name == "<stderr>"
+
         if self.appdirect and not isinstance(sys.stdin, file):
             return
 
