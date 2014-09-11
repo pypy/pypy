@@ -104,15 +104,53 @@ class TestFile(BaseRtypingTest):
         f()
         self.interpret(f, [])
 
+    @py.test.mark.skipif("sys.platform == 'win32'")
+    # http://msdn.microsoft.com/en-us/library/86cebhfs.aspx
+    def test_fdopen_buffering_line(self):
+        fname = str(self.tmpdir.join('file_1a'))
+
+        def f():
+            g = open(fname, 'w')
+            f = os.fdopen(os.dup(g.fileno()), 'w', 1)
+            g.close()
+            f.write('dupa\ndupb')
+            f2 = open(fname, 'r')
+            assert f2.read() == 'dupa\n'
+            f.close()
+            assert f2.read() == 'dupb'
+            f2.close()
+
+        f()
+        self.interpret(f, [])
+
     def test_open_buffering_full(self):
         fname = str(self.tmpdir.join('file_1b'))
 
         def f():
             f = open(fname, 'w', 128)
-            f.write('dupa')
+            f.write('dupa\ndupb')
             f2 = open(fname, 'r')
             assert f2.read() == ''
-            f.write('z' * 5000)
+            f.write('z' * 120)
+            assert f2.read() != ''
+            f.close()
+            assert f2.read() != ''
+            f2.close()
+
+        f()
+        self.interpret(f, [])
+
+    def test_fdopen_buffering_full(self):
+        fname = str(self.tmpdir.join('file_1b'))
+
+        def f():
+            g = open(fname, 'w')
+            f = os.fdopen(os.dup(g.fileno()), 'w', 128)
+            g.close()
+            f.write('dupa\ndupb')
+            f2 = open(fname, 'r')
+            assert f2.read() == ''
+            f.write('z' * 120)
             assert f2.read() != ''
             f.close()
             assert f2.read() != ''
