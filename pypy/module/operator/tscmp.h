@@ -1,1 +1,2 @@
-int pypy_tscmp(const unsigned char *a, const unsigned char *b, long len_a, long len_b);
+int pypy_tscmp(const char *, const char *, long, long);
+int pypy_tscmp_wide(const wchar_t *, const wchar_t *, long, long);

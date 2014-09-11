@@ -335,14 +335,8 @@ class AppTestOperator:
         a, b = mybytes(b"foobar"), mybytes(b"foobaz")
         assert not operator._compare_digest(a, b)
 
-    def test_compare_digest_buffer(self):
+    def test_compare_digest_unicode(self):
         import operator
-        assert operator._compare_digest(b'asd', b'asd')
-        assert not operator._compare_digest(b'asd', b'qwe')
-        assert not operator._compare_digest(b'asd', b'asdq')
-
-    def test_compare_digest_ascii(self):
-        import operator
-        assert operator._compare_digest('asd', 'asd')
-        assert not operator._compare_digest('asd', 'qwe')
-        assert not operator._compare_digest('asd', 'asdq')
+        assert operator._compare_digest(u'asd', u'asd')
+        assert not operator._compare_digest(u'asd', u'qwe')
+        raises(TypeError, operator._compare_digest, u'asd', b'qwe')
