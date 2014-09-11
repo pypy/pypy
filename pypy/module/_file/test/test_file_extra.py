@@ -1,5 +1,6 @@
 import os, random, sys
 import rpython.tool.udir
+from rpython.tool import leakfinder
 import py
 
 udir = rpython.tool.udir.udir.ensure('test_file_extra', dir=1)
@@ -230,15 +231,16 @@ class AppTestFile(BaseROTests):
             w_filetype = space.gettypeobject(W_File.typedef)
         else:
             w_filetype = file    # TinyObjSpace, for "py.test -A"
+        self.w_sample = space.wrap(self.sample)
+        self.w_expected_filename = space.wrap(self.expected_filename)
+        self.w_expected_mode = space.wrap(self.expected_mode)
+        self.w_expected_lines = space.wrap(self.get_expected_lines())
+        leakfinder.start_tracking_allocations()
         self.w_file = space.call_function(
             w_filetype,
             space.wrap(self.expected_filename),
             space.wrap(self.expected_mode),
             *[space.wrap(a) for a in self.extra_args])
-        self.w_sample = space.wrap(self.sample)
-        self.w_expected_filename = space.wrap(self.expected_filename)
-        self.w_expected_mode = space.wrap(self.expected_mode)
-        self.w_expected_lines = space.wrap(self.get_expected_lines())
 
     def teardown_method(self, method):
         self.space.call_method(self.w_file, 'close')

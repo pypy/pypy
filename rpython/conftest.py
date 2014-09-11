@@ -64,8 +64,9 @@ class LeakFinder:
         __multicall__.execute()
         if not isinstance(item, py.test.collect.Function):
             return
-        if not getattr(item.obj, 'dont_track_allocations', False):
-            leakfinder.start_tracking_allocations()
+        if (not getattr(item.obj, 'dont_track_allocations', False)
+            and not leakfinder.TRACK_ALLOCATIONS):
+                leakfinder.start_tracking_allocations()
 
     def pytest_runtest_call(self, __multicall__, item):
         __multicall__.execute()
