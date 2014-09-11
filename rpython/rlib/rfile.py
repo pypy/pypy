@@ -524,13 +524,6 @@ class RFile(object):
         finally:
             rffi.free_nonmovingbuffer(value, ll_value)
 
-    def flush(self):
-        self._check_closed()
-        res = c_fflush(self._ll_file)
-        if res != 0:
-            c_clearerr(self._ll_file)
-            raise _from_errno(IOError)
-
     def truncate(self, arg=-1):
         self._check_closed()
         self._check_writable()
@@ -538,6 +531,13 @@ class RFile(object):
             arg = self.tell()
         self.flush()
         res = c_ftruncate(self.fileno(), arg)
+        if res != 0:
+            c_clearerr(self._ll_file)
+            raise _from_errno(IOError)
+
+    def flush(self):
+        self._check_closed()
+        res = c_fflush(self._ll_file)
         if res != 0:
             c_clearerr(self._ll_file)
             raise _from_errno(IOError)
