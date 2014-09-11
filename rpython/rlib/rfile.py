@@ -369,19 +369,11 @@ class RFile(object):
         self._check_readable()
         ll_file = self._ll_file
 
-        bytesrequested = size
-        if bytesrequested < 0:
-            buffersize = self._new_buffersize(0)
-        else:
-            buffersize = bytesrequested
-        bytesread = 0
-
         s = StringBuilder()
+        buffersize = size if size >= 0 else self._new_buffersize(0)
         buf = lltype.malloc(rffi.CCHARP.TO, buffersize, flavor='raw')
         try:
             while True:
-                if bytesrequested >= 0:
-                    buffersize = bytesrequested - bytesread
                 assert buffersize >= 0
                 chunksize = intmask(self._fread(buf, buffersize, ll_file))
                 interrupted = (c_ferror(ll_file) and
@@ -395,20 +387,18 @@ class RFile(object):
                     if not c_ferror(ll_file):
                         break
                     c_clearerr(ll_file)
-                    if bytesread > 0 and rposix.get_errno() == errno.EAGAIN:
+                    if s.getlength() > 0 and rposix.get_errno() == errno.EAGAIN:
                         break
                     raise _from_errno(IOError)
                 s.append_charpsize(buf, chunksize)
-                bytesread += chunksize
                 if chunksize < buffersize and not interrupted:
                     c_clearerr(ll_file)
                     break
-                if bytesrequested >= 0:
+                if size >= 0:
                     break
-                else:
-                    buffersize = self._new_buffersize(buffersize)
-                    lltype.free(buf, flavor='raw')
-                    buf = lltype.malloc(rffi.CCHARP.TO, buffersize, flavor='raw')
+                buffersize = self._new_buffersize(buffersize)
+                lltype.free(buf, flavor='raw')
+                buf = lltype.malloc(rffi.CCHARP.TO, buffersize, flavor='raw')
         finally:
             lltype.free(buf, flavor='raw')
         return s.build()
