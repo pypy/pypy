@@ -554,14 +554,15 @@ class RFile(object):
     def write(self, value):
         self._check_closed()
         self._check_writable()
+        ll_file = self._ll_file
         ll_value = rffi.get_nonmovingbuffer(value)
         try:
             # note that since we got a nonmoving buffer, it is either raw
             # or already cannot move, so the arithmetics below are fine
             n = len(value)
-            n2 = c_fwrite(ll_value, 1, n, self._ll_file)
-            if n2 != n or c_ferror(self._ll_file):
-                c_clearerr(self._ll_file)
+            n2 = c_fwrite(ll_value, 1, n, ll_file)
+            if n2 != n or c_ferror(ll_file):
+                c_clearerr(ll_file)
                 raise _from_errno(IOError)
         finally:
             rffi.free_nonmovingbuffer(value, ll_value)
@@ -569,23 +570,24 @@ class RFile(object):
     def truncate(self, arg=-1):
         self._check_closed()
         self._check_writable()
-        pos = intmask(c_ftell(self._ll_file))
+        ll_file = self._ll_file
+        pos = intmask(c_ftell(ll_file))
         if pos == -1:
-            c_clearerr(self._ll_file)
+            c_clearerr(ll_file)
             raise _from_errno(IOError)
         if arg == -1:
             arg = pos
-        res = c_fflush(self._ll_file)
+        res = c_fflush(ll_file)
         if res != 0:
-            c_clearerr(self._ll_file)
+            c_clearerr(ll_file)
             raise _from_errno(IOError)
-        res = c_ftruncate(self.fileno(), arg)
+        res = c_ftruncate(c_fileno(ll_file), arg)
         if res != 0:
-            c_clearerr(self._ll_file)
+            c_clearerr(ll_file)
             raise _from_errno(IOError)
-        res = c_fseek(self._ll_file, pos, os.SEEK_SET)
+        res = c_fseek(ll_file, pos, os.SEEK_SET)
         if res != 0:
-            c_clearerr(self._ll_file)
+            c_clearerr(ll_file)
             raise _from_errno(IOError)
 
     def flush(self):
