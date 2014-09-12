@@ -316,12 +316,15 @@ class TestFile(BaseRtypingTest):
                 pass
             else:
                 assert False
-            try:
-                f.readline()
-            except IOError as e:
-                pass
+            if os.name != 'nt':
+                try:
+                    f.readline()
+                except IOError as e:
+                    pass
+                else:
+                    assert False
             else:
-                assert False
+                assert f.readline() == ''
             try:
                 f.close()
             except IOError as e:
