@@ -262,6 +262,7 @@ class TestFile(BaseRtypingTest):
         f()
         self.interpret(f, [])
 
+    @py.test.mark.xfail("os.name == 'nt'")
     def test_seek(self):
         fname = str(self.tmpdir.join('file_4'))
 
