@@ -437,10 +437,18 @@ producing strings. This is equivalent to calling write() for each string."""
         # XXX not the most efficient solution as it doesn't avoid the copying
         space = self.space
         rwbuffer = space.writebuf_w(w_rwbuffer)
-        w_data = self.file_read(rwbuffer.getlength())
-        data = space.str_w(w_data)
-        rwbuffer.setslice(0, data)
-        return space.wrap(len(data))
+        ntodo = rwbuffer.getlength()
+        ndone = 0
+        while ntodo:
+            w_data = self.file_read(ntodo)
+            data = space.str_w(w_data)
+            nnow = len(data)
+            if nnow == 0:
+                break
+            rwbuffer.setslice(ndone, data)
+            ndone += nnow
+            ntodo -= nnow
+        return space.wrap(ndone)
 
 
 # ____________________________________________________________
