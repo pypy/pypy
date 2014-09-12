@@ -295,17 +295,18 @@ class AppTestFdOpen(BaseROTests):
             w_filetype = os    # TinyObjSpace, for "py.test -A"
                                # (CPython has no file.fdopen, only os.fdopen)
         fd = os.open(AppTestFile.expected_filename, os.O_RDONLY | O_BINARY)
+        self.w_fd = space.wrap(fd)
+        self.w_sample = space.wrap(self.sample)
+        self.w_expected_filename = space.wrap(self.expected_filename)
+        self.w_expected_mode = space.wrap(self.expected_mode)
+        self.w_expected_lines = space.wrap(self.get_expected_lines())
+        leakfinder.start_tracking_allocations()
         self.w_file = space.call_method(
             w_filetype,
             'fdopen',
             space.wrap(fd),
             space.wrap(self.expected_mode),
             *[space.wrap(a) for a in self.extra_args])
-        self.w_fd = space.wrap(fd)
-        self.w_sample = space.wrap(self.sample)
-        self.w_expected_filename = space.wrap(self.expected_filename)
-        self.w_expected_mode = space.wrap(self.expected_mode)
-        self.w_expected_lines = space.wrap(self.get_expected_lines())
 
     def teardown_method(self, method):
         self.space.call_method(self.w_file, 'close')
