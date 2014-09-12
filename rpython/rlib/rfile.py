@@ -112,8 +112,11 @@ c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
 
 c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)
 
-c_fseek = llexternal('fseek', [FILEP, rffi.LONG, rffi.INT], rffi.INT)
-c_ftell = llexternal('ftell', [FILEP], rffi.LONG)
+c_fseek = llexternal('fseeko', [FILEP, OFF_T, rffi.INT], rffi.INT)
+c_ftell = llexternal('ftello', [FILEP], OFF_T)
+if os.name == 'nt':
+    c_fseek = llexternal('_fseeki64', [FILEP, rffi.LONGLONG, rffi.INT], rffi.INT)
+    c_ftell = llexternal('_ftelli64', [FILEP], rffi.LONGLONG)
 
 c_fileno = llexternal(fileno, [FILEP], rffi.INT, releasegil=False)
 c_feof = llexternal('feof', [FILEP], rffi.INT, releasegil=False)
@@ -592,7 +595,7 @@ class RFile(object):
         self._check_closed()
         self._check_writable()
         ll_file = self._ll_file
-        pos = intmask(c_ftell(ll_file))
+        pos = c_ftell(ll_file)
         if pos == -1:
             c_clearerr(ll_file)
             raise _from_errno(IOError)
@@ -628,7 +631,7 @@ class RFile(object):
 
     def tell(self):
         self._check_closed()
-        res = intmask(c_ftell(self._ll_file))
+        res = c_ftell(self._ll_file)
         if res == -1:
             c_clearerr(self._ll_file)
             raise _from_errno(IOError)
