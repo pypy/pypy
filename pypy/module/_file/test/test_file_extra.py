@@ -503,24 +503,26 @@ class AppTestAFewExtra:
         f.close()
 
     def test_flush(self):
-        import os
+        import os, sys
         fn = self.temptestfile
         f = file(fn, 'w', 0)
         f.write('x')
         assert os.stat(fn).st_size == 1
         f.close()
 
-        f = file(fn, 'wb', 1)
-        f.write('x')
-        assert os.stat(fn).st_size == 0
-        f.write('\n')
-        assert os.stat(fn).st_size == 2
-        f.write('x')
-        assert os.stat(fn).st_size == 2
-        f.flush()
-        assert os.stat(fn).st_size == 3
-        f.close()
-        assert os.stat(fn).st_size == 3
+        # http://msdn.microsoft.com/en-us/library/86cebhfs.aspx
+        if sys.platform != 'win32':
+            f = file(fn, 'wb', 1)
+            f.write('x')
+            assert os.stat(fn).st_size == 0
+            f.write('\n')
+            assert os.stat(fn).st_size == 2
+            f.write('x')
+            assert os.stat(fn).st_size == 2
+            f.flush()
+            assert os.stat(fn).st_size == 3
+            f.close()
+            assert os.stat(fn).st_size == 3
 
         f = file(fn, 'wb', 1000)
         f.write('x')
