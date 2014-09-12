@@ -293,7 +293,7 @@ class TestFile(BaseRtypingTest):
         f()
         self.interpret(f, [])
 
-    def test_fdopen(self):
+    def test_fdopen_normal(self):
         fname = str(self.tmpdir.join('file_4a'))
 
         def f():
@@ -310,6 +310,17 @@ class TestFile(BaseRtypingTest):
             f2.write("xxx")
             f2.close()
 
+        f()
+        assert open(fname).read() == "xxx"
+        self.interpret(f, [])
+        assert open(fname).read() == "xxx"
+
+    @py.test.mark.skipif("sys.platform == 'win32'")
+    def test_fdopen_errors(self):
+        fname = str(self.tmpdir.join('file'))
+
+        def f():
+            open(fname, 'w').close()
             fd = os.open(fname, os.O_RDONLY, 0777)
             f = os.fdopen(fd, 'r')
             os.close(fd)
@@ -336,9 +347,7 @@ class TestFile(BaseRtypingTest):
                 assert False
 
         f()
-        assert open(fname).read() == "xxx"
         self.interpret(f, [])
-        assert open(fname).read() == "xxx"
 
     def test_fileno(self):
         fname = str(self.tmpdir.join('file_5'))

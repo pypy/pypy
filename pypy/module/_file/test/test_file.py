@@ -236,12 +236,14 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
             data = f.read()
             assert data == "15"
 
+    @py.test.mark.skipif("sys.platform == 'win32'")
     def test_exception_from_close(self):
         import os
         f = self.file(self.temppath, 'w')
         os.close(f.fileno())
         raises(IOError, f.close)    # bad file descriptor
 
+    @py.test.mark.skipif("sys.platform == 'win32'")
     def test_exception_from_del(self):
         import os, gc, sys, cStringIO
         f = self.file(self.temppath, 'w')
