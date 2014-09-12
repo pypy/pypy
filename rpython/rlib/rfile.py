@@ -89,12 +89,12 @@ c_pclose, c_pclose_nogil = (llexternal(*_pclose),
 _fclose2 = (c_fclose, c_fclose_nogil)
 _pclose2 = (c_pclose, c_pclose_nogil)
 
-c_flockfile = llexternal('flockfile', [FILEP], lltype.Void, releasegil=False)
-c_funlockfile = llexternal('funlockfile', [FILEP], lltype.Void, releasegil=False)
+c_flockfile = llexternal('flockfile', [FILEP], lltype.Void)
+c_funlockfile = llexternal('funlockfile', [FILEP], lltype.Void)
 
-c_getc = llexternal('getc', [FILEP], rffi.INT, releasegil=False)
-c_getc_unlocked = llexternal('getc_unlocked', [FILEP], rffi.INT, releasegil=False)
-c_ungetc = llexternal('ungetc', [rffi.INT, FILEP], rffi.INT, releasegil=False)
+c_getc = llexternal('getc', [FILEP], rffi.INT)
+c_getc_unlocked = llexternal('getc_unlocked', [FILEP], rffi.INT)
+c_ungetc = llexternal('ungetc', [rffi.INT, FILEP], rffi.INT)
 
 if os.name == 'nt':
     c_flockfile = lambda ll_file: None
