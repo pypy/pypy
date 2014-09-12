@@ -525,7 +525,7 @@ class ContainerNode(Node):
             # a union with length 0
             lines[0] = cdecl(type, name, self.is_thread_local())
         else:
-            if name != self.name:    
+            if name != self.name:
                 lines[0] = '{ ' + lines[0]    # extra braces around the 'a' part
                 lines[-1] += ' }'             # of the union
             lines[0] = '%s = %s' % (
@@ -567,12 +567,6 @@ class StructNode(ContainerNode):
     def initializationexpr(self, decoration=''):
         T = self.getTYPE()
         is_empty = True
-        type, name = self.get_declaration()
-        if name != self.name and self.getvarlength() < 1:
-            # an empty union
-            yield ''
-            return
-        yield '{'
         defnode = self.db.gettypedefnode(T)
 
         data = []
@@ -601,7 +595,13 @@ class StructNode(ContainerNode):
             padding_drop = T._hints['get_padding_drop'](d)
         else:
             padding_drop = []
+        type, name = self.get_declaration()
+        if name != self.name and self.getvarlength() < 1 and len(data) < 1:
+            # an empty union
+            yield ''
+            return
 
+        yield '{'
         for name, value in data:
             if name in padding_drop:
                 continue
