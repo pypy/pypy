@@ -17,13 +17,18 @@ class TestCall(BaseTestPyPyC):
             # now we can inline it as call assembler
             i = 0
             j = 0
-            while i < 20:
+            while i < 25:
                 i += 1
                 j += rec(100) # ID: call_rec
             return j
         #
-        log = self.run(fn, [], threshold=18)
-        loop, = log.loops_by_filename(self.filepath)
+        # NB. the parameters below are a bit ad-hoc.  After 16 iterations,
+        # the we trace from the "while" and reach a "trace too long".  Then
+        # in the next execution, we trace the "rec" function from start;
+        # that's "functrace" below.  Then after one or two extra iterations
+        # we try again from "while", and this time we succeed.
+        log = self.run(fn, [], threshold=20)
+        functrace, loop = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('call_rec', """
             ...
             p53 = call_assembler(..., descr=...)

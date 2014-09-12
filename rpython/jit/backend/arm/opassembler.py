@@ -1128,6 +1128,8 @@ class ResOpAssembler(BaseAssembler):
         self.mc.VCVT_int_to_float(res.value, r.svfp_ip.value)
         return fcond
 
+    # the following five instructions are only ARMv7;
+    # regalloc.py won't call them at all on ARMv6
     emit_op_llong_add = gen_emit_float_op('llong_add', 'VADD_i64')
     emit_op_llong_sub = gen_emit_float_op('llong_sub', 'VSUB_i64')
     emit_op_llong_and = gen_emit_float_op('llong_and', 'VAND_i64')
@@ -1147,14 +1149,15 @@ class ResOpAssembler(BaseAssembler):
     emit_op_convert_longlong_bytes_to_float = gen_emit_unary_float_op(
                                     'longlong_bytes_to_float', 'VMOV_cc')
 
-    def emit_op_read_timestamp(self, op, arglocs, regalloc, fcond):
-        assert 0, 'not supported'
+    """   disabled: missing an implementation that works in user mode
+    def ..._read_timestamp(...):
         tmp = arglocs[0]
         res = arglocs[1]
         self.mc.MRC(15, 0, tmp.value, 15, 12, 1)
         self.mc.MOV_ri(r.ip.value, 0)
         self.mc.VMOV_cr(res.value, tmp.value, r.ip.value)
         return fcond
+    """
 
     def emit_op_cast_float_to_singlefloat(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 class AppTestOperator:
     def test_equality(self):
@@ -15,7 +16,7 @@ class AppTestOperator:
         assert a.get3("foobar") == "b"
         assert a.getx(*(a,)) == 5
         assert a.get3(obj="foobar") == "b"
-        
+
 
     def test_getter_multiple_gest(self):
         import operator
@@ -139,6 +140,35 @@ class AppTestOperator:
         assert operator.repeat(a, 0) == []
         raises(TypeError, operator.repeat, 6, 7)
 
+    def test_isMappingType(self):
+        import operator
+        assert not operator.isMappingType([])
+        assert operator.isMappingType(dict())
+        class M:
+            def __getitem__(self, key):
+                return 42
+        assert operator.isMappingType(M())
+        del M.__getitem__
+        assert not operator.isMappingType(M())
+        class M(object):
+            def __getitem__(self, key):
+                return 42
+        assert operator.isMappingType(M())
+        del M.__getitem__
+        assert not operator.isMappingType(M())
+        class M:
+            def __getitem__(self, key):
+                return 42
+            def __getslice__(self, key):
+                return 42
+        assert operator.isMappingType(M())
+        class M(object):
+            def __getitem__(self, key):
+                return 42
+            def __getslice__(self, key):
+                return 42
+        assert not operator.isMappingType(M())
+
     def test_isSequenceType(self):
         import operator
 
@@ -197,3 +227,116 @@ class AppTestOperator:
         assert operator.__index__(42) == 42
         exc = raises(TypeError, operator.index, "abc")
         assert str(exc.value) == "'str' object cannot be interpreted as an index"
+
+    def test_compare_digest(self):
+        import operator
+
+        # Testing input type exception handling
+        a, b = 100, 200
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = 100, b"foobar"
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = b"foobar", 200
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = u"foobar", b"foobar"
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = b"foobar", u"foobar"
+        raises(TypeError, operator._compare_digest, a, b)
+
+        # Testing bytes of different lengths
+        a, b = b"foobar", b"foo"
+        assert not operator._compare_digest(a, b)
+        a, b = b"\xde\xad\xbe\xef", b"\xde\xad"
+        assert not operator._compare_digest(a, b)
+
+        # Testing bytes of same lengths, different values
+        a, b = b"foobar", b"foobaz"
+        assert not operator._compare_digest(a, b)
+        a, b = b"\xde\xad\xbe\xef", b"\xab\xad\x1d\xea"
+        assert not operator._compare_digest(a, b)
+
+        # Testing bytes of same lengths, same values
+        a, b = b"foobar", b"foobar"
+        assert operator._compare_digest(a, b)
+        a, b = b"\xde\xad\xbe\xef", b"\xde\xad\xbe\xef"
+        assert operator._compare_digest(a, b)
+
+        # Testing bytearrays of same lengths, same values
+        a, b = bytearray(b"foobar"), bytearray(b"foobar")
+        assert operator._compare_digest(a, b)
+
+        # Testing bytearrays of diffeent lengths
+        a, b = bytearray(b"foobar"), bytearray(b"foo")
+        assert not operator._compare_digest(a, b)
+
+        # Testing bytearrays of same lengths, different values
+        a, b = bytearray(b"foobar"), bytearray(b"foobaz")
+        assert not operator._compare_digest(a, b)
+
+        # Testing byte and bytearray of same lengths, same values
+        a, b = bytearray(b"foobar"), b"foobar"
+        assert operator._compare_digest(a, b)
+        assert operator._compare_digest(b, a)
+
+        # Testing byte bytearray of diffeent lengths
+        a, b = bytearray(b"foobar"), b"foo"
+        assert not operator._compare_digest(a, b)
+        assert not operator._compare_digest(b, a)
+
+        # Testing byte and bytearray of same lengths, different values
+        a, b = bytearray(b"foobar"), b"foobaz"
+        assert not operator._compare_digest(a, b)
+        assert not operator._compare_digest(b, a)
+
+        # Testing str of same lengths
+        a, b = "foobar", "foobar"
+        assert operator._compare_digest(a, b)
+
+        # Testing str of diffeent lengths
+        a, b = "foo", "foobar"
+        assert not operator._compare_digest(a, b)
+
+        # Testing bytes of same lengths, different values
+        a, b = "foobar", "foobaz"
+        assert not operator._compare_digest(a, b)
+
+        # Testing error cases
+        a, b = u"foobar", b"foobar"
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = b"foobar", u"foobar"
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = b"foobar", 1
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = 100, 200
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = "fooä", "fooä"
+        assert operator._compare_digest(a, b)
+
+        # subclasses are supported by ignore __eq__
+        class mystr(str):
+            def __eq__(self, other):
+                return False
+
+        a, b = mystr("foobar"), mystr("foobar")
+        assert operator._compare_digest(a, b)
+        a, b = mystr("foobar"), "foobar"
+        assert operator._compare_digest(a, b)
+        a, b = mystr("foobar"), mystr("foobaz")
+        assert not operator._compare_digest(a, b)
+
+        class mybytes(bytes):
+            def __eq__(self, other):
+                return False
+
+        a, b = mybytes(b"foobar"), mybytes(b"foobar")
+        assert operator._compare_digest(a, b)
+        a, b = mybytes(b"foobar"), b"foobar"
+        assert operator._compare_digest(a, b)
+        a, b = mybytes(b"foobar"), mybytes(b"foobaz")
+        assert not operator._compare_digest(a, b)
+
+    def test_compare_digest_unicode(self):
+        import operator
+        assert operator._compare_digest(u'asd', u'asd')
+        assert not operator._compare_digest(u'asd', u'qwe')
+        raises(TypeError, operator._compare_digest, u'asd', b'qwe')

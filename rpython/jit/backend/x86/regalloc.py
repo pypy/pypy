@@ -801,6 +801,8 @@ class RegAlloc(BaseRegalloc):
                 return self._consider_get_errno(op)
             if oopspecindex == EffectInfo.OS_SET_ERRNO:
                 return self._consider_set_errno(op)
+            if oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
+                return self._consider_math_read_timestamp(op)
         self._consider_call(op)
 
     def consider_call_may_force(self, op, guard_op):
@@ -1206,7 +1208,7 @@ class RegAlloc(BaseRegalloc):
         else:
             raise AssertionError("bad unicode item size")
 
-    def consider_read_timestamp(self, op):
+    def _consider_math_read_timestamp(self, op):
         tmpbox_high = TempBox()
         self.rm.force_allocate_reg(tmpbox_high, selected_reg=eax)
         if longlong.is_64_bit:
@@ -1214,7 +1216,7 @@ class RegAlloc(BaseRegalloc):
             # result in rdx
             result_loc = self.rm.force_allocate_reg(op.result,
                                                     selected_reg=edx)
-            self.perform(op, [], result_loc)
+            self.perform_math(op, [], result_loc)
         else:
             # on 32-bit, use both eax and edx as temporary registers,
             # use a temporary xmm register, and returns the result in
@@ -1224,7 +1226,7 @@ class RegAlloc(BaseRegalloc):
             xmmtmpbox = TempBox()
             xmmtmploc = self.xrm.force_allocate_reg(xmmtmpbox)
             result_loc = self.xrm.force_allocate_reg(op.result)
-            self.perform(op, [xmmtmploc], result_loc)
+            self.perform_math(op, [xmmtmploc], result_loc)
             self.xrm.possibly_free_var(xmmtmpbox)
             self.rm.possibly_free_var(tmpbox_low)
         self.rm.possibly_free_var(tmpbox_high)

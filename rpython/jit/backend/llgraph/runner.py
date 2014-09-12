@@ -15,7 +15,6 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
-from rpython.rlib.rtimer import read_timestamp
 
 class LLTrace(object):
     has_been_freed = False
@@ -648,9 +647,6 @@ class LLGraphCPU(model.AbstractCPU):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
-
-    def bh_read_timestamp(self):
-        return read_timestamp()
 
     def bh_new_raw_buffer(self, size):
         return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')

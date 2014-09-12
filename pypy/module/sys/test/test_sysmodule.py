@@ -91,6 +91,10 @@ class AppTestAppSysTests:
         assert isinstance(sys.__stderr__, file)
         assert isinstance(sys.__stdin__, file)
 
+        assert sys.__stdin__.name == "<stdin>"
+        assert sys.__stdout__.name == "<stdout>"
+        assert sys.__stderr__.name == "<stderr>"
+
         if self.appdirect and not isinstance(sys.stdin, file):
             return
 
@@ -122,6 +126,21 @@ class AppTestAppSysTests:
         li = sys.long_info
         assert isinstance(li.bits_per_digit, int)
         assert isinstance(li.sizeof_digit, int)
+
+    def test_sys_exit(self):
+        import sys
+        exc = raises(SystemExit, sys.exit)
+        assert exc.value.code is None
+
+        exc = raises(SystemExit, sys.exit, 0)
+        assert exc.value.code == 0
+
+        exc = raises(SystemExit, sys.exit, 1)
+        assert exc.value.code == 1
+
+        exc = raises(SystemExit, sys.exit, (1, 2, 3))
+        assert exc.value.code == (1, 2, 3)
+
 
 class AppTestSysModulePortedFromCPython:
 

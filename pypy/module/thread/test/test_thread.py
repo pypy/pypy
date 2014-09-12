@@ -13,18 +13,26 @@ class AppTestThread(GenericTestThread):
         def f():
             lock.acquire()
             lock.release()
+        start = thread._count()
         try:
             try:
                 for i in range(1000):
                     thread.start_new_thread(f, ())
             finally:
                 lock.release()
-                # wait a bit to allow most threads to finish now
-                time.sleep(0.5)
         except (thread.error, MemoryError):
             cls.w_can_start_many_threads = space.wrap(False)
         else:
             cls.w_can_start_many_threads = space.wrap(True)
+        # wait a bit to allow all threads to finish now
+        remaining = thread._count()
+        retries = 0
+        while remaining > start:
+            retries += 1
+            if retries == 200:
+                raise Exception("the test's threads don't stop!")
+            time.sleep(0.2)
+            remaining = thread._count()
 
     def test_start_new_thread(self):
         import thread
@@ -227,7 +235,7 @@ class AppTestThread(GenericTestThread):
         import signal
 
         def f():
-            for x in range(5):
+            for x in range(40):
                 if waiting:
                     thread.interrupt_main()
                     return
@@ -236,7 +244,7 @@ class AppTestThread(GenericTestThread):
 
         def busy_wait():
             waiting.append(None)
-            for x in range(10):
+            for x in range(50):
                 print 'tick...', x  # <-force the GIL to be released, as
                 time.sleep(0.1)    #   time.sleep doesn't do non-translated
             waiting.pop()
@@ -245,6 +253,8 @@ class AppTestThread(GenericTestThread):
         signal.signal(signal.SIGINT, signal.default_int_handler)
 
         for i in range(100):
+            print
+            print "loop", i
             waiting = []
             thread.start_new_thread(f, ())
             raises(KeyboardInterrupt, busy_wait)
