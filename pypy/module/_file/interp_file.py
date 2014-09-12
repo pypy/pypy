@@ -105,6 +105,12 @@ class W_File(W_AbstractStream):
         stream = rfile.create_file(fsencode_w(self.space, w_name), mode, buffering)
         self.fdopenstream(stream, mode)
 
+    def direct_fdopen(self, fd, mode='r', buffering=-1):
+        self.direct_close()
+        self.w_name = self.space.wrap('<fdopen>')
+        stream = rfile.create_fdopen_rfile(fd, mode, buffering)
+        self.fdopenstream(stream, mode)
+
     def direct___enter__(self):
         self.check_closed()
         return self
@@ -114,12 +120,6 @@ class W_File(W_AbstractStream):
         self.space.call_method(self, "close")
         # can't return close() value
         return None
-
-    def direct_fdopen(self, fd, mode='r', buffering=-1):
-        self.direct_close()
-        self.w_name = self.space.wrap('<fdopen>')
-        stream = rfile.create_fdopen_rfile(fd, mode)
-        self.fdopenstream(stream, mode)
 
     def direct_close(self):
         stream = self.stream
