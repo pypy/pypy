@@ -123,6 +123,7 @@ class TestFile(BaseRtypingTest):
         f()
         self.interpret(f, [])
 
+    @py.test.mark.xfail("sys.platform == 'darwin'")
     def test_open_buffering_full(self):
         fname = str(self.tmpdir.join('file_1b'))
 
@@ -140,6 +141,7 @@ class TestFile(BaseRtypingTest):
         f()
         self.interpret(f, [])
 
+    @py.test.mark.xfail("sys.platform == 'darwin'")
     def test_fdopen_buffering_full(self):
         fname = str(self.tmpdir.join('file_1b'))
 
