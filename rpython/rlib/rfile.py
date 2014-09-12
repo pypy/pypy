@@ -445,6 +445,14 @@ class RFile(object):
 
         result = c_fgets(raw_buf, BASE_LINE_SIZE, ll_file)
         if not result:
+            if c_ferror(ll_file):
+                if rposix.get_errno() == errno.EINTR:
+                    if self._signal_checker is not None:
+                        self._signal_checker()
+                    c_clearerr(ll_file)
+                    return -1
+                c_clearerr(ll_file)
+                raise _from_errno(IOError)
             c_clearerr(ll_file)
             if self._signal_checker is not None:
                 self._signal_checker()

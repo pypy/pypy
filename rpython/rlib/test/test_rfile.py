@@ -307,6 +307,28 @@ class TestFile(BaseRtypingTest):
             f2.write("xxx")
             f2.close()
 
+            fd = os.open(fname, os.O_RDONLY, 0777)
+            f = os.fdopen(fd, 'r')
+            os.close(fd)
+            try:
+                f.read()
+            except IOError as e:
+                pass
+            else:
+                assert False
+            try:
+                f.readline()
+            except IOError as e:
+                pass
+            else:
+                assert False
+            try:
+                f.close()
+            except IOError as e:
+                pass
+            else:
+                assert False
+
         f()
         assert open(fname).read() == "xxx"
         self.interpret(f, [])
