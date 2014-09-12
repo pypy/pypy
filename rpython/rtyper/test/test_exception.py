@@ -76,12 +76,16 @@ class TestException(BaseRtypingTest):
                 assert e.errno == 0
                 assert e.strerror == "test"
                 assert e.filename is None
+            else:
+                assert False
             try:
                 k(n)
             except EnvironmentError as e:
                 assert e.errno == 0
                 assert e.strerror is None
                 assert e.filename is None
+            else:
+                assert False
         self.interpret(f, [42])
 
     def test_catch_incompatible_class(self):
