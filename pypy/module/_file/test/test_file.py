@@ -267,11 +267,9 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         with self.file(self.temppath, 'r') as f:
             raises(IOError, f.truncate, 100)
 
+    @py.test.mark.skipif("not os.path.exists('/dev/full')")
     def test_write_full_regular(self):
-        try:
-            f = self.file('/dev/full', 'w', 1)
-        except IOError:
-            skip("requires '/dev/full'")
+        f = self.file('/dev/full', 'w', 1)
         try:
             f.write('hello')
             raises(IOError, f.write, '\n')
@@ -281,13 +279,11 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         finally:
             f.close()
 
+    @py.test.mark.skipif("not os.path.exists('/dev/full')")
     def test_write_full_fdopen(self):
         import os
         fd = os.open('/dev/full', os.O_WRONLY)
-        try:
-            f = os.fdopen(fd, 'w', 1)
-        except IOError:
-            skip("requires '/dev/full'")
+        f = os.fdopen(fd, 'w', 1)
         try:
             f.write('hello')
             raises(IOError, f.write, '\n')
