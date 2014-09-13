@@ -3,7 +3,7 @@ be used directly and instead it's magically appearing each time you call
 python builtin open()
 """
 
-import os, stat, errno
+import os, sys, stat, errno
 from rpython.rlib import rposix
 from rpython.rlib.objectmodel import enforceargs
 from rpython.rlib.rarithmetic import intmask
@@ -112,13 +112,17 @@ c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
 
 c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)
 
-c_fseek = llexternal('fseeko', [FILEP, OFF_T, rffi.INT], rffi.INT, macro=True)
-c_ftell = llexternal('ftello', [FILEP], OFF_T, macro=True)
-if os.name == 'nt':
+if os.name != 'nt':
+    assert rffi.sizeof(OFF_T) == 8
+    if sys.platform.startswith('linux'):
+        c_fseek = llexternal('fseeko64', [FILEP, OFF_T, rffi.INT], rffi.INT)
+        c_ftell = llexternal('ftello64', [FILEP], OFF_T)
+    else:
+        c_fseek = llexternal('fseeko', [FILEP, OFF_T, rffi.INT], rffi.INT)
+        c_ftell = llexternal('ftello', [FILEP], OFF_T)
+else:
     c_fseek = llexternal('_fseeki64', [FILEP, rffi.LONGLONG, rffi.INT], rffi.INT)
     c_ftell = llexternal('_ftelli64', [FILEP], rffi.LONGLONG)
-else:
-    assert rffi.sizeof(OFF_T) == 8
 
 c_fileno = llexternal(fileno, [FILEP], rffi.INT, releasegil=False)
 c_feof = llexternal('feof', [FILEP], rffi.INT, releasegil=False)
