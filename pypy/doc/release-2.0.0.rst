@@ -19,7 +19,7 @@ The two biggest changes since PyPy 1.9 are:
 * PyPy now contains release 0.6 of `cffi`_ as a builtin module, which
   is preferred way of calling C from Python that works well on PyPy
 
-.. _cffi: http://cffi.readthedocs.org
+.. _`cffi`: http://cffi.readthedocs.org
 
 If you're using PyPy for anything, it would help us immensely if you fill out
 the following survey: http://bit.ly/pypysurvey This is for the developers
@@ -37,7 +37,7 @@ Windows 32.  Windows 64 work is still stalling, we would welcome a volunteer
 to handle that. ARM support is on the way, as you can see from the recently
 released alpha for ARM.
 
-.. _pypy 2.0 and cpython 2.7.3: http://speed.pypy.org
+.. _`pypy 2.0 and cpython 2.7.3`: http://speed.pypy.org
 
 Highlights
 ==========
@@ -64,8 +64,8 @@ Highlights
   lazy expression evaluation. On the other hand, we now have more complete
   dtype support and support more array attributes.  
 
-.. _pypycore: https://github.com/gevent-on-pypy/pypycore/
-.. _pypy-hacks: https://github.com/schmir/gevent/tree/pypy-hacks
+.. _`pypycore`: https://github.com/gevent-on-pypy/pypycore/
+.. _`pypy-hacks`: https://github.com/schmir/gevent/tree/pypy-hacks
 
 Cheers,
 fijal, arigo and the PyPy team

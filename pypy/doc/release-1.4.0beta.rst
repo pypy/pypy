@@ -33,4 +33,4 @@ Highlights:
 Cheers,
 The PyPy team
 
-.. _list of patches: https://bitbucket.org/pypy/pypy/src/tip/pypy/module/cpyext/patches/
+.. _`list of patches`: https://bitbucket.org/pypy/pypy/src/tip/pypy/module/cpyext/patches/

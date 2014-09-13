@@ -9,9 +9,9 @@ It also brings an improved situation on Windows and OS X.
 
 You can download the PyPy 1.9 release here:
 
-    http://pypy.org/download.html
+    http://pypy.org/download.html 
 
-.. _numpypy: http://pypy.org/numpydonate.html
+.. _`numpypy`: http://pypy.org/numpydonate.html
 
 
 What is PyPy?
@@ -25,7 +25,7 @@ This release supports x86 machines running Linux 32/64, Mac OS X 64 or
 Windows 32.  Windows 64 work is still stalling, we would welcome a volunteer
 to handle that.
 
-.. _pypy 1.9 and cpython 2.7.2: http://speed.pypy.org
+.. _`pypy 1.9 and cpython 2.7.2`: http://speed.pypy.org
 
 
 Thanks to our donors
@@ -51,9 +51,9 @@ yet: people interested in them need to grab and (attempt to) translate
 PyPy from the corresponding branches (respectively ``py3k`` and
 ``stm-thread``).
 
-.. _NumPy in PyPy: http://pypy.org/numpydonate.html
-.. _Py3k (Python 3): http://pypy.org/py3donate.html
-.. _Software Transactional Memory: http://pypy.org/tmdonate.html
+.. _`NumPy in PyPy`: http://pypy.org/numpydonate.html
+.. _`Py3k (Python 3)`: http://pypy.org/py3donate.html
+.. _`Software Transactional Memory`: http://pypy.org/tmdonate.html
 
 Highlights
 ==========
@@ -96,8 +96,8 @@ Highlights
 
 * List comprehension has been improved.
 
-.. _numpy-status: http://buildbot.pypy.org/numpy-status/latest.html
-.. _JIT hooks documentation: http://doc.pypy.org/en/latest/jit-hooks.html
+.. _`numpy-status`: http://buildbot.pypy.org/numpy-status/latest.html
+.. _`JIT hooks documentation`: http://doc.pypy.org/en/latest/jit-hooks.html
 
 JitViewer
 =========
@@ -105,7 +105,7 @@ JitViewer
 There will be a corresponding 1.9 release of JitViewer which is guaranteed
 to work with PyPy 1.9. See the `JitViewer docs`_ for details.
 
-.. _JitViewer docs: http://bitbucket.org/pypy/jitviewer
+.. _`JitViewer docs`: http://bitbucket.org/pypy/jitviewer
 
 Cheers,
 The PyPy Team
