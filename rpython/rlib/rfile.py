@@ -112,8 +112,8 @@ c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
 
 c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)
 
-c_fseek = llexternal('fseeko', [FILEP, OFF_T, rffi.INT], rffi.INT)
-c_ftell = llexternal('ftello', [FILEP], OFF_T)
+c_fseek = llexternal('fseeko', [FILEP, OFF_T, rffi.INT], rffi.INT, macro=True)
+c_ftell = llexternal('ftello', [FILEP], OFF_T, macro=True)
 if os.name == 'nt':
     c_fseek = llexternal('_fseeki64', [FILEP, rffi.LONGLONG, rffi.INT], rffi.INT)
     c_ftell = llexternal('_ftelli64', [FILEP], rffi.LONGLONG)
