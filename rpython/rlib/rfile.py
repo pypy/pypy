@@ -16,10 +16,8 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 includes = ['stdio.h', 'sys/types.h']
 if os.name == "posix":
     includes += ['unistd.h']
-    ftruncate = 'ftruncate'
     fileno = 'fileno'
 else:
-    ftruncate = '_chsize'
     fileno = '_fileno'
 
 stdio_streams = ['stdin', 'stdout', 'stderr']
@@ -110,17 +108,18 @@ c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
 c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
                       rffi.SIZE_T)
 
-c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)
-
 if os.name != 'nt':
     assert rffi.sizeof(OFF_T) == 8
     if sys.platform.startswith('linux'):
+        c_ftruncate = llexternal('ftruncate64', [rffi.INT, OFF_T], rffi.INT)
         c_fseek = llexternal('fseeko64', [FILEP, OFF_T, rffi.INT], rffi.INT)
         c_ftell = llexternal('ftello64', [FILEP], OFF_T)
     else:
+        c_ftruncate = llexternal('ftruncate', [rffi.INT, OFF_T], rffi.INT)
         c_fseek = llexternal('fseeko', [FILEP, OFF_T, rffi.INT], rffi.INT)
         c_ftell = llexternal('ftello', [FILEP], OFF_T)
 else:
+    c_ftruncate = llexternal('_chsize', [rffi.INT, OFF_T], rffi.INT)
     c_fseek = llexternal('_fseeki64', [FILEP, rffi.LONGLONG, rffi.INT], rffi.INT)
     c_ftell = llexternal('_ftelli64', [FILEP], rffi.LONGLONG)
 
