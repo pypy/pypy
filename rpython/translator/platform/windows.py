@@ -204,8 +204,9 @@ class MsvcPlatform(Platform):
         # must come first, and after the file name all options are ignored.
         # So please be careful with the order of parameters! ;-)
         pdb_dir = oname.dirname
-        args = ['/nologo', '/c'] + compile_args + ['/Fd%s\\' % (pdb_dir,),
-                        '/Fo%s' % (oname,), str(cfile)]
+	if pdb_dir:
+	        compile_args += ['/Fd%s\\' % (pdb_dir,)]
+	args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
         self._execute_c_compiler(cc, args, oname)
         return oname
 
@@ -347,7 +348,7 @@ class MsvcPlatform(Platform):
                '$(CREATE_PCH) $(INCLUDEDIRS)'))
             rules.append(('.c.obj', '',
                     '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) $(USE_PCH) '
-                    '/Fd$(@D)\\ /Fo$@ /c $< $(INCLUDEDIRS)'))
+                    '/Fo$@ /c $< $(INCLUDEDIRS)'))
             #Do not use precompiled headers for some files
             #rules.append((r'{..\module_cache}.c{..\module_cache}.obj', '',
             #        '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'))
@@ -362,13 +363,12 @@ class MsvcPlatform(Platform):
                     target = f[:-1] + 'obj'
                     rules.append((target, f,
                         '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
-                        '/Fd%s\\ /Fo%s /c %s $(INCLUDEDIRS)' %(
-                                os.path.dirname(target), target, f)))
+                        '/Fo%s /c %s $(INCLUDEDIRS)' %(target, f)))
 
         else:
             rules.append(('.c.obj', '',
                           '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
-                          '/Fd$(@D)\\ /Fo$@ /c $< $(INCLUDEDIRS)'))
+                          '/Fo$@ /c $< $(INCLUDEDIRS)'))
 
 
         for args in definitions:
