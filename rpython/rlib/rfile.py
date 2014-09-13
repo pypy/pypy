@@ -508,6 +508,7 @@ class RFile(object):
         c = 0
         s = StringBuilder()
         while True:
+            # XXX release gil for all of this rather than each getc
             c_flockfile(ll_file)
             if self._univ_newline:
                 while size < 0 or s.getlength() < size:
