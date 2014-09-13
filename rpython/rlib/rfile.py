@@ -117,6 +117,8 @@ c_ftell = llexternal('ftello', [FILEP], OFF_T)
 if os.name == 'nt':
     c_fseek = llexternal('_fseeki64', [FILEP, rffi.LONGLONG, rffi.INT], rffi.INT)
     c_ftell = llexternal('_ftelli64', [FILEP], rffi.LONGLONG)
+else:
+    assert rffi.sizeof(OFF_T) == 8
 
 c_fileno = llexternal(fileno, [FILEP], rffi.INT, releasegil=False)
 c_feof = llexternal('feof', [FILEP], rffi.INT, releasegil=False)
@@ -605,6 +607,7 @@ class RFile(object):
         if res != 0:
             c_clearerr(ll_file)
             raise _from_errno(IOError)
+        # XXX use fseek/SetEndOfFile on windows
         res = c_ftruncate(c_fileno(ll_file), arg)
         if res != 0:
             c_clearerr(ll_file)
