@@ -614,28 +614,23 @@ class Transformer(object):
             arraydescr = self.cpu.arraydescrof(ARRAY)
             op1 = SpaceOperation('new_array', [op.args[2], arraydescr],
                                  op.result)
-            if self._has_gcptrs_in(ARRAY):
-                return self.zero_contents([op1], op.result, ARRAY,
-                                          only_gc_pointers=True)
             if op.args[1].value.get('zero', False):
                 return self.zero_contents([op1], op.result, ARRAY)
             return op1
 
-    def zero_contents(self, ops, v, TYPE, only_gc_pointers=False):
+    def zero_contents(self, ops, v, TYPE):
         if isinstance(TYPE, lltype.Struct):
             for name, FIELD in TYPE._flds.iteritems():
-                if (not only_gc_pointers or
-                    isinstance(FIELD, lltype.Ptr) and FIELD._needsgc()):
+                if isinstance(FIELD, lltype.Struct):
+                    # substruct
+                    self.zero_contents(ops, v, FIELD)
+                else:
                     c_name = Constant(name, lltype.Void)
                     c_null = Constant(FIELD._defl(), FIELD)
                     op = SpaceOperation('setfield', [v, c_name, c_null],
                                         None)
                     self.extend_with(ops, self.rewrite_op_setfield(op,
                                           override_type=TYPE))
-                elif isinstance(FIELD, lltype.Struct):
-                    # substruct
-                    self.zero_contents(ops, v, FIELD,
-                                       only_gc_pointers=only_gc_pointers)
         elif isinstance(TYPE, lltype.Array):
             arraydescr = self.cpu.arraydescrof(TYPE)
             ops.append(SpaceOperation('clear_array_contents',
@@ -906,10 +901,9 @@ class Transformer(object):
             return self._rewrite_raw_malloc(op, 'raw_malloc_fixedsize', [])
         #
         if op.args[1].value.get('zero', False):
-            true_zero = True
+            zero = True
         else:
-            assert op.args[1].value == {'flavor': 'gc'}
-            true_zero = False
+            zero = False
         STRUCT = op.args[0].value
         vtable = heaptracker.get_vtable_for_gcstruct(self.cpu, STRUCT)
         if vtable:
@@ -931,11 +925,8 @@ class Transformer(object):
             opname = 'new'
         sizedescr = self.cpu.sizeof(STRUCT)
         op1 = SpaceOperation(opname, [sizedescr], op.result)
-        if true_zero:
+        if zero:
             return self.zero_contents([op1], op.result, STRUCT)
-        if self._has_gcptrs_in(STRUCT):
-            return self.zero_contents([op1], op.result, STRUCT,
-                                      only_gc_pointers=True)
         return op1
 
     def _has_gcptrs_in(self, STRUCT):
@@ -1677,8 +1668,6 @@ class Transformer(object):
             v.concretetype = lltype.Signed
             ops.append(SpaceOperation('int_force_ge_zero', [v_length], v))
         ops.append(SpaceOperation('new_array', [v, arraydescr], op.result))
-        if self._has_gcptrs_in(op.result.concretetype.TO):
-            self.zero_contents(ops, op.result, op.result.concretetype.TO)
         return ops
 
     def do_fixed_list_len(self, op, args, arraydescr):

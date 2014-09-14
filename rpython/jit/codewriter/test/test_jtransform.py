@@ -529,18 +529,6 @@ def test_malloc_new():
     assert op1.opname == 'new'
     assert op1.args == [('sizedescr', S)]
 
-def test_malloc_new_zero():
-    SS = lltype.GcStruct('SS')
-    S = lltype.GcStruct('S', ('x', lltype.Ptr(SS)))
-    v = varoftype(lltype.Ptr(S))
-    op = SpaceOperation('malloc', [Constant(S, lltype.Void),
-                                   Constant({'flavor': 'gc'}, lltype.Void)], v)
-    op1, op2 = Transformer(FakeCPU()).rewrite_operation(op)
-    assert op1.opname == 'new'
-    assert op1.args == [('sizedescr', S)]
-    assert op2.opname == 'setfield_gc_r'
-    assert op2.args[0] == v
-
 def test_malloc_new_zero_2():
     S = lltype.GcStruct('S', ('x', lltype.Signed))
     v = varoftype(lltype.Ptr(S))
@@ -560,7 +548,8 @@ def test_malloc_new_zero_nested():
                          ('xx', lltype.Ptr(S0)))
     v = varoftype(lltype.Ptr(S2))
     op = SpaceOperation('malloc', [Constant(S2, lltype.Void),
-                                   Constant({'flavor': 'gc'}, lltype.Void)], v)
+                                   Constant({'flavor': 'gc',
+                                             'zero': True}, lltype.Void)], v)
     op1, op2, op3 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'new'
     assert op1.args == [('sizedescr', S2)]
@@ -1068,12 +1057,8 @@ def test_str_newstr():
 
 def test_malloc_varsize_zero():
     c_A = Constant(lltype.GcArray(lltype.Signed), lltype.Void)
-    c_flags = Constant({"flavor": "gc"}, lltype.Void)
     v1 = varoftype(lltype.Signed)
     v2 = varoftype(c_A.value)
-    op = SpaceOperation('malloc_varsize', [c_A, c_flags, v1], v2)
-    op1 = Transformer(FakeCPU()).rewrite_operation(op)
-    assert op1.opname == 'new_array'
     c_flags = Constant({"flavor": "gc", "zero": True}, lltype.Void)
     op = SpaceOperation('malloc_varsize', [c_A, c_flags, v1], v2)
     op1, op2 = Transformer(FakeCPU()).rewrite_operation(op)

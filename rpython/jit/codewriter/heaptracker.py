@@ -125,3 +125,4 @@ def descr2vtable(cpu, descr):
     vtable = descr.as_vtable_size_descr()._corresponding_vtable
     vtable = llmemory.cast_ptr_to_adr(vtable)
     return adr2int(vtable)
+    
