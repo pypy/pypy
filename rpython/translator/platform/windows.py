@@ -203,7 +203,10 @@ class MsvcPlatform(Platform):
         # the assembler still has the old behavior that all options
         # must come first, and after the file name all options are ignored.
         # So please be careful with the order of parameters! ;-)
-        args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
+        pdb_dir = oname.dirname
+	if pdb_dir:
+	        compile_args += ['/Fd%s\\' % (pdb_dir,)]
+	args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
         self._execute_c_compiler(cc, args, oname)
         return oname
 
