@@ -304,10 +304,10 @@ class __extend__(SomeList):
     def hint(self, *args_s):
         hints = args_s[-1].const
         if 'maxlength' in hints:
-            # only for iteration over lists or dicts at the moment,
+            # only for iteration over lists or dicts or strs at the moment,
             # not over an iterator object (because it has no known length)
             s_iterable = args_s[0]
-            if isinstance(s_iterable, (SomeList, SomeDict)):
+            if isinstance(s_iterable, (SomeList, SomeDict, SomeString)):
                 self = SomeList(self.listdef) # create a fresh copy
                 self.listdef.resize()
                 self.listdef.listitem.hint_maxlength = True

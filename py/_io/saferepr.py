@@ -1,5 +1,5 @@
 import py
-import sys, os.path
+import sys
 
 builtin_repr = repr
 
@@ -11,6 +11,23 @@ class SafeRepr(reprlib.Repr):
     """
     def repr(self, x):
         return self._callhelper(reprlib.Repr.repr, self, x)
+
+    def repr_unicode(self, x, level):
+        # Strictly speaking wrong on narrow builds
+        def repr(u):
+            if "'" not in u:
+                return py.builtin._totext("'%s'") % u
+            elif '"' not in u:
+                return py.builtin._totext('"%s"') % u
+            else:
+                return py.builtin._totext("'%s'") % u.replace("'", r"\'")
+        s = repr(x[:self.maxstring])
+        if len(s) > self.maxstring:
+            i = max(0, (self.maxstring-3)//2)
+            j = max(0, self.maxstring-3-i)
+            s = repr(x[:i] + x[len(x)-j:])
+            s = s[:i] + '...' + s[len(s)-j:]
+        return s
 
     def repr_instance(self, x, level):
         return self._callhelper(builtin_repr, x)
@@ -26,7 +43,7 @@ class SafeRepr(reprlib.Repr):
             exc_name = getattr(cls, '__name__', 'unknown')
             try:
                 exc_info = str(e)
-            except sysex:
+            except py.builtin._sysex:
                 raise
             except:
                 exc_info = 'unknown'

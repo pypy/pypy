@@ -4301,6 +4301,38 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeString)
 
+    def test_isinstance_str_1(self):
+        def g():
+            pass
+        def f(n):
+            if n > 5:
+                s = "foo"
+            else:
+                s = None
+            g()
+            return isinstance(s, str)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeBool)
+        assert not s.is_constant()
+
+    def test_isinstance_str_2(self):
+        def g():
+            pass
+        def f(n):
+            if n > 5:
+                s = "foo"
+            else:
+                s = None
+            g()
+            if isinstance(s, str):
+                return s
+            return ""
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeString)
+        assert not s.can_be_none()
+
 
 def g(n):
     return [0, 1, 2, n]

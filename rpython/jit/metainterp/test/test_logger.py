@@ -32,10 +32,11 @@ def capturing(func, *args, **kwds):
     return log_stream.getvalue()
 
 class Logger(logger.Logger):
-    def log_loop(self, loop, namespace={}, ops_offset=None):
+    def log_loop(self, loop, namespace={}, ops_offset=None, name=''):
         self.namespace = namespace
         return capturing(logger.Logger.log_loop, self,
-                         loop.inputargs, loop.operations, ops_offset=ops_offset)
+                         loop.inputargs, loop.operations, ops_offset=ops_offset,
+                         name=name)
 
     def _make_log_operations(self1):
         class LogOperations(logger.LogOperations):
@@ -230,8 +231,9 @@ class TestLogger(object):
             None: 40
             }
         logger = Logger(self.make_metainterp_sd())
-        output = logger.log_loop(loop, ops_offset=ops_offset)
+        output = logger.log_loop(loop, ops_offset=ops_offset, name="foo")
         assert output.strip() == """
+# Loop 0 (foo) : noopt with 3 ops
 [i0]
 +10: i2 = int_add(i0, 1)
 i4 = int_mul(i2, 2)

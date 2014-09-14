@@ -407,7 +407,8 @@ def main(args):
     run_param.dry_run = opts.dry_run
 
     if run_param.dry_run:
-        print >>out, run_param.__dict__
+        print >>out, '\n'.join([str((k, getattr(run_param, k))) \
+                        for k in dir(run_param) if k[:2] != '__'])
     
     res = execute_tests(run_param, testdirs, logfile, out)
 

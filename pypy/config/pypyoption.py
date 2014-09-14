@@ -52,11 +52,10 @@ translation_modules.update([
 if sys.platform == "win32":
     working_modules.add("_winreg")
     # unix only modules
-    working_modules.remove("crypt")
-    working_modules.remove("fcntl")
-    working_modules.remove("pwd")
-    working_modules.remove("termios")
-    working_modules.remove("_minimal_curses")
+    for name in ["crypt", "fcntl", "pwd", "termios", "_minimal_curses"]:
+        working_modules.remove(name)
+        if name in translation_modules:
+            translation_modules.remove(name)
 
     if "cppyy" in working_modules:
         working_modules.remove("cppyy")  # not tested on win32

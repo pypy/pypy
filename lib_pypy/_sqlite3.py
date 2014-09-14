@@ -1369,15 +1369,18 @@ class Row(object):
         self.description = cursor.description
         self.values = values
 
+    def __len__(self):
+        return len(self.values)
+
     def __getitem__(self, item):
-        if type(item) is int:
+        if isinstance(item, (int, long)):
             return self.values[item]
         else:
             item = item.lower()
             for idx, desc in enumerate(self.description):
                 if desc[0].lower() == item:
                     return self.values[idx]
-            raise KeyError
+            raise IndexError("No item with that key")
 
     def keys(self):
         return [desc[0] for desc in self.description]

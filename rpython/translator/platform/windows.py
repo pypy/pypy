@@ -100,8 +100,8 @@ class MsvcPlatform(Platform):
     cc = 'cl.exe'
     link = 'link.exe'
 
-    cflags = ('/MD', '/O2')
-    link_flags = ()
+    cflags = ('/MD', '/O2', '/Zi')
+    link_flags = ('/debug',)
     standalone_only = ()
     shared_only = ()
     environ = None
@@ -143,7 +143,6 @@ class MsvcPlatform(Platform):
         # Install debug options only when interpreter is in debug mode
         if sys.executable.lower().endswith('_d.exe'):
             self.cflags = ['/MDd', '/Z7', '/Od']
-            self.link_flags = ['/debug']
 
             # Increase stack size, for the linker and the stack check code.
             stack_size = 8 << 20  # 8 Mb
@@ -204,7 +203,9 @@ class MsvcPlatform(Platform):
         # the assembler still has the old behavior that all options
         # must come first, and after the file name all options are ignored.
         # So please be careful with the order of parameters! ;-)
-        args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
+        pdb_dir = oname.dirname
+        args = ['/nologo', '/c'] + compile_args + ['/Fd%s\\' % (pdb_dir,),
+                        '/Fo%s' % (oname,), str(cfile)]
         self._execute_c_compiler(cc, args, oname)
         return oname
 
@@ -346,7 +347,7 @@ class MsvcPlatform(Platform):
                '$(CREATE_PCH) $(INCLUDEDIRS)'))
             rules.append(('.c.obj', '',
                     '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) $(USE_PCH) '
-                    '/Fo$@ /c $< $(INCLUDEDIRS)'))
+                    '/Fd$(@D)\\ /Fo$@ /c $< $(INCLUDEDIRS)'))
             #Do not use precompiled headers for some files
             #rules.append((r'{..\module_cache}.c{..\module_cache}.obj', '',
             #        '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'))
@@ -361,12 +362,13 @@ class MsvcPlatform(Platform):
                     target = f[:-1] + 'obj'
                     rules.append((target, f,
                         '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
-                        '/Fo%s /c %s $(INCLUDEDIRS)' %(target, f)))
+                        '/Fd%s\\ /Fo%s /c %s $(INCLUDEDIRS)' %(
+                                os.path.dirname(target), target, f)))
 
         else:
             rules.append(('.c.obj', '',
                           '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
-                          '/Fo$@ /c $< $(INCLUDEDIRS)'))
+                          '/Fd$(@D)\\ /Fo$@ /c $< $(INCLUDEDIRS)'))
 
 
         for args in definitions:

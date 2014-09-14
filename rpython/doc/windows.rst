@@ -37,7 +37,7 @@ compiler they can find.  In addition, the target architecture
 using a 32 bit Python and vice versa. By default the interpreter is built using
 the Multi-threaded DLL (/MD) runtime environment.
 
-**Note:** The RPython translator does currently not support 64 bit Windows, and
+**Note:** The RPython translator does currently not support 64 bit Python, and
 translation will fail in this case.
 
 Python and a C compiler are all you need to build pypy, but it will miss some
@@ -91,10 +91,13 @@ INCLUDE, LIB and PATH (for DLLs) environment variables appropriately.
 Abridged method (for -Ojit builds using Visual Studio 2008)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Download the versions of all the external packages
-from
+Download the versions of all the external packages from
+https://bitbucket.org/pypy/pypy/downloads/local_2.4.zip
+(for 2.4 release and later) or
 https://bitbucket.org/pypy/pypy/downloads/local.zip
-Then expand it into the base directory (base_dir) and modify your environment to reflect this::
+(for pre-2.4 versions)
+Then expand it into the base directory (base_dir) and modify your environment
+to reflect this::
 
     set PATH=<base_dir>\bin;<base_dir>\tcltk\bin;%PATH%
     set INCLUDE=<base_dir>\include;<base_dir>\tcltk\include;%INCLUDE%
@@ -144,7 +147,7 @@ the base directory.  Then compile as a static library::
 
     cd zlib-1.2.3
     nmake -f win32\Makefile.msc
-    copy zlib1.lib <somewhere in LIB>
+    copy zlib.lib <somewhere in LIB>
     copy zlib.h zconf.h <somewhere in INCLUDE>
 
 
@@ -166,35 +169,38 @@ PyPy uses cffi to interact with sqlite3.dll. Only the dll is needed, the cffi
 wrapper is compiled when the module is imported for the first time.
 The sqlite3.dll should be version 3.6.21 for CPython2.7 compatablility.
 
+
 The expat XML parser
 ~~~~~~~~~~~~~~~~~~~~
 
 Download the source code of expat on sourceforge:
-http://sourceforge.net/projects/expat/ and extract it in the base
-directory.  Version 2.1.0 is known to pass tests. Then open the project
-file ``expat.dsw`` with Visual
-Studio; follow the instruction for converting the project files,
-switch to the "Release" configuration, reconfigure the runtime for
-Multi-threaded DLL (/MD) and build the solution (the ``expat`` project
-is actually enough for PyPy).
+http://sourceforge.net/projects/expat/ and extract it in the base directory.
+Version 2.1.0 is known to pass tests. Then open the project file ``expat.dsw``
+with Visual Studio; follow the instruction for converting the project files,
+switch to the "Release" configuration, use the ``expat_static`` project,
+reconfigure the runtime for Multi-threaded DLL (/MD) and build.
 
-Then, copy the file ``win32\bin\release\libexpat.dll`` somewhere in
-your PATH, ``win32\bin\release\libexpat.lib`` somewhere in LIB, and
-both ``lib\expat.h`` and ``lib\expat_external.h`` somewhere in INCLUDE.
+Then, copy the file ``win32\bin\release\libexpat.lib`` somewhere in somewhere
+in LIB, and both ``lib\expat.h`` and ``lib\expat_external.h`` somewhere in
+INCLUDE.
 
 
 The OpenSSL library
 ~~~~~~~~~~~~~~~~~~~
 
 OpenSSL needs a Perl interpreter to configure its makefile.  You may
-use the one distributed by ActiveState, or the one from cygwin.  In
-both case the perl interpreter must be found on the PATH.
+use the one distributed by ActiveState, or the one from cygwin.::
 
-    svn export http://svn.python.org/projects/external/openssl-0.9.8y
-    cd openssl-0.9.8y
-    perl Configure VC-WIN32
+    svn export http://svn.python.org/projects/external/openssl-1.0.1i
+    cd openssl-1.0.1i
+    perl Configure VC-WIN32 no-idea no-mdc2
     ms\do_ms.bat
     nmake -f ms\nt.mak install
+
+Then, copy the files ``out32\*.lib`` somewhere in
+somewhere in LIB, and the entire ``include\openssl`` directory as-is somewhere
+in INCLUDE.
+
 
 TkInter module support
 ~~~~~~~~~~~~~~~~~~~~~~

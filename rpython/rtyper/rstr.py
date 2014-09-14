@@ -3,6 +3,7 @@ from rpython.rlib import jit
 from rpython.rtyper import rint
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Signed, Bool, Void, UniChar
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.rmodel import IteratorRepr, inputconst, Repr
 from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rfloat import FloatRepr
@@ -371,6 +372,17 @@ class AbstractStringRepr(Repr):
         ll_fn = getattr(r_str.ll, 'll_stringslice_%s' % (kind,))
         return hop.gendirectcall(ll_fn, v_str, *vlist)
 
+    def rtype_bltn_list(self, hop):
+        string_repr = hop.args_r[0].repr
+        if hop.r_result.LIST.ITEM != string_repr.lowleveltype.TO.chars.OF:
+            raise TyperError("list(str-or-unicode) returns a list of chars; "
+                             "it cannot return a list of %r" % (
+                                 hop.r_result.LIST.ITEM,))
+        v_str, = hop.inputargs(string_repr)
+        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
+        hop.exception_is_here()
+        return hop.gendirectcall(self.ll.ll_string2list, cRESLIST, v_str)
+
 
 class AbstractUnicodeRepr(AbstractStringRepr):
 
@@ -384,10 +396,10 @@ class AbstractUnicodeRepr(AbstractStringRepr):
             unicode_encode_utf_8_impl, 'runicode_encode_utf_8')
 
     def rtype_method_upper(self, hop):
-        raise TypeError("Cannot do toupper on unicode string")
+        raise TyperError("Cannot do toupper on unicode string")
 
     def rtype_method_lower(self, hop):
-        raise TypeError("Cannot do tolower on unicode string")
+        raise TyperError("Cannot do tolower on unicode string")
 
     @jit.elidable
     def ll_encode_utf8(self, ll_s):
@@ -711,6 +723,11 @@ class __extend__(pairtype(AbstractUniCharRepr, AbstractUniCharRepr),
                  pairtype(AbstractUniCharRepr, AbstractCharRepr)):
     def rtype_eq(_, hop): return _rtype_unchr_compare_template(hop, 'eq')
     def rtype_ne(_, hop): return _rtype_unchr_compare_template(hop, 'ne')
+    def rtype_lt(_, hop): return _rtype_unchr_compare_template_ord(hop, 'lt')
+    def rtype_le(_, hop): return _rtype_unchr_compare_template_ord(hop, 'le')
+    def rtype_gt(_, hop): return _rtype_unchr_compare_template_ord(hop, 'gt')
+    def rtype_ge(_, hop): return _rtype_unchr_compare_template_ord(hop, 'ge')
+
 
 #Helper functions for comparisons
 
@@ -719,6 +736,18 @@ def _rtype_unchr_compare_template(hop, func):
     vlist = hop.inputargs(unichar_repr, unichar_repr)
     return hop.genop('unichar_' + func, vlist, resulttype=Bool)
 
+def _rtype_unchr_compare_template_ord(hop, func):
+    vlist = hop.inputargs(*hop.args_r)
+    vlist2 = []
+    for v in vlist:
+        if v.concretetype == lltype.Char:
+            v = hop.genop('cast_char_to_int', [v], resulttype=lltype.Signed)
+        elif v.concretetype == lltype.UniChar:
+            v = hop.genop('cast_unichar_to_int', [v], resulttype=lltype.Signed)
+        else:
+            assert 0, v.concretetype
+        vlist2.append(v)
+    return hop.genop('int_' + func, vlist2, resulttype=Bool)
 
 #
 # _________________________ Conversions _________________________
