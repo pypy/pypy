@@ -126,3 +126,19 @@ def descr2vtable(cpu, descr):
     vtable = llmemory.cast_ptr_to_adr(vtable)
     return adr2int(vtable)
     
+def offsets_of_gcfields(gccache, STRUCT, res=None):
+    from rpython.jit.backend.llsupport import symbolic
+
+    if res is None:
+        res = []
+    # order is not relevant, except for tests
+    for name, FIELD in STRUCT._flds.iteritems():
+        if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
+            offset, _ = symbolic.get_field_token(STRUCT, name,
+                                                gccache.translate_support_code)
+            res.append(offset)
+        elif isinstance(FIELD, lltype.Struct):
+            offsets_of_gcfields(gccache, FIELD, res)
+    if not we_are_translated():
+        res.sort()
+    return res

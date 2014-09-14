@@ -161,7 +161,6 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 subbox = value.force_box(optforce)
                 op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
                                   descr=ofs)
-
                 optforce.emit_operation(op)
 
     def _get_field_descr_list(self):

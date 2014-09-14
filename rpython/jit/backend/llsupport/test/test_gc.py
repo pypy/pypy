@@ -70,6 +70,8 @@ class FakeLLOp(object):
         self.record.append(("fixedsize", repr(size), tid, p))
         return p
 
+    do_malloc_fixedsize_clear = do_malloc_fixedsize
+
     def do_malloc_varsize(self, RESTYPE, type_id, length, size,
                                 itemsize, offset_to_length):
         p, tid = self._malloc(type_id, size + itemsize * length)
@@ -79,6 +81,8 @@ class FakeLLOp(object):
                             repr(size), repr(itemsize),
                             repr(offset_to_length), p))
         return p
+
+    do_malloc_varsize_clear = do_malloc_varsize
 
     def _write_barrier_failing_case(self, adr_struct):
         self.record.append(('barrier', adr_struct))
