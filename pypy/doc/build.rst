@@ -1,6 +1,16 @@
 Building PyPy from Source
 =========================
 
+For building PyPy, we recommend installing a pre-built PyPy first (see
+:doc:`install`). It is possible to build PyPy with CPython, but it will take a
+lot longer to run -- depending on your architecture, between two and three
+times as long.
+
+Even when using PyPy to build PyPy, translation is time-consuming -- 30
+minutes on a fast machine -- and RAM-hungry.  You will need **at least** 2 GB
+of memory on a 32-bit machine and 4GB on a 64-bit machine.
+
+
 Clone the repository
 --------------------
 
@@ -33,16 +43,6 @@ using::
 where XXXXX is the revision id.
 
 .. _our nightly tests: http://buildbot.pypy.org/summary?branch=<trunk>
-
-
-For building PyPy, we recommend installing a pre-built PyPy first (see
-:doc:`install`). It is possible to build PyPy with CPython, but it will take a
-lot longer to run -- depending on your architecture, between two and three
-times as long.
-
-Even when using PyPy to build PyPy, translation is time-consuming -- 30
-minutes on a fast machine -- and RAM-hungry.  You will need **at least** 2 GB
-of memory on a 32-bit machine and 4GB on a 64-bit machine.
 
 
 Install build-time dependencies
