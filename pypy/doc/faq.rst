@@ -126,12 +126,10 @@ whether some effects are ok or not for the user (i.e. the Python
 programmer).
 
 Instead, since 2012, there is work going on on a still very experimental
-`Software Transactional Memory`_ (STM) version of PyPy.  This should give
+:doc:`Software Transactional Memory <stm>` (STM) version of PyPy.  This should give
 an alternative PyPy which works without a GIL, while at the same time
 continuing to give the Python programmer the complete illusion of having
 one.
-
-.. _`Software Transactional Memory`: stm.html
 
 
 Is PyPy more clever than CPython about Tail Calls?
