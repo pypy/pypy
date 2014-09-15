@@ -65,7 +65,7 @@ NEWLINE_CRLF = 4
 def llexternal(*args, **kwargs):
     return rffi.llexternal(*args, compilation_info=eci, **kwargs)
 
-c_fopen = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP)
+c_fopen = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP, macro=True)
 c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], FILEP)
 c_fdopen = llexternal(('_' if os.name == 'nt' else '') + 'fdopen',
                       [rffi.INT, rffi.CCHARP], FILEP)
