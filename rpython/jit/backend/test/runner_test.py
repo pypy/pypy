@@ -4457,3 +4457,24 @@ class LLtypeBackendTest(BaseBackendTest):
             assert a[1] == 0
         finally:
             self.cpu.gc_ll_descr.malloc_zero_filled = oldval
+
+    def test_zero_ptr_field(self):
+        T = lltype.GcStruct('T')
+        S = lltype.GcStruct('S', ('x', lltype.Ptr(T)))
+        tdescr = self.cpu.sizeof(T)
+        sdescr = self.cpu.sizeof(S)
+        fielddescr = self.cpu.fielddescrof(S, 'x')
+        loop = parse("""
+        []
+        p0 = new(descr=tdescr)
+        p1 = new(descr=sdescr)
+        setfield_gc(p1, p0, descr=fielddescr)
+        zero_ptr_field(p1, %d)
+        finish(p1)
+        """ % fielddescr.offset, namespace=locals())
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        deadframe = self.cpu.execute_token(looptoken)
+        ref = self.cpu.get_ref_value(deadframe, 0)
+        s = lltype.cast_opaque_ptr(lltype.Ptr(S), ref)
+        assert not s.x

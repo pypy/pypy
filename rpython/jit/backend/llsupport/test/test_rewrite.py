@@ -144,7 +144,7 @@ class TestBoehm(RewriteTests):
     def setup_method(self, meth):
         class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT):
-                return SizeDescrWithVTable(102)
+                return SizeDescrWithVTable(102, offsets_of_gcfields=[])
         self.cpu = FakeCPU()
         self.gc_ll_descr = GcLLDescr_boehm(None, None, None)
 
@@ -277,10 +277,11 @@ class TestFramework(RewriteTests):
                                                really_not_translated=True)
         self.gc_ll_descr.write_barrier_descr.has_write_barrier_from_array = (
             lambda cpu: True)
+        self.gc_ll_descr.malloc_zero_filled = False
         #
         class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT):
-                descr = SizeDescrWithVTable(104)
+                descr = SizeDescrWithVTable(104, offsets_of_gcfields=[])
                 descr.tid = 9315
                 return descr
         self.cpu = FakeCPU()
@@ -311,6 +312,7 @@ class TestFramework(RewriteTests):
             setfield_gc(p0, 1234, descr=tiddescr)
             p1 = int_add(p0, %(sdescr.size)d)
             setfield_gc(p1, 5678, descr=tiddescr)
+            zero_ptr_field(p1, %(tdescr.offsets_of_gcfields[0])s)
             p2 = int_add(p1, %(tdescr.size)d)
             setfield_gc(p2, 1234, descr=tiddescr)
             jump()

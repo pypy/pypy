@@ -959,6 +959,13 @@ class RegAlloc(BaseRegalloc):
                                               need_lower_byte=need_lower_byte)
         self.perform_discard(op, [base_loc, ofs_loc, size_loc, value_loc])
 
+    def consider_zero_ptr_field(self, op):
+        ofs_loc = imm(op.getarg(1).getint())
+        size_loc = imm(WORD)
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), [])
+        value_loc = imm(0)
+        self.perform_discard(op, [base_loc, ofs_loc, size_loc, value_loc])
+
     consider_setfield_raw = consider_setfield_gc
 
     def consider_setinteriorfield_gc(self, op):

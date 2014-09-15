@@ -1486,6 +1486,8 @@ class Assembler386(BaseAssembler):
         dest_addr = AddressLoc(base_loc, ofs_loc)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
+    genop_discard_zero_ptr_field = genop_discard_setfield_gc
+
     def genop_discard_setinteriorfield_gc(self, op, arglocs):
         (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
             index_loc, temp_loc, value_loc) = arglocs

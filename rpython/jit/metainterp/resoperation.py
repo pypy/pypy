@@ -504,6 +504,8 @@ _oplist = [
     'SETINTERIORFIELD_RAW/3d',    # right now, only used by tests
     'RAW_STORE/3d',
     'SETFIELD_GC/2d',
+    'ZERO_PTR_FIELD/2', # only emitted by the rewrite, sets a pointer field
+                        # at a given offset, no descr
     'SETFIELD_RAW/2d',
     'STRSETITEM/3',
     'UNICODESETITEM/3',

@@ -61,7 +61,8 @@ class GcRewriterAssembler(object):
                 continue
             elif op.getopnum() == rop.CLEAR_ARRAY_CONTENTS:
                 if not self.gc_ll_descr.malloc_zero_filled:
-                    self.handle_clear_array_contents(op)
+                    self.handle_clear_array_contents(op.getdescr(),
+                                                     op.getarg(0))
                 continue
             elif op.can_malloc():
                 self.emitting_an_operation_that_can_collect()
@@ -115,6 +116,18 @@ class GcRewriterAssembler(object):
         else:
             raise NotImplementedError(op.getopname())
 
+    def clear_gc_fields(self, descr, result):
+        if self.gc_ll_descr.malloc_zero_filled:
+            return
+        for ofs in descr.offsets_of_gcfields:
+            o = ResOperation(rop.ZERO_PTR_FIELD, [result, ConstInt(ofs)], None)
+            self.newops.append(o)
+
+    def clear_varsize_gc_fields(self, descr, result, v_length=None):
+        if self.gc_ll_descr.malloc_zero_filled:
+            return
+        self.handle_clear_array_contents(descr, result, v_length)
+
     def handle_new_fixedsize(self, descr, op):
         assert isinstance(descr, SizeDescr)
         size = descr.size
@@ -122,6 +135,7 @@ class GcRewriterAssembler(object):
             self.gen_initialize_tid(op.result, descr.tid)
         else:
             self.gen_malloc_fixedsize(size, descr.tid, op.result)
+        self.clear_gc_fields(descr, op.result)
 
     def handle_new_array(self, arraydescr, op, kind=FLAG_ARRAY):
         v_length = op.getarg(0)
@@ -143,6 +157,7 @@ class GcRewriterAssembler(object):
             # might end up being allocated by malloc_external or some
             # stuff that initializes GC header fields differently
             self.gen_initialize_len(op.result, v_length, arraydescr.lendescr)
+            self.clear_varsize_gc_fields(op.getdescr(), op.result, v_length)
             return
         if (total_size >= 0 and
                 self.gen_malloc_nursery(total_size, op.result)):
@@ -160,19 +175,24 @@ class GcRewriterAssembler(object):
                 self.gen_malloc_unicode(v_length, op.result)
             else:
                 raise NotImplementedError(op.getopname())
+        self.clear_varsize_gc_fields(op.getdescr(), op.result, v_length)
 
-    def handle_clear_array_contents(self, op):
+    def handle_clear_array_contents(self, arraydescr, v_arr, v_arrsize=None):
         # XXX this maybe should go to optimizer, so we can remove extra ops?
-        arraydescr = op.getdescr()
         ofs, size, _ = self.cpu.unpack_arraydescr_size(arraydescr)
-        v_arr = op.getarg(0)
         v_arr_plus_ofs = BoxInt()
         v_arrsize = BoxInt()
         v_totalsize = BoxInt()
         gcdescr = self.gc_ll_descr
         ops = [
             ResOperation(rop.INT_ADD, [v_arr, ConstInt(size)], v_arr_plus_ofs),
-            ResOperation(rop.ARRAYLEN_GC, [v_arr], v_arrsize, descr=arraydescr),
+        ]
+
+        if v_arrsize is None:
+            o = ResOperation(rop.ARRAYLEN_GC, [v_arr], v_arrsize,
+                             descr=arraydescr)
+            ops.append(o)
+        ops += [
             ResOperation(rop.INT_MUL, [v_arrsize, ConstInt(size)], v_totalsize),
             ResOperation(rop.CALL, [ConstInt(gcdescr.memset_ptr_as_int),
                                     v_arr_plus_ofs,
