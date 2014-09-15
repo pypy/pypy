@@ -133,7 +133,7 @@ one.
 
 .. _`Software Transactional Memory`: stm.html
 
---------------------------------------------------
+
 Is PyPy more clever than CPython about Tail Calls?
 --------------------------------------------------
 
