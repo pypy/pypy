@@ -333,6 +333,8 @@ class AbstractARMBuilder(object):
                     | (rn & 0xF) << 16)
 
     def DMB(self):
+        # ARMv7 only.  I guess ARMv6 CPUs cannot be used in symmetric
+        # multi-processing at all? That would make this instruction unneeded.
         # note: 'cond' is only permitted on Thumb here, but don't
         # write literally 0xf57ff05f, because it's larger than 31 bits
         c = cond.AL
