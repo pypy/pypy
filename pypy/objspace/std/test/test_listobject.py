@@ -415,7 +415,7 @@ class TestW_ListObject(object):
         space = self.space
         w_lst = space.newlist_hint(13)
         assert isinstance(w_lst.strategy, SizeListStrategy)
-        assert w_lst.strategy.sizehint == 13
+        assert w_lst.strategy.get_sizehint(w_lst) == 13
 
     def test_find_fast_on_intlist(self, monkeypatch):
         monkeypatch.setattr(self.space, "eq_w", None)

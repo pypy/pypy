@@ -59,8 +59,8 @@ def make_empty_list(space):
 
 
 def make_empty_list_with_size(space, hint):
-    strategy = SizeListStrategy(space, hint)
-    storage = strategy.erase(None)
+    strategy = space.fromcache(SizeListStrategy)
+    storage = strategy.erase((hint,))
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
 
@@ -69,8 +69,13 @@ def make_empty_list_with_size(space, hint):
 def get_strategy_from_list_objects(space, list_w, sizehint):
     if not list_w:
         if sizehint != -1:
-            return SizeListStrategy(space, sizehint)
+            return space.fromcache(SizeListStrategy)
         return space.fromcache(EmptyListStrategy)
+
+    # intercept list(x) to do copy on write instead of a new list.
+#    if type(list_w) is W_ListObject:
+#        if isinstance(list_w.strategy, AbstractUnwrappedStrategy):
+#            return space.fromcache(SliceCopyOnWriteListStrategy)
 
     # check for ints
     for w_obj in list_w:
@@ -146,12 +151,13 @@ class W_ListObject(W_Root):
     def __init__(self, space, wrappeditems, sizehint=-1):
         assert isinstance(wrappeditems, list)
         self.space = space
+        self.lstorage_num_slices = 0
         if space.config.objspace.std.withliststrategies:
             self.strategy = get_strategy_from_list_objects(space, wrappeditems,
                                                            sizehint)
         else:
             self.strategy = space.fromcache(ObjectListStrategy)
-        self.init_from_list_w(wrappeditems)
+        self.init_from_list_w(wrappeditems, sizehint)
 
     @staticmethod
     def from_storage_and_strategy(space, storage, strategy):
@@ -159,6 +165,7 @@ class W_ListObject(W_Root):
         self.space = space
         self.strategy = strategy
         self.lstorage = storage
+        self.lstorage_num_slices = 0
         if not space.config.objspace.std.withliststrategies:
             self.switch_to_object_strategy()
         return self
@@ -180,16 +187,16 @@ class W_ListObject(W_Root):
         return "%s(%s, %s)" % (self.__class__.__name__, self.strategy,
                                self.lstorage._x)
 
-    def unwrap(w_list, space):
+    def unwrap(self, space):
         # for tests only!
-        items = [space.unwrap(w_item) for w_item in w_list.getitems()]
+        items = [space.unwrap(w_item) for w_item in self.getitems()]
         return list(items)
 
     def switch_to_object_strategy(self):
         list_w = self.getitems()
         self.strategy = self.space.fromcache(ObjectListStrategy)
         # XXX this is quite indirect
-        self.init_from_list_w(list_w)
+        self.init_from_list_w(list_w, -1)
 
     def _temporarily_as_objects(self):
         if self.strategy is self.space.fromcache(ObjectListStrategy):
@@ -203,11 +210,11 @@ class W_ListObject(W_Root):
 
     # ___________________________________________________
 
-    def init_from_list_w(self, list_w):
+    def init_from_list_w(self, list_w, sizehint=-1):
         """Initializes listobject by iterating through the given list of
         wrapped items, unwrapping them if neccessary and creating a
         new erased object as storage"""
-        self.strategy.init_from_list_w(self, list_w)
+        self.strategy.init_from_list_w(self, list_w, sizehint)
 
     def clear(self, space):
         """Initializes (or overrides) the listobject as empty."""
@@ -716,10 +723,10 @@ class ListStrategy(object):
     def __init__(self, space):
         self.space = space
 
-    def get_sizehint(self):
+    def get_sizehint(self, w_list):
         return -1
 
-    def init_from_list_w(self, w_list, list_w):
+    def init_from_list_w(self, w_list, list_w, sizehint):
         raise NotImplementedError
 
     def clone(self, w_list):
@@ -769,9 +776,6 @@ class ListStrategy(object):
 
     def getitems_float(self, w_list):
         return None
-
-    def getstorage_copy(self, w_list):
-        raise NotImplementedError
 
     def append(self, w_list, w_item):
         raise NotImplementedError
@@ -836,27 +840,9 @@ class ListStrategy(object):
         return False
 
 
-class EmptyListStrategy(ListStrategy):
-    """EmptyListStrategy is used when a W_List withouth elements is created.
-    The storage is None. When items are added to the W_List a new RPython list
-    is created and the strategy and storage of the W_List are changed depending
-    to the added item.
-    W_Lists do not switch back to EmptyListStrategy when becoming empty again.
-    """
-
+class _EmptyListStrategyBase(ListStrategy):
     def __init__(self, space):
         ListStrategy.__init__(self, space)
-
-    def init_from_list_w(self, w_list, list_w):
-        assert len(list_w) == 0
-        w_list.lstorage = self.erase(None)
-
-    def clear(self, w_list):
-        w_list.lstorage = self.erase(None)
-
-    erase, unerase = rerased.new_erasing_pair("empty")
-    erase = staticmethod(erase)
-    unerase = staticmethod(unerase)
 
     def clone(self, w_list):
         return W_ListObject.from_storage_and_strategy(
@@ -868,7 +854,8 @@ class EmptyListStrategy(ListStrategy):
     def _resize_hint(self, w_list, hint):
         assert hint >= 0
         if hint:
-            w_list.strategy = SizeListStrategy(self.space, hint)
+            strategy = w_list.strategy = self.space.fromcache(SizeListStrategy)
+            w_list.lstorage = strategy.erase((hint,))
 
     def find(self, w_list, w_item, start, stop):
         raise ValueError
@@ -893,9 +880,6 @@ class EmptyListStrategy(ListStrategy):
                                             "getitems_fixedsize")
     getitems_unroll = getitems_fixedsize
 
-    def getstorage_copy(self, w_list):
-        return self.erase(None)
-
     def switch_to_correct_strategy(self, w_list, w_item):
         if type(w_item) is W_IntObject:
             strategy = self.space.fromcache(IntegerListStrategy)
@@ -908,7 +892,7 @@ class EmptyListStrategy(ListStrategy):
         else:
             strategy = self.space.fromcache(ObjectListStrategy)
 
-        storage = strategy.get_empty_storage(self.get_sizehint())
+        storage = strategy.get_empty_storage(self.get_sizehint(w_list))
         w_list.strategy = strategy
         w_list.lstorage = storage
 
@@ -931,10 +915,7 @@ class EmptyListStrategy(ListStrategy):
         raise IndexError
 
     def setslice(self, w_list, start, step, slicelength, w_other):
-        strategy = w_other.strategy
-        storage = strategy.getstorage_copy(w_other)
-        w_list.strategy = strategy
-        w_list.lstorage = storage
+        w_other.copy_into(w_list)
 
     def sort(self, w_list, reverse):
         return
@@ -988,18 +969,44 @@ class EmptyListStrategy(ListStrategy):
         return True
 
 
-class SizeListStrategy(EmptyListStrategy):
-    """Like empty, but when modified it'll preallocate the size to sizehint."""
-    def __init__(self, space, sizehint):
-        self.sizehint = sizehint
-        ListStrategy.__init__(self, space)
+class EmptyListStrategy(_EmptyListStrategyBase):
+    """EmptyListStrategy is used when a W_List without elements is created.
+    The storage is None. When items are added to the W_List a new RPython list
+    is created and the strategy and storage of the W_List are changed depending
+    to the added item.
+    W_Lists do not switch back to EmptyListStrategy when becoming empty again.
+    """
 
-    def get_sizehint(self):
-        return self.sizehint
+    erase, unerase = rerased.new_erasing_pair("empty")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def init_from_list_w(self, w_list, list_w, sizehint):
+        assert len(list_w) == 0
+        assert sizehint <= 0
+        w_list.lstorage = self.erase(None)
+
+    def clear(self, w_list):
+        w_list.lstorage = self.erase(None)
+
+
+class SizeListStrategy(_EmptyListStrategyBase):
+    """Like empty, but when modified it'll preallocate the size to sizehint."""
+    erase, unerase = rerased.new_erasing_pair("size")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def init_from_list_w(self, w_list, list_w, sizehint):
+        assert len(list_w) == 0
+        assert sizehint > -1
+        w_list.lstorage = self.erase((sizehint if sizehint >= 0 else 0,))
+
+    def get_sizehint(self, w_list):
+        return self.unerase(w_list.lstorage)[0]
 
     def _resize_hint(self, w_list, hint):
         assert hint >= 0
-        self.sizehint = hint
+        w_list.lstorage = self.erase((hint,))
 
 
 class BaseRangeListStrategy(ListStrategy):
@@ -1014,7 +1021,7 @@ class BaseRangeListStrategy(ListStrategy):
     def unwrap(self, w_int):
         return self.space.int_w(w_int)
 
-    def init_from_list_w(self, w_list, list_w):
+    def init_from_list_w(self, w_list, list_w, size_hint):
         raise NotImplementedError
 
     def clone(self, w_list):
@@ -1039,10 +1046,6 @@ class BaseRangeListStrategy(ListStrategy):
 
     def getitems_copy(self, w_list):
         return self._getitems_range(w_list, True)
-
-    def getstorage_copy(self, w_list):
-        # tuple is immutable
-        return w_list.lstorage
 
     @jit.dont_look_inside
     def getitems_fixedsize(self, w_list):
@@ -1163,8 +1166,22 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
         return w_result
 
     def pop(self, w_list, index):
-        self.switch_to_integer_strategy(w_list)
-        return w_list.pop(index)
+        new_length = self.unerase(w_list.lstorage)[0] - 1
+        if not 0 <= index <= new_length:
+            raise IndexError
+
+        r = [0] * new_length
+        i = 0
+        while i < index:
+            r[i] = i
+            i += 1
+        while i < new_length:
+            r[i] = i + 1
+            i += 1
+
+        strategy = w_list.strategy = self.space.fromcache(IntegerListStrategy)
+        w_list.lstorage = strategy.erase(r)
+        return self.wrap(index)
 
 
 class RangeListStrategy(BaseRangeListStrategy):
@@ -1284,15 +1301,24 @@ class AbstractUnwrappedStrategy(object):
     def list_is_correct_type(self, w_list):
         raise NotImplementedError("abstract base class")
 
-    @jit.look_inside_iff(lambda space, w_list, list_w:
+    @jit.look_inside_iff(lambda space, w_list, list_w, size_hint:
             jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
-    def init_from_list_w(self, w_list, list_w):
+    def init_from_list_w(self, w_list, list_w, size_hint):
         l = [self.unwrap(w_item) for w_item in list_w]
         w_list.lstorage = self.erase(l)
+        w_list.lstorage_num_slices = 0
+
+    def switch_to_slice_strategy(self, w_list):
+        old_list = W_ListObject.from_storage_and_strategy(
+            self.space, w_list.lstorage, self)
+        old_list.lstorage_num_slices = 1
+
+        strategy = w_list.strategy = self.space.fromcache(SliceCopyOnWriteListStrategy)
+        w_list.lstorage = strategy.erase((old_list, 0, self.length(w_list)))
 
     def get_empty_storage(self, sizehint):
         if sizehint == -1:
-            return self.erase([])
+            return self.erase(newlist_hint(4))
         return self.erase(newlist_hint(sizehint))
 
     def clone(self, w_list):
@@ -1350,19 +1376,11 @@ class AbstractUnwrappedStrategy(object):
     def getitems_fixedsize(self, w_list):
         return self.getitems_unroll(w_list)
 
-    def getstorage_copy(self, w_list):
-        items = self.unerase(w_list.lstorage)[:]
-        return self.erase(items)
-
     def getslice(self, w_list, start, stop, step, length):
         if step == 1 and 0 <= start <= stop:
-            l = self.unerase(w_list.lstorage)
-            assert start >= 0
-            assert stop >= 0
-            sublist = l[start:stop]
-            storage = self.erase(sublist)
-            return W_ListObject.from_storage_and_strategy(
-                    self.space, storage, self)
+            self.switch_to_slice_strategy(w_list)
+
+            return w_list.getslice(start, stop, step, length)
         else:
             subitems_w = [self._none_value] * length
             l = self.unerase(w_list.lstorage)
@@ -1375,6 +1393,13 @@ class AbstractUnwrappedStrategy(object):
             storage = self.erase(subitems_w)
             return W_ListObject.from_storage_and_strategy(
                     self.space, storage, self)
+
+    def getstorage_slice_copy(self, w_list, start, stop):
+        assert 0 <= start <= stop
+        l = self.unerase(w_list.lstorage)
+        assert start >= 0
+        assert stop >= 0
+        return self.erase(l[start:stop])
 
     def append(self, w_list, w_item):
         if self.is_correct_type(w_item):
@@ -1517,10 +1542,14 @@ class AbstractUnwrappedStrategy(object):
             del items[start:]
 
     def pop_end(self, w_list):
-        l = self.unerase(w_list.lstorage)
-        return self.wrap(l.pop())
+        self.switch_to_slice_strategy(w_list)
+        return w_list.pop_end()
 
     def pop(self, w_list, index):
+        if index == 0:
+            self.switch_to_slice_strategy(w_list)
+            return w_list.pop(index)
+
         l = self.unerase(w_list.lstorage)
         # not sure if RPython raises IndexError on pop
         # so check again here
@@ -1547,6 +1576,151 @@ class AbstractUnwrappedStrategy(object):
         self.unerase(w_list.lstorage).reverse()
 
 
+class SliceCopyOnWriteListStrategy(ListStrategy):
+    # In this case, lstorage is a tuple (underlying_list, start, end)
+
+    erase, unerase = rerased.new_erasing_pair("list_slice_cow")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def switch_to_mutable_strategy(self, w_list):
+        lst, start, end = self.unerase(w_list.lstorage)
+        lst.lstorage_num_slices -= 1
+        if lst.lstorage_num_slices == 0 and start == 0:
+            # Fast path - no copy required, just take (back) the ownership of the 
+            # underlying list.
+            strategy = w_list.strategy = lst.strategy
+            w_list.lstorage = lst.lstorage
+            length = w_list.length()
+            if end < length:
+                w_list.deleteslice(end, 1, length - end)
+            return
+
+        strategy = w_list.strategy = lst.strategy
+        w_list.lstorage = strategy.getstorage_slice_copy(lst, start, end)
+
+    def clone(self, w_list):
+        storage = w_list.lstorage  # lstorage is a tuple - no need to clone.
+        lst, _, _ = self.unerase(storage)
+        assert lst.lstorage_num_slices >= 1
+        lst.lstorage_num_slices += 1
+
+        w_clone = W_ListObject.from_storage_and_strategy(self.space, storage,
+                                                         self)
+        return w_clone
+
+    def length(self, w_list):
+        _, start, end = self.unerase(w_list.lstorage)
+        return end - start
+
+    def _resize_hint(self, w_list, hint):
+        assert hint >= 0
+
+    def copy_into(self, w_list, w_other):
+        w_other.strategy = self
+        w_other.lstorage = w_list.lstorage
+        lst, _, _ = self.unerase(w_list.lstorage)
+        lst.lstorage_num_slices += 1
+
+    def getitem(self, w_list, i):
+        lst, start, end = self.unerase(w_list.lstorage)
+        if i < 0:
+            i += end - start
+        if i >= end - start or i < 0:
+            raise IndexError
+        return lst.getitem(start + i)
+
+    def getitems_int(self, w_list):
+        return None  # TODO: This should be supported if the underlying type supports it.
+
+    def getitems_copy(self, w_list):
+        lst, start, end = self.unerase(w_list.lstorage)
+        return [lst.getitem(i) for i in range(start, end)]
+
+    # TODO: What's the difference between all the below?
+    @jit.dont_look_inside
+    def getitems_fixedsize(self, w_list):
+        return self.getitems_unroll(w_list)
+
+    @jit.unroll_safe
+    def getitems_unroll(self, w_list):
+        lst, start, end = self.unerase(w_list.lstorage)
+        result = [None] * (end - start)
+        for i in range(start, end):
+            result[i - start] = lst.getitem(i)
+        return result
+
+    def getslice(self, w_list, start, stop, step, length):
+        if step == 1 and 0 <= start <= stop:
+            lst, l_start, l_end = self.unerase(w_list.lstorage)
+            stop = min(stop, l_end - l_start)
+
+            lst.lstorage_num_slices += 1
+            new_storage = self.erase((lst, l_start + start, l_start + stop))
+            return W_ListObject.from_storage_and_strategy(self.space, new_storage,
+                                                          self)
+        self.switch_to_mutable_strategy(w_list)
+        return w_list.getslice(start, stop, step, length)
+
+    def append(self, w_list, w_item):
+        self.switch_to_mutable_strategy(w_list)
+        w_list.append(w_item)
+
+    def inplace_mul(self, w_list, times):
+        self.switch_to_mutable_strategy(w_list)
+        w_list.inplace_mul(times)
+
+    def deleteslice(self, w_list, start, step, slicelength):
+        # TODO: Check if the slice is on the boundaries & just move the bounds, like pop.
+        self.switch_to_mutable_strategy(w_list)
+        w_list.deleteslice(start, step, slicelength)
+
+    def setitem(self, w_list, index, w_item):
+        self.switch_to_mutable_strategy(w_list)
+        w_list.setitem(index, w_item)
+
+    def setslice(self, w_list, start, step, slicelength, sequence_w):
+        self.switch_to_mutable_strategy(w_list)
+        w_list.setslice(start, step, slicelength, sequence_w)
+
+    def insert(self, w_list, index, w_item):
+        self.switch_to_mutable_strategy(w_list)
+        w_list.insert(index, w_item)
+
+    def extend(self, w_list, w_any):
+        self.switch_to_mutable_strategy(w_list)
+        w_list.extend(w_any)
+
+    def reverse(self, w_list):
+        # TODO: support step = -step. For now callers could just invert their indices...
+        self.switch_to_mutable_strategy(w_list)
+        w_list.reverse()
+
+    def sort(self, w_list, reverse):
+        self.switch_to_mutable_strategy(w_list)
+        w_list.sort(reverse)
+
+    def pop(self, w_list, index):
+        """Pops an item from the list. Index must be normalized.
+        May raise IndexError."""
+        if index == 0:
+            lst, start, end = self.unerase(w_list.lstorage)
+            if start >= end:
+                raise IndexError
+            w_list.lstorage = self.erase((lst, start + 1, end))
+            return lst.getitem(start)
+
+        self.switch_to_mutable_strategy(w_list)
+        return w_list.pop(index)
+
+    def pop_end(self, w_list):
+        lst, start, end = self.unerase(w_list.lstorage)
+        if start >= end:
+            raise IndexError
+        w_list.lstorage = self.erase((lst, start, end - 1))
+        return lst.getitem(end - 1)
+
+
 class ObjectListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
@@ -1568,7 +1742,7 @@ class ObjectListStrategy(ListStrategy):
     def list_is_correct_type(self, w_list):
         return w_list.strategy is self.space.fromcache(ObjectListStrategy)
 
-    def init_from_list_w(self, w_list, list_w):
+    def init_from_list_w(self, w_list, list_w, size_hint):
         w_list.lstorage = self.erase(list_w)
 
     def clear(self, w_list):
