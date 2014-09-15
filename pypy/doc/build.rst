@@ -7,7 +7,7 @@ Clone the repository
 If you prefer to compile your own PyPy, or if you want to modify it, you
 will need to obtain a copy of the sources.  This can be done either by
 `downloading them from the download page`_ or by checking them out from the
-repository using mercurial.  We suggest using mercurial if one wants to access
+repository using mercurial.  We suggest using mercurial if you want to access
 the current development.
 
 .. _downloading them from the download page: http://pypy.org/download.html
