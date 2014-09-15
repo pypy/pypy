@@ -75,4 +75,4 @@ Building PyPy yourself
 ~~~~~~~~~~~~~~~~~~~~~~
 
 If you're interested in getting more involved, or doing something different with
-PyPy, consult `the build instructions <build>`.
+PyPy, consult :doc:`the build instructions <build>`.
