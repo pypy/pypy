@@ -187,7 +187,7 @@ class GcRewriterAssembler(object):
         v_totalsize = BoxInt()
         gcdescr = self.gc_ll_descr
         ops = [
-            ResOperation(rop.INT_ADD, [v_arr, ConstInt(size)], v_arr_plus_ofs),
+            ResOperation(rop.INT_ADD, [v_arr, ConstInt(ofs)], v_arr_plus_ofs),
         ]
 
         if v_arrsize is None:
