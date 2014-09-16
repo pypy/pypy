@@ -482,6 +482,7 @@ class RFile(object):
             return p - 1
 
     def _get_line_fgets(self):
+        # XXX use buffer size logic from cpython
         with rffi.scoped_alloc_buffer(BASE_LINE_SIZE) as buf:
             c = self._get_line_fgets_single(buf.raw)
             if c >= 0:
