@@ -1325,7 +1325,7 @@ class AppTestMultithreadedImp(object):
             for i in range(5):
                 thread.start_new_thread(check, ())
 
-            for n in range(100):
+            for n in range(200):
                 for i in range(105): time.sleep(0.001)
                 if len(got) == 5:
                     break
