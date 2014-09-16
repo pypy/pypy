@@ -71,6 +71,24 @@ class W_File(W_AbstractStream):
             self.w_name = w_name
         getopenstreams(self.space)[stream] = None
 
+    def check_mode_ok(self, mode):
+        # XXX get ValueError message from rpython working so we can use rfile's
+        space = self.space
+        if len(mode) == 0:
+            raise oefmt(space.w_ValueError, "empty mode string")
+        upos = mode.find('U')
+        if upos >= 0:
+            mode = mode[:upos] + mode[upos+1:]
+            first = mode[0:1]
+            if first == 'w' or first == 'a':
+                raise oefmt(space.w_ValueError,
+                            "universal newline mode can only be used with "
+                            "modes starting with 'r'")
+        elif mode[0] != 'r' and mode[0] != 'w' and mode[0] != 'a':
+            raise oefmt(space.w_ValueError,
+                        "mode string must begin with one of 'r', 'w', 'a' "
+                        "or 'U', not '%s'", mode)
+
     def check_closed(self):
         if self.stream is None:
             raise OperationError(self.space.w_ValueError,
@@ -101,12 +119,14 @@ class W_File(W_AbstractStream):
     @unwrap_spec(mode=str, buffering=int)
     def direct___init__(self, w_name, mode='r', buffering=-1):
         self.direct_close()
+        self.check_mode_ok(mode)
         self.w_name = w_name
         stream = rfile.create_file(fsencode_w(self.space, w_name), mode, buffering)
         self.fdopenstream(stream, mode)
 
     def direct_fdopen(self, fd, mode='r', buffering=-1):
         self.direct_close()
+        self.check_mode_ok(mode)
         self.w_name = self.space.wrap('<fdopen>')
         stream = rfile.create_fdopen_rfile(fd, mode, buffering)
         self.fdopenstream(stream, mode)
@@ -243,8 +263,6 @@ class W_File(W_AbstractStream):
     def file_fdopen(self, fd, mode="r", buffering=-1):
         try:
             self.direct_fdopen(fd, mode, buffering)
-        except ValueError as e:
-            raise OperationError(self.space.w_ValueError, self.space.wrap(str(e)))
         except IOError as e:
             space = self.space
             w_error = space.call_function(space.w_IOError, space.wrap(e.errno), space.wrap(e.strerror), self.w_name)
@@ -286,8 +304,6 @@ class W_File(W_AbstractStream):
                 try:
                     try:
                         result = self.direct_%(name)s(%(callsig)s)
-                    except ValueError as e:
-                        raise OperationError(space.w_ValueError, space.wrap(str(e)))
                     except IOError as e:
                         w_error = space.call_function(space.w_IOError, space.wrap(e.errno), space.wrap(e.strerror), self.w_name)
                         raise OperationError(space.w_IOError, w_error)
