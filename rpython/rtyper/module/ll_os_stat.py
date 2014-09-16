@@ -186,10 +186,10 @@ if sys.platform.startswith('win'):
     _name_struct_stat = '_stati64'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'sys/statvfs.h']
 else:
-    if 'bsd' in sys.platform:
-        _name_struct_stat = 'stat'
-    else:
+    if sys.platform.startswith('linux'):
         _name_struct_stat = 'stat64'
+    else:
+        _name_struct_stat = 'stat'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'sys/statvfs.h', 'unistd.h']
 
 compilation_info = ExternalCompilationInfo(
