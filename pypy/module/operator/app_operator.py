@@ -5,6 +5,7 @@ This module exports a set of operators as functions. E.g. operator.add(x,y) is
 equivalent to x+y.
 '''
 from __pypy__ import builtinify
+
 import types
 
 
@@ -27,7 +28,7 @@ def getslice(a, start, end):
     'getslice(a, b, c) -- Same as a[b:c].'
     if not isinstance(start, int) or not isinstance(end, int):
         raise TypeError("an integer is expected")
-    return a[start:end] 
+    return a[start:end]
 __getslice__ = getslice
 
 def indexOf(a, b):
@@ -37,7 +38,7 @@ def indexOf(a, b):
         if x == b:
             return index
         index += 1
-    raise ValueError, 'sequence.index(x): x not in sequence'
+    raise ValueError('sequence.index(x): x not in sequence')
 
 def isMappingType(obj,):
     'isMappingType(a) -- Return True if a has a mapping type, False otherwise.'
@@ -58,9 +59,9 @@ def isSequenceType(obj,):
 def repeat(obj, num):
     'repeat(a, b) -- Return a * b, where a is a sequence, and b is an integer.'
     if not isinstance(num, (int, long)):
-        raise TypeError, 'an integer is required'
+        raise TypeError('an integer is required')
     if not isSequenceType(obj):
-        raise TypeError, "non-sequence object can't be repeated"
+        raise TypeError("non-sequence object can't be repeated")
 
     return obj * num
 
@@ -68,7 +69,7 @@ __repeat__ = repeat
 
 def setslice(a, b, c, d):
     'setslice(a, b, c, d) -- Same as a[b:c] = d.'
-    a[b:c] = d 
+    a[b:c] = d
 __setslice__ = setslice
 
 
@@ -109,15 +110,19 @@ def single_attr_getter(attr):
     return make_getter(attr[last:], getter)
 
 
-def itemgetter(item, *items):
-    if items:
-        list_of_indices = [item] + list(items)
-        def getter(obj):
-            return tuple([obj[i] for i in list_of_indices])
-    else:
-        def getter(obj):
-            return obj[item]
-    return builtinify(getter)
+class itemgetter(object):
+    def __init__(self, item, *items):
+        self._single = not bool(items)
+        if self._single:
+            self._idx = item
+        else:
+            self._idx = [item] + list(items)
+
+    def __call__(self, obj):
+        if self._single:
+            return obj[self._idx]
+        else:
+            return tuple([obj[i] for i in self._idx])
 
 
 class methodcaller(object):
