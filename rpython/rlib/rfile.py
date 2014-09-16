@@ -504,73 +504,93 @@ class RFile(object):
         ll_file = self._ll_file
         newlinetypes = self._newlinetypes
         skipnextlf = self._skipnextlf
-        c = 0
+
         s = StringBuilder()
-        while True:
-            # XXX release gil for all of this rather than each getc
-            c_flockfile(ll_file)
-            if self._univ_newline:
-                while size < 0 or s.getlength() < size:
-                    c = c_getc_unlocked(ll_file)
-                    if c == EOF:
-                        break
-                    if skipnextlf:
-                        skipnextlf = False
+        buffersize = size if size > 0 else 100
+        remainsize = buffersize
+        raw_buf, gc_buf = rffi.alloc_buffer(remainsize)
+        try:
+            i = 0
+            c = ord('x')
+            while True:
+                # XXX release gil for all of this rather than each getc
+                c_flockfile(ll_file)
+                if self._univ_newline:
+                    while i < remainsize:
+                        c = c_getc_unlocked(ll_file)
+                        if c == EOF:
+                            break
+                        if skipnextlf:
+                            skipnextlf = False
+                            if c == ord('\n'):
+                                newlinetypes |= NEWLINE_CRLF
+                                c = c_getc_unlocked(ll_file)
+                                if c == EOF:
+                                    break
+                            else:
+                                newlinetypes |= NEWLINE_CR
+                        if c == ord('\r'):
+                            skipnextlf = True
+                            c = ord('\n')
+                        elif c == ord('\n'):
+                            newlinetypes |= NEWLINE_LF
+                        raw_buf[i] = chr(c)
+                        i += 1
                         if c == ord('\n'):
-                            newlinetypes |= NEWLINE_CRLF
-                            c = c_getc_unlocked(ll_file)
-                            if c == EOF:
-                                break
-                        else:
-                            newlinetypes |= NEWLINE_CR
-                    if c == ord('\r'):
-                        skipnextlf = True
-                        c = ord('\n')
-                    elif c == ord('\n'):
-                        newlinetypes |= NEWLINE_LF
-                    s.append(chr(c))
-                    if c == ord('\n'):
-                        break
-                if c == EOF:
-                    if c_ferror(ll_file) and rposix.get_errno() == errno.EINTR:
-                        c_funlockfile(ll_file)
-                        self._newlinetypes = newlinetypes
-                        self._skipnextlf = skipnextlf
-                        if self._signal_checker is not None:
-                            self._signal_checker()
-                        c_clearerr(ll_file)
-                        continue
-                    if skipnextlf:
-                        newlinetypes |= NEWLINE_CR
-            else:
-                while size < 0 or s.getlength() < size:
-                    c = c_getc_unlocked(ll_file)
+                            break
                     if c == EOF:
-                        break
-                    s.append(chr(c))
-                    if c == ord('\n'):
-                        break
-            c_funlockfile(ll_file)
-            self._newlinetypes = newlinetypes
-            self._skipnextlf = skipnextlf
-            if c == ord('\n'):
-                break
-            elif c == EOF:
-                if c_ferror(ll_file):
-                    if rposix.get_errno() == errno.EINTR:
-                        if self._signal_checker is not None:
-                            self._signal_checker()
+                        if c_ferror(ll_file) and rposix.get_errno() == errno.EINTR:
+                            c_funlockfile(ll_file)
+                            self._newlinetypes = newlinetypes
+                            self._skipnextlf = skipnextlf
+                            if self._signal_checker is not None:
+                                self._signal_checker()
+                            c_clearerr(ll_file)
+                            continue
+                        if skipnextlf:
+                            newlinetypes |= NEWLINE_CR
+                else:
+                    while i < remainsize:
+                        c = c_getc_unlocked(ll_file)
+                        if c == EOF:
+                            break
+                        raw_buf[i] = chr(c)
+                        i += 1
+                        if c == ord('\n'):
+                            break
+                c_funlockfile(ll_file)
+                self._newlinetypes = newlinetypes
+                self._skipnextlf = skipnextlf
+                if i == size:
+                    # we read everything in one call, try to avoid copy
+                    # (remainsize == size if i == size)
+                    return rffi.str_from_buffer(raw_buf, gc_buf, remainsize, size)
+                s.append_charpsize(raw_buf, i)
+                if c == ord('\n'):
+                    break
+                elif c == EOF:
+                    if c_ferror(ll_file):
+                        if rposix.get_errno() == errno.EINTR:
+                            if self._signal_checker is not None:
+                                self._signal_checker()
+                            c_clearerr(ll_file)
+                            continue
                         c_clearerr(ll_file)
-                        continue
+                        raise _from_errno(IOError)
                     c_clearerr(ll_file)
-                    raise _from_errno(IOError)
-                c_clearerr(ll_file)
-                if self._signal_checker is not None:
-                    self._signal_checker()
-                break
-            else:
-                assert s.getlength() == size
-                break
+                    if self._signal_checker is not None:
+                        self._signal_checker()
+                    break
+                if size > 0:
+                    assert s.getlength() == size
+                    break
+                buffersize += buffersize >> 2
+                remainsize = buffersize - s.getlength()
+                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+                raw_buf, gc_buf = rffi.alloc_buffer(remainsize)
+                i = 0
+        finally:
+            rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         return s.build()
 
     def readline(self, size=-1):
