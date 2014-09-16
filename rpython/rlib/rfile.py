@@ -429,7 +429,7 @@ class RFile(object):
                     raise _from_errno(IOError)
                 elif chunksize == size:
                     # we read everything in one call, try to avoid copy
-                    # (remainsize == size if chunksize == size)
+                    assert remainsize == size
                     return rffi.str_from_buffer(raw_buf, gc_buf, remainsize, size)
                 s.append_charpsize(raw_buf, chunksize)
                 if chunksize < remainsize and not interrupted:
@@ -568,7 +568,7 @@ class RFile(object):
                 self._skipnextlf = skipnextlf
                 if i == size:
                     # we read everything in one call, try to avoid copy
-                    # (remainsize == size if i == size)
+                    assert remainsize == size
                     return rffi.str_from_buffer(raw_buf, gc_buf, remainsize, size)
                 s.append_charpsize(raw_buf, i)
                 if c == ord('\n'):
