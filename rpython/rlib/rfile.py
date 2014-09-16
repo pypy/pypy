@@ -427,20 +427,19 @@ class RFile(object):
                     if s.getlength() > 0 and rposix.get_errno() == errno.EAGAIN:
                         break
                     raise _from_errno(IOError)
-                elif chunksize == size:
-                    # we read everything in one call, try to avoid copy
-                    assert remainsize == size
-                    return rffi.str_from_buffer(raw_buf, gc_buf, remainsize, size)
-                s.append_charpsize(raw_buf, chunksize)
                 if chunksize < remainsize and not interrupted:
                     c_clearerr(ll_file)
                     break
                 if size >= 0:
                     break
+                s.append_charpsize(raw_buf, chunksize)
                 buffersize = self._new_buffersize(buffersize)
                 remainsize = buffersize - s.getlength()
                 rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
                 raw_buf, gc_buf = rffi.alloc_buffer(remainsize)
+            if s.getlength() == 0:
+                return rffi.str_from_buffer(raw_buf, gc_buf, remainsize, chunksize)
+            s.append_charpsize(raw_buf, chunksize)
         finally:
             rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         return s.build()
@@ -566,11 +565,6 @@ class RFile(object):
                 if after: after()
                 self._newlinetypes = newlinetypes
                 self._skipnextlf = skipnextlf
-                if i == size:
-                    # we read everything in one call, try to avoid copy
-                    assert remainsize == size
-                    return rffi.str_from_buffer(raw_buf, gc_buf, remainsize, size)
-                s.append_charpsize(raw_buf, i)
                 if c == ord('\n'):
                     break
                 elif c == EOF:
@@ -587,13 +581,16 @@ class RFile(object):
                         self._signal_checker()
                     break
                 if size > 0:
-                    assert s.getlength() == size
                     break
+                s.append_charpsize(raw_buf, i)
                 buffersize += buffersize >> 2
                 remainsize = buffersize - s.getlength()
                 rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
                 raw_buf, gc_buf = rffi.alloc_buffer(remainsize)
                 i = 0
+            if s.getlength() == 0:
+                return rffi.str_from_buffer(raw_buf, gc_buf, remainsize, i)
+            s.append_charpsize(raw_buf, i)
         finally:
             rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         return s.build()
