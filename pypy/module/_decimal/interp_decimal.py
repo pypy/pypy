@@ -30,6 +30,15 @@ MIN_ETINY = rmpdec.MPD_MIN_ETINY
 # DEC_MINALLOC >= MPD_MINALLOC
 DEC_MINALLOC = 4
 
+class State:
+    def __init__(self, space):
+        w_import = space.builtin.get('__import__')
+        w_numbers = space.call_function(w_import,
+                                        space.wrap('numbers'))
+        self.w_Rational = space.getattr(w_numbers,
+                                        space.wrap('Rational'))
+
+
 class W_Decimal(W_Root):
     hash = -1
 
@@ -483,6 +492,46 @@ def convert_binop_raise(space, context, w_x, w_y):
                     space.type(w_y))
     return w_a, w_b
 
+# Convert rationals for comparison
+def _multiply_by_denominator(space, w_v, w_r, context):
+    # w_v is not special, w_r is a rational.
+    w_denom = space.getattr(w_r, space.wrap("denominator"))
+    denom = decimal_from_bigint(space, None, space.bigint_w(w_denom),
+                                context, exact=True)
+    vv = rmpdec.mpd_qncopy(w_v.mpd)
+    if not vv:
+        raise OperationError(space.w_MemoryError, space.w_None)
+    try:
+        result = W_Decimal(space)
+        with lltype.scoped_alloc(rmpdec.MPD_CONTEXT_PTR.TO) as maxctx:
+            rmpdec.mpd_maxcontext(maxctx)
+            # Prevent Overflow in the following multiplication. The
+            # result of the multiplication is only used in mpd_qcmp,
+            # which can handle values that are technically out of
+            # bounds, like (for 32-bit)
+            # 99999999999999999999...99999999e+425000000.
+            exp = vv.c_exp
+            vv.c_exp = 0
+            with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1,
+                                     zero=True) as status_ptr:
+                rmpdec.mpd_qmul(result.mpd, vv, denom.mpd, maxctx, status_ptr)
+                # If any status has been accumulated during the multiplication,
+                # the result is invalid. This is very unlikely, since even the
+                # 32-bit version supports 425000000 digits.
+                if status_ptr[0]:
+                    raise oefmt(space.w_ValueError,
+                                "exact conversion for comparison failed")
+            result.mpd.c_exp = exp
+    finally:
+        rmpdec.mpd_del(vv)
+
+    return space.wrap(result)
+
+def _numerator_as_decimal(space, w_r, context):
+    w_numerator = space.getattr(w_r, space.wrap("numerator"))
+    return decimal_from_bigint(space, None, space.bigint_w(w_numerator),
+                               context, exact=True)
+
 def convert_binop_cmp(space, context, op, w_v, w_w):
     if isinstance(w_w, W_Decimal):
         return None, w_v, w_w
@@ -513,6 +562,11 @@ def convert_binop_cmp(space, context, op, w_v, w_w):
             w_w = decimal_from_float(space, None, w_w, context, exact=True)
         else:
             return space.w_NotImplemented, None, None
+    elif space.isinstance_w(w_w, space.fromcache(State).w_Rational):
+        w_numerator = _numerator_as_decimal(space, w_w, context)
+        if not rmpdec.mpd_isspecial(w_v.mpd):
+            w_v = _multiply_by_denominator(space, w_v, w_w, context)
+        w_w = w_numerator
     else:
         return space.w_NotImplemented, None, None
     return None, w_v, w_w

@@ -855,6 +855,49 @@ class AppTestExplicitConstruction:
             doit(c, signal=FloatOperation)
             test_containers(c, signal=FloatOperation)
 
+    def test_decimal_fraction_comparison(self):
+        C = self.decimal
+        D = self.decimal.Decimal
+        from fractions import Fraction as F
+        Context = self.decimal.Context
+        localcontext = self.decimal.localcontext
+        InvalidOperation = self.decimal.InvalidOperation
+
+
+        emax = C.MAX_EMAX
+        emin = C.MIN_EMIN
+        etiny = C.MIN_ETINY
+        c = Context(Emax=emax, Emin=emin)
+
+        with localcontext(c):
+            c.prec = emax
+            assert D(0) < F(1,9999999999999999999999999999999999999)
+            assert F(-1,9999999999999999999999999999999999999) < D(0)
+            assert F(0,1) < D("1e" + str(etiny))
+            assert D("-1e" + str(etiny)) < F(0,1)
+            assert F(0,9999999999999999999999999) < D("1e" + str(etiny))
+            assert D("-1e" + str(etiny)) < F(0,9999999999999999999999999)
+
+            assert D("0.1") == F(1,10)
+            assert F(1,10) == D("0.1")
+
+            c.prec = 300
+            assert D(1)/3 != F(1,3)
+            assert F(1,3) != D(1)/3
+
+            assert F(120984237, 9999999999) <= D("9e" + str(emax))
+            assert D("9e" + str(emax)) >= F(120984237, 9999999999)
+
+            assert D('inf') > F(99999999999,123)
+            assert D('inf') > F(-99999999999,123)
+            assert D('-inf') < F(99999999999,123)
+            assert D('-inf') < F(-99999999999,123)
+
+            raises(InvalidOperation, D('nan').__gt__, F(-9,123))
+            assert F(-9,123).__lt__(D('nan')) is NotImplemented
+            assert D('nan') != F(-9,123)
+            assert F(-9,123) != D('nan')
+
     def test_nan_comparisons(self):
         import operator
         # comparisons involving signaling nans signal InvalidOperation
