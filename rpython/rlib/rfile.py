@@ -13,8 +13,6 @@ from rpython.rtyper.tool import rffi_platform as platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 MS_WINDOWS = os.name == 'nt'
-if MS_WINDOWS:
-    from rpython.rlib.rwin32 import _get_osfhandle, SetEndOfFile, INVALID_HANDLE_VALUE
 
 includes = ['stdio.h', 'sys/types.h']
 if os.name == "posix":
@@ -121,7 +119,7 @@ if not MS_WINDOWS:
         c_fseek = llexternal('fseeko', [FILEP, OFF_T, rffi.INT], rffi.INT)
         c_ftell = llexternal('ftello', [FILEP], OFF_T)
 else:
-    c_ftruncate = llexternal('_chsize', [rffi.INT, OFF_T], rffi.INT)
+    from rpython.rlib.rwin32 import _get_osfhandle, SetEndOfFile, INVALID_HANDLE_VALUE
     c_fseek = llexternal('_fseeki64', [FILEP, rffi.LONGLONG, rffi.INT], rffi.INT)
     c_ftell = llexternal('_ftelli64', [FILEP], rffi.LONGLONG)
 
