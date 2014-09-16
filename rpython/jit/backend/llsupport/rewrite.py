@@ -184,7 +184,6 @@ class GcRewriterAssembler(object):
         # XXX this maybe should go to optimizer, so we can remove extra ops?
         ofs, size, _ = self.cpu.unpack_arraydescr_size(arraydescr)
         v_arr_plus_ofs = BoxInt()
-        v_arrsize = BoxInt()
         v_totalsize = BoxInt()
         gcdescr = self.gc_ll_descr
         ops = [
@@ -192,6 +191,7 @@ class GcRewriterAssembler(object):
         ]
 
         if v_arrsize is None:
+            v_arrsize = BoxInt()
             o = ResOperation(rop.ARRAYLEN_GC, [v_arr], v_arrsize,
                              descr=arraydescr)
             ops.append(o)
