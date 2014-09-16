@@ -13,6 +13,8 @@ from rpython.rtyper.tool import rffi_platform as platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 MS_WINDOWS = os.name == 'nt'
+if MS_WINDOWS:
+    from rpython.rlib.rwin32 import _get_osfhandle, SetEndOfFile, INVALID_HANDLE_VALUE
 
 includes = ['stdio.h', 'sys/types.h']
 if os.name == "posix":
@@ -612,11 +614,25 @@ class RFile(object):
         if res != 0:
             c_clearerr(ll_file)
             raise _from_errno(IOError)
-        # XXX use fseek/SetEndOfFile on windows
-        res = c_ftruncate(c_fileno(ll_file), arg)
-        if res != 0:
-            c_clearerr(ll_file)
-            raise _from_errno(IOError)
+        if MS_WINDOWS:
+            ret = c_fseek(ll_file, arg, os.SEEK_SET)
+            if ret:
+                c_clearerr(ll_file)
+                raise _from_errno(IOError)
+            handle = _get_osfhandle(c_fileno(ll_file))
+            ret = handle == INVALID_HANDLE_VALUE
+            if ret == 0:
+                ret = SetEndOfFile(handle) == 0
+                if ret:
+                    rposix.set_errno(errno.EACCES)
+            if ret:
+                c_clearerr(ll_file)
+                raise _from_errno(IOError)
+        else:
+            ret = c_ftruncate(c_fileno(ll_file), arg)
+            if ret != 0:
+                c_clearerr(ll_file)
+                raise _from_errno(IOError)
         res = c_fseek(ll_file, pos, os.SEEK_SET)
         if res != 0:
             c_clearerr(ll_file)

@@ -154,6 +154,8 @@ if WIN32:
             raise WindowsError(ERROR_INVALID_HANDLE, "Invalid file handle")
         return handle
 
+    SetEndOfFile = rffi.llexternal('SetEndOfFile', [HANDLE], BOOL)
+
     def build_winerror_to_errno():
         """Build a dictionary mapping windows error numbers to POSIX errno.
         The function returns the dict, and the default value for codes not

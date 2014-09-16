@@ -188,15 +188,13 @@ StreamErrors = (OSError, StreamError)     # errors that can generally be raised
 
 
 if sys.platform == "win32":
-    from rpython.rlib.rwin32 import BOOL, HANDLE, get_osfhandle, GetLastError
+    from rpython.rlib.rwin32 import get_osfhandle, GetLastError, SetEndOfFile
     from rpython.translator.tool.cbuild import ExternalCompilationInfo
     from rpython.rtyper.lltypesystem import rffi
 
     _eci = ExternalCompilationInfo()
     _setmode = rffi.llexternal('_setmode', [rffi.INT, rffi.INT], rffi.INT,
                                compilation_info=_eci)
-    SetEndOfFile = rffi.llexternal('SetEndOfFile', [HANDLE], BOOL,
-                                   compilation_info=_eci)
 
     def _setfd_binary(fd):
         # Allow this to succeed on invalid fd's
