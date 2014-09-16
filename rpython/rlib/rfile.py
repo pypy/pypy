@@ -12,13 +12,11 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
+MS_WINDOWS = os.name == 'nt'
 
 includes = ['stdio.h', 'sys/types.h']
 if os.name == "posix":
     includes += ['unistd.h']
-    fileno = 'fileno'
-else:
-    fileno = '_fileno'
 
 stdio_streams = ['stdin', 'stdout', 'stderr']
 separate_module_sources = ['\n'.join('FILE* get_%s() { return %s; }' % (s, s)
@@ -65,10 +63,12 @@ NEWLINE_CRLF = 4
 def llexternal(*args, **kwargs):
     return rffi.llexternal(*args, compilation_info=eci, **kwargs)
 
+_fdopen = ('_' if MS_WINDOWS else '') + 'fdopen'
+_fileno = ('_' if MS_WINDOWS else '') + 'fileno'
+
 c_fopen = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP, macro=True)
 c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], FILEP)
-c_fdopen = llexternal(('_' if os.name == 'nt' else '') + 'fdopen',
-                      [rffi.INT, rffi.CCHARP], FILEP)
+c_fdopen = llexternal(_fdopen, [rffi.INT, rffi.CCHARP], FILEP)
 c_tmpfile = llexternal('tmpfile', [], FILEP)
 
 # Note: the following functions are called from __del__ methods,
@@ -94,7 +94,7 @@ c_getc = llexternal('getc', [FILEP], rffi.INT)
 c_getc_unlocked = llexternal('getc_unlocked', [FILEP], rffi.INT)
 c_ungetc = llexternal('ungetc', [rffi.INT, FILEP], rffi.INT)
 
-if os.name == 'nt':
+if MS_WINDOWS:
     c_flockfile = lambda ll_file: None
     c_funlockfile = lambda ll_file: None
     c_getc_unlocked = c_getc
@@ -108,7 +108,7 @@ c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
 c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
                       rffi.SIZE_T)
 
-if os.name != 'nt':
+if not MS_WINDOWS:
     assert rffi.sizeof(OFF_T) == 8
     if sys.platform.startswith('linux'):
         c_ftruncate = llexternal('ftruncate64', [rffi.INT, OFF_T], rffi.INT)
@@ -123,7 +123,7 @@ else:
     c_fseek = llexternal('_fseeki64', [FILEP, rffi.LONGLONG, rffi.INT], rffi.INT)
     c_ftell = llexternal('_ftelli64', [FILEP], rffi.LONGLONG)
 
-c_fileno = llexternal(fileno, [FILEP], rffi.INT, releasegil=False)
+c_fileno = llexternal(_fileno, [FILEP], rffi.INT, releasegil=False)
 c_feof = llexternal('feof', [FILEP], rffi.INT, releasegil=False)
 c_ferror = llexternal('ferror', [FILEP], rffi.INT, releasegil=False)
 c_clearerr = llexternal('clearerr', [FILEP], lltype.Void, releasegil=False)
