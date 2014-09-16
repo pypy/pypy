@@ -94,12 +94,12 @@ if MS_WINDOWS:
     USE_FGETS_IN_GETLINE = True
     c_flockfile = lambda ll_file: None
     c_funlockfile = lambda ll_file: None
-    c_getc_unlocked = llexternal('getc', [FILEP], rffi.INT)
+    c_getc_unlocked = c_getc
 else:
     USE_FGETS_IN_GETLINE = False
-    c_flockfile = llexternal('flockfile', [FILEP], lltype.Void)
-    c_funlockfile = llexternal('funlockfile', [FILEP], lltype.Void)
-    c_getc_unlocked = llexternal('getc_unlocked', [FILEP], rffi.INT)
+    c_flockfile = llexternal('flockfile', [FILEP], lltype.Void, releasegil=False)
+    c_funlockfile = llexternal('funlockfile', [FILEP], lltype.Void, releasegil=False)
+    c_getc_unlocked = llexternal('getc_unlocked', [FILEP], rffi.INT, releasegil=False)
 
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP], rffi.CCHARP)
 c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
@@ -513,7 +513,8 @@ class RFile(object):
             i = 0
             c = ord('x')
             while True:
-                # XXX release gil for all of this rather than each getc
+                before = rffi.aroundstate.before
+                if before: before()
                 c_flockfile(ll_file)
                 if self._univ_newline:
                     while i < remainsize:
@@ -541,6 +542,8 @@ class RFile(object):
                     if c == EOF:
                         if c_ferror(ll_file) and rposix.get_errno() == errno.EINTR:
                             c_funlockfile(ll_file)
+                            after = rffi.aroundstate.after
+                            if after: after()
                             self._newlinetypes = newlinetypes
                             self._skipnextlf = skipnextlf
                             if self._signal_checker is not None:
@@ -559,6 +562,8 @@ class RFile(object):
                         if c == ord('\n'):
                             break
                 c_funlockfile(ll_file)
+                after = rffi.aroundstate.after
+                if after: after()
                 self._newlinetypes = newlinetypes
                 self._skipnextlf = skipnextlf
                 if i == size:
