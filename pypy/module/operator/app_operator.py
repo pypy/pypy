@@ -120,7 +120,11 @@ def itemgetter(item, *items):
     return builtinify(getter)
 
 
-def methodcaller(method_name, *args, **kwargs):
-    def call(obj):
-        return getattr(obj, method_name)(*args, **kwargs)
-    return builtinify(call)
+class methodcaller(object):
+    def __init__(self, method_name, *args, **kwargs):
+        self._method_name = method_name
+        self._args = args
+        self._kwargs = kwargs
+
+    def __call__(self, obj):
+        return getattr(obj, self._method_name)(*self._args, **self._kwargs)
