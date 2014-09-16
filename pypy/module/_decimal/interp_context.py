@@ -1,6 +1,7 @@
 from rpython.rlib import rmpdec
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.tool.sourcetools import func_renamer
 from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -288,9 +289,10 @@ def descr_new_context(space, w_subtype, __args__):
     W_Context.__init__(w_result, space)
     return w_result
 
-def make_unary_method(mpd_func_name):
+def make_unary_method(mpd_func_name, tag=''):
     mpd_func = getattr(rmpdec, mpd_func_name)
     @unwrap_spec(w_context=W_Context)
+    @func_renamer('descr_%s%s' % (mpd_func_name, tag))
     def func_w(space, w_context, w_x):
         from pypy.module._decimal import interp_decimal
         w_a = interp_decimal.convert_op_raise(space, w_context, w_x)
@@ -303,6 +305,7 @@ def make_unary_method(mpd_func_name):
 def make_binary_method(mpd_func_name):
     mpd_func = getattr(rmpdec, mpd_func_name)
     @unwrap_spec(w_context=W_Context)
+    @func_renamer('descr_%s' % mpd_func_name)
     def func_w(space, w_context, w_x, w_y):
         from pypy.module._decimal import interp_decimal
         w_a, w_b = interp_decimal.convert_binop_raise(
@@ -316,6 +319,7 @@ def make_binary_method(mpd_func_name):
 def make_bool_method(mpd_func_name):
     mpd_func = getattr(rmpdec, mpd_func_name)
     @unwrap_spec(w_context=W_Context)
+    @func_renamer('descr_%s' % mpd_func_name)
     def func_w(space, w_context, w_x):
         from pypy.module._decimal import interp_decimal
         w_x = interp_decimal.convert_op_raise(space, w_context, w_x)
@@ -326,6 +330,7 @@ def make_bool_method(mpd_func_name):
 def make_bool_method_noctx(mpd_func_name):
     mpd_func = getattr(rmpdec, mpd_func_name)
     @unwrap_spec(w_context=W_Context)
+    @func_renamer('descr_%s' % mpd_func_name)
     def func_w(space, w_context, w_x):
         from pypy.module._decimal import interp_decimal
         w_x = interp_decimal.convert_op_raise(space, w_context, w_x)
@@ -366,7 +371,7 @@ W_Context.typedef = TypeDef(
     plus=make_unary_method('mpd_qplus'),
     to_integral=make_unary_method('mpd_qround_to_int'),
     to_integral_exact=make_unary_method('mpd_qround_to_intx'),
-    to_integral_value=make_unary_method('mpd_qround_to_int'),
+    to_integral_value=make_unary_method('mpd_qround_to_int', tag='value'),
     sqrt=make_unary_method('mpd_qsqrt'),
     logical_invert=make_unary_method('mpd_qinvert'),
     # Binary Operations

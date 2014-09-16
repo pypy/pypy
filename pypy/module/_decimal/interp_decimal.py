@@ -2,6 +2,7 @@ from rpython.rlib import rmpdec, rarithmetic, rbigint, rfloat
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.tool.sourcetools import func_renamer
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -519,6 +520,7 @@ def convert_binop_cmp(space, context, op, w_v, w_w):
 
 def make_unary_number_method(mpd_func_name):
     mpd_func = getattr(rmpdec, mpd_func_name)
+    @func_renamer('descr_%s' % mpd_func_name)
     def descr_method(space, w_self):
         self = space.interp_w(W_Decimal, w_self)
         context = interp_context.getcontext(space)
@@ -541,12 +543,14 @@ def binary_number_method(space, mpd_func, w_x, w_y):
 
 def make_binary_number_method(mpd_func_name):
     mpd_func = getattr(rmpdec, mpd_func_name)
+    @func_renamer('descr_%s' % mpd_func_name)
     def descr_method(space, w_self, w_other):
         return binary_number_method(space, mpd_func, w_self, w_other)
     return interp2app(descr_method)
 
 def make_binary_number_method_right(mpd_func_name):
     mpd_func = getattr(rmpdec, mpd_func_name)
+    @func_renamer('descr_r_%s' % mpd_func_name)
     def descr_method(space, w_self, w_other):
         return binary_number_method(space, mpd_func, w_other, w_self)
     return interp2app(descr_method)
