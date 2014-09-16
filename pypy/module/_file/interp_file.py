@@ -452,6 +452,8 @@ producing strings. This is equivalent to calling write() for each string."""
         """readinto() -> Undocumented.  Don't use this; it may go away."""
         # XXX not the most efficient solution as it doesn't avoid the copying
         space = self.space
+        self.check_closed()
+        self.check_readable()
         rwbuffer = space.writebuf_w(w_rwbuffer)
         ntodo = rwbuffer.getlength()
         ndone = 0

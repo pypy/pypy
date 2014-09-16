@@ -582,6 +582,12 @@ class AppTestAFewExtra:
         assert n == 6
         assert len(a) == 10
         assert a.tostring() == 'foobar6789'
+        exc = raises(ValueError, f.readinto, bytearray(''))
+        assert str(exc.value) == "I/O operation on closed file"
+        f = open(fn, 'wb')
+        exc = raises(IOError, f.readinto, bytearray(''))
+        assert str(exc.value) == "File not open for reading"
+        f.close()
 
     def test_weakref(self):
         """Files are weakrefable."""
