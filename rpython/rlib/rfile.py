@@ -87,20 +87,19 @@ c_pclose, c_pclose_nogil = (llexternal(*_pclose),
 _fclose2 = (c_fclose, c_fclose_nogil)
 _pclose2 = (c_pclose, c_pclose_nogil)
 
-c_flockfile = llexternal('flockfile', [FILEP], lltype.Void)
-c_funlockfile = llexternal('funlockfile', [FILEP], lltype.Void)
-
-c_getc = llexternal('getc', [FILEP], rffi.INT)
-c_getc_unlocked = llexternal('getc_unlocked', [FILEP], rffi.INT)
-c_ungetc = llexternal('ungetc', [rffi.INT, FILEP], rffi.INT)
+c_getc = llexternal('getc', [FILEP], rffi.INT, releasegil=False)
+c_ungetc = llexternal('ungetc', [rffi.INT, FILEP], rffi.INT, releasegil=False)
 
 if MS_WINDOWS:
+    USE_FGETS_IN_GETLINE = True
     c_flockfile = lambda ll_file: None
     c_funlockfile = lambda ll_file: None
-    c_getc_unlocked = c_getc
-    USE_FGETS_IN_GETLINE = True
+    c_getc_unlocked = llexternal('getc', [FILEP], rffi.INT)
 else:
     USE_FGETS_IN_GETLINE = False
+    c_flockfile = llexternal('flockfile', [FILEP], lltype.Void)
+    c_funlockfile = llexternal('funlockfile', [FILEP], lltype.Void)
+    c_getc_unlocked = llexternal('getc_unlocked', [FILEP], rffi.INT)
 
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP], rffi.CCHARP)
 c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
