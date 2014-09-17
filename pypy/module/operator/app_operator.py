@@ -4,7 +4,6 @@ Operator interface.
 This module exports a set of operators as functions. E.g. operator.add(x,y) is
 equivalent to x+y.
 '''
-from __pypy__ import builtinify
 
 import types
 
