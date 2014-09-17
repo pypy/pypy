@@ -1052,7 +1052,10 @@ class AppTestPosix:
         def test__getfinalpathname(self):
             import os
             path = os.path.join(self.pdir, 'file1')
-            result = self.posix._getfinalpathname(path)
+            try:
+                result = self.posix._getfinalpathname(path)
+            except NotImplementedError:
+                skip("_getfinalpathname not supported on this platform")
             assert os.path.exists(result)
 
 
