@@ -13,6 +13,7 @@ else:
 
 @specialize.memo()
 def decode_error_handler(space):
+    # Fast version of the "strict" errors handler.
     def raise_unicode_exception_decode(errors, encoding, msg, s,
                                        startingpos, endingpos):
         raise OperationError(space.w_UnicodeDecodeError,
@@ -25,6 +26,7 @@ def decode_error_handler(space):
 
 @specialize.memo()
 def encode_error_handler(space):
+    # Fast version of the "strict" errors handler.
     def raise_unicode_exception_encode(errors, encoding, msg, u,
                                        startingpos, endingpos):
         raise OperationError(space.w_UnicodeEncodeError,
