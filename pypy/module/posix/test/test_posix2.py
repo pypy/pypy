@@ -1040,6 +1040,21 @@ class AppTestPosix:
         # just ensure it returns something reasonable
         assert encoding is None or type(encoding) is str
 
+    if os.name == 'nt':
+        def test__getfileinformation(self):
+            import os
+            path = os.path.join(self.pdir, 'file1')
+            with open(path) as fp:
+                info = self.posix._getfileinformation(fp.fileno())
+            assert len(info) == 3
+            assert all(isinstance(obj, int) for obj in info)
+
+        def test__getfinalpathname(self):
+            import os
+            path = os.path.join(self.pdir, 'file1')
+            result = self.posix._getfinalpathname(path)
+            assert os.path.exists(result)
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):

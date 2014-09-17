@@ -5,8 +5,7 @@ from rpython.rlib import rposix, objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.module import ll_os_stat
-from rpython.rtyper.module.ll_os import RegisterOs
+from rpython.rtyper.module import ll_os, ll_os_stat
 
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
@@ -1205,7 +1204,7 @@ def setresgid(space, rgid, egid, sgid):
         raise wrap_oserror(space, e)
 
 def declare_new_w_star(name):
-    if name in RegisterOs.w_star_returning_int:
+    if name in ll_os.RegisterOs.w_star_returning_int:
         @unwrap_spec(status=c_int)
         def WSTAR(space, status):
             return space.wrap(getattr(os, name)(status))
@@ -1217,7 +1216,7 @@ def declare_new_w_star(name):
     WSTAR.func_name = name
     return WSTAR
 
-for name in RegisterOs.w_star:
+for name in ll_os.RegisterOs.w_star:
     if hasattr(os, name):
         func = declare_new_w_star(name)
         globals()[name] = func
@@ -1383,3 +1382,25 @@ def device_encoding(space, fd):
         if codeset:
             return space.wrap(codeset)
     return space.w_None
+
+if _WIN32:
+    @unwrap_spec(fd=c_int)
+    def _getfileinformation(space, fd):
+        try:
+            info = ll_os._getfileinformation(fd)
+        except OSError as e:
+            raise wrap_oserror(space, e)
+        return space.newtuple([space.wrap(info[0]),
+                               space.wrap(info[1]),
+                               space.wrap(info[2])])
+
+    def _getfinalpathname(space, w_path):
+        path = space.unicode_w(w_path)
+        try:
+            result = ll_os._getfinalpathname(path)
+        except ll_os.LLNotImplemented as e:
+            raise OperationError(space.w_NotImplementedError,
+                                 space.wrap(e.msg))
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path)
+        return space.wrap(result)
