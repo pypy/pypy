@@ -502,13 +502,68 @@ class RFile(object):
             s.append_charpsize(buf.raw, c)
         return s.build()
 
+    def _get_line_getc(self, raw_buf, remainsize, i):
+        ll_file = self._ll_file
+        c = ord('x')
+
+        self._unlocked_count += 1
+        before = rffi.aroundstate.before
+        if before: before()
+        c_flockfile(ll_file)
+
+        if self._univ_newline:
+            newlinetypes = self._newlinetypes
+            skipnextlf = self._skipnextlf
+            while i < remainsize:
+                c = c_getc_unlocked(ll_file)
+                if c == EOF:
+                    break
+                if skipnextlf:
+                    skipnextlf = False
+                    if c == ord('\n'):
+                        newlinetypes |= NEWLINE_CRLF
+                        c = c_getc_unlocked(ll_file)
+                        if c == EOF:
+                            break
+                    else:
+                        newlinetypes |= NEWLINE_CR
+                if c == ord('\r'):
+                    skipnextlf = True
+                    c = ord('\n')
+                elif c == ord('\n'):
+                    newlinetypes |= NEWLINE_LF
+                raw_buf[i] = chr(c)
+                i += 1
+                if c == ord('\n'):
+                    break
+            if c == EOF and skipnextlf:
+                newlinetypes |= NEWLINE_CR
+            self._newlinetypes = newlinetypes
+            self._skipnextlf = skipnextlf
+        else:
+            while i < remainsize:
+                c = c_getc_unlocked(ll_file)
+                if c == EOF:
+                    break
+                raw_buf[i] = chr(c)
+                i += 1
+                if c == ord('\n'):
+                    break
+
+        c_funlockfile(ll_file)
+        after = rffi.aroundstate.after
+        if after: after()
+        self._unlocked_count -= 1
+
+        return i, c
+    _get_line_getc._gctransformer_hint_close_stack_ = True
+    _get_line_getc._dont_inline_ = True
+
     def _get_line(self, size):
         if USE_FGETS_IN_GETLINE and size < 0 and not self._univ_newline:
             return self._get_line_fgets()
 
         ll_file = self._ll_file
-        newlinetypes = self._newlinetypes
-        skipnextlf = self._skipnextlf
 
         s = None
         buffersize = size if size > 0 else 100
@@ -516,64 +571,8 @@ class RFile(object):
         raw_buf, gc_buf = rffi.alloc_buffer(remainsize)
         try:
             i = 0
-            c = ord('x')
             while True:
-                before = rffi.aroundstate.before
-                self._unlocked_count += 1
-                if before: before()
-                c_flockfile(ll_file)
-                if self._univ_newline:
-                    while i < remainsize:
-                        c = c_getc_unlocked(ll_file)
-                        if c == EOF:
-                            break
-                        if skipnextlf:
-                            skipnextlf = False
-                            if c == ord('\n'):
-                                newlinetypes |= NEWLINE_CRLF
-                                c = c_getc_unlocked(ll_file)
-                                if c == EOF:
-                                    break
-                            else:
-                                newlinetypes |= NEWLINE_CR
-                        if c == ord('\r'):
-                            skipnextlf = True
-                            c = ord('\n')
-                        elif c == ord('\n'):
-                            newlinetypes |= NEWLINE_LF
-                        raw_buf[i] = chr(c)
-                        i += 1
-                        if c == ord('\n'):
-                            break
-                    if c == EOF:
-                        if c_ferror(ll_file) and rposix.get_errno() == errno.EINTR:
-                            c_funlockfile(ll_file)
-                            after = rffi.aroundstate.after
-                            if after: after()
-                            self._unlocked_count -= 1
-                            self._newlinetypes = newlinetypes
-                            self._skipnextlf = skipnextlf
-                            if self._signal_checker is not None:
-                                self._signal_checker()
-                            c_clearerr(ll_file)
-                            continue
-                        if skipnextlf:
-                            newlinetypes |= NEWLINE_CR
-                else:
-                    while i < remainsize:
-                        c = c_getc_unlocked(ll_file)
-                        if c == EOF:
-                            break
-                        raw_buf[i] = chr(c)
-                        i += 1
-                        if c == ord('\n'):
-                            break
-                c_funlockfile(ll_file)
-                after = rffi.aroundstate.after
-                if after: after()
-                self._unlocked_count -= 1
-                self._newlinetypes = newlinetypes
-                self._skipnextlf = skipnextlf
+                i, c = self._get_line_getc(raw_buf, remainsize, i)
                 if c == ord('\n'):
                     break
                 elif c == EOF:
