@@ -73,41 +73,59 @@ def setslice(a, b, c, d):
 __setslice__ = setslice
 
 
-def attrgetter(attr, *attrs):
-    if attrs:
-        getters = [single_attr_getter(a) for a in (attr,) + attrs]
-        def getter(obj):
-            return tuple([getter(obj) for getter in getters])
+def _resolve_attr_chain(chain, obj, idx=0):
+    obj = getattr(obj, chain[idx])
+    if idx + 1 == len(chain):
+        return obj
     else:
-        getter = single_attr_getter(attr)
-    return builtinify(getter)
+        return _resolve_attr_chain(chain, obj, idx + 1)
 
-def single_attr_getter(attr):
-    if not isinstance(attr, str):
-        if not isinstance(attr, unicode):
-            def _raise_typeerror(obj):
-                raise TypeError("argument must be a string, not %r" %
-                                (type(attr).__name__,))
-            return _raise_typeerror
-        attr = attr.encode('ascii')
-    #
-    def make_getter(name, prevfn=None):
-        if prevfn is None:
-            def getter(obj):
-                return getattr(obj, name)
-        else:
-            def getter(obj):
-                return getattr(prevfn(obj), name)
-        return getter
-    #
-    last = 0
-    getter = None
-    while True:
-        dot = attr.find(".", last)
-        if dot < 0: break
-        getter = make_getter(attr[last:dot], getter)
-        last = dot + 1
-    return make_getter(attr[last:], getter)
+
+class _simple_attrgetter(object):
+    def __init__(self, attr):
+        self._attr = attr
+
+    def __call__(self, obj):
+        return getattr(obj, self._attr)
+
+
+class _single_attrgetter(object):
+    def __init__(self, attrs):
+        self._attrs = attrs
+
+    def __call__(self, obj):
+        return _resolve_attr_chain(self._attrs, obj)
+
+
+class _multi_attrgetter(object):
+    def __init__(self, attrs):
+        self._attrs = attrs
+
+    def __call__(self, obj):
+        return tuple([
+            _resolve_attr_chain(attrs, obj)
+            for attrs in self._attrs
+        ])
+
+
+def attrgetter(attr, *attrs):
+    if (
+        not isinstance(attr, basestring) or
+        not all(isinstance(a, basestring) for a in attrs)
+    ):
+        def _raise_typeerror(obj):
+            raise TypeError(
+                "argument must be a string, not %r" % type(attr).__name__
+            )
+        return _raise_typeerror
+    if attrs:
+        return _multi_attrgetter([
+            a.split(".") for a in [attr] + list(attrs)
+        ])
+    elif "." not in attr:
+        return _simple_attrgetter(attr)
+    else:
+        return _single_attrgetter(attr.split("."))
 
 
 class itemgetter(object):
