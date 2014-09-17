@@ -502,9 +502,10 @@ class RFile(object):
             s.append_charpsize(buf.raw, c)
         return s.build()
 
-    def _get_line_getc(self, raw_buf, remainsize, i):
+    def _get_line_getc(self, raw_buf, remainsize, state):
         ll_file = self._ll_file
-        c = ord('x')
+        i = state[0]
+        c = state[1]
 
         self._unlocked_count += 1
         before = rffi.aroundstate.before
@@ -555,7 +556,8 @@ class RFile(object):
         if after: after()
         self._unlocked_count -= 1
 
-        return i, c
+        state[0] = i
+        state[1] = c
     _get_line_getc._gctransformer_hint_close_stack_ = True
     _get_line_getc._dont_inline_ = True
 
@@ -572,7 +574,9 @@ class RFile(object):
         try:
             i = 0
             while True:
-                i, c = self._get_line_getc(raw_buf, remainsize, i)
+                state = [i, ord('x')]
+                self._get_line_getc(raw_buf, remainsize, state)
+                i, c = state
                 if c == ord('\n'):
                     break
                 elif c == EOF:
