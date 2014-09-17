@@ -101,7 +101,7 @@ else:
 
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP], rffi.CCHARP)
 c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
-                     rffi.SIZE_T)
+                     rffi.SIZE_T, releasegil=False)
 c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
                       rffi.SIZE_T)
 
@@ -334,50 +334,58 @@ class RFile(object):
             raise IOError("File not open for writing")
 
     def _fread(self, buf, n, stream):
+        before = rffi.aroundstate.before
+        if before: before()
+
         if not self._univ_newline:
-            return c_fread(buf, 1, n, stream)
+            i = c_fread(buf, 1, n, stream)
+        else:
+            i = 0
+            newlinetypes = self._newlinetypes
+            skipnextlf = self._skipnextlf
+            assert n >= 0
+            while n:
+                dst = rffi.ptradd(buf, i)
+                nread = c_fread(dst, 1, n, stream)
+                assert nread <= n
+                if nread == 0:
+                    break
 
-        i = 0
-        newlinetypes = self._newlinetypes
-        skipnextlf = self._skipnextlf
-        assert n >= 0
-        while n:
-            dst = rffi.ptradd(buf, i)
-            nread = c_fread(dst, 1, n, stream)
-            assert nread <= n
-            if nread == 0:
-                break
-
-            j = 0
-            n -= nread
-            shortread = n != 0
-            while nread:
-                nread -= 1
-                c = dst[j]
-                j += 1
-                if c == '\r':
-                    buf[i] = '\n'
-                    i += 1
-                    skipnextlf = True
-                elif skipnextlf and c == '\n':
-                    skipnextlf = False
-                    newlinetypes |= NEWLINE_CRLF
-                    n += 1
-                else:
-                    if c == '\n':
-                        newlinetypes |= NEWLINE_LF
-                    elif skipnextlf:
+                j = 0
+                n -= nread
+                shortread = n != 0
+                while nread:
+                    nread -= 1
+                    c = dst[j]
+                    j += 1
+                    if c == '\r':
+                        buf[i] = '\n'
+                        i += 1
+                        skipnextlf = True
+                    elif skipnextlf and c == '\n':
+                        skipnextlf = False
+                        newlinetypes |= NEWLINE_CRLF
+                        n += 1
+                    else:
+                        if c == '\n':
+                            newlinetypes |= NEWLINE_LF
+                        elif skipnextlf:
+                            newlinetypes |= NEWLINE_CR
+                        buf[i] = c
+                        i += 1
+                        skipnextlf = False
+                if shortread:
+                    if skipnextlf and c_feof(stream):
                         newlinetypes |= NEWLINE_CR
-                    buf[i] = c
-                    i += 1
-                    skipnextlf = False
-            if shortread:
-                if skipnextlf and c_feof(stream):
-                    newlinetypes |= NEWLINE_CR
-                break
-        self._newlinetypes = newlinetypes
-        self._skipnextlf = skipnextlf
+                    break
+            self._newlinetypes = newlinetypes
+            self._skipnextlf = skipnextlf
+
+        after = rffi.aroundstate.after
+        if after: after()
         return i
+    _fread._gctransformer_hint_close_stack_ = True
+    _fread._dont_inline_ = True
 
     def _new_buffersize(self, currentsize):
         ll_file = self._ll_file
