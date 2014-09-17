@@ -52,8 +52,6 @@ _IOFBF = config['_IOFBF']
 BUFSIZ = config['BUFSIZ']
 EOF = config['EOF']
 
-BASE_LINE_SIZE = 100
-
 NEWLINE_UNKNOWN = 0
 NEWLINE_CR = 1
 NEWLINE_LF = 2
@@ -446,56 +444,66 @@ class RFile(object):
             rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         return s.build()
 
-    def _get_line_fgets_single(self, raw_buf):
-        ll_file = self._ll_file
-        for i in range(BASE_LINE_SIZE):
-            raw_buf[i] = '\n'
-
-        result = c_fgets(raw_buf, BASE_LINE_SIZE, ll_file)
-        if not result:
-            c_clearerr(ll_file)
-            if self._signal_checker is not None:
-                self._signal_checker()
-            return 0
-
-        # Assume that fgets() works as documented, and additionally
-        # never writes beyond the final \0, which the CPython
-        # fileobject.c says appears to be the case everywhere.
-        # The only case where the buffer was not big enough is the
-        # case where the buffer is full, ends with \0, and doesn't
-        # end with \n\0.
-
-        p = 0
-        while raw_buf[p] != '\n':
-            p += 1
-            if p == BASE_LINE_SIZE:
-                # fgets read whole buffer without finding newline
-                return -1
-        # p points to first \n
-
-        if p + 1 < BASE_LINE_SIZE and raw_buf[p + 1] == '\0':
-            # \n followed by \0, fgets read and found newline
-            return p + 1
-        else:
-            # \n not followed by \0, fgets read but didnt find newline
-            assert p > 0 and raw_buf[p - 1] == '\0'
-            return p - 1
-
     def _get_line_fgets(self):
-        # XXX use buffer size logic from cpython
-        with rffi.scoped_alloc_buffer(BASE_LINE_SIZE) as buf:
-            c = self._get_line_fgets_single(buf.raw)
-            if c >= 0:
-                return buf.str(c)
+        ll_file = self._ll_file
 
-            # this is the rare case: the line is longer than BASE_LINE_SIZE
-            s = StringBuilder()
+        s = None
+        buffersize = 100
+        remainsize = buffersize
+        raw_buf, gc_buf = rffi.alloc_buffer(remainsize)
+        try:
             while True:
-                s.append_charpsize(buf.raw, BASE_LINE_SIZE - 1)
-                c = self._get_line_fgets_single(buf.raw)
-                if c >= 0:
+                for i in range(remainsize):
+                    raw_buf[i] = '\n'
+
+                p = c_fgets(raw_buf, remainsize, ll_file)
+                if not p:
+                    c_clearerr(ll_file)
+                    if self._signal_checker is not None:
+                        self._signal_checker()
+                    p = 0
                     break
-            s.append_charpsize(buf.raw, c)
+
+                # Assume that fgets() works as documented, and additionally
+                # never writes beyond the final \0, which the CPython
+                # fileobject.c says appears to be the case everywhere.
+                # The only case where the buffer was not big enough is the
+                # case where the buffer is full, ends with \0, and doesn't
+                # end with \n\0.
+
+                p = 0
+                while raw_buf[p] != '\n':
+                    p += 1
+                    if p == remainsize:
+                        # fgets read whole buffer without finding newline
+                        p = -1
+                        break
+
+                if p != -1:
+                    # p points to first \n
+                    if p + 1 < remainsize and raw_buf[p + 1] == '\0':
+                        # \n followed by \0, fgets read and found newline
+                        p += 1
+                    else:
+                        # \n not followed by \0, fgets read but didnt find newline
+                        assert p > 0 and raw_buf[p - 1] == '\0'
+                        p -= 1
+                    break
+
+                # fgets overwrote all the newlines (entire buffer)
+                assert raw_buf[remainsize - 1] == '\0'
+                if s is None:
+                    s = StringBuilder()
+                s.append_charpsize(raw_buf, remainsize - 1)
+                buffersize += buffersize >> 2
+                remainsize = buffersize - s.getlength()
+                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+                raw_buf, gc_buf = rffi.alloc_buffer(remainsize)
+            if s is None:
+                return rffi.str_from_buffer(raw_buf, gc_buf, remainsize, p)
+            s.append_charpsize(raw_buf, p)
+        finally:
+            rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         return s.build()
 
     def _get_line_getc(self, raw_buf, remainsize, state):
