@@ -243,6 +243,7 @@ def create_stdio():
 
 
 class RFile(object):
+    _unlocked_count = 0
     _signal_checker = None
     _readable = True
     _writable = True
@@ -307,8 +308,11 @@ class RFile(object):
         ll_file = self._ll_file
         if ll_file:
             # double close is allowed
-            self._ll_file = lltype.nullptr(FILEP.TO)
             do_close = self._close2[0]
+            if do_close and self._unlocked_count > 0:
+                raise IOError("close() called during concurrent "
+                              "operation on the same file object.")
+            self._ll_file = lltype.nullptr(FILEP.TO)
             try:
                 if do_close:
                     res = do_close(ll_file)
@@ -513,6 +517,7 @@ class RFile(object):
             c = ord('x')
             while True:
                 before = rffi.aroundstate.before
+                self._unlocked_count += 1
                 if before: before()
                 c_flockfile(ll_file)
                 if self._univ_newline:
@@ -543,6 +548,7 @@ class RFile(object):
                             c_funlockfile(ll_file)
                             after = rffi.aroundstate.after
                             if after: after()
+                            self._unlocked_count -= 1
                             self._newlinetypes = newlinetypes
                             self._skipnextlf = skipnextlf
                             if self._signal_checker is not None:
@@ -563,6 +569,7 @@ class RFile(object):
                 c_funlockfile(ll_file)
                 after = rffi.aroundstate.after
                 if after: after()
+                self._unlocked_count -= 1
                 self._newlinetypes = newlinetypes
                 self._skipnextlf = skipnextlf
                 if c == ord('\n'):
