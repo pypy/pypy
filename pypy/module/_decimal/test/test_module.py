@@ -50,6 +50,7 @@ class AppTestDecimalModule:
             ex = getattr(_decimal, name)
             assert issubclass(ex, _decimal.DecimalException)
             assert issubclass(ex, ArithmeticError)
+            assert ex.__module__ == 'decimal'
 
     def test_exception_hierarchy(self):
         import _decimal as decimal
