@@ -360,6 +360,26 @@ class W_Decimal(W_Root):
     def descr_rpow(self, space, w_other):
         return W_Decimal.pow_impl(space, w_other, self, None)
 
+    def copy_abs_w(self, space):
+        w_result = W_Decimal.allocate(space)
+        with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1,
+                                 zero=True) as status_ptr:
+            rmpdec.mpd_qcopy_abs(w_result.mpd, self.mpd, status_ptr)
+            status = rffi.cast(lltype.Signed, status_ptr[0])
+        if status & rmpdec.MPD_Malloc_error:
+            raise OperationError(space.w_MemoryError, space.w_None)
+        return w_result
+
+    def copy_negate_w(self, space):
+        w_result = W_Decimal.allocate(space)
+        with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1,
+                                 zero=True) as status_ptr:
+            rmpdec.mpd_qcopy_negate(w_result.mpd, self.mpd, status_ptr)
+            status = rffi.cast(lltype.Signed, status_ptr[0])
+        if status & rmpdec.MPD_Malloc_error:
+            raise OperationError(space.w_MemoryError, space.w_None)
+        return w_result
+
     def copy_sign_w(self, space, w_other, w_context=None):
         context = convert_context(space, w_context)
         w_other = convert_op_raise(space, context, w_other)
@@ -370,6 +390,11 @@ class W_Decimal(W_Root):
         return w_result
 
     # Unary arithmetic functions, optional context arg
+
+    def number_class_w(self, space, w_context=None):
+        context = interp_context.ensure_context(space, w_context)
+        cp = rmpdec.mpd_class(self.mpd, context.ctx)
+        return space.wrap(rffi.charp2str(cp))
 
     def to_integral_w(self, space, w_rounding=None, w_context=None):
         context = interp_context.ensure_context(space, w_context)
@@ -396,13 +421,42 @@ class W_Decimal(W_Root):
             rmpdec.mpd_qround_to_intx(w_result.mpd, self.mpd,
                                       w_workctx.ctx, status_ptr)
         return w_result
-        
 
+    # Ternary arithmetic functions, optional context arg
+    def fma_w(self, space, w_other, w_third, w_context=None):
+        context = interp_context.ensure_context(space, w_context)
+        w_a, w_b, w_c = convert_ternop_raise(space, context,
+                                             self, w_other, w_third)
+        w_result = W_Decimal.allocate(space)
+        with context.catch_status(space) as (ctx, status_ptr):
+            rmpdec.mpd_qfma(w_result.mpd, w_a.mpd, w_b.mpd, w_c.mpd,
+                            ctx, status_ptr)
+        return w_result
+        
     # Boolean functions
+    def is_canonical_w(self, space):
+        return space.wrap(bool(rmpdec.mpd_iscanonical(self.mpd)))
+    def is_nan_w(self, space):
+        return space.wrap(bool(rmpdec.mpd_isnan(self.mpd)))
     def is_qnan_w(self, space):
         return space.wrap(bool(rmpdec.mpd_isqnan(self.mpd)))
+    def is_snan_w(self, space):
+        return space.wrap(bool(rmpdec.mpd_issnan(self.mpd)))
     def is_infinite_w(self, space):
         return space.wrap(bool(rmpdec.mpd_isinfinite(self.mpd)))
+    def is_finite_w(self, space):
+        return space.wrap(bool(rmpdec.mpd_isfinite(self.mpd)))
+    def is_signed_w(self, space):
+        return space.wrap(bool(rmpdec.mpd_issigned(self.mpd)))
+    def is_zero_w(self, space):
+        return space.wrap(bool(rmpdec.mpd_iszero(self.mpd)))
+    # Boolean functions, optional context arg
+    def is_normal_w(self, space, w_context=None):
+        context = interp_context.ensure_context(space, w_context)
+        return space.wrap(bool(rmpdec.mpd_isnormal(self.mpd, context.ctx)))
+    def is_subnormal_w(self, space, w_context=None):
+        context = interp_context.ensure_context(space, w_context)
+        return space.wrap(bool(rmpdec.mpd_issubnormal(self.mpd, context.ctx)))
 
     def as_tuple_w(self, space):
         "Return the DecimalTuple representation of a Decimal"
@@ -492,6 +546,24 @@ def convert_binop_raise(space, context, w_x, w_y):
                     space.type(w_y))
     return w_a, w_b
 
+def convert_ternop_raise(space, context, w_x, w_y, w_z):
+    w_err, w_a = convert_op(space, context, w_x)
+    if w_err:
+        raise oefmt(space.w_TypeError,
+                    "conversion from %N to Decimal is not supported",
+                    space.type(w_x))
+    w_err, w_b = convert_op(space, context, w_y)
+    if w_err:
+        raise oefmt(space.w_TypeError,
+                    "conversion from %N to Decimal is not supported",
+                    space.type(w_y))
+    w_err, w_c = convert_op(space, context, w_z)
+    if w_err:
+        raise oefmt(space.w_TypeError,
+                    "conversion from %N to Decimal is not supported",
+                    space.type(w_z))
+    return w_a, w_b, w_c
+
 # Convert rationals for comparison
 def _multiply_by_denominator(space, w_v, w_r, context):
     # w_v is not special, w_r is a rational.
@@ -502,7 +574,7 @@ def _multiply_by_denominator(space, w_v, w_r, context):
     if not vv:
         raise OperationError(space.w_MemoryError, space.w_None)
     try:
-        result = W_Decimal(space)
+        w_result = W_Decimal.allocate(space)
         with lltype.scoped_alloc(rmpdec.MPD_CONTEXT_PTR.TO) as maxctx:
             rmpdec.mpd_maxcontext(maxctx)
             # Prevent Overflow in the following multiplication. The
@@ -514,18 +586,19 @@ def _multiply_by_denominator(space, w_v, w_r, context):
             vv.c_exp = 0
             with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1,
                                      zero=True) as status_ptr:
-                rmpdec.mpd_qmul(result.mpd, vv, denom.mpd, maxctx, status_ptr)
+                rmpdec.mpd_qmul(w_result.mpd, vv, denom.mpd, maxctx, status_ptr)
                 # If any status has been accumulated during the multiplication,
                 # the result is invalid. This is very unlikely, since even the
                 # 32-bit version supports 425000000 digits.
-                if status_ptr[0]:
-                    raise oefmt(space.w_ValueError,
-                                "exact conversion for comparison failed")
-            result.mpd.c_exp = exp
+                status = rffi.cast(lltype.Signed, status_ptr[0])
+            if status:
+                raise oefmt(space.w_ValueError,
+                            "exact conversion for comparison failed")
+            w_result.mpd.c_exp = exp
     finally:
         rmpdec.mpd_del(vv)
 
-    return space.wrap(result)
+    return w_result
 
 def _numerator_as_decimal(space, w_r, context):
     w_numerator = space.getattr(w_r, space.wrap("numerator"))
@@ -607,6 +680,22 @@ def make_binary_number_method_right(mpd_func_name):
     @func_renamer('descr_r_%s' % mpd_func_name)
     def descr_method(space, w_self, w_other):
         return binary_number_method(space, mpd_func, w_other, w_self)
+    return interp2app(descr_method)
+
+# Unary function with an optional context arg.
+def unary_method(space, mpd_func, w_self, w_context):
+    self = space.interp_w(W_Decimal, w_self)
+    context = convert_context(space, w_context)
+    w_result = W_Decimal.allocate(space)
+    with context.catch_status(space) as (ctx, status_ptr):
+        mpd_func(w_result.mpd, self.mpd, ctx, status_ptr)
+    return w_result
+    
+def make_unary_method(mpd_func_name):
+    mpd_func = getattr(rmpdec, mpd_func_name)
+    @func_renamer('descr_%s' % mpd_func_name)
+    def descr_method(space, w_self, w_context=None):
+        return unary_method(space, mpd_func, w_self, w_context)
     return interp2app(descr_method)
 
 def convert_context(space, w_context):
@@ -891,14 +980,39 @@ W_Decimal.typedef = TypeDef(
     __rmod__ = make_binary_number_method_right('mpd_qrem'),
     __rdivmod__ = interp2app(W_Decimal.descr_rdivmod),
     __rpow__ = interp2app(W_Decimal.descr_rpow),
+    # Unary functions, optional context arg for conversion errors
+    copy_abs = interp2app(W_Decimal.copy_abs_w),
+    copy_negate = interp2app(W_Decimal.copy_negate_w),
     # Unary arithmetic functions, optional context arg
+    exp = make_unary_method('mpd_qexp'),
+    ln = make_unary_method('mpd_qln'),
+    log10 = make_unary_method('mpd_qlog10'),
+    logb = make_unary_method('mpd_qlogb'),
+    logical_invert = make_unary_method('mpd_qinvert'),
+    next_minus = make_unary_method('mpd_qnext_minus'),
+    next_plus = make_unary_method('mpd_qnext_plus'),
+    normalize = make_unary_method('mpd_qreduce'),
+    number_class = interp2app(W_Decimal.number_class_w),
     to_integral = interp2app(W_Decimal.to_integral_w),
-    to_integral_value = interp2app(W_Decimal.to_integral_w),
     to_integral_exact = interp2app(W_Decimal.to_integral_exact_w),
-    #
-    copy_sign = interp2app(W_Decimal.copy_sign_w),
+    to_integral_value = interp2app(W_Decimal.to_integral_w),
+    sqrt = make_unary_method('mpd_qsqrt'),
+    # Ternary arithmetic functions, optional context arg
+    fma = interp2app(W_Decimal.fma_w),
+    # Boolean functions, no context arg
+    is_canonical = interp2app(W_Decimal.is_canonical_w),
+    is_nan = interp2app(W_Decimal.is_nan_w),
     is_qnan = interp2app(W_Decimal.is_qnan_w),
+    is_snan = interp2app(W_Decimal.is_snan_w),
     is_infinite = interp2app(W_Decimal.is_infinite_w),
+    is_finite = interp2app(W_Decimal.is_finite_w),
+    is_signed = interp2app(W_Decimal.is_signed_w),
+    is_zero = interp2app(W_Decimal.is_zero_w),
+    # Boolean functions, optional context arg
+    is_normal = interp2app(W_Decimal.is_normal_w),
+    is_subnormal = interp2app(W_Decimal.is_subnormal_w),
+    # Binary functions, optional context arg for conversion errors
+    copy_sign = interp2app(W_Decimal.copy_sign_w),
     #
     as_tuple = interp2app(W_Decimal.as_tuple_w),
     from_float = interp2app(decimal_from_float_w, as_classmethod=True),

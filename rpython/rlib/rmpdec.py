@@ -41,6 +41,7 @@ eci = ExternalCompilationInfo(
         "mpd_qcopy", "mpd_qncopy", "mpd_setspecial", "mpd_clear_flags",
         "mpd_qimport_u32", "mpd_qexport_u32", "mpd_qexport_u16",
         "mpd_set_sign", "mpd_set_positive", "mpd_sign", "mpd_qfinalize",
+        "mpd_class",
         "mpd_getprec", "mpd_getemin",  "mpd_getemax", "mpd_getround", "mpd_getclamp",
         "mpd_qsetprec", "mpd_qsetemin",  "mpd_qsetemax", "mpd_qsetround", "mpd_qsetclamp",
         "mpd_maxcontext",
@@ -48,7 +49,7 @@ eci = ExternalCompilationInfo(
         "mpd_to_sci", "mpd_to_sci_size",
         "mpd_iszero", "mpd_isnegative", "mpd_issigned",
         "mpd_isfinite", "mpd_isinfinite",
-        "mpd_isnormal", "mpd_issubnormal", "mpd_isspecial",
+        "mpd_isnormal", "mpd_issubnormal", "mpd_isspecial", "mpd_iscanonical",
         "mpd_isnan", "mpd_issnan", "mpd_isqnan",
         "mpd_qcmp", "mpd_qcompare", "mpd_qcompare_signal",
         "mpd_qmin", "mpd_qmax", "mpd_qmin_mag", "mpd_qmax_mag",
@@ -58,9 +59,10 @@ eci = ExternalCompilationInfo(
         "mpd_qadd", "mpd_qsub", "mpd_qmul", "mpd_qdiv", "mpd_qdivint",
         "mpd_qrem", "mpd_qrem_near", "mpd_qdivmod", "mpd_qpow", "mpd_qpowmod", 
         "mpd_qfma",
-        "mpd_qexp", "mpd_qln", "mpd_qlog10", "mpd_qsqrt", "mpd_qinvert",
+        "mpd_qexp", "mpd_qln", "mpd_qlog10", "mpd_qlogb",
+        "mpd_qsqrt", "mpd_qinvert",
         "mpd_qand", "mpd_qor", "mpd_qxor",
-        "mpd_qcopy_sign",
+        "mpd_qcopy_sign", "mpd_qcopy_abs", "mpd_qcopy_negate",
         "mpd_qround_to_int", "mpd_qround_to_intx",
         ],
     compile_extra=compile_extra,
@@ -187,6 +189,8 @@ mpd_sign = external(
     'mpd_sign', [MPD_PTR], rffi.UCHAR)
 mpd_qfinalize = external(
     'mpd_qfinalize', [MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_class = external(
+    'mpd_class', [MPD_PTR, MPD_CONTEXT_PTR], rffi.CCHARP)
 
 # Context operations
 mpd_getprec = external(
@@ -247,6 +251,8 @@ mpd_issubnormal = external(
     'mpd_issubnormal', [MPD_PTR, MPD_CONTEXT_PTR], rffi.INT)
 mpd_isspecial = external(
     'mpd_isspecial', [MPD_PTR], rffi.INT)
+mpd_iscanonical = external(
+    'mpd_iscanonical', [MPD_PTR], rffi.INT)
 mpd_isnan = external(
     'mpd_isnan', [MPD_PTR], rffi.INT)
 mpd_issnan = external(
@@ -358,6 +364,9 @@ mpd_qln = external(
 mpd_qlog10 = external(
     'mpd_qlog10',
     [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qlogb = external(
+    'mpd_qlogb',
+    [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 mpd_qsqrt = external(
     'mpd_qsqrt',
     [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
@@ -368,6 +377,14 @@ mpd_qinvert = external(
 mpd_qcopy_sign = external(
     'mpd_qcopy_sign',
     [MPD_PTR, MPD_PTR, MPD_PTR, rffi.UINTP],
+    lltype.Void)
+mpd_qcopy_abs = external(
+    'mpd_qcopy_abs',
+    [MPD_PTR, MPD_PTR, rffi.UINTP],
+    lltype.Void)
+mpd_qcopy_negate = external(
+    'mpd_qcopy_negate',
+    [MPD_PTR, MPD_PTR, rffi.UINTP],
     lltype.Void)
 
 mpd_qround_to_int = external(

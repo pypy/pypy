@@ -21,6 +21,9 @@ class AppTestContext:
         def assertEqual(space, w_x, w_y):
             assert space.eq_w(w_x, w_y)
         cls.w_assertEqual = space.wrap(gateway.interp2app(assertEqual))
+        def assertIs(space, w_x, w_y):
+            assert space.is_w(w_x, w_y)
+        cls.w_assertIs = space.wrap(gateway.interp2app(assertIs))
 
         cls.w_assertRaises = space.appexec([], """(): return raises""")
 
@@ -273,4 +276,85 @@ class AppTestContext:
         d = c.is_zero(Decimal(10))
         self.assertEqual(c.is_zero(10), d)
         self.assertRaises(TypeError, c.is_zero, '10')
+
+    def test_implicit_context(self):
+        Decimal = self.decimal.Decimal
+        localcontext = self.decimal.localcontext
+
+        with localcontext() as c:
+            c.prec = 1
+            c.Emax = 1
+            c.Emin = -1
+
+            # abs
+            self.assertEqual(abs(Decimal("-10")), 10)
+            # add
+            self.assertEqual(Decimal("7") + 1, 8)
+            # divide
+            self.assertEqual(Decimal("10") / 5, 2)
+            # divide_int
+            self.assertEqual(Decimal("10") // 7, 1)
+            # fma
+            self.assertEqual(Decimal("1.2").fma(Decimal("0.01"), 1), 1)
+            self.assertIs(Decimal("NaN").fma(7, 1).is_nan(), True)
+            # three arg power
+            self.assertEqual(pow(Decimal(10), 2, 7), 2)
+            # exp
+            self.assertEqual(Decimal("1.01").exp(), 3)
+            # is_normal
+            self.assertIs(Decimal("0.01").is_normal(), False)
+            # is_subnormal
+            self.assertIs(Decimal("0.01").is_subnormal(), True)
+            # ln
+            self.assertEqual(Decimal("20").ln(), 3)
+            # log10
+            self.assertEqual(Decimal("20").log10(), 1)
+            # logb
+            self.assertEqual(Decimal("580").logb(), 2)
+            # logical_invert
+            self.assertEqual(Decimal("10").logical_invert(), 1)
+            # minus
+            self.assertEqual(-Decimal("-10"), 10)
+            # multiply
+            self.assertEqual(Decimal("2") * 4, 8)
+            # next_minus
+            self.assertEqual(Decimal("10").next_minus(), 9)
+            # next_plus
+            self.assertEqual(Decimal("10").next_plus(), Decimal('2E+1'))
+            # normalize
+            self.assertEqual(Decimal("-10").normalize(), Decimal('-1E+1'))
+            # number_class
+            self.assertEqual(Decimal("10").number_class(), '+Normal')
+            # plus
+            self.assertEqual(+Decimal("-1"), -1)
+            # remainder
+            self.assertEqual(Decimal("10") % 7, 3)
+            # subtract
+            self.assertEqual(Decimal("10") - 7, 3)
+            # to_integral_exact
+            self.assertEqual(Decimal("1.12345").to_integral_exact(), 1)
+
+            # Boolean functions
+            self.assertTrue(Decimal("1").is_canonical())
+            self.assertTrue(Decimal("1").is_finite())
+            self.assertTrue(Decimal("1").is_finite())
+            self.assertTrue(Decimal("snan").is_snan())
+            self.assertTrue(Decimal("-1").is_signed())
+            self.assertTrue(Decimal("0").is_zero())
+            self.assertTrue(Decimal("0").is_zero())
+
+        # Copy
+        with localcontext() as c:
+            c.prec = 10000
+            x = 1228 ** 1523
+            y = -Decimal(x)
+
+            z = y.copy_abs()
+            self.assertEqual(z, x)
+
+            z = y.copy_negate()
+            self.assertEqual(z, x)
+
+            z = y.copy_sign(Decimal(1))
+            self.assertEqual(z, x)
 
