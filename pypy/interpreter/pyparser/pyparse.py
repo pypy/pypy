@@ -1,11 +1,9 @@
-from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error
 from pypy.interpreter.astcompiler import consts
 from rpython.rlib import rstring
 
-
-def recode_to_utf8(space, bytes, encoding=None):
+def recode_to_utf8(space, bytes, encoding):
     if encoding == 'utf-8':
         return bytes
     w_text = space.call_method(space.wrapbytes(bytes), "decode",

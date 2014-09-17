@@ -8,6 +8,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.unicodehelper import encode
 
 cwd = py.path.local(__file__).dirpath()
 eci = ExternalCompilationInfo(
@@ -23,17 +24,29 @@ def llexternal(*args, **kwargs):
     return rffi.llexternal(*args, **kwargs)
 
 
-pypy_tscmp = llexternal('pypy_tscmp',
-                        [rffi.CCHARP, rffi.CCHARP, rffi.LONG, rffi.LONG],
-                        rffi.INT)
+pypy_tscmp = llexternal(
+    'pypy_tscmp',
+    [rffi.CCHARP, rffi.CCHARP, rffi.LONG, rffi.LONG],
+    rffi.INT)
 
 
 def compare_digest(space, w_a, w_b):
+    """compare_digest(a, b) -> bool
+
+    Return 'a == b'.  This function uses an approach designed to prevent
+    timing analysis, making it appropriate for cryptography.  a and b
+    must both be of the same type: either str (ASCII only), or any type
+    that supports the buffer protocol (e.g. bytes).
+
+    Note: If a and b are of different lengths, or if an error occurs, a
+    timing attack could theoretically reveal information about the types
+    and lengths of a and b--but not their values.
+    """
     if (space.isinstance_w(w_a, space.w_unicode) and
         space.isinstance_w(w_b, space.w_unicode)):
         try:
-            w_a = space.call_method(w_a, 'encode', space.wrap('ascii'))
-            w_b = space.call_method(w_b, 'encode', space.wrap('ascii'))
+            w_a = encode(space, w_a, 'ascii')
+            w_b = encode(space, w_b, 'ascii')
         except OperationError as e:
             if not e.match(space, space.w_UnicodeEncodeError):
                 raise
@@ -46,7 +59,7 @@ def compare_digest(space, w_a, w_b):
 def compare_digest_buffer(space, w_a, w_b):
     a = space.bufferstr_w(w_a)
     b = space.bufferstr_w(w_b)
-    with rffi.scoped_nonmovingbuffer(a) as a_buffer:
-        with rffi.scoped_nonmovingbuffer(b) as b_buffer:
-            result = pypy_tscmp(a_buffer, b_buffer, len(a), len(b))
-            return space.wrap(rffi.cast(lltype.Bool, result))
+    with rffi.scoped_nonmovingbuffer(a) as a_buf:
+        with rffi.scoped_nonmovingbuffer(b) as b_buf:
+            result = pypy_tscmp(a_buf, b_buf, len(a), len(b))
+    return space.wrap(rffi.cast(lltype.Bool, result))

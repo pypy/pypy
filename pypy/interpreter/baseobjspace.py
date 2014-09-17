@@ -9,7 +9,7 @@ from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
-    INT_MIN, INT_MAX, UINT_MAX
+    INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
 
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     UserDelAction)
@@ -1531,13 +1531,6 @@ class ObjSpace(object):
         """
         return w_obj.float_w(self, allow_conversion)
 
-    def realstr_w(self, w_obj):
-        # Like str_w, but only works if w_obj is really of type 'str'.
-        if not self.isinstance_w(w_obj, self.w_str):
-            raise OperationError(self.w_TypeError,
-                                 self.wrap('argument must be a string'))
-        return self.str_w(w_obj)
-
     def unicode_w(self, w_obj):
         return w_obj.unicode_w(self)
 
@@ -1652,6 +1645,16 @@ class ObjSpace(object):
         elif value > SHRT_MAX:
             raise oefmt(self.w_OverflowError,
                 "signed short integer is greater than maximum")
+        return value
+
+    def c_ushort_w(self, w_obj):
+        value = self.int_w(w_obj)
+        if value < 0:
+            raise oefmt(self.w_OverflowError,
+                "can't convert negative value to C unsigned short")
+        elif value > USHRT_MAX:
+            raise oefmt(self.w_OverflowError,
+                "Python int too large for C unsigned short")
         return value
 
     def truncatedint_w(self, w_obj, allow_conversion=True):

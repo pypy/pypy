@@ -1,4 +1,4 @@
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 
 class AppTestExc(object):
@@ -222,6 +222,11 @@ class AppTestExc(object):
         fw.__setstate__({'z': 1})
         assert fw.z == 1
         assert fw.xyz == (1, 2)
+
+    def test_unicode_error_uninitialized_str(self):
+        assert str(UnicodeEncodeError.__new__(UnicodeEncodeError)) == ""
+        assert str(UnicodeDecodeError.__new__(UnicodeDecodeError)) == ""
+        assert str(UnicodeTranslateError.__new__(UnicodeTranslateError)) == ""
 
     def test_cause(self):
         e1 = TypeError()

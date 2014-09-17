@@ -3,9 +3,10 @@ from rpython.flowspace.model import Constant
 from rpython.rlib import rarithmetic, objectmodel
 from rpython.rtyper import raddress, rptr, extregistry, rrange
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr
 from rpython.rtyper.lltypesystem.rdict import rtype_r_dict
 from rpython.rtyper.rmodel import Repr
+from rpython.rtyper.rstr import AbstractStringRepr
 from rpython.tool.pairtype import pairtype
 
 
@@ -258,22 +259,26 @@ def ll_max(i1, i2):
         return i1
     return i2
 
-def rtype_Exception__init__(hop):
-    hop.exception_cannot_occur()
-
 def rtype_object__init__(hop):
     hop.exception_cannot_occur()
 
-def rtype_OSError__init__(hop):
+def rtype_EnvironmentError__init__(hop):
     hop.exception_cannot_occur()
-    if hop.nb_args == 2:
-        raise TyperError("OSError() should not be called with "
-                         "a single argument")
-    if hop.nb_args >= 3:
-        v_self = hop.args_v[0]
-        r_self = hop.args_r[0]
+    v_self = hop.args_v[0]
+    r_self = hop.args_r[0]
+    if hop.nb_args <= 2:
+        v_errno = hop.inputconst(lltype.Signed, 0)
+        if hop.nb_args == 2:
+            v_strerror = hop.inputarg(rstr.string_repr, arg=1)
+            r_self.setfield(v_self, 'strerror', v_strerror, hop.llops)
+    else:
         v_errno = hop.inputarg(lltype.Signed, arg=1)
-        r_self.setfield(v_self, 'errno', v_errno, hop.llops)
+        v_strerror = hop.inputarg(rstr.string_repr, arg=2)
+        r_self.setfield(v_self, 'strerror', v_strerror, hop.llops)
+        if hop.nb_args >= 4:
+            v_filename = hop.inputarg(rstr.string_repr, arg=3)
+            r_self.setfield(v_self, 'filename', v_filename, hop.llops)
+    r_self.setfield(v_self, 'errno', v_errno, hop.llops)
 
 def rtype_WindowsError__init__(hop):
     hop.exception_cannot_occur()
@@ -333,8 +338,11 @@ for name, value in globals().items():
         original = getattr(__builtin__, name[14:])
         BUILTIN_TYPER[original] = value
 
-BUILTIN_TYPER[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (
-    rtype_OSError__init__)
+BUILTIN_TYPER[getattr(object.__init__, 'im_func', object.__init__)] = (
+    rtype_object__init__)
+
+BUILTIN_TYPER[getattr(EnvironmentError.__init__, 'im_func', EnvironmentError.__init__)] = (
+    rtype_EnvironmentError__init__)
 
 try:
     WindowsError
@@ -345,8 +353,6 @@ else:
         getattr(WindowsError.__init__, 'im_func', WindowsError.__init__)] = (
         rtype_WindowsError__init__)
 
-BUILTIN_TYPER[getattr(object.__init__, 'im_func', object.__init__)] = (
-    rtype_object__init__)
 # annotation of low-level types
 
 def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
@@ -683,13 +689,14 @@ def rtype_builtin_isinstance(hop):
     if hop.s_result.is_constant():
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
-    if hop.args_s[1].is_constant() and hop.args_s[1].const == list:
-        if hop.args_s[0].knowntype != list:
-            raise TyperError("isinstance(x, list) expects x to be known statically to be a list or None")
-        rlist = hop.args_r[0]
-        vlist = hop.inputarg(rlist, arg=0)
-        cnone = hop.inputconst(rlist, None)
-        return hop.genop('ptr_ne', [vlist, cnone], resulttype=lltype.Bool)
+    if hop.args_s[1].is_constant() and hop.args_s[1].const in (str, list):
+        if hop.args_s[0].knowntype not in (str, list):
+            raise TyperError("isinstance(x, str/list) expects x to be known"
+                             " statically to be a str/list or None")
+        rstrlist = hop.args_r[0]
+        vstrlist = hop.inputarg(rstrlist, arg=0)
+        cnone = hop.inputconst(rstrlist, None)
+        return hop.genop('ptr_ne', [vstrlist, cnone], resulttype=lltype.Bool)
 
     assert isinstance(hop.args_r[0], rclass.InstanceRepr)
     return hop.args_r[0].rtype_isinstance(hop)

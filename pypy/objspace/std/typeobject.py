@@ -67,6 +67,7 @@ class W_TypeObject(W_Object):
     _immutable_fields_ = ["flag_heaptype",
                           "flag_cpytype",
                           "flag_abstract?",
+                          "flag_sequence_bug_compat",
                           'needsdel',
                           'weakrefable',
                           'hasdict',
@@ -104,6 +105,7 @@ class W_TypeObject(W_Object):
         w_self.flag_heaptype = False
         w_self.flag_cpytype = False
         w_self.flag_abstract = False
+        w_self.flag_sequence_bug_compat = False
         w_self.instancetypedef = overridetypedef
 
         if overridetypedef is not None:

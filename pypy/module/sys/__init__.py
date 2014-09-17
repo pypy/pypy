@@ -7,7 +7,7 @@ _WIN = sys.platform == 'win32'
 
 class Module(MixedModule):
     """Sys Builtin Module. """
-    _immutable_fields_ = ["defaultencoding?", "debug?"]
+    _immutable_fields_ = ["defaultencoding", "debug?"]
 
     def __init__(self, space, w_name):
         """NOT_RPYTHON""" # because parent __init__ isn't
@@ -15,7 +15,6 @@ class Module(MixedModule):
             del self.__class__.interpleveldefs['pypy_getudir']
         super(Module, self).__init__(space, w_name)
         self.recursionlimit = 100
-        self.w_default_encoder = None
         self.defaultencoding = "utf-8"
         self.filesystemencoding = None
         self.debug = True
@@ -198,16 +197,6 @@ class Module(MixedModule):
             else:
                 return space.wrap(operror.get_traceback())
         return None
-
-    def get_w_default_encoder(self):
-        if self.w_default_encoder is not None:
-            # XXX is this level of caching ok?  CPython has some shortcuts
-            # for common encodings, but as far as I can see it has no general
-            # cache.
-            return self.w_default_encoder
-        else:
-            from pypy.module.sys.interp_encoding import get_w_default_encoder
-            return get_w_default_encoder(self.space)
 
     def get_flag(self, name):
         space = self.space

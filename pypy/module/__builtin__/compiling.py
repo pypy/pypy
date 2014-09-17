@@ -43,12 +43,10 @@ in addition to any features explicitly specified.
             space.w_ValueError,
             space.wrap("compile() arg 3 must be 'exec', 'eval' or 'single'"))
 
-    if space.isinstance_w(w_source, space.gettypeobject(ast.AST.typedef)):
-        ast_node = space.interp_w(ast.mod, w_source)
-        ast_node.sync_app_attrs(space)
-        ec.compiler.validate_ast(ast_node)
+    if space.isinstance_w(w_source, space.gettypeobject(ast.W_AST.typedef)):
+        ast_node = ast.mod.from_object(space, w_source)
         code = ec.compiler.compile_ast(ast_node, filename, mode, flags,
-                optimize=optimize)
+                                       optimize=optimize)
         return space.wrap(code)
 
     flags |= consts.PyCF_SOURCE_IS_UTF8
@@ -56,11 +54,12 @@ in addition to any features explicitly specified.
                                   "string, bytes or AST", flags)
 
     if flags & consts.PyCF_ONLY_AST:
-        code = ec.compiler.compile_to_ast(source, filename, mode, flags)
+        node = ec.compiler.compile_to_ast(source, filename, mode, flags)
+        return node.to_object(space)
     else:
         code = ec.compiler.compile(source, filename, mode, flags,
-                optimize=optimize)
-    return space.wrap(code)
+                                   optimize=optimize)
+        return space.wrap(code)
 
 
 def eval(space, w_prog, w_globals=None, w_locals=None):

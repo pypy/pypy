@@ -481,24 +481,20 @@ def _get_encoding_and_errors(space, w_encoding, w_errors):
 
 
 def encode_object(space, w_object, encoding, errors):
-    if encoding is None:
-        # Get the encoder functions as a wrapped object.
-        # This lookup is cached.
-        w_encoder = space.sys.get_w_default_encoder()
-    else:
-        if errors is None or errors == 'strict':
-            if encoding == 'ascii':
-                u = space.unicode_w(w_object)
-                eh = unicodehelper.encode_error_handler(space)
-                return space.wrapbytes(unicode_encode_ascii(
-                        u, len(u), None, errorhandler=eh))
-            if encoding == 'utf-8':
-                u = space.unicode_w(w_object)
-                eh = unicodehelper.encode_error_handler(space)
-                return space.wrapbytes(unicode_encode_utf_8(
-                        u, len(u), None, errorhandler=eh))
-        from pypy.module._codecs.interp_codecs import lookup_codec
-        w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
+    if errors is None or errors == 'strict':
+        if encoding is None or encoding == 'utf-8':
+            u = space.unicode_w(w_object)
+            eh = unicodehelper.encode_error_handler(space)
+            return space.wrapbytes(unicode_encode_utf_8(
+                    u, len(u), errors, errorhandler=eh))
+        elif encoding == 'ascii':
+            u = space.unicode_w(w_object)
+            eh = unicodehelper.encode_error_handler(space)
+            return space.wrapbytes(unicode_encode_ascii(
+                    u, len(u), errors, errorhandler=eh))
+
+    from pypy.module._codecs.interp_codecs import lookup_codec
+    w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
     if errors is None:
         w_errors = space.wrap('strict')
     else:
@@ -1133,6 +1129,7 @@ W_UnicodeObject.typedef = StdTypeDef(
                            as_classmethod=True,
                            doc=UnicodeDocstrings.maketrans.__doc__),
 )
+W_UnicodeObject.typedef.flag_sequence_bug_compat = True
 
 
 def _create_list_from_unicode(value):

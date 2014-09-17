@@ -1,5 +1,5 @@
-#include <signal.h>
 #include <stdlib.h>
+#include "faulthandler.h"
 
 int
 pypy_faulthandler_read_null(void)

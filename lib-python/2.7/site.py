@@ -459,7 +459,6 @@ def setcopyright():
         "See https://bitbucket.org/pypy/pypy/src/default/LICENSE")
 
 
-
 class _Helper(object):
     """Define the builtin 'help'.
     This is a wrapper around pydoc.help (with a twist).

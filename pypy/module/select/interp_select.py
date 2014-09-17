@@ -21,30 +21,17 @@ def poll(space):
     return Poll()
 
 
-class UShortUnwrapper(Unwrapper):
-
-    def unwrap(self, space, w_value):
-        value = space.int_w(w_value)
-        if value < 0:
-            raise oefmt(space.w_OverflowError,
-                        "can't convert negative value to C unsigned short")
-        if value > USHRT_MAX:
-            raise oefmt(space.w_OverflowError,
-                        "Python int too large for C unsigned short")
-        return value
-
-
 class Poll(W_Root):
     def __init__(self):
         self.fddict = {}
         self.running = False
 
-    @unwrap_spec(events=UShortUnwrapper)
+    @unwrap_spec(events="c_ushort")
     def register(self, space, w_fd, events=defaultevents):
         fd = space.c_filedescriptor_w(w_fd)
         self.fddict[fd] = events
 
-    @unwrap_spec(events=UShortUnwrapper)
+    @unwrap_spec(events="c_ushort")
     def modify(self, space, w_fd, events):
         fd = space.c_filedescriptor_w(w_fd)
         if fd not in self.fddict:
@@ -107,6 +94,9 @@ def _build_fd_set(space, list_w, ll_list, nfds):
     for w_f in list_w:
         fd = space.c_filedescriptor_w(w_f)
         if fd > nfds:
+            if _c.MAX_FD_SIZE is not None and fd >= _c.MAX_FD_SIZE:
+                raise oefmt(space.w_ValueError,
+                            "file descriptor out of range in select()")
             nfds = fd
         _c.FD_SET(fd, ll_list)
         fdlist.append(fd)

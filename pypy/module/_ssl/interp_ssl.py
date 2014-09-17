@@ -914,17 +914,25 @@ def checkwait(space, w_sock, writing):
 
         # socket's timeout is in seconds, poll's timeout in ms
         timeout = int(sock_timeout * 1000 + 0.5)
-        ready = rpoll.poll(fddict, timeout)
+        try:
+            ready = rpoll.poll(fddict, timeout)
+        except rpoll.PollError, e:
+            message = e.get_msg()
+            raise ssl_error(space, message, e.errno)
     else:
         if MAX_FD_SIZE is not None and sock_fd >= MAX_FD_SIZE:
             return SOCKET_TOO_LARGE_FOR_SELECT
 
-        if writing:
-            r, w, e = rpoll.select([], [sock_fd], [], sock_timeout)
-            ready = w
-        else:
-            r, w, e = rpoll.select([sock_fd], [], [], sock_timeout)
-            ready = r
+        try:
+            if writing:
+                r, w, e = rpoll.select([], [sock_fd], [], sock_timeout)
+                ready = w
+            else:
+                r, w, e = rpoll.select([sock_fd], [], [], sock_timeout)
+                ready = r
+        except rpoll.SelectError as e:
+            message = e.get_msg()
+            raise ssl_error(space, message, e.errno)
     if ready:
         return SOCKET_OPERATION_OK
     else:

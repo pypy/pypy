@@ -87,13 +87,29 @@ class CallBuilderX86(AbstractCallBuilder):
         self.asm.push_gcmap(self.mc, gcmap, store=True)
 
     def pop_gcmap(self):
-        self.asm._reload_frame_if_necessary(self.mc)
+        ssreg = None
+        gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
+            if gcrootmap.is_shadow_stack and self.is_call_release_gil:
+                # in this mode, 'ebx' happens to contain the shadowstack
+                # top at this point, so reuse it instead of loading it again
+                ssreg = ebx
+        self.asm._reload_frame_if_necessary(self.mc, shadowstack_reg=ssreg)
         if self.change_extra_stack_depth:
             self.asm.set_extra_stack_depth(self.mc, 0)
         self.asm.pop_gcmap(self.mc)
 
     def call_releasegil_addr_and_move_real_arguments(self, fastgil):
         from rpython.jit.backend.x86.assembler import heap
+        assert self.is_call_release_gil
+        #
+        # Save this thread's shadowstack pointer into 'ebx',
+        # for later comparison
+        gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
+            if gcrootmap.is_shadow_stack:
+                rst = gcrootmap.get_root_stack_top_addr()
+                self.mc.MOV(ebx, heap(rst))
         #
         if not self.asm._is_asmgcc():
             # shadowstack: change 'rpy_fastgil' to 0 (it should be
@@ -124,6 +140,7 @@ class CallBuilderX86(AbstractCallBuilder):
             self.asm.set_extra_stack_depth(self.mc, -delta * WORD)
             css_value = eax
         #
+        # <--here--> would come a memory fence, if the CPU needed one.
         self.mc.MOV(heap(fastgil), css_value)
         #
         if not we_are_translated():        # for testing: we should not access
@@ -156,6 +173,8 @@ class CallBuilderX86(AbstractCallBuilder):
                 old_value = esi
             mc.LEA_rs(css_value.value, css)
         #
+        # Use XCHG as an atomic test-and-set-lock.  It also implicitly
+        # does a memory barrier.
         mc.MOV(old_value, imm(1))
         if rx86.fits_in_32bits(fastgil):
             mc.XCHG_rj(old_value.value, fastgil)
@@ -163,8 +182,35 @@ class CallBuilderX86(AbstractCallBuilder):
             mc.MOV_ri(X86_64_SCRATCH_REG.value, fastgil)
             mc.XCHG_rm(old_value.value, (X86_64_SCRATCH_REG.value, 0))
         mc.CMP(old_value, css_value)
-        mc.J_il8(rx86.Conditions['E'], 0)
-        je_location = mc.get_relative_pos()
+        #
+        gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
+        if bool(gcrootmap) and gcrootmap.is_shadow_stack:
+            from rpython.jit.backend.x86.assembler import heap
+            #
+            # When doing a call_release_gil with shadowstack, there
+            # is the risk that the 'rpy_fastgil' was free but the
+            # current shadowstack can be the one of a different
+            # thread.  So here we check if the shadowstack pointer
+            # is still the same as before we released the GIL (saved
+            # in 'ebx'), and if not, we fall back to 'reacqgil_addr'.
+            mc.J_il8(rx86.Conditions['NE'], 0)
+            jne_location = mc.get_relative_pos()
+            # here, ecx is zero (so rpy_fastgil was not acquired)
+            rst = gcrootmap.get_root_stack_top_addr()
+            mc = self.mc
+            mc.CMP(ebx, heap(rst))
+            mc.J_il8(rx86.Conditions['E'], 0)
+            je_location = mc.get_relative_pos()
+            # revert the rpy_fastgil acquired above, so that the
+            # general 'reacqgil_addr' below can acquire it again...
+            mc.MOV(heap(fastgil), ecx)
+            # patch the JNE above
+            offset = mc.get_relative_pos() - jne_location
+            assert 0 < offset <= 127
+            mc.overwrite(jne_location-1, chr(offset))
+        else:
+            mc.J_il8(rx86.Conditions['E'], 0)
+            je_location = mc.get_relative_pos()
         #
         # Yes, we need to call the reacqgil() function
         self.save_result_value_reacq()
@@ -249,18 +295,15 @@ class CallBuilder32(CallBuilderX86):
             # Dynamically accept both stdcall and cdecl functions.
             # We could try to detect from pyjitpl which calling
             # convention this particular function takes, which would
-            # avoid these two extra MOVs... but later.  The ebp register
-            # is unused here: it will be reloaded from the shadowstack.
-            # (This doesn't work during testing, though. Hack hack hack.)
-            save_ebp = not self.asm.cpu.gc_ll_descr.is_shadow_stack()
-            ofs = WORD * (FRAME_FIXED_SIZE - 1)
-            if save_ebp:    # only for testing (or with Boehm)
-                self.mc.MOV_sr(ofs, ebp.value)
-            self.mc.MOV(ebp, esp)
+            # avoid these two extra MOVs... but later.  Pick any
+            # caller-saved register here except ebx (used for shadowstack).
+            if IS_X86_32:
+                free_caller_save_reg = edi
+            else:
+                free_caller_save_reg = r14
+            self.mc.MOV(free_caller_save_reg, esp)
             self.mc.CALL(self.fnloc)
-            self.mc.MOV(esp, ebp)
-            if save_ebp:    # only for testing (or with Boehm)
-                self.mc.MOV_rs(ebp.value, ofs)
+            self.mc.MOV(esp, free_caller_save_reg)
         else:
             self.mc.CALL(self.fnloc)
             if self.callconv != FFI_DEFAULT_ABI:

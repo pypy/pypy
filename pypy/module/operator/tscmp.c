@@ -1,21 +1,21 @@
-/* From CPython 3.3.5's operator.c
+/* Derived from CPython 3.3.5's operator.c::_tscmp
  */
 
 #include <stdlib.h>
 #include "tscmp.h"
 
 int
-pypy_tscmp(const unsigned char *a, const unsigned char *b, long len_a, long len_b)
+pypy_tscmp(const char *a, const char *b, long len_a, long len_b)
 {
     /* The volatile type declarations make sure that the compiler has no
      * chance to optimize and fold the code in any way that may change
      * the timing.
      */
     volatile long length;
-    volatile const unsigned char *left;
-    volatile const unsigned char *right;
+    volatile const char *left;
+    volatile const char *right;
     long i;
-    unsigned char result;
+    char result;
 
     /* loop count depends on length of b */
     length = len_b;
@@ -26,7 +26,7 @@ pypy_tscmp(const unsigned char *a, const unsigned char *b, long len_a, long len_
      * volatile forces re-evaluation
      *  */
     if (len_a == length) {
-        left = *((volatile const unsigned char**)&a);
+        left = *((volatile const char**)&a);
         result = 0;
     }
     if (len_a != length) {

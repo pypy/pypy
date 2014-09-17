@@ -520,6 +520,7 @@ def test_no_AF_NETLINK():
     _test_cond_include('AF_NETLINK')
 
 def test_thread_safe_gethostbyaddr():
+    py.test.skip("hits non-thread-safe issues with ll2ctypes")
     import threading
     nthreads = 10
     ip = '8.8.8.8'
@@ -539,6 +540,7 @@ def test_thread_safe_gethostbyaddr():
     assert sum(result) == nthreads
 
 def test_thread_safe_gethostbyname_ex():
+    py.test.skip("hits non-thread-safe issues with ll2ctypes")
     import threading
     nthreads = 10
     domain = 'google.com'
@@ -557,6 +559,7 @@ def test_thread_safe_gethostbyname_ex():
     assert sum(result) == nthreads
 
 def test_getaddrinfo_pydotorg_threadsafe():
+    py.test.skip("hits non-thread-safe issues with ll2ctypes")
     import threading
     nthreads = 10
     result = [0] * nthreads

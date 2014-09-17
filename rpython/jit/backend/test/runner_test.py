@@ -21,6 +21,9 @@ from rpython.jit.backend.detect_cpu import autodetect
 from rpython.jit.backend.llsupport import jitframe
 
 
+IS_32_BIT = sys.maxint < 2**32
+IS_64_BIT = sys.maxint > 2**32
+
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
 
@@ -1792,8 +1795,8 @@ class BaseBackendTest(Runner):
                                                c_nest, c_nest], 'void')
 
     def test_read_timestamp(self):
-        if not self.cpu.supports_longlong:
-            py.test.skip("longlong test")
+        if IS_32_BIT and not self.cpu.supports_longlong:
+            py.test.skip("read_timestamp returns a longlong")
         if sys.platform == 'win32':
             # windows quite often is very inexact (like the old Intel 8259 PIC),
             # so we stretch the time a little bit.
@@ -1809,16 +1812,29 @@ class BaseBackendTest(Runner):
         else:
             def wait_a_bit():
                 pass
+
+        from rpython.jit.codewriter.effectinfo import EffectInfo
+        from rpython.rlib import rtimer
+
+        effectinfo = EffectInfo([], [], [], [], [], [],
+                                EffectInfo.EF_CANNOT_RAISE,
+                                EffectInfo.OS_MATH_READ_TIMESTAMP)
+        FPTR = self.Ptr(self.FuncType([], lltype.SignedLongLong))
+        func_ptr = llhelper(FPTR, rtimer.read_timestamp)
+        FUNC = deref(FPTR)
+        funcbox = self.get_funcbox(self.cpu, func_ptr)
+
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, effectinfo)
         if longlong.is_64_bit:
-            got1 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
+            got1 = self.execute_operation(rop.CALL, [funcbox], 'int', calldescr)
             wait_a_bit()
-            got2 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
+            got2 = self.execute_operation(rop.CALL, [funcbox], 'int', calldescr)
             res1 = got1.getint()
             res2 = got2.getint()
         else:
-            got1 = self.execute_operation(rop.READ_TIMESTAMP, [], 'float')
+            got1 = self.execute_operation(rop.CALL, [funcbox],'float',calldescr)
             wait_a_bit()
-            got2 = self.execute_operation(rop.READ_TIMESTAMP, [], 'float')
+            got2 = self.execute_operation(rop.CALL, [funcbox],'float',calldescr)
             res1 = got1.getlonglong()
             res2 = got2.getlonglong()
         assert res1 < res2 < res1 + 2**32
@@ -1941,7 +1957,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_convert_float_bytes(self):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
-        if not self.cpu.supports_longlong:
+        if IS_32_BIT and not self.cpu.supports_longlong:
             py.test.skip("longlong test")
         t = 'int' if longlong.is_64_bit else 'float'
         res = self.execute_operation(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG,
@@ -2642,8 +2658,8 @@ class LLtypeBackendTest(BaseBackendTest):
             (types.double, 12.3475226, rffi.DOUBLE),
             (types.float,  r_singlefloat(-592.75), rffi.FLOAT),
             ]:
-            if sys.maxint < 2**32 and TP in (lltype.SignedLongLong,
-                                             lltype.UnsignedLongLong):
+            if IS_32_BIT and TP in (lltype.SignedLongLong,
+                                    lltype.UnsignedLongLong):
                 if not cpu.supports_longlong:
                     continue
             if TP == rffi.DOUBLE:
@@ -2702,9 +2718,11 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert r == result
 
     def test_call_release_gil_variable_function_and_arguments(self):
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
         from rpython.rlib.libffi import types
         from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
         from rpython.rlib.rarithmetic import r_singlefloat
+        from rpython.translator.c import primitive
 
         cpu = self.cpu
         rnd = random.Random(525)
@@ -2719,7 +2737,7 @@ class LLtypeBackendTest(BaseBackendTest):
             (types.uint32, rffi.UINT),
             (types.sint32, rffi.INT),
             ]
-        if sys.maxint < 2**32 and cpu.supports_longlong:
+        if IS_32_BIT and cpu.supports_longlong:
             ALL_TYPES += [
                 (types.uint64, lltype.UnsignedLongLong),
                 (types.sint64, lltype.SignedLongLong),
@@ -2733,14 +2751,22 @@ class LLtypeBackendTest(BaseBackendTest):
                 (types.float,  rffi.FLOAT),
                 ] * 4
 
-        for k in range(100):
+        NB_TESTS = 100
+        c_source = []
+        all_tests = []
+        export_symbols = []
+
+        def prepare_c_source():
+            """Pick a random choice of argument types and length,
+            and build a C function with these arguments.  The C
+            function will simply copy them all into static global
+            variables.  There are then additional functions to fetch
+            them, one per argument, with a signature 'void(ARG *)'.
+            """
             POSSIBLE_TYPES = [rnd.choice(ALL_TYPES)
                               for i in range(random.randrange(2, 5))]
             load_factor = rnd.random()
             keepalive_factor = rnd.random()
-            #
-            def pseudo_c_function(*args):
-                seen.append(list(args))
             #
             ffitypes = []
             ARGTYPES = []
@@ -2748,10 +2774,53 @@ class LLtypeBackendTest(BaseBackendTest):
                 ffitype, TP = rnd.choice(POSSIBLE_TYPES)
                 ffitypes.append(ffitype)
                 ARGTYPES.append(TP)
+            fn_name = 'vartest%d' % k
+            all_tests.append((ARGTYPES, ffitypes, fn_name))
             #
-            FPTR = self.Ptr(self.FuncType(ARGTYPES, lltype.Void))
-            func_ptr = llhelper(FPTR, pseudo_c_function)
-            funcbox = self.get_funcbox(cpu, func_ptr)
+            fn_args = []
+            for i, ARG in enumerate(ARGTYPES):
+                arg_decl = primitive.cdecl(primitive.PrimitiveType[ARG],
+                                           'x%d' % i)
+                fn_args.append(arg_decl)
+                var_name = 'argcopy_%s_x%d' % (fn_name, i)
+                var_decl = primitive.cdecl(primitive.PrimitiveType[ARG],
+                                           var_name)
+                c_source.append('static %s;' % var_decl)
+                getter_name = '%s_get%d' % (fn_name, i)
+                export_symbols.append(getter_name)
+                c_source.append('void %s(%s) { *p = %s; }' % (
+                    getter_name,
+                    primitive.cdecl(primitive.PrimitiveType[ARG], '*p'),
+                    var_name))
+            export_symbols.append(fn_name)
+            c_source.append('')
+            c_source.append('static void real%s(%s)' % (
+                fn_name, ', '.join(fn_args)))
+            c_source.append('{')
+            for i in range(len(ARGTYPES)):
+                c_source.append('    argcopy_%s_x%d = x%d;' % (fn_name, i, i))
+            c_source.append('}')
+            c_source.append('void *%s(void)' % fn_name)
+            c_source.append('{')
+            c_source.append('    return (void *)&real%s;' % fn_name)
+            c_source.append('}')
+            c_source.append('')
+
+        for k in range(NB_TESTS):
+            prepare_c_source()
+
+        eci = ExternalCompilationInfo(
+            separate_module_sources=['\n'.join(c_source)],
+            export_symbols=export_symbols)
+
+        for k in range(NB_TESTS):
+            ARGTYPES, ffitypes, fn_name = all_tests[k]
+            func_getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
+                                         compilation_info=eci, _nowrapper=True)
+            load_factor = rnd.random()
+            keepalive_factor = rnd.random()
+            #
+            func_raw = func_getter_ptr()
             calldescr = cpu._calldescr_dynamic_for_tests(ffitypes, types.void)
             faildescr = BasicFailDescr(1)
             #
@@ -2771,7 +2840,7 @@ class LLtypeBackendTest(BaseBackendTest):
             print
             print codes
             #
-            argvalues = [funcbox.getint()]
+            argvalues = [func_raw]
             for TP in ARGTYPES:
                 r = (rnd.random() - 0.5) * 999999999999.9
                 r = rffi.cast(TP, r)
@@ -2821,16 +2890,26 @@ class LLtypeBackendTest(BaseBackendTest):
             looptoken = JitCellToken()
             self.cpu.compile_loop(argboxes, ops, looptoken)
             #
-            seen = []
             deadframe = self.cpu.execute_token(looptoken, *argvalues_normal)
             fail = self.cpu.get_latest_descr(deadframe)
             assert fail.identifier == 0
             expected = argvalues[1:]
-            [got] = seen
-            different_values = ['%r != %r' % (a, b)
-                                    for a, b in zip(got, expected)
-                                        if a != b]
-            assert got == expected, ', '.join(different_values)
+            got = []
+            for i, ARG in enumerate(ARGTYPES):
+                PARG = rffi.CArrayPtr(ARG)
+                getter_name = '%s_get%d' % (fn_name, i)
+                getter_ptr = rffi.llexternal(getter_name, [PARG], lltype.Void,
+                                             compilation_info=eci,
+                                             _nowrapper=True)
+                my_arg = lltype.malloc(PARG.TO, 1, zero=True, flavor='raw')
+                getter_ptr(my_arg)
+                got.append(my_arg[0])
+                lltype.free(my_arg, flavor='raw')
+            different_values = ['x%d: got %r, expected %r' % (i, a, b)
+                                for i, (a, b) in enumerate(zip(got, expected))
+                                if a != b]
+            assert got == expected, '\n'.join(
+                ['bad args, signature %r' % codes[1:]] + different_values)
 
 
     def test_guard_not_invalidated(self):
@@ -3574,7 +3653,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 "%r: got %r, expected %r" % (RESTYPE, res.value, expected))
 
     def test_supports_longlong(self):
-        if sys.maxint > 2147483647:
+        if IS_64_BIT:
             assert not self.cpu.supports_longlong, (
                 "supports_longlong should be False on 64-bit platforms")
 
@@ -3725,7 +3804,9 @@ class LLtypeBackendTest(BaseBackendTest):
         looptoken = JitCellToken()
         self.cpu.compile_loop(inputargs, operations, looptoken)
         # overflowing value:
-        deadframe = self.cpu.execute_token(looptoken, sys.maxint // 4 + 1)
+        unisize = self.cpu.gc_ll_descr.unicode_descr.itemsize
+        assert unisize in (2, 4)
+        deadframe = self.cpu.execute_token(looptoken, sys.maxint // unisize + 1)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == excdescr.identifier
         exc = self.cpu.grab_exc_value(deadframe)

@@ -1,5 +1,6 @@
 from test.test_support import verbose, run_unittest, import_module
 from test.test_support import precisionbigmemtest, _2G, cpython_only
+from test.test_support import captured_stdout
 import re
 from re import Scanner
 import sre_constants
@@ -700,7 +701,7 @@ class ReTests(unittest.TestCase):
         try:
             unicode
         except NameError:
-            return  # no problem if we have no unicode
+            self.skipTest('no problem if we have no unicode')
         class my_unicode(unicode): pass
         pat = re.compile(my_unicode("abc"))
         self.assertEqual(pat.match("xyz"), None)
@@ -714,7 +715,7 @@ class ReTests(unittest.TestCase):
         try:
             unicode
         except NameError:
-            return # no problem if we have no unicode
+            self.skipTest('no problem if we have no unicode')
         self.assertTrue(re.compile('bug_926075') is not
                      re.compile(eval("u'bug_926075'")))
 
@@ -722,7 +723,7 @@ class ReTests(unittest.TestCase):
         try:
             unicode
         except NameError:
-            pass
+            self.skipTest('no problem if we have no unicode')
         pattern = eval('u"[\u002E\u3002\uFF0E\uFF61]"')
         self.assertEqual(re.compile(pattern).split("a.b.c"),
                          ['a','b','c'])
@@ -919,6 +920,32 @@ class ReTests(unittest.TestCase):
                 self.assertEqual(m.group(0), "xyy")
                 self.assertEqual(m.group(1), "")
                 self.assertEqual(m.group(2), "y")
+
+    def test_debug_flag(self):
+        with captured_stdout() as out:
+            re.compile('foo', re.DEBUG)
+        self.assertEqual(out.getvalue().splitlines(),
+                         ['literal 102', 'literal 111', 'literal 111'])
+        # Debug output is output again even a second time (bypassing
+        # the cache -- issue #20426).
+        with captured_stdout() as out:
+            re.compile('foo', re.DEBUG)
+        self.assertEqual(out.getvalue().splitlines(),
+                         ['literal 102', 'literal 111', 'literal 111'])
+
+    def test_keyword_parameters(self):
+        # Issue #20283: Accepting the string keyword parameter.
+        pat = re.compile(r'(ab)')
+        self.assertEqual(
+            pat.match(string='abracadabra', pos=7, endpos=10).span(), (7, 9))
+        self.assertEqual(
+            pat.search(string='abracadabra', pos=3, endpos=10).span(), (7, 9))
+        self.assertEqual(
+            pat.findall(string='abracadabra', pos=3, endpos=10), ['ab'])
+        self.assertEqual(
+            pat.split(string='abracadabra', maxsplit=1),
+            ['', 'ab', 'racadabra'])
+
 
 def run_re_tests():
     from test.re_tests import tests, SUCCEED, FAIL, SYNTAX_ERROR
