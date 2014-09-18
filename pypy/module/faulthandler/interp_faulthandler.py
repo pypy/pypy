@@ -6,6 +6,8 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.interpreter.error import OperationError, oefmt
 
+MAX_NTHREADS = 100
+
 cwd = py.path.local(__file__).dirpath()
 eci = ExternalCompilationInfo(
     includes=[cwd.join('faulthandler.h')],
@@ -43,12 +45,18 @@ pypy_faulthandler_sigill = llexternal(
 class FatalErrorState(object):
     def __init__(self, space):
         self.enabled = False
+        self.all_threads = True
 
-def enable(space):
-    space.fromcache(FatalErrorState).enabled = True
+@unwrap_spec(w_file=WrappedDefault(None),
+             w_all_threads=WrappedDefault(True))
+def enable(space, w_file, w_all_threads):
+    state = space.fromcache(FatalErrorState)
+    state.enabled = True
+    state.all_threads = bool(space.int_w(w_all_threads))
 
 def disable(space):
-    space.fromcache(FatalErrorState).enabled = False
+    state = space.fromcache(FatalErrorState)
+    state.enabled = False
 
 def is_enabled(space):
     return space.wrap(space.fromcache(FatalErrorState).enabled)
@@ -60,25 +68,40 @@ def register(space, __args__):
 @unwrap_spec(w_file=WrappedDefault(None),
              w_all_threads=WrappedDefault(True))
 def dump_traceback(space, w_file, w_all_threads):
-    ec = space.getexecutioncontext()
-    ecs = space.threadlocals.getallvalues()
+    current_ec = space.getexecutioncontext()
+    if space.int_w(w_all_threads):
+        ecs = space.threadlocals.getallvalues()
+    else:
+        ecs = {0: current_ec}
 
     if space.is_none(w_file):
         w_file = space.sys.get('stderr')
     fd = space.c_filedescriptor_w(w_file)
 
-    frame = ec.gettopframe()
-    while frame:
-        code = frame.pycode
-        lineno = frame.get_last_lineno()
-        if code:
-            os.write(fd, "File \"%s\", line %s in %s\n" % (
-                    code.co_filename, lineno, code.co_name))
+    nthreads = 0
+    for thread_ident, ec in ecs.items():
+        if nthreads:
+            os.write(fd, "\n")
+        if nthreads >= MAX_NTHREADS:
+            os.write(fd, "...\n")
+            break
+        if ec is current_ec:
+            os.write(fd, "Current thread 0x%x:\n" % thread_ident)
         else:
-            os.write(fd, "File ???, line %s in ???\n" % (
-                    lineno,))
+            os.write(fd, "Thread 0x%x:\n" % thread_ident)
 
-        frame = frame.f_backref()
+        frame = ec.gettopframe()
+        while frame:
+            code = frame.pycode
+            lineno = frame.get_last_lineno()
+            if code:
+                os.write(fd, "File \"%s\", line %s in %s\n" % (
+                        code.co_filename, lineno, code.co_name))
+            else:
+                os.write(fd, "File ???, line %s in ???\n" % (
+                        lineno,))
+
+            frame = frame.f_backref()
  
 
 @unwrap_spec(w_release_gil=WrappedDefault(False))
