@@ -92,7 +92,8 @@ class ARMCallbuilder(AbstractCallBuilder):
             self.mc.LDR_ri(r.r7.value, r.r5.value)
 
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
-        self.mc.DMB()
+        if self.asm.cpu.cpuinfo.arch_version >= 7:
+            self.mc.DMB()
         self.mc.gen_load_int(r.r6.value, fastgil)
         self.mc.MOV_ri(r.ip.value, 0)
         self.mc.STR_ri(r.ip.value, r.r6.value)
@@ -112,7 +113,8 @@ class ARMCallbuilder(AbstractCallBuilder):
         self.mc.STREX(r.r3.value, r.ip.value, r.r6.value, c=c.EQ)
                                                  # try to claim the lock
         self.mc.CMP_ri(r.r3.value, 0, cond=c.EQ) # did this succeed?
-        self.mc.DMB()
+        if self.asm.cpu.cpuinfo.arch_version >= 7:
+            self.mc.DMB()
         # the success of the lock acquisition is defined by
         # 'EQ is true', or equivalently by 'r3 == 0'.
         #

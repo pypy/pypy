@@ -127,9 +127,9 @@ class AppTestAppSysTests:
         assert isinstance(sys.__stdin__, io.IOBase)
         assert sys.__stderr__.errors == 'backslashreplace'
 
-        assert sys.__stdin__.name == "<stdin>"
-        assert sys.__stdout__.name == "<stdout>"
-        assert sys.__stderr__.name == "<stderr>"
+        #assert sys.__stdin__.name == "<stdin>"
+        #assert sys.__stdout__.name == "<stdout>"
+        #assert sys.__stderr__.name == "<stderr>"
 
         if self.appdirect and not isinstance(sys.stdin, io.IOBase):
             return

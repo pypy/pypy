@@ -204,9 +204,9 @@ class MsvcPlatform(Platform):
         # must come first, and after the file name all options are ignored.
         # So please be careful with the order of parameters! ;-)
         pdb_dir = oname.dirname
-	if pdb_dir:
-	        compile_args += ['/Fd%s\\' % (pdb_dir,)]
-	args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
+        if pdb_dir:
+                compile_args += ['/Fd%s\\' % (pdb_dir,)]
+        args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
         self._execute_c_compiler(cc, args, oname)
         return oname
 
