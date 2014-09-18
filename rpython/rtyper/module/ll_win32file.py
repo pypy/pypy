@@ -194,10 +194,12 @@ def make_win32_traits(traits):
 
         # dynamically loaded
         GetFinalPathNameByHandle = None
+        GETFINALPATHNAMEBYHANDLE_TP = lltype.Ptr(lltype.FuncType(
+                [rwin32.HANDLE, traits.CCHARP, rwin32.DWORD, rwin32.DWORD],
+                rwin32.DWORD, abi='FFI_STDCALL'))
 
-        @staticmethod
-        def check_GetFinalPathNameByHandle():
-            if Win32Traits.GetFinalPathNameByHandle:
+        def check_GetFinalPathNameByHandle(self):
+            if self.GetFinalPathNameByHandle:
                 return True
 
             from rpython.rlib.rdynload import GetModuleHandle, dlsym
@@ -207,13 +209,11 @@ def make_win32_traits(traits):
             except KeyError:
                 return False
 
-            TYPE = lltype.Ptr(lltype.FuncType(
-                    [rwin32.HANDLE, traits.CCHARP, rwin32.DWORD, rwin32.DWORD],
-                    rwin32.DWORD, abi='FFI_STDCALL'))
-            Win32Traits.GetFinalPathNameByHandle = rffi.cast(TYPE, func)
+            self.GetFinalPathNameByHandle = rffi.cast(
+                Win32Traits.GETFINALPATHNAMEBYHANDLE_TP, func)
             return True
 
-    return Win32Traits
+    return Win32Traits()
 
 #_______________________________________________________________
 # listdir
