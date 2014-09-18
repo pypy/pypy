@@ -192,11 +192,12 @@ def make_win32_traits(traits):
             [traits.CCHARP, traits.CCHARP],
             rwin32.BOOL)
 
-        # dynamically loaded
-        GetFinalPathNameByHandle = None
         GETFINALPATHNAMEBYHANDLE_TP = lltype.Ptr(lltype.FuncType(
                 [rwin32.HANDLE, traits.CCHARP, rwin32.DWORD, rwin32.DWORD],
                 rwin32.DWORD, abi='FFI_STDCALL'))
+        # dynamically loaded
+        GetFinalPathNameByHandle = lltype.nullptr(
+            GETFINALPATHNAMEBYHANDLE_TP.TO)
 
         def check_GetFinalPathNameByHandle(self):
             if self.GetFinalPathNameByHandle:
