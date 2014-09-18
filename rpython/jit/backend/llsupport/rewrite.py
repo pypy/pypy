@@ -186,6 +186,15 @@ class GcRewriterAssembler(object):
         v_arr_plus_ofs = BoxInt()
         v_totalsize = BoxInt()
         gcdescr = self.gc_ll_descr
+        if isinstance(v_arrsize, ConstInt) and v_arrsize.getint() < 10:
+            # clear it item by item
+            ops = []
+            for i in range(v_arrsize.getint()):
+                ops.append(ResOperation(rop.SETARRAYITEM_GC,
+                                        [v_arr, ConstInt(i)], None,
+                                        descr=arraydescr))
+            self.newops += ops
+            return
         ops = [
             ResOperation(rop.INT_ADD, [v_arr, ConstInt(ofs)], v_arr_plus_ofs),
         ]
