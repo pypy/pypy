@@ -191,7 +191,7 @@ class GcRewriterAssembler(object):
             ops = []
             for i in range(v_arrsize.getint()):
                 ops.append(ResOperation(rop.SETARRAYITEM_GC,
-                                        [v_arr, ConstInt(i)], None,
+                                        [v_arr, ConstInt(i), self.c_zero], None,
                                         descr=arraydescr))
             self.newops += ops
             return
