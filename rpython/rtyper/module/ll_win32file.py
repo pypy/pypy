@@ -445,7 +445,7 @@ def make__getfileinformation_impl(traits):
         with lltype.scoped_alloc(
             win32traits.BY_HANDLE_FILE_INFORMATION) as info:
             if win32traits.GetFileInformationByHandle(hFile, info) == 0:
-                raise lastWindowsError("_getfileinformation")
+                raise rwin32.lastWindowsError("_getfileinformation")
             return (rffi.cast(lltype.Signed, info.c_dwVolumeSerialNumber),
                     rffi.cast(lltype.Signed, info.c_nFileIndexHigh),
                     rffi.cast(lltype.Signed, info.c_nFileIndexLow))
