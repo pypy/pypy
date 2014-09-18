@@ -12,6 +12,9 @@ from pypy.objspace.std import unicodeobject
 from pypy.objspace.std.floatobject import HASH_MODULUS, HASH_INF, HASH_NAN
 from pypy.module._decimal import interp_context
 
+VERSION = "1.7"
+LIBMPDEC_VERSION = rffi.charp2str(rmpdec.mpd_version())
+
 if HASH_MODULUS == 2**31 - 1:
     INVERSE_10_MODULUS = 1503238553
 elif HASH_MODULUS == 2**61 - 1:

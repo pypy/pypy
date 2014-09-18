@@ -64,6 +64,7 @@ eci = ExternalCompilationInfo(
         "mpd_qand", "mpd_qor", "mpd_qxor",
         "mpd_qcopy_sign", "mpd_qcopy_abs", "mpd_qcopy_negate",
         "mpd_qround_to_int", "mpd_qround_to_intx",
+        "mpd_version",
         ],
     compile_extra=compile_extra,
     libraries=['m'],
@@ -393,3 +394,5 @@ mpd_qround_to_int = external(
 mpd_qround_to_intx = external(
     'mpd_qround_to_intx', [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
     lltype.Void)
+
+mpd_version = external('mpd_version', [], rffi.CCHARP, macro=True)

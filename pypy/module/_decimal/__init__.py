@@ -24,6 +24,9 @@ class Module(MixedModule):
         'MIN_ETINY': 'space.wrap(interp_decimal.MIN_ETINY)',
 
         'HAVE_THREADS': 'space.wrap(space.config.translation.thread)',
+
+        '__version__': 'space.wrap(interp_decimal.VERSION)',
+        '__libmpdec_version__': 'space.wrap(interp_decimal.LIBMPDEC_VERSION)',
         }
     for name in rmpdec.ROUND_CONSTANTS:
         interpleveldefs[name] = 'space.wrap(%r)' % name

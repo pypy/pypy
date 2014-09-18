@@ -9,6 +9,11 @@ class AppTestDecimalModule:
         import _decimal
         assert isinstance(_decimal.Decimal, type)
 
+    def test_versions(self):
+        import _decimal
+        assert isinstance(_decimal.__version__, str)
+        assert isinstance(_decimal.__libmpdec_version__, str)
+
     def test_context(self):
         import _decimal
         context = _decimal.Context(
