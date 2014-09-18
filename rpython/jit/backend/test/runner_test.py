@@ -4478,3 +4478,49 @@ class LLtypeBackendTest(BaseBackendTest):
         ref = self.cpu.get_ref_value(deadframe, 0)
         s = lltype.cast_opaque_ptr(lltype.Ptr(S), ref)
         assert not s.x
+
+    def test_zero_ptr_field(self):
+        XXX     # write me!
+
+    def test_zero_array(self):
+        PAIR = lltype.Struct('PAIR', ('a', lltype.Signed), ('b', lltype.Signed))
+        for OF in [lltype.Signed, rffi.INT, rffi.SHORT, rffi.UCHAR, PAIR]:
+            A = lltype.GcArray(OF)
+            arraydescr = self.cpu.arraydescrof(A)
+            a = lltype.malloc(A, 100)
+            addr = llmemory.cast_ptr_to_adr(a)
+            a_int = heaptracker.adr2int(addr)
+            a_ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
+            for (start, length) in [(0, 100), (49, 49), (1, 98),
+                                    (15, 9), (10, 10), (47, 0),
+                                    (0, 4)]:
+                for cls1 in [ConstInt, BoxInt]:
+                    for cls2 in [ConstInt, BoxInt]:
+                        print 'a_int:', a_int
+                        print 'of:', OF
+                        print 'start:', start
+                        print 'length:', length
+                        print 'cls1:', cls1.__name__
+                        print 'cls2:', cls2.__name__
+                        for i in range(100):
+                            if OF == PAIR:
+                                a[i].a = a[i].b = -123456789
+                            else:
+                                a[i] = rffi.cast(OF, -123456789)
+                        startbox = cls1(start)
+                        lengthbox = cls2(length)
+                        if cls1 == cls2 and start == length:
+                            lengthbox = startbox    # same box!
+                        self.execute_operation(rop.ZERO_ARRAY,
+                                               [BoxPtr(a_ref),
+                                                startbox,
+                                                lengthbox],
+                                           'void', descr=arraydescr)
+                        assert len(a) == 100
+                        for i in range(100):
+                            val = (0 if start <= i < start + length
+                                     else -123456789)
+                            if OF == PAIR:
+                                assert a[i].a == a[i].b == val
+                            else:
+                                assert a[i] == rffi.cast(OF, val)

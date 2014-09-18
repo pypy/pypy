@@ -8,7 +8,8 @@ from rpython.jit.backend.llsupport.descr import (ArrayDescr, CallDescr,
     unpack_arraydescr, unpack_fielddescr, unpack_interiorfielddescr)
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
-     RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op)
+     RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op,
+     valid_addressing_size)
 from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
     IS_X86_64)
@@ -1383,6 +1384,71 @@ class RegAlloc(BaseRegalloc):
 
     def consider_keepalive(self, op):
         pass
+
+    def consider_zero_array(self, op):
+        itemsize, baseofs, _ = unpack_arraydescr(op.getdescr())
+        args = op.getarglist()
+        base_loc = self.rm.make_sure_var_in_reg(args[0], args)
+        startindex_loc = self.rm.make_sure_var_in_reg(args[1], args)
+        length_box = op.getarg(2)
+        if isinstance(length_box, ConstInt):
+            constbytes = length_box.getint() * itemsize
+        else:
+            constbytes = -1
+        if 0 <= constbytes <= 16 * 8 and (
+                valid_addressing_size(itemsize) or
+                (isinstance(startindex_loc, ImmedLoc) and
+                  startindex_loc.value == 0)):
+            if IS_X86_64:
+                null_loc = X86_64_XMM_SCRATCH_REG
+            else:
+                null_box = TempBox()
+                null_loc = self.xrm.force_allocate_reg(null_box)
+                self.xrm.possibly_free_var(null_box)
+            self.perform_discard(op, [base_loc, startindex_loc,
+                                      imm(constbytes), imm(itemsize),
+                                      imm(baseofs), null_loc])
+        else:
+            # base_loc and startindex_loc are in two regs here (or they are
+            # immediates).  Compute the dstaddr_loc, which is the raw
+            # address that we will pass as first argument to memset().
+            # It can be in the same register as either one, but not in
+            # args[2], because we're still needing the latter.
+            dstaddr_box = TempBox()
+            dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box, [args[2]])
+            itemsize_loc = imm(itemsize)
+            dst_addr = self.assembler._get_interiorfield_addr(
+                dstaddr_loc, startindex_loc, itemsize_loc,
+                base_loc, imm(baseofs))
+            self.assembler.mc.LEA(dstaddr_loc, dst_addr)
+            #
+            if constbytes >= 0:
+                length_loc = imm(constbytes)
+            else:
+                # load length_loc in a register different than dstaddr_loc
+                length_loc = self.rm.make_sure_var_in_reg(length_box,
+                                                          [dstaddr_box])
+                if itemsize > 1:
+                    # we need a register that is different from dstaddr_loc,
+                    # but which can be identical to length_loc (as usual,
+                    # only if the length_box is not used by future operations)
+                    bytes_box = TempBox()
+                    bytes_loc = self.rm.force_allocate_reg(bytes_box,
+                                                           [dstaddr_box])
+                    b_adr = self.assembler._get_interiorfield_addr(
+                        bytes_loc, length_loc, itemsize_loc, imm0, imm0)
+                    self.assembler.mc.LEA(bytes_loc, b_adr)
+                    length_box = bytes_box
+                    length_loc = bytes_loc
+            #
+            # call memset()
+            self.rm.before_call()
+            self.xrm.before_call()
+            self.assembler.simple_call_no_collect(
+                imm(self.assembler.memset_addr),
+                [dstaddr_loc, imm0, length_loc])
+            self.rm.possibly_free_var(length_box)
+            self.rm.possibly_free_var(dstaddr_box)
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())
