@@ -24,8 +24,19 @@ class AppTestContext:
         def assertIs(space, w_x, w_y):
             assert space.is_w(w_x, w_y)
         cls.w_assertIs = space.wrap(gateway.interp2app(assertIs))
+        def assertIsInstance(space, w_x, w_y):
+            assert space.isinstance_w(w_x, w_y)
+        cls.w_assertIsInstance = space.wrap(
+            gateway.interp2app(assertIsInstance))
 
         cls.w_assertRaises = space.appexec([], """(): return raises""")
+
+    def test_deepcopy(self):
+        import copy
+        c = self.decimal.DefaultContext.copy()
+        c.traps[self.decimal.InvalidOperation] = False
+        nc = copy.deepcopy(c)
+        assert nc.traps[self.decimal.InvalidOperation] == False
 
     def test_context_repr(self):
         c = self.decimal.DefaultContext.copy()

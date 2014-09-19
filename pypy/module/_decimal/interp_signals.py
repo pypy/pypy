@@ -60,6 +60,15 @@ def exception_as_flag(space, w_exc):
     raise oefmt(space.w_KeyError,
                 "invalid error flag")
 
+def flags_as_list(space, flags):
+    result_w = []
+    flags = rffi.cast(lltype.Signed, flags)
+    for (name, flag) in SIGNAL_MAP:
+        if flag & flags:
+            w_exc = getattr(get(space), 'w_' + name)
+            result_w.append(w_exc)
+    return space.newlist(result_w)
+
 def flags_as_string(flags):
     builder = rstring.StringBuilder(30)
     builder.append('[')

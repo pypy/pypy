@@ -232,8 +232,7 @@ class W_Context(W_Root):
         return interp_decimal.decimal_from_float(
             space, None, w_value, self, exact=False)
 
-    def descr_repr(self, space):
-        # Rounding string.
+    def _rounding_string(self, space):
         rounding = rffi.cast(lltype.Signed, self.ctx.c_round)
         for name, value in ROUND_CONSTANTS:
             if value == rounding:
@@ -242,14 +241,31 @@ class W_Context(W_Root):
         else:
             raise oefmt(space.w_RuntimeError,
                         "bad rounding value")
+        return round_string
+
+    def descr_repr(self, space):
         flags = interp_signals.flags_as_string(self.ctx.c_status)
         traps = interp_signals.flags_as_string(self.ctx.c_traps)
         return space.wrap("Context(prec=%s, rounding=%s, Emin=%s, Emax=%s, "
                           "capitals=%s, clamp=%s, flags=%s, traps=%s)" % (
-                self.ctx.c_prec, round_string,
+                self.ctx.c_prec, self._rounding_string(space),
                 self.ctx.c_emin, self.ctx.c_emax,
                 self.capitals, rffi.cast(lltype.Signed, self.ctx.c_clamp),
                 flags, traps))
+
+    def descr_reduce(self, space):
+        return space.newtuple([
+                space.type(self),
+                space.newtuple([
+                        space.wrap(self.ctx.c_prec),
+                        space.wrap(self._rounding_string(space)),
+                        space.wrap(self.ctx.c_emin),
+                        space.wrap(self.ctx.c_emax),
+                        space.wrap(self.capitals),
+                        space.wrap(self.ctx.c_clamp),
+                        interp_signals.flags_as_list(space, self.ctx.c_status),
+                        interp_signals.flags_as_list(space, self.ctx.c_traps),
+                        ])])
 
     def divmod_w(self, space, w_x, w_y):
         from pypy.module._decimal import interp_decimal
@@ -353,6 +369,7 @@ W_Context.typedef = TypeDef(
     clamp=GetSetProperty(W_Context.get_clamp, W_Context.set_clamp),
     #
     __repr__ = interp2app(W_Context.descr_repr),
+    __reduce__ = interp2app(W_Context.descr_reduce),
     #
     copy=interp2app(W_Context.copy_w),
     clear_flags=interp2app(W_Context.clear_flags_w),
