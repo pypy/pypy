@@ -4,7 +4,7 @@ from rpython.rlib import rmpdec, rstring
 from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import oefmt, OperationError
 
-SIGNAL_MAP = unrolling_iterable([
+SIGNAL_LIST = [
     ('InvalidOperation', rmpdec.MPD_IEEE_Invalid_operation),
     ('FloatOperation', rmpdec.MPD_Float_operation),
     ('DivisionByZero', rmpdec.MPD_Division_by_zero),
@@ -14,7 +14,9 @@ SIGNAL_MAP = unrolling_iterable([
     ('Inexact', rmpdec.MPD_Inexact),
     ('Rounded', rmpdec.MPD_Rounded),
     ('Clamped', rmpdec.MPD_Clamped),
-    ])
+    ]
+SIGNAL_MAP = unrolling_iterable(SIGNAL_LIST)
+
 # Exceptions that inherit from InvalidOperation
 COND_MAP = unrolling_iterable([
     ('InvalidOperation', rmpdec.MPD_Invalid_operation),
@@ -53,6 +55,23 @@ def list_as_flags(space, w_list):
         flags |= exception_as_flag(space, w_item)
     return flags
 
+def dict_as_flags(space, w_dict):
+    if space.len_w(w_dict) != len(SIGNAL_LIST):
+        raise oefmt(space.w_KeyError,
+                    "invalid signal dict")
+    flags = 0
+    for name, flag in SIGNAL_MAP:
+        try:
+            w_value = space.getitem(w_dict, getattr(get(space), 'w_' + name))
+        except OperationError as e:
+            if e.match(space, space.w_KeyError):
+                raise oefmt(space.w_KeyError,
+                            "invalid signal dict")
+            raise
+        if space.bool_w(w_value):
+            flags |= flag
+    return flags
+
 def exception_as_flag(space, w_exc):
     for name, flag in SIGNAL_MAP:
         if space.is_w(w_exc, getattr(get(space), 'w_' + name)):
@@ -78,7 +97,7 @@ def flags_as_string(flags):
         if flag & flags:
             if not first:
                 builder.append(', ')
-                first = False
+            first = False
             builder.append(value)
     builder.append(']')
     return builder.build()

@@ -31,6 +31,11 @@ class AppTestContext:
 
         cls.w_assertRaises = space.appexec([], """(): return raises""")
 
+    def test_dict_flags(self):
+        c = self.decimal.Context(traps=dict.fromkeys(
+                self.decimal.DefaultContext.traps.keys(), 0))
+        assert c.traps[self.decimal.Rounded] == False
+
     def test_deepcopy(self):
         import copy
         c = self.decimal.DefaultContext.copy()

@@ -129,10 +129,16 @@ class W_Context(W_Root):
         if not space.is_none(w_clamp):
             self.set_clamp(space, w_clamp)
         if not space.is_none(w_flags):
-            flags = interp_signals.list_as_flags(space, w_flags)
+            if space.isinstance_w(w_flags, space.w_list):
+                flags = interp_signals.list_as_flags(space, w_flags)
+            else:
+                flags = interp_signals.dict_as_flags(space, w_flags)
             rffi.setintfield(self.ctx, 'c_status', flags)
         if not space.is_none(w_traps):
-            flags = interp_signals.list_as_flags(space, w_traps)
+            if space.isinstance_w(w_traps, space.w_list):
+                flags = interp_signals.list_as_flags(space, w_traps)
+            else:
+                flags = interp_signals.dict_as_flags(space, w_traps)
             rffi.setintfield(self.ctx, 'c_traps', flags)
 
     def addstatus(self, space, status):
