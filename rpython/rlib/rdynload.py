@@ -158,3 +158,4 @@ else:  # _WIN32
         return res
 
     LoadLibrary = rwin32.LoadLibrary
+    GetModuleHandle = rwin32.GetModuleHandle

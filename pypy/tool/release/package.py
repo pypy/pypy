@@ -306,10 +306,10 @@ def package(*args):
         import imp
         argparse = imp.load_source('argparse', 'lib-python/2.7/argparse.py')
     if sys.platform == 'win32':
-        pypy_exe = 'pypy.exe'
+        pypy_exe = 'pypy3.exe'
         license_base = os.path.join(basedir, r'..\..\..\local') # as on buildbot YMMV
     else:
-        pypy_exe = 'pypy'
+        pypy_exe = 'pypy3'
         license_base = '/usr/share/doc'
     parser = argparse.ArgumentParser()
     args = list(args)

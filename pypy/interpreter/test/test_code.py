@@ -194,3 +194,9 @@ class AppTestCodeIntrospection:
         # CO_NESTED
         assert d['f'](4).__code__.co_flags & 0x10
         assert d['f'].__code__.co_flags & 0x10 == 0
+
+    def test_issue1844(self):
+        import types
+        args = (1, 0, 1, 0, 0, b'', (), (), (), '', 'operator', 0, b'')
+        # previously raised a MemoryError when translated
+        types.CodeType(*args)
