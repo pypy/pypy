@@ -481,6 +481,14 @@ class TranslationDriver(SimpleTaskEngine):
                     newlibname = newexename.new(basename=soname.basename)
                     shutil.copyfile(str(libname), str(newlibname.new(ext='lib')))
                     self.log.info("copied: %s" % (newlibname,))
+                    # XXX TODO : replace the nonsense above with
+                    # ext_to_copy = ['lib', 'pdb']
+                    ext_to_copy = ['pdb',]
+                    for ext in ext_to_copy:
+                        name = soname.new(ext=ext)
+                        newname = newexename.new(basename=soname.basename)
+                        shutil.copyfile(str(name), str(newname.new(ext=ext)))
+                        self.log.info("copied: %s" % (newname,))
             self.c_entryp = newexename
         self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))
