@@ -180,38 +180,16 @@ class GcRewriterAssembler(object):
         if kind == FLAG_ARRAY:
             self.clear_varsize_gc_fields(op.getdescr(), op.result, v_length)
 
-    def handle_clear_array_contents(self, arraydescr, v_arr, v_arrsize=None):
-        # XXX this maybe should go to optimizer, so we can remove extra ops?
-        ofs, size, _ = self.cpu.unpack_arraydescr_size(arraydescr)
-        v_arr_plus_ofs = BoxInt()
-        v_totalsize = BoxInt()
-        gcdescr = self.gc_ll_descr
-        if isinstance(v_arrsize, ConstInt) and v_arrsize.getint() < 10:
-            # clear it item by item
-            ops = []
-            for i in range(v_arrsize.getint()):
-                ops.append(ResOperation(rop.SETARRAYITEM_GC,
-                                        [v_arr, ConstInt(i), self.c_zero], None,
-                                        descr=arraydescr))
-            self.newops += ops
-            return
-        ops = [
-            ResOperation(rop.INT_ADD, [v_arr, ConstInt(ofs)], v_arr_plus_ofs),
-        ]
-
-        if v_arrsize is None:
-            v_arrsize = BoxInt()
-            o = ResOperation(rop.ARRAYLEN_GC, [v_arr], v_arrsize,
+    def handle_clear_array_contents(self, arraydescr, v_arr, v_length=None):
+        # XXX more work here to reduce or remove the ZERO_ARRAY in some cases
+        if v_length is None:
+            v_length = BoxInt()
+            o = ResOperation(rop.ARRAYLEN_GC, [v_arr], v_length,
                              descr=arraydescr)
-            ops.append(o)
-        ops += [
-            ResOperation(rop.INT_MUL, [v_arrsize, ConstInt(size)], v_totalsize),
-            ResOperation(rop.CALL, [ConstInt(gcdescr.memset_ptr_as_int),
-                                    v_arr_plus_ofs,
-                                    ConstInt(0), v_totalsize], None,
-                                    descr=gcdescr.memset_descr),
-        ]
-        self.newops.extend(ops)
+            self.newops.append(o)
+        o = ResOperation(rop.ZERO_ARRAY, [v_arr, ConstInt(0), v_length], None,
+                         descr=arraydescr)
+        self.newops.append(o)
 
     def gen_malloc_frame(self, frame_info, frame, size_box):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)

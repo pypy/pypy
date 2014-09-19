@@ -34,15 +34,6 @@ class GcLLDescription(GcCache):
             self.fielddescr_vtable = get_field_descr(self, rclass.OBJECT,
                                                      'typeptr')
         self._generated_functions = []
-        self.memset_ptr = rffi.llexternal('memset', [lltype.Signed, rffi.INT,
-                                                     rffi.SIZE_T], lltype.Void,
-                                                     sandboxsafe=True,
-                                                     _nowrapper=True)
-        self.memset_ptr_as_int = heaptracker.adr2int(
-            llmemory.cast_ptr_to_adr(self.memset_ptr))
-        ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE)
-        self.memset_descr = get_call_descr(self, [lltype.Signed, rffi.INT,
-                                                  rffi.SIZE_T], lltype.Void, ei)
 
     def _setup_str(self):
         self.str_descr     = get_array_descr(self, rstr.STR)
