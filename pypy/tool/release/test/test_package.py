@@ -115,15 +115,21 @@ def test_fix_permissions(tmpdir):
     check(pypy,  0755)
 
 def test_generate_license():
-    from os.path import dirname, abspath, join
+    from os.path import dirname, abspath, join, exists
     class Options(object):
         pass
     options = Options()
     basedir = dirname(dirname(dirname(dirname(dirname(abspath(__file__))))))
     options.no_tk = False
     if sys.platform == 'win32':
-         # as on buildbot YMMV
-        options.license_base = join(basedir, r'..\..\..\local')
+        for p in [join(basedir, r'..\..\..\local'), #buildbot
+                  join(basedir, r'..\local')]: # pypy/doc/windows.rst
+            if exists(p): 
+                license_base = p
+                break
+        else:
+            license_base = 'unkown'
+        options.license_base = license_base
     else:
         options.license_base = '/usr/share/doc'
     license = package.generate_license(py.path.local(basedir), options)
