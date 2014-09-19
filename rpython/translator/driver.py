@@ -476,14 +476,7 @@ class TranslationDriver(SimpleTaskEngine):
                 shutil_copy(str(soname), str(newsoname))
                 self.log.info("copied: %s" % (newsoname,))
                 if sys.platform == 'win32':
-                    # copy the import library as well
-                    libname = soname.new(ext='lib')
-                    newlibname = newexename.new(basename=soname.basename)
-                    shutil.copyfile(str(libname), str(newlibname.new(ext='lib')))
-                    self.log.info("copied: %s" % (newlibname,))
-                    # XXX TODO : replace the nonsense above with
-                    # ext_to_copy = ['lib', 'pdb']
-                    ext_to_copy = ['pdb',]
+                    ext_to_copy = ['lib', 'pdb']
                     for ext in ext_to_copy:
                         name = soname.new(ext=ext)
                         newname = newexename.new(basename=soname.basename)
