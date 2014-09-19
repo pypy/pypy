@@ -297,7 +297,13 @@ def package(*args):
         argparse = imp.load_source('argparse', 'lib-python/2.7/argparse.py')
     if sys.platform == 'win32':
         pypy_exe = 'pypy.exe'
-        license_base = os.path.join(basedir, r'..\..\..\local') # as on buildbot YMMV
+        for p in [os.path.join(basedir, r'..\..\..\local'), #buildbot
+                os.path.join(basedir, r'..\local')]: # pypy/doc/windows.rst
+            if os.path.exists(p): 
+                license_base = p
+                break
+        else:
+            license_base = 'unkown'
     else:
         pypy_exe = 'pypy'
         license_base = '/usr/share/doc'
