@@ -443,6 +443,7 @@ class RFile(object):
                 s.append_charpsize(raw_buf, chunksize)
                 buffersize = self._new_buffersize(buffersize)
                 remainsize = buffersize - s.getlength()
+                # XXX add rpython realloc so we can avoid the copy to stringbuilder?
                 rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
                 raw_buf, gc_buf = rffi.alloc_buffer(remainsize)
             if s is None:
@@ -505,6 +506,7 @@ class RFile(object):
                 s.append_charpsize(raw_buf, remainsize - 1)
                 buffersize += buffersize >> 2
                 remainsize = buffersize - s.getlength()
+                # XXX add rpython realloc so we can avoid the copy to stringbuilder?
                 rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
                 raw_buf, gc_buf = rffi.alloc_buffer(remainsize)
             if s is None:
@@ -609,6 +611,7 @@ class RFile(object):
                 s.append_charpsize(raw_buf, i)
                 buffersize += buffersize >> 2
                 remainsize = buffersize - s.getlength()
+                # XXX add rpython realloc so we can avoid the copy to stringbuilder?
                 rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
                 raw_buf, gc_buf = rffi.alloc_buffer(remainsize)
                 i = 0
