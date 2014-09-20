@@ -125,9 +125,8 @@ class GcRewriterAssembler(object):
     def clear_varsize_gc_fields(self, descr, result, v_length=None):
         if self.gc_ll_descr.malloc_zero_filled:
             return
-        if not descr.is_array_of_pointers():
-            return
-        self.handle_clear_array_contents(descr, result, v_length)
+        if descr.is_array_of_structs() or descr.is_array_of_pointers():
+            self.handle_clear_array_contents(descr, result, v_length)
 
     def handle_new_fixedsize(self, descr, op):
         assert isinstance(descr, SizeDescr)
