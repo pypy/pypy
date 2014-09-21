@@ -132,7 +132,8 @@ def offsets_of_gcfields(gccache, STRUCT, res=None):
     if res is None:
         res = []
     # order is not relevant, except for tests
-    for name, FIELD in STRUCT._flds.iteritems():
+    for name in STRUCT._names:
+        FIELD = getattr(STRUCT, name)
         if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
             offset, _ = symbolic.get_field_token(STRUCT, name,
                                                 gccache.translate_support_code)

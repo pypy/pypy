@@ -45,6 +45,7 @@ class GcRewriterAssembler(object):
         self.newops = []
         self.known_lengths = {}
         self.write_barrier_applied = {}
+        self.delayed_zero_setfields = {}
 
     def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly
@@ -71,6 +72,7 @@ class GcRewriterAssembler(object):
             # ---------- write barriers ----------
             if self.gc_ll_descr.write_barrier_descr is not None:
                 if op.getopnum() == rop.SETFIELD_GC:
+                    self.consider_setfield_gc(op)
                     self.handle_write_barrier_setfield(op)
                     continue
                 if op.getopnum() == rop.SETINTERIORFIELD_GC:
@@ -79,10 +81,18 @@ class GcRewriterAssembler(object):
                 if op.getopnum() == rop.SETARRAYITEM_GC:
                     self.handle_write_barrier_setarrayitem(op)
                     continue
+            else:
+                # this is dead code, but in case we have a gc that does
+                # not have a write barrier and does not zero memory, we would
+                # need to clal it
+                if op.getopnum() == rop.SETFIELD_GC:
+                    self.consider_setfield_gc(op)
             # ---------- call assembler -----------
             if op.getopnum() == rop.CALL_ASSEMBLER:
                 self.handle_call_assembler(op)
                 continue
+            if op.getopnum() == rop.JUMP or op.getopnum() == rop.FINISH:
+                self.emit_pending_zeros()
             #
             self.newops.append(op)
         return self.newops
@@ -118,14 +128,28 @@ class GcRewriterAssembler(object):
     def clear_gc_fields(self, descr, result):
         if self.gc_ll_descr.malloc_zero_filled:
             return
+        try:
+            d = self.delayed_zero_setfields[result]
+        except KeyError:
+            d = {}
+            self.delayed_zero_setfields[result] = d
         for ofs in descr.offsets_of_gcfields:
-            o = ResOperation(rop.ZERO_PTR_FIELD, [result, ConstInt(ofs)], None)
-            self.newops.append(o)
+            d[ofs] = None
+
+    def consider_setfield_gc(self, op):
+        offset = op.getdescr().offset
+        try:
+            del self.delayed_zero_setfields[op.getarg(0)][offset]
+        except KeyError:
+            pass
 
     def clear_varsize_gc_fields(self, descr, result, v_length=None):
         if self.gc_ll_descr.malloc_zero_filled:
             return
         if descr.is_array_of_structs() or descr.is_array_of_pointers():
+            # for the case of array of structs, this is for correctness only,
+            # since in practice all GC arrays of structs are allocated
+            # with malloc(zero=True)
             self.handle_clear_array_contents(descr, result, v_length)
 
     def handle_new_fixedsize(self, descr, op):
@@ -257,8 +281,16 @@ class GcRewriterAssembler(object):
         # forgets the previous MALLOC_NURSERY, if any; and empty the
         # set 'write_barrier_applied', so that future SETFIELDs will generate
         # a write barrier as usual.
+        # it also writes down all the pending zero ptr fields
         self._op_malloc_nursery = None
         self.write_barrier_applied.clear()
+        self.emit_pending_zeros()
+
+    def emit_pending_zeros(self):
+        for v, d in self.delayed_zero_setfields.iteritems():
+            for ofs in d.iterkeys():
+                op = ResOperation(rop.ZERO_PTR_FIELD, [v, ConstInt(ofs)], None)
+                self.newops.append(op)
 
     def _gen_call_malloc_gc(self, args, v_result, descr):
         """Generate a CALL_MALLOC_GC with the given args."""

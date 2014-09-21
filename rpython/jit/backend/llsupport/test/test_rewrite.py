@@ -85,7 +85,6 @@ class RewriteTests(object):
         signedframedescr = self.cpu.signedframedescr
         floatframedescr = self.cpu.floatframedescr
         casmdescr.compiled_loop_token = clt
-        tzdescr = None # noone cares
         #
         namespace.update(locals())
         #
@@ -312,9 +311,9 @@ class TestFramework(RewriteTests):
             setfield_gc(p0, 1234, descr=tiddescr)
             p1 = int_add(p0, %(sdescr.size)d)
             setfield_gc(p1, 5678, descr=tiddescr)
-            zero_ptr_field(p1, %(tdescr.offsets_of_gcfields[0])s)
             p2 = int_add(p1, %(tdescr.size)d)
             setfield_gc(p2, 1234, descr=tiddescr)
+            zero_ptr_field(p1, %(tdescr.offsets_of_gcfields[0])s)
             jump()
         """)
 
@@ -599,6 +598,7 @@ class TestFramework(RewriteTests):
                                 %(cdescr.basesize + 129 * cdescr.itemsize)d)
             setfield_gc(p1, 8111, descr=tiddescr)
             setfield_gc(p1, 129, descr=clendescr)
+            zero_array(p1, 0, 129, descr=cdescr)
             call(123456)
             cond_call_gc_wb(p1, descr=wbdescr)
             setarrayitem_gc(p1, i2, p3, descr=cdescr)
@@ -620,6 +620,7 @@ class TestFramework(RewriteTests):
                                 %(cdescr.basesize + 130 * cdescr.itemsize)d)
             setfield_gc(p1, 8111, descr=tiddescr)
             setfield_gc(p1, 130, descr=clendescr)
+            zero_array(p1, 0, 130, descr=cdescr)
             call(123456)
             cond_call_gc_wb_array(p1, i2, descr=wbdescr)
             setarrayitem_gc(p1, i2, p3, descr=cdescr)
@@ -651,6 +652,7 @@ class TestFramework(RewriteTests):
                                 %(cdescr.basesize + 5 * cdescr.itemsize)d)
             setfield_gc(p1, 8111, descr=tiddescr)
             setfield_gc(p1, 5, descr=clendescr)
+            zero_array(p1, 0, 5, descr=cdescr)
             label(p1, i2, p3)
             cond_call_gc_wb_array(p1, i2, descr=wbdescr)
             setarrayitem_gc(p1, i2, p3, descr=cdescr)
@@ -720,6 +722,7 @@ class TestFramework(RewriteTests):
                                 %(cdescr.basesize + 5 * cdescr.itemsize)d)
             setfield_gc(p0, 8111, descr=tiddescr)
             setfield_gc(p0, 5, descr=clendescr)
+            zero_array(p0, 0, 5, descr=cdescr)
             setarrayitem_gc(p0, i2, p1, descr=cdescr)
             jump()
         """)
@@ -753,6 +756,7 @@ class TestFramework(RewriteTests):
             [i0]
             p0 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p0, 5678, descr=tiddescr)
+            zero_ptr_field(p0, %(tdescr.offsets_of_gcfields[0])s)
             p1 = call_malloc_nursery_varsize(1, 1, i0, \
                                 descr=strdescr)
             setfield_gc(p1, i0, descr=strlendescr)
@@ -772,6 +776,7 @@ class TestFramework(RewriteTests):
             [p1]
             p0 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p0, 5678, descr=tiddescr)
+            zero_ptr_field(p0, %(tdescr.offsets_of_gcfields[0])s)
             label(p0, p1)
             cond_call_gc_wb(p0, descr=wbdescr)
             setfield_gc(p0, p1, descr=tzdescr)
