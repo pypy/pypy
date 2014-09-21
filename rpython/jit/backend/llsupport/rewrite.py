@@ -215,7 +215,7 @@ class GcRewriterAssembler(object):
             self.newops.append(o)
         elif isinstance(v_length, ConstInt) and v_length.getint() == 0:
             return
-        o = ResOperation(rop.ZERO_ARRAY, [v_arr, ConstInt(0), v_length], None,
+        o = ResOperation(rop.ZERO_ARRAY, [v_arr, self.c_zero, v_length], None,
                          descr=arraydescr)
         self.newops.append(o)
 
@@ -238,13 +238,21 @@ class GcRewriterAssembler(object):
             self.gen_malloc_nursery_varsize_frame(size_box, frame)
             self.gen_initialize_tid(frame, descrs.arraydescr.tid)
             length_box = history.BoxInt()
-            op1 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
-                               length_box,
-                               descr=descrs.jfi_frame_depth)
-            self.newops.append(op1)
-            op2 = ResOperation(rop.SETFIELD_GC, [frame, ConstInt(0)],
-                               None, descr=descrs.jf_extra_stack_depth)
-            self.newops.append(op2)
+            # we need to explicitely zero all the gc fields, because
+            # of the unusal malloc pattern
+            extra_ops = [
+                ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
+                             length_box, descr=descrs.jfi_frame_depth),
+                ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
+                             None, descr=descrs.jf_extra_stack_depth),
+                ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
+                             None, descr=descrs.jf_savedata),
+                ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
+                             None, descr=descrs.jf_guard_exc),
+                ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
+                             None, descr=descrs.jf_forward),
+            ]
+            self.newops += extra_ops
             self.gen_initialize_len(frame, length_box,
                                     descrs.arraydescr.lendescr)
 
