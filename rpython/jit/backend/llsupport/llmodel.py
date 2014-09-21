@@ -14,6 +14,7 @@ from rpython.jit.backend.llsupport.descr import (
     get_call_descr, get_interiorfield_descr,
     FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr,
     FLAG_POINTER, FLAG_FLOAT)
+from rpython.jit.backend.llsupport.memcpy import memset_fn
 from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from rpython.rlib.unroll import unrolling_iterable
 
@@ -596,8 +597,8 @@ class AbstractLLCPU(AbstractCPU):
         arraysize = self.bh_arraylen_gc(ref, arraydescr)
         totalsize = size * arraysize
         adr = rffi.cast(lltype.Signed, ref) + ofs
-        self.gc_ll_descr.memset_ptr(adr, rffi.cast(rffi.INT, 0),
-                                    rffi.cast(rffi.SIZE_T, totalsize))
+        memset_fn(rffi.cast(llmemory.Address, adr), rffi.cast(rffi.INT, 0),
+                  rffi.cast(rffi.SIZE_T, totalsize))
 
     def bh_new_with_vtable(self, vtable, sizedescr):
         res = self.gc_ll_descr.gc_malloc(sizedescr)
