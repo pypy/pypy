@@ -46,6 +46,7 @@ class GcRewriterAssembler(object):
         self.known_lengths = {}
         self.write_barrier_applied = {}
         self.delayed_zero_setfields = {}
+        self.delayed_zero_setarrayitems = {}
 
     def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly
@@ -135,6 +136,7 @@ class GcRewriterAssembler(object):
             self.delayed_zero_setfields[result] = d
         for ofs in descr.offsets_of_gcfields:
             d[ofs] = None
+        self.delayed_zero_setfields.clear()
 
     def consider_setfield_gc(self, op):
         offset = self.cpu.unpack_fielddescr(op.getdescr())
