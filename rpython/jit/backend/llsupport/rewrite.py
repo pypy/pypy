@@ -62,6 +62,8 @@ class GcRewriterAssembler(object):
             if op.is_malloc():
                 self.handle_malloc_operation(op)
                 continue
+            if op.is_guard():
+                self.emit_pending_zeros()
             elif op.getopnum() == rop.CLEAR_ARRAY_CONTENTS:
                 self.handle_clear_array_contents(op.getdescr(), op.getarg(0))
                 continue
@@ -136,7 +138,6 @@ class GcRewriterAssembler(object):
             self.delayed_zero_setfields[result] = d
         for ofs in descr.offsets_of_gcfields:
             d[ofs] = None
-        self.delayed_zero_setfields.clear()
 
     def consider_setfield_gc(self, op):
         offset = self.cpu.unpack_fielddescr(op.getdescr())
@@ -298,6 +299,7 @@ class GcRewriterAssembler(object):
             for ofs in d.iterkeys():
                 op = ResOperation(rop.ZERO_PTR_FIELD, [v, ConstInt(ofs)], None)
                 self.newops.append(op)
+        self.delayed_zero_setfields.clear()
 
     def _gen_call_malloc_gc(self, args, v_result, descr):
         """Generate a CALL_MALLOC_GC with the given args."""

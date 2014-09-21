@@ -122,6 +122,9 @@ class BaseFakeCPU(object):
     def unpack_arraydescr_size(self, d):
         return 0, d.itemsize, 0
 
+    def unpack_fielddescr(self, d):
+        return d.offset
+
     def arraydescrof(self, ARRAY):
         try:
             return self._cache[ARRAY]

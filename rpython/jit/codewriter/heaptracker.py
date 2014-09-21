@@ -140,6 +140,4 @@ def offsets_of_gcfields(gccache, STRUCT, res=None):
             res.append(offset)
         elif isinstance(FIELD, lltype.Struct):
             offsets_of_gcfields(gccache, FIELD, res)
-    if not gccache.translate_support_code:
-        res.sort()
     return res
