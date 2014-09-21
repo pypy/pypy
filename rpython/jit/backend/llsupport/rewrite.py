@@ -212,6 +212,8 @@ class GcRewriterAssembler(object):
             o = ResOperation(rop.ARRAYLEN_GC, [v_arr], v_length,
                              descr=arraydescr)
             self.newops.append(o)
+        elif isinstance(v_length, ConstInt) and v_length.getint() == 0:
+            return
         o = ResOperation(rop.ZERO_ARRAY, [v_arr, ConstInt(0), v_length], None,
                          descr=arraydescr)
         self.newops.append(o)
