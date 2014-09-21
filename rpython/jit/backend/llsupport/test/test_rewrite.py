@@ -82,6 +82,7 @@ class RewriteTests(object):
         jfi_frame_depth = framedescrs.jfi_frame_depth
         jfi_frame_size = framedescrs.jfi_frame_size
         jf_frame_info = framedescrs.jf_frame_info
+        jf_extra_stack_depth = framedescrs.jf_extra_stack_depth
         signedframedescr = self.cpu.signedframedescr
         floatframedescr = self.cpu.floatframedescr
         casmdescr.compiled_loop_token = clt
@@ -810,6 +811,7 @@ class TestFramework(RewriteTests):
         p1 = call_malloc_nursery_varsize_frame(i1)
         setfield_gc(p1, 0, descr=tiddescr)
         i2 = getfield_gc(ConstClass(frame_info), descr=jfi_frame_depth)
+        setfield_gc(p1, 0, descr=jf_extra_stack_depth)
         setfield_gc(p1, i2, descr=framelendescr)
         setfield_gc(p1, ConstClass(frame_info), descr=jf_frame_info)
         setarrayitem_gc(p1, 0, i0, descr=signedframedescr)
