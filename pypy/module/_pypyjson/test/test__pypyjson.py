@@ -192,14 +192,14 @@ class AppTest(object):
 
     def test_raw_encode_basestring_ascii(self):
         import _pypyjson
-        def check(s, expected_type=str):
+        def check(s):
             s = _pypyjson.raw_encode_basestring_ascii(s)
-            assert type(s) is expected_type
+            assert type(s) is str
             return s
         assert check("") == ""
-        assert check(u"", expected_type=unicode) == u""
+        assert check(u"") == ""
         assert check("abc ") == "abc "
-        assert check(u"abc ", expected_type=unicode) == u"abc "
+        assert check(u"abc ") == "abc "
         raises(UnicodeDecodeError, check, "\xc0")
         assert check("\xc2\x84") == "\\u0084"
         assert check("\xf0\x92\x8d\x85") == "\\ud808\\udf45"

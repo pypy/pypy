@@ -1567,7 +1567,7 @@ class Assembler386(BaseAssembler):
         else:
             assert 0, itemsize
 
-    def genop_read_timestamp(self, op, arglocs, resloc):
+    def genop_math_read_timestamp(self, op, arglocs, resloc):
         self.mc.RDTSC()
         if longlong.is_64_bit:
             self.mc.SHL_ri(edx.value, 32)

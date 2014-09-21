@@ -1769,6 +1769,7 @@ class Transformer(object):
             dict = {"stroruni.concat": EffectInfo.OS_STR_CONCAT,
                     "stroruni.slice":  EffectInfo.OS_STR_SLICE,
                     "stroruni.equal":  EffectInfo.OS_STR_EQUAL,
+                    "stroruni.cmp":    EffectInfo.OS_STR_CMP,
                     "stroruni.copy_string_to_raw": EffectInfo.OS_STR_COPY_TO_RAW,
                     }
             CHR = lltype.Char
@@ -1776,6 +1777,7 @@ class Transformer(object):
             dict = {"stroruni.concat": EffectInfo.OS_UNI_CONCAT,
                     "stroruni.slice":  EffectInfo.OS_UNI_SLICE,
                     "stroruni.equal":  EffectInfo.OS_UNI_EQUAL,
+                    "stroruni.cmp":    EffectInfo.OS_UNI_CMP,
                     "stroruni.copy_string_to_raw": EffectInfo.OS_UNI_COPY_TO_RAW
                     }
             CHR = lltype.UniChar
@@ -1911,6 +1913,12 @@ class Transformer(object):
                                              EffectInfo.EF_CANNOT_RAISE)
         else:
             raise NotImplementedError(oopspec_name)
+
+    def rewrite_op_ll_read_timestamp(self, op):
+        op1 = self.prepare_builtin_call(op, "ll_read_timestamp", [])
+        return self.handle_residual_call(op1,
+            oopspecindex=EffectInfo.OS_MATH_READ_TIMESTAMP,
+            extraeffect=EffectInfo.EF_CANNOT_RAISE)
 
     def rewrite_op_jit_force_quasi_immutable(self, op):
         v_inst, c_fieldname = op.args
