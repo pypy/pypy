@@ -241,6 +241,9 @@ class GcRewriterAssembler(object):
                                length_box,
                                descr=descrs.jfi_frame_depth)
             self.newops.append(op1)
+            op2 = ResOperation(rop.SETFIELD_GC, [frame, ConstInt(0)],
+                               None, descr=descrs.jf_extra_stack_depth)
+            self.newops.append(op2)
             self.gen_initialize_len(frame, length_box,
                                     descrs.arraydescr.lendescr)
 
