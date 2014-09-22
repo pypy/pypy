@@ -22,7 +22,7 @@ class FSObject(object):
         st_size = self.getsize()
         st_mode = self.kind
         st_mode |= stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-        if self.kind == stat.S_IFDIR:
+        if stat.S_ISDIR(self.kind):
             st_mode |= stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
         if self.read_only:
             st_uid = 0       # read-only files are virtually owned by root
@@ -123,8 +123,9 @@ class File(FSObject):
         return cStringIO.StringIO(self.data)
 
 class RealFile(File):
-    def __init__(self, path):
+    def __init__(self, path, mode=0):
         self.path = path
+        self.kind |= mode
     def __repr__(self):
         return '<RealFile %s>' % (self.path,)
     def getsize(self):
