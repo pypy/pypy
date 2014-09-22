@@ -423,7 +423,8 @@ class GcRewriterAssembler(object):
 
     def gen_malloc_nursery(self, size, v_result):
         """Try to generate or update a CALL_MALLOC_NURSERY.
-        If that fails, generate a plain CALL_MALLOC_GC instead.
+        If that succeeds, return True; you still need to write the tid.
+        If that fails, return False.
         """
         size = self.round_up_for_allocation(size)
         if not self.gc_ll_descr.can_use_nursery_malloc(size):
