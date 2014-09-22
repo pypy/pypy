@@ -1242,7 +1242,7 @@ class time(object):
                         (other._hour, other._minute, other._second,
                          other._microsecond))
         if myoff is None or otoff is None:
-            raise TypeError("can't compare offset-naive and offset-aware datetimes")
+            raise TypeError("can't compare offset-naive and offset-aware times")
         myhhmm = self._hour * 60 + self._minute - myoff
         othhmm = other._hour * 60 + other._minute - otoff
         return _cmp((myhhmm, self._second, self._microsecond),
@@ -1885,7 +1885,7 @@ class datetime(date):
         if myoff == otoff:
             return base
         if myoff is None or otoff is None:
-            raise TypeError("can't compare offset-naive and offset-aware datetimes")
+            raise TypeError("can't subtract offset-naive and offset-aware datetimes")
         return base + timedelta(minutes = otoff-myoff)
 
     def __hash__(self):
