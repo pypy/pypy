@@ -37,6 +37,15 @@ class FSObject(object):
             (st_mode, st_ino, st_dev, st_nlink, st_uid, st_gid,
              st_size, st_atime, st_mtime, st_ctime))
 
+    def access(self, mode):
+        s = self.stat()
+        e_mode = s.st_mode & stat.S_IRWXO
+        if UID == s.st_uid:
+            e_mode |= (s.st_mode & stat.S_IRWXU) >> 6
+        if GID == s.st_gid:
+            e_mode |= (s.st_mode & stat.S_IRWXG) >> 3
+        return (e_mode & mode) == mode
+
     def keys(self):
         raise OSError(errno.ENOTDIR, self)
 
