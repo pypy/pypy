@@ -191,3 +191,21 @@ def test_radd():
         def __radd__(self, other):
             return "radd"
     assert datetime.date(10, 10, 10) + X() == "radd"
+
+def test_raises_if_passed_naive_datetime_and_start_or_end_time_defined():
+    class Foo(datetime.tzinfo):
+        def utcoffset(self, dt):
+            return datetime.timedelta(0.1)
+    naive = datetime.datetime(2014, 9, 22)
+    aware = datetime.datetime(2014, 9, 22, tzinfo=Foo())
+    with py.test.raises(TypeError) as e:
+        naive == aware
+    assert str(e.value) == "can't compare offset-naive and offset-aware datetimes"
+    with py.test.raises(TypeError) as e:
+        naive - aware
+    assert str(e.value) == "can't compare offset-naive and offset-aware datetimes"
+    naive = datetime.time(7, 32, 12)
+    aware = datetime.time(7, 32, 12, tzinfo=Foo())
+    with py.test.raises(TypeError) as e:
+        naive == aware
+    assert str(e.value) == "can't compare offset-naive and offset-aware datetimes"
