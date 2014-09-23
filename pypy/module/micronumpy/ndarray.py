@@ -1407,6 +1407,7 @@ W_NDimArray.typedef = TypeDef("numpy.ndarray",
 
     fill = interp2app(W_NDimArray.descr_fill),
     tostring = interp2app(W_NDimArray.descr_tostring),
+    tobytes = interp2app(W_NDimArray.descr_tostring),
 
     mean = interp2app(W_NDimArray.descr_mean),
     sum = interp2app(W_NDimArray.descr_sum),

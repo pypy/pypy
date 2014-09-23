@@ -654,6 +654,7 @@ W_GenericBox.typedef = TypeDef("numpy.generic",
     copy = interp2app(W_GenericBox.descr_copy),
     byteswap = interp2app(W_GenericBox.descr_byteswap),
     tostring = interp2app(W_GenericBox.descr_tostring),
+    tobytes = interp2app(W_GenericBox.descr_tostring),
     reshape = interp2app(W_GenericBox.descr_reshape),
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
