@@ -842,7 +842,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
             op = hop.spaceop
             v_size = op.args[1]
             c_fixedofs = rmodel.inputconst(lltype.Signed,
-                                           rffi.sizeof(lltype.Signed))
+                llmemory.sizeof(self.HDR))
             c_size = rmodel.inputconst(lltype.Signed, 1)
             v_a = op.result
             v_real_size = hop.genop('int_sub', [v_size, c_fixedofs],
@@ -867,6 +867,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
         # used by the JIT (see rpython.jit.backend.llsupport.gc)
         self.gct_do_malloc_varsize(hop)
         if not self.malloc_zero_filled:
+            # We don't support GcStruct with a nested Array here.  But it's
+            # hard to know if it is one or not...  For now we're implicitly
+            # assuming that the JIT's gc.py know what it is doing and not
+            # using this llop on GcStructs with nested Arrays.
             op = hop.spaceop
             v_size = op.args[1]
             c_fixedofs = op.args[2]
