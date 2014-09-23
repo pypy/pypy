@@ -470,8 +470,7 @@ class __extend__(W_NDimArray):
     def descr_get_flatiter(self, space):
         return space.wrap(W_FlatIterator(self))
 
-    def descr_item(self, space, __args__):
-        args_w, kw_w = __args__.unpack()
+    def descr_item(self, space, args_w):
         if len(args_w) == 1 and space.isinstance_w(args_w[0], space.w_tuple):
             args_w = space.fixedview(args_w[0])
         shape = self.get_shape()

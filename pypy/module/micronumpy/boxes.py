@@ -16,6 +16,7 @@ from pypy.module.micronumpy import constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray, W_NumpyObject
 from pypy.module.micronumpy.concrete import VoidBoxStorage
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
+from pypy.module.micronumpy import support
 
 MIXIN_32 = (W_IntObject.typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (W_IntObject.typedef,) if LONG_BIT == 64 else ()
@@ -143,6 +144,22 @@ class W_GenericBox(W_NumpyObject):
 
     def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
+
+    def descr_item(self, space, args_w):
+        if len(args_w) == 1 and space.isinstance_w(args_w[0], space.w_tuple):
+            args_w = space.fixedview(args_w[0])
+        if len(args_w) > 1:
+            raise oefmt(space.w_ValueError,
+                        "incorrect number of indices for array")
+        elif len(args_w) == 1:
+            try:
+                idx = support.index_w(space, args_w[0])
+            except OperationError:
+                raise oefmt(space.w_TypeError, "an integer is required")
+            if idx != 0:
+                raise oefmt(space.w_IndexError,
+                            "index %d is out of bounds for size 1", idx)
+        return self.item(space)
 
     def descr_getitem(self, space, w_item):
         from pypy.module.micronumpy.base import convert_to_array
@@ -619,6 +636,7 @@ W_GenericBox.typedef = TypeDef("numpy.generic",
     __hash__ = interp2app(W_GenericBox.descr_hash),
 
     tolist = interp2app(W_GenericBox.item),
+    item = interp2app(W_GenericBox.descr_item),
     min = interp2app(W_GenericBox.descr_self),
     max = interp2app(W_GenericBox.descr_self),
     argmin = interp2app(W_GenericBox.descr_zero),
