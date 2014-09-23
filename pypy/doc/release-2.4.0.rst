@@ -105,7 +105,7 @@ for more information see `whats-new`_:
   
 * Many issues were resolved_ since the 2.3.1 release on June 8
 
-.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.3.1.html
+.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.4.0.html
 .. _resolved: https://bitbucket.org/pypy/pypy/issues?status=resolved
 .. _sandbox: http://doc.pypy.org/en/latest/sandbox.html   
 
