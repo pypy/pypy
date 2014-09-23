@@ -38,6 +38,8 @@ class GcLLDescription(GcCache):
     def _setup_str(self):
         self.str_descr     = get_array_descr(self, rstr.STR)
         self.unicode_descr = get_array_descr(self, rstr.UNICODE)
+        self.str_hash_descr     = get_field_descr(self, rstr.STR,     'hash')
+        self.unicode_hash_descr = get_field_descr(self, rstr.UNICODE, 'hash')
 
     def generate_function(self, funcname, func, ARGS, RESULT=llmemory.GCREF):
         """Generates a variant of malloc with the given name and the given

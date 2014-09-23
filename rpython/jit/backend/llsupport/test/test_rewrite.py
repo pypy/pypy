@@ -69,6 +69,8 @@ class RewriteTests(object):
         unicodedescr = self.gc_ll_descr.unicode_descr
         strlendescr     = strdescr.lendescr
         unicodelendescr = unicodedescr.lendescr
+        strhashdescr     = self.gc_ll_descr.str_hash_descr
+        unicodehashdescr = self.gc_ll_descr.unicode_hash_descr
 
         casmdescr = JitCellToken()
         clt = FakeLoopToken()
@@ -427,6 +429,7 @@ class TestFramework(RewriteTests):
         [i0]
         p0 = call_malloc_nursery_varsize(1, 1, i0, descr=strdescr)
         setfield_gc(p0, i0, descr=strlendescr)
+        setfield_gc(p0, 0, descr=strhashdescr)
         jump(i0)
         """)
 
@@ -550,15 +553,19 @@ class TestFramework(RewriteTests):
                         unicodedescr.basesize + 10 * unicodedescr.itemsize)d)
             setfield_gc(p0, %(strdescr.tid)d, descr=tiddescr)
             setfield_gc(p0, 14, descr=strlendescr)
+            setfield_gc(p0, 0, descr=strhashdescr)
             p1 = int_add(p0, %(strdescr.basesize + 16 * strdescr.itemsize)d)
             setfield_gc(p1, %(unicodedescr.tid)d, descr=tiddescr)
             setfield_gc(p1, 10, descr=unicodelendescr)
+            setfield_gc(p1, 0, descr=unicodehashdescr)
             p2 = call_malloc_nursery_varsize(2, %(unicodedescr.itemsize)d, i2,\
                                 descr=unicodedescr)
             setfield_gc(p2, i2, descr=unicodelendescr)
+            setfield_gc(p2, 0, descr=unicodehashdescr)
             p3 = call_malloc_nursery_varsize(1, 1, i2, \
                                 descr=strdescr)
             setfield_gc(p3, i2, descr=strlendescr)
+            setfield_gc(p3, 0, descr=strhashdescr)
             jump()
         """)
 
@@ -764,6 +771,7 @@ class TestFramework(RewriteTests):
             p1 = call_malloc_nursery_varsize(1, 1, i0, \
                                 descr=strdescr)
             setfield_gc(p1, i0, descr=strlendescr)
+            setfield_gc(p1, 0, descr=strhashdescr)
             cond_call_gc_wb(p0, descr=wbdescr)
             setfield_gc(p0, p1, descr=tzdescr)
             jump()
