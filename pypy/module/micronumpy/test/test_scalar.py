@@ -301,13 +301,14 @@ class AppTestScalar(BaseNumpyAppTest):
     def test_item_tolist(self):
         from numpypy import int8, int16, int32, int64, float32, float64
         from numpypy import complex64, complex128
-        for t in int8, int16, int32, int64:
-            val = t(17)
-            assert val == 17
-            assert val.item() == 17
-            assert val.tolist() == 17
-            assert type(val.item()) == int
-            assert type(val.tolist()) == int
+
+        def _do_test(np_type, py_type, orig_val, exp_val):
+            val = np_type(orig_val)
+            assert val == orig_val
+            assert val.item() == exp_val
+            assert val.tolist() == exp_val
+            assert type(val.item()) == py_type
+            assert type(val.tolist()) == py_type
             val.item(0)
             val.item(())
             val.item((0,))
@@ -315,66 +316,55 @@ class AppTestScalar(BaseNumpyAppTest):
             raises(ValueError, val.item, 0, '')
             raises(TypeError, val.item, '')
             raises(IndexError, val.item, 2)
+
+        for t in int8, int16, int32, int64:
+            _do_test(t, int, 17, 17)
 
         for t in float32, float64:
-            val = t(17)
-            assert val == 17
-            assert val.item() == 17
-            assert val.tolist() == 17
-            assert type(val.item()) == float
-            assert type(val.tolist()) == float
-            val.item(0)
-            val.item(())
-            val.item((0,))
-            raises(ValueError, val.item, 0, 1)
-            raises(ValueError, val.item, 0, '')
-            raises(TypeError, val.item, '')
-            raises(IndexError, val.item, 2)
+            _do_test(t, float, 17, 17)
 
         for t in complex64, complex128:
-            val = t(17j)
-            assert val == 17j
-            assert val.item() == 17j
-            assert val.tolist() == 17j
-            assert type(val.item()) == complex
-            assert type(val.tolist()) == complex
-            val.item(0)
-            val.item(())
-            val.item((0,))
-            raises(ValueError, val.item, 0, 1)
-            raises(ValueError, val.item, 0, '')
-            raises(TypeError, val.item, '')
-            raises(IndexError, val.item, 2)
+            _do_test(t, complex, 17j, 17j)
 
     def test_transpose(self):
         from numpypy import int8, int16, int32, int64, float32, float64
         from numpypy import complex64, complex128
-        for t in int8, int16, int32, int64:
-            val = t(17)
-            assert val == 17
-            assert val.transpose() == 17
-            assert type(val.transpose()) == int
+
+        def _do_test(np_type, py_type, orig_val, exp_val):
+            val = np_type(orig_val)
+            assert val == orig_val
+            assert val.transpose() == exp_val
+            assert type(val.transpose()) == py_type
             val.transpose(())
             raises(ValueError, val.transpose, 0, 1)
             raises(TypeError, val.transpose, 0, '')
             raises(ValueError, val.transpose, 0)
+
+        for t in int8, int16, int32, int64:
+            _do_test(t, int, 17, 17)
 
         for t in float32, float64:
-            val = t(17)
-            assert val == 17
-            assert val.transpose() == 17
-            assert type(val.transpose()) == float
-            val.transpose(())
-            raises(ValueError, val.transpose, 0, 1)
-            raises(TypeError, val.transpose, 0, '')
-            raises(ValueError, val.transpose, 0)
+            _do_test(t, float, 17, 17)
 
         for t in complex64, complex128:
-            val = t(17j)
-            assert val == 17j
-            assert val.transpose() == 17j
-            assert type(val.transpose()) == complex
-            val.transpose(())
-            raises(ValueError, val.transpose, 0, 1)
-            raises(TypeError, val.transpose, 0, '')
-            raises(ValueError, val.transpose, 0)
+            _do_test(t, complex, 17j, 17j)
+
+    def test_swapaxes(self):
+        from numpypy import int8, int16, int32, int64, float32, float64
+        from numpypy import complex64, complex128
+
+        def _do_test(np_type, py_type, orig_val, exp_val):
+            val = np_type(orig_val)
+            assert val == orig_val
+            assert val.swapaxes(10, 20) == exp_val
+            assert type(val.swapaxes(0, 1)) == py_type
+            raises(TypeError, val.swapaxes, 0, ())
+
+        for t in int8, int16, int32, int64:
+            _do_test(t, int, 17, 17)
+
+        for t in float32, float64:
+            _do_test(t, float, 17, 17)
+
+        for t in complex64, complex128:
+            _do_test(t, complex, 17j, 17j)

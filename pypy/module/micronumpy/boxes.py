@@ -416,6 +416,10 @@ class W_GenericBox(W_NumpyObject):
             self.w_flags = W_FlagsObject(self)
         return self.w_flags
 
+    @unwrap_spec(axis1=int, axis2=int)
+    def descr_swapaxes(self, space, axis1, axis2):
+        return self.item(space)
+
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.BOOL)
 
@@ -669,6 +673,7 @@ W_GenericBox.typedef = TypeDef("numpy.generic",
     tostring = interp2app(W_GenericBox.descr_tostring),
     tobytes = interp2app(W_GenericBox.descr_tostring),
     reshape = interp2app(W_GenericBox.descr_reshape),
+    swapaxes = interp2app(W_GenericBox.descr_swapaxes),
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
     size = GetSetProperty(W_GenericBox.descr_get_size),
