@@ -407,8 +407,19 @@ class __extend__(W_NDimArray):
         --------
         numpy.swapaxes : equivalent function
         """
-        if axis1 == axis2 or len(self.get_shape()) <= 1:
+        if axis1 == axis2:
             return self
+        n = len(self.get_shape())
+        if n <= 1:
+            return self
+        if axis1 < 0:
+            axis1 += n
+        if axis2 < 0:
+            axis2 += n
+        if axis1 < 0 or axis1 >= n:
+            raise oefmt(space.w_ValueError, "bad axis1 argument to swapaxes")
+        if axis2 < 0 or axis2 >= n:
+            raise oefmt(space.w_ValueError, "bad axis2 argument to swapaxes")
         return self.implementation.swapaxes(space, self, axis1, axis2)
 
     def descr_nonzero(self, space):
