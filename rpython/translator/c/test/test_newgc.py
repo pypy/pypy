@@ -1200,7 +1200,9 @@ class UsingFrameworkTest(object):
                                     lltype.Struct("s1", ("x", lltype.Signed))),
                                     ('y', lltype.Signed))
         A = lltype.GcArray(lltype.Signed)
-        
+        B = lltype.GcStruct("b", ('x', lltype.Signed),
+                                 ('y', lltype.Array(lltype.Signed)))
+
         def fn():
             s = lltype.malloc(S, zero=True)
             assert s.x == 0
@@ -1208,6 +1210,11 @@ class UsingFrameworkTest(object):
             assert s2.parent.x == 0
             a = lltype.malloc(A, 3, zero=True)
             assert a[2] == 0
+            # XXX not supported right now in gctransform/framework.py:
+            #b = lltype.malloc(B, 3, zero=True)
+            #assert len(b.y) == 3
+            #assert b.x == 0
+            #assert b.y[0] == b.y[1] == b.y[2] == 0
             return 0
         return fn
 
