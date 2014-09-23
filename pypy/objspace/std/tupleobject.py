@@ -244,6 +244,7 @@ If the argument is a tuple, the return value is the same object.""",
     count = interp2app(W_AbstractTupleObject.descr_count),
     index = interp2app(W_AbstractTupleObject.descr_index)
 )
+W_AbstractTupleObject.typedef.flag_sequence_bug_compat = True
 
 
 class W_TupleObject(W_AbstractTupleObject):

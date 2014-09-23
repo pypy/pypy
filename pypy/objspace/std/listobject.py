@@ -1874,3 +1874,4 @@ list(iterable) -> new list initialized from iterable's items""",
     insert = interp2app(W_ListObject.descr_insert),
     remove = interp2app(W_ListObject.descr_remove),
 )
+W_ListObject.typedef.flag_sequence_bug_compat = True

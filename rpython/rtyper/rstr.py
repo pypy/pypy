@@ -372,6 +372,17 @@ class AbstractStringRepr(Repr):
         ll_fn = getattr(r_str.ll, 'll_stringslice_%s' % (kind,))
         return hop.gendirectcall(ll_fn, v_str, *vlist)
 
+    def rtype_bltn_list(self, hop):
+        string_repr = hop.args_r[0].repr
+        if hop.r_result.LIST.ITEM != string_repr.lowleveltype.TO.chars.OF:
+            raise TyperError("list(str-or-unicode) returns a list of chars; "
+                             "it cannot return a list of %r" % (
+                                 hop.r_result.LIST.ITEM,))
+        v_str, = hop.inputargs(string_repr)
+        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
+        hop.exception_is_here()
+        return hop.gendirectcall(self.ll.ll_string2list, cRESLIST, v_str)
+
 
 class AbstractUnicodeRepr(AbstractStringRepr):
 

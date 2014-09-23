@@ -441,12 +441,8 @@ class LLFrame(object):
             extraargs = ()
         typer = self.llinterpreter.typer
         exdata = typer.exceptiondata
-        if isinstance(exc, OSError):
-            self.op_direct_call(exdata.fn_raise_OSError, exc.errno)
-            assert False, "op_direct_call above should have raised"
-        else:
-            evalue = exdata.get_standard_ll_exc_instance_by_class(exc.__class__)
-            etype = self.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
+        evalue = exdata.get_standard_ll_exc_instance_by_class(exc.__class__)
+        etype = self.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
         raise LLException(etype, evalue, *extraargs)
 
     def invoke_callable_with_pyexceptions(self, fptr, *args):
