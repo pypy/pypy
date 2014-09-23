@@ -1222,6 +1222,16 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                               previous_steps + [c_name],
                                               everything=everything)
                     continue
+                if isinstance(FIELD, lltype.Array):
+                    if everything:
+                        raise NotImplementedError(
+                            "%s: Struct-containing-Array with everything=True"
+                            % (TYPE,))
+                    if gctypelayout.offsets_to_gc_pointers(FIELD.OF):
+                        raise NotImplementedError(
+                            "%s: Struct-containing-Array-with-gc-pointers"
+                            % (TYPE,))
+                    continue
                 if ((isinstance(FIELD, lltype.Ptr) and FIELD._needsgc())
                     or everything):
                     c_null = rmodel.inputconst(FIELD, FIELD._defl())
@@ -1230,9 +1240,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                 [v] + previous_steps + [c_name, c_null])
                     else:
                         llops.genop('bare_setfield', [v, c_name, c_null])
-                elif (isinstance(FIELD, lltype.Array) and
-                      isinstance(FIELD.OF, lltype.Ptr) and FIELD.OF._needsgc()):
-                    xxx
          
             return
         elif isinstance(TYPE, lltype.Array):
