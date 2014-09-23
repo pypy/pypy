@@ -294,9 +294,36 @@ class AppTestScalar(BaseNumpyAppTest):
     def test_scalar_iter(self):
         from numpypy import int8, int16, int32, int64, float32, float64
         for t in int8, int16, int32, int64, float32, float64:
-            try:
-                iter(t(17))
-            except TypeError:
-                pass
-            else:
-                assert False, "%s object should not be iterable." % t
+            raises(TypeError, iter, t(17))
+
+    def test_item_tolist(self):
+        from numpypy import int8, int16, int32, int64, float32, float64
+        for t in int8, int16, int32, int64:
+            val = t(17)
+            assert val == 17
+            assert val.item() == 17
+            assert val.tolist() == 17
+            assert type(val.item()) == int
+            assert type(val.tolist()) == int
+            val.item(0)
+            val.item(())
+            val.item((0,))
+            raises(ValueError, val.item, 0, 1)
+            raises(ValueError, val.item, 0, '')
+            raises(TypeError, val.item, '')
+            raises(IndexError, val.item, 2)
+
+        for t in float32, float64:
+            val = t(17)
+            assert val == 17
+            assert val.item() == 17
+            assert val.tolist() == 17
+            assert type(val.item()) == float
+            assert type(val.tolist()) == float
+            val.item(0)
+            val.item(())
+            val.item((0,))
+            raises(ValueError, val.item, 0, 1)
+            raises(ValueError, val.item, 0, '')
+            raises(TypeError, val.item, '')
+            raises(IndexError, val.item, 2)
