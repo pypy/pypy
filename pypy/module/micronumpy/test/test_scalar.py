@@ -293,11 +293,14 @@ class AppTestScalar(BaseNumpyAppTest):
 
     def test_scalar_iter(self):
         from numpypy import int8, int16, int32, int64, float32, float64
-        for t in int8, int16, int32, int64, float32, float64:
+        from numpypy import complex64, complex128
+        for t in (int8, int16, int32, int64, float32, float64,
+                  complex64, complex128):
             raises(TypeError, iter, t(17))
 
     def test_item_tolist(self):
         from numpypy import int8, int16, int32, int64, float32, float64
+        from numpypy import complex64, complex128
         for t in int8, int16, int32, int64:
             val = t(17)
             assert val == 17
@@ -327,3 +330,51 @@ class AppTestScalar(BaseNumpyAppTest):
             raises(ValueError, val.item, 0, '')
             raises(TypeError, val.item, '')
             raises(IndexError, val.item, 2)
+
+        for t in complex64, complex128:
+            val = t(17j)
+            assert val == 17j
+            assert val.item() == 17j
+            assert val.tolist() == 17j
+            assert type(val.item()) == complex
+            assert type(val.tolist()) == complex
+            val.item(0)
+            val.item(())
+            val.item((0,))
+            raises(ValueError, val.item, 0, 1)
+            raises(ValueError, val.item, 0, '')
+            raises(TypeError, val.item, '')
+            raises(IndexError, val.item, 2)
+
+    def test_transpose(self):
+        from numpypy import int8, int16, int32, int64, float32, float64
+        from numpypy import complex64, complex128
+        for t in int8, int16, int32, int64:
+            val = t(17)
+            assert val == 17
+            assert val.transpose() == 17
+            assert type(val.transpose()) == int
+            val.transpose(())
+            raises(ValueError, val.transpose, 0, 1)
+            raises(TypeError, val.transpose, 0, '')
+            raises(ValueError, val.transpose, 0)
+
+        for t in float32, float64:
+            val = t(17)
+            assert val == 17
+            assert val.transpose() == 17
+            assert type(val.transpose()) == float
+            val.transpose(())
+            raises(ValueError, val.transpose, 0, 1)
+            raises(TypeError, val.transpose, 0, '')
+            raises(ValueError, val.transpose, 0)
+
+        for t in complex64, complex128:
+            val = t(17j)
+            assert val == 17j
+            assert val.transpose() == 17j
+            assert type(val.transpose()) == complex
+            val.transpose(())
+            raises(ValueError, val.transpose, 0, 1)
+            raises(TypeError, val.transpose, 0, '')
+            raises(ValueError, val.transpose, 0)

@@ -161,6 +161,18 @@ class W_GenericBox(W_NumpyObject):
                             "index %d is out of bounds for size 1", idx)
         return self.item(space)
 
+    def descr_transpose(self, space, args_w):
+        if len(args_w) == 1 and space.isinstance_w(args_w[0], space.w_tuple):
+            args_w = space.fixedview(args_w[0])
+        if len(args_w) >= 1:
+            for w_arg in args_w:
+                try:
+                    idx = support.index_w(space, w_arg)
+                except OperationError:
+                    raise oefmt(space.w_TypeError, "an integer is required")
+            raise oefmt(space.w_ValueError, "axes don't match array")
+        return self.item(space)
+
     def descr_getitem(self, space, w_item):
         from pypy.module.micronumpy.base import convert_to_array
         if space.is_w(w_item, space.w_Ellipsis) or \
@@ -637,6 +649,7 @@ W_GenericBox.typedef = TypeDef("numpy.generic",
 
     tolist = interp2app(W_GenericBox.item),
     item = interp2app(W_GenericBox.descr_item),
+    transpose = interp2app(W_GenericBox.descr_transpose),
     min = interp2app(W_GenericBox.descr_self),
     max = interp2app(W_GenericBox.descr_self),
     argmin = interp2app(W_GenericBox.descr_zero),
