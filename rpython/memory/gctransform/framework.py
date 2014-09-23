@@ -841,14 +841,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if not self.malloc_zero_filled:
             op = hop.spaceop
             v_size = op.args[1]
-            c_fixedofs = rmodel.inputconst(lltype.Signed,
+            c_after_header = rmodel.inputconst(lltype.Signed,
                 llmemory.sizeof(self.HDR))
-            c_size = rmodel.inputconst(lltype.Signed, 1)
             v_a = op.result
-            v_real_size = hop.genop('int_sub', [v_size, c_fixedofs],
-                                    resulttype=lltype.Signed)
-            self.emit_raw_memclear(hop.llops, v_real_size, c_size,
-                                   c_fixedofs, v_a)
+            v_clear_size = hop.genop('int_sub', [v_size, c_after_header],
+                                     resulttype=lltype.Signed)
+            self.emit_raw_memclear(hop.llops, v_clear_size, None,
+                                   c_after_header, v_a)
 
     def gct_do_malloc_varsize(self, hop):
         # used by the JIT (see rpython.jit.backend.llsupport.gc)
@@ -867,16 +866,24 @@ class BaseFrameworkGCTransformer(GCTransformer):
         # used by the JIT (see rpython.jit.backend.llsupport.gc)
         self.gct_do_malloc_varsize(hop)
         if not self.malloc_zero_filled:
-            # We don't support GcStruct with a nested Array here.  But it's
-            # hard to know if it is one or not...  For now we're implicitly
-            # assuming that the JIT's gc.py know what it is doing and not
-            # using this llop on GcStructs with nested Arrays.
             op = hop.spaceop
-            v_size = op.args[1]
-            c_fixedofs = op.args[2]
-            c_size = op.args[3]
+            v_num_elem = op.args[1]
+            c_basesize = op.args[2]
+            c_itemsize = op.args[3]
+            c_length_ofs = op.args[4]
             v_a = op.result
-            self.emit_raw_memclear(hop.llops, v_size, c_size, c_fixedofs, v_a)
+            # Clear the fixed-size part, which is everything after the
+            # GC header and before the length field.  This might be 0
+            # bytes long.
+            c_after_header = rmodel.inputconst(lltype.Signed,
+                llmemory.sizeof(self.HDR))
+            v_clear_size = hop.genop('int_sub', [c_length_ofs, c_after_header],
+                                     resulttype=lltype.Signed)
+            self.emit_raw_memclear(hop.llops, v_clear_size, None,
+                                   c_after_header, v_a)
+            # Clear the variable-size part
+            self.emit_raw_memclear(hop.llops, v_num_elem, c_itemsize,
+                                   c_basesize, v_a)
 
     def gct_get_write_barrier_failing_case(self, hop):
         op = hop.spaceop
@@ -1244,20 +1251,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
             return
         elif isinstance(TYPE, lltype.Array):
             ITEM = TYPE.OF
-            if everything:
-                needs_clearing = True
-            elif isinstance(ITEM, lltype.Ptr) and ITEM._needsgc():
-                needs_clearing = True
-            elif isinstance(ITEM, lltype.Struct):
-                for SUBITEM in ITEM._flds.values():
-                    if isinstance(SUBITEM, lltype.Ptr) and SUBITEM._needsgc():
-                        needs_clearing = True
-                        break
-                else:
-                    needs_clearing = False
-            else:
-                needs_clearing = False
-            if needs_clearing:
+            if everything or gctypelayout.offsets_to_gc_pointers(ITEM):
                 v_size = llops.genop('getarraysize', [v],
                                      resulttype=lltype.Signed)
                 c_size = rmodel.inputconst(lltype.Signed, llmemory.sizeof(ITEM))
@@ -1271,8 +1265,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
             raise TypeError(TYPE)
 
     def emit_raw_memclear(self, llops, v_size, c_size, c_fixedofs, v_a):
-        v_totalsize = llops.genop('int_mul', [v_size, c_size],
-                                  resulttype=lltype.Signed)
+        if c_size is None:
+            v_totalsize = v_size
+        else:
+            v_totalsize = llops.genop('int_mul', [v_size, c_size],
+                                      resulttype=lltype.Signed)
         v_adr = llops.genop('adr_add', [v_a, c_fixedofs],
                             resulttype=llmemory.Address)
         llops.genop('raw_memclear', [v_adr, v_totalsize])
