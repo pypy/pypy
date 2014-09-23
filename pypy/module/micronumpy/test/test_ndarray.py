@@ -2020,6 +2020,10 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_swapaxes(self):
         from numpypy import array
+        x = array([])
+        assert x.swapaxes(0, 2) is x
+        x = array([[1, 2]])
+        assert x.swapaxes(0, 0) is x
         # testcases from numpy docstring
         x = array([[1, 2, 3]])
         assert (x.swapaxes(0, 1) == array([[1], [2], [3]])).all()

@@ -407,7 +407,7 @@ class __extend__(W_NDimArray):
         --------
         numpy.swapaxes : equivalent function
         """
-        if self.is_scalar():
+        if axis1 == axis2 or len(self.get_shape()) <= 1:
             return self
         return self.implementation.swapaxes(space, self, axis1, axis2)
 
