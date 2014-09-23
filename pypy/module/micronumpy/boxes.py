@@ -403,6 +403,10 @@ class W_GenericBox(W_NumpyObject):
         w_meth = space.getattr(self.descr_ravel(space), space.wrap('reshape'))
         return space.call_args(w_meth, __args__)
 
+    def descr_nd_nonzero(self, space, __args__):
+        w_meth = space.getattr(self.descr_ravel(space), space.wrap('nonzero'))
+        return space.call_args(w_meth, __args__)
+
     def descr_get_real(self, space):
         return self.get_dtype(space).itemtype.real(self)
 
@@ -674,6 +678,7 @@ W_GenericBox.typedef = TypeDef("numpy.generic",
     tobytes = interp2app(W_GenericBox.descr_tostring),
     reshape = interp2app(W_GenericBox.descr_reshape),
     swapaxes = interp2app(W_GenericBox.descr_swapaxes),
+    nonzero = interp2app(W_GenericBox.descr_nd_nonzero),
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
     size = GetSetProperty(W_GenericBox.descr_get_size),

@@ -368,3 +368,15 @@ class AppTestScalar(BaseNumpyAppTest):
 
         for t in complex64, complex128:
             _do_test(t, complex, 17j, 17j)
+
+    def test_nonzero(self):
+        from numpypy import int8, int16, int32, int64, float32, float64
+        from numpypy import complex64, complex128
+
+        for t in (int8, int16, int32, int64, float32, float64,
+                  complex64, complex128):
+            res, = t(17).nonzero()
+            assert len(res) == 1
+            assert res[0] == 0
+            res, = t(0).nonzero()
+            assert len(res) == 0
