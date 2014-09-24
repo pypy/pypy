@@ -36,10 +36,10 @@ class SizeDescr(AbstractDescr):
     tid = llop.combine_ushort(lltype.Signed, 0, 0)
 
     def __init__(self, size, count_fields_if_immut=-1,
-                 offsets_of_gcfields=None):
+                 fielddescrs=None):
         self.size = size
         self.count_fields_if_immut = count_fields_if_immut
-        self.offsets_of_gcfields = offsets_of_gcfields
+        self.fielddescrs = fielddescrs
 
     def count_fields_if_immutable(self):
         return self.count_fields_if_immut
@@ -60,13 +60,13 @@ def get_size_descr(gccache, STRUCT):
     except KeyError:
         size = symbolic.get_size(STRUCT, gccache.translate_support_code)
         count_fields_if_immut = heaptracker.count_fields_if_immutable(STRUCT)
-        offsets_of_gcfields = heaptracker.offsets_of_gcfields(gccache, STRUCT)
+        fielddescrs = heaptracker.fielddescrs(gccache, STRUCT)
         if heaptracker.has_gcstruct_a_vtable(STRUCT):
             sizedescr = SizeDescrWithVTable(size, count_fields_if_immut,
-                                            offsets_of_gcfields)
+                                            fielddescrs)
         else:
             sizedescr = SizeDescr(size, count_fields_if_immut,
-                                  offsets_of_gcfields)
+                                  fielddescrs)
         gccache.init_size_descr(STRUCT, sizedescr)
         cache[STRUCT] = sizedescr
         return sizedescr
@@ -192,6 +192,7 @@ class ArrayDescr(ArrayOrFieldDescr):
     lendescr = None
     flag = '\x00'
     vinfo = None
+    fielddescrs = None
 
     def __init__(self, basesize, itemsize, lendescr, flag):
         self.basesize = basesize
@@ -214,6 +215,9 @@ class ArrayDescr(ArrayOrFieldDescr):
     def is_item_integer_bounded(self):
         return self.flag in (FLAG_SIGNED, FLAG_UNSIGNED) \
             and self.itemsize < symbolic.WORD
+
+    def get_fielddescrs(self):
+        return self.fielddescrs
 
     def get_item_integer_min(self):
         if self.flag == FLAG_UNSIGNED:
@@ -254,6 +258,9 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
             lendescr = get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT)
         flag = get_type_flag(ARRAY_INSIDE.OF)
         arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag)
+        if arraydescr.is_array_of_structs():
+            arraydescr.fielddescrs = heaptracker.fielddescrs(gccache,
+                                                             ARRAY_OR_STRUCT.OF)
         if ARRAY_OR_STRUCT._gckind == 'gc':
             gccache.init_array_descr(ARRAY_OR_STRUCT, arraydescr)
         cache[ARRAY_OR_STRUCT] = arraydescr

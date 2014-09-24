@@ -253,11 +253,13 @@ class AbstractVArrayValue(AbstractVirtualValue):
         itemboxes = []
         for i in range(self.getlength()):
             itemvalue = self.get_item_value(i)
-            itemboxes.append(itemvalue.get_key_box())
+            if itemvalue is not None:
+                itemboxes.append(itemvalue.get_key_box())
         visitor.register_virtual_fields(self.keybox, itemboxes)
         for i in range(self.getlength()):
             itemvalue = self.get_item_value(i)
-            itemvalue.visitor_walk_recursive(visitor)
+            if itemvalue is not None:
+                itemvalue.visitor_walk_recursive(visitor)
 
 
 class VArrayValue(AbstractVArrayValue):
@@ -266,7 +268,7 @@ class VArrayValue(AbstractVArrayValue):
         AbstractVirtualValue.__init__(self, keybox, source_op)
         self.arraydescr = arraydescr
         self.constvalue = constvalue
-        self._items = [self.constvalue] * size
+        self._items = [None] * size
 
     def getlength(self):
         return len(self._items)
@@ -276,6 +278,10 @@ class VArrayValue(AbstractVArrayValue):
 
     def set_item_value(self, i, newval):
         self._items[i] = newval
+
+    def initialize_with_zeros(self, optimizer):
+        for i in range(len(self._items)):
+            self._items[i] = optimizer.new_const_item(self.arraydescr)
 
     def getitem(self, index):
         res = self._items[index]
@@ -294,6 +300,10 @@ class VArrayValue(AbstractVArrayValue):
         already_forced[self] = self
         for index in range(self.getlength()):
             itemval = self.get_item_value(index)
+            # XXX should be skip alltogether, but I don't wanna know or
+            #     fight unrolling just yet
+            if itemval is None:
+                itemval = self.constvalue
             itemval = itemval.force_at_end_of_preamble(already_forced, optforce)
             self.set_item_value(index, itemval)
         return self
@@ -306,11 +316,11 @@ class VArrayValue(AbstractVArrayValue):
         self.box = box = self.source_op.result
         for index in range(len(self._items)):
             subvalue = self._items[index]
-            if subvalue is not self.constvalue:
+            if subvalue is not None:
                 subbox = subvalue.force_box(optforce)
                 op = ResOperation(rop.SETARRAYITEM_GC,
                                   [box, ConstInt(index), subbox], None,
-                                  descr=self.arraydescr)
+                                   descr=self.arraydescr)
                 optforce.emit_operation(op)
 
     @specialize.argtype(1)
@@ -333,6 +343,12 @@ class VArrayStructValue(AbstractVirtualValue):
     def setinteriorfield(self, index, ofs, itemvalue):
         assert isinstance(itemvalue, optimizer.OptValue)
         self._items[index][ofs] = itemvalue
+
+    def initialize_with_zeros(self, optimizer):
+        fielddescrs = self.arraydescr.get_fielddescrs()
+        for item_d in self._items:
+            for descr in fielddescrs:
+                item_d[descr] = optimizer.new_const(descr)
 
     def _really_force(self, optforce):
         assert self.source_op is not None
@@ -664,6 +680,8 @@ class OptVirtualize(optimizer.Optimization):
     def optimize_CLEAR_ARRAY_CONTENTS(self, op):
         v = self.getvalue(op.getarg(0))
         if v.is_virtual():
+            # initialize the items, since we need to store zeros
+            v.initialize_with_zeros(self.optimizer)
             return
         self.emit_operation(op)
 

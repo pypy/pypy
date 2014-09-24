@@ -1135,12 +1135,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i1]
         p1 = new_array(2, descr=arraydescr)
         setarrayitem_gc(p1, 0, 25, descr=arraydescr)
-        i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
+        i2 = getarrayitem_gc(p1, 0, descr=arraydescr)
         jump(i2)
         """
         expected = """
         [i1]
-        jump(0)
+        jump(25)
         """
         self.optimize_loop(ops, expected)
 
@@ -2977,6 +2977,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1]
         p0 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p0, descr=virtualtokendescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -3009,6 +3010,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p3 = force_token()
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
@@ -3048,6 +3050,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p3 = force_token()
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
@@ -3124,6 +3127,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i1]
         p3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         escape(p2)
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -3149,6 +3153,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i1, p1]
         p3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -5469,6 +5474,22 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         []
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_clear_array_contents_escape(self):
+        ops = """
+        []
+        p0 = new_array(2, descr=arraydescr)
+        clear_array_contents(p0, descr=arraydescr)
+        escape(p0)
+        """
+        expected = """
+        []
+        p0 = new_array(2, descr=arraydescr)
+        setarrayitem_gc(p0, 0, 0, descr=arraydescr)
+        setarrayitem_gc(p0, 1, 0, descr=arraydescr)
+        escape(p0)
         """
         self.optimize_loop(ops, expected)
 

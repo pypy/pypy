@@ -126,18 +126,16 @@ def descr2vtable(cpu, descr):
     vtable = llmemory.cast_ptr_to_adr(vtable)
     return adr2int(vtable)
     
-def offsets_of_gcfields(gccache, STRUCT, res=None):
-    from rpython.jit.backend.llsupport import symbolic
+def fielddescrs(gccache, STRUCT, res=None):
+    from rpython.jit.backend.llsupport import descr
 
     if res is None:
         res = []
     # order is not relevant, except for tests
     for name in STRUCT._names:
         FIELD = getattr(STRUCT, name)
-        if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
-            offset, _ = symbolic.get_field_token(STRUCT, name,
-                                                gccache.translate_support_code)
-            res.append(offset)
-        elif isinstance(FIELD, lltype.Struct):
-            offsets_of_gcfields(gccache, FIELD, res)
+        if isinstance(FIELD, lltype.Struct):
+            fielddescrs(gccache, FIELD, res)
+        else:
+            res.append(descr.get_field_descr(gccache, STRUCT, name))
     return res

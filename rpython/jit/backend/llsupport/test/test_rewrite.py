@@ -84,6 +84,11 @@ class RewriteTests(object):
         jfi_frame_depth = framedescrs.jfi_frame_depth
         jfi_frame_size = framedescrs.jfi_frame_size
         jf_frame_info = framedescrs.jf_frame_info
+        jf_savedata = framedescrs.jf_savedata
+        jf_force_descr = framedescrs.jf_force_descr
+        jf_descr = framedescrs.jf_descr
+        jf_guard_exc = framedescrs.jf_guard_exc
+        jf_forward = framedescrs.jf_forward
         jf_extra_stack_depth = framedescrs.jf_extra_stack_depth
         signedframedescr = self.cpu.signedframedescr
         floatframedescr = self.cpu.floatframedescr
@@ -149,7 +154,7 @@ class TestBoehm(RewriteTests):
     def setup_method(self, meth):
         class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT):
-                return SizeDescrWithVTable(102, offsets_of_gcfields=[])
+                return SizeDescrWithVTable(102, fielddescrs=[])
         self.cpu = FakeCPU()
         self.gc_ll_descr = GcLLDescr_boehm(None, None, None)
 
@@ -286,7 +291,7 @@ class TestFramework(RewriteTests):
         #
         class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT):
-                descr = SizeDescrWithVTable(104, offsets_of_gcfields=[])
+                descr = SizeDescrWithVTable(104, fielddescrs=[])
                 descr.tid = 9315
                 return descr
         self.cpu = FakeCPU()
@@ -319,7 +324,7 @@ class TestFramework(RewriteTests):
             setfield_gc(p1, 5678, descr=tiddescr)
             p2 = int_add(p1, %(tdescr.size)d)
             setfield_gc(p2, 1234, descr=tiddescr)
-            zero_ptr_field(p1, %(tdescr.offsets_of_gcfields[0])s)
+            zero_ptr_field(p1, %(tdescr.fielddescrs[1].offset)s)
             jump()
         """)
 
@@ -767,7 +772,7 @@ class TestFramework(RewriteTests):
             [i0]
             p0 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p0, 5678, descr=tiddescr)
-            zero_ptr_field(p0, %(tdescr.offsets_of_gcfields[0])s)
+            zero_ptr_field(p0, %(tdescr.fielddescrs[1].offset)s)
             p1 = call_malloc_nursery_varsize(1, 1, i0, \
                                 descr=strdescr)
             setfield_gc(p1, i0, descr=strlendescr)
@@ -788,7 +793,7 @@ class TestFramework(RewriteTests):
             [p1]
             p0 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p0, 5678, descr=tiddescr)
-            zero_ptr_field(p0, %(tdescr.offsets_of_gcfields[0])s)
+            zero_ptr_field(p0, %(tdescr.fielddescrs[1].offset)s)
             label(p0, p1)
             cond_call_gc_wb(p0, descr=wbdescr)
             setfield_gc(p0, p1, descr=tzdescr)
@@ -820,6 +825,11 @@ class TestFramework(RewriteTests):
         setfield_gc(p1, 0, descr=tiddescr)
         i2 = getfield_gc(ConstClass(frame_info), descr=jfi_frame_depth)
         setfield_gc(p1, 0, descr=jf_extra_stack_depth)
+        setfield_gc(p1, NULL, descr=jf_savedata)
+        setfield_gc(p1, NULL, descr=jf_force_descr)
+        setfield_gc(p1, NULL, descr=jf_descr)
+        setfield_gc(p1, NULL, descr=jf_guard_exc)
+        setfield_gc(p1, NULL, descr=jf_forward)
         setfield_gc(p1, i2, descr=framelendescr)
         setfield_gc(p1, ConstClass(frame_info), descr=jf_frame_info)
         setarrayitem_gc(p1, 0, i0, descr=signedframedescr)

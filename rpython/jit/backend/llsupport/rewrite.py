@@ -1,6 +1,6 @@
 from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rtyper.lltypesystem import llmemory
+from rpython.rtyper.lltypesystem import llmemory, lltype
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr, BoxInt
 from rpython.jit.metainterp.resoperation import ResOperation, rop
@@ -39,6 +39,7 @@ class GcRewriterAssembler(object):
     _op_malloc_nursery = None
     _v_last_malloced_nursery = None
     c_zero = ConstInt(0)
+    c_null = ConstPtr(lltype.nullptr(llmemory.GCREF.TO))
 
     def __init__(self, gc_ll_descr, cpu):
         self.gc_ll_descr = gc_ll_descr
@@ -137,8 +138,10 @@ class GcRewriterAssembler(object):
         except KeyError:
             d = {}
             self.delayed_zero_setfields[result] = d
-        for ofs in descr.offsets_of_gcfields:
-            d[ofs] = None
+        for fielddescr in descr.fielddescrs:
+            if fielddescr.is_pointer_field():
+                ofs = self.cpu.unpack_fielddescr(fielddescr)
+                d[ofs] = None
 
     def consider_setfield_gc(self, op):
         offset = self.cpu.unpack_fielddescr(op.getdescr())
@@ -256,15 +259,15 @@ class GcRewriterAssembler(object):
                              length_box, descr=descrs.jfi_frame_depth),
                 ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
                              None, descr=descrs.jf_extra_stack_depth),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
+                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
                              None, descr=descrs.jf_savedata),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
+                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
                              None, descr=descrs.jf_force_descr),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
+                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
                              None, descr=descrs.jf_descr),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
+                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
                              None, descr=descrs.jf_guard_exc),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
+                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
                              None, descr=descrs.jf_forward),
             ]
             self.newops += extra_ops
