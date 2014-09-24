@@ -5,7 +5,7 @@ PyPy 2.4 - Snow White
 We're pleased to announce PyPy 2.4, which contains significant performance
 enhancements and bug fixes. 
 
-You can already download the PyPy 2.4-beta1 pre-release here:
+You can download the PyPy 2.4.0 release here:
 
     http://pypy.org/download.html
 
@@ -63,6 +63,8 @@ program which in the long run used to "leak" memory.
 
 PyPy now uses Python 2.7.8 standard library.
 
+We fixed a memory leak in IO in the sandbox_ code
+
 We welcomed more than 12 new contributors, and conducted two Google
 Summer of Code projects, as well as other student projects not
 directly related to Summer of Code.
@@ -103,8 +105,9 @@ for more information see `whats-new`_:
   
 * Many issues were resolved_ since the 2.3.1 release on June 8
 
-.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.3.1.html
+.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.4.0.html
 .. _resolved: https://bitbucket.org/pypy/pypy/issues?status=resolved
+.. _sandbox: http://doc.pypy.org/en/latest/sandbox.html   
 
 We have further improvements on the way: rpython file handling,
 numpy linalg compatibility, as well
