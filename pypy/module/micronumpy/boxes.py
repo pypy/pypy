@@ -401,7 +401,10 @@ class W_GenericBox(W_NumpyObject):
 
     def descr_reshape(self, space, __args__):
         w_meth = space.getattr(self.descr_ravel(space), space.wrap('reshape'))
-        return space.call_args(w_meth, __args__)
+        w_res = space.call_args(w_meth, __args__)
+        if isinstance(w_res, W_NDimArray) and len(w_res.get_shape()) == 0:
+            return w_res.get_scalar_value()
+        return w_res
 
     def descr_nd_nonzero(self, space, __args__):
         w_meth = space.getattr(self.descr_ravel(space), space.wrap('nonzero'))

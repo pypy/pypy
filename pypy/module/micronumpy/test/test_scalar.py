@@ -254,6 +254,7 @@ class AppTestScalar(BaseNumpyAppTest):
         assert np.int64(123).reshape((1,)).shape == (1,)
         exc = raises(ValueError, "np.int64(123).reshape((2,))")
         assert exc.value[0] == 'total size of new array must be unchanged'
+        assert type(np.int64(123).reshape(())) == np.int64
 
     def test_complex_scalar_complex_cast(self):
         import numpy as np
