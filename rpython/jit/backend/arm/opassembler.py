@@ -1192,40 +1192,48 @@ class ResOpAssembler(BaseAssembler):
             startindex_loc = regalloc.rm.make_sure_var_in_reg(sibox, args)
             startindex = -1
         length_box = op.getarg(2)
-        if isinstance(length_box, ConstInt):
-            constbytes = length_box.getint() * itemsize
+
+        # base_loc and startindex_loc are in two regs here (or they are
+        # immediates).  Compute the dstaddr_loc, which is the raw
+        # address that we will pass as first argument to memset().
+        # It can be in the same register as either one, but not in
+        # args[2], because we're still needing the latter.
+        dstaddr_box = TempBox()
+        dstaddr_loc = regalloc.rm.force_allocate_reg(dstaddr_box, [args[2]])
+        if startindex >= 0:    # a constant
+            ofs = baseofs + startindex * itemsize
+            reg = base_loc.value
         else:
-            constbytes = -1
-        if 0 <= constbytes <= 56 and (0):
-                #valid_addressing_size(itemsize) or
-                #(isinstance(startindex_loc, ImmedLoc) and
-                #  startindex_loc.value == 0)):
-            XXX
+            self.mc.gen_load_int(r.ip.value, itemsize)
+            self.mc.MLA(dstaddr_loc.value, r.ip.value,
+                        startindex_loc.value, base_loc.value)
+            ofs = baseofs
+            reg = dstaddr_loc.value
+        if check_imm_arg(ofs):
+            self.mc.ADD_ri(dstaddr_loc.value, reg, imm=ofs)
         else:
-            # base_loc and startindex_loc are in two regs here (or they are
-            # immediates).  Compute the dstaddr_loc, which is the raw
-            # address that we will pass as first argument to memset().
-            # It can be in the same register as either one, but not in
-            # args[2], because we're still needing the latter.
-            dstaddr_box = TempBox()
-            dstaddr_loc = regalloc.rm.force_allocate_reg(dstaddr_box, [args[2]])
-            if startindex >= 0:    # a constant
-                ofs = baseofs + startindex * itemsize
-                reg = base_loc.value
-            else:
-                self.mc.gen_load_int(r.ip.value, itemsize)
-                self.mc.MLA(dstaddr_loc.value, r.ip.value,
-                            startindex_loc.value, base_loc.value)
-                ofs = baseofs
-                reg = dstaddr_loc.value
-            if check_imm_arg(ofs):
-                self.mc.ADD_ri(dstaddr_loc.value, reg, imm=ofs)
-            else:
-                self.mc.gen_load_int(r.ip.value, ofs)
-                self.mc.ADD_rr(dstaddr_loc.value, reg, r.ip.value)
-            #
-            if constbytes >= 0:
-                length_loc = imm(constbytes)
+            self.mc.gen_load_int(r.ip.value, ofs)
+            self.mc.ADD_rr(dstaddr_loc.value, reg, r.ip.value)
+
+        if (isinstance(length_box, ConstInt) and
+                length_box.getint() <= 14 and     # same limit as GCC
+                itemsize in (4, 2, 1)):
+            # Inline a series of STR operations, starting at 'dstaddr_loc'.
+            # XXX we could optimize STRB/STRH into STR, but this needs care:
+            # XXX it only works if startindex_loc is a constant, otherwise
+            # XXX we'd be doing unaligned accesses
+            self.mc.gen_load_int(r.ip.value, 0)
+            for i in range(length_box.getint()):
+                if itemsize == 4:
+                    self.mc.STR_ri(r.ip.value, dstaddr_loc.value, imm=i*4)
+                elif itemsize == 2:
+                    self.mc.STRH_ri(r.ip.value, dstaddr_loc.value, imm=i*2)
+                else:
+                    self.mc.STRB_ri(r.ip.value, dstaddr_loc.value, imm=i*1)
+
+        else:
+            if isinstance(length_box, ConstInt):
+                length_loc = imm(length_box.getint() * itemsize)
             else:
                 # load length_loc in a register different than dstaddr_loc
                 length_loc = regalloc.rm.make_sure_var_in_reg(length_box,
@@ -1237,7 +1245,7 @@ class ResOpAssembler(BaseAssembler):
                     bytes_box = TempBox()
                     bytes_loc = regalloc.rm.force_allocate_reg(bytes_box,
                                                                [dstaddr_box])
-		    self.mc.gen_load_int(r.ip.value, itemsize)
+                    self.mc.gen_load_int(r.ip.value, itemsize)
                     self.mc.MUL(bytes_loc.value, r.ip.value, length_loc.value)
                     length_box = bytes_box
                     length_loc = bytes_loc
@@ -1247,4 +1255,4 @@ class ResOpAssembler(BaseAssembler):
             self.simple_call_no_collect(imm(self.memset_addr),
                                         [dstaddr_loc, imm(0), length_loc])
             regalloc.rm.possibly_free_var(length_box)
-            regalloc.rm.possibly_free_var(dstaddr_box)
+        regalloc.rm.possibly_free_var(dstaddr_box)
