@@ -818,8 +818,11 @@ class Regalloc(BaseRegalloc):
 
     def prepare_op_setfield_gc(self, op, fcond):
         boxes = op.getarglist()
-        a0, a1 = boxes
         ofs, size, sign = unpack_fielddescr(op.getdescr())
+        return self._prepare_op_setfield(boxes, ofs, size)
+
+    def _prepare_op_setfield(self, boxes, ofs, size):
+        a0, a1 = boxes
         base_loc = self.make_sure_var_in_reg(a0, boxes)
         value_loc = self.make_sure_var_in_reg(a1, boxes)
         ofs_size = default_imm_size if size < 8 else VMEM_imm_size
@@ -831,6 +834,11 @@ class Regalloc(BaseRegalloc):
         return [value_loc, base_loc, ofs_loc, imm(size)]
 
     prepare_op_setfield_raw = prepare_op_setfield_gc
+
+    def prepare_op_zero_ptr_field(self, op, fcond):
+        a0 = op.getarg(0)
+        ofs = op.getarg(1).getint()
+        return self._prepare_op_setfield([a0, ConstInt(0)], ofs, WORD)
 
     def prepare_op_getfield_gc(self, op, fcond):
         a0 = op.getarg(0)

@@ -578,6 +578,7 @@ class ResOpAssembler(BaseAssembler):
         return fcond
 
     emit_op_setfield_raw = emit_op_setfield_gc
+    emit_op_zero_ptr_field = emit_op_setfield_gc
 
     def emit_op_getfield_gc(self, op, arglocs, regalloc, fcond):
         base_loc, ofs, res, size = arglocs
