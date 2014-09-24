@@ -107,15 +107,18 @@ def memory_alignment():
     fields is properly aligned."""
     global _memory_alignment
     if _memory_alignment is None:
-        S = getstruct('struct memory_alignment_test', """
-           struct memory_alignment_test {
-               double d;
-               void* p;
-           };
-        """, [])
-        result = S._hints['align']
-        assert result & (result-1) == 0, "not a power of two??"
-        _memory_alignment = result
+        if sys.platform == 'win32':
+            _memory_alignment = 4
+        else:    
+            S = getstruct('struct memory_alignment_test', """
+               struct memory_alignment_test {
+                   double d;
+                   void* p;
+               };
+            """, [])
+            result = S._hints['align']
+            assert result & (result-1) == 0, "not a power of two??"
+            _memory_alignment = result
     return _memory_alignment
 _memory_alignment = None
 
