@@ -996,6 +996,7 @@ class Regalloc(BaseRegalloc):
 
     prepare_op_copystrcontent = void
     prepare_op_copyunicodecontent = void
+    prepare_op_zero_array = void
 
     def prepare_op_unicodelen(self, op, fcond):
         l0 = self.make_sure_var_in_reg(op.getarg(0))
