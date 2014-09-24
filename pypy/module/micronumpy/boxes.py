@@ -424,6 +424,9 @@ class W_GenericBox(W_NumpyObject):
     def descr_swapaxes(self, space, axis1, axis2):
         return self.item(space)
 
+    def descr_fill(self, space, w_value):
+        self.get_dtype(space).coerce(space, w_value)
+
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.BOOL)
 
@@ -669,6 +672,7 @@ W_GenericBox.typedef = TypeDef("numpy.generic",
     ravel = interp2app(W_GenericBox.descr_ravel),
     round = interp2app(W_GenericBox.descr_round),
     conjugate = interp2app(W_GenericBox.descr_conjugate),
+    conj = interp2app(W_GenericBox.descr_conjugate),
     astype = interp2app(W_GenericBox.descr_astype),
     view = interp2app(W_GenericBox.descr_view),
     squeeze = interp2app(W_GenericBox.descr_self),
@@ -679,6 +683,7 @@ W_GenericBox.typedef = TypeDef("numpy.generic",
     reshape = interp2app(W_GenericBox.descr_reshape),
     swapaxes = interp2app(W_GenericBox.descr_swapaxes),
     nonzero = interp2app(W_GenericBox.descr_nd_nonzero),
+    fill = interp2app(W_GenericBox.descr_fill),
 
     dtype = GetSetProperty(W_GenericBox.descr_get_dtype),
     size = GetSetProperty(W_GenericBox.descr_get_size),

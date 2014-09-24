@@ -380,3 +380,29 @@ class AppTestScalar(BaseNumpyAppTest):
             assert res[0] == 0
             res, = t(0).nonzero()
             assert len(res) == 0
+
+    def test_fill(self):
+        from numpypy import int8, int16, int32, int64, float32, float64
+        from numpypy import complex64, complex128
+
+        for t in (int8, int16, int32, int64, float32, float64,
+                  complex64, complex128):
+            t(17).fill(2)
+            raises(ValueError, t(17).fill, '')
+
+    def test_conj(self):
+        from numpypy import int8, int16, int32, int64, float32, float64
+        from numpypy import complex64, complex128
+
+        def _do_test(np_type, orig_val, exp_val):
+            val = np_type(orig_val)
+            assert val == orig_val
+            assert val.conj() == exp_val
+            assert val.conjugate() == exp_val
+
+        for t in (int8, int16, int32, int64, float32, float64,
+                  complex64, complex128):
+            _do_test(t, 17, 17)
+
+        for t in complex64, complex128:
+            _do_test(t, 17j, -17j)
