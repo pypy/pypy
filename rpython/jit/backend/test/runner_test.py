@@ -4480,7 +4480,24 @@ class LLtypeBackendTest(BaseBackendTest):
         assert not s.x
 
     def test_zero_ptr_field(self):
-        XXX     # write me!
+        from rpython.jit.backend.llsupport import symbolic
+        S = lltype.GcStruct('S', ('x', lltype.Signed),
+                                 ('p', llmemory.GCREF),
+                                 ('y', lltype.Signed))
+        s = lltype.malloc(S)
+        s.x = -1296321
+        s.y = -4398176
+        s_ref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+        s.p = s_ref
+        ofs_p, _ = symbolic.get_field_token(S, 'p', False)
+        #
+        self.execute_operation(rop.ZERO_PTR_FIELD, [
+            BoxPtr(s_ref), ConstInt(ofs_p)],   # OK for now to assume that the
+            'void')                            # 2nd argument is a constant
+        #
+        assert s.x == -1296321
+        assert s.p == lltype.nullptr(llmemory.GCREF.TO)
+        assert s.y == -4398176
 
     def test_zero_array(self):
         PAIR = lltype.Struct('PAIR', ('a', lltype.Signed), ('b', lltype.Signed))
