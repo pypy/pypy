@@ -64,6 +64,7 @@ eci = ExternalCompilationInfo(
         "mpd_qand", "mpd_qor", "mpd_qxor",
         "mpd_qcopy_sign", "mpd_qcopy_abs", "mpd_qcopy_negate",
         "mpd_qround_to_int", "mpd_qround_to_intx",
+        "mpd_parse_fmt_str", "mpd_qformat_spec", "mpd_validate_lconv",
         "mpd_version",
         ],
     compile_extra=compile_extra,
@@ -140,6 +141,13 @@ class CConfig:
                                      ('allcr', lltype.Signed),
                                      ])
 
+    MPD_SPEC_T = platform.Struct('mpd_spec_t',
+                                 [('dot', rffi.CCHARP),
+                                  ('sep', rffi.CCHARP),
+                                  ('grouping', rffi.CCHARP),
+                                  ('fill', rffi.CFixedArray(rffi.CHAR, 5)),
+                                  ])
+
 
 globals().update(platform.configure(CConfig))
 
@@ -150,6 +158,7 @@ def external(name, args, result, **kwds):
 
 MPD_PTR = lltype.Ptr(MPD_T)
 MPD_CONTEXT_PTR = lltype.Ptr(MPD_CONTEXT_T)
+MPD_SPEC_PTR = lltype.Ptr(MPD_SPEC_T)
 
 # Initialization
 mpd_qset_ssize = external(
@@ -394,5 +403,13 @@ mpd_qround_to_int = external(
 mpd_qround_to_intx = external(
     'mpd_qround_to_intx', [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
     lltype.Void)
+
+mpd_parse_fmt_str = external(
+    'mpd_parse_fmt_str', [MPD_SPEC_PTR, rffi.CCHARP, rffi.INT], rffi.INT)
+mpd_qformat_spec = external(
+    'mpd_qformat_spec', [MPD_PTR, MPD_SPEC_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
+    rffi.CCHARP)
+mpd_validate_lconv = external(
+    'mpd_validate_lconv', [MPD_SPEC_PTR], rffi.INT)
 
 mpd_version = external('mpd_version', [], rffi.CCHARP, macro=True)

@@ -262,6 +262,104 @@ class W_Decimal(W_Root):
                                  ctx, status_ptr)
         return w_result
 
+    def _recode_to_utf8(self, ptr):
+        s = rffi.charp2str(ptr)
+        if len(s) == 0 or (len(s) == 1 and 32 <= ord(s[0]) < 128):
+            return None, ptr
+        u = locale_decode(s)
+        s = u.encode('utf-8')
+        ptr = rffi.str2charp(s)
+        return ptr, ptr
+
+    @unwrap_spec(fmt=unicode)
+    def descr_format(self, space, fmt, w_override=None):
+        fmt = fmt.encode('utf-8')
+        context = interp_context.getcontext(space)
+
+        replace_fillchar = False 
+        if fmt and fmt[0] == '\0':
+            # NUL fill character: must be replaced with a valid UTF-8 char
+            # before calling mpd_parse_fmt_str().
+            replace_fillchar = True
+            fmt = '_' + fmt[1:]
+
+        dot_buf = sep_buf = grouping_buf = lltype.nullptr(rffi.CCHARP.TO)
+        spec = lltype.malloc(rmpdec.MPD_SPEC_PTR.TO, flavor='raw')
+        try:
+            if not rmpdec.mpd_parse_fmt_str(spec, fmt, context.capitals):
+                raise oefmt(space.w_ValueError, "invalid format string")
+            if replace_fillchar:
+                # In order to avoid clobbering parts of UTF-8 thousands
+                # separators or decimal points when the substitution is
+                # reversed later, the actual placeholder must be an invalid
+                # UTF-8 byte.
+                spec.c_fill[0] = '\xff'
+                spec.c_fill[1] = '\0'
+
+            if w_override:
+                # Values for decimal_point, thousands_sep and grouping can
+                # be explicitly specified in the override dict. These values
+                # take precedence over the values obtained from localeconv()
+                # in mpd_parse_fmt_str(). The feature is not documented and
+                # is only used in test_decimal.
+                try:
+                    w_dot = space.getitem(
+                        w_override, space.wrap("decimal_point"))
+                except OperationError as e:
+                    if not e.match(space, space.w_KeyError):
+                        raise
+                else:
+                    dot_buf = rffi.str2charp(space.str_w(w_dot))
+                    spec.c_dot = dot_buf
+                try:
+                    w_sep = space.getitem(
+                        w_override, space.wrap("thousands_sep"))
+                except OperationError as e:
+                    if not e.match(space, space.w_KeyError):
+                        raise
+                else:
+                    sep_buf = rffi.str2charp(space.str_w(w_sep))
+                    spec.c_sep = sep_buf
+                try:
+                    w_grouping = space.getitem(
+                        w_override, space.wrap("grouping"))
+                except OperationError as e:
+                    if not e.match(space, space.w_KeyError):
+                        raise
+                else:
+                    grouping_buf = rffi.str2charp(space.str_w(w_grouping))
+                    spec.c_grouping = grouping_buf
+                if rmpdec.mpd_validate_lconv(spec) < 0:
+                    raise oefmt(space.w_ValueError, "invalid override dict")
+            else:
+                dot_buf, spec.c_dot = self._recode_to_utf8(spec.c_dot)
+                sep_buf, spec.c_sep = self._recode_to_utf8(spec.c_sep)
+
+            with context.catch_status(space) as (ctx, status_ptr):
+                decstring = rmpdec.mpd_qformat_spec(
+                    self.mpd, spec, context.ctx, status_ptr)
+                status = rffi.cast(lltype.Signed, status_ptr[0])
+            if not decstring:
+                if status & rmpdec.MPD_Malloc_error:
+                    raise OperationError(space.w_MemoryError, space.w_None)
+                else:
+                    raise oefmt(space.w_ValueError,
+                                "format specification exceeds "
+                                "internal limits of _decimal")
+        finally:
+            lltype.free(spec, flavor='raw')
+            if dot_buf:
+                lltype.free(dot_buf, flavor='raw')
+            if sep_buf:
+                lltype.free(sep_buf, flavor='raw')
+            if grouping_buf:
+                lltype.free(grouping_buf, flavor='raw')
+
+        ret = rffi.charp2str(decstring)
+        if replace_fillchar:
+            ret = ret.replace('\xff', '\0')
+        return space.wrap(ret.decode('utf-8'))
+
     def compare(self, space, w_other, op):
         context = interp_context.getcontext(space)
         w_err, w_self, w_other = convert_binop_cmp(
@@ -954,6 +1052,7 @@ W_Decimal.typedef = TypeDef(
     __floor__ = interp2app(W_Decimal.descr_floor),
     __ceil__ = interp2app(W_Decimal.descr_ceil),
     __round__ = interp2app(W_Decimal.descr_round),
+    __format__ = interp2app(W_Decimal.descr_format),
     #
     __eq__ = interp2app(W_Decimal.descr_eq),
     __ne__ = interp2app(W_Decimal.descr_ne),
