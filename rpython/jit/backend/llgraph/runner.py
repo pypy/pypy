@@ -234,7 +234,9 @@ def fielddescrs_for(cpu, STRUCT, res=None):
     # order is not relevant, except for tests
     for name in STRUCT._names:
         FIELD = getattr(STRUCT, name)
-        if isinstance(FIELD, lltype.Struct):
+        if FIELD is lltype.Void:
+            continue
+        elif isinstance(FIELD, lltype.Struct):
             fielddescrs_for(cpu, FIELD, res)
         else:
             res.append(cpu.fielddescrof(STRUCT, name))

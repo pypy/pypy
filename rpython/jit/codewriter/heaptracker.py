@@ -134,7 +134,9 @@ def fielddescrs(gccache, STRUCT, res=None):
     # order is not relevant, except for tests
     for name in STRUCT._names:
         FIELD = getattr(STRUCT, name)
-        if isinstance(FIELD, lltype.Struct):
+        if FIELD is lltype.Void:
+            continue
+        elif isinstance(FIELD, lltype.Struct):
             fielddescrs(gccache, FIELD, res)
         else:
             res.append(descr.get_field_descr(gccache, STRUCT, name))
