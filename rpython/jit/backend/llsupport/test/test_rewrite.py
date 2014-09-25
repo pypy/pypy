@@ -604,7 +604,7 @@ class TestFramework(RewriteTests):
         self.gc_ll_descr.max_size_of_young_obj = 2000
         self.check_rewrite("""
             [i2, p3]
-            p1 = new_array(129, descr=cdescr)
+            p1 = new_array_clear(129, descr=cdescr)
             call(123456)
             setarrayitem_gc(p1, i2, p3, descr=cdescr)
             jump()
@@ -626,7 +626,7 @@ class TestFramework(RewriteTests):
         self.gc_ll_descr.max_size_of_young_obj = 2000
         self.check_rewrite("""
             [i2, p3]
-            p1 = new_array(130, descr=cdescr)
+            p1 = new_array_clear(130, descr=cdescr)
             call(123456)
             setarrayitem_gc(p1, i2, p3, descr=cdescr)
             jump()
@@ -658,7 +658,7 @@ class TestFramework(RewriteTests):
     def test_label_makes_size_unknown(self):
         self.check_rewrite("""
             [i2, p3]
-            p1 = new_array(5, descr=cdescr)
+            p1 = new_array_clear(5, descr=cdescr)
             label(p1, i2, p3)
             setarrayitem_gc(p1, i2, p3, descr=cdescr)
             jump()
@@ -738,7 +738,6 @@ class TestFramework(RewriteTests):
                                 %(cdescr.basesize + 5 * cdescr.itemsize)d)
             setfield_gc(p0, 8111, descr=tiddescr)
             setfield_gc(p0, 5, descr=clendescr)
-            zero_array(p0, 0, 5, descr=cdescr)
             setarrayitem_gc(p0, i2, p1, descr=cdescr)
             jump()
         """)
