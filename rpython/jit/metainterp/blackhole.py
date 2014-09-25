@@ -1152,7 +1152,10 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "i", "d", returns="r")
     def bhimpl_new_array(cpu, length, arraydescr):
         return cpu.bh_new_array(length, arraydescr)
-    bhimpl_new_array_clear = bhimpl_new_array
+
+    @arguments("cpu", "i", "d", returns="r")
+    def bhimpl_new_array_clear(cpu, length, arraydescr):
+        return cpu.bh_new_array_clear(length, arraydescr)        
 
     @arguments("cpu", "r", "i", "d", returns="i")
     def bhimpl_getarrayitem_gc_i(cpu, array, index, arraydescr):
