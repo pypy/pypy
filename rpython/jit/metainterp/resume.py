@@ -1307,6 +1307,9 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         return self.cpu.bh_new(typedescr)
 
     def allocate_array(self, length, arraydescr):
+        if (arraydescr.is_array_of_structs() or
+            arraydescr.is_array_of_pointers()):
+            return self.cpu.bh_new_array_clear(length, arraydescr)
         return self.cpu.bh_new_array(length, arraydescr)
 
     def allocate_string(self, length):

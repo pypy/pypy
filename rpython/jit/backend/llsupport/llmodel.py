@@ -608,6 +608,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_new_array(self, length, arraydescr):
         return self.gc_ll_descr.gc_malloc_array(length, arraydescr)
+    bh_new_array_clear = bh_new_array
 
     def bh_newstr(self, length):
         return self.gc_ll_descr.gc_malloc_str(length)
