@@ -4449,6 +4449,10 @@ class LLtypeBackendTest(BaseBackendTest):
         assert res.getint() == struct.unpack("I", struct.pack("f", 12.5))[0]
 
     def test_zero_ptr_field(self):
+        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+        
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("llgraph can't do zero_ptr_field")
         T = lltype.GcStruct('T')
         S = lltype.GcStruct('S', ('x', lltype.Ptr(T)))
         tdescr = self.cpu.sizeof(T)
@@ -4469,7 +4473,12 @@ class LLtypeBackendTest(BaseBackendTest):
         s = lltype.cast_opaque_ptr(lltype.Ptr(S), ref)
         assert not s.x
 
-    def test_zero_ptr_field(self):
+    def test_zero_ptr_field_2(self):
+        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("llgraph does not do zero_ptr_field")
+        
         from rpython.jit.backend.llsupport import symbolic
         S = lltype.GcStruct('S', ('x', lltype.Signed),
                                  ('p', llmemory.GCREF),
@@ -4490,6 +4499,11 @@ class LLtypeBackendTest(BaseBackendTest):
         assert s.y == -4398176
 
     def test_zero_array(self):
+        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("llgraph does not do zero_array")
+        
         PAIR = lltype.Struct('PAIR', ('a', lltype.Signed), ('b', lltype.Signed))
         for OF in [lltype.Signed, rffi.INT, rffi.SHORT, rffi.UCHAR, PAIR]:
             A = lltype.GcArray(OF)

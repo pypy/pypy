@@ -642,8 +642,12 @@ class LLGraphCPU(model.AbstractCPU):
 
     def bh_new_array(self, length, arraydescr):
         array = lltype.malloc(arraydescr.A, length, zero=True)
+        assert getkind(arraydescr.A.OF) != 'ref' # getkind crashes on structs
         return lltype.cast_opaque_ptr(llmemory.GCREF, array)
-    bh_new_array_clear = bh_new_array
+
+    def bh_new_array_clear(self, length, arraydescr):
+        array = lltype.malloc(arraydescr.A, length, zero=True)
+        return lltype.cast_opaque_ptr(llmemory.GCREF, array)
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
