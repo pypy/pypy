@@ -563,7 +563,10 @@ class VirtualStateConstructor(VirtualVisitor):
     def visit_vstruct(self, typedescr, fielddescrs):
         return VStructStateInfo(typedescr, fielddescrs)
 
-    def visit_varray(self, arraydescr):
+    def visit_varray(self, arraydescr, clear):
+        # 'clear' is ignored here.  I *think* it is correct, because so
+        # far in force_at_end_of_preamble() we force all array values
+        # to be non-None, so clearing is not important any more
         return VArrayStateInfo(arraydescr)
 
     def visit_varraystruct(self, arraydescr, fielddescrs):

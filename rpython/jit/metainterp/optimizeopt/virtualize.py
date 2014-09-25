@@ -279,7 +279,14 @@ class VArrayValue(AbstractVArrayValue):
         return len(self._items)
 
     def get_item_value(self, i):
-        return self._items[i]
+        """Return the i'th item, unless it is 'constvalue' on a 'clear'
+        array.  In that case, return None.  The idea is that this
+        method returns the value that must be set into an array that
+        was allocated with zero=True if 'clear' is True."""
+        subvalue = self._items[i]
+        if self.clear and subvalue is self.constvalue:
+            subvalue = None
+        return subvalue
 
     def set_item_value(self, i, newval):
         self._items[i] = newval
@@ -300,7 +307,7 @@ class VArrayValue(AbstractVArrayValue):
             return self
         already_forced[self] = self
         for index in range(self.getlength()):
-            itemval = self.get_item_value(index)
+            itemval = self._items[index]
             # XXX should be skip alltogether, but I don't wanna know or
             #     fight unrolling just yet
             if itemval is None:
@@ -330,7 +337,7 @@ class VArrayValue(AbstractVArrayValue):
 
     @specialize.argtype(1)
     def _visitor_dispatch_virtual_type(self, visitor):
-        return visitor.visit_varray(self.arraydescr)
+        return visitor.visit_varray(self.arraydescr, self.clear)
 
 
 class VArrayStructValue(AbstractVirtualValue):

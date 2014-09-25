@@ -295,8 +295,11 @@ class ResumeDataVirtualAdder(VirtualVisitor):
     def visit_vstruct(self, typedescr, fielddescrs):
         return VStructInfo(typedescr, fielddescrs)
 
-    def visit_varray(self, arraydescr):
-        return VArrayInfo(arraydescr)
+    def visit_varray(self, arraydescr, clear):
+        if clear:
+            return VArrayInfoClear(arraydescr)
+        else:
+            return VArrayInfoNotClear(arraydescr)
 
     def visit_varraystruct(self, arraydescr, fielddescrs):
         return VArrayStructInfo(arraydescr, fielddescrs)
@@ -545,7 +548,7 @@ class VStructInfo(AbstractVirtualStructInfo):
         debug_print("\tvstructinfo", self.typedescr.repr_rpython(), " at ",  compute_unique_id(self))
         AbstractVirtualStructInfo.debug_prints(self)
 
-class VArrayInfo(AbstractVirtualInfo):
+class AbstractVArrayInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
         #self.fieldnums = ...
@@ -554,7 +557,7 @@ class VArrayInfo(AbstractVirtualInfo):
     def allocate(self, decoder, index):
         length = len(self.fieldnums)
         arraydescr = self.arraydescr
-        array = decoder.allocate_array(length, arraydescr)
+        array = decoder.allocate_array(length, arraydescr, self.clear)
         decoder.virtuals_cache.set_ptr(index, array)
         # NB. the check for the kind of array elements is moved out of the loop
         if arraydescr.is_array_of_pointers():
@@ -572,9 +575,17 @@ class VArrayInfo(AbstractVirtualInfo):
         return array
 
     def debug_prints(self):
-        debug_print("\tvarrayinfo", self.arraydescr, " at ",  compute_unique_id(self))
+        debug_print("\tvarrayinfo", self.arraydescr, " at ",
+                    compute_unique_id(self), " clear=", self.clear)
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
+
+
+class VArrayInfoClear(AbstractVArrayInfo):
+    clear = True
+
+class VArrayInfoNotClear(AbstractVArrayInfo):
+    clear = False
 
 
 class VAbstractRawInfo(AbstractVirtualInfo):
@@ -637,7 +648,8 @@ class VArrayStructInfo(AbstractVirtualInfo):
 
     @specialize.argtype(1)
     def allocate(self, decoder, index):
-        array = decoder.allocate_array(len(self.fielddescrs), self.arraydescr)
+        array = decoder.allocate_array(len(self.fielddescrs), self.arraydescr,
+                                       clear=True)
         decoder.virtuals_cache.set_ptr(index, array)
         p = 0
         for i in range(len(self.fielddescrs)):
@@ -979,13 +991,12 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
     def allocate_struct(self, typedescr):
         return self.metainterp.execute_new(typedescr)
 
-    def allocate_array(self, length, arraydescr):
+    def allocate_array(self, length, arraydescr, clear):
         lengthbox = ConstInt(length)
-        if (arraydescr.is_array_of_structs() or
-            arraydescr.is_array_of_pointers()):
+        if clear:
             return self.metainterp.execute_new_array_clear(arraydescr,
                                                            lengthbox)
-        return self.metainterp.execute_new_array(arraydescr, lengthbox)        
+        return self.metainterp.execute_new_array(arraydescr, lengthbox)
 
     def allocate_raw_buffer(self, size):
         cic = self.metainterp.staticdata.callinfocollection
@@ -1306,9 +1317,8 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     def allocate_struct(self, typedescr):
         return self.cpu.bh_new(typedescr)
 
-    def allocate_array(self, length, arraydescr):
-        if (arraydescr.is_array_of_structs() or
-            arraydescr.is_array_of_pointers()):
+    def allocate_array(self, length, arraydescr, clear):
+        if clear:
             return self.cpu.bh_new_array_clear(length, arraydescr)
         return self.cpu.bh_new_array(length, arraydescr)
 
