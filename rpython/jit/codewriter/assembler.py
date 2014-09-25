@@ -291,6 +291,7 @@ USE_C_FORM = set([
     'int_sub',
     'jit_merge_point',
     'new_array',
+    'new_array_clear',
     'newstr',
     'setarrayitem_gc_i',
     'setarrayitem_gc_r',
