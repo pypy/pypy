@@ -1061,9 +1061,8 @@ def test_malloc_varsize_zero():
     v2 = varoftype(c_A.value)
     c_flags = Constant({"flavor": "gc", "zero": True}, lltype.Void)
     op = SpaceOperation('malloc_varsize', [c_A, c_flags, v1], v2)
-    op1, op2 = Transformer(FakeCPU()).rewrite_operation(op)
-    assert op1.opname == 'new_array'
-    assert op2.opname == 'clear_array_contents'
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'new_array_clear'
 
 def test_str_concat():
     # test that the oopspec is present and correctly transformed

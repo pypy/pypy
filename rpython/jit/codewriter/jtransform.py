@@ -612,18 +612,14 @@ class Transformer(object):
             # XXX only strings or simple arrays for now
             ARRAY = op.args[0].value
             arraydescr = self.cpu.arraydescrof(ARRAY)
-            op1 = SpaceOperation('new_array', [op.args[2], arraydescr],
-                                 op.result)
             if op.args[1].value.get('zero', False):
-                # complicated logic here - we only need to emit zero_contents
-                # in case this is an array of non-gcptrs and non-structs
-                if isinstance(ARRAY.OF, lltype.Ptr) and ARRAY.OF._needsgc():
-                    pass
-                elif isinstance(ARRAY.OF, lltype.Struct):
-                    pass
-                else:
-                    return self.zero_contents([op1], op.result, ARRAY)
-            return op1
+                opname = 'new_array_clear'
+            elif ((isinstance(ARRAY.OF, lltype.Ptr) and ARRAY.OF._needsgc()) or
+                  isinstance(ARRAY.OF, lltype.Struct)):
+                opname = 'new_array_clear'
+            else:
+                opname = 'new_array'
+            return SpaceOperation(opname, [op.args[2], arraydescr], op.result)
 
     def zero_contents(self, ops, v, TYPE):
         if isinstance(TYPE, lltype.Struct):
@@ -639,9 +635,7 @@ class Transformer(object):
                     self.extend_with(ops, self.rewrite_op_setfield(op,
                                           override_type=TYPE))
         elif isinstance(TYPE, lltype.Array):
-            arraydescr = self.cpu.arraydescrof(TYPE)
-            ops.append(SpaceOperation('clear_array_contents',
-                                      [v, arraydescr], None))
+            assert False # this operation disappeared
         else:
             raise TypeError("Expected struct or array, got '%r'", (TYPE,))
         if len(ops) == 1:
