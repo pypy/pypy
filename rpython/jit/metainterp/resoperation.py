@@ -481,11 +481,13 @@ _oplist = [
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
     '_MALLOC_FIRST',
-    'NEW/0d',
-    'NEW_WITH_VTABLE/1',
-    'NEW_ARRAY/1d',
-    'NEWSTR/1',
-    'NEWUNICODE/1',
+    'NEW/0d',             #-> GcStruct, gcptrs inside are zeroed (not the rest)
+    'NEW_WITH_VTABLE/1',  #-> GcStruct with vtable, gcptrs inside are zeroed
+    'NEW_ARRAY/1d',       #-> GcArray, zeroed if array of gcptr or of structs
+                          #            (even if struct has no gcptrs)
+    'NEW_ARRAY_CLEAR/1d', #-> GcArray, zeroed always
+    'NEWSTR/1',           #-> STR, the hash field is zeroed
+    'NEWUNICODE/1',       #-> UNICODE, the hash field is zeroed
     '_MALLOC_LAST',
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
