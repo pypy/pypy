@@ -483,9 +483,8 @@ _oplist = [
     '_MALLOC_FIRST',
     'NEW/0d',             #-> GcStruct, gcptrs inside are zeroed (not the rest)
     'NEW_WITH_VTABLE/1',  #-> GcStruct with vtable, gcptrs inside are zeroed
-    'NEW_ARRAY/1d',       #-> GcArray, zeroed if array of gcptr or of structs
-                          #            (even if struct has no gcptrs)
-    'NEW_ARRAY_CLEAR/1d', #-> GcArray, zeroed always
+    'NEW_ARRAY/1d',       #-> GcArray, not zeroed. only for arrays of primitives
+    'NEW_ARRAY_CLEAR/1d', #-> GcArray, fully zeroed
     'NEWSTR/1',           #-> STR, the hash field is zeroed
     'NEWUNICODE/1',       #-> UNICODE, the hash field is zeroed
     '_MALLOC_LAST',
