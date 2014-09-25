@@ -507,7 +507,7 @@ _oplist = [
     'RAW_STORE/3d',
     'SETFIELD_GC/2d',
     'ZERO_PTR_FIELD/2', # only emitted by the rewrite, clears a pointer field
-                        # at a given offset, no descr
+                        # at a given constant offset, no descr
     'ZERO_ARRAY/3d',    # only emitted by the rewrite, clears (part of) an array
                         # [arraygcptr, firstindex, length], descr=ArrayDescr
     'SETFIELD_RAW/2d',
