@@ -526,7 +526,11 @@ class MIFrame(object):
                             itemsdescr, arraydescr):
         sbox = self.opimpl_new(structdescr)
         self._opimpl_setfield_gc_any(sbox, history.CONST_FALSE, lengthdescr)
-        abox = self.opimpl_new_array(sizehintbox, arraydescr)
+        if (arraydescr.is_array_of_structs() or
+            arraydescr.is_array_of_pointers()):
+            abox = self.opimpl_new_array_clear(sizehintbox, arraydescr)
+        else:
+            abox = self.opimpl_new_array(sizehintbox, arraydescr)
         self._opimpl_setfield_gc_any(sbox, abox, itemsdescr)
         return sbox
 
