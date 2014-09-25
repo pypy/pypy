@@ -192,7 +192,6 @@ class ArrayDescr(ArrayOrFieldDescr):
     lendescr = None
     flag = '\x00'
     vinfo = None
-    fielddescrs = None
 
     def __init__(self, basesize, itemsize, lendescr, flag):
         self.basesize = basesize
@@ -215,9 +214,6 @@ class ArrayDescr(ArrayOrFieldDescr):
     def is_item_integer_bounded(self):
         return self.flag in (FLAG_SIGNED, FLAG_UNSIGNED) \
             and self.itemsize < symbolic.WORD
-
-    def get_fielddescrs(self):
-        return self.fielddescrs
 
     def get_item_integer_min(self):
         if self.flag == FLAG_UNSIGNED:
@@ -258,9 +254,6 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
             lendescr = get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT)
         flag = get_type_flag(ARRAY_INSIDE.OF)
         arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag)
-        if arraydescr.is_array_of_structs():
-            arraydescr.fielddescrs = heaptracker.fielddescrs(gccache,
-                                                             ARRAY_OR_STRUCT.OF)
         if ARRAY_OR_STRUCT._gckind == 'gc':
             gccache.init_array_descr(ARRAY_OR_STRUCT, arraydescr)
         cache[ARRAY_OR_STRUCT] = arraydescr

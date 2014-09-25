@@ -165,9 +165,6 @@ class ArrayDescr(AbstractDescr):
     def is_array_of_structs(self):
         return isinstance(self.A.OF, lltype.Struct)
 
-    def get_fielddescrs(self):
-        return self.fielddescrs
-
     def is_item_integer_bounded(self):
         return getkind(self.A.OF) == 'int' \
             and rffi.sizeof(self.A.OF) < symbolic.WORD
@@ -227,22 +224,6 @@ _example_res = {'v': None,
                 'r': lltype.nullptr(llmemory.GCREF.TO),
                 'i': 0,
                 'f': 0.0}
-
-def fielddescrs_for(cpu, A, res=None):
-    if res is None:
-        res = []
-    STRUCT = A.OF
-    # order is not relevant, except for tests
-    for name in STRUCT._names:
-        FIELD = getattr(STRUCT, name)
-        if FIELD is lltype.Void:
-            continue
-        elif isinstance(FIELD, lltype.Struct):
-            assert False
-            #fielddescrs_for(cpu, FIELD, res)
-        else:
-            res.append(cpu.interiorfielddescrof(A, name))
-    return res
 
 
 class LLGraphCPU(model.AbstractCPU):
@@ -412,8 +393,6 @@ class LLGraphCPU(model.AbstractCPU):
         except KeyError:
             descr = ArrayDescr(A)
             self.descrs[key] = descr
-            if descr.is_array_of_structs():
-                descr.fielddescrs = fielddescrs_for(self, A)
             return descr
 
     def interiorfielddescrof(self, A, fieldname):

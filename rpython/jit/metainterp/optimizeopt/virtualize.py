@@ -345,10 +345,7 @@ class VArrayStructValue(AbstractVirtualValue):
         self._items[index][ofs] = itemvalue
 
     def initialize_with_zeros(self, optimizer):
-        fielddescrs = self.arraydescr.get_fielddescrs()
-        for item_d in self._items:
-            for descr in fielddescrs:
-                item_d[descr] = optimizer.new_const(descr)
+        assert False, "should never happen"
 
     def _really_force(self, optforce):
         assert self.source_op is not None
