@@ -154,7 +154,7 @@ class TestBoehm(RewriteTests):
     def setup_method(self, meth):
         class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT):
-                return SizeDescrWithVTable(102, fielddescrs=[])
+                return SizeDescrWithVTable(102, gc_fielddescrs=[])
         self.cpu = FakeCPU()
         self.gc_ll_descr = GcLLDescr_boehm(None, None, None)
 
@@ -291,7 +291,7 @@ class TestFramework(RewriteTests):
         #
         class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT):
-                descr = SizeDescrWithVTable(104, fielddescrs=[])
+                descr = SizeDescrWithVTable(104, gc_fielddescrs=[])
                 descr.tid = 9315
                 return descr
         self.cpu = FakeCPU()
@@ -324,7 +324,7 @@ class TestFramework(RewriteTests):
             setfield_gc(p1, 5678, descr=tiddescr)
             p2 = int_add(p1, %(tdescr.size)d)
             setfield_gc(p2, 1234, descr=tiddescr)
-            zero_ptr_field(p1, %(tdescr.fielddescrs[1].offset)s)
+            zero_ptr_field(p1, %(tdescr.gc_fielddescrs[0].offset)s)
             jump()
         """)
 
@@ -771,7 +771,7 @@ class TestFramework(RewriteTests):
             [i0]
             p0 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p0, 5678, descr=tiddescr)
-            zero_ptr_field(p0, %(tdescr.fielddescrs[1].offset)s)
+            zero_ptr_field(p0, %(tdescr.gc_fielddescrs[0].offset)s)
             p1 = call_malloc_nursery_varsize(1, 1, i0, \
                                 descr=strdescr)
             setfield_gc(p1, i0, descr=strlendescr)
@@ -792,7 +792,7 @@ class TestFramework(RewriteTests):
             [p1]
             p0 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p0, 5678, descr=tiddescr)
-            zero_ptr_field(p0, %(tdescr.fielddescrs[1].offset)s)
+            zero_ptr_field(p0, %(tdescr.gc_fielddescrs[0].offset)s)
             label(p0, p1)
             cond_call_gc_wb(p0, descr=wbdescr)
             setfield_gc(p0, p1, descr=tzdescr)

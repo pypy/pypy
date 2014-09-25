@@ -19,8 +19,8 @@ def test_get_size_descr():
     assert descr_t.size == symbolic.get_size(T, False)
     assert descr_s.count_fields_if_immutable() == -1
     assert descr_t.count_fields_if_immutable() == -1
-    assert descr_t.fielddescrs == []
-    assert len(descr_s.fielddescrs) == 2
+    assert descr_t.gc_fielddescrs == []
+    assert len(descr_s.gc_fielddescrs) == 1
     assert descr_s == get_size_descr(c0, S)
     assert descr_s != get_size_descr(c1, S)
     #
@@ -31,7 +31,7 @@ def test_get_size_descr():
     PARENT = lltype.Struct('P', ('x', lltype.Ptr(T)))
     STRUCT = lltype.GcStruct('S', ('parent', PARENT), ('y', lltype.Ptr(T)))
     descr_struct = get_size_descr(c0, STRUCT)
-    assert len(descr_struct.fielddescrs) == 2
+    assert len(descr_struct.gc_fielddescrs) == 2
 
 def test_get_size_descr_immut():
     S = lltype.GcStruct('S', hints={'immutable': True})

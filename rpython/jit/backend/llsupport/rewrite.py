@@ -135,10 +135,9 @@ class GcRewriterAssembler(object):
         except KeyError:
             d = {}
             self.delayed_zero_setfields[result] = d
-        for fielddescr in descr.fielddescrs:
-            if fielddescr.is_pointer_field():
-                ofs = self.cpu.unpack_fielddescr(fielddescr)
-                d[ofs] = None
+        for fielddescr in descr.gc_fielddescrs:
+            ofs = self.cpu.unpack_fielddescr(fielddescr)
+            d[ofs] = None
 
     def consider_setfield_gc(self, op):
         offset = self.cpu.unpack_fielddescr(op.getdescr())
