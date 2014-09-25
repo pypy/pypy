@@ -150,6 +150,8 @@ class GcRewriterAssembler(object):
         if self.gc_ll_descr.malloc_zero_filled:
             return
         if kind == FLAG_ARRAY:
+            if descr.is_array_of_structs() or descr.is_array_of_pointers():
+                assert opnum == rop.NEW_ARRAY_CLEAR
             if opnum == rop.NEW_ARRAY_CLEAR:
                 self.handle_clear_array_contents(descr, result, v_length)
             return
