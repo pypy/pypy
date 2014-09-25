@@ -319,14 +319,14 @@ class VArrayValue(AbstractVArrayValue):
             subvalue = self._items[index]
             if subvalue is None:
                 continue
-            if subvalue is self.constvalue and self.clear:
-                continue
-            else:
-                subbox = subvalue.force_box(optforce)
-                op = ResOperation(rop.SETARRAYITEM_GC,
-                                  [box, ConstInt(index), subbox], None,
-                                   descr=self.arraydescr)
-                optforce.emit_operation(op)
+            if self.clear:
+                if subvalue is self.constvalue or subvalue.is_null():
+                    continue
+            subbox = subvalue.force_box(optforce)
+            op = ResOperation(rop.SETARRAYITEM_GC,
+                              [box, ConstInt(index), subbox], None,
+                               descr=self.arraydescr)
+            optforce.emit_operation(op)
 
     @specialize.argtype(1)
     def _visitor_dispatch_virtual_type(self, visitor):
