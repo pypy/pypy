@@ -2376,7 +2376,8 @@ class Assembler386(BaseAssembler):
             scale = get_scale(itemsize_loc.value)
         else:
             assert isinstance(startindex_loc, ImmedLoc)
-            assert startindex_loc.value == 0
+            baseofs += startindex_loc.value * itemsize_loc.value
+            startindex_loc = imm0
             scale = 0
         null_reg_cleared = False
         i = 0

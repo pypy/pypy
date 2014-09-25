@@ -1397,8 +1397,7 @@ class RegAlloc(BaseRegalloc):
             constbytes = -1
         if 0 <= constbytes <= 16 * 8 and (
                 valid_addressing_size(itemsize) or
-                (isinstance(startindex_loc, ImmedLoc) and
-                  startindex_loc.value == 0)):
+-               isinstance(startindex_loc, ImmedLoc)):
             if IS_X86_64:
                 null_loc = X86_64_XMM_SCRATCH_REG
             else:

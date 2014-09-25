@@ -4515,10 +4515,8 @@ class LLtypeBackendTest(BaseBackendTest):
                     for cls2 in [ConstInt, BoxInt]:
                         print 'a_int:', a_int
                         print 'of:', OF
-                        print 'start:', start
-                        print 'length:', length
-                        print 'cls1:', cls1.__name__
-                        print 'cls2:', cls2.__name__
+                        print 'start:', cls1.__name__, start
+                        print 'length:', cls2.__name__, length
                         for i in range(100):
                             if OF == PAIR:
                                 a[i].a = a[i].b = -123456789
