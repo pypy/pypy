@@ -4791,15 +4791,18 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p0]
         p1 = newstr(4)
+        strsetitem(p1, 2, 0)
         setfield_gc(p0, p1, descr=valuedescr)
         jump(p0)
         """
-        # It used to be the case that this would have a series of
-        # strsetitem(p1, idx, 0), which was silly because memory is 0 filled
-        # when allocated.
+        # This test is slightly bogus: the string is not fully initialized.
+        # I *think* it is still right to not have a series of extra
+        # strsetitem(p1, idx, 0).  We do preserve the single one from the
+        # source, though.
         expected = """
         [p0]
         p1 = newstr(4)
+        strsetitem(p1, 2, 0)
         setfield_gc(p0, p1, descr=valuedescr)
         jump(p0)
         """
@@ -5115,6 +5118,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         strsetitem(p1, 6, i0)
         strsetitem(p1, 7, i0)
         strsetitem(p1, 8, 3)
+        strsetitem(p1, 9, 0)
+        strsetitem(p1, 10, 0)
+        strsetitem(p1, 11, 0)
         finish(p1)
         """
         self.optimize_strunicode_loop(ops, expected)
