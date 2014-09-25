@@ -10,6 +10,17 @@ from rpython.rtyper.tool import rffi_platform as platform
 from rpython.tool.sourcetools import func_renamer
 from rpython.rlib.objectmodel import specialize
 
+separate_module_source = """\
+DWORD
+pypy_GetFinalPathNameByHandle(FARPROC address, HANDLE hFile,
+                              LPTSTR lpszFilePath, DWORD cchFilePath,
+                              DWORD dwFlags) {
+    DWORD (WINAPI *func)(HANDLE, LPTSTR, DWORD, DWORD);
+    *(FARPROC*)&func = address;
+    return func(hFile, lpszFilePath, cchFilePath, dwFlags);
+}
+"""
+
 def make_win32_traits(traits):
     from rpython.rlib import rwin32
 
@@ -21,6 +32,8 @@ def make_win32_traits(traits):
     class CConfig:
         _compilation_info_ = ExternalCompilationInfo(
             includes = ['windows.h', 'winbase.h', 'sys/stat.h'],
+            separate_module_sources=[separate_module_source],
+            export_symbols=['pypy_GetFinalPathNameByHandle']
         )
         WIN32_FIND_DATA = platform.Struct(
             'struct _WIN32_FIND_DATA' + suffix,
@@ -192,15 +205,15 @@ def make_win32_traits(traits):
             [traits.CCHARP, traits.CCHARP],
             rwin32.BOOL)
 
-        GETFINALPATHNAMEBYHANDLE_TP = lltype.Ptr(lltype.FuncType(
-                [rwin32.HANDLE, traits.CCHARP, rwin32.DWORD, rwin32.DWORD],
-                rwin32.DWORD, abi='FFI_STDCALL'))
-        # dynamically loaded
-        GetFinalPathNameByHandle = lltype.nullptr(
-            GETFINALPATHNAMEBYHANDLE_TP.TO)
+        GetFinalPathNameByHandle_HANDLE = lltype.nullptr(rffi.VOIDP.TO)
+        pypy_GetFinalPathNameByHandle = staticmethod(rffi.llexternal(
+            'pypy_GetFinalPathNameByHandle',
+            [rffi.VOIDP, rwin32.HANDLE, rffi.CWCHARP, rwin32.DWORD, rwin32.DWORD],
+            rwin32.DWORD, compilation_info=CConfig._compilation_info_))
 
         def check_GetFinalPathNameByHandle(self):
-            if self.GetFinalPathNameByHandle:
+            if (self.GetFinalPathNameByHandle_HANDLE !=
+                lltype.nullptr(rffi.VOIDP.TO)):
                 return True
 
             from rpython.rlib.rdynload import GetModuleHandle, dlsym
@@ -210,9 +223,14 @@ def make_win32_traits(traits):
             except KeyError:
                 return False
 
-            self.GetFinalPathNameByHandle = rffi.cast(
-                Win32Traits.GETFINALPATHNAMEBYHANDLE_TP, func)
+            self.GetFinalPathNameByHandle_HANDLE = func
             return True
+
+        def GetFinalPathNameByHandle(self, *args):
+            assert (self.GetFinalPathNameByHandle_HANDLE !=
+                    lltype.nullptr(rffi.VOIDP.TO))
+            return self.pypy_GetFinalPathNameByHandle(
+                self.GetFinalPathNameByHandle_HANDLE, *args)
 
     return Win32Traits()
 
