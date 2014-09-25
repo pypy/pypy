@@ -1346,10 +1346,6 @@ class BlackholeInterpreter(object):
         vtable = heaptracker.descr2vtable(cpu, descr)
         return cpu.bh_new_with_vtable(vtable, descr)
 
-    @arguments("cpu", "r", "d")
-    def bhimpl_clear_array_contents(cpu, ref, descr):
-        cpu.bh_clear_array_contents(ref, descr)    
-
     @arguments("cpu", "r", returns="i")
     def bhimpl_guard_class(cpu, struct):
         return cpu.bh_classof(struct)

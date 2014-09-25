@@ -2036,6 +2036,14 @@ class LLtypeBackendTest(BaseBackendTest):
                                     'ref', descr=arraydescr)
         assert r1.value != r2.value
         a = lltype.cast_opaque_ptr(lltype.Ptr(A), r1.value)
+        assert len(a) == 342
+
+    def test_new_array_clear(self):
+        A = lltype.GcArray(lltype.Signed)
+        arraydescr = self.cpu.arraydescrof(A)
+        r1 = self.execute_operation(rop.NEW_ARRAY_CLEAR, [BoxInt(342)],
+                                    'ref', descr=arraydescr)
+        a = lltype.cast_opaque_ptr(lltype.Ptr(A), r1.value)
         assert a[0] == 0
         assert len(a) == 342
 
@@ -4439,24 +4447,6 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.execute_operation(rop.CAST_FLOAT_TO_SINGLEFLOAT,
                                    [boxfloat(12.5)], 'int')
         assert res.getint() == struct.unpack("I", struct.pack("f", 12.5))[0]
-
-    def test_clear_array_contents(self):
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-        if not isinstance(self.cpu, AbstractLLCPU):
-            py.test.skip("pointless test on non-asm")
-        oldval = self.cpu.gc_ll_descr.malloc_zero_filled
-        self.cpu.gc_ll_descr.malloc_zero_filled = False
-        try:
-            A = lltype.GcArray(lltype.Signed)
-            a = lltype.malloc(A, 3)
-            a[1] = 13
-            descr = self.cpu.arraydescrof(A)
-            ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
-            self.execute_operation(rop.CLEAR_ARRAY_CONTENTS,
-                                   [BoxPtr(ref)], 'void', descr=descr)
-            assert a[1] == 0
-        finally:
-            self.cpu.gc_ll_descr.malloc_zero_filled = oldval
 
     def test_zero_ptr_field(self):
         T = lltype.GcStruct('T')

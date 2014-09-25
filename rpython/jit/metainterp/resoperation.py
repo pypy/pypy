@@ -493,9 +493,6 @@ _oplist = [
     'MARK_OPAQUE_PTR/1b',
     # this one has no *visible* side effect, since the virtualizable
     # must be forced, however we need to execute it anyway
-    'CLEAR_ARRAY_CONTENTS/1d',
-    # this one does not *really* have a side effect since it's equivalent
-    # to array just coming zeroed
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     'INCREMENT_DEBUG_COUNTER/1',

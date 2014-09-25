@@ -396,10 +396,6 @@ class MIFrame(object):
     def opimpl_new(self, sizedescr):
         return self.metainterp.execute_new(sizedescr)
 
-    @arguments("box", "descr")
-    def opimpl_clear_array_contents(self, box, descr):
-        self.metainterp.execute_and_record(rop.CLEAR_ARRAY_CONTENTS, descr, box)
-
     @arguments("descr")
     def opimpl_new_with_vtable(self, sizedescr):
         cpu = self.metainterp.cpu
@@ -409,6 +405,10 @@ class MIFrame(object):
     @arguments("box", "descr")
     def opimpl_new_array(self, lengthbox, itemsizedescr):
         return self.metainterp.execute_new_array(itemsizedescr, lengthbox)
+
+    @arguments("box", "descr")
+    def opimpl_new_array_clear(self, lengthbox, itemsizedescr):
+        return self.metainterp.execute_new_array_clear(itemsizedescr, lengthbox)
 
     @specialize.arg(1)
     def _do_getarrayitem_gc_any(self, op, arraybox, indexbox, arraydescr):
@@ -1913,6 +1913,12 @@ class MetaInterp(object):
 
     def execute_new_array(self, itemsizedescr, lengthbox):
         resbox = self.execute_and_record(rop.NEW_ARRAY, itemsizedescr,
+                                         lengthbox)
+        self.heapcache.new_array(resbox, lengthbox)
+        return resbox
+
+    def execute_new_array_clear(self, itemsizedescr, lengthbox):
+        resbox = self.execute_and_record(rop.NEW_ARRAY_CLEAR, itemsizedescr,
                                          lengthbox)
         self.heapcache.new_array(resbox, lengthbox)
         return resbox

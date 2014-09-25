@@ -940,7 +940,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_virtual_array_of_struct(self):
         ops = """
         [f0, f1, f2, f3]
-        p0 = new_array(2, descr=complexarraydescr)
+        p0 = new_array_clear(2, descr=complexarraydescr)
         setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
         setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
         setinteriorfield_gc(p0, 1, f3, descr=compleximagdescr)
@@ -966,7 +966,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_virtual_array_of_struct_forced(self):
         ops = """
         [f0, f1]
-        p0 = new_array(1, descr=complexarraydescr)
+        p0 = new_array_clear(1, descr=complexarraydescr)
         setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
         setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
         f2 = getinteriorfield_gc(p0, 0, descr=complexrealdescr)
@@ -978,7 +978,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [f0, f1]
         f2 = float_mul(f0, f1)
-        p0 = new_array(1, descr=complexarraydescr)
+        p0 = new_array_clear(1, descr=complexarraydescr)
         setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
         setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
         i0 = escape(f2, p0)
@@ -989,7 +989,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_virtual_array_of_struct_len(self):
         ops = """
         []
-        p0 = new_array(2, descr=complexarraydescr)
+        p0 = new_array_clear(2, descr=complexarraydescr)
         i0 = arraylen_gc(p0)
         finish(i0)
         """
@@ -5463,33 +5463,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p0, i0]
         i1 = getinteriorfield_gc(p0, i0, descr=valuedescr)
         jump(i1, i1)
-        """
-        self.optimize_loop(ops, expected)
-
-    def test_virtual_clear_array_contents(self):
-        ops = """
-        []
-        p0 = new_array(2, descr=arraydescr)
-        clear_array_contents(p0, descr=arraydescr)
-        """
-        expected = """
-        []
-        """
-        self.optimize_loop(ops, expected)
-
-    def test_virtual_clear_array_contents_escape(self):
-        ops = """
-        []
-        p0 = new_array(2, descr=arraydescr)
-        clear_array_contents(p0, descr=arraydescr)
-        escape(p0)
-        """
-        expected = """
-        []
-        p0 = new_array(2, descr=arraydescr)
-        setarrayitem_gc(p0, 0, 0, descr=arraydescr)
-        setarrayitem_gc(p0, 1, 0, descr=arraydescr)
-        escape(p0)
         """
         self.optimize_loop(ops, expected)
 

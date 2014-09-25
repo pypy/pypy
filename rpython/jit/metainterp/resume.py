@@ -981,7 +981,11 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
 
     def allocate_array(self, length, arraydescr):
         lengthbox = ConstInt(length)
-        return self.metainterp.execute_new_array(arraydescr, lengthbox)
+        if (arraydescr.is_array_of_structs() or
+            arraydescr.is_array_of_pointers()):
+            return self.metainterp.execute_new_array_clear(arraydescr,
+                                                           lengthbox)
+        return self.metainterp.execute_new_array(arraydescr, lengthbox)        
 
     def allocate_raw_buffer(self, size):
         cic = self.metainterp.staticdata.callinfocollection

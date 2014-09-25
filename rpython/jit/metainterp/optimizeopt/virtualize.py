@@ -264,11 +264,16 @@ class AbstractVArrayValue(AbstractVirtualValue):
 
 class VArrayValue(AbstractVArrayValue):
 
-    def __init__(self, arraydescr, constvalue, size, keybox, source_op=None):
+    def __init__(self, arraydescr, constvalue, size, keybox, source_op=None,
+                 clear=False):
         AbstractVirtualValue.__init__(self, keybox, source_op)
         self.arraydescr = arraydescr
         self.constvalue = constvalue
-        self._items = [None] * size
+        if clear:
+            self._items = [constvalue] * size
+        else:
+            self._items = [None] * size
+        self.clear = clear
 
     def getlength(self):
         return len(self._items)
@@ -278,10 +283,6 @@ class VArrayValue(AbstractVArrayValue):
 
     def set_item_value(self, i, newval):
         self._items[i] = newval
-
-    def initialize_with_zeros(self, optimizer):
-        for i in range(len(self._items)):
-            self._items[i] = optimizer.new_const_item(self.arraydescr)
 
     def getitem(self, index):
         res = self._items[index]
@@ -316,7 +317,11 @@ class VArrayValue(AbstractVArrayValue):
         self.box = box = self.source_op.result
         for index in range(len(self._items)):
             subvalue = self._items[index]
-            if subvalue is not None:
+            if subvalue is None:
+                continue
+            if subvalue is self.constvalue and self.clear:
+                continue
+            else:
                 subbox = subvalue.force_box(optforce)
                 op = ResOperation(rop.SETARRAYITEM_GC,
                                   [box, ConstInt(index), subbox], None,
@@ -343,9 +348,6 @@ class VArrayStructValue(AbstractVirtualValue):
     def setinteriorfield(self, index, ofs, itemvalue):
         assert isinstance(itemvalue, optimizer.OptValue)
         self._items[index][ofs] = itemvalue
-
-    def initialize_with_zeros(self, optimizer):
-        assert False, "should never happen"
 
     def _really_force(self, optforce):
         assert self.source_op is not None
@@ -497,12 +499,15 @@ class OptVirtualize(optimizer.Optimization):
         self.make_equal_to(box, vvalue)
         return vvalue
 
-    def make_varray(self, arraydescr, size, box, source_op=None):
+    def make_varray(self, arraydescr, size, box, source_op=None,
+                    clear=False):
         if arraydescr.is_array_of_structs():
+            assert clear
             vvalue = VArrayStructValue(arraydescr, size, box, source_op)
         else:
             constvalue = self.new_const_item(arraydescr)
-            vvalue = VArrayValue(arraydescr, constvalue, size, box, source_op)
+            vvalue = VArrayValue(arraydescr, constvalue, size, box, source_op,
+                                 clear=clear)
         self.make_equal_to(box, vvalue)
         return vvalue
 
@@ -674,13 +679,13 @@ class OptVirtualize(optimizer.Optimization):
         else:
             self.emit_operation(op)
 
-    def optimize_CLEAR_ARRAY_CONTENTS(self, op):
-        v = self.getvalue(op.getarg(0))
-        if v.is_virtual():
-            # initialize the items, since we need to store zeros
-            v.initialize_with_zeros(self.optimizer)
-            return
-        self.emit_operation(op)
+    def optimize_NEW_ARRAY_CLEAR(self, op):
+        sizebox = self.get_constant_box(op.getarg(0))
+        if sizebox is not None:
+            self.make_varray(op.getdescr(), sizebox.getint(), op.result, op,
+                             clear=True)
+        else:
+            self.emit_operation(op)        
 
     def optimize_CALL(self, op):
         effectinfo = op.getdescr().get_extra_info()
