@@ -615,7 +615,14 @@ class Transformer(object):
             op1 = SpaceOperation('new_array', [op.args[2], arraydescr],
                                  op.result)
             if op.args[1].value.get('zero', False):
-                return self.zero_contents([op1], op.result, ARRAY)
+                # complicated logic here - we only need to emit zero_contents
+                # in case this is an array of non-gcptrs and non-structs
+                if isinstance(ARRAY.OF, lltype.Ptr) and ARRAY.OF._needsgc():
+                    pass
+                elif isinstance(ARRAY.OF, lltype.Struct):
+                    pass
+                else:
+                    return self.zero_contents([op1], op.result, ARRAY)
             return op1
 
     def zero_contents(self, ops, v, TYPE):
