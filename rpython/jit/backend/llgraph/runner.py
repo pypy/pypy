@@ -228,18 +228,20 @@ _example_res = {'v': None,
                 'i': 0,
                 'f': 0.0}
 
-def fielddescrs_for(cpu, STRUCT, res=None):
+def fielddescrs_for(cpu, A, res=None):
     if res is None:
         res = []
+    STRUCT = A.OF
     # order is not relevant, except for tests
     for name in STRUCT._names:
         FIELD = getattr(STRUCT, name)
         if FIELD is lltype.Void:
             continue
         elif isinstance(FIELD, lltype.Struct):
-            fielddescrs_for(cpu, FIELD, res)
+            assert False
+            #fielddescrs_for(cpu, FIELD, res)
         else:
-            res.append(cpu.fielddescrof(STRUCT, name))
+            res.append(cpu.interiorfielddescrof(A, name))
     return res
 
 
@@ -411,7 +413,7 @@ class LLGraphCPU(model.AbstractCPU):
             descr = ArrayDescr(A)
             self.descrs[key] = descr
             if descr.is_array_of_structs():
-                descr.fielddescrs = fielddescrs_for(self, A.OF)
+                descr.fielddescrs = fielddescrs_for(self, A)
             return descr
 
     def interiorfielddescrof(self, A, fieldname):
