@@ -203,7 +203,7 @@ class GcRewriterAssembler(object):
             self.gen_boehm_malloc_array(arraydescr, v_length, op.result)
         else:
             opnum = op.getopnum()
-            if opnum == rop.NEW_ARRAY:
+            if opnum == rop.NEW_ARRAY or opnum == rop.NEW_ARRAY_CLEAR:
                 self.gen_malloc_array(arraydescr, v_length, op.result)
             elif opnum == rop.NEWSTR:
                 self.gen_malloc_str(v_length, op.result)
