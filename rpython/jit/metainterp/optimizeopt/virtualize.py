@@ -320,6 +320,11 @@ class VArrayValue(AbstractVArrayValue):
         assert self.source_op is not None
         if not we_are_translated():
             self.source_op.name = 'FORCE ' + self.source_op.name
+        # XXX two possible optimizations:
+        # * if source_op is NEW_ARRAY_CLEAR, emit NEW_ARRAY if it's
+        #   immediately followed by SETARRAYITEM_GC into all items (hard?)
+        # * if source_op is NEW_ARRAY, emit NEW_ARRAY_CLEAR if it's
+        #   followed by setting most items to zero anyway
         optforce.emit_operation(self.source_op)
         self.box = box = self.source_op.result
         for index in range(len(self._items)):
