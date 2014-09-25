@@ -1008,7 +1008,11 @@ class BlackholeInterpreter(object):
                        itemsdescr, arraydescr):
         result = cpu.bh_new(structdescr)
         cpu.bh_setfield_gc_i(result, length, lengthdescr)
-        items = cpu.bh_new_array(length, arraydescr)
+        if (arraydescr.is_array_of_structs() or
+            arraydescr.is_array_of_pointers()):
+            items = cpu.bh_new_array_clear(length, arraydescr)
+        else:
+            items = cpu.bh_new_array(length, arraydescr)
         cpu.bh_setfield_gc_r(result, items, itemsdescr)
         return result
 
@@ -1017,7 +1021,11 @@ class BlackholeInterpreter(object):
                             itemsdescr, arraydescr):
         result = cpu.bh_new(structdescr)
         cpu.bh_setfield_gc_i(result, 0, lengthdescr)
-        items = cpu.bh_new_array(lengthhint, arraydescr)
+        if (arraydescr.is_array_of_structs() or
+            arraydescr.is_array_of_pointers()):
+            items = cpu.bh_new_array_clear(lengthhint, arraydescr)
+        else:
+            items = cpu.bh_new_array(lengthhint, arraydescr)
         cpu.bh_setfield_gc_r(result, items, itemsdescr)
         return result
 
