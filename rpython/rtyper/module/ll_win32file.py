@@ -476,24 +476,24 @@ def make__getfinalpathname_impl(traits):
 
         VOLUME_NAME_DOS = rffi.cast(rwin32.DWORD, win32traits.VOLUME_NAME_DOS)
         try:
-            size = win32traits.GetFinalPathNameByHandle(
+            usize = win32traits.GetFinalPathNameByHandle(
                 hFile,
                 lltype.nullptr(traits.CCHARP.TO),
                 rffi.cast(rwin32.DWORD, 0),
                 VOLUME_NAME_DOS)
-            if size == 0:
+            if usize == 0:
                 raise rwin32.lastWindowsError("GetFinalPathNameByHandle")
 
-            with lltype.scoped_alloc(traits.CCHARP.TO, size + 1) as target_path:
+            size = rffi.cast(lltype.Signed, usize)
+            with rffi.scoped_alloc_unicodebuffer(size + 1) as buf:
                 result = win32traits.GetFinalPathNameByHandle(
                     hFile,
-                    target_path,
-                    size,
+                    buf.raw,
+                    usize,
                     VOLUME_NAME_DOS)
                 if result == 0:
                     raise rwin32.lastWindowsError("GetFinalPathNameByHandle")
-                return traits.charpsize2str(target_path,
-                                            rffi.cast(lltype.Signed, result))
+                return buf.str(rffi.cast(lltype.Signed, result))
         finally:
             rwin32.CloseHandle(hFile)
 
