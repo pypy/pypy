@@ -251,6 +251,8 @@ class GuardNonNullClassOperation(GuardClassOperation):
 
 class ZeroPtrFieldOperation(test_random.AbstractOperation):
     def field_descr(self, builder, r):
+        if getattr(builder.cpu, 'is_llgraph', False):
+            raise test_random.CannotProduceOperation
         v, S = builder.get_structptr_var(r, )
         names = S._names
         if names[0] == 'parent':
@@ -265,7 +267,7 @@ class ZeroPtrFieldOperation(test_random.AbstractOperation):
         name = r.choice(choice)
         descr = builder.cpu.fielddescrof(S, name)
         return v, descr.offset
-        
+
     def produce_into(self, builder, r):
         v, offset = self.field_descr(builder, r)
         builder.do(self.opnum, [v, ConstInt(offset)], None)
@@ -728,7 +730,7 @@ for i in range(4):      # make more common
     OPERATIONS.append(GetArrayItemOperation(rop.GETARRAYITEM_GC))
     OPERATIONS.append(GetArrayItemOperation(rop.GETARRAYITEM_GC))
     OPERATIONS.append(SetArrayItemOperation(rop.SETARRAYITEM_GC))
-    OPERATIONS.append(NewArrayOperation(rop.NEW_ARRAY))
+    OPERATIONS.append(NewArrayOperation(rop.NEW_ARRAY_CLEAR))
     OPERATIONS.append(ArrayLenOperation(rop.ARRAYLEN_GC))
     OPERATIONS.append(NewStrOperation(rop.NEWSTR))
     OPERATIONS.append(NewUnicodeOperation(rop.NEWUNICODE))
