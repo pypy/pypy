@@ -1674,6 +1674,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if prev - self.nursery >= self.nursery_cleanup:
             nursery_barriers.append(prev)
         else:
+            # XXX: length should not be 'self.nursery_cleanup', but rather
+            # 'self.nursery_cleanup - (prev - self.nursery)'. Otherwise
+            # in case we end up in this branch we zero out much more space
+            # overall than in original incminimark.
             llarena.arena_reset(prev, self.nursery_cleanup, 2)
             nursery_barriers.append(prev + self.nursery_cleanup)
         #
