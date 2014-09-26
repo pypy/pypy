@@ -729,7 +729,7 @@ class TestFramework(RewriteTests):
     def test_initialization_store_array(self):
         self.check_rewrite("""
             [p1, i2]
-            p0 = new_array(5, descr=cdescr)
+            p0 = new_array_clear(5, descr=cdescr)
             setarrayitem_gc(p0, i2, p1, descr=cdescr)
             jump()
         """, """
@@ -738,6 +738,7 @@ class TestFramework(RewriteTests):
                                 %(cdescr.basesize + 5 * cdescr.itemsize)d)
             setfield_gc(p0, 8111, descr=tiddescr)
             setfield_gc(p0, 5, descr=clendescr)
+            zero_array(p0, 0, 5, descr=cdescr)
             setarrayitem_gc(p0, i2, p1, descr=cdescr)
             jump()
         """)
