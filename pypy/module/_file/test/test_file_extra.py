@@ -221,7 +221,7 @@ class AppTestFile(BaseROTests):
     expected_filename = str(udir.join('sample'))
     expected_mode = 'rb'
     extra_args = ()
-    spaceconfig = {"usemodules": ["binascii", "rctime"]}
+    spaceconfig = {'usemodules': ['binascii', 'rctime', 'struct']}
 
     def setup_method(self, method):
         space = self.space
@@ -281,7 +281,7 @@ class AppTestFdOpen(BaseROTests):
     expected_filename = '<fdopen>'
     expected_mode = 'rb'
     extra_args = ()
-    spaceconfig = {"usemodules": ["binascii", "rctime"]}
+    spaceconfig = {'usemodules': ['binascii', 'rctime', 'struct']}
 
     def setup_method(self, method):
         space = self.space
@@ -359,7 +359,8 @@ class AppTestLargeBufferUniversal(AppTestUniversalNewlines):
 #  A few extra tests
 
 class AppTestAFewExtra:
-    spaceconfig = {"usemodules": ['array', '_socket', 'binascii', 'rctime']}
+    spaceconfig = {'usemodules': ['_socket', 'array', 'binascii', 'rctime',
+                                  'struct']}
 
     def setup_method(self, method):
         fn = str(udir.join('temptestfile'))
@@ -401,11 +402,12 @@ class AppTestAFewExtra:
         with file(fn, 'wb') as f:
             f.writelines(['abc'])
             f.writelines([u'def'])
-            exc = raises(TypeError, f.writelines, [array.array('c', 'ghi')])
-            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+            f.writelines([array.array('c', 'ghi')])
             exc = raises(TypeError, f.writelines, [memoryview('jkl')])
             assert str(exc.value) == "writelines() argument must be a sequence of strings"
-        assert open(fn, 'rb').readlines() == ['abcdef']
+        out = open(fn, 'rb').readlines()[0]
+        assert out[0:5] == 'abcd\x00'
+        assert out[-3:] == 'ghi'
 
         with file(fn, 'wb') as f:
             exc = raises(TypeError, f.writelines, ['abc', memoryview('def')])
@@ -552,14 +554,8 @@ class AppTestAFewExtra:
 
         import errno, sys
         f = open(fn)
-        exc = raises(EnvironmentError, f.truncate, 3)
-        if sys.platform == 'win32':
-            assert exc.value.errno == 5 # ERROR_ACCESS_DENIED
-        else:
-            # CPython explicitely checks the file mode
-            # PyPy relies on the libc to raise the error
-            assert (exc.value.message == "File not open for writing" or
-                    exc.value.errno == errno.EINVAL)
+        exc = raises(IOError, f.truncate, 3)
+        assert str(exc.value) == "File not open for writing"
         f.close()
 
     def test_readinto(self):

@@ -328,6 +328,12 @@ class TestLLSpecializeListComprehension:
         interp = LLInterpreter(t.rtyper)
         return interp, graph
 
+    def no_resize(self, graph):
+        for block in graph.iterblocks():
+            for op in block.operations:
+                if op.opname == 'direct_call':
+                    assert 'list_resize' not in repr(op.args[0])
+
     def test_simple(self):
         def main(n):
             lst = [x*17 for x in range(n)]
@@ -335,6 +341,16 @@ class TestLLSpecializeListComprehension:
         interp, graph = self.specialize(main, [int])
         res = interp.eval_graph(graph, [10])
         assert res == 5 * 17
+        self.no_resize(graph)
+
+    def test_str2list(self):
+        def main(n):
+            lst = [c for c in str(n)]
+            return len(lst)
+        interp, graph = self.specialize(main, [int])
+        res = interp.eval_graph(graph, [1091283])
+        assert res == 7
+        self.no_resize(graph)
 
     def test_simple_non_exact(self):
         def main(n):
@@ -343,6 +359,7 @@ class TestLLSpecializeListComprehension:
         interp, graph = self.specialize(main, [int])
         res = interp.eval_graph(graph, [10])
         assert res == 5
+        self.no_resize(graph)
 
     def test_mutated_after_listcomp(self):
         def main(n):

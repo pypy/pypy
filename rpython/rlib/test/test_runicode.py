@@ -231,6 +231,9 @@ class TestDecoding(UnicodeTests):
         assert decode(s, 4, None) == (u'a+-', 4)
         assert decode(s, 5, None) == (u'a+-b', 5)
 
+        assert decode((27 * u"\u3042" + "\n").encode('utf7')[:28], 28, None) == (u'', 0)
+        assert decode('+MEI\n+MEIwQjBCMEIwQjBCMEIwQjBCMEIwQjBCMEIwQjBCMEIwQjBCMEIwQjBCMEIwQjBCME', 72, None) == (u'\u3042\n', 5)
+
     def test_utf7_surrogates(self):
         encode = self.getencoder('utf-7')
         u = u'\U000abcde'

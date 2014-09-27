@@ -198,6 +198,16 @@ class _AppTestSelect:
         finally:
             writeend.close()
 
+    def test_select_descr_out_of_bounds(self):
+        import sys, select
+        raises(ValueError, select.select, [-1], [], [])
+        raises(ValueError, select.select, [], [-2], [])
+        raises(ValueError, select.select, [], [], [-3])
+        if sys.platform != 'win32':
+            raises(ValueError, select.select, [2000000000], [], [])
+            raises(ValueError, select.select, [], [2000000000], [])
+            raises(ValueError, select.select, [], [], [2000000000])
+
     def test_poll(self):
         import select
         if not hasattr(select, 'poll'):
@@ -218,16 +228,35 @@ class _AppTestSelect:
             skip("no select.poll() on this platform")
         pollster = select.poll()
         pollster.register(1)
-        exc = raises(OverflowError, pollster.register, 0, 32768) # SHRT_MAX + 1
-        assert str(exc.value) == 'signed short integer is greater than maximum'
+        raises(OverflowError, pollster.register, 0, -1)
+        raises(OverflowError, pollster.register, 0, 1 << 64)
+        pollster.register(0, 32768) # SHRT_MAX + 1
         exc = raises(OverflowError, pollster.register, 0, -32768 - 1)
-        assert str(exc.value) == 'signed short integer is less than minimum'
-        raises(OverflowError, pollster.register, 0, 65535) # USHRT_MAX + 1
+        assert "unsigned" in str(exc.value)
+        pollster.register(0, 65535) # USHRT_MAX
+        raises(OverflowError, pollster.register, 0, 65536) # USHRT_MAX + 1
         raises(OverflowError, pollster.poll, 2147483648) # INT_MAX +  1
         raises(OverflowError, pollster.poll, -2147483648 - 1)
         raises(OverflowError, pollster.poll, 4294967296) # UINT_MAX + 1
         exc = raises(TypeError, pollster.poll, '123')
         assert str(exc.value) == 'timeout must be an integer or None'
+
+        raises(OverflowError, pollster.modify, 1, -1)
+        raises(OverflowError, pollster.modify, 1, 1 << 64)
+
+    def test_resize_list_in_select(self):
+        import select
+        class Foo(object):
+            def fileno(self):
+                print len(l)
+                if len(l) < 100:
+                    l.append(Foo())
+                return 0
+        l = [Foo()]
+        select.select(l, (), (), 0)
+        assert 1 <= len(l) <= 100    
+        # ^^^ CPython gives 100, PyPy gives 1.  I think both are OK as
+        # long as there is no crash.
 
 
 class AppTestSelectWithPipes(_AppTestSelect):

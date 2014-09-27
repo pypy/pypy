@@ -406,9 +406,9 @@ def import_log(logname, ParserCls=SimpleParser):
     loops = []
     cat = extract_category(log, 'jit-log-opt')
     if not cat:
-        extract_category(log, 'jit-log-rewritten')
+        cat = extract_category(log, 'jit-log-rewritten')
     if not cat:
-        extract_category(log, 'jit-log-noopt')        
+        cat = extract_category(log, 'jit-log-noopt')        
     for entry in cat:
         parser = ParserCls(entry, None, {}, 'lltype', None,
                            nonstrict=True)

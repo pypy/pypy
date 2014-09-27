@@ -3,7 +3,6 @@
 
 from rpython.rtyper.lltypesystem import lltype, rstr
 from rpython.rlib.rarithmetic import ovfcheck, r_longlong, is_valid_int
-from rpython.rlib.rtimer import read_timestamp
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat, check_descr
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID, AbstractDescr
@@ -267,15 +266,6 @@ def do_copyunicodecontent(cpu, _, srcbox, dstbox,
     dststart = dststartbox.getint()
     length = lengthbox.getint()
     rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
-
-def do_read_timestamp(cpu, _):
-    x = read_timestamp()
-    if longlong.is_64_bit:
-        assert is_valid_int(x)            # 64-bit
-        return BoxInt(x)
-    else:
-        assert isinstance(x, r_longlong)  # 32-bit
-        return BoxFloat(x)
 
 def do_keepalive(cpu, _, x):
     pass

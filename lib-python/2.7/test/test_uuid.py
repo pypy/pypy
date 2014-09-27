@@ -1,5 +1,6 @@
 import unittest
 from test import test_support
+import io
 import os
 import uuid
 
@@ -345,6 +346,37 @@ class TestUUID(unittest.TestCase):
         self.check_node(node2, "getnode2")
 
         self.assertEqual(node1, node2)
+
+    @unittest.skipUnless(os.name == 'posix', 'requires Posix')
+    def test_find_mac(self):
+        data = '''\
+
+fake hwaddr
+cscotun0  Link encap:UNSPEC  HWaddr 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
+eth0      Link encap:Ethernet  HWaddr 12:34:56:78:90:ab
+'''
+        def mock_popen(cmd):
+            return io.BytesIO(data)
+
+        path = os.environ.get("PATH", os.defpath).split(os.pathsep)
+        path.extend(('/sbin', '/usr/sbin'))
+        for dir in path:
+            executable = os.path.join(dir, 'ifconfig')
+            if (os.path.exists(executable) and
+                os.access(executable, os.F_OK | os.X_OK) and
+                not os.path.isdir(executable)):
+                break
+        else:
+            self.skipTest('requires ifconfig')
+
+        with test_support.swap_attr(os, 'popen', mock_popen):
+            mac = uuid._find_mac(
+                command='ifconfig',
+                args='',
+                hw_identifiers=['hwaddr'],
+                get_index=lambda x: x + 1,
+            )
+            self.assertEqual(mac, 0x1234567890ab)
 
     @unittest.skipUnless(importable('ctypes'), 'requires ctypes')
     def test_uuid1(self):

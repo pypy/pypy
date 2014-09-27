@@ -37,7 +37,7 @@ compiler they can find.  In addition, the target architecture
 using a 32 bit Python and vice versa. By default pypy is built using the 
 Multi-threaded DLL (/MD) runtime environment.
 
-**Note:** PyPy is currently not supported for 64 bit Windows, and translation
+**Note:** PyPy is currently not supported for 64 bit Python, and translation
 will fail in this case.
 
 Python and a C compiler are all you need to build pypy, but it will miss some
@@ -85,10 +85,13 @@ INCLUDE, LIB and PATH (for DLLs) environment variables appropriately.
 
 Abridged method (for -Ojit builds using Visual Studio 2008)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Download the versions of all the external packages
-from 
+Download the versions of all the external packages from 
+https://bitbucket.org/pypy/pypy/downloads/local_2.4.zip
+(for 2.4 release and later) or
 https://bitbucket.org/pypy/pypy/downloads/local.zip
-Then expand it into the base directory (base_dir) and modify your environment to reflect this::
+(for pre-2.4 versions)
+Then expand it into the base directory (base_dir) and modify your environment
+to reflect this::
 
     set PATH=<base_dir>\bin;<base_dir>\tcltk\bin;%PATH%
     set INCLUDE=<base_dir>\include;<base_dir>\tcltk\include;%INCLUDE%
@@ -136,7 +139,7 @@ the base directory.  Then compile as a static library::
 
     cd zlib-1.2.3
     nmake -f win32\Makefile.msc
-    copy zlib1.lib <somewhere in LIB>
+    copy zlib.lib <somewhere in LIB>
     copy zlib.h zconf.h <somewhere in INCLUDE>
 
 The bz2 compression library
@@ -165,27 +168,29 @@ http://sourceforge.net/projects/expat/ and extract it in the base
 directory.  Version 2.1.0 is known to pass tests. Then open the project 
 file ``expat.dsw`` with Visual
 Studio; follow the instruction for converting the project files,
-switch to the "Release" configuration, reconfigure the runtime for 
-Multi-threaded DLL (/MD) and build the solution (the ``expat`` project 
-is actually enough for pypy).
+switch to the "Release" configuration, use the ``expat_static`` project,
+reconfigure the runtime for Multi-threaded DLL (/MD) and build.
 
-Then, copy the file ``win32\bin\release\libexpat.dll`` somewhere in
-your PATH, ``win32\bin\release\libexpat.lib`` somewhere in LIB, and
-both ``lib\expat.h`` and ``lib\expat_external.h`` somewhere in INCLUDE.
+Then, copy the file ``win32\bin\release\libexpat.lib`` somewhere in
+somewhere in LIB, and both ``lib\expat.h`` and ``lib\expat_external.h``
+somewhere in INCLUDE.
 
 The OpenSSL library
 ~~~~~~~~~~~~~~~~~~~
 
 OpenSSL needs a Perl interpreter to configure its makefile.  You may
-use the one distributed by ActiveState, or the one from cygwin.  In
-both case the perl interpreter must be found on the PATH.
+use the one distributed by ActiveState, or the one from cygwin.::
 
-    svn export http://svn.python.org/projects/external/openssl-0.9.8y
-    cd openssl-0.9.8y
-    perl Configure VC-WIN32
+    svn export http://svn.python.org/projects/external/openssl-1.0.1i
+    cd openssl-1.0.1i
+    perl Configure VC-WIN32 no-idea no-mdc2
     ms\do_ms.bat
     nmake -f ms\nt.mak install
 
+Then, copy the files ``out32\*.lib`` somewhere in
+somewhere in LIB, and the entire ``include\openssl`` directory as-is somewhere
+in INCLUDE.
+    
 TkInter module support
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -296,7 +301,7 @@ Such a hacked CPython is what you'll use in the next steps.  We'll call
 it CPython64/64.
 
 It is probably not too much work if the goal is only to get a translated
-PyPy executable, and to run all tests before transaction.  But you need
+PyPy executable, and to run all tests before translation.  But you need
 to start somewhere, and you should start with some tests in
 rpython/translator/c/test/, like ``test_standalone.py`` and
 ``test_newgc.py``: try to have them pass on top of CPython64/64.
@@ -304,7 +309,7 @@ rpython/translator/c/test/, like ``test_standalone.py`` and
 Keep in mind that this runs small translations, and some details may go
 wrong.  The most obvious one is to check that it produces C files that
 use the integer type ``Signed`` --- but what is ``Signed`` defined to?
-It should be equal to ``long`` on every other platforms, but on Win64 it
+It should be equal to ``long`` on every other platform, but on Win64 it
 should be something like ``long long``.
 
 What is more generally needed is to review all the C files in
@@ -315,11 +320,11 @@ any other platform, so feel free to.
 
 Then, these two C types have corresponding RPython types: ``rffi.LONG``
 and ``lltype.Signed`` respectively.  The first should really correspond
-to the C ``long``.  Add tests that check that integers casted to one
+to the C ``long``.  Add tests that check that integers cast to one
 type or the other really have 32 and 64 bits respectively, on Win64.
 
 Once these basic tests work, you need to review ``rpython/rlib/`` for
-usages of ``rffi.LONG`` versus ``lltype.Signed``.  The goal would be to
+uses of ``rffi.LONG`` versus ``lltype.Signed``.  The goal would be to
 fix some more ``LONG-versus-Signed`` issues, by fixing the tests --- as
 always run on top of CPython64/64.  Note that there was some early work
 done in ``rpython/rlib/rarithmetic`` with the goal of running all the
@@ -329,14 +334,14 @@ bad idea.  Look only at CPython64/64.
 The major intermediate goal is to get a translation of PyPy with ``-O2``
 with a minimal set of modules, starting with ``--no-allworkingmodules``;
 you need to use CPython64/64 to run this translation too.  Check
-carefully the warnings of the C compiler at the end.  I think that MSVC
-is "nice" in the sense that by default a lot of mismatches of integer
-sizes are reported as warnings.
+carefully the warnings of the C compiler at the end. By default, MSVC
+reports a lot of mismatches of integer sizes as warnings instead of
+errors.
 
 Then you need to review ``pypy/module/*/`` for ``LONG-versus-Signed``
 issues.  At some time during this review, we get a working translated
 PyPy on Windows 64 that includes all ``--translationmodules``, i.e.
-everything needed to run translations.  When we are there, the hacked
+everything needed to run translations.  Once we have that, the hacked
 CPython64/64 becomes much less important, because we can run future
 translations on top of this translated PyPy.  As soon as we get there,
 please *distribute* the translated PyPy.  It's an essential component

@@ -1,5 +1,6 @@
 import unittest
 from ctypes import *
+from ctypes.test import need_symbol
 from test import test_support
 
 class StringArrayTestCase(unittest.TestCase):
@@ -62,29 +63,26 @@ class StringArrayTestCase(unittest.TestCase):
 ##        print BUF.from_param(c_char_p("python"))
 ##        print BUF.from_param(BUF(*"pyth"))
 
-try:
-    c_wchar
-except NameError:
-    pass
-else:
-    class WStringArrayTestCase(unittest.TestCase):
-        def test(self):
-            BUF = c_wchar * 4
+@need_symbol('c_wchar')
+class WStringArrayTestCase(unittest.TestCase):
+    def test(self):
+        BUF = c_wchar * 4
 
-            buf = BUF(u"a", u"b", u"c")
-            self.assertEqual(buf.value, u"abc")
+        buf = BUF(u"a", u"b", u"c")
+        self.assertEqual(buf.value, u"abc")
 
-            buf.value = u"ABCD"
-            self.assertEqual(buf.value, u"ABCD")
+        buf.value = u"ABCD"
+        self.assertEqual(buf.value, u"ABCD")
 
-            buf.value = u"x"
-            self.assertEqual(buf.value, u"x")
+        buf.value = u"x"
+        self.assertEqual(buf.value, u"x")
 
-            buf[1] = u"Z"
-            self.assertEqual(buf.value, u"xZCD")
+        buf[1] = u"Z"
+        self.assertEqual(buf.value, u"xZCD")
 
 class StringTestCase(unittest.TestCase):
-    def XX_test_basic_strings(self):
+    @unittest.skip('test disabled')
+    def test_basic_strings(self):
         cs = c_string("abcdef")
 
         # Cannot call len on a c_string any longer
@@ -110,33 +108,36 @@ class StringTestCase(unittest.TestCase):
 
         self.assertRaises(TypeError, c_string, u"123")
 
-    def XX_test_sized_strings(self):
+    @unittest.skip('test disabled')
+    def test_sized_strings(self):
 
         # New in releases later than 0.4.0:
         self.assertRaises(TypeError, c_string, None)
 
         # New in releases later than 0.4.0:
         # c_string(number) returns an empty string of size number
-        self.assertTrue(len(c_string(32).raw) == 32)
+        self.assertEqual(len(c_string(32).raw), 32)
         self.assertRaises(ValueError, c_string, -1)
         self.assertRaises(ValueError, c_string, 0)
 
         # These tests fail, because it is no longer initialized
-##        self.assertTrue(c_string(2).value == "")
-##        self.assertTrue(c_string(2).raw == "\000\000")
-        self.assertTrue(c_string(2).raw[-1] == "\000")
-        self.assertTrue(len(c_string(2).raw) == 2)
+##        self.assertEqual(c_string(2).value, "")
+##        self.assertEqual(c_string(2).raw, "\000\000")
+        self.assertEqual(c_string(2).raw[-1], "\000")
+        self.assertEqual(len(c_string(2).raw), 2)
 
-    def XX_test_initialized_strings(self):
+    @unittest.skip('test disabled')
+    def test_initialized_strings(self):
 
-        self.assertTrue(c_string("ab", 4).raw[:2] == "ab")
-        self.assertTrue(c_string("ab", 4).raw[:2:] == "ab")
-        self.assertTrue(c_string("ab", 4).raw[:2:-1] == "ba")
-        self.assertTrue(c_string("ab", 4).raw[:2:2] == "a")
-        self.assertTrue(c_string("ab", 4).raw[-1] == "\000")
-        self.assertTrue(c_string("ab", 2).raw == "a\000")
+        self.assertEqual(c_string("ab", 4).raw[:2], "ab")
+        self.assertEqual(c_string("ab", 4).raw[:2:], "ab")
+        self.assertEqual(c_string("ab", 4).raw[:2:-1], "ba")
+        self.assertEqual(c_string("ab", 4).raw[:2:2], "a")
+        self.assertEqual(c_string("ab", 4).raw[-1], "\000")
+        self.assertEqual(c_string("ab", 2).raw, "a\000")
 
-    def XX_test_toolong(self):
+    @unittest.skip('test disabled')
+    def test_toolong(self):
         cs = c_string("abcdef")
         # Much too long string:
         self.assertRaises(ValueError, setattr, cs, "value", "123456789012345")
@@ -144,54 +145,53 @@ class StringTestCase(unittest.TestCase):
         # One char too long values:
         self.assertRaises(ValueError, setattr, cs, "value", "1234567")
 
-##    def test_perf(self):
-##        check_perf()
+    @unittest.skip('test disabled')
+    def test_perf(self):
+        check_perf()
 
-try:
-    c_wchar
-except NameError:
-    pass
-else:
-    class WStringTestCase(unittest.TestCase):
-        def test_wchar(self):
-            c_wchar(u"x")
-            repr(byref(c_wchar(u"x")))
-            c_wchar("x")
+@need_symbol('c_wchar')
+class WStringTestCase(unittest.TestCase):
+    def test_wchar(self):
+        c_wchar(u"x")
+        repr(byref(c_wchar(u"x")))
+        c_wchar("x")
 
 
-        def X_test_basic_wstrings(self):
-            cs = c_wstring(u"abcdef")
+    @unittest.skip('test disabled')
+    def test_basic_wstrings(self):
+        cs = c_wstring(u"abcdef")
 
-            # XXX This behaviour is about to change:
-            # len returns the size of the internal buffer in bytes.
-            # This includes the terminating NUL character.
-            self.assertTrue(sizeof(cs) == 14)
+        # XXX This behaviour is about to change:
+        # len returns the size of the internal buffer in bytes.
+        # This includes the terminating NUL character.
+        self.assertEqual(sizeof(cs), 14)
 
-            # The value property is the string up to the first terminating NUL.
-            self.assertTrue(cs.value == u"abcdef")
-            self.assertTrue(c_wstring(u"abc\000def").value == u"abc")
+        # The value property is the string up to the first terminating NUL.
+        self.assertEqual(cs.value, u"abcdef")
+        self.assertEqual(c_wstring(u"abc\000def").value, u"abc")
 
-            self.assertTrue(c_wstring(u"abc\000def").value == u"abc")
+        self.assertEqual(c_wstring(u"abc\000def").value, u"abc")
 
-            # The raw property is the total buffer contents:
-            self.assertTrue(cs.raw == u"abcdef\000")
-            self.assertTrue(c_wstring(u"abc\000def").raw == u"abc\000def\000")
+        # The raw property is the total buffer contents:
+        self.assertEqual(cs.raw, u"abcdef\000")
+        self.assertEqual(c_wstring(u"abc\000def").raw, u"abc\000def\000")
 
-            # We can change the value:
-            cs.value = u"ab"
-            self.assertTrue(cs.value == u"ab")
-            self.assertTrue(cs.raw == u"ab\000\000\000\000\000")
+        # We can change the value:
+        cs.value = u"ab"
+        self.assertEqual(cs.value, u"ab")
+        self.assertEqual(cs.raw, u"ab\000\000\000\000\000")
 
-            self.assertRaises(TypeError, c_wstring, "123")
-            self.assertRaises(ValueError, c_wstring, 0)
+        self.assertRaises(TypeError, c_wstring, "123")
+        self.assertRaises(ValueError, c_wstring, 0)
 
-        def X_test_toolong(self):
-            cs = c_wstring(u"abcdef")
-            # Much too long string:
-            self.assertRaises(ValueError, setattr, cs, "value", u"123456789012345")
+    @unittest.skip('test disabled')
+    def test_toolong(self):
+        cs = c_wstring(u"abcdef")
+        # Much too long string:
+        self.assertRaises(ValueError, setattr, cs, "value", u"123456789012345")
 
-            # One char too long values:
-            self.assertRaises(ValueError, setattr, cs, "value", u"1234567")
+        # One char too long values:
+        self.assertRaises(ValueError, setattr, cs, "value", u"1234567")
 
 
 def run_test(rep, msg, func, arg):

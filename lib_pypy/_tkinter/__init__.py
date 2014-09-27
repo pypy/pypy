@@ -5,6 +5,8 @@
 # This version is based on cffi, and is a translation of _tkinter.c
 # from CPython, version 2.7.4.
 
+import sys
+
 class TclError(Exception):
     pass
 
@@ -30,6 +32,10 @@ def create(screenName=None, baseName=None, className=None,
     return TkApp(screenName, baseName, className,
                  interactive, wantobjects, wantTk, sync, use)
 
+def dooneevent(flags=0):
+    return tklib.Tcl_DoOneEvent(flags)
+
+
 def _flatten(item):
     def _flatten1(output, item, depth):
         if depth > 1000:
@@ -46,4 +52,6 @@ def _flatten(item):
     result = []
     _flatten1(result, item, 0)
     return tuple(result)
-    
+
+
+tklib.Tcl_FindExecutable(sys.executable)

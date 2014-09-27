@@ -671,6 +671,7 @@ def _make_binop_impl(symbol, specialnames):
     left, right = specialnames
     errormsg = "unsupported operand type(s) for %s: '%%N' and '%%N'" % (
         symbol.replace('%', '%%'),)
+    seq_bug_compat = (symbol == '+' or symbol == '*')
 
     def binop_impl(space, w_obj1, w_obj2):
         w_typ1 = space.type(w_obj1)
@@ -686,20 +687,16 @@ def _make_binop_impl(symbol, specialnames):
             # __xxx__ and __rxxx__ methods where found by identity.
             # Note that space.is_w() is potentially not happy if one of them
             # is None...
-            if w_left_src is not w_right_src:    # XXX
-                # -- cpython bug compatibility: see objspace/std/test/
-                # -- test_unicodeobject.test_str_unicode_concat_overrides.
-                # -- The following handles "unicode + string subclass" by
-                # -- pretending that the unicode is a superclass of the
-                # -- string, thus giving priority to the string subclass'
-                # -- __radd__() method.  The case "string + unicode subclass"
-                # -- is handled directly by add__String_Unicode().
-                if symbol == '+' and space.is_w(w_typ1, space.w_unicode):
-                    w_typ1 = space.w_basestring
-                # -- end of bug compatibility
-                if space.is_true(space.issubtype(w_typ2, w_typ1)):
-                    if (w_left_src and w_right_src and
-                        not space.abstract_issubclass_w(w_left_src, w_right_src) and
+            if w_right_src and (w_left_src is not w_right_src) and w_left_src:
+                # 'seq_bug_compat' is for cpython bug-to-bug compatibility:
+                # see objspace/std/test/test_unicodeobject.*concat_overrides
+                # and objspace/test/test_descrobject.*rmul_overrides.
+                # For cases like "unicode + string subclass".
+                if ((seq_bug_compat and w_typ1.flag_sequence_bug_compat
+                                    and not w_typ2.flag_sequence_bug_compat)
+                        # the non-bug-compat part is the following check:
+                        or space.is_true(space.issubtype(w_typ2, w_typ1))):
+                    if (not space.abstract_issubclass_w(w_left_src, w_right_src) and
                         not space.abstract_issubclass_w(w_typ1, w_right_src)):
                         w_obj1, w_obj2 = w_obj2, w_obj1
                         w_left_impl, w_right_impl = w_right_impl, w_left_impl
