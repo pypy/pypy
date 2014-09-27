@@ -799,8 +799,25 @@ def make_unary_method(mpd_func_name):
         return unary_method(space, mpd_func, w_self, w_context)
     return interp2app(descr_method)
 
+# Binary function with an optional context arg.
+def binary_method(space, mpd_func, w_self, w_other, w_context):
+    self = space.interp_w(W_Decimal, w_self)
+    context = convert_context(space, w_context)
+    w_a, w_b = convert_binop_raise(space, context, w_self, w_other)
+    w_result = W_Decimal.allocate(space)
+    with context.catch_status(space) as (ctx, status_ptr):
+        mpd_func(w_result.mpd, w_a.mpd, w_b.mpd, ctx, status_ptr)
+    return w_result
+    
+def make_binary_method(mpd_func_name):
+    mpd_func = getattr(rmpdec, mpd_func_name)
+    @func_renamer('descr_%s' % mpd_func_name)
+    def descr_method(space, w_self, w_other, w_context=None):
+        return binary_method(space, mpd_func, w_self, w_other, w_context)
+    return interp2app(descr_method)
+
 def convert_context(space, w_context):
-    if w_context is None:
+    if space.is_none(w_context):
         return interp_context.getcontext(space)
     return space.interp_w(interp_context.W_Context, w_context)
 
@@ -1099,6 +1116,9 @@ W_Decimal.typedef = TypeDef(
     to_integral_exact = interp2app(W_Decimal.to_integral_exact_w),
     to_integral_value = interp2app(W_Decimal.to_integral_w),
     sqrt = make_unary_method('mpd_qsqrt'),
+    # Binary arithmetic functions, optional context arg
+    compare = make_binary_method('mpd_qcompare'),
+    compare_signal = make_binary_method('mpd_qcompare_signal'),
     # Ternary arithmetic functions, optional context arg
     fma = interp2app(W_Decimal.fma_w),
     # Boolean functions, no context arg
