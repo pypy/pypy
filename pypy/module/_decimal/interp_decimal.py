@@ -266,8 +266,8 @@ class W_Decimal(W_Root):
         s = rffi.charp2str(ptr)
         if len(s) == 0 or (len(s) == 1 and 32 <= ord(s[0]) < 128):
             return None, ptr
-        u = locale_decode(s)
-        s = u.encode('utf-8')
+        # XXX use mbstowcs()
+        s = s
         ptr = rffi.str2charp(s)
         return ptr, ptr
 
