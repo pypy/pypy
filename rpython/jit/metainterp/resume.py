@@ -562,16 +562,19 @@ class AbstractVArrayInfo(AbstractVirtualInfo):
         # NB. the check for the kind of array elements is moved out of the loop
         if arraydescr.is_array_of_pointers():
             for i in range(length):
-                decoder.setarrayitem_ref(array, i, self.fieldnums[i],
-                                         arraydescr)
+                num = self.fieldnums[i]
+                if not tagged_eq(num, UNINITIALIZED):
+                    decoder.setarrayitem_ref(array, i, num, arraydescr)
         elif arraydescr.is_array_of_floats():
             for i in range(length):
-                decoder.setarrayitem_float(array, i, self.fieldnums[i],
-                                           arraydescr)
+                num = self.fieldnums[i]
+                if not tagged_eq(num, UNINITIALIZED):
+                    decoder.setarrayitem_float(array, i, num, arraydescr)
         else:
             for i in range(length):
-                decoder.setarrayitem_int(array, i, self.fieldnums[i],
-                                         arraydescr)
+                num = self.fieldnums[i]
+                if not tagged_eq(num, UNINITIALIZED):
+                    decoder.setarrayitem_int(array, i, num, arraydescr)
         return array
 
     def debug_prints(self):

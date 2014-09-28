@@ -254,7 +254,10 @@ class AbstractVArrayValue(AbstractVirtualValue):
         for i in range(self.getlength()):
             itemvalue = self.get_item_value(i)
             if itemvalue is not None:
-                itemboxes.append(itemvalue.get_key_box())
+                box = itemvalue.get_key_box()
+            else:
+                box = None
+            itemboxes.append(box)
         visitor.register_virtual_fields(self.keybox, itemboxes)
         for i in range(self.getlength()):
             itemvalue = self.get_item_value(i)
@@ -280,9 +283,10 @@ class VArrayValue(AbstractVArrayValue):
 
     def get_item_value(self, i):
         """Return the i'th item, unless it is 'constvalue' on a 'clear'
-        array.  In that case, return None.  The idea is that this
-        method returns the value that must be set into an array that
-        was allocated with zero=True if 'clear' is True."""
+        array.  In that case (or if the i'th item is already None),
+        return None.  The idea is that this method returns the value
+        that must be set into an array that was allocated "correctly",
+        i.e. if 'clear' is True, that means with zero=True."""
         subvalue = self._items[i]
         if self.clear and subvalue is self.constvalue:
             subvalue = None
