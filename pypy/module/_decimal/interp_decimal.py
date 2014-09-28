@@ -1160,6 +1160,11 @@ W_Decimal.typedef = TypeDef(
     # Binary arithmetic functions, optional context arg
     compare = make_binary_method('mpd_qcompare'),
     compare_signal = make_binary_method('mpd_qcompare_signal'),
+    max = make_binary_method('mpd_qmax'),
+    max_mag = make_binary_method('mpd_qmax_mag'),
+    min = make_binary_method('mpd_qmin'),
+    next_toward = make_binary_method('mpd_qnext_toward'),
+    remainder_near = make_binary_method('mpd_qrem_near'),
     # Ternary arithmetic functions, optional context arg
     fma = interp2app(W_Decimal.fma_w),
     # Boolean functions, no context arg
