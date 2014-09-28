@@ -284,7 +284,8 @@ class VArrayValue(AbstractVArrayValue):
         method returns the value that must be set into an array that
         was allocated with zero=True if 'clear' is True."""
         subvalue = self._items[i]
-        if self.clear and subvalue is self.constvalue:
+        if self.clear and (subvalue is self.constvalue or
+                           subvalue.is_null()):
             subvalue = None
         return subvalue
 
