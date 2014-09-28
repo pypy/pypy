@@ -244,20 +244,6 @@ class _AppTestSelect:
         raises(OverflowError, pollster.modify, 1, -1)
         raises(OverflowError, pollster.modify, 1, 1 << 64)
 
-    def test_resize_list_in_select(self):
-        import select
-        class Foo(object):
-            def fileno(self):
-                print len(l)
-                if len(l) < 100:
-                    l.append(Foo())
-                return 0
-        l = [Foo()]
-        select.select(l, (), (), 0)
-        assert 1 <= len(l) <= 100    
-        # ^^^ CPython gives 100, PyPy gives 1.  I think both are OK as
-        # long as there is no crash.
-
 
 class AppTestSelectWithPipes(_AppTestSelect):
     "Use a pipe to get pairs of file descriptors"
@@ -317,6 +303,20 @@ class AppTestSelectWithPipes(_AppTestSelect):
             os.close(w)
             for fd in rfds:
                 os.close(fd)
+
+    def test_resize_list_in_select(self):
+        import select
+        class Foo(object):
+            def fileno(self):
+                print len(l)
+                if len(l) < 100:
+                    l.append(Foo())
+                return 0
+        l = [Foo()]
+        select.select(l, (), (), 0)
+        assert 1 <= len(l) <= 100    
+        # ^^^ CPython gives 100, PyPy gives 1.  I think both are OK as
+        # long as there is no crash.
 
 
 class AppTestSelectWithSockets(_AppTestSelect):
