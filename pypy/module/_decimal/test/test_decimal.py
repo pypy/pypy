@@ -335,6 +335,7 @@ class AppTestExplicitConstruction:
         d = Decimal("2.34")
         assert d.real == d
         assert d.imag == 0
+        assert d.conjugate() == d
 
     def test_operations(self):
         Decimal = self.decimal.Decimal

@@ -580,6 +580,10 @@ class W_Decimal(W_Root):
         context = interp_context.ensure_context(space, w_context)
         return space.wrap(bool(rmpdec.mpd_issubnormal(self.mpd, context.ctx)))
 
+    def conjugate_w(self, space):
+        context = interp_context.getcontext(space)
+        return decimal_from_decimal(space, None, self, context, exact=True)
+
     def as_tuple_w(self, space):
         "Return the DecimalTuple representation of a Decimal"
         w_sign = space.wrap(rmpdec.mpd_sign(self.mpd))
@@ -1163,8 +1167,15 @@ W_Decimal.typedef = TypeDef(
     max = make_binary_method('mpd_qmax'),
     max_mag = make_binary_method('mpd_qmax_mag'),
     min = make_binary_method('mpd_qmin'),
+    min_mag = make_binary_method('mpd_qmin_mag'),
     next_toward = make_binary_method('mpd_qnext_toward'),
     remainder_near = make_binary_method('mpd_qrem_near'),
+    logical_and = make_binary_method('mpd_qand'),
+    logical_or = make_binary_method('mpd_qor'),
+    logical_xor = make_binary_method('mpd_qxor'),
+    rotate = make_binary_method('mpd_qrotate'),
+    scaleb = make_binary_method('mpd_qscaleb'),
+    shift = make_binary_method('mpd_qshift'),
     # Ternary arithmetic functions, optional context arg
     fma = interp2app(W_Decimal.fma_w),
     # Boolean functions, no context arg
@@ -1179,6 +1190,8 @@ W_Decimal.typedef = TypeDef(
     # Boolean functions, optional context arg
     is_normal = interp2app(W_Decimal.is_normal_w),
     is_subnormal = interp2app(W_Decimal.is_subnormal_w),
+    # Unary functions, no context arg
+    conjugate = interp2app(W_Decimal.conjugate_w),
     # Binary functions, optional context arg for conversion errors
     compare_total = make_binary_method_noctx('mpd_compare_total'),
     compare_total_mag = make_binary_method_noctx('mpd_compare_total_mag'),

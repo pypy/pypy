@@ -63,6 +63,7 @@ eci = ExternalCompilationInfo(
         "mpd_qexp", "mpd_qln", "mpd_qlog10", "mpd_qlogb",
         "mpd_qsqrt", "mpd_qinvert",
         "mpd_qand", "mpd_qor", "mpd_qxor",
+        "mpd_qrotate", "mpd_qscaleb", "mpd_qshift",
         "mpd_qcopy_sign", "mpd_qcopy_abs", "mpd_qcopy_negate",
         "mpd_qround_to_int", "mpd_qround_to_intx",
         "mpd_parse_fmt_str", "mpd_qformat_spec", "mpd_validate_lconv",
@@ -405,6 +406,16 @@ mpd_qcopy_negate = external(
     'mpd_qcopy_negate',
     [MPD_PTR, MPD_PTR, rffi.UINTP],
     lltype.Void)
+
+mpd_qrotate = external(
+    'mpd_qrotate',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qscaleb = external(
+    'mpd_qscaleb',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_qshift = external(
+    'mpd_qshift',
+    [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 
 mpd_qround_to_int = external(
     'mpd_qround_to_int', [MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP],
