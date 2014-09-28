@@ -2036,6 +2036,14 @@ class LLtypeBackendTest(BaseBackendTest):
                                     'ref', descr=arraydescr)
         assert r1.value != r2.value
         a = lltype.cast_opaque_ptr(lltype.Ptr(A), r1.value)
+        assert len(a) == 342
+
+    def test_new_array_clear(self):
+        A = lltype.GcArray(lltype.Signed)
+        arraydescr = self.cpu.arraydescrof(A)
+        r1 = self.execute_operation(rop.NEW_ARRAY_CLEAR, [BoxInt(342)],
+                                    'ref', descr=arraydescr)
+        a = lltype.cast_opaque_ptr(lltype.Ptr(A), r1.value)
         assert a[0] == 0
         assert len(a) == 342
 
@@ -4272,9 +4280,6 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 23
         assert self.cpu.get_int_value(deadframe, 0) == 42
-        # make sure that force reads the registers from a zeroed piece of
-        # memory
-        assert values[0] == 0
 
     def test_compile_bridge_while_running(self):
         def func():
@@ -4442,3 +4447,99 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.execute_operation(rop.CAST_FLOAT_TO_SINGLEFLOAT,
                                    [boxfloat(12.5)], 'int')
         assert res.getint() == struct.unpack("I", struct.pack("f", 12.5))[0]
+
+    def test_zero_ptr_field(self):
+        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+        
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("llgraph can't do zero_ptr_field")
+        T = lltype.GcStruct('T')
+        S = lltype.GcStruct('S', ('x', lltype.Ptr(T)))
+        tdescr = self.cpu.sizeof(T)
+        sdescr = self.cpu.sizeof(S)
+        fielddescr = self.cpu.fielddescrof(S, 'x')
+        loop = parse("""
+        []
+        p0 = new(descr=tdescr)
+        p1 = new(descr=sdescr)
+        setfield_gc(p1, p0, descr=fielddescr)
+        zero_ptr_field(p1, %d)
+        finish(p1)
+        """ % fielddescr.offset, namespace=locals())
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        deadframe = self.cpu.execute_token(looptoken)
+        ref = self.cpu.get_ref_value(deadframe, 0)
+        s = lltype.cast_opaque_ptr(lltype.Ptr(S), ref)
+        assert not s.x
+
+    def test_zero_ptr_field_2(self):
+        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("llgraph does not do zero_ptr_field")
+        
+        from rpython.jit.backend.llsupport import symbolic
+        S = lltype.GcStruct('S', ('x', lltype.Signed),
+                                 ('p', llmemory.GCREF),
+                                 ('y', lltype.Signed))
+        s = lltype.malloc(S)
+        s.x = -1296321
+        s.y = -4398176
+        s_ref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+        s.p = s_ref
+        ofs_p, _ = symbolic.get_field_token(S, 'p', False)
+        #
+        self.execute_operation(rop.ZERO_PTR_FIELD, [
+            BoxPtr(s_ref), ConstInt(ofs_p)],   # OK for now to assume that the
+            'void')                            # 2nd argument is a constant
+        #
+        assert s.x == -1296321
+        assert s.p == lltype.nullptr(llmemory.GCREF.TO)
+        assert s.y == -4398176
+
+    def test_zero_array(self):
+        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("llgraph does not do zero_array")
+        
+        PAIR = lltype.Struct('PAIR', ('a', lltype.Signed), ('b', lltype.Signed))
+        for OF in [lltype.Signed, rffi.INT, rffi.SHORT, rffi.UCHAR, PAIR]:
+            A = lltype.GcArray(OF)
+            arraydescr = self.cpu.arraydescrof(A)
+            a = lltype.malloc(A, 100)
+            addr = llmemory.cast_ptr_to_adr(a)
+            a_int = heaptracker.adr2int(addr)
+            a_ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
+            for (start, length) in [(0, 100), (49, 49), (1, 98),
+                                    (15, 9), (10, 10), (47, 0),
+                                    (0, 4)]:
+                for cls1 in [ConstInt, BoxInt]:
+                    for cls2 in [ConstInt, BoxInt]:
+                        print 'a_int:', a_int
+                        print 'of:', OF
+                        print 'start:', cls1.__name__, start
+                        print 'length:', cls2.__name__, length
+                        for i in range(100):
+                            if OF == PAIR:
+                                a[i].a = a[i].b = -123456789
+                            else:
+                                a[i] = rffi.cast(OF, -123456789)
+                        startbox = cls1(start)
+                        lengthbox = cls2(length)
+                        if cls1 == cls2 and start == length:
+                            lengthbox = startbox    # same box!
+                        self.execute_operation(rop.ZERO_ARRAY,
+                                               [BoxPtr(a_ref),
+                                                startbox,
+                                                lengthbox],
+                                           'void', descr=arraydescr)
+                        assert len(a) == 100
+                        for i in range(100):
+                            val = (0 if start <= i < start + length
+                                     else -123456789)
+                            if OF == PAIR:
+                                assert a[i].a == a[i].b == val
+                            else:
+                                assert a[i] == rffi.cast(OF, val)

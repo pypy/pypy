@@ -110,9 +110,12 @@ class TestString(BaseTestPyPyC):
             i85 = strlen(p80)
             p86 = new(descr=<SizeDescr .+>)
             p88 = newstr(23)
-            setfield_gc(..., descr=<Field. stringbuilder.+>)
-            setfield_gc(..., descr=<Field. stringbuilder.+>)
-            setfield_gc(..., descr=<Field. stringbuilder.+>)
+            {{{
+            setfield_gc(p86, 0, descr=<FieldS stringbuilder.current_pos .+>)
+            setfield_gc(p86, p88, descr=<FieldP stringbuilder.current_buf .+>)
+            setfield_gc(p86, 23, descr=<FieldS stringbuilder.current_end .+>)
+            setfield_gc(p86, 23, descr=<FieldS stringbuilder.total_size .+>)
+            }}}
             call(ConstClass(ll_append_res0__stringbuilderPtr_rpy_stringPtr), p86, p80, descr=<Callv 0 rr EF=4>)
             guard_no_exception(descr=...)
             i89 = getfield_gc(p86, descr=<FieldS stringbuilder.current_pos .+>)

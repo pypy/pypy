@@ -52,10 +52,13 @@ class OperationBuilder(object):
 
     def do(self, opnum, argboxes, descr=None):
         self.fakemetainterp._got_exc = None
-        v_result = execute_nonspec(self.cpu, self.fakemetainterp,
-                                   opnum, argboxes, descr)
-        if isinstance(v_result, Const):
-            v_result = v_result.clonebox()
+        if opnum == rop.ZERO_PTR_FIELD:
+            v_result = None
+        else:
+            v_result = execute_nonspec(self.cpu, self.fakemetainterp,
+                                       opnum, argboxes, descr)
+            if isinstance(v_result, Const):
+                v_result = v_result.clonebox()
         self.loop.operations.append(ResOperation(opnum, argboxes, v_result,
                                                  descr))
         return v_result

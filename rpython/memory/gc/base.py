@@ -47,9 +47,6 @@ class GCBase(object):
     def _teardown(self):
         pass
 
-    def can_malloc_nonmovable(self):
-        return not self.moving_gc
-
     def can_optimize_clean_setarrayitems(self):
         return True     # False in case of card marking
 
@@ -133,6 +130,8 @@ class GCBase(object):
         """For testing.  The interface used by the gctransformer is
         the four malloc_[fixed,var]size[_clear]() functions.
         """
+        #TODO:check if the zero flag is unuseful now. If so, remove it
+        
         # Rules about fallbacks in case of missing malloc methods:
         #  * malloc_fixedsize_clear() and malloc_varsize_clear() are mandatory
         #  * malloc_fixedsize() and malloc_varsize() fallback to the above
@@ -149,14 +148,14 @@ class GCBase(object):
             assert not needs_finalizer
             itemsize = self.varsize_item_sizes(typeid)
             offset_to_length = self.varsize_offset_to_length(typeid)
-            if zero or not hasattr(self, 'malloc_varsize'):
+            if self.malloc_zero_filled:
                 malloc_varsize = self.malloc_varsize_clear
             else:
                 malloc_varsize = self.malloc_varsize
             ref = malloc_varsize(typeid, length, size, itemsize,
                                  offset_to_length)
         else:
-            if zero or not hasattr(self, 'malloc_fixedsize'):
+            if self.malloc_zero_filled:
                 malloc_fixedsize = self.malloc_fixedsize_clear
             else:
                 malloc_fixedsize = self.malloc_fixedsize
@@ -165,9 +164,6 @@ class GCBase(object):
                                    contains_weakptr)
         # lots of cast and reverse-cast around...
         return llmemory.cast_ptr_to_adr(ref)
-
-    def malloc_nonmovable(self, typeid, length=0, zero=False):
-        return self.malloc(typeid, length, zero)
 
     def id(self, ptr):
         return lltype.cast_ptr_to_int(ptr)
