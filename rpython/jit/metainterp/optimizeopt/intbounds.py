@@ -24,6 +24,8 @@ def get_integer_max(is_unsigned, byte_size):
         return (1 << ((byte_size << 3) - 1)) - 1
 
 
+IS_64_BIT = sys.maxint > 2**32
+
 def next_pow2_m1(n):
     """Calculate next power of 2 greater than n minus one."""
     n |= n >> 1
@@ -31,7 +33,8 @@ def next_pow2_m1(n):
     n |= n >> 4
     n |= n >> 8
     n |= n >> 16
-    n |= n >> 32
+    if IS_64_BIT:
+        n |= n >> 32
     return n
 
 
