@@ -52,6 +52,7 @@ eci = ExternalCompilationInfo(
         "mpd_isnormal", "mpd_issubnormal", "mpd_isspecial", "mpd_iscanonical",
         "mpd_isnan", "mpd_issnan", "mpd_isqnan",
         "mpd_qcmp", "mpd_qcompare", "mpd_qcompare_signal",
+        "mpd_compare_total", "mpd_compare_total_mag",
         "mpd_qmin", "mpd_qmax", "mpd_qmin_mag", "mpd_qmax_mag",
         "mpd_qnext_minus", "mpd_qnext_plus", "mpd_qnext_toward",
         "mpd_qquantize", "mpd_qreduce",
@@ -277,6 +278,12 @@ mpd_qcompare = external(
 mpd_qcompare_signal = external(
     'mpd_qcompare_signal',
     [MPD_PTR, MPD_PTR, MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
+mpd_compare_total = external(
+    'mpd_compare_total',
+    [MPD_PTR, MPD_PTR, MPD_PTR], lltype.Void)
+mpd_compare_total_mag = external(
+    'mpd_compare_total_mag',
+    [MPD_PTR, MPD_PTR, MPD_PTR], lltype.Void)
 
 mpd_qmin = external(
     'mpd_qmin',

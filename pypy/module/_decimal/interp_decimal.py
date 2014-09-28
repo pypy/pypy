@@ -265,7 +265,7 @@ class W_Decimal(W_Root):
     def _recode_to_utf8(self, ptr):
         s = rffi.charp2str(ptr)
         if len(s) == 0 or (len(s) == 1 and 32 <= ord(s[0]) < 128):
-            return None, ptr
+            return lltype.nullptr(rffi.CCHARP.TO), ptr
         # XXX use mbstowcs()
         s = s
         ptr = rffi.str2charp(s)
@@ -816,6 +816,22 @@ def make_binary_method(mpd_func_name):
         return binary_method(space, mpd_func, w_self, w_other, w_context)
     return interp2app(descr_method)
 
+# Binary function, optional context arg for conversion errors.
+def binary_method_noctx(space, mpd_func, w_self, w_other, w_context):
+    self = space.interp_w(W_Decimal, w_self)
+    context = convert_context(space, w_context)
+    w_a, w_b = convert_binop_raise(space, context, w_self, w_other)
+    w_result = W_Decimal.allocate(space)
+    mpd_func(w_result.mpd, w_a.mpd, w_b.mpd)
+    return w_result
+    
+def make_binary_method_noctx(mpd_func_name):
+    mpd_func = getattr(rmpdec, mpd_func_name)
+    @func_renamer('descr_%s' % mpd_func_name)
+    def descr_method(space, w_self, w_other, w_context=None):
+        return binary_method_noctx(space, mpd_func, w_self, w_other, w_context)
+    return interp2app(descr_method)
+
 def convert_context(space, w_context):
     if space.is_none(w_context):
         return interp_context.getcontext(space)
@@ -1134,6 +1150,8 @@ W_Decimal.typedef = TypeDef(
     is_normal = interp2app(W_Decimal.is_normal_w),
     is_subnormal = interp2app(W_Decimal.is_subnormal_w),
     # Binary functions, optional context arg for conversion errors
+    compare_total = make_binary_method_noctx('mpd_compare_total'),
+    compare_total_mag = make_binary_method_noctx('mpd_compare_total_mag'),
     copy_sign = interp2app(W_Decimal.copy_sign_w),
     #
     as_tuple = interp2app(W_Decimal.as_tuple_w),
