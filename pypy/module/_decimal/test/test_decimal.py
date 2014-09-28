@@ -330,6 +330,12 @@ class AppTestExplicitConstruction:
         assert str(nc.create_decimal(Decimal('NaN12345'))) == 'NaN'
         assert nc.flags[InvalidOperation]
 
+    def test_complex(self):
+        Decimal = self.decimal.Decimal
+        d = Decimal("2.34")
+        assert d.real == d
+        assert d.imag == 0
+
     def test_operations(self):
         Decimal = self.decimal.Decimal
 

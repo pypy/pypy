@@ -360,6 +360,14 @@ class W_Decimal(W_Root):
             ret = ret.replace('\xff', '\0')
         return space.wrap(ret.decode('utf-8'))
 
+    def get_real(self, space):
+        context = interp_context.getcontext(space)
+        return decimal_from_decimal(space, None, self, context, exact=True)
+
+    def get_imag(self, space):
+        context = interp_context.getcontext(space)
+        return decimal_from_ssize(space, None, 0, context, exact=True)
+
     def compare(self, space, w_other, op):
         context = interp_context.getcontext(space)
         w_err, w_self, w_other = convert_binop_cmp(
@@ -1099,6 +1107,9 @@ W_Decimal.typedef = TypeDef(
     __ceil__ = interp2app(W_Decimal.descr_ceil),
     __round__ = interp2app(W_Decimal.descr_round),
     __format__ = interp2app(W_Decimal.descr_format),
+    #
+    real = GetSetProperty(W_Decimal.get_real),
+    imag = GetSetProperty(W_Decimal.get_imag),
     #
     __eq__ = interp2app(W_Decimal.descr_eq),
     __ne__ = interp2app(W_Decimal.descr_ne),
