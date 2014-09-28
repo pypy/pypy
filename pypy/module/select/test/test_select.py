@@ -85,17 +85,18 @@ class _AppTestSelect:
                 assert owtd == [writeend]
                 total_out += writeend.send(b'x' * 512)
             total_in = 0
-            while True:
-                iwtd, owtd, ewtd = select.select([readend], [], [], 0)
+            while total_in < total_out:
+                iwtd, owtd, ewtd = select.select([readend], [], [], 5)
                 assert owtd == ewtd == []
-                if iwtd == []:
-                    break
-                assert iwtd == [readend]
+                assert iwtd == [readend]    # there is more expected
                 data = readend.recv(4096)
                 assert len(data) > 0
                 assert data == b'x' * len(data)
                 total_in += len(data)
             assert total_in == total_out
+            iwtd, owtd, ewtd = select.select([readend], [], [], 0)
+            assert owtd == ewtd == []
+            assert iwtd == []    # there is not more expected
         finally:
             writeend.close()
             readend.close()
