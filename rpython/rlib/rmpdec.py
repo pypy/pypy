@@ -46,7 +46,7 @@ eci = ExternalCompilationInfo(
         "mpd_qsetprec", "mpd_qsetemin",  "mpd_qsetemax", "mpd_qsetround", "mpd_qsetclamp",
         "mpd_maxcontext",
         "mpd_qnew", "mpd_del",
-        "mpd_to_sci", "mpd_to_sci_size",
+        "mpd_to_sci", "mpd_to_sci_size", "mpd_to_eng_size",
         "mpd_iszero", "mpd_isnegative", "mpd_issigned",
         "mpd_isfinite", "mpd_isinfinite",
         "mpd_isnormal", "mpd_issubnormal", "mpd_isspecial", "mpd_iscanonical",
@@ -244,6 +244,8 @@ mpd_to_sci = external(
     'mpd_to_sci', [MPD_PTR, rffi.INT], rffi.CCHARP)
 mpd_to_sci_size = external(
     'mpd_to_sci_size', [rffi.CCHARPP, MPD_PTR, rffi.INT], rffi.SSIZE_T)
+mpd_to_eng_size = external(
+    'mpd_to_eng_size', [rffi.CCHARPP, MPD_PTR, rffi.INT], rffi.SSIZE_T)
 
 # Operations
 mpd_iszero = external(

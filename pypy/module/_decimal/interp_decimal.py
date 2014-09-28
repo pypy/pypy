@@ -497,6 +497,19 @@ class W_Decimal(W_Root):
         cp = rmpdec.mpd_class(self.mpd, context.ctx)
         return space.wrap(rffi.charp2str(cp))
 
+    def to_eng_string_w(self, space, w_context=None):
+        context = interp_context.ensure_context(space, w_context)
+        with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as cp_ptr:
+            size = rmpdec.mpd_to_eng_size(cp_ptr, self.mpd, context.capitals)
+            if size < 0:
+                raise OperationError(space.w_MemoryError, space.w_None)
+            cp = cp_ptr[0]
+            try:
+                result = rffi.charpsize2str(cp, size)
+            finally:
+                rmpdec.mpd_free(cp)
+        return space.wrap(result)  # Convert bytes to unicode
+
     def to_integral_w(self, space, w_rounding=None, w_context=None):
         context = interp_context.ensure_context(space, w_context)
         w_workctx = context.copy_w(space)
@@ -1128,6 +1141,7 @@ W_Decimal.typedef = TypeDef(
     next_plus = make_unary_method('mpd_qnext_plus'),
     normalize = make_unary_method('mpd_qreduce'),
     number_class = interp2app(W_Decimal.number_class_w),
+    to_eng_string = interp2app(W_Decimal.to_eng_string_w),
     to_integral = interp2app(W_Decimal.to_integral_w),
     to_integral_exact = interp2app(W_Decimal.to_integral_exact_w),
     to_integral_value = interp2app(W_Decimal.to_integral_w),
