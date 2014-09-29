@@ -48,7 +48,8 @@ class GcRewriterAssembler(object):
         self.known_lengths = {}
         self.write_barrier_applied = {}
         self.delayed_zero_setfields = {}
-        self.delayed_zero_setarrayitems = {}
+        self.last_zero_arrays = []
+        self.setarrayitems_occurred = {}   # {box: {set-of-indexes}}
 
     def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly
@@ -81,6 +82,7 @@ class GcRewriterAssembler(object):
                     self.handle_write_barrier_setinteriorfield(op)
                     continue
                 if op.getopnum() == rop.SETARRAYITEM_GC:
+                    self.consider_setarrayitem_gc(op)
                     self.handle_write_barrier_setarrayitem(op)
                     continue
             else:
@@ -89,6 +91,8 @@ class GcRewriterAssembler(object):
                 # need to clal it
                 if op.getopnum() == rop.SETFIELD_GC:
                     self.consider_setfield_gc(op)
+                elif op.getopnum() == rop.SETARRAYITEM_GC:
+                    self.consider_setarrayitem_gc(op)
             # ---------- call assembler -----------
             if op.getopnum() == rop.CALL_ASSEMBLER:
                 self.handle_call_assembler(op)
@@ -145,6 +149,16 @@ class GcRewriterAssembler(object):
             del self.delayed_zero_setfields[op.getarg(0)][offset]
         except KeyError:
             pass
+
+    def consider_setarrayitem_gc(self, op):
+        array_box = op.getarg(0)
+        index_box = op.getarg(1)
+        if isinstance(array_box, BoxPtr) and isinstance(index_box, ConstInt):
+            try:
+                intset = self.setarrayitems_occurred[array_box]
+            except KeyError:
+                intset = self.setarrayitems_occurred[array_box] = {}
+            intset[index_box.getint()] = None
 
     def clear_varsize_gc_fields(self, kind, descr, result, v_length, opnum):
         if self.gc_ll_descr.malloc_zero_filled:
@@ -216,18 +230,18 @@ class GcRewriterAssembler(object):
         self.clear_varsize_gc_fields(kind, op.getdescr(), op.result, v_length,
                                      op.getopnum())
 
-    def handle_clear_array_contents(self, arraydescr, v_arr, v_length=None):
-        # XXX more work here to reduce or remove the ZERO_ARRAY in some cases
-        if v_length is None:
-            v_length = BoxInt()
-            o = ResOperation(rop.ARRAYLEN_GC, [v_arr], v_length,
-                             descr=arraydescr)
-            self.newops.append(o)
-        elif isinstance(v_length, ConstInt) and v_length.getint() == 0:
+    def handle_clear_array_contents(self, arraydescr, v_arr, v_length):
+        assert v_length is not None
+        if isinstance(v_length, ConstInt) and v_length.getint() == 0:
             return
+        # the ZERO_ARRAY operation will be optimized according to what
+        # SETARRAYITEM_GC we see before the next allocation operation.
+        # See emit_pending_zeros().
         o = ResOperation(rop.ZERO_ARRAY, [v_arr, self.c_zero, v_length], None,
                          descr=arraydescr)
         self.newops.append(o)
+        if isinstance(v_length, ConstInt):
+            self.last_zero_arrays.append(o)
 
     def gen_malloc_frame(self, frame_info, frame, size_box):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
@@ -317,6 +331,31 @@ class GcRewriterAssembler(object):
         self.emit_pending_zeros()
 
     def emit_pending_zeros(self):
+        # First, try to rewrite the existing ZERO_ARRAY operations from
+        # the 'last_zero_arrays' list.  Note that these operation objects
+        # are also already in 'newops', which is the point.
+        for op in self.last_zero_arrays:
+            assert op.getopnum() == rop.ZERO_ARRAY
+            box = op.getarg(0)
+            try:
+                intset = self.setarrayitems_occurred[box]
+            except KeyError:
+                continue
+            assert op.getarg(1).getint() == 0   # always 'start=0' initially
+            start = 0
+            while start in intset:
+                start += 1
+            op.setarg(1, ConstInt(start))
+            stop = op.getarg(2).getint()
+            assert start <= stop
+            while stop > start and (stop - 1) in intset:
+                stop -= 1
+            op.setarg(2, ConstInt(stop - start))
+            # ^^ may be ConstInt(0); then the operation becomes a no-op
+        del self.last_zero_arrays[:]
+        self.setarrayitems_occurred.clear()
+        #
+        # Then write the ZERO_PTR_FIELDs that are still pending
         for v, d in self.delayed_zero_setfields.iteritems():
             for ofs in d.iterkeys():
                 op = ResOperation(rop.ZERO_PTR_FIELD, [v, ConstInt(ofs)], None)

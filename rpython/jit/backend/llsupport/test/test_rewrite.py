@@ -743,6 +743,163 @@ class TestFramework(RewriteTests):
             jump()
         """)
 
+    def test_zero_array_reduced_left(self):
+        self.check_rewrite("""
+            [p1, p2]
+            p0 = new_array_clear(5, descr=cdescr)
+            setarrayitem_gc(p0, 1, p1, descr=cdescr)
+            setarrayitem_gc(p0, 0, p2, descr=cdescr)
+            jump()
+        """, """
+            [p1, p2]
+            p0 = call_malloc_nursery(    \
+                                %(cdescr.basesize + 5 * cdescr.itemsize)d)
+            setfield_gc(p0, 8111, descr=tiddescr)
+            setfield_gc(p0, 5, descr=clendescr)
+            zero_array(p0, 2, 3, descr=cdescr)
+            setarrayitem_gc(p0, 1, p1, descr=cdescr)
+            setarrayitem_gc(p0, 0, p2, descr=cdescr)
+            jump()
+        """)
+
+    def test_zero_array_reduced_right(self):
+        self.check_rewrite("""
+            [p1, p2]
+            p0 = new_array_clear(5, descr=cdescr)
+            setarrayitem_gc(p0, 3, p1, descr=cdescr)
+            setarrayitem_gc(p0, 4, p2, descr=cdescr)
+            jump()
+        """, """
+            [p1, p2]
+            p0 = call_malloc_nursery(    \
+                                %(cdescr.basesize + 5 * cdescr.itemsize)d)
+            setfield_gc(p0, 8111, descr=tiddescr)
+            setfield_gc(p0, 5, descr=clendescr)
+            zero_array(p0, 0, 3, descr=cdescr)
+            setarrayitem_gc(p0, 3, p1, descr=cdescr)
+            setarrayitem_gc(p0, 4, p2, descr=cdescr)
+            jump()
+        """)
+
+    def test_zero_array_not_reduced_at_all(self):
+        self.check_rewrite("""
+            [p1, p2]
+            p0 = new_array_clear(5, descr=cdescr)
+            setarrayitem_gc(p0, 3, p1, descr=cdescr)
+            setarrayitem_gc(p0, 2, p2, descr=cdescr)
+            setarrayitem_gc(p0, 1, p2, descr=cdescr)
+            jump()
+        """, """
+            [p1, p2]
+            p0 = call_malloc_nursery(    \
+                                %(cdescr.basesize + 5 * cdescr.itemsize)d)
+            setfield_gc(p0, 8111, descr=tiddescr)
+            setfield_gc(p0, 5, descr=clendescr)
+            zero_array(p0, 0, 5, descr=cdescr)
+            setarrayitem_gc(p0, 3, p1, descr=cdescr)
+            setarrayitem_gc(p0, 2, p2, descr=cdescr)
+            setarrayitem_gc(p0, 1, p2, descr=cdescr)
+            jump()
+        """)
+
+    def test_zero_array_reduced_completely(self):
+        self.check_rewrite("""
+            [p1, p2]
+            p0 = new_array_clear(5, descr=cdescr)
+            setarrayitem_gc(p0, 3, p1, descr=cdescr)
+            setarrayitem_gc(p0, 4, p2, descr=cdescr)
+            setarrayitem_gc(p0, 0, p1, descr=cdescr)
+            setarrayitem_gc(p0, 2, p2, descr=cdescr)
+            setarrayitem_gc(p0, 1, p2, descr=cdescr)
+            jump()
+        """, """
+            [p1, p2]
+            p0 = call_malloc_nursery(    \
+                                %(cdescr.basesize + 5 * cdescr.itemsize)d)
+            setfield_gc(p0, 8111, descr=tiddescr)
+            setfield_gc(p0, 5, descr=clendescr)
+            zero_array(p0, 5, 0, descr=cdescr)
+            setarrayitem_gc(p0, 3, p1, descr=cdescr)
+            setarrayitem_gc(p0, 4, p2, descr=cdescr)
+            setarrayitem_gc(p0, 0, p1, descr=cdescr)
+            setarrayitem_gc(p0, 2, p2, descr=cdescr)
+            setarrayitem_gc(p0, 1, p2, descr=cdescr)
+            jump()
+        """)
+
+    def test_zero_array_reduced_left_with_call(self):
+        self.check_rewrite("""
+            [p1, p2]
+            p0 = new_array_clear(5, descr=cdescr)
+            setarrayitem_gc(p0, 0, p1, descr=cdescr)
+            call(321321)
+            setarrayitem_gc(p0, 1, p2, descr=cdescr)
+            jump()
+        """, """
+            [p1, p2]
+            p0 = call_malloc_nursery(    \
+                                %(cdescr.basesize + 5 * cdescr.itemsize)d)
+            setfield_gc(p0, 8111, descr=tiddescr)
+            setfield_gc(p0, 5, descr=clendescr)
+            zero_array(p0, 1, 4, descr=cdescr)
+            setarrayitem_gc(p0, 0, p1, descr=cdescr)
+            call(321321)
+            cond_call_gc_wb(p0, descr=wbdescr)
+            setarrayitem_gc(p0, 1, p2, descr=cdescr)
+            jump()
+        """)
+
+    def test_zero_array_reduced_left_with_label(self):
+        self.check_rewrite("""
+            [p1, p2]
+            p0 = new_array_clear(5, descr=cdescr)
+            setarrayitem_gc(p0, 0, p1, descr=cdescr)
+            label(p0, p2)
+            setarrayitem_gc(p0, 1, p2, descr=cdescr)
+            jump()
+        """, """
+            [p1, p2]
+            p0 = call_malloc_nursery(    \
+                                %(cdescr.basesize + 5 * cdescr.itemsize)d)
+            setfield_gc(p0, 8111, descr=tiddescr)
+            setfield_gc(p0, 5, descr=clendescr)
+            zero_array(p0, 1, 4, descr=cdescr)
+            setarrayitem_gc(p0, 0, p1, descr=cdescr)
+            label(p0, p2)
+            cond_call_gc_wb_array(p0, 1, descr=wbdescr)
+            setarrayitem_gc(p0, 1, p2, descr=cdescr)
+            jump()
+        """)
+
+    def test_zero_array_varsize(self):
+        self.check_rewrite("""
+            [p1, p2, i3]
+            p0 = new_array_clear(i3, descr=bdescr)
+            jump()
+        """, """
+            [p1, p2, i3]
+            p0 = call_malloc_nursery_varsize(0, 1, i3, descr=bdescr)
+            setfield_gc(p0, i3, descr=blendescr)
+            zero_array(p0, 0, i3, descr=bdescr)
+            jump()
+        """)
+
+    def test_zero_array_varsize_cannot_reduce(self):
+        self.check_rewrite("""
+            [p1, p2, i3]
+            p0 = new_array_clear(i3, descr=bdescr)
+            setarrayitem_gc(p0, 0, p1, descr=bdescr)
+            jump()
+        """, """
+            [p1, p2, i3]
+            p0 = call_malloc_nursery_varsize(0, 1, i3, descr=bdescr)
+            setfield_gc(p0, i3, descr=blendescr)
+            zero_array(p0, 0, i3, descr=bdescr)
+            cond_call_gc_wb_array(p0, 0, descr=wbdescr)
+            setarrayitem_gc(p0, 0, p1, descr=bdescr)
+            jump()
+        """)
+
     def test_initialization_store_potentially_large_array(self):
         # the write barrier cannot be omitted, because we might get
         # an array with cards and the GC assumes that the write

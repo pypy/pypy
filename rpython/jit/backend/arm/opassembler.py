@@ -1180,6 +1180,9 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_zero_array(self, op, arglocs, regalloc, fcond):
         from rpython.jit.backend.llsupport.descr import unpack_arraydescr
         assert len(arglocs) == 0
+        length_box = op.getarg(2)
+        if isinstance(length_box, ConstInt) and length_box.getint() == 0:
+            return fcond     # nothing to do
         itemsize, baseofs, _ = unpack_arraydescr(op.getdescr())
         args = op.getarglist()
         base_loc = regalloc.rm.make_sure_var_in_reg(args[0], args)
@@ -1191,7 +1194,6 @@ class ResOpAssembler(BaseAssembler):
         else:
             startindex_loc = regalloc.rm.make_sure_var_in_reg(sibox, args)
             startindex = -1
-        length_box = op.getarg(2)
 
         # base_loc and startindex_loc are in two regs here (or they are
         # immediates).  Compute the dstaddr_loc, which is the raw

@@ -1386,14 +1386,16 @@ class RegAlloc(BaseRegalloc):
 
     def consider_zero_array(self, op):
         itemsize, baseofs, _ = unpack_arraydescr(op.getdescr())
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(args[0], args)
-        startindex_loc = self.rm.make_sure_var_in_reg(args[1], args)
         length_box = op.getarg(2)
         if isinstance(length_box, ConstInt):
             constbytes = length_box.getint() * itemsize
+            if constbytes == 0:
+                return    # nothing to do
         else:
             constbytes = -1
+        args = op.getarglist()
+        base_loc = self.rm.make_sure_var_in_reg(args[0], args)
+        startindex_loc = self.rm.make_sure_var_in_reg(args[1], args)
         if 0 <= constbytes <= 16 * 8 and (
                 valid_addressing_size(itemsize) or
 -               isinstance(startindex_loc, ImmedLoc)):
