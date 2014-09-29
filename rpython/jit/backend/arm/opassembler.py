@@ -1256,3 +1256,4 @@ class ResOpAssembler(BaseAssembler):
                                         [dstaddr_loc, imm(0), length_loc])
             regalloc.rm.possibly_free_var(length_box)
         regalloc.rm.possibly_free_var(dstaddr_box)
+        return fcond
