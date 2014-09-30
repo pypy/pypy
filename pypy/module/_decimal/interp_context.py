@@ -306,6 +306,19 @@ class W_Context(W_Root):
                             ctx, status_ptr)
         return w_result
 
+    def apply_w(self, space, w_v):
+        from pypy.module._decimal import interp_decimal
+        w_a = interp_decimal.convert_op_raise(space, self, w_v)
+        return w_a.apply(space, self)
+
+    def copy_abs_w(self, space, w_v):
+        from pypy.module._decimal import interp_decimal
+        w_a = interp_decimal.convert_op_raise(space, self, w_v)
+        w_result = interp_decimal.W_Decimal.allocate(space)
+        with self.catch_status(space) as (ctx, status_ptr):
+            rmpdec.mpd_qcopy_abs(w_result.mpd, w_a.mpd, status_ptr)
+        return w_result
+
 def descr_new_context(space, w_subtype, __args__):
     w_result = space.allocate_instance(W_Context, w_subtype)
     W_Context.__init__(w_result, space)
@@ -335,6 +348,19 @@ def make_binary_method(mpd_func_name):
         w_result = interp_decimal.W_Decimal.allocate(space)
         with w_context.catch_status(space) as (ctx, status_ptr):
             mpd_func(w_result.mpd, w_a.mpd, w_b.mpd, ctx, status_ptr)
+        return w_result
+    return interp2app(func_w)
+
+def make_binary_method_noctx(mpd_func_name):
+    mpd_func = getattr(rmpdec, mpd_func_name)
+    @unwrap_spec(w_context=W_Context)
+    @func_renamer('descr_%s' % mpd_func_name)
+    def func_w(space, w_context, w_x, w_y):
+        from pypy.module._decimal import interp_decimal
+        w_a, w_b = interp_decimal.convert_binop_raise(
+            space, w_context, w_x, w_y)
+        w_result = interp_decimal.W_Decimal.allocate(space)
+        mpd_func(w_result.mpd, w_a.mpd, w_b.mpd)
         return w_result
     return interp2app(func_w)
 
@@ -430,6 +456,13 @@ W_Context.typedef = TypeDef(
     is_nan=make_bool_method_noctx('mpd_isnan'),
     is_qnan=make_bool_method_noctx('mpd_isqnan'),
     is_snan=make_bool_method_noctx('mpd_issnan'),
+    # Functions with a single decimal argument
+    _apply=interp2app(W_Context.apply_w),
+    apply=interp2app(W_Context.apply_w),
+    copy_abs=interp2app(W_Context.copy_abs_w),
+    # Functions with two decimal arguments
+    compare_total = make_binary_method_noctx('mpd_compare_total'),
+    compare_total_mag = make_binary_method_noctx('mpd_compare_total_mag'),
     )
 
 

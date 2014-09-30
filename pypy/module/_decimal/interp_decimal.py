@@ -544,6 +544,18 @@ class W_Decimal(W_Root):
                                       w_workctx.ctx, status_ptr)
         return w_result
 
+    def quantize_w(self, space, w_exp, w_rounding=None, w_context=None):
+        context = interp_context.ensure_context(space, w_context)
+        w_workctx = context.copy_w(space)
+        if not space.is_none(w_rounding):
+            w_workctx.set_rounding(space, w_rounding)
+        w_a, w_b = convert_binop_raise(space, context, self, w_exp)
+        w_result = W_Decimal.allocate(space)
+        with context.catch_status(space) as (ctx, status_ptr):
+            rmpdec.mpd_qquantize(w_result.mpd, w_a.mpd, w_b.mpd,
+                                 w_workctx.ctx, status_ptr)
+        return w_result
+
     # Ternary arithmetic functions, optional context arg
     def fma_w(self, space, w_other, w_third, w_context=None):
         context = interp_context.ensure_context(space, w_context)
@@ -1169,6 +1181,7 @@ W_Decimal.typedef = TypeDef(
     min = make_binary_method('mpd_qmin'),
     min_mag = make_binary_method('mpd_qmin_mag'),
     next_toward = make_binary_method('mpd_qnext_toward'),
+    quantize = interp2app(W_Decimal.quantize_w),
     remainder_near = make_binary_method('mpd_qrem_near'),
     logical_and = make_binary_method('mpd_qand'),
     logical_or = make_binary_method('mpd_qor'),
