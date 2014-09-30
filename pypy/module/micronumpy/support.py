@@ -76,7 +76,7 @@ def _parse_signature(space, ufunc, signature):
             if signature[i:i+2] != '->':
                 raise oefmt(space.w_ValueError, '%s at %d in "%s"',
                     "expect '->'", i, signature)
-            i = _next_non_white_space(signature, i+2)    
+            i = _next_non_white_space(signature, i+2)
         # parse core dimensions of one argument,
         # e.g. "()", "(i)", or "(i,j)"
         if signature[i] != '(':
@@ -91,7 +91,7 @@ def _parse_signature(space, ufunc, signature):
             # no named arg, skip the next loop
             next_comma = -1
             i += 1
-        else:    
+        else:
             next_comma = signature.find(',', i, end_of_arg)
             if next_comma < 0:
                 next_comma = end_of_arg
@@ -100,10 +100,14 @@ def _parse_signature(space, ufunc, signature):
             name_end = next_comma - 1
             while signature[name_end] == ' ' or signature[name_end] == '\t':
                 name_end -= 1
-            var_name = signature[i:name_end + 1]
-            if not all([_is_alnum_underscore(s) for s in var_name]):
+            if name_end < i:
                 raise oefmt(space.w_ValueError, '%s at %d in "%s"',
                     "expect dimension name", i, signature)
+            var_name = signature[i:name_end + 1]
+            for s in var_name:
+                if not _is_alnum_underscore(s):
+                    raise oefmt(space.w_ValueError, '%s at %d in "%s"',
+                        "expect dimension name", i, signature)
             if var_name not in var_names:
                 var_names[var_name] = ufunc.core_num_dim_ix
                 ufunc.core_num_dim_ix += 1
@@ -119,7 +123,7 @@ def _parse_signature(space, ufunc, signature):
             if end_of_arg <= i:
                 next_comma = -1
                 i = end_of_arg + 1
-            else:    
+            else:
                 next_comma = signature.find(',', i, end_of_arg)
                 if next_comma < 0:
                     next_comma = end_of_arg
@@ -139,7 +143,7 @@ def _parse_signature(space, ufunc, signature):
     if cur_arg != ufunc.nargs:
         raise oefmt(space.w_ValueError, '%s at %d in "%s"',
             "incomplete signature: not all arguments found", i, signature)
-    ufunc.core_dim_ixs = ufunc.core_dim_ixs[:cur_core_dim]    
+    ufunc.core_dim_ixs = ufunc.core_dim_ixs[:cur_core_dim]
     if cur_core_dim == 0:
         ufunc.core_enabled = 0
-    return 0 # for historical reasons, any failures will raise   
+    return 0 # for historical reasons, any failures will raise
