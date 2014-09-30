@@ -596,7 +596,7 @@ class StructNode(ContainerNode):
         else:
             padding_drop = []
         type, name = self.get_declaration()
-        if name != self.name and self.getvarlength() < 1 and len(data) < 1:
+        if name != self.name and self.getvarlength() < 1 and len(data) < 2:
             # an empty union
             yield ''
             return
