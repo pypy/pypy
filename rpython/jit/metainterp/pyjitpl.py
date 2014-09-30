@@ -406,6 +406,10 @@ class MIFrame(object):
     def opimpl_new_array(self, lengthbox, itemsizedescr):
         return self.metainterp.execute_new_array(itemsizedescr, lengthbox)
 
+    @arguments("box", "descr")
+    def opimpl_new_array_clear(self, lengthbox, itemsizedescr):
+        return self.metainterp.execute_new_array_clear(itemsizedescr, lengthbox)
+
     @specialize.arg(1)
     def _do_getarrayitem_gc_any(self, op, arraybox, indexbox, arraydescr):
         tobox = self.metainterp.heapcache.getarrayitem(
@@ -509,7 +513,11 @@ class MIFrame(object):
                        itemsdescr, arraydescr):
         sbox = self.opimpl_new(structdescr)
         self._opimpl_setfield_gc_any(sbox, sizebox, lengthdescr)
-        abox = self.opimpl_new_array(sizebox, arraydescr)
+        if (arraydescr.is_array_of_structs() or
+            arraydescr.is_array_of_pointers()):
+            abox = self.opimpl_new_array_clear(sizebox, arraydescr)
+        else:
+            abox = self.opimpl_new_array(sizebox, arraydescr)
         self._opimpl_setfield_gc_any(sbox, abox, itemsdescr)
         return sbox
 
@@ -518,7 +526,11 @@ class MIFrame(object):
                             itemsdescr, arraydescr):
         sbox = self.opimpl_new(structdescr)
         self._opimpl_setfield_gc_any(sbox, history.CONST_FALSE, lengthdescr)
-        abox = self.opimpl_new_array(sizehintbox, arraydescr)
+        if (arraydescr.is_array_of_structs() or
+            arraydescr.is_array_of_pointers()):
+            abox = self.opimpl_new_array_clear(sizehintbox, arraydescr)
+        else:
+            abox = self.opimpl_new_array(sizehintbox, arraydescr)
         self._opimpl_setfield_gc_any(sbox, abox, itemsdescr)
         return sbox
 
@@ -1909,6 +1921,12 @@ class MetaInterp(object):
 
     def execute_new_array(self, itemsizedescr, lengthbox):
         resbox = self.execute_and_record(rop.NEW_ARRAY, itemsizedescr,
+                                         lengthbox)
+        self.heapcache.new_array(resbox, lengthbox)
+        return resbox
+
+    def execute_new_array_clear(self, itemsizedescr, lengthbox):
+        resbox = self.execute_and_record(rop.NEW_ARRAY_CLEAR, itemsizedescr,
                                          lengthbox)
         self.heapcache.new_array(resbox, lengthbox)
         return resbox

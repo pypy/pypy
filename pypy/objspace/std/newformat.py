@@ -580,11 +580,11 @@ def make_formatting_class():
             elif self._thousands_sep:
                 dec = "."
                 thousands = ","
-                grouping = "\3\0"
+                grouping = "\3"
             else:
                 dec = "."
                 thousands = ""
-                grouping = "\256"
+                grouping = "\xFF"    # special value to mean 'stop'
             if self.is_unicode:
                 self._loc_dec = dec.decode("ascii")
                 self._loc_thousands = thousands.decode("ascii")
@@ -677,14 +677,16 @@ def make_formatting_class():
             done = False
             previous = 0
             while True:
-                group = ord(grouping[grouping_state])
-                if group > 0:
-                    if group == 256:
+                if grouping_state >= len(grouping):
+                    group = previous     # end of string
+                else:
+                    # else, get the next value from the string
+                    group = ord(grouping[grouping_state])
+                    if group == 0xFF:    # special value to mean 'stop'
                         break
                     grouping_state += 1
                     previous = group
-                else:
-                    group = previous
+                #
                 final_grouping = min(group, max(left, max(min_width, 1)))
                 n_zeros = max(0, final_grouping - left)
                 n_chars = max(0, min(left, final_grouping))

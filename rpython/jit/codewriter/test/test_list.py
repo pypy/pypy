@@ -11,6 +11,7 @@ from rpython.jit.metainterp.history import AbstractDescr
 # ____________________________________________________________
 
 FIXEDLIST = lltype.Ptr(lltype.GcArray(lltype.Signed))
+FIXEDPTRLIST = lltype.Ptr(lltype.GcArray(FIXEDLIST))
 VARLIST = lltype.Ptr(lltype.GcStruct('VARLIST',
                                      ('length', lltype.Signed),
                                      ('items', FIXEDLIST),
@@ -100,6 +101,8 @@ def test_newlist():
     builtin_test('newlist', [Constant(5, lltype.Signed),
                              varoftype(lltype.Signed)], FIXEDLIST,
                  NotSupported)
+    builtin_test('newlist', [], FIXEDPTRLIST,
+                 """new_array_clear $0, <ArrayDescr> -> %r0""")
 
 def test_fixed_ll_arraycopy():
     builtin_test('list.ll_arraycopy',

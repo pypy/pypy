@@ -225,6 +225,7 @@ _example_res = {'v': None,
                 'i': 0,
                 'f': 0.0}
 
+
 class LLGraphCPU(model.AbstractCPU):
     from rpython.jit.metainterp.typesystem import llhelper as ts
     supports_floats = True
@@ -640,6 +641,11 @@ class LLGraphCPU(model.AbstractCPU):
         return lltype.cast_opaque_ptr(llmemory.GCREF, result)
 
     def bh_new_array(self, length, arraydescr):
+        array = lltype.malloc(arraydescr.A, length, zero=True)
+        assert getkind(arraydescr.A.OF) != 'ref' # getkind crashes on structs
+        return lltype.cast_opaque_ptr(llmemory.GCREF, array)
+
+    def bh_new_array_clear(self, length, arraydescr):
         array = lltype.malloc(arraydescr.A, length, zero=True)
         return lltype.cast_opaque_ptr(llmemory.GCREF, array)
 

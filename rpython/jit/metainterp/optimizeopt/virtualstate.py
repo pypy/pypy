@@ -535,8 +535,13 @@ class VirtualStateConstructor(VirtualVisitor):
             self.info[box] = info = value.visitor_dispatch_virtual_type(self)
             if value.is_virtual():
                 flds = self.fieldboxes[box]
-                info.fieldstate = [self.state(b) for b in flds]
+                info.fieldstate = [self.state_or_none(b, value) for b in flds]
         return info
+
+    def state_or_none(self, box, value):
+        if box is None:
+            box = value.get_missing_null_value().box
+        return self.state(box)
 
     def get_virtual_state(self, jump_args):
         self.optimizer.force_at_end_of_preamble()
@@ -563,7 +568,10 @@ class VirtualStateConstructor(VirtualVisitor):
     def visit_vstruct(self, typedescr, fielddescrs):
         return VStructStateInfo(typedescr, fielddescrs)
 
-    def visit_varray(self, arraydescr):
+    def visit_varray(self, arraydescr, clear):
+        # 'clear' is ignored here.  I *think* it is correct, because so
+        # far in force_at_end_of_preamble() we force all array values
+        # to be non-None, so clearing is not important any more
         return VArrayStateInfo(arraydescr)
 
     def visit_varraystruct(self, arraydescr, fielddescrs):

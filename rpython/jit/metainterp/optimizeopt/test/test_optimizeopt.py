@@ -1397,7 +1397,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    def test_nonvirtual_dont_write_null_fields_on_force(self):
+    def test_nonvirtual_write_null_fields_on_force(self):
         ops = """
         [i]
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -1411,6 +1411,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i]
         p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, 0, descr=valuedescr)
         escape(p1)
         i2 = getfield_gc(p1, descr=valuedescr)
         jump(i2)
@@ -1562,7 +1563,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i1]
         p1 = new_array(2, descr=arraydescr)
         setarrayitem_gc(p1, 0, 25, descr=arraydescr)
-        i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
+        i2 = getarrayitem_gc(p1, 0, descr=arraydescr)
         jump(i2)
         """
         preamble = """
@@ -1608,7 +1609,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    def test_nonvirtual_array_dont_write_null_fields_on_force(self):
+    def test_nonvirtual_array_write_null_fields_on_force(self):
         ops = """
         [i1]
         p1 = new_array(5, descr=arraydescr)
@@ -1621,6 +1622,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i1]
         p1 = new_array(5, descr=arraydescr)
         setarrayitem_gc(p1, 0, i1, descr=arraydescr)
+        setarrayitem_gc(p1, 1, 0, descr=arraydescr)
         escape(p1)
         jump(i1)
         """
@@ -3749,6 +3751,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1]
         p0 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p0, descr=virtualtokendescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -3781,6 +3784,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = force_token()
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
@@ -3820,6 +3824,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = force_token()
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
@@ -3907,6 +3912,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i1]
         p3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         escape(p2)
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -3932,6 +3938,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i1, p1]
         p3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -4016,7 +4023,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_arraycopy_dest_not_virtual(self):
         ops = '''
         []
-        p1 = new_array(3, descr=arraydescr)
+        p1 = new_array_clear(3, descr=arraydescr)
         p2 = new_array(3, descr=arraydescr)
         setarrayitem_gc(p1, 2, 10, descr=arraydescr)
         setarrayitem_gc(p2, 2, 13, descr=arraydescr)

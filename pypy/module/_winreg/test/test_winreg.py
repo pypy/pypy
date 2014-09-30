@@ -40,7 +40,7 @@ class AppTestFfi:
         cls.w_tmpfilename = space.wrap(str(udir.join('winreg-temp')))
 
         test_data = [
-            ("Int Value", 45, _winreg.REG_DWORD),
+            ("Int Value", 0xFEDCBA98, _winreg.REG_DWORD),
             ("Str Value", "A string Value", _winreg.REG_SZ),
             ("Unicode Value", u"A unicode Value", _winreg.REG_SZ),
             ("Str Expand", "The path is %path%", _winreg.REG_EXPAND_SZ),
@@ -137,9 +137,11 @@ class AppTestFfi:
             assert 0, "Did not raise"
 
     def test_SetValueEx(self):
-        from _winreg import CreateKey, SetValueEx, REG_BINARY
+        from _winreg import CreateKey, SetValueEx, REG_BINARY, REG_DWORD
         key = CreateKey(self.root_key, self.test_key_name)
         sub_key = CreateKey(key, "sub_key")
+        SetValueEx(sub_key, 'Int Value', 0, REG_DWORD, None)
+        SetValueEx(sub_key, 'Int Value', 0, REG_DWORD, 45)
         for name, value, type in self.test_data:
             SetValueEx(sub_key, name, 0, type, value)
         exc = raises(TypeError, SetValueEx, sub_key, 'test_name', None,

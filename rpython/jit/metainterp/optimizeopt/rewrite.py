@@ -502,6 +502,8 @@ class OptRewrite(Optimization):
                                        descr=arraydescr)
                     self.optimizer.send_extra_operation(newop)
                     val = self.getvalue(resbox)
+                if val is None:
+                    continue
                 if dest_value.is_virtual():
                     dest_value.setitem(index + dest_start, val)
                 else:

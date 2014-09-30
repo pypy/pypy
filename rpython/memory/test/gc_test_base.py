@@ -25,7 +25,6 @@ def stdout_ignore_ll_functions(msg):
 class GCTest(object):
     GC_PARAMS = {}
     GC_CAN_MOVE = False
-    GC_CAN_MALLOC_NONMOVABLE = True
     GC_CAN_SHRINK_ARRAY = False
     GC_CAN_SHRINK_BIG_ARRAY = False
     BUT_HOW_BIG_IS_A_BIG_STRING = 3*WORD
@@ -613,34 +612,6 @@ class GCTest(object):
         def func():
             return rgc.can_move(lltype.malloc(TP, 1))
         assert self.interpret(func, []) == self.GC_CAN_MOVE
-
-
-    def test_malloc_nonmovable(self):
-        TP = lltype.GcArray(lltype.Char)
-        def func():
-            a = rgc.malloc_nonmovable(TP, 3)
-            if a:
-                assert not rgc.can_move(a)
-                return 1
-            return 0
-
-        assert self.interpret(func, []) == int(self.GC_CAN_MALLOC_NONMOVABLE)
-
-    def test_malloc_nonmovable_fixsize(self):
-        S = lltype.GcStruct('S', ('x', lltype.Float))
-        TP = lltype.GcStruct('T', ('s', lltype.Ptr(S)))
-        def func():
-            try:
-                a = rgc.malloc_nonmovable(TP)
-                rgc.collect()
-                if a:
-                    assert not rgc.can_move(a)
-                    return 1
-                return 0
-            except Exception:
-                return 2
-
-        assert self.interpret(func, []) == int(self.GC_CAN_MALLOC_NONMOVABLE)
 
     def test_shrink_array(self):
         from rpython.rtyper.lltypesystem.rstr import STR
