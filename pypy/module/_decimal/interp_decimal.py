@@ -770,7 +770,8 @@ def convert_binop_cmp(space, context, op, w_v, w_w):
             new_status = (rmpdec.MPD_Float_operation |
                           rffi.cast(lltype.Signed, context.ctx.c_status))
             context.ctx.c_status = rffi.cast(rffi.UINT, new_status)
-            w_w = decimal_from_float(space, None, w_w, context, exact=True)
+            w_w = decimal_from_float(space, None, space.wrap(real),
+                                     context, exact=True)
         else:
             return space.w_NotImplemented, None, None
     elif space.isinstance_w(w_w, space.fromcache(State).w_Rational):

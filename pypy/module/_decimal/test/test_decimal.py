@@ -21,6 +21,12 @@ class AppTestExplicitConstruction:
         cls.w_assertEqual = space.appexec([], """():
             def assertEqual(x, y): assert x == y
             return assertEqual""")
+        cls.w_assertIs = space.appexec([], """():
+            def assertIs(x, y): assert x is y
+            return assertIs""")
+        cls.w_assertNotEqual = space.appexec([], """():
+            def assertNotEqual(x, y): assert x != y
+            return assertNotEqual""")
         cls.w_assertRaises = space.appexec([], """(): return raises""")
 
     def test_explicit_empty(self):
@@ -887,6 +893,26 @@ class AppTestExplicitConstruction:
             c.traps[FloatOperation] = True
             doit(c, signal=FloatOperation)
             test_containers(c, signal=FloatOperation)
+
+    def test_decimal_complex_comparison(self):
+        Decimal = self.decimal.Decimal
+
+        da = Decimal('0.25')
+        db = Decimal('3.0')
+        self.assertNotEqual(da, (1.5+0j))
+        self.assertNotEqual((1.5+0j), da)
+        self.assertEqual(da, (0.25+0j))
+        self.assertEqual((0.25+0j), da)
+        self.assertEqual((3.0+0j), db)
+        self.assertEqual(db, (3.0+0j))
+
+        self.assertNotEqual(db, (3.0+1j))
+        self.assertNotEqual((3.0+1j), db)
+
+        self.assertIs(db.__lt__(3.0+0j), NotImplemented)
+        self.assertIs(db.__le__(3.0+0j), NotImplemented)
+        self.assertIs(db.__gt__(3.0+0j), NotImplemented)
+        self.assertIs(db.__le__(3.0+0j), NotImplemented)
 
     def test_decimal_fraction_comparison(self):
         C = self.decimal
