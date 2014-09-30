@@ -127,17 +127,10 @@ class GCBase(object):
         return self.get_size(obj)
 
     def malloc(self, typeid, length=0, zero=False):
-        """For testing.  The interface used by the gctransformer is
+        """NOT_RPYTHON
+        For testing.  The interface used by the gctransformer is
         the four malloc_[fixed,var]size[_clear]() functions.
         """
-        #TODO:check if the zero flag is unuseful now. If so, remove it
-        
-        # Rules about fallbacks in case of missing malloc methods:
-        #  * malloc_fixedsize_clear() and malloc_varsize_clear() are mandatory
-        #  * malloc_fixedsize() and malloc_varsize() fallback to the above
-        # XXX: as of r49360, gctransformer.framework never inserts calls
-        # to malloc_varsize(), but always uses malloc_varsize_clear()
-
         size = self.fixed_size(typeid)
         needs_finalizer = bool(self.getfinalizer(typeid))
         finalizer_is_light = bool(self.getlightfinalizer(typeid))
@@ -154,6 +147,7 @@ class GCBase(object):
                 malloc_varsize = self.malloc_varsize
             ref = malloc_varsize(typeid, length, size, itemsize,
                                  offset_to_length)
+            size += itemsize * length
         else:
             if self.malloc_zero_filled:
                 malloc_fixedsize = self.malloc_fixedsize_clear
@@ -163,7 +157,10 @@ class GCBase(object):
                                    finalizer_is_light,
                                    contains_weakptr)
         # lots of cast and reverse-cast around...
-        return llmemory.cast_ptr_to_adr(ref)
+        ref = llmemory.cast_ptr_to_adr(ref)
+        if zero and not self.malloc_zero_filled:
+            llmemory.raw_memclear(ref, size)
+        return ref
 
     def id(self, ptr):
         return lltype.cast_ptr_to_int(ptr)

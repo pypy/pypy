@@ -431,7 +431,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _alloc_nursery(self):
         # the start of the nursery: we actually allocate a bit more for
         # the nursery than really needed, to simplify pointer arithmetic
-        # in malloc_fixedsize_clear().  The few extra pages are never used
+        # in malloc_fixedsize().  The few extra pages are never used
         # anyway so it doesn't even counct.
         nursery = llarena.arena_malloc(self._nursery_memory_size(), 0)
         if not nursery:
@@ -613,7 +613,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # 'minimal_size_in_nursery'
             ll_assert(raw_malloc_usage(totalsize) >=
                       raw_malloc_usage(self.minimal_size_in_nursery),
-                      "malloc_varsize_clear(): totalsize < minimalsize")
+                      "malloc_varsize(): totalsize < minimalsize")
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
@@ -687,7 +687,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         raw_malloc(), possibly as an object with card marking enabled,
         if it has gc pointers in its var-sized part.  'length' should be
         specified as 0 if the object is not varsized.  The returned
-        object is fully initialized and zero-filled."""
+        object is fully initialized, but not zero-filled."""
         #
         # Here we really need a valid 'typeid', not 0 (as the JIT might
         # try to send us if there is still a bug).
@@ -731,9 +731,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                       self.small_request_threshold,
                       "rounding up made totalsize > small_request_threshold")
             #
-            # Allocate from the ArenaCollection and clear the memory returned.
+            # Allocate from the ArenaCollection.  Don't clear it.
             result = self.ac.malloc(totalsize)
-            llmemory.raw_memclear(result, totalsize)
             #
             # An object allocated from ArenaCollection is always old, even
             # if 'can_make_young'.  The interesting case of 'can_make_young'
@@ -779,19 +778,20 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Allocate the object using arena_malloc(), which we assume here
             # is just the same as raw_malloc(), but allows the extra
             # flexibility of saying that we have extra words in the header.
-            # The memory returned is cleared by a raw_memclear().
-            arena = llarena.arena_malloc(allocsize, 2)
+            # The memory returned is not cleared.
+            arena = llarena.arena_malloc(allocsize, 0)
             if not arena:
                 raise MemoryError("cannot allocate large object")
             #
-            # Reserve the card mark bits as a list of single bytes
-            # (the loop is empty in C).
+            # Reserve the card mark bits as a list of single bytes,
+            # and clear these bytes.
             i = 0
             while i < cardheadersize:
                 llarena.arena_reserve(arena + i, llmemory.sizeof(lltype.Char))
+                arena.char[i] = '\x00'
                 i += 1
             #
-            # Reserve the actual object.  (This is also a no-op in C).
+            # Reserve the actual object.  (This is a no-op in C).
             result = arena + cardheadersize
             llarena.arena_reserve(result, totalsize)
             #
