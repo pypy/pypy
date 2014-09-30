@@ -360,6 +360,10 @@ class W_Decimal(W_Root):
             ret = ret.replace('\xff', '\0')
         return space.wrap(ret.decode('utf-8'))
 
+    def descr_reduce(self, space):
+        return space.newtuple([space.type(self),
+                               space.newtuple([space.str(self)])])
+
     def get_real(self, space):
         context = interp_context.getcontext(space)
         return decimal_from_decimal(space, None, self, context, exact=True)
@@ -1111,7 +1115,7 @@ def descr_new_decimal(space, w_subtype, w_value=None, w_context=None):
                                exact=True)
 
 W_Decimal.typedef = TypeDef(
-    'Decimal',
+    '_decimal.Decimal',
     __new__ = interp2app(descr_new_decimal),
     __str__ = interp2app(W_Decimal.descr_str),
     __repr__ = interp2app(W_Decimal.descr_repr),
@@ -1124,6 +1128,7 @@ W_Decimal.typedef = TypeDef(
     __ceil__ = interp2app(W_Decimal.descr_ceil),
     __round__ = interp2app(W_Decimal.descr_round),
     __format__ = interp2app(W_Decimal.descr_format),
+    __reduce__ = interp2app(W_Decimal.descr_reduce),
     #
     real = GetSetProperty(W_Decimal.get_real),
     imag = GetSetProperty(W_Decimal.get_imag),

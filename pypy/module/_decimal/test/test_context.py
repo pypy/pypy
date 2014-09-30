@@ -43,6 +43,31 @@ class AppTestContext:
         nc = copy.deepcopy(c)
         assert nc.traps[self.decimal.InvalidOperation] == False
 
+    def test_none_args(self):
+        Context = self.decimal.Context
+        InvalidOperation = self.decimal.InvalidOperation
+        DivisionByZero = self.decimal.DivisionByZero
+        Overflow = self.decimal.Overflow
+
+        def assert_signals(context, attr, expected):
+            d = getattr(context, attr)
+            self.assertTrue(
+                all(d[s] if s in expected else not d[s] for s in d))
+
+        c1 = Context()
+        c2 = Context(prec=None, rounding=None, Emax=None, Emin=None,
+                     capitals=None, clamp=None, flags=None, traps=None)
+        for c in [c1, c2]:
+            self.assertEqual(c.prec, 28)
+            self.assertEqual(c.rounding, self.decimal.ROUND_HALF_EVEN)
+            self.assertEqual(c.Emax, 999999)
+            self.assertEqual(c.Emin, -999999)
+            self.assertEqual(c.capitals, 1)
+            self.assertEqual(c.clamp, 0)
+            assert_signals(c, 'flags', [])
+            assert_signals(c, 'traps', [InvalidOperation, DivisionByZero,
+                                        Overflow])
+
     def test_context_repr(self):
         c = self.decimal.DefaultContext.copy()
 
@@ -374,3 +399,19 @@ class AppTestContext:
             z = y.copy_sign(Decimal(1))
             self.assertEqual(z, x)
 
+    def test_pickle(self):
+        import pickle
+        Context = self.decimal.Context
+
+        # Round trip
+        c = Context()
+        e = pickle.loads(pickle.dumps(c))
+
+        self.assertEqual(c.prec, e.prec)
+        self.assertEqual(c.Emin, e.Emin)
+        self.assertEqual(c.Emax, e.Emax)
+        self.assertEqual(c.rounding, e.rounding)
+        self.assertEqual(c.capitals, e.capitals)
+        self.assertEqual(c.clamp, e.clamp)
+        self.assertEqual(c.flags, e.flags)
+        self.assertEqual(c.traps, e.traps)

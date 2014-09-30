@@ -1343,3 +1343,10 @@ class AppTestExplicitConstruction:
         self.assertEqual(get_fmt(Decimal('-1.5'), dotsep_wide, '020n'),
                          '-0\u00b4000\u00b4000\u00b4000\u00b4001\u00bf5')
 
+    def test_pickle(self):
+        import pickle
+        Decimal = self.decimal.Decimal
+        d = Decimal('-3.141590000')
+        p = pickle.dumps(d)
+        e = pickle.loads(p)
+        self.assertEqual(d, e)

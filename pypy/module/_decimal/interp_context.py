@@ -178,7 +178,7 @@ class W_Context(W_Root):
                         "valid range for prec is [1, MAX_PREC]")
 
     def get_rounding(self, space):
-        return space.wrap(rmpdec.mpd_getround(self.ctx))
+        return space.wrap(self._rounding_string(space))
 
     def set_rounding(self, space, w_rounding):
         rounding = space.str_w(w_rounding)
@@ -387,7 +387,7 @@ def make_bool_method_noctx(mpd_func_name):
     return interp2app(func_w)
 
 W_Context.typedef = TypeDef(
-    'Context',
+    '_decimal.Context',
     __new__ = interp2app(descr_new_context),
     __init__ = interp2app(W_Context.descr_init),
     # Attributes
