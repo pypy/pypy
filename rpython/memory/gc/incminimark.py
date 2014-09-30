@@ -787,8 +787,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # and clear these bytes.
             i = 0
             while i < cardheadersize:
-                llarena.arena_reserve(arena + i, llmemory.sizeof(lltype.Char))
-                arena.char[i] = '\x00'
+                p = arena + i
+                llarena.arena_reserve(p, llmemory.sizeof(lltype.Char))
+                p.char[0] = '\x00'
                 i += 1
             #
             # Reserve the actual object.  (This is a no-op in C).
