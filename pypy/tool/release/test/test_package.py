@@ -25,7 +25,7 @@ def test_dir_structure(test='test'):
                     break
             else:
                 assert False, 'could not find cmd.exe'
-        else:    
+        else:
             pypy_c.write("#!/bin/sh")
             pypy_c.chmod(0755)
         fake_pypy_c = True
@@ -125,7 +125,7 @@ def test_generate_license():
     if sys.platform == 'win32':
         for p in [join(basedir, r'..\..\..\local'), #buildbot
                   join(basedir, r'..\local')]: # pypy/doc/windows.rst
-            if exists(p): 
+            if exists(p):
                 license_base = p
                 break
         else:
