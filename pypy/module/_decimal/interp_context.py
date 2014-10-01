@@ -277,6 +277,12 @@ class W_Context(W_Root):
         from pypy.module._decimal import interp_decimal
         return interp_decimal.W_Decimal.divmod_impl(space, self, w_x, w_y)
 
+    def same_quantum_w(self, space, w_v, w_w):
+        from pypy.module._decimal import interp_decimal
+        w_a, w_b = interp_decimal.convert_binop_raise(space, self, w_v, w_w)
+        result = rmpdec.mpd_same_quantum(w_a.mpd, w_b.mpd)
+        return space.wrap(bool(result))
+
     # Ternary operations
     def power_w(self, space, w_a, w_b, w_modulo=None):
         from pypy.module._decimal import interp_decimal
@@ -443,6 +449,7 @@ W_Context.typedef = TypeDef(
     logical_and=make_binary_method('mpd_qand'),
     logical_or=make_binary_method('mpd_qor'),
     logical_xor=make_binary_method('mpd_qxor'),
+    same_quantum = interp2app(W_Context.same_quantum_w),
     # Ternary operations
     power=interp2app(W_Context.power_w),
     fma=interp2app(W_Context.fma_w),

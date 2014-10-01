@@ -41,7 +41,7 @@ eci = ExternalCompilationInfo(
         "mpd_qcopy", "mpd_qncopy", "mpd_setspecial", "mpd_clear_flags",
         "mpd_qimport_u32", "mpd_qexport_u32", "mpd_qexport_u16",
         "mpd_set_sign", "mpd_set_positive", "mpd_sign", "mpd_qfinalize",
-        "mpd_class",
+        "mpd_class", "mpd_same_quantum",
         "mpd_getprec", "mpd_getemin",  "mpd_getemax", "mpd_getround", "mpd_getclamp",
         "mpd_qsetprec", "mpd_qsetemin",  "mpd_qsetemax", "mpd_qsetround", "mpd_qsetclamp",
         "mpd_maxcontext",
@@ -203,6 +203,8 @@ mpd_qfinalize = external(
     'mpd_qfinalize', [MPD_PTR, MPD_CONTEXT_PTR, rffi.UINTP], lltype.Void)
 mpd_class = external(
     'mpd_class', [MPD_PTR, MPD_CONTEXT_PTR], rffi.CCHARP)
+mpd_same_quantum = external(
+    'mpd_same_quantum', [MPD_PTR, MPD_PTR], rffi.INT)
 
 # Context operations
 mpd_getprec = external(

@@ -495,12 +495,18 @@ class W_Decimal(W_Root):
 
     def copy_sign_w(self, space, w_other, w_context=None):
         context = convert_context(space, w_context)
-        w_other = convert_op_raise(space, context, w_other)
+        w_a, w_b = convert_binop_raise(space, context, self, w_other)
         w_result = W_Decimal.allocate(space)
         with context.catch_status(space) as (ctx, status_ptr):
-            rmpdec.mpd_qcopy_sign(w_result.mpd, self.mpd, w_other.mpd,
+            rmpdec.mpd_qcopy_sign(w_result.mpd, w_a.mpd, w_b.mpd,
                                   status_ptr)
         return w_result
+
+    def same_quantum_w(self, space, w_other, w_context=None):
+        context = convert_context(space, w_context)
+        w_a, w_b = convert_binop_raise(space, context, self, w_other)
+        result = rmpdec.mpd_same_quantum(w_a.mpd, w_b.mpd)
+        return space.wrap(bool(result))
 
     # Unary arithmetic functions, optional context arg
 
@@ -1215,6 +1221,7 @@ W_Decimal.typedef = TypeDef(
     compare_total = make_binary_method_noctx('mpd_compare_total'),
     compare_total_mag = make_binary_method_noctx('mpd_compare_total_mag'),
     copy_sign = interp2app(W_Decimal.copy_sign_w),
+    same_quantum = interp2app(W_Decimal.same_quantum_w),
     #
     as_tuple = interp2app(W_Decimal.as_tuple_w),
     from_float = interp2app(decimal_from_float_w, as_classmethod=True),
