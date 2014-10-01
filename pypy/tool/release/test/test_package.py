@@ -115,6 +115,7 @@ def test_fix_permissions(tmpdir):
     check(pypy,  0755)
 
 def test_generate_license():
+    py.test.skip('generation of license from platform documentation is disabled')
     from os.path import dirname, abspath, join, exists
     class Options(object):
         pass
