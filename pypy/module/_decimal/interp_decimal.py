@@ -1115,7 +1115,7 @@ def descr_new_decimal(space, w_subtype, w_value=None, w_context=None):
                                exact=True)
 
 W_Decimal.typedef = TypeDef(
-    '_decimal.Decimal',
+    'decimal.Decimal',
     __new__ = interp2app(descr_new_decimal),
     __str__ = interp2app(W_Decimal.descr_str),
     __repr__ = interp2app(W_Decimal.descr_repr),

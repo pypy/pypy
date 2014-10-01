@@ -387,7 +387,7 @@ def make_bool_method_noctx(mpd_func_name):
     return interp2app(func_w)
 
 W_Context.typedef = TypeDef(
-    '_decimal.Context',
+    'decimal.Context',
     __new__ = interp2app(descr_new_context),
     __init__ = interp2app(W_Context.descr_init),
     # Attributes
