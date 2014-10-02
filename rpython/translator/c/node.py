@@ -101,9 +101,9 @@ class StructDefNode(NodeWithDependencies):
             else:
                 typename = db.gettype(T, who_asks=self)
             self.fields.append((self.c_struct_field_name(name), typename))
-        self.computegcinfo(self.db)
+        self.computegcinfo(self.db.gcpolicy)
 
-    def computegcinfo(self, db):
+    def computegcinfo(self, gcpolicy):
         # let the gcpolicy do its own setup
         self.gcinfo = None   # unless overwritten below
         rtti = None
@@ -114,7 +114,7 @@ class StructDefNode(NodeWithDependencies):
             except ValueError:
                 pass
         if self.varlength is None:
-            db.gcpolicy.struct_setup(self, rtti)
+            gcpolicy.struct_setup(self, rtti)
         return self.gcinfo
 
     def gettype(self):
@@ -211,7 +211,7 @@ class ArrayDefNode(NodeWithDependencies):
             return      # setup() was already called, likely by __init__
         db = self.db
         ARRAY = self.ARRAY
-        self.computegcinfo(db)
+        self.computegcinfo(db.gcpolicy)
         if self.varlength is not None:
             self.normalizedtypename = db.gettype(ARRAY, who_asks=self)
         if needs_gcheader(ARRAY):
@@ -221,11 +221,11 @@ class ArrayDefNode(NodeWithDependencies):
                 self.gcfields.append(gc_field)
         self.itemtypename = db.gettype(ARRAY.OF, who_asks=self)
 
-    def computegcinfo(self, db):
+    def computegcinfo(self, gcpolicy):
         # let the gcpolicy do its own setup
         self.gcinfo = None   # unless overwritten below
         if self.varlength is None:
-            self.db.gcpolicy.array_setup(self)
+            gcpolicy.array_setup(self)
         return self.gcinfo
 
     def gettype(self):
