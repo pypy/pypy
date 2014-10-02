@@ -11,7 +11,7 @@ from rpython.translator.c.support import c_char_array_constant, barebonearray
 from rpython.translator.c.primitive import PrimitiveType, name_signed
 from rpython.rlib import exports
 from rpython.rlib.rfloat import isfinite, isinf
-from rpython.translator.c import extfunc
+
 
 def needs_gcheader(T):
     if not isinstance(T, ContainerType):
@@ -23,22 +23,15 @@ def needs_gcheader(T):
             return False   # gcheader already in the first field
     return True
 
-class defaultproperty(object):
-    def __init__(self, fget):
-        self.fget = fget
-    def __get__(self, obj, cls=None):
-        if obj is None:
-            return self
-        else:
-            return self.fget(obj)
-
 class Node(object):
     __slots__ = ("db", )
+
     def __init__(self, db):
         self.db = db
 
 class NodeWithDependencies(Node):
     __slots__ = ("dependencies", )
+
     def __init__(self, db):
         Node.__init__(self, db)
         self.dependencies = set()
@@ -108,9 +101,9 @@ class StructDefNode(NodeWithDependencies):
             else:
                 typename = db.gettype(T, who_asks=self)
             self.fields.append((self.c_struct_field_name(name), typename))
-        self.gcinfo  # force it to be computed
+        self.computegcinfo(self.db)
 
-    def computegcinfo(self):
+    def computegcinfo(self, db):
         # let the gcpolicy do its own setup
         self.gcinfo = None   # unless overwritten below
         rtti = None
@@ -121,9 +114,8 @@ class StructDefNode(NodeWithDependencies):
             except ValueError:
                 pass
         if self.varlength is None:
-            self.db.gcpolicy.struct_setup(self, rtti)
+            db.gcpolicy.struct_setup(self, rtti)
         return self.gcinfo
-    gcinfo = defaultproperty(computegcinfo)
 
     def gettype(self):
         return self.fulltypename
@@ -219,7 +211,7 @@ class ArrayDefNode(NodeWithDependencies):
             return      # setup() was already called, likely by __init__
         db = self.db
         ARRAY = self.ARRAY
-        self.gcinfo    # force it to be computed
+        self.computegcinfo(db)
         if self.varlength is not None:
             self.normalizedtypename = db.gettype(ARRAY, who_asks=self)
         if needs_gcheader(ARRAY):
@@ -229,13 +221,12 @@ class ArrayDefNode(NodeWithDependencies):
                 self.gcfields.append(gc_field)
         self.itemtypename = db.gettype(ARRAY.OF, who_asks=self)
 
-    def computegcinfo(self):
+    def computegcinfo(self, db):
         # let the gcpolicy do its own setup
         self.gcinfo = None   # unless overwritten below
         if self.varlength is None:
             self.db.gcpolicy.array_setup(self)
         return self.gcinfo
-    gcinfo = defaultproperty(computegcinfo)
 
     def gettype(self):
         return self.fulltypename
