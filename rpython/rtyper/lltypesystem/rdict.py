@@ -308,6 +308,9 @@ class DictRepr(AbstractDictRepr):
     def rtype_method_items(self, hop):
         return self._rtype_method_kvi(hop, ll_dict_items)
 
+    def rtype_bltn_list(self, hop):
+        return self._rtype_method_kvi(hop, ll_dict_keys)
+
     def rtype_method_iterkeys(self, hop):
         hop.exception_cannot_occur()
         return DictIteratorRepr(self, "keys").newiter(hop)
