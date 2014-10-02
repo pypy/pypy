@@ -606,6 +606,13 @@ class W_Decimal(W_Root):
         context = interp_context.getcontext(space)
         return decimal_from_decimal(space, None, self, context, exact=True)
 
+    def adjusted_w(self, space):
+        if rmpdec.mpd_isspecial(self.mpd):
+            ret = 0
+        else:
+            ret = rmpdec.mpd_adjexp(self.mpd)
+        return space.wrap(ret)
+
     def as_tuple_w(self, space):
         "Return the DecimalTuple representation of a Decimal"
         w_sign = space.wrap(rmpdec.mpd_sign(self.mpd))
@@ -1216,6 +1223,7 @@ W_Decimal.typedef = TypeDef(
     is_normal = interp2app(W_Decimal.is_normal_w),
     is_subnormal = interp2app(W_Decimal.is_subnormal_w),
     # Unary functions, no context arg
+    adjusted = interp2app(W_Decimal.adjusted_w),
     conjugate = interp2app(W_Decimal.conjugate_w),
     # Binary functions, optional context arg for conversion errors
     compare_total = make_binary_method_noctx('mpd_compare_total'),

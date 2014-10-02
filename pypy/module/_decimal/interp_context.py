@@ -273,9 +273,28 @@ class W_Context(W_Root):
                         interp_signals.flags_as_list(space, self.ctx.c_traps),
                         ])])
 
+    def number_class_w(self, space, w_v):
+        from pypy.module._decimal import interp_decimal
+        w_a = interp_decimal.convert_op_raise(space, self, w_v)
+        cp = rmpdec.mpd_class(w_a.mpd, self.ctx)
+        return space.wrap(rffi.charp2str(cp))
+
+    def to_eng_string_w(self, space, w_v):
+        from pypy.module._decimal import interp_decimal
+        w_a = interp_decimal.convert_op_raise(space, self, w_v)
+        return w_a.to_eng_string_w(space, self)
+
     def divmod_w(self, space, w_x, w_y):
         from pypy.module._decimal import interp_decimal
         return interp_decimal.W_Decimal.divmod_impl(space, self, w_x, w_y)
+
+    def copy_sign_w(self, space, w_v, w_w):
+        from pypy.module._decimal import interp_decimal
+        w_a, w_b = interp_decimal.convert_binop_raise(space, self, w_v, w_w)
+        w_result = interp_decimal.W_Decimal.allocate(space)
+        with self.catch_status(space) as (ctx, status_ptr):
+            rmpdec.mpd_qcopy_sign(w_result.mpd, w_a.mpd, w_b.mpd, status_ptr)
+        return w_result
 
     def same_quantum_w(self, space, w_v, w_w):
         from pypy.module._decimal import interp_decimal
@@ -323,6 +342,19 @@ class W_Context(W_Root):
         w_result = interp_decimal.W_Decimal.allocate(space)
         with self.catch_status(space) as (ctx, status_ptr):
             rmpdec.mpd_qcopy_abs(w_result.mpd, w_a.mpd, status_ptr)
+        return w_result
+
+    def copy_decimal_w(self, space, w_v):
+        from pypy.module._decimal import interp_decimal
+        w_a = interp_decimal.convert_op_raise(space, self, w_v)
+        return w_a
+
+    def copy_negate_w(self, space, w_v):
+        from pypy.module._decimal import interp_decimal
+        w_a = interp_decimal.convert_op_raise(space, self, w_v)
+        w_result = interp_decimal.W_Decimal.allocate(space)
+        with self.catch_status(space) as (ctx, status_ptr):
+            rmpdec.mpd_qcopy_negate(w_result.mpd, w_a.mpd, status_ptr)
         return w_result
 
 def descr_new_context(space, w_subtype, __args__):
@@ -428,7 +460,10 @@ W_Context.typedef = TypeDef(
     to_integral_exact=make_unary_method('mpd_qround_to_intx'),
     to_integral_value=make_unary_method('mpd_qround_to_int', tag='value'),
     sqrt=make_unary_method('mpd_qsqrt'),
+    logb=make_unary_method('mpd_qlogb'),
     logical_invert=make_unary_method('mpd_qinvert'),
+    number_class=interp2app(W_Context.number_class_w),
+    to_eng_string=interp2app(W_Context.to_eng_string_w),
     # Binary Operations
     add=make_binary_method('mpd_qadd'),
     subtract=make_binary_method('mpd_qsub'),
@@ -446,10 +481,14 @@ W_Context.typedef = TypeDef(
     quantize=make_binary_method('mpd_qquantize'),
     remainder=make_binary_method('mpd_qrem'),
     remainder_near=make_binary_method('mpd_qrem_near'),
+    copy_sign = interp2app(W_Context.copy_sign_w),
     logical_and=make_binary_method('mpd_qand'),
     logical_or=make_binary_method('mpd_qor'),
     logical_xor=make_binary_method('mpd_qxor'),
+    rotate=make_binary_method('mpd_qrotate'),
     same_quantum = interp2app(W_Context.same_quantum_w),
+    scaleb=make_binary_method('mpd_qscaleb'),
+    shift=make_binary_method('mpd_qshift'),
     # Ternary operations
     power=interp2app(W_Context.power_w),
     fma=interp2app(W_Context.fma_w),
@@ -467,6 +506,8 @@ W_Context.typedef = TypeDef(
     _apply=interp2app(W_Context.apply_w),
     apply=interp2app(W_Context.apply_w),
     copy_abs=interp2app(W_Context.copy_abs_w),
+    copy_decimal=interp2app(W_Context.copy_decimal_w),
+    copy_negate=interp2app(W_Context.copy_negate_w),
     # Functions with two decimal arguments
     compare_total = make_binary_method_noctx('mpd_compare_total'),
     compare_total_mag = make_binary_method_noctx('mpd_compare_total_mag'),
