@@ -284,6 +284,11 @@ class W_Context(W_Root):
         w_a = interp_decimal.convert_op_raise(space, self, w_v)
         return w_a.to_eng_string_w(space, self)
 
+    def to_sci_string_w(self, space, w_v):
+        from pypy.module._decimal import interp_decimal
+        w_a = interp_decimal.convert_op_raise(space, self, w_v)
+        return w_a.descr_str(space, self)
+
     def divmod_w(self, space, w_x, w_y):
         from pypy.module._decimal import interp_decimal
         return interp_decimal.W_Decimal.divmod_impl(space, self, w_x, w_y)
@@ -464,6 +469,7 @@ W_Context.typedef = TypeDef(
     logical_invert=make_unary_method('mpd_qinvert'),
     number_class=interp2app(W_Context.number_class_w),
     to_eng_string=interp2app(W_Context.to_eng_string_w),
+    to_sci_string=interp2app(W_Context.to_sci_string_w),
     # Binary Operations
     add=make_binary_method('mpd_qadd'),
     subtract=make_binary_method('mpd_qsub'),

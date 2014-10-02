@@ -80,8 +80,8 @@ class W_Decimal(W_Root):
             rmpdec.mpd_qfinalize(w_result.mpd, context.ctx, status_ptr)
         return w_result
 
-    def descr_str(self, space):
-        context = interp_context.getcontext(space)
+    def descr_str(self, space, w_context=None):
+        context = convert_context(space, w_context)
         with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as cp_ptr:
             size = rmpdec.mpd_to_sci_size(cp_ptr, self.mpd, context.capitals)
             if size < 0:
