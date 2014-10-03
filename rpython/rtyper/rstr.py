@@ -9,7 +9,6 @@ from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rfloat import FloatRepr
 from rpython.tool.pairtype import pairtype, pair
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.tool.staticmethods import StaticMethods
 from rpython.rlib.rstring import UnicodeBuilder
 
 
@@ -800,10 +799,8 @@ class AbstractStringIteratorRepr(IteratorRepr):
 #  get flowed and annotated, mostly with SomePtr.
 #
 
-# this class contains low level helpers used both by lltypesystem
-class AbstractLLHelpers:
-    __metaclass__ = StaticMethods
-
+class AbstractLLHelpers(object):
+    @staticmethod
     def ll_isdigit(s):
         from rpython.rtyper.annlowlevel import hlstr
 
@@ -815,6 +812,7 @@ class AbstractLLHelpers:
                 return False
         return True
 
+    @staticmethod
     def ll_isalpha(s):
         from rpython.rtyper.annlowlevel import hlstr
 
@@ -826,6 +824,7 @@ class AbstractLLHelpers:
                 return False
         return True
 
+    @staticmethod
     def ll_isalnum(s):
         from rpython.rtyper.annlowlevel import hlstr
 
@@ -837,14 +836,17 @@ class AbstractLLHelpers:
                 return False
         return True
 
+    @staticmethod
     def ll_char_isspace(ch):
         c = ord(ch)
         return c == 32 or (9 <= c <= 13)   # c in (9, 10, 11, 12, 13, 32)
 
+    @staticmethod
     def ll_char_isdigit(ch):
         c = ord(ch)
         return c <= 57 and c >= 48
 
+    @staticmethod
     def ll_char_isalpha(ch):
         c = ord(ch)
         if c >= 97:
@@ -852,6 +854,7 @@ class AbstractLLHelpers:
         else:
             return 65 <= c <= 90
 
+    @staticmethod
     def ll_char_isalnum(ch):
         c = ord(ch)
         if c >= 65:
@@ -862,47 +865,54 @@ class AbstractLLHelpers:
         else:
             return 48 <= c <= 57
 
+    @staticmethod
     def ll_char_isupper(ch):
         c = ord(ch)
         return 65 <= c <= 90
 
+    @staticmethod
     def ll_char_islower(ch):
         c = ord(ch)
         return 97 <= c <= 122
 
+    @staticmethod
     def ll_upper_char(ch):
         if 'a' <= ch <= 'z':
             ch = chr(ord(ch) - 32)
         return ch
 
+    @staticmethod
     def ll_lower_char(ch):
         if 'A' <= ch <= 'Z':
             ch = chr(ord(ch) + 32)
         return ch
 
+    @staticmethod
     def ll_char_hash(ch):
         return ord(ch)
 
+    @staticmethod
     def ll_unichar_hash(ch):
         return ord(ch)
 
+    @classmethod
     def ll_str_is_true(cls, s):
         # check if a string is True, allowing for None
         return bool(s) and cls.ll_strlen(s) != 0
-    ll_str_is_true = classmethod(ll_str_is_true)
 
+    @classmethod
     def ll_stritem_nonneg_checked(cls, s, i):
         if i >= cls.ll_strlen(s):
             raise IndexError
         return cls.ll_stritem_nonneg(s, i)
-    ll_stritem_nonneg_checked = classmethod(ll_stritem_nonneg_checked)
 
+    @classmethod
     def ll_stritem(cls, s, i):
         if i < 0:
             i += cls.ll_strlen(s)
         return cls.ll_stritem_nonneg(s, i)
-    ll_stritem = classmethod(ll_stritem)
 
+    @classmethod
     def ll_stritem_checked(cls, s, i):
         length = cls.ll_strlen(s)
         if i < 0:
@@ -910,8 +920,8 @@ class AbstractLLHelpers:
         if i >= length or i < 0:
             raise IndexError
         return cls.ll_stritem_nonneg(s, i)
-    ll_stritem_checked = classmethod(ll_stritem_checked)
 
+    @staticmethod
     def parse_fmt_string(fmt):
         # we support x, d, s, f, [r]
         it = iter(fmt)
@@ -937,6 +947,7 @@ class AbstractLLHelpers:
             r.append(curstr)
         return r
 
+    @staticmethod
     def ll_float(ll_str):
         from rpython.rtyper.annlowlevel import hlstr
         from rpython.rlib.rfloat import rstring_to_float
@@ -961,6 +972,7 @@ class AbstractLLHelpers:
         assert end >= 0
         return rstring_to_float(s[beg:end + 1])
 
+    @classmethod
     def ll_splitlines(cls, LIST, ll_str, keep_newlines):
         from rpython.rtyper.annlowlevel import hlstr
         s = hlstr(ll_str)
@@ -991,4 +1003,3 @@ class AbstractLLHelpers:
             item = cls.ll_stringslice_startstop(ll_str, j, strlen)
             res.ll_setitem_fast(list_length, item)
         return res
-    ll_splitlines = classmethod(ll_splitlines)
