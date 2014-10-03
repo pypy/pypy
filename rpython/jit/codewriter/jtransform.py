@@ -798,6 +798,7 @@ class Transformer(object):
         if self.is_typeptr_getset(op):
             # ignore the operation completely -- instead, it's done by 'new'
             return
+        self._check_no_vable_array(op.args)
         # turn the flow graph 'setfield' operation into our own version
         [v_inst, c_fieldname, v_value] = op.args
         RESULT = v_value.concretetype
