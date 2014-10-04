@@ -56,14 +56,12 @@ static void forksupport_prepare(void)
     s_mutex_unlock();
 
     bool was_in_transaction = _stm_in_transaction(this_tl);
-    if (was_in_transaction) {
-        stm_become_inevitable(this_tl, "fork");
-        /* Note that the line above can still fail and abort, which should
-           be fine */
-    }
-    else {
-        stm_start_inevitable_transaction(this_tl);
-    }
+    if (!was_in_transaction)
+        stm_start_transaction(this_tl);
+
+    stm_become_inevitable(this_tl, "fork");
+    /* Note that the line above can still fail and abort, which should
+       be fine */
 
     s_mutex_lock();
     synchronize_all_threads(STOP_OTHERS_UNTIL_MUTEX_UNLOCK);
@@ -188,7 +186,6 @@ static void fork_abort_thread(long i)
 #ifndef NDEBUG
     pr->running_pthread = pthread_self();
 #endif
-    strcpy(pr->marker_self, "fork");
     tl->shadowstack = NULL;
     pr->shadowstack_at_start_of_transaction = NULL;
     stm_rewind_jmp_forget(tl);
@@ -204,6 +201,9 @@ static void forksupport_child(void)
     /* this new process contains no other thread, so we can
        just release these locks early */
     s_mutex_unlock();
+
+    /* Open a new profiling file, if any */
+    forksupport_open_new_profiling_file();
 
     /* Move the copy of the mmap over the old one, overwriting it
        and thus freeing the old mapping in this process

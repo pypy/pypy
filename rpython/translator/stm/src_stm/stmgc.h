@@ -55,28 +55,6 @@ struct stm_shadowentry_s {
     object_t *ss;
 };
 
-enum stm_time_e {
-    STM_TIME_OUTSIDE_TRANSACTION,
-    STM_TIME_RUN_CURRENT,
-    STM_TIME_RUN_COMMITTED,
-    STM_TIME_RUN_ABORTED_WRITE_WRITE,
-    STM_TIME_RUN_ABORTED_WRITE_READ,
-    STM_TIME_RUN_ABORTED_INEVITABLE,
-    STM_TIME_RUN_ABORTED_OTHER,
-    STM_TIME_WAIT_FREE_SEGMENT,
-    STM_TIME_WAIT_WRITE_READ,
-    STM_TIME_WAIT_INEVITABLE,
-    STM_TIME_WAIT_OTHER,
-    STM_TIME_SYNC_COMMIT_SOON,
-    STM_TIME_BOOKKEEPING,
-    STM_TIME_MINOR_GC,
-    STM_TIME_MAJOR_GC,
-    STM_TIME_SYNC_PAUSE,
-    _STM_TIME_N
-};
-
-#define _STM_MARKER_LEN  80
-
 typedef struct stm_thread_local_s {
     /* every thread should handle the shadow stack itself */
     struct stm_shadowentry_s *shadowstack, *shadowstack_base;
@@ -89,20 +67,11 @@ typedef struct stm_thread_local_s {
     char *mem_clear_on_abort;
     size_t mem_bytes_to_clear_on_abort;
     /* after an abort, some details about the abort are stored there.
-       (these fields are not modified on a successful commit) */
+       (this field is not modified on a successful commit) */
     long last_abort__bytes_in_nursery;
-    /* timing information, accumulated */
-    uint32_t events[_STM_TIME_N];
-    float timing[_STM_TIME_N];
-    double _timing_cur_start;
-    enum stm_time_e _timing_cur_state;
-    /* the marker with the longest associated time so far */
-    enum stm_time_e longest_marker_state;
-    double longest_marker_time;
-    char longest_marker_self[_STM_MARKER_LEN];
-    char longest_marker_other[_STM_MARKER_LEN];
     /* the next fields are handled internally by the library */
     int associated_segment_num;
+    int thread_local_counter;
     struct stm_thread_local_s *prev, *next;
     void *creating_pthread[2];
 } stm_thread_local_t;
@@ -156,7 +125,7 @@ uint64_t _stm_total_allocated(void);
 #define _STM_CARD_SIZE                 32     /* must be >= 32 */
 #define _STM_MIN_CARD_COUNT            17
 #define _STM_MIN_CARD_OBJ_SIZE         (_STM_CARD_SIZE * _STM_MIN_CARD_COUNT)
-#define _STM_NSE_SIGNAL_MAX     _STM_TIME_N
+#define _STM_NSE_SIGNAL_MAX            7
 #define _STM_FAST_ALLOC           (66*1024)
 
 
@@ -439,20 +408,79 @@ void stm_become_globally_unique_transaction(stm_thread_local_t *tl,
                                             const char *msg);
 
 
-/* Temporary? */
-void stm_flush_timing(stm_thread_local_t *tl, int verbose);
+/* Profiling events.  In the comments: content of the markers, if any */
+enum stm_event_e {
+    /* always STM_TRANSACTION_START followed later by one of COMMIT or ABORT */
+    STM_TRANSACTION_START,
+    STM_TRANSACTION_COMMIT,
+    STM_TRANSACTION_ABORT,
 
+    /* contention; see details at the start of contention.c */
+    STM_CONTENTION_WRITE_WRITE,  /* markers: self loc / other written loc */
+    STM_CONTENTION_WRITE_READ,   /* markers: self written loc / other missing */
+    STM_CONTENTION_INEVITABLE,   /* markers: self loc / other inev loc */
+
+    /* following a contention, we get from the same thread one of:
+       STM_ABORTING_OTHER_CONTENTION, STM_TRANSACTION_ABORT (self-abort),
+       or STM_WAIT_CONTENTION (self-wait). */
+    STM_ABORTING_OTHER_CONTENTION,
+
+    /* always one STM_WAIT_xxx followed later by STM_WAIT_DONE */
+    STM_WAIT_FREE_SEGMENT,
+    STM_WAIT_SYNC_PAUSE,
+    STM_WAIT_CONTENTION,
+    STM_WAIT_DONE,
+
+    /* start and end of GC cycles */
+    STM_GC_MINOR_START,
+    STM_GC_MINOR_DONE,
+    STM_GC_MAJOR_START,
+    STM_GC_MAJOR_DONE,
+
+    _STM_EVENT_N
+};
+
+#define STM_EVENT_NAMES                         \
+    "transaction start",                        \
+    "transaction commit",                       \
+    "transaction abort",                        \
+    "contention write write",                   \
+    "contention write read",                    \
+    "contention inevitable",                    \
+    "aborting other contention",                \
+    "wait free segment",                        \
+    "wait sync pause",                          \
+    "wait contention",                          \
+    "wait done",                                \
+    "gc minor start",                           \
+    "gc minor done",                            \
+    "gc major start",                           \
+    "gc major done"
 
 /* The markers pushed in the shadowstack are an odd number followed by a
-   regular pointer.  When needed, this library invokes this callback to
-   turn this pair into a human-readable explanation. */
-extern void (*stmcb_expand_marker)(char *segment_base, uintptr_t odd_number,
-                                   object_t *following_object,
-                                   char *outputbuf, size_t outputbufsize);
-extern void (*stmcb_debug_print)(const char *cause, double time,
-                                 const char *marker);
+   regular pointer. */
+typedef struct {
+    stm_thread_local_t *tl;
+    char *segment_base;    /* base to interpret the 'object' below */
+    uintptr_t odd_number;  /* marker odd number, or 0 if marker is missing */
+    object_t *object;      /* marker object, or NULL if marker is missing */
+} stm_loc_marker_t;
+extern void (*stmcb_timing_event)(stm_thread_local_t *tl, /* the local thread */
+                                  enum stm_event_e event,
+                                  stm_loc_marker_t *markers);
 
-/* Conventience macros to push the markers into the shadowstack */
+/* Calling this sets up a stmcb_timing_event callback that will produce
+   a binary file calling 'profiling_file_name'.  After a fork(), it is
+   written to 'profiling_file_name.fork<PID>'.  Call it with NULL to
+   stop profiling.  Returns -1 in case of error (see errno then).
+   The optional 'expand_marker' function pointer is called to expand
+   the marker's odd_number and object into data, starting at the given
+   position and with the given maximum length. */
+int stm_set_timing_log(const char *profiling_file_name,
+                       int expand_marker(stm_loc_marker_t *, char *, int));
+
+
+/* Convenience macros to push the markers into the shadowstack */
 #define STM_PUSH_MARKER(tl, odd_num, p)   do {  \
     uintptr_t _odd_num = (odd_num);             \
     assert(_odd_num & 1);                       \
@@ -476,8 +504,6 @@ extern void (*stmcb_debug_print)(const char *cause, double time,
     }                                                           \
     _ss->ss = (object_t *)_odd_num;                             \
 } while (0)
-
-char *_stm_expand_marker(void);
 
 
 /* ==================== END ==================== */

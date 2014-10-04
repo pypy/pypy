@@ -139,7 +139,7 @@ struct stm_priv_segment_info_s {
 
     /* Start time: to know approximately for how long a transaction has
        been running, in contention management */
-    double start_time;
+    uint64_t start_time;
 
     /* This is the number stored in the overflowed objects (a multiple of
        GCFLAG_OVERFLOW_NUMBER_bit0).  It is incremented when the
@@ -197,10 +197,8 @@ struct stm_priv_segment_info_s {
     pthread_t running_pthread;
 #endif
 
-    /* Temporarily stores the marker information */
-    char marker_self[_STM_MARKER_LEN];
-    char marker_other[_STM_MARKER_LEN];
-    uintptr_t marker_inev[2];  /* marker where this thread became inevitable */
+    /* marker where this thread became inevitable */
+    stm_loc_marker_t marker_inev;
 };
 
 enum /* safe_point */ {
