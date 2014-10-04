@@ -606,6 +606,10 @@ class W_Decimal(W_Root):
         context = interp_context.getcontext(space)
         return decimal_from_decimal(space, None, self, context, exact=True)
 
+    def radix_w(self, space):
+        context = interp_context.getcontext(space)
+        return decimal_from_ssize(space, None, 10, context, exact=True)
+
     def adjusted_w(self, space):
         if rmpdec.mpd_isspecial(self.mpd):
             ret = 0
@@ -1225,6 +1229,7 @@ W_Decimal.typedef = TypeDef(
     # Unary functions, no context arg
     adjusted = interp2app(W_Decimal.adjusted_w),
     conjugate = interp2app(W_Decimal.conjugate_w),
+    radix = interp2app(W_Decimal.radix_w),
     # Binary functions, optional context arg for conversion errors
     compare_total = make_binary_method_noctx('mpd_compare_total'),
     compare_total_mag = make_binary_method_noctx('mpd_compare_total_mag'),

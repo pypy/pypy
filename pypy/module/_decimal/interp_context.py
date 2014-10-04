@@ -307,6 +307,17 @@ class W_Context(W_Root):
         result = rmpdec.mpd_same_quantum(w_a.mpd, w_b.mpd)
         return space.wrap(bool(result))
 
+    def etiny_w(self, space):
+        return space.wrap(rmpdec.mpd_etiny(self.ctx))
+
+    def etop_w(self, space):
+        return space.wrap(rmpdec.mpd_etop(self.ctx))
+
+    def radix_w(self, space):
+        from pypy.module._decimal import interp_decimal
+        return interp_decimal.decimal_from_ssize(
+            space, None, 10, self, exact=True)
+
     # Ternary operations
     def power_w(self, space, w_a, w_b, w_modulo=None):
         from pypy.module._decimal import interp_decimal
@@ -340,6 +351,12 @@ class W_Context(W_Root):
         from pypy.module._decimal import interp_decimal
         w_a = interp_decimal.convert_op_raise(space, self, w_v)
         return w_a.apply(space, self)
+
+    def canonical_w(self, space, w_v):
+        from pypy.module._decimal import interp_decimal
+        # Just check the type
+        space.interp_w(interp_decimal.W_Decimal, w_v)
+        return w_v
 
     def copy_abs_w(self, space, w_v):
         from pypy.module._decimal import interp_decimal
@@ -498,6 +515,10 @@ W_Context.typedef = TypeDef(
     # Ternary operations
     power=interp2app(W_Context.power_w),
     fma=interp2app(W_Context.fma_w),
+    # No argument
+    Etiny=interp2app(W_Context.etiny_w),
+    Etop=interp2app(W_Context.etop_w),
+    radix=interp2app(W_Context.radix_w),
     # Boolean operations
     is_signed=make_bool_method_noctx('mpd_issigned'),
     is_zero=make_bool_method_noctx('mpd_iszero'),
@@ -511,6 +532,7 @@ W_Context.typedef = TypeDef(
     # Functions with a single decimal argument
     _apply=interp2app(W_Context.apply_w),
     apply=interp2app(W_Context.apply_w),
+    canonical=interp2app(W_Context.canonical_w),
     copy_abs=interp2app(W_Context.copy_abs_w),
     copy_decimal=interp2app(W_Context.copy_decimal_w),
     copy_negate=interp2app(W_Context.copy_negate_w),
