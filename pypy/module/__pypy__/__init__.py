@@ -38,8 +38,6 @@ class ThreadModule(MixedModule):
         '_atomic_enter':           'interp_atomic.atomic_enter',
         '_exclusive_atomic_enter': 'interp_atomic.exclusive_atomic_enter',
         '_atomic_exit':            'interp_atomic.atomic_exit',
-        'longest_abort_info':      'interp_atomic.longest_abort_info',
-        'reset_longest_abort_info':'interp_atomic.reset_longest_abort_info',
         'getsegmentlimit':         'interp_atomic.getsegmentlimit',
         'hint_commit_soon':        'interp_atomic.hint_commit_soon',
         'is_atomic':               'interp_atomic.is_atomic',

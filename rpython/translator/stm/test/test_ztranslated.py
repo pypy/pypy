@@ -255,48 +255,6 @@ class TestSTMTranslated(CompiledSTMTests):
         data = cbuilder.cmdexec('')
         assert 'ok\n' in data
 
-    def test_abort_info(self):
-        class Parent(object):
-            pass
-        class Foobar(Parent):
-            pass
-        globf = Foobar()
-
-        def setxy(globf, retry_counter):
-            if retry_counter > 1:
-                globf.xy = 100 + retry_counter
-
-        def check(_, retry_counter):
-            setxy(globf, retry_counter)
-            if retry_counter < 3:
-                rstm.abort_and_retry()
-            print rstm.longest_marker_time()
-            print rstm.longest_abort_info()
-            rstm.reset_longest_abort_info()
-            print rstm.longest_abort_info()
-            return 0
-
-        PS = lltype.Ptr(lltype.GcStruct('S', ('got_exception', OBJECTPTR)))
-        perform_transaction = rstm.make_perform_transaction(check, PS)
-
-        def main(argv):
-            Parent().xy = 0
-            globf.xy = -2
-            globf.yx = 'hi there %d' % len(argv)
-
-            # make sure perform_transaction breaks the transaction:
-            rstm.hint_commit_soon()
-            assert rstm.should_break_transaction()
-
-            perform_transaction(lltype.nullptr(PS.TO))
-            return 0
-        t, cbuilder = self.compile(main)
-        data = cbuilder.cmdexec('a b')
-        #
-        # 6 == STM_TIME_RUN_ABORTED_OTHER
-        import re; r = re.compile(r'0.00\d+\n\(6, 0.00\d+, , \)\n\(0, 0.00+, , \)\n$')
-        assert r.match(data)
-
     def test_weakref(self):
         import weakref
         class Foo(object):

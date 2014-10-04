@@ -456,12 +456,6 @@ LL_OPERATIONS = {
     'stm_expand_marker':      LLOp(),
     'stm_setup_expand_marker_for_pypy': LLOp(),
 
-    'stm_longest_marker_state':       LLOp(),
-    'stm_longest_marker_time':        LLOp(),
-    'stm_longest_marker_self':        LLOp(),
-    'stm_longest_marker_other':       LLOp(),
-    'stm_reset_longest_marker_state': LLOp(),
-
     # __________ address operations __________
 
     'boehm_malloc':         LLOp(),

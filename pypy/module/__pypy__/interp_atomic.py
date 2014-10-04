@@ -69,24 +69,6 @@ def is_atomic(space):
         return space.wrap(giltl.is_atomic)
 
 
-@unwrap_spec(mintime=float)
-def longest_abort_info(space, mintime=0.0):
-    if space.config.translation.stm:
-        from rpython.rlib import rstm
-        if rstm.longest_marker_time() <= mintime:
-            return space.w_None
-        a, b, c, d = rstm.longest_abort_info()
-        return space.newtuple([space.wrap(a), space.wrap(b),
-                               space.wrap(c), space.wrap(d)])
-    else:
-        return space.w_None
-
-def reset_longest_abort_info(space):
-    if space.config.translation.stm:
-        from rpython.rlib.rstm import reset_longest_abort_info
-        reset_longest_abort_info()
-
-
 def hint_commit_soon(space):
     if space.config.translation.stm:
         from rpython.rlib.rstm import hint_commit_soon
