@@ -24,7 +24,7 @@ UNARY_OPERATIONS.remove('contains')
 @op.type.register(SomeObject)
 def type_SomeObject(arg):
     r = SomeType()
-    r.is_type_of = [arg]
+    r.is_type_of = [arg.value]
     return r
 
 @op.bool.register(SomeObject)
@@ -56,9 +56,10 @@ class __extend__(SomeObject):
 
     def issubtype(self, s_cls):
         if hasattr(self, 'is_type_of'):
-            instances = self.is_type_of
-            return builtin.builtin_isinstance(instances[0].ann, s_cls,
-                                              [x.value for x in instances])
+            vars = self.is_type_of
+            annotator = getbookkeeper().annotator
+            return builtin.builtin_isinstance(annotator.binding(vars[0]),
+                                              s_cls, vars)
         if self.is_constant() and s_cls.is_constant():
             return immutablevalue(issubclass(self.const, s_cls.const))
         return s_Bool

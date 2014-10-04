@@ -243,9 +243,6 @@ class RPythonAnnotator(object):
 
     def annvalue(self, arg):
         if isinstance(arg, Variable):
-            annvalue = arg.binding
-            if arg.binding is None:
-                arg.binding = AnnotatedValue(arg, None)
             return arg.binding
         else:
             return AnnotatedValue(arg, self.bookkeeper.immutablevalue(arg.value))
@@ -508,13 +505,13 @@ class RPythonAnnotator(object):
             last_exception_object = annmodel.SomeType()
             if isinstance(last_exception_var, Constant):
                 last_exception_object.const = last_exception_var.value
+            last_exception_object.is_type_of = [last_exc_value_var]
 
-            last_exception_object.is_type_of = [
-                self.annvalue(last_exc_value_var)]
             if isinstance(last_exception_var, Variable):
                 self.setbinding(last_exception_var, last_exception_object)
             if isinstance(last_exc_value_var, Variable):
                 self.setbinding(last_exc_value_var, last_exc_value_object)
+
             last_exception_object = annmodel.SomeType()
             if isinstance(last_exception_var, Constant):
                 last_exception_object.const = last_exception_var.value
@@ -536,7 +533,7 @@ class RPythonAnnotator(object):
             elif a == last_exc_value_var:
                 assert in_except_block
                 cells.append(last_exc_value_object)
-                last_exc_value_vars.append(self.annvalue(v))
+                last_exc_value_vars.append(v)
             else:
                 cell = self.binding(a)
                 if (link.exitcase, a) in knowntypedata:
@@ -549,8 +546,8 @@ class RPythonAnnotator(object):
                 if hasattr(cell,'is_type_of'):
                     renamed_is_type_of = []
                     for v in cell.is_type_of:
-                        new_vs = renaming.get(v.value, [])
-                        renamed_is_type_of += map(self.annvalue, new_vs)
+                        new_vs = renaming.get(v,[])
+                        renamed_is_type_of += new_vs
                     assert cell.knowntype is type
                     newcell = annmodel.SomeType()
                     if cell.is_constant():

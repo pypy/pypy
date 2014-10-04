@@ -1402,7 +1402,7 @@ class TestAnnotateTestCase:
         et, ev = fg.exceptblock.inputargs
         t = annmodel.SomeType()
         t.const = KeyError
-        t.is_type_of = [a.annvalue(ev)]
+        t.is_type_of = [ev]
         assert a.binding(et) == t
         assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef == a.bookkeeper.getuniqueclassdef(KeyError)
 
@@ -1417,7 +1417,7 @@ class TestAnnotateTestCase:
         fg = graphof(a, f)
         et, ev = fg.exceptblock.inputargs
         t = annmodel.SomeType()
-        t.is_type_of = [a.annvalue(ev)]
+        t.is_type_of = [ev]
         t.const = KeyError    # IndexError ignored because 'dic' is a dict
         assert a.binding(et) == t
         assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef == a.bookkeeper.getuniqueclassdef(KeyError)
@@ -1452,7 +1452,7 @@ class TestAnnotateTestCase:
         fg = graphof(a, f)
         et, ev = fg.exceptblock.inputargs
         t = annmodel.SomeType()
-        t.is_type_of = [a.annvalue(ev)]
+        t.is_type_of = [ev]
         assert a.binding(et) == t
         assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef == a.bookkeeper.getuniqueclassdef(Exception)
 
@@ -1474,7 +1474,7 @@ class TestAnnotateTestCase:
         fg = graphof(a, f)
         et, ev = fg.exceptblock.inputargs
         t = annmodel.SomeType()
-        t.is_type_of = [a.annvalue(ev)]
+        t.is_type_of = [ev]
         assert a.binding(et) == t
         assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef == a.bookkeeper.getuniqueclassdef(Exception)
 

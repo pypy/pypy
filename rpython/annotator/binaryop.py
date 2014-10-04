@@ -42,7 +42,7 @@ def is__default(obj1, obj2):
         if hasattr(tgt_obj.ann, 'is_type_of') and src_obj.ann.is_constant():
             add_knowntypedata(
                 knowntypedata, True,
-                [inst.value for inst in tgt_obj.ann.is_type_of],
+                tgt_obj.ann.is_type_of,
                 getbookkeeper().valueoftype(src_obj.ann.const))
         add_knowntypedata(knowntypedata, True, [tgt_obj.value], src_obj.ann)
         s_nonnone = tgt_obj.ann
