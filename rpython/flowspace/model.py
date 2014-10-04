@@ -10,29 +10,6 @@ from rpython.tool.uid import uid, Hashable
 from rpython.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
 
 
-"""
-    memory size before and after introduction of __slots__
-    using targetpypymain with -no-c
-
-    slottified          annotation  ann+genc
-    -------------------------------------------
-    nothing             321 MB      442 MB
-    Var/Const/SpaceOp   205 MB      325 MB
-    + Link              189 MB      311 MB
-    + Block             185 MB      304 MB
-
-    Dropping Variable.instances and using
-    just an instancenames dict brought
-    annotation down to 160 MB.
-    Computing the Variable.renamed attribute
-    and dropping Variable.instancenames
-    got annotation down to 109 MB.
-    Probably an effect of less fragmentation.
-"""
-
-__metaclass__ = type
-
-
 class FunctionGraph(object):
     def __init__(self, name, startblock, return_var=None):
         self.name = name  # function name (possibly mangled already)
@@ -273,7 +250,7 @@ class Block(object):
 
 
 class Variable(object):
-    __slots__ = ["_name", "_nr", "concretetype"]
+    __slots__ = ["_name", "_nr", "binding", "concretetype"]
 
     dummyname = 'v'
     namesdict = {dummyname: (dummyname, 0)}
@@ -296,6 +273,7 @@ class Variable(object):
     def __init__(self, name=None):
         self._name = self.dummyname
         self._nr = -1
+        self.binding = None
         # numbers are bound lazily, when the name is requested
         if name is not None:
             self.rename(name)

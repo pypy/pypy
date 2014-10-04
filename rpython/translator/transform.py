@@ -168,9 +168,9 @@ def cutoff_alwaysraising_block(self, block):
     "Fix a block whose end can never be reached at run-time."
     # search the operation that cannot succeed
     can_succeed    = [op for op in block.operations
-                         if op.result in self.bindings]
+                         if op.result.binding is not None]
     cannot_succeed = [op for op in block.operations
-                         if op.result not in self.bindings]
+                         if op.result.binding is None]
     n = len(can_succeed)
     # check consistency
     assert can_succeed == block.operations[:n]

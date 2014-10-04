@@ -34,7 +34,6 @@ class RPythonAnnotator(object):
             translator.annotator = self
         self.translator = translator
         self.pendingblocks = {}  # map {block: graph-containing-it}
-        self.bindings = {}       # map Variables to AnnotatedValues
         self.annotated = {}      # set of blocks already seen
         self.added_blocks = None # see processblock() below
         self.links_followed = {} # set of links that have ever been followed
@@ -55,7 +54,7 @@ class RPythonAnnotator(object):
         self.bookkeeper = bookkeeper
 
     def __getstate__(self):
-        attrs = """translator pendingblocks bindings annotated links_followed
+        attrs = """translator pendingblocks annotated links_followed
         notify bookkeeper frozen policy added_blocks""".split()
         ret = self.__dict__.copy()
         for key, value in ret.items():
@@ -152,7 +151,7 @@ class RPythonAnnotator(object):
         if isinstance(variable, Constant):
             return type(variable.value)
         elif isinstance(variable, Variable):
-            cell = self.bindings.get(variable)
+            cell = variable.binding
             if cell:
                 return cell.ann.knowntype
             else:
@@ -222,7 +221,7 @@ class RPythonAnnotator(object):
             raise annmodel.AnnotatorError(text)
         for graph in newgraphs:
             v = graph.getreturnvar()
-            if v not in self.bindings:
+            if v.binding is None:
                 self.setbinding(v, annmodel.s_ImpossibleValue)
         # policy-dependent computation
         self.bookkeeper.compute_at_fixpoint()
@@ -230,13 +229,13 @@ class RPythonAnnotator(object):
     def binding(self, arg, default=FAIL):
         "Gives the SomeValue corresponding to the given Variable or Constant."
         if isinstance(arg, Variable):
-            try:
-                return self.bindings[arg].ann
-            except KeyError:
-                if default is not FAIL:
-                    return default
-                else:
-                    raise
+            annvalue = arg.binding
+            if annvalue is not None:
+                return annvalue.ann
+            if default is not FAIL:
+                return default
+            else:
+                raise KeyError
         elif isinstance(arg, Constant):
             return self.bookkeeper.immutablevalue(arg.value)
         else:
@@ -244,12 +243,10 @@ class RPythonAnnotator(object):
 
     def annvalue(self, arg):
         if isinstance(arg, Variable):
-            try:
-                return self.bindings[arg]
-            except KeyError:
-                value = AnnotatedValue(arg, None)
-                self.bindings[arg] = value
-                return value
+            annvalue = arg.binding
+            if arg.binding is None:
+                arg.binding = AnnotatedValue(arg, None)
+            return arg.binding
         else:
             return AnnotatedValue(arg, self.bookkeeper.immutablevalue(arg.value))
 
@@ -257,18 +254,17 @@ class RPythonAnnotator(object):
         return signature.annotation(t, self.bookkeeper)
 
     def setbinding(self, arg, s_value):
-        if arg in self.bindings:
-            value = self.bindings[arg]
+        if arg.binding is None:
+            arg.binding = AnnotatedValue(arg, s_value)
+        else:
+            value = arg.binding
             if value.ann is not None:
                 assert s_value.contains(value.ann)
             value.ann = s_value
-        else:
-            self.bindings[arg] = AnnotatedValue(arg, s_value)
 
     def transfer_binding(self, v_target, v_source):
-        assert v_source in self.bindings
-        self.bindings[v_target] = AnnotatedValue(v_target,
-                                                 self.bindings[v_source].ann)
+        assert v_source.binding is not None
+        v_target.binding = AnnotatedValue(v_target, v_source.binding.ann)
 
     def warning(self, msg, pos=None):
         if pos is None:
@@ -345,7 +341,7 @@ class RPythonAnnotator(object):
         #  * block not in self.annotated:
         #      never seen the block.
         #  * self.annotated[block] == False:
-        #      the input variables of the block are in self.bindings but we
+        #      the input variables of the block have bindings but we
         #      still have to consider all the operations in the block.
         #  * self.annotated[block] == graph-containing-block:
         #      analysis done (at least until we find we must generalize the
