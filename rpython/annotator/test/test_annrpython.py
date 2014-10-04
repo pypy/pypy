@@ -857,8 +857,11 @@ class TestAnnotateTestCase:
         s = a.build_types(snippet.harmonic, [int])
         assert s.knowntype == float
         # check that the list produced by range() is not mutated or resized
-        for value in a.bindings.values():
-            s_value = value.ann
+        graph = graphof(a, snippet.harmonic)
+        all_vars = set().union(*[block.getvariables() for block in graph.iterblocks()])
+        print all_vars
+        for var in all_vars:
+            s_value = var.binding.ann
             if isinstance(s_value, annmodel.SomeList):
                 assert not s_value.listdef.listitem.resized
                 assert not s_value.listdef.listitem.mutated
