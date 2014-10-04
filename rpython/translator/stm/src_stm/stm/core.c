@@ -399,8 +399,13 @@ void stm_start_inevitable_transaction(stm_thread_local_t *tl)
 {
     /* used to be more efficient, starting directly an inevitable transaction,
        but there is no real point any more, I believe */
+    rewind_jmp_buf rjbuf;
+    stm_rewind_jmp_enterframe(tl, &rjbuf);
+
     stm_start_transaction(tl);
     stm_become_inevitable(tl, "start_inevitable_transaction");
+
+    stm_rewind_jmp_leaveframe(tl, &rjbuf);
 }
 
 
