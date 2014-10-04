@@ -34,7 +34,6 @@ void pypy_stm_register_thread_local(void)
 
 void pypy_stm_unregister_thread_local(void)
 {
-    stm_flush_timing(&stm_thread_local, 1);  // XXX temporary
     stm_unregister_thread_local(&stm_thread_local);
 }
 
@@ -42,6 +41,8 @@ void pypy_stm_unregister_thread_local(void)
 /************************************************************/
 /*** HACK: hard-coded logic to expand the marker into     ***/
 /*** a string, suitable for running in PyPy               ***/
+
+#include <stdlib.h>    /* for getenv() */
 
 typedef struct pypy_rpy_string0 RPyStringSpace0;
 
@@ -65,10 +66,12 @@ static RPyStringSpace0 *_fetch_rpsspace0(char *seg_base, object_t *base,
     return (RPyStringSpace0 *)str0;
 }
 
-static void _stm_expand_marker_for_pypy(
-        char *segment_base, uintptr_t odd_number, object_t *o,
-        char *outputbuf, size_t outputbufsize)
+static int _stm_expand_marker_for_pypy(stm_loc_marker_t *marker,
+                                       char *outputbuf, int outputbufsize)
 {
+    if (marker->object == NULL)
+        return 0;
+
     long co_firstlineno;
     RPyStringSpace0 *co_filename;
     RPyStringSpace0 *co_name;
@@ -77,58 +80,46 @@ static void _stm_expand_marker_for_pypy(
     long fnlen = 1, nlen = 1, line = 0;
     char *fn = "?", *name = "?";
 
-    if (o) {
-        co_filename   =_fetch_rpsspace0(segment_base, o, g_co_filename_ofs);
-        co_name       =_fetch_rpsspace0(segment_base, o, g_co_name_ofs);
-        co_firstlineno=_fetch_lngspace0(segment_base, o, g_co_firstlineno_ofs);
-        co_lnotab     =_fetch_rpsspace0(segment_base, o, g_co_lnotab_ofs);
+    char *segment_base = marker->segment_base;
+    object_t * o = marker->object;
 
-        long remaining = outputbufsize - 32;
-        nlen = RPyString_Size(co_name);
-        name = _RPyString_AsString(co_name);
-        if (nlen > remaining / 2) {
-            nlen = remaining / 2;
-            ntrunc = ">";
-        }
-        remaining -= nlen;
+    co_filename    = _fetch_rpsspace0(segment_base, o, g_co_filename_ofs);
+    co_name        = _fetch_rpsspace0(segment_base, o, g_co_name_ofs);
+    co_firstlineno = _fetch_lngspace0(segment_base, o, g_co_firstlineno_ofs);
+    co_lnotab      = _fetch_rpsspace0(segment_base, o, g_co_lnotab_ofs);
 
-        fnlen = RPyString_Size(co_filename);
-        fn = _RPyString_AsString(co_filename);
-        if (fnlen > remaining) {
-            fn += (fnlen - remaining);
-            fnlen = remaining;
-            fntrunc = "<";
-        }
+    long remaining = outputbufsize - 32;
+    nlen = RPyString_Size(co_name);
+    name = _RPyString_AsString(co_name);
+    if (nlen > remaining / 2) {
+        nlen = remaining / 2;
+        ntrunc = ">";
+    }
+    remaining -= nlen;
 
-        long lnotablen = RPyString_Size(co_lnotab);
-        char *lnotab = _RPyString_AsString(co_lnotab);
-        uintptr_t next_instr = odd_number >> 1;
-        line = co_firstlineno;
-        uintptr_t i, addr = 0;
-        for (i = 0; i < lnotablen; i += 2) {
-            addr += ((unsigned char *)lnotab)[i];
-            if (addr > next_instr)
-                break;
-            line += ((unsigned char *)lnotab)[i + 1];
-        }
+    fnlen = RPyString_Size(co_filename);
+    fn = _RPyString_AsString(co_filename);
+    if (fnlen > remaining) {
+        fn += (fnlen - remaining);
+        fnlen = remaining;
+        fntrunc = "<";
     }
 
-    snprintf(outputbuf, outputbufsize, "File \"%s%.*s\", line %ld, in %.*s%s",
-             fntrunc, (int)fnlen, fn, line, (int)nlen, name, ntrunc);
-}
-
-#define REPORT_MINIMUM_TIME   0.0001    /* 0.1 millisecond; xxx tweak */
-
-static void _stm_cb_debug_print(const char *cause, double time,
-                                const char *marker)
-{
-    if (time >= REPORT_MINIMUM_TIME) {
-        PYPY_DEBUG_START("stm-report");
-        fprintf(PYPY_DEBUG_FILE, "%s  %s\n%s    %.6fs: %s\n",
-                pypy_debug_threadid, marker,
-                pypy_debug_threadid, time, cause);
-        PYPY_DEBUG_STOP("stm-report");
+    long lnotablen = RPyString_Size(co_lnotab);
+    char *lnotab = _RPyString_AsString(co_lnotab);
+    uintptr_t next_instr = marker->odd_number >> 1;
+    line = co_firstlineno;
+    uintptr_t i, addr = 0;
+    for (i = 0; i < lnotablen; i += 2) {
+        addr += ((unsigned char *)lnotab)[i];
+        if (addr > next_instr)
+            break;
+        line += ((unsigned char *)lnotab)[i + 1];
     }
+
+    return snprintf(outputbuf, outputbufsize,
+                    "File \"%s%.*s\", line %ld, in %.*s%s",
+                    fntrunc, (int)fnlen, fn, line, (int)nlen, name, ntrunc);
 }
 
 void pypy_stm_setup_expand_marker(long co_filename_ofs,
@@ -140,11 +131,8 @@ void pypy_stm_setup_expand_marker(long co_filename_ofs,
     g_co_name_ofs = co_name_ofs;
     g_co_firstlineno_ofs = co_firstlineno_ofs;
     g_co_lnotab_ofs = co_lnotab_ofs;
-    stmcb_expand_marker = _stm_expand_marker_for_pypy;
 
-    PYPY_DEBUG_START("stm-report");
-    if (PYPY_HAVE_DEBUG_PRINTS) {
-        stmcb_debug_print = _stm_cb_debug_print;
-    }
-    PYPY_DEBUG_STOP("stm-report");
+    char *filename = getenv("PYPYSTM");
+    if (filename && filename[0])
+        stm_set_timing_log(filename, &_stm_expand_marker_for_pypy);
 }
