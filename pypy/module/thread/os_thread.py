@@ -126,6 +126,8 @@ class Bootstrapper(object):
     release = staticmethod(release)
 
     def run(space, w_callable, args):
+        # add the ExecutionContext to space.threadlocals
+        space.threadlocals.enter_thread(space)
         try:
             space.call_args(w_callable, args)
         except OperationError, e:

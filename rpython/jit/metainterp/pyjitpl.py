@@ -231,6 +231,14 @@ class MIFrame(object):
         ''' % (_opimpl, _opimpl.upper())).compile()
 
     @arguments("box")
+    def opimpl_int_same_as(self, box):
+        # for tests only: emits a same_as, forcing the result to be in a Box
+        resbox = history.BoxInt(box.getint())
+        self.metainterp._record_helper_nonpure_varargs(
+            rop.SAME_AS, resbox, None, [box])
+        return resbox
+
+    @arguments("box")
     def opimpl_ptr_nonzero(self, box):
         return self.execute(rop.PTR_NE, box, history.CONST_NULL)
 
@@ -398,6 +406,10 @@ class MIFrame(object):
     def opimpl_new_array(self, lengthbox, itemsizedescr):
         return self.metainterp.execute_new_array(itemsizedescr, lengthbox)
 
+    @arguments("box", "descr")
+    def opimpl_new_array_clear(self, lengthbox, itemsizedescr):
+        return self.metainterp.execute_new_array_clear(itemsizedescr, lengthbox)
+
     @specialize.arg(1)
     def _do_getarrayitem_gc_any(self, op, arraybox, indexbox, arraydescr):
         tobox = self.metainterp.heapcache.getarrayitem(
@@ -501,7 +513,11 @@ class MIFrame(object):
                        itemsdescr, arraydescr):
         sbox = self.opimpl_new(structdescr)
         self._opimpl_setfield_gc_any(sbox, sizebox, lengthdescr)
-        abox = self.opimpl_new_array(sizebox, arraydescr)
+        if (arraydescr.is_array_of_structs() or
+            arraydescr.is_array_of_pointers()):
+            abox = self.opimpl_new_array_clear(sizebox, arraydescr)
+        else:
+            abox = self.opimpl_new_array(sizebox, arraydescr)
         self._opimpl_setfield_gc_any(sbox, abox, itemsdescr)
         return sbox
 
@@ -510,7 +526,11 @@ class MIFrame(object):
                             itemsdescr, arraydescr):
         sbox = self.opimpl_new(structdescr)
         self._opimpl_setfield_gc_any(sbox, history.CONST_FALSE, lengthdescr)
-        abox = self.opimpl_new_array(sizehintbox, arraydescr)
+        if (arraydescr.is_array_of_structs() or
+            arraydescr.is_array_of_pointers()):
+            abox = self.opimpl_new_array_clear(sizehintbox, arraydescr)
+        else:
+            abox = self.opimpl_new_array(sizehintbox, arraydescr)
         self._opimpl_setfield_gc_any(sbox, abox, itemsdescr)
         return sbox
 
@@ -880,6 +900,8 @@ class MIFrame(object):
                                     pc):
         self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
 
+    opimpl_conditional_call_r_v = opimpl_conditional_call_i_v
+
     @arguments("box", "box", "boxes2", "descr", "orgpc")
     def opimpl_conditional_call_ir_v(self, condbox, funcbox, argboxes,
                                      calldescr, pc):
@@ -1171,7 +1193,7 @@ class MIFrame(object):
 
     @arguments("box")
     def _opimpl_isvirtual(self, box):
-        return ConstInt(self.metainterp.heapcache.is_unescaped(box))
+        return ConstInt(self.metainterp.heapcache.is_likely_virtual(box))
 
     opimpl_ref_isvirtual = _opimpl_isvirtual
 
@@ -1221,10 +1243,6 @@ class MIFrame(object):
             nullbox = self.metainterp.cpu.ts.CONST_NULL
             metainterp.history.record(rop.VIRTUAL_REF_FINISH,
                                       [vrefbox, nullbox], None)
-
-    @arguments()
-    def opimpl_ll_read_timestamp(self):
-        return self.metainterp.execute_and_record(rop.READ_TIMESTAMP, None)
 
     @arguments("box", "box", "box")
     def _opimpl_libffi_save_result(self, box_cif_description,
@@ -1367,51 +1385,57 @@ class MIFrame(object):
     def do_residual_call(self, funcbox, argboxes, descr, pc,
                          assembler_call=False,
                          assembler_call_jd=None):
-        # First build allboxes: it may need some reordering from the
-        # list provided in argboxes, depending on the order in which
-        # the arguments are expected by the function
-        #
-        allboxes = self._build_allboxes(funcbox, argboxes, descr)
-        effectinfo = descr.get_extra_info()
-        if (assembler_call or
-                effectinfo.check_forces_virtual_or_virtualizable()):
-            # residual calls require attention to keep virtualizables in-sync
-            self.metainterp.clear_exception()
-            if effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
-                resbox = self._do_jit_force_virtual(allboxes, descr, pc)
+        debug_start("jit-residual-call")
+        try:
+            # First build allboxes: it may need some reordering from the
+            # list provided in argboxes, depending on the order in which
+            # the arguments are expected by the function
+            #
+            allboxes = self._build_allboxes(funcbox, argboxes, descr)
+            effectinfo = descr.get_extra_info()
+            if (assembler_call or
+                    effectinfo.check_forces_virtual_or_virtualizable()):
+                # residual calls require attention to keep virtualizables in-sync
+                self.metainterp.clear_exception()
+                if effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
+                    resbox = self._do_jit_force_virtual(allboxes, descr, pc)
+                    if resbox is not None:
+                        return resbox
+                self.metainterp.vable_and_vrefs_before_residual_call()
+                resbox = self.metainterp.execute_and_record_varargs(
+                    rop.CALL_MAY_FORCE, allboxes, descr=descr)
+                if effectinfo.is_call_release_gil():
+                    self.metainterp.direct_call_release_gil()
+                self.metainterp.vrefs_after_residual_call()
+                vablebox = None
+                if assembler_call:
+                    vablebox = self.metainterp.direct_assembler_call(
+                        assembler_call_jd)
                 if resbox is not None:
-                    return resbox
-            self.metainterp.vable_and_vrefs_before_residual_call()
-            resbox = self.metainterp.execute_and_record_varargs(
-                rop.CALL_MAY_FORCE, allboxes, descr=descr)
-            if effectinfo.is_call_release_gil():
-                self.metainterp.direct_call_release_gil()
-            self.metainterp.vrefs_after_residual_call()
-            vablebox = None
-            if assembler_call:
-                vablebox = self.metainterp.direct_assembler_call(
-                    assembler_call_jd)
-            if resbox is not None:
-                self.make_result_of_lastop(resbox)
-            self.metainterp.vable_after_residual_call(funcbox)
-            self.metainterp.generate_guard(rop.GUARD_NOT_FORCED, None)
-            if vablebox is not None:
-                self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
-            self.metainterp.handle_possible_exception()
-            # XXX refactor: direct_libffi_call() is a hack
-            if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
-                self.metainterp.direct_libffi_call()
-            return resbox
-        else:
-            effect = effectinfo.extraeffect
-            if effect == effectinfo.EF_LOOPINVARIANT:
-                return self.execute_varargs(rop.CALL_LOOPINVARIANT, allboxes,
-                                            descr, False, False)
-            exc = effectinfo.check_can_raise()
-            pure = effectinfo.check_is_elidable()
-            return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
+                    self.make_result_of_lastop(resbox)
+                self.metainterp.vable_after_residual_call(funcbox)
+                self.metainterp.generate_guard(rop.GUARD_NOT_FORCED, None)
+                if vablebox is not None:
+                    self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
+                self.metainterp.handle_possible_exception()
+                # XXX refactor: direct_libffi_call() is a hack
+                if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
+                    self.metainterp.direct_libffi_call()
+                return resbox
+            else:
+                effect = effectinfo.extraeffect
+                if effect == effectinfo.EF_LOOPINVARIANT:
+                    return self.execute_varargs(rop.CALL_LOOPINVARIANT, allboxes,
+                                                descr, False, False)
+                exc = effectinfo.check_can_raise()
+                pure = effectinfo.check_is_elidable()
+                return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
+        finally:
+            debug_stop("jit-residual-call")
 
     def do_conditional_call(self, condbox, funcbox, argboxes, descr, pc):
+        if isinstance(condbox, ConstInt) and condbox.value == 0:
+            return   # so that the heapcache can keep argboxes virtual
         allboxes = self._build_allboxes(funcbox, argboxes, descr)
         effectinfo = descr.get_extra_info()
         assert not effectinfo.check_forces_virtual_or_virtualizable()
@@ -1901,6 +1925,12 @@ class MetaInterp(object):
         self.heapcache.new_array(resbox, lengthbox)
         return resbox
 
+    def execute_new_array_clear(self, itemsizedescr, lengthbox):
+        resbox = self.execute_and_record(rop.NEW_ARRAY_CLEAR, itemsizedescr,
+                                         lengthbox)
+        self.heapcache.new_array(resbox, lengthbox)
+        return resbox
+
     def execute_setfield_gc(self, fielddescr, box, valuebox):
         self.execute_and_record(rop.SETFIELD_GC, fielddescr, box, valuebox)
         self.heapcache.setfield(box, valuebox, fielddescr)
@@ -1975,6 +2005,10 @@ class MetaInterp(object):
             if greenkey_of_huge_function is not None:
                 warmrunnerstate.disable_noninlinable_function(
                     greenkey_of_huge_function)
+                if self.current_merge_points:
+                    jd_sd = self.jitdriver_sd
+                    greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
+                    warmrunnerstate.JitCell.trace_next_iteration(greenkey)
             raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
 
     def _interpret(self):

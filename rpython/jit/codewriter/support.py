@@ -289,6 +289,10 @@ def _ll_1_cast_float_to_uint(x):
     # (which is a residual call right now in the x86 backend)
     return llop.cast_float_to_uint(lltype.Unsigned, x)
 
+def _ll_0_ll_read_timestamp():
+    from rpython.rlib import rtimer
+    return rtimer.read_timestamp()
+
 
 # math support
 # ------------
@@ -507,18 +511,7 @@ class LLtypeHelpers:
     _ll_1_dict_values.need_result_type = True
     _ll_1_dict_items .need_result_type = True
 
-    _dictnext_keys   = staticmethod(ll_rdict.ll_dictnext_group['keys'])
-    _dictnext_values = staticmethod(ll_rdict.ll_dictnext_group['values'])
-    _dictnext_items  = staticmethod(ll_rdict.ll_dictnext_group['items'])
-
-    def _ll_1_dictiter_nextkeys(iter):
-        return LLtypeHelpers._dictnext_keys(None, iter)
-    def _ll_1_dictiter_nextvalues(iter):
-        return LLtypeHelpers._dictnext_values(None, iter)
-    def _ll_1_dictiter_nextitems(RES, iter):
-        return LLtypeHelpers._dictnext_items(lltype.Ptr(RES), iter)
-    _ll_1_dictiter_nextitems.need_result_type = True
-
+    _ll_1_dictiter_next = ll_rdict._ll_dictnext
     _ll_1_dict_resize = ll_rdict.ll_dict_resize
 
     # ---------- ordered dict ----------
@@ -534,18 +527,7 @@ class LLtypeHelpers:
     _ll_1_odict_values.need_result_type = True
     _ll_1_odict_items .need_result_type = True
 
-    _odictnext_keys   = staticmethod(rordereddict.ll_dictnext_group['keys'])
-    _odictnext_values = staticmethod(rordereddict.ll_dictnext_group['values'])
-    _odictnext_items  = staticmethod(rordereddict.ll_dictnext_group['items'])
-
-    def _ll_1_odictiter_nextkeys(iter):
-        return LLtypeHelpers._odictnext_keys(None, iter)
-    def _ll_1_odictiter_nextvalues(iter):
-        return LLtypeHelpers._odictnext_values(None, iter)
-    def _ll_1_odictiter_nextitems(RES, iter):
-        return LLtypeHelpers._odictnext_items(lltype.Ptr(RES), iter)
-    _ll_1_odictiter_nextitems.need_result_type = True
-
+    _ll_1_odictiter_next = rordereddict._ll_dictnext
     _ll_1_odict_resize = rordereddict.ll_dict_resize
 
     # ---------- strings and unicode ----------
@@ -711,6 +693,11 @@ class LLtypeHelpers:
         build_raw_free_builder())
     build_ll_1_raw_free_no_track_allocation = (
         build_raw_free_builder(track_allocation=False))
+
+    def build_ll_0_threadlocalref_getter(opaqueid):
+        def _ll_0_threadlocalref_getter():
+            return llop.threadlocalref_get(rclass.OBJECTPTR, opaqueid)
+        return _ll_0_threadlocalref_getter
 
     def _ll_1_weakref_create(obj):
         return llop.weakref_create(llmemory.WeakRefPtr, obj)

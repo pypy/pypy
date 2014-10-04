@@ -257,6 +257,9 @@ class OptValue(object):
     def setinteriorfield(self, index, ofs, value):
         raise NotImplementedError
 
+    def get_missing_null_value(self):
+        raise NotImplementedError    # only for VArrayValue
+
 
 class ConstantValue(OptValue):
     def __init__(self, box):

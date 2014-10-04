@@ -391,16 +391,31 @@ class W_ISlice(W_Root):
                                 # has no effect any more
                 if stop > 0:
                     self._ignore_items(stop)
+                self.iterable = None
                 raise OperationError(self.space.w_StopIteration,
                                      self.space.w_None)
             self.stop = stop - (ignore + 1)
         if ignore > 0:
             self._ignore_items(ignore)
-        return self.space.next(self.iterable)
+        if self.iterable is None:
+            raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        try:
+            return self.space.next(self.iterable)
+        except OperationError as e:
+            if e.match(self.space, self.space.w_StopIteration):
+                self.iterable = None
+            raise
 
     def _ignore_items(self, num):
+        if self.iterable is None:
+            raise OperationError(self.space.w_StopIteration, self.space.w_None)
         while True:
-            self.space.next(self.iterable)
+            try:
+                self.space.next(self.iterable)
+            except OperationError as e:
+                if e.match(self.space, self.space.w_StopIteration):
+                    self.iterable = None
+                raise
             num -= 1
             if num <= 0:
                 break

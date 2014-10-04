@@ -32,9 +32,14 @@ static void pypy_debug_open(void)
   if (filename && filename[0])
     {
       char *colon = strchr(filename, ':');
+      if (filename[0] == '+')
+        {
+          filename += 1;
+          colon = NULL;
+        }
       if (!colon)
         {
-          /* PYPYLOG=filename --- profiling version */
+          /* PYPYLOG=+filename (or just 'filename') --- profiling version */
           debug_profile = 1;
           pypy_setup_profiling();
         }

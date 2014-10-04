@@ -15,6 +15,7 @@ from rpython.rlib.rfloat import (
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib import rfloat
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.rtyper.lltypesystem.module.ll_math import math_fmod
 
 from pypy.objspace.std.intobject import W_IntObject
 
@@ -360,21 +361,17 @@ def mod__Float_Float(space, w_float1, w_float2):
     y = w_float2.floatval
     if y == 0.0:
         raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float modulo"))
-    try:
-        mod = math.fmod(x, y)
-    except ValueError:
-        mod = rfloat.NAN
+    mod = math_fmod(x, y)
+    if mod:
+        # ensure the remainder has the same sign as the denominator
+        if (y < 0.0) != (mod < 0.0):
+            mod += y
     else:
-        if mod:
-            # ensure the remainder has the same sign as the denominator
-            if (y < 0.0) != (mod < 0.0):
-                mod += y
-        else:
-            # the remainder is zero, and in the presence of signed zeroes
-            # fmod returns different results across platforms; ensure
-            # it has the same sign as the denominator; we'd like to do
-            # "mod = y * 0.0", but that may get optimized away
-            mod = copysign(0.0, y)
+        # the remainder is zero, and in the presence of signed zeroes
+        # fmod returns different results across platforms; ensure
+        # it has the same sign as the denominator; we'd like to do
+        # "mod = y * 0.0", but that may get optimized away
+        mod = copysign(0.0, y)
 
     return W_FloatObject(mod)
 
@@ -383,10 +380,7 @@ def _divmod_w(space, w_float1, w_float2):
     y = w_float2.floatval
     if y == 0.0:
         raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float modulo"))
-    try:
-        mod = math.fmod(x, y)
-    except ValueError:
-        return [W_FloatObject(rfloat.NAN), W_FloatObject(rfloat.NAN)]
+    mod = math_fmod(x, y)
     # fmod is typically exact, so vx-mod is *mathematically* an
     # exact multiple of wx.  But this is fp arithmetic, and fp
     # vx - mod is an approximation; the result is that div may

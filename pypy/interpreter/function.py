@@ -616,7 +616,8 @@ class ClassMethod(W_Root):
     def descr_classmethod_get(self, space, w_obj, w_klass=None):
         if space.is_none(w_klass):
             w_klass = space.type(w_obj)
-        return space.wrap(Method(space, self.w_function, w_klass, space.w_None))
+        return space.wrap(Method(space, self.w_function, w_klass,
+                                 space.type(w_klass)))
 
     def descr_classmethod__new__(space, w_subtype, w_function):
         instance = space.allocate_instance(ClassMethod, w_subtype)

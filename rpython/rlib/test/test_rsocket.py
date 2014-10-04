@@ -62,43 +62,6 @@ def test_gethostbyname_ex():
             py.test.fail("could not find the localhost address in %r"
                          % (address_list,))
 
-def test_thread_safe_gethostbyname_ex():
-    import threading
-    nthreads = 10
-    domain = 'google.com'
-    result = [0] * nthreads
-    threads = [None] * nthreads
-    lock = threading.Lock()
-    def lookup_name(i):
-        name, aliases, address_list = gethostbyname_ex(domain, lock)
-        if name == domain:
-            result[i] += 1
-    for i in range(nthreads):
-        threads[i] = threading.Thread(target = lookup_name, args=[i])
-        threads[i].start()
-    for i in range(nthreads):
-        threads[i].join()
-    assert sum(result) == nthreads
-
-def test_thread_safe_gethostbyaddr():
-    import threading
-    nthreads = 10
-    ip = '8.8.8.8'
-    domain = gethostbyaddr(ip)[0]
-    result = [0] * nthreads
-    threads = [None] * nthreads
-    lock = threading.Lock()
-    def lookup_addr(ip, i):
-        name, aliases, address_list = gethostbyaddr(ip, lock)
-        if name == domain:
-            result[i] += 1
-    for i in range(nthreads):
-        threads[i] = threading.Thread(target = lookup_addr, args=[ip, i])
-        threads[i].start()
-    for i in range(nthreads):
-        threads[i].join()
-    assert sum(result) == nthreads
-
 def test_gethostbyaddr():
     try:
         cpy_socket.gethostbyaddr("::1")
@@ -342,14 +305,20 @@ def test_getaddrinfo_http():
     e = py.test.raises(GAIError, getaddrinfo, 'www.very-invalidaddress.com', None)
     assert isinstance(e.value.get_msg(), str)
 
-def test_getaddrinfo_pydotorg():
+def getaddrinfo_pydotorg(i, result):
     lst = getaddrinfo('python.org', None)
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
         if addr.get_host() == '140.211.10.69':
             found = True
-    assert found, lst
+    result[i] += found
+
+def test_getaddrinfo_pydotorg():
+    result = [0,]
+    getaddrinfo_pydotorg(0, result)
+    assert result[0] == 1
+
 
 def test_getaddrinfo_no_reverse_lookup():
     # It seems that getaddrinfo never runs a reverse lookup on Linux.
@@ -549,3 +518,56 @@ def test_no_AF_PACKET():
 
 def test_no_AF_NETLINK():
     _test_cond_include('AF_NETLINK')
+
+def test_thread_safe_gethostbyaddr():
+    py.test.skip("hits non-thread-safe issues with ll2ctypes")
+    import threading
+    nthreads = 10
+    ip = '8.8.8.8'
+    domain = gethostbyaddr(ip)[0]
+    result = [0] * nthreads
+    threads = [None] * nthreads
+    lock = threading.Lock()
+    def lookup_addr(ip, i):
+        name, aliases, address_list = gethostbyaddr(ip, lock)
+        if name == domain:
+            result[i] += 1
+    for i in range(nthreads):
+        threads[i] = threading.Thread(target = lookup_addr, args=[ip, i])
+        threads[i].start()
+    for i in range(nthreads):
+        threads[i].join()
+    assert sum(result) == nthreads
+
+def test_thread_safe_gethostbyname_ex():
+    py.test.skip("hits non-thread-safe issues with ll2ctypes")
+    import threading
+    nthreads = 10
+    domain = 'google.com'
+    result = [0] * nthreads
+    threads = [None] * nthreads
+    lock = threading.Lock()
+    def lookup_name(i):
+        name, aliases, address_list = gethostbyname_ex(domain, lock)
+        if name == domain:
+            result[i] += 1
+    for i in range(nthreads):
+        threads[i] = threading.Thread(target = lookup_name, args=[i])
+        threads[i].start()
+    for i in range(nthreads):
+        threads[i].join()
+    assert sum(result) == nthreads
+
+def test_getaddrinfo_pydotorg_threadsafe():
+    py.test.skip("hits non-thread-safe issues with ll2ctypes")
+    import threading
+    nthreads = 10
+    result = [0] * nthreads
+    threads = [None] * nthreads
+    for i in range(nthreads):
+        threads[i] = threading.Thread(target = getaddrinfo_pydotorg, args=[i, result])
+        threads[i].start()
+    for i in range(nthreads):
+        threads[i].join()
+    assert sum(result) == nthreads
+ 

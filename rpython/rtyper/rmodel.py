@@ -345,17 +345,6 @@ class SimplePointerRepr(Repr):
 
 # ____________________________________________________________
 
-def inputdesc(reqtype, desc):
-    """Return a Constant for the given desc, of the requested type,
-    which can only be a Repr.
-    """
-    assert isinstance(reqtype, Repr)
-    value = reqtype.convert_desc(desc)
-    lltype = reqtype.lowleveltype
-    c = Constant(value)
-    c.concretetype = lltype
-    return c
-
 def inputconst(reqtype, value):
     """Return a Constant with the given value, of the requested type,
     which can be a Repr instance or a low-level type.

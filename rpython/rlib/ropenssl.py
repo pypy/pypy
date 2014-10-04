@@ -5,10 +5,11 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.translator.platform import platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib._rsocket_rffi import MAX_FD_SIZE
 
 
 if sys.platform == 'win32' and platform.name != 'mingw32':
-    libraries = ['libeay32', 'ssleay32', 'zlib1',
+    libraries = ['libeay32', 'ssleay32', 'zlib',
                  'user32', 'advapi32', 'gdi32', 'msvcrt', 'ws2_32']
     includes = [
         # ssl.h includes winsock.h, which will conflict with our own
@@ -46,13 +47,6 @@ eci = rffi_platform.configure_external_library(
     [dict(prefix='openssl-',
           include_dir='inc32', library_dir='out32'),
      ])
-
-# WinSock does not use a bitmask in select, and uses
-# socket handles greater than FD_SETSIZE
-if sys.platform == 'win32':
-    MAX_FD_SIZE = None
-else:
-    from rpython.rlib._rsocket_rffi import FD_SETSIZE as MAX_FD_SIZE
 
 ASN1_STRING = lltype.Ptr(lltype.ForwardReference())
 ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')

@@ -36,6 +36,20 @@ class Op(object):
         if self._is_guard:
             self.guard_no = int(self.descr[len('<Guard0x'):-1], 16)
 
+    def as_json(self):
+        d = {
+            'name': self.name,
+            'args': self.args,
+            'res': self.res,
+        }
+        if self.descr is not None:
+            d['descr'] = self.descr
+        if self.bridge is not None:
+            d['bridge'] = self.bridge.as_json()
+        if self.asm is not None:
+            d['asm'] = self.asm
+        return d
+
     def setfailargs(self, failargs):
         self.failargs = failargs
 
@@ -392,9 +406,9 @@ def import_log(logname, ParserCls=SimpleParser):
     loops = []
     cat = extract_category(log, 'jit-log-opt')
     if not cat:
-        extract_category(log, 'jit-log-rewritten')
+        cat = extract_category(log, 'jit-log-rewritten')
     if not cat:
-        extract_category(log, 'jit-log-noopt')        
+        cat = extract_category(log, 'jit-log-noopt')        
     for entry in cat:
         parser = ParserCls(entry, None, {}, 'lltype', None,
                            nonstrict=True)

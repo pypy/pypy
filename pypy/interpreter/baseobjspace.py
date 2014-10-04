@@ -8,7 +8,7 @@ from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
-    INT_MIN, INT_MAX, UINT_MAX
+    INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
 
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     UserDelAction)
@@ -395,6 +395,7 @@ class ObjSpace(object):
 
     def startup(self):
         # To be called before using the space
+        self.threadlocals.enter_thread(self)
 
         # Initialize already imported builtin modules
         from pypy.interpreter.module import Module
@@ -639,30 +640,36 @@ class ObjSpace(object):
         """NOT_RPYTHON: Abstract method that should put some minimal
         content into the w_builtins."""
 
-    @jit.loop_invariant
     def getexecutioncontext(self):
         "Return what we consider to be the active execution context."
         # Important: the annotator must not see a prebuilt ExecutionContext:
         # you should not see frames while you translate
         # so we make sure that the threadlocals never *have* an
         # ExecutionContext during translation.
-        if self.config.translating and not we_are_translated():
-            assert self.threadlocals.getvalue() is None, (
-                "threadlocals got an ExecutionContext during translation!")
-            try:
-                return self._ec_during_translation
-            except AttributeError:
-                ec = self.createexecutioncontext()
-                self._ec_during_translation = ec
+        if not we_are_translated():
+            if self.config.translating:
+                assert self.threadlocals.get_ec() is None, (
+                    "threadlocals got an ExecutionContext during translation!")
+                try:
+                    return self._ec_during_translation
+                except AttributeError:
+                    ec = self.createexecutioncontext()
+                    self._ec_during_translation = ec
+                    return ec
+            else:
+                ec = self.threadlocals.get_ec()
+                if ec is None:
+                    self.threadlocals.enter_thread(self)
+                    ec = self.threadlocals.get_ec()
                 return ec
-        # normal case follows.  The 'thread' module installs a real
-        # thread-local object in self.threadlocals, so this builds
-        # and caches a new ec in each thread.
-        ec = self.threadlocals.getvalue()
-        if ec is None:
-            ec = self.createexecutioncontext()
-            self.threadlocals.setvalue(ec)
-        return ec
+        else:
+            # translated case follows.  self.threadlocals is either from
+            # 'pypy.interpreter.miscutils' or 'pypy.module.thread.threadlocals'.
+            # the result is assumed to be non-null: enter_thread() was called
+            # by space.startup().
+            ec = self.threadlocals.get_ec()
+            assert ec is not None
+            return ec
 
     def _freeze_(self):
         return True
@@ -962,6 +969,13 @@ class ObjSpace(object):
         """ A non-fixed view of w_iterable. Don't modify the result
         """
         return self.unpackiterable(w_iterable, expected_length)
+
+    def listview_no_unpack(self, w_iterable):
+        """ Same as listview() if cheap.  If 'w_iterable' is something like
+        a generator, for example, then return None instead.
+        May return None anyway.
+        """
+        return None
 
     def listview_bytes(self, w_list):
         """ Return a list of unwrapped strings out of a list of strings. If the
@@ -1487,9 +1501,7 @@ class ObjSpace(object):
             return buf.as_str()
 
     def str_or_None_w(self, w_obj):
-        if self.is_w(w_obj, self.w_None):
-            return None
-        return self.str_w(w_obj)
+        return None if self.is_none(w_obj) else self.str_w(w_obj)
 
     def str_w(self, w_obj):
         return w_obj.str_w(self)
@@ -1632,6 +1644,16 @@ class ObjSpace(object):
         elif value > SHRT_MAX:
             raise oefmt(self.w_OverflowError,
                 "signed short integer is greater than maximum")
+        return value
+
+    def c_ushort_w(self, w_obj):
+        value = self.int_w(w_obj)
+        if value < 0:
+            raise oefmt(self.w_OverflowError,
+                "can't convert negative value to C unsigned short")
+        elif value > USHRT_MAX:
+            raise oefmt(self.w_OverflowError,
+                "Python int too large for C unsigned short")
         return value
 
     def truncatedint_w(self, w_obj, allow_conversion=True):

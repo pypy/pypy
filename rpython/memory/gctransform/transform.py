@@ -510,12 +510,6 @@ class GCTransformer(BaseGCTransformer):
         assert meth, "%s has no support for malloc_varsize with flavor %r" % (self, flavor)
         return self.varsize_malloc_helper(hop, flags, meth, [])
 
-    def gct_malloc_nonmovable(self, *args, **kwds):
-        return self.gct_malloc(*args, **kwds)
-
-    def gct_malloc_nonmovable_varsize(self, *args, **kwds):
-        return self.gct_malloc_varsize(*args, **kwds)
-
     def gct_gc_add_memory_pressure(self, hop):
         if hasattr(self, 'raw_malloc_memory_pressure_ptr'):
             op = hop.spaceop

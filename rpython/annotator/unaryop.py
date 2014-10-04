@@ -301,10 +301,10 @@ class __extend__(SomeList):
     def hint(self, *args_s):
         hints = args_s[-1].const
         if 'maxlength' in hints:
-            # only for iteration over lists or dicts at the moment,
+            # only for iteration over lists or dicts or strs at the moment,
             # not over an iterator object (because it has no known length)
             s_iterable = args_s[0]
-            if isinstance(s_iterable, (SomeList, SomeDict)):
+            if isinstance(s_iterable, (SomeList, SomeDict, SomeString)):
                 self = SomeList(self.listdef) # create a fresh copy
                 self.listdef.resize()
                 self.listdef.listitem.hint_maxlength = True
@@ -399,6 +399,9 @@ class __extend__(SomeDict):
         if s_None.contains(dct2):
             return SomeImpossibleValue()
         dct1.dictdef.union(dct2.dictdef)
+
+    def method__prepare_dict_update(dct, num):
+        pass
 
     def method_keys(self):
         return getbookkeeper().newlist(self.dictdef.read_key())
@@ -682,19 +685,27 @@ class __extend__(SomeInstance):
         if not self.can_be_None:
             s.const = True
 
-    def iter(self):
-        s_iterable = self._true_getattr('__iter__')
+    def _emulate_call(self, meth_name, *args_s):
         bk = getbookkeeper()
+        s_attr = self._true_getattr(meth_name)
         # record for calltables
-        bk.emulate_pbc_call(bk.position_key, s_iterable, [])
-        return s_iterable.call(simple_args([]))
+        bk.emulate_pbc_call(bk.position_key, s_attr, args_s)
+        return s_attr.call(simple_args(args_s))
+
+    def iter(self):
+        return self._emulate_call('__iter__')
 
     def next(self):
-        s_next = self._true_getattr('next')
-        bk = getbookkeeper()
-        # record for calltables
-        bk.emulate_pbc_call(bk.position_key, s_next, [])
-        return s_next.call(simple_args([]))
+        return self._emulate_call('next')
+
+    def len(self):
+        return self._emulate_call('__len__')
+
+    def getslice(self, s_start, s_stop):
+        return self._emulate_call('__getslice__', s_start, s_stop)
+
+    def setslice(self, s_start, s_stop, s_iterable):
+        return self._emulate_call('__setslice__', s_start, s_stop, s_iterable)
 
 class __extend__(SomeBuiltin):
     def call(self, args, implicit_init=False):
@@ -730,6 +741,11 @@ class __extend__(SomeBuiltinMethod):
 class __extend__(SomePBC):
 
     def getattr(self, s_attr):
+        assert s_attr.is_constant()
+        if s_attr.const == '__name__':
+            from rpython.annotator.description import ClassDesc
+            if self.getKind() is ClassDesc:
+                return SomeString()
         bookkeeper = getbookkeeper()
         return bookkeeper.pbc_getattr(self, s_attr)
     getattr.can_only_throw = []
@@ -770,9 +786,10 @@ class __extend__(SomeNone):
         s.const = False
 
     def len(self):
-        # XXX: this None could later be generalized into an empty list,
-        # whose length is the constant 0; so let's tentatively answer 0.
-        return immutablevalue(0)
+        # This None could later be generalized into a list, for example.
+        # For now, we give the impossible answer (because len(None) would
+        # really crash translated code).  It can be generalized later.
+        return SomeImpossibleValue()
 
 #_________________________________________
 # weakrefs

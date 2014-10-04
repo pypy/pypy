@@ -266,10 +266,16 @@ def convert_to_regdata(space, w_value, typ):
     buf = None
 
     if typ == rwinreg.REG_DWORD:
-        if space.isinstance_w(w_value, space.w_int):
+        if space.is_none(w_value) or (
+                space.isinstance_w(w_value, space.w_int) or
+                space.isinstance_w(w_value, space.w_long)):
+            if space.is_none(w_value):
+                value = r_uint(0)
+            else:
+                value = space.c_uint_w(w_value)
             buflen = rffi.sizeof(rwin32.DWORD)
             buf1 = lltype.malloc(rffi.CArray(rwin32.DWORD), 1, flavor='raw')
-            buf1[0] = space.uint_w(w_value)
+            buf1[0] = value
             buf = rffi.cast(rffi.CCHARP, buf1)
 
     elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:
@@ -667,11 +673,6 @@ A long integer that identifies when the key was last modified (if available)
                                        space.wrap(nValues[0]),
                                        space.wrap(l)])
 
-def str_or_None_w(space, w_obj):
-    if space.is_w(w_obj, space.w_None):
-        return None
-    return space.str_w(w_obj)
-
 def ConnectRegistry(space, w_machine, w_hkey):
     """key = ConnectRegistry(computer_name, key)
 
@@ -683,7 +684,7 @@ key is the predefined handle to connect to.
 
 The return value is the handle of the opened key.
 If the function fails, an EnvironmentError exception is raised."""
-    machine = str_or_None_w(space, w_machine)
+    machine = space.str_or_None_w(w_machine)
     hkey = hkey_w(w_hkey, space)
     with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
         ret = rwinreg.RegConnectRegistry(machine, hkey, rethkey)

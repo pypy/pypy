@@ -6,7 +6,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty, interp_attrproperty_w)
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, compute_hash
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
 from pypy.module.micronumpy import types, boxes, base, support, constants as NPY
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
@@ -73,7 +73,7 @@ class W_Dtype(W_Root):
             self.base = subdtype.base
 
     def __repr__(self):
-        if self.fields is not None:
+        if self.fields:
             return '<DType %r>' % self.fields
         return '<DType %r>' % self.itemtype
 
@@ -254,8 +254,38 @@ class W_Dtype(W_Root):
     def descr_ne(self, space, w_other):
         return space.wrap(not self.eq(space, w_other))
 
+    def _compute_hash(self, space, x):
+        from rpython.rlib.rarithmetic import intmask
+        if not self.fields and self.subdtype is None:
+            endian = self.byteorder
+            if endian == NPY.NATIVE:
+                endian = NPY.NATBYTE
+            flags = 0
+            y = 0x345678
+            y = intmask((1000003 * y) ^ ord(self.kind[0]))
+            y = intmask((1000003 * y) ^ ord(endian[0]))
+            y = intmask((1000003 * y) ^ flags)
+            y = intmask((1000003 * y) ^ self.elsize)
+            if self.is_flexible():
+                y = intmask((1000003 * y) ^ self.alignment)
+            return intmask((1000003 * x) ^ y)
+        if self.fields:
+            for name, (offset, subdtype) in self.fields.iteritems():
+                assert isinstance(subdtype, W_Dtype)
+                y = intmask(1000003 * (0x345678 ^ compute_hash(name)))
+                y = intmask(1000003 * (y ^ compute_hash(offset)))
+                y = intmask(1000003 * (y ^ subdtype._compute_hash(space,
+                                                                 0x345678)))
+                x = intmask(x ^ y)
+        if self.subdtype is not None:
+            for s in self.shape:
+                x = intmask((1000003 * x) ^ compute_hash(s))
+            x = self.base._compute_hash(space, x)
+        return x
+
     def descr_hash(self, space):
-        return space.hash(self.descr_reduce(space))
+        return space.wrap(self._compute_hash(space, 0x345678))
+
 
     def descr_str(self, space):
         if self.fields:

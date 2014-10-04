@@ -2,6 +2,7 @@ from rpython.flowspace.model import (Constant, Variable, Block, Link,
      copygraph, SpaceOperation, checkgraph)
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.nonconst import NonConstant
+from rpython.rlib import rgil
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -356,14 +357,17 @@ class AsmStackRootWalker(BaseRootWalker):
         initialframedata = anchor.address[1]
         stackscount = 0
         while initialframedata != anchor:     # while we have not looped back
-            self.fill_initial_frame(curframe, initialframedata)
-            # Loop over all the frames in the stack
-            while self.walk_to_parent_frame(curframe, otherframe):
-                swap = curframe
-                curframe = otherframe    # caller becomes callee
-                otherframe = swap
+            self.walk_frames(curframe, otherframe, initialframedata)
             # Then proceed to the next piece of stack
             initialframedata = initialframedata.address[1]
+            stackscount += 1
+        #
+        # for the JIT: rpy_fastgil may contain an extra framedata
+        rpy_fastgil = rgil.gil_fetch_fastgil().signed[0]
+        if rpy_fastgil != 1:
+            ll_assert(rpy_fastgil != 0, "walk_stack_from doesn't have the GIL")
+            initialframedata = rffi.cast(llmemory.Address, rpy_fastgil)
+            self.walk_frames(curframe, otherframe, initialframedata)
             stackscount += 1
         #
         expected = rffi.stackcounter.stacks_counter
@@ -373,6 +377,14 @@ class AsmStackRootWalker(BaseRootWalker):
         ll_assert(not (stackscount > expected), "stacks counter corruption?")
         lltype.free(otherframe, flavor='raw')
         lltype.free(curframe, flavor='raw')
+
+    def walk_frames(self, curframe, otherframe, initialframedata):
+        self.fill_initial_frame(curframe, initialframedata)
+        # Loop over all the frames in the stack
+        while self.walk_to_parent_frame(curframe, otherframe):
+            swap = curframe
+            curframe = otherframe    # caller becomes callee
+            otherframe = swap
 
     def fill_initial_frame(self, curframe, initialframedata):
         # Read the information provided by initialframedata
@@ -505,6 +517,8 @@ class AsmStackRootWalker(BaseRootWalker):
                       "anywhere I know, bug in asmgcc")
             # fish the depth
             extra_stack_depth = (ebp_in_caller + STACK_DEPTH_OFS).signed[0]
+            ll_assert((extra_stack_depth & (rffi.sizeof(lltype.Signed) - 1))
+                       == 0, "asmgcc: misaligned extra_stack_depth")
             extra_stack_depth //= rffi.sizeof(lltype.Signed)
             self._shape_decompressor.setjitframe(extra_stack_depth)
             return
@@ -770,7 +784,7 @@ gcrootanchor.prev = gcrootanchor
 gcrootanchor.next = gcrootanchor
 c_gcrootanchor = Constant(gcrootanchor, ASM_FRAMEDATA_HEAD_PTR)
 
-eci = ExternalCompilationInfo(pre_include_bits=['#define PYPY_USE_ASMGCC'])
+eci = ExternalCompilationInfo(compile_extra=['-DPYPY_USE_ASMGCC'])
 
 pypy_asm_stackwalk = rffi.llexternal('pypy_asm_stackwalk',
                                      [ASM_CALLBACK_PTR,

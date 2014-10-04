@@ -82,7 +82,7 @@ class TestW_ComplexObject:
 
 
 class AppTestAppComplexTest:
-    spaceconfig = {"usemodules": ["binascii", "rctime"]}
+    spaceconfig = {'usemodules': ['binascii', 'rctime', 'struct']}
 
     def w_check_div(self, x, y):
         """Compute complex z=x*y, and check that z/x==y and z/y==x."""

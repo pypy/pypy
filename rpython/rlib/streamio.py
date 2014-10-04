@@ -37,7 +37,7 @@ an outout-buffering stream.
 import os, sys, errno
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, intmask
-from rpython.rlib import rposix
+from rpython.rlib import rposix, nonconst, _rsocket_rffi as _c
 from rpython.rlib.rstring import StringBuilder
 
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_APPEND
@@ -85,10 +85,26 @@ def open_file_as_stream(path, mode="r", buffering=-1, signal_checker=None):
 def _setfd_binary(fd):
     pass
 
+if hasattr(_c, 'fcntl'):
+    def _check_fd_mode(fd, reading, writing):
+        flags = intmask(_c.fcntl(fd, _c.F_GETFL, 0))
+        if flags & _c.O_RDWR:
+            return
+        elif flags & _c.O_WRONLY:
+            if not reading:
+                return
+        else:  # O_RDONLY
+            if not writing:
+                return
+        raise OSError(22, "Invalid argument")
+else:
+    def _check_fd_mode(fd, reading, writing):
+        # XXX
+        pass
+
 def fdopen_as_stream(fd, mode, buffering=-1, signal_checker=None):
-    # XXX XXX XXX you want do check whether the modes are compatible
-    # otherwise you get funny results
     os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
+    _check_fd_mode(fd, reading, writing)
     _setfd_binary(fd)
     stream = DiskFile(fd, signal_checker)
     return construct_stream_tower(stream, buffering, universal, reading,
@@ -159,6 +175,8 @@ def construct_stream_tower(stream, buffering, universal, reading, writing,
             stream = TextInputFilter(stream)
     elif not binary and os.linesep == '\r\n':
         stream = TextCRLFFilter(stream)
+    if nonconst.NonConstant(False):
+        stream.flush_buffers()     # annotation workaround for untranslated tests
     return stream
 
 
@@ -530,7 +548,7 @@ class BufferingInputStream(Stream):
     def flush_buffers(self):
         if self.buf:
             try:
-                self.do_seek(self.tell(), 0)
+                self.do_seek(self.pos - len(self.buf), 1)
             except (MyNotImplementedError, OSError):
                 pass
             else:
@@ -729,16 +747,23 @@ class BufferingOutputStream(Stream):
 
     def __init__(self, base, bufsize=-1):
         self.base = base
-        self.do_write = base.write  # write more data
         self.do_tell  = base.tell   # return a byte offset
         if bufsize == -1:     # Get default from the class
             bufsize = self.bufsize
         self.bufsize = bufsize  # buffer size (hint only)
         self.buf = []
         self.buflen = 0
+        self.error = False
+
+    def do_write(self, data):
+        try:
+            self.base.write(data)
+        except:
+            self.error = True
+            raise
 
     def flush_buffers(self):
-        if self.buf:
+        if self.buf and not self.error:
             self.do_write(''.join(self.buf))
             self.buf = []
             self.buflen = 0
@@ -747,6 +772,7 @@ class BufferingOutputStream(Stream):
         return self.do_tell() + self.buflen
 
     def write(self, data):
+        self.error = False
         buflen = self.buflen
         datalen = len(data)
         if datalen + buflen < self.bufsize:
@@ -781,6 +807,7 @@ class LineBufferingOutputStream(BufferingOutputStream):
     """
 
     def write(self, data):
+        self.error = False
         p = data.rfind('\n') + 1
         assert p >= 0
         if self.buflen + len(data) < self.bufsize:
@@ -850,7 +877,7 @@ class TextCRLFFilter(Stream):
         self.do_flush = base.flush_buffers
         self.lfbuffer = ""
 
-    def read(self, n):
+    def read(self, n=-1):
         data = self.lfbuffer + self.do_read(n)
         self.lfbuffer = ""
         if data.endswith("\r"):
@@ -872,6 +899,13 @@ class TextCRLFFilter(Stream):
             offset = newoffset + 2
 
         return '\n'.join(result)
+
+    def readline(self):
+        line = self.base.readline()
+        limit = len(line) - 2
+        if limit >= 0 and line[limit] == '\r' and line[limit + 1] == '\n':
+            line = line[:limit] + '\n'
+        return line
 
     def tell(self):
         pos = self.base.tell()

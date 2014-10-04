@@ -66,11 +66,7 @@ def setup_cache_gcstruct2vtable(cpu):
 def set_testing_vtable_for_gcstruct(GCSTRUCT, vtable, name):
     # only for tests that need to register the vtable of their malloc'ed
     # structures in case they are GcStruct inheriting from OBJECT.
-    namez = name + '\x00'
-    vtable.name = lltype.malloc(rclass.OBJECT_VTABLE.name.TO, len(namez),
-                                immortal=True)
-    for i in range(len(namez)):
-        vtable.name[i] = namez[i]
+    vtable.name = rclass.alloc_array_name(name)
     testing_gcstruct2vtable[GCSTRUCT] = vtable
 
 testing_gcstruct2vtable = {}
@@ -129,3 +125,19 @@ def descr2vtable(cpu, descr):
     vtable = descr.as_vtable_size_descr()._corresponding_vtable
     vtable = llmemory.cast_ptr_to_adr(vtable)
     return adr2int(vtable)
+    
+def gc_fielddescrs(gccache, STRUCT, res=None):
+    from rpython.jit.backend.llsupport import descr
+
+    if res is None:
+        res = []
+    # order is not relevant, except for tests
+    for name in STRUCT._names:
+        FIELD = getattr(STRUCT, name)
+        if FIELD is lltype.Void:
+            continue
+        elif isinstance(FIELD, lltype.Struct):
+            gc_fielddescrs(gccache, FIELD, res)
+        elif isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
+            res.append(descr.get_field_descr(gccache, STRUCT, name))
+    return res

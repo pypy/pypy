@@ -219,6 +219,8 @@ class CFuncPtr(_CData):
             if restype is None:
                 import ctypes
                 restype = ctypes.c_int
+            if self._argtypes_ is None:
+                self._argtypes_ = []
             self._ptr = self._getfuncptr_fromaddress(self._argtypes_, restype)
             self._check_argtypes_for_fastpath()
             return

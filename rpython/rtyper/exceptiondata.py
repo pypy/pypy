@@ -44,13 +44,6 @@ class ExceptionData(object):
             classdef = bk.getuniqueclassdef(cls)
             rclass.getclassrepr(rtyper, classdef).setup()
 
-    def make_raise_OSError(self, rtyper):
-        # ll_raise_OSError(errno)
-        def ll_raise_OSError(errno):
-            raise OSError(errno, None)
-        helper_fn = rtyper.annotate_helper_fn(ll_raise_OSError, [annmodel.SomeInteger()])
-        return helper_fn
-
     def get_standard_ll_exc_instance(self, rtyper, clsdef):
         from rpython.rtyper.lltypesystem.rclass import getinstancerepr
         r_inst = getinstancerepr(rtyper, clsdef)
@@ -69,7 +62,6 @@ class ExceptionData(object):
         # create helper functionptrs
         self.fn_exception_match  = self.make_exception_matcher(rtyper)
         self.fn_type_of_exc_inst = self.make_type_of_exc_inst(rtyper)
-        self.fn_raise_OSError    = self.make_raise_OSError(rtyper)
 
     def make_exception_matcher(self, rtyper):
         # ll_exception_matcher(real_exception_vtable, match_exception_vtable)

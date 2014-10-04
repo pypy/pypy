@@ -529,6 +529,23 @@ class TestGateway:
         raises(gateway.OperationError, space.call_function, w_app_g3_u,
                w(42))
 
+    def test_interp2app_unwrap_spec_unwrapper(self):
+        space = self.space
+        class Unwrapper(gateway.Unwrapper):
+            def unwrap(self, space, w_value):
+                return space.int_w(w_value)
+
+        w = space.wrap
+        def g3_u(space, value):
+            return space.wrap(value + 1)
+        app_g3_u = gateway.interp2app_temp(g3_u,
+                                         unwrap_spec=[gateway.ObjSpace,
+                                                      Unwrapper])
+        assert self.space.eq_w(
+            space.call_function(w(app_g3_u), w(42)), w(43))
+        raises(gateway.OperationError, space.call_function,
+               w(app_g3_u), w(None))
+
     def test_interp2app_classmethod(self):
         space = self.space
         w = space.wrap
@@ -725,6 +742,22 @@ class TestGateway:
         def g(space, w_x, y):
             never_called
         py.test.raises(AssertionError, space.wrap, gateway.interp2app_temp(g))
+
+    def test_unwrap_spec_default_applevel_bug2(self):
+        space = self.space
+        def g(space, w_x, w_y=None, __args__=None):
+            return w_x
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_42 = space.call_function(w_g, space.wrap(42))
+        assert space.int_w(w_42) == 42
+        py.test.raises(gateway.OperationError, space.call_function, w_g)
+        #
+        def g(space, w_x, w_y=None, args_w=None):
+            return w_x
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_42 = space.call_function(w_g, space.wrap(42))
+        assert space.int_w(w_42) == 42
+        py.test.raises(gateway.OperationError, space.call_function, w_g)
 
     def test_interp2app_doc(self):
         space = self.space

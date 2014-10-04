@@ -354,7 +354,8 @@ class FakeResumeDataReader(AbstractResumeDataReader):
         return FakeBuiltObject(vtable=known_class)
     def allocate_struct(self, typedescr):
         return FakeBuiltObject(typedescr=typedescr)
-    def allocate_array(self, length, arraydescr):
+    def allocate_array(self, length, arraydescr, clear):
+        assert not clear     # the only test uses VArrayInfoNotClear
         return FakeBuiltObject(arraydescr=arraydescr, items=[None]*length)
     def setfield(self, struct, fieldnum, descr):
         setattr(struct, descr, fieldnum)
@@ -419,7 +420,7 @@ def test_vstructinfo():
 
 def test_varrayinfo():
     arraydescr = FakeArrayDescr()
-    info = VArrayInfo(arraydescr)
+    info = VArrayInfoNotClear(arraydescr)
     info.fieldnums = [tag(456, TAGINT)]
     reader = FakeResumeDataReader()
     reader._prepare_virtuals([info])

@@ -53,10 +53,24 @@ class SignatureBuilder(object):
 
 #________________________________________________________________
 
+
+class Unwrapper(object):
+    """A base class for custom unwrap_spec items.
+
+    Subclasses must override unwrap().
+    """
+    def _freeze_(self):
+        return True
+
+    def unwrap(self, space, w_value):
+        """NOT_RPYTHON"""
+        raise NotImplementedError
+
+
 class UnwrapSpecRecipe(object):
     "NOT_RPYTHON"
 
-    bases_order = [W_Root, ObjSpace, Arguments, object]
+    bases_order = [W_Root, ObjSpace, Arguments, Unwrapper, object]
 
     def dispatch(self, el, *args):
         if isinstance(el, str):
@@ -150,7 +164,13 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_c_short(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
+    def visit_c_ushort(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit_truncatedint_w(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit__Unwrapper(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
     def visit__ObjSpace(self, el, app_sig):
@@ -212,6 +232,10 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
         self.run_args.append("space.descr_self_interp_w(%s, %s)" %
                              (self.use(typ), self.scopenext()))
 
+    def visit__Unwrapper(self, typ):
+        self.run_args.append("%s().unwrap(space, %s)" %
+                             (self.use(typ), self.scopenext()))
+
     def visit__ObjSpace(self, el):
         self.run_args.append('space')
 
@@ -266,6 +290,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_c_short(self, typ):
         self.run_args.append("space.c_short_w(%s)" % (self.scopenext(),))
+
+    def visit_c_ushort(self, typ):
+        self.run_args.append("space.c_ushort_w(%s)" % (self.scopenext(),))
 
     def visit_truncatedint_w(self, typ):
         self.run_args.append("space.truncatedint_w(%s)" % (self.scopenext(),))
@@ -352,6 +379,10 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         self.unwrap.append("space.descr_self_interp_w(%s, %s)" %
                            (self.use(typ), self.nextarg()))
 
+    def visit__Unwrapper(self, typ):
+        self.unwrap.append("%s().unwrap(space, %s)" %
+                           (self.use(typ), self.nextarg()))
+
     def visit__ObjSpace(self, el):
         if self.finger > 1:
             raise FastFuncNotSupported
@@ -405,6 +436,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_c_short(self, typ):
         self.unwrap.append("space.c_short_w(%s)" % (self.nextarg(),))
+
+    def visit_c_ushort(self, typ):
+        self.unwrap.append("space.c_ushort_w(%s)" % (self.nextarg(),))
 
     def visit_truncatedint_w(self, typ):
         self.unwrap.append("space.truncatedint_w(%s)" % (self.nextarg(),))
@@ -895,7 +929,7 @@ class interp2app(W_Root):
                     "use unwrap_spec(...=WrappedDefault(default))" % (
                     self._code.identifier, name, defaultval))
                 defs_w.append(None)
-            else:
+            elif name != '__args__' and name != 'args_w':
                 defs_w.append(space.wrap(defaultval))
         if self._code._unwrap_spec:
             UNDEFINED = object()

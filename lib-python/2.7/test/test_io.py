@@ -29,6 +29,7 @@ import array
 import random
 import unittest
 import weakref
+import warnings
 import abc
 import signal
 import errno
@@ -393,14 +394,9 @@ class IOTest(unittest.TestCase):
         # a long time to build the >2GB file and takes >2GB of disk space
         # therefore the resource must be enabled to run this test.
         if sys.platform[:3] == 'win' or sys.platform == 'darwin':
-            if not support.is_resource_enabled("largefile"):
-                print("\nTesting large file ops skipped on %s." % sys.platform,
-                      file=sys.stderr)
-                print("It requires %d bytes and a long time." % self.LARGE,
-                      file=sys.stderr)
-                print("Use 'regrtest.py -u largefile test_io' to run it.",
-                      file=sys.stderr)
-                return
+            support.requires(
+                'largefile',
+                'test requires %s bytes and a long time to run' % self.LARGE)
         with self.open(support.TESTFN, "w+b", 0) as f:
             self.large_file_ops(f)
         with self.open(support.TESTFN, "w+b") as f:
@@ -608,6 +604,20 @@ class IOTest(unittest.TestCase):
             fileio.close()
             f2.readline()
 
+    def test_nonbuffered_textio(self):
+        with warnings.catch_warnings(record=True) as recorded:
+            with self.assertRaises(ValueError):
+                self.open(support.TESTFN, 'w', buffering=0)
+            support.gc_collect()
+        self.assertEqual(recorded, [])
+
+    def test_invalid_newline(self):
+        with warnings.catch_warnings(record=True) as recorded:
+            with self.assertRaises(ValueError):
+                self.open(support.TESTFN, 'w', newline='invalid')
+            support.gc_collect()
+        self.assertEqual(recorded, [])
+
 
 class CIOTest(IOTest):
 
@@ -650,6 +660,7 @@ class CommonBufferedTests:
 
         self.assertEqual(42, bufio.fileno())
 
+    @unittest.skip('test having existential crisis')
     def test_no_fileno(self):
         # XXX will we always have fileno() function? If so, kill
         # this test. Else, write it.
@@ -796,6 +807,16 @@ class BufferedReaderTest(unittest.TestCase, CommonBufferedTests):
         rawio = self.MockRawIO([b"abc"])
         bufio.__init__(rawio)
         self.assertEqual(b"abc", bufio.read())
+
+    def test_uninitialized(self):
+        bufio = self.tp.__new__(self.tp)
+        del bufio
+        bufio = self.tp.__new__(self.tp)
+        self.assertRaisesRegexp((ValueError, AttributeError),
+                                'uninitialized|has no attribute',
+                                bufio.read, 0)
+        bufio.__init__(self.MockRawIO())
+        self.assertEqual(bufio.read(0), b'')
 
     def test_read(self):
         for arg in (None, 7):
@@ -1033,6 +1054,16 @@ class BufferedWriterTest(unittest.TestCase, CommonBufferedTests):
         self.assertEqual(3, bufio.write(b"ghi"))
         bufio.flush()
         self.assertEqual(b"".join(rawio._write_stack), b"abcghi")
+
+    def test_uninitialized(self):
+        bufio = self.tp.__new__(self.tp)
+        del bufio
+        bufio = self.tp.__new__(self.tp)
+        self.assertRaisesRegexp((ValueError, AttributeError),
+                                'uninitialized|has no attribute',
+                                bufio.write, b'')
+        bufio.__init__(self.MockRawIO())
+        self.assertEqual(bufio.write(b''), 0)
 
     def test_detach_flush(self):
         raw = self.MockRawIO()
@@ -1319,6 +1350,20 @@ class BufferedRWPairTest(unittest.TestCase):
         pair = self.tp(self.MockRawIO(), self.MockRawIO())
         self.assertFalse(pair.closed)
 
+    def test_uninitialized(self):
+        pair = self.tp.__new__(self.tp)
+        del pair
+        pair = self.tp.__new__(self.tp)
+        self.assertRaisesRegexp((ValueError, AttributeError),
+                                'uninitialized|has no attribute',
+                                pair.read, 0)
+        self.assertRaisesRegexp((ValueError, AttributeError),
+                                'uninitialized|has no attribute',
+                                pair.write, b'')
+        pair.__init__(self.MockRawIO(), self.MockRawIO())
+        self.assertEqual(pair.read(0), b'')
+        self.assertEqual(pair.write(b''), 0)
+
     def test_detach(self):
         pair = self.tp(self.MockRawIO(), self.MockRawIO())
         self.assertRaises(self.UnsupportedOperation, pair.detach)
@@ -1445,6 +1490,10 @@ class BufferedRandomTest(BufferedReaderTest, BufferedWriterTest):
     def test_constructor(self):
         BufferedReaderTest.test_constructor(self)
         BufferedWriterTest.test_constructor(self)
+
+    def test_uninitialized(self):
+        BufferedReaderTest.test_uninitialized(self)
+        BufferedWriterTest.test_uninitialized(self)
 
     def test_read_and_write(self):
         raw = self.MockRawIO((b"asdf", b"ghjk"))

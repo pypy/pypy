@@ -11,7 +11,7 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 class MockDtype(object):
     class itemtype(object):
         @staticmethod
-        def malloc(size):
+        def malloc(size, zero=True):
             return None
 
     def __init__(self):
@@ -2020,6 +2020,14 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_swapaxes(self):
         from numpypy import array
+        x = array([])
+        assert x.swapaxes(0, 2) is x
+        x = array([[1, 2]])
+        assert x.swapaxes(0, 0) is x
+        exc = raises(ValueError, x.swapaxes, -3, 0)
+        assert exc.value.message == "bad axis1 argument to swapaxes"
+        exc = raises(ValueError, x.swapaxes, 0, 3)
+        assert exc.value.message == "bad axis2 argument to swapaxes"
         # testcases from numpy docstring
         x = array([[1, 2, 3]])
         assert (x.swapaxes(0, 1) == array([[1], [2], [3]])).all()

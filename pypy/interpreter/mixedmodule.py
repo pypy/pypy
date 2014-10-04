@@ -7,7 +7,6 @@ import os, sys
 
 class MixedModule(Module):
     applevel_name = None
-    expose__file__attribute = True
 
     # The following attribute is None as long as the module has not been
     # imported yet, and when it has been, it is mod.__dict__.items() just
@@ -144,8 +143,6 @@ class MixedModule(Module):
             for name, spec in cls.appleveldefs.items():
                 loaders[name] = getappfileloader(pkgroot, appname, spec)
             assert '__file__' not in loaders
-            if cls.expose__file__attribute:
-                loaders['__file__'] = cls.get__file__
             if '__doc__' not in loaders:
                 loaders['__doc__'] = cls.get__doc__
 
@@ -158,28 +155,6 @@ class MixedModule(Module):
         space = self.space
         w_obj = loader(space)
         space.setattr(space.wrap(self), space.wrap(name), w_obj)
-
-    def get__file__(cls, space):
-        """ NOT_RPYTHON.
-        return the __file__ attribute of a MixedModule
-        which is the root-directory for the various
-        applevel and interplevel snippets that make
-        up the module.
-        """
-        try:
-            fname = cls._fname
-        except AttributeError:
-            pkgroot = cls.__module__
-            mod = __import__(pkgroot, None, None, ['__doc__'])
-            fname = mod.__file__
-            assert os.path.basename(fname).startswith('__init__.py')
-            # make it clear that it's not really the interp-level module
-            # at this path that we are seeing, but an app-level version of it
-            fname = os.path.dirname(fname)
-            cls._fname = fname
-        return space.wrap(fname)
-
-    get__file__ = classmethod(get__file__)
 
     def get__doc__(cls, space):
         return space.wrap(cls.__doc__)

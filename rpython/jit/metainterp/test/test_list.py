@@ -8,7 +8,7 @@ class ListTests:
 
     def check_all_virtualized(self):
         self.check_resops(setarrayitem_gc=0, new_array=0, arraylen_gc=0,
-                          getarrayitem_gc=0)
+                          getarrayitem_gc=0)        
 
     def test_simple_array(self):
         jitdriver = JitDriver(greens = [], reds = ['n'])
@@ -43,12 +43,12 @@ class ListTests:
     def test_cannot_be_virtual(self):
         jitdriver = JitDriver(greens = [], reds = ['n', 'l'])
         def f(n):
-            l = [3] * 100
+            l = [3] * 200
             while n > 0:
                 jitdriver.can_enter_jit(n=n, l=l)
                 jitdriver.jit_merge_point(n=n, l=l)
                 x = l[n]
-                l = [3] * 100
+                l = [3] * 200
                 l[3] = x
                 l[4] = x + 1
                 n -= 1

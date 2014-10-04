@@ -251,8 +251,7 @@ class ExceptionTransformer(object):
               len(block.operations) and
               (block.exits[0].args[0].concretetype is lltype.Void or
                block.exits[0].args[0] is block.operations[-1].result) and
-              block.operations[-1].opname not in ('malloc',     # special cases
-                                                  'malloc_nonmovable')):
+              block.operations[-1].opname not in ('malloc', 'malloc_varsize')):     # special cases
             last_operation -= 1
         lastblock = block
         for i in range(last_operation, -1, -1):
@@ -270,9 +269,6 @@ class ExceptionTransformer(object):
         if need_exc_matching:
             assert lastblock.exitswitch == c_last_exception
             if not self.raise_analyzer.can_raise(lastblock.operations[-1]):
-                #print ("operation %s cannot raise, but has exception"
-                #       " guarding in graph %s" % (lastblock.operations[-1],
-                #                                  graph))
                 lastblock.exitswitch = None
                 lastblock.recloseblock(lastblock.exits[0])
                 lastblock.exits[0].exitcase = None
@@ -393,10 +389,6 @@ class ExceptionTransformer(object):
         return newgraph, SpaceOperation("direct_call", [fptr] + callargs, op.result)
 
     def gen_exc_check(self, block, returnblock, normalafterblock=None):
-        #var_exc_occured = Variable()
-        #var_exc_occured.concretetype = lltype.Bool
-        #block.operations.append(SpaceOperation("safe_call", [self.rpyexc_occured_ptr], var_exc_occured))
-
         llops = rtyper.LowLevelOpList(None)
 
         spaceop = block.operations[-1]
@@ -425,20 +417,12 @@ class ExceptionTransformer(object):
         l0.exitcase = l0.llexitcase = True
 
         block.recloseblock(l0, l)
-
         insert_zeroing_op = False
-        if spaceop.opname == 'malloc':
+        if spaceop.opname in ['malloc','malloc_varsize']:
             flavor = spaceop.args[1].value['flavor']
             if flavor == 'gc':
                 insert_zeroing_op = True
-        elif spaceop.opname == 'malloc_nonmovable':
-            # xxx we cannot insert zero_gc_pointers_inside after
-            # malloc_nonmovable, because it can return null.  For now
-            # we simply always force the zero=True flag on
-            # malloc_nonmovable.
-            c_flags = spaceop.args[1]
-            c_flags.value = c_flags.value.copy()
-            spaceop.args[1].value['zero'] = True
+            true_zero = spaceop.args[1].value.get('zero', False)
         # NB. when inserting more special-cases here, keep in mind that
         # you also need to list the opnames in transform_block()
         # (see "special cases")
@@ -454,9 +438,12 @@ class ExceptionTransformer(object):
                 v_result_after = copyvar(None, v_result)
                 l0.args.append(v_result)
                 normalafterblock.inputargs.append(v_result_after)
+            if true_zero:
+                opname = "zero_everything_inside"
+            else:
+                opname = "zero_gc_pointers_inside"
             normalafterblock.operations.insert(
-                0, SpaceOperation('zero_gc_pointers_inside',
-                                  [v_result_after],
+                0, SpaceOperation(opname, [v_result_after],
                                   varoftype(lltype.Void)))
 
     def setup_excdata(self):

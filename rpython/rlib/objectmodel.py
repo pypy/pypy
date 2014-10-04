@@ -740,6 +740,15 @@ class _r_dictkey(object):
         return repr(self.key)
 
 
+@specialize.call_location()
+def prepare_dict_update(dict, n_elements):
+    """RPython hint that the given dict (or r_dict) will soon be
+    enlarged by n_elements."""
+    if we_are_translated():
+        dict._prepare_dict_update(n_elements)
+        # ^^ call an extra method that doesn't exist before translation
+
+
 # ____________________________________________________________
 
 def import_from_mixin(M, special_methods=['__init__', '__del__']):

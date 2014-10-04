@@ -364,12 +364,30 @@ class TestRbuiltin(BaseRtypingTest):
                 assert res == isinstance([A(), B(), C()][x-1], [A, B, C][y-1]) * 3
 
     def test_isinstance_list(self):
+        def g():
+            pass
         def f(i):
             if i == 0:
                 l = []
             else:
                 l = None
+            g()
             return isinstance(l, list)
+        res = self.interpret(f, [0])
+        assert res is True
+        res = self.interpret(f, [1])
+        assert res is False
+
+    def test_isinstance_str(self):
+        def g():
+            pass
+        def f(i):
+            if i == 0:
+                l = "foobar"
+            else:
+                l = None
+            g()
+            return isinstance(l, str)
         res = self.interpret(f, [0])
         assert res is True
         res = self.interpret(f, [1])

@@ -178,7 +178,9 @@ class AppTestBytesArray:
         assert bytearray('hello').rindex('l') == 3
         assert bytearray('hello').index(bytearray('e')) == 1
         assert bytearray('hello').find('l') == 2
+        assert bytearray('hello').find('l', -2) == 3
         assert bytearray('hello').rfind('l') == 3
+
 
         # these checks used to not raise in pypy but they should
         raises(TypeError, bytearray('hello').index, ord('e'))
@@ -220,6 +222,20 @@ class AppTestBytesArray:
         check(bytearray('abc').lstrip(memoryview('a')), 'bc')
         check(bytearray('abc').rstrip(memoryview('c')), 'ab')
         check(bytearray('aba').strip('a'), 'b')
+
+    def test_xjust_no_mutate(self):
+        # a previous regression
+        b = bytearray(b'')
+        assert b.ljust(1) == bytearray(b' ')
+        assert not len(b)
+
+        b2 = b.ljust(0)
+        b2 += b' '
+        assert not len(b)
+
+        b2 = b.rjust(0)
+        b2 += b' '
+        assert not len(b)
 
     def test_split(self):
         # methods that should return a sequence of bytearrays
@@ -440,6 +456,7 @@ class AppTestBytesArray:
         u = b.decode('utf-8')
         assert isinstance(u, unicode)
         assert u == u'abcdefghi'
+        assert b.decode().encode() == b
 
     def test_int(self):
         assert int(bytearray('-1234')) == -1234

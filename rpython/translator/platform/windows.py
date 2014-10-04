@@ -100,8 +100,8 @@ class MsvcPlatform(Platform):
     cc = 'cl.exe'
     link = 'link.exe'
 
-    cflags = ('/MD', '/O2')
-    link_flags = ()
+    cflags = ('/MD', '/O2', '/Zi')
+    link_flags = ('/debug',)
     standalone_only = ()
     shared_only = ()
     environ = None
@@ -143,7 +143,6 @@ class MsvcPlatform(Platform):
         # Install debug options only when interpreter is in debug mode
         if sys.executable.lower().endswith('_d.exe'):
             self.cflags = ['/MDd', '/Z7', '/Od']
-            self.link_flags = ['/debug']
 
             # Increase stack size, for the linker and the stack check code.
             stack_size = 8 << 20  # 8 Mb
@@ -204,6 +203,9 @@ class MsvcPlatform(Platform):
         # the assembler still has the old behavior that all options
         # must come first, and after the file name all options are ignored.
         # So please be careful with the order of parameters! ;-)
+        pdb_dir = oname.dirname
+        if pdb_dir:
+                compile_args += ['/Fd%s\\' % (pdb_dir,)]
         args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
         self._execute_c_compiler(cc, args, oname)
         return oname
@@ -240,9 +242,12 @@ class MsvcPlatform(Platform):
             stderr = stdout + stderr
             errorfile = outname.new(ext='errors')
             errorfile.write(stderr, mode='wb')
-            stderrlines = stderr.splitlines()
-            for line in stderrlines:
-                log.ERROR(line)
+            if self.log_errors:
+                stderrlines = stderr.splitlines()
+                for line in stderrlines:
+                    log.Error(line)
+                # ^^^ don't use ERROR, because it might actually be fine.
+                # Also, ERROR confuses lib-python/conftest.py.
             raise CompilationError(stdout, stderr)
 
 
@@ -372,21 +377,28 @@ class MsvcPlatform(Platform):
         for rule in rules:
             m.rule(*rule)
 
+        if len(headers_to_precompile)>0 and self.version >= 80:
+            # at least from VS2013 onwards we need to include PCH
+            # objects in the final link command
+            linkobjs = 'stdafx.obj @<<\n$(OBJECTS)\n<<'
+        else:
+            linkobjs = '@<<\n$(OBJECTS)\n<<'
+
         if self.version < 80:
             m.rule('$(TARGET)', '$(OBJECTS)',
                     [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) /out:$@' +\
-                      ' $(LIBDIRS) $(LIBS) @<<\n$(OBJECTS)\n<<',
+                      ' $(LIBDIRS) $(LIBS) ' + linkobjs,
                    ])
         else:
             m.rule('$(TARGET)', '$(OBJECTS)',
                     [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + \
                       ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST' + \
-                      ' /MANIFESTFILE:$*.manifest @<<\n$(OBJECTS)\n<<',
+                      ' /MANIFESTFILE:$*.manifest ' + linkobjs,
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
         m.rule('debugmode_$(TARGET)', '$(OBJECTS)',
                 [ '$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' + \
-                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) @<<\n$(OBJECTS)\n<<',
+                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) ' + linkobjs,
                 ])
 
         if shared:
@@ -398,7 +410,7 @@ class MsvcPlatform(Platform):
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); } > $@')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.obj'],
-                   ['$(CC_LINK) /nologo main.obj $(SHARED_IMPORT_LIB) /out:$@ /MANIFEST /MANIFESTFILE:$*.manifest',
+                   ['$(CC_LINK) /nologo /debug main.obj $(SHARED_IMPORT_LIB) /out:$@ /MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
             m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)', 'main.obj'],

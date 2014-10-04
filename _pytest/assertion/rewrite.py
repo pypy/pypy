@@ -6,6 +6,7 @@ import itertools
 import imp
 import marshal
 import os
+import re
 import struct
 import sys
 import types
@@ -14,13 +15,7 @@ import py
 from _pytest.assertion import util
 
 
-# Windows gives ENOENT in places *nix gives ENOTDIR.
-if sys.platform.startswith("win"):
-    PATH_COMPONENT_NOT_DIR = errno.ENOENT
-else:
-    PATH_COMPONENT_NOT_DIR = errno.ENOTDIR
-
-# py.test caches rewritten pycs in __pycache__.
+# pytest caches rewritten pycs in __pycache__.
 if hasattr(imp, "get_tag"):
     PYTEST_TAG = imp.get_tag() + "-PYTEST"
 else:
@@ -34,17 +29,19 @@ else:
     PYTEST_TAG = "%s-%s%s-PYTEST" % (impl, ver[0], ver[1])
     del ver, impl
 
-PYC_EXT = ".py" + "c" if __debug__ else "o"
+PYC_EXT = ".py" + (__debug__ and "c" or "o")
 PYC_TAIL = "." + PYTEST_TAG + PYC_EXT
 
 REWRITE_NEWLINES = sys.version_info[:2] != (2, 7) and sys.version_info < (3, 2)
+ASCII_IS_DEFAULT_ENCODING = sys.version_info[0] < 3
 
 class AssertionRewritingHook(object):
-    """Import hook which rewrites asserts."""
+    """PEP302 Import hook which rewrites asserts."""
 
     def __init__(self):
         self.session = None
         self.modules = {}
+        self._register_with_pkg_resources()
 
     def set_session(self, session):
         self.fnpats = session.config.getini("python_files")
@@ -59,8 +56,12 @@ class AssertionRewritingHook(object):
         names = name.rsplit(".", 1)
         lastname = names[-1]
         pth = None
-        if path is not None and len(path) == 1:
-            pth = path[0]
+        if path is not None:
+            # Starting with Python 3.3, path is a _NamespacePath(), which
+            # causes problems if not converted to list.
+            path = list(path)
+            if len(path) == 1:
+                pth = path[0]
         if pth is None:
             try:
                 fd, fn, desc = imp.find_module(lastname, path)
@@ -95,12 +96,13 @@ class AssertionRewritingHook(object):
             finally:
                 self.session = sess
         else:
-            state.trace("matched test file (was specified on cmdline): %r" % (fn,))
+            state.trace("matched test file (was specified on cmdline): %r" %
+                        (fn,))
         # The requested module looks like a test file, so rewrite it. This is
         # the most magical part of the process: load the source, rewrite the
         # asserts, and load the rewritten source. We also cache the rewritten
         # module code in a special pyc. We must be aware of the possibility of
-        # concurrent py.test processes rewriting and loading pycs. To avoid
+        # concurrent pytest processes rewriting and loading pycs. To avoid
         # tricky race conditions, we maintain the following invariant: The
         # cached pyc is always a complete, valid pyc. Operations on it must be
         # atomic. POSIX's atomic rename comes in handy.
@@ -116,19 +118,19 @@ class AssertionRewritingHook(object):
                     # common case) or it's blocked by a non-dir node. In the
                     # latter case, we'll ignore it in _write_pyc.
                     pass
-                elif e == PATH_COMPONENT_NOT_DIR:
+                elif e in [errno.ENOENT, errno.ENOTDIR]:
                     # One of the path components was not a directory, likely
                     # because we're in a zip file.
                     write = False
                 elif e == errno.EACCES:
-                    state.trace("read only directory: %r" % (fn_pypath.dirname,))
+                    state.trace("read only directory: %r" % fn_pypath.dirname)
                     write = False
                 else:
                     raise
         cache_name = fn_pypath.basename[:-3] + PYC_TAIL
         pyc = os.path.join(cache_dir, cache_name)
-        # Notice that even if we're in a read-only directory, I'm going to check
-        # for a cached pyc. This may not be optimal...
+        # Notice that even if we're in a read-only directory, I'm going
+        # to check for a cached pyc. This may not be optimal...
         co = _read_pyc(fn_pypath, pyc)
         if co is None:
             state.trace("rewriting %r" % (fn,))
@@ -153,27 +155,59 @@ class AssertionRewritingHook(object):
             mod.__file__ = co.co_filename
             # Normally, this attribute is 3.2+.
             mod.__cached__ = pyc
+            mod.__loader__ = self
             py.builtin.exec_(co, mod.__dict__)
         except:
             del sys.modules[name]
             raise
         return sys.modules[name]
 
-def _write_pyc(co, source_path, pyc):
-    # Technically, we don't have to have the same pyc format as (C)Python, since
-    # these "pycs" should never be seen by builtin import. However, there's
-    # little reason deviate, and I hope sometime to be able to use
-    # imp.load_compiled to load them. (See the comment in load_module above.)
+
+
+    def is_package(self, name):
+        try:
+            fd, fn, desc = imp.find_module(name)
+        except ImportError:
+            return False
+        if fd is not None:
+            fd.close()
+        tp = desc[2]
+        return tp == imp.PKG_DIRECTORY
+
+    @classmethod
+    def _register_with_pkg_resources(cls):
+        """
+        Ensure package resources can be loaded from this loader. May be called
+        multiple times, as the operation is idempotent.
+        """
+        try:
+            import pkg_resources
+            # access an attribute in case a deferred importer is present
+            pkg_resources.__name__
+        except ImportError:
+            return
+
+        # Since pytest tests are always located in the file system, the
+        #  DefaultProvider is appropriate.
+        pkg_resources.register_loader_type(cls, pkg_resources.DefaultProvider)
+
+
+def _write_pyc(state, co, source_path, pyc):
+    # Technically, we don't have to have the same pyc format as
+    # (C)Python, since these "pycs" should never be seen by builtin
+    # import. However, there's little reason deviate, and I hope
+    # sometime to be able to use imp.load_compiled to load them. (See
+    # the comment in load_module above.)
     mtime = int(source_path.mtime())
     try:
         fp = open(pyc, "wb")
     except IOError:
         err = sys.exc_info()[1].errno
-        if err == PATH_COMPONENT_NOT_DIR:
-            # This happens when we get a EEXIST in find_module creating the
-            # __pycache__ directory and __pycache__ is by some non-dir node.
-            return False
-        raise
+        state.trace("error writing pyc file at %s: errno=%s" %(pyc, err))
+        # we ignore any failure to write the cache file
+        # there are many reasons, permission-denied, __pycache__ being a
+        # file etc.
+        return False
     try:
         fp.write(imp.get_magic())
         fp.write(struct.pack("<l", mtime))
@@ -185,12 +219,43 @@ def _write_pyc(co, source_path, pyc):
 RN = "\r\n".encode("utf-8")
 N = "\n".encode("utf-8")
 
+cookie_re = re.compile(r"^[ \t\f]*#.*coding[:=][ \t]*[-\w.]+")
+BOM_UTF8 = '\xef\xbb\xbf'
+
 def _rewrite_test(state, fn):
     """Try to read and rewrite *fn* and return the code object."""
     try:
         source = fn.read("rb")
     except EnvironmentError:
         return None
+    if ASCII_IS_DEFAULT_ENCODING:
+        # ASCII is the default encoding in Python 2. Without a coding
+        # declaration, Python 2 will complain about any bytes in the file
+        # outside the ASCII range. Sadly, this behavior does not extend to
+        # compile() or ast.parse(), which prefer to interpret the bytes as
+        # latin-1. (At least they properly handle explicit coding cookies.) To
+        # preserve this error behavior, we could force ast.parse() to use ASCII
+        # as the encoding by inserting a coding cookie. Unfortunately, that
+        # messes up line numbers. Thus, we have to check ourselves if anything
+        # is outside the ASCII range in the case no encoding is explicitly
+        # declared. For more context, see issue #269. Yay for Python 3 which
+        # gets this right.
+        end1 = source.find("\n")
+        end2 = source.find("\n", end1 + 1)
+        if (not source.startswith(BOM_UTF8) and
+            cookie_re.match(source[0:end1]) is None and
+            cookie_re.match(source[end1 + 1:end2]) is None):
+            if hasattr(state, "_indecode"):
+                return None  # encodings imported us again, we don't rewrite
+            state._indecode = True
+            try:
+                try:
+                    source.decode("ascii")
+                except UnicodeDecodeError:
+                    # Let it fail in real import.
+                    return None
+            finally:
+                del state._indecode
     # On Python versions which are not 2.7 and less than or equal to 3.1, the
     # parser expects *nix newlines.
     if REWRITE_NEWLINES:
@@ -216,16 +281,16 @@ def _make_rewritten_pyc(state, fn, pyc, co):
     if sys.platform.startswith("win"):
         # Windows grants exclusive access to open files and doesn't have atomic
         # rename, so just write into the final file.
-        _write_pyc(co, fn, pyc)
+        _write_pyc(state, co, fn, pyc)
     else:
         # When not on windows, assume rename is atomic. Dump the code object
         # into a file specific to this process and atomically replace it.
         proc_pyc = pyc + "." + str(os.getpid())
-        if _write_pyc(co, fn, proc_pyc):
+        if _write_pyc(state, co, fn, proc_pyc):
             os.rename(proc_pyc, pyc)
 
 def _read_pyc(source, pyc):
-    """Possibly read a py.test pyc containing rewritten code.
+    """Possibly read a pytest pyc containing rewritten code.
 
     Return rewritten code if successful or None if not.
     """
@@ -240,9 +305,8 @@ def _read_pyc(source, pyc):
         except EnvironmentError:
             return None
         # Check for invalid or out of date pyc file.
-        if (len(data) != 8 or
-            data[:4] != imp.get_magic() or
-            struct.unpack("<l", data[4:])[0] != mtime):
+        if (len(data) != 8 or data[:4] != imp.get_magic() or
+                struct.unpack("<l", data[4:])[0] != mtime):
             return None
         co = marshal.load(fp)
         if not isinstance(co, types.CodeType):
@@ -259,7 +323,10 @@ def rewrite_asserts(mod):
 
 
 _saferepr = py.io.saferepr
-from _pytest.assertion.util import format_explanation as _format_explanation
+from _pytest.assertion.util import format_explanation as _format_explanation # noqa
+
+def _should_repr_global_name(obj):
+    return not hasattr(obj, "__name__") and not py.builtin.callable(obj)
 
 def _format_boolop(explanations, is_or):
     return "(" + (is_or and " or " or " and ").join(explanations) + ")"
@@ -280,35 +347,35 @@ def _call_reprcompare(ops, results, expls, each_obj):
 
 
 unary_map = {
-    ast.Not : "not %s",
-    ast.Invert : "~%s",
-    ast.USub : "-%s",
-    ast.UAdd : "+%s"
+    ast.Not: "not %s",
+    ast.Invert: "~%s",
+    ast.USub: "-%s",
+    ast.UAdd: "+%s"
 }
 
 binop_map = {
-    ast.BitOr : "|",
-    ast.BitXor : "^",
-    ast.BitAnd : "&",
-    ast.LShift : "<<",
-    ast.RShift : ">>",
-    ast.Add : "+",
-    ast.Sub : "-",
-    ast.Mult : "*",
-    ast.Div : "/",
-    ast.FloorDiv : "//",
-    ast.Mod : "%",
-    ast.Eq : "==",
-    ast.NotEq : "!=",
-    ast.Lt : "<",
-    ast.LtE : "<=",
-    ast.Gt : ">",
-    ast.GtE : ">=",
-    ast.Pow : "**",
-    ast.Is : "is",
-    ast.IsNot : "is not",
-    ast.In : "in",
-    ast.NotIn : "not in"
+    ast.BitOr: "|",
+    ast.BitXor: "^",
+    ast.BitAnd: "&",
+    ast.LShift: "<<",
+    ast.RShift: ">>",
+    ast.Add: "+",
+    ast.Sub: "-",
+    ast.Mult: "*",
+    ast.Div: "/",
+    ast.FloorDiv: "//",
+    ast.Mod: "%%", # escaped for string formatting
+    ast.Eq: "==",
+    ast.NotEq: "!=",
+    ast.Lt: "<",
+    ast.LtE: "<=",
+    ast.Gt: ">",
+    ast.GtE: ">=",
+    ast.Pow: "**",
+    ast.Is: "is",
+    ast.IsNot: "is not",
+    ast.In: "in",
+    ast.NotIn: "not in"
 }
 
 
@@ -341,7 +408,7 @@ class AssertionRewriter(ast.NodeVisitor):
         lineno = 0
         for item in mod.body:
             if (expect_docstring and isinstance(item, ast.Expr) and
-                isinstance(item.value, ast.Str)):
+                    isinstance(item.value, ast.Str)):
                 doc = item.value.s
                 if "PYTEST_DONT_REWRITE" in doc:
                     # The module has disabled assertion rewriting.
@@ -462,7 +529,8 @@ class AssertionRewriter(ast.NodeVisitor):
         body.append(raise_)
         # Clear temporary variables by setting them to None.
         if self.variables:
-            variables = [ast.Name(name, ast.Store()) for name in self.variables]
+            variables = [ast.Name(name, ast.Store())
+                         for name in self.variables]
             clear = ast.Assign(variables, ast.Name("None", ast.Load()))
             self.statements.append(clear)
         # Fix line numbers.
@@ -471,11 +539,12 @@ class AssertionRewriter(ast.NodeVisitor):
         return self.statements
 
     def visit_Name(self, name):
-        # Check if the name is local or not.
+        # Display the repr of the name if it's a local variable or
+        # _should_repr_global_name() thinks it's acceptable.
         locs = ast.Call(self.builtin("locals"), [], [], None, None)
-        globs = ast.Call(self.builtin("globals"), [], [], None, None)
-        ops = [ast.In(), ast.IsNot()]
-        test = ast.Compare(ast.Str(name.id), ops, [locs, globs])
+        inlocs = ast.Compare(ast.Str(name.id), [ast.In()], [locs])
+        dorepr = self.helper("should_repr_global_name", name)
+        test = ast.BoolOp(ast.Or(), [inlocs, dorepr])
         expr = ast.IfExp(test, self.display(name), ast.Str(name.id))
         return name, self.explanation_param(expr)
 
@@ -492,7 +561,8 @@ class AssertionRewriter(ast.NodeVisitor):
         for i, v in enumerate(boolop.values):
             if i:
                 fail_inner = []
-                self.on_failure.append(ast.If(cond, fail_inner, []))
+                # cond is set in a prior loop iteration below
+                self.on_failure.append(ast.If(cond, fail_inner, [])) # noqa
                 self.on_failure = fail_inner
             self.push_format_context()
             res, expl = self.visit(v)
@@ -548,7 +618,8 @@ class AssertionRewriter(ast.NodeVisitor):
             new_kwarg, expl = self.visit(call.kwargs)
             arg_expls.append("**" + expl)
         expl = "%s(%s)" % (func_expl, ', '.join(arg_expls))
-        new_call = ast.Call(new_func, new_args, new_kwargs, new_star, new_kwarg)
+        new_call = ast.Call(new_func, new_args, new_kwargs,
+                            new_star, new_kwarg)
         res = self.assign(new_call)
         res_expl = self.explanation_param(self.display(res))
         outer_expl = "%s\n{%s = %s\n}" % (res_expl, res_expl, expl)
@@ -584,7 +655,7 @@ class AssertionRewriter(ast.NodeVisitor):
             res_expr = ast.Compare(left_res, [op], [next_res])
             self.statements.append(ast.Assign([store_names[i]], res_expr))
             left_res, left_expl = next_res, next_expl
-        # Use py.code._reprcompare if that's available.
+        # Use pytest.assertion.util._reprcompare if that's available.
         expl_call = self.helper("call_reprcompare",
                                 ast.Tuple(syms, ast.Load()),
                                 ast.Tuple(load_names, ast.Load()),

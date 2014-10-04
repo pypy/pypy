@@ -93,6 +93,8 @@ class TypeCache(SpaceCache):
                               overridetypedef=overridetypedef)
         if typedef is not overridetypedef:
             w_type.w_doc = space.wrap(typedef.doc)
+        if hasattr(typedef, 'flag_sequence_bug_compat'):
+            w_type.flag_sequence_bug_compat = typedef.flag_sequence_bug_compat
         w_type.lazyloaders = lazyloaders
         return w_type
 

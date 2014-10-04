@@ -6,8 +6,8 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
-        'SocketType':  'interp_socket.W_RSocket',
-        'socket'    :  'interp_socket.W_RSocket',
+        'SocketType':  'interp_socket.W_Socket',
+        'socket'    :  'interp_socket.W_Socket',
         'error'     :  'interp_socket.get_error(space, "error")',
         'herror'    :  'interp_socket.get_error(space, "herror")',
         'gaierror'  :  'interp_socket.get_error(space, "gaierror")',
