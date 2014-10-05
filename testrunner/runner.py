@@ -4,6 +4,7 @@ import thread
 import Queue
 import py
 import util
+import collections
 
 READ_MODE = 'rU'
 WRITE_MODE = 'wb'
@@ -74,13 +75,20 @@ def worker(num, n, run_param, testdirs, result_queue):
             output = one_output.read(READ_MODE)
         else:
             output = ""
+
         if logfname.check(file=1):
             logdata = logfname.read(READ_MODE)
         else:
             logdata = ""
 
+
+
+
         failure, extralog = util.interpret_exitcode(exitcode, test, logdata)
 
+        junit = logfname + '.junit'
+        if junit.check(file=1):
+            pass
         if extralog:
             logdata += extralog
 
@@ -103,7 +111,7 @@ def execute_tests(run_param, testdirs, logfile):
 
     N = run_param.parallel_runs
     if N > 1:
-        out.write("running %d parallel test workers\n" % N)
+        run_param.log("running %d parallel test workers", N)
     failure = False
 
     for testname in testdirs:
@@ -241,7 +249,7 @@ def main(opts, args, RunParamClass):
     else:
         out = open(opts.output, WRITE_MODE)
 
-    testdirs = []
+    testdirs = deque()
 
     run_param = RunParamClass.from_options(opts, out)
     # the config files are python files whose run overrides the content
@@ -251,7 +259,7 @@ def main(opts, args, RunParamClass):
     for config_py_file in opts.config:
         config_py_file = renamed_configs.get(config_py_file, config_py_file)
         config_py_file = os.path.expanduser(config_py_file)
-        if py.path.local(config_py_file).check(file=1):
+        if os.path.isfile(config_py_file):
             run_param.log("using config %s", config_py_file)
             execfile(config_py_file, run_param.__dict__)
         else:

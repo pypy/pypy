@@ -98,14 +98,14 @@ class RunnerTests(object):
         cls.real_invoke_in_thread = (runner.invoke_in_thread,)
         if not cls.with_thread:
             runner.invoke_in_thread = lambda func, args: func(*args)
-        
+
         cls.udir = py.path.local.make_numbered_dir(prefix='usession-runner-',
                                               keep=3)
         cls.manydir = cls.udir.join('many').ensure(dir=1)
 
         cls.udir.join("conftest.py").write("pytest_plugins = 'resultlog'\n")
 
-        def fill_test_dir(test_dir, fromdir='normal'):       
+        def fill_test_dir(test_dir, fromdir='normal'):
             for p in py.path.local(__file__).dirpath(
                 'examples', fromdir).listdir("*.py"):
                 p.copy(test_dir.join('test_'+p.basename))
@@ -115,7 +115,7 @@ class RunnerTests(object):
         cls.one_test_dir = cls.manydir.join('one')
 
         fill_test_dir(test_normal_dir0)
-        
+
 
         test_normal_dir1 = cls.manydir.join('two', 'test_normal1').ensure(dir=1)
         test_normal_dir2 = cls.manydir.join('two', 'pkg',
@@ -140,8 +140,8 @@ class RunnerTests(object):
 
         run_param = runner.RunParam(self.one_test_dir,out)
         run_param.test_driver = test_driver
-        run_param.parallel_runs = 3        
-        
+        run_param.parallel_runs = 3
+
         res = runner.execute_tests(run_param, ['test_normal'], log)
 
         assert res
@@ -153,7 +153,7 @@ class RunnerTests(object):
 
         log = log.getvalue()
         assert '\r\n' not in log
-        assert '\n' in log        
+        assert '\n' in log
         log_lines = log.splitlines()
 
         assert ". test_normal/test_example.py::test_one" in log_lines
@@ -178,7 +178,7 @@ class RunnerTests(object):
         run_param.test_driver = test_driver
         run_param.parallel_runs = 3
         run_param.runfunc = run_param.dry_run
-        
+
         res = runner.execute_tests(run_param, ['test_normal'], log)
 
         assert not res
@@ -187,11 +187,11 @@ class RunnerTests(object):
 
         out_lines = out.getvalue().splitlines()
 
-        assert len(out_lines) == 5
+        assert len(out_lines) == 6
 
-        assert out_lines[2].startswith("++ starting")
-        assert out_lines[4].startswith("run [")
-        for line in out_lines[2:]:
+        assert out_lines[3].startswith("++ starting")
+        assert out_lines[5].startswith("run [")
+        for line in out_lines[3:]:
             assert "test_normal" in line
 
     def test_many_dirs(self):
@@ -212,7 +212,7 @@ class RunnerTests(object):
         testdirs = []
         run_param.collect_testdirs(testdirs)
         alltestdirs = testdirs[:]
-        
+
         res = runner.execute_tests(run_param, testdirs, log)
 
         assert res
@@ -282,7 +282,7 @@ class TestRunnerNoThreads(RunnerTests):
             real_collect_one_testdir(testdirs, reldir, tests)
 
         run_param.collect_one_testdir = witness_collect_one_testdir
-        
+
         run_param.collect_testdirs(res)
 
         assert res == ['test_normal']
@@ -295,10 +295,10 @@ class TestRunnerNoThreads(RunnerTests):
         run_param.collect_one_testdir = real_collect_one_testdir
         res = []
         run_param = runner.RunParam(self.two_test_dir, sys.stdout)
-        
+
         run_param.collect_testdirs(res)
 
-        assert sorted(res) == ['pkg/test_normal2', 'test_normal1']        
+        assert sorted(res) == ['pkg/test_normal2', 'test_normal1']
 
 
 class TestRunner(RunnerTests):
