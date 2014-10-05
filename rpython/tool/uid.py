@@ -1,4 +1,4 @@
-import struct, sys
+import struct
 
 HUGEVAL_BYTES = struct.calcsize('P')
 HUGEVAL = 256 ** HUGEVAL_BYTES
@@ -9,15 +9,7 @@ def fixid(result):
         result += HUGEVAL
     return result
 
-if sys.version_info < (2, 5):
-    def uid(obj):
-        """
-        Return the id of an object as an unsigned number so that its hex
-        representation makes sense
-        """
-        return fixid(id(obj))
-else:
-    uid = id    # guaranteed to be positive from CPython 2.5 onwards
+uid = id    # guaranteed to be positive from CPython 2.5 onwards
 
 
 class Hashable(object):
