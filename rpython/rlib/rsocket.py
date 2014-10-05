@@ -18,9 +18,10 @@ a drop-in replacement for the 'socket' module.
 from rpython.rlib import _rsocket_rffi as _c, jit, rgc
 from rpython.rlib.objectmodel import instantiate, keepalive_until_here
 from rpython.rlib.rarithmetic import intmask, r_uint
-from rpython.rlib.rthread import dummy_lock
+from rpython.rlib import rthread
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
+from rpython.rtyper.extregistry import ExtRegistryEntry
 
 
 # Usage of @jit.dont_look_inside in this file is possibly temporary
@@ -1135,24 +1136,54 @@ def gethost_common(hostname, hostent, addr=None):
         paddr = h_addr_list[i]
     return (rffi.charp2str(hostent.c_h_name), aliases, address_list)
 
-def gethostbyname_ex(name, lock=dummy_lock):
+def gethostbyname_ex(name):
     # XXX use gethostbyname_r() if available instead of locks
     addr = gethostbyname(name)
-    with lock:
+    with _get_netdb_lock():
         hostent = _c.gethostbyname(name)
         return gethost_common(name, hostent, addr)
 
-def gethostbyaddr(ip, lock=dummy_lock):
+def gethostbyaddr(ip):
     # XXX use gethostbyaddr_r() if available, instead of locks
     addr = makeipaddr(ip)
     assert isinstance(addr, IPAddress)
-    with lock:
+    with _get_netdb_lock():
         p, size = addr.lock_in_addr()
         try:
             hostent = _c.gethostbyaddr(p, size, addr.family)
         finally:
             addr.unlock()
         return gethost_common(ip, hostent, addr)
+
+# RPython magic to make _netdb_lock turn either into a regular
+# rthread.Lock or a rthread.DummyLock, depending on the config
+def _get_netdb_lock():
+    return rthread.dummy_lock
+
+class _Entry(ExtRegistryEntry):
+    _about_ = _get_netdb_lock
+
+    def compute_annotation(self):
+        config = self.bookkeeper.annotator.translator.config
+        if config.translation.thread:
+            fn = _get_netdb_lock_thread
+        else:
+            fn = _get_netdb_lock_nothread
+        return self.bookkeeper.immutablevalue(fn)
+
+def _get_netdb_lock_nothread():
+    return rthread.dummy_lock
+
+class _LockCache(object):
+    lock = None
+_lock_cache = _LockCache()
+
+@jit.elidable
+def _get_netdb_lock_thread():
+    if _lock_cache.lock is None:
+        _lock_cache.lock = rthread.allocate_lock()
+    return _lock_cache.lock
+# done RPython magic
 
 def getaddrinfo(host, port_or_service,
                 family=AF_UNSPEC, socktype=0, proto=0, flags=0,
