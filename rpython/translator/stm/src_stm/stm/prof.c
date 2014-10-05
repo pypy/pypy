@@ -15,6 +15,7 @@ static void _stm_profiling_event(stm_thread_local_t *tl,
         uint32_t tv_sec;
         uint32_t tv_nsec;
         uint32_t thread_num;
+        uint32_t other_thread_num;
         uint8_t event;
         uint8_t marker_length[2];
         char extra[256];
@@ -26,11 +27,14 @@ static void _stm_profiling_event(stm_thread_local_t *tl,
     buf.tv_sec = t.tv_sec;
     buf.tv_nsec = t.tv_nsec;
     buf.thread_num = tl->thread_local_counter;
+    buf.other_thread_num = 0;
     buf.event = event;
 
     int len0 = 0;
     int len1 = 0;
     if (markers != NULL) {
+        if (markers[1].tl != NULL)
+            buf.other_thread_num = markers[1].tl->thread_local_counter;
         if (markers[0].odd_number != 0)
             len0 = profiling_expand_marker(&markers[0], buf.extra, 128);
         if (markers[1].odd_number != 0)
