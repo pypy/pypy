@@ -1,5 +1,6 @@
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import SocketError, INVALID_SOCKET
+from rpython.rlib.rarithmetic import intmask
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
@@ -172,7 +173,7 @@ def ntohs(space, x):
 
     Convert a 16-bit integer from network to host byte order.
     """
-    return space.wrap(rsocket.ntohs(x))
+    return space.wrap(rsocket.ntohs(intmask(x)))
 
 @unwrap_spec(x="c_uint")
 def ntohl(space, x):
@@ -188,7 +189,7 @@ def htons(space, x):
 
     Convert a 16-bit integer from host to network byte order.
     """
-    return space.wrap(rsocket.htons(x))
+    return space.wrap(rsocket.htons(intmask(x)))
 
 @unwrap_spec(x="c_uint")
 def htonl(space, x):

@@ -109,10 +109,11 @@ def addr_from_object(family, space, w_address):
 
 # XXX Hack to seperate rpython and pypy
 def make_ushort_port(space, port):
+    assert isinstance(port, int)
     if port < 0 or port > 0xffff:
         raise OperationError(space.w_OverflowError, space.wrap(
             "port must be 0-65535."))
-    return rffi.cast(rffi.USHORT, port)
+    return port
 
 def make_unsigned_flowinfo(space, flowinfo):
     if flowinfo < 0 or flowinfo > 0xfffff:

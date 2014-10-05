@@ -52,6 +52,7 @@ else:
 
 
 def ntohs(x):
+    assert isinstance(x, int)
     return rffi.cast(lltype.Signed, _c.ntohs(x))
 
 def ntohl(x):
@@ -59,6 +60,7 @@ def ntohl(x):
     return rffi.cast(lltype.Unsigned, _c.ntohl(x))
 
 def htons(x):
+    assert isinstance(x, int)
     return rffi.cast(lltype.Signed, _c.htons(x))
 
 def htonl(x):
@@ -221,7 +223,6 @@ if HAS_AF_PACKET:
         def get_protocol(self):
             a = self.lock(_c.sockaddr_ll)
             proto = rffi.getintfield(a, 'c_sll_protocol')
-            proto = rffi.cast(rffi.USHORT, proto)
             res = ntohs(proto)
             self.unlock()
             return res
@@ -257,7 +258,6 @@ class INETAddress(IPAddress):
     def __init__(self, host, port):
         makeipaddr(host, self)
         a = self.lock(_c.sockaddr_in)
-        port = rffi.cast(rffi.USHORT, port)
         rffi.setintfield(a, 'c_sin_port', htons(port))
         self.unlock()
 
@@ -269,7 +269,7 @@ class INETAddress(IPAddress):
 
     def get_port(self):
         a = self.lock(_c.sockaddr_in)
-        port = ntohs(a.c_sin_port)
+        port = ntohs(rffi.getintfield(a, 'c_sin_port'))
         self.unlock()
         return port
 
@@ -322,7 +322,7 @@ class INET6Address(IPAddress):
 
     def get_port(self):
         a = self.lock(_c.sockaddr_in6)
-        port = ntohs(a.c_sin6_port)
+        port = ntohs(rffi.getintfield(a, 'c_sin6_port'))
         self.unlock()
         return port
 
@@ -1232,13 +1232,13 @@ def getservbyname(name, proto=None):
     servent = _c.getservbyname(name, proto)
     if not servent:
         raise RSocketError("service/proto not found")
-    port = rffi.cast(rffi.UINT, servent.c_s_port)
+    port = rffi.getintfield(servent, 'c_s_port')
     return ntohs(port)
 
 def getservbyport(port, proto=None):
     # This function is only called from pypy/module/_socket and the range of
     # port is checked there
-    port = rffi.cast(rffi.USHORT, port)
+    assert isinstance(port, int)
     servent = _c.getservbyport(htons(port), proto)
     if not servent:
         raise RSocketError("port/proto not found")
