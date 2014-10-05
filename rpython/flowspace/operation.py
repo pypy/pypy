@@ -99,7 +99,7 @@ class HLOperation(SpaceOperation):
     def consider(self, annotator, *args):
         args_s = [arg.ann for arg in args]
         spec = type(self).get_specialization(*args_s)
-        return spec(*args)
+        return spec(annotator, *args)
 
     def get_can_only_throw(self, annotator):
         return None
@@ -175,7 +175,7 @@ class SingleDispatchMixin(object):
         try:
             impl = getattr(s_arg, cls.opname)
 
-            def specialized(arg, *other_args):
+            def specialized(annotator, arg, *other_args):
                 return impl(*[x.ann for x in other_args])
             try:
                 specialized.can_only_throw = impl.can_only_throw
@@ -201,7 +201,7 @@ class DoubleDispatchMixin(object):
         try:
             impl = getattr(pair(s_arg1, s_arg2), cls.opname)
 
-            def specialized(arg1, arg2, *other_args):
+            def specialized(annotator, arg1, arg2, *other_args):
                 return impl(*[x.ann for x in other_args])
             try:
                 specialized.can_only_throw = impl.can_only_throw

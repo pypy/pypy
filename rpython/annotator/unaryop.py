@@ -22,13 +22,13 @@ UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
 UNARY_OPERATIONS.remove('contains')
 
 @op.type.register(SomeObject)
-def type_SomeObject(arg):
+def type_SomeObject(annotator, arg):
     r = SomeType()
     r.is_type_of = [arg.value]
     return r
 
 @op.bool.register(SomeObject)
-def bool_SomeObject(obj):
+def bool_SomeObject(annotator, obj):
     r = SomeBool()
     obj.ann.bool_behavior(r)
     s_nonnone_obj = obj.ann
@@ -40,16 +40,16 @@ def bool_SomeObject(obj):
     return r
 
 @op.contains.register(SomeObject)
-def contains_SomeObject(obj, element):
+def contains_SomeObject(annotator, obj, element):
     return s_Bool
 contains_SomeObject.can_only_throw = []
 
 @op.simple_call.register(SomeObject)
-def simple_call_SomeObject(func, *args):
+def simple_call_SomeObject(annotator, func, *args):
     return func.ann.call(simple_args([arg.ann for arg in args]))
 
 @op.call_args.register(SomeObject)
-def call_args(func, *args):
+def call_args(annotator, func, *args):
     return func.ann.call(complex_args([arg.ann for arg in args]))
 
 class __extend__(SomeObject):
@@ -247,7 +247,7 @@ class __extend__(SomeTuple):
         return SomeTuple(items)
 
 @op.contains.register(SomeList)
-def contains_SomeList(obj, element):
+def contains_SomeList(annotator, obj, element):
     obj.ann.listdef.generalize(element.ann)
     return s_Bool
 contains_SomeList.can_only_throw = []
@@ -344,7 +344,7 @@ def _can_only_throw(s_dct, *ignore):
     return []          # else: no possible exception
 
 @op.contains.register(SomeDict)
-def contains_SomeDict(dct, element):
+def contains_SomeDict(annotator, dct, element):
     dct.ann.dictdef.generalize_key(element.ann)
     if dct.ann._is_empty():
         s_bool = SomeBool()
@@ -436,7 +436,7 @@ class __extend__(SomeDict):
 
 @op.contains.register(SomeString)
 @op.contains.register(SomeUnicodeString)
-def contains_String(string, char):
+def contains_String(annotator, string, char):
     if char.ann.is_constant() and char.ann.const == "\0":
         r = SomeBool()
         knowntypedata = {}
@@ -445,7 +445,7 @@ def contains_String(string, char):
         r.set_knowntypedata(knowntypedata)
         return r
     else:
-        return contains_SomeObject(string, char)
+        return contains_SomeObject(annotator, string, char)
 contains_String.can_only_throw = []
 
 

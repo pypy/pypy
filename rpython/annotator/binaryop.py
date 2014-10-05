@@ -24,7 +24,7 @@ BINARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
 
 
 @op.is_.register(SomeObject, SomeObject)
-def is__default(obj1, obj2):
+def is__default(annotator, obj1, obj2):
     r = SomeBool()
     s_obj1 = obj1.ann
     s_obj2 = obj2.ann
@@ -59,7 +59,7 @@ def is__default(obj1, obj2):
 
 def _make_cmp_annotator_default(cmp_op):
     @cmp_op.register(SomeObject, SomeObject)
-    def default_annotate(obj1, obj2):
+    def default_annotate(annotator, obj1, obj2):
         s_1, s_2 = obj1.ann, obj2.ann
         if s_1.is_immutable_constant() and s_2.is_immutable_constant():
             return immutablevalue(cmp_op.pyfunc(s_1.const, s_2.const))
@@ -245,7 +245,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
 
 def _make_cmp_annotator_int(cmp_op):
     @cmp_op.register(SomeInteger, SomeInteger)
-    def _compare_helper(int1, int2):
+    def _compare_helper(annotator, int1, int2):
         r = SomeBool()
         s_int1, s_int2 = int1.ann, int2.ann
         if s_int1.is_immutable_constant() and s_int2.is_immutable_constant():
@@ -715,8 +715,8 @@ class __extend__(pairtype(SomeBuiltinMethod, SomeBuiltinMethod)):
                 methodname=bltn1.methodname)
 
 @op.is_.register(SomePBC, SomePBC)
-def is__PBC_PBC(pbc1, pbc2):
-    s = is__default(pbc1, pbc2)
+def is__PBC_PBC(annotator, pbc1, pbc2):
+    s = is__default(annotator, pbc1, pbc2)
     if not s.is_constant():
         if not pbc1.ann.can_be_None or not pbc2.ann.can_be_None:
             for desc in pbc1.ann.descriptions:
