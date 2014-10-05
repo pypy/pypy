@@ -1,4 +1,6 @@
 """Information about the current system."""
+import sys
+
 from pypy.objspace.std.complexobject import HASH_IMAG
 from pypy.objspace.std.floatobject import HASH_INF, HASH_NAN
 from pypy.objspace.std.intobject import HASH_MODULUS
@@ -6,6 +8,7 @@ from pypy.interpreter import gateway
 from rpython.rlib import rbigint, rfloat
 from rpython.rtyper.lltypesystem import lltype, rffi
 
+PLATFORM = 'linux' if sys.platform.startswith('linux') else sys.platform
 
 app = gateway.applevel("""
 "NOT_RPYTHON"

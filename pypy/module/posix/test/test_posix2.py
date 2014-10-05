@@ -1069,12 +1069,31 @@ class AppTestPosix:
         # just ensure it returns something reasonable
         assert encoding is None or type(encoding) is str
 
+    if os.name == 'nt':
+        def test__getfileinformation(self):
+            import os
+            path = os.path.join(self.pdir, 'file1')
+            with open(path) as fp:
+                info = self.posix._getfileinformation(fp.fileno())
+            assert len(info) == 3
+            assert all(isinstance(obj, int) for obj in info)
+
+        def test__getfinalpathname(self):
+            import os
+            path = os.path.join(self.pdir, 'file1')
+            try:
+                result = self.posix._getfinalpathname(path)
+            except NotImplementedError:
+                skip("_getfinalpathname not supported on this platform")
+            assert os.path.exists(result)
+
     def test_rtld_constants(self):
         # check presence of major RTLD_* constants
         self.posix.RTLD_LAZY
         self.posix.RTLD_NOW
         self.posix.RTLD_GLOBAL
         self.posix.RTLD_LOCAL
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):

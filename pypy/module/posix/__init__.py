@@ -168,6 +168,12 @@ corresponding Unix manual entries for more information on calls."""
     # not visible via os, inconsistency in nt:
     if hasattr(posix, '_getfullpathname'):
         interpleveldefs['_getfullpathname'] = 'interp_posix._getfullpathname'
+    if os.name == 'nt':
+        interpleveldefs.update({
+                '_getfileinformation': 'interp_posix._getfileinformation',
+                # XXX: currently broken
+                #'_getfinalpathname': 'interp_posix._getfinalpathname',
+        })
     if hasattr(os, 'chroot'):
         interpleveldefs['chroot'] = 'interp_posix.chroot'
 
