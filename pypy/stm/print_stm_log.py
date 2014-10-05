@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import sys
-import struct
+import struct, re, linecache
 
 # ____________________________________________________________
 
@@ -107,6 +107,17 @@ class ConflictSummary(object):
         return self.aborted_time + self.paused_time
 
 
+r_marker = re.compile(r'File "(.+)", line (\d+)')
+
+def print_marker(marker):
+    print '  ' + marker
+    match = r_marker.match(marker)
+    if match:
+        line = linecache.getline(match.group(1), int(match.group(2)))
+        line = line.strip()
+        if line:
+            print '    ' + line
+
 def percent(fraction, total):
     r = '%.1f' % (fraction * 100.0 / total)
     if len(r) > 3:
@@ -158,11 +169,11 @@ def dump(logentries):
     #
     values = sorted(conflicts.values(), key=ConflictSummary.sortkey)
     for c in values[-1:-15:-1]:
-        print '%.3fs lost in aborts, %.3fs paused (%s)' % (
-            c.aborted_time, c.paused_time, event_name[c.event])
-        print ' ', c.marker1
+        print '%.3fs lost in aborts, %.3fs paused (%dx %s)' % (
+            c.aborted_time, c.paused_time, c.num_events, event_name[c.event])
+        print_marker(c.marker1)
         if c.marker2:
-            print ' ', c.marker2
+            print_marker(c.marker2)
         print
 
 
