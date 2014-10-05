@@ -531,7 +531,7 @@ W_Context.typedef = TypeDef(
     is_snan=make_bool_method_noctx('mpd_issnan'),
     # Functions with a single decimal argument
     _apply=interp2app(W_Context.apply_w),
-    apply=interp2app(W_Context.apply_w),
+    # apply=interp2app(W_Context.apply_w),
     canonical=interp2app(W_Context.canonical_w),
     copy_abs=interp2app(W_Context.copy_abs_w),
     copy_decimal=interp2app(W_Context.copy_decimal_w),

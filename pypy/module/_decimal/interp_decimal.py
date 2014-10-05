@@ -1030,7 +1030,9 @@ def decimal_from_tuple(space, w_subtype, w_value, context, exact=True):
 def decimal_from_decimal(space, w_subtype, w_value, context, exact=True):
     assert isinstance(w_value, W_Decimal)
     if exact:
-        if space.is_w(w_subtype, space.gettypeobject(W_Decimal.typedef)):
+        if (space.is_w(w_subtype, space.gettypeobject(W_Decimal.typedef)) and
+            space.is_w(space.type(w_value),
+                       space.gettypeobject(W_Decimal.typedef))):
             return w_value
         w_result = W_Decimal.allocate(space, w_subtype)
         with interp_context.ConvContext(
