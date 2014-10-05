@@ -179,11 +179,15 @@ static bool contention_management(uint8_t other_segment_num,
 
         dprintf(("pausing...\n"));
 
+        timing_event(STM_SEGMENT->running_thread, STM_WAIT_CONTENTION);
+
         cond_signal(C_AT_SAFE_POINT);
         STM_PSEGMENT->safe_point = SP_WAIT_FOR_C_TRANSACTION_DONE;
         cond_wait(C_TRANSACTION_DONE);
         STM_PSEGMENT->safe_point = SP_RUNNING;
         dprintf(("pausing done\n"));
+
+        timing_event(STM_SEGMENT->running_thread, STM_WAIT_DONE);
 
         if (must_abort())
             abort_with_mutex();
@@ -201,6 +205,9 @@ static bool contention_management(uint8_t other_segment_num,
         /* We have to signal the other thread to abort, and wait until
            it does. */
         contmgr.other_pseg->pub.nursery_end = NSE_SIGABORT;
+
+        timing_event(STM_SEGMENT->running_thread,
+                     STM_ABORTING_OTHER_CONTENTION);
 
         int sp = contmgr.other_pseg->safe_point;
         switch (sp) {
