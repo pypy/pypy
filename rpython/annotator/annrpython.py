@@ -18,7 +18,6 @@ import py
 log = py.log.Producer("annrpython")
 py.log.setconsumer("annrpython", ansi_log)
 
-FAIL = object()
 
 class RPythonAnnotator(object):
     """Block annotator for RPython.
@@ -143,7 +142,7 @@ class RPythonAnnotator(object):
         # recursively proceed until no more pending block is left
         if complete_now:
             self.complete()
-        return self.binding(flowgraph.getreturnvar(), None)
+        return self.annotation(flowgraph.getreturnvar())
 
     def gettype(self, variable):
         """Return the known type of a control flow graph variable,
@@ -226,20 +225,24 @@ class RPythonAnnotator(object):
         # policy-dependent computation
         self.bookkeeper.compute_at_fixpoint()
 
-    def binding(self, arg, default=FAIL):
+    def annotation(self, arg):
         "Gives the SomeValue corresponding to the given Variable or Constant."
         if isinstance(arg, Variable):
             annvalue = arg.binding
-            if annvalue is not None:
-                return annvalue.ann
-            if default is not FAIL:
-                return default
-            else:
-                raise KeyError
+            if annvalue is None:
+                return None
+            return annvalue.ann
         elif isinstance(arg, Constant):
             return self.bookkeeper.immutablevalue(arg.value)
         else:
             raise TypeError('Variable or Constant expected, got %r' % (arg,))
+
+    def binding(self, arg):
+        "Gives the SomeValue corresponding to the given Variable or Constant."
+        s_arg = self.annotation(arg)
+        if s_arg is None:
+            raise KeyError
+        return s_arg
 
     def annvalue(self, arg):
         if isinstance(arg, Variable):

@@ -17,7 +17,6 @@ import py
 
 from rpython.annotator import model as annmodel, unaryop, binaryop
 from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
-from rpython.annotator.annrpython import FAIL
 from rpython.flowspace.model import Variable, Constant, SpaceOperation, c_last_exception
 from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
 from rpython.rtyper.error import TyperError
@@ -152,8 +151,12 @@ class RPythonTyper(object):
         assert result is not None     # recursive getrepr()!
         return result
 
-    def binding(self, var, default=FAIL):
-        s_obj = self.annotator.binding(var, default)
+    def annotation(self, var):
+        s_obj = self.annotator.annotation(var)
+        return s_obj
+
+    def binding(self, var):
+        s_obj = self.annotator.binding(var)
         return s_obj
 
     def bindingrepr(self, var):
@@ -635,7 +638,7 @@ class RPythonTyper(object):
             ARG_GCSTRUCT = GCSTRUCT
         args_s = [SomePtr(Ptr(ARG_GCSTRUCT))]
         graph = self.annotate_helper(func, args_s)
-        s = self.annotator.binding(graph.getreturnvar())
+        s = self.annotation(graph.getreturnvar())
         if (not isinstance(s, SomePtr) or
             s.ll_ptrtype != Ptr(RuntimeTypeInfo)):
             raise TyperError("runtime type info function %r returns %r, "
@@ -882,7 +885,9 @@ class LowLevelOpList(list):
         newargs_v = []
         for v in args_v:
             if v.concretetype is Void:
-                s_value = rtyper.binding(v, default=annmodel.s_None)
+                s_value = rtyper.annotation(v)
+                if s_value is None:
+                    s_value = annmodel.s_None
                 if not s_value.is_constant():
                     raise TyperError("non-constant variable of type Void")
                 if not isinstance(s_value, (annmodel.SomePBC, annmodel.SomeNone)):

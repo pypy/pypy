@@ -89,8 +89,8 @@ def transform_extend_with_char_count(self, block_subset):
         for i in range(len(block.operations)):
             op = block.operations[i]
             if op.opname == 'mul':
-                s0 = self.binding(op.args[0], None)
-                s1 = self.binding(op.args[1], None)
+                s0 = self.annotation(op.args[0])
+                s1 = self.annotation(op.args[1])
                 if (isinstance(s0, annmodel.SomeChar) and
                     isinstance(s1, annmodel.SomeInteger)):
                     mul_sources[op.result] = op.args[0], op.args[1]
