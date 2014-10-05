@@ -88,11 +88,11 @@ def verify_eci(eci):
         _compilation_info_ = eci
         WORKS = Works()
     configure(CConfig)
-    
+
 def checkcompiles(expression, c_header_source, include_dirs=None):
     """Check if expression compiles. If not, returns False"""
     return has(expression, c_header_source, include_dirs)
-    
+
 def sizeof(name, eci, **kwds):
     class CConfig:
         _compilation_info_ = eci
@@ -107,15 +107,18 @@ def memory_alignment():
     fields is properly aligned."""
     global _memory_alignment
     if _memory_alignment is None:
-        S = getstruct('struct memory_alignment_test', """
-           struct memory_alignment_test {
-               double d;
-               void* p;
-           };
-        """, [])
-        result = S._hints['align']
-        assert result & (result-1) == 0, "not a power of two??"
-        _memory_alignment = result
+        if sys.platform == 'win32':
+            _memory_alignment = 4
+        else:
+            S = getstruct('struct memory_alignment_test', """
+               struct memory_alignment_test {
+                   double d;
+                   void* p;
+               };
+            """, [])
+            result = S._hints['align']
+            assert result & (result-1) == 0, "not a power of two??"
+            _memory_alignment = result
     return _memory_alignment
 _memory_alignment = None
 
@@ -129,7 +132,7 @@ class ConfigResult:
         self.result = {}
         self.info = info
         self.entries = entries
-        
+
     def get_entry_result(self, entry):
         try:
             return self.result[entry]
@@ -213,7 +216,6 @@ def configure(CConfig, ignore_errors=False):
         for key, entry in entries:
             writer.write_entry(key, entry)
 
-        f = writer.f
         writer.start_main()
         for key, entry in entries:
             writer.write_entry_main(key)
@@ -358,7 +360,7 @@ class SimpleType(CConfigEntry):
         self.name = name
         self.ctype_hint = ctype_hint
         self.ifdef = ifdef
-        
+
     def prepare_code(self):
         if self.ifdef is not None:
             yield '#ifdef %s' % (self.ifdef,)
@@ -537,7 +539,7 @@ class CConfigSingleEntry(object):
 class Has(CConfigSingleEntry):
     def __init__(self, name):
         self.name = name
-    
+
     def question(self, ask_gcc):
         try:
             ask_gcc(self.name + ';')
@@ -769,7 +771,7 @@ def configure_external_library(name, eci, configurations,
     On Windows, various configurations may be tried to compile the
     given eci object.  These configurations are a list of dicts,
     containing:
-    
+
     - prefix: if an absolute path, will prefix each include and
               library directories.  If a relative path, the external
               directory is searched for directories which names start
@@ -777,13 +779,13 @@ def configure_external_library(name, eci, configurations,
               chosen, and becomes the prefix.
 
     - include_dir: prefix + include_dir is added to the include directories
-    
+
     - library_dir: prefix + library_dir is added to the library directories
     """
 
     if sys.platform != 'win32':
         configurations = []
-    
+
     key = (name, eci)
     try:
         return _cache[key]
@@ -849,7 +851,7 @@ def configure_boehm(platform=None):
         # since config_external_library does not use a platform kwarg,
         # somehow using a platform kw arg make the merge fail in
         # config_external_library
-        platform = None    
+        platform = None
     else:
         library_dir = ''
         libraries = ['gc', 'dl']
@@ -866,7 +868,7 @@ def configure_boehm(platform=None):
 
 if __name__ == '__main__':
     doc = """Example:
-    
+
        rffi_platform.py  -h sys/types.h  -h netinet/in.h
                            'struct sockaddr_in'
                            sin_port  INT

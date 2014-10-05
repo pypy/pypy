@@ -289,6 +289,10 @@ def _ll_1_cast_float_to_uint(x):
     # (which is a residual call right now in the x86 backend)
     return llop.cast_float_to_uint(lltype.Unsigned, x)
 
+def _ll_0_ll_read_timestamp():
+    from rpython.rlib import rtimer
+    return rtimer.read_timestamp()
+
 
 # math support
 # ------------

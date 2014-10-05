@@ -85,10 +85,13 @@ INCLUDE, LIB and PATH (for DLLs) environment variables appropriately.
 
 Abridged method (for -Ojit builds using Visual Studio 2008)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Download the versions of all the external packages
-from 
+Download the versions of all the external packages from 
+https://bitbucket.org/pypy/pypy/downloads/local_2.4.zip
+(for 2.4 release and later) or
 https://bitbucket.org/pypy/pypy/downloads/local.zip
-Then expand it into the base directory (base_dir) and modify your environment to reflect this::
+(for pre-2.4 versions)
+Then expand it into the base directory (base_dir) and modify your environment
+to reflect this::
 
     set PATH=<base_dir>\bin;<base_dir>\tcltk\bin;%PATH%
     set INCLUDE=<base_dir>\include;<base_dir>\tcltk\include;%INCLUDE%

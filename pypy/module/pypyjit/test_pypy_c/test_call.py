@@ -17,13 +17,18 @@ class TestCall(BaseTestPyPyC):
             # now we can inline it as call assembler
             i = 0
             j = 0
-            while i < 20:
+            while i < 25:
                 i += 1
                 j += rec(100) # ID: call_rec
             return j
         #
-        log = self.run(fn, [], threshold=18)
-        loop, = log.loops_by_filename(self.filepath)
+        # NB. the parameters below are a bit ad-hoc.  After 16 iterations,
+        # the we trace from the "while" and reach a "trace too long".  Then
+        # in the next execution, we trace the "rec" function from start;
+        # that's "functrace" below.  Then after one or two extra iterations
+        # we try again from "while", and this time we succeed.
+        log = self.run(fn, [], threshold=20)
+        functrace, loop = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('call_rec', """
             ...
             p53 = call_assembler(..., descr=...)
@@ -377,12 +382,16 @@ class TestCall(BaseTestPyPyC):
             ...
             p20 = force_token()
             p22 = new_with_vtable(...)
-            p24 = new_array(1, descr=<ArrayP .>)
+            p24 = new_array_clear(1, descr=<ArrayP .>)
             p26 = new_with_vtable(ConstClass(W_ListObject))
             {{{
             setfield_gc(p0, p20, descr=<FieldP .*PyFrame.vable_token .*>)
+            setfield_gc(p22, ConstPtr(null), descr=<FieldP pypy.interpreter.argument.Arguments.inst_keywords_w .*>)
+            setfield_gc(p22, ConstPtr(null), descr=<FieldP pypy.interpreter.argument.Arguments.inst_keywords .*>)
             setfield_gc(p22, 1, descr=<FieldU pypy.interpreter.argument.Arguments.inst__jit_few_keywords .*>)
+            setfield_gc(p22, ConstPtr(null), descr=<FieldP pypy.interpreter.argument.Arguments.inst_keyword_names_w .*>)
             setfield_gc(p26, ConstPtr(ptr22), descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_strategy .*>)
+            setfield_gc(p26, ConstPtr(null), descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_lstorage .*>)
             setarrayitem_gc(p24, 0, p26, descr=<ArrayP .>)
             setfield_gc(p22, p24, descr=<FieldP .*Arguments.inst_arguments_w .*>)
             }}}

@@ -127,6 +127,7 @@ def hash_whatever(TYPE, x):
 JC_TRACING         = 0x01
 JC_DONT_TRACE_HERE = 0x02
 JC_TEMPORARY       = 0x04
+JC_TRACING_OCCURRED= 0x08
 
 class BaseJitCell(object):
     """Subclasses of BaseJitCell are used in tandem with the single
@@ -159,6 +160,8 @@ class BaseJitCell(object):
 
         JC_TRACING: we are now tracing the loop from this greenkey.
         We'll likely end up with a wref_procedure_token, soonish.
+
+        JC_TRACING_OCCURRED: set if JC_TRACING was set at least once.
 
         JC_TEMPORARY: a "temporary" wref_procedure_token.
         It's the procedure_token of a dummy loop that simply calls
@@ -206,7 +209,7 @@ class BaseJitCell(object):
             # if we have this flag, and we *had* a procedure_token but
             # we no longer have one, then remove me.  this prevents this
             # JitCell from being immortal.
-            return self.has_seen_a_procedure_token()
+            return self.has_seen_a_procedure_token()     # i.e. dead weakref
         return True   # Other JitCells can be removed.
 
 # ____________________________________________________________
@@ -374,7 +377,7 @@ class WarmEnterState(object):
             if cell is None:
                 cell = JitCell(*greenargs)
                 jitcounter.install_new_cell(hash, cell)
-            cell.flags |= JC_TRACING
+            cell.flags |= JC_TRACING | JC_TRACING_OCCURRED
             try:
                 metainterp.compile_and_run_once(jitdriver_sd, *args)
             finally:
@@ -418,9 +421,15 @@ class WarmEnterState(object):
             if procedure_token is None:
                 if cell.flags & JC_DONT_TRACE_HERE:
                     if not cell.has_seen_a_procedure_token():
-                        # we're seeing a fresh JC_DONT_TRACE_HERE with no
-                        # procedure_token.  Compile now.
-                        bound_reached(hash, cell, *args)
+                        # A JC_DONT_TRACE_HERE, i.e. a non-inlinable function.
+                        # If we never tried to trace it, try it now immediately.
+                        # Otherwise, count normally.
+                        if cell.flags & JC_TRACING_OCCURRED:
+                            tick = jitcounter.tick(hash, increment_threshold)
+                        else:
+                            tick = True
+                        if tick:
+                            bound_reached(hash, cell, *args)
                         return
                 # it was an aborted compilation, or maybe a weakref that
                 # has been freed

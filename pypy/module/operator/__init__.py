@@ -39,7 +39,7 @@ class Module(MixedModule):
                     'irshift', 'isub', 'itruediv', 'ixor', '_length_hint']
 
     interpleveldefs = {
-        '_compare_digest': 'interp_operator.compare_digest',
+        '_compare_digest': 'tscmp.compare_digest',
     }
 
     for name in interp_names:

@@ -60,26 +60,23 @@ class FdLoader(rmarshal.Loader):
 
     def need_more_data(self):
         buflen = self.buflen
-        buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
-        buflen = rffi.cast(rffi.SIZE_T, buflen)
-        count = ll_read_not_sandboxed(self.fd, buf, buflen)
-        count = rffi.cast(lltype.Signed, count)
-        if count <= 0:
-            raise IOError
-        self.buf += ''.join([buf[i] for i in range(count)])
-        self.buflen *= 2
+        with lltype.scoped_alloc(rffi.CCHARP.TO, buflen) as buf:
+            buflen = rffi.cast(rffi.SIZE_T, buflen)
+            count = ll_read_not_sandboxed(self.fd, buf, buflen)
+            count = rffi.cast(lltype.Signed, count)
+            if count <= 0:
+                raise IOError
+            self.buf += ''.join([buf[i] for i in range(count)])
+            self.buflen *= 2
 
 def sandboxed_io(buf):
     STDIN = 0
     STDOUT = 1
     # send the buffer with the marshalled fnname and input arguments to STDOUT
-    p = lltype.malloc(rffi.CCHARP.TO, len(buf), flavor='raw')
-    try:
+    with lltype.scoped_alloc(rffi.CCHARP.TO, len(buf)) as p:
         for i in range(len(buf)):
             p[i] = buf[i]
         writeall_not_sandboxed(STDOUT, p, len(buf))
-    finally:
-        lltype.free(p, flavor='raw')
     # build a Loader that will get the answer from STDIN
     loader = FdLoader(STDIN)
     # check for errors
@@ -105,9 +102,8 @@ def reraise_error(error, loader):
 @signature(types.str(), returns=types.impossible())
 def not_implemented_stub(msg):
     STDERR = 2
-    buf = rffi.str2charp(msg + '\n')
-    writeall_not_sandboxed(STDERR, buf, len(msg) + 1)
-    rffi.free_charp(buf)
+    with rffi.scoped_str2charp(msg + '\n') as buf:
+        writeall_not_sandboxed(STDERR, buf, len(msg) + 1)
     raise RuntimeError(msg)  # XXX in RPython, the msg is ignored at the moment
 
 dump_string = rmarshal.get_marshaller(str)

@@ -38,6 +38,7 @@ config = platform.configure(CConfig)
 
 FILEP = rffi.COpaquePtr("FILE")
 OFF_T = config['off_t']
+
 _IONBF = config['_IONBF']
 _IOLBF = config['_IOLBF']
 _IOFBF = config['_IOFBF']
@@ -46,6 +47,11 @@ EOF = config['EOF']
 
 BASE_BUF_SIZE = 4096
 BASE_LINE_SIZE = 100
+
+NEWLINE_UNKNOWN = 0
+NEWLINE_CR = 1
+NEWLINE_LF = 2
+NEWLINE_CRLF = 4
 
 
 def llexternal(*args, **kwargs):
@@ -63,7 +69,16 @@ c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T],
 c_fclose = llexternal('fclose', [FILEP], rffi.INT)
 c_pclose = llexternal('pclose', [FILEP], rffi.INT)
 
+# Note: the following two functions are called from __del__ methods,
+# so must be 'releasegil=False'.  Otherwise, a program using both
+# threads and the RFile class cannot translate.  See c684bf704d1f
+c_fclose_in_del = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
+c_pclose_in_del = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
+_fclose2 = (c_fclose, c_fclose_in_del)
+_pclose2 = (c_pclose, c_pclose_in_del)
+
 c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True)
+c_ungetc = llexternal('ungetc', [rffi.INT, FILEP], rffi.INT)
 c_fgets = llexternal('fgets', [rffi.CCHARP, rffi.INT, FILEP], rffi.CCHARP)
 c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
                      rffi.SIZE_T)
@@ -81,11 +96,15 @@ c_feof = llexternal('feof', [FILEP], rffi.INT)
 c_ferror = llexternal('ferror', [FILEP], rffi.INT)
 c_clearerr = llexternal('clearerr', [FILEP], lltype.Void)
 
+c_stdin = rffi.CExternVariable(FILEP, 'stdin', eci, c_type='FILE*')[0]
+c_stdout = rffi.CExternVariable(FILEP, 'stdout', eci, c_type='FILE*')[0]
+c_stderr = rffi.CExternVariable(FILEP, 'stderr', eci, c_type='FILE*')[0]
+
 
 def _error(ll_file):
     err = c_ferror(ll_file)
     c_clearerr(ll_file)
-    raise OSError(err, os.strerror(err))
+    raise IOError(err, os.strerror(err))
 
 
 def _dircheck(ll_file):
@@ -96,7 +115,7 @@ def _dircheck(ll_file):
     else:
         if stat.S_ISDIR(st[0]):
             err = errno.EISDIR
-            raise OSError(err, os.strerror(err))
+            raise IOError(err, os.strerror(err))
 
 
 def _sanitize_mode(mode):
@@ -120,43 +139,41 @@ def _sanitize_mode(mode):
 
 
 def create_file(filename, mode="r", buffering=-1):
-    mode = _sanitize_mode(mode)
+    newmode = _sanitize_mode(mode)
     ll_name = rffi.str2charp(filename)
     try:
-        ll_mode = rffi.str2charp(mode)
+        ll_mode = rffi.str2charp(newmode)
         try:
             ll_file = c_fopen(ll_name, ll_mode)
             if not ll_file:
                 errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
+                raise IOError(errno, os.strerror(errno))
         finally:
             lltype.free(ll_mode, flavor='raw')
     finally:
         lltype.free(ll_name, flavor='raw')
     _dircheck(ll_file)
-    if buffering >= 0:
-        buf = lltype.nullptr(rffi.CCHARP.TO)
-        if buffering == 0:
-            c_setvbuf(ll_file, buf, _IONBF, 0)
-        elif buffering == 1:
-            c_setvbuf(ll_file, buf, _IOLBF, BUFSIZ)
-        else:
-            c_setvbuf(ll_file, buf, _IOFBF, buffering)
-    return RFile(ll_file)
+    f = RFile(ll_file, mode)
+    f._setbufsize(buffering)
+    return f
 
 
-def create_fdopen_rfile(fd, mode="r"):
-    mode = _sanitize_mode(mode)
-    ll_mode = rffi.str2charp(mode)
+def create_fdopen_rfile(fd, mode="r", buffering=-1):
+    newmode = _sanitize_mode(mode)
+    fd = rffi.cast(rffi.INT, fd)
+    rposix.validate_fd(fd)
+    ll_mode = rffi.str2charp(newmode)
     try:
-        ll_file = c_fdopen(rffi.cast(rffi.INT, fd), ll_mode)
+        ll_file = c_fdopen(fd, ll_mode)
         if not ll_file:
             errno = rposix.get_errno()
             raise OSError(errno, os.strerror(errno))
     finally:
         lltype.free(ll_mode, flavor='raw')
     _dircheck(ll_file)
-    return RFile(ll_file)
+    f = RFile(ll_file, mode)
+    f._setbufsize(buffering)
+    return f
 
 
 def create_temp_rfile():
@@ -180,16 +197,61 @@ def create_popen_file(command, type):
             lltype.free(ll_type, flavor='raw')
     finally:
         lltype.free(ll_command, flavor='raw')
-    return RFile(ll_file, c_pclose)
+    return RFile(ll_file, close2=_pclose2)
+
+
+def create_stdio():
+    close2 = (None, None)
+    stdin = RFile(c_stdin(), close2=close2)
+    stdout = RFile(c_stdout(), close2=close2)
+    stderr = RFile(c_stderr(), close2=close2)
+    return stdin, stdout, stderr
 
 
 class RFile(object):
-    def __init__(self, ll_file, do_close=c_fclose):
+    _setbuf = lltype.nullptr(rffi.CCHARP.TO)
+    _univ_newline = False
+    _newlinetypes = NEWLINE_UNKNOWN
+    _skipnextlf = False
+
+    def __init__(self, ll_file, mode=None, close2=_fclose2):
         self._ll_file = ll_file
-        self._do_close = do_close
+        if mode is not None:
+            self._univ_newline = 'U' in mode
+        self._close2 = close2
+
+    def _setbufsize(self, bufsize):
+        if bufsize >= 0:
+            if bufsize == 0:
+                mode = _IONBF
+            elif bufsize == 1:
+                mode = _IOLBF
+                bufsize = BUFSIZ
+            else:
+                mode = _IOFBF
+            if self._setbuf:
+                lltype.free(self._setbuf, flavor='raw')
+            if mode == _IONBF:
+                self._setbuf = lltype.nullptr(rffi.CCHARP.TO)
+            else:
+                self._setbuf = lltype.malloc(rffi.CCHARP.TO, bufsize, flavor='raw')
+            c_setvbuf(self._ll_file, self._setbuf, mode, bufsize)
 
     def __del__(self):
-        self.close()
+        """Closes the described file when the object's last reference
+        goes away.  Unlike an explicit call to close(), this is meant
+        as a last-resort solution and cannot release the GIL or return
+        an error code."""
+        ll_file = self._ll_file
+        if ll_file:
+            do_close = self._close2[1]
+            if do_close:
+                do_close(ll_file)       # return value ignored
+            if self._setbuf:
+                lltype.free(self._setbuf, flavor='raw')
+
+    def _cleanup_(self):
+        self._ll_file = lltype.nullptr(FILEP.TO)
 
     def close(self):
         """Closes the described file.
@@ -204,15 +266,68 @@ class RFile(object):
         if ll_file:
             # double close is allowed
             self._ll_file = lltype.nullptr(FILEP.TO)
-            res = self._do_close(ll_file)
-            if res == -1:
-                errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
+            do_close = self._close2[0]
+            try:
+                if do_close:
+                    res = do_close(ll_file)
+                    if res == -1:
+                        errno = rposix.get_errno()
+                        raise IOError(errno, os.strerror(errno))
+            finally:
+                if self._setbuf:
+                    lltype.free(self._setbuf, flavor='raw')
+                    self._setbuf = lltype.nullptr(rffi.CCHARP.TO)
         return res
 
     def _check_closed(self):
         if not self._ll_file:
             raise ValueError("I/O operation on closed file")
+
+    def _fread(self, buf, n, stream):
+        if not self._univ_newline:
+            return c_fread(buf, 1, n, stream)
+
+        i = 0
+        dst = buf
+        newlinetypes = self._newlinetypes
+        skipnextlf = self._skipnextlf
+        while n:
+            nread = c_fread(dst, 1, n, stream)
+            if nread == 0:
+                break
+
+            src = dst
+            n -= nread
+            shortread = n != 0
+            while nread:
+                nread -= 1
+                c = src[0]
+                src = rffi.ptradd(src, 1)
+                if c == '\r':
+                    dst[0] = '\n'
+                    dst = rffi.ptradd(dst, 1)
+                    i += 1
+                    skipnextlf = True
+                elif skipnextlf and c == '\n':
+                    skipnextlf = False
+                    newlinetypes |= NEWLINE_CRLF
+                    n += 1
+                else:
+                    if c == '\n':
+                        newlinetypes |= NEWLINE_LF
+                    elif skipnextlf:
+                        newlinetypes |= NEWLINE_CR
+                    dst[0] = c
+                    dst = rffi.ptradd(dst, 1)
+                    i += 1
+                    skipnextlf = False
+            if shortread:
+                if skipnextlf and c_feof(stream):
+                    newlinetypes |= NEWLINE_CR
+                break
+        self._newlinetypes = newlinetypes
+        self._skipnextlf = skipnextlf
+        return i
 
     def read(self, size=-1):
         # XXX CPython uses a more delicate logic here
@@ -226,7 +341,7 @@ class RFile(object):
             try:
                 s = StringBuilder()
                 while True:
-                    returned_size = c_fread(buf, 1, BASE_BUF_SIZE, ll_file)
+                    returned_size = self._fread(buf, BASE_BUF_SIZE, ll_file)
                     returned_size = intmask(returned_size)  # is between 0 and BASE_BUF_SIZE
                     if returned_size == 0:
                         if c_feof(ll_file):
@@ -238,12 +353,13 @@ class RFile(object):
                 lltype.free(buf, flavor='raw')
         else:  # size > 0
             with rffi.scoped_alloc_buffer(size) as buf:
-                returned_size = c_fread(buf.raw, 1, size, ll_file)
+                returned_size = self._fread(buf.raw, size, ll_file)
                 returned_size = intmask(returned_size)  # is between 0 and size
                 if returned_size == 0:
                     if not c_feof(ll_file):
                         raise _error(ll_file)
                 s = buf.str(returned_size)
+                assert s is not None
             return s
 
     def _readline1(self, raw_buf):
@@ -284,7 +400,7 @@ class RFile(object):
         self._check_closed()
         if size == 0:
             return ""
-        elif size < 0:
+        elif size < 0 and not self._univ_newline:
             with rffi.scoped_alloc_buffer(BASE_LINE_SIZE) as buf:
                 c = self._readline1(buf.raw)
                 if c >= 0:
@@ -299,19 +415,50 @@ class RFile(object):
                         break
                 s.append_charpsize(buf.raw, c)
             return s.build()
-        else:  # size > 0
+        else:  # size > 0 or self._univ_newline
             ll_file = self._ll_file
+            c = 0
             s = StringBuilder()
-            while s.getlength() < size:
-                c = c_getc(ll_file)
+            if self._univ_newline:
+                newlinetypes = self._newlinetypes
+                skipnextlf = self._skipnextlf
+                while size < 0 or s.getlength() < size:
+                    c = c_getc(ll_file)
+                    if c == EOF:
+                        break
+                    if skipnextlf:
+                        skipnextlf = False
+                        if c == ord('\n'):
+                            newlinetypes |= NEWLINE_CRLF
+                            c = c_getc(ll_file)
+                            if c == EOF:
+                                break
+                        else:
+                            newlinetypes |= NEWLINE_CR
+                    if c == ord('\r'):
+                        skipnextlf = True
+                        c = ord('\n')
+                    elif c == ord('\n'):
+                        newlinetypes |= NEWLINE_LF
+                    s.append(chr(c))
+                    if c == ord('\n'):
+                        break
                 if c == EOF:
-                    if c_ferror(ll_file):
-                        raise _error(ll_file)
-                    break
-                c = chr(c)
-                s.append(c)
-                if c == '\n':
-                    break
+                    if skipnextlf:
+                        newlinetypes |= NEWLINE_CR
+                self._newlinetypes = newlinetypes
+                self._skipnextlf = skipnextlf
+            else:
+                while s.getlength() < size:
+                    c = c_getc(ll_file)
+                    if c == EOF:
+                        break
+                    s.append(chr(c))
+                    if c == ord('\n'):
+                        break
+            if c == EOF:
+                if c_ferror(ll_file):
+                    raise _error(ll_file)
             return s.build()
 
     @enforceargs(None, str)
@@ -325,7 +472,8 @@ class RFile(object):
             bytes = c_fwrite(ll_value, 1, length, self._ll_file)
             if bytes != length:
                 errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
+                c_clearerr(self._ll_file)
+                raise IOError(errno, os.strerror(errno))
         finally:
             rffi.free_nonmovingbuffer(value, ll_value)
 
@@ -334,7 +482,7 @@ class RFile(object):
         res = c_fflush(self._ll_file)
         if res != 0:
             errno = rposix.get_errno()
-            raise OSError(errno, os.strerror(errno))
+            raise IOError(errno, os.strerror(errno))
 
     def truncate(self, arg=-1):
         self._check_closed()
@@ -344,23 +492,36 @@ class RFile(object):
         res = c_ftruncate(self.fileno(), arg)
         if res == -1:
             errno = rposix.get_errno()
-            raise OSError(errno, os.strerror(errno))
+            raise IOError(errno, os.strerror(errno))
 
     def seek(self, pos, whence=0):
         self._check_closed()
         res = c_fseek(self._ll_file, pos, whence)
         if res == -1:
             errno = rposix.get_errno()
-            raise OSError(errno, os.strerror(errno))
+            raise IOError(errno, os.strerror(errno))
+        self._skipnextlf = False
 
     def tell(self):
         self._check_closed()
         res = intmask(c_ftell(self._ll_file))
         if res == -1:
             errno = rposix.get_errno()
-            raise OSError(errno, os.strerror(errno))
+            raise IOError(errno, os.strerror(errno))
+        if self._skipnextlf:
+            c = c_getc(self._ll_file)
+            if c == ord('\n'):
+                self._newlinetypes |= NEWLINE_CRLF
+                res += 1
+                self._skipnextlf = False
+            elif c != EOF:
+                c_ungetc(c, self._ll_file)
         return res
 
     def fileno(self):
         self._check_closed()
         return intmask(c_fileno(self._ll_file))
+
+    def isatty(self):
+        self._check_closed()
+        return os.isatty(c_fileno(self._ll_file))

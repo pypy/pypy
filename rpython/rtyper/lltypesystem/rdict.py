@@ -2,6 +2,7 @@ from rpython.tool.pairtype import pairtype
 from rpython.flowspace.model import Constant
 from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import objectmodel, jit
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import r_uint, intmask, LONG_BIT
@@ -306,6 +307,9 @@ class DictRepr(AbstractDictRepr):
 
     def rtype_method_items(self, hop):
         return self._rtype_method_kvi(hop, ll_dict_items)
+
+    def rtype_bltn_list(self, hop):
+        return self._rtype_method_kvi(hop, ll_dict_keys)
 
     def rtype_method_iterkeys(self, hop):
         hop.exception_cannot_occur()

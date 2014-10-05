@@ -1068,6 +1068,7 @@ W_UnicodeObject.typedef = StdTypeDef(
     _formatter_field_name_split =
         interp2app(W_UnicodeObject.descr_formatter_field_name_split),
 )
+W_UnicodeObject.typedef.flag_sequence_bug_compat = True
 
 
 def _create_list_from_unicode(value):

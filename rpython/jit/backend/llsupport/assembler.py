@@ -1,5 +1,5 @@
 from rpython.jit.backend.llsupport import jitframe
-from rpython.jit.backend.llsupport.memcpy import memcpy_fn
+from rpython.jit.backend.llsupport.memcpy import memcpy_fn, memset_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
     ConstInt, BoxInt, AbstractFailDescr)
@@ -63,6 +63,7 @@ class BaseAssembler(object):
     def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu
         self.memcpy_addr = 0
+        self.memset_addr = 0
         self.rtyper = cpu.rtyper
         self._debug = False
 
@@ -79,6 +80,7 @@ class BaseAssembler(object):
         else:
             self.gc_size_of_header = WORD # for tests
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
+        self.memset_addr = self.cpu.cast_ptr_to_int(memset_fn)
         self._build_failure_recovery(False, withfloats=False)
         self._build_failure_recovery(True, withfloats=False)
         self._build_wb_slowpath(False)
@@ -294,10 +296,16 @@ class BaseAssembler(object):
                 struct = self.loop_run_counters[i]
                 if struct.type == 'l':
                     prefix = 'TargetToken(%d)' % struct.number
-                elif struct.type == 'b':
-                    prefix = 'bridge ' + str(struct.number)
                 else:
-                    prefix = 'entry ' + str(struct.number)
+                    num = struct.number
+                    if num == -1:
+                        num = '-1'
+                    else:
+                        num = str(r_uint(num))
+                    if struct.type == 'b':
+                        prefix = 'bridge %s' % num
+                    else:
+                        prefix = 'entry %s' % num
                 debug_print(prefix + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
 

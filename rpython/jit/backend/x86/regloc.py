@@ -664,6 +664,7 @@ class LocationCodeBuilder(object):
 
     MOVDQ = _binaryop('MOVDQ')
     MOVD32 = _binaryop('MOVD32')
+    MOVUPS = _binaryop('MOVUPS')
 
     CALL = _relative_unaryop('CALL')
     JMP = _relative_unaryop('JMP')

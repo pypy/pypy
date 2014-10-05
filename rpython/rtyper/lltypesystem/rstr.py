@@ -82,9 +82,9 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         ll_assert(dststart >= 0, "copystrc: negative dststart")
         ll_assert(dststart + length <= len(dst.chars), "copystrc: dst ovf")
         # from here, no GC operations can happen
-        src = _get_raw_buf(SRC_TP, src, srcstart)
-        dst = _get_raw_buf(DST_TP, dst, dststart)
-        llmemory.raw_memcopy(src, dst, llmemory.sizeof(CHAR_TP) * length)
+        asrc = _get_raw_buf(SRC_TP, src, srcstart)
+        adst = _get_raw_buf(DST_TP, dst, dststart)
+        llmemory.raw_memcopy(asrc, adst, llmemory.sizeof(CHAR_TP) * length)
         # end of "no GC" section
         keepalive_until_here(src)
         keepalive_until_here(dst)
@@ -102,10 +102,10 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         # xxx Warning: same note as above apply: don't do this at home
         assert length >= 0
         # from here, no GC operations can happen
-        src = _get_raw_buf(SRC_TP, src, srcstart)
-        adr = llmemory.cast_ptr_to_adr(ptrdst)
-        dstbuf = adr + llmemory.itemoffsetof(typeOf(ptrdst).TO, 0)
-        llmemory.raw_memcopy(src, dstbuf, llmemory.sizeof(CHAR_TP) * length)
+        asrc = _get_raw_buf(SRC_TP, src, srcstart)
+        adst = llmemory.cast_ptr_to_adr(ptrdst)
+        adst = adst + llmemory.itemoffsetof(typeOf(ptrdst).TO, 0)
+        llmemory.raw_memcopy(asrc, adst, llmemory.sizeof(CHAR_TP) * length)
         # end of "no GC" section
         keepalive_until_here(src)
     copy_string_to_raw._always_inline_ = True
@@ -118,11 +118,11 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         # xxx Warning: same note as above apply: don't do this at home
         assert length >= 0
         # from here, no GC operations can happen
-        dst = _get_raw_buf(SRC_TP, dst, dststart)
-        adr = llmemory.cast_ptr_to_adr(ptrsrc)
+        adst = _get_raw_buf(SRC_TP, dst, dststart)
+        asrc = llmemory.cast_ptr_to_adr(ptrsrc)
 
-        srcbuf = adr + llmemory.itemoffsetof(typeOf(ptrsrc).TO, 0)
-        llmemory.raw_memcopy(srcbuf, dst, llmemory.sizeof(CHAR_TP) * length)
+        asrc = asrc + llmemory.itemoffsetof(typeOf(ptrsrc).TO, 0)
+        llmemory.raw_memcopy(asrc, adst, llmemory.sizeof(CHAR_TP) * length)
         # end of "no GC" section
         keepalive_until_here(dst)
     copy_raw_to_string._always_inline_ = True
@@ -531,6 +531,7 @@ class LLHelpers(AbstractLLHelpers):
                 return diff
             i += 1
         return len1 - len2
+    ll_strcmp.oopspec = 'stroruni.cmp(s1, s2)'
 
     @jit.elidable
     def ll_streq(s1, s2):
@@ -1151,6 +1152,25 @@ class LLHelpers(AbstractLLHelpers):
         return hop.gendirectcall(cls.ll_join_strs, size, vtemp)
     do_stringformat = classmethod(do_stringformat)
 
+    @jit.dont_look_inside
+    def ll_string2list(RESLIST, src):
+        length = len(src.chars)
+        lst = RESLIST.ll_newlist(length)
+        dst = lst.ll_items()
+        SRC = typeOf(src).TO     # STR or UNICODE
+        DST = typeOf(dst).TO     # GcArray
+        assert DST.OF is SRC.chars.OF
+        # from here, no GC operations can happen
+        asrc = llmemory.cast_ptr_to_adr(src) + (
+            llmemory.offsetof(SRC, 'chars') +
+            llmemory.itemoffsetof(SRC.chars, 0))
+        adst = llmemory.cast_ptr_to_adr(dst) + llmemory.itemoffsetof(DST, 0)
+        llmemory.raw_memcopy(asrc, adst, llmemory.sizeof(DST.OF) * length)
+        # end of "no GC" section
+        keepalive_until_here(src)
+        keepalive_until_here(dst)
+        return lst
+
 TEMP = GcArray(Ptr(STR))
 TEMP_UNICODE = GcArray(Ptr(UNICODE))
 
@@ -1212,6 +1232,7 @@ class StringIteratorRepr(BaseStringIteratorRepr):
     external_item_repr = char_repr
     lowleveltype = Ptr(GcStruct('stringiter',
                                 ('string', string_repr.lowleveltype),
+                                ('length', Signed),
                                 ('index', Signed)))
 
 class UnicodeIteratorRepr(BaseStringIteratorRepr):
@@ -1219,6 +1240,7 @@ class UnicodeIteratorRepr(BaseStringIteratorRepr):
     external_item_repr = unichar_repr
     lowleveltype = Ptr(GcStruct('unicodeiter',
                                 ('string', unicode_repr.lowleveltype),
+                                ('length', Signed),
                                 ('index', Signed)))
 
 def ll_striter(string):
@@ -1230,16 +1252,16 @@ def ll_striter(string):
         raise TypeError("Unknown string type %s" % (typeOf(string),))
     iter = malloc(TP)
     iter.string = string
+    iter.length = len(string.chars)    # load this value only once
     iter.index = 0
     return iter
 
 def ll_strnext(iter):
-    chars = iter.string.chars
     index = iter.index
-    if index >= len(chars):
+    if index >= iter.length:
         raise StopIteration
     iter.index = index + 1
-    return chars[index]
+    return iter.string.chars[index]
 
 def ll_getnextindex(iter):
     return iter.index
