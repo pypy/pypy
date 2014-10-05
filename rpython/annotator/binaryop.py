@@ -26,8 +26,8 @@ BINARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
 @op.is_.register(SomeObject, SomeObject)
 def is__default(annotator, obj1, obj2):
     r = SomeBool()
-    s_obj1 = obj1.ann
-    s_obj2 = obj2.ann
+    s_obj1 = annotator.annotation(obj1)
+    s_obj2 = annotator.annotation(obj2)
     if s_obj2.is_constant():
         if s_obj1.is_constant():
             r.const = s_obj1.const is s_obj2.const
@@ -39,18 +39,17 @@ def is__default(annotator, obj1, obj2):
     knowntypedata = {}
 
     def bind(src_obj, tgt_obj):
-        if hasattr(tgt_obj.ann, 'is_type_of') and src_obj.ann.is_constant():
+        if hasattr(annotator.annotation(tgt_obj), 'is_type_of') and annotator.annotation(src_obj).is_constant():
             add_knowntypedata(
                 knowntypedata, True,
-                tgt_obj.ann.is_type_of,
-                getbookkeeper().valueoftype(src_obj.ann.const))
-        add_knowntypedata(knowntypedata, True, [tgt_obj.value], src_obj.ann)
-        s_nonnone = tgt_obj.ann
-        if (src_obj.ann.is_constant() and src_obj.ann.const is None and
-                tgt_obj.ann.can_be_none()):
-            s_nonnone = tgt_obj.ann.nonnoneify()
-        add_knowntypedata(knowntypedata,
-                            False, [tgt_obj.value], s_nonnone)
+                annotator.annotation(tgt_obj).is_type_of,
+                getbookkeeper().valueoftype(annotator.annotation(src_obj).const))
+        add_knowntypedata(knowntypedata, True, [tgt_obj], annotator.annotation(src_obj))
+        s_nonnone = annotator.annotation(tgt_obj)
+        if (annotator.annotation(src_obj).is_constant() and annotator.annotation(src_obj).const is None and
+                annotator.annotation(tgt_obj).can_be_none()):
+            s_nonnone = annotator.annotation(tgt_obj).nonnoneify()
+        add_knowntypedata(knowntypedata, False, [tgt_obj], s_nonnone)
 
     bind(obj2, obj1)
     bind(obj1, obj2)
@@ -60,7 +59,7 @@ def is__default(annotator, obj1, obj2):
 def _make_cmp_annotator_default(cmp_op):
     @cmp_op.register(SomeObject, SomeObject)
     def default_annotate(annotator, obj1, obj2):
-        s_1, s_2 = obj1.ann, obj2.ann
+        s_1, s_2 = annotator.annotation(obj1), annotator.annotation(obj2)
         if s_1.is_immutable_constant() and s_2.is_immutable_constant():
             return immutablevalue(cmp_op.pyfunc(s_1.const, s_2.const))
         else:
@@ -247,7 +246,7 @@ def _make_cmp_annotator_int(cmp_op):
     @cmp_op.register(SomeInteger, SomeInteger)
     def _compare_helper(annotator, int1, int2):
         r = SomeBool()
-        s_int1, s_int2 = int1.ann, int2.ann
+        s_int1, s_int2 = annotator.annotation(int1), annotator.annotation(int2)
         if s_int1.is_immutable_constant() and s_int2.is_immutable_constant():
             r.const = cmp_op.pyfunc(s_int1.const, s_int2.const)
         #
@@ -269,21 +268,21 @@ def _make_cmp_annotator_int(cmp_op):
             if s_int0.knowntype is bool:
                 return int
             return s_int0.knowntype
-        if s_int1.nonneg and isinstance(int2.value, Variable):
+        if s_int1.nonneg and isinstance(int2, Variable):
             case = cmp_op.opname in ('lt', 'le', 'eq')
-            add_knowntypedata(knowntypedata, case, [int2.value],
+            add_knowntypedata(knowntypedata, case, [int2],
                               SomeInteger(nonneg=True, knowntype=tointtype(s_int2)))
-        if s_int2.nonneg and isinstance(int1.value, Variable):
+        if s_int2.nonneg and isinstance(int1, Variable):
             case = cmp_op.opname in ('gt', 'ge', 'eq')
-            add_knowntypedata(knowntypedata, case, [int1.value],
+            add_knowntypedata(knowntypedata, case, [int1],
                               SomeInteger(nonneg=True, knowntype=tointtype(s_int1)))
         r.set_knowntypedata(knowntypedata)
         # a special case for 'x < 0' or 'x >= 0',
         # where 0 is a flow graph Constant
         # (in this case we are sure that it cannot become a r_uint later)
-        if (isinstance(int2.value, Constant) and
-                type(int2.value.value) is int and  # filter out Symbolics
-                int2.value.value == 0):
+        if (isinstance(int2, Constant) and
+                type(int2.value) is int and  # filter out Symbolics
+                int2.value == 0):
             if s_int1.nonneg:
                 if cmp_op.opname == 'lt':
                     r.const = False
@@ -718,9 +717,9 @@ class __extend__(pairtype(SomeBuiltinMethod, SomeBuiltinMethod)):
 def is__PBC_PBC(annotator, pbc1, pbc2):
     s = is__default(annotator, pbc1, pbc2)
     if not s.is_constant():
-        if not pbc1.ann.can_be_None or not pbc2.ann.can_be_None:
-            for desc in pbc1.ann.descriptions:
-                if desc in pbc2.ann.descriptions:
+        if not annotator.annotation(pbc1).can_be_None or not annotator.annotation(pbc2).can_be_None:
+            for desc in annotator.annotation(pbc1).descriptions:
+                if desc in annotator.annotation(pbc2).descriptions:
                     break
             else:
                 s.const = False    # no common desc in the two sets

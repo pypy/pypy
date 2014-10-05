@@ -6,8 +6,7 @@ def copyvar(annotator, v):
     """Make a copy of the Variable v, preserving annotations and concretetype."""
     assert isinstance(v, Variable)
     newvar = Variable(v)
-    if annotator is not None and v.binding is not None:
-        annotator.transfer_binding(newvar, v)
+    newvar.annotation = v.annotation
     if hasattr(v, 'concretetype'):
         newvar.concretetype = v.concretetype
     return newvar

@@ -97,7 +97,7 @@ class HLOperation(SpaceOperation):
         return None
 
     def consider(self, annotator, *args):
-        args_s = [arg.ann for arg in args]
+        args_s = [annotator.annotation(arg) for arg in args]
         spec = type(self).get_specialization(*args_s)
         return spec(annotator, *args)
 
@@ -166,7 +166,7 @@ class SingleDispatchMixin(object):
         raise AnnotatorError("Unknown operation")
 
     def get_can_only_throw(self, annotator):
-        args_s = [annotator.binding(v) for v in self.args]
+        args_s = [annotator.annotation(v) for v in self.args]
         spec = type(self).get_specialization(*args_s)
         return read_can_only_throw(spec, args_s[0])
 
@@ -176,7 +176,7 @@ class SingleDispatchMixin(object):
             impl = getattr(s_arg, cls.opname)
 
             def specialized(annotator, arg, *other_args):
-                return impl(*[x.ann for x in other_args])
+                return impl(*[annotator.annotation(x) for x in other_args])
             try:
                 specialized.can_only_throw = impl.can_only_throw
             except AttributeError:
@@ -202,7 +202,7 @@ class DoubleDispatchMixin(object):
             impl = getattr(pair(s_arg1, s_arg2), cls.opname)
 
             def specialized(annotator, arg1, arg2, *other_args):
-                return impl(*[x.ann for x in other_args])
+                return impl(*[annotator.annotation(x) for x in other_args])
             try:
                 specialized.can_only_throw = impl.can_only_throw
             except AttributeError:
@@ -212,7 +212,7 @@ class DoubleDispatchMixin(object):
             return cls._registry[type(s_arg1), type(s_arg2)]
 
     def get_can_only_throw(self, annotator):
-        args_s = [annotator.binding(v) for v in self.args]
+        args_s = [annotator.annotation(v) for v in self.args]
         spec = type(self).get_specialization(*args_s)
         return read_can_only_throw(spec, args_s[0], args_s[1])
 
@@ -457,7 +457,7 @@ class NewTuple(PureOperation):
     canraise = []
 
     def consider(self, annotator, *args):
-        return SomeTuple(items=[arg.ann for arg in args])
+        return SomeTuple(items=[annotator.annotation(arg) for arg in args])
 
 
 class NewList(HLOperation):
@@ -465,7 +465,7 @@ class NewList(HLOperation):
     canraise = []
 
     def consider(self, annotator, *args):
-        return annotator.bookkeeper.newlist(*[arg.ann for arg in args])
+        return annotator.bookkeeper.newlist(*[annotator.annotation(arg) for arg in args])
 
 
 class Pow(PureOperation):

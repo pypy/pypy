@@ -250,7 +250,7 @@ class Block(object):
 
 
 class Variable(object):
-    __slots__ = ["_name", "_nr", "binding", "concretetype"]
+    __slots__ = ["_name", "_nr", "annotation", "concretetype"]
 
     dummyname = 'v'
     namesdict = {dummyname: (dummyname, 0)}
@@ -273,7 +273,7 @@ class Variable(object):
     def __init__(self, name=None):
         self._name = self.dummyname
         self._nr = -1
-        self.binding = None
+        self.annotation = None
         # numbers are bound lazily, when the name is requested
         if name is not None:
             self.rename(name)

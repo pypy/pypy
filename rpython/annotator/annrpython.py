@@ -11,7 +11,6 @@ from rpython.flowspace.model import (Variable, Constant, FunctionGraph,
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature
 from rpython.annotator.argument import simple_args
-from rpython.annotator.value import AnnotatedValue
 from rpython.annotator.bookkeeper import Bookkeeper
 
 import py
@@ -150,9 +149,9 @@ class RPythonAnnotator(object):
         if isinstance(variable, Constant):
             return type(variable.value)
         elif isinstance(variable, Variable):
-            cell = variable.binding
-            if cell:
-                return cell.ann.knowntype
+            s_variable = variable.annotation
+            if s_variable:
+                return s_variable.knowntype
             else:
                 return object
         else:
@@ -220,7 +219,7 @@ class RPythonAnnotator(object):
             raise annmodel.AnnotatorError(text)
         for graph in newgraphs:
             v = graph.getreturnvar()
-            if v.binding is None:
+            if v.annotation is None:
                 self.setbinding(v, annmodel.s_ImpossibleValue)
         # policy-dependent computation
         self.bookkeeper.compute_at_fixpoint()
@@ -228,10 +227,7 @@ class RPythonAnnotator(object):
     def annotation(self, arg):
         "Gives the SomeValue corresponding to the given Variable or Constant."
         if isinstance(arg, Variable):
-            annvalue = arg.binding
-            if annvalue is None:
-                return None
-            return annvalue.ann
+            return arg.annotation
         elif isinstance(arg, Constant):
             return self.bookkeeper.immutablevalue(arg.value)
         else:
@@ -244,27 +240,18 @@ class RPythonAnnotator(object):
             raise KeyError
         return s_arg
 
-    def annvalue(self, arg):
-        if isinstance(arg, Variable):
-            return arg.binding
-        else:
-            return AnnotatedValue(arg, self.bookkeeper.immutablevalue(arg.value))
-
     def typeannotation(self, t):
         return signature.annotation(t, self.bookkeeper)
 
     def setbinding(self, arg, s_value):
-        if arg.binding is None:
-            arg.binding = AnnotatedValue(arg, s_value)
-        else:
-            value = arg.binding
-            if value.ann is not None:
-                assert s_value.contains(value.ann)
-            value.ann = s_value
+        s_old = arg.annotation
+        if s_old is not None:
+            assert s_value.contains(s_old)
+        arg.annotation = s_value
 
     def transfer_binding(self, v_target, v_source):
-        assert v_source.binding is not None
-        v_target.binding = AnnotatedValue(v_target, v_source.binding.ann)
+        assert v_source.annotation is not None
+        v_target.annotation = v_source.annotation
 
     def warning(self, msg, pos=None):
         if pos is None:
@@ -583,18 +570,16 @@ class RPythonAnnotator(object):
     #___ creating the annotations based on operations ______
 
     def consider_op(self, op):
-        argcells = [self.annvalue(a) for a in op.args]
-
         # let's be careful about avoiding propagated SomeImpossibleValues
         # to enter an op; the latter can result in violations of the
         # more general results invariant: e.g. if SomeImpossibleValue enters is_
         #  is_(SomeImpossibleValue, None) -> SomeBool
         #  is_(SomeInstance(not None), None) -> SomeBool(const=False) ...
         # boom -- in the assert of setbinding()
-        for arg in argcells:
-            if isinstance(arg.ann, annmodel.SomeImpossibleValue):
+        for arg in op.args:
+            if isinstance(self.annotation(arg), annmodel.SomeImpossibleValue):
                 raise BlockedInference(self, op, -1)
-        resultcell = op.consider(self, *argcells)
+        resultcell = op.consider(self, *op.args)
         if resultcell is None:
             resultcell = annmodel.s_ImpossibleValue
         elif resultcell == annmodel.s_ImpossibleValue:

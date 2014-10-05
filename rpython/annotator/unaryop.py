@@ -24,18 +24,18 @@ UNARY_OPERATIONS.remove('contains')
 @op.type.register(SomeObject)
 def type_SomeObject(annotator, arg):
     r = SomeType()
-    r.is_type_of = [arg.value]
+    r.is_type_of = [arg]
     return r
 
 @op.bool.register(SomeObject)
 def bool_SomeObject(annotator, obj):
     r = SomeBool()
-    obj.ann.bool_behavior(r)
-    s_nonnone_obj = obj.ann
+    annotator.annotation(obj).bool_behavior(r)
+    s_nonnone_obj = annotator.annotation(obj)
     if s_nonnone_obj.can_be_none():
         s_nonnone_obj = s_nonnone_obj.nonnoneify()
     knowntypedata = {}
-    add_knowntypedata(knowntypedata, True, [obj.value], s_nonnone_obj)
+    add_knowntypedata(knowntypedata, True, [obj], s_nonnone_obj)
     r.set_knowntypedata(knowntypedata)
     return r
 
@@ -46,11 +46,11 @@ contains_SomeObject.can_only_throw = []
 
 @op.simple_call.register(SomeObject)
 def simple_call_SomeObject(annotator, func, *args):
-    return func.ann.call(simple_args([arg.ann for arg in args]))
+    return annotator.annotation(func).call(simple_args([annotator.annotation(arg) for arg in args]))
 
 @op.call_args.register(SomeObject)
 def call_args(annotator, func, *args):
-    return func.ann.call(complex_args([arg.ann for arg in args]))
+    return annotator.annotation(func).call(complex_args([annotator.annotation(arg) for arg in args]))
 
 class __extend__(SomeObject):
 
@@ -248,7 +248,7 @@ class __extend__(SomeTuple):
 
 @op.contains.register(SomeList)
 def contains_SomeList(annotator, obj, element):
-    obj.ann.listdef.generalize(element.ann)
+    annotator.annotation(obj).listdef.generalize(annotator.annotation(element))
     return s_Bool
 contains_SomeList.can_only_throw = []
 
@@ -345,8 +345,8 @@ def _can_only_throw(s_dct, *ignore):
 
 @op.contains.register(SomeDict)
 def contains_SomeDict(annotator, dct, element):
-    dct.ann.dictdef.generalize_key(element.ann)
-    if dct.ann._is_empty():
+    annotator.annotation(dct).dictdef.generalize_key(annotator.annotation(element))
+    if annotator.annotation(dct)._is_empty():
         s_bool = SomeBool()
         s_bool.const = False
         return s_bool
@@ -437,11 +437,11 @@ class __extend__(SomeDict):
 @op.contains.register(SomeString)
 @op.contains.register(SomeUnicodeString)
 def contains_String(annotator, string, char):
-    if char.ann.is_constant() and char.ann.const == "\0":
+    if annotator.annotation(char).is_constant() and annotator.annotation(char).const == "\0":
         r = SomeBool()
         knowntypedata = {}
-        add_knowntypedata(knowntypedata, False, [string.value],
-                          string.ann.nonnulify())
+        add_knowntypedata(knowntypedata, False, [string],
+                          annotator.annotation(string).nonnulify())
         r.set_knowntypedata(knowntypedata)
         return r
     else:

@@ -861,7 +861,7 @@ class TestAnnotateTestCase:
         all_vars = set().union(*[block.getvariables() for block in graph.iterblocks()])
         print all_vars
         for var in all_vars:
-            s_value = var.binding.ann
+            s_value = var.annotation
             if isinstance(s_value, annmodel.SomeList):
                 assert not s_value.listdef.listitem.resized
                 assert not s_value.listdef.listitem.mutated

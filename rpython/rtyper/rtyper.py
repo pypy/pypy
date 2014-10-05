@@ -496,7 +496,7 @@ class RPythonTyper(object):
                     hop.r_result, op.opname, resulttype))
             # figure out if the resultvar is a completely fresh Variable or not
             if (isinstance(resultvar, Variable) and
-                resultvar.binding is None and
+                resultvar.annotation is None and
                 resultvar not in varmapping):
                 # fresh Variable: rename it to the previously existing op.result
                 varmapping[resultvar] = op.result

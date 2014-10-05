@@ -124,14 +124,14 @@ def transform_list_contains(self, block_subset):
             elif op.opname == 'contains' and op.args[0] in newlist_sources:
                 items = {}
                 for v in newlist_sources[op.args[0]]:
-                    s = self.binding(v)
+                    s = self.annotation(v)
                     if not s.is_immutable_constant():
                         break
                     items[s.const] = None
                 else:
                     # all arguments of the newlist are annotation constants
                     op.args[0] = Constant(items)
-                    s_dict = self.binding(op.args[0])
+                    s_dict = self.annotation(op.args[0])
                     s_dict.dictdef.generalize_key(self.binding(op.args[1]))
 
 
@@ -168,9 +168,9 @@ def cutoff_alwaysraising_block(self, block):
     "Fix a block whose end can never be reached at run-time."
     # search the operation that cannot succeed
     can_succeed    = [op for op in block.operations
-                         if op.result.binding is not None]
+                         if op.result.annotation is not None]
     cannot_succeed = [op for op in block.operations
-                         if op.result.binding is None]
+                         if op.result.annotation is None]
     n = len(can_succeed)
     # check consistency
     assert can_succeed == block.operations[:n]
