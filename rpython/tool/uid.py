@@ -1,18 +1,6 @@
 import struct, sys
 
-# This is temporary hack to run PyPy on PyPy
-# until PyPy's struct module handle P format character.
-try:
-    HUGEVAL_FMT   = 'P'
-    HUGEVAL_BYTES = struct.calcsize('P')
-except struct.error:
-    if sys.maxint <= 2147483647:
-        HUGEVAL_FMT   = 'l'
-        HUGEVAL_BYTES = 4
-    else:
-        HUGEVAL_FMT   = 'q'
-        HUGEVAL_BYTES = 8
-
+HUGEVAL_BYTES = struct.calcsize('P')
 HUGEVAL = 256 ** HUGEVAL_BYTES
 
 
@@ -39,7 +27,7 @@ class Hashable(object):
     real hash/compare for immutable ones.
     """
     __slots__ = ["key", "value"]
-    
+
     def __init__(self, value):
         self.value = value     # a concrete value
         # try to be smart about constant mutable or immutable values
@@ -74,7 +62,7 @@ class Hashable(object):
         # try to limit the size of the repr to make it more readable
         r = repr(self.value)
         if (r.startswith('<') and r.endswith('>') and
-            hasattr(self.value, '__name__')):
+                hasattr(self.value, '__name__')):
             r = '%s %s' % (type(self.value).__name__, self.value.__name__)
         elif len(r) > 60 or (len(r) > 30 and type(self.value) is not str):
             r = r[:22] + '...' + r[-7:]
