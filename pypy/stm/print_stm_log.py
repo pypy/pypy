@@ -30,6 +30,9 @@ STM_GC_MINOR_DONE   = 12
 STM_GC_MAJOR_START  = 13
 STM_GC_MAJOR_DONE   = 14
 
+_STM_EVENT_N  = 15
+
+
 event_name = {}
 for _key, _value in globals().items():
     if _key.startswith('STM_'):
@@ -62,6 +65,8 @@ def parse_log(filename):
             if not packet: break
             sec, nsec, threadnum, otherthreadnum, event, len1, len2 = \
                   struct.unpack("IIIIBBB", packet)
+            if event >= _STM_EVENT_N:
+                raise ValueError("the file %r appears corrupted")
             m1 = f.read(len1)
             m2 = f.read(len2)
             result.append(LogEntry(sec + 0.000000001 * nsec,
