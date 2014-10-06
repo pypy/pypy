@@ -13,7 +13,7 @@ from rpython.annotator.model import (
     SomeLongFloat, SomeType, SomeConstantType, unionof, UnionError,
     read_can_only_throw, add_knowntypedata,
     merge_knowntypedata,)
-from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
+from rpython.annotator.bookkeeper import immutablevalue
 from rpython.flowspace.model import Variable, Constant
 from rpython.flowspace.operation import op
 from rpython.rlib import rarithmetic
@@ -37,18 +37,21 @@ def is__default(annotator, obj1, obj2):
         if s_obj1.const is None and not s_obj2.can_be_none():
             r.const = False
     knowntypedata = {}
+    bk = annotator.bookkeeper
 
     def bind(src_obj, tgt_obj):
-        if hasattr(annotator.annotation(tgt_obj), 'is_type_of') and annotator.annotation(src_obj).is_constant():
+        s_src = annotator.annotation(src_obj)
+        s_tgt = annotator.annotation(tgt_obj)
+        if hasattr(s_tgt, 'is_type_of') and s_src.is_constant():
             add_knowntypedata(
                 knowntypedata, True,
-                annotator.annotation(tgt_obj).is_type_of,
-                getbookkeeper().valueoftype(annotator.annotation(src_obj).const))
-        add_knowntypedata(knowntypedata, True, [tgt_obj], annotator.annotation(src_obj))
-        s_nonnone = annotator.annotation(tgt_obj)
-        if (annotator.annotation(src_obj).is_constant() and annotator.annotation(src_obj).const is None and
-                annotator.annotation(tgt_obj).can_be_none()):
-            s_nonnone = annotator.annotation(tgt_obj).nonnoneify()
+                s_tgt.is_type_of,
+                bk.valueoftype(s_src.const))
+        add_knowntypedata(knowntypedata, True, [tgt_obj], s_src)
+        s_nonnone = s_tgt
+        if (s_src.is_constant() and s_src.const is None and
+                s_tgt.can_be_none()):
+            s_nonnone = s_tgt.nonnoneify()
         add_knowntypedata(knowntypedata, False, [tgt_obj], s_nonnone)
 
     bind(obj2, obj1)
@@ -717,9 +720,11 @@ class __extend__(pairtype(SomeBuiltinMethod, SomeBuiltinMethod)):
 def is__PBC_PBC(annotator, pbc1, pbc2):
     s = is__default(annotator, pbc1, pbc2)
     if not s.is_constant():
-        if not annotator.annotation(pbc1).can_be_None or not annotator.annotation(pbc2).can_be_None:
-            for desc in annotator.annotation(pbc1).descriptions:
-                if desc in annotator.annotation(pbc2).descriptions:
+        s_pbc1 = annotator.annotation(pbc1)
+        s_pbc2 = annotator.annotation(pbc2)
+        if not s_pbc1.can_be_None or not s_pbc2.can_be_None:
+            for desc in s_pbc1.descriptions:
+                if desc in s_pbc2.descriptions:
                     break
             else:
                 s.const = False    # no common desc in the two sets
