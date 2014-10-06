@@ -6,6 +6,7 @@ from rpython.jit.metainterp.history import Const
 from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -544,12 +545,10 @@ class OptHeap(Optimization):
         qmutdescr = op.getdescr()
         assert isinstance(qmutdescr, QuasiImmutDescr)
         # check that the value is still correct; it could have changed
-        # already between the tracing and now.  In this case, we are
-        # simply ignoring the QUASIIMMUT_FIELD hint and compiling it
-        # as a regular getfield.
+        # already between the tracing and now.  In this case, we mark the loop
+        # as invalid
         if not qmutdescr.is_still_valid_for(structvalue.get_key_box()):
-            self._remove_guard_not_invalidated = True
-            return
+            raise InvalidLoop('quasi immutable field changed during tracing')
         # record as an out-of-line guard
         if self.optimizer.quasi_immutable_deps is None:
             self.optimizer.quasi_immutable_deps = {}

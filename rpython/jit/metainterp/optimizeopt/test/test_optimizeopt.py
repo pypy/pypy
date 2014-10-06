@@ -8253,13 +8253,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p106, p108, descr=nextdescr) # inst_storage
         jump(p106)
         """
-        expected = """
-        []
-        p72 = getfield_gc(ConstPtr(myptr2), descr=quasifielddescr)
-        guard_value(p72, -4247) []
-        jump()
-        """
-        self.optimize_loop(ops, expected)
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_issue1080_infinitie_loop_simple(self):
         ops = """
@@ -8270,13 +8264,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_value(p71, -4247) []
         jump(ConstPtr(myptr))
         """
-        expected = """
-        []
-        p72 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
-        guard_value(p72, -4247) []
-        jump()
-        """
-        self.optimize_loop(ops, expected)
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_only_strengthen_guard_if_class_matches(self):
         ops = """
