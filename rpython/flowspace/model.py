@@ -312,6 +312,15 @@ class Variable(object):
     def foldable(self):
         return False
 
+    def copy(self):
+        """Make a copy of the Variable, preserving annotations and concretetype."""
+        newvar = Variable(self)
+        newvar.annotation = self.annotation
+        if hasattr(self, 'concretetype'):
+            newvar.concretetype = self.concretetype
+        return newvar
+
+
 
 class Constant(Hashable):
     __slots__ = ["concretetype"]
