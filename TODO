@@ -121,6 +121,28 @@ between stmgc-c7 and default (kill rstm.ThreadLocalRef, etc)
 there are in PyPy-STM crashes related to markers (with the JIT?).
 Also, some markers logic is missing with the JIT.
 
+------------------------------------------------------------
+
+GC: call __del__()
+
+------------------------------------------------------------
+
+look at jit.elidables as a way to specify "this function can run
+earlier, in a separate transaction".  Useful to avoid pointless
+conflicts in cases the jit.edliable update some cache, like with
+MapDictStrategy.
+
+------------------------------------------------------------
+
+dicts: have an implementation that follows the principles in
+stmgc/hashtable/design.txt
+
+------------------------------------------------------------
+
+replace "atomic transactions" with better management of thread.locks.
+
+------------------------------------------------------------
+
 
 
 
@@ -208,10 +230,6 @@ another thread starts waiting for the mutex
 ------------------------------------------------------------
 
 RPyAssert(i < len(lst)): if lst is global this turns into tons of code
-
-------------------------------------------------------------
-
-GC: major collections; call __del__()
 
 ------------------------------------------------------------
 
