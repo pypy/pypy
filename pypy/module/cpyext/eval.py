@@ -155,8 +155,8 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
     filename = rffi.charp2str(filename)
     buf = lltype.malloc(rffi.CCHARP.TO, BUF_SIZE, flavor='raw')
     if not is_valid_fp(fp):
-        PyErr_SetFromErrno(space, space.w_IOError)
         lltype.free(buf, flavor='raw')
+        PyErr_SetFromErrno(space, space.w_IOError)
         return None
     try:
         while True:
