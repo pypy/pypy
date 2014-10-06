@@ -402,8 +402,10 @@ class W_Socket(W_Root):
         The value argument can either be an integer or a string.
         """
         try:
-            optval = space.int_w(w_optval)
-        except:
+            optval = space.c_int_w(w_optval)
+        except OperationError, e:
+            if e.async(space):
+                raise
             optval = space.str_w(w_optval)
             try:
                 self.sock.setsockopt(level, optname, optval)
