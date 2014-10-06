@@ -122,8 +122,8 @@ class FlowGraphPage(GraphPage):
                     for v in link.getextravars():
                         vars[v] = True
         for var in vars:
-            if var.binding is not None:
-                s_value = var.binding.ann
+            s_value = var.annotation
+            if s_value is not None:
                 info = '%s: %s' % (var.name, s_value)
                 annotationcolor = getattr(s_value, 'annotationcolor', None)
                 self.links[var.name] = info, annotationcolor
