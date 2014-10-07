@@ -267,7 +267,7 @@ class W_GenericUFuncCaller(W_Root):
     def __init__(self, func, data):
         self.func = func
         self.data = data
-        
+
     def descr_call(self, space, __args__):
         args_w, kwds_w = __args__.unpack()
         dataps = alloc_raw_storage(CCHARP_SIZE * len(args_w), track_allocation=False)
@@ -281,7 +281,7 @@ class W_GenericUFuncCaller(W_Root):
             raw_storage_setitem(dims, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_size()))
             raw_storage_setitem(steps, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_dtype().elsize))
         try:
-            self.func(rffi.cast(rffi.CArrayPtr(rffi.CCHARP), dataps), 
+            self.func(rffi.cast(rffi.CArrayPtr(rffi.CCHARP), dataps),
                       rffi.cast(npy_intpp, dims), rffi.cast(npy_intpp, steps), self.data)
         finally:
             free_raw_storage(dataps, track_allocation=False)
@@ -315,4 +315,4 @@ def _PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
     w_identity = space.wrap(identity)
     ufunc_generic = ufuncs.frompyfunc(space, w_funcs, nin, nout, w_dtypes,
                  w_signature, w_identity, w_name, w_doc)
-    return ufunc_generic             
+    return ufunc_generic
