@@ -532,10 +532,14 @@ class OptHeap(Optimization):
 
     def optimize_QUASIIMMUT_FIELD(self, op):
         # Pattern: QUASIIMMUT_FIELD(s, descr=QuasiImmutDescr)
-        #          x = GETFIELD_GC(s, descr='inst_x')
-        # If 's' is a constant (after optimizations), then we make 's.inst_x'
-        # a constant too, and we rely on the rest of the optimizations to
-        # constant-fold the following getfield_gc.
+        #          x = GETFIELD_GC_PURE(s, descr='inst_x')
+        # If 's' is a constant (after optimizations) we rely on the rest of the
+        # optimizations to constant-fold the following getfield_gc_pure.
+        # in addition, we record the dependency here to make invalidation work
+        # correctly.
+        # NB: emitting the GETFIELD_GC_PURE is only safe because the
+        # QUASIIMMUT_FIELD is also emitted to make sure the dependency is
+        # registered.
         structvalue = self.getvalue(op.getarg(0))
         if not structvalue.is_constant():
             self._remove_guard_not_invalidated = True
@@ -553,11 +557,6 @@ class OptHeap(Optimization):
         if self.optimizer.quasi_immutable_deps is None:
             self.optimizer.quasi_immutable_deps = {}
         self.optimizer.quasi_immutable_deps[qmutdescr.qmut] = None
-        # perform the replacement in the list of operations
-        fieldvalue = self.getvalue(qmutdescr.constantfieldbox)
-        cf = self.field_cache(qmutdescr.fielddescr)
-        cf.force_lazy_setfield(self)
-        cf.remember_field_value(structvalue, fieldvalue)
         self._remove_guard_not_invalidated = False
 
     def optimize_GUARD_NOT_INVALIDATED(self, op):

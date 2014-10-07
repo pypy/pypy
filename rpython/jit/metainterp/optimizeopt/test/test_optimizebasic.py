@@ -5200,7 +5200,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         []
         quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i0 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
+        i0 = getfield_gc_pure(ConstPtr(quasiptr), descr=quasifielddescr)
         i1 = call_pure(123, i0, descr=nonwritedescr)
         finish(i1)
         """

@@ -6893,13 +6893,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, p1, i0]
         quasiimmut_field(p0, descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc(p0, descr=quasifielddescr)
+        i1 = getfield_gc_pure(p0, descr=quasifielddescr)
         escape(i1)
         jump(p1, p0, i1)
         """
         expected = """
         [p0, p1, i0]
-        i1 = getfield_gc(p0, descr=quasifielddescr)
+        i1 = getfield_gc_pure(p0, descr=quasifielddescr)
         escape(i1)
         jump(p1, p0, i1)
         """
@@ -6910,7 +6910,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         []
         quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
+        i1 = getfield_gc_pure(ConstPtr(quasiptr), descr=quasifielddescr)
         escape(i1)
         jump()
         """
@@ -6962,11 +6962,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0a, i0b]
         quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
+        i1 = getfield_gc_pure(ConstPtr(quasiptr), descr=quasifielddescr)
         call_may_force(i0b, descr=mayforcevirtdescr)
         quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i2 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
+        i2 = getfield_gc_pure(ConstPtr(quasiptr), descr=quasifielddescr)
         i3 = escape(i1)
         i4 = escape(i2)
         jump(i3, i4)
@@ -6989,11 +6989,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p, 421, descr=quasifielddescr)
         quasiimmut_field(p, descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc(p, descr=quasifielddescr)
+        i1 = getfield_gc_pure(p, descr=quasifielddescr)
         call_may_force(i0b, descr=mayforcevirtdescr)
         quasiimmut_field(p, descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i2 = getfield_gc(p, descr=quasifielddescr)
+        i2 = getfield_gc_pure(p, descr=quasifielddescr)
         i3 = escape(i1)
         i4 = escape(i2)
         jump(i3, i4)
@@ -8242,7 +8242,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
 
         quasiimmut_field(p69, descr=quasiimmutdescr)
         guard_not_invalidated() []
-        p71 = getfield_gc(p69, descr=quasifielddescr) # inst_code
+        p71 = getfield_gc_pure(p69, descr=quasifielddescr) # inst_code
         guard_value(p71, -4247) []
 
         p106 = new_with_vtable(ConstClass(node_vtable))
@@ -8260,7 +8260,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p69]
         quasiimmut_field(p69, descr=quasiimmutdescr)
         guard_not_invalidated() []
-        p71 = getfield_gc(p69, descr=quasifielddescr) # inst_code
+        p71 = getfield_gc_pure(p69, descr=quasifielddescr) # inst_code
         guard_value(p71, -4247) []
         jump(ConstPtr(myptr))
         """
