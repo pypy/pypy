@@ -1296,7 +1296,7 @@ def test_quasi_immutable():
         assert op1.args[1] == ('fielddescr', STRUCT, 'inst_x')
         assert op1.args[2] == ('fielddescr', STRUCT, 'mutate_x')
         assert op1.result is None
-        assert op2.opname == 'getfield_gc_i'
+        assert op2.opname == 'getfield_gc_i_pure'
         assert len(op2.args) == 2
         assert op2.args[0] == v_x
         assert op2.args[1] == ('fielddescr', STRUCT, 'inst_x')
