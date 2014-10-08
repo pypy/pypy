@@ -68,7 +68,6 @@ def get_result_suspstack(h):
 
 
 class StackletGcRootFinder(object):
-    @staticmethod
     def new(thrd, callback, arg):
         gcrootfinder.callback = callback
         thread_handle = thrd._thrd
@@ -76,8 +75,8 @@ class StackletGcRootFinder(object):
         h = _c.new(thread_handle, llhelper(_c.run_fn, _new_callback), arg)
         return get_result_suspstack(h)
     new._dont_inline_ = True
+    new = staticmethod(new)
 
-    @staticmethod
     def switch(suspstack):
         # suspstack has a handle to target, i.e. where to switch to
         ll_assert(suspstack != gcrootfinder.oldsuspstack,
@@ -89,6 +88,7 @@ class StackletGcRootFinder(object):
         h = _c.switch(h)
         return get_result_suspstack(h)
     switch._dont_inline_ = True
+    switch = staticmethod(switch)
 
     @staticmethod
     def is_empty_handle(suspstack):

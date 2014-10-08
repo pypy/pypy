@@ -1,16 +1,17 @@
 from rpython.rlib import _rffi_stacklet as _c
-from rpython.rlib import objectmodel, debug
+from rpython.rlib import debug
+from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.annlowlevel import llhelper
 
 
 class StackletGcRootFinder(object):
     @staticmethod
+    @specialize.arg(1)
     def new(thrd, callback, arg):
         h = _c.new(thrd._thrd, llhelper(_c.run_fn, callback), arg)
         if not h:
             raise MemoryError
         return h
-    new._annspecialcase_ = 'specialize:arg(1)'
 
     @staticmethod
     def switch(h):
@@ -22,7 +23,7 @@ class StackletGcRootFinder(object):
     @staticmethod
     def destroy(thrd, h):
         _c.destroy(thrd._thrd, h)
-        if objectmodel.we_are_translated():
+        if we_are_translated():
             debug.debug_print("not using a framework GC: "
                               "stacklet_destroy() may leak")
 
