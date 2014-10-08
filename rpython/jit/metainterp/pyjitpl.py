@@ -1393,6 +1393,9 @@ class MIFrame(object):
             #
             allboxes = self._build_allboxes(funcbox, argboxes, descr)
             effectinfo = descr.get_extra_info()
+            if effectinfo.oopspecindex == effectinfo.OS_NOT_IN_TRACE:
+                return self.metainterp.do_not_in_trace_call(allboxes, descr)
+
             if (assembler_call or
                     effectinfo.check_forces_virtual_or_virtualizable()):
                 # residual calls require attention to keep virtualizables in-sync
@@ -1427,8 +1430,6 @@ class MIFrame(object):
                 if effect == effectinfo.EF_LOOPINVARIANT:
                     return self.execute_varargs(rop.CALL_LOOPINVARIANT, allboxes,
                                                 descr, False, False)
-                if effectinfo.oopspecindex == effectinfo.OS_NOT_IN_TRACE:
-                    return self.metainterp.do_not_in_trace_call(allboxes, descr)
                 exc = effectinfo.check_can_raise()
                 pure = effectinfo.check_is_elidable()
                 return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)

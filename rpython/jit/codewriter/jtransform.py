@@ -1572,8 +1572,7 @@ class Transformer(object):
                     "%r: jit.not_in_trace() function must return None"
                     % (op.args[0],))
             return self._handle_oopspec_call(op, op.args[1:],
-                EffectInfo.OS_NOT_IN_TRACE,
-                EffectInfo.EF_CAN_RAISE)
+                EffectInfo.OS_NOT_IN_TRACE)
         else:
             raise AssertionError("missing support for %r" % oopspec_name)
 
