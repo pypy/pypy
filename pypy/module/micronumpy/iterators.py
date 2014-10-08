@@ -35,10 +35,6 @@ so if we precalculate the overflow backstride as
 [x.strides[i] * (x.shape[i] - 1) for i in range(len(x.shape))]
 we can go faster.
 All the calculations happen in next()
-
-next_skip_x(steps) tries to do the iteration for a number of steps at once,
-but then we cannot guarantee that we only overflow one single shape
-dimension, perhaps we could overflow times in one big step.
 """
 from rpython.rlib import jit
 from pypy.module.micronumpy import support
@@ -137,30 +133,6 @@ class ArrayIter(object):
             else:
                 indices[i] = 0
                 offset -= self.backstrides[i]
-        return IterState(self, index, indices, offset)
-
-    @jit.unroll_safe
-    def next_skip_x(self, state, step):
-        assert state.iterator is self
-        assert step >= 0
-        if step == 0:
-            return state
-        index = state.index + step
-        indices = state.indices
-        offset = state.offset
-        for i in xrange(self.ndim_m1, -1, -1):
-            idx = indices[i]
-            if idx < (self.shape_m1[i] + 1) - step:
-                indices[i] = idx + step
-                offset += self.strides[i] * step
-                break
-            else:
-                rem_step = (idx + step) // (self.shape_m1[i] + 1)
-                cur_step = step - rem_step * (self.shape_m1[i] + 1)
-                indices[i] = idx + cur_step
-                offset += self.strides[i] * cur_step
-                step = rem_step
-                assert step > 0
         return IterState(self, index, indices, offset)
 
     @jit.unroll_safe
