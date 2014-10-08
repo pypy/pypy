@@ -91,7 +91,7 @@ class IterState(object):
 
 class ArrayIter(object):
     _immutable_fields_ = ['array', 'size', 'ndim_m1', 'shape_m1[*]',
-                          'strides[*]', 'backstrides[*]']
+                          'strides[*]', 'backstrides[*]', 'factors[*]']
 
     def __init__(self, array, size, shape, strides, backstrides):
         assert len(shape) == len(strides) == len(backstrides)
@@ -101,6 +101,15 @@ class ArrayIter(object):
         self.shape_m1 = [s - 1 for s in shape]
         self.strides = strides
         self.backstrides = backstrides
+
+        ndim = len(shape)
+        factors = [0] * ndim
+        for i in xrange(ndim):
+            if i == 0:
+                factors[ndim-1] = 1
+            else:
+                factors[ndim-i-1] = factors[ndim-i] * shape[ndim-i]
+        self.factors = factors
 
     @jit.unroll_safe
     def reset(self, state=None):
@@ -153,6 +162,16 @@ class ArrayIter(object):
                 step = rem_step
                 assert step > 0
         return IterState(self, index, indices, offset)
+
+    @jit.unroll_safe
+    def goto(self, index):
+        # XXX simplify if self.contiguous (offset = start + index * elsize)
+        offset = self.array.start
+        current = index
+        for i in xrange(len(self.shape_m1)):
+            offset += (current / self.factors[i]) * self.strides[i]
+            current %= self.factors[i]
+        return IterState(self, index, None, offset)
 
     def done(self, state):
         assert state.iterator is self

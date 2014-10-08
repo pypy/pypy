@@ -51,16 +51,15 @@ class W_FlatIterator(W_NDimArray):
         if not (space.isinstance_w(w_idx, space.w_int) or
                 space.isinstance_w(w_idx, space.w_slice)):
             raise oefmt(space.w_IndexError, 'unsupported iterator index')
-        self.state = self.iter.reset(self.state)
-        start, stop, step, length = space.decode_index4(w_idx, self.iter.size)
-        self.state = self.iter.next_skip_x(self.state, start)
         try:
+            start, stop, step, length = space.decode_index4(w_idx, self.iter.size)
+            state = self.iter.goto(start)
             if length == 1:
-                return self.iter.getitem(self.state)
+                return self.iter.getitem(state)
             base = self.base
             res = W_NDimArray.from_shape(space, [length], base.get_dtype(),
                                          base.get_order(), w_instance=base)
-            return loop.flatiter_getitem(res, self.iter, self.state, step)
+            return loop.flatiter_getitem(res, self.iter, state, step)
         finally:
             self.state = self.iter.reset(self.state)
 
@@ -69,19 +68,18 @@ class W_FlatIterator(W_NDimArray):
                 space.isinstance_w(w_idx, space.w_slice)):
             raise oefmt(space.w_IndexError, 'unsupported iterator index')
         start, stop, step, length = space.decode_index4(w_idx, self.iter.size)
-        self.state = self.iter.reset(self.state)
-        self.state = self.iter.next_skip_x(self.state, start)
         try:
+            state = self.iter.goto(start)
             dtype = self.base.get_dtype()
             if length == 1:
                 try:
                     val = dtype.coerce(space, w_value)
                 except OperationError:
                     raise oefmt(space.w_ValueError, "Error setting single item of array.")
-                self.iter.setitem(self.state, val)
+                self.iter.setitem(state, val)
                 return
             arr = convert_to_array(space, w_value)
-            loop.flatiter_setitem(space, dtype, arr, self.iter, self.state, step, length)
+            loop.flatiter_setitem(space, dtype, arr, self.iter, state, step, length)
         finally:
             self.state = self.iter.reset(self.state)
 

@@ -98,3 +98,21 @@ class TestIterDirect(object):
         assert s.indices == [0,1]
         assert s.offset == 3
         assert i.done(s)
+
+    def test_iterator_goto(self):
+        shape = [3, 5]
+        strides = [1, 3]
+        backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
+        assert backstrides == [2, 12]
+        a = MockArray()
+        a.start = 42
+        i = ArrayIter(a, support.product(shape), shape,
+                      strides, backstrides)
+        s = i.reset()
+        assert s.index == 0
+        assert s.indices == [0, 0]
+        assert s.offset == a.start
+        s = i.goto(11)
+        assert s.index == 11
+        assert s.indices is None
+        assert s.offset == a.start + 5

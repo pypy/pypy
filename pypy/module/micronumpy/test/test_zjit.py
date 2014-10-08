@@ -544,16 +544,23 @@ class TestNumpyJit(LLJitMixin):
         assert result == 10.0
         self.check_trace_count(1)
         self.check_simple_loop({
-            'getarrayitem_gc': 2,
+            'arraylen_gc': 2,
+            'getarrayitem_gc': 1,
             'guard_false': 1,
-            'guard_true': 2,
-            'int_add': 6,
+            'guard_true': 1,
+            'int_add': 7,
+            'int_and': 1,
+            'int_floordiv': 1,
             'int_ge': 1,
-            'int_lt': 2,
+            'int_lt': 1,
+            'int_mod': 1,
+            'int_mul': 2,
+            'int_rshift': 2,
+            'int_sub': 1,
             'jump': 1,
             'raw_load': 1,
             'raw_store': 1,
-            'setarrayitem_gc': 2,
+            'setarrayitem_gc': 1,
         })
 
     def define_flat_setitem():
@@ -569,17 +576,23 @@ class TestNumpyJit(LLJitMixin):
         assert result == 1.0
         self.check_trace_count(1)
         self.check_simple_loop({
-            'getarrayitem_gc': 2,
+            'arraylen_gc': 2,
+            'getarrayitem_gc': 1,
             'guard_not_invalidated': 1,
-            'guard_true': 3,
-            'int_add': 6,
+            'guard_true': 2,
+            'int_add': 7,
+            'int_and': 1,
+            'int_floordiv': 1,
             'int_gt': 1,
-            'int_lt': 2,
-            'int_sub': 1,
+            'int_lt': 1,
+            'int_mod': 1,
+            'int_mul': 2,
+            'int_rshift': 2,
+            'int_sub': 2,
             'jump': 1,
             'raw_load': 1,
             'raw_store': 1,
-            'setarrayitem_gc': 2,
+            'setarrayitem_gc': 1,
         })
 
     def define_dot():

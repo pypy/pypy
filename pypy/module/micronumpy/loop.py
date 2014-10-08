@@ -435,7 +435,7 @@ def flatiter_getitem(res, base_iter, base_state, step):
     while not ri.done(rs):
         flatiter_getitem_driver.jit_merge_point(dtype=dtype)
         ri.setitem(rs, base_iter.getitem(base_state))
-        base_state = base_iter.next_skip_x(base_state, step)
+        base_state = base_iter.goto(base_state.index + step)
         rs = ri.next(rs)
     return res
 
@@ -454,7 +454,7 @@ def flatiter_setitem(space, dtype, val, arr_iter, arr_state, step, length):
             val = val.convert_to(space, dtype)
         arr_iter.setitem(arr_state, val)
         # need to repeat i_nput values until all assignments are done
-        arr_state = arr_iter.next_skip_x(arr_state, step)
+        arr_state = arr_iter.goto(arr_state.index + step)
         val_state = val_iter.next(val_state)
         length -= 1
 
