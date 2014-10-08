@@ -155,10 +155,11 @@ class W_NotFromAssembler(W_Root):
         self.w_callable = w_callable
     def descr_call(self, __args__):
         _call_not_in_trace(self.space, self.w_callable, __args__)
+        return self
 
 @jit.not_in_trace
 def _call_not_in_trace(space, w_callable, __args__):
-    # this must return None
+    # this _call_not_in_trace() must return None
     space.call_args(w_callable, __args__)
 
 def not_from_assembler_new(space, w_subtype, w_callable):
@@ -170,8 +171,14 @@ A decorator that returns a callable that invokes the original
 callable, but not from the JIT-produced assembler.  It is called
 from the interpreted mode, and from the JIT creation (pyjitpl) or
 exiting (blackhole) steps, but just not from the final assembler.
-The callable should return None!  (Its actual return value is
-ignored.)
+
+Note that the return value of the callable is ignored, because
+there is no reasonable way to guess what it sound be in case the
+function is not called.
+
+This is meant to be used notably in sys.settrace() for coverage-
+like tools.  For that purpose, if g = not_from_assembler(f), then
+'g(*args)' may call 'f(*args)' but it always return g itself.
 """,
     __new__ = interp2app(not_from_assembler_new),
     __call__ = interp2app(W_NotFromAssembler.descr_call),
