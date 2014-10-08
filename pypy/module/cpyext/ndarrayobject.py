@@ -299,7 +299,7 @@ gufunctype = lltype.Ptr(GenericUfunc)
 @cpython_api([rffi.CArrayPtr(rffi.CArrayPtr(gufunctype)), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
               Py_ssize_t, Py_ssize_t, rffi.CCHARP, rffi.CCHARP, Py_ssize_t,
               rffi.CCHARP], PyObject)
-def _PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
+def PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
                     nin, nout, identity, name, doc, check_return, signature):
     funcs_w = [None] * ntypes
     dtypes_w = [None] * ntypes * (nin + nout)

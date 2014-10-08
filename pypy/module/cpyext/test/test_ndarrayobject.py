@@ -212,14 +212,14 @@ class TestNDArrayObject(BaseApiTest):
         res = api._PyArray_SimpleNewFromData(0, ptr_s, 15, ptr_a)
         assert res.get_scalar_value().real == 3.
         assert res.get_scalar_value().imag == 4.
-    
+
     def _test_Ufunc_FromFuncAndDataAndSignature(self, space, api):
         py.test.skip('preliminary non-translated test')
         '''
         PyUFuncGenericFunction funcs[] = {&double_times2, &int_times2};
         char types[] = { NPY_DOUBLE,NPY_DOUBLE, NPY_INT, NPY_INT };
         void *array_data[] = {NULL, NULL};
-        ufunc = api._PyUFunc_FromFuncAndDataAndSignature(space, funcs, data,
+        ufunc = api.PyUFunc_FromFuncAndDataAndSignature(space, funcs, data,
                         types, ntypes, nin, nout, identity, doc, check_return,
                         signature)
         '''
@@ -322,7 +322,7 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                 char types[] = { NPY_DOUBLE,NPY_DOUBLE, NPY_INT, NPY_INT };
                 void *array_data[] = {NULL, NULL};
                 PyObject * retval;
-                retval = _PyUFunc_FromFuncAndDataAndSignature(funcs,
+                retval = PyUFunc_FromFuncAndDataAndSignature(funcs,
                                     array_data, types, 2, 1, 1, PyUFunc_None,
                                     "times2", "times2_docstring", 0, "()->()");
                 return retval;
