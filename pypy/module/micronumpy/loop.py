@@ -443,11 +443,8 @@ flatiter_setitem_driver = jit.JitDriver(name = 'numpy_flatiter_setitem',
                                         greens = ['dtype'],
                                         reds = 'auto')
 
-def flatiter_setitem(space, arr, val, start, step, length):
-    dtype = arr.get_dtype()
-    arr_iter, arr_state = arr.create_iter()
+def flatiter_setitem(space, dtype, val, arr_iter, arr_state, step, length):
     val_iter, val_state = val.create_iter()
-    arr_state = arr_iter.next_skip_x(arr_state, start)
     while length > 0:
         flatiter_setitem_driver.jit_merge_point(dtype=dtype)
         val = val_iter.getitem(val_state)

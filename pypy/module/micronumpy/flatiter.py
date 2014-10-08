@@ -27,12 +27,9 @@ class FakeArrayImplementation(BaseConcreteArray):
 class W_FlatIterator(W_NDimArray):
     def __init__(self, arr):
         self.base = arr
+        self.iter, self.state = arr.create_iter()
         # this is needed to support W_NDimArray interface
         self.implementation = FakeArrayImplementation(self.base)
-        self.reset()
-
-    def reset(self):
-        self.iter, self.state = self.base.create_iter()
 
     def descr_len(self, space):
         return space.wrap(self.iter.size)
@@ -54,25 +51,39 @@ class W_FlatIterator(W_NDimArray):
         if not (space.isinstance_w(w_idx, space.w_int) or
                 space.isinstance_w(w_idx, space.w_slice)):
             raise oefmt(space.w_IndexError, 'unsupported iterator index')
-        self.reset()
-        base = self.base
-        start, stop, step, length = space.decode_index4(w_idx, base.get_size())
-        base_iter, base_state = base.create_iter()
-        base_state = base_iter.next_skip_x(base_state, start)
-        if length == 1:
-            return base_iter.getitem(base_state)
-        res = W_NDimArray.from_shape(space, [length], base.get_dtype(),
-                                     base.get_order(), w_instance=base)
-        return loop.flatiter_getitem(res, base_iter, base_state, step)
+        self.state = self.iter.reset(self.state)
+        start, stop, step, length = space.decode_index4(w_idx, self.iter.size)
+        self.state = self.iter.next_skip_x(self.state, start)
+        try:
+            if length == 1:
+                return self.iter.getitem(self.state)
+            base = self.base
+            res = W_NDimArray.from_shape(space, [length], base.get_dtype(),
+                                         base.get_order(), w_instance=base)
+            return loop.flatiter_getitem(res, self.iter, self.state, step)
+        finally:
+            self.state = self.iter.reset(self.state)
 
     def descr_setitem(self, space, w_idx, w_value):
         if not (space.isinstance_w(w_idx, space.w_int) or
                 space.isinstance_w(w_idx, space.w_slice)):
             raise oefmt(space.w_IndexError, 'unsupported iterator index')
-        base = self.base
-        start, stop, step, length = space.decode_index4(w_idx, base.get_size())
-        arr = convert_to_array(space, w_value)
-        loop.flatiter_setitem(space, self.base, arr, start, step, length)
+        start, stop, step, length = space.decode_index4(w_idx, self.iter.size)
+        self.state = self.iter.reset(self.state)
+        self.state = self.iter.next_skip_x(self.state, start)
+        try:
+            dtype = self.base.get_dtype()
+            if length == 1:
+                try:
+                    val = dtype.coerce(space, w_value)
+                except OperationError:
+                    raise oefmt(space.w_ValueError, "Error setting single item of array.")
+                self.iter.setitem(self.state, val)
+                return
+            arr = convert_to_array(space, w_value)
+            loop.flatiter_setitem(space, dtype, arr, self.iter, self.state, step, length)
+        finally:
+            self.state = self.iter.reset(self.state)
 
     def descr_iter(self):
         return self

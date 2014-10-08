@@ -2727,15 +2727,35 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b.next()
         assert b.index == 3
         assert b.coords == (0, 3)
+        b.next()
         assert b[3] == 3
-        assert (b[::3] == [0, 3, 6, 9]).all()
-        assert (b[2::5] == [2, 7]).all()
-        assert b[-2] == 8
-        raises(IndexError, "b[11]")
-        raises(IndexError, "b[-11]")
-        raises(IndexError, 'b[0, 1]')
         assert b.index == 0
         assert b.coords == (0, 0)
+        b.next()
+        assert (b[::3] == [0, 3, 6, 9]).all()
+        assert b.index == 0
+        assert b.coords == (0, 0)
+        b.next()
+        assert (b[2::5] == [2, 7]).all()
+        assert b.index == 0
+        assert b.coords == (0, 0)
+        b.next()
+        assert b[-2] == 8
+        assert b.index == 0
+        assert b.coords == (0, 0)
+        b.next()
+        raises(IndexError, "b[11]")
+        assert b.index == 0
+        assert b.coords == (0, 0)
+        b.next()
+        raises(IndexError, "b[-11]")
+        assert b.index == 0
+        assert b.coords == (0, 0)
+        b.next()
+        exc = raises(IndexError, 'b[0, 1]')
+        assert str(exc.value) == "unsupported iterator index"
+        assert b.index == 1
+        assert b.coords == (0, 1)
 
     def test_flatiter_setitem(self):
         from numpypy import arange, array
@@ -2743,9 +2763,25 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b = a.T.flat
         b[6::2] = [-1, -2]
         assert (a == [[0, 1, -1, 3], [4, 5, 6, -1], [8, 9, -2, 11]]).all()
+        assert b[2] == 8
+        assert b.index == 0
+        b.next()
+        b[6::2] = [-21, -42]
+        assert (a == [[0, 1, -21, 3], [4, 5, 6, -21], [8, 9, -42, 11]]).all()
         b[0:2] = [[[100]]]
         assert(a[0,0] == 100)
         assert(a[1,0] == 100)
+        b.next()
+        assert b.index == 1
+        exc = raises(ValueError, "b[0] = [1, 2]")
+        assert str(exc.value) == "Error setting single item of array."
+        assert b.index == 0
+        b.next()
+        raises(IndexError, "b[100] = 42")
+        assert b.index == 1
+        exc = raises(IndexError, "b[0, 1] = 42")
+        assert str(exc.value) == "unsupported iterator index"
+        assert b.index == 1
 
     def test_flatiter_ops(self):
         from numpypy import arange, array

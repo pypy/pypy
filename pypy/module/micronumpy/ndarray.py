@@ -475,8 +475,10 @@ class __extend__(W_NDimArray):
         return repeat(space, self, repeats, w_axis)
 
     def descr_set_flatiter(self, space, w_obj):
+        iter, state = self.create_iter()
+        dtype = self.get_dtype()
         arr = convert_to_array(space, w_obj)
-        loop.flatiter_setitem(space, self, arr, 0, 1, self.get_size())
+        loop.flatiter_setitem(space, dtype, arr, iter, state, 1, iter.size)
 
     def descr_get_flatiter(self, space):
         return space.wrap(W_FlatIterator(self))
