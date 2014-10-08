@@ -1562,7 +1562,18 @@ class Transformer(object):
             kind = getkind(args[0].concretetype)
             return SpaceOperation('%s_isvirtual' % kind, args, op.result)
         elif oopspec_name == 'jit.force_virtual':
-            return self._handle_oopspec_call(op, args, EffectInfo.OS_JIT_FORCE_VIRTUAL, EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE)
+            return self._handle_oopspec_call(op, args,
+                EffectInfo.OS_JIT_FORCE_VIRTUAL,
+                EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE)
+        elif oopspec_name == 'jit.not_in_trace':
+            # ignore 'args' and use the original 'op.args'
+            if op.result.concretetype is not lltype.Void:
+                raise Exception(
+                    "%r: jit.not_in_trace() function must return None"
+                    % (op.args[0],))
+            return self._handle_oopspec_call(op, op.args[1:],
+                EffectInfo.OS_NOT_IN_TRACE,
+                EffectInfo.EF_CAN_RAISE)
         else:
             raise AssertionError("missing support for %r" % oopspec_name)
 
