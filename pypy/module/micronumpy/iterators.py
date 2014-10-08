@@ -37,8 +37,9 @@ we can go faster.
 All the calculations happen in next()
 """
 from rpython.rlib import jit
-from pypy.module.micronumpy import support
+from pypy.module.micronumpy import support, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.flagsobj import _update_contiguous_flags
 
 
 class PureShapeIter(object):
@@ -86,11 +87,14 @@ class IterState(object):
 
 
 class ArrayIter(object):
-    _immutable_fields_ = ['array', 'size', 'ndim_m1', 'shape_m1[*]',
+    _immutable_fields_ = ['contiguous', 'array', 'size', 'ndim_m1', 'shape_m1[*]',
                           'strides[*]', 'backstrides[*]', 'factors[*]']
 
     def __init__(self, array, size, shape, strides, backstrides):
         assert len(shape) == len(strides) == len(backstrides)
+        _update_contiguous_flags(array)
+        self.contiguous = array.flags & NPY.ARRAY_C_CONTIGUOUS
+
         self.array = array
         self.size = size
         self.ndim_m1 = len(shape) - 1
@@ -137,12 +141,14 @@ class ArrayIter(object):
 
     @jit.unroll_safe
     def goto(self, index):
-        # XXX simplify if self.contiguous (offset = start + index * elsize)
         offset = self.array.start
-        current = index
-        for i in xrange(len(self.shape_m1)):
-            offset += (current / self.factors[i]) * self.strides[i]
-            current %= self.factors[i]
+        if self.contiguous:
+            offset += index * self.array.dtype.elsize
+        else:
+            current = index
+            for i in xrange(len(self.shape_m1)):
+                offset += (current / self.factors[i]) * self.strides[i]
+                current %= self.factors[i]
         return IterState(self, index, None, offset)
 
     def done(self, state):

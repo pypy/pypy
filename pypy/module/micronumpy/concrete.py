@@ -19,6 +19,7 @@ class BaseConcreteArray(object):
                           'strides[*]', 'backstrides[*]', 'order']
     start = 0
     parent = None
+    flags = 0
 
     # JIT hints that length of all those arrays is a constant
 
