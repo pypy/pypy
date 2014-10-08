@@ -516,12 +516,21 @@ class TestNumpyJit(LLJitMixin):
     def test_flat_iter(self):
         result = self.run("flat_iter")
         assert result == 6
-        py.test.skip("don't run for now")
         self.check_trace_count(1)
-        self.check_simple_loop({'raw_load': 2, 'float_add': 1,
-                                'raw_store': 1, 'int_add': 2,
-                                'int_ge': 1, 'guard_false': 1,
-                                'arraylen_gc': 1, 'jump': 1})
+        self.check_simple_loop({
+            'float_add': 1,
+            'getarrayitem_gc': 3,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 3,
+            'int_add': 9,
+            'int_ge': 1,
+            'int_lt': 3,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 3,
+        })
 
     def define_flat_getitem():
         return '''
@@ -533,17 +542,19 @@ class TestNumpyJit(LLJitMixin):
     def test_flat_getitem(self):
         result = self.run("flat_getitem")
         assert result == 10.0
-        py.test.skip("don't run for now")
         self.check_trace_count(1)
-        self.check_simple_loop({'raw_load': 1,
-                                'raw_store': 1,
-                                'int_lt': 1,
-                                'int_ge': 1,
-                                'int_add': 3,
-                                'guard_true': 1,
-                                'guard_false': 1,
-                                'arraylen_gc': 2,
-                                'jump': 1})
+        self.check_simple_loop({
+            'getarrayitem_gc': 2,
+            'guard_false': 1,
+            'guard_true': 2,
+            'int_add': 6,
+            'int_ge': 1,
+            'int_lt': 2,
+            'jump': 1,
+            'raw_load': 1,
+            'raw_store': 1,
+            'setarrayitem_gc': 2,
+        })
 
     def define_flat_setitem():
         return '''
