@@ -322,7 +322,7 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
             outi.setitem(outs, oval)
             outs = outi.next(outs)
             rights = righti.next(rights)
-        rights = righti.reset()
+        rights = righti.reset(rights)
         lefts = lefti.next(lefts)
     return result
 
