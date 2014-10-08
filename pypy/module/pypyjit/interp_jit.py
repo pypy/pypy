@@ -158,6 +158,7 @@ class W_NotFromAssembler(W_Root):
 
 @jit.not_in_trace
 def _call_not_in_trace(space, w_callable, __args__):
+    # this must return None
     space.call_args(w_callable, __args__)
 
 def not_from_assembler_new(space, w_subtype, w_callable):
@@ -169,6 +170,8 @@ A decorator that returns a callable that invokes the original
 callable, but not from the JIT-produced assembler.  It is called
 from the interpreted mode, and from the JIT creation (pyjitpl) or
 exiting (blackhole) steps, but just not from the final assembler.
+The callable should return None!  (Its actual return value is
+ignored.)
 """,
     __new__ = interp2app(not_from_assembler_new),
     __call__ = interp2app(W_NotFromAssembler.descr_call),
