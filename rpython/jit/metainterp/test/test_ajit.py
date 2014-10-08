@@ -4090,3 +4090,24 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         res = self.meta_interp(f, [10])
         assert res == 42
         self.check_aborted_count(3)
+
+    def test_not_in_trace_blackhole(self):
+        class X:
+            seen = 0
+        def g(x):
+            if we_are_jitted():
+                raise NotImplementedError
+            x.seen = 42
+        g.oopspec = 'jit.not_in_trace()'
+
+        jitdriver = JitDriver(greens=[], reds=['n'])
+        def f(n):
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n)
+                n -= 1
+            x = X()
+            g(x)
+            return x.seen
+
+        res = self.meta_interp(f, [10])
+        assert res == 42
