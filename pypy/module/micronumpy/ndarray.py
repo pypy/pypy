@@ -855,11 +855,16 @@ class __extend__(W_NDimArray):
         return w_ret
 
     # --------------------- operations ----------------------------
+    # TODO: support all kwargs like numpy ufunc_object.c
+    sig = None
+    cast = None
+    extobj = None
+
 
     def _unaryop_impl(ufunc_name):
         def impl(self, space, w_out=None):
             return getattr(ufuncs.get(space), ufunc_name).call(
-                space, [self, w_out])
+                space, [self, w_out], self.sig, self.cast, self.extobj)
         return func_with_new_name(impl, "unaryop_%s_impl" % ufunc_name)
 
     descr_pos = _unaryop_impl("positive")
@@ -880,7 +885,7 @@ class __extend__(W_NDimArray):
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
             return getattr(ufuncs.get(space), ufunc_name).call(
-                space, [self, w_other, w_out])
+                space, [self, w_other, w_out], self.sig, self.cast, self.extobj)
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
     descr_add = _binop_impl("add")
@@ -924,7 +929,7 @@ class __extend__(W_NDimArray):
         def impl(self, space, w_other):
             w_out = self
             ufunc = getattr(ufuncs.get(space), ufunc_name)
-            return ufunc.call(space, [self, w_other, w_out])
+            return ufunc.call(space, [self, w_other, w_out], self.sig, self.cast, self.extobj)
         return func_with_new_name(impl, "binop_inplace_%s_impl" % ufunc_name)
 
     descr_iadd = _binop_inplace_impl("add")
@@ -945,7 +950,7 @@ class __extend__(W_NDimArray):
         def impl(self, space, w_other, w_out=None):
             w_other = convert_to_array(space, w_other)
             return getattr(ufuncs.get(space), ufunc_name).call(
-                space, [w_other, self, w_out])
+                space, [w_other, self, w_out], self.sig, self.cast, self.extobj)
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 
     descr_radd = _binop_right_impl("add")

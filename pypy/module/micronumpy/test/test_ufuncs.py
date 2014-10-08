@@ -112,7 +112,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert 'object' in str(e)
             # Use pypy specific extension for out_dtype
             adder_ufunc0 = frompyfunc(adder, 2, 1, dtypes=['match'])
-            adder_ufunc1 = frompyfunc([adder, adder], 2, 1, 
+            adder_ufunc1 = frompyfunc([adder, adder], 2, 1,
                             dtypes=[int, int, int, float, float, float])
             int_func22 = frompyfunc([int, int], 2, 2, signature='(i),(i)->(i),(i)',
                                     dtypes=['match'])
@@ -147,7 +147,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             for i in range(in_array.size):
                 out_flat[i] = in_flat[i] * 2
         from numpy import frompyfunc, dtype, arange
-        ufunc = frompyfunc([int_times2, double_times2], 1, 1, 
+        ufunc = frompyfunc([int_times2, double_times2], 1, 1,
                             signature='()->()',
                             dtypes=[dtype(int), dtype(int),
                             dtype(float), dtype(float)
@@ -159,6 +159,21 @@ class AppTestUfuncs(BaseNumpyAppTest):
         af = arange(10, dtype=float)
         af2 = ufunc(af)
         assert all(af2 == af * 2)
+
+    def test_ufunc_kwargs(self):
+        from numpy import ufunc, frompyfunc, arange, dtype
+        def adder(a, b):
+            return a+b
+        adder_ufunc = frompyfunc(adder, 2, 1, dtypes=['match'])
+        args = [arange(10), arange(10)]
+        res = adder_ufunc(*args, dtype=int)
+        assert all(res == args[0] + args[1])
+        # extobj support needed for linalg ufuncs
+        res = adder_ufunc(*args, extobj=[8192, 0, None])
+        assert all(res == args[0] + args[1])
+        raises(TypeError, adder_ufunc, *args, blah=True)
+        raises(TypeError, adder_ufunc, *args, extobj=True)
+        raises(RuntimeError, adder_ufunc, *args, sig='(d,d)->(d)', dtype=int)
 
     def test_ufunc_attrs(self):
         from numpy import add, multiply, sin

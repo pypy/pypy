@@ -27,7 +27,6 @@ def _get_dtype(space, w_npyobj):
         assert isinstance(w_npyobj, W_NDimArray)
         return w_npyobj.get_dtype()
 
-
 class W_Ufunc(W_Root):
     _immutable_fields_ = [
         "name", "promote_to_largest", "promote_to_float", "promote_bools", "nin",
@@ -60,37 +59,37 @@ class W_Ufunc(W_Root):
 
     def descr_call(self, space, __args__):
         args_w, kwds_w = __args__.unpack()
-        # it occurs to me that we don't support any datatypes that
-        # require casting, change it later when we do
-        kwds_w.pop('casting', None)
-        w_subok = kwds_w.pop('subok', None)
-        w_out = kwds_w.pop('out', space.w_None)
-        # Setup a default value for out
+        # sig, extobj are used in generic ufuncs
+        w_subok, w_out, sig, casting, extobj = self.parse_kwargs(space, kwds_w)
         if space.is_w(w_out, space.w_None):
             out = None
         else:
             out = w_out
         if (w_subok is not None and space.is_true(w_subok)):
-            raise OperationError(space.w_NotImplementedError,
-                                 space.wrap("parameters unsupported"))
-        if kwds_w or len(args_w) < self.nin:
-            raise OperationError(space.w_ValueError,
-                space.wrap("invalid number of arguments")
-            )
+            raise oefmt(space.w_NotImplementedError, "parameter subok unsupported")
+        if kwds_w:
+            # numpy compatible, raise with only the first of maybe many keys
+            kw  = kwds_w.keys()[0]
+            raise oefmt(space.w_TypeError,
+                "'%s' is an invalid keyword to ufunc '%s'", kw, self.name)
+        if len(args_w) < self.nin:
+            raise oefmt(space.w_ValueError, "invalid number of arguments"
+                ", expected %d got %d", len(args_w), self.nin)
         elif (len(args_w) > self.nin and out is not None) or \
              (len(args_w) > self.nin + 1):
-            raise OperationError(space.w_TypeError,
-                space.wrap("invalid number of arguments")
-            )
+            raise oefmt(space.w_TypeError, "invalid number of arguments")
         # Override the default out value, if it has been provided in w_wargs
         if len(args_w) > self.nin:
+            if out:
+                raise oefmt(space.w_ValueError, "cannot specify 'out' as both "
+                    "a positional and keyword argument")
             out = args_w[-1]
         else:
             args_w = args_w + [out]
         if out is not None and not isinstance(out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                                             'output must be an array'))
-        return self.call(space, args_w)
+        return self.call(space, args_w, sig, casting, extobj)
 
     def descr_accumulate(self, space, w_obj, w_axis=None, w_dtype=None, w_out=None):
         if space.is_none(w_axis):
@@ -295,6 +294,22 @@ class W_Ufunc(W_Root):
         raise OperationError(space.w_ValueError, space.wrap(
             "outer product only supported for binary functions"))
 
+    def parse_kwargs(self, space, kwds_w):
+        # we don't support casting, change it when we do
+        casting = kwds_w.pop('casting', None)
+        w_subok = kwds_w.pop('subok', None)
+        w_out = kwds_w.pop('out', space.w_None)
+        sig = None
+        # TODO handle triple of extobj,
+        # see _extract_pyvals in ufunc_object.c
+        extobj_w = kwds_w.pop('extobj', get_extobj(space))
+        if not space.isinstance_w(extobj_w, space.w_list) or space.len_w(extobj_w) != 3:
+            raise oefmt(space.w_TypeError, "'extobj' must be a list of 3 values")
+        return w_subok, w_out, sig, casting, extobj_w
+
+def get_extobj(space):
+        extobj_w = space.newlist([space.wrap(8192), space.wrap(0), space.w_None])
+        return extobj_w
 
 class W_Ufunc1(W_Ufunc):
     _immutable_fields_ = ["func", "bool_result"]
@@ -311,7 +326,7 @@ class W_Ufunc1(W_Ufunc):
         self.func = func
         self.bool_result = bool_result
 
-    def call(self, space, args_w):
+    def call(self, space, args_w, sig, casting, extobj):
         w_obj = args_w[0]
         out = None
         if len(args_w) > 1:
@@ -397,7 +412,8 @@ class W_Ufunc2(W_Ufunc):
         return False
 
     @jit.unroll_safe
-    def call(self, space, args_w):
+    def call(self, space, args_w, sig, casting, extobj):
+        w_obj = args_w[0]
         if len(args_w) > 2:
             [w_lhs, w_rhs, w_out] = args_w
         else:
@@ -529,9 +545,8 @@ class W_UfuncGeneric(W_Ufunc):
                cumulative=False):
         raise oefmt(space.w_NotImplementedError, 'not implemented yet')
 
-    def call(self, space, args_w):
-        #from pypy.module._cffi_backend import newtype, func as _func
-        out = None
+    def call(self, space, args_w, sig, casting, extobj):
+        w_obj = args_w[0]
         inargs = []
         if len(args_w) < self.nin:
             raise oefmt(space.w_ValueError,
@@ -549,7 +564,9 @@ class W_UfuncGeneric(W_Ufunc):
                     raise oefmt(space.w_TypeError,
                          'output arg %d must be an array, not %s', i+self.nin, str(args_w[i+self.nin]))
                 outargs[i] = out
-        index = self.type_resolver(space, inargs, outargs)
+        if sig is None:
+            sig = space.wrap(self.signature)
+        index = self.type_resolver(space, inargs, outargs, sig)
         outargs = self.alloc_outargs(space, index, inargs, outargs)
         inargs0 = inargs[0]
         outargs0 = outargs[0]
@@ -573,9 +590,38 @@ class W_UfuncGeneric(W_Ufunc):
         return loop.call_many_to_many(space, new_shape, self.funcs[index],
                                      res_dtype, inargs, outargs)
 
-    def type_resolver(self, space, inargs, outargs):
+    def parse_kwargs(self, space, kwargs_w):
+        w_subok, w_out, casting, sig, extobj = \
+                    W_Ufunc.parse_kwargs(self, space, kwargs_w)
+        dtype_w = kwargs_w.pop('dtype', None)
+        if not space.is_w(dtype_w, space.w_None) and not dtype_w is None:
+            if sig:
+                raise oefmt(space.w_RuntimeError,
+                        "cannot specify both 'sig' and 'dtype'")
+            dtype = descriptor.decode_w_dtype(space, dtype_w)
+            sig = space.newtuple([dtype])
+        order = kwargs_w.pop('dtype', None)
+        if not space.is_w(order, space.w_None) and not order is None:
+            raise oefmt(space.w_NotImplementedError, '"order" keyword not implemented')
+        parsed_kw = []
+        for kw in kwargs_w:
+            if kw.startswith('sig'):
+                if sig:
+                    raise oefmt(space.w_RuntimeError,
+                            "cannot specify both 'sig' and 'dtype'")
+                sig = kwargs_w[kw]
+                parsed_kw.append(kw)
+            elif kw.startswith('where'):
+                raise oefmt(space.w_NotImplementedError,
+                            '"where" keyword not implemented')
+                parsed_kw.append(kw)
+        for kw in parsed_kw:
+            kwargs_w.pop(kw)
+        return w_subok, w_out, sig, casting, extobj
+
+    def type_resolver(self, space, inargs, outargs, sig):
         # Find a match for the inargs.dtype in self.dtypes, like
-        # linear_search_type_resolver in numy ufunc_type_resolutions.c
+        # linear_search_type_resolver in numpy ufunc_type_resolutions.c
         inargs0 = inargs[0]
         assert isinstance(inargs0, W_NDimArray)
         for i in range(0, len(self.dtypes), self.nargs):
@@ -601,7 +647,7 @@ class W_UfuncGeneric(W_Ufunc):
                 outargs[i] = W_NDimArray.from_shape(space, temp_shape, dtype, order)
         for i in range(len(outargs)):
             assert isinstance(outargs[i], W_NDimArray)
-        return outargs    
+        return outargs
 
     def prep_call(self, space, index, inargs, outargs):
         # Use the index and signature to determine
