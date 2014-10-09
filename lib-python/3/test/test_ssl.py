@@ -1064,7 +1064,8 @@ else:
                     self.sslconn = self.server.context.wrap_socket(
                         self.sock, server_side=True)
                     self.server.selected_protocols.append(self.sslconn.selected_npn_protocol())
-                except (ssl.SSLError, ConnectionResetError) as e:
+                except (ssl.SSLError, ConnectionResetError,
+                        AttributeError) as e:
                     # We treat ConnectionResetError as though it were an
                     # SSLError - OpenSSL on Ubuntu abruptly closes the
                     # connection when asked to use an unsupported protocol.
