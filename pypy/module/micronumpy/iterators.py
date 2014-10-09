@@ -88,7 +88,10 @@ class IterState(object):
 
 class ArrayIter(object):
     _immutable_fields_ = ['contiguous', 'array', 'size', 'ndim_m1', 'shape_m1[*]',
-                          'strides[*]', 'backstrides[*]', 'factors[*]']
+                          'strides[*]', 'backstrides[*]', 'factors[*]',
+                          'track_index']
+
+    track_index = True
 
     def __init__(self, array, size, shape, strides, backstrides):
         assert len(shape) == len(strides) == len(backstrides)
@@ -126,7 +129,9 @@ class ArrayIter(object):
     @jit.unroll_safe
     def next(self, state):
         assert state.iterator is self
-        index = state.index + 1
+        index = state.index
+        if self.track_index:
+            index += 1
         indices = state.indices
         offset = state.offset
         if self.contiguous:
@@ -158,6 +163,7 @@ class ArrayIter(object):
     @jit.unroll_safe
     def update(self, state):
         assert state.iterator is self
+        assert self.track_index
         if not self.contiguous:
             return state
         current = state.index
@@ -172,6 +178,7 @@ class ArrayIter(object):
 
     def done(self, state):
         assert state.iterator is self
+        assert self.track_index
         return state.index >= self.size
 
     def getitem(self, state):

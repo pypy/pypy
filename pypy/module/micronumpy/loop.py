@@ -48,6 +48,7 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     left_iter, left_state = w_lhs.create_iter(shape)
     right_iter, right_state = w_rhs.create_iter(shape)
     out_iter, out_state = out.create_iter(shape)
+    left_iter.track_index = right_iter.track_index = False
     shapelen = len(shape)
     while not out_iter.done(out_state):
         call2_driver.jit_merge_point(shapelen=shapelen, func=func,
@@ -182,6 +183,9 @@ def where(space, out, shape, arr, x, y, dtype):
             iter, state = y_iter, y_state
     else:
         iter, state = x_iter, x_state
+    out_iter.track_index = x_iter.track_index = False
+    arr_iter.track_index = y_iter.track_index = False
+    iter.track_index = True
     shapelen = len(shape)
     while not iter.done(state):
         where_driver.jit_merge_point(shapelen=shapelen, dtype=dtype,
@@ -299,6 +303,7 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
     assert left_shape[-1] == right_shape[right_critical_dim]
     assert result.get_dtype() == dtype
     outi, outs = result.create_iter()
+    outi.track_index = False
     lefti = AllButAxisIter(left_impl, len(left_shape) - 1)
     righti = AllButAxisIter(right_impl, right_critical_dim)
     lefts = lefti.reset()
