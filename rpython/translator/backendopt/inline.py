@@ -210,26 +210,6 @@ class BaseInliner(object):
         self.entrymap = mkentrymap(self.graph_to_inline)
         self.do_inline(block, index_operation)
 
-    def search_for_calls(self, block):
-        d = {}
-        for i, op in enumerate(block.operations):
-            if op.opname == "direct_call":
-                funcobj = op.args[0].value._obj
-            else:
-                continue
-            graph = getattr(funcobj, 'graph', None)
-            # accept a function or a graph as 'inline_func'
-            if (graph is self.inline_func or
-                getattr(funcobj, '_callable', None) is self.inline_func):
-                d[i] = graph
-        if d:
-            self.block_to_index[block] = d
-        else:
-            try:
-                del self.block_to_index[block]
-            except KeyError:
-                pass
-
     def get_new_name(self, var):
         if var is None:
             return None
@@ -463,6 +443,27 @@ class Inliner(BaseInliner):
         self.block_to_index = {}
         for g, block, i in callsites:
             self.block_to_index.setdefault(block, {})[i] = g
+
+    def search_for_calls(self, block):
+        d = {}
+        for i, op in enumerate(block.operations):
+            if op.opname == "direct_call":
+                funcobj = op.args[0].value._obj
+            else:
+                continue
+            graph = getattr(funcobj, 'graph', None)
+            # accept a function or a graph as 'inline_func'
+            if (graph is self.inline_func or
+                getattr(funcobj, '_callable', None) is self.inline_func):
+                d[i] = graph
+        if d:
+            self.block_to_index[block] = d
+        else:
+            try:
+                del self.block_to_index[block]
+            except KeyError:
+                pass
+
 
 class OneShotInliner(BaseInliner):
     def search_for_calls(self, block):
