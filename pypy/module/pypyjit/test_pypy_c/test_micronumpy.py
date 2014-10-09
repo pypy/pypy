@@ -108,11 +108,13 @@ class TestMicroNumPy(BaseTestPyPyC):
             i155 = int_lt(i154, 0)
             guard_false(i155, descr=...)
             p156 = new_with_vtable(...)
+            {{{
             setfield_gc(p156, p49, descr=<FieldP pypy.module.micronumpy.iterators.IterState.inst_iterator 24>)
             setfield_gc(p156, i55, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset 32>)
             setfield_gc(p156, 0, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_index 8>)
             setfield_gc(p156, p150, descr=<FieldP pypy.module.micronumpy.iterators.IterState.inst_indices 16>)
             setfield_gc(p16, p156, descr=<FieldP pypy.module.micronumpy.flatiter.W_FlatIterator.inst_state 56>)
+            }}}
             jump(p0, p1, p3, p6, p7, p12, p14, p16, i151, f149, p26, i44, i50, i59, i55, i100, p156, p49, descr=...)
         """)
 
@@ -146,10 +148,12 @@ class TestMicroNumPy(BaseTestPyPyC):
             i157 = int_lt(i154, 0)
             guard_false(i157, descr=...)
             p158 = new_with_vtable(...)
+            {{{
             setfield_gc(p158, p47, descr=<FieldP pypy.module.micronumpy.iterators.IterState.inst_iterator 24>)
             setfield_gc(p158, i53, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset 32>)
             setfield_gc(p158, 0, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_index 8>)
             setfield_gc(p158, p152, descr=<FieldP pypy.module.micronumpy.iterators.IterState.inst_indices 16>)
             setfield_gc(p16, p158, descr=<FieldP pypy.module.micronumpy.flatiter.W_FlatIterator.inst_state 56>)
+            }}}
             jump(p0, p1, p3, p6, p7, p12, p14, p16, i153, i42, i48, i57, i53, p47, i103, p158, descr=...)
         """)
