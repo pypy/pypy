@@ -735,7 +735,7 @@ class __extend__(W_NDimArray):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 'sorter not supported in searchsort'))
         side = searchside_converter(space, w_side)
-        if len(self.get_shape()) > 1:
+        if len(self.get_shape()) != 1:
             raise oefmt(space.w_ValueError, "a must be a 1-d array")
         v = convert_to_array(space, w_v)
         ret = W_NDimArray.from_shape(

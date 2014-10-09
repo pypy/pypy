@@ -352,7 +352,10 @@ class AppTestSorting(BaseNumpyAppTest):
 
     def test_searchsort(self):
         import numpy as np
-        import sys
+
+        a = np.array(2)
+        raises(ValueError, a.searchsorted, 3)
+
         a = np.arange(1, 6)
 
         ret = a.searchsorted(3)
@@ -389,5 +392,6 @@ class AppTestSorting(BaseNumpyAppTest):
         ret = a.searchsorted([-10, 10, 2, 3])
         assert (ret == [0, 5, 1, 2]).all()
 
+        import sys
         if '__pypy__' in sys.builtin_module_names:
             raises(NotImplementedError, "a.searchsorted(3, sorter=range(6))")
