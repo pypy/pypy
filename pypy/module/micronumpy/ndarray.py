@@ -21,6 +21,7 @@ from pypy.module.micronumpy.flagsobj import W_FlagsObject
 from pypy.module.micronumpy.flatiter import W_FlatIterator
 from pypy.module.micronumpy.strides import get_shape_from_iterable, \
     shape_agreement, shape_agreement_multiple
+from .selection import app_searchsort
 
 
 def _match_dot_shapes(space, left, right):
@@ -1298,31 +1299,6 @@ app_ptp = applevel(r"""
             return out
         return res
 """, filename=__file__).interphook('ptp')
-
-app_searchsort = applevel(r"""
-    def searchsort(arr, v, side, result):
-        import operator
-        def func(a, op, val):
-            imin = 0
-            imax = a.size
-            while imin < imax:
-                imid = imin + ((imax - imin) >> 1)
-                if op(a[imid], val):
-                    imin = imid +1
-                else:
-                    imax = imid
-            return imin
-        if side == 0:
-            op = operator.lt
-        else:
-            op = operator.le
-        if v.size < 2:
-            result[...] = func(arr, op, v)
-        else:
-            for i in range(v.size):
-                result[i] = func(arr, op, v[i])
-        return result
-""", filename=__file__).interphook('searchsort')
 
 W_NDimArray.typedef = TypeDef("numpy.ndarray",
     __new__ = interp2app(descr_new_array),
