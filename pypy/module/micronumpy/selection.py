@@ -357,26 +357,27 @@ class SortCache(object):
 
 
 app_searchsort = applevel(r"""
-    def searchsort(arr, v, side, result):
-        import operator
-        def func(a, op, val):
-            imin = 0
-            imax = a.size
-            while imin < imax:
-                imid = imin + ((imax - imin) >> 1)
-                if op(a[imid], val):
-                    imin = imid +1
-                else:
-                    imax = imid
-            return imin
+    import operator
+
+    def _searchsort(a, op, val):
+        imin = 0
+        imax = a.size
+        while imin < imax:
+            imid = imin + ((imax - imin) >> 1)
+            if op(a[imid], val):
+                imin = imid + 1
+            else:
+                imax = imid
+        return imin
+
+    def searchsort(a, v, side, result):
         if side == 0:
             op = operator.lt
         else:
             op = operator.le
         if v.size < 2:
-            result[...] = func(arr, op, v)
+            result[...] = _searchsort(a, op, v)
         else:
             for i in range(v.size):
-                result[i] = func(arr, op, v[i])
-        return result
+                result[i] = _searchsort(a, op, v[i])
 """, filename=__file__).interphook('searchsort')
