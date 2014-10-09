@@ -375,9 +375,8 @@ app_searchsort = applevel(r"""
             op = operator.lt
         else:
             op = operator.le
-        if v.size < 2:
-            result[...] = _searchsort(a, op, v)
-        else:
-            for i in range(v.size):
-                result[i] = _searchsort(a, op, v[i])
+        v = v.flat
+        result = result.flat
+        for i in xrange(len(v)):
+            result[i] = _searchsort(a, op, v[i])
 """, filename=__file__).interphook('searchsort')
