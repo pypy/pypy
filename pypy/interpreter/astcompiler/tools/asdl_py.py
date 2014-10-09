@@ -189,6 +189,11 @@ class ASTNodeVisitor(ASDLVisitor):
         else:
             value = self.get_value_extractor(field, "w_%s" % (field.name,))
             lines = ["_%s = %s" % (field.name, value)]
+            if not field.opt and field.type.value not in ("int",):
+                lines.append("if _%s is None:" % (field.name,))
+                lines.append("    raise_required_value(space, w_node, '%s')"
+                             % (field.name,))
+            
         return lines
 
     def make_converters(self, fields, name, extras=None):
@@ -408,10 +413,9 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 
 
-def raise_attriberr(space, w_obj, name):
-    raise oefmt(space.w_AttributeError,
-                "'%T' object has no attribute '%s'", w_obj, name)
-
+def raise_required_value(space, w_obj, name):
+    raise oefmt(space.w_ValueError,
+                "field %s is required for %T", name, w_obj)
 
 def check_string(space, w_obj):
     if not (space.isinstance_w(w_obj, space.w_str) or

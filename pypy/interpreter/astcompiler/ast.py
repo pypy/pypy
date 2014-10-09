@@ -8,10 +8,9 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 
 
-def raise_attriberr(space, w_obj, name):
-    raise oefmt(space.w_AttributeError,
-                "'%T' object has no attribute '%s'", w_obj, name)
-
+def raise_required_value(space, w_obj, name):
+    raise oefmt(space.w_ValueError,
+                "field %s is required for %T", name, w_obj)
 
 def check_string(space, w_obj):
     if not (space.isinstance_w(w_obj, space.w_str) or
@@ -261,6 +260,8 @@ class Expression(mod):
     def from_object(space, w_node):
         w_body = get_field(space, w_node, 'body', False)
         _body = expr.from_object(space, w_body)
+        if _body is None:
+            raise_required_value(space, w_node, 'body')
         return Expression(_body)
 
 State.ast_type('Expression', 'mod', ['body'])
@@ -416,7 +417,11 @@ class FunctionDef(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _name = space.identifier_w(w_name)
+        if _name is None:
+            raise_required_value(space, w_node, 'name')
         _args = arguments.from_object(space, w_args)
+        if _args is None:
+            raise_required_value(space, w_node, 'args')
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         decorator_list_w = space.unpackiterable(w_decorator_list)
@@ -509,6 +514,8 @@ class ClassDef(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _name = space.identifier_w(w_name)
+        if _name is None:
+            raise_required_value(space, w_node, 'name')
         bases_w = space.unpackiterable(w_bases)
         _bases = [expr.from_object(space, w_item) for w_item in bases_w]
         keywords_w = space.unpackiterable(w_keywords)
@@ -646,6 +653,8 @@ class Assign(stmt):
         targets_w = space.unpackiterable(w_targets)
         _targets = [expr.from_object(space, w_item) for w_item in targets_w]
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Assign(_targets, _value, _lineno, _col_offset)
@@ -691,8 +700,14 @@ class AugAssign(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _target = expr.from_object(space, w_target)
+        if _target is None:
+            raise_required_value(space, w_node, 'target')
         _op = operator.from_object(space, w_op)
+        if _op is None:
+            raise_required_value(space, w_node, 'op')
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return AugAssign(_target, _op, _value, _lineno, _col_offset)
@@ -754,7 +769,11 @@ class For(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _target = expr.from_object(space, w_target)
+        if _target is None:
+            raise_required_value(space, w_node, 'target')
         _iter = expr.from_object(space, w_iter)
+        if _iter is None:
+            raise_required_value(space, w_node, 'iter')
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
@@ -815,6 +834,8 @@ class While(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _test = expr.from_object(space, w_test)
+        if _test is None:
+            raise_required_value(space, w_node, 'test')
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
@@ -875,6 +896,8 @@ class If(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _test = expr.from_object(space, w_test)
+        if _test is None:
+            raise_required_value(space, w_node, 'test')
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
@@ -1139,6 +1162,8 @@ class Assert(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _test = expr.from_object(space, w_test)
+        if _test is None:
+            raise_required_value(space, w_node, 'test')
         _msg = expr.from_object(space, w_msg) if w_msg is not None else None
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
@@ -1350,6 +1375,8 @@ class Expr(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Expr(_value, _lineno, _col_offset)
@@ -1551,6 +1578,8 @@ class BoolOp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _op = boolop.from_object(space, w_op)
+        if _op is None:
+            raise_required_value(space, w_node, 'op')
         values_w = space.unpackiterable(w_values)
         _values = [expr.from_object(space, w_item) for w_item in values_w]
         _lineno = space.int_w(w_lineno)
@@ -1598,8 +1627,14 @@ class BinOp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _left = expr.from_object(space, w_left)
+        if _left is None:
+            raise_required_value(space, w_node, 'left')
         _op = operator.from_object(space, w_op)
+        if _op is None:
+            raise_required_value(space, w_node, 'op')
         _right = expr.from_object(space, w_right)
+        if _right is None:
+            raise_required_value(space, w_node, 'right')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return BinOp(_left, _op, _right, _lineno, _col_offset)
@@ -1640,7 +1675,11 @@ class UnaryOp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _op = unaryop.from_object(space, w_op)
+        if _op is None:
+            raise_required_value(space, w_node, 'op')
         _operand = expr.from_object(space, w_operand)
+        if _operand is None:
+            raise_required_value(space, w_node, 'operand')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return UnaryOp(_op, _operand, _lineno, _col_offset)
@@ -1682,7 +1721,11 @@ class Lambda(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _args = arguments.from_object(space, w_args)
+        if _args is None:
+            raise_required_value(space, w_node, 'args')
         _body = expr.from_object(space, w_body)
+        if _body is None:
+            raise_required_value(space, w_node, 'body')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Lambda(_args, _body, _lineno, _col_offset)
@@ -1729,8 +1772,14 @@ class IfExp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _test = expr.from_object(space, w_test)
+        if _test is None:
+            raise_required_value(space, w_node, 'test')
         _body = expr.from_object(space, w_body)
+        if _body is None:
+            raise_required_value(space, w_node, 'body')
         _orelse = expr.from_object(space, w_orelse)
+        if _orelse is None:
+            raise_required_value(space, w_node, 'orelse')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return IfExp(_test, _body, _orelse, _lineno, _col_offset)
@@ -1873,6 +1922,8 @@ class ListComp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _elt = expr.from_object(space, w_elt)
+        if _elt is None:
+            raise_required_value(space, w_node, 'elt')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
         _lineno = space.int_w(w_lineno)
@@ -1921,6 +1972,8 @@ class SetComp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _elt = expr.from_object(space, w_elt)
+        if _elt is None:
+            raise_required_value(space, w_node, 'elt')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
         _lineno = space.int_w(w_lineno)
@@ -1974,7 +2027,11 @@ class DictComp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _key = expr.from_object(space, w_key)
+        if _key is None:
+            raise_required_value(space, w_node, 'key')
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
         _lineno = space.int_w(w_lineno)
@@ -2023,6 +2080,8 @@ class GeneratorExp(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _elt = expr.from_object(space, w_elt)
+        if _elt is None:
+            raise_required_value(space, w_node, 'elt')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
         _lineno = space.int_w(w_lineno)
@@ -2098,6 +2157,8 @@ class YieldFrom(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return YieldFrom(_value, _lineno, _col_offset)
@@ -2152,6 +2213,8 @@ class Compare(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _left = expr.from_object(space, w_left)
+        if _left is None:
+            raise_required_value(space, w_node, 'left')
         ops_w = space.unpackiterable(w_ops)
         _ops = [cmpop.from_object(space, w_item) for w_item in ops_w]
         comparators_w = space.unpackiterable(w_comparators)
@@ -2224,6 +2287,8 @@ class Call(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _func = expr.from_object(space, w_func)
+        if _func is None:
+            raise_required_value(space, w_node, 'func')
         args_w = space.unpackiterable(w_args)
         _args = [expr.from_object(space, w_item) for w_item in args_w]
         keywords_w = space.unpackiterable(w_keywords)
@@ -2265,6 +2330,8 @@ class Num(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _n = w_n
+        if _n is None:
+            raise_required_value(space, w_node, 'n')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Num(_n, _lineno, _col_offset)
@@ -2300,6 +2367,8 @@ class Str(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _s = check_string(space, w_s)
+        if _s is None:
+            raise_required_value(space, w_node, 's')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Str(_s, _lineno, _col_offset)
@@ -2335,6 +2404,8 @@ class Bytes(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _s = check_string(space, w_s)
+        if _s is None:
+            raise_required_value(space, w_node, 's')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Bytes(_s, _lineno, _col_offset)
@@ -2409,8 +2480,14 @@ class Attribute(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _attr = space.identifier_w(w_attr)
+        if _attr is None:
+            raise_required_value(space, w_node, 'attr')
         _ctx = expr_context.from_object(space, w_ctx)
+        if _ctx is None:
+            raise_required_value(space, w_node, 'ctx')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Attribute(_value, _attr, _ctx, _lineno, _col_offset)
@@ -2456,8 +2533,14 @@ class Subscript(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _slice = slice.from_object(space, w_slice)
+        if _slice is None:
+            raise_required_value(space, w_node, 'slice')
         _ctx = expr_context.from_object(space, w_ctx)
+        if _ctx is None:
+            raise_required_value(space, w_node, 'ctx')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Subscript(_value, _slice, _ctx, _lineno, _col_offset)
@@ -2498,7 +2581,11 @@ class Starred(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _ctx = expr_context.from_object(space, w_ctx)
+        if _ctx is None:
+            raise_required_value(space, w_node, 'ctx')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Starred(_value, _ctx, _lineno, _col_offset)
@@ -2538,7 +2625,11 @@ class Name(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _id = space.identifier_w(w_id)
+        if _id is None:
+            raise_required_value(space, w_node, 'id')
         _ctx = expr_context.from_object(space, w_ctx)
+        if _ctx is None:
+            raise_required_value(space, w_node, 'ctx')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Name(_id, _ctx, _lineno, _col_offset)
@@ -2586,6 +2677,8 @@ class List(expr):
         elts_w = space.unpackiterable(w_elts)
         _elts = [expr.from_object(space, w_item) for w_item in elts_w]
         _ctx = expr_context.from_object(space, w_ctx)
+        if _ctx is None:
+            raise_required_value(space, w_node, 'ctx')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return List(_elts, _ctx, _lineno, _col_offset)
@@ -2633,6 +2726,8 @@ class Tuple(expr):
         elts_w = space.unpackiterable(w_elts)
         _elts = [expr.from_object(space, w_item) for w_item in elts_w]
         _ctx = expr_context.from_object(space, w_ctx)
+        if _ctx is None:
+            raise_required_value(space, w_node, 'ctx')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Tuple(_elts, _ctx, _lineno, _col_offset)
@@ -2668,6 +2763,8 @@ class Const(expr):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = w_value
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Const(_value, _lineno, _col_offset)
@@ -2852,6 +2949,8 @@ class Index(slice):
     def from_object(space, w_node):
         w_value = get_field(space, w_node, 'value', False)
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         return Index(_value)
 
 State.ast_type('Index', 'slice', ['value'])
@@ -3190,7 +3289,11 @@ class comprehension(AST):
         w_iter = get_field(space, w_node, 'iter', False)
         w_ifs = get_field(space, w_node, 'ifs', False)
         _target = expr.from_object(space, w_target)
+        if _target is None:
+            raise_required_value(space, w_node, 'target')
         _iter = expr.from_object(space, w_iter)
+        if _iter is None:
+            raise_required_value(space, w_node, 'iter')
         ifs_w = space.unpackiterable(w_ifs)
         _ifs = [expr.from_object(space, w_item) for w_item in ifs_w]
         return comprehension(_target, _iter, _ifs)
@@ -3386,6 +3489,8 @@ class arg(AST):
         w_arg = get_field(space, w_node, 'arg', False)
         w_annotation = get_field(space, w_node, 'annotation', True)
         _arg = space.identifier_w(w_arg)
+        if _arg is None:
+            raise_required_value(space, w_node, 'arg')
         _annotation = expr.from_object(space, w_annotation) if w_annotation is not None else None
         return arg(_arg, _annotation)
 
@@ -3417,7 +3522,11 @@ class keyword(AST):
         w_arg = get_field(space, w_node, 'arg', False)
         w_value = get_field(space, w_node, 'value', False)
         _arg = space.identifier_w(w_arg)
+        if _arg is None:
+            raise_required_value(space, w_node, 'arg')
         _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
         return keyword(_arg, _value)
 
 State.ast_type('keyword', 'AST', ['arg', 'value'])
@@ -3447,6 +3556,8 @@ class alias(AST):
         w_name = get_field(space, w_node, 'name', False)
         w_asname = get_field(space, w_node, 'asname', True)
         _name = space.identifier_w(w_name)
+        if _name is None:
+            raise_required_value(space, w_node, 'name')
         _asname = space.str_or_None_w(w_asname)
         return alias(_name, _asname)
 
@@ -3480,6 +3591,8 @@ class withitem(AST):
         w_context_expr = get_field(space, w_node, 'context_expr', False)
         w_optional_vars = get_field(space, w_node, 'optional_vars', True)
         _context_expr = expr.from_object(space, w_context_expr)
+        if _context_expr is None:
+            raise_required_value(space, w_node, 'context_expr')
         _optional_vars = expr.from_object(space, w_optional_vars) if w_optional_vars is not None else None
         return withitem(_context_expr, _optional_vars)
 

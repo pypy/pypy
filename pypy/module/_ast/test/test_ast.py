@@ -441,3 +441,11 @@ from __future__ import generators""")
         str_node2 = copy.deepcopy(str_node)
         dict_res = str_node2.__dict__
         assert dict_res == {'n':2, 'lineno':2}
+
+    def test_empty_yield_from(self):
+        # Issue 16546: yield from value is not optional.
+        import ast
+        empty_yield_from = ast.parse("def f():\n yield from g()")
+        empty_yield_from.body[0].body[0].value.value = None
+        exc = raises(ValueError, compile, empty_yield_from, "<test>", "exec")
+        assert "field value is required" in str(exc.value)
