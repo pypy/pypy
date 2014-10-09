@@ -18,7 +18,6 @@ from pypy.module.micronumpy.concrete import BaseConcreteArray
 from pypy.module.micronumpy.converters import multi_axis_converter, \
     order_converter, shape_converter, searchside_converter
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
-from pypy.module.micronumpy.flatiter import W_FlatIterator
 from pypy.module.micronumpy.strides import get_shape_from_iterable, \
     shape_agreement, shape_agreement_multiple
 from .selection import app_searchsort
@@ -482,6 +481,7 @@ class __extend__(W_NDimArray):
         loop.flatiter_setitem(space, dtype, arr, iter, state, 1, iter.size)
 
     def descr_get_flatiter(self, space):
+        from .flatiter import W_FlatIterator
         return space.wrap(W_FlatIterator(self))
 
     def descr_item(self, space, __args__):
@@ -1464,23 +1464,3 @@ W_NDimArray.typedef = TypeDef("numpy.ndarray",
 
 def _reconstruct(space, w_subtype, w_shape, w_dtype):
     return descr_new_array(space, w_subtype, w_shape, w_dtype)
-
-
-W_FlatIterator.typedef = TypeDef("numpy.flatiter",
-    __iter__ = interp2app(W_FlatIterator.descr_iter),
-    __getitem__ = interp2app(W_FlatIterator.descr_getitem),
-    __setitem__ = interp2app(W_FlatIterator.descr_setitem),
-    __len__ = interp2app(W_FlatIterator.descr_len),
-
-    __eq__ = interp2app(W_FlatIterator.descr_eq),
-    __ne__ = interp2app(W_FlatIterator.descr_ne),
-    __lt__ = interp2app(W_FlatIterator.descr_lt),
-    __le__ = interp2app(W_FlatIterator.descr_le),
-    __gt__ = interp2app(W_FlatIterator.descr_gt),
-    __ge__ = interp2app(W_FlatIterator.descr_ge),
-
-    next = interp2app(W_FlatIterator.descr_next),
-    base = GetSetProperty(W_FlatIterator.descr_base),
-    index = GetSetProperty(W_FlatIterator.descr_index),
-    coords = GetSetProperty(W_FlatIterator.descr_coords),
-)

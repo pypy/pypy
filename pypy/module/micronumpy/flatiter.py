@@ -1,7 +1,10 @@
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import loop
-from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
+from pypy.module.micronumpy.base import convert_to_array
 from pypy.module.micronumpy.concrete import BaseConcreteArray
+from .ndarray import W_NDimArray
 
 
 class FakeArrayImplementation(BaseConcreteArray):
@@ -90,4 +93,21 @@ class W_FlatIterator(W_NDimArray):
     def descr_base(self, space):
         return space.wrap(self.base)
 
-# typedef is in interp_ndarray, so we see the additional arguments
+W_FlatIterator.typedef = TypeDef("numpy.flatiter",
+    __iter__ = interp2app(W_FlatIterator.descr_iter),
+    __getitem__ = interp2app(W_FlatIterator.descr_getitem),
+    __setitem__ = interp2app(W_FlatIterator.descr_setitem),
+    __len__ = interp2app(W_FlatIterator.descr_len),
+
+    __eq__ = interp2app(W_FlatIterator.descr_eq),
+    __ne__ = interp2app(W_FlatIterator.descr_ne),
+    __lt__ = interp2app(W_FlatIterator.descr_lt),
+    __le__ = interp2app(W_FlatIterator.descr_le),
+    __gt__ = interp2app(W_FlatIterator.descr_gt),
+    __ge__ = interp2app(W_FlatIterator.descr_ge),
+
+    next = interp2app(W_FlatIterator.descr_next),
+    base = GetSetProperty(W_FlatIterator.descr_base),
+    index = GetSetProperty(W_FlatIterator.descr_index),
+    coords = GetSetProperty(W_FlatIterator.descr_coords),
+)
