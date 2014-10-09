@@ -3405,6 +3405,7 @@ class AppTestSupport(BaseNumpyAppTest):
             '@\x01\x99\x99\x99\x99\x99\x9a\xbf\xf1\x99\x99\x99\x99\x99\x9a'
         assert array(2.2-1.1j, dtype='<c16').tostring() == \
             '\x9a\x99\x99\x99\x99\x99\x01@\x9a\x99\x99\x99\x99\x99\xf1\xbf'
+        assert a.tostring == a.tobytes
 
     def test_str(self):
         from numpypy import array
