@@ -785,6 +785,7 @@ class Transformer(object):
             raise Exception("getfield_raw_r (without _pure) not supported")
         #
         if immut in (IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY):
+            op1.opname += "_pure"
             descr1 = self.cpu.fielddescrof(
                 v_inst.concretetype.TO,
                 quasiimmut.get_mutate_field_name(c_fieldname.value))

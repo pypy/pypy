@@ -191,6 +191,11 @@ class LowLevelType(object):
     def _is_varsize(self):
         return False
 
+    def _contains_value(self, value):
+        if self is Void:
+            return True
+        return isCompatibleType(typeOf(value), self)
+
 NFOUND = object()
 
 class ContainerType(LowLevelType):

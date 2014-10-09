@@ -14,9 +14,11 @@ def _get_compiler_type(cc, x64_flag):
     if not cc:
         cc = os.environ.get('CC','')
     if not cc:
-        return MsvcPlatform(cc=cc, x64=x64_flag)
+        return MsvcPlatform(x64=x64_flag)
     elif cc.startswith('mingw') or cc == 'gcc':
         return MingwPlatform(cc)
+    else:
+        return MsvcPlatform(cc=cc, x64=x64_flag)
     try:
         subprocess.check_output([cc, '--version'])
     except:
@@ -108,11 +110,14 @@ class MsvcPlatform(Platform):
 
     def __init__(self, cc=None, x64=False):
         self.x64 = x64
-        msvc_compiler_environ = find_msvc_env(x64)
-        Platform.__init__(self, 'cl.exe')
-        if msvc_compiler_environ:
-            self.c_environ = os.environ.copy()
-            self.c_environ.update(msvc_compiler_environ)
+        if cc is None:
+            msvc_compiler_environ = find_msvc_env(x64)
+            Platform.__init__(self, 'cl.exe')
+            if msvc_compiler_environ:
+                self.c_environ = os.environ.copy()
+                self.c_environ.update(msvc_compiler_environ)
+        else:
+            self.cc = cc
 
         # detect version of current compiler
         returncode, stdout, stderr = _run_subprocess(self.cc, '',

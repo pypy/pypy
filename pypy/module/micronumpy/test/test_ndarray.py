@@ -384,6 +384,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert zeros((), dtype='S').shape == ()
         assert zeros((), dtype='S').dtype == '|S1'
 
+    def test_check_shape(self):
+        import numpy as np
+        for func in [np.zeros, np.empty]:
+            exc = raises(ValueError, func, [0, -1, 1], 'int8')
+            assert str(exc.value) == "negative dimensions are not allowed"
+            exc = raises(ValueError, func, [2, -1, 3], 'int8')
+            assert str(exc.value) == "negative dimensions are not allowed"
+
+            exc = raises(ValueError, func, [975]*7, 'int8')
+            assert str(exc.value) == "array is too big."
+            exc = raises(ValueError, func, [26244]*5, 'int8')
+            assert str(exc.value) == "array is too big."
+
     def test_empty_like(self):
         import numpy as np
         a = np.empty_like(np.zeros(()))

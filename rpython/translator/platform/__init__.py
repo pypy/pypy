@@ -354,8 +354,10 @@ def set_platform(new_platform, cc):
     platform = pick_platform(new_platform, cc)
     if not platform:
         raise ValueError("pick_platform(%r, %s) failed"%(new_platform, cc))
-    log.msg("Set platform with %r cc=%s, using cc=%r" % (new_platform, cc,
-                    getattr(platform, 'cc','Unknown')))
+    log.msg("Set platform with %r cc=%s, using cc=%r, version=%r" % (new_platform, cc,
+                    getattr(platform, 'cc','Unknown'),
+                    getattr(platform, 'version','Unknown'),
+    ))
 
     if new_platform == 'host':
         global host

@@ -12,3 +12,6 @@ Avoid re-opening files created with NamedTemporaryFile,
 Allocate by 4-byte chunks in rffi_platform,
 Skip testing objdump if it does not exist,
 and other small adjustments in own tests
+
+.. branch: rtyper-stuff
+Small internal refactorings in the rtyper.
