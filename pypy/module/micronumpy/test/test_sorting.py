@@ -366,6 +366,12 @@ class AppTestSorting(BaseNumpyAppTest):
         ret = a.searchsorted(3, side='right')
         assert ret == 3
         assert isinstance(ret, np.generic)
+        exc = raises(ValueError, a.searchsorted, 3, side=None)
+        assert str(exc.value) == "expected nonempty string for keyword 'side'"
+        exc = raises(ValueError, a.searchsorted, 3, side='')
+        assert str(exc.value) == "expected nonempty string for keyword 'side'"
+        exc = raises(ValueError, a.searchsorted, 3, side=2)
+        assert str(exc.value) == "expected nonempty string for keyword 'side'"
         ret = a.searchsorted([-10, 10, 2, 3])
         assert (ret == [0, 5, 1, 2]).all()
         if '__pypy__' in sys.builtin_module_names:

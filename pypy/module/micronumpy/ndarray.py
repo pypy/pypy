@@ -16,7 +16,7 @@ from pypy.module.micronumpy.base import W_NDimArray, convert_to_array, \
     ArrayArgumentException, wrap_impl
 from pypy.module.micronumpy.concrete import BaseConcreteArray
 from pypy.module.micronumpy.converters import multi_axis_converter, \
-    order_converter, shape_converter
+    order_converter, shape_converter, searchside_converter
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
 from pypy.module.micronumpy.flatiter import W_FlatIterator
 from pypy.module.micronumpy.strides import get_shape_from_iterable, \
@@ -728,21 +728,12 @@ class __extend__(W_NDimArray):
         loop.round(space, self, calc_dtype, self.get_shape(), decimals, out)
         return out
 
-    @unwrap_spec(side=str, w_sorter=WrappedDefault(None))
-    def descr_searchsorted(self, space, w_v, side='left', w_sorter=None):
+    @unwrap_spec(w_side=WrappedDefault('left'), w_sorter=WrappedDefault(None))
+    def descr_searchsorted(self, space, w_v, w_side=None, w_sorter=None):
         if not space.is_none(w_sorter):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 'sorter not supported in searchsort'))
-        if not side or len(side) < 1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "expected nonempty string for keyword 'side'"))
-        elif side[0] == 'l' or side[0] == 'L':
-            side = 'l'
-        elif side[0] == 'r' or side[0] == 'R':
-            side = 'r'
-        else:
-            raise oefmt(space.w_ValueError,
-                        "'%s' is an invalid value for keyword 'side'", side)
+        side = searchside_converter(space, w_side)
         if len(self.get_shape()) > 1:
             raise oefmt(space.w_ValueError, "a must be a 1-d array")
         v = convert_to_array(space, w_v)
@@ -1321,7 +1312,7 @@ app_searchsort = applevel(r"""
                 else:
                     imax = imid
             return imin
-        if side == 'l':
+        if side == 0:
             op = operator.lt
         else:
             op = operator.le
