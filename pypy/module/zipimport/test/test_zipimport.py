@@ -345,6 +345,11 @@ def get_file():
         import zipimport
         assert sys.path_hooks.count(zipimport.zipimporter) == 1
 
+    def test_unicode_filename(self):
+        import zipimport
+        raises(zipimport.ZipImportError, 
+               zipimport.zipimporter, 'caf\xe9')
+
     def test_co_filename(self):
         self.writefile('mymodule.py', """
 def get_co_filename():
