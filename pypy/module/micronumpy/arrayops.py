@@ -292,6 +292,8 @@ def result_type(space, __args__):
     args_w, kw_w = __args__.unpack()
     if kw_w:
         raise oefmt(space.w_TypeError, "result_type() takes no keyword arguments")
+    if not args_w:
+        raise oefmt(space.w_ValueError, "at least one array or dtype is required")
     result = None
     for w_arg in args_w:
         if isinstance(w_arg, W_NDimArray):

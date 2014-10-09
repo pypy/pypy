@@ -202,6 +202,8 @@ class AppTestNumSupport(BaseNumpyAppTest):
 
     def test_result_type(self):
         import numpy as np
+        exc = raises(ValueError, np.result_type)
+        assert str(exc.value) == "at least one array or dtype is required"
         exc = raises(TypeError, np.result_type, a=2)
         assert str(exc.value) == "result_type() takes no keyword arguments"
         assert np.result_type(True) is np.dtype('bool')
