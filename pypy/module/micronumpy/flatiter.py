@@ -34,6 +34,19 @@ class W_FlatIterator(W_NDimArray):
         # this is needed to support W_NDimArray interface
         self.implementation = FakeArrayImplementation(self.base)
 
+    def descr_base(self, space):
+        return space.wrap(self.base)
+
+    def descr_index(self, space):
+        return space.wrap(self.state.index)
+
+    def descr_coords(self, space):
+        self.state = self.iter.update(self.state)
+        return space.newtuple([space.wrap(c) for c in self.state.indices])
+
+    def descr_iter(self):
+        return self
+
     def descr_len(self, space):
         return space.wrap(self.iter.size)
 
@@ -43,13 +56,6 @@ class W_FlatIterator(W_NDimArray):
         w_res = self.iter.getitem(self.state)
         self.state = self.iter.next(self.state)
         return w_res
-
-    def descr_index(self, space):
-        return space.wrap(self.state.index)
-
-    def descr_coords(self, space):
-        self.state = self.iter.update(self.state)
-        return space.newtuple([space.wrap(c) for c in self.state.indices])
 
     def descr_getitem(self, space, w_idx):
         if not (space.isinstance_w(w_idx, space.w_int) or
@@ -87,17 +93,18 @@ class W_FlatIterator(W_NDimArray):
         finally:
             self.state = self.iter.reset(self.state)
 
-    def descr_iter(self):
-        return self
-
-    def descr_base(self, space):
-        return space.wrap(self.base)
 
 W_FlatIterator.typedef = TypeDef("numpy.flatiter",
+    base = GetSetProperty(W_FlatIterator.descr_base),
+    index = GetSetProperty(W_FlatIterator.descr_index),
+    coords = GetSetProperty(W_FlatIterator.descr_coords),
+
     __iter__ = interp2app(W_FlatIterator.descr_iter),
+    __len__ = interp2app(W_FlatIterator.descr_len),
+    next = interp2app(W_FlatIterator.descr_next),
+
     __getitem__ = interp2app(W_FlatIterator.descr_getitem),
     __setitem__ = interp2app(W_FlatIterator.descr_setitem),
-    __len__ = interp2app(W_FlatIterator.descr_len),
 
     __eq__ = interp2app(W_FlatIterator.descr_eq),
     __ne__ = interp2app(W_FlatIterator.descr_ne),
@@ -105,9 +112,4 @@ W_FlatIterator.typedef = TypeDef("numpy.flatiter",
     __le__ = interp2app(W_FlatIterator.descr_le),
     __gt__ = interp2app(W_FlatIterator.descr_gt),
     __ge__ = interp2app(W_FlatIterator.descr_ge),
-
-    next = interp2app(W_FlatIterator.descr_next),
-    base = GetSetProperty(W_FlatIterator.descr_base),
-    index = GetSetProperty(W_FlatIterator.descr_index),
-    coords = GetSetProperty(W_FlatIterator.descr_coords),
 )
