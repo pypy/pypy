@@ -370,7 +370,10 @@ app_searchsort = applevel(r"""
         size = arr.size
         imin = 0
         imax = size
-        last = val[0]
+        try:
+            last = val[0]
+        except IndexError:
+            return
         for i in xrange(len(val)):
             key = val[i]
             if last < key:

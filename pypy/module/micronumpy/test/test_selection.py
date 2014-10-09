@@ -363,6 +363,10 @@ class AppTestSorting(BaseNumpyAppTest):
         assert ret == 2
         assert isinstance(ret, np.generic)
 
+        ret = a.searchsorted(np.array([]))
+        assert isinstance(ret, np.ndarray)
+        assert ret.shape == (0,)
+
         ret = a.searchsorted(np.array([3]))
         assert ret == 2
         assert isinstance(ret, np.ndarray)
