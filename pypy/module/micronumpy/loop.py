@@ -72,6 +72,7 @@ def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
         out = W_NDimArray.from_shape(space, shape, res_dtype, w_instance=w_obj)
     obj_iter, obj_state = w_obj.create_iter(shape)
     out_iter, out_state = out.create_iter(shape)
+    obj_iter.track_index = False
     shapelen = len(shape)
     while not out_iter.done(out_state):
         call1_driver.jit_merge_point(shapelen=shapelen, func=func,
