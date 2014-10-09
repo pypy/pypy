@@ -313,6 +313,7 @@ class W_NDIter(W_Root):
         # create an iterator for each operand
         for i in range(len(self.seq)):
             it = get_iter(space, self.order, self.seq[i], iter_shape, self.dtypes[i])
+            it.contiguous = False
             self.iters.append((it, it.reset()))
 
     def set_op_axes(self, space, w_op_axes):

@@ -45,6 +45,7 @@ class W_FlatIterator(W_NDimArray):
         return space.wrap(self.state.index)
 
     def descr_coords(self, space):
+        self.state = self.iter.update(self.state)
         return space.newtuple([space.wrap(c) for c in self.state.indices])
 
     def descr_getitem(self, space, w_idx):

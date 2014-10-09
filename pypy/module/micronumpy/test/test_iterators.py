@@ -3,7 +3,15 @@ from pypy.module.micronumpy.iterators import ArrayIter
 
 
 class MockArray(object):
-    start = 0
+    flags = 0
+
+    class dtype:
+        elsize = 1
+
+    def __init__(self, shape, strides, start=0):
+        self.shape = shape
+        self.strides = strides
+        self.start = start
 
 
 class TestIterDirect(object):
@@ -14,19 +22,24 @@ class TestIterDirect(object):
         strides = [5, 1]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [10, 4]
-        i = ArrayIter(MockArray, support.product(shape), shape,
+        i = ArrayIter(MockArray(shape, strides), support.product(shape), shape,
                       strides, backstrides)
+        assert i.contiguous
         s = i.reset()
         s = i.next(s)
         s = i.next(s)
         s = i.next(s)
         assert s.offset == 3
         assert not i.done(s)
+        assert s.indices == [0,0]
+        s = i.update(s)
         assert s.indices == [0,3]
         #cause a dimension overflow
         s = i.next(s)
         s = i.next(s)
         assert s.offset == 5
+        assert s.indices == [0,3]
+        s = i.update(s)
         assert s.indices == [1,0]
 
         #Now what happens if the array is transposed? strides[-1] != 1
@@ -34,8 +47,9 @@ class TestIterDirect(object):
         strides = [1, 3]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [2, 12]
-        i = ArrayIter(MockArray, support.product(shape), shape,
+        i = ArrayIter(MockArray(shape, strides), support.product(shape), shape,
                       strides, backstrides)
+        assert not i.contiguous
         s = i.reset()
         s = i.next(s)
         s = i.next(s)
@@ -54,10 +68,10 @@ class TestIterDirect(object):
         strides = [1, 3]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [2, 12]
-        a = MockArray()
-        a.start = 42
+        a = MockArray(shape, strides, 42)
         i = ArrayIter(a, support.product(shape), shape,
                       strides, backstrides)
+        assert not i.contiguous
         s = i.reset()
         assert s.index == 0
         assert s.indices == [0, 0]

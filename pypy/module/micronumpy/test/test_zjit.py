@@ -101,17 +101,17 @@ class TestNumpyJit(LLJitMixin):
         self.check_trace_count(1)
         self.check_simple_loop({
             'float_add': 1,
-            'getarrayitem_gc': 3,
+            'getarrayitem_gc': 1,
             'guard_false': 1,
             'guard_not_invalidated': 1,
-            'guard_true': 3,
-            'int_add': 9,
+            'guard_true': 1,
+            'int_add': 7,
             'int_ge': 1,
-            'int_lt': 3,
+            'int_lt': 1,
             'jump': 1,
             'raw_load': 2,
             'raw_store': 1,
-            'setarrayitem_gc': 3,
+            'setarrayitem_gc': 1,
         })
 
     def define_pow():
@@ -130,18 +130,18 @@ class TestNumpyJit(LLJitMixin):
             'float_eq': 3,
             'float_mul': 2,
             'float_ne': 1,
-            'getarrayitem_gc': 3,
+            'getarrayitem_gc': 1,
             'guard_false': 4,
             'guard_not_invalidated': 1,
-            'guard_true': 5,
-            'int_add': 9,
+            'guard_true': 3,
+            'int_add': 7,
             'int_ge': 1,
             'int_is_true': 1,
-            'int_lt': 3,
+            'int_lt': 1,
             'jump': 1,
             'raw_load': 2,
             'raw_store': 1,
-            'setarrayitem_gc': 3,
+            'setarrayitem_gc': 1,
         })
 
     def define_pow_int():
@@ -159,17 +159,17 @@ class TestNumpyJit(LLJitMixin):
         del get_stats().loops[0]   # we don't care about it
         self.check_simple_loop({
             'call': 1,
-            'getarrayitem_gc': 3,
+            'getarrayitem_gc': 1,
             'guard_false': 1,
             'guard_not_invalidated': 1,
-            'guard_true': 3,
-            'int_add': 9,
+            'guard_true': 1,
+            'int_add': 7,
             'int_ge': 1,
-            'int_lt': 3,
+            'int_lt': 1,
             'jump': 1,
             'raw_load': 2,
             'raw_store': 1,
-            'setarrayitem_gc': 3,
+            'setarrayitem_gc': 1,
         })
 
     def define_sum():
@@ -384,17 +384,17 @@ class TestNumpyJit(LLJitMixin):
         self.check_trace_count(1)
         self.check_simple_loop({
             'float_add': 1,
-            'getarrayitem_gc': 3,
+            'getarrayitem_gc': 2,
             'guard_false': 1,
             'guard_not_invalidated': 1,
-            'guard_true': 3,
-            'int_add': 9,
+            'guard_true': 2,
+            'int_add': 8,
             'int_ge': 1,
-            'int_lt': 3,
+            'int_lt': 2,
             'jump': 1,
             'raw_load': 2,
             'raw_store': 1,
-            'setarrayitem_gc': 3,
+            'setarrayitem_gc': 2,
         })
 
     def define_take():
@@ -519,17 +519,13 @@ class TestNumpyJit(LLJitMixin):
         self.check_trace_count(1)
         self.check_simple_loop({
             'float_add': 1,
-            'getarrayitem_gc': 3,
             'guard_false': 1,
             'guard_not_invalidated': 1,
-            'guard_true': 3,
-            'int_add': 9,
+            'int_add': 6,
             'int_ge': 1,
-            'int_lt': 3,
             'jump': 1,
             'raw_load': 2,
             'raw_store': 1,
-            'setarrayitem_gc': 3,
         })
 
     def define_flat_getitem():
@@ -544,17 +540,13 @@ class TestNumpyJit(LLJitMixin):
         assert result == 10.0
         self.check_trace_count(1)
         self.check_simple_loop({
-            'getarrayitem_gc': 1,
             'guard_false': 1,
-            'guard_true': 1,
-            'int_add': 5,
+            'int_add': 4,
             'int_ge': 1,
-            'int_lt': 1,
             'int_mul': 1,
             'jump': 1,
             'raw_load': 1,
             'raw_store': 1,
-            'setarrayitem_gc': 1,
         })
 
     def define_flat_setitem():
@@ -570,18 +562,17 @@ class TestNumpyJit(LLJitMixin):
         assert result == 1.0
         self.check_trace_count(1)
         self.check_simple_loop({
-            'getarrayitem_gc': 1,
+            'guard_false': 1,
             'guard_not_invalidated': 1,
-            'guard_true': 2,
-            'int_add': 5,
+            'guard_true': 1,
+            'int_add': 4,
+            'int_ge': 1,
             'int_gt': 1,
-            'int_lt': 1,
             'int_mul': 1,
             'int_sub': 1,
             'jump': 1,
             'raw_load': 1,
             'raw_store': 1,
-            'setarrayitem_gc': 1,
         })
 
     def define_dot():
@@ -609,24 +600,25 @@ class TestNumpyJit(LLJitMixin):
         self.check_resops({
             'float_add': 2,
             'float_mul': 2,
-            'getarrayitem_gc': 7,
-            'getarrayitem_gc_pure': 15,
-            'getfield_gc_pure': 52,
+            'getarrayitem_gc': 4,
+            'getarrayitem_gc_pure': 9,
+            'getfield_gc_pure': 46,
             'guard_class': 4,
-            'guard_false': 14,
+            'guard_false': 12,
             'guard_not_invalidated': 2,
-            'guard_true': 13,
-            'int_add': 25,
+            'guard_true': 12,
+            'int_add': 18,
             'int_ge': 4,
-            'int_le': 8,
-            'int_lt': 11,
-            'int_sub': 4,
+            'int_is_true': 3,
+            'int_le': 5,
+            'int_lt': 8,
+            'int_sub': 3,
             'jump': 3,
             'new_with_vtable': 7,
             'raw_load': 6,
             'raw_store': 1,
             'same_as': 2,
-            'setarrayitem_gc': 10,
+            'setarrayitem_gc': 7,
             'setfield_gc': 22,
         })
 
@@ -656,15 +648,12 @@ class TestNumpyJit(LLJitMixin):
         self.check_trace_count(1)
         self.check_simple_loop({
             'float_ne': 1,
-            'getarrayitem_gc': 4,
             'guard_false': 1,
             'guard_not_invalidated': 1,
-            'guard_true': 5,
-            'int_add': 12,
+            'guard_true': 1,
+            'int_add': 8,
             'int_ge': 1,
-            'int_lt': 4,
             'jump': 1,
             'raw_load': 2,
             'raw_store': 1,
-            'setarrayitem_gc': 4,
         })

@@ -93,7 +93,8 @@ class ArrayIter(object):
     def __init__(self, array, size, shape, strides, backstrides):
         assert len(shape) == len(strides) == len(backstrides)
         _update_contiguous_flags(array)
-        self.contiguous = array.flags & NPY.ARRAY_C_CONTIGUOUS
+        self.contiguous = (array.flags & NPY.ARRAY_C_CONTIGUOUS and
+                           array.shape == shape and array.strides == strides)
 
         self.array = array
         self.size = size
@@ -128,15 +129,18 @@ class ArrayIter(object):
         index = state.index + 1
         indices = state.indices
         offset = state.offset
-        for i in xrange(self.ndim_m1, -1, -1):
-            idx = indices[i]
-            if idx < self.shape_m1[i]:
-                indices[i] = idx + 1
-                offset += self.strides[i]
-                break
-            else:
-                indices[i] = 0
-                offset -= self.backstrides[i]
+        if self.contiguous:
+            offset += self.array.dtype.elsize
+        else:
+            for i in xrange(self.ndim_m1, -1, -1):
+                idx = indices[i]
+                if idx < self.shape_m1[i]:
+                    indices[i] = idx + 1
+                    offset += self.strides[i]
+                    break
+                else:
+                    indices[i] = 0
+                    offset -= self.backstrides[i]
         return IterState(self, index, indices, offset)
 
     @jit.unroll_safe
@@ -150,6 +154,21 @@ class ArrayIter(object):
                 offset += (current / self.factors[i]) * self.strides[i]
                 current %= self.factors[i]
         return IterState(self, index, None, offset)
+
+    @jit.unroll_safe
+    def update(self, state):
+        assert state.iterator is self
+        if not self.contiguous:
+            return state
+        current = state.index
+        indices = state.indices
+        for i in xrange(len(self.shape_m1)):
+            if self.factors[i] != 0:
+                indices[i] = current / self.factors[i]
+                current %= self.factors[i]
+            else:
+                indices[i] = 0
+        return IterState(self, state.index, indices, state.offset)
 
     def done(self, state):
         assert state.iterator is self

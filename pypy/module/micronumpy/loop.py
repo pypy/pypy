@@ -229,6 +229,7 @@ def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity, cumulati
                                             dtype=dtype)
         assert not arr_iter.done(arr_state)
         w_val = arr_iter.getitem(arr_state).convert_to(space, dtype)
+        out_state = out_iter.update(out_state)
         if out_state.indices[axis] == 0:
             if identity is not None:
                 w_val = func(dtype, identity, w_val)
@@ -360,6 +361,7 @@ def nonzero(res, arr, box):
     while not arr_iter.done(arr_state):
         nonzero_driver.jit_merge_point(shapelen=shapelen, dims=dims, dtype=dtype)
         if arr_iter.getitem_bool(arr_state):
+            arr_state = arr_iter.update(arr_state)
             for d in dims:
                 res_iter.setitem(res_state, box(arr_state.indices[d]))
                 res_state = res_iter.next(res_state)
@@ -453,9 +455,10 @@ def flatiter_setitem(space, dtype, val, arr_iter, arr_state, step, length):
         else:
             val = val.convert_to(space, dtype)
         arr_iter.setitem(arr_state, val)
-        # need to repeat i_nput values until all assignments are done
         arr_state = arr_iter.goto(arr_state.index + step)
         val_state = val_iter.next(val_state)
+        if val_iter.done(val_state):
+            val_state = val_iter.reset(val_state)
         length -= 1
 
 fromstring_driver = jit.JitDriver(name = 'numpy_fromstring',
