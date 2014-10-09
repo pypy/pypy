@@ -1393,6 +1393,9 @@ class MIFrame(object):
             #
             allboxes = self._build_allboxes(funcbox, argboxes, descr)
             effectinfo = descr.get_extra_info()
+            if effectinfo.oopspecindex == effectinfo.OS_NOT_IN_TRACE:
+                return self.metainterp.do_not_in_trace_call(allboxes, descr)
+
             if (assembler_call or
                     effectinfo.check_forces_virtual_or_virtualizable()):
                 # residual calls require attention to keep virtualizables in-sync
@@ -2829,6 +2832,19 @@ class MetaInterp(object):
                             op.result, descr)
         if not we_are_translated():       # for llgraph
             descr._original_func_ = op.getarg(0).value
+
+    def do_not_in_trace_call(self, allboxes, descr):
+        self.clear_exception()
+        resbox = executor.execute_varargs(self.cpu, self, rop.CALL,
+                                          allboxes, descr)
+        assert resbox is None
+        if self.last_exc_value_box is not None:
+            # cannot trace this!  it raises, so we have to follow the
+            # exception-catching path, but the trace doesn't contain
+            # the call at all
+            raise SwitchToBlackhole(Counters.ABORT_ESCAPE,
+                                    raising_exception=True)
+        return None
 
 # ____________________________________________________________
 

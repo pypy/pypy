@@ -4044,3 +4044,70 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         res = self.interp_operations(f, [17])
         assert res == 42
         self.check_operations_history(guard_true=1, guard_false=0)
+
+    def test_not_in_trace(self):
+        class X:
+            n = 0
+        def g(x):
+            if we_are_jitted():
+                raise NotImplementedError
+            x.n += 1
+        g.oopspec = 'jit.not_in_trace()'
+
+        jitdriver = JitDriver(greens=[], reds=['n', 'token', 'x'])
+        def f(n):
+            token = 0
+            x = X()
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n, x=x, token=token)
+                if not we_are_jitted():
+                    token += 1
+                g(x)
+                n -= 1
+            return x.n + token * 1000
+
+        res = self.meta_interp(f, [10])
+        assert res == 2003     # two runs before jitting; then one tracing run
+        self.check_resops(int_add=0, call=0, call_may_force=0)
+
+    def test_not_in_trace_exception(self):
+        def g():
+            if we_are_jitted():
+                raise NotImplementedError
+            raise ValueError
+        g.oopspec = 'jit.not_in_trace()'
+
+        jitdriver = JitDriver(greens=[], reds=['n'])
+        def f(n):
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n)
+                try:
+                    g()
+                except ValueError:
+                    n -= 1
+            return 42
+
+        res = self.meta_interp(f, [10])
+        assert res == 42
+        self.check_aborted_count(3)
+
+    def test_not_in_trace_blackhole(self):
+        class X:
+            seen = 0
+        def g(x):
+            if we_are_jitted():
+                raise NotImplementedError
+            x.seen = 42
+        g.oopspec = 'jit.not_in_trace()'
+
+        jitdriver = JitDriver(greens=[], reds=['n'])
+        def f(n):
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n)
+                n -= 1
+            x = X()
+            g(x)
+            return x.seen
+
+        res = self.meta_interp(f, [10])
+        assert res == 42

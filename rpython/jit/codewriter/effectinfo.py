@@ -25,6 +25,7 @@ class EffectInfo(object):
     OS_THREADLOCALREF_GET       = 5    # llop.threadlocalref_get
     OS_GET_ERRNO                = 6    # rposix.get_errno
     OS_SET_ERRNO                = 7    # rposix.set_errno
+    OS_NOT_IN_TRACE             = 8    # for calls not recorded in the jit trace
     #
     OS_STR_CONCAT               = 22   # "stroruni.concat"
     OS_STR_SLICE                = 23   # "stroruni.slice"
@@ -96,6 +97,7 @@ class EffectInfo(object):
     _OS_CANRAISE = set([
         OS_NONE, OS_STR2UNICODE, OS_LIBFFI_CALL, OS_RAW_MALLOC_VARSIZE_CHAR,
         OS_JIT_FORCE_VIRTUAL, OS_SHRINK_ARRAY, OS_DICT_LOOKUP,
+        OS_NOT_IN_TRACE,
     ])
 
     def __new__(cls, readonly_descrs_fields, readonly_descrs_arrays,
