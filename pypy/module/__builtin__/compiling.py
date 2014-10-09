@@ -45,6 +45,7 @@ in addition to any features explicitly specified.
 
     if space.isinstance_w(w_source, space.gettypeobject(ast.W_AST.typedef)):
         ast_node = ast.mod.from_object(space, w_source)
+        ec.compiler.validate_ast(ast_node)
         code = ec.compiler.compile_ast(ast_node, filename, mode, flags,
                                        optimize=optimize)
         return space.wrap(code)
