@@ -304,32 +304,37 @@ class BaseInliner(object):
                             # if self.graph.exceptblock was never used before
                             a2.concretetype = a1.concretetype
 
+    def exc_match(self, VALUE, llexitcase):
+        from rpython.rtyper.lltypesystem.rclass import getclassrepr
+        if VALUE not in self.lltype_to_classdef:
+            return False
+        classdef = self.lltype_to_classdef[VALUE]
+        rtyper = self.translator.rtyper
+        excdata = rtyper.exceptiondata
+        exc_match = excdata.fn_exception_match
+        classrepr = getclassrepr(rtyper, classdef)
+        vtable = classrepr.getruntime(excdata.lltype_of_exception_type)
+        return exc_match(vtable, llexitcase)
+
     def rewire_exceptblock_with_guard(self, afterblock, copiedexceptblock):
         # this rewiring does not always succeed. in the cases where it doesn't
         # there will be generic code inserted
-        from rpython.rtyper.lltypesystem import rclass
-        excdata = self.translator.rtyper.exceptiondata
-        exc_match = excdata.fn_exception_match
         for link in self.entrymap[self.graph_to_inline.exceptblock]:
             if link.prevblock.exits[0] is not link:
                 continue
             copiedblock = self.copy_block(link.prevblock)
             VALUE, copiedlink = _find_exception_type(copiedblock)
-            #print copiedblock.operations
-            if VALUE is None or VALUE not in self.lltype_to_classdef:
+            if VALUE is None:
                 continue
-            classdef = self.lltype_to_classdef[VALUE]
-            rtyper = self.translator.rtyper
-            classrepr = rclass.getclassrepr(rtyper, classdef)
-            vtable = classrepr.getruntime(excdata.lltype_of_exception_type)
             var_etype = copiedlink.args[0]
             var_evalue = copiedlink.args[1]
             for exceptionlink in afterblock.exits[1:]:
-                if exc_match(vtable, exceptionlink.llexitcase):
+                if self.exc_match(VALUE, exceptionlink.llexitcase):
                     passon_vars = self.passon_vars(link.prevblock)
                     copiedlink.target = exceptionlink.target
                     linkargs = self.find_args_in_exceptional_case(
-                        exceptionlink, link.prevblock, var_etype, var_evalue, afterblock, passon_vars)
+                        exceptionlink, link.prevblock, var_etype, var_evalue,
+                        afterblock, passon_vars)
                     copiedlink.args = linkargs
                     break
 
