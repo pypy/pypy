@@ -51,7 +51,9 @@ class TestNumpyJit(LLJitMixin):
                 w_res = i.getitem(s)
             if isinstance(w_res, boxes.W_Float64Box):
                 return w_res.value
-            if isinstance(w_res, boxes.W_Int64Box):
+            elif isinstance(w_res, boxes.W_Int64Box):
+                return float(w_res.value)
+            elif isinstance(w_res, boxes.W_LongBox):
                 return float(w_res.value)
             elif isinstance(w_res, boxes.W_BoolBox):
                 return float(w_res.value)
@@ -659,4 +661,31 @@ class TestNumpyJit(LLJitMixin):
             'jump': 1,
             'raw_load': 2,
             'raw_store': 1,
+        })
+
+    def define_searchsorted():
+        return """
+        a = [1, 4, 5, 6, 9]
+        b = |30| -> ::-1
+        c = searchsorted(a, b)
+        c -> -1
+        """
+
+    def test_searchsorted(self):
+        result = self.run("searchsorted")
+        assert result == 0
+        self.check_trace_count(6)
+        self.check_simple_loop({
+            'float_lt': 1,
+            'guard_false': 2,
+            'guard_not_invalidated': 1,
+            'guard_true': 2,
+            'int_add': 3,
+            'int_ge': 1,
+            'int_lt': 2,
+            'int_mul': 1,
+            'int_rshift': 1,
+            'int_sub': 1,
+            'jump': 1,
+            'raw_load': 1,
         })

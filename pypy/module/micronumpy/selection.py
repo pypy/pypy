@@ -1,5 +1,4 @@
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.gateway import applevel
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import widen
@@ -354,39 +353,3 @@ class SortCache(object):
                 cache[cls] = make_sort_function(space, cls, it)
         self.cache = cache
         self._lookup = specialize.memo()(lambda tp: cache[tp[0]])
-
-
-app_searchsort = applevel(r"""
-    import operator
-
-    def searchsort(arr, val, side, res):
-        val = val.flat
-        res = res.flat
-        if side == 0:
-            op = operator.lt
-        else:
-            op = operator.le
-
-        size = arr.size
-        imin = 0
-        imax = size
-        try:
-            last = val[0]
-        except IndexError:
-            return
-        for i in xrange(len(val)):
-            key = val[i]
-            if last < key:
-                imax = size
-            else:
-                imin = 0
-                imax = imax + 1 if imax < size else size
-            last = key
-            while imin < imax:
-                imid = imin + ((imax - imin) >> 1)
-                if op(arr[imid], key):
-                    imin = imid + 1
-                else:
-                    imax = imid
-            res[i] = imin
-""", filename=__file__).interphook('searchsort')

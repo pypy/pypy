@@ -382,6 +382,9 @@ class AppTestSorting(BaseNumpyAppTest):
         assert ret == 3
         assert isinstance(ret, np.generic)
 
+        assert a.searchsorted(3.1) == 3
+        assert a.searchsorted(3.9) == 3
+
         exc = raises(ValueError, a.searchsorted, 3, side=None)
         assert str(exc.value) == "expected nonempty string for keyword 'side'"
         exc = raises(ValueError, a.searchsorted, 3, side='')

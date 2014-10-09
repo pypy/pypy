@@ -20,7 +20,6 @@ from pypy.module.micronumpy.converters import multi_axis_converter, \
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
 from pypy.module.micronumpy.strides import get_shape_from_iterable, \
     shape_agreement, shape_agreement_multiple
-from .selection import app_searchsort
 
 
 def _match_dot_shapes(space, left, right):
@@ -740,7 +739,11 @@ class __extend__(W_NDimArray):
         v = convert_to_array(space, w_v)
         ret = W_NDimArray.from_shape(
             space, v.get_shape(), descriptor.get_dtype_cache(space).w_longdtype)
-        app_searchsort(space, self, v, space.wrap(side), ret)
+        if side == NPY.SEARCHLEFT:
+            binsearch = loop.binsearch_left
+        else:
+            binsearch = loop.binsearch_right
+        binsearch(space, self, v, ret)
         if ret.is_scalar():
             return ret.get_scalar_value()
         return ret

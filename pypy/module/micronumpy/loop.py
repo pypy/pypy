@@ -700,3 +700,43 @@ def diagonal_array(space, arr, out, offset, axis1, axis2, shape):
         out_iter.setitem(out_state, arr.getitem_index(space, indexes))
         iter.next()
         out_state = out_iter.next(out_state)
+
+def _new_binsearch(side, op_name):
+    binsearch_driver = jit.JitDriver(name='numpy_binsearch_' + side,
+                                     greens=['dtype'],
+                                     reds='auto')
+
+    def binsearch(space, arr, key, ret):
+        assert len(arr.get_shape()) == 1
+        dtype = key.get_dtype()
+        op = getattr(dtype.itemtype, op_name)
+        key_iter, key_state = key.create_iter()
+        ret_iter, ret_state = ret.create_iter()
+        ret_iter.track_index = False
+        size = arr.get_size()
+        min_idx = 0
+        max_idx = size
+        last_key_val = key_iter.getitem(key_state)
+        while not key_iter.done(key_state):
+            key_val = key_iter.getitem(key_state)
+            if dtype.itemtype.lt(last_key_val, key_val):
+                max_idx = size
+            else:
+                min_idx = 0
+                max_idx = max_idx + 1 if max_idx < size else size
+            last_key_val = key_val
+            while min_idx < max_idx:
+                binsearch_driver.jit_merge_point(dtype=dtype)
+                mid_idx = min_idx + ((max_idx - min_idx) >> 1)
+                mid_val = arr.getitem(space, [mid_idx]).convert_to(space, dtype)
+                if op(mid_val, key_val):
+                    min_idx = mid_idx + 1
+                else:
+                    max_idx = mid_idx
+            ret_iter.setitem(ret_state, ret.get_dtype().box(min_idx))
+            ret_state = ret_iter.next(ret_state)
+            key_state = key_iter.next(key_state)
+    return binsearch
+
+binsearch_left = _new_binsearch('left', 'lt')
+binsearch_right = _new_binsearch('right', 'le')
