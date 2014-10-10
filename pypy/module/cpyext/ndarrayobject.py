@@ -275,14 +275,20 @@ class W_GenericUFuncCaller(W_Root):
         steps = alloc_raw_storage(LONG_SIZE * len(args_w), track_allocation=False)
         for i in range(len(args_w)):
             arg_i = args_w[i]
-            assert isinstance(arg_i, W_NDimArray)
-            raw_storage_setitem(dataps, CCHARP_SIZE * i, rffi.cast(rffi.CCHARP, arg_i.implementation.storage))
-            #This assumes we iterate over the whole array (it should be a view...)
-            raw_storage_setitem(dims, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_size()))
-            raw_storage_setitem(steps, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_dtype().elsize))
+            if isinstance(arg_i, W_NDimArray):
+                raw_storage_setitem(dataps, CCHARP_SIZE * i,
+                        rffi.cast(rffi.CCHARP, arg_i.implementation.storage))
+                #This assumes we iterate over the whole array (it should be a view...)
+                raw_storage_setitem(dims, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_size()))
+                raw_storage_setitem(steps, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_dtype().elsize))
+            else:
+                raise OperationError(space.w_NotImplementedError,
+                         space.wrap("cannot call GenericUFunc with %r as arg %d" % (arg_i, i)))
         try:
-            self.func(rffi.cast(rffi.CArrayPtr(rffi.CCHARP), dataps),
-                      rffi.cast(npy_intpp, dims), rffi.cast(npy_intpp, steps), self.data)
+            arg1 = rffi.cast(rffi.CArrayPtr(rffi.CCHARP), dataps)
+            arg2 = rffi.cast(npy_intpp, dims)
+            arg3 = rffi.cast(npy_intpp, steps)
+            self.func(arg1, arg2, arg3, self.data)
         finally:
             free_raw_storage(dataps, track_allocation=False)
             free_raw_storage(dims, track_allocation=False)
@@ -295,7 +301,8 @@ W_GenericUFuncCaller.typedef = TypeDef("hiddenclass",
 GenericUfunc = lltype.FuncType([rffi.CArrayPtr(rffi.CCHARP), npy_intpp, npy_intpp,
                                       rffi.VOIDP], lltype.Void)
 gufunctype = lltype.Ptr(GenericUfunc)
-# XXX single rffi.CArrayPtr(gufunctype) does not work, this does, why???
+# XXX single rffi.CArrayPtr(gufunctype) does not work, this does, is there
+# a problem with casting function pointers?
 @cpython_api([rffi.CArrayPtr(rffi.CArrayPtr(gufunctype)), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
               Py_ssize_t, Py_ssize_t, rffi.CCHARP, rffi.CCHARP, Py_ssize_t,
               rffi.CCHARP], PyObject)

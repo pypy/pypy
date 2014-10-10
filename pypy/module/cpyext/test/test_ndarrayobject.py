@@ -316,7 +316,7 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
     def test_ufunc(self):
         from _numpypy.multiarray import arange
         mod = self.import_extension('foo', [
-                ("create_ufunc",  "METH_NOARGS",
+                ("create_ufunc_basic",  "METH_NOARGS",
                 """
                 PyUFuncGenericFunction funcs[] = {&double_times2, &int_times2};
                 char types[] = { NPY_DOUBLE,NPY_DOUBLE, NPY_INT, NPY_INT };
@@ -328,8 +328,27 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                 return retval;
                 """
                 ),
-                ], prologue='''#include "numpy/ndarraytypes.h"
-                #include <numpy/ufuncobject.h>
+                ("create_ufunc_signature", "METH_NOARGS",
+                """
+                PyUFuncGenericFunction funcs[] = {&double_times2, &int_times2};
+                char types[] = { NPY_DOUBLE,NPY_DOUBLE, NPY_INT, NPY_INT };
+                void *array_data[] = {NULL, NULL};
+                PyObject * retval;
+                retval = PyUFunc_FromFuncAndDataAndSignature(funcs,
+                                    array_data, types, 2, 1, 1, PyUFunc_None,
+                                    "times2", "times2_docstring", 0, "(m)->(m)");
+                return retval;
+                """
+                ),
+                ], prologue='''
+                #include "numpy/ndarraytypes.h"
+                /*#include <numpy/ufuncobject.h>*/
+                typedef void (*PyUFuncGenericFunction)
+                            (char **args,
+                             npy_intp *dimensions,
+                             npy_intp *strides,
+                             void *innerloopdata);
+                #define PyUFunc_None -1
                 void double_times2(char **args, npy_intp *dimensions,
                               npy_intp* steps, void* data)
                 {
@@ -372,7 +391,10 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                         out += out_step;
                     };
                 }; ''')
-        times2 = mod.create_ufunc()
+        times2 = mod.create_ufunc_basic()
         arr = arange(12, dtype='i').reshape(3, 4)
-        out = times2(arr)
+        out = times2(arr, sig='(d)->(d)', extobj=[0, 0, None])
+        assert (out == arr * 2).all()
+        times2prime = mod.create_ufunc_signature()
+        out = times2prime(arr, sig='(d)->(d)', extobj=[0, 0, None])
         assert (out == arr * 2).all()

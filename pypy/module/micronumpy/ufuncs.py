@@ -579,7 +579,6 @@ class W_UfuncGeneric(W_Ufunc):
             # func is going to do all the work
             arglist = space.newlist(inargs + outargs)
             func = self.funcs[index]
-            arglist = space.newlist(inargs + outargs)
             space.call_args(func, Arguments.frompacked(space, arglist))
             if len(outargs) < 2:
                 return outargs0
@@ -1051,7 +1050,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
         if not space.is_true(space.callable(w_func)):
             raise oefmt(space.w_TypeError, 'func must be callable')
         func = [w_func]
-    match_dtypes = False    
+    match_dtypes = False
     if space.is_none(w_dtypes) and not signature:
         raise oefmt(space.w_NotImplementedError,
              'object dtype requested but not implemented')
@@ -1061,7 +1060,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
             if space.isinstance_w(_dtypes[0], space.w_str) and space.str_w(_dtypes[0]) == 'match':
                 dtypes = []
                 match_dtypes = True
-            else:    
+            else:
                 dtypes = [None]*len(_dtypes)
                 for i in range(len(dtypes)):
                     dtypes[i] = descriptor.decode_w_dtype(space, _dtypes[i])
@@ -1074,7 +1073,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     elif space.isinstance_w(w_identity, space.w_int):
         identity = \
             descriptor.get_dtype_cache(space).w_longdtype.box(space.int_w(w_identity))
-    else:        
+    else:
         raise oefmt(space.w_ValueError,
             'identity must be None or an int')
 
