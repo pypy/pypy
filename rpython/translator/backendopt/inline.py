@@ -15,11 +15,6 @@ class CannotInline(Exception):
     pass
 
 
-class CanRaise(object):
-    def __init__(self, can_raise):
-        self.can_raise = can_raise
-
-
 def collect_called_graphs(graph, translator):
     graphs_or_something = set()
     for block in graph.iterblocks():
@@ -125,9 +120,6 @@ def any_call_to_raising_graphs(from_graph, translator, raise_analyzer):
     for graph_or_something in collect_called_graphs(from_graph, translator):
         if isinstance(graph_or_something, FunctionGraph):
             if does_raise_directly(graph_or_something, raise_analyzer):
-                return True
-        elif isinstance(graph_or_something, CanRaise):
-            if graph_or_something.can_raise:
                 return True
         else:
             return True # conservatively
