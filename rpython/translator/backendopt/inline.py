@@ -8,7 +8,7 @@ from rpython.translator.backendopt import removenoops
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.support import log, find_loop_blocks
 from rpython.translator.simplify import join_blocks, cleanup_graph, get_graph
-from rpython.translator.unsimplify import copyvar, split_block
+from rpython.translator.unsimplify import split_block
 
 
 class CannotInline(Exception):
@@ -236,14 +236,13 @@ class BaseInliner(object):
         if isinstance(var, Constant):
             return var
         if var not in self.varmap:
-            self.varmap[var] = copyvar(None, var)
+            self.varmap[var] = var.copy()
         return self.varmap[var]
 
     def passon_vars(self, cache_key):
         if cache_key in self._passon_vars:
             return self._passon_vars[cache_key]
-        result = [copyvar(None, var)
-                      for var in self.original_passon_vars]
+        result = [var.copy() for var in self.original_passon_vars]
         self._passon_vars[cache_key] = result
         return result
 
@@ -362,8 +361,8 @@ class BaseInliner(object):
         exc_match.concretetype = typeOf(exc_match.value)
         blocks = []
         for i, link in enumerate(afterblock.exits[1:]):
-            etype = copyvar(None, copiedexceptblock.inputargs[0])
-            evalue = copyvar(None, copiedexceptblock.inputargs[1])
+            etype = copiedexceptblock.inputargs[0].copy()
+            evalue = copiedexceptblock.inputargs[1].copy()
             passon_vars = self.passon_vars(i)
             block = Block([etype, evalue] + passon_vars)
             res = Variable()
