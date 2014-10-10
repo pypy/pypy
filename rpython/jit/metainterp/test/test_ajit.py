@@ -12,7 +12,7 @@ from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
     isconstant, isvirtual, set_param, record_known_class)
 from rpython.rlib.longlong2float import float2longlong, longlong2float
-from rpython.rlib.rarithmetic import ovfcheck, is_valid_int
+from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
@@ -4111,3 +4111,11 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
         res = self.meta_interp(f, [10])
         assert res == 42
+
+    def test_int_force_ge_zero(self):
+        def f(n):
+            return int_force_ge_zero(n)
+        res = self.interp_operations(f, [42])
+        assert res == 42
+        res = self.interp_operations(f, [-42])
+        assert res == 0

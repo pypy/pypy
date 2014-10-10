@@ -2,9 +2,10 @@ from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
 from rpython.rlib import rgc, jit, types
 from rpython.rlib.debug import ll_assert
-from rpython.rlib.objectmodel import malloc_zero_filled, enforceargs
+from rpython.rlib.objectmodel import malloc_zero_filled, enforceargs, specialize
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck, widen, r_uint, intmask
+from rpython.rlib.rarithmetic import int_force_ge_zero
 from rpython.rtyper.annlowlevel import ADTInterface
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
@@ -474,15 +475,8 @@ class AbstractListIteratorRepr(IteratorRepr):
 #  when we compute "ll_length() + 1".
 
 
-# jit note: this is normally special-cased by the oopspec,
-# but if item != const(0), then the special-casing fails and
-# we fall back to the look_inside_iff.
-@jit.look_inside_iff(lambda LIST, count, item: jit.isconstant(count) and count < 137)
-@jit.oopspec("newlist(count, item)")
-def ll_alloc_and_set(LIST, count, item):
-    if count < 0:
-        count = 0
-    l = LIST.ll_newlist(count)
+def _ll_zero_or_null(item):
+    # Check if 'item' is zero/null, or not.
     T = typeOf(item)
     if T is Char or T is UniChar:
         check = ord(item)
@@ -490,13 +484,60 @@ def ll_alloc_and_set(LIST, count, item):
         check = widen(item)
     else:
         check = item
-    # as long as malloc is known to zero the allocated memory avoid zeroing
-    # twice
-    if jit.we_are_jitted() or (not malloc_zero_filled) or check:
-        i = 0
-        while i < count:
-            l.ll_setitem_fast(i, item)
-            i += 1
+    return not check
+
+@specialize.memo()
+def _null_of_type(T):
+    return T._defl()
+
+def ll_alloc_and_set(LIST, count, item):
+    count = int_force_ge_zero(count)
+    if jit.we_are_jitted():
+        return _ll_alloc_and_set_jit(LIST, count, item)
+    else:
+        return _ll_alloc_and_set_nojit(LIST, count, item)
+
+def _ll_alloc_and_set_nojit(LIST, count, item):
+    l = LIST.ll_newlist(count)
+    if malloc_zero_filled and _ll_zero_or_null(item):
+        return l
+    i = 0
+    while i < count:
+        l.ll_setitem_fast(i, item)
+        i += 1
+    return l
+
+def _ll_alloc_and_set_jit(LIST, count, item):
+    if _ll_zero_or_null(item):
+        # 'item' is zero/null.  Do the list allocation with the
+        # function _ll_alloc_and_clear(), which the JIT knows about.
+        return _ll_alloc_and_clear(LIST, count)
+    else:
+        # 'item' is not zero/null.  Do the list allocation with the
+        # function _ll_alloc_and_set_nonnull().  That function has
+        # a JIT marker to unroll it, but only if the 'count' is
+        # a not-too-large constant.
+        return _ll_alloc_and_set_nonnull(LIST, count, item)
+
+@jit.oopspec("newlist_clear(count)")
+def _ll_alloc_and_clear(LIST, count):
+    l = LIST.ll_newlist(count)
+    if malloc_zero_filled:
+        return l
+    zeroitem = _null_of_type(LIST.ITEM)
+    i = 0
+    while i < count:
+        l.ll_setitem_fast(i, zeroitem)
+        i += 1
+    return l
+
+@jit.look_inside_iff(lambda LIST, count, item: jit.isconstant(count) and count < 137)
+def _ll_alloc_and_set_nonnull(LIST, count, item):
+    l = LIST.ll_newlist(count)
+    i = 0
+    while i < count:
+        l.ll_setitem_fast(i, item)
+        i += 1
     return l
 
 

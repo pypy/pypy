@@ -216,6 +216,7 @@ LL_OPERATIONS = {
     'int_xor':              LLOp(canfold=True),
 
     'int_between':          LLOp(canfold=True),   # a <= b < c
+    'int_force_ge_zero':    LLOp(canfold=True),   # 0 if a < 0 else a
 
     'int_add_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
     'int_add_nonneg_ovf':   LLOp(canraise=(OverflowError,), tryfold=True),

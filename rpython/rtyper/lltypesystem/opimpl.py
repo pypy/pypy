@@ -225,6 +225,12 @@ def op_int_between(a, b, c):
     assert lltype.typeOf(c) is lltype.Signed
     return a <= b < c
 
+def op_int_force_ge_zero(a):
+    assert lltype.typeOf(a) is lltype.Signed
+    if a < 0:
+        return 0
+    return a
+
 def op_int_and(x, y):
     if not is_valid_int(x):
         from rpython.rtyper.lltypesystem import llgroup

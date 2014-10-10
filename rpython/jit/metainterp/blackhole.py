@@ -1017,6 +1017,15 @@ class BlackholeInterpreter(object):
         return result
 
     @arguments("cpu", "i", "d", "d", "d", "d", returns="r")
+    def bhimpl_newlist_clear(cpu, length, structdescr, lengthdescr,
+                             itemsdescr, arraydescr):
+        result = cpu.bh_new(structdescr)
+        cpu.bh_setfield_gc_i(result, length, lengthdescr)
+        items = cpu.bh_new_array_clear(length, arraydescr)
+        cpu.bh_setfield_gc_r(result, items, itemsdescr)
+        return result
+
+    @arguments("cpu", "i", "d", "d", "d", "d", returns="r")
     def bhimpl_newlist_hint(cpu, lengthhint, structdescr, lengthdescr,
                             itemsdescr, arraydescr):
         result = cpu.bh_new(structdescr)

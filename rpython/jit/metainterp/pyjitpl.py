@@ -522,6 +522,15 @@ class MIFrame(object):
         return sbox
 
     @arguments("box", "descr", "descr", "descr", "descr")
+    def opimpl_newlist_clear(self, sizebox, structdescr, lengthdescr,
+                             itemsdescr, arraydescr):
+        sbox = self.opimpl_new(structdescr)
+        self._opimpl_setfield_gc_any(sbox, sizebox, lengthdescr)
+        abox = self.opimpl_new_array_clear(sizebox, arraydescr)
+        self._opimpl_setfield_gc_any(sbox, abox, itemsdescr)
+        return sbox
+
+    @arguments("box", "descr", "descr", "descr", "descr")
     def opimpl_newlist_hint(self, sizehintbox, structdescr, lengthdescr,
                             itemsdescr, arraydescr):
         sbox = self.opimpl_new(structdescr)

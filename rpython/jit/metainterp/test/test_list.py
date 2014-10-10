@@ -414,3 +414,13 @@ class TestLLtype(ListTests, LLJitMixin):
         res = self.meta_interp(f, [10])
         assert res == 0
         self.check_resops(call=0, cond_call=2)
+
+    def test_zero_init_resizable(self):
+        def f(n):
+            l = [0] * n
+            l.append(123)
+            return len(l) + l[0] + l[1] + l[2] + l[3] + l[4] + l[5] + l[6]
+
+        res = self.interp_operations(f, [10], listops=True, inline=True)
+        assert res == 11
+        self.check_operations_history(new_array_clear=1)
