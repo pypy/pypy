@@ -406,6 +406,10 @@ class MIFrame(object):
     def opimpl_new_array(self, lengthbox, itemsizedescr):
         return self.metainterp.execute_new_array(itemsizedescr, lengthbox)
 
+    @arguments("box", "descr")
+    def opimpl_new_array_clear(self, lengthbox, itemsizedescr):
+        return self.metainterp.execute_new_array_clear(itemsizedescr, lengthbox)
+
     @specialize.arg(1)
     def _do_getarrayitem_gc_any(self, op, arraybox, indexbox, arraydescr):
         tobox = self.metainterp.heapcache.getarrayitem(
@@ -509,7 +513,11 @@ class MIFrame(object):
                        itemsdescr, arraydescr):
         sbox = self.opimpl_new(structdescr)
         self._opimpl_setfield_gc_any(sbox, sizebox, lengthdescr)
-        abox = self.opimpl_new_array(sizebox, arraydescr)
+        if (arraydescr.is_array_of_structs() or
+            arraydescr.is_array_of_pointers()):
+            abox = self.opimpl_new_array_clear(sizebox, arraydescr)
+        else:
+            abox = self.opimpl_new_array(sizebox, arraydescr)
         self._opimpl_setfield_gc_any(sbox, abox, itemsdescr)
         return sbox
 
@@ -518,7 +526,11 @@ class MIFrame(object):
                             itemsdescr, arraydescr):
         sbox = self.opimpl_new(structdescr)
         self._opimpl_setfield_gc_any(sbox, history.CONST_FALSE, lengthdescr)
-        abox = self.opimpl_new_array(sizehintbox, arraydescr)
+        if (arraydescr.is_array_of_structs() or
+            arraydescr.is_array_of_pointers()):
+            abox = self.opimpl_new_array_clear(sizehintbox, arraydescr)
+        else:
+            abox = self.opimpl_new_array(sizehintbox, arraydescr)
         self._opimpl_setfield_gc_any(sbox, abox, itemsdescr)
         return sbox
 
@@ -1381,6 +1393,9 @@ class MIFrame(object):
             #
             allboxes = self._build_allboxes(funcbox, argboxes, descr)
             effectinfo = descr.get_extra_info()
+            if effectinfo.oopspecindex == effectinfo.OS_NOT_IN_TRACE:
+                return self.metainterp.do_not_in_trace_call(allboxes, descr)
+
             if (assembler_call or
                     effectinfo.check_forces_virtual_or_virtualizable()):
                 # residual calls require attention to keep virtualizables in-sync
@@ -1909,6 +1924,12 @@ class MetaInterp(object):
 
     def execute_new_array(self, itemsizedescr, lengthbox):
         resbox = self.execute_and_record(rop.NEW_ARRAY, itemsizedescr,
+                                         lengthbox)
+        self.heapcache.new_array(resbox, lengthbox)
+        return resbox
+
+    def execute_new_array_clear(self, itemsizedescr, lengthbox):
+        resbox = self.execute_and_record(rop.NEW_ARRAY_CLEAR, itemsizedescr,
                                          lengthbox)
         self.heapcache.new_array(resbox, lengthbox)
         return resbox
@@ -2811,6 +2832,19 @@ class MetaInterp(object):
                             op.result, descr)
         if not we_are_translated():       # for llgraph
             descr._original_func_ = op.getarg(0).value
+
+    def do_not_in_trace_call(self, allboxes, descr):
+        self.clear_exception()
+        resbox = executor.execute_varargs(self.cpu, self, rop.CALL,
+                                          allboxes, descr)
+        assert resbox is None
+        if self.last_exc_value_box is not None:
+            # cannot trace this!  it raises, so we have to follow the
+            # exception-catching path, but the trace doesn't contain
+            # the call at all
+            raise SwitchToBlackhole(Counters.ABORT_ESCAPE,
+                                    raising_exception=True)
+        return None
 
 # ____________________________________________________________
 

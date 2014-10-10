@@ -2,6 +2,7 @@ import py, errno, sys
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import *
 import socket as cpy_socket
+from rpython.translator.c.test.test_genc import compile
 
 
 def setup_module(mod):
@@ -570,4 +571,17 @@ def test_getaddrinfo_pydotorg_threadsafe():
     for i in range(nthreads):
         threads[i].join()
     assert sum(result) == nthreads
- 
+
+def test_translate_netdb_lock():
+    def f():
+        gethostbyaddr("localhost")
+        return 0
+    fc = compile(f, [])
+    assert fc() == 0
+
+def test_translate_netdb_lock_thread():
+    def f():
+        gethostbyaddr("localhost")
+        return 0
+    fc = compile(f, [], thread=True)
+    assert fc() == 0

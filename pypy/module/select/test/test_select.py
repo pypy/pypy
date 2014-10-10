@@ -85,17 +85,18 @@ class _AppTestSelect:
                 assert owtd == [writeend]
                 total_out += writeend.send(b'x' * 512)
             total_in = 0
-            while True:
-                iwtd, owtd, ewtd = select.select([readend], [], [], 0)
+            while total_in < total_out:
+                iwtd, owtd, ewtd = select.select([readend], [], [], 5)
                 assert owtd == ewtd == []
-                if iwtd == []:
-                    break
-                assert iwtd == [readend]
+                assert iwtd == [readend]    # there is more expected
                 data = readend.recv(4096)
                 assert len(data) > 0
                 assert data == b'x' * len(data)
                 total_in += len(data)
             assert total_in == total_out
+            iwtd, owtd, ewtd = select.select([readend], [], [], 0)
+            assert owtd == ewtd == []
+            assert iwtd == []    # there is not more expected
         finally:
             writeend.close()
             readend.close()
@@ -244,20 +245,6 @@ class _AppTestSelect:
         raises(OverflowError, pollster.modify, 1, -1)
         raises(OverflowError, pollster.modify, 1, 1 << 64)
 
-    def test_resize_list_in_select(self):
-        import select
-        class Foo(object):
-            def fileno(self):
-                print len(l)
-                if len(l) < 100:
-                    l.append(Foo())
-                return 0
-        l = [Foo()]
-        select.select(l, (), (), 0)
-        assert 1 <= len(l) <= 100    
-        # ^^^ CPython gives 100, PyPy gives 1.  I think both are OK as
-        # long as there is no crash.
-
 
 class AppTestSelectWithPipes(_AppTestSelect):
     "Use a pipe to get pairs of file descriptors"
@@ -317,6 +304,20 @@ class AppTestSelectWithPipes(_AppTestSelect):
             os.close(w)
             for fd in rfds:
                 os.close(fd)
+
+    def test_resize_list_in_select(self):
+        import select
+        class Foo(object):
+            def fileno(self):
+                print len(l)
+                if len(l) < 100:
+                    l.append(Foo())
+                return 0
+        l = [Foo()]
+        select.select(l, (), (), 0)
+        assert 1 <= len(l) <= 100    
+        # ^^^ CPython gives 100, PyPy gives 1.  I think both are OK as
+        # long as there is no crash.
 
 
 class AppTestSelectWithSockets(_AppTestSelect):

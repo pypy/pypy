@@ -62,7 +62,12 @@ class SelectTestCase(unittest.TestCase):
         # removes an item and at the middle the iteration stops.
         # PyPy: 'a' ends up empty, because the iteration is done on
         # a copy of the original list: fileno() is called 10 times.
-        self.assert_(len(result[1]) <= 5)
+        if test_support.check_impl_detail(cpython=True):
+            self.assertEqual(len(result[1]), 5)
+            self.assertEqual(len(a), 5)
+        if test_support.check_impl_detail(pypy=True):
+            self.assertEqual(len(result[1]), 10)
+            self.assertEqual(len(a), 0)
 
 def test_main():
     test_support.run_unittest(SelectTestCase)

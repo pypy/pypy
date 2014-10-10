@@ -900,6 +900,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = add.reduce(a, 0, keepdims=True)
         assert b.shape == (1, 4)
         assert (add.reduce(a, 0, keepdims=True) == [12, 15, 18, 21]).all()
+        assert (add.reduce(a, 0, None, None, True) == [12, 15, 18, 21]).all()
 
     def test_bitwise(self):
         from numpy import bitwise_and, bitwise_or, bitwise_xor, arange, array

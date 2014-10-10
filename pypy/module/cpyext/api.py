@@ -116,6 +116,8 @@ def feof(fp):
     validate_fd(fileno(fp))
     return _feof(fp)
 
+def is_valid_fp(fp):
+    return is_valid_fd(fileno(fp))
 
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER

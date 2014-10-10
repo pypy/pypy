@@ -36,7 +36,7 @@ class BadToken(Exception):
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
                         "unegative", "flat", "tostring","count_nonzero",
                         "argsort"]
-TWO_ARG_FUNCTIONS = ["dot", 'take']
+TWO_ARG_FUNCTIONS = ["dot", 'take', 'searchsorted']
 TWO_ARG_FUNCTIONS_OR_NONE = ['view', 'astype']
 THREE_ARG_FUNCTIONS = ['where']
 
@@ -109,6 +109,9 @@ class FakeSpace(object):
             if stop < 0:
                 stop += size + 1
             if step < 0:
+                start, stop = stop, start
+                start -= 1
+                stop -= 1
                 lgt = (stop - start + 1) / step + 1
             else:
                 lgt = (stop - start - 1) / step + 1
@@ -475,7 +478,6 @@ class ArrayConstant(Node):
 
 class SliceConstant(Node):
     def __init__(self, start, stop, step):
-        # no negative support for now
         self.start = start
         self.stop = stop
         self.step = step
@@ -582,6 +584,9 @@ class FunctionCall(Node):
                 w_res = arr.descr_dot(interp.space, arg)
             elif self.name == 'take':
                 w_res = arr.descr_take(interp.space, arg)
+            elif self.name == "searchsorted":
+                w_res = arr.descr_searchsorted(interp.space, arg,
+                                               interp.space.wrap('left'))
             else:
                 assert False # unreachable code
         elif self.name in THREE_ARG_FUNCTIONS:

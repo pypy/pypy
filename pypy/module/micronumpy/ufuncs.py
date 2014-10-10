@@ -104,9 +104,9 @@ class W_Ufunc(W_Root):
         return self.reduce(space, w_obj, w_axis, True, #keepdims must be true
                            out, w_dtype, cumulative=True)
 
-    @unwrap_spec(skipna=bool, keepdims=bool)
+    @unwrap_spec(keepdims=bool)
     def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
-                     skipna=False, keepdims=False, w_out=None):
+                     w_out=None, keepdims=False):
         """reduce(...)
         reduce(a, axis=0)
 
