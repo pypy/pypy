@@ -207,7 +207,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         exc = raises(TypeError, np.result_type, a=2)
         assert str(exc.value) == "result_type() takes no keyword arguments"
         assert np.result_type(True) is np.dtype('bool')
-        assert np.result_type(1) is np.dtype('int64')
+        assert np.result_type(1) is np.dtype('int')
         assert np.result_type(1.) is np.dtype('float64')
         assert np.result_type(1+2j) is np.dtype('complex128')
         assert np.result_type(1, 1.) is np.dtype('float64')
