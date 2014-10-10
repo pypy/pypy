@@ -764,9 +764,12 @@ class OptVirtualize(optimizer.Optimization):
     def optimize_GETARRAYITEM_GC(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_virtual():
+            assert isinstance(value, VArrayValue)
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 itemvalue = value.getitem(indexbox.getint())
+                if itemvalue is None:   # reading uninitialized array items?
+                    itemvalue = value.constvalue     # bah, just return 0
                 self.make_equal_to(op.result, itemvalue)
                 return
         value.ensure_nonnull()
