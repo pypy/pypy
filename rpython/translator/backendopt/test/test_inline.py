@@ -65,11 +65,11 @@ class TestInline(BaseRtypingTest):
         sanity_check(t)    # also check before inlining (so we don't blame it)
         if option.view:
             t.view()
-        raise_analyzer = canraise.RaiseAnalyzer(t)
+        can_raise = canraise.RaiseAnalyzer(t).can_raise
         inliner = Inliner(t, graphof(t, in_func), func,
                           t.rtyper.lltype_to_classdef_mapping(),
                           inline_guarded_calls,
-                          raise_analyzer=raise_analyzer)
+                          can_raise=can_raise)
         inliner.inline_all()
         if option.view:
             t.view()

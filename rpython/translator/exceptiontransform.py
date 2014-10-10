@@ -334,7 +334,7 @@ class ExceptionTransformer(object):
         inliner = inline.OneShotInliner(
             self.translator, graph, self.lltype_to_classdef,
             inline_guarded_calls=True, inline_guarded_calls_no_matter_what=True,
-            raise_analyzer=self.raise_analyzer)
+            can_raise=self.raise_analyzer.can_raise)
         inliner.inline_once(block, len(block.operations)-1)
         #block.exits[0].exitcase = block.exits[0].llexitcase = False
 

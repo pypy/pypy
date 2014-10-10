@@ -125,14 +125,14 @@ class BaseGCTransformer(object):
         if not self.prepared:
             raise Exception("Need to call prepare_inline_helpers first")
         if self.inline:
-            raise_analyzer = RaiseAnalyzer(self.translator)
+            can_raise = RaiseAnalyzer(self.translator).can_raise
             to_enum = self.graph_dependencies.get(graph, self.graphs_to_inline)
             must_constfold = False
             for inline_graph in to_enum:
                 try:
                     inline.inline_function(self.translator, inline_graph, graph,
                                            self.lltype_to_classdef,
-                                           raise_analyzer,
+                                           can_raise,
                                            cleanup=False)
                     must_constfold = True
                 except inline.CannotInline, e:

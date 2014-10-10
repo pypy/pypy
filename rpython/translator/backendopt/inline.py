@@ -68,16 +68,16 @@ def contains_call(graph, calling_what):
         return False
 
 def inline_function(translator, inline_func, graph, lltype_to_classdef,
-                    raise_analyzer, call_count_pred=None, cleanup=True):
+                    can_raise, call_count_pred=None, cleanup=True):
     inliner = Inliner(translator, graph, inline_func, lltype_to_classdef,
-                      raise_analyzer=raise_analyzer,
+                      can_raise=can_raise,
                       call_count_pred=call_count_pred, cleanup=cleanup)
     return inliner.inline_all()
 
 def simple_inline_function(translator, inline_func, graph):
     inliner = Inliner(translator, graph, inline_func,
                       translator.rtyper.lltype_to_classdef_mapping(),
-                      raise_analyzer=RaiseAnalyzer(translator))
+                      can_raise=RaiseAnalyzer(translator).can_raise)
     return inliner.inline_all()
 
 
@@ -101,25 +101,24 @@ def _find_exception_type(block):
         elif op.opname == "malloc" and op.result is currvar:
             return Ptr(op.args[0].value), block.exits[0]
 
-def does_raise_directly(graph, raise_analyzer):
+def does_raise_directly(graph, can_raise):
     """ this function checks, whether graph contains operations which can raise
     and which are not exception guarded """
     for block in graph.iterblocks():
         if block is graph.exceptblock:
             return True      # the except block is reachable
         if block.exitswitch == c_last_exception:
-            consider_ops_to = -1
+            ops = block.operations[:-1]
         else:
-            consider_ops_to = len(block.operations)
-        for op in block.operations[:consider_ops_to]:
-            if raise_analyzer.can_raise(op):
-                return True
+            ops = block.operations
+        if any(can_raise(op) for op in ops):
+            return True
     return False
 
-def any_call_to_raising_graphs(from_graph, translator, raise_analyzer):
+def any_call_to_raising_graphs(from_graph, translator, can_raise):
     for graph_or_something in collect_called_graphs(from_graph, translator):
         if isinstance(graph_or_something, FunctionGraph):
-            if does_raise_directly(graph_or_something, raise_analyzer):
+            if does_raise_directly(graph_or_something, can_raise):
                 return True
         else:
             return True # conservatively
@@ -129,7 +128,7 @@ def any_call_to_raising_graphs(from_graph, translator, raise_analyzer):
         else:
             consider_ops_to = len(block.operations)
         for op in block.operations[:consider_ops_to]:
-            if raise_analyzer.can_raise(op):
+            if can_raise(op):
                 return True
     return False
 
@@ -137,7 +136,7 @@ class BaseInliner(object):
     def __init__(self, translator, graph, lltype_to_classdef,
                  inline_guarded_calls=False,
                  inline_guarded_calls_no_matter_what=False,
-                 raise_analyzer=None,
+                 can_raise=None,
                  call_count_pred=None,
                  cleanup=True):
         self.translator = translator
@@ -147,8 +146,8 @@ class BaseInliner(object):
         # if this argument is set, the inliner will happily produce wrong code!
         # it is used by the exception transformation
         self.inline_guarded_calls_no_matter_what = inline_guarded_calls_no_matter_what
-        assert raise_analyzer is not None
-        self.raise_analyzer = raise_analyzer
+        assert can_raise is not None
+        self.can_raise = can_raise
         self.lltype_to_classdef = lltype_to_classdef
         self.call_count_pred = call_count_pred
 
@@ -193,10 +192,10 @@ class BaseInliner(object):
             self.exception_guarded = True
             if self.inline_guarded_calls:
                 if (not self.inline_guarded_calls_no_matter_what and
-                    does_raise_directly(self.graph_to_inline, self.raise_analyzer)):
+                    does_raise_directly(self.graph_to_inline, self.can_raise)):
                     raise CannotInline("can't inline because the call is exception guarded")
             elif any_call_to_raising_graphs(self.graph_to_inline,
-                                            self.translator, self.raise_analyzer):
+                                            self.translator, self.can_raise):
                 raise CannotInline("can't handle exceptions")
         self._passon_vars = {}
         self.entrymap = mkentrymap(self.graph_to_inline)
@@ -423,13 +422,13 @@ class Inliner(BaseInliner):
     def __init__(self, translator, graph, inline_func, lltype_to_classdef,
                  inline_guarded_calls=False,
                  inline_guarded_calls_no_matter_what=False,
-                 raise_analyzer=None,
+                 can_raise=None,
                  call_count_pred=None,
                  cleanup=True):
         BaseInliner.__init__(self, translator, graph, lltype_to_classdef,
                              inline_guarded_calls,
                              inline_guarded_calls_no_matter_what,
-                             raise_analyzer,
+                             can_raise,
                              call_count_pred,
                              cleanup)
         self.inline_func = inline_func
@@ -629,7 +628,7 @@ def auto_inlining(translator, threshold=None,
     valid_weight = {}
     try_again = {}
     lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
-    raise_analyzer = RaiseAnalyzer(translator)
+    can_raise = RaiseAnalyzer(translator).can_raise
     count = 0
     while heap:
         weight, _, graph = heap[0]
@@ -673,7 +672,7 @@ def auto_inlining(translator, threshold=None,
             subcount = 0
             try:
                 subcount = inline_function(translator, graph, parentgraph,
-                                           lltype_to_classdef, raise_analyzer,
+                                           lltype_to_classdef, can_raise,
                                            call_count_pred, cleanup=False)
                 to_cleanup[parentgraph] = True
                 res = bool(subcount)
