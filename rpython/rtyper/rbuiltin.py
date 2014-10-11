@@ -10,6 +10,15 @@ from rpython.rtyper.rstr import AbstractStringRepr
 from rpython.tool.pairtype import pairtype
 
 
+BUILTIN_TYPER = {}
+
+def typer_for(func):
+    def wrapped(rtyper_func):
+        BUILTIN_TYPER[func] = rtyper_func
+        return func
+    return wrapped
+
+
 class __extend__(annmodel.SomeBuiltin):
     def rtyper_makerepr(self, rtyper):
         if not self.is_constant():
@@ -182,11 +191,13 @@ def get_builtin_method_self(x):
 
 # ____________________________________________________________
 
+@typer_for(bool)
 def rtype_builtin_bool(hop):
     # not called any more?
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_bool(hop)
 
+@typer_for(int)
 def rtype_builtin_int(hop):
     if isinstance(hop.args_s[0], annmodel.SomeString):
         assert 1 <= hop.nb_args <= 2
@@ -194,24 +205,30 @@ def rtype_builtin_int(hop):
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_int(hop)
 
+@typer_for(float)
 def rtype_builtin_float(hop):
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_float(hop)
 
+@typer_for(chr)
 def rtype_builtin_chr(hop):
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_chr(hop)
 
+@typer_for(unichr)
 def rtype_builtin_unichr(hop):
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_unichr(hop)
 
+@typer_for(unicode)
 def rtype_builtin_unicode(hop):
     return hop.args_r[0].rtype_unicode(hop)
 
+@typer_for(bytearray)
 def rtype_builtin_bytearray(hop):
     return hop.args_r[0].rtype_bytearray(hop)
 
+@typer_for(list)
 def rtype_builtin_list(hop):
     return hop.args_r[0].rtype_bltn_list(hop)
 
@@ -233,6 +250,8 @@ def rtype_longlongmask(hop):
     vlist = hop.inputargs(lltype.SignedLongLong)
     return vlist[0]
 
+
+@typer_for(min)
 def rtype_builtin_min(hop):
     v1, v2 = hop.inputargs(hop.r_result, hop.r_result)
     hop.exception_cannot_occur()
@@ -243,21 +262,24 @@ def ll_min(i1, i2):
         return i1
     return i2
 
+
+@typer_for(max)
 def rtype_builtin_max(hop):
     v1, v2 = hop.inputargs(hop.r_result, hop.r_result)
     hop.exception_cannot_occur()
     return hop.gendirectcall(ll_max, v1, v2)
 
-
-def rtype_builtin_reversed(hop):
-    hop.exception_cannot_occur()
-    return hop.r_result.newiter(hop)
-
-
 def ll_max(i1, i2):
     if i1 > i2:
         return i1
     return i2
+
+
+@typer_for(reversed)
+def rtype_builtin_reversed(hop):
+    hop.exception_cannot_occur()
+    return hop.r_result.newiter(hop)
+
 
 def rtype_object__init__(hop):
     hop.exception_cannot_occur()
@@ -325,18 +347,10 @@ def rtype_hlinvoke(hop):
 
     return hop.dispatch()
 
-rtype_builtin_range = rrange.rtype_builtin_range
-rtype_builtin_xrange = rrange.rtype_builtin_xrange
-rtype_builtin_enumerate = rrange.rtype_builtin_enumerate
+typer_for(range)(rrange.rtype_builtin_range)
+typer_for(xrange)(rrange.rtype_builtin_xrange)
+typer_for(enumerate)(rrange.rtype_builtin_enumerate)
 
-
-# collect all functions
-import __builtin__
-BUILTIN_TYPER = {}
-for name, value in globals().items():
-    if name.startswith('rtype_builtin_'):
-        original = getattr(__builtin__, name[14:])
-        BUILTIN_TYPER[original] = value
 
 BUILTIN_TYPER[getattr(object.__init__, 'im_func', object.__init__)] = (
     rtype_object__init__)
@@ -684,6 +698,8 @@ BUILTIN_TYPER[llmemory.cast_adr_to_ptr] = rtype_cast_adr_to_ptr
 BUILTIN_TYPER[llmemory.cast_adr_to_int] = rtype_cast_adr_to_int
 BUILTIN_TYPER[llmemory.cast_int_to_adr] = rtype_cast_int_to_adr
 
+
+@typer_for(isinstance)
 def rtype_builtin_isinstance(hop):
     hop.exception_cannot_occur()
     if hop.s_result.is_constant():
@@ -714,6 +730,8 @@ def rtype_instantiate(hop):
     classdef = s_class.any_description().getuniqueclassdef()
     return rclass.rtype_new_instance(hop.rtyper, classdef, hop.llops)
 
+
+@typer_for(hasattr)
 def rtype_builtin_hasattr(hop):
     hop.exception_cannot_occur()
     if hop.s_result.is_constant():
@@ -740,8 +758,6 @@ def rtype_ordered_dict(hop):
     return v_result
 
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
-BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
-BUILTIN_TYPER[hasattr] = rtype_builtin_hasattr
 BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
 BUILTIN_TYPER[annmodel.SomeOrderedDict.knowntype] = rtype_ordered_dict
 BUILTIN_TYPER[objectmodel.r_ordereddict] = rtype_ordered_dict
