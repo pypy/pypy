@@ -4,6 +4,8 @@ from rpython.annotator import model as annmodel, description
 from rpython.flowspace.model import Constant
 from rpython.annotator.argument import simple_args
 from rpython.rtyper import rclass, callparse
+from rpython.rtyper.lltypesystem.rclass import (
+    CLASSTYPE, OBJECT_VTABLE, OBJECTPTR)
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
@@ -22,7 +24,7 @@ def small_cand(rtyper, s_pbc):
 class __extend__(annmodel.SomePBC):
     def rtyper_makerepr(self, rtyper):
         from rpython.rtyper.lltypesystem.rpbc import (
-            FunctionsPBCRepr, SmallFunctionSetPBCRepr, ClassesPBCRepr)
+            FunctionsPBCRepr, SmallFunctionSetPBCRepr)
         kind = self.getKind()
         if issubclass(kind, description.FunctionDesc):
             sample = self.any_description()
@@ -584,7 +586,7 @@ class __extend__(pairtype(MethodOfFrozenPBCRepr, MethodOfFrozenPBCRepr)):
 
 # ____________________________________________________________
 
-class AbstractClassesPBCRepr(Repr):
+class ClassesPBCRepr(Repr):
     """Representation selected for a PBC of class(es)."""
 
     def __init__(self, rtyper, s_pbc):
@@ -727,8 +729,42 @@ class AbstractClassesPBCRepr(Repr):
             hop2.dispatch()
         return v_instance
 
+    def _instantiate_runtime_class(self, hop, vtypeptr, r_instance):
+        graphs = []
+        for desc in self.s_pbc.descriptions:
+            classdef = desc.getclassdef(None)
+            assert hasattr(classdef, 'my_instantiate_graph')
+            graphs.append(classdef.my_instantiate_graph)
+        c_graphs = hop.inputconst(lltype.Void, graphs)
+        #
+        # "my_instantiate = typeptr.instantiate"
+        c_name = hop.inputconst(lltype.Void, 'instantiate')
+        v_instantiate = hop.genop('getfield', [vtypeptr, c_name],
+                                 resulttype=OBJECT_VTABLE.instantiate)
+        # "my_instantiate()"
+        v_inst = hop.genop('indirect_call', [v_instantiate, c_graphs],
+                           resulttype=OBJECTPTR)
+        return hop.genop('cast_pointer', [v_inst], resulttype=r_instance)
 
-class __extend__(pairtype(AbstractClassesPBCRepr, rclass.AbstractClassRepr)):
+    def getlowleveltype(self):
+        return CLASSTYPE
+
+    def get_ll_hash_function(self):
+        return ll_cls_hash
+
+    get_ll_fasthash_function = get_ll_hash_function
+
+    def get_ll_eq_function(self):
+        return None
+
+
+def ll_cls_hash(cls):
+    if not cls:
+        return 0
+    else:
+        return cls.hash
+
+class __extend__(pairtype(ClassesPBCRepr, rclass.AbstractClassRepr)):
     def convert_from_to((r_clspbc, r_cls), v, llops):
         # turn a PBC of classes to a standard pointer-to-vtable class repr
         if r_clspbc.lowleveltype == r_cls.lowleveltype:
@@ -738,7 +774,7 @@ class __extend__(pairtype(AbstractClassesPBCRepr, rclass.AbstractClassRepr)):
         # convert from ptr-to-object-vtable to ptr-to-more-precise-vtable
         return r_cls.fromclasstype(v, llops)
 
-class __extend__(pairtype(AbstractClassesPBCRepr, AbstractClassesPBCRepr)):
+class __extend__(pairtype(ClassesPBCRepr, ClassesPBCRepr)):
     def convert_from_to((r_clspbc1, r_clspbc2), v, llops):
         # this check makes sense because both source and dest repr are ClassesPBCRepr
         if r_clspbc1.lowleveltype == r_clspbc2.lowleveltype:

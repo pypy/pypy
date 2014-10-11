@@ -180,11 +180,11 @@ def _ll_0_newlist(LIST):
     return LIST.ll_newlist(0)
 def _ll_1_newlist(LIST, count):
     return LIST.ll_newlist(count)
-def _ll_2_newlist(LIST, count, item):
-    return rlist.ll_alloc_and_set(LIST, count, item)
 _ll_0_newlist.need_result_type = True
 _ll_1_newlist.need_result_type = True
-_ll_2_newlist.need_result_type = True
+
+_ll_1_newlist_clear = rlist._ll_alloc_and_clear
+_ll_1_newlist_clear.need_result_type = True
 
 def _ll_1_newlist_hint(LIST, hint):
     return LIST.ll_newlist_hint(hint)

@@ -59,6 +59,20 @@ def test_same_constant_float():
     assert not c5.same_constant(c2)
     assert not c5.same_constant(c4)
 
+def test_float_nonnull():
+    c1 = Const._new(0.0)
+    c2 = Const._new(1.0)
+    c3 = Const._new(INFINITY)
+    c4 = Const._new(-INFINITY)
+    c5 = Const._new(NAN)
+    c6 = Const._new(-0.0)
+    assert not c1.nonnull()
+    assert c2.nonnull()
+    assert c3.nonnull()
+    assert c4.nonnull()
+    assert c5.nonnull()
+    assert c6.nonnull()
+
 
 class TestZTranslated(StandaloneTests):
     def test_ztranslated_same_constant_float(self):

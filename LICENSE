@@ -3,8 +3,8 @@ License
 
 Except when otherwise stated (look for LICENSE files in directories or
 information at the beginning of each file) all software and documentation in
-the 'rpython', 'pypy', 'ctype_configure', 'dotviewer', 'demo', and 'lib_pypy'
-directories is licensed as follows: 
+the 'rpython', 'pypy', 'ctype_configure', 'dotviewer', 'demo', 'lib_pypy',
+'py', and '_pytest' directories is licensed as follows: 
 
     The MIT License
 
@@ -367,3 +367,43 @@ limitations under the License.
 Detailed license information is contained in the NOTICE file in the
 directory.
 
+
+Licenses and Acknowledgements for Incorporated Software
+=======================================================
+
+This section is an incomplete, but growing list of licenses and
+acknowledgements for third-party software incorporated in the PyPy
+distribution.
+
+License for 'Tcl/Tk'
+--------------------
+
+This copy of PyPy contains library code that may, when used, result in
+the Tcl/Tk library to be loaded.  PyPy also includes code that may be
+regarded as being a copy of some parts of the Tcl/Tk header files.
+You may see a copy of the License for Tcl/Tk in the file
+`lib_pypy/_tkinter/license.terms` included here.
+
+License for 'bzip2'
+-------------------
+
+This copy of PyPy may be linked (dynamically or statically) with the
+bzip2 library.  You may see a copy of the License for bzip2/libbzip2 at
+
+    http://www.bzip.org/1.0.5/bzip2-manual-1.0.5.html
+
+License for 'openssl'
+---------------------
+
+This copy of PyPy may be linked (dynamically or statically) with the
+openssl library.  You may see a copy of the License for OpenSSL at
+
+    https://www.openssl.org/source/license.html
+
+License for 'gdbm'
+------------------
+
+The gdbm module includes code from gdbm.h, which is distributed under
+the terms of the GPL license version 2 or any later version.  Thus the
+gdbm module, provided in the file lib_pypy/gdbm.py, is redistributed
+under the terms of the GPL license as well.

@@ -194,6 +194,14 @@ def oopspec(spec):
         return func
     return decorator
 
+def not_in_trace(func):
+    """A decorator for a function with no return value.  It makes the
+    function call disappear from the jit traces. It is still called in
+    interpreted mode, and by the jit tracing and blackholing, but not
+    by the final assembler."""
+    func.oopspec = "jit.not_in_trace()"   # note that 'func' may take arguments
+    return func
+
 @oopspec("jit.isconstant(value)")
 def isconstant(value):
     """
