@@ -211,7 +211,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert np.result_type(1.) is np.dtype('float64')
         assert np.result_type(1+2j) is np.dtype('complex128')
         assert np.result_type(1, 1.) is np.dtype('float64')
-        assert np.result_type(np.array([1, 2])) is np.dtype('int64')
+        assert np.result_type(np.array([1, 2])) is np.dtype('int')
         assert np.result_type(np.array([1, 2]), 1, 1+2j) is np.dtype('complex128')
         assert np.result_type(np.array([1, 2]), 1, 'float64') is np.dtype('float64')
         assert np.result_type(np.array([1, 2]), 1, None) is np.dtype('float64')
