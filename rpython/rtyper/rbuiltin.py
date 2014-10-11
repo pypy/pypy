@@ -134,7 +134,7 @@ class BuiltinMethodRepr(Repr):
         self.lowleveltype = self.self_repr.lowleveltype
 
     def convert_const(self, obj):
-        return self.self_repr.convert_const(get_builtin_method_self(obj))
+        return self.self_repr.convert_const(obj.__self__)
 
     def rtype_simple_call(self, hop):
         # methods: look up the rtype_method_xxx()
@@ -149,7 +149,7 @@ class BuiltinMethodRepr(Repr):
         assert hop2.args_r[0] is self
         if isinstance(hop2.args_v[0], Constant):
             c = hop2.args_v[0].value    # get object from bound method
-            c = get_builtin_method_self(c)
+            c = c.__self__
             hop2.args_v[0] = Constant(c)
         hop2.args_s[0] = self.s_self
         hop2.args_r[0] = self.self_repr
@@ -180,12 +180,6 @@ def parse_kwds(hop, *argspec_i_r):
             result.append(None)
     del hop.args_v[hop.nb_args - len(lst):]
     return result
-
-def get_builtin_method_self(x):
-    try:
-        return x.__self__   # on top of CPython
-    except AttributeError:
-        return x.im_self    # on top of PyPy
 
 # ____________________________________________________________
 
