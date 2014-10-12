@@ -29,7 +29,7 @@ BUILTIN_ANALYZERS = {}
 def analyzer_for(func):
     def wrapped(ann_func):
         BUILTIN_ANALYZERS[func] = ann_func
-        return func
+        return ann_func
     return wrapped
 
 class Bookkeeper(object):
