@@ -3,7 +3,8 @@ from rpython.rlib.jit import JitDriver, promote, dont_look_inside
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp.test.support import LLJitMixin
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.codewriter import heaptracker
 

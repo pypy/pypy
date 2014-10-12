@@ -4,8 +4,7 @@ from rpython.annotator import model as annmodel, description
 from rpython.flowspace.model import Constant
 from rpython.annotator.argument import simple_args
 from rpython.rtyper import rclass, callparse
-from rpython.rtyper.lltypesystem.rclass import (
-    CLASSTYPE, OBJECT_VTABLE, OBJECTPTR)
+from rpython.rtyper.rclass import CLASSTYPE, OBJECT_VTABLE, OBJECTPTR
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,

@@ -9,7 +9,8 @@ from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.codewriter.heaptracker import register_known_gctype
 from rpython.jit.metainterp.history import JitCellToken, FLOAT
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper import rclass
 from rpython.jit.backend.x86.arch import WORD
 
 class Evaluator(object):

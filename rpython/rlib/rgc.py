@@ -402,9 +402,9 @@ def try_cast_gcref_to_instance(Class, gcref):
     # Before translation, unwraps the RPython instance contained in a _GcRef.
     # After translation, it is a type-check performed by the GC.
     if we_are_translated():
-        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+        from rpython.rtyper.rclass import OBJECTPTR
         from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-        from rpython.rtyper.lltypesystem import rclass
+        from rpython.rtyper import rclass
         if _is_rpy_instance(gcref):
             objptr = lltype.cast_opaque_ptr(OBJECTPTR, gcref)
             if objptr.typeptr:   # may be NULL, e.g. in rdict's dummykeyobj

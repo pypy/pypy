@@ -10,7 +10,8 @@ from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.executor import execute_nonspec
 from rpython.jit.metainterp.resoperation import opname
 from rpython.jit.codewriter import longlong
-from rpython.rtyper.lltypesystem import lltype, rstr, rclass
+from rpython.rtyper.lltypesystem import lltype, rstr
+from rpython.rtyper import rclass
 
 class PleaseRewriteMe(Exception):
     pass
@@ -234,7 +235,7 @@ class OperationBuilder(object):
                 ', '.join([names[v] for v in fail_args]))
         print >>s, '    operations = ['
         for op in self.loop.operations:
-            self.process_operation(s, op, names) 
+            self.process_operation(s, op, names)
         print >>s, '        ]'
         for i, op in enumerate(self.loop.operations):
             if op.is_guard():

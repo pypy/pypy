@@ -18,7 +18,8 @@ from rpython.rlib.debug import debug_start, debug_stop, debug_print, make_sure_n
 from rpython.rlib.jit import Counters
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper import rclass
 
 
 

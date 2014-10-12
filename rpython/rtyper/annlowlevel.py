@@ -464,7 +464,7 @@ def cast_object_to_ptr(PTR, object):
 
 @specialize.argtype(0)
 def cast_instance_to_base_ptr(instance):
-    from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+    from rpython.rtyper.rclass import OBJECTPTR
     return cast_object_to_ptr(OBJECTPTR, instance)
 
 @specialize.argtype(0)

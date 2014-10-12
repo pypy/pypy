@@ -8,7 +8,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import hlstr, llstr
 from rpython.rtyper.annlowlevel import hlunicode, llunicode
 from rpython.rtyper import annlowlevel
-from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+from rpython.rtyper.rclass import OBJECTPTR
 
 
 class TestLLType(BaseRtypingTest):

@@ -581,7 +581,7 @@ class RPythonTyper(object):
         return rtype_newtuple(hop)
 
     def translate_op_instantiate1(self, hop):
-        from rpython.rtyper.lltypesystem import rclass
+        from rpython.rtyper import rclass
         if not isinstance(hop.s_result, annmodel.SomeInstance):
             raise TyperError("instantiate1 got s_result=%r" % (hop.s_result,))
         classdef = hop.s_result.classdef
