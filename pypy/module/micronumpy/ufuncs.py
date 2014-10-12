@@ -11,6 +11,10 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.ctors import numpify
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.support import _parse_signature
+from rpython.rlib.rawstorage import (raw_storage_setitem, free_raw_storage,
+             alloc_raw_storage)
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import LONG_BIT, _get_bitsize
 
 
 def done_if_true(dtype, val):
@@ -231,11 +235,11 @@ class W_Ufunc(W_Root):
                 # Test for shape agreement
                 # XXX maybe we need to do broadcasting here, although I must
                 #     say I don't understand the details for axis reduce
-                if len(out.get_shape()) > len(shape):
+                if out.ndims() > len(shape):
                     raise oefmt(space.w_ValueError,
                                 "output parameter for reduction operation %s "
                                 "has too many dimensions", self.name)
-                elif len(out.get_shape()) < len(shape):
+                elif out.ndims() < len(shape):
                     raise oefmt(space.w_ValueError,
                                 "output parameter for reduction operation %s "
                                 "does not have enough dimensions", self.name)
@@ -269,7 +273,7 @@ class W_Ufunc(W_Root):
                                            self.identity)
             return out
         if out:
-            if len(out.get_shape()) > 0:
+            if out.ndims() > 0:
                 raise oefmt(space.w_ValueError,
                             "output parameter for reduction operation %s has "
                             "too many dimensions", self.name)
@@ -546,16 +550,18 @@ class W_UfuncGeneric(W_Ufunc):
         raise oefmt(space.w_NotImplementedError, 'not implemented yet')
 
     def call(self, space, args_w, sig, casting, extobj):
-        w_obj = args_w[0]
-        inargs = []
+        inargs = [None]*self.nin
         if len(args_w) < self.nin:
             raise oefmt(space.w_ValueError,
                  '%s called with too few input args, expected at least %d got %d',
                  self.name, self.nin, len(args_w))
         for i in range(self.nin):
-            inargs.append(convert_to_array(space, args_w[i]))
-        outargs = [None] * self.nout
-        for i in range(min(self.nout, len(args_w)-self.nin)):
+            inargs[i] = convert_to_array(space, args_w[i])
+        inargs = tuple(inargs)
+        for i in range(len(inargs)):
+            assert isinstance(inargs[i], W_NDimArray)
+        outargs = [None] * min(self.nout, len(args_w)-self.nin)
+        for i in range(len(outargs)):
             out = args_w[i+self.nin]
             if space.is_w(out, space.w_None) or out is None:
                 continue
@@ -568,30 +574,133 @@ class W_UfuncGeneric(W_Ufunc):
             sig = space.wrap(self.signature)
         index = self.type_resolver(space, inargs, outargs, sig)
         outargs = self.alloc_outargs(space, index, inargs, outargs)
-        inargs0 = inargs[0]
-        outargs0 = outargs[0]
-        assert isinstance(inargs0, W_NDimArray)
-        assert isinstance(outargs0, W_NDimArray)
-        new_shape = inargs0.get_shape()
-        res_dtype = outargs0.get_dtype()
-        # XXX handle inner-loop indexing
+        outargs = tuple(outargs)
+        for i in range(len(outargs)):
+            assert isinstance(outargs[i], W_NDimArray)
+        res_dtype = outargs[0].get_dtype()
+        func = self.funcs[index]
         if not self.core_enabled:
-            # func is going to do all the work
-            arglist = space.newlist(inargs + outargs)
-            func = self.funcs[index]
+            # func is going to do all the work, it must accept W_NDimArray args
+            arglist = space.newlist(list(inargs + outargs))
+            if not isinstance(func, W_GenericUFuncCaller):
+                raise oefmt(space.w_RuntimeError, "cannot do core_enabled frompyfunc")
             space.call_args(func, Arguments.frompacked(space, arglist))
             if len(outargs) < 2:
-                return outargs0
+                return outargs[0]
             return space.newtuple(outargs)
+        # Figure out the number of iteration dimensions, which
+        # is the broadcast result of all the input non-core
+        # dimensions
+        broadcast_ndim = 0
+        for i in range(len(inargs)):
+            n = inargs[i].ndims() - self.core_num_dims[i]
+            broadcast_ndim = max(broadcast_ndim, n)
+        # Figure out the number of iterator creation dimensions,
+        # which is the broadcast dimensions + all the core dimensions of
+        # the outputs, so that the iterator can allocate those output
+        # dimensions following the rules of order='F', for example.
+        iter_ndim = broadcast_ndim
+        for i in range(self.nin, self.nargs):
+            iter_ndim += self.core_num_dims[i];
+        # Validate the core dimensions of all the operands,
+        # and collect all of the labeled core dimension sizes
+        # into the array 'inner_dimensions[1:]'. Initialize them to
+        # 1, for example in the case where the operand broadcasts
+        # to a core dimension, it won't be visited.
+        inner_dimensions = [1] * (self.core_num_dim_ix + 1)
+        idim = 0
+        for i in range(self.nin):
+            dim_offset = self.core_offsets[i]
+            num_dims = self.core_num_dims[i]
+            core_start_dim = inargs[i].ndims() - num_dims
+            if core_start_dim >=0:
+                idim = 0
+            else:
+                idim = -core_start_dim
+            while(idim < num_dims):
+                core_dim_index = self.core_dim_ixs[dim_offset + idim]
+                op_dim_size = inargs[i].get_shape()[core_start_dim + idim]
+                if inner_dimensions[i + 1] == 1:
+                    inner_dimensions[i + 1] = op_dim_size
+                elif op_dim_size != 1 and inner_dimensions[1 + core_dim_index] != op_dim_size:
+                    oefmt(space.ValueError, "%s: Operand %d has a mismatch in "
+                        " its core dimension %d, with gufunc signature %s "
+                        "(size %d is different from %d)", self.name, i, idim,
+                    self.signature, op_dim_size, inner_dimensions[1 + core_dim_index])
+                idim += 1
+        for i in range(len(outargs)):
+            dim_offset = self.core_offsets[i]
+            num_dims = self.core_num_dims[i]
+            core_start_dim = outargs[i].ndims() - num_dims
+            if core_start_dim < 0:
+                oefmt(space.ValueError, "%s: Output operand %d does not"
+                    "have enough dimensions (has %d, gufunc with signature "
+                    "%s requires %d)", self.name, i, outargs[i].ndims(),
+                    self.signature, num_dims)
+            if core_start_dim >=0:
+                idim = 0
+            else:
+                idim = -core_start_dim
+            while(idim < num_dims):
+                core_dim_index = self.core_dim_ixs[dim_offset + idim]
+                op_dim_size = inargs[i].get_shape()[core_start_dim + idim]
+                if inner_dimensions[i + 1] == 1:
+                    inner_dimensions[i + 1] = op_dim_size
+                elif inner_dimensions[1 + core_dim_index] != op_dim_size:
+                    oefmt(space.ValueError, "%s: Operand %d has a mismatch in "
+                        " its core dimension %d, with gufunc signature %s "
+                        "(size %d is different from %d)", self.name, i, idim,
+                    self.signature, op_dim_size, inner_dimensions[1 + core_dim_index])
+                idim += 1
+        iter_shape = [-1] * (broadcast_ndim + len(outargs))
+        j = broadcast_ndim
+        core_dim_ixs_size = 0
+        op_axes_arrays = ([-1] * (self.nin + len(outargs))) * broadcast_ndim
+        if broadcast_ndim < 2:
+            op_axes_arrays = [op_axes_arrays]
+        for i in range(self.nin):
+            # Note that n may be negative if broadcasting
+            # extends into the core dimensions.
+            n = inargs[i].ndims() - self.core_num_dims[i]
+            for idim in range(broadcast_ndim):
+                if idim >= broadcast_ndim -n:
+                    op_axes_arrays[i][idim] = idim - (broadcast_ndim -n)
+            core_dim_ixs_size += self.core_num_dims[i];
+        for i in range(len(outargs)):
+            iout = i + self.nin
+            n = outargs[i].ndims() - self.core_num_dims[iout]
+            for idim in range(broadcast_ndim):
+                if idim >= broadcast_ndim -n:
+                    op_axes_arrays[iout][idim] = idim - (broadcast_ndim -n)
+                dim_offset = self.core_offsets[iout]
+                num_dims = self.core_num_dims[iout]
+                for idim in range(num_dims):
+                    cdi = self.core_dim_ixs[dim_offset + idim]
+                    iter_shape[j] = inner_dimensions[1 + cdi]
+                    op_axes_arrays[iout][j] = n + idim
+                    j += 1
+            core_dim_ixs_size += self.core_num_dims[iout];
+        # TODO once we support obejct dtypes,
+        # FAIL with NotImplemented if the other object has
+        # the __r<op>__ method and has a higher priority than
+        # the current op (signalling it can handle ndarray's).
+
+        # TODO parse and handle subok
+
+        if isinstance(func, W_GenericUFuncCaller):
+            import pdb;pdb.set_trace()
+            # xxx rdo what needs to be done to inner-loop indexing
+        new_shape = inargs[0].get_shape()
         if len(outargs) < 2:
-            return loop.call_many_to_one(space, new_shape, self.funcs[index],
+            return loop.call_many_to_one(space, new_shape, func,
                                          res_dtype, inargs, outargs[0])
-        return loop.call_many_to_many(space, new_shape, self.funcs[index],
-                                     res_dtype, inargs, outargs)
+        return loop.call_many_to_many(space, new_shape, func,
+                                         res_dtype, inargs, outargs)
 
     def parse_kwargs(self, space, kwargs_w):
         w_subok, w_out, casting, sig, extobj = \
                     W_Ufunc.parse_kwargs(self, space, kwargs_w)
+        # do equivalent of get_ufunc_arguments in numpy's ufunc_object.c
         dtype_w = kwargs_w.pop('dtype', None)
         if not space.is_w(dtype_w, space.w_None) and not dtype_w is None:
             if sig:
@@ -1088,3 +1197,80 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
         w_ret.w_doc = space.wrap(doc)
     return w_ret
 
+# Instantiated in cpyext/ndarrayobject
+npy_intpp = rffi.LONGP
+LONG_SIZE = LONG_BIT / 8
+CCHARP_SIZE = _get_bitsize('P') / 8
+
+class W_GenericUFuncCaller(W_Root):
+    def __init__(self, func, data):
+        self.func = func
+        self.data = data
+        self.dims = None
+        self.steps = None
+
+    def __del__(self):
+        if self.dims is not None:
+            free_raw_storage(self.dims, track_allocation=False)
+        if self.steps is not None:
+            free_raw_storage(self.steps, track_allocation=False)
+
+    def descr_call(self, space, __args__):
+        args_w, kwds_w = __args__.unpack()
+        # Can be called two ways, as an inner-loop function with boxes, 
+        # or as an outer-looop functio with ndarrays
+        dataps = alloc_raw_storage(CCHARP_SIZE * len(args_w), track_allocation=False)
+        if isinstance(args_w[0], W_NDimArray):
+            self.dims = alloc_raw_storage(LONG_SIZE * len(args_w), track_allocation=False)
+            self.steps = alloc_raw_storage(LONG_SIZE * len(args_w), track_allocation=False)
+            for i in range(len(args_w)):
+                arg_i = args_w[i]
+                if not isinstance(arg_i, W_NDimArray):
+                    raise OperationError(space.w_NotImplementedError,
+                         space.wrap("cannot mix ndarray and %r (arg %d) in call to ufunc" % (
+                                    arg_i, i)))
+                raw_storage_setitem(dataps, CCHARP_SIZE * i,
+                        rffi.cast(rffi.CCHARP, arg_i.implementation.storage))
+                #This assumes we iterate over the whole array (it should be a view...)
+                raw_storage_setitem(self.dims, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_size()))
+                raw_storage_setitem(self.steps, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_dtype().elsize))
+        else:
+            if self.dims is None or self.steps is None:
+                raise OperationError(space.w_RuntimeError,
+                     space.wrap("call set_dims_and_steps first"))
+            raw_storage_setitem(dataps, CCHARP_SIZE * i,
+                    rffi.cast(rffi.CCHARP, arg_i.storage))
+        try:
+            arg1 = rffi.cast(rffi.CArrayPtr(rffi.CCHARP), dataps)
+            arg2 = rffi.cast(npy_intpp, self.dims)
+            arg3 = rffi.cast(npy_intpp, self.steps)
+            self.func(arg1, arg2, arg3, self.data)
+        finally:
+            free_raw_storage(dataps, track_allocation=False)
+
+def set_dims_and_steps(obj, space, dims, steps):
+        if not isinstance(obj, W_GenericUFuncCaller):
+            raise OperationError(space.w_RuntimeError,
+                 space.wrap("set_dims_and_steps called inappropriately"))
+        if not isinstance(dims, list) or not isinstance(steps, list):
+            raise OperationError(space.w_RuntimeError,
+                 space.wrap("set_dims_and_steps called inappropriately"))
+        if len(dims) != len(step):
+            raise OperationError(space.w_RuntimeError,
+                 space.wrap("set_dims_and_steps called inappropriately"))
+        if self.dims is not None or self.steps is not None:
+            raise OperationError(space.w_RuntimeError,
+                 space.wrap("set_dims_and_steps called inappropriately"))
+        self.dims = alloc_raw_storage(LONG_SIZE * len(dims), track_allocation=False)
+        self.steps = alloc_raw_storage(LONG_SIZE * len(dims), track_allocation=False)
+        for d in dims:
+            raw_storage_setitem(self.dims, LONG_SIZE * i, rffi.cast(rffi.LONG, d))
+        for d in steps:
+            raw_storage_setitem(self.steps, LONG_SIZE * i, rffi.cast(rffi.LONG, d))
+
+W_GenericUFuncCaller.typedef = TypeDef("hiddenclass",
+    __call__ = interp2app(W_GenericUFuncCaller.descr_call),
+)
+
+GenericUfunc = lltype.FuncType([rffi.CArrayPtr(rffi.CCHARP), npy_intpp, npy_intpp,
+                                      rffi.VOIDP], lltype.Void)

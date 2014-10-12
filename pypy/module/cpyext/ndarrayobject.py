@@ -12,9 +12,7 @@ from pypy.module.micronumpy.ctors import array
 from pypy.module.micronumpy.descriptor import get_dtype_cache, W_Dtype
 from pypy.module.micronumpy.concrete import ConcreteArray
 from pypy.module.micronumpy import ufuncs
-from rpython.rlib.rawstorage import (RAW_STORAGE_PTR, raw_storage_getitem, raw_storage_setitem,
-        free_raw_storage, alloc_raw_storage)
-from rpython.rlib.rarithmetic import LONG_BIT, _get_bitsize
+from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.argument import Arguments
@@ -259,48 +257,7 @@ def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, fla
         return simple_new(space, nd, dims, typenum,
             order=order, owning=owning, w_subtype=w_subtype)
 
-npy_intpp = rffi.LONGP
-LONG_SIZE = LONG_BIT / 8
-CCHARP_SIZE = _get_bitsize('P') / 8
-
-class W_GenericUFuncCaller(W_Root):
-    def __init__(self, func, data):
-        self.func = func
-        self.data = data
-
-    def descr_call(self, space, __args__):
-        args_w, kwds_w = __args__.unpack()
-        dataps = alloc_raw_storage(CCHARP_SIZE * len(args_w), track_allocation=False)
-        dims = alloc_raw_storage(LONG_SIZE * len(args_w), track_allocation=False)
-        steps = alloc_raw_storage(LONG_SIZE * len(args_w), track_allocation=False)
-        for i in range(len(args_w)):
-            arg_i = args_w[i]
-            if isinstance(arg_i, W_NDimArray):
-                raw_storage_setitem(dataps, CCHARP_SIZE * i,
-                        rffi.cast(rffi.CCHARP, arg_i.implementation.storage))
-                #This assumes we iterate over the whole array (it should be a view...)
-                raw_storage_setitem(dims, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_size()))
-                raw_storage_setitem(steps, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_dtype().elsize))
-            else:
-                raise OperationError(space.w_NotImplementedError,
-                         space.wrap("cannot call GenericUFunc with %r as arg %d" % (arg_i, i)))
-        try:
-            arg1 = rffi.cast(rffi.CArrayPtr(rffi.CCHARP), dataps)
-            arg2 = rffi.cast(npy_intpp, dims)
-            arg3 = rffi.cast(npy_intpp, steps)
-            self.func(arg1, arg2, arg3, self.data)
-        finally:
-            free_raw_storage(dataps, track_allocation=False)
-            free_raw_storage(dims, track_allocation=False)
-            free_raw_storage(steps, track_allocation=False)
-
-W_GenericUFuncCaller.typedef = TypeDef("hiddenclass",
-    __call__ = interp2app(W_GenericUFuncCaller.descr_call),
-)
-
-GenericUfunc = lltype.FuncType([rffi.CArrayPtr(rffi.CCHARP), npy_intpp, npy_intpp,
-                                      rffi.VOIDP], lltype.Void)
-gufunctype = lltype.Ptr(GenericUfunc)
+gufunctype = lltype.Ptr(ufuncs.GenericUfunc)
 # XXX single rffi.CArrayPtr(gufunctype) does not work, this does, is there
 # a problem with casting function pointers?
 @cpython_api([rffi.CArrayPtr(rffi.CArrayPtr(gufunctype)), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
@@ -311,7 +268,7 @@ def PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
     funcs_w = [None] * ntypes
     dtypes_w = [None] * ntypes * (nin + nout)
     for i in range(ntypes):
-        funcs_w[i] = W_GenericUFuncCaller(rffi.cast(gufunctype, funcs[i]), data)
+        funcs_w[i] = ufuncs.W_GenericUFuncCaller(rffi.cast(gufunctype, funcs[i]), data)
     for i in range(ntypes*(nin+nout)):
         dtypes_w[i] = get_dtype_cache(space).dtypes_by_num[ord(types[i])]
     w_funcs = space.newlist(funcs_w)
