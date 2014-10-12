@@ -763,7 +763,7 @@ def ll_cls_hash(cls):
     else:
         return cls.hash
 
-class __extend__(pairtype(ClassesPBCRepr, rclass.AbstractClassRepr)):
+class __extend__(pairtype(ClassesPBCRepr, rclass.ClassRepr)):
     def convert_from_to((r_clspbc, r_cls), v, llops):
         # turn a PBC of classes to a standard pointer-to-vtable class repr
         if r_clspbc.lowleveltype == r_cls.lowleveltype:

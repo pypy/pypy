@@ -189,13 +189,16 @@ def alloc_array_name(name):
     return rstr.string_repr.convert_const(name)
 
 
-class AbstractClassRepr(Repr):
+class ClassRepr(Repr):
     def __init__(self, rtyper, classdef):
         self.rtyper = rtyper
         self.classdef = classdef
-
-    def _setup_repr(self):
-        pass
+        if classdef is None:
+            # 'object' root type
+            self.vtable_type = OBJECT_VTABLE
+        else:
+            self.vtable_type = lltype.ForwardReference()
+        self.lowleveltype = Ptr(self.vtable_type)
 
     def __repr__(self):
         if self.classdef is None:
@@ -240,17 +243,6 @@ class AbstractClassRepr(Repr):
 
     def get_ll_eq_function(self):
         return None
-
-
-class ClassRepr(AbstractClassRepr):
-    def __init__(self, rtyper, classdef):
-        AbstractClassRepr.__init__(self, rtyper, classdef)
-        if classdef is None:
-            # 'object' root type
-            self.vtable_type = OBJECT_VTABLE
-        else:
-            self.vtable_type = lltype.ForwardReference()
-        self.lowleveltype = Ptr(self.vtable_type)
 
     def _setup_repr(self):
         # NOTE: don't store mutable objects like the dicts below on 'self'
@@ -297,20 +289,6 @@ class ClassRepr(AbstractClassRepr):
         self.pbcfields = pbcfields
         self.allmethods = allmethods
         self.vtable = None
-
-#    def convert_const(self, value):
-#        if not isinstance(value, (type, types.ClassType)):
-#            raise TyperError("not a class: %r" % (value,))
-#        try:
-#            subclassdef = self.rtyper.annotator.getuserclasses()[value]
-#        except KeyError:
-#            raise TyperError("no classdef: %r" % (value,))
-#        if self.classdef is not None:
-#            if self.classdef.commonbase(subclassdef) != self.classdef:
-#                raise TyperError("not a subclass of %r: %r" % (
-#                    self.classdef.cls, value))
-#        #
-#        return getclassrepr(self.rtyper, subclassdef).getvtable()
 
     def getvtable(self, cast_to_typeptr=True):
         """Return a ptr to the vtable of this type."""
@@ -364,7 +342,6 @@ class ClassRepr(AbstractClassRepr):
                 llvalue = r.convert_desc_or_const(value)
                 setattr(vtable, mangled_name, llvalue)
 
-            mro = list(rsubcls.classdef.getmro())
             for fldname in self.clsfields:
                 mangled_name, r = self.clsfields[fldname]
                 if r.lowleveltype is Void:
