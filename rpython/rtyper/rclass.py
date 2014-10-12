@@ -441,14 +441,91 @@ class __extend__(annmodel.SomeType):
         return self.__class__,
 
 
-class AbstractInstanceRepr(Repr):
-    def __init__(self, rtyper, classdef):
+class InstanceRepr(Repr):
+    def __init__(self, rtyper, classdef, gcflavor='gc'):
         self.rtyper = rtyper
         self.classdef = classdef
+        if classdef is None:
+            self.object_type = OBJECT_BY_FLAVOR[LLFLAVOR[gcflavor]]
+        else:
+            ForwardRef = lltype.FORWARDREF_BY_FLAVOR[LLFLAVOR[gcflavor]]
+            self.object_type = ForwardRef()
+        self.iprebuiltinstances = identity_dict()
+        self.lowleveltype = Ptr(self.object_type)
+        self.gcflavor = gcflavor
 
-    def _setup_repr(self):
+    def _setup_repr(self, llfields=None, hints=None, adtmeths=None):
+        # NOTE: don't store mutable objects like the dicts below on 'self'
+        #       before they are fully built, to avoid strange bugs in case
+        #       of recursion where other code would uses these
+        #       partially-initialized dicts.
         if self.classdef is None:
             self.immutable_field_set = set()
+        self.rclass = getclassrepr(self.rtyper, self.classdef)
+        fields = {}
+        allinstancefields = {}
+        if self.classdef is None:
+            fields['__class__'] = 'typeptr', get_type_repr(self.rtyper)
+        else:
+            # instance attributes
+            attrs = self.classdef.attrs.items()
+            attrs.sort()
+            myllfields = []
+            for name, attrdef in attrs:
+                if not attrdef.readonly:
+                    r = self.rtyper.getrepr(attrdef.s_value)
+                    mangled_name = 'inst_' + name
+                    fields[name] = mangled_name, r
+                    myllfields.append((mangled_name, r.lowleveltype))
+
+            # Sort the instance attributes by decreasing "likely size",
+            # as reported by rffi.sizeof(), to minimize padding holes in C.
+            # Fields of the same size are sorted by name (by attrs.sort()
+            # above) just to minimize randomness.
+            def keysize((_, T)):
+                if T is lltype.Void:
+                    return None
+                from rpython.rtyper.lltypesystem.rffi import sizeof
+                try:
+                    return -sizeof(T)
+                except StandardError:
+                    return None
+            myllfields.sort(key=keysize)
+            if llfields is None:
+                llfields = myllfields
+            else:
+                llfields = llfields + myllfields
+
+            self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef,
+                                         self.gcflavor)
+            self.rbase.setup()
+
+            MkStruct = lltype.STRUCT_BY_FLAVOR[LLFLAVOR[self.gcflavor]]
+            if adtmeths is None:
+                adtmeths = {}
+            if hints is None:
+                hints = {}
+            hints = self._check_for_immutable_hints(hints)
+            kwds = {}
+            if self.gcflavor == 'gc':
+                kwds['rtti'] = True
+
+            for name, attrdef in attrs:
+                if not attrdef.readonly and self.is_quasi_immutable(name):
+                    llfields.append(('mutate_' + name, OBJECTPTR))
+
+            object_type = MkStruct(self.classdef.name,
+                                   ('super', self.rbase.object_type),
+                                   hints=hints,
+                                   adtmeths=adtmeths,
+                                   *llfields,
+                                   **kwds)
+            self.object_type.become(object_type)
+            allinstancefields.update(self.rbase.allinstancefields)
+        allinstancefields.update(fields)
+        self.fields = fields
+        self.allinstancefields = allinstancefields
+
 
     def _check_for_immutable_hints(self, hints):
         loc = self.classdef.classdesc.lookup('_immutable_')
@@ -492,6 +569,30 @@ class AbstractInstanceRepr(Repr):
     def _setup_repr_final(self):
         self._setup_immutable_field_list()
         self._check_for_immutable_conflicts()
+        if self.gcflavor == 'gc':
+            if (self.classdef is not None and
+                    self.classdef.classdesc.lookup('__del__') is not None):
+                s_func = self.classdef.classdesc.s_read_attribute('__del__')
+                source_desc = self.classdef.classdesc.lookup('__del__')
+                source_classdef = source_desc.getclassdef(None)
+                source_repr = getinstancerepr(self.rtyper, source_classdef)
+                assert len(s_func.descriptions) == 1
+                funcdesc, = s_func.descriptions
+                graph = funcdesc.getuniquegraph()
+                self.check_graph_of_del_does_not_call_too_much(graph)
+                FUNCTYPE = FuncType([Ptr(source_repr.object_type)], Void)
+                destrptr = functionptr(FUNCTYPE, graph.name,
+                                       graph=graph,
+                                       _callable=graph.func)
+            else:
+                destrptr = None
+            OBJECT = OBJECT_BY_FLAVOR[LLFLAVOR[self.gcflavor]]
+            self.rtyper.attachRuntimeTypeInfoFunc(self.object_type,
+                                                  ll_runtime_type_info,
+                                                  OBJECT, destrptr)
+            vtable = self.rclass.getvtable()
+            self.rtyper.set_type_for_typeptr(vtable, self.lowleveltype.TO)
+
 
     def _setup_immutable_field_list(self):
         hints = self.object_type._hints
@@ -577,7 +678,34 @@ class AbstractInstanceRepr(Repr):
         return False
 
     def new_instance(self, llops, classcallhop=None):
-        raise NotImplementedError
+        """Build a new instance, without calling __init__."""
+        flavor = self.gcflavor
+        flags = {'flavor': flavor}
+        ctype = inputconst(Void, self.object_type)
+        cflags = inputconst(Void, flags)
+        vlist = [ctype, cflags]
+        vptr = llops.genop('malloc', vlist,
+                           resulttype=Ptr(self.object_type))
+        ctypeptr = inputconst(CLASSTYPE, self.rclass.getvtable())
+        self.setfield(vptr, '__class__', ctypeptr, llops)
+        # initialize instance attributes from their defaults from the class
+        if self.classdef is not None:
+            flds = self.allinstancefields.keys()
+            flds.sort()
+            for fldname in flds:
+                if fldname == '__class__':
+                    continue
+                mangled_name, r = self.allinstancefields[fldname]
+                if r.lowleveltype is Void:
+                    continue
+                value = self.classdef.classdesc.read_attribute(fldname, None)
+                if value is not None:
+                    cvalue = inputconst(r.lowleveltype,
+                                        r.convert_desc_or_const(value))
+                    self.setfield(vptr, fldname, cvalue, llops,
+                                  flags={'access_directly': True})
+        return vptr
+
 
     def convert_const(self, value):
         if value is None:
@@ -634,16 +762,46 @@ class AbstractInstanceRepr(Repr):
     get_ll_fasthash_function = get_ll_hash_function
 
     def rtype_type(self, hop):
-        raise NotImplementedError
+        if hop.s_result.is_constant():
+            return hop.inputconst(hop.r_result, hop.s_result.const)
+        instance_repr = self.common_repr()
+        vinst, = hop.inputargs(instance_repr)
+        if hop.args_s[0].can_be_none():
+            return hop.gendirectcall(ll_inst_type, vinst)
+        else:
+            return instance_repr.getfield(vinst, '__class__', hop.llops)
 
     def rtype_getattr(self, hop):
-        raise NotImplementedError
+        if hop.s_result.is_constant():
+            return hop.inputconst(hop.r_result, hop.s_result.const)
+        attr = hop.args_s[1].const
+        vinst, vattr = hop.inputargs(self, Void)
+        if attr == '__class__' and hop.r_result.lowleveltype is Void:
+            # special case for when the result of '.__class__' is a constant
+            [desc] = hop.s_result.descriptions
+            return hop.inputconst(Void, desc.pyobj)
+        if attr in self.allinstancefields:
+            return self.getfield(vinst, attr, hop.llops,
+                                 flags=hop.args_s[0].flags)
+        elif attr in self.rclass.allmethods:
+            # special case for methods: represented as their 'self' only
+            # (see MethodsPBCRepr)
+            return hop.r_result.get_method_from_instance(self, vinst,
+                                                         hop.llops)
+        else:
+            vcls = self.getfield(vinst, '__class__', hop.llops)
+            return self.rclass.getclsfield(vcls, attr, hop.llops)
 
     def rtype_setattr(self, hop):
-        raise NotImplementedError
+        attr = hop.args_s[1].const
+        r_value = self.getfieldrepr(attr)
+        vinst, vattr, vvalue = hop.inputargs(self, Void, r_value)
+        self.setfield(vinst, attr, vvalue, hop.llops,
+                      flags=hop.args_s[0].flags)
 
     def rtype_bool(self, hop):
-        raise NotImplementedError
+        vinst, = hop.inputargs(self)
+        return hop.genop('ptr_nonzero', [vinst], resulttype=Bool)
 
     def _emulate_call(self, hop, meth_name):
         vinst = hop.args_v[0]
@@ -679,8 +837,24 @@ class AbstractInstanceRepr(Repr):
     def rtype_len(self, hop):
         return self._emulate_call(hop, "__len__")
 
-    def ll_str(self, i):
-        raise NotImplementedError
+    def ll_str(self, i):  # doesn't work for non-gc classes!
+        from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
+        from rpython.rlib.rarithmetic import r_uint
+        if not i:
+            return rstr.null_str
+        instance = cast_pointer(OBJECTPTR, i)
+        # Two choices: the first gives a fast answer but it can change
+        # (typically only once) during the life of the object.
+        #uid = r_uint(cast_ptr_to_int(i))
+        uid = r_uint(llop.gc_id(lltype.Signed, i))
+        #
+        res = rstr.instance_str_prefix
+        res = rstr.ll_strconcat(res, instance.typeptr.name)
+        res = rstr.ll_strconcat(res, rstr.instance_str_infix)
+        res = rstr.ll_strconcat(res, ll_int2hex(uid, False))
+        res = rstr.ll_strconcat(res, rstr.instance_str_suffix)
+        return res
+
 
     def get_ll_eq_function(self):
         return None    # defaults to compare by identity ('==' on pointers)
@@ -724,124 +898,6 @@ class AbstractInstanceRepr(Repr):
                     seen[callee] = caller
             if len(seen) == oldlength:
                 break
-
-
-class __extend__(pairtype(AbstractInstanceRepr, Repr)):
-    def rtype_getitem((r_ins, r_obj), hop):
-        return r_ins._emulate_call(hop, "__getitem__")
-
-    def rtype_setitem((r_ins, r_obj), hop):
-        return r_ins._emulate_call(hop, "__setitem__")
-
-class InstanceRepr(AbstractInstanceRepr):
-    def __init__(self, rtyper, classdef, gcflavor='gc'):
-        AbstractInstanceRepr.__init__(self, rtyper, classdef)
-        if classdef is None:
-            self.object_type = OBJECT_BY_FLAVOR[LLFLAVOR[gcflavor]]
-        else:
-            ForwardRef = lltype.FORWARDREF_BY_FLAVOR[LLFLAVOR[gcflavor]]
-            self.object_type = ForwardRef()
-
-        self.iprebuiltinstances = identity_dict()
-        self.lowleveltype = Ptr(self.object_type)
-        self.gcflavor = gcflavor
-
-    def _setup_repr(self, llfields=None, hints=None, adtmeths=None):
-        # NOTE: don't store mutable objects like the dicts below on 'self'
-        #       before they are fully built, to avoid strange bugs in case
-        #       of recursion where other code would uses these
-        #       partially-initialized dicts.
-        AbstractInstanceRepr._setup_repr(self)
-        self.rclass = getclassrepr(self.rtyper, self.classdef)
-        fields = {}
-        allinstancefields = {}
-        if self.classdef is None:
-            fields['__class__'] = 'typeptr', get_type_repr(self.rtyper)
-        else:
-            # instance attributes
-            attrs = self.classdef.attrs.items()
-            attrs.sort()
-            myllfields = []
-            for name, attrdef in attrs:
-                if not attrdef.readonly:
-                    r = self.rtyper.getrepr(attrdef.s_value)
-                    mangled_name = 'inst_' + name
-                    fields[name] = mangled_name, r
-                    myllfields.append((mangled_name, r.lowleveltype))
-
-            # Sort the instance attributes by decreasing "likely size",
-            # as reported by rffi.sizeof(), to minimize padding holes in C.
-            # Fields of the same size are sorted by name (by attrs.sort()
-            # above) just to minimize randomness.
-            def keysize((_, T)):
-                if T is lltype.Void:
-                    return None
-                from rpython.rtyper.lltypesystem.rffi import sizeof
-                try:
-                    return -sizeof(T)
-                except StandardError:
-                    return None
-            myllfields.sort(key=keysize)
-            if llfields is None:
-                llfields = myllfields
-            else:
-                llfields = llfields + myllfields
-
-            self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef,
-                                         self.gcflavor)
-            self.rbase.setup()
-
-            MkStruct = lltype.STRUCT_BY_FLAVOR[LLFLAVOR[self.gcflavor]]
-            if adtmeths is None:
-                adtmeths = {}
-            if hints is None:
-                hints = {}
-            hints = self._check_for_immutable_hints(hints)
-            kwds = {}
-            if self.gcflavor == 'gc':
-                kwds['rtti'] = True
-
-            for name, attrdef in attrs:
-                if not attrdef.readonly and self.is_quasi_immutable(name):
-                    llfields.append(('mutate_' + name, OBJECTPTR))
-
-            object_type = MkStruct(self.classdef.name,
-                                   ('super', self.rbase.object_type),
-                                   hints=hints,
-                                   adtmeths=adtmeths,
-                                   *llfields,
-                                   **kwds)
-            self.object_type.become(object_type)
-            allinstancefields.update(self.rbase.allinstancefields)
-        allinstancefields.update(fields)
-        self.fields = fields
-        self.allinstancefields = allinstancefields
-
-    def _setup_repr_final(self):
-        AbstractInstanceRepr._setup_repr_final(self)
-        if self.gcflavor == 'gc':
-            if (self.classdef is not None and
-                    self.classdef.classdesc.lookup('__del__') is not None):
-                s_func = self.classdef.classdesc.s_read_attribute('__del__')
-                source_desc = self.classdef.classdesc.lookup('__del__')
-                source_classdef = source_desc.getclassdef(None)
-                source_repr = getinstancerepr(self.rtyper, source_classdef)
-                assert len(s_func.descriptions) == 1
-                funcdesc, = s_func.descriptions
-                graph = funcdesc.getuniquegraph()
-                self.check_graph_of_del_does_not_call_too_much(graph)
-                FUNCTYPE = FuncType([Ptr(source_repr.object_type)], Void)
-                destrptr = functionptr(FUNCTYPE, graph.name,
-                                       graph=graph,
-                                       _callable=graph.func)
-            else:
-                destrptr = None
-            OBJECT = OBJECT_BY_FLAVOR[LLFLAVOR[self.gcflavor]]
-            self.rtyper.attachRuntimeTypeInfoFunc(self.object_type,
-                                                  ll_runtime_type_info,
-                                                  OBJECT, destrptr)
-            vtable = self.rclass.getvtable()
-            self.rtyper.set_type_for_typeptr(vtable, self.lowleveltype.TO)
 
     def common_repr(self):  # -> object or nongcobject reprs
         return getinstancerepr(self.rtyper, None, self.gcflavor)
@@ -935,95 +991,6 @@ class InstanceRepr(AbstractInstanceRepr):
             self.rbase.setfield(vinst, attr, vvalue, llops, force_cast=True,
                                 flags=flags)
 
-    def new_instance(self, llops, classcallhop=None):
-        """Build a new instance, without calling __init__."""
-        flavor = self.gcflavor
-        flags = {'flavor': flavor}
-        ctype = inputconst(Void, self.object_type)
-        cflags = inputconst(Void, flags)
-        vlist = [ctype, cflags]
-        vptr = llops.genop('malloc', vlist,
-                           resulttype=Ptr(self.object_type))
-        ctypeptr = inputconst(CLASSTYPE, self.rclass.getvtable())
-        self.setfield(vptr, '__class__', ctypeptr, llops)
-        # initialize instance attributes from their defaults from the class
-        if self.classdef is not None:
-            flds = self.allinstancefields.keys()
-            flds.sort()
-            for fldname in flds:
-                if fldname == '__class__':
-                    continue
-                mangled_name, r = self.allinstancefields[fldname]
-                if r.lowleveltype is Void:
-                    continue
-                value = self.classdef.classdesc.read_attribute(fldname, None)
-                if value is not None:
-                    cvalue = inputconst(r.lowleveltype,
-                                        r.convert_desc_or_const(value))
-                    self.setfield(vptr, fldname, cvalue, llops,
-                                  flags={'access_directly': True})
-        return vptr
-
-    def rtype_type(self, hop):
-        if hop.s_result.is_constant():
-            return hop.inputconst(hop.r_result, hop.s_result.const)
-        instance_repr = self.common_repr()
-        vinst, = hop.inputargs(instance_repr)
-        if hop.args_s[0].can_be_none():
-            return hop.gendirectcall(ll_inst_type, vinst)
-        else:
-            return instance_repr.getfield(vinst, '__class__', hop.llops)
-
-    def rtype_getattr(self, hop):
-        if hop.s_result.is_constant():
-            return hop.inputconst(hop.r_result, hop.s_result.const)
-        attr = hop.args_s[1].const
-        vinst, vattr = hop.inputargs(self, Void)
-        if attr == '__class__' and hop.r_result.lowleveltype is Void:
-            # special case for when the result of '.__class__' is a constant
-            [desc] = hop.s_result.descriptions
-            return hop.inputconst(Void, desc.pyobj)
-        if attr in self.allinstancefields:
-            return self.getfield(vinst, attr, hop.llops,
-                                 flags=hop.args_s[0].flags)
-        elif attr in self.rclass.allmethods:
-            # special case for methods: represented as their 'self' only
-            # (see MethodsPBCRepr)
-            return hop.r_result.get_method_from_instance(self, vinst,
-                                                         hop.llops)
-        else:
-            vcls = self.getfield(vinst, '__class__', hop.llops)
-            return self.rclass.getclsfield(vcls, attr, hop.llops)
-
-    def rtype_setattr(self, hop):
-        attr = hop.args_s[1].const
-        r_value = self.getfieldrepr(attr)
-        vinst, vattr, vvalue = hop.inputargs(self, Void, r_value)
-        self.setfield(vinst, attr, vvalue, hop.llops,
-                      flags=hop.args_s[0].flags)
-
-    def rtype_bool(self, hop):
-        vinst, = hop.inputargs(self)
-        return hop.genop('ptr_nonzero', [vinst], resulttype=Bool)
-
-    def ll_str(self, i):  # doesn't work for non-gc classes!
-        from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
-        from rpython.rlib.rarithmetic import r_uint
-        if not i:
-            return rstr.null_str
-        instance = cast_pointer(OBJECTPTR, i)
-        # Two choices: the first gives a fast answer but it can change
-        # (typically only once) during the life of the object.
-        #uid = r_uint(cast_ptr_to_int(i))
-        uid = r_uint(llop.gc_id(lltype.Signed, i))
-        #
-        res = rstr.instance_str_prefix
-        res = rstr.ll_strconcat(res, instance.typeptr.name)
-        res = rstr.ll_strconcat(res, rstr.instance_str_infix)
-        res = rstr.ll_strconcat(res, ll_int2hex(uid, False))
-        res = rstr.ll_strconcat(res, rstr.instance_str_suffix)
-        return res
-
     def rtype_isinstance(self, hop):
         class_repr = get_type_repr(hop.rtyper)
         instance_repr = self.common_repr()
@@ -1041,6 +1008,14 @@ class InstanceRepr(AbstractInstanceRepr):
             return hop.gendirectcall(ll_isinstance_const, v_obj, minid, maxid)
         else:
             return hop.gendirectcall(ll_isinstance, v_obj, v_cls)
+
+
+class __extend__(pairtype(InstanceRepr, Repr)):
+    def rtype_getitem((r_ins, r_obj), hop):
+        return r_ins._emulate_call(hop, "__getitem__")
+
+    def rtype_setitem((r_ins, r_obj), hop):
+        return r_ins._emulate_call(hop, "__setitem__")
 
 
 class __extend__(pairtype(InstanceRepr, InstanceRepr)):
