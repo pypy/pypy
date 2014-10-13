@@ -1,5 +1,10 @@
 import py
+import pytest
 
+
+# def setup_module(mod):
+#     mod.raises = py.test.raises # make raises available from app-level tests
+#     mod.skip = py.test.skip
 
 class AppTestItertools: 
     spaceconfig = dict(usemodules=['itertools'])
@@ -969,7 +974,31 @@ class AppTestItertools32:
             py.test.skip("Requires Python 3.2")
 
     def test_accumulate(self):
+        """copied from ./lib-python/3/test/test_itertools.py"""
         from itertools import accumulate
+        from decimal import Decimal
+        from fractions import Fraction
+        import operator
         expected = [0, 1, 3, 6, 10, 15, 21, 28, 36, 45]
+        # one positional arg
         assert list(accumulate(range(10))) == expected
+        # kw arg
         assert list(accumulate(iterable=range(10))) == expected
+        # multiple types
+        for typ in int, complex, Decimal, Fraction:                 
+            assert list(accumulate(map(typ, range(10)))) == list(map(typ, expected))
+        assert list(accumulate('abc')) == ['a', 'ab', 'abc']   # works with non-numeric
+        assert list(accumulate([])) == []                  # empty iterable
+        assert list(accumulate([7])) == [7]                # iterable of length one
+        raises(TypeError, accumulate, range(10), 5, 6)     # too many args
+        raises(TypeError, accumulate)                      # too few args
+        raises(TypeError, accumulate, x=range(10))         # unexpected kwd arg
+        raises(TypeError, list, accumulate([1, "a"]))      # args that don't add
+
+        s = [2, 8, 9, 5, 7, 0, 3, 4, 1, 6]
+        assert list(accumulate(s, min)) == [2, 2, 2, 2, 2, 0, 0, 0, 0, 0]
+        assert list(accumulate(s, max)) == [2, 8, 9, 9, 9, 9, 9, 9, 9, 9]
+        assert list(accumulate(s, operator.mul)) == [2, 16, 144, 720, 5040, 0, 0, 0, 0, 0]
+        raises(TypeError, list, accumulate(s, chr))        # unary-operation
+        raises(TypeError, list, accumulate(s, lambda x,y,z: None))  # ternary
+
