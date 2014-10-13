@@ -288,16 +288,12 @@ class ClassRepr(Repr):
         self.allmethods = allmethods
         self.vtable = None
 
-    def getvtable(self, cast_to_typeptr=True):
+    def getvtable(self):
         """Return a ptr to the vtable of this type."""
         if self.vtable is None:
             self.vtable = malloc(self.vtable_type, immortal=True)
             self.setup_vtable(self.vtable, self)
-        #
-        vtable = self.vtable
-        if cast_to_typeptr:
-            vtable = cast_vtable_to_typeptr(vtable)
-        return vtable
+        return cast_vtable_to_typeptr(self.vtable)
 
     def getruntime(self, expected_type):
         assert expected_type == CLASSTYPE
