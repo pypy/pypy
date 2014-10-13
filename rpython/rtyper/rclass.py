@@ -303,16 +303,15 @@ class ClassRepr(Repr):
         vtable_part = self.vtable
         r_parentcls = self
         while r_parentcls.classdef is not None:
-            r_parentcls.setup_vtable(vtable_part, self)
+            self.setup_vtable(vtable_part, r_parentcls)
             vtable_part = vtable_part.super
             r_parentcls = r_parentcls.rbase
         self.fill_vtable_root(vtable_part)
 
-    def setup_vtable(self, vtable, rsubcls):
-        """Initialize the 'self' portion of the 'vtable' belonging to the
-        given subclass."""
+    def setup_vtable(self, vtable, r_parentcls):
+        """Initialize the vtable portion corresponding to 'r_parentcls'."""
         # setup class attributes: for each attribute name at the level
-        # of 'self', look up its value in the subclass rsubcls
+        # of 'r_parentcls', look up its value in the class
         def assign(mangled_name, value):
             if (isinstance(value, Constant) and
                     isinstance(value.value, staticmethod)):
@@ -320,20 +319,20 @@ class ClassRepr(Repr):
             llvalue = r.convert_desc_or_const(value)
             setattr(vtable, mangled_name, llvalue)
 
-        for fldname in self.clsfields:
-            mangled_name, r = self.clsfields[fldname]
+        for fldname in r_parentcls.clsfields:
+            mangled_name, r = r_parentcls.clsfields[fldname]
             if r.lowleveltype is Void:
                 continue
-            value = rsubcls.classdef.classdesc.read_attribute(fldname, None)
+            value = self.classdef.classdesc.read_attribute(fldname, None)
             if value is not None:
                 assign(mangled_name, value)
         # extra PBC attributes
-        for (access_set, attr), (mangled_name, r) in self.pbcfields.items():
-            if rsubcls.classdef.classdesc not in access_set.descs:
+        for (access_set, attr), (mangled_name, r) in r_parentcls.pbcfields.items():
+            if self.classdef.classdesc not in access_set.descs:
                 continue   # only for the classes in the same pbc access set
             if r.lowleveltype is Void:
                 continue
-            attrvalue = rsubcls.classdef.classdesc.read_attribute(attr, None)
+            attrvalue = self.classdef.classdesc.read_attribute(attr, None)
             if attrvalue is not None:
                 assign(mangled_name, attrvalue)
 
@@ -433,10 +432,9 @@ class RootClassRepr(ClassRepr):
         self.allmethods = {}
         self.vtable = None
 
-    def setup_vtable(self, vtable, rsubcls):
-        """Initialize the 'self' portion of the 'vtable' belonging to the
-        given subclass."""
-        raise RuntimeError('should not be called')
+    def init_vtable(self):
+        self.vtable = malloc(self.vtable_type, immortal=True)
+        self.fill_vtable_root(self.vtable)
 
 def get_type_repr(rtyper):
     return getclassrepr(rtyper, None)
