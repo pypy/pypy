@@ -236,9 +236,8 @@ def merge_classpbc_getattr_into_classdef(rtyper):
                 if commonbase is None:
                     raise TyperError("reading attribute %r: no common base "
                                      "class for %r" % (attrname, descs.keys()))
-            extra_access_sets = rtyper.class_pbc_attributes.setdefault(
-                commonbase, {})
-            if commonbase in rtyper.class_reprs:
+            extra_access_sets = commonbase.extra_access_sets
+            if commonbase.repr is not None:
                 assert access_set in extra_access_sets # minimal sanity check
                 continue
             access_set.commonbase = commonbase

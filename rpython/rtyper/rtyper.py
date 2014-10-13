@@ -44,7 +44,6 @@ class RPythonTyper(object):
         self._reprs_must_call_setup = []
         self._seen_reprs_must_call_setup = {}
         self._dict_traits = {}
-        self.class_reprs = {}
         self.rootclass_repr = RootClassRepr(self)
         self.rootclass_repr.setup()
         self.instance_reprs = {}
@@ -54,7 +53,6 @@ class RPythonTyper(object):
         self.wrapper_context = None # or add an extra arg to convertvar?
         self.classdef_to_pytypeobject = {}
         self.concrete_calltables = {}
-        self.class_pbc_attributes = {}
         self.cache_dummy_values = {}
         self.lltype2vtable = {}
         self.typererrors = []

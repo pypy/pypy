@@ -65,11 +65,9 @@ class ImmutableConflictError(Exception):
 def getclassrepr(rtyper, classdef):
     if classdef is None:
         return rtyper.rootclass_repr
-    try:
-        result = rtyper.class_reprs[classdef]
-    except KeyError:
-        result = ClassRepr(rtyper, classdef)
-        rtyper.class_reprs[classdef] = result
+    result = classdef.repr
+    if result is None:
+        result = classdef.repr = ClassRepr(rtyper, classdef)
         rtyper.add_pendingsetup(result)
     return result
 
@@ -266,8 +264,7 @@ class ClassRepr(Repr):
                 clsfields[name] = mangled_name, r
                 llfields.append((mangled_name, r.lowleveltype))
         # attributes showing up in getattrs done on the class as a PBC
-        extra_access_sets = self.rtyper.class_pbc_attributes.get(
-            self.classdef, {})
+        extra_access_sets = self.classdef.extra_access_sets
         for access_set, (attr, counter) in extra_access_sets.items():
             r = self.rtyper.getrepr(access_set.s_value)
             mangled_name = mangle('pbc%d' % counter, attr)
