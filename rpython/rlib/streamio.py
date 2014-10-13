@@ -580,11 +580,11 @@ class BufferingInputStream(Stream):
         # But it won't depend on either on a relative forward seek.
         # Nor on a seek to the very end.
         if whence == 0 or whence == 1:
-            currentsize = len(self.buf) - self.pos
             if whence == 0:
-                difpos = offset - self.tell()
+                difpos = offset - self.tell()   # may clean up self.buf/self.pos
             else:
                 difpos = offset
+            currentsize = len(self.buf) - self.pos
             if -self.pos <= difpos <= currentsize:
                 self.pos += intmask(difpos)
                 return
