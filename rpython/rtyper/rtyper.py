@@ -46,7 +46,7 @@ class RPythonTyper(object):
         self._dict_traits = {}
         self.class_reprs = {}
         self.rootclass_repr = RootClassRepr(self)
-        self.add_pendingsetup(self.rootclass_repr)
+        self.rootclass_repr.setup()
         self.instance_reprs = {}
         self.type_for_typeptr = {}
         self.pbc_reprs = {}
