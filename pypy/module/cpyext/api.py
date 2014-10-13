@@ -461,14 +461,13 @@ def build_exported_objects():
     # Common types with their own struct
     for cpyname, pypyexpr in {
         "PyType_Type": "space.w_type",
-        "PyString_Type": "space.w_str",
+        "PyBytes_Type": "space.w_bytes",
         "PyUnicode_Type": "space.w_unicode",
         "PyDict_Type": "space.w_dict",
         "PyTuple_Type": "space.w_tuple",
         "PyList_Type": "space.w_list",
         "PySet_Type": "space.w_set",
         "PyFrozenSet_Type": "space.w_frozenset",
-        "PyInt_Type": "space.w_int",
         "PyBool_Type": "space.w_bool",
         "PyFloat_Type": "space.w_float",
         "PyLong_Type": "space.w_int",
