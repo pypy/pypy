@@ -300,7 +300,13 @@ class ClassRepr(Repr):
     def init_vtable(self):
         """Create the actual vtable"""
         self.vtable = malloc(self.vtable_type, immortal=True)
-        self.setup_vtable(self.vtable, self)
+        vtable_part = self.vtable
+        r_parentcls = self
+        while r_parentcls.classdef is not None:
+            r_parentcls.setup_vtable(vtable_part, self)
+            vtable_part = vtable_part.super
+            r_parentcls = r_parentcls.rbase
+        r_parentcls.setup_vtable(vtable_part, self)
 
     def setup_vtable(self, vtable, rsubcls):
         """Initialize the 'self' portion of the 'vtable' belonging to the
@@ -330,9 +336,6 @@ class ClassRepr(Repr):
             attrvalue = rsubcls.classdef.classdesc.read_attribute(attr, None)
             if attrvalue is not None:
                 assign(mangled_name, attrvalue)
-
-        # then initialize the 'super' portion of the vtable
-        self.rbase.setup_vtable(vtable.super, rsubcls)
 
     def fromtypeptr(self, vcls, llops):
         """Return the type pointer cast to self's vtable type."""
