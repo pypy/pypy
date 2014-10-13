@@ -306,63 +306,34 @@ class ClassRepr(Repr):
     def setup_vtable(self, vtable, rsubcls):
         """Initialize the 'self' portion of the 'vtable' belonging to the
         given subclass."""
-        if self.classdef is None:
-            vtable.hash = hash(rsubcls)
-            # initialize the 'subclassrange_*' and 'name' fields
-            if rsubcls.classdef is not None:
-                #vtable.parenttypeptr = rsubcls.rbase.getvtable()
-                vtable.subclassrange_min = rsubcls.classdef.minid
-                vtable.subclassrange_max = rsubcls.classdef.maxid
-            else:  # for the root class
-                vtable.subclassrange_min = 0
-                vtable.subclassrange_max = sys.maxint
-            rinstance = getinstancerepr(self.rtyper, rsubcls.classdef)
-            rinstance.setup()
-            if rinstance.gcflavor == 'gc':
-                vtable.rtti = getRuntimeTypeInfo(rinstance.object_type)
-            if rsubcls.classdef is None:
-                name = 'object'
-            else:
-                name = rsubcls.classdef.shortname
-            vtable.name = alloc_array_name(name)
-            if hasattr(rsubcls.classdef, 'my_instantiate_graph'):
-                graph = rsubcls.classdef.my_instantiate_graph
-                vtable.instantiate = self.rtyper.getcallable(graph)
-            #else: the classdef was created recently, so no instantiate()
-            #      could reach it
-        else:
-            # setup class attributes: for each attribute name at the level
-            # of 'self', look up its value in the subclass rsubcls
-            def assign(mangled_name, value):
-                if (isinstance(value, Constant) and
-                        isinstance(value.value, staticmethod)):
-                    value = Constant(value.value.__get__(42))   # staticmethod => bare function
-                llvalue = r.convert_desc_or_const(value)
-                setattr(vtable, mangled_name, llvalue)
+        # setup class attributes: for each attribute name at the level
+        # of 'self', look up its value in the subclass rsubcls
+        def assign(mangled_name, value):
+            if (isinstance(value, Constant) and
+                    isinstance(value.value, staticmethod)):
+                value = Constant(value.value.__get__(42))   # staticmethod => bare function
+            llvalue = r.convert_desc_or_const(value)
+            setattr(vtable, mangled_name, llvalue)
 
-            for fldname in self.clsfields:
-                mangled_name, r = self.clsfields[fldname]
-                if r.lowleveltype is Void:
-                    continue
-                value = rsubcls.classdef.classdesc.read_attribute(fldname, None)
-                if value is not None:
-                    assign(mangled_name, value)
-            # extra PBC attributes
-            for (access_set, attr), (mangled_name, r) in self.pbcfields.items():
-                if rsubcls.classdef.classdesc not in access_set.descs:
-                    continue   # only for the classes in the same pbc access set
-                if r.lowleveltype is Void:
-                    continue
-                attrvalue = rsubcls.classdef.classdesc.read_attribute(attr, None)
-                if attrvalue is not None:
-                    assign(mangled_name, attrvalue)
+        for fldname in self.clsfields:
+            mangled_name, r = self.clsfields[fldname]
+            if r.lowleveltype is Void:
+                continue
+            value = rsubcls.classdef.classdesc.read_attribute(fldname, None)
+            if value is not None:
+                assign(mangled_name, value)
+        # extra PBC attributes
+        for (access_set, attr), (mangled_name, r) in self.pbcfields.items():
+            if rsubcls.classdef.classdesc not in access_set.descs:
+                continue   # only for the classes in the same pbc access set
+            if r.lowleveltype is Void:
+                continue
+            attrvalue = rsubcls.classdef.classdesc.read_attribute(attr, None)
+            if attrvalue is not None:
+                assign(mangled_name, attrvalue)
 
-            # then initialize the 'super' portion of the vtable
-            self.rbase.setup_vtable(vtable.super, rsubcls)
-
-    #def fromparentpart(self, v_vtableptr, llops):
-    #    """Return the vtable pointer cast from the parent vtable's type
-    #    to self's vtable type."""
+        # then initialize the 'super' portion of the vtable
+        self.rbase.setup_vtable(vtable.super, rsubcls)
 
     def fromtypeptr(self, vcls, llops):
         """Return the type pointer cast to self's vtable type."""
@@ -434,6 +405,32 @@ class RootClassRepr(ClassRepr):
         self.allmethods = {}
         self.vtable = None
 
+    def setup_vtable(self, vtable, rsubcls):
+        """Initialize the 'self' portion of the 'vtable' belonging to the
+        given subclass."""
+        vtable.hash = hash(rsubcls)
+        # initialize the 'subclassrange_*' and 'name' fields
+        if rsubcls.classdef is not None:
+            #vtable.parenttypeptr = rsubcls.rbase.getvtable()
+            vtable.subclassrange_min = rsubcls.classdef.minid
+            vtable.subclassrange_max = rsubcls.classdef.maxid
+        else:  # for the root class
+            vtable.subclassrange_min = 0
+            vtable.subclassrange_max = sys.maxint
+        rinstance = getinstancerepr(self.rtyper, rsubcls.classdef)
+        rinstance.setup()
+        if rinstance.gcflavor == 'gc':
+            vtable.rtti = getRuntimeTypeInfo(rinstance.object_type)
+        if rsubcls.classdef is None:
+            name = 'object'
+        else:
+            name = rsubcls.classdef.shortname
+        vtable.name = alloc_array_name(name)
+        if hasattr(rsubcls.classdef, 'my_instantiate_graph'):
+            graph = rsubcls.classdef.my_instantiate_graph
+            vtable.instantiate = self.rtyper.getcallable(graph)
+        #else: the classdef was created recently, so no instantiate()
+        #      could reach it
 
 def get_type_repr(rtyper):
     return getclassrepr(rtyper, None)
@@ -541,7 +538,6 @@ class InstanceRepr(Repr):
         self.fields = fields
         self.allinstancefields = allinstancefields
 
-
     def _check_for_immutable_hints(self, hints):
         loc = self.classdef.classdesc.lookup('_immutable_')
         if loc is not None:
@@ -607,7 +603,6 @@ class InstanceRepr(Repr):
                                                   OBJECT, destrptr)
             vtable = self.rclass.getvtable()
             self.rtyper.set_type_for_typeptr(vtable, self.lowleveltype.TO)
-
 
     def _setup_immutable_field_list(self):
         hints = self.object_type._hints
@@ -720,7 +715,6 @@ class InstanceRepr(Repr):
                     self.setfield(vptr, fldname, cvalue, llops,
                                   flags={'access_directly': True})
         return vptr
-
 
     def convert_const(self, value):
         if value is None:
@@ -869,7 +863,6 @@ class InstanceRepr(Repr):
         res = rstr.ll_strconcat(res, ll_int2hex(uid, False))
         res = rstr.ll_strconcat(res, rstr.instance_str_suffix)
         return res
-
 
     def get_ll_eq_function(self):
         return None    # defaults to compare by identity ('==' on pointers)
