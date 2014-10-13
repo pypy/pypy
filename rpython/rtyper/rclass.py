@@ -306,7 +306,7 @@ class ClassRepr(Repr):
             r_parentcls.setup_vtable(vtable_part, self)
             vtable_part = vtable_part.super
             r_parentcls = r_parentcls.rbase
-        r_parentcls.setup_vtable(vtable_part, self)
+        self.fill_vtable_root(vtable_part)
 
     def setup_vtable(self, vtable, rsubcls):
         """Initialize the 'self' portion of the 'vtable' belonging to the
@@ -336,6 +336,32 @@ class ClassRepr(Repr):
             attrvalue = rsubcls.classdef.classdesc.read_attribute(attr, None)
             if attrvalue is not None:
                 assign(mangled_name, attrvalue)
+
+    def fill_vtable_root(rsubcls, vtable):
+        """Initialize the head of the vtable."""
+        vtable.hash = hash(rsubcls)
+        # initialize the 'subclassrange_*' and 'name' fields
+        if rsubcls.classdef is not None:
+            #vtable.parenttypeptr = rsubcls.rbase.getvtable()
+            vtable.subclassrange_min = rsubcls.classdef.minid
+            vtable.subclassrange_max = rsubcls.classdef.maxid
+        else:  # for the root class
+            vtable.subclassrange_min = 0
+            vtable.subclassrange_max = sys.maxint
+        rinstance = getinstancerepr(rsubcls.rtyper, rsubcls.classdef)
+        rinstance.setup()
+        if rinstance.gcflavor == 'gc':
+            vtable.rtti = getRuntimeTypeInfo(rinstance.object_type)
+        if rsubcls.classdef is None:
+            name = 'object'
+        else:
+            name = rsubcls.classdef.shortname
+        vtable.name = alloc_array_name(name)
+        if hasattr(rsubcls.classdef, 'my_instantiate_graph'):
+            graph = rsubcls.classdef.my_instantiate_graph
+            vtable.instantiate = rsubcls.rtyper.getcallable(graph)
+        #else: the classdef was created recently, so no instantiate()
+        #      could reach it
 
     def fromtypeptr(self, vcls, llops):
         """Return the type pointer cast to self's vtable type."""
@@ -410,29 +436,7 @@ class RootClassRepr(ClassRepr):
     def setup_vtable(self, vtable, rsubcls):
         """Initialize the 'self' portion of the 'vtable' belonging to the
         given subclass."""
-        vtable.hash = hash(rsubcls)
-        # initialize the 'subclassrange_*' and 'name' fields
-        if rsubcls.classdef is not None:
-            #vtable.parenttypeptr = rsubcls.rbase.getvtable()
-            vtable.subclassrange_min = rsubcls.classdef.minid
-            vtable.subclassrange_max = rsubcls.classdef.maxid
-        else:  # for the root class
-            vtable.subclassrange_min = 0
-            vtable.subclassrange_max = sys.maxint
-        rinstance = getinstancerepr(self.rtyper, rsubcls.classdef)
-        rinstance.setup()
-        if rinstance.gcflavor == 'gc':
-            vtable.rtti = getRuntimeTypeInfo(rinstance.object_type)
-        if rsubcls.classdef is None:
-            name = 'object'
-        else:
-            name = rsubcls.classdef.shortname
-        vtable.name = alloc_array_name(name)
-        if hasattr(rsubcls.classdef, 'my_instantiate_graph'):
-            graph = rsubcls.classdef.my_instantiate_graph
-            vtable.instantiate = self.rtyper.getcallable(graph)
-        #else: the classdef was created recently, so no instantiate()
-        #      could reach it
+        raise RuntimeError('should not be called')
 
 def get_type_repr(rtyper):
     return getclassrepr(rtyper, None)
