@@ -251,39 +251,38 @@ class ClassRepr(Repr):
         clsfields = {}
         pbcfields = {}
         allmethods = {}
-        if self.classdef is not None:
-            # class attributes
-            llfields = []
-            attrs = self.classdef.attrs.items()
-            attrs.sort()
-            for name, attrdef in attrs:
-                if attrdef.readonly:
-                    s_value = attrdef.s_value
-                    s_unboundmethod = self.prepare_method(s_value)
-                    if s_unboundmethod is not None:
-                        allmethods[name] = True
-                        s_value = s_unboundmethod
-                    r = self.rtyper.getrepr(s_value)
-                    mangled_name = 'cls_' + name
-                    clsfields[name] = mangled_name, r
-                    llfields.append((mangled_name, r.lowleveltype))
-            # attributes showing up in getattrs done on the class as a PBC
-            extra_access_sets = self.rtyper.class_pbc_attributes.get(
-                self.classdef, {})
-            for access_set, (attr, counter) in extra_access_sets.items():
-                r = self.rtyper.getrepr(access_set.s_value)
-                mangled_name = mangle('pbc%d' % counter, attr)
-                pbcfields[access_set, attr] = mangled_name, r
+        # class attributes
+        llfields = []
+        attrs = self.classdef.attrs.items()
+        attrs.sort()
+        for name, attrdef in attrs:
+            if attrdef.readonly:
+                s_value = attrdef.s_value
+                s_unboundmethod = self.prepare_method(s_value)
+                if s_unboundmethod is not None:
+                    allmethods[name] = True
+                    s_value = s_unboundmethod
+                r = self.rtyper.getrepr(s_value)
+                mangled_name = 'cls_' + name
+                clsfields[name] = mangled_name, r
                 llfields.append((mangled_name, r.lowleveltype))
-            #
-            self.rbase = getclassrepr(self.rtyper, self.classdef.basedef)
-            self.rbase.setup()
-            kwds = {'hints': {'immutable': True}}
-            vtable_type = Struct('%s_vtable' % self.classdef.name,
-                                 ('super', self.rbase.vtable_type),
-                                 *llfields, **kwds)
-            self.vtable_type.become(vtable_type)
-            allmethods.update(self.rbase.allmethods)
+        # attributes showing up in getattrs done on the class as a PBC
+        extra_access_sets = self.rtyper.class_pbc_attributes.get(
+            self.classdef, {})
+        for access_set, (attr, counter) in extra_access_sets.items():
+            r = self.rtyper.getrepr(access_set.s_value)
+            mangled_name = mangle('pbc%d' % counter, attr)
+            pbcfields[access_set, attr] = mangled_name, r
+            llfields.append((mangled_name, r.lowleveltype))
+        #
+        self.rbase = getclassrepr(self.rtyper, self.classdef.basedef)
+        self.rbase.setup()
+        kwds = {'hints': {'immutable': True}}
+        vtable_type = Struct('%s_vtable' % self.classdef.name,
+                                ('super', self.rbase.vtable_type),
+                                *llfields, **kwds)
+        self.vtable_type.become(vtable_type)
+        allmethods.update(self.rbase.allmethods)
         self.clsfields = clsfields
         self.pbcfields = pbcfields
         self.allmethods = allmethods
@@ -428,6 +427,12 @@ class RootClassRepr(ClassRepr):
         self.rtyper = rtyper
         self.vtable_type = OBJECT_VTABLE
         self.lowleveltype = Ptr(self.vtable_type)
+
+    def _setup_repr(self):
+        self.clsfields = {}
+        self.pbcfields = {}
+        self.allmethods = {}
+        self.vtable = None
 
 
 def get_type_repr(rtyper):
