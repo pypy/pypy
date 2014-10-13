@@ -1036,6 +1036,21 @@ class TestFlatten:
                            transform=True)
         assert str(e.value).startswith("A virtualizable array is passed aroun")
 
+    def test_vable_attribute_list_copied_around(self):
+        class F:
+            _virtualizable_ = ['vlist[*]']
+            vlist = None
+            def __init__(self, x):
+                self.vlist = [x]
+        def g():
+            return F(42)
+        def f():
+            f = g()
+            f.extrastuff = f.vlist
+        e = py.test.raises(AssertionError, self.encoding_test, f, [], "!",
+                           transform=True)
+        assert str(e.value).startswith("A virtualizable array is passed aroun")
+
 
 def check_force_cast(FROM, TO, operations, value):
     """Check that the test is correctly written..."""

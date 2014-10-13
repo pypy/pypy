@@ -189,13 +189,11 @@ class VStringPlainValue(VAbstractStringValue):
             charvalue = self.getitem(i)
             if charvalue is not None:
                 charbox = charvalue.force_box(string_optimizer)
-                if not (isinstance(charbox, Const) and
-                        charbox.same_constant(CONST_0)):
-                    op = ResOperation(mode.STRSETITEM, [targetbox,
-                                                        offsetbox,
-                                                        charbox],
-                                      None)
-                    string_optimizer.emit_operation(op)
+                op = ResOperation(mode.STRSETITEM, [targetbox,
+                                                    offsetbox,
+                                                    charbox],
+                                  None)
+                string_optimizer.emit_operation(op)
             offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
         return offsetbox
 

@@ -16,6 +16,10 @@ class DistUtilsTest(object):
             if distutils.ccompiler.get_default_compiler() == 'msvc':
                 self.lib_m = 'msvcrt'
 
+    def teardown_class(self):
+        if udir.isdir():
+            udir.remove()
+
     def test_locate_engine_class(self):
         cls = _locate_engine_class(FFI(), self.generic)
         if self.generic:

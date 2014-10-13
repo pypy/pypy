@@ -173,9 +173,9 @@ that are ready.
 On Windows, only sockets are supported; on Unix, all file descriptors.
 """
 
-    iwtd_w = space.listview(w_iwtd)
-    owtd_w = space.listview(w_owtd)
-    ewtd_w = space.listview(w_ewtd)
+    iwtd_w = space.unpackiterable(w_iwtd)
+    owtd_w = space.unpackiterable(w_owtd)
+    ewtd_w = space.unpackiterable(w_ewtd)
 
     if space.is_w(w_timeout, space.w_None):
         timeout = -1.0

@@ -1,3 +1,4 @@
+from rpython.rlib import jit
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.micronumpy import loop, descriptor, ufuncs, support, \
@@ -6,6 +7,7 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.converters import clipmode_converter
 from pypy.module.micronumpy.strides import Chunk, Chunks, shape_agreement, \
     shape_agreement_multiple
+from .boxes import W_GenericBox
 
 
 def where(space, w_arr, w_x=None, w_y=None):
@@ -283,3 +285,28 @@ def diagonal(space, arr, offset, axis1, axis2):
     else:
         loop.diagonal_array(space, arr, out, offset, axis1, axis2, shape)
     return out
+
+
+@jit.unroll_safe
+def result_type(space, __args__):
+    args_w, kw_w = __args__.unpack()
+    if kw_w:
+        raise oefmt(space.w_TypeError, "result_type() takes no keyword arguments")
+    if not args_w:
+        raise oefmt(space.w_ValueError, "at least one array or dtype is required")
+    result = None
+    for w_arg in args_w:
+        if isinstance(w_arg, W_NDimArray):
+            dtype = w_arg.get_dtype()
+        elif isinstance(w_arg, W_GenericBox) or (
+                space.isinstance_w(w_arg, space.w_int) or
+                space.isinstance_w(w_arg, space.w_float) or
+                space.isinstance_w(w_arg, space.w_complex) or
+                space.isinstance_w(w_arg, space.w_long) or
+                space.isinstance_w(w_arg, space.w_bool)):
+            dtype = ufuncs.find_dtype_for_scalar(space, w_arg)
+        else:
+            dtype = space.interp_w(descriptor.W_Dtype,
+                space.call_function(space.gettypefor(descriptor.W_Dtype), w_arg))
+        result = ufuncs.find_binop_result_dtype(space, result, dtype)
+    return result

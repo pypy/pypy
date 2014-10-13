@@ -266,10 +266,16 @@ def convert_to_regdata(space, w_value, typ):
     buf = None
 
     if typ == rwinreg.REG_DWORD:
-        if space.isinstance_w(w_value, space.w_int):
+        if space.is_none(w_value) or (
+                space.isinstance_w(w_value, space.w_int) or
+                space.isinstance_w(w_value, space.w_long)):
+            if space.is_none(w_value):
+                value = r_uint(0)
+            else:
+                value = space.c_uint_w(w_value)
             buflen = rffi.sizeof(rwin32.DWORD)
             buf1 = lltype.malloc(rffi.CArray(rwin32.DWORD), 1, flavor='raw')
-            buf1[0] = space.uint_w(w_value)
+            buf1[0] = value
             buf = rffi.cast(rffi.CCHARP, buf1)
 
     elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:

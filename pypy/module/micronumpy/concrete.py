@@ -19,6 +19,7 @@ class BaseConcreteArray(object):
                           'strides[*]', 'backstrides[*]', 'order']
     start = 0
     parent = None
+    flags = 0
 
     # JIT hints that length of all those arrays is a constant
 
@@ -357,11 +358,11 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.dtype = dtype
 
     def argsort(self, space, w_axis):
-        from pypy.module.micronumpy.sort import argsort_array
+        from .selection import argsort_array
         return argsort_array(self, space, w_axis)
 
     def sort(self, space, w_axis, w_order):
-        from pypy.module.micronumpy.sort import sort_array
+        from .selection import sort_array
         return sort_array(self, space, w_axis, w_order)
 
     def base(self):

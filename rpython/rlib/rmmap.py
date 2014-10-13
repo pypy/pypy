@@ -134,8 +134,8 @@ PTR = rffi.CCHARP
 
 if _CYGWIN:
     # XXX: macro=True hack for newer versions of Cygwin (as of 12/2012)
-    c_malloc, _ = external('malloc', [size_t], PTR, macro=True)
-    c_free, _ = external('free', [PTR], lltype.Void, macro=True)
+    _, c_malloc_safe = external('malloc', [size_t], PTR, macro=True)
+    _, c_free_safe = external('free', [PTR], lltype.Void, macro=True)
 
 c_memmove, _ = external('memmove', [PTR, PTR, size_t], lltype.Void)
 
@@ -709,7 +709,7 @@ if _POSIX:
             # XXX: JIT memory should be using mmap MAP_PRIVATE with
             #      PROT_EXEC but Cygwin's fork() fails.  mprotect()
             #      cannot be used, but seems to be unnecessary there.
-            res = c_malloc(map_size)
+            res = c_malloc_safe(map_size)
             if res == rffi.cast(PTR, 0):
                 raise MemoryError
             return res
@@ -726,7 +726,7 @@ if _POSIX:
     alloc._annenforceargs_ = (int,)
 
     if _CYGWIN:
-        free = c_free
+        free = c_free_safe
     else:
         free = c_munmap_safe
 

@@ -35,14 +35,11 @@ so if we precalculate the overflow backstride as
 [x.strides[i] * (x.shape[i] - 1) for i in range(len(x.shape))]
 we can go faster.
 All the calculations happen in next()
-
-next_skip_x(steps) tries to do the iteration for a number of steps at once,
-but then we cannot guarantee that we only overflow one single shape
-dimension, perhaps we could overflow times in one big step.
 """
 from rpython.rlib import jit
-from pypy.module.micronumpy import support
+from pypy.module.micronumpy import support, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.flagsobj import _update_contiguous_flags
 
 
 class PureShapeIter(object):
@@ -80,7 +77,7 @@ class PureShapeIter(object):
 
 
 class IterState(object):
-    _immutable_fields_ = ['iterator', 'index', 'indices[*]', 'offset']
+    _immutable_fields_ = ['iterator', 'index', 'indices', 'offset']
 
     def __init__(self, iterator, index, indices, offset):
         self.iterator = iterator
@@ -90,11 +87,18 @@ class IterState(object):
 
 
 class ArrayIter(object):
-    _immutable_fields_ = ['array', 'size', 'ndim_m1', 'shape_m1[*]',
-                          'strides[*]', 'backstrides[*]']
+    _immutable_fields_ = ['contiguous', 'array', 'size', 'ndim_m1', 'shape_m1[*]',
+                          'strides[*]', 'backstrides[*]', 'factors[*]',
+                          'track_index']
+
+    track_index = True
 
     def __init__(self, array, size, shape, strides, backstrides):
         assert len(shape) == len(strides) == len(backstrides)
+        _update_contiguous_flags(array)
+        self.contiguous = (array.flags & NPY.ARRAY_C_CONTIGUOUS and
+                           array.shape == shape and array.strides == strides)
+
         self.array = array
         self.size = size
         self.ndim_m1 = len(shape) - 1
@@ -102,52 +106,79 @@ class ArrayIter(object):
         self.strides = strides
         self.backstrides = backstrides
 
-    def reset(self):
-        return IterState(self, 0, [0] * len(self.shape_m1), self.array.start)
+        ndim = len(shape)
+        factors = [0] * ndim
+        for i in xrange(ndim):
+            if i == 0:
+                factors[ndim-1] = 1
+            else:
+                factors[ndim-i-1] = factors[ndim-i] * shape[ndim-i]
+        self.factors = factors
+
+    @jit.unroll_safe
+    def reset(self, state=None):
+        if state is None:
+            indices = [0] * len(self.shape_m1)
+        else:
+            assert state.iterator is self
+            indices = state.indices
+            for i in xrange(self.ndim_m1, -1, -1):
+                indices[i] = 0
+        return IterState(self, 0, indices, self.array.start)
 
     @jit.unroll_safe
     def next(self, state):
         assert state.iterator is self
-        index = state.index + 1
+        index = state.index
+        if self.track_index:
+            index += 1
         indices = state.indices
         offset = state.offset
-        for i in xrange(self.ndim_m1, -1, -1):
-            idx = indices[i]
-            if idx < self.shape_m1[i]:
-                indices[i] = idx + 1
-                offset += self.strides[i]
-                break
-            else:
-                indices[i] = 0
-                offset -= self.backstrides[i]
+        if self.contiguous:
+            offset += self.array.dtype.elsize
+        else:
+            for i in xrange(self.ndim_m1, -1, -1):
+                idx = indices[i]
+                if idx < self.shape_m1[i]:
+                    indices[i] = idx + 1
+                    offset += self.strides[i]
+                    break
+                else:
+                    indices[i] = 0
+                    offset -= self.backstrides[i]
         return IterState(self, index, indices, offset)
 
     @jit.unroll_safe
-    def next_skip_x(self, state, step):
+    def goto(self, index):
+        offset = self.array.start
+        if self.contiguous:
+            offset += index * self.array.dtype.elsize
+        else:
+            current = index
+            for i in xrange(len(self.shape_m1)):
+                offset += (current / self.factors[i]) * self.strides[i]
+                current %= self.factors[i]
+        return IterState(self, index, None, offset)
+
+    @jit.unroll_safe
+    def update(self, state):
         assert state.iterator is self
-        assert step >= 0
-        if step == 0:
+        assert self.track_index
+        if not self.contiguous:
             return state
-        index = state.index + step
+        current = state.index
         indices = state.indices
-        offset = state.offset
-        for i in xrange(self.ndim_m1, -1, -1):
-            idx = indices[i]
-            if idx < (self.shape_m1[i] + 1) - step:
-                indices[i] = idx + step
-                offset += self.strides[i] * step
-                break
+        for i in xrange(len(self.shape_m1)):
+            if self.factors[i] != 0:
+                indices[i] = current / self.factors[i]
+                current %= self.factors[i]
             else:
-                rem_step = (idx + step) // (self.shape_m1[i] + 1)
-                cur_step = step - rem_step * (self.shape_m1[i] + 1)
-                indices[i] = idx + cur_step
-                offset += self.strides[i] * cur_step
-                step = rem_step
-                assert step > 0
-        return IterState(self, index, indices, offset)
+                indices[i] = 0
+        return IterState(self, state.index, indices, state.offset)
 
     def done(self, state):
         assert state.iterator is self
+        assert self.track_index
         return state.index >= self.size
 
     def getitem(self, state):

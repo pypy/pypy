@@ -123,6 +123,12 @@ class BoehmGCTransformer(GCTransformer):
                            resulttype=llmemory.WeakRefPtr)
         hop.cast_result(v_wref)
 
+    def gct_zero_everything_inside(self, hop):
+        pass
+
+    def gct_zero_gc_pointers_inside(self, hop):
+        pass
+
     def gct_weakref_deref(self, hop):
         v_wref, = hop.spaceop.args
         v_addr = hop.genop("direct_call",

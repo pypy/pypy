@@ -158,12 +158,9 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 iteritems = list(iteritems)
                 iteritems.sort(key=lambda (x, y): x.sort_key())
             for ofs, value in iteritems:
-                if value.is_null():
-                    continue
                 subbox = value.force_box(optforce)
                 op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
                                   descr=ofs)
-
                 optforce.emit_operation(op)
 
     def _get_field_descr_list(self):
@@ -256,26 +253,48 @@ class AbstractVArrayValue(AbstractVirtualValue):
         itemboxes = []
         for i in range(self.getlength()):
             itemvalue = self.get_item_value(i)
-            itemboxes.append(itemvalue.get_key_box())
+            if itemvalue is not None:
+                box = itemvalue.get_key_box()
+            else:
+                box = None
+            itemboxes.append(box)
         visitor.register_virtual_fields(self.keybox, itemboxes)
         for i in range(self.getlength()):
             itemvalue = self.get_item_value(i)
-            itemvalue.visitor_walk_recursive(visitor)
+            if itemvalue is not None:
+                itemvalue.visitor_walk_recursive(visitor)
 
 
 class VArrayValue(AbstractVArrayValue):
 
-    def __init__(self, arraydescr, constvalue, size, keybox, source_op=None):
+    def __init__(self, arraydescr, constvalue, size, keybox, source_op=None,
+                 clear=False):
         AbstractVirtualValue.__init__(self, keybox, source_op)
         self.arraydescr = arraydescr
         self.constvalue = constvalue
-        self._items = [self.constvalue] * size
+        if clear:
+            self._items = [constvalue] * size
+        else:
+            self._items = [None] * size
+        self.clear = clear
 
     def getlength(self):
         return len(self._items)
 
+    def get_missing_null_value(self):
+        return self.constvalue
+
     def get_item_value(self, i):
-        return self._items[i]
+        """Return the i'th item, unless it is 'constvalue' on a 'clear'
+        array.  In that case (or if the i'th item is already None),
+        return None.  The idea is that this method returns the value
+        that must be set into an array that was allocated "correctly",
+        i.e. if 'clear' is True, that means with zero=True."""
+        subvalue = self._items[i]
+        if self.clear and (subvalue is self.constvalue or
+                           subvalue.is_null()):
+            subvalue = None
+        return subvalue
 
     def set_item_value(self, i, newval):
         self._items[i] = newval
@@ -286,7 +305,7 @@ class VArrayValue(AbstractVArrayValue):
 
     def setitem(self, index, itemvalue):
         assert isinstance(itemvalue, optimizer.OptValue)
-        self._items[index] = itemvalue
+        self._items[index] = itemvalue        
 
     def force_at_end_of_preamble(self, already_forced, optforce):
         # note that this method is on VArrayValue instead of
@@ -296,7 +315,11 @@ class VArrayValue(AbstractVArrayValue):
             return self
         already_forced[self] = self
         for index in range(self.getlength()):
-            itemval = self.get_item_value(index)
+            itemval = self._items[index]
+            # XXX should be skip alltogether, but I don't wanna know or
+            #     fight unrolling just yet
+            if itemval is None:
+                itemval = self.constvalue
             itemval = itemval.force_at_end_of_preamble(already_forced, optforce)
             self.set_item_value(index, itemval)
         return self
@@ -305,22 +328,29 @@ class VArrayValue(AbstractVArrayValue):
         assert self.source_op is not None
         if not we_are_translated():
             self.source_op.name = 'FORCE ' + self.source_op.name
+        # XXX two possible optimizations:
+        # * if source_op is NEW_ARRAY_CLEAR, emit NEW_ARRAY if it's
+        #   immediately followed by SETARRAYITEM_GC into all items (hard?)
+        # * if source_op is NEW_ARRAY, emit NEW_ARRAY_CLEAR if it's
+        #   followed by setting most items to zero anyway
         optforce.emit_operation(self.source_op)
         self.box = box = self.source_op.result
         for index in range(len(self._items)):
             subvalue = self._items[index]
-            if subvalue is not self.constvalue:
-                if subvalue.is_null():
+            if subvalue is None:
+                continue
+            if self.clear:
+                if subvalue is self.constvalue or subvalue.is_null():
                     continue
-                subbox = subvalue.force_box(optforce)
-                op = ResOperation(rop.SETARRAYITEM_GC,
-                                  [box, ConstInt(index), subbox], None,
-                                  descr=self.arraydescr)
-                optforce.emit_operation(op)
+            subbox = subvalue.force_box(optforce)
+            op = ResOperation(rop.SETARRAYITEM_GC,
+                              [box, ConstInt(index), subbox], None,
+                               descr=self.arraydescr)
+            optforce.emit_operation(op)
 
     @specialize.argtype(1)
     def _visitor_dispatch_virtual_type(self, visitor):
-        return visitor.visit_varray(self.arraydescr)
+        return visitor.visit_varray(self.arraydescr, self.clear)
 
 
 class VArrayStructValue(AbstractVirtualValue):
@@ -489,12 +519,15 @@ class OptVirtualize(optimizer.Optimization):
         self.make_equal_to(box, vvalue)
         return vvalue
 
-    def make_varray(self, arraydescr, size, box, source_op=None):
+    def make_varray(self, arraydescr, size, box, source_op=None,
+                    clear=False):
         if arraydescr.is_array_of_structs():
+            assert clear
             vvalue = VArrayStructValue(arraydescr, size, box, source_op)
         else:
             constvalue = self.new_const_item(arraydescr)
-            vvalue = VArrayValue(arraydescr, constvalue, size, box, source_op)
+            vvalue = VArrayValue(arraydescr, constvalue, size, box, source_op,
+                                 clear=clear)
         self.make_equal_to(box, vvalue)
         return vvalue
 
@@ -560,6 +593,7 @@ class OptVirtualize(optimizer.Optimization):
         vrefinfo = self.optimizer.metainterp_sd.virtualref_info
         c_cls = vrefinfo.jit_virtual_ref_const_class
         descr_virtual_token = vrefinfo.descr_virtual_token
+        descr_forced = vrefinfo.descr_forced
         #
         # Replace the VIRTUAL_REF operation with a virtual structure of type
         # 'jit_virtual_ref'.  The jit_virtual_ref structure may be forced soon,
@@ -569,6 +603,7 @@ class OptVirtualize(optimizer.Optimization):
         tokenbox = BoxPtr()
         self.emit_operation(ResOperation(rop.FORCE_TOKEN, [], tokenbox))
         vrefvalue.setfield(descr_virtual_token, self.getvalue(tokenbox))
+        vrefvalue.setfield(descr_forced, self.optimizer.cpu.ts.CVAL_NULLREF)
 
     def optimize_VIRTUAL_REF_FINISH(self, op):
         # This operation is used in two cases.  In normal cases, it
@@ -664,6 +699,14 @@ class OptVirtualize(optimizer.Optimization):
         else:
             self.emit_operation(op)
 
+    def optimize_NEW_ARRAY_CLEAR(self, op):
+        sizebox = self.get_constant_box(op.getarg(0))
+        if sizebox is not None:
+            self.make_varray(op.getdescr(), sizebox.getint(), op.result, op,
+                             clear=True)
+        else:
+            self.emit_operation(op)        
+
     def optimize_CALL(self, op):
         effectinfo = op.getdescr().get_extra_info()
         if effectinfo.oopspecindex == EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR:
@@ -721,9 +764,12 @@ class OptVirtualize(optimizer.Optimization):
     def optimize_GETARRAYITEM_GC(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_virtual():
+            assert isinstance(value, VArrayValue)
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 itemvalue = value.getitem(indexbox.getint())
+                if itemvalue is None:   # reading uninitialized array items?
+                    itemvalue = value.constvalue     # bah, just return 0
                 self.make_equal_to(op.result, itemvalue)
                 return
         value.ensure_nonnull()

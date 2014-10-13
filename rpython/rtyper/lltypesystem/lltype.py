@@ -48,6 +48,7 @@ class WeakValueDictionary(weakref.WeakValueDictionary):
 
 class _uninitialized(object):
     def __init__(self, TYPE):
+        #self._TYPE = TYPE
         self.TYPE = TYPE
     def __repr__(self):
         return '<Uninitialized %r>'%(self.TYPE,)
@@ -189,6 +190,11 @@ class LowLevelType(object):
 
     def _is_varsize(self):
         return False
+
+    def _contains_value(self, value):
+        if self is Void:
+            return True
+        return isCompatibleType(typeOf(value), self)
 
 NFOUND = object()
 
