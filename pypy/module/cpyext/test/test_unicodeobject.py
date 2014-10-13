@@ -219,6 +219,13 @@ class TestUnicode(BaseApiTest):
         assert space.unwrap(w_res) == u'spä'
         rffi.free_charp(s)
 
+    def test_internfromstring(self, space, api):
+        with rffi.scoped_str2charp('foo') as s:
+            w_res = api.PyUnicode_InternFromString(s)
+            assert space.unwrap(w_res) == u'foo'
+            w_res2 = api.PyUnicode_InternFromString(s)
+            assert w_res is w_res2
+
     def test_unicode_resize(self, space, api):
         py_uni = new_empty_unicode(space, 10)
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
