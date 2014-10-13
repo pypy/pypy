@@ -8411,5 +8411,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_mark_opaque_ptr_doesnt_prevent_other_opts(self):
+        py.test.skip("XXX what is mark_opaque_ptr really for?")
+        # this test passes if we don't put mark_opaque_ptr(p1)
+        ops = """
+        [p1, i1]
+        mark_opaque_ptr(p1)
+        i2 = getfield_gc(p1, descr=otherdescr)
+        i3 = int_add(i1, i2)
+        jump(p1, i3)
+        """
+        expected = """
+        [p1, i1, i2]
+        i3 = int_add(i1, i2)
+        jump(p1, i3, i2)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
