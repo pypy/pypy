@@ -2,10 +2,6 @@ import py
 import pytest
 
 
-# def setup_module(mod):
-#     mod.raises = py.test.raises # make raises available from app-level tests
-#     mod.skip = py.test.skip
-
 class AppTestItertools: 
     spaceconfig = dict(usemodules=['itertools'])
 
