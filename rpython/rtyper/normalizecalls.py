@@ -216,12 +216,12 @@ def normalize_calltable_row_annotation(annotator, graphs):
 
 # ____________________________________________________________
 
-def merge_classpbc_getattr_into_classdef(rtyper):
+def merge_classpbc_getattr_into_classdef(annotator):
     # code like 'some_class.attr' will record an attribute access in the
     # PBC access set of the family of classes of 'some_class'.  If the classes
     # have corresponding ClassDefs, they are not updated by the annotator.
     # We have to do it now.
-    all_families = rtyper.annotator.bookkeeper.classpbc_attr_families
+    all_families = annotator.bookkeeper.classpbc_attr_families
     for attrname, access_sets in all_families.items():
         for access_set in access_sets.infos():
             descs = access_set.descs
@@ -386,13 +386,13 @@ def get_unique_cdef_id(cdef):
 
 # ____________________________________________________________
 
-def perform_normalizations(rtyper):
-    create_class_constructors(rtyper.annotator)
-    rtyper.annotator.frozen += 1
+def perform_normalizations(annotator):
+    create_class_constructors(annotator)
+    annotator.frozen += 1
     try:
-        normalize_call_familes(rtyper.annotator)
-        merge_classpbc_getattr_into_classdef(rtyper)
-        assign_inheritance_ids(rtyper.annotator)
+        normalize_call_familes(annotator)
+        merge_classpbc_getattr_into_classdef(annotator)
+        assign_inheritance_ids(annotator)
     finally:
-        rtyper.annotator.frozen -= 1
-    create_instantiate_functions(rtyper.annotator)
+        annotator.frozen -= 1
+    create_instantiate_functions(annotator)

@@ -173,7 +173,7 @@ class RPythonTyper(object):
 
         # first make sure that all functions called in a group have exactly
         # the same signature, by hacking their flow graphs if needed
-        perform_normalizations(self)
+        perform_normalizations(self.annotator)
         self.exceptiondata.finish(self)
 
         # new blocks can be created as a result of specialize_block(), so
