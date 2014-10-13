@@ -437,7 +437,7 @@ class RootClassRepr(ClassRepr):
         self.fill_vtable_root(self.vtable)
 
 def get_type_repr(rtyper):
-    return getclassrepr(rtyper, None)
+    return rtyper.rootclass_repr
 
 # ____________________________________________________________
 

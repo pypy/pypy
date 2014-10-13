@@ -642,7 +642,7 @@ class ClassesPBCRepr(Repr):
             attr = hop.args_s[1].const
             if attr == '__name__':
                 from rpython.rtyper.lltypesystem import rstr
-                class_repr = rclass.getclassrepr(self.rtyper, None)
+                class_repr = self.rtyper.rootclass_repr
                 vcls, vattr = hop.inputargs(class_repr, lltype.Void)
                 cname = inputconst(lltype.Void, 'name')
                 return hop.genop('getfield', [vcls, cname],

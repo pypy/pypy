@@ -22,7 +22,7 @@ class ExceptionData(object):
     def __init__(self, rtyper):
         self.make_standard_exceptions(rtyper)
         # (NB. rclass identifies 'Exception' and 'object')
-        r_type = getclassrepr(rtyper, None)
+        r_type = rtyper.rootclass_repr
         r_instance = getinstancerepr(rtyper, None)
         r_type.setup()
         r_instance.setup()
