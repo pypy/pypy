@@ -290,13 +290,17 @@ class ClassRepr(Repr):
     def getvtable(self):
         """Return a ptr to the vtable of this type."""
         if self.vtable is None:
-            self.vtable = malloc(self.vtable_type, immortal=True)
-            self.setup_vtable(self.vtable, self)
+            self.init_vtable()
         return cast_vtable_to_typeptr(self.vtable)
 
     def getruntime(self, expected_type):
         assert expected_type == CLASSTYPE
         return self.getvtable()
+
+    def init_vtable(self):
+        """Create the actual vtable"""
+        self.vtable = malloc(self.vtable_type, immortal=True)
+        self.setup_vtable(self.vtable, self)
 
     def setup_vtable(self, vtable, rsubcls):
         """Initialize the 'self' portion of the 'vtable' belonging to the
