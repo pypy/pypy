@@ -66,7 +66,10 @@ def getclassrepr(rtyper, classdef):
     try:
         result = rtyper.class_reprs[classdef]
     except KeyError:
-        result = ClassRepr(rtyper, classdef)
+        if classdef is None:
+            result = RootClassRepr(rtyper)
+        else:
+            result = ClassRepr(rtyper, classdef)
         rtyper.class_reprs[classdef] = result
         rtyper.add_pendingsetup(result)
     return result
@@ -193,11 +196,7 @@ class ClassRepr(Repr):
     def __init__(self, rtyper, classdef):
         self.rtyper = rtyper
         self.classdef = classdef
-        if classdef is None:
-            # 'object' root type
-            self.vtable_type = OBJECT_VTABLE
-        else:
-            self.vtable_type = lltype.ForwardReference()
+        self.vtable_type = lltype.ForwardReference()
         self.lowleveltype = Ptr(self.vtable_type)
 
     def __repr__(self):
@@ -419,6 +418,17 @@ class ClassRepr(Repr):
         else:
             v_cls1, v_cls2 = hop.inputargs(class_repr, class_repr)
             return hop.gendirectcall(ll_issubclass, v_cls1, v_cls2)
+
+
+class RootClassRepr(ClassRepr):
+    """ClassRepr for the root of the class hierarchy"""
+    classdef = None
+
+    def __init__(self, rtyper):
+        self.rtyper = rtyper
+        self.vtable_type = OBJECT_VTABLE
+        self.lowleveltype = Ptr(self.vtable_type)
+
 
 def get_type_repr(rtyper):
     return getclassrepr(rtyper, None)
