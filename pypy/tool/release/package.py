@@ -26,6 +26,9 @@ USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
 STDLIB_VER = "3"
 
+# XXX: don't hardcode the version
+POSIX_EXE = 'pypy3.2'
+
 def ignore_patterns(*patterns):
     """Function that can be used as copytree() ignore parameter.
 
@@ -251,6 +254,14 @@ directory next to the dlls, as per build instructions."""
     for source, target in binaries:
         archive = bindir.join(target)
         shutil.copy(str(source), str(archive))
+    if not sys.platform == 'win32':
+        # create the pypy3 symlink
+        old_dir = os.getcwd()
+        os.chdir(str(bindir))
+        try:
+            os.symlink(POSIX_EXE, 'pypy3')
+        finally:
+            os.chdir(old_dir)
     fix_permissions(builddir)
 
     old_dir = os.getcwd()
@@ -306,7 +317,7 @@ def package(*args):
         import imp
         argparse = imp.load_source('argparse', 'lib-python/2.7/argparse.py')
     if sys.platform == 'win32':
-        pypy_exe = 'pypy3.exe'
+        pypy_exe = 'pypy.exe'
         for p in [os.path.join(basedir, r'..\..\..\local'), #buildbot
                 os.path.join(basedir, r'..\local')]: # pypy/doc/windows.rst
             if os.path.exists(p): 
@@ -315,7 +326,7 @@ def package(*args):
         else:
             license_base = 'unkown'
     else:
-        pypy_exe = 'pypy3'
+        pypy_exe = POSIX_EXE
         license_base = '/usr/share/doc'
     parser = argparse.ArgumentParser()
     args = list(args)
