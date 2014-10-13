@@ -557,13 +557,27 @@ class BufferingInputStream(Stream):
 
     def tell(self):
         tellpos = self.do_tell()  # This may fail
+        # Best-effort: to avoid extra system calls to tell() all the
+        # time, and a more complicated logic in this class, we can
+        # only assume that nobody changed the underlying file
+        # descriptor position while we have buffered data.  If they
+        # do, we might get bogus results here (and the following
+        # read() will still return the data cached at the old
+        # position).  Just make sure that we don't fail an assert.
         offset = len(self.buf) - self.pos
-        assert tellpos >= offset #, (locals(), self.__dict__)
+        if tellpos < offset:
+            # bug!  someone changed the fd position under our feet,
+            # and moved it at or very close to the beginning of the
+            # file, so that we have more buffered data than the
+            # current offset.
+            self.buf = ""
+            self.pos = 0
+            offset = 0
         return tellpos - offset
 
     def seek(self, offset, whence):
-        # This may fail on the do_seek() or do_tell() call.
-        # But it won't call either on a relative forward seek.
+        # This may fail on the do_seek() or on the tell() call.
+        # But it won't depend on either on a relative forward seek.
         # Nor on a seek to the very end.
         if whence == 0 or whence == 1:
             currentsize = len(self.buf) - self.pos
