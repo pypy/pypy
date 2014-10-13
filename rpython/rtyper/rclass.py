@@ -63,13 +63,12 @@ class ImmutableConflictError(Exception):
 
 
 def getclassrepr(rtyper, classdef):
+    if classdef is None:
+        return rtyper.rootclass_repr
     try:
         result = rtyper.class_reprs[classdef]
     except KeyError:
-        if classdef is None:
-            result = RootClassRepr(rtyper)
-        else:
-            result = ClassRepr(rtyper, classdef)
+        result = ClassRepr(rtyper, classdef)
         rtyper.class_reprs[classdef] = result
         rtyper.add_pendingsetup(result)
     return result

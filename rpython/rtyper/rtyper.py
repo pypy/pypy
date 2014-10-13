@@ -27,6 +27,8 @@ from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
 from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
 from rpython.rtyper.typesystem import LowLevelTypeSystem, getfunctionptr
 from rpython.rtyper.normalizecalls import perform_normalizations
+from rpython.rtyper import rclass
+from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
 
@@ -43,6 +45,8 @@ class RPythonTyper(object):
         self._seen_reprs_must_call_setup = {}
         self._dict_traits = {}
         self.class_reprs = {}
+        self.rootclass_repr = RootClassRepr(self)
+        self.add_pendingsetup(self.rootclass_repr)
         self.instance_reprs = {}
         self.type_for_typeptr = {}
         self.pbc_reprs = {}
@@ -581,7 +585,6 @@ class RPythonTyper(object):
         return rtype_newtuple(hop)
 
     def translate_op_instantiate1(self, hop):
-        from rpython.rtyper import rclass
         if not isinstance(hop.s_result, annmodel.SomeInstance):
             raise TyperError("instantiate1 got s_result=%r" % (hop.s_result,))
         classdef = hop.s_result.classdef
@@ -944,7 +947,7 @@ class LowLevelOpList(list):
 from rpython.rtyper import rint, rbool, rfloat, rnone
 from rpython.rtyper import rrange
 from rpython.rtyper import rstr, rdict, rlist, rbytearray
-from rpython.rtyper import rclass, rbuiltin, rpbc
+from rpython.rtyper import rbuiltin, rpbc
 from rpython.rtyper import rptr
 from rpython.rtyper import rweakref
 from rpython.rtyper import raddress # memory addresses
