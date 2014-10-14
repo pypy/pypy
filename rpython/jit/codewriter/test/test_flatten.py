@@ -6,7 +6,8 @@ from rpython.jit.codewriter.format import assert_format
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import AbstractDescr
-from rpython.rtyper.lltypesystem import lltype, rclass, rstr, rffi
+from rpython.rtyper.lltypesystem import lltype, rstr, rffi
+from rpython.rtyper import rclass
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.translator.unsimplify import varoftype
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_longlong, r_ulonglong
