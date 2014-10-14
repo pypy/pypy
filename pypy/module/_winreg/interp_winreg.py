@@ -266,9 +266,7 @@ def convert_to_regdata(space, w_value, typ):
     buf = None
 
     if typ == rwinreg.REG_DWORD:
-        if space.is_none(w_value) or (
-                space.isinstance_w(w_value, space.w_int) or
-                space.isinstance_w(w_value, space.w_long)):
+        if space.is_none(w_value) or space.isinstance_w(w_value, space.w_int):
             if space.is_none(w_value):
                 value = r_uint(0)
             else:
