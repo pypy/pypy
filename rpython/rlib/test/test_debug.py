@@ -76,6 +76,8 @@ def test_mark_dict_non_null():
 
 def test_check_list_of_chars():
     def f(x):
+        result = []
+        check_list_of_chars(result)
         result = [chr(x), 'a']
         check_list_of_chars(result)
         result = [unichr(x)]

@@ -400,10 +400,13 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self, s_arg):
         from rpython.annotator.model import SomeList, s_None
         from rpython.annotator.model import SomeChar, SomeUnicodeCodePoint
+        from rpython.annotator.model import SomeImpossibleValue
         if s_None.contains(s_arg):
             return s_arg    # only None: just return
         assert isinstance(s_arg, SomeList)
-        if not isinstance(s_arg.listdef.listitem.s_value, (SomeChar, SomeUnicodeCodePoint)):
+        if not isinstance(
+                s_arg.listdef.listitem.s_value,
+                (SomeChar, SomeUnicodeCodePoint, SomeImpossibleValue)):
             raise NotAListOfChars
         return s_arg
 
