@@ -361,9 +361,7 @@ def build_new_ctypes_type(T, delayed_builders):
             functype = ctypes.CFUNCTYPE
             if sys.platform == 'win32':
                 from rpython.rlib.clibffi import FFI_STDCALL, FFI_DEFAULT_ABI
-                # XXX:
-                #if getattr(T.TO, 'ABI', FFI_DEFAULT_ABI) == FFI_STDCALL:
-                if getattr(T.TO, 'ABI', FFI_DEFAULT_ABI) == 'FFI_STDCALL':
+                if getattr(T.TO, 'ABI', FFI_DEFAULT_ABI) == FFI_STDCALL:
                     # for win32 system call
                     functype = ctypes.WINFUNCTYPE
             argtypes = [get_ctypes_type(ARG) for ARG in T.TO.ARGS
