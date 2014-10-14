@@ -550,16 +550,13 @@ class W_UfuncGeneric(W_Ufunc):
         raise oefmt(space.w_NotImplementedError, 'not implemented yet')
 
     def call(self, space, args_w, sig, casting, extobj):
-        inargs = [None]*self.nin
+        inargs = [None] * self.nin
         if len(args_w) < self.nin:
             raise oefmt(space.w_ValueError,
                  '%s called with too few input args, expected at least %d got %d',
                  self.name, self.nin, len(args_w))
         for i in range(self.nin):
             inargs[i] = convert_to_array(space, args_w[i])
-        inargs = tuple(inargs)
-        for i in range(len(inargs)):
-            assert isinstance(inargs[i], W_NDimArray)
         outargs = [None] * min(self.nout, len(args_w)-self.nin)
         for i in range(len(outargs)):
             out = args_w[i+self.nin]
@@ -574,10 +571,11 @@ class W_UfuncGeneric(W_Ufunc):
             sig = space.wrap(self.signature)
         index = self.type_resolver(space, inargs, outargs, sig)
         outargs = self.alloc_outargs(space, index, inargs, outargs)
-        outargs = tuple(outargs)
         for i in range(len(outargs)):
             assert isinstance(outargs[i], W_NDimArray)
-        res_dtype = outargs[0].get_dtype()
+        outargs0 = outargs[0]
+        assert isinstance(outargs0, W_NDimArray)
+        res_dtype = outargs0.get_dtype()
         func = self.funcs[index]
         if not self.core_enabled:
             # func is going to do all the work, it must accept W_NDimArray args
@@ -593,7 +591,9 @@ class W_UfuncGeneric(W_Ufunc):
         # dimensions
         broadcast_ndim = 0
         for i in range(len(inargs)):
-            n = inargs[i].ndims() - self.core_num_dims[i]
+            curarg = inargs[i]
+            assert isinstance(curarg, W_NDimArray)
+            n = curarg.ndims() - self.core_num_dims[i]
             broadcast_ndim = max(broadcast_ndim, n)
         # Figure out the number of iterator creation dimensions,
         # which is the broadcast dimensions + all the core dimensions of
@@ -610,32 +610,36 @@ class W_UfuncGeneric(W_Ufunc):
         inner_dimensions = [1] * (self.core_num_dim_ix + 1)
         idim = 0
         for i in range(self.nin):
+            curarg = inargs[i]
+            assert isinstance(curarg, W_NDimArray)
             dim_offset = self.core_offsets[i]
             num_dims = self.core_num_dims[i]
-            core_start_dim = inargs[i].ndims() - num_dims
+            core_start_dim = curarg.ndims() - num_dims
             if core_start_dim >=0:
                 idim = 0
             else:
                 idim = -core_start_dim
             while(idim < num_dims):
                 core_dim_index = self.core_dim_ixs[dim_offset + idim]
-                op_dim_size = inargs[i].get_shape()[core_start_dim + idim]
+                op_dim_size = curarg.get_shape()[core_start_dim + idim]
                 if inner_dimensions[i + 1] == 1:
                     inner_dimensions[i + 1] = op_dim_size
                 elif op_dim_size != 1 and inner_dimensions[1 + core_dim_index] != op_dim_size:
-                    oefmt(space.ValueError, "%s: Operand %d has a mismatch in "
+                    oefmt(space.w_ValueError, "%s: Operand %d has a mismatch in "
                         " its core dimension %d, with gufunc signature %s "
                         "(size %d is different from %d)", self.name, i, idim,
                     self.signature, op_dim_size, inner_dimensions[1 + core_dim_index])
                 idim += 1
         for i in range(len(outargs)):
+            curarg = outargs[i]
+            assert isinstance(curarg, W_NDimArray)
             dim_offset = self.core_offsets[i]
             num_dims = self.core_num_dims[i]
-            core_start_dim = outargs[i].ndims() - num_dims
+            core_start_dim = curarg.ndims() - num_dims
             if core_start_dim < 0:
-                oefmt(space.ValueError, "%s: Output operand %d does not"
+                oefmt(space.w_ValueError, "%s: Output operand %d does not"
                     "have enough dimensions (has %d, gufunc with signature "
-                    "%s requires %d)", self.name, i, outargs[i].ndims(),
+                    "%s requires %d)", self.name, i, curarg.ndims(),
                     self.signature, num_dims)
             if core_start_dim >=0:
                 idim = 0
@@ -643,11 +647,11 @@ class W_UfuncGeneric(W_Ufunc):
                 idim = -core_start_dim
             while(idim < num_dims):
                 core_dim_index = self.core_dim_ixs[dim_offset + idim]
-                op_dim_size = inargs[i].get_shape()[core_start_dim + idim]
+                op_dim_size = curarg.get_shape()[core_start_dim + idim]
                 if inner_dimensions[i + 1] == 1:
                     inner_dimensions[i + 1] = op_dim_size
                 elif inner_dimensions[1 + core_dim_index] != op_dim_size:
-                    oefmt(space.ValueError, "%s: Operand %d has a mismatch in "
+                    oefmt(space.w_ValueError, "%s: Operand %d has a mismatch in "
                         " its core dimension %d, with gufunc signature %s "
                         "(size %d is different from %d)", self.name, i, idim,
                     self.signature, op_dim_size, inner_dimensions[1 + core_dim_index])
@@ -655,29 +659,34 @@ class W_UfuncGeneric(W_Ufunc):
         iter_shape = [-1] * (broadcast_ndim + len(outargs))
         j = broadcast_ndim
         core_dim_ixs_size = 0
-        op_axes_arrays = ([-1] * (self.nin + len(outargs))) * broadcast_ndim
-        if broadcast_ndim < 2:
-            op_axes_arrays = [op_axes_arrays]
+        firstdim = broadcast_ndim
+        for cnd in self.core_num_dims:
+            firstdim  += cnd
+        op_axes_arrays = [[-1,] * (self.nin + len(outargs)),] * firstdim
         for i in range(self.nin):
             # Note that n may be negative if broadcasting
             # extends into the core dimensions.
-            n = inargs[i].ndims() - self.core_num_dims[i]
+            curarg = inargs[i]
+            assert isinstance(curarg, W_NDimArray)
+            n = curarg.ndims() - self.core_num_dims[i]
             for idim in range(broadcast_ndim):
                 if idim >= broadcast_ndim -n:
-                    op_axes_arrays[i][idim] = idim - (broadcast_ndim -n)
+                    op_axes_arrays[idim][i] = idim - (broadcast_ndim -n)
             core_dim_ixs_size += self.core_num_dims[i];
         for i in range(len(outargs)):
+            curarg = outargs[i]
+            assert isinstance(curarg, W_NDimArray)
             iout = i + self.nin
-            n = outargs[i].ndims() - self.core_num_dims[iout]
+            n = curarg.ndims() - self.core_num_dims[iout]
             for idim in range(broadcast_ndim):
                 if idim >= broadcast_ndim -n:
-                    op_axes_arrays[iout][idim] = idim - (broadcast_ndim -n)
+                    op_axes_arrays[idim][iout] = idim - (broadcast_ndim -n)
                 dim_offset = self.core_offsets[iout]
                 num_dims = self.core_num_dims[iout]
                 for idim in range(num_dims):
                     cdi = self.core_dim_ixs[dim_offset + idim]
                     iter_shape[j] = inner_dimensions[1 + cdi]
-                    op_axes_arrays[iout][j] = n + idim
+                    op_axes_arrays[j][iout] = n + idim
                     j += 1
             core_dim_ixs_size += self.core_num_dims[iout];
         # TODO once we support obejct dtypes,
@@ -688,9 +697,11 @@ class W_UfuncGeneric(W_Ufunc):
         # TODO parse and handle subok
 
         if isinstance(func, W_GenericUFuncCaller):
-            import pdb;pdb.set_trace()
+            pass
             # xxx rdo what needs to be done to inner-loop indexing
-        new_shape = inargs[0].get_shape()
+        inargs0 = inargs[0]
+        assert isinstance(inargs0, W_NDimArray)
+        new_shape = inargs0.get_shape()
         if len(outargs) < 2:
             return loop.call_many_to_one(space, new_shape, func,
                                          res_dtype, inargs, outargs[0])
@@ -1203,6 +1214,7 @@ LONG_SIZE = LONG_BIT / 8
 CCHARP_SIZE = _get_bitsize('P') / 8
 
 class W_GenericUFuncCaller(W_Root):
+    _attrs_ = ['func', 'data', 'dims', 'steps']
     def __init__(self, func, data):
         self.func = func
         self.data = data
@@ -1238,8 +1250,10 @@ class W_GenericUFuncCaller(W_Root):
             if self.dims is None or self.steps is None:
                 raise OperationError(space.w_RuntimeError,
                      space.wrap("call set_dims_and_steps first"))
-            raw_storage_setitem(dataps, CCHARP_SIZE * i,
-                    rffi.cast(rffi.CCHARP, arg_i.storage))
+            for i in range(len(args_w)):
+                arg_i = args_w[i]
+                # raw_storage_setitem(dataps, CCHARP_SIZE * i,
+                #       rffi.cast(rffi.CCHARP, arg_i.storage))
         try:
             arg1 = rffi.cast(rffi.CArrayPtr(rffi.CCHARP), dataps)
             arg2 = rffi.cast(npy_intpp, self.dims)
@@ -1247,6 +1261,10 @@ class W_GenericUFuncCaller(W_Root):
             self.func(arg1, arg2, arg3, self.data)
         finally:
             free_raw_storage(dataps, track_allocation=False)
+
+W_GenericUFuncCaller.typedef = TypeDef("hiddenclass",
+    __call__ = interp2app(W_GenericUFuncCaller.descr_call),
+)
 
 def set_dims_and_steps(obj, space, dims, steps):
         if not isinstance(obj, W_GenericUFuncCaller):
@@ -1267,10 +1285,6 @@ def set_dims_and_steps(obj, space, dims, steps):
             raw_storage_setitem(self.dims, LONG_SIZE * i, rffi.cast(rffi.LONG, d))
         for d in steps:
             raw_storage_setitem(self.steps, LONG_SIZE * i, rffi.cast(rffi.LONG, d))
-
-W_GenericUFuncCaller.typedef = TypeDef("hiddenclass",
-    __call__ = interp2app(W_GenericUFuncCaller.descr_call),
-)
 
 GenericUfunc = lltype.FuncType([rffi.CArrayPtr(rffi.CCHARP), npy_intpp, npy_intpp,
                                       rffi.VOIDP], lltype.Void)
