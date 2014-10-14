@@ -1,6 +1,7 @@
 from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-from rpython.rtyper.lltypesystem import lltype, rclass
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper import rclass
 from rpython.rtyper.llinterp import LLException
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.codewriter import longlong

@@ -6,7 +6,7 @@ from rpython.flowspace.model import Block, Constant, Variable, Link, \
     c_last_exception, SpaceOperation, FunctionGraph, mkentrymap
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem import lloperation
-from rpython.rtyper.lltypesystem.rclass import ll_inst_type
+from rpython.rtyper.rclass import ll_inst_type
 from rpython.rtyper import rtyper
 from rpython.rtyper.rmodel import inputconst
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong

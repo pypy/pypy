@@ -5,7 +5,7 @@ import copy
 from rpython.rlib.rerased import *
 from rpython.annotator import model as annmodel
 from rpython.annotator.annrpython import RPythonAnnotator
-from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+from rpython.rtyper.rclass import OBJECTPTR
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
 from rpython.rtyper.test.tool import BaseRtypingTest
