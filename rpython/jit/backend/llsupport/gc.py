@@ -548,12 +548,6 @@ class GcLLDescr_framework(GcLLDescription):
             type_id = self.layoutbuilder.get_type_id(A)
             descr.tid = llop.combine_ushort(lltype.Signed, type_id, 0)
 
-    def _set_tid(self, gcptr, tid):
-        hdr_addr = llmemory.cast_ptr_to_adr(gcptr)
-        hdr_addr -= self.gcheaderbuilder.size_gc_header
-        hdr = llmemory.cast_adr_to_ptr(hdr_addr, self.HDRPTR)
-        hdr.tid = tid
-
     def can_use_nursery_malloc(self, size):
         return size < self.max_size_of_young_obj
 
