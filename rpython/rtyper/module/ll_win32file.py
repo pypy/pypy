@@ -10,17 +10,6 @@ from rpython.rtyper.tool import rffi_platform as platform
 from rpython.tool.sourcetools import func_renamer
 from rpython.rlib.objectmodel import specialize
 
-separate_module_source = """\
-DWORD
-pypy_GetFinalPathNameByHandle(FARPROC address, HANDLE hFile,
-                              LPTSTR lpszFilePath, DWORD cchFilePath,
-                              DWORD dwFlags) {
-    DWORD (WINAPI *func)(HANDLE, LPTSTR, DWORD, DWORD);
-    *(FARPROC*)&func = address;
-    return func(hFile, lpszFilePath, cchFilePath, dwFlags);
-}
-"""
-
 def make_win32_traits(traits):
     from rpython.rlib import rwin32
 
@@ -32,8 +21,6 @@ def make_win32_traits(traits):
     class CConfig:
         _compilation_info_ = ExternalCompilationInfo(
             includes = ['windows.h', 'winbase.h', 'sys/stat.h'],
-            separate_module_sources=[separate_module_source],
-            export_symbols=['pypy_GetFinalPathNameByHandle']
         )
         WIN32_FIND_DATA = platform.Struct(
             'struct _WIN32_FIND_DATA' + suffix,
@@ -205,34 +192,7 @@ def make_win32_traits(traits):
             [traits.CCHARP, traits.CCHARP],
             rwin32.BOOL)
 
-        GetFinalPathNameByHandle_HANDLE = lltype.nullptr(rffi.VOIDP.TO)
-        pypy_GetFinalPathNameByHandle = staticmethod(rffi.llexternal(
-            'pypy_GetFinalPathNameByHandle',
-            [rffi.VOIDP, rwin32.HANDLE, rffi.CWCHARP, rwin32.DWORD, rwin32.DWORD],
-            rwin32.DWORD, compilation_info=CConfig._compilation_info_))
-
-        def check_GetFinalPathNameByHandle(self):
-            if (self.GetFinalPathNameByHandle_HANDLE !=
-                lltype.nullptr(rffi.VOIDP.TO)):
-                return True
-
-            from rpython.rlib.rdynload import GetModuleHandle, dlsym
-            hKernel32 = GetModuleHandle("KERNEL32")
-            try:
-                func = dlsym(hKernel32, 'GetFinalPathNameByHandle' + suffix)
-            except KeyError:
-                return False
-
-            self.GetFinalPathNameByHandle_HANDLE = func
-            return True
-
-        def GetFinalPathNameByHandle(self, *args):
-            assert (self.GetFinalPathNameByHandle_HANDLE !=
-                    lltype.nullptr(rffi.VOIDP.TO))
-            return self.pypy_GetFinalPathNameByHandle(
-                self.GetFinalPathNameByHandle_HANDLE, *args)
-
-    return Win32Traits()
+    return Win32Traits
 
 #_______________________________________________________________
 # listdir
@@ -451,68 +411,3 @@ def make_utime_impl(traits):
             lltype.free(mtime, flavor='raw')
 
     return os_utime_llimpl
-
-#_______________________________________________________________
-# _getfileinformation (py3)
-
-def make__getfileinformation_impl(traits):
-    from rpython.rlib import rwin32
-    win32traits = make_win32_traits(traits)
-
-    def _getfileinformation_llimpl(fd):
-        hFile = rwin32.get_osfhandle(fd)
-        with lltype.scoped_alloc(
-            win32traits.BY_HANDLE_FILE_INFORMATION) as info:
-            if win32traits.GetFileInformationByHandle(hFile, info) == 0:
-                raise rwin32.lastWindowsError("_getfileinformation")
-            return (rffi.cast(lltype.Signed, info.c_dwVolumeSerialNumber),
-                    rffi.cast(lltype.Signed, info.c_nFileIndexHigh),
-                    rffi.cast(lltype.Signed, info.c_nFileIndexLow))
-
-    return _getfileinformation_llimpl
-
-#_______________________________________________________________
-# _getfinalpathname (py3)
-
-def make__getfinalpathname_impl(traits):
-    from rpython.rlib import rwin32
-    from rpython.rtyper.module.ll_os import LLNotImplemented
-    assert traits.str is unicode, 'Currently only handles unicode paths'
-    win32traits = make_win32_traits(traits)
-
-    def _getfinalpathname_llimpl(path):
-        if not win32traits.check_GetFinalPathNameByHandle():
-            raise LLNotImplemented("GetFinalPathNameByHandle not available on "
-                                   "this platform")
-
-        hFile = win32traits.CreateFile(path, 0, 0, None,
-                                       win32traits.OPEN_EXISTING,
-                                       win32traits.FILE_FLAG_BACKUP_SEMANTICS,
-                                       rwin32.NULL_HANDLE)
-        if hFile == rwin32.INVALID_HANDLE_VALUE:
-            raise rwin32.lastWindowsError("CreateFile")
-
-        VOLUME_NAME_DOS = rffi.cast(rwin32.DWORD, win32traits.VOLUME_NAME_DOS)
-        try:
-            usize = win32traits.GetFinalPathNameByHandle(
-                hFile,
-                lltype.nullptr(traits.CCHARP.TO),
-                rffi.cast(rwin32.DWORD, 0),
-                VOLUME_NAME_DOS)
-            if usize == 0:
-                raise rwin32.lastWindowsError("GetFinalPathNameByHandle")
-
-            size = rffi.cast(lltype.Signed, usize)
-            with rffi.scoped_alloc_unicodebuffer(size + 1) as buf:
-                result = win32traits.GetFinalPathNameByHandle(
-                    hFile,
-                    buf.raw,
-                    usize,
-                    VOLUME_NAME_DOS)
-                if result == 0:
-                    raise rwin32.lastWindowsError("GetFinalPathNameByHandle")
-                return buf.str(rffi.cast(lltype.Signed, result))
-        finally:
-            rwin32.CloseHandle(hFile)
-
-    return _getfinalpathname_llimpl
