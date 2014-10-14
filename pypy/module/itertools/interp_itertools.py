@@ -1199,10 +1199,6 @@ class W_Accumulate(W_Root):
     def __init__(self, space, w_iterable, w_func=None):
         self.space = space
         self.w_iterable = w_iterable
-        if w_func is None:  # default operator is add
-            _import = space.getattr(space.builtin, space.wrap("__import__"))
-            _op = space.call_function(_import, space.wrap("operator"))
-            w_func = space.getattr(_op, space.wrap("add")) 
         self.w_func = w_func
         self.w_total = None
 
@@ -1215,7 +1211,10 @@ class W_Accumulate(W_Root):
             self.w_total = w_value
             return w_value
 
-        self.w_total = self.space.call_function(self.w_func, self.w_total, w_value)
+        if self.w_func is None:
+            self.w_total = self.space.add(self.w_total, w_value)
+        else:
+            self.w_total = self.space.call_function(self.w_func, self.w_total, w_value)
         return self.w_total
 
 def W_Accumulate__new__(space, w_subtype, w_iterable, w_func=None):
@@ -1231,3 +1230,4 @@ W_Accumulate.typedef = TypeDef("itertools.accumulate",
 "accumulate(iterable) --> accumulate object
 
 Return series of accumulated sums.""")
+
