@@ -687,13 +687,6 @@ class __extend__(SomeInstance):
         if not self.can_be_None:
             s.const = True
 
-    def _emulate_call(self, meth_name, *args_s):
-        bk = getbookkeeper()
-        s_attr = self._true_getattr(meth_name)
-        # record for calltables
-        bk.emulate_pbc_call(bk.position_key, s_attr, args_s)
-        return s_attr.call(simple_args(args_s))
-
 @op.len.register_transform(SomeInstance)
 def len_SomeInstance(annotator, v_arg):
     get_len = op.getattr(v_arg, const('__len__'))

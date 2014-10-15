@@ -813,25 +813,6 @@ class InstanceRepr(Repr):
         vinst, = hop.inputargs(self)
         return hop.genop('ptr_nonzero', [vinst], resulttype=Bool)
 
-    def _emulate_call(self, hop, meth_name):
-        vinst = hop.args_v[0]
-        clsdef = hop.args_s[0].classdef
-        s_unbound_attr = clsdef.find_attribute(meth_name).getvalue()
-        s_attr = clsdef.lookup_filter(s_unbound_attr, meth_name,
-                                      hop.args_s[0].flags)
-        # does that even happen?
-        assert not s_attr.is_constant()
-        if '__iter__' in self.allinstancefields:
-            raise Exception("__iter__ on instance disallowed")
-        r_method = self.rtyper.getrepr(s_attr)
-        r_method.get_method_from_instance(self, vinst, hop.llops)
-        hop2 = hop.copy()
-        hop2.spaceop = op.simple_call(*hop.spaceop.args)
-        hop2.spaceop.result = hop.spaceop.result
-        hop2.args_r[0] = r_method
-        hop2.args_s[0] = s_attr
-        return hop2.dispatch()
-
     def ll_str(self, i):  # doesn't work for non-gc classes!
         from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
         from rpython.rlib.rarithmetic import r_uint
