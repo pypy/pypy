@@ -844,9 +844,6 @@ class InstanceRepr(Repr):
     def rtype_setslice(self, hop):
         return self._emulate_call(hop, "__setslice__")
 
-    def rtype_len(self, hop):
-        return self._emulate_call(hop, "__len__")
-
     def ll_str(self, i):  # doesn't work for non-gc classes!
         from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
         from rpython.rlib.rarithmetic import r_uint
