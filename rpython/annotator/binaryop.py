@@ -2,7 +2,6 @@
 Binary operations between SomeValues.
 """
 
-import operator
 from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import (
     SomeObject, SomeInteger, SomeBool, s_Bool, SomeString, SomeChar, SomeList,
@@ -14,7 +13,7 @@ from rpython.annotator.model import (
     read_can_only_throw, add_knowntypedata,
     merge_knowntypedata,)
 from rpython.annotator.bookkeeper import immutablevalue
-from rpython.flowspace.model import Variable, Constant
+from rpython.flowspace.model import Variable, Constant, const
 from rpython.flowspace.operation import op
 from rpython.rlib import rarithmetic
 from rpython.annotator.model import AnnotatorError
@@ -689,12 +688,16 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
             return super(thistype, pair(ins1, ins2)).improve()
 
 
-class __extend__(pairtype(SomeInstance, SomeObject)):
-    def getitem((s_ins, s_idx)):
-        return s_ins._emulate_call("__getitem__", s_idx)
+@op.getitem.register_transform(SomeInstance, SomeObject)
+def getitem_SomeInstance(annotator, v_ins, v_idx):
+    get_getitem = op.getattr(v_ins, const('__getitem__'))
+    return [get_getitem, op.simple_call(get_getitem.result, v_idx)]
 
-    def setitem((s_ins, s_idx), s_value):
-        return s_ins._emulate_call("__setitem__", s_idx, s_value)
+@op.setitem.register_transform(SomeInstance, SomeObject)
+def setitem_SomeInstance(annotator, v_ins, v_idx, v_value):
+    get_setitem = op.getattr(v_ins, const('__setitem__'))
+    return [get_setitem,
+            op.simple_call(get_setitem.result, v_idx, v_value)]
 
 
 class __extend__(pairtype(SomeIterator, SomeIterator)):

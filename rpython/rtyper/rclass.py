@@ -1004,14 +1004,6 @@ class InstanceRepr(Repr):
             return hop.gendirectcall(ll_isinstance, v_obj, v_cls)
 
 
-class __extend__(pairtype(InstanceRepr, Repr)):
-    def rtype_getitem((r_ins, r_obj), hop):
-        return r_ins._emulate_call(hop, "__getitem__")
-
-    def rtype_setitem((r_ins, r_obj), hop):
-        return r_ins._emulate_call(hop, "__setitem__")
-
-
 class __extend__(pairtype(InstanceRepr, InstanceRepr)):
     def convert_from_to((r_ins1, r_ins2), v, llops):
         # which is a subclass of which?
