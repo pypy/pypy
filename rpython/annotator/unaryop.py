@@ -699,9 +699,6 @@ class __extend__(SomeInstance):
     def next(self):
         return self._emulate_call('next')
 
-    def len(self):
-        return self._emulate_call('__len__')
-
     def getslice(self, s_start, s_stop):
         return self._emulate_call('__getslice__', s_start, s_stop)
 
