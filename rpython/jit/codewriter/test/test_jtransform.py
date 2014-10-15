@@ -17,7 +17,8 @@ except ImportError:
 
 from rpython.flowspace.model import FunctionGraph, Block, Link
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.module import ll_math
 from rpython.translator.unsimplify import varoftype
 from rpython.jit.codewriter import heaptracker, effectinfo
@@ -1346,7 +1347,7 @@ def test_cast_opaque_ptr():
     assert op2 is None
 
 def test_threadlocalref_get():
-    from rpython.rtyper.lltypesystem import rclass
+    from rpython.rtyper import rclass
     from rpython.rlib.rthread import ThreadLocalReference
     OS_THREADLOCALREF_GET = effectinfo.EffectInfo.OS_THREADLOCALREF_GET
     class Foo: pass

@@ -27,6 +27,8 @@ from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
 from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
 from rpython.rtyper.typesystem import LowLevelTypeSystem, getfunctionptr
 from rpython.rtyper.normalizecalls import perform_normalizations
+from rpython.rtyper import rclass
+from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
 
@@ -42,7 +44,8 @@ class RPythonTyper(object):
         self._reprs_must_call_setup = []
         self._seen_reprs_must_call_setup = {}
         self._dict_traits = {}
-        self.class_reprs = {}
+        self.rootclass_repr = RootClassRepr(self)
+        self.rootclass_repr.setup()
         self.instance_reprs = {}
         self.type_for_typeptr = {}
         self.pbc_reprs = {}
@@ -50,7 +53,6 @@ class RPythonTyper(object):
         self.wrapper_context = None # or add an extra arg to convertvar?
         self.classdef_to_pytypeobject = {}
         self.concrete_calltables = {}
-        self.class_pbc_attributes = {}
         self.cache_dummy_values = {}
         self.lltype2vtable = {}
         self.typererrors = []
@@ -171,7 +173,7 @@ class RPythonTyper(object):
 
         # first make sure that all functions called in a group have exactly
         # the same signature, by hacking their flow graphs if needed
-        perform_normalizations(self)
+        perform_normalizations(self.annotator)
         self.exceptiondata.finish(self)
 
         # new blocks can be created as a result of specialize_block(), so
@@ -581,7 +583,6 @@ class RPythonTyper(object):
         return rtype_newtuple(hop)
 
     def translate_op_instantiate1(self, hop):
-        from rpython.rtyper.lltypesystem import rclass
         if not isinstance(hop.s_result, annmodel.SomeInstance):
             raise TyperError("instantiate1 got s_result=%r" % (hop.s_result,))
         classdef = hop.s_result.classdef
@@ -944,7 +945,7 @@ class LowLevelOpList(list):
 from rpython.rtyper import rint, rbool, rfloat, rnone
 from rpython.rtyper import rrange
 from rpython.rtyper import rstr, rdict, rlist, rbytearray
-from rpython.rtyper import rclass, rbuiltin, rpbc
+from rpython.rtyper import rbuiltin, rpbc
 from rpython.rtyper import rptr
 from rpython.rtyper import rweakref
 from rpython.rtyper import raddress # memory addresses

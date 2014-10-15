@@ -154,6 +154,8 @@ class ClassDef(object):
         self.subdefs = []
         self.attr_sources = {}   # {name: list-of-sources}
         self.read_locations_of__class__ = {}
+        self.repr = None
+        self.extra_access_sets = {}
 
         if classdesc.basedesc:
             self.basedef = classdesc.basedesc.getuniqueclassdef()

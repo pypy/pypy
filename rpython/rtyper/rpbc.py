@@ -4,8 +4,7 @@ from rpython.annotator import model as annmodel, description
 from rpython.flowspace.model import Constant
 from rpython.annotator.argument import simple_args
 from rpython.rtyper import rclass, callparse
-from rpython.rtyper.lltypesystem.rclass import (
-    CLASSTYPE, OBJECT_VTABLE, OBJECTPTR)
+from rpython.rtyper.rclass import CLASSTYPE, OBJECT_VTABLE, OBJECTPTR
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
@@ -643,7 +642,7 @@ class ClassesPBCRepr(Repr):
             attr = hop.args_s[1].const
             if attr == '__name__':
                 from rpython.rtyper.lltypesystem import rstr
-                class_repr = rclass.getclassrepr(self.rtyper, None)
+                class_repr = self.rtyper.rootclass_repr
                 vcls, vattr = hop.inputargs(class_repr, lltype.Void)
                 cname = inputconst(lltype.Void, 'name')
                 return hop.genop('getfield', [vcls, cname],
@@ -764,7 +763,7 @@ def ll_cls_hash(cls):
     else:
         return cls.hash
 
-class __extend__(pairtype(ClassesPBCRepr, rclass.AbstractClassRepr)):
+class __extend__(pairtype(ClassesPBCRepr, rclass.ClassRepr)):
     def convert_from_to((r_clspbc, r_cls), v, llops):
         # turn a PBC of classes to a standard pointer-to-vtable class repr
         if r_clspbc.lowleveltype == r_cls.lowleveltype:

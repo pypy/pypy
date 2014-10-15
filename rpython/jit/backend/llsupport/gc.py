@@ -2,7 +2,8 @@ import os
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
@@ -559,7 +560,7 @@ class GcLLDescr_framework(GcLLDescription):
 
     def get_malloc_slowpath_array_addr(self):
         return self.get_malloc_fn_addr('malloc_array')
-    
+
 # ____________________________________________________________
 
 def get_ll_description(gcdescr, translator=None, rtyper=None):

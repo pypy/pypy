@@ -1,7 +1,8 @@
 
 import py
 
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper import rclass
 from rpython.rtyper.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
 from rpython.jit.metainterp import typesystem
 from rpython.jit.metainterp.quasiimmut import QuasiImmut
@@ -568,7 +569,7 @@ class QuasiImmutTests(object):
                 if a.x == 1:
                     a = two
                 elif a.x == 2:
-                    a = one                    
+                    a = one
                 n -= 1
             return sa
         res = self.meta_interp(main, [10])

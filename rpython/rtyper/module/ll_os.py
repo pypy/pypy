@@ -1179,7 +1179,7 @@ class RegisterOs(BaseLazyRegistering):
                              condition=sys.platform=='win32')
     def register_posix__getfullpathname(self, traits):
         # this nt function is not exposed via os, but needed
-        # to get a correct implementation of os.abspath
+        # to get a correct implementation of os.path.abspath
         from rpython.rtyper.module.ll_win32file import make_getfullpathname_impl
         getfullpathname_llimpl = make_getfullpathname_impl(traits)
 

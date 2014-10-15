@@ -13,7 +13,8 @@ from rpython.rlib.objectmodel import (ComputedIntSymbolic, CDefinedIntSymbolic,
 # intmask is used in an exec'd code block
 from rpython.rlib.rarithmetic import (ovfcheck, is_valid_int, intmask,
     r_uint, r_longlong, r_ulonglong, r_longlonglong)
-from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap
+from rpython.rtyper import rclass
 
 
 log = py.log.Producer('llinterp')

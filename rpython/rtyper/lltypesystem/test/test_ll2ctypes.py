@@ -106,7 +106,7 @@ class TestLL2Ctypes(object):
         #     s1.ptr = & s1.buf;
         S2 = lltype.Struct('S2', ('y', lltype.Signed))
         S1 = lltype.Struct('S',
-                           ('sub', lltype.Struct('SUB', 
+                           ('sub', lltype.Struct('SUB',
                                                  ('ptr', lltype.Ptr(S2)))),
                            ('ptr', lltype.Ptr(S2)),
                            ('buf', S2), # Works when this field is first!
@@ -1232,7 +1232,7 @@ class TestLL2Ctypes(object):
         assert adr1 == adr1_2
 
     def test_object_subclass(self):
-        from rpython.rtyper.lltypesystem import rclass
+        from rpython.rtyper import rclass
         from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
         from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
         class S:
@@ -1250,7 +1250,7 @@ class TestLL2Ctypes(object):
         assert res == 123
 
     def test_object_subclass_2(self):
-        from rpython.rtyper.lltypesystem import rclass
+        from rpython.rtyper import rclass
         SCLASS = lltype.GcStruct('SCLASS',
                                  ('parent', rclass.OBJECT),
                                  ('n', lltype.Signed))
@@ -1270,7 +1270,7 @@ class TestLL2Ctypes(object):
         assert res == 123
 
     def test_object_subclass_3(self):
-        from rpython.rtyper.lltypesystem import rclass
+        from rpython.rtyper import rclass
         from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
         from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
         class S:
@@ -1289,7 +1289,7 @@ class TestLL2Ctypes(object):
         assert res == 123
 
     def test_object_subclass_4(self):
-        from rpython.rtyper.lltypesystem import rclass
+        from rpython.rtyper import rclass
         SCLASS = lltype.GcStruct('SCLASS',
                                  ('parent', rclass.OBJECT),
                                  ('n', lltype.Signed))
@@ -1310,7 +1310,7 @@ class TestLL2Ctypes(object):
         assert res == 123
 
     def test_object_subclass_5(self):
-        from rpython.rtyper.lltypesystem import rclass
+        from rpython.rtyper import rclass
         from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
         from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
         class S:
@@ -1366,7 +1366,7 @@ class TestLL2Ctypes(object):
     def test_opaque_tagged_pointers(self):
         from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
         from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
-        from rpython.rtyper.lltypesystem import rclass
+        from rpython.rtyper import rclass
 
         class Opaque(object):
             llopaque = True

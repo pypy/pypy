@@ -12,7 +12,8 @@ from rpython.jit.backend.llsupport.regalloc import is_comparison_or_ovf_op
 from rpython.jit.tool.oparser import parse
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.rtyper.lltypesystem import rclass, rstr
+from rpython.rtyper.lltypesystem import rstr
+from rpython.rtyper import rclass
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 

@@ -19,3 +19,6 @@ Small internal refactorings in the rtyper.
 .. branch: var-in-Some
 Store annotations on the Variable objects, rather than in a big dict.
 Introduce a new framework for double-dispatched annotation implementations.
+
+.. branch: ClassRepr
+Refactor ClassRepr and make normalizecalls independent of the rtyper.
