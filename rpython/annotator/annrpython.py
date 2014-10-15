@@ -579,7 +579,7 @@ class RPythonAnnotator(object):
         for arg in op.args:
             if isinstance(self.annotation(arg), annmodel.SomeImpossibleValue):
                 raise BlockedInference(self, op, -1)
-        resultcell = op.consider(self, *op.args)
+        resultcell = op.consider(self)
         if resultcell is None:
             resultcell = annmodel.s_ImpossibleValue
         elif resultcell == annmodel.s_ImpossibleValue:
