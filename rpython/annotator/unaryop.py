@@ -694,22 +694,32 @@ class __extend__(SomeInstance):
         bk.emulate_pbc_call(bk.position_key, s_attr, args_s)
         return s_attr.call(simple_args(args_s))
 
-    def iter(self):
-        return self._emulate_call('__iter__')
-
-    def next(self):
-        return self._emulate_call('next')
-
-    def getslice(self, s_start, s_stop):
-        return self._emulate_call('__getslice__', s_start, s_stop)
-
-    def setslice(self, s_start, s_stop, s_iterable):
-        return self._emulate_call('__setslice__', s_start, s_stop, s_iterable)
-
 @op.len.register_transform(SomeInstance)
 def len_SomeInstance(annotator, v_arg):
     get_len = op.getattr(v_arg, const('__len__'))
     return [get_len, op.simple_call(get_len.result)]
+
+@op.iter.register_transform(SomeInstance)
+def iter_SomeInstance(annotator, v_arg):
+    get_iter = op.getattr(v_arg, const('__iter__'))
+    return [get_iter, op.simple_call(get_iter.result)]
+
+@op.next.register_transform(SomeInstance)
+def next_SomeInstance(annotator, v_arg):
+    get_next = op.getattr(v_arg, const('next'))
+    return [get_next, op.simple_call(get_next.result)]
+
+@op.getslice.register_transform(SomeInstance)
+def getslice_SomeInstance(annotator, v_obj, v_start, v_stop):
+    get_getslice = op.getattr(v_obj, const('__getslice__'))
+    return [get_getslice, op.simple_call(get_getslice.result, v_start, v_stop)]
+
+
+@op.setslice.register_transform(SomeInstance)
+def setslice_SomeInstance(annotator, v_obj, v_start, v_stop, v_iterable):
+    get_setslice = op.getattr(v_obj, const('__setslice__'))
+    return [get_setslice,
+            op.simple_call(get_setslice.result, v_start, v_stop, v_iterable)]
 
 
 class __extend__(SomeBuiltin):
