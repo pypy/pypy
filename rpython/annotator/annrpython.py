@@ -399,12 +399,22 @@ class RPythonAnnotator(object):
 
     def flowin(self, graph, block):
         try:
-            for i, op in enumerate(block.operations):
+            i = 0
+            while i < len(block.operations):
+                op = block.operations[i]
                 self.bookkeeper.enter((graph, block, i))
                 try:
+                    new_ops = op.transform(self)
+                    if new_ops is not None:
+                        block.operations[i:i+1] = new_ops
+                        if not new_ops:
+                            continue
+                        new_ops[-1].result = op.result
+                        op = new_ops[0]
                     self.consider_op(op)
                 finally:
                     self.bookkeeper.leave()
+                i += 1
 
         except BlockedInference as e:
             if (e.op is block.operations[-1] and

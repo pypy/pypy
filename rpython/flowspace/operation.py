@@ -104,6 +104,9 @@ class HLOperation(SpaceOperation):
     def get_can_only_throw(self, annotator):
         return None
 
+    def transform(self, annotator):
+        pass
+
 class PureOperation(HLOperation):
     pure = True
 
@@ -602,6 +605,15 @@ class CallArgs(SingleDispatchMixin, CallOp):
     def build_args(self, args_s):
         return ArgumentsForTranslation.fromshape(args_s[0].const,
                                                 list(args_s[1:]))
+
+def transform_len(hlop, annotator):
+    from rpython.annotator.model import SomeInstance
+    s_arg = annotator.annotation(hlop.args[0])
+    if isinstance(s_arg, SomeInstance):
+        get_len = op.getattr(hlop.args[0], const('__len__'))
+        return [get_len, op.simple_call(get_len.result)]
+
+op.len.transform = transform_len
 
 
 # Other functions that get directly translated to SpaceOperators
