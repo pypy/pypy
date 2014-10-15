@@ -5,6 +5,7 @@ Unary operations on SomeValues.
 from __future__ import absolute_import
 
 from rpython.flowspace.operation import op
+from rpython.flowspace.model import const
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
@@ -704,6 +705,12 @@ class __extend__(SomeInstance):
 
     def setslice(self, s_start, s_stop, s_iterable):
         return self._emulate_call('__setslice__', s_start, s_stop, s_iterable)
+
+@op.len.register_transform(SomeInstance)
+def len_SomeInstance(annotator, v_arg):
+    get_len = op.getattr(v_arg, const('__len__'))
+    return [get_len, op.simple_call(get_len.result)]
+
 
 class __extend__(SomeBuiltin):
     def call(self, args, implicit_init=False):
