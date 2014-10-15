@@ -405,6 +405,10 @@ class AppTestStruct(object):
         assert s.unpack(s.pack(42)) == (42,)
         assert s.unpack_from(memoryview(s.pack(42))) == (42,)
 
+    def test_struct_object_attrib(self):
+        s = self.struct.Struct('i')
+        assert s.format == b'i'
+
     def test_trailing_counter(self):
         import array
         store = array.array('b', b' '*100)
