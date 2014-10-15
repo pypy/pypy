@@ -53,7 +53,7 @@ translation_optiondescription = OptionDescription(
                  cmdline="-b --backend"),
 
     BoolOption("shared", "Build as a shared library",
-               default=True, cmdline="--shared"),
+               default=False, cmdline="--shared"),
 
     BoolOption("log", "Include debug prints in the translation (PYPYLOG=...)",
                default=True, cmdline="--log"),
