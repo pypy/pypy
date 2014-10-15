@@ -832,18 +832,6 @@ class InstanceRepr(Repr):
         hop2.args_s[0] = s_attr
         return hop2.dispatch()
 
-    def rtype_iter(self, hop):
-        return self._emulate_call(hop, '__iter__')
-
-    def rtype_next(self, hop):
-        return self._emulate_call(hop, 'next')
-
-    def rtype_getslice(self, hop):
-        return self._emulate_call(hop, "__getslice__")
-
-    def rtype_setslice(self, hop):
-        return self._emulate_call(hop, "__setslice__")
-
     def ll_str(self, i):  # doesn't work for non-gc classes!
         from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
         from rpython.rlib.rarithmetic import r_uint
