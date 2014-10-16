@@ -379,12 +379,16 @@ class Test_rbigint(object):
                 f2 = rbigint.fromlong(y)
                 assert (x < y) ==  f1.lt(f2)
 
-    def test_int_lt(self):
-        val = [0, 0x11111111, 0x11111112]
-        for x in gen_signs(val):
-            for y in gen_signs(val):
+    def test_int_comparison(self):
+        for x in [0, 0x11111111, 0x11111112, 123456789123456789000000L, 1 << 100, 3 ** 10000]:
+            for y in [0, 1, 0x11111111, 0x11111112, 8888, sys.maxint, 2 ** 19, 2 ** 18 - 1]:
                 f1 = rbigint.fromlong(x)
                 assert (x < y) ==  f1.int_lt(y)
+                assert (x <= y) ==  f1.int_le(y)
+                assert (x > y) ==  f1.int_gt(y)
+                assert (x >= y) ==  f1.int_ge(y)
+                assert (x == y) ==  f1.int_eq(y)
+                assert (x != y) ==  f1.int_ne(y)
 
     def test_order(self):
         f6 = rbigint.fromint(6)
