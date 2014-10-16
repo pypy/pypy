@@ -336,22 +336,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         c_fn = self.getcompiled(fn, [])
         assert not c_fn()
 
-    def test_malloc_nonmovable(self):
-        TP = lltype.GcArray(lltype.Char)
-        def func():
-            try:
-                a = rgc.malloc_nonmovable(TP, 3)
-                rgc.collect()
-                if a:
-                    assert not rgc.can_move(a)
-                    return 0
-                return 1
-            except Exception:
-                return 2
-
-        run = self.getcompiled(func)
-        assert run() == 0
-
     def test_shrink_array(self):
         def f():
             ptr = lltype.malloc(STR, 3)
@@ -369,13 +353,12 @@ class TestUsingBoehm(AbstractGCTestClass):
         run = self.getcompiled(f)
         assert run() == 0x62024230
 
-    def test_assume_young_pointers_nop(self):
+    def test_write_barrier_nop(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
         s = lltype.malloc(S)
         s.x = 0
         def f():
-            llop.gc_assume_young_pointers(lltype.Void,
-                                          llmemory.cast_ptr_to_adr(s))
+            llop.gc_writebarrier(lltype.Void, llmemory.cast_ptr_to_adr(s))
             return True
         run = self.getcompiled(f)
         assert run() == True

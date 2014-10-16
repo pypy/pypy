@@ -1,9 +1,12 @@
 import os
 
+from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.history import Const
 from rpython.jit.metainterp.jitexc import JitException
-from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS
+from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -93,6 +96,11 @@ class CachedField(object):
             # possible aliasing).
             self.clear()
             self._lazy_setfield = None
+            if optheap.postponed_op:
+                for a in op.getarglist():
+                    if a is optheap.postponed_op.result:
+                        optheap.emit_postponed_op()
+                        break
             optheap.next_optimization.propagate_forward(op)
             if not can_cache:
                 return
@@ -168,6 +176,10 @@ class OptHeap(Optimization):
         self.cached_fields = {}
         # cached array items:  {array descr: {index: CachedField}}
         self.cached_arrayitems = {}
+        # cached dict items: {dict descr: {(optval, index): box-or-const}}
+        self.cached_dict_reads = {}
+        # cache of corresponding {array descrs: dict 'entries' field descr}
+        self.corresponding_array_descrs = {}
         #
         self._lazy_setfields_and_arrayitems = []
         self._remove_guard_not_invalidated = False
@@ -175,17 +187,21 @@ class OptHeap(Optimization):
         self.postponed_op = None
 
     def force_at_end_of_preamble(self):
+        self.cached_dict_reads.clear()
+        self.corresponding_array_descrs.clear()
         self.force_all_lazy_setfields_and_arrayitems()
 
     def flush(self):
+        self.cached_dict_reads.clear()
+        self.corresponding_array_descrs.clear()
         self.force_all_lazy_setfields_and_arrayitems()
+        self.emit_postponed_op()
+
+    def emit_postponed_op(self):
         if self.postponed_op:
             postponed_op = self.postponed_op
             self.postponed_op = None
             self.next_optimization.propagate_forward(postponed_op)
-
-    def new(self):
-        return OptHeap()
 
     def produce_potential_short_preamble_ops(self, sb):
         descrkeys = self.cached_fields.keys()
@@ -209,6 +225,7 @@ class OptHeap(Optimization):
         del self._lazy_setfields_and_arrayitems[:]
         self.cached_fields.clear()
         self.cached_arrayitems.clear()
+        self.cached_dict_reads.clear()
 
     def field_cache(self, descr):
         try:
@@ -230,10 +247,7 @@ class OptHeap(Optimization):
 
     def emit_operation(self, op):
         self.emitting_operation(op)
-        if self.postponed_op:
-            postponed_op = self.postponed_op
-            self.postponed_op = None
-            self.next_optimization.propagate_forward(postponed_op)
+        self.emit_postponed_op()
         if (op.is_comparison() or op.getopnum() == rop.CALL_MAY_FORCE
             or op.is_ovf()):
             self.postponed_op = op
@@ -280,6 +294,44 @@ class OptHeap(Optimization):
         self.force_all_lazy_setfields_and_arrayitems()
         self.clean_caches()
 
+    def optimize_CALL(self, op):
+        # dispatch based on 'oopspecindex' to a method that handles
+        # specifically the given oopspec call.  For non-oopspec calls,
+        # oopspecindex is just zero.
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex == EffectInfo.OS_DICT_LOOKUP:
+            if self._optimize_CALL_DICT_LOOKUP(op):
+                return
+        self.emit_operation(op)
+
+    def _optimize_CALL_DICT_LOOKUP(self, op):
+        descrs = op.getdescr().get_extra_info().extradescrs
+        assert descrs        # translation hint
+        descr1 = descrs[0]
+        try:
+            d = self.cached_dict_reads[descr1]
+        except KeyError:
+            d = self.cached_dict_reads[descr1] = args_dict()
+            self.corresponding_array_descrs[descrs[1]] = descr1
+        args = self.optimizer.make_args_key(op)
+        try:
+            res_v = d[args]
+        except KeyError:
+            d[args] = self.getvalue(op.result)
+            return False
+        else:
+            self.make_equal_to(op.result, res_v)
+            self.last_emitted_operation = REMOVED
+            return True
+
+    def optimize_GUARD_NO_EXCEPTION(self, op):
+        if self.last_emitted_operation is REMOVED:
+            return
+        self.emit_operation(op)
+
+    optimize_GUARD_EXCEPTION = optimize_GUARD_NO_EXCEPTION
+
     def force_from_effectinfo(self, effectinfo):
         # XXX we can get the wrong complexity here, if the lists
         # XXX stored on effectinfo are large
@@ -288,9 +340,19 @@ class OptHeap(Optimization):
         for arraydescr in effectinfo.readonly_descrs_arrays:
             self.force_lazy_setarrayitem(arraydescr)
         for fielddescr in effectinfo.write_descrs_fields:
+            try:
+                del self.cached_dict_reads[fielddescr]
+            except KeyError:
+                pass
             self.force_lazy_setfield(fielddescr, can_cache=False)
         for arraydescr in effectinfo.write_descrs_arrays:
             self.force_lazy_setarrayitem(arraydescr, can_cache=False)
+            if arraydescr in self.corresponding_array_descrs:
+                dictdescr = self.corresponding_array_descrs.pop(arraydescr)
+                try:
+                    del self.cached_dict_reads[dictdescr]
+                except KeyError:
+                    pass # someone did it already
         if effectinfo.check_forces_virtual_or_virtualizable():
             vrefinfo = self.optimizer.metainterp_sd.virtualref_info
             self.force_lazy_setfield(vrefinfo.descr_forced)
@@ -470,10 +532,14 @@ class OptHeap(Optimization):
 
     def optimize_QUASIIMMUT_FIELD(self, op):
         # Pattern: QUASIIMMUT_FIELD(s, descr=QuasiImmutDescr)
-        #          x = GETFIELD_GC(s, descr='inst_x')
-        # If 's' is a constant (after optimizations), then we make 's.inst_x'
-        # a constant too, and we rely on the rest of the optimizations to
-        # constant-fold the following getfield_gc.
+        #          x = GETFIELD_GC_PURE(s, descr='inst_x')
+        # If 's' is a constant (after optimizations) we rely on the rest of the
+        # optimizations to constant-fold the following getfield_gc_pure.
+        # in addition, we record the dependency here to make invalidation work
+        # correctly.
+        # NB: emitting the GETFIELD_GC_PURE is only safe because the
+        # QUASIIMMUT_FIELD is also emitted to make sure the dependency is
+        # registered.
         structvalue = self.getvalue(op.getarg(0))
         if not structvalue.is_constant():
             self._remove_guard_not_invalidated = True
@@ -483,21 +549,14 @@ class OptHeap(Optimization):
         qmutdescr = op.getdescr()
         assert isinstance(qmutdescr, QuasiImmutDescr)
         # check that the value is still correct; it could have changed
-        # already between the tracing and now.  In this case, we are
-        # simply ignoring the QUASIIMMUT_FIELD hint and compiling it
-        # as a regular getfield.
+        # already between the tracing and now.  In this case, we mark the loop
+        # as invalid
         if not qmutdescr.is_still_valid_for(structvalue.get_key_box()):
-            self._remove_guard_not_invalidated = True
-            return
+            raise InvalidLoop('quasi immutable field changed during tracing')
         # record as an out-of-line guard
         if self.optimizer.quasi_immutable_deps is None:
             self.optimizer.quasi_immutable_deps = {}
         self.optimizer.quasi_immutable_deps[qmutdescr.qmut] = None
-        # perform the replacement in the list of operations
-        fieldvalue = self.getvalue(qmutdescr.constantfieldbox)
-        cf = self.field_cache(qmutdescr.fielddescr)
-        cf.force_lazy_setfield(self)
-        cf.remember_field_value(structvalue, fieldvalue)
         self._remove_guard_not_invalidated = False
 
     def optimize_GUARD_NOT_INVALIDATED(self, op):

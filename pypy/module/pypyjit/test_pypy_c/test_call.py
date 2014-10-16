@@ -17,13 +17,18 @@ class TestCall(BaseTestPyPyC):
             # now we can inline it as call assembler
             i = 0
             j = 0
-            while i < 20:
+            while i < 25:
                 i += 1
                 j += rec(100) # ID: call_rec
             return j
         #
-        log = self.run(fn, [], threshold=18)
-        loop, = log.loops_by_filename(self.filepath)
+        # NB. the parameters below are a bit ad-hoc.  After 16 iterations,
+        # the we trace from the "while" and reach a "trace too long".  Then
+        # in the next execution, we trace the "rec" function from start;
+        # that's "functrace" below.  Then after one or two extra iterations
+        # we try again from "while", and this time we succeed.
+        log = self.run(fn, [], threshold=20)
+        functrace, loop = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('call_rec', """
             ...
             p53 = call_assembler(..., descr=...)
@@ -67,22 +72,22 @@ class TestCall(BaseTestPyPyC):
         # LOAD_GLOBAL of OFFSET
         ops = entry_bridge.ops_by_id('cond', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == ["guard_value",
-                                    "getfield_gc", "guard_value",
+                                    "guard_value",
                                     "getfield_gc", "guard_value",
                                     "guard_not_invalidated"]
         ops = entry_bridge.ops_by_id('add', opcode='LOAD_GLOBAL')
-        assert log.opnames(ops) == ["guard_not_invalidated"]
+        assert log.opnames(ops) == []
         #
         ops = entry_bridge.ops_by_id('call', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == []
         #
         assert entry_bridge.match_by_id('call', """
-            p38 = call(ConstClass(getexecutioncontext), descr=<Callr . EF=1>)
+            p38 = call(ConstClass(_ll_0_threadlocalref_getter___), descr=<Callr . EF=1 OS=5>)
             p39 = getfield_gc(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             i40 = force_token()
-            p41 = getfield_gc(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
-            guard_isnull(p41, descr=...)
-            i42 = getfield_gc(p38, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
+            p41 = getfield_gc_pure(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
+            guard_value(p41, ConstPtr(ptr42), descr=...)
+            i42 = getfield_gc_pure(p38, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
             i43 = int_is_zero(i42)
             guard_true(i43, descr=...)
             i50 = force_token()
@@ -194,7 +199,6 @@ class TestCall(BaseTestPyPyC):
         assert log.result == 1000
         loop, = log.loops_by_id('call')
         assert loop.match_by_id('call', """
-            p14 = getarrayitem_gc_pure(p8, i9, descr=<ArrayP .>)
             i14 = force_token()
             i16 = force_token()
         """)
@@ -378,12 +382,16 @@ class TestCall(BaseTestPyPyC):
             ...
             p20 = force_token()
             p22 = new_with_vtable(...)
-            p24 = new_array(1, descr=<ArrayP .>)
+            p24 = new_array_clear(1, descr=<ArrayP .>)
             p26 = new_with_vtable(ConstClass(W_ListObject))
             {{{
             setfield_gc(p0, p20, descr=<FieldP .*PyFrame.vable_token .*>)
+            setfield_gc(p22, ConstPtr(null), descr=<FieldP pypy.interpreter.argument.Arguments.inst_keywords_w .*>)
+            setfield_gc(p22, ConstPtr(null), descr=<FieldP pypy.interpreter.argument.Arguments.inst_keywords .*>)
             setfield_gc(p22, 1, descr=<FieldU pypy.interpreter.argument.Arguments.inst__jit_few_keywords .*>)
+            setfield_gc(p22, ConstPtr(null), descr=<FieldP pypy.interpreter.argument.Arguments.inst_keyword_names_w .*>)
             setfield_gc(p26, ConstPtr(ptr22), descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_strategy .*>)
+            setfield_gc(p26, ConstPtr(null), descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_lstorage .*>)
             setarrayitem_gc(p24, 0, p26, descr=<ArrayP .>)
             setfield_gc(p22, p24, descr=<FieldP .*Arguments.inst_arguments_w .*>)
             }}}
@@ -424,34 +432,32 @@ class TestCall(BaseTestPyPyC):
             """, [])
         loop, = log.loops_by_id('call', is_entry_bridge=True)
         assert loop.match("""
-            guard_value(i6, 1, descr=...)
-            guard_nonnull_class(p8, ConstClass(W_IntObject), descr=...)
-            guard_value(i4, 0, descr=...)
-            guard_value(p3, ConstPtr(ptr14), descr=...)
-            i15 = getfield_gc_pure(p8, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
-            i17 = int_lt(i15, 5000)
-            guard_true(i17, descr=...)
-            p18 = getfield_gc(p0, descr=<FieldP pypy.interpreter.eval.Frame.inst_w_globals .*>)
-            guard_value(p18, ConstPtr(ptr19), descr=...)
-            p20 = getfield_gc(p18, descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy .*>)
-            guard_value(p20, ConstPtr(ptr21), descr=...)
+            guard_value(i4, 1, descr=...)
+            guard_isnull(p5, descr=...)
+            guard_nonnull_class(p12, ConstClass(W_IntObject), descr=...)
+            guard_value(i8, 0, descr=...)
+            guard_value(p2, ConstPtr(ptr21), descr=...)
+            i22 = getfield_gc_pure(p12, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
+            i24 = int_lt(i22, 5000)
+            guard_true(i24, descr=...)
+            guard_value(p7, ConstPtr(ptr25), descr=...)
+            p26 = getfield_gc(p7, descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy .*>)
+            guard_value(p26, ConstPtr(ptr27), descr=...)
             guard_not_invalidated(descr=...)
-            # most importantly, there is no getarrayitem_gc here
-            p23 = call(ConstClass(getexecutioncontext), descr=<Callr . EF=1>)
-            p24 = getfield_gc(p23, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
-            i25 = force_token()
-            p26 = getfield_gc(p23, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
-            guard_isnull(p26, descr=...)
-            i27 = getfield_gc(p23, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
-            i28 = int_is_zero(i27)
-            guard_true(i28, descr=...)
-            p30 = getfield_gc(ConstPtr(ptr29), descr=<FieldP pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
-            guard_nonnull_class(p30, ConstClass(W_IntObject), descr=...)
-            i32 = getfield_gc_pure(p30, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
-            i33 = int_add_ovf(i15, i32)
+            p29 = call(ConstClass(_ll_0_threadlocalref_getter___), descr=<Callr . EF=1 OS=5>)
+            p30 = getfield_gc(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
+            p31 = force_token()
+            p32 = getfield_gc_pure(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
+            guard_value(p32, ConstPtr(ptr33), descr=...)
+            i34 = getfield_gc_pure(p29, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
+            i35 = int_is_zero(i34)
+            guard_true(i35, descr=...)
+            p37 = getfield_gc(ConstPtr(ptr36), descr=<FieldP pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
+            guard_nonnull_class(p37, ConstClass(W_IntObject), descr=...)
+            i39 = getfield_gc_pure(p37, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
+            i40 = int_add_ovf(i22, i39)
             guard_no_overflow(descr=...)
             --TICK--
-            p39 = same_as(...) # Should be killed by backend
         """)
 
     def test_local_closure_is_virtual(self):

@@ -156,12 +156,9 @@ class AutoComplete:
         if not comp_lists[0]:
             return
         self.autocompletewindow = self._make_autocomplete_window()
-        self.autocompletewindow.show_window(comp_lists,
-                                            "insert-%dc" % len(comp_start),
-                                            complete,
-                                            mode,
-                                            userWantsWin)
-        return True
+        return not self.autocompletewindow.show_window(
+                comp_lists, "insert-%dc" % len(comp_start),
+                complete, mode, userWantsWin)
 
     def fetch_completions(self, what, mode):
         """Return a pair of lists of completions for something. The first list
@@ -225,3 +222,8 @@ class AutoComplete:
         namespace = sys.modules.copy()
         namespace.update(__main__.__dict__)
         return eval(name, namespace)
+
+
+if __name__ == '__main__':
+    from unittest import main
+    main('idlelib.idle_test.test_autocomplete', verbosity=2)

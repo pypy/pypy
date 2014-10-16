@@ -2,13 +2,14 @@
 """ Register allocation scheme.
 """
 
-import os
+import os, sys
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.descr import (ArrayDescr, CallDescr,
     unpack_arraydescr, unpack_fielddescr, unpack_interiorfielddescr)
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
-     RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op)
+     RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op,
+     valid_addressing_size)
 from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
     IS_X86_64)
@@ -28,6 +29,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 
 class X86RegisterManager(RegisterManager):
@@ -691,6 +693,32 @@ class RegAlloc(BaseRegalloc):
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(1))
         self.perform_math(op, [loc0], loc0)
 
+    TLREF_SUPPORT = sys.platform.startswith('linux')
+    ERRNO_SUPPORT = sys.platform.startswith('linux')
+
+    def _consider_threadlocalref_get(self, op):
+        if self.TLREF_SUPPORT:
+            resloc = self.force_allocate_reg(op.result)
+            self.assembler.threadlocalref_get(op, resloc)
+        else:
+            self._consider_call(op)
+
+    def _consider_get_errno(self, op):
+        if self.ERRNO_SUPPORT:
+            resloc = self.force_allocate_reg(op.result)
+            self.assembler.get_set_errno(op, resloc, issue_a_write=False)
+        else:
+            self._consider_call(op)
+
+    def _consider_set_errno(self, op):
+        if self.ERRNO_SUPPORT:
+            # op.getarg(0) is the function set_errno; op.getarg(1) is
+            # the new errno value
+            loc0 = self.rm.make_sure_var_in_reg(op.getarg(1))
+            self.assembler.get_set_errno(op, loc0, issue_a_write=True)
+        else:
+            self._consider_call(op)
+
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
         # we need to save registers on the stack:
         #
@@ -768,6 +796,14 @@ class RegAlloc(BaseRegalloc):
                         return
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
                 return self._consider_math_sqrt(op)
+            if oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
+                return self._consider_threadlocalref_get(op)
+            if oopspecindex == EffectInfo.OS_GET_ERRNO:
+                return self._consider_get_errno(op)
+            if oopspecindex == EffectInfo.OS_SET_ERRNO:
+                return self._consider_set_errno(op)
+            if oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
+                return self._consider_math_read_timestamp(op)
         self._consider_call(op)
 
     def consider_call_may_force(self, op, guard_op):
@@ -923,6 +959,13 @@ class RegAlloc(BaseRegalloc):
                                               need_lower_byte=need_lower_byte)
         self.perform_discard(op, [base_loc, ofs_loc, size_loc, value_loc])
 
+    def consider_zero_ptr_field(self, op):
+        ofs_loc = imm(op.getarg(1).getint())
+        size_loc = imm(WORD)
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), [])
+        value_loc = imm(0)
+        self.perform_discard(op, [base_loc, ofs_loc, size_loc, value_loc])
+
     consider_setfield_raw = consider_setfield_gc
 
     def consider_setinteriorfield_gc(self, op):
@@ -1001,6 +1044,10 @@ class RegAlloc(BaseRegalloc):
     consider_getfield_raw = consider_getfield_gc
     consider_getfield_raw_pure = consider_getfield_gc
     consider_getfield_gc_pure = consider_getfield_gc
+
+    def consider_increment_debug_counter(self, op):
+        base_loc = self.loc(op.getarg(0))
+        self.perform_discard(op, [base_loc])
 
     def consider_getarrayitem_gc(self, op):
         itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
@@ -1169,7 +1216,7 @@ class RegAlloc(BaseRegalloc):
         else:
             raise AssertionError("bad unicode item size")
 
-    def consider_read_timestamp(self, op):
+    def _consider_math_read_timestamp(self, op):
         tmpbox_high = TempBox()
         self.rm.force_allocate_reg(tmpbox_high, selected_reg=eax)
         if longlong.is_64_bit:
@@ -1177,7 +1224,7 @@ class RegAlloc(BaseRegalloc):
             # result in rdx
             result_loc = self.rm.force_allocate_reg(op.result,
                                                     selected_reg=edx)
-            self.perform(op, [], result_loc)
+            self.perform_math(op, [], result_loc)
         else:
             # on 32-bit, use both eax and edx as temporary registers,
             # use a temporary xmm register, and returns the result in
@@ -1187,7 +1234,7 @@ class RegAlloc(BaseRegalloc):
             xmmtmpbox = TempBox()
             xmmtmploc = self.xrm.force_allocate_reg(xmmtmpbox)
             result_loc = self.xrm.force_allocate_reg(op.result)
-            self.perform(op, [xmmtmploc], result_loc)
+            self.perform_math(op, [xmmtmploc], result_loc)
             self.xrm.possibly_free_var(xmmtmpbox)
             self.rm.possibly_free_var(tmpbox_low)
         self.rm.possibly_free_var(tmpbox_high)
@@ -1196,7 +1243,6 @@ class RegAlloc(BaseRegalloc):
         # optimization only: fill in the 'hint_frame_locations' dictionary
         # of 'fm' based on the JUMP at the end of the loop, by looking
         # at where we would like the boxes to be after the jump.
-        return # XXX disabled for now
         op = operations[-1]
         if op.getopnum() != rop.JUMP:
             return
@@ -1222,7 +1268,7 @@ class RegAlloc(BaseRegalloc):
             if isinstance(box, Box):
                 loc = arglocs[i]
                 if isinstance(loc, FrameLoc):
-                    self.fm.hint_frame_locations[box] = loc
+                    self.fm.hint_frame_pos[box] = self.fm.get_loc_index(loc)
 
     def consider_jump(self, op):
         assembler = self.assembler
@@ -1324,13 +1370,9 @@ class RegAlloc(BaseRegalloc):
         # end of the same loop, i.e. if what we are compiling is a single
         # loop that ends up jumping to this LABEL, then we can now provide
         # the hints about the expected position of the spilled variables.
-
-        # XXX we never compile code like that?
-        # YYY of course, because compute_hint_frame_locations() is disabled.
-        #     re-enable this once we re-enable it!
-        #jump_op = self.final_jump_op
-        #if jump_op is not None and jump_op.getdescr() is descr:
-        #    self._compute_hint_frame_locations_from_descr(descr)
+        jump_op = self.final_jump_op
+        if jump_op is not None and jump_op.getdescr() is descr:
+            self._compute_hint_frame_locations_from_descr(descr)
 
     def consider_guard_not_forced_2(self, op):
         self.rm.before_call(op.getfailargs(), save_all_regs=True)
@@ -1341,6 +1383,72 @@ class RegAlloc(BaseRegalloc):
 
     def consider_keepalive(self, op):
         pass
+
+    def consider_zero_array(self, op):
+        itemsize, baseofs, _ = unpack_arraydescr(op.getdescr())
+        length_box = op.getarg(2)
+        if isinstance(length_box, ConstInt):
+            constbytes = length_box.getint() * itemsize
+            if constbytes == 0:
+                return    # nothing to do
+        else:
+            constbytes = -1
+        args = op.getarglist()
+        base_loc = self.rm.make_sure_var_in_reg(args[0], args)
+        startindex_loc = self.rm.make_sure_var_in_reg(args[1], args)
+        if 0 <= constbytes <= 16 * 8 and (
+                valid_addressing_size(itemsize) or
+-               isinstance(startindex_loc, ImmedLoc)):
+            if IS_X86_64:
+                null_loc = X86_64_XMM_SCRATCH_REG
+            else:
+                null_box = TempBox()
+                null_loc = self.xrm.force_allocate_reg(null_box)
+                self.xrm.possibly_free_var(null_box)
+            self.perform_discard(op, [base_loc, startindex_loc,
+                                      imm(constbytes), imm(itemsize),
+                                      imm(baseofs), null_loc])
+        else:
+            # base_loc and startindex_loc are in two regs here (or they are
+            # immediates).  Compute the dstaddr_loc, which is the raw
+            # address that we will pass as first argument to memset().
+            # It can be in the same register as either one, but not in
+            # args[2], because we're still needing the latter.
+            dstaddr_box = TempBox()
+            dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box, [args[2]])
+            itemsize_loc = imm(itemsize)
+            dst_addr = self.assembler._get_interiorfield_addr(
+                dstaddr_loc, startindex_loc, itemsize_loc,
+                base_loc, imm(baseofs))
+            self.assembler.mc.LEA(dstaddr_loc, dst_addr)
+            #
+            if constbytes >= 0:
+                length_loc = imm(constbytes)
+            else:
+                # load length_loc in a register different than dstaddr_loc
+                length_loc = self.rm.make_sure_var_in_reg(length_box,
+                                                          [dstaddr_box])
+                if itemsize > 1:
+                    # we need a register that is different from dstaddr_loc,
+                    # but which can be identical to length_loc (as usual,
+                    # only if the length_box is not used by future operations)
+                    bytes_box = TempBox()
+                    bytes_loc = self.rm.force_allocate_reg(bytes_box,
+                                                           [dstaddr_box])
+                    b_adr = self.assembler._get_interiorfield_addr(
+                        bytes_loc, length_loc, itemsize_loc, imm0, imm0)
+                    self.assembler.mc.LEA(bytes_loc, b_adr)
+                    length_box = bytes_box
+                    length_loc = bytes_loc
+            #
+            # call memset()
+            self.rm.before_call()
+            self.xrm.before_call()
+            self.assembler.simple_call_no_collect(
+                imm(self.assembler.memset_addr),
+                [dstaddr_loc, imm0, length_loc])
+            self.rm.possibly_free_var(length_box)
+            self.rm.possibly_free_var(dstaddr_box)
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())
@@ -1375,7 +1483,9 @@ def get_ebp_ofs(base_ofs, position):
     return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)
 
 def not_implemented(msg):
-    os.write(2, '[x86/regalloc] %s\n' % msg)
+    msg = '[x86/regalloc] %s\n' % msg
+    if we_are_translated():
+        llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
 
 # xxx hack: set a default value for TargetToken._ll_loop_code.

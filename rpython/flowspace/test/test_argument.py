@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
-import py
-from rpython.flowspace.argument import Signature
+from rpython.flowspace.argument import Signature, CallSpec
 
 
 class TestSignature(object):
@@ -49,3 +47,27 @@ class TestSignature(object):
         assert x == ["a", "b", "c"]
         assert y == "d"
         assert z == "e"
+
+
+def test_flatten_CallSpec():
+    args = CallSpec([1, 2, 3])
+    assert args.flatten() == ((3, (), False), [1, 2, 3])
+
+    args = CallSpec([1])
+    assert args.flatten() == ((1, (), False), [1])
+
+    args = CallSpec([1, 2, 3, 4, 5])
+    assert args.flatten() == ((5, (), False), [1, 2, 3, 4, 5])
+
+    args = CallSpec([1], {'c': 3, 'b': 2})
+    assert args.flatten() == ((1, ('b', 'c'), False), [1, 2, 3])
+
+    args = CallSpec([1], {'c': 5})
+    assert args.flatten() == ((1, ('c', ), False), [1, 5])
+
+    args = CallSpec([1], {'c': 5, 'd': 7})
+    assert args.flatten() == ((1, ('c', 'd'), False), [1, 5, 7])
+
+    args = CallSpec([1, 2, 3, 4, 5], {'e': 5, 'd': 7})
+    assert args.flatten() == ((5, ('d', 'e'), False), [1, 2, 3, 4, 5, 7, 5])
+

@@ -3,6 +3,10 @@ In place of real calls to any external function, this code builds
 trampolines that marshal their input arguments, dump them to STDOUT,
 and wait for an answer on STDIN.  Enable with 'translate.py --sandbox'.
 """
+import sys
+if sys.platform == 'win32':
+    raise TypeError("sandbox not supported on windows")
+
 import py
 
 from rpython.rlib import rmarshal, types
@@ -14,7 +18,7 @@ from rpython.rlib.signature import signature
 #
 
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.tool.ansi_print import ansi_log
@@ -56,26 +60,23 @@ class FdLoader(rmarshal.Loader):
 
     def need_more_data(self):
         buflen = self.buflen
-        buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
-        buflen = rffi.cast(rffi.SIZE_T, buflen)
-        count = ll_read_not_sandboxed(self.fd, buf, buflen)
-        count = rffi.cast(lltype.Signed, count)
-        if count <= 0:
-            raise IOError
-        self.buf += ''.join([buf[i] for i in range(count)])
-        self.buflen *= 2
+        with lltype.scoped_alloc(rffi.CCHARP.TO, buflen) as buf:
+            buflen = rffi.cast(rffi.SIZE_T, buflen)
+            count = ll_read_not_sandboxed(self.fd, buf, buflen)
+            count = rffi.cast(lltype.Signed, count)
+            if count <= 0:
+                raise IOError
+            self.buf += ''.join([buf[i] for i in range(count)])
+            self.buflen *= 2
 
 def sandboxed_io(buf):
     STDIN = 0
     STDOUT = 1
     # send the buffer with the marshalled fnname and input arguments to STDOUT
-    p = lltype.malloc(rffi.CCHARP.TO, len(buf), flavor='raw')
-    try:
+    with lltype.scoped_alloc(rffi.CCHARP.TO, len(buf)) as p:
         for i in range(len(buf)):
             p[i] = buf[i]
         writeall_not_sandboxed(STDOUT, p, len(buf))
-    finally:
-        lltype.free(p, flavor='raw')
     # build a Loader that will get the answer from STDIN
     loader = FdLoader(STDIN)
     # check for errors
@@ -101,9 +102,8 @@ def reraise_error(error, loader):
 @signature(types.str(), returns=types.impossible())
 def not_implemented_stub(msg):
     STDERR = 2
-    buf = rffi.str2charp(msg + '\n')
-    writeall_not_sandboxed(STDERR, buf, len(msg) + 1)
-    rffi.free_charp(buf)
+    with rffi.scoped_str2charp(msg + '\n') as buf:
+        writeall_not_sandboxed(STDERR, buf, len(msg) + 1)
     raise RuntimeError(msg)  # XXX in RPython, the msg is ignored at the moment
 
 dump_string = rmarshal.get_marshaller(str)
@@ -126,8 +126,8 @@ def get_external_function_sandbox_graph(fnobj, db, force_stub=False):
         # pure external function - fall back to the annotations
         # corresponding to the ll types
         FUNCTYPE = lltype.typeOf(fnobj)
-        args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNCTYPE.ARGS]
-        s_result = annmodel.lltype_to_annotation(FUNCTYPE.RESULT)
+        args_s = [lltype_to_annotation(ARG) for ARG in FUNCTYPE.ARGS]
+        s_result = lltype_to_annotation(FUNCTYPE.RESULT)
 
     try:
         if force_stub:   # old case - don't try to support suggested_primitive

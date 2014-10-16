@@ -17,8 +17,14 @@ class VirtualizableInfo(object):
         self.cpu = cpu
         self.BoxArray = cpu.ts.BoxRef
         #
+        VTYPEPTR1 = VTYPEPTR
         while 'virtualizable_accessor' not in deref(VTYPEPTR)._hints:
             VTYPEPTR = cpu.ts.get_superclass(VTYPEPTR)
+            assert VTYPEPTR is not None, (
+                "%r is listed in the jit driver's 'virtualizables', "
+                "but that class doesn't have a '_virtualizable_' attribute "
+                "(if it has _virtualizable2_, rename it to _virtualizable_)"
+                % (VTYPEPTR1,))
         self.VTYPEPTR = VTYPEPTR
         self.VTYPE = VTYPE = deref(VTYPEPTR)
         self.vable_token_descr = cpu.fielddescrof(VTYPE, 'vable_token')
@@ -296,7 +302,7 @@ class VirtualizableInfo(object):
         self.clear_vable_ptr = self.warmrunnerdesc.helper_func(
             FUNCPTR, self.clear_vable_token)
         FUNC = FUNCPTR.TO
-        ei = EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+        ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
                         can_invalidate=False,
                         oopspecindex=EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE)
 

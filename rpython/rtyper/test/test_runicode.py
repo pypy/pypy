@@ -282,6 +282,7 @@ class TestRUnicode(AbstractTestRstr, BaseRtypingTest):
     test_int_valueerror = unsupported
     test_float = unsupported
     test_hlstr = unsupported
+    test_strip_multiple_chars = unsupported
 
     def test_hash_via_type(self):
         from rpython.rlib.objectmodel import compute_hash
@@ -295,3 +296,13 @@ class TestRUnicode(AbstractTestRstr, BaseRtypingTest):
 
         res = self.interpret(f, [5])
         assert res == 0
+
+    def test_unicode_char_comparison(self):
+        const = u'abcdef'
+        def f(n):
+            return const[n] >= u'c'
+
+        res = self.interpret(f, [1])
+        assert res == False
+        res = self.interpret(f, [2])
+        assert res == True

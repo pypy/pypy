@@ -133,6 +133,7 @@ import socket
 import select
 import sys
 import os
+import errno
 try:
     import threading
 except ImportError:
@@ -146,6 +147,15 @@ if hasattr(socket, "AF_UNIX"):
     __all__.extend(["UnixStreamServer","UnixDatagramServer",
                     "ThreadingUnixStreamServer",
                     "ThreadingUnixDatagramServer"])
+
+def _eintr_retry(func, *args):
+    """restart a system call interrupted by EINTR"""
+    while True:
+        try:
+            return func(*args)
+        except (OSError, select.error) as e:
+            if e.args[0] != errno.EINTR:
+                raise
 
 class BaseServer:
 
@@ -222,7 +232,8 @@ class BaseServer:
                 # connecting to the socket to wake this up instead of
                 # polling. Polling reduces our responsiveness to a
                 # shutdown request and wastes cpu at all other times.
-                r, w, e = select.select([self], [], [], poll_interval)
+                r, w, e = _eintr_retry(select.select, [self], [], [],
+                                       poll_interval)
                 if self in r:
                     self._handle_request_noblock()
         finally:
@@ -262,7 +273,7 @@ class BaseServer:
             timeout = self.timeout
         elif self.timeout is not None:
             timeout = min(timeout, self.timeout)
-        fd_sets = select.select([self], [], [], timeout)
+        fd_sets = _eintr_retry(select.select, [self], [], [], timeout)
         if not fd_sets[0]:
             self.handle_timeout()
             return
@@ -502,35 +513,37 @@ class ForkingMixIn:
 
     def collect_children(self):
         """Internal routine to wait for children that have exited."""
-        if self.active_children is None: return
-        while len(self.active_children) >= self.max_children:
-            # XXX: This will wait for any child process, not just ones
-            # spawned by this library. This could confuse other
-            # libraries that expect to be able to wait for their own
-            # children.
-            try:
-                pid, status = os.waitpid(0, 0)
-            except os.error:
-                pid = None
-            if pid not in self.active_children: continue
-            self.active_children.remove(pid)
+        if self.active_children is None:
+            return
 
-        # XXX: This loop runs more system calls than it ought
-        # to. There should be a way to put the active_children into a
-        # process group and then use os.waitpid(-pgid) to wait for any
-        # of that set, but I couldn't find a way to allocate pgids
-        # that couldn't collide.
-        for child in self.active_children:
+        # If we're above the max number of children, wait and reap them until
+        # we go back below threshold. Note that we use waitpid(-1) below to be
+        # able to collect children in size(<defunct children>) syscalls instead
+        # of size(<children>): the downside is that this might reap children
+        # which we didn't spawn, which is why we only resort to this when we're
+        # above max_children.
+        while len(self.active_children) >= self.max_children:
             try:
-                pid, status = os.waitpid(child, os.WNOHANG)
-            except os.error:
-                pid = None
-            if not pid: continue
+                pid, _ = os.waitpid(-1, 0)
+                self.active_children.discard(pid)
+            except OSError as e:
+                if e.errno == errno.ECHILD:
+                    # we don't have any children, we're done
+                    self.active_children.clear()
+                elif e.errno != errno.EINTR:
+                    break
+
+        # Now reap all defunct children.
+        for pid in self.active_children.copy():
             try:
-                self.active_children.remove(pid)
-            except ValueError, e:
-                raise ValueError('%s. x=%d and list=%r' % (e.message, pid,
-                                                           self.active_children))
+                pid, _ = os.waitpid(pid, os.WNOHANG)
+                # if the child hasn't exited yet, pid will be 0 and ignored by
+                # discard() below
+                self.active_children.discard(pid)
+            except OSError as e:
+                if e.errno == errno.ECHILD:
+                    # someone else reaped it
+                    self.active_children.discard(pid)
 
     def handle_timeout(self):
         """Wait for zombies after self.timeout seconds of inactivity.
@@ -546,8 +559,8 @@ class ForkingMixIn:
         if pid:
             # Parent process
             if self.active_children is None:
-                self.active_children = []
-            self.active_children.append(pid)
+                self.active_children = set()
+            self.active_children.add(pid)
             self.close_request(request) #close handle in parent process
             return
         else:
@@ -690,7 +703,12 @@ class StreamRequestHandler(BaseRequestHandler):
 
     def finish(self):
         if not self.wfile.closed:
-            self.wfile.flush()
+            try:
+                self.wfile.flush()
+            except socket.error:
+                # An final socket error may have occurred here, such as
+                # the local error ECONNABORTED.
+                pass
         self.wfile.close()
         self.rfile.close()
 

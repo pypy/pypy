@@ -50,6 +50,8 @@ the version you have is not 4.2 or you will run into `this bug`_.
      libz-dev libbz2-dev libncurses-dev libexpat1-dev \
      libssl-dev libgc-dev python-sphinx python-greenlet
 
+   For the optional lzma module on PyPy3 you will also need ``liblzma-dev``.
+
    On a Fedora-16 box these are::
 
      [user@fedora-or-rh-box ~]$ sudo yum install \
@@ -57,11 +59,26 @@ the version you have is not 4.2 or you will run into `this bug`_.
      zlib-devel bzip2-devel ncurses-devel expat-devel \
      openssl-devel gc-devel python-sphinx python-greenlet
 
+   For the optional lzma module on PyPy3 you will also need ``xz-devel``.
+
+   On SLES11:
+
+     $ sudo zypper install gcc make python-devel pkg-config \
+     zlib-devel libopenssl-devel libbz2-devel sqlite3-devel \
+     libexpat-devel libffi-devel python-curses
+
+   On Mac OS X, most of these build-time dependencies are installed alongside
+   the Developer Tools. However, note that in order for the installation to
+   find them you may need to run:
+
+     $ xcode-select --install
+
    The above command lines are split with continuation characters, giving the necessary dependencies first, then the optional ones.
 
    * ``pkg-config`` (to help us locate libffi files)
    * ``libz-dev`` (for the optional ``zlib`` module)
    * ``libbz2-dev`` (for the optional ``bz2`` module)
+   * ``liblzma`` (for the optional ``lzma`` module, PyPy3 only)
    * ``libsqlite3-dev`` (for the optional ``sqlite3`` module via cffi)
    * ``libncurses-dev`` (for the optional ``_minimal_curses`` module)
    * ``libexpat1-dev`` (for the optional ``pyexpat`` module)
@@ -93,6 +110,10 @@ the version you have is not 4.2 or you will run into `this bug`_.
    possibly replacing ``--opt=jit`` with another `optimization level`_
    of your choice.  Typical example: ``--opt=2`` gives a good (but of
    course slower) Python interpreter without the JIT.
+
+   Consider using PyPy instead of CPython in the above command line,
+   as it is much faster.  (Note that ``rpython`` is a Python 2 program,
+   not Python 3; you need to run either PyPy 2 or CPython 2.)
 
 .. _`optimization level`: config/opt.html
 

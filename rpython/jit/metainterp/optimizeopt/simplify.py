@@ -45,7 +45,7 @@ class OptSimplify(Optimization):
                 return self.optimize_JUMP(op.copy_and_change(rop.JUMP))
             self.last_label_descr = op.getdescr()
         self.emit_operation(op)
-        
+
     def optimize_JUMP(self, op):
         if not self.unroll:
             descr = op.getdescr()
@@ -60,6 +60,9 @@ class OptSimplify(Optimization):
                 assert len(descr.target_tokens) == 1
                 op.setdescr(descr.target_tokens[0])
         self.emit_operation(op)
+
+    def optimize_GUARD_FUTURE_CONDITION(self, op):
+        pass
 
 dispatch_opt = make_dispatcher_method(OptSimplify, 'optimize_',
         default=OptSimplify.emit_operation)

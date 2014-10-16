@@ -276,10 +276,10 @@ def _mk_bitmap(bits):
 # set is constructed. Then, this bitmap is sliced into chunks of 256
 # characters, duplicate chunks are eliminated, and each chunk is
 # given a number. In the compiled expression, the charset is
-# represented by a 16-bit word sequence, consisting of one word for
-# the number of different chunks, a sequence of 256 bytes (128 words)
+# represented by a 32-bit word sequence, consisting of one word for
+# the number of different chunks, a sequence of 256 bytes (64 words)
 # of chunk numbers indexed by their original chunk position, and a
-# sequence of chunks (16 words each).
+# sequence of 256-bit chunks (8 words each).
 
 # Compression is normally good: in a typical charset, large ranges of
 # Unicode will be either completely excluded (e.g. if only cyrillic
@@ -294,7 +294,7 @@ def _mk_bitmap(bits):
 
 # In UCS-4 mode, the BIGCHARSET opcode still supports only subsets
 # of the basic multilingual plane; an efficient representation
-# for all of UTF-16 has not yet been developed. This means,
+# for all of Unicode has not yet been developed. This means,
 # in particular, that negated charsets cannot be represented as
 # bigcharsets.
 
@@ -343,7 +343,7 @@ def _optimize_unicode(charset, fixup):
     else:
         code = 'I'
     # Convert block indices to byte array of 256 bytes
-    mapping = array.array('b', mapping).tostring()
+    mapping = array.array('B', mapping).tostring()
     # Convert byte array to word array
     mapping = array.array(code, mapping)
     assert mapping.itemsize == _sre.CODESIZE
@@ -354,8 +354,6 @@ def _optimize_unicode(charset, fixup):
 def _simple(av):
     # check if av is a "simple" operator
     lo, hi = av[2].getwidth()
-    if lo == 0 and hi == MAXREPEAT:
-        raise error, "nothing to repeat"
     return lo == hi == 1 and av[2][0][0] != SUBPATTERN
 
 def _compile_info(code, pattern, flags):

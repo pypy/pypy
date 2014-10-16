@@ -81,6 +81,21 @@ class BaseTestRffi:
         xf = self.compile(f, [], backendopt=False)
         assert xf() == 4
 
+    def test_charp2str_exact_result(self):
+        from rpython.annotator.annrpython import RPythonAnnotator
+        from rpython.rtyper.llannotation import SomePtr
+        a = RPythonAnnotator()
+        s = a.build_types(charpsize2str, [SomePtr(CCHARP), int])
+        assert s.knowntype == str
+        assert s.can_be_None is False
+        assert s.no_nul is False
+        #
+        a = RPythonAnnotator()
+        s = a.build_types(charp2str, [SomePtr(CCHARP)])
+        assert s.knowntype == str
+        assert s.can_be_None is False
+        assert s.no_nul is True
+
     def test_string_reverse(self):
         c_source = py.code.Source("""
         #include <string.h>
@@ -810,3 +825,12 @@ def test_force_cast_unichar():
         assert cast(LONG, x) == 65535
     else:
         assert cast(LONG, cast(INT, x)) == -1
+
+def test_c_memcpy():
+    p1 = str2charp("hello")
+    p2 = str2charp("WORLD")
+    c_memcpy(cast(VOIDP, p2), cast(VOIDP, p1), 3)
+    assert charp2str(p1) == "hello"
+    assert charp2str(p2) == "helLD"
+    free_charp(p1)
+    free_charp(p2)

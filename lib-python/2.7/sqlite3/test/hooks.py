@@ -76,6 +76,25 @@ class CollationTests(unittest.TestCase):
         except sqlite.OperationalError, e:
             self.assertEqual(e.args[0].lower(), "no such collation sequence: mycoll")
 
+    def CheckCollationReturnsLargeInteger(self):
+        def mycoll(x, y):
+            # reverse order
+            return -((x > y) - (x < y)) * 2**32
+        con = sqlite.connect(":memory:")
+        con.create_collation("mycoll", mycoll)
+        sql = """
+            select x from (
+            select 'a' as x
+            union
+            select 'b' as x
+            union
+            select 'c' as x
+            ) order by x collate mycoll
+            """
+        result = con.execute(sql).fetchall()
+        self.assertEqual(result, [('c',), ('b',), ('a',)],
+                         msg="the expected order was not returned")
+
     def CheckCollationRegisterTwice(self):
         """
         Register two different collation functions under the same name.
@@ -143,7 +162,7 @@ class ProgressTests(unittest.TestCase):
             create table bar (a, b)
             """)
         second_count = len(progress_calls)
-        self.assertTrue(first_count > second_count)
+        self.assertGreaterEqual(first_count, second_count)
 
     def CheckCancelOperation(self):
         """

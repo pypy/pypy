@@ -4,7 +4,7 @@ from rpython.annotator import model as annmodel
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 _WIN32 = sys.platform.startswith('win')
-underscore_on_windows = '_' if _WIN32 else ''
+UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
 
 # utility conversion functions
 class LLSupport:
@@ -49,6 +49,7 @@ class StringTraits:
     CHAR = rffi.CHAR
     CCHARP = rffi.CCHARP
     charp2str = staticmethod(rffi.charp2str)
+    charpsize2str = staticmethod(rffi.charpsize2str)
     scoped_str2charp = staticmethod(rffi.scoped_str2charp)
     str2charp = staticmethod(rffi.str2charp)
     free_charp = staticmethod(rffi.free_charp)
@@ -56,7 +57,7 @@ class StringTraits:
 
     @staticmethod
     def posix_function_name(name):
-        return underscore_on_windows + name
+        return UNDERSCORE_ON_WIN32 + name
 
     @staticmethod
     def ll_os_name(name):
@@ -68,6 +69,7 @@ class UnicodeTraits:
     CHAR = rffi.WCHAR_T
     CCHARP = rffi.CWCHARP
     charp2str = staticmethod(rffi.wcharp2unicode)
+    charpsize2str = staticmethod(rffi.wcharpsize2unicode)
     str2charp = staticmethod(rffi.unicode2wcharp)
     scoped_str2charp = staticmethod(rffi.scoped_unicode2wcharp)
     free_charp = staticmethod(rffi.free_wcharp)
@@ -75,7 +77,7 @@ class UnicodeTraits:
 
     @staticmethod
     def posix_function_name(name):
-        return underscore_on_windows + 'w' + name
+        return UNDERSCORE_ON_WIN32 + 'w' + name
 
     @staticmethod
     def ll_os_name(name):

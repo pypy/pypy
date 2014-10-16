@@ -30,7 +30,9 @@ def resolve_common_type(commontype):
         elif result in model.PrimitiveType.ALL_PRIMITIVE_TYPES:
             result = model.PrimitiveType(result)
         else:
-            assert commontype != result
+            if commontype == result:
+                raise api.FFIError("Unsupported type: %r.  Please file a bug "
+                                   "if you think it should be." % (commontype,))
             result = resolve_common_type(result)   # recursively
         assert isinstance(result, model.BaseTypeByIdentity)
         _CACHE[commontype] = result

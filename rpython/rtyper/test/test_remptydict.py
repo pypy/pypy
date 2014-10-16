@@ -1,7 +1,7 @@
 import py
 from rpython.rtyper.test.tool import BaseRtypingTest
 
-class BaseTestRemptydict(BaseRtypingTest):
+class TestRemptydict(BaseRtypingTest):
     def test_empty_dict(self):
         class A:
             pass

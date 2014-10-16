@@ -713,13 +713,20 @@ def iterparse():
     end {namespace}root
     end-ns None
 
+    >>> import StringIO
+
+    >>> events = ('start-ns', 'end-ns')
+    >>> context = ET.iterparse(StringIO.StringIO(r"<root xmlns=''/>"), events)
+    >>> for action, elem in context:
+    ...   print action, elem
+    start-ns ('', '')
+    end-ns None
+
     >>> events = ("start", "end", "bogus")
     >>> with open(SIMPLE_XMLFILE, "rb") as f:
     ...     iterparse(f, events)
     Traceback (most recent call last):
     ValueError: unknown event 'bogus'
-
-    >>> import StringIO
 
     >>> source = StringIO.StringIO(
     ...     "<?xml version='1.0' encoding='iso-8859-1'?>\\n"
@@ -883,6 +890,12 @@ def check_encoding(encoding):
     >>> check_encoding("iso-8859-15")
     >>> check_encoding("cp437")
     >>> check_encoding("mac-roman")
+    >>> check_encoding("gbk")
+    Traceback (most recent call last):
+    ValueError: multi-byte encodings are not supported
+    >>> check_encoding("cp037")
+    Traceback (most recent call last):
+    ParseError: unknown encoding: line 1, column 30
     """
     ET.XML("<?xml version='1.0' encoding='%s'?><xml />" % encoding)
 
@@ -1769,6 +1782,16 @@ def bug_200709_iter_comment():
 
     """
 
+def bug_18347():
+    """
+
+    >>> e = ET.XML('<html><CamelCase>text</CamelCase></html>')
+    >>> serialize(e)
+    '<html><CamelCase>text</CamelCase></html>'
+    >>> serialize(e, method="html")
+    '<html><CamelCase>text</CamelCase></html>'
+    """
+
 # --------------------------------------------------------------------
 # reported on bugs.python.org
 
@@ -1819,6 +1842,26 @@ def check_issue6565():
     >>> elem[:] = newelem[:]
     >>> summarize_list(elem)
     ['tag', 'tag', 'section']
+
+    """
+
+def check_html_empty_elems_serialization(self):
+    # issue 15970
+    # from http://www.w3.org/TR/html401/index/elements.html
+    """
+
+    >>> empty_elems = ['AREA', 'BASE', 'BASEFONT', 'BR', 'COL', 'FRAME', 'HR',
+    ...                'IMG', 'INPUT', 'ISINDEX', 'LINK', 'META', 'PARAM']
+    >>> elems = ''.join('<%s />' % elem for elem in empty_elems)
+    >>> serialize(ET.XML('<html>%s</html>' % elems), method='html')
+    '<html><AREA><BASE><BASEFONT><BR><COL><FRAME><HR><IMG><INPUT><ISINDEX><LINK><META><PARAM></html>'
+    >>> serialize(ET.XML('<html>%s</html>' % elems.lower()), method='html')
+    '<html><area><base><basefont><br><col><frame><hr><img><input><isindex><link><meta><param></html>'
+    >>> elems = ''.join('<%s></%s>' % (elem, elem) for elem in empty_elems)
+    >>> serialize(ET.XML('<html>%s</html>' % elems), method='html')
+    '<html><AREA><BASE><BASEFONT><BR><COL><FRAME><HR><IMG><INPUT><ISINDEX><LINK><META><PARAM></html>'
+    >>> serialize(ET.XML('<html>%s</html>' % elems.lower()), method='html')
+    '<html><area><base><basefont><br><col><frame><hr><img><input><isindex><link><meta><param></html>'
 
     """
 

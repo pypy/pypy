@@ -15,12 +15,20 @@ a drop-in replacement for the 'socket' module.
 # It's unclear if makefile() and SSL support belong here or only as
 # app-level code for PyPy.
 
+from rpython.rlib import _rsocket_rffi as _c, jit, rgc
 from rpython.rlib.objectmodel import instantiate, keepalive_until_here
-from rpython.rlib import _rsocket_rffi as _c
 from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib import rthread
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
+from rpython.rtyper.extregistry import ExtRegistryEntry
+
+
+# Usage of @jit.dont_look_inside in this file is possibly temporary
+# and only because some lltypes declared in _rsocket_rffi choke the
+# JIT's codewriter right now (notably, FixedSizeArray).
 INVALID_SOCKET = _c.INVALID_SOCKET
+
 
 def mallocbuf(buffersize):
     return lltype.malloc(rffi.CCHARP.TO, buffersize, flavor='raw')
@@ -33,15 +41,18 @@ if _c.WIN32:
     from rpython.rlib import rwin32
     def rsocket_startup():
         wsadata = lltype.malloc(_c.WSAData, flavor='raw', zero=True)
-        res = _c.WSAStartup(1, wsadata)
-        lltype.free(wsadata, flavor='raw')
-        assert res == 0
+        try:
+            res = _c.WSAStartup(0x0101, wsadata)
+            assert res == 0
+        finally:
+            lltype.free(wsadata, flavor='raw')
 else:
     def rsocket_startup():
         pass
- 
- 
+
+
 def ntohs(x):
+    assert isinstance(x, int)
     return rffi.cast(lltype.Signed, _c.ntohs(x))
 
 def ntohl(x):
@@ -49,6 +60,7 @@ def ntohl(x):
     return rffi.cast(lltype.Unsigned, _c.ntohl(x))
 
 def htons(x):
+    assert isinstance(x, int)
     return rffi.cast(lltype.Signed, _c.htons(x))
 
 def htonl(x):
@@ -78,6 +90,7 @@ class Address(object):
         self.addr_p = addr
         self.addrlen = addrlen
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         if self.addr_p:
             lltype.free(self.addr_p, flavor='raw', track_allocation=False)
@@ -210,7 +223,6 @@ if HAS_AF_PACKET:
         def get_protocol(self):
             a = self.lock(_c.sockaddr_ll)
             proto = rffi.getintfield(a, 'c_sll_protocol')
-            proto = rffi.cast(rffi.USHORT, proto)
             res = ntohs(proto)
             self.unlock()
             return res
@@ -246,7 +258,6 @@ class INETAddress(IPAddress):
     def __init__(self, host, port):
         makeipaddr(host, self)
         a = self.lock(_c.sockaddr_in)
-        port = rffi.cast(rffi.USHORT, port)
         rffi.setintfield(a, 'c_sin_port', htons(port))
         self.unlock()
 
@@ -258,7 +269,7 @@ class INETAddress(IPAddress):
 
     def get_port(self):
         a = self.lock(_c.sockaddr_in)
-        port = ntohs(a.c_sin_port)
+        port = ntohs(rffi.getintfield(a, 'c_sin_port'))
         self.unlock()
         return port
 
@@ -311,7 +322,7 @@ class INET6Address(IPAddress):
 
     def get_port(self):
         a = self.lock(_c.sockaddr_in6)
-        port = ntohs(a.c_sin6_port)
+        port = ntohs(rffi.getintfield(a, 'c_sin6_port'))
         self.unlock()
         return port
 
@@ -485,8 +496,8 @@ def make_null_address(family):
 class RSocket(object):
     """RPython-level socket object.
     """
-    _mixin_ = True        # for interp_socket.py
     fd = _c.INVALID_SOCKET
+
     def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0,
                  fd=_c.INVALID_SOCKET):
         """Create a new socket."""
@@ -500,7 +511,8 @@ class RSocket(object):
         self.type = type
         self.proto = proto
         self.timeout = defaults.timeout
-        
+
+    @rgc.must_be_light_finalizer
     def __del__(self):
         fd = self.fd
         if fd != _c.INVALID_SOCKET:
@@ -509,12 +521,13 @@ class RSocket(object):
 
     if hasattr(_c, 'fcntl'):
         def _setblocking(self, block):
-            delay_flag = intmask(_c.fcntl(self.fd, _c.F_GETFL, 0))
+            orig_delay_flag = intmask(_c.fcntl(self.fd, _c.F_GETFL, 0))
             if block:
-                delay_flag &= ~_c.O_NONBLOCK
+                delay_flag = orig_delay_flag & ~_c.O_NONBLOCK
             else:
-                delay_flag |= _c.O_NONBLOCK
-            _c.fcntl(self.fd, _c.F_SETFL, delay_flag)
+                delay_flag = orig_delay_flag | _c.O_NONBLOCK
+            if orig_delay_flag != delay_flag:
+                _c.fcntl(self.fd, _c.F_SETFL, delay_flag)
     elif hasattr(_c, 'ioctlsocket'):
         def _setblocking(self, block):
             flag = lltype.malloc(rffi.ULONGP.TO, 1, flavor='raw')
@@ -574,8 +587,8 @@ class RSocket(object):
             if n == 0:
                 return 1
             return 0
-        
-        
+
+
     def error_handler(self):
         return last_error()
 
@@ -588,6 +601,7 @@ class RSocket(object):
         addrlen_p[0] = rffi.cast(_c.socklen_t, maxlen)
         return addr, addr.addr_p, addrlen_p
 
+    @jit.dont_look_inside
     def accept(self):
         """Wait for an incoming connection.
         Return (new socket fd, client address)."""
@@ -695,7 +709,7 @@ class RSocket(object):
             if res < 0:
                 res = errno
             return (res, False)
-        
+
     def connect(self, address):
         """Connect the socket to a remote address."""
         err, timeout = self._connect(address)
@@ -703,7 +717,7 @@ class RSocket(object):
             raise SocketTimeout
         if err:
             raise CSocketError(err)
-        
+
     def connect_ex(self, address):
         """This is like connect(address), but returns an error code (the errno
         value) instead of raising an exception when an error occurs."""
@@ -719,7 +733,8 @@ class RSocket(object):
                 raise self.error_handler()
             return make_socket(fd, self.family, self.type, self.proto,
                                SocketClass=SocketClass)
-        
+
+    @jit.dont_look_inside
     def getpeername(self):
         """Return the address of the remote endpoint."""
         address, addr_p, addrlen_p = self._addrbuf()
@@ -734,6 +749,7 @@ class RSocket(object):
         address.addrlen = rffi.cast(lltype.Signed, addrlen)
         return address
 
+    @jit.dont_look_inside
     def getsockname(self):
         """Return the address of the local endpoint."""
         address, addr_p, addrlen_p = self._addrbuf()
@@ -748,6 +764,7 @@ class RSocket(object):
         address.addrlen = rffi.cast(lltype.Signed, addrlen)
         return address
 
+    @jit.dont_look_inside
     def getsockopt(self, level, option, maxlen):
         buf = mallocbuf(maxlen)
         try:
@@ -767,6 +784,7 @@ class RSocket(object):
             lltype.free(buf, flavor='raw')
         return result
 
+    @jit.dont_look_inside
     def getsockopt_int(self, level, option):
         flag_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
         try:
@@ -789,7 +807,7 @@ class RSocket(object):
         """Return the timeout of the socket. A timeout < 0 means that
         timeouts are disabled in the socket."""
         return self.timeout
-    
+
     def listen(self, backlog):
         """Enable a server to accept connections.  The backlog argument
         must be at least 1; it specifies the number of unaccepted connections
@@ -810,13 +828,12 @@ class RSocket(object):
         if timeout == 1:
             raise SocketTimeout
         elif timeout == 0:
-            raw_buf, gc_buf = rffi.alloc_buffer(buffersize)
-            try:
-                read_bytes = _c.socketrecv(self.fd, raw_buf, buffersize, flags)
+            with rffi.scoped_alloc_buffer(buffersize) as buf:
+                read_bytes = _c.socketrecv(self.fd,
+                                           rffi.cast(rffi.VOIDP, buf.raw),
+                                           buffersize, flags)
                 if read_bytes >= 0:
-                    return rffi.str_from_buffer(raw_buf, gc_buf, buffersize, read_bytes)
-            finally:
-                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+                    return buf.str(read_bytes)
         raise self.error_handler()
 
     def recvinto(self, rwbuffer, nbytes, flags=0):
@@ -824,6 +841,7 @@ class RSocket(object):
         rwbuffer.setslice(0, buf)
         return len(buf)
 
+    @jit.dont_look_inside
     def recvfrom(self, buffersize, flags=0):
         """Like recv(buffersize, flags) but also return the sender's
         address."""
@@ -832,11 +850,10 @@ class RSocket(object):
         if timeout == 1:
             raise SocketTimeout
         elif timeout == 0:
-            raw_buf, gc_buf = rffi.alloc_buffer(buffersize)
-            try:
+            with rffi.scoped_alloc_buffer(buffersize) as buf:
                 address, addr_p, addrlen_p = self._addrbuf()
                 try:
-                    read_bytes = _c.recvfrom(self.fd, raw_buf, buffersize, flags,
+                    read_bytes = _c.recvfrom(self.fd, buf.raw, buffersize, flags,
                                              addr_p, addrlen_p)
                     addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
                 finally:
@@ -847,16 +864,14 @@ class RSocket(object):
                         address.addrlen = addrlen
                     else:
                         address = None
-                    data = rffi.str_from_buffer(raw_buf, gc_buf, buffersize, read_bytes)
+                    data = buf.str(read_bytes)
                     return (data, address)
-            finally:
-                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         raise self.error_handler()
 
     def recvfrom_into(self, rwbuffer, nbytes, flags=0):
         buf, addr = self.recvfrom(nbytes, flags)
         rwbuffer.setslice(0, buf)
-        return len(buf), addr        
+        return len(buf), addr
 
     def send_raw(self, dataptr, length, flags=0):
         """Send data from a CCHARP buffer."""
@@ -897,8 +912,8 @@ class RSocket(object):
                 except CSocketError, e:
                     if e.errno != _c.EINTR:
                         raise
-                if signal_checker:
-                    signal_checker.check()
+                if signal_checker is not None:
+                    signal_checker()
         finally:
             rffi.free_nonmovingbuffer(data, dataptr)
 
@@ -950,7 +965,7 @@ class RSocket(object):
         else:
             self.timeout = timeout
         self._setblocking(self.timeout < 0.0)
-            
+
     def shutdown(self, how):
         """Shut down the reading side of the socket (flag == SHUT_RD), the
         writing side of the socket (flag == SHUT_WR), or both ends
@@ -994,12 +1009,8 @@ class CSocketError(SocketErrorWithErrno):
     def get_msg(self):
         return _c.socket_strerror_str(self.errno)
 
-if _c.WIN32:
-    def last_error():
-        return CSocketError(rwin32.GetLastError())
-else:
-    def last_error():
-        return CSocketError(_c.geterrno())
+def last_error():
+    return CSocketError(_c.geterrno())
 
 class GAIError(SocketErrorWithErrno):
     applevelerrcls = 'gaierror'
@@ -1126,27 +1137,62 @@ def gethost_common(hostname, hostent, addr=None):
     return (rffi.charp2str(hostent.c_h_name), aliases, address_list)
 
 def gethostbyname_ex(name):
-    # XXX use gethostbyname_r() if available, and/or use locks if not
+    # XXX use gethostbyname_r() if available instead of locks
     addr = gethostbyname(name)
-    hostent = _c.gethostbyname(name)
-    return gethost_common(name, hostent, addr)
+    with _get_netdb_lock():
+        hostent = _c.gethostbyname(name)
+        return gethost_common(name, hostent, addr)
 
 def gethostbyaddr(ip):
-    # XXX use gethostbyaddr_r() if available, and/or use locks if not
+    # XXX use gethostbyaddr_r() if available, instead of locks
     addr = makeipaddr(ip)
     assert isinstance(addr, IPAddress)
-    p, size = addr.lock_in_addr()
-    try:
-        hostent = _c.gethostbyaddr(p, size, addr.family)
-    finally:
-        addr.unlock()
-    return gethost_common(ip, hostent, addr)
+    with _get_netdb_lock():
+        p, size = addr.lock_in_addr()
+        try:
+            hostent = _c.gethostbyaddr(p, size, addr.family)
+        finally:
+            addr.unlock()
+        return gethost_common(ip, hostent, addr)
+
+# RPython magic to make _netdb_lock turn either into a regular
+# rthread.Lock or a rthread.DummyLock, depending on the config
+def _get_netdb_lock():
+    return rthread.dummy_lock
+
+class _Entry(ExtRegistryEntry):
+    _about_ = _get_netdb_lock
+
+    def compute_annotation(self):
+        config = self.bookkeeper.annotator.translator.config
+        if config.translation.thread:
+            fn = _get_netdb_lock_thread
+        else:
+            fn = _get_netdb_lock_nothread
+        return self.bookkeeper.immutablevalue(fn)
+
+def _get_netdb_lock_nothread():
+    return rthread.dummy_lock
+
+class _LockCache(object):
+    lock = None
+_lock_cache = _LockCache()
+
+@jit.elidable
+def _get_netdb_lock_thread():
+    if _lock_cache.lock is None:
+        _lock_cache.lock = rthread.allocate_lock()
+    return _lock_cache.lock
+# done RPython magic
 
 def getaddrinfo(host, port_or_service,
                 family=AF_UNSPEC, socktype=0, proto=0, flags=0,
                 address_to_fill=None):
     # port_or_service is a string, not an int (but try str(port_number)).
     assert port_or_service is None or isinstance(port_or_service, str)
+    if _c._MACOSX and flags & AI_NUMERICSERV and \
+            (port_or_service is None or port_or_service == '0'):
+        port_or_service = '00'
     hints = lltype.malloc(_c.addrinfo, flavor='raw', zero=True)
     rffi.setintfield(hints, 'c_ai_family',   family)
     rffi.setintfield(hints, 'c_ai_socktype', socktype)
@@ -1186,13 +1232,13 @@ def getservbyname(name, proto=None):
     servent = _c.getservbyname(name, proto)
     if not servent:
         raise RSocketError("service/proto not found")
-    port = rffi.cast(rffi.UINT, servent.c_s_port)
+    port = rffi.getintfield(servent, 'c_s_port')
     return ntohs(port)
 
 def getservbyport(port, proto=None):
     # This function is only called from pypy/module/_socket and the range of
     # port is checked there
-    port = rffi.cast(rffi.USHORT, port)
+    assert isinstance(port, int)
     servent = _c.getservbyport(htons(port), proto)
     if not servent:
         raise RSocketError("port/proto not found")
@@ -1302,7 +1348,8 @@ if hasattr(_c, 'inet_ntop'):
         try:
             dstbuf = mallocbuf(dstsize)
             try:
-                res = _c.inet_ntop(family, srcbuf, dstbuf, dstsize)
+                res = _c.inet_ntop(family, rffi.cast(rffi.VOIDP, srcbuf),
+                                   dstbuf, dstsize)
                 if not res:
                     raise last_error()
                 return rffi.charp2str(res)

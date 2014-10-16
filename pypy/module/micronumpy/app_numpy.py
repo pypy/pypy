@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import math
 
 import _numpypy
@@ -12,9 +14,11 @@ def arange(start, stop=None, step=1, dtype=None):
     if dtype is None:
         test = _numpypy.multiarray.array([start, stop, step, 0])
         dtype = test.dtype
-    arr = _numpypy.multiarray.zeros(int(math.ceil((stop - start) / step)), dtype=dtype)
+    length = math.ceil((float(stop) - start) / step)
+    length = int(length)
+    arr = _numpypy.multiarray.empty(length, dtype=dtype)
     i = start
-    for j in range(arr.size):
+    for j in xrange(arr.size):
         arr[j] = i
         i += step
     return arr

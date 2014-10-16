@@ -156,3 +156,20 @@ def test_reraise_exception():
     assert res == 42
     res = f1(0)
     assert res == 100
+
+def test_dict_keyerror_inside_try_finally():
+    class CtxMgr:
+        def __enter__(self):
+            return 42
+        def __exit__(self, *args):
+            pass
+    def fn(x):
+        d = {5: x}
+        with CtxMgr() as forty_two:
+            try:
+                return d[x]
+            except KeyError:
+                return forty_two
+    f1 = getcompiledopt(fn, [int])
+    res = f1(100)
+    assert res == 42

@@ -25,7 +25,7 @@ class AppCode(object):
         #    self.path = space.unwrap(space.getattr(
         self.path = py.path.local(space.str_w(self.w_file))
         self.space = space
-    
+
     def fullsource(self):
         filename = self.space.str_w(self.w_file)
         source = py.code.Source(py.std.linecache.getlines(filename))
@@ -106,27 +106,28 @@ class AppExceptionInfo(py.code.ExceptionInfo):
     def exconly(self, tryshort=True):
         return '(application-level) ' + self.operr.errorstr(self.space)
 
-    def errisinstance(self, exc): 
-        clsname = exc.__name__ 
+    def errisinstance(self, exc):
+        clsname = exc.__name__
         # we can only check for builtin exceptions
         # as there is no canonical applevel one for custom interplevel ones
         if exc.__module__ != "exceptions":
-            return False 
-        try: 
-            w_exc = getattr(self.space, 'w_' + clsname) 
-        except KeyboardInterrupt: 
-            raise 
-        except: 
-            pass 
-        else: 
-            return self.operr.match(self.space, w_exc) 
-        return False 
+            return False
+        try:
+            w_exc = getattr(self.space, 'w_' + clsname)
+        except KeyboardInterrupt:
+            raise
+        except:
+            pass
+        else:
+            return self.operr.match(self.space, w_exc)
+        return False
 
     def __str__(self):
         return '(application-level) ' + self.operr.errorstr(self.space)
 
 class AppTracebackEntry(py.code.Traceback.Entry):
     exprinfo = None
+    frame = None
 
     def __init__(self, space, tb):
         self.frame = AppFrame(space, space.getattr(tb, space.wrap('tb_frame')))
@@ -142,8 +143,11 @@ class AppTracebackEntry(py.code.Traceback.Entry):
         # XXX this reinterpret() is only here to prevent reinterpretation.
         return self.exprinfo
 
-class AppTraceback(py.code.Traceback): 
-    Entry = AppTracebackEntry 
+    def ishidden(self):
+        return False
+
+class AppTraceback(py.code.Traceback):
+    Entry = AppTracebackEntry
 
     def __init__(self, space, apptb):
         l = []
@@ -151,7 +155,7 @@ class AppTraceback(py.code.Traceback):
             l.append(self.Entry(space, apptb))
             apptb = space.getattr(apptb, space.wrap('tb_next'))
         list.__init__(self, l)
-    
+
 # ____________________________________________________________
 
 def build_pytest_assertion(space):
@@ -163,10 +167,10 @@ def build_pytest_assertion(space):
 ##        # Argh! we may see app-level helpers in the frame stack!
 ##        #       that's very probably very bad...
 ##        ^^^the above comment may be outdated, but we are not sure
-        
+
         # if the assertion provided a message, don't do magic
         args_w, kwargs_w = __args__.unpack()
-        if args_w: 
+        if args_w:
             w_msg = args_w[0]
         else:
             frame = space.getexecutioncontext().gettopframe()
@@ -174,7 +178,7 @@ def build_pytest_assertion(space):
             try:
                 source = runner.statement
                 source = str(source).strip()
-            except py.error.ENOENT: 
+            except py.error.ENOENT:
                 source = None
             from pypy import conftest
             if source and py.test.config._assertstate.mode != "off":
@@ -187,7 +191,7 @@ def build_pytest_assertion(space):
         space.setattr(w_self, space.wrap('msg'), w_msg)
 
     # build a new AssertionError class to replace the original one.
-    w_BuiltinAssertionError = space.getitem(space.builtin.w_dict, 
+    w_BuiltinAssertionError = space.getitem(space.builtin.w_dict,
                                             space.wrap('AssertionError'))
     w_metaclass = space.type(w_BuiltinAssertionError)
     w_init = space.wrap(gateway.interp2app_temp(my_init))
@@ -260,9 +264,9 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
 
 app_raises = gateway.interp2app_temp(pypyraises)
 
-def pypyskip(space, w_message): 
-    """skip a test at app-level. """ 
-    msg = space.unwrap(w_message) 
+def pypyskip(space, w_message):
+    """skip a test at app-level. """
+    msg = space.unwrap(w_message)
     py.test.skip(msg)
 
 app_skip = gateway.interp2app_temp(pypyskip)

@@ -1,5 +1,7 @@
 import py, os, sys
+
 from pypy.module.cppyy import capi
+
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("fragileDict.so"))
@@ -12,7 +14,7 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestFRAGILE:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.wrap(test_dct)
@@ -104,9 +106,11 @@ class AppTestFRAGILE:
 
         cppyy.addressof(f)
         raises(TypeError, cppyy.addressof, o)
-        raises(TypeError, cppyy.addressof, 0)
         raises(TypeError, cppyy.addressof, 1)
-        raises(TypeError, cppyy.addressof, None)
+        # 0, None, and nullptr allowed
+        assert cppyy.addressof(0)                 == 0
+        assert cppyy.addressof(None)              == 0
+        assert cppyy.addressof(cppyy.gbl.nullptr) == 0
 
     def test06_wrong_this(self):
         """Test that using an incorrect self argument raises"""
@@ -185,11 +189,11 @@ class AppTestFRAGILE:
             assert "fragile::D::overload()" in str(e)
             assert "TypeError: wrong number of arguments" in str(e)
             assert "fragile::D::overload(fragile::no_such_class*)" in str(e)
-            assert "TypeError: no converter available for type \"fragile::no_such_class*\"" in str(e)
+            assert "TypeError: no converter available for 'fragile::no_such_class*'" in str(e)
             assert "fragile::D::overload(char, int)" in str(e)
             assert "TypeError: expected string, got NoneType object" in str(e)
             assert "fragile::D::overload(int, fragile::no_such_class*)" in str(e)
-            assert "TypeError: unsupported operand type for int(): 'NoneType'" in str(e)
+            assert "TypeError: expected integer, got NoneType object" in str(e)
 
         j = fragile.J()
         assert fragile.J.method1.__doc__ == j.method1.__doc__
@@ -197,6 +201,12 @@ class AppTestFRAGILE:
 
         f = fragile.fglobal
         assert f.__doc__ == "void fragile::fglobal(int, double, char)"
+
+        try:
+            o = fragile.O()       # raises TypeError
+            assert 0
+        except TypeError, e:
+            assert "cannot instantiate abstract class 'O'" in str(e)
 
     def test11_dir(self):
         """Test __dir__ method"""

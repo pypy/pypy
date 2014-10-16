@@ -526,7 +526,7 @@ class TestCase(unittest.TestCase):
         d = {"one": 1, "two": 2, "three": 3}
         self.assertEqual(reduce(add, d), "".join(d.keys()))
 
-    # This test case will be removed if we don't have Unicode
+    @unittest.skipUnless(have_unicode, 'needs unicode support')
     def test_unicode_join_endcase(self):
 
         # This class inserts a Unicode object into its argument's natural
@@ -567,8 +567,6 @@ class TestCase(unittest.TestCase):
                 unlink(TESTFN)
             except OSError:
                 pass
-    if not have_unicode:
-        def test_unicode_join_endcase(self): pass
 
     # Test iterators with 'x in y' and 'x not in y'.
     def test_in_and_not_in(self):
@@ -907,6 +905,21 @@ class TestCase(unittest.TestCase):
                 pass
         except TypeError:
             pass
+
+    def test_extending_list_with_iterator_does_not_segfault(self):
+        # The code to extend a list with an iterator has a fair
+        # amount of nontrivial logic in terms of guessing how
+        # much memory to allocate in advance, "stealing" refs,
+        # and then shrinking at the end.  This is a basic smoke
+        # test for that scenario.
+        def gen():
+            for i in range(500):
+                yield i
+        lst = [0] * 500
+        for i in range(240):
+            lst.pop(0)
+        lst.extend(gen())
+        self.assertEqual(len(lst), 760)
 
 
 def test_main():

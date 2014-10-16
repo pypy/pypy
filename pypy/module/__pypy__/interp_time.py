@@ -48,11 +48,11 @@ if HAS_CLOCK_GETTIME:
 
     c_clock_gettime = rffi.llexternal("clock_gettime",
         [lltype.Signed, lltype.Ptr(TIMESPEC)], rffi.INT,
-        compilation_info=CConfig._compilation_info_, threadsafe=False
+        compilation_info=CConfig._compilation_info_, releasegil=False
     )
     c_clock_getres = rffi.llexternal("clock_getres",
         [lltype.Signed, lltype.Ptr(TIMESPEC)], rffi.INT,
-        compilation_info=CConfig._compilation_info_, threadsafe=False
+        compilation_info=CConfig._compilation_info_, releasegil=False
     )
 
     @unwrap_spec(clk_id="c_int")

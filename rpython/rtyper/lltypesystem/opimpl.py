@@ -12,7 +12,7 @@ from rpython.tool.sourcetools import func_with_new_name
 ops_returning_a_bool = {'gt': True, 'ge': True,
                         'lt': True, 'le': True,
                         'eq': True, 'ne': True,
-                        'is_true': True}
+                        'bool': True, 'is_true':True}
 
 # global synonyms for some types
 from rpython.rlib.rarithmetic import intmask
@@ -179,6 +179,12 @@ def op_direct_arrayitems(obj):
 def op_direct_ptradd(obj, index):
     checkptr(obj)
     assert is_valid_int(index)
+    if not obj:
+        raise AssertionError("direct_ptradd on null pointer")
+        ## assert isinstance(index, int)
+        ## assert not (0 <= index < 4096)
+        ## from rpython.rtyper.lltypesystem import rffi
+        ## return rffi.cast(lltype.typeOf(obj), index)
     return lltype.direct_ptradd(obj, index)
 
 
@@ -218,6 +224,12 @@ def op_int_between(a, b, c):
     assert lltype.typeOf(b) is lltype.Signed
     assert lltype.typeOf(c) is lltype.Signed
     return a <= b < c
+
+def op_int_force_ge_zero(a):
+    assert lltype.typeOf(a) is lltype.Signed
+    if a < 0:
+        return 0
+    return a
 
 def op_int_and(x, y):
     if not is_valid_int(x):
@@ -522,8 +534,10 @@ def op_gc_writebarrier_before_copy(source, dest,
     A = lltype.typeOf(source)
     assert A == lltype.typeOf(dest)
     if isinstance(A.TO, lltype.GcArray):
-        assert isinstance(A.TO.OF, lltype.Ptr)
-        assert A.TO.OF.TO._gckind == 'gc'
+        if isinstance(A.TO.OF, lltype.Ptr):
+            assert A.TO.OF.TO._gckind == 'gc'
+        else:
+            assert isinstance(A.TO.OF, lltype.Struct)
     else:
         assert isinstance(A.TO, lltype.GcStruct)
         assert A.TO._arrayfld is not None
@@ -643,7 +657,7 @@ op_gc_gettypeptr_group.need_result_type = True
 def op_get_member_index(memberoffset):
     raise NotImplementedError
 
-def op_gc_assume_young_pointers(addr):
+def op_gc_writebarrier(addr):
     pass
 
 def op_shrink_array(array, smallersize):
@@ -659,6 +673,20 @@ def op_debug_fatalerror(ll_msg):
     assert lltype.typeOf(ll_msg) == lltype.Ptr(rstr.STR)
     msg = ''.join(ll_msg.chars)
     raise LLFatalError(msg)
+
+def op_raw_store(p, ofs, newvalue):
+    from rpython.rtyper.lltypesystem import rffi
+    p = rffi.cast(llmemory.Address, p)
+    TVAL = lltype.typeOf(newvalue)
+    p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
+    p[0] = newvalue
+
+def op_raw_load(TVAL, p, ofs):
+    from rpython.rtyper.lltypesystem import rffi
+    p = rffi.cast(llmemory.Address, p)
+    p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
+    return p[0]
+op_raw_load.need_result_type = True
 
 # ____________________________________________________________
 

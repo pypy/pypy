@@ -239,7 +239,7 @@ class TestExceptionTransform:
         etrafo.create_exception_handling(g)
         ops = dict.fromkeys([o.opname for b, o in g.iterblockops()])
         assert 'zero_gc_pointers_inside' in ops
-
+    
     def test_llexternal(self):
         from rpython.rtyper.lltypesystem.rffi import llexternal
         from rpython.rtyper.lltypesystem import lltype

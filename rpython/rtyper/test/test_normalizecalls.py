@@ -185,12 +185,32 @@ class TestNormalize(object):
     .+Sub1.fn
     .+Sub2.fn
 are called with inconsistent numbers of arguments
-sometimes with 2 arguments, sometimes with 1
+\(and/or the argument names are different, which is not supported in this case\)
+sometimes with \d arguments, sometimes with \d
 the callers of these functions are:
     .+otherfunc
     .+dummyfn"""
         import re
         assert re.match(msg, excinfo.value.args[0])
+
+    def test_methods_with_named_arg_call(self):
+        class Base:
+            def fn(self, y):
+                raise NotImplementedError
+        class Sub1(Base):
+            def fn(self, y):
+                return 1 + y
+        class Sub2(Base):
+            def fn(self, x):    # different name!
+                return x - 2
+        def dummyfn(n):
+            if n == 1:
+                s = Sub1()
+            else:
+                s = Sub2()
+            return s.fn(*(n,))
+
+        py.test.raises(TyperError, self.rtype, dummyfn, [int], int)
 
 
 class PBase:
@@ -224,7 +244,7 @@ class TestNormalizeAfterTheFact(TestNormalize):
 
         from rpython.rtyper import annlowlevel
         # annotate, normalize and rtype fn after the fact
-        annhelper = annlowlevel.MixLevelHelperAnnotator(typer)               
+        annhelper = annlowlevel.MixLevelHelperAnnotator(typer)
         graph = annhelper.getgraph(fn, [a.typeannotation(argtype) for argtype in argtypes],
                                    s_result)
         annhelper.finish()
@@ -239,7 +259,7 @@ class TestNormalizeAfterTheFact(TestNormalize):
         assert res == 100
         res = llinterp.eval_graph(graphof(t, prefn), [2])
         assert res == 201
-        
+
         return t
 
     def test_mix_after_recursion(self):
@@ -248,7 +268,7 @@ class TestNormalizeAfterTheFact(TestNormalize):
                 return 2*prefn(n-1)
             else:
                 return 1
-        
+
         t = TranslationContext()
         a = t.buildannotator()
         a.build_types(prefn, [int])
@@ -260,14 +280,13 @@ class TestNormalizeAfterTheFact(TestNormalize):
             return 1
 
         from rpython.rtyper import annlowlevel
-        annhelper = annlowlevel.MixLevelHelperAnnotator(typer)               
+        annhelper = annlowlevel.MixLevelHelperAnnotator(typer)
         graph = annhelper.getgraph(f, [], annmodel.SomeInteger())
         annhelper.finish()
-        
+
     def test_add_more_subclasses(self):
         from rpython.rtyper import rclass
-        from rpython.rtyper.lltypesystem.rclass import ll_issubclass
-        from rpython.rtyper.lltypesystem.rclass import CLASSTYPE
+        from rpython.rtyper.rclass import ll_issubclass, CLASSTYPE
         class Sub3(PBase):
             def newmethod(self):
                 return 3

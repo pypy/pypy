@@ -45,6 +45,41 @@ extension modules there is a good chance that it will work with PyPy.
 
 We list the differences we know about in `cpython differences`_.
 
+-----------------------------------------------
+Module xyz does not work with PyPy: ImportError
+-----------------------------------------------
+
+A module installed for CPython is not automatically available for PyPy
+--- just like a module installed for CPython 2.6 is not automatically
+available for CPython 2.7 if you installed both.  In other words, you
+need to install the module xyz specifically for PyPy.
+
+On Linux, this means that you cannot use ``apt-get`` or some similar
+package manager: these tools are only meant *for the version of CPython
+provided by the same package manager.*  So forget about them for now
+and read on.
+
+It is quite common nowadays that xyz is available on PyPI_ and
+installable with ``pip install xyz``.  The simplest solution is to `use
+virtualenv (as documented here)`_.  Then enter (activate) the virtualenv
+and type: ``pip install xyz``.
+
+If you get errors from the C compiler, the module is a CPython C
+Extension module using unsupported features.  `See below.`_
+
+Alternatively, if either the module xyz is not available on PyPI or you
+don't want to use virtualenv, then download the source code of xyz,
+decompress the zip/tarball, and run the standard command: ``pypy
+setup.py install``.  (Note: `pypy` here instead of `python`.)  As usual
+you may need to run the command with `sudo` for a global installation.
+The other commands of ``setup.py`` are available too, like ``build``.
+
+.. _PyPI: https://pypi.python.org/pypi
+.. _`use virtualenv (as documented here)`: getting-started.html#installing-using-virtualenv
+
+
+.. _`See below.`: 
+
 --------------------------------------------
 Do CPython Extension modules work with PyPy?
 --------------------------------------------
@@ -55,7 +90,9 @@ the 1.4 release, but support is still in beta phase.  CPython
 extension modules in PyPy are often much slower than in CPython due to
 the need to emulate refcounting.  It is often faster to take out your
 CPython extension and replace it with a pure python version that the
-JIT can see.
+JIT can see.  If trying to install module xyz, and the module has both
+a C and a Python version of the same code, try first to disable the C
+version; this is usually easily done by changing some line in ``setup.py``.
 
 We fully support ctypes-based extensions. But for best performance, we
 recommend that you use the cffi_ module to interface with C code.
@@ -66,21 +103,26 @@ with PyPy see the `compatibility wiki`_.
 
 .. _`extension modules`: cpython_differences.html#extension-modules
 .. _`cpython differences`: cpython_differences.html
-.. _`compatibility wiki`:
-.. https://bitbucket.org/pypy/compatibility/wiki/Home
+.. _`compatibility wiki`: https://bitbucket.org/pypy/compatibility/wiki/Home
 .. _cffi: http://cffi.readthedocs.org/
 
 ---------------------------------
 On which platforms does PyPy run?
 ---------------------------------
 
-PyPy is regularly and extensively tested on Linux machines and on Mac
-OS X and mostly works under Windows too (but is tested there less
-extensively). PyPy needs a CPython running on the target platform to
-bootstrap, as cross compilation is not really meant to work yet.
-At the moment you need CPython 2.5 - 2.7
-for the translation process. PyPy's JIT requires an x86 or x86_64 CPU.
-(There has also been good progress on getting the JIT working for ARMv7.)
+PyPy is regularly and extensively tested on Linux machines. It mostly
+works on Mac and Windows: it is tested there, but most of us are running
+Linux so fixes may depend on 3rd-party contributions.  PyPy's JIT
+works on x86 (32-bit or 64-bit) and on ARM (ARMv6 or ARMv7).
+Support for POWER (64-bit) is stalled at the moment.
+
+To bootstrap from sources, PyPy can use either CPython (2.6 or 2.7) or
+another (e.g. older) PyPy.  Cross-translation is not really supported:
+e.g. to build a 32-bit PyPy, you need to have a 32-bit environment.
+Cross-translation is only explicitly supported between a 32-bit Intel
+Linux and ARM Linux (see here__).
+
+.. __: arm.html
 
 ------------------------------------------------
 Which Python version (2.x?) does PyPy implement?
@@ -105,12 +147,25 @@ whether some effects are ok or not for the user (i.e. the Python
 programmer).
 
 Instead, since 2012, there is work going on on a still very experimental
-Software Transactional Memory (STM) version of PyPy.  This should give
-an alternative PyPy which internally has no GIL, while at the same time
+`Software Transactional Memory`_ (STM) version of PyPy.  This should give
+an alternative PyPy which works without a GIL, while at the same time
 continuing to give the Python programmer the complete illusion of having
-one.  It would in fact push forward *more* GIL-ish behavior, like
-declaring that some sections of the code should run without releasing
-the GIL in the middle (these are called *atomic sections* in STM).
+one.
+
+.. _`Software Transactional Memory`: stm.html
+
+--------------------------------------------------
+Is PyPy more clever than CPython about Tail Calls?
+--------------------------------------------------
+
+No.  PyPy follows the Python language design, including the built-in
+debugger features.  This prevents tail calls, as summarized by Guido
+van Rossum in two__ blog__ posts.  Moreover, neither the JIT nor
+Stackless__ change anything to that.
+
+.. __: http://neopythonic.blogspot.com/2009/04/tail-recursion-elimination.html
+.. __: http://neopythonic.blogspot.com/2009/04/final-words-on-tail-calls.html
+.. __: stackless.html
 
 ------------------------------------------
 How do I write extension modules for PyPy?
@@ -125,19 +180,24 @@ How fast is PyPy?
 -----------------
 This really depends on your code.
 For pure Python algorithmic code, it is very fast.  For more typical
-Python programs we generally are 3 times the speed of Cpython 2.6 .
+Python programs we generally are 3 times the speed of CPython 2.7.
 You might be interested in our `benchmarking site`_ and our 
 `jit documentation`_.
 
-Note that the JIT has a very high warm-up cost, meaning that the
-programs are slow at the beginning.  If you want to compare the timings
-with CPython, even relatively simple programs need to run *at least* one
-second, preferrably at least a few seconds.  Large, complicated programs
-need even more time to warm-up the JIT.
+`Your tests are not a benchmark`_: tests tend to be slow under PyPy
+because they run exactly once; if they are good tests, they exercise
+various corner cases in your code.  This is a bad case for JIT
+compilers.  Note also that our JIT has a very high warm-up cost, meaning
+that any program is slow at the beginning.  If you want to compare the
+timings with CPython, even relatively simple programs need to run *at
+least* one second, preferrably at least a few seconds.  Large,
+complicated programs need even more time to warm-up the JIT.
 
 .. _`benchmarking site`: http://speed.pypy.org
 
 .. _`jit documentation`: jit/index.html
+
+.. _`your tests are not a benchmark`: http://alexgaynor.net/2013/jul/15/your-tests-are-not-benchmark/
 
 ---------------------------------------------------------------
 Couldn't the JIT dump and reload already-compiled machine code?
@@ -145,7 +205,7 @@ Couldn't the JIT dump and reload already-compiled machine code?
 
 No, we found no way of doing that.  The JIT generates machine code
 containing a large number of constant addresses --- constant at the time
-the machine code is written.  The vast majority is probably not at all
+the machine code is generated.  The vast majority is probably not at all
 constants that you find in the executable, with a nice link name.  E.g.
 the addresses of Python classes are used all the time, but Python
 classes don't come statically from the executable; they are created anew
@@ -170,12 +230,16 @@ translation to various languages, stackless features,
 garbage collection, implementation of various things like arbitrarily long
 integers, etc. 
 
-Currently, we have preliminary versions of a JavaScript interpreter
-(Leonardo Santagada as his Summer of PyPy project), a `Prolog interpreter`_
-(Carl Friedrich Bolz as his Bachelor thesis), and a `SmallTalk interpreter`_
+Currently, we have `Topaz`_, a Ruby interpreter; `Hippy`_, a PHP
+interpreter; preliminary versions of a `JavaScript interpreter`_
+(Leonardo Santagada as his Summer of PyPy project); a `Prolog interpreter`_
+(Carl Friedrich Bolz as his Bachelor thesis); and a `SmallTalk interpreter`_
 (produced during a sprint).  On the `PyPy bitbucket page`_ there is also a
 Scheme and an Io implementation; both of these are unfinished at the moment.
 
+.. _`Topaz`: http://topazruby.com/
+.. _`Hippy`: http://morepypy.blogspot.ch/2012/07/hello-everyone.html
+.. _`JavaScript interpreter`: https://bitbucket.org/pypy/lang-js/
 .. _`Prolog interpreter`: https://bitbucket.org/cfbolz/pyrolog/
 .. _`SmallTalk interpreter`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
 .. _`PyPy bitbucket page`: https://bitbucket.org/pypy/
@@ -201,7 +265,7 @@ most PyPy developers are in Europe) and the `mailing list`_ is better for long
 discussions.
 
 .. _`contact us`: index.html
-.. _`mailing list`: http://python.org/mailman/listinfo/pypy-dev
+.. _`mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev
 
 -------------------------------------------------------------
 OSError: ... cannot restore segment prot after reloc... Help?
@@ -211,7 +275,9 @@ On Linux, if SELinux is enabled, you may get errors along the lines of
 "OSError: externmod.so: cannot restore segment prot after reloc: Permission
 denied." This is caused by a slight abuse of the C compiler during
 configuration, and can be disabled by running the following command with root
-privileges::
+privileges:
+
+.. code-block:: console
 
     # setenforce 0
 
@@ -266,10 +332,11 @@ use of reflection capabilities (e.g. ``__dict__``).
 You cannot use most existing standard library modules from RPython.  The
 exceptions are
 some functions in ``os``, ``math`` and ``time`` that have native support.
+We have our own "RPython standard library" in ``rpython.rlib.*``.
 
 To read more about the RPython limitations read the `RPython description`_.
 
-.. _`RPython description`: coding-guide.html#restricted-python
+.. _`RPython description`: coding-guide.html#rpython-definition
 
 ---------------------------------------------------------------
 Does RPython have anything to do with Zope's Restricted Python?
@@ -356,7 +423,7 @@ example.  These are much more supported, much more documented languages
   attempt to point newcomers at existing alternatives, which are more
   mainstream and where they will get help from many people.*
 
-  *If anybody seriously wants to promote RPython anyway, he is welcome
+  *If anybody seriously wants to promote RPython anyway, they are welcome
   to: we won't actively resist such a plan.  There are a lot of things
   that could be done to make RPython a better Java-ish language for
   example, starting with supporting non-GIL-based multithreading, but we
@@ -389,16 +456,18 @@ clang.  (Note that compiling PyPy with clang gives a result that is not
 faster than compiling it with gcc.)  We might in theory get extra
 benefits from LLVM's GC integration, but this requires more work on the
 LLVM side before it would be remotely useful.  Anyway, it could be
-interfaced via a custom primitive in the C code.
+interfaced via a custom primitive in the C code.  (The latest such
+experimental backend is in the branch ``llvm-translation-backend``,
+which can translate PyPy with or without the JIT on Linux.)
 
 On the other hand, using LLVM as our JIT backend looks interesting as
 well --- but again we made an attempt, and it failed: LLVM has no way to
 patch the generated machine code.
 
 So the position of the core PyPy developers is that if anyone wants to
-make an N+1'th attempt with LLVM, he is welcome, and he will receive a
-bit of help on the IRC channel, but he is left with the burden of proof
-that it works.
+make an N+1'th attempt with LLVM, they are welcome, and will be happy to
+provide help in the IRC channel, but they are left with the burden of proof
+that (a) it works and (b) it gives important benefits.
 
 ----------------------
 How do I compile PyPy?
@@ -407,6 +476,23 @@ How do I compile PyPy?
 See the `getting-started`_ guide.
 
 .. _`getting-started`: getting-started-python.html
+
+------------------------------------------
+Compiling PyPy swaps or runs out of memory
+------------------------------------------
+
+This is documented (here__ and here__).  It needs 4 GB of RAM to run
+"rpython targetpypystandalone" on top of PyPy, a bit more when running
+on top of CPython.  If you have less than 4 GB free, it will just swap
+forever (or fail if you don't have enough swap).  And we mean *free:*
+if the machine has 4 GB *in total,* then it will swap.
+
+On 32-bit, divide the numbers by two.  (We didn't try recently, but in
+the past it was possible to compile a 32-bit version on a 2 GB Linux
+machine with nothing else running: no Gnome/KDE, for example.)
+
+.. __: http://pypy.org/download.html#building-from-source
+.. __: https://pypy.readthedocs.org/en/latest/getting-started-python.html#translating-the-pypy-python-interpreter
 
 .. _`how do I compile my own interpreters`:
 

@@ -4,12 +4,12 @@ class Delegator:
 
     def __init__(self, delegate=None):
         self.delegate = delegate
-        self.__cache = {}
+        self.__cache = set()
 
     def __getattr__(self, name):
         attr = getattr(self.delegate, name) # May raise AttributeError
         setattr(self, name, attr)
-        self.__cache[name] = attr
+        self.__cache.add(name)
         return attr
 
     def __nonzero__(self):
@@ -21,21 +21,13 @@ class Delegator:
         return True
 
     def resetcache(self):
-        for key in self.__cache.keys():
+        for key in self.__cache:
             try:
                 delattr(self, key)
             except AttributeError:
                 pass
         self.__cache.clear()
 
-    def cachereport(self):
-        keys = self.__cache.keys()
-        keys.sort()
-        print keys
-
     def setdelegate(self, delegate):
         self.resetcache()
         self.delegate = delegate
-
-    def getdelegate(self):
-        return self.delegate

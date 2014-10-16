@@ -10,7 +10,10 @@ import py
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gctypelayout import TypeLayoutBuilder
 from rpython.rlib.rarithmetic import LONG_BIT, is_valid_int
-
+from rpython.memory.gc import minimark, incminimark
+from rpython.memory.gctypelayout import zero_gc_pointers_inside, zero_gc_pointers
+from rpython.rlib.debug import debug_print
+import pdb
 WORD = LONG_BIT // 8
 
 ADDR_ARRAY = lltype.Array(llmemory.Address)
@@ -59,6 +62,9 @@ class DirectRootWalker(object):
     def _walk_prebuilt_gc(self, callback):
         pass
 
+    def finished_minor_collection(self):
+        pass
+
 
 class BaseDirectGCTest(object):
     GC_PARAMS = {}
@@ -87,28 +93,30 @@ class BaseDirectGCTest(object):
 
     def write(self, p, fieldname, newvalue):
         if self.gc.needs_write_barrier:
-            newaddr = llmemory.cast_ptr_to_adr(newvalue)
             addr_struct = llmemory.cast_ptr_to_adr(p)
-            self.gc.write_barrier(newaddr, addr_struct)
+            self.gc.write_barrier(addr_struct)
         setattr(p, fieldname, newvalue)
 
     def writearray(self, p, index, newvalue):
         if self.gc.needs_write_barrier:
-            newaddr = llmemory.cast_ptr_to_adr(newvalue)
             addr_struct = llmemory.cast_ptr_to_adr(p)
             if hasattr(self.gc, 'write_barrier_from_array'):
-                self.gc.write_barrier_from_array(newaddr, addr_struct, index)
+                self.gc.write_barrier_from_array(addr_struct, index)
             else:
-                self.gc.write_barrier(newaddr, addr_struct)
+                self.gc.write_barrier(addr_struct)
         p[index] = newvalue
 
     def malloc(self, TYPE, n=None):
-        addr = self.gc.malloc(self.get_type_id(TYPE), n, zero=True)
-        return llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
+        addr = self.gc.malloc(self.get_type_id(TYPE), n)
+        debug_print(self.gc)
+        obj_ptr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
+        if not self.gc.malloc_zero_filled:
+            zero_gc_pointers_inside(obj_ptr, TYPE)
+        return obj_ptr
 
 
 class DirectGCTest(BaseDirectGCTest):
-
+    
     def test_simple(self):
         p = self.malloc(S)
         p.x = 5
@@ -204,9 +212,17 @@ class DirectGCTest(BaseDirectGCTest):
                 assert self.stackroots[index][index2].x == value
         x = 0
         for i in range(40):
-            self.stackroots.append(self.malloc(VAR, i))
+            assert 'DEAD' not in repr(self.stackroots)
+            a = self.malloc(VAR, i)
+            assert 'DEAD' not in repr(a)
+            self.stackroots.append(a)
+            print 'ADDED TO STACKROOTS:', llmemory.cast_adr_to_int(
+                llmemory.cast_ptr_to_adr(a))
+            assert 'DEAD' not in repr(self.stackroots)
             for j in range(5):
+                assert 'DEAD' not in repr(self.stackroots)
                 p = self.malloc(S)
+                assert 'DEAD' not in repr(self.stackroots)
                 p.x = x
                 index = x % len(self.stackroots)
                 if index > 0:
@@ -416,13 +432,13 @@ class TestGenerationGC(TestSemiSpaceGC):
         assert calls == ['semispace_collect']
         calls = []
 
-    def test_assume_young_pointers(self):
+    def test_write_barrier_direct(self):
         s0 = lltype.malloc(S, immortal=True)
         self.consider_constant(s0)
         s = self.malloc(S)
         s.x = 1
         s0.next = s
-        self.gc.assume_young_pointers(llmemory.cast_ptr_to_adr(s0))
+        self.gc.write_barrier(llmemory.cast_ptr_to_adr(s0))
 
         self.gc.collect(0)
 
@@ -507,7 +523,6 @@ class TestMiniMarkGCSimple(DirectGCTest):
     test_card_marker.GC_PARAMS = {"card_page_indices": 4}
 
     def test_writebarrier_before_copy(self):
-        from rpython.memory.gc import minimark
         largeobj_size =  self.gc.nonlarge_max + 1
         self.gc.next_major_collection_threshold = 99999.0
         p_src = self.malloc(VAR, largeobj_size)
@@ -546,7 +561,6 @@ class TestMiniMarkGCSimple(DirectGCTest):
 
     def test_writebarrier_before_copy_preserving_cards(self):
         from rpython.rtyper.lltypesystem import llarena
-        from rpython.memory.gc import minimark
         tid = self.get_type_id(VAR)
         largeobj_size =  self.gc.nonlarge_max + 1
         self.gc.next_major_collection_threshold = 99999.0
@@ -558,12 +572,10 @@ class TestMiniMarkGCSimple(DirectGCTest):
         assert hdr_src.tid & minimark.GCFLAG_HAS_CARDS
         assert hdr_dst.tid & minimark.GCFLAG_HAS_CARDS
         #
-        young_p = self.malloc(S)
-        self.gc.write_barrier_from_array(young_p, addr_src, 0)
+        self.gc.write_barrier_from_array(addr_src, 0)
         index_in_third_page = int(2.5 * self.gc.card_page_indices)
         assert index_in_third_page < largeobj_size
-        self.gc.write_barrier_from_array(young_p, addr_src,
-                                         index_in_third_page)
+        self.gc.write_barrier_from_array(addr_src, index_in_third_page)
         #
         assert hdr_src.tid & minimark.GCFLAG_CARDS_SET
         addr_byte = self.gc.get_card(addr_src, 0)
@@ -583,3 +595,152 @@ class TestMiniMarkGCSimple(DirectGCTest):
 
 class TestMiniMarkGCFull(DirectGCTest):
     from rpython.memory.gc.minimark import MiniMarkGC as GCClass
+
+class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
+    from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
+
+    def test_write_barrier_marking_simple(self):
+        for i in range(2):
+            curobj = self.malloc(S)
+            curobj.x = i
+            self.stackroots.append(curobj)
+
+
+        oldobj = self.stackroots[-1]
+        oldhdr = self.gc.header(llmemory.cast_ptr_to_adr(oldobj))
+
+        assert oldhdr.tid & incminimark.GCFLAG_VISITED == 0
+        self.gc.debug_gc_step_until(incminimark.STATE_MARKING)
+        oldobj = self.stackroots[-1]
+        # object shifted by minor collect
+        oldhdr = self.gc.header(llmemory.cast_ptr_to_adr(oldobj))
+        assert oldhdr.tid & incminimark.GCFLAG_VISITED == 0
+
+        self.gc.minor_collection()
+        self.gc.visit_all_objects_step(1)
+
+        assert oldhdr.tid & incminimark.GCFLAG_VISITED
+
+        #at this point the first object should have been processed
+        newobj = self.malloc(S)
+        self.write(oldobj,'next',newobj)
+
+        assert self.gc.header(self.gc.old_objects_pointing_to_young.tolist()[0]) == oldhdr
+
+        self.gc.minor_collection()
+        self.gc.debug_check_consistency()
+
+    def test_sweeping_simple(self):
+        assert self.gc.gc_state == incminimark.STATE_SCANNING
+
+        for i in range(2):
+            curobj = self.malloc(S)
+            curobj.x = i
+            self.stackroots.append(curobj)
+
+        self.gc.debug_gc_step_until(incminimark.STATE_SWEEPING)
+        oldobj = self.stackroots[-1]
+        oldhdr = self.gc.header(llmemory.cast_ptr_to_adr(oldobj))
+        assert oldhdr.tid & incminimark.GCFLAG_VISITED
+
+        newobj1 = self.malloc(S)
+        newobj2 = self.malloc(S)
+        newobj1.x = 1337
+        newobj2.x = 1338
+        self.write(oldobj,'next',newobj1)
+        self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
+        #should not be cleared even though it was allocated while sweeping
+        newobj1 = oldobj.next
+        assert newobj1.x == 1337
+
+    def test_obj_on_escapes_on_stack(self):
+        obj0 = self.malloc(S)
+
+        self.stackroots.append(obj0)
+        obj0.next = self.malloc(S)
+        self.gc.debug_gc_step_until(incminimark.STATE_MARKING)
+        obj0 = self.stackroots[-1]
+        obj1 = obj0.next
+        obj1.x = 13
+        obj0.next = lltype.nullptr(S)
+        self.stackroots.append(obj1)
+        self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
+        assert self.stackroots[1].x == 13
+
+class TestIncrementalMiniMarkGCFull(DirectGCTest):
+    from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
+    def test_malloc_fixedsize_no_cleanup(self):
+        p = self.malloc(S)
+        import pytest
+        #ensure the memory is uninitialized
+        with pytest.raises(lltype.UninitializedMemoryAccess):
+            x1 = p.x
+        #ensure all the ptr fields are zeroed
+        assert p.prev == lltype.nullptr(S)
+        assert p.next == lltype.nullptr(S)
+    
+    def test_malloc_varsize_no_cleanup(self):
+        x = lltype.Signed
+        VAR1 = lltype.GcArray(x)
+        p = self.malloc(VAR1,5)
+        import pytest
+        with pytest.raises(lltype.UninitializedMemoryAccess):
+            assert isinstance(p[0], lltype._uninitialized)
+            x1 = p[0]
+
+    def test_malloc_varsize_no_cleanup2(self):
+        #as VAR is GcArray so the ptr will don't need to be zeroed
+        p = self.malloc(VAR, 100)
+        for i in range(100):
+            assert p[i] == lltype.nullptr(S)
+
+    def test_malloc_varsize_no_cleanup3(self):
+        VAR1 = lltype.Array(lltype.Ptr(S))
+        p1 = lltype.malloc(VAR1, 10, flavor='raw', track_allocation=False)
+        import pytest
+        with pytest.raises(lltype.UninitializedMemoryAccess):
+            for i in range(10):
+                assert p1[i] == lltype.nullptr(S)
+                p1[i]._free()
+            p1._free()
+
+    def test_malloc_struct_of_ptr_struct(self):
+        S3 = lltype.GcForwardReference()
+        S3.become(lltype.GcStruct('S3',
+                         ('gcptr_struct', S),
+                         ('prev', lltype.Ptr(S)),
+                         ('next', lltype.Ptr(S))))
+        s3 = self.malloc(S3)
+        assert s3.gcptr_struct.prev == lltype.nullptr(S)
+        assert s3.gcptr_struct.next == lltype.nullptr(S)
+
+    def test_malloc_array_of_ptr_struct(self):
+        ARR_OF_PTR_STRUCT = lltype.GcArray(lltype.Ptr(S))
+        arr_of_ptr_struct = self.malloc(ARR_OF_PTR_STRUCT,5)
+        for i in range(5):
+            assert arr_of_ptr_struct[i] == lltype.nullptr(S)
+            assert arr_of_ptr_struct[i] == lltype.nullptr(S)
+            arr_of_ptr_struct[i] = self.malloc(S)
+            assert arr_of_ptr_struct[i].prev == lltype.nullptr(S)
+            assert arr_of_ptr_struct[i].next == lltype.nullptr(S)
+
+    #fail for now
+    def xxx_test_malloc_array_of_ptr_arr(self):
+        ARR_OF_PTR_ARR = lltype.GcArray(lltype.Ptr(lltype.GcArray(lltype.Ptr(S))))
+        arr_of_ptr_arr = self.malloc(ARR_OF_PTR_ARR, 10)
+        self.stackroots.append(arr_of_ptr_arr)
+        for i in range(10):
+            assert arr_of_ptr_arr[i] == lltype.nullptr(lltype.GcArray(lltype.Ptr(S)))
+        for i in range(10):
+            self.writearray(arr_of_ptr_arr, i,
+                            self.malloc(lltype.GcArray(lltype.Ptr(S)), i))
+            #self.stackroots.append(arr_of_ptr_arr[i])
+            #debug_print(arr_of_ptr_arr[i])
+            for elem in arr_of_ptr_arr[i]:
+                #self.stackroots.append(elem)
+                assert elem == lltype.nullptr(S)
+                elem = self.malloc(S)
+                assert elem.prev == lltype.nullptr(S)
+                assert elem.next == lltype.nullptr(S)
+
+            

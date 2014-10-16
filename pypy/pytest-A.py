@@ -5,7 +5,6 @@ DIRS_SPLIT = {
     'arm': ['interpreter/astcompiler/test',
             'interpreter/pyparser/test',
             'interpreter/test',
-            'interpreter/test2',
             'module/test_lib_pypy',
             'objspace/std/test',
     ],

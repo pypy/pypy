@@ -130,7 +130,9 @@ def elidable_promote(promote_args='all'):
         if promote_args != 'all':
             args = [args[int(i)] for i in promote_args.split(",")]
         for arg in args:
-            code.append("    %s = hint(%s, promote=True)\n" % (arg, arg))
+            code.append( #use both hints, and let jtransform pick the right one
+                "    %s = hint(%s, promote=True, promote_string=True)\n" %
+                (arg, arg))
         code.append("    return _orig_func_unlikely_name(%s)\n" % (argstring, ))
         d = {"_orig_func_unlikely_name": func, "hint": hint}
         exec py.code.Source("\n".join(code)).compile() in d
@@ -182,7 +184,6 @@ def look_inside_iff(predicate):
                 else:
                     return trampoline(%(arguments)s)
             f.__name__ = func.__name__ + "_look_inside_iff"
-            f._always_inline = True
         """ % {"arguments": ", ".join(args)}).compile() in d
         return d["f"]
     return inner
@@ -192,6 +193,14 @@ def oopspec(spec):
         func.oopspec = spec
         return func
     return decorator
+
+def not_in_trace(func):
+    """A decorator for a function with no return value.  It makes the
+    function call disappear from the jit traces. It is still called in
+    interpreted mode, and by the jit tracing and blackholing, but not
+    by the final assembler."""
+    func.oopspec = "jit.not_in_trace()"   # note that 'func' may take arguments
+    return func
 
 @oopspec("jit.isconstant(value)")
 def isconstant(value):
@@ -339,6 +348,7 @@ def jit_callback(name):
 # ____________________________________________________________
 # VRefs
 
+@specialize.argtype(0)
 def virtual_ref(x):
     """Creates a 'vref' object that contains a reference to 'x'.  Calls
     to virtual_ref/virtual_ref_finish must be properly nested.  The idea
@@ -350,6 +360,7 @@ def virtual_ref(x):
     return DirectJitVRef(x)
 virtual_ref.oopspec = 'virtual_ref(x)'
 
+@specialize.argtype(1)
 def virtual_ref_finish(vref, x):
     """See docstring in virtual_ref(x)"""
     keepalive_until_here(x)   # otherwise the whole function call is removed
@@ -443,6 +454,7 @@ PARAMETER_DOCS = {
     'threshold': 'number of times a loop has to run for it to become hot',
     'function_threshold': 'number of times a function must run for it to become traced from start',
     'trace_eagerness': 'number of times a guard has to fail before we start compiling a bridge',
+    'decay': 'amount to regularly decay counters by (0=none, 1000=max)',
     'trace_limit': 'number of recorded operations before we abort tracing with ABORT_TOO_LONG',
     'inlining': 'inline python functions or not (1/0)',
     'loop_longevity': 'a parameter controlling how long loops will be kept before being freed, an estimate',
@@ -456,6 +468,7 @@ PARAMETER_DOCS = {
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'function_threshold': 1619, # slightly more than one above, also prime
               'trace_eagerness': 200,
+              'decay': 40,
               'trace_limit': 6000,
               'inlining': 1,
               'loop_longevity': 1000,
@@ -479,6 +492,7 @@ class JitDriver(object):
     virtualizables = []
     name = 'jitdriver'
     inline_jit_merge_point = False
+    _store_last_enter_jit = None
 
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
@@ -513,8 +527,8 @@ class JitDriver(object):
                                   if '.' not in name])
         self._heuristic_order = {}   # check if 'reds' and 'greens' are ordered
         self._make_extregistryentries()
-        self.get_jitcell_at = get_jitcell_at
-        self.set_jitcell_at = set_jitcell_at
+        assert get_jitcell_at is None, "get_jitcell_at no longer used"
+        assert set_jitcell_at is None, "set_jitcell_at no longer used"
         self.get_printable_location = get_printable_location
         self.confirm_enter_jit = confirm_enter_jit
         self.can_never_inline = can_never_inline
@@ -524,14 +538,14 @@ class JitDriver(object):
     def _freeze_(self):
         return True
 
-    def _check_arguments(self, livevars):
+    def _check_arguments(self, livevars, is_merge_point):
         assert set(livevars) == self._somelivevars
         # check heuristically that 'reds' and 'greens' are ordered as
         # the JIT will need them to be: first INTs, then REFs, then
         # FLOATs.
         if len(self._heuristic_order) < len(livevars):
             from rpython.rlib.rarithmetic import (r_singlefloat, r_longlong,
-                                               r_ulonglong, r_uint)
+                                                  r_ulonglong, r_uint)
             added = False
             for var, value in livevars.items():
                 if var not in self._heuristic_order:
@@ -572,17 +586,27 @@ class JitDriver(object):
                         "must be INTs, REFs, FLOATs; got %r" %
                         (color, allkinds))
 
+        if is_merge_point:
+            if self._store_last_enter_jit:
+                if livevars != self._store_last_enter_jit:
+                    raise JitHintError(
+                        "Bad can_enter_jit() placement: there should *not* "
+                        "be any code in between can_enter_jit() -> jit_merge_point()" )
+                self._store_last_enter_jit = None
+        else:
+            self._store_last_enter_jit = livevars
+
     def jit_merge_point(_self, **livevars):
         # special-cased by ExtRegistryEntry
         if _self.check_untranslated:
-            _self._check_arguments(livevars)
+            _self._check_arguments(livevars, True)
 
     def can_enter_jit(_self, **livevars):
         if _self.autoreds:
-            raise TypeError, "Cannot call can_enter_jit on a driver with reds='auto'"
+            raise TypeError("Cannot call can_enter_jit on a driver with reds='auto'")
         # special-cased by ExtRegistryEntry
         if _self.check_untranslated:
-            _self._check_arguments(livevars)
+            _self._check_arguments(livevars, False)
 
     def loop_header(self):
         # special-cased by ExtRegistryEntry
@@ -684,9 +708,6 @@ set_user_param._annspecialcase_ = 'specialize:arg(0)'
 #
 # Annotation and rtyping of some of the JitDriver methods
 
-class BaseJitCell(object):
-    __slots__ = ()
-
 
 class ExtEnterLeaveMarker(ExtRegistryEntry):
     # Replace a call to myjitdriver.jit_merge_point(**livevars)
@@ -734,10 +755,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
 
     def annotate_hooks(self, **kwds_s):
         driver = self.instance.im_self
-        s_jitcell = self.bookkeeper.valueoftype(BaseJitCell)
         h = self.annotate_hook
-        h(driver.get_jitcell_at, driver.greens, **kwds_s)
-        h(driver.set_jitcell_at, driver.greens, [s_jitcell], **kwds_s)
         h(driver.get_printable_location, driver.greens, **kwds_s)
 
     def annotate_hook(self, func, variables, args_s=[], **kwds_s):
@@ -983,7 +1001,8 @@ class Entry(ExtRegistryEntry):
         assert isinstance(s_inst, annmodel.SomeInstance)
 
     def specialize_call(self, hop):
-        from rpython.rtyper.lltypesystem import rclass, lltype
+        from rpython.rtyper.lltypesystem import lltype
+        from rpython.rtyper import rclass
 
         classrepr = rclass.get_type_repr(hop.rtyper)
 
@@ -996,13 +1015,14 @@ class Entry(ExtRegistryEntry):
 def _jit_conditional_call(condition, function, *args):
     pass
 
-@specialize.ll_and_arg(1)
+@specialize.call_location()
 def conditional_call(condition, function, *args):
     if we_are_jitted():
         _jit_conditional_call(condition, function, *args)
     else:
         if condition:
             function(*args)
+conditional_call._always_inline_ = True
 
 class ConditionalCallEntry(ExtRegistryEntry):
     _about_ = _jit_conditional_call

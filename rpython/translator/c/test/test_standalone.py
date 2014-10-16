@@ -13,9 +13,23 @@ from rpython.translator.backendopt import all
 from rpython.translator.c.genc import CStandaloneBuilder, ExternalCompilationInfo
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.tool.udir import udir
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.conftest import option
 
+def setup_module(module):
+    if os.name == 'nt':
+        # Do not open dreaded dialog box on segfault
+        import ctypes
+        SEM_NOGPFAULTERRORBOX = 0x0002 # From MSDN
+        old_err_mode = ctypes.windll.kernel32.GetErrorMode()
+        new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
+        ctypes.windll.kernel32.SetErrorMode(new_err_mode)
+        module.old_err_mode = old_err_mode
+
+def teardown_module(module):
+    if os.name == 'nt':
+        import ctypes
+        ctypes.windll.kernel32.SetErrorMode(module.old_err_mode)
 
 class StandaloneTests(object):
     config = None
@@ -173,6 +187,8 @@ class TestStandalone(StandaloneTests):
         assert map(float, data.split()) == [0.0, 0.0]
 
     def test_profopt(self):
+        if sys.platform == 'win32':
+            py.test.skip("no profopt on win32")
         def add(a,b):
             return a + b - b + b - b + b - b + b - b + b - b + b - b + b
         def entry_point(argv):
@@ -290,8 +306,13 @@ class TestStandalone(StandaloneTests):
         assert "  ll_strtod.o" in makefile
 
     def test_debug_print_start_stop(self):
+        import sys
         from rpython.rtyper.lltypesystem import rffi
-
+        if sys.platform == 'win32':
+            # ftell(stderr) is a bit different under subprocess.Popen
+            tell = 0
+        else:
+            tell = -1
         def entry_point(argv):
             x = "got:"
             debug_start  ("mycat")
@@ -313,7 +334,7 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point)
         # check with PYPYLOG undefined
         out, err = cbuilder.cmdexec("", err=True, env={})
-        assert out.strip() == 'got:a.-1.'
+        assert out.strip() == 'got:a.%d.' % tell
         assert 'toplevel' in err
         assert 'mycat' not in err
         assert 'foo 2 bar 3' not in err
@@ -322,7 +343,7 @@ class TestStandalone(StandaloneTests):
         assert 'bok' not in err
         # check with PYPYLOG defined to an empty string (same as undefined)
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ''})
-        assert out.strip() == 'got:a.-1.'
+        assert out.strip() == 'got:a.%d.' % tell
         assert 'toplevel' in err
         assert 'mycat' not in err
         assert 'foo 2 bar 3' not in err
@@ -331,7 +352,7 @@ class TestStandalone(StandaloneTests):
         assert 'bok' not in err
         # check with PYPYLOG=:- (means print to stderr)
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ':-'})
-        assert out.strip() == 'got:bcda.-1.'
+        assert out.strip() == 'got:bcda.%d.' % tell
         assert 'toplevel' in err
         assert '{mycat' in err
         assert 'mycat}' in err
@@ -360,7 +381,27 @@ class TestStandalone(StandaloneTests):
         assert 'bok' in data
         # check with PYPYLOG=somefilename
         path = udir.join('test_debug_xxx_prof.log')
-        out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': str(path)})
+        if str(path).find(':')>=0:
+            # bad choice of udir, there is a ':' in it which messes up the test
+            pass
+        else:
+            out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': str(path)})
+            size = os.stat(str(path)).st_size
+            assert out.strip() == 'got:a.' + str(size) + '.'
+            assert not err
+            assert path.check(file=1)
+            data = path.read()
+            assert 'toplevel' in data
+            assert '{mycat' in data
+            assert 'mycat}' in data
+            assert 'foo 2 bar 3' not in data
+            assert '{cat2' in data
+            assert 'cat2}' in data
+            assert 'baz' not in data
+            assert 'bok' not in data
+        # check with PYPYLOG=+somefilename
+        path = udir.join('test_debug_xxx_prof_2.log')
+        out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': '+%s' % path})
         size = os.stat(str(path)).st_size
         assert out.strip() == 'got:a.' + str(size) + '.'
         assert not err
@@ -447,6 +488,72 @@ class TestStandalone(StandaloneTests):
         assert 'bar' == lines[1]
         assert 'foo}' in lines[2]
 
+    def test_debug_print_fork(self):
+        if not hasattr(os, 'fork'):
+            py.test.skip("requires fork()")
+
+        def entry_point(argv):
+            debug_start("foo")
+            debug_print("test line")
+            childpid = os.fork()
+            debug_print("childpid =", childpid)
+            if childpid == 0:
+                childpid2 = os.fork()   # double-fork
+                debug_print("childpid2 =", childpid2)
+            debug_stop("foo")
+            return 0
+        t, cbuilder = self.compile(entry_point)
+        path = udir.join('test_debug_print_fork.log')
+        out, err = cbuilder.cmdexec("", err=True,
+                                    env={'PYPYLOG': ':%s' % path})
+        assert not err
+        #
+        f = open(str(path), 'r')
+        lines = f.readlines()
+        f.close()
+        assert '{foo' in lines[0]
+        assert lines[1] == "test line\n"
+        offset1 = len(lines[0]) + len(lines[1])
+        assert lines[2].startswith('childpid = ')
+        childpid = int(lines[2][11:])
+        assert childpid != 0
+        assert 'foo}' in lines[3]
+        assert len(lines) == 4
+        #
+        f = open('%s.fork%d' % (path, childpid), 'r')
+        lines = f.readlines()
+        f.close()
+        assert lines[0] == 'FORKED: %d %s\n' % (offset1, path)
+        assert lines[1] == 'childpid = 0\n'
+        offset2 = len(lines[0]) + len(lines[1])
+        assert lines[2].startswith('childpid2 = ')
+        childpid2 = int(lines[2][11:])
+        assert childpid2 != 0
+        assert 'foo}' in lines[3]
+        assert len(lines) == 4
+        #
+        f = open('%s.fork%d' % (path, childpid2), 'r')
+        lines = f.readlines()
+        f.close()
+        assert lines[0] == 'FORKED: %d %s.fork%d\n' % (offset2, path, childpid)
+        assert lines[1] == 'childpid2 = 0\n'
+        assert 'foo}' in lines[2]
+        assert len(lines) == 3
+
+    def test_debug_flush_at_exit(self):
+        def entry_point(argv):
+            debug_start("mycat")
+            os._exit(0)
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        path = udir.join('test_debug_flush_at_exit.log')
+        cbuilder.cmdexec("", env={'PYPYLOG': ':%s' % path})
+        #
+        f = open(str(path), 'r')
+        lines = f.readlines()
+        f.close()
+        assert lines[0].endswith('{mycat\n')
 
     def test_fatal_error(self):
         def g(x):
@@ -855,6 +962,50 @@ class TestStandalone(StandaloneTests):
         self.compile(entry_point)
         # assert did not explode
 
+    def test_unicode_builder(self):
+        import random
+        from rpython.rlib.rstring import UnicodeBuilder
+
+        to_do = []
+        for i in range(15000):
+            to_do.append(random.randrange(0, 100000))
+        to_do.append(0)
+
+        expected = []
+        s = ''
+        for x in to_do:
+            if x < 1500:
+                expected.append("``%s''" % (s,))
+                if x < 1000:
+                    s = ''
+            elif x < 20000:
+                s += chr(32 + (x & 63))
+            elif x < 30000:
+                s += chr(32 + (x & 63)) * (x % 93)
+            else:
+                s += str(x)
+        expected = '\n'.join(expected)
+
+        def entry_point(argv):
+            b = UnicodeBuilder(32)
+            for x in to_do:
+                if x < 1500:
+                    print "``%s''" % str(b.build())
+                    if x < 1000:
+                        b = UnicodeBuilder(32)
+                elif x < 20000:
+                    b.append(unichr(32 + (x & 63)))
+                elif x < 30000:
+                    b.append_multiple_char(unichr(32 + (x & 63)), x % 93)
+                else:
+                    b.append(unicode(str(x)))
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        out = cbuilder.cmdexec('')
+        assert out.strip() == expected
+
+
 class TestMaemo(TestStandalone):
     def setup_class(cls):
         py.test.skip("TestMaemo: tests skipped for now")
@@ -1019,7 +1170,6 @@ class TestThread(object):
             rthread.gc_thread_die()
 
         def new_thread():
-            rthread.gc_thread_prepare()
             ident = rthread.start_new_thread(bootstrap, ())
             time.sleep(0.5)    # enough time to start, hopefully
             return ident
@@ -1147,7 +1297,6 @@ class TestThread(object):
             rthread.gc_thread_die()
 
         def new_thread():
-            rthread.gc_thread_prepare()
             ident = rthread.start_new_thread(bootstrap, ())
             time.sleep(0.5)    # enough time to start, hopefully
             return ident
@@ -1219,7 +1368,10 @@ class TestShared(StandaloneTests):
 
         t, cbuilder = self.compile(entry_point, shared=True,
                                    entrypoints=[f])
+        ext_suffix = '.so'
+        if cbuilder.eci.platform.name == 'msvc':
+            ext_suffix = '.dll'
         libname = cbuilder.executable_name.join('..', 'lib' +
-                                                cbuilder.modulename + '.so')
+                                      cbuilder.modulename + ext_suffix)
         lib = ctypes.CDLL(str(libname))
         assert lib.foo(13) == 16

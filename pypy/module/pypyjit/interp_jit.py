@@ -1,19 +1,22 @@
 """This is not the JIT :-)
 
-This is transformed to become a JIT by code elsewhere: pypy/jit/*
+This is transformed to become a JIT by code elsewhere: rpython/jit/*
 """
 
-from rpython.tool.pairtype import extendabletype
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
 from rpython.rlib import jit
 from rpython.rlib.jit import current_trace_length, unroll_parameters
 import pypy.interpreter.pyopcode   # for side-effects
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.pycode import PyCode, CO_GENERATOR
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.pycode import CO_GENERATOR
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import ExitFrame, Yield
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.gateway import interp2app
 from opcode import opmap
+
 
 PyFrame._virtualizable_ = ['last_instr', 'pycode',
                            'valuestackdepth', 'locals_stack_w[*]',
@@ -32,16 +35,6 @@ def get_printable_location(next_instr, is_being_profiled, bytecode):
     name = opcode_method_names[ord(bytecode.co_code[next_instr])]
     return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
 
-def get_jitcell_at(next_instr, is_being_profiled, bytecode):
-    # use only uints as keys in the jit_cells dict, rather than
-    # a tuple (next_instr, is_being_profiled)
-    key = (next_instr << 1) | r_uint(intmask(is_being_profiled))
-    return bytecode.jit_cells.get(key, None)
-
-def set_jitcell_at(newcell, next_instr, is_being_profiled, bytecode):
-    key = (next_instr << 1) | r_uint(intmask(is_being_profiled))
-    bytecode.jit_cells[key] = newcell
-
 
 def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0
@@ -52,8 +45,6 @@ class PyPyJitDriver(JitDriver):
     virtualizables = ['frame']
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
-                              get_jitcell_at = get_jitcell_at,
-                              set_jitcell_at = set_jitcell_at,
                               should_unroll_one_iteration =
                               should_unroll_one_iteration,
                               name='pypyjit')
@@ -115,18 +106,6 @@ def _get_adapted_tick_counter():
     return intmask(decr_by)
 
 
-PyCode__initialize = PyCode._initialize
-
-class __extend__(PyCode):
-    __metaclass__ = extendabletype
-
-    def _initialize(self):
-        PyCode__initialize(self)
-        self.jit_cells = {}
-
-    def _cleanup_(self):
-        self.jit_cells = {}
-
 # ____________________________________________________________
 #
 # Public interface
@@ -141,8 +120,9 @@ def set_param(space, __args__):
     # XXXXXXXXX
     args_w, kwds_w = __args__.unpack()
     if len(args_w) > 1:
-        msg = "set_param() takes at most 1 non-keyword argument, %d given"
-        raise operationerrfmt(space.w_TypeError, msg, len(args_w))
+        raise oefmt(space.w_TypeError,
+                    "set_param() takes at most 1 non-keyword argument, %d "
+                    "given", len(args_w))
     if len(args_w) == 1:
         text = space.str_w(args_w[0])
         try:
@@ -160,11 +140,47 @@ def set_param(space, __args__):
                     jit.set_param(None, name, intval)
                     break
             else:
-                raise operationerrfmt(space.w_TypeError,
-                                      "no JIT parameter '%s'", key)
+                raise oefmt(space.w_TypeError, "no JIT parameter '%s'", key)
 
 @dont_look_inside
 def residual_call(space, w_callable, __args__):
     '''For testing.  Invokes callable(...), but without letting
     the JIT follow the call.'''
     return space.call_args(w_callable, __args__)
+
+
+class W_NotFromAssembler(W_Root):
+    def __init__(self, space, w_callable):
+        self.space = space
+        self.w_callable = w_callable
+    def descr_call(self, __args__):
+        _call_not_in_trace(self.space, self.w_callable, __args__)
+        return self
+
+@jit.not_in_trace
+def _call_not_in_trace(space, w_callable, __args__):
+    # this _call_not_in_trace() must return None
+    space.call_args(w_callable, __args__)
+
+def not_from_assembler_new(space, w_subtype, w_callable):
+    return W_NotFromAssembler(space, w_callable)
+
+W_NotFromAssembler.typedef = TypeDef("not_from_assembler",
+    __doc__ = """\
+A decorator that returns a callable that invokes the original
+callable, but not from the JIT-produced assembler.  It is called
+from the interpreted mode, and from the JIT creation (pyjitpl) or
+exiting (blackhole) steps, but just not from the final assembler.
+
+Note that the return value of the callable is ignored, because
+there is no reasonable way to guess what it sound be in case the
+function is not called.
+
+This is meant to be used notably in sys.settrace() for coverage-
+like tools.  For that purpose, if g = not_from_assembler(f), then
+'g(*args)' may call 'f(*args)' but it always return g itself.
+""",
+    __new__ = interp2app(not_from_assembler_new),
+    __call__ = interp2app(W_NotFromAssembler.descr_call),
+)
+W_NotFromAssembler.typedef.acceptable_as_base_class = False

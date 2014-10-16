@@ -25,10 +25,9 @@ Release Steps
   necessary; also update the version number in pypy/doc/conf.py,
   and in pypy/doc/index.rst
 * update pypy/doc/contributor.rst (and possibly LICENSE)
+  pypy/doc/tool/makecontributor.py generates the list of contributors
 * rename pypy/doc/whatsnew_head.rst to whatsnew_VERSION.rst
   and create a fresh whatsnew_head.rst after the release
-* update README
-* change the tracker to have a new release tag to file bugs against
 * go to pypy/tool/release and run:
   force-builds.py <release branch>
 * wait for builds to complete, make sure there are no failures
@@ -39,10 +38,16 @@ Release Steps
     no JIT: windows, linux, os/x
     sandbox: linux, os/x
 
+* repackage and upload source tar.bz2 to bitbucket and to cobra, as some packagers 
+  prefer a clearly labeled source package
 * write release announcement pypy/doc/release-x.y(.z).txt
   the release announcement should contain a direct link to the download page
 * update pypy.org (under extradoc/pypy.org), rebuild and commit
 
 * post announcement on morepypy.blogspot.com
-* send announcements to pypy-dev, python-list,
+* send announcements to twitter.com, pypy-dev, python-list,
   python-announce, python-dev ...
+
+* add a tag on the pypy/jitviewer repo that corresponds to pypy release
+* add a tag on the codespeed web site that corresponds to pypy release
+* revise versioning at https://readthedocs.org/projects/pypy

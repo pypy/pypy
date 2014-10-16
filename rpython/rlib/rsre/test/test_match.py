@@ -1,6 +1,6 @@
-import re
+import re, random, py
 from rpython.rlib.rsre import rsre_core
-from rpython.rlib.rsre.rpy import get_code
+from rpython.rlib.rsre.rpy import get_code, VERSION
 
 
 def get_code_and_re(regexp):
@@ -239,5 +239,36 @@ class TestMatch:
         assert rsre_core.match(r, "x")
 
     def test_match_bug3(self):
+        if VERSION == "2.7.5":
+            py.test.skip("pattern fails to compile with exactly 2.7.5 "
+                         "(works on 2.7.3 and on 2.7.trunk though)")
         r = get_code(r'([ax]*?x*)?$')
         assert rsre_core.match(r, "aaxaa")
+
+    def test_bigcharset(self):
+        for i in range(100):
+            chars = [unichr(random.randrange(0x100, 0xD000))
+                         for n in range(random.randrange(1, 25))]
+            pattern = u'[%s]' % (u''.join(chars),)
+            r = get_code(pattern)
+            for c in chars:
+                assert rsre_core.match(r, c)
+            for i in range(200):
+                c = unichr(random.randrange(0x0, 0xD000))
+                res = rsre_core.match(r, c)
+                if c in chars:
+                    assert res is not None
+                else:
+                    assert res is None
+
+    def test_simple_match_1(self):
+        r = get_code(r"ab*bbbbbbbc")
+        print r
+        match = rsre_core.match(r, "abbbbbbbbbcdef")
+        assert match
+        assert match.match_end == 11
+
+    def test_empty_maxuntil(self):
+        r = get_code("\\{\\{((?:.*?)+)\\}\\}")
+        match = rsre_core.match(r, "{{a}}{{b}}")
+        assert match.group(1) == "a"

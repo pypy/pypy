@@ -7,6 +7,9 @@ from rpython.tool.udir import udir
 if os.name != 'posix':
     py.test.skip('termios module only available on unix')
 
+if sys.platform.startswith('freebsd'):
+    raise Exception('XXX seems to hangs on FreeBSD9')
+
 class TestTermios(object):
     def setup_class(cls):
         try:
@@ -83,7 +86,7 @@ class TestTermios(object):
         child.expect('ok!')
 
     def test_ioctl_termios(self):
-        source = py.code.Source("""
+        source = py.code.Source(r"""
         import termios
         import fcntl
         lgt = len(fcntl.ioctl(2, termios.TIOCGWINSZ, '\000'*8))
@@ -146,4 +149,7 @@ class AppTestTermios(object):
 
     def test_error_tcsetattr(self):
         import termios
-        raises(ValueError, termios.tcsetattr, 0, 1, (1, 2))
+        exc = raises(TypeError, termios.tcsetattr, 0, 1, (1, 2))
+        assert str(exc.value) == "tcsetattr, arg 3: must be 7 element list"
+        exc = raises(TypeError, termios.tcsetattr, 0, 1, (1, 2, 3, 4, 5, 6, 7))
+        assert str(exc.value) == "tcsetattr, arg 3: must be 7 element list"

@@ -72,14 +72,14 @@ def test_cancollect():
     assert not CollectAnalyzer(t).analyze_direct_call(gg)    
 
 def test_cancollect_external():
-    fext1 = rffi.llexternal('fext1', [], lltype.Void, threadsafe=False)
+    fext1 = rffi.llexternal('fext1', [], lltype.Void, releasegil=False)
     def g():
         fext1()
     t = rtype(g, [])
     gg = graphof(t, g)
     assert not CollectAnalyzer(t).analyze_direct_call(gg)
 
-    fext2 = rffi.llexternal('fext2', [], lltype.Void, threadsafe=True)
+    fext2 = rffi.llexternal('fext2', [], lltype.Void, releasegil=True)
     def g():
         fext2()
     t = rtype(g, [])
@@ -88,7 +88,7 @@ def test_cancollect_external():
 
     S = lltype.GcStruct('S', ('x', lltype.Signed))
     FUNC = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
-    fext3 = rffi.llexternal('fext3', [FUNC], lltype.Void, threadsafe=False)
+    fext3 = rffi.llexternal('fext3', [FUNC], lltype.Void, releasegil=False)
     def h(x):
         lltype.malloc(S, zero=True)
     def g():

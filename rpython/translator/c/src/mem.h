@@ -8,32 +8,17 @@
 #define OP_STACK_CURRENT(r)  r = (Signed)&r
 
 
-#define RAW_MALLOC_ZERO_FILLED 0
-
-#if RAW_MALLOC_ZERO_FILLED
-
-#define OP_RAW_MALLOC(size, r, restype)  {				\
-	r = (restype) PyObject_Malloc(size);				\
-	if (r != NULL) {						\
-	    memset((void*)r, 0, size);					\
-	    COUNT_MALLOC;						\
-	}								\
-    }
-
-#else
-
 #define OP_RAW_MALLOC(size, r, restype)  {				\
 	r = (restype) PyObject_Malloc(size);				\
 	if (r != NULL) {						\
 	    COUNT_MALLOC;						\
 	}								\
     }
-
-#endif
 
 #define OP_RAW_FREE(p, r) PyObject_Free(p); COUNT_FREE;
 
 #define OP_RAW_MEMCLEAR(p, size, r) memset((void*)p, 0, size)
+#define OP_RAW_MEMSET(p, byte, size, r) memset((void*)p, byte, size)
 
 #define OP_RAW_MALLOC_USAGE(size, r) r = size
 
@@ -133,6 +118,9 @@ void boehm_gc_finalizer_notifier(void);
 #define OP_BOEHM_DISAPPEARING_LINK(link, obj, r)  /* nothing */
 #define OP_GC__DISABLE_FINALIZERS(r)  /* nothing */
 #define OP_GC__ENABLE_FINALIZERS(r)  /* nothing */
+#define GC_REGISTER_FINALIZER(a, b, c, d, e)  /* nothing */
+#define GC_gcollect()  /* nothing */
+#define GC_set_max_heap_size(a)  /* nothing */
 #endif
 
 /************************************************************/

@@ -9,7 +9,7 @@ from rpython.translator.backendopt import inline
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.ssa import DataFlowFamilyBuilder
 from rpython.translator.backendopt.constfold import constant_fold_graph
-from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper import rmodel
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.rtyper.rtyper import LowLevelOpList
@@ -259,8 +259,8 @@ class BaseGCTransformer(object):
 
     def annotate_helper(self, ll_helper, ll_args, ll_result, inline=False):
         assert not self.finished_helpers
-        args_s = map(annmodel.lltype_to_annotation, ll_args)
-        s_result = annmodel.lltype_to_annotation(ll_result)
+        args_s = map(lltype_to_annotation, ll_args)
+        s_result = lltype_to_annotation(ll_result)
         graph = self.mixlevelannotator.getgraph(ll_helper, args_s, s_result)
         # the produced graphs does not need to be fully transformed
         self.need_minimal_transform(graph)
@@ -330,6 +330,7 @@ class BaseGCTransformer(object):
             hop.rename('bare_' + hop.spaceop.opname)
     gct_setarrayitem = gct_setfield
     gct_setinteriorfield = gct_setfield
+    gct_raw_store = gct_setfield
 
     gct_getfield = default
 
@@ -508,12 +509,6 @@ class GCTransformer(BaseGCTransformer):
         meth = getattr(self, 'gct_fv_%s_malloc_varsize' % flavor, None)
         assert meth, "%s has no support for malloc_varsize with flavor %r" % (self, flavor)
         return self.varsize_malloc_helper(hop, flags, meth, [])
-
-    def gct_malloc_nonmovable(self, *args, **kwds):
-        return self.gct_malloc(*args, **kwds)
-
-    def gct_malloc_nonmovable_varsize(self, *args, **kwds):
-        return self.gct_malloc_varsize(*args, **kwds)
 
     def gct_gc_add_memory_pressure(self, hop):
         if hasattr(self, 'raw_malloc_memory_pressure_ptr'):

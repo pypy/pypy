@@ -60,7 +60,6 @@ class AppTestFile(object):
         finally:
             f.close()
 
-
     def test_fdopen(self):
         import os
         f = self.file(self.temppath, "w")
@@ -253,7 +252,28 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         assert os.strerror(errno.EBADF) in g.getvalue()
         # the following is a "nice to have" feature that CPython doesn't have
         if '__pypy__' in sys.builtin_module_names:
-            assert self.temppath in g.getvalue()
+            assert repr(self.temppath) in g.getvalue()
+
+    def test_truncate(self):
+        f = self.file(self.temppath, "w")
+        f.write("foo")
+        f.close()
+        with self.file(self.temppath, 'r') as f:
+            raises(IOError, f.truncate, 100)
+
+    def test_write_full(self):
+        try:
+            f = self.file('/dev/full', 'w', 1)
+        except IOError:
+            skip("requires '/dev/full'")
+        try:
+            f.write('hello')
+            raises(IOError, f.write, '\n')
+            f.write('zzz')
+            raises(IOError, f.flush)
+            f.flush()
+        finally:
+            f.close()
 
 
 class AppTestNonblocking(object):
@@ -384,6 +404,24 @@ class AppTestConcurrency(object):
         else:
             raise Exception("time out")
         print 'Passed.'
+
+    def test_seek_from_cur_backwards_off_end(self):
+        import os
+
+        f = self.file(self.temppath, "w+b")
+        f.write('123456789x12345678><123456789\n')
+
+        f.seek(0, os.SEEK_END)
+        f.seek(-25, os.SEEK_CUR)
+        f.read(25)
+        f.seek(-25, os.SEEK_CUR)
+        try:
+            f.seek(-25, os.SEEK_CUR)
+        except IOError:
+            pass
+        else:
+            raise AssertionError("Didn't raise IOError")
+        assert f.tell() == 5
 
 
 class AppTestFile25:

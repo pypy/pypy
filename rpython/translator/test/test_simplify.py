@@ -1,8 +1,7 @@
 import py
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.all import backend_optimizations
-from rpython.translator.simplify import (get_graph, transform_dead_op_vars,
-                                      desugar_isinstance)
+from rpython.translator.simplify import (get_graph, transform_dead_op_vars)
 from rpython.flowspace.model import Block, Constant, summary
 from rpython.conftest import option
 
@@ -233,20 +232,6 @@ def test_transform_dead_op_vars_bug():
     e = py.test.raises(LLException, 'interp.eval_graph(graph, [])')
     assert 'ValueError' in str(e.value)
 
-def test_desugar_isinstance():
-    class X(object):
-        pass
-    def f():
-        x = X()
-        return isinstance(x, X())
-    graph = TranslationContext().buildflowgraph(f)
-    desugar_isinstance(graph)
-    assert len(graph.startblock.operations) == 3
-    block = graph.startblock
-    assert block.operations[2].opname == "simple_call"
-    assert isinstance(block.operations[2].args[0], Constant)
-    assert block.operations[2].args[0].value is isinstance
-
 class TestDetectListComprehension:
     def check(self, f1, expected):
         t = TranslationContext(list_comprehension_operations=True)
@@ -343,6 +328,12 @@ class TestLLSpecializeListComprehension:
         interp = LLInterpreter(t.rtyper)
         return interp, graph
 
+    def no_resize(self, graph):
+        for block in graph.iterblocks():
+            for op in block.operations:
+                if op.opname == 'direct_call':
+                    assert 'list_resize' not in repr(op.args[0])
+
     def test_simple(self):
         def main(n):
             lst = [x*17 for x in range(n)]
@@ -350,6 +341,16 @@ class TestLLSpecializeListComprehension:
         interp, graph = self.specialize(main, [int])
         res = interp.eval_graph(graph, [10])
         assert res == 5 * 17
+        self.no_resize(graph)
+
+    def test_str2list(self):
+        def main(n):
+            lst = [c for c in str(n)]
+            return len(lst)
+        interp, graph = self.specialize(main, [int])
+        res = interp.eval_graph(graph, [1091283])
+        assert res == 7
+        self.no_resize(graph)
 
     def test_simple_non_exact(self):
         def main(n):
@@ -358,6 +359,7 @@ class TestLLSpecializeListComprehension:
         interp, graph = self.specialize(main, [int])
         res = interp.eval_graph(graph, [10])
         assert res == 5
+        self.no_resize(graph)
 
     def test_mutated_after_listcomp(self):
         def main(n):

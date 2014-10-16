@@ -8,8 +8,6 @@ class PwdTest(unittest.TestCase):
 
     def test_values(self):
         entries = pwd.getpwall()
-        entriesbyname = {}
-        entriesbyuid = {}
 
         for e in entries:
             self.assertEqual(len(e), 7)
@@ -18,9 +16,9 @@ class PwdTest(unittest.TestCase):
             self.assertEqual(e[1], e.pw_passwd)
             self.assertIsInstance(e.pw_passwd, basestring)
             self.assertEqual(e[2], e.pw_uid)
-            self.assertIsInstance(e.pw_uid, int)
+            self.assertIsInstance(e.pw_uid, (int, long))
             self.assertEqual(e[3], e.pw_gid)
-            self.assertIsInstance(e.pw_gid, int)
+            self.assertIsInstance(e.pw_gid, (int, long))
             self.assertEqual(e[4], e.pw_gecos)
             self.assertIsInstance(e.pw_gecos, basestring)
             self.assertEqual(e[5], e.pw_dir)
@@ -32,12 +30,19 @@ class PwdTest(unittest.TestCase):
             # for one uid
             #    self.assertEqual(pwd.getpwuid(e.pw_uid), e)
             # instead of this collect all entries for one uid
-            # and check afterwards
+            # and check afterwards (done in test_values_extended)
+
+    def test_values_extended(self):
+        entries = pwd.getpwall()
+        entriesbyname = {}
+        entriesbyuid = {}
+
+        if len(entries) > 1000:  # Huge passwd file (NIS?) -- skip this test
+            self.skipTest('passwd file is huge; extended test skipped')
+
+        for e in entries:
             entriesbyname.setdefault(e.pw_name, []).append(e)
             entriesbyuid.setdefault(e.pw_uid, []).append(e)
-
-        if len(entries) > 1000:  # Huge passwd file (NIS?) -- skip the rest
-            return
 
         # check whether the entry returned by getpwuid()
         # for each uid is among those from getpwall() for this uid
@@ -49,7 +54,9 @@ class PwdTest(unittest.TestCase):
 
     def test_errors(self):
         self.assertRaises(TypeError, pwd.getpwuid)
+        self.assertRaises(TypeError, pwd.getpwuid, 3.14)
         self.assertRaises(TypeError, pwd.getpwnam)
+        self.assertRaises(TypeError, pwd.getpwnam, 42)
         self.assertRaises(TypeError, pwd.getpwall, 42)
 
         # try to get some errors
@@ -92,6 +99,13 @@ class PwdTest(unittest.TestCase):
         fakeuid = sys.maxint
         self.assertNotIn(fakeuid, byuids)
         self.assertRaises(KeyError, pwd.getpwuid, fakeuid)
+
+        # -1 shouldn't be a valid uid because it has a special meaning in many
+        # uid-related functions
+        self.assertRaises(KeyError, pwd.getpwuid, -1)
+        # should be out of uid_t range
+        self.assertRaises(KeyError, pwd.getpwuid, 2**128)
+        self.assertRaises(KeyError, pwd.getpwuid, -2**128)
 
 def test_main():
     test_support.run_unittest(PwdTest)

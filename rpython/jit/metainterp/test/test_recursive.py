@@ -342,7 +342,7 @@ class RecursiveTests:
         assert res == 0
         self.check_max_trace_length(TRACE_LIMIT)
         self.check_enter_count_at_most(10) # maybe
-        self.check_aborted_count(7)
+        self.check_aborted_count(6)
 
     def test_trace_limit_bridge(self):
         def recursive(n):
@@ -425,7 +425,7 @@ class RecursiveTests:
 
         res = self.meta_interp(loop, [20], failargs_limit=FAILARGS_LIMIT,
                                listops=True)
-        self.check_aborted_count(5)
+        self.check_aborted_count(4)
 
     def test_max_failure_args_exc(self):
         FAILARGS_LIMIT = 10
@@ -465,7 +465,7 @@ class RecursiveTests:
         res = self.meta_interp(main, [20], failargs_limit=FAILARGS_LIMIT,
                                listops=True)
         assert not res
-        self.check_aborted_count(5)
+        self.check_aborted_count(4)
 
     def test_set_param_inlining(self):
         myjitdriver = JitDriver(greens=[], reds=['n', 'recurse'])

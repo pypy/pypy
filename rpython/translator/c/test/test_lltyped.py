@@ -646,10 +646,7 @@ class TestLowLevelType(object):
             def llf():
                 s = ''
                 for i in range(5):
-                    print i
-                    print s
                     s += a[i]
-                print s
                 assert s == "85?!" + lastchar
             fn = self.getcompiled(llf, [])
             fn()
@@ -731,7 +728,6 @@ class TestLowLevelType(object):
             s = ''
             for i in range(4):
                 s += a[i]
-            print s
             return s == 'abcd'
         fn = self.getcompiled(llf, [])
         assert fn()

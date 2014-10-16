@@ -44,6 +44,8 @@ Typical usage:
     UUID('00010203-0405-0607-0809-0a0b0c0d0e0f')
 """
 
+import struct
+
 __author__ = 'Ka-Ping Yee <ping@zesty.ca>'
 
 RESERVED_NCS, RFC_4122, RESERVED_MICROSOFT, RESERVED_FUTURE = [
@@ -125,25 +127,39 @@ class UUID(object):
         overriding the given 'hex', 'bytes', 'bytes_le', 'fields', or 'int'.
         """
 
-        if [hex, bytes, bytes_le, fields, int].count(None) != 4:
-            raise TypeError('need one of hex, bytes, bytes_le, fields, or int')
         if hex is not None:
+            if (bytes is not None or bytes_le is not None or
+                    fields is not None or int is not None):
+                raise TypeError('if the hex argument is given, bytes,'
+                                ' bytes_le, fields,  and int need to be None')
             hex = hex.replace('urn:', '').replace('uuid:', '')
             hex = hex.strip('{}').replace('-', '')
             if len(hex) != 32:
                 raise ValueError('badly formed hexadecimal UUID string')
             int = long(hex, 16)
-        if bytes_le is not None:
+        elif bytes_le is not None:
+            if bytes is not None or fields is not None or int is not None:
+                raise TypeError('if the bytes_le argument is given, bytes,'
+                                ' fields, and int need to be None')
             if len(bytes_le) != 16:
                 raise ValueError('bytes_le is not a 16-char string')
             bytes = (bytes_le[3] + bytes_le[2] + bytes_le[1] + bytes_le[0] +
                      bytes_le[5] + bytes_le[4] + bytes_le[7] + bytes_le[6] +
                      bytes_le[8:])
-        if bytes is not None:
+            int = (struct.unpack('>Q', bytes[:8])[0] << 64 |
+                   struct.unpack('>Q', bytes[8:])[0])
+        elif bytes is not None:
+            if fields is not None or int is not None:
+                raise TypeError('if the bytes argument is given, fields '
+                                'and int need to be None')
             if len(bytes) != 16:
                 raise ValueError('bytes is not a 16-char string')
-            int = long(('%02x'*16) % tuple(map(ord, bytes)), 16)
-        if fields is not None:
+            int = (struct.unpack('>Q', bytes[:8])[0] << 64 |
+                   struct.unpack('>Q', bytes[8:])[0])
+        elif fields is not None:
+            if int is not None:
+                raise TypeError('if the fields argument is given, int needs'
+                                ' to be None')
             if len(fields) != 6:
                 raise ValueError('fields is not a 6-tuple')
             (time_low, time_mid, time_hi_version,
@@ -163,9 +179,12 @@ class UUID(object):
             clock_seq = (clock_seq_hi_variant << 8L) | clock_seq_low
             int = ((time_low << 96L) | (time_mid << 80L) |
                    (time_hi_version << 64L) | (clock_seq << 48L) | node)
-        if int is not None:
+        elif int is not None:
             if not 0 <= int < 1<<128L:
                 raise ValueError('int is out of range (need a 128-bit value)')
+        else:
+            raise TypeError('one of hex, bytes, bytes_le, fields,'
+                            ' or int need to be not None')
         if version is not None:
             if not 1 <= version <= 5:
                 raise ValueError('illegal version number')
@@ -175,7 +194,7 @@ class UUID(object):
             # Set the version number.
             int &= ~(0xf000 << 64L)
             int |= version << 76L
-        self.__dict__['int'] = int
+        object.__setattr__(self, 'int', int)
 
     def __cmp__(self, other):
         if isinstance(other, UUID):
@@ -293,25 +312,38 @@ class UUID(object):
 
 def _find_mac(command, args, hw_identifiers, get_index):
     import os
-    for dir in ['', '/sbin/', '/usr/sbin']:
+    path = os.environ.get("PATH", os.defpath).split(os.pathsep)
+    path.extend(('/sbin', '/usr/sbin'))
+    for dir in path:
         executable = os.path.join(dir, command)
-        if not os.path.exists(executable):
-            continue
+        if (os.path.exists(executable) and
+            os.access(executable, os.F_OK | os.X_OK) and
+            not os.path.isdir(executable)):
+            break
+    else:
+        return None
 
-        try:
-            # LC_ALL to get English output, 2>/dev/null to
-            # prevent output on stderr
-            cmd = 'LC_ALL=C %s %s 2>/dev/null' % (executable, args)
-            with os.popen(cmd) as pipe:
-                for line in pipe:
-                    words = line.lower().split()
-                    for i in range(len(words)):
-                        if words[i] in hw_identifiers:
+    try:
+        # LC_ALL to ensure English output, 2>/dev/null to
+        # prevent output on stderr
+        cmd = 'LC_ALL=C %s %s 2>/dev/null' % (executable, args)
+        with os.popen(cmd) as pipe:
+            for line in pipe:
+                words = line.lower().split()
+                for i in range(len(words)):
+                    if words[i] in hw_identifiers:
+                        try:
                             return int(
                                 words[get_index(i)].replace(':', ''), 16)
-        except IOError:
-            continue
-    return None
+                        except (ValueError, IndexError):
+                            # Virtual interfaces, such as those provided by
+                            # VPNs, do not have a colon-delimited MAC address
+                            # as expected, but a 16-byte HWAddr separated by
+                            # dashes. These should be ignored in favor of a
+                            # real MAC address
+                            pass
+    except IOError:
+        pass
 
 def _ifconfig_getnode():
     """Get the hardware address on Unix by running ifconfig."""
@@ -412,6 +444,8 @@ try:
             _uuid_generate_time = lib.uuid_generate_time
             _uuid_generate_time.argtypes = [ctypes.c_char * 16]
             _uuid_generate_time.restype = None
+            if _uuid_generate_random is not None:
+                break  # found everything we were looking for
 
     # The uuid_generate_* functions are broken on MacOS X 10.5, as noted
     # in issue #8621 the function generates the same sequence of values

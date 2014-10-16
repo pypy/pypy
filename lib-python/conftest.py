@@ -95,6 +95,7 @@ testmap = [
     RegrTest('test___all__.py', core=True),
     RegrTest('test___future__.py', core=True),
     RegrTest('test__locale.py', usemodules='_locale'),
+    RegrTest('test__osx_support.py'),
     RegrTest('test_abc.py'),
     RegrTest('test_abstract_numbers.py'),
     RegrTest('test_aepack.py'),
@@ -109,7 +110,7 @@ testmap = [
     RegrTest('test_asynchat.py', usemodules='select fcntl'),
     RegrTest('test_asyncore.py', usemodules='select fcntl'),
     RegrTest('test_atexit.py', core=True),
-    RegrTest('test_audioop.py', skip="unsupported extension module"),
+    RegrTest('test_audioop.py'),
     RegrTest('test_augassign.py', core=True),
     RegrTest('test_base64.py', usemodules='struct'),
     RegrTest('test_bastion.py'),
@@ -214,6 +215,7 @@ testmap = [
     RegrTest('test_fcntl.py', usemodules='fcntl'),
     RegrTest('test_file.py', usemodules="posix", core=True),
     RegrTest('test_file2k.py', usemodules="posix", core=True),
+    RegrTest('test_file_eintr.py'),
     RegrTest('test_filecmp.py', core=True),
     RegrTest('test_fileinput.py', core=True),
     RegrTest('test_fileio.py'),
@@ -259,9 +261,11 @@ testmap = [
     RegrTest('test_htmlparser.py'),
     RegrTest('test_httplib.py'),
     RegrTest('test_httpservers.py'),
+    RegrTest('test_idle.py'),
     RegrTest('test_imageop.py'),
     RegrTest('test_imaplib.py'),
     RegrTest('test_imgfile.py'),
+    RegrTest('test_imghdr.py'),
     RegrTest('test_imp.py', core=True, usemodules='thread'),
     RegrTest('test_import.py', core=True),
     RegrTest('test_importhooks.py', core=True),
@@ -291,6 +295,7 @@ testmap = [
     RegrTest('test_macos.py'),
     RegrTest('test_macostools.py'),
     RegrTest('test_macpath.py'),
+    RegrTest('test_macurl2path.py'),
     RegrTest('test_mailbox.py'),
     RegrTest('test_marshal.py', core=True),
     RegrTest('test_math.py', core=True, usemodules='math'),
@@ -315,6 +320,7 @@ testmap = [
     RegrTest('test_new.py', core=True),
     RegrTest('test_nis.py'),
     RegrTest('test_normalization.py'),
+    RegrTest('test_nntplib.py'),
     RegrTest('test_ntpath.py'),
     RegrTest('test_old_mailbox.py'),
     RegrTest('test_opcodes.py', core=True),
@@ -392,9 +398,11 @@ testmap = [
     RegrTest('test_socketserver.py', usemodules='thread'),
     RegrTest('test_softspace.py', core=True),
     RegrTest('test_sort.py', core=True),
+    RegrTest('test_spwd.py'),
     RegrTest('test_sqlite.py', usemodules="thread _rawffi zlib"),
     RegrTest('test_ssl.py', usemodules='_ssl _socket select'),
     RegrTest('test_startfile.py'),
+    RegrTest('test_stat.py'),
     RegrTest('test_str.py', core=True),
     RegrTest('test_strftime.py'),
     RegrTest('test_string.py', core=True),
@@ -407,6 +415,7 @@ testmap = [
     RegrTest('test_structmembers.py', skip="CPython specific"),
     RegrTest('test_structseq.py'),
     RegrTest('test_subprocess.py', usemodules='signal'),
+    RegrTest('test_sunau.py'),
     RegrTest('test_sunaudiodev.py'),
     RegrTest('test_sundry.py'),
     RegrTest('test_symtable.py', skip="implementation detail"),
@@ -431,6 +440,7 @@ testmap = [
     RegrTest('test_timeout.py'),
     RegrTest('test_tk.py'),
     RegrTest('test_tokenize.py'),
+    RegrTest('test_tools.py'),
     RegrTest('test_trace.py'),
     RegrTest('test_traceback.py', core=True),
     RegrTest('test_transformer.py', core=True),
@@ -535,8 +545,6 @@ class RunFileExternal(py.test.collect.File):
 # invoking in a separate process: py.py TESTFILE
 #
 import os
-import time
-import getpass
 
 class ReallyRunFileExternal(py.test.collect.Item):
     class ExternalFailure(Exception):
@@ -655,17 +663,11 @@ class ReallyRunFileExternal(py.test.collect.Item):
             timedout = test_stderr.rfind("KeyboardInterrupt") != -1
         if test_stderr.rfind(26*"=" + "skipped" + 26*"=") != -1:
             skipped = True
-        outcome = 'OK'
         if not exit_status:
             # match "FAIL" but not e.g. "FAILURE", which is in the output of a
             # test in test_zipimport_support.py
             if re.search(r'\bFAIL\b', test_stdout) or re.search('[^:]ERROR', test_stderr):
-                outcome = 'FAIL'
                 exit_status = 2
-        elif timedout:
-            outcome = "T/O"
-        else:
-            outcome = "ERR"
 
         return skipped, exit_status, test_stdout, test_stderr
 

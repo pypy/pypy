@@ -1,4 +1,5 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper import rclass
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, llstr
 from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
 from rpython.jit.metainterp import history
@@ -52,7 +53,10 @@ class LLTypeHelper(TypeSystemHelper):
         return FUNCTYPE, FUNCPTRTYPE
 
     def get_superclass(self, TYPE):
-        return lltype.Ptr(TYPE.TO._first_struct()[1])
+        SUPER = TYPE.TO._first_struct()[1]
+        if SUPER is None:
+            return None
+        return lltype.Ptr(SUPER)
 
     def cast_to_instance_maybe(self, TYPE, instance):
         return lltype.cast_pointer(TYPE, instance)

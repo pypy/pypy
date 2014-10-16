@@ -3,10 +3,13 @@ import py
 from rpython.conftest import option
 from rpython.annotator.model import UnionError
 from rpython.rlib.jit import (hint, we_are_jitted, JitDriver, elidable_promote,
-    JitHintError, oopspec, isconstant)
+    JitHintError, oopspec, isconstant, conditional_call)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem import lltype
+from rpython.translator.translator import TranslationContext
+from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
+from rpython.annotator import model as annmodel
 
 
 def test_oopspec():
@@ -74,6 +77,19 @@ def test_jitdriver_clone():
     driver.foo = 'xxx'
     assert driver2.foo == 'bar'
 
+
+def test_merge_enter_different():
+    myjitdriver = JitDriver(greens=[], reds=['n'])
+    def fn(n):
+        while n > 0:
+            myjitdriver.jit_merge_point(n=n)
+            myjitdriver.can_enter_jit(n=n)
+            n -= 1
+        return n
+    py.test.raises(JitHintError, fn, 100)
+
+    myjitdriver = JitDriver(greens=['n'], reds=[])
+    py.test.raises(JitHintError, fn, 100)
 
 class TestJIT(BaseRtypingTest):
     def test_hint(self):
@@ -247,3 +263,17 @@ class TestJIT(BaseRtypingTest):
         # this used to fail on 64-bit, because r_uint == r_ulonglong
         myjitdriver = JitDriver(greens=['i1'], reds=[])
         myjitdriver.jit_merge_point(i1=r_uint(42))
+
+    def test_conditional_call(self):
+        def g():
+            pass
+        def f(n):
+            conditional_call(n >= 0, g)
+        def later(m):
+            conditional_call(m, g)
+        t = TranslationContext()
+        t.buildannotator().build_types(f, [int])
+        t.buildrtyper().specialize()
+        mix = MixLevelHelperAnnotator(t.rtyper)
+        mix.getgraph(later, [annmodel.s_Bool], annmodel.s_None)
+        mix.finish()

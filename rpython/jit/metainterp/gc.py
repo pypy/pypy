@@ -25,6 +25,9 @@ class GC_hybrid(GcDescription):
 class GC_minimark(GcDescription):
     malloc_zero_filled = True
 
+class GC_incminimark(GcDescription):
+    malloc_zero_filled = False
+
 
 def get_description(config):
     name = config.translation.gc

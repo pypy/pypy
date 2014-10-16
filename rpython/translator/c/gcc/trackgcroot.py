@@ -8,7 +8,7 @@ from rpython.translator.c.gcc.instruction import InsnFunctionStart, InsnStop
 from rpython.translator.c.gcc.instruction import InsnSetLocal, InsnCopyLocal
 from rpython.translator.c.gcc.instruction import InsnPrologue, InsnEpilogue
 from rpython.translator.c.gcc.instruction import InsnGCROOT, InsnCondJump
-from rpython.translator.c.gcc.instruction import InsnStackAdjust
+from rpython.translator.c.gcc.instruction import InsnStackAdjust, InsnPushed
 from rpython.translator.c.gcc.instruction import InsnCannotFollowEsp
 from rpython.translator.c.gcc.instruction import LocalVar, somenewvalue
 from rpython.translator.c.gcc.instruction import frameloc_esp, frameloc_ebp
@@ -31,7 +31,7 @@ class FunctionGcRootTracker(object):
         cls.r_binaryinsn    = re.compile(r"\t[a-z]\w*\s+(?P<source>"+cls.OPERAND+"),\s*(?P<target>"+cls.OPERAND+")\s*$")
 
         cls.r_jump          = re.compile(r"\tj\w+\s+"+cls.LABEL+"\s*" + cls.COMMENT + "$")
-        cls.r_jmp_switch    = re.compile(r"\tjmp\t[*]"+cls.LABEL+"[(]")
+        cls.r_jmp_switch    = re.compile(r"\tjmp\t[*]")
         cls.r_jmp_source    = re.compile(r"\d*[(](%[\w]+)[,)]")
 
     def __init__(self, funcname, lines, filetag=0):
@@ -148,6 +148,14 @@ class FunctionGcRootTracker(object):
                 i += 1
             else:
                 del self.insns[i]
+
+        # the remaining instructions must have their 'previous_insns' list
+        # trimmed of dead previous instructions
+        all_remaining_insns = set(self.insns)
+        assert self.insns[0].previous_insns == ()
+        for insn in self.insns[1:]:
+            insn.previous_insns = [previnsn for previnsn in insn.previous_insns
+                                            if previnsn in all_remaining_insns]
 
     def find_noncollecting_calls(self):
         cannot_collect = {}
@@ -285,6 +293,18 @@ class FunctionGcRootTracker(object):
                             (insn1,))
                     else:
                         insn1.framesize = size_at_insn1
+
+        # trim: instructions with no framesize are removed from self.insns,
+        # and from the 'previous_insns' lists
+        if 0:    # <- XXX disabled because it seems bogus, investigate more
+          assert hasattr(self.insns[0], 'framesize')
+          old = self.insns[1:]
+          del self.insns[1:]
+          for insn in old:
+            if hasattr(insn, 'framesize'):
+                self.insns.append(insn)
+                insn.previous_insns = [previnsn for previnsn in insn.previous_insns
+                                                if hasattr(previnsn, 'framesize')]
 
     def fixlocalvars(self):
         def fixvar(localvar):
@@ -489,7 +509,7 @@ class FunctionGcRootTracker(object):
         'pabs', 'pack', 'padd', 'palign', 'pand', 'pavg', 'pcmp', 'pextr',
         'phadd', 'phsub', 'pinsr', 'pmadd', 'pmax', 'pmin', 'pmovmsk',
         'pmul', 'por', 'psadb', 'pshuf', 'psign', 'psll', 'psra', 'psrl',
-        'psub', 'punpck', 'pxor',
+        'psub', 'punpck', 'pxor', 'pmovzx', 'pmovsx', 'pblend',
         # all vectors don't produce pointers
         'v',
         # sign-extending moves should not produce GC pointers
@@ -502,7 +522,9 @@ class FunctionGcRootTracker(object):
         # raw data, not GC pointers
         'movnt', 'mfence', 'lfence', 'sfence',
         # bit manipulations
-        'bextr',
+        'andn', 'bextr', 'blsi', 'blsmask', 'blsr', 'tzcnt', 'lzcnt',
+        # uh, this can occur with a 'call' on the following line...
+        'rex64',
     ])
 
     # a partial list is hopefully good enough for now; it's all to support
@@ -645,14 +667,22 @@ class FunctionGcRootTracker(object):
         match = self.r_unaryinsn.match(line)
         source = match.group(1)
         return self.insns_for_copy(source, self.TOP_OF_STACK_MINUS_WORD) + \
-               [InsnStackAdjust(-self.WORD)]
+               [InsnPushed(-self.WORD)]
 
     def _visit_pop(self, target):
         return [InsnStackAdjust(+self.WORD)] + \
                self.insns_for_copy(self.TOP_OF_STACK_MINUS_WORD, target)
 
     def _visit_prologue(self):
-        # for the prologue of functions that use %ebp as frame pointer
+        # For the prologue of functions that use %ebp as frame pointer.
+        # First, find the latest InsnStackAdjust; if it's not a PUSH,
+        # then consider that this 'mov %rsp, %rbp' is actually unrelated
+        i = -1
+        while not isinstance(self.insns[i], InsnStackAdjust):
+            i -= 1
+        if not isinstance(self.insns[i], InsnPushed):
+            return []
+        #
         self.uses_frame_pointer = True
         self.r_localvar = self.r_localvarfp
         return [InsnPrologue(self.WORD)]
@@ -674,14 +704,29 @@ class FunctionGcRootTracker(object):
             return self.visit_ret(line)
         return []
 
+    def visit_ud2(self, line):
+        return InsnStop("ud2")    # unreachable instruction
+
     def visit_jmp(self, line):
         tablelabels = []
         match = self.r_jmp_switch.match(line)
         if match:
-            # this is a jmp *Label(%index), used for table-based switches.
-            # Assume that the table is just a list of lines looking like
-            # .long LABEL or .long 0, ending in a .text or .section .text.hot.
-            tablelabels.append(match.group(1))
+            # this is a jmp *Label(%index) or jmp *%addr, used for
+            # table-based switches.  Assume that the table is coming
+            # after a .section .rodata and a label, and is a list of
+            # lines looking like .long LABEL or .long 0 or .long L2-L1,
+            # ending in a .text or .section .text.hot.
+            lineno = self.currentlineno + 1
+            if '.section' not in self.lines[lineno]:
+                pass  # bah, probably a tail-optimized indirect call...
+            else:
+                assert '.rodata' in self.lines[lineno]
+                lineno += 1
+                while '.align' in self.lines[lineno]:
+                    lineno += 1
+                match = self.r_label.match(self.lines[lineno])
+                assert match, repr(self.lines[lineno])
+                tablelabels.append(match.group(1))
         elif self.r_unaryinsn_star.match(line):
             # maybe a jmp similar to the above, but stored in a
             # registry:
@@ -815,12 +860,16 @@ class FunctionGcRootTracker(object):
         return []
 
     def _visit_xchg(self, line):
-        # only support the format used in VALGRIND_DISCARD_TRANSLATIONS
+        # support the format used in VALGRIND_DISCARD_TRANSLATIONS
         # which is to use a marker no-op "xchgl %ebx, %ebx"
         match = self.r_binaryinsn.match(line)
         source = match.group("source")
         target = match.group("target")
         if source == target:
+            return []
+        # ignore the 'rpy_fastgil' atomic exchange, or any locked
+        # atomic exchange at all (involving memory)
+        if not source.startswith('%'):
             return []
         raise UnrecognizedOperation(line)
 

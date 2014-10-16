@@ -8,13 +8,16 @@ BYTEARRAY = lltype.GcForwardReference()
 def mallocbytearray(size):
     return lltype.malloc(BYTEARRAY, size)
 
-_, copy_bytearray_contents = rstr._new_copy_contents_fun(BYTEARRAY, BYTEARRAY,
+_, _, copy_bytearray_contents = rstr._new_copy_contents_fun(BYTEARRAY, BYTEARRAY,
                                                          lltype.Char,
                                                          'bytearray')
-_, copy_bytearray_contents_from_str = rstr._new_copy_contents_fun(rstr.STR,
+_, _, copy_bytearray_contents_from_str = rstr._new_copy_contents_fun(rstr.STR,
                                                                   BYTEARRAY,
                                                                   lltype.Char,
                                                                   'bytearray_from_str')
+
+def _empty_bytearray():
+    return empty
 
 BYTEARRAY.become(lltype.GcStruct('rpy_bytearray',
                  ('chars', lltype.Array(lltype.Char)), adtmeths={
@@ -23,7 +26,10 @@ BYTEARRAY.become(lltype.GcStruct('rpy_bytearray',
     'copy_contents_from_str': lltype.staticAdtMethod(
                                          copy_bytearray_contents_from_str),
     'length': rstr.LLHelpers.ll_length,
+    'empty': lltype.staticAdtMethod(_empty_bytearray),
 }))
+
+empty = lltype.malloc(BYTEARRAY, 0, immortal=True)
 
 class LLHelpers(rstr.LLHelpers):
     @classmethod
@@ -32,12 +38,14 @@ class LLHelpers(rstr.LLHelpers):
             i += s.length()
         cls.ll_strsetitem_nonneg(s, i, item)
 
+    @staticmethod
     def ll_strsetitem_nonneg(s, i, item):
         chars = s.chars
         ll_assert(i >= 0, "negative str getitem index")
         ll_assert(i < len(chars), "str getitem index out of bound")
         chars[i] = chr(item)
 
+    @staticmethod
     def ll_stritem_nonneg(s, i):
         return ord(rstr.LLHelpers.ll_stritem_nonneg(s, i))
 

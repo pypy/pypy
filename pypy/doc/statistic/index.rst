@@ -1,3 +1,7 @@
+.. warning::
+
+   This page is no longer updated, of historical interest only.
+
 =======================
 PyPy Project Statistics
 =======================

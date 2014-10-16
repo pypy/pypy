@@ -406,13 +406,16 @@ class PythonCodeMaker(ast.ASTVisitor):
                     target_depth += 3
                     if target_depth > self._max_depth:
                         self._max_depth = target_depth
+                elif (jump_op == ops.JUMP_IF_TRUE_OR_POP or
+                      jump_op == ops.JUMP_IF_FALSE_OR_POP):
+                    depth -= 1
                 self._next_stack_depth_walk(instr.jump[0], target_depth)
                 if jump_op == ops.JUMP_ABSOLUTE or jump_op == ops.JUMP_FORWARD:
                     # Nothing more can occur.
                     done = True
                     break
         if block.next_block and not done:
-            max_depth = self._next_stack_depth_walk(block.next_block, depth)
+            self._next_stack_depth_walk(block.next_block, depth)
 
     def _build_lnotab(self, blocks):
         """Build the line number table for tracebacks and tracing."""

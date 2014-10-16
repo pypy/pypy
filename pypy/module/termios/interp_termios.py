@@ -4,7 +4,7 @@ little use of termios module on RPython level by itself
 """
 
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import wrap_oserror
+from pypy.interpreter.error import wrap_oserror, OperationError
 from rpython.rlib import rtermios
 import termios
 
@@ -19,6 +19,10 @@ def convert_error(space, error):
 @unwrap_spec(when=int)
 def tcsetattr(space, w_fd, when, w_attributes):
     fd = space.c_filedescriptor_w(w_fd)
+    if not space.isinstance_w(w_attributes, space.w_list) or \
+            space.len_w(w_attributes) != 7:
+        raise OperationError(space.w_TypeError, space.wrap(
+            "tcsetattr, arg 3: must be 7 element list"))
     w_iflag, w_oflag, w_cflag, w_lflag, w_ispeed, w_ospeed, w_cc = \
              space.unpackiterable(w_attributes, expected_length=7)
     w_builtin = space.getbuiltinmodule('__builtin__')

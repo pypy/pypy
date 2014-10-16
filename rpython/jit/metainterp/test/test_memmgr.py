@@ -15,7 +15,7 @@ from rpython.jit.metainterp.memmgr import MemoryManager
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.jit import JitDriver, dont_look_inside
 from rpython.jit.metainterp.warmspot import get_stats
-from rpython.jit.metainterp.warmstate import JitCell
+from rpython.jit.metainterp.warmstate import BaseJitCell
 from rpython.rlib import rgc
 
 class FakeLoopToken:
@@ -87,15 +87,15 @@ class _TestIntegration(LLJitMixin):
     # these tests to pass. But we dont want it there always since that will
     # make all other tests take forever.
     def setup_class(cls):
-        original_get_procedure_token = JitCell.get_procedure_token
+        original_get_procedure_token = BaseJitCell.get_procedure_token
         def get_procedure_token(self):
             rgc.collect();
             return original_get_procedure_token(self)
-        JitCell.get_procedure_token = get_procedure_token
+        BaseJitCell.get_procedure_token = get_procedure_token
         cls.original_get_procedure_token = original_get_procedure_token
 
     def teardown_class(cls):
-        JitCell.get_procedure_token = cls.original_get_procedure_token
+        BaseJitCell.get_procedure_token = cls.original_get_procedure_token
 
     def test_loop_kept_alive(self):
         myjitdriver = JitDriver(greens=[], reds=['n'])

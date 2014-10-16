@@ -19,12 +19,19 @@ def test_get_size_descr():
     assert descr_t.size == symbolic.get_size(T, False)
     assert descr_s.count_fields_if_immutable() == -1
     assert descr_t.count_fields_if_immutable() == -1
+    assert descr_t.gc_fielddescrs == []
+    assert len(descr_s.gc_fielddescrs) == 1
     assert descr_s == get_size_descr(c0, S)
     assert descr_s != get_size_descr(c1, S)
     #
     descr_s = get_size_descr(c1, S)
     assert isinstance(descr_s.size, Symbolic)
     assert descr_s.count_fields_if_immutable() == -1
+
+    PARENT = lltype.Struct('P', ('x', lltype.Ptr(T)))
+    STRUCT = lltype.GcStruct('S', ('parent', PARENT), ('y', lltype.Ptr(T)))
+    descr_struct = get_size_descr(c0, STRUCT)
+    assert len(descr_struct.gc_fielddescrs) == 2
 
 def test_get_size_descr_immut():
     S = lltype.GcStruct('S', hints={'immutable': True})
@@ -424,3 +431,32 @@ def test_field_arraylen_descr():
                          " <Array of Char > > >")
     # caching:
     assert fielddescr is get_field_arraylen_descr(c0, rstr.STR)
+
+def test_bytearray_descr():
+    c0 = GcCache(False)
+    descr = get_array_descr(c0, rstr.STR)   # for bytearray
+    assert descr.flag == FLAG_UNSIGNED
+    assert descr.basesize == struct.calcsize("PP")         # hash, length
+    assert descr.lendescr.offset == struct.calcsize("P")   # hash
+    assert not descr.is_array_of_pointers()
+
+
+def test_descr_integer_bounded():
+    descr = FieldDescr('descr', 0, symbolic.SIZEOF_CHAR, FLAG_SIGNED)
+    assert descr.is_integer_bounded()
+
+    descr = FieldDescr('descr', 0, symbolic.WORD, FLAG_UNSIGNED)
+    assert not descr.is_integer_bounded()
+
+    descr = FieldDescr('descr', 0, symbolic.SIZEOF_FLOAT, FLAG_FLOAT)
+    assert not descr.is_integer_bounded()
+
+
+def test_descr_get_integer_bounds():
+    descr = FieldDescr('decr', 0, 1, FLAG_UNSIGNED)
+    assert descr.get_integer_min() == 0
+    assert descr.get_integer_max() == 255
+
+    descr = FieldDescr('descr', 0, 1, FLAG_SIGNED)
+    assert descr.get_integer_min() == -128
+    assert descr.get_integer_max() == 127

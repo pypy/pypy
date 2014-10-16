@@ -57,16 +57,6 @@ class GCManagedHeap(object):
             return lltype.malloc(TYPE, n, flavor=flavor, zero=zero,
                                  track_allocation=track_allocation)
 
-    def malloc_nonmovable(self, TYPE, n=None, zero=False):
-        typeid = self.get_type_id(TYPE)
-        if not self.gc.can_malloc_nonmovable():
-            return lltype.nullptr(TYPE)
-        addr = self.gc.malloc_nonmovable(typeid, n, zero=zero)
-        result = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
-        if not self.gc.malloc_zero_filled:
-            gctypelayout.zero_gc_pointers(result)
-        return result
-
     def add_memory_pressure(self, size):
         if hasattr(self.gc, 'raw_malloc_memory_pressure'):
             self.gc.raw_malloc_memory_pressure(size)
@@ -106,7 +96,6 @@ class GCManagedHeap(object):
                         assert (type(index) is int    # <- fast path
                                 or lltype.typeOf(index) == lltype.Signed)
                         self.gc.write_barrier_from_array(
-                            llmemory.cast_ptr_to_adr(newvalue),
                             llmemory.cast_ptr_to_adr(toplevelcontainer),
                             index)
                         wb = False
@@ -114,7 +103,6 @@ class GCManagedHeap(object):
             #
             if wb:
                 self.gc.write_barrier(
-                    llmemory.cast_ptr_to_adr(newvalue),
                     llmemory.cast_ptr_to_adr(toplevelcontainer))
         llheap.setinterior(toplevelcontainer, inneraddr, INNERTYPE, newvalue)
 
@@ -196,6 +184,9 @@ class LLInterpRootWalker:
     def _walk_prebuilt_gc(self, collect):    # debugging only!  not RPython
         for obj in self.gcheap._all_prebuilt_gc:
             collect(llmemory.cast_ptr_to_adr(obj._as_ptr()))
+
+    def finished_minor_collection(self):
+        pass
 
 
 class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):

@@ -10,7 +10,7 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # ____________________________________________________________
@@ -67,6 +67,7 @@ def stack_check():
     # Else call the slow path
     stack_check_slowpath(current)
 stack_check._always_inline_ = True
+stack_check._dont_insert_stackcheck_ = True
 
 @rgc.no_collect
 def stack_check_slowpath(current):
@@ -74,3 +75,4 @@ def stack_check_slowpath(current):
         from rpython.rlib.rstackovf import _StackOverflow
         raise _StackOverflow
 stack_check_slowpath._dont_inline_ = True
+stack_check_slowpath._dont_insert_stackcheck_ = True

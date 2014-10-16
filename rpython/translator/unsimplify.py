@@ -2,16 +2,6 @@ from rpython.flowspace.model import (Variable, Constant, Block, Link,
     SpaceOperation, c_last_exception, checkgraph)
 
 
-def copyvar(annotator, v):
-    """Make a copy of the Variable v, preserving annotations and concretetype."""
-    assert isinstance(v, Variable)
-    newvar = Variable(v)
-    if annotator is not None and v in annotator.bindings:
-        annotator.transfer_binding(newvar, v)
-    if hasattr(v, 'concretetype'):
-        newvar.concretetype = v.concretetype
-    return newvar
-
 def varoftype(concretetype, name=None):
     var = Variable(name)
     var.concretetype = concretetype
@@ -31,7 +21,7 @@ def insert_empty_block(annotator, link, newops=[]):
     vars = [v for v, keep in vars.items() if keep]
     mapping = {}
     for v in vars:
-        mapping[v] = copyvar(annotator, v)
+        mapping[v] = v.copy()
     newblock = Block(vars)
     newblock.operations.extend(newops)
     newblock.closeblock(Link(link.args, link.target))
@@ -41,7 +31,7 @@ def insert_empty_block(annotator, link, newops=[]):
     return newblock
 
 def insert_empty_startblock(annotator, graph):
-    vars = [copyvar(annotator, v) for v in graph.startblock.inputargs]
+    vars = [v.copy() for v in graph.startblock.inputargs]
     newblock = Block(vars)
     newblock.closeblock(Link(vars, graph.startblock))
     graph.startblock = newblock
@@ -63,7 +53,7 @@ def split_block(annotator, block, index, _forcelink=None):
     #but only for variables that are produced in the old block and needed in
     #the new one
     varmap = {}
-    vars_produced_in_new_block = {}
+    vars_produced_in_new_block = set()
     def get_new_name(var):
         if var is None:
             return None
@@ -72,16 +62,15 @@ def split_block(annotator, block, index, _forcelink=None):
         if var in vars_produced_in_new_block:
             return var
         if var not in varmap:
-            varmap[var] = copyvar(annotator, var)
+            varmap[var] = var.copy()
         return varmap[var]
     moved_operations = block.operations[index:]
     new_moved_ops = []
     for op in moved_operations:
-        newop = SpaceOperation(op.opname,
-                               [get_new_name(arg) for arg in op.args],
-                               op.result)
+        repl = dict((arg, get_new_name(arg)) for arg in op.args)
+        newop = op.replace(repl)
         new_moved_ops.append(newop)
-        vars_produced_in_new_block[op.result] = True
+        vars_produced_in_new_block.add(op.result)
     moved_operations = new_moved_ops
     links = block.exits
     block.exits = None
@@ -133,11 +122,6 @@ def split_block(annotator, block, index, _forcelink=None):
     block.exitswitch = None
     return link
 
-def split_block_at_start(annotator, block):
-    # split before the first op, preserve order and inputargs
-    # in the second block!
-    return split_block(annotator, block, 0, _forcelink=block.inputargs)
-
 def call_initial_function(translator, initial_func, annhelper=None):
     """Before the program starts, call 'initial_func()'."""
     from rpython.annotator import model as annmodel
@@ -152,7 +136,7 @@ def call_initial_function(translator, initial_func, annhelper=None):
         annhelper.finish()
 
     entry_point = translator.entry_point_graph
-    args = [copyvar(translator.annotator, v) for v in entry_point.getargs()]
+    args = [v.copy() for v in entry_point.getargs()]
     extrablock = Block(args)
     v_none = varoftype(lltype.Void)
     newop = SpaceOperation('direct_call', [c_initial_func], v_none)
@@ -175,7 +159,7 @@ def call_final_function(translator, final_func, annhelper=None):
         annhelper.finish()
 
     entry_point = translator.entry_point_graph
-    v = copyvar(translator.annotator, entry_point.getreturnvar())
+    v = entry_point.getreturnvar().copy()
     extrablock = Block([v])
     v_none = varoftype(lltype.Void)
     newop = SpaceOperation('direct_call', [c_final_func], v_none)

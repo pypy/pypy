@@ -9,8 +9,10 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.jit import JitDriver, hint, dont_look_inside, promote, virtual_ref
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import hlstr
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rtyper.lltypesystem import lltype, lloperation, rclass, llmemory
+from rpython.rtyper.lltypesystem import lltype, lloperation, llmemory
+from rpython.rtyper import rclass
 from rpython.rtyper.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY, FieldListAccessor
 
 
@@ -23,7 +25,6 @@ class Entry(ExtRegistryEntry):
     _about_ = promote_virtualizable
 
     def compute_result_annotation(self, *args):
-        from rpython.annotator.model import lltype_to_annotation
         return lltype_to_annotation(lltype.Void)
 
     def specialize_call(self, hop):
@@ -152,6 +153,33 @@ class ExplicitVirtualizableTests:
         res = self.meta_interp(f, [18])
         assert res == 10180
         self.check_resops(setfield_gc=0, getfield_gc=2)
+
+    def test_synchronize_in_return_2(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'xy'],
+                                virtualizables = ['xy'])
+        class Foo(object):
+            pass
+        def g(xy, n):
+            myjitdriver.jit_merge_point(xy=xy, n=n)
+            promote_virtualizable(xy, 'inst_x')
+            xy.inst_x += 1
+            return Foo()
+        def f(n):
+            xy = self.setup()
+            promote_virtualizable(xy, 'inst_x')
+            xy.inst_x = 10000
+            m = 10
+            foo = None
+            while m > 0:
+                foo = g(xy, n)
+                m -= 1
+            assert foo is not None
+            promote_virtualizable(xy, 'inst_x')
+            return xy.inst_x
+        res = self.meta_interp(f, [18])
+        assert res == 10010
+        self.check_resops(omit_finish=False,
+                          guard_not_forced_2=1, finish=1)
 
     def test_virtualizable_and_greens(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n', 'xy'],
@@ -1289,8 +1317,10 @@ class ImplicitVirtualizableTests(object):
             frame = Frame(n, 0)
             somewhere_else.top_frame = frame        # escapes
             frame = hint(frame, access_directly=True)
-            while frame.x > 0:
+            while True:
                 myjitdriver.jit_merge_point(frame=frame, fail=fail)
+                if frame.x <= 0:
+                    break
                 frame.x -= 1
                 if fail or frame.x > 2:
                     frame.y += frame.x
@@ -1581,6 +1611,40 @@ class ImplicitVirtualizableTests(object):
             l = [op for op in bridge.operations if
                  op.getopnum() == rop.GUARD_NOT_FORCED_2]
             assert len(l) == 0
+
+    def test_two_virtualizable_types(self):
+        class A:
+            _virtualizable_ = ['x']
+            def __init__(self, x):
+                self.x = x
+
+        class B:
+            _virtualizable_ = ['lst[*]']
+            def __init__(self, lst):
+                self.lst = lst
+
+        driver_a = JitDriver(greens=[], reds=['a'], virtualizables=['a'])
+        driver_b = JitDriver(greens=[], reds=['b'], virtualizables=['b'])
+
+        def foo_a(a):
+            while a.x > 0:
+                driver_a.jit_merge_point(a=a)
+                a.x -= 2
+            return a.x
+
+        def foo_b(b):
+            while b.lst[0] > 0:
+                driver_b.jit_merge_point(b=b)
+                b.lst[0] -= 2
+            return b.lst[0]
+
+        def f():
+            return foo_a(A(13)) * 100 + foo_b(B([13]))
+
+        assert f() == -101
+        res = self.meta_interp(f, [], listops=True)
+        assert res == -101
+
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,

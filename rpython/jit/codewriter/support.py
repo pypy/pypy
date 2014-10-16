@@ -1,6 +1,7 @@
 import sys
 
 from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.flowspace.model import Variable, Constant
 from rpython.jit.metainterp.typesystem import deref
@@ -13,7 +14,9 @@ from rpython.rtyper.lltypesystem import rlist as rlist_ll
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.llinterp import LLInterpreter
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory, rstr as ll_rstr, rdict as ll_rdict
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory, rstr as ll_rstr, rdict as ll_rdict
+from rpython.rtyper import rclass
+from rpython.rtyper.lltypesystem import rordereddict
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.module import ll_math
 from rpython.translator.translator import TranslationContext
@@ -31,7 +34,7 @@ def _annotation(a, x):
     if T == lltype.Ptr(ll_rstr.STR):
         t = str
     else:
-        t = annmodel.lltype_to_annotation(T)
+        t = lltype_to_annotation(T)
     return a.typeannotation(t)
 
 def annotate(func, values, inline=None, backendoptimize=True,
@@ -178,11 +181,11 @@ def _ll_0_newlist(LIST):
     return LIST.ll_newlist(0)
 def _ll_1_newlist(LIST, count):
     return LIST.ll_newlist(count)
-def _ll_2_newlist(LIST, count, item):
-    return rlist.ll_alloc_and_set(LIST, count, item)
 _ll_0_newlist.need_result_type = True
 _ll_1_newlist.need_result_type = True
-_ll_2_newlist.need_result_type = True
+
+_ll_1_newlist_clear = rlist._ll_alloc_and_clear
+_ll_1_newlist_clear.need_result_type = True
 
 def _ll_1_newlist_hint(LIST, hint):
     return LIST.ll_newlist_hint(hint)
@@ -286,6 +289,10 @@ def _ll_1_cast_float_to_uint(x):
     # XXX on 32-bit platforms, this should be done using cast_float_to_longlong
     # (which is a residual call right now in the x86 backend)
     return llop.cast_float_to_uint(lltype.Unsigned, x)
+
+def _ll_0_ll_read_timestamp():
+    from rpython.rlib import rtimer
+    return rtimer.read_timestamp()
 
 
 # math support
@@ -492,11 +499,6 @@ class LLtypeHelpers:
 
     # ---------- dict ----------
 
-    def _ll_0_newdict(DICT):
-        return ll_rdict.ll_newdict(DICT)
-    _ll_0_newdict.need_result_type = True
-
-    _ll_2_dict_delitem = ll_rdict.ll_dict_delitem
     _ll_1_dict_copy = ll_rdict.ll_copy
     _ll_1_dict_clear = ll_rdict.ll_clear
     _ll_2_dict_update = ll_rdict.ll_update
@@ -510,19 +512,24 @@ class LLtypeHelpers:
     _ll_1_dict_values.need_result_type = True
     _ll_1_dict_items .need_result_type = True
 
-    _dictnext_keys   = staticmethod(ll_rdict.ll_dictnext_group['keys'])
-    _dictnext_values = staticmethod(ll_rdict.ll_dictnext_group['values'])
-    _dictnext_items  = staticmethod(ll_rdict.ll_dictnext_group['items'])
-
-    def _ll_1_dictiter_nextkeys(iter):
-        return LLtypeHelpers._dictnext_keys(None, iter)
-    def _ll_1_dictiter_nextvalues(iter):
-        return LLtypeHelpers._dictnext_values(None, iter)
-    def _ll_1_dictiter_nextitems(RES, iter):
-        return LLtypeHelpers._dictnext_items(lltype.Ptr(RES), iter)
-    _ll_1_dictiter_nextitems.need_result_type = True
-
+    _ll_1_dictiter_next = ll_rdict._ll_dictnext
     _ll_1_dict_resize = ll_rdict.ll_dict_resize
+
+    # ---------- ordered dict ----------
+
+    _ll_1_odict_copy = rordereddict.ll_dict_copy
+    _ll_1_odict_clear = rordereddict.ll_dict_clear
+    _ll_2_odict_update = rordereddict.ll_dict_update
+
+    _ll_1_odict_keys   = rordereddict.ll_dict_keys
+    _ll_1_odict_values = rordereddict.ll_dict_values
+    _ll_1_odict_items  = rordereddict.ll_dict_items
+    _ll_1_odict_keys  .need_result_type = True
+    _ll_1_odict_values.need_result_type = True
+    _ll_1_odict_items .need_result_type = True
+
+    _ll_1_odictiter_next = rordereddict._ll_dictnext
+    _ll_1_odict_resize = rordereddict.ll_dict_resize
 
     # ---------- strings and unicode ----------
 
@@ -688,6 +695,11 @@ class LLtypeHelpers:
     build_ll_1_raw_free_no_track_allocation = (
         build_raw_free_builder(track_allocation=False))
 
+    def build_ll_0_threadlocalref_getter(opaqueid):
+        def _ll_0_threadlocalref_getter():
+            return llop.threadlocalref_get(rclass.OBJECTPTR, opaqueid)
+        return _ll_0_threadlocalref_getter
+
     def _ll_1_weakref_create(obj):
         return llop.weakref_create(llmemory.WeakRefPtr, obj)
 
@@ -791,12 +803,12 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res,
         return rtyper._builtin_func_for_spec_cache[key]
     except (KeyError, AttributeError):
         pass
-    args_s = [annmodel.lltype_to_annotation(v) for v in ll_args]
+    args_s = [lltype_to_annotation(v) for v in ll_args]
     if '.' not in oopspec_name:    # 'newxxx' operations
         LIST_OR_DICT = ll_res
     else:
         LIST_OR_DICT = ll_args[0]
-    s_result = annmodel.lltype_to_annotation(ll_res)
+    s_result = lltype_to_annotation(ll_res)
     impl = setup_extra_builtin(rtyper, oopspec_name, len(args_s), extra)
     if getattr(impl, 'need_result_type', False):
         bk = rtyper.annotator.bookkeeper

@@ -74,7 +74,7 @@ def union(w1, w2):
     if isinstance(w1, Constant) and isinstance(w2, Constant):
         if w1 == w2:
             return w1
-        # SuspendedUnrollers represent stack unrollers in the stack.
+        # FlowSignal represent stack unrollers in the stack.
         # They should not be merged because they will be unwrapped.
         # This is needed for try:except: and try:finally:, though
         # it makes the control flow a bit larger by duplicating the
@@ -94,7 +94,7 @@ def union(w1, w2):
 # We have to flatten out the state of the frame into a list of
 # Variables and Constants.  This is done above by collecting the
 # locals and the items on the value stack, but the latter may contain
-# SuspendedUnroller.  We have to handle these specially, because
+# FlowSignal.  We have to handle these specially, because
 # some of them hide references to more Variables and Constants.
 # The trick is to flatten ("pickle") them into the list so that the
 # extra Variables show up directly in the list too.
@@ -106,15 +106,15 @@ PICKLE_TAGS = {}
 UNPICKLE_TAGS = {}
 
 
-def recursively_flatten(space, lst):
-    from rpython.flowspace.flowcontext import SuspendedUnroller
+def recursively_flatten(lst):
+    from rpython.flowspace.flowcontext import FlowSignal
     i = 0
     while i < len(lst):
         unroller = lst[i]
-        if not isinstance(unroller, SuspendedUnroller):
+        if not isinstance(unroller, FlowSignal):
             i += 1
         else:
-            vars = unroller.state_unpack_variables(space)
+            vars = unroller.state_unpack_variables()
             key = unroller.__class__, len(vars)
             try:
                 tag = PICKLE_TAGS[key]
@@ -124,12 +124,12 @@ def recursively_flatten(space, lst):
             lst[i:i + 1] = [tag] + vars
 
 
-def recursively_unflatten(space, lst):
+def recursively_unflatten(lst):
     for i in xrange(len(lst) - 1, -1, -1):
         item = lst[i]
         if item in UNPICKLE_TAGS:
             unrollerclass, argcount = UNPICKLE_TAGS[item]
             arguments = lst[i + 1:i + 1 + argcount]
             del lst[i + 1:i + 1 + argcount]
-            unroller = unrollerclass.state_pack_variables(space, *arguments)
+            unroller = unrollerclass.state_pack_variables(*arguments)
             lst[i] = unroller

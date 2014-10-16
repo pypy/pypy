@@ -36,7 +36,6 @@ void RPyDebugReturnShowException(const char *msg, const char *filename,
 
 /* prototypes */
 
-#define RPyRaiseSimpleException(exc, msg)   _RPyRaiseSimpleException(R##exc)
 void _RPyRaiseSimpleException(RPYTHON_EXCEPTION rexc);
 
 #endif

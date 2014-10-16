@@ -2,6 +2,8 @@ from __future__ import with_statement
 
 import signal as cpy_signal
 import sys
+import os
+import errno
 
 from pypy.interpreter.error import OperationError, exception_from_errno
 from pypy.interpreter.executioncontext import (AsyncAction, AbstractActionFlag,
@@ -75,11 +77,15 @@ class CheckSignalAction(PeriodicAsyncAction):
                 # and there is a signal pending: we force the ticker to
                 # -1, which should ensure perform() is called quickly.
 
-    @jit.dont_look_inside
     def perform(self, executioncontext, frame):
+        self._poll_for_signals()
+
+    @jit.dont_look_inside
+    def _poll_for_signals(self):
         # Poll for the next signal, if any
         n = self.pending_signal
-        if n < 0: n = pypysig_poll()
+        if n < 0:
+            n = pypysig_poll()
         while n >= 0:
             if self.space.threadlocals.signals_enabled():
                 # If we are in the main thread, report the signal now,
@@ -87,7 +93,8 @@ class CheckSignalAction(PeriodicAsyncAction):
                 self.pending_signal = -1
                 report_signal(self.space, n)
                 n = self.pending_signal
-                if n < 0: n = pypysig_poll()
+                if n < 0:
+                    n = pypysig_poll()
             else:
                 # Otherwise, arrange for perform() to be called again
                 # after we switch to the main thread.
@@ -236,6 +243,12 @@ def set_wakeup_fd(space, fd):
             space.w_ValueError,
             space.wrap("set_wakeup_fd only works in main thread "
                        "or with __pypy__.thread.enable_signals()"))
+    if fd != -1:
+        try:
+            os.fstat(fd)
+        except OSError, e:
+            if e.errno == errno.EBADF:
+                raise OperationError(space.w_ValueError, space.wrap("invalid fd"))
     old_fd = pypysig_set_wakeup_fd(fd)
     return space.wrap(intmask(old_fd))
 

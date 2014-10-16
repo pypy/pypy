@@ -229,8 +229,13 @@ def _ll_list_resize_hint(l, newsize):
     """
     assert newsize >= 0, "negative list length"
     allocated = len(l.items)
-    if allocated < newsize or newsize < (allocated >> 1) - 5:
-        _ll_list_resize_hint_really(l, newsize, False)
+    if newsize > allocated:
+        overallocate = True
+    elif newsize < (allocated >> 1) - 5:
+        overallocate = False
+    else:
+        return
+    _ll_list_resize_hint_really(l, newsize, overallocate)
 
 @signature(types.any(), types.int(), types.bool(), returns=types.none())
 def _ll_list_resize_really(l, newsize, overallocate):
@@ -273,6 +278,7 @@ def _ll_list_resize_le(l, newsize):
     with the realloc() to shrink the list.
     """
     cond = newsize < (len(l.items) >> 1) - 5
+    # note: overallocate=False should be safe here
     if jit.isconstant(len(l.items)) and jit.isconstant(newsize):
         if cond:
             _ll_list_resize_hint_really(l, newsize, False)

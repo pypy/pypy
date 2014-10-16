@@ -5,7 +5,7 @@ import copy
 from rpython.rlib.rerased import *
 from rpython.annotator import model as annmodel
 from rpython.annotator.annrpython import RPythonAnnotator
-from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+from rpython.rtyper.rclass import OBJECTPTR
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
 from rpython.rtyper.test.tool import BaseRtypingTest
@@ -183,7 +183,7 @@ def test_annotate_prebuilt_int():
     s = a.build_types(f, [int])
     assert isinstance(s, annmodel.SomeInteger)
 
-class BaseTestRErased(BaseRtypingTest):
+class TestRErased(BaseRtypingTest):
     ERASED_TYPE = llmemory.GCREF
     UNERASED_TYPE = OBJECTPTR
     def castable(self, TO, var):

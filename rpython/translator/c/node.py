@@ -11,7 +11,7 @@ from rpython.translator.c.support import c_char_array_constant, barebonearray
 from rpython.translator.c.primitive import PrimitiveType, name_signed
 from rpython.rlib import exports
 from rpython.rlib.rfloat import isfinite, isinf
-from rpython.translator.c import extfunc
+
 
 def needs_gcheader(T):
     if not isinstance(T, ContainerType):
@@ -23,22 +23,15 @@ def needs_gcheader(T):
             return False   # gcheader already in the first field
     return True
 
-class defaultproperty(object):
-    def __init__(self, fget):
-        self.fget = fget
-    def __get__(self, obj, cls=None):
-        if obj is None:
-            return self
-        else:
-            return self.fget(obj)
-
 class Node(object):
     __slots__ = ("db", )
+
     def __init__(self, db):
         self.db = db
 
 class NodeWithDependencies(Node):
     __slots__ = ("dependencies", )
+
     def __init__(self, db):
         Node.__init__(self, db)
         self.dependencies = set()
@@ -108,9 +101,9 @@ class StructDefNode(NodeWithDependencies):
             else:
                 typename = db.gettype(T, who_asks=self)
             self.fields.append((self.c_struct_field_name(name), typename))
-        self.gcinfo  # force it to be computed
+        self.computegcinfo(self.db.gcpolicy)
 
-    def computegcinfo(self):
+    def computegcinfo(self, gcpolicy):
         # let the gcpolicy do its own setup
         self.gcinfo = None   # unless overwritten below
         rtti = None
@@ -121,9 +114,8 @@ class StructDefNode(NodeWithDependencies):
             except ValueError:
                 pass
         if self.varlength is None:
-            self.db.gcpolicy.struct_setup(self, rtti)
+            gcpolicy.struct_setup(self, rtti)
         return self.gcinfo
-    gcinfo = defaultproperty(computegcinfo)
 
     def gettype(self):
         return self.fulltypename
@@ -182,21 +174,6 @@ class StructDefNode(NodeWithDependencies):
                                  FIELD_T):
                 yield line
 
-    def debug_offsets(self):
-        # generate number exprs giving the offset of the elements in the struct
-        assert self.varlength is None
-        for name in self.fieldnames:
-            FIELD_T = self.c_struct_field_type(name)
-            if FIELD_T is Void:
-                yield '-1'
-            else:
-                try:
-                    cname = self.c_struct_field_name(name)
-                except ValueError:
-                    yield '-1'
-                else:
-                    yield 'offsetof(%s %s, %s)' % (self.typetag,
-                                                   self.name, cname)
 
 def deflength(varlength):
     if varlength is None:
@@ -234,7 +211,7 @@ class ArrayDefNode(NodeWithDependencies):
             return      # setup() was already called, likely by __init__
         db = self.db
         ARRAY = self.ARRAY
-        self.gcinfo    # force it to be computed
+        self.computegcinfo(db.gcpolicy)
         if self.varlength is not None:
             self.normalizedtypename = db.gettype(ARRAY, who_asks=self)
         if needs_gcheader(ARRAY):
@@ -244,13 +221,12 @@ class ArrayDefNode(NodeWithDependencies):
                 self.gcfields.append(gc_field)
         self.itemtypename = db.gettype(ARRAY.OF, who_asks=self)
 
-    def computegcinfo(self):
+    def computegcinfo(self, gcpolicy):
         # let the gcpolicy do its own setup
         self.gcinfo = None   # unless overwritten below
         if self.varlength is None:
-            self.db.gcpolicy.array_setup(self)
+            gcpolicy.array_setup(self)
         return self.gcinfo
-    gcinfo = defaultproperty(computegcinfo)
 
     def gettype(self):
         return self.fulltypename
@@ -318,20 +294,6 @@ class ArrayDefNode(NodeWithDependencies):
             yield '\t}'
             yield '}'
 
-    def debug_offsets(self):
-        # generate three offsets for debugging inspection
-        assert self.varlength is None
-        if not self.ARRAY._hints.get('nolength', False):
-            yield 'offsetof(struct %s, length)' % (self.name,)
-        else:
-            yield '-1'
-        if self.ARRAY.OF is not Void:
-            yield 'offsetof(struct %s, items[0])' % (self.name,)
-            yield 'offsetof(struct %s, items[1])' % (self.name,)
-        else:
-            yield '-1'
-            yield '-1'
-
 
 class BareBoneArrayDefNode(NodeWithDependencies):
     """For 'simple' array types which don't need a length nor GC headers.
@@ -390,12 +352,6 @@ class BareBoneArrayDefNode(NodeWithDependencies):
 
     def visitor_lines(self, prefix, on_item):
         raise Exception("cannot visit C arrays - don't know the length")
-
-    def debug_offsets(self):
-        # generate three offsets for debugging inspection,
-        yield '-1'     # no length
-        yield '0'      # first element is immediately at the start of the array
-        yield 'sizeof(%s)' % (cdecl(self.itemtypename, ''),)
 
 
 class FixedSizeArrayDefNode(NodeWithDependencies):
@@ -468,10 +424,6 @@ class FixedSizeArrayDefNode(NodeWithDependencies):
             yield '\t\t%s++;' % varname
             yield '\t}'
             yield '}'
-
-    def debug_offsets(self):
-        # XXX not implemented
-        return []
 
 
 class ExtTypeOpaqueDefNode(NodeWithDependencies):
@@ -560,12 +512,16 @@ class ContainerNode(Node):
             return []
         lines = list(self.initializationexpr())
         type, name = self.get_declaration()
-        if name != self.name:
-            lines[0] = '{ ' + lines[0]    # extra braces around the 'a' part
-            lines[-1] += ' }'             # of the union
-        lines[0] = '%s = %s' % (
-            cdecl(type, name, self.is_thread_local()),
-            lines[0])
+        if name != self.name and len(lines) < 2:
+            # a union with length 0
+            lines[0] = cdecl(type, name, self.is_thread_local())
+        else:
+            if name != self.name:
+                lines[0] = '{ ' + lines[0]    # extra braces around the 'a' part
+                lines[-1] += ' }'             # of the union
+            lines[0] = '%s = %s' % (
+                cdecl(type, name, self.is_thread_local()),
+                lines[0])
         lines[-1] += ';'
         return lines
 
@@ -602,7 +558,6 @@ class StructNode(ContainerNode):
     def initializationexpr(self, decoration=''):
         T = self.getTYPE()
         is_empty = True
-        yield '{'
         defnode = self.db.gettypedefnode(T)
 
         data = []
@@ -631,7 +586,13 @@ class StructNode(ContainerNode):
             padding_drop = T._hints['get_padding_drop'](d)
         else:
             padding_drop = []
+        type, name = self.get_declaration()
+        if name != self.name and self.getvarlength() < 1 and len(data) < 2:
+            # an empty union
+            yield ''
+            return
 
+        yield '{'
         for name, value in data:
             if name in padding_drop:
                 continue
@@ -955,15 +916,6 @@ def select_function_code_generators(fnobj, db, functionname):
             return sandbox_stub(fnobj, db)
         db.externalfuncs[fnobj._external_name] = fnobj
         return []
-    elif fnobj._callable in extfunc.EXTERNALS:
-        # -- deprecated case --
-        # 'fnobj' is one of the ll_xyz() functions with the suggested_primitive
-        # flag in rpython.rtyper.module.*.  The corresponding C wrappers are
-        # written by hand in src/ll_*.h, and declared in extfunc.EXTERNALS.
-        if sandbox and not fnobj._name.startswith('ll_stack_'): # XXX!!! Temporary
-            return sandbox_stub(fnobj, db)
-        db.externalfuncs[fnobj._callable] = fnobj
-        return []
     elif hasattr(fnobj, 'graph'):
         if sandbox and sandbox != "if_external":
             # apply the sandbox transformation
@@ -982,7 +934,7 @@ def select_function_code_generators(fnobj, db, functionname):
     elif hasattr(fnobj._callable, "c_name"):
         return []
     else:
-        raise ValueError, "don't know how to generate code for %r" % (fnobj,)
+        raise ValueError("don't know how to generate code for %r" % (fnobj,))
 
 class ExtType_OpaqueNode(ContainerNode):
     nodekind = 'rpyopaque'
@@ -1007,12 +959,30 @@ class ExtType_OpaqueNode(ContainerNode):
                 args.append('0')
         yield 'RPyOpaque_SETUP_%s(%s);' % (T.tag, ', '.join(args))
 
+class ThreadLocalRefOpaqueNode(ContainerNode):
+    nodekind = 'tlrefopaque'
+
+    def basename(self):
+        return self.obj._name
+
+    def enum_dependencies(self):
+        return []
+
+    def initializationexpr(self, decoration=''):
+        return ['0']
+
+    def startupcode(self):
+        p = self.getptrname()
+        yield 'RPyThreadStaticTLS_Create(%s);' % (p,)
+
 
 def opaquenode_factory(db, T, obj):
     if T == RuntimeTypeInfo:
         return db.gcpolicy.rtti_node_factory()(db, T, obj)
     if T.hints.get("render_structure", False):
         return ExtType_OpaqueNode(db, T, obj)
+    if T.hints.get("threadlocalref", False):
+        return ThreadLocalRefOpaqueNode(db, T, obj)
     raise Exception("don't know about %r" % (T,))
 
 

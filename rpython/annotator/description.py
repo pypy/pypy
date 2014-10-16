@@ -6,6 +6,7 @@ from rpython.flowspace.bytecode import cpython_code_signature
 from rpython.annotator.argument import rawshape, ArgErr
 from rpython.tool.sourcetools import valid_identifier, func_with_new_name
 from rpython.tool.pairtype import extendabletype
+from rpython.annotator.model import AnnotatorError
 
 class CallFamily(object):
     """A family of Desc objects that could be called from common call sites.
@@ -13,7 +14,6 @@ class CallFamily(object):
     objects, where the equivalence relation is the transitive closure of
     'd1~d2 if d1 and d2 might be called at the same call site'.
     """
-    overridden = False
     normalized = False
     modified   = True
 
@@ -147,6 +147,8 @@ class Desc(object):
 
     def mergecallfamilies(self, *others):
         """Merge the call families of the given Descs into one."""
+        if not others:
+            return False
         call_families = self.bookkeeper.pbc_maximal_call_families
         changed, rep, callfamily = call_families.find(self.rowkey())
         for desc in others:
@@ -172,7 +174,6 @@ class NoStandardGraph(Exception):
 
 class FunctionDesc(Desc):
     knowntype = types.FunctionType
-    overridden = False
 
     def __init__(self, bookkeeper, pyobj=None,
                  name=None, signature=None, defaults=None,
@@ -261,7 +262,7 @@ class FunctionDesc(Desc):
         try:
             inputcells = args.match_signature(signature, defs_s)
         except ArgErr, e:
-            raise TypeError("signature mismatch: %s() %s" %
+            raise AnnotatorError("signature mismatch: %s() %s" %
                             (self.name, e.getmsg()))
         return inputcells
 
@@ -415,6 +416,10 @@ class ClassDesc(Desc):
             cls = pyobj
             base = object
             baselist = list(cls.__bases__)
+
+            if cls.__dict__.get('_mixin_', False):
+                raise AnnotatorError("cannot use directly the class %r because "
+                                     "it is a _mixin_" % (cls,))
 
             # special case: skip BaseException in Python 2.5, and pretend
             # that all exceptions ultimately inherit from Exception instead
@@ -621,7 +626,7 @@ class ClassDesc(Desc):
                 except ValueError:
                     pass
                 else:
-                    from rpython.annotator.model import SomePtr
+                    from rpython.rtyper.llannotation import SomePtr
                     assert not isinstance(s_arg, SomePtr)
         else:
             # call the constructor
@@ -678,7 +683,7 @@ class ClassDesc(Desc):
                 value = value.__get__(42)
                 classdef = None   # don't bind
             elif isinstance(value, classmethod):
-                raise AssertionError("classmethods are not supported")
+                raise AnnotatorError("classmethods are not supported")
             s_value = self.bookkeeper.immutablevalue(value)
             if classdef is not None:
                 s_value = s_value.bind_callables_under(classdef, name)
@@ -878,11 +883,12 @@ class MethodDesc(Desc):
                                              self.name,
                                              flags)
 
+    @staticmethod
     def consider_call_site(bookkeeper, family, descs, args, s_result, op):
-        shape = rawshape(args, nextra=1)     # account for the extra 'self'
+        cnt, keys, star = rawshape(args)
+        shape = cnt + 1, keys, star  # account for the extra 'self'
         row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
-    consider_call_site = staticmethod(consider_call_site)
 
     def rowkey(self):
         # we are computing call families and call tables that always contain
@@ -1038,11 +1044,12 @@ class MethodOfFrozenDesc(Desc):
         args = args.prepend(s_self)
         return self.funcdesc.pycall(schedule, args, s_previous_result, op)
 
+    @staticmethod
     def consider_call_site(bookkeeper, family, descs, args, s_result, op):
-        shape = rawshape(args, nextra=1)    # account for the extra 'self'
+        cnt, keys, star = rawshape(args)
+        shape = cnt + 1, keys, star  # account for the extra 'self'
         row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
-    consider_call_site = staticmethod(consider_call_site)
 
     def rowkey(self):
         return self.funcdesc

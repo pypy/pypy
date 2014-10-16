@@ -27,6 +27,7 @@ def _run_callback_in_thread():
     seen = []
     @ffi.callback('int(*)(int,int)')
     def mycallback(x, y):
+        time.sleep(0.022)
         seen.append((x, y))
         return 0
     lib.threaded_ballback_test(mycallback)

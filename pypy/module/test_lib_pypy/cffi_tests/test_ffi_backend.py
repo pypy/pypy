@@ -185,3 +185,30 @@ class TestBitfield:
         ffi.cdef("typedef struct { float x; } foo_t;")
         p = ffi.new("foo_t *", [5.2])
         assert repr(p).startswith("<cdata 'foo_t *' ")
+
+    def test_struct_array_no_length(self):
+        ffi = FFI()
+        ffi.cdef("struct foo_s { int x; int a[]; };")
+        p = ffi.new("struct foo_s *", [100, [200, 300, 400]])
+        assert p.x == 100
+        assert ffi.typeof(p.a) is ffi.typeof("int *")   # no length available
+        assert p.a[0] == 200
+        assert p.a[1] == 300
+        assert p.a[2] == 400
+
+    @pytest.mark.skipif("sys.platform != 'win32'")
+    def test_getwinerror(self):
+        ffi = FFI()
+        code, message = ffi.getwinerror(1155)
+        assert code == 1155
+        assert message == ("No application is associated with the "
+                           "specified file for this operation")
+        ffi.cdef("void SetLastError(int);")
+        lib = ffi.dlopen("Kernel32.dll")
+        lib.SetLastError(2)
+        code, message = ffi.getwinerror()
+        assert code == 2
+        assert message == "The system cannot find the file specified"
+        code, message = ffi.getwinerror(-1)
+        assert code == 2
+        assert message == "The system cannot find the file specified"

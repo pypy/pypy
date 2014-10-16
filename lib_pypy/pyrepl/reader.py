@@ -19,10 +19,12 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-import types
+import types, re
 from pyrepl import unicodedata_
 from pyrepl import commands
 from pyrepl import input
+
+_r_csi_seq = re.compile(r"\033\[[ -@]*[A-~]")
 
 def _make_unctrl_map():
     uc_map = {}
@@ -91,7 +93,7 @@ def make_default_syntax_table():
     st = {}
     for c in map(unichr, range(256)):
         st[c] = SYNTAX_SYMBOL
-    for c in [a for a in map(unichr, range(256)) if a.isalpha()]:
+    for c in [a for a in map(unichr, range(256)) if a.isalnum()]:
         st[c] = SYNTAX_WORD
     st[u'\n'] = st[u' '] = SYNTAX_WHITESPACE
     return st
@@ -309,6 +311,10 @@ feeling more loquacious than I am now."""
         excluded from the length calculation.  So also a copy of the prompt
         is returned with these control characters removed.  """
 
+        # The logic below also ignores the length of common escape
+        # sequences if they were not explicitly within \x01...\x02.
+        # They are CSI (or ANSI) sequences  ( ESC [ ... LETTER )
+
         out_prompt = ''
         l = len(prompt)
         pos = 0
@@ -321,9 +327,13 @@ feeling more loquacious than I am now."""
                 break
             # Found start and end brackets, subtract from string length
             l = l - (e-s+1)
-            out_prompt += prompt[pos:s] + prompt[s+1:e]
+            keep = prompt[pos:s]
+            l -= sum(map(len, _r_csi_seq.findall(keep)))
+            out_prompt += keep + prompt[s+1:e]
             pos = e+1
-        out_prompt += prompt[pos:]
+        keep = prompt[pos:]
+        l -= sum(map(len, _r_csi_seq.findall(keep)))
+        out_prompt += keep
         return out_prompt, l
 
     def bow(self, p=None):

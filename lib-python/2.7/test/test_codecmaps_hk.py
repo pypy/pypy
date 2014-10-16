@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 #
 # test_codecmaps_hk.py
 #   Codec mapping tests for HongKong encodings
@@ -17,5 +16,4 @@ def test_main():
     test_support.run_unittest(__name__)
 
 if __name__ == "__main__":
-    test_support.use_resources = ['urlfetch']
     test_main()

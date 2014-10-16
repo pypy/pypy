@@ -142,12 +142,13 @@ def read(space, fd, buffersize):
     else:
         return space.wrap(s)
 
-@unwrap_spec(fd=c_int, data='bufferstr')
-def write(space, fd, data):
+@unwrap_spec(fd=c_int)
+def write(space, fd, w_data):
     """Write a string to a file descriptor.  Return the number of bytes
 actually written, which may be smaller than len(data)."""
+    data = space.getarg_w('s*', w_data)
     try:
-        res = os.write(fd, data)
+        res = os.write(fd, data.as_str())
     except OSError, e:
         raise wrap_oserror(space, e)
     else:
@@ -577,13 +578,15 @@ entries '.' and '..' even if they are present in the directory."""
                 except OperationError, e:
                     # fall back to the original byte string
                     result_w[i] = w_bytes
+            return space.newlist(result_w)
         else:
             dirname = space.str0_w(w_dirname)
             result = rposix.listdir(dirname)
-            result_w = [space.wrap(s) for s in result]
+            # The list comprehension is a workaround for an obscure translation
+            # bug.
+            return space.newlist_bytes([x for x in result])
     except OSError, e:
         raise wrap_oserror2(space, e, w_dirname)
-    return space.newlist(result_w)
 
 def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."
@@ -723,11 +726,16 @@ def run_fork_hooks(where, space):
     for hook in get_fork_hooks(where):
         hook(space)
 
-def fork(space):
+def _run_forking_function(space, kind):
     run_fork_hooks('before', space)
-
     try:
-        pid = os.fork()
+        if kind == "F":
+            pid = os.fork()
+            master_fd = -1
+        elif kind == "P":
+            pid, master_fd = os.forkpty()
+        else:
+            raise AssertionError
     except OSError, e:
         try:
             run_fork_hooks('parent', space)
@@ -735,12 +743,14 @@ def fork(space):
             # Don't clobber the OSError if the fork failed
             pass
         raise wrap_oserror(space, e)
-
     if pid == 0:
         run_fork_hooks('child', space)
     else:
         run_fork_hooks('parent', space)
+    return pid, master_fd
 
+def fork(space):
+    pid, irrelevant = _run_forking_function(space, "F")
     return space.wrap(pid)
 
 def openpty(space):
@@ -752,10 +762,7 @@ def openpty(space):
     return space.newtuple([space.wrap(master_fd), space.wrap(slave_fd)])
 
 def forkpty(space):
-    try:
-        pid, master_fd = os.forkpty()
-    except OSError, e:
-        raise wrap_oserror(space, e)
+    pid, master_fd = _run_forking_function(space, "P")
     return space.newtuple([space.wrap(pid),
                            space.wrap(master_fd)])
 
@@ -864,8 +871,8 @@ second form is used, set the access and modified times to the current time.
         args_w = space.fixedview(w_tuple)
         if len(args_w) != 2:
             raise OperationError(space.w_TypeError, space.wrap(msg))
-        actime = space.float_w(args_w[0])
-        modtime = space.float_w(args_w[1])
+        actime = space.float_w(args_w[0], allow_conversion=False)
+        modtime = space.float_w(args_w[1], allow_conversion=False)
         dispatch_filename(rposix.utime, 2)(space, w_path, (actime, modtime))
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
@@ -983,7 +990,39 @@ def getgroups(space):
 
     Return list of supplemental group IDs for the process.
     """
-    return space.newlist([space.wrap(e) for e in os.getgroups()])
+    try:
+        list = os.getgroups()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.newlist([space.wrap(e) for e in list])
+
+def setgroups(space, w_list):
+    """ setgroups(list)
+
+    Set the groups of the current process to list.
+    """
+    list = []
+    for w_gid in space.unpackiterable(w_list):
+        gid = space.int_w(w_gid)
+        check_uid_range(space, gid)
+        list.append(gid)
+    try:
+        os.setgroups(list[:])
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
+@unwrap_spec(username=str, gid=c_gid_t)
+def initgroups(space, username, gid):
+    """ initgroups(username, gid) -> None
+    
+    Call the system initgroups() to initialize the group access list with all of
+    the groups of which the specified username is a member, plus the specified
+    group id.
+    """
+    try:
+        os.initgroups(username, gid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
 
 def getpgrp(space):
     """ getpgrp() -> pgrp
@@ -1085,6 +1124,77 @@ def setsid(space):
         raise wrap_oserror(space, e)
     return space.w_None
 
+@unwrap_spec(fd=c_int)
+def tcgetpgrp(space, fd):
+    """ tcgetpgrp(fd) -> pgid
+
+    Return the process group associated with the terminal given by a fd.
+    """
+    try:
+        pgid = os.tcgetpgrp(fd)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(pgid)
+
+@unwrap_spec(fd=c_int, pgid=c_gid_t)
+def tcsetpgrp(space, fd, pgid):
+    """ tcsetpgrp(fd, pgid)
+
+    Set the process group associated with the terminal given by a fd.
+    """
+    try:
+        os.tcsetpgrp(fd, pgid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
+def getresuid(space):
+    """ getresuid() -> (ruid, euid, suid)
+
+    Get tuple of the current process's real, effective, and saved user ids.
+    """
+    try:
+        (ruid, euid, suid) = os.getresuid()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.newtuple([space.wrap(ruid),
+                           space.wrap(euid),
+                           space.wrap(suid)])
+
+def getresgid(space):
+    """ getresgid() -> (rgid, egid, sgid)
+
+    Get tuple of the current process's real, effective, and saved group ids.
+    """
+    try:
+        (rgid, egid, sgid) = os.getresgid()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.newtuple([space.wrap(rgid),
+                           space.wrap(egid),
+                           space.wrap(sgid)])
+
+@unwrap_spec(ruid=c_uid_t, euid=c_uid_t, suid=c_uid_t)
+def setresuid(space, ruid, euid, suid):
+    """ setresuid(ruid, euid, suid)
+
+    Set the current process's real, effective, and saved user ids.
+    """
+    try:
+        os.setresuid(ruid, euid, suid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
+@unwrap_spec(rgid=c_gid_t, egid=c_gid_t, sgid=c_gid_t)
+def setresgid(space, rgid, egid, sgid):
+    """ setresgid(rgid, egid, sgid)
+    
+    Set the current process's real, effective, and saved group ids.
+    """
+    try:
+        os.setresgid(rgid, egid, sgid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
 def declare_new_w_star(name):
     if name in RegisterOs.w_star_returning_int:
         @unwrap_spec(status=c_int)
@@ -1126,15 +1236,37 @@ def confname_w(space, w_name, namespace):
 
 def sysconf(space, w_name):
     num = confname_w(space, w_name, os.sysconf_names)
-    return space.wrap(os.sysconf(num))
+    try:
+        res = os.sysconf(num)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(res)
 
 @unwrap_spec(fd=c_int)
 def fpathconf(space, fd, w_name):
     num = confname_w(space, w_name, os.pathconf_names)
     try:
-        return space.wrap(os.fpathconf(fd, num))
+        res = os.fpathconf(fd, num)
     except OSError, e:
         raise wrap_oserror(space, e)
+    return space.wrap(res)
+
+@unwrap_spec(path='str0')
+def pathconf(space, path, w_name):
+    num = confname_w(space, w_name, os.pathconf_names)
+    try:
+        res = os.pathconf(path, num)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(res)
+
+def confstr(space, w_name):
+    num = confname_w(space, w_name, os.confstr_names)
+    try:
+        res = os.confstr(num)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(res)
 
 @unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
 def chown(space, path, uid, gid):
@@ -1214,3 +1346,10 @@ def urandom(space, n):
         return space.wrap(rurandom.urandom(context, n))
     except OSError, e:
         raise wrap_oserror(space, e)
+
+def ctermid(space):
+    """ctermid() -> string
+
+    Return the name of the controlling terminal for this process.
+    """
+    return space.wrap(os.ctermid())

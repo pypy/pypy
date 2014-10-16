@@ -38,7 +38,9 @@ class Module(MixedModule):
                     'ilshift', 'imod', 'imul', 'ior', 'ipow', 'irepeat',
                     'irshift', 'isub', 'itruediv', 'ixor', '_length_hint']
 
-    interpleveldefs = {}
+    interpleveldefs = {
+        '_compare_digest': 'tscmp.compare_digest',
+    }
 
     for name in interp_names:
         interpleveldefs[name] = 'interp_operator.%s' % name
@@ -50,6 +52,7 @@ class Module(MixedModule):
         '__concat__' : 'concat',
         '__contains__' : 'contains',
         'sequenceIncludes' : 'contains',
+        '__index__' : 'index',
         '__delitem__' : 'delitem',
         '__div__' : 'div',
         '__eq__' : 'eq',

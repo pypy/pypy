@@ -31,6 +31,12 @@ def test_list_ddl(con):
     result = list(cursor)
     assert result == [(42,)]
 
+def test_connect_takes_same_positional_args_as_Connection(con):
+    from inspect import getargspec
+    clsargs = getargspec(_sqlite3.Connection.__init__).args[1:]  # ignore self
+    conargs = getargspec(_sqlite3.connect).args
+    assert clsargs == conargs
+
 def test_total_changes_after_close(con):
     con.close()
     pytest.raises(_sqlite3.ProgrammingError, "con.total_changes")
@@ -224,7 +230,38 @@ def test_executemany_lastrowid(con):
     cur.executemany("insert into test values (?)", [[1], [2], [3]])
     assert cur.lastrowid is None
 
+
+def test_authorizer_bad_value(con):
+    def authorizer_cb(action, arg1, arg2, dbname, source):
+        return 42
+    con.set_authorizer(authorizer_cb)
+    with pytest.raises(_sqlite3.OperationalError) as e:
+        con.execute('select 123')
+    major, minor, micro = _sqlite3.sqlite_version.split('.')[:3]
+    if (int(major), int(minor), int(micro)) >= (3, 6, 14):
+        assert str(e.value) == 'authorizer malfunction'
+    else:
+        assert str(e.value) == \
+            ("illegal return value (1) from the authorization function - "
+             "should be SQLITE_OK, SQLITE_IGNORE, or SQLITE_DENY")
+
+
 def test_issue1573(con):
     cur = con.cursor()
     cur.execute(u'SELECT 1 as méil')
     assert cur.description[0][0] == u"méil".encode('utf-8')
+
+def test_adapter_exception(con):
+    def cast(obj):
+        raise ZeroDivisionError
+
+    _sqlite3.register_adapter(int, cast)
+    try:
+        cur = con.cursor()
+        cur.execute("select ?", (4,))
+        val = cur.fetchone()[0]
+        # Adapter error is ignored, and parameter is passed as is.
+        assert val == 4
+        assert type(val) is int
+    finally:
+        del _sqlite3.adapters[(int, _sqlite3.PrepareProtocol)]

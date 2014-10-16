@@ -1,5 +1,6 @@
 import py
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.rtyper.annlowlevel import hlstr
 from rpython.tool.udir import udir
 from rpython.rlib.rarithmetic import is_valid_int
 
@@ -176,6 +177,27 @@ class TestPosix(BaseRtypingTest):
                 return os.sysconf(i)
             assert self.interpret(f, [13]) == f(13)
 
+    if hasattr(os, 'confstr'):
+        def test_os_confstr(self):
+            def f(i):
+                try:
+                    return os.confstr(i)
+                except OSError:
+                    return "oooops!!"
+            some_value = os.confstr_names.values()[-1]
+            res = self.interpret(f, [some_value])
+            assert hlstr(res) == f(some_value)
+            res = self.interpret(f, [94781413])
+            assert hlstr(res) == "oooops!!"
+
+    if hasattr(os, 'pathconf'):
+        def test_os_pathconf(self):
+            def f(i):
+                return os.pathconf("/tmp", i)
+            i = os.pathconf_names["PC_NAME_MAX"]
+            some_value = self.interpret(f, [i])
+            assert some_value >= 31
+
     if hasattr(os, 'chroot'):
         def test_os_chroot(self):
             def f():
@@ -205,3 +227,78 @@ class TestPosix(BaseRtypingTest):
                 return os.getgroups()
             ll_a = self.interpret(f, [])
             assert self.ll_to_list(ll_a) == f()
+
+    if hasattr(os, 'setgroups'):
+        def test_setgroups(self):
+            def f():
+                try:
+                    os.setgroups(os.getgroups())
+                except OSError:
+                    pass
+            self.interpret(f, [])
+
+    if hasattr(os, 'initgroups'):
+        def test_initgroups(self):
+            def f():
+                try:
+                    os.initgroups('sUJJeumz', 4321)
+                except OSError:
+                    return 1
+                return 0
+            res = self.interpret(f, [])
+            assert res == 1
+
+    if hasattr(os, 'tcgetpgrp'):
+        def test_tcgetpgrp(self):
+            def f(fd):
+                try:
+                    return os.tcgetpgrp(fd)
+                except OSError:
+                    return 42
+            res = self.interpret(f, [9999])
+            assert res == 42
+
+    if hasattr(os, 'tcsetpgrp'):
+        def test_tcsetpgrp(self):
+            def f(fd, pgrp):
+                try:
+                    os.tcsetpgrp(fd, pgrp)
+                except OSError:
+                    return 1
+                return 0
+            res = self.interpret(f, [9999, 1])
+            assert res == 1
+
+    if hasattr(os, 'getresuid'):
+        def test_getresuid(self):
+            def f():
+                a, b, c = os.getresuid()
+                return a + b * 37 + c * 1291
+            res = self.interpret(f, [])
+            a, b, c = os.getresuid()
+            assert res == a + b * 37 + c * 1291
+
+    if hasattr(os, 'getresgid'):
+        def test_getresgid(self):
+            def f():
+                a, b, c = os.getresgid()
+                return a + b * 37 + c * 1291
+            res = self.interpret(f, [])
+            a, b, c = os.getresgid()
+            assert res == a + b * 37 + c * 1291
+
+    if hasattr(os, 'setresuid'):
+        def test_setresuid(self):
+            def f():
+                a, b, c = os.getresuid()
+                a = (a + 1) - 1
+                os.setresuid(a, b, c)
+            self.interpret(f, [])
+
+    if hasattr(os, 'setresgid'):
+        def test_setresgid(self):
+            def f():
+                a, b, c = os.getresgid()
+                a = (a + 1) - 1
+                os.setresgid(a, b, c)
+            self.interpret(f, [])

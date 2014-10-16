@@ -1,6 +1,6 @@
 """Support functions for app-level _sre tests."""
 import locale, _sre
-from sre_constants import OPCODES, ATCODES, CHCODES
+from sre_constants import OPCODES, ATCODES, CHCODES, MAXREPEAT
 
 def encode_literal(string):
     opcodes = []

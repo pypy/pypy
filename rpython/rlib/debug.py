@@ -196,6 +196,25 @@ class Entry(ExtRegistryEntry):
         return hop.genop('debug_flush', [])
 
 
+def debug_forked(original_offset):
+    """ Call after a fork(), passing as argument the result of
+        debug_offset() called before the fork.
+    """
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = debug_forked
+
+    def compute_result_annotation(self, s_original_offset):
+        return None
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        vlist = hop.inputargs(lltype.Signed)
+        hop.exception_cannot_occur()
+        return hop.genop('debug_forked', vlist)
+
+
 def llinterpcall(RESTYPE, pythonfunction, *args):
     """When running on the llinterp, this causes the llinterp to call to
     the provided Python function with the run-time value of the given args.
@@ -210,12 +229,13 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_RESTYPE, s_pythonfunction, *args_s):
         from rpython.annotator import model as annmodel
+        from rpython.rtyper.llannotation import lltype_to_annotation
         from rpython.rtyper.lltypesystem import lltype
         assert s_RESTYPE.is_constant()
         assert s_pythonfunction.is_constant()
         s_result = s_RESTYPE.const
         if isinstance(s_result, lltype.LowLevelType):
-            s_result = annmodel.lltype_to_annotation(s_result)
+            s_result = lltype_to_annotation(s_result)
         assert isinstance(s_result, annmodel.SomeObject)
         return s_result
 
@@ -268,7 +288,9 @@ class Entry(ExtRegistryEntry):
     _about_ = make_sure_not_resized
 
     def compute_result_annotation(self, s_arg):
-        from rpython.annotator.model import SomeList
+        from rpython.annotator.model import SomeList, s_None
+        if s_None.contains(s_arg):
+            return s_arg    # only None: just return
         assert isinstance(s_arg, SomeList)
         # the logic behind it is that we try not to propagate
         # make_sure_not_resized, when list comprehension is not on
@@ -361,3 +383,35 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
         return hop.inputarg(hop.args_r[0], arg=0)
+
+def check_list_of_chars(l):
+    if not we_are_translated():
+        assert isinstance(l, list)
+        for x in l:
+            assert isinstance(x, (unicode, str)) and len(x) == 1
+    return l
+
+class NotAListOfChars(Exception):
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = check_list_of_chars
+
+    def compute_result_annotation(self, s_arg):
+        from rpython.annotator.model import SomeList, s_None
+        from rpython.annotator.model import SomeChar, SomeUnicodeCodePoint
+        from rpython.annotator.model import SomeImpossibleValue
+        if s_None.contains(s_arg):
+            return s_arg    # only None: just return
+        assert isinstance(s_arg, SomeList)
+        if not isinstance(
+                s_arg.listdef.listitem.s_value,
+                (SomeChar, SomeUnicodeCodePoint, SomeImpossibleValue)):
+            raise NotAListOfChars
+        return s_arg
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputarg(hop.args_r[0], arg=0)
+
+

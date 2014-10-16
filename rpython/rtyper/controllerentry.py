@@ -1,6 +1,5 @@
 from rpython.annotator import model as annmodel
 from rpython.tool.pairtype import pairtype
-from rpython.annotator.binaryop import _make_none_union, SomePBC # SomePBC needed by _make_none_union
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.annlowlevel import cachedtype
@@ -126,12 +125,12 @@ class Controller(object):
         from rpython.rtyper.rcontrollerentry import rtypedelegate
         return rtypedelegate(self.delitem, hop)
 
-    def ctrl_is_true(self, s_obj):
-        return delegate(self.is_true, s_obj)
+    def ctrl_bool(self, s_obj):
+        return delegate(self.bool, s_obj)
 
-    def rtype_is_true(self, hop):
+    def rtype_bool(self, hop):
         from rpython.rtyper.rcontrollerentry import rtypedelegate
-        return rtypedelegate(self.is_true, hop)
+        return rtypedelegate(self.bool, hop)
 
     def ctrl_call(self, s_obj, *args_s):
         return delegate(self.call, s_obj, *args_s)
@@ -216,15 +215,17 @@ class SomeControlledInstance(annmodel.SomeObject):
     def can_be_none(self):
         return self.controller.can_be_None
 
+    def noneify(self):
+        return SomeControlledInstance(self.s_real_obj, self.controller)
+
     def rtyper_makerepr(self, rtyper):
         from rpython.rtyper.rcontrollerentry import ControlledInstanceRepr
         return ControlledInstanceRepr(rtyper, self.s_real_obj, self.controller)
 
-    def rtyper_makekey_ex(self, rtyper):
-        real_key = rtyper.makekey(self.s_real_obj)
+    def rtyper_makekey(self):
+        real_key = self.s_real_obj.rtyper_makekey()
         return self.__class__, real_key, self.controller
 
-_make_none_union("SomeControlledInstance", "obj.s_real_obj, obj.controller", globals())
 
 class __extend__(SomeControlledInstance):
 
@@ -236,7 +237,7 @@ class __extend__(SomeControlledInstance):
         assert s_attr.is_constant()
         s_cin.controller.ctrl_setattr(s_cin.s_real_obj, s_attr, s_value)
 
-    def is_true(s_cin):
+    def bool(s_cin):
         return s_cin.controller.ctrl_is_true(s_cin.s_real_obj)
 
     def simple_call(s_cin, *args_s):

@@ -3,7 +3,7 @@ import os
 
 DIRS_SPLIT = [
     'translator/c', 'rlib',
-    'rpython/memory', 'jit/metainterp', 'rpython/test',
+    'memory/test', 'jit/metainterp',
     'jit/backend/arm', 'jit/backend/x86',
 ]
 

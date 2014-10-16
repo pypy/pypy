@@ -25,6 +25,8 @@ del float_constants, int_constants, const
 
 globals().update(rffi_platform.configure(CConfig))
 
+INVALID_MSG = "invalid literal for float()"
+
 def string_to_float(s):
     """
     Conversion of string to float.
@@ -36,10 +38,8 @@ def string_to_float(s):
     from rpython.rlib.rstring import strip_spaces, ParseStringError
 
     s = strip_spaces(s)
-
     if not s:
-        raise ParseStringError("empty string for float()")
-
+        raise ParseStringError(INVALID_MSG)
 
     low = s.lower()
     if low == "-inf" or low == "-infinity":
@@ -56,7 +56,7 @@ def string_to_float(s):
     try:
         return rstring_to_float(s)
     except ValueError:
-        raise ParseStringError("invalid literal for float(): '%s'" % s)
+        raise ParseStringError(INVALID_MSG)
 
 def rstring_to_float(s):
     from rpython.rlib.rdtoa import strtod
@@ -69,6 +69,7 @@ DTSF_STR_PRECISION = 12
 DTSF_SIGN      = 0x1
 DTSF_ADD_DOT_0 = 0x2
 DTSF_ALT       = 0x4
+DTSF_CUT_EXP_0 = 0x8
 
 DIST_FINITE   = 1
 DIST_NAN      = 2

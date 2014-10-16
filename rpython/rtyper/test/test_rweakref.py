@@ -3,7 +3,7 @@ from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.test.tool import BaseRtypingTest
 
-class BaseTestRweakref(BaseRtypingTest):
+class TestRweakref(BaseRtypingTest):
 
     def test_weakref_simple(self):
         class A:

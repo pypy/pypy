@@ -89,12 +89,12 @@ class TestEval(BaseApiTest):
                 rffi.free_charp(buf)
 
         assert 0 == run("42 * 43")
-        
+
         assert -1 == run("4..3 * 43")
-        
+
         assert api.PyErr_Occurred()
         api.PyErr_Clear()
-        
+
     def test_run_string(self, space, api):
         def run(code, start, w_globals, w_locals):
             buf = rffi.str2charp(code)
@@ -212,7 +212,7 @@ class AppTestCall(AppTestCpythonExtensionBase):
             ("call_func", "METH_VARARGS",
              """
                 return PyObject_CallFunction(PyTuple_GetItem(args, 0),
-                   "siO", "text", 42, Py_None);
+                   "siiiiO", "text", 42, -41, 40, -39, Py_None);
              """),
             ("call_method", "METH_VARARGS",
              """
@@ -222,8 +222,27 @@ class AppTestCall(AppTestCpythonExtensionBase):
             ])
         def f(*args):
             return args
-        assert module.call_func(f) == ("text", 42, None)
+        assert module.call_func(f) == ("text", 42, -41, 40, -39, None)
         assert module.call_method("text") == 2
+
+    def test_CallFunction_PY_SSIZE_T_CLEAN(self):
+        module = self.import_extension('foo', [
+            ("call_func", "METH_VARARGS",
+             """
+                return PyObject_CallFunction(PyTuple_GetItem(args, 0),
+                   "s#s#", "text", (Py_ssize_t)3, "othertext", (Py_ssize_t)6);
+             """),
+            ("call_method", "METH_VARARGS",
+             """
+                return PyObject_CallMethod(PyTuple_GetItem(args, 0),
+                   "find", "s#", "substring", (Py_ssize_t)6);
+             """),
+            ], PY_SSIZE_T_CLEAN=True)
+        def f(*args):
+            return args
+        assert module.call_func(f) == ("tex", "othert")
+        assert module.call_method("<<subst>>") == -1
+        assert module.call_method("<<substr>>") == 2
 
     def test_CallFunctionObjArgs(self):
         module = self.import_extension('foo', [
@@ -293,8 +312,9 @@ class AppTestCall(AppTestCpythonExtensionBase):
             ("get_flags", "METH_NOARGS",
              """
                 PyCompilerFlags flags;
+                int result;
                 flags.cf_flags = 0;
-                int result = PyEval_MergeCompilerFlags(&flags);
+                result = PyEval_MergeCompilerFlags(&flags);
                 return Py_BuildValue("ii", result, flags.cf_flags);
              """),
             ])

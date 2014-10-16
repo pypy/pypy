@@ -3,19 +3,24 @@ import sys
 
 from rpython.rlib import rgc
 from rpython.rlib.rstring import StringBuilder
+from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.platform import platform as compiler, CompilationError
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 if compiler.name == "msvc":
-    libname = 'zlib1' # since version 1.1.4 and later, see http://www.zlib.net/DLL_FAQ.txt
+    libname = 'zlib' # use the static lib, not zlib1 which is dll import lib
+    testonly_libraries = ['zlib1']
 else:
     libname = 'z'
+    testonly_libraries = []
 eci = ExternalCompilationInfo(
         libraries=[libname],
-        includes=['zlib.h']
+        includes=['zlib.h'],
+        testonly_libraries = testonly_libraries
     )
 try:
     eci = rffi_platform.configure_external_library(
@@ -134,7 +139,7 @@ _deflateInit2_ = zlib_external(
 _deflate = zlib_external('deflate', [z_stream_p, rffi.INT], rffi.INT)
 
 _deflateEnd = zlib_external('deflateEnd', [z_stream_p], rffi.INT,
-                            threadsafe=False)
+                            releasegil=False)
 
 def _deflateInit2(stream, level, method, wbits, memlevel, strategy):
     size = rffi.sizeof(z_stream)
@@ -153,7 +158,7 @@ _inflateInit2_ = zlib_external(
 _inflate = zlib_external('inflate', [z_stream_p, rffi.INT], rffi.INT)
 
 _inflateEnd = zlib_external('inflateEnd', [z_stream_p], rffi.INT,
-                            threadsafe=False)
+                            releasegil=False)
 
 def _inflateInit2(stream, wbits):
     size = rffi.sizeof(z_stream)
@@ -347,8 +352,7 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
     """
     # Prepare the input buffer for the stream
     with lltype.scoped_alloc(rffi.CCHARP.TO, len(data)) as inbuf:
-        for i in xrange(len(data)):
-            inbuf[i] = data[i]
+        copy_string_to_raw(llstr(data), inbuf, 0, len(data))
         stream.c_next_in = rffi.cast(Bytefp, inbuf)
         rffi.setintfield(stream, 'c_avail_in', len(data))
 

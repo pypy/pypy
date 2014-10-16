@@ -18,14 +18,10 @@ from rpython.rtyper.lltypesystem.lltype import cast_ptr_to_int as gc_id
 def weakref_create_getlazy(objgetter):
     return weakref_create(objgetter())
 
-malloc_nonmovable = malloc
 
 def shrink_array(p, smallersize):
     return False
 
-
-def thread_prepare():
-    pass
 
 def thread_run():
     pass

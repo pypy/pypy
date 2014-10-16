@@ -12,6 +12,7 @@ from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError)
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
+from rpython.translator.c.test.test_standalone import StandaloneTests
 
 
 class TestRLong(object):
@@ -530,6 +531,7 @@ class Test_rbigint(object):
 
     def test_shift(self):
         negative = -23
+        masks_list = [int((1 << i) - 1) for i in range(1, r_uint.BITS-1)]
         for x in gen_signs([3L ** 30L, 5L ** 20L, 7 ** 300, 0L, 1L]):
             f1 = rbigint.fromlong(x)
             py.test.raises(ValueError, f1.lshift, negative)
@@ -539,7 +541,24 @@ class Test_rbigint(object):
                 res2 = f1.rshift(int(y)).tolong()
                 assert res1 == x << y
                 assert res2 == x >> y
-                
+                for mask in masks_list:
+                    res3 = f1.abs_rshift_and_mask(r_ulonglong(y), mask)
+                    assert res3 == (abs(x) >> y) & mask
+
+    def test_from_list_n_bits(self):
+        for x in ([3L ** 30L, 5L ** 20L, 7 ** 300] +
+                  [1L << i for i in range(130)] +
+                  [(1L << i) - 1L for i in range(130)]):
+            for nbits in range(1, SHIFT+1):
+                mask = (1 << nbits) - 1
+                lst = []
+                got = x
+                while got > 0:
+                    lst.append(int(got & mask))
+                    got >>= nbits
+                f1 = rbigint.from_list_n_bits(lst, nbits)
+                assert f1.tolong() == x
+
     def test_bitwise(self):
         for x in gen_signs([0, 1, 5, 11, 42, 43, 3 ** 30]):
             for y in gen_signs([0, 1, 5, 11, 42, 43, 3 ** 30, 3 ** 31]):
@@ -895,3 +914,17 @@ class TestTranslatable(object):
         py.test.raises(InvalidSignednessError, i.tobytes, 3, 'little', signed=False)
         py.test.raises(OverflowError, i.tobytes, 2, 'little', signed=True)
 
+
+class TestTranslated(StandaloneTests):
+
+    def test_gcc_4_9(self):
+        MIN = -sys.maxint-1
+
+        def entry_point(argv):
+            print rbigint.fromint(MIN+1)._digits
+            print rbigint.fromint(MIN)._digits
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        data = cbuilder.cmdexec('hi there')
+        assert data == '[%d]\n[0, 1]\n' % sys.maxint

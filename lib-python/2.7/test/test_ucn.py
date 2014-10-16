@@ -8,8 +8,14 @@ Modified for Python 2.0 by Fredrik Lundh (fredrik@pythonware.com)
 """#"
 
 import unittest
+import sys
 
 from test import test_support
+
+try:
+    from _testcapi import INT_MAX, PY_SSIZE_T_MAX, UINT_MAX
+except ImportError:
+    INT_MAX = PY_SSIZE_T_MAX = UINT_MAX = 2**64 - 1
 
 class UnicodeNamesTest(unittest.TestCase):
 
@@ -136,6 +142,25 @@ class UnicodeNamesTest(unittest.TestCase):
             UnicodeError,
             unicode, "\\NSPACE", 'unicode-escape', 'strict'
         )
+
+    @test_support.cpython_only
+    @unittest.skipUnless(INT_MAX < PY_SSIZE_T_MAX, "needs UINT_MAX < SIZE_MAX")
+    @unittest.skipUnless(UINT_MAX < sys.maxint, "needs UINT_MAX < sys.maxint")
+    @test_support.bigmemtest(minsize=UINT_MAX + 1,
+                             memuse=2 + 4 // len(u'\U00010000'))
+    def test_issue16335(self, size):
+        func = self.test_issue16335
+        if size < func.minsize:
+            raise unittest.SkipTest("not enough memory: %.1fG minimum needed" %
+                    (func.minsize * func.memuse / float(1024**3),))
+        # very very long bogus character name
+        x = b'\\N{SPACE' + b'x' * int(UINT_MAX + 1) + b'}'
+        self.assertEqual(len(x), len(b'\\N{SPACE}') + (UINT_MAX + 1))
+        self.assertRaisesRegexp(UnicodeError,
+            'unknown Unicode character name',
+            x.decode, 'unicode-escape'
+        )
+
 
 def test_main():
     test_support.run_unittest(UnicodeNamesTest)

@@ -31,10 +31,14 @@ class BaseCTypesTestChecker:
             import gc
             for _ in range(4):
                 gc.collect()
-            cls.old_num = _rawffi._num_of_allocated_objects()
-
+            try:
+                cls.old_num = _rawffi._num_of_allocated_objects()
+            except RuntimeError:
+                pass
 
     def teardown_class(cls):
+        if not hasattr(sys, 'pypy_translation_info'):
+            return
         if sys.pypy_translation_info['translation.gc'] == 'boehm':
             return # it seems that boehm has problems with __del__, so not
                    # everything is freed

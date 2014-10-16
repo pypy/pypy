@@ -20,9 +20,8 @@ class AbstractARMCPU(AbstractLLCPU):
     IS_64_BIT = False
 
     supports_floats = True
-    supports_longlong = False # XXX requires an implementation of
-                              # read_timestamp that works in user mode
-    supports_singlefloats = not detect_hardfloat()
+    supports_longlong = True
+    supports_singlefloats = True
 
     from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = range(len(all_regs))
@@ -57,16 +56,17 @@ class AbstractARMCPU(AbstractLLCPU):
         self.assembler.finish_once()
 
     def compile_loop(self, inputargs, operations, looptoken,
-                                                    log=True, name=''):
-        return self.assembler.assemble_loop(name, inputargs, operations,
-                                                    looptoken, log=log)
+                     log=True, name='', logger=None):
+        return self.assembler.assemble_loop(logger, name, inputargs, operations,
+                                            looptoken, log=log)
 
     def compile_bridge(self, faildescr, inputargs, operations,
-                                       original_loop_token, log=True):
+                       original_loop_token, log=True, logger=None):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
-        return self.assembler.assemble_bridge(faildescr, inputargs, operations,
-                                                original_loop_token, log=log)
+        return self.assembler.assemble_bridge(logger, faildescr, inputargs,
+                                              operations,
+                                              original_loop_token, log=log)
 
     def clear_latest_values(self, count):
         setitem = self.assembler.fail_boxes_ptr.setitem

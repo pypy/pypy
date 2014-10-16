@@ -47,9 +47,6 @@ class GCBase(object):
     def _teardown(self):
         pass
 
-    def can_malloc_nonmovable(self):
-        return not self.moving_gc
-
     def can_optimize_clean_setarrayitems(self):
         return True     # False in case of card marking
 
@@ -101,7 +98,7 @@ class GCBase(object):
     def set_root_walker(self, root_walker):
         self.root_walker = root_walker
 
-    def write_barrier(self, newvalue, addr_struct):
+    def write_barrier(self, addr_struct):
         pass
 
     def size_gc_header(self, typeid=0):
@@ -130,15 +127,10 @@ class GCBase(object):
         return self.get_size(obj)
 
     def malloc(self, typeid, length=0, zero=False):
-        """For testing.  The interface used by the gctransformer is
+        """NOT_RPYTHON
+        For testing.  The interface used by the gctransformer is
         the four malloc_[fixed,var]size[_clear]() functions.
         """
-        # Rules about fallbacks in case of missing malloc methods:
-        #  * malloc_fixedsize_clear() and malloc_varsize_clear() are mandatory
-        #  * malloc_fixedsize() and malloc_varsize() fallback to the above
-        # XXX: as of r49360, gctransformer.framework never inserts calls
-        # to malloc_varsize(), but always uses malloc_varsize_clear()
-
         size = self.fixed_size(typeid)
         needs_finalizer = bool(self.getfinalizer(typeid))
         finalizer_is_light = bool(self.getlightfinalizer(typeid))
@@ -149,14 +141,15 @@ class GCBase(object):
             assert not needs_finalizer
             itemsize = self.varsize_item_sizes(typeid)
             offset_to_length = self.varsize_offset_to_length(typeid)
-            if zero or not hasattr(self, 'malloc_varsize'):
+            if self.malloc_zero_filled:
                 malloc_varsize = self.malloc_varsize_clear
             else:
                 malloc_varsize = self.malloc_varsize
             ref = malloc_varsize(typeid, length, size, itemsize,
                                  offset_to_length)
+            size += itemsize * length
         else:
-            if zero or not hasattr(self, 'malloc_fixedsize'):
+            if self.malloc_zero_filled:
                 malloc_fixedsize = self.malloc_fixedsize_clear
             else:
                 malloc_fixedsize = self.malloc_fixedsize
@@ -164,10 +157,10 @@ class GCBase(object):
                                    finalizer_is_light,
                                    contains_weakptr)
         # lots of cast and reverse-cast around...
-        return llmemory.cast_ptr_to_adr(ref)
-
-    def malloc_nonmovable(self, typeid, length=0, zero=False):
-        return self.malloc(typeid, length, zero)
+        ref = llmemory.cast_ptr_to_adr(ref)
+        if zero and not self.malloc_zero_filled:
+            llmemory.raw_memclear(ref, size)
+        return ref
 
     def id(self, ptr):
         return lltype.cast_ptr_to_int(ptr)
@@ -430,6 +423,7 @@ def choose_gc_from_config(config):
                "generation": "generation.GenerationGC",
                "hybrid": "hybrid.HybridGC",
                "minimark" : "minimark.MiniMarkGC",
+               "incminimark" : "incminimark.IncrementalMiniMarkGC",
                }
     try:
         modulename, classname = classes[config.translation.gc].split('.')

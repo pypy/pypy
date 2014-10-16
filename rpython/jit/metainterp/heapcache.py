@@ -6,7 +6,7 @@ class HeapCache(object):
     def __init__(self):
         self.reset()
 
-    def reset(self):
+    def reset(self, reset_virtuals=True, trace_branch=True):
         # contains boxes where the class is already known
         self.known_class_boxes = {}
         # store the boxes that contain newly allocated objects, this maps the
@@ -14,12 +14,19 @@ class HeapCache(object):
         # escaped the trace or not (True means the box never escaped, False
         # means it did escape), its presences in the mapping shows that it was
         # allocated inside the trace
-        self.new_boxes = {}
+        if trace_branch:
+            self.new_boxes = {}
+        else:
+            for box in self.new_boxes:
+                self.new_boxes[box] = False
+        if reset_virtuals:
+            self.likely_virtuals = {}      # only for jit.isvirtual()
         # Tracks which boxes should be marked as escaped when the key box
         # escapes.
         self.dependencies = {}
         # contains frame boxes that are not virtualizables
-        self.nonstandard_virtualizables = {}
+        if trace_branch:
+            self.nonstandard_virtualizables = {}
 
         # heap cache
         # maps descrs to {from_box, to_box} dicts
@@ -51,10 +58,10 @@ class HeapCache(object):
         return self.output_indirections.get(box, box)
 
     def invalidate_caches(self, opnum, descr, argboxes):
-        self.mark_escaped(opnum, argboxes)
+        self.mark_escaped(opnum, descr, argboxes)
         self.clear_caches(opnum, descr, argboxes)
 
-    def mark_escaped(self, opnum, argboxes):
+    def mark_escaped(self, opnum, descr, argboxes):
         if opnum == rop.SETFIELD_GC:
             assert len(argboxes) == 2
             box, valuebox = argboxes
@@ -69,27 +76,44 @@ class HeapCache(object):
                 self.dependencies.setdefault(box, []).append(valuebox)
             else:
                 self._escape(valuebox)
+        elif (opnum == rop.CALL and
+              descr.get_extra_info().oopspecindex == descr.get_extra_info().OS_ARRAYCOPY and
+              isinstance(argboxes[3], ConstInt) and
+              isinstance(argboxes[4], ConstInt) and
+              isinstance(argboxes[5], ConstInt) and
+              len(descr.get_extra_info().write_descrs_arrays) == 1):
+            # ARRAYCOPY with constant starts and constant length doesn't escape
+            # its argument
+            pass
         # GETFIELD_GC, MARK_OPAQUE_PTR, PTR_EQ, and PTR_NE don't escape their
         # arguments
         elif (opnum != rop.GETFIELD_GC and
+              opnum != rop.GETFIELD_GC_PURE and
               opnum != rop.MARK_OPAQUE_PTR and
               opnum != rop.PTR_EQ and
               opnum != rop.PTR_NE and
               opnum != rop.INSTANCE_PTR_EQ and
               opnum != rop.INSTANCE_PTR_NE):
-            idx = 0
             for box in argboxes:
-                # setarrayitem_gc don't escape its first argument
-                if not (idx == 0 and opnum in [rop.SETARRAYITEM_GC]):
-                    self._escape(box)
-                idx += 1
+                self._escape(box)
 
     def _escape(self, box):
-        if box in self.new_boxes:
-            self.new_boxes[box] = False
-        if box in self.dependencies:
-            deps = self.dependencies[box]
-            del self.dependencies[box]
+        try:
+            unescaped = self.new_boxes[box]
+        except KeyError:
+            pass
+        else:
+            if unescaped:
+                self.new_boxes[box] = False
+        try:
+            del self.likely_virtuals[box]
+        except KeyError:
+            pass
+        try:
+            deps = self.dependencies.pop(box)
+        except KeyError:
+            pass
+        else:
             for dep in deps:
                 self._escape(dep)
 
@@ -100,7 +124,13 @@ class HeapCache(object):
             opnum == rop.SETARRAYITEM_RAW or
             opnum == rop.SETINTERIORFIELD_GC or
             opnum == rop.COPYSTRCONTENT or
-            opnum == rop.COPYUNICODECONTENT):
+            opnum == rop.COPYUNICODECONTENT or
+            opnum == rop.STRSETITEM or
+            opnum == rop.UNICODESETITEM or
+            opnum == rop.SETFIELD_RAW or
+            opnum == rop.SETARRAYITEM_RAW or
+            opnum == rop.SETINTERIORFIELD_RAW or
+            opnum == rop.RAW_STORE):
             return
         if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST or
             rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or
@@ -116,16 +146,53 @@ class HeapCache(object):
             # A special case for ll_arraycopy, because it is so common, and its
             # effects are so well defined.
             elif effectinfo.oopspecindex == effectinfo.OS_ARRAYCOPY:
-                # The destination box
-                if argboxes[2] in self.new_boxes:
-                    # XXX: no descr here so we invalidate any of them, not just
-                    # of the correct type
-                    # XXX: in theory the indices of the copy could be looked at
-                    # as well
-                    for descr, cache in self.heap_array_cache.iteritems():
+                if (
+                    isinstance(argboxes[3], ConstInt) and
+                    isinstance(argboxes[4], ConstInt) and
+                    isinstance(argboxes[5], ConstInt) and
+                    len(effectinfo.write_descrs_arrays) == 1
+                ):
+                    descr = effectinfo.write_descrs_arrays[0]
+                    cache = self.heap_array_cache.get(descr, None)
+                    srcstart = argboxes[3].getint()
+                    dststart = argboxes[4].getint()
+                    length = argboxes[5].getint()
+                    for i in xrange(length):
+                        value = self.getarrayitem(
+                            argboxes[1],
+                            ConstInt(srcstart + i),
+                            descr,
+                        )
+                        if value is not None:
+                            self.setarrayitem(
+                                argboxes[2],
+                                ConstInt(dststart + i),
+                                value,
+                                descr,
+                            )
+                        elif cache is not None:
+                            try:
+                                idx_cache = cache[dststart + i]
+                            except KeyError:
+                                pass
+                            else:
+                                if argboxes[2] in self.new_boxes:
+                                    for frombox in idx_cache.keys():
+                                        if not self.is_unescaped(frombox):
+                                            del idx_cache[frombox]
+                                else:
+                                    idx_cache.clear()
+                    return
+                elif (
+                    argboxes[2] in self.new_boxes and
+                    len(effectinfo.write_descrs_arrays) == 1
+                ):
+                    # Fish the descr out of the effectinfo
+                    cache = self.heap_array_cache.get(effectinfo.write_descrs_arrays[0], None)
+                    if cache is not None:
                         for idx, cache in cache.iteritems():
                             for frombox in cache.keys():
-                                if not self.new_boxes.get(frombox, False):
+                                if not self.is_unescaped(frombox):
                                     del cache[frombox]
                     return
             else:
@@ -141,8 +208,11 @@ class HeapCache(object):
                                 del boxes[box]
                 return
 
-        self.heap_cache.clear()
-        self.heap_array_cache.clear()
+        # XXX not completely sure, but I *think* it is needed to reset() the
+        # state at least in the 'CALL_*' operations that release the GIL.  We
+        # tried to do only the kind of resetting done by the two loops just
+        # above, but hit an assertion in "pypy test_multiprocessing.py".
+        self.reset(reset_virtuals=False, trace_branch=False)
 
     def is_class_known(self, box):
         return box in self.known_class_boxes
@@ -159,8 +229,12 @@ class HeapCache(object):
     def is_unescaped(self, box):
         return self.new_boxes.get(box, False)
 
+    def is_likely_virtual(self, box):
+        return box in self.likely_virtuals
+
     def new(self, box):
         self.new_boxes[box] = True
+        self.likely_virtuals[box] = None
 
     def new_array(self, box, lengthbox):
         self.new(box)
@@ -205,9 +279,9 @@ class HeapCache(object):
         return new_d
 
     def getarrayitem(self, box, indexbox, descr):
-        box = self._input_indirection(box)
         if not isinstance(indexbox, ConstInt):
             return
+        box = self._input_indirection(box)
         index = indexbox.getint()
         cache = self.heap_array_cache.get(descr, None)
         if cache:
@@ -216,10 +290,10 @@ class HeapCache(object):
                 return self._output_indirection(indexcache.get(box, None))
 
     def getarrayitem_now_known(self, box, indexbox, valuebox, descr):
-        box = self._input_indirection(box)
-        valuebox = self._input_indirection(valuebox)
         if not isinstance(indexbox, ConstInt):
             return
+        box = self._input_indirection(box)
+        valuebox = self._input_indirection(valuebox)
         index = indexbox.getint()
         cache = self.heap_array_cache.setdefault(descr, {})
         indexcache = cache.get(index, None)

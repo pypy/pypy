@@ -7,14 +7,40 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
     CONST_0, MODE_ARRAY, MODE_STR, MODE_UNICODE)
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.backend.llsupport import symbolic
+
+
+def get_integer_min(is_unsigned, byte_size):
+    if is_unsigned:
+        return 0
+    else:
+        return -(1 << ((byte_size << 3) - 1))
+
+
+def get_integer_max(is_unsigned, byte_size):
+    if is_unsigned:
+        return (1 << (byte_size << 3)) - 1
+    else:
+        return (1 << ((byte_size << 3) - 1)) - 1
+
+
+IS_64_BIT = sys.maxint > 2**32
+
+def next_pow2_m1(n):
+    """Calculate next power of 2 greater than n minus one."""
+    n |= n >> 1
+    n |= n >> 2
+    n |= n >> 4
+    n |= n >> 8
+    n |= n >> 16
+    if IS_64_BIT:
+        n |= n >> 32
+    return n
 
 
 class OptIntBounds(Optimization):
     """Keeps track of the bounds placed on integers by guards and remove
        redundant guards"""
-
-    def new(self):
-        return OptIntBounds()
 
     def propagate_forward(self, op):
         dispatch_opt(self, op)
@@ -45,17 +71,24 @@ class OptIntBounds(Optimization):
     optimize_GUARD_FALSE = optimize_GUARD_TRUE
     optimize_GUARD_VALUE = optimize_GUARD_TRUE
 
-    def optimize_INT_XOR(self, op):
+    def optimize_INT_OR_or_XOR(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         if v1 is v2:
-            self.make_constant_int(op.result, 0)
+            if op.getopnum() == rop.INT_OR:
+                self.make_equal_to(op.result, v1)
+            else:
+                self.make_constant_int(op.result, 0)
             return
         self.emit_operation(op)
         if v1.intbound.known_ge(IntBound(0, 0)) and \
            v2.intbound.known_ge(IntBound(0, 0)):
             r = self.getvalue(op.result)
-            r.intbound.make_ge(IntLowerBound(0))
+            mostsignificant = v1.intbound.upper | v2.intbound.upper
+            r.intbound.intersect(IntBound(0, next_pow2_m1(mostsignificant)))
+
+    optimize_INT_OR = optimize_INT_OR_or_XOR
+    optimize_INT_XOR = optimize_INT_OR_or_XOR
 
     def optimize_INT_AND(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -71,6 +104,10 @@ class OptIntBounds(Optimization):
             val = v1.box.getint()
             if val >= 0:
                 r.intbound.intersect(IntBound(0, val))
+        elif v1.intbound.known_ge(IntBound(0, 0)) and \
+          v2.intbound.known_ge(IntBound(0, 0)):
+            lesser = min(v1.intbound.upper, v2.intbound.upper)
+            r.intbound.intersect(IntBound(0, next_pow2_m1(lesser)))
 
     def optimize_INT_SUB(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -164,11 +201,11 @@ class OptIntBounds(Optimization):
             opnum = lastop.getopnum()
             args = lastop.getarglist()
             result = lastop.result
-            # If the INT_xxx_OVF was replaced with INT_xxx, then we can kill
-            # the GUARD_NO_OVERFLOW.
-            if (opnum == rop.INT_ADD or
-                opnum == rop.INT_SUB or
-                opnum == rop.INT_MUL):
+            # If the INT_xxx_OVF was replaced with INT_xxx or removed
+            # completely, then we can kill the GUARD_NO_OVERFLOW.
+            if (opnum != rop.INT_ADD_OVF and
+                opnum != rop.INT_SUB_OVF and
+                opnum != rop.INT_MUL_OVF):
                 return
             # Else, synthesize the non overflowing op for optimize_default to
             # reuse, as well as the reverse op
@@ -214,6 +251,9 @@ class OptIntBounds(Optimization):
     def optimize_INT_SUB_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
+        if v1 is v2:
+            self.make_constant_int(op.result, 0)
+            return
         resbound = v1.intbound.sub_bound(v2.intbound)
         if resbound.bounded():
             op = op.copy_and_change(rop.INT_SUB)
@@ -295,6 +335,13 @@ class OptIntBounds(Optimization):
         else:
             self.emit_operation(op)
 
+    def optimize_INT_FORCE_GE_ZERO(self, op):
+        value = self.getvalue(op.getarg(0))
+        if value.intbound.known_ge(IntBound(0, 0)):
+            self.make_equal_to(op.result, value)
+        else:
+            self.emit_operation(op)
+
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)
         array = self.getvalue(op.getarg(0))
@@ -324,6 +371,28 @@ class OptIntBounds(Optimization):
         v1 = self.getvalue(op.result)
         v1.intbound.make_ge(IntLowerBound(0))
         v1.intbound.make_lt(IntUpperBound(256))
+
+    def optimize_GETFIELD_RAW(self, op):
+        self.emit_operation(op)
+        descr = op.getdescr()
+        if descr.is_integer_bounded():
+            v1 = self.getvalue(op.result)
+            v1.intbound.make_ge(IntLowerBound(descr.get_integer_min()))
+            v1.intbound.make_le(IntUpperBound(descr.get_integer_max()))
+
+    optimize_GETFIELD_GC = optimize_GETFIELD_RAW
+
+    optimize_GETINTERIORFIELD_GC = optimize_GETFIELD_RAW
+
+    def optimize_GETARRAYITEM_RAW(self, op):
+        self.emit_operation(op)
+        descr = op.getdescr()
+        if descr and descr.is_item_integer_bounded():
+            v1 = self.getvalue(op.result)
+            v1.intbound.make_ge(IntLowerBound(descr.get_item_integer_min()))
+            v1.intbound.make_le(IntUpperBound(descr.get_item_integer_max()))
+
+    optimize_GETARRAYITEM_GC = optimize_GETARRAYITEM_RAW
 
     def optimize_UNICODEGETITEM(self, op):
         self.emit_operation(op)

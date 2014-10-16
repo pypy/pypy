@@ -63,3 +63,6 @@ def run_multiline_interactive_console(mainmodule=None):
         except KeyboardInterrupt:
             console.write("\nKeyboardInterrupt\n")
             console.resetbuffer()
+        except MemoryError:
+            console.write("\nMemoryError\n")
+            console.resetbuffer()

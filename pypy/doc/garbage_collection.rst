@@ -14,7 +14,7 @@ to that file for an old, but still more or less accurate, description.
 The present document describes the specific garbage collectors that we
 wrote in our framework.
 
-.. _`EU-report on this topic`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
+.. _`EU-report on this topic`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
 
 
 Garbage collectors currently written for the GC framework
@@ -209,5 +209,13 @@ In more detail:
   next minor collection, we move it there, and so its id() and hash()
   are preserved.  If the object dies then the pre-reserved location
   becomes free garbage, to be collected at the next major collection.
+
+The exact name of this GC is either `minimark` or `incminimark`.  The
+latter is a version that does major collections incrementally (i.e.  one
+major collection is split along some number of minor collections, rather
+than being done all at once after a specific minor collection).  The
+default is `incminimark`, as it seems to have a very minimal impact on
+performance and memory usage at the benefit of avoiding the long pauses
+of `minimark`.
 
 .. include:: _ref.txt

@@ -22,9 +22,11 @@ class BasePosix(Platform):
         return ['-l%s' % lib for lib in libraries]
 
     def _libdirs(self, library_dirs):
+        assert '' not in library_dirs
         return ['-L%s' % ldir for ldir in library_dirs]
 
     def _includedirs(self, include_dirs):
+        assert '' not in include_dirs
         return ['-I%s' % idir for idir in include_dirs]
 
     def _linkfiles(self, link_files):
@@ -83,7 +85,8 @@ class BasePosix(Platform):
         return [entry[2:] for entry in out.split()]
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
-                     shared=False):
+                     shared=False, headers_to_precompile=[],
+                     no_precompile_cfiles = []):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -179,7 +182,7 @@ class BasePosix(Platform):
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); }" > $@')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
-                   '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@')
+                   '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ -Wl,-rpath="$ORIGIN/"')
 
         return m
 
@@ -252,6 +255,9 @@ class GnuMakefile(object):
         if fpath.dirpath() == self.makefile_dir:
             return fpath.basename
         elif fpath.dirpath().dirpath() == self.makefile_dir.dirpath():
+            assert fpath.relto(self.makefile_dir.dirpath()), (
+                "%r should be relative to %r" % (
+                    fpath, self.makefile_dir.dirpath()))
             path = '../' + fpath.relto(self.makefile_dir.dirpath())
             return path.replace('\\', '/')
         else:

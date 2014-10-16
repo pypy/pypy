@@ -20,15 +20,15 @@ class VGenericEngine(object):
         # up in kwds['export_symbols'].
         kwds.setdefault('export_symbols', self.export_symbols)
 
-    def find_module(self, module_name, path, so_suffix):
-        basename = module_name + so_suffix
-        if path is None:
-            path = sys.path
-        for dirname in path:
-            filename = os.path.join(dirname, basename)
-            if os.path.isfile(filename):
-                return filename
-        return None
+    def find_module(self, module_name, path, so_suffixes):
+        for so_suffix in so_suffixes:
+            basename = module_name + so_suffix
+            if path is None:
+                path = sys.path
+            for dirname in path:
+                filename = os.path.join(dirname, basename)
+                if os.path.isfile(filename):
+                    return filename
 
     def collect_types(self):
         pass      # not needed in the generic engine
@@ -61,7 +61,9 @@ class VGenericEngine(object):
     def load_library(self):
         # import it with the CFFI backend
         backend = self.ffi._backend
-        module = backend.load_library(self.verifier.modulefilename)
+        # needs to make a path that contains '/', on Posix
+        filename = os.path.join(os.curdir, self.verifier.modulefilename)
+        module = backend.load_library(filename)
         #
         # call loading_gen_struct() to get the struct layout inferred by
         # the C compiler
@@ -171,6 +173,7 @@ class VGenericEngine(object):
             newfunction = self._load_constant(False, tp, name, module)
         else:
             indirections = []
+            base_tp = tp
             if any(isinstance(typ, model.StructOrUnion) for typ in tp.args):
                 indirect_args = []
                 for i, typ in enumerate(tp.args):
@@ -184,16 +187,18 @@ class VGenericEngine(object):
             wrappername = '_cffi_f_%s' % name
             newfunction = module.load_function(BFunc, wrappername)
             for i, typ in indirections:
-                newfunction = self._make_struct_wrapper(newfunction, i, typ)
+                newfunction = self._make_struct_wrapper(newfunction, i, typ,
+                                                        base_tp)
         setattr(library, name, newfunction)
         type(library)._cffi_dir.append(name)
 
-    def _make_struct_wrapper(self, oldfunc, i, tp):
+    def _make_struct_wrapper(self, oldfunc, i, tp, base_tp):
         backend = self.ffi._backend
         BType = self.ffi._get_cached_btype(tp)
         def newfunc(*args):
             args = args[:i] + (backend.newp(BType, args[i]),) + args[i+1:]
             return oldfunc(*args)
+        newfunc._cffi_base_type = base_tp
         return newfunc
 
     # ----------
@@ -244,17 +249,20 @@ class VGenericEngine(object):
                     prnt('  /* %s */' % str(e))   # cannot verify it, ignore
         prnt('}')
         self.export_symbols.append(layoutfuncname)
-        prnt('ssize_t %s(ssize_t i)' % (layoutfuncname,))
+        prnt('intptr_t %s(intptr_t i)' % (layoutfuncname,))
         prnt('{')
         prnt('  struct _cffi_aligncheck { char x; %s y; };' % cname)
-        prnt('  static ssize_t nums[] = {')
+        prnt('  static intptr_t nums[] = {')
         prnt('    sizeof(%s),' % cname)
         prnt('    offsetof(struct _cffi_aligncheck, y),')
-        for fname, _, fbitsize in tp.enumfields():
+        for fname, ftype, fbitsize in tp.enumfields():
             if fbitsize >= 0:
                 continue      # xxx ignore fbitsize for now
             prnt('    offsetof(%s, %s),' % (cname, fname))
-            prnt('    sizeof(((%s *)0)->%s),' % (cname, fname))
+            if isinstance(ftype, model.ArrayType) and ftype.length is None:
+                prnt('    0,  /* %s */' % ftype._get_c_name())
+            else:
+                prnt('    sizeof(((%s *)0)->%s),' % (cname, fname))
         prnt('    -1')
         prnt('  };')
         prnt('  return nums[i];')
@@ -268,7 +276,7 @@ class VGenericEngine(object):
             return     # nothing to do with opaque structs
         layoutfuncname = '_cffi_layout_%s_%s' % (prefix, name)
         #
-        BFunc = self.ffi.typeof("ssize_t(*)(ssize_t)")
+        BFunc = self.ffi._typeof_locked("intptr_t(*)(intptr_t)")[0]
         function = module.load_function(BFunc, layoutfuncname)
         layout = []
         num = 0
@@ -277,7 +285,7 @@ class VGenericEngine(object):
             if x < 0: break
             layout.append(x)
             num += 1
-        if isinstance(tp, model.StructType) and tp.partial:
+        if isinstance(tp, model.StructOrUnion) and tp.partial:
             # use the function()'s sizes and offsets to guide the
             # layout of the struct
             totalsize = layout[0]
@@ -314,9 +322,10 @@ class VGenericEngine(object):
                     continue        # xxx ignore fbitsize for now
                 check(layout[i], ffi.offsetof(BStruct, fname),
                       "wrong offset for field %r" % (fname,))
-                BField = ffi._get_cached_btype(ftype)
-                check(layout[i+1], ffi.sizeof(BField),
-                      "wrong size for field %r" % (fname,))
+                if layout[i+1] != 0:
+                    BField = ffi._get_cached_btype(ftype)
+                    check(layout[i+1], ffi.sizeof(BField),
+                          "wrong size for field %r" % (fname,))
                 i += 2
             assert i == len(layout)
 
@@ -377,15 +386,17 @@ class VGenericEngine(object):
     def _load_constant(self, is_int, tp, name, module):
         funcname = '_cffi_const_%s' % name
         if is_int:
-            BFunc = self.ffi.typeof("int(*)(long long*)")
+            BType = self.ffi._typeof_locked("long long*")[0]
+            BFunc = self.ffi._typeof_locked("int(*)(long long*)")[0]
             function = module.load_function(BFunc, funcname)
-            p = self.ffi.new("long long*")
+            p = self.ffi.new(BType)
             negative = function(p)
             value = int(p[0])
             if value < 0 and not negative:
-                value += (1 << (8*self.ffi.sizeof("long long")))
+                BLongLong = self.ffi._typeof_locked("long long")[0]
+                value += (1 << (8*self.ffi.sizeof(BLongLong)))
         else:
-            BFunc = self.ffi.typeof(tp.get_c_name('(*)(void)', name))
+            BFunc = self.ffi._typeof_locked(tp.get_c_name('(*)(void)', name))[0]
             function = module.load_function(BFunc, funcname)
             value = function()
         return value
@@ -399,23 +410,39 @@ class VGenericEngine(object):
     # ----------
     # enums
 
+    def _enum_funcname(self, prefix, name):
+        # "$enum_$1" => "___D_enum____D_1"
+        name = name.replace('$', '___D_')
+        return '_cffi_e_%s_%s' % (prefix, name)
+
     def _generate_gen_enum_decl(self, tp, name, prefix='enum'):
         if tp.partial:
             for enumerator in tp.enumerators:
                 self._generate_gen_const(True, enumerator)
             return
         #
-        funcname = '_cffi_e_%s_%s' % (prefix, name)
+        funcname = self._enum_funcname(prefix, name)
         self.export_symbols.append(funcname)
         prnt = self._prnt
         prnt('int %s(char *out_error)' % funcname)
         prnt('{')
         for enumerator, enumvalue in zip(tp.enumerators, tp.enumvalues):
-            prnt('  if (%s != %d) {' % (enumerator, enumvalue))
-            prnt('    snprintf(out_error, 255,'
-                             '"%s has the real value %d, not %d",')
-            prnt('            "%s", (int)%s, %d);' % (
-                enumerator, enumerator, enumvalue))
+            if enumvalue < 0:
+                prnt('  if ((%s) >= 0 || (long)(%s) != %dL) {' % (
+                    enumerator, enumerator, enumvalue))
+            else:
+                prnt('  if ((%s) < 0 || (unsigned long)(%s) != %dUL) {' % (
+                    enumerator, enumerator, enumvalue))
+            prnt('    char buf[64];')
+            prnt('    if ((%s) < 0)' % enumerator)
+            prnt('        sprintf(buf, "%%ld", (long)(%s));' % enumerator)
+            prnt('    else')
+            prnt('        sprintf(buf, "%%lu", (unsigned long)(%s));' %
+                 enumerator)
+            prnt('    sprintf(out_error,'
+                             ' "%s has the real value %s, not %s",')
+            prnt('            "%s", buf, "%d");' % (
+                enumerator[:100], enumvalue))
             prnt('    return -1;')
             prnt('  }')
         prnt('  return 0;')
@@ -429,10 +456,11 @@ class VGenericEngine(object):
             tp.enumvalues = tuple(enumvalues)
             tp.partial_resolved = True
         else:
-            BFunc = self.ffi.typeof("int(*)(char*)")
-            funcname = '_cffi_e_%s_%s' % (prefix, name)
+            BType = self.ffi._typeof_locked("char[]")[0]
+            BFunc = self.ffi._typeof_locked("int(*)(char*)")[0]
+            funcname = self._enum_funcname(prefix, name)
             function = module.load_function(BFunc, funcname)
-            p = self.ffi.new("char[]", 256)
+            p = self.ffi.new(BType, 256)
             if function(p) < 0:
                 error = self.ffi.string(p)
                 if sys.version_info >= (3,):
@@ -463,6 +491,14 @@ class VGenericEngine(object):
 
     def _generate_gen_variable_decl(self, tp, name):
         if isinstance(tp, model.ArrayType):
+            if tp.length == '...':
+                prnt = self._prnt
+                funcname = '_cffi_sizeof_%s' % (name,)
+                self.export_symbols.append(funcname)
+                prnt("size_t %s(void)" % funcname)
+                prnt("{")
+                prnt("  return sizeof(%s);" % (name,))
+                prnt("}")
             tp_ptr = model.PointerType(tp.item)
             self._generate_gen_const(False, name, tp_ptr)
         else:
@@ -474,6 +510,18 @@ class VGenericEngine(object):
     def _loaded_gen_variable(self, tp, name, module, library):
         if isinstance(tp, model.ArrayType):   # int a[5] is "constant" in the
                                               # sense that "a=..." is forbidden
+            if tp.length == '...':
+                funcname = '_cffi_sizeof_%s' % (name,)
+                BFunc = self.ffi._typeof_locked('size_t(*)(void)')[0]
+                function = module.load_function(BFunc, funcname)
+                size = function()
+                BItemType = self.ffi._get_cached_btype(tp.item)
+                length, rest = divmod(size, self.ffi.sizeof(BItemType))
+                if rest != 0:
+                    raise ffiplatform.VerificationError(
+                        "bad size: %r does not seem to be an array of %s" %
+                        (name, tp.item))
+                tp = tp.resolve_length(length)
             tp_ptr = model.PointerType(tp.item)
             value = self._load_constant(False, tp_ptr, name, module)
             # 'value' is a <cdata 'type *'> which we have to replace with
@@ -487,7 +535,7 @@ class VGenericEngine(object):
         # remove ptr=<cdata 'int *'> from the library instance, and replace
         # it by a property on the class, which reads/writes into ptr[0].
         funcname = '_cffi_var_%s' % name
-        BFunc = self.ffi.typeof(tp.get_c_name('*(*)(void)', name))
+        BFunc = self.ffi._typeof_locked(tp.get_c_name('*(*)(void)', name))[0]
         function = module.load_function(BFunc, funcname)
         ptr = function()
         def getter(library):
@@ -504,20 +552,29 @@ cffimod_header = r'''
 #include <errno.h>
 #include <sys/types.h>   /* XXX for ssize_t on some platforms */
 
-#ifdef _WIN32
-#  include <Windows.h>
-#  define snprintf _snprintf
-typedef __int8 int8_t;
-typedef __int16 int16_t;
-typedef __int32 int32_t;
-typedef __int64 int64_t;
-typedef unsigned __int8 uint8_t;
-typedef unsigned __int16 uint16_t;
-typedef unsigned __int32 uint32_t;
-typedef unsigned __int64 uint64_t;
-typedef SSIZE_T ssize_t;
-typedef unsigned char _Bool;
-#else
+/* this block of #ifs should be kept exactly identical between
+   c/_cffi_backend.c, cffi/vengine_cpy.py, cffi/vengine_gen.py */
+#if defined(_MSC_VER)
+# include <malloc.h>   /* for alloca() */
+# if _MSC_VER < 1600   /* MSVC < 2010 */
+   typedef __int8 int8_t;
+   typedef __int16 int16_t;
+   typedef __int32 int32_t;
+   typedef __int64 int64_t;
+   typedef unsigned __int8 uint8_t;
+   typedef unsigned __int16 uint16_t;
+   typedef unsigned __int32 uint32_t;
+   typedef unsigned __int64 uint64_t;
+# else
 #  include <stdint.h>
+# endif
+# if _MSC_VER < 1800   /* MSVC < 2013 */
+   typedef unsigned char _Bool;
+# endif
+#else
+# include <stdint.h>
+# if (defined (__SVR4) && defined (__sun)) || defined(_AIX)
+#  include <alloca.h>
+# endif
 #endif
 '''

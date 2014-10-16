@@ -1,5 +1,3 @@
-
-import py, sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 
@@ -51,6 +49,59 @@ class TestDicts(BaseTestPyPyC):
             ...
         """)
 
+    def test_non_virtual_dict(self):
+        def main(n):
+            i = 0
+            while i < n:
+                d = {str(i): i}
+                i += d[str(i)] - i + 1
+            return i
+
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i8 = int_lt(i5, i7)
+            guard_true(i8, descr=...)
+            guard_not_invalidated(descr=...)
+            p10 = call(ConstClass(ll_str__IntegerR_SignedConst_Signed), i5, descr=<Callr . i EF=3>)
+            guard_no_exception(descr=...)
+            i12 = call(ConstClass(ll_strhash), p10, descr=<Calli . r EF=0>)
+            p13 = new(descr=...)
+            p15 = new_array_clear(8, descr=<ArrayX .*>)
+            setfield_gc(p13, p15, descr=<FieldP dicttable.entries .*>)
+            i17 = call(ConstClass(ll_dict_lookup_trampoline), p13, p10, i12, descr=<Calli . rri EF=4 OS=4>)
+            {{{
+            setfield_gc(p13, 16, descr=<FieldS dicttable.resize_counter .*>)
+            setfield_gc(p13, 0, descr=<FieldS dicttable.num_items .+>)
+            }}}
+            guard_no_exception(descr=...)
+            p20 = new_with_vtable(ConstClass(W_IntObject))
+            call(ConstClass(_ll_dict_setitem_lookup_done_trampoline), p13, p10, p20, i12, i17, descr=<Callv 0 rrrii EF=4>)
+            setfield_gc(p20, i5, descr=<FieldS .*W_IntObject.inst_intval .*>)
+            guard_no_exception(descr=...)
+            i23 = call(ConstClass(ll_dict_lookup_trampoline), p13, p10, i12, descr=<Calli . rri EF=4 OS=4>)
+            guard_no_exception(descr=...)
+            i26 = int_and(i23, .*)
+            i27 = int_is_true(i26)
+            guard_false(i27, descr=...)
+            p28 = getfield_gc(p13, descr=<FieldP dicttable.entries .*>)
+            p29 = getinteriorfield_gc(p28, i23, descr=<InteriorFieldDescr <FieldP dictentry.value .*>>)
+            guard_nonnull_class(p29, ConstClass(W_IntObject), descr=...)
+            i31 = getfield_gc_pure(p29, descr=<FieldS .*W_IntObject.inst_intval .*>)
+            i32 = int_sub_ovf(i31, i5)
+            guard_no_overflow(descr=...)
+            i34 = int_add_ovf(i32, 1)
+            guard_no_overflow(descr=...)
+            i35 = int_add_ovf(i5, i34)
+            guard_no_overflow(descr=...)
+            --TICK--
+            jump(..., descr=...)
+        """)
+
+
+
+class TestOtherContainers(BaseTestPyPyC):
     def test_list(self):
         def main(n):
             i = 0
@@ -72,53 +123,6 @@ class TestDicts(BaseTestPyPyC):
             jump(..., descr=...)
         """)
 
-    def test_non_virtual_dict(self):
-        def main(n):
-            i = 0
-            while i < n:
-                d = {str(i): i}
-                i += d[str(i)] - i + 1
-            return i
-
-        log = self.run(main, [1000])
-        assert log.result == main(1000)
-        loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
-            i8 = int_lt(i5, i7)
-            guard_true(i8, descr=...)
-            guard_not_invalidated(descr=...)
-            p10 = call(ConstClass(ll_str__IntegerR_SignedConst_Signed), i5, descr=<Callr . i EF=3>)
-            guard_no_exception(descr=...)
-            i12 = call(ConstClass(ll_strhash), p10, descr=<Calli . r EF=0>)
-            p13 = new(descr=...)
-            p15 = new_array(8, descr=<ArrayX .*>)
-            setfield_gc(p13, p15, descr=<FieldP dicttable.entries .*>)
-            i17 = call(ConstClass(ll_dict_lookup_trampoline), p13, p10, i12, descr=<Calli . rri EF=4>)
-            setfield_gc(p13, 16, descr=<FieldS dicttable.resize_counter .*>)
-            guard_no_exception(descr=...)
-            p20 = new_with_vtable(ConstClass(W_IntObject))
-            call(ConstClass(_ll_dict_setitem_lookup_done_trampoline), p13, p10, p20, i12, i17, descr=<Callv 0 rrrii EF=4>)
-            setfield_gc(p20, i5, descr=<FieldS .*W_IntObject.inst_intval .*>)
-            guard_no_exception(descr=...)
-            i23 = call(ConstClass(ll_dict_lookup_trampoline), p13, p10, i12, descr=<Calli . rri EF=4>)
-            guard_no_exception(descr=...)
-            i26 = int_and(i23, .*)
-            i27 = int_is_true(i26)
-            guard_false(i27, descr=...)
-            p28 = getfield_gc(p13, descr=<FieldP dicttable.entries .*>)
-            p29 = getinteriorfield_gc(p28, i23, descr=<InteriorFieldDescr <FieldP dictentry.value .*>>)
-            guard_nonnull_class(p29, ConstClass(W_IntObject), descr=...)
-            i31 = getfield_gc_pure(p29, descr=<FieldS .*W_IntObject.inst_intval .*>)
-            i32 = int_sub_ovf(i31, i5)
-            guard_no_overflow(descr=...)
-            i34 = int_add_ovf(i32, 1)
-            guard_no_overflow(descr=...)
-            i35 = int_add_ovf(i5, i34)
-            guard_no_overflow(descr=...)
-            --TICK--
-            jump(..., descr=...)
-        """)
-
     def test_floatlist_unpack_without_calls(self):
         def fn(n):
             l = [2.3, 3.4, 4.5]
@@ -130,8 +134,7 @@ class TestDicts(BaseTestPyPyC):
         ops = loop.ops_by_id('look')
         assert 'call' not in log.opnames(ops)
 
-    #XXX the following tests only work with strategies enabled
-
+    # XXX the following tests only work with strategies enabled
     def test_should_not_create_intobject_with_sets(self):
         def main(n):
             i = 0

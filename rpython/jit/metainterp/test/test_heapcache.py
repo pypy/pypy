@@ -1,6 +1,6 @@
 from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp.history import ConstInt
+from rpython.jit.metainterp.history import ConstInt, BoxInt, BasicFailDescr
 
 box1 = "box1"
 box2 = "box2"
@@ -29,17 +29,24 @@ class FakeEffectinfo(object):
 
     OS_ARRAYCOPY = 0
 
-    def __init__(self, extraeffect, oopspecindex):
+    def __init__(self, extraeffect, oopspecindex, write_descrs_arrays):
         self.extraeffect = extraeffect
         self.oopspecindex = oopspecindex
+        self.write_descrs_arrays = write_descrs_arrays
+
 
 class FakeCallDescr(object):
-    def __init__(self, extraeffect, oopspecindex=None):
+    def __init__(self, extraeffect, oopspecindex=None, write_descrs_arrays=[]):
         self.extraeffect = extraeffect
         self.oopspecindex = oopspecindex
+        self.write_descrs_arrays = write_descrs_arrays
 
     def get_extra_info(self):
-        return FakeEffectinfo(self.extraeffect, self.oopspecindex)
+        return FakeEffectinfo(
+            self.extraeffect, self.oopspecindex,
+            write_descrs_arrays=self.write_descrs_arrays
+        )
+
 
 class TestHeapCache(object):
     def test_known_class_box(self):
@@ -65,7 +72,6 @@ class TestHeapCache(object):
         h.reset()
         assert not h.is_nonstandard_virtualizable(1)
         assert not h.is_nonstandard_virtualizable(2)
-
 
     def test_heapcache_fields(self):
         h = HeapCache()
@@ -271,7 +277,6 @@ class TestHeapCache(object):
         assert h.getarrayitem(box1, index1, descr1) is None
         assert h.getarrayitem(box1, index2, descr1) is None
 
-
     def test_replace_box(self):
         h = HeapCache()
         h.setfield(box1, box2, descr1)
@@ -364,25 +369,76 @@ class TestHeapCache(object):
         # Just need the destination box for this call
         h.invalidate_caches(
             rop.CALL,
-            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY),
-            [None, None, box2, None, None]
+            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            [None, box5, box2, index1, index1, index1]
         )
         assert h.getarrayitem(box1, index1, descr1) is box2
         h.invalidate_caches(
             rop.CALL,
-            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY),
-            [None, None, box3, None, None]
+            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            [None, box5, box3, index1, index1, index1]
         )
-        assert h.getarrayitem(box1, index1, descr1) is None
+        assert h.getarrayitem(box1, index1, descr1) is box2
 
         h.setarrayitem(box4, index1, box2, descr1)
         assert h.getarrayitem(box4, index1, descr1) is box2
         h.invalidate_caches(
             rop.CALL,
-            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY),
-            [None, None, box2, None, None]
+            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            [None, box3, box5, index1, index1, index2]
         )
         assert h.getarrayitem(box4, index1, descr1) is None
+
+    def test_ll_arraycopy_differing_descrs(self):
+        h = HeapCache()
+        h.setarrayitem(box1, index1, box2, descr1)
+        assert h.getarrayitem(box1, index1, descr1) is box2
+        h.new_array(box2, lengthbox2)
+        h.invalidate_caches(
+            rop.CALL,
+            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr2]),
+            [None, box3, box2, index1, index1, index2]
+        )
+        assert h.getarrayitem(box1, index1, descr1) is box2
+
+    def test_ll_arraycopy_result_propogated(self):
+        h = HeapCache()
+        h.setarrayitem(box1, index1, box2, descr1)
+        h.invalidate_caches(
+            rop.CALL,
+            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            [None, box1, box3, index1, index1, index2]
+        )
+        assert h.getarrayitem(box3, index1, descr1) is box2
+
+    def test_ll_arraycopy_dest_new(self):
+        h = HeapCache()
+        h.new_array(box1, lengthbox1)
+        h.setarrayitem(box3, index1, box4, descr1)
+        h.invalidate_caches(
+            rop.CALL,
+            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            [None, box2, box1, index1, index1, index2]
+        )
+
+    def test_ll_arraycopy_doesnt_escape_arrays(self):
+        h = HeapCache()
+        h.new_array(box1, lengthbox1)
+        h.new_array(box2, lengthbox2)
+        h.invalidate_caches(
+            rop.CALL,
+            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            [None, box2, box1, index1, index1, index2]
+        )
+        assert h.is_unescaped(box1)
+        assert h.is_unescaped(box2)
+        h.invalidate_caches(
+            rop.CALL,
+            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            [None, box2, box1, index1, index1, BoxInt()]
+        )
+        assert not h.is_unescaped(box1)
+        assert not h.is_unescaped(box2)
 
     def test_unescaped(self):
         h = HeapCache()
@@ -477,3 +533,70 @@ class TestHeapCache(object):
             []
         )
         assert h.getarrayitem(box1, index1, descr1) is box3
+
+    def test_bug_missing_ignored_operations(self):
+        h = HeapCache()
+        h.new(box1)
+        h.new(box2)
+        h.setfield(box1, box2, descr1)
+        assert h.getfield(box1, descr1) is box2
+        h.invalidate_caches(rop.STRSETITEM, None, [])
+        h.invalidate_caches(rop.UNICODESETITEM, None, [])
+        h.invalidate_caches(rop.SETFIELD_RAW, None, [])
+        h.invalidate_caches(rop.SETARRAYITEM_RAW, None, [])
+        h.invalidate_caches(rop.SETINTERIORFIELD_RAW, None, [])
+        h.invalidate_caches(rop.RAW_STORE, None, [])
+        assert h.is_unescaped(box1)
+        assert h.is_unescaped(box2)
+        assert h.getfield(box1, descr1) is box2
+
+    def test_bug_heap_cache_is_cleared_but_not_is_unescaped_1(self):
+        # bug if only the getfield() link is cleared (heap_cache) but not
+        # the is_unescaped() flags: we can do later a GETFIELD(box1) which
+        # will give us a fresh box3, which is actually equal to box2.  This
+        # box3 is escaped, but box2 is still unescaped.  Bug shown e.g. by
+        # calling some residual code that changes the values on box3: then
+        # the content of box2 is still cached at the old value.
+        h = HeapCache()
+        h.new(box1)
+        h.new(box2)
+        h.setfield(box1, box2, descr1)
+        h.invalidate_caches(rop.SETFIELD_GC, None, [box1, box2])
+        assert h.getfield(box1, descr1) is box2
+        h.invalidate_caches(rop.CALL_MAY_FORCE, None, [])
+        assert not h.is_unescaped(box1)
+        assert not h.is_unescaped(box2)
+        assert h.getfield(box1, descr1) is None
+
+    def test_bug_heap_cache_is_cleared_but_not_is_unescaped_2(self):
+        h = HeapCache()
+        h.new(box1)
+        h.new(box2)
+        h.setfield(box1, box2, descr1)
+        h.invalidate_caches(rop.SETFIELD_GC, None, [box1, box2])
+        assert h.getfield(box1, descr1) is box2
+        descr = BasicFailDescr()
+        class XTra:
+            oopspecindex = 0
+            OS_ARRAYCOPY = 42
+            extraeffect = 5
+            EF_LOOPINVARIANT = 1
+            EF_ELIDABLE_CANNOT_RAISE = 2
+            EF_ELIDABLE_CAN_RAISE = 3
+        descr.get_extra_info = XTra
+        h.invalidate_caches(rop.CALL, descr, [])
+        assert h.is_unescaped(box1)
+        assert h.is_unescaped(box2)
+        assert h.getfield(box1, descr1) is box2
+
+    def test_is_likely_virtual(self):
+        h = HeapCache()
+        h.new(box1)
+        assert h.is_unescaped(box1)
+        assert h.is_likely_virtual(box1)
+        h.reset(reset_virtuals=False)
+        assert not h.is_unescaped(box1)
+        assert h.is_likely_virtual(box1)
+        h._escape(box1)
+        assert not h.is_unescaped(box1)
+        assert not h.is_likely_virtual(box1)

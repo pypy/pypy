@@ -115,14 +115,14 @@ K = [
     ]
 
 class sha:
-    "An implementation of the MD5 hash function in pure Python."
+    "An implementation of the SHA hash function in pure Python."
 
     digest_size = digestsize = 20
-    block_size = 1
+    block_size = 512 // 8
 
     def __init__(self):
         "Initialisation."
-        
+
         # Initial message length in bits(!).
         self.length = 0
         self.count = [0, 0]
@@ -209,7 +209,7 @@ class sha:
         self.H2 = (self.H2 + C) & 0xffffffff
         self.H3 = (self.H3 + D) & 0xffffffff
         self.H4 = (self.H4 + E) & 0xffffffff
-    
+
 
     # Down from here all methods follow the Python Standard Library
     # API of the sha module.
@@ -295,13 +295,13 @@ class sha:
                  _long2bytesBigEndian(self.H3, 4) + \
                  _long2bytesBigEndian(self.H4, 4)
 
-        self.H0 = H0 
-        self.H1 = H1 
+        self.H0 = H0
+        self.H1 = H1
         self.H2 = H2
         self.H3 = H3
         self.H4 = H4
-        self.input = input 
-        self.count = count 
+        self.input = input
+        self.count = count
 
         return digest
 
