@@ -1,4 +1,4 @@
-
+import os
 import py
 from pypy.conftest import pypydir
 from pypy.tool.release import package, package
@@ -13,12 +13,12 @@ def test_dir_structure(test='test'):
         exe_name_in_archive = 'pypy-c.exe'
     else:
         basename = 'pypy-c'
-        rename_pypy_c = 'pypy'
-        exe_name_in_archive = 'bin/pypy'
+        rename_pypy_c = package.POSIX_EXE
+        exe_name_in_archive = os.path.join('bin', package.POSIX_EXE)
     pypy_c = py.path.local(pypydir).join('goal', basename)
     if not pypy_c.check():
         if sys.platform == 'win32':
-            import os, shutil
+            import shutil
             for d in os.environ['PATH'].split(';'):
                 if os.path.exists(os.path.join(d, 'cmd.exe')):
                     shutil.copy(os.path.join(d, 'cmd.exe'), str(pypy_c))
