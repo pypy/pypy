@@ -654,7 +654,7 @@ class W_UfuncGeneric(W_Ufunc):
                         "(size %d is different from %d)", self.name, i, idim,
                     self.signature, op_dim_size, inner_dimensions[1 + core_dim_index])
                 idim += 1
-        iter_shape = [-1] * (broadcast_ndim + (len(outargs) * num_dims))
+        iter_shape = [-1] * (broadcast_ndim + (len(outargs) * iter_ndim))
         j = broadcast_ndim
         core_dim_ixs_size = 0
         firstdim = broadcast_ndim
@@ -1218,14 +1218,12 @@ class W_GenericUFuncCaller(W_Root):
     def __init__(self, func, data):
         self.func = func
         self.data = data
-        self.dims = None
-        self.steps = None
+        self.dims = alloc_raw_storage(0, track_allocation=False)
+        self.steps = alloc_raw_storage(0, track_allocation=False)
 
     def __del__(self):
-        if self.dims is not None:
-            free_raw_storage(self.dims, track_allocation=False)
-        if self.steps is not None:
-            free_raw_storage(self.steps, track_allocation=False)
+        free_raw_storage(self.dims, track_allocation=False)
+        free_raw_storage(self.steps, track_allocation=False)
 
     def descr_call(self, space, __args__):
         args_w, kwds_w = __args__.unpack()
