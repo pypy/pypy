@@ -249,10 +249,6 @@ class RPythonAnnotator(object):
             assert s_value.contains(s_old)
         arg.annotation = s_value
 
-    def transfer_binding(self, v_target, v_source):
-        assert v_source.annotation is not None
-        v_target.annotation = v_source.annotation
-
     def warning(self, msg, pos=None):
         if pos is None:
             try:

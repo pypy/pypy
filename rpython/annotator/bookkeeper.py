@@ -559,10 +559,6 @@ class Bookkeeper(object):
             assert self.annotator.binding(op.args[pos]) == s_type
         return op
 
-    def ondegenerated(self, what, s_value, where=None, called_from_graph=None):
-        self.annotator.ondegenerated(what, s_value, where=where,
-                                     called_from_graph=called_from_graph)
-
     def whereami(self):
         return self.annotator.whereami(self.position_key)
 
