@@ -286,8 +286,7 @@ class TestNormalizeAfterTheFact(TestNormalize):
 
     def test_add_more_subclasses(self):
         from rpython.rtyper import rclass
-        from rpython.rtyper.lltypesystem.rclass import ll_issubclass
-        from rpython.rtyper.lltypesystem.rclass import CLASSTYPE
+        from rpython.rtyper.rclass import ll_issubclass, CLASSTYPE
         class Sub3(PBase):
             def newmethod(self):
                 return 3

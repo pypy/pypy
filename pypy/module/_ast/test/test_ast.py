@@ -425,3 +425,8 @@ from __future__ import generators""")
         str_node2 = copy.deepcopy(str_node)
         dict_res = str_node2.__dict__
         assert dict_res == {'n':2, 'lineno':2}
+
+    def test_bug_null_in_objspace_type(self):
+        import ast
+        code = ast.Expression(lineno=1, col_offset=1, body=ast.ListComp(lineno=1, col_offset=1, elt=ast.Call(lineno=1, col_offset=1, func=ast.Name(lineno=1, col_offset=1, id='str', ctx=ast.Load(lineno=1, col_offset=1)), args=[ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Load(lineno=1, col_offset=1))], keywords=[]), generators=[ast.comprehension(lineno=1, col_offset=1, target=ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Store(lineno=1, col_offset=1)), iter=ast.List(lineno=1, col_offset=1, elts=[ast.Num(lineno=1, col_offset=1, n=23)], ctx=ast.Load(lineno=1, col_offset=1, )), ifs=[])]))
+        compile(code, '<template>', 'eval')

@@ -1,4 +1,5 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator

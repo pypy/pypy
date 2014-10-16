@@ -18,7 +18,8 @@ from rpython.rlib.debug import debug_start, debug_stop, debug_print, make_sure_n
 from rpython.rlib.jit import Counters
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper import rclass
 
 
 
@@ -518,6 +519,15 @@ class MIFrame(object):
             abox = self.opimpl_new_array_clear(sizebox, arraydescr)
         else:
             abox = self.opimpl_new_array(sizebox, arraydescr)
+        self._opimpl_setfield_gc_any(sbox, abox, itemsdescr)
+        return sbox
+
+    @arguments("box", "descr", "descr", "descr", "descr")
+    def opimpl_newlist_clear(self, sizebox, structdescr, lengthdescr,
+                             itemsdescr, arraydescr):
+        sbox = self.opimpl_new(structdescr)
+        self._opimpl_setfield_gc_any(sbox, sizebox, lengthdescr)
+        abox = self.opimpl_new_array_clear(sizebox, arraydescr)
         self._opimpl_setfield_gc_any(sbox, abox, itemsdescr)
         return sbox
 

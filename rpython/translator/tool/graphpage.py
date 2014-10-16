@@ -106,12 +106,6 @@ class FlowGraphPage(GraphPage):
         self.source = make_dot_graphs(name, gs, target=None)
         # make the dictionary of links -- one per annotated variable
         self.current_value = {}
-        if self.annotator:
-            for var, s_value in self.annotator.bindings.items():
-                info = '%s: %s' % (var.name, s_value)
-                annotationcolor = getattr(s_value, 'annotationcolor', None)
-                self.links[var.name] = info, annotationcolor
-                self.current_value[var.name] = s_value
 
         #from rpython.jit.hintannotator.annotator import HintAnnotator
         #if isinstance(self.annotator, HintAnnotator):
@@ -128,6 +122,12 @@ class FlowGraphPage(GraphPage):
                     for v in link.getextravars():
                         vars[v] = True
         for var in vars:
+            s_value = var.annotation
+            if s_value is not None:
+                info = '%s: %s' % (var.name, s_value)
+                annotationcolor = getattr(s_value, 'annotationcolor', None)
+                self.links[var.name] = info, annotationcolor
+                self.current_value[var.name] = s_value
             if hasattr(var, 'concretetype'):
                 #info = self.links.get(var.name, var.name)
                 #info = '(%s) %s' % (var.concretetype, info)

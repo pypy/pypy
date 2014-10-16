@@ -12,8 +12,9 @@ from rpython.flowspace.model import SpaceOperation, Variable, Constant, c_last_e
 from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
-from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rclass, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
 from rpython.rtyper.lltypesystem import rbytearray
+from rpython.rtyper import rclass
 from rpython.rtyper.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from rpython.translator.unsimplify import varoftype
 
@@ -1653,41 +1654,34 @@ class Transformer(object):
         self._get_list_nonneg_canraise_flags(op)
 
     def _get_initial_newlist_length(self, op, args):
-        # normalize number of arguments to the 'newlist' function
-        if len(args) > 1:
-            v_default = args[1]     # initial value: must be 0 or NULL
-            ARRAY = deref(op.result.concretetype)
-            if (not isinstance(v_default, Constant) or
-                v_default.value != arrayItem(ARRAY)._defl()):
-                raise NotSupported("variable or non-null initial value")
-        if len(args) >= 1:
-            return args[0]
+        assert len(args) <= 1
+        if len(args) == 1:
+            v_length = args[0]
+            assert v_length.concretetype is lltype.Signed
+            return v_length
         else:
             return Constant(0, lltype.Signed)     # length: default to 0
 
     # ---------- fixed lists ----------
 
     def do_fixed_newlist(self, op, args, arraydescr):
+        # corresponds to rtyper.lltypesystem.rlist.newlist:
+        # the items may be uninitialized.
         v_length = self._get_initial_newlist_length(op, args)
-        assert v_length.concretetype is lltype.Signed
-        ops = []
-        if isinstance(v_length, Constant):
-            if v_length.value >= 0:
-                v = v_length
-            else:
-                v = Constant(0, lltype.Signed)
-        else:
-            v = Variable('new_length')
-            v.concretetype = lltype.Signed
-            ops.append(SpaceOperation('int_force_ge_zero', [v_length], v))
         ARRAY = op.result.concretetype.TO
         if ((isinstance(ARRAY.OF, lltype.Ptr) and ARRAY.OF._needsgc()) or
                isinstance(ARRAY.OF, lltype.Struct)):
             opname = 'new_array_clear'
         else:
             opname = 'new_array'
-        ops.append(SpaceOperation(opname, [v, arraydescr], op.result))
-        return ops
+        return SpaceOperation(opname, [v_length, arraydescr], op.result)
+
+    def do_fixed_newlist_clear(self, op, args, arraydescr):
+        # corresponds to rtyper.rlist.ll_alloc_and_clear:
+        # needs to clear the items.
+        v_length = self._get_initial_newlist_length(op, args)
+        return SpaceOperation('new_array_clear', [v_length, arraydescr],
+                              op.result)
 
     def do_fixed_list_len(self, op, args, arraydescr):
         if args[0] in self.vable_array_vars:     # virtualizable array
@@ -1753,6 +1747,14 @@ class Transformer(object):
                              itemsdescr, structdescr):
         v_length = self._get_initial_newlist_length(op, args)
         return SpaceOperation('newlist',
+                              [v_length, structdescr, lengthdescr, itemsdescr,
+                               arraydescr],
+                              op.result)
+
+    def do_resizable_newlist_clear(self, op, args, arraydescr, lengthdescr,
+                                   itemsdescr, structdescr):
+        v_length = self._get_initial_newlist_length(op, args)
+        return SpaceOperation('newlist_clear',
                               [v_length, structdescr, lengthdescr, itemsdescr,
                                arraydescr],
                               op.result)

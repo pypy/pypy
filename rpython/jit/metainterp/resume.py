@@ -10,7 +10,7 @@ from rpython.rlib.debug import (have_debug_prints, ll_assert, debug_start,
     debug_stop, debug_print)
 from rpython.rtyper import annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
-from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+from rpython.rtyper.rclass import OBJECTPTR
 from rpython.jit.metainterp.walkvirtual import VirtualVisitor
 
 

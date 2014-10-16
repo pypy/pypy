@@ -6,7 +6,8 @@ from rpython.jit.codewriter.jitcode import SwitchDictDescr, JitCode
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.rlib.objectmodel import ComputedIntSymbolic
 from rpython.flowspace.model import Constant
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper import rclass
 
 
 class AssemblerError(Exception):

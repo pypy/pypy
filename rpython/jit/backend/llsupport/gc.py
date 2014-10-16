@@ -2,7 +2,8 @@ import os
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
@@ -548,12 +549,6 @@ class GcLLDescr_framework(GcLLDescription):
             type_id = self.layoutbuilder.get_type_id(A)
             descr.tid = llop.combine_ushort(lltype.Signed, type_id, 0)
 
-    def _set_tid(self, gcptr, tid):
-        hdr_addr = llmemory.cast_ptr_to_adr(gcptr)
-        hdr_addr -= self.gcheaderbuilder.size_gc_header
-        hdr = llmemory.cast_adr_to_ptr(hdr_addr, self.HDRPTR)
-        hdr.tid = tid
-
     def can_use_nursery_malloc(self, size):
         return size < self.max_size_of_young_obj
 
@@ -565,7 +560,7 @@ class GcLLDescr_framework(GcLLDescription):
 
     def get_malloc_slowpath_array_addr(self):
         return self.get_malloc_fn_addr('malloc_array')
-    
+
 # ____________________________________________________________
 
 def get_ll_description(gcdescr, translator=None, rtyper=None):

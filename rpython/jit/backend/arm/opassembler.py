@@ -1221,17 +1221,29 @@ class ResOpAssembler(BaseAssembler):
                 length_box.getint() <= 14 and     # same limit as GCC
                 itemsize in (4, 2, 1)):
             # Inline a series of STR operations, starting at 'dstaddr_loc'.
-            # XXX we could optimize STRB/STRH into STR, but this needs care:
-            # XXX it only works if startindex_loc is a constant, otherwise
-            # XXX we'd be doing unaligned accesses
+            next_group = -1
+            if itemsize < 4 and startindex >= 0:
+                # we optimize STRB/STRH into STR, but this needs care:
+                # it only works if startindex_loc is a constant, otherwise
+                # we'd be doing unaligned accesses.
+                next_group = (-startindex * itemsize) & 3
+            #
             self.mc.gen_load_int(r.ip.value, 0)
-            for i in range(length_box.getint()):
-                if itemsize == 4:
-                    self.mc.STR_ri(r.ip.value, dstaddr_loc.value, imm=i*4)
-                elif itemsize == 2:
-                    self.mc.STRH_ri(r.ip.value, dstaddr_loc.value, imm=i*2)
+            i = 0
+            total_size = length_box.getint() * itemsize
+            while i < total_size:
+                sz = itemsize
+                if i == next_group:
+                    next_group += 4
+                    if next_group <= total_size:
+                        sz = 4
+                if sz == 4:
+                    self.mc.STR_ri(r.ip.value, dstaddr_loc.value, imm=i)
+                elif sz == 2:
+                    self.mc.STRH_ri(r.ip.value, dstaddr_loc.value, imm=i)
                 else:
-                    self.mc.STRB_ri(r.ip.value, dstaddr_loc.value, imm=i*1)
+                    self.mc.STRB_ri(r.ip.value, dstaddr_loc.value, imm=i)
+                i += sz
 
         else:
             if isinstance(length_box, ConstInt):

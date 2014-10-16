@@ -8293,6 +8293,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_licm_boxed_opaque_getitem_unknown_class(self):
+        # Explanation: the getfield_gc(p2) is done on what starts as
+        # an opaque object.  The getfield_gc(p1) is moved out of the
+        # (non-preamble) loop.  It looks like the getfield_gc(p2)
+        # should also move out.  However, moving the getfield_gc(p2)
+        # earlier can be dangerous with opaque pointers: we can't move
+        # it before other guards that indirectly check for which type
+        # of object is in p2.  (In this simple test there are no guard
+        # at all between the start of the loop and the
+        # getfield_gc(p2), but in general there are.)
+        #
+        # There are two cases: (1) moving the getfield_gc(p2) out of
+        # the loop into the preamble: this does not look like a
+        # problem because we already have a getfield_gc(p2) there, on
+        # the same p2.  Case (2) is moving the getfield_gc(p2) into
+        # the short preamble: this is more problematic because the
+        # short preamble can't do the indirect checking on p1.
         ops = """
         [p1]
         p2 = getfield_gc(p1, descr=nextdescr)
@@ -8326,6 +8342,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_licm_unboxed_opaque_getitem_unknown_class(self):
+        # see test_licm_boxed_opaque_getitem_unknown_class
         ops = """
         [p2]
         mark_opaque_ptr(p2)

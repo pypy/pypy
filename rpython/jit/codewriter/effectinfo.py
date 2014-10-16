@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
-from rpython.rtyper.lltypesystem.rclass import OBJECT
+from rpython.rtyper.rclass import OBJECT
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.translator.backendopt.graphanalyze import BoolGraphAnalyzer
 

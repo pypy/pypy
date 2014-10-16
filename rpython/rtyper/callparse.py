@@ -19,7 +19,7 @@ def getrinputs(rtyper, graph):
 
 def getrresult(rtyper, graph):
     """Return the repr of the result variable of the 'graph'."""
-    if graph.getreturnvar() in rtyper.annotator.bindings:
+    if graph.getreturnvar().annotation is not None:
         return rtyper.bindingrepr(graph.getreturnvar())
     else:
         return lltype.Void
