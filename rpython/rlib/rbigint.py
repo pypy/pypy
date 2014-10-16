@@ -71,7 +71,6 @@ KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 
 FIVEARY_CUTOFF = 8
 
-
 def _mask_digit(x):
     return UDIGIT_MASK(x & MASK)
 _mask_digit._annspecialcase_ = 'specialize:argtype(0)'
@@ -384,12 +383,17 @@ class rbigint(object):
                 digits = ''.join([digits[i] for i in range(length-1, -1, -1)])
         return digits
 
-    @jit.elidable
     def toint(self):
         """
         Get an integer from a bigint object.
         Raises OverflowError if overflow occurs.
         """
+        if self.numdigits() > MAX_DIGITS_THAT_CAN_FIT_IN_INT:
+            raise OverflowError
+        return self._toint_helper()
+
+    @jit.elidable
+    def _toint_helper(self):
         x = self._touint_helper()
         # Haven't lost any bits, but if the sign bit is set we're in
         # trouble *unless* this is the min negative number.  So,
@@ -422,8 +426,7 @@ class rbigint(object):
             prev = x
             x = (x << SHIFT) + self.udigit(i)
             if (x >> SHIFT) != prev:
-                raise OverflowError(
-                        "long int too large to convert to unsigned int (%d, %d)" % (x >> SHIFT, prev))
+                raise OverflowError("long int too large to convert to unsigned int")
             i -= 1
         return x
 
@@ -1083,6 +1086,11 @@ _jmapping = [(5 * SHIFT) % 5,
              (3 * SHIFT) % 5,
              (2 * SHIFT) % 5,
              (1 * SHIFT) % 5]
+
+
+# if the bigint has more digits than this, it cannot fit into an int
+MAX_DIGITS_THAT_CAN_FIT_IN_INT = rbigint.fromint(-sys.maxint - 1).numdigits()
+
 
 #_________________________________________________________________
 
