@@ -2,7 +2,7 @@ from __future__ import division
 
 import operator
 import sys
-from random import random, randint, sample
+from random import random, randint, sample, seed
 
 import py
 
@@ -108,13 +108,17 @@ class TestRLong(object):
                 assert r1.tolong() == r2
 
     def test_int_mod(self):
-        for op1 in [-50, -12, -2, -1, 1, 2, 50, 52]:
-            for op2 in [-4, -2, -1, 1, 2, 8]:
-                rl_op1 = rbigint.fromint(op1)
-                r1 = rl_op1.int_mod(op2)
-                r2 = op1 % op2
-                print op1, op2
-                assert r1.tolong() == r2
+        for x in [1, 2, 12, 50, 52, 123456789123456789000000L, 1 << 100, 3 ** 10000]:
+            for y in [1, 2, 4, 8, 8888, sys.maxint, 2 ** 19, 2 ** 18 - 1]:
+                for i in [-1, 1]:
+                    for j in [-1, 1]:
+                        op1 = x * i
+                        op2 = y * j
+                        rl_op1 = rbigint.fromlong(op1)
+                        r1 = rl_op1.int_mod(op2)
+                        r2 = op1 % op2
+                        print op1, op2
+                        assert r1.tolong() == r2
 
     def test_pow(self):
         for op1 in [-50, -12, -2, -1, 1, 2, 50, 52]:
@@ -248,14 +252,14 @@ class Test_rbigint(object):
                 assert result.tolong() == x * i + y * j
 
     def test_int_add(self):
-        x = 123456789123456789000000L
-        y = 9999
-        for i in [-1, 1]:
-            for j in [-1, 1]:
-                f1 = rbigint.fromlong(x * i)
-                f2 = y * j
-                result = f1.int_add(f2)
-                assert result.tolong() == x * i + y * j
+        for x in [123456789123456789000000L, 1 << 100, 3 ** 10000]:
+            for y in [0, 1, 9999, sys.maxint, 2 ** 19, 2 ** 18 - 1]:
+                for i in [-1, 1]:
+                    for j in [-1, 1]:
+                        f1 = rbigint.fromlong(x * i)
+                        f2 = y * j
+                        result = f1.int_add(f2)
+                        assert result.tolong() == x * i + y * j
 
     def test_sub(self):
         x = 12378959520302182384345L
@@ -268,14 +272,14 @@ class Test_rbigint(object):
                 assert result.tolong() == x * i - y * j
 
     def test_int_sub(self):
-        x = 12378959520302182384345L
-        y = 8888
-        for i in [-1, 1]:
-            for j in [-1, 1]:
-                f1 = rbigint.fromlong(x * i)
-                f2 = y * j
-                result = f1.int_sub(f2)
-                assert result.tolong() == x * i - y * j
+        for x in [123456789123456789000000L, 1 << 100, 3 ** 10000]:
+            for y in [0, 1, 8888, sys.maxint, 2 ** 19, 2 ** 18 - 1]:
+                for i in [-1, 1]:
+                    for j in [-1, 1]:
+                        f1 = rbigint.fromlong(x * i)
+                        f2 = y * j
+                        result = f1.int_sub(f2)
+                        assert result.tolong() == x * i - y * j
 
     def test_subzz(self):
         w_l0 = rbigint.fromint(0)
@@ -293,15 +297,14 @@ class Test_rbigint(object):
         assert result.tolong() == x * x
 
     def test_int_mul(self):
-        x = -1238585838347L
-        y = 3
-        for i in [-1, 1]:
-            for j in [-1, 1]:
-                f1 = rbigint.fromlong(x * i)
-                f2 = y * j
-                result = f1.int_mul(f2)
-                assert result.tolong() == (x * i) * (y * j)
-                
+        for x in [123456789123456789000000L, 1 << 100, 3 ** 10000]:
+            for y in [0, 1, 8888, sys.maxint, 2 ** 19, 2 ** 18 - 1]:
+                for i in [-1, 1]:
+                    for j in [-1, 1]:
+                        f1 = rbigint.fromlong(x * i)
+                        f2 = y * j
+                        result = f1.int_mul(f2)
+                        assert result.tolong() == (x * i) * (y * j)
 
     def test_tofloat(self):
         x = 12345678901234567890L ** 10
