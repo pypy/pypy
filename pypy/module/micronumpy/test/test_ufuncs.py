@@ -160,6 +160,21 @@ class AppTestUfuncs(BaseNumpyAppTest):
         af2 = ufunc(af)
         assert all(af2 == af * 2)
 
+    def test_frompyfunc_2d_sig(self):
+        def times_2(in_array, out_array):
+            in_flat = in_array.flat
+            out_flat = out_array.flat
+            for i in range(in_array.size):
+                out_flat[i] = in_flat[i] * 2
+        from numpy import frompyfunc, dtype, arange
+        ufunc = frompyfunc([times_2], 1, 1,
+                            signature='(m,m)->(m,m)',
+                            dtypes=[dtype(int), dtype(int)],
+                          )
+        ai = arange(18, dtype=int).reshape(2,3,3)
+        ai2 = ufunc(ai)
+        assert all(ai1 == ai * 2)
+
     def test_ufunc_kwargs(self):
         from numpy import ufunc, frompyfunc, arange, dtype
         def adder(a, b):

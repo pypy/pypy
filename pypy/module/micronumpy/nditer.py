@@ -347,6 +347,8 @@ class W_NDIter(W_Root):
         return space.wrap(self)
 
     def getitem(self, it, st, op_flags):
+        # TODO: push op_flags and the array onto the iterator
+        # so we can avoid creating a new W_NDimArray each iteration
         if op_flags.rw == 'r':
             impl = concrete.ConcreteNonWritableArrayWithBase
         else:

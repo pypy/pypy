@@ -580,8 +580,6 @@ class W_UfuncGeneric(W_Ufunc):
         if not self.core_enabled:
             # func is going to do all the work, it must accept W_NDimArray args
             arglist = space.newlist(list(inargs + outargs))
-            if not isinstance(func, W_GenericUFuncCaller):
-                raise oefmt(space.w_RuntimeError, "cannot do core_enabled frompyfunc")
             space.call_args(func, Arguments.frompacked(space, arglist))
             if len(outargs) < 2:
                 return outargs[0]
@@ -607,7 +605,7 @@ class W_UfuncGeneric(W_Ufunc):
         # into the array 'inner_dimensions[1:]'. Initialize them to
         # 1, for example in the case where the operand broadcasts
         # to a core dimension, it won't be visited.
-        inner_dimensions = [1] * (self.core_num_dim_ix + 1)
+        inner_dimensions = [1] * (self.core_num_dim_ix + 2)
         idim = 0
         for i in range(self.nin):
             curarg = inargs[i]
@@ -656,7 +654,7 @@ class W_UfuncGeneric(W_Ufunc):
                         "(size %d is different from %d)", self.name, i, idim,
                     self.signature, op_dim_size, inner_dimensions[1 + core_dim_index])
                 idim += 1
-        iter_shape = [-1] * (broadcast_ndim + len(outargs))
+        iter_shape = [-1] * (broadcast_ndim + (len(outargs) * num_dims))
         j = broadcast_ndim
         core_dim_ixs_size = 0
         firstdim = broadcast_ndim
@@ -681,13 +679,13 @@ class W_UfuncGeneric(W_Ufunc):
             for idim in range(broadcast_ndim):
                 if idim >= broadcast_ndim -n:
                     op_axes_arrays[idim][iout] = idim - (broadcast_ndim -n)
-                dim_offset = self.core_offsets[iout]
-                num_dims = self.core_num_dims[iout]
-                for idim in range(num_dims):
-                    cdi = self.core_dim_ixs[dim_offset + idim]
-                    iter_shape[j] = inner_dimensions[1 + cdi]
-                    op_axes_arrays[j][iout] = n + idim
-                    j += 1
+            dim_offset = self.core_offsets[iout]
+            num_dims = self.core_num_dims[iout]
+            for idim in range(num_dims):
+                cdi = self.core_dim_ixs[dim_offset + idim]
+                iter_shape[j] = inner_dimensions[1 + cdi]
+                op_axes_arrays[j][iout] = n + idim
+                j += 1
             core_dim_ixs_size += self.core_num_dims[iout];
         # TODO once we support obejct dtypes,
         # FAIL with NotImplemented if the other object has
@@ -695,6 +693,8 @@ class W_UfuncGeneric(W_Ufunc):
         # the current op (signalling it can handle ndarray's).
 
         # TODO parse and handle subok
+
+        # mimic NpyIter_AdvancedNew with a nditer
 
         if isinstance(func, W_GenericUFuncCaller):
             pass
