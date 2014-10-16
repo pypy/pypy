@@ -416,7 +416,27 @@ class TestAnnotateTestCase:
             s_constmeth = iv(constmeth)
             assert isinstance(s_constmeth, annmodel.SomeBuiltin)
             s_meth = s_example.getattr(iv(methname))
-            assert isinstance(s_constmeth, annmodel.SomeBuiltin)
+            assert isinstance(s_meth, annmodel.SomeBuiltin)
+
+    def test_unbound_methods(self):
+        a = self.RPythonAnnotator()
+        iv = a.bookkeeper.immutablevalue
+        # this checks that some unbound built-in methods are really supported by
+        # the annotator (it doesn't check that they operate property, though)
+        for example, methname, s_example in [
+            ('', 'join',    annmodel.SomeString()),
+            ([], 'append',  somelist(annmodel.s_Int)),
+            ([], 'extend',  somelist(annmodel.s_Int)),
+            ([], 'reverse', somelist(annmodel.s_Int)),
+            ([], 'insert',  somelist(annmodel.s_Int)),
+            ([], 'pop',     somelist(annmodel.s_Int)),
+            ]:
+            constmeth = getattr(type(example), methname)
+            s_constmeth = iv(constmeth)
+            assert isinstance(s_constmeth, annmodel.SomeObject)
+            assert s_constmeth.getKind() == 0
+            s_meth = iv(example).getattr(iv(methname))
+            assert isinstance(s_meth, annmodel.SomeObject)
 
     def test_str_join(self):
         a = self.RPythonAnnotator()
@@ -426,6 +446,18 @@ class TestAnnotateTestCase:
         def f(n):
             g(0)
             return ''.join(g(n))
+        s = a.build_types(f, [int])
+        assert s.knowntype == str
+        assert s.no_nul
+
+    def test_str_join_unbound(self):
+        a = self.RPythonAnnotator()
+        def g(n):
+            if n:
+                return ["foo", "bar"]
+        def f(n):
+            g(0)
+            return str.join('', g(n))
         s = a.build_types(f, [int])
         assert s.knowntype == str
         assert s.no_nul
