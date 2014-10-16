@@ -19,15 +19,6 @@ def normalize_call_familes(annotator):
 
 def normalize_calltable(annotator, callfamily):
     """Try to normalize all rows of a table."""
-    overridden = False
-    for desc in callfamily.descs:
-        if getattr(desc, 'overridden', False):
-            overridden = True
-    if overridden:
-        if len(callfamily.descs) > 1:
-            raise Exception("non-static call to overridden function")
-        callfamily.overridden = True
-        return
     nshapes = len(callfamily.calltables)
     for shape, table in callfamily.calltables.items():
         for row in table:

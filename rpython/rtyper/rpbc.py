@@ -29,12 +29,9 @@ class __extend__(annmodel.SomePBC):
             sample = self.any_description()
             callfamily = sample.querycallfamily()
             if callfamily and callfamily.total_calltable_size > 0:
-                if sample.overridden:
-                    getRepr = OverriddenFunctionPBCRepr
-                else:
-                    getRepr = FunctionsPBCRepr
-                    if small_cand(rtyper, self):
-                        getRepr = SmallFunctionSetPBCRepr
+                getRepr = FunctionsPBCRepr
+                if small_cand(rtyper, self):
+                    getRepr = SmallFunctionSetPBCRepr
             else:
                 getRepr = getFrozenPBCRepr
         elif issubclass(kind, description.ClassDesc):
@@ -338,16 +335,6 @@ class __extend__(pairtype(AbstractFunctionsPBCRepr, AbstractFunctionsPBCRepr)):
             return inputconst(lltype.Void, None)
         return NotImplemented
 
-class OverriddenFunctionPBCRepr(Repr):
-    def __init__(self, rtyper, s_pbc):
-        self.rtyper = rtyper
-        self.s_pbc = s_pbc
-        assert len(s_pbc.descriptions) == 1
-        self.lowleveltype = lltype.Void
-
-    def rtype_simple_call(self, hop):
-        from rpython.rtyper.rspecialcase import rtype_call_specialcase
-        return rtype_call_specialcase(hop)
 
 def getFrozenPBCRepr(rtyper, s_pbc):
     from rpython.rtyper.lltypesystem.rpbc import (
@@ -863,7 +850,6 @@ class MethodsPBCRepr(Repr):
         r_class = self.r_im_self.rclass
         mangled_name, r_func = r_class.clsfields[self.methodname]
         assert isinstance(r_func, (FunctionsPBCRepr,
-                                   OverriddenFunctionPBCRepr,
                                    SmallFunctionSetPBCRepr))
         # s_func = r_func.s_pbc -- not precise enough, see
         # test_precise_method_call_1.  Build a more precise one...
