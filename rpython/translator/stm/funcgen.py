@@ -222,7 +222,7 @@ def stm_pop_marker(funcgen, op):
 
 def stm_expand_marker(funcgen, op):
     result = funcgen.expr(op.result)
-    return '%s = _stm_expand_marker();' % (result,)
+    return '%s = _pypy_stm_test_expand_marker();' % (result,)
 
 def stm_setup_expand_marker_for_pypy(funcgen, op):
     # hack hack hack
