@@ -170,8 +170,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ufunc = frompyfunc([times_2], 1, 1,
                             signature='(m,m)->(m,m)',
                             dtypes=[dtype(int), dtype(int)],
+                            stack_inputs=True,
                           )
         ai = arange(18, dtype=int).reshape(2,3,3)
+        exc = raises(ValueError, ufunc, ai[:,:,0])
+        assert "mismatch in its core dimension 1" in exc.value.message
         ai2 = ufunc(ai)
         assert all(ai1 == ai * 2)
 

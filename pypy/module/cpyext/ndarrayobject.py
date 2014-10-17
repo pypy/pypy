@@ -278,5 +278,5 @@ def PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
     w_name = rffi.charp2str(name)
     w_identity = space.wrap(identity)
     ufunc_generic = ufuncs.frompyfunc(space, w_funcs, nin, nout, w_dtypes,
-                 w_signature, w_identity, w_name, w_doc)
+                 w_signature, w_identity, w_name, w_doc, stack_inputs=True)
     return ufunc_generic

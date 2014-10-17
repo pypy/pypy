@@ -9,6 +9,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import boxes, descriptor, loop, constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.ctors import numpify
+from pypy.module.micronumpy.nditer import W_NDIter
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.support import _parse_signature
 from rpython.rlib.rawstorage import (raw_storage_setitem, free_raw_storage,
@@ -516,7 +517,7 @@ class W_UfuncGeneric(W_Ufunc):
     '''
     _immutable_fields_ = ["funcs", "dtypes", "data", "match_dtypes"]
 
-    def __init__(self, space, funcs, name, identity, nin, nout, dtypes, signature, match_dtypes=False):
+    def __init__(self, space, funcs, name, identity, nin, nout, dtypes, signature, match_dtypes=False, stack_inputs=False):
         # XXX make sure funcs, signature, dtypes, nin, nout are consistent
 
         # These don't matter, we use the signature and dtypes for determining
@@ -540,6 +541,7 @@ class W_UfuncGeneric(W_Ufunc):
         self.signature = signature
         #These will be filled in by _parse_signature
         self.core_enabled = True    # False for scalar ufunc, True for generalized ufunc
+        self.stack_inputs = stack_inputs
         self.core_num_dim_ix = 0 # number of distinct dimention names in signature
         self.core_num_dims = [0] * self.nargs  # number of core dimensions of each nargs
         self.core_offsets = [0] * self.nargs
@@ -620,13 +622,14 @@ class W_UfuncGeneric(W_Ufunc):
             while(idim < num_dims):
                 core_dim_index = self.core_dim_ixs[dim_offset + idim]
                 op_dim_size = curarg.get_shape()[core_start_dim + idim]
-                if inner_dimensions[i + 1] == 1:
-                    inner_dimensions[i + 1] = op_dim_size
+                if inner_dimensions[core_dim_index + 1] == 1:
+                    inner_dimensions[core_dim_index + 1] = op_dim_size
                 elif op_dim_size != 1 and inner_dimensions[1 + core_dim_index] != op_dim_size:
-                    oefmt(space.w_ValueError, "%s: Operand %d has a mismatch in "
-                        " its core dimension %d, with gufunc signature %s "
-                        "(size %d is different from %d)", self.name, i, idim,
-                    self.signature, op_dim_size, inner_dimensions[1 + core_dim_index])
+                    raise oefmt(space.w_ValueError, "%s: Operand %d has a "
+                        "mismatch in its core dimension %d, with gufunc "
+                        "signature %s (size %d is different from %d)",
+                         self.name, i, idim, self.signature, op_dim_size,
+                         inner_dimensions[1 + core_dim_index])
                 idim += 1
         for i in range(len(outargs)):
             curarg = outargs[i]
@@ -635,10 +638,10 @@ class W_UfuncGeneric(W_Ufunc):
             num_dims = self.core_num_dims[i]
             core_start_dim = curarg.ndims() - num_dims
             if core_start_dim < 0:
-                oefmt(space.w_ValueError, "%s: Output operand %d does not"
-                    "have enough dimensions (has %d, gufunc with signature "
-                    "%s requires %d)", self.name, i, curarg.ndims(),
-                    self.signature, num_dims)
+                raise oefmt(space.w_ValueError, "%s: Output operand %d does "
+                    "not have enough dimensions (has %d, gufunc with "
+                    "signature %s requires %d)", self.name, i,
+                    curarg.ndims(), self.signature, num_dims)
             if core_start_dim >=0:
                 idim = 0
             else:
@@ -646,13 +649,14 @@ class W_UfuncGeneric(W_Ufunc):
             while(idim < num_dims):
                 core_dim_index = self.core_dim_ixs[dim_offset + idim]
                 op_dim_size = curarg.get_shape()[core_start_dim + idim]
-                if inner_dimensions[i + 1] == 1:
-                    inner_dimensions[i + 1] = op_dim_size
+                if inner_dimensions[core_dim_index + 1] == 1:
+                    inner_dimensions[core_dim_index + 1] = op_dim_size
                 elif inner_dimensions[1 + core_dim_index] != op_dim_size:
-                    oefmt(space.w_ValueError, "%s: Operand %d has a mismatch in "
-                        " its core dimension %d, with gufunc signature %s "
-                        "(size %d is different from %d)", self.name, i, idim,
-                    self.signature, op_dim_size, inner_dimensions[1 + core_dim_index])
+                    raise oefmt(space.w_ValueError, "%s: Operand %d has a "
+                        "mismatch in its core dimension %d, with gufunc "
+                        "signature %s (size %d is different from %d)",
+                         self.name, i, idim, self.signature, op_dim_size,
+                         inner_dimensions[1 + core_dim_index])
                 idim += 1
         iter_shape = [-1] * (broadcast_ndim + (len(outargs) * iter_ndim))
         j = broadcast_ndim
@@ -693,12 +697,21 @@ class W_UfuncGeneric(W_Ufunc):
         # the current op (signalling it can handle ndarray's).
 
         # TODO parse and handle subok
+        # TODO handle flags, op_flags
+        flags = ['external_loop']
+        op_flags = None
 
         # mimic NpyIter_AdvancedNew with a nditer
 
-        if isinstance(func, W_GenericUFuncCaller):
-            pass
-            # xxx rdo what needs to be done to inner-loop indexing
+        if self.stack_inputs:
+            inargs = inargs + outargs
+            it = W_NDIter(space, space.newlist(inargs + outargs),
+                            flags=flags, op_flags=op_flags,
+            for args in it:
+                space.call_args(func, Arguments.frompacked(space, args))
+            if len(outargs) > 1:
+                return outargs
+            return outargs[0]
         inargs0 = inargs[0]
         assert isinstance(inargs0, W_NDimArray)
         new_shape = inargs0.get_shape()
@@ -1104,12 +1117,12 @@ def get(space):
     return space.fromcache(UfuncState)
 
 @unwrap_spec(nin=int, nout=int, signature=str, w_identity=WrappedDefault(None),
-             name=str, doc=str)
+             name=str, doc=str, stack_inputs=bool)
 def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
-     w_identity=None, name='', doc=''):
+     w_identity=None, name='', doc='', stack_inputs=False):
     ''' frompyfunc(func, nin, nout) #cpython numpy compatible
         frompyfunc(func, nin, nout, dtypes=None, signature='',
-                   identity=None, name='', doc='')
+                   identity=None, name='', doc='', stack_inputs=False)
 
     Takes an arbitrary Python function and returns a ufunc.
 
@@ -1133,6 +1146,10 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
          For reduce-type ufuncs, the default value
     name: str, default=''
     doc: str, default=''
+    stack_inputs*: boolean, whether the function is of the form
+            out = func(*in)     False
+            or
+            func(*in_out)       True
 
     only one of out_dtype or signature may be specified
 
@@ -1143,8 +1160,9 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
 
     Notes
     -----
-    If the signature and out_dtype are both missing, the returned ufunc always
-    returns PyObject arrays (cpython numpy compatability).
+    If the signature and out_dtype are both missing, the returned ufunc
+        always returns PyObject arrays (cpython numpy compatability).
+    Input arguments marked with a * are pypy-only extensions
 
     Examples
     --------
@@ -1201,8 +1219,9 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
         # cpython compatability, func is of the form (i),(i)->(i)
         signature = ','.join(['(i)'] * nin) + '->' + ','.join(['(i)'] * nout)
 
-    w_ret = W_UfuncGeneric(space, func, name, identity, nin, nout, dtypes, signature,
-                                match_dtypes=match_dtypes)
+    w_ret = W_UfuncGeneric(space, func, name, identity, nin, nout, dtypes,
+                           signature, match_dtypes=match_dtypes,
+                           stack_inputs=stack_inputs)
     _parse_signature(space, w_ret, w_ret.signature)
     if doc:
         w_ret.w_doc = space.wrap(doc)
