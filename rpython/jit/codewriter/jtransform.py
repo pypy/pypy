@@ -12,8 +12,9 @@ from rpython.flowspace.model import SpaceOperation, Variable, Constant, c_last_e
 from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
-from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rclass, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
 from rpython.rtyper.lltypesystem import rbytearray
+from rpython.rtyper import rclass
 from rpython.rtyper.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from rpython.translator.unsimplify import varoftype
 

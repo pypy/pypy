@@ -402,14 +402,13 @@ def try_cast_gcref_to_instance(Class, gcref):
     # Before translation, unwraps the RPython instance contained in a _GcRef.
     # After translation, it is a type-check performed by the GC.
     if we_are_translated():
-        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+        from rpython.rtyper.rclass import OBJECTPTR, ll_isinstance
         from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-        from rpython.rtyper.lltypesystem import rclass
         if _is_rpy_instance(gcref):
             objptr = lltype.cast_opaque_ptr(OBJECTPTR, gcref)
             if objptr.typeptr:   # may be NULL, e.g. in rdict's dummykeyobj
                 clsptr = _get_llcls_from_cls(Class)
-                if rclass.ll_isinstance(objptr, clsptr):
+                if ll_isinstance(objptr, clsptr):
                     return cast_base_ptr_to_instance(Class, objptr)
         return None
     else:
@@ -500,21 +499,20 @@ class Entry(ExtRegistryEntry):
     _about_ = _get_llcls_from_cls
     def compute_result_annotation(self, s_Class):
         from rpython.rtyper.llannotation import SomePtr
-        from rpython.rtyper.lltypesystem import rclass
+        from rpython.rtyper.rclass import CLASSTYPE
         assert s_Class.is_constant()
-        return SomePtr(rclass.CLASSTYPE)
+        return SomePtr(CLASSTYPE)
 
     def specialize_call(self, hop):
-        from rpython.rtyper.rclass import getclassrepr
+        from rpython.rtyper.rclass import getclassrepr, CLASSTYPE
         from rpython.flowspace.model import Constant
-        from rpython.rtyper.lltypesystem import rclass
         Class = hop.args_s[0].const
         classdef = hop.rtyper.annotator.bookkeeper.getuniqueclassdef(Class)
         classrepr = getclassrepr(hop.rtyper, classdef)
         vtable = classrepr.getvtable()
-        assert lltype.typeOf(vtable) == rclass.CLASSTYPE
+        assert lltype.typeOf(vtable) == CLASSTYPE
         hop.exception_cannot_occur()
-        return Constant(vtable, concretetype=rclass.CLASSTYPE)
+        return Constant(vtable, concretetype=CLASSTYPE)
 
 class Entry(ExtRegistryEntry):
     _about_ = dump_rpy_heap

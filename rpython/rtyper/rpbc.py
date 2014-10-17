@@ -4,8 +4,7 @@ from rpython.annotator import model as annmodel, description
 from rpython.flowspace.model import Constant
 from rpython.annotator.argument import simple_args
 from rpython.rtyper import rclass, callparse
-from rpython.rtyper.lltypesystem.rclass import (
-    CLASSTYPE, OBJECT_VTABLE, OBJECTPTR)
+from rpython.rtyper.rclass import CLASSTYPE, OBJECT_VTABLE, OBJECTPTR
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
@@ -30,12 +29,9 @@ class __extend__(annmodel.SomePBC):
             sample = self.any_description()
             callfamily = sample.querycallfamily()
             if callfamily and callfamily.total_calltable_size > 0:
-                if sample.overridden:
-                    getRepr = OverriddenFunctionPBCRepr
-                else:
-                    getRepr = FunctionsPBCRepr
-                    if small_cand(rtyper, self):
-                        getRepr = SmallFunctionSetPBCRepr
+                getRepr = FunctionsPBCRepr
+                if small_cand(rtyper, self):
+                    getRepr = SmallFunctionSetPBCRepr
             else:
                 getRepr = getFrozenPBCRepr
         elif issubclass(kind, description.ClassDesc):
@@ -339,16 +335,6 @@ class __extend__(pairtype(AbstractFunctionsPBCRepr, AbstractFunctionsPBCRepr)):
             return inputconst(lltype.Void, None)
         return NotImplemented
 
-class OverriddenFunctionPBCRepr(Repr):
-    def __init__(self, rtyper, s_pbc):
-        self.rtyper = rtyper
-        self.s_pbc = s_pbc
-        assert len(s_pbc.descriptions) == 1
-        self.lowleveltype = lltype.Void
-
-    def rtype_simple_call(self, hop):
-        from rpython.rtyper.rspecialcase import rtype_call_specialcase
-        return rtype_call_specialcase(hop)
 
 def getFrozenPBCRepr(rtyper, s_pbc):
     from rpython.rtyper.lltypesystem.rpbc import (
@@ -643,7 +629,7 @@ class ClassesPBCRepr(Repr):
             attr = hop.args_s[1].const
             if attr == '__name__':
                 from rpython.rtyper.lltypesystem import rstr
-                class_repr = rclass.getclassrepr(self.rtyper, None)
+                class_repr = self.rtyper.rootclass_repr
                 vcls, vattr = hop.inputargs(class_repr, lltype.Void)
                 cname = inputconst(lltype.Void, 'name')
                 return hop.genop('getfield', [vcls, cname],
@@ -764,7 +750,7 @@ def ll_cls_hash(cls):
     else:
         return cls.hash
 
-class __extend__(pairtype(ClassesPBCRepr, rclass.AbstractClassRepr)):
+class __extend__(pairtype(ClassesPBCRepr, rclass.ClassRepr)):
     def convert_from_to((r_clspbc, r_cls), v, llops):
         # turn a PBC of classes to a standard pointer-to-vtable class repr
         if r_clspbc.lowleveltype == r_cls.lowleveltype:
@@ -864,7 +850,6 @@ class MethodsPBCRepr(Repr):
         r_class = self.r_im_self.rclass
         mangled_name, r_func = r_class.clsfields[self.methodname]
         assert isinstance(r_func, (FunctionsPBCRepr,
-                                   OverriddenFunctionPBCRepr,
                                    SmallFunctionSetPBCRepr))
         # s_func = r_func.s_pbc -- not precise enough, see
         # test_precise_method_call_1.  Build a more precise one...

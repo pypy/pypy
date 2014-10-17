@@ -3,7 +3,8 @@ from rpython.flowspace.model import Constant
 from rpython.rlib import rarithmetic, objectmodel
 from rpython.rtyper import raddress, rptr, extregistry, rrange
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
+from rpython.rtyper import rclass
 from rpython.rtyper.rmodel import Repr
 from rpython.tool.pairtype import pairtype
 

@@ -258,6 +258,7 @@ class PyPyTarget(object):
             enable_translationmodules(config)
 
         config.translation.suggest(check_str_without_nul=True)
+        config.translation.suggest(shared=True)
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True

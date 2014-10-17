@@ -1,5 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
-from rpython.rtyper.lltypesystem import rclass
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import intmask

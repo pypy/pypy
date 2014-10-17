@@ -11,7 +11,8 @@ from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.typesystem import deref
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.tool.oparser import parse
-from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
+from rpython.rtyper import rclass
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.llinterp import LLException
 from rpython.jit.codewriter import heaptracker, longlong
@@ -2296,7 +2297,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
         for i in range(5):
             called = []
-        
+
             FUNC = self.FuncType([lltype.Signed] * i, lltype.Void)
             func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
             calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
@@ -4450,7 +4451,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def test_zero_ptr_field(self):
         from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-        
+
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("llgraph can't do zero_ptr_field")
         T = lltype.GcStruct('T')
@@ -4478,7 +4479,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("llgraph does not do zero_ptr_field")
-        
+
         from rpython.jit.backend.llsupport import symbolic
         S = lltype.GcStruct('S', ('x', lltype.Signed),
                                  ('p', llmemory.GCREF),
@@ -4503,7 +4504,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("llgraph does not do zero_array")
-        
+
         PAIR = lltype.Struct('PAIR', ('a', lltype.Signed), ('b', lltype.Signed))
         for OF in [lltype.Signed, rffi.INT, rffi.SHORT, rffi.UCHAR, PAIR]:
             A = lltype.GcArray(OF)

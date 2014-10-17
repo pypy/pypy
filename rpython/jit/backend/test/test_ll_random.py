@@ -1,5 +1,6 @@
 import py
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rffi, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper import rclass
 from rpython.jit.backend.test import test_random
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
@@ -561,7 +562,7 @@ class BaseCallOperation(test_random.AbstractOperation):
         subset = builder.subset_of_intvars(r)
         funcargs = ", ".join(['arg_%d' % i for i in range(len(subset))])
         S, v = builder.get_structptr_var(r, must_have_vtable=True)
-        
+
         code = py.code.Source("""
         def f(%s):
             raise LLException(vtable, ptr)
