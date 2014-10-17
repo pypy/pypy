@@ -32,6 +32,9 @@ def analyzer_for(func):
         return ann_func
     return wrapped
 
+CONTAINERS_S = [SomeList, SomeDict, SomeOrderedDict, SomeTuple]
+_cls2Some = {cls.knowntype: cls for cls in CONTAINERS_S}
+
 class Bookkeeper(object):
     """The log of choices that have been made while analysing the operations.
     It ensures that the same 'choice objects' will be returned if we ask
@@ -318,8 +321,8 @@ class Bookkeeper(object):
                 result = s_self.find_method(x.__name__)
                 assert result is not None
             elif hasattr(x, '__objclass__'):
-                s_type = self.valueoftype(x.__objclass__)
-                result = s_type.find_unboundmethod(x.__name__)
+                cls_s = self.annotationclass(x.__objclass__)
+                result = cls_s.find_unboundmethod(x.__name__)
             else:
                 result = None
             if result is None:
@@ -439,6 +442,12 @@ class Bookkeeper(object):
 
     def valueoftype(self, t):
         return annotationoftype(t, self)
+
+    def annotationclass(self, cls):
+        try:
+            return _cls2Some[cls]
+        except KeyError:
+            return type(self.valueoftype(cls))
 
     def get_classpbc_attr_families(self, attrname):
         """Return the UnionFind for the ClassAttrFamilies corresponding to

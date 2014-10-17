@@ -119,10 +119,11 @@ class __extend__(SomeObject):
         else:
             return SomeBuiltinMethod(analyser, self, name)
 
-    def find_unboundmethod(self, name):
+    @classmethod
+    def find_unboundmethod(cls, name):
         "Look for a special-case implementation for the named method."
         try:
-            analyser = getattr(self.__class__, 'method_' + name)
+            analyser = getattr(cls, 'method_' + name)
         except AttributeError:
             return None
         else:
