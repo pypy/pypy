@@ -117,9 +117,15 @@ static int _stm_expand_marker_for_pypy(stm_loc_marker_t *marker,
         line += ((unsigned char *)lnotab)[i + 1];
     }
 
-    return snprintf(outputbuf, outputbufsize,
-                    "File \"%s%.*s\", line %ld, in %.*s%s",
-                    fntrunc, (int)fnlen, fn, line, (int)nlen, name, ntrunc);
+    int result;
+    result = snprintf(outputbuf, outputbufsize,
+                      "File \"%s%.*s\", line %ld, in %.*s%s",
+                      fntrunc, (int)fnlen, fn, line, (int)nlen, name, ntrunc);
+    if (result >= outputbufsize)
+        result = outputbufsize - 1;
+    if (result < 0)
+        result = 0;
+    return result;
 }
 
 void pypy_stm_setup_expand_marker(long co_filename_ofs,
