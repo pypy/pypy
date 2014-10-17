@@ -317,6 +317,9 @@ class Bookkeeper(object):
                 s_self = self.immutablevalue(x.__self__)
                 result = s_self.find_method(x.__name__)
                 assert result is not None
+            elif hasattr(x, '__objclass__'):
+                s_type = self.valueoftype(x.__objclass__)
+                result = s_type.find_unboundmethod(x.__name__)
             else:
                 result = None
             if result is None:

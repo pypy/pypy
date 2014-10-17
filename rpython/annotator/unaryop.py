@@ -8,7 +8,7 @@ from rpython.flowspace.operation import op
 from rpython.flowspace.model import const
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
-    SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
+    SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeUnboundMethod, SomeBuiltinMethod,
     SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
     s_Bool, s_None, unionof, add_knowntypedata,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
@@ -118,6 +118,15 @@ class __extend__(SomeObject):
             return None
         else:
             return SomeBuiltinMethod(analyser, self, name)
+
+    def find_unboundmethod(self, name):
+        "Look for a special-case implementation for the named method."
+        try:
+            analyser = getattr(self.__class__, 'method_' + name)
+        except AttributeError:
+            return None
+        else:
+            return SomeUnboundMethod(analyser, name)
 
     def getattr(self, s_attr):
         # get a SomeBuiltin if the SomeObject has

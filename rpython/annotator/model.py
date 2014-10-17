@@ -558,6 +558,18 @@ class SomeBuiltin(SomeObject):
         return False
 
 
+class SomeUnboundMethod(SomeBuiltin):
+    "Stands for an unbound built-in method."
+    def __init__(self, analyser, methodname=None):
+        if isinstance(analyser, MethodType):
+            analyser = descriptor.InstanceMethod(
+                analyser.im_func,
+                analyser.im_self,
+                analyser.im_class)
+        self.analyser = analyser
+        self.methodname = methodname
+
+
 class SomeBuiltinMethod(SomeBuiltin):
     """ Stands for a built-in method which has got special meaning
     """

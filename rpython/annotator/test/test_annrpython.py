@@ -434,7 +434,6 @@ class TestAnnotateTestCase:
             constmeth = getattr(type(example), methname)
             s_constmeth = iv(constmeth)
             assert isinstance(s_constmeth, annmodel.SomeObject)
-            assert s_constmeth.getKind() == 0
             s_meth = iv(example).getattr(iv(methname))
             assert isinstance(s_meth, annmodel.SomeObject)
 
