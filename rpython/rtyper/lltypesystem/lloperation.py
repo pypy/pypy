@@ -456,6 +456,8 @@ LL_OPERATIONS = {
     'stm_expand_marker':      LLOp(),
     'stm_setup_expand_marker_for_pypy': LLOp(),
 
+    'stm_count':              LLOp(),
+
     # __________ address operations __________
 
     'boehm_malloc':         LLOp(),

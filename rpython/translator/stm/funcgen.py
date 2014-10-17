@@ -250,3 +250,7 @@ def stm_rewind_jmp_frame(funcgen, op):
         return '%s = &rjbuf1;' % (funcgen.expr(op.result),)
     else:
         assert False, op.args[0].value
+
+def stm_count(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = _pypy_stm_count();' % (result,)

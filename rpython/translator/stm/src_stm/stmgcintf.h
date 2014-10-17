@@ -31,10 +31,13 @@ long _pypy_stm_start_transaction(void);
 void _pypy_stm_become_inevitable(const char *);
 void pypy_stm_become_globally_unique_transaction(void);
 
+char *_pypy_stm_test_expand_marker(void);
 void pypy_stm_setup_expand_marker(long co_filename_ofs,
                                   long co_name_ofs,
                                   long co_firstlineno_ofs,
                                   long co_lnotab_ofs);
+
+long _pypy_stm_count(void);
 
 
 static inline void pypy_stm_become_inevitable(const char *msg)
