@@ -89,6 +89,15 @@ def stm_allocate_weakref(funcgen, op):
     return ('%s = (rpygcchar_t *)stm_allocate_weakref(%s); ' % (result, arg_size) +
             '((rpyobj_t *)%s)->tid = %s;' % (result, arg_type_id))
 
+def stm_allocate_finalizer(funcgen, op):
+    arg_size    = funcgen.expr(op.args[0])
+    arg_type_id = funcgen.expr(op.args[1])
+    result      = funcgen.expr(op.result)
+    # XXX NULL returns?
+    return ('%s = (rpygcchar_t *)stm_allocate_with_finalizer(%s); ' % (
+        result, arg_size) +
+            '((rpyobj_t *)%s)->tid = %s;' % (result, arg_type_id))
+
 def stm_get_from_obj(funcgen, op):
     assert op.args[0].concretetype == llmemory.GCREF
     arg_obj = funcgen.expr(op.args[0])
@@ -254,3 +263,13 @@ def stm_rewind_jmp_frame(funcgen, op):
 def stm_count(funcgen, op):
     result = funcgen.expr(op.result)
     return '%s = _pypy_stm_count();' % (result,)
+
+def stm_really_force_cast_ptr(funcgen, op):
+    # pffff, try very very hard to cast a pointer in one address space
+    # to consider it as a pointer in another address space, without
+    # changing it in any way.  It works if we cast via an integer
+    # (but not directly).
+    result = funcgen.expr(op.result)
+    arg = funcgen.expr(op.args[0])
+    typename = cdecl(funcgen.lltypename(op.result), '')
+    return '%s = (%s)(uintptr_t)%s;' % (result, typename, arg)

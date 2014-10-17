@@ -417,6 +417,7 @@ LL_OPERATIONS = {
     'stm_can_move':           LLOp(),
     'stm_allocate_tid':       LLOp(sideeffects=False, canmallocgc=True),
     'stm_allocate_weakref':   LLOp(sideeffects=False, canmallocgc=True),
+    'stm_allocate_finalizer': LLOp(sideeffects=False, canmallocgc=True),
     'stm_get_from_obj':       LLOp(sideeffects=False),
     'stm_get_from_obj_const': LLOp(canfold=True),
     'stm_set_into_obj':       LLOp(),
@@ -456,7 +457,8 @@ LL_OPERATIONS = {
     'stm_expand_marker':      LLOp(),
     'stm_setup_expand_marker_for_pypy': LLOp(),
 
-    'stm_count':              LLOp(),
+    'stm_count':                 LLOp(),
+    'stm_really_force_cast_ptr': LLOp(),
 
     # __________ address operations __________
 

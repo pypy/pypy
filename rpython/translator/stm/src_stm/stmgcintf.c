@@ -14,6 +14,7 @@ extern void pypy_stmcb_get_card_base_itemsize(void*, uintptr_t[]);
 extern void pypy_stmcb_trace(void*, void(*)(void*));
 extern void pypy_stmcb_trace_cards(void*, void(*)(void*), uintptr_t, uintptr_t);
 extern Signed pypy_stmcb_obj_supports_cards(void*);
+extern void *pypy_stmcb_fetch_finalizer(long);
 
 inline ssize_t stmcb_size_rounded_up(struct object_s *obj) {
     ssize_t result = pypy_stmcb_size_rounded_up(obj);

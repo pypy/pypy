@@ -25,8 +25,18 @@
 
 #ifdef RPY_STM
 #define rpy_duck()  asm("":::"memory")   // work around an llvm bug :-/
+
+typedef TLPREFIX struct rpyobj_s {
+    struct object_s lib;
+    uint32_t tid;
+} rpyobj_t;
+typedef TLPREFIX char rpygcchar_t;
+
 #else
+
 #define rpy_duck()  /* nothing */
+typedef char rpygcchar_t;
+
 #endif
 
 

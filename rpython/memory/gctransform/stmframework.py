@@ -1,7 +1,8 @@
 from rpython.annotator import model as annmodel
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.memory.gctransform.framework import ( TYPE_ID,
+from rpython.memory.gctransform.support import get_rtti
+from rpython.memory.gctransform.framework import (TYPE_ID,
      BaseFrameworkGCTransformer, BaseRootWalker, sizeofaddr)
 from rpython.memory.gctypelayout import WEAKREF, WEAKREFPTR
 from rpython.rtyper import rmodel, llannotation
@@ -66,6 +67,15 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                   [llannotation.SomeAddress(),
                    llannotation.SomePtr(rffi.CArrayPtr(lltype.Unsigned))],
                   annmodel.s_None))
+        #
+        def pypy_stmcb_fetch_finalizer(typeid):
+            typeid = lltype.cast_primitive(llgroup.HALFWORD, typeid)
+            return llmemory.cast_ptr_to_adr(gc.getfinalizer(typeid))
+        pypy_stmcb_fetch_finalizer.c_name = (
+            "pypy_stmcb_fetch_finalizer")
+        self.autoregister_ptrs.append(
+            getfn(pypy_stmcb_fetch_finalizer,
+                  [annmodel.s_Int], llannotation.SomeAddress()))
 
     def build_root_walker(self):
         return StmRootWalker(self)

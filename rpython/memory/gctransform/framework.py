@@ -1257,8 +1257,6 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         super(TransformerLayoutBuilder, self).__init__(GCClass, lltype2vtable)
 
     def has_finalizer(self, TYPE):
-        if self.translator.config.translation.stm:
-            return False  # XXX no finalizer support for now
         rtti = get_rtti(TYPE)
         return rtti is not None and getattr(rtti._obj, 'destructor_funcptr',
                                             None)
@@ -1275,22 +1273,24 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
     def make_finalizer_funcptr_for_type(self, TYPE):
         if not self.has_finalizer(TYPE):
             return None, False
+        stm = self.translator.config.translation.stm
         rtti = get_rtti(TYPE)
         destrptr = rtti._obj.destructor_funcptr
         DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
         typename = TYPE.__name__
         def ll_finalizer(addr):
-            v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
+            if stm:
+                from rpython.rtyper.lltypesystem.lloperation import llop
+                v = llop.stm_really_force_cast_ptr(DESTR_ARG, addr)
+            else:
+                v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
             ll_call_destructor(destrptr, v, typename)
         fptr = self.transformer.annotate_finalizer(ll_finalizer,
                 [llmemory.Address], lltype.Void)
         try:
             g = destrptr._obj.graph
-            if self.translator.config.translation.stm:
-                light = False    # XXX no working finalizers with STM so far
-            else:
-                analyzer = FinalizerAnalyzer(self.translator)
-                light = not analyzer.analyze_light_finalizer(g)
+            analyzer = FinalizerAnalyzer(self.translator)
+            light = not analyzer.analyze_light_finalizer(g)
         except lltype.DelayedPointer:
             light = False    # XXX bah, too bad
         return fptr, light

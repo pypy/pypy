@@ -510,3 +510,24 @@ class TestSTMTranslated(CompiledSTMTests):
         assert ('starting some_extremely_longish_and_boring_function_name\n'
                 'File "<bla/br/project/foobaz.py", line 81,'
                 ' in some_extremely_longish_a>\n') in data
+
+    def test_finalizer(self):
+        class Counter:
+            num = 0
+        g_counter = Counter()
+        class X:
+            def __del__(self):
+                g_counter.num += 1
+
+        def g():
+            X()
+
+        def main(argv):
+            g()
+            rgc.collect()
+            print 'destructors called:', g_counter.num
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert 'destructors called: 1\n' in data
