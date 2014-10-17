@@ -356,6 +356,11 @@ class CompileFrameworkTests(BaseFrameworkTests):
             def __del__(self):
                 counter.cnt -= 1
         def before(n, x):
+            # we set 'cnt' to the number of Z instances that will be created,
+            # then run f() this number of times, then rgc.collect() is
+            # called.  Then we repeat the whole thing, so here we check
+            # _first_ that almost all Z instances have had their __del__
+            # invoked in the previous run.
             debug_print('counter.cnt =', counter.cnt)
             check(counter.cnt < 5)
             counter.cnt = n // x.foo
