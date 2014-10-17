@@ -249,10 +249,6 @@ class RPythonAnnotator(object):
             assert s_value.contains(s_old)
         arg.annotation = s_value
 
-    def transfer_binding(self, v_target, v_source):
-        assert v_source.annotation is not None
-        v_target.annotation = v_source.annotation
-
     def warning(self, msg, pos=None):
         if pos is None:
             try:
@@ -579,7 +575,7 @@ class RPythonAnnotator(object):
         for arg in op.args:
             if isinstance(self.annotation(arg), annmodel.SomeImpossibleValue):
                 raise BlockedInference(self, op, -1)
-        resultcell = op.consider(self, *op.args)
+        resultcell = op.consider(self)
         if resultcell is None:
             resultcell = annmodel.s_ImpossibleValue
         elif resultcell == annmodel.s_ImpossibleValue:
