@@ -88,7 +88,7 @@ class ThreadRunner(object):
     def do_run_really(self):
         value = 0
         while True:
-            rstm.possible_transaction_break()
+            rstm.possible_transaction_break(True)
             if not self.run_really(value):
                 break
             value += 1
@@ -109,7 +109,7 @@ class ThreadRunner(object):
         return (value+1) < glob.LENGTH
 
     def do_check_ptr_equality(self):
-        rstm.possible_transaction_break()
+        rstm.possible_transaction_break(True)
         self.check_ptr_equality(0)
 
     def check_ptr_equality(self, foo):
@@ -123,7 +123,7 @@ class ThreadRunner(object):
     def do_check_inev(self):
         value = 0
         while True:
-            rstm.possible_transaction_break()
+            rstm.possible_transaction_break(True)
             if not self.check_inev(value):
                 break
             value += 1
@@ -151,7 +151,7 @@ class ThreadRunner(object):
     def do_check_hash(self):
         value = 0
         while True:
-            rstm.possible_transaction_break()
+            rstm.possible_transaction_break(True)
             value = self.check_hash(value)
             if value >= glob.LENGTH:
                 break

@@ -91,11 +91,11 @@ class TestSTMTranslated(CompiledSTMTests):
     def test_should_break_transaction(self):
         def entry_point(argv):
             rstm.hint_commit_soon()
-            print '<', int(rstm.should_break_transaction()), '>'
+            print '<', int(rstm.should_break_transaction(True)), '>'
             return 0
         t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('')
-        assert '< 1 >\n' in data
+        assert '< 0 >\n' in data
 
     def test_set_transaction_length(self):
         def entry_point(argv):
@@ -131,38 +131,13 @@ class TestSTMTranslated(CompiledSTMTests):
         data, dataerr = cbuilder.cmdexec('4 5000', err=True)
         assert 'check ok!' in data
 
-    def test_retry_counter_starts_at_zero(self):
-        #
-        def check(foobar, retry_counter):
-            print '<', retry_counter, '>'
-            return 0
-        #
-        S = lltype.GcStruct('S', ('got_exception', OBJECTPTR))
-        PS = lltype.Ptr(S)
-        perform_transaction = rstm.make_perform_transaction(check, PS)
-        def entry_point(argv):
-            perform_transaction(lltype.malloc(S))
-            return 0
-        #
-        t, cbuilder = self.compile(entry_point, backendopt=True)
-        data = cbuilder.cmdexec('a b c d')
-        assert '< 0 >\n' in data
-
     def test_bug1(self):
-        #
-        def check(foobar, retry_counter):
-            rgc.collect(0)
-            return 0
-        #
-        S = lltype.GcStruct('S', ('got_exception', OBJECTPTR))
-        PS = lltype.Ptr(S)
-        perform_transaction = rstm.make_perform_transaction(check, PS)
         class X:
             def __init__(self, count):
                 self.count = count
         def g():
             x = X(1000)
-            perform_transaction(lltype.malloc(S))
+            rgc.collect(0)
             return x
         def entry_point(argv):
             x = X(len(argv))
@@ -173,38 +148,6 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(entry_point, backendopt=True)
         data = cbuilder.cmdexec('a b c d')
         assert '< 5 1000 >' in data, "got: %r" % (data,)
-
-    def test_bug2(self):
-        #
-        def check(foobar, retry_counter):
-            return 0    # do nothing
-        #
-        class X2:
-            pass
-        prebuilt2 = [X2(), X2()]
-        #
-        S = lltype.GcStruct('S', ('got_exception', OBJECTPTR))
-        PS = lltype.Ptr(S)
-        perform_transaction = rstm.make_perform_transaction(check, PS)
-        def bug2(count):
-            x = prebuilt2[count]
-            x.foobar = 2                    # 'x' becomes a local
-            #
-            perform_transaction(lltype.malloc(S))
-                                            # 'x' becomes the global again
-            #
-            y = prebuilt2[count]            # same prebuilt obj
-            y.foobar += 10                  # 'y' becomes a local
-            return x.foobar                 # read from the global, thinking
-        bug2._dont_inline_ = True           #    that it is still a local
-        def entry_point(argv):
-            print bug2(0)
-            print bug2(1)
-            return 0
-        #
-        t, cbuilder = self.compile(entry_point, backendopt=True)
-        data = cbuilder.cmdexec('')
-        assert '12\n12\n' in data, "got: %r" % (data,)
 
     def test_prebuilt_nongc(self):
         py.test.skip("stmframework: GC pointer written into a non-GC location")
@@ -339,14 +282,13 @@ class TestSTMTranslated(CompiledSTMTests):
             lltype.free(x, flavor='raw')
             return 0
 
-        PS = lltype.Ptr(lltype.GcStruct('S', ('got_exception', OBJECTPTR)))
-        perform_transaction = rstm.make_perform_transaction(check, PS)
-
         def main(argv):
             # make sure perform_transaction breaks the transaction:
             rstm.hint_commit_soon()
-            assert rstm.should_break_transaction()
-            perform_transaction(lltype.nullptr(PS.TO))
+            start = rstm.stm_count() + 1
+            rstm.break_transaction()
+            retry_counter = rstm.stm_count() - start
+            check(None, retry_counter)
             return 0
 
         t, cbuilder = self.compile(main)
@@ -395,6 +337,13 @@ class TestSTMTranslated(CompiledSTMTests):
         assert lines[0] == ' 0.400000'
         assert lines[1] == ' 1.200000'
 
+    def first_block(self, graph):
+        block = graph.startblock
+        if not block.operations:
+            [exitlink] = block.exits
+            block = exitlink.target
+        return block
+
     def test_stm_ignored(self):
         class X:
             foo = 84
@@ -409,7 +358,8 @@ class TestSTMTranslated(CompiledSTMTests):
             return 0
 
         t, cbuilder = self.compile(main)
-        opnames = [op.opname for op in t.graphs[0].startblock.operations]
+        block = self.first_block(t.graphs[0])
+        opnames = [op.opname for op in block.operations]
         assert opnames[:6] == ['stm_ignored_start',
                                'bare_setfield',    # with no stm_write
                                'stm_ignored_stop',
@@ -433,7 +383,8 @@ class TestSTMTranslated(CompiledSTMTests):
             return 0
 
         t, cbuilder = self.compile(main)
-        first_op = t.graphs[0].startblock.operations[0]
+        block = self.first_block(t.graphs[0])
+        first_op = block.operations[0]
         assert first_op.opname == 'stm_write'
         assert first_op.args[1].value == 42
         data = cbuilder.cmdexec('')

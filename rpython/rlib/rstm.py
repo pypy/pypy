@@ -76,6 +76,8 @@ def partial_commit_and_resume_other_threads():
 
 @specialize.arg(0)
 def should_break_transaction(keep):
+    # 'keep' should be true at the end of the loops, and false otherwise
+    # (it only matters for the JIT)
     return we_are_translated() and (
         llop.stm_should_break_transaction(lltype.Bool, keep))
 
@@ -153,6 +155,9 @@ def update_marker_num(odd_num):
 
 def pop_marker():
     llop.stm_pop_marker(lltype.Void)
+
+def stm_count():     # for tests
+    return llop.stm_count(lltype.Signed)
 
 # ____________________________________________________________
 
