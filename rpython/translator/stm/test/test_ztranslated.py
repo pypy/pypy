@@ -523,11 +523,29 @@ class TestSTMTranslated(CompiledSTMTests):
             X()
 
         def main(argv):
+            x1 = X()
             g()
             rgc.collect()
             print 'destructors called:', g_counter.num
+            objectmodel.keepalive_until_here(x1)
             return 0
 
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
         assert 'destructors called: 1\n' in data
+
+    def test_light_finalizer(self):
+        class X:
+            @rgc.must_be_light_finalizer
+            def __del__(self):
+                debug_print("<del>")
+        def g():
+            X()
+        def main(argv):
+            g()
+            rgc.collect(0)
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data, err = cbuilder.cmdexec('', err=True)
+        assert '<del>' in err
