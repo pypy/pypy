@@ -73,7 +73,17 @@ class SelectTestCase(unittest.TestCase):
                 del a[-1]
                 return sys.__stdout__.fileno()
         a[:] = [F()] * 10
-        self.assertEqual(select.select([], a, []), ([], a[:5], []))
+        result = select.select([], a, [])
+        # CPython: 'a' ends up with 5 items, because each fileno()
+        # removes an item and at the middle the iteration stops.
+        # PyPy: 'a' ends up empty, because the iteration is done on
+        # a copy of the original list: fileno() is called 10 times.
+        if support.check_impl_detail(cpython=True):
+            self.assertEqual(len(result[1]), 5)
+            self.assertEqual(len(a), 5)
+        if support.check_impl_detail(pypy=True):
+            self.assertEqual(len(result[1]), 10)
+            self.assertEqual(len(a), 0)
 
 def test_main():
     support.run_unittest(SelectTestCase)

@@ -187,6 +187,8 @@ class TestStandalone(StandaloneTests):
         assert map(float, data.split()) == [0.0, 0.0]
 
     def test_profopt(self):
+        if sys.platform == 'win32':
+            py.test.skip("no profopt on win32")
         def add(a,b):
             return a + b - b + b - b + b - b + b - b + b - b + b - b + b
         def entry_point(argv):

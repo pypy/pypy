@@ -857,7 +857,11 @@ class TestAnnotateTestCase:
         s = a.build_types(snippet.harmonic, [int])
         assert s.knowntype == float
         # check that the list produced by range() is not mutated or resized
-        for s_value in a.bindings.values():
+        graph = graphof(a, snippet.harmonic)
+        all_vars = set().union(*[block.getvariables() for block in graph.iterblocks()])
+        print all_vars
+        for var in all_vars:
+            s_value = var.annotation
             if isinstance(s_value, annmodel.SomeList):
                 assert not s_value.listdef.listitem.resized
                 assert not s_value.listdef.listitem.mutated
@@ -2767,8 +2771,8 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         a.build_types(f, [])
         v1, v2 = graphof(a, readout).getargs()
-        assert not a.bindings[v1].is_constant()
-        assert not a.bindings[v2].is_constant()
+        assert not a.binding(v1).is_constant()
+        assert not a.binding(v2).is_constant()
 
     def test_prebuilt_mutables_dont_use_eq(self):
         # test that __eq__ is not called during annotation, at least

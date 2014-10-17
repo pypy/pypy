@@ -89,8 +89,8 @@ def transform_extend_with_char_count(self, block_subset):
         for i in range(len(block.operations)):
             op = block.operations[i]
             if op.opname == 'mul':
-                s0 = self.binding(op.args[0], None)
-                s1 = self.binding(op.args[1], None)
+                s0 = self.annotation(op.args[0])
+                s1 = self.annotation(op.args[1])
                 if (isinstance(s0, annmodel.SomeChar) and
                     isinstance(s1, annmodel.SomeInteger)):
                     mul_sources[op.result] = op.args[0], op.args[1]
@@ -124,14 +124,14 @@ def transform_list_contains(self, block_subset):
             elif op.opname == 'contains' and op.args[0] in newlist_sources:
                 items = {}
                 for v in newlist_sources[op.args[0]]:
-                    s = self.binding(v)
+                    s = self.annotation(v)
                     if not s.is_immutable_constant():
                         break
                     items[s.const] = None
                 else:
                     # all arguments of the newlist are annotation constants
                     op.args[0] = Constant(items)
-                    s_dict = self.binding(op.args[0])
+                    s_dict = self.annotation(op.args[0])
                     s_dict.dictdef.generalize_key(self.binding(op.args[1]))
 
 
@@ -168,9 +168,9 @@ def cutoff_alwaysraising_block(self, block):
     "Fix a block whose end can never be reached at run-time."
     # search the operation that cannot succeed
     can_succeed    = [op for op in block.operations
-                         if op.result in self.bindings]
+                         if op.result.annotation is not None]
     cannot_succeed = [op for op in block.operations
-                         if op.result not in self.bindings]
+                         if op.result.annotation is None]
     n = len(can_succeed)
     # check consistency
     assert can_succeed == block.operations[:n]
@@ -178,8 +178,7 @@ def cutoff_alwaysraising_block(self, block):
     assert 0 <= n < len(block.operations)
     # chop off the unreachable end of the block
     del block.operations[n+1:]
-    s_impossible = annmodel.SomeImpossibleValue()
-    self.bindings[block.operations[n].result] = s_impossible
+    self.setbinding(block.operations[n].result, annmodel.s_ImpossibleValue)
     # insert the equivalent of 'raise AssertionError'
     graph = self.annotated[block]
     msg = "Call to %r should have raised an exception" % (getattr(graph, 'func', None),)

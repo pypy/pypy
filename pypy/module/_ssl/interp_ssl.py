@@ -97,6 +97,8 @@ def ssl_error(space, msg, errno=0, w_errtype=None):
 
 
 class SSLContext(W_Root):
+    ctx = lltype.nullptr(SSL_CTX.TO)
+
     def __init__(self, space, protocol):
         if protocol == PY_SSL_VERSION_TLS1:
             method = libssl_TLSv1_method()

@@ -190,6 +190,7 @@ class AppTest(object):
         raises(ValueError, "_pypyjson.loads(s)")
 
     def test_raw_encode_basestring_ascii(self):
+        py3k_skip("XXX: needs porting to py3k")
         import _pypyjson
         def check(s):
             s = _pypyjson.raw_encode_basestring_ascii(s)

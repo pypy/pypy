@@ -35,8 +35,9 @@ for uniPrefix in ("", "b", "B"):
         prefix = uniPrefix + rawPrefix
         endDFAs[prefix + "'''"] = single3DFA
         endDFAs[prefix + '"""'] = double3DFA
-endDFAs["u'''"] = single3DFA
-endDFAs['U"""'] = double3DFA
+for uniPrefix in ("u", "U"):
+    endDFAs[uniPrefix + "'''"] = single3DFA
+    endDFAs[uniPrefix + '"""'] = double3DFA
 
 whiteSpaceStatesAccepts = [True]
 whiteSpaceStates = [{'\t': 0, ' ': 0, '\x0c': 0}]

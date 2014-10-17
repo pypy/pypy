@@ -1119,6 +1119,23 @@ class TestDiskFile:
         assert x.read() == 'abc123456'
         x.close()
 
+    def test_seek_changed_underlying_position(self):
+        tfn = str(udir.join('seek_changed_underlying_position'))
+        fo = streamio.open_file_as_stream # shorthand
+        x = fo(tfn, 'w')
+        x.write('abc123')
+        x.close()
+
+        x = fo(tfn, 'r')
+        fd = x.try_to_find_file_descriptor()
+        assert fd >= 0
+        got = x.read(1)
+        assert got == 'a'
+        assert x.tell() == 1
+        os.lseek(fd, 0, 0)
+        assert x.tell() == 0    # detected in this case.  not always.
+        # the point of the test is that we don't crash in an assert.
+
 
 # Speed test
 
