@@ -229,6 +229,7 @@ void _stm_test_switch(stm_thread_local_t *tl)
     assert(_stm_in_transaction(tl));
     set_gs_register(get_segment_base(tl->associated_segment_num));
     assert(STM_SEGMENT->running_thread == tl);
+    exec_local_finalizers();
 }
 
 #if STM_TESTS

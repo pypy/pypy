@@ -114,7 +114,7 @@ void stm_setup(void)
 
         /* Initialize STM_PSEGMENT */
         struct stm_priv_segment_info_s *pr = get_priv_segment(i);
-        assert(1 <= i && i < 255);   /* 255 is WL_VISITED in gcpage.c */
+        assert(1 <= i && i < 253);   /* 253 is WL_FINALIZ_ORDER_1 in gcpage.c */
         pr->write_lock_num = i;
         pr->pub.segment_num = i;
         pr->pub.segment_base = segment_base;
@@ -129,6 +129,8 @@ void stm_setup(void)
         pr->nursery_objects_shadows = tree_create();
         pr->callbacks_on_commit_and_abort[0] = tree_create();
         pr->callbacks_on_commit_and_abort[1] = tree_create();
+        pr->young_objects_with_light_finalizers = list_create();
+        pr->old_objects_with_light_finalizers = list_create();
         pr->overflow_number = GCFLAG_OVERFLOW_NUMBER_bit0 * i;
         highest_overflow_number = pr->overflow_number;
         pr->pub.transaction_read_version = 0xff;
@@ -148,6 +150,7 @@ void stm_setup(void)
     setup_gcpage();
     setup_pages();
     setup_forksupport();
+    setup_finalizer();
 }
 
 void stm_teardown(void)
@@ -170,12 +173,15 @@ void stm_teardown(void)
         tree_free(pr->nursery_objects_shadows);
         tree_free(pr->callbacks_on_commit_and_abort[0]);
         tree_free(pr->callbacks_on_commit_and_abort[1]);
+        list_free(pr->young_objects_with_light_finalizers);
+        list_free(pr->old_objects_with_light_finalizers);
     }
 
     munmap(stm_object_pages, TOTAL_MEMORY);
     stm_object_pages = NULL;
     close_fd_mmap(stm_object_pages_fd);
 
+    teardown_finalizer();
     teardown_core();
     teardown_sync();
     teardown_gcpage();

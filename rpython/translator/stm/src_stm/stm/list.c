@@ -31,6 +31,21 @@ static struct list_s *_list_grow(struct list_s *lst, uintptr_t nalloc)
     return lst;
 }
 
+static struct list_s *list_extend(struct list_s *lst, struct list_s *lst2,
+                                  uintptr_t slicestart)
+{
+    if (lst2->count <= slicestart)
+        return lst;
+    uintptr_t baseindex = lst->count;
+    lst->count = baseindex + lst2->count - slicestart;
+    uintptr_t lastindex = lst->count - 1;
+    if (lastindex > lst->last_allocated)
+        lst = _list_grow(lst, lastindex);
+    memcpy(lst->items + baseindex, lst2->items + slicestart,
+           (lst2->count - slicestart) * sizeof(uintptr_t));
+    return lst;
+}
+
 
 /************************************************************/
 

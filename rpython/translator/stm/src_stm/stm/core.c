@@ -375,6 +375,7 @@ static void _stm_start_transaction(stm_thread_local_t *tl)
     assert(tree_is_cleared(STM_PSEGMENT->callbacks_on_commit_and_abort[1]));
     assert(STM_PSEGMENT->objects_pointing_to_nursery == NULL);
     assert(STM_PSEGMENT->large_overflow_objects == NULL);
+    assert(STM_PSEGMENT->finalizers == NULL);
 #ifndef NDEBUG
     /* this should not be used when objects_pointing_to_nursery == NULL */
     STM_PSEGMENT->modified_old_objects_markers_num_old = 99999999999999999L;
@@ -808,6 +809,9 @@ static void _finish_transaction(enum stm_event_e event)
 
 void stm_commit_transaction(void)
 {
+ restart_all:
+    exec_local_finalizers();
+
     assert(!_has_mutex());
     assert(STM_PSEGMENT->safe_point == SP_RUNNING);
     assert(STM_PSEGMENT->running_pthread == pthread_self());
@@ -824,6 +828,11 @@ void stm_commit_transaction(void)
        automatically when we are done here, i.e. at mutex_unlock().
        Important: we should not call cond_wait() in the meantime. */
     synchronize_all_threads(STOP_OTHERS_UNTIL_MUTEX_UNLOCK);
+
+    if (any_local_finalizers()) {
+        s_mutex_unlock();
+        goto restart_all;
+    }
 
     /* detect conflicts */
     if (detect_write_read_conflicts())
@@ -846,6 +855,8 @@ void stm_commit_transaction(void)
     push_modified_to_other_segments();
     _verify_cards_cleared_in_all_lists(get_priv_segment(STM_SEGMENT->segment_num));
 
+    commit_finalizers();
+
     /* update 'overflow_number' if needed */
     if (STM_PSEGMENT->overflow_number_has_been_used) {
         highest_overflow_number += GCFLAG_OVERFLOW_NUMBER_bit0;
@@ -866,10 +877,13 @@ void stm_commit_transaction(void)
     }
 
     /* done */
+    stm_thread_local_t *tl = STM_SEGMENT->running_thread;
     _finish_transaction(STM_TRANSACTION_COMMIT);
     /* cannot access STM_SEGMENT or STM_PSEGMENT from here ! */
 
     s_mutex_unlock();
+
+    invoke_general_finalizers(tl);
 }
 
 void stm_abort_transaction(void)
@@ -1046,6 +1060,8 @@ static stm_thread_local_t *abort_with_mutex_no_longjmp(void)
 
     /* invoke the callbacks */
     invoke_and_clear_user_callbacks(1);   /* for abort */
+
+    abort_finalizers();
 
     if (is_abort(STM_SEGMENT->nursery_end)) {
         /* done aborting */

@@ -436,6 +436,22 @@ static void collect_roots_from_markers(uintptr_t num_old)
     }
 }
 
+static void collect_objs_still_young_but_with_finalizers(void)
+{
+    struct list_s *lst = STM_PSEGMENT->finalizers->objects_with_finalizers;
+    uintptr_t i, total = list_count(lst);
+
+    for (i = STM_PSEGMENT->finalizers->count_non_young; i < total; i++) {
+
+        object_t *o = (object_t *)list_item(lst, i);
+        minor_trace_if_young(&o);
+
+        /* was not actually movable */
+        assert(o == (object_t *)list_item(lst, i));
+    }
+    STM_PSEGMENT->finalizers->count_non_young = total;
+}
+
 static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
 {
 #pragma push_macro("STM_PSEGMENT")
@@ -555,11 +571,15 @@ static void _do_minor_collection(bool commit)
 
     collect_roots_in_nursery();
 
+    if (STM_PSEGMENT->finalizers != NULL)
+        collect_objs_still_young_but_with_finalizers();
+
     collect_oldrefs_to_nursery();
     assert(list_is_empty(STM_PSEGMENT->old_objects_with_cards));
 
     /* now all surviving nursery objects have been moved out */
     stm_move_young_weakrefs();
+    deal_with_young_objects_with_finalizers();
 
     throw_away_nursery(get_priv_segment(STM_SEGMENT->segment_num));
 

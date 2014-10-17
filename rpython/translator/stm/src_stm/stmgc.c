@@ -17,6 +17,7 @@
 #include "stm/weakref.h"
 #include "stm/marker.h"
 #include "stm/prof.h"
+#include "stm/finalizer.h"
 
 #include "stm/misc.c"
 #include "stm/list.c"
@@ -38,3 +39,4 @@
 #include "stm/marker.c"
 #include "stm/prof.c"
 #include "stm/rewind_setjmp.c"
+#include "stm/finalizer.c"

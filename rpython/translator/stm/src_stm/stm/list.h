@@ -84,6 +84,9 @@ static inline uintptr_t *list_ptr_to_item(struct list_s *lst, uintptr_t index)
     return &lst->items[index];
 }
 
+static struct list_s *list_extend(struct list_s *lst, struct list_s *lst2,
+                                  uintptr_t slicestart);
+
 #define LIST_FOREACH_R(lst, TYPE, CODE)         \
     do {                                        \
         struct list_s *_lst = (lst);            \
