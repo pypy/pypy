@@ -14,7 +14,6 @@ class CallFamily(object):
     objects, where the equivalence relation is the transitive closure of
     'd1~d2 if d1 and d2 might be called at the same call site'.
     """
-    overridden = False
     normalized = False
     modified   = True
 
@@ -175,7 +174,6 @@ class NoStandardGraph(Exception):
 
 class FunctionDesc(Desc):
     knowntype = types.FunctionType
-    overridden = False
 
     def __init__(self, bookkeeper, pyobj=None,
                  name=None, signature=None, defaults=None,

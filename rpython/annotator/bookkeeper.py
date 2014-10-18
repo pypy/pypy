@@ -29,7 +29,7 @@ BUILTIN_ANALYZERS = {}
 def analyzer_for(func):
     def wrapped(ann_func):
         BUILTIN_ANALYZERS[func] = ann_func
-        return func
+        return ann_func
     return wrapped
 
 class Bookkeeper(object):
@@ -89,14 +89,14 @@ class Bookkeeper(object):
                 newblocks = self.annotator.added_blocks
                 if newblocks is None:
                     newblocks = self.annotator.annotated  # all of them
-                binding = self.annotator.binding
+                annotation = self.annotator.annotation
                 for block in newblocks:
                     for op in block.operations:
                         if op.opname in ('simple_call', 'call_args'):
                             yield op
 
                         # some blocks are partially annotated
-                        if binding(op.result, None) is None:
+                        if annotation(op.result) is None:
                             break   # ignore the unannotated part
 
             for call_op in call_sites():
@@ -144,15 +144,17 @@ class Bookkeeper(object):
 
     def consider_call_site(self, call_op):
         from rpython.rtyper.llannotation import SomeLLADTMeth, lltype_to_annotation
-        binding = self.annotator.binding
-        s_callable = binding(call_op.args[0])
-        args_s = [binding(arg) for arg in call_op.args[1:]]
+        annotation = self.annotator.annotation
+        s_callable = annotation(call_op.args[0])
+        args_s = [annotation(arg) for arg in call_op.args[1:]]
         if isinstance(s_callable, SomeLLADTMeth):
             adtmeth = s_callable
             s_callable = self.immutablevalue(adtmeth.func)
             args_s = [lltype_to_annotation(adtmeth.ll_ptrtype)] + args_s
         if isinstance(s_callable, SomePBC):
-            s_result = binding(call_op.result, s_ImpossibleValue)
+            s_result = annotation(call_op.result)
+            if s_result is None:
+                s_result = s_ImpossibleValue
             args = call_op.build_args(args_s)
             self.consider_call_site_for_pbc(s_callable, args,
                                             s_result, call_op)
@@ -500,8 +502,9 @@ class Bookkeeper(object):
             # needed by some kinds of specialization.
             fn, block, i = self.position_key
             op = block.operations[i]
-            s_previous_result = self.annotator.binding(op.result,
-                                                       s_ImpossibleValue)
+            s_previous_result = self.annotator.annotation(op.result)
+            if s_previous_result is None:
+                s_previous_result = s_ImpossibleValue
         else:
             if emulated is True:
                 whence = None
@@ -555,10 +558,6 @@ class Bookkeeper(object):
         if pos is not None:
             assert self.annotator.binding(op.args[pos]) == s_type
         return op
-
-    def ondegenerated(self, what, s_value, where=None, called_from_graph=None):
-        self.annotator.ondegenerated(what, s_value, where=where,
-                                     called_from_graph=called_from_graph)
 
     def whereami(self):
         return self.annotator.whereami(self.position_key)

@@ -10,7 +10,8 @@ from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.executor import execute_nonspec
 from rpython.jit.metainterp.resoperation import opname
 from rpython.jit.codewriter import longlong
-from rpython.rtyper.lltypesystem import lltype, rstr, rclass
+from rpython.rtyper.lltypesystem import lltype, rstr
+from rpython.rtyper import rclass
 
 class PleaseRewriteMe(Exception):
     pass
@@ -52,10 +53,13 @@ class OperationBuilder(object):
 
     def do(self, opnum, argboxes, descr=None):
         self.fakemetainterp._got_exc = None
-        v_result = execute_nonspec(self.cpu, self.fakemetainterp,
-                                   opnum, argboxes, descr)
-        if isinstance(v_result, Const):
-            v_result = v_result.clonebox()
+        if opnum == rop.ZERO_PTR_FIELD:
+            v_result = None
+        else:
+            v_result = execute_nonspec(self.cpu, self.fakemetainterp,
+                                       opnum, argboxes, descr)
+            if isinstance(v_result, Const):
+                v_result = v_result.clonebox()
         self.loop.operations.append(ResOperation(opnum, argboxes, v_result,
                                                  descr))
         return v_result
@@ -231,7 +235,7 @@ class OperationBuilder(object):
                 ', '.join([names[v] for v in fail_args]))
         print >>s, '    operations = ['
         for op in self.loop.operations:
-            self.process_operation(s, op, names) 
+            self.process_operation(s, op, names)
         print >>s, '        ]'
         for i, op in enumerate(self.loop.operations):
             if op.is_guard():

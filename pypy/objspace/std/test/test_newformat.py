@@ -372,6 +372,7 @@ class AppTestFloatFormatting:
         try:
             assert locale.format('%g', x, grouping=True) == '1,234.57'
             assert format(x, 'n') == '1,234.57'
+            assert format(12345678901234, 'n') == '12,345,678,901,234'
         finally:
             locale.setlocale(locale.LC_NUMERIC, 'C')
 

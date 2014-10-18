@@ -25,7 +25,7 @@ from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.descr import InteriorFieldDescr
 from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler
 from rpython.jit.backend.llsupport.regalloc import get_scale
-from rpython.jit.metainterp.history import (Box, AbstractFailDescr,
+from rpython.jit.metainterp.history import (Box, AbstractFailDescr, ConstInt,
                                             INT, FLOAT, REF)
 from rpython.jit.metainterp.history import TargetToken
 from rpython.jit.metainterp.resoperation import rop
@@ -578,6 +578,7 @@ class ResOpAssembler(BaseAssembler):
         return fcond
 
     emit_op_setfield_raw = emit_op_setfield_gc
+    emit_op_zero_ptr_field = emit_op_setfield_gc
 
     def emit_op_getfield_gc(self, op, arglocs, regalloc, fcond):
         base_loc, ofs, res, size = arglocs
@@ -1173,4 +1174,100 @@ class ResOpAssembler(BaseAssembler):
         assert arg.is_core_reg()
         self.mc.VMOV_cs(r.svfp_ip.value, arg.value)
         self.mc.VCVT_f32_f64(res.value, r.svfp_ip.value)
+        return fcond
+
+    #from ../x86/regalloc.py:1388
+    def emit_op_zero_array(self, op, arglocs, regalloc, fcond):
+        from rpython.jit.backend.llsupport.descr import unpack_arraydescr
+        assert len(arglocs) == 0
+        length_box = op.getarg(2)
+        if isinstance(length_box, ConstInt) and length_box.getint() == 0:
+            return fcond     # nothing to do
+        itemsize, baseofs, _ = unpack_arraydescr(op.getdescr())
+        args = op.getarglist()
+        base_loc = regalloc.rm.make_sure_var_in_reg(args[0], args)
+        sibox = args[1]
+        if isinstance(sibox, ConstInt):
+            startindex_loc = None
+            startindex = sibox.getint()
+            assert startindex >= 0
+        else:
+            startindex_loc = regalloc.rm.make_sure_var_in_reg(sibox, args)
+            startindex = -1
+
+        # base_loc and startindex_loc are in two regs here (or they are
+        # immediates).  Compute the dstaddr_loc, which is the raw
+        # address that we will pass as first argument to memset().
+        # It can be in the same register as either one, but not in
+        # args[2], because we're still needing the latter.
+        dstaddr_box = TempBox()
+        dstaddr_loc = regalloc.rm.force_allocate_reg(dstaddr_box, [args[2]])
+        if startindex >= 0:    # a constant
+            ofs = baseofs + startindex * itemsize
+            reg = base_loc.value
+        else:
+            self.mc.gen_load_int(r.ip.value, itemsize)
+            self.mc.MLA(dstaddr_loc.value, r.ip.value,
+                        startindex_loc.value, base_loc.value)
+            ofs = baseofs
+            reg = dstaddr_loc.value
+        if check_imm_arg(ofs):
+            self.mc.ADD_ri(dstaddr_loc.value, reg, imm=ofs)
+        else:
+            self.mc.gen_load_int(r.ip.value, ofs)
+            self.mc.ADD_rr(dstaddr_loc.value, reg, r.ip.value)
+
+        if (isinstance(length_box, ConstInt) and
+                length_box.getint() <= 14 and     # same limit as GCC
+                itemsize in (4, 2, 1)):
+            # Inline a series of STR operations, starting at 'dstaddr_loc'.
+            next_group = -1
+            if itemsize < 4 and startindex >= 0:
+                # we optimize STRB/STRH into STR, but this needs care:
+                # it only works if startindex_loc is a constant, otherwise
+                # we'd be doing unaligned accesses.
+                next_group = (-startindex * itemsize) & 3
+            #
+            self.mc.gen_load_int(r.ip.value, 0)
+            i = 0
+            total_size = length_box.getint() * itemsize
+            while i < total_size:
+                sz = itemsize
+                if i == next_group:
+                    next_group += 4
+                    if next_group <= total_size:
+                        sz = 4
+                if sz == 4:
+                    self.mc.STR_ri(r.ip.value, dstaddr_loc.value, imm=i)
+                elif sz == 2:
+                    self.mc.STRH_ri(r.ip.value, dstaddr_loc.value, imm=i)
+                else:
+                    self.mc.STRB_ri(r.ip.value, dstaddr_loc.value, imm=i)
+                i += sz
+
+        else:
+            if isinstance(length_box, ConstInt):
+                length_loc = imm(length_box.getint() * itemsize)
+            else:
+                # load length_loc in a register different than dstaddr_loc
+                length_loc = regalloc.rm.make_sure_var_in_reg(length_box,
+                                                              [dstaddr_box])
+                if itemsize > 1:
+                    # we need a register that is different from dstaddr_loc,
+                    # but which can be identical to length_loc (as usual,
+                    # only if the length_box is not used by future operations)
+                    bytes_box = TempBox()
+                    bytes_loc = regalloc.rm.force_allocate_reg(bytes_box,
+                                                               [dstaddr_box])
+                    self.mc.gen_load_int(r.ip.value, itemsize)
+                    self.mc.MUL(bytes_loc.value, r.ip.value, length_loc.value)
+                    length_box = bytes_box
+                    length_loc = bytes_loc
+            #
+            # call memset()
+            regalloc.before_call()
+            self.simple_call_no_collect(imm(self.memset_addr),
+                                        [dstaddr_loc, imm(0), length_loc])
+            regalloc.rm.possibly_free_var(length_box)
+        regalloc.rm.possibly_free_var(dstaddr_box)
         return fcond

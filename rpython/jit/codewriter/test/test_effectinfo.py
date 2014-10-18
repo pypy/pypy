@@ -4,7 +4,7 @@ from rpython.jit.codewriter.effectinfo import (effectinfo_from_writeanalyze,
     EffectInfo, VirtualizableAnalyzer)
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.lltypesystem.rclass import OBJECT
+from rpython.rtyper.rclass import OBJECT
 from rpython.translator.translator import TranslationContext, graphof
 
 

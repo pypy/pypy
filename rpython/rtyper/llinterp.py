@@ -13,7 +13,8 @@ from rpython.rlib.objectmodel import (ComputedIntSymbolic, CDefinedIntSymbolic,
 # intmask is used in an exec'd code block
 from rpython.rlib.rarithmetic import (ovfcheck, is_valid_int, intmask,
     r_uint, r_longlong, r_ulonglong, r_longlonglong)
-from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap
+from rpython.rtyper import rclass
 
 
 log = py.log.Producer('llinterp')
@@ -678,18 +679,6 @@ class LLFrame(object):
         except MemoryError:
             self.make_llexception()
 
-    def op_malloc_nonmovable(self, TYPE, flags):
-        flavor = flags['flavor']
-        assert flavor == 'gc'
-        zero = flags.get('zero', False)
-        return self.heap.malloc_nonmovable(TYPE, zero=zero)
-
-    def op_malloc_nonmovable_varsize(self, TYPE, flags, size):
-        flavor = flags['flavor']
-        assert flavor == 'gc'
-        zero = flags.get('zero', False)
-        return self.heap.malloc_nonmovable(TYPE, size, zero=zero)
-
     def op_free(self, obj, flags):
         assert flags['flavor'] == 'raw'
         track_allocation = flags.get('track_allocation', True)
@@ -912,9 +901,12 @@ class LLFrame(object):
     def op_gc_gcflag_extra(self, subopnum, *args):
         return self.heap.gcflag_extra(subopnum, *args)
 
+    def op_do_malloc_fixedsize(self):
+        raise NotImplementedError("do_malloc_fixedsize")
     def op_do_malloc_fixedsize_clear(self):
         raise NotImplementedError("do_malloc_fixedsize_clear")
-
+    def op_do_malloc_varsize(self):
+        raise NotImplementedError("do_malloc_varsize")
     def op_do_malloc_varsize_clear(self):
         raise NotImplementedError("do_malloc_varsize_clear")
 
@@ -972,6 +964,9 @@ class LLFrame(object):
         checkadr(fromaddr)
         checkadr(toaddr)
         llmemory.raw_memcopy(fromaddr, toaddr, size)
+
+    def op_raw_memset(self, addr, byte, size):
+        raise NotImplementedError
 
     op_raw_memmove = op_raw_memcopy # this is essentially the same here
 
