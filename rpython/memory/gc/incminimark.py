@@ -723,9 +723,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
                             "Too many pinned objects?")
             #
             result = self.nursery_free
-            if self.nursery_free + totalsize <= self.nursery + self.nursery_size:
+            if self.nursery_free + totalsize <= self.nursery_top:
                 self.nursery_free = result + totalsize
-                ll_assert(self.nursery_free <= self.nursery + self.nursery_size, "nursery overflow")
+                ll_assert(self.nursery_free <= self.nursery_top, "nursery overflow")
+                break
             #
         #
         if self.debug_tiny_nursery >= 0:   # for debugging
