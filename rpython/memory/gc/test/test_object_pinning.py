@@ -636,7 +636,6 @@ class TestIncminimark(PinningGCTest):
 
 
     def test_pin_nursery_top_scenario1(self):
-        py.test.skip("nursery no longer zeros, test needs to be rewritten")
         ptr1 = self.malloc(T)
         adr1 = llmemory.cast_ptr_to_adr(ptr1)
         ptr1.someInt = 101
@@ -658,9 +657,9 @@ class TestIncminimark(PinningGCTest):
         # scenario: no minor collection happened, only three mallocs
         # and pins
         #
-        # +- nursery                           nursery_real_top -+
-        # |                                                      |
-        # v                                                      v
+        # +- nursery
+        # |
+        # v
         # +--------+--------+--------+---------------------...---+
         # | pinned | pinned | pinned | empty                     |
         # +--------+--------+--------+---------------------...---+
@@ -671,11 +670,9 @@ class TestIncminimark(PinningGCTest):
         #
         assert adr3 < self.gc.nursery_free
         assert self.gc.nursery_free < self.gc.nursery_top
-        assert self.gc.nursery_top == self.gc.nursery_real_top
 
 
     def test_pin_nursery_top_scenario2(self):
-        py.test.skip("nursery no longer zeros, test needs to be rewritten")
         ptr1 = self.malloc(T)
         adr1 = llmemory.cast_ptr_to_adr(ptr1)
         ptr1.someInt = 101
@@ -696,9 +693,9 @@ class TestIncminimark(PinningGCTest):
 
         # scenario: after first GC minor collection
         #
-        # +- nursery                           nursery_real_top -+
-        # |                                                      |
-        # v                                                      v
+        # +- nursery
+        # |
+        # v
         # +--------+--------+--------+---------------------...---+
         # | pinned | pinned | pinned | empty                     |
         # +--------+--------+--------+---------------------...---+
@@ -712,11 +709,9 @@ class TestIncminimark(PinningGCTest):
         assert self.gc.nursery_free == self.gc.nursery_top
         assert self.gc.nursery_top == self.gc.nursery
         assert self.gc.nursery_top < adr3
-        assert adr3 < self.gc.nursery_real_top
 
 
     def test_pin_nursery_top_scenario3(self):
-        py.test.skip("nursery no longer zeros, test needs to be rewritten")
         ptr1 = self.malloc(T)
         adr1 = llmemory.cast_ptr_to_adr(ptr1)
         ptr1.someInt = 101
@@ -738,9 +733,9 @@ class TestIncminimark(PinningGCTest):
         # scenario: after unpinning first object and a minor
         # collection
         #
-        # +- nursery                           nursery_real_top -+
-        # |                                                      |
-        # v                                                      v
+        # +- nursery
+        # |
+        # v
         # +--------+--------+--------+---------------------...---+
         # | empty  | pinned | pinned | empty                     |
         # +--------+--------+--------+---------------------...---+
@@ -755,11 +750,9 @@ class TestIncminimark(PinningGCTest):
         assert self.gc.nursery_free == self.gc.nursery
         assert self.gc.nursery_top > self.gc.nursery_free
         assert self.gc.nursery_top < adr2
-        assert adr3 < self.gc.nursery_real_top
 
 
     def test_pin_nursery_top_scenario4(self):
-        py.test.skip("nursery no longer zeros, test needs to be rewritten")
         ptr1 = self.malloc(T)
         adr1 = llmemory.cast_ptr_to_adr(ptr1)
         ptr1.someInt = 101
@@ -781,9 +774,9 @@ class TestIncminimark(PinningGCTest):
         # scenario: after unpinning first & second object and a minor
         # collection
         #
-        # +- nursery                           nursery_real_top -+
-        # |                                                      |
-        # v                                                      v
+        # +- nursery
+        # |
+        # v
         # +-----------------+--------+---------------------...---+
         # | empty           | pinned | empty                     |
         # +-----------------+--------+---------------------...---+
@@ -799,11 +792,9 @@ class TestIncminimark(PinningGCTest):
         assert self.gc.nursery_free == self.gc.nursery
         assert self.gc.nursery_free < self.gc.nursery_top
         assert self.gc.nursery_top < adr3
-        assert adr3 < self.gc.nursery_real_top
         
 
     def test_pin_nursery_top_scenario5(self):
-        py.test.skip("nursery no longer zeros, test needs to be rewritten")
         ptr1 = self.malloc(T)
         adr1 = llmemory.cast_ptr_to_adr(ptr1)
         ptr1.someInt = 101
@@ -825,9 +816,9 @@ class TestIncminimark(PinningGCTest):
         # scenario: no minor collection happened, only three mallocs
         # and pins
         #
-        # +- nursery                           nursery_real_top -+
-        # |                                                      |
-        # v                                                      v
+        # +- nursery
+        # |
+        # v
         # +--------+--------+--------+---------------------...---+
         # | pinned | pinned | pinned | empty                     |
         # +--------+--------+--------+---------------------...---+
@@ -838,13 +829,12 @@ class TestIncminimark(PinningGCTest):
         #
         assert adr3 < self.gc.nursery_free
         assert self.gc.nursery_free < self.gc.nursery_top
-        assert self.gc.nursery_top == self.gc.nursery_real_top
 
         # scenario: unpin everything and minor collection
         #
-        # +- nursery                           nursery_real_top -+
-        # |                                                      |
-        # v                                                      v
+        # +- nursery
+        # |
+        # v
         # +----------------------------------+-------------...---+
         # | reset arena                      | empty (not reset) |
         # +----------------------------------+-------------...---+
@@ -859,9 +849,7 @@ class TestIncminimark(PinningGCTest):
         self.gc.collect()
 
         assert self.gc.nursery_free == self.gc.nursery
-        # the following assert is important: make sure that
-        # we did not reset the whole nursery
-        assert self.gc.nursery_top < self.gc.nursery_real_top
+        assert self.gc.nursery_top > self.gc.nursery_free
 
 
     def fill_nursery_with_pinned_objects(self):
