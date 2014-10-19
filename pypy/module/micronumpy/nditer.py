@@ -71,17 +71,17 @@ def parse_op_flag(space, lst):
         elif item == 'allocate':
             op_flag.allocate = True
         elif item == 'no_subtype':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                '"no_subtype" op_flag not implemented yet'))
+            raise oefmt(space.w_NotImplementedError,
+                '"no_subtype" op_flag not implemented yet')
         elif item == 'arraymask':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                '"arraymask" op_flag not implemented yet'))
+            raise oefmt(space.w_NotImplementedError,
+                '"arraymask" op_flag not implemented yet')
         elif item == 'writemask':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                '"writemask" op_flag not implemented yet'))
+            raise oefmt(space.w_NotImplementedError,
+                '"writemask" op_flag not implemented yet')
         else:
-            raise OperationError(space.w_ValueError, space.wrap(
-                'op_flags must be a tuple or array of per-op flag-tuples'))
+            raise oefmt(space.w_ValueError,
+                'op_flags must be a tuple or array of per-op flag-tuples')
     if op_flag.rw == '':
         raise oefmt(space.w_ValueError,
                     "None of the iterator flags READWRITE, READONLY, or "
@@ -94,8 +94,8 @@ def parse_func_flags(space, nditer, w_flags):
         return
     elif not space.isinstance_w(w_flags, space.w_tuple) and not \
             space.isinstance_w(w_flags, space.w_list):
-        raise OperationError(space.w_ValueError, space.wrap(
-            'Iter global flags must be a list or tuple of strings'))
+        raise oefmt(space.w_ValueError,
+            'Iter global flags must be a list or tuple of strings')
     lst = space.listview(w_flags)
     for w_item in lst:
         if not space.isinstance_w(w_item, space.w_str) and not \
@@ -106,12 +106,10 @@ def parse_func_flags(space, nditer, w_flags):
                         typename)
         item = space.str_w(w_item)
         if item == 'external_loop':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                'nditer external_loop not implemented yet'))
             nditer.external_loop = True
         elif item == 'buffered':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                'nditer buffered not implemented yet'))
+            raise oefmt(space.w_NotImplementedError,
+                'nditer buffered not implemented yet')
             # For numpy compatability
             nditer.buffered = True
         elif item == 'c_index':
@@ -131,8 +129,8 @@ def parse_func_flags(space, nditer, w_flags):
         elif item == 'refs_ok':
             nditer.refs_ok = True
         elif item == 'reduce_ok':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                'nditer reduce_ok not implemented yet'))
+            raise oefmt(space.w_NotImplementedError,
+                'nditer reduce_ok not implemented yet')
             nditer.reduce_ok = True
         elif item == 'zerosize_ok':
             nditer.zerosize_ok = True
@@ -141,9 +139,9 @@ def parse_func_flags(space, nditer, w_flags):
                         'Unexpected iterator global flag "%s"',
                         item)
     if nditer.tracked_index and nditer.external_loop:
-        raise OperationError(space.w_ValueError, space.wrap(
+        raise oefmt(space.w_ValueError,
             'Iterator flag EXTERNAL_LOOP cannot be used if an index or '
-            'multi-index is being tracked'))
+            'multi-index is being tracked')
 
 
 def is_backward(imp, order):
@@ -244,8 +242,8 @@ class W_NDIter(W_Root):
             w_seq_as_list = space.listview(w_op_dtypes)
             self.dtypes = [decode_w_dtype(space, w_elem) for w_elem in w_seq_as_list]
             if len(self.dtypes) != len(self.seq):
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "op_dtypes must be a tuple/list matching the number of ops"))
+                raise oefmt(space.w_ValueError,
+                    "op_dtypes must be a tuple/list matching the number of ops")
         else:
             self.dtypes = []
 
