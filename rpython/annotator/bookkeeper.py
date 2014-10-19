@@ -35,6 +35,14 @@ def analyzer_for(func):
 CONTAINERS_S = [SomeList, SomeDict, SomeOrderedDict, SomeTuple]
 _cls2Some = {cls.knowntype: cls for cls in CONTAINERS_S}
 
+
+if '__pypy__' in sys.modules:
+    def is_user_function(func):
+        return (isinstance(func, types.FunctionType) and
+                isinstance(func.func_code, types.CodeType))
+else:
+    is_user_function = inspect.isfunction
+
 class Bookkeeper(object):
     """The log of choices that have been made while analysing the operations.
     It ensures that the same 'choice objects' will be returned if we ask
@@ -215,10 +223,6 @@ class Bookkeeper(object):
     def immutablevalue(self, x):
         """The most precise SomeValue instance that contains the
         immutable value x."""
-        # convert unbound methods to the underlying function
-        if hasattr(x, 'im_self') and x.im_self is None:
-            x = x.im_func
-            assert not hasattr(x, 'im_self')
         tp = type(x)
         if issubclass(tp, Symbolic): # symbolic constants support
             result = x.annotation()
@@ -310,19 +314,15 @@ class Bookkeeper(object):
         elif tp is type:
             result = SomeConstantType(x, self)
         elif callable(x):
-            if hasattr(x, 'im_self') and hasattr(x, 'im_func'):
-                # on top of PyPy, for cases like 'l.append' where 'l' is a
-                # global constant list, the find_method() returns non-None
-                s_self = self.immutablevalue(x.im_self)
-                result = s_self.find_method(x.im_func.__name__)
-            elif hasattr(x, '__self__') and x.__self__ is not None:
-                # for cases like 'l.append' where 'l' is a global constant list
-                s_self = self.immutablevalue(x.__self__)
-                result = s_self.find_method(x.__name__)
-                assert result is not None
-            elif hasattr(x, '__objclass__'):
-                cls_s = self.annotationclass(x.__objclass__)
-                result = cls_s.find_unboundmethod(x.__name__)
+            if hasattr(x, '__self__'):
+                if x.__self__ is not None:
+                    # bound instance method
+                    s_self = self.immutablevalue(x.__self__)
+                    result = s_self.find_method(x.__name__)
+                else:
+                    # unbound method
+                    cls_s = self.annotationclass(x.im_class)
+                    result = cls_s.find_unboundmethod(x.__name__)
             else:
                 result = None
             if result is None:
@@ -358,7 +358,7 @@ class Bookkeeper(object):
         try:
             return self.descs[pyobj]
         except KeyError:
-            if isinstance(pyobj, types.FunctionType):
+            if is_user_function(pyobj):
                 result = description.FunctionDesc(self, pyobj)
             elif isinstance(pyobj, (type, types.ClassType)):
                 if pyobj is object:
