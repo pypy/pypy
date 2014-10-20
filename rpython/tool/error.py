@@ -106,7 +106,7 @@ def format_blocked_annotation_error(annotator, blocked_blocks):
 def format_simple_call(annotator, oper, msg):
     msg.append("Occurred processing the following simple_call:")
     try:
-        descs = annotator.bindings[oper.args[0]].descriptions
+        descs = annotator.binding(oper.args[0]).descriptions
     except (KeyError, AttributeError), e:
         msg.append("      (%s getting at the binding!)" % (
             e.__class__.__name__,))

@@ -3,7 +3,7 @@ from pypy.interpreter.astcompiler import consts
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP,
-    cpython_struct)
+    cpython_struct, is_valid_fp)
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
 from pypy.module.cpyext.funcobject import PyCodeObject
@@ -154,6 +154,10 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
     source = ""
     filename = rffi.charp2str(filename)
     buf = lltype.malloc(rffi.CCHARP.TO, BUF_SIZE, flavor='raw')
+    if not is_valid_fp(fp):
+        lltype.free(buf, flavor='raw')
+        PyErr_SetFromErrno(space, space.w_IOError)
+        return None
     try:
         while True:
             count = fread(buf, 1, BUF_SIZE, fp)

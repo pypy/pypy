@@ -8,8 +8,10 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 
 if rffi.sizeof(lltype.UniChar) == 4:
     MAXUNICODE = 0x10ffff
+    allow_surrogate_by_default = False
 else:
     MAXUNICODE = 0xffff
+    allow_surrogate_by_default = True
 
 BYTEORDER = sys.byteorder
 
@@ -125,7 +127,7 @@ utf8_code_length = [
 ]
 
 def str_decode_utf_8(s, size, errors, final=False,
-                     errorhandler=None, allow_surrogates=False):
+                     errorhandler=None, allow_surrogates=allow_surrogate_by_default):
     if errorhandler is None:
         errorhandler = default_unicode_error_decode
     result = UnicodeBuilder(size)
@@ -307,7 +309,7 @@ def _encodeUCS4(result, ch):
     result.append((chr((0x80 | (ch & 0x3f)))))
 
 def unicode_encode_utf_8(s, size, errors, errorhandler=None,
-                         allow_surrogates=False):
+                         allow_surrogates=allow_surrogate_by_default):
     if errorhandler is None:
         errorhandler = default_unicode_error_encode
     return unicode_encode_utf_8_impl(s, size, errors, errorhandler,

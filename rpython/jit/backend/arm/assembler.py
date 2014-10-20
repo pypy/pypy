@@ -931,6 +931,7 @@ class AssemblerARM(ResOpAssembler):
                                         guard, fcond)
                 fcond = asm_operations_with_guard[opnum](self, op,
                                         guard, arglocs, regalloc, fcond)
+                assert fcond is not None
                 regalloc.next_instruction()
                 regalloc.possibly_free_vars_for_op(guard)
                 regalloc.possibly_free_vars(guard.getfailargs())
@@ -941,6 +942,7 @@ class AssemblerARM(ResOpAssembler):
                 if arglocs is not None:
                     fcond = asm_operations[opnum](self, op, arglocs,
                                                         regalloc, fcond)
+                    assert fcond is not None
             if op.is_guard():
                 regalloc.possibly_free_vars(op.getfailargs())
             if op.result:

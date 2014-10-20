@@ -158,8 +158,6 @@ def SSA_to_SSI(graph_or_blocks, annotator=None):
     'graph_or_blocks' can be a graph, or just a dict that lists some blocks
     from a graph, as follows: {block: reachable-from-outside-flag}.
     """
-    from rpython.translator.unsimplify import copyvar
-
     entrymap = mkinsideentrymap(graph_or_blocks)
     builder = DataFlowFamilyBuilder(graph_or_blocks)
     variable_families = builder.get_variable_families()
@@ -203,7 +201,7 @@ def SSA_to_SSI(graph_or_blocks, annotator=None):
             except KeyError:
                 raise Exception("SSA_to_SSI failed: no way to give a value to"
                                 " %r in %r" % (v, block))
-            w = copyvar(annotator, v)
+            w = v.copy()
             variable_families.union(v, w)
             block.renamevariables({v: w})
             block.inputargs.append(w)

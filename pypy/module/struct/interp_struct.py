@@ -6,7 +6,8 @@ from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import (
+    TypeDef, interp_attrproperty, interp_attrproperty_bytes)
 from pypy.module.struct.formatiterator import (
     PackFormatIterator, UnpackFormatIterator
 )
@@ -136,7 +137,7 @@ class W_Struct(W_Root):
 
 W_Struct.typedef = TypeDef("Struct",
     __new__=interp2app(W_Struct.descr__new__.im_func),
-    format=interp_attrproperty("format", cls=W_Struct),
+    format=interp_attrproperty_bytes("format", cls=W_Struct),
     size=interp_attrproperty("size", cls=W_Struct),
 
     pack=interp2app(W_Struct.descr_pack),

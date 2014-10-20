@@ -250,7 +250,7 @@ class MixLevelHelperAnnotator(object):
         rtyper = self.rtyper
         translator = rtyper.annotator.translator
         original_graph_count = len(translator.graphs)
-        perform_normalizations(rtyper)
+        perform_normalizations(rtyper.annotator)
         for r in self.delayedreprs:
             r.set_setup_delayed(False)
         rtyper.call_all_setups()
@@ -464,7 +464,7 @@ def cast_object_to_ptr(PTR, object):
 
 @specialize.argtype(0)
 def cast_instance_to_base_ptr(instance):
-    from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+    from rpython.rtyper.rclass import OBJECTPTR
     return cast_object_to_ptr(OBJECTPTR, instance)
 
 @specialize.argtype(0)

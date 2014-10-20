@@ -59,7 +59,7 @@ class FakeLLOp(object):
         x += self.gcheaderbuilder.size_gc_header
         return x, tid
 
-    def do_malloc_fixedsize_clear(self, RESTYPE, type_id, size,
+    def do_malloc_fixedsize(self, RESTYPE, type_id, size,
                                   has_finalizer, has_light_finalizer,
                                   contains_weakptr):
         assert not contains_weakptr
@@ -70,7 +70,9 @@ class FakeLLOp(object):
         self.record.append(("fixedsize", repr(size), tid, p))
         return p
 
-    def do_malloc_varsize_clear(self, RESTYPE, type_id, length, size,
+    do_malloc_fixedsize_clear = do_malloc_fixedsize
+
+    def do_malloc_varsize(self, RESTYPE, type_id, length, size,
                                 itemsize, offset_to_length):
         p, tid = self._malloc(type_id, size + itemsize * length)
         (p + offset_to_length).signed[0] = length
@@ -79,6 +81,8 @@ class FakeLLOp(object):
                             repr(size), repr(itemsize),
                             repr(offset_to_length), p))
         return p
+
+    do_malloc_varsize_clear = do_malloc_varsize
 
     def _write_barrier_failing_case(self, adr_struct):
         self.record.append(('barrier', adr_struct))

@@ -4,12 +4,12 @@ from rpython.annotator import description
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import callparse
-from rpython.rtyper.lltypesystem import rclass, llmemory
+from rpython.rtyper.lltypesystem import llmemory
 from rpython.rtyper.lltypesystem.lltype import (typeOf, Void, ForwardReference,
     Struct, Bool, Char, Ptr, malloc, nullptr, Array, Signed)
 from rpython.rtyper.rmodel import Repr, inputconst
 from rpython.rtyper.rpbc import (
-    AbstractClassesPBCRepr, AbstractMultipleFrozenPBCRepr,
+    AbstractMultipleFrozenPBCRepr,
     AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr,
     SingleFrozenPBCRepr, get_concrete_calltable)
 from rpython.rtyper.typesystem import getfunctionptr
@@ -301,45 +301,3 @@ class __extend__(pairtype(SmallFunctionSetPBCRepr, SmallFunctionSetPBCRepr)):
                                resulttype=Char)
         else:
             return v
-
-# ____________________________________________________________
-
-class ClassesPBCRepr(AbstractClassesPBCRepr):
-    """Representation selected for a PBC of class(es)."""
-
-    # no __init__ here, AbstractClassesPBCRepr.__init__ is good enough
-
-    def _instantiate_runtime_class(self, hop, vtypeptr, r_instance):
-        graphs = []
-        for desc in self.s_pbc.descriptions:
-            classdef = desc.getclassdef(None)
-            assert hasattr(classdef, 'my_instantiate_graph')
-            graphs.append(classdef.my_instantiate_graph)
-        c_graphs = hop.inputconst(Void, graphs)
-        #
-        # "my_instantiate = typeptr.instantiate"
-        c_name = hop.inputconst(Void, 'instantiate')
-        v_instantiate = hop.genop('getfield', [vtypeptr, c_name],
-                                 resulttype=rclass.OBJECT_VTABLE.instantiate)
-        # "my_instantiate()"
-        v_inst = hop.genop('indirect_call', [v_instantiate, c_graphs],
-                           resulttype=rclass.OBJECTPTR)
-        return hop.genop('cast_pointer', [v_inst], resulttype=r_instance)
-
-    def getlowleveltype(self):
-        return rclass.CLASSTYPE
-
-    def get_ll_hash_function(self):
-        return ll_cls_hash
-
-    get_ll_fasthash_function = get_ll_hash_function
-
-    def get_ll_eq_function(self):
-        return None
-
-
-def ll_cls_hash(cls):
-    if not cls:
-        return 0
-    else:
-        return cls.hash

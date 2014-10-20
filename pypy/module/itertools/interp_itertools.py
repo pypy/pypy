@@ -1196,9 +1196,10 @@ permutations(range(3), 2) --> (0,1), (0,2), (1,0), (1,2), (2,0), (2,1)""",
 
 
 class W_Accumulate(W_Root):
-    def __init__(self, space, w_iterable):
+    def __init__(self, space, w_iterable, w_func=None):
         self.space = space
         self.w_iterable = w_iterable
+        self.w_func = w_func
         self.w_total = None
 
     def iter_w(self):
@@ -1210,12 +1211,15 @@ class W_Accumulate(W_Root):
             self.w_total = w_value
             return w_value
 
-        self.w_total = self.space.add(self.w_total, w_value)
+        if self.w_func is None:
+            self.w_total = self.space.add(self.w_total, w_value)
+        else:
+            self.w_total = self.space.call_function(self.w_func, self.w_total, w_value)
         return self.w_total
 
-def W_Accumulate__new__(space, w_subtype, w_iterable):
+def W_Accumulate__new__(space, w_subtype, w_iterable, w_func=None):
     r = space.allocate_instance(W_Accumulate, w_subtype)
-    r.__init__(space, space.iter(w_iterable))
+    r.__init__(space, space.iter(w_iterable), w_func)
     return space.wrap(r)
 
 W_Accumulate.typedef = TypeDef("itertools.accumulate",
@@ -1226,3 +1230,4 @@ W_Accumulate.typedef = TypeDef("itertools.accumulate",
 "accumulate(iterable) --> accumulate object
 
 Return series of accumulated sums.""")
+

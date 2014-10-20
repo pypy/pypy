@@ -1037,7 +1037,8 @@ def _reccopy(source, dest):
             else:
                 # this is a hack XXX de-hack this
                 llvalue = source._obj.getitem(i, uninitialized_ok=True)
-                dest._obj.setitem(i, llvalue)
+                if not isinstance(llvalue, lltype._uninitialized):
+                    dest._obj.setitem(i, llvalue)
     elif isinstance(T, lltype.Struct):
         for name in T._names:
             FIELDTYPE = getattr(T, name)

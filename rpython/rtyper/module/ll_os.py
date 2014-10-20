@@ -105,12 +105,6 @@ else:
 
 _CYGWIN = sys.platform == 'cygwin'
 
-# plain NotImplementedError is invalid RPython
-class LLNotImplemented(NotImplementedError):
-
-    def __init__(self, msg):
-        self.msg = msg
-
 class CConfig:
     """
     Definitions for platform integration.
@@ -1969,12 +1963,10 @@ class EnvironExtRegistry(ControllerEntryForPrebuilt):
         return OsEnvironController()
 
 # ____________________________________________________________
-# Support for the WindowsError exception and misc functions
+# Support for the WindowsError exception
 
 if sys.platform == 'win32':
     from rpython.rlib import rwin32
-    from rpython.rtyper.module.ll_win32file import (
-        make__getfileinformation_impl, make__getfinalpathname_impl)
 
     class RegisterFormatError(BaseLazyRegistering):
         def __init__(self):
@@ -1985,6 +1977,3 @@ if sys.platform == 'win32':
             return extdef([lltype.Signed], str,
                           "rwin32_FormatError",
                           llimpl=rwin32.llimpl_FormatError)
-
-    _getfileinformation = make__getfileinformation_impl(UnicodeTraits())
-    _getfinalpathname = make__getfinalpathname_impl(UnicodeTraits())

@@ -8,7 +8,6 @@ from rpython.memory.test import test_generational_gc
 
 class TestHybridGC(test_generational_gc.TestGenerationalGC):
     from rpython.memory.gc.hybrid import HybridGC as GCClass
-    GC_CAN_MALLOC_NONMOVABLE = True
     GC_CAN_SHRINK_BIG_ARRAY = False
 
     def test_ref_from_rawmalloced_to_regular(self):
@@ -71,6 +70,3 @@ class TestHybridGC(test_generational_gc.TestGenerationalGC):
             return b.num_deleted
         res = self.interpret(f, [15])
         assert res == 16
-
-    def test_malloc_nonmovable_fixsize(self):
-        py.test.skip("Not supported")

@@ -1,4 +1,4 @@
-
+import os
 import py
 from pypy.conftest import pypydir
 from pypy.tool.release import package, package
@@ -13,19 +13,19 @@ def test_dir_structure(test='test'):
         exe_name_in_archive = 'pypy-c.exe'
     else:
         basename = 'pypy-c'
-        rename_pypy_c = 'pypy'
-        exe_name_in_archive = 'bin/pypy'
+        rename_pypy_c = package.POSIX_EXE
+        exe_name_in_archive = os.path.join('bin', package.POSIX_EXE)
     pypy_c = py.path.local(pypydir).join('goal', basename)
     if not pypy_c.check():
         if sys.platform == 'win32':
-            import os, shutil
+            import shutil
             for d in os.environ['PATH'].split(';'):
                 if os.path.exists(os.path.join(d, 'cmd.exe')):
                     shutil.copy(os.path.join(d, 'cmd.exe'), str(pypy_c))
                     break
             else:
                 assert False, 'could not find cmd.exe'
-        else:    
+        else:
             pypy_c.write("#!/bin/sh")
             pypy_c.chmod(0755)
         fake_pypy_c = True
@@ -115,6 +115,7 @@ def test_fix_permissions(tmpdir):
     check(pypy,  0755)
 
 def test_generate_license():
+    py.test.skip('generation of license from platform documentation is disabled')
     from os.path import dirname, abspath, join, exists
     class Options(object):
         pass
@@ -124,7 +125,7 @@ def test_generate_license():
     if sys.platform == 'win32':
         for p in [join(basedir, r'..\..\..\local'), #buildbot
                   join(basedir, r'..\local')]: # pypy/doc/windows.rst
-            if exists(p): 
+            if exists(p):
                 license_base = p
                 break
         else:

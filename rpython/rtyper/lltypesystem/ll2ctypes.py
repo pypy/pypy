@@ -25,7 +25,7 @@ from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.llinterp import LLInterpreter, LLException
-from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
+from rpython.rtyper.rclass import OBJECT, OBJECT_VTABLE
 from rpython.rtyper import raddress
 from rpython.translator.platform import platform
 from array import array
@@ -361,9 +361,7 @@ def build_new_ctypes_type(T, delayed_builders):
             functype = ctypes.CFUNCTYPE
             if sys.platform == 'win32':
                 from rpython.rlib.clibffi import FFI_STDCALL, FFI_DEFAULT_ABI
-                # XXX:
-                #if getattr(T.TO, 'ABI', FFI_DEFAULT_ABI) == FFI_STDCALL:
-                if getattr(T.TO, 'ABI', FFI_DEFAULT_ABI) == 'FFI_STDCALL':
+                if getattr(T.TO, 'ABI', FFI_DEFAULT_ABI) == FFI_STDCALL:
                     # for win32 system call
                     functype = ctypes.WINFUNCTYPE
             argtypes = [get_ctypes_type(ARG) for ARG in T.TO.ARGS

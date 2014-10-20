@@ -146,6 +146,12 @@ if 1:
         self.parse('a, *rest, b = 1, 2, 3, 4, 5')
         self.parse('(a, *rest, b) = 1, 2, 3, 4, 5')
 
+    def test_u_triple_quote(self):
+        self.parse('u""""""')
+        self.parse('U""""""')
+        self.parse("u''''''")
+        self.parse("U''''''")
+
 
 class TestPythonParserWithSpace:
 

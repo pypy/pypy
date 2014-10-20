@@ -89,12 +89,12 @@ class TestEval(BaseApiTest):
                 rffi.free_charp(buf)
 
         assert 0 == run("42 * 43")
-        
+
         assert -1 == run("4..3 * 43")
-        
+
         assert api.PyErr_Occurred()
         api.PyErr_Clear()
-        
+
     def test_run_string(self, space, api):
         def run(code, start, w_globals, w_locals):
             buf = rffi.str2charp(code)
