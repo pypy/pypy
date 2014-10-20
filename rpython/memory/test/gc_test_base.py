@@ -6,7 +6,7 @@ from rpython.memory.test import snippet
 from rpython.rtyper.test.test_llinterp import get_interpreter
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib import rgc
 from rpython.rlib.rstring import StringBuilder
@@ -762,6 +762,22 @@ class GCTest(object):
             assert rgc.get_gcflag_extra(a1) == False
             assert rgc.get_gcflag_extra(a2) == False
         self.interpret(fn, [])
+    
+    def test_register_custom_trace_hook(self):
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        called = []
+
+        def trace_hook(obj, callback, arg):
+            called.append("called")
+
+        def f():
+            rgc.register_custom_trace_hook(S, trace_hook)
+            s = lltype.malloc(S)
+            rgc.collect()
+            keepalive_until_here(s)
+
+        self.interpret(f, [])
+        assert called # not empty, can contain more than one item
 
 from rpython.rlib.objectmodel import UnboxedValue
 

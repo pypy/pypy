@@ -229,14 +229,14 @@ def test_get_memory_usage():
     n = rgc.get_rpy_memory_usage(rgc.cast_instance_to_gcref(x1))
     assert n >= 8 and n <= 64
 
-def test_register_custom_gc_trace():
+def test_register_custom_trace_hook():
     TP = lltype.GcStruct('X')
 
     def trace_func():
         xxx # should not be annotated here
     
     def f():
-        rgc.register_custom_gc_trace(TP, trace_func)
+        rgc.register_custom_trace_hook(TP, trace_func)
     
     t, typer, graph = gengraph(f, [])
 

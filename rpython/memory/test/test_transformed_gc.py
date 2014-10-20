@@ -14,7 +14,7 @@ from rpython.rlib import rgc
 from rpython.conftest import option
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import LONG_BIT
-import pdb
+
 
 WORD = LONG_BIT // 8
 

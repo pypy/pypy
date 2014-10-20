@@ -21,13 +21,9 @@ class GCData(object):
     # It is called with the object as first argument, and the previous
     # returned address (or NULL the first time) as the second argument.
     FINALIZER_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
-    CUSTOMTRACER_FUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                        llmemory.Address)
     FINALIZER = lltype.Ptr(FINALIZER_FUNC)
-    CUSTOMTRACER = lltype.Ptr(CUSTOMTRACER_FUNC)
     EXTRA = lltype.Struct("type_info_extra",
-                          ('finalizer', FINALIZER),
-                          ('customtracer', CUSTOMTRACER))
+                          ('finalizer', FINALIZER))
 
     # structure describing the layout of a typeid
     TYPE_INFO = lltype.Struct("type_info",
@@ -133,12 +129,6 @@ class GCData(object):
         infobits = self.get(typeid).infobits
         return infobits & T_HAS_CUSTOM_TRACE != 0
 
-    def q_get_custom_trace(self, typeid):
-        ll_assert(self.q_has_custom_trace(typeid),
-                  "T_HAS_CUSTOM_TRACE missing")
-        typeinfo = self.get(typeid)
-        return typeinfo.extra.customtracer
-
     def q_fast_path_tracing(self, typeid):
         # return True if none of the flags T_HAS_GCPTR_IN_VARSIZE,
         # T_IS_GCARRAY_OF_GCPTR or T_HAS_CUSTOM_TRACE is set
@@ -165,7 +155,6 @@ class GCData(object):
             self.q_member_index,
             self.q_is_rpython_class,
             self.q_has_custom_trace,
-            self.q_get_custom_trace,
             self.q_fast_path_tracing,
             self.q_has_gcptr)
 
@@ -411,7 +400,9 @@ class TypeLayoutBuilder(object):
         return None
 
     def initialize_gc_query_function(self, gc):
-        return GCData(self.type_info_group).set_query_functions(gc)
+        gcdata = GCData(self.type_info_group)
+        gcdata.set_query_functions(gc)
+        return gcdata
 
     def consider_constant(self, TYPE, value, gc):
         if value is not lltype.top_container(value):
