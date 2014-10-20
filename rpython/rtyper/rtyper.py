@@ -60,6 +60,7 @@ class RPythonTyper(object):
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
         self.exceptiondata = ExceptionData(self)
+        self.custom_trace_funcs = []
 
         try:
             self.seed = int(os.getenv('RTYPERSEED'))

@@ -549,3 +549,21 @@ class Entry(ExtRegistryEntry):
 
 def lltype_is_gc(TP):
     return getattr(getattr(TP, "TO", None), "_gckind", "?") == 'gc'
+
+def register_custom_gc_trace(TP, func):
+    """ This function does not do anything, but called from any annotated
+    place, will tell that "func" is used to trace GC roots inside any instance
+    of the type TP
+    """
+
+class RegisterGcTraceEntry(ExtRegistryEntry):
+    _about_ = register_custom_gc_trace
+
+    def compute_result_annotation(self, *args_s):
+        pass
+
+    def specialize_call(self, hop):
+        TP = hop.args_s[0].const
+        func = hop.args_s[1].const
+        hop.exception_cannot_occur()
+        hop.rtyper.custom_trace_funcs.append((TP, func))
