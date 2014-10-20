@@ -63,9 +63,6 @@ class AppTestNDIter(BaseNumpyAppTest):
         from numpy import arange, nditer, array
         a = arange(24).reshape(2, 3, 4)
         import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, nditer, a, flags=['external_loop'])
-            skip('nditer external_loop not implmented')
         r = []
         n = 0
         for x in nditer(a, flags=['external_loop']):
@@ -222,9 +219,6 @@ class AppTestNDIter(BaseNumpyAppTest):
     def test_outarg(self):
         from numpy import nditer, zeros, arange
         import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, nditer, [1, 2], flags=['external_loop'])
-            skip('nditer external_loop not implmented')
 
         def square1(a):
             it = nditer([a, None])
@@ -233,6 +227,9 @@ class AppTestNDIter(BaseNumpyAppTest):
             return it.operands[1]
         assert (square1([1, 2, 3]) == [1, 4, 9]).all()
 
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, nditer, [1, 2], flags=['buffered'])
+            skip('nditer buffered not implmented')
         def square2(a, out=None):
             it = nditer([a, out], flags=['external_loop', 'buffered'],
                         op_flags=[['readonly'],
@@ -252,9 +249,6 @@ class AppTestNDIter(BaseNumpyAppTest):
         from numpy import nditer, arange
         a = arange(3)
         import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, nditer, a, flags=['external_loop'])
-            skip('nditer external_loop not implmented')
         b = arange(8).reshape(2,4)
         it = nditer([a, b, None], flags=['external_loop'],
                     op_axes=[[0, -1, -1], [-1, 0, 1], None])
