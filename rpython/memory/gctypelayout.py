@@ -22,13 +22,11 @@ class GCData(object):
     # returned address (or NULL the first time) as the second argument.
     FINALIZER_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
     FINALIZER = lltype.Ptr(FINALIZER_FUNC)
-    EXTRA = lltype.Struct("type_info_extra",
-                          ('finalizer', FINALIZER))
 
     # structure describing the layout of a typeid
     TYPE_INFO = lltype.Struct("type_info",
         ("infobits",       lltype.Signed),    # combination of the T_xxx consts
-        ("extra",          lltype.Ptr(EXTRA)),
+        ("finalizer",      FINALIZER),
         ("fixedsize",      lltype.Signed),
         ("ofstoptrs",      lltype.Ptr(OFFSETS_TO_GC_PTR)),
         hints={'immutable': True},
@@ -80,18 +78,13 @@ class GCData(object):
         return (infobits & T_IS_GCARRAY_OF_GCPTR) != 0
 
     def q_finalizer(self, typeid):
-        typeinfo = self.get(typeid)
-        if typeinfo.infobits & T_HAS_FINALIZER:
-            return typeinfo.extra.finalizer
-        else:
-            return lltype.nullptr(GCData.FINALIZER_FUNC)
+        return self.get(typeid).finalizer
 
     def q_light_finalizer(self, typeid):
         typeinfo = self.get(typeid)
         if typeinfo.infobits & T_HAS_LIGHTWEIGHT_FINALIZER:
-            return typeinfo.extra.finalizer
-        else:
-            return lltype.nullptr(GCData.FINALIZER_FUNC)
+            return typeinfo.finalizer
+        return lltype.nullptr(GCData.FINALIZER_FUNC)
 
     def q_offsets_to_gc_pointers(self, typeid):
         return self.get(typeid).ofstoptrs
@@ -166,9 +159,8 @@ T_HAS_GCPTR_IN_VARSIZE      = 0x020000
 T_IS_GCARRAY_OF_GCPTR       = 0x040000
 T_IS_WEAKREF                = 0x080000
 T_IS_RPYTHON_INSTANCE       = 0x100000 # the type is a subclass of OBJECT
-T_HAS_FINALIZER             = 0x200000
-T_HAS_CUSTOM_TRACE          = 0x400000
-T_HAS_LIGHTWEIGHT_FINALIZER = 0x800000
+T_HAS_CUSTOM_TRACE          = 0x200000
+T_HAS_LIGHTWEIGHT_FINALIZER = 0x400000
 T_HAS_GCPTR                 = 0x1000000
 T_KEY_MASK                  = intmask(0xFE000000) # bug detection only
 T_KEY_VALUE                 = intmask(0x5A000000) # bug detection only
@@ -197,18 +189,11 @@ def encode_type_shape(builder, info, TYPE, index):
     #
     fptrs = builder.special_funcptr_for_type(TYPE)
     if fptrs:
-        extra = lltype.malloc(GCData.EXTRA, zero=True, immortal=True,
-                              flavor='raw')
         if "finalizer" in fptrs:
-            extra.finalizer = fptrs["finalizer"]
-            infobits |= T_HAS_FINALIZER
+            info.finalizer = fptrs["finalizer"]
         if "light_finalizer" in fptrs:
-            extra.finalizer = fptrs["light_finalizer"]
-            infobits |= T_HAS_FINALIZER | T_HAS_LIGHTWEIGHT_FINALIZER
-        if "custom_trace" in fptrs:
-            extra.customtracer = fptrs["custom_trace"]
-            infobits |= T_HAS_CUSTOM_TRACE | T_HAS_GCPTR
-        info.extra = extra
+            info.finalizer = fptrs["light_finalizer"]
+            infobits |= T_HAS_LIGHTWEIGHT_FINALIZER
     #
     if not TYPE._is_varsize():
         info.fixedsize = llarena.round_up_for_allocation(

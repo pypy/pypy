@@ -237,26 +237,19 @@ class GCTest(object):
         assert 160 <= res <= 165
 
     def test_custom_trace(self):
-        from rpython.rtyper.annlowlevel import llhelper
         from rpython.rtyper.lltypesystem import llmemory
         from rpython.rtyper.lltypesystem.llarena import ArenaError
         #
         S = lltype.GcStruct('S', ('x', llmemory.Address),
-                                 ('y', llmemory.Address), rtti=True)
+                                 ('y', llmemory.Address))
         T = lltype.GcStruct('T', ('z', lltype.Signed))
         offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(obj, prev):
-            if not prev:
-                return obj + offset_of_x
-            else:
-                return llmemory.NULL
-        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                          llmemory.Address)
-        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
+        def customtrace(obj, callback, arg):
+            callback(obj + offset_of_x, arg)
         #
         for attrname in ['x', 'y']:
             def setup():
+                rgc.register_custom_trace_hook(S, customtrace)
                 s1 = lltype.malloc(S)
                 tx = lltype.malloc(T)
                 tx.z = 42
