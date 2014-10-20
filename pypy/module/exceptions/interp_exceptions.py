@@ -38,6 +38,21 @@ BaseException
       |    = IOError
       |    = WindowsError (Windows)
       |    = VMSError (VMS)
+      |    +-- BlockingIOError
+      |    +-- ChildProcessError
+      |    +-- ConnectionError
+      |    |    +-- BrokenPipeError
+      |    |    +-- ConnectionAbortedError
+      |    |    +-- ConnectionRefusedError
+      |    |    +-- ConnectionResetError
+      |    +-- FileExistsError
+      |    +-- FileNotFoundError
+      |    +-- InterruptedError
+      |    +-- IsADirectoryError
+      |    +-- NotADirectoryError
+      |    +-- PermissionError
+      |    +-- ProcessLookupError
+      |    +-- TimeoutError
       +-- EOFError
       +-- ImportError
       +-- LookupError
@@ -71,7 +86,7 @@ BaseException
            +-- BytesWarning
            +-- ResourceWarning
 """
-
+import errno
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, interp_attrproperty,
@@ -448,7 +463,29 @@ class W_OSError(W_Exception):
         self.w_errno = space.w_None
         self.w_strerror = space.w_None
         self.w_filename = space.w_None
+        self.written = -1  # only for BlockingIOError.
         W_BaseException.__init__(self, space)
+
+    @staticmethod
+    def descr_new(space, w_subtype, __args__):
+        args_w, kwds_w = __args__.unpack()  # ignore kwds
+        if space.is_w(w_subtype, space.gettypeobject(W_OSError.typedef)):
+            if len(args_w) > 0:
+                try:
+                    errno = space.int_w(args_w[0])
+                except OperationError:
+                    pass
+                else:
+                    try:
+                        subclass = ERRNO_MAP[errno]
+                    except KeyError:
+                        pass
+                    else:
+                        w_subtype = space.gettypeobject(subclass.typedef)
+        exc = space.allocate_instance(W_OSError, w_subtype)
+        W_OSError.__init__(exc, space)
+        exc.args_w = args_w
+        return space.wrap(exc)
 
     def descr_init(self, space, args_w):
         W_BaseException.descr_init(self, space, args_w)
@@ -456,7 +493,16 @@ class W_OSError(W_Exception):
             self.w_errno = args_w[0]
             self.w_strerror = args_w[1]
         if len(args_w) == 3:
-            self.w_filename = args_w[2]
+            # BlockingIOError's 3rd argument can be the number of
+            # characters written.
+            if space.isinstance_w(
+                    self, space.gettypeobject(W_BlockingIOError.typedef)):
+                try:
+                    self.written = space.int_w(args_w[2])
+                except OperationError:
+                    self.w_filename = args_w[2]
+            else:
+                self.w_filename = args_w[2]
             self.args_w = [args_w[0], args_w[1]]
 
     # since we rebind args_w, we need special reduce, grump
@@ -486,17 +532,28 @@ class W_OSError(W_Exception):
             ))
         return W_BaseException.descr_str(self, space)
 
+    def descr_get_written(self, space):
+        if self.written == -1:
+            raise OperationError(space.w_AttributeError,
+                                 space.wrap("characters_written"))
+        return space.wrap(self.written)
+
+    def descr_set_written(self, space, w_written):
+        self.written = space.int_w(w_written)
+
 W_OSError.typedef = TypeDef(
     'OSError',
     W_Exception.typedef,
     __doc__ = W_OSError.__doc__,
-    __new__ = _new(W_OSError),
+    __new__ = interp2app(W_OSError.descr_new),
     __reduce__ = interp2app(W_OSError.descr_reduce),
     __init__ = interp2app(W_OSError.descr_init),
     __str__ = interp2app(W_OSError.descr_str),
     errno    = readwrite_attrproperty_w('w_errno',    W_OSError),
     strerror = readwrite_attrproperty_w('w_strerror', W_OSError),
     filename = readwrite_attrproperty_w('w_filename', W_OSError),
+    characters_written = GetSetProperty(W_OSError.descr_get_written,
+                                        W_OSError.descr_set_written),
     )
 
 class W_WindowsError(W_OSError):
@@ -551,46 +608,8 @@ W_WindowsError.typedef = TypeDef(
     winerror = readwrite_attrproperty_w('w_winerror', W_WindowsError),
     )
 
-# Various OSError subclasses added in Python 3.3
-class W_BlockingIOError(W_OSError):
-    "I/O operation would block."
-
-    def __init__(self, space):
-        W_OSError.__init__(self, space)
-        self.written = -1
-
-    def descr_init(self, space, args_w):
-        W_OSError.descr_init(self, space, args_w)
-        # BlockingIOError's 3rd argument can be the number of
-        # characters written.
-        if len(args_w) >= 3:
-            try:
-                written = space.int_w(args_w[2])
-            except OperationError:
-                pass
-            else:
-                self.written = written
-
-    def descr_get_written(self, space):
-        if self.written == -1:
-            raise OperationError(space.w_AttributeError,
-                                 space.wrap("characters_written"))
-        return space.wrap(self.written)
-
-    def descr_set_written(self, space, w_written):
-        self.written = space.int_w(w_written)
-
-
-W_BlockingIOError.typedef = TypeDef(
-    'BlockingIOError', W_OSError.typedef,
-    __doc__ = ("Exception raised when I/O would block on a non-blocking "
-               "I/O stream"),
-    __new__  = _new(W_BlockingIOError),
-    __init__ = interp2app(W_BlockingIOError.descr_init),
-    characters_written = GetSetProperty(W_BlockingIOError.descr_get_written,
-                                        W_BlockingIOError.descr_set_written),
-    )
-
+W_BlockingIOError = _new_exception(
+    "BlockingIOError", W_OSError, "I/O operation would block")
 W_ConnectionError = _new_exception(
     "ConnectionError", W_OSError, "Connection error.")
 W_ChildProcessError = _new_exception(
@@ -927,3 +946,25 @@ W_UnicodeEncodeError.typedef = TypeDef(
     end    = readwrite_attrproperty_w('w_end', W_UnicodeEncodeError),
     reason = readwrite_attrproperty_w('w_reason', W_UnicodeEncodeError),
 )
+
+ERRNO_MAP = {
+    errno.EAGAIN: W_BlockingIOError,
+    errno.EALREADY: W_BlockingIOError,
+    errno.EINPROGRESS: W_BlockingIOError,
+    errno.EWOULDBLOCK: W_BlockingIOError,
+    errno.EPIPE: W_BrokenPipeError,
+    errno.ESHUTDOWN: W_BrokenPipeError,
+    errno.ECHILD: W_ChildProcessError,
+    errno.ECONNABORTED: W_ConnectionAbortedError,
+    errno.ECONNREFUSED: W_ConnectionRefusedError,
+    errno.ECONNRESET: W_ConnectionResetError,
+    errno.EEXIST: W_FileExistsError,
+    errno.ENOENT: W_FileNotFoundError,
+    errno.EISDIR: W_IsADirectoryError,
+    errno.ENOTDIR: W_NotADirectoryError,
+    errno.EINTR: W_InterruptedError,
+    errno.EACCES: W_PermissionError,
+    errno.EPERM: W_PermissionError,
+    errno.ESRCH: W_ProcessLookupError,
+    errno.ETIMEDOUT: W_TimeoutError,
+}

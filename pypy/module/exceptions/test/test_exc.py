@@ -213,7 +213,7 @@ class AppTestExc(object):
         le.xyz = (1, 2)
         assert le.__reduce__() == (LookupError, (1, 2, "a"), {"xyz": (1, 2)})
         ee = EnvironmentError(1, 2, "a")
-        assert ee.__reduce__() == (EnvironmentError, (1, 2, "a"))
+        assert ee.__reduce__() == (PermissionError, (1, 2, "a"))
 
     def test_setstate(self):
         fw = FutureWarning()
@@ -307,4 +307,41 @@ class AppTestExc(object):
         e.characters_written = 5
         assert e.characters_written == 5
 
-
+    def test_errno_mapping(self):
+        # The OSError constructor maps errnos to subclasses
+        map_lines = """
+        +-- BlockingIOError        EAGAIN, EALREADY, EWOULDBLOCK, EINPROGRESS
+        +-- ChildProcessError                                          ECHILD
+        +-- ConnectionError
+            +-- BrokenPipeError                              EPIPE, ESHUTDOWN
+            +-- ConnectionAbortedError                           ECONNABORTED
+            +-- ConnectionRefusedError                           ECONNREFUSED
+            +-- ConnectionResetError                               ECONNRESET
+        +-- FileExistsError                                            EEXIST
+        +-- FileNotFoundError                                          ENOENT
+        +-- InterruptedError                                            EINTR
+        +-- IsADirectoryError                                          EISDIR
+        +-- NotADirectoryError                                        ENOTDIR
+        +-- PermissionError                                     EACCES, EPERM
+        +-- ProcessLookupError                                          ESRCH
+        +-- TimeoutError                                            ETIMEDOUT
+        """
+        import errno, builtins
+        map = {}
+        for line in map_lines.splitlines():
+            line = line.strip('+- ')
+            if not line:
+                continue
+            excname, _, errnames = line.partition(' ')
+            for errname in filter(None, errnames.strip().split(', ')):
+                map[getattr(errno, errname)] = getattr(builtins, excname)
+        e = OSError(errno.EEXIST, "Bad file descriptor")
+        assert type(e) is FileExistsError
+        # Exhaustive testing
+        for errcode, exc in map.items():
+            e = OSError(errcode, "Some message")
+            assert type(e) is exc
+        othercodes = set(errno.errorcode) - set(map)
+        for errcode in othercodes:
+            e = OSError(errcode, "Some message")
+            assert type(e) is OSError
