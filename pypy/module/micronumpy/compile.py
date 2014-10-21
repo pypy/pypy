@@ -36,8 +36,8 @@ class BadToken(Exception):
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
                         "unegative", "flat", "tostring","count_nonzero",
                         "argsort"]
-TWO_ARG_FUNCTIONS = ["dot", 'take']
-TWO_ARG_FUNCTIONS_OR_NONE = ['view']
+TWO_ARG_FUNCTIONS = ["dot", 'take', 'searchsorted']
+TWO_ARG_FUNCTIONS_OR_NONE = ['view', 'astype']
 THREE_ARG_FUNCTIONS = ['where']
 
 class W_TypeObject(W_Root):
@@ -109,6 +109,9 @@ class FakeSpace(object):
             if stop < 0:
                 stop += size + 1
             if step < 0:
+                start, stop = stop, start
+                start -= 1
+                stop -= 1
                 lgt = (stop - start + 1) / step + 1
             else:
                 lgt = (stop - start - 1) / step + 1
@@ -135,6 +138,11 @@ class FakeSpace(object):
 
     def newcomplex(self, r, i):
         return ComplexObject(r, i)
+
+    def getitem(self, obj, index):
+        assert isinstance(obj, ListObject)
+        assert isinstance(index, IntObject)
+        return obj.items[index.intval]
 
     def listview(self, obj, number=-1):
         assert isinstance(obj, ListObject)
@@ -388,6 +396,8 @@ class Operator(Node):
             w_res = w_lhs.descr_mul(interp.space, w_rhs)
         elif self.name == '-':
             w_res = w_lhs.descr_sub(interp.space, w_rhs)
+        elif self.name == '**':
+            w_res = w_lhs.descr_pow(interp.space, w_rhs)
         elif self.name == '->':
             if isinstance(w_rhs, FloatObject):
                 w_rhs = IntObject(int(w_rhs.floatval))
@@ -468,7 +478,6 @@ class ArrayConstant(Node):
 
 class SliceConstant(Node):
     def __init__(self, start, stop, step):
-        # no negative support for now
         self.start = start
         self.stop = stop
         self.step = step
@@ -575,6 +584,9 @@ class FunctionCall(Node):
                 w_res = arr.descr_dot(interp.space, arg)
             elif self.name == 'take':
                 w_res = arr.descr_take(interp.space, arg)
+            elif self.name == "searchsorted":
+                w_res = arr.descr_searchsorted(interp.space, arg,
+                                               interp.space.wrap('left'))
             else:
                 assert False # unreachable code
         elif self.name in THREE_ARG_FUNCTIONS:
@@ -596,6 +608,8 @@ class FunctionCall(Node):
             arg = self.args[1].execute(interp)
             if self.name == 'view':
                 w_res = arr.descr_view(interp.space, arg)
+            elif self.name == 'astype':
+                w_res = arr.descr_astype(interp.space, arg)
             else:
                 assert False
         else:
@@ -620,7 +634,7 @@ _REGEXES = [
     (':', 'colon'),
     ('\w+', 'identifier'),
     ('\]', 'array_right'),
-    ('(->)|[\+\-\*\/]', 'operator'),
+    ('(->)|[\+\-\*\/]+', 'operator'),
     ('=', 'assign'),
     (',', 'comma'),
     ('\|', 'pipe'),

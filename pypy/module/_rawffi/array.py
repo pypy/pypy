@@ -193,7 +193,7 @@ class W_ArrayInstance(W_DataInstance):
 
     def setslice(self, space, w_slice, w_value):
         start, stop = self.decodeslice(space, w_slice)
-        value = space.bufferstr_w(w_value)
+        value = space.str_w(w_value)
         if start + len(value) != stop:
             raise OperationError(space.w_ValueError,
                                  space.wrap("cannot resize array"))
@@ -207,7 +207,6 @@ W_ArrayInstance.typedef = TypeDef(
     __setitem__ = interp2app(W_ArrayInstance.descr_setitem),
     __getitem__ = interp2app(W_ArrayInstance.descr_getitem),
     __len__     = interp2app(W_ArrayInstance.getlength),
-    __buffer__  = interp2app(W_ArrayInstance.descr_buffer),
     buffer      = GetSetProperty(W_ArrayInstance.getbuffer),
     shape       = interp_attrproperty('shape', W_ArrayInstance),
     free        = interp2app(W_ArrayInstance.free),
@@ -232,7 +231,6 @@ W_ArrayInstanceAutoFree.typedef = TypeDef(
     __setitem__ = interp2app(W_ArrayInstance.descr_setitem),
     __getitem__ = interp2app(W_ArrayInstance.descr_getitem),
     __len__     = interp2app(W_ArrayInstance.getlength),
-    __buffer__  = interp2app(W_ArrayInstance.descr_buffer),
     buffer      = GetSetProperty(W_ArrayInstance.getbuffer),
     shape       = interp_attrproperty('shape', W_ArrayInstance),
     byptr       = interp2app(W_ArrayInstance.byptr),

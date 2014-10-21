@@ -90,6 +90,13 @@ class AutoFileTests(unittest.TestCase):
         self.assertRaises(TypeError, self.f.writelines,
                           [NonString(), NonString()])
 
+    def testWritelinesBuffer(self):
+        self.f.writelines([array('c', 'abc')])
+        self.f.close()
+        self.f = open(TESTFN, 'rb')
+        buf = self.f.read()
+        self.assertEqual(buf, 'abc')
+
     def testRepr(self):
         # verify repr works
         self.assertTrue(repr(self.f).startswith("<open file '" + TESTFN))
@@ -162,6 +169,7 @@ class AutoFileTests(unittest.TestCase):
         # Remark: Do not perform more than one test per open file,
         # since that does NOT catch the readline error on Windows.
         data = 'xxx'
+        self.f.close()
         for mode in ['w', 'wb', 'a', 'ab']:
             for attr in ['read', 'readline', 'readlines']:
                 self.f = open(TESTFN, mode)
@@ -427,6 +435,20 @@ class OtherFileTests(unittest.TestCase):
         finally:
             os.unlink(TESTFN)
 
+    @unittest.skipUnless(os.name == 'posix', 'test requires a posix system.')
+    def test_write_full(self):
+        # Issue #17976
+        try:
+            f = open('/dev/full', 'w', 1)
+        except IOError:
+            self.skipTest("requires '/dev/full'")
+        try:
+            with self.assertRaises(IOError):
+                f.write('hello')
+                f.write('\n')
+        finally:
+            f.close()
+
 class FileSubclassTests(unittest.TestCase):
 
     def testExit(self):
@@ -478,11 +500,10 @@ class FileThreadingTests(unittest.TestCase):
 
     def _create_file(self):
         if self.use_buffering:
-            f = open(self.filename, "w+", buffering=1024*16)
+            self.f = open(self.filename, "w+", buffering=1024*16)
         else:
-            f = open(self.filename, "w+")
-        self.f = f
-        self.all_files.append(f)
+            self.f = open(self.filename, "w+")
+        self.all_files.append(self.f)
         oldf = self.all_files.pop(0)
         if oldf is not None:
             oldf.close()

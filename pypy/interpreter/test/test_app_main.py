@@ -7,6 +7,7 @@ import sys, os, re, runpy, subprocess
 from rpython.tool.udir import udir
 from contextlib import contextmanager
 from pypy.conftest import pypydir
+from lib_pypy._pypy_interact import irc_header
 
 banner = sys.version.splitlines()[0]
 
@@ -259,6 +260,22 @@ class TestInteraction:
         child.expect('>>> ')
         child.sendline("'' in sys.path")
         child.expect("True")
+
+    def test_yes_irc_topic(self, monkeypatch):
+        monkeypatch.setenv('PYPY_IRC_TOPIC', '1')
+        child = self.spawn([])
+        child.expect(irc_header)   # banner
+
+    def test_maybe_irc_topic(self):
+        import sys
+        pypy_version_info = getattr(sys, 'pypy_version_info', sys.version_info)
+        irc_topic = pypy_version_info[3] != 'final'
+        child = self.spawn([])
+        child.expect('>>>')   # banner
+        if irc_topic:
+            assert irc_header in child.before
+        else:    
+            assert irc_header not in child.before
 
     def test_help(self):
         # test that -h prints the usage, including the name of the executable
@@ -920,6 +937,7 @@ class AppTestAppMain:
         # ----------------------------------------
         from pypy.module.sys.version import CPYTHON_VERSION, PYPY_VERSION
         cpy_ver = '%d.%d' % CPYTHON_VERSION[:2]
+        from lib_pypy._pypy_interact import irc_header
 
         goal_dir = os.path.dirname(app_main)
         # build a directory hierarchy like which contains both bin/pypy-c and
@@ -927,7 +945,7 @@ class AppTestAppMain:
         prefix = udir.join('pathtest').ensure(dir=1)
         fake_exe = 'bin/pypy-c'
         if sys.platform == 'win32':
-            fake_exe += '.exe'
+            fake_exe = 'pypy-c.exe'
         fake_exe = prefix.join(fake_exe).ensure(file=1)
         expected_path = [str(prefix.join(subdir).ensure(dir=1))
                          for subdir in ('lib_pypy',
@@ -939,6 +957,7 @@ class AppTestAppMain:
         self.w_fake_exe = self.space.wrap(str(fake_exe))
         self.w_expected_path = self.space.wrap(expected_path)
         self.w_trunkdir = self.space.wrap(os.path.dirname(pypydir))
+        self.w_is_release = self.space.wrap(PYPY_VERSION[3] == "final")
 
         self.w_tmp_dir = self.space.wrap(tmp_dir)
 
@@ -965,6 +984,13 @@ class AppTestAppMain:
             assert sys.executable == ''
             assert sys.path == old_sys_path + [self.goal_dir]
 
+            app_main.setup_bootstrap_path(self.fake_exe)
+            if not sys.platform == 'win32':
+                # an existing file is always 'executable' on windows
+                assert sys.executable == ''      # not executable!
+                assert sys.path == old_sys_path + [self.goal_dir]
+
+            os.chmod(self.fake_exe, 0755)
             app_main.setup_bootstrap_path(self.fake_exe)
             assert sys.executable == self.fake_exe
             assert self.goal_dir not in sys.path
@@ -1008,3 +1034,4 @@ class AppTestAppMain:
             # assert it did not crash
         finally:
             sys.path[:] = old_sys_path
+    

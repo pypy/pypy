@@ -286,6 +286,13 @@ void _m_getsyx(int *yx);
 
 
 lib = ffi.verify("""
+#ifdef __APPLE__
+/* the following define is necessary for OS X 10.6+; without it, the
+   Apple-supplied ncurses.h sets NCURSES_OPAQUE to 1, and then Python
+   can't get at the WINDOW flags field. */
+#define NCURSES_OPAQUE 0
+#endif
+
 #include <ncurses.h>
 #include <panel.h>
 #include <term.h>
@@ -309,11 +316,9 @@ lib = ffi.verify("""
 #endif
 
 int _m_ispad(WINDOW *win) {
-#if defined WINDOW_HAS_FLAGS
+    // <curses.h> may not have _flags (and possibly _ISPAD),
+    // but for now let's assume that <ncurses.h> always has it
     return (win->_flags & _ISPAD);
-#else
-    return 0;
-#endif
 }
 
 void _m_getsyx(int *yx) {

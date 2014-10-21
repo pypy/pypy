@@ -81,7 +81,7 @@ class SomeStatResult(annmodel.SomeObject):
         from rpython.rtyper.module import r_os_stat
         return r_os_stat.StatResultRepr(rtyper)
 
-    def rtyper_makekey_ex(self, rtyper):
+    def rtyper_makekey(self):
         return self.__class__,
 
     def getattr(self, s_attr):
@@ -115,7 +115,7 @@ class SomeStatvfsResult(annmodel.SomeObject):
         from rpython.rtyper.module import r_os_stat
         return r_os_stat.StatvfsResultRepr(rtyper)
 
-    def rtyper_makekey_ex(self, rtyper):
+    def rtyper_makekey(self):
         return self.__class__,
 
     def getattr(self, s_attr):
@@ -186,7 +186,10 @@ if sys.platform.startswith('win'):
     _name_struct_stat = '_stati64'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'sys/statvfs.h']
 else:
-    _name_struct_stat = 'stat'
+    if sys.platform.startswith('linux'):
+        _name_struct_stat = 'stat64'
+    else:
+        _name_struct_stat = 'stat'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'sys/statvfs.h', 'unistd.h']
 
 compilation_info = ExternalCompilationInfo(

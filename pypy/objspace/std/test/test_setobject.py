@@ -8,10 +8,8 @@ go there and invoke::
 This file just contains some basic tests that make sure, the implementation
 is not too wrong.
 """
-import py.test
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject, IntegerSetStrategy
 from pypy.objspace.std.setobject import _initialize_set
-from pypy.objspace.std.setobject import newset
 from pypy.objspace.std.listobject import W_ListObject
 
 letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -341,8 +339,9 @@ class AppTestAppSetTest:
 
     def test_compare(self):
         raises(TypeError, cmp, set('abc'), set('abd'))
+        raises(TypeError, cmp, frozenset('abc'), frozenset('abd'))
         assert set('abc') != 'abc'
-        raises(TypeError, "set('abc') < 42")
+        assert not set('abc') < 42
         assert not (set('abc') < set('def'))
         assert not (set('abc') <= frozenset('abd'))
         assert not (set('abc') < frozenset('abd'))
@@ -376,6 +375,11 @@ class AppTestAppSetTest:
         assert (frozenset('abc') != set('abcd'))
         assert set() != set('abc')
         assert set('abc') != set('abd')
+
+        class X(set):
+            pass
+
+        raises(TypeError, cmp, X(), X())
 
     def test_libpython_equality(self):
         for thetype in [frozenset, set]:
@@ -960,3 +964,35 @@ class AppTestAppSetTest:
         # did not work before because of an optimization that swaps both
         # operands when the first set is larger than the second
         assert type(frozenset([1, 2]) & set([2])) is frozenset
+
+    def test_update_bug_strategy(self):
+        from __pypy__ import strategy
+        s = set([1, 2, 3])
+        assert strategy(s) == "IntegerSetStrategy"
+        s.update(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3])
+        s |= set()
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3]).difference(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3])
+        s.difference_update(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3]).symmetric_difference(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3])
+        s.symmetric_difference_update(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3]).intersection(set())
+        assert strategy(s) == "EmptySetStrategy"
+        #
+        s = set([1, 2, 3])
+        s.intersection_update(set())
+        assert strategy(s) == "EmptySetStrategy"

@@ -10,6 +10,12 @@ from pypy.module._io.interp_textio import W_TextIOWrapper
 from rpython.rtyper.module.ll_os_stat import STAT_FIELD_TYPES
 
 
+class Cache:
+    def __init__(self, space):
+        self.w_unsupportedoperation = space.new_exception_class(
+            "io.UnsupportedOperation",
+            space.newtuple([space.w_ValueError, space.w_IOError]))
+
 class W_BlockingIOError(W_IOError):
     def __init__(self, space):
         W_IOError.__init__(self, space)
@@ -22,8 +28,8 @@ class W_BlockingIOError(W_IOError):
 
 W_BlockingIOError.typedef = TypeDef(
     'BlockingIOError', W_IOError.typedef,
-    __doc__ = ("Exception raised when I/O would block "
-               "on a non-blocking I/O stream"),
+    __doc__ = ("Exception raised when I/O would block on a non-blocking "
+               "I/O stream"),
     __new__  = generic_new_descr(W_BlockingIOError),
     __init__ = interp2app(W_BlockingIOError.descr_init),
     characters_written = interp_attrproperty('written', W_BlockingIOError),

@@ -2,11 +2,11 @@ from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.function import Function, StaticMethod
-from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
+from pypy.interpreter.typedef import weakref_descr, GetSetProperty, Member, \
      descr_get_dict
 from pypy.interpreter.astcompiler.misc import mangle
 from pypy.objspace.std.model import W_Object
-from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
+from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
 from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
@@ -66,6 +66,7 @@ class W_TypeObject(W_Object):
     _immutable_fields_ = ["flag_heaptype",
                           "flag_cpytype",
                           "flag_abstract?",
+                          "flag_sequence_bug_compat",
                           'needsdel',
                           'weakrefable',
                           'hasdict',
@@ -103,6 +104,7 @@ class W_TypeObject(W_Object):
         w_self.flag_heaptype = False
         w_self.flag_cpytype = False
         w_self.flag_abstract = False
+        w_self.flag_sequence_bug_compat = False
         w_self.instancetypedef = overridetypedef
 
         if overridetypedef is not None:
@@ -370,6 +372,12 @@ class W_TypeObject(W_Object):
         w_class, w_value = w_self._pure_lookup_where_with_method_cache(name, version_tag)
         return w_class, unwrap_cell(space, w_value)
 
+    def _pure_lookup_where_possibly_with_method_cache(w_self, name, version_tag):
+        if w_self.space.config.objspace.std.withmethodcache:
+            return w_self._pure_lookup_where_with_method_cache(name, version_tag)
+        else:
+            return w_self._lookup_where_all_typeobjects(name)
+
     @elidable
     def _pure_lookup_where_with_method_cache(w_self, name, version_tag):
         space = w_self.space
@@ -466,37 +474,27 @@ class W_TypeObject(W_Object):
                 return res
         return _issubtype(w_self, w_type)
 
-    def get_module(w_self):
-        space = w_self.space
-        if w_self.is_heaptype() and w_self.getdictvalue(space, '__module__') is not None:
-            return w_self.getdictvalue(space, '__module__')
+    def get_module(self):
+        space = self.space
+        if self.is_heaptype():
+            return self.getdictvalue(space, '__module__')
         else:
-            # for non-heap types, CPython checks for a module.name in the
-            # type name.  That's a hack, so we're allowed to use a different
-            # hack...
-            if ('__module__' in w_self.dict_w and
-                space.isinstance_w(w_self.getdictvalue(space, '__module__'),
-                                               space.w_str)):
-                return w_self.getdictvalue(space, '__module__')
-            return space.wrap('__builtin__')
+            dot = self.name.find('.')
+            if dot >= 0:
+                mod = self.name[:dot]
+            else:
+                mod = "__builtin__"
+            return space.wrap(mod)
 
-    def get_module_type_name(w_self):
-        space = w_self.space
-        w_mod = w_self.get_module()
-        if not space.isinstance_w(w_mod, space.w_str):
-            mod = '__builtin__'
+    def getname(self, space):
+        if self.is_heaptype():
+            return self.name
         else:
-            mod = space.str_w(w_mod)
-        if mod != '__builtin__':
-            return '%s.%s' % (mod, w_self.name)
-        else:
-            return w_self.name
-
-    def getname(w_self, space):
-        name = w_self.name
-        if name is None:
-            name = '?'
-        return name
+            dot = self.name.find('.')
+            if dot >= 0:
+                return self.name[dot+1:]
+            else:
+                return self.name
 
     def add_subclass(w_self, w_subclass):
         space = w_self.space
@@ -581,7 +579,7 @@ class W_TypeObject(W_Object):
 
     def descr_repr(self, space):
         w_mod = self.get_module()
-        if not space.isinstance_w(w_mod, space.w_str):
+        if w_mod is None or not space.isinstance_w(w_mod, space.w_str):
             mod = None
         else:
             mod = space.str_w(w_mod)
@@ -590,7 +588,7 @@ class W_TypeObject(W_Object):
         else:
             kind = 'class'
         if mod is not None and mod != '__builtin__':
-            return space.wrap("<%s '%s.%s'>" % (kind, mod, self.name))
+            return space.wrap("<%s '%s.%s'>" % (kind, mod, self.getname(space)))
         else:
             return space.wrap("<%s '%s'>" % (kind, self.name))
 
@@ -690,13 +688,16 @@ def _check(space, w_type, msg="descriptor is for 'type'"):
 
 def descr_get__name__(space, w_type):
     w_type = _check(space, w_type)
-    return space.wrap(w_type.name)
+    return space.wrap(w_type.getname(space))
 
 def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise oefmt(space.w_TypeError, "can't set %N.__name__", w_type)
-    w_type.name = space.str_w(w_value)
+    name = space.str_w(w_value)
+    if '\x00' in name:
+        raise oefmt(space.w_ValueError, "__name__ must not contain null bytes")
+    w_type.name = name
 
 def descr_get__mro__(space, w_type):
     w_type = _check(space, w_type)
@@ -1062,6 +1063,7 @@ def setup_builtin_type(w_self):
     w_self.weakrefable = w_self.instancetypedef.weakrefable
     w_self.w_doc = w_self.space.wrap(w_self.instancetypedef.doc)
     ensure_common_attributes(w_self)
+    w_self.flag_heaptype = w_self.instancetypedef.heaptype
 
 def ensure_common_attributes(w_self):
     ensure_static_new(w_self)

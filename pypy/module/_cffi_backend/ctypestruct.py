@@ -17,7 +17,7 @@ from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class W_CTypeStructOrUnion(W_CType):
-    _immutable_fields_ = ['alignment?', 'fields_list?', 'fields_dict?',
+    _immutable_fields_ = ['alignment?', 'fields_list?[*]', 'fields_dict?',
                           'custom_field_pos?', 'with_var_array?']
     # fields added by complete_struct_or_union():
     alignment = -1
@@ -80,7 +80,6 @@ class W_CTypeStructOrUnion(W_CType):
         return (cfield.ctype, cfield.offset)
 
     def _copy_from_same(self, cdata, w_ob):
-        space = self.space
         if isinstance(w_ob, cdataobj.W_CData):
             if w_ob.ctype is self and self.size >= 0:
                 misc._raw_memcopy(w_ob._cdata, cdata, self.size)
@@ -308,8 +307,7 @@ class W_CField(W_Root):
 
 
 W_CField.typedef = TypeDef(
-    'CField',
-    __module__ = '_cffi_backend',
+    '_cffi_backend.CField',
     type = interp_attrproperty('ctype', W_CField),
     offset = interp_attrproperty('offset', W_CField),
     bitshift = interp_attrproperty('bitshift', W_CField),

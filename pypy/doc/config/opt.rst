@@ -46,5 +46,5 @@ recompilation.
 The default level is `2`.
 
 
-.. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
+.. _`Boehm-Demers-Weiser garbage collector`: http://hboehm.info/gc/
 .. _`custom garbage collectors`: ../garbage_collection.html

@@ -234,9 +234,9 @@ class TranslationDriver(SimpleTaskEngine):
             if os.WIFEXITED(status):
                 status = os.WEXITSTATUS(status)
                 if status != 0:
-                    raise Exception, "instrumentation child failed: %d" % status
+                    raise Exception("instrumentation child failed: %d" % status)
             else:
-                raise Exception, "instrumentation child aborted"
+                raise Exception("instrumentation child aborted")
             import array, struct
             n = datafile.size()//struct.calcsize('L')
             datafile = datafile.open('rb')
@@ -481,6 +481,14 @@ class TranslationDriver(SimpleTaskEngine):
                     libname = str(newsoname.dirpath().join('python27.lib'))
                     shutil.copyfile(str(soname.new(ext='lib')), libname)
                     self.log.info("copied: %s" % (libname,))
+                    # XXX TODO : replace the nonsense above with
+                    # ext_to_copy = ['lib', 'pdb']
+                    ext_to_copy = ['pdb',]
+                    for ext in ext_to_copy:
+                        name = soname.new(ext=ext)
+                        newname = newexename.new(basename=soname.basename)
+                        shutil.copyfile(str(name), str(newname.new(ext=ext)))
+                        self.log.info("copied: %s" % (newname,))
             self.c_entryp = newexename
         self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))

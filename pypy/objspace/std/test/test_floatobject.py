@@ -138,6 +138,11 @@ class AppTestAppFloatTest:
         assert repr(float("+nan")) == "nan"
         assert repr(float("-nAn")) == "nan"
 
+        assert float(buffer("inf")) == inf
+        assert float(bytearray("inf")) == inf
+        exc = raises(TypeError, float, memoryview("inf"))
+        assert str(exc.value) == "float() argument must be a string or a number"
+
     def test_float_unicode(self):
         # u00A0 and u2000 are some kind of spaces
         assert 42.75 == float(unichr(0x00A0)+unicode("42.75")+unichr(0x2000))
@@ -454,7 +459,7 @@ class AppTestAppFloatTest:
 
 class AppTestFloatHex:
     spaceconfig = {
-        "usemodules": ["binascii", "rctime"],
+        'usemodules': ['binascii', 'rctime', 'struct'],
     }
 
     def w_identical(self, x, y):
@@ -789,7 +794,7 @@ class AppTestFloatHex:
         raises(ValueError, float.fromhex, "0P")
 
     def test_division_edgecases(self):
-        import math
+        import math, os
 
         # inf
         inf = float("inf")
@@ -798,6 +803,16 @@ class AppTestFloatHex:
         x, y = divmod(inf, 3)
         assert math.isnan(x)
         assert math.isnan(y)
+        x, y = divmod(3, inf)
+        z = 3 % inf
+        if os.name == 'nt':
+            assert math.isnan(x)
+            assert math.isnan(y)
+            assert math.isnan(z)
+        else:
+            assert x == 0
+            assert y == 3
+            assert z == 3
 
         # divide by 0
         raises(ZeroDivisionError, lambda: inf % 0)

@@ -173,7 +173,7 @@ def ovfcheck(r):
     if type(r) is long and not is_valid_int(r):
         # checks only if applicable to r's type.
         # this happens in the garbage collector.
-        raise OverflowError, "signed integer expression did overflow"
+        raise OverflowError("signed integer expression did overflow")
     return r
 
 # Strange things happening for float to int on 64 bit:
@@ -213,7 +213,7 @@ def compute_restype(self_type, other_type):
         return other_type
     if self_type.SIGNED == other_type.SIGNED:
         return build_int(None, self_type.SIGNED, max(self_type.BITS, other_type.BITS))
-    raise AssertionError, "Merging these types (%s, %s) is not supported" % (self_type, other_type)
+    raise AssertionError("Merging these types (%s, %s) is not supported" % (self_type, other_type))
 
 def signedtype(t):
     if t in (bool, int, long):
@@ -539,6 +539,7 @@ r_uint32 = build_int('r_uint32', False, 32)
 
 SHRT_MIN = -2**(_get_bitsize('h') - 1)
 SHRT_MAX = 2**(_get_bitsize('h') - 1) - 1
+USHRT_MAX = 2**_get_bitsize('h') - 1
 INT_MIN = int(-2**(_get_bitsize('i') - 1))
 INT_MAX = int(2**(_get_bitsize('i') - 1) - 1)
 UINT_MAX = r_uint(2**_get_bitsize('i') - 1)
@@ -633,6 +634,12 @@ def int_between(n, m, p):
     if not objectmodel.we_are_translated():
         assert n <= p
     return llop.int_between(lltype.Bool, n, m, p)
+
+def int_force_ge_zero(n):
+    """ The JIT special-cases this too. """
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    return llop.int_force_ge_zero(lltype.Signed, n)
 
 @objectmodel.specialize.ll()
 def byteswap(arg):

@@ -119,10 +119,11 @@ class AbstractResOp(object):
         descr = self.getdescr()
         if descr is None or we_are_translated():
             return '%s%s%s(%s)' % (prefix, sres, self.getopname(),
-                                 ', '.join([str(a) for a in args]))
+                                   ', '.join([str(a) for a in args]))
         else:
-            return '%s%s%s(%s, descr=%r)' % (prefix, sres, self.getopname(),
-                                             ', '.join([str(a) for a in args]), descr)
+            return '%s%s%s(%s)' % (prefix, sres, self.getopname(),
+                                   ', '.join([str(a) for a in args] +
+                                             ['descr=%r' % descr]))
 
     def getopname(self):
         try:
@@ -399,6 +400,7 @@ _oplist = [
     'GUARD_NOT_FORCED/0d',      # may be called with an exception currently set
     'GUARD_NOT_FORCED_2/0d',    # same as GUARD_NOT_FORCED, but for finish()
     'GUARD_NOT_INVALIDATED/0d',
+    'GUARD_FUTURE_CONDITION/0d', # is removable, may be patched by an optimization
     '_GUARD_LAST', # ----- end of guard operations -----
 
     '_NOSIDEEFFECT_FIRST', # ----- start of no_side_effect operations -----
@@ -479,26 +481,31 @@ _oplist = [
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
     '_MALLOC_FIRST',
-    'NEW/0d',
-    'NEW_WITH_VTABLE/1',
-    'NEW_ARRAY/1d',
-    'NEWSTR/1',
-    'NEWUNICODE/1',
+    'NEW/0d',             #-> GcStruct, gcptrs inside are zeroed (not the rest)
+    'NEW_WITH_VTABLE/1',  #-> GcStruct with vtable, gcptrs inside are zeroed
+    'NEW_ARRAY/1d',       #-> GcArray, not zeroed. only for arrays of primitives
+    'NEW_ARRAY_CLEAR/1d', #-> GcArray, fully zeroed
+    'NEWSTR/1',           #-> STR, the hash field is zeroed
+    'NEWUNICODE/1',       #-> UNICODE, the hash field is zeroed
     '_MALLOC_LAST',
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
-    'READ_TIMESTAMP/0',
     'MARK_OPAQUE_PTR/1b',
     # this one has no *visible* side effect, since the virtualizable
     # must be forced, however we need to execute it anyway
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
+    'INCREMENT_DEBUG_COUNTER/1',
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
     'SETINTERIORFIELD_GC/3d',
-    'SETINTERIORFIELD_RAW/3d',    # only used by llsupport/rewrite.py
+    'SETINTERIORFIELD_RAW/3d',    # right now, only used by tests
     'RAW_STORE/3d',
     'SETFIELD_GC/2d',
+    'ZERO_PTR_FIELD/2', # only emitted by the rewrite, clears a pointer field
+                        # at a given constant offset, no descr
+    'ZERO_ARRAY/3d',    # only emitted by the rewrite, clears (part of) an array
+                        # [arraygcptr, firstindex, length], descr=ArrayDescr
     'SETFIELD_RAW/2d',
     'STRSETITEM/3',
     'UNICODESETITEM/3',

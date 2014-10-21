@@ -54,6 +54,8 @@ class StdTypeModel:
         from pypy.objspace.std import unicodeobject
         from pypy.objspace.std import dictproxyobject
         from pypy.objspace.std import proxyobject
+        from pypy.objspace.std import bufferobject
+        from pypy.objspace.std import memoryobject
 
 
         self.pythontypes = []
@@ -76,6 +78,8 @@ class StdTypeModel:
         self.pythontypes.append(floatobject.W_FloatObject.typedef)
         self.pythontypes.append(complexobject.W_ComplexObject.typedef)
         self.pythontypes.append(sliceobject.W_SliceObject.typedef)
+        self.pythontypes.append(bufferobject.W_Buffer.typedef)
+        self.pythontypes.append(memoryobject.W_MemoryView.typedef)
 
         # the set of implementation types
         self.typeorder = {

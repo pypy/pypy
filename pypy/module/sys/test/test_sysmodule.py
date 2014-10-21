@@ -91,6 +91,10 @@ class AppTestAppSysTests:
         assert isinstance(sys.__stderr__, file)
         assert isinstance(sys.__stdin__, file)
 
+        #assert sys.__stdin__.name == "<stdin>"
+        #assert sys.__stdout__.name == "<stdout>"
+        #assert sys.__stderr__.name == "<stderr>"
+
         if self.appdirect and not isinstance(sys.stdin, file):
             return
 
@@ -122,6 +126,21 @@ class AppTestAppSysTests:
         li = sys.long_info
         assert isinstance(li.bits_per_digit, int)
         assert isinstance(li.sizeof_digit, int)
+
+    def test_sys_exit(self):
+        import sys
+        exc = raises(SystemExit, sys.exit)
+        assert exc.value.code is None
+
+        exc = raises(SystemExit, sys.exit, 0)
+        assert exc.value.code == 0
+
+        exc = raises(SystemExit, sys.exit, 1)
+        assert exc.value.code == 1
+
+        exc = raises(SystemExit, sys.exit, (1, 2, 3))
+        assert exc.value.code == (1, 2, 3)
+
 
 class AppTestSysModulePortedFromCPython:
 
@@ -391,7 +410,8 @@ class AppTestSysModulePortedFromCPython:
         import sys
         if hasattr(sys, "getwindowsversion"):
             v = sys.getwindowsversion()
-            assert isinstance(v, tuple)
+            if '__pypy__' in sys.builtin_module_names:
+                assert isinstance(v, tuple)
             assert len(v) == 5
             assert isinstance(v[0], int)
             assert isinstance(v[1], int)
@@ -418,6 +438,10 @@ class AppTestSysModulePortedFromCPython:
         import sys
         if hasattr(sys, "winver"):
             assert sys.winver == sys.version[:3]
+
+    def test_dllhandle(self):
+        import sys
+        assert hasattr(sys, 'dllhandle') == (sys.platform == 'win32')
 
     def test_dlopenflags(self):
         import sys
@@ -486,7 +510,8 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(sys.version, basestring)
         assert isinstance(sys.warnoptions, list)
         vi = sys.version_info
-        assert isinstance(vi, tuple)
+        if '__pypy__' in sys.builtin_module_names:
+            assert isinstance(vi, tuple)
         assert len(vi) == 5
         assert isinstance(vi[0], int)
         assert isinstance(vi[1], int)
@@ -512,6 +537,8 @@ class AppTestSysModulePortedFromCPython:
 
     def test_pypy_attributes(self):
         import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("only on PyPy")
         assert isinstance(sys.pypy_objspaceclass, str)
         vi = sys.pypy_version_info
         assert isinstance(vi, tuple)
@@ -528,10 +555,14 @@ class AppTestSysModulePortedFromCPython:
 
     def test_subversion(self):
         import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("only on PyPy")
         assert sys.subversion == ('PyPy', '', '')
 
     def test__mercurial(self):
         import sys, re
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("only on PyPy")
         project, hgtag, hgid = sys._mercurial
         assert project == 'PyPy'
         # the tag or branch may be anything, including the empty string

@@ -122,7 +122,7 @@ def enforceargs(*types_, **kwds):
     """
     typecheck = kwds.pop('typecheck', True)
     if types_ and kwds:
-        raise TypeError, 'Cannot mix positional arguments and keywords'
+        raise TypeError('Cannot mix positional arguments and keywords')
 
     if not typecheck:
         def decorator(f):
@@ -177,7 +177,7 @@ def enforceargs(*types_, **kwds):
                 if not s_expected.contains(s_argtype):
                     msg = "%s argument %r must be of type %s" % (
                         f.func_name, srcargs[i], expected_type)
-                    raise TypeError, msg
+                    raise TypeError(msg)
         #
         template = """
             def {name}({arglist}):
@@ -576,7 +576,7 @@ class Entry(ExtRegistryEntry):
 # ____________________________________________________________
 
 def hlinvoke(repr, llcallable, *args):
-    raise TypeError, "hlinvoke is meant to be rtyped and not called direclty"
+    raise TypeError("hlinvoke is meant to be rtyped and not called direclty")
 
 def invoke_around_extcall(before, after):
     """Call before() before any external function call, and after() after.
@@ -739,11 +739,15 @@ class _r_dictkey(object):
     def __repr__(self):
         return repr(self.key)
 
-class _r_dictkey_with_hash(_r_dictkey):
-    def __init__(self, dic, key, hash):
-        self.dic = dic
-        self.key = key
-        self.hash = hash
+
+@specialize.call_location()
+def prepare_dict_update(dict, n_elements):
+    """RPython hint that the given dict (or r_dict) will soon be
+    enlarged by n_elements."""
+    if we_are_translated():
+        dict._prepare_dict_update(n_elements)
+        # ^^ call an extra method that doesn't exist before translation
+
 
 # ____________________________________________________________
 

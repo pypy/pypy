@@ -61,24 +61,6 @@ def test_sharing_field_lists_of_virtual():
     lst6 = virt1._get_field_descr_list()
     assert lst6 is lst3
 
-def test_reuse_vinfo():
-    class FakeVInfo(object):
-        def set_content(self, fieldnums):
-            self.fieldnums = fieldnums
-        def equals(self, fieldnums):
-            return self.fieldnums == fieldnums
-    class FakeVirtualValue(virtualize.AbstractVirtualValue):
-        def _make_virtual(self, *args):
-            return FakeVInfo()
-    v1 = FakeVirtualValue(None, None)
-    vinfo1 = v1.make_virtual_info(None, [1, 2, 4])
-    vinfo2 = v1.make_virtual_info(None, [1, 2, 4])
-    assert vinfo1 is vinfo2
-    vinfo3 = v1.make_virtual_info(None, [1, 2, 6])
-    assert vinfo3 is not vinfo2
-    vinfo4 = v1.make_virtual_info(None, [1, 2, 6])
-    assert vinfo3 is vinfo4
-
 def test_descrlist_dict():
     from rpython.jit.metainterp.optimizeopt import util as optimizeutil
     h1 = optimizeutil.descrlist_hash([])
@@ -958,7 +940,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_virtual_array_of_struct(self):
         ops = """
         [f0, f1, f2, f3]
-        p0 = new_array(2, descr=complexarraydescr)
+        p0 = new_array_clear(2, descr=complexarraydescr)
         setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
         setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
         setinteriorfield_gc(p0, 1, f3, descr=compleximagdescr)
@@ -984,7 +966,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_virtual_array_of_struct_forced(self):
         ops = """
         [f0, f1]
-        p0 = new_array(1, descr=complexarraydescr)
+        p0 = new_array_clear(1, descr=complexarraydescr)
         setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
         setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
         f2 = getinteriorfield_gc(p0, 0, descr=complexrealdescr)
@@ -996,7 +978,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [f0, f1]
         f2 = float_mul(f0, f1)
-        p0 = new_array(1, descr=complexarraydescr)
+        p0 = new_array_clear(1, descr=complexarraydescr)
         setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
         setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
         i0 = escape(f2, p0)
@@ -1007,7 +989,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_virtual_array_of_struct_len(self):
         ops = """
         []
-        p0 = new_array(2, descr=complexarraydescr)
+        p0 = new_array_clear(2, descr=complexarraydescr)
         i0 = arraylen_gc(p0)
         finish(i0)
         """
@@ -1074,7 +1056,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_nonvirtual_dont_write_null_fields_on_force(self):
+    def test_nonvirtual_write_null_fields_on_force(self):
         ops = """
         [i]
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -1088,6 +1070,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [i]
         p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, 0, descr=valuedescr)
         escape(p1)
         i2 = getfield_gc(p1, descr=valuedescr)
         jump(i2)
@@ -1152,12 +1135,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i1]
         p1 = new_array(2, descr=arraydescr)
         setarrayitem_gc(p1, 0, 25, descr=arraydescr)
-        i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
+        i2 = getarrayitem_gc(p1, 0, descr=arraydescr)
         jump(i2)
         """
         expected = """
         [i1]
-        jump(0)
+        jump(25)
         """
         self.optimize_loop(ops, expected)
 
@@ -1194,7 +1177,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_nonvirtual_array_dont_write_null_fields_on_force(self):
+    def test_nonvirtual_array_write_null_fields_on_force(self):
         ops = """
         [i1]
         p1 = new_array(5, descr=arraydescr)
@@ -1207,6 +1190,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i1]
         p1 = new_array(5, descr=arraydescr)
         setarrayitem_gc(p1, 0, i1, descr=arraydescr)
+        setarrayitem_gc(p1, 1, 0, descr=arraydescr)
         escape(p1)
         jump(i1)
         """
@@ -1657,6 +1641,16 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i4 = int_neg(i2)
         setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2, i4)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_setfield_int_eq_result(self):
+        # test that the setfield_gc does not end up before int_eq
+        ops = """
+        [p1, i1, i2]
+        i3 = int_eq(i1, i2)
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i1, i2)
         """
         self.optimize_loop(ops, ops)
 
@@ -2983,6 +2977,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1]
         p0 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p0, descr=virtualtokendescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -3015,6 +3010,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p3 = force_token()
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
@@ -3054,6 +3050,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p3 = force_token()
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
@@ -3130,6 +3127,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i1]
         p3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         escape(p2)
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -3155,6 +3153,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i1, p1]
         p3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -4792,15 +4791,18 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p0]
         p1 = newstr(4)
+        strsetitem(p1, 2, 0)
         setfield_gc(p0, p1, descr=valuedescr)
         jump(p0)
         """
-        # It used to be the case that this would have a series of
-        # strsetitem(p1, idx, 0), which was silly because memory is 0 filled
-        # when allocated.
+        # This test is slightly bogus: the string is not fully initialized.
+        # I *think* it is still right to not have a series of extra
+        # strsetitem(p1, idx, 0).  We do preserve the single one from the
+        # source, though.
         expected = """
         [p0]
         p1 = newstr(4)
+        strsetitem(p1, 2, 0)
         setfield_gc(p0, p1, descr=valuedescr)
         jump(p0)
         """
@@ -5116,6 +5118,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         strsetitem(p1, 6, i0)
         strsetitem(p1, 7, i0)
         strsetitem(p1, 8, 3)
+        strsetitem(p1, 9, 0)
+        strsetitem(p1, 10, 0)
+        strsetitem(p1, 11, 0)
         finish(p1)
         """
         self.optimize_strunicode_loop(ops, expected)
@@ -5172,7 +5177,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_strunicode_loop(ops, expected)
 
     def test_call_pure_vstring_const(self):
-        py.test.skip("implement me")
         ops = """
         []
         p0 = newstr(3)
@@ -5188,6 +5192,25 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         call_pure_results = {
             (ConstInt(123), get_const_ptr_for_string("abc"),): ConstInt(5),
+        }
+        self.optimize_loop(ops, expected, call_pure_results)
+
+    def test_call_pure_quasiimmut(self):
+        ops = """
+        []
+        quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i0 = getfield_gc_pure(ConstPtr(quasiptr), descr=quasifielddescr)
+        i1 = call_pure(123, i0, descr=nonwritedescr)
+        finish(i1)
+        """
+        expected = """
+        []
+        guard_not_invalidated() []
+        finish(5)
+        """
+        call_pure_results = {
+            (ConstInt(123), ConstInt(-4247)): ConstInt(5),
         }
         self.optimize_loop(ops, expected, call_pure_results)
 
@@ -5431,6 +5454,21 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [i0]
         jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_consecutive_getinteriorfields(self):
+        py.test.skip("we want this to pass")
+        ops = """
+        [p0, i0]
+        i1 = getinteriorfield_gc(p0, i0, descr=valuedescr)
+        i2 = getinteriorfield_gc(p0, i0, descr=valuedescr)
+        jump(i1, i2)
+        """
+        expected = """
+        [p0, i0]
+        i1 = getinteriorfield_gc(p0, i0, descr=valuedescr)
+        jump(i1, i1)
         """
         self.optimize_loop(ops, expected)
 

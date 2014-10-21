@@ -187,6 +187,26 @@ class TestInstrCodeBuilder(ASMTest):
         self.cb.MOVT_ri(r.r3.value, 0xFFFF, conditions.NE)
         self.assert_equal("MOVTNE r3, #65535")
 
+    def test_ldrex(self):
+        self.cb.LDREX(r.r10.value, r.r11.value)
+        self.assert_equal('LDREX r10, [r11]')
+
+    def test_strex(self):
+        self.cb.STREX(r.r9.value, r.r1.value, r.r14.value, conditions.NE)
+        self.assert_equal('STREXNE r9, r1, [r14]')
+
+    def test_dmb(self):
+        self.cb.DMB()
+        self.assert_equal('DMB')
+
+    def test_fmdrr(self):
+        self.cb.FMDRR(r.d11.value, r.r9.value, r.r14.value)
+        self.assert_equal('FMDRR d11, r9, r14')
+
+    def test_fmrrd(self):
+        self.cb.FMRRD(r.r9.value, r.r14.value, r.d11.value)
+        self.assert_equal('FMRRD r9, r14, d11')
+
 
 def test_size_of_gen_load_int():
     for v, n in [(5, 4), (6, 4), (7, 2)]:

@@ -43,6 +43,8 @@ class AppTestMarshalMore:
         s = marshal.dumps(array.array('c', 'asd'))
         t = marshal.loads(s)
         assert type(t) is str and t == 'asd'
+        exc = raises(ValueError, marshal.dumps, memoryview('asd'))
+        assert str(exc.value) == "unmarshallable object"
 
     def test_unmarshal_evil_long(self):
         import marshal

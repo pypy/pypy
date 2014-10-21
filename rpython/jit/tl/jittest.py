@@ -6,7 +6,6 @@ only after the '---> Checkpoint' fork.
 
 import os
 from rpython import conftest
-from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llstr
 from rpython.jit.metainterp import warmspot
@@ -23,10 +22,6 @@ ARGS = ["--jit", "threshold=100000,trace_eagerness=100000",
 def jittest(driver):
     graph = driver.translator._graphof(driver.entry_point)
     interp = LLInterpreter(driver.translator.rtyper)
-
-    def returns_null(T, *args, **kwds):
-        return lltype.nullptr(T)
-    interp.heap.malloc_nonmovable = returns_null     # XXX
 
     get_policy = driver.extra['jitpolicy']
     jitpolicy = get_policy(driver)

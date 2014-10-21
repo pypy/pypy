@@ -61,6 +61,7 @@ class __extend__(pyframe.PyFrame):
             while True:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
         except ExitFrame:
+            self.last_exception = None
             return self.popvalue()
 
     def handle_bytecode(self, co_code, next_instr, ec):
@@ -200,7 +201,7 @@ class __extend__(pyframe.PyFrame):
             elif opcode == opcodedesc.BREAK_LOOP.index:
                 next_instr = self.BREAK_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.CONTINUE_LOOP.index:
-                next_instr = self.CONTINUE_LOOP(oparg, next_instr)
+                return self.CONTINUE_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.FOR_ITER.index:
                 next_instr = self.FOR_ITER(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_FORWARD.index:
@@ -881,8 +882,8 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_NAME(self, nameindex, next_instr):
         if self.w_locals is not self.w_globals:
-            w_varname = self.getname_w(nameindex)
-            w_value = self.space.finditem(self.w_locals, w_varname)
+            varname = self.getname_u(nameindex)
+            w_value = self.space.finditem_str(self.w_locals, varname)
             if w_value is not None:
                 self.pushvalue(w_value)
                 return

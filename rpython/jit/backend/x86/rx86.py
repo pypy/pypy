@@ -470,6 +470,9 @@ class AbstractX86CodeBuilder(object):
 
     # ------------------------------ Arithmetic ------------------------------
 
+    INC_m = insn(rex_w, '\xFF', orbyte(0), mem_reg_plus_const(1))
+    INC_j = insn(rex_w, '\xFF', orbyte(0), abs_(1))
+
     ADD_ri,ADD_rr,ADD_rb,_,_,ADD_rm,ADD_rj,_,_ = common_modes(0)
     OR_ri, OR_rr, OR_rb, _,_,OR_rm, OR_rj, _,_ = common_modes(1)
     AND_ri,AND_rr,AND_rb,_,_,AND_rm,AND_rj,_,_ = common_modes(4)
@@ -558,7 +561,7 @@ class AbstractX86CodeBuilder(object):
     # XXX: Only here for testing purposes..."as" happens the encode the
     # registers in the opposite order that we would otherwise do in a
     # register-register exchange.
-    #XCHG_rr = insn(rex_w, '\x87', register(1), register(2,8), '\xC0')
+    XCHG_rr = insn(rex_w, '\x87', register(1), register(2,8), '\xC0')
 
     JMP_l = insn('\xE9', relative(1))
     JMP_r = insn(rex_nw, '\xFF', orbyte(4<<3), register(1), '\xC0')
@@ -586,6 +589,8 @@ class AbstractX86CodeBuilder(object):
     FSTPL_b = insn('\xDD', orbyte(3<<3), stack_bp(1)) # rffi.DOUBLE ('as' wants L??)
     FSTPL_s = insn('\xDD', orbyte(3<<3), stack_sp(1)) # rffi.DOUBLE ('as' wants L??)
     FSTPS_s = insn('\xD9', orbyte(3<<3), stack_sp(1)) # lltype.SingleFloat
+    FLDL_s  = insn('\xDD', orbyte(0<<3), stack_sp(1))
+    FLDS_s  = insn('\xD9', orbyte(0<<3), stack_sp(1))
 
     # ------------------------------ Random mess -----------------------
     RDTSC = insn('\x0F\x31')
@@ -614,14 +619,24 @@ class AbstractX86CodeBuilder(object):
     CVTSS2SD_xb = xmminsn('\xF3', rex_nw, '\x0F\x5A',
                           register(1, 8), stack_bp(2))
 
-    # These work on machine sized registers, so MOVD is actually MOVQ
-    # when running on 64 bits.  Note a bug in the Intel documentation:
+    # These work on machine sized registers, so "MOVDQ" is MOVD when running
+    # on 32 bits and MOVQ when running on 64 bits.  "MOVD32" is always 32-bit.
+    # Note a bug in the Intel documentation:
     # http://lists.gnu.org/archive/html/bug-binutils/2007-07/msg00095.html
-    MOVD_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
-    MOVD_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
-    MOVD_xb = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), stack_bp(2))
+    MOVDQ_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
+    MOVDQ_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
+    MOVDQ_xb = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), stack_bp(2))
+
+    MOVD32_rx = xmminsn('\x66', rex_nw, '\x0F\x7E', register(2, 8), register(1), '\xC0')
+    MOVD32_sx = xmminsn('\x66', rex_nw, '\x0F\x7E', register(2, 8), stack_sp(1))
+    MOVD32_xr = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), register(2), '\xC0')
+    MOVD32_xb = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), stack_bp(2))
+    MOVD32_xs = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), stack_sp(2))
 
     PSRAD_xi = xmminsn('\x66', rex_nw, '\x0F\x72', register(1), '\xE0', immediate(2, 'b'))
+    MOVUPS_mx = xmminsn(rex_nw, '\x0F\x11', register(2, 8), mem_reg_plus_const(1))
+    MOVUPS_jx = xmminsn(rex_nw, '\x0F\x11', register(2, 8), abs_(1))
+    MOVUPS_ax = xmminsn(rex_nw, '\x0F\x11', register(2, 8), mem_reg_plus_scaled_reg_plus_const(1))
 
     # ------------------------------------------------------------
 
@@ -743,7 +758,7 @@ define_modrm_modes('MOVAPD_*x', ['\x66', rex_nw, '\x0F\x29', register(2,8)],
 
 define_modrm_modes('SQRTSD_x*', ['\xF2', rex_nw, '\x0F\x51', register(1,8)], regtype='XMM')
 
-#define_modrm_modes('XCHG_r*', [rex_w, '\x87', register(1, 8)])
+define_modrm_modes('XCHG_r*', [rex_w, '\x87', register(1, 8)])
 
 define_modrm_modes('ADDSD_x*', ['\xF2', rex_nw, '\x0F\x58', register(1, 8)], regtype='XMM')
 define_modrm_modes('ADDPD_x*', ['\x66', rex_nw, '\x0F\x58', register(1, 8)], regtype='XMM')
@@ -752,6 +767,7 @@ define_modrm_modes('MULSD_x*', ['\xF2', rex_nw, '\x0F\x59', register(1, 8)], reg
 define_modrm_modes('DIVSD_x*', ['\xF2', rex_nw, '\x0F\x5E', register(1, 8)], regtype='XMM')
 define_modrm_modes('UCOMISD_x*', ['\x66', rex_nw, '\x0F\x2E', register(1, 8)], regtype='XMM')
 define_modrm_modes('XORPD_x*', ['\x66', rex_nw, '\x0F\x57', register(1, 8)], regtype='XMM')
+define_modrm_modes('XORPS_x*', [rex_nw, '\x0F\x57', register(1, 8)], regtype='XMM')
 define_modrm_modes('ANDPD_x*', ['\x66', rex_nw, '\x0F\x54', register(1, 8)], regtype='XMM')
 
 def define_pxmm_insn(insnname_template, insn_char):

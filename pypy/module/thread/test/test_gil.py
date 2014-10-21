@@ -64,13 +64,14 @@ class GILTests(test_rthread.AbstractGCTestClass):
             except Exception, e:
                 assert 0
             thread.gc_thread_die()
+        my_gil_threadlocals = gil.GILThreadLocals()
         def f():
             state.data = []
             state.datalen1 = 0
             state.datalen2 = 0
             state.datalen3 = 0
             state.datalen4 = 0
-            state.threadlocals = gil.GILThreadLocals()
+            state.threadlocals = my_gil_threadlocals
             state.threadlocals.setup_threads(space)
             subident = thread.start_new_thread(bootstrap, ())
             mainident = thread.get_ident()

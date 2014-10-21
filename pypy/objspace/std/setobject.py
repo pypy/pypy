@@ -169,16 +169,19 @@ class W_BaseSetObject(W_Root):
         return setrepr(space, w_currently_in_repr, self)
 
     def descr_cmp(self, space, w_other):
-        # hack hack until we get the expected result
-        raise OperationError(space.w_TypeError,
-                space.wrap('cannot compare sets using cmp()'))
+        if space.is_w(space.type(self), space.type(w_other)):
+            # hack hack until we get the expected result
+            raise OperationError(space.w_TypeError,
+                    space.wrap('cannot compare sets using cmp()'))
+        else:
+            return space.w_NotImplemented
 
     def descr_eq(self, space, w_other):
         if isinstance(w_other, W_BaseSetObject):
             return space.wrap(self.equals(w_other))
 
         if not space.isinstance_w(w_other, space.w_set):
-            return space.w_False
+            return space.w_NotImplemented
 
         # tested in test_builtinshortcut.py
         # XXX do not make new setobject here
@@ -190,7 +193,7 @@ class W_BaseSetObject(W_Root):
             return space.wrap(not self.equals(w_other))
 
         if not space.isinstance_w(w_other, space.w_set):
-            return space.w_True
+            return space.w_NotImplemented
 
         # XXX this is not tested
         w_other_as_set = self._newobj(space, w_other)
@@ -200,8 +203,7 @@ class W_BaseSetObject(W_Root):
     # correct answer here!
     def descr_lt(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap('can only compare to a set'))
+            return space.w_NotImplemented
 
         if self.length() >= w_other.length():
             return space.w_False
@@ -210,8 +212,7 @@ class W_BaseSetObject(W_Root):
 
     def descr_le(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap('can only compare to a set'))
+            return space.w_NotImplemented
 
         if self.length() > w_other.length():
             return space.w_False
@@ -219,8 +220,7 @@ class W_BaseSetObject(W_Root):
 
     def descr_gt(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap('can only compare to a set'))
+            return space.w_NotImplemented
 
         if self.length() <= w_other.length():
             return space.w_False
@@ -229,8 +229,7 @@ class W_BaseSetObject(W_Root):
 
     def descr_ge(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap('can only compare to a set'))
+            return space.w_NotImplemented
 
         if self.length() < w_other.length():
             return space.w_False
@@ -1060,10 +1059,14 @@ class AbstractUnwrappedSetStrategy(object):
         return storage, strategy
 
     def symmetric_difference(self, w_set, w_other):
+        if w_other.length() == 0:
+            return w_set.copy_real()
         storage, strategy = self._symmetric_difference_base(w_set, w_other)
         return w_set.from_storage_and_strategy(storage, strategy)
 
     def symmetric_difference_update(self, w_set, w_other):
+        if w_other.length() == 0:
+            return
         storage, strategy = self._symmetric_difference_base(w_set, w_other)
         w_set.strategy = strategy
         w_set.sstorage = storage
@@ -1091,6 +1094,7 @@ class AbstractUnwrappedSetStrategy(object):
     def _intersect_wrapped(self, w_set, w_other):
         result = newset(self.space)
         for key in self.unerase(w_set.sstorage):
+            self.intersect_jmp.jit_merge_point()
             w_key = self.wrap(key)
             if w_other.has_key(w_key):
                 result[w_key] = None
@@ -1180,7 +1184,8 @@ class AbstractUnwrappedSetStrategy(object):
             d_other = self.unerase(w_other.sstorage)
             d_set.update(d_other)
             return
-
+        if w_other.length() == 0:
+            return
         w_set.switch_to_object_strategy(self.space)
         w_set.update(w_other)
 
@@ -1200,6 +1205,9 @@ class BytesSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("bytes")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
+
+    intersect_jmp = jit.JitDriver(greens = [], reds = 'auto',
+                                  name='set(bytes).intersect')
 
     def get_empty_storage(self):
         return self.erase({})
@@ -1237,6 +1245,9 @@ class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 
+    intersect_jmp = jit.JitDriver(greens = [], reds = 'auto',
+                                  name='set(unicode).intersect')
+
     def get_empty_storage(self):
         return self.erase({})
 
@@ -1272,6 +1283,9 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("integer")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
+
+    intersect_jmp = jit.JitDriver(greens = [], reds = 'auto',
+                                  name='set(int).intersect')
 
     def get_empty_storage(self):
         return self.erase({})
@@ -1310,6 +1324,9 @@ class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("object")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
+
+    intersect_jmp = jit.JitDriver(greens = [], reds = 'auto',
+                                  name='set(object).intersect')
 
     def get_empty_storage(self):
         return self.erase(self.get_empty_dict())
@@ -1354,6 +1371,9 @@ class IdentitySetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("identityset")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
+
+    intersect_jmp = jit.JitDriver(greens = [], reds = 'auto',
+                                  name='set(identity).intersect')
 
     def get_empty_storage(self):
         return self.erase({})

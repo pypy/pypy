@@ -11,10 +11,11 @@ from rpython.jit.codewriter import longlong, heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
 from rpython.rtyper.llinterp import LLInterpreter, LLException
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper import rclass
 
+from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
-from rpython.rlib.rtimer import read_timestamp
 
 class LLTrace(object):
     has_been_freed = False
@@ -66,9 +67,10 @@ class Jump(Exception):
         self.args = args
 
 class CallDescr(AbstractDescr):
-    def __init__(self, RESULT, ARGS, extrainfo):
+    def __init__(self, RESULT, ARGS, extrainfo, ABI=FFI_DEFAULT_ABI):
         self.RESULT = RESULT
         self.ARGS = ARGS
+        self.ABI = ABI
         self.extrainfo = extrainfo
 
     def __repr__(self):
@@ -223,6 +225,7 @@ _example_res = {'v': None,
                 'r': lltype.nullptr(llmemory.GCREF.TO),
                 'i': 0,
                 'f': 0.0}
+
 
 class LLGraphCPU(model.AbstractCPU):
     from rpython.jit.metainterp.typesystem import llhelper as ts
@@ -428,7 +431,7 @@ class LLGraphCPU(model.AbstractCPU):
         try:
             return self.descrs[key]
         except KeyError:
-            descr = CallDescr(RESULT, ARGS, extrainfo)
+            descr = CallDescr(RESULT, ARGS, extrainfo, ABI=cif_description.abi)
             self.descrs[key] = descr
             return descr
 
@@ -553,6 +556,10 @@ class LLGraphCPU(model.AbstractCPU):
         else:
             return self.bh_raw_load_i(struct, offset, descr)
 
+    def bh_increment_debug_counter(self, addr):
+        p = rffi.cast(rffi.CArrayPtr(lltype.Signed), addr)
+        p[0] += 1
+
     def unpack_arraydescr_size(self, arraydescr):
         from rpython.jit.backend.llsupport.symbolic import get_array_token
         from rpython.jit.backend.llsupport.descr import get_type_flag, FLAG_SIGNED
@@ -636,15 +643,17 @@ class LLGraphCPU(model.AbstractCPU):
 
     def bh_new_array(self, length, arraydescr):
         array = lltype.malloc(arraydescr.A, length, zero=True)
+        assert getkind(arraydescr.A.OF) != 'ref' # getkind crashes on structs
+        return lltype.cast_opaque_ptr(llmemory.GCREF, array)
+
+    def bh_new_array_clear(self, length, arraydescr):
+        array = lltype.malloc(arraydescr.A, length, zero=True)
         return lltype.cast_opaque_ptr(llmemory.GCREF, array)
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
-
-    def bh_read_timestamp(self):
-        return read_timestamp()
 
     def bh_new_raw_buffer(self, size):
         return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
@@ -945,7 +954,7 @@ class LLFrame(object):
             # graph, not to directly execute the python function
             result = self.cpu.maybe_on_top_of_llinterp(func, call_args, descr.RESULT)
         else:
-            FUNC = lltype.FuncType(descr.ARGS, descr.RESULT)
+            FUNC = lltype.FuncType(descr.ARGS, descr.RESULT, descr.ABI)
             func_to_call = rffi.cast(lltype.Ptr(FUNC), func)
             result = func_to_call(*call_args)
         del self.force_guard_op

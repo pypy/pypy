@@ -19,15 +19,6 @@ def normalize_call_familes(annotator):
 
 def normalize_calltable(annotator, callfamily):
     """Try to normalize all rows of a table."""
-    overridden = False
-    for desc in callfamily.descs:
-        if getattr(desc, 'overridden', False):
-            overridden = True
-    if overridden:
-        if len(callfamily.descs) > 1:
-            raise Exception("non-static call to overridden function")
-        callfamily.overridden = True
-        return
     nshapes = len(callfamily.calltables)
     for shape, table in callfamily.calltables.items():
         for row in table:
@@ -62,6 +53,8 @@ def raise_call_table_too_complex_error(callfamily, annotator):
             msg.append("the following functions:")
             msg.append("    %s" % ("\n    ".join(pfg), ))
             msg.append("are called with inconsistent numbers of arguments")
+            msg.append("(and/or the argument names are different, which is"
+                       " not supported in this case)")
             if shape1[0] != shape2[0]:
                 msg.append("sometimes with %s arguments, sometimes with %s" % (shape1[0], shape2[0]))
             else:
@@ -93,7 +86,12 @@ def normalize_calltable_row_signature(annotator, shape, row):
         return False   # nothing to do, all signatures already match
 
     shape_cnt, shape_keys, shape_star = shape
-    assert not shape_star, "XXX not implemented"
+    if shape_star:
+        raise TyperError(
+            "not implemented: a call is done with a '*' argument, and the"
+            " multiple functions or methods that it can go to don't have"
+            " all the same signature (different argument names or defaults)."
+            " The call can go to:\n%s" % '\n'.join(map(repr, graphs)))
 
     # for the first 'shape_cnt' arguments we need to generalize to
     # a common type
@@ -209,12 +207,12 @@ def normalize_calltable_row_annotation(annotator, graphs):
 
 # ____________________________________________________________
 
-def merge_classpbc_getattr_into_classdef(rtyper):
+def merge_classpbc_getattr_into_classdef(annotator):
     # code like 'some_class.attr' will record an attribute access in the
     # PBC access set of the family of classes of 'some_class'.  If the classes
     # have corresponding ClassDefs, they are not updated by the annotator.
     # We have to do it now.
-    all_families = rtyper.annotator.bookkeeper.classpbc_attr_families
+    all_families = annotator.bookkeeper.classpbc_attr_families
     for attrname, access_sets in all_families.items():
         for access_set in access_sets.infos():
             descs = access_set.descs
@@ -229,9 +227,8 @@ def merge_classpbc_getattr_into_classdef(rtyper):
                 if commonbase is None:
                     raise TyperError("reading attribute %r: no common base "
                                      "class for %r" % (attrname, descs.keys()))
-            extra_access_sets = rtyper.class_pbc_attributes.setdefault(
-                commonbase, {})
-            if commonbase in rtyper.class_reprs:
+            extra_access_sets = commonbase.extra_access_sets
+            if commonbase.repr is not None:
                 assert access_set in extra_access_sets # minimal sanity check
                 continue
             access_set.commonbase = commonbase
@@ -380,13 +377,13 @@ def get_unique_cdef_id(cdef):
 
 # ____________________________________________________________
 
-def perform_normalizations(rtyper):
-    create_class_constructors(rtyper.annotator)
-    rtyper.annotator.frozen += 1
+def perform_normalizations(annotator):
+    create_class_constructors(annotator)
+    annotator.frozen += 1
     try:
-        normalize_call_familes(rtyper.annotator)
-        merge_classpbc_getattr_into_classdef(rtyper)
-        assign_inheritance_ids(rtyper.annotator)
+        normalize_call_familes(annotator)
+        merge_classpbc_getattr_into_classdef(annotator)
+        assign_inheritance_ids(annotator)
     finally:
-        rtyper.annotator.frozen -= 1
-    create_instantiate_functions(rtyper.annotator)
+        annotator.frozen -= 1
+    create_instantiate_functions(annotator)

@@ -98,9 +98,11 @@ _get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
 # the default wrapper for set_errno is not suitable for use in critical places
 # like around GIL handling logic, so we provide our own wrappers.
 
+@jit.oopspec("rposix.get_errno()")
 def get_errno():
     return intmask(_get_errno())
 
+@jit.oopspec("rposix.set_errno(errno)")
 def set_errno(errno):
     _set_errno(rffi.cast(INT, errno))
 
@@ -117,7 +119,7 @@ else:
         return 1
 
     def validate_fd(fd):
-        return 1
+        pass
 
 def closerange(fd_low, fd_high):
     # this behaves like os.closerange() from Python 2.6.

@@ -1,48 +1,66 @@
 """ discovery and running of std-library "unittest" style tests. """
 import pytest, py
-import sys, pdb
+import sys
 
 # for transfering markers
 from _pytest.python import transfer_markers
 
-def pytest_pycollect_makeitem(collector, name, obj):
+
+def is_unittest(obj):
+    """Is obj a subclass of unittest.TestCase?"""
     unittest = sys.modules.get('unittest')
     if unittest is None:
-        return # nobody can have derived unittest.TestCase
+        return  # nobody can have derived unittest.TestCase
     try:
-        isunit = issubclass(obj, unittest.TestCase)
+        return issubclass(obj, unittest.TestCase)
     except KeyboardInterrupt:
         raise
-    except Exception:
-        pass
-    else:
-        if isunit:
-            return UnitTestCase(name, parent=collector)
+    except:
+        return False
+
+
+def pytest_pycollect_makeitem(collector, name, obj):
+    if is_unittest(obj):
+        return UnitTestCase(name, parent=collector)
+
 
 class UnitTestCase(pytest.Class):
+    nofuncargs = True  # marker for fixturemanger.getfixtureinfo()
+                       # to declare that our children do not support funcargs
+                       #
+    def setup(self):
+        cls = self.obj
+        if getattr(cls, '__unittest_skip__', False):
+            return  # skipped
+        setup = getattr(cls, 'setUpClass', None)
+        if setup is not None:
+            setup()
+        teardown = getattr(cls, 'tearDownClass', None)
+        if teardown is not None:
+            self.addfinalizer(teardown)
+        super(UnitTestCase, self).setup()
+
     def collect(self):
+        self.session._fixturemanager.parsefactories(self, unittest=True)
         loader = py.std.unittest.TestLoader()
         module = self.getparent(pytest.Module).obj
         cls = self.obj
+        foundsomething = False
         for name in loader.getTestCaseNames(self.obj):
             x = getattr(self.obj, name)
             funcobj = getattr(x, 'im_func', x)
             transfer_markers(funcobj, cls, module)
-            if hasattr(funcobj, 'todo'):
-                pytest.mark.xfail(reason=str(funcobj.todo))(funcobj)
             yield TestCaseFunction(name, parent=self)
+            foundsomething = True
 
-    def setup(self):
-        meth = getattr(self.obj, 'setUpClass', None)
-        if meth is not None:
-            meth()
-        super(UnitTestCase, self).setup()
+        if not foundsomething:
+            runtest = getattr(self.obj, 'runTest', None)
+            if runtest is not None:
+                ut = sys.modules.get("twisted.trial.unittest", None)
+                if ut is None or runtest != ut.TestCase.runTest:
+                    yield TestCaseFunction('runTest', parent=self)
 
-    def teardown(self):
-        meth = getattr(self.obj, 'tearDownClass', None)
-        if meth is not None:
-            meth()
-        super(UnitTestCase, self).teardown()
+
 
 class TestCaseFunction(pytest.Function):
     _excinfo = None
@@ -50,12 +68,10 @@ class TestCaseFunction(pytest.Function):
     def setup(self):
         self._testcase = self.parent.obj(self.name)
         self._obj = getattr(self._testcase, self.name)
-        if hasattr(self._testcase, 'skip'):
-            pytest.skip(self._testcase.skip)
-        if hasattr(self._obj, 'skip'):
-            pytest.skip(self._obj.skip)
         if hasattr(self._testcase, 'setup_method'):
             self._testcase.setup_method(self._obj)
+        if hasattr(self, "_request"):
+            self._request._fillfixtures()
 
     def teardown(self):
         if hasattr(self._testcase, 'teardown_method'):
@@ -128,7 +144,10 @@ def pytest_runtest_makereport(item, call):
     if isinstance(item, TestCaseFunction):
         if item._excinfo:
             call.excinfo = item._excinfo.pop(0)
-            del call.result
+            try:
+                del call.result
+            except AttributeError:
+                pass
 
 # twisted trial support
 def pytest_runtest_protocol(item, __multicall__):

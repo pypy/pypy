@@ -8,7 +8,7 @@ from rpython.translator.c.gcc.instruction import InsnFunctionStart, InsnStop
 from rpython.translator.c.gcc.instruction import InsnSetLocal, InsnCopyLocal
 from rpython.translator.c.gcc.instruction import InsnPrologue, InsnEpilogue
 from rpython.translator.c.gcc.instruction import InsnGCROOT, InsnCondJump
-from rpython.translator.c.gcc.instruction import InsnStackAdjust
+from rpython.translator.c.gcc.instruction import InsnStackAdjust, InsnPushed
 from rpython.translator.c.gcc.instruction import InsnCannotFollowEsp
 from rpython.translator.c.gcc.instruction import LocalVar, somenewvalue
 from rpython.translator.c.gcc.instruction import frameloc_esp, frameloc_ebp
@@ -296,10 +296,11 @@ class FunctionGcRootTracker(object):
 
         # trim: instructions with no framesize are removed from self.insns,
         # and from the 'previous_insns' lists
-        assert hasattr(self.insns[0], 'framesize')
-        old = self.insns[1:]
-        del self.insns[1:]
-        for insn in old:
+        if 0:    # <- XXX disabled because it seems bogus, investigate more
+          assert hasattr(self.insns[0], 'framesize')
+          old = self.insns[1:]
+          del self.insns[1:]
+          for insn in old:
             if hasattr(insn, 'framesize'):
                 self.insns.append(insn)
                 insn.previous_insns = [previnsn for previnsn in insn.previous_insns
@@ -521,7 +522,9 @@ class FunctionGcRootTracker(object):
         # raw data, not GC pointers
         'movnt', 'mfence', 'lfence', 'sfence',
         # bit manipulations
-        'bextr',
+        'andn', 'bextr', 'blsi', 'blsmask', 'blsr', 'tzcnt', 'lzcnt',
+        # uh, this can occur with a 'call' on the following line...
+        'rex64',
     ])
 
     # a partial list is hopefully good enough for now; it's all to support
@@ -664,14 +667,22 @@ class FunctionGcRootTracker(object):
         match = self.r_unaryinsn.match(line)
         source = match.group(1)
         return self.insns_for_copy(source, self.TOP_OF_STACK_MINUS_WORD) + \
-               [InsnStackAdjust(-self.WORD)]
+               [InsnPushed(-self.WORD)]
 
     def _visit_pop(self, target):
         return [InsnStackAdjust(+self.WORD)] + \
                self.insns_for_copy(self.TOP_OF_STACK_MINUS_WORD, target)
 
     def _visit_prologue(self):
-        # for the prologue of functions that use %ebp as frame pointer
+        # For the prologue of functions that use %ebp as frame pointer.
+        # First, find the latest InsnStackAdjust; if it's not a PUSH,
+        # then consider that this 'mov %rsp, %rbp' is actually unrelated
+        i = -1
+        while not isinstance(self.insns[i], InsnStackAdjust):
+            i -= 1
+        if not isinstance(self.insns[i], InsnPushed):
+            return []
+        #
         self.uses_frame_pointer = True
         self.r_localvar = self.r_localvarfp
         return [InsnPrologue(self.WORD)]
@@ -692,6 +703,9 @@ class FunctionGcRootTracker(object):
         if line.split()[:2] == ['rep', 'ret']:
             return self.visit_ret(line)
         return []
+
+    def visit_ud2(self, line):
+        return InsnStop("ud2")    # unreachable instruction
 
     def visit_jmp(self, line):
         tablelabels = []
@@ -846,12 +860,16 @@ class FunctionGcRootTracker(object):
         return []
 
     def _visit_xchg(self, line):
-        # only support the format used in VALGRIND_DISCARD_TRANSLATIONS
+        # support the format used in VALGRIND_DISCARD_TRANSLATIONS
         # which is to use a marker no-op "xchgl %ebx, %ebx"
         match = self.r_binaryinsn.match(line)
         source = match.group("source")
         target = match.group("target")
         if source == target:
+            return []
+        # ignore the 'rpy_fastgil' atomic exchange, or any locked
+        # atomic exchange at all (involving memory)
+        if not source.startswith('%'):
             return []
         raise UnrecognizedOperation(line)
 

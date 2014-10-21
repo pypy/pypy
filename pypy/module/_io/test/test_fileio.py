@@ -82,7 +82,8 @@ class AppTestFileIO:
         import _io
         filename = self.tmpfile + '_w'
         f = _io.FileIO(filename, 'wb')
-        f.write("test")
+        f.write("te")
+        f.write(u"st")
         # try without flushing
         f2 = _io.FileIO(filename, 'rb')
         assert f2.read() == "test"
@@ -135,6 +136,14 @@ class AppTestFileIO:
         a = bytearray('x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
         assert f.readinto(a) == 10
+        exc = raises(TypeError, f.readinto, u"hello")
+        assert str(exc.value) == "cannot use unicode as modifiable buffer"
+        exc = raises(TypeError, f.readinto, buffer(b"hello"))
+        assert str(exc.value) == "must be read-write buffer, not buffer"
+        exc = raises(TypeError, f.readinto, buffer(bytearray("hello")))
+        assert str(exc.value) == "must be read-write buffer, not buffer"
+        exc = raises(TypeError, f.readinto, memoryview(b"hello"))
+        assert str(exc.value) == "must be read-write buffer, not memoryview"
         f.close()
         assert a == 'a\nb\nc\0\0\0\0\0'
         #

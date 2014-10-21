@@ -10,7 +10,7 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # ____________________________________________________________

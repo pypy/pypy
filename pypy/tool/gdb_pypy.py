@@ -123,11 +123,15 @@ class RPyType(Command):
         vname = 'pypy_g_rpython_memory_gctypelayout_GCData.gcd_inst_typeids_z'
         length = int(self.gdb.parse_and_eval('*(long*)%s' % vname))
         vstart = '(char*)(((long*)%s)+1)' % vname
-        with tempfile.NamedTemporaryFile('rb') as fobj:
+        fname = tempfile.mktemp()
+        try:
             self.gdb.execute('dump binary memory %s %s %s+%d' %
-                             (fobj.name, vstart, vstart, length))
-            data = fobj.read()
-        return TypeIdsMap(zlib.decompress(data).splitlines(True), self.gdb)
+                             (fname, vstart, vstart, length))
+            with open(fname, 'rt') as fobj:
+                data = fobj.read()
+            return TypeIdsMap(zlib.decompress(data).splitlines(True), self.gdb)
+        finally:
+            os.remove(fname)
 
 
 class TypeIdsMap(object):
