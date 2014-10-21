@@ -427,7 +427,6 @@ class rbigint(object):
     def tolonglong(self):
         return _AsLongLong(self)
 
-    @jit.look_inside
     def tobool(self):
         return self.sign != 0
 
@@ -517,11 +516,9 @@ class rbigint(object):
 
         return (self.sign * self.digit(0)) == other
 
-    @jit.look_inside
     def ne(self, other):
         return not self.eq(other)
 
-    @jit.look_inside
     def int_ne(self, other):
         return not self.int_eq(other)
 
@@ -592,11 +589,9 @@ class rbigint(object):
             return True
         return False
 
-    @jit.look_inside
     def le(self, other):
         return not other.lt(self)
 
-    @jit.look_inside
     def int_le(self, other):
         # Alternative that might be faster, reimplant this. as a check with other + 1. But we got to check for overflow
         # or reduce valid range.
@@ -605,19 +600,15 @@ class rbigint(object):
             return True
         return self.int_lt(other)
 
-    @jit.look_inside
     def gt(self, other):
         return other.lt(self)
 
-    @jit.look_inside
     def int_gt(self, other):
         return not self.int_le(other)
 
-    @jit.look_inside
     def ge(self, other):
         return not self.lt(other)
 
-    @jit.look_inside
     def int_ge(self, other):
         return not self.int_lt(other)
 
@@ -784,7 +775,6 @@ class rbigint(object):
 
         return div
 
-    @jit.look_inside
     def div(self, other):
         return self.floordiv(other)
 
