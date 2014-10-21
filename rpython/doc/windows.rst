@@ -37,6 +37,13 @@ compiler they can find.  In addition, the target architecture
 using a 32 bit Python and vice versa. By default the interpreter is built using
 the Multi-threaded DLL (/MD) runtime environment.
 
+If you wish to override this detection method to use a different compiler
+(mingw or a different version of MSVC):
+
+* set up the PATH and other environment variables as needed
+* set the `CC` environment variable to compiler exe to be used,
+  for a different version of MSVC `SET CC=cl.exe`.
+
 **Note:** The RPython translator does currently not support 64 bit Python, and
 translation will fail in this case.
 
@@ -278,7 +285,7 @@ hacking on PyPy with the mingw compiler
 Since hacking on PyPy means running tests, you will need a way to specify
 the mingw compiler when hacking (as opposed to translating). As of
 March 2012, --cc is not a valid option for pytest.py. However if you set an
-environment variable CC to the compliter exe, testing will use it.
+environment variable CC to the compiler exe, testing will use it.
 
 .. _mingw32 build: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Automated%20Builds
 .. _mingw64 build: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Automated%20Builds

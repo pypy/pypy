@@ -325,6 +325,8 @@ def _make_execute_list():
                          rop.INCREMENT_DEBUG_COUNTER,
                          rop.COND_CALL_GC_WB,
                          rop.COND_CALL_GC_WB_ARRAY,
+                         rop.ZERO_PTR_FIELD,
+                         rop.ZERO_ARRAY,
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,

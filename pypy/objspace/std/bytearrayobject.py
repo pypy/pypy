@@ -4,6 +4,7 @@ from rpython.rlib.objectmodel import (
     import_from_mixin, newlist_hint, resizelist_hint, specialize)
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder, ByteListBuilder
+from rpython.rlib.debug import check_list_of_chars
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -22,6 +23,7 @@ class W_BytearrayObject(W_Root):
     import_from_mixin(StringMethods)
 
     def __init__(self, data):
+        check_list_of_chars(data)
         self.data = data
 
     def __repr__(self):

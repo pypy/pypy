@@ -1,4 +1,5 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper import rclass
 from rpython.rlib.objectmodel import we_are_translated
 
 
@@ -125,3 +126,19 @@ def descr2vtable(cpu, descr):
     vtable = descr.as_vtable_size_descr()._corresponding_vtable
     vtable = llmemory.cast_ptr_to_adr(vtable)
     return adr2int(vtable)
+
+def gc_fielddescrs(gccache, STRUCT, res=None):
+    from rpython.jit.backend.llsupport import descr
+
+    if res is None:
+        res = []
+    # order is not relevant, except for tests
+    for name in STRUCT._names:
+        FIELD = getattr(STRUCT, name)
+        if FIELD is lltype.Void:
+            continue
+        elif isinstance(FIELD, lltype.Struct):
+            gc_fielddescrs(gccache, FIELD, res)
+        elif isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
+            res.append(descr.get_field_descr(gccache, STRUCT, name))
+    return res

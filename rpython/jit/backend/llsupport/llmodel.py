@@ -1,4 +1,5 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
@@ -14,6 +15,7 @@ from rpython.jit.backend.llsupport.descr import (
     get_call_descr, get_interiorfield_descr,
     FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr,
     FLAG_POINTER, FLAG_FLOAT)
+from rpython.jit.backend.llsupport.memcpy import memset_fn
 from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from rpython.rlib.unroll import unrolling_iterable
 
@@ -607,6 +609,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_new_array(self, length, arraydescr):
         return self.gc_ll_descr.gc_malloc_array(length, arraydescr)
+    bh_new_array_clear = bh_new_array
 
     def bh_newstr(self, length):
         return self.gc_ll_descr.gc_malloc_str(length)

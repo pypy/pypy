@@ -14,9 +14,11 @@ def _get_compiler_type(cc, x64_flag):
     if not cc:
         cc = os.environ.get('CC','')
     if not cc:
-        return MsvcPlatform(cc=cc, x64=x64_flag)
+        return MsvcPlatform(x64=x64_flag)
     elif cc.startswith('mingw') or cc == 'gcc':
         return MingwPlatform(cc)
+    else:
+        return MsvcPlatform(cc=cc, x64=x64_flag)
     try:
         subprocess.check_output([cc, '--version'])
     except:
@@ -108,11 +110,14 @@ class MsvcPlatform(Platform):
 
     def __init__(self, cc=None, x64=False):
         self.x64 = x64
-        msvc_compiler_environ = find_msvc_env(x64)
-        Platform.__init__(self, 'cl.exe')
-        if msvc_compiler_environ:
-            self.c_environ = os.environ.copy()
-            self.c_environ.update(msvc_compiler_environ)
+        if cc is None:
+            msvc_compiler_environ = find_msvc_env(x64)
+            Platform.__init__(self, 'cl.exe')
+            if msvc_compiler_environ:
+                self.c_environ = os.environ.copy()
+                self.c_environ.update(msvc_compiler_environ)
+        else:
+            self.cc = cc
 
         # detect version of current compiler
         returncode, stdout, stderr = _run_subprocess(self.cc, '',
@@ -204,8 +209,9 @@ class MsvcPlatform(Platform):
         # must come first, and after the file name all options are ignored.
         # So please be careful with the order of parameters! ;-)
         pdb_dir = oname.dirname
-        args = ['/nologo', '/c'] + compile_args + ['/Fd%s\\' % (pdb_dir,),
-                        '/Fo%s' % (oname,), str(cfile)]
+        if pdb_dir:
+                compile_args += ['/Fd%s\\' % (pdb_dir,)]
+        args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
         self._execute_c_compiler(cc, args, oname)
         return oname
 
@@ -347,7 +353,7 @@ class MsvcPlatform(Platform):
                '$(CREATE_PCH) $(INCLUDEDIRS)'))
             rules.append(('.c.obj', '',
                     '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) $(USE_PCH) '
-                    '/Fd$(@D)\\ /Fo$@ /c $< $(INCLUDEDIRS)'))
+                    '/Fo$@ /c $< $(INCLUDEDIRS)'))
             #Do not use precompiled headers for some files
             #rules.append((r'{..\module_cache}.c{..\module_cache}.obj', '',
             #        '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'))
@@ -362,13 +368,12 @@ class MsvcPlatform(Platform):
                     target = f[:-1] + 'obj'
                     rules.append((target, f,
                         '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
-                        '/Fd%s\\ /Fo%s /c %s $(INCLUDEDIRS)' %(
-                                os.path.dirname(target), target, f)))
+                        '/Fo%s /c %s $(INCLUDEDIRS)' %(target, f)))
 
         else:
             rules.append(('.c.obj', '',
                           '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
-                          '/Fd$(@D)\\ /Fo$@ /c $< $(INCLUDEDIRS)'))
+                          '/Fo$@ /c $< $(INCLUDEDIRS)'))
 
 
         for args in definitions:
@@ -410,7 +415,7 @@ class MsvcPlatform(Platform):
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); } > $@')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.obj'],
-                   ['$(CC_LINK) /nologo main.obj $(SHARED_IMPORT_LIB) /out:$@ /MANIFEST /MANIFESTFILE:$*.manifest',
+                   ['$(CC_LINK) /nologo /debug main.obj $(SHARED_IMPORT_LIB) /out:$@ /MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
             m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)', 'main.obj'],

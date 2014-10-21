@@ -7,6 +7,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'set_param':    'interp_jit.set_param',
         'residual_call': 'interp_jit.residual_call',
+        'not_from_assembler': 'interp_jit.W_NotFromAssembler',
         'set_compile_hook': 'interp_resop.set_compile_hook',
         'set_optimize_hook': 'interp_resop.set_optimize_hook',
         'set_abort_hook': 'interp_resop.set_abort_hook',

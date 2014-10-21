@@ -232,18 +232,3 @@ def test_raw_malloc_and_access():
     assert 'setarrayitem_raw_i' in s
     assert 'getarrayitem_raw_i' in s
     assert 'residual_call_ir_v $<* fn _ll_1_raw_free__arrayPtr>' in s
-
-def test_newlist_negativ():
-    def f(n):
-        l = [0] * n
-        return len(l)
-
-    rtyper = support.annotate(f, [-1])
-    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
-    cw = CodeWriter(FakeCPU(rtyper), [jitdriver_sd])
-    graphs = cw.find_all_graphs(FakePolicy())
-    backend_optimizations(rtyper.annotator.translator, graphs=graphs)
-    cw.make_jitcodes(verbose=True)
-    s = jitdriver_sd.mainjitcode.dump()
-    assert 'int_force_ge_zero' in s
-    assert 'new_array' in s

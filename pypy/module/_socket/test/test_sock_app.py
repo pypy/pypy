@@ -498,6 +498,13 @@ class AppTestSocket:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         reuse = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
         assert reuse == 0
+        #
+        raises(TypeError, s.setsockopt, socket.SOL_SOCKET,
+                          socket.SO_REUSEADDR, 2 ** 31)
+        raises(TypeError, s.setsockopt, socket.SOL_SOCKET,
+                          socket.SO_REUSEADDR, 2 ** 32 + 1)
+        assert s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR) == 0
+        #
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         reuse = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
         assert reuse != 0

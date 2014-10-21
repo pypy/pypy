@@ -11,7 +11,8 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import hlstr
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rtyper.lltypesystem import lltype, lloperation, rclass, llmemory
+from rpython.rtyper.lltypesystem import lltype, lloperation, llmemory
+from rpython.rtyper import rclass
 from rpython.rtyper.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY, FieldListAccessor
 
 

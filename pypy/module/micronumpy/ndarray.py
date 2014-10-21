@@ -16,9 +16,8 @@ from pypy.module.micronumpy.base import W_NDimArray, convert_to_array, \
     ArrayArgumentException, wrap_impl
 from pypy.module.micronumpy.concrete import BaseConcreteArray
 from pypy.module.micronumpy.converters import multi_axis_converter, \
-    order_converter, shape_converter
+    order_converter, shape_converter, searchside_converter
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
-from pypy.module.micronumpy.flatiter import W_FlatIterator
 from pypy.module.micronumpy.strides import get_shape_from_iterable, \
     shape_agreement, shape_agreement_multiple
 
@@ -407,8 +406,19 @@ class __extend__(W_NDimArray):
         --------
         numpy.swapaxes : equivalent function
         """
-        if self.is_scalar():
+        if axis1 == axis2:
             return self
+        n = len(self.get_shape())
+        if n <= 1:
+            return self
+        if axis1 < 0:
+            axis1 += n
+        if axis2 < 0:
+            axis2 += n
+        if axis1 < 0 or axis1 >= n:
+            raise oefmt(space.w_ValueError, "bad axis1 argument to swapaxes")
+        if axis2 < 0 or axis2 >= n:
+            raise oefmt(space.w_ValueError, "bad axis2 argument to swapaxes")
         return self.implementation.swapaxes(space, self, axis1, axis2)
 
     def descr_nonzero(self, space):
@@ -464,10 +474,13 @@ class __extend__(W_NDimArray):
         return repeat(space, self, repeats, w_axis)
 
     def descr_set_flatiter(self, space, w_obj):
+        iter, state = self.create_iter()
+        dtype = self.get_dtype()
         arr = convert_to_array(space, w_obj)
-        loop.flatiter_setitem(space, self, arr, 0, 1, self.get_size())
+        loop.flatiter_setitem(space, dtype, arr, iter, state, 1, iter.size)
 
     def descr_get_flatiter(self, space):
+        from .flatiter import W_FlatIterator
         return space.wrap(W_FlatIterator(self))
 
     def descr_item(self, space, __args__):
@@ -715,29 +728,22 @@ class __extend__(W_NDimArray):
         loop.round(space, self, calc_dtype, self.get_shape(), decimals, out)
         return out
 
-    @unwrap_spec(side=str, w_sorter=WrappedDefault(None))
-    def descr_searchsorted(self, space, w_v, side='left', w_sorter=None):
+    @unwrap_spec(w_side=WrappedDefault('left'), w_sorter=WrappedDefault(None))
+    def descr_searchsorted(self, space, w_v, w_side=None, w_sorter=None):
         if not space.is_none(w_sorter):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 'sorter not supported in searchsort'))
-        if not side or len(side) < 1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "expected nonempty string for keyword 'side'"))
-        elif side[0] == 'l' or side[0] == 'L':
-            side = 'l'
-        elif side[0] == 'r' or side[0] == 'R':
-            side = 'r'
-        else:
-            raise oefmt(space.w_ValueError,
-                        "'%s' is an invalid value for keyword 'side'", side)
-        if len(self.get_shape()) > 1:
+        side = searchside_converter(space, w_side)
+        if len(self.get_shape()) != 1:
             raise oefmt(space.w_ValueError, "a must be a 1-d array")
         v = convert_to_array(space, w_v)
-        if len(v.get_shape()) > 1:
-            raise oefmt(space.w_ValueError, "v must be a 1-d array-like")
         ret = W_NDimArray.from_shape(
             space, v.get_shape(), descriptor.get_dtype_cache(space).w_longdtype)
-        app_searchsort(space, self, v, space.wrap(side), ret)
+        if side == NPY.SEARCHLEFT:
+            binsearch = loop.binsearch_left
+        else:
+            binsearch = loop.binsearch_right
+        binsearch(space, self, v, ret)
         if ret.is_scalar():
             return ret.get_scalar_value()
         return ret
@@ -1295,31 +1301,6 @@ app_ptp = applevel(r"""
         return res
 """, filename=__file__).interphook('ptp')
 
-app_searchsort = applevel(r"""
-    def searchsort(arr, v, side, result):
-        import operator
-        def func(a, op, val):
-            imin = 0
-            imax = a.size
-            while imin < imax:
-                imid = imin + ((imax - imin) >> 1)
-                if op(a[imid], val):
-                    imin = imid +1
-                else:
-                    imax = imid
-            return imin
-        if side == 'l':
-            op = operator.lt
-        else:
-            op = operator.le
-        if v.size < 2:
-            result[...] = func(arr, op, v)
-        else:
-            for i in range(v.size):
-                result[i] = func(arr, op, v[i])
-        return result
-""", filename=__file__).interphook('searchsort')
-
 W_NDimArray.typedef = TypeDef("numpy.ndarray",
     __new__ = interp2app(descr_new_array),
 
@@ -1407,6 +1388,7 @@ W_NDimArray.typedef = TypeDef("numpy.ndarray",
     flags = GetSetProperty(W_NDimArray.descr_get_flags),
 
     fill = interp2app(W_NDimArray.descr_fill),
+    tobytes = interp2app(W_NDimArray.descr_tostring),
     tostring = interp2app(W_NDimArray.descr_tostring),
 
     mean = interp2app(W_NDimArray.descr_mean),
@@ -1485,23 +1467,3 @@ W_NDimArray.typedef = TypeDef("numpy.ndarray",
 
 def _reconstruct(space, w_subtype, w_shape, w_dtype):
     return descr_new_array(space, w_subtype, w_shape, w_dtype)
-
-
-W_FlatIterator.typedef = TypeDef("numpy.flatiter",
-    __iter__ = interp2app(W_FlatIterator.descr_iter),
-    __getitem__ = interp2app(W_FlatIterator.descr_getitem),
-    __setitem__ = interp2app(W_FlatIterator.descr_setitem),
-    __len__ = interp2app(W_FlatIterator.descr_len),
-
-    __eq__ = interp2app(W_FlatIterator.descr_eq),
-    __ne__ = interp2app(W_FlatIterator.descr_ne),
-    __lt__ = interp2app(W_FlatIterator.descr_lt),
-    __le__ = interp2app(W_FlatIterator.descr_le),
-    __gt__ = interp2app(W_FlatIterator.descr_gt),
-    __ge__ = interp2app(W_FlatIterator.descr_ge),
-
-    next = interp2app(W_FlatIterator.descr_next),
-    base = GetSetProperty(W_FlatIterator.descr_base),
-    index = GetSetProperty(W_FlatIterator.descr_index),
-    coords = GetSetProperty(W_FlatIterator.descr_coords),
-)

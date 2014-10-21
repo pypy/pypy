@@ -73,50 +73,55 @@ def run_setup_and_program(dirname, python_snippet):
     assert not os.path.exists(str(SNIPPET_DIR.join(dirname, 'lextab.py')))
     assert not os.path.exists(str(SNIPPET_DIR.join(dirname, 'yacctab.py')))
 
-def test_infrastructure():
-    run_setup_and_program('infrastructure', '''
-    import snip_infrastructure
-    assert snip_infrastructure.func() == 42
-    ''')
+class TestZIntegration(object):
+    def teardown_class(self):
+        if udir.isdir():
+            udir.remove()
 
-def test_distutils_module():
-    run_setup_and_program("distutils_module", '''
-    import snip_basic_verify
-    p = snip_basic_verify.C.getpwuid(0)
-    assert snip_basic_verify.ffi.string(p.pw_name) == b"root"
-    ''')
+    def test_infrastructure(self):
+        run_setup_and_program('infrastructure', '''
+        import snip_infrastructure
+        assert snip_infrastructure.func() == 42
+        ''')
 
-def test_distutils_package_1():
-    run_setup_and_program("distutils_package_1", '''
-    import snip_basic_verify1
-    p = snip_basic_verify1.C.getpwuid(0)
-    assert snip_basic_verify1.ffi.string(p.pw_name) == b"root"
-    ''')
+    def test_distutils_module(self):
+        run_setup_and_program("distutils_module", '''
+        import snip_basic_verify
+        p = snip_basic_verify.C.getpwuid(0)
+        assert snip_basic_verify.ffi.string(p.pw_name) == b"root"
+        ''')
 
-def test_distutils_package_2():
-    run_setup_and_program("distutils_package_2", '''
-    import snip_basic_verify2
-    p = snip_basic_verify2.C.getpwuid(0)
-    assert snip_basic_verify2.ffi.string(p.pw_name) == b"root"
-    ''')
+    def test_distutils_package_1(self):
+        run_setup_and_program("distutils_package_1", '''
+        import snip_basic_verify1
+        p = snip_basic_verify1.C.getpwuid(0)
+        assert snip_basic_verify1.ffi.string(p.pw_name) == b"root"
+        ''')
 
-def test_setuptools_module():
-    run_setup_and_program("setuptools_module", '''
-    import snip_setuptools_verify
-    p = snip_setuptools_verify.C.getpwuid(0)
-    assert snip_setuptools_verify.ffi.string(p.pw_name) == b"root"
-    ''')
+    def test_distutils_package_2(self):
+        run_setup_and_program("distutils_package_2", '''
+        import snip_basic_verify2
+        p = snip_basic_verify2.C.getpwuid(0)
+        assert snip_basic_verify2.ffi.string(p.pw_name) == b"root"
+        ''')
 
-def test_setuptools_package_1():
-    run_setup_and_program("setuptools_package_1", '''
-    import snip_setuptools_verify1
-    p = snip_setuptools_verify1.C.getpwuid(0)
-    assert snip_setuptools_verify1.ffi.string(p.pw_name) == b"root"
-    ''')
+    def test_setuptools_module(self):
+        run_setup_and_program("setuptools_module", '''
+        import snip_setuptools_verify
+        p = snip_setuptools_verify.C.getpwuid(0)
+        assert snip_setuptools_verify.ffi.string(p.pw_name) == b"root"
+        ''')
 
-def test_setuptools_package_2():
-    run_setup_and_program("setuptools_package_2", '''
-    import snip_setuptools_verify2
-    p = snip_setuptools_verify2.C.getpwuid(0)
-    assert snip_setuptools_verify2.ffi.string(p.pw_name) == b"root"
-    ''')
+    def test_setuptools_package_1(self):
+        run_setup_and_program("setuptools_package_1", '''
+        import snip_setuptools_verify1
+        p = snip_setuptools_verify1.C.getpwuid(0)
+        assert snip_setuptools_verify1.ffi.string(p.pw_name) == b"root"
+        ''')
+
+    def test_setuptools_package_2(self):
+        run_setup_and_program("setuptools_package_2", '''
+        import snip_setuptools_verify2
+        p = snip_setuptools_verify2.C.getpwuid(0)
+        assert snip_setuptools_verify2.ffi.string(p.pw_name) == b"root"
+        ''')

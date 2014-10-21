@@ -80,7 +80,7 @@ comes with `ROOT`_, which may be part of your Linux distribution as part of
 the selection of scientific software) will also work for a build with the
 builtin backend.
 
-.. _download: http://cern.ch/wlav/reflex-2013-08-14.tar.bz2
+.. _download: http://cern.ch/wlav/reflex-2014-10-20.tar.bz2
 .. _ROOT: http://root.cern.ch/
 
 Besides Reflex, you probably need a version of `gccxml`_ installed, which is
@@ -95,8 +95,8 @@ It is not needed to use them.
 
 To install the standalone version of Reflex, after download::
 
-    $ tar jxf reflex-2013-08-14.tar.bz2
-    $ cd reflex-2013-08-14
+    $ tar jxf reflex-2014-10-20.tar.bz2
+    $ cd reflex-2014-10-20
     $ ./build/autogen
     $ ./configure <usual set of options such as --prefix>
     $ make && make install
@@ -796,7 +796,7 @@ The rest works the same way: the fast path will be used transparently (which
 also means that you can't actually find out whether it is in use, other than
 by running a micro-benchmark or a JIT test).
 
-.. _provided: http://cern.ch/wlav/reflex-2013-04-23.tar.bz2
+.. _provided: http://cern.ch/wlav/reflex-2014-10-20.tar.bz2
 .. _genreflex-methptrgetter.patch: https://bitbucket.org/pypy/pypy/src/default/pypy/module/cppyy/genreflex-methptrgetter.patch
 
 CPython
