@@ -582,6 +582,8 @@ class Test_rbigint(object):
     def test_int_bitwise(self):
         for x in gen_signs([0, 1, 5, 11, 42, 43, 2 ** 30]):
             for y in gen_signs([0, 1, 5, 11, 42, 43, 3 ** 30, 2 ** 31]):
+                if y != intmask(y):
+                    continue      # skip 'y' too large for 32-bit
                 lx = rbigint.fromlong(x)
                 for mod in "xor and_ or_".split():
                     res1 = getattr(lx, 'int_' + mod)(y).tolong()
