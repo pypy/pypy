@@ -385,23 +385,16 @@ class GenericGCTests(GCTest):
         assert 160 <= res <= 165
 
     def define_custom_trace(cls):
-        from rpython.rtyper.annlowlevel import llhelper
-        from rpython.rtyper.lltypesystem import llmemory
         #
-        S = lltype.GcStruct('S', ('x', llmemory.Address), rtti=True)
+        S = lltype.GcStruct('S', ('x', llmemory.Address))
         T = lltype.GcStruct('T', ('z', lltype.Signed))
         offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(obj, prev):
-            if not prev:
-                return obj + offset_of_x
-            else:
-                return llmemory.NULL
-        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                          llmemory.Address)
-        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
+        def customtrace(obj, callback, arg):
+            callback(obj + offset_of_x, arg)
+
         #
         def setup():
+            rgc.register_custom_trace_hook(S, customtrace)
             s1 = lltype.malloc(S)
             tx = lltype.malloc(T)
             tx.z = 4243

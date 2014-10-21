@@ -1,6 +1,8 @@
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import SomeAddress, SomePtr
 from rpython.rlib import rgc
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import rmodel, annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
 from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS
@@ -172,6 +174,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.malloc_fnptr_cache = {}
 
         gcdata.gc = GCClass(translator.config.translation, **GC_PARAMS)
+        self.create_custom_trace_funcs(gcdata.gc,
+                                       translator.rtyper.custom_trace_funcs)
         root_walker = self.build_root_walker()
         root_walker.finished_minor_collection_func = finished_minor_collection
         self.root_walker = root_walker
@@ -490,6 +494,23 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                                    [SomeAddress()],
                                                    annmodel.s_None)
 
+    def create_custom_trace_funcs(self, gc, custom_trace_funcs):
+        custom_trace_funcs_unrolled = unrolling_iterable(
+            [(self.get_type_id(TP), func) for TP, func in custom_trace_funcs])
+
+        @specialize.arg(3)
+        def custom_trace_dispatcher(self, obj, typeid, callback, arg):
+            for type_id_exp, func in custom_trace_funcs_unrolled:
+                if typeid == type_id_exp:
+                    func(obj, callback, arg)
+                    return
+            else:
+                assert False
+
+        gc.__class__.custom_trace_dispatcher = custom_trace_dispatcher
+
+        for TP, func in custom_trace_funcs:
+            specialize.arg(1)(func)
 
     def consider_constant(self, TYPE, value):
         self.layoutbuilder.consider_constant(TYPE, value, self.gcdata.gc)
