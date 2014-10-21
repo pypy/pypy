@@ -13,6 +13,10 @@ _asmstackrootwalker = None    # BIG HACK: monkey-patched by asmgcroot.py
 _stackletrootwalker = None
 
 def get_stackletrootwalker():
+    # XXX this is too complicated now; we don't need a StackletRootWalker
+    # instance to store global state.  We could rewrite it all in one big
+    # function.  We don't care enough for now.
+
     # lazily called, to make the following imports lazy
     global _stackletrootwalker
     if _stackletrootwalker is not None:
