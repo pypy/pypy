@@ -668,9 +668,9 @@ class Test_rbigint(object):
             for base in [0, 2, 4, 8, 16, 10, math.e]:
                 l = rbigint.fromlong(op).log(base)
                 if base:
-                    assert ulps_check(l, math.log(op, base), 1) is None
+                    assert ulps_check(l, math.log(op, base)) is None
                 else:
-                    assert ulps_check(l, math.log(op), 1) is None
+                    assert ulps_check(l, math.log(op)) is None
 
 class TestInternalFunctions(object):
     def test__inplace_divrem1(self):
