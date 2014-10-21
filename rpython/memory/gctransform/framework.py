@@ -241,8 +241,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
             root_walker.need_stacklet_support(self, getfn)
 
         self.layoutbuilder.encode_type_shapes_now()
-        self.create_custom_trace_funcs(gcdata.gc,
-                                       translator.rtyper.custom_trace_funcs)
+        self.create_custom_trace_funcs(gcdata.gc, translator.rtyper)
 
         annhelper.finish()   # at this point, annotate all mix-level helpers
         annhelper.backend_optimize()
@@ -494,7 +493,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                                    [SomeAddress()],
                                                    annmodel.s_None)
 
-    def create_custom_trace_funcs(self, gc, custom_trace_funcs):
+    def create_custom_trace_funcs(self, gc, rtyper):
+        custom_trace_funcs = tuple(rtyper.custom_trace_funcs)
+        rtyper.custom_trace_funcs = custom_trace_funcs
+        # too late to register new custom trace functions afterwards
+
         custom_trace_funcs_unrolled = unrolling_iterable(
             [(self.get_type_id(TP), func) for TP, func in custom_trace_funcs])
 
