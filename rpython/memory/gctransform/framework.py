@@ -5,7 +5,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import rmodel, annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
-from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS
+from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS, llop
 from rpython.memory import gctypelayout
 from rpython.memory.gctransform.log import log
 from rpython.memory.gctransform.support import get_rtti, ll_call_destructor
@@ -174,8 +174,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.malloc_fnptr_cache = {}
 
         gcdata.gc = GCClass(translator.config.translation, **GC_PARAMS)
-        self.create_custom_trace_funcs(gcdata.gc,
-                                       translator.rtyper.custom_trace_funcs)
         root_walker = self.build_root_walker()
         root_walker.finished_minor_collection_func = finished_minor_collection
         self.root_walker = root_walker
@@ -243,6 +241,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
             root_walker.need_stacklet_support(self, getfn)
 
         self.layoutbuilder.encode_type_shapes_now()
+        self.create_custom_trace_funcs(gcdata.gc,
+                                       translator.rtyper.custom_trace_funcs)
 
         annhelper.finish()   # at this point, annotate all mix-level helpers
         annhelper.backend_optimize()
@@ -498,19 +498,21 @@ class BaseFrameworkGCTransformer(GCTransformer):
         custom_trace_funcs_unrolled = unrolling_iterable(
             [(self.get_type_id(TP), func) for TP, func in custom_trace_funcs])
 
-        @specialize.arg(3)
-        def custom_trace_dispatcher(self, obj, typeid, callback, arg):
+        @specialize.arg(2)
+        def custom_trace_dispatcher(obj, typeid, callback, arg):
             for type_id_exp, func in custom_trace_funcs_unrolled:
-                if typeid == type_id_exp:
-                    func(obj, callback, arg)
+                if (llop.combine_ushort(lltype.Signed, typeid, 0) ==
+                    llop.combine_ushort(lltype.Signed, type_id_exp, 0)):
+                    func(gc, obj, callback, arg)
                     return
             else:
                 assert False
 
-        gc.__class__.custom_trace_dispatcher = custom_trace_dispatcher
+        gc.custom_trace_dispatcher = custom_trace_dispatcher
 
         for TP, func in custom_trace_funcs:
-            specialize.arg(1)(func)
+            self.gcdata._has_got_custom_trace(self.get_type_id(TP))
+            specialize.arg(2)(func)
 
     def consider_constant(self, TYPE, value):
         self.layoutbuilder.consider_constant(TYPE, value, self.gcdata.gc)

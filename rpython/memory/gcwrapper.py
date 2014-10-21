@@ -47,15 +47,13 @@ class GCManagedHeap(object):
         def custom_trace(obj, typeid, callback, arg):
             for TP, func in custom_trace_funcs:
                 if typeid == self.get_type_id(TP):
-                    func(obj, callback, arg)
+                    func(self.gc, obj, callback, arg)
                     return
             else:
                 assert False
         
         for TP, func in custom_trace_funcs:
-            type_info = gcdata.get(self.get_type_id(TP))
-            type_info.infobits |= (gctypelayout.T_HAS_CUSTOM_TRACE |
-                                   gctypelayout.T_HAS_GCPTR)
+            gcdata._has_got_custom_trace(self.get_type_id(TP))
 
         self.gc.custom_trace_dispatcher = custom_trace
 

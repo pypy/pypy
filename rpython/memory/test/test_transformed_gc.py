@@ -389,15 +389,17 @@ class GenericGCTests(GCTest):
         S = lltype.GcStruct('S', ('x', llmemory.Address))
         T = lltype.GcStruct('T', ('z', lltype.Signed))
         offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(obj, callback, arg):
-            callback(obj + offset_of_x, arg)
+        def customtrace(gc, obj, callback, arg):
+            if gc.is_valid_gc_object((obj + offset_of_x).address[0]):
+                callback(obj + offset_of_x, arg)
+        lambda_customtrace = lambda: customtrace
 
         #
         def setup():
-            rgc.register_custom_trace_hook(S, customtrace)
-            s1 = lltype.malloc(S)
+            rgc.register_custom_trace_hook(S, lambda_customtrace)
             tx = lltype.malloc(T)
             tx.z = 4243
+            s1 = lltype.malloc(S)
             s1.x = llmemory.cast_ptr_to_adr(tx)
             return s1
         def f():

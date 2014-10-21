@@ -244,12 +244,14 @@ class GCTest(object):
                                  ('y', llmemory.Address))
         T = lltype.GcStruct('T', ('z', lltype.Signed))
         offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(obj, callback, arg):
-            callback(obj + offset_of_x, arg)
+        def customtrace(gc, obj, callback, arg):
+            if gc.is_valid_gc_object((obj + offset_of_x).address[0]):
+                callback(obj + offset_of_x, arg)
+        lambda_customtrace = lambda: customtrace
         #
         for attrname in ['x', 'y']:
             def setup():
-                rgc.register_custom_trace_hook(S, customtrace)
+                rgc.register_custom_trace_hook(S, lambda_customtrace)
                 s1 = lltype.malloc(S)
                 tx = lltype.malloc(T)
                 tx.z = 42
@@ -760,11 +762,12 @@ class GCTest(object):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
         called = []
 
-        def trace_hook(obj, callback, arg):
+        def trace_hook(gc, obj, callback, arg):
             called.append("called")
+        lambda_trace_hook = lambda: trace_hook
 
         def f():
-            rgc.register_custom_trace_hook(S, trace_hook)
+            rgc.register_custom_trace_hook(S, lambda_trace_hook)
             s = lltype.malloc(S)
             rgc.collect()
             keepalive_until_here(s)

@@ -151,6 +151,10 @@ class GCData(object):
             self.q_fast_path_tracing,
             self.q_has_gcptr)
 
+    def _has_got_custom_trace(self, typeid):
+        type_info = self.get(typeid)
+        type_info.infobits |= (T_HAS_CUSTOM_TRACE | T_HAS_GCPTR)
+
 
 # the lowest 16bits are used to store group member index
 T_MEMBER_INDEX              =   0xffff
