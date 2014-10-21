@@ -102,8 +102,7 @@ def get_stackletrootwalker():
                                                   location)
                     # yield the translated addr of the next GCREF in the stack
                     addr = self.translateptr(addr)
-                    if gc.is_valid_gc_object(addr.address[0]):
-                        callback(addr, arg)
+                    gc._trace_callback(callback, arg, addr)
 
                 caller = self.otherframe
                 reg = CALLEE_SAVED_REGS - 1

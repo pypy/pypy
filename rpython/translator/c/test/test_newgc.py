@@ -446,8 +446,7 @@ class UsingFrameworkTest(object):
         S = lltype.GcStruct('S', ('x', llmemory.Address))
         offset_of_x = llmemory.offsetof(S, 'x')
         def customtrace(gc, obj, callback, arg):
-            if gc.is_valid_gc_object((obj + offset_of_x).address[0]):
-                callback(obj + offset_of_x, arg)
+            gc._trace_callback(callback, arg, obj + offset_of_x)
         lambda_customtrace = lambda: customtrace
         #
         def setup():
