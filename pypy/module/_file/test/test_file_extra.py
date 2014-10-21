@@ -200,6 +200,10 @@ class BaseROTests:
         assert f.closed == True
 
     def test_repr(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names and \
+                sys.version_info < (2, 7, 4):
+            skip("see cpython issue14161")
         assert repr(self.file).startswith(
             "<open file %r, mode '%s' at 0x" %
             (self.expected_filename, self.expected_mode))
@@ -217,7 +221,7 @@ class AppTestFile(BaseROTests):
     expected_filename = str(udir.join('sample'))
     expected_mode = 'rb'
     extra_args = ()
-    spaceconfig = {"usemodules": ["binascii", "rctime"]}
+    spaceconfig = {'usemodules': ['binascii', 'rctime', 'struct']}
 
     def setup_method(self, method):
         space = self.space
@@ -277,7 +281,7 @@ class AppTestFdOpen(BaseROTests):
     expected_filename = '<fdopen>'
     expected_mode = 'rb'
     extra_args = ()
-    spaceconfig = {"usemodules": ["binascii", "rctime"]}
+    spaceconfig = {'usemodules': ['binascii', 'rctime', 'struct']}
 
     def setup_method(self, method):
         space = self.space
@@ -355,7 +359,8 @@ class AppTestLargeBufferUniversal(AppTestUniversalNewlines):
 #  A few extra tests
 
 class AppTestAFewExtra:
-    spaceconfig = {"usemodules": ['array', '_socket', 'binascii', 'rctime']}
+    spaceconfig = {'usemodules': ['_socket', 'array', 'binascii', 'rctime',
+                                  'struct']}
 
     def setup_method(self, method):
         fn = str(udir.join('temptestfile'))
@@ -381,6 +386,33 @@ class AppTestAFewExtra:
         somelines = file(fn, 'r').readlines(2000)
         assert len(somelines) > 200
         assert somelines == lines[:len(somelines)]
+
+    def test_writelines(self):
+        import array
+        fn = self.temptestfile
+        with file(fn, 'w') as f:
+            f.writelines(['abc'])
+            f.writelines([u'def'])
+            exc = raises(TypeError, f.writelines, [array.array('c', 'ghi')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+            exc = raises(TypeError, f.writelines, [memoryview('jkl')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+        assert open(fn, 'r').readlines() == ['abcdef']
+
+        with file(fn, 'wb') as f:
+            f.writelines(['abc'])
+            f.writelines([u'def'])
+            f.writelines([array.array('c', 'ghi')])
+            exc = raises(TypeError, f.writelines, [memoryview('jkl')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+        out = open(fn, 'rb').readlines()[0]
+        assert out[0:5] == 'abcd\x00'
+        assert out[-3:] == 'ghi'
+
+        with file(fn, 'wb') as f:
+            exc = raises(TypeError, f.writelines, ['abc', memoryview('def')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+        assert open(fn, 'rb').readlines() == []
 
     def test_nasty_writelines(self):
         # The stream lock should be released between writes
@@ -522,14 +554,8 @@ class AppTestAFewExtra:
 
         import errno, sys
         f = open(fn)
-        exc = raises(EnvironmentError, f.truncate, 3)
-        if sys.platform == 'win32':
-            assert exc.value.winerror == 5 # ERROR_ACCESS_DENIED
-        else:
-            # CPython explicitely checks the file mode
-            # PyPy relies on the libc to raise the error
-            assert (exc.value.message == "File not open for writing" or
-                    exc.value.errno == errno.EINVAL)
+        exc = raises(IOError, f.truncate, 3)
+        assert str(exc.value) == "File not open for writing"
         f.close()
 
     def test_readinto(self):

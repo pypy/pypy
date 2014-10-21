@@ -102,13 +102,13 @@ class TaskState(object):
         self.task_waiting = False
         self.task_holding = False
         return self
-        
+
     def waitingWithPacket(self):
         self.packet_pending = True
         self.task_waiting = True
         self.task_holding = False
         return self
-        
+
     def isPacketPending(self):
         return self.packet_pending
 
@@ -144,6 +144,9 @@ TASKTABSIZE = 10
 
 class TaskWorkArea(object):
     def __init__(self):
+        self.reset()
+
+    def reset(self):
         self.taskTab = [None] * TASKTABSIZE
 
         self.taskList = None
@@ -233,7 +236,7 @@ class Task(TaskState):
         if t is None:
             raise Exception("Bad task id %d" % id)
         return t
-            
+
 
 # DeviceTask
 
@@ -307,7 +310,7 @@ class IdleTask(Task):
         else:
             i.control = i.control/2 ^ 0xd008
             return self.release(I_DEVB)
-            
+
 
 # WorkTask
 
@@ -361,8 +364,7 @@ class Richards(object):
 
     def run(self, iterations):
         for i in xrange(iterations):
-            taskWorkArea.holdCount = 0
-            taskWorkArea.qpktCount = 0
+            taskWorkArea.reset()
 
             IdleTask(I_IDLE, 1, 10000, TaskState().running(), IdleTaskRec())
 
@@ -383,7 +385,7 @@ class Richards(object):
             wkq = None;
             DeviceTask(I_DEVA, 4000, wkq, TaskState().waiting(), DeviceTaskRec());
             DeviceTask(I_DEVB, 5000, wkq, TaskState().waiting(), DeviceTaskRec());
-            
+
             schedule()
 
             if taskWorkArea.holdCount == 9297 and taskWorkArea.qpktCount == 23246:

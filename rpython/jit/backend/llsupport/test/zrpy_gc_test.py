@@ -5,7 +5,7 @@ and the various cases of write barrier.
 """
 
 import weakref
-import os
+import os, py
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.jit import JitDriver, dont_look_inside
@@ -13,6 +13,7 @@ from rpython.rlib.jit import elidable, unroll_safe
 from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
 from rpython.tool.udir import udir
 from rpython.config.translationoption import DEFL_GC
+from rpython.config.config import ConfigError
 
 
 class X(object):
@@ -106,7 +107,9 @@ def compile(f, gc, **kwds):
 def run(cbuilder, args=''):
     #
     pypylog = udir.join('test_zrpy_gc.log')
-    data = cbuilder.cmdexec(args, env={'PYPYLOG': ':%s' % pypylog})
+    env = os.environ.copy()
+    env['PYPYLOG'] = ':%s' % pypylog
+    data = cbuilder.cmdexec(args, env=env)
     return data.strip()
 
 # ______________________________________________________________________
@@ -166,6 +169,9 @@ class BaseFrameworkTests(object):
             cls.cbuilder = compile(get_entry(allfuncs), cls.gc,
                                    gcrootfinder=cls.gcrootfinder, jit=True,
                                    thread=True)
+        except ConfigError, e:        
+            assert str(e).startswith('invalid value asmgcc')
+            py.test.skip('asmgcc not supported')
         finally:
             GcLLDescr_framework.DEBUG = OLD_DEBUG
 
@@ -175,8 +181,9 @@ class BaseFrameworkTests(object):
 
     def run(self, name, n=2000):
         pypylog = udir.join('TestCompileFramework.log')
-        env = {'PYPYLOG': ':%s' % pypylog,
-               'PYPY_NO_INLINE_MALLOC': '1'}
+        env = os.environ.copy()
+        env['PYPYLOG'] = ':%s' % pypylog
+        env['PYPY_NO_INLINE_MALLOC'] = '1'
         self._run(name, n, env)
         env['PYPY_NO_INLINE_MALLOC'] = ''
         self._run(name, n, env)
@@ -216,7 +223,7 @@ class CompileFrameworkTests(BaseFrameworkTests):
 ##        return None, f, None
 
     def define_compile_framework_1(cls):
-        # a moving GC.  Supports malloc_varsize_nonmovable.  Simple test, works
+        # a moving GC.  Simple test, works
         # without write_barriers and root stack enumeration.
         def f(n, x, *args):
             y = X()
@@ -626,9 +633,9 @@ class CompileFrameworkTests(BaseFrameworkTests):
             return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
 
         def after(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
-            check(x.x == 1800 * 2 + 1850 * 2 + 200 - 150)
+            check(x.x == 1800 * 2 + 150 * 2 + 200 - 1850)
 
-        return before, f, None
+        return before, f, after
 
     def test_compile_framework_external_exception_handling(self):
         self.run('compile_framework_external_exception_handling')

@@ -321,8 +321,14 @@ def encode(space, w_obj, w_encoding=None, errors='strict'):
     w_res = space.call_function(w_encoder, w_obj, space.wrap(errors))
     return space.getitem(w_res, space.wrap(0))
 
-@unwrap_spec(s='bufferstr', errors='str_or_None')
-def buffer_encode(space, s, errors='strict'):
+@unwrap_spec(errors='str_or_None')
+def readbuffer_encode(space, w_data, errors='strict'):
+    s = space.getarg_w('s#', w_data)
+    return space.newtuple([space.wrap(s), space.wrap(len(s))])
+
+@unwrap_spec(errors='str_or_None')
+def charbuffer_encode(space, w_data, errors='strict'):
+    s = space.getarg_w('t#', w_data)
     return space.newtuple([space.wrap(s), space.wrap(len(s))])
 
 @unwrap_spec(errors=str)
@@ -673,7 +679,7 @@ def unicode_internal_decode(space, w_string, errors="strict"):
     if space.isinstance_w(w_string, space.w_unicode):
         return space.newtuple([w_string, space.len(w_string)])
 
-    string = space.str_w(w_string)
+    string = space.readbuf_w(w_string).as_str()
 
     if len(string) == 0:
         return space.newtuple([space.wrap(u''), space.wrap(0)])

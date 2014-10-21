@@ -10,8 +10,14 @@ PyPy supports only being translated as a 32bit program, even on
 64bit Windows.  See at the end of this page for what is missing
 for a full 64bit translation.
 
-To build pypy-c you need a C compiler.  Microsoft Visual Studio is
-preferred, but can also use the mingw32 port of gcc.
+To build pypy-c you need a working python environment, and a C compiler.
+It is possible to translate with a CPython 2.6 or later, but this is not
+the preferred way, because it will take a lot longer to run – depending
+on your architecture, between two and three times as long. So head to 
+`our downloads`_ and get the latest stable version.
+
+Microsoft Visual Studio is preferred as a compiler, but there are reports 
+of success with the mingw32 port of gcc.
 
 
 Translating PyPy with Visual Studio
@@ -31,12 +37,29 @@ compiler they can find.  In addition, the target architecture
 using a 32 bit Python and vice versa. By default pypy is built using the 
 Multi-threaded DLL (/MD) runtime environment.
 
-**Note:** PyPy is currently not supported for 64 bit Windows, and translation
+If you wish to override this detection method to use a different compiler
+(mingw or a different version of MSVC):
+
+* set up the PATH and other environment variables as needed
+* set the `CC` environment variable to compiler exe to be used,
+  for a different version of MSVC `SET CC=cl.exe`.
+
+**Note:** PyPy is currently not supported for 64 bit Python, and translation
 will fail in this case.
 
-The compiler is all you need to build pypy-c, but it will miss some
+Python and a C compiler are all you need to build pypy, but it will miss some
 modules that relies on third-party libraries.  See below how to get
 and build them.
+
+Please see the `non-windows instructions`_ for more information, especially note
+that translation is RAM-hungry. A standard translation requires around 4GB, so
+special preparations are necessary, or you may want to use the method in the
+notes of the `build instructions`_ to reduce memory usage at the price of a
+slower translation::
+
+    set PYPY_GC_MAX_DELTA=200MB
+    pypy --jit loop_longevity=300 ../../rpython/bin/rpython -Ojit targetpypystandalone
+    set PYPY_GC_MAX_DELTA=
 
 Preping Windows for the Large Build
 -----------------------------------
@@ -52,9 +75,10 @@ Windows 64bit.
 
 Then you need to execute::
 
-    editbin /largeaddressaware pypy.exe
+    editbin /largeaddressaware translator.exe
 
-on the pypy.exe file you compiled.
+where ``translator.exe`` is the pypy.exe or cpython.exe you will use to 
+translate with. 
 
 Installing external packages
 ----------------------------
@@ -68,10 +92,13 @@ INCLUDE, LIB and PATH (for DLLs) environment variables appropriately.
 
 Abridged method (for -Ojit builds using Visual Studio 2008)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Download the versions of all the external packages
-from 
+Download the versions of all the external packages from 
+https://bitbucket.org/pypy/pypy/downloads/local_2.4.zip
+(for 2.4 release and later) or
 https://bitbucket.org/pypy/pypy/downloads/local.zip
-Then expand it into the base directory (base_dir) and modify your environment to reflect this::
+(for pre-2.4 versions)
+Then expand it into the base directory (base_dir) and modify your environment
+to reflect this::
 
     set PATH=<base_dir>\bin;<base_dir>\tcltk\bin;%PATH%
     set INCLUDE=<base_dir>\include;<base_dir>\tcltk\include;%INCLUDE%
@@ -86,11 +113,26 @@ This library is needed if you plan to use the ``--gc=boehm`` translation
 option (this is the default at some optimization levels like ``-O1``,
 but unneeded for high-performance translations like ``-O2``).
 You may get it at
-http://www.hpl.hp.com/personal/Hans_Boehm/gc/gc_source/gc-7.1.tar.gz
+http://hboehm.info/gc/gc_source/gc-7.1.tar.gz
 
 Versions 7.0 and 7.1 are known to work; the 6.x series won't work with
-pypy. Unpack this folder in the base directory.  Then open a command
-prompt::
+pypy. Unpack this folder in the base directory. 
+The default GC_abort(...) function in misc.c will try to open a MessageBox.
+You may want to disable this with the following patch::
+
+    --- a/misc.c    Sun Apr 20 14:08:27 2014 +0300
+    +++ b/misc.c    Sun Apr 20 14:08:37 2014 +0300
+    @@ -1058,7 +1058,7 @@
+     #ifndef PCR
+      void GC_abort(const char *msg)
+       {
+       -#   if defined(MSWIN32)
+       +#   if 0 && defined(MSWIN32)
+              (void) MessageBoxA(NULL, msg, "Fatal error in gc", MB_ICONERROR|MB_OK);
+               #   else
+                      GC_err_printf("%s\n", msg);
+    
+Then open a command prompt::
 
     cd gc-7.1
     nmake -f NT_THREADS_MAKEFILE
@@ -100,19 +142,23 @@ The zlib compression library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Download http://www.gzip.org/zlib/zlib-1.2.3.tar.gz and extract it in
-the base directory.  Then compile::
+the base directory.  Then compile as a static library::
 
     cd zlib-1.2.3
     nmake -f win32\Makefile.msc
-    copy zlib1.dll <somewhere in the PATH>\zlib.dll
+    copy zlib.lib <somewhere in LIB>
+    copy zlib.h zconf.h <somewhere in INCLUDE>
 
 The bz2 compression library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Get the same version of bz2 used by python and compile as a static library::
 
     svn export http://svn.python.org/projects/external/bzip2-1.0.6
     cd bzip2-1.0.6
     nmake -f makefile.msc
-    copy bzip.dll <somewhere in the PATH>\bzip.dll
+    copy libbz2.lib <somewhere in LIB>
+    copy bzlib.h <somewhere in INCLUDE>
+
     
 The sqlite3 database library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -129,26 +175,29 @@ http://sourceforge.net/projects/expat/ and extract it in the base
 directory.  Version 2.1.0 is known to pass tests. Then open the project 
 file ``expat.dsw`` with Visual
 Studio; follow the instruction for converting the project files,
-switch to the "Release" configuration, reconfigure the runtime for 
-Multi-threaded DLL (/MD) and build the solution (the ``expat`` project 
-is actually enough for pypy).
+switch to the "Release" configuration, use the ``expat_static`` project,
+reconfigure the runtime for Multi-threaded DLL (/MD) and build.
 
-Then, copy the file ``win32\bin\release\libexpat.dll`` somewhere in
-your PATH.
+Then, copy the file ``win32\bin\release\libexpat.lib`` somewhere in
+somewhere in LIB, and both ``lib\expat.h`` and ``lib\expat_external.h``
+somewhere in INCLUDE.
 
 The OpenSSL library
 ~~~~~~~~~~~~~~~~~~~
 
 OpenSSL needs a Perl interpreter to configure its makefile.  You may
-use the one distributed by ActiveState, or the one from cygwin.  In
-both case the perl interpreter must be found on the PATH.
+use the one distributed by ActiveState, or the one from cygwin.::
 
-    svn export http://svn.python.org/projects/external/openssl-0.9.8y
-    cd openssl-0.9.8y
-    perl Configure VC-WIN32
+    svn export http://svn.python.org/projects/external/openssl-1.0.1i
+    cd openssl-1.0.1i
+    perl Configure VC-WIN32 no-idea no-mdc2
     ms\do_ms.bat
     nmake -f ms\nt.mak install
 
+Then, copy the files ``out32\*.lib`` somewhere in
+somewhere in LIB, and the entire ``include\openssl`` directory as-is somewhere
+in INCLUDE.
+    
 TkInter module support
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -222,14 +271,16 @@ hacking on PyPy with the mingw compiler
 Since hacking on PyPy means running tests, you will need a way to specify
 the mingw compiler when hacking (as opposed to translating). As of
 March 2012, --cc is not a valid option for pytest.py. However if you set an
-environment variable CC to the compliter exe, testing will use it.
+environment variable CC to the compiler exe, testing will use it.
 
 .. _`mingw32 build`: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Automated%20Builds
 .. _`mingw64 build`: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Automated%20Builds
 .. _`msys for mingw`: http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29   
 .. _`libffi source files`: http://sourceware.org/libffi/
 .. _`RPython translation toolchain`: translation.html
-
+.. _`our downloads`: http://pypy.org/download.html   
+.. _`non-windows instructions`: getting-started-python.html#translating-the-pypy-python-interpreter
+.. _`build instructions`: http://pypy.org/download.html#building-from-source
 
 What is missing for a full 64-bit translation
 ---------------------------------------------
@@ -257,7 +308,7 @@ Such a hacked CPython is what you'll use in the next steps.  We'll call
 it CPython64/64.
 
 It is probably not too much work if the goal is only to get a translated
-PyPy executable, and to run all tests before transaction.  But you need
+PyPy executable, and to run all tests before translation.  But you need
 to start somewhere, and you should start with some tests in
 rpython/translator/c/test/, like ``test_standalone.py`` and
 ``test_newgc.py``: try to have them pass on top of CPython64/64.
@@ -265,7 +316,7 @@ rpython/translator/c/test/, like ``test_standalone.py`` and
 Keep in mind that this runs small translations, and some details may go
 wrong.  The most obvious one is to check that it produces C files that
 use the integer type ``Signed`` --- but what is ``Signed`` defined to?
-It should be equal to ``long`` on every other platforms, but on Win64 it
+It should be equal to ``long`` on every other platform, but on Win64 it
 should be something like ``long long``.
 
 What is more generally needed is to review all the C files in
@@ -276,11 +327,11 @@ any other platform, so feel free to.
 
 Then, these two C types have corresponding RPython types: ``rffi.LONG``
 and ``lltype.Signed`` respectively.  The first should really correspond
-to the C ``long``.  Add tests that check that integers casted to one
+to the C ``long``.  Add tests that check that integers cast to one
 type or the other really have 32 and 64 bits respectively, on Win64.
 
 Once these basic tests work, you need to review ``rpython/rlib/`` for
-usages of ``rffi.LONG`` versus ``lltype.Signed``.  The goal would be to
+uses of ``rffi.LONG`` versus ``lltype.Signed``.  The goal would be to
 fix some more ``LONG-versus-Signed`` issues, by fixing the tests --- as
 always run on top of CPython64/64.  Note that there was some early work
 done in ``rpython/rlib/rarithmetic`` with the goal of running all the
@@ -290,14 +341,14 @@ bad idea.  Look only at CPython64/64.
 The major intermediate goal is to get a translation of PyPy with ``-O2``
 with a minimal set of modules, starting with ``--no-allworkingmodules``;
 you need to use CPython64/64 to run this translation too.  Check
-carefully the warnings of the C compiler at the end.  I think that MSVC
-is "nice" in the sense that by default a lot of mismatches of integer
-sizes are reported as warnings.
+carefully the warnings of the C compiler at the end. By default, MSVC
+reports a lot of mismatches of integer sizes as warnings instead of
+errors.
 
 Then you need to review ``pypy/module/*/`` for ``LONG-versus-Signed``
 issues.  At some time during this review, we get a working translated
 PyPy on Windows 64 that includes all ``--translationmodules``, i.e.
-everything needed to run translations.  When we are there, the hacked
+everything needed to run translations.  Once we have that, the hacked
 CPython64/64 becomes much less important, because we can run future
 translations on top of this translated PyPy.  As soon as we get there,
 please *distribute* the translated PyPy.  It's an essential component

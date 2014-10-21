@@ -11,7 +11,8 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import hlstr
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rtyper.lltypesystem import lltype, lloperation, rclass, llmemory
+from rpython.rtyper.lltypesystem import lltype, lloperation, llmemory
+from rpython.rtyper import rclass
 from rpython.rtyper.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY, FieldListAccessor
 
 
@@ -1610,6 +1611,40 @@ class ImplicitVirtualizableTests(object):
             l = [op for op in bridge.operations if
                  op.getopnum() == rop.GUARD_NOT_FORCED_2]
             assert len(l) == 0
+
+    def test_two_virtualizable_types(self):
+        class A:
+            _virtualizable_ = ['x']
+            def __init__(self, x):
+                self.x = x
+
+        class B:
+            _virtualizable_ = ['lst[*]']
+            def __init__(self, lst):
+                self.lst = lst
+
+        driver_a = JitDriver(greens=[], reds=['a'], virtualizables=['a'])
+        driver_b = JitDriver(greens=[], reds=['b'], virtualizables=['b'])
+
+        def foo_a(a):
+            while a.x > 0:
+                driver_a.jit_merge_point(a=a)
+                a.x -= 2
+            return a.x
+
+        def foo_b(b):
+            while b.lst[0] > 0:
+                driver_b.jit_merge_point(b=b)
+                b.lst[0] -= 2
+            return b.lst[0]
+
+        def f():
+            return foo_a(A(13)) * 100 + foo_b(B([13]))
+
+        assert f() == -101
+        res = self.meta_interp(f, [], listops=True)
+        assert res == -101
+
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,

@@ -13,19 +13,24 @@ from rpython.annotator.model import (SomeOrderedDict,
     s_None, s_ImpossibleValue, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
     SomeWeakRef, SomeByteArray, SomeConstantType)
-from rpython.rtyper.llannotation import (
-    SomeAddress, SomePtr, SomeLLADTMeth, lltype_to_annotation)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
 from rpython.annotator import description
 from rpython.annotator.signature import annotationoftype
-from rpython.annotator.argument import ArgumentsForTranslation
+from rpython.annotator.argument import simple_args
 from rpython.rlib.objectmodel import r_dict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
-from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import extregistry
 
+
+BUILTIN_ANALYZERS = {}
+
+def analyzer_for(func):
+    def wrapped(ann_func):
+        BUILTIN_ANALYZERS[func] = ann_func
+        return ann_func
+    return wrapped
 
 class Bookkeeper(object):
     """The log of choices that have been made while analysing the operations.
@@ -84,22 +89,23 @@ class Bookkeeper(object):
                 newblocks = self.annotator.added_blocks
                 if newblocks is None:
                     newblocks = self.annotator.annotated  # all of them
-                binding = self.annotator.binding
+                annotation = self.annotator.annotation
                 for block in newblocks:
                     for op in block.operations:
                         if op.opname in ('simple_call', 'call_args'):
                             yield op
 
                         # some blocks are partially annotated
-                        if binding(op.result, None) is None:
+                        if annotation(op.result) is None:
                             break   # ignore the unannotated part
 
             for call_op in call_sites():
                 self.consider_call_site(call_op)
 
             for pbc, args_s in self.emulated_pbc_calls.itervalues():
-                self.consider_call_site_for_pbc(pbc, 'simple_call',
-                                                args_s, s_ImpossibleValue, None)
+                args = simple_args(args_s)
+                self.consider_call_site_for_pbc(pbc, args,
+                                                s_ImpossibleValue, None)
             self.emulated_pbc_calls = {}
         finally:
             self.leave()
@@ -137,25 +143,26 @@ class Bookkeeper(object):
             check_no_flags(clsdef)
 
     def consider_call_site(self, call_op):
-        binding = self.annotator.binding
-        s_callable = binding(call_op.args[0])
-        args_s = [binding(arg) for arg in call_op.args[1:]]
+        from rpython.rtyper.llannotation import SomeLLADTMeth, lltype_to_annotation
+        annotation = self.annotator.annotation
+        s_callable = annotation(call_op.args[0])
+        args_s = [annotation(arg) for arg in call_op.args[1:]]
         if isinstance(s_callable, SomeLLADTMeth):
             adtmeth = s_callable
             s_callable = self.immutablevalue(adtmeth.func)
             args_s = [lltype_to_annotation(adtmeth.ll_ptrtype)] + args_s
         if isinstance(s_callable, SomePBC):
-            s_result = binding(call_op.result, s_ImpossibleValue)
-            self.consider_call_site_for_pbc(s_callable, call_op.opname, args_s,
+            s_result = annotation(call_op.result)
+            if s_result is None:
+                s_result = s_ImpossibleValue
+            args = call_op.build_args(args_s)
+            self.consider_call_site_for_pbc(s_callable, args,
                                             s_result, call_op)
 
-    def consider_call_site_for_pbc(self, s_callable, opname, args_s, s_result,
+    def consider_call_site_for_pbc(self, s_callable, args, s_result,
                                    call_op):
         descs = list(s_callable.descriptions)
-        if not descs:
-            return
         family = descs[0].getcallfamily()
-        args = self.build_args(opname, args_s)
         s_callable.getKind().consider_call_site(self, family, descs, args,
                                                 s_result, call_op)
 
@@ -297,10 +304,6 @@ class Bookkeeper(object):
         elif extregistry.is_registered(x):
             entry = extregistry.lookup(x)
             result = entry.compute_annotation_bk(self)
-        elif isinstance(x, lltype._ptr):
-            result = SomePtr(lltype.typeOf(x))
-        elif isinstance(x, llmemory.fakeaddress):
-            result = SomeAddress()
         elif tp is type:
             result = SomeConstantType(x, self)
         elif callable(x):
@@ -353,7 +356,7 @@ class Bookkeeper(object):
                 result = description.FunctionDesc(self, pyobj)
             elif isinstance(pyobj, (type, types.ClassType)):
                 if pyobj is object:
-                    raise Exception, "ClassDesc for object not supported"
+                    raise Exception("ClassDesc for object not supported")
                 if pyobj.__module__ == '__builtin__': # avoid making classdefs for builtin types
                     result = self.getfrozen(pyobj)
                 else:
@@ -450,9 +453,6 @@ class Bookkeeper(object):
         attr = s_attr.const
 
         descs = list(pbc.descriptions)
-        if not descs:
-            return s_ImpossibleValue
-
         first = descs[0]
         if len(descs) == 1:
             return first.s_read_attribute(attr)
@@ -493,8 +493,6 @@ class Bookkeeper(object):
         annotations).
         """
         descs = list(pbc.descriptions)
-        if not descs:
-            return s_ImpossibleValue
         first = descs[0]
         first.mergecallfamilies(*descs[1:])
 
@@ -504,8 +502,9 @@ class Bookkeeper(object):
             # needed by some kinds of specialization.
             fn, block, i = self.position_key
             op = block.operations[i]
-            s_previous_result = self.annotator.binding(op.result,
-                                                       s_ImpossibleValue)
+            s_previous_result = self.annotator.annotation(op.result)
+            if s_previous_result is None:
+                s_previous_result = s_ImpossibleValue
         else:
             if emulated is True:
                 whence = None
@@ -536,7 +535,7 @@ class Bookkeeper(object):
                     del emulated_pbc_calls[other_key]
             emulated_pbc_calls[unique_key] = pbc, args_s
 
-            args = self.build_args("simple_call", args_s)
+            args = simple_args(args_s)
             if callback is None:
                 emulated = True
             else:
@@ -560,18 +559,6 @@ class Bookkeeper(object):
             assert self.annotator.binding(op.args[pos]) == s_type
         return op
 
-    def build_args(self, op, args_s):
-        if op == "simple_call":
-            return ArgumentsForTranslation(list(args_s))
-        elif op == "call_args":
-            return ArgumentsForTranslation.fromshape(
-                    args_s[0].const, # shape
-                    list(args_s[1:]))
-
-    def ondegenerated(self, what, s_value, where=None, called_from_graph=None):
-        self.annotator.ondegenerated(what, s_value, where=where,
-                                     called_from_graph=called_from_graph)
-
     def whereami(self):
         return self.annotator.whereami(self.position_key)
 
@@ -591,7 +578,7 @@ def origin_of_meth(boundmeth):
         for name, value in dict.iteritems():
             if value is func:
                 return cls, name
-    raise Exception, "could not match bound-method to attribute name: %r" % (boundmeth,)
+    raise Exception("could not match bound-method to attribute name: %r" % (boundmeth,))
 
 def ishashable(x):
     try:
@@ -600,6 +587,7 @@ def ishashable(x):
         return False
     else:
         return True
+
 # get current bookkeeper
 
 def getbookkeeper():
@@ -610,7 +598,8 @@ def getbookkeeper():
     except AttributeError:
         return None
 
+def immutablevalue(x):
+    return getbookkeeper().immutablevalue(x)
+
 def delayed_imports():
-    # import ordering hack
-    global BUILTIN_ANALYZERS
-    from rpython.annotator.builtin import BUILTIN_ANALYZERS
+    import rpython.annotator.builtin

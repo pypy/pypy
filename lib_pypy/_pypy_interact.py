@@ -3,6 +3,8 @@
 import sys
 import os
 
+irc_header = "And now for something completely different"
+
 
 def interactive_console(mainmodule=None, quiet=False):
     # set sys.{ps1,ps2} just before invoking the interactive interpreter. This
@@ -15,8 +17,7 @@ def interactive_console(mainmodule=None, quiet=False):
     if not quiet:
         try:
             from _pypy_irc_topic import some_topic
-            text = "And now for something completely different: ``%s''" % (
-                some_topic(),)
+            text = "%s: ``%s''" % ( irc_header, some_topic())
             while len(text) >= 80:
                 i = text[:80].rfind(' ')
                 print(text[:i])

@@ -96,7 +96,7 @@ class PythonAstCompiler(PyCodeCompiler):
 
     XXX: This class should override the baseclass implementation of
          compile_command() in order to optimize it, especially in case
-         of incomplete inputs (e.g. we shouldn't re-compile from sracth
+         of incomplete inputs (e.g. we shouldn't re-compile from scratch
          the whole source after having only added a new '\n')
     """
     def __init__(self, space, override_version=None):

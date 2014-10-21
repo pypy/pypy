@@ -9,6 +9,7 @@ from rpython.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
     QuasiImmutAnalyzer, RandomEffectsAnalyzer, effectinfo_from_writeanalyze,
     EffectInfo, CallInfoCollection)
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.typesystem import getfunctionptr
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
 from rpython.translator.backendopt.graphanalyze import DependencyTracker
@@ -168,7 +169,7 @@ class CallControl(object):
         because it is not needed there; it is only used by the blackhole
         interp to really do the call corresponding to 'inline_call' ops.
         """
-        fnptr = self.rtyper.type_system.getcallable(graph)
+        fnptr = getfunctionptr(graph)
         FUNC = lltype.typeOf(fnptr).TO
         assert self.rtyper.type_system.name == "lltypesystem"
         fnaddr = llmemory.cast_ptr_to_adr(fnptr)
@@ -178,7 +179,7 @@ class CallControl(object):
         return (fnaddr, calldescr)
 
     def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
-                     extraeffect=None):
+                     extraeffect=None, extradescr=None):
         """Return the calldescr that describes all calls done by 'op'.
         This returns a calldescr that we can put in the corresponding
         call operation in the calling jitcode.  It gets an effectinfo
@@ -220,6 +221,28 @@ class CallControl(object):
                 call_release_gil_target = func._call_aroundstate_target_
                 call_release_gil_target = llmemory.cast_ptr_to_adr(
                     call_release_gil_target)
+        elif op.opname == 'indirect_call':
+            # check that we're not trying to call indirectly some
+            # function with the special flags
+            graphs = op.args[-1].value
+            for graph in (graphs or ()):
+                if not hasattr(graph, 'func'):
+                    continue
+                error = None
+                if hasattr(graph.func, '_elidable_function_'):
+                    error = '@jit.elidable'
+                if hasattr(graph.func, '_jit_loop_invariant_'):
+                    error = '@jit.loop_invariant'
+                if hasattr(graph.func, '_call_aroundstate_target_'):
+                    error = '_call_aroundstate_target_'
+                if not error:
+                    continue
+                raise Exception(
+                    "%r is an indirect call to a family of functions "
+                    "(or methods) that includes %r. However, the latter "
+                    "is marked %r. You need to use an indirection: replace "
+                    "it with a non-marked function/method which calls the "
+                    "marked function." % (op, graph, error))
         # build the extraeffect
         random_effects = self.randomeffects_analyzer.analyze(op)
         if random_effects:
@@ -244,14 +267,14 @@ class CallControl(object):
         # check that the result is really as expected
         if loopinvariant:
             if extraeffect != EffectInfo.EF_LOOPINVARIANT:
-                from rpython.jit.codewriter.policy import log; log.WARNING(
+                raise Exception(
                 "in operation %r: this calls a _jit_loop_invariant_ function,"
                 " but this contradicts other sources (e.g. it can have random"
                 " effects): EF=%s" % (op, extraeffect))
         if elidable:
             if extraeffect not in (EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
                                    EffectInfo.EF_ELIDABLE_CAN_RAISE):
-                from rpython.jit.codewriter.policy import log; log.WARNING(
+                raise Exception(
                 "in operation %r: this calls an _elidable_function_,"
                 " but this contradicts other sources (e.g. it can have random"
                 " effects): EF=%s" % (op, extraeffect))
@@ -259,6 +282,7 @@ class CallControl(object):
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op, self.seen), self.cpu,
             extraeffect, oopspecindex, can_invalidate, call_release_gil_target,
+            extradescr,
         )
         #
         assert effectinfo is not None

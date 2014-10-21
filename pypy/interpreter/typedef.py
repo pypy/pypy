@@ -22,6 +22,7 @@ class TypeDef(object):
         else:
             bases = [__base]
         self.bases = bases
+        self.heaptype = False
         self.hasdict = '__dict__' in rawdict
         self.weakrefable = '__weakref__' in rawdict
         self.doc = rawdict.pop('__doc__', None)
@@ -815,6 +816,7 @@ Function.typedef = TypeDef("function",
     __dict__ = getset_func_dict,
     __defaults__ = getset_func_defaults,
     __globals__ = interp_attrproperty_w('w_func_globals', cls=Function),
+    __closure__ = GetSetProperty(Function.fget_func_closure),
     __module__ = getset___module__,
     __weakref__ = make_weakref_descr(Function),
 )
@@ -822,6 +824,9 @@ Function.typedef.acceptable_as_base_class = False
 
 Method.typedef = TypeDef(
     "method",
+    __doc__ = """instancemethod(function, instance, class)
+
+Create an instance method object.""",
     __new__ = interp2app(Method.descr_method__new__.im_func),
     __call__ = interp2app(Method.descr_method_call),
     __get__ = interp2app(Method.descr_method_get),
@@ -930,6 +935,7 @@ Cell.typedef = TypeDef("cell",
     __cmp__      = interp2app(Cell.descr__cmp__),
     __hash__     = None,
     __reduce__   = interp2app(Cell.descr__reduce__),
+    __repr__     = interp2app(Cell.descr__repr__),
     __setstate__ = interp2app(Cell.descr__setstate__),
     cell_contents= GetSetProperty(Cell.descr__cell_contents, cls=Cell),
 )

@@ -6,9 +6,9 @@ from rpython.annotator.model import (
     SomeBool, SomeInteger, SomeString, SomeFloat, SomeList, SomeDict, s_None,
     SomeObject, SomeInstance, SomeTuple, unionof, SomeUnicodeString, SomeType,
     AnnotatorError)
-from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.annotator.listdef import ListDef
 from rpython.annotator.dictdef import DictDef
+from rpython.rtyper import extregistry
 
 _annotation_cache = {}
 
@@ -40,7 +40,7 @@ def annotation(t, bookkeeper=None):
 
 def _compute_annotation(t, bookkeeper=None):
     from rpython.rtyper.lltypesystem import lltype
-    from rpython.rtyper import extregistry
+    from rpython.rtyper.llannotation import lltype_to_annotation
     if isinstance(t, SomeObject):
         return t
     elif isinstance(t, lltype.LowLevelType):
@@ -106,12 +106,11 @@ class Sig(object):
         for i, argtype in enumerate(self.argtypes):
             if isinstance(argtype, (types.FunctionType, types.MethodType)):
                 argtype = argtype(*inputcells)
-            if isinstance(argtype, lltype.LowLevelType) and\
-                argtype is lltype.Void:
+            if argtype is lltype.Void:
                 # XXX the mapping between Void and annotation
                 # is not quite well defined
                 s_input = inputcells[i]
-                assert isinstance(s_input, annmodel.SomePBC)
+                assert isinstance(s_input, (annmodel.SomePBC, annmodel.SomeNone))
                 assert s_input.is_constant()
                 args_s.append(s_input)
             elif argtype is None:

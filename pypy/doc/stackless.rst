@@ -211,6 +211,9 @@ are for the time being not supported any more:
 
 .. __: `recursion depth limit`_
 
+We also do not include any of the recent API additions to Stackless
+Python, like ``set_atomic()``.  Contributions welcome.
+
 
 Recursion depth limit
 +++++++++++++++++++++

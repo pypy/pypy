@@ -430,6 +430,36 @@ class TestRlist(BaseRtypingTest):
                 res = self.interpret(dummyfn, ())
                 assert res == 42
 
+    def test_bltn_list_from_string(self):
+        def dummyfn(n):
+            l1 = list(str(n))
+            return ord(l1[0])
+        res = self.interpret(dummyfn, [71234])
+        assert res == ord('7')
+
+    def test_bltn_list_from_unicode(self):
+        def dummyfn(n):
+            l1 = list(unicode(str(n)))
+            return ord(l1[0])
+        res = self.interpret(dummyfn, [71234])
+        assert res == ord('7')
+
+    def test_bltn_list_from_string_resize(self):
+        def dummyfn(n):
+            l1 = list(str(n))
+            l1.append('X')
+            return ord(l1[0])
+        res = self.interpret(dummyfn, [71234])
+        assert res == ord('7')
+
+    def test_bltn_list_from_unicode_resize(self):
+        def dummyfn(n):
+            l1 = list(unicode(str(n)))
+            l1.append(u'X')
+            return ord(l1[0])
+        res = self.interpret(dummyfn, [71234])
+        assert res == ord('7')
+
     def test_is_true(self):
         def is_true(lst):
             if lst:
@@ -939,6 +969,15 @@ class TestRlist(BaseRtypingTest):
             assert res == fn(arg)
         def fn(i):
             lst = [i, i + 1] * i
+            ret = len(lst)
+            if ret:
+                ret *= lst[-1]
+            return ret
+        for arg in (1, 9, 0, -1, -27):
+            res = self.interpret(fn, [arg])
+            assert res == fn(arg)
+        def fn(i):
+            lst =  i * [i, i + 1]
             ret = len(lst)
             if ret:
                 ret *= lst[-1]

@@ -83,7 +83,7 @@ comes with `ROOT`_, which may be part of your Linux distribution as part of
 the selection of scientific software) will also work for a build with the
 builtin backend.
 
-.. _`download`: http://cern.ch/wlav/reflex-2013-08-14.tar.bz2
+.. _`download`: http://cern.ch/wlav/reflex-2014-10-20.tar.bz2
 .. _`ROOT`: http://root.cern.ch/
 
 Besides Reflex, you probably need a version of `gccxml`_ installed, which is
@@ -98,8 +98,8 @@ It is not needed to use them.
 
 To install the standalone version of Reflex, after download::
 
-    $ tar jxf reflex-2013-08-14.tar.bz2
-    $ cd reflex-2013-08-14
+    $ tar jxf reflex-2014-10-20.tar.bz2
+    $ cd reflex-2014-10-20
     $ ./build/autogen
     $ ./configure <usual set of options such as --prefix>
     $ make && make install
@@ -560,6 +560,12 @@ bound using::
   Fixing these bootstrap problems is on the TODO list.
   The global namespace is ``cppyy.gbl``.
 
+* **NULL**: Is represented as ``cppyy.gbl.nullptr``.
+  In C++11, the keyword ``nullptr`` is used to represent ``NULL``.
+  For clarity of intent, it is recommended to use this instead of ``None``
+  (or the integer ``0``, which can serve in some cases), as ``None`` is better
+  understood as ``void`` in C++.
+
 * **operator conversions**: If defined in the C++ class and a python
   equivalent exists (i.e. all builtin integer and floating point types, as well
   as ``bool``), it will map onto that python conversion.
@@ -577,7 +583,7 @@ bound using::
   Special care needs to be taken for global operator overloads in C++: first,
   make sure that they are actually reflected, especially for the global
   overloads for ``operator==`` and ``operator!=`` of STL vector iterators in
-  the case of gcc (note that they are not needed to iterator over a vector).
+  the case of gcc (note that they are not needed to iterate over a vector).
   Second, make sure that reflection info is loaded in the proper order.
   I.e. that these global overloads are available before use.
 
@@ -798,7 +804,7 @@ The rest works the same way: the fast path will be used transparently (which
 also means that you can't actually find out whether it is in use, other than
 by running a micro-benchmark or a JIT test).
 
-.. _`provided`: http://cern.ch/wlav/reflex-2013-04-23.tar.bz2
+.. _`provided`: http://cern.ch/wlav/reflex-2014-10-20.tar.bz2
 .. _`genreflex-methptrgetter.patch`: https://bitbucket.org/pypy/pypy/src/default/pypy/module/cppyy/genreflex-methptrgetter.patch
 
 CPython

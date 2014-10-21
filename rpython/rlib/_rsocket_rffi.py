@@ -30,7 +30,7 @@ if _POSIX:
                 'stdio.h',
                 'netdb.h',
                 'arpa/inet.h',
-                'stdint.h', 
+                'stdint.h',
                 'errno.h',
                 )
     if _HAS_AF_PACKET:
@@ -105,6 +105,9 @@ class CConfig:
     linux = platform.Defined('linux')
     WIN32 = platform.Defined('_WIN32')
 
+    O_RDONLY = platform.DefinedConstantInteger('O_RDONLY')
+    O_WRONLY = platform.DefinedConstantInteger('O_WRONLY')
+    O_RDWR = platform.DefinedConstantInteger('O_RDWR')
     O_NONBLOCK = platform.DefinedConstantInteger('O_NONBLOCK')
     F_GETFL = platform.DefinedConstantInteger('F_GETFL')
     F_SETFL = platform.DefinedConstantInteger('F_SETFL')
@@ -139,7 +142,7 @@ EAI_MEMORY EAI_NODATA EAI_NONAME EAI_OVERFLOW EAI_PROTOCOL EAI_SERVICE
 EAI_SOCKTYPE EAI_SYSTEM
 
 IPPROTO_AH IPPROTO_BIP IPPROTO_DSTOPTS IPPROTO_EGP IPPROTO_EON IPPROTO_ESP
-IPPROTO_FRAGMENT IPPROTO_GGP IPPROTO_GRE IPPROTO_HELLO IPPROTO_HOPOPTS 
+IPPROTO_FRAGMENT IPPROTO_GGP IPPROTO_GRE IPPROTO_HELLO IPPROTO_HOPOPTS
 IPPROTO_ICMPV6 IPPROTO_IDP IPPROTO_IGMP IPPROTO_IPCOMP IPPROTO_IPIP
 IPPROTO_IPV4 IPPROTO_IPV6 IPPROTO_MAX IPPROTO_MOBILE IPPROTO_ND IPPROTO_NONE
 IPPROTO_PIM IPPROTO_PUP IPPROTO_ROUTING IPPROTO_RSVP IPPROTO_TCP IPPROTO_TP
@@ -174,7 +177,7 @@ PACKET_LOOPBACK PACKET_FASTROUTE
 
 SOCK_DGRAM SOCK_RAW SOCK_RDM SOCK_SEQPACKET SOCK_STREAM
 
-SOL_SOCKET SOL_IPX SOL_AX25 SOL_ATALK SOL_NETROM SOL_ROSE 
+SOL_SOCKET SOL_IPX SOL_AX25 SOL_ATALK SOL_NETROM SOL_ROSE
 
 SO_ACCEPTCONN SO_BROADCAST SO_DEBUG SO_DONTROUTE SO_ERROR SO_EXCLUSIVEADDRUSE
 SO_KEEPALIVE SO_LINGER SO_OOBINLINE SO_RCVBUF SO_RCVLOWAT SO_RCVTIMEO
@@ -286,7 +289,7 @@ CConfig.sockaddr_nl = platform.Struct('struct sockaddr_nl',
                                               ('nl_pid', rffi.INT),
                                               ('nl_groups', rffi.INT)],
                                              ifdef='AF_NETLINK')
-                                             
+
 CConfig.addrinfo = platform.Struct('struct addrinfo',
                                      [('ai_flags', rffi.INT),
                                       ('ai_family', rffi.INT),
@@ -406,6 +409,9 @@ for name, value in constants.items():
 
 locals().update(constants)
 
+O_RDONLY = cConfig.O_RDONLY
+O_WRONLY = cConfig.O_WRONLY
+O_RDWR = cConfig.O_RDWR
 O_NONBLOCK = cConfig.O_NONBLOCK
 F_GETFL = cConfig.F_GETFL
 F_SETFL = cConfig.F_SETFL
@@ -493,10 +499,16 @@ freeaddrinfo = external('freeaddrinfo', [addrinfo_ptr], lltype.Void)
 getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
                        size_t, CCHARP, size_t, rffi.INT], rffi.INT)
 
-htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False)
-htons = external('htons', [rffi.USHORT], rffi.USHORT, releasegil=False)
-ntohl = external('ntohl', [rffi.UINT], rffi.UINT, releasegil=False)
-ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, releasegil=False)
+if sys.platform.startswith("openbsd"):
+    htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False, macro=True)
+    htons = external('htons', [rffi.USHORT], rffi.USHORT, releasegil=False, macro=True)
+    ntohl = external('ntohl', [rffi.UINT], rffi.UINT, releasegil=False, macro=True)
+    ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, releasegil=False, macro=True)
+else:
+    htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False)
+    htons = external('htons', [rffi.USHORT], rffi.USHORT, releasegil=False)
+    ntohl = external('ntohl', [rffi.UINT], rffi.UINT, releasegil=False)
+    ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, releasegil=False)
 
 if _POSIX:
     inet_aton = external('inet_aton', [CCHARP, lltype.Ptr(in_addr)],
@@ -623,11 +635,15 @@ elif WIN32:
 
 if WIN32:
     WSAData = cConfig.WSAData
-    WSAStartup = external('WSAStartup', [rffi.INT, lltype.Ptr(WSAData)],
+    WSAStartup = external('WSAStartup', [rwin32.WORD, lltype.Ptr(WSAData)],
                           rffi.INT)
 
-    WSAGetLastError = external('WSAGetLastError', [], rffi.INT)
+    WSAGetLastError = external('WSAGetLastError', [], rffi.INT, releasegil=False)
     geterrno = WSAGetLastError
+
+    # In tests, the first call to GetLastError is always wrong, because error
+    # is hidden by operations in ll2ctypes.  Call it now.
+    WSAGetLastError()
 
     from rpython.rlib import rwin32
 
@@ -635,9 +651,16 @@ if WIN32:
         return rwin32.FormatError(errno)
     def gai_strerror_str(errno):
         return rwin32.FormatError(errno)
+
+    # WinSock does not use a bitmask in select, and uses
+    # socket handles greater than FD_SETSIZE
+    MAX_FD_SIZE = None
+
 else:
     from rpython.rlib.rposix import get_errno as geterrno
 
     socket_strerror_str = os.strerror
     def gai_strerror_str(errno):
         return rffi.charp2str(gai_strerror(errno))
+
+    MAX_FD_SIZE = FD_SETSIZE

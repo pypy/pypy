@@ -22,12 +22,12 @@ def get_function(dottedname):
     try:
         mod = __import__(module, {}, {}, ['__doc__'])
     except ImportError, e:
-        raise Exception, "Import error loading %s: %s" % (dottedname, e)
+        raise Exception("Import error loading %s: %s" % (dottedname, e))
 
     try:
         func = getattr(mod, name)
     except AttributeError:
-        raise Exception, "Function %s not found in module" % dottedname
+        raise Exception("Function %s not found in module" % dottedname)
 
     return func
 

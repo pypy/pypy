@@ -568,7 +568,7 @@ class TestWarmspotDirect(object):
         from rpython.jit.metainterp.typesystem import llhelper
         from rpython.jit.codewriter.support import annotate
         from rpython.jit.metainterp.warmspot import WarmRunnerDesc
-        from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
+        from rpython.rtyper.rclass import OBJECT, OBJECT_VTABLE
         from rpython.rtyper.lltypesystem import lltype, llmemory
         exc_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
         cls.exc_vtable = exc_vtable

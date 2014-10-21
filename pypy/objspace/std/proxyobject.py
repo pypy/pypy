@@ -1,7 +1,5 @@
-
 """ transparent list implementation
 """
-
 from pypy.interpreter import baseobjspace
 from pypy.interpreter.error import OperationError
 
@@ -65,24 +63,3 @@ def transparent_class(name, BaseCls):
     return W_Transparent
 
 W_Transparent = transparent_class('W_Transparent', baseobjspace.W_Root)
-
-#from pypy.objspace.std.objecttype import object_typedef
-#W_TransparentObject.typedef = object_typedef
-
-from pypy.interpreter.typedef import Function, GeneratorIterator, PyTraceback, \
-    PyFrame, PyCode
-
-class W_TransparentFunction(W_Transparent):
-    typedef = Function.typedef
-
-class W_TransparentTraceback(W_Transparent):
-    typedef = PyTraceback.typedef
-
-class W_TransparentCode(W_Transparent):
-    typedef = PyCode.typedef
-
-class W_TransparentFrame(W_Transparent):
-    typedef = PyFrame.typedef
-
-class W_TransparentGenerator(W_Transparent):
-    typedef = GeneratorIterator.typedef

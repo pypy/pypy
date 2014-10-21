@@ -1,5 +1,5 @@
 class AppTestSSL:
-    spaceconfig = dict(usemodules=('_ssl', '_socket'))
+    spaceconfig = dict(usemodules=('_ssl', '_socket', 'thread'))
 
     def setup_class(cls):
         import os

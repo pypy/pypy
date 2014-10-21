@@ -22,9 +22,11 @@ class BasePosix(Platform):
         return ['-l%s' % lib for lib in libraries]
 
     def _libdirs(self, library_dirs):
+        assert '' not in library_dirs
         return ['-L%s' % ldir for ldir in library_dirs]
 
     def _includedirs(self, include_dirs):
+        assert '' not in include_dirs
         return ['-I%s' % idir for idir in include_dirs]
 
     def _linkfiles(self, link_files):
@@ -72,15 +74,36 @@ class BasePosix(Platform):
                                  cwd=str(exe_name.dirpath()))
         return exe_name
 
-    def _pkg_config(self, lib, opt, default):
+    def _pkg_config(self, lib, opt, default, check_result_dir=False):
         try:
             ret, out, err = _run_subprocess("pkg-config", [lib, opt])
-        except OSError:
+        except OSError, e:
+            err = str(e)
             ret = 1
         if ret:
-            return default
-        # strip compiler flags
-        return [entry[2:] for entry in out.split()]
+            result = default
+        else:
+            # strip compiler flags
+            result = [entry[2:] for entry in out.split()]
+        #
+        if not result:
+            pass # if pkg-config explicitly returned nothing, then
+                 # we assume it means no options are needed
+        elif check_result_dir:
+            # check that at least one of the results is a valid dir
+            for check in result:
+                if os.path.isdir(check):
+                    break
+            else:
+                if ret:
+                    msg = ("running 'pkg-config %s %s' failed:\n%s\n"
+                           "and the default %r is not a valid directory" % (
+                        lib, opt, err.rstrip(), default))
+                else:
+                    msg = ("'pkg-config %s %s' returned no valid directory:\n"
+                           "%s\n%s" % (lib, opt, out.rstrip(), err.rstrip()))
+                raise ValueError(msg)
+        return result
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
@@ -180,7 +203,7 @@ class BasePosix(Platform):
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); }" > $@')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
-                   '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@')
+                   '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ -Wl,-rpath=\'$$ORIGIN/\'')
 
         return m
 
@@ -253,6 +276,9 @@ class GnuMakefile(object):
         if fpath.dirpath() == self.makefile_dir:
             return fpath.basename
         elif fpath.dirpath().dirpath() == self.makefile_dir.dirpath():
+            assert fpath.relto(self.makefile_dir.dirpath()), (
+                "%r should be relative to %r" % (
+                    fpath, self.makefile_dir.dirpath()))
             path = '../' + fpath.relto(self.makefile_dir.dirpath())
             return path.replace('\\', '/')
         else:

@@ -1,17 +1,15 @@
-from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error
 from pypy.interpreter.astcompiler import consts
 
+def recode_to_utf8(space, bytes, encoding):
+    w_text = space.call_method(space.wrap(bytes), "decode",
+                               space.wrap(encoding))
+    if not space.isinstance_w(w_text, space.w_unicode):
+        raise error.SyntaxError("codec did not return a unicode object")
+    w_recoded = space.call_method(w_text, "encode", space.wrap("utf-8"))
+    return space.str_w(w_recoded)
 
-_recode_to_utf8 = gateway.applevel(r'''
-    def _recode_to_utf8(text, encoding):
-        return unicode(text, encoding).encode("utf-8")
-''').interphook('_recode_to_utf8')
-
-def recode_to_utf8(space, text, encoding):
-    return space.str_w(_recode_to_utf8(space, space.wrap(text),
-                                          space.wrap(encoding)))
 def _normalize_encoding(encoding):
     """returns normalized name for <encoding>
 

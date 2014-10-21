@@ -93,6 +93,7 @@ class DummySpace(object):
 
     def setitem(self, obj, key, value):
         obj[key] = value
+    setitem_str = setitem
 
     def getitem(self, obj, key):
         return obj[key]

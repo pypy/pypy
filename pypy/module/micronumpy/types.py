@@ -117,8 +117,11 @@ class BaseType(object):
     def __repr__(self):
         return self.__class__.__name__
 
-    def malloc(self, size):
-        return alloc_raw_storage(size, track_allocation=False, zero=True)
+    def malloc(self, size, zero=True):
+        if zero:
+            return alloc_raw_storage(size, track_allocation=False, zero=True)
+        else:
+            return alloc_raw_storage(size, track_allocation=False, zero=False)
 
 class Primitive(object):
     _mixin_ = True
@@ -442,6 +445,7 @@ class Integer(Primitive):
         return v1 % v2
 
     @simple_binary_op
+    @jit.look_inside_iff(lambda self, v1, v2: jit.isconstant(v2))
     def pow(self, v1, v2):
         if v2 < 0:
             return 0
@@ -704,20 +708,20 @@ class Float(Primitive):
         return math.fabs(v)
 
     @simple_binary_op
+    def max(self, v1, v2):
+        return v1 if v1 >= v2 or rfloat.isnan(v1) else v2
+
+    @simple_binary_op
+    def min(self, v1, v2):
+        return v1 if v1 <= v2 or rfloat.isnan(v1) else v2
+
+    @simple_binary_op
     def fmax(self, v1, v2):
-        if rfloat.isnan(v2):
-            return v1
-        elif rfloat.isnan(v1):
-            return v2
-        return max(v1, v2)
+        return v1 if v1 >= v2 or rfloat.isnan(v2) else v2
 
     @simple_binary_op
     def fmin(self, v1, v2):
-        if rfloat.isnan(v2):
-            return v1
-        elif rfloat.isnan(v1):
-            return v2
-        return min(v1, v2)
+        return v1 if v1 <= v2 or rfloat.isnan(v2) else v2
 
     @simple_binary_op
     def fmod(self, v1, v2):

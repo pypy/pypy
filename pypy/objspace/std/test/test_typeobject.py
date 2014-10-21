@@ -59,7 +59,6 @@ class TestTypeObject:
 
 
 class AppTestTypeObject:
-
     def test_abstract_methods(self):
         class X(object):
             pass
@@ -69,6 +68,13 @@ class AppTestTypeObject:
         X()
         raises(AttributeError, getattr, type, "__abstractmethods__")
         raises(TypeError, "int.__abstractmethods__ = ('abc', )")
+
+    def test_attribute_error(self):
+        class X(object):
+            __module__ = 'test'
+        x = X()
+        exc = raises(AttributeError, "x.a")
+        assert str(exc.value) == "'X' object has no attribute 'a'"
 
     def test_call_type(self):
         assert type(42) is int
@@ -426,8 +432,7 @@ class AppTestTypeObject:
         assert f.__call__() == ((), {})
         assert f.__call__("hello", "world") == (("hello", "world"), {})
         assert f.__call__(5, bla=6) == ((5,), {"bla": 6})
-        assert f.__call__(a=1, b=2, c=3) == ((), {"a": 1, "b": 2,
-                                                           "c": 3})
+        assert f.__call__(a=1, b=2, c=3) == ((), {"a": 1, "b": 2, "c": 3})
 
     def test_multipleinheritance_fail(self):
         try:
@@ -538,7 +543,6 @@ class AppTestTypeObject:
         assert ImmutableDoc.__doc__ == 'foo'
 
     def test_metaclass_conflict(self):
-
         class T1(type):
             pass
         class T2(type):
@@ -554,7 +558,7 @@ class AppTestTypeObject:
 
     def test_metaclass_choice(self):
         events = []
-        
+
         class T1(type):
             def __new__(*args):
                 events.append(args)
@@ -576,7 +580,7 @@ class AppTestTypeObject:
         assert type(D1) is T1
         assert type(C) is T1
         assert type(G) is T1
-    
+
     def test_descr_typecheck(self):
         raises(TypeError,type.__dict__['__name__'].__get__,1)
         raises(TypeError,type.__dict__['__mro__'].__get__,1)
@@ -696,7 +700,9 @@ class AppTestTypeObject:
         class A(object):
             pass
         assert repr(A) == "<class 'a.A'>"
-        assert repr(type(type)) == "<type 'type'>" 
+        A.__module__ = 123
+        assert repr(A) == "<class 'A'>"
+        assert repr(type(type)) == "<type 'type'>"
         assert repr(complex) == "<type 'complex'>"
         assert repr(property) == "<type 'property'>"
         assert repr(TypeError) == "<type 'exceptions.TypeError'>"
@@ -805,7 +811,7 @@ class AppTestTypeObject:
         z2 = Z2()
         z2.__class__ = Z1
         assert z2.__class__ == Z1
-        
+
         class I(int):
             pass
         class F(float):
@@ -824,13 +830,12 @@ class AppTestTypeObject:
             pass
 
         i = I()
-        
         i2 = I()
         i.__class__ = I2
         i2.__class__ = I
         assert i.__class__ ==  I2
         assert i2.__class__ == I
-        
+
         i3 = I3()
         raises(TypeError, "i3.__class__ = I2")
         i3.__class__ = I4
@@ -881,6 +886,12 @@ class AppTestTypeObject:
         Abc.__name__ = 'Def'
         assert Abc.__name__ == 'Def'
         raises(TypeError, "Abc.__name__ = 42")
+        try:
+            Abc.__name__ = 'G\x00hi'
+        except ValueError as e:
+            assert str(e) == "__name__ must not contain null bytes"
+        else:
+            assert False
 
     def test_compare(self):
         class A(object):

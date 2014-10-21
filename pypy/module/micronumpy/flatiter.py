@@ -1,7 +1,10 @@
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import loop
-from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
+from pypy.module.micronumpy.base import convert_to_array
 from pypy.module.micronumpy.concrete import BaseConcreteArray
+from .ndarray import W_NDimArray
 
 
 class FakeArrayImplementation(BaseConcreteArray):
@@ -27,58 +30,86 @@ class FakeArrayImplementation(BaseConcreteArray):
 class W_FlatIterator(W_NDimArray):
     def __init__(self, arr):
         self.base = arr
+        self.iter, self.state = arr.create_iter()
         # this is needed to support W_NDimArray interface
         self.implementation = FakeArrayImplementation(self.base)
-        self.reset()
 
-    def reset(self):
-        self.iter = self.base.create_iter()
-
-    def descr_len(self, space):
-        return space.wrap(self.base.get_size())
-
-    def descr_next(self, space):
-        if self.iter.done():
-            raise OperationError(space.w_StopIteration, space.w_None)
-        w_res = self.iter.getitem()
-        self.iter.next()
-        return w_res
+    def descr_base(self, space):
+        return space.wrap(self.base)
 
     def descr_index(self, space):
-        return space.wrap(self.iter.index)
+        return space.wrap(self.state.index)
 
     def descr_coords(self, space):
-        coords = self.base.to_coords(space, space.wrap(self.iter.index))
-        return space.newtuple([space.wrap(c) for c in coords])
+        self.state = self.iter.update(self.state)
+        return space.newtuple([space.wrap(c) for c in self.state.indices])
+
+    def descr_iter(self):
+        return self
+
+    def descr_len(self, space):
+        return space.wrap(self.iter.size)
+
+    def descr_next(self, space):
+        if self.iter.done(self.state):
+            raise OperationError(space.w_StopIteration, space.w_None)
+        w_res = self.iter.getitem(self.state)
+        self.state = self.iter.next(self.state)
+        return w_res
 
     def descr_getitem(self, space, w_idx):
         if not (space.isinstance_w(w_idx, space.w_int) or
                 space.isinstance_w(w_idx, space.w_slice)):
             raise oefmt(space.w_IndexError, 'unsupported iterator index')
-        self.reset()
-        base = self.base
-        start, stop, step, length = space.decode_index4(w_idx, base.get_size())
-        base_iter = base.create_iter()
-        base_iter.next_skip_x(start)
-        if length == 1:
-            return base_iter.getitem()
-        res = W_NDimArray.from_shape(space, [length], base.get_dtype(),
-                                     base.get_order(), w_instance=base)
-        return loop.flatiter_getitem(res, base_iter, step)
+        try:
+            start, stop, step, length = space.decode_index4(w_idx, self.iter.size)
+            state = self.iter.goto(start)
+            if length == 1:
+                return self.iter.getitem(state)
+            base = self.base
+            res = W_NDimArray.from_shape(space, [length], base.get_dtype(),
+                                         base.get_order(), w_instance=base)
+            return loop.flatiter_getitem(res, self.iter, state, step)
+        finally:
+            self.state = self.iter.reset(self.state)
 
     def descr_setitem(self, space, w_idx, w_value):
         if not (space.isinstance_w(w_idx, space.w_int) or
                 space.isinstance_w(w_idx, space.w_slice)):
             raise oefmt(space.w_IndexError, 'unsupported iterator index')
-        base = self.base
-        start, stop, step, length = space.decode_index4(w_idx, base.get_size())
-        arr = convert_to_array(space, w_value)
-        loop.flatiter_setitem(space, self.base, arr, start, step, length)
+        start, stop, step, length = space.decode_index4(w_idx, self.iter.size)
+        try:
+            state = self.iter.goto(start)
+            dtype = self.base.get_dtype()
+            if length == 1:
+                try:
+                    val = dtype.coerce(space, w_value)
+                except OperationError:
+                    raise oefmt(space.w_ValueError, "Error setting single item of array.")
+                self.iter.setitem(state, val)
+                return
+            arr = convert_to_array(space, w_value)
+            loop.flatiter_setitem(space, dtype, arr, self.iter, state, step, length)
+        finally:
+            self.state = self.iter.reset(self.state)
 
-    def descr_iter(self):
-        return self
 
-    def descr_base(self, space):
-        return space.wrap(self.base)
+W_FlatIterator.typedef = TypeDef("numpy.flatiter",
+    base = GetSetProperty(W_FlatIterator.descr_base),
+    index = GetSetProperty(W_FlatIterator.descr_index),
+    coords = GetSetProperty(W_FlatIterator.descr_coords),
 
-# typedef is in interp_ndarray, so we see the additional arguments
+    __iter__ = interp2app(W_FlatIterator.descr_iter),
+    __len__ = interp2app(W_FlatIterator.descr_len),
+    next = interp2app(W_FlatIterator.descr_next),
+
+    __getitem__ = interp2app(W_FlatIterator.descr_getitem),
+    __setitem__ = interp2app(W_FlatIterator.descr_setitem),
+
+    __eq__ = interp2app(W_FlatIterator.descr_eq),
+    __ne__ = interp2app(W_FlatIterator.descr_ne),
+    __lt__ = interp2app(W_FlatIterator.descr_lt),
+    __le__ = interp2app(W_FlatIterator.descr_le),
+    __gt__ = interp2app(W_FlatIterator.descr_gt),
+    __ge__ = interp2app(W_FlatIterator.descr_ge),
+)

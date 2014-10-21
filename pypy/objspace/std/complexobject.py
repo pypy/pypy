@@ -36,6 +36,8 @@ def _split_complex(s):
         # ignore whitespace after bracket
         while i < slen and s[i] == ' ':
             i += 1
+        while slen > 0 and s[slen-1] == ' ':
+            slen -= 1
 
     # extract first number
     realstart = i
@@ -47,10 +49,6 @@ def _split_complex(s):
         i += 1
 
     realstop = i
-
-    # ignore whitespace
-    while i < slen and s[i] == ' ':
-        i += 1
 
     # return appropriate strings is only one number is there
     if i >= slen:
@@ -73,13 +71,10 @@ def _split_complex(s):
     # find sign for imaginary part
     if s[i] == '-' or s[i] == '+':
         imagsign = s[i]
-    if imagsign == ' ':
+    else:
         raise ValueError
 
     i += 1
-    # whitespace
-    while i < slen and s[i] == ' ':
-        i += 1
     if i >= slen:
         raise ValueError
 
@@ -99,8 +94,6 @@ def _split_complex(s):
     if imagstop < imagstart:
         raise ValueError
 
-    while i < slen and s[i] == ' ':
-        i += 1
     if i < slen:
         raise ValueError
 

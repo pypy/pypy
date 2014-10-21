@@ -250,6 +250,7 @@ class W_BZ2File(W_File):
     def direct_bz2__init__(self, w_name, mode='r', buffering=-1,
                            compresslevel=9):
         self.direct_close()
+        self.w_name = w_name
         # the stream should always be opened in binary mode
         if "b" not in mode:
             mode = mode + "b"
@@ -458,9 +459,7 @@ class ReadBZ2Filter(Stream):
         return result
 
     def peek(self):
-        pos = self.pos
-        assert pos >= 0
-        return self.buffer[pos:]
+        return (self.pos, self.buffer)
 
     def try_to_find_file_descriptor(self):
         return self.stream.try_to_find_file_descriptor()

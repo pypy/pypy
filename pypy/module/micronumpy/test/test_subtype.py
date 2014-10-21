@@ -7,7 +7,7 @@ class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)
         cls.w_NoNew = cls.space.appexec([], '''():
-            from numpypy import ndarray
+            from numpy import ndarray
             class NoNew(ndarray):
                 def __new__(cls, subtype):
                     raise ValueError('should not call __new__')
@@ -16,7 +16,7 @@ class AppTestSupport(BaseNumpyAppTest):
                     self.called_finalize = True
             return NoNew ''')
         cls.w_SubType = cls.space.appexec([], '''():
-            from numpypy import ndarray, array
+            from numpy import ndarray, array
             class SubType(ndarray):
                 def __new__(obj, input_array):
                     obj = array(input_array, copy=False).view(obj)
@@ -27,7 +27,7 @@ class AppTestSupport(BaseNumpyAppTest):
             return SubType ''')
 
     def test_subtype_base(self):
-        from numpypy import ndarray, dtype
+        from numpy import ndarray, dtype
         class C(ndarray):
             def __new__(subtype, shape, dtype):
                 self = ndarray.__new__(subtype, shape, dtype)
@@ -65,7 +65,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert b.base is a
 
     def test_subtype_view(self):
-        from numpypy import ndarray, array
+        from numpy import ndarray, array
         class matrix(ndarray):
             def __new__(subtype, data, dtype=None, copy=True):
                 if isinstance(data, matrix):
@@ -89,7 +89,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_finalize(self):
         #taken from http://docs.scipy.org/doc/numpy/user/basics.subclassing.html#simple-example-adding-an-extra-attribute-to-ndarray
-        import numpypy as np
+        import numpy as np
         class InfoArray(np.ndarray):
             def __new__(subtype, shape, dtype=float, buffer=None, offset=0,
                           strides=None, order='C', info=None):
@@ -121,7 +121,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert cast_arr.info is None
 
     def test_sub_where(self):
-        from numpypy import where, ones, zeros, array
+        from numpy import where, ones, zeros, array
         a = array([1, 2, 3, 0, -3])
         v = a.view(self.NoNew)
         b = where(array(v) > 0, ones(5), zeros(5))
@@ -130,14 +130,14 @@ class AppTestSupport(BaseNumpyAppTest):
         assert not isinstance(b, self.NoNew)
 
     def test_sub_repeat(self):
-        from numpypy import array
+        from numpy import array
         a = self.SubType(array([[1, 2], [3, 4]]))
         b = a.repeat(3)
         assert (b == [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4]).all()
         assert isinstance(b, self.SubType)
 
     def test_sub_flatiter(self):
-        from numpypy import array
+        from numpy import array
         a = array(range(9)).reshape(3, 3).view(self.NoNew)
         c = array(range(9)).reshape(3, 3)
         assert isinstance(a.flat[:] + a.flat[:], self.NoNew)
@@ -146,7 +146,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert not isinstance(c.flat[:] + c.flat[:], self.NoNew)
 
     def test_sub_getitem_filter(self):
-        from numpypy import array
+        from numpy import array
         a = array(range(5))
         b = self.SubType(a)
         c = b[array([False, True, False, True, False])]
@@ -158,7 +158,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert c.called_finalize
 
     def test_sub_getitem_array_int(self):
-        from numpypy import array
+        from numpy import array
         a = array(range(5))
         b = self.SubType(a)
         assert b.called_new
@@ -169,7 +169,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert c.called_finalize
 
     def test_sub_round(self):
-        from numpypy import array
+        from numpy import array
         a = array(range(10), dtype=float).view(self.NoNew)
         # numpy compatibility
         b = a.round(decimals=0)
@@ -181,7 +181,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_sub_dot(self):
         # the returned type is that of the first argument
-        from numpypy import array
+        from numpy import array
         a = array(range(12)).reshape(3,4)
         b = self.SubType(a)
         c = array(range(12)).reshape(4,3).view(self.SubType)
@@ -197,7 +197,7 @@ class AppTestSupport(BaseNumpyAppTest):
     def test_sub_reduce(self):
         # i.e. sum, max
         # test for out as well
-        from numpypy import array
+        from numpy import array
         a = array(range(12)).reshape(3,4)
         b = self.SubType(a)
         c = b.sum(axis=0)
@@ -216,7 +216,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_sub_call2(self):
         # c + a vs. a + c, what about array priority?
-        from numpypy import array
+        from numpy import array
         a = array(range(12)).view(self.NoNew)
         b = self.SubType(range(12))
         c = b + a
@@ -228,26 +228,26 @@ class AppTestSupport(BaseNumpyAppTest):
         assert isinstance(e, self.NoNew)
 
     def test_sub_call1(self):
-        from numpypy import array, sqrt
+        from numpy import array, sqrt
         a = array(range(12)).view(self.NoNew)
         b = sqrt(a)
         assert b.called_finalize == True
 
     def test_sub_astype(self):
-        from numpypy import array
+        from numpy import array
         a = array(range(12)).view(self.NoNew)
         b = a.astype(float)
         assert b.called_finalize == True
 
     def test_sub_reshape(self):
-        from numpypy import array
+        from numpy import array
         a = array(range(12)).view(self.NoNew)
         b = a.reshape(3, 4)
         assert b.called_finalize == True
 
     def test___array__(self):
         import sys
-        from numpypy import ndarray, array, dtype
+        from numpy import ndarray, array, dtype
         class D(ndarray):
             def __new__(subtype, shape, dtype):
                 self = ndarray.__new__(subtype, shape, dtype)
@@ -262,16 +262,14 @@ class AppTestSupport(BaseNumpyAppTest):
                 return retVal
 
         a = C([2, 2], int)
-        b = array(a)
+        b = array(a, subok=True)
         assert b.shape == (2, 2)
-        if '__pypy__' in sys.builtin_module_names:
-            assert b.id == 'subtype'
-            assert isinstance(b, D)
+        assert isinstance(b, D)
         c = array(a, float)
         assert c.dtype is dtype(float)
 
     def test__getitem_modifies_shape(self):
-        import numpypy as N
+        import numpy as N
         # numpy's matrix class caused an infinite loop
         class matrix(N.ndarray):
             getcnt = 0
@@ -383,3 +381,9 @@ class AppTestSupport(BaseNumpyAppTest):
         b = loads(s)
         assert (a == b).all()
         assert isinstance(b, D)
+
+    def test_subok(self):
+        from numpy import array, ndarray
+        a = self.SubType(array([[1, 2], [3, 4]]))
+        b = array(a, subok=False)
+        assert type(b) is ndarray

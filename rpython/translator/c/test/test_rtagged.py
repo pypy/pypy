@@ -79,7 +79,8 @@ def test_tagged_boehm():
     assert data.rstrip().endswith('ALL OK')
 
 def test_name_gcref():
-    from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
+    from rpython.rtyper.lltypesystem import lltype, llmemory
+    from rpython.rtyper import rclass
     from rpython.translator.c import primitive
     from rpython.translator.c.database import LowLevelDatabase
     x = lltype.cast_int_to_ptr(rclass.OBJECTPTR, 19)

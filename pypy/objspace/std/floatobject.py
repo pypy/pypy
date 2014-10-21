@@ -3,7 +3,7 @@ import operator
 import sys
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.objspace.std import newformat
@@ -18,6 +18,7 @@ from rpython.rlib.rfloat import (
 from rpython.rlib.rstring import ParseStringError
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rtyper.lltypesystem.module.ll_math import math_fmod
 
 
 def float2string(x, code, precision):
@@ -204,16 +205,20 @@ class W_FloatObject(W_Root):
             if space.is_w(w_floattype, space.w_float):
                 return w_obj
             value = space.float_w(w_obj)
-        elif (space.isinstance_w(w_value, space.w_str) or
-              space.isinstance_w(w_value, space.w_bytearray)):
-            value = _string_to_float(space, w_value,
-                                     space.bufferstr_w(w_value))
         elif space.isinstance_w(w_value, space.w_unicode):
             from unicodeobject import unicode_to_decimal_w
             value = _string_to_float(space, w_value,
                                      unicode_to_decimal_w(space, w_value))
         else:
-            value = space.float_w(w_x)
+            try:
+                value = space.charbuf_w(w_value)
+            except OperationError as e:
+                if e.match(space, space.w_TypeError):
+                    raise oefmt(
+                        space.w_TypeError,
+                        "float() argument must be a string or a number")
+                raise
+            value = _string_to_float(space, w_value, value)
         w_obj = space.allocate_instance(W_FloatObject, w_floattype)
         W_FloatObject.__init__(w_obj, value)
         return w_obj
@@ -517,21 +522,17 @@ class W_FloatObject(W_Root):
         y = w_rhs.floatval
         if y == 0.0:
             raise oefmt(space.w_ZeroDivisionError, "float modulo")
-        try:
-            mod = math.fmod(x, y)
-        except ValueError:
-            mod = rfloat.NAN
+        mod = math_fmod(x, y)
+        if mod:
+            # ensure the remainder has the same sign as the denominator
+            if (y < 0.0) != (mod < 0.0):
+                mod += y
         else:
-            if mod:
-                # ensure the remainder has the same sign as the denominator
-                if (y < 0.0) != (mod < 0.0):
-                    mod += y
-            else:
-                # the remainder is zero, and in the presence of signed zeroes
-                # fmod returns different results across platforms; ensure
-                # it has the same sign as the denominator; we'd like to do
-                # "mod = y * 0.0", but that may get optimized away
-                mod = copysign(0.0, y)
+            # the remainder is zero, and in the presence of signed zeroes
+            # fmod returns different results across platforms; ensure
+            # it has the same sign as the denominator; we'd like to do
+            # "mod = y * 0.0", but that may get optimized away
+            mod = copysign(0.0, y)
 
         return W_FloatObject(mod)
 
@@ -555,11 +556,6 @@ class W_FloatObject(W_Root):
 
     @unwrap_spec(w_third_arg=WrappedDefault(None))
     def descr_pow(self, space, w_rhs, w_third_arg):
-        # This returns space.w_NotImplemented in cases like overflow where a
-        # (purely theoretical) big-precision float implementation would have
-        # a chance to give a result, and directly OperationError for errors
-        # that we want to force to be reported to the user.
-
         w_rhs = self._to_float(space, w_rhs)
         if w_rhs is None:
             return space.w_NotImplemented
@@ -758,10 +754,7 @@ def _divmod_w(space, w_float1, w_float2):
     y = w_float2.floatval
     if y == 0.0:
         raise oefmt(space.w_ZeroDivisionError, "float modulo")
-    try:
-        mod = math.fmod(x, y)
-    except ValueError:
-        return [W_FloatObject(rfloat.NAN), W_FloatObject(rfloat.NAN)]
+    mod = math_fmod(x, y)
     # fmod is typically exact, so vx-mod is *mathematically* an
     # exact multiple of wx.  But this is fp arithmetic, and fp
     # vx - mod is an approximation; the result is that div may

@@ -358,11 +358,13 @@ class W_ListObject(W_Root):
 
     @staticmethod
     def descr_new(space, w_listtype, __args__):
+        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
         w_obj = space.allocate_instance(W_ListObject, w_listtype)
         w_obj.clear(space)
         return w_obj
 
     def descr_init(self, space, __args__):
+        """x.__init__(...) initializes x; see help(type(x)) for signature"""
         # this is on the silly side
         w_iterable, = __args__.parse_obj(
                 None, 'list', init_signature, init_defaults)
@@ -706,7 +708,7 @@ class W_ListObject(W_Root):
             raise OperationError(space.w_ValueError,
                                  space.wrap("list modified during sort"))
 
-find_jmp = jit.JitDriver(greens = [], reds = 'auto', name = 'list.find')
+find_jmp = jit.JitDriver(greens = ['tp'], reds = 'auto', name = 'list.find')
 
 class ListStrategy(object):
 
@@ -732,8 +734,9 @@ class ListStrategy(object):
         space = self.space
         i = start
         # needs to be safe against eq_w mutating stuff
+        tp = space.type(w_item)
         while i < stop and i < w_list.length():
-            find_jmp.jit_merge_point()
+            find_jmp.jit_merge_point(tp=tp)
             if space.eq_w(w_list.getitem(i), w_item):
                 return i
             i += 1
@@ -839,8 +842,6 @@ class EmptyListStrategy(ListStrategy):
     to the added item.
     W_Lists do not switch back to EmptyListStrategy when becoming empty again.
     """
-
-    _applevel_repr = "empty"
 
     def __init__(self, space):
         ListStrategy.__init__(self, space)
@@ -1100,8 +1101,6 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
        method providing only positive length. The storage is a one element tuple
        with positive integer storing length."""
 
-    _applevel_repr = "simple_range"
-
     erase, unerase = rerased.new_erasing_pair("simple_range")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
@@ -1173,8 +1172,6 @@ class RangeListStrategy(BaseRangeListStrategy):
     length and elements are calculated based on these values.  On any operation
     destroying the range (inserting, appending non-ints) the strategy is
     switched to IntegerListStrategy."""
-
-    _applevel_repr = "range"
 
     erase, unerase = rerased.new_erasing_pair("range")
     erase = staticmethod(erase)
@@ -1553,7 +1550,6 @@ class ObjectListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = None
-    _applevel_repr = "object"
 
     def unwrap(self, w_obj):
         return w_obj
@@ -1588,7 +1584,6 @@ class IntegerListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = 0
-    _applevel_repr = "int"
 
     def wrap(self, intval):
         return self.space.wrap(intval)
@@ -1642,7 +1637,6 @@ class FloatListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = 0.0
-    _applevel_repr = "float"
 
     def wrap(self, floatval):
         return self.space.wrap(floatval)
@@ -1675,7 +1669,6 @@ class BytesListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = None
-    _applevel_repr = "bytes"
 
     def wrap(self, stringval):
         return self.space.wrap(stringval)
@@ -1708,7 +1701,6 @@ class UnicodeListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = None
-    _applevel_repr = "unicode"
 
     def wrap(self, stringval):
         return self.space.wrap(stringval)
@@ -1839,8 +1831,8 @@ class CustomKeyCompareSort(CustomCompareSort):
 
 
 W_ListObject.typedef = TypeDef("list",
-    __doc__ = """list() -> new list
-list(sequence) -> new list initialized from sequence's items""",
+    __doc__ = """list() -> new empty list
+list(iterable) -> new list initialized from iterable's items""",
     __new__ = interp2app(W_ListObject.descr_new),
     __init__ = interp2app(W_ListObject.descr_init),
     __repr__ = interp2app(W_ListObject.descr_repr),
@@ -1881,3 +1873,4 @@ list(sequence) -> new list initialized from sequence's items""",
     insert = interp2app(W_ListObject.descr_insert),
     remove = interp2app(W_ListObject.descr_remove),
 )
+W_ListObject.typedef.flag_sequence_bug_compat = True

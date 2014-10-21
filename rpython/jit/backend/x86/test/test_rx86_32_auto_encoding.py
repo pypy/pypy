@@ -183,15 +183,19 @@ class TestRx86_32(object):
         g = open(inputname, 'w')
         g.write('\x09.string "%s"\n' % BEGIN_TAG)
         #
-        if instrname == 'MOVD' and self.WORD == 8:
-            instrname = 'MOVQ'
+        if instrname == 'MOVDQ':
+            if self.WORD == 8:
+                instrname = 'MOVQ'
+            else:
+                instrname = 'MOVD'
             if argmodes == 'xb':
                 py.test.skip('"as" uses an undocumented alternate encoding??')
         #
         for args in args_lists:
             suffix = ""
             if (argmodes and not self.is_xmm_insn
-                         and not instrname.startswith('FSTP')):
+                         and not instrname.startswith('FSTP')
+                         and not instrname.startswith('FLD')):
                 suffix = suffixes[self.WORD]
             # Special case: On 64-bit CPUs, rx86 assumes 64-bit integer
             # operands when converting to/from floating point, so we need to

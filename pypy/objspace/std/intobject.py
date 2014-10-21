@@ -4,7 +4,6 @@ In order to have the same behavior running on CPython, and after RPython
 translation this module uses rarithmetic.ovfcheck to explicitly check
 for overflows, something CPython does not do anymore.
 """
-
 import operator
 import sys
 
@@ -20,7 +19,6 @@ from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter import typedef
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
@@ -28,12 +26,10 @@ from pypy.objspace.std import newformat
 from pypy.objspace.std.util import (
     BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT, wrap_parsestringerror)
 
-
 SENTINEL = object()
 
 
 class W_AbstractIntObject(W_Root):
-
     __slots__ = ()
 
     def is_w(self, space, w_other):
@@ -697,7 +693,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
         else:
             # If object supports the buffer interface
             try:
-                w_buffer = space.buffer(w_value)
+                buf = space.charbuf_w(w_value)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -705,9 +701,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
                             "int() argument must be a string or a number, "
                             "not '%T'", w_value)
             else:
-                buf = space.interp_w(Buffer, w_buffer)
-                value, w_longval = _string_to_int_or_long(space, w_value,
-                                                          buf.as_str())
+                value, w_longval = _string_to_int_or_long(space, w_value, buf)
     else:
         base = space.int_w(w_base)
 

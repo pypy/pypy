@@ -14,6 +14,7 @@ from rpython.rlib import jit
 # Object imports
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.boolobject import W_BoolObject
+from pypy.objspace.std.bufferobject import W_Buffer
 from pypy.objspace.std.bytearrayobject import W_BytearrayObject
 from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject, wrapstr
 from pypy.objspace.std.complexobject import W_ComplexObject
@@ -23,6 +24,7 @@ from pypy.objspace.std.intobject import W_IntObject, setup_prebuilt, wrapint
 from pypy.objspace.std.iterobject import W_AbstractSeqIterObject, W_SeqIterObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.longobject import W_LongObject, newlong
+from pypy.objspace.std.memoryobject import W_MemoryView
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
@@ -58,6 +60,7 @@ class StdObjSpace(ObjSpace):
         # types
         builtin_type_classes = {
             W_BoolObject.typedef: W_BoolObject,
+            W_Buffer.typedef: W_Buffer,
             W_BytearrayObject.typedef: W_BytearrayObject,
             W_BytesObject.typedef: W_BytesObject,
             W_ComplexObject.typedef: W_ComplexObject,
@@ -67,6 +70,7 @@ class StdObjSpace(ObjSpace):
             W_AbstractSeqIterObject.typedef: W_AbstractSeqIterObject,
             W_ListObject.typedef: W_ListObject,
             W_LongObject.typedef: W_LongObject,
+            W_MemoryView.typedef: W_MemoryView,
             W_NoneObject.typedef: W_NoneObject,
             W_ObjectObject.typedef: W_ObjectObject,
             W_SetObject.typedef: W_SetObject,
@@ -306,6 +310,9 @@ class StdObjSpace(ObjSpace):
     def newseqiter(self, w_obj):
         return W_SeqIterObject(w_obj)
 
+    def newbuffer(self, w_obj):
+        return W_Buffer(w_obj)
+
     def type(self, w_obj):
         jit.promote(w_obj.__class__)
         return w_obj.getclass(self)
@@ -403,14 +410,19 @@ class StdObjSpace(ObjSpace):
         assert expected_length >= 0
         return self.fixedview(w_obj, expected_length, unroll=True)
 
-    def listview(self, w_obj, expected_length=-1):
+    def listview_no_unpack(self, w_obj):
         if type(w_obj) is W_ListObject:
-            t = w_obj.getitems()
+            return w_obj.getitems()
         elif isinstance(w_obj, W_AbstractTupleObject) and self._uses_tuple_iter(w_obj):
-            t = w_obj.getitems_copy()
+            return w_obj.getitems_copy()
         elif isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
-            t = w_obj.getitems()
+            return w_obj.getitems()
         else:
+            return None
+
+    def listview(self, w_obj, expected_length=-1):
+        t = self.listview_no_unpack(w_obj)
+        if t is None:
             return ObjSpace.unpackiterable(self, w_obj, expected_length)
         if expected_length != -1 and len(t) != expected_length:
             raise self._wrap_expected_length(expected_length, len(t))

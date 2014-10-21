@@ -1,6 +1,6 @@
-from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE
@@ -19,6 +19,7 @@ class BaseConcreteArray(object):
                           'strides[*]', 'backstrides[*]', 'order']
     start = 0
     parent = None
+    flags = 0
 
     # JIT hints that length of all those arrays is a constant
 
@@ -284,9 +285,11 @@ class BaseConcreteArray(object):
                                             self.get_backstrides(),
                                             self.get_shape(), shape,
                                             backward_broadcast)
-            return ArrayIter(self, support.product(shape), shape, r[0], r[1])
-        return ArrayIter(self, self.get_size(), self.shape,
-                         self.strides, self.backstrides)
+            i = ArrayIter(self, support.product(shape), shape, r[0], r[1])
+        else:
+            i = ArrayIter(self, self.get_size(), self.shape,
+                          self.strides, self.backstrides)
+        return i, i.reset()
 
     def swapaxes(self, space, orig_arr, axis1, axis2):
         shape = self.get_shape()[:]
@@ -314,8 +317,8 @@ class BaseConcreteArray(object):
     def get_storage(self):
         return self.storage
 
-    def get_buffer(self, space):
-        return ArrayBuffer(self)
+    def get_buffer(self, space, readonly):
+        return ArrayBuffer(self, readonly)
 
     def astype(self, space, dtype):
         strides, backstrides = calc_strides(self.get_shape(), dtype,
@@ -355,11 +358,11 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.dtype = dtype
 
     def argsort(self, space, w_axis):
-        from pypy.module.micronumpy.sort import argsort_array
+        from .selection import argsort_array
         return argsort_array(self, space, w_axis)
 
     def sort(self, space, w_axis, w_order):
-        from pypy.module.micronumpy.sort import sort_array
+        from .selection import sort_array
         return sort_array(self, space, w_axis, w_order)
 
     def base(self):
@@ -367,14 +370,13 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
 
 
 class ConcreteArray(ConcreteArrayNotOwning):
-    def __init__(self, shape, dtype, order, strides, backstrides, storage=lltype.nullptr(RAW_STORAGE)):
-        null_storage = lltype.nullptr(RAW_STORAGE)
-        ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
-                                        null_storage)
+    def __init__(self, shape, dtype, order, strides, backstrides,
+                 storage=lltype.nullptr(RAW_STORAGE), zero=True):
         if storage == lltype.nullptr(RAW_STORAGE):
-            self.storage = dtype.itemtype.malloc(self.size)
-        else:
-            self.storage = storage
+            storage = dtype.itemtype.malloc(support.product(shape) *
+                                            dtype.elsize, zero=zero)
+        ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
+                                        storage)
 
     def __del__(self):
         free_raw_storage(self.storage, track_allocation=False)
@@ -472,9 +474,12 @@ class VoidBoxStorage(BaseConcreteArray):
         free_raw_storage(self.storage)
 
 
-class ArrayBuffer(RWBuffer):
-    def __init__(self, impl):
+class ArrayBuffer(Buffer):
+    _immutable_ = True
+
+    def __init__(self, impl, readonly):
         self.impl = impl
+        self.readonly = readonly
 
     def getitem(self, item):
         return raw_storage_getitem(lltype.Char, self.impl.storage, item)

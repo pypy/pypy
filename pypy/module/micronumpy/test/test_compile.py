@@ -319,3 +319,23 @@ class TestRunner(object):
         ''')
         results = interp.results[0]
         assert isinstance(results, W_NDimArray)
+
+    def test_astype_dtype(self):
+        interp = self.run('''
+        a = [1, 0, 3, 0]
+        b = int
+        c = astype(a, b)
+        c
+        ''')
+        results = interp.results[0]
+        assert isinstance(results, W_NDimArray)
+        assert results.get_dtype().is_int()
+
+    def test_searchsorted(self):
+        interp = self.run('''
+        a = [1, 4, 5, 6, 9]
+        b = |30| -> ::-1
+        c = searchsorted(a, b)
+        c -> -1
+        ''')
+        assert interp.results[0].value == 0

@@ -14,13 +14,16 @@ import py
 
 if sys.platform == "win32":
     libname = 'libexpat'
+    pre_include_bits = ["#define XML_STATIC"]
 else:
     libname = 'expat'
+    pre_include_bits = []
 eci = ExternalCompilationInfo(
     libraries=[libname],
     library_dirs=platform.preprocess_library_dirs([]),
     includes=['expat.h'],
     include_dirs=platform.preprocess_include_dirs([]),
+    pre_include_bits = pre_include_bits,
     )
 
 eci = rffi_platform.configure_external_library(
@@ -429,7 +432,7 @@ class W_XMLParserType(W_Root):
 
         self.handlers = [None] * NB_HANDLERS
 
-        self.buffer_w = None
+        self.buffer = None
         self.buffer_size = 8192
         self.buffer_used = 0
         self.w_character_data_handler = None
@@ -541,7 +544,7 @@ getting the advantage of providing document type information to the parser.
 
     def buffer_string(self, space, w_string, length):
         ll_length = rffi.cast(lltype.Signed, length)
-        if self.buffer_w is not None:
+        if self.buffer is not None:
             if self.buffer_used + ll_length > self.buffer_size:
                 self.flush_character_buffer(space)
                 # handler might have changed; drop the rest on the floor
@@ -549,11 +552,11 @@ getting the advantage of providing document type information to the parser.
                 if self.w_character_data_handler is None:
                     return True
             if ll_length <= self.buffer_size:
-                self.buffer_w.append(w_string)
+                self.buffer.append(w_string)
                 self.buffer_used += ll_length
                 return True
             else:
-                self.buffer_w = []
+                self.buffer = []
                 self.buffer_used = 0
         return False
 
@@ -685,12 +688,12 @@ information passed to the ExternalEntityRefHandler."""
         return space.wrap(parser)
 
     def flush_character_buffer(self, space):
-        if not self.buffer_w:
+        if not self.buffer:
             return
         w_data = space.call_function(
             space.getattr(space.wrap(''), space.wrap('join')),
-            space.newlist(self.buffer_w))
-        self.buffer_w = []
+            space.newlist(self.buffer))
+        self.buffer = []
         self.buffer_used = 0
 
         if self.w_character_data_handler:
@@ -735,14 +738,14 @@ information passed to the ExternalEntityRefHandler."""
         self.buffer_size = value
 
     def get_buffer_text(self, space):
-        return space.wrap(self.buffer_w is not None)
+        return space.wrap(self.buffer is not None)
     def set_buffer_text(self, space, w_value):
         if space.is_true(w_value):
-            self.buffer_w = []
+            self.buffer = []
             self.buffer_used = 0
         else:
             self.flush_character_buffer(space)
-            self.buffer_w = None
+            self.buffer = None
 
     def get_intern(self, space):
         if self.w_intern:

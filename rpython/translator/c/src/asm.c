@@ -12,6 +12,6 @@
 #  include "src/asm_ppc.c"
 #endif
 
-#if defined(MS_WINDOWS) && defined(_MSC_VER)
+#if defined(_MSC_VER)
 #  include "src/asm_msvc.c"
 #endif

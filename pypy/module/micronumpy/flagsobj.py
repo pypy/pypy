@@ -2,6 +2,46 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.module.micronumpy import constants as NPY
+
+
+def enable_flags(arr, flags):
+    arr.flags |= flags
+
+
+def clear_flags(arr, flags):
+    arr.flags &= ~flags
+
+
+def _update_contiguous_flags(arr):
+    shape = arr.shape
+    strides = arr.strides
+
+    is_c_contig = True
+    sd = arr.dtype.elsize
+    for i in range(len(shape) - 1, -1, -1):
+        dim = shape[i]
+        if strides[i] != sd:
+            is_c_contig = False
+            break
+        if dim == 0:
+            break
+        sd *= dim
+    if is_c_contig:
+        enable_flags(arr, NPY.ARRAY_C_CONTIGUOUS)
+    else:
+        clear_flags(arr, NPY.ARRAY_C_CONTIGUOUS)
+
+    sd = arr.dtype.elsize
+    for i in range(len(shape)):
+        dim = shape[i]
+        if strides[i] != sd:
+            clear_flags(arr, NPY.ARRAY_F_CONTIGUOUS)
+            return
+        if dim == 0:
+            break
+        sd *= dim
+    enable_flags(arr, NPY.ARRAY_F_CONTIGUOUS)
 
 
 class W_FlagsObject(W_Root):
@@ -62,8 +102,7 @@ class W_FlagsObject(W_Root):
     def descr_ne(self, space, w_other):
         return space.wrap(not self.eq(space, w_other))
 
-W_FlagsObject.typedef = TypeDef("flagsobj",
-    __module__ = "numpy",
+W_FlagsObject.typedef = TypeDef("numpy.flagsobj",
     __new__ = interp2app(W_FlagsObject.descr__new__.im_func),
 
     __getitem__ = interp2app(W_FlagsObject.descr_getitem),

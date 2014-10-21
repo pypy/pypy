@@ -6,7 +6,6 @@ from rpython.rlib import rerased
 
 
 class DictProxyStrategy(DictStrategy):
-
     erase, unerase = rerased.new_erasing_pair("dictproxy")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)

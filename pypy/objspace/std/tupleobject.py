@@ -27,7 +27,7 @@ def _unroll_condition_cmp(self, space, other):
             jit.loop_unrolling_heuristic(other, other.length(), UNROLL_CUTOFF))
 
 
-contains_jmp = jit.JitDriver(greens = [], reds = 'auto',
+contains_jmp = jit.JitDriver(greens = ['tp'], reds = 'auto',
                              name = 'tuple.contains')
 
 class W_AbstractTupleObject(W_Root):
@@ -136,8 +136,9 @@ class W_AbstractTupleObject(W_Root):
         return space.w_False
 
     def _descr_contains_jmp(self, space, w_obj):
+        tp = space.type(w_obj)
         for w_item in self.tolist():
-            contains_jmp.jit_merge_point()
+            contains_jmp.jit_merge_point(tp=tp)
             if space.eq_w(w_item, w_obj):
                 return space.w_True
         return space.w_False
@@ -242,6 +243,7 @@ If the argument is a tuple, the return value is the same object.""",
     count = interp2app(W_AbstractTupleObject.descr_count),
     index = interp2app(W_AbstractTupleObject.descr_index)
 )
+W_AbstractTupleObject.typedef.flag_sequence_bug_compat = True
 
 
 class W_TupleObject(W_AbstractTupleObject):
