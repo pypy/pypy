@@ -186,13 +186,14 @@ def calculate_ndim(op_in, oa_ndim):
             ndim = max(ndim, op.ndims())
     return ndim
 
-def coalexce_axes(iter, space):
+def coalexce_axes(it, space):
     # Copy logic from npyiter_coalesce_axes, used in ufunc iterators
     # and in nditer's with 'external_loop' flag
-    import pdb;pdb.set_trace()
-    for idim in range(iter.ndim - 1):
+    for idim in range(it.ndim - 1):
         can_coalesce = 1
-        for op in self.ops:
+        for op in it.seq:
+            stride = op.implementation.get_strides()
+            shape = op.get_shape()
             pass
 
 class IndexIterator(object):
