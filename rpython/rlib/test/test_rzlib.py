@@ -82,12 +82,6 @@ def test_deflate_init_end():
     rzlib.deflateEnd(stream)
 
 
-# def test_deflate_set_dictionary():
-#     stream = rzlib.deflateInit()
-#     rzlib.deflateSetDictionary(stream, 'abc')
-#     rzlib.deflateEnd(stream)
-
-
 def test_deflate_set_dictionary():
     text = 'abcabc'
     zdict = 'abc'
