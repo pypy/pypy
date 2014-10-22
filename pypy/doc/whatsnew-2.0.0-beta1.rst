@@ -22,7 +22,7 @@ See doc/cppyy.rst for full details and functionality.
 
 Check that axis arg is valid in _numpypy
 
-.. branch:less-gettestobjspace
+.. branch: less-gettestobjspace
 
 .. branch: move-apptest-support
 
