@@ -915,14 +915,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
             return False
         #
         obj_type_id = self.get_type_id(obj)
-        if self.has_gcptr(obj_type_id):
+        if self.cannot_pin(obj_type_id):
             # objects containing GC pointers can't be pinned. If we would add
             # it, we would have to track all pinned objects and trace them
             # every minor collection to make sure the referenced object are
             # kept alive. Right now this is not a use case that's needed.
-            return False
-        if self.weakpointer_offset(obj_type_id) >= 0:
-            # for now we don't support pinning objects with weak pointers.
+            # The check above also tests for being a less common kind of
+            # object: a weakref, or one with any kind of finalizer.
             return False
         #
         self.header(obj).tid |= GCFLAG_PINNED

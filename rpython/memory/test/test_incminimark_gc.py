@@ -48,6 +48,24 @@ class TestIncrementalMiniMarkGC(test_minimark_gc.TestMiniMarkGC):
             assert not rgc.pin(ref)
         self.interpret(f, [])
 
+    def test_pin_finalizer_not_implemented(self):
+        import weakref
+        class A:
+            def __del__(self):
+                pass
+        class B:
+            def __del__(self):
+                foo.bar += 1
+        class Foo:
+            bar = 0
+        foo = Foo()
+        def f():
+            a = A()
+            b = B()
+            assert not rgc.pin(a)
+            assert not rgc.pin(b)
+        self.interpret(f, [])
+
     def test_weakref_to_pinned(self):
         import weakref
         from rpython.rlib import rgc
