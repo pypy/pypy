@@ -165,28 +165,3 @@ that this is never the case.
 
 
 .. TODO windows
-
-
-Where to go from here
----------------------
-
-Congratulations! Now that you've successfully built your own PyPy, you might
-want to `start writing a fast JITed interpreter with PyPy`_, or look at some
-:doc:`projects we need help with <project-ideas>`, or just dive deeper into
-the docs:
-
-.. toctree::
-  :maxdepth: 1
-
-  getting-started-dev
-  cpython_differences
-  embedding
-  gc_info
-  jit-hooks
-  stackless
-  cppyy
-  objspace-proxies
-  sandbox
-
-
-.. _start writing a fast JITed interpreter with PyPy: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
