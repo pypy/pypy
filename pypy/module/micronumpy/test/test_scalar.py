@@ -386,13 +386,16 @@ class AppTestScalar(BaseNumpyAppTest):
             assert len(res) == 0
 
     def test_fill(self):
+        import sys
         from numpypy import int8, int16, int32, int64, float32, float64
         from numpypy import complex64, complex128
 
         for t in (int8, int16, int32, int64, float32, float64,
                   complex64, complex128):
             t(17).fill(2)
-            exc = TypeError if t in (complex64, complex128) else ValueError
+            exc = (TypeError if t in (complex64, complex128)
+                   and '__pypy__' not in sys.builtin_module_names
+                   else ValueError)
             raises(exc, t(17).fill, '')
 
     def test_conj(self):
