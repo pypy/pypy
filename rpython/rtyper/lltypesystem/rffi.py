@@ -793,6 +793,7 @@ def make_string_mappings(strtype):
         return cast(TYPEP, data_start), pinned, False
         # ^^^ already nonmovable. Therefore it's not raw allocated nor
         # pinned.
+    get_nonmovingbuffer._always_inline_ = 'try' # get rid of the returned tuple
     get_nonmovingbuffer._annenforceargs_ = [strtype]
 
     # (str, char*, bool, bool) -> None
@@ -812,52 +813,67 @@ def make_string_mappings(strtype):
         keepalive_until_here(data)
     free_nonmovingbuffer._annenforceargs_ = [strtype, None, bool, bool]
 
-    # int -> (char*, str)
+    # int -> (char*, str, int)
     def alloc_buffer(count):
         """
-        Returns a (raw_buffer, gc_buffer) pair, allocated with count bytes.
+        Returns a (raw_buffer, gc_buffer, case_num) triple,
+        allocated with count bytes.
         The raw_buffer can be safely passed to a native function which expects
         it to not move. Call str_from_buffer with the returned values to get a
         safe high-level string. When the garbage collector cooperates, this
         allows for the process to be performed without an extra copy.
         Make sure to call keep_buffer_alive_until_here on the returned values.
         """
-        raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
-        return raw_buf, lltype.nullptr(STRTYPE)
+        new_buf = lltype.malloc(STRTYPE, count)
+        pinned = 0
+        if rgc.can_move(new_buf):
+            if rgc.pin(new_buf):
+                pinned = 1
+            else:
+                raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
+                return raw_buf, new_buf, 2
+        #
+        # following code is executed if:
+        # - rgc.can_move(data) and rgc.pin(data) both returned true
+        # - rgc.can_move(data) returned false
+        data_start = cast_ptr_to_adr(new_buf) + \
+            offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
+        return cast(TYPEP, data_start), new_buf, pinned
     alloc_buffer._always_inline_ = 'try' # to get rid of the returned tuple
     alloc_buffer._annenforceargs_ = [int]
 
     # (char*, str, int, int) -> None
     @jit.dont_look_inside
-    @enforceargs(None, None, int, int)
-    def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
+    @enforceargs(None, None, int, int, int)
+    def str_from_buffer(raw_buf, gc_buf, case_num, allocated_size, needed_size):
         """
         Converts from a pair returned by alloc_buffer to a high-level string.
         The returned string will be truncated to needed_size.
         """
         assert allocated_size >= needed_size
+        if allocated_size != needed_size:
+            from rpython.rtyper.lltypesystem.lloperation import llop
+            if llop.shrink_array(lltype.Bool, gc_buf, needed_size):
+                pass     # now 'gc_buf' is smaller
+            else:
+                gc_buf = lltype.malloc(STRTYPE, needed_size)
+                case_num = 2
+        if case_num == 2:
+            copy_raw_to_string(raw_buf, gc_buf, 0, needed_size)
+        return hlstrtype(gc_buf)
 
-        if gc_buf and (allocated_size == needed_size):
-            return hlstrtype(gc_buf)
-
-        new_buf = lltype.malloc(STRTYPE, needed_size)
-        if gc_buf:
-            copy_string_contents(gc_buf, new_buf, 0, 0, needed_size)
-        else:
-            copy_raw_to_string(raw_buf, new_buf, 0, needed_size)
-        return hlstrtype(new_buf)
-
-    # (char*, str) -> None
+    # (char*, str, int) -> None
     @jit.dont_look_inside
-    def keep_buffer_alive_until_here(raw_buf, gc_buf):
+    def keep_buffer_alive_until_here(raw_buf, gc_buf, case_num):
         """
         Keeps buffers alive or frees temporary buffers created by alloc_buffer.
         This must be called after a call to alloc_buffer, usually in a
         try/finally block.
         """
-        if gc_buf:
-            keepalive_until_here(gc_buf)
-        elif raw_buf:
+        keepalive_until_here(gc_buf)
+        if case_num == 1:
+            rgc.unpin(gc_buf)
+        if case_num == 2:
             lltype.free(raw_buf, flavor='raw')
 
     # char* -> str, with an upper bound on the length in case there is no \x00
@@ -1144,23 +1160,25 @@ class scoped_alloc_buffer:
     def __init__(self, size):
         self.size = size
     def __enter__(self):
-        self.raw, self.gc_buf = alloc_buffer(self.size)
+        self.raw, self.gc_buf, self.case_num = alloc_buffer(self.size)
         return self
     def __exit__(self, *args):
-        keep_buffer_alive_until_here(self.raw, self.gc_buf)
+        keep_buffer_alive_until_here(self.raw, self.gc_buf, self.case_num)
     def str(self, length):
-        return str_from_buffer(self.raw, self.gc_buf, self.size, length)
+        return str_from_buffer(self.raw, self.gc_buf, self.case_num,
+                               self.size, length)
 
 class scoped_alloc_unicodebuffer:
     def __init__(self, size):
         self.size = size
     def __enter__(self):
-        self.raw, self.gc_buf = alloc_unicodebuffer(self.size)
+        self.raw, self.gc_buf, self.case_num = alloc_unicodebuffer(self.size)
         return self
     def __exit__(self, *args):
-        keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf)
+        keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf, self.case_num)
     def str(self, length):
-        return unicode_from_buffer(self.raw, self.gc_buf, self.size, length)
+        return unicode_from_buffer(self.raw, self.gc_buf, self.case_num,
+                                   self.size, length)
 
 # You would have to have a *huge* amount of data for this to block long enough
 # to be worth it to release the GIL.
