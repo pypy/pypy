@@ -43,10 +43,11 @@ Using PyPy
   :maxdepth: 1
 
   cpython_differences
+  extending
   gc_info
   jit-hooks
   stackless
-  cppyy
+  __pypy__-module
   objspace-proxies
   sandbox
 
@@ -61,9 +62,12 @@ Development documentation
 
   getting-started-dev
   how-to-contribute
+  you-want-to-help
   architecture
+  configuration
   project-ideas
   project-documentation
+  how-to-release
 
 .. TODO: audit ^^
 
@@ -71,14 +75,17 @@ Development documentation
 .. TODO: Fill this in
 
 
-Academical stuff
-----------------
+Further resources
+-----------------
 
 .. toctree::
   :maxdepth: 1
 
   extradoc
-.. TODO: Remove this? Or fill it with links to papers?
+  eventhistory
+  discussions
+  index-of-release-notes
+  contributor
 
 
 .. _contact:
@@ -119,34 +126,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
-
-.. TODO figure out what to do with these!
-
-.. toctree::
-  :hidden:
-
-  configuration
-  contributor
-  cppyy_backend
-  cppyy_example
-  ctypes-implementation
-  discussion/jit-profiler
-  discussions
-  eventhistory
-  extending
-  getting-started-dev
-  how-to-release
-  release-2.0.1
-  release-2.0.2
-  release-2.1.0
-  release-2.1.0-beta1
-  release-2.1.0-beta2
-  releases/index
-  whatsnew-1.9
-  whatsnew-2.0
-  whatsnew-2.0.0-beta1
-  whatsnew-2.1
-  whatsnew-head
-  you-want-to-help
-  __pypy__-module
