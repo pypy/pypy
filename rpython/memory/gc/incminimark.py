@@ -379,6 +379,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # must be traced every minor collection. Without tracing them the
         # referenced pinned object wouldn't be visited and therefore collected.
         self.old_objects_pointing_to_pinned = self.AddressStack()
+        self.updated_old_objects_pointing_to_pinned = False
         #
         # Allocate a nursery.  In case of auto_nursery_size, start by
         # allocating a very small nursery, enough to do things like look
@@ -1368,6 +1369,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
         one of the following flags a bit too eagerly, which means we'll have
         a bit more objects to track, but being on the safe side.
         """
+        # obscuuuure.  The flag 'updated_old_objects_pointing_to_pinned'
+        # is set to True when 'old_objects_pointing_to_pinned' is modified.
+        # Here, when it was modified, then we do a write_barrier() on
+        # all items in that list (there should only be a small number,
+        # so we don't care).  The goal is that the logic that follows below
+        # works as expected...
+        if self.updated_old_objects_pointing_to_pinned:
+            self.old_objects_pointing_to_pinned.foreach(
+                self._wb_old_object_pointing_to_pinned, None)
+            self.updated_old_objects_pointing_to_pinned = False
+        #
         source_hdr = self.header(source_addr)
         dest_hdr = self.header(dest_addr)
         if dest_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
@@ -1427,6 +1439,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if dest_hdr.tid & GCFLAG_CARDS_SET == 0:
                 self.old_objects_with_cards_set.append(dest_addr)
                 dest_hdr.tid |= GCFLAG_CARDS_SET
+
+    def _wb_old_object_pointing_to_pinned(self, obj, ignore):
+        self.write_barrier(obj)
 
     def record_pinned_object_with_shadow(self, obj, new_shadow_object_dict):
         # checks if the pinned object has a shadow and if so add it to the
@@ -1807,6 +1822,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 #
                 debug_print("old_objects_pointing_to_pinned:", parent)
                 self.old_objects_pointing_to_pinned.append(parent)
+                self.updated_old_objects_pointing_to_pinned = True
                 self.header(parent).tid |= GCFLAG_PINNED
             #
             if hdr.tid & GCFLAG_VISITED:
@@ -2054,6 +2070,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     self.old_objects_pointing_to_pinned.delete()
                     self.old_objects_pointing_to_pinned = \
                             new_old_objects_pointing_to_pinned
+                    self.updated_old_objects_pointing_to_pinned = True
                 self.gc_state = STATE_SWEEPING
             #END MARKING
         elif self.gc_state == STATE_SWEEPING:
