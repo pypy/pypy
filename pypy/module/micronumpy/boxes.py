@@ -171,7 +171,7 @@ class W_GenericBox(W_NumpyObject):
                 except OperationError:
                     raise oefmt(space.w_TypeError, "an integer is required")
             raise oefmt(space.w_ValueError, "axes don't match array")
-        return self.item(space)
+        return self
 
     def descr_getitem(self, space, w_item):
         from pypy.module.micronumpy.base import convert_to_array
@@ -425,7 +425,7 @@ class W_GenericBox(W_NumpyObject):
 
     @unwrap_spec(axis1=int, axis2=int)
     def descr_swapaxes(self, space, axis1, axis2):
-        return self.item(space)
+        return self
 
     def descr_fill(self, space, w_value):
         self.get_dtype(space).coerce(space, w_value)
