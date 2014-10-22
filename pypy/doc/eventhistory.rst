@@ -40,10 +40,10 @@ Heinrich-Heine Universitaet Duesseldorf from the *2nd to the 9th of June*.
 Main focus of the sprint will be on the goals of the upcoming June 0.9
 release.
 
-Read more in `the sprint announcement`_, see who is  planning to attend
+Read more in `the sprint announcement`__, see who is  planning to attend
 on the `people page`_.
 
-.. _the sprint announcement: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/announce.html
+__ https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/announce.html
 .. _people page: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/people.txt
 
 
@@ -172,7 +172,7 @@ compiler, speed progress, and now the possibility to translate our
 experimental "Thunk" object space (supporting lazy computed objects)
 with its features preserved.
 
-See the :doc:`release 0.8 announcement <releases/0.8.0>` for further details about the release and
+See the :doc:`release 0.8 announcement <release-0.8.0>` for further details about the release and
 the :doc:`getting started <getting-started-index>` document for instructions about downloading it and
 trying it out.  There is also a short :doc:`FAQ <faq>`.  *(11/03/2005)*
 
@@ -206,7 +206,7 @@ PyPy release 0.7.0
 The first implementation of Python in Python is now also the second
 implementation of Python in C :-)
 
-See the :doc:`release announcement <releases/0.7.0>` for further details about the release and
+See the :doc:`release announcement <release-0.7.0>` for further details about the release and
 the :doc:`getting started <getting-started>` document for instructions about downloading it and
 trying it out.  We also have the beginning of a :doc:`FAQ <faq>`.  *(08/28/2005)*
 
@@ -221,7 +221,7 @@ to a low level language and reaching 2.4.1 Python compliance.
 The goal of the sprint is to release a first self-contained
 PyPy-0.7 version.  Carl has written a report about `day 1 - 3`_
 and a `heidelberg summary report`_ detailing some of the works
-that led to the successful release of :doc:`pypy-0.7.0 <releases/0.7.0>`! 
+that led to the successful release of :doc:`pypy-0.7.0 <release-0.7.0>`! 
 
 .. _heidelberg summary report: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/Heidelberg-report.txt
 .. _PyPy sprint: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/Heidelberg-sprint.txt
@@ -270,44 +270,3 @@ the LLVM backends and type inference in general.
 .. _EuroPython: http://europython.org
 .. _sprint announcement: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/EP2005-announcement.html
 .. _list of people coming: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/EP2005-people.html
-
-
-Duesseldorf PyPy sprint 2-9 June 2006
--------------------------------------
-
-The next PyPy sprint will be held in the Computer Science department of
-Heinrich-Heine Universitaet Duesseldorf from the *2nd to the 9th of June*.
-Main focus of the sprint will be on the goals of the upcoming June 0.9
-release.
-
-Read more in `the sprint announcement`_, see who is  planning to attend
-on the `people page`_.
-
-.. _the sprint announcement: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/announce.txt
-.. _people page: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/ddorf2006/people.txt
-
-
-PyPy at XP 2006 and Agile 2006
-------------------------------
-
-PyPy will present experience reports at the two main agile conferences
-this year, `XP 2006`_ and `Agile 2006`_.
-Both experience reports focus on aspects of the sprint-driven
-development method that is being used in PyPy.
-
-.. _XP 2006: http://virtual.vtt.fi/virtual/xp2006/
-.. _Agile 2006: http://www.agile2006.org/
-
-
-EuroPython PyPy sprint 6-9 July 2006
-------------------------------------
-
-Once again a PyPy sprint will take place right after the EuroPython
-Conference. This year it will be from the *6th to the 9th of July*.
-
-Read more in `EuroPython sprint announcement`_, see who is  planning to attend
-on `the people page`_. There is also a page_ in the python wiki.
-
-.. _EuroPython sprint announcement: https://bitbucket.org/pypy/extradoc/src/tip/sprintinfo/post-ep2006/announce.txt
-.. _the people page: https://bitbucket.org/pypy/extradoc/src/tip/sprintinfo/post-ep2006/people.txt
-.. _page: http://wiki.python.org/moin/EuroPython2006

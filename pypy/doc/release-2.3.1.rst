@@ -72,6 +72,7 @@ for more information see `whats-new`_:
 
 .. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.3.1.html
 .. _resolved: https://bitbucket.org/pypy/pypy/issues?status=resolved
+
 Please try it out and let us know what you think. We especially welcome
 success stories, we know you are using PyPy, please tell us about it!
 

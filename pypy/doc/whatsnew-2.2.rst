@@ -87,7 +87,7 @@ Constant-fold reading out of constant tuples in PyPy.
 
 .. branch: mro-reorder-numpypy-str
 
-No longer delegate numpy string_ methods to space.StringObject, in numpy
+No longer delegate numpy string methods to space.StringObject, in numpy
 this works by kind of by accident. Support for merging the refactor-str-types
 branch
 
@@ -130,6 +130,7 @@ Use subclasses of SpaceOperation instead of SpaceOperator objects.
 Random cleanups in flowspace.
 
 .. branch: file-support-in-rpython
+
 make open() and friends rpython
 
 .. branch: incremental-gc

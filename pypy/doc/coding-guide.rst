@@ -169,6 +169,7 @@ performed, which makes use of the restrictions defined in RPython. This
 enables the code generator to emit efficient machine level replacements
 for pure integer objects, for instance.
 
+.. _wrapped:
 
 Wrapping rules
 --------------
