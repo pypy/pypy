@@ -1,6 +1,8 @@
 Downloading and Installing PyPy
 ===============================
 
+.. _prebuilt-pypy:
+
 Download a pre-built PyPy
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
