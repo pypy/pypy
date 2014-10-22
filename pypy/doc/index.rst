@@ -44,12 +44,14 @@ Using PyPy
 
   cpython_differences
   extending
+  embedding
   gc_info
   jit-hooks
   stackless
   __pypy__-module
   objspace-proxies
   sandbox
+  stm
 
 
 .. _developing-pypy:
