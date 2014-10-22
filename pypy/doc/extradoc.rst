@@ -78,13 +78,13 @@ Papers
 .. _Towards a Jitting VM for Prolog Execution: http://www.stups.uni-duesseldorf.de/mediawiki/images/a/a7/Pub-BoLeSch2010.pdf
 .. _High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages: http://buildbot.pypy.org/misc/antocuni-thesis.pdf
 .. _How to *not* write Virtual Machines for Dynamic Languages: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dyla2007/dyla.pdf
-.. _Tracing the Meta-Level: PyPy's Tracing JIT Compiler: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009/bolz-tracing-jit.pdf
-.. _Faster than C#: Efficient Implementation of Dynamic Languages on .NET: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009-dotnet/cli-jit.pdf
+.. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009/bolz-tracing-jit.pdf
+.. _`Faster than C#: Efficient Implementation of Dynamic Languages on .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009-dotnet/cli-jit.pdf
 .. _Automatic JIT Compiler Generation with Runtime Partial Evaluation: http://wwwold.cobra.cs.uni-duesseldorf.de/thesis/final-master.pdf
-.. _RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages: http://www.disi.unige.it/person/AnconaD/papers/DynamicLanguages_abstracts.html#AACM-DLS07
+.. _`RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages`: http://www.disi.unige.it/person/AnconaD/papers/DynamicLanguages_abstracts.html#AACM-DLS07
 .. _EU Reports: index-report.html
 .. _Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution: http://sabi.net/nriley/pubs/dls6-riley.pdf
-.. _PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy: http://scg.unibe.ch/archive/papers/Brun09cPyGirl.pdf
+.. _`PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy`: http://scg.unibe.ch/archive/papers/Brun09cPyGirl.pdf
 .. _Representation-Based Just-in-Time Specialization and the Psyco Prototype for Python: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
 .. _Back to the Future in One Week -- Implementing a Smalltalk VM in PyPy: http://dx.doi.org/10.1007/978-3-540-89275-5_7
 .. _Automatic generation of JIT compilers for dynamic languages in .NET: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ecoop2009/main.pdf
