@@ -15,6 +15,11 @@ S.become(lltype.GcStruct('pinning_test_struct1',
 
 class PinningGCTest(BaseDirectGCTest):
 
+    def setup_method(self, meth):
+        BaseDirectGCTest.setup_method(self, meth)
+        max = getattr(meth, 'max_number_of_pinned_objects', 20)
+        self.gc.max_number_of_pinned_objects = max
+
     def test_pin_can_move(self):
         # even a pinned object is considered to be movable. Only the caller
         # of pin() knows if it is currently movable or not.
@@ -877,19 +882,20 @@ class TestIncminimark(PinningGCTest):
         self.gc.collect()
 
     def test_pinning_limit(self):
+        assert self.gc.max_number_of_pinned_objects == 5
         for instance_nr in xrange(self.gc.max_number_of_pinned_objects):
             ptr = self.malloc(T)
             adr = llmemory.cast_ptr_to_adr(ptr)
             ptr.someInt = 100 + instance_nr
             self.stackroots.append(ptr)
-            self.gc.pin(adr)
+            assert self.gc.pin(adr)
         #
         # now we reached the maximum amount of pinned objects
         ptr = self.malloc(T)
         adr = llmemory.cast_ptr_to_adr(ptr)
         self.stackroots.append(ptr)
         assert not self.gc.pin(adr)
-    test_pinning_limit.GC_PARAMS = {'max_number_of_pinned_objects': 5}
+    test_pinning_limit.max_number_of_pinned_objects = 5
 
     def test_full_pinned_nursery_pin_fail(self):
         typeid = self.get_type_id(T)
@@ -909,6 +915,5 @@ class TestIncminimark(PinningGCTest):
         # nursery should be full now, at least no space for another `T`.
         # Next malloc should fail.
         py.test.raises(Exception, self.malloc, T)
-    test_full_pinned_nursery_pin_fail.GC_PARAMS = \
-            {'max_number_of_pinned_objects': 50}
+    test_full_pinned_nursery_pin_fail.max_number_of_pinned_objects = 50
 
