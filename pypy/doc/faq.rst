@@ -218,9 +218,6 @@ Scheme and an Io implementation; both of these are unfinished at the moment.
 .. _PyPy bitbucket page: https://bitbucket.org/pypy/
 
 
-Development
-===========
-
 How do I get into PyPy development?  Can I come to sprints?
 -----------------------------------------------------------
 
