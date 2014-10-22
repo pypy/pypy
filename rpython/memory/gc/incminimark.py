@@ -256,11 +256,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # minimal allocated size of the nursery is 2x the following
         # number (by default, at least 132KB on 32-bit and 264KB on 64-bit).
         "large_object": (16384+512)*WORD,
-
-        # Number of objects that are allowed to be pinned in the nursery
-        # at the same time.  Must be lesser than or equal to the chunk size
-        # of an AddressStack.
-        "max_number_of_pinned_objects": 100,
         }
 
     def __init__(self, config,
@@ -273,7 +268,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                  major_collection_threshold=2.5,
                  growth_rate_max=2.5,   # for tests
                  card_page_indices=0,
-                 max_number_of_pinned_objects=100,
                  large_object=8*WORD,
                  ArenaCollectionClass=None,
                  **kwds):
@@ -290,7 +284,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.max_heap_size = 0.0
         self.max_heap_size_already_raised = False
         self.max_delta = float(r_uint(-1))
-        self.max_number_of_pinned_objects = max_number_of_pinned_objects
+        self.max_number_of_pinned_objects = 0      # computed later
         #
         self.card_page_indices = card_page_indices
         if self.card_page_indices > 0:
@@ -459,6 +453,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             llarena.arena_free(self.nursery)
             self.nursery_size = newsize
             self.allocate_nursery()
+        #
+        # Estimate this number conservatively
+        bigobj = self.nonlarge_max + 1
+        self.max_number_of_pinned_objects = self.nursery_size / (bigobj * 2)
 
     def _nursery_memory_size(self):
         extra = self.nonlarge_max + 1
