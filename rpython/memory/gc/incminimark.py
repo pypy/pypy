@@ -1098,6 +1098,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                       "object in nursery after collection")
             ll_assert(self.header(obj).tid & GCFLAG_VISITED_RMY == 0,
                       "GCFLAG_VISITED_RMY after collection")
+            ll_assert(self.header(obj).tid & GCFLAG_PINNED == 0,
+                      "GCFLAG_PINNED outside the nursery after collection")
         else:
             ll_assert(self.is_in_nursery(obj),
                       "pinned object not in nursery")
@@ -1494,9 +1496,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.old_objects_pointing_to_pinned.non_empty():
             current_old_objects_pointing_to_pinned = \
                     self.old_objects_pointing_to_pinned
+            debug_print("clear old_objects_pointing_to_pinned")
             self.old_objects_pointing_to_pinned = self.AddressStack()
             current_old_objects_pointing_to_pinned.foreach(
                 self._visit_old_objects_pointing_to_pinned, None)
+            debug_print("done repopulating old_objects_pointing_to_pinned")
             current_old_objects_pointing_to_pinned.delete()
         #
         while True:
@@ -1801,6 +1805,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if parent != llmemory.NULL and \
                 not self.header(parent).tid & GCFLAG_PINNED_OBJECT_PARENT_KNOWN:
                 #
+                debug_print("old_objects_pointing_to_pinned:", parent)
                 self.old_objects_pointing_to_pinned.append(parent)
                 self.header(parent).tid |= GCFLAG_PINNED
             #
@@ -2041,6 +2046,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # get rid of objects pointing to pinned objects that were not
                 # visited
                 if self.old_objects_pointing_to_pinned.non_empty():
+                    debug_print("_sweep_old_objects_pointing_to_pinned")
                     new_old_objects_pointing_to_pinned = self.AddressStack()
                     self.old_objects_pointing_to_pinned.foreach(
                             self._sweep_old_objects_pointing_to_pinned,
@@ -2128,7 +2134,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def _sweep_old_objects_pointing_to_pinned(self, obj, new_list):
         if self.header(obj).tid & GCFLAG_VISITED:
+            debug_print(obj, "-> visited")
             new_list.append(obj)
+        else:
+            debug_print(obj, "-> drop")
 
     def _free_if_unvisited(self, hdr):
         size_gc_header = self.gcheaderbuilder.size_gc_header
