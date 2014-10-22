@@ -301,15 +301,15 @@ class AppTestScalar(BaseNumpyAppTest):
 
     def test_item_tolist(self):
         from numpypy import int8, int16, int32, int64, float32, float64
-        from numpypy import complex64, complex128
+        from numpypy import complex64, complex128, dtype
 
         def _do_test(np_type, py_type, orig_val, exp_val):
             val = np_type(orig_val)
             assert val == orig_val
             assert val.item() == exp_val
             assert val.tolist() == exp_val
-            assert type(val.item()) == py_type
-            assert type(val.tolist()) == py_type
+            assert type(val.item()) is py_type
+            assert type(val.tolist()) is py_type
             val.item(0)
             val.item(())
             val.item((0,))
@@ -318,8 +318,11 @@ class AppTestScalar(BaseNumpyAppTest):
             raises(TypeError, val.item, '')
             raises(IndexError, val.item, 2)
 
-        for t in int8, int16, int32, int64:
+        for t in int8, int16, int32:
             _do_test(t, int, 17, 17)
+
+        py_type = int if dtype('int').itemsize == 8 else long
+        _do_test(int64, py_type, 17, 17)
 
         for t in float32, float64:
             _do_test(t, float, 17, 17)
@@ -331,44 +334,44 @@ class AppTestScalar(BaseNumpyAppTest):
         from numpypy import int8, int16, int32, int64, float32, float64
         from numpypy import complex64, complex128
 
-        def _do_test(np_type, py_type, orig_val, exp_val):
+        def _do_test(np_type, orig_val, exp_val):
             val = np_type(orig_val)
             assert val == orig_val
             assert val.transpose() == exp_val
-            assert type(val.transpose()) == py_type
+            assert type(val.transpose()) is np_type
             val.transpose(())
             raises(ValueError, val.transpose, 0, 1)
             raises(TypeError, val.transpose, 0, '')
             raises(ValueError, val.transpose, 0)
 
         for t in int8, int16, int32, int64:
-            _do_test(t, int, 17, 17)
+            _do_test(t, 17, 17)
 
         for t in float32, float64:
-            _do_test(t, float, 17, 17)
+            _do_test(t, 17, 17)
 
         for t in complex64, complex128:
-            _do_test(t, complex, 17j, 17j)
+            _do_test(t, 17j, 17j)
 
     def test_swapaxes(self):
         from numpypy import int8, int16, int32, int64, float32, float64
         from numpypy import complex64, complex128
 
-        def _do_test(np_type, py_type, orig_val, exp_val):
+        def _do_test(np_type, orig_val, exp_val):
             val = np_type(orig_val)
             assert val == orig_val
             assert val.swapaxes(10, 20) == exp_val
-            assert type(val.swapaxes(0, 1)) == py_type
+            assert type(val.swapaxes(0, 1)) is np_type
             raises(TypeError, val.swapaxes, 0, ())
 
         for t in int8, int16, int32, int64:
-            _do_test(t, int, 17, 17)
+            _do_test(t, 17, 17)
 
         for t in float32, float64:
-            _do_test(t, float, 17, 17)
+            _do_test(t, 17, 17)
 
         for t in complex64, complex128:
-            _do_test(t, complex, 17j, 17j)
+            _do_test(t, 17j, 17j)
 
     def test_nonzero(self):
         from numpypy import int8, int16, int32, int64, float32, float64
@@ -389,7 +392,8 @@ class AppTestScalar(BaseNumpyAppTest):
         for t in (int8, int16, int32, int64, float32, float64,
                   complex64, complex128):
             t(17).fill(2)
-            raises(ValueError, t(17).fill, '')
+            exc = TypeError if t in (complex64, complex128) else ValueError
+            raises(exc, t(17).fill, '')
 
     def test_conj(self):
         from numpypy import int8, int16, int32, int64, float32, float64
