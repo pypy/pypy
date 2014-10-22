@@ -4,12 +4,9 @@ Documentation TODO
 General
 -------
 
-* structure documentation and add appropriate toctrees (mostly done)
-* architecture documents don't really show the separation between PyPy and RPython
+* architecture documents don't really show the separation between PyPy and
+  RPython
   * architecture.rst is duplicate (both pypy and rpython)
-* where should the documentation about coding style etc. be put?
-  * we don't really document coding style
-  * w_* convention?
 
 
 Cleanup
@@ -25,6 +22,14 @@ Meta
 
 * make inter-documentation links work
 * work on configuration/options documentation generation
+
+
+PyPy
+----
+
+* Update coding guide
+* Move links from project-documentation.rst to index.rst and consider killing
+  it.
 
 
 RPython
