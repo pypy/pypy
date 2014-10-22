@@ -2517,6 +2517,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     (obj + offset).address[0] = self.get_forwarding_address(
                         pointing_to)
                 else:
+                    # If the target is pinned, then we reach this point too.
+                    # It means that a hypothetical RPython interpreter that
+                    # would let you take a weakref to a pinned object (strange
+                    # thing not possible at all in PyPy) might see these
+                    # weakrefs marked as dead too early.
                     (obj + offset).address[0] = llmemory.NULL
                     continue    # no need to remember this weakref any longer
             #

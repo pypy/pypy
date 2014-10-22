@@ -1,3 +1,4 @@
+import py
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import rgc
@@ -67,6 +68,7 @@ class TestIncrementalMiniMarkGC(test_minimark_gc.TestMiniMarkGC):
         self.interpret(f, [])
 
     def test_weakref_to_pinned(self):
+        py.test.skip("weakref to pinned object: not supported")
         import weakref
         from rpython.rlib import rgc
         class A(object):
