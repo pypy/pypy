@@ -863,3 +863,10 @@ Although ``genreflex`` is indeed a Python tool, the generated reflection
 information is completely independent of Python.
 
 .. _Py3k: https://bitbucket.org/pypy/pypy/src/py3k
+
+
+.. toctree::
+   :hidden:
+
+   cppyy_backend
+   cppyy_example

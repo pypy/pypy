@@ -92,3 +92,9 @@ It cannot be used by any 3rd-party module: the extension modules are
 This is reserved for special cases: it gives direct access to e.g. the
 details of the JIT, allowing us to tweak its interaction with user code.
 This is how the numpy module is being developed.
+
+
+.. toctree::
+   :hidden:
+
+   cppyy
