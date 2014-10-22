@@ -70,11 +70,6 @@ It defines the implementation of the user objects, like integers and
 lists, as well as the operations between them, like addition or
 truth-value-testing.
 
-.. TODO edit the sentence about the flow object space
-
-This division between bytecode evaluator and object space is very
-important, as it gives a lot of flexibility.  One can plug in
-different :doc:`object spaces <objspace>` to get different or enriched behaviours
-of the Python objects.  Additionally, a special more abstract object
-space, the :ref:`flow object space <flow-object-space>`, allows us to reuse the bytecode
-evaluator for our translation framework.
+This division between bytecode evaluator and object space gives a lot of
+flexibility.  One can plug in different :doc:`object spaces <objspace>` to get
+different or enriched behaviours of the Python objects.
