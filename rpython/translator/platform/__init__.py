@@ -184,6 +184,9 @@ class Platform(object):
         cflags = list(self.cflags) + list(extra)
         return (cflags + list(eci.compile_extra) + args)
 
+    def get_shared_only_compile_flags(self):
+        return tuple(self.shared_only)
+
     def preprocess_library_dirs(self, library_dirs):
         if 'PYPY_LOCALBASE' in os.environ:
             dirs = list(self._preprocess_library_dirs(library_dirs))
