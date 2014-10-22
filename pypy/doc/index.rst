@@ -85,6 +85,7 @@ Further resources
   eventhistory
   discussions
   index-of-release-notes
+  index-of-whatsnew
   contributor
 
 
