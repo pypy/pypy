@@ -829,9 +829,12 @@ class FuncNode(ContainerNode):
 
     def forward_declaration(self):
         for funcgen in self.funcgens:
+            name = funcgen.name(self.name)
+            is_exported = name in self.db.exported_symbols
             yield '%s;' % (
                 forward_cdecl(self.implementationtypename,
-                    funcgen.name(self.name), self.db.standalone))
+                    name, self.db.standalone,
+                    is_exported=is_exported))
 
     def implementation(self):
         for funcgen in self.funcgens:

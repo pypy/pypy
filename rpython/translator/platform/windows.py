@@ -186,20 +186,6 @@ class MsvcPlatform(Platform):
         # Windows needs to resolve all symbols even for DLLs
         return super(MsvcPlatform, self)._link_args_from_eci(eci, standalone=True)
 
-    def _exportsymbols_link_flags(self, eci, relto=None):
-        if not eci.export_symbols:
-            return []
-
-        response_file = self._make_response_file("exported_symbols_")
-        f = response_file.open("w")
-        for sym in eci.export_symbols:
-            f.write("/EXPORT:%s\n" % (sym,))
-        f.close()
-
-        if relto:
-            response_file = relto.bestrelpath(response_file)
-        return ["@%s" % (response_file,)]
-
     def _compile_c_file(self, cc, cfile, compile_args):
         oname = self._make_o_file(cfile, ext='obj')
         # notabene: (tismer)
@@ -284,9 +270,7 @@ class MsvcPlatform(Platform):
 
         linkflags = list(self.link_flags)
         if shared:
-            linkflags = self._args_for_shared(linkflags) + [
-                '/EXPORT:$(PYPY_MAIN_FUNCTION)']
-        linkflags += self._exportsymbols_link_flags(eci, relto=path)
+            linkflags = self._args_for_shared(linkflags)
         # Make sure different functions end up at different addresses!
         # This is required for the JIT.
         linkflags.append('/opt:noicf')
