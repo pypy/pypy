@@ -25,7 +25,7 @@ List of extension modules that we support:
     _codecs
     _collections
     :doc:`_continuation <stackless>`
-    :doc:`_ffi <ctypes-implementation>`
+    :doc:`_ffi <discussion/ctypes-implementation>`
     _hashlib
     _io
     _locale
@@ -34,7 +34,7 @@ List of extension modules that we support:
     :doc:`_minimal_curses <config/objspace.usemodules._minimal_curses>`
     _multiprocessing
     _random
-    :doc:`_rawffi <ctypes-implementation>`
+    :doc:`_rawffi <discussion/ctypes-implementation>`
     _sha
     _socket
     _sre

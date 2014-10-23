@@ -48,7 +48,7 @@ CPython, but close enough for most cases.
 
 We also used to provide ``ctypes-configure`` for some API-level access.
 This is now viewed as a precursor of CFFI, which you should use instead.
-More (but older) information is available :doc:`here <ctypes-implementation>`.
+More (but older) information is available :doc:`here <discussion/ctypes-implementation>`.
 Also, ctypes' performance is not as good as CFFI's.
 
 .. _CPython ctypes: http://docs.python.org/library/ctypes.html
