@@ -1,5 +1,6 @@
 #ifndef __PYPY_THREAD_H
 #define __PYPY_THREAD_H
+#include "precommondefs.h"
 #include <assert.h>
 
 #define RPY_TIMEOUT_T long long

@@ -379,10 +379,11 @@ def generate_macro_wrapper(name, macro, functype, eci):
     db = LowLevelDatabase()
     implementationtypename = db.gettype(functype, argnames=argnames)
     if functype.RESULT is lltype.Void:
-        pattern = '%s { %s(%s); }'
+        pattern = '%s%s { %s(%s); }'
     else:
-        pattern = '%s { return %s(%s); }'
+        pattern = '%s%s { return %s(%s); }'
     source = pattern % (
+        'RPY_EXPORTED_FOR_TESTS ',
         cdecl(implementationtypename, wrapper_name),
         macro, ', '.join(argnames))
 
@@ -392,7 +393,6 @@ def generate_macro_wrapper(name, macro, functype, eci):
     # first function)
     ctypes_eci = eci.merge(ExternalCompilationInfo(
             separate_module_sources=[source],
-            export_symbols=[wrapper_name],
             ))
     if hasattr(eci, '_with_ctypes'):
         ctypes_eci = eci._with_ctypes.merge(ctypes_eci)

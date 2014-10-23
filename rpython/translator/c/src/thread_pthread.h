@@ -59,8 +59,10 @@ struct RPyOpaque_ThreadLock {
 
 /* prototypes */
 
+RPY_EXPORTED_FOR_TESTS
 long RPyThreadGetIdent(void);
 long RPyThreadStart(void (*func)(void));
+RPY_EXPORTED_FOR_TESTS
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock);
 void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock);
 int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag);
