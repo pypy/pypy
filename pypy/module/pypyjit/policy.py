@@ -105,17 +105,9 @@ class PyPyJitPolicy(JitPolicy):
             modname, rest = modname.split('.', 1)
         else:
             rest = ''
-        if modname in ['pypyjit', 'signal', 'micronumpy', 'math', 'exceptions',
-                       'imp', 'sys', 'array', 'itertools', 'operator',
-                       'posix', '_socket', '_sre', '_lsprof', '_weakref',
-                       '__pypy__', 'cStringIO', '_collections', 'struct',
-                       'mmap', 'marshal', '_codecs', 'rctime', 'cppyy',
-                       '_cffi_backend', 'pyexpat', '_continuation', '_io',
-                       'thread', 'select', '_random']:
-            if modname == 'pypyjit' and 'interp_resop' in rest:
-                return False
-            return True
-        return False
+        if modname == 'pypyjit' and 'interp_resop' in rest:
+            return False
+        return True
 
     def look_inside_function(self, func):
         mod = func.__module__ or '?'
