@@ -135,9 +135,7 @@ def test_defined_constant_string():
     assert value == 'Michael Merickel'
 
 def test_getintegerfunctionresult():
-    func = 'int sum(int a, int b) {return a + b;}'
-    if platform.name == 'msvc':
-        func = '__declspec(dllexport) ' + func
+    func = 'RPY_EXPORTED int sum(int a, int b) {return a + b;}'
     value = rffi_platform.getintegerfunctionresult('sum', [6, 7], func)
     assert value == 13
     if not platform.name == 'msvc':
