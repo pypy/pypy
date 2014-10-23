@@ -31,9 +31,6 @@ if sys.platform == "win32":
         include_dirs=[cdir],
         includes=['src/ll_math.h'],
         separate_module_files=[cdir.join('src', 'll_math.c')],
-        export_symbols=['_pypy_math_acosh', '_pypy_math_asinh',
-                        '_pypy_math_atanh',
-                        '_pypy_math_expm1', '_pypy_math_log1p'],
         )
     math_prefix = '_pypy_math_'
 else:
