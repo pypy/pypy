@@ -393,6 +393,21 @@ class TestRbuiltin(BaseRtypingTest):
         res = self.interpret(f, [1])
         assert res is False
 
+    def test_isinstance_unicode(self):
+        def g():
+            pass
+        def f(i):
+            if i == 0:
+                l = u"foobar"
+            else:
+                l = None
+            g()
+            return isinstance(l, unicode)
+        res = self.interpret(f, [0])
+        assert res is True
+        res = self.interpret(f, [1])
+        assert res is False
+
     def test_instantiate(self):
         class A:
             pass

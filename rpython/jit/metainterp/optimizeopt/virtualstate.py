@@ -205,6 +205,8 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             raise BadVirtualState
         for i in range(len(self.fieldstate)):
             v = value.get_item_value(i)
+            if v is None:
+                v = value.get_missing_null_value()
             s = self.fieldstate[i]
             if s.position > self.position:
                 s.enum_forced_boxes(boxes, v, optimizer)

@@ -130,12 +130,8 @@ class AppTracebackEntry(py.code.Traceback.Entry):
     frame = None
 
     def __init__(self, space, tb):
-        self._frame = AppFrame(space, space.getattr(tb, space.wrap('tb_frame')))
+        self.frame = AppFrame(space, space.getattr(tb, space.wrap('tb_frame')))
         self.lineno = space.unwrap(space.getattr(tb, space.wrap('tb_lineno'))) - 1
-
-    @property
-    def frame(self):
-        return self._frame
 
     def reinterpret(self):
         # XXX we need to solve a general problem: how to prevent

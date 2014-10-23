@@ -22,3 +22,6 @@ Introduce a new framework for double-dispatched annotation implementations.
 
 .. branch: ClassRepr
 Refactor ClassRepr and make normalizecalls independent of the rtyper.
+
+.. branch: remove-remaining-smm
+Remove all remaining multimethods.
