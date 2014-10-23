@@ -512,9 +512,6 @@ def test_exportstruct():
     FOO = Struct("FOO", ("field1", Signed))
     foo = malloc(FOO, flavor="raw")
     foo.field1 = 43
-    # maybe export_struct should add the struct name to eci automatically?
-    # https://bugs.pypy.org/issue1361
-    foo._obj._compilation_info = ExternalCompilationInfo(export_symbols=['BarStruct'])
     export_struct("BarStruct", foo._obj)
     t = Translation(f, [], backend="c")
     t.annotate()
