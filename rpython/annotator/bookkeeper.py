@@ -323,6 +323,10 @@ class Bookkeeper(object):
                     # unbound method
                     cls_s = self.annotationclass(x.im_class)
                     result = cls_s.find_unboundmethod(x.__name__)
+            elif hasattr(x, '__objclass__'):
+                # builtin unbound method on CPython (aka 'method_descriptor')
+                cls_s = self.annotationclass(x.__objclass__)
+                result = cls_s.find_unboundmethod(x.__name__)
             else:
                 result = None
             if result is None:
