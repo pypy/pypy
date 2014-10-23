@@ -65,7 +65,8 @@ static PyMethodDef module_functions[] = {
 };
 
 
-void initcallback_in_thread(void)
+PyMODINIT_FUNC
+initcallback_in_thread(void)
 {
     PyObject *m;
     m = Py_InitModule("callback_in_thread", module_functions);
