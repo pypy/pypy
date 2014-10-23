@@ -49,6 +49,7 @@ def compile_extension_module(space, modname, symbols, **kwds):
             kwds["compile_extra"]=["-Werror=implicit-function-declaration"]
 
     modname = modname.split('.')[-1]
+    xxxxxxxxxxxxxxxxxxxxxxx
     eci = ExternalCompilationInfo(
         export_symbols=['init%s' % (modname,)]+symbols,
         include_dirs=api.include_dirs,
