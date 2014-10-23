@@ -1,38 +1,39 @@
 # -*- encoding: utf-8 -*-
+import sys
 
-from pypy.objspace.std import floatobject as fobj
-from pypy.objspace.std.multimethod import FailedToImplement
-import py, sys
+import py
+
+from pypy.objspace.std.floatobject import W_FloatObject
+
 
 class TestW_FloatObject:
-
     def test_pow_fff(self):
         x = 10.0
         y = 2.0
         z = 13.0
-        f1 = fobj.W_FloatObject(x)
-        f2 = fobj.W_FloatObject(y)
-        f3 = fobj.W_FloatObject(z)
+        f1 = W_FloatObject(x)
+        f2 = W_FloatObject(y)
+        f3 = W_FloatObject(z)
         self.space.raises_w(self.space.w_TypeError,
-                            fobj.pow__Float_Float_ANY,
-                            self.space, f1, f2, f3)
+                            f1.descr_pow,
+                            self.space, f2, f3)
 
     def test_pow_ffn(self):
         x = 10.0
         y = 2.0
-        f1 = fobj.W_FloatObject(x)
-        f2 = fobj.W_FloatObject(y)
-        v = fobj.pow__Float_Float_ANY(self.space, f1, f2, self.space.w_None)
+        f1 = W_FloatObject(x)
+        f2 = W_FloatObject(y)
+        v = f1.descr_pow(self.space, f2, self.space.w_None)
         assert v.floatval == x ** y
-        f1 = fobj.W_FloatObject(-1.23)
-        f2 = fobj.W_FloatObject(-4.56)
-        v = fobj.pow__Float_Float_ANY(self.space, f1, f2, self.space.w_None)
+        f1 = W_FloatObject(-1.23)
+        f2 = W_FloatObject(-4.56)
+        v = f1.descr_pow(self.space, f2, self.space.w_None)
         assert self.space.isinstance_w(v, self.space.w_complex)
         x = -10
         y = 2.0
-        f1 = fobj.W_FloatObject(x)
-        f2 = fobj.W_FloatObject(y)
-        v = fobj.pow__Float_Float_ANY(self.space, f1, f2, self.space.w_None)
+        f1 = W_FloatObject(x)
+        f2 = W_FloatObject(y)
+        v = f1.descr_pow(self.space, f2, self.space.w_None)
         assert v.floatval == x**y
 
     def test_dont_use_long_impl(self):
