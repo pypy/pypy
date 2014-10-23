@@ -5,6 +5,7 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
+from rpython.translator import cdir
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rfloat import isnan
 
@@ -291,15 +292,17 @@ def test_memory_alignment():
     assert a % struct.calcsize("P") == 0
 
 def test_external_lib():
-    eci = ExternalCompilationInfo()
+    eci = ExternalCompilationInfo(include_dirs = [cdir])
+
     c_source = """
+    #include "src/precommondefs.h"
+    RPY_EXPORTED
     int f(int a, int b)
     {
         return (a + b);
     }
     """
     if platform.name == 'msvc':
-        c_source = '__declspec(dllexport) ' + c_source
         libname = 'libc_lib'
     else:
         libname = 'c_lib'
