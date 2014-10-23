@@ -828,12 +828,12 @@ class FuncNode(ContainerNode):
         return self.funcgens[0].allconstantvalues() #Assume identical for all funcgens
 
     def forward_declaration(self):
+        callable = getattr(self.obj, '_callable', None)
+        is_exported = getattr(callable, 'exported_symbol', False)
         for funcgen in self.funcgens:
-            name = funcgen.name(self.name)
-            is_exported = name in self.db.exported_symbols
             yield '%s;' % (
                 forward_cdecl(self.implementationtypename,
-                    name, self.db.standalone,
+                    funcgen.name(self.name), self.db.standalone,
                     is_exported=is_exported))
 
     def implementation(self):

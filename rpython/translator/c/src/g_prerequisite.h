@@ -25,11 +25,4 @@ typedef unsigned char bool_t;
 #endif
 
 
-#ifdef __GNUC__
-#  define RPY_EXPORTED __attribute__((visibility("default")))
-#else
-#  define RPY_EXPORTED __declspec(dllexport)
-#endif
-
-
 #include "src/threadlocal.h"

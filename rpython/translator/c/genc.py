@@ -199,8 +199,6 @@ class CBuilder(object):
             except (AttributeError, KeyError):
                 pass
         self.merge_eci(*all)
-        #
-        db.exported_symbols = set(self.eci.export_symbols)
 
     def get_gcpolicyclass(self):
         if self.gcpolicy is None:

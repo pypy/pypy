@@ -10,7 +10,7 @@ class ExternalCompilationInfo(object):
     _ATTRIBUTES = ['pre_include_bits', 'includes', 'include_dirs',
                    'post_include_bits', 'libraries', 'library_dirs',
                    'separate_module_sources', 'separate_module_files',
-                   'export_symbols', 'compile_extra', 'link_extra',
+                   'compile_extra', 'link_extra',
                    'frameworks', 'link_files', 'testonly_libraries']
     _DUPLICATES_OK = ['compile_extra', 'link_extra']
     _EXTRA_ATTRIBUTES = ['use_cpp_linker', 'platform']
@@ -24,7 +24,6 @@ class ExternalCompilationInfo(object):
                  library_dirs            = [],
                  separate_module_sources = [],
                  separate_module_files   = [],
-                 export_symbols          = [],
                  compile_extra           = [],
                  link_extra              = [],
                  frameworks              = [],
@@ -59,8 +58,7 @@ class ExternalCompilationInfo(object):
         separately and linked later on.  (If an .h file is needed for
         other .c files to access this, it can be put in includes.)
 
-        export_symbols: list of names that should be exported by the final
-        binary.
+        (export_symbols: killed, replaced by @rlib.entrypoint.export_symbol)
 
         compile_extra: list of parameters which will be directly passed to
         the compiler
@@ -293,11 +291,7 @@ class ExternalCompilationInfo(object):
             if not [fn for fn in self.link_files if fn.endswith('.a')]:
                 ignore_a_files = False    # there are none
         if not self.separate_module_files and not ignore_a_files:
-            if sys.platform != 'win32':
-                return self
-            if not self.export_symbols:
-                return self
-            basepath = udir.join('module_cache')
+            return self    # xxx there was some condition about win32 here
         else:
             #basepath = py.path.local(self.separate_module_files[0]).dirpath()
             basepath = udir.join('shared_cache')
@@ -312,11 +306,13 @@ class ExternalCompilationInfo(object):
             basepath.ensure(dir=1)
             outputfilename = str(pth.dirpath().join(pth.purebasename))
 
+        d = self._copy_attributes()
         if ignore_a_files:
-            d = self._copy_attributes()
             d['link_files'] = [fn for fn in d['link_files']
                                   if not fn.endswith('.a')]
-            self = ExternalCompilationInfo(**d)
+        d['compile_extra'] = d['compile_extra'] + (
+            '-DRPY_EXPORTED_FOR_TESTS=RPY_EXPORTED',)
+        self = ExternalCompilationInfo(**d)
 
         lib = str(host.compile([], self, outputfilename=outputfilename,
                                standalone=False))
@@ -364,5 +360,14 @@ STANDARD_DEFINES = '''
 
 #if !defined(RPY_ASSERT) && !defined(RPY_LL_ASSERT)
 #  define NDEBUG
+#endif
+
+#ifdef __GNUC__
+#  define RPY_EXPORTED __attribute__((visibility("default")))
+#else
+#  define RPY_EXPORTED __declspec(dllexport)
+#endif
+#ifndef RPY_EXPORTED_FOR_TESTS
+#  define RPY_EXPORTED_FOR_TESTS  /* nothing */
 #endif
 '''
