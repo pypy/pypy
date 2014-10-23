@@ -286,9 +286,7 @@ def initstdio(encoding=None, unbuffered=False):
         try:
             sys.stdin = sys.__stdin__ = create_stdio(
                 0, False, "<stdin>", encoding, errors, unbuffered)
-        except OSError as e:
-            if e.errno != errno.EISDIR:
-                raise
+        except IsADirectoryError:
             import os
             print("Python error: <stdin> is a directory, cannot continue",
                   file=sys.stderr)
