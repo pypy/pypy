@@ -1,6 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator import cdir
 
 UNICODE_REPLACEMENT_CHARACTER = u'\uFFFD'
 
@@ -49,20 +50,7 @@ eci = ExternalCompilationInfo(
         srcdir.join('src', 'cjkcodecs', 'multibytecodec.c'),
     ],
     includes = ['src/cjkcodecs/multibytecodec.h'],
-    include_dirs = [str(srcdir)],
-    export_symbols = [
-        "pypy_cjk_dec_new",
-        "pypy_cjk_dec_init", "pypy_cjk_dec_free", "pypy_cjk_dec_chunk",
-        "pypy_cjk_dec_outbuf", "pypy_cjk_dec_outlen",
-        "pypy_cjk_dec_inbuf_remaining", "pypy_cjk_dec_inbuf_consumed",
-        "pypy_cjk_dec_replace_on_error",
-
-        "pypy_cjk_enc_new",
-        "pypy_cjk_enc_init", "pypy_cjk_enc_free", "pypy_cjk_enc_chunk",
-        "pypy_cjk_enc_reset", "pypy_cjk_enc_outbuf", "pypy_cjk_enc_outlen",
-        "pypy_cjk_enc_inbuf_remaining", "pypy_cjk_enc_inbuf_consumed",
-        "pypy_cjk_enc_replace_on_error", "pypy_cjk_enc_getcodec",
-    ] + ["pypy_cjkcodec_%s" % codec for codec in codecs],
+    include_dirs = [str(srcdir), cdir],
 )
 
 MBERR_TOOSMALL = -1  # insufficient output buffer space
