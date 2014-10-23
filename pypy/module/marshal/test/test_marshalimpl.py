@@ -77,7 +77,7 @@ def test_long_more(space):
         expected = marshal.dumps(long(x))
         w_obj = space.wraplong(x)
         m = FakeM()
-        space.marshal_w(w_obj, m)
+        interp_marshal.marshal(space, w_obj, m)
         assert ''.join(m.seen) == expected
         #
         u = interp_marshal.StringUnmarshaller(space, space.wrap(expected))

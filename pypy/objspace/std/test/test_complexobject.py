@@ -1,7 +1,5 @@
 import py
-from pypy.objspace.std.complexobject import W_ComplexObject, \
-    pow__Complex_Complex_ANY
-from pypy.objspace.std import complextype as cobjtype
+from pypy.objspace.std.complexobject import W_ComplexObject, _split_complex
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std import StdObjSpace
 
@@ -21,7 +19,7 @@ class TestW_ComplexObject:
             _t_complex(r,i)
 
     def test_parse_complex(self):
-        f = cobjtype._split_complex
+        f = _split_complex
         def test_cparse(cnum, realnum, imagnum):
             result = f(cnum)
             assert len(result) == 2
@@ -76,7 +74,7 @@ class TestW_ComplexObject:
         assert _powi((0.0,1.0),2) == (-1.0,0.0)
         c = W_ComplexObject(0.0,1.0)
         p = W_ComplexObject(2.0,0.0)
-        r = pow__Complex_Complex_ANY(self.space,c,p,self.space.wrap(None))
+        r = c.descr_pow(self.space, p, self.space.wrap(None))
         assert r.realval == -1.0
         assert r.imagval == 0.0
 

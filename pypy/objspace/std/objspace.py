@@ -271,7 +271,7 @@ class StdObjSpace(ObjSpace):
         return W_ComplexObject(realval, imagval)
 
     def unpackcomplex(self, w_complex):
-        from pypy.objspace.std.complextype import unpackcomplex
+        from pypy.objspace.std.complexobject import unpackcomplex
         return unpackcomplex(self, w_complex)
 
     def newlong(self, val): # val is an int
@@ -305,8 +305,15 @@ class StdObjSpace(ObjSpace):
                 self, module=module, instance=instance,
                 strdict=strdict, kwargs=kwargs)
 
-    def newset(self):
-        return W_SetObject(self, None)
+    def newset(self, iterable_w=None):
+        if iterable_w is None:
+            return W_SetObject(self, None)
+        return W_SetObject(self, self.newtuple(iterable_w))
+
+    def newfrozenset(self, iterable_w=None):
+        if iterable_w is None:
+            return W_FrozensetObject(self, None)
+        return W_FrozensetObject(self, self.newtuple(iterable_w))
 
     def newslice(self, w_start, w_end, w_step):
         return W_SliceObject(w_start, w_end, w_step)
