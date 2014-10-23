@@ -103,6 +103,8 @@ class PyPyJitPolicy(JitPolicy):
             return True
         if '.' in modname:
             modname, rest = modname.split('.', 1)
+            if modname == 'unicodedata':
+                return False
         else:
             rest = ''
         if modname == 'pypyjit' and 'interp_resop' in rest:
