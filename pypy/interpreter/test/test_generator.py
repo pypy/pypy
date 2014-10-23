@@ -364,3 +364,158 @@ def test_should_not_inline(space):
         return g.__code__
     ''')
     assert should_not_inline(w_co) == True
+
+class AppTestYieldFrom:
+    def test_delegating_close(self):
+        """
+        Test delegating 'close'
+        """
+        trace = []
+        d = dict(trace=trace)
+        exec('''if 1:
+        def g1():
+            try:
+                trace.append("Starting g1")
+                yield "g1 ham"
+                yield from g2()
+                yield "g1 eggs"
+            finally:
+                trace.append("Finishing g1")
+        def g2():
+            try:
+                trace.append("Starting g2")
+                yield "g2 spam"
+                yield "g2 more spam"
+            finally:
+                trace.append("Finishing g2")
+        ''', d)
+        g1, g2 = d['g1'], d['g2']
+        g = g1()
+        for i in range(2):
+            x = next(g)
+            trace.append("Yielded %s" % (x,))
+        g.close()
+        assert trace == [
+            "Starting g1",
+            "Yielded g1 ham",
+            "Starting g2",
+            "Yielded g2 spam",
+            "Finishing g2",
+            "Finishing g1"
+        ]
+
+    def test_handing_exception_while_delegating_close(self):
+        """
+        Test handling exception while delegating 'close'
+        """
+        trace = []
+        d = dict(trace=trace)
+        exec('''if 1:
+        def g1():
+            try:
+                trace.append("Starting g1")
+                yield "g1 ham"
+                yield from g2()
+                yield "g1 eggs"
+            finally:
+                trace.append("Finishing g1")
+        def g2():
+            try:
+                trace.append("Starting g2")
+                yield "g2 spam"
+                yield "g2 more spam"
+            finally:
+                trace.append("Finishing g2")
+                raise ValueError("nybbles have exploded with delight")
+        ''', d)
+        g1, g2 = d['g1'], d['g2']
+        g = g1()
+        for i in range(2):
+            x = next(g)
+            trace.append("Yielded %s" % (x,))
+        exc = raises(ValueError, g.close)
+        assert exc.value.args[0] == "nybbles have exploded with delight"
+        assert isinstance(exc.value.__context__, GeneratorExit)
+        assert trace == [
+            "Starting g1",
+            "Yielded g1 ham",
+            "Starting g2",
+            "Yielded g2 spam",
+            "Finishing g2",
+            "Finishing g1",
+        ]
+
+    def test_delegating_throw(self):
+        """
+        Test delegating 'throw'
+        """
+        trace = []
+        d = dict(trace=trace)
+        exec('''if 1:
+        def g1():
+            try:
+                trace.append("Starting g1")
+                yield "g1 ham"
+                yield from g2()
+                yield "g1 eggs"
+            finally:
+                trace.append("Finishing g1")
+        def g2():
+            try:
+                trace.append("Starting g2")
+                yield "g2 spam"
+                yield "g2 more spam"
+            finally:
+                trace.append("Finishing g2")
+        ''', d)
+        g1, g2 = d['g1'], d['g2']
+        g = g1()
+        for i in range(2):
+            x = next(g)
+            trace.append("Yielded %s" % (x,))
+        e = ValueError("tomato ejected")
+        exc = raises(ValueError, g.throw, e)
+        assert exc.value.args[0] == "tomato ejected"
+        assert trace == [
+            "Starting g1",
+            "Yielded g1 ham",
+            "Starting g2",
+            "Yielded g2 spam",
+            "Finishing g2",
+            "Finishing g1",
+        ]
+
+    def test_broken_getattr_handling(self):
+        """
+        Test subiterator with a broken getattr implementation
+        """
+        class Broken:
+            def __iter__(self):
+                return self
+            def __next__(self):
+                return 1
+            def __getattr__(self, attr):
+                1/0
+
+        d = dict(Broken=Broken)
+        exec('''if 1:
+        def g():
+            yield from Broken()
+        ''', d)
+        g = d['g']
+
+        gi = g()
+        assert next(gi) == 1
+        raises(ZeroDivisionError, gi.send, 1)
+
+        gi = g()
+        assert next(gi) == 1
+        raises(ZeroDivisionError, gi.throw, RuntimeError)
+
+        gi = g()
+        assert next(gi) == 1
+        import io, sys
+        sys.stderr = io.StringIO()
+        gi.close()
+        assert 'ZeroDivisionError' in sys.stderr.getvalue()
+    

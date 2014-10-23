@@ -113,10 +113,58 @@ return next yielded value or raise StopIteration."""
             w_val = self.space.w_None
         return self.throw(w_type, w_val, w_tb)
 
+    def _get_yield_from(self):
+        # Probably a hack (but CPython has the same):
+        # If the current frame is stopped in a "yield from",
+        # return the paused generator.
+        from pypy.interpreter.pyopcode import bytecode_spec
+        if not self.frame:
+            return None
+        co_code = self.frame.pycode.co_code
+        opcode = ord(co_code[self.frame.last_instr + 1])
+        if opcode == opcodedesc.YIELD_FROM.index:
+            return self.frame.peekvalue()
+
     def throw(self, w_type, w_val, w_tb):
         from pypy.interpreter.pytraceback import check_traceback
         space = self.space
 
+        w_yf = self._get_yield_from()
+        if w_yf is not None:
+            # Paused in a "yield from", pass the throw to the inner generator.
+            if space.is_w(w_type, space.w_GeneratorExit):
+                try:
+                    w_close = space.getattr(w_yf, space.wrap("close"))
+                except OperationError as e:
+                    if not e.match(space, space.w_AttributeError):
+                        e.write_unraisable(space, "generator.close()")
+                else:
+                    self.running = True
+                    try:
+                        space.call_function(w_close)
+                    except OperationError as operr:
+                        self.running = False
+                        self.send_ex(space.w_None, operr)
+                        return
+                    finally:
+                        self.running = False
+                return self._throw_here(space, w_type, w_val, w_tb)
+            else:
+                try:
+                    space.call_method(w_yf, "throw", w_type, w_val, w_tb)
+                except OperationError as operr:
+                    self.running = False
+                    self.send_ex(space.w_None, operr)
+                    return
+                finally:
+                    self.running = False
+                
+            return self.forward_throw_to_yield_from(yf)
+
+        # Not paused in a "yield from", quit this generator
+        return self._throw_here(space, w_type, w_val, w_tb)
+
+    def _throw_here(self, space, w_type, w_val, w_tb):
         msg = "throw() third argument must be a traceback object"
         if space.is_none(w_tb):
             tb = None
