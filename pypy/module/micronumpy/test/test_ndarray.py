@@ -3065,6 +3065,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert a.item((1, 1, 1)) == 16
         exc = raises(ValueError, a.item, 1, 1, 1, 1)
         assert str(exc.value) == "incorrect number of indices for array"
+        raises(TypeError, "array([1]).item(a=1)")
 
     def test_itemset(self):
         import numpy as np
