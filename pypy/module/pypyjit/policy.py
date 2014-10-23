@@ -103,7 +103,7 @@ class PyPyJitPolicy(JitPolicy):
             return True
         if '.' in modname:
             modname, rest = modname.split('.', 1)
-            if modname == 'unicodedata':
+            if modname in ['unicodedata', 'gc']:
                 return False
         else:
             rest = ''
