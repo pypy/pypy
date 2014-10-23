@@ -20,6 +20,21 @@ class DictTests:
         res = self.interp_operations(fn, [0])
         assert not res
 
+    def test_dict_of_classes_as_values(self):
+        class A:
+            x = 5
+        class B(A):
+            x = 8
+        def fn(n):
+            A()
+            B()
+            d = self.newdict()
+            d[42] = A
+            d[43] = B
+            return d[n].x
+        res = self.interp_operations(fn, [43])
+        assert res == 8
+
     def test_dict_keys_values_items(self):
         for name, extract, expected in [('keys', None, 'k'),
                                         ('values', None, 'v'),
