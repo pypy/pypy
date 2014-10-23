@@ -49,9 +49,8 @@ def compile_extension_module(space, modname, symbols, **kwds):
             kwds["compile_extra"]=["-Werror=implicit-function-declaration"]
 
     modname = modname.split('.')[-1]
-    xxxxxxxxxxxxxxxxxxxxxxx
     eci = ExternalCompilationInfo(
-        export_symbols=['init%s' % (modname,)]+symbols,
+        #export_symbols=['init%s' % (modname,)]+symbols,
         include_dirs=api.include_dirs,
         **kwds
         )
@@ -90,7 +89,8 @@ class AppTestCrossing(AppTestCpythonExtensionBase):
             #include <Python.h>
             %(body)s
 
-            void init%(name)s(void) {
+            PyMODINIT_FUNC
+            init%(name)s(void) {
             %(init)s
             }
             """ % dict(name=name, init=init, body=body)
