@@ -582,6 +582,8 @@ class Test_rbigint(object):
     def test_int_bitwise(self):
         for x in gen_signs([0, 1, 5, 11, 42, 43, 2 ** 30]):
             for y in gen_signs([0, 1, 5, 11, 42, 43, 3 ** 30, 2 ** 31]):
+                if y != intmask(y):
+                    continue      # skip 'y' too large for 32-bit
                 lx = rbigint.fromlong(x)
                 for mod in "xor and_ or_".split():
                     res1 = getattr(lx, 'int_' + mod)(y).tolong()
@@ -666,9 +668,9 @@ class Test_rbigint(object):
             for base in [0, 2, 4, 8, 16, 10, math.e]:
                 l = rbigint.fromlong(op).log(base)
                 if base:
-                    assert ulps_check(l, math.log(op, base), 1) is None
+                    assert ulps_check(l, math.log(op, base)) is None
                 else:
-                    assert ulps_check(l, math.log(op), 1) is None
+                    assert ulps_check(l, math.log(op)) is None
 
 class TestInternalFunctions(object):
     def test__inplace_divrem1(self):

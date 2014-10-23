@@ -278,12 +278,19 @@ def initstdio(encoding=None, unbuffered=False):
         else:
             errors = None
 
-        sys.stdin = sys.__stdin__ = create_stdio(
-            0, False, "<stdin>", encoding, errors, unbuffered)
-        sys.stdout = sys.__stdout__ = create_stdio(
-            1, True, "<stdout>", encoding, errors, unbuffered)
         sys.stderr = sys.__stderr__ = create_stdio(
             2, True, "<stderr>", encoding, 'backslashreplace', unbuffered)
+        sys.stdout = sys.__stdout__ = create_stdio(
+            1, True, "<stdout>", encoding, errors, unbuffered)
+
+        try:
+            sys.stdin = sys.__stdin__ = create_stdio(
+                0, False, "<stdin>", encoding, errors, unbuffered)
+        except IsADirectoryError:
+            import os
+            print("Python error: <stdin> is a directory, cannot continue",
+                  file=sys.stderr)
+            os._exit(1)
     finally:
         if encerr:
             display_exception(encerr)
