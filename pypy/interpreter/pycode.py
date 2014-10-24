@@ -83,6 +83,7 @@ class PyCode(eval.Code):
         self.magic = magic
         self._signature = cpython_code_signature(self)
         self._initialize()
+        self._vmprof_setup_maybe()
 
     def _initialize(self):
         if self.co_cellvars:
@@ -123,6 +124,10 @@ class PyCode(eval.Code):
         if self.space.config.objspace.std.withmapdict:
             from pypy.objspace.std.mapdict import init_mapdict_cache
             init_mapdict_cache(self)
+
+    def _vmprof_setup_maybe(self):
+        # this is overridden only if _vmprof is enabled
+        pass
 
     def _cleanup_(self):
         if (self.magic == cpython_magic and
