@@ -74,7 +74,7 @@ executable form suitable for the target platform.
 The steps of the translation process can be summarized as follows:
 
 * The code object of each source functions is converted to a :ref:`control
-  flow graph <flow-model>` by the :ref:`Flow Object Space <flow-object-space>`.
+  flow graph <flow-model>` by the :ref:`flow graph builder<flow-graphs>`.
 
 * The control flow graphs are processed by the :ref:`Annotator <annotator>`, which
   performs whole-program type inference to annotate each variable of
