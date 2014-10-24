@@ -264,7 +264,7 @@ class W_ComplexObject(W_Root):
         if isinstance(w_obj, W_ComplexObject):
             return w_obj
         if space.isinstance_w(w_obj, space.w_int):
-            w_float = space.float_w(w_obj, allow_conversion=False)
+            w_float = space.float_w(w_obj)
             return W_ComplexObject(w_float, 0.0)
         if space.isinstance_w(w_obj, space.w_float):
             return W_ComplexObject(space.float_w(w_obj), 0.0)
