@@ -1,4 +1,4 @@
-.. arm:
+.. _arm:
 
 Cross-translating for ARM
 =========================

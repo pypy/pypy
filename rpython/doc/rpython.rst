@@ -1,4 +1,4 @@
-.. language:
+.. _language:
 
 RPython Language
 ================

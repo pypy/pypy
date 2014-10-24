@@ -1,4 +1,4 @@
-.. index:
+.. _index:
 
 Welcome to RPython's documentation!
 ===================================

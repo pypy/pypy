@@ -1,4 +1,4 @@
-.. jit:
+.. _jit:
 
 JIT documentation
 =================
