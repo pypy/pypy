@@ -61,7 +61,7 @@ Does RPython have anything to do with Zope's Restricted Python?
 No.  `Zope's RestrictedPython`_ aims to provide a sandboxed
 execution environment for CPython.   `PyPy's RPython`_ is the implementation
 language for dynamic language interpreters.  However, PyPy also provides
-a robust :doc:`sandboxed Python Interpreter <pypy:sandbox>`.
+a robust :ref:`sandboxed Python Interpreter <pypy:sandbox>`.
 
 .. _Zope's RestrictedPython: http://pypi.python.org/pypi/RestrictedPython
 

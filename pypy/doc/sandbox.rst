@@ -1,3 +1,5 @@
+.. _sandbox:
+
 PyPy's sandboxing features
 ==========================
 
