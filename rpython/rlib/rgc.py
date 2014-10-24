@@ -151,6 +151,7 @@ def _make_sure_does_not_move(p):
     Warning: should ideally only be used with the minimark GC, and only
     on objects that are already a bit old, so have a chance to be
     already non-movable."""
+    assert p
     if not we_are_translated():
         # for testing purpose
         return not _is_pinned(p)
