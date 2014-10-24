@@ -3,8 +3,8 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.bytesobject import W_BytesObject
-from pypy.objspace.std.complextype import complex_typedef
-from pypy.objspace.std.floattype import float_typedef
+from pypy.objspace.std.complexobject import W_ComplexObject
+from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from rpython.rlib.rarithmetic import LONG_BIT
@@ -784,7 +784,7 @@ W_Float32Box.typedef = TypeDef("numpy.float32", W_FloatingBox.typedef,
     __reduce__ = interp2app(W_Float32Box.descr_reduce),
 )
 
-W_Float64Box.typedef = TypeDef("numpy.float64", (W_FloatingBox.typedef, float_typedef),
+W_Float64Box.typedef = TypeDef("numpy.float64", (W_FloatingBox.typedef, W_FloatObject.typedef),
     __new__ = interp2app(W_Float64Box.descr__new__.im_func),
     __reduce__ = interp2app(W_Float64Box.descr_reduce),
     as_integer_ratio = interp2app(W_Float64Box.descr_as_integer_ratio),
@@ -799,7 +799,7 @@ W_Complex64Box.typedef = TypeDef("numpy.complex64", (W_ComplexFloatingBox.typede
     __complex__ = interp2app(W_GenericBox.item),
 )
 
-W_Complex128Box.typedef = TypeDef("numpy.complex128", (W_ComplexFloatingBox.typedef, complex_typedef),
+W_Complex128Box.typedef = TypeDef("numpy.complex128", (W_ComplexFloatingBox.typedef, W_ComplexObject.typedef),
     __new__ = interp2app(W_Complex128Box.descr__new__.im_func),
     __reduce__ = interp2app(W_Complex128Box.descr_reduce),
 )
@@ -810,7 +810,7 @@ if long_double_size in (8, 12, 16):
         __reduce__ = interp2app(W_FloatLongBox.descr_reduce),
     )
 
-    W_ComplexLongBox.typedef = TypeDef("numpy.complex%d" % (long_double_size * 16), (W_ComplexFloatingBox.typedef, complex_typedef),
+    W_ComplexLongBox.typedef = TypeDef("numpy.complex%d" % (long_double_size * 16), (W_ComplexFloatingBox.typedef, W_ComplexObject.typedef),
         __new__ = interp2app(W_ComplexLongBox.descr__new__.im_func),
         __reduce__ = interp2app(W_ComplexLongBox.descr_reduce),
         __complex__ = interp2app(W_GenericBox.item),

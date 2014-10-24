@@ -3,9 +3,7 @@ from __future__ import print_function
 
 import py
 
-from pypy.objspace.std import complextype as cobjtype, StdObjSpace
-from pypy.objspace.std.complexobject import (W_ComplexObject,
-    pow__Complex_Complex_ANY)
+from pypy.objspace.std.complexobject import W_ComplexObject, _split_complex
 from pypy.objspace.std.multimethod import FailedToImplement
 
 EPS = 1e-9
@@ -24,7 +22,7 @@ class TestW_ComplexObject:
             _t_complex(r,i)
 
     def test_parse_complex(self):
-        f = cobjtype._split_complex
+        f = _split_complex
         def test_cparse(cnum, realnum, imagnum):
             result = f(cnum)
             assert len(result) == 2
@@ -79,7 +77,7 @@ class TestW_ComplexObject:
         assert _powi((0.0,1.0),2) == (-1.0,0.0)
         c = W_ComplexObject(0.0,1.0)
         p = W_ComplexObject(2.0,0.0)
-        r = pow__Complex_Complex_ANY(self.space,c,p,self.space.wrap(None))
+        r = c.descr_pow(self.space, p, self.space.wrap(None))
         assert r.realval == -1.0
         assert r.imagval == 0.0
 
@@ -93,14 +91,10 @@ class AppTestAppComplexTest:
         if x != 0:
             q = z / x
             assert self.close(q, y)
-            q = z.__div__(x)
-            assert self.close(q, y)
             q = z.__truediv__(x)
             assert self.close(q, y)
         if y != 0:
             q = z / y
-            assert self.close(q, x)
-            q = z.__div__(y)
             assert self.close(q, x)
             q = z.__truediv__(y)
             assert self.close(q, x)
@@ -171,7 +165,7 @@ class AppTestAppComplexTest:
             self.check_div(complex(random(), random()),
                            complex(random(), random()))
 
-        raises(ZeroDivisionError, complex.__div__, 1+1j, 0+0j)
+        raises(ZeroDivisionError, complex.__truediv__, 1+1j, 0+0j)
         # FIXME: The following currently crashes on Alpha
         raises(OverflowError, pow, 1e200+1j, 1e200+1j)
 

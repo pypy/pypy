@@ -17,7 +17,7 @@ from rpython.rlib.rbigint import (
     InvalidEndiannessError, InvalidSignednessError, rbigint)
 from rpython.rlib.rfloat import DBL_MANT_DIG
 from rpython.rlib.rstring import (
-    InvalidBaseError, ParseStringError, ParseStringOverflowError)
+    ParseStringError, ParseStringOverflowError)
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter import typedef
@@ -29,6 +29,7 @@ from pypy.objspace.std import newformat
 from pypy.objspace.std.model import (
     BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT)
 from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.util import wrap_parsestringerror
 
 SENTINEL = object()
 
@@ -779,15 +780,6 @@ def wrapint(space, x):
     # reused.  (we could use a prefetch hint if we had that)
     w_res.intval = x
     return w_res
-
-
-def wrap_parsestringerror(space, e, w_source):
-    if isinstance(e, InvalidBaseError):
-        w_msg = space.wrap(e.msg)
-    else:
-        w_msg = space.wrap(u'%s: %s' % (unicode(e.msg),
-                                        space.unicode_w(space.repr(w_source))))
-    return OperationError(space.w_ValueError, w_msg)
 
 
 divmod_near = applevel('''

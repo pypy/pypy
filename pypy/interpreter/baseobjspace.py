@@ -1902,5 +1902,4 @@ ObjSpace.IrregularOpTable = [
     'newdict',
     'newslice',
     'call_args',
-    'marshal_w',
 ]

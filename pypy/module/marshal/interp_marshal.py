@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rstackovf
+from pypy.objspace.std.marshal_impl import marshal, get_unmarshallers
 
 
 Py_MARSHAL_VERSION = 2
@@ -139,6 +140,26 @@ class _Base(object):
         raise OperationError(space.w_ValueError, space.wrap(msg))
 
 class Marshaller(_Base):
+    """
+    atomic types including typecode:
+
+    atom(tc)                    puts single typecode
+    atom_int(tc, int)           puts code and int
+    atom_int64(tc, int64)       puts code and int64
+    atom_str(tc, str)           puts code, len and string
+    atom_strlist(tc, strlist)   puts code, len and list of strings
+
+    building blocks for compound types:
+
+    start(typecode)             sets the type character
+    put(s)                      puts a string with fixed length
+    put_short(int)              puts a short integer
+    put_int(int)                puts an integer
+    put_pascal(s)               puts a short string
+    put_w_obj(w_obj)            puts a wrapped object
+    put_tuple_w(TYPE, tuple_w)  puts tuple_w, an unwrapped list of wrapped objects
+    """
+
     # _annspecialcase_ = "specialize:ctr_location" # polymorphic
     # does not work with subclassing
 
@@ -217,7 +238,7 @@ class Marshaller(_Base):
         self.put(x)
 
     def put_w_obj(self, w_obj):
-        self.space.marshal_w(w_obj, self)
+        marshal(self.space, w_obj, self)
 
     def dump_w_obj(self, w_obj):
         space = self.space
@@ -243,7 +264,7 @@ class Marshaller(_Base):
         idx = 0
         while idx < lng:
             w_obj = lst_w[idx]
-            self.space.marshal_w(w_obj, self)
+            marshal(self.space, w_obj, self)
             idx += 1
 
     def _overflow(self):
@@ -333,14 +354,11 @@ def invalid_typecode(space, u, tc):
     u.raise_exc("bad marshal data (unknown type code)")
 
 
-def register(codes, func):
-    """NOT_RPYTHON"""
-    for code in codes:
-        Unmarshaller._dispatch[ord(code)] = func
-
 
 class Unmarshaller(_Base):
     _dispatch = [invalid_typecode] * 256
+    for tc, func in get_unmarshallers():
+        _dispatch[ord(tc)] = func
 
     def __init__(self, space, reader):
         self.space = space
