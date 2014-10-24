@@ -7,8 +7,9 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.objspace.std import newformat
-from pypy.objspace.std.intobject import HASH_BITS, HASH_MODULUS
-from pypy.objspace.std.longobject import newlong_from_float
+from pypy.objspace.std.intobject import HASH_BITS, HASH_MODULUS, W_IntObject
+from pypy.objspace.std.longobject import (
+    W_AbstractLongObject, newlong_from_float)
 from rpython.rlib.rarithmetic import (
     LONG_BIT, intmask, ovfcheck_float_to_int, r_uint)
 from pypy.objspace.std.stdtypedef import StdTypeDef
@@ -26,6 +27,9 @@ from rpython.rtyper.lltypesystem.module.ll_math import math_fmod
 HASH_INF  = 314159
 HASH_NAN  = 0
 
+# Here 0.30103 is an upper bound for log10(2)
+NDIGITS_MAX = int((rfloat.DBL_MANT_DIG - rfloat.DBL_MIN_EXP) * 0.30103)
+NDIGITS_MIN = -int((rfloat.DBL_MAX_EXP + 1) * 0.30103)
 
 def float2string(x, code, precision):
     # we special-case explicitly inf and nan here
@@ -123,7 +127,7 @@ def make_compare_func(opname):
     def _compare(self, space, w_other):
         if isinstance(w_other, W_FloatObject):
             return space.newbool(op(self.floatval, w_other.floatval))
-        if space.isinstance_w(w_other, space.w_int):
+        if isinstance(w_other, W_IntObject):
             f1 = self.floatval
             i2 = space.int_w(w_other)
             f2 = float(i2)
@@ -132,7 +136,7 @@ def make_compare_func(opname):
             else:
                 res = op(f1, f2)
             return space.newbool(res)
-        if space.isinstance_w(w_other, space.w_long):
+        if isinstance(w_other, W_AbstractLongObject):
             return space.newbool(do_compare_bigint(self.floatval,
                                                    space.bigint_w(w_other)))
         return space.w_NotImplemented
@@ -385,18 +389,16 @@ class W_FloatObject(W_Root):
         if isinstance(w_obj, W_FloatObject):
             return w_obj
         if space.isinstance_w(w_obj, space.w_int):
-            return W_FloatObject(float(space.int_w(w_obj)))
-        if space.isinstance_w(w_obj, space.w_long):
-            return W_FloatObject(space.float_w(w_obj))
+            return W_FloatObject(space.float_w(w_obj, allow_conversion=False))
+
+    #@staticmethod
+    # XXX: unwrap_spec index?
+    def descr___round__(self, space, w_ndigits=None):
+        return _round_float(space, self, w_ndigits)
 
     def descr_repr(self, space):
         return space.wrap(float2string(self.floatval, 'r', 0))
     descr_str = func_with_new_name(descr_repr, 'descr_str')
-
-    """
-    def descr_str(self, space):
-        return space.wrap(float2string(self.floatval, 'g', DTSF_STR_PRECISION))
-        """
 
     def descr_hash(self, space):
         return space.wrap(_hash_float(space, self.floatval))
@@ -404,15 +406,7 @@ class W_FloatObject(W_Root):
     def descr_format(self, space, w_spec):
         return newformat.run_formatter(space, w_spec, "format_float", self)
 
-    """
-    def descr_coerce(self, space, w_other):
-        w_other = self._to_float(space, w_other)
-        if w_other is None:
-            return space.w_NotImplemented
-        return space.newtuple([self, w_other])
-        """
-
-    def descr_nonzero(self, space):
+    def descr_bool(self, space):
         return space.newbool(self.floatval != 0.0)
 
     def descr_float(self, space):
@@ -420,18 +414,6 @@ class W_FloatObject(W_Root):
             return self
         a = self.floatval
         return W_FloatObject(a)
-
-    """
-    def descr_long(self, space):
-        try:
-            return W_LongObject.fromfloat(space, self.floatval)
-        except OverflowError:
-            raise oefmt(space.w_OverflowError,
-                        "cannot convert float infinity to integer")
-        except ValueError:
-            raise oefmt(space.w_ValueError,
-                        "cannot convert float NaN to integer")
-                        """
 
     def descr_trunc(self, space):
         whole = math.modf(self.floatval)[1]
@@ -666,16 +648,15 @@ W_FloatObject.typedef = StdTypeDef("float",
 Convert a string or number to a floating point number, if possible.''',
     __new__ = interp2app(W_FloatObject.descr__new__),
     __getformat__ = interp2app(W_FloatObject.descr___getformat__, as_classmethod=True),
+    __round__ = interp2app(W_FloatObject.descr___round__),
     fromhex = interp2app(W_FloatObject.descr_fromhex, as_classmethod=True),
     __repr__ = interp2app(W_FloatObject.descr_repr),
     __str__ = interp2app(W_FloatObject.descr_str),
     __hash__ = interp2app(W_FloatObject.descr_hash),
     __format__ = interp2app(W_FloatObject.descr_format),
-    #__coerce__ = interp2app(W_FloatObject.descr_coerce),
-    __nonzero__ = interp2app(W_FloatObject.descr_nonzero),
+    __bool__ = interp2app(W_FloatObject.descr_bool),
     __int__ = interp2app(W_FloatObject.int),
     __float__ = interp2app(W_FloatObject.descr_float),
-    #__long__ = interp2app(W_FloatObject.descr_long),
     __trunc__ = interp2app(W_FloatObject.descr_trunc),
     __neg__ = interp2app(W_FloatObject.descr_neg),
     __pos__ = interp2app(W_FloatObject.descr_pos),
@@ -875,3 +856,38 @@ def _pow(space, x, y):
     if negate_result:
         z = -z
     return z
+
+
+def _round_float(space, w_float, w_ndigits=None):
+    # Algorithm copied directly from CPython
+    x = w_float.floatval
+
+    if w_ndigits is None:
+        # single-argument round: round to nearest integer
+        rounded = rfloat.round_away(x)
+        if math.fabs(x - rounded) == 0.5:
+            # halfway case: round to even
+            rounded = 2.0 * rfloat.round_away(x / 2.0)
+        return newlong_from_float(space, rounded)
+
+    # interpret 2nd argument as a Py_ssize_t; clip on overflow
+    ndigits = space.getindex_w(w_ndigits, None)
+
+    # nans and infinities round to themselves
+    if not rfloat.isfinite(x):
+        return space.wrap(x)
+
+    # Deal with extreme values for ndigits. For ndigits > NDIGITS_MAX, x
+    # always rounds to itself.  For ndigits < NDIGITS_MIN, x always
+    # rounds to +-0.0
+    if ndigits > NDIGITS_MAX:
+        return space.wrap(x)
+    elif ndigits < NDIGITS_MIN:
+        # return 0.0, but with sign of x
+        return space.wrap(0.0 * x)
+
+    # finite x, and ndigits is not unreasonably large
+    z = rfloat.round_double(x, ndigits, half_even=True)
+    if rfloat.isinf(z):
+        raise oefmt(space.w_OverflowError, "overflow occurred during round")
+    return space.wrap(z)

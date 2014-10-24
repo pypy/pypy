@@ -605,11 +605,6 @@ class W_TypeObject(W_Object):
         raise oefmt(space.w_AttributeError,
                     "type object '%N' has no attribute %R", self, w_name)
 
-    """
-    def descr_eq(self, space, w_other):
-        return space.is_(self, w_other)
-        """
-
     def descr_ne(self, space, w_other):
         return space.newbool(not space.is_w(self, w_other))
 
@@ -881,7 +876,6 @@ W_TypeObject.typedef = StdTypeDef("type",
     __call__ = gateway.interp2app(W_TypeObject.descr_call),
     __repr__ = gateway.interp2app(W_TypeObject.descr_repr),
     __getattribute__ = gateway.interp2app(W_TypeObject.descr_getattribute),
-    #__eq__ = gateway.interp2app(W_TypeObject.descr_eq),
     __ne__ = gateway.interp2app(W_TypeObject.descr_ne),
     __prepare__ = gateway.interp2app(descr___prepare__, as_classmethod=True),
 )

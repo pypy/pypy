@@ -13,8 +13,8 @@ def _abstract_method_error(typ):
     raise TypeError(err % (typ.__name__, methods))
 
 def reduce_1(obj, proto):
-    import copy_reg
-    return copy_reg._reduce_ex(obj, proto)
+    import copyreg
+    return copyreg._reduce_ex(obj, proto)
 
 def reduce_2(obj):
     cls = obj.__class__
@@ -26,7 +26,7 @@ def reduce_2(obj):
     else:
         args = getnewargs()
         if not isinstance(args, tuple):
-            raise TypeError, "__getnewargs__ should return a tuple"
+            raise TypeError("__getnewargs__ should return a tuple")
 
     try:
         getstate = obj.__getstate__
@@ -53,12 +53,12 @@ def reduce_2(obj):
         listitems = None
 
     if isinstance(obj, dict):
-        dictitems = obj.iteritems()
+        dictitems = iter(obj.items())
     else:
         dictitems = None
 
-    import copy_reg
-    newobj = copy_reg.__newobj__
+    import copyreg
+    newobj = copyreg.__newobj__
 
     args2 = (cls,) + args
     return newobj, args2, state, listitems, dictitems
@@ -72,10 +72,10 @@ def slotnames(cls):
     except KeyError:
         pass
 
-    import copy_reg
-    slotnames = copy_reg._slotnames(cls)
+    import copyreg
+    slotnames = copyreg._slotnames(cls)
     if not isinstance(slotnames, list) and slotnames is not None:
-        raise TypeError, "copy_reg._slotnames didn't return a list or None"
+        raise TypeError("copyreg._slotnames didn't return a list or None")
     return slotnames
 ''', filename=__file__)
 
@@ -150,18 +150,18 @@ def descr_set___class__(space, w_obj, w_newcls):
 
 def descr__repr__(space, w_obj):
     w_type = space.type(w_obj)
-    classname = w_type.name
+    classname = w_type.name.decode('utf-8')
     if w_type.is_heaptype():
         w_module = w_type.lookup("__module__")
         if w_module is not None:
             try:
-                modulename = space.str_w(w_module)
+                modulename = space.unicode_w(w_module)
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
             else:
-                classname = '%s.%s' % (modulename, classname)
-    return w_obj.getrepr(space, '%s object' % (classname,))
+                classname = u'%s.%s' % (modulename, classname)
+    return w_obj.getrepr(space, u'%s object' % (classname,))
 
 
 def descr__str__(space, w_obj):
@@ -185,16 +185,13 @@ def descr__reduce_ex__(space, w_obj, proto=0):
     w_st_reduce = space.wrap('__reduce__')
     w_reduce = space.findattr(w_obj, w_st_reduce)
     if w_reduce is not None:
-        w_cls = space.getattr(w_obj, space.wrap('__class__'))
-        w_cls_reduce_meth = space.getattr(w_cls, w_st_reduce)
-        w_cls_reduce = space.getattr(w_cls_reduce_meth, space.wrap('im_func'))
-        w_objtype = space.w_object
-        w_obj_dict = space.getattr(w_objtype, space.wrap('__dict__'))
-        w_obj_reduce = space.getitem(w_obj_dict, w_st_reduce)
+        # Check if __reduce__ has been overridden:
+        # "type(obj).__reduce__ is not object.__reduce__"
+        w_cls_reduce = space.getattr(space.type(w_obj), w_st_reduce)
+        w_obj_reduce = space.getattr(space.w_object, w_st_reduce)
         override = not space.is_w(w_cls_reduce, w_obj_reduce)
-        # print 'OVR', override, w_cls_reduce, w_obj_reduce
         if override:
-            return space.call(w_reduce, space.newtuple([]))
+            return space.call_function(w_reduce)
     return descr__reduce__(space, w_obj, proto)
 
 def descr___format__(space, w_obj, w_format_spec):
@@ -209,6 +206,19 @@ def descr___format__(space, w_obj, w_format_spec):
         msg = "object.__format__ with a non-empty format string is deprecated"
         space.warn(space.wrap(msg), space.w_PendingDeprecationWarning)
     return space.format(w_as_str, w_format_spec)
+
+def descr__eq__(space, w_self, w_other):
+    if space.is_w(w_self, w_other):
+        return space.w_True
+    # Return NotImplemented instead of False, so if two objects are
+    # compared, both get a chance at the comparison (issue #1393)
+    return space.w_NotImplemented
+
+def descr__ne__(space, w_self, w_other):
+    return space.not_(space.eq(w_self, w_other))
+
+def descr_richcompare(space, w_self, w_other):
+    return space.w_NotImplemented
 
 
 W_ObjectObject.typedef = StdTypeDef("object",
@@ -229,4 +239,11 @@ W_ObjectObject.typedef = StdTypeDef("object",
     __reduce__ = interp2app(descr__reduce__),
     __reduce_ex__ = interp2app(descr__reduce_ex__),
     __format__ = interp2app(descr___format__),
+
+    __eq__ = interp2app(descr__eq__),
+    __ne__ = interp2app(descr__ne__),
+    __le__ = interp2app(descr_richcompare),
+    __lt__ = interp2app(descr_richcompare),
+    __ge__ = interp2app(descr_richcompare),
+    __gt__ = interp2app(descr_richcompare),
 )
