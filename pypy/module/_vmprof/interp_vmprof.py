@@ -122,7 +122,8 @@ class VMProf(object):
     def _annotate_get_virtual_ip(self):
         if FALSE_BUT_NON_CONSTANT:
             # make sure it's annotated
-            get_virtual_ip(lltype.nullptr(llmemory.GCREF.TO))
+            gcref = rffi.cast(llmemory.GCREF, self.counter) # just a random non-constant value
+            get_virtual_ip(gcref)            
 
     def enable(self, space, filename, period):
         self._annotate_get_virtual_ip()
