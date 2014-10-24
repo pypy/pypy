@@ -271,7 +271,7 @@ class StdObjSpace(ObjSpace):
         return W_ComplexObject(realval, imagval)
 
     def unpackcomplex(self, w_complex):
-        from pypy.objspace.std.complextype import unpackcomplex
+        from pypy.objspace.std.complexobject import unpackcomplex
         return unpackcomplex(self, w_complex)
 
     def newlong(self, val): # val is an int
@@ -305,8 +305,15 @@ class StdObjSpace(ObjSpace):
                 self, module=module, instance=instance,
                 strdict=strdict, kwargs=kwargs)
 
-    def newset(self):
-        return W_SetObject(self, None)
+    def newset(self, iterable_w=None):
+        if iterable_w is None:
+            return W_SetObject(self, None)
+        return W_SetObject(self, self.newtuple(iterable_w))
+
+    def newfrozenset(self, iterable_w=None):
+        if iterable_w is None:
+            return W_FrozensetObject(self, None)
+        return W_FrozensetObject(self, self.newtuple(iterable_w))
 
     def newslice(self, w_start, w_end, w_step):
         return W_SliceObject(w_start, w_end, w_step)
@@ -421,14 +428,19 @@ class StdObjSpace(ObjSpace):
         assert expected_length >= 0
         return self.fixedview(w_obj, expected_length, unroll=True)
 
-    def listview(self, w_obj, expected_length=-1):
+    def listview_no_unpack(self, w_obj):
         if type(w_obj) is W_ListObject:
-            t = w_obj.getitems()
+            return w_obj.getitems()
         elif isinstance(w_obj, W_AbstractTupleObject) and self._uses_tuple_iter(w_obj):
-            t = w_obj.getitems_copy()
+            return w_obj.getitems_copy()
         elif isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
-            t = w_obj.getitems()
+            return w_obj.getitems()
         else:
+            return None
+
+    def listview(self, w_obj, expected_length=-1):
+        t = self.listview_no_unpack(w_obj)
+        if t is None:
             return ObjSpace.unpackiterable(self, w_obj, expected_length)
         if expected_length != -1 and len(t) != expected_length:
             raise self._wrap_expected_length(expected_length, len(t))

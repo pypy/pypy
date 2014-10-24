@@ -6,7 +6,7 @@ class HeapCache(object):
     def __init__(self):
         self.reset()
 
-    def reset(self, reset_virtuals=True):
+    def reset(self, reset_virtuals=True, trace_branch=True):
         # contains boxes where the class is already known
         self.known_class_boxes = {}
         # store the boxes that contain newly allocated objects, this maps the
@@ -14,13 +14,19 @@ class HeapCache(object):
         # escaped the trace or not (True means the box never escaped, False
         # means it did escape), its presences in the mapping shows that it was
         # allocated inside the trace
-        if reset_virtuals:
+        if trace_branch:
             self.new_boxes = {}
+        else:
+            for box in self.new_boxes:
+                self.new_boxes[box] = False
+        if reset_virtuals:
+            self.likely_virtuals = {}      # only for jit.isvirtual()
         # Tracks which boxes should be marked as escaped when the key box
         # escapes.
         self.dependencies = {}
         # contains frame boxes that are not virtualizables
-        self.nonstandard_virtualizables = {}
+        if trace_branch:
+            self.nonstandard_virtualizables = {}
 
         # heap cache
         # maps descrs to {from_box, to_box} dicts
@@ -88,12 +94,8 @@ class HeapCache(object):
               opnum != rop.PTR_NE and
               opnum != rop.INSTANCE_PTR_EQ and
               opnum != rop.INSTANCE_PTR_NE):
-            idx = 0
             for box in argboxes:
-                # setarrayitem_gc don't escape its first argument
-                if not (idx == 0 and opnum in [rop.SETARRAYITEM_GC]):
-                    self._escape(box)
-                idx += 1
+                self._escape(box)
 
     def _escape(self, box):
         try:
@@ -103,6 +105,10 @@ class HeapCache(object):
         else:
             if unescaped:
                 self.new_boxes[box] = False
+        try:
+            del self.likely_virtuals[box]
+        except KeyError:
+            pass
         try:
             deps = self.dependencies.pop(box)
         except KeyError:
@@ -118,7 +124,13 @@ class HeapCache(object):
             opnum == rop.SETARRAYITEM_RAW or
             opnum == rop.SETINTERIORFIELD_GC or
             opnum == rop.COPYSTRCONTENT or
-            opnum == rop.COPYUNICODECONTENT):
+            opnum == rop.COPYUNICODECONTENT or
+            opnum == rop.STRSETITEM or
+            opnum == rop.UNICODESETITEM or
+            opnum == rop.SETFIELD_RAW or
+            opnum == rop.SETARRAYITEM_RAW or
+            opnum == rop.SETINTERIORFIELD_RAW or
+            opnum == rop.RAW_STORE):
             return
         if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST or
             rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or
@@ -196,11 +208,11 @@ class HeapCache(object):
                                 del boxes[box]
                 return
 
-        # XXX when is it useful to clear() the complete dictionaries?
-        # isn't it enough in all cases to do the same as the two
-        # loops just above?
-        self.heap_cache.clear()
-        self.heap_array_cache.clear()
+        # XXX not completely sure, but I *think* it is needed to reset() the
+        # state at least in the 'CALL_*' operations that release the GIL.  We
+        # tried to do only the kind of resetting done by the two loops just
+        # above, but hit an assertion in "pypy test_multiprocessing.py".
+        self.reset(reset_virtuals=False, trace_branch=False)
 
     def is_class_known(self, box):
         return box in self.known_class_boxes
@@ -217,8 +229,12 @@ class HeapCache(object):
     def is_unescaped(self, box):
         return self.new_boxes.get(box, False)
 
+    def is_likely_virtual(self, box):
+        return box in self.likely_virtuals
+
     def new(self, box):
         self.new_boxes[box] = True
+        self.likely_virtuals[box] = None
 
     def new_array(self, box, lengthbox):
         self.new(box)

@@ -43,7 +43,7 @@ class Stat(object):
 
     def print_summary(self):
         items = self.summary.items()
-        items.sort(key=lambda(typenum, stat): stat[1])    # sort by totalsize
+        items.sort(key=lambda (typenum, stat): stat[1])    # sort by totalsize
         totalsize = 0
         for typenum, stat in items:
             totalsize += stat[1]

@@ -7,6 +7,7 @@ from rpython.rlib.rposix import get_errno, set_errno
 from rpython.translator.c.test.test_genc import compile as compile_c
 from rpython.rtyper.lltypesystem.lltype import Signed, Ptr, Char, malloc
 from rpython.rtyper.lltypesystem import lltype
+from rpython.translator import cdir
 from rpython.tool.udir import udir
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.annotator.annrpython import RPythonAnnotator
@@ -80,6 +81,21 @@ class BaseTestRffi:
 
         xf = self.compile(f, [], backendopt=False)
         assert xf() == 4
+
+    def test_charp2str_exact_result(self):
+        from rpython.annotator.annrpython import RPythonAnnotator
+        from rpython.rtyper.llannotation import SomePtr
+        a = RPythonAnnotator()
+        s = a.build_types(charpsize2str, [SomePtr(CCHARP), int])
+        assert s.knowntype == str
+        assert s.can_be_None is False
+        assert s.no_nul is False
+        #
+        a = RPythonAnnotator()
+        s = a.build_types(charp2str, [SomePtr(CCHARP)])
+        assert s.knowntype == str
+        assert s.can_be_None is False
+        assert s.no_nul is True
 
     def test_string_reverse(self):
         c_source = py.code.Source("""
@@ -383,7 +399,9 @@ class BaseTestRffi:
         h_include.write(h_source)
 
         c_source = py.code.Source("""
-        Signed eating_callback(Signed arg, Signed(*call)(Signed))
+        #include "src/precommondefs.h"
+
+        RPY_EXPORTED Signed eating_callback(Signed arg, Signed(*call)(Signed))
         {
             Signed res = call(arg);
             if (res == -1)
@@ -393,9 +411,8 @@ class BaseTestRffi:
         """)
 
         eci = ExternalCompilationInfo(includes=['callback.h'],
-                                      include_dirs=[str(udir)],
-                                      separate_module_sources=[c_source],
-                                      export_symbols=['eating_callback'])
+                                      include_dirs=[str(udir), cdir],
+                                      separate_module_sources=[c_source])
 
         args = [SIGNED, CCallback([SIGNED], SIGNED)]
         eating_callback = llexternal('eating_callback', args, SIGNED,
@@ -483,13 +500,10 @@ class BaseTestRffi:
     def test_nonmoving(self):
         d = 'non-moving data stuff'
         def f():
-            raw_buf, gc_buf = alloc_buffer(len(d))
-            try:
+            with scoped_alloc_buffer(len(d)) as s:
                 for i in range(len(d)):
-                    raw_buf[i] = d[i]
-                return str_from_buffer(raw_buf, gc_buf, len(d), len(d)-1)
-            finally:
-                keep_buffer_alive_until_here(raw_buf, gc_buf)
+                    s.raw[i] = d[i]
+                return s.str(len(d)-1)
         assert f() == d[:-1]
         fn = self.compile(f, [], gcpolicy='ref')
         assert fn() == d[:-1]
@@ -497,14 +511,10 @@ class BaseTestRffi:
     def test_nonmoving_unicode(self):
         d = u'non-moving data'
         def f():
-            raw_buf, gc_buf = alloc_unicodebuffer(len(d))
-            try:
+            with scoped_alloc_unicodebuffer(len(d)) as s:
                 for i in range(len(d)):
-                    raw_buf[i] = d[i]
-                return (unicode_from_buffer(raw_buf, gc_buf, len(d), len(d)-1)
-                        .encode('ascii'))
-            finally:
-                keep_unicodebuffer_alive_until_here(raw_buf, gc_buf)
+                    s.raw[i] = d[i]
+                return s.str(len(d)-1).encode('ascii')
         assert f() == d[:-1]
         fn = self.compile(f, [], gcpolicy='ref')
         assert fn() == d[:-1]
@@ -512,7 +522,7 @@ class BaseTestRffi:
     def test_nonmovingbuffer(self):
         d = 'some cool data that should not move'
         def f():
-            buf = get_nonmovingbuffer(d)
+            buf, is_pinned, is_raw = get_nonmovingbuffer(d)
             try:
                 counter = 0
                 for i in range(len(d)):
@@ -520,7 +530,7 @@ class BaseTestRffi:
                         counter += 1
                 return counter
             finally:
-                free_nonmovingbuffer(d, buf)
+                free_nonmovingbuffer(d, buf, is_pinned, is_raw)
         assert f() == len(d)
         fn = self.compile(f, [], gcpolicy='ref')
         assert fn() == len(d)
@@ -530,16 +540,37 @@ class BaseTestRffi:
         def f():
             counter = 0
             for n in range(32):
-                buf = get_nonmovingbuffer(d)
+                buf, is_pinned, is_raw = get_nonmovingbuffer(d)
                 try:
                     for i in range(len(d)):
                         if buf[i] == d[i]:
                             counter += 1
                 finally:
-                    free_nonmovingbuffer(d, buf)
+                    free_nonmovingbuffer(d, buf, is_pinned, is_raw)
             return counter
         fn = self.compile(f, [], gcpolicy='semispace')
         # The semispace gc uses raw_malloc for its internal data structs
+        # but hopefully less than 30 times.  So we should get < 30 leaks
+        # unless the get_nonmovingbuffer()/free_nonmovingbuffer() pair
+        # leaks at each iteration.  This is what the following line checks.
+        res = fn(expected_extra_mallocs=range(30))
+        assert res == 32 * len(d)
+
+    def test_nonmovingbuffer_incminimark(self):
+        d = 'cool data'
+        def f():
+            counter = 0
+            for n in range(32):
+                buf, is_pinned, is_raw = get_nonmovingbuffer(d)
+                try:
+                    for i in range(len(d)):
+                        if buf[i] == d[i]:
+                            counter += 1
+                finally:
+                    free_nonmovingbuffer(d, buf, is_pinned, is_raw)
+            return counter
+        fn = self.compile(f, [], gcpolicy='incminimark')
+        # The incminimark gc uses raw_malloc for its internal data structs
         # but hopefully less than 30 times.  So we should get < 30 leaks
         # unless the get_nonmovingbuffer()/free_nonmovingbuffer() pair
         # leaks at each iteration.  This is what the following line checks.

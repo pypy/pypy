@@ -274,9 +274,10 @@ def _list_from_statespec(stuple):
     it = iter(nval)
     return [_flatten(spec) for spec in zip(it, it)]
 
-def _list_from_layouttuple(ltuple):
+def _list_from_layouttuple(tk, ltuple):
     """Construct a list from the tuple returned by ttk::layout, this is
     somewhat the reverse of _format_layoutlist."""
+    ltuple = tk.splitlist(ltuple)
     res = []
 
     indx = 0
@@ -295,14 +296,14 @@ def _list_from_layouttuple(ltuple):
             indx += 2
 
             if opt == 'children':
-                val = _list_from_layouttuple(val)
+                val = _list_from_layouttuple(tk, val)
 
             opts[opt] = val
 
     return res
 
-def _val_or_dict(options, func, *args):
-    """Format options then call func with args and options and return
+def _val_or_dict(tk, options, *args):
+    """Format options then call Tk command with args and options and return
     the appropriate result.
 
     If no option is specified, a dict is returned. If a option is
@@ -310,12 +311,12 @@ def _val_or_dict(options, func, *args):
     Otherwise, the function just sets the passed options and the caller
     shouldn't be expecting a return value anyway."""
     options = _format_optdict(options)
-    res = func(*(args + options))
+    res = tk.call(*(args + options))
 
     if len(options) % 2: # option specified without a value, return its value
         return res
 
-    return _dict_from_tcltuple(res)
+    return _dict_from_tcltuple(tk.splitlist(res))
 
 def _convert_stringval(value):
     """Converts a value to, hopefully, a more appropriate Python object."""
@@ -326,6 +327,14 @@ def _convert_stringval(value):
         pass
 
     return value
+
+def _to_number(x):
+    if isinstance(x, str):
+        if '.' in x:
+            x = float(x)
+        else:
+            x = int(x)
+    return x
 
 def tclobjs_to_py(adict):
     """Returns adict with its values converted from Tcl objects to Python
@@ -385,7 +394,7 @@ class Style(object):
         a sequence identifying the value for that option."""
         if query_opt is not None:
             kw[query_opt] = None
-        return _val_or_dict(kw, self.tk.call, self._name, "configure", style)
+        return _val_or_dict(self.tk, kw, self._name, "configure", style)
 
 
     def map(self, style, query_opt=None, **kw):
@@ -397,11 +406,11 @@ class Style(object):
         or something else of your preference. A statespec is compound of
         one or more states and then a value."""
         if query_opt is not None:
-            return _list_from_statespec(
-                self.tk.call(self._name, "map", style, '-%s' % query_opt))
+            return _list_from_statespec(self.tk.splitlist(
+                self.tk.call(self._name, "map", style, '-%s' % query_opt)))
 
-        return _dict_from_tcltuple(
-            self.tk.call(self._name, "map", style, *(_format_mapdict(kw))))
+        return _dict_from_tcltuple(self.tk.splitlist(
+            self.tk.call(self._name, "map", style, *(_format_mapdict(kw)))))
 
 
     def lookup(self, style, option, state=None, default=None):
@@ -455,7 +464,7 @@ class Style(object):
             lspec = "null" # could be any other word, but this may make sense
                            # when calling layout(style) later
 
-        return _list_from_layouttuple(
+        return _list_from_layouttuple(self.tk,
             self.tk.call(self._name, "layout", style, lspec))
 
 
@@ -468,12 +477,12 @@ class Style(object):
 
     def element_names(self):
         """Returns the list of elements defined in the current theme."""
-        return self.tk.call(self._name, "element", "names")
+        return self.tk.splitlist(self.tk.call(self._name, "element", "names"))
 
 
     def element_options(self, elementname):
         """Return the list of elementname's options."""
-        return self.tk.call(self._name, "element", "options", elementname)
+        return self.tk.splitlist(self.tk.call(self._name, "element", "options", elementname))
 
 
     def theme_create(self, themename, parent=None, settings=None):
@@ -507,7 +516,7 @@ class Style(object):
 
     def theme_names(self):
         """Returns a list of all known themes."""
-        return self.tk.call(self._name, "theme", "names")
+        return self.tk.splitlist(self.tk.call(self._name, "theme", "names"))
 
 
     def theme_use(self, themename=None):
@@ -570,7 +579,8 @@ class Widget(Tkinter.Widget):
         matches statespec and False otherwise. If callback is specified,
         then it will be invoked with *args, **kw if the widget state
         matches statespec. statespec is expected to be a sequence."""
-        ret = self.tk.call(self._w, "instate", ' '.join(statespec))
+        ret = self.tk.getboolean(
+                self.tk.call(self._w, "instate", ' '.join(statespec)))
         if ret and callback:
             return callback(*args, **kw)
 
@@ -669,7 +679,7 @@ class Entry(Widget, Tkinter.Entry):
     def bbox(self, index):
         """Return a tuple of (x, y, width, height) which describes the
         bounding box of the character given by index."""
-        return self.tk.call(self._w, "bbox", index)
+        return self._getints(self.tk.call(self._w, "bbox", index))
 
 
     def identify(self, x, y):
@@ -682,7 +692,7 @@ class Entry(Widget, Tkinter.Entry):
         """Force revalidation, independent of the conditions specified
         by the validate option. Returns False if validation fails, True
         if it succeeds. Sets or clears the invalid state accordingly."""
-        return bool(self.tk.call(self._w, "validate"))
+        return bool(self.tk.getboolean(self.tk.call(self._w, "validate")))
 
 
 class Combobox(Entry):
@@ -709,6 +719,8 @@ class Combobox(Entry):
         element at position newindex in the list of values. Otherwise,
         returns the index of the current value in the list of values
         or -1 if the current value does not appear in the list."""
+        if newindex is None:
+            return self.tk.getint(self.tk.call(self._w, "current"))
         return self.tk.call(self._w, "current", newindex)
 
 
@@ -863,7 +875,7 @@ class Notebook(Widget):
     def index(self, tab_id):
         """Returns the numeric index of the tab specified by tab_id, or
         the total number of tabs if tab_id is the string "end"."""
-        return self.tk.call(self._w, "index", tab_id)
+        return self.tk.getint(self.tk.call(self._w, "index", tab_id))
 
 
     def insert(self, pos, child, **kw):
@@ -893,12 +905,12 @@ class Notebook(Widget):
         options to the corresponding values."""
         if option is not None:
             kw[option] = None
-        return _val_or_dict(kw, self.tk.call, self._w, "tab", tab_id)
+        return _val_or_dict(self.tk, kw, self._w, "tab", tab_id)
 
 
     def tabs(self):
         """Returns a list of windows managed by the notebook."""
-        return self.tk.call(self._w, "tabs") or ()
+        return self.tk.splitlist(self.tk.call(self._w, "tabs") or ())
 
 
     def enable_traversal(self):
@@ -970,7 +982,7 @@ class Panedwindow(Widget, Tkinter.PanedWindow):
         Otherwise, sets the options to the corresponding values."""
         if option is not None:
             kw[option] = None
-        return _val_or_dict(kw, self.tk.call, self._w, "pane", pane)
+        return _val_or_dict(self.tk, kw, self._w, "pane", pane)
 
 
     def sashpos(self, index, newpos=None):
@@ -981,7 +993,7 @@ class Panedwindow(Widget, Tkinter.PanedWindow):
         constrained to be between 0 and the total size of the widget.
 
         Returns the new position of sash number index."""
-        return self.tk.call(self._w, "sashpos", index, newpos)
+        return self.tk.getint(self.tk.call(self._w, "sashpos", index, newpos))
 
 PanedWindow = Panedwindow # Tkinter name compatibility
 
@@ -1181,14 +1193,15 @@ class Treeview(Widget, Tkinter.XView, Tkinter.YView):
         If column is specified, returns the bounding box of that cell.
         If the item is not visible (i.e., if it is a descendant of a
         closed item or is scrolled offscreen), returns an empty string."""
-        return self.tk.call(self._w, "bbox", item, column)
+        return self._getints(self.tk.call(self._w, "bbox", item, column)) or ''
 
 
     def get_children(self, item=None):
         """Returns a tuple of children belonging to item.
 
         If item is not specified, returns root children."""
-        return self.tk.call(self._w, "children", item or '') or ()
+        return self.tk.splitlist(
+                self.tk.call(self._w, "children", item or '') or ())
 
 
     def set_children(self, item, *newchildren):
@@ -1208,7 +1221,7 @@ class Treeview(Widget, Tkinter.XView, Tkinter.YView):
         Otherwise, sets the options to the corresponding values."""
         if option is not None:
             kw[option] = None
-        return _val_or_dict(kw, self.tk.call, self._w, "column", column)
+        return _val_or_dict(self.tk, kw, self._w, "column", column)
 
 
     def delete(self, *items):
@@ -1229,7 +1242,7 @@ class Treeview(Widget, Tkinter.XView, Tkinter.YView):
     def exists(self, item):
         """Returns True if the specified item is present in the tree,
         False otherwise."""
-        return bool(self.tk.call(self._w, "exists", item))
+        return bool(self.tk.getboolean(self.tk.call(self._w, "exists", item)))
 
 
     def focus(self, item=None):
@@ -1267,7 +1280,7 @@ class Treeview(Widget, Tkinter.XView, Tkinter.YView):
         if option is not None:
             kw[option] = None
 
-        return _val_or_dict(kw, self.tk.call, self._w, 'heading', column)
+        return _val_or_dict(self.tk, kw, self._w, 'heading', column)
 
 
     def identify(self, component, x, y):
@@ -1311,7 +1324,7 @@ class Treeview(Widget, Tkinter.XView, Tkinter.YView):
     def index(self, item):
         """Returns the integer index of item within its parent's list
         of children."""
-        return self.tk.call(self._w, "index", item)
+        return self.tk.getint(self.tk.call(self._w, "index", item))
 
 
     def insert(self, parent, index, iid=None, **kw):
@@ -1346,7 +1359,7 @@ class Treeview(Widget, Tkinter.XView, Tkinter.YView):
         values as given by kw."""
         if option is not None:
             kw[option] = None
-        return _val_or_dict(kw, self.tk.call, self._w, "item", item)
+        return _val_or_dict(self.tk, kw, self._w, "item", item)
 
 
     def move(self, item, parent, index):
@@ -1420,7 +1433,7 @@ class Treeview(Widget, Tkinter.XView, Tkinter.YView):
         value of given column in given item to the specified value."""
         res = self.tk.call(self._w, "set", item, column, value)
         if column is None and value is None:
-            return _dict_from_tcltuple(res, False)
+            return _dict_from_tcltuple(self.tk.splitlist(res), False)
         else:
             return res
 
@@ -1441,7 +1454,7 @@ class Treeview(Widget, Tkinter.XView, Tkinter.YView):
         values for the given tagname."""
         if option is not None:
             kw[option] = None
-        return _val_or_dict(kw, self.tk.call, self._w, "tag", "configure",
+        return _val_or_dict(self.tk, kw, self._w, "tag", "configure",
             tagname)
 
 
@@ -1451,7 +1464,8 @@ class Treeview(Widget, Tkinter.XView, Tkinter.YView):
         all items which have the specified tag.
 
         * Availability: Tk 8.6"""
-        return self.tk.call(self._w, "tag", "has", tagname, item)
+        return self.tk.getboolean(
+                self.tk.call(self._w, "tag", "has", tagname, item))
 
 
 # Extensions
@@ -1523,7 +1537,8 @@ class LabeledScale(Frame, object):
 
             self.label.place_configure(x=x, y=y)
 
-        from_, to = self.scale['from'], self.scale['to']
+        from_ = _to_number(self.scale['from'])
+        to = _to_number(self.scale['to'])
         if to < from_:
             from_, to = to, from_
         newval = self._variable.get()

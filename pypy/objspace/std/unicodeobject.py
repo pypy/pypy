@@ -103,6 +103,12 @@ class W_UnicodeObject(W_Root):
     _val = unicode_w
 
     @staticmethod
+    def _use_rstr_ops(space, w_other):
+        # Always return true because we always need to copy the other
+        # operand(s) before we can do comparisons
+        return True
+
+    @staticmethod
     def _op_val(space, w_other):
         if isinstance(w_other, W_UnicodeObject):
             return w_other._value
@@ -1062,6 +1068,7 @@ W_UnicodeObject.typedef = StdTypeDef(
     _formatter_field_name_split =
         interp2app(W_UnicodeObject.descr_formatter_field_name_split),
 )
+W_UnicodeObject.typedef.flag_sequence_bug_compat = True
 
 
 def _create_list_from_unicode(value):

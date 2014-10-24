@@ -5,7 +5,6 @@ Common tests shared by test_str, test_unicode, test_userstring and test_string.
 import unittest, string, sys, struct
 from test import test_support
 from UserList import UserList
-import _testcapi
 
 class Sequence:
     def __init__(self, seq='wxyz'): self.seq = seq
@@ -750,10 +749,10 @@ class CommonTest(unittest.TestCase):
         self.checkraises(TypeError, 'hello', 'replace', 42, 'h')
         self.checkraises(TypeError, 'hello', 'replace', 'h', 42)
 
+    @unittest.skipIf(sys.maxint > (1 << 32) or struct.calcsize('P') != 4,
+                     'only applies to 32-bit platforms')
     def test_replace_overflow(self):
         # Check for overflow checking on 32 bit machines
-        if sys.maxint != 2147483647 or struct.calcsize("P") > 4:
-            return
         A2_16 = "A" * (2**16)
         self.checkraises(OverflowError, A2_16, "replace", "", A2_16)
         self.checkraises(OverflowError, A2_16, "replace", "A", A2_16)
@@ -1117,26 +1116,30 @@ class MixinStrUnicodeUserStringTest:
         self.checkraises(TypeError, '%10.*f', '__mod__', ('foo', 42.))
         self.checkraises(ValueError, '%10', '__mod__', (42,))
 
-        width = int(_testcapi.PY_SSIZE_T_MAX + 1)
-        if width <= sys.maxint:
-            self.checkraises(OverflowError, '%*s', '__mod__', (width, ''))
-        prec = int(_testcapi.INT_MAX + 1)
-        if prec <= sys.maxint:
-            self.checkraises(OverflowError, '%.*f', '__mod__', (prec, 1. / 7))
-        # Issue 15989
-        width = int(1 << (_testcapi.PY_SSIZE_T_MAX.bit_length() + 1))
-        if width <= sys.maxint:
-            self.checkraises(OverflowError, '%*s', '__mod__', (width, ''))
-        prec = int(_testcapi.UINT_MAX + 1)
-        if prec <= sys.maxint:
-            self.checkraises(OverflowError, '%.*f', '__mod__', (prec, 1. / 7))
-
         class X(object): pass
         self.checkraises(TypeError, 'abc', '__mod__', X())
         class X(Exception):
             def __getitem__(self, k):
                 return k
         self.checkequal('melon apple', '%(melon)s %(apple)s', '__mod__', X())
+
+    @test_support.cpython_only
+    def test_formatting_c_limits(self):
+        from _testcapi import PY_SSIZE_T_MAX, INT_MAX, UINT_MAX
+        SIZE_MAX = (1 << (PY_SSIZE_T_MAX.bit_length() + 1)) - 1
+        width = int(PY_SSIZE_T_MAX + 1)
+        if width <= sys.maxint:
+            self.checkraises(OverflowError, '%*s', '__mod__', (width, ''))
+        prec = int(INT_MAX + 1)
+        if prec <= sys.maxint:
+            self.checkraises(OverflowError, '%.*f', '__mod__', (prec, 1. / 7))
+        # Issue 15989
+        width = int(SIZE_MAX + 1)
+        if width <= sys.maxint:
+            self.checkraises(OverflowError, '%*s', '__mod__', (width, ''))
+        prec = int(UINT_MAX + 1)
+        if prec <= sys.maxint:
+            self.checkraises(OverflowError, '%.*f', '__mod__', (prec, 1. / 7))
 
     def test_floatformatting(self):
         # float formatting
@@ -1289,27 +1292,27 @@ class MixinStrUserStringTest:
     # Additional tests that only work with
     # 8bit compatible object, i.e. str and UserString
 
-    if test_support.have_unicode:
-        def test_encoding_decoding(self):
-            codecs = [('rot13', 'uryyb jbeyq'),
-                      ('base64', 'aGVsbG8gd29ybGQ=\n'),
-                      ('hex', '68656c6c6f20776f726c64'),
-                      ('uu', 'begin 666 <data>\n+:&5L;&\\@=V]R;&0 \n \nend\n')]
-            for encoding, data in codecs:
-                self.checkequal(data, 'hello world', 'encode', encoding)
-                self.checkequal('hello world', data, 'decode', encoding)
-            # zlib is optional, so we make the test optional too...
-            try:
-                import zlib
-            except ImportError:
-                pass
-            else:
-                data = 'x\x9c\xcbH\xcd\xc9\xc9W(\xcf/\xcaI\x01\x00\x1a\x0b\x04]'
-                self.checkequal(data, 'hello world', 'encode', 'zlib')
-                self.checkequal('hello world', data, 'decode', 'zlib')
+    @unittest.skipUnless(test_support.have_unicode, 'no unicode support')
+    def test_encoding_decoding(self):
+        codecs = [('rot13', 'uryyb jbeyq'),
+                  ('base64', 'aGVsbG8gd29ybGQ=\n'),
+                  ('hex', '68656c6c6f20776f726c64'),
+                  ('uu', 'begin 666 <data>\n+:&5L;&\\@=V]R;&0 \n \nend\n')]
+        for encoding, data in codecs:
+            self.checkequal(data, 'hello world', 'encode', encoding)
+            self.checkequal('hello world', data, 'decode', encoding)
+        # zlib is optional, so we make the test optional too...
+        try:
+            import zlib
+        except ImportError:
+            pass
+        else:
+            data = 'x\x9c\xcbH\xcd\xc9\xc9W(\xcf/\xcaI\x01\x00\x1a\x0b\x04]'
+            self.checkequal(data, 'hello world', 'encode', 'zlib')
+            self.checkequal('hello world', data, 'decode', 'zlib')
 
-            self.checkraises(TypeError, 'xyz', 'decode', 42)
-            self.checkraises(TypeError, 'xyz', 'encode', 42)
+        self.checkraises(TypeError, 'xyz', 'decode', 42)
+        self.checkraises(TypeError, 'xyz', 'encode', 42)
 
 
 class MixinStrUnicodeTest:

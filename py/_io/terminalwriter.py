@@ -7,14 +7,21 @@ Helper functions for writing to terminals and files.
 
 import sys, os
 import py
+py3k = sys.version_info[0] >= 3
+from py.builtin import text, bytes
 
 win32_and_ctypes = False
+colorama = None
 if sys.platform == "win32":
     try:
-        import ctypes
-        win32_and_ctypes = True
+        import colorama
     except ImportError:
-        pass
+        try:
+            import ctypes
+            win32_and_ctypes = True
+        except ImportError:
+            pass
+
 
 def _getdimensions():
     import termios,fcntl,struct
@@ -94,6 +101,10 @@ def ansi_print(text, esc, file=None, newline=True, flush=False):
         file.flush()
 
 def should_do_markup(file):
+    if os.environ.get('PY_COLORS') == '1':
+        return True
+    if os.environ.get('PY_COLORS') == '0':
+        return False
     return hasattr(file, 'isatty') and file.isatty() \
            and os.environ.get('TERM') != 'dumb' \
            and not (sys.platform.startswith('java') and os._name == 'nt')
@@ -105,8 +116,6 @@ class TerminalWriter(object):
                      Blue=44, Purple=45, Cyan=46, White=47,
                      bold=1, light=2, blink=5, invert=7)
 
-    _newline = None   # the last line printed
-
     # XXX deprecate stringio argument
     def __init__(self, file=None, stringio=False, encoding=None):
         if file is None:
@@ -114,12 +123,16 @@ class TerminalWriter(object):
                 self.stringio = file = py.io.TextIO()
             else:
                 file = py.std.sys.stdout
-        elif hasattr(file, '__call__'):
+        elif py.builtin.callable(file) and not (
+             hasattr(file, "write") and hasattr(file, "flush")):
             file = WriteFile(file, encoding=encoding)
+        if hasattr(file, "isatty") and file.isatty() and colorama:
+            file = colorama.AnsiToWin32(file).stream
         self.encoding = encoding or getattr(file, 'encoding', "utf-8")
         self._file = file
         self.fullwidth = get_terminal_width()
         self.hasmarkup = should_do_markup(file)
+        self._lastlen = 0
 
     def _escaped(self, text, esc):
         if esc and self.hasmarkup:
@@ -141,6 +154,12 @@ class TerminalWriter(object):
             fullwidth = self.fullwidth
         # the goal is to have the line be as long as possible
         # under the condition that len(line) <= fullwidth
+        if sys.platform == "win32":
+            # if we print in the last column on windows we are on a
+            # new line but there is no way to verify/neutralize this
+            # (we may not know the exact line width)
+            # so let's be defensive to avoid empty lines in the output
+            fullwidth -= 1
         if title is not None:
             # we want 2 + 2*len(fill) + len(title) <= fullwidth
             # i.e.    2 + 2*len(sepchar)*N + len(title) <= fullwidth
@@ -161,56 +180,39 @@ class TerminalWriter(object):
 
         self.line(line, **kw)
 
-    def write(self, s, **kw):
-        if s:
-            if not isinstance(self._file, WriteFile):
-                s = self._getbytestring(s)
-                if self.hasmarkup and kw:
-                    s = self.markup(s, **kw)
-            self._file.write(s)
-            self._file.flush()
-
-    def _getbytestring(self, s):
-        # XXX review this and the whole logic
-        if self.encoding and sys.version_info[0] < 3 and isinstance(s, unicode):
-            return s.encode(self.encoding)
-        elif not isinstance(s, str):
-            try:
-                return str(s)
-            except UnicodeEncodeError:
-                return "<print-error '%s' object>" % type(s).__name__
-        return s
+    def write(self, msg, **kw):
+        if msg:
+            if not isinstance(msg, (bytes, text)):
+                msg = text(msg)
+            if self.hasmarkup and kw:
+                markupmsg = self.markup(msg, **kw)
+            else:
+                markupmsg = msg
+            write_out(self._file, markupmsg)
 
     def line(self, s='', **kw):
-        if self._newline == False:
-            self.write("\n")
         self.write(s, **kw)
+        self._checkfill(s)
         self.write('\n')
-        self._newline = True
 
-    def reline(self, line, **opts):
+    def reline(self, line, **kw):
         if not self.hasmarkup:
             raise ValueError("cannot use rewrite-line without terminal")
-        if not self._newline:
-            self.write("\r")
-        self.write(line, **opts)
-        # see if we need to fill up some spaces at the end
-        # xxx have a more exact lastlinelen working from self.write?
-        lenline = len(line)
-        try:
-            lastlen = self._lastlinelen
-        except AttributeError:
-            pass
-        else:
-            if lenline < lastlen:
-                self.write(" " * (lastlen - lenline + 1))
-        self._lastlinelen = lenline
-        self._newline = False
+        self.write(line, **kw)
+        self._checkfill(line)
+        self.write('\r')
+        self._lastlen = len(line)
 
+    def _checkfill(self, line):
+        diff2last = self._lastlen - len(line)
+        if diff2last > 0:
+            self.write(" " * diff2last)
 
 class Win32ConsoleWriter(TerminalWriter):
-    def write(self, s, **kw):
-        if s:
+    def write(self, msg, **kw):
+        if msg:
+            if not isinstance(msg, (bytes, text)):
+                msg = text(msg)
             oldcolors = None
             if self.hasmarkup and kw:
                 handle = GetStdHandle(STD_OUTPUT_HANDLE)
@@ -232,16 +234,9 @@ class Win32ConsoleWriter(TerminalWriter):
                     attr |= oldcolors & 0x0007
 
                 SetConsoleTextAttribute(handle, attr)
-            if not isinstance(self._file, WriteFile):
-                s = self._getbytestring(s)
-            self._file.write(s)
-            self._file.flush()
+            write_out(self._file, msg)
             if oldcolors:
                 SetConsoleTextAttribute(handle, oldcolors)
-
-    def line(self, s="", **kw):
-        self.write(s, **kw) # works better for resetting colors
-        self.write("\n")
 
 class WriteFile(object):
     def __init__(self, writemethod, encoding=None):
@@ -250,7 +245,7 @@ class WriteFile(object):
 
     def write(self, data):
         if self.encoding:
-            data = data.encode(self.encoding)
+            data = data.encode(self.encoding, "replace")
         self._writemethod(data)
 
     def flush(self):
@@ -321,3 +316,26 @@ if win32_and_ctypes:
         # and the ending \n causes an empty line to display.
         return info.dwSize.Y, info.dwSize.X - 1
 
+def write_out(fil, msg):
+    # XXX sometimes "msg" is of type bytes, sometimes text which
+    # complicates the situation.  Should we try to enforce unicode?
+    try:
+        # on py27 and above writing out to sys.stdout with an encoding
+        # should usually work for unicode messages (if the encoding is
+        # capable of it)
+        fil.write(msg)
+    except UnicodeEncodeError:
+        # on py26 it might not work because stdout expects bytes
+        if fil.encoding:
+            try:
+                fil.write(msg.encode(fil.encoding))
+            except UnicodeEncodeError:
+                # it might still fail if the encoding is not capable
+                pass
+            else:
+                fil.flush()
+                return
+        # fallback: escape all unicode characters
+        msg = msg.encode("unicode-escape").decode("ascii")
+        fil.write(msg)
+    fil.flush()

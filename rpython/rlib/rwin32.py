@@ -79,7 +79,7 @@ class CConfig:
             "MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT)")
 
         defines = """FORMAT_MESSAGE_ALLOCATE_BUFFER FORMAT_MESSAGE_FROM_SYSTEM
-                       MAX_PATH _MAX_ENV
+                       MAX_PATH _MAX_ENV FORMAT_MESSAGE_IGNORE_INSERTS
                        WAIT_OBJECT_0 WAIT_TIMEOUT INFINITE
                        ERROR_INVALID_HANDLE
                        DELETE READ_CONTROL SYNCHRONIZE WRITE_DAC
@@ -130,6 +130,7 @@ if WIN32:
     # is hidden by operations in ll2ctypes.  Call it now.
     GetLastError()
 
+    GetModuleHandle = winexternal('GetModuleHandleA', [rffi.CCHARP], HMODULE)
     LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], HMODULE)
     GetProcAddress = winexternal('GetProcAddress',
                                  [HMODULE, rffi.CCHARP],
@@ -226,7 +227,8 @@ if WIN32:
         buf[0] = lltype.nullptr(rffi.CCHARP.TO)
         try:
             msglen = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                                   FORMAT_MESSAGE_FROM_SYSTEM,
+                                   FORMAT_MESSAGE_FROM_SYSTEM | 
+                                   FORMAT_MESSAGE_IGNORE_INSERTS,
                                    None,
                                    rffi.cast(DWORD, code),
                                    DEFAULT_LANGUAGE,

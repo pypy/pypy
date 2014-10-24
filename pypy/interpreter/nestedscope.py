@@ -65,6 +65,15 @@ class Cell(W_Root):
         return "<%s(%s) at 0x%x>" % (self.__class__.__name__,
                                      content, uid(self))
 
+    def descr__repr__(self, space):
+        if self.w_value is None:
+            content = "empty"
+        else:
+            content = "%s object at 0x%s" % (space.type(self.w_value).name,
+                                             self.w_value.getaddrstring(space))
+        s = "<cell at 0x%s: %s>" % (self.getaddrstring(space), content)
+        return space.wrap(s)
+
     def descr__cell_contents(self, space):
         try:
             return self.get()

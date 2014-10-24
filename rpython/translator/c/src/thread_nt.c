@@ -196,50 +196,58 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 /* GIL code                                                 */
 /************************************************************/
 
-static volatile LONG pending_acquires = -1;
-static CRITICAL_SECTION mutex_gil;
-static HANDLE cond_gil;
+typedef HANDLE mutex2_t;   /* a semaphore, on Windows */
 
-long RPyGilAllocate(void)
-{
-    pending_acquires = 0;
-    InitializeCriticalSection(&mutex_gil);
-    EnterCriticalSection(&mutex_gil);
-    cond_gil = CreateEvent (NULL, FALSE, FALSE, NULL);
-    return 1;
+static void gil_fatal(const char *msg) {
+    fprintf(stderr, "Fatal error in the GIL: %s\n", msg);
+    abort();
 }
 
-long RPyGilYieldThread(void)
-{
-    /* can be called even before RPyGilAllocate(), but in this case,
-       pending_acquires will be -1 */
-    if (pending_acquires <= 0)
-        return 0;
-    InterlockedIncrement(&pending_acquires);
-    PulseEvent(cond_gil);
-
-    /* hack: the three following lines do a pthread_cond_wait(), and
-       normally specifying a timeout of INFINITE would be fine.  But the
-       first and second operations are not done atomically, so there is a
-       (small) risk that PulseEvent misses the WaitForSingleObject().
-       In this case the process will just sleep a few milliseconds. */
-    LeaveCriticalSection(&mutex_gil);
-    WaitForSingleObject(cond_gil, 15);
-    EnterCriticalSection(&mutex_gil);
-
-    InterlockedDecrement(&pending_acquires);
-    return 1;
+static inline void mutex2_init(mutex2_t *mutex) {
+    *mutex = CreateSemaphore(NULL, 1, 1, NULL);
+    if (*mutex == NULL)
+        gil_fatal("CreateSemaphore failed");
 }
 
-void RPyGilRelease(void)
-{
-    LeaveCriticalSection(&mutex_gil);
-    PulseEvent(cond_gil);
+static inline void mutex2_lock(mutex2_t *mutex) {
+    WaitForSingleObject(*mutex, INFINITE);
 }
 
-void RPyGilAcquire(void)
-{
-    InterlockedIncrement(&pending_acquires);
-    EnterCriticalSection(&mutex_gil);
-    InterlockedDecrement(&pending_acquires);
+static inline void mutex2_unlock(mutex2_t *mutex) {
+    ReleaseSemaphore(*mutex, 1, NULL);
 }
+
+static inline void mutex2_init_locked(mutex2_t *mutex) {
+    mutex2_init(mutex);
+    mutex2_lock(mutex);
+}
+
+static inline void mutex2_loop_start(mutex2_t *mutex) { }
+static inline void mutex2_loop_stop(mutex2_t *mutex) { }
+
+static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay)
+{
+    DWORD result = WaitForSingleObject(*mutex, (DWORD)(delay * 1000.0 + 0.999));
+    return (result != WAIT_TIMEOUT);
+}
+
+#define mutex1_t      mutex2_t
+#define mutex1_init   mutex2_init
+#define mutex1_lock   mutex2_lock
+#define mutex1_unlock mutex2_unlock
+
+#ifdef _M_IA64
+/* On Itanium, use 'acquire' memory ordering semantics */
+#define lock_test_and_set(ptr, value)  InterlockedExchangeAcquire(ptr, value)
+#else
+#define lock_test_and_set(ptr, value)  InterlockedExchange(ptr, value)
+#endif
+#define atomic_increment(ptr)          InterlockedIncrement(ptr)
+#define atomic_decrement(ptr)          InterlockedDecrement(ptr)
+
+#define SAVE_ERRNO()      int saved_errno = errno; \
+                          DWORD saved_lasterr = GetLastError()
+#define RESTORE_ERRNO()   errno = saved_errno; \
+                          SetLastError(saved_lasterr)
+
+#include "src/thread_gil.c"

@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 from test import test_support
 import unittest
 import urlparse
@@ -363,6 +361,16 @@ class UrlParseTestCase(unittest.TestCase):
              'dead:beef:cafe:5417:affe:8fa3:deaf:feed', None),
             ('http://[::12.34.56.78]/foo/', '::12.34.56.78', None),
             ('http://[::ffff:12.34.56.78]/foo/',
+             '::ffff:12.34.56.78', None),
+            ('http://Test.python.org:/foo/', 'test.python.org', None),
+            ('http://12.34.56.78:/foo/', '12.34.56.78', None),
+            ('http://[::1]:/foo/', '::1', None),
+            ('http://[dead:beef::1]:/foo/', 'dead:beef::1', None),
+            ('http://[dead:beef::]:/foo/', 'dead:beef::', None),
+            ('http://[dead:beef:cafe:5417:affe:8FA3:deaf:feed]:/foo/',
+             'dead:beef:cafe:5417:affe:8fa3:deaf:feed', None),
+            ('http://[::12.34.56.78]:/foo/', '::12.34.56.78', None),
+            ('http://[::ffff:12.34.56.78]:/foo/',
              '::ffff:12.34.56.78', None),
             ]:
             urlparsed = urlparse.urlparse(url)

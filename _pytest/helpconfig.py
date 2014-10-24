@@ -12,9 +12,11 @@ def pytest_addoption(parser):
             help="show help message and configuration info")
     group._addoption('-p', action="append", dest="plugins", default = [],
                metavar="name",
-               help="early-load given plugin (multi-allowed).")
-    group.addoption('--traceconfig',
-               action="store_true", dest="traceconfig", default=False,
+               help="early-load given plugin (multi-allowed). "
+                    "To avoid loading of plugins, use the `no:` prefix, e.g. "
+                    "`no:doctest`.")
+    group.addoption('--traceconfig', '--trace-config',
+               action="store_true", default=False,
                help="trace considerations of conftest.py files."),
     group.addoption('--debug',
                action="store_true", dest="debug", default=False,
@@ -46,7 +48,7 @@ def pytest_unconfigure(config):
 def pytest_cmdline_main(config):
     if config.option.version:
         p = py.path.local(pytest.__file__)
-        sys.stderr.write("This is py.test version %s, imported from %s\n" %
+        sys.stderr.write("This is pytest version %s, imported from %s\n" %
             (pytest.__version__, p))
         plugininfo = getpluginversioninfo(config)
         if plugininfo:
@@ -54,14 +56,15 @@ def pytest_cmdline_main(config):
                 sys.stderr.write(line + "\n")
         return 0
     elif config.option.help:
-        config.pluginmanager.do_configure(config)
+        config.do_configure()
         showhelp(config)
-        config.pluginmanager.do_unconfigure(config)
+        config.do_unconfigure()
         return 0
 
 def showhelp(config):
     tw = py.io.TerminalWriter()
     tw.write(config._parser.optparser.format_help())
+    tw.write(config._parser.optparser.format_epilog(None))
     tw.line()
     tw.line()
     #tw.sep( "=", "config file settings")
@@ -79,6 +82,10 @@ def showhelp(config):
 
     tw.line() ; tw.line()
     #tw.sep("=")
+    tw.line("to see available markers type: py.test --markers")
+    tw.line("to see available fixtures type: py.test --fixtures")
+    tw.line("(shown according to specified file_or_dir or current dir "
+            "if not specified)")
     return
 
     tw.line("conftest.py options:")
@@ -117,7 +124,6 @@ def pytest_report_header(config):
 
     if config.option.traceconfig:
         lines.append("active plugins:")
-        plugins = []
         items = config.pluginmanager._name2plugin.items()
         for name, plugin in items:
             if hasattr(plugin, '__file__'):

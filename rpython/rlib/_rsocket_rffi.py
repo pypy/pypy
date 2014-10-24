@@ -105,6 +105,9 @@ class CConfig:
     linux = platform.Defined('linux')
     WIN32 = platform.Defined('_WIN32')
 
+    O_RDONLY = platform.DefinedConstantInteger('O_RDONLY')
+    O_WRONLY = platform.DefinedConstantInteger('O_WRONLY')
+    O_RDWR = platform.DefinedConstantInteger('O_RDWR')
     O_NONBLOCK = platform.DefinedConstantInteger('O_NONBLOCK')
     F_GETFL = platform.DefinedConstantInteger('F_GETFL')
     F_SETFL = platform.DefinedConstantInteger('F_SETFL')
@@ -406,6 +409,9 @@ for name, value in constants.items():
 
 locals().update(constants)
 
+O_RDONLY = cConfig.O_RDONLY
+O_WRONLY = cConfig.O_WRONLY
+O_RDWR = cConfig.O_RDWR
 O_NONBLOCK = cConfig.O_NONBLOCK
 F_GETFL = cConfig.F_GETFL
 F_SETFL = cConfig.F_SETFL
@@ -493,10 +499,16 @@ freeaddrinfo = external('freeaddrinfo', [addrinfo_ptr], lltype.Void)
 getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
                        size_t, CCHARP, size_t, rffi.INT], rffi.INT)
 
-htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False)
-htons = external('htons', [rffi.USHORT], rffi.USHORT, releasegil=False)
-ntohl = external('ntohl', [rffi.UINT], rffi.UINT, releasegil=False)
-ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, releasegil=False)
+if sys.platform.startswith("openbsd"):
+    htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False, macro=True)
+    htons = external('htons', [rffi.USHORT], rffi.USHORT, releasegil=False, macro=True)
+    ntohl = external('ntohl', [rffi.UINT], rffi.UINT, releasegil=False, macro=True)
+    ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, releasegil=False, macro=True)
+else:
+    htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False)
+    htons = external('htons', [rffi.USHORT], rffi.USHORT, releasegil=False)
+    ntohl = external('ntohl', [rffi.UINT], rffi.UINT, releasegil=False)
+    ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, releasegil=False)
 
 if _POSIX:
     inet_aton = external('inet_aton', [CCHARP, lltype.Ptr(in_addr)],
@@ -639,9 +651,16 @@ if WIN32:
         return rwin32.FormatError(errno)
     def gai_strerror_str(errno):
         return rwin32.FormatError(errno)
+
+    # WinSock does not use a bitmask in select, and uses
+    # socket handles greater than FD_SETSIZE
+    MAX_FD_SIZE = None
+
 else:
     from rpython.rlib.rposix import get_errno as geterrno
 
     socket_strerror_str = os.strerror
     def gai_strerror_str(errno):
         return rffi.charp2str(gai_strerror(errno))
+
+    MAX_FD_SIZE = FD_SETSIZE

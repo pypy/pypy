@@ -179,6 +179,12 @@ def op_direct_arrayitems(obj):
 def op_direct_ptradd(obj, index):
     checkptr(obj)
     assert is_valid_int(index)
+    if not obj:
+        raise AssertionError("direct_ptradd on null pointer")
+        ## assert isinstance(index, int)
+        ## assert not (0 <= index < 4096)
+        ## from rpython.rtyper.lltypesystem import rffi
+        ## return rffi.cast(lltype.typeOf(obj), index)
     return lltype.direct_ptradd(obj, index)
 
 
@@ -218,6 +224,12 @@ def op_int_between(a, b, c):
     assert lltype.typeOf(b) is lltype.Signed
     assert lltype.typeOf(c) is lltype.Signed
     return a <= b < c
+
+def op_int_force_ge_zero(a):
+    assert lltype.typeOf(a) is lltype.Signed
+    if a < 0:
+        return 0
+    return a
 
 def op_int_and(x, y):
     if not is_valid_int(x):

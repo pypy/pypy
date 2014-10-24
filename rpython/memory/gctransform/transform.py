@@ -347,6 +347,21 @@ class BaseGCTransformer(object):
                   [rmodel.inputconst(lltype.Bool, False)],
                   resultvar=op.result)
 
+    def gct_gc_pin(self, hop):
+        op = hop.spaceop
+        hop.genop("same_as",
+                    [rmodel.inputconst(lltype.Bool, False)],
+                    resultvar=op.result)
+
+    def gct_gc_unpin(self, hop):
+        pass
+
+    def gct_gc__is_pinned(self, hop):
+        op = hop.spaceop
+        hop.genop("same_as",
+                  [rmodel.inputconst(lltype.Bool, False)],
+                  resultvar=op.result)
+
     def gct_gc_identityhash(self, hop):
         # must be implemented in the various GCs
         raise NotImplementedError
@@ -509,12 +524,6 @@ class GCTransformer(BaseGCTransformer):
         meth = getattr(self, 'gct_fv_%s_malloc_varsize' % flavor, None)
         assert meth, "%s has no support for malloc_varsize with flavor %r" % (self, flavor)
         return self.varsize_malloc_helper(hop, flags, meth, [])
-
-    def gct_malloc_nonmovable(self, *args, **kwds):
-        return self.gct_malloc(*args, **kwds)
-
-    def gct_malloc_nonmovable_varsize(self, *args, **kwds):
-        return self.gct_malloc_varsize(*args, **kwds)
 
     def gct_gc_add_memory_pressure(self, hop):
         if hasattr(self, 'raw_malloc_memory_pressure_ptr'):

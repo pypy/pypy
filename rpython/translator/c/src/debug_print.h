@@ -6,12 +6,13 @@
 /* values of the PYPYLOG environment variable:
    ("top-level" debug_prints means not between debug_start and debug_stop)
 
-   (empty)        logging is turned off, apart from top-level debug_prints
+   (empty)         logging is turned off, apart from top-level debug_prints
                      that go to stderr
-   fname          logging for profiling: includes all debug_start/debug_stop
-                     but not any nested debug_print
-   :fname         full logging
-   prefix:fname   conditional logging
+   fname or +fname logging for profiling: includes all debug_start/debug_stop
+                     but not any nested debug_print, use +fname if there is a
+                     colon : in fname
+   :fname          full logging
+   prefix:fname    conditional logging
    prefix1,prefix2:fname   conditional logging with multiple selections
 
    Conditional logging means that it only includes the debug_start/debug_stop
@@ -43,7 +44,7 @@ long pypy_debug_offset(void);
 void pypy_debug_forked(long original_offset);
 
 extern long pypy_have_debug_prints;
-extern FILE *pypy_debug_file;
+extern RPY_EXPORTED FILE *pypy_debug_file;
 
 #define OP_LL_READ_TIMESTAMP(val) READ_TIMESTAMP(val)
 

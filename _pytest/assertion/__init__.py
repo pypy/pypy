@@ -3,7 +3,6 @@ support for presenting detailed information in failing assertions.
 """
 import py
 import sys
-import pytest
 from _pytest.monkeypatch import monkeypatch
 from _pytest.assertion import util
 
@@ -19,8 +18,8 @@ def pytest_addoption(parser):
 to provide assert expression information. """)
     group.addoption('--no-assert', action="store_true", default=False,
         dest="noassert", help="DEPRECATED equivalent to --assert=plain")
-    group.addoption('--nomagic', action="store_true", default=False,
-        dest="nomagic", help="DEPRECATED equivalent to --assert=plain")
+    group.addoption('--nomagic', '--no-magic', action="store_true",
+        default=False, help="DEPRECATED equivalent to --assert=plain")
 
 class AssertionState:
     """State for the assertion plugin."""
@@ -35,22 +34,25 @@ def pytest_configure(config):
         mode = "plain"
     if mode == "rewrite":
         try:
-            import ast
+            import ast  # noqa
         except ImportError:
             mode = "reinterp"
         else:
-            if sys.platform.startswith('java'):
+            # Both Jython and CPython 2.6.0 have AST bugs that make the
+            # assertion rewriting hook malfunction.
+            if (sys.platform.startswith('java') or
+                sys.version_info[:3] == (2, 6, 0)):
                 mode = "reinterp"
     if mode != "plain":
         _load_modules(mode)
         m = monkeypatch()
         config._cleanup.append(m.undo)
         m.setattr(py.builtin.builtins, 'AssertionError',
-                  reinterpret.AssertionError)
+                  reinterpret.AssertionError)  # noqa
     hook = None
     if mode == "rewrite":
-        hook = rewrite.AssertionRewritingHook()
-        sys.meta_path.append(hook)
+        hook = rewrite.AssertionRewritingHook()  # noqa
+        sys.meta_path.insert(0, hook)
     warn_about_missing_assertion(mode)
     config._assertstate = AssertionState(config, mode)
     config._assertstate.hook = hook
@@ -73,9 +75,16 @@ def pytest_runtest_setup(item):
     def callbinrepr(op, left, right):
         hook_result = item.ihook.pytest_assertrepr_compare(
             config=item.config, op=op, left=left, right=right)
+
         for new_expl in hook_result:
             if new_expl:
-                res = '\n~'.join(new_expl)
+                # Don't include pageloads of data unless we are very
+                # verbose (-vv)
+                if (sum(len(p) for p in new_expl[1:]) > 80*8
+                        and item.config.option.verbose < 2):
+                    new_expl[1:] = [py.builtin._totext(
+                        'Detailed information truncated, use "-vv" to show')]
+                res = py.builtin._totext('\n~').join(new_expl)
                 if item.config.getvalue("assertmode") == "rewrite":
                     # The result will be fed back a python % formatting
                     # operation, which will fail if there are extraneous
@@ -95,9 +104,9 @@ def pytest_sessionfinish(session):
 def _load_modules(mode):
     """Lazily import assertion related code."""
     global rewrite, reinterpret
-    from _pytest.assertion import reinterpret
+    from _pytest.assertion import reinterpret  # noqa
     if mode == "rewrite":
-        from _pytest.assertion import rewrite
+        from _pytest.assertion import rewrite  # noqa
 
 def warn_about_missing_assertion(mode):
     try:

@@ -379,6 +379,7 @@ class AppTestTypeDef:
         assert bm.im_class is B
         assert bm.__doc__ == "aaa"
         assert bm.x == 3
+        assert type(bm).__doc__ == "instancemethod(function, instance, class)\n\nCreate an instance method object."
         raises(AttributeError, setattr, bm, 'x', 15)
         l = []
         assert l.append.__self__ is l
@@ -387,6 +388,13 @@ class AppTestTypeDef:
         # because it's a regular method, and .__objclass__
         # differs from .im_class in case the method is
         # defined in some parent class of l's actual class
+
+    def test_classmethod_im_class(self):
+        class Foo(object):
+            @classmethod
+            def bar(cls):
+                pass
+        assert Foo.bar.im_class is type
 
     def test_func_closure(self):
         x = 2

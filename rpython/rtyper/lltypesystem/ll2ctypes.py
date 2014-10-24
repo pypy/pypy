@@ -26,7 +26,7 @@ from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.llinterp import LLInterpreter, LLException
-from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
+from rpython.rtyper.rclass import OBJECT, OBJECT_VTABLE
 from rpython.rtyper import raddress
 from rpython.translator.platform import platform
 from array import array
@@ -573,6 +573,8 @@ class _parentable_mixin(object):
         if addr in ALLOCATED:
             raise Exception("internal ll2ctypes error - "
                             "double conversion from lltype to ctypes?")
+        if self._TYPE._gckind == 'gc':
+            return
         # XXX don't store here immortal structures
         ALLOCATED[addr] = self
 
@@ -956,6 +958,11 @@ def ctypes2lltype(T, cobj):
                         REAL_T = lltype.Ptr(REAL_TYPE)
                         cobj = ctypes.cast(cobj, get_ctypes_type(REAL_T))
                     container = lltype._struct(REAL_TYPE)
+                # obscuuuuuuuuure: 'cobj' is a ctypes pointer, which is
+                # mutable; and so if we save away the 'cobj' object
+                # itself, it might suddenly later be unexpectedly
+                # modified!  Make a copy.
+                cobj = ctypes.cast(cobj, type(cobj))
                 struct_use_ctypes_storage(container, cobj)
                 if REAL_TYPE != T.TO:
                     p = container._as_ptr()

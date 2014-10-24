@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
 from test import test_support
@@ -230,7 +229,7 @@ class LargeValuesTestCase(unittest.TestCase):
         self.check_unmarshallable('x' * size)
 
     @test_support.precisionbigmemtest(size=LARGE_SIZE,
-            memuse=character_size, dry_run=False)
+            memuse=character_size + 2, dry_run=False)
     def test_unicode(self, size):
         self.check_unmarshallable(u'x' * size)
 

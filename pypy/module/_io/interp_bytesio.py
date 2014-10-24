@@ -4,12 +4,15 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.rlib.rStringIO import RStringIO
 from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.objectmodel import import_from_mixin
 from pypy.module._io.interp_bufferedio import W_BufferedIOBase
 from pypy.module._io.interp_iobase import convert_size
 import sys
 
 
-class W_BytesIO(RStringIO, W_BufferedIOBase):
+class W_BytesIO(W_BufferedIOBase):
+    import_from_mixin(RStringIO)
+
     def __init__(self, space):
         W_BufferedIOBase.__init__(self, space, add_to_autoflusher=False)
         self.init()

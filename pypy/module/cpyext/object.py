@@ -446,11 +446,8 @@ def PyObject_Print(space, w_obj, fp, flags):
 
     count = space.len_w(w_str)
     data = space.str_w(w_str)
-    buf = rffi.get_nonmovingbuffer(data)
-    try:
+    with rffi.scoped_nonmovingbuffer(data) as buf:
         fwrite(buf, 1, count, fp)
-    finally:
-        rffi.free_nonmovingbuffer(data, buf)
     return 0
 
 

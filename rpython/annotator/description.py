@@ -14,7 +14,6 @@ class CallFamily(object):
     objects, where the equivalence relation is the transitive closure of
     'd1~d2 if d1 and d2 might be called at the same call site'.
     """
-    overridden = False
     normalized = False
     modified   = True
 
@@ -175,7 +174,6 @@ class NoStandardGraph(Exception):
 
 class FunctionDesc(Desc):
     knowntype = types.FunctionType
-    overridden = False
 
     def __init__(self, bookkeeper, pyobj=None,
                  name=None, signature=None, defaults=None,
@@ -418,6 +416,10 @@ class ClassDesc(Desc):
             cls = pyobj
             base = object
             baselist = list(cls.__bases__)
+
+            if cls.__dict__.get('_mixin_', False):
+                raise AnnotatorError("cannot use directly the class %r because "
+                                     "it is a _mixin_" % (cls,))
 
             # special case: skip BaseException in Python 2.5, and pretend
             # that all exceptions ultimately inherit from Exception instead

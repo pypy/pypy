@@ -1,4 +1,3 @@
-====================================
 Differences between PyPy and CPython
 ====================================
 
@@ -11,29 +10,31 @@ Differences that are not listed here should be considered bugs of
 PyPy.
 
 
+.. _extension-modules:
+
 Extension modules
 -----------------
 
 List of extension modules that we support:
 
-* Supported as built-in modules (in `pypy/module/`_):
+* Supported as built-in modules (in :source:`pypy/module/`):
 
     __builtin__
-    `__pypy__`_
+    :doc:`__pypy__ <__pypy__-module>`
     _ast
     _codecs
     _collections
-    `_continuation`_
-    `_ffi`_
+    :doc:`_continuation <stackless>`
+    :doc:`_ffi <discussion/ctypes-implementation>`
     _hashlib
     _io
     _locale
     _lsprof
     _md5
-    `_minimal_curses`_
+    :doc:`_minimal_curses <config/objspace.usemodules._minimal_curses>`
     _multiprocessing
     _random
-    `_rawffi`_
+    :doc:`_rawffi <discussion/ctypes-implementation>`
     _sha
     _socket
     _sre
@@ -74,32 +75,23 @@ List of extension modules that we support:
     zipimport
     zlib
 
-  When translated to Java or .NET, the list is smaller; see
-  `pypy/config/pypyoption.py`_ for details.
-
   When translated on Windows, a few Unix-only modules are skipped,
   and the following module is built instead:
 
     _winreg
 
 * Supported by being rewritten in pure Python (possibly using ``cffi``):
-  see the `lib_pypy/`_ directory.  Examples of modules that we
+  see the :source:`lib_pypy/` directory.  Examples of modules that we
   support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
   Note that some modules are both in there and in the list above;
   by default, the built-in module is used (but can be disabled
   at translation time).
 
 The extension modules (i.e. modules written in C, in the standard CPython)
-that are neither mentioned above nor in `lib_pypy/`_ are not available in PyPy.
+that are neither mentioned above nor in :source:`lib_pypy/` are not available in PyPy.
 (You may have a chance to use them anyway with `cpyext`_.)
 
-.. the nonstandard modules are listed below...
-.. _`__pypy__`: __pypy__-module.html
-.. _`_continuation`: stackless.html
-.. _`_ffi`: ctypes-implementation.html
-.. _`_rawffi`: ctypes-implementation.html
-.. _`_minimal_curses`: config/objspace.usemodules._minimal_curses.html
-.. _`cpyext`: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
+.. _cpyext: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
 
 
 Differences related to garbage collection strategies
@@ -231,6 +223,7 @@ but ``foo`` on CPython::
     >>>> print d1['a']
     42
 
+
 Mutating classes of objects which are already used as dictionary keys
 ---------------------------------------------------------------------
 
@@ -277,6 +270,7 @@ isinstance().
 Unless this behavior is clearly present by design and
 documented as such (as e.g. for hasattr()), in most cases PyPy
 lets the exception propagate instead.
+
 
 Object Identity of Primitive Values, ``is`` and ``id``
 -------------------------------------------------------
@@ -328,7 +322,7 @@ Miscellaneous
 * directly calling the internal magic methods of a few built-in types
   with invalid arguments may have a slightly different result.  For
   example, ``[].__add__(None)`` and ``(2).__add__(None)`` both return
-  ``NotImplemented`` on PyPy; on CPython, only the later does, and the
+  ``NotImplemented`` on PyPy; on CPython, only the latter does, and the
   former raises ``TypeError``.  (Of course, ``[]+None`` and ``2+None``
   both raise ``TypeError`` everywhere.)  This difference is an
   implementation detail that shows up because of internal C-level slots
@@ -352,5 +346,3 @@ Miscellaneous
   interactive mode. In a released version, this behaviour is supressed, but
   setting the environment variable PYPY_IRC_TOPIC will bring it back. Note that
   downstream package providers have been known to totally disable this feature.
-
-.. include:: _ref.txt

@@ -6,8 +6,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
-from pypy.objspace.std import slicetype
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
+from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
+    normalize_simple_slice)
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.util import negate
 from rpython.rlib import jit
@@ -203,8 +203,7 @@ class W_AbstractTupleObject(W_Root):
         tuple
         """
         length = self.length()
-        start, stop = slicetype.unwrap_start_stop(space, length, w_start,
-                                                  w_stop)
+        start, stop = unwrap_start_stop(space, length, w_start, w_stop)
         for i in range(start, min(stop, length)):
             w_item = self.tolist()[i]
             if space.eq_w(w_item, w_obj):
@@ -244,6 +243,7 @@ If the argument is a tuple, the return value is the same object.""",
     count = interp2app(W_AbstractTupleObject.descr_count),
     index = interp2app(W_AbstractTupleObject.descr_index)
 )
+W_AbstractTupleObject.typedef.flag_sequence_bug_compat = True
 
 
 class W_TupleObject(W_AbstractTupleObject):

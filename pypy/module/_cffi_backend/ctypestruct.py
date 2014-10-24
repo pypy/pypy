@@ -17,7 +17,7 @@ from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class W_CTypeStructOrUnion(W_CType):
-    _immutable_fields_ = ['alignment?', 'fields_list?', 'fields_dict?',
+    _immutable_fields_ = ['alignment?', 'fields_list?[*]', 'fields_dict?',
                           'custom_field_pos?', 'with_var_array?']
     # fields added by complete_struct_or_union():
     alignment = -1

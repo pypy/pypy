@@ -6,7 +6,7 @@ import re
 from py.path import local
 from py.process import cmdexec
 
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.flowspace.model import mkentrymap, Constant, Variable
 from rpython.memory.gctransform.llvmgcroot import (
      LLVMGcRootFrameworkGCTransformer)

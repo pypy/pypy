@@ -13,7 +13,8 @@ from rpython.rlib.objectmodel import (ComputedIntSymbolic, CDefinedIntSymbolic,
 # intmask is used in an exec'd code block
 from rpython.rlib.rarithmetic import (ovfcheck, is_valid_int, intmask,
     r_uint, r_longlong, r_ulonglong, r_longlonglong)
-from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap
+from rpython.rtyper import rclass
 
 
 log = py.log.Producer('llinterp')
@@ -42,7 +43,7 @@ class LLFatalError(Exception):
         return ': '.join([str(x) for x in self.args])
 
 def type_name(etype):
-    return ''.join(etype.name).rstrip('\x00')
+    return ''.join(etype.name.chars)
 
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
@@ -145,7 +146,7 @@ class LLInterpreter(object):
         assert isinstance(exc, LLException)
         klass, inst = exc.args[0], exc.args[1]
         for cls in enumerate_exceptions_top_down():
-            if "".join(klass.name).rstrip("\0") == cls.__name__:
+            if "".join(klass.name.chars) == cls.__name__:
                 return cls
         raise ValueError("couldn't match exception, maybe it"
                       " has RPython attributes like OSError?")
@@ -441,12 +442,8 @@ class LLFrame(object):
             extraargs = ()
         typer = self.llinterpreter.typer
         exdata = typer.exceptiondata
-        if isinstance(exc, OSError):
-            self.op_direct_call(exdata.fn_raise_OSError, exc.errno)
-            assert False, "op_direct_call above should have raised"
-        else:
-            evalue = exdata.get_standard_ll_exc_instance_by_class(exc.__class__)
-            etype = self.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
+        evalue = exdata.get_standard_ll_exc_instance_by_class(exc.__class__)
+        etype = self.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
         raise LLException(etype, evalue, *extraargs)
 
     def invoke_callable_with_pyexceptions(self, fptr, *args):
@@ -682,18 +679,6 @@ class LLFrame(object):
         except MemoryError:
             self.make_llexception()
 
-    def op_malloc_nonmovable(self, TYPE, flags):
-        flavor = flags['flavor']
-        assert flavor == 'gc'
-        zero = flags.get('zero', False)
-        return self.heap.malloc_nonmovable(TYPE, zero=zero)
-
-    def op_malloc_nonmovable_varsize(self, TYPE, flags, size):
-        flavor = flags['flavor']
-        assert flavor == 'gc'
-        zero = flags.get('zero', False)
-        return self.heap.malloc_nonmovable(TYPE, size, zero=zero)
-
     def op_free(self, obj, flags):
         assert flags['flavor'] == 'raw'
         track_allocation = flags.get('track_allocation', True)
@@ -859,6 +844,18 @@ class LLFrame(object):
     def op_gc_stack_bottom(self):
         pass       # marker for trackgcroot.py
 
+    def op_gc_pin(self, obj):
+        addr = llmemory.cast_ptr_to_adr(obj)
+        return self.heap.pin(addr)
+
+    def op_gc_unpin(self, obj):
+        addr = llmemory.cast_ptr_to_adr(obj)
+        self.heap.unpin(addr)
+
+    def op_gc__is_pinned(self, obj):
+        addr = llmemory.cast_ptr_to_adr(obj)
+        return self.heap._is_pinned(addr)
+
     def op_gc_detach_callback_pieces(self):
         raise NotImplementedError("gc_detach_callback_pieces")
     def op_gc_reattach_callback_pieces(self):
@@ -904,9 +901,12 @@ class LLFrame(object):
     def op_gc_gcflag_extra(self, subopnum, *args):
         return self.heap.gcflag_extra(subopnum, *args)
 
+    def op_do_malloc_fixedsize(self):
+        raise NotImplementedError("do_malloc_fixedsize")
     def op_do_malloc_fixedsize_clear(self):
         raise NotImplementedError("do_malloc_fixedsize_clear")
-
+    def op_do_malloc_varsize(self):
+        raise NotImplementedError("do_malloc_varsize")
     def op_do_malloc_varsize_clear(self):
         raise NotImplementedError("do_malloc_varsize_clear")
 
@@ -930,6 +930,20 @@ class LLFrame(object):
 
     def op_llvm_stack_malloc(self):
         raise NotImplementedError("llvm_stack_malloc")
+
+    def op_threadlocalref_set(self, key, value):
+        try:
+            d = self.llinterpreter.tlrefsdict
+        except AttributeError:
+            d = self.llinterpreter.tlrefsdict = {}
+        d[key._obj] = value
+
+    def op_threadlocalref_get(self, key):
+        d = self.llinterpreter.tlrefsdict
+        return d[key._obj]
+
+    def op_threadlocalref_getaddr(self, key):
+        raise NotImplementedError("threadlocalref_getaddr")
 
     # __________________________________________________________
     # operations on addresses
@@ -962,6 +976,9 @@ class LLFrame(object):
         checkadr(fromaddr)
         checkadr(toaddr)
         llmemory.raw_memcopy(fromaddr, toaddr, size)
+
+    def op_raw_memset(self, addr, byte, size):
+        raise NotImplementedError
 
     op_raw_memmove = op_raw_memcopy # this is essentially the same here
 

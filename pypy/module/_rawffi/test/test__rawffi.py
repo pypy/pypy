@@ -1,5 +1,6 @@
 from rpython.translator.platform import platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator import cdir
 from pypy.module._rawffi.interp_rawffi import TYPEMAP, TYPEMAP_FLOAT_LETTERS
 from pypy.module._rawffi.tracker import Tracker
 
@@ -12,6 +13,7 @@ class AppTestFfi:
         from rpython.tool.udir import udir
         c_file = udir.ensure("test__rawffi", dir=1).join("xlib.c")
         c_file.write(py.code.Source('''
+        #include "src/precommondefs.h"
         #include <stdlib.h>
         #include <stdio.h>
 
@@ -23,15 +25,18 @@ class AppTestFfi:
            struct x* next;
         };
 
+        RPY_EXPORTED
         void nothing()
         {
         }
 
+        RPY_EXPORTED
         char inner_struct_elem(struct x *x1)
         {
            return x1->next->x3;
         }
 
+        RPY_EXPORTED
         struct x* create_double_struct()
         {
            struct x* x1, *x2;
@@ -43,6 +48,7 @@ class AppTestFfi:
            return x1;
         }
 
+        RPY_EXPORTED
         void free_double_struct(struct x* x1)
         {
             free(x1->next);
@@ -50,25 +56,32 @@ class AppTestFfi:
         }
 
         const char *static_str = "xxxxxx";
+        RPY_EXPORTED
         long static_int = 42;
+        RPY_EXPORTED
         double static_double = 42.42;
+        RPY_EXPORTED
         long double static_longdouble = 42.42;
 
+        RPY_EXPORTED
         unsigned short add_shorts(short one, short two)
         {
            return one + two;
         }
 
+        RPY_EXPORTED
         void* get_raw_pointer()
         {
            return (void*)add_shorts;
         }
 
+        RPY_EXPORTED
         char get_char(char* s, unsigned short num)
         {
            return s[num];
         }
 
+        RPY_EXPORTED
         const char *char_check(char x, char y)
         {
            if (y == static_str[0])
@@ -76,26 +89,31 @@ class AppTestFfi:
            return NULL;
         }
 
+        RPY_EXPORTED
         int get_array_elem(int* stuff, int num)
         {
            return stuff[num];
         }
 
+        RPY_EXPORTED
         struct x* get_array_elem_s(struct x** array, int num)
         {
            return array[num];
         }
 
+        RPY_EXPORTED
         long long some_huge_value()
         {
            return 1LL<<42;
         }
 
+        RPY_EXPORTED
         unsigned long long some_huge_uvalue()
         {
            return 1LL<<42;
         }
 
+        RPY_EXPORTED
         long long pass_ll(long long x)
         {
            return x;
@@ -103,11 +121,13 @@ class AppTestFfi:
 
         static int prebuilt_array1[] = {3};
 
+        RPY_EXPORTED
         int* allocate_array()
         {
             return prebuilt_array1;
         }
 
+        RPY_EXPORTED
         long long runcallback(long long(*callback)())
         {
             return callback();
@@ -118,10 +138,12 @@ class AppTestFfi:
             long y;
         };
 
+        RPY_EXPORTED
         long sum_x_y(struct x_y s) {
             return s.x + s.y;
         }
 
+        RPY_EXPORTED
         long op_x_y(struct x_y s, long(*callback)(struct x_y))
         {
             return callback(s);
@@ -132,6 +154,7 @@ class AppTestFfi:
             short y;
         };
 
+        RPY_EXPORTED
         struct s2h give(short x, short y) {
             struct s2h out;
             out.x = x;
@@ -139,6 +162,7 @@ class AppTestFfi:
             return out;
         }
 
+        RPY_EXPORTED
         struct s2h perturb(struct s2h inp) {
             inp.x *= 2;
             inp.y *= 3;
@@ -149,6 +173,7 @@ class AppTestFfi:
             int bah[2];
         };
 
+        RPY_EXPORTED
         struct s2a get_s2a(void) {
             struct s2a outp;
             outp.bah[0] = 4;
@@ -156,10 +181,12 @@ class AppTestFfi:
             return outp;
         }
 
+        RPY_EXPORTED
         int check_s2a(struct s2a inp) {
             return (inp.bah[0] == 4 && inp.bah[1] == 5);
         }
 
+        RPY_EXPORTED
         int AAA_first_ordinal_function()
         {
             return 42;
@@ -170,6 +197,7 @@ class AppTestFfi:
             long y;
         } UN;
 
+        RPY_EXPORTED
         UN ret_un_func(UN inp)
         {
             inp.y = inp.x * 100;
@@ -177,21 +205,7 @@ class AppTestFfi:
         }
 
         '''))
-        symbols = """get_char char_check get_raw_pointer
-                     add_shorts
-                     inner_struct_elem create_double_struct free_double_struct
-                     get_array_elem get_array_elem_s
-                     nothing
-                     some_huge_value some_huge_uvalue pass_ll
-                     runcallback
-                     allocate_array
-                     static_int static_double static_longdouble
-                     sum_x_y op_x_y
-                     give perturb get_s2a check_s2a
-                     AAA_first_ordinal_function
-                     ret_un_func
-                  """.split()
-        eci = ExternalCompilationInfo(export_symbols=symbols)
+        eci = ExternalCompilationInfo(include_dirs=[cdir])
         return str(platform.compile([c_file], eci, 'x', standalone=False))
     prepare_c_example = staticmethod(prepare_c_example)
 
@@ -352,6 +366,11 @@ class AppTestFfi:
         ptr = rawcall.byptr()
         assert ptr[0] == rawcall.buffer
         ptr.free()
+
+    def test_raw_callable_returning_void(self):
+        import _rawffi
+        _rawffi.FuncPtr(0, [], None)
+        # assert did not crash
 
     def test_short_addition(self):
         import _rawffi

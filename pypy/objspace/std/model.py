@@ -30,15 +30,6 @@ class StdTypeModel:
         """NOT_RPYTHON: inititialization only"""
         self.config = config
         # All the Python types that we want to provide in this StdObjSpace
-        class result:
-            from pypy.objspace.std.objecttype import object_typedef
-            from pypy.objspace.std.floattype  import float_typedef
-            from pypy.objspace.std.complextype  import complex_typedef
-            from pypy.objspace.std.typeobject   import type_typedef
-            from pypy.objspace.std.slicetype  import slice_typedef
-            from pypy.objspace.std.nonetype import none_typedef
-        self.pythontypes = [value for key, value in result.__dict__.items()
-                            if not key.startswith('_')]   # don't look
 
         # The object implementations that we want to 'link' into PyPy must be
         # imported here.  This registers them into the multimethod tables,
@@ -65,12 +56,12 @@ class StdTypeModel:
         from pypy.objspace.std import proxyobject
         from pypy.objspace.std import bufferobject
         from pypy.objspace.std import memoryobject
-        import pypy.objspace.std.default # register a few catch-all multimethods
 
-        import pypy.objspace.std.marshal_impl # install marshal multimethods
 
-        # not-multimethod based types
-
+        self.pythontypes = []
+        self.pythontypes.append(objectobject.W_ObjectObject.typedef)
+        self.pythontypes.append(typeobject.W_TypeObject.typedef)
+        self.pythontypes.append(noneobject.W_NoneObject.typedef)
         self.pythontypes.append(tupleobject.W_TupleObject.typedef)
         self.pythontypes.append(listobject.W_ListObject.typedef)
         self.pythontypes.append(dictmultiobject.W_DictMultiObject.typedef)
@@ -84,6 +75,9 @@ class StdTypeModel:
         self.pythontypes.append(intobject.W_IntObject.typedef)
         self.pythontypes.append(boolobject.W_BoolObject.typedef)
         self.pythontypes.append(longobject.W_LongObject.typedef)
+        self.pythontypes.append(floatobject.W_FloatObject.typedef)
+        self.pythontypes.append(complexobject.W_ComplexObject.typedef)
+        self.pythontypes.append(sliceobject.W_SliceObject.typedef)
         self.pythontypes.append(bufferobject.W_Buffer.typedef)
         self.pythontypes.append(memoryobject.W_MemoryView.typedef)
 
@@ -137,29 +131,12 @@ class StdTypeModel:
         # when trying to dispatch multimethods.
         # XXX build these lists a bit more automatically later
 
-        self.typeorder[boolobject.W_BoolObject] += [
-            (floatobject.W_FloatObject, floatobject.delegate_Bool2Float),
-            (complexobject.W_ComplexObject, complexobject.delegate_Bool2Complex),
-            ]
-        self.typeorder[intobject.W_IntObject] += [
-            (floatobject.W_FloatObject, floatobject.delegate_Int2Float),
-            (complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
-            ]
         if config.objspace.std.withsmalllong:
             from pypy.objspace.std import smalllongobject
             self.typeorder[smalllongobject.W_SmallLongObject] += [
                 (floatobject.W_FloatObject, smalllongobject.delegate_SmallLong2Float),
                 (complexobject.W_ComplexObject, smalllongobject.delegate_SmallLong2Complex),
                 ]
-        self.typeorder[longobject.W_LongObject] += [
-            (floatobject.W_FloatObject, floatobject.delegate_Long2Float),
-            (complexobject.W_ComplexObject,
-                    complexobject.delegate_Long2Complex),
-            ]
-        self.typeorder[floatobject.W_FloatObject] += [
-            (complexobject.W_ComplexObject,
-                    complexobject.delegate_Float2Complex),
-            ]
 
         if config.objspace.std.withstrbuf:
             from pypy.objspace.std import strbufobject
@@ -369,10 +346,6 @@ class MM:
                                      general__args__=True)
     init    = StdObjSpaceMultiMethod('__init__', 1, general__args__=True)
     getnewargs = StdObjSpaceMultiMethod('__getnewargs__', 1)
-    # special visible multimethods
-    # NOTE: when adding more sometype_w() methods, you need to write a
-    # stub in default.py to raise a space.w_TypeError
-    marshal_w = StdObjSpaceMultiMethod('marshal_w', 1, [], extra_args=['marshaller'])
 
     # add all regular multimethods here
     for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:

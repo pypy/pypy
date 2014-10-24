@@ -18,6 +18,80 @@ def set_max_heap_size(nbytes):
     """
     pass
 
+# for test purposes we allow objects to be pinned and use
+# the following list to keep track of the pinned objects
+if not we_are_translated():
+    pinned_objects = []
+
+def pin(obj):
+    """If 'obj' can move, then attempt to temporarily fix it.  This
+    function returns True if and only if 'obj' could be pinned; this is
+    a special state in the GC.  Note that can_move(obj) still returns
+    True even on pinned objects, because once unpinned it will indeed be
+    able to move again.  In other words, the code that succeeded in
+    pinning 'obj' can assume that it won't move until the corresponding
+    call to unpin(obj), despite can_move(obj) still being True.  (This
+    is important if multiple threads try to os.write() the same string:
+    only one of them will succeed in pinning the string.)
+
+    It is expected that the time between pinning and unpinning an object
+    is short. Therefore the expected use case is a single function
+    invoking pin(obj) and unpin(obj) only a few lines of code apart.
+
+    Note that this can return False for any reason, e.g. if the 'obj' is
+    already non-movable or already pinned, if the GC doesn't support
+    pinning, or if there are too many pinned objects.
+
+    Note further that pinning an object does not prevent it from being
+    collected if it is not used anymore.
+    """
+    pinned_objects.append(obj)
+    return True
+        
+
+class PinEntry(ExtRegistryEntry):
+    _about_ = pin
+
+    def compute_result_annotation(self, s_obj):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeBool()
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc_pin', hop.args_v, resulttype=hop.r_result)
+
+def unpin(obj):
+    """Unpin 'obj', allowing it to move again.
+    Must only be called after a call to pin(obj) returned True.
+    """
+    pinned_objects.remove(obj)
+        
+
+class UnpinEntry(ExtRegistryEntry):
+    _about_ = unpin
+
+    def compute_result_annotation(self, s_obj):
+        pass
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        hop.genop('gc_unpin', hop.args_v)
+
+def _is_pinned(obj):
+    """Method to check if 'obj' is pinned."""
+    return obj in pinned_objects
+
+class IsPinnedEntry(ExtRegistryEntry):
+    _about_ = _is_pinned
+
+    def compute_result_annotation(self, s_obj):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeBool()
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc__is_pinned', hop.args_v, resulttype=hop.r_result)
+
 # ____________________________________________________________
 # Annotation and specialization
 
@@ -77,14 +151,30 @@ def _make_sure_does_not_move(p):
     Warning: should ideally only be used with the minimark GC, and only
     on objects that are already a bit old, so have a chance to be
     already non-movable."""
+    assert p
     if not we_are_translated():
-        return
+        # for testing purpose
+        return not _is_pinned(p)
+    #
+    if _is_pinned(p):
+        # although a pinned object can't move we must return 'False'.  A pinned
+        # object can be unpinned any time and becomes movable.
+        return False
     i = 0
     while can_move(p):
         if i > 6:
             raise NotImplementedError("can't make object non-movable!")
         collect(i)
         i += 1
+    return True
+
+def needs_write_barrier(obj):
+    """ We need to emit write barrier if the right hand of assignment
+    is in nursery, used by the JIT for handling set*_gc(Const)
+    """
+    if not obj:
+        return False
+    return can_move(obj)
 
 def _heap_stats():
     raise NotImplementedError # can't be run directly
@@ -101,40 +191,6 @@ class DumpHeapEntry(ExtRegistryEntry):
         hop.exception_is_here()
         return hop.genop('gc_heap_stats', [], resulttype=hop.r_result)
 
-def malloc_nonmovable(TP, n=None, zero=False):
-    """ Allocate a non-moving buffer or return nullptr.
-    When running directly, will pretend that gc is always
-    moving (might be configurable in a future)
-    """
-    return lltype.nullptr(TP)
-
-class MallocNonMovingEntry(ExtRegistryEntry):
-    _about_ = malloc_nonmovable
-
-    def compute_result_annotation(self, s_TP, s_n=None, s_zero=None):
-        # basically return the same as malloc
-        from rpython.annotator.builtin import BUILTIN_ANALYZERS
-        return BUILTIN_ANALYZERS[lltype.malloc](s_TP, s_n, s_zero=s_zero)
-
-    def specialize_call(self, hop, i_zero=None):
-        # XXX assume flavor and zero to be None by now
-        assert hop.args_s[0].is_constant()
-        vlist = [hop.inputarg(lltype.Void, arg=0)]
-        opname = 'malloc_nonmovable'
-        flags = {'flavor': 'gc'}
-        if i_zero is not None:
-            flags['zero'] = hop.args_s[i_zero].const
-            nb_args = hop.nb_args - 1
-        else:
-            nb_args = hop.nb_args
-        vlist.append(hop.inputconst(lltype.Void, flags))
-
-        if nb_args == 2:
-            vlist.append(hop.inputarg(lltype.Signed, arg=1))
-            opname += '_varsize'
-
-        hop.exception_cannot_occur()
-        return hop.genop(opname, vlist, resulttype = hop.r_result.lowleveltype)
 
 def copy_struct_item(source, dest, si, di):
     TP = lltype.typeOf(source).TO.OF
@@ -231,6 +287,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
 
 
 @jit.oopspec('rgc.ll_shrink_array(p, smallerlength)')
+@enforceargs(None, int)
 @specialize.ll()
 def ll_shrink_array(p, smallerlength):
     from rpython.rtyper.lltypesystem.lloperation import llop
@@ -427,14 +484,13 @@ def try_cast_gcref_to_instance(Class, gcref):
     # Before translation, unwraps the RPython instance contained in a _GcRef.
     # After translation, it is a type-check performed by the GC.
     if we_are_translated():
-        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+        from rpython.rtyper.rclass import OBJECTPTR, ll_isinstance
         from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-        from rpython.rtyper.lltypesystem import rclass
         if _is_rpy_instance(gcref):
             objptr = lltype.cast_opaque_ptr(OBJECTPTR, gcref)
             if objptr.typeptr:   # may be NULL, e.g. in rdict's dummykeyobj
                 clsptr = _get_llcls_from_cls(Class)
-                if rclass.ll_isinstance(objptr, clsptr):
+                if ll_isinstance(objptr, clsptr):
                     return cast_base_ptr_to_instance(Class, objptr)
         return None
     else:
@@ -525,21 +581,20 @@ class Entry(ExtRegistryEntry):
     _about_ = _get_llcls_from_cls
     def compute_result_annotation(self, s_Class):
         from rpython.rtyper.llannotation import SomePtr
-        from rpython.rtyper.lltypesystem import rclass
+        from rpython.rtyper.rclass import CLASSTYPE
         assert s_Class.is_constant()
-        return SomePtr(rclass.CLASSTYPE)
+        return SomePtr(CLASSTYPE)
 
     def specialize_call(self, hop):
-        from rpython.rtyper.rclass import getclassrepr
+        from rpython.rtyper.rclass import getclassrepr, CLASSTYPE
         from rpython.flowspace.model import Constant
-        from rpython.rtyper.lltypesystem import rclass
         Class = hop.args_s[0].const
         classdef = hop.rtyper.annotator.bookkeeper.getuniqueclassdef(Class)
         classrepr = getclassrepr(hop.rtyper, classdef)
         vtable = classrepr.getvtable()
-        assert lltype.typeOf(vtable) == rclass.CLASSTYPE
+        assert lltype.typeOf(vtable) == CLASSTYPE
         hop.exception_cannot_occur()
-        return Constant(vtable, concretetype=rclass.CLASSTYPE)
+        return Constant(vtable, concretetype=CLASSTYPE)
 
 class Entry(ExtRegistryEntry):
     _about_ = dump_rpy_heap

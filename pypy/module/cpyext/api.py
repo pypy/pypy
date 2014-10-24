@@ -10,7 +10,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
 from rpython.tool.udir import udir
@@ -116,6 +116,8 @@ def feof(fp):
     validate_fd(fileno(fp))
     return _feof(fp)
 
+def is_valid_fp(fp):
+    return is_valid_fd(fileno(fp))
 
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
@@ -773,6 +775,7 @@ def build_bridge(space):
     struct PyPyAPI {
     %(members)s
     } _pypyAPI;
+    RPY_EXPORTED_FOR_TESTS
     struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
 
@@ -944,9 +947,8 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
         name_no_star = process_va_name(name)
         header = ('%s pypy_va_get_%s(va_list* vp)' %
                   (name, name_no_star))
-        pypy_decls.append(header + ';')
+        pypy_decls.append('RPY_EXPORTED_FOR_TESTS ' + header + ';')
         functions.append(header + '\n{return va_arg(*vp, %s);}\n' % name)
-        export_symbols.append('pypy_va_get_%s' % (name_no_star,))
 
     for name, (typ, expr) in GLOBALS.iteritems():
         if name.endswith('#'):
@@ -972,7 +974,6 @@ def build_eci(building_bridge, export_symbols, code):
     "NOT_RPYTHON"
     # Build code and get pointer to the structure
     kwds = {}
-    export_symbols_eci = export_symbols[:]
 
     compile_extra=['-DPy_BUILD_CORE']
 
@@ -986,7 +987,6 @@ def build_eci(building_bridge, export_symbols, code):
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
             compile_extra.append('-g')
-        export_symbols_eci.append('pypyAPI')
     else:
         kwds["includes"] = ['Python.h'] # this is our Python.h
 
@@ -1007,6 +1007,7 @@ def build_eci(building_bridge, export_symbols, code):
     if sys.platform == 'win32':
         get_pythonapi_source = '''
         #include <windows.h>
+        RPY_EXPORTED_FOR_TESTS
         HANDLE pypy_get_pythonapi_handle() {
             MEMORY_BASIC_INFORMATION  mi;
             memset(&mi, 0, sizeof(mi));
@@ -1019,7 +1020,6 @@ def build_eci(building_bridge, export_symbols, code):
         }
         '''
         separate_module_sources.append(get_pythonapi_source)
-        export_symbols_eci.append('pypy_get_pythonapi_handle')
 
     eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
@@ -1042,7 +1042,6 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "missing.c",
                                ],
         separate_module_sources=separate_module_sources,
-        export_symbols=export_symbols_eci,
         compile_extra=compile_extra,
         **kwds
         )

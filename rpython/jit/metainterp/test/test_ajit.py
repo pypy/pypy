@@ -12,7 +12,7 @@ from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
     isconstant, isvirtual, set_param, record_known_class)
 from rpython.rlib.longlong2float import float2longlong, longlong2float
-from rpython.rlib.rarithmetic import ovfcheck, is_valid_int
+from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
@@ -1435,6 +1435,16 @@ class BasicTests:
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
         self.check_resops(guard_class=0, guard_value=6)
+        #
+        # The original 'guard_class' is rewritten to be directly 'guard_value'.
+        # Check that this rewrite does not interfere with the descr, which
+        # should be a full-fledged multivalued 'guard_value' descr.
+        if self.basic:
+            for loop in get_stats().get_all_loops():
+                for op in loop.get_operations():
+                    if op.getopname() == "guard_value":
+                        descr = op.getdescr()
+                        assert descr.get_index_of_guard_value() >= 0
 
     def test_merge_guardnonnull_guardclass(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
@@ -4034,3 +4044,78 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         res = self.interp_operations(f, [17])
         assert res == 42
         self.check_operations_history(guard_true=1, guard_false=0)
+
+    def test_not_in_trace(self):
+        class X:
+            n = 0
+        def g(x):
+            if we_are_jitted():
+                raise NotImplementedError
+            x.n += 1
+        g.oopspec = 'jit.not_in_trace()'
+
+        jitdriver = JitDriver(greens=[], reds=['n', 'token', 'x'])
+        def f(n):
+            token = 0
+            x = X()
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n, x=x, token=token)
+                if not we_are_jitted():
+                    token += 1
+                g(x)
+                n -= 1
+            return x.n + token * 1000
+
+        res = self.meta_interp(f, [10])
+        assert res == 2003     # two runs before jitting; then one tracing run
+        self.check_resops(int_add=0, call=0, call_may_force=0)
+
+    def test_not_in_trace_exception(self):
+        def g():
+            if we_are_jitted():
+                raise NotImplementedError
+            raise ValueError
+        g.oopspec = 'jit.not_in_trace()'
+
+        jitdriver = JitDriver(greens=[], reds=['n'])
+        def f(n):
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n)
+                try:
+                    g()
+                except ValueError:
+                    n -= 1
+            return 42
+
+        res = self.meta_interp(f, [10])
+        assert res == 42
+        self.check_aborted_count(3)
+
+    def test_not_in_trace_blackhole(self):
+        class X:
+            seen = 0
+        def g(x):
+            if we_are_jitted():
+                raise NotImplementedError
+            x.seen = 42
+        g.oopspec = 'jit.not_in_trace()'
+
+        jitdriver = JitDriver(greens=[], reds=['n'])
+        def f(n):
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n)
+                n -= 1
+            x = X()
+            g(x)
+            return x.seen
+
+        res = self.meta_interp(f, [10])
+        assert res == 42
+
+    def test_int_force_ge_zero(self):
+        def f(n):
+            return int_force_ge_zero(n)
+        res = self.interp_operations(f, [42])
+        assert res == 42
+        res = self.interp_operations(f, [-42])
+        assert res == 0

@@ -1,38 +1,38 @@
-from pypy.objspace.std import floatobject as fobj
-from pypy.objspace.std.multimethod import FailedToImplement
-import py, sys
+import sys
+
+from pypy.objspace.std.floatobject import W_FloatObject
+
 
 class TestW_FloatObject:
-
     def test_pow_fff(self):
         x = 10.0
         y = 2.0
         z = 13.0
-        f1 = fobj.W_FloatObject(x)
-        f2 = fobj.W_FloatObject(y)
-        f3 = fobj.W_FloatObject(z)
+        f1 = W_FloatObject(x)
+        f2 = W_FloatObject(y)
+        f3 = W_FloatObject(z)
         self.space.raises_w(self.space.w_TypeError,
-                            fobj.pow__Float_Float_ANY,
-                            self.space, f1, f2, f3)
+                            f1.descr_pow,
+                            self.space, f2, f3)
 
     def test_pow_ffn(self):
         x = 10.0
         y = 2.0
-        f1 = fobj.W_FloatObject(x)
-        f2 = fobj.W_FloatObject(y)
-        v = fobj.pow__Float_Float_ANY(self.space, f1, f2, self.space.w_None)
+        f1 = W_FloatObject(x)
+        f2 = W_FloatObject(y)
+        v = f1.descr_pow(self.space, f2, self.space.w_None)
         assert v.floatval == x ** y
-        f1 = fobj.W_FloatObject(-1.23)
-        f2 = fobj.W_FloatObject(-4.56)
+        f1 = W_FloatObject(-1.23)
+        f2 = W_FloatObject(-4.56)
         self.space.raises_w(self.space.w_ValueError,
-                            fobj.pow__Float_Float_ANY,
-                            self.space, f1, f2,
+                            f1.descr_pow,
+                            self.space, f2,
                             self.space.w_None)
         x = -10
         y = 2.0
-        f1 = fobj.W_FloatObject(x)
-        f2 = fobj.W_FloatObject(y)
-        v = fobj.pow__Float_Float_ANY(self.space, f1, f2, self.space.w_None)
+        f1 = W_FloatObject(x)
+        f2 = W_FloatObject(y)
+        v = f1.descr_pow(self.space, f2, self.space.w_None)
         assert v.floatval == x**y
 
     def test_dont_use_long_impl(self):
@@ -459,7 +459,7 @@ class AppTestAppFloatTest:
 
 class AppTestFloatHex:
     spaceconfig = {
-        "usemodules": ["binascii", "rctime"],
+        'usemodules': ['binascii', 'rctime', 'struct'],
     }
 
     def w_identical(self, x, y):
@@ -794,7 +794,7 @@ class AppTestFloatHex:
         raises(ValueError, float.fromhex, "0P")
 
     def test_division_edgecases(self):
-        import math
+        import math, os
 
         # inf
         inf = float("inf")
@@ -803,6 +803,16 @@ class AppTestFloatHex:
         x, y = divmod(inf, 3)
         assert math.isnan(x)
         assert math.isnan(y)
+        x, y = divmod(3, inf)
+        z = 3 % inf
+        if os.name == 'nt':
+            assert math.isnan(x)
+            assert math.isnan(y)
+            assert math.isnan(z)
+        else:
+            assert x == 0
+            assert y == 3
+            assert z == 3
 
         # divide by 0
         raises(ZeroDivisionError, lambda: inf % 0)

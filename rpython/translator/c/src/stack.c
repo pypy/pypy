@@ -32,12 +32,7 @@ char LL_stack_too_big_slowpath(long current)
 		/* XXX We assume that initialization is performed early,
 		   when there is still only one thread running.  This
 		   allows us to ignore race conditions here */
-		char *errmsg = RPyThreadStaticTLS_Create(&end_tls_key);
-		if (errmsg) {
-			/* XXX should we exit the process? */
-			fprintf(stderr, "Internal PyPy error: %s\n", errmsg);
-			return 1;
-		}
+		RPyThreadStaticTLS_Create(&end_tls_key);
 	}
 
 	baseptr = (char *) RPyThreadStaticTLS_Get(end_tls_key);

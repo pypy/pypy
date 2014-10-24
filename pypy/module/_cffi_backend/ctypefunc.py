@@ -4,10 +4,11 @@ Function pointers.
 
 import sys
 
-from rpython.rlib import jit, clibffi, jit_libffi
+from rpython.rlib import jit, clibffi, jit_libffi, rgc
 from rpython.rlib.jit_libffi import (CIF_DESCRIPTION, CIF_DESCRIPTION_P,
     FFI_TYPE, FFI_TYPE_P, FFI_TYPE_PP, SIZE_OF_FFI_ARG)
 from rpython.rlib.objectmodel import we_are_translated, instantiate
+from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 
 from pypy.interpreter.error import OperationError, oefmt
@@ -63,6 +64,7 @@ class W_CTypeFunc(W_CTypePtrBase):
         CifDescrBuilder(fvarargs, self.ctitem).rawallocate(ctypefunc)
         return ctypefunc
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         if self.cif_descr:
             lltype.free(self.cif_descr, flavor='raw')
@@ -156,9 +158,10 @@ class W_CTypeFunc(W_CTypePtrBase):
                     data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
                     flag = get_mustfree_flag(data)
                     if flag == 1:
-                        raw_string = rffi.cast(rffi.CCHARPP, data)[0]
-                        lltype.free(raw_string, flavor='raw')
+                        raw_cdata = rffi.cast(rffi.CCHARPP, data)[0]
+                        lltype.free(raw_cdata, flavor='raw')
             lltype.free(buffer, flavor='raw')
+            keepalive_until_here(args_w)
         return w_res
 
 def get_mustfree_flag(data):

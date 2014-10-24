@@ -86,7 +86,8 @@ PyTypeObject OldCmpType = {
 };
 
 
-void initcomparisons(void)
+PyMODINIT_FUNC
+initcomparisons(void)
 {
     PyObject *m, *d;
 

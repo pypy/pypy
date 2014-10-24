@@ -326,13 +326,6 @@ class TestUnicode(BaseApiTest):
         self.raises(space, api, TypeError, api.PyUnicode_FromEncodedObject, space.wrap(u_text), null_charp, None)
         rffi.free_charp(b_text)
 
-    def test_leak(self):
-        size = 50
-        raw_buf, gc_buf = rffi.alloc_buffer(size)
-        for i in range(size): raw_buf[i] = 'a'
-        str = rffi.str_from_buffer(raw_buf, gc_buf, size, size)
-        rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
-
     def test_mbcs(self, space, api):
         if sys.platform != 'win32':
             py.test.skip("mcbs encoding only exists on Windows")
@@ -442,8 +435,8 @@ class TestUnicode(BaseApiTest):
 
     def test_copy(self, space, api):
         w_x = space.wrap(u"abcd\u0660")
-        target_chunk, _ = rffi.alloc_unicodebuffer(space.int_w(space.len(w_x)))
-        #lltype.malloc(Py_UNICODE, space.int_w(space.len(w_x)), flavor='raw')
+        count1 = space.int_w(space.len(w_x))
+        target_chunk = lltype.malloc(rffi.CWCHARP.TO, count1, flavor='raw')
 
         x_chunk = api.PyUnicode_AS_UNICODE(w_x)
         api.Py_UNICODE_COPY(target_chunk, x_chunk, 4)

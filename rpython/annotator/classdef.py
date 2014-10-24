@@ -154,6 +154,8 @@ class ClassDef(object):
         self.subdefs = []
         self.attr_sources = {}   # {name: list-of-sources}
         self.read_locations_of__class__ = {}
+        self.repr = None
+        self.extra_access_sets = {}
 
         if classdesc.basedesc:
             self.basedef = classdesc.basedesc.getuniqueclassdef()
@@ -438,8 +440,10 @@ class NoSuchAttrError(AnnotatorError):
 # ____________________________________________________________
 
 FORCE_ATTRIBUTES_INTO_CLASSES = {
-    OSError: {'errno': SomeInteger()},
-    }
+    EnvironmentError: {'errno': SomeInteger(),
+                       'strerror': SomeString(can_be_None=True),
+                       'filename': SomeString(can_be_None=True)},
+}
 
 try:
     WindowsError
@@ -455,4 +459,3 @@ except ImportError:
 else:
     FORCE_ATTRIBUTES_INTO_CLASSES[termios.error] = \
         {'args': SomeTuple([SomeInteger(), SomeString()])}
-

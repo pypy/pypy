@@ -1,5 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
-from rpython.rtyper.lltypesystem import rclass
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import intmask
@@ -82,6 +82,14 @@ class GCData(object):
     def q_is_gcarrayofgcptr(self, typeid):
         infobits = self.get(typeid).infobits
         return (infobits & T_IS_GCARRAY_OF_GCPTR) != 0
+
+    def q_cannot_pin(self, typeid):
+        infobits = self.get(typeid).infobits
+        ANY = (T_HAS_GCPTR |
+               T_IS_WEAKREF |
+               T_HAS_FINALIZER |
+               T_HAS_LIGHTWEIGHT_FINALIZER)
+        return (infobits & ANY) != 0
 
     def q_finalizer(self, typeid):
         typeinfo = self.get(typeid)
@@ -167,7 +175,8 @@ class GCData(object):
             self.q_has_custom_trace,
             self.q_get_custom_trace,
             self.q_fast_path_tracing,
-            self.q_has_gcptr)
+            self.q_has_gcptr,
+            self.q_cannot_pin)
 
 
 # the lowest 16bits are used to store group member index

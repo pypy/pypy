@@ -394,6 +394,7 @@ class OptRewrite(Optimization):
         val = self.getvalue(arg)
         if val.is_constant():
             if val.box.same_constant(CONST_0):
+                self.last_emitted_operation = REMOVED
                 return
             op = op.copy_and_change(rop.CALL, args=op.getarglist()[1:])
         self.emit_operation(op)
@@ -501,6 +502,8 @@ class OptRewrite(Optimization):
                                        descr=arraydescr)
                     self.optimizer.send_extra_operation(newop)
                     val = self.getvalue(resbox)
+                if val is None:
+                    continue
                 if dest_value.is_virtual():
                     dest_value.setitem(index + dest_start, val)
                 else:

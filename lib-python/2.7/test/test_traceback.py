@@ -1,12 +1,11 @@
 """Test cases for traceback module"""
 
-from _testcapi import traceback_print
 from StringIO import StringIO
 import sys
 import unittest
 from imp import reload
-from test.test_support import run_unittest, Error
-from test.test_support import impl_detail, check_impl_detail
+from test.test_support import run_unittest, is_jython, Error, cpython_only
+from test.test_support import check_impl_detail, impl_detail
 
 import traceback
 
@@ -35,6 +34,9 @@ class TracebackCases(unittest.TestCase):
 
     def syntax_error_bad_indentation(self):
         compile("def spam():\n  print 1\n print 2", "?", "exec")
+
+    def syntax_error_bad_indentation2(self):
+        compile(" print(2)", "?", "exec")
 
     def test_caret(self):
         err = self.get_exception_format(self.syntax_error_with_caret,
@@ -115,6 +117,16 @@ def test():
                 os.unlink(os.path.join(testdir, f))
             os.rmdir(testdir)
 
+        err = self.get_exception_format(self.syntax_error_bad_indentation2,
+                                        IndentationError)
+        self.assertEqual(len(err), 4)
+        self.assertEqual(err[1].strip(), "print(2)")
+        self.assertIn("^", err[2])
+        if check_impl_detail():
+            self.assertEqual(err[1].find("p"), err[2].find("^"))
+        if check_impl_detail(pypy=True):
+            self.assertEqual(err[1].find("2)") + 1, err[2].find("^"))
+
     def test_base_exception(self):
         # Test that exceptions derived from BaseException are formatted right
         e = KeyboardInterrupt()
@@ -175,7 +187,9 @@ def test():
 
 class TracebackFormatTests(unittest.TestCase):
 
+    @cpython_only
     def test_traceback_format(self):
+        from _testcapi import traceback_print
         try:
             raise KeyError('blah')
         except KeyError:

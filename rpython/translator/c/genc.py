@@ -258,8 +258,6 @@ class CBuilder(object):
                     defines['USE___THREAD'] = 1
             if self.config.translation.shared:
                 defines['PYPY_MAIN_FUNCTION'] = "pypy_main_startup"
-                self.eci = self.eci.merge(ExternalCompilationInfo(
-                    export_symbols=["pypy_main_startup", "pypy_debug_file"]))
         self.eci, cfile, extra, headers_to_precompile = \
                 gen_source(db, modulename, targetdir,
                            self.eci, defines=defines, split=self.split)
@@ -302,8 +300,11 @@ class CStandaloneBuilder(CBuilder):
 
     def has_profopt(self):
         profbased = self.getprofbased()
-        return (profbased and isinstance(profbased, tuple)
+        retval = (profbased and isinstance(profbased, tuple)
                 and profbased[0] is ProfOpt)
+        if retval and self.translator.platform.name == 'msvc':
+            raise ValueError('Cannot do profile based optimization on MSVC,'
+                    'it is not supported in free compiler version')
 
     def getentrypointptr(self):
         # XXX check that the entrypoint has the correct
@@ -313,8 +314,30 @@ class CStandaloneBuilder(CBuilder):
 
     def cmdexec(self, args='', env=None, err=False, expect_crash=False):
         assert self._compiled
+        if sys.platform == 'win32':
+            #Prevent opening a dialog box
+            import ctypes
+            winapi = ctypes.windll.kernel32
+            SetErrorMode = winapi.SetErrorMode
+            SetErrorMode.argtypes=[ctypes.c_int]
+
+            SEM_FAILCRITICALERRORS = 1
+            SEM_NOGPFAULTERRORBOX  = 2
+            SEM_NOOPENFILEERRORBOX = 0x8000
+            flags = SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX \
+                    | SEM_NOOPENFILEERRORBOX
+            #Since there is no GetErrorMode, do a double Set
+            old_mode = SetErrorMode(flags)
+            SetErrorMode(old_mode | flags)
+        if env is None:
+            envrepr = ''
+        else:
+            envrepr = ' [env=%r]' % (env,)
+        log.cmdexec('%s %s%s' % (self.executable_name, args, envrepr))
         res = self.translator.platform.execute(self.executable_name, args,
                                                env=env)
+        if sys.platform == 'win32':
+            SetErrorMode(old_mode)
         if res.returncode != 0:
             if expect_crash:
                 return res.out, res.err
