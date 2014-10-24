@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.micronumpy import ufuncs, support, concrete
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.descriptor import decode_w_dtype
-from pypy.module.micronumpy.iterators import ArrayIter
+from pypy.module.micronumpy.iterators import ArrayIter, SliceIter
 from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                             shape_agreement, shape_agreement_multiple)
 
@@ -186,15 +186,43 @@ def calculate_ndim(op_in, oa_ndim):
             ndim = max(ndim, op.ndims())
     return ndim
 
-def coalexce_axes(it, space):
+def coalesce_axes(it, space):
     # Copy logic from npyiter_coalesce_axes, used in ufunc iterators
     # and in nditer's with 'external_loop' flag
+    out_shape = it.shape[:]
     for idim in range(it.ndim - 1):
-        can_coalesce = 1
-        for op in it.seq:
-            stride = op.implementation.get_strides()
-            shape = op.get_shape()
-            pass
+        can_coalesce = True
+        for op_it, _ in it.iters:
+            if op_it is None:
+                continue
+            assert isinstance(op_it, ArrayIter)
+            if len(op_it.shape_m1) < 2:
+                can_coalesce = False
+                continue
+            if len(op_it.shape_m1) != len(it.shape):
+                can_coalesce = False
+                break
+            if op_it.strides[-1] * op_it.shape_m1[-1] != op_it.backstrides[-1]:
+                can_coalesce = False
+        if can_coalesce:
+            if it.order == 'F':
+                last = out_shape[0]
+                out_shape = out_shape[1:]
+                out_tshape[0] *= last
+            else:
+                last = out_shape[-1]
+                out_shape = out_shape[:-1]
+                out_shape[-1] *= last
+            for i in range(len(it.iters)):
+                old_iter = it.iters[i][0]
+                shape = [s+1 for s in old_iter.shape_m1]
+                new_iter = SliceIter(old_iter.array, old_iter.size,
+                                shape[:-1], old_iter.strides[:-1],
+                                old_iter.backstrides[:-1])
+                it.iters[i] = (new_iter, new_iter.reset())
+            it.shape = out_shape
+        else:
+            return
 
 class IndexIterator(object):
     def __init__(self, shape, backward=False):
@@ -272,7 +300,6 @@ class W_NDIter(W_Root):
             self.dtypes = []
 
         # handle None or writable operands, calculate my shape
-        self.iters = []
         outargs = [i for i in range(len(self.seq))
                    if self.seq[i] is None or self.op_flags[i].rw == 'w']
         if len(outargs) > 0:
@@ -332,14 +359,15 @@ class W_NDIter(W_Root):
             #copy them from seq
             self.dtypes = [s.get_dtype() for s in self.seq]
 
-        if self.external_loop:
-            coalexce_axes(self, space)
-
         # create an iterator for each operand
+        self.iters = []
         for i in range(len(self.seq)):
             it = get_iter(space, self.order, self.seq[i], self.shape, self.dtypes[i])
             it.contiguous = False
             self.iters.append((it, it.reset()))
+
+        if self.external_loop:
+            coalesce_axes(self, space)
 
     def set_op_axes(self, space, w_op_axes):
         if space.len_w(w_op_axes) != len(self.seq):

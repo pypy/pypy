@@ -216,3 +216,34 @@ def AllButAxisIter(array, axis):
         size /= shape[axis]
     shape[axis] = backstrides[axis] = 0
     return ArrayIter(array, size, shape, array.strides, backstrides)
+
+class SliceIter(ArrayIter):
+    '''
+    used with external loops, getitem and setitem return a SliceArray
+    view into the original array
+    '''
+
+    def __init__(self, array, size, shape, strides, backstrides):
+        ArrayIter.__init__(self, array, size, shape, strides, backstrides)
+        self.slice_shape = array.get_shape()[len(shape):]
+        self.slice_strides = array.strides[len(shape):]
+        self.slice_backstrides = array.backstrides[len(shape):]
+
+    def getitem(self, state):
+        from pypy.module.micronumpy.concrete import SliceArray
+        assert state.iterator is self
+        return SliceArray(state.offset, self.slice_strides,
+                 self.slice_backstrides, self.slice_shape, self.array,
+                 self.array)
+
+    def getitem_bool(self, state):
+        # XXX cannot be called
+        assert False
+
+    def setitem(self, state, elem):
+        assert state.iterator is self
+        slice = SliceArray(state.offset, self.slice_strides,
+                 self.slice_backstrides, self.slice_shape, self.array,
+                 self.array)
+        # TODO: implement
+        assert False
