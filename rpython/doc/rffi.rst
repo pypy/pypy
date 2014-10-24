@@ -1,3 +1,5 @@
+.. _rffi:
+
 Foreign Function Interface for RPython
 ======================================
 
