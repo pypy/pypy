@@ -124,18 +124,18 @@ class VMProf(object):
             # make sure it's annotated
             get_virtual_ip(lltype.nullptr(llmemory.GCREF.TO))
 
-    def enable(self, filename, period):
+    def enable(self, space, filename, period):
         self._annotate_get_virtual_ip()
         if self.is_enabled:
-            # XXX raise an app-level exception
-            print 'IGNORING _vmprof.enable()'
-            return
+            raise oefmt(space.w_ValueError, "_vmprof already enabled")
         self.is_enabled = True
         pypy_vmprof_init()
         self.counter += 1
         vmprof_enable(filename, period)
 
-    def disable(self):
+    def disable(self, space):
+        if not self.is_enabled:
+            raise oefmt(space.w_ValueError, "_vmprof not enabled")
         vmprof_disable()
         self.is_enabled = False
 
@@ -143,7 +143,7 @@ _vmprof = VMProf()
 
 @unwrap_spec(filename=str, period=int)
 def enable(space, filename, period=-1):
-    _vmprof.enable(filename, period)
+    _vmprof.enable(space, filename, period)
 
 def disable(space):
-    _vmprof.disable()
+    _vmprof.disable(space)
