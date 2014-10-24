@@ -18,12 +18,6 @@ eci = ExternalCompilationInfo(
     includes = ['src/thread.h'],
     separate_module_files = [translator_c_dir / 'src' / 'thread.c'],
     include_dirs = [translator_c_dir],
-    export_symbols = ['RPyThreadGetIdent', 'RPyThreadLockInit',
-                      'RPyThreadAcquireLock', 'RPyThreadAcquireLockTimed',
-                      'RPyThreadReleaseLock',
-                      'RPyThreadGetStackSize', 'RPyThreadSetStackSize',
-                      'RPyOpaqueDealloc_ThreadLock',
-                      'RPyThreadAfterFork']
 )
 
 def llexternal(name, args, result, **kwds):

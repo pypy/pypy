@@ -7,6 +7,7 @@ from rpython.rlib.rposix import get_errno, set_errno
 from rpython.translator.c.test.test_genc import compile as compile_c
 from rpython.rtyper.lltypesystem.lltype import Signed, Ptr, Char, malloc
 from rpython.rtyper.lltypesystem import lltype
+from rpython.translator import cdir
 from rpython.tool.udir import udir
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.annotator.annrpython import RPythonAnnotator
@@ -398,7 +399,9 @@ class BaseTestRffi:
         h_include.write(h_source)
 
         c_source = py.code.Source("""
-        Signed eating_callback(Signed arg, Signed(*call)(Signed))
+        #include "src/precommondefs.h"
+
+        RPY_EXPORTED Signed eating_callback(Signed arg, Signed(*call)(Signed))
         {
             Signed res = call(arg);
             if (res == -1)
@@ -408,9 +411,8 @@ class BaseTestRffi:
         """)
 
         eci = ExternalCompilationInfo(includes=['callback.h'],
-                                      include_dirs=[str(udir)],
-                                      separate_module_sources=[c_source],
-                                      export_symbols=['eating_callback'])
+                                      include_dirs=[str(udir), cdir],
+                                      separate_module_sources=[c_source])
 
         args = [SIGNED, CCallback([SIGNED], SIGNED)]
         eating_callback = llexternal('eating_callback', args, SIGNED,

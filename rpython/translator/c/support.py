@@ -30,12 +30,16 @@ def cdecl(ctype, cname, is_thread_local=False):
         __thread = "__thread "
     return __thread + ctype.replace('(@)', '@').replace('@', cname).strip()
 
-def forward_cdecl(ctype, cname, standalone, is_thread_local=False):
-    __thread = ""
+def forward_cdecl(ctype, cname, standalone, is_thread_local=False,
+                  is_exported=False):
+    prefix = ""
     if is_thread_local:
-        __thread = "__thread "
+        prefix = "__thread "
+    if is_exported:
+        assert not is_thread_local
+        prefix = "RPY_EXPORTED "
 
-    cdecl_str = __thread + cdecl(ctype, cname)
+    cdecl_str = prefix + cdecl(ctype, cname)
     if standalone:
         return 'extern ' + cdecl_str
     else:

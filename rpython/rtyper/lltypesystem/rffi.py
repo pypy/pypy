@@ -379,10 +379,11 @@ def generate_macro_wrapper(name, macro, functype, eci):
     db = LowLevelDatabase()
     implementationtypename = db.gettype(functype, argnames=argnames)
     if functype.RESULT is lltype.Void:
-        pattern = '%s { %s(%s); }'
+        pattern = '%s%s { %s(%s); }'
     else:
-        pattern = '%s { return %s(%s); }'
+        pattern = '%s%s { return %s(%s); }'
     source = pattern % (
+        'RPY_EXPORTED_FOR_TESTS ',
         cdecl(implementationtypename, wrapper_name),
         macro, ', '.join(argnames))
 
@@ -392,7 +393,6 @@ def generate_macro_wrapper(name, macro, functype, eci):
     # first function)
     ctypes_eci = eci.merge(ExternalCompilationInfo(
             separate_module_sources=[source],
-            export_symbols=[wrapper_name],
             ))
     if hasattr(eci, '_with_ctypes'):
         ctypes_eci = eci._with_ctypes.merge(ctypes_eci)
@@ -627,8 +627,10 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
 
     getter_name = 'get_' + name
     setter_name = 'set_' + name
-    getter_prototype = "%(c_type)s %(getter_name)s ();" % locals()
-    setter_prototype = "void %(setter_name)s (%(c_type)s v);" % locals()
+    getter_prototype = (
+       "RPY_EXPORTED_FOR_TESTS %(c_type)s %(getter_name)s ();" % locals())
+    setter_prototype = (
+       "RPY_EXPORTED_FOR_TESTS void %(setter_name)s (%(c_type)s v);" % locals())
     c_getter = "%(c_type)s %(getter_name)s () { return %(name)s; }" % locals()
     c_setter = "void %(setter_name)s (%(c_type)s v) { %(name)s = v; }" % locals()
 
@@ -641,7 +643,6 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
     new_eci = eci.merge(ExternalCompilationInfo(
         separate_module_sources = sources,
         post_include_bits = [getter_prototype, setter_prototype],
-        export_symbols = [getter_name, setter_name],
     ))
 
     getter = llexternal(getter_name, [], TYPE, compilation_info=new_eci,

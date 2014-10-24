@@ -5,6 +5,7 @@ attacks for the hmac module.
 import py
 
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 from pypy.interpreter.error import oefmt
@@ -12,9 +13,8 @@ from pypy.interpreter.error import oefmt
 cwd = py.path.local(__file__).dirpath()
 eci = ExternalCompilationInfo(
     includes=[cwd.join('tscmp.h')],
-    include_dirs=[str(cwd)],
-    separate_module_files=[cwd.join('tscmp.c')],
-    export_symbols=['pypy_tscmp', 'pypy_tscmp_wide'])
+    include_dirs=[str(cwd), cdir],
+    separate_module_files=[cwd.join('tscmp.c')])
 
 
 def llexternal(*args, **kwargs):

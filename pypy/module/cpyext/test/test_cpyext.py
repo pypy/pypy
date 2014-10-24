@@ -77,7 +77,6 @@ def compile_extension_module(space, modname, **kwds):
 
     modname = modname.split('.')[-1]
     eci = ExternalCompilationInfo(
-        export_symbols=['init%s' % (modname,)],
         include_dirs=api.include_dirs,
         **kwds
         )
@@ -263,7 +262,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 #include <Python.h>
                 %(body)s
 
-                void init%(name)s(void) {
+                PyMODINIT_FUNC
+                init%(name)s(void) {
                 %(init)s
                 }
                 """ % dict(name=name, init=init, body=body,
