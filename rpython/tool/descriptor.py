@@ -30,6 +30,10 @@ class InstanceMethod(object):
     def __hash__(self):
         return hash((self.im_func, self.im_self))
 
+    @property
+    def __name__(self):
+        return self.im_func.__name__
+
 if '__pypy__' in sys.modules:
     def normalize_method(method):
         '''Turn everything that behaves like a method into an InstanceMethod object'''
@@ -49,8 +53,9 @@ else:
             return InstanceMethod(method.__func__, method.__self__, method.im_class)
         elif isinstance(method, types.BuiltinMethodType):
             im_self = method.__self__
-            desc = getattr(type(im_self), method.__name__)
-            return InstanceMethod(desc, im_self, type(im_self))
+            if im_self is not None:
+                desc = getattr(type(im_self), method.__name__)
+                return InstanceMethod(desc, im_self, type(im_self))
         elif isinstance(method, slot_wrapper):
             baseslot = getattr(method.__objclass__, method.__name__)
             cls = method.__objclass__
@@ -61,7 +66,6 @@ else:
         elif isinstance(method, method_descriptor):
             cls = method.__objclass__
             return InstanceMethod(method, None, method.__objclass__)
-        else:
-            raise ValueError('Not a method')
+        raise ValueError('Not a method')
 
 

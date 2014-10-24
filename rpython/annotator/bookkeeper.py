@@ -21,6 +21,7 @@ from rpython.annotator.signature import annotationoftype
 from rpython.annotator.argument import simple_args
 from rpython.rlib.objectmodel import r_dict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
+from rpython.tool.descriptor import normalize_method, InstanceMethod
 from rpython.rtyper import extregistry
 
 
@@ -223,6 +224,11 @@ class Bookkeeper(object):
     def immutablevalue(self, x):
         """The most precise SomeValue instance that contains the
         immutable value x."""
+        if callable(x):
+            try:
+                x = normalize_method(x)
+            except ValueError:
+                pass
         tp = type(x)
         if issubclass(tp, Symbolic): # symbolic constants support
             result = x.annotation()
@@ -314,19 +320,15 @@ class Bookkeeper(object):
         elif tp is type:
             result = SomeConstantType(x, self)
         elif callable(x):
-            if hasattr(x, '__self__'):
-                if x.__self__ is not None:
+            if isinstance(x, InstanceMethod):
+                if x.im_self is not None:
                     # bound instance method
-                    s_self = self.immutablevalue(x.__self__)
-                    result = s_self.find_method(x.__name__)
+                    s_self = self.immutablevalue(x.im_self)
+                    result = s_self.find_method(x.im_func.__name__)
                 else:
                     # unbound method
                     cls_s = self.annotationclass(x.im_class)
-                    result = cls_s.find_unboundmethod(x.__name__)
-            elif hasattr(x, '__objclass__'):
-                # builtin unbound method on CPython (aka 'method_descriptor')
-                cls_s = self.annotationclass(x.__objclass__)
-                result = cls_s.find_unboundmethod(x.__name__)
+                    result = cls_s.find_unboundmethod(x.im_func.__name__)
             else:
                 result = None
             if result is None:
@@ -371,7 +373,7 @@ class Bookkeeper(object):
                     result = self.getfrozen(pyobj)
                 else:
                     result = description.ClassDesc(self, pyobj)
-            elif isinstance(pyobj, types.MethodType):
+            elif isinstance(pyobj, InstanceMethod):
                 if pyobj.im_self is None:   # unbound
                     return self.getdesc(pyobj.im_func)
                 if hasattr(pyobj.im_self, '_cleanup_'):
@@ -382,10 +384,9 @@ class Bookkeeper(object):
                         self.getdesc(pyobj.im_func),            # funcdesc
                         self.getdesc(pyobj.im_self))            # frozendesc
                 else: # regular method
-                    origincls, name = origin_of_meth(pyobj)
+                    origincls = pyobj.im_class
+                    name = pyobj.im_func.__name__
                     self.see_mutable(pyobj.im_self)
-                    assert pyobj == getattr(pyobj.im_self, name), (
-                        "%r is not %s.%s ??" % (pyobj, pyobj.im_self, name))
                     # emulate a getattr to make sure it's on the classdef
                     classdef = self.getuniqueclassdef(pyobj.im_class)
                     classdef.find_attribute(name)
