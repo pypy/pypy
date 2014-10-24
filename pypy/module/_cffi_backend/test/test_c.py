@@ -22,6 +22,7 @@ if sys.version_info < (2, 6):
 from rpython.tool.udir import udir
 from pypy.interpreter import gateway
 from pypy.module._cffi_backend import Module
+from rpython.translator import cdir
 from rpython.translator.platform import host
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -51,7 +52,7 @@ class AppTestC(object):
         test_lib_c = tmpdir.join('_test_lib.c')
         src_test_lib_c = py.path.local(__file__).dirpath().join('_test_lib.c')
         src_test_lib_c.copy(test_lib_c)
-        eci = ExternalCompilationInfo()
+        eci = ExternalCompilationInfo(include_dirs=[cdir])
         test_lib = host.compile([test_lib_c], eci, standalone=False)
 
         cdll = ctypes.CDLL(str(test_lib))

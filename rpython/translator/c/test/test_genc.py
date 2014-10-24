@@ -480,6 +480,7 @@ def test_name():
         return 3
 
     f.c_name = 'pypy_xyz_f'
+    f.exported_symbol = True
 
     t = Translation(f, [], backend="c")
     t.annotate()
