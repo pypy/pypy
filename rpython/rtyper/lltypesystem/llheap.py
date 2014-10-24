@@ -31,3 +31,13 @@ def thread_start():
 
 def thread_die():
     pass
+
+def pin(obj):
+    return False
+
+def unpin(obj):
+    raise AssertionError("pin() always returns False, "
+                         "so unpin() should not be called")
+
+def _is_pinned(obj):
+    return False

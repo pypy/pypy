@@ -18,14 +18,11 @@ but we're slowly running out of funds.
 Please consider donating more, or even better convince your employer to donate,
 so we can finish those projects!  The three sub-projects are:
 
-* `Py3k`_ (supporting Python 3.x): the release PyPy3 2.3 is imminent.
-
 * `STM`_ (software transactional memory): a preview will be released very soon,
   once we fix a few bugs
 
 * `NumPy`_ which requires installation of our fork of upstream numpy, available `on bitbucket`_
 
-.. _`Py3k`: http://pypy.org/py3donate.html
 .. _`STM`: http://pypy.org/tmdonate2.html
 .. _`NumPy`: http://pypy.org/numpydonate.html
 .. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy   
