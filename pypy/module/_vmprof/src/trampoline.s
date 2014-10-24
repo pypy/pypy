@@ -6,7 +6,7 @@ pypy_execute_frame_trampoline:
 	.cfi_startproc
     pushq   %rdi
 	.cfi_def_cfa_offset 16
-    movabs  pypy_pyframe_execute_frame, %rax
+    movabs  $pypy_pyframe_execute_frame, %rax
 	callq	*%rax
     popq    %rdi
 	.cfi_def_cfa_offset 8
