@@ -13,6 +13,7 @@ from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
     formatd, DTSF_STR_PRECISION, isinf, isnan, copysign, string_to_float)
 from rpython.rlib.rstring import ParseStringError
+from rpython.tool.sourcetools import func_with_new_name
 
 HASH_IMAG = 1000003
 
@@ -393,9 +394,6 @@ class W_ComplexObject(W_Root):
         return space.w_NotImplemented
 
     def _fail_cmp(self, space, w_other):
-        if isinstance(w_other, W_ComplexObject):
-            raise oefmt(space.w_TypeError,
-                        "cannot compare complex numbers using <, <=, >, >=")
         return space.w_NotImplemented
 
     def descr_add(self, space, w_rhs):
@@ -455,6 +453,19 @@ class W_ComplexObject(W_Root):
             return w_lhs.div(self)
         except ZeroDivisionError, e:
             raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+
+    def descr_floordiv(self, space, w_rhs):
+        raise oefmt(space.w_TypeError, "can't take floor of complex number.")
+    descr_rfloordiv = func_with_new_name(descr_floordiv, 'descr_rfloordiv')
+
+    def descr_mod(self, space, w_rhs):
+        raise oefmt(space.w_TypeError, "can't mod complex numbers.")
+    descr_rmod = func_with_new_name(descr_mod, 'descr_rmod')
+
+    def descr_divmod(self, space, w_rhs):
+        raise oefmt(space.w_TypeError,
+                    "can't take floor or mod of complex number.")
+    descr_rdivmod = func_with_new_name(descr_divmod, 'descr_rdivmod')
 
     @unwrap_spec(w_third_arg=WrappedDefault(None))
     def descr_pow(self, space, w_exponent, w_third_arg):
@@ -534,6 +545,12 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __rmul__ = interp2app(W_ComplexObject.descr_rmul),
     __truediv__ = interp2app(W_ComplexObject.descr_truediv),
     __rtruediv__ = interp2app(W_ComplexObject.descr_rtruediv),
+    __floordiv__ = interp2app(W_ComplexObject.descr_floordiv),
+    __rfloordiv__ = interp2app(W_ComplexObject.descr_rfloordiv),
+    __mod__ = interp2app(W_ComplexObject.descr_mod),
+    __rmod__ = interp2app(W_ComplexObject.descr_rmod),
+    __divmod__ = interp2app(W_ComplexObject.descr_divmod),
+    __rdivmod__ = interp2app(W_ComplexObject.descr_rdivmod),
     __pow__ = interp2app(W_ComplexObject.descr_pow),
     __rpow__ = interp2app(W_ComplexObject.descr_rpow),
 
