@@ -52,6 +52,7 @@ Using PyPy
   objspace-proxies
   sandbox
   stm
+  windows
 
 
 .. _developing-pypy:

@@ -36,7 +36,6 @@ RPython.
    :maxdepth: 1
 
    arm
-   windows
 
 
 Writing your own interpreter in RPython

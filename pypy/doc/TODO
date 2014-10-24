@@ -7,6 +7,7 @@ General
 * architecture documents don't really show the separation between PyPy and
   RPython
   * architecture.rst is duplicate (both pypy and rpython)
+* Consider moving information from pypy/doc/{build,windows}.rst to rpython/doc
 
 
 Cleanup

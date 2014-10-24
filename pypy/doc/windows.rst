@@ -51,7 +51,7 @@ Python and a C compiler are all you need to build pypy, but it will miss some
 modules that relies on third-party libraries.  See below how to get
 and build them.
 
-Please see the :ref:`non-windows instructions <translating-the-pypy-python-interpreter>` for more information, especially note
+Please see the :doc:`non-windows instructions <build>` for more information, especially note
 that translation is RAM-hungry. A standard translation requires around 4GB, so
 special preparations are necessary, or you may want to use the method in the
 notes of the `build instructions`_ to reduce memory usage at the price of a
