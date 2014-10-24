@@ -6,6 +6,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.objspace.std import newformat
 from pypy.objspace.std.floatobject import _hash_float
 from pypy.objspace.std.stdtypedef import GetSetProperty, StdTypeDef
+from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
 from rpython.rlib import jit, rcomplex
 from rpython.rlib.rarithmetic import intmask, r_ulonglong
 from rpython.rlib.rbigint import rbigint

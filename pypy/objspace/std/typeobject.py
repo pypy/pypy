@@ -583,9 +583,9 @@ class W_TypeObject(W_Object):
         else:
             mod = space.unicode_w(w_mod)
         if mod is not None and mod != u'builtins':
-            return space.wrap(u"<class '%s.%s'>" % (mod, w_obj.getname(space)))
+            return space.wrap(u"<class '%s.%s'>" % (mod, self.getname(space)))
         else:
-            return space.wrap(u"<class '%s'>" % (w_obj.name.decode('utf-8')))
+            return space.wrap(u"<class '%s'>" % (self.name.decode('utf-8')))
 
     def descr_getattribute(self, space, w_name):
         name = space.str_w(w_name)
