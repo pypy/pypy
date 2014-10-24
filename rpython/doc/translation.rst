@@ -30,12 +30,10 @@ C (which is the default and original target).
 
 .. _initialization-time:
 
-.. TODO edit information about flow object space
-
 The RPython translation toolchain never sees Python source code or syntax
 trees, but rather starts with the *code objects* that define the
 behaviour of the function objects one gives it as input.  The
-`bytecode evaluator`_ and the :ref:`Flow Object Space <flow-object-space>` work through these
+`bytecode evaluator`_ and the :ref:`flow graph builder<flow-graphs>` work through these
 code objects using `abstract interpretation`_ to produce a control
 flow graph (one per function): yet another representation of the
 source program, but one which is suitable for applying type inference
@@ -52,8 +50,8 @@ steps (see also the figure below):
 
 2. The Annotator_ performs a global analysis starting from an specified
    entry point to deduce type and other information about what each
-   variable can contain at run-time, building flow graphs using the
-   :ref:`Flow Object Space <flow-object-space>` as it encounters them.
+   variable can contain at run-time, :ref:`building flow graphs <flow-graphs>`
+   as it encounters them.
 
 3. The :ref:`RPython Typer <rtyper>` (or RTyper) uses the high-level
    information inferred by the Annotator to turn the operations in the control

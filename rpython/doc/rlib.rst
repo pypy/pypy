@@ -28,7 +28,7 @@ will be confused.
 nonconst
 --------
 
-The :source:`rpython/rlib/nonconst.py` module is useful mostly for tests. The :ref:`flow object space <flow-object-space>` and
+The :source:`rpython/rlib/nonconst.py` module is useful mostly for tests. The :ref:`flow graph builder<flow-graphs>` and
 the :ref:`annotator <annotator>` do quite some constant folding, which is sometimes not desired
 in a test. To prevent constant folding on a certain value, use the ``NonConst``
 class. The constructor of ``NonConst`` takes an arbitrary value. The instance of

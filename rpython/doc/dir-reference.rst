@@ -12,19 +12,16 @@ Directory                                 explanation/links
 
 :source:`rpython/config/`                 handles the numerous options for RPython
 
-:source:`rpython/flowspace/`              the :ref:`FlowObjSpace_ <flow-object-space>` implementing
+:source:`rpython/flowspace/`              the :ref:`flow graph builder<flow-graphs>` implementing
                                           `abstract interpretation`_
 
 :source:`rpython/rlib/`                   a :doc:`"standard library" <rlib>` for :doc:`RPython <rpython>`
                                           programs
 
-:source:`rpython/rtyper/`                 the :ref:`RPython Typer <rpython-typer>`
+:source:`rpython/rtyper/`                 the :ref:`RPython Typer <rtyper>`
 
 :source:`rpython/rtyper/lltypesystem/`    the :ref:`low-level type system <low-level-types>` for
                                           C-like backends
-
-:source:`rpython/rtyper/ootypesystem/`    the :ref:`object-oriented type system <oo-type>`
-                                          for OO backends
 
 :source:`rpython/memory/`                 the :doc:`garbage collector <garbage_collection>` construction
                                           framework
