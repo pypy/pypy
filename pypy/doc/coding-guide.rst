@@ -384,10 +384,8 @@ file containing specifications where each name in a module comes from.
 Only specified names will be exported to a Mixed Module's applevel
 namespace.
 
-Sometimes it is necessary to really write some functions in C (or
-whatever target language). See :doc:`rffi <rpython:rffi>` and :ref:`external functions
-documentation <rpython:extfunccalls>` for details. The latter approach is cumbersome and
-being phased out and former has currently quite a few rough edges.
+Sometimes it is necessary to really write some functions in C (or whatever
+target language). See :ref:`rffi <rpython:rffi>` details.
 
 
 application level definitions

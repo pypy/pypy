@@ -1,3 +1,5 @@
+.. jit:
+
 JIT documentation
 =================
 

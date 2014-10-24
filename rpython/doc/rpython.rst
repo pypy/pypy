@@ -1,3 +1,5 @@
+.. language:
+
 RPython Language
 ================
 

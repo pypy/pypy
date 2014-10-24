@@ -1,3 +1,5 @@
+.. index:
+
 Welcome to RPython's documentation!
 ===================================
 

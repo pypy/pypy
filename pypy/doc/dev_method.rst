@@ -191,7 +191,7 @@ There are several aspects of a sprint. In the PyPy team we focus on:
    expectations is also good to do. Unfortunately there is always time spent
    the first day, mostly in the morning when people arrive to get the internet
    and server infrastructure up and running. That is why we are, through
-   :doc:`documentation <getting-started-index>`, trying to get participants to
+   :ref:`documentation <getting-started-index>`, trying to get participants to
    set up the tools and configurations needed before they arrive to the sprint.
 
    Approximate hours being held are 10-17, but people tend to stay longer to

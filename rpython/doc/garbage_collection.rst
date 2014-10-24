@@ -1,6 +1,8 @@
 .. TODO cleanup after merge of gc-del
 
 
+.. garbage-collection:
+
 =============================
 Garbage Collection in RPython
 =============================

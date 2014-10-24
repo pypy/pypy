@@ -101,7 +101,7 @@ To bootstrap from sources, PyPy can use either CPython (2.6 or 2.7) or
 another (e.g. older) PyPy.  Cross-translation is not really supported:
 e.g. to build a 32-bit PyPy, you need to have a 32-bit environment.
 Cross-translation is only explicitly supported between a 32-bit Intel
-Linux and ARM Linux (see :doc:`here <arm>`).
+Linux and ARM Linux (see :ref:`here <rpython:arm>`).
 
 
 Which Python version (2.x?) does PyPy implement?
@@ -159,7 +159,7 @@ This really depends on your code.
 For pure Python algorithmic code, it is very fast.  For more typical
 Python programs we generally are 3 times the speed of CPython 2.7.
 You might be interested in our `benchmarking site`_ and our
-:doc:`jit documentation <rpython:jit/index>`.
+:ref:`jit documentation <rpython:jit>`.
 
 `Your tests are not a benchmark`_: tests tend to be slow under PyPy
 because they run exactly once; if they are good tests, they exercise

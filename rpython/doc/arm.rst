@@ -1,3 +1,5 @@
+.. arm:
+
 Cross-translating for ARM
 =========================
 

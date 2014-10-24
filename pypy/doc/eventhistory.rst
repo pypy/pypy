@@ -173,7 +173,7 @@ experimental "Thunk" object space (supporting lazy computed objects)
 with its features preserved.
 
 See the :doc:`release 0.8 announcement <release-0.8.0>` for further details about the release and
-the :doc:`getting started <getting-started-index>` document for instructions about downloading it and
+the :ref:`getting started <getting-started-index>` section for instructions about downloading it and
 trying it out.  There is also a short :doc:`FAQ <faq>`.  *(11/03/2005)*
 
 
@@ -207,7 +207,7 @@ The first implementation of Python in Python is now also the second
 implementation of Python in C :-)
 
 See the :doc:`release announcement <release-0.7.0>` for further details about the release and
-the :doc:`getting started <getting-started>` document for instructions about downloading it and
+the :ref:`getting started <getting-started-index>` section for instructions about downloading it and
 trying it out.  We also have the beginning of a :doc:`FAQ <faq>`.  *(08/28/2005)*
 
 
