@@ -92,14 +92,10 @@ class AppTestAppComplexTest:
         if x != 0:
             q = z / x
             assert self.close(q, y)
-            q = z.__div__(x)
-            assert self.close(q, y)
             q = z.__truediv__(x)
             assert self.close(q, y)
         if y != 0:
             q = z / y
-            assert self.close(q, x)
-            q = z.__div__(y)
             assert self.close(q, x)
             q = z.__truediv__(y)
             assert self.close(q, x)
@@ -170,7 +166,7 @@ class AppTestAppComplexTest:
             self.check_div(complex(random(), random()),
                            complex(random(), random()))
 
-        raises(ZeroDivisionError, complex.__div__, 1+1j, 0+0j)
+        raises(ZeroDivisionError, complex.__truediv__, 1+1j, 0+0j)
         # FIXME: The following currently crashes on Alpha
         raises(OverflowError, pow, 1e200+1j, 1e200+1j)
 
