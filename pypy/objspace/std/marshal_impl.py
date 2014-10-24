@@ -245,9 +245,6 @@ def unmarshal_complex_bin(space, u, tc):
 
 @marshaller(W_BytesObject)
 def marshal_bytes(space, w_str, m):
-    if not isinstance(w_str, W_BytesObject):
-        raise_exception(space, "unmarshallable object")
-
     s = w_str.unwrap(space)
     m.atom_str(TYPE_STRING, s)
 
