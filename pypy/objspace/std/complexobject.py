@@ -412,16 +412,20 @@ class W_ComplexObject(W_Root):
             return space.newbool((self.realval != w_other.realval) or
                                  (self.imagval != w_other.imagval))
         if (space.isinstance_w(w_other, space.w_int) or
-            space.isinstance_w(w_other, space.w_long)):
+            space.isinstance_w(w_other, space.w_long) or
+            space.isinstance_w(w_other, space.w_float)):
             if self.imagval:
                 return space.w_True
             return space.ne(space.newfloat(self.realval), w_other)
         return space.w_NotImplemented
 
     def _fail_cmp(self, space, w_other):
-        if isinstance(w_other, W_ComplexObject):
+        if (isinstance(w_other, W_ComplexObject) or
+            space.isinstance_w(w_other, space.w_int) or
+            space.isinstance_w(w_other, space.w_long) or
+            space.isinstance_w(w_other, space.w_float)):
             raise oefmt(space.w_TypeError,
-                        "cannot compare complex numbers using <, <=, >, >=")
+                        "no ordering relation is defined for complex numbers")
         return space.w_NotImplemented
 
     def descr_add(self, space, w_rhs):
