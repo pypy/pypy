@@ -25,7 +25,7 @@ generally one that is considerably lower-level than Python.  It divides
 this task into several steps, and the purpose of this document is to
 introduce them.
 
-To start with we describe the process of translating an RPython_ program into
+To start with we describe the process of translating an :ref:`RPython <language>` program into
 C (which is the default and original target).
 
 .. _initialization-time:
