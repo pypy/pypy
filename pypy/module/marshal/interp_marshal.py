@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rstackovf
-from pypy.objspace.std.marshal_impl import get_unmarshallers
+from pypy.objspace.std.marshal_impl import marshal, get_unmarshallers
 
 
 Py_MARSHAL_VERSION = 2
