@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.micronumpy import ufuncs, support, concrete
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.descriptor import decode_w_dtype
-from pypy.module.micronumpy.iterators import ArrayIter, SliceIter
+from pypy.module.micronumpy.iterators import ArrayIter, SliceIter, OpFlag
 from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                             shape_agreement, shape_agreement_multiple)
 
@@ -33,17 +33,6 @@ def parse_op_arg(space, name, w_op_flags, n, parse_one_arg):
         for i in range(n):
             ret.append(op_flag)
     return ret
-
-
-class OpFlag(object):
-    def __init__(self):
-        self.rw = ''
-        self.broadcast = True
-        self.force_contig = False
-        self.force_align = False
-        self.native_byte_order = False
-        self.tmp_copy = ''
-        self.allocate = False
 
 
 def parse_op_flag(space, lst):
@@ -153,11 +142,11 @@ def is_backward(imp, order):
         raise NotImplementedError('not implemented yet')
 
 
-def get_iter(space, order, arr, shape, dtype):
+def get_iter(space, order, arr, shape, dtype, op_flags):
     imp = arr.implementation
     backward = is_backward(imp, order)
     if arr.is_scalar():
-        return ArrayIter(imp, 1, [], [], [])
+        return ArrayIter(imp, 1, [], [], [], op_flags=op_flags)
     if (imp.strides[0] < imp.strides[-1] and not backward) or \
        (imp.strides[0] > imp.strides[-1] and backward):
         # flip the strides. Is this always true for multidimension?
@@ -172,7 +161,7 @@ def get_iter(space, order, arr, shape, dtype):
         backstrides = imp.backstrides
     r = calculate_broadcast_strides(strides, backstrides, imp.shape,
                                     shape, backward)
-    return ArrayIter(imp, imp.get_size(), shape, r[0], r[1])
+    return ArrayIter(imp, imp.get_size(), shape, r[0], r[1], op_flags=op_flags)
 
 def calculate_ndim(op_in, oa_ndim):
     if oa_ndim >=0:
@@ -208,17 +197,15 @@ def coalesce_axes(it, space):
             if it.order == 'F':
                 last = out_shape[0]
                 out_shape = out_shape[1:]
-                out_tshape[0] *= last
             else:
                 last = out_shape[-1]
                 out_shape = out_shape[:-1]
-                out_shape[-1] *= last
             for i in range(len(it.iters)):
                 old_iter = it.iters[i][0]
                 shape = [s+1 for s in old_iter.shape_m1]
-                new_iter = SliceIter(old_iter.array, old_iter.size,
+                new_iter = SliceIter(old_iter.array, old_iter.size / last,
                                 shape[:-1], old_iter.strides[:-1],
-                                old_iter.backstrides[:-1])
+                                old_iter.backstrides[:-1], it.op_flags[i])
                 it.iters[i] = (new_iter, new_iter.reset())
             it.shape = out_shape
         else:
@@ -362,7 +349,8 @@ class W_NDIter(W_Root):
         # create an iterator for each operand
         self.iters = []
         for i in range(len(self.seq)):
-            it = get_iter(space, self.order, self.seq[i], self.shape, self.dtypes[i])
+            it = get_iter(space, self.order, self.seq[i], self.shape,
+                          self.dtypes[i], self.op_flags[i])
             it.contiguous = False
             self.iters.append((it, it.reset()))
 
@@ -400,11 +388,8 @@ class W_NDIter(W_Root):
     def descr_iter(self, space):
         return space.wrap(self)
 
-    def getitem(self, it, st, op_flags):
-        if op_flags.rw == 'r':
-            impl = concrete.ConcreteNonWritableArrayWithBase
-        else:
-            impl = concrete.ConcreteArrayWithBase
+    def getitem(self, it, st):
+        impl = it.operand_type
         res = impl([], it.array.dtype, it.array.order, [], [],
                    it.array.storage, self)
         res.start = st.offset
@@ -417,7 +402,7 @@ class W_NDIter(W_Root):
         except IndexError:
             raise oefmt(space.w_IndexError,
                         "Iterator operand index %d is out of bounds", idx)
-        return self.getitem(it, st, self.op_flags[idx])
+        return self.getitem(it, st)
 
     def descr_setitem(self, space, w_idx, w_value):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
@@ -426,6 +411,7 @@ class W_NDIter(W_Root):
         space.wrap(len(self.iters))
 
     def descr_next(self, space):
+        import pdb;pdb.set_trace()
         for it, st in self.iters:
             if not it.done(st):
                 break
@@ -439,7 +425,7 @@ class W_NDIter(W_Root):
             else:
                 self.first_next = False
         for i, (it, st) in enumerate(self.iters):
-            res.append(self.getitem(it, st, self.op_flags[i]))
+            res.append(self.getitem(it, st))
             self.iters[i] = (it, it.next(st))
         if len(res) < 2:
             return res[0]

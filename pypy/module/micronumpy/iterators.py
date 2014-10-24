@@ -41,6 +41,16 @@ from pypy.module.micronumpy import support, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.flagsobj import _update_contiguous_flags
 
+class OpFlag(object):
+    def __init__(self):
+        self.rw = ''
+        self.broadcast = True
+        self.force_contig = False
+        self.force_align = False
+        self.native_byte_order = False
+        self.tmp_copy = ''
+        self.allocate = False
+
 
 class PureShapeIter(object):
     def __init__(self, shape, idx_w):
@@ -89,11 +99,12 @@ class IterState(object):
 class ArrayIter(object):
     _immutable_fields_ = ['contiguous', 'array', 'size', 'ndim_m1', 'shape_m1[*]',
                           'strides[*]', 'backstrides[*]', 'factors[*]',
-                          'track_index']
+                          'track_index', 'operand_type']
 
     track_index = True
 
-    def __init__(self, array, size, shape, strides, backstrides):
+    def __init__(self, array, size, shape, strides, backstrides, op_flags=OpFlag()):
+        from pypy.module.micronumpy import concrete
         assert len(shape) == len(strides) == len(backstrides)
         _update_contiguous_flags(array)
         self.contiguous = (array.flags & NPY.ARRAY_C_CONTIGUOUS and
@@ -114,6 +125,10 @@ class ArrayIter(object):
             else:
                 factors[ndim-i-1] = factors[ndim-i] * shape[ndim-i]
         self.factors = factors
+        if op_flags.rw == 'r':
+            self.operand_type = concrete.ConcreteNonWritableArrayWithBase
+        else:
+            self.operand_type = concrete.ConcreteArrayWithBase
 
     @jit.unroll_safe
     def reset(self, state=None):
@@ -223,8 +238,8 @@ class SliceIter(ArrayIter):
     view into the original array
     '''
 
-    def __init__(self, array, size, shape, strides, backstrides):
-        ArrayIter.__init__(self, array, size, shape, strides, backstrides)
+    def __init__(self, array, size, shape, strides, backstrides, op_flags):
+        ArrayIter.__init__(self, array, size, shape, strides, backstrides, op_flags)
         self.slice_shape = array.get_shape()[len(shape):]
         self.slice_strides = array.strides[len(shape):]
         self.slice_backstrides = array.backstrides[len(shape):]
