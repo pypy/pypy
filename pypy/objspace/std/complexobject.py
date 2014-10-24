@@ -387,7 +387,8 @@ class W_ComplexObject(W_Root):
         if isinstance(w_other, W_ComplexObject):
             return space.newbool((self.realval != w_other.realval) or
                                  (self.imagval != w_other.imagval))
-        if (space.isinstance_w(w_other, space.w_int)):
+        if (space.isinstance_w(w_other, space.w_int) or
+            space.isinstance_w(w_other, space.w_float)):
             if self.imagval:
                 return space.w_True
             return space.ne(space.newfloat(self.realval), w_other)

@@ -12,7 +12,8 @@ static struct PyModuleDef moduledef = {
     &banana_functions
 };
 
-PyObject *PyInit_banana(void)
+PyMODINIT_FUNC
+*PyInit_banana(void)
 {
     return PyModule_Create(&moduledef);
 }
