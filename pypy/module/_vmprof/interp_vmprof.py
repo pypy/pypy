@@ -15,21 +15,40 @@ FALSE_BUT_NON_CONSTANT = CDefinedIntSymbolic('0', default=0)
 ROOT = py.path.local(__file__).join('..')
 SRC = ROOT.join('src')
 
-eci = ExternalCompilationInfo(
-    includes=['vmprof.h', 'trampoline.h'],
+# by default, we statically link vmprof.c into pypy; however, if you set
+# DYNAMIC_VMPROF to True, it will be dynamically linked to the libvmprof.so
+# which is expected to be inside pypy/module/_vmprof/src: this is very useful
+# during development. Note that you have to manually build libvmprof by
+# running make inside the src dir
+DYNAMIC_VMPROF = False
+
+eci_kwds = dict(
     include_dirs = [SRC],
-    separate_module_files = [SRC.join('vmprof.c'), SRC.join('trampoline.s')],
+    includes = ['vmprof.h', 'trampoline.h'],
+    separate_module_files = [SRC.join('trampoline.s')],
     libraries = ['unwind'],
+    
     post_include_bits=["""
         void* pypy_vmprof_get_virtual_ip(void*);
         void pypy_vmprof_init(void);
     """],
+    
     separate_module_sources=["""
         void pypy_vmprof_init(void) {
             vmprof_set_mainloop(pypy_execute_frame_trampoline, 0, pypy_vmprof_get_virtual_ip);
         }
-    """]
-)
+    """],
+    )
+
+
+if DYNAMIC_VMPROF:
+    eci_kwds['libraries'] += ['vmprof']
+    eci_kwds['link_extra'] = ['-Wl,-rpath,%s' % SRC, '-L%s' % SRC]
+else:
+    eci_kwds['separate_module_files'] += [SRC.join('vmprof.c')]
+
+eci = ExternalCompilationInfo(**eci_kwds)
+
 
 pypy_execute_frame_trampoline = rffi.llexternal(
     "pypy_execute_frame_trampoline",
@@ -148,3 +167,4 @@ def enable(space, filename, period=-1):
 
 def disable(space):
     _vmprof.disable(space)
+
