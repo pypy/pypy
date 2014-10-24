@@ -24,7 +24,7 @@ of success with the mingw32 port of gcc.
 Translating PyPy with Visual Studio
 -----------------------------------
 
-We routinely test :doc:`translation` using Visual Studio 2008, Express
+We routinely test translation using Visual Studio 2008, Express
 Edition.  Other configurations may work as well.
 
 The translation scripts will set up the appropriate environment variables
