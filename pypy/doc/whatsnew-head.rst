@@ -27,4 +27,11 @@ Introduce a new framework for double-dispatched annotation implementations.
 Refactor ClassRepr and make normalizecalls independent of the rtyper.
 
 .. branch: remove-remaining-smm
+
 Remove all remaining multimethods.
+
+.. branch: improve-docs
+
+Split RPython documentation from PyPy documentation and clean up.  There now is
+a clearer separation between documentation for users, developers and people
+interested in background information.
