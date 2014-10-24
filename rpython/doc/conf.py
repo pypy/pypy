@@ -227,7 +227,7 @@ latex_documents = [
 
 
 intersphinx_mapping = {'python': ('http://docs.python.org/2.7', None),
-                       'pypy': ('http://pypy.readthedocs.org/en/improve-docs/', None)}
+                       'pypy': ('http://pypy.readthedocs.org/en/latest/', None)}
 
 
 # -- Options for manual page output --------------------------------------------
