@@ -130,41 +130,44 @@ return next yielded value or raise StopIteration."""
         w_yf = self._get_yield_from()
         if w_yf is not None:
             # Paused in a "yield from", pass the throw to the inner generator.
-            if space.is_w(w_type, space.w_GeneratorExit):
-                try:
-                    w_close = space.getattr(w_yf, space.wrap("close"))
-                except OperationError as e:
-                    if not e.match(space, space.w_AttributeError):
-                        e.write_unraisable(space, "generator.close()")
-                else:
-                    self.running = True
-                    try:
-                        space.call_function(w_close)
-                    except OperationError as operr:
-                        self.running = False
-                        return self.send_ex(space.w_None, operr)
-                    finally:
-                        self.running = False
-                return self._throw_here(space, w_type, w_val, w_tb)
+            return self._throw_delegate(space, w_yf, w_type, w_val, w_tb)
+        else:
+            # Not paused in a "yield from", quit this generator
+            return self._throw_here(space, w_type, w_val, w_tb)
+
+    def _throw_delegate(self, space, w_yf, w_type, w_val, w_tb):
+        if space.is_w(w_type, space.w_GeneratorExit):
+            try:
+                w_close = space.getattr(w_yf, space.wrap("close"))
+            except OperationError as e:
+                if not e.match(space, space.w_AttributeError):
+                    e.write_unraisable(space, "generator.close()")
             else:
-                try:
-                    w_throw = space.getattr(w_yf, space.wrap("throw"))
-                except OperationError as e:
-                    if not e.match(space, space.w_AttributeError):
-                        raise
-                    return self._throw_here(space, w_type, w_val, w_tb)
                 self.running = True
                 try:
-                    space.call_function(w_throw, w_type, w_val, w_tb)
+                    space.call_function(w_close)
                 except OperationError as operr:
                     self.running = False
-                    # XXX Should pop subiterator from stack?
                     return self.send_ex(space.w_None, operr)
                 finally:
                     self.running = False
-
-        # Not paused in a "yield from", quit this generator
-        return self._throw_here(space, w_type, w_val, w_tb)
+            return self._throw_here(space, w_type, w_val, w_tb)
+        else:
+            try:
+                w_throw = space.getattr(w_yf, space.wrap("throw"))
+            except OperationError as e:
+                if not e.match(space, space.w_AttributeError):
+                    raise
+                return self._throw_here(space, w_type, w_val, w_tb)
+            self.running = True
+            try:
+                return space.call_function(w_throw, w_type, w_val, w_tb)
+            except OperationError as operr:
+                self.running = False
+                # XXX Should pop subiterator from stack?
+                return self.send_ex(space.w_None, operr)
+            finally:
+                self.running = False
 
     def _throw_here(self, space, w_type, w_val, w_tb):
         from pypy.interpreter.pytraceback import check_traceback
