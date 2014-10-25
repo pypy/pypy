@@ -185,16 +185,14 @@ def crc32(string, start=CRC32_DEFAULT_START):
 ADLER32_DEFAULT_START = 1
 
 def deflateSetDictionary(stream, string):
-    bytes = rffi.get_nonmovingbuffer(string)
-    err = _deflateSetDictionary(stream, rffi.cast(Bytefp, bytes), len(string))
-    rffi.free_nonmovingbuffer(string, bytes)
+    with rffi.scoped_nonmovingbuffer(string) as buf:
+        err = _deflateSetDictionary(stream, rffi.cast(Bytefp, buf), len(string))
     if err == Z_STREAM_ERROR:
         raise RZlibError("Parameter is invalid or the stream state is inconsistent")
 
 def inflateSetDictionary(stream, string):
-    bytes = rffi.get_nonmovingbuffer(string)
-    err = _inflateSetDictionary(stream, rffi.cast(Bytefp, bytes), len(string))
-    rffi.free_nonmovingbuffer(string, bytes)
+    with rffi.scoped_nonmovingbuffer(string) as buf:
+        err = _inflateSetDictionary(stream, rffi.cast(Bytefp, buf), len(string))
     if err == Z_STREAM_ERROR:
         raise RZlibError("Parameter is invalid or the stream state is inconsistent")
     elif err == Z_DATA_ERROR:
