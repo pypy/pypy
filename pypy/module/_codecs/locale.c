@@ -1,6 +1,7 @@
 /* From CPython 3.2.3's fileutils.c, and _Py_normalize_encoding from
    unicodeobject.c
 */
+#include "src/precommondefs.h"
 /*
 #include "Python.h"
 */
@@ -225,7 +226,7 @@ _pypy_decode_ascii_surrogateescape(const char *arg, size_t *size)
 
    Conversion errors should never happen, unless there is a bug in the C
    library. */
-wchar_t*
+RPY_EXPORTED_FOR_TESTS wchar_t*
 pypy_char2wchar(const char* arg, size_t *size)
 {
 #if 0 && defined(__APPLE__)
@@ -367,7 +368,7 @@ oom:
 
    If error_pos is not NULL: *error_pos is the index of the invalid character
    on conversion error, or (size_t)-1 otherwise. */
-char*
+RPY_EXPORTED_FOR_TESTS char*
 pypy_wchar2char(const wchar_t *text, size_t *error_pos)
 {
 #if 0 && defined(__APPLE__)
@@ -474,13 +475,13 @@ pypy_wchar2char(const wchar_t *text, size_t *error_pos)
 #endif   /* __APPLE__ */
 }
 
-void
+RPY_EXPORTED_FOR_TESTS void
 pypy_char2wchar_free(wchar_t *text)
 {
     PyMem_Free(text);
 }
 
-void
+RPY_EXPORTED_FOR_TESTS void
 pypy_wchar2char_free(char *bytes)
 {
     PyMem_Free(bytes);
