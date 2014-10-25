@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <process.h>
+#include <errno.h>
 
 
 /*
