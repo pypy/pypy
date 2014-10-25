@@ -119,6 +119,9 @@ Translate without JIT::
 
     pypy rpython/bin/rpython --opt=2 pypy/goal/targetpypystandalone.py
 
+(You can use ``python`` instead of ``pypy`` here, which will take longer
+but works too.)
+
 If everything works correctly this will create an executable ``pypy-c`` in the
 current directory. The executable behaves mostly like a normal Python
 interpreter (see :doc:`cpython_differences`).
