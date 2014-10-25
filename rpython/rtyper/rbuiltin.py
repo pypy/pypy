@@ -7,6 +7,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
 from rpython.rtyper import rclass
 from rpython.rtyper.rmodel import Repr
 from rpython.tool.pairtype import pairtype
+from rpython.tool.descriptor import normalize_method
 
 
 BUILTIN_TYPER = {}
@@ -276,13 +277,12 @@ def rtype_builtin_reversed(hop):
     return hop.r_result.newiter(hop)
 
 
-@typer_for(getattr(object.__init__, 'im_func', object.__init__))
+@typer_for(normalize_method(object.__init__))
 def rtype_object__init__(hop):
     hop.exception_cannot_occur()
 
 
-@typer_for(getattr(EnvironmentError.__init__, 'im_func',
-                   EnvironmentError.__init__))
+@typer_for(normalize_method(EnvironmentError.__init__))
 def rtype_EnvironmentError__init__(hop):
     hop.exception_cannot_occur()
     v_self = hop.args_v[0]
@@ -306,8 +306,7 @@ try:
 except NameError:
     pass
 else:
-    @typer_for(
-        getattr(WindowsError.__init__, 'im_func', WindowsError.__init__))
+    @typer_for(normalize_method(WindowsError.__init__))
     def rtype_WindowsError__init__(hop):
         hop.exception_cannot_occur()
         if hop.nb_args == 2:

@@ -7,6 +7,7 @@ from rpython.annotator.argument import rawshape, ArgErr
 from rpython.tool.sourcetools import valid_identifier, func_with_new_name
 from rpython.tool.pairtype import extendabletype
 from rpython.annotator.model import AnnotatorError
+from rpython.tool.descriptor import normalize_method
 
 class CallFamily(object):
     """A family of Desc objects that could be called from common call sites.
@@ -516,7 +517,10 @@ class ClassDesc(Desc):
             # pretend that built-in exceptions have no __init__,
             # unless explicitly specified in builtin.py
             from rpython.annotator.builtin import BUILTIN_ANALYZERS
-            value = getattr(value, 'im_func', value)
+            try:
+                value = normalize_method(value)
+            except ValueError:
+                pass
             if value not in BUILTIN_ANALYZERS:
                 return
         self.classdict[name] = Constant(value)

@@ -362,6 +362,10 @@ class Bookkeeper(object):
         #  * a frozen pre-built constant (with _freeze_() == True)
         #  * a bound method of a frozen pre-built constant
         try:
+            pyobj = normalize_method(pyobj)
+        except ValueError:
+            pass
+        try:
             return self.descs[pyobj]
         except KeyError:
             if is_user_function(pyobj):
