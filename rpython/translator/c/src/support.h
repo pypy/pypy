@@ -49,12 +49,12 @@ void RPyAbort(void);
      ((RPyCHECK((index) >= 0 && (index) < (array)->length),                 \
       (array))->items[index])
 #  define RPyFxItem(ptr, index, fixedsize)                                  \
-     ((RPyCHECK((ptr) && (index) >= 0 && (index) < (fixedsize)),            \
+     ((RPyCHECK((ptr) != NULL && (index) >= 0 && (index) < (fixedsize)),    \
       (ptr))[index])
 #  define RPyNLenItem(array, index)                                         \
-     ((RPyCHECK((array) && (index) >= 0), (array))->items[index])
+     ((RPyCHECK((array) != NULL && (index) >= 0), (array))->items[index])
 #  define RPyBareItem(array, index)                                         \
-     ((RPyCHECK((array) && (index) >= 0), (array))[index])
+     ((RPyCHECK((array) != NULL && (index) >= 0), (array))[index])
 
 #else
 #  define RPyField(ptr, name)                ((ptr)->name)
