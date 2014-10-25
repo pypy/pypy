@@ -1573,7 +1573,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [i1]
-        i2 = int_add(i1, 25)
+        i2 = int_add(25, i1)
         jump(i2)
         """
         self.optimize_loop(ops, expected)
