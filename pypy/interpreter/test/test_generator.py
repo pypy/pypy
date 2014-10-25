@@ -485,6 +485,37 @@ class AppTestYieldFrom:
             "Finishing g1",
         ]
 
+    def test_delegating_throw_to_non_generator(self):
+        """
+        Test delegating 'throw' to non-generator
+        """
+        trace = []
+        d = dict(trace=trace)
+        exec('''if 1:
+        def g():
+            try:
+                trace.append("Starting g")
+                yield from range(10)
+            finally:
+                trace.append("Finishing g")
+        ''', d)
+        g = d['g']
+        gi = g()
+        for i in range(5):
+            x = next(gi)
+            trace.append("Yielded %s" % (x,))
+        exc = raises(ValueError, gi.throw, ValueError("tomato ejected"))
+        assert exc.value.args[0] == "tomato ejected"
+        assert trace == [
+            "Starting g",
+            "Yielded 0",
+            "Yielded 1",
+            "Yielded 2",
+            "Yielded 3",
+            "Yielded 4",
+            "Finishing g",
+        ]
+
     def test_broken_getattr_handling(self):
         """
         Test subiterator with a broken getattr implementation

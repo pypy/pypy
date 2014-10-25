@@ -117,16 +117,14 @@ return next yielded value or raise StopIteration."""
         # Probably a hack (but CPython has the same):
         # If the current frame is stopped in a "yield from",
         # return the paused generator.
-        from pypy.interpreter.pyopcode import bytecode_spec
         if not self.frame:
             return None
         co_code = self.frame.pycode.co_code
         opcode = ord(co_code[self.frame.last_instr + 1])
-        if opcode == opcodedesc.YIELD_FROM.index:
+        if opcode == YIELD_FROM:
             return self.frame.peekvalue()
 
     def throw(self, w_type, w_val, w_tb):
-        from pypy.interpreter.pytraceback import check_traceback
         space = self.space
 
         w_yf = self._get_yield_from()
@@ -144,27 +142,33 @@ return next yielded value or raise StopIteration."""
                         space.call_function(w_close)
                     except OperationError as operr:
                         self.running = False
-                        self.send_ex(space.w_None, operr)
-                        return
+                        return self.send_ex(space.w_None, operr)
                     finally:
                         self.running = False
                 return self._throw_here(space, w_type, w_val, w_tb)
             else:
                 try:
-                    space.call_method(w_yf, "throw", w_type, w_val, w_tb)
+                    w_throw = space.getattr(w_yf, space.wrap("throw"))
+                except OperationError as e:
+                    if not e.match(space, space.w_AttributeError):
+                        raise
+                    return self._throw_here(space, w_type, w_val, w_tb)
+                self.running = True
+                try:
+                    space.call_function(w_throw, w_type, w_val, w_tb)
                 except OperationError as operr:
                     self.running = False
-                    self.send_ex(space.w_None, operr)
-                    return
+                    # XXX Should pop subiterator from stack?
+                    return self.send_ex(space.w_None, operr)
                 finally:
                     self.running = False
-                
-            return self.forward_throw_to_yield_from(yf)
 
         # Not paused in a "yield from", quit this generator
         return self._throw_here(space, w_type, w_val, w_tb)
 
     def _throw_here(self, space, w_type, w_val, w_tb):
+        from pypy.interpreter.pytraceback import check_traceback
+
         msg = "throw() third argument must be a traceback object"
         if space.is_none(w_tb):
             tb = None
@@ -286,6 +290,7 @@ generatorentry_driver = jit.JitDriver(greens=['pycode'],
 
 from pypy.tool.stdlib_opcode import HAVE_ARGUMENT, opmap
 YIELD_VALUE = opmap['YIELD_VALUE']
+YIELD_FROM = opmap['YIELD_FROM']
 
 @jit.elidable_promote()
 def should_not_inline(pycode):
