@@ -317,7 +317,7 @@ def _missing_call_stub_i(func, args_i, args_r, args_f):
     return 0
 def _missing_call_stub_r(func, args_i, args_r, args_f):
     return lltype.nullptr(llmemory.GCREF.TO)
-def _missing_call_stub_f(func,args_i,args_r,args_f):
+def _missing_call_stub_f(func, args_i, args_r, args_f):
     return longlong.ZEROF
 
 class CallDescr(AbstractDescr):
@@ -342,7 +342,7 @@ class CallDescr(AbstractDescr):
         self.extrainfo = extrainfo
         self.ffi_flags = ffi_flags
         self.call_stub_i = _missing_call_stub_i
-        self.call_stub_t = _missing_call_stub_r
+        self.call_stub_r = _missing_call_stub_r
         self.call_stub_f = _missing_call_stub_f
         # NB. the default ffi_flags is 1, meaning FUNCFLAG_CDECL, which
         # makes sense on Windows as it's the one for all the C functions
