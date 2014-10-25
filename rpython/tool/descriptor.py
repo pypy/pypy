@@ -36,10 +36,8 @@ class InstanceMethod(object):
 
 if '__pypy__' in sys.modules:
     def normalize_method(method):
-        '''Turn everything that behaves like a method into a regular function or an InstanceMethod object'''
+        '''Turn everything that behaves like a method into an InstanceMethod object'''
         if isinstance(method, types.MethodType):
-            if method.__self__ is None:
-                return method.im_func
             return InstanceMethod(method.__func__, method.__self__, method.im_class)
         else:
             raise ValueError('Not a method')
@@ -50,10 +48,8 @@ else:
     method_descriptor = type(str.join)
 
     def normalize_method(method):
-        '''Turn everything that behaves like a method into a regular function or an InstanceMethod object'''
+        '''Turn everything that behaves like a method into an InstanceMethod object'''
         if isinstance(method, types.MethodType):
-            if method.__self__ is None:
-                return method.__func__
             return InstanceMethod(method.__func__, method.__self__, method.im_class)
         elif isinstance(method, types.BuiltinMethodType):
             im_self = method.__self__
