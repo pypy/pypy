@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rstackovf
@@ -102,8 +102,13 @@ class FileReader(AbstractReaderWriter):
         space = self.space
         w_ret = space.call_function(self.func, space.wrap(n))
         ret = space.str_w(w_ret)
-        if len(ret) != n:
+        if len(ret) < n:
             self.raise_eof()
+        if len(ret) > n:
+            raise oefmt(space.w_ValueError,
+                        "read() returned too much data: "
+                        "%d bytes requested, %d returned",
+                        n, len(ret))
         return ret
 
 
