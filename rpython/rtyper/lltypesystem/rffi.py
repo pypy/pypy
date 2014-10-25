@@ -1147,9 +1147,9 @@ class scoped_nonmovingbuffer:
         return self.buf
     def __exit__(self, *args):
         free_nonmovingbuffer(self.data, self.buf, self.pinned, self.is_raw)
-    __init__._always_inline_ = True
-    __enter__._always_inline_ = True
-    __exit__._always_inline_ = True
+    __init__._always_inline_ = 'try'
+    __enter__._always_inline_ = 'try'
+    __exit__._always_inline_ = 'try'
 
 class scoped_nonmoving_unicodebuffer:
     def __init__(self, data):
@@ -1159,9 +1159,9 @@ class scoped_nonmoving_unicodebuffer:
         return self.buf
     def __exit__(self, *args):
         free_nonmoving_unicodebuffer(self.data, self.buf, self.pinned, self.is_raw)
-    __init__._always_inline_ = True
-    __enter__._always_inline_ = True
-    __exit__._always_inline_ = True
+    __init__._always_inline_ = 'try'
+    __enter__._always_inline_ = 'try'
+    __exit__._always_inline_ = 'try'
 
 class scoped_alloc_buffer:
     def __init__(self, size):
