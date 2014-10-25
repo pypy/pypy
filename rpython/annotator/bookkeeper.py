@@ -327,6 +327,8 @@ class Bookkeeper(object):
                     result = s_self.find_method(x.im_func.__name__)
                 else:
                     # unbound method
+                    if hasattr(x.im_class, '_freeze_'):
+                        return self.immutablevalue(x.im_func)
                     cls_s = self.annotationclass(x.im_class)
                     result = cls_s.find_unboundmethod(x.im_func.__name__)
             else:
