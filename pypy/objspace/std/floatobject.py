@@ -391,8 +391,6 @@ class W_FloatObject(W_Root):
         if space.isinstance_w(w_obj, space.w_int):
             return W_FloatObject(space.float_w(w_obj))
 
-    #@staticmethod
-    # XXX: unwrap_spec index?
     def descr___round__(self, space, w_ndigits=None):
         return _round_float(space, self, w_ndigits)
 
