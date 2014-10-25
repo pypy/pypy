@@ -72,6 +72,62 @@ static void prof_binary_trailer(FILE* f) {
 }
 
 
+/* ******************************************************
+ * libunwind workaround for process JIT frames correctly
+ * ******************************************************
+ */
+
+static void* jit_start;
+static void* jit_end;
+void vmprof_set_jit_range(void* start, void* end) {
+    printf("vmprof JIT range: %p-%p\n", start, end);
+    jit_start = start;
+    jit_end = end;
+}
+
+static ptrdiff_t vmprof_unw_get_custom_offset(void* ip) {
+    /* temporary hack to determine is this particular frame is JITted or not */
+    if (ip >= jit_start && ip <= jit_end) {
+        // it's probably a JIT frame
+        return 19*8; // XXX
+    }
+    return -1; // not JITted code
+}
+
+
+typedef struct {
+    void* _unused1;
+    void* _unused2;
+    void* sp;
+    void* ip;
+    void* _unused3[sizeof(unw_cursor_t)/sizeof(void*) - 4];
+} vmprof_hacked_unw_cursor_t;
+
+static int vmprof_unw_step(unw_cursor_t *cp) {
+	void* ip;
+    void* sp;
+    ptrdiff_t sp_offset;
+    unw_get_reg (cp, UNW_REG_IP, (unw_word_t*)&ip);
+    unw_get_reg (cp, UNW_REG_SP, (unw_word_t*)&sp);
+    sp_offset = vmprof_unw_get_custom_offset(ip);
+    if (sp_offset == -1) {
+        // it means that the ip is NOT in JITted code, so we can use the
+        // stardard unw_step
+        return unw_step(cp);
+    }
+    else {
+        // this is a horrible hack to manually walk the stack frame, by
+        // setting the IP and SP in the cursor
+        vmprof_hacked_unw_cursor_t *cp2 = (vmprof_hacked_unw_cursor_t*)cp;
+        void* bp = (void*)sp + sp_offset;
+        cp2->sp = bp+8; // the ret will pop a word, so the SP of the caller is
+                        // 8 bytes away from us
+        cp2->ip = ((void**)bp)[0]; // the ret is on the top of the stack
+        return 1;
+    }
+}
+
+
 /* *************************************************************
  * functions to dump the stack trace
  * *************************************************************
@@ -131,7 +187,7 @@ int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext) {
         }
 
         result[n++] = ip;
-        if (unw_step(&cursor) <= 0) {
+        if (vmprof_unw_step(&cursor) <= 0) {
             break;
         }
     }
