@@ -162,7 +162,7 @@ def create_package(basedir, options):
     binaries = [(pypy_c, rename_pypy_c)]
     libpypy_c = basedir.join('pypy', 'goal', 'libpypy-c.so')
     if libpypy_c.check():
-        binaries.append('libpypy-c.so')
+        binaries.append(('libpypy-c.so', 'libpypy-c.so'))
     #
     builddir = options.builddir
     pypydir = builddir.ensure(name, dir=True)
