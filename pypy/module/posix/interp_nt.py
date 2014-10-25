@@ -21,6 +21,9 @@ pypy_GetFinalPathNameByHandle(FARPROC address, HANDLE hFile,
 """
 eci = ExternalCompilationInfo(
     includes=['windows.h'],
+    post_include_bits=[
+        "DWORD "
+        "pypy_GetFinalPathNameByHandle(FARPROC, HANDLE, LPTSTR, DWORD, DWORD);"],
     separate_module_sources=[separate_module_source],
     export_symbols=['pypy_GetFinalPathNameByHandle']
     )

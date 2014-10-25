@@ -85,7 +85,7 @@ class TestString(BaseTestPyPyC):
             i95 = getfield_gc_pure(p93, descr=<FieldS rpython.rlib.rbigint.rbigint.inst_size .*>)
             i96 = int_gt(i95, .*)
             guard_false(i96, descr=...)
-            i94 = call(ConstClass(rbigint._toint_helper), p93, descr=<Calli 8 r EF=3>)
+            i94 = call(ConstClass(rbigint._toint_helper), p93, descr=<Calli . r EF=3>)
             guard_no_exception(descr=...)
             i95 = int_add_ovf(i6, i94)
             guard_no_overflow(descr=...)
