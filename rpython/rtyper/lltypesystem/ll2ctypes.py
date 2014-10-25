@@ -565,8 +565,6 @@ class _parentable_mixin(object):
         if addr in ALLOCATED:
             raise Exception("internal ll2ctypes error - "
                             "double conversion from lltype to ctypes?")
-        if self._TYPE._gckind == 'gc':
-            return
         # XXX don't store here immortal structures
         ALLOCATED[addr] = self
 

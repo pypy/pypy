@@ -1,9 +1,9 @@
 /* Derived from CPython 3.3.5's operator.c::_tscmp
  */
 
-#include "src/precommondefs.h"
 #include <stdlib.h>
-#include "tscmp.h"
+#include <wchar.h>
+#include "src/precommondefs.h"
 
 RPY_EXPORTED_FOR_TESTS int
 pypy_tscmp(const char *a, const char *b, long len_a, long len_b)
