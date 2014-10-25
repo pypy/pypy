@@ -458,7 +458,7 @@ class CStandaloneBuilder(CBuilder):
 
             mk.definition('PYTHON', get_recent_cpython_executable())
 
-            mk.definition('GCMAPFILES', '$(subst .asmgcc.s,.o,$(subst .c,.gcmap,$(SOURCES)))')
+            mk.definition('GCMAPFILES', '$(subst .asmgcc.s,.gcmap,$(subst .c,.gcmap,$(SOURCES)))')
             mk.definition('OBJECTS1', '$(subst .asmgcc.s,.o,$(subst .c,.o,$(SOURCES)))')
             mk.definition('OBJECTS', '$(OBJECTS1) gcmaptable.s')
 
