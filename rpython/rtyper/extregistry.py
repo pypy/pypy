@@ -1,6 +1,7 @@
 import weakref
 import UserDict
 from rpython.tool.uid import Hashable
+from rpython.tool.descriptor import normalize_method
 
 
 class AutoRegisteringType(type):
@@ -21,6 +22,10 @@ class AutoRegisteringType(type):
         else:
             if key in dict:
                 raise ValueError("duplicate extregistry entry %r" % (selfcls,))
+            try:
+                key = normalize_method(key)
+            except ValueError:
+                pass
             dict[key] = selfcls
 
     def _register_value(selfcls, key):
@@ -73,13 +78,10 @@ class ExtRegistryEntry(object):
 
 # ____________________________________________________________
 
-class FlexibleWeakDict(UserDict.DictMixin):
-    """A WeakKeyDictionary that accepts more or less anything as keys:
-    weakly referenceable objects or not, hashable objects or not.
-    """
+class FlexibleDict(UserDict.DictMixin):
+    """A dictionary that accepts unhashable objects as keys"""
     def __init__(self):
         self._regdict = {}
-        self._weakdict = weakref.WeakKeyDictionary()
         self._iddict = {}
 
     def ref(self, key):
@@ -87,12 +89,7 @@ class FlexibleWeakDict(UserDict.DictMixin):
             hash(key)
         except TypeError:
             return self._iddict, Hashable(key)   # key is not hashable
-        try:
-            weakref.ref(key)
-        except TypeError:
-            return self._regdict, key            # key cannot be weakly ref'ed
-        else:
-            return self._weakdict, key           # normal case
+        return self._regdict, key
 
     def __getitem__(self, key):
         d, key = self.ref(key)
@@ -108,11 +105,10 @@ class FlexibleWeakDict(UserDict.DictMixin):
 
     def keys(self):
         return (self._regdict.keys() +
-                self._weakdict.keys() +
                 [hashable.value for hashable in self._iddict])
 
 
-EXT_REGISTRY_BY_VALUE = FlexibleWeakDict()
+EXT_REGISTRY_BY_VALUE = FlexibleDict()
 EXT_REGISTRY_BY_TYPE = weakref.WeakKeyDictionary()
 
 # ____________________________________________________________
@@ -135,6 +131,10 @@ def _lookup_cls(instance):
         return _lookup_type_cls(type(instance))
 
 def lookup(instance):
+    try:
+        instance = normalize_method(instance)
+    except ValueError:
+        pass
     Entry = _lookup_cls(instance)
     return Entry(type(instance), instance)
 

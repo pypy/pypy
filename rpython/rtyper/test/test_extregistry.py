@@ -134,3 +134,17 @@ def test_register_non_weakly_refable():
         _about_ = n1
     assert isinstance(extregistry.lookup(n1), Entry)
     assert isinstance(extregistry.lookup(n2), Entry)
+
+def test_register_method_of_frozen():
+    class Frozen(object):
+        def _freeze_(self):
+            return True
+        def foo(self):
+            pass
+
+    f = Frozen()
+
+    class Entry(ExtRegistryEntry):
+        _about_ = f.foo
+
+    assert isinstance(extregistry.lookup(f.foo), Entry)
