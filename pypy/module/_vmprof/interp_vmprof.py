@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, cast_base_ptr_to_instance
 from rpython.rlib.objectmodel import we_are_translated, CDefinedIntSymbolic
+from rpython.rlib import jit
 from rpython.tool.pairtype import extendabletype
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -68,10 +69,18 @@ vmprof_register_virtual_function = rffi.llexternal("vmprof_register_virtual_func
 
 original_execute_frame = PyFrame.execute_frame.im_func
 original_execute_frame.c_name = 'pypy_pyframe_execute_frame'
+original_execute_frame._dont_inline_ = True
 
 class __extend__(PyFrame):
     def execute_frame(frame, w_inputvalue=None, operr=None):
-        if we_are_translated() and not FALSE_BUT_NON_CONSTANT:
+        # go through the asm trampoline ONLY if we are translated but not being JITted.
+        #
+        # If we are not translated, we obviously don't want to go through the
+        # trampoline because there is no C function it can call.
+        #
+        # If we are being JITted, we want to skip the trampoline, else the JIT
+        # cannot see throug it
+        if we_are_translated() and not jit.we_are_jitted():
             # if we are translated, call the trampoline
             gc_frame = cast_instance_to_gcref(frame)
             gc_inputvalue = cast_instance_to_gcref(w_inputvalue)
@@ -79,9 +88,6 @@ class __extend__(PyFrame):
             gc_result = pypy_execute_frame_trampoline(gc_frame, gc_inputvalue, gc_operr)
             return cast_base_ptr_to_instance(W_Root, gc_result)
         else:
-            # else, just call the original function. The FALSE_BUT_NON_CONSTANT is
-            # needed to convince the annotator to always see
-            # original_execute_frame
             return original_execute_frame(frame, w_inputvalue, operr)
 
 
@@ -94,10 +100,13 @@ class __extend__(PyCode):
         self._vmprof_registered = 0
 
 
+
 def get_virtual_ip(gc_frame):
     frame = cast_base_ptr_to_instance(PyFrame, gc_frame)
     virtual_ip = do_get_virtual_ip(frame)
     return rffi.cast(rffi.VOIDP, virtual_ip)
+get_virtual_ip.c_name = 'pypy_vmprof_get_virtual_ip'
+get_virtual_ip._dont_inline_ = True
 
 def do_get_virtual_ip(frame):
     virtual_ip = frame.pycode._vmprof_virtual_ip
@@ -124,7 +133,7 @@ def do_get_virtual_ip(frame):
         frame.pycode._vmprof_registered = _vmprof.counter
     #
     return virtual_ip
-get_virtual_ip.c_name = 'pypy_vmprof_get_virtual_ip'
+
 
 
 class VMProf(object):
@@ -138,6 +147,7 @@ class VMProf(object):
         self.virtual_ip -= 1
         return self.virtual_ip
 
+    @jit.dont_look_inside
     def _annotate_get_virtual_ip(self):
         if FALSE_BUT_NON_CONSTANT:
             # make sure it's annotated
