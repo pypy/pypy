@@ -2,6 +2,7 @@ from rpython.rlib import rwin32
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.module.ll_win32file import make_win32_traits
 from rpython.rtyper.module.support import UnicodeTraits
+from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
@@ -21,12 +22,11 @@ pypy_GetFinalPathNameByHandle(FARPROC address, HANDLE hFile,
 """
 eci = ExternalCompilationInfo(
     includes=['windows.h'],
+    include_dirs=[cdir],
     post_include_bits=[
-        "DWORD "
+        "RPY_EXPORTED_FOR_TESTS DWORD "
         "pypy_GetFinalPathNameByHandle(FARPROC, HANDLE, LPTSTR, DWORD, DWORD);"],
-    separate_module_sources=[separate_module_source],
-    export_symbols=['pypy_GetFinalPathNameByHandle']
-    )
+    separate_module_sources=[separate_module_source])
 pypy_GetFinalPathNameByHandle = rffi.llexternal(
     'pypy_GetFinalPathNameByHandle',
     [rffi.VOIDP, rwin32.HANDLE, rffi.CWCHARP, rwin32.DWORD, rwin32.DWORD],
