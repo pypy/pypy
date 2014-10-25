@@ -164,8 +164,16 @@ return next yielded value or raise StopIteration."""
                 return space.call_function(w_throw, w_type, w_val, w_tb)
             except OperationError as operr:
                 self.running = False
-                # XXX Should pop subiterator from stack?
-                return self.send_ex(space.w_None, operr)
+                # Pop subiterator from stack.
+                w_subiter = self.frame.popvalue()
+                assert space.is_w(w_subiter, w_yf)
+                # Termination repetition of YIELD_FROM
+                self.frame.last_instr += 1
+                if operr.match(space, space.w_StopIteration):
+                    w_val = operr.get_w_value(space)
+                    return self.send_ex(w_val)
+                else:
+                    return self.send_ex(space.w_None, operr)
             finally:
                 self.running = False
 

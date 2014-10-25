@@ -597,3 +597,34 @@ class AppTestYieldFrom:
             "Finishing g1",
         ]
 
+    def test_catching_exception_from_subgen_and_returning(self):
+        """
+        Test catching an exception thrown into a
+        subgenerator and returning a value
+        """
+        trace = []
+        d = dict(trace=trace)
+        exec('''if 1:
+        def inner():
+            try:
+                yield 1
+            except ValueError:
+                trace.append("inner caught ValueError")
+            return 2
+
+        def outer():
+            v = yield from inner()
+            trace.append("inner returned %r to outer" % v)
+            yield v
+        ''', d)
+        inner, outer = d['inner'], d['outer']
+        g = outer()
+        trace.append(next(g))
+        trace.append(g.throw(ValueError))
+        assert trace == [
+            1,
+            "inner caught ValueError",
+            "inner returned 2 to outer",
+            2,
+        ]
+
