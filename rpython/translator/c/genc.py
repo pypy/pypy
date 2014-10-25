@@ -458,9 +458,10 @@ class CStandaloneBuilder(CBuilder):
 
             mk.definition('PYTHON', get_recent_cpython_executable())
 
-            mk.definition('GCMAPFILES', '$(subst .c,.gcmap,$(SOURCES))')
-            mk.definition('OBJECTS1', '$(subst .c,.o,$(SOURCES))')
+            mk.definition('GCMAPFILES', '$(subst .asmgcc.s,.o,$(subst .c,.gcmap,$(SOURCES)))')
+            mk.definition('OBJECTS1', '$(subst .asmgcc.s,.o,$(subst .c,.o,$(SOURCES)))')
             mk.definition('OBJECTS', '$(OBJECTS1) gcmaptable.s')
+
 
             # the rule that transforms %.c into %.o, by compiling it to
             # %.s, then applying trackgcroot to get %.lbl.s and %.gcmap, and
@@ -474,6 +475,14 @@ class CStandaloneBuilder(CBuilder):
                 'mv $*.gctmp $*.gcmap',
                 'rm $*.s $*.lbl.s'])
 
+            # this is for manually written assembly files which needs to be parsed by asmgcc
+            mk.rule('%.o %.gcmap', '%.asmgcc.s', [
+                '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
+                    '-t $*.asmgcc.s > $*.gctmp',
+	        '$(CC) -o $*.o -c $*.asmgcc.lbl.s',
+                'mv $*.gctmp $*.gcmap',
+                'rm $*.asmgcc.lbl.s'])
+            
             # the rule to compute gcmaptable.s
             mk.rule('gcmaptable.s', '$(GCMAPFILES)',
                     [
