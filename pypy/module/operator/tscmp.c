@@ -4,8 +4,9 @@
 #include <stdlib.h>
 #include <wchar.h>
 #include "src/precommondefs.h"
+#include "tscmp.h"
 
-RPY_EXPORTED_FOR_TESTS int
+int
 pypy_tscmp(const char *a, const char *b, long len_a, long len_b)
 {
     /* The volatile type declarations make sure that the compiler has no
