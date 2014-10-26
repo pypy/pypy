@@ -54,6 +54,10 @@ constant_names = '''
     LZMA_PRESET_DEFAULT
     LZMA_CHECK_ID_MAX
     LZMA_TELL_ANY_CHECK LZMA_TELL_NO_CHECK
+    LZMA_FILTER_LZMA1 LZMA_FILTER_LZMA2 LZMA_FILTER_DELTA
+    LZMA_FILTER_IA64 LZMA_FILTER_X86 LZMA_FILTER_ARM LZMA_FILTER_ARMTHUMB
+    LZMA_FILTER_SPARC LZMA_FILTER_POWERPC
+    LZMA_PRESET_DEFAULT LZMA_PRESET_EXTREME
     '''.split()
 for name in constant_names:
     setattr(CConfig, name, platform.ConstantInteger(name))
@@ -187,7 +191,7 @@ class W_LZMACompressor(W_Root):
                     raise_error(space, "Invalid compression preset: %d", preset)
                 lzret = lzma_alone_encoder(self.lzs, options)
         else:
-            raise NotImplementedError
+            raise oefmt(space.w_NotImplementedError, "Filter specs")
         _catch_lzma_error(space, lzret)
 
     @staticmethod
@@ -209,7 +213,7 @@ class W_LZMACompressor(W_Root):
         if format == FORMAT_ALONE:
             self._init_alone(space, preset, w_filters)
         else:
-            raise NotImplementedError
+            raise oefmt(space.w_NotImplementedError, "Format %d", format)
 
         return w_self
 
@@ -294,7 +298,7 @@ class W_LZMADecompressor(W_Root):
             lzret = lzma_auto_decoder(self.lzs, memlimit, decoder_flags)
             _catch_lzma_error(space, lzret)
         else:
-            raise NotImplementedError
+            raise oefmt(space.w_NotImplementedError, "Format %d", format)
 
         return w_self
 
