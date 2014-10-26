@@ -129,6 +129,7 @@ class BlockRecorder(Recorder):
 
     def append(self, operation):
         self.crnt_block.operations.append(operation)
+        return operation
 
     def guessbool(self, ctx, w_condition):
         block = self.crnt_block
@@ -154,7 +155,7 @@ class BlockRecorder(Recorder):
         links = []
         for case in [None] + list(cases):
             if case is not None:
-                assert block.operations[-1].result is bvars[-1]
+                assert block.operations[-1] is bvars[-1]
                 vars = bvars[:-1]
                 vars2 = bvars[:-1]
                 if case is Exception:
@@ -187,14 +188,15 @@ class Replayer(Recorder):
         self.index = 0
 
     def append(self, operation):
-        operation.result = self.listtoreplay[self.index].result
-        assert operation == self.listtoreplay[self.index], (
+        prev_op = self.listtoreplay[self.index]
+        assert operation.structurally_idential(prev_op), (
             '\n'.join(["Not generating the same operation sequence:"] +
                       [str(s) for s in self.listtoreplay[:self.index]] +
                       ["  ---> | while repeating we see here"] +
                       ["       | %s" % operation] +
                       [str(s) for s in self.listtoreplay[self.index:]]))
         self.index += 1
+        return prev_op
 
     def guessbool(self, ctx, w_condition):
         assert self.index == len(self.listtoreplay)
@@ -419,12 +421,13 @@ class FlowContext(object):
             self.mergeblock(recorder.crnt_block, recorder.final_state)
             raise StopFlowing
         spaceop.offset = self.last_instr
-        recorder.append(spaceop)
+        spaceop = recorder.append(spaceop)
+        return spaceop
 
     def do_op(self, op):
-        self.record(op)
+        op = self.record(op)
         self.guessexception(op.canraise)
-        return op.result
+        return op
 
     def guessexception(self, exceptions, force=False):
         """

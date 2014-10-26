@@ -57,14 +57,13 @@ def replace_graph_with_bootstrap(GeneratorIterator, graph):
     Entry = GeneratorIterator.Entry
     newblock = Block(graph.startblock.inputargs)
     op_entry = op.simple_call(const(Entry))
-    v_entry = op_entry.result
     newblock.operations.append(op_entry)
     assert len(graph.startblock.inputargs) == len(Entry.varnames)
     for v, name in zip(graph.startblock.inputargs, Entry.varnames):
-        newblock.operations.append(op.setattr(v_entry, Constant(name), v))
-    op_generator = op.simple_call(const(GeneratorIterator), v_entry)
+        newblock.operations.append(op.setattr(op_entry, Constant(name), v))
+    op_generator = op.simple_call(const(GeneratorIterator), op_entry)
     newblock.operations.append(op_generator)
-    newblock.closeblock(Link([op_generator.result], graph.returnblock))
+    newblock.closeblock(Link([op_generator], graph.returnblock))
     graph.startblock = newblock
 
 def attach_next_method(GeneratorIterator, graph):
@@ -97,11 +96,13 @@ def get_variable_names(variables):
 def _insert_reads(block, varnames):
     assert len(varnames) == len(block.inputargs)
     v_entry1 = Variable('entry')
+    mapping = {}
     for i, name in enumerate(varnames):
         hlop = op.getattr(v_entry1, const(name))
-        hlop.result = block.inputargs[i]
+        mapping[block.inputargs[i]] = hlop
         block.operations.insert(i, hlop)
     block.inputargs = [v_entry1]
+    block.renamevariables(mapping)
 
 def tweak_generator_body_graph(Entry, graph):
     # First, always run simplify_graph in order to reduce the number of
@@ -115,9 +116,9 @@ def tweak_generator_body_graph(Entry, graph):
     #
     stopblock = Block([])
     op0 = op.simple_call(const(StopIteration))
-    op1 = op.type(op0.result)
+    op1 = op.type(op0)
     stopblock.operations = [op0, op1]
-    stopblock.closeblock(Link([op1.result, op0.result], graph.exceptblock))
+    stopblock.closeblock(Link([op1, op0], graph.exceptblock))
     #
     for block in list(graph.iterblocks()):
         for exit in block.exits:
@@ -144,13 +145,12 @@ def tweak_generator_body_graph(Entry, graph):
                 #
                 op_resume = op.simple_call(const(Resume))
                 block.operations.append(op_resume)
-                v_resume = op_resume.result
                 for i, name in enumerate(varnames):
                     block.operations.append(
-                        op.setattr(v_resume, const(name), newlink.args[i]))
-                op_pair = op.newtuple(v_resume, v_yielded_value)
+                        op.setattr(op_resume, const(name), newlink.args[i]))
+                op_pair = op.newtuple(op_resume, v_yielded_value)
                 block.operations.append(op_pair)
-                newlink.args = [op_pair.result]
+                newlink.args = [op_pair]
                 newlink.target = graph.returnblock
     #
     regular_entry_block = Block([Variable('entry')])
@@ -159,7 +159,7 @@ def tweak_generator_body_graph(Entry, graph):
         op_check = op.simple_call(
             const(isinstance), block.inputargs[0], const(Resume))
         block.operations.append(op_check)
-        block.exitswitch = op_check.result
+        block.exitswitch = op_check
         link1 = Link([block.inputargs[0]], Resume.block)
         link1.exitcase = True
         nextblock = Block([Variable('entry')])

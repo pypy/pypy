@@ -82,7 +82,7 @@ class TestGenerator:
         assert ops[4].opname == 'setattr'     # e.g_z = z
         assert ops[4].args[1].value == 'g_z'
         assert ops[5].opname == 'simple_call' # g = GeneratorIterator(e)
-        assert ops[5].args[1] == ops[0].result
+        assert ops[5].args[1] == ops[0]
         assert len(ops) == 6
         assert len(block.exits) == 1
         assert block.exits[0].target is graph.returnblock

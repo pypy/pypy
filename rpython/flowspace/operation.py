@@ -69,15 +69,14 @@ class HLOperation(SpaceOperation):
                      # (None means special handling)
 
     def __init__(self, *args):
+        Variable.__init__(self)
         self.args = list(args)
-        self.result = Variable()
         self.offset = -1
 
     def replace(self, mapping):
         newargs = [mapping.get(arg, arg) for arg in self.args]
-        newresult = mapping.get(self.result, self.result)
+        assert self not in mapping
         newop = type(self)(*newargs)
-        newop.result = newresult
         newop.offset = self.offset
         return newop
 
@@ -478,7 +477,6 @@ class Pow(PureOperation):
 
     def __init__(self, w_base, w_exponent, w_mod=const(None)):
         self.args = [w_base, w_exponent, w_mod]
-        self.result = Variable()
         self.offset = -1
 
 

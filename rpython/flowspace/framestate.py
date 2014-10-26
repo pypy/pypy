@@ -1,4 +1,4 @@
-from rpython.flowspace.model import Variable, Constant
+from rpython.flowspace.model import Variable, Constant, SpaceOperation
 from rpython.rlib.unroll import SpecTag
 
 

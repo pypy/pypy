@@ -195,7 +195,7 @@ class Block(object):
         result = self.inputargs[:]
         for op in self.operations:
             result += op.args
-            result.append(op.result)
+            result.append(op)
         return uniqueitems([w for w in result if isinstance(w, Variable)])
 
     def getconstants(self):
@@ -209,9 +209,10 @@ class Block(object):
         for a in mapping:
             assert isinstance(a, Variable), a
         self.inputargs = [mapping.get(a, a) for a in self.inputargs]
-        for op in self.operations:
+        for i, op in enumerate(self.operations):
+            if op in mapping:
+                op = self.operations[i] = mapping[op]
             op.args = [mapping.get(a, a) for a in op.args]
-            op.result = mapping.get(op.result, op.result)
         self.exitswitch = mapping.get(self.exitswitch, self.exitswitch)
         for link in self.exits:
             link.args = [mapping.get(a, a) for a in link.args]
@@ -270,10 +271,12 @@ class Variable(object):
     def renamed(self):
         return self._name is not self.dummyname
 
-    def __init__(self, name=None):
+    def __init__(self, name=None, concretetype=None):
         self._name = self.dummyname
         self._nr = -1
         self.annotation = None
+        if concretetype is not None:
+            self.concretetype = concretetype
         # numbers are bound lazily, when the name is requested
         if name is not None:
             self.rename(name)
@@ -312,7 +315,7 @@ class Variable(object):
     def foldable(self):
         return False
 
-    def copy(self):
+    def copy_as_var(self):
         """Make a copy of the Variable, preserving annotations and concretetype."""
         newvar = Variable(self)
         newvar.annotation = self.annotation
@@ -399,34 +402,43 @@ def const(obj):
         return ConstException(obj)
     return Constant(obj)
 
-class SpaceOperation(object):
+class SpaceOperation(Variable):
 
-    def __init__(self, opname, args, result, offset=-1):
+    def __init__(self, opname, args, resname=None, offset=-1, concretetype=None):
+        assert not isinstance(resname, Variable)
+        Variable.__init__(self, resname, concretetype=concretetype)
+        for arg in args:
+            if hasattr(arg, 'concretetype'):
+                assert concretetype
         self.opname = intern(opname)      # operation name
         self.args = list(args)    # mixed list of var/const
-        self.result = result      # either Variable or Constant instance
         self.offset = offset      # offset in code string
 
-    def __eq__(self, other):
+    @property
+    def result(self):
+        import pdb; pdb.set_trace()
+        return self
+
+    def structurally_idential(self, other):
         return (self.__class__ is other.__class__ and
                 self.opname == other.opname and
-                self.args == other.args and
-                self.result == other.result)
+                self.args == other.args)
 
-    def __ne__(self, other):
-        return not (self == other)
+    #def __ne__(self, other):
+    #    return not (self == other)
 
-    def __hash__(self):
-        return hash((self.opname, tuple(self.args), self.result))
+    #def __hash__(self):
+    #    xxx
+    #    return hash((self.opname, tuple(self.args), self.result))
 
     def __repr__(self):
-        return "%r = %s(%s)" % (self.result, self.opname,
+        return "%s = %s(%s)" % (self.name, self.opname,
                                 ", ".join(map(repr, self.args)))
 
     def replace(self, mapping):
         newargs = [mapping.get(arg, arg) for arg in self.args]
-        newresult = mapping.get(self.result, self.result)
-        return type(self)(self.opname, newargs, newresult, self.offset)
+        assert self not in mapping
+        return type(self)(self.opname, newargs, self._name, self.offset, concretetype=self.concretetype)
 
 class Atom(object):
     def __init__(self, name):
@@ -471,6 +483,7 @@ def mkentrymap(funcgraph):
 
 def copygraph(graph, shallow=False, varmap={}, shallowvars=False):
     "Make a copy of a flow graph."
+    assert not shallowvars, "XXX"
     blockmap = {}
     varmap = varmap.copy()
     shallowvars = shallowvars or shallow
@@ -501,7 +514,8 @@ def copygraph(graph, shallow=False, varmap={}, shallowvars=False):
                 for op in oplist:
                     copyop = SpaceOperation(op.opname,
                                             [copyvar(v) for v in op.args],
-                                            copyvar(op.result), op.offset)
+                                            op._name, op.offset)
+                    varmap[op] = copyop
                     #copyop.offset = op.offset
                     result.append(copyop)
                 return result
@@ -533,7 +547,7 @@ def copygraph(graph, shallow=False, varmap={}, shallowvars=False):
         newgraph.__dict__.setdefault(key, value)
     return newgraph
 
-def checkgraph(graph):
+def checkgraph(graph, needs_concretetype=False):
     "Check the consistency of a flow graph."
     if not __debug__:
         return
@@ -556,6 +570,8 @@ def checkgraph(graph):
             assert v not in vars_previous_blocks, (
                 "variable %r used in more than one block" % (v,))
             vars[v] = only_in_link
+            if needs_concretetype:
+                v.concretetype
 
         def usevar(v, in_link=None):
             assert v in vars
@@ -586,7 +602,7 @@ def checkgraph(graph):
                     assert isinstance(op.args[0], Constant)
                 elif op.opname == 'indirect_call':
                     assert isinstance(op.args[0], Variable)
-                definevar(op.result)
+                definevar(op)
 
             exc_links = {}
             if block.exitswitch is None:
@@ -651,7 +667,7 @@ def checkgraph(graph):
                     if isinstance(v, Variable):
                         usevar(v, in_link=link)
                         if exc_link:
-                            assert v != block.operations[-1].result
+                            assert v != block.operations[-1]
                     #else:
                     #    if not exc_link:
                     #        assert v.value is not last_exception

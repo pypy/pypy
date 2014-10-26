@@ -31,23 +31,18 @@ def test_multiplydefinedvars():
     g.startblock.closeblock(Link([v], g.returnblock))
     py.test.raises(AssertionError, checkgraph, g)
 
-    v = Variable()
-    b = Block([v])
-    b.operations.append(SpaceOperation("add", [Constant(1), Constant(2)], v))
-    g = FunctionGraph("g", b)
-    g.startblock.closeblock(Link([v], g.returnblock))
-
     py.test.raises(AssertionError, checkgraph, g)
 
 def test_varinmorethanoneblock():
-    v = Variable()
+    op = SpaceOperation("pos", [Constant(1)])
     g = FunctionGraph("g", Block([]))
-    g.startblock.operations.append(SpaceOperation("pos", [Constant(1)], v))
-    b = Block([v])
-    g.startblock.closeblock(Link([v], b))
-    b.closeblock(Link([v], g.returnblock))
+    g.startblock.operations.append(op)
+    b = Block([])
+    b.operations.append(op)
+    g.startblock.closeblock(Link([], b))
+    b.closeblock(Link([Constant(1)], g.returnblock))
     py.test.raises(AssertionError, checkgraph, g)
-    
+
 def test_useundefinedvar():
     v = Variable()
     g = FunctionGraph("g", Block([]))
@@ -61,10 +56,9 @@ def test_useundefinedvar():
     py.test.raises(AssertionError, checkgraph, g)
 
 def test_invalid_arg():
-    v = Variable()
     g = FunctionGraph("g", Block([]))
-    g.startblock.operations.append(SpaceOperation("pos", [1], v))
-    g.startblock.closeblock(Link([v], g.returnblock))
+    g.startblock.operations.append(SpaceOperation("pos", [1]))
+    g.startblock.closeblock(Link([Constant(1)], g.returnblock))
     py.test.raises(AssertionError, checkgraph, g)
 
 def test_invalid_links():
