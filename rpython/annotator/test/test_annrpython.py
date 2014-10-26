@@ -75,7 +75,7 @@ class TestAnnotateTestCase:
         block = Block([x])
         fun = FunctionGraph("f", block)
         block.operations.append(oper)
-        block.closeblock(Link([oper.result], fun.returnblock))
+        block.closeblock(Link([oper], fun.returnblock))
         a = self.RPythonAnnotator()
         a.addpendingblock(fun, fun.startblock, [annmodel.SomeInteger()])
         a.complete()
@@ -98,11 +98,11 @@ class TestAnnotateTestCase:
 
         fun = FunctionGraph("f", headerblock)
         headerblock.operations.append(conditionop)
-        headerblock.exitswitch = conditionop.result
+        headerblock.exitswitch = conditionop
         headerblock.closeblock(Link([i1], fun.returnblock, False),
                                Link([i1], whileblock, True))
         whileblock.operations.append(decop)
-        whileblock.closeblock(Link([decop.result], headerblock))
+        whileblock.closeblock(Link([decop], headerblock))
 
         a = self.RPythonAnnotator()
         a.addpendingblock(fun, fun.startblock, [annmodel.SomeInteger()])
@@ -135,12 +135,12 @@ class TestAnnotateTestCase:
         fun = FunctionGraph("f", startblock)
         startblock.closeblock(Link([i1, Constant(0)], headerblock))
         headerblock.operations.append(conditionop)
-        headerblock.exitswitch = conditionop.result
+        headerblock.exitswitch = conditionop
         headerblock.closeblock(Link([sum2], fun.returnblock, False),
                                Link([i2, sum2], whileblock, True))
         whileblock.operations.append(addop)
         whileblock.operations.append(decop)
-        whileblock.closeblock(Link([decop.result, addop.result], headerblock))
+        whileblock.closeblock(Link([decop, addop], headerblock))
 
         a = self.RPythonAnnotator()
         a.addpendingblock(fun, fun.startblock, [annmodel.SomeInteger()])

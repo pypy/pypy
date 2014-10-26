@@ -96,7 +96,7 @@ class Bookkeeper(object):
                             yield op
 
                         # some blocks are partially annotated
-                        if annotation(op.result) is None:
+                        if annotation(op) is None:
                             break   # ignore the unannotated part
 
             for call_op in call_sites():
@@ -152,7 +152,7 @@ class Bookkeeper(object):
             s_callable = self.immutablevalue(adtmeth.func)
             args_s = [lltype_to_annotation(adtmeth.ll_ptrtype)] + args_s
         if isinstance(s_callable, SomePBC):
-            s_result = annotation(call_op.result)
+            s_result = annotation(call_op)
             if s_result is None:
                 s_result = s_ImpossibleValue
             args = call_op.build_args(args_s)
@@ -502,7 +502,7 @@ class Bookkeeper(object):
             # needed by some kinds of specialization.
             fn, block, i = self.position_key
             op = block.operations[i]
-            s_previous_result = self.annotator.annotation(op.result)
+            s_previous_result = self.annotator.annotation(op)
             if s_previous_result is None:
                 s_previous_result = s_ImpossibleValue
         else:

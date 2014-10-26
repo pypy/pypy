@@ -581,8 +581,8 @@ class RPythonAnnotator(object):
         elif resultcell == annmodel.s_ImpossibleValue:
             raise BlockedInference(self, op, -1) # the operation cannot succeed
         assert isinstance(resultcell, annmodel.SomeObject)
-        assert isinstance(op.result, Variable)
-        self.setbinding(op.result, resultcell)  # bind resultcell to op.result
+        assert isinstance(op, Variable)
+        self.setbinding(op, resultcell)  # bind resultcell to op
 
 
 class BlockedInference(Exception):

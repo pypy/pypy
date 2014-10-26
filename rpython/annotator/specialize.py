@@ -31,11 +31,11 @@ def flatten_star_args(funcdesc, args_s):
             argnames, vararg, kwarg = graph.signature
             assert vararg, "graph should have a *arg at this point"
             assert not kwarg, "where does this **arg come from??"
-            argscopy = [Variable(v) for v in graph.getargs()]
             starargs = [Variable('stararg%d'%i) for i in range(nb_extra_args)]
-            newstartblock = Block(argscopy[:-1] + starargs)
             newtup = op.newtuple(*starargs)
-            newtup.result = argscopy[-1]
+            argscopy = [Variable(v) for v in graph.getargs()]
+            argscopy[-1] = newtup
+            newstartblock = Block(argscopy[:-1] + starargs)
             newstartblock.operations.append(newtup)
             newstartblock.closeblock(Link(argscopy, graph.startblock))
             graph.startblock = newstartblock
