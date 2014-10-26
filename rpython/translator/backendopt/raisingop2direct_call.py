@@ -37,7 +37,7 @@ def raisingop2direct_call(translator, graphs=None):
         if op.opname not in seen:
             seen[op.opname] = 0
         seen[op.opname] += 1
-        op.args.insert(0, annotate(translator, func, op.result, op.args))
+        op.args.insert(0, annotate(translator, func, op, op.args))
         op.opname = 'direct_call'
 
     #statistics...

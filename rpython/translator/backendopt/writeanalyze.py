@@ -78,14 +78,14 @@ class FreshMallocs(object):
         while pendingblocks:
             block = pendingblocks.pop()
             for op in block.operations:
-                self.allvariables.add(op.result)
+                self.allvariables.add(op)
                 if (op.opname == 'malloc' or op.opname == 'malloc_varsize'
                     or op.opname == 'new'):
                     continue
                 elif op.opname in ('cast_pointer', 'same_as'):
                     if self.is_fresh_malloc(op.args[0]):
                         continue
-                self.nonfresh.add(op.result)
+                self.nonfresh.add(op)
             for link in block.exits:
                 self.nonfresh.update(link.getextravars())
                 self.allvariables.update(link.getextravars())

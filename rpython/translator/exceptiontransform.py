@@ -250,7 +250,7 @@ class ExceptionTransformer(object):
               block.exits[0].target is graph.returnblock and
               len(block.operations) and
               (block.exits[0].args[0].concretetype is lltype.Void or
-               block.exits[0].args[0] is block.operations[-1].result) and
+               block.exits[0].args[0] is block.operations[-1]) and
               block.operations[-1].opname not in ('malloc', 'malloc_varsize')):     # special cases
             last_operation -= 1
         lastblock = block
@@ -290,7 +290,7 @@ class ExceptionTransformer(object):
             if block is None:
                 continue
             for op in block.operations[::-1]:
-                if v is op.result:
+                if v is op:
                     if op.opname == 'cast_pointer':
                         v = op.args[0]
                     else:
@@ -303,22 +303,17 @@ class ExceptionTransformer(object):
 
     def transform_jump_to_except_block(self, graph, entrymap, link):
         reraise = self.comes_from_last_exception(entrymap, link)
-        result = Variable()
-        result.concretetype = lltype.Void
-        block = Block([v.copy() for v in graph.exceptblock.inputargs])
+        block = Block([v.copy_as_var() for v in graph.exceptblock.inputargs])
+        op = SpaceOperation("direct_call",
+                            [self.rpyexc_reraise_ptr] + block.inputargs,
+                            concretetype=lltype.Void)
         if reraise:
-            block.operations = [
-                SpaceOperation("direct_call",
-                               [self.rpyexc_reraise_ptr] + block.inputargs,
-                               result),
-                ]
+            block.operations = [op]
         else:
             block.operations = [
-                SpaceOperation("direct_call",
-                               [self.rpyexc_raise_ptr] + block.inputargs,
-                               result),
+                op,
                 SpaceOperation('debug_record_traceback', [],
-                               varoftype(lltype.Void)),
+                               concretetype=lltype.Void),
                 ]
         link.target = block
         RETTYPE = graph.returnblock.inputargs[0].concretetype
@@ -344,7 +339,6 @@ class ExceptionTransformer(object):
         inlined, the correct exception matching blocks are produced."""
         # XXX slightly annoying: construct a graph by hand
         # but better than the alternative
-        result = op.result.copy()
         opargs = []
         inputargs = []
         callargs = []
@@ -359,12 +353,12 @@ class ExceptionTransformer(object):
                 ARGTYPES.append(var.concretetype)
             else:
                 opargs.append(var)
-        newop = SpaceOperation(op.opname, opargs, result)
+        newop = SpaceOperation(op.opname, opargs, concretetype=op.concretetype)
         startblock = Block(inputargs)
         startblock.operations.append(newop)
         newgraph = FunctionGraph("dummy_exc1", startblock)
-        startblock.closeblock(Link([result], newgraph.returnblock))
-        newgraph.returnblock.inputargs[0].concretetype = op.result.concretetype
+        startblock.closeblock(Link([newop], newgraph.returnblock))
+        newgraph.returnblock.inputargs[0].concretetype = op.concretetype
         self.gen_exc_check(startblock, newgraph.returnblock)
         excblock = Block([])
 
@@ -384,8 +378,9 @@ class ExceptionTransformer(object):
         excblock.closeblock(Link([var_type, var_value], newgraph.exceptblock))
         startblock.exits[True].target = excblock
         startblock.exits[True].args = []
-        fptr = self.constant_func("dummy_exc1", ARGTYPES, op.result.concretetype, newgraph)
-        return newgraph, SpaceOperation("direct_call", [fptr] + callargs, op.result)
+        fptr = self.constant_func("dummy_exc1", ARGTYPES, op.concretetype, newgraph)
+        import pdb; pdb.set_trace()
+        return newgraph, SpaceOperation("direct_call", [fptr] + callargs, op)
 
     def gen_exc_check(self, block, returnblock, normalafterblock=None):
         llops = rtyper.LowLevelOpList(None)
@@ -394,7 +389,7 @@ class ExceptionTransformer(object):
         alloc_shortcut = self.check_for_alloc_shortcut(spaceop)
 
         if alloc_shortcut:
-            var_no_exc = self.gen_nonnull(spaceop.result, llops)
+            var_no_exc = self.gen_nonnull(spaceop, llops)
         else:
             v_exc_type = self.gen_getfield('exc_type', llops)
             var_no_exc = self.gen_isnull(v_exc_type, llops)
@@ -404,8 +399,9 @@ class ExceptionTransformer(object):
         block.exitswitch = var_no_exc
         #exception occurred case
         b = Block([])
-        b.operations = [SpaceOperation('debug_record_traceback', [],
-                                       varoftype(lltype.Void))]
+        op = SpaceOperation('debug_record_traceback', [])
+        op.concretetype = lltype.Void
+        b.operations = [op]
         l = Link([error_constant(returnblock.inputargs[0].concretetype)], returnblock)
         b.closeblock(l)
         l = Link([], b)
@@ -429,13 +425,12 @@ class ExceptionTransformer(object):
         if insert_zeroing_op:
             if normalafterblock is None:
                 normalafterblock = insert_empty_block(None, l0)
-            v_result = spaceop.result
-            if v_result in l0.args:
-                result_i = l0.args.index(v_result)
+            if spaceop in l0.args:
+                result_i = l0.args.index(spaceop)
                 v_result_after = normalafterblock.inputargs[result_i]
             else:
-                v_result_after = v_result.copy()
-                l0.args.append(v_result)
+                v_result_after = spaceop.copy_as_var()
+                l0.args.append(spaceop)
                 normalafterblock.inputargs.append(v_result_after)
             if true_zero:
                 opname = "zero_everything_inside"
@@ -443,7 +438,7 @@ class ExceptionTransformer(object):
                 opname = "zero_gc_pointers_inside"
             normalafterblock.operations.insert(
                 0, SpaceOperation(opname, [v_result_after],
-                                  varoftype(lltype.Void)))
+                                  concretetype=lltype.Void))
 
     def setup_excdata(self):
         EXCDATA = lltype.Struct('ExcData',

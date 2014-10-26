@@ -26,7 +26,7 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
             pass
         else:
             if not op.sideeffects and len(args) == len(vargs):
-                RESTYPE = spaceop.result.concretetype
+                RESTYPE = spaceop.concretetype
                 try:
                     result = op(RESTYPE, *args)
                 except TypeError:
@@ -41,7 +41,7 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
                     # success in folding this space operation
                     if spaceop.opname in fixup_op_result:
                         result = fixup_op_result[spaceop.opname](result)
-                    constants[spaceop.result] = Constant(result, RESTYPE)
+                    constants[spaceop] = Constant(result, RESTYPE)
                     folded_count += 1
                     continue
         # failed to fold an operation, exit early if requested
@@ -51,11 +51,10 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
             if vargsmodif:
                 if (spaceop.opname == 'indirect_call'
                     and isinstance(vargs[0], Constant)):
-                    spaceop = SpaceOperation('direct_call', vargs[:-1],
-                                             spaceop.result)
+                    spaceop.opname = 'direct_call'
+                    spaceop.args = vargs[:-1]
                 else:
-                    spaceop = SpaceOperation(spaceop.opname, vargs,
-                                             spaceop.result)
+                    spaceop.args = vargs
             newops.append(spaceop)
     # end
     if exit_early:
@@ -70,18 +69,21 @@ def constant_fold_block(block):
     if constants:
         if block.exitswitch in constants:
             switch = constants[block.exitswitch].value
-            remaining_exits = [link for link in block.exits
-                                    if link.llexitcase == switch]
-            if not remaining_exits:
-                assert block.exits[-1].exitcase == 'default'
-                remaining_exits = [block.exits[-1]]
-            assert len(remaining_exits) == 1
-            remaining_exits[0].exitcase = None
-            remaining_exits[0].llexitcase = None
-            block.exitswitch = None
-            block.recloseblock(*remaining_exits)
+            constant_fold_exitswitch(block, switch)
         for link in block.exits:
             link.args = [constants.get(v, v) for v in link.args]
+
+def constant_fold_exitswitch(block, constswitch):
+    remaining_exits = [link for link in block.exits
+                            if link.llexitcase == constswitch]
+    if not remaining_exits:
+        assert block.exits[-1].exitcase == 'default'
+        remaining_exits = [block.exits[-1]]
+    assert len(remaining_exits) == 1
+    remaining_exits[0].exitcase = None
+    remaining_exits[0].llexitcase = None
+    block.exitswitch = None
+    block.recloseblock(*remaining_exits)
 
 
 def fixup_solid(p):
@@ -241,15 +243,19 @@ def constant_diffuse(graph):
             else:
                 diffuse.append((i, c))
         diffuse.reverse()
-        same_as = []
+        block_count = 0
+        mapping = {}
         for i, c in diffuse:
             for lnk in links:
                 del lnk.args[i]
             v = block.inputargs.pop(i)
-            same_as.append(SpaceOperation('same_as', [c], v))
-            count += 1
-        block.operations = same_as + block.operations
-        if same_as:
+            mapping[v] = c
+            block_count += 1
+        count += block_count
+        if block.exitswitch in mapping:
+            constant_fold_exitswitch(block, mapping[block.exitswitch].value)
+        block.renamevariables(mapping)
+        if block_count:
             constant_fold_block(block)
     return count
 

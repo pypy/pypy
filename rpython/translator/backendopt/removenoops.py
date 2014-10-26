@@ -14,7 +14,7 @@ def remove_unaryops(graph, opnames):
                 positions.append((block, i))
     while positions:
         block, index = positions.pop()
-        op_result = block.operations[index].result
+        op_result = block.operations[index]
         op_arg = block.operations[index].args[0]
         # replace the new variable (op_result) with the old variable
         # (from all subsequent positions)
@@ -57,15 +57,15 @@ def remove_duplicate_casts(graph, translator):
             if op.opname == "cast_pointer":
                 if op.args[0] in comes_from:
                     from_var = comes_from[op.args[0]]
-                    comes_from[op.result] = from_var
-                    if from_var.concretetype == op.result.concretetype:
+                    comes_from[op] = from_var
+                    if from_var.concretetype == op.concretetype:
                         op.opname = "same_as"
                         op.args = [from_var]
                         num_removed += 1
                     else:
                         op.args = [from_var]
                 else:
-                    comes_from[op.result] = op.args[0]
+                    comes_from[op] = op.args[0]
     if num_removed:
         remove_same_as(graph)
     # remove duplicate casts
@@ -73,13 +73,13 @@ def remove_duplicate_casts(graph, translator):
         available = {}
         for op in block.operations:
             if op.opname == "cast_pointer":
-                key = (op.args[0], op.result.concretetype)
+                key = (op.args[0], op.concretetype)
                 if key in available:
                     op.opname = "same_as"
                     op.args = [available[key]]
                     num_removed += 1
                 else:
-                    available[key] = op.result
+                    available[key] = op
     if num_removed:
         remove_same_as(graph)
         # remove casts with unused results
@@ -89,7 +89,7 @@ def remove_duplicate_casts(graph, translator):
                 for arg in link.args:
                     used[arg] = True
             for i, op in list(enumerate(block.operations))[::-1]:
-                if op.opname == "cast_pointer" and op.result not in used:
+                if op.opname == "cast_pointer" and op not in used:
                     del block.operations[i]
                     num_removed += 1
                 else:

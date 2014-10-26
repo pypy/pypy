@@ -101,9 +101,9 @@ def _find_exception_type(block):
             return None, None
         op = ops[i]
         i -= 1
-        if op.opname in ("same_as", "cast_pointer") and op.result is currvar:
+        if op.opname in ("same_as", "cast_pointer") and op is currvar:
             currvar = op.args[0]
-        elif op.opname == "malloc" and op.result is currvar:
+        elif op.opname == "malloc" and op is currvar:
             return Ptr(op.args[0].value), block.exits[0]
 
 def does_raise_directly(graph, raise_analyzer):
@@ -236,19 +236,20 @@ class BaseInliner(object):
         if isinstance(var, Constant):
             return var
         if var not in self.varmap:
-            self.varmap[var] = var.copy()
+            self.varmap[var] = var.copy_as_var()
         return self.varmap[var]
 
     def passon_vars(self, cache_key):
         if cache_key in self._passon_vars:
             return self._passon_vars[cache_key]
-        result = [var.copy() for var in self.original_passon_vars]
+        result = [var.copy_as_var() for var in self.original_passon_vars]
         self._passon_vars[cache_key] = result
         return result
 
     def copy_operation(self, op):
         args = [self.get_new_name(arg) for arg in op.args]
-        result = SpaceOperation(op.opname, args, self.get_new_name(op.result))
+        result = SpaceOperation(op.opname, args, concretetype=op.concretetype)
+        self.varmap[op] = result
         return result
 
     def copy_block(self, block):
@@ -361,16 +362,15 @@ class BaseInliner(object):
         exc_match.concretetype = typeOf(exc_match.value)
         blocks = []
         for i, link in enumerate(afterblock.exits[1:]):
-            etype = copiedexceptblock.inputargs[0].copy()
-            evalue = copiedexceptblock.inputargs[1].copy()
+            etype = copiedexceptblock.inputargs[0].copy_as_var()
+            evalue = copiedexceptblock.inputargs[1].copy_as_var()
             passon_vars = self.passon_vars(i)
             block = Block([etype, evalue] + passon_vars)
-            res = Variable()
-            res.concretetype = Bool
             cexitcase = Constant(link.llexitcase)
             cexitcase.concretetype = typeOf(cexitcase.value)
             args = [exc_match, etype, cexitcase]
-            block.operations.append(SpaceOperation("direct_call", args, res))
+            res = SpaceOperation("direct_call", args, concretetype=Bool)
+            block.operations.append(res)
             block.exitswitch = res
             linkargs = self.find_args_in_exceptional_case(link, link.target,
                                                           etype, evalue, afterblock,
@@ -423,7 +423,9 @@ class BaseInliner(object):
         #rewire blocks
         linktoinlined.target = copiedstartblock
         linktoinlined.args = passon_args
-        afterblock.inputargs = [self.op.result] + afterblock.inputargs
+        result_var = self.op.copy_as_var()
+        afterblock.inputargs = [result_var] + afterblock.inputargs
+        afterblock.renamevariables({self.op: result_var})
         if self.graph_to_inline.returnblock in self.entrymap:
             self.rewire_returnblock(afterblock)
         if self.graph_to_inline.exceptblock in self.entrymap:
@@ -599,10 +601,9 @@ def instrument_inline_candidates(graphs, threshold):
                     if candidate(graph):
                         tag = Constant('inline', Void)
                         label = Constant(n, Signed)
-                        dummy = Variable()
-                        dummy.concretetype = Void
                         count = SpaceOperation('instrument_count',
-                                               [tag, label], dummy)
+                                               [tag, label],
+                                               concretetype=Void)
                         ops.insert(i + 1, count)
                         n += 1
     log.inlining("%d call sites instrumented" % n)

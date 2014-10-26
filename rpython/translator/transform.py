@@ -233,9 +233,8 @@ def insert_ll_stackcheck(translator):
         insert_in.add(block)
 
     for block in insert_in:
-        v = Variable()
-        v.concretetype = lltype.Void
-        unwind_op = SpaceOperation('direct_call', [stack_check_ptr_const], v)
+        unwind_op = SpaceOperation('direct_call', [stack_check_ptr_const],
+                concretetype=lltype.Void)
         block.operations.insert(0, unwind_op)
         # prevents cycles of tail calls from occurring -- such cycles would
         # not consume any stack, so would turn into potentially infinite loops

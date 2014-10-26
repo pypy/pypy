@@ -13,7 +13,7 @@ def is_chain_block(block, first=False):
         # note: 'llong_eq', 'ullong_eq' have been removed, as it's not
         # strictly C-compliant to do a switch() on a long long.  It also
         # crashes the JIT, and it's very very rare anyway.
-        or op.result != block.exitswitch):
+        or op != block.exitswitch):
         return False
     if isinstance(op.args[0], Variable) and isinstance(op.args[1], Variable):
         return False
@@ -78,7 +78,7 @@ def merge_if_blocks_once(graph):
             # False link
             checkvar = [var for var in current.operations[-1].args
                            if isinstance(var, Variable)][0]
-            resvar = current.operations[-1].result
+            resvar = current.operations[-1]
             case = [var for var in current.operations[-1].args
                        if isinstance(var, Constant)][0]
             checkvars.append(checkvar)

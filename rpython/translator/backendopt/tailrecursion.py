@@ -6,7 +6,7 @@ def _remove_tail_call(translator, graph, block):
     print "removing tail call"
     assert len(block.exits) == 1
     assert block.exits[0].target is graph.returnblock
-    assert block.operations[-1].result == block.exits[0].args[0]
+    assert block.operations[-1] == block.exits[0].args[0]
     op = block.operations[-1]
     block.operations = block.operations[:-1]
     block.exits[0].args = op.args[1:]
@@ -20,7 +20,7 @@ def remove_tail_calls_to_self(translator, graph):
         if (len(block.exits) == 1 and
             len(block.operations) > 0 and
             block.operations[-1].opname == 'direct_call' and
-            block.operations[-1].result == link.args[0]):
+            block.operations[-1] == link.args[0]):
             print "getgraph", graph
             if graph is graph:
                 _remove_tail_call(translator, graph, block)

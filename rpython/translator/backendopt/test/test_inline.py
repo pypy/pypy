@@ -26,7 +26,7 @@ def sanity_check(t):
             for op in node.operations:
                 for v in op.args:
                     assert hasattr(v, 'concretetype')
-                assert hasattr(op.result, 'concretetype')
+                assert hasattr(op, 'concretetype')
         for node in graph.iterlinks():
             if node.exitcase is not None:
                 assert hasattr(node, 'llexitcase')
