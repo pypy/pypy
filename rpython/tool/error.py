@@ -88,7 +88,7 @@ def gather_error(annotator, graph, block, operindex):
 def format_annotations(annotator, oper):
     msg = []
     msg.append("Known variable annotations:")
-    for arg in oper.args + [oper.result]:
+    for arg in oper.args + [oper]:
         if isinstance(arg, Variable):
             try:
                 msg.append(" " + str(arg) + " = " + str(annotator.binding(arg)))
