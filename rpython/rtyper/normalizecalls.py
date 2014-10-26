@@ -282,13 +282,13 @@ def create_instantiate_function(annotator, classdef):
     #
     if hasattr(classdef, 'my_instantiate_graph'):
         return
-    v = Variable()
     block = Block([])
-    block.operations.append(SpaceOperation('instantiate1', [], v))
+    op = SpaceOperation('instantiate1', [])
+    block.operations.append(op)
     name = valid_identifier('instantiate_' + classdef.name)
     graph = FunctionGraph(name, block)
-    block.closeblock(Link([v], graph.returnblock))
-    annotator.setbinding(v, annmodel.SomeInstance(classdef))
+    block.closeblock(Link([op], graph.returnblock))
+    annotator.setbinding(op, annmodel.SomeInstance(classdef))
     annotator.annotated[block] = graph
     # force the result to be converted to a generic OBJECTPTR
     generalizedresult = annmodel.SomeInstance(classdef=None)

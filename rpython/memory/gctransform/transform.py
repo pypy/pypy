@@ -41,7 +41,7 @@ class GcHighLevelOp(object):
     def dispatch(self):
         gct = self.gctransformer
         opname = self.spaceop.opname
-        v_result = self.spaceop.result
+        v_result = self.spaceop
 
         meth = getattr(gct, 'gct_' + opname, gct.default)
         meth(self)
@@ -69,7 +69,7 @@ class GcHighLevelOp(object):
             return resultvar
 
     def cast_result(self, var):
-        v_result = self.spaceop.result
+        v_result = self.spaceop
         resulttype = v_result.concretetype
         curtype = var.concretetype
         if curtype == resulttype:
@@ -77,6 +77,7 @@ class GcHighLevelOp(object):
         else:
             v_new = gen_cast(self.llops, resulttype, var)
             assert v_new != var
+            xxx
             self.llops[-1].result = v_result
 
 # ________________________________________________________________
@@ -475,7 +476,7 @@ class GCTransformer(BaseGCTransformer):
                 ll_stack_malloc_fixedsize, [lltype.Signed], llmemory.Address)
 
     def gct_malloc(self, hop, add_flags=None):
-        TYPE = hop.spaceop.result.concretetype.TO
+        TYPE = hop.spaceop.concretetype.TO
         assert not TYPE._is_varsize()
         flags = hop.spaceop.args[1].value
         flavor = flags['flavor']
@@ -521,7 +522,7 @@ class GCTransformer(BaseGCTransformer):
     def varsize_malloc_helper(self, hop, flags, meth, extraargs):
         def intconst(c): return rmodel.inputconst(lltype.Signed, c)
         op = hop.spaceop
-        TYPE = op.result.concretetype.TO
+        TYPE = op.concretetype.TO
         assert TYPE._is_varsize()
         if isinstance(TYPE, lltype.Struct):
             ARRAY = TYPE._flds[TYPE._arrayfld]

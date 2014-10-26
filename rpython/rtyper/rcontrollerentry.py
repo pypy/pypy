@@ -73,6 +73,5 @@ def rtypedelegate(callable, hop, revealargs=[0], revealresult=False):
         hop2.s_result, hop2.r_result = s_new, r_new
     hop2.v_s_insertfirstarg(c_meth, s_meth)
     spaceop = op.simple_call(*hop2.args_v)
-    spaceop.result = hop2.spaceop.result
     hop2.spaceop = spaceop
     return hop2.dispatch()

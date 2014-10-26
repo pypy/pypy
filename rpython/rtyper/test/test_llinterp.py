@@ -344,7 +344,7 @@ def test_funny_links():
         g = FunctionGraph("is_one", block)
         op1 = op.eq(v_i, Constant(1))
         block.operations.append(op1)
-        block.exitswitch = op1.result
+        block.exitswitch = op1
         tlink = Link([Constant(1)], g.returnblock, True)
         flink = Link([Constant(0)], g.returnblock, False)
         links = [tlink, flink]
