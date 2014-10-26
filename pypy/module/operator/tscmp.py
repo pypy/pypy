@@ -12,7 +12,8 @@ from pypy.interpreter.error import oefmt
 
 cwd = py.path.local(__file__).dirpath()
 eci = ExternalCompilationInfo(
-    include_dirs=[cdir],
+    includes=[cwd.join('tscmp.h')],
+    include_dirs=[str(cwd), cdir],
     separate_module_files=[cwd.join('tscmp.c')])
 
 
