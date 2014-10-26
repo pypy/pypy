@@ -341,7 +341,7 @@ class RPythonTyper(object):
                 self.translate_hl_to_ll(hop, varmapping)
             except TyperError, e:
                 self.gottypererror(e, block, hop.spaceop, newops)
-                return  # cannot continue this block: no op.result.concretetype
+                return  # cannot continue this block: no op.concretetype
 
         block.operations[:] = newops
         block.renamevariables(varmapping)
@@ -480,7 +480,7 @@ class RPythonTyper(object):
             assert isinstance(resultvar, (Variable, Constant))
             op = hop.spaceop
             # for simplicity of the translate_meth, resultvar is usually not
-            # op.result here.  We have to replace resultvar with op.result
+            # op here.  We have to replace resultvar with op
             # in all generated operations.
             if hop.s_result.is_constant():
                 if isinstance(resultvar, Constant) and \
@@ -488,8 +488,8 @@ class RPythonTyper(object):
                        hop.r_result.lowleveltype is not Void:
                     assert resultvar.value == hop.s_result.const
             resulttype = resultvar.concretetype
-            op.result.concretetype = hop.r_result.lowleveltype
-            if op.result.concretetype != resulttype:
+            op.concretetype = hop.r_result.lowleveltype
+            if op.concretetype != resulttype:
                 raise TyperError("inconsistent type for the result of '%s':\n"
                                  "annotator says %s,\n"
                                  "whose repr is %r\n"
@@ -498,24 +498,30 @@ class RPythonTyper(object):
                     hop.r_result, op.opname, resulttype))
             # figure out if the resultvar is a completely fresh Variable or not
             if (isinstance(resultvar, Variable) and
-                resultvar.annotation is None and
-                resultvar not in varmapping):
-                # fresh Variable: rename it to the previously existing op.result
-                varmapping[resultvar] = op.result
-            elif resultvar is op.result:
-                # special case: we got the previous op.result Variable again
+                    resultvar.annotation is None):
+                assert resultvar not in varmapping
+                # fresh Variable: rename previous op to the new one
+                varmapping[op] = resultvar
+                resultvar.annotation = op.annotation
+                resultvar.concretetype = op.concretetype
+            elif resultvar is op:
+                # special case: we got the previous op again
+                import pdb; pdb.set_trace()
                 assert varmapping[resultvar] is resultvar
             else:
                 # renaming unsafe.  Insert a 'same_as' operation...
-                hop.llops.append(SpaceOperation('same_as', [resultvar],
-                                                op.result))
+                same_as = SpaceOperation(
+                    'same_as', [resultvar], op._name, concretetype=op.concretetype)
+                hop.llops.append(same_as)
+                same_as.annotation = op.annotation
+                varmapping[op] = same_as
 
     def translate_no_return_value(self, hop):
         op = hop.spaceop
         if hop.s_result != annmodel.s_ImpossibleValue:
             raise TyperError("the annotator doesn't agree that '%s' "
                              "has no return value" % op.opname)
-        op.result.concretetype = Void
+        op.concretetype = Void
 
     def gottypererror(self, e, block, position, llops):
         """Record a TyperError without crashing immediately.
@@ -665,7 +671,7 @@ class HighLevelOp(object):
         spaceop = self.spaceop
         self.args_v   = list(spaceop.args)
         self.args_s   = [rtyper.binding(a) for a in spaceop.args]
-        self.s_result = rtyper.binding(spaceop.result)
+        self.s_result = rtyper.binding(spaceop)
         self.args_r   = [rtyper.getrepr(s_a) for s_a in self.args_s]
         self.r_result = rtyper.getrepr(self.s_result)
         rtyper.call_all_setups()  # compute ForwardReferences now
@@ -868,16 +874,16 @@ class LowLevelOpList(list):
             raise AssertionError("wrong level!  you must call hop.inputargs()"
                                  " and pass its result to genop(),"
                                  " never hop.args_v directly.")
-        vresult = Variable()
-        self.append(SpaceOperation(opname, args_v, vresult))
+        result = True
         if resulttype is None:
-            vresult.concretetype = Void
-            return None
-        else:
-            if isinstance(resulttype, Repr):
-                resulttype = resulttype.lowleveltype
-            assert isinstance(resulttype, LowLevelType)
-            vresult.concretetype = resulttype
+            resulttype = Void
+            result = False
+        elif isinstance(resulttype, Repr):
+            resulttype = resulttype.lowleveltype
+        assert isinstance(resulttype, LowLevelType)
+        vresult = SpaceOperation(opname, args_v, concretetype=resulttype)
+        self.append(vresult)
+        if result:
             return vresult
 
     def gendirectcall(self, ll_function, *args_v):

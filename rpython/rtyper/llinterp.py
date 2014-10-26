@@ -384,7 +384,7 @@ class LLFrame(object):
         else:
             vals = [self.getval(x) for x in operation.args]
             if getattr(ophandler, 'need_result_type', False):
-                vals.insert(0, operation.result.concretetype)
+                vals.insert(0, operation.concretetype)
             try:
                 retval = ophandler(*vals)
             except LLException, e:
@@ -411,10 +411,10 @@ class LLFrame(object):
                     exc_data.exc_value = evalue
                     from rpython.translator import exceptiontransform
                     retval = exceptiontransform.error_value(
-                        operation.result.concretetype)
+                        operation.concretetype)
                 else:
                     raise
-        self.setvar(operation.result, retval)
+        self.setvar(operation, retval)
         if tracer:
             if retval is None:
                 tracer.dump('\n')
@@ -474,7 +474,7 @@ class LLFrame(object):
             if isinstance(v, Variable):
                 vars.append(v)
         for op in self.curr_block.operations[:self.curr_operation_index]:
-            vars.append(op.result)
+            vars.append(op)
 
         for v in vars:
             TYPE = v.concretetype
