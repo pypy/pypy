@@ -120,7 +120,7 @@ def transform_ovfcheck(graph):
                 op1_ovf = op1.ovfchecked()
                 block.operations[i - 1] = op1_ovf
                 del block.operations[i]
-                block.renamevariables({op.result: op1_ovf.result})
+                block.renamevariables({op: op1_ovf})
 
 def simplify_exceptions(graph):
     """The exception handling caused by non-implicit exceptions
@@ -206,9 +206,7 @@ def transform_xxxitem(graph):
                 if postfx:
                     Op = getattr(op, '_'.join(['getitem'] + postfx))
                     newop = Op(*last_op.args)
-                    newop.result = last_op.result
-                    block.operations[-1] = newop
-
+                    block.renamevariables({last_op: newop})
 
 def remove_dead_exceptions(graph):
     """Exceptions can be removed if they are unreachable"""
@@ -264,14 +262,15 @@ def join_blocks(graph):
             def rename(v):
                 return renaming.get(v, v)
             def rename_op(op):
-                op = op.replace(renaming)
+                new_op = op.replace(renaming)
+                renaming[op] = new_op
                 # special case...
-                if op.opname == 'indirect_call':
-                    if isinstance(op.args[0], Constant):
-                        assert isinstance(op.args[-1], Constant)
-                        del op.args[-1]
-                        op.opname = 'direct_call'
-                return op
+                if new_op.opname == 'indirect_call':
+                    if isinstance(new_op.args[0], Constant):
+                        assert isinstance(new_op.args[-1], Constant)
+                        del new_op.args[-1]
+                        new_op.opname = 'direct_call'
+                return new_op
             for op in link.target.operations:
                 link.prevblock.operations.append(rename_op(op))
             exits = []
@@ -424,7 +423,7 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
             else:
                 # if CanRemove, only mark dependencies of the result
                 # on the input variables
-                deps = variable_flow.setdefault(op.result, [])
+                deps = variable_flow.setdefault(op, [])
                 deps.extend(op.args)
 
         if isinstance(block.exitswitch, Variable):
@@ -467,7 +466,7 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
         # look for removable operations whose result is never used
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
-            if op.result not in read_vars:
+            if op not in read_vars:
                 if canremove(op, block):
                     del block.operations[i]
                 elif op.opname == 'simple_call':
@@ -578,7 +577,7 @@ def coalesce_bool(graph):
         tgts = []
         start_op = block.operations[-1]
         cond_v = start_op.args[0]
-        if block.exitswitch == start_op.result:
+        if block.exitswitch == start_op:
             for exit in block.exits:
                 tgt = exit.target
                 if tgt == block:
@@ -586,7 +585,7 @@ def coalesce_bool(graph):
                 rrenaming = dict(zip(tgt.inputargs,exit.args))
                 if len(tgt.operations) == 1 and tgt.operations[0].opname == 'bool':
                     tgt_op = tgt.operations[0]
-                    if tgt.exitswitch == tgt_op.result and rrenaming.get(tgt_op.args[0]) == cond_v:
+                    if tgt.exitswitch == tgt_op and rrenaming.get(tgt_op.args[0]) == cond_v:
                         tgts.append((exit.exitcase, tgt))
         return tgts
 
@@ -602,7 +601,7 @@ def coalesce_bool(graph):
         for case, tgt in tgts:
             exit = cand.exits[case]
             rrenaming = dict(zip(tgt.inputargs,exit.args))
-            rrenaming[tgt.operations[0].result] = cand.operations[-1].result
+            rrenaming[tgt.operations[0]] = cand.operations[-1]
             def rename(v):
                 return rrenaming.get(v,v)
             newlink = tgt.exits[case].copy(rename)
@@ -650,10 +649,10 @@ def detect_list_comprehension(graph):
                 continue
         for op in block.operations:
             if op.opname == 'newlist' and not op.args:
-                vlist = variable_families.find_rep(op.result)
+                vlist = variable_families.find_rep(op)
                 newlist_v[vlist] = block
             if op.opname == 'iter':
-                viter = variable_families.find_rep(op.result)
+                viter = variable_families.find_rep(op)
                 iter_v[viter] = block
     loops = []
     for block, viter in loopnextblocks:
@@ -681,8 +680,8 @@ def detect_list_comprehension(graph):
                     for j in range(i + 1, len(block.operations)):
                         op2 = block.operations[j]
                         if (op2.opname == 'simple_call' and len(op2.args) == 2
-                            and op2.args[0] is op.result):
-                            append_v.append((op.args[0], op.result, block))
+                            and op2.args[0] is op):
+                            append_v.append((op.args[0], op, block))
                             break
     if not append_v:
         return
@@ -784,7 +783,7 @@ class ListComprehensionDetector(object):
             return self.escapes[block]
         except KeyError:
             for op in block.operations:
-                if op.result is self.vmeth:
+                if op is self.vmeth:
                     continue       # the single getattr(vlist, 'append') is ok
                 if op.opname == 'getitem':
                     continue       # why not allow getitem(vlist, index) too
@@ -923,7 +922,7 @@ class ListComprehensionDetector(object):
         vlist = self.contains_vlist(link.args)
         assert vlist
         for hlop in iterblock.operations:
-            res = self.variable_families.find_rep(hlop.result)
+            res = self.variable_families.find_rep(hlop)
             if res is viterfamily:
                 break
         else:
@@ -934,7 +933,7 @@ class ListComprehensionDetector(object):
         link.args = list(link.args)
         for i in range(len(link.args)):
             if link.args[i] is vlist:
-                link.args[i] = hint.result
+                link.args[i] = hint
 
         # - wherever the list exits the loop body, add a 'hint({fence})'
         for block in loopbody:
@@ -953,6 +952,8 @@ class ListComprehensionDetector(object):
                     vlist2 = newblock.inputargs[index]
                     vlist3 = Variable(vlist2)
                     newblock.inputargs[index] = vlist3
+                    # XXX
+                    import pdb; pdb.set_trace()
                     hint = op.hint(vlist3, chints)
                     hint.result = vlist2
                     newblock.operations.append(hint)

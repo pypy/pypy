@@ -17,11 +17,11 @@ def insert_empty_block(annotator, link, newops=[]):
         for v in op.args:
             if isinstance(v, Variable):
                 vars.setdefault(v, True)
-        vars[op.result] = False
+        vars[op] = False
     vars = [v for v, keep in vars.items() if keep]
     mapping = {}
     for v in vars:
-        mapping[v] = v.copy()
+        mapping[v] = v.copy_as_var()
     newblock = Block(vars)
     newblock.operations.extend(newops)
     newblock.closeblock(Link(link.args, link.target))
@@ -31,7 +31,7 @@ def insert_empty_block(annotator, link, newops=[]):
     return newblock
 
 def insert_empty_startblock(annotator, graph):
-    vars = [v.copy() for v in graph.startblock.inputargs]
+    vars = [v.copy_as_var() for v in graph.startblock.inputargs]
     newblock = Block(vars)
     newblock.closeblock(Link(vars, graph.startblock))
     graph.startblock = newblock
@@ -53,24 +53,23 @@ def split_block(annotator, block, index, _forcelink=None):
     #but only for variables that are produced in the old block and needed in
     #the new one
     varmap = {}
-    vars_produced_in_new_block = set()
     def get_new_name(var):
         if var is None:
             return None
         if isinstance(var, Constant):
             return var
-        if var in vars_produced_in_new_block:
-            return var
         if var not in varmap:
-            varmap[var] = var.copy()
+            varmap[var] = var.copy_as_var()
         return varmap[var]
     moved_operations = block.operations[index:]
     new_moved_ops = []
+    vars_produced_in_new_block = set()
     for op in moved_operations:
         repl = dict((arg, get_new_name(arg)) for arg in op.args)
         newop = op.replace(repl)
         new_moved_ops.append(newop)
-        vars_produced_in_new_block.add(op.result)
+        varmap[op] = newop
+        vars_produced_in_new_block.add(op)
     moved_operations = new_moved_ops
     links = block.exits
     block.exits = None
@@ -87,7 +86,7 @@ def split_block(annotator, block, index, _forcelink=None):
         assert index == 0
         linkargs = list(_forcelink)
         for v in varmap:
-            if v not in linkargs:
+            if v not in linkargs and v not in vars_produced_in_new_block:
                 # 'v' was not specified by _forcelink, but we found out that
                 # we need it!  Hack: if it is 'concretetype is lltype.Void'
                 # then it's ok to recreate its value in the target block.
@@ -111,7 +110,7 @@ def split_block(annotator, block, index, _forcelink=None):
                     i += 1
                 moved_operations.insert(i, newop)
     else:
-        linkargs = varmap.keys()
+        linkargs = [var for var in varmap.keys() if var not in vars_produced_in_new_block]
     newblock = Block([get_new_name(v) for v in linkargs])
     newblock.operations = moved_operations
     newblock.recloseblock(*links)

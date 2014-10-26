@@ -42,13 +42,13 @@ def transform_allocate(self, block_subset):
             op = block.operations[i]
             if (op.opname == 'newlist' and
                 len(op.args) == 1):
-                length1_lists[op.result] = op.args[0]
+                length1_lists[op] = op.args[0]
             elif (op.opname == 'mul' and
                   op.args[0] in length1_lists):
-                new_op = SpaceOperation('alloc_and_set',
-                                        (op.args[1], length1_lists[op.args[0]]),
-                                        op.result)
-                block.operations[i] = new_op
+                # XXX hackish
+                op.__class__ = SpaceOperation
+                op.opname = 'alloc_and_set'
+                op.args = [op.args[1], length1_lists[op.args[0]]]
 
 # lst += string[x:y]
 # -->
@@ -65,15 +65,15 @@ def transform_extend_with_str_slice(self, block_subset):
             op = block.operations[i]
             if (op.opname == 'getslice' and
                 self.gettype(op.args[0]) is str):
-                slice_sources[op.result] = op.args
+                slice_sources[op] = op.args
             elif (op.opname == 'inplace_add' and
                   op.args[1] in slice_sources and
                   self.gettype(op.args[0]) is list):
                 v_string, v_x, v_y = slice_sources[op.args[1]]
-                new_op = SpaceOperation('extend_with_str_slice',
-                                        [op.args[0], v_x, v_y, v_string],
-                                        op.result)
-                block.operations[i] = new_op
+                # XXX hackish
+                op.__class__ = SpaceOperation
+                op.opname = 'extend_with_str_slice'
+                op.args = [op.args[0], v_x, v_y, v_string]
 
 # lst += char*count        [or count*char]
 # -->
@@ -93,18 +93,18 @@ def transform_extend_with_char_count(self, block_subset):
                 s1 = self.annotation(op.args[1])
                 if (isinstance(s0, annmodel.SomeChar) and
                     isinstance(s1, annmodel.SomeInteger)):
-                    mul_sources[op.result] = op.args[0], op.args[1]
+                    mul_sources[op] = op.args[0], op.args[1]
                 elif (isinstance(s1, annmodel.SomeChar) and
                       isinstance(s0, annmodel.SomeInteger)):
-                    mul_sources[op.result] = op.args[1], op.args[0]
+                    mul_sources[op] = op.args[1], op.args[0]
             elif (op.opname == 'inplace_add' and
                   op.args[1] in mul_sources and
                   self.gettype(op.args[0]) is list):
                 v_char, v_count = mul_sources[op.args[1]]
-                new_op = SpaceOperation('extend_with_char_count',
-                                        [op.args[0], v_char, v_count],
-                                        op.result)
-                block.operations[i] = new_op
+                # XXX hackish
+                op.__class__ = SpaceOperation
+                op.opname = 'extend_with_char_count'
+                op.args = [op.args[0], v_char, v_count]
 
 # x in [2, 3]
 # -->
@@ -120,7 +120,7 @@ def transform_list_contains(self, block_subset):
         for i in range(len(block.operations)):
             op = block.operations[i]
             if op.opname == 'newlist':
-                newlist_sources[op.result] = op.args
+                newlist_sources[op] = op.args
             elif op.opname == 'contains' and op.args[0] in newlist_sources:
                 items = {}
                 for v in newlist_sources[op.args[0]]:
@@ -168,9 +168,9 @@ def cutoff_alwaysraising_block(self, block):
     "Fix a block whose end can never be reached at run-time."
     # search the operation that cannot succeed
     can_succeed    = [op for op in block.operations
-                         if op.result.annotation is not None]
+                         if op.annotation is not None]
     cannot_succeed = [op for op in block.operations
-                         if op.result.annotation is None]
+                         if op.annotation is None]
     n = len(can_succeed)
     # check consistency
     assert can_succeed == block.operations[:n]
@@ -178,7 +178,7 @@ def cutoff_alwaysraising_block(self, block):
     assert 0 <= n < len(block.operations)
     # chop off the unreachable end of the block
     del block.operations[n+1:]
-    self.setbinding(block.operations[n].result, annmodel.s_ImpossibleValue)
+    self.setbinding(block.operations[n], annmodel.s_ImpossibleValue)
     # insert the equivalent of 'raise AssertionError'
     graph = self.annotated[block]
     msg = "Call to %r should have raised an exception" % (getattr(graph, 'func', None),)
