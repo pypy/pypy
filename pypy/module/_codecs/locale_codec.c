@@ -28,6 +28,7 @@
 #include <locale.h>
 #include <langinfo.h>
 #endif
+#include "locale_codec.h"
 
 #if 0 && defined(__APPLE__)
 extern wchar_t* _Py_DecodeUTF8_surrogateescape(const char *s, Py_ssize_t size);
