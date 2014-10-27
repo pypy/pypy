@@ -11,11 +11,17 @@ class Module(MixedModule):
         'LZMAError': 'interp_lzma.W_LZMAError',
         '_encode_filter_properties': 'interp_lzma.encode_filter_properties',
         '_decode_filter_properties': 'interp_lzma.decode_filter_properties',
-        'FORMAT_AUTO': 'space.wrap(interp_lzma.FORMAT_AUTO)',
-        'FORMAT_XZ': 'space.wrap(interp_lzma.FORMAT_XZ)',
-        'FORMAT_ALONE': 'space.wrap(interp_lzma.FORMAT_ALONE)',
-        'FORMAT_RAW': 'space.wrap(interp_lzma.FORMAT_RAW)',
     }
+
+    for name in 'AUTO XZ ALONE RAW'.split():
+        interpleveldefs['FORMAT_%s' % name] = (
+            'space.wrap(interp_lzma.FORMAT_%s)' % name)
+    for name in 'DEFAULT EXTREME'.split():
+        interpleveldefs['PRESET_%s' % name] = (
+            'space.wrap(interp_lzma.LZMA_PRESET_%s)' % name)
+    for name in 'LZMA1 LZMA2 DELTA X86 IA64 ARM ARMTHUMB SPARC POWERPC'.split():
+        interpleveldefs['FILTER_%s' % name] = (
+            'space.wrap(interp_lzma.LZMA_FILTER_%s)' % name)
 
     appleveldefs = {
     }
