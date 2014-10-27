@@ -5,11 +5,11 @@ class AppTestMemoryView:
         v = memoryview(b"abc")
         assert v.tobytes() == b"abc"
         assert len(v) == 3
-        assert v[0] == b'a'
-        assert list(v) == [b'a', b'b', b'c']
+        assert v[0] == ord('a')
+        assert list(v) == [97, 98, 99]
         assert v.tolist() == [97, 98, 99]
-        assert v[1] == b"b"
-        assert v[-1] == b"c"
+        assert v[1] == ord("b")
+        assert v[-1] == ord("c")
         exc = raises(TypeError, "v[1] = b'x'")
         assert str(exc.value) == "cannot modify read-only memory"
         assert v.readonly is True
@@ -23,15 +23,15 @@ class AppTestMemoryView:
         data = bytearray(b'abcefg')
         v = memoryview(data)
         assert v.readonly is False
-        v[0] = b'z'
+        v[0] = ord('z')
         assert data == bytearray(eval("b'zbcefg'"))
         v[1:4] = b'123'
         assert data == bytearray(eval("b'z123fg'"))
         v[0:3] = v[2:5]
         assert data == bytearray(eval("b'23f3fg'"))
-        exc = raises(ValueError, "v[2] = b'spam'")
+        exc = raises(ValueError, "v[2:3] = b'spam'")
         assert str(exc.value) == "cannot modify size of memoryview object"
-        exc = raises(NotImplementedError, "v[0:2:2] = 'spam'")
+        exc = raises(NotImplementedError, "v[0:2:2] = b'spam'")
         assert str(exc.value) == ""
 
     def test_memoryview_attrs(self):

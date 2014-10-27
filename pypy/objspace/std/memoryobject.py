@@ -11,20 +11,31 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
 
 
-def _buffer_setitem(space, buf, w_index, w_obj):
+def _buffer_setitem(space, buf, w_index, w_obj, as_int=False):
+    # This function is also used by _cffi_backend, but cffi.buffer()
+    # works with single byte characters, whereas memory object uses
+    # numbers.
     if buf.readonly:
         raise oefmt(space.w_TypeError, "cannot modify read-only memory")
     start, stop, step, size = space.decode_index4(w_index, buf.getlength())
-    if step not in (0, 1):
-        raise oefmt(space.w_NotImplementedError, "")
-    value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
-    if value.getlength() != size:
-        raise oefmt(space.w_ValueError,
-                    "cannot modify size of memoryview object")
     if step == 0:  # index only
-        buf.setitem(start, value.getitem(0))
+        if as_int:
+            value = chr(space.int_w(w_obj))
+        else:
+            val = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
+            if val.getlength() != 1:
+                raise oefmt(space.w_ValueError,
+                            "cannot modify size of memoryview object")
+            value = val.getitem(0)
+        buf.setitem(start, value)
     elif step == 1:
+        value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
+        if value.getlength() != size:
+            raise oefmt(space.w_ValueError,
+                        "cannot modify size of memoryview object")
         buf.setslice(start, value.as_str())
+    else:
+        raise oefmt(space.w_NotImplementedError, "")
 
 
 class W_MemoryView(W_Root):
@@ -93,17 +104,17 @@ class W_MemoryView(W_Root):
     def descr_getitem(self, space, w_index):
         self._check_released(space)
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
-        if step not in (0, 1):
-            raise oefmt(space.w_NotImplementedError, "")
         if step == 0:  # index only
-            return space.wrapbytes(self.buf.getitem(start))
-        else:
+            return space.wrap(ord(self.buf.getitem(start)))
+        elif step == 1:
             buf = SubBuffer(self.buf, start, size)
             return W_MemoryView(buf)
+        else:
+            raise oefmt(space.w_NotImplementedError, "")
 
     def descr_setitem(self, space, w_index, w_obj):
         self._check_released(space)
-        _buffer_setitem(space, self.buf, w_index, w_obj)
+        _buffer_setitem(space, self.buf, w_index, w_obj, as_int=True)
 
     def descr_len(self, space):
         self._check_released(space)
