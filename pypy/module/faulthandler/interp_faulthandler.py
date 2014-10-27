@@ -3,6 +3,7 @@ import py
 
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.interpreter.error import OperationError, oefmt
 
@@ -11,15 +12,8 @@ MAX_NTHREADS = 100
 cwd = py.path.local(__file__).dirpath()
 eci = ExternalCompilationInfo(
     includes=[cwd.join('faulthandler.h')],
-    include_dirs=[str(cwd)],
-    separate_module_files=[cwd.join('faulthandler.c')],
-    export_symbols=['pypy_faulthandler_read_null',
-                    'pypy_faulthandler_sigsegv',
-                    'pypy_faulthandler_sigfpe',
-                    'pypy_faulthandler_sigabrt',
-                    'pypy_faulthandler_sigbus',
-                    'pypy_faulthandler_sigill',
-                    ])
+    include_dirs=[str(cwd), cdir],
+    separate_module_files=[cwd.join('faulthandler.c')])
 
 def llexternal(*args, **kwargs):
     kwargs.setdefault('releasegil', False)

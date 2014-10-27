@@ -1,6 +1,6 @@
 import os
-import py
 
+import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.translator import cdir
