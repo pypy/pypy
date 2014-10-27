@@ -135,7 +135,7 @@ class OutBuffer(object):
         self._allocate_chunk(initial_size)
 
     def _allocate_chunk(self, size):
-        self.raw_buf, self.gc_buf = rffi.alloc_buffer(size)
+        self.raw_buf, self.gc_buf, self.case_num = rffi.alloc_buffer(size)
         self.current_size = size
         self.lzs.c_next_out = self.raw_buf
         rffi.setintfield(self.lzs, 'c_avail_out', size)
@@ -144,8 +144,10 @@ class OutBuffer(object):
         assert 0 <= chunksize <= self.current_size
         raw_buf = self.raw_buf
         gc_buf = self.gc_buf
-        s = rffi.str_from_buffer(raw_buf, gc_buf, self.current_size, chunksize)
-        rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+        case_num = self.case_num
+        s = rffi.str_from_buffer(raw_buf, gc_buf, case_num,
+                                 self.current_size, chunksize)
+        rffi.keep_buffer_alive_until_here(raw_buf, gc_buf, case_num)
         self.current_size = 0
         return s
 
@@ -165,7 +167,8 @@ class OutBuffer(object):
 
     def free(self):
         if self.current_size > 0:
-            rffi.keep_buffer_alive_until_here(self.raw_buf, self.gc_buf)
+            rffi.keep_buffer_alive_until_here(self.raw_buf, self.gc_buf,
+                                              self.case_num)
 
     def __enter__(self):
         return self
