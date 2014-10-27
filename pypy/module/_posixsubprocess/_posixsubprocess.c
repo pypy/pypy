@@ -1,6 +1,5 @@
 /* This file is mostly a copy of CPython's Module/_posixsubprocess.c */
 /* modified for PyPy: Removed dependency on Python API. */
-#include "src/precommondefs.h"
 
 /* Authors: Gregory P. Smith & Jeffrey Yasskin */
 #if defined(HAVE_PIPE2) && !defined(_GNU_SOURCE)
@@ -20,6 +19,7 @@
 #include <sys/syscall.h>
 #endif
 #include <dirent.h>
+#include "_posixsubprocess.h"
 
 #if defined(sun)
 /* readdir64 is used to work around Solaris 9 bug 6395699. */
@@ -311,7 +311,7 @@ _close_open_fd_range_maybe_unsafe(int start_fd, int end_fd,
  * This restriction is documented at
  * http://www.opengroup.org/onlinepubs/009695399/functions/fork.html.
  */
-RPY_EXPORTED_FOR_TESTS void
+void
 pypy_subprocess_child_exec(
            char *const exec_array[],
            char *const argv[],
@@ -476,7 +476,7 @@ error:
 }
 
 
-RPY_EXPORTED_FOR_TESTS int
+int
 pypy_subprocess_cloexec_pipe(int *fds)
 {
     int res;
@@ -518,7 +518,7 @@ pypy_subprocess_cloexec_pipe(int *fds)
 }
 
 
-RPY_EXPORTED_FOR_TESTS void
+void
 pypy_subprocess_init(void)
 {
 #ifdef _SC_OPEN_MAX

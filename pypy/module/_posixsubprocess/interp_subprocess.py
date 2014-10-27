@@ -22,6 +22,7 @@ class CConfig:
 config = platform.configure(CConfig)
 
 eci = ExternalCompilationInfo(
+    includes=[thisdir.join('_posixsubprocess.h')],
     include_dirs=[str(thisdir), cdir],
     separate_module_files=[thisdir.join('_posixsubprocess.c')])
 
