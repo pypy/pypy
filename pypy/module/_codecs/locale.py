@@ -15,8 +15,9 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 cwd = py.path.local(__file__).dirpath()
 eci = ExternalCompilationInfo(
-    include_dirs=[cdir],
-    separate_module_files=[cwd.join('locale.c')])
+    includes=[cwd.join('locale_codec.h')],
+    include_dirs=[str(cwd), cdir],
+    separate_module_files=[cwd.join('locale_codec.c')])
 
 def llexternal(*args, **kwargs):
     kwargs.setdefault('compilation_info', eci)
