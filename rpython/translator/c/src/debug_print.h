@@ -44,7 +44,7 @@ long pypy_debug_offset(void);
 void pypy_debug_forked(long original_offset);
 
 extern long pypy_have_debug_prints;
-extern FILE *pypy_debug_file;
+extern RPY_EXPORTED FILE *pypy_debug_file;
 
 #define OP_LL_READ_TIMESTAMP(val) READ_TIMESTAMP(val)
 

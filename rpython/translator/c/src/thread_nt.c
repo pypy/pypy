@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <process.h>
+#include <errno.h>
 
 
 /*
@@ -102,12 +103,14 @@ long RPyThreadSetStackSize(long newsize)
 /************************************************************/
 
 
+static
 BOOL InitializeNonRecursiveMutex(PNRMUTEX mutex)
 {
     mutex->sem = CreateSemaphore(NULL, 1, 1, NULL);
     return !!mutex->sem;
 }
 
+static
 VOID DeleteNonRecursiveMutex(PNRMUTEX mutex)
 {
     /* No in-use check */
@@ -115,11 +118,24 @@ VOID DeleteNonRecursiveMutex(PNRMUTEX mutex)
     mutex->sem = NULL ; /* Just in case */
 }
 
-DWORD EnterNonRecursiveMutex(PNRMUTEX mutex, DWORD milliseconds)
+static
+DWORD EnterNonRecursiveMutex(PNRMUTEX mutex, RPY_TIMEOUT_T milliseconds)
 {
-    return WaitForSingleObject(mutex->sem, milliseconds);
+    DWORD res;
+
+    if (milliseconds < 0)
+        return WaitForSingleObject(mutex->sem, INFINITE);
+
+    while (milliseconds >= (RPY_TIMEOUT_T)INFINITE) {
+        res = WaitForSingleObject(mutex->sem, INFINITE - 1);
+        if (res != WAIT_TIMEOUT)
+            return res;
+        milliseconds -= (RPY_TIMEOUT_T)(INFINITE - 1);
+    }
+    return WaitForSingleObject(mutex->sem, (DWORD)milliseconds);
 }
 
+static
 BOOL LeaveNonRecursiveMutex(PNRMUTEX mutex)
 {
     return ReleaseSemaphore(mutex->sem, 1, NULL);
@@ -161,17 +177,9 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
         milliseconds = microseconds / 1000;
         if (microseconds % 1000 > 0)
             ++milliseconds;
-        if ((DWORD) milliseconds != milliseconds) {
-            fprintf(stderr, "Timeout too large for a DWORD, "
-                            "please check RPY_TIMEOUT_MAX");
-            abort();
-        }
     }
-    else
-        milliseconds = INFINITE;
 
-    if (lock && EnterNonRecursiveMutex(
-	    lock, (DWORD)milliseconds) == WAIT_OBJECT_0) {
+    if (lock && EnterNonRecursiveMutex(lock, milliseconds) == WAIT_OBJECT_0) {
         success = RPY_LOCK_ACQUIRED;
     }
     else {

@@ -1726,7 +1726,7 @@ def _struct_variety(flds, cache={}):
         return cache[tag]
     except KeyError:
         class _struct1(_struct):
-            __slots__ = flds
+            __slots__ = tag + ('__arena_location__',)
         cache[tag] = _struct1
         return _struct1
 
@@ -1816,7 +1816,7 @@ class _struct(_parentable):
 class _array(_parentable):
     _kind = "array"
 
-    __slots__ = ('items',)
+    __slots__ = ('items', '__arena_location__',)
 
     def __init__(self, TYPE, n, initialization=None, parent=None,
                  parentindex=None):

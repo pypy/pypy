@@ -12,7 +12,8 @@ static struct PyModuleDef moduledef = {
     &dotted_functions
 };
 
-PyObject *PyInit_dotted(void)
+PyMODINIT_FUNC
+*PyInit_dotted(void)
 {
     return PyModule_Create(&moduledef);
 }

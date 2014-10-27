@@ -34,7 +34,9 @@ if _WIN:
 
     eci = ExternalCompilationInfo(
         includes = ['windows.h'],
-        post_include_bits = ["BOOL pypy_timemodule_setCtrlHandler(HANDLE event);"],
+        post_include_bits = [
+            "RPY_EXPORTED_FOR_TESTS\n"
+            "BOOL pypy_timemodule_setCtrlHandler(HANDLE event);"],
         separate_module_sources=['''
             static HANDLE interrupt_event;
 
@@ -56,7 +58,6 @@ if _WIN:
             }
 
         '''],
-        export_symbols=['pypy_timemodule_setCtrlHandler'],
         )
     _setCtrlHandlerRoutine = rffi.llexternal(
         'pypy_timemodule_setCtrlHandler',
@@ -178,19 +179,22 @@ if _POSIX:
 if _WIN:
     win_eci = ExternalCompilationInfo(
         includes = ["time.h"],
-        post_include_bits = ["long pypy_get_timezone();",
-                             "int pypy_get_daylight();",
-                             "char** pypy_get_tzname();"],
+        post_include_bits = ["RPY_EXPORTED_FOR_TESTS\n"
+                             "long pypy_get_timezone();\n"
+                             "RPY_EXPORTED_FOR_TESTS\n"
+                             "int pypy_get_daylight();\n"
+                             "RPY_EXPORTED_FOR_TESTS\n"
+                             "char** pypy_get_tzname();\n"
+                             "RPY_EXPORTED_FOR_TESTS\n"
+                             "void* pypy__tzset();"],
         separate_module_sources = ["""
         long pypy_get_timezone() { return timezone; }
         int pypy_get_daylight() { return daylight; }
         char** pypy_get_tzname() { return tzname; }
-        """],
-        export_symbols = [
-        '_tzset', 'pypy_get_timezone', 'pypy_get_daylight', 'pypy_get_tzname'],
-        )
+        void pypy__tzset() { return _tzset(); }
+        """])
     # Ensure sure that we use _tzset() and timezone from the same C Runtime.
-    c_tzset = external('_tzset', [], lltype.Void, win_eci)
+    c_tzset = external('pypy__tzset', [], lltype.Void, win_eci)
     c_get_timezone = external('pypy_get_timezone', [], rffi.LONG, win_eci)
     c_get_daylight = external('pypy_get_daylight', [], rffi.INT, win_eci)
     c_get_tzname = external('pypy_get_tzname', [], rffi.CCHARPP, win_eci)

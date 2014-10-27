@@ -20,8 +20,8 @@ import time, sys
 
 srcdir = py.path.local(cdir).join('src')
 eci = ExternalCompilationInfo(
-    separate_module_files=[srcdir.join('profiling.c')],
-    export_symbols=['pypy_setup_profiling', 'pypy_teardown_profiling'])
+    include_dirs          = [cdir],
+    separate_module_files = [srcdir.join('profiling.c')])
 
 c_setup_profiling = rffi.llexternal('pypy_setup_profiling',
                                   [], lltype.Void,

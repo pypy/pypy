@@ -12,7 +12,8 @@ static struct PyModuleDef moduledef = {
     &date_functions
 };
 
-PyObject *PyInit_date(void)
+PyMODINIT_FUNC
+*PyInit_date(void)
 {
     PyObject *module, *othermodule;
     module = PyModule_Create(&moduledef);

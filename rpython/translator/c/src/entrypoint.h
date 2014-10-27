@@ -9,5 +9,5 @@
 #endif
 
 char *RPython_StartupCode(void);
-int PYPY_MAIN_FUNCTION(int argc, char *argv[]);
+RPY_EXPORTED int PYPY_MAIN_FUNCTION(int argc, char *argv[]);
 #endif  /* PYPY_STANDALONE */

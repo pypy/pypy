@@ -1,16 +1,15 @@
+#include "src/precommondefs.h"
 #include <stddef.h>
 #if defined(__GNUC__) && defined(__linux__)
 
 /* Linux GCC implementation */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
 #include <sched.h>
-#endif
 
 static cpu_set_t base_cpu_set;
 static int profiling_setup = 0;
 
+RPY_EXPORTED_FOR_TESTS
 void pypy_setup_profiling()
 {
   if (!profiling_setup) {
@@ -23,6 +22,7 @@ void pypy_setup_profiling()
   }
 }
 
+RPY_EXPORTED_FOR_TESTS
 void pypy_teardown_profiling()
 {
   if (profiling_setup) {
