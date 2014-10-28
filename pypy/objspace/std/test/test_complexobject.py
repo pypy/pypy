@@ -198,12 +198,12 @@ class AppTestAppComplexTest:
         assert large != (5+0j)
 
     def test_richcompare_numbers(self):
-        for n in 8, 8L, 0.01:
+        for n in 8, 0.01:
             assert complex.__eq__(n+0j, n)
             assert not complex.__ne__(n+0j, n)
             assert not complex.__eq__(complex(n, n), n)
             assert complex.__ne__(complex(n, n), n)
-            raises(TypeError, complex.__lt__, n+0j, n)
+            assert complex.__lt__(n+0j, n) is NotImplemented
 
     def test_richcompare_boundaries(self):
         z = 9007199254740992+0j
