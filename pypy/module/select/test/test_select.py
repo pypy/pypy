@@ -310,7 +310,6 @@ class AppTestSelectWithPipes(_AppTestSelect):
         import select
         class Foo(object):
             def fileno(self):
-                print len(l)
                 if len(l) < 100:
                     l.append(Foo())
                 return 0
