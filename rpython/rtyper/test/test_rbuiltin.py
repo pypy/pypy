@@ -38,6 +38,16 @@ class TestRbuiltin(BaseRtypingTest):
         res = self.interpret(f, [])
         assert self.ll_to_string(res) == 'abc, def123'
 
+    def test_str_join_unbound(self):
+        def g(n):
+            if n:
+                return ["foo", "bar"]
+        def f(n):
+            g(0)
+            return str.join('', g(n))
+        res = self.interpret(f, [1])
+        assert self.ll_to_string(res) == "foobar"
+
     def test_method_repr(self):
         def g(n):
             if n >= 0:

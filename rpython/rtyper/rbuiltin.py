@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
 from rpython.rtyper import rclass
 from rpython.rtyper.rmodel import Repr
 from rpython.tool.pairtype import pairtype
-from rpython.tool.descriptor import normalize_method
+from rpython.tool.descriptor import normalize_method, InstanceMethod
 
 
 BUILTIN_TYPER = {}
@@ -86,7 +86,7 @@ class BuiltinFunctionRepr(Repr):
     def __init__(self, builtinfunc):
         self.builtinfunc = builtinfunc
 
-    def findbltintyper(self, rtyper):
+    def findbltintyper(self, hop):
         "Find the function to use to specialize calls to this built-in func."
         try:
             return BUILTIN_TYPER[self.builtinfunc]
@@ -95,11 +95,18 @@ class BuiltinFunctionRepr(Repr):
         if extregistry.is_registered(self.builtinfunc):
             entry = extregistry.lookup(self.builtinfunc)
             return entry.specialize_call
+        if isinstance(self.builtinfunc, InstanceMethod):
+            assert self.builtinfunc.im_self is None
+            name = 'rtype_method_' + self.builtinfunc.im_func.__name__
+            try:
+                return getattr(hop.args_r[0], name)
+            except AttributeError:
+                pass
         raise TyperError("don't know about built-in function %r" % (
             self.builtinfunc,))
 
     def _call(self, hop2, **kwds_i):
-        bltintyper = self.findbltintyper(hop2.rtyper)
+        bltintyper = self.findbltintyper(hop2)
         hop2.llops._called_exception_is_here_or_cannot_occur = False
         v_result = bltintyper(hop2, **kwds_i)
         if not hop2.llops._called_exception_is_here_or_cannot_occur:
