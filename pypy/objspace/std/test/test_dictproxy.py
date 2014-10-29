@@ -53,12 +53,26 @@ class AppTestUserObject:
         s1 = repr(a.__dict__)
         s2 = str(a.__dict__)
         assert s1 == s2
-        assert s1.startswith('{') and s1.endswith('}')
+        assert s1.startswith('mappingproxy({') and s1.endswith('})')
 
     def test_immutable_dict_on_builtin_type(self):
         raises(TypeError, "int.__dict__['a'] = 1")
-        raises(TypeError, int.__dict__.popitem)
-        raises(TypeError, int.__dict__.clear)
+        raises((AttributeError, TypeError), "int.__dict__.popitem()")
+        raises((AttributeError, TypeError), "int.__dict__.clear()")
+
+    def test_mappingproxy(self):
+        dictproxy = type(int.__dict__)
+        assert dictproxy is not dict
+        assert dictproxy.__name__ == 'mappingproxy'
+        raises(TypeError, dictproxy)
+        mapping = dict(a=1, b=2, c=3)
+        proxy = dictproxy(mapping)
+        assert proxy['a'] == 1
+        assert repr(proxy) == 'mappingproxy(%r)' % mapping
+        assert proxy.keys() == mapping.keys()
+        raises(TypeError, "proxy['a'] = 4")
+        raises(TypeError, "del proxy['a']")
+        raises(AttributeError, "proxy.clear()")
 
 class AppTestUserObjectMethodCache(AppTestUserObject):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}

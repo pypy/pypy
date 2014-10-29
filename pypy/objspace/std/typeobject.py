@@ -438,12 +438,12 @@ class W_TypeObject(W_Object):
 
     def getdict(w_self, space): # returning a dict-proxy!
         from pypy.objspace.std.dictproxyobject import DictProxyStrategy
-        from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+        from pypy.objspace.std.dictproxyobject import W_DictProxyObject
         if w_self.lazyloaders:
             w_self._cleanup_()    # force un-lazification
         strategy = space.fromcache(DictProxyStrategy)
         storage = strategy.erase(w_self)
-        return W_DictMultiObject(space, strategy, storage)
+        return W_DictProxyObject(space, strategy, storage)
 
     def unwrap(w_self, space):
         from pypy.objspace.std.model import UnwrapError

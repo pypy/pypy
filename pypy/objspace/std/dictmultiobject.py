@@ -626,7 +626,10 @@ class BaseItemIterator(BaseIteratorImplementation):
     next_item = _new_next('item')
 
 
-def create_iterator_classes(dictimpl, override_next_item=None):
+def create_iterator_classes(dictimpl,
+                            override_next_key=None,
+                            override_next_value=None,
+                            override_next_item=None):
     if not hasattr(dictimpl, 'wrapkey'):
         wrapkey = lambda space, key: key
     else:
@@ -647,22 +650,28 @@ def create_iterator_classes(dictimpl, override_next_item=None):
             self.iterator = strategy.getiterkeys(impl)
             BaseIteratorImplementation.__init__(self, space, strategy, impl)
 
-        def next_key_entry(self):
-            for key in self.iterator:
-                return wrapkey(self.space, key)
-            else:
-                return None
+        if override_next_key is not None:
+            next_key_entry = override_next_key
+        else:
+            def next_key_entry(self):
+                for key in self.iterator:
+                    return wrapkey(self.space, key)
+                else:
+                    return None
 
     class IterClassValues(BaseValueIterator):
         def __init__(self, space, strategy, impl):
             self.iterator = strategy.getitervalues(impl)
             BaseIteratorImplementation.__init__(self, space, strategy, impl)
 
-        def next_value_entry(self):
-            for value in self.iterator:
-                return wrapvalue(self.space, value)
-            else:
-                return None
+        if override_next_value is not None:
+            next_value_entry = override_next_value
+        else:
+            def next_value_entry(self):
+                for value in self.iterator:
+                    return wrapvalue(self.space, value)
+                else:
+                    return None
 
     class IterClassItems(BaseItemIterator):
         def __init__(self, space, strategy, impl):
