@@ -76,7 +76,9 @@ class AppTestNDIter(BaseNumpyAppTest):
             r.append(x)
             n += 1
         assert n == 12
-        assert (array(r) == [[ 0, 12], [ 4, 16], [ 8, 20], [ 1, 13], [ 5, 17], [ 9, 21], [ 2, 14], [ 6, 18], [10, 22], [ 3, 15], [ 7, 19], [11, 23]]).all()
+        assert (array(r) == [[ 0, 12], [ 4, 16], [ 8, 20], [ 1, 13], [ 5, 17], [ 9, 21],
+                             [ 2, 14], [ 6, 18], [10, 22], [ 3, 15], [ 7, 19], [11, 23],
+                            ]).all()
         e = raises(ValueError, 'r[0][0] = 0')
         assert str(e.value) == 'assignment destination is read-only'
         r = []
@@ -250,6 +252,10 @@ class AppTestNDIter(BaseNumpyAppTest):
         a = arange(3)
         import sys
         b = arange(8).reshape(2,4)
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, nditer, [a, b, None], flags=['external_loop'],
+                   op_axes=[[0, -1, -1], [-1, 0, 1], None])
+            skip('nditer op_axes not implemented yet')
         it = nditer([a, b, None], flags=['external_loop'],
                     op_axes=[[0, -1, -1], [-1, 0, 1], None])
         for x, y, z in it:

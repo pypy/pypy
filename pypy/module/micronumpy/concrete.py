@@ -449,7 +449,7 @@ class SliceArray(BaseConcreteArray):
                 strides.reverse()
                 backstrides.reverse()
                 new_shape.reverse()
-            return SliceArray(self.start, strides, backstrides, new_shape,
+            return type(self)(self.start, strides, backstrides, new_shape,
                               self, orig_array)
         new_strides = calc_new_strides(new_shape, self.get_shape(),
                                        self.get_strides(),
@@ -460,8 +460,14 @@ class SliceArray(BaseConcreteArray):
         new_backstrides = [0] * len(new_shape)
         for nd in range(len(new_shape)):
             new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
-        return SliceArray(self.start, new_strides, new_backstrides, new_shape,
+        return type(self)(self.start, new_strides, new_backstrides, new_shape,
                           self, orig_array)
+
+
+class NonWritableSliceArray(SliceArray):
+    def descr_setitem(self, space, orig_array, w_index, w_value):
+        raise OperationError(space.w_ValueError, space.wrap(
+            "assignment destination is read-only"))
 
 
 class VoidBoxStorage(BaseConcreteArray):

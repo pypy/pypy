@@ -8,8 +8,8 @@ Given an array x: x.shape == [5,6], where each element occupies one byte
 At which byte in x.data does the item x[3,4] begin?
 if x.strides==[1,5]:
     pData = x.pData + (x.start + 3*1 + 4*5)*sizeof(x.pData[0])
-    pData = x.pData + (x.start + 24) * sizeof(x.pData[0])
-so the offset of the element is 24 elements after the first
+    pData = x.pData + (x.start + 23) * sizeof(x.pData[0])
+so the offset of the element is 23 elements after the first
 
 What is the next element in x after coordinates [3,4]?
 if x.order =='C':
@@ -33,7 +33,7 @@ shape dimension
   which is x.strides[1] * (x.shape[1] - 1) + x.strides[0]
 so if we precalculate the overflow backstride as
 [x.strides[i] * (x.shape[i] - 1) for i in range(len(x.shape))]
-we can go faster.
+we can do only addition while iterating
 All the calculations happen in next()
 """
 from rpython.rlib import jit
@@ -208,6 +208,12 @@ class ArrayIter(object):
         assert state.iterator is self
         self.array.setitem(state.offset, elem)
 
+    def getoperand(self, st, base):
+        impl = self.operand_type
+        res = impl([], self.array.dtype, self.array.order, [], [],
+                   self.array.storage, base)
+        res.start = st.offset
+        return res
 
 def AxisIter(array, shape, axis, cumulative):
     strides = array.get_strides()
@@ -238,18 +244,26 @@ class SliceIter(ArrayIter):
     view into the original array
     '''
 
-    def __init__(self, array, size, shape, strides, backstrides, op_flags):
+    def __init__(self, array, size, shape, strides, backstrides, slice_shape,
+                 slice_stride, slice_backstride, op_flags, base):
+        from pypy.module.micronumpy import concrete
         ArrayIter.__init__(self, array, size, shape, strides, backstrides, op_flags)
-        self.slice_shape = array.get_shape()[len(shape):]
-        self.slice_strides = array.strides[len(shape):]
-        self.slice_backstrides = array.backstrides[len(shape):]
+        self.shape = shape[:]
+        self.slice_shape = slice_shape
+        self.slice_stride = slice_stride
+        self.slice_backstride = slice_backstride
+        self.base = base
+        if op_flags.rw == 'r':
+            self.operand_type = concrete.NonWritableSliceArray
+        else:
+            self.operand_type = concrete.SliceArray
 
     def getitem(self, state):
-        from pypy.module.micronumpy.concrete import SliceArray
         assert state.iterator is self
-        return SliceArray(state.offset, self.slice_strides,
-                 self.slice_backstrides, self.slice_shape, self.array,
-                 self.array)
+        impl = self.operand_type
+        arr = impl(state.offset, [self.slice_stride], [self.slice_backstride],
+                   [self.slice_shape], self.array, self.base)
+        return arr
 
     def getitem_bool(self, state):
         # XXX cannot be called
@@ -257,8 +271,11 @@ class SliceIter(ArrayIter):
 
     def setitem(self, state, elem):
         assert state.iterator is self
-        slice = SliceArray(state.offset, self.slice_strides,
-                 self.slice_backstrides, self.slice_shape, self.array,
-                 self.array)
+        impl = self.operand_type
+        slice = impl(state.offset, [self.slice_stride], [self.slice_backstride],
+                     [self.shape], self.array, self.base)
         # TODO: implement
         assert False
+
+    def getoperand(self, state, base):
+        return self.getitem(state)

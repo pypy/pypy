@@ -179,20 +179,20 @@ def coalesce_axes(it, space):
     # Copy logic from npyiter_coalesce_axes, used in ufunc iterators
     # and in nditer's with 'external_loop' flag
     out_shape = it.shape[:]
+    can_coalesce = True
+    if it.order == 'F':
+        fastest = 0
+    else:
+        fastest = -1
     for idim in range(it.ndim - 1):
-        can_coalesce = True
         for op_it, _ in it.iters:
             if op_it is None:
                 continue
             assert isinstance(op_it, ArrayIter)
-            if len(op_it.shape_m1) < 2:
-                can_coalesce = False
-                continue
-            if len(op_it.shape_m1) != len(it.shape):
+            indx = len(op_it.strides)
+            if op_it.array.strides[:indx] != op_it.strides:
                 can_coalesce = False
                 break
-            if op_it.strides[-1] * op_it.shape_m1[-1] != op_it.backstrides[-1]:
-                can_coalesce = False
         if can_coalesce:
             if it.order == 'F':
                 last = out_shape[0]
@@ -203,13 +203,60 @@ def coalesce_axes(it, space):
             for i in range(len(it.iters)):
                 old_iter = it.iters[i][0]
                 shape = [s+1 for s in old_iter.shape_m1]
-                new_iter = SliceIter(old_iter.array, old_iter.size / last,
-                                shape[:-1], old_iter.strides[:-1],
-                                old_iter.backstrides[:-1], it.op_flags[i])
+                strides = old_iter.strides
+                backstrides = old_iter.backstrides
+                new_shape = shape[:-1]
+                new_strides = strides[:-1]
+                new_backstrides = backstrides[:-1]
+                _shape = shape[-1]
+                _stride = strides[fastest]
+                _backstride = backstrides[-1]
+                if isinstance(old_iter, SliceIter):
+                    _shape *= old_iter.slice_shape
+                    _stride = old_iter.slice_stride
+                    _backstride = (_shape - 1) * _stride
+                new_iter = SliceIter(old_iter.array, old_iter.size / shape[-1],
+                            new_shape, new_strides, new_backstrides,
+                            _shape, _stride, _backstride,
+                            it.op_flags[i], it)
+                if len(shape) > 1:
+                    it.shape = out_shape
+                else:
+                    it.shape = [1]
                 it.iters[i] = (new_iter, new_iter.reset())
+        else:
+            break
+    # Always coalesce at least one 
+    if it.order == 'F':
+        last = out_shape[0]
+        out_shape = out_shape[1:]
+    else:
+        last = out_shape[-1]
+        out_shape = out_shape[:-1]
+    for i in range(len(it.iters)):
+        old_iter = it.iters[i][0]
+        shape = [s+1 for s in old_iter.shape_m1]
+        strides = old_iter.strides
+        backstrides = old_iter.backstrides
+        new_shape = shape[:-1]
+        new_strides = strides[:-1]
+        new_backstrides = backstrides[:-1]
+        _shape = shape[-1]
+        _stride = strides[-1]
+        _backstride = backstrides[-1]
+        if isinstance(old_iter, SliceIter):
+            _shape *= old_iter.slice_shape
+            _stride = old_iter.slice_stride
+            _backstride = (_shape - 1) * _stride
+        new_iter = SliceIter(old_iter.array, old_iter.size / shape[-1],
+                    new_shape, new_strides, new_backstrides,
+                    _shape, _stride, _backstride,
+                    it.op_flags[i], it)
+        if len(shape) > 1:
             it.shape = out_shape
         else:
-            return
+            it.shape = [1]
+        it.iters[i] = (new_iter, new_iter.reset())
 
 class IndexIterator(object):
     def __init__(self, shape, backward=False):
@@ -377,7 +424,7 @@ class W_NDIter(W_Root):
             raise oefmt(space.w_ValueError,
                         "If op_axes is provided, at least one list of axes "
                         "must be contained within it")
-        raise Exception('xxx TODO')
+        raise oefmt(space.w_NotImplementedError, "op_axis not finished yet")
         # Check that values make sense:
         # - in bounds for each operand
         # ValueError: Iterator input op_axes[0][3] (==3) is not a valid axis of op[0], which has 2 dimensions
@@ -389,10 +436,7 @@ class W_NDIter(W_Root):
         return space.wrap(self)
 
     def getitem(self, it, st):
-        impl = it.operand_type
-        res = impl([], it.array.dtype, it.array.order, [], [],
-                   it.array.storage, self)
-        res.start = st.offset
+        res = it.getoperand(st, self)
         return W_NDimArray(res)
 
     def descr_getitem(self, space, w_idx):
@@ -411,7 +455,6 @@ class W_NDIter(W_Root):
         space.wrap(len(self.iters))
 
     def descr_next(self, space):
-        import pdb;pdb.set_trace()
         for it, st in self.iters:
             if not it.done(st):
                 break
