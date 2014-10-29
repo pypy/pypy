@@ -20,8 +20,7 @@ def set_max_heap_size(nbytes):
 
 # for test purposes we allow objects to be pinned and use
 # the following list to keep track of the pinned objects
-if not we_are_translated():
-    pinned_objects = []
+_pinned_objects = []
 
 def pin(obj):
     """If 'obj' can move, then attempt to temporarily fix it.  This
@@ -45,7 +44,7 @@ def pin(obj):
     Note further that pinning an object does not prevent it from being
     collected if it is not used anymore.
     """
-    pinned_objects.append(obj)
+    _pinned_objects.append(obj)
     return True
         
 
@@ -64,8 +63,14 @@ def unpin(obj):
     """Unpin 'obj', allowing it to move again.
     Must only be called after a call to pin(obj) returned True.
     """
-    pinned_objects.remove(obj)
-        
+    for i in range(len(_pinned_objects)):
+        try:
+            if _pinned_objects[i] == obj:
+                del _pinned_objects[i]
+                return
+        except TypeError:
+            pass
+
 
 class UnpinEntry(ExtRegistryEntry):
     _about_ = unpin
@@ -79,7 +84,14 @@ class UnpinEntry(ExtRegistryEntry):
 
 def _is_pinned(obj):
     """Method to check if 'obj' is pinned."""
-    return obj in pinned_objects
+    for i in range(len(_pinned_objects)):
+        try:
+            if _pinned_objects[i] == obj:
+                return True
+        except TypeError:
+            pass
+    return False
+
 
 class IsPinnedEntry(ExtRegistryEntry):
     _about_ = _is_pinned

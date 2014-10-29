@@ -1514,7 +1514,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
             i = 0
             j = 0
             k = 0
-            while i < 3000000:
+            while i < 400000:
                 k = (k * 1291 + i) % 4603
                 a = A()
                 if k < 1000:
@@ -1546,11 +1546,12 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
                     n += ord(a.foo.bar[0])
                     m += ord(a.foo.bar[1])
             return m - n
+        assert f() == 28495
         return f
 
     def test_random_pin(self):
         res = self.run("random_pin")
-        assert res == 279882
+        assert res == 28495
 
 
 # ____________________________________________________________________

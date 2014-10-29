@@ -1,13 +1,11 @@
+#include "src/precommondefs.h"
+
 #if defined(_MSC_VER) || defined(__CYGWIN__)
 #include <windows.h>
 #define MS_WIN32
 #endif
 
-#if defined(MS_WIN32)
-#define EXPORT(x) __declspec(dllexport) x
-#else
-#define EXPORT(x) x
-#endif
+#define EXPORT(x)  RPY_EXPORTED x
 
 #include <stdlib.h>
 #include <math.h>
