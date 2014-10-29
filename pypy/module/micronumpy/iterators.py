@@ -99,7 +99,7 @@ class IterState(object):
 class ArrayIter(object):
     _immutable_fields_ = ['contiguous', 'array', 'size', 'ndim_m1', 'shape_m1[*]',
                           'strides[*]', 'backstrides[*]', 'factors[*]',
-                          'track_index', 'operand_type']
+                          'track_index', 'operand_type', 'slice_operand_type']
 
     track_index = True
 
@@ -116,6 +116,7 @@ class ArrayIter(object):
         self.shape_m1 = [s - 1 for s in shape]
         self.strides = strides
         self.backstrides = backstrides
+        self.slice_operand_type = concrete.SliceArray
 
         ndim = len(shape)
         factors = [0] * ndim
@@ -243,39 +244,36 @@ class SliceIter(ArrayIter):
     used with external loops, getitem and setitem return a SliceArray
     view into the original array
     '''
+    _immutable_fields_ = ['base', 'slice_shape[*]', 'slice_stride[*]', 'slice_backstride[*]']
 
     def __init__(self, array, size, shape, strides, backstrides, slice_shape,
                  slice_stride, slice_backstride, op_flags, base):
         from pypy.module.micronumpy import concrete
         ArrayIter.__init__(self, array, size, shape, strides, backstrides, op_flags)
-        self.shape = shape[:]
         self.slice_shape = slice_shape
         self.slice_stride = slice_stride
         self.slice_backstride = slice_backstride
         self.base = base
         if op_flags.rw == 'r':
-            self.operand_type = concrete.NonWritableSliceArray
+            self.slice_operand_type = concrete.NonWritableSliceArray
         else:
-            self.operand_type = concrete.SliceArray
+            self.slice_operand_type = concrete.SliceArray
 
     def getitem(self, state):
-        assert state.iterator is self
-        impl = self.operand_type
-        arr = impl(state.offset, [self.slice_stride], [self.slice_backstride],
-                   [self.slice_shape], self.array, self.base)
-        return arr
+        # XXX cannot be called - must return a boxed value
+        assert False
 
     def getitem_bool(self, state):
-        # XXX cannot be called
+        # XXX cannot be called - must return a boxed value
         assert False
 
     def setitem(self, state, elem):
-        assert state.iterator is self
-        impl = self.operand_type
-        slice = impl(state.offset, [self.slice_stride], [self.slice_backstride],
-                     [self.shape], self.array, self.base)
-        # TODO: implement
+        # XXX cannot be called - must return a boxed value
         assert False
 
     def getoperand(self, state, base):
-        return self.getitem(state)
+        assert state.iterator is self
+        impl = self.slice_operand_type
+        arr = impl(state.offset, [self.slice_stride], [self.slice_backstride],
+                   [self.slice_shape], self.array, self.base)
+        return arr

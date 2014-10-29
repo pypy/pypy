@@ -449,7 +449,7 @@ class SliceArray(BaseConcreteArray):
                 strides.reverse()
                 backstrides.reverse()
                 new_shape.reverse()
-            return type(self)(self.start, strides, backstrides, new_shape,
+            return self.__class__(self.start, strides, backstrides, new_shape,
                               self, orig_array)
         new_strides = calc_new_strides(new_shape, self.get_shape(),
                                        self.get_strides(),
@@ -460,7 +460,7 @@ class SliceArray(BaseConcreteArray):
         new_backstrides = [0] * len(new_shape)
         for nd in range(len(new_shape)):
             new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
-        return type(self)(self.start, new_strides, new_backstrides, new_shape,
+        return self.__class__(self.start, new_strides, new_backstrides, new_shape,
                           self, orig_array)
 
 
