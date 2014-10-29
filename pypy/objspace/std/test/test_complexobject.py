@@ -1,6 +1,5 @@
 import py
 from pypy.objspace.std.complexobject import W_ComplexObject, _split_complex
-from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std import StdObjSpace
 
 EPS = 1e-9

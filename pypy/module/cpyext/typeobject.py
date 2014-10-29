@@ -303,11 +303,6 @@ class W_PyCTypeObject(W_TypeObject):
 
 @bootstrap_function
 def init_typeobject(space):
-    # Probably a hack
-    space.model.typeorder[W_PyCTypeObject] = [(W_PyCTypeObject, None),
-                                              (W_TypeObject, None),
-                                              (W_Root, None)]
-
     make_typedescr(space.w_type.instancetypedef,
                    basestruct=PyTypeObject,
                    alloc=type_alloc,

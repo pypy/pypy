@@ -5,10 +5,9 @@ import sys
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.typedef import GetSetProperty
+from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.objspace.std import newformat
 from pypy.objspace.std.longobject import W_LongObject
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.util import wrap_parsestringerror
 from rpython.rlib import rarithmetic, rfloat
 from rpython.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
@@ -182,7 +181,7 @@ class W_FloatObject(W_Root):
         if self.user_overridden_class:
             return None
         from rpython.rlib.longlong2float import float2longlong
-        from pypy.objspace.std.model import IDTAG_FLOAT as tag
+        from pypy.objspace.std.util import IDTAG_FLOAT as tag
         val = float2longlong(space.float_w(self))
         b = rbigint.fromrarith_int(val)
         b = b.lshift(3).or_(rbigint.fromint(tag))
@@ -646,7 +645,7 @@ class W_FloatObject(W_Root):
             return space.wrap("0x%sp%s%d" % (s, sign, exp))
 
 
-W_FloatObject.typedef = StdTypeDef("float",
+W_FloatObject.typedef = TypeDef("float",
     __doc__ = '''float(x) -> floating point number
 
 Convert a string or number to a floating point number, if possible.''',
