@@ -54,16 +54,6 @@ class TryLock(object):
 class BlockingIOError(Exception):
     pass
 
-def trap_EINTR(space, e):
-    """Return True if an EnvironmentError with errno == EINTR is set."""
-    if not e.match(space, space.w_EnvironmentError):
-        return False
-    w_value = e.get_w_value(space)
-    w_errno = space.getattr(w_value, space.wrap("errno"))
-    if space.eq_w(w_errno, space.wrap(errno.EINTR)):
-        return True
-    return False
-
 class W_BufferedIOBase(W_IOBase):
     def _check_init(self, space):
         raise NotImplementedError
