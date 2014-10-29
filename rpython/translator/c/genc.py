@@ -258,8 +258,6 @@ class CBuilder(object):
                     defines['USE___THREAD'] = 1
             if self.config.translation.shared:
                 defines['PYPY_MAIN_FUNCTION'] = "pypy_main_startup"
-                self.eci = self.eci.merge(ExternalCompilationInfo(
-                    export_symbols=["pypy_main_startup", "pypy_debug_file"]))
         self.eci, cfile, extra, headers_to_precompile = \
                 gen_source(db, modulename, targetdir,
                            self.eci, defines=defines, split=self.split)

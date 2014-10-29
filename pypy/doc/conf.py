@@ -40,9 +40,9 @@ if not on_rtd:  # only import and set the theme if we're building docs locally
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinx.ext.intersphinx',
-              'sphinx.ext.todo', 'sphinx.ext.ifconfig', 'sphinx.ext.graphviz',
-              'pypyconfig']
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinx.ext.extlinks',
+              'sphinx.ext.intersphinx', 'sphinx.ext.todo', 'sphinx.ext.ifconfig',
+              'sphinx.ext.graphviz', 'pypyconfig']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -215,7 +215,8 @@ latex_use_modindex = False
 
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'http://docs.python.org/': None}
+intersphinx_mapping = {'python': ('http://docs.python.org/2.7', None),
+                       'rpython': ('http://rpython.readthedocs.org/en/latest/', None)}
 
 # -- Options for manpage output-------------------------------------------------
 
@@ -225,3 +226,4 @@ man_pages = [
    u'The PyPy Project', 1)
 ]
 
+extlinks = {'source': ('https://bitbucket.org/pypy/pypy/src/default/%s', '')}

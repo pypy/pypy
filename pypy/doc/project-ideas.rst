@@ -1,12 +1,20 @@
-
 Potential project list
 ======================
 
-This is a list of projects that are interesting for potential contributors
+===========================
+Simple tasks for newcomers:
+===========================
+
+Optimize random
+---------------
+
+https://bitbucket.org/pypy/pypy/issue/1901/try-using-a-different-implementation-of
+
+Below is a list of projects that are interesting for potential contributors
 who are seriously interested in the PyPy project. They mostly share common
 patterns - they're mid-to-large in size, they're usually well defined as
 a standalone projects and they're not being actively worked on. For small
-projects that you might want to work on, it's much better to either look
+projects that you might want to work on look above or either look
 at the `issue tracker`_, pop up on #pypy on irc.freenode.net or write to the
 `mailing list`_. This is simply for the reason that small possible projects
 tend to change very rapidly.
@@ -17,11 +25,16 @@ own improvement ideas. In any case, if you feel like working on some of those
 projects, or anything else in PyPy, pop up on IRC or write to us on the
 `mailing list`_.
 
+.. _issue tracker: http://bugs.pypy.org
+.. _mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
+
+
 Make bytearray type fast
 ------------------------
 
 PyPy's bytearray type is very inefficient. It would be an interesting
 task to look into possible optimizations on this.
+
 
 Implement copy-on-write list slicing
 ------------------------------------
@@ -38,7 +51,8 @@ The numpy is rapidly progressing in pypy, so feel free to come to IRC and
 ask for proposed topic. A not necesarilly up-to-date `list of topics`_
 is also available.
 
-.. _`list of topics`: https://bitbucket.org/pypy/extradoc/src/extradoc/planning/micronumpy.txt
+.. _list of topics: https://bitbucket.org/pypy/extradoc/src/extradoc/planning/micronumpy.txt
+
 
 Improving the jitviewer
 ------------------------
@@ -64,10 +78,13 @@ the client): if you have great web developing skills and want to help PyPy,
 this is an ideal task to get started, because it does not require any deep
 knowledge of the internals.
 
+.. _jitviewer: http://bitbucket.org/pypy/jitviewer
+
+
 Optimized Unicode Representation
 --------------------------------
 
-CPython 3.3 will use an `optimized unicode representation`_ which switches between
+CPython 3.3 will use an optimized unicode representation (see :pep:`0393`) which switches between
 different ways to represent a unicode string, depending on whether the string
 fits into ASCII, has only two-byte characters or needs four-byte characters.
 
@@ -78,14 +95,13 @@ Or maybe not.  We can also play around with the idea of using a single
 representation: as a byte string in utf-8.  (This idea needs some extra logic
 for efficient indexing, like a cache.)
 
-.. _`optimized unicode representation`: http://www.python.org/dev/peps/pep-0393/
 
 Translation Toolchain
 ---------------------
 
 * Incremental or distributed translation.
-
 * Allow separate compilation of extension modules.
+
 
 Various GCs
 -----------
@@ -95,11 +111,10 @@ collectors can be written for specialized purposes, or even various
 experiments can be done for the general purpose. Examples:
 
 * A garbage collector that compact memory better for mobile devices
-
 * A concurrent garbage collector (a lot of work)
-
 * A collector that keeps object flags in separate memory pages, to avoid
   un-sharing all pages between several fork()ed processes
+
 
 STM (Software Transactional Memory)
 -----------------------------------
@@ -108,7 +123,7 @@ This is work in progress.  Besides the main development path, whose goal is
 to make a (relatively fast) version of pypy which includes STM, there are
 independent topics that can already be experimented with on the existing,
 JIT-less pypy-stm version:
-  
+
 * What kind of conflicts do we get in real use cases?  And, sometimes,
   which data structures would be more appropriate?  For example, a dict
   implemented as a hash table will suffer "stm collisions" in all threads
@@ -116,14 +131,12 @@ JIT-less pypy-stm version:
   implementations.  Maybe alternate strategies can be implemented at the
   level of the Python interpreter (see list/dict strategies,
   ``pypy/objspace/std/{list,dict}object.py``).
-
 * More generally, there is the idea that we would need some kind of
   "debugger"-like tool to "debug" things that are not bugs, but stm
   conflicts.  How would this tool look like to the end Python
   programmers?  Like a profiler?  Or like a debugger with breakpoints
   on aborted transactions?  It would probably be all app-level, with
   a few hooks e.g. for transaction conflicts.
-
 * Find good ways to have libraries using internally threads and atomics,
   but not exposing threads to the user.  Right now there is a rough draft
   in ``lib_pypy/transaction.py``, but much better is possible.  For example
@@ -142,14 +155,14 @@ to be got from them!):
 
 * `hg`
 
-Embedding PyPy and improving CFFI
-----------------------------------------
 
-PyPy has some basic `embedding infrastructure`_. The idea would be to improve
+Embedding PyPy and improving CFFI
+---------------------------------
+
+PyPy has some basic :doc:`embedding infrastructure <embedding>`. The idea would be to improve
 upon that with cffi hacks that can automatically generate embeddable .so/.dll
 library
 
-.. _`embedding infrastructure`: embedding.html
 
 Optimising cpyext (CPython C-API compatibility layer)
 -----------------------------------------------------
@@ -167,7 +180,3 @@ have CPython extensions run much faster on PyPy than they currently do, or
 to make them work at all if they currently don't. A part of this work would
 be to get cpyext into a shape where it supports running Cython generated
 extensions.
-
-.. _`issue tracker`: http://bugs.pypy.org
-.. _`mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev
-.. _`jitviewer`: http://bitbucket.org/pypy/jitviewer

@@ -1558,6 +1558,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_varray_clear_unroll_bug(self):
+        ops = """
+        [p0]
+        i0 = getarrayitem_gc(p0, 0, descr=arraydescr)
+        i1 = getarrayitem_gc(p0, 1, descr=arraydescr)
+        i2 = getarrayitem_gc(p0, 2, descr=arraydescr)
+        i3 = int_add(i0, i1)
+        i4 = int_add(i3, i2)
+        p1 = new_array_clear(3, descr=arraydescr)
+        setarrayitem_gc(p1, 1, i4, descr=arraydescr)
+        setarrayitem_gc(p1, 0, 25, descr=arraydescr)
+        jump(p1)
+        """
+        expected = """
+        [i1]
+        i2 = int_add(25, i1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_varray_alloc_and_set(self):
         ops = """
         [i1]

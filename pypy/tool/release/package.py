@@ -160,6 +160,9 @@ def create_package(basedir, options):
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
+    libpypy_c = pypy_c.new(basename='libpypy-c.so')
+    if libpypy_c.check():
+        binaries.append((libpypy_c, 'libpypy-c.so'))
     #
     builddir = options.builddir
     pypydir = builddir.ensure(name, dir=True)
@@ -212,6 +215,7 @@ tk85.dll and tcl85.dll found, expecting to find runtime in ..\\lib
 directory next to the dlls, as per build instructions."""
                 import traceback;traceback.print_exc()
                 raise MissingDependenciesError('Tk runtime')
+        
 
     # Careful: to copy lib_pypy, copying just the hg-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.

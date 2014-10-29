@@ -65,8 +65,7 @@ int _PyPy_SSL_SetupThreads(void)
 eci = rthread.eci.merge(ExternalCompilationInfo(
     separate_module_sources=[separate_module_source],
     post_include_bits=[
-        "int _PyPy_SSL_SetupThreads(void);"],
-    export_symbols=['_PyPy_SSL_SetupThreads'],
+        "RPY_EXPORTED_FOR_TESTS int _PyPy_SSL_SetupThreads(void);"],
     libraries = libraries,
 ))
 

@@ -251,7 +251,8 @@ class PyPyTarget(object):
             enable_translationmodules(config)
 
         config.translation.suggest(check_str_without_nul=True)
-        config.translation.suggest(shared=True)
+        if sys.platform.startswith('linux'):
+            config.translation.suggest(shared=True)
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True
@@ -303,7 +304,8 @@ class PyPyTarget(object):
         return self.get_entry_point(config)
 
     def jitpolicy(self, driver):
-        from pypy.module.pypyjit.policy import PyPyJitPolicy, pypy_hooks
+        from pypy.module.pypyjit.policy import PyPyJitPolicy
+        from pypy.module.pypyjit.hooks import pypy_hooks
         return PyPyJitPolicy(pypy_hooks)
 
     def get_entry_point(self, config):

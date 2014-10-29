@@ -18,12 +18,6 @@ eci = ExternalCompilationInfo(
     includes = ['src/thread.h'],
     separate_module_files = [translator_c_dir / 'src' / 'thread.c'],
     include_dirs = [translator_c_dir],
-    export_symbols = ['RPyThreadGetIdent', 'RPyThreadLockInit',
-                      'RPyThreadAcquireLock', 'RPyThreadAcquireLockTimed',
-                      'RPyThreadReleaseLock',
-                      'RPyThreadGetStackSize', 'RPyThreadSetStackSize',
-                      'RPyOpaqueDealloc_ThreadLock',
-                      'RPyThreadAfterFork']
 )
 
 def llexternal(name, args, result, **kwds):
@@ -313,7 +307,8 @@ class ThreadLocalReference(object):
                 ptr = cast_instance_to_base_ptr(value)
                 if not running_on_llinterp:
                     gcref = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
-                    _make_sure_does_not_move(gcref)
+                    if gcref:
+                        _make_sure_does_not_move(gcref)
                 llop.threadlocalref_set(lltype.Void, opaque_id, ptr)
                 ensure_threadlocal()
             else:
