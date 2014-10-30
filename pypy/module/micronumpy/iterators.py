@@ -99,6 +99,7 @@ class IterState(object):
 class ArrayIter(object):
     _immutable_fields_ = ['contiguous', 'array', 'size', 'ndim_m1', 'shape_m1[*]',
                           'strides[*]', 'backstrides[*]', 'factors[*]',
+                          'slice_shape', 'slice_stride', 'slice_backstride',
                           'track_index', 'operand_type', 'slice_operand_type']
 
     track_index = True
@@ -116,6 +117,11 @@ class ArrayIter(object):
         self.shape_m1 = [s - 1 for s in shape]
         self.strides = strides
         self.backstrides = backstrides
+        self.slice_shape = 1
+        self.slice_stride = -1
+        if strides:
+            self.slice_stride = strides[-1]
+        self.slice_backstride = 1
         self.slice_operand_type = concrete.SliceArray
 
         ndim = len(shape)
