@@ -11,8 +11,8 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.bytesobject import (
     getbytevalue, makebytesdata_w, newbytesdata_w)
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.sliceobject import W_SliceObject
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.util import get_positive_index
@@ -909,7 +909,7 @@ class BytearrayDocstrings:
         """
 
 
-W_BytearrayObject.typedef = StdTypeDef(
+W_BytearrayObject.typedef = TypeDef(
     "bytearray",
     __doc__ = BytearrayDocstrings.__doc__,
     __new__ = interp2app(W_BytearrayObject.descr_new),

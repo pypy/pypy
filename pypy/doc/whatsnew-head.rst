@@ -35,3 +35,7 @@ Remove all remaining multimethods.
 Split RPython documentation from PyPy documentation and clean up.  There now is
 a clearer separation between documentation for users, developers and people
 interested in background information.
+
+.. branch: kill-multimethod
+
+Kill multimethod machinery, all multimethods were removed earlier.

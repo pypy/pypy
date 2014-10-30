@@ -11,7 +11,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
-from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 
 
@@ -769,7 +769,7 @@ def makebytesdata_w(space, w_source):
     return data
 
 
-W_BytesObject.typedef = StdTypeDef(
+W_BytesObject.typedef = TypeDef(
     "bytes",
     __new__ = interp2app(W_BytesObject.descr_new),
     __doc__ = """bytes(iterable_of_ints) -> bytes

@@ -1,9 +1,8 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import applevel, interp2app, unwrap_spec
-from pypy.interpreter.typedef import GetSetProperty, default_identity_hash
+from pypy.interpreter.typedef import GetSetProperty, default_identity_hash, TypeDef
 from pypy.objspace.descroperation import Object
-from pypy.objspace.std.stdtypedef import StdTypeDef
 
 
 app = applevel(r'''
@@ -221,7 +220,7 @@ def descr_richcompare(space, w_self, w_other):
     return space.w_NotImplemented
 
 
-W_ObjectObject.typedef = StdTypeDef("object",
+W_ObjectObject.typedef = TypeDef("object",
     __doc__ = "The most base type",
     __new__ = interp2app(descr__new__),
     __subclasshook__ = interp2app(descr___subclasshook__, as_classmethod=True),
