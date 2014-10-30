@@ -180,7 +180,7 @@ def coalesce_axes(it, space):
     # and in nditer's with 'external_loop' flag
     can_coalesce = True
     if it.order == 'F':
-        indxs = slice(1,None)
+        fastest = 0
     else:
         fastest = -1
     for idim in range(it.ndim - 1):
@@ -246,7 +246,7 @@ def coalesce_axes(it, space):
         new_backstrides = backstrides[:-1]
         _shape = shape[-1] * old_iter.slice_shape
         # use the operand's iterator's rightmost stride,
-        # even if it is larger than minimum (for 'F' or swapped axis)
+        # even if it is not the fastest (for 'F' or swapped axis)
         _stride = old_iter.slice_stride
         _backstride = (_shape - 1) * _stride
         new_iter = SliceIter(old_iter.array, old_iter.size / shape[-1],
