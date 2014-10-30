@@ -1038,11 +1038,6 @@ class AppTestArray(BaseArrayTests):
         assert bytes(memoryview(self.array('i'))) == b''
 
 
-class AppTestArrayBuiltinShortcut(AppTestArray):
-    spaceconfig = AppTestArray.spaceconfig.copy()
-    spaceconfig['objspace.std.builtinshortcut'] = True
-
-
 class AppTestArrayReconstructor:
     spaceconfig = dict(usemodules=('array', 'struct'))
 

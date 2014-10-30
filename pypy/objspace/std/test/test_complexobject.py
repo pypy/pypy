@@ -4,7 +4,6 @@ from __future__ import print_function
 import py
 
 from pypy.objspace.std.complexobject import W_ComplexObject, _split_complex
-from pypy.objspace.std.multimethod import FailedToImplement
 
 EPS = 1e-9
 

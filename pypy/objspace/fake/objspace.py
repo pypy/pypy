@@ -2,7 +2,6 @@ from rpython.annotator.model import SomeInstance, s_None
 from pypy.interpreter import argument, gateway
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.sliceobject import W_SliceObject
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.objectmodel import instantiate, we_are_translated, specialize
@@ -112,6 +111,10 @@ class Entry(ExtRegistryEntry):
 
 # ____________________________________________________________
 
+
+BUILTIN_TYPES = ['int', 'str', 'float', 'tuple', 'list', 'dict', 'bytes',
+                 'unicode', 'complex', 'slice', 'bool', 'text', 'object',
+                 'bytearray', 'memoryview']
 
 class FakeObjSpace(ObjSpace):
     def __init__(self, config=None):
@@ -352,9 +355,7 @@ class FakeObjSpace(ObjSpace):
     def setup(space):
         for name in (ObjSpace.ConstantTable +
                      ObjSpace.ExceptionTable +
-                     ['int', 'str', 'float', 'tuple', 'list',
-                      'dict', 'bytes', 'complex', 'slice', 'bool',
-                      'text', 'object', 'unicode', 'bytearray', 'memoryview']):
+                     BUILTIN_TYPES):
             setattr(space, 'w_' + name, w_some_obj())
         space.w_type = w_some_type()
         #
@@ -385,7 +386,7 @@ class FakeObjSpace(ObjSpace):
 @specialize.memo()
 def see_typedef(space, typedef):
     assert isinstance(typedef, TypeDef)
-    if not isinstance(typedef, StdTypeDef):
+    if typedef.name not in BUILTIN_TYPES:
         for name, value in typedef.rawdict.items():
             space.wrap(value)
 

@@ -25,11 +25,10 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, interpindirect2app, unwrap_spec)
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std import newformat
-from pypy.objspace.std.model import (
-    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT)
-from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.util import wrap_parsestringerror
+from pypy.objspace.std.util import (
+    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT, wrap_parsestringerror)
 
 SENTINEL = object()
 
@@ -761,6 +760,16 @@ class W_IntObject(W_AbstractIntObject):
         _divmod, ovf2small=_divmod_ovf2small)
 
 
+def setup_prebuilt(space):
+    if space.config.objspace.std.withprebuiltint:
+        W_IntObject.PREBUILT = []
+        for i in range(space.config.objspace.std.prebuiltintfrom,
+                       space.config.objspace.std.prebuiltintto):
+            W_IntObject.PREBUILT.append(W_IntObject(i))
+    else:
+        W_IntObject.PREBUILT = None
+
+
 def wrapint(space, x):
     if not space.config.objspace.std.withprebuiltint:
         return W_IntObject(x)
@@ -916,7 +925,7 @@ def _from_intlike(space, w_inttype, w_intlike):
     return newbigint(space, w_inttype, space.bigint_w(w_obj))
 
 
-W_AbstractIntObject.typedef = StdTypeDef("int",
+W_AbstractIntObject.typedef = TypeDef("int",
     __doc__ = """int(x=0) -> integer
 int(x, base=10) -> integer
 

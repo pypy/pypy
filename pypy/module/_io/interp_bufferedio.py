@@ -52,16 +52,6 @@ class TryLock(object):
 class BlockingIOError(Exception):
     pass
 
-def trap_EINTR(space, e):
-    """Return True if an EnvironmentError with errno == EINTR is set."""
-    if not e.match(space, space.w_EnvironmentError):
-        return False
-    w_value = e.get_w_value(space)
-    w_errno = space.getattr(w_value, space.wrap("errno"))
-    if space.eq_w(w_errno, space.wrap(errno.EINTR)):
-        return True
-    return False
-
 class W_BufferedIOBase(W_IOBase):
     def _check_init(self, space):
         raise NotImplementedError
@@ -816,11 +806,6 @@ class BufferedMixin:
         self._check_closed(space, "flush of closed file")
         with self.lock:
             self._flush_and_rewind_unlocked(space)
-            if self.readable:
-                # Rewind the raw stream so that its position corresponds to
-                # the current logical position.
-                self._raw_seek(space, -self._raw_offset(), 1)
-                self._reader_reset_buf()
 
     def _flush_and_rewind_unlocked(self, space):
         self._writer_flush_unlocked(space)

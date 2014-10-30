@@ -767,7 +767,3 @@ class AppTest_Descroperation:
         # previously triggered an OverflowError
         d = {BigHash(): None}
         assert BigHash() in d
-
-
-class AppTestWithBuiltinShortcut(AppTest_Descroperation):
-    spaceconfig = {'objspace.std.builtinshortcut': True}

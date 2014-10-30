@@ -63,13 +63,11 @@ def unpin(obj):
     """Unpin 'obj', allowing it to move again.
     Must only be called after a call to pin(obj) returned True.
     """
-    i = 0
-    while i < len(_pinned_objects):
+    for i in range(len(_pinned_objects)):
         try:
             if _pinned_objects[i] == obj:
                 del _pinned_objects[i]
-            else:
-                i += 1
+                return
         except TypeError:
             pass
 

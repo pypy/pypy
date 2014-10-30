@@ -1,9 +1,8 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import applevel, interp2app, unwrap_spec
-from pypy.interpreter.typedef import GetSetProperty, default_identity_hash
+from pypy.interpreter.typedef import GetSetProperty, default_identity_hash, TypeDef
 from pypy.objspace.descroperation import Object
-from pypy.objspace.std.stdtypedef import StdTypeDef
 
 
 app = applevel(r'''
@@ -224,7 +223,7 @@ def descr__dir__(space, w_obj):
     from pypy.objspace.std.util import _objectdir
     return space.call_function(space.w_list, _objectdir(space, w_obj))
 
-W_ObjectObject.typedef = StdTypeDef("object",
+W_ObjectObject.typedef = TypeDef("object",
     __doc__ = "The most base type",
     __new__ = interp2app(descr__new__),
     __subclasshook__ = interp2app(descr___subclasshook__, as_classmethod=True),
