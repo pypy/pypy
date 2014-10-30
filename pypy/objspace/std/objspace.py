@@ -9,7 +9,7 @@ from pypy.objspace.descroperation import (
 from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_constant
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import base_int, widen, is_valid_int
-from rpython.rlib.objectmodel import import_from_mixin
+from rpython.rlib.objectmodel import import_from_mixin, we_are_translated
 from rpython.rlib import jit
 
 # Object imports
