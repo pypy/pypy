@@ -444,9 +444,6 @@ class AppTestAppFloatTest:
         assert 5 .__eq__(3.14) is NotImplemented
         assert 3.14 .__eq__(5) is False
 
-        assert 5L .__eq__(3.14) is NotImplemented
-        assert 3.14 .__eq__(5L) is False
-
     def test_from_string(self):
         raises(ValueError, float, "\0")
         raises(ValueError, float, '\uD8F0')
