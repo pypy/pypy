@@ -8,6 +8,7 @@ import contextlib
 import sys
 import threading
 import time
+import warnings
 
 
 class _DummyLock(object):
@@ -326,7 +327,7 @@ class TkApp(object):
             if res == tklib.TCL_ERROR:
                 self.raiseTclError()
             result = tkffi.string(tklib.Tcl_GetStringResult(self.interp))
-            return result.decode('utf-8')
+            return FromTclString(result)
 
     def evalfile(self, filename):
         self._check_tcl_appartment()
@@ -335,7 +336,7 @@ class TkApp(object):
             if res == tklib.TCL_ERROR:
                 self.raiseTclError()
             result = tkffi.string(tklib.Tcl_GetStringResult(self.interp))
-            return result.decode('utf-8')
+            return FromTclString(result)
 
     def split(self, arg):
         if isinstance(arg, TclObject):
@@ -434,6 +435,32 @@ class TkApp(object):
                              for i in range(argc[0]))
         finally:
             tklib.Tcl_Free(argv[0])
+
+    def merge(self, *args):
+        warnings.warn("merge is deprecated and will be removed in 3.4",
+                      DeprecationWarning)
+        s = self._merge(args)
+        return s.decode('utf-8')
+
+    def _merge(self, args):
+        argv = []
+        for arg in args:
+            if isinstance(arg, tuple):
+                argv.append(self._merge(arg))
+            elif arg is None:
+                break
+            elif isinstance(arg, bytes):
+                argv.append(arg)
+            else:
+                argv.append(str(arg).encode('utf-8'))
+        argv_array = [tkffi.new("char[]", arg) for arg in argv]
+        res = tklib.Tcl_Merge(len(argv), argv_array)
+        if not res:
+            raise TclError("merge failed")
+        try:
+            return tkffi.string(res)
+        finally:
+            tklib.Tcl_Free(res)
 
     def getboolean(self, s):
         if isinstance(s, int):

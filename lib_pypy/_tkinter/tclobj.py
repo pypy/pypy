@@ -19,7 +19,7 @@ def FromTclString(s):
     except UnicodeDecodeError:
         # Tcl encodes null character as \xc0\x80
         try:
-            return s.replace('\xc0\x80', '\x00').decode('utf-8')
+            return s.replace(b'\xc0\x80', b'\x00').decode('utf-8')
         except UnicodeDecodeError:
             pass
     return s
