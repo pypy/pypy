@@ -19,7 +19,8 @@ from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject, 
 from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.floatobject import W_FloatObject
-from pypy.objspace.std.intobject import W_IntObject, setup_prebuilt, wrapint
+from pypy.objspace.std.intobject import (
+    W_AbstractIntObject, W_IntObject, setup_prebuilt, wrapint)
 from pypy.objspace.std.iterobject import W_AbstractSeqIterObject, W_SeqIterObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.longobject import W_LongObject, newlong
@@ -64,7 +65,7 @@ class StdObjSpace(ObjSpace):
             W_ComplexObject.typedef: W_ComplexObject,
             W_DictMultiObject.typedef: W_DictMultiObject,
             W_FloatObject.typedef: W_FloatObject,
-            W_IntObject.typedef: W_IntObject,
+            W_IntObject.typedef: W_AbstractIntObject,
             W_AbstractSeqIterObject.typedef: W_AbstractSeqIterObject,
             W_ListObject.typedef: W_ListObject,
             W_MemoryView.typedef: W_MemoryView,
