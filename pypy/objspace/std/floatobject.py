@@ -2,23 +2,24 @@ import math
 import operator
 import sys
 
+from rpython.rlib import rarithmetic, rfloat
+from rpython.rlib.rarithmetic import LONG_BIT, intmask, ovfcheck_float_to_int
+from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rfloat import (
+    DTSF_ADD_DOT_0, DTSF_STR_PRECISION, INFINITY, NAN, copysign,
+    float_as_rbigint_ratio, formatd, isfinite, isinf, isnan)
+from rpython.rlib.rstring import ParseStringError
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rtyper.lltypesystem.module.ll_math import math_fmod
+from rpython.tool.sourcetools import func_with_new_name
+
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.objspace.std import newformat
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.objspace.std.util import wrap_parsestringerror
-from rpython.rlib import rarithmetic, rfloat
-from rpython.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
-from rpython.rlib.rbigint import rbigint
-from rpython.rlib.rfloat import (
-    isinf, isnan, isfinite, INFINITY, NAN, copysign, formatd,
-    DTSF_ADD_DOT_0, DTSF_STR_PRECISION, float_as_rbigint_ratio)
-from rpython.rlib.rstring import ParseStringError
-from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.lltypesystem.module.ll_math import math_fmod
 
 
 def float2string(x, code, precision):

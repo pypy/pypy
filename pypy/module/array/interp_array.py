@@ -1,5 +1,3 @@
-from __future__ import with_statement
-
 from rpython.rlib import jit
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.objectmodel import keepalive_until_here
@@ -15,7 +13,6 @@ from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, make_weakref_descr)
-from pypy.interpreter.generator import GeneratorIterator
 from pypy.module._file.interp_file import W_File
 
 
