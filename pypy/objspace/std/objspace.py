@@ -14,7 +14,6 @@ from rpython.rlib import jit
 
 # Object imports
 from pypy.objspace.std.boolobject import W_BoolObject
-from pypy.objspace.std.bufferobject import W_Buffer
 from pypy.objspace.std.bytearrayobject import W_BytearrayObject
 from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject, wrapstr
 from pypy.objspace.std.complexobject import W_ComplexObject
@@ -60,7 +59,6 @@ class StdObjSpace(ObjSpace):
         # types
         builtin_type_classes = {
             W_BoolObject.typedef: W_BoolObject,
-            W_Buffer.typedef: W_Buffer,
             W_BytearrayObject.typedef: W_BytearrayObject,
             W_BytesObject.typedef: W_BytesObject,
             W_ComplexObject.typedef: W_ComplexObject,
@@ -69,7 +67,6 @@ class StdObjSpace(ObjSpace):
             W_IntObject.typedef: W_IntObject,
             W_AbstractSeqIterObject.typedef: W_AbstractSeqIterObject,
             W_ListObject.typedef: W_ListObject,
-            W_LongObject.typedef: W_LongObject,
             W_MemoryView.typedef: W_MemoryView,
             W_NoneObject.typedef: W_NoneObject,
             W_ObjectObject.typedef: W_ObjectObject,
