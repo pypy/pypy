@@ -182,7 +182,7 @@ def coalesce_axes(it, space):
     if it.order == 'F':
         indxs = slice(1,None)
     else:
-        indxs = slice(0,-1)
+        fastest = -1
     for idim in range(it.ndim - 1):
         for op_it, _ in it.iters:
             if op_it is None:
@@ -190,11 +190,13 @@ def coalesce_axes(it, space):
             assert isinstance(op_it, ArrayIter)
             indx = len(op_it.strides)
             if it.order == 'F':
-                aslice = slice(-indx,None)
+                indx = len(op_it.array.strides) - indx
+                assert indx >=0
+                astrides = op_it.array.strides[indx:]
             else:
-                aslice = slice(None, indx)
+                astrides = op_it.array.strides[:indx]
             # does op_it iters over array "naturally"
-            if op_it.array.strides[aslice] != op_it.strides:
+            if astrides != op_it.strides:
                 print 'cannot coalesce array strides', op_it.array.strides,
                 print 'with iter strides', op_it.strides
                 can_coalesce = False
@@ -206,16 +208,17 @@ def coalesce_axes(it, space):
                 shape = [s+1 for s in old_iter.shape_m1]
                 strides = old_iter.strides
                 backstrides = old_iter.backstrides
-                new_shape = shape[indxs]
-                new_strides = strides[indxs]
-                new_backstrides = backstrides[indxs]
-                # We always want the "fastest" iterator in external loops
                 if it.order == 'F':
-                    fastest = 0
+                    new_shape = shape[1:]
+                    new_strides = strides[1:]
+                    new_backstrides = backstrides[1:]
                     _stride = min(strides[0], old_iter.slice_stride)
                 else:
-                    fastest = -1
+                    new_shape = shape[:-1]
+                    new_strides = strides[:-1]
+                    new_backstrides = backstrides[:-1]
                     _stride = old_iter.slice_stride
+                # We always want the "fastest" iterator in external loops
                 _shape = shape[fastest] * old_iter.slice_shape
                 _backstride = (_shape - 1) * _stride
                 new_iter = SliceIter(old_iter.array, old_iter.size / shape[fastest],
