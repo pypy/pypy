@@ -12,7 +12,7 @@ from rpython.annotator.model import (SomeOrderedDict,
     SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
     s_None, s_ImpossibleValue, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
-    SomeWeakRef, SomeByteArray, SomeConstantType)
+    SomeWeakRef, SomeByteArray, SomeConstantType, AnnotatorError)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
@@ -330,7 +330,10 @@ class Bookkeeper(object):
                     if hasattr(x.im_class, '_freeze_'):
                         return self.immutablevalue(x.im_func)
                     cls_s = self.annotationclass(x.im_class)
-                    result = cls_s.find_unboundmethod(x.im_func.__name__)
+                    if cls_s is None:
+                        result = None
+                    else:
+                        result = cls_s.find_unboundmethod(x.im_func.__name__)
             else:
                 result = None
             if result is None:
@@ -458,7 +461,10 @@ class Bookkeeper(object):
         try:
             return _cls2Some[cls]
         except KeyError:
-            return type(self.valueoftype(cls))
+            try:
+                return type(self.valueoftype(cls))
+            except AnnotatorError:
+                return None
 
     def get_classpbc_attr_families(self, attrname):
         """Return the UnionFind for the ClassAttrFamilies corresponding to
