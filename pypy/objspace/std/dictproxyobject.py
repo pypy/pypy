@@ -1,9 +1,9 @@
 from pypy.objspace.std.dictmultiobject import (
     W_DictMultiObject, DictStrategy, create_iterator_classes)
 from pypy.objspace.std.typeobject import unwrap_cell
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.typedef import TypeDef
 
 from rpython.rlib import rerased
 
@@ -24,7 +24,7 @@ class W_DictProxyObject(W_DictMultiObject):
         return space.wrap(u"mappingproxy(%s)" % (
             space.unicode_w(W_DictMultiObject.descr_repr(self, space))))
 
-W_DictProxyObject.typedef = StdTypeDef(
+W_DictProxyObject.typedef = TypeDef(
     "mappingproxy", W_DictMultiObject.typedef,
     __new__ = interp2app(W_DictProxyObject.descr_new),
     __init__ = interp2app(W_DictProxyObject.descr_init),
