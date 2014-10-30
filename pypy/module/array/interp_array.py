@@ -1,5 +1,3 @@
-from __future__ import with_statement
-
 from rpython.rlib import jit
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.objectmodel import keepalive_until_here

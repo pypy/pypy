@@ -1,11 +1,11 @@
-from pypy.objspace.std.dictmultiobject import (
-    W_DictMultiObject, DictStrategy, create_iterator_classes)
-from pypy.objspace.std.typeobject import unwrap_cell
+from rpython.rlib import rerased
+
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
-
-from rpython.rlib import rerased
+from pypy.objspace.std.dictmultiobject import (
+    DictStrategy, W_DictMultiObject, create_iterator_classes)
+from pypy.objspace.std.typeobject import unwrap_cell
 
 
 class W_DictProxyObject(W_DictMultiObject):
