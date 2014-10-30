@@ -12,11 +12,11 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std import newformat
 from pypy.objspace.std.intobject import W_AbstractIntObject
-from pypy.objspace.std.model import (
-    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_LONG)
-from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.util import (
+    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_LONG, wrap_parsestringerror)
 
 
 def delegate_other(func):
@@ -541,7 +541,6 @@ def _string_to_w_long(space, w_longtype, w_source, string, base=10):
     try:
         bigint = rbigint.fromstr(string, base)
     except ParseStringError as e:
-        from pypy.objspace.std.intobject import wrap_parsestringerror
         raise wrap_parsestringerror(space, e, w_source)
     return newbigint(space, w_longtype, bigint)
 _string_to_w_long._dont_inline_ = True
@@ -567,7 +566,7 @@ def newbigint(space, w_longtype, bigint):
     return w_obj
 
 
-W_AbstractLongObject.typedef = StdTypeDef("long",
+W_AbstractLongObject.typedef = TypeDef("long",
     __doc__ = """long(x=0) -> long
 long(x, base=10) -> long
 

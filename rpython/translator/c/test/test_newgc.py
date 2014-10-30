@@ -1504,6 +1504,55 @@ class TestMiniMarkGC(TestSemiSpaceGC):
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcpolicy = "incminimark"
 
+    def define_random_pin(self):
+        class A:
+            foo = None
+            bar = '..'
+        def f():
+            alist = [A()]
+            slist = ['..']
+            i = 0
+            j = 0
+            k = 0
+            while i < 400000:
+                k = (k * 1291 + i) % 4603
+                a = A()
+                if k < 1000:
+                    alist.append(a)
+                elif k < 2000:
+                    j = (i * k)
+                    alist[j % len(alist)].foo = alist[(j+i) % len(alist)]
+                elif k < 3000:
+                    alist[i % len(alist)].bar = slist[(j+i) % len(slist)]
+                elif k < 4000:
+                    slist.append(chr(i & 255) + chr(k & 255))
+                elif k < 4100 and len(alist) > 1:
+                    drop = alist.pop()
+                    alist[i % len(alist)] = drop
+                elif k < 4200 and len(slist) > 1:
+                    drop = slist.pop()
+                    slist[i % len(slist)] = drop
+                elif k < 4300:
+                    rgc.pin(slist[i % len(slist)])      # <------ pin!
+                keepalive_until_here(a)
+                i += 1
+            n = 0
+            m = 0
+            for i in range(len(alist)):
+                a = alist[i]
+                if a.foo is None:
+                    n -= 1
+                else:
+                    n += ord(a.foo.bar[0])
+                    m += ord(a.foo.bar[1])
+            return m - n
+        assert f() == 28495
+        return f
+
+    def test_random_pin(self):
+        res = self.run("random_pin")
+        assert res == 28495
+
 
 # ____________________________________________________________________
 

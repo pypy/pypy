@@ -10,10 +10,10 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std import newformat
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.unicodeobject import (
     _get_encoding_and_errors, decode_object, unicode_from_encoded_object,
@@ -874,7 +874,7 @@ def wrapchar(space, c):
         return W_BytesObject(c)
 
 
-W_BytesObject.typedef = StdTypeDef(
+W_BytesObject.typedef = TypeDef(
     "str", basestring_typedef,
     __new__ = interp2app(W_BytesObject.descr_new),
     __doc__ = """str(object='') -> string

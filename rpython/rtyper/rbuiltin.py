@@ -688,10 +688,10 @@ def rtype_builtin_isinstance(hop):
     if hop.s_result.is_constant():
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
-    if hop.args_s[1].is_constant() and hop.args_s[1].const in (str, list):
-        if hop.args_s[0].knowntype not in (str, list):
-            raise TyperError("isinstance(x, str/list) expects x to be known"
-                             " statically to be a str/list or None")
+    if hop.args_s[1].is_constant() and hop.args_s[1].const in (str, list, unicode):
+        if hop.args_s[0].knowntype not in (str, list, unicode):
+            raise TyperError("isinstance(x, str/list/unicode) expects x to be known"
+                             " statically to be a str/list/unicode or None")
         rstrlist = hop.args_r[0]
         vstrlist = hop.inputarg(rstrlist, arg=0)
         cnone = hop.inputconst(rstrlist, None)

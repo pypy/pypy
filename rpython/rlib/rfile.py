@@ -464,7 +464,7 @@ class RFile(object):
     @enforceargs(None, str)
     def write(self, value):
         self._check_closed()
-        ll_value = rffi.get_nonmovingbuffer(value)
+        ll_value, is_pinned, is_raw = rffi.get_nonmovingbuffer(value)
         try:
             # note that since we got a nonmoving buffer, it is either raw
             # or already cannot move, so the arithmetics below are fine
@@ -475,7 +475,7 @@ class RFile(object):
                 c_clearerr(self._ll_file)
                 raise IOError(errno, os.strerror(errno))
         finally:
-            rffi.free_nonmovingbuffer(value, ll_value)
+            rffi.free_nonmovingbuffer(value, ll_value, is_pinned, is_raw)
 
     def flush(self):
         self._check_closed()

@@ -1,5 +1,6 @@
 #ifndef __PYPY_THREAD_H
 #define __PYPY_THREAD_H
+#include "precommondefs.h"
 #include <assert.h>
 
 #define RPY_TIMEOUT_T long long
@@ -25,9 +26,9 @@ typedef enum RPyLockStatus {
 
 #endif /* !_WIN32 */
 
-void RPyGilAllocate(void);
-long RPyGilYieldThread(void);
-void RPyGilAcquire(void);
+RPY_EXPORTED_FOR_TESTS void RPyGilAllocate(void);
+RPY_EXPORTED_FOR_TESTS long RPyGilYieldThread(void);
+RPY_EXPORTED_FOR_TESTS void RPyGilAcquire(void);
 #define RPyGilRelease _RPyGilRelease
 #define RPyFetchFastGil _RPyFetchFastGil
 

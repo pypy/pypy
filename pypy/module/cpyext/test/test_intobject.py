@@ -79,7 +79,7 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
             ("newEnum", "METH_VARARGS",
              """
                 EnumObject *enumObj;
-                long intval;
+                int intval;
                 PyObject *name;
 
                 if (!PyArg_ParseTuple(args, "Oi", &name, &intval))

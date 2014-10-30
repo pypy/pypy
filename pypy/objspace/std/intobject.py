@@ -14,17 +14,17 @@ from rpython.rlib.rarithmetic import (
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import DBL_MANT_DIG
 from rpython.rlib.rstring import (
-    InvalidBaseError, ParseStringError, ParseStringOverflowError)
+    ParseStringError, ParseStringOverflowError)
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter import typedef
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std import newformat
-from pypy.objspace.std.model import (
-    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT)
-from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.util import (
+    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT, wrap_parsestringerror)
 
 SENTINEL = object()
 
@@ -600,6 +600,16 @@ class W_IntObject(W_AbstractIntObject):
         _divmod, ovf2small=_divmod_ovf2small)
 
 
+def setup_prebuilt(space):
+    if space.config.objspace.std.withprebuiltint:
+        W_IntObject.PREBUILT = []
+        for i in range(space.config.objspace.std.prebuiltintfrom,
+                       space.config.objspace.std.prebuiltintto):
+            W_IntObject.PREBUILT.append(W_IntObject(i))
+    else:
+        W_IntObject.PREBUILT = None
+
+
 def wrapint(space, x):
     if not space.config.objspace.std.withprebuiltint:
         return W_IntObject(x)
@@ -619,15 +629,6 @@ def wrapint(space, x):
     # reused.  (we could use a prefetch hint if we had that)
     w_res.intval = x
     return w_res
-
-
-def wrap_parsestringerror(space, e, w_source):
-    if isinstance(e, InvalidBaseError):
-        w_msg = space.wrap(e.msg)
-    else:
-        w_msg = space.wrap('%s: %s' % (e.msg,
-                                       space.str_w(space.repr(w_source))))
-    return OperationError(space.w_ValueError, w_msg)
 
 
 def _recover_with_smalllong(space):
@@ -731,7 +732,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
         return w_obj
 
 
-W_IntObject.typedef = StdTypeDef("int",
+W_IntObject.typedef = TypeDef("int",
     __doc__ = """int(x=0) -> int or long
 int(x, base=10) -> int or long
 

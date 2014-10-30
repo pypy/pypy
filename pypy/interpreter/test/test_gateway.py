@@ -874,11 +874,33 @@ y = a.m(33)
         assert len(called) == 1
         assert isinstance(called[0], argument.Arguments)
 
+    def test_pass_trough_arguments_method(self):
+        space = self.space
+
+        called = []
+
+        class W_Something(W_Root):
+            def f(self, space, __args__):
+                called.append(__args__)
+                a_w, _ = __args__.unpack()
+                return space.newtuple([space.wrap('f')]+a_w)
+
+        w_f = space.wrap(gateway.interp2app_temp(W_Something.f))
+
+        w_self = space.wrap(W_Something())
+        args = argument.Arguments(space, [space.wrap(7)])
+
+        w_res = space.call_obj_args(w_f, w_self, args)
+        assert space.is_true(space.eq(w_res, space.wrap(('f', 7))))
+
+        # white-box check for opt
+        assert called[0] is args
+
 
 class AppTestKeywordsToBuiltinSanity(object):
     def test_type(self):
         class X(object):
-            def __init__(self, **kw):
+            def __init__(myself, **kw):
                 pass
         clash = type.__call__.func_code.co_varnames[0]
 
@@ -893,7 +915,6 @@ class AppTestKeywordsToBuiltinSanity(object):
 
         X(**{clash: 33})
         object.__new__(X, **{clash: 33})
-
 
     def test_dict_new(self):
         clash = dict.__new__.func_code.co_varnames[0]

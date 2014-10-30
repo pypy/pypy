@@ -275,6 +275,24 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         finally:
             f.close()
 
+    def test_ignore_ioerror_in_readall_if_nonempty_result(self):
+        # this is the behavior of regular files in CPython 2.7, as
+        # well as of _io.FileIO at least in CPython 3.3.  This is
+        # *not* the behavior of _io.FileIO in CPython 3.4 or 3.5;
+        # see CPython's issue #21090.
+        try:
+            from posix import openpty, fdopen, write, close
+        except ImportError:
+            skip('no openpty on this platform')
+        read_fd, write_fd = openpty()
+        write(write_fd, 'Abc\n')
+        close(write_fd)
+        f = fdopen(read_fd)
+        s = f.read()
+        assert s == 'Abc\r\n'
+        raises(IOError, f.read)
+        f.close()
+
 
 class AppTestNonblocking(object):
     def setup_class(cls):

@@ -1,9 +1,8 @@
-
 Making a PyPy Release
-=======================
+=====================
 
 Overview
----------
+--------
 
 As a meta rule setting up issues in the tracker for items here may help not
 forgetting things. A set of todo files may also work.
@@ -12,8 +11,9 @@ Check and prioritize all issues for the release, postpone some if necessary,
 create new  issues also as necessary. An important thing is to get
 the documentation into an up-to-date state!
 
+
 Release Steps
-----------------
+-------------
 
 * at code freeze make a release branch using release-x.x.x in mercurial
   IMPORTANT: bump the

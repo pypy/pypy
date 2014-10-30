@@ -55,6 +55,15 @@ def make_win32_traits(traits):
         FILE_TYPE_CHAR = platform.ConstantInteger('FILE_TYPE_CHAR')
         FILE_TYPE_PIPE = platform.ConstantInteger('FILE_TYPE_PIPE')
 
+        FILE_WRITE_ATTRIBUTES = platform.ConstantInteger(
+            'FILE_WRITE_ATTRIBUTES')
+        OPEN_EXISTING = platform.ConstantInteger(
+            'OPEN_EXISTING')
+        FILE_FLAG_BACKUP_SEMANTICS = platform.ConstantInteger(
+            'FILE_FLAG_BACKUP_SEMANTICS')
+        VOLUME_NAME_DOS = platform.ConstantInteger('VOLUME_NAME_DOS')
+        VOLUME_NAME_NT = platform.ConstantInteger('VOLUME_NAME_NT')
+
         WIN32_FILE_ATTRIBUTE_DATA = platform.Struct(
             'WIN32_FILE_ATTRIBUTE_DATA',
             [('dwFileAttributes', rwin32.DWORD),
@@ -67,14 +76,15 @@ def make_win32_traits(traits):
         BY_HANDLE_FILE_INFORMATION = platform.Struct(
             'BY_HANDLE_FILE_INFORMATION',
             [('dwFileAttributes', rwin32.DWORD),
+             ('ftCreationTime', rwin32.FILETIME),
+             ('ftLastAccessTime', rwin32.FILETIME),
+             ('ftLastWriteTime', rwin32.FILETIME),
+             ('dwVolumeSerialNumber', rwin32.DWORD),
              ('nFileSizeHigh', rwin32.DWORD),
              ('nFileSizeLow', rwin32.DWORD),
              ('nNumberOfLinks', rwin32.DWORD),
              ('nFileIndexHigh', rwin32.DWORD),
-             ('nFileIndexLow', rwin32.DWORD),
-             ('ftCreationTime', rwin32.FILETIME),
-             ('ftLastAccessTime', rwin32.FILETIME),
-             ('ftLastWriteTime', rwin32.FILETIME)])
+             ('nFileIndexLow', rwin32.DWORD)])
 
     config = platform.configure(CConfig)
 
@@ -92,6 +102,8 @@ def make_win32_traits(traits):
                        INVALID_FILE_ATTRIBUTES
                        _S_IFDIR _S_IFREG _S_IFCHR _S_IFIFO
                        FILE_TYPE_UNKNOWN FILE_TYPE_CHAR FILE_TYPE_PIPE
+                       FILE_WRITE_ATTRIBUTES OPEN_EXISTING FILE_FLAG_BACKUP_SEMANTICS
+                       VOLUME_NAME_DOS VOLUME_NAME_NT
                        ERROR_FILE_NOT_FOUND ERROR_NO_MORE_FILES
                        ERROR_SHARING_VIOLATION
                     '''.split():
@@ -162,6 +174,13 @@ def make_win32_traits(traits):
             'SetEnvironmentVariable' + suffix,
             [traits.CCHARP, traits.CCHARP],
             rwin32.BOOL)
+
+        CreateFile = external(
+            'CreateFile' + apisuffix,
+            [traits.CCHARP, rwin32.DWORD, rwin32.DWORD,
+             rwin32.LPSECURITY_ATTRIBUTES, rwin32.DWORD, rwin32.DWORD,
+             rwin32.HANDLE],
+            rwin32.HANDLE)
 
         DeleteFile = external(
             'DeleteFile' + suffix,
@@ -336,27 +355,6 @@ def make_utime_impl(traits):
     win32traits = make_win32_traits(traits)
     from rpython.rtyper.module.ll_os_stat import time_t_to_FILE_TIME
 
-    class CConfig:
-        _compilation_info_ = ExternalCompilationInfo(
-            includes = ['windows.h'],
-            )
-
-        FILE_WRITE_ATTRIBUTES = platform.ConstantInteger(
-            'FILE_WRITE_ATTRIBUTES')
-        OPEN_EXISTING = platform.ConstantInteger(
-            'OPEN_EXISTING')
-        FILE_FLAG_BACKUP_SEMANTICS = platform.ConstantInteger(
-            'FILE_FLAG_BACKUP_SEMANTICS')
-    globals().update(platform.configure(CConfig))
-
-    CreateFile = rffi.llexternal(
-        'CreateFile' + win32traits.apisuffix,
-        [traits.CCHARP, rwin32.DWORD, rwin32.DWORD,
-         rwin32.LPSECURITY_ATTRIBUTES, rwin32.DWORD, rwin32.DWORD,
-         rwin32.HANDLE],
-        rwin32.HANDLE,
-        calling_conv='win')
-
     GetSystemTime = rffi.llexternal(
         'GetSystemTime',
         [lltype.Ptr(rwin32.SYSTEMTIME)],
@@ -381,10 +379,10 @@ def make_utime_impl(traits):
 
     @specialize.argtype(1)
     def os_utime_llimpl(path, tp):
-        hFile = CreateFile(path,
-                           FILE_WRITE_ATTRIBUTES, 0,
-                           None, OPEN_EXISTING,
-                           FILE_FLAG_BACKUP_SEMANTICS,
+        hFile = win32traits.CreateFile(path,
+                           win32traits.FILE_WRITE_ATTRIBUTES, 0,
+                           None, win32traits.OPEN_EXISTING,
+                           win32traits.FILE_FLAG_BACKUP_SEMANTICS,
                            rwin32.NULL_HANDLE)
         if hFile == rwin32.INVALID_HANDLE_VALUE:
             raise rwin32.lastWindowsError()
