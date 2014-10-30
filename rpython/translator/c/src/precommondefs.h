@@ -44,8 +44,10 @@
 
 #ifdef __GNUC__
 #  define RPY_EXPORTED __attribute__((visibility("default")))
+#  define RPY_HIDDEN   __attribute__((visibility("hidden")))
 #else
 #  define RPY_EXPORTED __declspec(dllexport)
+#  define RPY_HIDDEN   /* nothing */
 #endif
 #ifndef RPY_EXPORTED_FOR_TESTS
 #  define RPY_EXPORTED_FOR_TESTS  /* nothing */

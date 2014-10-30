@@ -38,6 +38,8 @@ def forward_cdecl(ctype, cname, standalone, is_thread_local=False,
     if is_exported:
         assert not is_thread_local
         prefix = "RPY_EXPORTED "
+    elif standalone:
+        prefix = "RPY_HIDDEN "
 
     cdecl_str = prefix + cdecl(ctype, cname)
     if standalone:
