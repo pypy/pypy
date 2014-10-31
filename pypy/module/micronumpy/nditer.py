@@ -197,11 +197,8 @@ def coalesce_axes(it, space):
                 astrides = op_it.array.strides[:indx]
             # does op_it iters over array "naturally"
             if astrides != op_it.strides:
-                print 'cannot coalesce array strides', op_it.array.strides,
-                print 'with iter strides', op_it.strides
                 can_coalesce = False
                 break
-            # is the resulting slice array contiguous 
         if can_coalesce:
             for i in range(len(it.iters)):
                 old_iter = it.iters[i][0]
