@@ -210,9 +210,9 @@ enum NPY_TYPES {    NPY_BOOL=0,
 #define PyArray_EMPTY(nd, dims, type_num, fortran) \
         PyArray_SimpleNew(nd, dims, type_num)
 
-void _PyArray_FILLWBYTE(PyObject* obj, int val);
-PyObject* _PyArray_ZEROS(int nd, npy_intp* dims, int type_num, int fortran);
-int _PyArray_CopyInto(PyArrayObject* dest, PyArrayObject* src);
+PyAPI_FUNC(void) _PyArray_FILLWBYTE(PyObject* obj, int val);
+PyAPI_FUNC(PyObject *) _PyArray_ZEROS(int nd, npy_intp* dims, int type_num, int fortran);
+PyAPI_FUNC(int) _PyArray_CopyInto(PyArrayObject* dest, PyArrayObject* src);
 
 #define PyArray_FILLWBYTE _PyArray_FILLWBYTE
 #define PyArray_ZEROS _PyArray_ZEROS

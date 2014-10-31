@@ -6,8 +6,8 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.intobject import W_AbstractIntObject, W_IntObject
-from pypy.objspace.std.stdtypedef import StdTypeDef
 
 
 class W_BoolObject(W_IntObject):
@@ -80,7 +80,7 @@ W_BoolObject.w_False = W_BoolObject(False)
 W_BoolObject.w_True = W_BoolObject(True)
 
 
-W_BoolObject.typedef = StdTypeDef("bool", W_IntObject.typedef,
+W_BoolObject.typedef = TypeDef("bool", W_IntObject.typedef,
     __doc__ = """bool(x) -> bool
 
 Returns True when the argument x is true, False otherwise.

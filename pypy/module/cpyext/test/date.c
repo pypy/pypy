@@ -4,7 +4,8 @@ static PyMethodDef date_functions[] = {
     {NULL, NULL}
 };
 
-void initdate(void)
+PyMODINIT_FUNC
+initdate(void)
 {
     PyObject *module;
     Py_InitModule("date", date_functions);

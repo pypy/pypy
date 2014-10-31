@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi
+from rpython.translator import cdir
 from rpython.rlib.clibffi import get_libc_name
 from rpython.rlib.libffi import types
 from rpython.rlib.libffi import CDLL
@@ -18,11 +19,8 @@ class BaseAppTestFFI(object):
         c_file = udir.ensure("test__ffi", dir=1).join("foolib.c")
         # automatically collect the C source from the docstrings of the tests
         snippets = ["""
-        #ifdef _WIN32
-        #define DLLEXPORT __declspec(dllexport)
-        #else
-        #define DLLEXPORT
-        #endif
+        #include "src/precommondefs.h"
+        #define DLLEXPORT RPY_EXPORTED
         """]
         for name in dir(cls):
             if name.startswith('test_'):
@@ -33,7 +31,7 @@ class BaseAppTestFFI(object):
                     snippets.append(meth.__doc__)
         #
         c_file.write(py.code.Source('\n'.join(snippets)))
-        eci = ExternalCompilationInfo(export_symbols=[])
+        eci = ExternalCompilationInfo(include_dirs=[cdir])
         return str(platform.compile([c_file], eci, 'x', standalone=False))
 
     def setup_class(cls):

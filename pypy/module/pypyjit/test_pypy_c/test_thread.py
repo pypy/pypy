@@ -70,7 +70,6 @@ class TestThread(BaseTestPyPyC):
         i59 = int_is_true(i58)
         guard_true(i59, descr=...)
         i60 = int_sub(i44, 1)
-        guard_not_invalidated(descr=...)
         p62 = force_token()
         setfield_gc(p0, p62, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token 8>)
         i63 = call_release_gil(..., i37, 0, descr=<Calli 4 ii EF=6>)

@@ -96,10 +96,10 @@ class HLOperation(SpaceOperation):
     def constfold(self):
         return None
 
-    def consider(self, annotator, *args):
-        args_s = [annotator.annotation(arg) for arg in args]
+    def consider(self, annotator):
+        args_s = [annotator.annotation(arg) for arg in self.args]
         spec = type(self).get_specialization(*args_s)
-        return spec(annotator, *args)
+        return spec(annotator, *self.args)
 
     def get_can_only_throw(self, annotator):
         return None
@@ -447,7 +447,7 @@ class NewDict(HLOperation):
     opname = 'newdict'
     canraise = []
 
-    def consider(self, annotator, *args):
+    def consider(self, annotator):
         return annotator.bookkeeper.newdict()
 
 
@@ -456,16 +456,17 @@ class NewTuple(PureOperation):
     pyfunc = staticmethod(lambda *args: args)
     canraise = []
 
-    def consider(self, annotator, *args):
-        return SomeTuple(items=[annotator.annotation(arg) for arg in args])
+    def consider(self, annotator):
+        return SomeTuple(items=[annotator.annotation(arg) for arg in self.args])
 
 
 class NewList(HLOperation):
     opname = 'newlist'
     canraise = []
 
-    def consider(self, annotator, *args):
-        return annotator.bookkeeper.newlist(*[annotator.annotation(arg) for arg in args])
+    def consider(self, annotator):
+        return annotator.bookkeeper.newlist(
+                *[annotator.annotation(arg) for arg in self.args])
 
 
 class Pow(PureOperation):

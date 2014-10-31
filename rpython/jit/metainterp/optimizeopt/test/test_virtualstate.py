@@ -761,6 +761,24 @@ class BaseTestGenerateGuards(BaseTest):
         assert not vstate1.generalization_of(vstate2)
         
 
+    def test_crash_varay_clear(self):
+        innervalue1 = OptValue(self.nodebox)
+        constclassbox = self.cpu.ts.cls_of_box(self.nodebox)
+        innervalue1.make_constant_class(constclassbox, -1)
+        innerinfo1 = NotVirtualStateInfo(innervalue1)
+        innerinfo1.position = 1
+        innerinfo1.position_in_notvirtuals = 0
+
+        descr = object()
+
+        info1 = VArrayStateInfo(descr)
+        info1.fieldstate = [innerinfo1]
+
+        constvalue = self.cpu.ts.CVAL_NULLREF
+        value1 = VArrayValue(descr, constvalue, 1, self.nodebox, clear=True)
+        value1._items[0] = constvalue
+        info1.enum_forced_boxes([None], value1, None)
+
 class BaseTestBridges(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:pure:heap:unroll"
 

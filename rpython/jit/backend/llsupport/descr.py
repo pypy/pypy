@@ -313,17 +313,18 @@ def get_interiorfield_descr(gc_ll_descr, ARRAY, name, arrayfieldname=None):
 # ____________________________________________________________
 # CallDescrs
 
+def _missing_call_stub_i(func, args_i, args_r, args_f):
+    return 0
+def _missing_call_stub_r(func, args_i, args_r, args_f):
+    return lltype.nullptr(llmemory.GCREF.TO)
+def _missing_call_stub_f(func, args_i, args_r, args_f):
+    return longlong.ZEROF
+
 class CallDescr(AbstractDescr):
     arg_classes = ''     # <-- annotation hack
     result_type = '\x00'
     result_flag = '\x00'
     ffi_flags = 1
-    call_stub_i = staticmethod(lambda func, args_i, args_r, args_f:
-                               0)
-    call_stub_r = staticmethod(lambda func, args_i, args_r, args_f:
-                               lltype.nullptr(llmemory.GCREF.TO))
-    call_stub_f = staticmethod(lambda func,args_i,args_r,args_f:
-                               longlong.ZEROF)
 
     def __init__(self, arg_classes, result_type, result_signed, result_size,
                  extrainfo=None, ffi_flags=1):
@@ -340,6 +341,9 @@ class CallDescr(AbstractDescr):
         self.result_size = result_size
         self.extrainfo = extrainfo
         self.ffi_flags = ffi_flags
+        self.call_stub_i = _missing_call_stub_i
+        self.call_stub_r = _missing_call_stub_r
+        self.call_stub_f = _missing_call_stub_f
         # NB. the default ffi_flags is 1, meaning FUNCFLAG_CDECL, which
         # makes sense on Windows as it's the one for all the C functions
         # we are compiling together with the JIT.  On non-Windows platforms

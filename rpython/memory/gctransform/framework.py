@@ -458,6 +458,18 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                             annmodel.SomeInteger(nonneg=True)],
                                            annmodel.s_None)
 
+        self.pin_ptr = getfn(GCClass.pin,
+                             [s_gc, SomeAddress()],
+                             annmodel.SomeBool())
+
+        self.unpin_ptr = getfn(GCClass.unpin,
+                               [s_gc, SomeAddress()],
+                               annmodel.s_None)
+
+        self._is_pinned_ptr = getfn(GCClass._is_pinned,
+                                    [s_gc, SomeAddress()],
+                                    annmodel.SomeBool())
+
         self.write_barrier_ptr = None
         self.write_barrier_from_array_ptr = None
         if GCClass.needs_write_barrier:
@@ -1002,6 +1014,27 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call", [self.set_max_heap_size_ptr,
                                   self.c_const_gc,
                                   v_size])
+
+    def gct_gc_pin(self, hop):
+        op = hop.spaceop
+        v_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
+            resulttype=llmemory.Address)
+        hop.genop("direct_call", [self.pin_ptr, self.c_const_gc, v_addr],
+                  resultvar=op.result)
+
+    def gct_gc_unpin(self, hop):
+        op = hop.spaceop
+        v_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
+            resulttype=llmemory.Address)
+        hop.genop("direct_call", [self.unpin_ptr, self.c_const_gc, v_addr],
+                  resultvar=op.result)
+
+    def gct_gc__is_pinned(self, hop):
+        op = hop.spaceop
+        v_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
+            resulttype=llmemory.Address)
+        hop.genop("direct_call", [self._is_pinned_ptr, self.c_const_gc, v_addr],
+                  resultvar=op.result)
 
     def gct_gc_thread_run(self, hop):
         assert self.translator.config.translation.thread

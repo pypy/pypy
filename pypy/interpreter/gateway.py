@@ -635,6 +635,17 @@ class BuiltinCode(Code):
                 elif unwrap_spec == [ObjSpace, W_Root, Arguments]:
                     self.__class__ = BuiltinCodePassThroughArguments1
                     self.func__args__ = func
+                elif unwrap_spec == [self_type, ObjSpace, Arguments]:
+                    self.__class__ = BuiltinCodePassThroughArguments1
+                    miniglobals = {'func': func, 'self_type': self_type}
+                    d = {}
+                    source = """if 1:
+                        def _call(space, w_obj, args):
+                            self = space.descr_self_interp_w(self_type, w_obj)
+                            return func(self, space, args)
+                        \n"""
+                    exec compile2(source) in miniglobals, d
+                    self.func__args__ = d['_call']
             else:
                 self.__class__ = globals()['BuiltinCode%d' % arity]
                 setattr(self, 'fastfunc_%d' % arity, fastfunc)
