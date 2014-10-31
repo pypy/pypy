@@ -1,5 +1,6 @@
-from pypy.interpreter.error import OperationError
 from rpython.rlib.rstring import InvalidBaseError
+
+from pypy.interpreter.error import OperationError
 
 
 IDTAG_INT     = 1
