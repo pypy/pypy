@@ -1,4 +1,6 @@
 # -*- encoding: utf-8 -*-
+from __future__ import print_function
+
 import py
 
 from pypy.objspace.std.complexobject import W_ComplexObject, _split_complex

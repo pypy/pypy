@@ -1,6 +1,7 @@
-from pypy.interpreter import gateway
-from pypy.interpreter.error import OperationError
 from rpython.rlib.rstring import InvalidBaseError
+
+from pypy.interpreter.error import OperationError
+from pypy.interpreter import gateway
 
 
 IDTAG_INT     = 1

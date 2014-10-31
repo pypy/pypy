@@ -1,14 +1,14 @@
-"""
-String formatting routines.
-"""
+"""String formatting routines"""
 import sys
-from pypy.interpreter.error import OperationError, oefmt
+
 from rpython.rlib import jit
-from rpython.rlib.rfloat import formatd, DTSF_ALT, isnan, isinf
+from rpython.rlib.rarithmetic import INT_MAX
+from rpython.rlib.rfloat import DTSF_ALT, formatd, isnan, isinf
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rarithmetic import INT_MAX
 from rpython.tool.sourcetools import func_with_new_name
+
+from pypy.interpreter.error import OperationError, oefmt
 
 
 class BaseStringFormatter(object):
