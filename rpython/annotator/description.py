@@ -394,89 +394,86 @@ class ClassDesc(Desc):
     settled = False
     _detect_invalid_attrs = None
 
-    def __init__(self, bookkeeper, pyobj=None,
+    def __init__(self, bookkeeper, cls,
                  name=None, basedesc=None, classdict=None,
                  specialize=None):
-        super(ClassDesc, self).__init__(bookkeeper, pyobj)
+        super(ClassDesc, self).__init__(bookkeeper, cls)
 
         if name is None:
-            name = pyobj.__module__ + '.' + pyobj.__name__
+            name = cls.__module__ + '.' + cls.__name__
         self.name = name
         self.basedesc = basedesc
         if classdict is None:
             classdict = {}    # populated below
         self.classdict = classdict     # {attr: Constant-or-Desc}
         if specialize is None:
-            specialize = pyobj.__dict__.get('_annspecialcase_', '')
+            specialize = cls.__dict__.get('_annspecialcase_', '')
         self.specialize = specialize
         self._classdefs = {}
 
-        if pyobj is not None:
-            assert pyobj.__module__ != '__builtin__'
-            cls = pyobj
-            base = object
-            baselist = list(cls.__bases__)
+        assert cls.__module__ != '__builtin__'
+        base = object
+        baselist = list(cls.__bases__)
 
-            if cls.__dict__.get('_mixin_', False):
-                raise AnnotatorError("cannot use directly the class %r because "
-                                     "it is a _mixin_" % (cls,))
+        if cls.__dict__.get('_mixin_', False):
+            raise AnnotatorError("cannot use directly the class %r because "
+                                    "it is a _mixin_" % (cls,))
 
-            # special case: skip BaseException in Python 2.5, and pretend
-            # that all exceptions ultimately inherit from Exception instead
-            # of BaseException (XXX hack)
-            if cls is Exception:
-                baselist = []
-            elif baselist == [py.builtin.BaseException]:
-                baselist = [Exception]
+        # special case: skip BaseException in Python 2.5, and pretend
+        # that all exceptions ultimately inherit from Exception instead
+        # of BaseException (XXX hack)
+        if cls is Exception:
+            baselist = []
+        elif baselist == [py.builtin.BaseException]:
+            baselist = [Exception]
 
-            mixins_before = []
-            mixins_after = []
-            for b1 in baselist:
-                if b1 is object:
-                    continue
-                if b1.__dict__.get('_mixin_', False):
-                    if base is object:
-                        mixins_before.append(b1)
-                    else:
-                        mixins_after.append(b1)
+        mixins_before = []
+        mixins_after = []
+        for b1 in baselist:
+            if b1 is object:
+                continue
+            if b1.__dict__.get('_mixin_', False):
+                if base is object:
+                    mixins_before.append(b1)
                 else:
-                    assert base is object, ("multiple inheritance only supported "
-                                            "with _mixin_: %r" % (cls,))
-                    base = b1
-            if mixins_before and mixins_after:
-                raise Exception("unsupported: class %r has mixin bases both"
-                                " before and after the regular base" % (self,))
-            self.add_mixins(mixins_after, check_not_in=base)
-            self.add_mixins(mixins_before)
-            self.add_sources_for_class(cls)
+                    mixins_after.append(b1)
+            else:
+                assert base is object, ("multiple inheritance only supported "
+                                        "with _mixin_: %r" % (cls,))
+                base = b1
+        if mixins_before and mixins_after:
+            raise Exception("unsupported: class %r has mixin bases both"
+                            " before and after the regular base" % (self,))
+        self.add_mixins(mixins_after, check_not_in=base)
+        self.add_mixins(mixins_before)
+        self.add_sources_for_class(cls)
 
-            if base is not object:
-                self.basedesc = bookkeeper.getdesc(base)
+        if base is not object:
+            self.basedesc = bookkeeper.getdesc(base)
 
-            if '_settled_' in cls.__dict__:
-                self.settled = bool(cls.__dict__['_settled_'])
+        if '_settled_' in cls.__dict__:
+            self.settled = bool(cls.__dict__['_settled_'])
 
-            if '__slots__' in cls.__dict__ or '_attrs_' in cls.__dict__:
-                attrs = {}
-                for decl in ('__slots__', '_attrs_'):
-                    decl = cls.__dict__.get(decl, [])
-                    if isinstance(decl, str):
-                        decl = (decl,)
-                    decl = dict.fromkeys(decl)
-                    attrs.update(decl)
-                if self.basedesc is not None:
-                    if self.basedesc.all_enforced_attrs is None:
-                        raise Exception("%r has slots or _attrs_, "
-                                        "but not its base class"
-                                        % (pyobj,))
-                    attrs.update(self.basedesc.all_enforced_attrs)
-                self.all_enforced_attrs = attrs
+        if '__slots__' in cls.__dict__ or '_attrs_' in cls.__dict__:
+            attrs = {}
+            for decl in ('__slots__', '_attrs_'):
+                decl = cls.__dict__.get(decl, [])
+                if isinstance(decl, str):
+                    decl = (decl,)
+                decl = dict.fromkeys(decl)
+                attrs.update(decl)
+            if self.basedesc is not None:
+                if self.basedesc.all_enforced_attrs is None:
+                    raise Exception("%r has slots or _attrs_, "
+                                    "but not its base class" % (cls,))
+                attrs.update(self.basedesc.all_enforced_attrs)
+            self.all_enforced_attrs = attrs
 
-            if (self.is_builtin_exception_class() and
-                self.all_enforced_attrs is None):
-                from rpython.annotator import classdef
-                if self.pyobj not in classdef.FORCE_ATTRIBUTES_INTO_CLASSES:
-                    self.all_enforced_attrs = []    # no attribute allowed
+        if (self.is_builtin_exception_class() and
+            self.all_enforced_attrs is None):
+            from rpython.annotator import classdef
+            if cls not in classdef.FORCE_ATTRIBUTES_INTO_CLASSES:
+                self.all_enforced_attrs = []    # no attribute allowed
 
     def add_source_attribute(self, name, value, mixin=False):
         if isinstance(value, types.FunctionType):
