@@ -618,6 +618,7 @@ from pypy.interpreter.generator import GeneratorIterator
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
+
 def descr_get_dict(space, w_obj):
     w_dict = w_obj.getdict(space)
     if w_dict is None:
@@ -637,6 +638,11 @@ def descr_get_weakref(space, w_obj):
     if lifeline is None:
         return space.w_None
     return lifeline.get_any_weakref(space)
+
+dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
+                            doc="dictionary for instance variables (if defined)")
+dict_descr.name = '__dict__'
+
 
 def generic_ne(space, w_obj1, w_obj2):
     if space.eq_w(w_obj1, w_obj2):

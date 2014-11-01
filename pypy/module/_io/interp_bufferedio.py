@@ -812,11 +812,6 @@ class BufferedMixin:
         self._check_closed(space, "flush of closed file")
         with self.lock:
             self._flush_and_rewind_unlocked(space)
-            if self.readable:
-                # Rewind the raw stream so that its position corresponds to
-                # the current logical position.
-                self._raw_seek(space, -self._raw_offset(), 1)
-                self._reader_reset_buf()
 
     def _flush_and_rewind_unlocked(self, space):
         self._writer_flush_unlocked(space)

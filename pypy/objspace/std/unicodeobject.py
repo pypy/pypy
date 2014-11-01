@@ -12,11 +12,11 @@ from pypy.interpreter import unicodehelper
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef
 from pypy.module.unicodedata import unicodedb
 from pypy.objspace.std import newformat
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 
 __all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
@@ -935,7 +935,7 @@ class UnicodeDocstrings:
         """
 
 
-W_UnicodeObject.typedef = StdTypeDef(
+W_UnicodeObject.typedef = TypeDef(
     "unicode", basestring_typedef,
     __new__ = interp2app(W_UnicodeObject.descr_new),
     __doc__ = UnicodeDocstrings.__doc__,
