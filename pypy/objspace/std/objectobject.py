@@ -1,7 +1,10 @@
+"""The builtin object type implementation"""
+
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import applevel, interp2app, unwrap_spec
-from pypy.interpreter.typedef import GetSetProperty, default_identity_hash, TypeDef
+from pypy.interpreter.typedef import (
+    GetSetProperty, TypeDef, default_identity_hash)
 from pypy.objspace.descroperation import Object
 
 
@@ -25,7 +28,7 @@ def reduce_2(obj):
     else:
         args = getnewargs()
         if not isinstance(args, tuple):
-            raise TypeError, "__getnewargs__ should return a tuple"
+            raise TypeError("__getnewargs__ should return a tuple")
 
     try:
         getstate = obj.__getstate__
@@ -46,15 +49,8 @@ def reduce_2(obj):
     else:
         state = getstate()
 
-    if isinstance(obj, list):
-        listitems = iter(obj)
-    else:
-        listitems = None
-
-    if isinstance(obj, dict):
-        dictitems = obj.iteritems()
-    else:
-        dictitems = None
+    listitems = iter(obj) if isinstance(obj, list) else None
+    dictitems = obj.iteritems() if isinstance(obj, dict) else None
 
     import copy_reg
     newobj = copy_reg.__newobj__
@@ -74,7 +70,7 @@ def slotnames(cls):
     import copy_reg
     slotnames = copy_reg._slotnames(cls)
     if not isinstance(slotnames, list) and slotnames is not None:
-        raise TypeError, "copy_reg._slotnames didn't return a list or None"
+        raise TypeError("copy_reg._slotnames didn't return a list or None")
     return slotnames
 ''', filename=__file__)
 
@@ -94,14 +90,13 @@ def descr__new__(space, w_type, __args__):
     # don't allow arguments if the default object.__init__() is about
     # to be called
     w_type = _precheck_for_new(space, w_type)
-    w_parentinit, w_ignored = w_type.lookup_where('__init__')
+    w_parentinit, _ = w_type.lookup_where('__init__')
     if w_parentinit is space.w_object:
         try:
             __args__.fixedunpack(0)
         except ValueError:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("default __new__ takes "
-                                            "no parameters"))
+            raise oefmt(space.w_TypeError,
+                        "default __new__ takes no parameters")
     if w_type.is_abstract():
         _abstract_method_error(space, w_type)
     w_obj = space.allocate_instance(W_ObjectObject, w_type)
@@ -120,8 +115,8 @@ def descr__init__(space, w_obj, __args__):
         try:
             __args__.fixedunpack(0)
         except ValueError:
-            raise OperationError(space.w_TypeError,
-                space.wrap("object.__init__() takes no parameters"))
+            raise oefmt(space.w_TypeError,
+                        "object.__init__() takes no parameters")
 
 
 def descr_get___class__(space, w_obj):
@@ -135,11 +130,12 @@ def descr_set___class__(space, w_obj, w_newcls):
                     "__class__ must be set to new-style class, not '%T' "
                     "object", w_newcls)
     if not w_newcls.is_heaptype():
-        raise OperationError(space.w_TypeError,
-                             space.wrap("__class__ assignment: only for heap types"))
+        raise oefmt(space.w_TypeError,
+                    "__class__ assignment: only for heap types")
     w_oldcls = space.type(w_obj)
     assert isinstance(w_oldcls, W_TypeObject)
-    if w_oldcls.get_full_instance_layout() == w_newcls.get_full_instance_layout():
+    if (w_oldcls.get_full_instance_layout() ==
+        w_newcls.get_full_instance_layout()):
         w_obj.setclass(space, w_newcls)
     else:
         raise oefmt(space.w_TypeError,
@@ -167,8 +163,8 @@ def descr__str__(space, w_obj):
     w_type = space.type(w_obj)
     w_impl = w_type.lookup("__repr__")
     if w_impl is None:
-        raise OperationError(space.w_TypeError,      # can it really occur?
-                             space.wrap("operand does not support unary str"))
+        # can it really occur?
+        raise oefmt(space.w_TypeError, "operand does not support unary str")
     return space.get_and_call_function(w_impl, w_obj)
 
 
