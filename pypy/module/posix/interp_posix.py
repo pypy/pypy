@@ -1436,3 +1436,8 @@ if _WIN32:
         except OSError as e:
             raise wrap_oserror2(space, e, w_path)
         return space.wrap(result)
+
+have_functions = []
+for name in """FSTAT FCHDIR OPENAT""".split():
+    if getattr(rposix, "HAVE_%s" % name):
+        have_functions.append("HAVE_%s" % name)

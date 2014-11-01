@@ -188,7 +188,8 @@ corresponding Unix manual entries for more information on calls."""
 
     # os.py uses this list to build os.supports_dir_fd() and os.supports_fd().
     # Fill with e.g. HAVE_FCHDIR, when os.chdir() supports file descriptors.
-    interpleveldefs['_have_functions'] = 'space.newlist([])'
+    interpleveldefs['_have_functions'] = (
+        'space.newlist([space.wrap(x) for x in interp_posix.have_functions])')
 
     def startup(self, space):
         from pypy.module.posix import interp_posix

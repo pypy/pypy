@@ -1,11 +1,25 @@
 import os
 from rpython.rtyper.lltypesystem.rffi import CConstant, CExternVariable, INT
+from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import ll2ctypes, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
 from rpython.translator.platform import platform
+
+
+class CConfig:
+    _compilation_info_ = ExternalCompilationInfo(
+        includes=['sys/stat.h', 
+                  'unistd.h',
+                  'fcntl.h'],
+    )
+    HAVE_FSTAT = rffi_platform.Has('fstat')
+    HAVE_FCHDIR = rffi_platform.Has('fchdir')
+    HAVE_OPENAT = rffi_platform.Has('openat')
+cConfig = rffi_platform.configure(CConfig)
+globals().update(cConfig)
 
 
 class CConstantErrno(CConstant):
