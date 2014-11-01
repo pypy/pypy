@@ -482,7 +482,8 @@ class ClassDesc(Desc):
             if cls not in classdef.FORCE_ATTRIBUTES_INTO_CLASSES:
                 self.all_enforced_attrs = []    # no attribute allowed
 
-    def add_source_attribute(self, name, value, mixin=False):
+    def add_source_attribute(self, cls, name, mixin=False):
+        value = cls.__dict__[name]
         if isinstance(value, types.FunctionType):
             # for debugging
             if not hasattr(value, 'class_'):
@@ -548,14 +549,14 @@ class ClassDesc(Desc):
         for base in reversed(mro):
             assert is_mixin(base), (
                 "Mixin class %r has non mixin base class %r" % (mixins, base))
-            for name, value in base.__dict__.items():
+            for name in base.__dict__:
                 if name in skip:
                     continue
-                self.add_source_attribute(name, value, mixin=True)
+                self.add_source_attribute(base, name, mixin=True)
 
     def add_sources_for_class(self, cls):
-        for name, value in cls.__dict__.items():
-            self.add_source_attribute(name, value)
+        for name in cls.__dict__:
+            self.add_source_attribute(cls, name)
 
     def getallclassdefs(self):
         return self._classdefs.values()
@@ -712,7 +713,7 @@ class ClassDesc(Desc):
         # check whether there is a new attribute
         cls = self.pyobj
         if name in cls.__dict__:
-            self.add_source_attribute(name, cls.__dict__[name])
+            self.add_source_attribute(cls, name)
             if name in self.classdict:
                 return self
         return None
