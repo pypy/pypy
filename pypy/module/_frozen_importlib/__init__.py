@@ -1,6 +1,7 @@
 import os
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module.sys import initpath
+from pypy.module._frozen_importlib import interp_import
 
 lib_python = os.path.join(os.path.dirname(__file__),
                           '..', '..', '..', 'lib-python', '3')
@@ -29,11 +30,12 @@ class Module(MixedModule):
                       space.wrap(space.builtin))
         code_w.exec_code(space, self.w_dict, self.w_dict)
 
+        self.w_import = space.wrap(interp_import.import_with_frames_removed)
+
     def startup(self, space):
         """Copy our __import__ to builtins."""
         w_install = self.getdictvalue(space, '_install')
         space.call_function(w_install,
                             space.getbuiltinmodule('sys'),
                             space.getbuiltinmodule('_imp'))
-        self.space.builtin.setdictvalue(space, '__import__',
-                                        self.getdictvalue(space, '__import__'))
+        self.space.builtin.setdictvalue(space, '__import__', self.w_import)

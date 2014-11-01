@@ -320,6 +320,15 @@ class OperationError(Exception):
         """
         self._application_traceback = traceback
 
+    def remove_traceback_module_frames(self, module_name):
+        from pypy.interpreter.pytraceback import PyTraceback
+        tb = self._application_traceback
+        while tb is not None and isinstance(tb, PyTraceback):
+            if tb.frame.pycode.co_filename != module_name:
+                break
+            tb = tb.next
+        self._application_traceback = tb
+
     def record_context(self, space, frame):
         """Record a __context__ for this exception from the current
         frame if one exists.
