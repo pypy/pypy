@@ -8,7 +8,7 @@ from rpython.annotator.argument import rawshape, ArgErr
 from rpython.tool.sourcetools import valid_identifier, func_with_new_name
 from rpython.tool.pairtype import extendabletype
 from rpython.annotator.model import AnnotatorError
-from rpython.tool.descriptor import normalize_method
+from rpython.tool.descriptor import normalize_method, InstanceMethod
 
 class CallFamily(object):
     """A family of Desc objects that could be called from common call sites.
@@ -483,25 +483,35 @@ class ClassDesc(Desc):
                 self.all_enforced_attrs = []    # no attribute allowed
 
     def add_source_attribute(self, cls, name, mixin=False):
-        value = cls.__dict__[name]
-        if isinstance(value, types.FunctionType):
-            # for debugging
-            if not hasattr(value, 'class_'):
-                value.class_ = self.pyobj
+        try:
+            value = getattr(cls, name)
+        except:
+            if name in cls.__dict__:
+                return  # ignore misbehaving descriptors and the like
+            raise
+        try:
+            value = normalize_method(value)
+        except ValueError:
+            pass
+        if isinstance(value, InstanceMethod):
+            func = value.im_func
+            if isinstance(func, types.FunctionType):
+                if not hasattr(func, 'class_'):
+                    func.class_ = cls
             if self.specialize:
                 # make a custom funcdesc that specializes on its first
                 # argument (i.e. 'self').
                 from rpython.annotator.specialize import specialize_argtype
                 def argtype0(funcdesc, args_s):
                     return specialize_argtype(funcdesc, args_s, 0)
-                funcdesc = FunctionDesc(self.bookkeeper, value,
+                funcdesc = FunctionDesc(self.bookkeeper, func,
                                         specializer=argtype0)
                 self.classdict[name] = funcdesc
                 return
             if mixin:
                 # make a new copy of the FunctionDesc for this class,
                 # but don't specialize further for all subclasses
-                funcdesc = FunctionDesc(self.bookkeeper, value)
+                funcdesc = FunctionDesc(self.bookkeeper, func)
                 self.classdict[name] = funcdesc
                 return
             # NB. if value is, say, AssertionError.__init__, then we
@@ -509,10 +519,9 @@ class ClassDesc(Desc):
             # that the py lib has its own AssertionError.__init__ which
             # is of type FunctionType.  But bookkeeper.immutablevalue()
             # will do the right thing in s_get_value().
-        if isinstance(value, staticmethod) and mixin:
+        if isinstance(value, types.FunctionType) and mixin:
             # make a new copy of staticmethod
-            func = value.__get__(42)
-            value = staticmethod(func_with_new_name(func, func.__name__))
+            value = func_with_new_name(value, value.__name__)
 
         if type(value) in MemberDescriptorTypes:
             # skip __slots__, showing up in the class as 'member' objects
@@ -521,10 +530,6 @@ class ClassDesc(Desc):
             # pretend that built-in exceptions have no __init__,
             # unless explicitly specified in builtin.py
             from rpython.annotator.builtin import BUILTIN_ANALYZERS
-            try:
-                value = normalize_method(value)
-            except ValueError:
-                pass
             if value not in BUILTIN_ANALYZERS:
                 return
         self.classdict[name] = Constant(value)
@@ -686,10 +691,11 @@ class ClassDesc(Desc):
         obj = self.classdict[name]
         if isinstance(obj, Constant):
             value = obj.value
-            if isinstance(value, staticmethod):   # special case
-                value = value.__get__(42)
+            if isinstance(value, types.FunctionType):  # staticmethod
                 classdef = None   # don't bind
-            elif isinstance(value, classmethod):
+            elif (isinstance(value, InstanceMethod) and
+                    value.im_self is not None):
+                # This is a method bound to the class, i.e. a classmethod
                 raise AnnotatorError("classmethods are not supported")
             s_value = self.bookkeeper.immutablevalue(value)
             if classdef is not None:
