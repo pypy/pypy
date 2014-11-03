@@ -54,7 +54,7 @@ class Bookkeeper(object):
 
     def __setstate__(self, dic):
         self.__dict__.update(dic) # normal action
-        delayed_imports()
+        self.register_builtins()
 
     def __init__(self, annotator):
         self.annotator = annotator
@@ -78,7 +78,13 @@ class Bookkeeper(object):
 
         self.needs_generic_instantiate = {}
 
-        delayed_imports()
+        self.register_builtins()
+
+    def register_builtins(self):
+        import rpython.annotator.builtin  # for side-effects
+        from rpython.annotator.exception import standardexceptions
+        for cls in standardexceptions:
+            self.getuniqueclassdef(cls)
 
     def enter(self, position_key):
         """Start of an operation.
@@ -629,6 +635,3 @@ def getbookkeeper():
 
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
-
-def delayed_imports():
-    import rpython.annotator.builtin
