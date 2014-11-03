@@ -26,7 +26,6 @@ from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
     attachRuntimeTypeInfo, Primitive)
 from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
 from rpython.rtyper.typesystem import LowLevelTypeSystem, getfunctionptr
-from rpython.rtyper.normalizecalls import perform_normalizations
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
@@ -169,22 +168,16 @@ class RPythonTyper(object):
     def specialize(self, dont_simplify_again=False):
         """Main entry point: specialize all annotated blocks of the program."""
         # specialize depends on annotator simplifications
-        assert dont_simplify_again in (False, True)  # safety check
         if not dont_simplify_again:
             self.annotator.simplify()
-
-        # first make sure that all functions called in a group have exactly
-        # the same signature, by hacking their flow graphs if needed
-        perform_normalizations(self.annotator)
         self.exceptiondata.finish(self)
 
         # new blocks can be created as a result of specialize_block(), so
         # we need to be careful about the loop here.
         self.already_seen = {}
         self.specialize_more_blocks()
-        if self.exceptiondata is not None:
-            self.exceptiondata.make_helpers(self)
-            self.specialize_more_blocks()   # for the helpers just made
+        self.exceptiondata.make_helpers(self)
+        self.specialize_more_blocks()   # for the helpers just made
 
     def getannmixlevel(self):
         if self.annmixlevel is not None:
