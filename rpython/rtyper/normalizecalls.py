@@ -404,9 +404,6 @@ def get_unique_cdef_id(cdef):
 # ____________________________________________________________
 
 def perform_normalizations(annotator):
-    from rpython.rtyper.exceptiondata import standardexceptions
-    for cls in standardexceptions:
-        annotator.bookkeeper.getuniqueclassdef(cls)
     create_class_constructors(annotator)
     annotator.frozen += 1
     try:
