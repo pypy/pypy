@@ -1,12 +1,15 @@
 import os
+import sys
 from rpython.rtyper.lltypesystem.rffi import CConstant, CExternVariable, INT
 from rpython.rtyper.lltypesystem import ll2ctypes, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, register_replacement_for
 from rpython.rlib import jit
 from rpython.translator.platform import platform
 
+_WIN32 = sys.platform.startswith('win')
+UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
 
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
@@ -127,6 +130,20 @@ def closerange(fd_low, fd_high):
         except OSError:
             pass
 
+if _WIN32:
+    includes = ['io.h']
+else:
+    includes = ['unistd.h']
+eci = ExternalCompilationInfo(
+    includes=includes,
+)
+
+def external(name, args, result, **kwds):
+    return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
+
+c_dup = external(UNDERSCORE_ON_WIN32 + 'dup', [rffi.INT], rffi.INT)
+c_dup2 = external(UNDERSCORE_ON_WIN32 + 'dup2', [rffi.INT, rffi.INT], rffi.INT)
+
 #___________________________________________________________________
 # Wrappers around posix functions, that accept either strings, or
 # instances with a "as_bytes()" method.
@@ -227,3 +244,23 @@ if os.name == 'nt':
     os_kill = rwin32.os_kill
 else:
     os_kill = os.kill
+
+#___________________________________________________________________
+# Implementation of many posix functions.
+# They usually check the return value and raise an (RPython) OSError
+# with errno.
+
+@register_replacement_for(os.dup)
+def dup(fd):
+    validate_fd(fd)
+    newfd = c_dup(fd)
+    if newfd < 0:
+        raise OSError(get_errno(), "dup failed")
+    return newfd
+
+@register_replacement_for(os.dup2)
+def dup2(fd, newfd):
+    validate_fd(fd)
+    error = c_dup2(fd, newfd)
+    if error < 0:
+        raise OSError(get_errno(), "dup2 failed")

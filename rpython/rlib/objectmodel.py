@@ -286,6 +286,17 @@ def sc_we_are_translated(ctx):
     return Constant(True)
 
 
+def register_replacement_for(replaced_function):
+    """Decorator that causes RPython to replace the function passed as parameter
+    with the function being defined."""
+    def wrap(func):
+        @register_flow_sc(replaced_function)
+        def sc_redirected_function(ctx, *args_w):
+            return ctx.appcall(func, *args_w)
+        return func
+    return wrap
+
+
 def keepalive_until_here(*values):
     pass
 

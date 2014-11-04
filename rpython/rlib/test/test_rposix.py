@@ -169,3 +169,10 @@ class TestPosixUnicode(BasePosixUnicodeOrAscii):
     def _get_filename(self):
         return (unicode(udir.join('test_open')) +
                 u'\u65e5\u672c.txt') # "Japan"
+
+class TestRegisteredFunctions:
+    def test_dup(self):
+        def f():
+            os.dup(4)
+            os.dup2(5, 6)
+        compile(f, ())

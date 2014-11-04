@@ -346,35 +346,6 @@ class RegisterOs(BaseLazyRegistering):
                       llimpl=spawnve_llimpl,
                       export_name="ll_os.ll_os_spawnve")
 
-    @registering(os.dup)
-    def register_os_dup(self):
-        os_dup = self.llexternal(UNDERSCORE_ON_WIN32 + 'dup',
-                                 [rffi.INT], rffi.INT)
-
-        def dup_llimpl(fd):
-            rposix.validate_fd(fd)
-            newfd = rffi.cast(lltype.Signed, os_dup(rffi.cast(rffi.INT, fd)))
-            if newfd == -1:
-                raise OSError(rposix.get_errno(), "dup failed")
-            return newfd
-
-        return extdef([int], int, llimpl=dup_llimpl, export_name="ll_os.ll_os_dup")
-
-    @registering(os.dup2)
-    def register_os_dup2(self):
-        os_dup2 = self.llexternal(UNDERSCORE_ON_WIN32 + 'dup2',
-                                  [rffi.INT, rffi.INT], rffi.INT)
-
-        def dup2_llimpl(fd, newfd):
-            rposix.validate_fd(fd)
-            error = rffi.cast(lltype.Signed, os_dup2(rffi.cast(rffi.INT, fd),
-                                             rffi.cast(rffi.INT, newfd)))
-            if error == -1:
-                raise OSError(rposix.get_errno(), "dup2 failed")
-
-        return extdef([int, int], s_None, llimpl=dup2_llimpl,
-                      export_name="ll_os.ll_os_dup2")
-
     @registering_if(os, "getlogin", condition=not _WIN32)
     def register_os_getlogin(self):
         os_getlogin = self.llexternal('getlogin', [], rffi.CCHARP, releasegil=False)
