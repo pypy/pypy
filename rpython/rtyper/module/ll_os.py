@@ -22,8 +22,6 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rtyper.lltypesystem.llmemory import itemoffsetof, offsetof
-from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.rlib.objectmodel import specialize
 from rpython.translator import cdir
 
@@ -1000,8 +998,6 @@ class RegisterOs(BaseLazyRegistering):
         os_read = self.llexternal(UNDERSCORE_ON_WIN32 + 'read',
                                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T],
                                   rffi.SIZE_T)
-
-        offset = offsetof(STR, 'chars') + itemoffsetof(STR.chars, 0)
 
         def os_read_llimpl(fd, count):
             if count < 0:
