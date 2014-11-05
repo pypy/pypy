@@ -1,7 +1,7 @@
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_genc import compile
 from rpython.tool.udir import udir
-from rpython.rlib import rposix
+from rpython.rlib import rposix, rstring
 import os, sys
 import py
 
@@ -15,13 +15,15 @@ class UnicodeWithEncoding:
     if sys.platform == 'win32':
         def as_bytes(self):
             from rpython.rlib.runicode import unicode_encode_mbcs
-            return unicode_encode_mbcs(self.unistr, len(self.unistr),
-                                       "strict")
+            res = unicode_encode_mbcs(self.unistr, len(self.unistr),
+                                      "strict")
+            return rstring.assert_str0(res)
     else:
         def as_bytes(self):
             from rpython.rlib.runicode import unicode_encode_utf_8
-            return unicode_encode_utf_8(self.unistr, len(self.unistr),
-                                        "strict")
+            res = unicode_encode_utf_8(self.unistr, len(self.unistr),
+                                       "strict")
+            return rstring.assert_str0(res)
 
     def as_unicode(self):
         return self.unistr
