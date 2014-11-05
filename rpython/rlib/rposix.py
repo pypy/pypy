@@ -4,7 +4,8 @@ from rpython.rtyper.lltypesystem.rffi import CConstant, CExternVariable, INT
 from rpython.rtyper.lltypesystem import ll2ctypes, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.objectmodel import specialize, register_replacement_for
+from rpython.rlib.objectmodel import (
+    specialize, enforceargs, register_replacement_for)
 from rpython.rlib import jit
 from rpython.translator.platform import platform
 
@@ -111,6 +112,7 @@ if os.name == 'nt':
         "_PyVerify_fd", [rffi.INT], rffi.INT,
         compilation_info=errno_eci,
         ))
+    @enforceargs(int)
     def validate_fd(fd):
         if not is_valid_fd(fd):
             raise OSError(get_errno(), 'Bad file descriptor')
@@ -118,6 +120,7 @@ else:
     def is_valid_fd(fd):
         return 1
 
+    @enforceargs(int)
     def validate_fd(fd):
         pass
 
@@ -250,15 +253,15 @@ else:
 # They usually check the return value and raise an (RPython) OSError
 # with errno.
 
-@register_replacement_for(os.dup)
+@register_replacement_for(os.dup, sandboxed_name='ll_os.ll_os_dup')
 def dup(fd):
     validate_fd(fd)
     newfd = c_dup(fd)
     if newfd < 0:
         raise OSError(get_errno(), "dup failed")
-    return newfd
+    return intmask(newfd)
 
-@register_replacement_for(os.dup2)
+@register_replacement_for(os.dup2, sandboxed_name='ll_os.ll_os_dup2')
 def dup2(fd, newfd):
     validate_fd(fd)
     error = c_dup2(fd, newfd)

@@ -12,11 +12,10 @@ from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.tool.sourcetools import compile2
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
-from rpython.flowspace.specialcase import register_flow_sc
+from rpython.flowspace.specialcase import register_flow_sc, get_specialcase
 from rpython.annotator.model import (
     SomeTuple, AnnotatorError, read_can_only_throw)
 from rpython.annotator.argument import ArgumentsForTranslation
-from rpython.flowspace.specialcase import SPECIAL_CASES
 
 
 NOT_REALLY_CONST = {
@@ -570,11 +569,8 @@ class SimpleCall(SingleDispatchMixin, CallOp):
         w_callable, args_w = self.args[0], self.args[1:]
         if isinstance(w_callable, Constant):
             fn = w_callable.value
-            try:
-                sc = SPECIAL_CASES[fn]   # TypeError if 'fn' not hashable
-            except (KeyError, TypeError):
-                pass
-            else:
+            sc = get_specialcase(fn)
+            if sc:
                 return sc(ctx, *args_w)
         return ctx.do_op(self)
 
@@ -589,11 +585,8 @@ class CallArgs(SingleDispatchMixin, CallOp):
         w_callable = self.args[0]
         if isinstance(w_callable, Constant):
             fn = w_callable.value
-            try:
-                sc = SPECIAL_CASES[fn]   # TypeError if 'fn' not hashable
-            except (KeyError, TypeError):
-                pass
-            else:
+            sc = get_specialcase(fn)
+            if sc:
                 from rpython.flowspace.flowcontext import FlowingError
                 raise FlowingError(
                     "should not call %r with keyword arguments" % (fn,))

@@ -54,6 +54,26 @@ def sc_getattr(ctx, w_obj, w_index, w_default=None):
         from rpython.flowspace.operation import op
         return op.getattr(w_obj, w_index).eval(ctx)
 
+def get_specialcase(fn):
+    try:
+        return SPECIAL_CASES[fn]   # TypeError if 'fn' not hashable
+    except (KeyError, TypeError):
+        # Try to import modules containing special cases
+        for modname in SPECIAL_MODULES.get(fn.__module__, []):
+            __import__(modname)
+        try:
+            return SPECIAL_CASES[fn]
+        except (KeyError, TypeError):
+            pass
+    return None
+
+SPECIAL_MODULES = {
+    # Modules with functions registered with @register_flow_sc, and
+    # which cannot be imported when before the flow object space
+    # (because of import loops).
+    'posix': ['rpython.rlib.rposix'],
+}
+
 # _________________________________________________________________________
 
 redirect_function(open,       'rpython.rlib.rfile.create_file')

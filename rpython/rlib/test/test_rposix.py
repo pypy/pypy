@@ -1,4 +1,5 @@
 from rpython.rtyper.test.test_llinterp import interpret
+from rpython.translator.c.test.test_genc import compile
 from rpython.tool.udir import udir
 from rpython.rlib import rposix
 import os, sys
