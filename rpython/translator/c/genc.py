@@ -42,26 +42,7 @@ class ProfOpt(object):
         self.compiler = compiler
 
     def first(self):
-        platform = self.compiler.platform
-        if platform.name.startswith('darwin'):
-            # XXX incredible hack for darwin
-            STR = '/*--no-profiling-for-this-file!--*/'
-            no_prof = []
-            prof = []
-            for cfile in self.compiler.cfiles:
-                if STR in cfile.read():
-                    no_prof.append(cfile)
-                else:
-                    prof.append(cfile)
-            p_eci = self.compiler.eci.merge(
-                ExternalCompilationInfo(compile_extra=['-fprofile-generate'],
-                                        link_extra=['-fprofile-generate']))
-            ofiles = platform._compile_o_files(prof, p_eci)
-            _, eci = self.compiler.eci.get_module_files()
-            ofiles += platform._compile_o_files(no_prof, eci)
-            return platform._finish_linking(ofiles, p_eci, None, True)
-        else:
-            return self.build('-fprofile-generate')
+        return self.build('-fprofile-generate')
 
     def probe(self, exe, args):
         # 'args' is a single string typically containing spaces
