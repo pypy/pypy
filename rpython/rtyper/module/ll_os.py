@@ -249,12 +249,9 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'execv')
     def register_os_execv(self):
-        eci = self.gcc_profiling_bug_workaround(
-            'RPY_EXPORTED_FOR_TESTS int _noprof_execv(char *path, char *argv[])',
-            'return execv(path, argv);')
-        os_execv = self.llexternal('_noprof_execv',
-                                   [rffi.CCHARP, rffi.CCHARPP],
-                                   rffi.INT, compilation_info = eci)
+        os_execv = self.llexternal(
+            'execv',
+            [rffi.CCHARP, rffi.CCHARPP], rffi.INT)
 
         def execv_llimpl(path, args):
             l_args = rffi.ll_liststr2charpp(args)
@@ -268,12 +265,9 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'execve')
     def register_os_execve(self):
-        eci = self.gcc_profiling_bug_workaround(
-            'RPY_EXPORTED_FOR_TESTS int _noprof_execve(char *filename, char *argv[], char *envp[])',
-            'return execve(filename, argv, envp);')
         os_execve = self.llexternal(
-            '_noprof_execve', [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP],
-            rffi.INT, compilation_info = eci)
+            'execve',
+            [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP], rffi.INT)
 
         def execve_llimpl(path, args, env):
             # XXX Check path, args, env for \0 and raise TypeErrors as
@@ -1723,10 +1717,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'fork')
     def register_os_fork(self):
         from rpython.rlib import debug, rthread
-        eci = self.gcc_profiling_bug_workaround('RPY_EXPORTED_FOR_TESTS pid_t _noprof_fork(void)',
-                                                'return fork();')
-        os_fork = self.llexternal('_noprof_fork', [], rffi.PID_T,
-                                  compilation_info = eci,
+        os_fork = self.llexternal('fork', [], rffi.PID_T,
                                   _nowrapper = True)
 
         def fork_llimpl():
@@ -1926,21 +1917,6 @@ class RegisterOs(BaseLazyRegistering):
 
         return extdef([int], str, "ll_os.ttyname",
                       llimpl=ttyname_llimpl)
-
-    # ____________________________________________________________
-    # XXX horrible workaround for a bug of profiling in gcc on
-    # OS X with functions containing a direct call to some system calls
-    # like fork(), execv(), execve()
-    def gcc_profiling_bug_workaround(self, decl, body):
-        body = ('/*--no-profiling-for-this-file!--*/\n'
-                '#include "src/precommondefs.h"\n'
-                '%s {\n'
-                '\t%s\n'
-                '}\n' % (decl, body,))
-        return ExternalCompilationInfo(
-            include_dirs=[cdir],
-            post_include_bits = [decl + ';'],
-            separate_module_sources = [body])
 
 # ____________________________________________________________
 # Support for os.environ
