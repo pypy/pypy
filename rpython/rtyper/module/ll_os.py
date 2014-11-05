@@ -247,50 +247,6 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int], int, llimpl=c_func_llimpl,
                       export_name='ll_os.ll_os_' + name)
 
-    @registering_if(posix, 'spawnv')
-    def register_os_spawnv(self):
-        os_spawnv = self.llexternal('spawnv',
-                                    [rffi.INT, rffi.CCHARP, rffi.CCHARPP],
-                                    rffi.INT)
-
-        def spawnv_llimpl(mode, path, args):
-            mode = rffi.cast(rffi.INT, mode)
-            l_args = rffi.ll_liststr2charpp(args)
-            childpid = os_spawnv(mode, path, l_args)
-            rffi.free_charpp(l_args)
-            if childpid == -1:
-                raise OSError(rposix.get_errno(), "os_spawnv failed")
-            return rffi.cast(lltype.Signed, childpid)
-
-        return extdef([int, str0, [str0]], int, llimpl=spawnv_llimpl,
-                      export_name="ll_os.ll_os_spawnv")
-
-    @registering_if(os, 'spawnve')
-    def register_os_spawnve(self):
-        os_spawnve = self.llexternal('spawnve',
-                                     [rffi.INT, rffi.CCHARP, rffi.CCHARPP,
-                                      rffi.CCHARPP],
-                                     rffi.INT)
-
-        def spawnve_llimpl(mode, path, args, env):
-            envstrs = []
-            for item in env.iteritems():
-                envstrs.append("%s=%s" % item)
-
-            mode = rffi.cast(rffi.INT, mode)
-            l_args = rffi.ll_liststr2charpp(args)
-            l_env = rffi.ll_liststr2charpp(envstrs)
-            childpid = os_spawnve(mode, path, l_args, l_env)
-            rffi.free_charpp(l_env)
-            rffi.free_charpp(l_args)
-            if childpid == -1:
-                raise OSError(rposix.get_errno(), "os_spawnve failed")
-            return rffi.cast(lltype.Signed, childpid)
-
-        return extdef([int, str0, [str0], {str0: str0}], int,
-                      llimpl=spawnve_llimpl,
-                      export_name="ll_os.ll_os_spawnve")
-
     @registering_if(os, "getlogin", condition=not _WIN32)
     def register_os_getlogin(self):
         os_getlogin = self.llexternal('getlogin', [], rffi.CCHARP, releasegil=False)
