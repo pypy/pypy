@@ -149,6 +149,9 @@ c_dup = external(UNDERSCORE_ON_WIN32 + 'dup', [rffi.INT], rffi.INT)
 c_dup2 = external(UNDERSCORE_ON_WIN32 + 'dup2', [rffi.INT, rffi.INT], rffi.INT)
 c_open = external(UNDERSCORE_ON_WIN32 + 'open',
                   [rffi.CCHARP, rffi.INT, rffi.MODE_T], rffi.INT)
+c_execv = external('execv', [rffi.CCHARP, rffi.CCHARPP], rffi.INT)
+c_execve = external('execve',
+                    [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP], rffi.INT)
 # Win32 specific functions
 c_wopen = external(UNDERSCORE_ON_WIN32 + 'wopen',
                    [rffi.CWCHARP, rffi.INT, rffi.MODE_T], rffi.INT)
@@ -325,3 +328,31 @@ def open(path, flags, mode):
         raise OSError(get_errno(), "open failed")
     return intmask(fd)
         
+@register_replacement_for(getattr(os, 'execv', None),
+                          sandboxed_name='ll_os.ll_os_execv')
+def execv(path, args):
+    rstring.check_str0(path)
+    # This list conversion already takes care of NUL bytes.
+    l_args = rffi.ll_liststr2charpp(args)
+    c_execv(path, l_args)
+    rffi.free_charpp(l_args)
+    raise OSError(get_errno(), "execv failed")
+
+@register_replacement_for(getattr(os, 'execve', None),
+                          sandboxed_name='ll_os.ll_os_execve')
+def execve(path, args, env):
+    envstrs = []
+    for item in env.iteritems():
+        envstr = "%s=%s" % item
+        envstrs.append(envstr)
+
+    rstring.check_str0(path)
+    # This list conversion already takes care of NUL bytes.
+    l_args = rffi.ll_liststr2charpp(args)
+    l_env = rffi.ll_liststr2charpp(envstrs)
+    c_execve(path, l_args, l_env)
+
+    
+    rffi.free_charpp(l_env)
+    rffi.free_charpp(l_args)
+    raise OSError(get_errno(), "execve failed")
