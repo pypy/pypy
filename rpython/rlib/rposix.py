@@ -153,6 +153,12 @@ c_execv = external('execv', [rffi.CCHARP, rffi.CCHARPP], rffi.INT)
 c_execve = external('execve',
                     [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP], rffi.INT)
 # Win32 specific functions
+c_spawnv = external('spawnv',
+                    [rffi.INT, rffi.CCHARP, rffi.CCHARPP], rffi.INT)
+c_spawnve = external('spawnve',
+                    [rffi.INT, rffi.CCHARP, rffi.CCHARPP, rffi.CCHARP],
+                     rffi.INT)
+# Win32 Unicode functions
 c_wopen = external(UNDERSCORE_ON_WIN32 + 'wopen',
                    [rffi.CWCHARP, rffi.INT, rffi.MODE_T], rffi.INT)
 
@@ -352,7 +358,34 @@ def execve(path, args, env):
     l_env = rffi.ll_liststr2charpp(envstrs)
     c_execve(path, l_args, l_env)
 
-    
     rffi.free_charpp(l_env)
     rffi.free_charpp(l_args)
     raise OSError(get_errno(), "execve failed")
+
+@register_replacement_for(getattr(os, 'spawnv', None),
+                          sandboxed_name='ll_os.ll_os_spawnv')
+def spawnv(mode, path, args):
+    rstring.check_str0(path)
+    l_args = rffi.ll_liststr2charpp(args)
+    childpid = c_spawnv(mode, path, l_args)
+    rffi.free_charpp(l_args)
+    if childpid < 0:
+        raise OSError(get_errno(), "os_spawnv failed")
+    return intmask(childpid)
+
+@register_replacement_for(getattr(os, 'spawnve', None),
+                          sandboxed_name='ll_os.ll_os_spawnve')
+def spawnve(mode, path, args, env):
+    envstrs = []
+    for item in env.iteritems():
+        envstrs.append("%s=%s" % item)
+    rstring.check_str0(path)
+    l_args = rffi.ll_liststr2charpp(args)
+    l_env = rffi.ll_liststr2charpp(envstrs)
+    childpid = c_spawnve(mode, path, l_args, l_env)
+    rffi.free_charpp(l_env)
+    rffi.free_charpp(l_args)
+    if childpid == -1:
+        raise OSError(rposix.get_errno(), "os_spawnve failed")
+    return intmask(childpid)
+

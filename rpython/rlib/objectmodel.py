@@ -295,9 +295,10 @@ def register_replacement_for(replaced_function, sandboxed_name=None):
     """Decorator that causes RPython to replace the function passed as parameter
     with the function being defined."""
     def wrap(func):
-        @register_flow_sc(replaced_function)
-        def sc_redirected_function(ctx, *args_w):
-            return ctx.appcall(func, *args_w)
+        if replaced_function is not None:
+            @register_flow_sc(replaced_function)
+            def sc_redirected_function(ctx, *args_w):
+                return ctx.appcall(func, *args_w)
         if sandboxed_name:
             func._sandbox_external_name = sandboxed_name
         return func
