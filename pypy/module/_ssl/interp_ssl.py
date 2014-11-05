@@ -622,7 +622,8 @@ class SSLSocket(W_Root):
                     raise _ssl_seterror(space, self, length)
                 try:
                     # this is actually an immutable bytes sequence
-                    return space.wrap(rffi.charpsize2str(buf_ptr[0], length))
+                    return space.wrapbytes(
+                        rffi.charpsize2str(buf_ptr[0], length))
                 finally:
                     libssl_OPENSSL_free(buf_ptr[0])
         else:
