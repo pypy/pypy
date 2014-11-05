@@ -175,8 +175,9 @@ def _as_bytes(path):
 
 @specialize.argtype(0)
 def _as_bytes0(path):
+    """Crashes translation if the path contains NUL characters."""
     res = _as_bytes(path)
-    rstring.check_str0(path)
+    rstring.check_str0(res)
     return res
 
 @specialize.argtype(0)
@@ -189,8 +190,9 @@ def _as_unicode(path):
 
 @specialize.argtype(0)
 def _as_unicode0(path):
+    """Crashes translation if the path contains NUL characters."""
     res = _as_unicode(path)
-    rstring.check_str0(path)
+    rstring.check_str0(res)
     return res
 
 # Returns True when the unicode function should be called:
