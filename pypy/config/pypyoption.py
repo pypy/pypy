@@ -86,9 +86,10 @@ module_suggests = {
     # itself needs the interp-level struct module
     # because 'P' is missing from the app-level one
     "_rawffi": [("objspace.usemodules.struct", True)],
-    "cpyext": [("translation.secondaryentrypoints", "cpyext,main"),
-               ("translation.shared", sys.platform == "win32")],
+    "cpyext": [("translation.secondaryentrypoints", "cpyext,main")],
 }
+if sys.platform == "win32":
+    module_suggests["cpyext"].append(("translation.shared", True))
 
 module_import_dependencies = {
     # no _rawffi if importing rpython.rlib.clibffi raises ImportError
