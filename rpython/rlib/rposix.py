@@ -8,6 +8,7 @@ from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for)
 from rpython.rlib import jit
 from rpython.translator.platform import platform
+from rpython.rlib import rstring
 
 _WIN32 = sys.platform.startswith('win')
 UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
@@ -146,6 +147,11 @@ def external(name, args, result, **kwds):
 
 c_dup = external(UNDERSCORE_ON_WIN32 + 'dup', [rffi.INT], rffi.INT)
 c_dup2 = external(UNDERSCORE_ON_WIN32 + 'dup2', [rffi.INT, rffi.INT], rffi.INT)
+c_open = external(UNDERSCORE_ON_WIN32 + 'open',
+                  [rffi.CCHARP, rffi.INT, rffi.MODE_T], rffi.INT)
+# Win32 specific functions
+c_wopen = external(UNDERSCORE_ON_WIN32 + 'wopen',
+                   [rffi.CWCHARP, rffi.INT, rffi.MODE_T], rffi.INT)
 
 #___________________________________________________________________
 # Wrappers around posix functions, that accept either strings, or
@@ -159,12 +165,50 @@ def _as_bytes(path):
     assert path is not None
     if isinstance(path, str):
         return path
+    elif isinstance(path, unicode):
+        # This never happens in PyPy's Python interpreter!
+        # Only in raw RPython code that uses unicode strings.
+        # We implement python2 behavior: silently convert to ascii.
+        return path.encode('ascii')
     else:
         return path.as_bytes()
 
 @specialize.argtype(0)
-def open(path, flags, mode):
-    return os.open(_as_bytes(path), flags, mode)
+def _as_bytes0(path):
+    res = _as_bytes(path)
+    rstring.check_str0(path)
+    return res
+
+@specialize.argtype(0)
+def _as_unicode(path):
+    assert path is not None
+    if isinstance(path, unicode):
+        return path
+    else:
+        return path.as_unicode()
+
+@specialize.argtype(0)
+def _as_unicode0(path):
+    res = _as_unicode(path)
+    rstring.check_str0(path)
+    return res
+
+# Returns True when the unicode function should be called:
+# - on Windows
+# - if the path is Unicode.
+if _WIN32:
+    @specialize.argtype(0)
+    def _prefer_unicode(path):
+        if isinstance(path, str):
+            return False
+        elif isinstance(path, unicode):
+            return True
+        else:
+            return path.is_unicode
+else:
+    @specialize.argtype(0)
+    def _prefer_unicode(path):
+        return False
 
 @specialize.argtype(0)
 def stat(path):
@@ -267,3 +311,15 @@ def dup2(fd, newfd):
     error = c_dup2(fd, newfd)
     if error < 0:
         raise OSError(get_errno(), "dup2 failed")
+
+@register_replacement_for(os.open, sandboxed_name='ll_os.ll_os_open')
+@specialize.argtype(0)
+def open(path, flags, mode):
+    if _prefer_unicode(path):
+        fd = c_wopen(_as_unicode0(path), flags, mode)
+    else:
+        fd = c_open(_as_bytes0(path), flags, mode)
+    if fd < 0:
+        raise OSError(get_errno(), "open failed")
+    return intmask(fd)
+        

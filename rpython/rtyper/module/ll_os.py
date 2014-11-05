@@ -910,20 +910,6 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int, int, int], None, llimpl=c_setresgid_llimpl,
                       export_name='ll_os.ll_os_setresgid')
 
-    @registering_str_unicode(os.open)
-    def register_os_open(self, traits):
-        os_open = self.llexternal(traits.posix_function_name('open'),
-                                  [traits.CCHARP, rffi.INT, rffi.MODE_T],
-                                  rffi.INT)
-        def os_open_llimpl(path, flags, mode):
-            result = rffi.cast(lltype.Signed, os_open(path, flags, mode))
-            if result == -1:
-                raise OSError(rposix.get_errno(), "os_open failed")
-            return result
-
-        return extdef([traits.str0, int, int], int, traits.ll_os_name('open'),
-                      llimpl=os_open_llimpl)
-
     @registering_if(os, 'getloadavg')
     def register_os_getloadavg(self):
         AP = rffi.CArrayPtr(lltype.Float)

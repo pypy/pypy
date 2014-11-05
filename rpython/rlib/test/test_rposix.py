@@ -45,7 +45,7 @@ class BasePosixUnicodeOrAscii:
     def test_open(self):
         def f():
             try:
-                fd = rposix.open(self.path, os.O_RDONLY, 0777)
+                fd = os.open(self.path, os.O_RDONLY, 0777)
                 try:
                     text = os.read(fd, 50)
                     return text
@@ -176,4 +176,10 @@ class TestRegisteredFunctions:
         def f():
             os.dup(4)
             os.dup2(5, 6)
+        compile(f, ())
+
+    def test_open(self):
+        def f():
+            os.open('/tmp/t', 0, 0)
+            os.open(u'/tmp/t', 0, 0)
         compile(f, ())

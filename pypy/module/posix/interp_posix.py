@@ -43,6 +43,8 @@ def fsencode_w(space, w_obj):
     return space.str0_w(w_obj)
 
 class FileEncoder(object):
+    is_unicode = True
+
     def __init__(self, space, w_obj):
         self.space = space
         self.w_obj = w_obj
@@ -54,6 +56,8 @@ class FileEncoder(object):
         return self.space.unicode0_w(self.w_obj)
 
 class FileDecoder(object):
+    is_unicode = False
+
     def __init__(self, space, w_obj):
         self.space = space
         self.w_obj = w_obj
