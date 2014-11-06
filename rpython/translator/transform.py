@@ -134,6 +134,16 @@ def transform_list_contains(self, block_subset):
                     s_dict = self.annotation(op.args[0])
                     s_dict.dictdef.generalize_key(self.binding(op.args[1]))
 
+def remove_assign(ann, block_subset):
+    for block in block_subset:
+        for i in range(len(block.operations)):
+            op = block.operations[i]
+            if op.opname == 'assign':
+                new_op = op.args[0].as_operation()
+                new_op.result = op.result
+                block.operations[i] = new_op
+
+
 
 def transform_dead_op_vars(self, block_subset):
     # we redo the same simplification from simplify.py,
@@ -249,6 +259,7 @@ default_extra_passes = [
     transform_extend_with_str_slice,
     transform_extend_with_char_count,
     transform_list_contains,
+    remove_assign,
     ]
 
 def transform_graph(ann, extra_passes=None, block_subset=None):

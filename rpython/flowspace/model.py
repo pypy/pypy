@@ -578,7 +578,8 @@ def checkgraph(graph):
                 for v in op.args:
                     assert isinstance(v, (Constant, Variable))
                     if isinstance(v, Variable):
-                        usevar(v)
+                        if type(v) is Variable:
+                            usevar(v)
                     else:
                         assert v.value is not last_exception
                         #assert v.value != last_exc_value

@@ -486,6 +486,7 @@ add_operator('buffer', 1, pyfunc=buffer, pure=True)   # see buffer.py
 add_operator('yield_', 1)
 add_operator('newslice', 3)
 add_operator('hint', None, dispatch=1)
+add_operator('assign', 1, dispatch=1)
 
 class Contains(SingleDispatchMixin, PureOperation):
     opname = 'contains'
