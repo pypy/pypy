@@ -72,7 +72,7 @@ def getgrnam(name):
         raise TypeError("expected string")
     res = libc.getgrnam(os.fsencode(name))
     if not res:
-        raise KeyError(name)
+        raise KeyError("'getgrnam(): name not found: %s'" % name)
     return _group_from_gstruct(res)
 
 @builtinify

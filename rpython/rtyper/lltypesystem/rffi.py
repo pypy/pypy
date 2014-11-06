@@ -825,7 +825,7 @@ def make_string_mappings(strtype):
         allows for the process to be performed without an extra copy.
         Make sure to call keep_buffer_alive_until_here on the returned values.
         """
-        new_buf = lltype.malloc(STRTYPE, count)
+        new_buf = mallocfn(count)
         pinned = 0
         if rgc.can_move(new_buf):
             if rgc.pin(new_buf):
@@ -857,7 +857,7 @@ def make_string_mappings(strtype):
             if llop.shrink_array(lltype.Bool, gc_buf, needed_size):
                 pass     # now 'gc_buf' is smaller
             else:
-                gc_buf = lltype.malloc(STRTYPE, needed_size)
+                gc_buf = mallocfn(needed_size)
                 case_num = 2
         if case_num == 2:
             copy_raw_to_string(raw_buf, gc_buf, 0, needed_size)

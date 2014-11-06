@@ -39,3 +39,7 @@ interested in background information.
 .. branch: kill-multimethod
 
 Kill multimethod machinery, all multimethods were removed earlier.
+
+.. branch nditer-external_loop
+
+Implement `external_loop` arguement to numpy's nditer

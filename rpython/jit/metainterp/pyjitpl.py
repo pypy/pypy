@@ -33,6 +33,14 @@ def arguments(*args):
 
 # ____________________________________________________________
 
+FASTPATHS_SAME_BOXES = {
+    "ne": "history.CONST_FALSE",
+    "eq": "history.CONST_TRUE",
+    "lt": "history.CONST_FALSE",
+    "le": "history.CONST_TRUE",
+    "gt": "history.CONST_FALSE",
+    "ge": "history.CONST_TRUE",
+}
 
 class MIFrame(object):
     debug = False
@@ -188,8 +196,6 @@ class MIFrame(object):
     # ------------------------------
 
     for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
-                    'int_lt', 'int_le', 'int_eq',
-                    'int_ne', 'int_gt', 'int_ge',
                     'int_and', 'int_or', 'int_xor',
                     'int_rshift', 'int_lshift', 'uint_rshift',
                     'uint_lt', 'uint_le', 'uint_gt', 'uint_ge',
@@ -197,13 +203,24 @@ class MIFrame(object):
                     'float_add', 'float_sub', 'float_mul', 'float_truediv',
                     'float_lt', 'float_le', 'float_eq',
                     'float_ne', 'float_gt', 'float_ge',
-                    'ptr_eq', 'ptr_ne', 'instance_ptr_eq', 'instance_ptr_ne',
                     ]:
         exec py.code.Source('''
             @arguments("box", "box")
             def opimpl_%s(self, b1, b2):
                 return self.execute(rop.%s, b1, b2)
         ''' % (_opimpl, _opimpl.upper())).compile()
+
+    for _opimpl in ['int_eq', 'int_ne', 'int_lt', 'int_le', 'int_gt', 'int_ge',
+                    'ptr_eq', 'ptr_ne',
+                    'instance_ptr_eq', 'instance_ptr_ne']:
+        exec py.code.Source('''
+            @arguments("box", "box")
+            def opimpl_%s(self, b1, b2):
+                if b1 is b2: # crude fast check
+                    return %s
+                return self.execute(rop.%s, b1, b2)
+        ''' % (_opimpl, FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
+        ).compile()
 
     for _opimpl in ['int_add_ovf', 'int_sub_ovf', 'int_mul_ovf']:
         exec py.code.Source('''
@@ -340,10 +357,13 @@ class MIFrame(object):
         exec py.code.Source('''
             @arguments("box", "box", "label")
             def opimpl_goto_if_not_%s(self, b1, b2, target):
-                condbox = self.execute(rop.%s, b1, b2)
+                if b1 is b2:
+                    condbox = %s
+                else:
+                    condbox = self.execute(rop.%s, b1, b2)
                 self.opimpl_goto_if_not(condbox, target)
-        ''' % (_opimpl, _opimpl.upper())).compile()
-
+        ''' % (_opimpl, FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
+        ).compile()
 
     def _establish_nullity(self, box, orgpc):
         value = box.nonnull()
