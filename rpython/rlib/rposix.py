@@ -152,6 +152,8 @@ c_open = external(UNDERSCORE_ON_WIN32 + 'open',
 c_execv = external('execv', [rffi.CCHARP, rffi.CCHARPP], rffi.INT)
 c_execve = external('execve',
                     [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP], rffi.INT)
+c_getlogin = external('getlogin', [], rffi.CCHARP, releasegil=False)
+
 # Win32 specific functions
 c_spawnv = external('spawnv',
                     [rffi.INT, rffi.CCHARP, rffi.CCHARPP], rffi.INT)
@@ -386,6 +388,13 @@ def spawnve(mode, path, args, env):
     rffi.free_charpp(l_env)
     rffi.free_charpp(l_args)
     if childpid == -1:
-        raise OSError(rposix.get_errno(), "os_spawnve failed")
+        raise OSError(get_errno(), "os_spawnve failed")
     return intmask(childpid)
 
+@register_replacement_for(getattr(os, 'getlogin', None),
+                          sandboxed_name='ll_os.ll_os_getlogin')
+def getlogin():
+    result = c_getlogin()
+    if not result:
+        raise OSError(get_errno(), "getlogin failed")
+    return rffi.charp2str(result)

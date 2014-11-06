@@ -44,7 +44,7 @@ def test_getlogin():
         expected = os.getlogin()
     except OSError, e:
         py.test.skip("the underlying os.getlogin() failed: %s" % e)
-    data = getllimpl(os.getlogin)()
+    data = rposix.getlogin()
     assert data == expected
 
 def test_statvfs():
