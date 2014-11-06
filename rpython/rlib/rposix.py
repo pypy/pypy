@@ -588,11 +588,51 @@ def times():
 
 c_setsid = external('setsid', [], rffi.PID_T)
 c_getsid = external('getsid', [rffi.PID_T], rffi.PID_T)
+c_getuid = external('getuid', [], rffi.INT)
+c_geteuid = external('geteuid', [], rffi.INT)
+c_setuid = external('setuid', [rffi.INT], rffi.INT)
+c_seteuid = external('seteuid', [rffi.INT], rffi.INT)
+c_getgid = external('getgid', [], rffi.INT)
+c_getegid = external('getegid', [], rffi.INT)
+c_setgid = external('setgid', [rffi.INT], rffi.INT)
+c_setegid = external('setegid', [rffi.INT], rffi.INT)
 
 @replace_os_function('setsid')
 def setsid():
-    return handle_posix_error('os_setsid', c_setsid())
+    return handle_posix_error('setsid', c_setsid())
 
 @replace_os_function('getsid')
 def getsid(pid):
-    return handle_posix_error('os_setsid', c_getsid(pid))
+    return handle_posix_error('getsid', c_getsid(pid))
+
+@replace_os_function('getuid')
+def getuid():
+    return handle_posix_error('getuid', c_getuid())
+
+@replace_os_function('geteuid')
+def geteuid():
+    return handle_posix_error('geteuid', c_geteuid())
+
+@replace_os_function('setuid')
+def setuid(uid):
+    return handle_posix_error('setuid', c_setuid(uid))
+
+@replace_os_function('seteuid')
+def seteuid(uid):
+    return handle_posix_error('seteuid', c_seteuid(uid))
+
+@replace_os_function('getgid')
+def getgid():
+    return handle_posix_error('getgid', c_getgid())
+
+@replace_os_function('getegid')
+def getegid():
+    return handle_posix_error('getegid', c_getegid())
+
+@replace_os_function('setgid')
+def setgid(gid):
+    return handle_posix_error('setgid', c_setgid(gid))
+
+@replace_os_function('setegid')
+def setegid(gid):
+    return handle_posix_error('setegid', c_setegid(gid))

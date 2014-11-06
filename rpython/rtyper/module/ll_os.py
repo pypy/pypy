@@ -365,41 +365,9 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int], SomeString(can_be_None=True),
                       "ll_os.ll_confstr", llimpl=confstr_llimpl)
 
-    @registering_if(os, 'getuid')
-    def register_os_getuid(self):
-        return self.extdef_for_os_function_returning_int('getuid')
-
-    @registering_if(os, 'geteuid')
-    def register_os_geteuid(self):
-        return self.extdef_for_os_function_returning_int('geteuid')
-
-    @registering_if(os, 'setuid')
-    def register_os_setuid(self):
-        return self.extdef_for_os_function_accepting_int('setuid')
-
-    @registering_if(os, 'seteuid')
-    def register_os_seteuid(self):
-        return self.extdef_for_os_function_accepting_int('seteuid')
-
-    @registering_if(os, 'setgid')
-    def register_os_setgid(self):
-        return self.extdef_for_os_function_accepting_int('setgid')
-
-    @registering_if(os, 'setegid')
-    def register_os_setegid(self):
-        return self.extdef_for_os_function_accepting_int('setegid')
-
     @registering_if(os, 'getpid')
     def register_os_getpid(self):
         return self.extdef_for_os_function_returning_int('getpid', releasegil=False)
-
-    @registering_if(os, 'getgid')
-    def register_os_getgid(self):
-        return self.extdef_for_os_function_returning_int('getgid')
-
-    @registering_if(os, 'getegid')
-    def register_os_getegid(self):
-        return self.extdef_for_os_function_returning_int('getegid')
 
     @registering_if(os, 'getgroups')
     def register_os_getgroups(self):
