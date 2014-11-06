@@ -326,34 +326,37 @@ else:
 # They usually check the return value and raise an (RPython) OSError
 # with errno.
 
-@register_replacement_for(os.dup, sandboxed_name='ll_os.ll_os_dup')
+def replace_os_function(name):
+    return register_replacement_for(
+        getattr(os, name, None),
+        sandboxed_name='ll_os.ll_os_%s' % name)
+
+@specialize.arg(0)
+def handle_posix_error(name, result):
+    if result < 0:
+        raise OSError(get_errno(), '%s failed' % name)
+    return intmask(result)
+
+@replace_os_function('dup')
 def dup(fd):
     validate_fd(fd)
-    newfd = c_dup(fd)
-    if newfd < 0:
-        raise OSError(get_errno(), "dup failed")
-    return intmask(newfd)
+    return handle_posix_error('dup', c_dup(fd))
 
-@register_replacement_for(os.dup2, sandboxed_name='ll_os.ll_os_dup2')
+@replace_os_function('dup2')
 def dup2(fd, newfd):
     validate_fd(fd)
-    error = c_dup2(fd, newfd)
-    if error < 0:
-        raise OSError(get_errno(), "dup2 failed")
+    handle_posix_error('dup2', c_dup2(fd, newfd))
 
-@register_replacement_for(os.open, sandboxed_name='ll_os.ll_os_open')
+@replace_os_function('open')
 @specialize.argtype(0)
 def open(path, flags, mode):
     if _prefer_unicode(path):
         fd = c_wopen(_as_unicode0(path), flags, mode)
     else:
         fd = c_open(_as_bytes0(path), flags, mode)
-    if fd < 0:
-        raise OSError(get_errno(), "open failed")
-    return intmask(fd)
+    return handle_posix_error('open', fd)
         
-@register_replacement_for(getattr(os, 'execv', None),
-                          sandboxed_name='ll_os.ll_os_execv')
+@replace_os_function('execv')
 def execv(path, args):
     rstring.check_str0(path)
     # This list conversion already takes care of NUL bytes.
@@ -362,8 +365,7 @@ def execv(path, args):
     rffi.free_charpp(l_args)
     raise OSError(get_errno(), "execv failed")
 
-@register_replacement_for(getattr(os, 'execve', None),
-                          sandboxed_name='ll_os.ll_os_execve')
+@replace_os_function('execve')
 def execve(path, args, env):
     envstrs = []
     for item in env.iteritems():
@@ -380,19 +382,15 @@ def execve(path, args, env):
     rffi.free_charpp(l_args)
     raise OSError(get_errno(), "execve failed")
 
-@register_replacement_for(getattr(os, 'spawnv', None),
-                          sandboxed_name='ll_os.ll_os_spawnv')
+@replace_os_function('spawnv')
 def spawnv(mode, path, args):
     rstring.check_str0(path)
     l_args = rffi.ll_liststr2charpp(args)
     childpid = c_spawnv(mode, path, l_args)
     rffi.free_charpp(l_args)
-    if childpid < 0:
-        raise OSError(get_errno(), "os_spawnv failed")
-    return intmask(childpid)
+    return handle_posix_error('spawnv', childpid)
 
-@register_replacement_for(getattr(os, 'spawnve', None),
-                          sandboxed_name='ll_os.ll_os_spawnve')
+@replace_os_function('spawnve')
 def spawnve(mode, path, args, env):
     envstrs = []
     for item in env.iteritems():
@@ -403,12 +401,9 @@ def spawnve(mode, path, args, env):
     childpid = c_spawnve(mode, path, l_args, l_env)
     rffi.free_charpp(l_env)
     rffi.free_charpp(l_args)
-    if childpid == -1:
-        raise OSError(get_errno(), "os_spawnve failed")
-    return intmask(childpid)
+    return handle_posix_error('spawnve', childpid)
 
-@register_replacement_for(getattr(os, 'getlogin', None),
-                          sandboxed_name='ll_os.ll_os_getlogin')
+@replace_os_function('getlogin')
 def getlogin():
     result = c_getlogin()
     if not result:
@@ -456,8 +451,7 @@ if _WIN32:
         calling_conv='win')
 
 
-@register_replacement_for(getattr(os, 'utime', None),
-                          sandboxed_name='ll_os.ll_os_utime')
+@replace_os_function('utime')
 @specialize.argtype(0, 1)
 def utime(path, times):
     if not _WIN32:
@@ -483,8 +477,7 @@ def utime(path, times):
                 l_utimbuf.c_modtime = rffi.r_time_t(modtime)
                 error = c_utime(path, l_utimbuf)
                 lltype.free(l_utimbuf, flavor='raw')
-        if error < 0:
-            raise OSError(get_errno(), "os_utime failed")
+        handle_posix_error('utime', error)
     else:  # _WIN32 case
         from rpython.rlib.rwin32file import make_win32_traits
         if _prefer_unicode(path):
@@ -547,7 +540,7 @@ else:
             lltype.Ptr(rwin32.FILETIME), lltype.Ptr(rwin32.FILETIME)],
         rwin32.BOOL, calling_conv='win')
 
-@register_replacement_for(os.times, sandboxed_name='ll_os.ll_times')
+@replace_os_function('times')
 def times():
     if not _WIN32:
         l_tmsbuf = lltype.malloc(TMSP.TO, flavor='raw')
@@ -593,21 +586,13 @@ def times():
 
 #___________________________________________________________________
 
-@specialize.arg(0)
-def handle_posix_error(name, result):
-    if result < 0:
-        raise OSError(get_errno(), '%s failed' % name)
-    return intmask(result)
-
 c_setsid = external('setsid', [], rffi.PID_T)
 c_getsid = external('getsid', [rffi.PID_T], rffi.PID_T)
 
-@register_replacement_for(getattr(os, 'setsid', None),
-                          sandboxed_name='ll_os.ll_os_setsid')
+@replace_os_function('setsid')
 def setsid():
     return handle_posix_error('os_setsid', c_setsid())
 
-@register_replacement_for(getattr(os, 'getsid', None),
-                          sandboxed_name='ll_os.ll_os_getsid')
+@replace_os_function('getsid')
 def getsid(pid):
     return handle_posix_error('os_setsid', c_getsid(pid))
