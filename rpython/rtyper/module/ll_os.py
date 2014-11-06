@@ -247,104 +247,6 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int], int, llimpl=c_func_llimpl,
                       export_name='ll_os.ll_os_' + name)
 
-    @registering_str_unicode(os.utime)
-    def register_os_utime(self, traits):
-        UTIMBUFP = lltype.Ptr(self.UTIMBUF)
-        os_utime = self.llexternal('utime', [rffi.CCHARP, UTIMBUFP], rffi.INT)
-
-        if not _WIN32:
-            includes = ['sys/time.h']
-        else:
-            includes = ['time.h']
-        eci = ExternalCompilationInfo(includes=includes)
-
-        class CConfig:
-            _compilation_info_ = eci
-            HAVE_UTIMES = platform.Has('utimes')
-        config = platform.configure(CConfig)
-
-        # XXX note that on Windows, calls to os.utime() are ignored on
-        # directories.  Remove that hack over there once it's fixed here!
-
-        if config['HAVE_UTIMES']:
-            class CConfig:
-                _compilation_info_ = eci
-                TIMEVAL = platform.Struct('struct timeval', [('tv_sec', rffi.LONG),
-                                                             ('tv_usec', rffi.LONG)])
-            config = platform.configure(CConfig)
-            TIMEVAL = config['TIMEVAL']
-            TIMEVAL2P = rffi.CArrayPtr(TIMEVAL)
-            os_utimes = self.llexternal('utimes', [rffi.CCHARP, TIMEVAL2P],
-                                        rffi.INT, compilation_info=eci)
-
-            def os_utime_platform(path, actime, modtime):
-                import math
-                l_times = lltype.malloc(TIMEVAL2P.TO, 2, flavor='raw')
-                fracpart, intpart = math.modf(actime)
-                rffi.setintfield(l_times[0], 'c_tv_sec', int(intpart))
-                rffi.setintfield(l_times[0], 'c_tv_usec', int(fracpart * 1E6))
-                fracpart, intpart = math.modf(modtime)
-                rffi.setintfield(l_times[1], 'c_tv_sec', int(intpart))
-                rffi.setintfield(l_times[1], 'c_tv_usec', int(fracpart * 1E6))
-                error = os_utimes(path, l_times)
-                lltype.free(l_times, flavor='raw')
-                return error
-        else:
-            # we only have utime(), which does not allow sub-second resolution
-            def os_utime_platform(path, actime, modtime):
-                l_utimbuf = lltype.malloc(UTIMBUFP.TO, flavor='raw')
-                l_utimbuf.c_actime  = rffi.r_time_t(actime)
-                l_utimbuf.c_modtime = rffi.r_time_t(modtime)
-                error = os_utime(path, l_utimbuf)
-                lltype.free(l_utimbuf, flavor='raw')
-                return error
-
-        # NB. this function is specialized; we get one version where
-        # tp is known to be None, and one version where it is known
-        # to be a tuple of 2 floats.
-        if not _WIN32:
-            assert traits.str is str
-
-            @specialize.argtype(1)
-            def os_utime_llimpl(path, tp):
-                if tp is None:
-                    error = os_utime(path, lltype.nullptr(UTIMBUFP.TO))
-                else:
-                    actime, modtime = tp
-                    error = os_utime_platform(path, actime, modtime)
-                    error = rffi.cast(lltype.Signed, error)
-                if error == -1:
-                    raise OSError(rposix.get_errno(), "os_utime failed")
-        else:
-            from rpython.rtyper.module.ll_win32file import make_utime_impl
-            os_utime_llimpl = make_utime_impl(traits)
-
-        s_tuple_of_2_floats = SomeTuple([SomeFloat(), SomeFloat()])
-
-        def os_utime_normalize_args(s_path, s_times):
-            # special handling of the arguments: they can be either
-            # [str, (float, float)] or [str, s_None], and get normalized
-            # to exactly one of these two.
-            if not traits.str0.contains(s_path):
-                raise Exception("os.utime() arg 1 must be a string, got %s" % (
-                    s_path,))
-            case1 = s_None.contains(s_times)
-            case2 = s_tuple_of_2_floats.contains(s_times)
-            if case1 and case2:
-                return [traits.str0, s_ImpossibleValue] #don't know which case yet
-            elif case1:
-                return [traits.str0, s_None]
-            elif case2:
-                return [traits.str0, s_tuple_of_2_floats]
-            else:
-                raise Exception("os.utime() arg 2 must be None or a tuple of "
-                                "2 floats, got %s" % (s_times,))
-        os_utime_normalize_args._default_signature_ = [traits.str0, None]
-
-        return extdef(os_utime_normalize_args, s_None,
-                      "ll_os.ll_os_utime",
-                      llimpl=os_utime_llimpl)
-
     @registering(os.times)
     def register_os_times(self):
         if sys.platform.startswith('win'):
@@ -1357,7 +1259,7 @@ class RegisterOs(BaseLazyRegistering):
                 raise OSError(rposix.get_errno(), "os_unlink failed")
 
         if sys.platform == 'win32':
-            from rpython.rtyper.module.ll_win32file import make_win32_traits
+            from rpython.rlib.rwin32file import make_win32_traits
             win32traits = make_win32_traits(traits)
 
             @func_renamer('unlink_llimpl_%s' % traits.str.__name__)
@@ -1392,7 +1294,7 @@ class RegisterOs(BaseLazyRegistering):
                                    [traits.CCHARP, rffi.MODE_T], rffi.INT)
 
         if sys.platform == 'win32':
-            from rpython.rtyper.module.ll_win32file import make_win32_traits
+            from rpython.rlib.rwin32file import make_win32_traits
             win32traits = make_win32_traits(traits)
 
             @func_renamer('mkdir_llimpl_%s' % traits.str.__name__)
@@ -1464,7 +1366,7 @@ class RegisterOs(BaseLazyRegistering):
                 raise OSError(rposix.get_errno(), "os_rename failed")
 
         if sys.platform == 'win32':
-            from rpython.rtyper.module.ll_win32file import make_win32_traits
+            from rpython.rlib.rwin32file import make_win32_traits
             win32traits = make_win32_traits(traits)
 
             @func_renamer('rename_llimpl_%s' % traits.str.__name__)

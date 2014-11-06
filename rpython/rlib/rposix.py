@@ -1,7 +1,8 @@
 import os
 import sys
 from rpython.rtyper.lltypesystem.rffi import CConstant, CExternVariable, INT
-from rpython.rtyper.lltypesystem import ll2ctypes, rffi
+from rpython.rtyper.lltypesystem import lltype, ll2ctypes, rffi
+from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import (
@@ -135,12 +136,21 @@ def closerange(fd_low, fd_high):
             pass
 
 if _WIN32:
-    includes = ['io.h']
+    includes = ['io.h', 'sys/utime.h', 'sys/types.h']
 else:
-    includes = ['unistd.h']
+    includes = ['unistd.h', 'utime.h', 'sys/time.h', 'sys/types.h']
 eci = ExternalCompilationInfo(
     includes=includes,
 )
+
+class CConfig:
+    _compilation_info_ = eci
+    HAVE_UTIMES = rffi_platform.Has('utimes')
+    UTIMBUF = rffi_platform.Struct('struct %sutimbuf' % UNDERSCORE_ON_WIN32,
+                                   [('actime', rffi.INT),
+                                    ('modtime', rffi.INT)])
+config = rffi_platform.configure(CConfig)
+globals().update(config)
 
 def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
@@ -256,10 +266,6 @@ def access(path, mode):
 @specialize.argtype(0)
 def chmod(path, mode):
     return os.chmod(_as_bytes(path), mode)
-
-@specialize.argtype(0, 1)
-def utime(path, times):
-    return os.utime(_as_bytes(path), times)
 
 @specialize.argtype(0)
 def chdir(path):
@@ -398,3 +404,116 @@ def getlogin():
     if not result:
         raise OSError(get_errno(), "getlogin failed")
     return rffi.charp2str(result)
+
+
+#_______________________________________________________________
+
+UTIMBUFP = lltype.Ptr(UTIMBUF)
+c_utime = external('utime', [rffi.CCHARP, UTIMBUFP], rffi.INT)
+if HAVE_UTIMES:
+    class CConfig:
+        _compilation_info_ = eci
+        TIMEVAL = rffi_platform.Struct('struct timeval', [
+            ('tv_sec', rffi.LONG),
+            ('tv_usec', rffi.LONG)])
+    config = rffi_platform.configure(CConfig)
+    TIMEVAL = config['TIMEVAL']
+    TIMEVAL2P = rffi.CArrayPtr(TIMEVAL)
+    c_utimes = external('utimes', [rffi.CCHARP, TIMEVAL2P], rffi.INT)
+
+if _WIN32:
+    from rpython.rlib.rposix import rwin32
+    GetSystemTime = external(
+        'GetSystemTime',
+        [lltype.Ptr(rwin32.SYSTEMTIME)],
+        lltype.Void,
+        calling_conv='win')
+
+    SystemTimeToFileTime = external(
+        'SystemTimeToFileTime',
+        [lltype.Ptr(rwin32.SYSTEMTIME),
+         lltype.Ptr(rwin32.FILETIME)],
+        rwin32.BOOL,
+        calling_conv='win')
+
+    SetFileTime = external(
+        'SetFileTime',
+        [rwin32.HANDLE,
+         lltype.Ptr(rwin32.FILETIME),
+         lltype.Ptr(rwin32.FILETIME),
+         lltype.Ptr(rwin32.FILETIME)],
+        rwin32.BOOL,
+        calling_conv='win')
+
+
+@register_replacement_for(getattr(os, 'utime', None),
+                          sandboxed_name='ll_os.ll_os_utime')
+@specialize.argtype(0, 1)
+def utime(path, times):
+    if not _WIN32:
+        path = _as_bytes0(path)
+        if times is None:
+            error = c_utime(path, lltype.nullptr(UTIMBUFP.TO))
+        else:
+            actime, modtime = times
+            if HAVE_UTIMES:
+                import math
+                l_times = lltype.malloc(TIMEVAL2P.TO, 2, flavor='raw')
+                fracpart, intpart = math.modf(actime)
+                rffi.setintfield(l_times[0], 'c_tv_sec', int(intpart))
+                rffi.setintfield(l_times[0], 'c_tv_usec', int(fracpart * 1e6))
+                fracpart, intpart = math.modf(modtime)
+                rffi.setintfield(l_times[1], 'c_tv_sec', int(intpart))
+                rffi.setintfield(l_times[1], 'c_tv_usec', int(fracpart * 1e6))
+                error = c_utimes(path, l_times)
+                lltype.free(l_times, flavor='raw')
+            else:
+                l_utimbuf = lltype.malloc(UTIMBUFP.TO, flavor='raw')
+                l_utimbuf.c_actime  = rffi.r_time_t(actime)
+                l_utimbuf.c_modtime = rffi.r_time_t(modtime)
+                error = c_utime(path, l_utimbuf)
+                lltype.free(l_utimbuf, flavor='raw')
+        if error < 0:
+            raise OSError(get_errno(), "os_utime failed")
+    else:  # _WIN32 case
+        from rpython.rlib.rwin32file import make_win32_traits
+        if _prefer_unicode(path):
+            # XXX remove dependency on rtyper.module.  The "traits"
+            # are just used for CreateFile anyway.
+            from rpython.rtyper.module.support import UnicodeTraits
+            win32traits = make_win32_traits(UnicodeTraits())
+            path = _as_unicode0(path)
+        else:
+            from rpython.rtyper.module.support import StringTraits
+            win32traits = make_win32_traits(StringTraits())
+            path = _as_bytes0(path)
+        hFile = win32traits.CreateFile(path,
+                           win32traits.FILE_WRITE_ATTRIBUTES, 0,
+                           None, win32traits.OPEN_EXISTING,
+                           win32traits.FILE_FLAG_BACKUP_SEMANTICS,
+                           rwin32.NULL_HANDLE)
+        if hFile == rwin32.INVALID_HANDLE_VALUE:
+            raise rwin32.lastWindowsError()
+        ctime = lltype.nullptr(rwin32.FILETIME)
+        atime = lltype.malloc(rwin32.FILETIME, flavor='raw')
+        mtime = lltype.malloc(rwin32.FILETIME, flavor='raw')
+        try:
+            if tp is None:
+                now = lltype.malloc(rwin32.SYSTEMTIME, flavor='raw')
+                try:
+                    GetSystemTime(now)
+                    if (not SystemTimeToFileTime(now, atime) or
+                        not SystemTimeToFileTime(now, mtime)):
+                        raise rwin32.lastWindowsError()
+                finally:
+                    lltype.free(now, flavor='raw')
+            else:
+                actime, modtime = tp
+                time_t_to_FILE_TIME(actime, atime)
+                time_t_to_FILE_TIME(modtime, mtime)
+            if not SetFileTime(hFile, ctime, atime, mtime):
+                raise rwin32.lastWindowsError()
+        finally:
+            rwin32.CloseHandle(hFile)
+            lltype.free(atime, flavor='raw')
+            lltype.free(mtime, flavor='raw')

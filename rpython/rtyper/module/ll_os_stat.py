@@ -440,7 +440,7 @@ def register_statvfs_variant(name, traits):
 
 def make_win32_stat_impl(name, traits):
     from rpython.rlib import rwin32
-    from rpython.rtyper.module.ll_win32file import make_win32_traits
+    from rpython.rlib.rwin32file import make_win32_traits
     win32traits = make_win32_traits(traits)
 
     # The CRT of Windows has a number of flaws wrt. its stat() implementation:

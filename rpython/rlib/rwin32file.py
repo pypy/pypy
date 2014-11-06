@@ -1,0 +1,192 @@
+"""
+Win32 API functions around files.
+"""
+
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.tool import rffi_platform as platform
+
+
+def make_win32_traits(traits):
+    from rpython.rlib import rwin32
+
+    if traits.str is unicode:
+        suffix = 'W'
+    else:
+        suffix = 'A'
+
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            includes = ['windows.h', 'winbase.h', 'sys/stat.h'],
+        )
+        WIN32_FIND_DATA = platform.Struct(
+            'struct _WIN32_FIND_DATA' + suffix,
+            # Only interesting fields
+            [('dwFileAttributes', rwin32.DWORD),
+             ('nFileSizeHigh', rwin32.DWORD),
+             ('nFileSizeLow', rwin32.DWORD),
+             ('ftCreationTime', rwin32.FILETIME),
+             ('ftLastAccessTime', rwin32.FILETIME),
+             ('ftLastWriteTime', rwin32.FILETIME),
+             ('cFileName', lltype.FixedSizeArray(traits.CHAR, 250))])
+        ERROR_FILE_NOT_FOUND = platform.ConstantInteger(
+            'ERROR_FILE_NOT_FOUND')
+        ERROR_NO_MORE_FILES = platform.ConstantInteger(
+            'ERROR_NO_MORE_FILES')
+
+        GetFileExInfoStandard = platform.ConstantInteger(
+            'GetFileExInfoStandard')
+        FILE_ATTRIBUTE_DIRECTORY = platform.ConstantInteger(
+            'FILE_ATTRIBUTE_DIRECTORY')
+        FILE_ATTRIBUTE_READONLY = platform.ConstantInteger(
+            'FILE_ATTRIBUTE_READONLY')
+        INVALID_FILE_ATTRIBUTES = platform.ConstantInteger(
+            'INVALID_FILE_ATTRIBUTES')
+        ERROR_SHARING_VIOLATION = platform.ConstantInteger(
+            'ERROR_SHARING_VIOLATION')
+        _S_IFDIR = platform.ConstantInteger('_S_IFDIR')
+        _S_IFREG = platform.ConstantInteger('_S_IFREG')
+        _S_IFCHR = platform.ConstantInteger('_S_IFCHR')
+        _S_IFIFO = platform.ConstantInteger('_S_IFIFO')
+        FILE_TYPE_UNKNOWN = platform.ConstantInteger('FILE_TYPE_UNKNOWN')
+        FILE_TYPE_CHAR = platform.ConstantInteger('FILE_TYPE_CHAR')
+        FILE_TYPE_PIPE = platform.ConstantInteger('FILE_TYPE_PIPE')
+
+        FILE_WRITE_ATTRIBUTES = platform.ConstantInteger(
+            'FILE_WRITE_ATTRIBUTES')
+        OPEN_EXISTING = platform.ConstantInteger(
+            'OPEN_EXISTING')
+        FILE_FLAG_BACKUP_SEMANTICS = platform.ConstantInteger(
+            'FILE_FLAG_BACKUP_SEMANTICS')
+        VOLUME_NAME_DOS = platform.ConstantInteger('VOLUME_NAME_DOS')
+        VOLUME_NAME_NT = platform.ConstantInteger('VOLUME_NAME_NT')
+
+        WIN32_FILE_ATTRIBUTE_DATA = platform.Struct(
+            'WIN32_FILE_ATTRIBUTE_DATA',
+            [('dwFileAttributes', rwin32.DWORD),
+             ('nFileSizeHigh', rwin32.DWORD),
+             ('nFileSizeLow', rwin32.DWORD),
+             ('ftCreationTime', rwin32.FILETIME),
+             ('ftLastAccessTime', rwin32.FILETIME),
+             ('ftLastWriteTime', rwin32.FILETIME)])
+
+        BY_HANDLE_FILE_INFORMATION = platform.Struct(
+            'BY_HANDLE_FILE_INFORMATION',
+            [('dwFileAttributes', rwin32.DWORD),
+             ('ftCreationTime', rwin32.FILETIME),
+             ('ftLastAccessTime', rwin32.FILETIME),
+             ('ftLastWriteTime', rwin32.FILETIME),
+             ('dwVolumeSerialNumber', rwin32.DWORD),
+             ('nFileSizeHigh', rwin32.DWORD),
+             ('nFileSizeLow', rwin32.DWORD),
+             ('nNumberOfLinks', rwin32.DWORD),
+             ('nFileIndexHigh', rwin32.DWORD),
+             ('nFileIndexLow', rwin32.DWORD)])
+
+    config = platform.configure(CConfig)
+
+    def external(*args, **kwargs):
+        kwargs['compilation_info'] = CConfig._compilation_info_
+        llfunc = rffi.llexternal(calling_conv='win', *args, **kwargs)
+        return staticmethod(llfunc)
+
+    class Win32Traits:
+        apisuffix = suffix
+
+        for name in '''WIN32_FIND_DATA WIN32_FILE_ATTRIBUTE_DATA BY_HANDLE_FILE_INFORMATION
+                       GetFileExInfoStandard
+                       FILE_ATTRIBUTE_DIRECTORY FILE_ATTRIBUTE_READONLY
+                       INVALID_FILE_ATTRIBUTES
+                       _S_IFDIR _S_IFREG _S_IFCHR _S_IFIFO
+                       FILE_TYPE_UNKNOWN FILE_TYPE_CHAR FILE_TYPE_PIPE
+                       FILE_WRITE_ATTRIBUTES OPEN_EXISTING FILE_FLAG_BACKUP_SEMANTICS
+                       VOLUME_NAME_DOS VOLUME_NAME_NT
+                       ERROR_FILE_NOT_FOUND ERROR_NO_MORE_FILES
+                       ERROR_SHARING_VIOLATION
+                    '''.split():
+            locals()[name] = config[name]
+        LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)
+        GET_FILEEX_INFO_LEVELS = rffi.ULONG # an enumeration
+
+        FindFirstFile = external('FindFirstFile' + suffix,
+                                 [traits.CCHARP, LPWIN32_FIND_DATA],
+                                 rwin32.HANDLE)
+        FindNextFile = external('FindNextFile' + suffix,
+                                [rwin32.HANDLE, LPWIN32_FIND_DATA],
+                                rwin32.BOOL)
+        FindClose = external('FindClose',
+                             [rwin32.HANDLE],
+                             rwin32.BOOL)
+
+        GetFileAttributes = external(
+            'GetFileAttributes' + suffix,
+            [traits.CCHARP],
+            rwin32.DWORD)
+
+        SetFileAttributes = external(
+            'SetFileAttributes' + suffix,
+            [traits.CCHARP, rwin32.DWORD],
+            rwin32.BOOL)
+
+        GetFileAttributesEx = external(
+            'GetFileAttributesEx' + suffix,
+            [traits.CCHARP, GET_FILEEX_INFO_LEVELS,
+             lltype.Ptr(WIN32_FILE_ATTRIBUTE_DATA)],
+            rwin32.BOOL)
+
+        GetFileInformationByHandle = external(
+            'GetFileInformationByHandle',
+            [rwin32.HANDLE, lltype.Ptr(BY_HANDLE_FILE_INFORMATION)],
+            rwin32.BOOL)
+
+        GetFileType = external(
+            'GetFileType',
+            [rwin32.HANDLE],
+            rwin32.DWORD)
+
+        LPSTRP = rffi.CArrayPtr(traits.CCHARP)
+
+        GetFullPathName = external(
+            'GetFullPathName' + suffix,
+            [traits.CCHARP, rwin32.DWORD,
+             traits.CCHARP, LPSTRP],
+            rwin32.DWORD)
+
+        GetCurrentDirectory = external(
+            'GetCurrentDirectory' + suffix,
+            [rwin32.DWORD, traits.CCHARP],
+            rwin32.DWORD)
+
+        SetCurrentDirectory = external(
+            'SetCurrentDirectory' + suffix,
+            [traits.CCHARP],
+            rwin32.BOOL)
+
+        CreateDirectory = external(
+            'CreateDirectory' + suffix,
+            [traits.CCHARP, rffi.VOIDP],
+            rwin32.BOOL)
+
+        SetEnvironmentVariable = external(
+            'SetEnvironmentVariable' + suffix,
+            [traits.CCHARP, traits.CCHARP],
+            rwin32.BOOL)
+
+        CreateFile = external(
+            'CreateFile' + apisuffix,
+            [traits.CCHARP, rwin32.DWORD, rwin32.DWORD,
+             rwin32.LPSECURITY_ATTRIBUTES, rwin32.DWORD, rwin32.DWORD,
+             rwin32.HANDLE],
+            rwin32.HANDLE)
+
+        DeleteFile = external(
+            'DeleteFile' + suffix,
+            [traits.CCHARP],
+            rwin32.BOOL)
+
+        MoveFile = external(
+            'MoveFile' + suffix,
+            [traits.CCHARP, traits.CCHARP],
+            rwin32.BOOL)
+
+    return Win32Traits
