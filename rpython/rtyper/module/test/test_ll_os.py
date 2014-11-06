@@ -5,6 +5,7 @@ from rpython.translator.c.test.test_genc import compile
 from rpython.rtyper.module import ll_os
 #has side effect of registering functions
 from rpython.tool.pytest.expecttest import ExpectTest
+from rpython.rlib import rposix
 
 from rpython.rtyper import extregistry
 import errno
@@ -149,8 +150,6 @@ def test_execve():
     if os.name != 'posix':
         py.test.skip('posix specific function')
 
-    ll_execve = getllimpl(os.execve)
-
     def run_execve(program, args=None, env=None, do_path_lookup=False):
         if args is None:
             args = [program]
@@ -158,7 +157,7 @@ def test_execve():
             args = [program] + args
         if env is None:
             env = {}
-        # we cannot directly call ll_execve() because it replaces the
+        # we cannot directly call execve() because it replaces the
         # current process.
         fd_read, fd_write = os.pipe()
         childpid = os.fork()
@@ -170,7 +169,7 @@ def test_execve():
             if do_path_lookup:
                 os.execvp(program, args)
             else:
-                ll_execve(program, args, env)
+                rposix.execve(program, args, env)
             assert 0, "should not arrive here"
         else:
             # in the parent
@@ -205,12 +204,12 @@ def test_execve():
 
     # If the target does not exist, an OSError should result
     info = py.test.raises(
-        OSError, ll_execve, "this/file/is/non/existent", [], {})
+        OSError, rposix.execve, "this/file/is/non/existent", [], {})
     assert info.value.errno == errno.ENOENT
 
     # If the target is not executable, an OSError should result
     info = py.test.raises(
-        OSError, ll_execve, "/etc/passwd", [], {})
+        OSError, rposix.execve, "/etc/passwd", [], {})
     assert info.value.errno == errno.EACCES
 
 def test_os_write():
