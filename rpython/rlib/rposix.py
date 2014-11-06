@@ -138,7 +138,8 @@ def closerange(fd_low, fd_high):
 if _WIN32:
     includes = ['io.h', 'sys/utime.h', 'sys/types.h']
 else:
-    includes = ['unistd.h', 'utime.h', 'sys/time.h', 'sys/types.h']
+    includes = ['unistd.h',  'sys/types.h',
+                'utime.h', 'sys/time.h', 'sys/times.h']
 eci = ExternalCompilationInfo(
     includes=includes,
 )
@@ -149,6 +150,15 @@ class CConfig:
     UTIMBUF = rffi_platform.Struct('struct %sutimbuf' % UNDERSCORE_ON_WIN32,
                                    [('actime', rffi.INT),
                                     ('modtime', rffi.INT)])
+    if not _WIN32:
+        CLOCK_T = rffi_platform.SimpleType('clock_t', rffi.INT)
+
+        TMS = rffi_platform.Struct(
+            'struct tms', [('tms_utime', rffi.INT),
+                           ('tms_stime', rffi.INT),
+                           ('tms_cutime', rffi.INT),
+                           ('tms_cstime', rffi.INT)])
+
 config = rffi_platform.configure(CConfig)
 globals().update(config)
 
@@ -422,7 +432,7 @@ if HAVE_UTIMES:
     c_utimes = external('utimes', [rffi.CCHARP, TIMEVAL2P], rffi.INT)
 
 if _WIN32:
-    from rpython.rlib.rposix import rwin32
+    from rpython.rlib import rwin32
     GetSystemTime = external(
         'GetSystemTime',
         [lltype.Ptr(rwin32.SYSTEMTIME)],
@@ -517,3 +527,67 @@ def utime(path, times):
             rwin32.CloseHandle(hFile)
             lltype.free(atime, flavor='raw')
             lltype.free(mtime, flavor='raw')
+
+if not _WIN32:
+    TMSP = lltype.Ptr(TMS)
+    os_times = external('times', [TMSP], CLOCK_T)
+
+    # Here is a random extra platform parameter which is important.
+    # Strictly speaking, this should probably be retrieved at runtime, not
+    # at translation time.
+    CLOCK_TICKS_PER_SECOND = float(os.sysconf('SC_CLK_TCK'))
+else:
+    GetCurrentProcess = external(
+        'GetCurrentProcess', [],
+        rwin32.HANDLE, calling_conv='win')
+    GetProcessTimes = external(
+        'GetProcessTimes', [
+            rwin32.HANDLE,
+            lltype.Ptr(rwin32.FILETIME), lltype.Ptr(rwin32.FILETIME),
+            lltype.Ptr(rwin32.FILETIME), lltype.Ptr(rwin32.FILETIME)],
+        rwin32.BOOL, calling_conv='win')
+
+@register_replacement_for(os.times, sandboxed_name='ll_os.ll_times')
+def times():
+    if not _WIN32:
+        l_tmsbuf = lltype.malloc(TMSP.TO, flavor='raw')
+        try:
+            result = os_times(l_tmsbuf)
+            result = rffi.cast(lltype.Signed, result)
+            if result == -1:
+                raise OSError(get_errno(), "times failed")
+            return (
+                rffi.cast(lltype.Signed, l_tmsbuf.c_tms_utime)
+                                               / CLOCK_TICKS_PER_SECOND,
+                rffi.cast(lltype.Signed, l_tmsbuf.c_tms_stime)
+                                               / CLOCK_TICKS_PER_SECOND,
+                rffi.cast(lltype.Signed, l_tmsbuf.c_tms_cutime)
+                                               / CLOCK_TICKS_PER_SECOND,
+                rffi.cast(lltype.Signed, l_tmsbuf.c_tms_cstime)
+                                               / CLOCK_TICKS_PER_SECOND,
+                result / CLOCK_TICKS_PER_SECOND)
+        finally:
+            lltype.free(l_tmsbuf, flavor='raw')
+    else:
+        pcreate = lltype.malloc(rwin32.FILETIME, flavor='raw')
+        pexit   = lltype.malloc(rwin32.FILETIME, flavor='raw')
+        pkernel = lltype.malloc(rwin32.FILETIME, flavor='raw')
+        puser   = lltype.malloc(rwin32.FILETIME, flavor='raw')
+        try:
+            hProc = GetCurrentProcess()
+            GetProcessTimes(hProc, pcreate, pexit, pkernel, puser)
+            # The fields of a FILETIME structure are the hi and lo parts
+            # of a 64-bit value expressed in 100 nanosecond units
+            # (of course).
+            return (
+                rffi.cast(lltype.Signed, pkernel.c_dwHighDateTime) * 429.4967296 +
+                rffi.cast(lltype.Signed, pkernel.c_dwLowDateTime) * 1E-7,
+                rffi.cast(lltype.Signed, puser.c_dwHighDateTime) * 429.4967296 +
+                rffi.cast(lltype.Signed, puser.c_dwLowDateTime) * 1E-7,
+                0, 0, 0)
+        finally:
+            lltype.free(puser,   flavor='raw')
+            lltype.free(pkernel, flavor='raw')
+            lltype.free(pexit,   flavor='raw')
+            lltype.free(pcreate, flavor='raw')
+
