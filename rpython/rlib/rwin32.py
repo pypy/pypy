@@ -243,7 +243,7 @@ if WIN32:
                 buflen -= 1
 
             if buflen <= 0:
-                result = fake_FormatError(code)
+                result = 'Windows Error %d' % (code,)
             else:
                 result = rffi.charpsize2str(s_buf, buflen)
         finally:
@@ -251,9 +251,6 @@ if WIN32:
             lltype.free(buf, flavor='raw')
 
         return result
-
-    def fake_FormatError(code):
-        return 'Windows Error %d' % (code,)
 
     def lastWindowsError(context="Windows Error"):
         code = GetLastError()

@@ -1799,19 +1799,3 @@ class EnvironExtRegistry(ControllerEntryForPrebuilt):
     def getcontroller(self):
         from rpython.rtyper.module.ll_os_environ import OsEnvironController
         return OsEnvironController()
-
-# ____________________________________________________________
-# Support for the WindowsError exception
-
-if sys.platform == 'win32':
-    from rpython.rlib import rwin32
-
-    class RegisterFormatError(BaseLazyRegistering):
-        def __init__(self):
-            pass
-
-        @registering(rwin32.FormatError)
-        def register_rwin32_FormatError(self):
-            return extdef([lltype.Signed], str,
-                          "rwin32_FormatError",
-                          llimpl=rwin32.llimpl_FormatError)
