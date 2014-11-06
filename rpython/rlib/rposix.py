@@ -416,7 +416,7 @@ def getlogin():
     return rffi.charp2str(result)
 
 
-#_______________________________________________________________
+#___________________________________________________________________
 
 UTIMBUFP = lltype.Ptr(UTIMBUF)
 c_utime = external('utime', [rffi.CCHARP, UTIMBUFP], rffi.INT)
@@ -591,3 +591,23 @@ def times():
             lltype.free(pexit,   flavor='raw')
             lltype.free(pcreate, flavor='raw')
 
+#___________________________________________________________________
+
+@specialize.arg(0)
+def handle_posix_error(name, result):
+    if result < 0:
+        raise OSError(get_errno(), '%s failed' % name)
+    return intmask(result)
+
+c_setsid = external('setsid', [], rffi.PID_T)
+c_getsid = external('getsid', [rffi.PID_T], rffi.PID_T)
+
+@register_replacement_for(getattr(os, 'setsid', None),
+                          sandboxed_name='ll_os.ll_os_setsid')
+def setsid():
+    return handle_posix_error('os_setsid', c_setsid())
+
+@register_replacement_for(getattr(os, 'getsid', None),
+                          sandboxed_name='ll_os.ll_os_getsid')
+def getsid(pid):
+    return handle_posix_error('os_setsid', c_getsid(pid))

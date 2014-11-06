@@ -247,18 +247,6 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int], int, llimpl=c_func_llimpl,
                       export_name='ll_os.ll_os_' + name)
 
-    @registering_if(os, 'setsid')
-    def register_os_setsid(self):
-        os_setsid = self.llexternal('setsid', [], rffi.PID_T)
-        def setsid_llimpl():
-            result = rffi.cast(lltype.Signed, os_setsid())
-            if result == -1:
-                raise OSError(rposix.get_errno(), "os_setsid failed")
-            return result
-
-        return extdef([], int, export_name="ll_os.ll_os_setsid",
-                      llimpl=setsid_llimpl)
-
     @registering_if(os, 'chroot')
     def register_os_chroot(self):
         os_chroot = self.llexternal('chroot', [rffi.CCHARP], rffi.INT)
@@ -551,14 +539,6 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'setregid')
     def register_os_setregid(self):
         return self.extdef_for_os_function_accepting_2int('setregid')
-
-    @registering_if(os, 'getsid')
-    def register_os_getsid(self):
-        return self.extdef_for_os_function_int_to_int('getsid')
-
-    @registering_if(os, 'setsid')
-    def register_os_setsid(self):
-        return self.extdef_for_os_function_returning_int('setsid')
 
     @registering_if(os, 'getresuid')
     def register_os_getresuid(self):
