@@ -10,7 +10,7 @@ from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_me
 from rpython.jit.metainterp.resoperation import (opboolinvers, opboolreflex, rop,
     ResOperation)
 from rpython.rlib.rarithmetic import highest_bit
-from rpython.rlib.longlong2float import float2longlong
+import math
 
 class OptRewrite(Optimization):
     """Rewrite operations into equivalent, cheaper operations.
@@ -238,16 +238,16 @@ class OptRewrite(Optimization):
 
         # replace "x / const" by "x * (1/const)" if possible
         if v2.is_constant():
-            bits = float2longlong(v2.box.getfloat())
-            fraction = bits & ((1 << 52) - 1)
-            exponent = (bits >> 52) & 0x7ff
-
-            # This optimization is valid for powers of two (fraction == 0)
-            # but not for zeroes and some subnormals (exponent == 0).
-            # Checking for zero-fraction also avoids NaNs:
-            if fraction == 0 and exponent != 0:
-                reciprocal = ConstFloat(1.0 / v2.box.getfloat())
-                op = op.copy_and_change(rop.FLOAT_MUL, args=[arg1, reciprocal])
+            divisor = v2.box.getfloat()
+            fraction = math.frexp(divisor)[0]
+            # This optimization is valid for powers of two
+            # but not for zeroes, some denormals and NaN:
+            if fraction == 0.5 or fraction == -0.5:
+                reciprocal = 1.0 / divisor
+                rfraction = math.frexp(reciprocal)[0]
+                if rfraction == 0.5 or rfraction == -0.5:
+                    op = op.copy_and_change(rop.FLOAT_MUL,
+                                            args=[arg1, ConstFloat(reciprocal)])
         self.emit_operation(op)
 
     def optimize_FLOAT_NEG(self, op):
