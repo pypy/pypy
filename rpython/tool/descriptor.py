@@ -40,7 +40,7 @@ if '__pypy__' in sys.modules:
         if isinstance(method, types.MethodType):
             return InstanceMethod(method.__func__, method.__self__, method.im_class)
         else:
-            raise ValueError('Not a method')
+            return method
 
 else:
     slot_wrapper = type(object.__init__)
@@ -66,6 +66,6 @@ else:
         elif isinstance(method, method_descriptor):
             cls = method.__objclass__
             return InstanceMethod(method, None, method.__objclass__)
-        raise ValueError('Not a method')
+        return method
 
 

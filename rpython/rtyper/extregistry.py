@@ -22,10 +22,7 @@ class AutoRegisteringType(type):
         else:
             if key in dict:
                 raise ValueError("duplicate extregistry entry %r" % (selfcls,))
-            try:
-                key = normalize_method(key)
-            except ValueError:
-                pass
+            key = normalize_method(key)
             dict[key] = selfcls
 
     def _register_value(selfcls, key):
@@ -131,10 +128,7 @@ def _lookup_cls(instance):
         return _lookup_type_cls(type(instance))
 
 def lookup(instance):
-    try:
-        instance = normalize_method(instance)
-    except ValueError:
-        pass
+    instance = normalize_method(instance)
     Entry = _lookup_cls(instance)
     return Entry(type(instance), instance)
 

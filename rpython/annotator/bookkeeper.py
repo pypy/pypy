@@ -231,10 +231,7 @@ class Bookkeeper(object):
         """The most precise SomeValue instance that contains the
         immutable value x."""
         if callable(x):
-            try:
-                x = normalize_method(x)
-            except ValueError:
-                pass
+            x = normalize_method(x)
         tp = type(x)
         if issubclass(tp, Symbolic): # symbolic constants support
             result = x.annotation()
@@ -372,10 +369,7 @@ class Bookkeeper(object):
         #  * a user-defined bound or unbound method object
         #  * a frozen pre-built constant (with _freeze_() == True)
         #  * a bound method of a frozen pre-built constant
-        try:
-            pyobj = normalize_method(pyobj)
-        except ValueError:
-            pass
+        pyobj = normalize_method(pyobj)
         try:
             return self.descs[pyobj]
         except KeyError:

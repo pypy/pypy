@@ -489,10 +489,7 @@ class ClassDesc(Desc):
             if name in cls.__dict__:
                 return  # ignore misbehaving descriptors and the like
             raise
-        try:
-            value = normalize_method(value)
-        except ValueError:
-            pass
+        value = normalize_method(value)
         if isinstance(value, InstanceMethod):
             func = value.im_func
             if isinstance(func, types.FunctionType):
