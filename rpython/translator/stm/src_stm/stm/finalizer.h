@@ -7,6 +7,7 @@ struct finalizers_s {
     uintptr_t *running_next;
 };
 
+static void mark_visit_from_finalizer_pending(void);
 static void deal_with_young_objects_with_finalizers(void);
 static void deal_with_old_objects_with_finalizers(void);
 static void deal_with_objects_with_finalizers(void);
@@ -15,16 +16,11 @@ static void setup_finalizer(void);
 static void teardown_finalizer(void);
 
 static void _commit_finalizers(void);
-static void _abort_finalizers(void);
+static void abort_finalizers(struct stm_priv_segment_info_s *);
 
 #define commit_finalizers()   do {              \
     if (STM_PSEGMENT->finalizers != NULL)       \
         _commit_finalizers();                   \
-} while (0)
-
-#define abort_finalizers()   do {               \
-    if (STM_PSEGMENT->finalizers != NULL)       \
-        _abort_finalizers();                    \
 } while (0)
 
 

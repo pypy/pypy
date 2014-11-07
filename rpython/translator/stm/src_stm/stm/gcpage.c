@@ -345,6 +345,8 @@ static inline void mark_record_trace(object_t **pobj)
     LIST_APPEND(mark_objects_to_trace, obj);
 }
 
+#define TRACE_FOR_MAJOR_COLLECTION  (&mark_record_trace)
+
 static void mark_trace(object_t *obj, char *segment_base)
 {
     assert(list_is_empty(mark_objects_to_trace));
@@ -353,7 +355,7 @@ static void mark_trace(object_t *obj, char *segment_base)
         /* trace into the object (the version from 'segment_base') */
         struct object_s *realobj =
             (struct object_s *)REAL_ADDRESS(segment_base, obj);
-        stmcb_trace(realobj, &mark_record_trace);
+        stmcb_trace(realobj, TRACE_FOR_MAJOR_COLLECTION);
 
         if (list_is_empty(mark_objects_to_trace))
             break;
@@ -630,6 +632,7 @@ static void major_collection_now_at_safe_point(void)
     mark_visit_from_modified_objects();
     mark_visit_from_markers();
     mark_visit_from_roots();
+    mark_visit_from_finalizer_pending();
     LIST_FREE(mark_objects_to_trace);
 
     /* finalizer support: will mark as WL_VISITED all objects with a

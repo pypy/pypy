@@ -45,6 +45,10 @@ static inline bool _is_young(object_t *obj)
         tree_contains(STM_PSEGMENT->young_outside_nursery, (uintptr_t)obj));
 }
 
+static inline bool _is_from_same_transaction(object_t *obj) {
+    return _is_young(obj) || IS_OVERFLOW_OBJ(STM_PSEGMENT, obj);
+}
+
 long stm_can_move(object_t *obj)
 {
     /* 'long' return value to avoid using 'bool' in the public interface */
@@ -330,6 +334,7 @@ static void _trace_card_object(object_t *obj)
 }
 
 
+#define TRACE_FOR_MINOR_COLLECTION  (&minor_trace_if_young)
 
 static inline void _collect_now(object_t *obj)
 {
@@ -343,7 +348,7 @@ static inline void _collect_now(object_t *obj)
            outside the nursery, possibly forcing nursery objects out and
            adding them to 'objects_pointing_to_nursery' as well. */
         char *realobj = REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
-        stmcb_trace((struct object_s *)realobj, &minor_trace_if_young);
+        stmcb_trace((struct object_s *)realobj, TRACE_FOR_MINOR_COLLECTION);
 
         obj->stm_flags |= GCFLAG_WRITE_BARRIER;
     }

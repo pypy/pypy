@@ -509,7 +509,7 @@ int stm_set_timing_log(const char *profiling_file_name,
 /* Support for light finalizers.  This is a simple version of
    finalizers that guarantees not to do anything fancy, like not
    resurrecting objects. */
-void (*stmcb_light_finalizer)(object_t *);
+extern void (*stmcb_light_finalizer)(object_t *);
 void stm_enable_light_finalizer(object_t *);
 
 /* Support for regular finalizers.  Unreachable objects with
@@ -526,8 +526,29 @@ void stm_enable_light_finalizer(object_t *);
    transaction.  For older objects, the finalizer is called from a
    random thread between regular transactions, in a new custom
    transaction. */
-void (*stmcb_finalizer)(object_t *);
+extern void (*stmcb_finalizer)(object_t *);
 object_t *stm_allocate_with_finalizer(ssize_t size_rounded_up);
+
+/* Hashtables.  Keys are 64-bit unsigned integers, values are
+   'object_t *'.  Note that the type 'stm_hashtable_t' is not an
+   object type at all; you need to allocate and free it explicitly.
+   If you want to embed the hashtable inside an 'object_t' you
+   probably need a light finalizer to do the freeing. */
+typedef struct stm_hashtable_s stm_hashtable_t;
+stm_hashtable_t *stm_hashtable_create(void);
+void stm_hashtable_free(stm_hashtable_t *);
+object_t *stm_hashtable_read(object_t *, stm_hashtable_t *, uintptr_t key);
+void stm_hashtable_write(object_t *, stm_hashtable_t *, uintptr_t key,
+                         object_t *nvalue, stm_thread_local_t *);
+extern uint32_t stm_hashtable_entry_userdata;
+void stm_hashtable_tracefn(stm_hashtable_t *, void (object_t **));
+
+struct stm_hashtable_entry_s {
+    struct object_s header;
+    uint32_t userdata;
+    uintptr_t index;
+    object_t *object;
+};
 
 /* ==================== END ==================== */
 

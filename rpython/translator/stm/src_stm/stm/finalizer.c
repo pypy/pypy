@@ -59,28 +59,73 @@ static void _commit_finalizers(void)
     STM_PSEGMENT->finalizers = NULL;
 }
 
-static void _abort_finalizers(void)
+static void abort_finalizers(struct stm_priv_segment_info_s *pseg)
 {
     /* like _commit_finalizers(), but forget everything from the
        current transaction */
-    if (STM_PSEGMENT->finalizers->run_finalizers != NULL) {
-        if (STM_PSEGMENT->finalizers->running_next != NULL) {
-            *STM_PSEGMENT->finalizers->running_next = (uintptr_t)-1;
+    if (pseg->finalizers != NULL) {
+        if (pseg->finalizers->run_finalizers != NULL) {
+            if (pseg->finalizers->running_next != NULL) {
+                *pseg->finalizers->running_next = (uintptr_t)-1;
+            }
+            list_free(pseg->finalizers->run_finalizers);
         }
-        list_free(STM_PSEGMENT->finalizers->run_finalizers);
+        list_free(pseg->finalizers->objects_with_finalizers);
+        free(pseg->finalizers);
+        pseg->finalizers = NULL;
     }
-    list_free(STM_PSEGMENT->finalizers->objects_with_finalizers);
-    free(STM_PSEGMENT->finalizers);
-    STM_PSEGMENT->finalizers = NULL;
+
+    /* call the light finalizers for objects that are about to
+       be forgotten from the current transaction */
+    char *old_gs_register = STM_SEGMENT->segment_base;
+    bool must_fix_gs = old_gs_register != pseg->pub.segment_base;
+
+    struct list_s *lst = pseg->young_objects_with_light_finalizers;
+    long i, count = list_count(lst);
+    if (lst > 0) {
+        for (i = 0; i < count; i++) {
+            object_t *obj = (object_t *)list_item(lst, i);
+            assert(_is_young(obj));
+            if (must_fix_gs) {
+                set_gs_register(pseg->pub.segment_base);
+                must_fix_gs = false;
+            }
+            stmcb_light_finalizer(obj);
+        }
+        list_clear(lst);
+    }
+
+    /* also deals with overflow objects: they are at the tail of
+       old_objects_with_light_finalizers (this list is kept in order
+       and we cannot add any already-committed object) */
+    lst = pseg->old_objects_with_light_finalizers;
+    count = list_count(lst);
+    while (count > 0) {
+        object_t *obj = (object_t *)list_item(lst, --count);
+        if (!IS_OVERFLOW_OBJ(pseg, obj))
+            break;
+        lst->count = count;
+        if (must_fix_gs) {
+            set_gs_register(pseg->pub.segment_base);
+            must_fix_gs = false;
+        }
+        stmcb_light_finalizer(obj);
+    }
+
+    if (STM_SEGMENT->segment_base != old_gs_register)
+        set_gs_register(old_gs_register);
 }
 
 
 void stm_enable_light_finalizer(object_t *obj)
 {
-    if (_is_young(obj))
+    if (_is_young(obj)) {
         LIST_APPEND(STM_PSEGMENT->young_objects_with_light_finalizers, obj);
-    else
+    }
+    else {
+        assert(_is_from_same_transaction(obj));
         LIST_APPEND(STM_PSEGMENT->old_objects_with_light_finalizers, obj);
+    }
 }
 
 object_t *stm_allocate_with_finalizer(ssize_t size_rounded_up)
@@ -109,7 +154,7 @@ static void deal_with_young_objects_with_finalizers(void)
     struct list_s *lst = STM_PSEGMENT->young_objects_with_light_finalizers;
     long i, count = list_count(lst);
     for (i = 0; i < count; i++) {
-        object_t* obj = (object_t *)list_item(lst, i);
+        object_t *obj = (object_t *)list_item(lst, i);
         assert(_is_young(obj));
 
         object_t *TLPREFIX *pforwarded_array = (object_t *TLPREFIX *)obj;
@@ -139,7 +184,7 @@ static void deal_with_old_objects_with_finalizers(void)
         long i, count = list_count(lst);
         lst->count = 0;
         for (i = 0; i < count; i++) {
-            object_t* obj = (object_t *)list_item(lst, i);
+            object_t *obj = (object_t *)list_item(lst, i);
             if (!mark_visited_test(obj)) {
                 /* not marked: object dies */
                 /* we're calling the light finalizer in the same
@@ -344,6 +389,24 @@ static void deal_with_objects_with_finalizers(void)
     mark_finalize_step2(stm_object_pages, &g_finalizers, marked_seg[0]);
 
     LIST_FREE(_finalizer_emptystack);
+}
+
+static void mark_visit_from_finalizer1(char *base, struct finalizers_s *f)
+{
+    if (f != NULL && f->run_finalizers != NULL) {
+        LIST_FOREACH_R(f->run_finalizers, object_t * /*item*/,
+                       mark_visit_object(item, base));
+    }
+}
+
+static void mark_visit_from_finalizer_pending(void)
+{
+    long j;
+    for (j = 1; j <= NB_SEGMENTS; j++) {
+        struct stm_priv_segment_info_s *pseg = get_priv_segment(j);
+        mark_visit_from_finalizer1(pseg->pub.segment_base, pseg->finalizers);
+    }
+    mark_visit_from_finalizer1(stm_object_pages, &g_finalizers);
 }
 
 static void _execute_finalizers(struct finalizers_s *f)

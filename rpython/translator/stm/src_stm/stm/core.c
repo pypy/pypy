@@ -373,6 +373,7 @@ static void _stm_start_transaction(stm_thread_local_t *tl)
     assert(tree_is_cleared(STM_PSEGMENT->nursery_objects_shadows));
     assert(tree_is_cleared(STM_PSEGMENT->callbacks_on_commit_and_abort[0]));
     assert(tree_is_cleared(STM_PSEGMENT->callbacks_on_commit_and_abort[1]));
+    assert(list_is_empty(STM_PSEGMENT->young_objects_with_light_finalizers));
     assert(STM_PSEGMENT->objects_pointing_to_nursery == NULL);
     assert(STM_PSEGMENT->large_overflow_objects == NULL);
     assert(STM_PSEGMENT->finalizers == NULL);
@@ -973,6 +974,8 @@ static void abort_data_structures_from_segment_num(int segment_num)
                        (int)pseg->transaction_state);
     }
 
+    abort_finalizers(pseg);
+
     /* throw away the content of the nursery */
     long bytes_in_nursery = throw_away_nursery(pseg);
 
@@ -1060,8 +1063,6 @@ static stm_thread_local_t *abort_with_mutex_no_longjmp(void)
 
     /* invoke the callbacks */
     invoke_and_clear_user_callbacks(1);   /* for abort */
-
-    abort_finalizers();
 
     if (is_abort(STM_SEGMENT->nursery_end)) {
         /* done aborting */
