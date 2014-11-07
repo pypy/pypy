@@ -139,7 +139,8 @@ if _WIN32:
     includes = ['io.h', 'sys/utime.h', 'sys/types.h']
 else:
     includes = ['unistd.h',  'sys/types.h',
-                'utime.h', 'sys/time.h', 'sys/times.h']
+                'utime.h', 'sys/time.h', 'sys/times.h',
+                'grp.h']
 eci = ExternalCompilationInfo(
     includes=includes,
 )
@@ -610,8 +611,8 @@ def setsid():
 def getsid(pid):
     return handle_posix_error('getsid', c_getsid(pid))
 
-c_getpgid = external('getpid', [rffi.PID_T], rffi.PID_T)
-c_setpgid = external('setpid', [rffi.PID_T, rffi.PID_T], rffi.INT)
+c_getpgid = external('getpgid', [rffi.PID_T], rffi.PID_T)
+c_setpgid = external('setpgid', [rffi.PID_T, rffi.PID_T], rffi.INT)
 
 @replace_os_function('getpgid')
 def getpgid(pid):
@@ -671,9 +672,9 @@ def getpgrp():
 @replace_os_function('setpgrp')
 def setpgrp():
     if SETPGRP_HAVE_ARG:
-        return handle_posix_error('setpgrp', c_setpgrp(0, 0))
+        handle_posix_error('setpgrp', c_setpgrp(0, 0))
     else:
-        return handle_posix_error('setpgrp', c_setpgrp())
+        handle_posix_error('setpgrp', c_setpgrp())
 
 c_tcgetpgrp = external('tcgetpgrp', [rffi.INT], rffi.PID_T)
 c_tcsetpgrp = external('tcsetpgrp', [rffi.INT, rffi.PID_T], rffi.INT)
