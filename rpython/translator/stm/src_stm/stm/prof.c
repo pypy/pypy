@@ -75,7 +75,13 @@ static bool close_timing_log(void)
     return false;
 }
 
-static void forksupport_open_new_profiling_file(void)
+static void prof_forksupport_prepare(void)
+{
+    if (profiling_file != NULL)
+        fflush(profiling_file);
+}
+
+static void prof_forksupport_child(void)
 {
     if (close_timing_log() && profiling_basefn != NULL) {
         char filename[1024];
@@ -98,6 +104,15 @@ int stm_set_timing_log(const char *profiling_file_name,
     if (!expand_marker)
         expand_marker = default_expand_marker;
     profiling_expand_marker = expand_marker;
+
+    static bool fork_support_ready = false;
+    if (!fork_support_ready) {
+        int res = pthread_atfork(prof_forksupport_prepare,
+                                 NULL, prof_forksupport_child);
+        if (res != 0)
+            stm_fatalerror("pthread_atfork() failed: %m");
+        fork_support_ready = true;
+    }
 
     if (!open_timing_log(profiling_file_name))
         return -1;

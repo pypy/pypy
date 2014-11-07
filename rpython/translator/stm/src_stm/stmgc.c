@@ -16,7 +16,6 @@
 #include "stm/fprintcolor.h"
 #include "stm/weakref.h"
 #include "stm/marker.h"
-#include "stm/prof.h"
 #include "stm/finalizer.h"
 #include "stm/hashtable.h"
 

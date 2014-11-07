@@ -202,9 +202,6 @@ static void forksupport_child(void)
        just release these locks early */
     s_mutex_unlock();
 
-    /* Open a new profiling file, if any */
-    forksupport_open_new_profiling_file();
-
     /* Move the copy of the mmap over the old one, overwriting it
        and thus freeing the old mapping in this process
     */
