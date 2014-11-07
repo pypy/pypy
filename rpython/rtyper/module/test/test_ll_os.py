@@ -21,7 +21,7 @@ def test_access():
     fd.close()
 
     for mode in os.R_OK, os.W_OK, os.X_OK, os.R_OK | os.W_OK | os.X_OK:
-        result = getllimpl(os.access)(filename, mode)
+        result = rposix.access(filename, mode)
         assert result == os.access(filename, mode)
 
 
@@ -217,62 +217,54 @@ def test_os_write():
     fname = str(udir.join('os_test.txt'))
     fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
     assert fd >= 0
-    f = getllimpl(os.write)
-    f(fd, 'Hello world')
+    rposix.write(fd, 'Hello world')
     os.close(fd)
     with open(fname) as fid:
         assert fid.read() == "Hello world"
     fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
     os.close(fd)
-    py.test.raises(OSError, f, fd, 'Hello world')
+    py.test.raises(OSError, rposix.write, fd, 'Hello world')
 
 def test_os_close():
     fname = str(udir.join('os_test.txt'))
     fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
     assert fd >= 0
     os.write(fd, 'Hello world')
-    f = getllimpl(os.close)
-    f(fd)
-    py.test.raises(OSError, f, fd)
+    rposix.close(fd)
+    py.test.raises(OSError, rposix.close, fd)
 
 def test_os_lseek():
     fname = str(udir.join('os_test.txt'))
     fd = os.open(fname, os.O_RDWR|os.O_CREAT, 0777)
     assert fd >= 0
     os.write(fd, 'Hello world')
-    f = getllimpl(os.lseek)
-    f(fd,0,0)
+    rposix.lseek(fd,0,0)
     assert os.read(fd, 11) == 'Hello world'
     os.close(fd)
-    py.test.raises(OSError, f, fd, 0, 0)
+    py.test.raises(OSError, rposix.lseek, fd, 0, 0)
 
 def test_os_fsync():
     fname = str(udir.join('os_test.txt'))
     fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
     assert fd >= 0
     os.write(fd, 'Hello world')
-    f = getllimpl(os.fsync)
-    f(fd)
+    rposix.fsync(fd)
     os.close(fd)
     fid = open(fname)
     assert fid.read() == 'Hello world'
     fid.close()
-    py.test.raises(OSError, f, fd)
+    py.test.raises(OSError, rposix.fsync, fd)
 
 def test_os_fdatasync():
-    try:
-        f = getllimpl(os.fdatasync)
-    except:
-        py.test.skip('No fdatasync in os')
     fname = str(udir.join('os_test.txt'))
     fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
     assert fd >= 0
     os.write(fd, 'Hello world')
-    f(fd)
+    rposix.fdatasync(fd)
     fid = open(fname)
     assert fid.read() == 'Hello world'
     os.close(fd)
-    py.test.raises(OSError, f, fd)
+    py.test.raises(OSError, rposix.fdatasync, fd)
 
 
 def test_os_kill():

@@ -398,7 +398,7 @@ c_lseek = external('_lseeki64' if _WIN32 else 'lseek',
                    macro=True)
 
 @replace_os_function('lseek')
-def lseek_llimpl(fd, pos, how):
+def lseek(fd, pos, how):
     validate_fd(fd)
     if SEEK_SET is not None:
         if how == 0:
@@ -426,8 +426,33 @@ def fsync(fd):
 
 @replace_os_function('fdatasync')
 def fdatasync(fd):
-    rposix.validate_fd(fd)
+    validate_fd(fd)
     handle_posix_error('fdatasync', c_fdatasync(fd))
+
+#___________________________________________________________________
+
+c_fchdir = external('fchdir', [rffi.INT], rffi.INT)
+c_access = external(UNDERSCORE_ON_WIN32 + 'access',
+                    [rffi.CCHARP, rffi.INT], rffi.INT)
+c_waccess = external(UNDERSCORE_ON_WIN32 + 'waccess',
+                     [rffi.CWCHARP, rffi.INT], rffi.INT)
+
+@replace_os_function('fchdir')
+def fchdir(fd):
+    validate_fd(fd)
+    handle_posix_error('fchdir', c_fchdir(fd))
+
+@replace_os_function('access')
+@specialize.argtype(0)
+def access(path, mode):
+    if _WIN32:
+        # All files are executable on Windows
+        mode = mode & ~os.X_OK
+    if _prefer_unicode(path):
+        error = c_waccess(_as_unicode0(path), mode)
+    else:
+        error = c_access(_as_bytes0(path), mode)
+    return error == 0
 
 #___________________________________________________________________
 

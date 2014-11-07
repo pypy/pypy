@@ -173,39 +173,6 @@ class RegisterOs(BaseLazyRegistering):
                 separate_module_sources = ["\n".join(defs)]
             ))
 
-    @registering_if(os, 'fchdir')
-    def register_os_fchdir(self):
-        os_fchdir = self.llexternal('fchdir', [rffi.INT], rffi.INT)
-
-        def fchdir_llimpl(fd):
-            rposix.validate_fd(fd)
-            res = rffi.cast(rffi.SIGNED, os_fchdir(rffi.cast(rffi.INT, fd)))
-            if res < 0:
-                raise OSError(rposix.get_errno(), "fchdir failed")
-        return extdef([int], s_None,
-                      llimpl=fchdir_llimpl,
-                      export_name="ll_os.ll_os_fchdir")
-
-    @registering_str_unicode(os.access)
-    def register_os_access(self, traits):
-        os_access = self.llexternal(traits.posix_function_name('access'),
-                                    [traits.CCHARP, rffi.INT],
-                                    rffi.INT)
-
-        if sys.platform.startswith('win'):
-            # All files are executable on Windows
-            def access_llimpl(path, mode):
-                mode = mode & ~os.X_OK
-                error = rffi.cast(lltype.Signed, os_access(path, mode))
-                return error == 0
-        else:
-            def access_llimpl(path, mode):
-                error = rffi.cast(lltype.Signed, os_access(path, mode))
-                return error == 0
-
-        return extdef([traits.str0, int], s_Bool, llimpl=access_llimpl,
-                      export_name=traits.ll_os_name("access"))
-
     @registering_str_unicode(getattr(posix, '_getfullpathname', None),
                              condition=sys.platform=='win32')
     def register_posix__getfullpathname(self, traits):
