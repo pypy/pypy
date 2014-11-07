@@ -12,65 +12,6 @@ from rpython.rlib.objectmodel import specialize
 
 
 #_______________________________________________________________
-# listdir
-
-def make_listdir_impl(traits):
-    from rpython.rlib import rwin32
-    from rpython.rlib.rwin32file import make_win32_traits
-
-    win32traits = make_win32_traits(traits)
-
-    if traits.str is unicode:
-        def make_listdir_mask(path):
-            if path and path[-1] not in (u'/', u'\\', u':'):
-                path += u'/'
-            return path + u'*.*'
-
-        def skip_listdir(name):
-            return name == u"." or name == u".."
-    else:
-        def make_listdir_mask(path):
-            if path and path[-1] not in ('/', '\\', ':'):
-                path += '/'
-            return path + '*.*'
-
-        def skip_listdir(name):
-            return name == "." or name == ".."
-
-    @func_renamer('listdir_llimpl_%s' % traits.str.__name__)
-    def listdir_llimpl(path):
-        mask = make_listdir_mask(path)
-        filedata = lltype.malloc(win32traits.WIN32_FIND_DATA, flavor='raw')
-        try:
-            result = []
-            hFindFile = win32traits.FindFirstFile(mask, filedata)
-            if hFindFile == rwin32.INVALID_HANDLE_VALUE:
-                error = rwin32.GetLastError()
-                if error == win32traits.ERROR_FILE_NOT_FOUND:
-                    return result
-                else:
-                    raise WindowsError(error,  "FindFirstFile failed")
-            while True:
-                name = traits.charp2str(rffi.cast(traits.CCHARP,
-                                                  filedata.c_cFileName))
-                if not skip_listdir(name):
-                    result.append(name)
-                if not win32traits.FindNextFile(hFindFile, filedata):
-                    break
-            # FindNextFile sets error to ERROR_NO_MORE_FILES if
-            # it got to the end of the directory
-            error = rwin32.GetLastError()
-            win32traits.FindClose(hFindFile)
-            if error == win32traits.ERROR_NO_MORE_FILES:
-                return result
-            else:
-                raise WindowsError(error,  "FindNextFile failed")
-        finally:
-            lltype.free(filedata, flavor='raw')
-
-    return listdir_llimpl
-
-#_______________________________________________________________
 # chdir
 
 def make_chdir_impl(traits):

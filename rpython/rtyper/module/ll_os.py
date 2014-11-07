@@ -173,61 +173,6 @@ class RegisterOs(BaseLazyRegistering):
                 separate_module_sources = ["\n".join(defs)]
             ))
 
-    @registering_str_unicode(os.listdir)
-    def register_os_listdir(self, traits):
-        # we need a different approach on Windows and on Posix
-        if sys.platform.startswith('win'):
-            from rpython.rtyper.module.ll_win32file import make_listdir_impl
-            os_listdir_llimpl = make_listdir_impl(traits)
-        else:
-            assert traits.str is str
-            compilation_info = ExternalCompilationInfo(
-                includes = ['sys/types.h', 'dirent.h']
-            )
-            class CConfig:
-                _compilation_info_ = compilation_info
-                DIRENT = platform.Struct('struct dirent',
-                    [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1))])
-
-            DIRP = rffi.COpaquePtr('DIR')
-            config = platform.configure(CConfig)
-            DIRENT = config['DIRENT']
-            DIRENTP = lltype.Ptr(DIRENT)
-            os_opendir = self.llexternal('opendir', [rffi.CCHARP], DIRP,
-                                         compilation_info=compilation_info)
-            # XXX macro=True is hack to make sure we get the correct kind of
-            # dirent struct (which depends on defines)
-            os_readdir = self.llexternal('readdir', [DIRP], DIRENTP,
-                                         compilation_info=compilation_info,
-                                         macro=True)
-            os_closedir = self.llexternal('closedir', [DIRP], rffi.INT,
-                                          compilation_info=compilation_info)
-
-            def os_listdir_llimpl(path):
-                dirp = os_opendir(path)
-                if not dirp:
-                    raise OSError(rposix.get_errno(), "os_opendir failed")
-                result = []
-                while True:
-                    rposix.set_errno(0)
-                    direntp = os_readdir(dirp)
-                    if not direntp:
-                        error = rposix.get_errno()
-                        break
-                    namep = rffi.cast(rffi.CCHARP, direntp.c_d_name)
-                    name = rffi.charp2str(namep)
-                    if name != '.' and name != '..':
-                        result.append(name)
-                os_closedir(dirp)
-                if error:
-                    raise OSError(error, "os_readdir failed")
-                return result
-
-        return extdef([traits.str0],  # a single argument which is a str
-                      [traits.str0],  # returns a list of strings
-                      traits.ll_os_name('listdir'),
-                      llimpl=os_listdir_llimpl)
-
     @registering(os.pipe)
     def register_os_pipe(self):
         # we need a different approach on Windows and on Posix

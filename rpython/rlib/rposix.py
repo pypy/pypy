@@ -144,7 +144,7 @@ if _WIN32:
 else:
     includes = ['unistd.h',  'sys/types.h',
                 'utime.h', 'sys/time.h', 'sys/times.h',
-                'grp.h']
+                'grp.h', 'dirent.h']
     libraries = ['util']
 eci = ExternalCompilationInfo(
     includes=includes,
@@ -282,14 +282,6 @@ def unlink(path):
 @specialize.argtype(0, 1)
 def rename(path1, path2):
     return os.rename(_as_bytes(path1), _as_bytes(path2))
-
-@specialize.argtype(0)
-def listdir(dirname):
-    return os.listdir(_as_bytes(dirname))
-
-@specialize.argtype(0)
-def access(path, mode):
-    return os.access(_as_bytes(path), mode)
 
 @specialize.argtype(0)
 def chmod(path, mode):
@@ -525,6 +517,92 @@ def getcwdu():
     result = rffi.wcharp2unicode(res)
     lltype.free(buf, flavor='raw')
     return result
+
+if not _WIN32:
+    class CConfig:
+        _compilation_info_ = eci
+        DIRENT = rffi_platform.Struct('struct dirent',
+            [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1))])
+
+    DIRP = rffi.COpaquePtr('DIR')
+    config = rffi_platform.configure(CConfig)
+    DIRENT = config['DIRENT']
+    DIRENTP = lltype.Ptr(DIRENT)
+    c_opendir = external('opendir', [rffi.CCHARP], DIRP)
+    # XXX macro=True is hack to make sure we get the correct kind of
+    # dirent struct (which depends on defines)
+    c_readdir = external('readdir', [DIRP], DIRENTP, macro=True)
+    c_closedir = external('closedir', [DIRP], rffi.INT)
+
+@replace_os_function('listdir')
+@specialize.argtype(0)
+def listdir(path):
+    if not _WIN32:
+        path = _as_bytes0(path)
+        dirp = c_opendir(path)
+        if not dirp:
+            raise OSError(get_errno(), "opendir failed")
+        result = []
+        while True:
+            set_errno(0)
+            direntp = c_readdir(dirp)
+            if not direntp:
+                error = get_errno()
+                break
+            namep = rffi.cast(rffi.CCHARP, direntp.c_d_name)
+            name = rffi.charp2str(namep)
+            if name != '.' and name != '..':
+                result.append(name)
+        c_closedir(dirp)
+        if error:
+            raise OSError(error, "readdir failed")
+        return result
+    else:  # _WIN32 case
+        from rpython.rlib.rwin32file import make_win32_traits
+        traits = _preferred_traits(path)
+        win32traits = make_win32_traits(traits)
+        path = traits.as_str0(path)
+
+        if traits.str is unicode:
+            if path and path[-1] not in (u'/', u'\\', u':'):
+                path += u'/'
+            mask = path + u'*.*'
+        else:
+            if path and path[-1] not in ('/', '\\', ':'):
+                path += '/'
+            mask = path + '*.*'
+
+        filedata = lltype.malloc(win32traits.WIN32_FIND_DATA, flavor='raw')
+        try:
+            result = []
+            hFindFile = win32traits.FindFirstFile(mask, filedata)
+            if hFindFile == rwin32.INVALID_HANDLE_VALUE:
+                error = rwin32.GetLastError()
+                if error == win32traits.ERROR_FILE_NOT_FOUND:
+                    return result
+                else:
+                    raise WindowsError(error,  "FindFirstFile failed")
+            while True:
+                name = traits.charp2str(rffi.cast(traits.CCHARP,
+                                                  filedata.c_cFileName))
+                if traits.str is unicode:
+                    if not (name == u"." or name == u".."):
+                        result.append(name)
+                else:
+                    if not (name == "." or name == ".."):
+                        result.append(name)
+                if not win32traits.FindNextFile(hFindFile, filedata):
+                    break
+            # FindNextFile sets error to ERROR_NO_MORE_FILES if
+            # it got to the end of the directory
+            error = rwin32.GetLastError()
+            win32traits.FindClose(hFindFile)
+            if error == win32traits.ERROR_NO_MORE_FILES:
+                return result
+            else:
+                raise WindowsError(error,  "FindNextFile failed")
+        finally:
+            lltype.free(filedata, flavor='raw')
 
 #___________________________________________________________________
 
