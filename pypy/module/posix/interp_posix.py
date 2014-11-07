@@ -431,11 +431,11 @@ def _getfullpathname(space, w_path):
     try:
         if space.isinstance_w(w_path, space.w_unicode):
             path = FileEncoder(space, w_path)
-            fullpath = rposix._getfullpathname(path)
+            fullpath = rposix.getfullpathname(path)
             w_fullpath = space.wrap(fullpath)
         else:
             path = space.str0_w(w_path)
-            fullpath = rposix._getfullpathname(path)
+            fullpath = rposix.getfullpathname(path)
             w_fullpath = space.wrap(fullpath)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)

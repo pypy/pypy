@@ -3,6 +3,7 @@ import sys
 import errno
 from rpython.rtyper.lltypesystem.rffi import CConstant, CExternVariable, INT
 from rpython.rtyper.lltypesystem import lltype, ll2ctypes, rffi
+from rpython.rtyper.module.support import StringTraits, UnicodeTraits
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask, widen
@@ -234,6 +235,8 @@ def _as_unicode0(path):
 # Returns True when the unicode function should be called:
 # - on Windows
 # - if the path is Unicode.
+unicode_traits = UnicodeTraits()
+string_traits = StringTraits()
 if _WIN32:
     @specialize.argtype(0)
     def _prefer_unicode(path):
@@ -246,11 +249,10 @@ if _WIN32:
 
     @specialize.argtype(0)
     def _preferred_traits(path):
-        from rpython.rtyper.module.support import StringTraits, UnicodeTraits
         if _prefer_unicode(path):
-            return UnicodeTraits()
+            return unicode_traits
         else:
-            return StringTraits()
+            return string_traits
 else:
     @specialize.argtype(0)
     def _prefer_unicode(path):
@@ -258,8 +260,7 @@ else:
 
     @specialize.argtype(0)
     def _preferred_traits(path):
-        from rpython.rtyper.module.support import StringTraits
-        return StringTraits()
+        return string_traits
     
 @specialize.argtype(0)
 def stat(path):
@@ -310,12 +311,6 @@ def mknod(path, mode, device):
 @specialize.argtype(0, 1)
 def symlink(src, dest):
     os.symlink(_as_bytes(src), _as_bytes(dest))
-
-if os.name == 'nt':
-    import nt
-    @specialize.argtype(0)
-    def _getfullpathname(path):
-        return nt._getfullpathname(_as_bytes(path))
 
 @specialize.argtype(0, 1)
 def putenv(name, value):
@@ -464,14 +459,16 @@ def access(path, mode):
 @specialize.argtype(0)
 def getfullpathname(path):
     length = rwin32.MAX_PATH + 1
-    traits = _get_preferred_traits(path)
-    with traits.scoped_alloc_buffer(count) as buf:
+    traits = _preferred_traits(path)
+    from rpython.rlib.rwin32file import make_win32_traits
+    win32traits = make_win32_traits(traits)
+    with traits.scoped_alloc_buffer(length) as buf:
         res = win32traits.GetFullPathName(
-            path, rffi.cast(rwin32.DWORD, length),
+            traits.as_str0(path), rffi.cast(rwin32.DWORD, length),
             buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
         if res == 0:
             raise rwin32.lastWindowsError("_getfullpathname failed")
-        return buf.str()
+        return buf.str(intmask(res))
 
 c_getcwd = external(UNDERSCORE_ON_WIN32 + 'getcwd',
                     [rffi.CCHARP, rffi.SIZE_T], rffi.CCHARP)
@@ -506,7 +503,7 @@ def getcwdu():
         res = c_wgetcwd(buf, bufsize)
         if res:
             break   # ok
-        error = rposix.get_errno()
+        error = get_errno()
         lltype.free(buf, flavor='raw')
         if error != errno.ERANGE:
             raise OSError(error, "getcwd failed")
@@ -612,7 +609,7 @@ c_execve = external('execve',
 c_spawnv = external('spawnv',
                     [rffi.INT, rffi.CCHARP, rffi.CCHARPP], rffi.INT)
 c_spawnve = external('spawnve',
-                    [rffi.INT, rffi.CCHARP, rffi.CCHARPP, rffi.CCHARP],
+                    [rffi.INT, rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP],
                      rffi.INT)
 
 @replace_os_function('execv')
@@ -829,7 +826,7 @@ def utime(path, times):
                 lltype.free(l_utimbuf, flavor='raw')
         handle_posix_error('utime', error)
     else:  # _WIN32 case
-        from rpython.rlib.rwin32file import make_win32_traits
+        from rpython.rlib.rwin32file import make_win32_traits, time_t_to_FILE_TIME
         traits = _preferred_traits(path)
         win32traits = make_win32_traits(traits)
         path = traits.as_str0(path)
@@ -844,7 +841,7 @@ def utime(path, times):
         atime = lltype.malloc(rwin32.FILETIME, flavor='raw')
         mtime = lltype.malloc(rwin32.FILETIME, flavor='raw')
         try:
-            if tp is None:
+            if times is None:
                 now = lltype.malloc(rwin32.SYSTEMTIME, flavor='raw')
                 try:
                     GetSystemTime(now)
@@ -854,7 +851,7 @@ def utime(path, times):
                 finally:
                     lltype.free(now, flavor='raw')
             else:
-                actime, modtime = tp
+                actime, modtime = times
                 time_t_to_FILE_TIME(actime, atime)
                 time_t_to_FILE_TIME(modtime, mtime)
             if not SetFileTime(hFile, ctime, atime, mtime):
@@ -1125,22 +1122,23 @@ c_chroot = external('chroot', [rffi.CCHARP], rffi.INT)
 def chroot(path):
     handle_posix_error('chroot', c_chroot(_as_bytes0(path)))
 
-CHARARRAY1 = lltype.FixedSizeArray(lltype.Char, 1)
-class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(
-        includes = ['sys/utsname.h']
-    )
-    UTSNAME = rffi_platform.Struct('struct utsname', [
-        ('sysname',  CHARARRAY1),
-        ('nodename', CHARARRAY1),
-        ('release',  CHARARRAY1),
-        ('version',  CHARARRAY1),
-        ('machine',  CHARARRAY1)])
-config = rffi_platform.configure(CConfig)
-UTSNAMEP = lltype.Ptr(config['UTSNAME'])
+if not _WIN32:
+    CHARARRAY1 = lltype.FixedSizeArray(lltype.Char, 1)
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            includes = ['sys/utsname.h']
+        )
+        UTSNAME = rffi_platform.Struct('struct utsname', [
+            ('sysname',  CHARARRAY1),
+            ('nodename', CHARARRAY1),
+            ('release',  CHARARRAY1),
+            ('version',  CHARARRAY1),
+            ('machine',  CHARARRAY1)])
+    config = rffi_platform.configure(CConfig)
+    UTSNAMEP = lltype.Ptr(config['UTSNAME'])
 
-c_uname = external('uname', [UTSNAMEP], rffi.INT,
-                    compilation_info=CConfig._compilation_info_)
+    c_uname = external('uname', [UTSNAMEP], rffi.INT,
+                        compilation_info=CConfig._compilation_info_)
 
 @replace_os_function('uname')
 def uname():

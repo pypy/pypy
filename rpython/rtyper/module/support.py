@@ -3,6 +3,7 @@ import sys
 from rpython.annotator import model as annmodel
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib import rstring
 
 _WIN32 = sys.platform.startswith('win')
 UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
@@ -64,19 +65,24 @@ class StringTraits:
     def ll_os_name(name):
         return 'll_os.ll_os_' + name
 
-    @classmethod
-    @specialize.argtype(1)
-    def as_str(cls, path):
+    @staticmethod
+    @specialize.argtype(0)
+    def as_str(path):
         assert path is not None
-        if isinstance(path, unicode):
+        if isinstance(path, str):
             return path
+        elif isinstance(path, unicode):
+            # This never happens in PyPy's Python interpreter!
+            # Only in raw RPython code that uses unicode strings.
+            # We implement python2 behavior: silently convert to ascii.
+            return path.encode('ascii')
         else:
-            return path.as_unicode()
-    
-    @classmethod
-    @specialize.argtype(1)
-    def as_str0(cls, path):
-        res = cls.as_str(path)
+            return path.as_bytes()    
+
+    @staticmethod
+    @specialize.argtype(0)
+    def as_str0(path):
+        res = StringTraits.as_str(path)
         rstring.check_str0(res)
         return res
 
@@ -97,25 +103,22 @@ class UnicodeTraits:
         return UNDERSCORE_ON_WIN32 + 'w' + name
 
     @staticmethod
+    @specialize.argtype(0)
     def ll_os_name(name):
         return 'll_os.ll_os_w' + name
 
-    @classmethod
-    def as_str(cls, path):
+    @staticmethod
+    @specialize.argtype(0)
+    def as_str(path):
         assert path is not None
-        if isinstance(path, str):
+        if isinstance(path, unicode):
             return path
-        elif isinstance(path, unicode):
-            # This never happens in PyPy's Python interpreter!
-            # Only in raw RPython code that uses unicode strings.
-            # We implement python2 behavior: silently convert to ascii.
-            return path.encode('ascii')
         else:
-            return path.as_bytes()
+            return path.as_unicode()
     
-    @classmethod
-    def as_str0(cls, path):
-        res = cls.as_str(path)
+    @staticmethod
+    def as_str0(path):
+        res = UnicodeTraits.as_str(path)
         rstring.check_str0(res)
         return res
 
