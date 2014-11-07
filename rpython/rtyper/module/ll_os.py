@@ -237,49 +237,6 @@ class RegisterOs(BaseLazyRegistering):
 
 # ------------------------------- os.read -------------------------------
 
-    @registering(os.lseek)
-    def register_os_lseek(self):
-        if sys.platform.startswith('win'):
-            funcname = '_lseeki64'
-        else:
-            funcname = 'lseek'
-        if self.SEEK_SET is not None:
-            SEEK_SET = self.SEEK_SET
-            SEEK_CUR = self.SEEK_CUR
-            SEEK_END = self.SEEK_END
-        else:
-            SEEK_SET, SEEK_CUR, SEEK_END = 0, 1, 2
-        if (SEEK_SET, SEEK_CUR, SEEK_END) != (0, 1, 2):
-            # Turn 0, 1, 2 into SEEK_{SET,CUR,END}
-            def fix_seek_arg(n):
-                if n == 0: return SEEK_SET
-                if n == 1: return SEEK_CUR
-                if n == 2: return SEEK_END
-                return n
-        else:
-            def fix_seek_arg(n):
-                return n
-
-        os_lseek = self.llexternal(funcname,
-                                   [rffi.INT, rffi.LONGLONG, rffi.INT],
-                                   rffi.LONGLONG, macro=True)
-
-        def lseek_llimpl(fd, pos, how):
-            rposix.validate_fd(fd)
-            how = fix_seek_arg(how)
-            res = os_lseek(rffi.cast(rffi.INT,      fd),
-                           rffi.cast(rffi.LONGLONG, pos),
-                           rffi.cast(rffi.INT,      how))
-            res = rffi.cast(lltype.SignedLongLong, res)
-            if res < 0:
-                raise OSError(rposix.get_errno(), "os_lseek failed")
-            return res
-
-        return extdef([int, r_longlong, int],
-                      r_longlong,
-                      llimpl = lseek_llimpl,
-                      export_name = "ll_os.ll_os_lseek")
-
     @registering_if(os, 'ftruncate')
     def register_os_ftruncate(self):
         os_ftruncate = self.llexternal('ftruncate',

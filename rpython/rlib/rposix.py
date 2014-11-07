@@ -5,7 +5,7 @@ from rpython.rtyper.lltypesystem.rffi import CConstant, CExternVariable, INT
 from rpython.rtyper.lltypesystem import lltype, ll2ctypes, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for)
 from rpython.rlib import jit
@@ -153,6 +153,10 @@ eci = ExternalCompilationInfo(
 
 class CConfig:
     _compilation_info_ = eci
+    SEEK_SET = rffi_platform.DefinedConstantInteger('SEEK_SET')
+    SEEK_CUR = rffi_platform.DefinedConstantInteger('SEEK_CUR')
+    SEEK_END = rffi_platform.DefinedConstantInteger('SEEK_END')
+
     HAVE_UTIMES = rffi_platform.Has('utimes')
     UTIMBUF = rffi_platform.Struct('struct %sutimbuf' % UNDERSCORE_ON_WIN32,
                                    [('actime', rffi.INT),
@@ -334,9 +338,10 @@ def replace_os_function(name):
 
 @specialize.arg(0)
 def handle_posix_error(name, result):
-    if intmask(result) < 0:
+    result = widen(result)
+    if result < 0:
         raise OSError(get_errno(), '%s failed' % name)
-    return intmask(result)
+    return result
 
 @replace_os_function('dup')
 def dup(fd):
@@ -360,9 +365,9 @@ def open(path, flags, mode):
     return handle_posix_error('open', fd)
 
 c_read = external(UNDERSCORE_ON_WIN32 + 'read',
-                  [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SIZE_T)
+                  [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T)
 c_write = external(UNDERSCORE_ON_WIN32 + 'write',
-                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SIZE_T)
+                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T)
 c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
                    releasegil=False)
 
@@ -387,7 +392,23 @@ def write(fd, data):
 def close(fd):
     validate_fd(fd)
     handle_posix_error('close', c_close(fd))
-        
+
+c_lseek = external('_lseeki64' if _WIN32 else 'lseek',
+                   [rffi.INT, rffi.LONGLONG, rffi.INT], rffi.LONGLONG,
+                   macro=True)
+
+@replace_os_function('lseek')
+def lseek_llimpl(fd, pos, how):
+    validate_fd(fd)
+    if SEEK_SET is not None:
+        if how == 0:
+            how = SEEK_SET
+        elif how == 1: 
+            how = SEEK_CUR
+        elif how == 2:
+            how = SEEK_END
+    return handle_posix_error('lseek', c_lseek(fd, pos, how))
+
 #___________________________________________________________________
 
 c_execv = external('execv', [rffi.CCHARP, rffi.CCHARPP], rffi.INT)
@@ -473,7 +494,7 @@ def openpty():
     try:
         handle_posix_error(
             'openpty', c_openpty(master_p, slave_p, None, None, None))
-        return (intmask(master_p[0]), intmask(slave_p[0]))
+        return (widen(master_p[0]), widen(slave_p[0]))
     finally:
         lltype.free(master_p, flavor='raw')
         lltype.free(slave_p, flavor='raw')
@@ -502,7 +523,7 @@ if _WIN32:
         result = c__cwait(status_p, pid, options)
         # shift the status left a byte so this is more
         # like the POSIX waitpid
-        status_p[0] = rffi.cast(rffi.INT, intmask(status_p[0]) << 8)
+        status_p[0] = rffi.cast(rffi.INT, widen(status_p[0]) << 8)
         return result
 elif _CYGWIN:
     c_waitpid = external('cygwin_waitpid',
@@ -518,7 +539,7 @@ def waitpid(pid, options):
     try:
         result = handle_posix_error('waitpid',
                                     c_waitpid(pid, status_p, options))
-        status = intmask(status_p[0])
+        status = widen(status_p[0])
         return (result, status)
     finally:
         lltype.free(status_p, flavor='raw')
@@ -727,11 +748,11 @@ c_getsid = external('getsid', [rffi.PID_T], rffi.PID_T)
 
 @replace_os_function('getpid')
 def getpid():
-    return intmask(c_getpid())
+    return widen(c_getpid())
 
 @replace_os_function('getppid')
 def getppid():
-    return intmask(c_getppid())
+    return widen(c_getppid())
 
 @replace_os_function('setsid')
 def setsid():
@@ -764,7 +785,7 @@ def getgroups():
     groups = lltype.malloc(PID_GROUPS_T.TO, n, flavor='raw')
     try:
         n = handle_posix_error('getgroups', c_getgroups(n, groups))
-        return [intmask(groups[i]) for i in range(n)]
+        return [widen(groups[i]) for i in range(n)]
     finally:
         lltype.free(groups, flavor='raw')
 
@@ -884,7 +905,7 @@ def getresuid():
                            c_getresuid(rffi.ptradd(out, 0),
                                        rffi.ptradd(out, 1),
                                        rffi.ptradd(out, 2)))
-        return (intmask(out[0]), intmask(out[1]), intmask(out[2]))
+        return (widen(out[0]), widen(out[1]), widen(out[2]))
     finally:
         lltype.free(out, flavor='raw')
 
@@ -896,7 +917,7 @@ def getresgid():
                            c_getresgid(rffi.ptradd(out, 0),
                                        rffi.ptradd(out, 1),
                                        rffi.ptradd(out, 2)))
-        return (intmask(out[0]), intmask(out[1]), intmask(out[2]))
+        return (widen(out[0]), widen(out[1]), widen(out[2]))
     finally:
         lltype.free(out, flavor='raw')
 
