@@ -615,11 +615,11 @@ def geteuid():
 
 @replace_os_function('setuid')
 def setuid(uid):
-    return handle_posix_error('setuid', c_setuid(uid))
+    handle_posix_error('setuid', c_setuid(uid))
 
 @replace_os_function('seteuid')
 def seteuid(uid):
-    return handle_posix_error('seteuid', c_seteuid(uid))
+    handle_posix_error('seteuid', c_seteuid(uid))
 
 @replace_os_function('getgid')
 def getgid():
@@ -631,8 +631,57 @@ def getegid():
 
 @replace_os_function('setgid')
 def setgid(gid):
-    return handle_posix_error('setgid', c_setgid(gid))
+    handle_posix_error('setgid', c_setgid(gid))
 
 @replace_os_function('setegid')
 def setegid(gid):
-    return handle_posix_error('setegid', c_setegid(gid))
+    handle_posix_error('setegid', c_setegid(gid))
+
+c_setreuid = external('setreuid', [rffi.INT, rffi.INT], rffi.INT)
+c_setregid = external('setregid', [rffi.INT, rffi.INT], rffi.INT)
+
+@replace_os_function('setreuid')
+def setreuid(ruid, euid):
+    handle_posix_error('setreuid', c_setreuid(ruid, euid))
+
+@replace_os_function('setregid')
+def setregid(rgid, egid):
+    handle_posix_error('setregid', c_setregid(rgid, egid))
+
+c_getresuid = external('getresuid', [rffi.INTP] * 3, rffi.INT)
+c_getresgid = external('getresgid', [rffi.INTP] * 3, rffi.INT)
+c_setresuid = external('setresuid', [rffi.INT] * 3, rffi.INT)
+c_setresgid = external('setresgid', [rffi.INT] * 3, rffi.INT)
+
+@replace_os_function('getresuid')
+def getresuid():
+    out = lltype.malloc(rffi.INTP.TO, 3, flavor='raw')
+    try:
+        handle_posix_error('getresuid',
+                           c_getresuid(rffi.ptradd(out, 0),
+                                       rffi.ptradd(out, 1),
+                                       rffi.ptradd(out, 2)))
+        return (intmask(out[0]), intmask(out[1]), intmask(out[2]))
+    finally:
+        lltype.free(out, flavor='raw')
+
+@replace_os_function('getresgid')
+def getresgid():
+    out = lltype.malloc(rffi.INTP.TO, 3, flavor='raw')
+    try:
+        handle_posix_error('getresgid',
+                           c_getresgid(rffi.ptradd(out, 0),
+                                       rffi.ptradd(out, 1),
+                                       rffi.ptradd(out, 2)))
+        return (intmask(out[0]), intmask(out[1]), intmask(out[2]))
+    finally:
+        lltype.free(out, flavor='raw')
+
+@replace_os_function('setresuid')
+def setresuid(ruid, euid, suid):
+    handle_posix_error('setresuid', c_setresuid(ruid, euid, suid))
+
+@replace_os_function('setresgid')
+def setresgid(rgid, egid, sgid):
+    handle_posix_error('setresgid', c_setresgid(rgid, egid, sgid))
+
