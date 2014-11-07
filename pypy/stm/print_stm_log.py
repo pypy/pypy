@@ -66,7 +66,7 @@ def parse_log(filename):
             sec, nsec, threadnum, otherthreadnum, event, len1, len2 = \
                   struct.unpack("IIIIBBB", packet)
             if event >= _STM_EVENT_N:
-                raise ValueError("the file %r appears corrupted")
+                raise ValueError("the file %r appears corrupted" % (filename,))
             m1 = f.read(len1)
             m2 = f.read(len2)
             result.append(LogEntry(sec + 0.000000001 * nsec,
