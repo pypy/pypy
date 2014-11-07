@@ -822,6 +822,8 @@ def make_string_mappings(strtype):
     free_nonmovingbuffer._annenforceargs_ = [strtype, None, bool, bool]
 
     # int -> (char*, str, int)
+    # Can't inline this because of the raw address manipulation.
+    @jit.dont_look_inside
     def alloc_buffer(count):
         """
         Returns a (raw_buffer, gc_buffer, case_num) triple,
