@@ -837,3 +837,56 @@ def minor(dev):
 
 #___________________________________________________________________
 
+c_sysconf = external('sysconf', [rffi.INT], rffi.LONG)
+c_fpathconf = external('fpathconf', [rffi.INT, rffi.INT], rffi.LONG)
+c_pathconf = external('pathconf', [rffi.CCHARP, rffi.INT], rffi.LONG)
+c_confstr = external('confstr',
+                     [rffi.INT, rffi.CCHARP, rffi.SIZE_T], rffi.SIZE_T)
+
+@replace_os_function('sysconf')
+def sysconf(value):
+    set_errno(0)
+    res = c_sysconf(i)
+    if res == -1:
+        errno = get_errno()
+        if errno != 0:
+            raise OSError(errno, "sysconf failed")
+    return res
+
+@replace_os_functions('fpathconf')
+def fpathconf(fd, value):
+    rposix.set_errno(0)
+    res = c_fpathconf(fd, value)
+    if res == -1:
+        errno = rposix.get_errno()
+        if errno != 0:
+            raise OSError(errno, "fpathconf failed")
+    return res
+
+@replace_os_function('pathconf')
+def pathconf(path, value):
+    rposix.set_errno(0)
+    res = c_pathconf(_as_bytes0(path), value)
+    if res == -1:
+        errno = rposix.get_errno()
+        if errno != 0:
+            raise OSError(errno, "pathconf failed")
+    return res
+
+@replace_os_function('confstr')
+def confstr(value):
+    rposix.set_errno(0)
+    n = c_confstr(value, lltype.nullptr(rffi.CCHARP.TO), 0)
+    if n > 0:
+        buf = lltype.malloc(rffi.CCHARP.TO, n, flavor='raw')
+        try:
+            c_confstr(value, buf, n)
+            return rffi.charp2strn(buf, n)
+        finally:
+            lltype.free(buf, flavor='raw')
+    else:
+        errno = rposix.get_errno()
+        if errno != 0:
+            raise OSError(errno, "confstr failed")
+        return None
+
