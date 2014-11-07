@@ -10,6 +10,7 @@ from rpython.rlib.objectmodel import (
 from rpython.rlib import jit
 from rpython.translator.platform import platform
 from rpython.rlib import rstring
+from rpython.rlib import debug, rthread
 
 _WIN32 = sys.platform.startswith('win')
 UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
@@ -137,12 +138,15 @@ def closerange(fd_low, fd_high):
 
 if _WIN32:
     includes = ['io.h', 'sys/utime.h', 'sys/types.h']
+    libraries = []
 else:
     includes = ['unistd.h',  'sys/types.h',
                 'utime.h', 'sys/time.h', 'sys/times.h',
                 'grp.h']
+    libraries = ['util']
 eci = ExternalCompilationInfo(
     includes=includes,
+    libraries=libraries,
 )
 
 class CConfig:
@@ -329,7 +333,7 @@ def replace_os_function(name):
 
 @specialize.arg(0)
 def handle_posix_error(name, result):
-    if result < 0:
+    if intmask(result) < 0:
         raise OSError(get_errno(), '%s failed' % name)
     return intmask(result)
 
@@ -407,6 +411,54 @@ def spawnve(mode, path, args, env):
     rffi.free_charpp(l_env)
     rffi.free_charpp(l_args)
     return handle_posix_error('spawnve', childpid)
+
+c_fork = external('fork', [], rffi.PID_T, _nowrapper = True)
+c_openpty = external('openpty',
+                     [rffi.INTP, rffi.INTP, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP],
+                     rffi.INT)
+c_forkpty = external('forkpty',
+                     [rffi.INTP, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP],
+                     rffi.PID_T)
+
+@replace_os_function('fork')
+def fork():
+    # NB. keep forkpty() up-to-date, too
+    ofs = debug.debug_offset()
+    opaqueaddr = rthread.gc_thread_before_fork()
+    childpid = c_fork()
+    rthread.gc_thread_after_fork(childpid, opaqueaddr)
+    childpid = handle_posix_error('fork', childpid)
+    if childpid == 0:
+        debug.debug_forked(ofs)
+    return childpid
+
+@replace_os_function('openpty')
+def openpty():
+    master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+    slave_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+    try:
+        handle_posix_error(
+            'openpty', c_openpty(master_p, slave_p, None, None, None))
+        return (intmask(master_p[0]), intmask(slave_p[0]))
+    finally:
+        lltype.free(master_p, flavor='raw')
+        lltype.free(slave_p, flavor='raw')
+
+@replace_os_function('forkpty')
+def forkpty():
+    master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+    master_p[0] = rffi.cast(rffi.INT, -1)
+    try:
+        ofs = debug.debug_offset()
+        opaqueaddr = rthread.gc_thread_before_fork()
+        childpid = os_forkpty(master_p, None, None, None)
+        rthread.gc_thread_after_fork(childpid, opaqueaddr)
+        childpid = handle_posix_error('forkpty', childpid)
+        if childpid == 0:
+            debug.debug_forked(ofs)
+        return (childpid, master_p[0])
+    finally:
+        lltype.free(master_p, flavor='raw')
 
 @replace_os_function('getlogin')
 def getlogin():
@@ -853,7 +905,7 @@ def sysconf(value):
             raise OSError(errno, "sysconf failed")
     return res
 
-@replace_os_functions('fpathconf')
+@replace_os_function('fpathconf')
 def fpathconf(fd, value):
     rposix.set_errno(0)
     res = c_fpathconf(fd, value)
