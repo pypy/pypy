@@ -178,19 +178,19 @@ if _POSIX:
 if _WIN:
     win_eci = ExternalCompilationInfo(
         includes = ["time.h"],
-        post_include_bits = ["RPY_EXPORTED_FOR_TESTS\n"
+        post_include_bits = ["RPY_EXPORTED_FOR_TESTS "
                              "long pypy_get_timezone();\n"
-                             "RPY_EXPORTED_FOR_TESTS\n"
+                             "RPY_EXPORTED_FOR_TESTS "
                              "int pypy_get_daylight();\n"
-                             "RPY_EXPORTED_FOR_TESTS\n"
+                             "RPY_EXPORTED_FOR_TESTS "
                              "char** pypy_get_tzname();\n"
-                             "RPY_EXPORTED_FOR_TESTS\n"
-                             "void* pypy__tzset();"],
+                             "RPY_EXPORTED_FOR_TESTS "
+                             "void pypy__tzset();"],
         separate_module_sources = ["""
         long pypy_get_timezone() { return timezone; }
         int pypy_get_daylight() { return daylight; }
         char** pypy_get_tzname() { return tzname; }
-        void pypy__tzset() { return _tzset(); }
+        void pypy__tzset() { _tzset(); }
         """])
     # Ensure sure that we use _tzset() and timezone from the same C Runtime.
     c_tzset = external('pypy__tzset', [], lltype.Void, win_eci)
