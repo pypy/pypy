@@ -235,54 +235,6 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int], int, llimpl=c_func_llimpl,
                       export_name='ll_os.ll_os_' + name)
 
-    @registering_if(os, 'chroot')
-    def register_os_chroot(self):
-        os_chroot = self.llexternal('chroot', [rffi.CCHARP], rffi.INT)
-        def chroot_llimpl(arg):
-            result = os_chroot(arg)
-            if result == -1:
-                raise OSError(rposix.get_errno(), "os_chroot failed")
-
-        return extdef([str0], None, export_name="ll_os.ll_os_chroot",
-                      llimpl=chroot_llimpl)
-
-    @registering_if(os, 'uname')
-    def register_os_uname(self):
-        CHARARRAY = lltype.FixedSizeArray(lltype.Char, 1)
-        class CConfig:
-            _compilation_info_ = ExternalCompilationInfo(
-                includes = ['sys/utsname.h']
-            )
-            UTSNAME = platform.Struct('struct utsname', [
-                ('sysname',  CHARARRAY),
-                ('nodename', CHARARRAY),
-                ('release',  CHARARRAY),
-                ('version',  CHARARRAY),
-                ('machine',  CHARARRAY)])
-        config = platform.configure(CConfig)
-        UTSNAMEP = lltype.Ptr(config['UTSNAME'])
-
-        os_uname = self.llexternal('uname', [UTSNAMEP], rffi.INT,
-                                   compilation_info=CConfig._compilation_info_)
-
-        def uname_llimpl():
-            l_utsbuf = lltype.malloc(UTSNAMEP.TO, flavor='raw')
-            result = os_uname(l_utsbuf)
-            if result == -1:
-                raise OSError(rposix.get_errno(), "os_uname failed")
-            retval = (
-                rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_sysname)),
-                rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_nodename)),
-                rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_release)),
-                rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_version)),
-                rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_machine)),
-                )
-            lltype.free(l_utsbuf, flavor='raw')
-            return retval
-
-        return extdef([], (str, str, str, str, str),
-                      "ll_os.ll_uname", llimpl=uname_llimpl)
-
     @registering_if(os, 'sysconf')
     def register_os_sysconf(self):
         c_sysconf = self.llexternal('sysconf', [rffi.INT], rffi.LONG)
@@ -368,30 +320,6 @@ class RegisterOs(BaseLazyRegistering):
             return result_tuple
         return extdef([], (float, float, float),
                       "ll_os.ll_getloadavg", llimpl=getloadavg_llimpl)
-
-    @registering_if(os, 'makedev')
-    def register_os_makedev(self):
-        c_makedev = self.llexternal('makedev', [rffi.INT, rffi.INT], rffi.INT)
-        def makedev_llimpl(maj, min):
-            return c_makedev(maj, min)
-        return extdef([int, int], int,
-                      "ll_os.ll_makedev", llimpl=makedev_llimpl)
-
-    @registering_if(os, 'major')
-    def register_os_major(self):
-        c_major = self.llexternal('major', [rffi.INT], rffi.INT)
-        def major_llimpl(dev):
-            return c_major(dev)
-        return extdef([int], int,
-                      "ll_os.ll_major", llimpl=major_llimpl)
-
-    @registering_if(os, 'minor')
-    def register_os_minor(self):
-        c_minor = self.llexternal('minor', [rffi.INT], rffi.INT)
-        def minor_llimpl(dev):
-            return c_minor(dev)
-        return extdef([int], int,
-                      "ll_os.ll_minor", llimpl=minor_llimpl)
 
 # ------------------------------- os.read -------------------------------
 

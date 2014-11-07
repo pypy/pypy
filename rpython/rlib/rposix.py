@@ -166,24 +166,16 @@ class CConfig:
 config = rffi_platform.configure(CConfig)
 globals().update(config)
 
-def external(name, args, result, **kwds):
-    return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
+def external(name, args, result, compilation_info=eci, **kwds):
+    return rffi.llexternal(name, args, result,
+                           compilation_info=compilation_info, **kwds)
 
 c_dup = external(UNDERSCORE_ON_WIN32 + 'dup', [rffi.INT], rffi.INT)
 c_dup2 = external(UNDERSCORE_ON_WIN32 + 'dup2', [rffi.INT, rffi.INT], rffi.INT)
 c_open = external(UNDERSCORE_ON_WIN32 + 'open',
                   [rffi.CCHARP, rffi.INT, rffi.MODE_T], rffi.INT)
-c_execv = external('execv', [rffi.CCHARP, rffi.CCHARPP], rffi.INT)
-c_execve = external('execve',
-                    [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP], rffi.INT)
 c_getlogin = external('getlogin', [], rffi.CCHARP, releasegil=False)
 
-# Win32 specific functions
-c_spawnv = external('spawnv',
-                    [rffi.INT, rffi.CCHARP, rffi.CCHARPP], rffi.INT)
-c_spawnve = external('spawnve',
-                    [rffi.INT, rffi.CCHARP, rffi.CCHARPP, rffi.CCHARP],
-                     rffi.INT)
 # Win32 Unicode functions
 c_wopen = external(UNDERSCORE_ON_WIN32 + 'wopen',
                    [rffi.CWCHARP, rffi.INT, rffi.MODE_T], rffi.INT)
@@ -360,6 +352,15 @@ def open(path, flags, mode):
         fd = c_open(_as_bytes0(path), flags, mode)
     return handle_posix_error('open', fd)
         
+c_execv = external('execv', [rffi.CCHARP, rffi.CCHARPP], rffi.INT)
+c_execve = external('execve',
+                    [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP], rffi.INT)
+c_spawnv = external('spawnv',
+                    [rffi.INT, rffi.CCHARP, rffi.CCHARPP], rffi.INT)
+c_spawnve = external('spawnve',
+                    [rffi.INT, rffi.CCHARP, rffi.CCHARPP, rffi.CCHARP],
+                     rffi.INT)
+
 @replace_os_function('execv')
 def execv(path, args):
     rstring.check_str0(path)
@@ -777,4 +778,62 @@ def setresuid(ruid, euid, suid):
 @replace_os_function('setresgid')
 def setresgid(rgid, egid, sgid):
     handle_posix_error('setresgid', c_setresgid(rgid, egid, sgid))
+
+#___________________________________________________________________
+
+c_chroot = external('chroot', [rffi.CCHARP], rffi.INT)
+
+@replace_os_function('chroot')
+def chroot(path):
+    handle_posix_error('chroot', os_chroot(_as_bytes0(path)))
+
+CHARARRAY1 = lltype.FixedSizeArray(lltype.Char, 1)
+class CConfig:
+    _compilation_info_ = ExternalCompilationInfo(
+        includes = ['sys/utsname.h']
+    )
+    UTSNAME = rffi_platform.Struct('struct utsname', [
+        ('sysname',  CHARARRAY1),
+        ('nodename', CHARARRAY1),
+        ('release',  CHARARRAY1),
+        ('version',  CHARARRAY1),
+        ('machine',  CHARARRAY1)])
+config = rffi_platform.configure(CConfig)
+UTSNAMEP = lltype.Ptr(config['UTSNAME'])
+
+c_uname = external('uname', [UTSNAMEP], rffi.INT,
+                    compilation_info=CConfig._compilation_info_)
+
+@replace_os_function('uname')
+def uname():
+    l_utsbuf = lltype.malloc(UTSNAMEP.TO, flavor='raw')
+    try:
+        handle_posix_error('uname', c_uname(l_utsbuf))
+        return (
+            rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_sysname)),
+            rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_nodename)),
+            rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_release)),
+            rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_version)),
+            rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_machine)),
+        )
+    finally:
+        lltype.free(l_utsbuf, flavor='raw')
+
+c_makedev = external('makedev', [rffi.INT, rffi.INT], rffi.INT)
+c_major = external('major', [rffi.INT], rffi.INT)
+c_minor = external('minor', [rffi.INT], rffi.INT)
+
+@replace_os_function('makedev')
+def makedev(maj, min):
+    return c_makedev(maj, min)
+
+@replace_os_function('major')
+def major(dev):
+    return c_major(dev)
+
+@replace_os_function('minor')
+def minor(dev):
+    return c_minor(dev)
+
+#___________________________________________________________________
 
