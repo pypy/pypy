@@ -1,7 +1,7 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.history import (Const, ConstInt, BoxInt, BoxFloat,
-    BoxPtr, make_hashable_int)
+    BoxPtr, make_hashable_int, ConstFloat)
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, REMOVED,
@@ -10,7 +10,7 @@ from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_me
 from rpython.jit.metainterp.resoperation import (opboolinvers, opboolreflex, rop,
     ResOperation)
 from rpython.rlib.rarithmetic import highest_bit
-
+import math
 
 class OptRewrite(Optimization):
     """Rewrite operations into equivalent, cheaper operations.
@@ -230,6 +230,25 @@ class OptRewrite(Optimization):
                     return
         self.emit_operation(op)
         self.pure(rop.FLOAT_MUL, [arg2, arg1], op.result)
+
+    def optimize_FLOAT_TRUEDIV(self, op):
+        arg1 = op.getarg(0)
+        arg2 = op.getarg(1)
+        v2 = self.getvalue(arg2)
+
+        # replace "x / const" by "x * (1/const)" if possible
+        if v2.is_constant():
+            divisor = v2.box.getfloat()
+            fraction = math.frexp(divisor)[0]
+            # This optimization is valid for powers of two
+            # but not for zeroes, some denormals and NaN:
+            if fraction == 0.5 or fraction == -0.5:
+                reciprocal = 1.0 / divisor
+                rfraction = math.frexp(reciprocal)[0]
+                if rfraction == 0.5 or rfraction == -0.5:
+                    op = op.copy_and_change(rop.FLOAT_MUL,
+                                            args=[arg1, ConstFloat(reciprocal)])
+        self.emit_operation(op)
 
     def optimize_FLOAT_NEG(self, op):
         v1 = op.getarg(0)
