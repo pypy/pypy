@@ -301,6 +301,8 @@ def register_replacement_for(replaced_function, sandboxed_name=None):
                 return ctx.appcall(func, *args_w)
         if sandboxed_name:
             func._sandbox_external_name = sandboxed_name
+            # XXX THIS IS NOT CORRECT. Only do this when config.sandbox.
+            func._dont_inline_ = True
         return func
     return wrap
 
