@@ -237,60 +237,6 @@ class RegisterOs(BaseLazyRegistering):
 
 # ------------------------------- os.read -------------------------------
 
-    @registering(os.read)
-    def register_os_read(self):
-        os_read = self.llexternal(UNDERSCORE_ON_WIN32 + 'read',
-                                  [rffi.INT, rffi.VOIDP, rffi.SIZE_T],
-                                  rffi.SIZE_T)
-
-        def os_read_llimpl(fd, count):
-            if count < 0:
-                raise OSError(errno.EINVAL, None)
-            rposix.validate_fd(fd)
-            with rffi.scoped_alloc_buffer(count) as buf:
-                void_buf = rffi.cast(rffi.VOIDP, buf.raw)
-                got = rffi.cast(lltype.Signed, os_read(fd, void_buf, count))
-                if got < 0:
-                    raise OSError(rposix.get_errno(), "os_read failed")
-                return buf.str(got)
-
-        return extdef([int, int], SomeString(can_be_None=True),
-                      "ll_os.ll_os_read", llimpl=os_read_llimpl)
-
-    @registering(os.write)
-    def register_os_write(self):
-        os_write = self.llexternal(UNDERSCORE_ON_WIN32 + 'write',
-                                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T],
-                                   rffi.SIZE_T)
-
-        def os_write_llimpl(fd, data):
-            count = len(data)
-            rposix.validate_fd(fd)
-            with rffi.scoped_nonmovingbuffer(data) as buf:
-                written = rffi.cast(lltype.Signed, os_write(
-                    rffi.cast(rffi.INT, fd),
-                    buf, rffi.cast(rffi.SIZE_T, count)))
-                if written < 0:
-                    raise OSError(rposix.get_errno(), "os_write failed")
-            return written
-
-        return extdef([int, str], SomeInteger(nonneg=True),
-                      "ll_os.ll_os_write", llimpl=os_write_llimpl)
-
-    @registering(os.close)
-    def register_os_close(self):
-        os_close = self.llexternal(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT],
-                                   rffi.INT, releasegil=False)
-
-        def close_llimpl(fd):
-            rposix.validate_fd(fd)
-            error = rffi.cast(lltype.Signed, os_close(rffi.cast(rffi.INT, fd)))
-            if error == -1:
-                raise OSError(rposix.get_errno(), "close failed")
-
-        return extdef([int], s_None, llimpl=close_llimpl,
-                      export_name="ll_os.ll_os_close")
-
     @registering(os.lseek)
     def register_os_lseek(self):
         if sys.platform.startswith('win'):

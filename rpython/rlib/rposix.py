@@ -1,5 +1,6 @@
 import os
 import sys
+import errno
 from rpython.rtyper.lltypesystem.rffi import CConstant, CExternVariable, INT
 from rpython.rtyper.lltypesystem import lltype, ll2ctypes, rffi
 from rpython.rtyper.tool import rffi_platform
@@ -347,6 +348,8 @@ def dup2(fd, newfd):
     validate_fd(fd)
     handle_posix_error('dup2', c_dup2(fd, newfd))
 
+#___________________________________________________________________
+
 @replace_os_function('open')
 @specialize.argtype(0)
 def open(path, flags, mode):
@@ -355,7 +358,38 @@ def open(path, flags, mode):
     else:
         fd = c_open(_as_bytes0(path), flags, mode)
     return handle_posix_error('open', fd)
+
+c_read = external(UNDERSCORE_ON_WIN32 + 'read',
+                  [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SIZE_T)
+c_write = external(UNDERSCORE_ON_WIN32 + 'write',
+                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SIZE_T)
+c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
+                   releasegil=False)
+
+@replace_os_function('read')
+def read(fd, count):
+    if count < 0:
+        raise OSError(errno.EINVAL, None)
+    validate_fd(fd)
+    with rffi.scoped_alloc_buffer(count) as buf:
+        void_buf = rffi.cast(rffi.VOIDP, buf.raw)
+        got = handle_posix_error('read', c_read(fd, void_buf, count))
+        return buf.str(got)
+
+@replace_os_function('write')
+def write(fd, data):
+    count = len(data)
+    validate_fd(fd)
+    with rffi.scoped_nonmovingbuffer(data) as buf:
+        return handle_posix_error('write', c_write(fd, buf, count))
+
+@replace_os_function('close')
+def close(fd):
+    validate_fd(fd)
+    handle_posix_error('close', c_close(fd))
         
+#___________________________________________________________________
+
 c_execv = external('execv', [rffi.CCHARP, rffi.CCHARPP], rffi.INT)
 c_execve = external('execve',
                     [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP], rffi.INT)
@@ -451,7 +485,7 @@ def forkpty():
     try:
         ofs = debug.debug_offset()
         opaqueaddr = rthread.gc_thread_before_fork()
-        childpid = os_forkpty(master_p, None, None, None)
+        childpid = c_forkpty(master_p, None, None, None)
         rthread.gc_thread_after_fork(childpid, opaqueaddr)
         childpid = handle_posix_error('forkpty', childpid)
         if childpid == 0:
@@ -880,7 +914,7 @@ c_chroot = external('chroot', [rffi.CCHARP], rffi.INT)
 
 @replace_os_function('chroot')
 def chroot(path):
-    handle_posix_error('chroot', os_chroot(_as_bytes0(path)))
+    handle_posix_error('chroot', c_chroot(_as_bytes0(path)))
 
 CHARARRAY1 = lltype.FixedSizeArray(lltype.Char, 1)
 class CConfig:
@@ -941,7 +975,7 @@ c_confstr = external('confstr',
 @replace_os_function('sysconf')
 def sysconf(value):
     set_errno(0)
-    res = c_sysconf(i)
+    res = c_sysconf(value)
     if res == -1:
         errno = get_errno()
         if errno != 0:
@@ -950,28 +984,28 @@ def sysconf(value):
 
 @replace_os_function('fpathconf')
 def fpathconf(fd, value):
-    rposix.set_errno(0)
+    set_errno(0)
     res = c_fpathconf(fd, value)
     if res == -1:
-        errno = rposix.get_errno()
+        errno = get_errno()
         if errno != 0:
             raise OSError(errno, "fpathconf failed")
     return res
 
 @replace_os_function('pathconf')
 def pathconf(path, value):
-    rposix.set_errno(0)
+    set_errno(0)
     res = c_pathconf(_as_bytes0(path), value)
     if res == -1:
-        errno = rposix.get_errno()
+        errno = get_errno()
         if errno != 0:
             raise OSError(errno, "pathconf failed")
     return res
 
 @replace_os_function('confstr')
 def confstr(value):
-    rposix.set_errno(0)
-    n = c_confstr(value, lltype.nullptr(rffi.CCHARP.TO), 0)
+    set_errno(0)
+    n = intmask(c_confstr(value, lltype.nullptr(rffi.CCHARP.TO), 0))
     if n > 0:
         buf = lltype.malloc(rffi.CCHARP.TO, n, flavor='raw')
         try:
@@ -980,7 +1014,7 @@ def confstr(value):
         finally:
             lltype.free(buf, flavor='raw')
     else:
-        errno = rposix.get_errno()
+        errno = get_errno()
         if errno != 0:
             raise OSError(errno, "confstr failed")
         return None
