@@ -409,6 +409,26 @@ def lseek_llimpl(fd, pos, how):
             how = SEEK_END
     return handle_posix_error('lseek', c_lseek(fd, pos, how))
 
+c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
+                       macro=True)
+c_fsync = external('fsync' if not _WIN32 else '_commit', [rffi.INT], rffi.INT)
+c_fdatasync = external('fdatasync', [rffi.INT], rffi.INT)
+
+@replace_os_function('ftruncate')
+def ftruncate(fd, length):
+    validate_fd(fd)
+    handle_posix_error('ftruncate', c_ftruncate(fd, length))
+
+@replace_os_function('fsync')
+def fsync(fd):
+    validate_fd(fd)
+    handle_posix_error('fsync', c_fsync(fd))
+
+@replace_os_function('fdatasync')
+def fdatasync(fd):
+    rposix.validate_fd(fd)
+    handle_posix_error('fdatasync', c_fdatasync(fd))
+
 #___________________________________________________________________
 
 c_execv = external('execv', [rffi.CCHARP, rffi.CCHARPP], rffi.INT)
