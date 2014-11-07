@@ -250,7 +250,7 @@ class Block(object):
 
 
 class Variable(object):
-    __slots__ = ["_name", "_nr", "annotation", "concretetype"]
+    __slots__ = ["_name", "_nr", "annotation", "concretetype", "equals"]
 
     dummyname = 'v'
     namesdict = {dummyname: (dummyname, 0)}

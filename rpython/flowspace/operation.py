@@ -498,6 +498,18 @@ class Contains(SingleDispatchMixin, PureOperation):
     def get_specialization(cls, s_seq, s_elem):
         return cls._dispatch(type(s_seq))
 
+class Type(SingleDispatchMixin, PureOperation):
+    opname = 'type'
+    arity = 1
+    canraise = []
+    pyfunc = staticmethod(new_style_type)
+
+    def transform(self, annotator):
+        from rpython.annotator.expression import V_Type
+        value = V_Type(self.args[0])
+        self.result.equals = value
+        return [op.assign(value)]
+
 
 class NewDict(HLOperation):
     opname = 'newdict'

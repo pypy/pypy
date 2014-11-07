@@ -9,7 +9,7 @@ from rpython.flowspace.model import const
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeUnboundMethod, SomeBuiltinMethod,
-    SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
+    SomeFloat, SomeIterator, SomePBC, SomeNone, s_ImpossibleValue,
     s_Bool, s_None, unionof, add_knowntypedata,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
@@ -17,7 +17,6 @@ from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
 from rpython.annotator.model import AnnotatorError
 from rpython.annotator.argument import simple_args, complex_args
-from rpython.annotator.expression import V_Type
 
 UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])
@@ -26,10 +25,6 @@ UNARY_OPERATIONS.remove('contains')
 @op.assign.register(SomeObject)
 def assign(annotator, v_obj):
     return annotator.annotation(v_obj)
-
-@op.type.register_transform(SomeObject)
-def type_SomeObject(annotator, v_arg):
-    return [op.assign(V_Type(v_arg))]
 
 @op.bool.register(SomeObject)
 def bool_SomeObject(annotator, obj):
