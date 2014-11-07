@@ -95,8 +95,7 @@ def test__getfullpathname():
     assert not data.endswith(stuff)
 
 def test_getcwd():
-    data = getllimpl(os.getcwd)()
-    assert data == os.getcwd()
+    assert rposix.getcwd() == os.getcwd()
 
 def test_chdir():
     def check_special_envvar():

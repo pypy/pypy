@@ -243,11 +243,24 @@ if _WIN32:
             return True
         else:
             return path.is_unicode
+
+    @specialize.argtype(0)
+    def _preferred_traits(path):
+        from rpython.rtyper.module.support import StringTraits, UnicodeTraits
+        if _prefer_unicode(path):
+            return UnicodeTraits()
+        else:
+            return StringTraits()
 else:
     @specialize.argtype(0)
     def _prefer_unicode(path):
         return False
 
+    @specialize.argtype(0)
+    def _preferred_traits(path):
+        from rpython.rtyper.module.support import StringTraits
+        return StringTraits()
+    
 @specialize.argtype(0)
 def stat(path):
     return os.stat(_as_bytes(path))
@@ -453,6 +466,65 @@ def access(path, mode):
     else:
         error = c_access(_as_bytes0(path), mode)
     return error == 0
+
+# This Win32 function is not exposed via os, but needed to get a
+# correct implementation of os.path.abspath.
+@specialize.argtype(0)
+def getfullpathname(path):
+    length = rwin32.MAX_PATH + 1
+    traits = _get_preferred_traits(path)
+    with traits.scoped_alloc_buffer(count) as buf:
+        res = win32traits.GetFullPathName(
+            path, rffi.cast(rwin32.DWORD, length),
+            buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
+        if res == 0:
+            raise rwin32.lastWindowsError("_getfullpathname failed")
+        return buf.str()
+
+c_getcwd = external(UNDERSCORE_ON_WIN32 + 'getcwd',
+                    [rffi.CCHARP, rffi.SIZE_T], rffi.CCHARP)
+c_wgetcwd = external(UNDERSCORE_ON_WIN32 + 'wgetcwd',
+                     [rffi.CWCHARP, rffi.SIZE_T], rffi.CWCHARP)
+
+@replace_os_function('getcwd')
+def getcwd():
+    bufsize = 256
+    while True:
+        buf = lltype.malloc(rffi.CCHARP.TO, bufsize, flavor='raw')
+        res = c_getcwd(buf, bufsize)
+        if res:
+            break   # ok
+        error = get_errno()
+        lltype.free(buf, flavor='raw')
+        if error != errno.ERANGE:
+            raise OSError(error, "getcwd failed")
+        # else try again with a larger buffer, up to some sane limit
+        bufsize *= 4
+        if bufsize > 1024*1024:  # xxx hard-coded upper limit
+            raise OSError(error, "getcwd result too large")
+    result = rffi.charp2str(res)
+    lltype.free(buf, flavor='raw')
+    return result
+
+@replace_os_function('getcwdu')
+def getcwdu():
+    bufsize = 256
+    while True:
+        buf = lltype.malloc(rffi.CWCHARP.TO, bufsize, flavor='raw')
+        res = c_wgetcwd(buf, bufsize)
+        if res:
+            break   # ok
+        error = rposix.get_errno()
+        lltype.free(buf, flavor='raw')
+        if error != errno.ERANGE:
+            raise OSError(error, "getcwd failed")
+        # else try again with a larger buffer, up to some sane limit
+        bufsize *= 4
+        if bufsize > 1024*1024:  # xxx hard-coded upper limit
+            raise OSError(error, "getcwd result too large")
+    result = rffi.wcharp2unicode(res)
+    lltype.free(buf, flavor='raw')
+    return result
 
 #___________________________________________________________________
 
@@ -680,16 +752,9 @@ def utime(path, times):
         handle_posix_error('utime', error)
     else:  # _WIN32 case
         from rpython.rlib.rwin32file import make_win32_traits
-        if _prefer_unicode(path):
-            # XXX remove dependency on rtyper.module.  The "traits"
-            # are just used for CreateFile anyway.
-            from rpython.rtyper.module.support import UnicodeTraits
-            win32traits = make_win32_traits(UnicodeTraits())
-            path = _as_unicode0(path)
-        else:
-            from rpython.rtyper.module.support import StringTraits
-            win32traits = make_win32_traits(StringTraits())
-            path = _as_bytes0(path)
+        traits = _preferred_traits(path)
+        win32traits = make_win32_traits(traits)
+        path = traits.as_str0(path)
         hFile = win32traits.CreateFile(path,
                            win32traits.FILE_WRITE_ATTRIBUTES, 0,
                            None, win32traits.OPEN_EXISTING,

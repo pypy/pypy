@@ -2,6 +2,7 @@ import sys
 
 from rpython.annotator import model as annmodel
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.objectmodel import specialize
 
 _WIN32 = sys.platform.startswith('win')
 UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
@@ -63,6 +64,22 @@ class StringTraits:
     def ll_os_name(name):
         return 'll_os.ll_os_' + name
 
+    @classmethod
+    @specialize.argtype(1)
+    def as_str(cls, path):
+        assert path is not None
+        if isinstance(path, unicode):
+            return path
+        else:
+            return path.as_unicode()
+    
+    @classmethod
+    @specialize.argtype(1)
+    def as_str0(cls, path):
+        res = cls.as_str(path)
+        rstring.check_str0(res)
+        return res
+
 class UnicodeTraits:
     str = unicode
     str0 = annmodel.s_Unicode0
@@ -83,6 +100,24 @@ class UnicodeTraits:
     def ll_os_name(name):
         return 'll_os.ll_os_w' + name
 
+    @classmethod
+    def as_str(cls, path):
+        assert path is not None
+        if isinstance(path, str):
+            return path
+        elif isinstance(path, unicode):
+            # This never happens in PyPy's Python interpreter!
+            # Only in raw RPython code that uses unicode strings.
+            # We implement python2 behavior: silently convert to ascii.
+            return path.encode('ascii')
+        else:
+            return path.as_bytes()
+    
+    @classmethod
+    def as_str0(cls, path):
+        res = cls.as_str(path)
+        rstring.check_str0(res)
+        return res
 
 def ll_strcpy(dst_s, src_s, n):
     dstchars = dst_s.chars
