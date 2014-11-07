@@ -13,6 +13,7 @@ from rpython.rlib import rstring
 from rpython.rlib import debug, rthread
 
 _WIN32 = sys.platform.startswith('win')
+_CYGWIN = sys.platform == 'cygwin'
 UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
 
 class CConstantErrno(CConstant):
@@ -178,7 +179,6 @@ c_dup = external(UNDERSCORE_ON_WIN32 + 'dup', [rffi.INT], rffi.INT)
 c_dup2 = external(UNDERSCORE_ON_WIN32 + 'dup2', [rffi.INT, rffi.INT], rffi.INT)
 c_open = external(UNDERSCORE_ON_WIN32 + 'open',
                   [rffi.CCHARP, rffi.INT, rffi.MODE_T], rffi.INT)
-c_getlogin = external('getlogin', [], rffi.CCHARP, releasegil=False)
 
 # Win32 Unicode functions
 c_wopen = external(UNDERSCORE_ON_WIN32 + 'wopen',
@@ -460,6 +460,39 @@ def forkpty():
     finally:
         lltype.free(master_p, flavor='raw')
 
+if _WIN32:
+    # emulate waitpid() with the _cwait() of Microsoft's compiler
+    c__cwait = external('_cwait',
+                        [rffi.INTP, rffi.PID_T, rffi.INT], rffi.PID_T)
+    def c_waitpid(pid, status_p, options):
+        result = c__cwait(status_p, pid, options)
+        # shift the status left a byte so this is more
+        # like the POSIX waitpid
+        status_p[0] = rffi.cast(rffi.INT, intmask(status_p[0]) << 8)
+        return result
+elif _CYGWIN:
+    c_waitpid = external('cygwin_waitpid',
+                         [rffi.PID_T, rffi.INTP, rffi.INT], rffi.PID_T)
+else:
+    c_waitpid = external('waitpid',
+                         [rffi.PID_T, rffi.INTP, rffi.INT], rffi.PID_T)
+
+@replace_os_function('waitpid')
+def waitpid(pid, options):
+    status_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+    status_p[0] = rffi.cast(rffi.INT, 0)
+    try:
+        result = handle_posix_error('waitpid',
+                                    c_waitpid(pid, status_p, options))
+        status = intmask(status_p[0])
+        return (result, status)
+    finally:
+        lltype.free(status_p, flavor='raw')
+
+c_getlogin = external('getlogin', [], rffi.CCHARP, releasegil=False)
+c_getloadavg = external('getloadavg', 
+                        [rffi.CArrayPtr(lltype.Float), rffi.INT], rffi.INT)
+
 @replace_os_function('getlogin')
 def getlogin():
     result = c_getlogin()
@@ -467,6 +500,16 @@ def getlogin():
         raise OSError(get_errno(), "getlogin failed")
     return rffi.charp2str(result)
 
+@replace_os_function('getloadavg')
+def getloadavg():
+    load = lltype.malloc(rffi.CArrayPtr(lltype.Float).TO, 3, flavor='raw')
+    try:
+        r = c_getloadavg(load, 3)
+        if r != 3:
+            raise OSError
+        return (load[0], load[1], load[2])
+    finally:
+        lltype.free(load, flavor='raw')
 
 #___________________________________________________________________
 

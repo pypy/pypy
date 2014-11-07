@@ -235,22 +235,6 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int], int, llimpl=c_func_llimpl,
                       export_name='ll_os.ll_os_' + name)
 
-    @registering_if(os, 'getloadavg')
-    def register_os_getloadavg(self):
-        AP = rffi.CArrayPtr(lltype.Float)
-        c_getloadavg = self.llexternal('getloadavg', [AP, rffi.INT], rffi.INT)
-
-        def getloadavg_llimpl():
-            load = lltype.malloc(AP.TO, 3, flavor='raw')
-            r = c_getloadavg(load, 3)
-            result_tuple = load[0], load[1], load[2]
-            lltype.free(load, flavor='raw')
-            if r != 3:
-                raise OSError
-            return result_tuple
-        return extdef([], (float, float, float),
-                      "ll_os.ll_getloadavg", llimpl=getloadavg_llimpl)
-
 # ------------------------------- os.read -------------------------------
 
     @registering(os.read)
@@ -677,50 +661,6 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str0], str0,
                       "ll_os.ll_os_readlink",
                       llimpl=os_readlink_llimpl)
-
-    @registering(os.waitpid)
-    def register_os_waitpid(self):
-        if sys.platform.startswith('win'):
-            # emulate waitpid() with the _cwait() of Microsoft's compiler
-            os__cwait = self.llexternal('_cwait',
-                                        [rffi.INTP, rffi.PID_T, rffi.INT],
-                                        rffi.PID_T)
-            def os_waitpid(pid, status_p, options):
-                result = os__cwait(status_p, pid, options)
-                # shift the status left a byte so this is more
-                # like the POSIX waitpid
-                tmp = rffi.cast(rffi.SIGNED, status_p[0])
-                tmp <<= 8
-                status_p[0] = rffi.cast(rffi.INT, tmp)
-                return result
-        else:
-            # Posix
-            if _CYGWIN:
-                os_waitpid = self.llexternal('cygwin_waitpid',
-                                             [rffi.PID_T, rffi.INTP, rffi.INT],
-                                             rffi.PID_T)
-            else:
-                os_waitpid = self.llexternal('waitpid',
-                                             [rffi.PID_T, rffi.INTP, rffi.INT],
-                                             rffi.PID_T)
-
-        def os_waitpid_llimpl(pid, options):
-            status_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-            status_p[0] = rffi.cast(rffi.INT, 0)
-            result = os_waitpid(rffi.cast(rffi.PID_T, pid),
-                                status_p,
-                                rffi.cast(rffi.INT, options))
-            result = rffi.cast(lltype.Signed, result)
-            status = status_p[0]
-            lltype.free(status_p, flavor='raw')
-            if result == -1:
-                raise OSError(rposix.get_errno(), "os_waitpid failed")
-            return (rffi.cast(lltype.Signed, result),
-                    rffi.cast(lltype.Signed, status))
-
-        return extdef([int, int], (int, int),
-                      "ll_os.ll_os_waitpid",
-                      llimpl=os_waitpid_llimpl)
 
     @registering(os.isatty)
     def register_os_isatty(self):
