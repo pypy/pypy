@@ -60,6 +60,7 @@ extern "C" {
 
 /* ---- System configuration information --------------------------------- */
 
+#include <src/precommondefs.h> /* for RPY_EXPORTED_FOR_TESTS */
 #include <ffitarget.h>
 
 #ifndef LIBFFI_ASM
@@ -264,12 +265,14 @@ ffi_prep_java_raw_closure (ffi_raw_closure*,
 
 /* ---- Public interface definition -------------------------------------- */
 
+RPY_EXPORTED_FOR_TESTS
 ffi_status ffi_prep_cif(/*@out@*/ /*@partial@*/ ffi_cif *cif, 
 			ffi_abi abi,
 			unsigned int nargs, 
 			/*@dependent@*/ /*@out@*/ /*@partial@*/ ffi_type *rtype, 
 			/*@dependent@*/ ffi_type **atypes);
 
+RPY_EXPORTED_FOR_TESTS
 int
 ffi_call(/*@dependent@*/ ffi_cif *cif, 
 	 void (*fn)(), 
