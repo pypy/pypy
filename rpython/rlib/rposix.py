@@ -159,6 +159,9 @@ class CConfig:
                            ('tms_cutime', rffi.INT),
                            ('tms_cstime', rffi.INT)])
 
+    GETPGRP_HAVE_ARG = rffi_platform.Has("getpgrp(0)")
+    SETPGRP_HAVE_ARG = rffi_platform.Has("setpgrp(0, 0)")
+
 config = rffi_platform.configure(CConfig)
 globals().update(config)
 
@@ -586,16 +589,18 @@ def times():
 
 #___________________________________________________________________
 
+c_getpid = external('getpid', [], rffi.PID_T, releasegil=False)
+c_getppid = external('getppid', [], rffi.PID_T, releasegil=False)
 c_setsid = external('setsid', [], rffi.PID_T)
 c_getsid = external('getsid', [rffi.PID_T], rffi.PID_T)
-c_getuid = external('getuid', [], rffi.INT)
-c_geteuid = external('geteuid', [], rffi.INT)
-c_setuid = external('setuid', [rffi.INT], rffi.INT)
-c_seteuid = external('seteuid', [rffi.INT], rffi.INT)
-c_getgid = external('getgid', [], rffi.INT)
-c_getegid = external('getegid', [], rffi.INT)
-c_setgid = external('setgid', [rffi.INT], rffi.INT)
-c_setegid = external('setegid', [rffi.INT], rffi.INT)
+
+@replace_os_function('getpid')
+def getpid():
+    return intmask(c_getpid())
+
+@replace_os_function('getppid')
+def getppid():
+    return intmask(c_getppid())
 
 @replace_os_function('setsid')
 def setsid():
@@ -604,6 +609,93 @@ def setsid():
 @replace_os_function('getsid')
 def getsid(pid):
     return handle_posix_error('getsid', c_getsid(pid))
+
+c_getpgid = external('getpid', [rffi.PID_T], rffi.PID_T)
+c_setpgid = external('setpid', [rffi.PID_T, rffi.PID_T], rffi.INT)
+
+@replace_os_function('getpgid')
+def getpgid(pid):
+    return handle_posix_error('getpgid', c_getpgid(pid))
+
+@replace_os_function('setpgid')
+def setpgid(pid, gid):
+    handle_posix_error('setpgid', c_setpgid(pid, gid))
+
+PID_GROUPS_T = rffi.CArrayPtr(rffi.PID_T)
+c_getgroups = external('getgroups', [rffi.INT, PID_GROUPS_T], rffi.INT)
+c_setgroups = external('setgroups', [rffi.SIZE_T, PID_GROUPS_T], rffi.INT)
+c_initgroups = external('initgroups', [rffi.CCHARP, rffi.PID_T], rffi.INT)
+
+@replace_os_function('getgroups')
+def getgroups():
+    n = handle_posix_error('getgroups',
+                           c_getgroups(0, lltype.nullptr(PID_GROUPS_T.TO)))
+    groups = lltype.malloc(PID_GROUPS_T.TO, n, flavor='raw')
+    try:
+        n = handle_posix_error('getgroups', c_getgroups(n, groups))
+        return [intmask(groups[i]) for i in range(n)]
+    finally:
+        lltype.free(groups, flavor='raw')
+
+@replace_os_function('setgroups')
+def setgroups(gids):
+    n = len(gids)
+    groups = lltype.malloc(PID_GROUPS_T.TO, n, flavor='raw')
+    try:
+        for i in range(n):
+            groups[i] = rffi.cast(rffi.PID_T, gids[i])
+        handle_posix_error('setgroups', c_setgroups(n, groups))
+    finally:
+        lltype.free(groups, flavor='raw')
+
+@replace_os_function('initgroups')
+def initgroups(user, group):
+    handle_posix_error('initgroups', c_initgroups(user, group))
+
+if GETPGRP_HAVE_ARG:
+    c_getpgrp = external('getpgrp', [rffi.INT], rffi.INT)
+else:
+    c_getpgrp = external('getpgrp', [], rffi.INT)
+if SETPGRP_HAVE_ARG:
+    c_setpgrp = external('setpgrp', [rffi.INT, rffi.INT], rffi.INT)
+else:
+    c_setpgrp = external('setpgrp', [], rffi.INT)
+
+@replace_os_function('getpgrp')
+def getpgrp():
+    if GETPGRP_HAVE_ARG:
+        return handle_posix_error('getpgrp', c_getpgrp(0))
+    else:
+        return handle_posix_error('getpgrp', c_getpgrp())
+
+@replace_os_function('setpgrp')
+def setpgrp():
+    if SETPGRP_HAVE_ARG:
+        return handle_posix_error('setpgrp', c_setpgrp(0, 0))
+    else:
+        return handle_posix_error('setpgrp', c_setpgrp())
+
+c_tcgetpgrp = external('tcgetpgrp', [rffi.INT], rffi.PID_T)
+c_tcsetpgrp = external('tcsetpgrp', [rffi.INT, rffi.PID_T], rffi.INT)
+
+@replace_os_function('tcgetpgrp')
+def tcgetpgrp(fd):
+    return handle_posix_error('tcgetpgrp', c_tcgetpgrp(fd))
+
+@replace_os_function('tcsetpgrp')
+def tcsetpgrp(fd, pgrp):
+    return handle_posix_error('tcsetpgrp', c_tcsetpgrp(fd, pgrp))
+
+#___________________________________________________________________
+
+c_getuid = external('getuid', [], rffi.INT)
+c_geteuid = external('geteuid', [], rffi.INT)
+c_setuid = external('setuid', [rffi.INT], rffi.INT)
+c_seteuid = external('seteuid', [rffi.INT], rffi.INT)
+c_getgid = external('getgid', [], rffi.INT)
+c_getegid = external('getegid', [], rffi.INT)
+c_setgid = external('setgid', [rffi.INT], rffi.INT)
+c_setegid = external('setegid', [rffi.INT], rffi.INT)
 
 @replace_os_function('getuid')
 def getuid():
