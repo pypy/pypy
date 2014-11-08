@@ -440,7 +440,7 @@ class FlowContext(object):
             msg = "implicit %s shouldn't occur" % exc_cls.__name__
             w_type = Constant(AssertionError)
             w_value = Constant(AssertionError(msg))
-            link = Link([w_type, w_value], self.graph.exceptblock)
+            link = self.graph.new_raise_link(w_value, w_type)
             self.recorder.crnt_block.closeblock(link)
 
         except Raise as e:
@@ -448,7 +448,7 @@ class FlowContext(object):
             if w_exc.w_type == const(ImportError):
                 msg = 'import statement always raises %s' % e
                 raise ImportError(msg)
-            link = Link([w_exc.w_type, w_exc.w_value], self.graph.exceptblock)
+            link = self.graph.new_raise_link(w_exc.w_value, w_exc.w_type)
             self.recorder.crnt_block.closeblock(link)
 
         except StopFlowing:
