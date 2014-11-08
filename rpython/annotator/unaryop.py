@@ -8,7 +8,7 @@ from rpython.flowspace.operation import op
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
-    SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
+    SomeFloat, SomeIterator, SomePBC, SomeNone, s_ImpossibleValue,
     s_Bool, s_None, unionof, add_knowntypedata,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
@@ -21,11 +21,9 @@ UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])
 UNARY_OPERATIONS.remove('contains')
 
-@op.type.register(SomeObject)
-def type_SomeObject(annotator, arg):
-    r = SomeType()
-    r.is_type_of = [arg]
-    return r
+@op.assign.register(SomeObject)
+def assign(annotator, v_obj):
+    return annotator.annotation(v_obj)
 
 @op.bool.register(SomeObject)
 def bool_SomeObject(annotator, obj):

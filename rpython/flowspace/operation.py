@@ -356,7 +356,7 @@ def unsupported(*args):
 
 add_operator('is_', 2, dispatch=2, pure=True)
 add_operator('id', 1, dispatch=1, pyfunc=id)
-add_operator('type', 1, dispatch=1, pyfunc=new_style_type, pure=True)
+#add_operator('type', 1, dispatch=1, pyfunc=new_style_type, pure=True)
 add_operator('issubtype', 2, dispatch=1, pyfunc=issubclass, pure=True)  # not for old-style classes
 add_operator('repr', 1, dispatch=1, pyfunc=repr, pure=True)
 add_operator('str', 1, dispatch=1, pyfunc=str, pure=True)
@@ -431,6 +431,7 @@ add_operator('buffer', 1, pyfunc=buffer, pure=True)   # see buffer.py
 add_operator('yield_', 1)
 add_operator('newslice', 3)
 add_operator('hint', None, dispatch=1)
+add_operator('assign', 1, dispatch=1)
 
 class Contains(SingleDispatchMixin, PureOperation):
     opname = 'contains'
@@ -441,6 +442,21 @@ class Contains(SingleDispatchMixin, PureOperation):
     @classmethod
     def get_specialization(cls, s_seq, s_elem):
         return cls._dispatch(type(s_seq))
+
+class Type(SingleDispatchMixin, PureOperation):
+    opname = 'type'
+    arity = 1
+    canraise = []
+    pyfunc = staticmethod(new_style_type)
+
+    def eval(self, ctx):
+        result = self.constfold()
+        if result is not None:
+            return result
+        from rpython.annotator.expression import V_Type
+        v_instance, = self.args
+        result = V_Type(v_instance)
+        return ctx.do_op(op.assign(result))
 
 
 class NewDict(HLOperation):
