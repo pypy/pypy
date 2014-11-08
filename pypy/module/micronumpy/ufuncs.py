@@ -706,7 +706,7 @@ class W_UfuncGeneric(W_Ufunc):
         if self.stack_inputs:
             inargs = inargs + outargs
             it = W_NDIter(space, space.newlist(inargs + outargs),
-                            flags=flags, op_flags=op_flags,
+                            flags=flags, op_flags=op_flags)
             for args in it:
                 space.call_args(func, Arguments.frompacked(space, args))
             if len(outargs) > 1:

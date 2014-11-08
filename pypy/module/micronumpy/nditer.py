@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.module.micronumpy import ufuncs, support, concrete
+from pypy.module.micronumpy import support, concrete
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.descriptor import decode_w_dtype
 from pypy.module.micronumpy.iterators import ArrayIter, SliceIter, OpFlag
@@ -288,8 +288,10 @@ class IndexIterator(object):
 
 class W_NDIter(W_Root):
     _immutable_fields_ = ['ndim', ]
-    def __init__(self, space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting,
-                 w_op_axes, w_itershape, w_buffersize, order):
+    def __init__(self, space, w_seq, w_flags, w_op_flags, w_op_dtypes,
+                 w_casting, w_op_axes, w_itershape, w_buffersize, order):
+        from pypy.module.micronumpy.ufuncs import find_binop_result_dtype
+        
         self.order = order
         self.external_loop = False
         self.buffered = False
@@ -355,7 +357,7 @@ class W_NDIter(W_Root):
                         continue
                     if self.op_flags[i].rw == 'w':
                         continue
-                    out_dtype = ufuncs.find_binop_result_dtype(
+                    out_dtype = find_binop_result_dtype(
                         space, self.seq[i].get_dtype(), out_dtype)
             for i in outargs:
                 if self.seq[i] is None:
