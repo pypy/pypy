@@ -736,6 +736,46 @@ def waitpid(pid, options):
     finally:
         lltype.free(status_p, flavor='raw')
 
+if _WIN32:
+    CreatePipe = external('CreatePipe', [rwin32.LPHANDLE,
+                                         rwin32.LPHANDLE,
+                                         rffi.VOIDP,
+                                         rwin32.DWORD],
+                          rwin32.BOOL)
+    c_open_osfhandle = external('_open_osfhandle', [rffi.INTPTR_T,
+                                                    rffi.INT],
+                                rffi.INT)
+else:
+    INT_ARRAY_P = rffi.CArrayPtr(rffi.INT)
+    c_pipe = external('pipe', [INT_ARRAY_P], rffi.INT)
+
+@replace_os_function('pipe')
+def pipe():
+    if _WIN32:
+        pread  = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
+        pwrite = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
+        try:
+            if not CreatePipe(
+                    pread, pwrite, lltype.nullptr(rffi.VOIDP.TO), 0):
+                raise WindowsError(rwin32.GetLastError(), "CreatePipe failed")
+            hread = rffi.cast(rffi.INTPTR_T, pread[0])
+            hwrite = rffi.cast(rffi.INTPTR_T, pwrite[0])
+        finally:
+            lltype.free(pwrite, flavor='raw')
+            lltype.free(pread, flavor='raw')
+        fdread = _open_osfhandle(hread, 0)
+        fdwrite = _open_osfhandle(hwrite, 1)
+        return (fdread, fdwrite)
+    else:
+        filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')
+        try:
+            handle_posix_error('pipe', c_pipe(filedes))
+            return (widen(filedes[0]), widen(filedes[1]))
+        finally:
+            lltype.free(filedes, flavor='raw')
+
+#___________________________________________________________________
+
 c_getlogin = external('getlogin', [], rffi.CCHARP, releasegil=False)
 c_getloadavg = external('getloadavg', 
                         [rffi.CArrayPtr(lltype.Float), rffi.INT], rffi.INT)
@@ -757,6 +797,24 @@ def getloadavg():
         return (load[0], load[1], load[2])
     finally:
         lltype.free(load, flavor='raw')
+
+#___________________________________________________________________
+
+c_chown = external('chown', [rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT)
+c_lchown = external('lchown', [rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT)
+c_fchown = external('fchown', [rffi.INT, rffi.INT, rffi.INT], rffi.INT)
+
+@replace_os_function('chown')
+def chown(path, uid, gid):
+    handle_posix_error('chown', c_chown(path, uid, gid))
+
+@replace_os_function('lchown')
+def lchown(path, uid, gid):
+    handle_posix_error('lchown', c_lchown(path, uid, gid))
+
+@replace_os_function('fchown')
+def fchown(fd, uid, gid):
+    handle_posix_error('fchown', c_fchown(fd, uid, gid))
 
 #___________________________________________________________________
 
