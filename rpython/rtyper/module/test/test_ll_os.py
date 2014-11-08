@@ -89,7 +89,7 @@ def test__getfullpathname():
     posix = __import__(os.name)
     sysdrv = os.getenv('SystemDrive', 'C:')
     stuff = sysdrv + 'stuff'
-    data = getllimpl(posix._getfullpathname)(stuff)
+    data = rposix.getfullpathname(stuff)
     assert data == posix._getfullpathname(stuff)
     # the most intriguing failure of ntpath.py should not repeat, here:
     assert not data.endswith(stuff)
@@ -116,7 +116,7 @@ def test_chdir():
     pwd = os.getcwd()
     try:
         check_special_envvar()
-        getllimpl(os.chdir)('..')
+        rposix.chdir('..')
         assert os.getcwd() == os.path.dirname(pwd)
         check_special_envvar()
     finally:
@@ -124,20 +124,19 @@ def test_chdir():
 
 def test_mkdir():
     filename = str(udir.join('test_mkdir.dir'))
-    getllimpl(os.mkdir)(filename, 0)
-    exc = py.test.raises(OSError, getllimpl(os.mkdir), filename, 0)
+    rposix.mkdir(filename, 0)
+    exc = py.test.raises(OSError, rposix.mkdir, filename, 0)
     assert exc.value.errno == errno.EEXIST
     if sys.platform == 'win32':
         assert exc.type is WindowsError
 
 def test_strerror():
-    data = getllimpl(os.strerror)(2)
-    assert data == os.strerror(2)
+    assert rposix.strerror(2) == os.strerror(2)
 
 def test_system():
     filename = str(udir.join('test_system.txt'))
     arg = '%s -c "print 1+1" > %s' % (sys.executable, filename)
-    data = getllimpl(os.system)(arg)
+    data = rposix.system(arg)
     assert data == 0
     assert file(filename).read().strip() == '2'
     os.unlink(filename)
@@ -267,9 +266,6 @@ def test_os_fdatasync():
 
 
 def test_os_kill():
-    if not hasattr(os,'kill') or sys.platform == 'win32':
-        py.test.skip('No kill in os')
-    f = getllimpl(os.kill)
     import subprocess
     import signal
     proc = subprocess.Popen([sys.executable, "-c",
@@ -277,16 +273,12 @@ def test_os_kill():
                          "time.sleep(10)",
                          ],
                         )
-    f(proc.pid, signal.SIGTERM)
+    rposix.kill(proc.pid, signal.SIGTERM)
     expected = -signal.SIGTERM
     assert proc.wait() == expected
 
 def test_isatty():
-    try:
-        f = getllimpl(os.isatty)
-    except:
-        py.test.skip('No isatty in os')
-    assert f(-1)  == False
+    assert rposix.isatty(-1) is False
 
 
 class TestOsExpect(ExpectTest):

@@ -389,18 +389,4 @@ if WIN32:
     def GetConsoleOutputCP():
         return rffi.cast(lltype.Signed, _GetConsoleOutputCP())
 
-    def os_kill(pid, sig):
-        if sig == CTRL_C_EVENT or sig == CTRL_BREAK_EVENT:
-            if GenerateConsoleCtrlEvent(sig, pid) == 0:
-                raise lastWindowsError('os_kill failed generating event')
-            return
-        handle = OpenProcess(PROCESS_ALL_ACCESS, False, pid)
-        if handle == NULL_HANDLE:
-            raise lastWindowsError('os_kill failed opening process')
-        try:
-            if TerminateProcess(handle, sig) == 0:
-                raise lastWindowsError('os_kill failed to terminate process')
-        finally:
-            CloseHandle(handle)
-
     _wenviron_items, _wgetenv, _wputenv = make_env_impls(win32=True)

@@ -275,22 +275,12 @@ def statvfs(path):
     return os.statvfs(_as_bytes(path))
 
 @specialize.argtype(0, 1)
-def symlink(src, dest):
-    os.symlink(_as_bytes(src), _as_bytes(dest))
-
-@specialize.argtype(0, 1)
 def putenv(name, value):
     os.environ[_as_bytes(name)] = _as_bytes(value)
 
 @specialize.argtype(0)
 def unsetenv(name):
     del os.environ[_as_bytes(name)]
-
-if os.name == 'nt':
-    from rpython.rlib import rwin32
-    os_kill = rwin32.os_kill
-else:
-    os_kill = os.kill
 
 #___________________________________________________________________
 # Implementation of many posix functions.
@@ -957,6 +947,23 @@ def mkfifo(path, mode):
 def mknod(path, mode, dev):
     handle_posix_error('mknod', c_mknod(_as_bytes0(path), mode, dev))
 
+c_link = external('link', [rffi.CCHARP, rffi.CCHARP], rffi.INT)
+c_symlink = external('symlink', [rffi.CCHARP, rffi.CCHARP], rffi.INT)
+
+@replace_os_function('link')
+@specialize.argtype(0, 1)
+def link(oldpath, newpath):
+    oldpath = _as_bytes0(oldpath)
+    newpath = _as_bytes0(newpath)
+    handle_posix_error('link', c_link(oldpath, newpath))
+
+@replace_os_function('symlink')
+@specialize.argtype(0, 1)
+def symlink(oldpath, newpath):
+    oldpath = _as_bytes0(oldpath)
+    newpath = _as_bytes0(newpath)
+    handle_posix_error('symlink', c_symlink(oldpath, newpath))
+
 c_umask = external(UNDERSCORE_ON_WIN32 + 'umask', [rffi.MODE_T], rffi.MODE_T)
 
 @replace_os_function('umask')
@@ -1144,6 +1151,64 @@ def times():
             lltype.free(pkernel, flavor='raw')
             lltype.free(pexit,   flavor='raw')
             lltype.free(pcreate, flavor='raw')
+
+c_kill = external('kill', [rffi.PID_T, rffi.INT], rffi.INT)
+c_killpg = external('killpg', [rffi.INT, rffi.INT], rffi.INT)
+c_exit = external('_exit', [rffi.INT], lltype.Void)
+c_nice = external('nice', [rffi.INT], rffi.INT)
+
+@replace_os_function('kill')
+def kill(pid, sig):
+    if not _WIN32:
+        return handle_posix_error('kill', c_kill(pid, sig))
+    else:
+        if sig == rwin32.CTRL_C_EVENT or sig == rwin32.CTRL_BREAK_EVENT:
+            if rwin32.GenerateConsoleCtrlEvent(sig, pid) == 0:
+                raise rwin32.lastWindowsError('kill() failed generating event')
+            return
+        handle = rwin32.OpenProcess(rwin32.PROCESS_ALL_ACCESS, False, pid)
+        if not handle:
+            raise rwin32.lastWindowsError('kill() failed opening process')
+        try:
+            if rwin32.TerminateProcess(handle, sig) == 0:
+                raise rwin32.lastWindowsError(
+                    'kill() failed to terminate process')
+        finally:
+            rwin32.CloseHandle(handle)
+
+@replace_os_function('killpg')
+def killpg(pgrp, sig):
+    return handle_posix_error('killpg', c_killpg(pgrp, sig))
+
+@replace_os_function('_exit')
+def exit(status):
+    debug.debug_flush()
+    c_exit(status)
+
+@replace_os_function('nice')
+def nice(inc):
+    # Assume that the system provides a standard-compliant version
+    # of nice() that returns the new priority.  Nowadays, FreeBSD
+    # might be the last major non-compliant system (xxx check me).
+    set_errno(0)
+    res = widen(c_nice(inc))
+    if res == -1:
+        err = get_errno()
+        if err != 0:
+            raise OSError(err, "os_nice failed")
+    return res
+
+c_ctermid = external('ctermid', [rffi.CCHARP], rffi.CCHARP)
+
+@replace_os_function('ctermid')
+def ctermid():
+    return rffi.charp2str(c_ctermid(lltype.nullptr(rffi.CCHARP.TO)))
+
+c_tmpnam = external('tmpnam', [rffi.CCHARP], rffi.CCHARP)
+
+@replace_os_function('tmpnam')
+def tmpnam():
+    return rffi.charp2str(c_tmpnam(lltype.nullptr(rffi.CCHARP.TO)))
 
 #___________________________________________________________________
 
