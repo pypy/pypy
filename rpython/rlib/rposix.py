@@ -270,43 +270,9 @@ def stat(path):
 def lstat(path):
     return os.lstat(_as_bytes(path))
 
-
 @specialize.argtype(0)
 def statvfs(path):
     return os.statvfs(_as_bytes(path))
-
-
-@specialize.argtype(0)
-def unlink(path):
-    return os.unlink(_as_bytes(path))
-
-@specialize.argtype(0, 1)
-def rename(path1, path2):
-    return os.rename(_as_bytes(path1), _as_bytes(path2))
-
-@specialize.argtype(0)
-def chmod(path, mode):
-    return os.chmod(_as_bytes(path), mode)
-
-@specialize.argtype(0)
-def chdir(path):
-    return os.chdir(_as_bytes(path))
-
-@specialize.argtype(0)
-def mkdir(path, mode=0777):
-    return os.mkdir(_as_bytes(path), mode)
-
-@specialize.argtype(0)
-def rmdir(path):
-    return os.rmdir(_as_bytes(path))
-
-@specialize.argtype(0)
-def mkfifo(path, mode):
-    os.mkfifo(_as_bytes(path), mode)
-
-@specialize.argtype(0)
-def mknod(path, mode, device):
-    os.mknod(_as_bytes(path), mode, device)
 
 @specialize.argtype(0, 1)
 def symlink(src, dest):
@@ -431,11 +397,62 @@ def fdatasync(fd):
 
 #___________________________________________________________________
 
+c_chdir = external('chdir', [rffi.CCHARP], rffi.INT)
 c_fchdir = external('fchdir', [rffi.INT], rffi.INT)
 c_access = external(UNDERSCORE_ON_WIN32 + 'access',
                     [rffi.CCHARP, rffi.INT], rffi.INT)
 c_waccess = external(UNDERSCORE_ON_WIN32 + 'waccess',
                      [rffi.CWCHARP, rffi.INT], rffi.INT)
+
+@replace_os_function('chdir')
+@specialize.argtype(0)
+def chdir(path):
+    if not _WIN32:
+        handle_posix_error('chdir', c_chdir(_as_bytes0(path)))
+    else:
+        traits = _preferred_traits(path)
+        from rpython.rlib.rwin32file import make_win32_traits
+        win32traits = make_win32_traits(traits)
+        path = traits._as_str0(path)
+
+        # This is a reimplementation of the C library's chdir
+        # function, but one that produces Win32 errors instead of DOS
+        # error codes.
+        # chdir is essentially a wrapper around SetCurrentDirectory;
+        # however, it also needs to set "magic" environment variables
+        # indicating the per-drive current directory, which are of the
+        # form =<drive>:
+        if not win32traits.SetCurrentDirectory(path):
+            raise rwin32.lastWindowsError()
+        MAX_PATH = rwin32.MAX_PATH
+        assert MAX_PATH > 0
+
+        with traits.scoped_alloc_buffer(MAX_PATH) as path:
+            res = win32traits.GetCurrentDirectory(MAX_PATH + 1, path.raw)
+            if not res:
+                raise rwin32.lastWindowsError()
+            res = rffi.cast(lltype.Signed, res)
+            assert res > 0
+            if res <= MAX_PATH + 1:
+                new_path = path.str(res)
+            else:
+                with traits.scoped_alloc_buffer(res) as path:
+                    res = win32traits.GetCurrentDirectory(res, path.raw)
+                    if not res:
+                        raise rwin32.lastWindowsError()
+                    res = rffi.cast(lltype.Signed, res)
+                    assert res > 0
+                    new_path = path.str(res)
+        if traits.str is unicode:
+            if new_path[0] == u'\\' or new_path[0] == u'/':  # UNC path
+                return
+            magic_envvar = u'=' + new_path[0] + u':'
+        else:
+            if new_path[0] == '\\' or new_path[0] == '/':  # UNC path
+                return
+            magic_envvar = '=' + new_path[0] + ':'
+        if not win32traits.SetEnvironmentVariable(magic_envvar, new_path):
+            raise rwin32.lastWindowsError()
 
 @replace_os_function('fchdir')
 def fchdir(fd):
@@ -799,6 +816,152 @@ def getloadavg():
         lltype.free(load, flavor='raw')
 
 #___________________________________________________________________
+
+c_readlink = external('readlink',
+                      [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T)
+
+@replace_os_function('readlink')
+def readlink(path):
+    path = _as_bytes0(path)
+    bufsize = 1023
+    while True:
+        buf = lltype.malloc(rffi.CCHARP.TO, bufsize, flavor='raw')
+        res = widen(c_readlink(path, buf, bufsize))
+        if res < 0:
+            lltype.free(buf, flavor='raw')
+            error = get_errno()    # failed
+            raise OSError(error, "readlink failed")
+        elif res < bufsize:
+            break                       # ok
+        else:
+            # buf too small, try again with a larger buffer
+            lltype.free(buf, flavor='raw')
+            bufsize *= 4
+    # convert the result to a string
+    result = rffi.charp2strn(buf, res)
+    lltype.free(buf, flavor='raw')
+    return result
+
+c_isatty = external(UNDERSCORE_ON_WIN32 + 'isatty', [rffi.INT], rffi.INT)
+
+@replace_os_function('isatty')
+def isatty(fd):
+    if not is_valid_fd(fd):
+        return False
+    return c_isatty(fd) != 0
+    
+c_strerror = external('strerror', [rffi.INT], rffi.CCHARP,
+                      releasegil=False)
+
+@replace_os_function('strerror')
+def strerror(errnum):
+    res = c_strerror(errnum)
+    if not res:
+        raise ValueError("os_strerror failed")
+    return rffi.charp2str(res)
+
+c_system = external('system', [rffi.CCHARP], rffi.INT)
+
+@replace_os_function('system')
+def system(command):
+    return widen(c_system(command))
+
+c_unlink = external('unlink', [rffi.CCHARP], rffi.INT)
+c_mkdir = external('mkdir', [rffi.CCHARP, rffi.MODE_T], rffi.INT)
+c_rmdir = external(UNDERSCORE_ON_WIN32 + 'rmdir', [rffi.CCHARP], rffi.INT)
+c_wrmdir = external(UNDERSCORE_ON_WIN32 + 'wrmdir', [rffi.CWCHARP], rffi.INT)
+
+@replace_os_function('unlink')
+@specialize.argtype(0)
+def unlink(path):
+    if not _WIN32:
+        handle_posix_error('unlink', c_unlink(_as_bytes0(path)))
+    else:
+        traits = _preferred_traits(path)
+        win32traits = make_win32_traits(traits)
+        if not win32traits.DeleteFile(traits.as_str0(path)):
+            raise rwin32.lastWindowsError()
+
+@replace_os_function('mkdir')
+@specialize.argtype(0)
+def mkdir(path, mode=0o777):
+    if not _WIN32:
+        handle_posix_error('mkdir', c_mkdir(_as_bytes0(path), mode))
+    else:
+        traits = _preferred_traits(path)
+        win32traits = make_win32_traits(traits)
+        if not win32traits.CreateDirectory(traits.as_str0(path), None):
+            raise rwin32.lastWindowsError()
+
+@replace_os_function('rmdir')
+@specialize.argtype(0)
+def rmdir(path):
+    if _prefer_unicode(path):
+        handle_posix_error('wrmdir', c_wrmdir(_as_unicode0(path)))
+    else:
+        handle_posix_error('rmdir', c_rmdir(_as_bytes0(path)))
+
+c_chmod = external('chmod', [rffi.CCHARP, rffi.MODE_T], rffi.INT)
+c_fchmod = external('fchmod', [rffi.INT, rffi.MODE_T], rffi.INT)
+c_rename = external('rename', [rffi.CCHARP, rffi.CCHARP], rffi.INT)
+
+@replace_os_function('chmod')
+@specialize.argtype(0)
+def chmod(path, mode):
+    if not _WIN32:
+        handle_posix_error('chmod', c_chmod(_as_bytes0(path), mode))
+    else:
+        traits = _preferred_traits(path)
+        win32traits = make_win32_traits(traits)
+        path = traits.as_str0(path)
+        attr = win32traits.GetFileAttributes(path)
+        if attr == win32traits.INVALID_FILE_ATTRIBUTES:
+            raise rwin32.lastWindowsError()
+        if mode & 0200: # _S_IWRITE
+            attr &= ~win32traits.FILE_ATTRIBUTE_READONLY
+        else:
+            attr |= win32traits.FILE_ATTRIBUTE_READONLY
+        if not win32traits.SetFileAttributes(path, attr):
+            raise rwin32.lastWindowsError()
+
+@replace_os_function('fchmod')
+def fchmod(fd, mode):
+    handle_posix_error('fchmod', c_fchmod(fd, mode))
+
+@replace_os_function('rename')
+@specialize.argtype(0, 1)
+def rename(path1, path2):
+    if not _WIN32:
+        handle_posix_error('rename',
+                           c_rename(_as_bytes0(path1), _as_bytes0(path2)))
+    else:
+        traits = _preferred_traits(path)
+        win32traits = make_win32_traits(traits)
+        path1 = traits.as_str0(path1)
+        path2 = traits.as_str0(path2)
+        if not win32traits.MoveFile(path1, path2):
+            raise rwin32.lastWindowsError()
+
+c_mkfifo = external('mkfifo', [rffi.CCHARP, rffi.MODE_T], rffi.INT)
+c_mknod = external('mknod', [rffi.CCHARP, rffi.MODE_T, rffi.INT], rffi.INT,
+                   macro=True)
+#                                           # xxx: actually ^^^ dev_t
+
+@replace_os_function('mkfifo')
+@specialize.argtype(0)
+def mkfifo(path, mode):
+    handle_posix_error('mkfifo', c_mkfifo(_as_bytes0(path), mode))
+
+@replace_os_function('mknod')
+@specialize.argtype(0)
+def mknod(path, mode, dev):
+    handle_posix_error('mknod', c_mknod(_as_bytes0(path), mode, dev))
+
+c_umask = external(UNDERSCORE_ON_WIN32 + 'umask', [rffi.MODE_T], rffi.MODE_T)
+
+@replace_os_function('umask')
+def umask(newmask):
+    return widen(c_umask(newmask))
 
 c_chown = external('chown', [rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT)
 c_lchown = external('lchown', [rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT)
