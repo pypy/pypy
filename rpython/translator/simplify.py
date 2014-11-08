@@ -5,6 +5,7 @@
 simplify_graph() applies all simplifications defined in this file.
 """
 import py
+from collections import defaultdict
 
 from rpython.flowspace.model import (Variable, Constant,
                                      c_last_exception, checkgraph, mkentrymap)
@@ -401,8 +402,8 @@ def find_start_blocks(graphs):
 def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
     """Remove dead operations and variables that are passed over a link
     but not used in the target block. Input is a set of blocks"""
-    read_vars = {}  # set of variables really used
-    variable_flow = {}  # map {Var: list-of-Vars-it-depends-on}
+    read_vars = set()  # set of variables really used
+    dependencies = defaultdict(set) # map {Var: list-of-Vars-it-depends-on}
     set_of_blocks = set(blocks)
     start_blocks = find_start_blocks(graphs)
 
@@ -414,53 +415,48 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
         # cannot remove the exc-raising operation
         return op is not block.operations[-1]
 
-    # compute variable_flow and an initial read_vars
+    # compute dependencies and an initial read_vars
     for block in blocks:
         # figure out which variables are ever read
         for op in block.operations:
-            if not canremove(op, block):   # mark the inputs as really needed
-                for arg in op.args:
-                    read_vars[arg] = True
+            if not canremove(op, block):   # the inputs are always needed
+                read_vars.update(op.args)
             else:
-                # if CanRemove, only mark dependencies of the result
-                # on the input variables
-                deps = variable_flow.setdefault(op.result, [])
-                deps.extend(op.args)
+                dependencies[op.result].update(op.args)
 
         if isinstance(block.exitswitch, Variable):
-            read_vars[block.exitswitch] = True
+            read_vars.add(block.exitswitch)
 
         if block.exits:
             for link in block.exits:
                 if link.target not in set_of_blocks:
                     for arg, targetarg in zip(link.args, link.target.inputargs):
-                        read_vars[arg] = True
-                        read_vars[targetarg] = True
+                        read_vars.add(arg)
+                        read_vars.add(targetarg)
                 else:
                     for arg, targetarg in zip(link.args, link.target.inputargs):
-                        deps = variable_flow.setdefault(targetarg, [])
-                        deps.append(arg)
+                        dependencies[targetarg].add(arg)
         else:
             # return and except blocks implicitely use their input variable(s)
             for arg in block.inputargs:
-                read_vars[arg] = True
-        # an input block's inputargs should not be modified, even if some
+                read_vars.add(arg)
+        # a start block's inputargs should not be modified, even if some
         # of the function's input arguments are not actually used
         if block in start_blocks:
             for arg in block.inputargs:
-                read_vars[arg] = True
+                read_vars.add(arg)
 
     # flow read_vars backwards so that any variable on which a read_vars
     # depends is also included in read_vars
     def flow_read_var_backward(pending):
-        pending = list(pending)
-        for var in pending:
-            for prevvar in variable_flow.get(var, []):
+        while pending:
+            var = pending.pop()
+            for prevvar in dependencies[var]:
                 if prevvar not in read_vars:
-                    read_vars[prevvar] = True
-                    pending.append(prevvar)
+                    read_vars.add(prevvar)
+                    pending.add(prevvar)
 
-    flow_read_var_backward(read_vars)
+    flow_read_var_backward(set(read_vars))
 
     for block in blocks:
 
