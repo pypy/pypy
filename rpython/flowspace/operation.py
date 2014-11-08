@@ -411,7 +411,7 @@ def unsupported(*args):
 
 add_operator('is_', 2, dispatch=2, pure=True)
 add_operator('id', 1, dispatch=1, pyfunc=id)
-add_operator('type', 1, dispatch=1, pyfunc=new_style_type, pure=True)
+#add_operator('type', 1, dispatch=1, pyfunc=new_style_type, pure=True)
 add_operator('issubtype', 2, dispatch=1, pyfunc=issubclass, pure=True)  # not for old-style classes
 add_operator('repr', 1, dispatch=1, pyfunc=repr, pure=True)
 add_operator('str', 1, dispatch=1, pyfunc=str, pure=True)
@@ -504,11 +504,14 @@ class Type(SingleDispatchMixin, PureOperation):
     canraise = []
     pyfunc = staticmethod(new_style_type)
 
-    def transform(self, annotator):
+    def eval(self, ctx):
+        result = self.constfold()
+        if result is not None:
+            return result
         from rpython.annotator.expression import V_Type
-        value = V_Type(self.args[0])
-        self.result.equals = value
-        return [op.assign(value)]
+        v_instance, = self.args
+        result = V_Type(v_instance)
+        return ctx.do_op(op.assign(result))
 
 
 class NewDict(HLOperation):

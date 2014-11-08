@@ -649,14 +649,10 @@ def checkgraph(graph):
                     assert link.last_exc_value is None
                 for v in link.args:
                     assert isinstance(v, (Constant, Variable))
-                    if isinstance(v, Variable):
+                    if type(v) is Variable:
                         usevar(v, in_link=link)
                         if exc_link:
                             assert v != block.operations[-1].result
-                    #else:
-                    #    if not exc_link:
-                    #        assert v.value is not last_exception
-                    #        #assert v.value != last_exc_value
                 allexitcases[link.exitcase] = True
             assert len(allexitcases) == len(block.exits)
             vars_previous_blocks.update(vars)

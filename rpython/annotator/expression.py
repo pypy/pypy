@@ -12,3 +12,6 @@ class V_Type(Variable):
 
     def as_operation(self):
         return op.type(self.arg)
+
+    def __eq__(self, other):
+        return isinstance(other, V_Type) and other.arg == self.arg
