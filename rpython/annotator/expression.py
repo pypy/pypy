@@ -15,3 +15,9 @@ class V_Type(Variable):
 
     def __eq__(self, other):
         return isinstance(other, V_Type) and other.arg == self.arg
+
+    def replace(self, mapping):
+        if self.arg in mapping:
+            return V_Type(mapping[self.arg])
+        else:
+            return self

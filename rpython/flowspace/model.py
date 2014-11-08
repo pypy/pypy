@@ -31,6 +31,9 @@ class FunctionGraph(object):
     def getreturnvar(self):
         return self.returnblock.inputargs[0]
 
+    def new_raise_link(self, v_exception, v_exc_type):
+        return Link([v_exc_type, v_exception], self.exceptblock)
+
     @property
     def source(self):
         if hasattr(self, "_source"):
@@ -208,13 +211,12 @@ class Block(object):
     def renamevariables(self, mapping):
         for a in mapping:
             assert isinstance(a, Variable), a
-        self.inputargs = [mapping.get(a, a) for a in self.inputargs]
-        for op in self.operations:
-            op.args = [mapping.get(a, a) for a in op.args]
-            op.result = mapping.get(op.result, op.result)
-        self.exitswitch = mapping.get(self.exitswitch, self.exitswitch)
+        self.inputargs = [a.replace(mapping) for a in self.inputargs]
+        self.operations = [op.replace(mapping) for op in self.operations]
+        if self.exitswitch is not None:
+            self.exitswitch = self.exitswitch.replace(mapping)
         for link in self.exits:
-            link.args = [mapping.get(a, a) for a in link.args]
+            link.args = [a.replace(mapping) for a in link.args]
 
     def closeblock(self, *exits):
         assert self.exits == [], "block already closed"
@@ -320,6 +322,8 @@ class Variable(object):
             newvar.concretetype = self.concretetype
         return newvar
 
+    def replace(self, mapping):
+        return mapping.get(self, self)
 
 
 class Constant(Hashable):
@@ -348,6 +352,9 @@ class Constant(Hashable):
         else:
             # cannot count on it not mutating at runtime!
             return False
+
+    def replace(self, mapping):
+        return self
 
 
 class FSException(object):
@@ -424,8 +431,8 @@ class SpaceOperation(object):
                                 ", ".join(map(repr, self.args)))
 
     def replace(self, mapping):
-        newargs = [mapping.get(arg, arg) for arg in self.args]
-        newresult = mapping.get(self.result, self.result)
+        newargs = [arg.replace(mapping) for arg in self.args]
+        newresult = self.result.replace(mapping)
         return type(self)(self.opname, newargs, newresult, self.offset)
 
 class Atom(object):
@@ -580,6 +587,8 @@ def checkgraph(graph):
                     if isinstance(v, Variable):
                         if type(v) is Variable:
                             usevar(v)
+                        else:
+                            usevar(v.arg)
                     else:
                         assert v.value is not last_exception
                         #assert v.value != last_exc_value

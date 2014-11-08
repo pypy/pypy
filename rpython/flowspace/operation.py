@@ -76,8 +76,8 @@ class HLOperation(SpaceOperation):
         self.offset = -1
 
     def replace(self, mapping):
-        newargs = [mapping.get(arg, arg) for arg in self.args]
-        newresult = mapping.get(self.result, self.result)
+        newargs = [arg.replace(mapping) for arg in self.args]
+        newresult = self.result.replace(mapping)
         newop = type(self)(*newargs)
         newop.result = newresult
         newop.offset = self.offset
