@@ -5,6 +5,7 @@ from rpython.rtyper.lltypesystem.rffi import CConstant, CExternVariable, INT
 from rpython.rtyper.lltypesystem import lltype, ll2ctypes, rffi
 from rpython.rtyper.module.support import StringTraits, UnicodeTraits
 from rpython.rtyper.tool import rffi_platform
+from rpython.tool.sourcetools import func_renamer
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.objectmodel import (
@@ -143,7 +144,7 @@ if _WIN32:
     includes = ['io.h', 'sys/utime.h', 'sys/types.h']
     libraries = []
 else:
-    includes = ['unistd.h',  'sys/types.h',
+    includes = ['unistd.h',  'sys/types.h', 'sys/wait.h',
                 'utime.h', 'sys/time.h', 'sys/times.h',
                 'grp.h', 'dirent.h']
     libraries = ['util']
@@ -157,6 +158,7 @@ class CConfig:
     SEEK_SET = rffi_platform.DefinedConstantInteger('SEEK_SET')
     SEEK_CUR = rffi_platform.DefinedConstantInteger('SEEK_CUR')
     SEEK_END = rffi_platform.DefinedConstantInteger('SEEK_END')
+    OFF_T_SIZE = rffi_platform.SizeOf('off_t')
 
     HAVE_UTIMES = rffi_platform.Has('utimes')
     UTIMBUF = rffi_platform.Struct('struct %sutimbuf' % UNDERSCORE_ON_WIN32,
@@ -180,6 +182,11 @@ globals().update(config)
 def external(name, args, result, compilation_info=eci, **kwds):
     return rffi.llexternal(name, args, result,
                            compilation_info=compilation_info, **kwds)
+
+# For now we require off_t to be the same size as LONGLONG, which is the
+# interface required by callers of functions that thake an argument of type
+# off_t.
+assert OFF_T_SIZE == rffi.sizeof(rffi.LONGLONG)
 
 c_dup = external(UNDERSCORE_ON_WIN32 + 'dup', [rffi.INT], rffi.INT)
 c_dup2 = external(UNDERSCORE_ON_WIN32 + 'dup2', [rffi.INT, rffi.INT], rffi.INT)
@@ -743,43 +750,23 @@ def waitpid(pid, options):
     finally:
         lltype.free(status_p, flavor='raw')
 
-if _WIN32:
-    CreatePipe = external('CreatePipe', [rwin32.LPHANDLE,
-                                         rwin32.LPHANDLE,
-                                         rffi.VOIDP,
-                                         rwin32.DWORD],
-                          rwin32.BOOL)
-    c_open_osfhandle = external('_open_osfhandle', [rffi.INTPTR_T,
-                                                    rffi.INT],
-                                rffi.INT)
-else:
-    INT_ARRAY_P = rffi.CArrayPtr(rffi.INT)
-    c_pipe = external('pipe', [INT_ARRAY_P], rffi.INT)
+def _make_waitmacro(name):
+    c_func = external(name, [lltype.Signed], lltype.Signed,
+                      macro=True)
+    returning_int = name in ('WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG')
 
-@replace_os_function('pipe')
-def pipe():
-    if _WIN32:
-        pread  = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
-        pwrite = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
-        try:
-            if not CreatePipe(
-                    pread, pwrite, lltype.nullptr(rffi.VOIDP.TO), 0):
-                raise WindowsError(rwin32.GetLastError(), "CreatePipe failed")
-            hread = rffi.cast(rffi.INTPTR_T, pread[0])
-            hwrite = rffi.cast(rffi.INTPTR_T, pwrite[0])
-        finally:
-            lltype.free(pwrite, flavor='raw')
-            lltype.free(pread, flavor='raw')
-        fdread = _open_osfhandle(hread, 0)
-        fdwrite = _open_osfhandle(hwrite, 1)
-        return (fdread, fdwrite)
-    else:
-        filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')
-        try:
-            handle_posix_error('pipe', c_pipe(filedes))
-            return (widen(filedes[0]), widen(filedes[1]))
-        finally:
-            lltype.free(filedes, flavor='raw')
+    @replace_os_function(name)
+    @func_renamer(name)
+    def _waitmacro(status):
+        if returning_int:
+            return c_func(status)
+        else:
+            return bool(c_func(status))
+
+for name in ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
+             'WIFSIGNALED', 'WIFEXITED',
+             'WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG']:
+    _make_waitmacro(name)
 
 #___________________________________________________________________
 
@@ -932,6 +919,8 @@ def rename(path1, path2):
         if not win32traits.MoveFile(path1, path2):
             raise rwin32.lastWindowsError()
 
+#___________________________________________________________________
+
 c_mkfifo = external('mkfifo', [rffi.CCHARP, rffi.MODE_T], rffi.INT)
 c_mknod = external('mknod', [rffi.CCHARP, rffi.MODE_T, rffi.INT], rffi.INT,
                    macro=True)
@@ -947,8 +936,48 @@ def mkfifo(path, mode):
 def mknod(path, mode, dev):
     handle_posix_error('mknod', c_mknod(_as_bytes0(path), mode, dev))
 
+if _WIN32:
+    CreatePipe = external('CreatePipe', [rwin32.LPHANDLE,
+                                         rwin32.LPHANDLE,
+                                         rffi.VOIDP,
+                                         rwin32.DWORD],
+                          rwin32.BOOL)
+    c_open_osfhandle = external('_open_osfhandle', [rffi.INTPTR_T,
+                                                    rffi.INT],
+                                rffi.INT)
+else:
+    INT_ARRAY_P = rffi.CArrayPtr(rffi.INT)
+    c_pipe = external('pipe', [INT_ARRAY_P], rffi.INT)
+
+@replace_os_function('pipe')
+def pipe():
+    if _WIN32:
+        pread  = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
+        pwrite = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
+        try:
+            if not CreatePipe(
+                    pread, pwrite, lltype.nullptr(rffi.VOIDP.TO), 0):
+                raise WindowsError(rwin32.GetLastError(), "CreatePipe failed")
+            hread = rffi.cast(rffi.INTPTR_T, pread[0])
+            hwrite = rffi.cast(rffi.INTPTR_T, pwrite[0])
+        finally:
+            lltype.free(pwrite, flavor='raw')
+            lltype.free(pread, flavor='raw')
+        fdread = _open_osfhandle(hread, 0)
+        fdwrite = _open_osfhandle(hwrite, 1)
+        return (fdread, fdwrite)
+    else:
+        filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')
+        try:
+            handle_posix_error('pipe', c_pipe(filedes))
+            return (widen(filedes[0]), widen(filedes[1]))
+        finally:
+            lltype.free(filedes, flavor='raw')
+
 c_link = external('link', [rffi.CCHARP, rffi.CCHARP], rffi.INT)
 c_symlink = external('symlink', [rffi.CCHARP, rffi.CCHARP], rffi.INT)
+
+#___________________________________________________________________
 
 @replace_os_function('link')
 @specialize.argtype(0, 1)
