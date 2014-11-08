@@ -1,4 +1,5 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.history import (Const, ConstInt, BoxInt, BoxFloat,
     BoxPtr, make_hashable_int, ConstFloat)
@@ -246,8 +247,8 @@ class OptRewrite(Optimization):
                 reciprocal = 1.0 / divisor
                 rfraction = math.frexp(reciprocal)[0]
                 if rfraction == 0.5 or rfraction == -0.5:
-                    op = op.copy_and_change(rop.FLOAT_MUL,
-                                            args=[arg1, ConstFloat(reciprocal)])
+                    c = ConstFloat(longlong.getfloatstorage(reciprocal))
+                    op = op.copy_and_change(rop.FLOAT_MUL, args=[arg1, c])
         self.emit_operation(op)
 
     def optimize_FLOAT_NEG(self, op):
