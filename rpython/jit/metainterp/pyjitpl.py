@@ -1333,8 +1333,6 @@ class MIFrame(object):
             while True:
                 pc = self.pc
                 op = ord(self.bytecode[pc])
-                #debug_print(self.jitcode.name, pc)
-                #print staticdata.opcode_names[op]
                 staticdata.opcode_implementations[op](self, pc)
         except ChangeFrame:
             pass
