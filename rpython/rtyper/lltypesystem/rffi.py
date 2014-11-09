@@ -605,7 +605,7 @@ def COpaquePtr(*args, **kwds):
 
 def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
                     sandboxsafe=False, _nowrapper=False,
-                    c_type=None):
+                    c_type=None, getter_only=False):
     """Return a pair of functions - a getter and a setter - to access
     the given global C variable.
     """
@@ -638,19 +638,26 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
     if sys.platform != 'win32':
         lines.append('extern %s %s;' % (c_type, name))
     lines.append(c_getter)
-    lines.append(c_setter)
+    if not getter_only:
+        lines.append(c_setter)
+    prototypes = [getter_prototype]
+    if not getter_only:
+        prototypes.append(setter_prototype)
     sources = ('\n'.join(lines),)
     new_eci = eci.merge(ExternalCompilationInfo(
         separate_module_sources = sources,
-        post_include_bits = [getter_prototype, setter_prototype],
+        post_include_bits = prototypes,
     ))
 
     getter = llexternal(getter_name, [], TYPE, compilation_info=new_eci,
                         sandboxsafe=sandboxsafe, _nowrapper=_nowrapper)
-    setter = llexternal(setter_name, [TYPE], lltype.Void,
-                        compilation_info=new_eci, sandboxsafe=sandboxsafe,
-                        _nowrapper=_nowrapper)
-    return getter, setter
+    if getter_only:
+        return getter
+    else:
+        setter = llexternal(setter_name, [TYPE], lltype.Void,
+                            compilation_info=new_eci, sandboxsafe=sandboxsafe,
+                            _nowrapper=_nowrapper)
+        return getter, setter
 
 # char, represented as a Python character
 # (use SIGNEDCHAR or UCHAR for the small integer types)
@@ -815,6 +822,8 @@ def make_string_mappings(strtype):
     free_nonmovingbuffer._annenforceargs_ = [strtype, None, bool, bool]
 
     # int -> (char*, str, int)
+    # Can't inline this because of the raw address manipulation.
+    @jit.dont_look_inside
     def alloc_buffer(count):
         """
         Returns a (raw_buffer, gc_buffer, case_num) triple,

@@ -1,9 +1,9 @@
-#include "src/precommondefs.h"
-
 #if defined(_MSC_VER) || defined(__CYGWIN__)
 #include <windows.h>
 #define MS_WIN32
 #endif
+
+#include "src/precommondefs.h"
 
 #define EXPORT(x)  RPY_EXPORTED x
 

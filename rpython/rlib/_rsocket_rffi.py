@@ -499,7 +499,7 @@ freeaddrinfo = external('freeaddrinfo', [addrinfo_ptr], lltype.Void)
 getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
                        size_t, CCHARP, size_t, rffi.INT], rffi.INT)
 
-if sys.platform.startswith("openbsd"):
+if sys.platform.startswith("openbsd") or sys.platform.startswith("darwin"):
     htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False, macro=True)
     htons = external('htons', [rffi.USHORT], rffi.USHORT, releasegil=False, macro=True)
     ntohl = external('ntohl', [rffi.UINT], rffi.UINT, releasegil=False, macro=True)
