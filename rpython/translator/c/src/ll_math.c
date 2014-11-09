@@ -4,12 +4,12 @@
 #include <errno.h>
 
 /* The following macros are copied from CPython header files */
+#include "src/precommondefs.h"
 
 #ifdef _WIN32
 #include <float.h>
 #include <math.h>
 #endif
-
 #ifdef _MSC_VER
 #define PyPy_IS_NAN _isnan
 #define PyPy_IS_INFINITY(X) (!_finite(X) && !_isnan(X))
@@ -57,7 +57,7 @@ static const double zero = 0.0;
  *      acosh(NaN) is NaN without signal.
  */
 
-double
+RPY_EXTERN double
 _pypy_math_acosh(double x)
 {
     if (PyPy_IS_NAN(x)) {
@@ -103,7 +103,7 @@ _pypy_math_acosh(double x)
  *               := sign(x)*log1p(|x| + x^2/(1 + sqrt(1+x^2)))
  */
 
-double
+RPY_EXTERN double
 _pypy_math_asinh(double x)
 {
     double w;
@@ -146,7 +146,7 @@ _pypy_math_asinh(double x)
  *
  */
 
-double
+RPY_EXTERN double
 _pypy_math_atanh(double x)
 {
     double absx;
@@ -181,7 +181,7 @@ _pypy_math_atanh(double x)
    to avoid the significant loss of precision that arises from direct
    evaluation of the expression exp(x) - 1, for x near 0. */
 
-double
+RPY_EXTERN double
 _pypy_math_expm1(double x)
 {
     /* For abs(x) >= log(2), it's safe to evaluate exp(x) - 1 directly; this
@@ -207,7 +207,7 @@ _pypy_math_expm1(double x)
    significant loss of precision that arises from direct evaluation when x is
    small. */
 
-double
+RPY_EXTERN double
 _pypy_math_log1p(double x)
 {
     /* For x small, we use the following approach.  Let y be the nearest float
