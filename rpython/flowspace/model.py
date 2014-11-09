@@ -570,10 +570,11 @@ def checkgraph(graph):
                 "variable %r used in more than one block" % (v,))
             vars[v] = only_in_link
 
-        def usevar(v, in_link=None):
-            assert v in vars
-            if in_link is not None:
-                assert vars[v] is None or vars[v] is in_link
+        def usevar(var, in_link=None):
+            for v in var.dependencies:
+                assert v in vars
+                if in_link is not None:
+                    assert vars[v] is None or vars[v] is in_link
 
 
         for block in graph.iterblocks():
@@ -591,10 +592,7 @@ def checkgraph(graph):
                 for v in op.args:
                     assert isinstance(v, (Constant, Variable))
                     if isinstance(v, Variable):
-                        if type(v) is Variable:
-                            usevar(v)
-                        else:
-                            usevar(v.arg)
+                        usevar(v)
                     else:
                         assert v.value is not last_exception
                         #assert v.value != last_exc_value
@@ -664,7 +662,7 @@ def checkgraph(graph):
                     assert link.last_exc_value is None
                 for v in link.args:
                     assert isinstance(v, (Constant, Variable))
-                    if type(v) is Variable:
+                    if isinstance(v, Variable):
                         usevar(v, in_link=link)
                         if exc_link:
                             assert v != block.operations[-1].result
