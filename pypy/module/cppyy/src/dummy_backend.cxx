@@ -349,29 +349,29 @@ static inline char* cppstring_to_cstring(const std::string& name) {
 
 
 /* name to opaque C++ scope representation -------------------------------- */
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 int cppyy_num_scopes(cppyy_scope_t handle) {
     return 0;
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 char* cppyy_resolve_name(const char* cppitem_name) {
     return cppstring_to_cstring(cppitem_name);
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 cppyy_scope_t cppyy_get_scope(const char* scope_name) {
     return s_handles[scope_name];  // lookup failure will return 0 (== error)
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 cppyy_type_t cppyy_actual_class(cppyy_type_t klass, cppyy_object_t /* obj */) {
     return klass;
 }
 
 
 /* memory management ------------------------------------------------------ */
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 void cppyy_destruct(cppyy_type_t handle, cppyy_object_t self) {
     if (handle == s_handles["example01"])
        delete (dummy::example01*)self;
@@ -379,7 +379,7 @@ void cppyy_destruct(cppyy_type_t handle, cppyy_object_t self) {
 
 
 /* method/function dispatching -------------------------------------------- */
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 void cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     long idx = (long)method;
     if (idx == s_methods["static_example01::staticSetPayload_payload*_double"]) {
@@ -469,7 +469,7 @@ void cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     }
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 unsigned char cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     unsigned char result = 0;
     const long idx = (long)method;
@@ -482,7 +482,7 @@ unsigned char cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs
     return result;
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 char cppyy_call_c(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     char result = 0;
     const long idx = (long)method;
@@ -498,7 +498,7 @@ char cppyy_call_c(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     return result;
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 short cppyy_call_h(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     short result = 0;
     const long idx = (long)method; 
@@ -514,7 +514,7 @@ short cppyy_call_h(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
     return result;
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 int cppyy_call_i(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     int result = 0;
     const long idx = (long)method;
@@ -547,7 +547,7 @@ int cppyy_call_i(cppyy_method_t method, cppyy_object_t self, int nargs, void* ar
     return result;
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 long cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     long result = 0;
     const long idx = (long)method;
@@ -689,7 +689,7 @@ long cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     return result;
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 long long cppyy_call_ll(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     long long result = 0;
     const long idx = (long)method;
@@ -705,7 +705,7 @@ long long cppyy_call_ll(cppyy_method_t method, cppyy_object_t self, int nargs, v
     return result;
 }   
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 float cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     float result = 0;
     const long idx = (long)method;
@@ -718,7 +718,7 @@ float cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
     return result;
 }   
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     double result = 0.;
     const long idx = (long)method;
@@ -740,7 +740,7 @@ double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void*
     return result;
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     char* result = 0;
     const long idx = (long)method;
@@ -753,7 +753,7 @@ char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
     return result;
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t handle, int nargs, void* args) {
     void* result = 0;
     const long idx = (long)method;
@@ -776,14 +776,14 @@ cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t handle, int
     return (cppyy_object_t)result;
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_type_t /* handle */, cppyy_index_t /* method_index */) {
     return (cppyy_methptrgetter_t)0;
 }
 
 
 /* handling of function argument buffer ----------------------------------- */
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 void* cppyy_allocate_function_args(int nargs) {
     CPPYY_G__value* args = (CPPYY_G__value*)malloc(nargs*sizeof(CPPYY_G__value));
     for (int i = 0; i < nargs; ++i)
@@ -793,36 +793,36 @@ void* cppyy_allocate_function_args(int nargs) {
 
 
 /* handling of function argument buffer ----------------------------------- */
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 void cppyy_deallocate_function_args(void* args) {
     free(args);
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 size_t cppyy_function_arg_sizeof() {
     return sizeof(CPPYY_G__value);
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 size_t cppyy_function_arg_typeoffset() {
     return offsetof(CPPYY_G__value, type);
 }
 
 
 /* scope reflection information ------------------------------------------- */
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 int cppyy_is_namespace(cppyy_scope_t /* handle */) {
     return 0;
 }   
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 int cppyy_is_enum(const char* /* type_name */) {
     return 0;
 }
     
     
 /* class reflection information ------------------------------------------- */
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 char* cppyy_final_name(cppyy_type_t handle) {
     for (Handles_t::iterator isp = s_handles.begin(); isp != s_handles.end(); ++isp) {
         if (isp->second == handle)
@@ -831,75 +831,75 @@ char* cppyy_final_name(cppyy_type_t handle) {
     return cppstring_to_cstring("<unknown>");
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 char* cppyy_scoped_final_name(cppyy_type_t handle) {
     return cppyy_final_name(handle);
 }   
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 int cppyy_has_complex_hierarchy(cppyy_type_t /* handle */) {
     return 0;
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 int cppyy_num_bases(cppyy_type_t /*handle*/) {
    return 0;
 }
 
 
 /* method/function reflection information --------------------------------- */
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 int cppyy_num_methods(cppyy_scope_t handle) {
     return s_scopes[handle].m_methods.size();
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 cppyy_index_t cppyy_method_index_at(cppyy_scope_t /* scope */, int imeth) {
     return (cppyy_index_t)imeth;
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 char* cppyy_method_name(cppyy_scope_t handle, cppyy_index_t method_index) {
     return cppstring_to_cstring(s_scopes[handle].m_methods[(int)method_index].m_name);
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 char* cppyy_method_result_type(cppyy_scope_t handle, cppyy_index_t method_index) {
     return cppstring_to_cstring(s_scopes[handle].m_methods[method_index].m_returntype);
 }
     
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 int cppyy_method_num_args(cppyy_scope_t handle, cppyy_index_t method_index) {
     return s_scopes[handle].m_methods[method_index].m_argtypes.size();
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 int cppyy_method_req_args(cppyy_scope_t handle, cppyy_index_t method_index) {
     return cppyy_method_num_args(handle, method_index);
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 char* cppyy_method_arg_type(cppyy_scope_t handle, cppyy_index_t method_index, int arg_index) {
     return cppstring_to_cstring(s_scopes[handle].m_methods[method_index].m_argtypes[arg_index]);
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 char* cppyy_method_arg_default(
         cppyy_scope_t /* handle */, cppyy_index_t /* method_index */, int /* arg_index */) {
     return cppstring_to_cstring("");
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 char* cppyy_method_signature(cppyy_scope_t /* handle */, cppyy_index_t /* method_index */) {
     return cppstring_to_cstring("");
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 int cppyy_method_is_template(cppyy_scope_t /* handle */, cppyy_index_t /* method_index */) {
     return 0;
 }
     
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t method_index) {
     if (s_scopes.find(handle) != s_scopes.end()) {
         long id = s_scopes[handle].m_method_offset + (long)method_index;
@@ -911,7 +911,7 @@ cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t method_index
 
 
 /* method properties -----------------------------------------------------  */
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 int cppyy_is_constructor(cppyy_type_t handle, cppyy_index_t method_index) {
     if (s_scopes.find(handle) != s_scopes.end())
         return s_scopes[handle].m_methods[method_index].m_type == kConstructor;
@@ -919,7 +919,7 @@ int cppyy_is_constructor(cppyy_type_t handle, cppyy_index_t method_index) {
     return 0;
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 int cppyy_is_staticmethod(cppyy_type_t handle, cppyy_index_t method_index) {
     if (s_scopes.find(handle) != s_scopes.end())
         return s_scopes[handle].m_methods[method_index].m_type == kStatic;
@@ -929,34 +929,34 @@ int cppyy_is_staticmethod(cppyy_type_t handle, cppyy_index_t method_index) {
 
 
 /* data member reflection information ------------------------------------- */
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 int cppyy_num_datamembers(cppyy_scope_t handle) {
     return s_scopes[handle].m_datambrs.size();
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 char* cppyy_datamember_name(cppyy_scope_t handle, int idatambr) {
     return cppstring_to_cstring(s_scopes[handle].m_datambrs[idatambr].m_name);
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 char* cppyy_datamember_type(cppyy_scope_t handle, int idatambr) {
     return cppstring_to_cstring(s_scopes[handle].m_datambrs[idatambr].m_type);
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 ptrdiff_t cppyy_datamember_offset(cppyy_scope_t handle, int idatambr) {
     return s_scopes[handle].m_datambrs[idatambr].m_offset;
 }
 
 
 /* data member properties ------------------------------------------------  */
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 int cppyy_is_publicdata(cppyy_scope_t handle, int idatambr) {
     return 1;
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 int cppyy_is_staticdata(cppyy_scope_t handle, int idatambr) {
     return s_scopes[handle].m_datambrs[idatambr].m_isstatic;
 }
@@ -964,44 +964,44 @@ int cppyy_is_staticdata(cppyy_scope_t handle, int idatambr) {
 
 /* misc helpers ----------------------------------------------------------- */
 #if defined(_MSC_VER)
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 long long cppyy_strtoll(const char* str) {
     return _strtoi64(str, NULL, 0);
 }
 
 extern "C" {
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 unsigned long long cppyy_strtoull(const char* str) {
     return _strtoui64(str, NULL, 0);
 }
 }
 #else
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 long long cppyy_strtoll(const char* str) {
     return strtoll(str, NULL, 0);
 }
 
 extern "C" {
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 unsigned long long cppyy_strtoull(const char* str) {
     return strtoull(str, NULL, 0);
 }
 }
 #endif
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 void cppyy_free(void* ptr) {
     free(ptr);
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 cppyy_object_t cppyy_charp2stdstring(const char* str) {
     void* arena = new char[sizeof(std::string)];
     new (arena) std::string(str);
     return (cppyy_object_t)arena;
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr) {
     void* arena = new char[sizeof(std::string)];
     new (arena) std::string(*(std::string*)ptr);
