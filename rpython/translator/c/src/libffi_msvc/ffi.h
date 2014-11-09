@@ -222,6 +222,7 @@ typedef struct {
   void      *user_data;
 } ffi_closure;
 
+RPY_EXPORTED_FOR_TESTS
 ffi_status
 ffi_prep_closure (ffi_closure*,
 		  ffi_cif *,
