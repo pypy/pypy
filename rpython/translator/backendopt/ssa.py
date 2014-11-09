@@ -151,21 +151,23 @@ def SSA_to_SSI(graph, annotator=None):
         variables_created = variables_created_in(block)
         seen = set(variables_created)
         variables_used = []
-        def record_used_var(v):
-            if v not in seen:
-                variables_used.append(v)
-                seen.add(v)
+        def record_dependencies(arg):
+            if arg is None:
+                return
+            for v in arg.dependencies:
+                if v not in seen:
+                    variables_used.append(v)
+                    seen.add(v)
         for op in block.operations:
             for arg in op.args:
-                record_used_var(arg)
-        record_used_var(block.exitswitch)
+                record_dependencies(arg)
+        record_dependencies(block.exitswitch)
         for link in block.exits:
             for arg in link.args:
-                record_used_var(arg)
+                record_dependencies(arg)
 
         for v in variables_used:
-            if (isinstance(v, Variable) and
-                    v._name not in ('last_exception_', 'last_exc_value_')):
+            if (v._name not in ('last_exception_', 'last_exc_value_')):
                 pending.append((block, v))
 
     while pending:

@@ -323,6 +323,10 @@ class Variable(object):
     def replace(self, mapping):
         return mapping.get(self, self)
 
+    @property
+    def dependencies(self):
+        return set([self])
+
 
 class Constant(Hashable):
     __slots__ = ["concretetype"]
@@ -353,6 +357,10 @@ class Constant(Hashable):
 
     def replace(self, mapping):
         return self
+
+    @property
+    def dependencies(self):
+        return set()
 
 
 class FSException(object):

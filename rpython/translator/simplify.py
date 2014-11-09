@@ -477,9 +477,11 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
         # figure out which variables are ever read
         for op in block.operations:
             if not canremove(op, block):   # the inputs are always needed
-                read_vars.update(op.args)
+                for arg in op.args:
+                    read_vars.update(arg.dependencies)
             else:
-                dependencies[op.result].update(op.args)
+                for arg in op.args:
+                    dependencies[op.result].update(arg.dependencies)
 
         if isinstance(block.exitswitch, Variable):
             read_vars.add(block.exitswitch)

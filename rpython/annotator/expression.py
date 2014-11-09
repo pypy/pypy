@@ -21,3 +21,7 @@ class V_Type(Variable):
             return V_Type(mapping[self.arg])
         else:
             return self
+
+    @property
+    def dependencies(self):
+        return self.arg.dependencies
