@@ -36,7 +36,7 @@
  * ====================================================
  */
 
-double _pypy_math_log1p(double x);
+RPY_EXTERN double _pypy_math_log1p(double x);
 
 static const double ln2 = 6.93147180559945286227E-01;
 static const double two_pow_m28 = 3.7252902984619141E-09; /* 2**-28 */

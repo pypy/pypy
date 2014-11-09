@@ -383,7 +383,7 @@ def generate_macro_wrapper(name, macro, functype, eci):
     else:
         pattern = '%s%s { return %s(%s); }'
     source = pattern % (
-        'RPY_EXPORTED_FOR_TESTS ',
+        'RPY_EXTERN ',
         cdecl(implementationtypename, wrapper_name),
         macro, ', '.join(argnames))
 
@@ -628,9 +628,9 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
     getter_name = 'get_' + name
     setter_name = 'set_' + name
     getter_prototype = (
-       "RPY_EXPORTED_FOR_TESTS %(c_type)s %(getter_name)s ();" % locals())
+       "RPY_EXTERN %(c_type)s %(getter_name)s ();" % locals())
     setter_prototype = (
-       "RPY_EXPORTED_FOR_TESTS void %(setter_name)s (%(c_type)s v);" % locals())
+       "RPY_EXTERN void %(setter_name)s (%(c_type)s v);" % locals())
     c_getter = "%(c_type)s %(getter_name)s () { return %(name)s; }" % locals()
     c_setter = "void %(setter_name)s (%(c_type)s v) { %(name)s = v; }" % locals()
 

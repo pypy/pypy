@@ -32,21 +32,16 @@ def cdecl(ctype, cname, is_thread_local=False):
 
 def forward_cdecl(ctype, cname, standalone, is_thread_local=False,
                   is_exported=False):
-    prefix = ""
-    if is_thread_local:
-        prefix = "__thread "
+    # 'standalone' ignored
     if is_exported:
         assert not is_thread_local
         prefix = "RPY_EXPORTED "
-    elif standalone:
-        prefix += "RPY_HIDDEN "
-
-    cdecl_str = prefix + cdecl(ctype, cname)
-    if standalone:
-        return 'extern ' + cdecl_str
     else:
-        return cdecl_str
-    
+        prefix = "RPY_EXTERN "
+        if is_thread_local:
+            prefix += "__thread "
+    return prefix + cdecl(ctype, cname)
+
 def somelettersfrom(s):
     upcase = [c for c in s if c.isupper()]
     if not upcase:

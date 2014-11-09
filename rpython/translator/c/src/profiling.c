@@ -9,7 +9,7 @@
 static cpu_set_t base_cpu_set;
 static int profiling_setup = 0;
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 void pypy_setup_profiling(void)
 {
   if (!profiling_setup) {
@@ -22,7 +22,7 @@ void pypy_setup_profiling(void)
   }
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 void pypy_teardown_profiling(void)
 {
   if (profiling_setup) {
@@ -40,7 +40,7 @@ void pypy_teardown_profiling(void)
 static DWORD_PTR base_affinity_mask;
 static int profiling_setup = 0;
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 void pypy_setup_profiling(void) {
     if (!profiling_setup) {
         DWORD_PTR affinity_mask, system_affinity_mask;
@@ -56,7 +56,7 @@ void pypy_setup_profiling(void) {
     }
 }
 
-RPY_EXPORTED_FOR_TESTS
+RPY_EXTERN
 void pypy_teardown_profiling(void) {
     if (profiling_setup) {
         SetProcessAffinityMask(GetCurrentProcess(), base_affinity_mask);
@@ -67,7 +67,7 @@ void pypy_teardown_profiling(void) {
 #else
 
 /* Empty implementations for other platforms */
-RPY_EXPORTED_FOR_TESTS void pypy_setup_profiling(void) { }
-RPY_EXPORTED_FOR_TESTS void pypy_teardown_profiling(void) { }
+RPY_EXTERN void pypy_setup_profiling(void) { }
+RPY_EXTERN void pypy_teardown_profiling(void) { }
 
 #endif

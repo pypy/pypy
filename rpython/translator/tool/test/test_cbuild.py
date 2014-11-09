@@ -74,7 +74,7 @@ class TestEci:
     def test_make_shared_lib(self):
         eci = ExternalCompilationInfo(
             separate_module_sources = ['''
-            RPY_EXPORTED_FOR_TESTS int get()
+            RPY_EXTERN int get()
             {
                 return 42;
             }
