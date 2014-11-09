@@ -163,7 +163,7 @@ class Block(object):
                 exits blockcolor""".split()
 
     def __init__(self, inputargs):
-        self.inputargs = list(inputargs)  # mixed list of variable/const XXX
+        self.inputargs = list(inputargs)  # list of Variable
         self.operations = []              # list of SpaceOperation(s)
         self.exitswitch = None            # a variable or
                                           #  Constant(last_exception), see below
@@ -197,7 +197,8 @@ class Block(object):
         "Return all variables mentioned in this Block."
         result = self.inputargs[:]
         for op in self.operations:
-            result += op.args
+            for arg in op.args:
+                result.extend(arg.dependencies)
             result.append(op.result)
         return uniqueitems([w for w in result if isinstance(w, Variable)])
 
@@ -564,7 +565,7 @@ def checkgraph(graph):
             assert block.exits == ()
 
         def definevar(v, only_in_link=None):
-            assert isinstance(v, Variable)
+            assert type(v) is Variable
             assert v not in vars, "duplicate variable %r" % (v,)
             assert v not in vars_previous_blocks, (
                 "variable %r used in more than one block" % (v,))
