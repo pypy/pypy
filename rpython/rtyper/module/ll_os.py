@@ -102,8 +102,6 @@ if not _WIN32:
 else:
     includes += ['sys/utime.h', 'sys/types.h']
 
-_CYGWIN = sys.platform == 'cygwin'
-
 class CConfig:
     """
     Definitions for platform integration.
@@ -119,19 +117,6 @@ class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes=includes
     )
-    if not _WIN32:
-        CLOCK_T = platform.SimpleType('clock_t', rffi.INT)
-
-        TMS = platform.Struct(
-            'struct tms', [('tms_utime', rffi.INT),
-                           ('tms_stime', rffi.INT),
-                           ('tms_cutime', rffi.INT),
-                           ('tms_cstime', rffi.INT)])
-
-
-    SEEK_SET = platform.DefinedConstantInteger('SEEK_SET')
-    SEEK_CUR = platform.DefinedConstantInteger('SEEK_CUR')
-    SEEK_END = platform.DefinedConstantInteger('SEEK_END')
 
 
 class RegisterOs(BaseLazyRegistering):
@@ -167,21 +152,6 @@ class RegisterOs(BaseLazyRegistering):
             from rpython.rtyper.module import ll_os_stat
             return ll_os_stat.register_statvfs_variant('statvfs', traits)
 
-
-    # ------------------------------- os.W* ---------------------------------
-
-    @registering_if(os, 'ttyname')
-    def register_os_ttyname(self):
-        os_ttyname = self.llexternal('ttyname', [lltype.Signed], rffi.CCHARP, releasegil=False)
-
-        def ttyname_llimpl(fd):
-            l_name = os_ttyname(fd)
-            if not l_name:
-                raise OSError(rposix.get_errno(), "ttyname raised")
-            return rffi.charp2str(l_name)
-
-        return extdef([int], str, "ll_os.ttyname",
-                      llimpl=ttyname_llimpl)
 
 # ____________________________________________________________
 # Support for os.environ
