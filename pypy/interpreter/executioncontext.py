@@ -34,7 +34,7 @@ class ExecutionContext(object):
         self.w_profilefuncarg = None
         #
         if self.space.config.translation.stm:
-            from pypy.module.thread.stm import initialize_execution_context
+            from pypy.module._stm.ec import initialize_execution_context
             initialize_execution_context(self)
 
     def gettopframe(self):

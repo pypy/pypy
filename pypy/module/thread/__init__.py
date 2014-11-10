@@ -45,5 +45,3 @@ class Module(MixedModule):
             self.extra_interpdef('_local', 'stm.STMLocal')
         else:
             self.extra_interpdef('_local', 'os_local.Local')
-            if not self.space.config.translating:
-                self.extra_interpdef('_untranslated_stmlocal', 'stm.STMLocal')
