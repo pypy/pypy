@@ -224,7 +224,6 @@ void pypy_stm_become_globally_unique_transaction(void)
 
 long _pypy_stm_count(void)
 {
-    /* for tests */
     static long value = 0;
-    return value++;
+    return __sync_fetch_and_add(&value, 1);
 }

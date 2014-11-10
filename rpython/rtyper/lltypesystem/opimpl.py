@@ -724,6 +724,13 @@ def op_stm_transaction_break():
 def op_stm_hint_commit_soon():
     pass
 
+def op_stm_count():
+    global _stm_counter
+    x = _stm_counter
+    _stm_counter = x + 1
+    return x
+_stm_counter = 0
+
 
 # ____________________________________________________________
 

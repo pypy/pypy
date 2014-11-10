@@ -458,7 +458,7 @@ LL_OPERATIONS = {
     'stm_expand_marker':      LLOp(),
     'stm_setup_expand_marker_for_pypy': LLOp(),
 
-    'stm_count':                 LLOp(),
+    'stm_count':                 LLOp(canrun=True),
     'stm_really_force_cast_ptr': LLOp(),
 
     # __________ address operations __________
