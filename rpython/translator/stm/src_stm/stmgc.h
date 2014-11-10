@@ -535,8 +535,12 @@ object_t *stm_allocate_with_finalizer(ssize_t size_rounded_up);
    If you want to embed the hashtable inside an 'object_t' you
    probably need a light finalizer to do the freeing. */
 typedef struct stm_hashtable_s stm_hashtable_t;
+typedef TLPREFIX struct stm_hashtable_entry_s stm_hashtable_entry_t;
+
 stm_hashtable_t *stm_hashtable_create(void);
 void stm_hashtable_free(stm_hashtable_t *);
+stm_hashtable_entry_t *stm_hashtable_lookup(object_t *, stm_hashtable_t *,
+                                            uintptr_t key);
 object_t *stm_hashtable_read(object_t *, stm_hashtable_t *, uintptr_t key);
 void stm_hashtable_write(object_t *, stm_hashtable_t *, uintptr_t key,
                          object_t *nvalue, stm_thread_local_t *);
