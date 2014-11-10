@@ -245,6 +245,7 @@ class PyPyTarget(object):
 
         if config.translation.stm:
             config.translation.thread = True
+            config.objspace.usemodules._stm = True
 
         if config.objspace.allworkingmodules:
             from pypy.config.pypyoption import enable_allworkingmodules
