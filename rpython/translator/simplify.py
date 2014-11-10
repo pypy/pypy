@@ -65,28 +65,19 @@ def eliminate_empty_blocks(graph):
     When this happens, we need to replace the preceeding link with the
     following link.  Arguments of the links should be updated."""
     for link in list(graph.iterlinks()):
-            while not link.target.operations:
-                block1 = link.target
-                if block1.exitswitch is not None:
-                    break
-                if not block1.exits:
-                    break
-                exit = block1.exits[0]
-                assert block1 is not exit.target, (
-                    "the graph contains an empty infinite loop")
-                outputargs = []
-                for v in exit.args:
-                    if isinstance(v, Variable):
-                        try:
-                            i = block1.inputargs.index(v)
-                            v = link.args[i]
-                        except ValueError:
-                            # the variable was passed implicitly to block1
-                            pass
-                    outputargs.append(v)
-                link.args = outputargs
-                link.target = exit.target
-                # the while loop above will simplify recursively the new link
+        while not link.target.operations:
+            block1 = link.target
+            if block1.exitswitch is not None:
+                break
+            if not block1.exits:
+                break
+            exit = block1.exits[0]
+            assert block1 is not exit.target, (
+                "the graph contains an empty infinite loop")
+            subst = dict(zip(block1.inputargs, link.args))
+            link.args = [v.replace(subst) for v in exit.args]
+            link.target = exit.target
+            # the while loop above will simplify recursively the new link
 
 def transform_ovfcheck(graph):
     """The special function calls ovfcheck needs to
