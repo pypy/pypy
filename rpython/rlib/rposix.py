@@ -335,6 +335,7 @@ c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
                    releasegil=False)
 
 @replace_os_function('read')
+@enforceargs(int, int)
 def read(fd, count):
     if count < 0:
         raise OSError(errno.EINVAL, None)
@@ -345,6 +346,7 @@ def read(fd, count):
         return buf.str(got)
 
 @replace_os_function('write')
+@enforceargs(int, None)
 def write(fd, data):
     count = len(data)
     validate_fd(fd)

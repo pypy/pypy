@@ -59,7 +59,7 @@ def get_specialcase(fn):
         return SPECIAL_CASES[fn]   # TypeError if 'fn' not hashable
     except (KeyError, TypeError):
         # Try to import modules containing special cases
-        for modname in SPECIAL_MODULES.get(fn.__module__, []):
+        for modname in SPECIAL_MODULES.get(getattr(fn, '__module__', None), []):
             __import__(modname)
         try:
             return SPECIAL_CASES[fn]
