@@ -831,7 +831,7 @@ c_ttyname = external('ttyname', [lltype.Signed], rffi.CCHARP, releasegil=False)
 
 @replace_os_function('ttyname')
 def ttyname(fd):
-    l_name = os_ttyname(fd)
+    l_name = c_ttyname(fd)
     if not l_name:
         raise OSError(get_errno(), "ttyname raised")
     return rffi.charp2str(l_name)

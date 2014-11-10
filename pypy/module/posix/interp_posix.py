@@ -6,7 +6,6 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.module import ll_os_stat
-from rpython.rtyper.module.ll_os import RegisterOs
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
@@ -1203,7 +1202,7 @@ def setresgid(space, rgid, egid, sgid):
         raise wrap_oserror(space, e)
 
 def declare_new_w_star(name):
-    if name in RegisterOs.w_star_returning_int:
+    if name in ('WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG'):
         @unwrap_spec(status=c_int)
         def WSTAR(space, status):
             return space.wrap(getattr(os, name)(status))
@@ -1215,7 +1214,9 @@ def declare_new_w_star(name):
     WSTAR.func_name = name
     return WSTAR
 
-for name in RegisterOs.w_star:
+for name in ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
+             'WIFSIGNALED', 'WIFEXITED',
+             'WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG']:
     if hasattr(os, name):
         func = declare_new_w_star(name)
         globals()[name] = func
