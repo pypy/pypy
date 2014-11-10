@@ -18,11 +18,7 @@ class FunctionGraph(object):
         self.returnblock = Block([return_var or Variable()])
         self.returnblock.operations = ()
         self.returnblock.exits = ()
-        # block corresponding to exception results
-        self.exceptblock = Block([Variable('etype'),   # exception class
-                                  Variable('evalue')])  # exception value
-        self.exceptblock.operations = ()
-        self.exceptblock.exits = ()
+        self.exceptblock = ExceptBlock()
         self.tag = None
 
     def getargs(self):
@@ -181,8 +177,6 @@ class Block(object):
         else:
             if (not self.exits) and len(self.inputargs) == 1:
                 txt = "return block"
-            elif (not self.exits) and len(self.inputargs) == 2:
-                txt = "raise block"
             else:
                 txt = "codeless block"
         return txt
@@ -248,6 +242,17 @@ class Block(object):
         return pending
 
     view = show
+
+class ExceptBlock(Block):
+    def __init__(self):
+        self.inputargs = [Variable('etype'),   # exception class
+                          Variable('evalue')]  # exception value
+        self.operations = ()
+        self.exits = ()
+        self.exitswitch = None
+
+    def __str__(self):
+        return "raise block"
 
 
 class Variable(object):
