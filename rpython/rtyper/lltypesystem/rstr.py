@@ -394,6 +394,7 @@ class LLHelpers(AbstractLLHelpers):
             x = LLHelpers._ll_compute_strhash(s)
         return x
 
+    @staticmethod
     @jit.dont_look_inside
     def _ll_compute_strhash(s):
         x = _hash_string(s.chars)

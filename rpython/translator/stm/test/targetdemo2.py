@@ -4,7 +4,8 @@ from rpython.rlib import rstm
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.objectmodel import compute_identity_hash
 from rpython.rlib.debug import ll_assert
-from rpython.rtyper.lltypesystem import lltype, rffi, rclass
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper import rclass
 
 
 class Node:
