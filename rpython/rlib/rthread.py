@@ -306,7 +306,7 @@ class ThreadLocalReference(object):
 
         def get():
             if we_are_translated():
-                from rpython.rtyper.lltypesystem import rclass
+                from rpython.rtyper import rclass
                 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
                 ptr = llop.threadlocalref_get(rclass.OBJECTPTR, opaque_id)
                 return cast_base_ptr_to_instance(Cls, ptr)

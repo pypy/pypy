@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 
+
 def index(space, w_a):
     return space.index(w_a)
 
@@ -70,7 +71,7 @@ def inv(space, w_obj,):
 
 def invert(space, w_obj,):
     'invert(a) -- Same as ~a.'
-    return space.invert(w_obj) 
+    return space.invert(w_obj)
 
 def isCallable(space, w_obj):
     'isCallable(a) -- Same as callable(a).'
@@ -96,7 +97,7 @@ def le(space, w_a, w_b):
 
 def lshift(space, w_a, w_b):
     'lshift(a, b) -- Same as a << b.'
-    return space.lshift(w_a, w_b) 
+    return space.lshift(w_a, w_b)
 
 def lt(space, w_a, w_b):
     'lt(a, b) -- Same as a<b.'
@@ -112,7 +113,7 @@ def mul(space, w_a, w_b):
 
 def ne(space, w_a, w_b):
     'ne(a, b) -- Same as a!=b.'
-    return space.ne(w_a, w_b) 
+    return space.ne(w_a, w_b)
 
 def neg(space, w_obj,):
     'neg(a) -- Same as -a.'
@@ -128,7 +129,7 @@ def or_(space, w_a, w_b):
 
 def pos(space, w_obj,):
     'pos(a) -- Same as +a.'
-    return space.pos(w_obj) 
+    return space.pos(w_obj)
 
 def pow(space, w_a, w_b):
     'pow(a, b) -- Same as a**b.'
@@ -138,7 +139,7 @@ def pow(space, w_a, w_b):
 
 def rshift(space, w_a, w_b):
     'rshift(a, b) -- Same as a >> b.'
-    return space.rshift(w_a, w_b) 
+    return space.rshift(w_a, w_b)
 
 # sequenceIncludes
 
@@ -150,7 +151,7 @@ def setitem(space, w_obj, w_key, w_value):
 
 def sub(space, w_a, w_b):
     'sub(a, b) -- Same as a - b.'
-    return space.sub(w_a, w_b) 
+    return space.sub(w_a, w_b)
 
 def truediv(space, w_a, w_b):
     'truediv(a, b) -- Same as a / b when __future__.division is in effect.'
@@ -184,7 +185,7 @@ def ifloordiv(space, w_a, w_b):
 
 def ilshift(space, w_a, w_b):
     'ilshift(a, b) -- Same as a <<= b.'
-    return space.inplace_lshift(w_a, w_b) 
+    return space.inplace_lshift(w_a, w_b)
 
 def imod(space, w_a, w_b):
     'imod(a, b) -- Same as a %= b.'
@@ -204,11 +205,11 @@ def ipow(space, w_a, w_b):
 
 def irshift(space, w_a, w_b):
     'irshift(a, b) -- Same as a >>= b.'
-    return space.inplace_rshift(w_a, w_b) 
+    return space.inplace_rshift(w_a, w_b)
 
 def isub(space, w_a, w_b):
     'isub(a, b) -- Same as a -= b.'
-    return space.inplace_sub(w_a, w_b) 
+    return space.inplace_sub(w_a, w_b)
 
 def itruediv(space, w_a, w_b):
     'itruediv(a, b) -- Same as a /= b when __future__.division is in effect.'

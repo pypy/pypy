@@ -4,6 +4,7 @@ from rpython.rlib.objectmodel import (
     import_from_mixin, newlist_hint, resizelist_hint, specialize)
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder, ByteListBuilder
+from rpython.rlib.debug import check_list_of_chars
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -22,6 +23,7 @@ class W_BytearrayObject(W_Root):
     import_from_mixin(StringMethods)
 
     def __init__(self, data):
+        check_list_of_chars(data)
         self.data = data
 
     def __repr__(self):
@@ -534,7 +536,7 @@ def makebytearraydata_w(space, w_source):
         if not e.match(space, space.w_TypeError):
             raise
     else:
-        return [c for c in buf.as_str()]
+        return list(buf.as_str())
 
     # sequence of bytes
     w_iter = space.iter(w_source)
@@ -1131,6 +1133,7 @@ W_BytearrayObject.typedef = StdTypeDef(
     reverse = interp2app(W_BytearrayObject.descr_reverse,
                          doc=BytearrayDocstrings.reverse.__doc__),
 )
+W_BytearrayObject.typedef.flag_sequence_bug_compat = True
 
 init_signature = Signature(['source', 'encoding', 'errors'], None, None)
 init_defaults = [None, None, None]

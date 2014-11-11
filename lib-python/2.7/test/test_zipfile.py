@@ -8,7 +8,6 @@ import os
 import io
 import sys
 import time
-import shutil
 import struct
 import zipfile
 import unittest
@@ -19,7 +18,7 @@ from random import randint, random
 from unittest import skipUnless
 
 from test.test_support import TESTFN, TESTFN_UNICODE, TESTFN_ENCODING, \
-                              run_unittest, findfile, unlink, rmtree
+                              run_unittest, findfile, unlink, rmtree, check_warnings
 try:
     TESTFN_UNICODE.encode(TESTFN_ENCODING)
 except (UnicodeError, TypeError):
@@ -148,7 +147,9 @@ class TestsWithSourceFile(unittest.TestCase):
         # Create the ZIP archive
         with zipfile.ZipFile(TESTFN2, "w", zipfile.ZIP_STORED) as zipfp:
             zipfp.writestr("name", "foo")
-            zipfp.writestr("name", "bar")
+            with check_warnings(('', UserWarning)):
+                zipfp.writestr("name", "bar")
+            self.assertEqual(zipfp.namelist(), ["name"] * 2)
 
         with zipfile.ZipFile(TESTFN2, "r") as zipfp:
             infos = zipfp.infolist()
@@ -475,14 +476,14 @@ class TestsWithSourceFile(unittest.TestCase):
                 (r'C:/foo/bar', 'foo/bar'),
                 (r'C://foo/bar', 'foo/bar'),
                 (r'C:\foo\bar', 'foo/bar'),
-                (r'//conky/mountpoint/foo/bar', 'conky/mountpoint/foo/bar'),
-                (r'\\conky\mountpoint\foo\bar', 'conky/mountpoint/foo/bar'),
+                (r'//conky/mountpoint/foo/bar', 'foo/bar'),
+                (r'\\conky\mountpoint\foo\bar', 'foo/bar'),
                 (r'///conky/mountpoint/foo/bar', 'conky/mountpoint/foo/bar'),
                 (r'\\\conky\mountpoint\foo\bar', 'conky/mountpoint/foo/bar'),
                 (r'//conky//mountpoint/foo/bar', 'conky/mountpoint/foo/bar'),
                 (r'\\conky\\mountpoint\foo\bar', 'conky/mountpoint/foo/bar'),
-                (r'//?/C:/foo/bar', '_/C_/foo/bar'),
-                (r'\\?\C:\foo\bar', '_/C_/foo/bar'),
+                (r'//?/C:/foo/bar', 'foo/bar'),
+                (r'\\?\C:\foo\bar', 'foo/bar'),
                 (r'C:/../C:/foo/bar', 'C_/foo/bar'),
                 (r'a:b\c<d>e|f"g?h*i', 'b/c_d_e_f_g_h_i'),
                 ('../../foo../../ba..r', 'foo/ba..r'),
@@ -1040,7 +1041,8 @@ class OtherTests(unittest.TestCase):
 
         # check a comment that is too long is truncated
         with zipfile.ZipFile(TESTFN, mode="w") as zipf:
-            zipf.comment = comment2 + 'oops'
+            with check_warnings(('', UserWarning)):
+                zipf.comment = comment2 + 'oops'
             zipf.writestr("foo.txt", "O, for a Muse of Fire!")
         with zipfile.ZipFile(TESTFN, mode="r") as zipf:
             self.assertEqual(zipf.comment, comment2)
@@ -1154,6 +1156,21 @@ class OtherTests(unittest.TestCase):
     def test_create_zipinfo_before_1980(self):
         self.assertRaises(ValueError,
                           zipfile.ZipInfo, 'seventies', (1979, 1, 1, 0, 0, 0))
+
+    def test_zipfile_with_short_extra_field(self):
+        """If an extra field in the header is less than 4 bytes, skip it."""
+        zipdata = (
+            b'PK\x03\x04\x14\x00\x00\x00\x00\x00\x93\x9b\xad@\x8b\x9e'
+            b'\xd9\xd3\x01\x00\x00\x00\x01\x00\x00\x00\x03\x00\x03\x00ab'
+            b'c\x00\x00\x00APK\x01\x02\x14\x03\x14\x00\x00\x00\x00'
+            b'\x00\x93\x9b\xad@\x8b\x9e\xd9\xd3\x01\x00\x00\x00\x01\x00\x00'
+            b'\x00\x03\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\xa4\x81\x00'
+            b'\x00\x00\x00abc\x00\x00PK\x05\x06\x00\x00\x00\x00'
+            b'\x01\x00\x01\x003\x00\x00\x00%\x00\x00\x00\x00\x00'
+        )
+        with zipfile.ZipFile(io.BytesIO(zipdata), 'r') as zipf:
+            # testzip returns the name of the first corrupt file, or None
+            self.assertIsNone(zipf.testzip())
 
     def tearDown(self):
         unlink(TESTFN)

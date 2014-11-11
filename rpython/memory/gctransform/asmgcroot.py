@@ -10,7 +10,7 @@ from rpython.memory.gctransform.framework import (
      BaseFrameworkGCTransformer, BaseRootWalker)
 from rpython.rtyper.llannotation import SomeAddress
 from rpython.rtyper.rbuiltin import gen_cast
-from rpython.translator.unsimplify import copyvar, varoftype
+from rpython.translator.unsimplify import varoftype
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import sys
 
@@ -140,7 +140,7 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
         block1 = Block([])
         reloadedvars = []
         for v, c_p in zip(block2.inputargs, sra):
-            v = copyvar(None, v)
+            v = v.copy()
             if isinstance(v.concretetype, lltype.Ptr):
                 w = varoftype(llmemory.Address)
             else:
@@ -517,6 +517,8 @@ class AsmStackRootWalker(BaseRootWalker):
                       "anywhere I know, bug in asmgcc")
             # fish the depth
             extra_stack_depth = (ebp_in_caller + STACK_DEPTH_OFS).signed[0]
+            ll_assert((extra_stack_depth & (rffi.sizeof(lltype.Signed) - 1))
+                       == 0, "asmgcc: misaligned extra_stack_depth")
             extra_stack_depth //= rffi.sizeof(lltype.Signed)
             self._shape_decompressor.setjitframe(extra_stack_depth)
             return

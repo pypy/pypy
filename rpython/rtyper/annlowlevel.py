@@ -250,7 +250,7 @@ class MixLevelHelperAnnotator(object):
         rtyper = self.rtyper
         translator = rtyper.annotator.translator
         original_graph_count = len(translator.graphs)
-        perform_normalizations(rtyper)
+        perform_normalizations(rtyper.annotator)
         for r in self.delayedreprs:
             r.set_setup_delayed(False)
         rtyper.call_all_setups()
@@ -421,9 +421,13 @@ def make_string_entries(strtype):
                 return lltype_to_annotation(lltype.Ptr(UNICODE))
 
         def specialize_call(self, hop):
+            from rpython.rtyper.lltypesystem.rstr import (string_repr,
+                                                          unicode_repr)
             hop.exception_cannot_occur()
-            assert hop.args_r[0].lowleveltype == hop.r_result.lowleveltype
-            v_ll_str, = hop.inputargs(*hop.args_r)
+            if strtype is str:
+                v_ll_str = hop.inputarg(string_repr, 0)
+            else:
+                v_ll_str = hop.inputarg(unicode_repr, 0)
             return hop.genop('same_as', [v_ll_str],
                              resulttype = hop.r_result.lowleveltype)
 
@@ -460,7 +464,7 @@ def cast_object_to_ptr(PTR, object):
 
 @specialize.argtype(0)
 def cast_instance_to_base_ptr(instance):
-    from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+    from rpython.rtyper.rclass import OBJECTPTR
     return cast_object_to_ptr(OBJECTPTR, instance)
 
 @specialize.argtype(0)

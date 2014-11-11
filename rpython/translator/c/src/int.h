@@ -48,6 +48,8 @@
 #define OP_INT_BETWEEN(a,b,c,r)   r = (((Unsigned)b - (Unsigned)a) \
                                      < ((Unsigned)c - (Unsigned)a))
 
+#define OP_INT_FORCE_GE_ZERO(a,r)   r = (0 > a) ? 0 : (a)
+
 /* addition, subtraction */
 
 #define OP_INT_ADD(x,y,r)     r = (x) + (y)

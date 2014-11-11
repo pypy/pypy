@@ -38,6 +38,7 @@ void _pypy_stm_op_free(void *);
 #define OP_RAW_FREE(p, r) OP_FREE(p)
 
 #define OP_RAW_MEMCLEAR(p, size, r) memset((void*)p, 0, size)
+#define OP_RAW_MEMSET(p, byte, size, r) memset((void*)p, byte, size)
 
 #define OP_RAW_MALLOC_USAGE(size, r) r = size
 

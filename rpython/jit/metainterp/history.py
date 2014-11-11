@@ -288,7 +288,7 @@ class ConstFloat(Const):
         return False
 
     def nonnull(self):
-        return self.value != longlong.ZEROF
+        return bool(longlong.extract_bits(self.value))
 
     def _getrepr_(self):
         return self.getfloat()
@@ -463,7 +463,7 @@ class BoxFloat(Box):
         return longlong.gethash(self.value)
 
     def nonnull(self):
-        return self.value != longlong.ZEROF
+        return bool(longlong.extract_bits(self.value))
 
     def _getrepr_(self):
         return self.getfloat()

@@ -37,7 +37,7 @@ an outout-buffering stream.
 import os, sys, errno
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, intmask
-from rpython.rlib import rposix, nonconst
+from rpython.rlib import rposix, nonconst, _rsocket_rffi as _c
 from rpython.rlib.rstring import StringBuilder
 
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_APPEND
@@ -85,10 +85,26 @@ def open_file_as_stream(path, mode="r", buffering=-1, signal_checker=None):
 def _setfd_binary(fd):
     pass
 
+if hasattr(_c, 'fcntl'):
+    def _check_fd_mode(fd, reading, writing):
+        flags = intmask(_c.fcntl(fd, _c.F_GETFL, 0))
+        if flags & _c.O_RDWR:
+            return
+        elif flags & _c.O_WRONLY:
+            if not reading:
+                return
+        else:  # O_RDONLY
+            if not writing:
+                return
+        raise OSError(22, "Invalid argument")
+else:
+    def _check_fd_mode(fd, reading, writing):
+        # XXX
+        pass
+
 def fdopen_as_stream(fd, mode, buffering=-1, signal_checker=None):
-    # XXX XXX XXX you want do check whether the modes are compatible
-    # otherwise you get funny results
     os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
+    _check_fd_mode(fd, reading, writing)
     _setfd_binary(fd)
     stream = DiskFile(fd, signal_checker)
     return construct_stream_tower(stream, buffering, universal, reading,
@@ -532,7 +548,7 @@ class BufferingInputStream(Stream):
     def flush_buffers(self):
         if self.buf:
             try:
-                self.do_seek(self.tell(), 0)
+                self.do_seek(self.pos - len(self.buf), 1)
             except (MyNotImplementedError, OSError):
                 pass
             else:
@@ -541,20 +557,34 @@ class BufferingInputStream(Stream):
 
     def tell(self):
         tellpos = self.do_tell()  # This may fail
+        # Best-effort: to avoid extra system calls to tell() all the
+        # time, and a more complicated logic in this class, we can
+        # only assume that nobody changed the underlying file
+        # descriptor position while we have buffered data.  If they
+        # do, we might get bogus results here (and the following
+        # read() will still return the data cached at the old
+        # position).  Just make sure that we don't fail an assert.
         offset = len(self.buf) - self.pos
-        assert tellpos >= offset #, (locals(), self.__dict__)
+        if tellpos < offset:
+            # bug!  someone changed the fd position under our feet,
+            # and moved it at or very close to the beginning of the
+            # file, so that we have more buffered data than the
+            # current offset.
+            self.buf = ""
+            self.pos = 0
+            offset = 0
         return tellpos - offset
 
     def seek(self, offset, whence):
-        # This may fail on the do_seek() or do_tell() call.
-        # But it won't call either on a relative forward seek.
+        # This may fail on the do_seek() or on the tell() call.
+        # But it won't depend on either on a relative forward seek.
         # Nor on a seek to the very end.
         if whence == 0 or whence == 1:
-            currentsize = len(self.buf) - self.pos
             if whence == 0:
-                difpos = offset - self.tell()
+                difpos = offset - self.tell()   # may clean up self.buf/self.pos
             else:
                 difpos = offset
+            currentsize = len(self.buf) - self.pos
             if -self.pos <= difpos <= currentsize:
                 self.pos += intmask(difpos)
                 return
@@ -731,16 +761,23 @@ class BufferingOutputStream(Stream):
 
     def __init__(self, base, bufsize=-1):
         self.base = base
-        self.do_write = base.write  # write more data
         self.do_tell  = base.tell   # return a byte offset
         if bufsize == -1:     # Get default from the class
             bufsize = self.bufsize
         self.bufsize = bufsize  # buffer size (hint only)
         self.buf = []
         self.buflen = 0
+        self.error = False
+
+    def do_write(self, data):
+        try:
+            self.base.write(data)
+        except:
+            self.error = True
+            raise
 
     def flush_buffers(self):
-        if self.buf:
+        if self.buf and not self.error:
             self.do_write(''.join(self.buf))
             self.buf = []
             self.buflen = 0
@@ -749,6 +786,7 @@ class BufferingOutputStream(Stream):
         return self.do_tell() + self.buflen
 
     def write(self, data):
+        self.error = False
         buflen = self.buflen
         datalen = len(data)
         if datalen + buflen < self.bufsize:
@@ -783,6 +821,7 @@ class LineBufferingOutputStream(BufferingOutputStream):
     """
 
     def write(self, data):
+        self.error = False
         p = data.rfind('\n') + 1
         assert p >= 0
         if self.buflen + len(data) < self.bufsize:
@@ -874,6 +913,13 @@ class TextCRLFFilter(Stream):
             offset = newoffset + 2
 
         return '\n'.join(result)
+
+    def readline(self):
+        line = self.base.readline()
+        limit = len(line) - 2
+        if limit >= 0 and line[limit] == '\r' and line[limit + 1] == '\n':
+            line = line[:limit] + '\n'
+        return line
 
     def tell(self):
         pos = self.base.tell()

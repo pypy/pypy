@@ -22,10 +22,10 @@ class TestWin32Implementation:
         stat = ll_os_stat.make_win32_stat_impl('stat', ll_os.StringTraits())
         wstat = ll_os_stat.make_win32_stat_impl('stat', ll_os.UnicodeTraits())
         def check(f):
-            # msec resolution
+            # msec resolution, +- rounding error
             expected = int(os.stat(f).st_mtime*1000)
-            assert int(stat(f).st_mtime*1000) == expected
-            assert int(wstat(unicode(f)).st_mtime*1000) == expected
+            assert abs(int(stat(f).st_mtime*1000) - expected) < 2
+            assert abs(int(wstat(unicode(f)).st_mtime*1000) - expected) < 2
 
         check('c:/')
         check(os.environ['TEMP'])

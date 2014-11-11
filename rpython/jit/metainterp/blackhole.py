@@ -7,9 +7,9 @@ from rpython.rlib import longlong2float, rgc
 from rpython.rlib.debug import ll_assert, make_sure_not_resized
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
-from rpython.rlib.rtimer import read_timestamp
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
 
@@ -1025,7 +1025,20 @@ class BlackholeInterpreter(object):
                        itemsdescr, arraydescr):
         result = cpu.bh_new(structdescr)
         cpu.bh_setfield_gc_i(result, length, lengthdescr)
-        items = cpu.bh_new_array(length, arraydescr)
+        if (arraydescr.is_array_of_structs() or
+            arraydescr.is_array_of_pointers()):
+            items = cpu.bh_new_array_clear(length, arraydescr)
+        else:
+            items = cpu.bh_new_array(length, arraydescr)
+        cpu.bh_setfield_gc_r(result, items, itemsdescr)
+        return result
+
+    @arguments("cpu", "i", "d", "d", "d", "d", returns="r")
+    def bhimpl_newlist_clear(cpu, length, structdescr, lengthdescr,
+                             itemsdescr, arraydescr):
+        result = cpu.bh_new(structdescr)
+        cpu.bh_setfield_gc_i(result, length, lengthdescr)
+        items = cpu.bh_new_array_clear(length, arraydescr)
         cpu.bh_setfield_gc_r(result, items, itemsdescr)
         return result
 
@@ -1034,7 +1047,11 @@ class BlackholeInterpreter(object):
                             itemsdescr, arraydescr):
         result = cpu.bh_new(structdescr)
         cpu.bh_setfield_gc_i(result, 0, lengthdescr)
-        items = cpu.bh_new_array(lengthhint, arraydescr)
+        if (arraydescr.is_array_of_structs() or
+            arraydescr.is_array_of_pointers()):
+            items = cpu.bh_new_array_clear(lengthhint, arraydescr)
+        else:
+            items = cpu.bh_new_array(lengthhint, arraydescr)
         cpu.bh_setfield_gc_r(result, items, itemsdescr)
         return result
 
@@ -1169,6 +1186,10 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "i", "d", returns="r")
     def bhimpl_new_array(cpu, length, arraydescr):
         return cpu.bh_new_array(length, arraydescr)
+
+    @arguments("cpu", "i", "d", returns="r")
+    def bhimpl_new_array_clear(cpu, length, arraydescr):
+        return cpu.bh_new_array_clear(length, arraydescr)
 
     @arguments("cpu", "r", "i", "d", returns="i")
     def bhimpl_getarrayitem_gc_i(cpu, array, index, arraydescr):
@@ -1415,10 +1436,6 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "r", "r", "i", "i", "i")
     def bhimpl_copyunicodecontent(cpu, src, dst, srcstart, dststart, length):
         cpu.bh_copyunicodecontent(src, dst, srcstart, dststart, length)
-
-    @arguments(returns=LONGLONG_TYPECODE)
-    def bhimpl_ll_read_timestamp():
-        return read_timestamp()
 
     def _libffi_save_result(self, cif_description, exchange_buffer, result):
         ARRAY = lltype.Ptr(rffi.CArray(lltype.typeOf(result)))

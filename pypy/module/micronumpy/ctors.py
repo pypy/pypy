@@ -3,7 +3,7 @@ from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstring import strip_spaces
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.module.micronumpy import descriptor, loop
+from pypy.module.micronumpy import descriptor, loop, support
 from pypy.module.micronumpy.base import (
     W_NDimArray, convert_to_array, W_NumpyObject)
 from pypy.module.micronumpy.converters import shape_converter
@@ -78,9 +78,9 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
     # arrays with correct dtype
     if isinstance(w_object, W_NDimArray) and \
             (space.is_none(w_dtype) or w_object.get_dtype() is dtype):
-        if copy:
-            return w_object.descr_copy(space)
-        else:
+        if copy and (subok or type(w_object) is W_NDimArray):
+            return w_object.descr_copy(space, w_order)
+        elif not copy and (subok or type(w_object) is W_NDimArray):
             return w_object
 
     # not an array or incorrect dtype
@@ -134,6 +134,15 @@ def _zeros_or_empty(space, w_shape, w_dtype, w_order, zero):
     if dtype.is_str_or_unicode() and dtype.elsize < 1:
         dtype = descriptor.variable_dtype(space, dtype.char + '1')
     shape = shape_converter(space, w_shape, dtype)
+    for dim in shape:
+        if dim < 0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "negative dimensions are not allowed"))
+    try:
+        support.product(shape)
+    except OverflowError:
+        raise OperationError(space.w_ValueError, space.wrap(
+            "array is too big."))
     return W_NDimArray.from_shape(space, shape, dtype=dtype, zero=zero)
 
 def empty(space, w_shape, w_dtype=None, w_order=None):

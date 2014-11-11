@@ -38,18 +38,15 @@ default_magic = (0xf303 + 7) | 0x0a0d0000               # this PyPy's magic
 def cpython_code_signature(code):
     "([list-of-arg-names], vararg-name-or-None, kwarg-name-or-None)."
     argcount = code.co_argcount
+    varnames = code.co_varnames
     assert argcount >= 0     # annotator hint
-    argnames = list(code.co_varnames[:argcount])
+    argnames = list(varnames[:argcount])
     if code.co_flags & CO_VARARGS:
-        varargname = code.co_varnames[argcount]
+        varargname = varnames[argcount]
         argcount += 1
     else:
         varargname = None
-    if code.co_flags & CO_VARKEYWORDS:
-        kwargname = code.co_varnames[argcount]
-        argcount += 1
-    else:
-        kwargname = None
+    kwargname = varnames[argcount] if code.co_flags & CO_VARKEYWORDS else None
     return Signature(argnames, varargname, kwargname)
 
 

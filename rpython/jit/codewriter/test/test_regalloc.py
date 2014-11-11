@@ -7,7 +7,8 @@ from rpython.jit.metainterp.history import AbstractDescr
 from rpython.flowspace.model import Variable, Constant, SpaceOperation
 from rpython.flowspace.model import FunctionGraph, Block, Link
 from rpython.flowspace.model import c_last_exception
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper import rclass
 from rpython.rlib.rarithmetic import ovfcheck
 
 

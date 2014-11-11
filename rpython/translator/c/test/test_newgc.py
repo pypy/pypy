@@ -22,7 +22,6 @@ class UsingFrameworkTest(object):
     removetypeptr = False
     taggedpointers = False
     GC_CAN_MOVE = False
-    GC_CAN_MALLOC_NONMOVABLE = True
     GC_CAN_SHRINK_ARRAY = False
 
     _isolated_func = None
@@ -444,19 +443,14 @@ class UsingFrameworkTest(object):
     def define_custom_trace(cls):
         from rpython.rtyper.annlowlevel import llhelper
         #
-        S = lltype.GcStruct('S', ('x', llmemory.Address), rtti=True)
+        S = lltype.GcStruct('S', ('x', llmemory.Address))
         offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(obj, prev):
-            if not prev:
-                return obj + offset_of_x
-            else:
-                return llmemory.NULL
-        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                          llmemory.Address)
-        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
+        def customtrace(gc, obj, callback, arg):
+            gc._trace_callback(callback, arg, obj + offset_of_x)
+        lambda_customtrace = lambda: customtrace
         #
         def setup():
+            rgc.register_custom_trace_hook(S, lambda_customtrace)
             s = lltype.nullptr(S)
             for i in range(10000):
                 t = lltype.malloc(S)
@@ -720,25 +714,6 @@ class UsingFrameworkTest(object):
 
     def test_can_move(self):
         assert self.run('can_move') == self.GC_CAN_MOVE
-
-    def define_malloc_nonmovable(cls):
-        TP = lltype.GcArray(lltype.Char)
-        def func():
-            try:
-                a = rgc.malloc_nonmovable(TP, 3)
-                rgc.collect()
-                if a:
-                    assert not rgc.can_move(a)
-                    return 1
-                return 0
-            except Exception:
-                return 2
-
-        return func
-
-    def test_malloc_nonmovable(self):
-        res = self.run('malloc_nonmovable')
-        assert res == self.GC_CAN_MALLOC_NONMOVABLE
 
     def define_resizable_buffer(cls):
         from rpython.rtyper.lltypesystem.rstr import STR
@@ -1214,12 +1189,37 @@ class UsingFrameworkTest(object):
     def test_gcflag_extra(self):
         self.run("gcflag_extra")
 
+    def define_check_zero_works(self):
+        S = lltype.GcStruct("s", ('x', lltype.Signed))
+        S2 = lltype.GcStruct("s2", ('parent',
+                                    lltype.Struct("s1", ("x", lltype.Signed))),
+                                    ('y', lltype.Signed))
+        A = lltype.GcArray(lltype.Signed)
+        B = lltype.GcStruct("b", ('x', lltype.Signed),
+                                 ('y', lltype.Array(lltype.Signed)))
+
+        def fn():
+            s = lltype.malloc(S, zero=True)
+            assert s.x == 0
+            s2 = lltype.malloc(S2, zero=True)
+            assert s2.parent.x == 0
+            a = lltype.malloc(A, 3, zero=True)
+            assert a[2] == 0
+            # XXX not supported right now in gctransform/framework.py:
+            #b = lltype.malloc(B, 3, zero=True)
+            #assert len(b.y) == 3
+            #assert b.x == 0
+            #assert b.y[0] == b.y[1] == b.y[2] == 0
+            return 0
+        return fn
+
+    def test_check_zero_works(self):
+        self.run("check_zero_works")
 
 class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
     should_be_moving = True
     GC_CAN_MOVE = True
-    GC_CAN_MALLOC_NONMOVABLE = False
     GC_CAN_SHRINK_ARRAY = True
 
     # for snippets
@@ -1381,20 +1381,29 @@ class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
                                 for length in range(3, 76, 5)])
 
     def define_nursery_hash_base(cls):
+        from rpython.rlib.debug import debug_print
+        
         class A:
             pass
         def fn():
             objects = []
             hashes = []
             for i in range(200):
+                debug_print("starting nursery collection", i)
                 rgc.collect(0)     # nursery-only collection, if possible
+                debug_print("finishing nursery collection", i)
                 obj = A()
                 objects.append(obj)
                 hashes.append(compute_identity_hash(obj))
             unique = {}
+            debug_print("objects", len(objects))
             for i in range(len(objects)):
+                debug_print(i)
                 assert compute_identity_hash(objects[i]) == hashes[i]
+                debug_print("storing in dict")
                 unique[hashes[i]] = None
+                debug_print("done")
+            debug_print("finished")
             return len(unique)
         return fn
 
@@ -1411,7 +1420,6 @@ class TestGenerationalGC(TestSemiSpaceGC):
 class TestHybridGC(TestGenerationalGC):
     gcpolicy = "hybrid"
     should_be_moving = True
-    GC_CAN_MALLOC_NONMOVABLE = True
 
     def test_gc_set_max_heap_size(self):
         py.test.skip("not implemented")
@@ -1424,7 +1432,6 @@ class TestHybridGCRemoveTypePtr(TestHybridGC):
 class TestMiniMarkGC(TestSemiSpaceGC):
     gcpolicy = "minimark"
     should_be_moving = True
-    GC_CAN_MALLOC_NONMOVABLE = True
     GC_CAN_SHRINK_ARRAY = True
 
     def test_gc_heap_stats(self):

@@ -427,7 +427,7 @@ class Assembler386(BaseAssembler):
             # we have one word to align
             mc.SUB_ri(esp.value, 7 * WORD) # align and reserve some space
             mc.MOV_sr(WORD, eax.value) # save for later
-            mc.MOVSD_sx(3 * WORD, xmm0.value)
+            mc.MOVSD_sx(2 * WORD, xmm0.value)   # 32-bit: also 3 * WORD
             if IS_X86_32:
                 mc.MOV_sr(4 * WORD, edx.value)
                 mc.MOV_sr(0, ebp.value)
@@ -479,7 +479,7 @@ class Assembler386(BaseAssembler):
         else:
             if IS_X86_32:
                 mc.MOV_rs(edx.value, 4 * WORD)
-            mc.MOVSD_xs(xmm0.value, 3 * WORD)
+            mc.MOVSD_xs(xmm0.value, 2 * WORD)
             mc.MOV_rs(eax.value, WORD) # restore
             self._restore_exception(mc, exc0, exc1)
             mc.MOV(exc0, RawEspLoc(WORD * 5, REF))
@@ -1205,13 +1205,15 @@ class Assembler386(BaseAssembler):
         cb = callbuilder.CallBuilder(self, fnloc, arglocs)
         cb.emit_no_collect()
 
-    def _reload_frame_if_necessary(self, mc, align_stack=False):
+    def _reload_frame_if_necessary(self, mc, align_stack=False,
+                                   shadowstack_reg=None):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             if gcrootmap.is_shadow_stack:
-                mc.MOV(ecx, self.heap_shadowstack_top())
-                mc.MOV(ebp, mem(self.SEGMENT_NO, ecx, -WORD))
-        #
+                if shadowstack_reg is None:
+                    mc.MOV(ecx, self.heap_shadowstack_top())
+                    shadowstack_reg = ecx
+                mc.MOV(ebp, mem(shadowstack_reg, -WORD))
         wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
             # frame never uses card marking, so we enforce this is not
@@ -1643,6 +1645,8 @@ class Assembler386(BaseAssembler):
     def genop_discard_setfield_raw(self, op, arglocs):
         self._genop_discard_setfield(arglocs, self.SEGMENT_NO)
 
+    genop_discard_zero_ptr_field = genop_discard_setfield_gc
+
     def genop_discard_setinteriorfield_gc(self, op, arglocs):
         assert op.getarg(0).type == REF     # only for a GC argument!
         (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
@@ -1736,7 +1740,7 @@ class Assembler386(BaseAssembler):
         else:
             assert 0, itemsize
 
-    def genop_read_timestamp(self, op, arglocs, resloc):
+    def genop_math_read_timestamp(self, op, arglocs, resloc):
         self.mc.RDTSC()
         if longlong.is_64_bit:
             self.mc.SHL_ri(edx.value, 32)
@@ -1945,7 +1949,7 @@ class Assembler386(BaseAssembler):
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.MOV_bi((self.SEGMENT_FRAME, ofs), 0)
 
-    def new_stack_loc(self, i, pos, tp):
+    def new_stack_loc(self, i, tp):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         return FrameLoc(self.SEGMENT_FRAME, i, get_ebp_ofs(base_ofs, i), tp)
 
@@ -2712,6 +2716,43 @@ class Assembler386(BaseAssembler):
             elif IS_X86_64:
                 mc.MOVSX32_rj(loc.value,
                               (SEGTL, addr))        # memory read, sign-extend
+
+    def genop_discard_zero_array(self, op, arglocs):
+        (base_loc, startindex_loc, bytes_loc,
+         itemsize_loc, baseofs_loc, null_loc) = arglocs
+        assert isinstance(bytes_loc, ImmedLoc)
+        assert isinstance(itemsize_loc, ImmedLoc)
+        assert isinstance(baseofs_loc, ImmedLoc)
+        assert isinstance(null_loc, RegLoc) and null_loc.is_xmm
+        baseofs = baseofs_loc.value
+        nbytes = bytes_loc.value
+        if valid_addressing_size(itemsize_loc.value):
+            scale = get_scale(itemsize_loc.value)
+        else:
+            assert isinstance(startindex_loc, ImmedLoc)
+            baseofs += startindex_loc.value * itemsize_loc.value
+            startindex_loc = imm0
+            scale = 0
+        null_reg_cleared = False
+        i = 0
+        while i < nbytes:
+            addr = addr_add(base_loc, startindex_loc, baseofs + i, scale)
+            current = nbytes - i
+            if current >= 16:
+                current = 16
+                if not null_reg_cleared:
+                    self.mc.XORPS_xx(null_loc.value, null_loc.value)
+                    null_reg_cleared = True
+                self.mc.MOVUPS(addr, null_loc)
+            else:
+                if current >= WORD:
+                    current = WORD
+                elif current >= 4:
+                    current = 4
+                elif current >= 2:
+                    current = 2
+                self.save_into_mem(addr, imm0, imm(current))
+            i += current
 
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST

@@ -6,7 +6,8 @@ from rpython.jit.codewriter.format import assert_format
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import AbstractDescr
-from rpython.rtyper.lltypesystem import lltype, rclass, rstr, rffi
+from rpython.rtyper.lltypesystem import lltype, rstr, rffi
+from rpython.rtyper import rclass
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.translator.unsimplify import varoftype
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_longlong, r_ulonglong
@@ -1032,6 +1033,21 @@ class TestFlatten:
             f = g()
             if f.vlist is not None:
                 pass
+        e = py.test.raises(AssertionError, self.encoding_test, f, [], "!",
+                           transform=True)
+        assert str(e.value).startswith("A virtualizable array is passed aroun")
+
+    def test_vable_attribute_list_copied_around(self):
+        class F:
+            _virtualizable_ = ['vlist[*]']
+            vlist = None
+            def __init__(self, x):
+                self.vlist = [x]
+        def g():
+            return F(42)
+        def f():
+            f = g()
+            f.extrastuff = f.vlist
         e = py.test.raises(AssertionError, self.encoding_test, f, [], "!",
                            transform=True)
         assert str(e.value).startswith("A virtualizable array is passed aroun")

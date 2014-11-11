@@ -242,6 +242,16 @@ class BaseTestRDict(BaseRtypingTest):
         res = self.interpret(func, ())#, view=True)
         assert res == 14
 
+    def test_list_dict(self):
+        def func():
+            dic = self.newdict()
+            dic[' 4'] = 1000
+            dic[' 8'] = 200
+            keys = list(dic)
+            return ord(keys[0][1]) + ord(keys[1][1]) - 2*ord('0') + len(keys)
+        res = self.interpret(func, ())#, view=True)
+        assert res == 14
+
     def test_dict_inst_keys(self):
         class Empty:
             pass

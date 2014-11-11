@@ -222,6 +222,7 @@ LL_OPERATIONS = {
     'int_xor':              LLOp(canfold=True),
 
     'int_between':          LLOp(canfold=True),   # a <= b < c
+    'int_force_ge_zero':    LLOp(canfold=True),   # 0 if a < 0 else a
 
     'int_add_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
     'int_add_nonneg_ovf':   LLOp(canraise=(OverflowError,), tryfold=True),
@@ -374,8 +375,6 @@ LL_OPERATIONS = {
 
     'malloc':               LLOp(canmallocgc=True),
     'malloc_varsize':       LLOp(canmallocgc=True),
-    'malloc_nonmovable':    LLOp(canmallocgc=True),
-    'malloc_nonmovable_varsize':LLOp(canmallocgc=True),
     'shrink_array':         LLOp(canrun=True),
     'zero_gc_pointers_inside': LLOp(),
     'free':                 LLOp(),
@@ -476,6 +475,7 @@ LL_OPERATIONS = {
     'raw_malloc_usage':     LLOp(sideeffects=False),
     'raw_free':             LLOp(),
     'raw_memclear':         LLOp(),
+    'raw_memset':           LLOp(),
     'raw_memcopy':          LLOp(),
     'raw_memmove':          LLOp(),
     'raw_load':             LLOp(sideeffects=False, canrun=True),
@@ -518,7 +518,9 @@ LL_OPERATIONS = {
     'jit_conditional_call': LLOp(),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
-    'do_malloc_fixedsize_clear':LLOp(canmallocgc=True),
+    'do_malloc_fixedsize':LLOp(canmallocgc=True),
+    'do_malloc_fixedsize_clear': LLOp(canmallocgc=True),
+    'do_malloc_varsize':  LLOp(canmallocgc=True),
     'do_malloc_varsize_clear':  LLOp(canmallocgc=True),
     'get_write_barrier_failing_case': LLOp(sideeffects=False),
     'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),

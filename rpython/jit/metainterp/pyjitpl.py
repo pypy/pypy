@@ -18,7 +18,8 @@ from rpython.rlib.debug import debug_start, debug_stop, debug_print, make_sure_n
 from rpython.rlib.jit import Counters
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper import rclass
 
 
 # ____________________________________________________________
@@ -438,6 +439,10 @@ class MIFrame(object):
     def opimpl_new_array(self, lengthbox, itemsizedescr):
         return self.metainterp.execute_new_array(itemsizedescr, lengthbox)
 
+    @arguments("box", "descr")
+    def opimpl_new_array_clear(self, lengthbox, itemsizedescr):
+        return self.metainterp.execute_new_array_clear(itemsizedescr, lengthbox)
+
     @specialize.arg(1)
     def _do_getarrayitem_gc_any(self, op, arraybox, indexbox, arraydescr):
         tobox = self.metainterp.heapcache.getarrayitem(
@@ -541,7 +546,20 @@ class MIFrame(object):
                        itemsdescr, arraydescr):
         sbox = self.opimpl_new(structdescr)
         self._opimpl_setfield_gc_any(sbox, sizebox, lengthdescr)
-        abox = self.opimpl_new_array(sizebox, arraydescr)
+        if (arraydescr.is_array_of_structs() or
+            arraydescr.is_array_of_pointers()):
+            abox = self.opimpl_new_array_clear(sizebox, arraydescr)
+        else:
+            abox = self.opimpl_new_array(sizebox, arraydescr)
+        self._opimpl_setfield_gc_any(sbox, abox, itemsdescr)
+        return sbox
+
+    @arguments("box", "descr", "descr", "descr", "descr")
+    def opimpl_newlist_clear(self, sizebox, structdescr, lengthdescr,
+                             itemsdescr, arraydescr):
+        sbox = self.opimpl_new(structdescr)
+        self._opimpl_setfield_gc_any(sbox, sizebox, lengthdescr)
+        abox = self.opimpl_new_array_clear(sizebox, arraydescr)
         self._opimpl_setfield_gc_any(sbox, abox, itemsdescr)
         return sbox
 
@@ -550,7 +568,11 @@ class MIFrame(object):
                             itemsdescr, arraydescr):
         sbox = self.opimpl_new(structdescr)
         self._opimpl_setfield_gc_any(sbox, history.CONST_FALSE, lengthdescr)
-        abox = self.opimpl_new_array(sizehintbox, arraydescr)
+        if (arraydescr.is_array_of_structs() or
+            arraydescr.is_array_of_pointers()):
+            abox = self.opimpl_new_array_clear(sizehintbox, arraydescr)
+        else:
+            abox = self.opimpl_new_array(sizehintbox, arraydescr)
         self._opimpl_setfield_gc_any(sbox, abox, itemsdescr)
         return sbox
 
@@ -1273,10 +1295,6 @@ class MIFrame(object):
             metainterp.history.record(rop.VIRTUAL_REF_FINISH,
                                       [vrefbox, nullbox], None)
 
-    @arguments()
-    def opimpl_ll_read_timestamp(self):
-        return self.metainterp.execute_and_record(rop.READ_TIMESTAMP, None)
-
     @arguments("box", "box", "box")
     def _opimpl_libffi_save_result(self, box_cif_description,
                                    box_exchange_buffer, box_result):
@@ -1426,6 +1444,9 @@ class MIFrame(object):
             #
             allboxes = self._build_allboxes(funcbox, argboxes, descr)
             effectinfo = descr.get_extra_info()
+            if effectinfo.oopspecindex == effectinfo.OS_NOT_IN_TRACE:
+                return self.metainterp.do_not_in_trace_call(allboxes, descr)
+
             if (assembler_call or
                     effectinfo.check_forces_virtual_or_virtualizable()):
                 # residual calls require attention to keep virtualizables in-sync
@@ -1961,6 +1982,12 @@ class MetaInterp(object):
         self.heapcache.new_array(resbox, lengthbox)
         return resbox
 
+    def execute_new_array_clear(self, itemsizedescr, lengthbox):
+        resbox = self.execute_and_record(rop.NEW_ARRAY_CLEAR, itemsizedescr,
+                                         lengthbox)
+        self.heapcache.new_array(resbox, lengthbox)
+        return resbox
+
     def execute_setfield_gc(self, fielddescr, box, valuebox):
         self.execute_and_record(rop.SETFIELD_GC, fielddescr, box, valuebox)
         self.heapcache.setfield(box, valuebox, fielddescr)
@@ -2035,6 +2062,10 @@ class MetaInterp(object):
             if greenkey_of_huge_function is not None:
                 warmrunnerstate.disable_noninlinable_function(
                     greenkey_of_huge_function)
+                if self.current_merge_points:
+                    jd_sd = self.jitdriver_sd
+                    greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
+                    warmrunnerstate.JitCell.trace_next_iteration(greenkey)
             raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
 
     def _interpret(self):
@@ -2865,6 +2896,19 @@ class MetaInterp(object):
                             op.result, descr)
         if not we_are_translated():       # for llgraph
             descr._original_func_ = op.getarg(0).value
+
+    def do_not_in_trace_call(self, allboxes, descr):
+        self.clear_exception()
+        resbox = executor.execute_varargs(self.cpu, self, rop.CALL,
+                                          allboxes, descr)
+        assert resbox is None
+        if self.last_exc_value_box is not None:
+            # cannot trace this!  it raises, so we have to follow the
+            # exception-catching path, but the trace doesn't contain
+            # the call at all
+            raise SwitchToBlackhole(Counters.ABORT_ESCAPE,
+                                    raising_exception=True)
+        return None
 
 # ____________________________________________________________
 

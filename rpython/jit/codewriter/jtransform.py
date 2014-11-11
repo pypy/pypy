@@ -12,8 +12,9 @@ from rpython.flowspace.model import SpaceOperation, Variable, Constant, c_last_e
 from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
-from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rclass, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
 from rpython.rtyper.lltypesystem import rbytearray
+from rpython.rtyper import rclass
 from rpython.rtyper.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from rpython.translator.unsimplify import varoftype
 
@@ -612,8 +613,43 @@ class Transformer(object):
             # XXX only strings or simple arrays for now
             ARRAY = op.args[0].value
             arraydescr = self.cpu.arraydescrof(ARRAY)
-            return SpaceOperation('new_array', [op.args[2], arraydescr],
-                                  op.result)
+            if op.args[1].value.get('zero', False):
+                opname = 'new_array_clear'
+            elif ((isinstance(ARRAY.OF, lltype.Ptr) and ARRAY.OF._needsgc()) or
+                  isinstance(ARRAY.OF, lltype.Struct)):
+                opname = 'new_array_clear'
+            else:
+                opname = 'new_array'
+            return SpaceOperation(opname, [op.args[2], arraydescr], op.result)
+
+    def zero_contents(self, ops, v, TYPE):
+        if isinstance(TYPE, lltype.Struct):
+            for name, FIELD in TYPE._flds.iteritems():
+                if isinstance(FIELD, lltype.Struct):
+                    # substruct
+                    self.zero_contents(ops, v, FIELD)
+                else:
+                    c_name = Constant(name, lltype.Void)
+                    c_null = Constant(FIELD._defl(), FIELD)
+                    op = SpaceOperation('setfield', [v, c_name, c_null],
+                                        None)
+                    self.extend_with(ops, self.rewrite_op_setfield(op,
+                                          override_type=TYPE))
+        elif isinstance(TYPE, lltype.Array):
+            assert False # this operation disappeared
+        else:
+            raise TypeError("Expected struct or array, got '%r'", (TYPE,))
+        if len(ops) == 1:
+            return ops[0]
+        return ops
+
+    def extend_with(self, l, ops):
+        if ops is None:
+            return
+        if isinstance(ops, list):
+            l.extend(ops)
+        else:
+            l.append(ops)
 
     def rewrite_op_free(self, op):
         d = op.args[1].value.copy()
@@ -750,6 +786,7 @@ class Transformer(object):
             raise Exception("getfield_raw_r (without _pure) not supported")
         #
         if immut in (IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY):
+            op1.opname += "_pure"
             descr1 = self.cpu.fielddescrof(
                 v_inst.concretetype.TO,
                 quasiimmut.get_mutate_field_name(c_fieldname.value))
@@ -759,13 +796,18 @@ class Transformer(object):
                    op1]
         return op1
 
-    def rewrite_op_setfield(self, op):
+    def rewrite_op_setfield(self, op, override_type=None):
         if self.is_typeptr_getset(op):
             # ignore the operation completely -- instead, it's done by 'new'
             return
+        self._check_no_vable_array(op.args)
         # turn the flow graph 'setfield' operation into our own version
         [v_inst, c_fieldname, v_value] = op.args
         RESULT = v_value.concretetype
+        if override_type is not None:
+            TYPE = override_type
+        else:
+            TYPE = v_inst.concretetype.TO
         if RESULT is lltype.Void:
             return
         # check for virtualizable
@@ -775,10 +817,12 @@ class Transformer(object):
             return [SpaceOperation('-live-', [], None),
                     SpaceOperation('setfield_vable_%s' % kind,
                                    [v_inst, v_value, descr], None)]
-        self.check_field_access(v_inst.concretetype.TO)
-        argname = getattr(v_inst.concretetype.TO, '_gckind', 'gc')
-        descr = self.cpu.fielddescrof(v_inst.concretetype.TO,
-                                      c_fieldname.value)
+        self.check_field_access(TYPE)
+        if override_type:
+            argname = 'gc'
+        else:
+            argname = getattr(TYPE, '_gckind', 'gc')
+        descr = self.cpu.fielddescrof(TYPE, c_fieldname.value)
         kind = getkind(RESULT)[0]
         if argname == 'raw' and kind == 'r':
             raise Exception("setfield_raw_r not supported")
@@ -860,7 +904,10 @@ class Transformer(object):
         if op.args[1].value['flavor'] == 'raw':
             return self._rewrite_raw_malloc(op, 'raw_malloc_fixedsize', [])
         #
-        assert op.args[1].value == {'flavor': 'gc'}
+        if op.args[1].value.get('zero', False):
+            zero = True
+        else:
+            zero = False
         STRUCT = op.args[0].value
         vtable = heaptracker.get_vtable_for_gcstruct(self.cpu, STRUCT)
         if vtable:
@@ -881,7 +928,25 @@ class Transformer(object):
         else:
             opname = 'new'
         sizedescr = self.cpu.sizeof(STRUCT)
-        return SpaceOperation(opname, [sizedescr], op.result)
+        op1 = SpaceOperation(opname, [sizedescr], op.result)
+        if zero:
+            return self.zero_contents([op1], op.result, STRUCT)
+        return op1
+
+    def _has_gcptrs_in(self, STRUCT):
+        if isinstance(STRUCT, lltype.Array):
+            ITEM = STRUCT.OF
+            if isinstance(ITEM, lltype.Struct):
+                STRUCT = ITEM
+            else:
+                return isinstance(ITEM, lltype.Ptr) and ITEM._needsgc()
+        for FIELD in STRUCT._flds.values():
+            if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
+                return True
+            elif isinstance(FIELD, lltype.Struct):
+                if self._has_gcptrs_in(FIELD):
+                    return True
+        return False
 
     def rewrite_op_getinteriorarraysize(self, op):
         # only supports strings and unicodes
@@ -1501,7 +1566,17 @@ class Transformer(object):
             kind = getkind(args[0].concretetype)
             return SpaceOperation('%s_isvirtual' % kind, args, op.result)
         elif oopspec_name == 'jit.force_virtual':
-            return self._handle_oopspec_call(op, args, EffectInfo.OS_JIT_FORCE_VIRTUAL, EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE)
+            return self._handle_oopspec_call(op, args,
+                EffectInfo.OS_JIT_FORCE_VIRTUAL,
+                EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE)
+        elif oopspec_name == 'jit.not_in_trace':
+            # ignore 'args' and use the original 'op.args'
+            if op.result.concretetype is not lltype.Void:
+                raise Exception(
+                    "%r: jit.not_in_trace() function must return None"
+                    % (op.args[0],))
+            return self._handle_oopspec_call(op, op.args[1:],
+                EffectInfo.OS_NOT_IN_TRACE)
         else:
             raise AssertionError("missing support for %r" % oopspec_name)
 
@@ -1582,35 +1657,34 @@ class Transformer(object):
         self._get_list_nonneg_canraise_flags(op)
 
     def _get_initial_newlist_length(self, op, args):
-        # normalize number of arguments to the 'newlist' function
-        if len(args) > 1:
-            v_default = args[1]     # initial value: must be 0 or NULL
-            ARRAY = deref(op.result.concretetype)
-            if (not isinstance(v_default, Constant) or
-                v_default.value != arrayItem(ARRAY)._defl()):
-                raise NotSupported("variable or non-null initial value")
-        if len(args) >= 1:
-            return args[0]
+        assert len(args) <= 1
+        if len(args) == 1:
+            v_length = args[0]
+            assert v_length.concretetype is lltype.Signed
+            return v_length
         else:
             return Constant(0, lltype.Signed)     # length: default to 0
 
     # ---------- fixed lists ----------
 
     def do_fixed_newlist(self, op, args, arraydescr):
+        # corresponds to rtyper.lltypesystem.rlist.newlist:
+        # the items may be uninitialized.
         v_length = self._get_initial_newlist_length(op, args)
-        assert v_length.concretetype is lltype.Signed
-        ops = []
-        if isinstance(v_length, Constant):
-            if v_length.value >= 0:
-                v = v_length
-            else:
-                v = Constant(0, lltype.Signed)
+        ARRAY = op.result.concretetype.TO
+        if ((isinstance(ARRAY.OF, lltype.Ptr) and ARRAY.OF._needsgc()) or
+               isinstance(ARRAY.OF, lltype.Struct)):
+            opname = 'new_array_clear'
         else:
-            v = Variable('new_length')
-            v.concretetype = lltype.Signed
-            ops.append(SpaceOperation('int_force_ge_zero', [v_length], v))
-        ops.append(SpaceOperation('new_array', [v, arraydescr], op.result))
-        return ops
+            opname = 'new_array'
+        return SpaceOperation(opname, [v_length, arraydescr], op.result)
+
+    def do_fixed_newlist_clear(self, op, args, arraydescr):
+        # corresponds to rtyper.rlist.ll_alloc_and_clear:
+        # needs to clear the items.
+        v_length = self._get_initial_newlist_length(op, args)
+        return SpaceOperation('new_array_clear', [v_length, arraydescr],
+                              op.result)
 
     def do_fixed_list_len(self, op, args, arraydescr):
         if args[0] in self.vable_array_vars:     # virtualizable array
@@ -1676,6 +1750,14 @@ class Transformer(object):
                              itemsdescr, structdescr):
         v_length = self._get_initial_newlist_length(op, args)
         return SpaceOperation('newlist',
+                              [v_length, structdescr, lengthdescr, itemsdescr,
+                               arraydescr],
+                              op.result)
+
+    def do_resizable_newlist_clear(self, op, args, arraydescr, lengthdescr,
+                                   itemsdescr, structdescr):
+        v_length = self._get_initial_newlist_length(op, args)
+        return SpaceOperation('newlist_clear',
                               [v_length, structdescr, lengthdescr, itemsdescr,
                                arraydescr],
                               op.result)
@@ -1770,6 +1852,7 @@ class Transformer(object):
             dict = {"stroruni.concat": EffectInfo.OS_STR_CONCAT,
                     "stroruni.slice":  EffectInfo.OS_STR_SLICE,
                     "stroruni.equal":  EffectInfo.OS_STR_EQUAL,
+                    "stroruni.cmp":    EffectInfo.OS_STR_CMP,
                     "stroruni.copy_string_to_raw": EffectInfo.OS_STR_COPY_TO_RAW,
                     }
             CHR = lltype.Char
@@ -1777,6 +1860,7 @@ class Transformer(object):
             dict = {"stroruni.concat": EffectInfo.OS_UNI_CONCAT,
                     "stroruni.slice":  EffectInfo.OS_UNI_SLICE,
                     "stroruni.equal":  EffectInfo.OS_UNI_EQUAL,
+                    "stroruni.cmp":    EffectInfo.OS_UNI_CMP,
                     "stroruni.copy_string_to_raw": EffectInfo.OS_UNI_COPY_TO_RAW
                     }
             CHR = lltype.UniChar
@@ -1912,6 +1996,12 @@ class Transformer(object):
                                              EffectInfo.EF_CANNOT_RAISE)
         else:
             raise NotImplementedError(oopspec_name)
+
+    def rewrite_op_ll_read_timestamp(self, op):
+        op1 = self.prepare_builtin_call(op, "ll_read_timestamp", [])
+        return self.handle_residual_call(op1,
+            oopspecindex=EffectInfo.OS_MATH_READ_TIMESTAMP,
+            extraeffect=EffectInfo.EF_CANNOT_RAISE)
 
     def rewrite_op_jit_force_quasi_immutable(self, op):
         v_inst, c_fieldname = op.args

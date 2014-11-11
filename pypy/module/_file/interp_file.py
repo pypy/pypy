@@ -8,7 +8,7 @@ from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
 from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
 from pypy.module.posix.interp_posix import dispatch_filename
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -30,6 +30,8 @@ class W_File(W_AbstractStream):
     w_name   = None
     mode     = "<uninitialized file>"
     binary   = False
+    readable = False
+    writable = False
     softspace= 0     # Required according to file object docs
     encoding = None
     errors   = None
@@ -61,6 +63,12 @@ class W_File(W_AbstractStream):
         self.fd = fd
         self.mode = mode
         self.binary = "b" in mode
+        if 'r' in mode or 'U' in mode:
+            self.readable = True
+        if 'w' in mode or 'a' in mode:
+            self.writable = True
+        if '+' in mode:
+            self.readable = self.writable = True
         if w_name is not None:
             self.w_name = w_name
         self.stream = stream
@@ -88,6 +96,16 @@ class W_File(W_AbstractStream):
             raise OperationError(self.space.w_ValueError,
                 self.space.wrap("I/O operation on closed file")
             )
+
+    def check_readable(self):
+        if not self.readable:
+            raise OperationError(self.space.w_IOError, self.space.wrap(
+                "File not open for reading"))
+
+    def check_writable(self):
+        if not self.writable:
+            raise OperationError(self.space.w_IOError, self.space.wrap(
+                "File not open for writing"))
 
     def getstream(self):
         """Return self.stream or raise an app-level ValueError if missing
@@ -176,6 +194,7 @@ class W_File(W_AbstractStream):
     @unwrap_spec(n=int)
     def direct_read(self, n=-1):
         stream = self.getstream()
+        self.check_readable()
         if n < 0:
             return stream.readall()
         else:
@@ -201,6 +220,7 @@ class W_File(W_AbstractStream):
     @unwrap_spec(size=int)
     def direct_readline(self, size=-1):
         stream = self.getstream()
+        self.check_readable()
         if size < 0:
             return stream.readline()
         else:
@@ -227,6 +247,7 @@ class W_File(W_AbstractStream):
     @unwrap_spec(size=int)
     def direct_readlines(self, size=0):
         stream = self.getstream()
+        self.check_readable()
         # this is implemented as: .read().split('\n')
         # except that it keeps the \n in the resulting strings
         if size <= 0:
@@ -260,6 +281,7 @@ class W_File(W_AbstractStream):
 
     def direct_truncate(self, w_size=None):  # note: a wrapped size!
         stream = self.getstream()
+        self.check_writable()
         space = self.space
         if space.is_none(w_size):
             size = stream.tell()
@@ -269,6 +291,7 @@ class W_File(W_AbstractStream):
 
     def direct_write(self, w_data):
         space = self.space
+        self.check_writable()
         if self.binary:
             data = space.getarg_w('s*', w_data).as_str()
         else:
@@ -299,8 +322,8 @@ class W_File(W_AbstractStream):
     def file_fdopen(self, fd, mode="r", buffering=-1):
         try:
             self.direct_fdopen(fd, mode, buffering)
-        except StreamErrors, e:
-            raise wrap_streamerror(self.space, e, self.w_name)
+        except OSError as e:
+            raise wrap_oserror(self.space, e)
 
     _exposed_method_names = []
 
@@ -462,11 +485,15 @@ producing strings. This is equivalent to calling write() for each string."""
 
         space = self.space
         self.check_closed()
+        self.check_writable()
         lines = space.fixedview(w_lines)
         for i, w_line in enumerate(lines):
             if not space.isinstance_w(w_line, space.w_str):
                 try:
-                    line = w_line.charbuf_w(space)
+                    if self.binary:
+                        line = w_line.readbuf_w(space).as_str()
+                    else:
+                        line = w_line.charbuf_w(space)
                 except TypeError:
                     raise OperationError(space.w_TypeError, space.wrap(
                         "writelines() argument must be a sequence of strings"))

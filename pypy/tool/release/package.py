@@ -49,6 +49,16 @@ def fix_permissions(dirname):
         os.system("chmod -R a+rX %s" % dirname)
         os.system("chmod -R g-w %s" % dirname)
 
+
+#
+# Some crazy nonsense (imho) about including automatically the license
+# of various libraries as they happen to be on this system.  This is
+# strange because most of these libraries are linked to dynamically,
+# and so at runtime might end up with a different version.  I (arigo)
+# killed this logic and wrote some general info (which I hope is more
+# sensible anyway) into our ../../../LICENSE file.
+#
+'''
 sep_template = "\nThis copy of PyPy includes a copy of %s, which is licensed under the following terms:\n\n"
 
 def generate_license(basedir, options):
@@ -95,6 +105,7 @@ def generate_license(basedir, options):
     # Do something for gdbm, which is GPL
     txt += gdbm_bit
     return txt
+'''
 
 def create_cffi_import_libraries(pypy_c, options):
     modules = ['_sqlite3']
@@ -164,8 +175,7 @@ def create_package(basedir, options):
 
     if sys.platform == 'win32':
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
-        win_extras = ['libpypy-c.dll', 'libexpat.dll', 'sqlite3.dll',
-                          'libeay32.dll', 'ssleay32.dll']
+        win_extras = ['libpypy-c.dll', 'sqlite3.dll']
         if not options.no_tk:
             win_extras += ['tcl85.dll', 'tk85.dll']
 
@@ -217,19 +227,19 @@ directory next to the dlls, as per build instructions."""
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
         shutil.copyfile(str(basedir.join('lib_pypy', file)),
                         str(pypydir.join('lib_pypy', file)))
-    try:
+    if 0:  # disabled
         license = generate_license(basedir, options)
         with open(str(pypydir.join('LICENSE')), 'w') as LICENSE:
             LICENSE.write(license)
-    except:
-        # Non-fatal error, use original LICENCE file
-        import traceback;traceback.print_exc()
+    else:
+        # Use original LICENCE file
+        #import traceback;traceback.print_exc()
         base_file = str(basedir.join('LICENSE'))
         with open(base_file) as fid:
             license = fid.read()
         with open(str(pypydir.join('LICENSE')), 'w') as LICENSE:
             LICENSE.write(license)
-        retval = -1
+        #retval = -1
     #
     spdir = pypydir.ensure('site-packages', dir=True)
     shutil.copy(str(basedir.join('site-packages', 'README')), str(spdir))
@@ -298,7 +308,13 @@ def package(*args):
         argparse = imp.load_source('argparse', 'lib-python/2.7/argparse.py')
     if sys.platform == 'win32':
         pypy_exe = 'pypy.exe'
-        license_base = os.path.join(basedir, r'..\..\..\local') # as on buildbot YMMV
+        for p in [os.path.join(basedir, r'..\..\..\local'), #buildbot
+                os.path.join(basedir, r'..\local')]: # pypy/doc/windows.rst
+            if os.path.exists(p): 
+                license_base = p
+                break
+        else:
+            license_base = 'unkown'
     else:
         pypy_exe = 'pypy'
         license_base = '/usr/share/doc'
@@ -316,7 +332,8 @@ def package(*args):
     parser.add_argument('--archive-name', dest='name', type=str, default='',
         help='pypy-VER-PLATFORM')
     parser.add_argument('--license_base', type=str, default=license_base,
-        help='where to start looking for third party upstream licensing info')
+        #help='where to start looking for third party upstream licensing info')
+        help='(ignored)')
     parser.add_argument('--builddir', type=str, default='',
         help='tmp dir for packaging')
     parser.add_argument('--targetdir', type=str, default='',
@@ -351,25 +368,23 @@ def package(*args):
     return create_package(basedir, options)
 
 
-third_party_header = '''\n\nLicenses and Acknowledgements for Incorporated Software
-=======================================================
-
-This section is an incomplete, but growing list of licenses and acknowledgements
-for third-party software incorporated in the PyPy distribution.
-
-'''
-
-gdbm_bit = '''gdbm
-----
-
-The gdbm module includes code from gdbm.h, which is distributed under the terms
-of the GPL license version 2 or any later version.  Thus the gdbm module, provided in
-the file lib_pypy/gdbm.py, is redistributed under the terms of the GPL license as
-well.
-'''
-
-
 if __name__ == '__main__':
     import sys
+    if sys.platform == 'win32':
+        # Try to avoid opeing a dialog box if one of the 
+        # subprocesses causes a system error
+        import ctypes
+        winapi = ctypes.windll.kernel32
+        SetErrorMode = winapi.SetErrorMode
+        SetErrorMode.argtypes=[ctypes.c_int]
+
+        SEM_FAILCRITICALERRORS = 1
+        SEM_NOGPFAULTERRORBOX  = 2
+        SEM_NOOPENFILEERRORBOX = 0x8000
+        flags = SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX
+        #Since there is no GetErrorMode, do a double Set
+        old_mode = SetErrorMode(flags)
+        SetErrorMode(old_mode | flags)
+
     retval, _ = package(*sys.argv[1:])
     sys.exit(retval)

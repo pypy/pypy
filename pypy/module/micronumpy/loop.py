@@ -48,6 +48,7 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     left_iter, left_state = w_lhs.create_iter(shape)
     right_iter, right_state = w_rhs.create_iter(shape)
     out_iter, out_state = out.create_iter(shape)
+    left_iter.track_index = right_iter.track_index = False
     shapelen = len(shape)
     while not out_iter.done(out_state):
         call2_driver.jit_merge_point(shapelen=shapelen, func=func,
@@ -71,6 +72,7 @@ def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
         out = W_NDimArray.from_shape(space, shape, res_dtype, w_instance=w_obj)
     obj_iter, obj_state = w_obj.create_iter(shape)
     out_iter, out_state = out.create_iter(shape)
+    obj_iter.track_index = False
     shapelen = len(shape)
     while not out_iter.done(out_state):
         call1_driver.jit_merge_point(shapelen=shapelen, func=func,
@@ -182,6 +184,9 @@ def where(space, out, shape, arr, x, y, dtype):
             iter, state = y_iter, y_state
     else:
         iter, state = x_iter, x_state
+    out_iter.track_index = x_iter.track_index = False
+    arr_iter.track_index = y_iter.track_index = False
+    iter.track_index = True
     shapelen = len(shape)
     while not iter.done(state):
         where_driver.jit_merge_point(shapelen=shapelen, dtype=dtype,
@@ -229,6 +234,7 @@ def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity, cumulati
                                             dtype=dtype)
         assert not arr_iter.done(arr_state)
         w_val = arr_iter.getitem(arr_state).convert_to(space, dtype)
+        out_state = out_iter.update(out_state)
         if out_state.indices[axis] == 0:
             if identity is not None:
                 w_val = func(dtype, identity, w_val)
@@ -298,6 +304,7 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
     assert left_shape[-1] == right_shape[right_critical_dim]
     assert result.get_dtype() == dtype
     outi, outs = result.create_iter()
+    outi.track_index = False
     lefti = AllButAxisIter(left_impl, len(left_shape) - 1)
     righti = AllButAxisIter(right_impl, right_critical_dim)
     lefts = lefti.reset()
@@ -322,7 +329,7 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
             outi.setitem(outs, oval)
             outs = outi.next(outs)
             rights = righti.next(rights)
-        rights = righti.reset()
+        rights = righti.reset(rights)
         lefts = lefti.next(lefts)
     return result
 
@@ -360,6 +367,7 @@ def nonzero(res, arr, box):
     while not arr_iter.done(arr_state):
         nonzero_driver.jit_merge_point(shapelen=shapelen, dims=dims, dtype=dtype)
         if arr_iter.getitem_bool(arr_state):
+            arr_state = arr_iter.update(arr_state)
             for d in dims:
                 res_iter.setitem(res_state, box(arr_state.indices[d]))
                 res_state = res_iter.next(res_state)
@@ -435,7 +443,7 @@ def flatiter_getitem(res, base_iter, base_state, step):
     while not ri.done(rs):
         flatiter_getitem_driver.jit_merge_point(dtype=dtype)
         ri.setitem(rs, base_iter.getitem(base_state))
-        base_state = base_iter.next_skip_x(base_state, step)
+        base_state = base_iter.goto(base_state.index + step)
         rs = ri.next(rs)
     return res
 
@@ -443,11 +451,8 @@ flatiter_setitem_driver = jit.JitDriver(name = 'numpy_flatiter_setitem',
                                         greens = ['dtype'],
                                         reds = 'auto')
 
-def flatiter_setitem(space, arr, val, start, step, length):
-    dtype = arr.get_dtype()
-    arr_iter, arr_state = arr.create_iter()
+def flatiter_setitem(space, dtype, val, arr_iter, arr_state, step, length):
     val_iter, val_state = val.create_iter()
-    arr_state = arr_iter.next_skip_x(arr_state, start)
     while length > 0:
         flatiter_setitem_driver.jit_merge_point(dtype=dtype)
         val = val_iter.getitem(val_state)
@@ -456,9 +461,10 @@ def flatiter_setitem(space, arr, val, start, step, length):
         else:
             val = val.convert_to(space, dtype)
         arr_iter.setitem(arr_state, val)
-        # need to repeat i_nput values until all assignments are done
-        arr_state = arr_iter.next_skip_x(arr_state, step)
+        arr_state = arr_iter.goto(arr_state.index + step)
         val_state = val_iter.next(val_state)
+        if val_iter.done(val_state):
+            val_state = val_iter.reset(val_state)
         length -= 1
 
 fromstring_driver = jit.JitDriver(name = 'numpy_fromstring',
@@ -694,3 +700,43 @@ def diagonal_array(space, arr, out, offset, axis1, axis2, shape):
         out_iter.setitem(out_state, arr.getitem_index(space, indexes))
         iter.next()
         out_state = out_iter.next(out_state)
+
+def _new_binsearch(side, op_name):
+    binsearch_driver = jit.JitDriver(name='numpy_binsearch_' + side,
+                                     greens=['dtype'],
+                                     reds='auto')
+
+    def binsearch(space, arr, key, ret):
+        assert len(arr.get_shape()) == 1
+        dtype = key.get_dtype()
+        op = getattr(dtype.itemtype, op_name)
+        key_iter, key_state = key.create_iter()
+        ret_iter, ret_state = ret.create_iter()
+        ret_iter.track_index = False
+        size = arr.get_size()
+        min_idx = 0
+        max_idx = size
+        last_key_val = key_iter.getitem(key_state)
+        while not key_iter.done(key_state):
+            key_val = key_iter.getitem(key_state)
+            if dtype.itemtype.lt(last_key_val, key_val):
+                max_idx = size
+            else:
+                min_idx = 0
+                max_idx = max_idx + 1 if max_idx < size else size
+            last_key_val = key_val
+            while min_idx < max_idx:
+                binsearch_driver.jit_merge_point(dtype=dtype)
+                mid_idx = min_idx + ((max_idx - min_idx) >> 1)
+                mid_val = arr.getitem(space, [mid_idx]).convert_to(space, dtype)
+                if op(mid_val, key_val):
+                    min_idx = mid_idx + 1
+                else:
+                    max_idx = mid_idx
+            ret_iter.setitem(ret_state, ret.get_dtype().box(min_idx))
+            ret_state = ret_iter.next(ret_state)
+            key_state = key_iter.next(key_state)
+    return binsearch
+
+binsearch_left = _new_binsearch('left', 'lt')
+binsearch_right = _new_binsearch('right', 'le')

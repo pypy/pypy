@@ -662,6 +662,9 @@ class AbstractX86CodeBuilder(object):
     MOVD32_xs = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), stack_sp(2))
 
     PSRAD_xi = xmminsn('\x66', rex_nw, '\x0F\x72', register(1), '\xE0', immediate(2, 'b'))
+    MOVUPS_mx = xmminsn(rex_nw, '\x0F\x11', register(2, 8), mem_reg_plus_const(1))
+    MOVUPS_jx = xmminsn(rex_nw, '\x0F\x11', register(2, 8), abs_(1))
+    MOVUPS_ax = xmminsn(rex_nw, '\x0F\x11', register(2, 8), mem_reg_plus_scaled_reg_plus_const(1))
 
     # ------------------------------------------------------------
 
@@ -793,6 +796,7 @@ define_modrm_modes('MULSD_x*', ['\xF2', rex_nw, '\x0F\x59', register(1, 8)], reg
 define_modrm_modes('DIVSD_x*', ['\xF2', rex_nw, '\x0F\x5E', register(1, 8)], regtype='XMM')
 define_modrm_modes('UCOMISD_x*', ['\x66', rex_nw, '\x0F\x2E', register(1, 8)], regtype='XMM')
 define_modrm_modes('XORPD_x*', ['\x66', rex_nw, '\x0F\x57', register(1, 8)], regtype='XMM')
+define_modrm_modes('XORPS_x*', [rex_nw, '\x0F\x57', register(1, 8)], regtype='XMM')
 define_modrm_modes('ANDPD_x*', ['\x66', rex_nw, '\x0F\x54', register(1, 8)], regtype='XMM')
 
 def define_pxmm_insn(insnname_template, insn_char):

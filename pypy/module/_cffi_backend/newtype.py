@@ -389,7 +389,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
 
     w_ctype.size = totalsize
     w_ctype.alignment = totalalignment
-    w_ctype.fields_list = fields_list
+    w_ctype.fields_list = fields_list[:]
     w_ctype.fields_dict = fields_dict
     w_ctype.custom_field_pos = custom_field_pos
     w_ctype.with_var_array = with_var_array

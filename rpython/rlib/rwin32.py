@@ -130,6 +130,7 @@ if WIN32:
     # is hidden by operations in ll2ctypes.  Call it now.
     GetLastError()
 
+    GetModuleHandle = winexternal('GetModuleHandleA', [rffi.CCHARP], HMODULE)
     LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], HMODULE)
     GetProcAddress = winexternal('GetProcAddress',
                                  [HMODULE, rffi.CCHARP],

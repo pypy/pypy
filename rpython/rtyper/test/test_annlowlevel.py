@@ -8,7 +8,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import hlstr, llstr
 from rpython.rtyper.annlowlevel import hlunicode, llunicode
 from rpython.rtyper import annlowlevel
-from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+from rpython.rtyper.rclass import OBJECTPTR
 
 
 class TestLLType(BaseRtypingTest):
@@ -33,6 +33,14 @@ class TestLLType(BaseRtypingTest):
 
         res = self.interpret(f, [self.string_to_ll("abc")])
         assert res == 3
+
+    def test_llstr_const_char(self):
+        def f(arg):
+            s = llstr(hlstr(arg)[0])
+            return len(s.chars)
+
+        res = self.interpret(f, [self.string_to_ll("abc")])
+        assert res == 1
 
     def test_hlunicode(self):
         s = mallocunicode(3)

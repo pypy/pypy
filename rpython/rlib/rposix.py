@@ -120,7 +120,7 @@ else:
         return 1
 
     def validate_fd(fd):
-        return 1
+        pass
 
 def closerange(fd_low, fd_high):
     # this behaves like os.closerange() from Python 2.6.

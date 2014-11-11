@@ -38,9 +38,9 @@ def detect_arch_version(filename="/proc/cpuinfo"):
     try:
         buf = os.read(fd, 2048)
         if not buf:
+            n = 6  # we assume ARMv6 as base case
             debug_print("Could not detect ARM architecture "
                         "version, assuming", "ARMv%d" % n)
-            n = 6  # we asume ARMv6 as base case
     finally:
         os.close(fd)
     # "Processor       : ARMv%d-compatible processor rev 7 (v6l)"

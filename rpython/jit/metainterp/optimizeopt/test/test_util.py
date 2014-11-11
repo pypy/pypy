@@ -1,8 +1,9 @@
 import py, random
 
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rffi
-from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
-from rpython.rtyper.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper import rclass
+from rpython.rtyper.rclass import (
+    OBJECT, OBJECT_VTABLE, FieldListAccessor, IR_QUASIIMMUTABLE)
 
 from rpython.jit.backend.llgraph import runner
 from rpython.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,

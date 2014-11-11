@@ -29,6 +29,17 @@ class Module(W_Root):
                           space.w_None)
         self.startup_called = False
 
+    def _cleanup_(self):
+        """Called by the annotator on prebuilt Module instances.
+        We don't have many such modules, but for the ones that
+        show up, remove their __file__ rather than translate it
+        statically inside the executable."""
+        try:
+            space = self.space
+            space.delitem(self.w_dict, space.wrap('__file__'))
+        except OperationError:
+            pass
+
     def install(self):
         """NOT_RPYTHON: installs this module into space.builtin_modules"""
         w_mod = self.space.wrap(self)

@@ -151,10 +151,10 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
     def test_nonmatching_arraystruct_1(self):
         ops = """
         [p1, f0]
-        p2 = new_array(3, descr=complexarraydescr)
+        p2 = new_array_clear(3, descr=complexarraydescr)
         setinteriorfield_gc(p2, 2, f0, descr=complexrealdescr)
         label(p2, f0)
-        p4 = new_array(3, descr=complexarraydescr)
+        p4 = new_array_clear(3, descr=complexarraydescr)
         setinteriorfield_gc(p4, 2, f0, descr=compleximagdescr)
         jump(p4, f0)
         """
@@ -164,10 +164,10 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
     def test_nonmatching_arraystruct_2(self):
         ops = """
         [p1, f0]
-        p2 = new_array(3, descr=complexarraydescr)
+        p2 = new_array_clear(3, descr=complexarraydescr)
         setinteriorfield_gc(p2, 2, f0, descr=complexrealdescr)
         label(p2, f0)
-        p4 = new_array(2, descr=complexarraydescr)
+        p4 = new_array_clear(2, descr=complexarraydescr)
         setinteriorfield_gc(p4, 0, f0, descr=complexrealdescr)
         jump(p4, f0)
         """
@@ -199,7 +199,7 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
     def test_not_virtual_arraystruct(self):
         ops = """
         [p1]
-        p3 = new_array(3, descr=complexarraydescr)
+        p3 = new_array_clear(3, descr=complexarraydescr)
         label(p3)
         p4 = escape()
         jump(p4)

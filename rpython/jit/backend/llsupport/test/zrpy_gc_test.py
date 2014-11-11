@@ -245,7 +245,7 @@ class CompileFrameworkTests(BaseFrameworkTests):
 ##        return None, f, None
 
     def define_compile_framework_1(cls):
-        # a moving GC.  Supports malloc_varsize_nonmovable.  Simple test, works
+        # a moving GC.  Simple test, works
         # without write_barriers and root stack enumeration.
         def f(n, x, *args):
             y = X()

@@ -1,6 +1,7 @@
 import array, weakref
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rlib.rarithmetic import is_valid_int
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 
 # An "arena" is a large area of memory which can hold a number of
@@ -53,7 +54,7 @@ class Arena(object):
                 del self.objectptrs[offset]
                 del self.objectsizes[offset]
                 obj._free()
-        if zero:
+        if zero and zero != 3:
             initialbyte = "0"
         else:
             initialbyte = "#"
@@ -346,6 +347,7 @@ def arena_reset(arena_addr, size, zero):
       * 0: don't fill the area with zeroes
       * 1: clear, optimized for a very large area of memory
       * 2: clear, optimized for a small or medium area of memory
+      * 3: fill with garbage
     """
     arena_addr = getfakearenaaddress(arena_addr)
     arena_addr.arena.reset(zero, arena_addr.offset, size)
@@ -518,6 +520,8 @@ def llimpl_arena_reset(arena_addr, size, zero):
     if zero:
         if zero == 1:
             clear_large_memory_chunk(arena_addr, size)
+        elif zero == 3:
+            llop.raw_memset(lltype.Void, arena_addr, ord('#'), size)
         else:
             llmemory.raw_memclear(arena_addr, size)
 llimpl_arena_reset._always_inline_ = True

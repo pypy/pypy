@@ -14,7 +14,8 @@ from rpython.rtyper.lltypesystem import rlist as rlist_ll
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.llinterp import LLInterpreter
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory, rstr as ll_rstr, rdict as ll_rdict
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory, rstr as ll_rstr, rdict as ll_rdict
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import rordereddict
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.module import ll_math
@@ -180,11 +181,11 @@ def _ll_0_newlist(LIST):
     return LIST.ll_newlist(0)
 def _ll_1_newlist(LIST, count):
     return LIST.ll_newlist(count)
-def _ll_2_newlist(LIST, count, item):
-    return rlist.ll_alloc_and_set(LIST, count, item)
 _ll_0_newlist.need_result_type = True
 _ll_1_newlist.need_result_type = True
-_ll_2_newlist.need_result_type = True
+
+_ll_1_newlist_clear = rlist._ll_alloc_and_clear
+_ll_1_newlist_clear.need_result_type = True
 
 def _ll_1_newlist_hint(LIST, hint):
     return LIST.ll_newlist_hint(hint)
@@ -288,6 +289,10 @@ def _ll_1_cast_float_to_uint(x):
     # XXX on 32-bit platforms, this should be done using cast_float_to_longlong
     # (which is a residual call right now in the x86 backend)
     return llop.cast_float_to_uint(lltype.Unsigned, x)
+
+def _ll_0_ll_read_timestamp():
+    from rpython.rlib import rtimer
+    return rtimer.read_timestamp()
 
 
 # math support

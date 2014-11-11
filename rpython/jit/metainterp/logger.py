@@ -4,6 +4,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
     debug_print)
 from rpython.rlib.objectmodel import we_are_translated, compute_unique_id
+from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 
 
@@ -60,7 +61,7 @@ class Logger(object):
         else:
             debug_start("jit-log-opt-bridge")
             debug_print("# bridge out of Guard",
-                        "0x%x" % compute_unique_id(descr),
+                        "0x%x" % r_uint(compute_unique_id(descr)),
                         "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-bridge")
@@ -154,7 +155,7 @@ class LogOperations(object):
         if op.getdescr() is not None:
             descr = op.getdescr()
             if is_guard and self.guard_number:
-                hash = compute_unique_id(descr)
+                hash = r_uint(compute_unique_id(descr))
                 r = "<Guard0x%x>" % hash
             else:
                 r = self.repr_of_descr(descr)

@@ -1,7 +1,6 @@
 from rpython.rtyper.lltypesystem.lltype import DelayedPointer
 from rpython.translator.simplify import get_graph
 from rpython.tool.algo.unionfind import UnionFind
-from rpython.rtyper.lltypesystem import lltype, rclass
 
 
 class GraphAnalyzer(object):
@@ -80,7 +79,7 @@ class GraphAnalyzer(object):
         if op.opname == "direct_call":
             try:
                 graph = get_graph(op.args[0], self.translator)
-            except lltype.DelayedPointer:
+            except DelayedPointer:
                 x = self.top_result()
                 if self.verbose:
                     print '\tdelayed pointer %s: %r' % (op, x)

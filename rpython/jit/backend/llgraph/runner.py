@@ -11,11 +11,11 @@ from rpython.jit.codewriter import longlong, heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
 from rpython.rtyper.llinterp import LLInterpreter, LLException
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper import rclass
 
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
-from rpython.rlib.rtimer import read_timestamp
 
 class LLTrace(object):
     has_been_freed = False
@@ -225,6 +225,7 @@ _example_res = {'v': None,
                 'r': lltype.nullptr(llmemory.GCREF.TO),
                 'i': 0,
                 'f': 0.0}
+
 
 class LLGraphCPU(model.AbstractCPU):
     from rpython.jit.metainterp.typesystem import llhelper as ts
@@ -651,15 +652,17 @@ class LLGraphCPU(model.AbstractCPU):
 
     def bh_new_array(self, length, arraydescr):
         array = lltype.malloc(arraydescr.A, length, zero=True)
+        assert getkind(arraydescr.A.OF) != 'ref' # getkind crashes on structs
+        return lltype.cast_opaque_ptr(llmemory.GCREF, array)
+
+    def bh_new_array_clear(self, length, arraydescr):
+        array = lltype.malloc(arraydescr.A, length, zero=True)
         return lltype.cast_opaque_ptr(llmemory.GCREF, array)
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
-
-    def bh_read_timestamp(self):
-        return read_timestamp()
 
     def bh_new_raw_buffer(self, size):
         return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')

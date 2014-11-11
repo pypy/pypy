@@ -1,4 +1,5 @@
-
+import py
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module
 
 class TestModule: 
@@ -16,6 +17,18 @@ class TestModule:
         space.delattr(w_m, w('x'))
         space.raises_w(space.w_AttributeError,
                        space.delattr, w_m, w('x'))
+
+    def test___file__(self, space):
+        w = space.wrap
+        m = Module(space, space.wrap('m'))
+        py.test.raises(OperationError, space.getattr, w(m), w('__file__'))
+        m._cleanup_()
+        py.test.raises(OperationError, space.getattr, w(m), w('__file__'))
+        space.setattr(w(m), w('__file__'), w('m.py'))
+        space.getattr(w(m), w('__file__'))   # does not raise
+        m._cleanup_()
+        py.test.raises(OperationError, space.getattr, w(m), w('__file__'))
+
 
 class AppTest_ModuleObject: 
     def test_attr(self):
@@ -42,12 +55,9 @@ class AppTest_ModuleObject:
         bar = type(sys)('bar','docstring')
         assert bar.__doc__ == 'docstring'
 
-    def test___file__(self): 
-        import sys, os
-        if not hasattr(sys, "pypy_objspaceclass"):
-            skip("need PyPy for sys.__file__ checking")
-        assert sys.__file__ 
-        assert os.path.basename(sys.__file__) == 'sys'
+    def test___file__(self):
+        import sys
+        assert not hasattr(sys, '__file__')
 
     def test_repr(self):
         import sys

@@ -17,7 +17,6 @@ import py
 
 from rpython.annotator import model as annmodel, unaryop, binaryop
 from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
-from rpython.annotator.annrpython import FAIL
 from rpython.flowspace.model import Variable, Constant, SpaceOperation, c_last_exception
 from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
 from rpython.rtyper.error import TyperError
@@ -28,6 +27,8 @@ from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
 from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
 from rpython.rtyper.typesystem import LowLevelTypeSystem, getfunctionptr
 from rpython.rtyper.normalizecalls import perform_normalizations
+from rpython.rtyper import rclass
+from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
 
@@ -43,7 +44,8 @@ class RPythonTyper(object):
         self._reprs_must_call_setup = []
         self._seen_reprs_must_call_setup = {}
         self._dict_traits = {}
-        self.class_reprs = {}
+        self.rootclass_repr = RootClassRepr(self)
+        self.rootclass_repr.setup()
         self.instance_reprs = {}
         self.type_for_typeptr = {}
         self.pbc_reprs = {}
@@ -51,7 +53,6 @@ class RPythonTyper(object):
         self.wrapper_context = None # or add an extra arg to convertvar?
         self.classdef_to_pytypeobject = {}
         self.concrete_calltables = {}
-        self.class_pbc_attributes = {}
         self.cache_dummy_values = {}
         self.lltype2vtable = {}
         self.typererrors = []
@@ -59,6 +60,7 @@ class RPythonTyper(object):
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
         self.exceptiondata = ExceptionData(self)
+        self.custom_trace_funcs = []
 
         try:
             self.seed = int(os.getenv('RTYPERSEED'))
@@ -152,8 +154,12 @@ class RPythonTyper(object):
         assert result is not None     # recursive getrepr()!
         return result
 
-    def binding(self, var, default=FAIL):
-        s_obj = self.annotator.binding(var, default)
+    def annotation(self, var):
+        s_obj = self.annotator.annotation(var)
+        return s_obj
+
+    def binding(self, var):
+        s_obj = self.annotator.binding(var)
         return s_obj
 
     def bindingrepr(self, var):
@@ -168,7 +174,7 @@ class RPythonTyper(object):
 
         # first make sure that all functions called in a group have exactly
         # the same signature, by hacking their flow graphs if needed
-        perform_normalizations(self)
+        perform_normalizations(self.annotator)
         self.exceptiondata.finish(self)
 
         # new blocks can be created as a result of specialize_block(), so
@@ -507,7 +513,7 @@ class RPythonTyper(object):
                     hop.r_result, op.opname, resulttype))
             # figure out if the resultvar is a completely fresh Variable or not
             if (isinstance(resultvar, Variable) and
-                resultvar not in self.annotator.bindings and
+                resultvar.annotation is None and
                 resultvar not in varmapping):
                 # fresh Variable: rename it to the previously existing op.result
                 varmapping[resultvar] = op.result
@@ -592,7 +598,6 @@ class RPythonTyper(object):
         return rtype_newtuple(hop)
 
     def translate_op_instantiate1(self, hop):
-        from rpython.rtyper.lltypesystem import rclass
         if not isinstance(hop.s_result, annmodel.SomeInstance):
             raise TyperError("instantiate1 got s_result=%r" % (hop.s_result,))
         classdef = hop.s_result.classdef
@@ -649,13 +654,13 @@ class RPythonTyper(object):
             ARG_GCSTRUCT = GCSTRUCT
         args_s = [SomePtr(Ptr(ARG_GCSTRUCT))]
         graph = self.annotate_helper(func, args_s)
-        s = self.annotator.binding(graph.getreturnvar())
+        s = self.annotation(graph.getreturnvar())
         if (not isinstance(s, SomePtr) or
             s.ll_ptrtype != Ptr(RuntimeTypeInfo)):
             raise TyperError("runtime type info function %r returns %r, "
                              "excepted Ptr(RuntimeTypeInfo)" % (func, s))
         funcptr = self.getcallable(graph)
-        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr, None)
+        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr)
 
 # register operations from annotation model
 RPythonTyper._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERATIONS)
@@ -896,7 +901,9 @@ class LowLevelOpList(list):
         newargs_v = []
         for v in args_v:
             if v.concretetype is Void:
-                s_value = rtyper.binding(v, default=annmodel.s_None)
+                s_value = rtyper.annotation(v)
+                if s_value is None:
+                    s_value = annmodel.s_None
                 if not s_value.is_constant():
                     raise TyperError("non-constant variable of type Void")
                 if not isinstance(s_value, (annmodel.SomePBC, annmodel.SomeNone)):
@@ -953,7 +960,7 @@ class LowLevelOpList(list):
 from rpython.rtyper import rint, rbool, rfloat, rnone
 from rpython.rtyper import rrange
 from rpython.rtyper import rstr, rdict, rlist, rbytearray
-from rpython.rtyper import rclass, rbuiltin, rpbc
+from rpython.rtyper import rbuiltin, rpbc
 from rpython.rtyper import rptr
 from rpython.rtyper import rweakref
 from rpython.rtyper import raddress # memory addresses
