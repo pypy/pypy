@@ -5,18 +5,38 @@ from rpython.memory.gctransform.support import get_rtti
 from rpython.memory.gctransform.framework import (TYPE_ID,
      BaseFrameworkGCTransformer, BaseRootWalker, sizeofaddr)
 from rpython.memory.gctypelayout import WEAKREF, WEAKREFPTR
+from rpython.memory.gc.stm import StmGC
 from rpython.rtyper import rmodel, llannotation
 from rpython.translator.backendopt.support import var_needsgc
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rstm
 
 
+VISIT_FPTR = StmGC.VISIT_FPTR
+
 def invokecallback(root, visit_fn):
-    """Used as a callback for gc.trace().  There is also a custom tracer
-    in rpython.rlib.rstm that checks if the callback it gets is exactly
-    'invokecallback', and if so, it knows that the 'arg' is actually a
-    C-level visit function.
-    """
+    """Used as a callback for gc.trace()."""
     visit_fn(root)
+
+@specialize.arg(0)
+def get_visit_function(callback, arg):
+    """Hack: take a 'callback, arg' pair received from RPython code
+    calling gc.trace(), and return a raw function pointer suitable for
+    calling the C code.  We hide the 'arg' in some global if needed."""
+    if callback is invokecallback:
+        return arg      # the arg is directly the 'visit_fn' in this case
+    raw_visit_glob = _get_raw_visit_glob(callback)
+    raw_visit_glob.arg = arg
+    return llhelper(VISIT_FPTR, raw_visit_glob.visit)
+
+@specialize.memo()
+def _get_raw_visit_glob(callback):
+    class RawVisitGlob:
+        _alloc_flavor_ = "raw"
+    raw_visit_glob = RawVisitGlob()
+    raw_visit_glob.visit = lambda obj: callback(obj, raw_visit_glob.arg)
+    return _raw_visit_globs.setdefault(callback, raw_visit_glob)
+_raw_visit_globs = {}
 
 
 class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
@@ -38,7 +58,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         pypy_stmcb_trace.c_name = "pypy_stmcb_trace"
         self.autoregister_ptrs.append(
             getfn(pypy_stmcb_trace, [llannotation.SomeAddress(),
-                                     llannotation.SomePtr(GCClass.VISIT_FPTR)],
+                                     llannotation.SomePtr(VISIT_FPTR)],
                   annmodel.s_None))
         #
         def pypy_stmcb_obj_supports_cards(obj):
@@ -60,7 +80,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         self.autoregister_ptrs.append(
             getfn(pypy_stmcb_trace_cards,
                   [llannotation.SomeAddress(),
-                   llannotation.SomePtr(GCClass.VISIT_FPTR),
+                   llannotation.SomePtr(VISIT_FPTR),
                    annmodel.s_Int,
                    annmodel.s_Int],
                   annmodel.s_None))
