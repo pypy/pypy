@@ -78,12 +78,9 @@ class GCData(object):
         return (infobits & T_IS_GCARRAY_OF_GCPTR) != 0
 
     def q_cannot_pin(self, typeid):
-        infobits = self.get(typeid).infobits
-        ANY = (T_HAS_GCPTR |
-               T_IS_WEAKREF |
-               T_HAS_FINALIZER |
-               T_HAS_LIGHTWEIGHT_FINALIZER)
-        return (infobits & ANY) != 0
+        typeinfo = self.get(typeid)
+        ANY = (T_HAS_GCPTR | T_IS_WEAKREF)
+        return (typeinfo.infobits & ANY) != 0 or bool(typeinfo.finalizer)
 
     def q_finalizer(self, typeid):
         return self.get(typeid).finalizer
