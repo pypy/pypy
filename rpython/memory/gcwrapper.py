@@ -29,7 +29,7 @@ class GCManagedHeap(object):
                                                lltype2vtable,
                                                self.llinterp)
         self.get_type_id = layoutbuilder.get_type_id
-        layoutbuilder.initialize_gc_query_function(self.gc)
+        gcdata = layoutbuilder.initialize_gc_query_function(self.gc)
 
         constants = collect_constants(flowgraphs)
         for obj in constants:
@@ -38,7 +38,24 @@ class GCManagedHeap(object):
 
         self.constantroots = layoutbuilder.addresses_of_static_ptrs
         self.constantrootsnongc = layoutbuilder.addresses_of_static_ptrs_in_nongc
+        self.prepare_custom_trace_funcs(gcdata)
         self._all_prebuilt_gc = layoutbuilder.all_prebuilt_gc
+
+    def prepare_custom_trace_funcs(self, gcdata):
+        custom_trace_funcs = self.llinterp.typer.custom_trace_funcs
+
+        def custom_trace(obj, typeid, callback, arg):
+            for TP, func in custom_trace_funcs:
+                if typeid == self.get_type_id(TP):
+                    func(self.gc, obj, callback, arg)
+                    return
+            else:
+                assert False
+        
+        for TP, func in custom_trace_funcs:
+            gcdata._has_got_custom_trace(self.get_type_id(TP))
+
+        self.gc.custom_trace_dispatcher = custom_trace
 
     # ____________________________________________________________
     #
