@@ -211,7 +211,9 @@ class TestPosix(BaseRtypingTest):
 
     def test_os_wstar(self):
         from rpython.rtyper.module.ll_os import RegisterOs
-        for name in RegisterOs.w_star:
+        for name in ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
+                     'WIFSIGNALED', 'WIFEXITED',
+                     'WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG']:
             if not hasattr(os, name):
                 continue
             def fun(s):
