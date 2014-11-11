@@ -5,7 +5,7 @@ from rpython.memory.gctransform.support import get_rtti
 from rpython.memory.gctransform.framework import (TYPE_ID,
      BaseFrameworkGCTransformer, BaseRootWalker, sizeofaddr)
 from rpython.memory.gctypelayout import WEAKREF, WEAKREFPTR
-from rpython.memory.gc.stm import StmGC
+from rpython.memory.gc.stmgc import StmGC
 from rpython.rtyper import rmodel, llannotation
 from rpython.translator.backendopt.support import var_needsgc
 from rpython.rlib.objectmodel import specialize
