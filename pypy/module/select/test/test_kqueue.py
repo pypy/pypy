@@ -4,7 +4,7 @@ import py
 import sys
 
 class AppTestKqueue(object):
-    spaceconfig = dict(usemodules=["select", "_socket", "posix", "rctime"])
+    spaceconfig = dict(usemodules=["select", "_socket", "posix", "time"])
 
     def setup_class(cls):
         if not 'bsd' in sys.platform and \
