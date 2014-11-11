@@ -559,7 +559,7 @@ class TestSTMTranslated(CompiledSTMTests):
             pass
 
         def main(argv):
-            h = rstm.Hashtable()
+            h = rstm.create_hashtable()
             p = h.get(-1234)
             assert p == lltype.nullptr(llmemory.GCREF.TO)
             #

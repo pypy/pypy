@@ -181,37 +181,34 @@ _STM_HASHTABLE_ENTRY = lltype.GcStruct('HASHTABLE_ENTRY',
                                        ('index', lltype.Unsigned),
                                        ('object', llmemory.GCREF))
 
+def ll_hashtable_get(h, key):
+    # 'key' must be a plain integer.  Returns a GCREF.
+    return llop.stm_hashtable_read(llmemory.GCREF, h, h.ll_raw_hashtable, key)
 
-class Hashtable(object):
+def ll_hashtable_set(h, key, value):
+    llop.stm_hashtable_write(lltype.Void, h, h.ll_raw_hashtable, key, value)
 
-    def __new__(cls):
-        "NOT_RPYTHON: for tests, return a HashtableForTest instance"
-        return HashtableForTest()
+_HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
+                                 ('ll_raw_hashtable', _STM_HASHTABLE_P),
+                                 adtmeths={'get': ll_hashtable_get,
+                                           'set': ll_hashtable_set})
 
-    def __init__(self):
-        # Pass a null pointer to _STM_HASHTABLE_ENTRY to stm_hashtable_create().
-        # Make sure we see a malloc() of it, so that its typeid is correctly
-        # initialized.  It can be done in a NonConstant(False) path so that
-        # the C compiler will actually drop it.
-        if NonConstant(False):
-            p = lltype.malloc(_STM_HASHTABLE_ENTRY)
-        else:
-            p = lltype.nullptr(_STM_HASHTABLE_ENTRY)
-        self.ll_raw_hashtable = llop.stm_hashtable_create(_STM_HASHTABLE_P, p)
+#def ll_hashtable_trace(...)
 
-    @rgc.must_be_light_finalizer
-    def __del__(self):
-        llop.stm_hashtable_free(lltype.Void, self.ll_raw_hashtable)
-
-    def get(self, key):
-        # 'key' must be a plain integer.  Returns a GCREF.
-        return llop.stm_hashtable_read(llmemory.GCREF, self,
-                                       self.ll_raw_hashtable, key)
-
-    def set(self, key, value):
-        llop.stm_hashtable_write(lltype.Void, self,
-                                 self.ll_raw_hashtable, key, value)
-
+def create_hashtable():
+    if not we_are_translated():
+        return HashtableForTest()      # for tests
+    # Pass a null pointer to _STM_HASHTABLE_ENTRY to stm_hashtable_create().
+    # Make sure we see a malloc() of it, so that its typeid is correctly
+    # initialized.  It can be done in a NonConstant(False) path so that
+    # the C compiler will actually drop it.
+    if NonConstant(False):
+        p = lltype.malloc(_STM_HASHTABLE_ENTRY)
+    else:
+        p = lltype.nullptr(_STM_HASHTABLE_ENTRY)
+    h = lltype.malloc(_HASHTABLE_OBJ)
+    h.ll_raw_hashtable = llop.stm_hashtable_create(_STM_HASHTABLE_P, p)
+    return h
 
 class HashtableForTest(object):
     _NULL = lltype.nullptr(llmemory.GCREF.TO)

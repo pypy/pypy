@@ -10,6 +10,15 @@ from rpython.translator.backendopt.support import var_needsgc
 from rpython.rlib import rstm
 
 
+def invokecallback(root, visit_fn):
+    """Used as a callback for gc.trace().  There is also a custom tracer
+    in rpython.rlib.rstm that checks if the callback it gets is exactly
+    'invokecallback', and if so, it knows that the 'arg' is actually a
+    C-level visit function.
+    """
+    visit_fn(root)
+
+
 class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
 
     def _declare_functions(self, GCClass, getfn, s_gc, s_typeid16):
@@ -24,8 +33,6 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
             getfn(pypy_stmcb_size_rounded_up, [llannotation.SomeAddress()],
                   annmodel.SomeInteger()))
         #
-        def invokecallback(root, visit_fn):
-            visit_fn(root)
         def pypy_stmcb_trace(obj, visit_fn):
             gc.trace(obj, invokecallback, visit_fn)
         pypy_stmcb_trace.c_name = "pypy_stmcb_trace"
