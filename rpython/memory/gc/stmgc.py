@@ -78,8 +78,8 @@ class StmGC(MovingGCBase):
         if contains_weakptr:    # check constant-folded
             return llop.stm_allocate_weakref(llmemory.GCREF, size, typeid16)
         if needs_finalizer:
-            #if is_finalizer_light:   XXX implement me
-            #   return llop.stm_allocate_f_light(llmemory.GCREF, size, typeid16)
+            if is_finalizer_light:
+                return llop.stm_allocate_f_light(llmemory.GCREF, size, typeid16)
             return llop.stm_allocate_finalizer(llmemory.GCREF, size, typeid16)
         return llop.stm_allocate_tid(llmemory.GCREF, size, typeid16)
 

@@ -106,7 +106,7 @@ def stm_allocate_f_light(funcgen, op):
     return ('%s = (rpygcchar_t *)stm_allocate(%s); ' % (
         result, arg_size) +
             '((rpyobj_t *)%s)->tid = %s;\n' % (result, arg_type_id) +
-            'stm_enable_light_finalizer(%s);' % (result,))
+            'stm_enable_light_finalizer((object_t *)%s);' % (result,))
 
 def stm_get_from_obj(funcgen, op):
     assert op.args[0].concretetype == llmemory.GCREF

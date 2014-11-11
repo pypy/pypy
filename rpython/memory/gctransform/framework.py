@@ -1289,11 +1289,8 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
                 [llmemory.Address], lltype.Void)
         try:
             g = destrptr._obj.graph
-            if self.translator.config.translation.stm:
-                light = False  # XXX no working light finalizers with STM so far
-            else:
-                analyzer = FinalizerAnalyzer(self.translator)
-                light = not analyzer.analyze_light_finalizer(g)
+            analyzer = FinalizerAnalyzer(self.translator)
+            light = not analyzer.analyze_light_finalizer(g)
         except lltype.DelayedPointer:
             light = False    # XXX bah, too bad
         return fptr, light

@@ -1,6 +1,7 @@
 
 static void _stm_call_finalizer(object_t *obj)
 {
+    /* this function works for both regular and light finalizers */
     void *funcptr = pypy_stmcb_fetch_finalizer(((rpyobj_t *)obj)->tid);
     ((void(*)(object_t *))funcptr)(obj);
 }
@@ -31,6 +32,7 @@ void pypy_stm_setup_prebuilt(void)
     }
 
     stmcb_finalizer = &_stm_call_finalizer;
+    stmcb_light_finalizer = &_stm_call_finalizer;
 }
 
 void pypy_stm_register_thread_local(void)

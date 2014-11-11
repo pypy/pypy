@@ -535,7 +535,6 @@ class TestSTMTranslated(CompiledSTMTests):
         assert 'destructors called: 1\n' in data
 
     def test_light_finalizer(self):
-        py.test.skip("XXX implement me")
         class X:
             @rgc.must_be_light_finalizer
             def __del__(self):
