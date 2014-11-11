@@ -1214,9 +1214,7 @@ def declare_new_w_star(name):
     WSTAR.func_name = name
     return WSTAR
 
-for name in ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
-             'WIFSIGNALED', 'WIFEXITED',
-             'WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG']:
+for name in rposix.WAIT_MACROS:
     if hasattr(os, name):
         func = declare_new_w_star(name)
         globals()[name] = func

@@ -1,4 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
+from rpython.rlib import rposix
 
 import os
 exec 'import %s as posix' % os.name
@@ -171,9 +172,7 @@ corresponding Unix manual entries for more information on calls."""
     if hasattr(os, 'chroot'):
         interpleveldefs['chroot'] = 'interp_posix.chroot'
 
-    for name in ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
-                 'WIFSIGNALED', 'WIFEXITED',
-                 'WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG']:
+    for name in rposix.WAIT_MACROS:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.' + name
 

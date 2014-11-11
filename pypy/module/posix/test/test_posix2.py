@@ -7,6 +7,7 @@ from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.conftest import pypydir
 from rpython.translator.c.test.test_extfunc import need_sparse_files
+from rpython.rlib import rposix
 import os
 import py
 import sys
@@ -575,9 +576,7 @@ class AppTestPosix:
         raises(TypeError, "os.utime('xxx', 3)")
         raises(OSError, "os.utime('somefilewhichihopewouldneverappearhere', None)")
 
-    for name in ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
-                 'WIFSIGNALED', 'WIFEXITED',
-                 'WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG']:
+    for name in rposix.WAIT_MACROS:
         if hasattr(os, name):
             values = [0, 1, 127, 128, 255]
             code = py.code.Source("""

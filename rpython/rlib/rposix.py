@@ -765,9 +765,10 @@ def _make_waitmacro(name):
         else:
             return bool(c_func(status))
 
-for name in ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
-             'WIFSIGNALED', 'WIFEXITED',
-             'WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG']:
+WAIT_MACROS = ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
+               'WIFSIGNALED', 'WIFEXITED',
+               'WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG']
+for name in WAIT_MACROS:
     _make_waitmacro(name)
 
 #___________________________________________________________________
