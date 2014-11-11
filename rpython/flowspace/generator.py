@@ -106,7 +106,7 @@ def _insert_reads(block, varnames):
 def tweak_generator_body_graph(Entry, graph):
     # First, always run simplify_graph in order to reduce the number of
     # variables passed around
-    from rpython.annotator.expression import V_Type
+    from rpython.flowspace.expression import V_Type
     simplify_graph(graph)
     insert_empty_startblock(None, graph)
     _insert_reads(graph.startblock, Entry.varnames)

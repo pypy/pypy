@@ -8,7 +8,7 @@ completed.
 from rpython.flowspace.model import SpaceOperation
 from rpython.flowspace.model import Variable, Constant, Link
 from rpython.flowspace.model import c_last_exception, checkgraph
-from rpython.annotator.expression import V_Type
+from rpython.flowspace.expression import V_Type
 from rpython.annotator import model as annmodel
 from rpython.rtyper.lltypesystem import lltype
 

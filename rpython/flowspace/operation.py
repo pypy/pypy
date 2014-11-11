@@ -453,7 +453,7 @@ class Type(SingleDispatchMixin, PureOperation):
         if result is not None:
             return result
         ctx.merge_point()
-        from rpython.annotator.expression import V_Type
+        from rpython.flowspace.expression import V_Type
         v_instance, = self.args
         return V_Type(v_instance)
 

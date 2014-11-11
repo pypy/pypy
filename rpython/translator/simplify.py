@@ -11,7 +11,7 @@ from rpython.tool.algo.unionfind import UnionFind
 from rpython.flowspace.model import (Variable, Constant,
                                      c_last_exception, checkgraph, mkentrymap)
 from rpython.flowspace.operation import OverflowingOperation, op
-from rpython.annotator.expression import V_Type
+from rpython.flowspace.expression import V_Type
 from rpython.rlib import rarithmetic
 from rpython.translator import unsimplify
 from rpython.rtyper.lltypesystem import lloperation, lltype
