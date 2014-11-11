@@ -102,8 +102,8 @@ class StmGC(MovingGCBase):
 
 
     def can_move(self, obj):
-        """Means the reference will stay valid, except if not
-        seen by the GC, then it can get collected."""
+        """An object that cannot move means the pointer to it will stay valid,
+        as long as it is not actually collected."""
         return llop.stm_can_move(lltype.Bool, obj)
 
 

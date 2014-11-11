@@ -4,6 +4,8 @@ from rpython.rlib.debug import debug_print
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from rpython.translator.stm.test.support import CompiledSTMTests
 from rpython.translator.stm.test import targetdemo2
 
@@ -549,3 +551,38 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main)
         data, err = cbuilder.cmdexec('', err=True)
         assert '<del>' in err
+
+    def test_hashtable(self):
+        py.test.skip("missing: custom tracer on Hashtable")
+
+        class X(object):
+            pass
+
+        def main(argv):
+            h = rstm.Hashtable()
+            p = h.get(-1234)
+            assert p == lltype.nullptr(llmemory.GCREF.TO)
+            #
+            x1 = X()
+            p1 = cast_instance_to_gcref(x1)
+            h.set(-1234, p1)
+            #
+            p2 = h.get(-1234)
+            x2 = cast_gcref_to_instance(X, p2)
+            assert x2 is x1
+            #
+            rgc.collect()
+            #
+            p2 = h.get(-1234)
+            x2 = cast_gcref_to_instance(X, p2)
+            assert x2 is x1
+            #
+            print "ok!"
+            return 0
+
+        res = main([])      # direct run
+        assert res == 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert 'ok!\n' in data

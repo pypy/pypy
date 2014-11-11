@@ -461,6 +461,11 @@ LL_OPERATIONS = {
     'stm_count':                 LLOp(canrun=True),
     'stm_really_force_cast_ptr': LLOp(),
 
+    'stm_hashtable_create':   LLOp(),
+    'stm_hashtable_free':     LLOp(),
+    'stm_hashtable_read':     LLOp(),
+    'stm_hashtable_write':    LLOp(),
+
     # __________ address operations __________
 
     'boehm_malloc':         LLOp(),

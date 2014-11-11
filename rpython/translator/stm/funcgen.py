@@ -283,3 +283,31 @@ def stm_really_force_cast_ptr(funcgen, op):
     arg = funcgen.expr(op.args[0])
     typename = cdecl(funcgen.lltypename(op.result), '')
     return '%s = (%s)(uintptr_t)%s;' % (result, typename, arg)
+
+def stm_hashtable_create(funcgen, op):
+    _STM_HASHTABLE_ENTRY = op.args[0].concretetype.TO
+    type_id = funcgen.db.gctransformer.get_type_id(_STM_HASHTABLE_ENTRY)
+    expr_type_id = funcgen.expr(Constant(type_id, lltype.typeOf(type_id)))
+    result = funcgen.expr(op.result)
+    return ('stm_hashtable_entry_userdata = %s; '
+            '%s = stm_hashtable_create();' % (expr_type_id, result,))
+
+def stm_hashtable_free(funcgen, op):
+    arg = funcgen.expr(op.args[0])
+    return 'stm_hashtable_free(%s);' % (arg,)
+
+def stm_hashtable_read(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    arg2 = funcgen.expr(op.args[2])
+    result = funcgen.expr(op.result)
+    return '%s = (rpygcchar_t *)stm_hashtable_read((object_t *)%s, %s, %s);' % (
+        result, arg0, arg1, arg2)
+
+def stm_hashtable_write(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    arg2 = funcgen.expr(op.args[2])
+    arg3 = funcgen.expr(op.args[3])
+    return ('stm_hashtable_write((object_t *)%s, %s, %s, (object_t *)%s, '
+            '&stm_thread_local);' % (arg0, arg1, arg2, arg3))

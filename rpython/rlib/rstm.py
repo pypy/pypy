@@ -1,6 +1,7 @@
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import CDefinedIntSymbolic
-from rpython.rlib.rgc import stm_is_enabled
+from rpython.rlib.nonconst import NonConstant
+from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -54,7 +55,7 @@ def possible_transaction_break(keep):
     """ keep: should be True for checks that are absolutely
     needed. False means the JIT only keeps the check if it
     thinks that it helps """
-    if stm_is_enabled():
+    if rgc.stm_is_enabled():
         if llop.stm_should_break_transaction(lltype.Bool, keep):
             break_transaction()
 
@@ -171,3 +172,67 @@ class _Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         if hop.rtyper.annotator.translator.config.translation.stm:
             hop.genop('stm_rewind_jmp_frame', [], resulttype=lltype.Void)
+
+# ____________________________________________________________
+
+_STM_HASHTABLE_P = rffi.COpaquePtr('stm_hashtable_t')
+
+_STM_HASHTABLE_ENTRY = lltype.GcStruct('HASHTABLE_ENTRY',
+                                       ('index', lltype.Unsigned),
+                                       ('object', llmemory.GCREF))
+
+
+class Hashtable(object):
+
+    def __new__(cls):
+        "NOT_RPYTHON: for tests, return a HashtableForTest instance"
+        return HashtableForTest()
+
+    def __init__(self):
+        # Pass a null pointer to _STM_HASHTABLE_ENTRY to stm_hashtable_create().
+        # Make sure we see a malloc() of it, so that its typeid is correctly
+        # initialized.  It can be done in a NonConstant(False) path so that
+        # the C compiler will actually drop it.
+        if NonConstant(False):
+            p = lltype.malloc(_STM_HASHTABLE_ENTRY)
+        else:
+            p = lltype.nullptr(_STM_HASHTABLE_ENTRY)
+        self.ll_raw_hashtable = llop.stm_hashtable_create(_STM_HASHTABLE_P, p)
+
+    @rgc.must_be_light_finalizer
+    def __del__(self):
+        llop.stm_hashtable_free(lltype.Void, self.ll_raw_hashtable)
+
+    def get(self, key):
+        # 'key' must be a plain integer.  Returns a GCREF.
+        return llop.stm_hashtable_read(llmemory.GCREF, self,
+                                       self.ll_raw_hashtable, key)
+
+    def set(self, key, value):
+        llop.stm_hashtable_write(lltype.Void, self,
+                                 self.ll_raw_hashtable, key, value)
+
+
+class HashtableForTest(object):
+    _NULL = lltype.nullptr(llmemory.GCREF.TO)
+
+    def __init__(self):
+        self._content = {}      # dict {integer: GCREF}
+
+    def _cleanup_(self):
+        raise Exception("cannot translate a prebuilt rstm.Hashtable object")
+
+    def get(self, key):
+        assert type(key) is int
+        return self._content.get(key, self._NULL)
+
+    def set(self, key, value):
+        assert type(key) is int
+        assert lltype.typeOf(value) == llmemory.GCREF
+        if value:
+            self._content[key] = value
+        else:
+            try:
+                del self._content[key]
+            except KeyError:
+                pass

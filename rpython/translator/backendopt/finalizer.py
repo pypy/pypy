@@ -18,7 +18,7 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
     """
     ok_operations = ['ptr_nonzero', 'ptr_eq', 'ptr_ne', 'free', 'same_as',
                      'direct_ptradd', 'force_cast', 'track_alloc_stop',
-                     'raw_free', 'debug_print']
+                     'raw_free', 'debug_print', 'stm_hashtable_free']
 
     def analyze_light_finalizer(self, graph):
         result = self.analyze_direct_call(graph)
