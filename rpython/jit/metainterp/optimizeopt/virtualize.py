@@ -443,9 +443,17 @@ class VRawBufferValue(AbstractVArrayValue):
         self.buffer.values[i] = newval
 
     def getitem_raw(self, offset, length, descr):
+        if not self.is_virtual():
+            raise InvalidRawOperation
+            # see 'test_virtual_raw_buffer_forced_but_slice_not_forced'
+            # for the test above: it's not enough to check is_virtual()
+            # on the original object, because it might be a VRawSliceValue
+            # instead.  If it is a virtual one, then we'll reach here anway.
         return self.buffer.read_value(offset, length, descr)
 
     def setitem_raw(self, offset, length, descr, value):
+        if not self.is_virtual():
+            raise InvalidRawOperation
         self.buffer.write_value(offset, length, descr, value)
 
     def _really_force(self, optforce):
