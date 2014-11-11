@@ -2031,7 +2031,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_no_exception() []
         i1 = int_add(i0, 8)
         escape(i0)
-        setarrayitem_raw(i1, 1, f1, descr=rawarraydescr_float)
+        setarrayitem_raw(i1, 0, f1, descr=rawarraydescr_float)
         jump(f1)
         """
         expected = """
@@ -2040,7 +2040,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         #guard_no_exception() []  # XXX should appear
         escape(i0)
         i1 = int_add(i0, 8)
-        setarrayitem_raw(i1, 1, f1, descr=rawarraydescr_float)
+        setarrayitem_raw(i1, 0, f1, descr=rawarraydescr_float)
         jump(f1)
         """
         self.optimize_loop(ops, expected)
