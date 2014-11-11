@@ -388,15 +388,19 @@ class FlowContext(object):
             return w_condition.value
         return self.recorder.guessbool(self, w_condition)
 
-    def record(self, spaceop):
+    def merge_point(self):
         recorder = self.recorder
         if getattr(recorder, 'final_state', None) is not None:
             self.mergeblock(recorder.crnt_block, recorder.final_state)
             raise StopFlowing
+
+    def record(self, spaceop):
+        recorder = self.recorder
         spaceop.offset = self.last_instr
         recorder.append(spaceop)
 
     def do_op(self, op):
+        self.merge_point()
         self.record(op)
         self.guessexception(op.canraise)
         return op.result

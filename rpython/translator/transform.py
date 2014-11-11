@@ -8,6 +8,7 @@ completed.
 from rpython.flowspace.model import SpaceOperation
 from rpython.flowspace.model import Variable, Constant, Link
 from rpython.flowspace.model import c_last_exception, checkgraph
+from rpython.annotator.expression import V_Type
 from rpython.annotator import model as annmodel
 from rpython.rtyper.lltypesystem import lltype
 
@@ -134,15 +135,43 @@ def transform_list_contains(self, block_subset):
                     s_dict = self.annotation(op.args[0])
                     s_dict.dictdef.generalize_key(self.binding(op.args[1]))
 
-def remove_assign(ann, block_subset):
+def remove_expr(ann, block_subset):
     for block in block_subset:
-        for i in range(len(block.operations)):
+        i = 0
+        while i < len(block.operations):
             op = block.operations[i]
-            if op.opname == 'assign':
-                new_op = op.args[0].as_operation()
-                new_op.result = op.result
-                block.operations[i] = new_op
-
+            if any(isinstance(arg, V_Type) for arg in op.args):
+                new_args = []
+                new_ops = []
+                for arg in op.args:
+                    if isinstance(arg, V_Type):
+                        new_op = arg.as_operation()
+                        new_op.result.annotation = arg.annotation
+                        new_ops.append(new_op)
+                        new_args.append(new_op.result)
+                    else:
+                        new_args.append(arg)
+                op.args = new_args
+                block.operations[i:i] = new_ops
+            else:
+                i += 1
+        for exit in block.exits:
+            if any(isinstance(arg, V_Type) for arg in exit.args):
+                new_args = []
+                new_ops = []
+                for arg in exit.args:
+                    if isinstance(arg, V_Type):
+                        new_op = arg.as_operation()
+                        new_op.result.annotation = arg.annotation
+                        new_ops.append(new_op)
+                        new_args.append(new_op.result)
+                    else:
+                        new_args.append(arg)
+                exit.args = new_args
+                if block.exitswitch == c_last_exception:
+                    block.operations[-1:-1] = new_ops
+                else:
+                    block.operations.extend(new_ops)
 
 
 def transform_dead_op_vars(self, block_subset):
@@ -259,7 +288,7 @@ default_extra_passes = [
     transform_extend_with_str_slice,
     transform_extend_with_char_count,
     transform_list_contains,
-    remove_assign,
+    remove_expr,
     ]
 
 def transform_graph(ann, extra_passes=None, block_subset=None):

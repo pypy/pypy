@@ -431,7 +431,6 @@ add_operator('buffer', 1, pyfunc=buffer, pure=True)   # see buffer.py
 add_operator('yield_', 1)
 add_operator('newslice', 3)
 add_operator('hint', None, dispatch=1)
-add_operator('assign', 1, dispatch=1)
 
 class Contains(SingleDispatchMixin, PureOperation):
     opname = 'contains'
@@ -453,10 +452,10 @@ class Type(SingleDispatchMixin, PureOperation):
         result = self.constfold()
         if result is not None:
             return result
+        ctx.merge_point()
         from rpython.annotator.expression import V_Type
         v_instance, = self.args
-        result = V_Type(v_instance)
-        return ctx.do_op(op.assign(result))
+        return V_Type(v_instance)
 
 
 class NewDict(HLOperation):

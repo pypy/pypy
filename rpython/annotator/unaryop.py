@@ -21,10 +21,6 @@ UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])
 UNARY_OPERATIONS.remove('contains')
 
-@op.assign.register(SomeObject)
-def assign(annotator, v_obj):
-    return annotator.annotation(v_obj)
-
 @op.bool.register(SomeObject)
 def bool_SomeObject(annotator, obj):
     r = SomeBool()

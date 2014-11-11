@@ -116,9 +116,8 @@ def tweak_generator_body_graph(Entry, graph):
     #
     stopblock = Block([])
     op0 = op.simple_call(const(StopIteration))
-    op1 = op.assign(V_Type(op0.result))
-    stopblock.operations = [op0, op1]
-    stopblock.closeblock(Link([op1.result, op0.result], graph.exceptblock))
+    stopblock.operations = [op0]
+    stopblock.closeblock(Link([V_Type(op0.result), op0.result], graph.exceptblock))
     #
     for block in list(graph.iterblocks()):
         for exit in block.exits:
