@@ -567,17 +567,14 @@ class WarmEnterState(object):
         jd = self.jitdriver_sd
         cpu = self.cpu
 
-        def can_inline_greenargs(*greenargs):
+        def can_inline_callable(greenkey):
+            greenargs = unwrap_greenkey(greenkey)
             if can_never_inline(*greenargs):
                 return False
             cell = JitCell.get_jitcell(*greenargs)
             if cell is not None and (cell.flags & JC_DONT_TRACE_HERE) != 0:
                 return False
             return True
-        def can_inline_callable(greenkey):
-            greenargs = unwrap_greenkey(greenkey)
-            return can_inline_greenargs(*greenargs)
-        self.can_inline_greenargs = can_inline_greenargs
         self.can_inline_callable = can_inline_callable
 
         if jd._should_unroll_one_iteration_ptr is None:
