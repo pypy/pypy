@@ -806,12 +806,10 @@ class OptVirtualize(optimizer.Optimization):
                 try:
                     itemvalue = value.getitem_raw(offset, itemsize, descr)
                 except InvalidRawOperation:
-                    box = value.force_box(self)
-                    op.setarg(0, box)
-                    self.emit_operation(op)
+                    pass
                 else:
                     self.make_equal_to(op.result, itemvalue)
-                return
+                    return
         value.ensure_nonnull()
         self.emit_operation(op)
 
@@ -824,11 +822,9 @@ class OptVirtualize(optimizer.Optimization):
                 itemvalue = self.getvalue(op.getarg(2))
                 try:
                     value.setitem_raw(offset, itemsize, descr, itemvalue)
+                    return
                 except InvalidRawOperation:
-                    box = value.force_box(self)
-                    op.setarg(0, box)
-                    self.emit_operation(op)
-                return
+                    pass
         value.ensure_nonnull()
         self.emit_operation(op)
 
@@ -848,12 +844,10 @@ class OptVirtualize(optimizer.Optimization):
                 try:
                     itemvalue = value.getitem_raw(offset, itemsize, descr)
                 except InvalidRawOperation:
-                    box = value.force_box(self)
-                    op.setarg(0, box)
-                    self.emit_operation(op)
+                    pass
                 else:
                     self.make_equal_to(op.result, itemvalue)
-                return
+                    return
         value.ensure_nonnull()
         self.emit_operation(op)
 
@@ -866,11 +860,9 @@ class OptVirtualize(optimizer.Optimization):
                 itemvalue = self.getvalue(op.getarg(2))
                 try:
                     value.setitem_raw(offset, itemsize, descr, itemvalue)
+                    return
                 except InvalidRawOperation:
-                    box = value.force_box(self)
-                    op.setarg(0, box)
-                    self.emit_operation(op)
-                return
+                    pass
         value.ensure_nonnull()
         self.emit_operation(op)
 
