@@ -85,13 +85,11 @@ class RegisterTime(BaseLazyRegistering):
             if self.GETTIMEOFDAY_NO_TZ:
                 c_gettimeofday = self.llexternal('gettimeofday',
                                  [self.TIMEVALP], rffi.INT,
-                                  _nowrapper=True, releasegil=False,
-                                  transactionsafe=True)
+                                  _nowrapper=True, releasegil=False)
             else:
                 c_gettimeofday = self.llexternal('gettimeofday',
                                  [self.TIMEVALP, rffi.VOIDP], rffi.INT,
-                                  _nowrapper=True, releasegil=False,
-                                  transactionsafe=True)
+                                  _nowrapper=True, releasegil=False)
             c_ftime = None # We have gettimeofday(2), so force ftime(3) OFF.
         else:
             c_gettimeofday = None
@@ -101,14 +99,12 @@ class RegisterTime(BaseLazyRegistering):
                 self.configure(CConfigForFTime)
                 c_ftime = self.llexternal(FTIME, [lltype.Ptr(self.TIMEB)],
                                           lltype.Void,
-                                          _nowrapper=True, releasegil=False,
-                                          transactionsafe=True)
+                                          _nowrapper=True, releasegil=False)
             else:
                 c_ftime = None    # to not confuse the flow space
 
         c_time = self.llexternal('time', [rffi.VOIDP], rffi.TIME_T,
-                                 _nowrapper=True, releasegil=False,
-                                 transactionsafe=True)
+                                 _nowrapper=True, releasegil=False)
 
         def time_time_llimpl():
             void = lltype.nullptr(rffi.VOIDP.TO)
@@ -146,10 +142,10 @@ class RegisterTime(BaseLazyRegistering):
             A = lltype.FixedSizeArray(lltype.SignedLongLong, 1)
             QueryPerformanceCounter = self.llexternal(
                 'QueryPerformanceCounter', [lltype.Ptr(A)], lltype.Void,
-                releasegil=False, transactionsafe=True)
+                releasegil=False)
             QueryPerformanceFrequency = self.llexternal(
                 'QueryPerformanceFrequency', [lltype.Ptr(A)], rffi.INT,
-                releasegil=False, transactionsafe=True)
+                releasegil=False)
             class State(object):
                 pass
             state = State()
@@ -172,8 +168,7 @@ class RegisterTime(BaseLazyRegistering):
             c_getrusage = self.llexternal('getrusage', 
                                           [rffi.INT, lltype.Ptr(RUSAGE)],
                                           lltype.Void,
-                                          releasegil=False,
-                                          transactionsafe=True)
+                                          releasegil=False)
             def time_clock_llimpl():
                 a = lltype.malloc(RUSAGE, flavor='raw')
                 c_getrusage(RUSAGE_SELF, a)

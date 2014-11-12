@@ -10,4 +10,6 @@ class Module(MixedModule):
         'local': 'local.STMLocal',
         'count': 'count.count',
         'hashtable': 'hashtable.W_Hashtable',
+        'time': 'time.time',
+        'clock': 'time.clock',
     }
