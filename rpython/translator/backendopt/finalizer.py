@@ -24,6 +24,12 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
         result = self.analyze_direct_call(graph)
         if (result is self.top_result() and
             getattr(graph.func, '_must_be_light_finalizer_', False)):
+            # XXX temporary
+            if self.translator.config.translation.stm:
+                from rpython.memory.gctransform.log import log
+                log.WARNING("%s: %r" % (FinalizerError.__doc__, graph))
+                return result
+            #
             raise FinalizerError(FinalizerError.__doc__, graph)
         return result
 
