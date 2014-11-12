@@ -2736,7 +2736,8 @@ class Assembler386(BaseAssembler):
         null_reg_cleared = False
         i = 0
         while i < nbytes:
-            addr = addr_add(base_loc, startindex_loc, baseofs + i, scale)
+            addr = addr_add(self.SEGMENT_GC, base_loc, startindex_loc,
+                            baseofs + i, scale)
             current = nbytes - i
             if current >= 16:
                 current = 16
