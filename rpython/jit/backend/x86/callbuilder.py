@@ -109,7 +109,7 @@ class CallBuilderX86(AbstractCallBuilder):
         if gcrootmap:
             if gcrootmap.is_shadow_stack:
                 rst = gcrootmap.get_root_stack_top_addr()
-                self.mc.MOV(ebx, heap(rst))
+                self.mc.MOV(ebx, self.asm.heap_tl(rst))
         #
         if self.asm.cpu.gc_ll_descr.stm:
             self.call_stm_before_ex_call()
@@ -207,12 +207,12 @@ class CallBuilderX86(AbstractCallBuilder):
             # here, ecx is zero (so rpy_fastgil was not acquired)
             rst = gcrootmap.get_root_stack_top_addr()
             mc = self.mc
-            mc.CMP(ebx, heap(rst))
+            mc.CMP(ebx, self.asm.heap_tl(rst))
             mc.J_il8(rx86.Conditions['E'], 0)
             je_location = mc.get_relative_pos()
             # revert the rpy_fastgil acquired above, so that the
             # general 'reacqgil_addr' below can acquire it again...
-            mc.MOV(heap(fastgil), ecx)
+            mc.MOV(heap(self.asm.SEGMENT_NO, fastgil), ecx)
             # patch the JNE above
             offset = mc.get_relative_pos() - jne_location
             assert 0 < offset <= 127

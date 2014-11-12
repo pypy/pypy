@@ -1,5 +1,6 @@
 import py
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper import rclass
 from rpython.jit.metainterp.history import ResOperation, TargetToken,\
      JitCellToken
 from rpython.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt,
