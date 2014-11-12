@@ -714,11 +714,7 @@ class ObjSpace(object):
         if not we_are_translated() and self.config.translating:
             raise CannotHaveLock()
         try:
-            if self.config.translation.stm:
-                from pypy.module.thread import stm
-                return stm.allocate_stm_lock(self)
-            else:
-                return rthread.allocate_lock()
+            return rthread.allocate_lock()
         except rthread.error:
             raise OperationError(self.w_RuntimeError,
                                  self.wrap("out of resources"))
