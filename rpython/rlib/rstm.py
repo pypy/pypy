@@ -216,9 +216,9 @@ def create_hashtable():
     h.ll_raw_hashtable = llop.stm_hashtable_create(_STM_HASHTABLE_P, p)
     return h
 
-class HashtableForTest(object):
-    _NULL = lltype.nullptr(llmemory.GCREF.TO)
+NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
 
+class HashtableForTest(object):
     def __init__(self):
         self._content = {}      # dict {integer: GCREF}
 
@@ -227,7 +227,7 @@ class HashtableForTest(object):
 
     def get(self, key):
         assert type(key) is int
-        return self._content.get(key, self._NULL)
+        return self._content.get(key, NULL_GCREF)
 
     def set(self, key, value):
         assert type(key) is int

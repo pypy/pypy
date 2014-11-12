@@ -9,4 +9,5 @@ class Module(MixedModule):
     interpleveldefs = {
         'local': 'local.STMLocal',
         'count': 'count.count',
+        'hashtable': 'hashtable.W_Hashtable',
     }
