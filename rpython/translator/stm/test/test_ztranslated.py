@@ -584,3 +584,7 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
         assert 'ok!\n' in data
+
+        t, cbuilder = self.compile(main, backendopt=True)
+        data = cbuilder.cmdexec('')
+        assert 'ok!\n' in data

@@ -200,6 +200,8 @@ def ll_hashtable_trace(gc, obj, callback, arg):
     llop.stm_hashtable_tracefn(lltype.Void, addr.address[0], visit_fn)
 lambda_hashtable_trace = lambda: ll_hashtable_trace
 
+_false = CDefinedIntSymbolic('0', default=0)    # remains in the C code
+
 def create_hashtable():
     if not we_are_translated():
         return HashtableForTest()      # for tests
@@ -207,7 +209,7 @@ def create_hashtable():
     # Make sure we see a malloc() of it, so that its typeid is correctly
     # initialized.  It can be done in a NonConstant(False) path so that
     # the C compiler will actually drop it.
-    if NonConstant(False):
+    if _false:
         p = lltype.malloc(_STM_HASHTABLE_ENTRY)
     else:
         p = lltype.nullptr(_STM_HASHTABLE_ENTRY)
