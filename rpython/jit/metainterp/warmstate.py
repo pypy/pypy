@@ -577,6 +577,16 @@ class WarmEnterState(object):
             return True
         self.can_inline_callable = can_inline_callable
 
+        def dont_trace_here(greenkey):
+            # Set greenkey as somewhere that tracing should not occur into;
+            # notice that, as per the description of JC_DONT_TRACE_HERE earlier,
+            # if greenkey hasn't been traced separately, setting
+            # JC_DONT_TRACE_HERE will force tracing the next time the function
+            # is encountered.
+            cell = JitCell.ensure_jit_cell_at_key(greenkey)
+            cell.flags |= JC_DONT_TRACE_HERE
+        self.dont_trace_here = dont_trace_here
+
         if jd._should_unroll_one_iteration_ptr is None:
             def should_unroll_one_iteration(greenkey):
                 return False

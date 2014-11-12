@@ -971,6 +971,7 @@ class MIFrame(object):
                             # The greenkey of a trace position on the stack
                             # matches what we have, which means we're definitely
                             # about to recurse.
+                            warmrunnerstate.dont_trace_here(greenboxes)
                             inline = False
                             break
                 if inline:
