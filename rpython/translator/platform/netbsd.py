@@ -29,10 +29,10 @@ class Netbsd(posix.BasePosix):
     make_cmd = 'gmake'
     extra_libs = ('-lrt',)
 
-    def __init__(self, cc=None):
+    def __init__(self, cc=None, exec_prefix=None):
         if cc is None:
             cc = get_env("CC", "gcc")
-        super(Netbsd, self).__init__(cc)
+        super(Netbsd, self).__init__(cc, exec_prefix)
 
     def _args_for_shared(self, args):
         return ['-shared'] + args

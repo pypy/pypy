@@ -108,7 +108,7 @@ class MsvcPlatform(Platform):
     shared_only = ()
     environ = None
 
-    def __init__(self, cc=None, x64=False):
+    def __init__(self, cc=None, x64=False, exec_prefix=None):
         self.x64 = x64
         if cc is None:
             msvc_compiler_environ = find_msvc_env(x64)
@@ -154,6 +154,8 @@ class MsvcPlatform(Platform):
             self.link_flags.append('/STACK:%d' % stack_size)
             # The following symbol is used in c/src/stack.h
             self.cflags.append('/DMAX_STACK_SIZE=%d' % (stack_size - 1024))
+
+        super(MsvcPlatform, self).__init__(self.cc, exec_prefix)
 
     def _includedirs(self, include_dirs):
         return ['/I%s' % (idir,) for idir in include_dirs]
@@ -480,10 +482,10 @@ class MingwPlatform(posix.BasePosix):
     exe_ext = 'exe'
     so_ext = 'dll'
 
-    def __init__(self, cc=None):
+    def __init__(self, cc=None, exec_prefix=None):
         if not cc:
             cc = 'gcc'
-        Platform.__init__(self, cc)
+        super(MingwPlatform, self).__init__(cc, exec_prefix)
 
     def _args_for_shared(self, args):
         return ['-shared'] + args

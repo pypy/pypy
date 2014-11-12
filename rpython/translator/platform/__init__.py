@@ -44,10 +44,11 @@ class Platform(object):
 
     extra_libs = ()
 
-    def __init__(self, cc):
+    def __init__(self, cc, exec_prefix):
         if self.__class__ is Platform:
             raise TypeError("You should not instantiate Platform class directly")
         self.cc = cc
+        self.exec_prefix = exec_prefix
 
     def compile(self, cfiles, eci, outputfilename=None, standalone=True):
         ofiles = self._compile_o_files(cfiles, eci, standalone)
@@ -94,6 +95,10 @@ class Platform(object):
                 env['DYLD_LIBRARY_PATH'] = library_path
             else:
                 env['LD_LIBRARY_PATH'] = library_path
+
+        if self.exec_prefix is not None:
+            args = self.exec_prefix.split(' ') + [str(executable)] + list(args or ())
+            executable = args.pop(0)
 
         returncode, stdout, stderr = _run_subprocess(str(executable), args,
                                                      env)
@@ -319,35 +324,20 @@ else:
 
 platform = host = host_factory()
 
-def pick_platform(new_platform, cc):
+def pick_platform(new_platform, cc, exec_prefix):
     if new_platform == 'host':
-        return host_factory(cc)
+        return host_factory(cc, exec_prefix)
     elif new_platform == 'maemo':
         from rpython.translator.platform.maemo import Maemo
-        return Maemo(cc)
+        return Maemo(cc, exec_prefix)
     elif new_platform == 'arm':
         from rpython.translator.platform.arm import ARM
-        return ARM(cc)
+        return ARM(cc, exec_prefix)
     elif new_platform == 'distutils':
         from rpython.translator.platform.distutils_platform import DistutilsPlatform
         return DistutilsPlatform()
     else:
         raise ValueError("platform = %s" % (new_platform,))
-
-def set_platform(new_platform, cc):
-    global platform
-    platform = pick_platform(new_platform, cc)
-    if not platform:
-        raise ValueError("pick_platform(%r, %s) failed"%(new_platform, cc))
-    log.msg("Set platform with %r cc=%s, using cc=%r, version=%r" % (new_platform, cc,
-                    getattr(platform, 'cc','Unknown'),
-                    getattr(platform, 'version','Unknown'),
-    ))
-
-    if new_platform == 'host':
-        global host
-        host = platform
-
 
 def is_host_build():
     return host == platform

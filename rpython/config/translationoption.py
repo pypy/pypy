@@ -131,6 +131,7 @@ translation_optiondescription = OptionDescription(
     # misc
     BoolOption("verbose", "Print extra information", default=False),
     StrOption("cc", "Specify compiler to use for compiling generated C", cmdline="--cc"),
+    StrOption("exec_prefix", "Specify Prefix to use for evaluating generated C", cmdline="--exec-prefix"),
     StrOption("profopt", "Specify profile based optimization script",
               cmdline="--profopt"),
     BoolOption("noprofopt", "Don't use profile based optimization",
@@ -382,11 +383,19 @@ def set_opt_level(config, level):
 # ----------------------------------------------------------------
 
 def set_platform(config):
-    from rpython.translator.platform import set_platform
-    set_platform(config.translation.platform, config.translation.cc)
+    from rpython.translator import platform
+    new_platform = config.translation.platform
+    cc = config.translation.cc
+    exec_prefix = config.translation.exec_prefix
+    platform.platform = platform.pick_platform(new_platform, cc, exec_prefix)
+    platform.log.msg("Set platform with %r cc=%s, using cc=%r, version=%r exec-prefix=%r" % (new_platform, cc,
+                    getattr(platform, 'cc','Unknown'),
+                    getattr(platform, 'version','Unknown'),
+                    getattr(platform, 'exec_prefix',''),
+    ))
+    if new_platform == 'host':
+        platform.host = platform.platform
 
 def get_platform(config):
     from rpython.translator.platform import pick_platform
-    opt = config.translation.platform
-    cc = config.translation.cc
-    return pick_platform(opt, cc)
+    return pick_platform(config.translation.platform, config.translation.cc, config.translation.exec_prefix)

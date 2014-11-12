@@ -15,8 +15,9 @@ class BasePosix(Platform):
 
     DEFAULT_CC = 'gcc'
 
-    def __init__(self, cc=None):
-        self.cc = cc or os.environ.get('CC', self.DEFAULT_CC)
+    def __init__(self, cc=None, exec_prefix=None):
+        cc = cc or os.environ.get('CC', self.DEFAULT_CC)
+        super(BasePosix, self).__init__(cc, exec_prefix)
 
     def _libs(self, libraries):
         return ['-l%s' % lib for lib in libraries]
