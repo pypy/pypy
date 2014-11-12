@@ -311,3 +311,8 @@ def stm_hashtable_write(funcgen, op):
     arg3 = funcgen.expr(op.args[3])
     return ('stm_hashtable_write((object_t *)%s, %s, %s, (object_t *)%s, '
             '&stm_thread_local);' % (arg0, arg1, arg2, arg3))
+
+def stm_hashtable_tracefn(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    return 'stm_hashtable_tracefn((stm_hashtable_t *)%s, %s);' % (arg0, arg1)

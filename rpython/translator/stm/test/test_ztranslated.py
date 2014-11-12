@@ -553,8 +553,6 @@ class TestSTMTranslated(CompiledSTMTests):
         assert '<del>' in err
 
     def test_hashtable(self):
-        py.test.skip("missing: custom tracer on Hashtable")
-
         class X(object):
             pass
 

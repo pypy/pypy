@@ -193,7 +193,12 @@ _HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
                                  adtmeths={'get': ll_hashtable_get,
                                            'set': ll_hashtable_set})
 
-#def ll_hashtable_trace(...)
+def ll_hashtable_trace(gc, obj, callback, arg):
+    from rpython.memory.gctransform.stmframework import get_visit_function
+    visit_fn = get_visit_function(callback, arg)
+    addr = obj + llmemory.offsetof(_HASHTABLE_OBJ, 'll_raw_hashtable')
+    llop.stm_hashtable_tracefn(lltype.Void, addr.address[0], visit_fn)
+lambda_hashtable_trace = lambda: ll_hashtable_trace
 
 def create_hashtable():
     if not we_are_translated():
@@ -206,6 +211,7 @@ def create_hashtable():
         p = lltype.malloc(_STM_HASHTABLE_ENTRY)
     else:
         p = lltype.nullptr(_STM_HASHTABLE_ENTRY)
+    rgc.register_custom_trace_hook(_HASHTABLE_OBJ, lambda_hashtable_trace)
     h = lltype.malloc(_HASHTABLE_OBJ)
     h.ll_raw_hashtable = llop.stm_hashtable_create(_STM_HASHTABLE_P, p)
     return h

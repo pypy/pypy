@@ -7,6 +7,7 @@ from rpython.memory.gctransform.framework import (TYPE_ID,
 from rpython.memory.gctypelayout import WEAKREF, WEAKREFPTR
 from rpython.memory.gc.stmgc import StmGC
 from rpython.rtyper import rmodel, llannotation
+from rpython.rtyper.annlowlevel import llhelper
 from rpython.translator.backendopt.support import var_needsgc
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rstm

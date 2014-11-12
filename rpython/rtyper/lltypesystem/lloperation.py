@@ -464,6 +464,7 @@ LL_OPERATIONS = {
     'stm_hashtable_free':     LLOp(),
     'stm_hashtable_read':     LLOp(),
     'stm_hashtable_write':    LLOp(),
+    'stm_hashtable_tracefn':  LLOp(),
 
     # __________ address operations __________
 

@@ -516,7 +516,7 @@ def cast_base_ptr_to_instance(Class, ptr):
 @specialize.arg(0)
 def cast_gcref_to_instance(Class, ptr):
     """Reverse the hacking done in cast_instance_to_gcref()."""
-    from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+    from rpython.rtyper.rclass import OBJECTPTR
     ptr = lltype.cast_opaque_ptr(OBJECTPTR, ptr)
     return cast_base_ptr_to_instance(Class, ptr)
 
