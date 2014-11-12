@@ -1251,6 +1251,14 @@ class LLHelpers(AbstractLLHelpers):
         SRC = typeOf(src).TO     # STR or UNICODE
         DST = typeOf(dst).TO     # GcArray
         assert DST.OF is SRC.chars.OF
+
+        if rgc.stm_is_enabled():
+            i = 0
+            while i < length:
+                dst[i] = src.chars[i]
+                i += 1
+            return lst
+
         # from here, no GC operations can happen
         asrc = llmemory.cast_ptr_to_adr(src) + (
             llmemory.offsetof(SRC, 'chars') +
