@@ -372,7 +372,7 @@ class OptIntBounds(Optimization):
         v1.intbound.make_ge(IntLowerBound(0))
         v1.intbound.make_lt(IntUpperBound(256))
 
-    def optimize_GETFIELD_RAW(self, op):
+    def optimize_GETFIELD_RAW_I(self, op):
         self.emit_operation(op)
         descr = op.getdescr()
         if descr.is_integer_bounded():
@@ -380,11 +380,16 @@ class OptIntBounds(Optimization):
             v1.intbound.make_ge(IntLowerBound(descr.get_integer_min()))
             v1.intbound.make_le(IntUpperBound(descr.get_integer_max()))
 
-    optimize_GETFIELD_GC = optimize_GETFIELD_RAW
+    optimize_GETFIELD_RAW_F = optimize_GETFIELD_RAW_I
+    optimize_GETFIELD_GC_I = optimize_GETFIELD_RAW_I
+    optimize_GETFIELD_GC_R = optimize_GETFIELD_RAW_I
+    optimize_GETFIELD_GC_F = optimize_GETFIELD_RAW_I
 
-    optimize_GETINTERIORFIELD_GC = optimize_GETFIELD_RAW
+    optimize_GETINTERIORFIELD_GC_I = optimize_GETFIELD_RAW_I
+    optimize_GETINTERIORFIELD_GC_R = optimize_GETFIELD_RAW_I
+    optimize_GETINTERIORFIELD_GC_F = optimize_GETFIELD_RAW_I
 
-    def optimize_GETARRAYITEM_RAW(self, op):
+    def optimize_GETARRAYITEM_RAW_I(self, op):
         self.emit_operation(op)
         descr = op.getdescr()
         if descr and descr.is_item_integer_bounded():
@@ -392,7 +397,10 @@ class OptIntBounds(Optimization):
             v1.intbound.make_ge(IntLowerBound(descr.get_item_integer_min()))
             v1.intbound.make_le(IntUpperBound(descr.get_item_integer_max()))
 
-    optimize_GETARRAYITEM_GC = optimize_GETARRAYITEM_RAW
+    optimize_GETARRAYITEM_RAW_F = optimize_GETARRAYITEM_RAW_I
+    optimize_GETARRAYITEM_GC_I = optimize_GETARRAYITEM_RAW_I
+    optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_RAW_I
+    optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_RAW_I
 
     def optimize_UNICODEGETITEM(self, op):
         self.emit_operation(op)

@@ -56,7 +56,7 @@ class OptPure(Optimization):
         if nextop:
             self.emit_operation(nextop)
 
-    def optimize_CALL_PURE(self, op):
+    def optimize_CALL_PURE_I(self, op):
         # Step 1: check if all arguments are constant
         result = self._can_optimize_call_pure(op)
         if result is not None:
@@ -84,6 +84,9 @@ class OptPure(Optimization):
         args = op.getarglist()
         self.emit_operation(ResOperation(rop.CALL, args, op.result,
                                          op.getdescr()))
+    optimize_CALL_PURE_R = optimize_CALL_PURE_I
+    optimize_CALL_PURE_F = optimize_CALL_PURE_I
+    optimize_CALL_PURE_N = optimize_CALL_PURE_I
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:

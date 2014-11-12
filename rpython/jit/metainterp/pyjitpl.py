@@ -12,7 +12,8 @@ from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, InputArgInt,\
+     InputArgFloat, InputArgRef
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints, make_sure_not_resized

@@ -541,7 +541,7 @@ class OptString(optimizer.Optimization):
                 mode, need_next_offset=False
             )
 
-    def optimize_CALL(self, op):
+    def optimize_CALL_I(self, op):
         # dispatch based on 'oopspecindex' to a method that handles
         # specifically the given oopspec call.  For non-oopspec calls,
         # oopspecindex is just zero.
@@ -565,8 +565,13 @@ class OptString(optimizer.Optimization):
                 if self.opt_call_SHRINK_ARRAY(op):
                     return
         self.emit_operation(op)
-
-    optimize_CALL_PURE = optimize_CALL
+    optimize_CALL_R = optimize_CALL_I
+    optimize_CALL_F = optimize_CALL_I
+    optimize_CALL_N = optimize_CALL_I
+    optimize_CALL_PURE_I = optimize_CALL_I
+    optimize_CALL_PURE_R = optimize_CALL_I
+    optimize_CALL_PURE_F = optimize_CALL_I
+    optimize_CALL_PURE_N = optimize_CALL_I
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:

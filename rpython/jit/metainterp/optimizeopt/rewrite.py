@@ -389,7 +389,7 @@ class OptRewrite(Optimization):
                               'always fail' % r)
         self.optimize_GUARD_CLASS(op)
 
-    def optimize_CALL_LOOPINVARIANT(self, op):
+    def optimize_CALL_LOOPINVARIANT_I(self, op):
         arg = op.getarg(0)
         # 'arg' must be a Const, because residual_call in codewriter
         # expects a compile-time constant
@@ -408,6 +408,9 @@ class OptRewrite(Optimization):
         self.emit_operation(op)
         resvalue = self.getvalue(op.result)
         self.loop_invariant_results[key] = resvalue
+    optimize_CALL_LOOPINVARIANT_R = optimize_CALL_LOOPINVARIANT_I
+    optimize_CALL_LOOPINVARIANT_F = optimize_CALL_LOOPINVARIANT_I
+    optimize_CALL_LOOPINVARIANT_N = optimize_CALL_LOOPINVARIANT_I
 
     def optimize_COND_CALL(self, op):
         arg = op.getarg(0)
@@ -478,7 +481,7 @@ class OptRewrite(Optimization):
     def optimize_INSTANCE_PTR_NE(self, op):
         self._optimize_oois_ooisnot(op, True, True)
 
-    def optimize_CALL(self, op):
+    def optimize_CALL_N(self, op):
         # dispatch based on 'oopspecindex' to a method that handles
         # specifically the given oopspec call.  For non-oopspec calls,
         # oopspecindex is just zero.
@@ -538,7 +541,7 @@ class OptRewrite(Optimization):
             return True # 0-length arraycopy
         return False
 
-    def optimize_CALL_PURE(self, op):
+    def optimize_CALL_PURE_I(self, op):
         # this removes a CALL_PURE with all constant arguments.
         # Note that it's also done in pure.py.  For now we need both...
         result = self._can_optimize_call_pure(op)
@@ -547,6 +550,9 @@ class OptRewrite(Optimization):
             self.last_emitted_operation = REMOVED
             return
         self.emit_operation(op)
+    optimize_CALL_PURE_R = optimize_CALL_PURE_I
+    optimize_CALL_PURE_F = optimize_CALL_PURE_I
+    optimize_CALL_PURE_N = optimize_CALL_PURE_I
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:
@@ -583,8 +589,10 @@ class OptRewrite(Optimization):
         self.pure(rop.CAST_PTR_TO_INT, [op.result], op.getarg(0))
         self.emit_operation(op)
 
-    def optimize_SAME_AS(self, op):
+    def optimize_SAME_AS_i(self, op):
         self.make_equal_to(op.result, self.getvalue(op.getarg(0)))
+    optimize_SAME_AS_r = optimize_SAME_AS_i
+    optimize_SAME_AS_f = optimize_SAME_AS_i
 
 dispatch_opt = make_dispatcher_method(OptRewrite, 'optimize_',
         default=OptRewrite.emit_operation)

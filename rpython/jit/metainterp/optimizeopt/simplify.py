@@ -14,14 +14,20 @@ class OptSimplify(Optimization):
                 self.optimizer.pendingfields = []
         Optimization.emit_operation(self, op)
 
-    def optimize_CALL_PURE(self, op):
+    def optimize_CALL_PURE_I(self, op):
         args = op.getarglist()
         self.emit_operation(ResOperation(rop.CALL, args, op.result,
                                          op.getdescr()))
+    optimize_CALL_PURE_R = optimize_CALL_PURE_I
+    optimize_CALL_PURE_F = optimize_CALL_PURE_I
+    optimize_CALL_PURE_N = optimize_CALL_PURE_I
 
-    def optimize_CALL_LOOPINVARIANT(self, op):
+    def optimize_CALL_LOOPINVARIANT_I(self, op):
         op = op.copy_and_change(rop.CALL)
         self.emit_operation(op)
+    optimize_CALL_LOOPINVARIANT_R = optimize_CALL_LOOPINVARIANT_I
+    optimize_CALL_LOOPINVARIANT_F = optimize_CALL_LOOPINVARIANT_I
+    optimize_CALL_LOOPINVARIANT_N = optimize_CALL_LOOPINVARIANT_I
 
     def optimize_VIRTUAL_REF_FINISH(self, op):
         pass

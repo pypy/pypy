@@ -76,7 +76,8 @@ class HeapCache(object):
                 self.dependencies.setdefault(box, []).append(valuebox)
             else:
                 self._escape(valuebox)
-        elif (opnum == rop.CALL and
+        elif ((opnum == rop.CALL_R or opnum == rop.CALL_I or
+               opnum == rop.CALL_N or opnum == rop.CALL_F) and
               descr.get_extra_info().oopspecindex == descr.get_extra_info().OS_ARRAYCOPY and
               isinstance(argboxes[3], ConstInt) and
               isinstance(argboxes[4], ConstInt) and
@@ -87,8 +88,12 @@ class HeapCache(object):
             pass
         # GETFIELD_GC, MARK_OPAQUE_PTR, PTR_EQ, and PTR_NE don't escape their
         # arguments
-        elif (opnum != rop.GETFIELD_GC and
-              opnum != rop.GETFIELD_GC_PURE and
+        elif (opnum != rop.GETFIELD_GC_R and
+              opnum != rop.GETFIELD_GC_I and
+              opnum != rop.GETFIELD_GC_F and
+              opnum != rop.GETFIELD_GC_PURE_R and
+              opnum != rop.GETFIELD_GC_PURE_I and
+              opnum != rop.GETFIELD_GC_PURE_F and
               opnum != rop.MARK_OPAQUE_PTR and
               opnum != rop.PTR_EQ and
               opnum != rop.PTR_NE and

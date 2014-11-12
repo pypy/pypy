@@ -75,32 +75,48 @@ def do_call(cpu, metainterp, argboxes, descr):
         return None
     raise AssertionError("bad rettype")
 
-do_call_loopinvariant = do_call
-do_call_may_force = do_call
+do_call_r = do_call
+do_call_i = do_call
+do_call_f = do_call
+do_call_n = do_call
+do_call_loopinvariant_r = do_call
+do_call_loopinvariant_i = do_call
+do_call_loopinvariant_f = do_call
+do_call_loopinvariant_n = do_call
+do_call_may_force_r = do_call
+do_call_may_force_i = do_call
+do_call_may_force_f = do_call
+do_call_may_force_n = do_call
 
 def do_cond_call(cpu, metainterp, argboxes, descr):
     condbox = argboxes[0]
     if condbox.getint():
-        do_call(cpu, metainterp, argboxes[1:], descr)
+        do_call_n(cpu, metainterp, argboxes[1:], descr)
 
-def do_getarrayitem_gc(cpu, _, arraybox, indexbox, arraydescr):
+def do_getarrayitem_gc_i(cpu, _, arraybox, indexbox, arraydescr):
     array = arraybox.getref_base()
     index = indexbox.getint()
-    if arraydescr.is_array_of_pointers():
-        return BoxPtr(cpu.bh_getarrayitem_gc_r(array, index, arraydescr))
-    elif arraydescr.is_array_of_floats():
-        return BoxFloat(cpu.bh_getarrayitem_gc_f(array, index, arraydescr))
-    else:
-        return BoxInt(cpu.bh_getarrayitem_gc_i(array, index, arraydescr))
+    return cpu.bh_getarrayitem_gc_i(array, index, arraydescr)
 
-def do_getarrayitem_raw(cpu, _, arraybox, indexbox, arraydescr):
+def do_getarrayitem_gc_r(cpu, _, arraybox, indexbox, arraydescr):
+    array = arraybox.getref_base()
+    index = indexbox.getint()
+    return cpu.bh_getarrayitem_gc_r(array, index, arraydescr)
+
+def do_getarrayitem_gc_f(cpu, _, arraybox, indexbox, arraydescr):
+    array = arraybox.getref_base()
+    index = indexbox.getint()
+    return cpu.bh_getarrayitem_gc_f(array, index, arraydescr)
+
+def do_getarrayitem_raw_i(cpu, _, arraybox, indexbox, arraydescr):
     array = arraybox.getint()
     index = indexbox.getint()
-    assert not arraydescr.is_array_of_pointers()
-    if arraydescr.is_array_of_floats():
-        return BoxFloat(cpu.bh_getarrayitem_raw_f(array, index, arraydescr))
-    else:
-        return BoxInt(cpu.bh_getarrayitem_raw_i(array, index, arraydescr))
+    return cpu.bh_getarrayitem_raw_i(array, index, arraydescr)
+
+def do_getarrayitem_raw_f(cpu, _, arraybox, indexbox, arraydescr):
+    array = arraybox.getint()
+    index = indexbox.getint()
+    return cpu.bh_getarrayitem_raw_f(array, index, arraydescr)
 
 def do_setarrayitem_gc(cpu, _, arraybox, indexbox, itembox, arraydescr):
     array = arraybox.getref_base()
@@ -146,14 +162,17 @@ def do_setinteriorfield_gc(cpu, _, arraybox, indexbox, valuebox, descr):
     else:
         cpu.bh_setinteriorfield_gc_i(array, index, valuebox.getint(), descr)
 
-def do_getfield_gc(cpu, _, structbox, fielddescr):
+def do_getfield_gc_i(cpu, _, structbox, fielddescr):
     struct = structbox.getref_base()
-    if fielddescr.is_pointer_field():
-        return BoxPtr(cpu.bh_getfield_gc_r(struct, fielddescr))
-    elif fielddescr.is_float_field():
-        return BoxFloat(cpu.bh_getfield_gc_f(struct, fielddescr))
-    else:
-        return BoxInt(cpu.bh_getfield_gc_i(struct, fielddescr))
+    return cpu.bh_getfield_gc_i(struct, fielddescr)
+
+def do_getfield_gc_r(cpu, _, structbox, fielddescr):
+    struct = structbox.getref_base()
+    return cpu.bh_getfield_gc_r(struct, fielddescr)
+
+def do_getfield_gc_f(cpu, _, structbox, fielddescr):
+    struct = structbox.getref_base()
+    return cpu.bh_getfield_gc_f(struct, fielddescr)
 
 def do_getfield_raw(cpu, _, structbox, fielddescr):
     check_descr(fielddescr)
@@ -246,8 +265,14 @@ def do_int_mul_ovf(cpu, metainterp, box1, box2):
         z = 0
     return BoxInt(z)
 
-def do_same_as(cpu, _, box):
-    return box.clonebox()
+def do_same_as_i(cpu, _, v):
+    return v
+
+def do_same_as_r(cpu, _, v):
+    return v
+
+def do_same_as_f(cpu, _, v):
+    return v
 
 def do_copystrcontent(cpu, _, srcbox, dstbox,
                       srcstartbox, dststartbox, lengthbox):
@@ -301,8 +326,8 @@ def _make_execute_list():
                 continue
             #
             # Maybe the same without the _PURE suffix?
-            if key.endswith('_PURE'):
-                key = key[:-5]
+            if key[-7:-2] == '_PURE':
+                key = key[:-7] + key[-2:]
                 name = 'do_' + key.lower()
                 if name in globals():
                     execute[value] = globals()[name]
@@ -321,7 +346,10 @@ def _make_execute_list():
                     execute[value] = func
                     continue
             if value in (rop.FORCE_TOKEN,
-                         rop.CALL_ASSEMBLER,
+                         rop.CALL_ASSEMBLER_R,
+                         rop.CALL_ASSEMBLER_F,
+                         rop.CALL_ASSEMBLER_I,
+                         rop.CALL_ASSEMBLER_N,
                          rop.INCREMENT_DEBUG_COUNTER,
                          rop.COND_CALL_GC_WB,
                          rop.COND_CALL_GC_WB_ARRAY,
@@ -331,7 +359,10 @@ def _make_execute_list():
                          rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,
                          rop.SETINTERIORFIELD_RAW,
-                         rop.CALL_RELEASE_GIL,
+                         rop.CALL_RELEASE_GIL_I,
+                         rop.CALL_RELEASE_GIL_R,
+                         rop.CALL_RELEASE_GIL_F,
+                         rop.CALL_RELEASE_GIL_N,
                          rop.QUASIIMMUT_FIELD,
                          rop.CALL_MALLOC_GC,
                          rop.CALL_MALLOC_NURSERY,
@@ -352,10 +383,7 @@ def make_execute_function_with_boxes(name, func):
             return None
     if list(func.argtypes).count('d') > 1:
         return None
-    if func.resulttype not in ('i', 'r', 'f', None):
-        return None
     argtypes = unrolling_iterable(func.argtypes)
-    resulttype = func.resulttype
     #
     def do(cpu, _, *argboxes):
         newargs = ()
@@ -375,12 +403,7 @@ def make_execute_function_with_boxes(name, func):
             newargs = newargs + (value,)
         assert not argboxes
         #
-        result = func(*newargs)
-        #
-        if resulttype == 'i': return BoxInt(result)
-        if resulttype == 'r': return BoxPtr(result)
-        if resulttype == 'f': return BoxFloat(result)
-        return None
+        return func(*newargs)
     #
     do.func_name = 'do_' + name
     return do
@@ -408,6 +431,7 @@ has_descr._annspecialcase_ = 'specialize:memo'
 
 
 def execute(cpu, metainterp, opnum, descr, *argboxes):
+    xxx
     # only for opnums with a fixed arity
     num_args = len(argboxes)
     withdescr = has_descr(opnum)
@@ -422,6 +446,7 @@ def execute(cpu, metainterp, opnum, descr, *argboxes):
 execute._annspecialcase_ = 'specialize:arg(2)'
 
 def execute_varargs(cpu, metainterp, opnum, argboxes, descr):
+    xxxx
     # only for opnums with a variable arity (calls, typically)
     check_descr(descr)
     func = get_execute_function(opnum, -1, True)
@@ -430,6 +455,7 @@ execute_varargs._annspecialcase_ = 'specialize:arg(2)'
 
 
 def execute_nonspec(cpu, metainterp, opnum, argboxes, descr=None):
+    xxxx
     arity = resoperation.oparity[opnum]
     assert arity == -1 or len(argboxes) == arity
     if resoperation.opwithdescr[opnum]:

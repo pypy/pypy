@@ -1,7 +1,8 @@
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper import rclass
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-from rpython.jit.metainterp.history import AbstractDescr
+from rpython.jit.metainterp.history import AbstractDescr, ConstPtr, ConstInt,\
+     ConstFloat
 from rpython.rlib.objectmodel import we_are_translated
 
 
@@ -114,9 +115,18 @@ class QuasiImmutDescr(AbstractDescr):
     def get_current_constant_fieldvalue(self):
         from rpython.jit.metainterp import executor
         from rpython.jit.metainterp.resoperation import rop
-        fieldbox = executor.execute(self.cpu, None, rop.GETFIELD_GC,
-                                    self.fielddescr, self.structbox)
-        return fieldbox.constbox()
+        if self.fielddescr.is_pointer_field():
+            return ConstPtr(executor.do_getfield_gc_r(self.cpu, None, rop.GETFIELD_GC_R,
+                                             self.fielddescr, self.structbox))
+        elif self.fielddescr.is_float_field():
+            return ConstFloat(executor.execute(self.cpu, None,
+                                               rop.GETFIELD_GC_F,
+                                               self.fielddescr, self.structbox))
+            
+        else:
+            return ConstInt(executor.do_getfield_gc_i(self.cpu, None,
+                                                      self.structbox,
+                                                      self.fielddescr))
 
     def is_still_valid_for(self, structconst):
         assert self.structbox is not None

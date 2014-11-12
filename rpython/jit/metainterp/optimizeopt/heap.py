@@ -294,7 +294,7 @@ class OptHeap(Optimization):
         self.force_all_lazy_setfields_and_arrayitems()
         self.clean_caches()
 
-    def optimize_CALL(self, op):
+    def optimize_CALL_I(self, op):
         # dispatch based on 'oopspecindex' to a method that handles
         # specifically the given oopspec call.  For non-oopspec calls,
         # oopspecindex is just zero.
@@ -304,6 +304,9 @@ class OptHeap(Optimization):
             if self._optimize_CALL_DICT_LOOKUP(op):
                 return
         self.emit_operation(op)
+    optimize_CALL_F = optimize_CALL_I
+    optimize_CALL_R = optimize_CALL_I
+    optimize_CALL_N = optimize_CALL_I
 
     def _optimize_CALL_DICT_LOOKUP(self, op):
         descrs = op.getdescr().get_extra_info().extradescrs
@@ -432,7 +435,7 @@ class OptHeap(Optimization):
                 cf.force_lazy_setfield(self)
         return pendingfields
 
-    def optimize_GETFIELD_GC(self, op):
+    def optimize_GETFIELD_GC_I(self, op):
         structvalue = self.getvalue(op.getarg(0))
         cf = self.field_cache(op.getdescr())
         fieldvalue = cf.getfield_from_cache(self, structvalue)
@@ -445,8 +448,10 @@ class OptHeap(Optimization):
         # then remember the result of reading the field
         fieldvalue = self.getvalue(op.result)
         cf.remember_field_value(structvalue, fieldvalue, op)
+    optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
+    optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
 
-    def optimize_GETFIELD_GC_PURE(self, op):
+    def optimize_GETFIELD_GC_PURE_I(self, op):
         structvalue = self.getvalue(op.getarg(0))
         cf = self.field_cache(op.getdescr())
         fieldvalue = cf.getfield_from_cache(self, structvalue)
@@ -456,6 +461,8 @@ class OptHeap(Optimization):
         # default case: produce the operation
         structvalue.ensure_nonnull()
         self.emit_operation(op)
+    optimize_GETFIELD_GC_PURE_R = optimize_GETFIELD_GC_PURE_I
+    optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_PURE_I
 
     def optimize_SETFIELD_GC(self, op):
         if self.has_pure_result(rop.GETFIELD_GC_PURE, [op.getarg(0)],
@@ -467,7 +474,7 @@ class OptHeap(Optimization):
         cf = self.field_cache(op.getdescr())
         cf.do_setfield(self, op)
 
-    def optimize_GETARRAYITEM_GC(self, op):
+    def optimize_GETARRAYITEM_GC_I(self, op):
         arrayvalue = self.getvalue(op.getarg(0))
         indexvalue = self.getvalue(op.getarg(1))
         cf = None
@@ -489,8 +496,10 @@ class OptHeap(Optimization):
         if cf is not None:
             fieldvalue = self.getvalue(op.result)
             cf.remember_field_value(arrayvalue, fieldvalue, op)
+    optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_GC_I
+    optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_GC_I
 
-    def optimize_GETARRAYITEM_GC_PURE(self, op):
+    def optimize_GETARRAYITEM_GC_PURE_I(self, op):
         arrayvalue = self.getvalue(op.getarg(0))
         indexvalue = self.getvalue(op.getarg(1))
         cf = None
@@ -508,6 +517,9 @@ class OptHeap(Optimization):
         # default case: produce the operation
         arrayvalue.ensure_nonnull()
         self.emit_operation(op)
+
+    optimize_GETARRAYITEM_GC_PURE_R = optimize_GETARRAYITEM_GC_PURE_I
+    optimize_GETARRAYITEM_GC_PURE_F = optimize_GETARRAYITEM_GC_PURE_I
 
     def optimize_SETARRAYITEM_GC(self, op):
         if self.has_pure_result(rop.GETARRAYITEM_GC_PURE, [op.getarg(0),
