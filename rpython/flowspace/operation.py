@@ -12,6 +12,7 @@ from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.tool.sourcetools import compile2
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
+from rpython.flowspace.expression import V_Type
 from rpython.flowspace.specialcase import register_flow_sc
 from rpython.annotator.model import (
     SomeTuple, AnnotatorError, read_can_only_throw)
@@ -453,7 +454,6 @@ class Type(SingleDispatchMixin, PureOperation):
         if result is not None:
             return result
         ctx.merge_point()
-        from rpython.flowspace.expression import V_Type
         v_instance, = self.args
         return V_Type(v_instance)
 

@@ -5,6 +5,7 @@ from rpython.flowspace.bytecode import HostCode
 from rpython.flowspace.pygraph import PyGraph
 from rpython.flowspace.model import (Block, Link, Variable,
     Constant, checkgraph, const)
+from rpython.flowspace.expression import V_Type
 from rpython.flowspace.operation import op
 from rpython.translator.unsimplify import insert_empty_startblock, split_block
 from rpython.translator.simplify import eliminate_empty_blocks, simplify_graph
@@ -106,7 +107,6 @@ def _insert_reads(block, varnames):
 def tweak_generator_body_graph(Entry, graph):
     # First, always run simplify_graph in order to reduce the number of
     # variables passed around
-    from rpython.flowspace.expression import V_Type
     simplify_graph(graph)
     insert_empty_startblock(None, graph)
     _insert_reads(graph.startblock, Entry.varnames)
