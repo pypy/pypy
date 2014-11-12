@@ -103,7 +103,6 @@ class RewriteTests(object):
         signedframedescr = self.cpu.signedframedescr
         floatframedescr = self.cpu.floatframedescr
         casmdescr.compiled_loop_token = clt
-        tzdescr = None # noone cares
         #
         namespace.update(locals())
         #

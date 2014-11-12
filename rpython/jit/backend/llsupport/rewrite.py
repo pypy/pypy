@@ -70,7 +70,7 @@ class GcRewriterAssembler(object):
                 continue
             if op.is_guard():
                 self.emit_pending_zeros()
-            elif op.can_malloc():
+            elif op.is_call():
                 self.emitting_an_operation_that_can_collect()
             elif op.getopnum() == rop.LABEL:
                 self.emitting_an_operation_that_can_collect()
@@ -547,7 +547,7 @@ class GcRewriterAssembler(object):
 
     def must_apply_write_barrier(self, val, v):
         if val not in self.write_barrier_applied:
-            if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
+            if (isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                rgc.needs_write_barrier(v.value))):
                 return True
         return False

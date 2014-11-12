@@ -4,7 +4,8 @@ from rpython.jit.metainterp.gc import get_description
 from rpython.jit.metainterp import resoperation
 from rpython.jit.backend.llsupport.test.test_rewrite import (
     RewriteTests, BaseFakeCPU)
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
+from rpython.rtyper import rclass
 
 
 def test_all_operations_with_gc_in_their_name():
@@ -72,6 +73,7 @@ class TestStm(RewriteTests):
         for name, value in self.gc_ll_descr.__dict__.items():
             if name.endswith('descr') and name[1] == '2' and len(name) == 8:
                 namespace[name] = value     # "X2Ydescr"
+        self.gc_ll_descr.malloc_zero_filled = True
         RewriteTests.check_rewrite(self, frm_operations, to_operations,
                                    **namespace)
 
@@ -340,7 +342,6 @@ class TestStm(RewriteTests):
             "i3 = int_add(i1, i2)",   # all pure operations
             "f3 = float_abs(f1)",
             "i3 = force_token()",
-            "i3 = read_timestamp()",
             "i3 = mark_opaque_ptr(p1)",
             "jit_debug(i1, i2)",
             "keepalive(i1)",
@@ -546,14 +547,14 @@ class TestStm(RewriteTests):
         self.check_rewrite("""
             [p1, p2, i2, p3, i3]
             setarrayitem_gc(p1, i2, p2, descr=adescr) #noptr
-            i4 = read_timestamp()
+            i4 = force_token()
             setarrayitem_gc(p1, i3, p3, descr=adescr) #noptr
             jump()
         """, """
             [p1, p2, i2, p3, i3]
             cond_call_gc_wb_array(p1, i2, descr=wbdescr)
             setarrayitem_gc(p1, i2, p2, descr=adescr)
-            i4 = read_timestamp()
+            i4 = force_token()
             cond_call_gc_wb_array(p1, i3, descr=wbdescr)
             setarrayitem_gc(p1, i3, p3, descr=adescr)
             $DUMMYALLOC
@@ -564,14 +565,14 @@ class TestStm(RewriteTests):
         self.check_rewrite("""
             [p1, p2, i2, p3, i3]
             setinteriorfield_gc(p1, i2, p2, descr=intzdescr)
-            i4 = read_timestamp()
+            i4 = force_token()
             setinteriorfield_gc(p1, i3, p3, descr=intzdescr)
             jump()
         """, """
             [p1, p2, i2, p3, i3]
             cond_call_gc_wb_array(p1, i2, descr=wbdescr)
             setinteriorfield_gc(p1, i2, p2, descr=intzdescr)
-            i4 = read_timestamp()
+            i4 = force_token()
             cond_call_gc_wb_array(p1, i3, descr=wbdescr)
             setinteriorfield_gc(p1, i3, p3, descr=intzdescr)
             $DUMMYALLOC

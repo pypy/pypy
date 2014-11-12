@@ -1213,7 +1213,7 @@ class Assembler386(BaseAssembler):
                 if shadowstack_reg is None:
                     mc.MOV(ecx, self.heap_shadowstack_top())
                     shadowstack_reg = ecx
-                mc.MOV(ebp, mem(shadowstack_reg, -WORD))
+                mc.MOV(ebp, mem(self.SEGMENT_NO, shadowstack_reg, -WORD))
         wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
             # frame never uses card marking, so we enforce this is not
