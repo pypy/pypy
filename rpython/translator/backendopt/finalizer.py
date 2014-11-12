@@ -33,11 +33,13 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
         if (op.opname.startswith('int_') or op.opname.startswith('float_')
             or op.opname.startswith('uint_') or op.opname.startswith('cast_')):
             return self.bottom_result()
-        if op.opname == 'setfield' or op.opname == 'bare_setfield':
-            TP = op.args[2].concretetype
-            if not isinstance(TP, lltype.Ptr) or TP.TO._gckind == 'raw':
-                # primitive type
-                return self.bottom_result()
+        ## # All setfields are forbidden.  Commented out in test_finalizer too.
+        ## # This is needed for STM and could maybe be justified in general.
+        ## if op.opname == 'setfield' or op.opname == 'bare_setfield':
+        ##     TP = op.args[2].concretetype
+        ##     if not isinstance(TP, lltype.Ptr) or TP.TO._gckind == 'raw':
+        ##         # primitive type
+        ##         return self.bottom_result()
         if op.opname == 'getfield':
             TP = op.result.concretetype
             if not isinstance(TP, lltype.Ptr) or TP.TO._gckind == 'raw':
