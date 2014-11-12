@@ -6,8 +6,8 @@ in a nicer fashion
 from rpython.jit.tool.oparser_model import get_model
 
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
-                                            ResOpWithDescr, N_aryOp, \
-                                            UnaryOp, PlainResOp
+     InputArgInt, InputArgRef, InputArgFloat, ResOpWithDescr, N_aryOp, \
+     UnaryOp, PlainResOp, optypes
 
 class ParseError(Exception):
     pass
@@ -103,6 +103,7 @@ class OpParser(object):
                 raise
 
     def box_for_var(self, elem):
+        xxx
         try:
             return self._cache[self.type_system, elem]
         except KeyError:
@@ -135,8 +136,20 @@ class OpParser(object):
         vars = []
         for elem in elements:
             elem = elem.strip()
-            vars.append(self.newvar(elem))
+            vars.append(self.newinputarg(elem))
         return vars
+
+    def newinputarg(self, elem):
+        if elem.startswith('i'):
+            v = InputArgInt(0)
+        elif elem.startswith('f'):
+            v = InputArgFloat(0.0)
+        else:
+            from rpython.rtyper.lltypesystem import lltype, llmemory
+            assert elem.startswith('p')
+            v = InputArgRef(lltype.nullptr(llmemory.GCREF.TO))
+        self.vars[elem] = v
+        return v
 
     def newvar(self, elem):
         box = self.box_for_var(elem)
@@ -250,18 +263,29 @@ class OpParser(object):
 
         return opnum, args, descr, fail_args
 
-    def create_op(self, opnum, args, result, descr):
+    def create_op(self, opnum, args, descr):
         if opnum == ESCAPE_OP.OPNUM:
-            op = ESCAPE_OP(result)
+            op = ESCAPE_OP()
             op.initarglist(args)
             assert descr is None
             return op
         if opnum == FORCE_SPILL.OPNUM:
-            op = FORCE_SPILL(result)
+            op = FORCE_SPILL()
             op.initarglist(args)
             assert descr is None
             return op
         else:
+            tp = optypes[opnum]
+            if tp == 'i':
+                result = 0
+            elif tp == 'r':
+                from rpython.rtyper.lltypesystem import lltype, llmemory
+                result = lltype.nullptr(llmemory.GCREF.TO)
+            elif tp == 'f':
+                result = 0.0
+            else:
+                assert tp == 'n'
+                result = None
             return ResOperation(opnum, args, result, descr)
 
     def parse_result_op(self, line):
@@ -271,16 +295,15 @@ class OpParser(object):
         opnum, args, descr, fail_args = self.parse_op(op)
         if res in self.vars:
             raise ParseError("Double assign to var %s in line: %s" % (res, line))
-        rvar = self.box_for_var(res)
-        self.vars[res] = rvar
-        res = self.create_op(opnum, args, rvar, descr)
+        resop = self.create_op(opnum, args, descr)
         if fail_args is not None:
-            res.setfailargs(fail_args)
-        return res
+            resop.setfailargs(fail_args)
+        self.vars[res] = resop
+        return resop
 
     def parse_op_no_result(self, line):
         opnum, args, descr, fail_args = self.parse_op(line)
-        res = self.create_op(opnum, args, None, descr)
+        res = self.create_op(opnum, args, descr)
         if fail_args is not None:
             res.setfailargs(fail_args)
         return res

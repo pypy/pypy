@@ -19,6 +19,8 @@ def ResOperation(opnum, args, result, descr=None):
         op._resint = result
     elif isinstance(result, float):
         op._resfloat = result
+    elif result is None:
+        pass
     else:
         from rpython.rtyper.lltypesystem import lltype, llmemory
         assert lltype.typeOf(result) == llmemory.GCREF
@@ -274,13 +276,16 @@ class RefOp(object):
         self._resref = refval
 
 class InputArgInt(IntOp, AbstractValue):
-    pass
+    def __init__(self, intval):
+        self.setint(intval)
 
 class InputArgFloat(FloatOp, AbstractValue):
-    pass
+    def __init__(self, f):
+        self.setfloatstorage(f)
 
-class InputArgRef(FloatOp, AbstractValue):
-    pass
+class InputArgRef(RefOp, AbstractValue):
+    def __init__(self, r):
+        self.setref_base(r)
 
 # ============
 # arity mixins
@@ -619,7 +624,7 @@ opclasses = []   # mapping numbers to the concrete ResOp class
 opname = {}      # mapping numbers to the original names, for debugging
 oparity = []     # mapping numbers to the arity of the operation or -1
 opwithdescr = [] # mapping numbers to a flag "takes a descr"
-
+optypes = []     # mapping numbers to type of return
 
 def setup(debug_print=False):
     i = 0
@@ -648,6 +653,7 @@ def setup(debug_print=False):
                 opclasses.append(cls)
                 oparity.append(arity)
                 opwithdescr.append(withdescr)
+                optypes.append(r)
                 if debug_print:
                     print '%30s = %d' % (cls_name, i)
                 i += 1
@@ -656,6 +662,7 @@ def setup(debug_print=False):
             opclasses.append(None)
             oparity.append(-1)
             opwithdescr.append(False)
+            optypes.append(' ')
             if debug_print:
                 print '%30s = %d' % (name, i)
             i += 1
