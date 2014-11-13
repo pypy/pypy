@@ -661,6 +661,9 @@ class Optimizer(Optimization):
     def optimize_DEBUG_MERGE_POINT(self, op):
         self.emit_operation(op)
 
+    def optimize_JIT_DEBUG(self, op):
+        self.emit_operation(op)
+
     def optimize_STRGETITEM(self, op):
         indexvalue = self.getvalue(op.getarg(1))
         if indexvalue.is_constant():

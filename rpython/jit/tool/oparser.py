@@ -321,8 +321,9 @@ class OpParser(object):
         first_comment = None
         for line in lines:
             # for simplicity comments are not allowed on
-            # debug_merge_point lines
-            if '#' in line and 'debug_merge_point(' not in line:
+            # debug_merge_point or jit_debug lines
+            if '#' in line and ('debug_merge_point(' not in line and
+                                'jit_debug(' not in line):
                 if line.lstrip()[0] == '#': # comment only
                     if first_comment is None:
                         first_comment = line

@@ -82,13 +82,11 @@ def get_primitive_op_src(fullopname):
         else:
             def op_function(x, y):
                 if not isinstance(x, argtype):
-                    if not (isinstance(x, AddressAsInt) and argtype is int):
-                        raise TypeError("%r arg 1 must be %s, got %r instead"% (
-                            fullopname, typname, type(x).__name__))
+                    raise TypeError("%r arg 1 must be %s, got %r instead"% (
+                        fullopname, typname, type(x).__name__))
                 if not isinstance(y, argtype):
-                    if not (isinstance(y, AddressAsInt) and argtype is int):
-                        raise TypeError("%r arg 2 must be %s, got %r instead"% (
-                            fullopname, typname, type(y).__name__))
+                    raise TypeError("%r arg 2 must be %s, got %r instead"% (
+                        fullopname, typname, type(y).__name__))
                 return adjust_result(func(x, y))
 
     return func_with_new_name(op_function, 'op_' + fullopname)
@@ -103,6 +101,19 @@ def checkadr(adr):
         raise TypeError("arg must be an address, got %r instead" % (
             lltype.typeOf(adr),))
 
+
+def op_int_eq(x, y):
+    if not isinstance(x, (int, long)):
+        from rpython.rtyper.lltypesystem import llgroup
+        assert isinstance(x, llgroup.CombinedSymbolic), (
+            "'int_eq' arg 1 must be int-like, got %r instead" % (
+                type(x).__name__,))
+    if not isinstance(y, (int, long)):
+        from rpython.rtyper.lltypesystem import llgroup
+        assert isinstance(y, llgroup.CombinedSymbolic), (
+            "'int_eq' arg 2 must be int-like, got %r instead" % (
+                type(y).__name__,))
+    return x == y
 
 def op_ptr_eq(ptr1, ptr2):
     checkptr(ptr1)

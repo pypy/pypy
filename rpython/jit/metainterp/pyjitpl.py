@@ -1179,10 +1179,7 @@ class MIFrame(object):
 
     @arguments("box", "box", "box", "box", "box")
     def opimpl_jit_debug(self, stringbox, arg1box, arg2box, arg3box, arg4box):
-        from rpython.rtyper.lltypesystem import rstr
-        from rpython.rtyper.annlowlevel import hlstr
-        msg = stringbox.getref(lltype.Ptr(rstr.STR))
-        debug_print('jit_debug:', hlstr(msg),
+        debug_print('jit_debug:', stringbox._get_str(),
                     arg1box.getint(), arg2box.getint(),
                     arg3box.getint(), arg4box.getint())
         args = [stringbox, arg1box, arg2box, arg3box, arg4box]
