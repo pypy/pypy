@@ -959,6 +959,7 @@ class MIFrame(object):
                 portal_code = targetjitdriver_sd.mainjitcode
                 inline = True
                 if self.metainterp.is_main_jitcode(portal_code):
+                    count = 0
                     for gk, _ in self.metainterp.portal_trace_positions:
                         if gk is None:
                             continue
@@ -968,12 +969,16 @@ class MIFrame(object):
                             if not gk[i].same_constant(greenboxes[i]):
                                 break
                         else:
-                            # The greenkey of a trace position on the stack
-                            # matches what we have, which means we're definitely
-                            # about to recurse.
-                            warmrunnerstate.dont_trace_here(greenboxes)
-                            inline = False
-                            break
+                            count += 1
+                    memmgr = self.metainterp.staticdata.warmrunnerdesc.memory_manager
+                    if count >= memmgr.max_unroll_recursion:
+                        # This function is recursive and has exceeded the
+                        # maximum number of unrollings we allow. We want to stop
+                        # inlining it further and to make sure that, if it
+                        # hasn't happened already, the function is traced
+                        # separately as soon as possible.
+                        warmrunnerstate.dont_trace_here(greenboxes)
+                        inline = False
                 if inline:
                     return self.metainterp.perform_call(portal_code, allboxes,
                                 greenkey=greenboxes)
