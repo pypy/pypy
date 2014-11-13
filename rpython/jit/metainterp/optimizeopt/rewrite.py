@@ -8,8 +8,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, REMOVED,
     CONST_0, CONST_1)
 from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
-from rpython.jit.metainterp.resoperation import (opboolinvers, opboolreflex, rop,
-    ResOperation)
+from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses
 from rpython.rlib.rarithmetic import highest_bit
 import math
 
@@ -26,9 +25,10 @@ class OptRewrite(Optimization):
             sb.add_potential(op)
 
     def propagate_forward(self, op):
-        args = self.optimizer.make_args_key(op)
-        if self.find_rewritable_bool(op, args):
-            return
+        if op.boolinverse != -1 or op.boolreflex != -1:
+            args = self.optimizer.make_args_key(op)
+            if self.find_rewritable_bool(op, args):
+                return
 
         dispatch_opt(self, op)
 
@@ -48,21 +48,15 @@ class OptRewrite(Optimization):
 
 
     def find_rewritable_bool(self, op, args):
-        try:
-            oldopnum = opboolinvers[op.getopnum()]
-        except KeyError:
-            pass
-        else:
+        oldopnum = op.boolinverse
+        if oldopnum != -1:
             targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[0], args[1]],
                                                               None))
             if self.try_boolinvers(op, targs):
                 return True
 
-        try:
-            oldopnum = opboolreflex[op.getopnum()] # FIXME: add INT_ADD, INT_MUL
-        except KeyError:
-            pass
-        else:
+        oldopnum = op.boolreflex # FIXME: add INT_ADD, INT_MUL
+        if oldopnum != -1:
             targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
                                                               None))
             oldop = self.get_pure_result(targs)
@@ -70,13 +64,12 @@ class OptRewrite(Optimization):
                 self.make_equal_to(op.result, self.getvalue(oldop.result))
                 return True
 
-        try:
-            oldopnum = opboolinvers[opboolreflex[op.getopnum()]]
-        except KeyError:
-            pass
-        else:
-            targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
-                                                              None))
+        if op.boolreflex == -1:
+            return False
+        oldopnum = opclasses[op.boolreflex].boolinverse
+        if oldopnum != -1:
+            targs = self.optimizer.make_args_key(
+                ResOperation(oldopnum, [args[1], args[0]], None))
             if self.try_boolinvers(op, targs):
                 return True
 
