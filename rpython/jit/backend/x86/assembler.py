@@ -2329,7 +2329,7 @@ class Assembler386(BaseAssembler):
                 initial_value = write_locks_base << 4
                 if isinstance(loc_index, RegLoc):
                     if isinstance(loc_base, RegLoc):
-                        mc.MOV_ri(r11, initial_value)
+                        mc.MOV_ri(r11.value, initial_value)
                         mc.ADD_rr(r11.value, loc_base.value)
                         mc.AND_ri(r11.value, ~15)
                     else:
