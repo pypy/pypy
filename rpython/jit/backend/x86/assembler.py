@@ -2310,19 +2310,32 @@ class Assembler386(BaseAssembler):
                 else:
                     raise AssertionError("CARD_SIZE should be 32/64/128")
                 #
-                # idea:  mov r11, loc_base    # the object
+                # idea:  mov r11, write_locks_base<<4
+                #        add r11, loc_base    # the object
                 #        and r11, ~15         # align
                 #        lea r11, [loc_index + r11<<(card_bits-4)]
                 #        shr r11, card_bits
-                #        mov [r11 + write_locks_base], card_marked
+                #        mov [r11], card_marked
+                #
+                # this assumes that the value computed up to the
+                # "shr r11, card_bits" instruction does not overflow
+                # the (64-card_bits) bound.  For now we silently assumes
+                # that it is the case.  As far as I can tell, this is
+                # clearly true on any reasonable setting (which assume
+                # that the non-kernel addresses are numbers between 0
+                # and 2**X, for X <= 56).
+                #
                 r11 = X86_64_SCRATCH_REG
+                initial_value = write_locks_base << 4
                 if isinstance(loc_index, RegLoc):
                     if isinstance(loc_base, RegLoc):
-                        mc.MOV_rr(r11.value, loc_base.value)
+                        mc.MOV_ri(r11, initial_value)
+                        mc.ADD_rr(r11.value, loc_base.value)
                         mc.AND_ri(r11.value, ~15)
                     else:
                         assert isinstance(loc_base, ImmedLoc)
-                        mc.MOV_ri(r11.value, loc_base.value & ~15)  # 32/64bit
+                        initial_value += loc_base.value & ~15
+                        mc.MOV_ri(r11.value, initial_value)
                     mc.LEA_ra(r11.value, (self.SEGMENT_NO,
                                           loc_index.value,
                                           r11.value,
@@ -2330,22 +2343,19 @@ class Assembler386(BaseAssembler):
                                           0))
                     mc.SHR_ri(r11.value, card_bits)
                 else:
-                    # XXX these cases could be slightly more optimized
                     assert isinstance(loc_index, ImmedLoc)
-                    cardindex = loc_index.value >> card_bits
+                    initial_value += (loc_index.value >> card_bits) << 4
                     if isinstance(loc_base, RegLoc):
-                        if rx86.fits_in_32bits(write_locks_base + cardindex):
-                            write_locks_base += cardindex
-                            mc.MOV_rr(r11.value, loc_base.value)
-                        else:
-                            mc.MOV_ri(r11.value, cardindex << 4)    # 32/64bit
-                            mc.ADD_rr(r11.value, loc_base.value)
+                        mc.MOV_ri(r11.value, initial_value)
+                        mc.ADD_rr(r11.value, loc_base.value)
                         mc.SHR_ri(r11.value, 4)
                     else:
-                        mc.MOV_ri(r11.value, cardindex + (loc_base.value >> 4))
+                        assert isinstance(loc_base, ImmedLoc)
+                        initial_value += loc_base.value
+                        initial_value >>= 4
+                        mc.MOV_ri(r11.value, initial_value)
                 #
-                assert rx86.fits_in_32bits(write_locks_base), "XXX"
-                mc.MOV8_mi((self.SEGMENT_NO, r11.value, write_locks_base),
+                mc.MOV8_mi((self.SEGMENT_NO, r11.value, 0),
                            rstm.CARD_MARKED)
 
             elif isinstance(loc_index, RegLoc):
