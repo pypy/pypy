@@ -551,7 +551,7 @@ class Optimizer(Optimization):
 
     @specialize.argtype(0)
     def _emit_operation(self, op):
-        assert op.getopnum() != rop.CALL_PURE
+        assert not op.is_call_pure()
         for i in range(op.numargs()):
             arg = op.getarg(i)
             try:
@@ -598,7 +598,8 @@ class Optimizer(Optimization):
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
         try:
             newboxes = modifier.finish(self, pendingfields)
-            if len(newboxes) > self.metainterp_sd.options.failargs_limit:
+            if (newboxes is not None and
+                len(newboxes) > self.metainterp_sd.options.failargs_limit):
                 raise resume.TagOverflow
         except resume.TagOverflow:
             raise compile.giveup()
@@ -625,11 +626,11 @@ class Optimizer(Optimization):
                 descr.make_a_counter_per_value(op)
         return op
 
-    def make_args_key(self, op):
-        n = op.numargs()
+    def make_args_key(self, opnum, arglist, descr):
+        n = len(arglist)
         args = [None] * (n + 2)
         for i in range(n):
-            arg = op.getarg(i)
+            arg = arglist[i]
             try:
                 value = self.values[arg]
             except KeyError:
@@ -637,8 +638,8 @@ class Optimizer(Optimization):
             else:
                 arg = value.get_key_box()
             args[i] = arg
-        args[n] = ConstInt(op.getopnum())
-        args[n + 1] = op.getdescr()
+        args[n] = ConstInt(opnum)
+        args[n + 1] = descr
         return args
 
     def optimize_default(self, op):

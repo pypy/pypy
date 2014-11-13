@@ -1,7 +1,9 @@
 from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import compute_identity_hash
 
 class AbstractValue(object):
-    pass
+    def _get_hash_(self):
+        return compute_identity_hash(self)
 
 @specialize.argtype(2)
 def ResOperation(opnum, args, result, descr=None):
@@ -36,6 +38,7 @@ class AbstractResOp(AbstractValue):
     pc = 0
     opnum = 0
     _cls_has_bool_result = False
+    type = 'v'
 
     _attrs_ = ()
 
@@ -177,6 +180,27 @@ class AbstractResOp(AbstractValue):
     def is_call(self):
         return rop._CALL_FIRST <= self.getopnum() <= rop._CALL_LAST
 
+    def is_call_assembler(self):
+        opnum = self.opnum
+        return (opnum == rop.CALL_ASSEMBLER_I or
+                opnum == rop.CALL_ASSEMBLER_R or
+                opnum == rop.CALL_ASSEMBLER_N or
+                opnum == rop.CALL_ASSEMBLER_F)
+
+    def is_call_may_force(self):
+        opnum = self.opnum
+        return (opnum == rop.CALL_MAY_FORCE_I or
+                opnum == rop.CALL_MAY_FORCE_R or
+                opnum == rop.CALL_MAY_FORCE_N or
+                opnum == rop.CALL_MAY_FORCE_F)
+
+    def is_call_pure(self):
+        opnum = self.opnum
+        return (opnum == rop.CALL_PURE_I or
+                opnum == rop.CALL_PURE_R or
+                opnum == rop.CALL_PURE_N or
+                opnum == rop.CALL_PURE_F)        
+
     def is_ovf(self):
         return rop._OVF_FIRST <= self.getopnum() <= rop._OVF_LAST
 
@@ -251,6 +275,8 @@ class GuardResOp(ResOpWithDescr):
 class IntOp(object):
     _mixin_ = True
 
+    type = 'i'
+
     def getint(self):
         return self._resint
 
@@ -260,6 +286,8 @@ class IntOp(object):
 class FloatOp(object):
     _mixin_ = True
 
+    type = 'f'
+
     def getfloatstorage(self):
         return self._resfloat
 
@@ -268,6 +296,8 @@ class FloatOp(object):
 
 class RefOp(object):
     _mixin_ = True
+
+    type = 'r'
 
     def getref_base(self):
         return self._resref

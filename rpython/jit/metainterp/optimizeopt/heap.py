@@ -248,7 +248,7 @@ class OptHeap(Optimization):
     def emit_operation(self, op):
         self.emitting_operation(op)
         self.emit_postponed_op()
-        if (op.is_comparison() or op.getopnum() == rop.CALL_MAY_FORCE
+        if (op.is_comparison() or op.is_call_may_force()
             or op.is_ovf()):
             self.postponed_op = op
         else:
@@ -276,13 +276,8 @@ class OptHeap(Optimization):
             opnum == rop.COPYSTRCONTENT or       # no effect on GC struct/array
             opnum == rop.COPYUNICODECONTENT):    # no effect on GC struct/array
             return
-        if (opnum == rop.CALL or
-            opnum == rop.CALL_PURE or
-            opnum == rop.COND_CALL or
-            opnum == rop.CALL_MAY_FORCE or
-            opnum == rop.CALL_RELEASE_GIL or
-            opnum == rop.CALL_ASSEMBLER):
-            if opnum == rop.CALL_ASSEMBLER:
+        if op.is_call():
+            if op.is_call_assembler():
                 self._seen_guard_not_invalidated = False
             else:
                 effectinfo = op.getdescr().get_extra_info()

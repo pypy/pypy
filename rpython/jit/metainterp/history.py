@@ -6,9 +6,8 @@ from rpython.rlib.rarithmetic import r_int64, is_valid_int
 
 from rpython.conftest import option
 
-from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.jit.metainterp.resoperation import ResOperation, rop, AbstractValue
 from rpython.jit.codewriter import heaptracker, longlong
-from rpython.rlib.objectmodel import compute_identity_hash
 import weakref
 
 # ____________________________________________________________
@@ -72,7 +71,7 @@ def repr_rpython(box, typechars):
                         compute_unique_id(box))
 
 
-class AbstractValue(object):
+class XxxAbstractValue(object):
     __slots__ = ()
 
     def getint(self):
@@ -94,9 +93,6 @@ class AbstractValue(object):
     def getref(self, TYPE):
         raise NotImplementedError
     getref._annspecialcase_ = 'specialize:arg(1)'
-
-    def _get_hash_(self):
-        return compute_identity_hash(self)
 
     def clonebox(self):
         raise NotImplementedError

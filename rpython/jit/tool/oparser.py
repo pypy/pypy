@@ -23,7 +23,7 @@ class ESCAPE_OP(N_aryOp, ResOpWithDescr):
         return 'escape'
 
     def clone(self):
-        op = ESCAPE_OP(self.result)
+        op = ESCAPE_OP(0)
         op.initarglist(self.getarglist()[:])
         return op
 
@@ -38,7 +38,7 @@ class FORCE_SPILL(UnaryOp, PlainResOp):
         return 'force_spill'
 
     def clone(self):
-        op = FORCE_SPILL(self.result)
+        op = FORCE_SPILL(0)
         op.initarglist(self.getarglist()[:])
         return op
 
@@ -265,12 +265,12 @@ class OpParser(object):
 
     def create_op(self, opnum, args, descr):
         if opnum == ESCAPE_OP.OPNUM:
-            op = ESCAPE_OP()
+            op = ESCAPE_OP(0)
             op.initarglist(args)
             assert descr is None
             return op
         if opnum == FORCE_SPILL.OPNUM:
-            op = FORCE_SPILL()
+            op = FORCE_SPILL(0)
             op.initarglist(args)
             assert descr is None
             return op
