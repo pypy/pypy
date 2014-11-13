@@ -64,13 +64,9 @@ if sys.platform == "win32":
     default_modules.add("_locale")
 
 if sys.platform == "sunos5":
-    working_modules.remove('mmap')   # depend on ctypes, can't get at c-level 'errono'
-    working_modules.remove('time')   # depend on ctypes, missing tm_zone/tm_gmtoff
-    working_modules.remove('signal') # depend on ctypes, can't get at c-level 'errono'
     working_modules.remove('fcntl')  # LOCK_NB not defined
     working_modules.remove("_minimal_curses")
     working_modules.remove("termios")
-    working_modules.remove("_multiprocessing")   # depends on time
     if "cppyy" in working_modules:
         working_modules.remove("cppyy")  # depends on ctypes
 
