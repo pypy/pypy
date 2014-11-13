@@ -254,7 +254,7 @@ if sys.platform == 'win32':
         start = _GetTickCount()
 
         while True:
-            from pypy.module.rctime.interp_time import State
+            from pypy.module.time.interp_time import State
             interrupt_event = space.fromcache(State).get_interrupt_event()
             handles = [self.handle, interrupt_event]
 

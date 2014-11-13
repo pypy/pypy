@@ -19,7 +19,7 @@ created_paths = dict.fromkeys(['_top_level',
 
 class AppTestZipImport:
     spaceconfig = {
-        "usemodules": ['zipimport', 'rctime', 'struct', 'itertools', 'binascii']
+        "usemodules": ['zipimport', 'time', 'struct', 'itertools', 'binascii']
     }
 
     def setup_class(cls):
