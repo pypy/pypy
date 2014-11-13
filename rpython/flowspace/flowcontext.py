@@ -7,7 +7,6 @@ import types
 import __builtin__
 
 from rpython.tool.error import source_lines
-from rpython.translator.backendopt.ssa import SSA_to_SSI
 from rpython.translator.simplify import eliminate_empty_blocks
 from rpython.rlib import rstackovf
 from rpython.flowspace.argument import CallSpec
@@ -84,8 +83,6 @@ def fixeggblocks(graph):
     for block in graph.iterblocks():
         if isinstance(block, SpamBlock):
             del block.framestate     # memory saver
-    eliminate_empty_blocks(graph)
-    SSA_to_SSI(graph)
 
 # ____________________________________________________________
 

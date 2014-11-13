@@ -14,6 +14,7 @@ from rpython.rlib import rarithmetic
 from rpython.translator import unsimplify
 from rpython.translator.backendopt import ssa
 from rpython.rtyper.lltypesystem import lloperation, lltype
+from rpython.translator.backendopt.ssa import SSA_to_SSI
 
 def get_graph(arg, translator):
     if isinstance(arg, Variable):
@@ -961,6 +962,7 @@ class ListComprehensionDetector(object):
 
 all_passes = [
     eliminate_empty_blocks,
+    SSA_to_SSI,
     remove_assertion_errors,
     join_blocks,
     coalesce_bool,
@@ -976,7 +978,6 @@ def simplify_graph(graph, passes=True): # can take a list of passes to apply, Tr
     """inplace-apply all the existing optimisations to the graph."""
     if passes is True:
         passes = all_passes
-    checkgraph(graph)
     for pass_ in passes:
         pass_(graph)
     checkgraph(graph)
@@ -984,6 +985,7 @@ def simplify_graph(graph, passes=True): # can take a list of passes to apply, Tr
 def cleanup_graph(graph):
     checkgraph(graph)
     eliminate_empty_blocks(graph)
+    SSA_to_SSI(graph)
     join_blocks(graph)
     remove_identical_vars(graph)
     checkgraph(graph)

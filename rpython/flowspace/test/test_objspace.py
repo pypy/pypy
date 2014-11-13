@@ -635,6 +635,7 @@ class TestFlowObjSpace(Base):
 
     def test_highly_branching_example(self):
         x = self.codetest(self.highly_branching_example)
+        simplify_graph(x)
         # roughly 20 blocks + 30 links
         assert len(list(x.iterblocks())) + len(list(x.iterlinks())) < 60
 
