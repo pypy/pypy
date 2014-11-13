@@ -5,6 +5,7 @@ import py
 from pypy.objspace.std.bytesobject import (W_AbstractBytesObject,
     W_BytesObject, StringBuffer)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.error import OperationError
 from rpython.rlib.rstring import StringBuilder
 
 
@@ -46,15 +47,18 @@ class W_StringBufferObject(W_AbstractBytesObject):
         return space.wrap(self.length)
 
     def descr_add(self, space, w_other):
+        try:
+            other = W_BytesObject._op_val(space, w_other)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                return space.w_NotImplemented
+            raise
         if self.builder.getlength() != self.length:
             builder = StringBuilder()
             builder.append(self.force())
         else:
             builder = self.builder
-        if isinstance(w_other, W_StringBufferObject):
-            builder.append(w_other.force())
-        else:
-            builder.append(w_other._value)
+        builder.append(other)
         return W_StringBufferObject(builder)
 
     def descr_str(self, space):
