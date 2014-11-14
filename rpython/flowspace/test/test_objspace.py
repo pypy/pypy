@@ -1291,6 +1291,17 @@ class TestFlowObjSpace(Base):
         assert isinstance(link.args[0], Constant)
         assert link.args[0].value == 5
 
+    def test_remove_dead_ops(self):
+        def f():
+            a = [1]
+            b = (a, a)
+            c = type(b)
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert graph.startblock.operations == []
+        [link] = graph.startblock.exits
+        assert link.target is graph.returnblock
+
 
 DATA = {'x': 5,
         'y': 6}
