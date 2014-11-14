@@ -31,10 +31,13 @@ for opname, opdesc in lloperation.LL_OPERATIONS.iteritems():
 GETTERS = set(['getfield', 'getarrayitem', 'getinteriorfield', 'raw_load'])
 SETTERS = set(['setfield', 'setarrayitem', 'setinteriorfield', 'raw_store'])
 MALLOCS = set(['malloc', 'malloc_varsize',
-               'malloc_nonmovable', 'malloc_nonmovable_varsize',
                'raw_malloc',
+               'do_malloc_fixedsize', 'do_malloc_varsize',
                'do_malloc_fixedsize_clear', 'do_malloc_varsize_clear'])
 FREES   = set(['free', 'raw_free'])
+
+for opname in ALWAYS_ALLOW_OPERATIONS | GETTERS | SETTERS | MALLOCS | FREES:
+    getattr(lloperation.llop, opname)   # the opname must exist!
 
 # ____________________________________________________________
 
