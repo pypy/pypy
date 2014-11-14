@@ -7,14 +7,15 @@ simplify_graph() applies all simplifications defined in this file.
 import py
 from collections import defaultdict
 
+from rpython.tool.algo.unionfind import UnionFind
 from rpython.flowspace.model import (Variable, Constant,
                                      c_last_exception, checkgraph, mkentrymap)
 from rpython.flowspace.operation import OverflowingOperation, op
 from rpython.rlib import rarithmetic
 from rpython.translator import unsimplify
-from rpython.translator.backendopt import ssa
 from rpython.rtyper.lltypesystem import lloperation, lltype
-from rpython.translator.backendopt.ssa import SSA_to_SSI
+from rpython.translator.backendopt.ssa import (
+        SSA_to_SSI, DataFlowFamilyBuilder)
 
 def get_graph(arg, translator):
     if isinstance(arg, Variable):
@@ -550,6 +551,66 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
             if block.inputargs[i] not in read_vars:
                 del block.inputargs[i]
 
+class Representative(object):
+    def __init__(self, var):
+        self.rep = var
+
+    def absorb(self, other):
+        pass
+
+def all_equal(lst):
+    first = lst[0]
+    return all(first == x for x in lst[1:])
+
+def remove_identical_vars_SSA(graph):
+    """When the same variable is passed multiple times into the next block,
+    pass it only once.  This enables further optimizations by the annotator,
+    which otherwise doesn't realize that tests performed on one of the copies
+    of the variable also affect the other."""
+    uf = UnionFind(Representative)
+    entrymap = mkentrymap(graph)
+    del entrymap[graph.startblock]
+    entrymap.pop(graph.returnblock, None)
+    entrymap.pop(graph.exceptblock, None)
+    inputs = {}
+    for block, links in entrymap.items():
+        phis = zip(block.inputargs, zip(*[link.args for link in links]))
+        inputs[block] = phis
+
+    def trivial_phis(block):
+        phis = inputs[block]
+        to_remove = []
+        for i, (input, phi_args) in enumerate(phis):
+            new_args = [uf.find_rep(arg) for arg in phi_args]
+            if all_equal(new_args):
+                uf.union(new_args[0], input)
+                to_remove.append(i)
+        for i in reversed(to_remove):
+            del phis[i]
+        return bool(to_remove)
+
+    progress = True
+    while progress:
+        progress = False
+        for block in inputs:
+            if trivial_phis(block):
+                progress = True
+
+    renaming = {key: uf[key].rep for key in uf}
+    for block, links in entrymap.items():
+        if inputs[block]:
+            new_inputs, new_args = zip(*inputs[block])
+            new_args = map(list, zip(*new_args))
+        else:
+            new_inputs = []
+            new_args = [[] for _ in links]
+        block.inputargs = new_inputs
+        assert len(links) == len(new_args)
+        for link, args in zip(links, new_args):
+            link.args = args
+    for block in graph.iterblocks():
+        block.renamevariables(renaming)
+
 def remove_identical_vars(graph):
     """When the same variable is passed multiple times into the next block,
     pass it only once.  This enables further optimizations by the annotator,
@@ -1009,8 +1070,8 @@ all_passes = [
     remove_assertion_errors,
     remove_trivial_links,
     coalesce_bool,
+    remove_identical_vars_SSA,
     SSA_to_SSI,
-    remove_identical_vars,
     transform_ovfcheck,
     simplify_exceptions,
     transform_xxxitem,
