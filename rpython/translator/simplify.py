@@ -270,10 +270,15 @@ def remove_trivial_links(graph):
                 while vprev in renaming:
                     vprev = renaming[vprev]
                 renaming[vtarg] = vprev
-            target.renamevariables(renaming)
-            source.operations.extend(target.operations)
-            source.exitswitch = newexitswitch = target.exitswitch
-            exits = target.exits
+            def rename(v):
+                return renaming.get(v, v)
+            for op in target.operations:
+                source.operations.append(op.replace(renaming))
+            source.exitswitch = newexitswitch = rename(target.exitswitch)
+            exits = []
+            for exit in target.exits:
+                newexit = exit.copy(rename)
+                exits.append(newexit)
             source.recloseblock(*exits)
             if isinstance(newexitswitch, Constant) and newexitswitch != c_last_exception:
                 exits = replace_exitswitch_by_constant(source, newexitswitch)
