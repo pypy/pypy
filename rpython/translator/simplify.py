@@ -999,12 +999,11 @@ class ListComprehensionDetector(object):
 # ____ all passes & simplify_graph
 
 all_passes = [
+    transform_dead_op_vars,
     eliminate_empty_blocks,
     remove_assertion_errors,
     remove_trivial_links,
     coalesce_bool,
-    transform_dead_op_vars,
-    eliminate_empty_blocks,
     SSA_to_SSI,
     remove_identical_vars,
     transform_ovfcheck,
