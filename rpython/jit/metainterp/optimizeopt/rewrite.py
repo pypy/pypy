@@ -38,10 +38,10 @@ class OptRewrite(Optimization):
             value = self.getvalue(oldop.result)
             if value.is_constant():
                 if value.box.same_constant(CONST_1):
-                    self.make_constant(op.result, CONST_0)
+                    self.make_constant(op, CONST_0)
                     return True
                 elif value.box.same_constant(CONST_0):
-                    self.make_constant(op.result, CONST_1)
+                    self.make_constant(op, CONST_1)
                     return True
 
         return False
@@ -79,19 +79,19 @@ class OptRewrite(Optimization):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         if v1.is_null() or v2.is_null():
-            self.make_constant_int(op.result, 0)
+            self.make_constant_int(op, 0)
             return
         elif v2.is_constant():
             val = v2.box.getint()
             if val == -1 or v1.intbound.lower >= 0 \
                 and v1.intbound.upper <= val & ~(val + 1):
-                self.make_equal_to(op.result, v1)
+                self.make_equal_to(op, v1)
                 return
         elif v1.is_constant():
             val = v1.box.getint()
             if val == -1 or v2.intbound.lower >= 0 \
                 and v2.intbound.upper <= val & ~(val + 1):
-                self.make_equal_to(op.result, v2)
+                self.make_equal_to(op, v2)
                 return
 
         self.emit_operation(op)
@@ -115,7 +115,7 @@ class OptRewrite(Optimization):
             op = op.copy_and_change(rop.INT_NEG, args=[v2.box])
             self.emit_operation(op)
         elif v1 is v2:
-            self.make_constant_int(op.result, 0)
+            self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
             # Synthesize the reverse ops for optimize_default to reuse
@@ -149,7 +149,7 @@ class OptRewrite(Optimization):
             self.make_equal_to(op.result, v1)
         elif (v1.is_constant() and v1.box.getint() == 0) or \
              (v2.is_constant() and v2.box.getint() == 0):
-            self.make_constant_int(op.result, 0)
+            self.make_constant_int(op, 0)
         else:
             for lhs, rhs in [(v1, v2), (v2, v1)]:
                 if lhs.is_constant():
@@ -177,7 +177,7 @@ class OptRewrite(Optimization):
         if v2.is_constant() and v2.box.getint() == 0:
             self.make_equal_to(op.result, v1)
         elif v1.is_constant() and v1.box.getint() == 0:
-            self.make_constant_int(op.result, 0)
+            self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
 
@@ -188,7 +188,7 @@ class OptRewrite(Optimization):
         if v2.is_constant() and v2.box.getint() == 0:
             self.make_equal_to(op.result, v1)
         elif v1.is_constant() and v1.box.getint() == 0:
-            self.make_constant_int(op.result, 0)
+            self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
 
@@ -418,9 +418,9 @@ class OptRewrite(Optimization):
     def _optimize_nullness(self, op, box, expect_nonnull):
         value = self.getvalue(box)
         if value.is_nonnull():
-            self.make_constant_int(op.result, expect_nonnull)
+            self.make_constant_int(op, expect_nonnull)
         elif value.is_null():
-            self.make_constant_int(op.result, not expect_nonnull)
+            self.make_constant_int(op, not expect_nonnull)
         else:
             self.emit_operation(op)
 
@@ -439,17 +439,17 @@ class OptRewrite(Optimization):
         if value0.is_virtual():
             if value1.is_virtual():
                 intres = (value0 is value1) ^ expect_isnot
-                self.make_constant_int(op.result, intres)
+                self.make_constant_int(op, intres)
             else:
-                self.make_constant_int(op.result, expect_isnot)
+                self.make_constant_int(op, expect_isnot)
         elif value1.is_virtual():
-            self.make_constant_int(op.result, expect_isnot)
+            self.make_constant_int(op, expect_isnot)
         elif value1.is_null():
             self._optimize_nullness(op, op.getarg(0), expect_isnot)
         elif value0.is_null():
             self._optimize_nullness(op, op.getarg(1), expect_isnot)
         elif value0 is value1:
-            self.make_constant_int(op.result, not expect_isnot)
+            self.make_constant_int(op, not expect_isnot)
         else:
             if instance:
                 cls0 = value0.get_constant_class(self.optimizer.cpu)
@@ -458,7 +458,7 @@ class OptRewrite(Optimization):
                     if cls1 is not None and not cls0.same_constant(cls1):
                         # cannot be the same object, as we know that their
                         # class is different
-                        self.make_constant_int(op.result, expect_isnot)
+                        self.make_constant_int(op, expect_isnot)
                         return
             self.emit_operation(op)
 
@@ -539,7 +539,7 @@ class OptRewrite(Optimization):
         # Note that it's also done in pure.py.  For now we need both...
         result = self._can_optimize_call_pure(op)
         if result is not None:
-            self.make_constant(op.result, result)
+            self.make_constant(op, result)
             self.last_emitted_operation = REMOVED
             return
         self.emit_operation(op)
@@ -565,7 +565,7 @@ class OptRewrite(Optimization):
             self.make_equal_to(op.result, v1)
             return
         elif v1.is_constant() and v1.box.getint() == 0:
-            self.make_constant_int(op.result, 0)
+            self.make_constant_int(op, 0)
             return
         if v1.intbound.known_ge(IntBound(0, 0)) and v2.is_constant():
             val = v2.box.getint()

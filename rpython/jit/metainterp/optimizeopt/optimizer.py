@@ -1,5 +1,5 @@
 from rpython.jit.metainterp import jitprof, resume, compile
-from rpython.jit.metainterp.executor import execute_nonspec
+from rpython.jit.metainterp.executor import execute_nonspec_const
 from rpython.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt, REF
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
                                                      ImmutableIntUnbounded, \
@@ -542,7 +542,7 @@ class Optimizer(Optimization):
 
     def emit_operation(self, op):
         if op.returns_bool_result():
-            self.bool_boxes[self.getvalue(op.result)] = None
+            self.bool_boxes[self.getvalue(op)] = None
         self._emit_operation(op)
 
     @specialize.argtype(0)
@@ -640,9 +640,9 @@ class Optimizer(Optimization):
     def constant_fold(self, op):
         argboxes = [self.get_constant_box(op.getarg(i))
                     for i in range(op.numargs())]
-        resbox = execute_nonspec(self.cpu, None,
-                                 op.getopnum(), argboxes, op.getdescr())
-        return resbox.constbox()
+        return execute_nonspec_const(self.cpu, None,
+                                       op.getopnum(), argboxes,
+                                       op.getdescr(), op.type)
 
     #def optimize_GUARD_NO_OVERFLOW(self, op):
     #    # otherwise the default optimizer will clear fields, which is unwanted

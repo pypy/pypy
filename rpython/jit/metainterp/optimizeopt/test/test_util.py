@@ -410,9 +410,9 @@ class BaseTest(object):
         preamble.inputargs = inputargs
 
         token = JitCellToken()
-        preamble.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(token))] + \
+        preamble.operations = [ResOperation(rop.LABEL, inputargs, descr=TargetToken(token))] + \
                               operations +  \
-                              [ResOperation(rop.LABEL, jump_args, None, descr=token)]
+                              [ResOperation(rop.LABEL, jump_args, descr=token)]
         self._do_optimize_loop(preamble, call_pure_results)
 
         assert preamble.operations[-1].getopnum() == rop.LABEL
@@ -451,11 +451,11 @@ class FakeDescr(compile.ResumeGuardDescr):
 def convert_old_style_to_targets(loop, jump):
     newloop = TreeLoop(loop.name)
     newloop.inputargs = loop.inputargs
-    newloop.operations = [ResOperation(rop.LABEL, loop.inputargs, None, descr=FakeDescr())] + \
+    newloop.operations = [ResOperation(rop.LABEL, loop.inputargs, descr=FakeDescr())] + \
                       loop.operations
     if not jump:
         assert newloop.operations[-1].getopnum() == rop.JUMP
-        newloop.operations[-1] = ResOperation(rop.LABEL, newloop.operations[-1].getarglist(), None, descr=FakeDescr())
+        newloop.operations[-1] = ResOperation(rop.LABEL, newloop.operations[-1].getarglist(), descr=FakeDescr())
     return newloop
 
 # ____________________________________________________________

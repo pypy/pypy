@@ -34,7 +34,7 @@ class OptPure(Optimization):
                 resbox = self.optimizer.constant_fold(op)
                 # note that INT_xxx_OVF is not done from here, and the
                 # overflows in the INT_xxx operations are ignored
-                self.optimizer.make_constant(op.result, resbox)
+                self.optimizer.make_constant(op, resbox)
                 return
 
             # did we do the exact same operation already?
@@ -43,8 +43,7 @@ class OptPure(Optimization):
             oldop = self.pure_operations.get(args, None)
             if oldop is not None and oldop.getdescr() is op.getdescr():
                 assert oldop.getopnum() == op.getopnum()
-                self.optimizer.make_equal_to(op.result, self.getvalue(oldop.result),
-                                   True)
+                self.optimizer.make_equal_to(op, self.getvalue(oldop), True)
                 return
             else:
                 self.pure_operations[args] = op
@@ -53,7 +52,7 @@ class OptPure(Optimization):
         # otherwise, the operation remains
         self.emit_operation(op)
         if op.returns_bool_result():
-            self.optimizer.bool_boxes[self.getvalue(op.result)] = None
+            self.optimizer.bool_boxes[self.getvalue(op)] = None
         if nextop:
             self.emit_operation(nextop)
 
@@ -62,7 +61,7 @@ class OptPure(Optimization):
         result = self._can_optimize_call_pure(op)
         if result is not None:
             # this removes a CALL_PURE with all constant arguments.
-            self.make_constant(op.result, result)
+            self.make_constant(op, result)
             self.last_emitted_operation = REMOVED
             return
 
@@ -74,7 +73,7 @@ class OptPure(Optimization):
             assert oldop.getopnum() == op.getopnum()
             # this removes a CALL_PURE that has the same (non-constant)
             # arguments as a previous CALL_PURE.
-            self.make_equal_to(op.result, self.getvalue(oldop.result))
+            self.make_equal_to(op, self.getvalue(oldop))
             self.last_emitted_operation = REMOVED
             return
         else:
@@ -83,8 +82,7 @@ class OptPure(Optimization):
 
         # replace CALL_PURE with just CALL
         args = op.getarglist()
-        self.emit_operation(ResOperation(rop.CALL, args, op.result,
-                                         op.getdescr()))
+        self.emit_operation(ResOperation(rop.CALL, args, op.getdescr()))
     optimize_CALL_PURE_R = optimize_CALL_PURE_I
     optimize_CALL_PURE_F = optimize_CALL_PURE_I
     optimize_CALL_PURE_N = optimize_CALL_PURE_I

@@ -4,8 +4,10 @@
 from rpython.rtyper.lltypesystem import lltype, rstr
 from rpython.rlib.rarithmetic import ovfcheck, r_longlong, is_valid_int
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat, check_descr
+from rpython.rlib.objectmodel import specialize
+from rpython.jit.metainterp.history import check_descr
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID, AbstractDescr
+from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
 from rpython.jit.metainterp import resoperation
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter, NULL
@@ -14,6 +16,7 @@ from rpython.jit.codewriter import longlong
 # ____________________________________________________________
 
 def do_call(cpu, metainterp, argboxes, descr):
+    xxx
     assert metainterp is not None
     # count the number of arguments of the different types
     count_i = count_r = count_f = 0
@@ -141,6 +144,7 @@ def do_setarrayitem_raw(cpu, _, arraybox, indexbox, itembox, arraydescr):
         cpu.bh_setarrayitem_raw_i(array, index, itembox.getint(), arraydescr)
 
 def do_getinteriorfield_gc(cpu, _, arraybox, indexbox, descr):
+    xxxx
     array = arraybox.getref_base()
     index = indexbox.getint()
     if descr.is_pointer_field():
@@ -175,6 +179,7 @@ def do_getfield_gc_f(cpu, _, structbox, fielddescr):
     return cpu.bh_getfield_gc_f(struct, fielddescr)
 
 def do_getfield_raw(cpu, _, structbox, fielddescr):
+    xxxx
     check_descr(fielddescr)
     struct = structbox.getint()
     if fielddescr.is_pointer_field():
@@ -212,6 +217,7 @@ def do_raw_store(cpu, _, addrbox, offsetbox, valuebox, arraydescr):
         cpu.bh_raw_store_i(addr, offset, valuebox.getint(), arraydescr)
 
 def do_raw_load(cpu, _, addrbox, offsetbox, arraydescr):
+    xxx
     addr = addrbox.getint()
     offset = offsetbox.getint()
     if arraydescr.is_array_of_pointers():
@@ -228,7 +234,7 @@ def exec_new_with_vtable(cpu, clsbox):
     return cpu.bh_new_with_vtable(vtable, descr)
 
 def do_new_with_vtable(cpu, _, clsbox):
-    return BoxPtr(exec_new_with_vtable(cpu, clsbox))
+    return exec_new_with_vtable(cpu, clsbox)
 
 def do_int_add_ovf(cpu, metainterp, box1, box2):
     # the overflow operations can be called without a metainterp, if an
@@ -241,7 +247,7 @@ def do_int_add_ovf(cpu, metainterp, box1, box2):
         assert metainterp is not None
         metainterp.execute_raised(OverflowError(), constant=True)
         z = 0
-    return BoxInt(z)
+    return z
 
 def do_int_sub_ovf(cpu, metainterp, box1, box2):
     a = box1.getint()
@@ -252,7 +258,7 @@ def do_int_sub_ovf(cpu, metainterp, box1, box2):
         assert metainterp is not None
         metainterp.execute_raised(OverflowError(), constant=True)
         z = 0
-    return BoxInt(z)
+    return z
 
 def do_int_mul_ovf(cpu, metainterp, box1, box2):
     a = box1.getint()
@@ -263,16 +269,16 @@ def do_int_mul_ovf(cpu, metainterp, box1, box2):
         assert metainterp is not None
         metainterp.execute_raised(OverflowError(), constant=True)
         z = 0
-    return BoxInt(z)
+    return z
 
 def do_same_as_i(cpu, _, v):
-    return v
+    return v.getint()
 
 def do_same_as_r(cpu, _, v):
-    return v
+    return v.getref_base()
 
 def do_same_as_f(cpu, _, v):
-    return v
+    return v.getfloatstorage()
 
 def do_copystrcontent(cpu, _, srcbox, dstbox,
                       srcstartbox, dststartbox, lengthbox):
@@ -339,7 +345,7 @@ def _make_execute_list():
             # parameters.
             name = 'bhimpl_' + key.lower()
             if hasattr(BlackholeInterpreter, name):
-                func = make_execute_function_with_boxes(
+                func = make_execute_function(
                     key.lower(),
                     getattr(BlackholeInterpreter, name).im_func)
                 if func is not None:
@@ -374,7 +380,7 @@ def _make_execute_list():
             raise AssertionError("missing %r" % (key,))
     return execute_by_num_args
 
-def make_execute_function_with_boxes(name, func):
+def make_execute_function(name, func):
     # Make a wrapper for 'func'.  The func is a simple bhimpl_xxx function
     # from the BlackholeInterpreter class.  The wrapper is a new function
     # that receives and returns boxed values.
@@ -454,8 +460,22 @@ def execute_varargs(cpu, metainterp, opnum, argboxes, descr):
 execute_varargs._annspecialcase_ = 'specialize:arg(2)'
 
 
-def execute_nonspec(cpu, metainterp, opnum, argboxes, descr=None):
-    xxxx
+def execute_nonspec_const(cpu, metainterp, opnum, argboxes, descr=None,
+                          type='i'):
+    if type == 'i':
+        return ConstInt(_execute_nonspec(cpu, metainterp, opnum, argboxes,
+                                         descr, 'i'))
+    elif type == 'f':
+        return ConstFloat(_execute_nonspec(cpu, metainterp, opnum, argboxes,
+                                         descr, 'f'))
+    elif type == 'r':
+        return ConstPtr(_execute_nonspec(cpu, metainterp, opnum, argboxes,
+                                         descr, 'r'))
+    else:
+        assert False
+
+@specialize.arg(5)
+def _execute_nonspec(cpu, metainterp, opnum, argboxes, descr=None, type='i'):
     arity = resoperation.oparity[opnum]
     assert arity == -1 or len(argboxes) == arity
     if resoperation.opwithdescr[opnum]:

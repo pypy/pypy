@@ -1,5 +1,6 @@
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import compute_identity_hash
+from rpython.rtyper.lltypesystem import lltype, llmemory
 
 class AbstractValue(object):
     def _get_hash_(self):
@@ -8,8 +9,10 @@ class AbstractValue(object):
     def same_box(self, other):
         return self is other
 
-@specialize.argtype(2)
-def ResOperation(opnum, args, result, descr=None):
+    def repr_short(self, memo):
+        return self.repr(memo)
+
+def ResOperation(opnum, args, descr=None):
     cls = opclasses[opnum]
     op = cls()
     op.initarglist(args)
@@ -20,16 +23,6 @@ def ResOperation(opnum, args, result, descr=None):
         elif op.is_guard():
             assert not descr.final_descr
         op.setdescr(descr)
-    if isinstance(result, int):
-        op._resint = result
-    elif isinstance(result, float):
-        op._resfloat = result
-    elif result is None:
-        pass
-    else:
-        from rpython.rtyper.lltypesystem import lltype, llmemory
-        assert lltype.typeOf(result) == llmemory.GCREF
-        op._resref = result
     return op
 
 
@@ -97,12 +90,24 @@ class AbstractResOp(AbstractValue):
         "shallow copy: the returned operation is meant to be used in place of self"
         if args is None:
             args = self.getarglist()
-        if result is None:
-            result = self.result
         if descr is None:
             descr = self.getdescr()
-        newop = ResOperation(opnum, args, result, descr)
+        newop = ResOperation(opnum, args, descr)
+        newop.copy_value_from(self)
         return newop
+
+    @specialize.argtype(1)
+    def setvalue(self, value):
+        if isinstance(value, int):
+            self._resint = value
+        elif isinstance(value, float):
+            self._resfloat = value
+        elif value is None:
+            pass
+        else:
+            assert lltype.typeOf(value) == llmemory.GCREF
+            self._resref = value
+
 
     def clone(self):
         args = self.getarglist()
@@ -117,9 +122,15 @@ class AbstractResOp(AbstractValue):
 
     def repr(self, memo, graytext=False):
         # RPython-friendly version
-        XXX
-        if self.result is not None:
-            sres = '%s = ' % (self.result,)
+        if self.type != 'v':
+            try:
+                sres = '%s = ' % memo[self]
+            except KeyError:
+                name = self.type + str(len(memo))
+                memo[self] = name
+                sres = name + ' = '
+        #if self.result is not None:
+        #    sres = '%s = ' % (self.result,)
         else:
             sres = ''
         if self.name:
@@ -132,11 +143,14 @@ class AbstractResOp(AbstractValue):
         descr = self.getdescr()
         if descr is None or we_are_translated():
             return '%s%s%s(%s)' % (prefix, sres, self.getopname(),
-                                   ', '.join([str(a) for a in args]))
+                                   ', '.join([a.repr_short(memo) for a in args]))
         else:
             return '%s%s%s(%s)' % (prefix, sres, self.getopname(),
-                                   ', '.join([str(a) for a in args] +
+                                   ', '.join([a.repr_short(memo) for a in args] +
                                              ['descr=%r' % descr]))
+
+    def repr_short(self, memo):
+        return memo[self]
 
     def getopname(self):
         try:
@@ -274,16 +288,23 @@ class IntOp(object):
 
     type = 'i'
 
+    _resint = 0
+
     def getint(self):
         return self._resint
 
     def setint(self, intval):
         self._resint = intval
 
+    def copy_value_from(self, other):
+        self.setint(other.getint())
+
 class FloatOp(object):
     _mixin_ = True
 
     type = 'f'
+
+    _resfloat = 0.0
 
     def getfloatstorage(self):
         return self._resfloat
@@ -291,10 +312,15 @@ class FloatOp(object):
     def setfloatstorage(self, floatval):
         self._resfloat = floatval
 
+    def copy_value_from(self, other):
+        self.setfloatstorage(other.getfloatstorage())
+
 class RefOp(object):
     _mixin_ = True
 
     type = 'r'
+
+    _resref = lltype.nullptr(llmemory.GCREF.TO)
 
     def getref_base(self):
         return self._resref
@@ -302,15 +328,27 @@ class RefOp(object):
     def setref_base(self, refval):
         self._resref = refval
 
-class InputArgInt(IntOp, AbstractValue):
-    def __init__(self, intval):
-        self.setint(intval)
+    def copy_value_from(self, other):
+        self.setref_base(other.getref_base())
 
-class InputArgFloat(FloatOp, AbstractValue):
+class AbstractInputArg(AbstractValue):    
+    def repr(self, memo):
+        try:
+            return memo[self]
+        except KeyError:
+            name = self.type + str(len(memo))
+            memo[self] = name
+            return name
+        
+class InputArgInt(IntOp, AbstractInputArg):
+    def __init__(self, intval):
+        self.setint(intval)            
+
+class InputArgFloat(FloatOp, AbstractInputArg):
     def __init__(self, f):
         self.setfloatstorage(f)
 
-class InputArgRef(RefOp, AbstractValue):
+class InputArgRef(RefOp, AbstractInputArg):
     def __init__(self, r):
         self.setref_base(r)
 

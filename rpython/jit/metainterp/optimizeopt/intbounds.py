@@ -151,6 +151,7 @@ class OptIntBounds(Optimization):
                 # nonneg % power-of-two ==> nonneg & (power-of-two - 1)
                 arg1 = op.getarg(0)
                 arg2 = ConstInt(val-1)
+                xxx
                 op = op.copy_and_change(rop.INT_AND, args=[arg1, arg2])
         self.emit_operation(op)
         if v2.is_constant():
@@ -197,7 +198,7 @@ class OptIntBounds(Optimization):
         if lastop is not None:
             opnum = lastop.getopnum()
             args = lastop.getarglist()
-            result = lastop.result
+            result = lastop
             # If the INT_xxx_OVF was replaced with INT_xxx or removed
             # completely, then we can kill the GUARD_NO_OVERFLOW.
             if (opnum != rop.INT_ADD_OVF and
@@ -236,13 +237,14 @@ class OptIntBounds(Optimization):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         resbound = v1.intbound.add_bound(v2.intbound)
+        r = self.getvalue(op)
         if resbound.bounded():
             # Transform into INT_ADD.  The following guard will be killed
             # by optimize_GUARD_NO_OVERFLOW; if we see instead an
             # optimize_GUARD_OVERFLOW, then InvalidLoop.
             op = op.copy_and_change(rop.INT_ADD)
         self.emit_operation(op) # emit the op
-        r = self.getvalue(op)
+        r.box = op
         r.intbound.intersect(resbound)
 
     def optimize_INT_SUB_OVF(self, op):
@@ -253,6 +255,7 @@ class OptIntBounds(Optimization):
             return
         resbound = v1.intbound.sub_bound(v2.intbound)
         if resbound.bounded():
+            xxxx
             op = op.copy_and_change(rop.INT_SUB)
         self.emit_operation(op) # emit the op
         r = self.getvalue(op)
@@ -263,6 +266,7 @@ class OptIntBounds(Optimization):
         v2 = self.getvalue(op.getarg(1))
         resbound = v1.intbound.mul_bound(v2.intbound)
         if resbound.bounded():
+            xxx
             op = op.copy_and_change(rop.INT_MUL)
         self.emit_operation(op)
         r = self.getvalue(op)

@@ -275,18 +275,7 @@ class OpParser(object):
             assert descr is None
             return op
         else:
-            tp = optypes[opnum]
-            if tp == 'i':
-                result = 0
-            elif tp == 'r':
-                from rpython.rtyper.lltypesystem import lltype, llmemory
-                result = lltype.nullptr(llmemory.GCREF.TO)
-            elif tp == 'f':
-                result = 0.0
-            else:
-                assert tp == 'n'
-                result = None
-            return ResOperation(opnum, args, result, descr)
+            return ResOperation(opnum, args, descr)
 
     def parse_result_op(self, line):
         res, op = line.split("=", 1)

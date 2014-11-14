@@ -19,7 +19,7 @@ def test_store_final_boxes_in_guard():
     opt = optimizeopt.Optimizer(FakeMetaInterpStaticData(LLtypeMixin.cpu),
                                 None)
     fdescr = ResumeGuardDescr()
-    op = ResOperation(rop.GUARD_TRUE, ['dummy'], None, descr=fdescr)
+    op = ResOperation(rop.GUARD_TRUE, ['dummy'], descr=fdescr)
     # setup rd data
     fi0 = resume.FrameInfo(None, "code0", 11)
     fdescr.rd_frame_info_list = resume.FrameInfo(fi0, "code1", 33)
@@ -99,7 +99,7 @@ class BaseTestBasic(BaseTest):
     def optimize_loop(self, ops, optops, call_pure_results=None):
         loop = self.parse(ops)
         token = JitCellToken()
-        loop.operations = [ResOperation(rop.LABEL, loop.inputargs, None, descr=TargetToken(token))] + \
+        loop.operations = [ResOperation(rop.LABEL, loop.inputargs, descr=TargetToken(token))] + \
                           loop.operations
         if loop.operations[-1].getopnum() == rop.JUMP:
             loop.operations[-1].setdescr(token)
@@ -232,7 +232,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_remove_guard_class_constant(self):
         ops = """
         [i0]
-        p0 = same_as(ConstPtr(myptr))
+        p0 = same_as_r(ConstPtr(myptr))
         guard_class(p0, ConstClass(node_vtable)) []
         jump(i0)
         """

@@ -134,10 +134,17 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
     width = totwidth / 2 - 1
     print ' Comparing lists '.center(totwidth, '-')
     text_right = text_right or 'expected'
+    memo = {}
     print '%s| %s' % ('optimized'.center(width), text_right.center(width))
     for op1, op2 in itertools.izip_longest(oplist1, oplist2, fillvalue=''):
-        txt1 = str(op1)
-        txt2 = str(op2)
+        if op1:
+            txt1 = op1.repr(memo)
+        else:
+            txt1 = ''
+        if op2:
+            txt2 = op2.repr(memo)
+        else:
+            txt2 = ''
         while txt1 or txt2:
             part1 = txt1[:width]
             part2 = txt2[:width]

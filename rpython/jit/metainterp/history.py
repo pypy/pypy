@@ -202,6 +202,9 @@ class Const(AbstractValue):
     def same_constant(self, other):
         raise NotImplementedError
 
+    def repr(self, memo):
+        return self.repr_rpython()
+
     def __repr__(self):
         return 'Const(%s)' % self._getrepr_()
 
