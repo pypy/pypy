@@ -16,6 +16,8 @@ class ESCAPE_OP(N_aryOp, ResOpWithDescr):
 
     OPNUM = -123
 
+    type = 'i'
+
     def getopnum(self):
         return self.OPNUM
 

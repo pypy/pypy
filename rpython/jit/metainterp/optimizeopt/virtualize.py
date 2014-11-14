@@ -28,7 +28,7 @@ class AbstractVirtualValue(optimizer.OptValue):
 
     def get_key_box(self):
         if self.box is None:
-            return self.keybox
+            return self.source_op
         return self.box
 
     def force_box(self, optforce):
@@ -157,8 +157,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 iteritems.sort(key=lambda (x, y): x.sort_key())
             for ofs, value in iteritems:
                 subbox = value.force_box(optforce)
-                op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
-                                  descr=ofs)
+                op = ResOperation(rop.SETFIELD_GC, [box, subbox], descr=ofs)
                 optforce.emit_operation(op)
 
     def _get_field_descr_list(self):
@@ -220,8 +219,8 @@ class VirtualValue(AbstractVirtualStructValue):
 
 class VStructValue(AbstractVirtualStructValue):
 
-    def __init__(self, cpu, structdescr, keybox, source_op=None):
-        AbstractVirtualStructValue.__init__(self, cpu, keybox, source_op)
+    def __init__(self, cpu, structdescr, source_op):
+        AbstractVirtualStructValue.__init__(self, cpu, source_op)
         self.structdescr = structdescr
 
     @specialize.argtype(1)
@@ -265,9 +264,9 @@ class AbstractVArrayValue(AbstractVirtualValue):
 
 class VArrayValue(AbstractVArrayValue):
 
-    def __init__(self, arraydescr, constvalue, size, keybox, source_op=None,
+    def __init__(self, arraydescr, constvalue, size, source_op,
                  clear=False):
-        AbstractVirtualValue.__init__(self, keybox, source_op)
+        AbstractVirtualValue.__init__(self, source_op)
         self.arraydescr = arraydescr
         self.constvalue = constvalue
         if clear:
@@ -332,7 +331,7 @@ class VArrayValue(AbstractVArrayValue):
         # * if source_op is NEW_ARRAY, emit NEW_ARRAY_CLEAR if it's
         #   followed by setting most items to zero anyway
         optforce.emit_operation(self.source_op)
-        self.box = box = self.source_op.result
+        self.box = box = self.source_op
         for index in range(len(self._items)):
             subvalue = self._items[index]
             if subvalue is None:
@@ -342,7 +341,7 @@ class VArrayValue(AbstractVArrayValue):
                     continue
             subbox = subvalue.force_box(optforce)
             op = ResOperation(rop.SETARRAYITEM_GC,
-                              [box, ConstInt(index), subbox], None,
+                              [box, ConstInt(index), subbox],
                                descr=self.arraydescr)
             optforce.emit_operation(op)
 
@@ -352,8 +351,8 @@ class VArrayValue(AbstractVArrayValue):
 
 
 class VArrayStructValue(AbstractVirtualValue):
-    def __init__(self, arraydescr, size, keybox, source_op=None):
-        AbstractVirtualValue.__init__(self, keybox, source_op)
+    def __init__(self, arraydescr, size, source_op):
+        AbstractVirtualValue.__init__(self, source_op)
         self.arraydescr = arraydescr
         self._items = [{} for _ in xrange(size)]
 
@@ -372,7 +371,7 @@ class VArrayStructValue(AbstractVirtualValue):
         if not we_are_translated():
             self.source_op.name = 'FORCE ' + self.source_op.name
         optforce.emit_operation(self.source_op)
-        self.box = box = self.source_op.result
+        self.box = box = self.source_op
         for index in range(len(self._items)):
             iteritems = self._items[index].iteritems()
             # random order is fine, except for tests
@@ -382,7 +381,7 @@ class VArrayStructValue(AbstractVirtualValue):
             for descr, value in iteritems:
                 subbox = value.force_box(optforce)
                 op = ResOperation(rop.SETINTERIORFIELD_GC,
-                    [box, ConstInt(index), subbox], None, descr=descr
+                    [box, ConstInt(index), subbox], descr=descr
                 )
                 optforce.emit_operation(op)
 
@@ -460,7 +459,7 @@ class VRawBufferValue(AbstractVArrayValue):
         if not we_are_translated():
             op.name = 'FORCE ' + self.source_op.name
         optforce.emit_operation(self.source_op)
-        self.box = self.source_op.result
+        self.box = self.source_op
         for i in range(len(self.buffer.offsets)):
             # write the value
             offset = self.buffer.offsets[i]
@@ -495,7 +494,7 @@ class VRawSliceValue(AbstractVirtualValue):
         assert op is not None
         if not we_are_translated():
             op.name = 'FORCE ' + self.source_op.name
-        self.box = self.source_op.result
+        self.box = self.source_op
         self.rawbuffer_value.force_box(optforce)
         optforce.emit_operation(op)
 
@@ -525,21 +524,20 @@ class OptVirtualize(optimizer.Optimization):
         self.make_equal_to(source_op, vvalue)
         return vvalue
 
-    def make_varray(self, arraydescr, size, box, source_op=None,
-                    clear=False):
+    def make_varray(self, arraydescr, size, source_op, clear=False):
         if arraydescr.is_array_of_structs():
             assert clear
-            vvalue = VArrayStructValue(arraydescr, size, box, source_op)
+            vvalue = VArrayStructValue(arraydescr, size, source_op)
         else:
             constvalue = self.new_const_item(arraydescr)
-            vvalue = VArrayValue(arraydescr, constvalue, size, box, source_op,
+            vvalue = VArrayValue(arraydescr, constvalue, size, source_op,
                                  clear=clear)
-        self.make_equal_to(box, vvalue)
+        self.make_equal_to(source_op, vvalue)
         return vvalue
 
-    def make_vstruct(self, structdescr, box, source_op=None):
-        vvalue = VStructValue(self.optimizer.cpu, structdescr, box, source_op)
-        self.make_equal_to(box, vvalue)
+    def make_vstruct(self, structdescr, source_op):
+        vvalue = VStructValue(self.optimizer.cpu, structdescr, source_op)
+        self.make_equal_to(source_op, vvalue)
         return vvalue
 
     def make_virtual_raw_memory(self, size, box, source_op):
@@ -607,8 +605,8 @@ class OptVirtualize(optimizer.Optimization):
         # Replace the VIRTUAL_REF operation with a virtual structure of type
         # 'jit_virtual_ref'.  The jit_virtual_ref structure may be forced soon,
         # but the point is that doing so does not force the original structure.
-        op = ResOperation(rop.NEW_WITH_VTABLE, [c_cls], op.result)
-        vrefvalue = self.make_virtual(c_cls, op.result, op)
+        op = ResOperation(rop.NEW_WITH_VTABLE, [c_cls], op)
+        vrefvalue = self.make_virtual(c_cls, op)
         tokenbox = BoxPtr()
         self.emit_operation(ResOperation(rop.FORCE_TOKEN, [], tokenbox))
         vrefvalue.setfield(descr_virtual_token, self.getvalue(tokenbox))
@@ -657,7 +655,7 @@ class OptVirtualize(optimizer.Optimization):
                     not tokenvalue.box.nonnull()):
                 forcedvalue = vref.getfield(vrefinfo.descr_forced, None)
                 if forcedvalue is not None and not forcedvalue.is_null():
-                    self.make_equal_to(op.result, forcedvalue)
+                    self.make_equal_to(op, forcedvalue)
                     self.last_emitted_operation = REMOVED
                     return True
         return False
@@ -670,14 +668,14 @@ class OptVirtualize(optimizer.Optimization):
         if value.is_forced_virtual() and op.is_always_pure():
             fieldvalue = value.getfield(op.getdescr(), None)
             if fieldvalue is not None:
-                self.make_equal_to(op.result, fieldvalue)
+                self.make_equal_to(op, fieldvalue)
                 return
         if value.is_virtual():
             assert isinstance(value, AbstractVirtualValue)
             fieldvalue = value.getfield(op.getdescr(), None)
             if fieldvalue is None:
                 fieldvalue = self.optimizer.new_const(op.getdescr())
-            self.make_equal_to(op.result, fieldvalue)
+            self.make_equal_to(op, fieldvalue)
         else:
             value.ensure_nonnull()
             self.emit_operation(op)
@@ -708,14 +706,14 @@ class OptVirtualize(optimizer.Optimization):
     def optimize_NEW_ARRAY(self, op):
         sizebox = self.get_constant_box(op.getarg(0))
         if sizebox is not None:
-            self.make_varray(op.getdescr(), sizebox.getint(), op.result, op)
+            self.make_varray(op.getdescr(), sizebox.getint(), op)
         else:
             self.emit_operation(op)
 
     def optimize_NEW_ARRAY_CLEAR(self, op):
         sizebox = self.get_constant_box(op.getarg(0))
         if sizebox is not None:
-            self.make_varray(op.getdescr(), sizebox.getint(), op.result, op,
+            self.make_varray(op.getdescr(), sizebox.getint(), op,
                              clear=True)
         else:
             self.emit_operation(op)        
@@ -740,7 +738,7 @@ class OptVirtualize(optimizer.Optimization):
         if sizebox is None:
             self.emit_operation(op)
             return
-        self.make_virtual_raw_memory(sizebox.getint(), op.result, op)
+        self.make_virtual_raw_memory(sizebox.getint(), op)
         self.last_emitted_operation = REMOVED
 
     def do_RAW_FREE(self, op):
@@ -758,19 +756,19 @@ class OptVirtualize(optimizer.Optimization):
             # translation occurs without any VRawXxxValue instance around
             if value.is_about_raw:
                 if isinstance(value, VRawBufferValue):
-                    self.make_virtual_raw_slice(value, offset, op.result, op)
+                    self.make_virtual_raw_slice(value, offset, op)
                     return
                 elif isinstance(value, VRawSliceValue):
                     offset = offset + value.offset
                     self.make_virtual_raw_slice(value.rawbuffer_value, offset,
-                                                op.result, op)
+                                                op)
                     return
         self.emit_operation(op)
 
     def optimize_ARRAYLEN_GC(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_virtual():
-            self.make_constant_int(op.result, value.getlength())
+            self.make_constant_int(op, value.getlength())
         else:
             value.ensure_nonnull()
             self.emit_operation(op)
@@ -784,7 +782,7 @@ class OptVirtualize(optimizer.Optimization):
                 itemvalue = value.getitem(indexbox.getint())
                 if itemvalue is None:   # reading uninitialized array items?
                     itemvalue = value.constvalue     # bah, just return 0
-                self.make_equal_to(op.result, itemvalue)
+                self.make_equal_to(op, itemvalue)
                 return
         value.ensure_nonnull()
         self.emit_operation(op)
@@ -826,7 +824,7 @@ class OptVirtualize(optimizer.Optimization):
                 except InvalidRawOperation:
                     pass
                 else:
-                    self.make_equal_to(op.result, itemvalue)
+                    self.make_equal_to(op, itemvalue)
                     return
         value.ensure_nonnull()
         self.emit_operation(op)
@@ -865,7 +863,7 @@ class OptVirtualize(optimizer.Optimization):
                 except InvalidRawOperation:
                     pass
                 else:
-                    self.make_equal_to(op.result, itemvalue)
+                    self.make_equal_to(op, itemvalue)
                     return
         value.ensure_nonnull()
         self.emit_operation(op)
@@ -897,7 +895,7 @@ class OptVirtualize(optimizer.Optimization):
                 )
                 if fieldvalue is None:
                     fieldvalue = self.new_const(descr)
-                self.make_equal_to(op.result, fieldvalue)
+                self.make_equal_to(op, fieldvalue)
                 return
         value.ensure_nonnull()
         self.emit_operation(op)

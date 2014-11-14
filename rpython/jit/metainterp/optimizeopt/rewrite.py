@@ -224,7 +224,7 @@ class OptRewrite(Optimization):
                     ))
                     return
         self.emit_operation(op)
-        self.pure(rop.FLOAT_MUL, [arg2, arg1], op.result)
+        self.pure(rop.FLOAT_MUL, [arg2, arg1], op)
 
     def optimize_FLOAT_TRUEDIV(self, op):
         arg1 = op.getarg(0)
@@ -392,15 +392,16 @@ class OptRewrite(Optimization):
 
         resvalue = self.loop_invariant_results.get(key, None)
         if resvalue is not None:
-            self.make_equal_to(op.result, resvalue)
+            self.make_equal_to(op, resvalue)
             self.last_emitted_operation = REMOVED
             return
         # change the op to be a normal call, from the backend's point of view
         # there is no reason to have a separate operation for this
         self.loop_invariant_producer[key] = op
-        op = op.copy_and_change(rop.CALL)
-        self.emit_operation(op)
-        resvalue = self.getvalue(op.result)
+        newop = op.copy_and_change(self.optimizer.call_for_descr(op.getdescr()))
+        self.emit_operation(newop)
+        resvalue = self.getvalue(op)
+        resvalue.box = newop
         self.loop_invariant_results[key] = resvalue
     optimize_CALL_LOOPINVARIANT_R = optimize_CALL_LOOPINVARIANT_I
     optimize_CALL_LOOPINVARIANT_F = optimize_CALL_LOOPINVARIANT_I
@@ -427,7 +428,7 @@ class OptRewrite(Optimization):
 
     def optimize_INT_IS_TRUE(self, op):
         if self.getvalue(op.getarg(0)) in self.optimizer.bool_boxes:
-            self.make_equal_to(op.result, self.getvalue(op.getarg(0)))
+            self.make_equal_to(op, self.getvalue(op.getarg(0)))
             return
         self._optimize_nullness(op, op.getarg(0), True)
 

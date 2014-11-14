@@ -67,7 +67,8 @@ class OptPure(Optimization):
 
         # Step 2: check if all arguments are the same as a previous
         # CALL_PURE.
-        args = self.optimizer.make_args_key(op)
+        args = self.optimizer.make_args_key(op.getopnum(), op.getarglist(),
+                                            op.getdescr())
         oldop = self.pure_operations.get(args, None)
         if oldop is not None and oldop.getdescr() is op.getdescr():
             assert oldop.getopnum() == op.getopnum()
@@ -82,7 +83,10 @@ class OptPure(Optimization):
 
         # replace CALL_PURE with just CALL
         args = op.getarglist()
-        self.emit_operation(ResOperation(rop.CALL, args, op.getdescr()))
+        opnum = self.optimizer.call_for_descr(op.getdescr())
+        newop = ResOperation(opnum, args, op.getdescr())
+        self.getvalue(op).box = newop
+        self.emit_operation(newop)
     optimize_CALL_PURE_R = optimize_CALL_PURE_I
     optimize_CALL_PURE_F = optimize_CALL_PURE_I
     optimize_CALL_PURE_N = optimize_CALL_PURE_I
@@ -106,8 +110,7 @@ class OptPure(Optimization):
             self.pure_operations[key] = result
 
     def has_pure_result(self, opnum, args, descr):
-        op = ResOperation(opnum, args, None, descr)
-        key = self.optimizer.make_args_key(op)
+        key = self.optimizer.make_args_key(opnum, args, descr)
         op = self.pure_operations.get(key, None)
         if op is None:
             return False

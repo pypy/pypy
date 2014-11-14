@@ -331,6 +331,31 @@ class Optimization(object):
             return self.optimizer.optpure.get_pure_result(key)
         return None
 
+    def getfield_pure_for_descr(self, descr):
+        if descr.is_pointer_field():
+            return rop.GETFIELD_GC_PURE_R
+        elif descr.is_float_field():
+            return rop.GETFIELD_GC_PURE_F
+        return rop.GETFIELD_GC_PURE_I
+
+    def getarrayitem_pure_for_descr(self, descr):
+        if descr.is_array_of_pointers():
+            return rop.GETARRAYITEM_GC_PURE_R
+        elif descr.is_array_of_floats():
+            return rop.GETARRAYITEM_GC_PURE_F
+        return rop.GETARRAYITEM_GC_PURE_I
+
+    def call_for_descr(self, descr):
+        tp = descr.get_result_type()
+        if tp == 'i':
+            return rop.CALL_I
+        elif tp == 'r':
+            return rop.CALL_R
+        elif tp == 'f':
+            return rop.CALL_F
+        assert tp == 'v'
+        return rop.CALL_N
+
     def setup(self):
         pass
 
@@ -603,6 +628,7 @@ class Optimizer(Optimization):
                 # This is done after the operation is emitted to let
                 # store_final_boxes_in_guard set the guard_opnum field of the
                 # descr to the original rop.GUARD_VALUE.
+                v = self.getvalue(op)
                 constvalue = op.getarg(1).getint()
                 if constvalue == 0:
                     opnum = rop.GUARD_FALSE
@@ -610,8 +636,9 @@ class Optimizer(Optimization):
                     opnum = rop.GUARD_TRUE
                 else:
                     raise AssertionError("uh?")
-                newop = ResOperation(opnum, [op.getarg(0)], op.result, descr)
+                newop = ResOperation(opnum, [op.getarg(0)], descr)
                 newop.setfailargs(op.getfailargs())
+                v.box = newop
                 return newop
             else:
                 # a real GUARD_VALUE.  Make it use one counter per value.

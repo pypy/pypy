@@ -98,7 +98,7 @@ class CachedField(object):
             self._lazy_setfield = None
             if optheap.postponed_op:
                 for a in op.getarglist():
-                    if a is optheap.postponed_op.result:
+                    if a is optheap.postponed_op:
                         optheap.emit_postponed_op()
                         break
             optheap.next_optimization.propagate_forward(op)
@@ -162,6 +162,7 @@ class CachedField(object):
                                          result, op.getdescr())
                     shortboxes.add_potential(getop, synthetic=True)
                 elif op.result is not None:
+                    xxxx
                     shortboxes.add_potential(op)
 
 class BogusPureField(JitException):
@@ -317,10 +318,10 @@ class OptHeap(Optimization):
         try:
             res_v = d[args]
         except KeyError:
-            d[args] = self.getvalue(op.result)
+            d[args] = self.getvalue(op)
             return False
         else:
-            self.make_equal_to(op.result, res_v)
+            self.make_equal_to(op, res_v)
             self.last_emitted_operation = REMOVED
             return True
 
@@ -436,13 +437,13 @@ class OptHeap(Optimization):
         cf = self.field_cache(op.getdescr())
         fieldvalue = cf.getfield_from_cache(self, structvalue)
         if fieldvalue is not None:
-            self.make_equal_to(op.result, fieldvalue)
+            self.make_equal_to(op, fieldvalue)
             return
         # default case: produce the operation
         structvalue.ensure_nonnull()
         self.emit_operation(op)
         # then remember the result of reading the field
-        fieldvalue = self.getvalue(op.result)
+        fieldvalue = self.getvalue(op)
         cf.remember_field_value(structvalue, fieldvalue, op)
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
@@ -452,7 +453,7 @@ class OptHeap(Optimization):
         cf = self.field_cache(op.getdescr())
         fieldvalue = cf.getfield_from_cache(self, structvalue)
         if fieldvalue is not None:
-            self.make_equal_to(op.result, fieldvalue)
+            self.make_equal_to(op, fieldvalue)
             return
         # default case: produce the operation
         structvalue.ensure_nonnull()
@@ -461,7 +462,8 @@ class OptHeap(Optimization):
     optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_PURE_I
 
     def optimize_SETFIELD_GC(self, op):
-        if self.has_pure_result(rop.GETFIELD_GC_PURE, [op.getarg(0)],
+        opnum = self.optimizer.getfield_pure_for_descr(op.getdescr())
+        if self.has_pure_result(opnum, [op.getarg(0)],
                                 op.getdescr()):
             os.write(2, '[bogus _immutable_field_ declaration: %s]\n' %
                      (op.getdescr().repr_of_descr()))
@@ -480,7 +482,7 @@ class OptHeap(Optimization):
             cf = self.arrayitem_cache(op.getdescr(), indexvalue.box.getint())
             fieldvalue = cf.getfield_from_cache(self, arrayvalue)
             if fieldvalue is not None:
-                self.make_equal_to(op.result, fieldvalue)
+                self.make_equal_to(op, fieldvalue)
                 return
         else:
             # variable index, so make sure the lazy setarrayitems are done
@@ -490,7 +492,7 @@ class OptHeap(Optimization):
         self.emit_operation(op)
         # the remember the result of reading the array item
         if cf is not None:
-            fieldvalue = self.getvalue(op.result)
+            fieldvalue = self.getvalue(op)
             cf.remember_field_value(arrayvalue, fieldvalue, op)
     optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_GC_I
     optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_GC_I
@@ -505,7 +507,7 @@ class OptHeap(Optimization):
             cf = self.arrayitem_cache(op.getdescr(), indexvalue.box.getint())
             fieldvalue = cf.getfield_from_cache(self, arrayvalue)
             if fieldvalue is not None:
-                self.make_equal_to(op.result, fieldvalue)
+                self.make_equal_to(op, fieldvalue)
                 return
         else:
             # variable index, so make sure the lazy setarrayitems are done
@@ -518,8 +520,8 @@ class OptHeap(Optimization):
     optimize_GETARRAYITEM_GC_PURE_F = optimize_GETARRAYITEM_GC_PURE_I
 
     def optimize_SETARRAYITEM_GC(self, op):
-        if self.has_pure_result(rop.GETARRAYITEM_GC_PURE, [op.getarg(0),
-                                                           op.getarg(1)],
+        opnum = self.optimizer.getarrayitem_pure_for_descr(op.getdescr())
+        if self.has_pure_result(opnum, [op.getarg(0), op.getarg(1)],
                                 op.getdescr()):
             os.write(2, '[bogus immutable array declaration: %s]\n' %
                      (op.getdescr().repr_of_descr()))
