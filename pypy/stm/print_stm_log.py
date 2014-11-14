@@ -85,14 +85,33 @@ class ThreadState(object):
     def transaction_start(self, entry):
         self._start = entry
         self._conflict = None
+        self._pause = None
+        self._paused_time = 0.0
 
     def transaction_stop(self, entry):
         transaction_time = entry.timestamp - self._start.timestamp
+        transaction_time -= self._paused_time
+        assert transaction_time >= 0.0
         self.cpu_time += transaction_time
         self._start = None
+        self._pause = None
         if self._conflict and entry.event == STM_TRANSACTION_ABORT:
             c = self._conflict[1]
             c.aborted_time += transaction_time
+            self._conflict = None
+
+    def transaction_pause(self, entry):
+        self._pause = entry
+
+    def transaction_unpause(self, entry):
+        if self._pause is None:
+            return
+        pause_time = entry.timestamp - self._pause.timestamp
+        self._paused_time += pause_time
+        self._pause = None
+        if self._conflict and self._conflict[0] == "local":
+            c = self._conflict[1]
+            c.paused_time += pause_time
             self._conflict = None
 
     def in_transaction(self):
@@ -165,7 +184,14 @@ def dump(logentries):
                 t2 = threads.get(entry.otherthreadnum)
                 if t2 is not None and t2.in_transaction():
                     t2._conflict = ("remote", c, entry)
-        #elif entry.event == ...STM_WAIT...
+        elif entry.event in (STM_WAIT_SYNC_PAUSE, STM_WAIT_CONTENTION):
+            t = threads.get(entry.threadnum)
+            if t is not None and t.in_transaction():
+                t.transaction_pause(entry)
+        elif entry.event == STM_WAIT_DONE:
+            t = threads.get(entry.threadnum)
+            if t is not None and t.in_transaction():
+                t.transaction_unpause(entry)
     #
     total_cpu_time = sum([t.cpu_time for t in threads.values()])
     print 'Total CPU time in STM mode:  %.3fs (%s)' % (
