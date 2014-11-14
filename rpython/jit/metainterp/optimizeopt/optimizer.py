@@ -273,7 +273,7 @@ CONST_1      = ConstInt(1)
 CVAL_ZERO    = ConstantValue(CONST_0)
 CVAL_ZERO_FLOAT = ConstantValue(Const._new(0.0))
 llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
-REMOVED = AbstractResOp(None)
+REMOVED = AbstractResOp()
 
 
 class Optimization(object):
@@ -377,14 +377,12 @@ class Optimizer(Optimization):
         self.interned_ints = {}
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.bool_boxes = {}
-        self.producer = {}
         self.pendingfields = None # set temporarily to a list, normally by
                                   # heap.py, as we're about to generate a guard
         self.quasi_immutable_deps = None
         self.opaque_pointers = {}
         self.replaces_guard = {}
         self._newoperations = []
-        self.seen_results = {}
         self.optimizer = self
         self.optpure = None
         self.optearlyforce = None
@@ -479,7 +477,6 @@ class Optimizer(Optimization):
 
     def clear_newoperations(self):
         self._newoperations = []
-        self.seen_results = {}
 
     def make_equal_to(self, box, value, replace=False):
         assert isinstance(value, OptValue)
@@ -541,7 +538,6 @@ class Optimizer(Optimization):
         self.first_optimization.propagate_forward(op)
 
     def propagate_forward(self, op):
-        self.producer[op.result] = op
         dispatch_opt(self, op)
 
     def emit_operation(self, op):
@@ -574,10 +570,6 @@ class Optimizer(Optimization):
                 op = self.store_final_boxes_in_guard(op, pendingfields)
         elif op.can_raise():
             self.exception_might_have_happened = True
-        if op.result:
-            if op.result in self.seen_results:
-                raise ValueError, "invalid optimization"
-            self.seen_results[op.result] = None
         self._newoperations.append(op)
 
     def replace_op(self, old_op, new_op):

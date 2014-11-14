@@ -38,7 +38,8 @@ class OptPure(Optimization):
                 return
 
             # did we do the exact same operation already?
-            args = self.optimizer.make_args_key(op)
+            args = self.optimizer.make_args_key(op.getopnum(),
+                                                op.getarglist(), op.getdescr())
             oldop = self.pure_operations.get(args, None)
             if oldop is not None and oldop.getdescr() is op.getdescr():
                 assert oldop.getopnum() == op.getopnum()
@@ -102,8 +103,7 @@ class OptPure(Optimization):
         self.optimizer.optpure = self
 
     def pure(self, opnum, args, result):
-        op = ResOperation(opnum, args, result)
-        key = self.optimizer.make_args_key(op)
+        key = self.optimizer.make_args_key(opnum, args, None)
         if key not in self.pure_operations:
             self.pure_operations[key] = result
 

@@ -5,10 +5,13 @@ class AbstractValue(object):
     def _get_hash_(self):
         return compute_identity_hash(self)
 
+    def same_box(self, other):
+        return self is other
+
 @specialize.argtype(2)
 def ResOperation(opnum, args, result, descr=None):
     cls = opclasses[opnum]
-    op = cls(result)
+    op = cls()
     op.initarglist(args)
     if descr is not None:
         assert isinstance(op, ResOpWithDescr)
@@ -43,9 +46,6 @@ class AbstractResOp(AbstractValue):
     boolinverse = -1
 
     _attrs_ = ()
-
-    def __init__(self, result):
-        self.result = result
 
     def getopnum(self):
         return self.opnum
@@ -115,14 +115,9 @@ class AbstractResOp(AbstractValue):
             op.pc = self.pc
         return op
 
-    def __repr__(self):
-        try:
-            return self.repr()
-        except NotImplementedError:
-            return object.__repr__(self)
-
-    def repr(self, graytext=False):
+    def repr(self, memo, graytext=False):
         # RPython-friendly version
+        XXX
         if self.result is not None:
             sres = '%s = ' % (self.result,)
         else:
