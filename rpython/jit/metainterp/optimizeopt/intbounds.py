@@ -73,9 +73,9 @@ class OptIntBounds(Optimization):
         v2 = self.getvalue(op.getarg(1))
         if v1 is v2:
             if op.getopnum() == rop.INT_OR:
-                self.make_equal_to(op.result, v1)
+                self.make_equal_to(op, v1)
             else:
-                self.make_constant_int(op.result, 0)
+                self.make_constant_int(op, 0)
             return
         self.emit_operation(op)
         if v1.intbound.known_ge(IntBound(0, 0)) and \
@@ -179,7 +179,7 @@ class OptIntBounds(Optimization):
         # b.has_lower
         if b.has_lower and b.has_upper:
             # Synthesize the reverse op for optimize_default to reuse
-            self.pure(rop.INT_RSHIFT, [op.result, op.getarg(1)], op.getarg(0))
+            self.pure(rop.INT_RSHIFT, [op, op.getarg(1)], op.getarg(0))
 
     def optimize_INT_RSHIFT(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -187,7 +187,7 @@ class OptIntBounds(Optimization):
         b = v1.intbound.rshift_bound(v2.intbound)
         if b.has_lower and b.has_upper and b.lower == b.upper:
             # constant result (likely 0, for rshifts that kill all bits)
-            self.make_constant_int(op.result, b.lower)
+            self.make_constant_int(op, b.lower)
         else:
             self.emit_operation(op)
             r = self.getvalue(op)
@@ -251,7 +251,7 @@ class OptIntBounds(Optimization):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         if v1 is v2:
-            self.make_constant_int(op.result, 0)
+            self.make_constant_int(op, 0)
             return
         resbound = v1.intbound.sub_bound(v2.intbound)
         if resbound.bounded():
@@ -276,9 +276,9 @@ class OptIntBounds(Optimization):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         if v1.intbound.known_lt(v2.intbound):
-            self.make_constant_int(op.result, 1)
+            self.make_constant_int(op, 1)
         elif v1.intbound.known_ge(v2.intbound) or v1 is v2:
-            self.make_constant_int(op.result, 0)
+            self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
 
@@ -286,9 +286,9 @@ class OptIntBounds(Optimization):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         if v1.intbound.known_gt(v2.intbound):
-            self.make_constant_int(op.result, 1)
+            self.make_constant_int(op, 1)
         elif v1.intbound.known_le(v2.intbound) or v1 is v2:
-            self.make_constant_int(op.result, 0)
+            self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
 
@@ -296,9 +296,9 @@ class OptIntBounds(Optimization):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         if v1.intbound.known_le(v2.intbound) or v1 is v2:
-            self.make_constant_int(op.result, 1)
+            self.make_constant_int(op, 1)
         elif v1.intbound.known_gt(v2.intbound):
-            self.make_constant_int(op.result, 0)
+            self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
 
@@ -306,9 +306,9 @@ class OptIntBounds(Optimization):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         if v1.intbound.known_ge(v2.intbound) or v1 is v2:
-            self.make_constant_int(op.result, 1)
+            self.make_constant_int(op, 1)
         elif v1.intbound.known_lt(v2.intbound):
-            self.make_constant_int(op.result, 0)
+            self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
 
@@ -316,11 +316,11 @@ class OptIntBounds(Optimization):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         if v1.intbound.known_gt(v2.intbound):
-            self.make_constant_int(op.result, 0)
+            self.make_constant_int(op, 0)
         elif v1.intbound.known_lt(v2.intbound):
-            self.make_constant_int(op.result, 0)
+            self.make_constant_int(op, 0)
         elif v1 is v2:
-            self.make_constant_int(op.result, 1)
+            self.make_constant_int(op, 1)
         else:
             self.emit_operation(op)
 
@@ -328,18 +328,18 @@ class OptIntBounds(Optimization):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         if v1.intbound.known_gt(v2.intbound):
-            self.make_constant_int(op.result, 1)
+            self.make_constant_int(op, 1)
         elif v1.intbound.known_lt(v2.intbound):
-            self.make_constant_int(op.result, 1)
+            self.make_constant_int(op, 1)
         elif v1 is v2:
-            self.make_constant_int(op.result, 0)
+            self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
 
     def optimize_INT_FORCE_GE_ZERO(self, op):
         value = self.getvalue(op.getarg(0))
         if value.intbound.known_ge(IntBound(0, 0)):
-            self.make_equal_to(op.result, value)
+            self.make_equal_to(op, value)
         else:
             self.emit_operation(op)
 

@@ -26,7 +26,8 @@ class OptRewrite(Optimization):
 
     def propagate_forward(self, op):
         if op.boolinverse != -1 or op.boolreflex != -1:
-            args = self.optimizer.make_args_key(op)
+            args = self.optimizer.make_args_key(op.getopnum(),
+                                                op.getarglist(), op.getdescr())
             if self.find_rewritable_bool(op, args):
                 return
 
@@ -35,7 +36,7 @@ class OptRewrite(Optimization):
     def try_boolinvers(self, op, targs):
         oldop = self.get_pure_result(targs)
         if oldop is not None and oldop.getdescr() is op.getdescr():
-            value = self.getvalue(oldop.result)
+            value = self.getvalue(oldop)
             if value.is_constant():
                 if value.box.same_constant(CONST_1):
                     self.make_constant(op, CONST_0)
@@ -50,26 +51,26 @@ class OptRewrite(Optimization):
     def find_rewritable_bool(self, op, args):
         oldopnum = op.boolinverse
         if oldopnum != -1:
-            targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[0], args[1]],
-                                                              None))
+            targs = self.optimizer.make_args_key(oldopnum, [args[0], args[1]],
+                                                 None)
             if self.try_boolinvers(op, targs):
                 return True
 
         oldopnum = op.boolreflex # FIXME: add INT_ADD, INT_MUL
         if oldopnum != -1:
-            targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
-                                                              None))
+            targs = self.optimizer.make_args_key(oldopnum, [args[1], args[0]],
+                                                 None)
             oldop = self.get_pure_result(targs)
             if oldop is not None and oldop.getdescr() is op.getdescr():
-                self.make_equal_to(op.result, self.getvalue(oldop.result))
+                self.make_equal_to(op, self.getvalue(oldop))
                 return True
 
         if op.boolreflex == -1:
             return False
         oldopnum = opclasses[op.boolreflex].boolinverse
         if oldopnum != -1:
-            targs = self.optimizer.make_args_key(
-                ResOperation(oldopnum, [args[1], args[0]], None))
+            targs = self.optimizer.make_args_key(oldopnum, [args[1], args[0]],
+                                                 None)
             if self.try_boolinvers(op, targs):
                 return True
 
@@ -100,9 +101,9 @@ class OptRewrite(Optimization):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         if v1.is_null():
-            self.make_equal_to(op.result, v2)
+            self.make_equal_to(op, v2)
         elif v2.is_null():
-            self.make_equal_to(op.result, v1)
+            self.make_equal_to(op, v1)
         else:
             self.emit_operation(op)
 
@@ -110,7 +111,7 @@ class OptRewrite(Optimization):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         if v2.is_constant() and v2.box.getint() == 0:
-            self.make_equal_to(op.result, v1)
+            self.make_equal_to(op, v1)
         elif v1.is_constant() and v1.box.getint() == 0:
             op = op.copy_and_change(rop.INT_NEG, args=[v2.box])
             self.emit_operation(op)
@@ -128,9 +129,9 @@ class OptRewrite(Optimization):
 
         # If one side of the op is 0 the result is the other side.
         if v1.is_constant() and v1.box.getint() == 0:
-            self.make_equal_to(op.result, v2)
+            self.make_equal_to(op, v2)
         elif v2.is_constant() and v2.box.getint() == 0:
-            self.make_equal_to(op.result, v1)
+            self.make_equal_to(op, v1)
         else:
             self.emit_operation(op)
             self.pure(rop.INT_ADD, [op.getarg(1), op.getarg(0)], op)
@@ -144,9 +145,9 @@ class OptRewrite(Optimization):
 
         # If one side of the op is 1 the result is the other side.
         if v1.is_constant() and v1.box.getint() == 1:
-            self.make_equal_to(op.result, v2)
+            self.make_equal_to(op, v2)
         elif v2.is_constant() and v2.box.getint() == 1:
-            self.make_equal_to(op.result, v1)
+            self.make_equal_to(op, v1)
         elif (v1.is_constant() and v1.box.getint() == 0) or \
              (v2.is_constant() and v2.box.getint() == 0):
             self.make_constant_int(op, 0)
@@ -166,7 +167,7 @@ class OptRewrite(Optimization):
         v2 = self.getvalue(op.getarg(1))
 
         if v2.is_constant() and v2.box.getint() == 1:
-            self.make_equal_to(op.result, v1)
+            self.make_equal_to(op, v1)
         else:
             self.emit_operation(op)
 
@@ -175,7 +176,7 @@ class OptRewrite(Optimization):
         v2 = self.getvalue(op.getarg(1))
 
         if v2.is_constant() and v2.box.getint() == 0:
-            self.make_equal_to(op.result, v1)
+            self.make_equal_to(op, v1)
         elif v1.is_constant() and v1.box.getint() == 0:
             self.make_constant_int(op, 0)
         else:
@@ -186,7 +187,7 @@ class OptRewrite(Optimization):
         v2 = self.getvalue(op.getarg(1))
 
         if v2.is_constant() and v2.box.getint() == 0:
-            self.make_equal_to(op.result, v1)
+            self.make_equal_to(op, v1)
         elif v1.is_constant() and v1.box.getint() == 0:
             self.make_constant_int(op, 0)
         else:
@@ -197,9 +198,9 @@ class OptRewrite(Optimization):
         v2 = self.getvalue(op.getarg(1))
 
         if v1.is_constant() and v1.box.getint() == 0:
-            self.make_equal_to(op.result, v2)
+            self.make_equal_to(op, v2)
         elif v2.is_constant() and v2.box.getint() == 0:
-            self.make_equal_to(op.result, v1)
+            self.make_equal_to(op, v1)
         else:
             self.emit_operation(op)
 
