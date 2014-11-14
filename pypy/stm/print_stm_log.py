@@ -126,6 +126,7 @@ class ConflictSummary(object):
         self.aborted_time = 0.0
         self.paused_time = 0.0
         self.num_events = 0
+        self.timestamps = []
 
     def sortkey(self):
         return self.aborted_time + self.paused_time
@@ -149,7 +150,8 @@ def percent(fraction, total):
     return r + '%'
 
 def dump(logentries):
-    total_time = logentries[-1].timestamp - logentries[0].timestamp
+    start_time, stop_time = logentries[0].timestamp, logentries[-1].timestamp
+    total_time = stop_time - start_time
     print 'Total real time:             %.3fs' % (total_time,)
     #
     threads = {}
@@ -173,6 +175,7 @@ def dump(logentries):
             if c is None:
                 c = conflicts[summary] = ConflictSummary(*summary)
             c.num_events += 1
+            c.timestamps.append(entry.timestamp)
             t = threads.get(entry.threadnum)
             if t is not None and t.in_transaction():
                 t._conflict = ("local", c, entry)
@@ -193,18 +196,25 @@ def dump(logentries):
             if t is not None and t.in_transaction():
                 t.transaction_unpause(entry)
     #
-    total_cpu_time = sum([t.cpu_time for t in threads.values()])
+    total_cpu_time = sum([v.cpu_time for v in threads.values()])
     print 'Total CPU time in STM mode:  %.3fs (%s)' % (
         total_cpu_time, percent(total_cpu_time, total_time))
     print
     #
     values = sorted(conflicts.values(), key=ConflictSummary.sortkey)
     for c in values[-1:-15:-1]:
+        intervals = 48
+        timeline = [0] * intervals
+        for t in c.timestamps:
+            idx = int((t - start_time) / total_time * intervals)
+            timeline[idx] += 1
+
         print '%.3fs lost in aborts, %.3fs paused (%dx %s)' % (
             c.aborted_time, c.paused_time, c.num_events, event_name[c.event])
         print_marker(c.marker1)
         if c.marker2:
             print_marker(c.marker2)
+        print "time line:", "".join(['x' if i else '.' for i in timeline])
         print
 
 
