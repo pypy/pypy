@@ -658,9 +658,8 @@ class Popen(object):
         # --- PyPy hack, see _pypy_install_libs_after_virtualenv() ---
         # match arguments passed by different versions of virtualenv
         if args[1:] in (
-            ['-c', 'import sys; print sys.prefix'],          # 9c47597b
-            ['-c', 'import sys; print(sys.prefix)'],        # 10ba3f3c
-            ['-c', "\nimport sys\nprefix = sys.prefix\n"    # 0e9342ce
+            ['-c', 'import sys; print(sys.prefix)'],        # 1.6 10ba3f3c
+            ['-c', "\nimport sys\nprefix = sys.prefix\n"    # 1.7 0e9342ce
              "if sys.version_info[0] == 3:\n"
              "    prefix = prefix.encode('utf8')\n"
              "if hasattr(sys.stdout, 'detach'):\n"
@@ -668,7 +667,7 @@ class Popen(object):
              "elif hasattr(sys.stdout, 'buffer'):\n"
              "    sys.stdout = sys.stdout.buffer\nsys.stdout.write(prefix)\n"],
             ['-c', 'import sys;out=sys.stdout;getattr(out, "buffer"'
-             ', out).write(sys.prefix.encode("utf-8"))']):  # a9454bce
+             ', out).write(sys.prefix.encode("utf-8"))']):  # 1.7.2 a9454bce
             _pypy_install_libs_after_virtualenv(args[0])
 
         if not isinstance(bufsize, (int, long)):
