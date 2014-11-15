@@ -79,9 +79,6 @@ c_thread_releaselock_NOAUTO = llexternal('RPyThreadReleaseLock',
 
 
 def allocate_lock():
-    # Add some memory pressure for the size of the lock because it is an
-    # Opaque object
-    rgc.add_memory_pressure(TLOCKP_SIZE)
     return Lock(allocate_ll_lock())
 
 @specialize.arg(0)
@@ -139,9 +136,6 @@ class Lock(object):
         self._lock = ll_lock
 
     def acquire(self, flag):
-        return self._acquire(flag)    # indirection for the STMLock subclass
-
-    def _acquire(self, flag):
         res = c_thread_acquirelock(self._lock, int(flag))
         res = rffi.cast(lltype.Signed, res)
         return bool(res)
@@ -155,7 +149,7 @@ class Lock(object):
 
     def release(self):
         # Sanity check: the lock must be locked
-        if self._acquire(False):
+        if self.acquire(False):
             c_thread_releaselock(self._lock)
             raise error("bad lock")
         else:
@@ -204,6 +198,9 @@ def allocate_ll_lock():
     if rffi.cast(lltype.Signed, res) <= 0:
         lltype.free(ll_lock, flavor='raw', track_allocation=False)
         raise error("out of resources")
+    # Add some memory pressure for the size of the lock because it is an
+    # Opaque object
+    rgc.add_memory_pressure(TLOCKP_SIZE)
     return ll_lock
 
 def free_ll_lock(ll_lock):
@@ -322,8 +319,8 @@ class ThreadLocalReference(object):
                 from rpython.rlib.objectmodel import running_on_llinterp
                 ptr = cast_instance_to_base_ptr(value)
                 if not running_on_llinterp:
-                    if ptr:
-                        gcref = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
+                    gcref = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
+                    if gcref:
                         _make_sure_does_not_move(gcref)
                 llop.threadlocalref_set(lltype.Void, opaque_id, ptr)
                 ensure_threadlocal()
