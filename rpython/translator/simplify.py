@@ -247,6 +247,30 @@ def remove_dead_exceptions(graph):
             seen.append(case)
         block.recloseblock(*exits)
 
+def constfold_exitswitch(graph):
+    """Remove trivial links by merging their source and target blocks
+
+    A link is trivial if it has no arguments, is the single exit of its
+    source and the single parent of its target.
+    """
+    block = graph.startblock
+    seen = set([block])
+    stack = list(block.exits)
+    while stack:
+        link = stack.pop()
+        target = link.target
+        if target in seen:
+            continue
+        source = link.prevblock
+        switch = source.exitswitch
+        if (isinstance(switch, Constant) and switch != c_last_exception):
+            exits = replace_exitswitch_by_constant(source, switch)
+            stack.extend(exits)
+        else:
+            seen.add(target)
+            stack.extend(target.exits)
+
+
 def remove_trivial_links(graph):
     """Remove trivial links by merging their source and target blocks
 
@@ -267,13 +291,9 @@ def remove_trivial_links(graph):
                 len(entrymap[target]) == 1 and
                 target.exits):  # stop at the returnblock
             assert len(source.exits) == 1
-            def rename(v):
-                return renaming.get(v, v)
             source.operations.extend(target.operations)
             source.exitswitch = newexitswitch = target.exitswitch
             source.recloseblock(*target.exits)
-            if isinstance(newexitswitch, Constant) and newexitswitch != c_last_exception:
-                exits = replace_exitswitch_by_constant(source, newexitswitch)
             stack.extend(source.exits)
         else:
             seen.add(target)
@@ -1070,6 +1090,7 @@ all_passes = [
     eliminate_empty_blocks,
     remove_assertion_errors,
     remove_identical_vars_SSA,
+    constfold_exitswitch,
     remove_trivial_links,
     SSA_to_SSI,
     coalesce_bool,
