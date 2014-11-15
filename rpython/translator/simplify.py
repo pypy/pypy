@@ -562,6 +562,9 @@ def all_equal(lst):
     first = lst[0]
     return all(first == x for x in lst[1:])
 
+def isspecialvar(v):
+    return isinstance(v, Variable) and v._name in ('last_exception_', 'last_exc_value_')
+
 def remove_identical_vars_SSA(graph):
     """When the same variable is passed multiple times into the next block,
     pass it only once.  This enables further optimizations by the annotator,
@@ -577,14 +580,22 @@ def remove_identical_vars_SSA(graph):
         phis = zip(block.inputargs, zip(*[link.args for link in links]))
         inputs[block] = phis
 
-    def trivial_phis(block):
+    def simplify_phis(block):
         phis = inputs[block]
         to_remove = []
+        unique_phis = {}
         for i, (input, phi_args) in enumerate(phis):
             new_args = [uf.find_rep(arg) for arg in phi_args]
-            if all_equal(new_args):
+            if all_equal(new_args) and not isspecialvar(new_args[0]):
                 uf.union(new_args[0], input)
                 to_remove.append(i)
+            else:
+                t = tuple(new_args)
+                if t in unique_phis:
+                    uf.union(unique_phis[t], input)
+                    to_remove.append(i)
+                else:
+                    unique_phis[t] = input
         for i in reversed(to_remove):
             del phis[i]
         return bool(to_remove)
@@ -593,7 +604,7 @@ def remove_identical_vars_SSA(graph):
     while progress:
         progress = False
         for block in inputs:
-            if trivial_phis(block):
+            if simplify_phis(block):
                 progress = True
 
     renaming = {key: uf[key].rep for key in uf}
@@ -637,7 +648,7 @@ def remove_identical_vars(graph):
     #    when for all possible incoming paths they would get twice the same
     #    value (this is really the purpose of remove_identical_vars()).
     #
-    builder = ssa.DataFlowFamilyBuilder(graph)
+    builder = DataFlowFamilyBuilder(graph)
     variable_families = builder.get_variable_families()  # vertical removal
     while True:
         if not builder.merge_identical_phi_nodes():    # horizontal removal
@@ -732,7 +743,7 @@ def detect_list_comprehension(graph):
     # NB. this assumes RPythonicity: we can only iterate over something
     # that has a len(), and this len() cannot change as long as we are
     # using the iterator.
-    builder = ssa.DataFlowFamilyBuilder(graph)
+    builder = DataFlowFamilyBuilder(graph)
     variable_families = builder.get_variable_families()
     c_append = Constant('append')
     newlist_v = {}

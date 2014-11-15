@@ -1302,6 +1302,16 @@ class TestFlowObjSpace(Base):
         [link] = graph.startblock.exits
         assert link.target is graph.returnblock
 
+    def test_not_combine(self):
+        def f(n):
+            t = not n
+            if not n:
+                t += 1
+            return t
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'bool': 1, 'inplace_add': 1}
+
 
 DATA = {'x': 5,
         'y': 6}
