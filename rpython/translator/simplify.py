@@ -250,42 +250,32 @@ def remove_dead_exceptions(graph):
 def remove_trivial_links(graph):
     """Remove trivial links by merging their source and target blocks
 
-    A link is trivial if it only renames variables, is the single exit of its
+    A link is trivial if it has no arguments, is the single exit of its
     source and the single parent of its target.
     """
     entrymap = mkentrymap(graph)
     block = graph.startblock
     seen = set([block])
     stack = list(block.exits)
-    renaming = {}
     while stack:
         link = stack.pop()
         if link.target in seen:
             continue
         source = link.prevblock
         target = link.target
-        if (source.exitswitch is None and len(entrymap[target]) == 1 and
+        if (not link.args and source.exitswitch is None and
+                len(entrymap[target]) == 1 and
                 target.exits):  # stop at the returnblock
             assert len(source.exits) == 1
-            for vprev, vtarg in zip(link.args, target.inputargs):
-                while vprev in renaming:
-                    vprev = renaming[vprev]
-                renaming[vtarg] = vprev
             def rename(v):
                 return renaming.get(v, v)
-            for op in target.operations:
-                source.operations.append(op.replace(renaming))
-            source.exitswitch = newexitswitch = rename(target.exitswitch)
-            exits = []
-            for exit in target.exits:
-                newexit = exit.copy(rename)
-                exits.append(newexit)
-            source.recloseblock(*exits)
+            source.operations.extend(target.operations)
+            source.exitswitch = newexitswitch = target.exitswitch
+            source.recloseblock(*target.exits)
             if isinstance(newexitswitch, Constant) and newexitswitch != c_last_exception:
                 exits = replace_exitswitch_by_constant(source, newexitswitch)
-            stack.extend(exits)
+            stack.extend(source.exits)
         else:
-            target.renamevariables(renaming)
             seen.add(target)
             stack.extend(target.exits)
 
@@ -1079,8 +1069,8 @@ all_passes = [
     transform_dead_op_vars,
     eliminate_empty_blocks,
     remove_assertion_errors,
-    remove_trivial_links,
     remove_identical_vars_SSA,
+    remove_trivial_links,
     SSA_to_SSI,
     coalesce_bool,
     transform_ovfcheck,
