@@ -145,17 +145,26 @@ def SSA_to_SSI(graph, annotator=None):
     del builder
 
     pending = []     # list of (block, var-used-but-not-defined)
-    for block in entrymap:
+    for block in graph.iterblocks():
+        if block not in entrymap:
+            continue
         variables_created = variables_created_in(block)
-        variables_used = set()
+        seen = set(variables_created)
+        variables_used = []
+        def record_used_var(v):
+            if v not in seen:
+                variables_used.append(v)
+                seen.add(v)
         for op in block.operations:
-            variables_used.update(op.args)
-        variables_used.add(block.exitswitch)
+            for arg in op.args:
+                record_used_var(arg)
+        record_used_var(block.exitswitch)
         for link in block.exits:
-            variables_used.update(link.args)
+            for arg in link.args:
+                record_used_var(arg)
 
         for v in variables_used:
-            if (isinstance(v, Variable) and v not in variables_created and
+            if (isinstance(v, Variable) and
                     v._name not in ('last_exception_', 'last_exc_value_')):
                 pending.append((block, v))
 
