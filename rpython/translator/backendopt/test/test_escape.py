@@ -111,7 +111,6 @@ def test_aliasing():
         a.x = 12
         return a1.x
     t, adi, graph = build_adi(fn6, [int])
-    graph.show()
     op = graph.startblock.exits[0].target.operations[0]
     assert op.opname == 'setfield'
     avar = op.args[0]
