@@ -197,10 +197,10 @@ class TestFlatten:
             int_gt %i2, $0 -> %i4
             goto_if_not %i4, L2
             -live- L2
-            int_copy %i2 -> %i5
-            int_copy %i3 -> %i6
-            int_add %i6, %i5 -> %i7
-            int_sub %i5, $1 -> %i8
+            int_copy %i3 -> %i5
+            int_copy %i2 -> %i6
+            int_add %i5, %i6 -> %i7
+            int_sub %i6, $1 -> %i8
             int_copy %i8 -> %i2
             int_copy %i7 -> %i3
             goto L1
@@ -221,10 +221,10 @@ class TestFlatten:
             L1:
             goto_if_not_int_gt %i2, $0, L2
             -live- L2
-            int_copy %i2 -> %i4
-            int_copy %i3 -> %i5
-            int_add %i5, %i4 -> %i6
-            int_sub %i4, $1 -> %i7
+            int_copy %i3 -> %i4
+            int_copy %i2 -> %i5
+            int_add %i4, %i5 -> %i6
+            int_sub %i5, $1 -> %i7
             int_copy %i7 -> %i2
             int_copy %i6 -> %i3
             goto L1
