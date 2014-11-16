@@ -1,4 +1,4 @@
-from rpython.flowspace.model import Constant, Variable, checkgraph, mkentrymap
+from rpython.flowspace.model import Constant, Variable, mkentrymap
 from rpython.translator.backendopt.support import log
 
 log = log.mergeifblocks
