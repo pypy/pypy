@@ -223,6 +223,9 @@ class RPythonAnnotator(object):
                 self.setbinding(v, annmodel.s_ImpossibleValue)
         # policy-dependent computation
         self.bookkeeper.compute_at_fixpoint()
+
+    def validate(self):
+        """Check that the annotation results are valid"""
         self.bookkeeper.check_no_flags_on_instances()
 
     def annotation(self, arg):

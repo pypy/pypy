@@ -48,6 +48,7 @@ class TestAnnotateTestCase:
     class RPythonAnnotator(_RPythonAnnotator):
         def build_types(self, *args):
             s = _RPythonAnnotator.build_types(self, *args)
+            self.validate()
             if option.view:
                 self.translator.view()
             return s
