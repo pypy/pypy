@@ -110,7 +110,6 @@ def merge_if_blocks_once(graph):
     else:
         return False
     merge_chain(chain, checkvars[0], varmap, graph)
-    checkgraph(graph)
     return True
 
 def merge_if_blocks(graph, verbose=True):
