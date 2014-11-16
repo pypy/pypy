@@ -110,8 +110,8 @@ class Bookkeeper(object):
         finally:
             self.leave()
 
+    def check_no_flags_on_instances(self):
         # sanity check: no flags attached to heap stored instances
-
         seen = set()
 
         def check_no_flags(s_value_or_def):

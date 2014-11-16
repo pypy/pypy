@@ -223,6 +223,7 @@ class RPythonAnnotator(object):
                 self.setbinding(v, annmodel.s_ImpossibleValue)
         # policy-dependent computation
         self.bookkeeper.compute_at_fixpoint()
+        self.bookkeeper.check_no_flags_on_instances()
 
     def annotation(self, arg):
         "Gives the SomeValue corresponding to the given Variable or Constant."
