@@ -1111,7 +1111,6 @@ def simplify_graph(graph, passes=True): # can take a list of passes to apply, Tr
 def cleanup_graph(graph):
     checkgraph(graph)
     eliminate_empty_blocks(graph)
-    SSA_to_SSI(graph)
     join_blocks(graph)
     remove_identical_vars(graph)
     checkgraph(graph)
