@@ -542,10 +542,10 @@ class W_UfuncGeneric(W_Ufunc):
         #These will be filled in by _parse_signature
         self.core_enabled = True    # False for scalar ufunc, True for generalized ufunc
         self.stack_inputs = stack_inputs
-        self.core_num_dim_ix = 0 # number of distinct dimention names in signature
+        self.core_num_dim_ix = 0 # number of distinct dimension names in signature
         self.core_num_dims = [0] * self.nargs  # number of core dimensions of each nargs
         self.core_offsets = [0] * self.nargs
-        self.core_dim_ixs = [0] * len(signature)
+        self.core_dim_ixs = [] # indices into unique shapes for each arg
 
     def reduce(self, space, w_obj, w_axis, keepdims=False, out=None, dtype=None,
                cumulative=False):
@@ -559,8 +559,8 @@ class W_UfuncGeneric(W_Ufunc):
                  self.name, self.nin, len(args_w))
         for i in range(self.nin):
             inargs[i] = convert_to_array(space, args_w[i])
-        outargs = [None] * min(self.nout, len(args_w)-self.nin)
-        for i in range(len(outargs)):
+        outargs = [None] * self.nout
+        for i in range(len(args_w)-self.nin):
             out = args_w[i+self.nin]
             if space.is_w(out, space.w_None) or out is None:
                 continue
@@ -698,19 +698,35 @@ class W_UfuncGeneric(W_Ufunc):
 
         # TODO parse and handle subok
         # TODO handle flags, op_flags
-        flags = ['external_loop']
-        op_flags = None
+        w_flags = space.w_None #space.newlist([space.wrap('external_loop')])
+        w_op_flags = space.w_None
+        w_op_dtypes = space.w_None
+        w_casting = space.w_None
+        w_itershape = space.newlist([space.wrap(i) for i in iter_shape]) 
+        w_op_axes = space.w_None
 
         # mimic NpyIter_AdvancedNew with a nditer
 
         if self.stack_inputs:
             inargs = inargs + outargs
-            it = W_NDIter(space, space.newlist(inargs + outargs),
-                            flags=flags, op_flags=op_flags)
-            for args in it:
-                space.call_args(func, Arguments.frompacked(space, args))
+            nd_it = W_NDIter(space, space.newlist(inargs + outargs), w_flags,
+                          w_op_flags, w_op_dtypes, w_casting, w_op_axes,
+                          w_itershape)
+            # XXX coalesce each iterators, according to inner_dimensions
+            while not nd_it.done:
+                for it, st in nd_it.iters:
+                    if not it.done(st):
+                        break
+                else:
+                    nd_it.done = True
+                    break
+                args = []
+                for i, (it, st) in enumerate(nd_it.iters):
+                    args.append(nd_it.getitem(it, st))
+                    nd_it.iters[i] = (it, it.next(st))
+                space.call_args(func, Arguments.frompacked(space, space.newlist(args)))
             if len(outargs) > 1:
-                return outargs
+                return space.newtuple([convert_to_array(space, o) for o in outargs])
             return outargs[0]
         inargs0 = inargs[0]
         assert isinstance(inargs0, W_NDimArray)
@@ -1147,9 +1163,9 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     name: str, default=''
     doc: str, default=''
     stack_inputs*: boolean, whether the function is of the form
-            out = func(*in)     False
+            out = func(*in)  False
             or
-            func(*in_out)       True
+            func(*in_out)    True (forces use of a nditer with 'external_loop')
 
     only one of out_dtype or signature may be specified
 
@@ -1218,6 +1234,9 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     if len(signature) == 0:
         # cpython compatability, func is of the form (i),(i)->(i)
         signature = ','.join(['(i)'] * nin) + '->' + ','.join(['(i)'] * nout)
+    else:
+        #stack_inputs = True
+        pass
 
     w_ret = W_UfuncGeneric(space, func, name, identity, nin, nout, dtypes,
                            signature, match_dtypes=match_dtypes,

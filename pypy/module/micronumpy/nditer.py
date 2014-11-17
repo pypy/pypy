@@ -289,7 +289,7 @@ class IndexIterator(object):
 class W_NDIter(W_Root):
     _immutable_fields_ = ['ndim', ]
     def __init__(self, space, w_seq, w_flags, w_op_flags, w_op_dtypes,
-                 w_casting, w_op_axes, w_itershape, w_buffersize, order):
+                 w_casting, w_op_axes, w_itershape, buffersize=0, order='K'):
         from pypy.module.micronumpy.ufuncs import find_binop_result_dtype
         
         self.order = order
@@ -578,14 +578,14 @@ class W_NDIter(W_Root):
 @unwrap_spec(w_flags=WrappedDefault(None), w_op_flags=WrappedDefault(None),
              w_op_dtypes=WrappedDefault(None), order=str,
              w_casting=WrappedDefault(None), w_op_axes=WrappedDefault(None),
-             w_itershape=WrappedDefault(None), w_buffersize=WrappedDefault(None))
-def descr__new__(space, w_subtype, w_seq, w_flags, w_op_flags, w_op_dtypes,
-                 w_casting, w_op_axes, w_itershape, w_buffersize, order='K'):
+             w_itershape=WrappedDefault(None), buffersize=int)
+def descr_new_nditer(space, w_subtype, w_seq, w_flags, w_op_flags, w_op_dtypes,
+                 w_casting, w_op_axes, w_itershape, buffersize=0, order='K'):
     return W_NDIter(space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting, w_op_axes,
-                    w_itershape, w_buffersize, order)
+                    w_itershape, buffersize, order)
 
 W_NDIter.typedef = TypeDef('numpy.nditer',
-    __new__ = interp2app(descr__new__),
+    __new__ = interp2app(descr_new_nditer),
 
     __iter__ = interp2app(W_NDIter.descr_iter),
     __getitem__ = interp2app(W_NDIter.descr_getitem),

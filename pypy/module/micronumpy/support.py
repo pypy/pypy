@@ -112,7 +112,7 @@ def _parse_signature(space, ufunc, signature):
             if var_name not in var_names:
                 var_names[var_name] = ufunc.core_num_dim_ix
                 ufunc.core_num_dim_ix += 1
-            ufunc.core_dim_ixs[cur_core_dim] = var_names[var_name]
+            ufunc.core_dim_ixs.append(var_names[var_name])
             cur_core_dim += 1
             nd += 1
             i = next_comma
@@ -144,7 +144,6 @@ def _parse_signature(space, ufunc, signature):
     if cur_arg != ufunc.nargs:
         raise oefmt(space.w_ValueError, '%s at %d in "%s"',
             "incomplete signature: not all arguments found", i, signature)
-    ufunc.core_dim_ixs = ufunc.core_dim_ixs[:cur_core_dim]
     if cur_core_dim == 0:
-        ufunc.core_enabled = 0
+        ufunc.core_enabled = False
     return 0 # for historical reasons, any failures will raise
