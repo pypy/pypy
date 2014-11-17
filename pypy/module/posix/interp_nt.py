@@ -24,7 +24,7 @@ eci = ExternalCompilationInfo(
     includes=['windows.h'],
     include_dirs=[cdir],
     post_include_bits=[
-        "RPY_EXPORTED_FOR_TESTS DWORD "
+        "RPY_EXTERN DWORD "
         "pypy_GetFinalPathNameByHandle(FARPROC, HANDLE, LPTSTR, DWORD, DWORD);"],
     separate_module_sources=[separate_module_source])
 pypy_GetFinalPathNameByHandle = rffi.llexternal(
