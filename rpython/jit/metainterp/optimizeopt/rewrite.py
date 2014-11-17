@@ -215,13 +215,13 @@ class OptRewrite(Optimization):
             v2 = self.getvalue(rhs)
 
             if v1.is_constant():
-                if v1.box.getfloat() == 1.0:
-                    self.make_equal_to(op.result, v2)
+                if v1.box.getfloatstorage() == 1.0:
+                    self.make_equal_to(op, v2)
                     return
-                elif v1.box.getfloat() == -1.0:
-                    self.emit_operation(ResOperation(
-                        rop.FLOAT_NEG, [rhs], op.result
-                    ))
+                elif v1.box.getfloatstorage() == -1.0:
+                    newop = self.optimizer.replace_op_with(op, rop.FLOAT_NEG,
+                                                           args=[rhs])
+                    self.emit_operation(newop)
                     return
         self.emit_operation(op)
         self.pure(rop.FLOAT_MUL, [arg2, arg1], op)
@@ -248,7 +248,7 @@ class OptRewrite(Optimization):
     def optimize_FLOAT_NEG(self, op):
         v1 = op.getarg(0)
         self.emit_operation(op)
-        self.pure(rop.FLOAT_NEG, [op.result], v1)
+        self.pure(rop.FLOAT_NEG, [op], v1)
 
     def optimize_guard(self, op, constbox, emit_operation=True):
         value = self.getvalue(op.getarg(0))
@@ -313,8 +313,10 @@ class OptRewrite(Optimization):
                 if not previous_classbox.same_constant(expected_classbox):
                     r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
                     raise InvalidLoop('A GUARD_VALUE (%s) was proven to always fail' % r)
-            op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
-                                      args = [old_guard_op.getarg(0), op.getarg(1)])
+            arglist = [old_guard_op.getarg(0), op.getarg(1)]
+            op = self.optimizer.replace_op_with(old_guard_op,
+                                                rop.GUARD_VALUE,
+                                                args=arglist)
             self.getvalue(old_guard_op).box = op
             self.optimizer.replaces_guard[op] = old_guard_op
             # hack hack hack.  Change the guard_opnum on
@@ -364,8 +366,10 @@ class OptRewrite(Optimization):
             if old_guard_op.getopnum() == rop.GUARD_NONNULL:
                 # it was a guard_nonnull, which we replace with a
                 # guard_nonnull_class.
-                op = old_guard_op.copy_and_change (rop.GUARD_NONNULL_CLASS,
-                                         args = [old_guard_op.getarg(0), op.getarg(1)])
+                args = [old_guard_op.getarg(0), op.getarg(1)]
+                op = self.optimizer.replace_op_with(old_guard_op,
+                                                    rop.GUARD_NONNULL_CLASS,
+                                                    args)
                 self.optimizer.replaces_guard[op] = old_guard_op
                 # hack hack hack.  Change the guard_opnum on
                 # new_guard_op.getdescr() so that when resuming,
@@ -399,7 +403,8 @@ class OptRewrite(Optimization):
         # change the op to be a normal call, from the backend's point of view
         # there is no reason to have a separate operation for this
         self.loop_invariant_producer[key] = op
-        newop = op.copy_and_change(self.optimizer.call_for_descr(op.getdescr()))
+        opnum = self.optimizer.call_for_descr(op.getdescr())
+        newop = self.optimizer.replace_op_with(op, opnum)
         self.emit_operation(newop)
         resvalue = self.getvalue(op)
         resvalue.box = newop

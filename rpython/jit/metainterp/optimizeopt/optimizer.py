@@ -1,6 +1,6 @@
 from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec_const
-from rpython.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt, REF
+from rpython.jit.metainterp.history import Const, ConstInt, REF
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
                                                      ImmutableIntUnbounded, \
                                                      IntLowerBound, MININT, MAXINT
@@ -55,7 +55,7 @@ class OptValue(object):
         if intbound:
             self.intbound = intbound
         else:
-            if isinstance(box, BoxInt):
+            if box is not None and box.type == 'i':
                 self.intbound = IntBound(MININT, MAXINT)
             else:
                 self.intbound = IntUnbounded()
@@ -63,6 +63,15 @@ class OptValue(object):
         if isinstance(box, Const):
             self.make_constant(box)
         # invariant: box is a Const if and only if level == LEVEL_CONSTANT
+
+    def copy_attributes_from(self, other):
+        assert other.__class__ is OptValue
+        self.level = other.level
+        self.known_class = other.known_class
+        self.intbound = other.intbound
+        self.lenbound = other.lenbound
+        self.box = other.box
+        self.last_guard = other.last_guard
 
     def make_len_gt(self, mode, descr, val):
         if self.lenbound:
@@ -503,21 +512,37 @@ class Optimizer(Optimization):
     def clear_newoperations(self):
         self._newoperations = []
 
-    def make_equal_to(self, box, value, replace=False):
-        assert isinstance(value, OptValue)
-        assert replace or box not in self.values
-        self.values[box] = value
+    def make_equal_to(self, box, newvalue):
+        if box in self.values:
+            v = self.getvalue(box)
+            v.copy_attributes_from(newvalue)
+        else:
+            self.values[box] = newvalue
+
+    def replace_op_with(self, oldop, newopnum, args=None):
+        newop = oldop._copy_and_change(newopnum, args=args)
+        v = self.getvalue(oldop)
+        v.box = newop
+        self.values[newop] = v
+        return newop
 
     def make_constant(self, box, constbox):
-        self.make_equal_to(box, ConstantValue(constbox))
+        try:
+            value = self.values[box]
+            value.level = LEVEL_CONSTANT
+            value.make_constant(constbox)
+        except KeyError:
+            self.values[box] = ConstantValue(constbox)
 
     def make_constant_int(self, box, intvalue):
         self.make_constant(box, ConstInt(intvalue))
 
     def new_ptr_box(self):
+        xxx
         return self.cpu.ts.BoxRef()
 
     def new_box(self, fieldofs):
+        xxx
         if fieldofs.is_pointer_field():
             return self.new_ptr_box()
         elif fieldofs.is_float_field():
@@ -534,6 +559,7 @@ class Optimizer(Optimization):
             return CVAL_ZERO
 
     def new_box_item(self, arraydescr):
+        xxx
         if arraydescr.is_array_of_pointers():
             return self.new_ptr_box()
         elif arraydescr.is_array_of_floats():

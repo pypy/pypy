@@ -43,7 +43,7 @@ class OptPure(Optimization):
             oldop = self.pure_operations.get(args, None)
             if oldop is not None and oldop.getdescr() is op.getdescr():
                 assert oldop.getopnum() == op.getopnum()
-                self.optimizer.make_equal_to(op, self.getvalue(oldop), True)
+                self.optimizer.make_equal_to(op, self.getvalue(oldop))
                 return
             else:
                 self.pure_operations[args] = op

@@ -86,7 +86,7 @@ class AbstractResOp(AbstractValue):
     # common methods
     # --------------
 
-    def copy_and_change(self, opnum, args=None, result=None, descr=None):
+    def _copy_and_change(self, opnum, args=None, result=None, descr=None):
         "shallow copy: the returned operation is meant to be used in place of self"
         if args is None:
             args = self.getarglist()
@@ -270,8 +270,8 @@ class GuardResOp(ResOpWithDescr):
     def setfailargs(self, fail_args):
         self._fail_args = fail_args
 
-    def copy_and_change(self, opnum, args=None, result=None, descr=None):
-        newop = AbstractResOp.copy_and_change(self, opnum, args, result, descr)
+    def _copy_and_change(self, opnum, args=None, result=None, descr=None):
+        newop = AbstractResOp._copy_and_change(self, opnum, args, result, descr)
         newop.setfailargs(self.getfailargs())
         return newop
 
