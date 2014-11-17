@@ -434,7 +434,7 @@ def transform_dead_op_vars(graph, translator=None):
 # (they have no side effects, at least in R-Python)
 CanRemove = {}
 for _op in '''
-        newtuple newlist newdict bool
+        newtuple newlist newdict bool assign
         is_ id type issubtype repr str len hash getattr getitem
         pos neg abs hex oct ord invert add sub mul
         truediv floordiv div mod divmod pow lshift rshift and_ or_
