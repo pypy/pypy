@@ -114,7 +114,8 @@ class BaseTestBasic(BaseTest):
             def _oparser_uses_descr_of_guard(self, oparse, fail_args):
                 # typically called 3 times: once when parsing 'ops',
                 # once when parsing 'preamble', once when parsing 'expected'.
-                self.oparse = oparse
+                if self.oparse is None:
+                    self.oparse = oparse
                 self.rd_frame_info_list, self.rd_snapshot = snapshot(fail_args)
             def _clone_if_mutable(self):
                 assert self is fdescr
