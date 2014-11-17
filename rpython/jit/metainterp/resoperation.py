@@ -93,7 +93,8 @@ class AbstractResOp(AbstractValue):
         if descr is None:
             descr = self.getdescr()
         newop = ResOperation(opnum, args, descr)
-        newop.copy_value_from(self)
+        if self.type != 'v':
+            newop.copy_value_from(self)
         return newop
 
     @specialize.argtype(1)

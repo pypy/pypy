@@ -170,5 +170,24 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
             remap[op2] = op1
         if op1.getopnum() not in (rop.JUMP, rop.LABEL) and not op1.is_guard():      # xxx obscure
             assert op1.getdescr() == op2.getdescr()
+        if op1.getfailargs() or op2.getfailargs():
+            assert len(op1.getfailargs()) == len(op2.getfailargs())
+            if strict_fail_args:
+                for x, y in zip(op1.getfailargs(), op2.getfailargs()):
+                    if x is None:
+                        assert remap.get(y, y) is None
+                    else:
+                        assert x.same_box(remap.get(y, y))
+            else:
+                fail_args1 = set(op1.getfailargs())
+                fail_args2 = set([remap.get(y, y) for y in op2.getfailargs()])
+                for x in fail_args1:
+                    for y in fail_args2:
+                        if x.same_box(y):
+                            fail_args2.remove(y)
+                            break
+                    else:
+                        assert False
+
     assert len(oplist1) == len(oplist2)
     return True

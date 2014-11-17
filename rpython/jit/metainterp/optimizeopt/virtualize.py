@@ -46,7 +46,7 @@ class AbstractVirtualValue(optimizer.OptValue):
     def visitor_walk_recursive(self, visitor):
         # checks for recursion: it is False unless
         # we have already seen the very same keybox
-        if self.box is None and not visitor.already_seen_virtual(self.keybox):
+        if self.box is None and not visitor.already_seen_virtual(self.source_op):
             self._visitor_walk_recursive(visitor)
 
     def _visitor_walk_recursive(self, visitor):
@@ -189,7 +189,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
     def _visitor_walk_recursive(self, visitor):
         lst = self._get_field_descr_list()
         fieldboxes = [self._fields[ofs].get_key_box() for ofs in lst]
-        visitor.register_virtual_fields(self.keybox, fieldboxes)
+        visitor.register_virtual_fields(self.source_op, fieldboxes)
         for ofs in lst:
             fieldvalue = self._fields[ofs]
             fieldvalue.visitor_walk_recursive(visitor)
