@@ -485,11 +485,11 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
             for link in block.exits:
                 if link.target not in set_of_blocks:
                     for arg, targetarg in zip(link.args, link.target.inputargs):
-                        read_vars.add(arg)
+                        read_vars.update(arg.dependencies)
                         read_vars.add(targetarg)
                 else:
                     for arg, targetarg in zip(link.args, link.target.inputargs):
-                        dependencies[targetarg].add(arg)
+                        dependencies[targetarg].update(arg.dependencies)
         else:
             # return and except blocks implicitely use their input variable(s)
             for arg in block.inputargs:
@@ -591,7 +591,18 @@ def remove_identical_vars_SSA(graph):
         phis = inputs[block]
         to_remove = []
         unique_phis = {}
-        for i, (input, phi_args) in enumerate(phis):
+        i = 0
+        while i < len(phis):
+            input, phi_args = phis[i]
+            if all(isinstance(arg, V_Type) for arg in phi_args):
+                # replace phi(type(v1), type(v2)) with type(phi(v1, v2))
+                new_args = [arg.arg for arg in phi_args]
+                new_v = Variable()
+                uf.union(V_Type(new_v), input)
+                to_remove.append(i)
+                phis.append((new_v, new_args))
+                i += 1
+                continue
             new_args = [uf.find_rep(arg) for arg in phi_args]
             if all_equal(new_args) and not isspecialvar(new_args[0]):
                 uf.union(new_args[0], input)
@@ -603,6 +614,7 @@ def remove_identical_vars_SSA(graph):
                     to_remove.append(i)
                 else:
                     unique_phis[t] = input
+            i += 1
         for i in reversed(to_remove):
             del phis[i]
         return bool(to_remove)
@@ -614,7 +626,15 @@ def remove_identical_vars_SSA(graph):
             if simplify_phis(block):
                 progress = True
 
+    # if uf is {v1: type(v2}, v2: v3}, we need to add {type(v2): type(v3)}
+    for family in uf.infos():
+        v = family.rep
+        while isinstance(v, V_Type) and v.arg in uf:
+            new_v = V_Type(uf[v.arg].rep)
+            uf.union(new_v, v)
+            v = new_v.arg
     renaming = {key: uf[key].rep for key in uf}
+
     for block, links in entrymap.items():
         if inputs[block]:
             new_inputs, new_args = zip(*inputs[block])
