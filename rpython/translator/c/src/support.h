@@ -27,12 +27,14 @@
 #  define RPyAssert(x, msg)                                             \
      if (!(x)) RPyAssertFailed(__FILE__, __LINE__, __FUNCTION__, msg)
 
+RPY_EXTERN
 void RPyAssertFailed(const char* filename, long lineno,
                      const char* function, const char *msg);
 #else
 #  define RPyAssert(x, msg)   /* nothing */
 #endif
 
+RPY_EXTERN
 void RPyAbort(void);
 
 #if defined(RPY_LL_ASSERT) || defined(RPY_SANDBOXED)

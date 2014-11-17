@@ -466,7 +466,10 @@ class CStandaloneBuilder(CBuilder):
             if self.translator.platform.name == 'msvc':
                 mk.definition('DEBUGFLAGS', '-MD -Zi')
             else:
-                mk.definition('DEBUGFLAGS', '-O1 -g')
+                if self.config.translation.shared:
+                    mk.definition('DEBUGFLAGS', '-O1 -g -fPIC')
+                else:
+                    mk.definition('DEBUGFLAGS', '-O1 -g')
         if self.translator.platform.name == 'msvc':
             mk.rule('debug_target', 'debugmode_$(DEFAULT_TARGET)', 'rem')
         else:

@@ -14,7 +14,7 @@ import sys
 import signal
 
 def setup_module(mod):
-    usemodules = ['binascii', 'posix', 'signal', 'struct', 'rctime']
+    usemodules = ['binascii', 'posix', 'signal', 'struct', 'time']
     # py3k os.open uses subprocess, requiring the following per platform
     if os.name != 'nt':
         usemodules += ['fcntl', 'select']

@@ -14,7 +14,8 @@ from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib import nonconst, rstack
-from rpython.rlib.debug import debug_start, debug_stop, debug_print, make_sure_not_resized
+from rpython.rlib.debug import debug_start, debug_stop, debug_print
+from rpython.rlib.debug import have_debug_prints, make_sure_not_resized
 from rpython.rlib.jit import Counters
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.unroll import unrolling_iterable
@@ -1122,8 +1123,9 @@ class MIFrame(object):
 
     def debug_merge_point(self, jitdriver_sd, jd_index, portal_call_depth, current_call_id, greenkey):
         # debugging: produce a DEBUG_MERGE_POINT operation
-        loc = jitdriver_sd.warmstate.get_location_str(greenkey)
-        debug_print(loc)
+        if have_debug_prints():
+            loc = jitdriver_sd.warmstate.get_location_str(greenkey)
+            debug_print(loc)
         args = [ConstInt(jd_index), ConstInt(portal_call_depth), ConstInt(current_call_id)] + greenkey
         self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
 
@@ -1176,10 +1178,7 @@ class MIFrame(object):
 
     @arguments("box", "box", "box", "box", "box")
     def opimpl_jit_debug(self, stringbox, arg1box, arg2box, arg3box, arg4box):
-        from rpython.rtyper.lltypesystem import rstr
-        from rpython.rtyper.annlowlevel import hlstr
-        msg = stringbox.getref(lltype.Ptr(rstr.STR))
-        debug_print('jit_debug:', hlstr(msg),
+        debug_print('jit_debug:', stringbox._get_str(),
                     arg1box.getint(), arg2box.getint(),
                     arg3box.getint(), arg4box.getint())
         args = [stringbox, arg1box, arg2box, arg3box, arg4box]
@@ -1333,8 +1332,6 @@ class MIFrame(object):
             while True:
                 pc = self.pc
                 op = ord(self.bytecode[pc])
-                #debug_print(self.jitcode.name, pc)
-                #print staticdata.opcode_names[op]
                 staticdata.opcode_implementations[op](self, pc)
         except ChangeFrame:
             pass

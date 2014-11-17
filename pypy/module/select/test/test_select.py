@@ -249,7 +249,7 @@ class _AppTestSelect:
 class AppTestSelectWithPipes(_AppTestSelect):
     "Use a pipe to get pairs of file descriptors"
     spaceconfig = {
-        "usemodules": ["select", "rctime", "thread"]
+        "usemodules": ["select", "time", "thread"]
     }
 
     def setup_class(cls):
@@ -325,7 +325,7 @@ class AppTestSelectWithSockets(_AppTestSelect):
     so we start our own server.
     """
     spaceconfig = {
-        "usemodules": ["select", "_socket", "rctime", "thread"],
+        "usemodules": ["select", "_socket", "time", "thread"],
     }
 
     def w_make_server(self):

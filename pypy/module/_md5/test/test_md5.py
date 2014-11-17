@@ -7,7 +7,7 @@ import py, sys
 
 class AppTestMD5(object):
     spaceconfig = {
-        'usemodules': ['_md5', 'binascii', 'rctime', 'struct'],
+        'usemodules': ['_md5', 'binascii', 'time', 'struct'],
     }
 
     def setup_class(cls):

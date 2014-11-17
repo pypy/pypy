@@ -4,7 +4,7 @@ from rpython.tool.udir import udir
 
 class AppTestImpModule:
     spaceconfig = {
-        'usemodules': ['binascii', 'imp', 'itertools', 'rctime', 'struct'],
+        'usemodules': ['binascii', 'imp', 'itertools', 'time', 'struct'],
     }
 
     def setup_class(cls):

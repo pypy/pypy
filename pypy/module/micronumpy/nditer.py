@@ -89,10 +89,9 @@ def parse_func_flags(space, nditer, w_flags):
     for w_item in lst:
         if not space.isinstance_w(w_item, space.w_str) and not \
                 space.isinstance_w(w_item, space.w_unicode):
-            typename = space.type(w_item).getname(space)
             raise oefmt(space.w_TypeError,
-                        'expected string or Unicode object, %s found',
-                        typename)
+                        "expected string or Unicode object, %T found",
+                        w_item)
         item = space.str_w(w_item)
         if item == 'external_loop':
             nditer.external_loop = True

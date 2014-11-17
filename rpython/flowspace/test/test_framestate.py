@@ -26,41 +26,41 @@ class TestFrameState:
         ctx = self.get_context(self.func_simple)
         fs1 = ctx.getstate(0)
         fs2 = ctx.getstate(0)
-        assert fs1 == fs2
+        assert fs1.matches(fs2)
 
     def test_neq_hacked_framestate(self):
         ctx = self.get_context(self.func_simple)
         fs1 = ctx.getstate(0)
         ctx.locals_stack_w[ctx.pycode.co_nlocals-1] = Variable()
         fs2 = ctx.getstate(0)
-        assert fs1 != fs2
+        assert not fs1.matches(fs2)
 
     def test_union_on_equal_framestates(self):
         ctx = self.get_context(self.func_simple)
         fs1 = ctx.getstate(0)
         fs2 = ctx.getstate(0)
-        assert fs1.union(fs2) == fs1
+        assert fs1.union(fs2).matches(fs1)
 
     def test_union_on_hacked_framestates(self):
         ctx = self.get_context(self.func_simple)
         fs1 = ctx.getstate(0)
         ctx.locals_stack_w[ctx.pycode.co_nlocals-1] = Variable()
         fs2 = ctx.getstate(0)
-        assert fs1.union(fs2) == fs2  # fs2 is more general
-        assert fs2.union(fs1) == fs2  # fs2 is more general
+        assert fs1.union(fs2).matches(fs2)  # fs2 is more general
+        assert fs2.union(fs1).matches(fs2)  # fs2 is more general
 
     def test_restore_frame(self):
         ctx = self.get_context(self.func_simple)
         fs1 = ctx.getstate(0)
         ctx.locals_stack_w[ctx.pycode.co_nlocals-1] = Variable()
         ctx.setstate(fs1)
-        assert fs1 == ctx.getstate(0)
+        assert fs1.matches(ctx.getstate(0))
 
     def test_copy(self):
         ctx = self.get_context(self.func_simple)
         fs1 = ctx.getstate(0)
         fs2 = fs1.copy()
-        assert fs1 == fs2
+        assert fs1.matches(fs2)
 
     def test_getvariables(self):
         ctx = self.get_context(self.func_simple)

@@ -775,8 +775,7 @@ def build_bridge(space):
     struct PyPyAPI {
     %(members)s
     } _pypyAPI;
-    RPY_EXPORTED_FOR_TESTS
-    struct PyPyAPI* pypyAPI = &_pypyAPI;
+    RPY_EXTERN struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
 
     functions = generate_decls_and_callbacks(db, export_symbols)
@@ -947,7 +946,7 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
         name_no_star = process_va_name(name)
         header = ('%s pypy_va_get_%s(va_list* vp)' %
                   (name, name_no_star))
-        pypy_decls.append('RPY_EXPORTED_FOR_TESTS ' + header + ';')
+        pypy_decls.append('RPY_EXTERN ' + header + ';')
         functions.append(header + '\n{return va_arg(*vp, %s);}\n' % name)
 
     for name, (typ, expr) in GLOBALS.iteritems():
@@ -1007,7 +1006,7 @@ def build_eci(building_bridge, export_symbols, code):
     if sys.platform == 'win32':
         get_pythonapi_source = '''
         #include <windows.h>
-        RPY_EXPORTED_FOR_TESTS
+        RPY_EXTERN
         HANDLE pypy_get_pythonapi_handle() {
             MEMORY_BASIC_INFORMATION  mi;
             memset(&mi, 0, sizeof(mi));
