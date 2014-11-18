@@ -17,7 +17,7 @@ import py
 
 from rpython.annotator import model as annmodel, unaryop, binaryop
 from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
-from rpython.flowspace.model import Variable, Constant, SpaceOperation, c_last_exception
+from rpython.flowspace.model import Variable, Constant, SpaceOperation
 from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.exceptiondata import ExceptionData
@@ -352,7 +352,7 @@ class RPythonTyper(object):
         if (pos is not None and pos != len(newops) - 1):
             # this is for the case where the llop that raises the exceptions
             # is not the last one in the list.
-            assert block.exitswitch == c_last_exception
+            assert block.canraise
             noexclink = block.exits[0]
             assert noexclink.exitcase is None
             if pos == "removed":
@@ -389,7 +389,7 @@ class RPythonTyper(object):
             if isinstance(block.exitswitch, Variable):
                 r_case = self.bindingrepr(block.exitswitch)
             else:
-                assert block.exitswitch == c_last_exception
+                assert block.canraise
                 r_case = rclass.get_type_repr(self)
             link.llexitcase = r_case.convert_const(link.exitcase)
         else:
@@ -460,7 +460,7 @@ class RPythonTyper(object):
             for op in block.operations[:-1]:
                 yield HighLevelOp(self, op, [], llops)
             # look for exception links for the last operation
-            if block.exitswitch == c_last_exception:
+            if block.canraise:
                 exclinks = block.exits[1:]
             else:
                 exclinks = []

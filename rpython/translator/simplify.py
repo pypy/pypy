@@ -8,8 +8,8 @@ import py
 from collections import defaultdict
 
 from rpython.tool.algo.unionfind import UnionFind
-from rpython.flowspace.model import (Variable, Constant,
-                                     c_last_exception, checkgraph, mkentrymap)
+from rpython.flowspace.model import (
+        Variable, Constant, checkgraph, mkentrymap)
 from rpython.flowspace.operation import OverflowingOperation, op
 from rpython.flowspace.expression import V_Type
 from rpython.rlib import rarithmetic
@@ -44,8 +44,6 @@ def get_graph(arg, translator):
 
 
 def replace_exitswitch_by_constant(block, const):
-    assert isinstance(const, Constant)
-    assert const != c_last_exception
     newexits = [link for link in block.exits
                      if link.exitcase == const.value]
     if len(newexits) == 0:
@@ -127,13 +125,12 @@ def simplify_exceptions(graph):
     chain of is_/issubtype tests. We collapse them all into
     the block's single list of exits.
     """
-    clastexc = c_last_exception
     renaming = {}
     def rename(v):
         return renaming.get(v, v)
 
     for block in graph.iterblocks():
-        if not (block.exitswitch == clastexc
+        if not (block.canraise
                 and block.exits[-1].exitcase is Exception):
             continue
         covered = [link.exitcase for link in block.exits[1:-1]]
@@ -193,8 +190,8 @@ def simplify_exceptions(graph):
 def transform_xxxitem(graph):
     # xxx setitem too
     for block in graph.iterblocks():
-        if block.operations and block.exitswitch == c_last_exception:
-            last_op = block.operations[-1]
+        if block.canraise:
+            last_op = block.raising_op
             if last_op.opname == 'getitem':
                 postfx = []
                 for exit in block.exits:
@@ -211,9 +208,6 @@ def transform_xxxitem(graph):
 
 def remove_dead_exceptions(graph):
     """Exceptions can be removed if they are unreachable"""
-
-    clastexc = c_last_exception
-
     def issubclassofmember(cls, seq):
         for member in seq:
             if member and issubclass(cls, member):
@@ -221,7 +215,7 @@ def remove_dead_exceptions(graph):
         return False
 
     for block in list(graph.iterblocks()):
-        if block.exitswitch != clastexc:
+        if not block.canraise:
             continue
         exits = []
         seen = []
@@ -257,7 +251,7 @@ def constfold_exitswitch(graph):
             continue
         source = link.prevblock
         switch = source.exitswitch
-        if (isinstance(switch, Constant) and switch != c_last_exception):
+        if (isinstance(switch, Constant) and not source.canraise):
             exits = replace_exitswitch_by_constant(source, switch)
             stack.extend(exits)
         else:
@@ -334,7 +328,8 @@ def join_blocks(graph):
             newexitswitch = rename(link.target.exitswitch)
             link.prevblock.exitswitch = newexitswitch
             link.prevblock.recloseblock(*exits)
-            if isinstance(newexitswitch, Constant) and newexitswitch != c_last_exception:
+            if (isinstance(newexitswitch, Constant) and
+                    not link.prevblock.canraise):
                 exits = replace_exitswitch_by_constant(link.prevblock,
                                                        newexitswitch)
             stack.extend(exits)
@@ -358,7 +353,7 @@ def remove_assertion_errors(graph):
                 # can we remove this exit without breaking the graph?
                 if len(block.exits) < 2:
                     break
-                if block.exitswitch == c_last_exception:
+                if block.canraise:
                     if exit.exitcase is None:
                         break
                     if len(block.exits) == 2:
@@ -460,12 +455,7 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
     start_blocks = find_start_blocks(graphs)
 
     def canremove(op, block):
-        if op.opname not in CanRemove:
-            return False
-        if block.exitswitch != c_last_exception:
-            return True
-        # cannot remove the exc-raising operation
-        return op is not block.operations[-1]
+        return op.opname in CanRemove and op is not block.raising_op
 
     # compute dependencies and an initial read_vars
     for block in blocks:
@@ -535,9 +525,8 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
                     if translator is not None:
                         graph = get_graph(op.args[0], translator)
                         if (graph is not None and
-                            has_no_side_effects(translator, graph) and
-                            (block.exitswitch != c_last_exception or
-                             i != len(block.operations)- 1)):
+                                has_no_side_effects(translator, graph) and
+                                op is not block.raising_op):
                             del block.operations[i]
         # look for output variables never used
         # warning: this must be completely done *before* we attempt to
@@ -781,9 +770,8 @@ def detect_list_comprehension(graph):
     # collect relevant operations based on the family of their result
     for block in graph.iterblocks():
         if (len(block.operations) == 1 and
-            block.operations[0].opname == 'next' and
-            block.exitswitch == c_last_exception and
-            len(block.exits) >= 2):
+                block.operations[0].opname == 'next' and
+                block.canraise and len(block.exits) >= 2):
             cases = [link.exitcase for link in block.exits]
             if None in cases and StopIteration in cases:
                 # it's a straightforward loop start block

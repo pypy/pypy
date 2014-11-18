@@ -1,5 +1,5 @@
 from rpython.memory.gctransform.transform import BaseGCTransformer
-from rpython.flowspace.model import c_last_exception, Variable
+from rpython.flowspace.model import Variable
 from rpython.translator.backendopt.support import var_needsgc
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.exceptiontransform import ExceptionTransformer
@@ -119,8 +119,8 @@ def checkblock(block, is_borrowed, is_start_block):
     if pop_alives == len(block.operations):
         # it's a block we inserted
         return
+    assert not block.canraise
     for link in block.exits:
-        assert block.exitswitch is not c_last_exception
         refs_out = 0
         for v2 in link.target.inputargs:
             if var_needsgc(v2) and not is_borrowed(v2):

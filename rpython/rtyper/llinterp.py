@@ -5,8 +5,7 @@ import traceback
 
 import py
 
-from rpython.flowspace.model import (FunctionGraph, Constant, Variable,
-    c_last_exception)
+from rpython.flowspace.model import (FunctionGraph, Constant, Variable)
 from rpython.rlib import rstackovf
 from rpython.rlib.objectmodel import (ComputedIntSymbolic, CDefinedIntSymbolic,
     Symbolic)
@@ -271,7 +270,6 @@ class LLFrame(object):
             is None, values is the concrete return value.
         """
         self.curr_block = block
-        catch_exception = block.exitswitch == c_last_exception
         e = None
 
         try:
@@ -279,7 +277,7 @@ class LLFrame(object):
                 self.curr_operation_index = i
                 self.eval_operation(op)
         except LLException, e:
-            if not (catch_exception and op is block.operations[-1]):
+            if op is not block.raising_op:
                 raise
         except RuntimeError, e:
             rstackovf.check_stack_overflow()
@@ -291,7 +289,7 @@ class LLFrame(object):
             evalue = exdata.get_standard_ll_exc_instance(rtyper, classdef)
             etype = exdata.fn_type_of_exc_inst(evalue)
             e = LLException(etype, evalue)
-            if not (catch_exception and op is block.operations[-1]):
+            if op is not block.raising_op:
                 raise e
 
         # determine nextblock and/or return value
@@ -333,7 +331,7 @@ class LLFrame(object):
             # single-exit block
             assert len(block.exits) == 1
             link = block.exits[0]
-        elif catch_exception:
+        elif block.canraise:
             link = block.exits[0]
             if e:
                 exdata = self.llinterpreter.typer.exceptiondata

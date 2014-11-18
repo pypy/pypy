@@ -153,6 +153,13 @@ class Link(object):
 
     view = show
 
+last_exception = Atom('last_exception')
+c_last_exception = Constant(last_exception)
+# if Block().exitswitch == Constant(last_exception), it means that we are
+# interested in catching the exception that the *last operation* of the
+# block could raise.  The exitcases of the links are None for no exception
+# or XxxError classes to catch the matching exceptions.
+
 
 class Block(object):
     __slots__ = """inputargs operations exitswitch
@@ -186,6 +193,15 @@ class Block(object):
         if self.exitswitch:
             txt = "%s(%s)" % (txt, self.exitswitch)
         return txt
+
+    @property
+    def canraise(self):
+        return self.exitswitch is c_last_exception
+
+    @property
+    def raising_op(self):
+        if self.canraise:
+            return self.operations[-1]
 
     def getvariables(self):
         "Return all variables mentioned in this Block."
@@ -453,13 +469,6 @@ class Atom(object):
     def __repr__(self):
         return self.__name__
 
-last_exception = Atom('last_exception')
-c_last_exception = Constant(last_exception)
-# if Block().exitswitch == Constant(last_exception), it means that we are
-# interested in catching the exception that the *last operation* of the
-# block could raise.  The exitcases of the links are None for no exception
-# or XxxError classes to catch the matching exceptions.
-
 def uniqueitems(lst):
     "Returns a list with duplicate elements removed."
     result = []
@@ -613,11 +622,11 @@ def checkgraph(graph):
                 assert len(block.exits) <= 1
                 if block.exits:
                     assert block.exits[0].exitcase is None
-            elif block.exitswitch == Constant(last_exception):
+            elif block.canraise:
                 assert len(block.operations) >= 1
                 # check if an exception catch is done on a reasonable
                 # operation
-                assert block.operations[-1].opname not in ("keepalive",
+                assert block.raising_op.opname not in ("keepalive",
                                                            "cast_pointer",
                                                            "same_as")
                 assert len(block.exits) >= 2

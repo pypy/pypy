@@ -1,4 +1,4 @@
-from rpython.flowspace.model import Variable, Constant, c_last_exception
+from rpython.flowspace.model import Variable, Constant
 from rpython.jit.metainterp.history import AbstractDescr, getkind
 from rpython.rtyper.lltypesystem import lltype
 
@@ -167,7 +167,7 @@ class GraphFlattener(object):
             # up in the manually hacked graphs for generators...
             self.make_link(link)
         #
-        elif block.exitswitch is c_last_exception:
+        elif block.canraise:
             # An exception block. See test_exc_exitswitch in test_flatten.py
             # for an example of what kind of code this makes.
             index = -1
@@ -184,7 +184,7 @@ class GraphFlattener(object):
                     # actually a '-live-'
                     self.make_link(block.exits[0])
                     return
-            # 
+            #
             self.emitline('catch_exception', TLabel(block.exits[0]))
             self.make_link(block.exits[0])
             self.emitline(Label(block.exits[0]))
