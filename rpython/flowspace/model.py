@@ -153,13 +153,6 @@ class Link(object):
 
     view = show
 
-last_exception = Atom('last_exception')
-c_last_exception = Constant(last_exception)
-# if Block().exitswitch == Constant(last_exception), it means that we are
-# interested in catching the exception that the *last operation* of the
-# block could raise.  The exitcases of the links are None for no exception
-# or XxxError classes to catch the matching exceptions.
-
 
 class Block(object):
     __slots__ = """inputargs operations exitswitch
@@ -468,6 +461,13 @@ class Atom(object):
         self.__name__ = name  # make save_global happy
     def __repr__(self):
         return self.__name__
+
+last_exception = Atom('last_exception')
+c_last_exception = Constant(last_exception)
+# if Block().exitswitch == Constant(last_exception), it means that we are
+# interested in catching the exception that the *last operation* of the
+# block could raise.  The exitcases of the links are None for no exception
+# or XxxError classes to catch the matching exceptions.
 
 def uniqueitems(lst):
     "Returns a list with duplicate elements removed."
