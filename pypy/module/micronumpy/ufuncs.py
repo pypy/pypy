@@ -699,7 +699,8 @@ class W_UfuncGeneric(W_Ufunc):
         # TODO parse and handle subok
         # TODO handle flags, op_flags
         w_flags = space.w_None #space.newlist([space.wrap('external_loop')])
-        w_op_flags = space.w_None
+        w_op_flags = space.newtuple([space.wrap(['readonly'])] * len(inargs) + \
+                                    [space.wrap(['readwrite'])] * len(outargs))
         w_op_dtypes = space.w_None
         w_casting = space.w_None
         w_itershape = space.newlist([space.wrap(i) for i in iter_shape]) 
@@ -708,7 +709,6 @@ class W_UfuncGeneric(W_Ufunc):
         # mimic NpyIter_AdvancedNew with a nditer
 
         if self.stack_inputs:
-            inargs = inargs + outargs
             nd_it = W_NDIter(space, space.newlist(inargs + outargs), w_flags,
                           w_op_flags, w_op_dtypes, w_casting, w_op_axes,
                           w_itershape)

@@ -162,10 +162,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_frompyfunc_2d_sig(self):
         def times_2(in_array, out_array):
-            in_flat = in_array.flat
-            out_flat = out_array.flat
-            for i in range(in_array.size):
-                out_flat[i] = in_flat[i] * 2
+            assert len(in_array.shape) == 2
+            assert in_array.shape == out_array.shape
+            out_array[:] = in_array * 2
         from numpy import frompyfunc, dtype, arange
         ufunc = frompyfunc([times_2], 1, 1,
                             signature='(m,m)->(m,m)',
@@ -176,7 +175,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         exc = raises(ValueError, ufunc, ai[:,:,0])
         assert "mismatch in its core dimension 1" in exc.value.message
         ai2 = ufunc(ai)
-        assert all(ai1 == ai * 2)
+        assert (ai2 == ai * 2).all()
 
     def test_ufunc_kwargs(self):
         from numpy import ufunc, frompyfunc, arange, dtype
