@@ -31,7 +31,7 @@ def plot_hlines(hlines, y, ax):
             x1, x2, color in hlines]
     # flatten:
     args = [item for sublist in args for item in sublist]
-    ax.plot(*args, linewidth=3, antialiased=False, rasterized=True)
+    ax.plot(*args, linewidth=5, antialiased=False, rasterized=True)
 
 
 ####################################
@@ -46,7 +46,7 @@ def add_hline(hlines, x1, x2, color):
 
 
 def add_transaction(boxes, hlines, inited, inevitabled,
-                    ended, aborted, atomics, info=""):
+                    ended, aborted, pauses, info=""):
     assert inited is not None
 
     if inevitabled is not None:
@@ -57,7 +57,7 @@ def add_transaction(boxes, hlines, inited, inevitabled,
     else:
         add_box(boxes, inited, ended, 'r', info)
 
-    for start, end in atomics:
+    for start, end in pauses:
         add_hline(hlines, start, end, 'magenta')
 
 
@@ -97,27 +97,33 @@ def plot_log(logentries, ax):
                 del curr_trs[th_num]
         elif entry.event in (psl.STM_WAIT_SYNC_PAUSE, psl.STM_WAIT_CONTENTION,
                              psl.STM_WAIT_FREE_SEGMENT):
-            pass
+            tr = curr_trs.get(th_num)
+            if tr is not None:
+                tr.pauses.append((entry.timestamp, entry.timestamp))
         elif entry.event == psl.STM_WAIT_DONE:
-            pass
+            tr = curr_trs.get(th_num)
+            if tr is not None:
+                tr.pauses[-1] = (tr.pauses[-1][0], entry.timestamp)
 
 
-    plt.ion()
+    # plt.ion()
     for th_num, trs in finished_trs.items():
-        plt.draw()
-        plt.show()
+        # plt.draw()
+        # plt.show()
         print "Thread", th_num
+        print "> Transactions:", len(trs)
 
         boxes = []
         hlines = []
         for tr in trs:
             add_transaction(boxes, hlines,
                             tr.start_time, None, tr.stop_time,
-                            tr.aborted, [])
+                            tr.aborted, tr.pauses)
         plot_boxes(boxes, th_num, ax)
         plot_hlines(hlines, th_num, ax)
+        print "> Pauses:", len(hlines)
 
-    plt.ioff()
+    # plt.ioff()
 
     return finished_trs
 
