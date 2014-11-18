@@ -3,11 +3,11 @@ from rpython.jit.metainterp.history import (AbstractFailDescr,
                                          AbstractDescr,
                                          BasicFailDescr,
                                          BasicFinalDescr,
-                                         BoxInt, Box, BoxPtr,
                                          JitCellToken, TargetToken,
                                          ConstInt, ConstPtr,
-                                         BoxFloat, ConstFloat)
-from rpython.jit.metainterp.resoperation import ResOperation, rop, InputArgInt
+                                         ConstFloat)
+from rpython.jit.metainterp.resoperation import ResOperation, rop, InputArgInt,\
+     InputArgFloat
 from rpython.jit.metainterp.typesystem import deref
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.tool.oparser import parse
@@ -24,9 +24,6 @@ from rpython.jit.backend.llsupport import jitframe
 
 IS_32_BIT = sys.maxint < 2**32
 IS_64_BIT = sys.maxint > 2**32
-
-def boxfloat(x):
-    return BoxFloat(longlong.getfloatstorage(x))
 
 def constfloat(x):
     return ConstFloat(longlong.getfloatstorage(x))
@@ -139,12 +136,10 @@ class BaseBackendTest(Runner):
     def test_compile_linear_float_loop(self):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
-        i0 = BoxFloat()
-        i1 = BoxFloat()
-        operations = [
-            ResOperation(rop.FLOAT_ADD, [i0, constfloat(2.3)], i1),
-            ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(1))
-            ]
+        i0 = InputArgFloat()
+        op0 = ResOperation(rop.FLOAT_ADD, [i0, constfloat(2.3)])
+        op1 = ResOperation(rop.FINISH, [op0], descr=BasicFinalDescr(1))
+        operations = [op0, op1]
         inputargs = [i0]
         looptoken = JitCellToken()
         self.cpu.compile_loop(inputargs, operations, looptoken)
@@ -157,20 +152,17 @@ class BaseBackendTest(Runner):
         assert fail.identifier == 1
 
     def test_compile_loop(self):
-        i0 = BoxInt()
-        i1 = BoxInt()
-        i2 = BoxInt()
         looptoken = JitCellToken()
         targettoken = TargetToken()
-        operations = [
-            ResOperation(rop.LABEL, [i0], None, descr=targettoken),
-            ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
-            ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
-            ResOperation(rop.GUARD_TRUE, [i2], None, descr=BasicFailDescr(2)),
-            ResOperation(rop.JUMP, [i1], None, descr=targettoken),
-            ]
+        i0 = InputArgInt()
+        op0 = ResOperation(rop.LABEL, [i0], descr=targettoken)
+        op1 = ResOperation(rop.INT_ADD, [i0, ConstInt(1)])
+        op2 = ResOperation(rop.INT_LE, [op1, ConstInt(9)])
+        op3 = ResOperation(rop.GUARD_TRUE, [op2], descr=BasicFailDescr(2))
+        op4 = ResOperation(rop.JUMP, [op1], descr=targettoken)
+        operations = [op0, op1, op2, op3, op4]
         inputargs = [i0]
-        operations[3].setfailargs([i1])
+        operations[3].setfailargs([op1])
 
         self.cpu.compile_loop(inputargs, operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken, 2)
@@ -1702,12 +1694,12 @@ class BaseBackendTest(Runner):
         from rpython.rlib.rfloat import INFINITY, NAN, isinf, isnan
         from rpython.jit.metainterp.resoperation import opname
 
-        fzer = boxfloat(0.0)
-        fone = boxfloat(1.0)
-        fmqr = boxfloat(-0.25)
-        finf = boxfloat(INFINITY)
-        fmnf = boxfloat(-INFINITY)
-        fnan = boxfloat(NAN)
+        fzer = 0.0
+        fone = 1.0
+        fmqr = -0.25
+        finf = INFINITY
+        fmnf = -INFINITY
+        fnan = NAN
 
         all_cases_unary =  [(a,)   for a in [fzer,fone,fmqr,finf,fmnf,fnan]]
         all_cases_binary = [(a, b) for a in [fzer,fone,fmqr,finf,fmnf,fnan]
