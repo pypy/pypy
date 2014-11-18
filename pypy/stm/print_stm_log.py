@@ -187,7 +187,8 @@ def dump(logentries):
                 t2 = threads.get(entry.otherthreadnum)
                 if t2 is not None and t2.in_transaction():
                     t2._conflict = ("remote", c, entry)
-        elif entry.event in (STM_WAIT_SYNC_PAUSE, STM_WAIT_CONTENTION):
+        elif entry.event in (STM_WAIT_SYNC_PAUSE, STM_WAIT_CONTENTION,
+                             STM_WAIT_FREE_SEGMENT):
             t = threads.get(entry.threadnum)
             if t is not None and t.in_transaction():
                 t.transaction_pause(entry)
