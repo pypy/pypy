@@ -887,10 +887,10 @@ class TestTrackAllocation:
     def test_str_from_buffer(self):
         """gc-managed memory does not need to be freed"""
         size = 50
-        raw_buf, gc_buf = rffi.alloc_buffer(size)
+        raw_buf, gc_buf, case_num = rffi.alloc_buffer(size)
         for i in range(size): raw_buf[i] = 'a'
-        rstr = rffi.str_from_buffer(raw_buf, gc_buf, size, size)
-        rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+        rstr = rffi.str_from_buffer(raw_buf, gc_buf, case_num, size, size)
+        rffi.keep_buffer_alive_until_here(raw_buf, gc_buf, case_num)
         assert not leakfinder.ALLOCATED
 
     def test_leak_traceback(self):

@@ -249,6 +249,8 @@ class Assembler(object):
             if isinstance(TYPE, lltype.FuncType):
                 name = value._obj._name
             elif TYPE == rclass.OBJECT_VTABLE:
+                if not value.name:    # this is really the "dummy" class
+                    return            #   pointer from some dict
                 name = ''.join(value.name.chars)
             else:
                 return

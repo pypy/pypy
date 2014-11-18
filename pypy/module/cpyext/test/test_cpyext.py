@@ -77,7 +77,6 @@ def compile_extension_module(space, modname, **kwds):
 
     modname = modname.split('.')[-1]
     eci = ExternalCompilationInfo(
-        export_symbols=['init%s' % (modname,)],
         include_dirs=api.include_dirs,
         **kwds
         )
@@ -103,7 +102,7 @@ def freeze_refcnts(self):
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = dict(usemodules=['cpyext', 'thread', '_rawffi', 'array',
-                                   'itertools', 'rctime', 'binascii', 'micronumpy'])
+                                   'itertools', 'time', 'binascii', 'micronumpy'])
     spaceconfig['std.withmethodcache'] = True
 
     enable_leak_checking = True
@@ -263,7 +262,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 #include <Python.h>
                 %(body)s
 
-                void init%(name)s(void) {
+                PyMODINIT_FUNC
+                init%(name)s(void) {
                 %(init)s
                 }
                 """ % dict(name=name, init=init, body=body,

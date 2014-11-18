@@ -14,7 +14,7 @@
 #define PyObject_Free free
 #else
 /* allocation functions prototypes */
-void *PyObject_Malloc(size_t n);
-void *PyObject_Realloc(void *p, size_t n);
-void PyObject_Free(void *p);
+RPY_EXTERN void *PyObject_Malloc(size_t n);
+RPY_EXTERN void *PyObject_Realloc(void *p, size_t n);
+RPY_EXTERN void PyObject_Free(void *p);
 #endif

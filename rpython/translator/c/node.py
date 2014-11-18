@@ -496,7 +496,7 @@ class ContainerNode(Node):
         with_stm = self.db.with_stm and T._gckind == 'gc'
         if obj in exports.EXPORTS_obj2name:
             self.name = exports.EXPORTS_obj2name[obj]
-            self.globalcontainer = True
+            self.globalcontainer = 2    # meh
         elif parent is None:
             if with_stm:
                 basename = '%d_%s' % (db.prebuilt_gc_counter, self.basename())
@@ -537,6 +537,9 @@ class ContainerNode(Node):
         return hasattr(T, "_hints") and (T._hints.get('thread_local') or (
                   T._hints.get('stm_thread_local') and self.db.with_stm))
 
+    def is_exported(self):
+        return self.globalcontainer == 2    # meh
+
     def compilation_info(self):
         return getattr(self.obj, self.eci_name, None)
 
@@ -556,7 +559,8 @@ class ContainerNode(Node):
         type, name = self.get_declaration()
         yield '%s;' % (
             forward_cdecl(type, name, self.db.standalone,
-                          self.is_thread_local()))
+                          is_thread_local=self.is_thread_local(),
+                          is_exported=self.is_exported()))
 
     def implementation(self):
         if llgroup.member_of_group(self.obj):
@@ -880,10 +884,13 @@ class FuncNode(ContainerNode):
         return self.funcgens[0].allconstantvalues() #Assume identical for all funcgens
 
     def forward_declaration(self):
+        callable = getattr(self.obj, '_callable', None)
+        is_exported = getattr(callable, 'exported_symbol', False)
         for funcgen in self.funcgens:
             yield '%s;' % (
                 forward_cdecl(self.implementationtypename,
-                    funcgen.name(self.name), self.db.standalone))
+                    funcgen.name(self.name), self.db.standalone,
+                    is_exported=is_exported))
 
     def implementation(self):
         for funcgen in self.funcgens:

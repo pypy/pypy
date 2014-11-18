@@ -14,7 +14,8 @@ from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.resoperation import rop, StmLocation
 from rpython.rlib import nonconst, rstack
-from rpython.rlib.debug import debug_start, debug_stop, debug_print, make_sure_not_resized
+from rpython.rlib.debug import debug_start, debug_stop, debug_print
+from rpython.rlib.debug import have_debug_prints, make_sure_not_resized
 from rpython.rlib.jit import Counters
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.unroll import unrolling_iterable
@@ -32,6 +33,14 @@ def arguments(*args):
 
 # ____________________________________________________________
 
+FASTPATHS_SAME_BOXES = {
+    "ne": "history.CONST_FALSE",
+    "eq": "history.CONST_TRUE",
+    "lt": "history.CONST_FALSE",
+    "le": "history.CONST_TRUE",
+    "gt": "history.CONST_FALSE",
+    "ge": "history.CONST_TRUE",
+}
 
 class MIFrame(object):
     debug = False
@@ -220,8 +229,6 @@ class MIFrame(object):
                                                     None, [])
 
     for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
-                    'int_lt', 'int_le', 'int_eq',
-                    'int_ne', 'int_gt', 'int_ge',
                     'int_and', 'int_or', 'int_xor',
                     'int_rshift', 'int_lshift', 'uint_rshift',
                     'uint_lt', 'uint_le', 'uint_gt', 'uint_ge',
@@ -229,13 +236,24 @@ class MIFrame(object):
                     'float_add', 'float_sub', 'float_mul', 'float_truediv',
                     'float_lt', 'float_le', 'float_eq',
                     'float_ne', 'float_gt', 'float_ge',
-                    'ptr_eq', 'ptr_ne', 'instance_ptr_eq', 'instance_ptr_ne',
                     ]:
         exec py.code.Source('''
             @arguments("box", "box")
             def opimpl_%s(self, b1, b2):
                 return self.execute(rop.%s, b1, b2)
         ''' % (_opimpl, _opimpl.upper())).compile()
+
+    for _opimpl in ['int_eq', 'int_ne', 'int_lt', 'int_le', 'int_gt', 'int_ge',
+                    'ptr_eq', 'ptr_ne',
+                    'instance_ptr_eq', 'instance_ptr_ne']:
+        exec py.code.Source('''
+            @arguments("box", "box")
+            def opimpl_%s(self, b1, b2):
+                if b1 is b2: # crude fast check
+                    return %s
+                return self.execute(rop.%s, b1, b2)
+        ''' % (_opimpl, FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
+        ).compile()
 
     for _opimpl in ['int_add_ovf', 'int_sub_ovf', 'int_mul_ovf']:
         exec py.code.Source('''
@@ -372,10 +390,13 @@ class MIFrame(object):
         exec py.code.Source('''
             @arguments("box", "box", "label")
             def opimpl_goto_if_not_%s(self, b1, b2, target):
-                condbox = self.execute(rop.%s, b1, b2)
+                if b1 is b2:
+                    condbox = %s
+                else:
+                    condbox = self.execute(rop.%s, b1, b2)
                 self.opimpl_goto_if_not(condbox, target)
-        ''' % (_opimpl, _opimpl.upper())).compile()
-
+        ''' % (_opimpl, FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
+        ).compile()
 
     def _establish_nullity(self, box, orgpc):
         value = box.nonnull()
@@ -1134,8 +1155,9 @@ class MIFrame(object):
 
     def debug_merge_point(self, jitdriver_sd, jd_index, portal_call_depth, current_call_id, greenkey):
         # debugging: produce a DEBUG_MERGE_POINT operation
-        loc = jitdriver_sd.warmstate.get_location_str(greenkey)
-        debug_print(loc)
+        if have_debug_prints():
+            loc = jitdriver_sd.warmstate.get_location_str(greenkey)
+            debug_print(loc)
         args = [ConstInt(jd_index), ConstInt(portal_call_depth), ConstInt(current_call_id)] + greenkey
         self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
         #
@@ -1197,10 +1219,7 @@ class MIFrame(object):
 
     @arguments("box", "box", "box", "box", "box")
     def opimpl_jit_debug(self, stringbox, arg1box, arg2box, arg3box, arg4box):
-        from rpython.rtyper.lltypesystem import rstr
-        from rpython.rtyper.annlowlevel import hlstr
-        msg = stringbox.getref(lltype.Ptr(rstr.STR))
-        debug_print('jit_debug:', hlstr(msg),
+        debug_print('jit_debug:', stringbox._get_str(),
                     arg1box.getint(), arg2box.getint(),
                     arg3box.getint(), arg4box.getint())
         args = [stringbox, arg1box, arg2box, arg3box, arg4box]
@@ -1354,8 +1373,6 @@ class MIFrame(object):
             while True:
                 pc = self.pc
                 op = ord(self.bytecode[pc])
-                #debug_print(self.jitcode.name, pc)
-                #print staticdata.opcode_names[op]
                 staticdata.opcode_implementations[op](self, pc)
         except ChangeFrame:
             pass

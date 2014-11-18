@@ -1,5 +1,6 @@
 import gc, time
 from rpython.rlib.rthread import *
+from rpython.rlib.rarithmetic import r_longlong
 from rpython.translator.c.test.test_boehm import AbstractGCTestClass
 from rpython.rtyper.lltypesystem import lltype, rffi
 import py
@@ -187,6 +188,15 @@ class AbstractThreadTests(AbstractGCTestClass):
         fn = self.getcompiled(f, [])
         res = fn()
         assert res < -1.0
+
+    def test_acquire_timed_huge_timeout(self):
+        t = r_longlong(2 ** 61)
+        def f():
+            l = allocate_lock()
+            return l.acquire_timed(t)
+        fn = self.getcompiled(f, [])
+        res = fn()
+        assert res == 1       # RPY_LOCK_ACQUIRED
 
     def test_acquire_timed_alarm(self):
         import sys

@@ -63,9 +63,6 @@ class AppTestNDIter(BaseNumpyAppTest):
         from numpy import arange, nditer, array
         a = arange(24).reshape(2, 3, 4)
         import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, nditer, a, flags=['external_loop'])
-            skip('nditer external_loop not implmented')
         r = []
         n = 0
         for x in nditer(a, flags=['external_loop']):
@@ -79,7 +76,9 @@ class AppTestNDIter(BaseNumpyAppTest):
             r.append(x)
             n += 1
         assert n == 12
-        assert (array(r) == [[ 0, 12], [ 4, 16], [ 8, 20], [ 1, 13], [ 5, 17], [ 9, 21], [ 2, 14], [ 6, 18], [10, 22], [ 3, 15], [ 7, 19], [11, 23]]).all()
+        assert (array(r) == [[ 0, 12], [ 4, 16], [ 8, 20], [ 1, 13], [ 5, 17], [ 9, 21],
+                             [ 2, 14], [ 6, 18], [10, 22], [ 3, 15], [ 7, 19], [11, 23],
+                            ]).all()
         e = raises(ValueError, 'r[0][0] = 0')
         assert str(e.value) == 'assignment destination is read-only'
         r = []
@@ -222,9 +221,6 @@ class AppTestNDIter(BaseNumpyAppTest):
     def test_outarg(self):
         from numpy import nditer, zeros, arange
         import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, nditer, [1, 2], flags=['external_loop'])
-            skip('nditer external_loop not implmented')
 
         def square1(a):
             it = nditer([a, None])
@@ -233,6 +229,9 @@ class AppTestNDIter(BaseNumpyAppTest):
             return it.operands[1]
         assert (square1([1, 2, 3]) == [1, 4, 9]).all()
 
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, nditer, [1, 2], flags=['buffered'])
+            skip('nditer buffered not implmented')
         def square2(a, out=None):
             it = nditer([a, out], flags=['external_loop', 'buffered'],
                         op_flags=[['readonly'],
@@ -252,10 +251,11 @@ class AppTestNDIter(BaseNumpyAppTest):
         from numpy import nditer, arange
         a = arange(3)
         import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, nditer, a, flags=['external_loop'])
-            skip('nditer external_loop not implmented')
         b = arange(8).reshape(2,4)
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, nditer, [a, b, None], flags=['external_loop'],
+                   op_axes=[[0, -1, -1], [-1, 0, 1], None])
+            skip('nditer op_axes not implemented yet')
         it = nditer([a, b, None], flags=['external_loop'],
                     op_axes=[[0, -1, -1], [-1, 0, 1], None])
         for x, y, z in it:

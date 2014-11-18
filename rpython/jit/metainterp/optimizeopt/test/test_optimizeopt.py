@@ -1558,6 +1558,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_varray_clear_unroll_bug(self):
+        ops = """
+        [p0]
+        i0 = getarrayitem_gc(p0, 0, descr=arraydescr)
+        i1 = getarrayitem_gc(p0, 1, descr=arraydescr)
+        i2 = getarrayitem_gc(p0, 2, descr=arraydescr)
+        i3 = int_add(i0, i1)
+        i4 = int_add(i3, i2)
+        p1 = new_array_clear(3, descr=arraydescr)
+        setarrayitem_gc(p1, 1, i4, descr=arraydescr)
+        setarrayitem_gc(p1, 0, 25, descr=arraydescr)
+        jump(p1)
+        """
+        expected = """
+        [i1]
+        i2 = int_add(25, i1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_varray_alloc_and_set(self):
         ops = """
         [i1]
@@ -2001,6 +2021,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [f1]
         f2 = float_add(f1, f1)
         jump(f2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_raw_buffer_forced_but_slice_not_forced(self):
+        ops = """
+        [f1]
+        i0 = call('malloc', 16, descr=raw_malloc_descr)
+        guard_no_exception() []
+        i1 = int_add(i0, 8)
+        escape(i0)
+        setarrayitem_raw(i1, 0, f1, descr=rawarraydescr_float)
+        jump(f1)
+        """
+        expected = """
+        [f1]
+        i0 = call('malloc', 16, descr=raw_malloc_descr)
+        #guard_no_exception() []  # XXX should appear
+        escape(i0)
+        i1 = int_add(i0, 8)
+        setarrayitem_raw(i1, 0, f1, descr=rawarraydescr_float)
+        jump(f1)
         """
         self.optimize_loop(ops, expected)
 

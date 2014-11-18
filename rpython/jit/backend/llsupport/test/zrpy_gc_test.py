@@ -10,6 +10,7 @@ from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.jit import JitDriver, dont_look_inside, promote
 from rpython.rlib.jit import elidable, unroll_safe
+from rpython.rlib.jit import promote
 from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
 from rpython.tool.udir import udir
 from rpython.config.translationoption import DEFL_GC
@@ -21,6 +22,12 @@ class X(object):
         self.x = x
 
     next = None
+
+class Y(object):
+    # for pinning tests we need an object without references to other
+    # objects
+    def __init__(self, x=0):
+        self.x = x
 
 class CheckError(Exception):
     pass
@@ -889,3 +896,120 @@ class CompileFrameworkTests(BaseFrameworkTests):
     def test_compile_framework_call_assembler2(self):
         self.run('compile_framework_call_assembler2')
 
+    def define_pinned_simple(cls):
+        class H:
+            inst = None
+        helper = H()
+
+        @dont_look_inside
+        def get_y():
+            if not helper.inst:
+                helper.inst = Y()
+                helper.inst.x = 101
+                check(rgc.pin(helper.inst))
+            else:
+                check(rgc._is_pinned(helper.inst))
+            return helper.inst
+
+        def fn(n, x, *args):
+            t = get_y()
+            promote(t)
+            t.x += 11
+            n -= 1
+            return (n, x) + args
+
+        return None, fn, None
+
+    def test_pinned_simple(self):
+        self.run('pinned_simple')
+
+    def define_pinned_unpin(cls):
+        class H:
+            inst = None
+            pinned = False
+            count_pinned = 0
+            count_unpinned = 0
+        helper = H()
+
+        @dont_look_inside
+        def get_y(n):
+            if not helper.inst:
+                helper.inst = Y()
+                helper.inst.x = 101
+                helper.pinned = True
+                check(rgc.pin(helper.inst))
+            elif n < 100 and helper.pinned:
+                rgc.unpin(helper.inst)
+                helper.pinned = False
+            #
+            if helper.pinned:
+                check(rgc._is_pinned(helper.inst))
+                helper.count_pinned += 1
+            else:
+                check(not rgc._is_pinned(helper.inst))
+                helper.count_unpinned += 1
+            return helper.inst
+
+        def fn(n, x, *args):
+            t = get_y(n)
+            promote(t)
+            check(t.x == 101)
+            n -= 1
+            return (n, x) + args
+
+        def after(n, x, *args):
+            check(helper.count_pinned > 0)
+            check(helper.count_unpinned > 0)
+            check(not helper.pinned)
+
+        return None, fn, after
+
+    def test_pinned_unpin(self):
+        self.run('pinned_unpin')
+
+    def define_multiple_pinned(cls):
+        class H:
+            inst1 = None
+            inst2 = None
+            inst3 = None
+            initialised = False
+        helper = H()
+
+        @dont_look_inside
+        def get_instances():
+            if not helper.initialised:
+                helper.inst1 = Y()
+                helper.inst1.x = 101
+                check(rgc.pin(helper.inst1))
+                #
+                helper.inst2 = Y()
+                helper.inst2.x = 102
+                #
+                helper.inst3 = Y()
+                helper.inst3.x = 103
+                check(rgc.pin(helper.inst3))
+                #
+                helper.initialised = True
+            #
+            check(rgc._is_pinned(helper.inst1))
+            check(not rgc._is_pinned(helper.inst2))
+            check(rgc._is_pinned(helper.inst3))
+            return (helper.inst1, helper.inst2, helper.inst3)
+
+        def fn(n, x, *args):
+            inst1, inst2, inst3 = get_instances()
+            promote(inst1)
+            promote(inst2)
+            promote(inst3)
+            #
+            check(inst1.x == 101)
+            check(inst2.x == 102)
+            check(inst3.x == 103)
+            #
+            n -= 1
+            return (n, x) + args
+        
+        return None, fn, None
+
+    def test_multiple_pinned(self):
+        self.run('multiple_pinned')

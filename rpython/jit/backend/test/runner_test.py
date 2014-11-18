@@ -2763,7 +2763,6 @@ class LLtypeBackendTest(BaseBackendTest):
         NB_TESTS = 100
         c_source = []
         all_tests = []
-        export_symbols = []
 
         def prepare_c_source():
             """Pick a random choice of argument types and length,
@@ -2796,12 +2795,10 @@ class LLtypeBackendTest(BaseBackendTest):
                                            var_name)
                 c_source.append('static %s;' % var_decl)
                 getter_name = '%s_get%d' % (fn_name, i)
-                export_symbols.append(getter_name)
-                c_source.append('void %s(%s) { *p = %s; }' % (
+                c_source.append('RPY_EXPORTED void %s(%s) { *p = %s; }' % (
                     getter_name,
                     primitive.cdecl(primitive.PrimitiveType[ARG], '*p'),
                     var_name))
-            export_symbols.append(fn_name)
             c_source.append('')
             c_source.append('static void real%s(%s)' % (
                 fn_name, ', '.join(fn_args)))
@@ -2809,7 +2806,7 @@ class LLtypeBackendTest(BaseBackendTest):
             for i in range(len(ARGTYPES)):
                 c_source.append('    argcopy_%s_x%d = x%d;' % (fn_name, i, i))
             c_source.append('}')
-            c_source.append('void *%s(void)' % fn_name)
+            c_source.append('RPY_EXPORTED void *%s(void)' % fn_name)
             c_source.append('{')
             c_source.append('    return (void *)&real%s;' % fn_name)
             c_source.append('}')
@@ -2819,8 +2816,7 @@ class LLtypeBackendTest(BaseBackendTest):
             prepare_c_source()
 
         eci = ExternalCompilationInfo(
-            separate_module_sources=['\n'.join(c_source)],
-            export_symbols=export_symbols)
+            separate_module_sources=['\n'.join(c_source)])
 
         for k in range(NB_TESTS):
             ARGTYPES, ffitypes, fn_name = all_tests[k]
@@ -3613,12 +3609,11 @@ class LLtypeBackendTest(BaseBackendTest):
             # value in eax or rax.
             eci = ExternalCompilationInfo(
                 separate_module_sources=["""
-                long fn_test_result_of_call(long x)
+                RPY_EXPORTED long fn_test_result_of_call(long x)
                 {
                     return x + 1;
                 }
-                """],
-                export_symbols=['fn_test_result_of_call'])
+                """])
             f = rffi.llexternal('fn_test_result_of_call', [lltype.Signed],
                                 RESTYPE, compilation_info=eci, _nowrapper=True)
             value = intmask(0xFFEEDDCCBBAA9988)
@@ -3647,12 +3642,11 @@ class LLtypeBackendTest(BaseBackendTest):
             # value in eax or rax.
             eci = ExternalCompilationInfo(
                 separate_module_sources=["""
-                long fn_test_result_of_call(long x)
+                RPY_EXPORTED long fn_test_result_of_call(long x)
                 {
                     return x + 1;
                 }
-                """],
-                export_symbols=['fn_test_result_of_call'])
+                """])
             f = rffi.llexternal('fn_test_result_of_call', [lltype.Signed],
                                 RESTYPE, compilation_info=eci, _nowrapper=True)
             value = intmask(0xFFEEDDCCBBAA9988)
@@ -3681,12 +3675,11 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.rarithmetic import r_longlong
         eci = ExternalCompilationInfo(
             separate_module_sources=["""
-            long long fn_test_result_of_call(long long x)
+            RPY_EXPORTED long long fn_test_result_of_call(long long x)
             {
                 return x - 100000000000000;
             }
-            """],
-            export_symbols=['fn_test_result_of_call'])
+            """])
         f = rffi.llexternal('fn_test_result_of_call', [lltype.SignedLongLong],
                             lltype.SignedLongLong,
                             compilation_info=eci, _nowrapper=True)
@@ -3709,12 +3702,11 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.rarithmetic import r_longlong
         eci = ExternalCompilationInfo(
             separate_module_sources=["""
-            long long fn_test_result_of_call(long long x)
+            RPY_EXPORTED long long fn_test_result_of_call(long long x)
             {
                 return x - 100000000000000;
             }
-            """],
-            export_symbols=['fn_test_result_of_call'])
+            """])
         f = rffi.llexternal('fn_test_result_of_call', [lltype.SignedLongLong],
                             lltype.SignedLongLong,
                             compilation_info=eci, _nowrapper=True)
@@ -3738,12 +3730,11 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.rarithmetic import r_singlefloat
         eci = ExternalCompilationInfo(
             separate_module_sources=["""
-            float fn_test_result_of_call(float x)
+            RPY_EXPORTED float fn_test_result_of_call(float x)
             {
                 return x / 2.0f;
             }
-            """],
-            export_symbols=['fn_test_result_of_call'])
+            """])
         f = rffi.llexternal('fn_test_result_of_call', [lltype.SingleFloat],
                             lltype.SingleFloat,
                             compilation_info=eci, _nowrapper=True)
@@ -3768,12 +3759,11 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.rarithmetic import r_singlefloat
         eci = ExternalCompilationInfo(
             separate_module_sources=["""
-            float fn_test_result_of_call(float x)
+            RPY_EXPORTED float fn_test_result_of_call(float x)
             {
                 return x / 2.0f;
             }
-            """],
-            export_symbols=['fn_test_result_of_call'])
+            """])
         f = rffi.llexternal('fn_test_result_of_call', [lltype.SingleFloat],
                             lltype.SingleFloat,
                             compilation_info=eci, _nowrapper=True)

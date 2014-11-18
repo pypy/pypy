@@ -36,6 +36,17 @@ class ExecutionContext(object):
         if self.space.config.translation.stm:
             from pypy.module._stm.ec import initialize_execution_context
             initialize_execution_context(self)
+        self.thread_disappeared = False   # might be set to True after os.fork()
+
+    @staticmethod
+    def _mark_thread_disappeared(space):
+        # Called in the child process after os.fork() by interp_posix.py.
+        # Marks all ExecutionContexts except the current one
+        # with 'thread_disappeared = True'.
+        me = space.getexecutioncontext()
+        for ec in space.threadlocals.getallvalues().values():
+            if ec is not me:
+                ec.thread_disappeared = True
 
     def gettopframe(self):
         return self.topframeref()

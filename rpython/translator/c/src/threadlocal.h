@@ -2,6 +2,8 @@
 #ifndef _SRC_THREADLOCAL_H
 #define _SRC_THREADLOCAL_H
 
+#include <src/precommondefs.h>
+
 
 #ifdef _WIN32
 
@@ -43,7 +45,7 @@ typedef pthread_key_t RPyThreadTLS;
 #define RPyThreadStaticTLS_Create(key) RPyThreadTLS_Create(key)
 #define RPyThreadStaticTLS_Get(key)    RPyThreadTLS_Get(key)
 #define RPyThreadStaticTLS_Set(key, value) RPyThreadTLS_Set(key, value)
-void RPyThreadTLS_Create(RPyThreadTLS *result);
+RPY_EXTERN void RPyThreadTLS_Create(RPyThreadTLS *result);
 
 #endif
 

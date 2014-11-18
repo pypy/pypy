@@ -201,6 +201,11 @@ def enforceargs(*types_, **kwds):
         return result
     return decorator
 
+def always_inline(func):
+    """ mark the function as to-be-inlined by the RPython optimizations (not
+    the JIT!), no matter its size."""
+    func._always_inline_ = True
+    return func
 
 
 # ____________________________________________________________

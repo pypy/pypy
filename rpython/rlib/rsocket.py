@@ -889,19 +889,15 @@ class RSocket(object):
         """Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  Return the number of bytes
         sent; this may be less than len(data) if the network is busy."""
-        dataptr = rffi.get_nonmovingbuffer(data)
-        try:
+        with rffi.scoped_nonmovingbuffer(data) as dataptr:
             return self.send_raw(dataptr, len(data), flags)
-        finally:
-            rffi.free_nonmovingbuffer(data, dataptr)
 
     def sendall(self, data, flags=0, signal_checker=None):
         """Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  This calls send() repeatedly
         until all data is sent.  If an error occurs, it's impossible
         to tell how much data has been sent."""
-        dataptr = rffi.get_nonmovingbuffer(data)
-        try:
+        with rffi.scoped_nonmovingbuffer(data) as dataptr:
             remaining = len(data)
             p = dataptr
             while remaining > 0:
@@ -914,8 +910,6 @@ class RSocket(object):
                         raise
                 if signal_checker is not None:
                     signal_checker()
-        finally:
-            rffi.free_nonmovingbuffer(data, dataptr)
 
     def sendto(self, data, flags, address):
         """Like send(data, flags) but allows specifying the destination
@@ -1344,8 +1338,7 @@ if hasattr(_c, 'inet_ntop'):
             raise RSocketError("unknown address family")
         if len(packed) != srcsize:
             raise ValueError("packed IP wrong length for inet_ntop")
-        srcbuf = rffi.get_nonmovingbuffer(packed)
-        try:
+        with rffi.scoped_nonmovingbuffer(packed) as srcbuf:
             dstbuf = mallocbuf(dstsize)
             try:
                 res = _c.inet_ntop(family, rffi.cast(rffi.VOIDP, srcbuf),
@@ -1355,8 +1348,6 @@ if hasattr(_c, 'inet_ntop'):
                 return rffi.charp2str(res)
             finally:
                 lltype.free(dstbuf, flavor='raw')
-        finally:
-            rffi.free_nonmovingbuffer(packed, srcbuf)
 
 def setdefaulttimeout(timeout):
     if timeout < 0.0:

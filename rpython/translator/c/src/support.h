@@ -27,12 +27,14 @@
 #  define RPyAssert(x, msg)                                             \
      if (!(x)) RPyAssertFailed(__FILE__, __LINE__, __FUNCTION__, msg)
 
+RPY_EXTERN
 void RPyAssertFailed(const char* filename, long lineno,
                      const char* function, const char *msg);
 #else
 #  define RPyAssert(x, msg)   /* nothing */
 #endif
 
+RPY_EXTERN
 void RPyAbort(void);
 
 #if defined(RPY_LL_ASSERT) || defined(RPY_SANDBOXED)
@@ -49,12 +51,12 @@ void RPyAbort(void);
      ((RPyCHECK((index) >= 0 && (index) < (array)->length),                 \
       (array))->items[index])
 #  define RPyFxItem(ptr, index, fixedsize)                                  \
-     ((RPyCHECK((ptr) && (index) >= 0 && (index) < (fixedsize)),            \
+     ((RPyCHECK((ptr) != NULL && (index) >= 0 && (index) < (fixedsize)),    \
       (ptr))[index])
 #  define RPyNLenItem(array, index)                                         \
-     ((RPyCHECK((array) && (index) >= 0), (array))->items[index])
+     ((RPyCHECK((array) != NULL && (index) >= 0), (array))->items[index])
 #  define RPyBareItem(array, index)                                         \
-     ((RPyCHECK((array) && (index) >= 0), (array))[index])
+     ((RPyCHECK((array) != NULL && (index) >= 0), (array))[index])
 
 #else
 #  define RPyField(ptr, name)                ((ptr)->name)

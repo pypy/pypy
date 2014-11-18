@@ -137,6 +137,14 @@ class LogOperations(object):
             s = jd_sd.warmstate.get_location_str(op.getarglist()[3:])
             s = s.replace(',', '.') # we use comma for argument splitting
             return "debug_merge_point(%d, %d, '%s')" % (op.getarg(1).getint(), op.getarg(2).getint(), s)
+        if op.getopnum() == rop.JIT_DEBUG:
+            args = op.getarglist()
+            s = args[0]._get_str()
+            s = s.replace(',', '.') # we use comma for argument splitting
+            s2 = ''
+            for box in args[1:]:
+                s2 += ', %d' % box.getint()
+            return "jit_debug('%s'%s)" % (s, s2)
         if ops_offset is None:
             offset = -1
         else:

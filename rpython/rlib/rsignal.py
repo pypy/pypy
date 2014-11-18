@@ -41,12 +41,6 @@ eci = ExternalCompilationInfo(
     includes = includes,
     separate_module_files = [cdir / 'src' / 'signals.c'],
     include_dirs = [str(cdir)],
-    export_symbols = ['pypysig_poll', 'pypysig_default',
-                      'pypysig_ignore', 'pypysig_setflag',
-                      'pypysig_reinstall',
-                      'pypysig_set_wakeup_fd',
-                      'pypysig_getaddr_occurred',
-                      'pypysig_get_occurred', 'pypysig_set_occurred'],
 )
 
 class CConfig:

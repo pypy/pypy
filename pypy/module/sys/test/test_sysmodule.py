@@ -619,7 +619,7 @@ class AppTestCurrentFrames:
 
 class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
     spaceconfig = {
-        "usemodules": ["rctime", "thread"],
+        "usemodules": ["time", "thread"],
     }
 
     def test_current_frames(self):

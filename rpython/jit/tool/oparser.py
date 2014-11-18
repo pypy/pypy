@@ -317,8 +317,9 @@ class OpParser(object):
         for line in lines:
             line = r_skip_thread.sub('', line).strip()
             # for simplicity comments are not allowed on
-            # debug_merge_point lines
-            if '#' in line and 'debug_merge_point(' not in line:
+            # debug_merge_point or jit_debug lines
+            if '#' in line and ('debug_merge_point(' not in line and
+                                'jit_debug(' not in line):
                 if line.lstrip()[0] == '#': # comment only
                     if first_comment is None:
                         first_comment = line

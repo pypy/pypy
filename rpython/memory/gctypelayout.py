@@ -77,6 +77,11 @@ class GCData(object):
         infobits = self.get(typeid).infobits
         return (infobits & T_IS_GCARRAY_OF_GCPTR) != 0
 
+    def q_cannot_pin(self, typeid):
+        typeinfo = self.get(typeid)
+        ANY = (T_HAS_GCPTR | T_IS_WEAKREF)
+        return (typeinfo.infobits & ANY) != 0 or bool(typeinfo.finalizer)
+
     def q_finalizer(self, typeid):
         return self.get(typeid).finalizer
 
@@ -149,7 +154,8 @@ class GCData(object):
             self.q_is_rpython_class,
             self.q_has_custom_trace,
             self.q_fast_path_tracing,
-            self.q_has_gcptr)
+            self.q_has_gcptr,
+            self.q_cannot_pin)
 
     def _has_got_custom_trace(self, typeid):
         type_info = self.get(typeid)

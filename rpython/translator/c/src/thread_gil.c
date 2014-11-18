@@ -162,6 +162,7 @@ long RPyGilYieldThread(void)
 */
 
 #undef RPyGilRelease
+RPY_EXTERN
 void RPyGilRelease(void)
 {
     /* Releases the GIL in order to do an external function call.
@@ -172,6 +173,7 @@ void RPyGilRelease(void)
 }
 
 #undef RPyFetchFastGil
+RPY_EXTERN
 long *RPyFetchFastGil(void)
 {
     return _RPyFetchFastGil();

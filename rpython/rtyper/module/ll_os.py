@@ -22,9 +22,8 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rtyper.lltypesystem.llmemory import itemoffsetof, offsetof
-from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.rlib.objectmodel import specialize
+from rpython.translator import cdir
 
 str0 = s_Str0
 unicode0 = s_Unicode0
@@ -250,12 +249,9 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'execv')
     def register_os_execv(self):
-        eci = self.gcc_profiling_bug_workaround(
-            'int _noprof_execv(char *path, char *argv[])',
-            'return execv(path, argv);')
-        os_execv = self.llexternal('_noprof_execv',
-                                   [rffi.CCHARP, rffi.CCHARPP],
-                                   rffi.INT, compilation_info = eci)
+        os_execv = self.llexternal(
+            'execv',
+            [rffi.CCHARP, rffi.CCHARPP], rffi.INT)
 
         def execv_llimpl(path, args):
             l_args = rffi.ll_liststr2charpp(args)
@@ -269,12 +265,9 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'execve')
     def register_os_execve(self):
-        eci = self.gcc_profiling_bug_workaround(
-            'int _noprof_execve(char *filename, char *argv[], char *envp[])',
-            'return execve(filename, argv, envp);')
         os_execve = self.llexternal(
-            '_noprof_execve', [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP],
-            rffi.INT, compilation_info = eci)
+            'execve',
+            [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP], rffi.INT)
 
         def execve_llimpl(path, args, env):
             # XXX Check path, args, env for \0 and raise TypeErrors as
@@ -1000,8 +993,6 @@ class RegisterOs(BaseLazyRegistering):
                                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T],
                                   rffi.SIZE_T)
 
-        offset = offsetof(STR, 'chars') + itemoffsetof(STR.chars, 0)
-
         def os_read_llimpl(fd, count):
             if count < 0:
                 raise OSError(errno.EINVAL, None)
@@ -1025,15 +1016,12 @@ class RegisterOs(BaseLazyRegistering):
         def os_write_llimpl(fd, data):
             count = len(data)
             rposix.validate_fd(fd)
-            buf = rffi.get_nonmovingbuffer(data)
-            try:
+            with rffi.scoped_nonmovingbuffer(data) as buf:
                 written = rffi.cast(lltype.Signed, os_write(
                     rffi.cast(rffi.INT, fd),
                     buf, rffi.cast(rffi.SIZE_T, count)))
                 if written < 0:
                     raise OSError(rposix.get_errno(), "os_write failed")
-            finally:
-                rffi.free_nonmovingbuffer(data, buf)
             return written
 
         return extdef([int, str], SomeInteger(nonneg=True),
@@ -1729,10 +1717,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'fork')
     def register_os_fork(self):
         from rpython.rlib import debug, rthread
-        eci = self.gcc_profiling_bug_workaround('pid_t _noprof_fork(void)',
-                                                'return fork();')
-        os_fork = self.llexternal('_noprof_fork', [], rffi.PID_T,
-                                  compilation_info = eci,
+        os_fork = self.llexternal('fork', [], rffi.PID_T,
                                   _nowrapper = True)
 
         def fork_llimpl():
@@ -1932,19 +1917,6 @@ class RegisterOs(BaseLazyRegistering):
 
         return extdef([int], str, "ll_os.ttyname",
                       llimpl=ttyname_llimpl)
-
-    # ____________________________________________________________
-    # XXX horrible workaround for a bug of profiling in gcc on
-    # OS X with functions containing a direct call to some system calls
-    # like fork(), execv(), execve()
-    def gcc_profiling_bug_workaround(self, decl, body):
-        body = ('/*--no-profiling-for-this-file!--*/\n'
-                '%s {\n'
-                '\t%s\n'
-                '}\n' % (decl, body,))
-        return ExternalCompilationInfo(
-            post_include_bits = [decl + ';'],
-            separate_module_sources = [body])
 
 # ____________________________________________________________
 # Support for os.environ

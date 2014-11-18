@@ -44,7 +44,7 @@ if os.name == 'nt':
 
         /* This function emulates what the windows CRT
             does to validate file handles */
-        int
+        RPY_EXTERN int
         _PyVerify_fd(int fd)
         {
             const int i1 = fd >> IOINFO_L2E;
@@ -81,15 +81,12 @@ if os.name == 'nt':
             return 0;
         }
     ''',]
-    export_symbols = ['_PyVerify_fd']
 else:
     separate_module_sources = []
-    export_symbols = []
     includes=['errno.h','stdio.h']
 errno_eci = ExternalCompilationInfo(
     includes=includes,
     separate_module_sources=separate_module_sources,
-    export_symbols=export_symbols,
 )
 
 _get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
