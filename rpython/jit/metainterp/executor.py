@@ -437,7 +437,6 @@ has_descr._annspecialcase_ = 'specialize:memo'
 
 
 def execute(cpu, metainterp, opnum, descr, *argboxes):
-    xxx
     # only for opnums with a fixed arity
     num_args = len(argboxes)
     withdescr = has_descr(opnum)

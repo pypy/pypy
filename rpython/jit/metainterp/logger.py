@@ -155,10 +155,10 @@ class LogOperations(object):
             s_offset = "+%d: " % offset
         args = ", ".join([self.repr_of_arg(op.getarg(i)) for i in range(op.numargs())])
 
-        if op.result is not None:
-            res = self.repr_of_arg(op.result) + " = "
-        else:
-            res = ""
+        #if op.result is not None:
+        #    res = self.repr_of_arg(op.result) + " = "
+        #else:
+        res = ""
         is_guard = op.is_guard()
         if op.getdescr() is not None:
             descr = op.getdescr()

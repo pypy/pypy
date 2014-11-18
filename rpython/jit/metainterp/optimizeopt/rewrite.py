@@ -233,7 +233,7 @@ class OptRewrite(Optimization):
 
         # replace "x / const" by "x * (1/const)" if possible
         if v2.is_constant():
-            divisor = v2.box.getfloat()
+            divisor = v2.box.getfloatstorage()
             fraction = math.frexp(divisor)[0]
             # This optimization is valid for powers of two
             # but not for zeroes, some denormals and NaN:
@@ -242,7 +242,8 @@ class OptRewrite(Optimization):
                 rfraction = math.frexp(reciprocal)[0]
                 if rfraction == 0.5 or rfraction == -0.5:
                     c = ConstFloat(longlong.getfloatstorage(reciprocal))
-                    op = op.copy_and_change(rop.FLOAT_MUL, args=[arg1, c])
+                    op = self.optimizer.replace_op_with(op, rop.FLOAT_MUL,
+                                                        args=[arg1, c])
         self.emit_operation(op)
 
     def optimize_FLOAT_NEG(self, op):

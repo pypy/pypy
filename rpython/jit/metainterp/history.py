@@ -1,7 +1,7 @@
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import we_are_translated, Symbolic
-from rpython.rlib.objectmodel import compute_unique_id
+from rpython.rlib.objectmodel import compute_unique_id, specialize
 from rpython.rlib.rarithmetic import r_int64, is_valid_int
 
 from rpython.conftest import option
@@ -172,6 +172,16 @@ class BasicFailDescr(AbstractFailDescr):
         self.identifier = identifier      # for testing
 
 
+@specialize.argtype(0)
+def newconst(value):
+    if isinstance(value, int):
+        return ConstInt(value)
+    elif isinstance(value, float):
+        return ConstFloat(value)
+    else:
+        assert lltype.typeOf(value) == llmemory.GCREF
+        return ConstPtr(value)
+        
 class Const(AbstractValue):
     __slots__ = ()
 
@@ -689,6 +699,7 @@ class TreeLoop(object):
     @staticmethod
     def check_consistency_of_branch(operations, seen):
         "NOT_RPYTHON"
+        return # XXX for now
         for op in operations:
             for i in range(op.numargs()):
                 box = op.getarg(i)
@@ -763,8 +774,10 @@ class History(object):
         self.inputargs = None
         self.operations = []
 
-    def record(self, opnum, argboxes, resbox, descr=None):
-        op = ResOperation(opnum, argboxes, resbox, descr)
+    @specialize.argtype(3)
+    def record(self, opnum, argboxes, value, descr=None):
+        op = ResOperation(opnum, argboxes, descr)
+        op.setvalue(value)
         self.operations.append(op)
         return op
 

@@ -1883,11 +1883,11 @@ class MetaInterp(object):
         # execute the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum)
-        resbox = executor.execute(self.cpu, self, opnum, descr, *argboxes)
+        resvalue = executor.execute(self.cpu, self, opnum, descr, *argboxes)
         if rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST:
-            return self._record_helper_pure(opnum, resbox, descr, *argboxes)
+            return self._record_helper_pure(opnum, resvalue, descr, *argboxes)
         else:
-            return self._record_helper_nonpure_varargs(opnum, resbox, descr,
+            return self._record_helper_nonpure_varargs(opnum, resvalue, descr,
                                                        list(argboxes))
 
     @specialize.arg(1)
@@ -1896,6 +1896,7 @@ class MetaInterp(object):
         # execute the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum)
+        xxx
         resbox = executor.execute_varargs(self.cpu, self,
                                           opnum, argboxes, descr)
         # check if the operation can be constant-folded away
@@ -1906,16 +1907,18 @@ class MetaInterp(object):
             resbox = self._record_helper_nonpure_varargs(opnum, resbox, descr, argboxes)
         return resbox
 
-    def _record_helper_pure(self, opnum, resbox, descr, *argboxes):
+    @specialize.argtype(2)
+    def _record_helper_pure(self, opnum, resvalue, descr, *argboxes):
         canfold = self._all_constants(*argboxes)
         if canfold:
-            resbox = resbox.constbox()       # ensure it is a Const
-            return resbox
+            return history.newconst(resvalue)
         else:
-            resbox = resbox.nonconstbox()    # ensure it is a Box
-            return self._record_helper_nonpure_varargs(opnum, resbox, descr, list(argboxes))
+            return self._record_helper_nonpure_varargs(opnum, resvalue, descr,
+                                                       list(argboxes))
 
+    @specialize.argtype(2)
     def _record_helper_pure_varargs(self, opnum, resbox, descr, argboxes):
+        xxx
         canfold = self._all_constants_varargs(argboxes)
         if canfold:
             resbox = resbox.constbox()       # ensure it is a Const
@@ -1924,19 +1927,19 @@ class MetaInterp(object):
             resbox = resbox.nonconstbox()    # ensure it is a Box
             return self._record_helper_nonpure_varargs(opnum, resbox, descr, argboxes)
 
-    def _record_helper_nonpure_varargs(self, opnum, resbox, descr, argboxes):
-        assert resbox is None or isinstance(resbox, Box)
+    @specialize.argtype(2)
+    def _record_helper_nonpure_varargs(self, opnum, resvalue, descr, argboxes):
         if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST and
             self.last_exc_value_box is None and
             self._all_constants_varargs(argboxes)):
-            return resbox.constbox()
+            return history.newconst(resvalue)
         # record the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum, Counters.RECORDED_OPS)
         self.heapcache.invalidate_caches(opnum, descr, argboxes)
-        op = self.history.record(opnum, argboxes, resbox, descr)
+        op = self.history.record(opnum, argboxes, resvalue, descr)
         self.attach_debug_info(op)
-        return resbox
+        return op
 
     def execute_new_with_vtable(self, known_class):
         resbox = self.execute_and_record(rop.NEW_WITH_VTABLE, None,

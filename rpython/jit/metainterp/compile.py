@@ -128,9 +128,10 @@ def compile_loop(metainterp, greenkey, start,
     part = create_empty_loop(metainterp)
     part.inputargs = inputargs[:]
     h_ops = history.operations
-    part.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(jitcell_token))] + \
+    # XXX why do we clone here?
+    part.operations = [ResOperation(rop.LABEL, inputargs, descr=TargetToken(jitcell_token))] + \
                       [h_ops[i].clone() for i in range(start, len(h_ops))] + \
-                      [ResOperation(rop.LABEL, jumpargs, None, descr=jitcell_token)]
+                      [ResOperation(rop.LABEL, jumpargs, descr=jitcell_token)]
 
     try:
         optimize_trace(metainterp_sd, part, enable_opts)

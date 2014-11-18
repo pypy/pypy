@@ -115,7 +115,7 @@ class AbstractResOp(AbstractValue):
         descr = self.getdescr()
         if descr is not None:
             descr = descr.clone_if_mutable()
-        op = ResOperation(self.getopnum(), args[:], self.result, descr)
+        op = ResOperation(self.getopnum(), args[:], descr)
         if not we_are_translated():
             op.name = self.name
             op.pc = self.pc
@@ -340,6 +340,9 @@ class AbstractInputArg(AbstractValue):
             name = self.type + str(len(memo))
             memo[self] = name
             return name
+
+    def getdescr(self):
+        return None
         
 class InputArgInt(IntOp, AbstractInputArg):
     def __init__(self, intval):
