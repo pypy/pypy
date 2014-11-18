@@ -9,7 +9,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import boxes, descriptor, loop, constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.ctors import numpify
-from pypy.module.micronumpy.nditer import W_NDIter
+from pypy.module.micronumpy.nditer import W_NDIter, coalesce_iter
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.support import _parse_signature
 from rpython.rlib.rawstorage import (raw_storage_setitem, free_raw_storage,
@@ -698,7 +698,7 @@ class W_UfuncGeneric(W_Ufunc):
 
         # TODO parse and handle subok
         # TODO handle flags, op_flags
-        w_flags = space.w_None #space.newlist([space.wrap('external_loop')])
+        w_flags = space.w_None # NOT 'external_loop', we do coalescing by core_num_dims
         w_op_flags = space.newtuple([space.wrap(['readonly'])] * len(inargs) + \
                                     [space.wrap(['readwrite'])] * len(outargs))
         w_op_dtypes = space.w_None
@@ -706,14 +706,25 @@ class W_UfuncGeneric(W_Ufunc):
         w_itershape = space.newlist([space.wrap(i) for i in iter_shape]) 
         w_op_axes = space.w_None
 
-        # mimic NpyIter_AdvancedNew with a nditer
 
         if self.stack_inputs:
+            # mimic NpyIter_AdvancedNew with a nditer
             nd_it = W_NDIter(space, space.newlist(inargs + outargs), w_flags,
                           w_op_flags, w_op_dtypes, w_casting, w_op_axes,
                           w_itershape)
-            # XXX coalesce each iterators, according to inner_dimensions
+            # coalesce each iterators, according to inner_dimensions
+            if nd_it.order == 'F':
+                fastest = 0
+            else:
+                fastest = -1
+            for i in range(len(inargs) + len(outargs)):
+                for j in range(self.core_num_dims[i]):
+                    new_iter = coalesce_iter(nd_it.iters[i][0], nd_it.op_flags[i],
+                                    nd_it, nd_it.order, fastest, flat=False)
+                    nd_it.iters[i] = (new_iter, new_iter.reset())
+            # do the iteration
             while not nd_it.done:
+                # XXX jit me
                 for it, st in nd_it.iters:
                     if not it.done(st):
                         break

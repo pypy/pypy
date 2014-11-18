@@ -200,27 +200,8 @@ def coalesce_axes(it, space):
                 break
         if can_coalesce:
             for i in range(len(it.iters)):
-                old_iter = it.iters[i][0]
-                shape = [s+1 for s in old_iter.shape_m1]
-                strides = old_iter.strides
-                backstrides = old_iter.backstrides
-                if it.order == 'F':
-                    new_shape = shape[1:]
-                    new_strides = strides[1:]
-                    new_backstrides = backstrides[1:]
-                    _stride = min(strides[0], old_iter.slice_stride)
-                else:
-                    new_shape = shape[:-1]
-                    new_strides = strides[:-1]
-                    new_backstrides = backstrides[:-1]
-                    _stride = old_iter.slice_stride
-                # We always want the "fastest" iterator in external loops
-                _shape = shape[fastest] * old_iter.slice_shape
-                _backstride = (_shape - 1) * _stride
-                new_iter = SliceIter(old_iter.array, old_iter.size / shape[fastest],
-                            new_shape, new_strides, new_backstrides,
-                            _shape, _stride, _backstride,
-                            it.op_flags[i], it)
+                new_iter = coalesce_iter(it.iters[i][0], it.op_flags[i], it,
+                                         it.order, fastest)
                 it.iters[i] = (new_iter, new_iter.reset())
             if len(it.shape) > 1:
                 if it.order == 'F':
@@ -229,26 +210,12 @@ def coalesce_axes(it, space):
                     it.shape = it.shape[:-1]
             else:
                 it.shape = [1]
+
         else:
             break
     # Always coalesce at least one
     for i in range(len(it.iters)):
-        old_iter = it.iters[i][0]
-        shape = [s+1 for s in old_iter.shape_m1]
-        strides = old_iter.strides
-        backstrides = old_iter.backstrides
-        new_shape = shape[:-1]
-        new_strides = strides[:-1]
-        new_backstrides = backstrides[:-1]
-        _shape = shape[-1] * old_iter.slice_shape
-        # use the operand's iterator's rightmost stride,
-        # even if it is not the fastest (for 'F' or swapped axis)
-        _stride = old_iter.slice_stride
-        _backstride = (_shape - 1) * _stride
-        new_iter = SliceIter(old_iter.array, old_iter.size / shape[-1],
-                    new_shape, new_strides, new_backstrides,
-                    _shape, _stride, _backstride,
-                    it.op_flags[i], it)
+        new_iter = coalesce_iter(it.iters[i][0], it.op_flags[i], it, 'C', -1)
         it.iters[i] = (new_iter, new_iter.reset())
     if len(it.shape) > 1:
         if it.order == 'F':
@@ -257,6 +224,43 @@ def coalesce_axes(it, space):
             it.shape = it.shape[:-1]
     else:
         it.shape = [1]
+
+
+def coalesce_iter(old_iter, op_flags, it, order, fastest=-1, flat=True):
+    '''
+    We usually iterate through an array one value at a time.
+    But after coalesce(), getoperand() will return a slice by removing
+    the fastest varying dimension from the beginning or end of the shape.
+    XXX - what happens on swapaxis arrays?
+    If flat is true, then the slice will be 1d, otherwise stack up the shape of
+    the fastest varying dimension in the slice, so an iterator of a  'C' array 
+    of shape (2,4,3) after two calls to coalesce will iterate 2 times over a slice
+    of shape (4,3) by setting the offset to the beginning of the data at each iteration
+    '''
+    shape = [s+1 for s in old_iter.shape_m1]
+    strides = old_iter.strides
+    backstrides = old_iter.backstrides
+    if order == 'F':
+        new_shape = shape[1:]
+        new_strides = strides[1:]
+        new_backstrides = backstrides[1:]
+        _stride = old_iter.slice_stride + [strides[0]]
+    else:
+        new_shape = shape[:-1]
+        new_strides = strides[:-1]
+        new_backstrides = backstrides[:-1]
+        # use the operand's iterator's rightmost stride,
+        # even if it is not the fastest (for 'F' or swapped axis)
+        _stride = [strides[-1]] + old_iter.slice_stride
+    _shape = [shape[fastest]]  + old_iter.slice_shape
+    _backstride = [(_shape[fastest] - 1) * _stride[0]] + old_iter.slice_backstride
+    if flat:
+        _shape = [support.product(_shape)]
+        _stride = [min(_stride)]
+        _backstride = [(shape[0] - 1) * _stride[0]]
+    return SliceIter(old_iter.array, old_iter.size / shape[fastest],
+                new_shape, new_strides, new_backstrides,
+                _shape, _stride, _backstride, op_flags, it)
 
 class IndexIterator(object):
     def __init__(self, shape, backward=False):

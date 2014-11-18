@@ -117,11 +117,9 @@ class ArrayIter(object):
         self.shape_m1 = [s - 1 for s in shape]
         self.strides = strides
         self.backstrides = backstrides
-        self.slice_shape = 1
-        self.slice_stride = -1
-        if strides:
-            self.slice_stride = strides[-1]
-        self.slice_backstride = 1
+        self.slice_shape = []
+        self.slice_stride = []
+        self.slice_backstride = []
         self.slice_operand_type = concrete.SliceArray
 
         ndim = len(shape)
@@ -280,6 +278,6 @@ class SliceIter(ArrayIter):
     def getoperand(self, state, base):
         assert state.iterator is self
         impl = self.slice_operand_type
-        arr = impl(state.offset, [self.slice_stride], [self.slice_backstride],
-                   [self.slice_shape], self.array, self.base)
+        arr = impl(state.offset, self.slice_stride, self.slice_backstride,
+                   self.slice_shape, self.array, self.base)
         return arr
