@@ -99,7 +99,7 @@ class IterState(object):
 class ArrayIter(object):
     _immutable_fields_ = ['contiguous', 'array', 'size', 'ndim_m1', 'shape_m1[*]',
                           'strides[*]', 'backstrides[*]', 'factors[*]',
-                          'slice_shape', 'slice_stride', 'slice_backstride',
+                          'slice_shape[*]', 'slice_stride[*]', 'slice_backstride[*]',
                           'track_index', 'operand_type', 'slice_operand_type']
 
     track_index = True
@@ -248,7 +248,7 @@ class SliceIter(ArrayIter):
     used with external loops, getitem and setitem return a SliceArray
     view into the original array
     '''
-    _immutable_fields_ = ['base', 'slice_shape[*]', 'slice_stride[*]', 'slice_backstride[*]']
+    _immutable_fields_ = ['base']
 
     def __init__(self, array, size, shape, strides, backstrides, slice_shape,
                  slice_stride, slice_backstride, op_flags, base):

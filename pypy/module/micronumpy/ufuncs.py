@@ -699,8 +699,8 @@ class W_UfuncGeneric(W_Ufunc):
         # TODO parse and handle subok
         # TODO handle flags, op_flags
         w_flags = space.w_None # NOT 'external_loop', we do coalescing by core_num_dims
-        w_op_flags = space.newtuple([space.wrap(['readonly'])] * len(inargs) + \
-                                    [space.wrap(['readwrite'])] * len(outargs))
+        w_op_flags = space.newtuple([space.wrap(r) for r in ['readonly'] * len(inargs)] + \
+                                    [space.wrap(r) for r in ['readwrite'] * len(outargs)])
         w_op_dtypes = space.w_None
         w_casting = space.w_None
         w_itershape = space.newlist([space.wrap(i) for i in iter_shape]) 
