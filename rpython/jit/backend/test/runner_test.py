@@ -7,7 +7,7 @@ from rpython.jit.metainterp.history import (AbstractFailDescr,
                                          JitCellToken, TargetToken,
                                          ConstInt, ConstPtr,
                                          BoxFloat, ConstFloat)
-from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.jit.metainterp.resoperation import ResOperation, rop, InputArgInt
 from rpython.jit.metainterp.typesystem import deref
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.tool.oparser import parse
@@ -123,12 +123,10 @@ class BaseBackendTest(Runner):
         self.cpu.done_with_this_frame_descr_void = None
 
     def test_compile_linear_loop(self):
-        i0 = BoxInt()
-        i1 = BoxInt()
-        operations = [
-            ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
-            ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(1))
-            ]
+        i0 = InputArgInt(0)
+        op0 = ResOperation(rop.INT_ADD, [i0, ConstInt(1)])
+        op1 = ResOperation(rop.FINISH, [op0], descr=BasicFinalDescr(1))
+        operations = [op0, op1]
         inputargs = [i0]
         looptoken = JitCellToken()
         self.cpu.compile_loop(inputargs, operations, looptoken)

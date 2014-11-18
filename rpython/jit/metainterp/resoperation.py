@@ -86,7 +86,7 @@ class AbstractResOp(AbstractValue):
     # common methods
     # --------------
 
-    def _copy_and_change(self, opnum, args=None, result=None, descr=None):
+    def _copy_and_change(self, opnum, args=None, descr=None):
         "shallow copy: the returned operation is meant to be used in place of self"
         if args is None:
             args = self.getarglist()
@@ -270,8 +270,8 @@ class GuardResOp(ResOpWithDescr):
     def setfailargs(self, fail_args):
         self._fail_args = fail_args
 
-    def _copy_and_change(self, opnum, args=None, result=None, descr=None):
-        newop = AbstractResOp._copy_and_change(self, opnum, args, result, descr)
+    def _copy_and_change(self, opnum, args=None, descr=None):
+        newop = AbstractResOp._copy_and_change(self, opnum, args, descr)
         newop.setfailargs(self.getfailargs())
         return newop
 
@@ -345,15 +345,15 @@ class AbstractInputArg(AbstractValue):
         return None
         
 class InputArgInt(IntOp, AbstractInputArg):
-    def __init__(self, intval):
+    def __init__(self, intval=0):
         self.setint(intval)            
 
 class InputArgFloat(FloatOp, AbstractInputArg):
-    def __init__(self, f):
+    def __init__(self, f=0.0):
         self.setfloatstorage(f)
 
 class InputArgRef(RefOp, AbstractInputArg):
-    def __init__(self, r):
+    def __init__(self, r=lltype.nullptr(llmemory.GCREF.TO)):
         self.setref_base(r)
 
 # ============

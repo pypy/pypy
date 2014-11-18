@@ -25,7 +25,9 @@ class LLTrace(object):
         # We need to clone the list of operations because the
         # front-end will mutate them under our feet again.  We also
         # need to make sure things get freed.
-        def mapping(box, _cache={}):
+        _cache={}
+        
+        def mapping(box):
             if isinstance(box, Const) or box is None:
                 return box
             try:
@@ -44,10 +46,10 @@ class LLTrace(object):
                     newdescr = WeakrefDescr(op.getdescr())
             else:
                 newdescr = None
-            newop = op.copy_and_change(op.getopnum(),
+            newop = op._copy_and_change(op.getopnum(),
                                        map(mapping, op.getarglist()),
-                                       mapping(op.result),
                                        newdescr)
+            _cache[op] = newop
             if op.getfailargs() is not None:
                 newop.setfailargs(map(mapping, op.getfailargs()))
             self.operations.append(newop)
@@ -749,8 +751,8 @@ class LLFrame(object):
                     i = 0
                 self.do_renaming(targetargs, j.args)
                 continue
-            if op.result is not None:
-                self.setenv(op.result, resval)
+            if op.type != 'v':
+                self.setenv(op, resval)
             else:
                 assert resval is None
             i += 1
