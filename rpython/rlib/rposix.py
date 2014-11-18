@@ -44,7 +44,7 @@ if os.name == 'nt':
 
         /* This function emulates what the windows CRT
             does to validate file handles */
-        RPY_EXPORTED_FOR_TESTS int
+        RPY_EXTERN int
         _PyVerify_fd(int fd)
         {
             const int i1 = fd >> IOINFO_L2E;

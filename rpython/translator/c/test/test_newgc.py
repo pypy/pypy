@@ -443,19 +443,14 @@ class UsingFrameworkTest(object):
     def define_custom_trace(cls):
         from rpython.rtyper.annlowlevel import llhelper
         #
-        S = lltype.GcStruct('S', ('x', llmemory.Address), rtti=True)
+        S = lltype.GcStruct('S', ('x', llmemory.Address))
         offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(obj, prev):
-            if not prev:
-                return obj + offset_of_x
-            else:
-                return llmemory.NULL
-        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                          llmemory.Address)
-        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
+        def customtrace(gc, obj, callback, arg):
+            gc._trace_callback(callback, arg, obj + offset_of_x)
+        lambda_customtrace = lambda: customtrace
         #
         def setup():
+            rgc.register_custom_trace_hook(S, lambda_customtrace)
             s = lltype.nullptr(S)
             for i in range(10000):
                 t = lltype.malloc(S)

@@ -383,7 +383,7 @@ def generate_macro_wrapper(name, macro, functype, eci):
     else:
         pattern = '%s%s { return %s(%s); }'
     source = pattern % (
-        'RPY_EXPORTED_FOR_TESTS ',
+        'RPY_EXTERN ',
         cdecl(implementationtypename, wrapper_name),
         macro, ', '.join(argnames))
 
@@ -605,7 +605,7 @@ def COpaquePtr(*args, **kwds):
 
 def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
                     sandboxsafe=False, _nowrapper=False,
-                    c_type=None):
+                    c_type=None, getter_only=False):
     """Return a pair of functions - a getter and a setter - to access
     the given global C variable.
     """
@@ -628,9 +628,9 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
     getter_name = 'get_' + name
     setter_name = 'set_' + name
     getter_prototype = (
-       "RPY_EXPORTED_FOR_TESTS %(c_type)s %(getter_name)s ();" % locals())
+       "RPY_EXTERN %(c_type)s %(getter_name)s ();" % locals())
     setter_prototype = (
-       "RPY_EXPORTED_FOR_TESTS void %(setter_name)s (%(c_type)s v);" % locals())
+       "RPY_EXTERN void %(setter_name)s (%(c_type)s v);" % locals())
     c_getter = "%(c_type)s %(getter_name)s () { return %(name)s; }" % locals()
     c_setter = "void %(setter_name)s (%(c_type)s v) { %(name)s = v; }" % locals()
 
@@ -638,19 +638,26 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
     if sys.platform != 'win32':
         lines.append('extern %s %s;' % (c_type, name))
     lines.append(c_getter)
-    lines.append(c_setter)
+    if not getter_only:
+        lines.append(c_setter)
+    prototypes = [getter_prototype]
+    if not getter_only:
+        prototypes.append(setter_prototype)
     sources = ('\n'.join(lines),)
     new_eci = eci.merge(ExternalCompilationInfo(
         separate_module_sources = sources,
-        post_include_bits = [getter_prototype, setter_prototype],
+        post_include_bits = prototypes,
     ))
 
     getter = llexternal(getter_name, [], TYPE, compilation_info=new_eci,
                         sandboxsafe=sandboxsafe, _nowrapper=_nowrapper)
-    setter = llexternal(setter_name, [TYPE], lltype.Void,
-                        compilation_info=new_eci, sandboxsafe=sandboxsafe,
-                        _nowrapper=_nowrapper)
-    return getter, setter
+    if getter_only:
+        return getter
+    else:
+        setter = llexternal(setter_name, [TYPE], lltype.Void,
+                            compilation_info=new_eci, sandboxsafe=sandboxsafe,
+                            _nowrapper=_nowrapper)
+        return getter, setter
 
 # char, represented as a Python character
 # (use SIGNEDCHAR or UCHAR for the small integer types)
@@ -815,6 +822,8 @@ def make_string_mappings(strtype):
     free_nonmovingbuffer._annenforceargs_ = [strtype, None, bool, bool]
 
     # int -> (char*, str, int)
+    # Can't inline this because of the raw address manipulation.
+    @jit.dont_look_inside
     def alloc_buffer(count):
         """
         Returns a (raw_buffer, gc_buffer, case_num) triple,
@@ -825,7 +834,7 @@ def make_string_mappings(strtype):
         allows for the process to be performed without an extra copy.
         Make sure to call keep_buffer_alive_until_here on the returned values.
         """
-        new_buf = lltype.malloc(STRTYPE, count)
+        new_buf = mallocfn(count)
         pinned = 0
         if rgc.can_move(new_buf):
             if rgc.pin(new_buf):
@@ -857,7 +866,7 @@ def make_string_mappings(strtype):
             if llop.shrink_array(lltype.Bool, gc_buf, needed_size):
                 pass     # now 'gc_buf' is smaller
             else:
-                gc_buf = lltype.malloc(STRTYPE, needed_size)
+                gc_buf = mallocfn(needed_size)
                 case_num = 2
         if case_num == 2:
             copy_raw_to_string(raw_buf, gc_buf, 0, needed_size)

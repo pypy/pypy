@@ -6,7 +6,7 @@ from rpython.memory.test import snippet
 from rpython.rtyper.test.test_llinterp import get_interpreter
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib import rgc
 from rpython.rlib.rstring import StringBuilder
@@ -237,26 +237,20 @@ class GCTest(object):
         assert 160 <= res <= 165
 
     def test_custom_trace(self):
-        from rpython.rtyper.annlowlevel import llhelper
         from rpython.rtyper.lltypesystem import llmemory
         from rpython.rtyper.lltypesystem.llarena import ArenaError
         #
         S = lltype.GcStruct('S', ('x', llmemory.Address),
-                                 ('y', llmemory.Address), rtti=True)
+                                 ('y', llmemory.Address))
         T = lltype.GcStruct('T', ('z', lltype.Signed))
         offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(obj, prev):
-            if not prev:
-                return obj + offset_of_x
-            else:
-                return llmemory.NULL
-        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                          llmemory.Address)
-        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
+        def customtrace(gc, obj, callback, arg):
+            gc._trace_callback(callback, arg, obj + offset_of_x)
+        lambda_customtrace = lambda: customtrace
         #
         for attrname in ['x', 'y']:
             def setup():
+                rgc.register_custom_trace_hook(S, lambda_customtrace)
                 s1 = lltype.malloc(S)
                 tx = lltype.malloc(T)
                 tx.z = 42
@@ -762,6 +756,23 @@ class GCTest(object):
             assert rgc.get_gcflag_extra(a1) == False
             assert rgc.get_gcflag_extra(a2) == False
         self.interpret(fn, [])
+    
+    def test_register_custom_trace_hook(self):
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        called = []
+
+        def trace_hook(gc, obj, callback, arg):
+            called.append("called")
+        lambda_trace_hook = lambda: trace_hook
+
+        def f():
+            rgc.register_custom_trace_hook(S, lambda_trace_hook)
+            s = lltype.malloc(S)
+            rgc.collect()
+            keepalive_until_here(s)
+
+        self.interpret(f, [])
+        assert called # not empty, can contain more than one item
 
     def test_pinning(self):
         def fn(n):

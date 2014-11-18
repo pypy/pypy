@@ -221,7 +221,7 @@ class AppTestFile(BaseROTests):
     expected_filename = str(udir.join('sample'))
     expected_mode = 'rb'
     extra_args = ()
-    spaceconfig = {'usemodules': ['binascii', 'rctime', 'struct']}
+    spaceconfig = {'usemodules': ['binascii', 'time', 'struct']}
 
     def setup_method(self, method):
         space = self.space
@@ -281,7 +281,7 @@ class AppTestFdOpen(BaseROTests):
     expected_filename = '<fdopen>'
     expected_mode = 'rb'
     extra_args = ()
-    spaceconfig = {'usemodules': ['binascii', 'rctime', 'struct']}
+    spaceconfig = {'usemodules': ['binascii', 'time', 'struct']}
 
     def setup_method(self, method):
         space = self.space
@@ -359,7 +359,7 @@ class AppTestLargeBufferUniversal(AppTestUniversalNewlines):
 #  A few extra tests
 
 class AppTestAFewExtra:
-    spaceconfig = {'usemodules': ['_socket', 'array', 'binascii', 'rctime',
+    spaceconfig = {'usemodules': ['_socket', 'array', 'binascii', 'time',
                                   'struct']}
 
     def setup_method(self, method):

@@ -438,6 +438,11 @@ def test_enforceargs_decorator():
     assert exc.value.message == "f argument 'b' must be of type <type 'str'>"
     py.test.raises(TypeError, "f('hello', 'world', 3)")
 
+def test_always_inline():
+    @always_inline
+    def f(a, b, c):
+        return a, b, c
+    assert f._always_inline_ == True
 
 def test_enforceargs_defaults():
     @enforceargs(int, int)

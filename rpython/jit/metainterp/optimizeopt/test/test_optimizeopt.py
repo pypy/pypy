@@ -2024,6 +2024,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_raw_buffer_forced_but_slice_not_forced(self):
+        ops = """
+        [f1]
+        i0 = call('malloc', 16, descr=raw_malloc_descr)
+        guard_no_exception() []
+        i1 = int_add(i0, 8)
+        escape(i0)
+        setarrayitem_raw(i1, 0, f1, descr=rawarraydescr_float)
+        jump(f1)
+        """
+        expected = """
+        [f1]
+        i0 = call('malloc', 16, descr=raw_malloc_descr)
+        #guard_no_exception() []  # XXX should appear
+        escape(i0)
+        i1 = int_add(i0, 8)
+        setarrayitem_raw(i1, 0, f1, descr=rawarraydescr_float)
+        jump(f1)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_duplicate_getfield_1(self):
         ops = """
         [p1, p2]

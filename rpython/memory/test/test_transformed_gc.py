@@ -14,7 +14,7 @@ from rpython.rlib import rgc
 from rpython.conftest import option
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import LONG_BIT
-import pdb
+
 
 WORD = LONG_BIT // 8
 
@@ -385,26 +385,20 @@ class GenericGCTests(GCTest):
         assert 160 <= res <= 165
 
     def define_custom_trace(cls):
-        from rpython.rtyper.annlowlevel import llhelper
-        from rpython.rtyper.lltypesystem import llmemory
         #
-        S = lltype.GcStruct('S', ('x', llmemory.Address), rtti=True)
+        S = lltype.GcStruct('S', ('x', llmemory.Address))
         T = lltype.GcStruct('T', ('z', lltype.Signed))
         offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(obj, prev):
-            if not prev:
-                return obj + offset_of_x
-            else:
-                return llmemory.NULL
-        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                          llmemory.Address)
-        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
+        def customtrace(gc, obj, callback, arg):
+            gc._trace_callback(callback, arg, obj + offset_of_x)
+        lambda_customtrace = lambda: customtrace
+
         #
         def setup():
-            s1 = lltype.malloc(S)
+            rgc.register_custom_trace_hook(S, lambda_customtrace)
             tx = lltype.malloc(T)
             tx.z = 4243
+            s1 = lltype.malloc(S)
             s1.x = llmemory.cast_ptr_to_adr(tx)
             return s1
         def f():

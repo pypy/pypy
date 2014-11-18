@@ -4119,3 +4119,64 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         assert res == 42
         res = self.interp_operations(f, [-42])
         assert res == 0
+
+    def test_cmp_fastpaths(self):
+        class Z: pass
+        def make_int(cmp):
+            def f(x):
+                if cmp == 'eq':
+                    return x == x and x == x
+                if cmp == 'ne':
+                    return x != x or x != x
+                if cmp == 'lt':
+                    return x < x or x != x
+                if cmp == 'le':
+                    return x <= x and x <= x
+                if cmp == 'gt':
+                    return x > x or x > x
+                if cmp == 'ge':
+                    return x >= x and x >= x
+                assert 0
+            return f
+
+        def make_str(cmp):
+            def f(x):
+                x = str(x)
+                if cmp == 'eq':
+                    return x is x or x is x
+                if cmp == 'ne':
+                    return x is not x and x is not x
+                assert 0
+            return f
+
+        def make_object(cmp):
+            def f(x):
+                y = Z()
+                y.x = x
+                x = y
+                if cmp == 'eq':
+                    return x is x
+                if cmp == 'ne':
+                    return x is not x
+                assert 0
+            return f
+
+        for cmp in 'eq ne lt le gt ge'.split():
+            f = make_int(cmp)
+            res = self.interp_operations(f, [42])
+            assert res == f(42)
+            opname = "int_%s" % cmp
+            self.check_operations_history(**{opname: 0})
+
+        for cmp in 'eq ne'.split():
+            f = make_str(cmp)
+            res = self.interp_operations(f, [42])
+            assert res == f(42)
+            opname = "ptr_%s" % cmp
+            self.check_operations_history(**{opname: 0})
+
+            f = make_object(cmp)
+            res = self.interp_operations(f, [42])
+            assert res == f(42)
+            opname = "instance_ptr_%s" % cmp
+            self.check_operations_history(**{opname: 0})

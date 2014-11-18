@@ -60,6 +60,7 @@ class RPythonTyper(object):
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
         self.exceptiondata = ExceptionData(self)
+        self.custom_trace_funcs = []
 
         try:
             self.seed = int(os.getenv('RTYPERSEED'))
@@ -645,7 +646,7 @@ class RPythonTyper(object):
             raise TyperError("runtime type info function %r returns %r, "
                              "excepted Ptr(RuntimeTypeInfo)" % (func, s))
         funcptr = self.getcallable(graph)
-        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr, None)
+        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr)
 
 # register operations from annotation model
 RPythonTyper._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERATIONS)
