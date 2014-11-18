@@ -1,7 +1,7 @@
-from rpython.flowspace.model import *
+from rpython.flowspace.model import Constant, Variable
 from rpython.rlib.unroll import SpecTag
 from rpython.flowspace.flowcontext import FlowContext
-from rpython.flowspace.bytecode import HostCode
+from rpython.flowspace.bytecode import bc_reader
 from rpython.flowspace.pygraph import PyGraph
 
 class TestFrameState:
@@ -10,7 +10,7 @@ class TestFrameState:
             func = func.im_func
         except AttributeError:
             pass
-        code = HostCode._from_code(func.func_code)
+        code = bc_reader.build_code(func.func_code)
         graph = PyGraph(func, code)
         ctx = FlowContext(graph, code)
         # hack the frame

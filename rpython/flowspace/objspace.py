@@ -4,7 +4,7 @@
 from inspect import CO_NEWLOCALS, isgeneratorfunction
 
 from rpython.flowspace.model import checkgraph
-from rpython.flowspace.bytecode import HostCode
+from rpython.flowspace.bytecode import bc_reader
 from rpython.flowspace.flowcontext import (FlowContext, fixeggblocks)
 from rpython.flowspace.generator import (tweak_generator_graph,
         make_generator_entry_graph)
@@ -36,7 +36,7 @@ def build_flow(func):
     if (isgeneratorfunction(func) and
             not hasattr(func, '_generator_next_method_of_')):
         return make_generator_entry_graph(func)
-    code = HostCode._from_code(func.func_code)
+    code = bc_reader.build_code(func.func_code)
     graph = PyGraph(func, code)
     ctx = FlowContext(graph, code)
     ctx.build_flow()

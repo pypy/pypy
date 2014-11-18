@@ -169,6 +169,9 @@ class BytecodeReader(object):
             op = GenericOpcode(self.opnames[opnum], opnum, oparg, offset)
         return next_offset, op
 
+    def build_code(self, code):
+        return HostCode._from_code(code)
+
 bc_reader = BytecodeReader(host_bytecode_spec.method_names)
 
 class BytecodeGraph(object):

@@ -1,7 +1,7 @@
 """Flow graph building for generators"""
 
 from rpython.flowspace.argument import Signature
-from rpython.flowspace.bytecode import HostCode
+from rpython.flowspace.bytecode import bc_reader
 from rpython.flowspace.pygraph import PyGraph
 from rpython.flowspace.model import (Block, Link, Variable,
     Constant, checkgraph, const)
@@ -18,7 +18,7 @@ class AbstractPosition(object):
 def make_generator_entry_graph(func):
     # This is the first copy of the graph.  We replace it with
     # a small bootstrap graph.
-    code = HostCode._from_code(func.func_code)
+    code = bc_reader.build_code(func.func_code)
     graph = PyGraph(func, code)
     block = graph.startblock
     for name, w_value in zip(code.co_varnames, block.framestate.mergeable):
