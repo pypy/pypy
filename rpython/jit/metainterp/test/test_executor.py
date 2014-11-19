@@ -1,14 +1,11 @@
 import py
 import sys, random
 from rpython.rlib.rarithmetic import r_uint, intmask
-from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.metainterp.executor import execute
-from rpython.jit.metainterp.executor import execute_varargs, execute_nonspec
+from rpython.jit.metainterp.executor import execute_varargs, _execute_nonspec
 from rpython.jit.metainterp.resoperation import rop, opname, opclasses
-from rpython.jit.metainterp.history import BoxInt, ConstInt
-from rpython.jit.metainterp.history import BoxPtr, ConstPtr
-from rpython.jit.metainterp.history import BoxFloat, ConstFloat
-from rpython.jit.metainterp.history import AbstractDescr, Box
+from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
+from rpython.jit.metainterp.history import AbstractDescr
 from rpython.jit.metainterp import history
 from rpython.jit.codewriter import longlong
 from rpython.jit.backend.model import AbstractCPU
