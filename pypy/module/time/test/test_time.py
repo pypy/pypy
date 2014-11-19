@@ -44,6 +44,15 @@ class AppTestTime:
         time.ctime(time.time())
         raises(ValueError, time.ctime, 1E200)
         raises(OverflowError, time.ctime, 10**900)
+        for year in [-100, 100, 1000, 2000, 10000]:
+            try:
+                testval = time.mktime((year, 1, 10) + (0,)*6)
+            except (ValueError, OverflowError):
+                # If mktime fails, ctime will fail too.  This may happen
+                # on some platforms.
+                pass
+            else:
+                assert time.ctime(testval)[20:] == str(year)
 
     def test_gmtime(self):
         import time
@@ -94,14 +103,14 @@ class AppTestTime:
         ltime = time.localtime()
         time.accept2dyear == 0
         ltime = list(ltime)
-        ltime[0] = 1899
+        ltime[0] = -1
         raises(ValueError, time.mktime, tuple(ltime))
         time.accept2dyear == 1
 
         ltime = list(ltime)
         ltime[0] = 67
         ltime = tuple(ltime)
-        if os.name != "nt" and sys.maxint < 1<<32:   # time_t may be 64bit
+        if os.name != "nt" and sys.maxsize < 1<<32:   # time_t may be 64bit
             raises(OverflowError, time.mktime, ltime)
 
         ltime = list(ltime)
@@ -109,8 +118,8 @@ class AppTestTime:
         raises(ValueError, time.mktime, tuple(ltime))
 
         t = time.time()
-        assert long(time.mktime(time.localtime(t))) == long(t)
-        assert long(time.mktime(time.gmtime(t))) - time.timezone == long(t)
+        assert int(time.mktime(time.localtime(t))) == int(t)
+        assert int(time.mktime(time.gmtime(t))) - time.timezone == int(t)
         ltime = time.localtime()
         assert time.mktime(tuple(ltime)) == time.mktime(ltime)
         if os.name != 'nt':
@@ -132,6 +141,7 @@ class AppTestTime:
         raises(TypeError, time.asctime, (1, 2))
         raises(TypeError, time.asctime, (1, 2, 3, 4, 5, 6, 'f', 8, 9))
         raises(TypeError, time.asctime, "foo")
+        raises(ValueError, time.asctime, (1900, -1, 1, 0, 0, 0, 0, 1, -1))
         res = time.asctime()
         assert isinstance(res, str)
         time.asctime(time.localtime())
@@ -146,6 +156,18 @@ class AppTestTime:
         except ValueError:
             pass  # some OS (ie POSIXes besides Linux) reject year > 9999
 
+    def test_asctime_large_year(self):
+        import time
+        assert time.asctime((12345,) +
+                              (0,) * 8) == 'Mon Jan  1 00:00:00 12345'
+        assert time.asctime((123456789,) +
+                              (0,) * 8) == 'Mon Jan  1 00:00:00 123456789'
+        sizeof_int = 4
+        bigyear = (1 << 8 * sizeof_int - 1) - 1
+        asc = time.asctime((bigyear, 6, 1) + (0,)*6)
+        assert asc[-len(str(bigyear)):] == str(bigyear)
+        raises(OverflowError, time.asctime, (bigyear + 1,) + (0,)*8)
+
     def test_accept2dyear_access(self):
         import time
 
@@ -156,6 +178,17 @@ class AppTestTime:
             assert time.asctime((2000,) + (0,) * 8).split()[-1] == '2000'
         finally:
             time.accept2dyear = accept2dyear
+
+    def test_accept2dyear_bad(self):
+        import time
+        class X:
+            def __bool__(self):
+                raise RuntimeError('boo')
+        orig, time.accept2dyear = time.accept2dyear, X()
+        try:
+            raises(RuntimeError, time.asctime, (200,)  + (0,) * 8)
+        finally:
+            time.accept2dyear = orig
 
     def test_struct_time(self):
         import time
@@ -228,7 +261,7 @@ class AppTestTime:
             # rely on it.
             if org_TZ is not None:
                 os.environ['TZ'] = org_TZ
-            elif os.environ.has_key('TZ'):
+            elif 'TZ' in os.environ:
                 del os.environ['TZ']
             time.tzset()
 
@@ -280,10 +313,12 @@ class AppTestTime:
         # of the time tuple.
 
         # check year
-        raises(ValueError, time.strftime, '', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
         if time.accept2dyear:
             raises(ValueError, time.strftime, '', (-1, 1, 1, 0, 0, 0, 0, 1, -1))
             raises(ValueError, time.strftime, '', (100, 1, 1, 0, 0, 0, 0, 1, -1))
+        time.strftime('', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
+        time.strftime('', (0, 1, 1, 0, 0, 0, 0, 1, -1))
+
         # check month
         raises(ValueError, time.strftime, '', (1900, 13, 1, 0, 0, 0, 0, 1, -1))
         # check day of month
@@ -307,8 +342,8 @@ class AppTestTime:
         # check day of the year
         raises(ValueError, time.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 367, -1))
         # check daylight savings flag
-        raises(ValueError, time.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, -2))
-        raises(ValueError, time.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
+        time.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, -2))
+        time.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
 
     def test_strptime(self):
         import time
@@ -321,7 +356,7 @@ class AppTestTime:
                           'j', 'm', 'M', 'p', 'S',
                           'U', 'w', 'W', 'x', 'X', 'y', 'Y', 'Z', '%'):
             format = ' %' + directive
-            print format
+            print(format)
             time.strptime(time.strftime(format, tt), format)
 
     def test_pickle(self):
