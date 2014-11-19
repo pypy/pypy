@@ -51,6 +51,16 @@ class LogEntry(object):
         self.marker1 = marker1
         self.marker2 = marker2
 
+    def __str__(self):
+        s = '[%.3f][%s->%s]\t%s' % (
+            self.timestamp, self.threadnum, self.otherthreadnum,
+            event_name[self.event])
+        if self.marker1:
+            s += ':\n%s' % print_marker(self.marker1)
+        if self.marker2:
+            s += '\n%s' % print_marker(self.marker2)
+        return s
+
 
 def parse_log(filename):
     f = open(filename, 'rb')
@@ -131,17 +141,28 @@ class ConflictSummary(object):
     def sortkey(self):
         return self.aborted_time + self.paused_time
 
+    def __str__(self):
+        s = '%.3fs lost in aborts, %.3fs paused (%dx %s)\n' % (
+            self.aborted_time, self.paused_time, self.num_events, event_name[self.event])
+        s += print_marker(self.marker1)
+        if self.marker2:
+            s += '\n%s' % print_marker(self.marker2)
+        return s
+
+
+
 
 r_marker = re.compile(r'File "(.+)", line (\d+)')
 
 def print_marker(marker):
-    print '  ' + marker
+    s = '  %s' % marker
     match = r_marker.match(marker)
     if match:
         line = linecache.getline(match.group(1), int(match.group(2)))
         line = line.strip()
         if line:
-            print '    ' + line
+            s += '\n    %s' % line
+    return s
 
 def percent(fraction, total):
     r = '%.1f' % (fraction * 100.0 / total)
@@ -210,11 +231,7 @@ def dump(logentries):
             idx = int((t - start_time) / total_time * intervals)
             timeline[idx] += 1
 
-        print '%.3fs lost in aborts, %.3fs paused (%dx %s)' % (
-            c.aborted_time, c.paused_time, c.num_events, event_name[c.event])
-        print_marker(c.marker1)
-        if c.marker2:
-            print_marker(c.marker2)
+        print str(c)
         print "time line:", "".join(['x' if i else '.' for i in timeline])
         print
 

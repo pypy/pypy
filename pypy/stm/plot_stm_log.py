@@ -68,6 +68,7 @@ class Transaction(object):
         self.stop_time = 0
         self.aborted = False
         self.pauses = []
+        self.info = []
 
 
 def plot_log(logentries, ax):
@@ -106,6 +107,17 @@ def plot_log(logentries, ax):
                 tr.pauses[-1] = (tr.pauses[-1][0], entry.timestamp)
 
 
+        # attach logentry as transaction info
+        tr = curr_trs.get(th_num)
+        if tr is not None:
+            tr.info.append(str(entry))
+        if entry.event in (psl.STM_ABORTING_OTHER_CONTENTION,):
+            tr2 = curr_trs.get(entry.otherthreadnum)
+            if tr2 is not None:
+                tr2.info.append(str(entry))
+
+
+
     # plt.ion()
     for th_num, trs in finished_trs.items():
         # plt.draw()
@@ -118,7 +130,8 @@ def plot_log(logentries, ax):
         for tr in trs:
             add_transaction(boxes, hlines,
                             tr.start_time, None, tr.stop_time,
-                            tr.aborted, tr.pauses)
+                            tr.aborted, tr.pauses,
+                            "\n".join(tr.info))
         plot_boxes(boxes, th_num, ax)
         plot_hlines(hlines, th_num, ax)
         print "> Pauses:", len(hlines)
@@ -159,7 +172,7 @@ def plot(logentries):
     axs[0].set_ylabel("Thread")
     axs[0].set_ylim(0, thread_count)
     axs[0].set_yticks([r+0.5 for r in range(thread_count)])
-    axs[0].set_yticklabels(range(1, thread_count+1))
+    axs[0].set_yticklabels(range(thread_count))
     #axs[0].set_xticks([])
     print "Drawn."
 
