@@ -109,16 +109,17 @@ class AbstractResOp(AbstractValue):
             assert lltype.typeOf(value) == llmemory.GCREF
             self._resref = value
 
-
-    def clone(self):
-        args = self.getarglist()
+            
+    def clone(self, memo):
+        args = [memo.get(arg, arg) for arg in self.getarglist()]
         descr = self.getdescr()
         if descr is not None:
-            descr = descr.clone_if_mutable()
-        op = ResOperation(self.getopnum(), args[:], descr)
+            descr = descr.clone_if_mutable(memo)
+        op = ResOperation(self.getopnum(), args, descr)
         if not we_are_translated():
             op.name = self.name
             op.pc = self.pc
+        memo.set(self, op)
         return op
 
     def repr(self, memo, graytext=False):
@@ -275,9 +276,11 @@ class GuardResOp(ResOpWithDescr):
         newop.setfailargs(self.getfailargs())
         return newop
 
-    def clone(self):
-        newop = AbstractResOp.clone(self)
-        newop.setfailargs(self.getfailargs())
+    def clone(self, memo):
+        newop = AbstractResOp.clone(self, memo)
+        failargs = self.getfailargs()
+        if failargs is not None:
+            newop.setfailargs([memo.get(arg, arg) for arg in failargs])
         return newop
 
 # ===========

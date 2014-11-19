@@ -7,7 +7,6 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib import rstack
 from rpython.rlib.jit import JitDebugInfo, Counters, dont_look_inside
 from rpython.conftest import option
-from rpython.tool.sourcetools import func_with_new_name
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop, get_deep_immutable_oplist
 from rpython.jit.metainterp.history import (TreeLoop, Const, JitCellToken,
@@ -104,6 +103,17 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 # ____________________________________________________________
 
+class Memo(object):
+    def __init__(self):
+        self.snapshots = {}
+        self.box_mapping = {}
+
+    def get(self, box, default):
+        return self.box_mapping.get(box, default)
+
+    def set(self, box, newbox):
+        self.box_mapping[box] = newbox
+
 def compile_loop(metainterp, greenkey, start,
                  inputargs, jumpargs,
                  full_preamble_needed=True,
@@ -128,10 +138,11 @@ def compile_loop(metainterp, greenkey, start,
     part = create_empty_loop(metainterp)
     part.inputargs = inputargs[:]
     h_ops = history.operations
-    # XXX why do we clone here?
+    memo = Memo()
     part.operations = [ResOperation(rop.LABEL, inputargs, descr=TargetToken(jitcell_token))] + \
-                      [h_ops[i].clone() for i in range(start, len(h_ops))] + \
-                      [ResOperation(rop.LABEL, jumpargs, descr=jitcell_token)]
+                      [h_ops[i].clone(memo) for i in range(start, len(h_ops))]
+    jumpargs = [memo.get(box, box) for box in jumpargs]
+    part.operations.append(ResOperation(rop.LABEL, jumpargs, descr=jitcell_token))
 
     try:
         optimize_trace(metainterp_sd, part, enable_opts)
@@ -191,6 +202,7 @@ def compile_retrace(metainterp, greenkey, start,
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
+    xxx
     from rpython.jit.metainterp.optimizeopt import optimize_trace
 
     history = metainterp.history
@@ -633,9 +645,9 @@ class ResumeGuardDescr(ResumeDescr):
                                self, inputargs, new_loop.operations,
                                new_loop.original_jitcell_token)
 
-    def copy_all_attributes_into(self, res):
+    def copy_all_attributes_into(self, res, memo):
         # XXX a bit ugly to have to list them all here
-        res.rd_snapshot = self.rd_snapshot
+        res.rd_snapshot = self.rd_snapshot.copy(memo)
         res.rd_frame_info_list = self.rd_frame_info_list
         res.rd_numb = self.rd_numb
         res.rd_consts = self.rd_consts
@@ -643,21 +655,21 @@ class ResumeGuardDescr(ResumeDescr):
         res.rd_pendingfields = self.rd_pendingfields
         res.rd_count = self.rd_count
 
-    def _clone_if_mutable(self):
+    def _clone_if_mutable(self, memo):
         res = ResumeGuardDescr()
-        self.copy_all_attributes_into(res)
+        self.copy_all_attributes_into(res, memo)
         return res
 
 class ResumeGuardNotInvalidated(ResumeGuardDescr):
-    def _clone_if_mutable(self):
+    def _clone_if_mutable(self, memo):
         res = ResumeGuardNotInvalidated()
-        self.copy_all_attributes_into(res)
+        self.copy_all_attributes_into(res, memo)
         return res
 
 class ResumeAtPositionDescr(ResumeGuardDescr):
-    def _clone_if_mutable(self):
+    def _clone_if_mutable(self, memo):
         res = ResumeAtPositionDescr()
-        self.copy_all_attributes_into(res)
+        self.copy_all_attributes_into(res, memo)
         return res
 
 class AllVirtuals:
@@ -741,10 +753,10 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         hidden_all_virtuals = obj.hide(metainterp_sd.cpu)
         metainterp_sd.cpu.set_savedata_ref(deadframe, hidden_all_virtuals)
 
-    def _clone_if_mutable(self):
+    def _clone_if_mutable(self, memo):
         res = ResumeGuardForcedDescr(self.metainterp_sd,
                                      self.jitdriver_sd)
-        self.copy_all_attributes_into(res)
+        self.copy_all_attributes_into(res, memo)
         return res
 
 
@@ -773,6 +785,7 @@ def compile_trace(metainterp, resumekey):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
+    xxx
     from rpython.jit.metainterp.optimizeopt import optimize_trace
 
     # The history contains new operations to attach as the code for the

@@ -130,10 +130,10 @@ class AbstractDescr(AbstractValue):
     def repr_of_descr(self):
         return '%r' % (self,)
 
-    def _clone_if_mutable(self):
+    def _clone_if_mutable(self, memo):
         return self
-    def clone_if_mutable(self):
-        clone = self._clone_if_mutable()
+    def clone_if_mutable(self, memo):
+        clone = self._clone_if_mutable(memo)
         if not we_are_translated():
             assert clone.__class__ is self.__class__
         return clone
