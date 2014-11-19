@@ -157,6 +157,7 @@ def update_marker_num(odd_num):
 def pop_marker():
     llop.stm_pop_marker(lltype.Void)
 
+@dont_look_inside
 def stm_count():
     return llop.stm_count(lltype.Signed)
 
