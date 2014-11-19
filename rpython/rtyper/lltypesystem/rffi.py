@@ -836,7 +836,6 @@ def make_string_mappings(strtype):
         # following code is executed if:
         # - rgc.can_move(data) and rgc.pin(data) both returned true
         # - rgc.can_move(data) returned false
-        assert not rgc.stm_is_enabled()
         data_start = cast_ptr_to_adr(lldata) + \
             offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
 

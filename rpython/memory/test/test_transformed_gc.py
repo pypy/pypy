@@ -97,7 +97,7 @@ class GCTest(object):
             return res
 
         from rpython.translator.c.genc import CStandaloneBuilder
-        from rpython.annotation.listdef import s_list_of_strings
+        from rpython.annotator.listdef import s_list_of_strings
 
         s_args = s_list_of_strings
         t = rtype(entrypoint, [s_args], gcname=cls.gcname,

@@ -17,6 +17,7 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'jit_record_known_class',
     'gc_identityhash', 'gc_id', 'gc_can_move', 'gc__collect',
     'gc_adr_of_root_stack_top', 'gc_add_memory_pressure',
+    'gc_pin', 'gc_unpin', 'gc__is_pinned',
     'weakref_create', 'weakref_deref',
     'jit_assembler_call', 'gc_writebarrier',
     'shrink_array',
