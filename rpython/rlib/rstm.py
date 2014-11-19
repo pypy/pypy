@@ -182,10 +182,12 @@ _STM_HASHTABLE_ENTRY = lltype.GcStruct('HASHTABLE_ENTRY',
                                        ('index', lltype.Unsigned),
                                        ('object', llmemory.GCREF))
 
+@dont_look_inside
 def ll_hashtable_get(h, key):
     # 'key' must be a plain integer.  Returns a GCREF.
     return llop.stm_hashtable_read(llmemory.GCREF, h, h.ll_raw_hashtable, key)
 
+@dont_look_inside
 def ll_hashtable_set(h, key, value):
     llop.stm_hashtable_write(lltype.Void, h, h.ll_raw_hashtable, key, value)
 
@@ -203,6 +205,7 @@ lambda_hashtable_trace = lambda: ll_hashtable_trace
 
 _false = CDefinedIntSymbolic('0', default=0)    # remains in the C code
 
+@dont_look_inside
 def create_hashtable():
     if not we_are_translated():
         return HashtableForTest()      # for tests
