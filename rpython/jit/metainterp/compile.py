@@ -130,7 +130,7 @@ def compile_loop(metainterp, greenkey, start,
     h_ops = history.operations
     # XXX why do we clone here?
     part.operations = [ResOperation(rop.LABEL, inputargs, descr=TargetToken(jitcell_token))] + \
-                      [h_ops[i] for i in range(start, len(h_ops))] + \
+                      [h_ops[i].clone() for i in range(start, len(h_ops))] + \
                       [ResOperation(rop.LABEL, jumpargs, descr=jitcell_token)]
 
     try:
@@ -206,10 +206,10 @@ def compile_retrace(metainterp, greenkey, start,
     h_ops = history.operations
 
     part.operations = [partial_trace.operations[-1]] + \
-                      [h_ops[i] for i in range(start, len(h_ops))] + \
+                      [h_ops[i].clone() for i in range(start, len(h_ops))] + \
                       [ResOperation(rop.JUMP, jumpargs, None, descr=loop_jitcell_token)]
     label = part.operations[0]
-    orignial_label = label
+    orignial_label = label.clone()
     assert label.getopnum() == rop.LABEL
     try:
         optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
@@ -784,7 +784,7 @@ def compile_trace(metainterp, resumekey):
     new_trace.inputargs = metainterp.history.inputargs[:]
     # clone ops, as optimize_bridge can mutate the ops
 
-    new_trace.operations = [op for op in metainterp.history.operations]
+    new_trace.operations = [op.clone() for op in metainterp.history.operations]
     metainterp_sd = metainterp.staticdata
     state = metainterp.jitdriver_sd.warmstate
     if isinstance(resumekey, ResumeAtPositionDescr):
