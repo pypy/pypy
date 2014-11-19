@@ -856,14 +856,9 @@ class FlowContext(object):
     def WITH_CLEANUP(self, oparg):
         # Note: RPython context managers receive None in lieu of tracebacks
         # and cannot suppress the exception.
-        # This opcode changed a lot between CPython versions
-        if sys.version_info >= (2, 6):
-            unroller = self.popvalue()
-            w_exitfunc = self.popvalue()
-            self.pushvalue(unroller)
-        else:
-            w_exitfunc = self.popvalue()
-            unroller = self.peekvalue(0)
+        unroller = self.popvalue()
+        w_exitfunc = self.popvalue()
+        self.pushvalue(unroller)
 
         if isinstance(unroller, Raise):
             w_exc = unroller.w_exc
