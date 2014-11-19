@@ -10,8 +10,8 @@ from rpython.conftest import option
 from rpython.tool.sourcetools import func_with_new_name
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop, get_deep_immutable_oplist
-from rpython.jit.metainterp.history import (TreeLoop, Box, JitCellToken,
-    TargetToken, AbstractFailDescr, BoxInt, BoxPtr, BoxFloat, ConstInt)
+from rpython.jit.metainterp.history import (TreeLoop, Const, JitCellToken,
+    TargetToken, AbstractFailDescr, ConstInt)
 from rpython.jit.metainterp import history, jitexc
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.inliner import Inliner
@@ -130,7 +130,7 @@ def compile_loop(metainterp, greenkey, start,
     h_ops = history.operations
     # XXX why do we clone here?
     part.operations = [ResOperation(rop.LABEL, inputargs, descr=TargetToken(jitcell_token))] + \
-                      [h_ops[i].clone() for i in range(start, len(h_ops))] + \
+                      [h_ops[i] for i in range(start, len(h_ops))] + \
                       [ResOperation(rop.LABEL, jumpargs, descr=jitcell_token)]
 
     try:
@@ -172,7 +172,7 @@ def compile_loop(metainterp, greenkey, start,
     if not loop.quasi_immutable_deps:
         loop.quasi_immutable_deps = None
     for box in loop.inputargs:
-        assert isinstance(box, Box)
+        assert not isinstance(box, Const)
 
     loop.original_jitcell_token = jitcell_token
     for label in all_target_tokens:
@@ -206,10 +206,10 @@ def compile_retrace(metainterp, greenkey, start,
     h_ops = history.operations
 
     part.operations = [partial_trace.operations[-1]] + \
-                      [h_ops[i].clone() for i in range(start, len(h_ops))] + \
+                      [h_ops[i] for i in range(start, len(h_ops))] + \
                       [ResOperation(rop.JUMP, jumpargs, None, descr=loop_jitcell_token)]
     label = part.operations[0]
-    orignial_label = label.clone()
+    orignial_label = label
     assert label.getopnum() == rop.LABEL
     try:
         optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
@@ -784,7 +784,7 @@ def compile_trace(metainterp, resumekey):
     new_trace.inputargs = metainterp.history.inputargs[:]
     # clone ops, as optimize_bridge can mutate the ops
 
-    new_trace.operations = [op.clone() for op in metainterp.history.operations]
+    new_trace.operations = [op for op in metainterp.history.operations]
     metainterp_sd = metainterp.staticdata
     state = metainterp.jitdriver_sd.warmstate
     if isinstance(resumekey, ResumeAtPositionDescr):

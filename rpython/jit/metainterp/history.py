@@ -412,6 +412,7 @@ class BoxInt(Box):
     _attrs_ = ('value',)
 
     def __init__(self, value=0):
+        xxx
         if not we_are_translated():
             if is_valid_int(value):
                 value = int(value)    # bool -> int
@@ -451,6 +452,7 @@ class BoxFloat(Box):
     _attrs_ = ('value',)
 
     def __init__(self, valuestorage=longlong.ZEROF):
+        xxxx
         assert lltype.typeOf(valuestorage) is longlong.FLOATSTORAGE
         self.value = valuestorage
 
@@ -483,6 +485,7 @@ class BoxPtr(Box):
     _attrs_ = ('value',)
 
     def __init__(self, value=lltype.nullptr(llmemory.GCREF.TO)):
+        xxx
         assert lltype.typeOf(value) == llmemory.GCREF
         self.value = value
 
@@ -516,7 +519,6 @@ class BoxPtr(Box):
 
     _getrepr_ = repr_pointer
 
-NULLBOX = BoxPtr()
 
 # ____________________________________________________________
 
@@ -690,7 +692,8 @@ class TreeLoop(object):
     @staticmethod
     def check_consistency_of(inputargs, operations):
         for box in inputargs:
-            assert isinstance(box, Box), "Loop.inputargs contains %r" % (box,)
+            assert (not isinstance(box, Const),
+                   "Loop.inputargs contains %r" % (box,))
         seen = dict.fromkeys(inputargs)
         assert len(seen) == len(inputargs), (
                "duplicate Box in the Loop.inputargs")
@@ -699,11 +702,10 @@ class TreeLoop(object):
     @staticmethod
     def check_consistency_of_branch(operations, seen):
         "NOT_RPYTHON"
-        return # XXX for now
         for op in operations:
             for i in range(op.numargs()):
                 box = op.getarg(i)
-                if isinstance(box, Box):
+                if not isinstance(box, Const):
                     assert box in seen
             if op.is_guard():
                 assert op.getdescr() is not None
@@ -712,19 +714,16 @@ class TreeLoop(object):
                     TreeLoop.check_consistency_of_branch(ops, seen.copy())
                 for box in op.getfailargs() or []:
                     if box is not None:
-                        assert isinstance(box, Box)
+                        assert not isinstance(box, Const)
                         assert box in seen
             else:
                 assert op.getfailargs() is None
-            box = op.result
-            if box is not None:
-                assert isinstance(box, Box)
-                assert box not in seen
-                seen[box] = True
+            if op.type != 'v':
+                seen[op] = True
             if op.getopnum() == rop.LABEL:
                 inputargs = op.getarglist()
                 for box in inputargs:
-                    assert isinstance(box, Box), "LABEL contains %r" % (box,)
+                    assert not isinstance(box, Const), "LABEL contains %r" % (box,)
                 seen = dict.fromkeys(inputargs)
                 assert len(seen) == len(inputargs), (
                     "duplicate Box in the LABEL arguments")

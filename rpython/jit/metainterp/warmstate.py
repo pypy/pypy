@@ -2,7 +2,7 @@ import sys
 import weakref
 
 from rpython.jit.codewriter import support, heaptracker, longlong
-from rpython.jit.metainterp import history
+from rpython.jit.metainterp import resoperation, history
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.jit import PARAMETERS
 from rpython.rlib.nonconst import NonConstant
@@ -73,7 +73,7 @@ def wrap(cpu, value, in_const_box=False):
             if in_const_box:
                 return history.ConstPtr(value)
             else:
-                return history.BoxPtr(value)
+                return resoperation.InputArgRef(value)
         else:
             adr = llmemory.cast_ptr_to_adr(value)
             value = heaptracker.adr2int(adr)
@@ -87,7 +87,7 @@ def wrap(cpu, value, in_const_box=False):
         if in_const_box:
             return history.ConstFloat(value)
         else:
-            return history.BoxFloat(value)
+            return resoperation.InputArgFloat(value)
     elif isinstance(value, str) or isinstance(value, unicode):
         assert len(value) == 1     # must be a character
         value = ord(value)
@@ -98,7 +98,7 @@ def wrap(cpu, value, in_const_box=False):
     if in_const_box:
         return history.ConstInt(value)
     else:
-        return history.BoxInt(value)
+        return resoperation.InputArgInt(value)
 
 @specialize.arg(0)
 def equal_whatever(TYPE, x, y):
