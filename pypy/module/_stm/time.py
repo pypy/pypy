@@ -12,8 +12,8 @@ eci = ExternalCompilationInfo(
     includes=["time.h"],
     libraries=["rt"],
     post_include_bits = ["""
-extern double pypy_clock_get_time(void);
-extern double pypy_clock_get_clock(void);
+RPY_EXTERN double pypy_clock_get_time(void);
+RPY_EXTERN double pypy_clock_get_clock(void);
 """],
     separate_module_sources = ["""
 double pypy_clock_get_time(void) {

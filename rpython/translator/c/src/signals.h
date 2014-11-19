@@ -35,7 +35,9 @@ RPY_EXTERN struct pypysig_long_struct pypysig_counter;
    export a function with the correct name for testing */
 RPY_EXTERN
 void *pypysig_getaddr_occurred(void);
+RPY_EXTERN
 long pypysig_get_occurred(void);
+RPY_EXTERN
 void pypysig_set_occurred(long);
 #define pypysig_getaddr_occurred()   ((void *)(&pypysig_counter))
 #define pypysig_get_occurred()       (pypysig_counter.value)
