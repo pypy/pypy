@@ -43,3 +43,11 @@ Kill multimethod machinery, all multimethods were removed earlier.
 .. branch nditer-external_loop
 
 Implement `external_loop` arguement to numpy's nditer
+
+.. branch kill-rctime
+
+Rename pypy/module/rctime to pypy/module/time, since it contains the implementation of the 'time' module.
+
+.. branch: ssa-flow
+
+Use SSA form for flow graphs inside build_flow() and part of simplify_graph()
