@@ -114,20 +114,20 @@ class LogOperations(object):
                 if name:
                     return 'ConstClass(' + name + ')'
             return str(arg.value)
-        elif isinstance(arg, BoxInt):
-            return 'i' + str(mv)
         elif isinstance(arg, self.ts.ConstRef):
             if arg.value:
                 return 'ConstPtr(ptr' + str(mv) + ')'
             return 'ConstPtr(null)'
-        elif isinstance(arg, self.ts.BoxRef):
-            return 'p' + str(mv)
         elif isinstance(arg, ConstFloat):
-            return str(arg.getfloat())
-        elif isinstance(arg, BoxFloat):
-            return 'f' + str(mv)
+            return str(arg.getfloatstorage())
         elif arg is None:
             return 'None'
+        elif arg.type == 'i':
+            return 'i' + str(mv)
+        elif arg.type == 'r':
+            return 'p' + str(mv)
+        elif arg.type == 'f':
+            return 'f' + str(mv)
         else:
             return '?'
 
@@ -155,10 +155,10 @@ class LogOperations(object):
             s_offset = "+%d: " % offset
         args = ", ".join([self.repr_of_arg(op.getarg(i)) for i in range(op.numargs())])
 
-        #if op.result is not None:
-        #    res = self.repr_of_arg(op.result) + " = "
-        #else:
-        res = ""
+        if op.type != 'v':
+            res = self.repr_of_arg(op) + " = "
+        else:
+            res = ""
         is_guard = op.is_guard()
         if op.getdescr() is not None:
             descr = op.getdescr()

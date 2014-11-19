@@ -76,8 +76,11 @@ class TestLogger(object):
         output = logger.log_loop(loop, namespace)
         oloop = pure_parse(output, namespace=namespace)
         if check_equal:
-            equaloplists(loop.operations, oloop.operations)
-            assert oloop.inputargs == loop.inputargs
+            remap = {}
+            for box1, box2 in zip(loop.inputargs, oloop.inputargs):
+                assert box1.__class__ == box2.__class__
+                remap[box2] = box1
+            equaloplists(loop.operations, oloop.operations, remap=remap)
         return logger, loop, oloop
 
     def test_simple(self):
@@ -154,7 +157,11 @@ class TestLogger(object):
         f1 = float_add(3.5, f0)
         '''
         _, loop, oloop = self.reparse(inp)
-        equaloplists(loop.operations, oloop.operations)
+        remap = {}
+        for box1, box2 in zip(loop.inputargs, oloop.inputargs):
+            assert box1.__class__ == box2.__class__
+            remap[box2] = box1
+        equaloplists(loop.operations, oloop.operations, remap=remap)
 
     def test_jump(self):
         namespace = {'target': JitCellToken()}
