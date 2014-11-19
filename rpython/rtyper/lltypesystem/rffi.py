@@ -877,7 +877,7 @@ def make_string_mappings(strtype):
         """
         new_buf = mallocfn(count)
         pinned = 0
-        if rgc.can_move(new_buf):
+        if rgc.stm_is_enabled() or rgc.can_move(new_buf):
             if rgc.pin(new_buf):
                 pinned = 1
             else:
