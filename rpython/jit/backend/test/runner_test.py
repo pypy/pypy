@@ -120,13 +120,13 @@ class BaseBackendTest(Runner):
         self.cpu.done_with_this_frame_descr_void = None
 
     def test_compile_linear_loop(self):
-        i0 = InputArgInt(0)
-        op0 = ResOperation(rop.INT_ADD, [i0, ConstInt(1)])
-        op1 = ResOperation(rop.FINISH, [op0], descr=BasicFinalDescr(1))
-        operations = [op0, op1]
-        inputargs = [i0]
+        loop = parse("""
+        [i0]
+        i1 = int_add(i0, 1)
+        finish(i1, descr=faildescr)
+        """, namespace={"faildescr": BasicFinalDescr(1)})
         looptoken = JitCellToken()
-        self.cpu.compile_loop(inputargs, operations, looptoken)
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken, 2)
         fail = self.cpu.get_latest_descr(deadframe)
         res = self.cpu.get_int_value(deadframe, 0)
@@ -136,13 +136,13 @@ class BaseBackendTest(Runner):
     def test_compile_linear_float_loop(self):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
-        i0 = InputArgFloat()
-        op0 = ResOperation(rop.FLOAT_ADD, [i0, constfloat(2.3)])
-        op1 = ResOperation(rop.FINISH, [op0], descr=BasicFinalDescr(1))
-        operations = [op0, op1]
-        inputargs = [i0]
+        loop = parse("""
+        [f0]
+        f1 = float_add(f0, 2.3)
+        finish(f1, descr=fdescr)
+        """, namespace={'fdescr': BasicFinalDescr(1)})
         looptoken = JitCellToken()
-        self.cpu.compile_loop(inputargs, operations, looptoken)
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken,
                                            longlong.getfloatstorage(2.8))
         fail = self.cpu.get_latest_descr(deadframe)
@@ -154,17 +154,16 @@ class BaseBackendTest(Runner):
     def test_compile_loop(self):
         looptoken = JitCellToken()
         targettoken = TargetToken()
-        i0 = InputArgInt()
-        op0 = ResOperation(rop.LABEL, [i0], descr=targettoken)
-        op1 = ResOperation(rop.INT_ADD, [i0, ConstInt(1)])
-        op2 = ResOperation(rop.INT_LE, [op1, ConstInt(9)])
-        op3 = ResOperation(rop.GUARD_TRUE, [op2], descr=BasicFailDescr(2))
-        op4 = ResOperation(rop.JUMP, [op1], descr=targettoken)
-        operations = [op0, op1, op2, op3, op4]
-        inputargs = [i0]
-        operations[3].setfailargs([op1])
-
-        self.cpu.compile_loop(inputargs, operations, looptoken)
+        loop = parse("""
+        [i0]
+        label(i0, descr=targettoken)
+        i1 = int_add(i0, 1)
+        i2 = int_le(i1, 9)
+        guard_true(i2, descr=fdescr) [i1]
+        jump(i1, descr=targettoken)
+        """, namespace={'targettoken': targettoken,
+                        'fdescr': BasicFailDescr(2)})
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken, 2)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 2
@@ -172,24 +171,21 @@ class BaseBackendTest(Runner):
         assert res == 10
 
     def test_compile_with_holes_in_fail_args(self):
-        i0 = BoxInt()
-        i1 = BoxInt()
-        i2 = BoxInt()
-        i3 = BoxInt()
-        looptoken = JitCellToken()
         targettoken = TargetToken()
-        operations = [
-            ResOperation(rop.INT_SUB, [i3, ConstInt(42)], i0),
-            ResOperation(rop.LABEL, [i0], None, descr=targettoken),
-            ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
-            ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
-            ResOperation(rop.GUARD_TRUE, [i2], None, descr=BasicFailDescr(2)),
-            ResOperation(rop.JUMP, [i1], None, descr=targettoken),
-            ]
-        inputargs = [i3]
-        operations[4].setfailargs([None, None, i1, None])
+        loop = parse("""
+        [i3]
+        i0 = int_sub(i3, 42)
+        label(i0, descr=targettoken)
+        i1 = int_add(i0, 1)
+        i2 = int_le(i1, 9)
+        guard_true(i2, descr=fdescr) []
+        jump(i1, descr=targettoken)
+        """, namespace={'targettoken': targettoken,
+                        'fdescr': BasicFailDescr(2)})
+        looptoken = JitCellToken()
+        loop.operations[4].setfailargs([None, None, loop.operations[2], None])
 
-        self.cpu.compile_loop(inputargs, operations, looptoken)
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken, 44)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 2
@@ -199,62 +195,53 @@ class BaseBackendTest(Runner):
     def test_backends_dont_keep_loops_alive(self):
         import weakref, gc
         self.cpu.dont_keepalive_stuff = True
-        i0 = BoxInt()
-        i1 = BoxInt()
-        i2 = BoxInt()
-        looptoken = JitCellToken()
         targettoken = TargetToken()
-        operations = [
-            ResOperation(rop.LABEL, [i0], None, descr=targettoken),
-            ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
-            ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
-            ResOperation(rop.GUARD_TRUE, [i2], None, descr=BasicFailDescr()),
-            ResOperation(rop.JUMP, [i1], None, descr=targettoken),
-            ]
-        inputargs = [i0]
-        operations[3].setfailargs([i1])
-        wr_i1 = weakref.ref(i1)
-        wr_guard = weakref.ref(operations[2])
-        self.cpu.compile_loop(inputargs, operations, looptoken)
+        loop = parse("""
+        [i0]
+        label(i0, descr=targettoken)
+        i1 = int_add(i0, 1)
+        i2 = int_le(i1, 9)
+        guard_true(i2, descr=fdescr) [i1]
+        jump(i1, descr=targettoken)
+        """, namespace={'targettoken': targettoken, 'fdescr': BasicFailDescr()})
+        looptoken = JitCellToken()
+        wr_i1 = weakref.ref(loop.operations[1])
+        wr_guard = weakref.ref(loop.operations[3])
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         if hasattr(looptoken, '_x86_ops_offset'):
             del looptoken._x86_ops_offset # else it's kept alive
-        del i0, i1, i2
-        del inputargs
-        del operations
+        del loop
         gc.collect()
         assert not wr_i1() and not wr_guard()
 
     def test_compile_bridge(self):
         self.cpu.tracker.total_compiled_loops = 0
         self.cpu.tracker.total_compiled_bridges = 0
-        i0 = BoxInt()
-        i1 = BoxInt()
-        i2 = BoxInt()
+        targettoken = TargetToken()
         faildescr1 = BasicFailDescr(1)
         faildescr2 = BasicFailDescr(2)
+        loop = parse("""
+        [i0]
+        label(i0, descr=targettoken)
+        i1 = int_add(i0, 1)
+        i2 = int_le(i1, 9)
+        guard_true(i2, descr=faildescr1) [i1]
+        jump(i1, descr=targettoken)
+        """, namespace={'targettoken': targettoken,
+                        'faildescr1': faildescr1})
         looptoken = JitCellToken()
-        targettoken = TargetToken()
-        operations = [
-            ResOperation(rop.LABEL, [i0], None, descr=targettoken),
-            ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
-            ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
-            ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr1),
-            ResOperation(rop.JUMP, [i1], None, descr=targettoken),
-            ]
-        inputargs = [i0]
-        operations[3].setfailargs([i1])
-        self.cpu.compile_loop(inputargs, operations, looptoken)
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
 
-        i1b = BoxInt()
-        i3 = BoxInt()
-        bridge = [
-            ResOperation(rop.INT_LE, [i1b, ConstInt(19)], i3),
-            ResOperation(rop.GUARD_TRUE, [i3], None, descr=faildescr2),
-            ResOperation(rop.JUMP, [i1b], None, descr=targettoken),
-        ]
-        bridge[1].setfailargs([i1b])
+        bridge = parse("""
+        [i1]
+        i3 = int_le(i1, 19)
+        guard_true(i3, descr=faildescr2) [i1]
+        jump(i1, descr=targettoken)
+        """, namespace={"targettoken": targettoken,
+                        'faildescr2': faildescr2})
 
-        self.cpu.compile_bridge(faildescr1, [i1b], bridge, looptoken)
+        self.cpu.compile_bridge(faildescr1, bridge.inputargs,
+                                bridge.operations, looptoken)
 
         deadframe = self.cpu.execute_token(looptoken, 2)
         fail = self.cpu.get_latest_descr(deadframe)
@@ -267,36 +254,32 @@ class BaseBackendTest(Runner):
         return looptoken
 
     def test_compile_bridge_with_holes(self):
-        i0 = BoxInt()
-        i1 = BoxInt()
-        i2 = BoxInt()
-        i3 = BoxInt()
         faildescr1 = BasicFailDescr(1)
         faildescr2 = BasicFailDescr(2)
         looptoken = JitCellToken()
         targettoken = TargetToken()
-        operations = [
-            ResOperation(rop.INT_SUB, [i3, ConstInt(42)], i0),
-            ResOperation(rop.LABEL, [i0], None, descr=targettoken),
-            ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
-            ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
-            ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr1),
-            ResOperation(rop.JUMP, [i1], None, descr=targettoken),
-            ]
-        inputargs = [i3]
-        operations[4].setfailargs([None, i1, None])
-        self.cpu.compile_loop(inputargs, operations, looptoken)
+        loop = parse("""
+        [i3]
+        i0 = int_sub(i3, 42)
+        label(i0, descr=targettoken)
+        i1 = int_add(i0, 1)
+        i2 = int_le(i1, 9)
+        guard_true(i2, descr=faildescr1) []
+        jump(i1, descr=targettoken)
+        """, namespace={'targettoken': targettoken,
+                        'faildescr1': faildescr1})
+        loop.operations[-2].setfailargs([None, loop.operations[2], None])
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
 
-        i1b = BoxInt()
-        i3 = BoxInt()
-        bridge = [
-            ResOperation(rop.INT_LE, [i1b, ConstInt(19)], i3),
-            ResOperation(rop.GUARD_TRUE, [i3], None, descr=faildescr2),
-            ResOperation(rop.JUMP, [i1b], None, descr=targettoken),
-        ]
-        bridge[1].setfailargs([i1b])
-
-        self.cpu.compile_bridge(faildescr1, [i1b], bridge, looptoken)
+        bridge = parse("""
+        [i1]
+        i3 = int_le(i1, 19)
+        guard_true(i3, descr=faildescr2) [i1]
+        jump(i1, descr=targettoken)
+        """, namespace={'targettoken': targettoken,
+                        'faildescr2': faildescr2})
+        self.cpu.compile_bridge(faildescr1, bridge.inputargs,
+                                bridge.operations, looptoken)
 
         deadframe = self.cpu.execute_token(looptoken, 2)
         fail = self.cpu.get_latest_descr(deadframe)
@@ -305,42 +288,40 @@ class BaseBackendTest(Runner):
         assert res == 20
 
     def test_compile_big_bridge_out_of_small_loop(self):
-        i0 = BoxInt()
         faildescr1 = BasicFailDescr(1)
+        loop = parse("""
+        [i0]
+        guard_false(i0, descr=faildescr1) [i0]
+        finish(descr=finaldescr)
+        """, namespace={'faildescr1': faildescr1,
+                        'finaldescr': BasicFinalDescr(2)})
         looptoken = JitCellToken()
-        operations = [
-            ResOperation(rop.GUARD_FALSE, [i0], None, descr=faildescr1),
-            ResOperation(rop.FINISH, [], None, descr=BasicFinalDescr(2)),
-            ]
-        inputargs = [i0]
-        operations[0].setfailargs([i0])
-        self.cpu.compile_loop(inputargs, operations, looptoken)
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
 
-        i1list = [BoxInt() for i in range(150)]
         bridge = []
+        i0 = InputArgInt()
         iprev = i0
-        for i1 in i1list:
-            bridge.append(ResOperation(rop.INT_ADD, [iprev, ConstInt(1)], i1))
-            iprev = i1
-        bridge.append(ResOperation(rop.GUARD_FALSE, [i0], None,
+        for i in range(150):
+            iprev = ResOperation(rop.INT_ADD, [iprev, ConstInt(1)])
+            bridge.append(iprev)
+        bridge.append(ResOperation(rop.GUARD_FALSE, [i0],
                                    descr=BasicFailDescr(3)))
-        bridge.append(ResOperation(rop.FINISH, [], None,
+        bridge.append(ResOperation(rop.FINISH, [],
                                    descr=BasicFinalDescr(4)))
-        bridge[-2].setfailargs(i1list)
+        bridge[-2].setfailargs(bridge[:-2])
 
         self.cpu.compile_bridge(faildescr1, [i0], bridge, looptoken)
 
         deadframe = self.cpu.execute_token(looptoken, 1)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 3
-        for i in range(len(i1list)):
+        for i in range(150):
             res = self.cpu.get_int_value(deadframe, i)
             assert res == 2 + i
 
     def test_finish(self):
         from rpython.jit.backend.llsupport.llmodel import final_descr_rd_locs
 
-        i0 = BoxInt()
         class UntouchableFailDescr(AbstractFailDescr):
             final_descr = True
             rd_locs = final_descr_rd_locs
@@ -352,10 +333,11 @@ class BaseBackendTest(Runner):
                 py.test.fail("finish descrs should not be touched")
         faildescr = UntouchableFailDescr() # to check that is not touched
         looptoken = JitCellToken()
-        operations = [
-            ResOperation(rop.FINISH, [i0], None, descr=faildescr)
-            ]
-        self.cpu.compile_loop([i0], operations, looptoken)
+        loop = parse("""
+        [i0]
+        finish(i0, descr=faildescr)
+        """, namespace={'faildescr': faildescr})
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken, 99)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail is faildescr
@@ -364,7 +346,7 @@ class BaseBackendTest(Runner):
 
         looptoken = JitCellToken()
         operations = [
-            ResOperation(rop.FINISH, [ConstInt(42)], None, descr=faildescr)
+            ResOperation(rop.FINISH, [ConstInt(42)], descr=faildescr)
             ]
         self.cpu.compile_loop([], operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken)
@@ -375,7 +357,7 @@ class BaseBackendTest(Runner):
 
         looptoken = JitCellToken()
         operations = [
-            ResOperation(rop.FINISH, [], None, descr=faildescr)
+            ResOperation(rop.FINISH, [], descr=faildescr)
             ]
         self.cpu.compile_loop([], operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken)
@@ -384,9 +366,9 @@ class BaseBackendTest(Runner):
 
         if self.cpu.supports_floats:
             looptoken = JitCellToken()
-            f0 = BoxFloat()
+            f0 = InputArgFloat()
             operations = [
-                ResOperation(rop.FINISH, [f0], None, descr=faildescr)
+                ResOperation(rop.FINISH, [f0], descr=faildescr)
                 ]
             self.cpu.compile_loop([f0], operations, looptoken)
             value = longlong.getfloatstorage(-61.25)
@@ -398,7 +380,7 @@ class BaseBackendTest(Runner):
 
             looptoken = JitCellToken()
             operations = [
-                ResOperation(rop.FINISH, [constfloat(42.5)], None, descr=faildescr)
+                ResOperation(rop.FINISH, [constfloat(42.5)], descr=faildescr)
                 ]
             self.cpu.compile_loop([], operations, looptoken)
             deadframe = self.cpu.execute_token(looptoken)
@@ -409,24 +391,19 @@ class BaseBackendTest(Runner):
 
     def test_execute_operations_in_env(self):
         cpu = self.cpu
-        x = BoxInt(123)
-        y = BoxInt(456)
-        z = BoxInt(579)
-        t = BoxInt(455)
-        u = BoxInt(0)    # False
-        looptoken = JitCellToken()
         targettoken = TargetToken()
-        operations = [
-            ResOperation(rop.LABEL, [y, x], None, descr=targettoken),
-            ResOperation(rop.INT_ADD, [x, y], z),
-            ResOperation(rop.INT_SUB, [y, ConstInt(1)], t),
-            ResOperation(rop.INT_EQ, [t, ConstInt(0)], u),
-            ResOperation(rop.GUARD_FALSE, [u], None,
-                         descr=BasicFailDescr()),
-            ResOperation(rop.JUMP, [t, z], None, descr=targettoken),
-            ]
-        operations[-2].setfailargs([t, z])
-        cpu.compile_loop([x, y], operations, looptoken)
+        loop = parse("""
+        [i1, i0]
+        label(i0, i1, descr=targettoken)
+        i2 = int_add(i1, i0)
+        i3 = int_sub(i0, 1)
+        i4 = int_eq(i3, 0)
+        guard_false(i4, descr=fdescr) [i3, i2]
+        jump(i3, i2, descr=targettoken)
+        """, namespace={'targettoken': targettoken,
+                        'fdescr': BasicFailDescr()})
+        looptoken = JitCellToken()
+        cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken, 0, 10)
         assert self.cpu.get_int_value(deadframe, 0) == 0
         assert self.cpu.get_int_value(deadframe, 1) == 55
