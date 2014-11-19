@@ -503,9 +503,9 @@ class FlowContext(object):
 
     def handle_bytecode(self, next_offset):
         self.last_offset = next_offset
-        next_offset, methodname, oparg = self.pycode.read(next_offset)
+        next_offset, instr = self.pycode.read(next_offset)
         try:
-            offset = getattr(self, methodname)(oparg)
+            res = instr.eval(self)
             return offset if offset is not None else next_offset
         except FlowSignal as signal:
             return self.unroll(signal)

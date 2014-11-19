@@ -35,8 +35,6 @@ class HostCode(object):
     """
     A wrapper around a native code object of the host interpreter
     """
-    opnames = host_bytecode_spec.method_names
-
     def __init__(self, argcount, nlocals, stacksize, flags,
                  code, consts, names, varnames, filename,
                  name, firstlineno, lnotab, freevars):
@@ -85,7 +83,7 @@ class HostCode(object):
         """
         Decode the instruction starting at position ``offset``.
 
-        Returns (next_offset, opname, oparg).
+        Returns (next_offset, instruction).
         """
         co_code = self.co_code
         opnum = ord(co_code[offset])
@@ -110,9 +108,20 @@ class HostCode(object):
 
         if opnum in opcode.hasjrel:
             oparg += next_offset
-        opname = self.opnames[opnum]
-        return next_offset, opname, oparg
+        return next_offset, BCInstruction(opnum, oparg, pos)
 
     @property
     def is_generator(self):
         return bool(self.co_flags & CO_GENERATOR)
+
+OPNAMES = host_bytecode_spec.method_names
+
+class BCInstruction(object):
+    """A bytecode instruction, comprising an opcode and an optional argument."""
+    def __init__(self, opcode, arg, offset=-1):
+        self.name = OPNAMES[opcode]
+        self.arg = arg
+        self.offset = offset
+
+    def eval(self, ctx):
+        return getattr(ctx, self.name)(self.arg)
