@@ -10,6 +10,7 @@ from rpython.rtyper.module.ll_os import RegisterOs
 
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
+from pypy.interpreter.executioncontext import ExecutionContext
 
 
 _WIN32 = sys.platform == 'win32'
@@ -488,8 +489,7 @@ def getlogin(space):
         cur = os.getlogin()
     except OSError, e:
         raise wrap_oserror(space, e)
-    else:
-        return space.wrap(cur)
+    return space.fsdecode(space.wrapbytes(cur))
 
 # ____________________________________________________________
 
@@ -580,13 +580,15 @@ entries '.' and '..' even if they are present in the directory."""
                 else:
                     w_bytes = space.wrapbytes(result[i])
                     result_w[i] = space.fsdecode(w_bytes)
+            return space.newlist(result_w)
         else:
             dirname = space.str0_w(w_dirname)
             result = rposix.listdir(dirname)
-            result_w = [space.wrapbytes(s) for s in result]
+            # The list comprehension is a workaround for an obscure translation
+            # bug.
+            return space.newlist_bytes([x for x in result])
     except OSError, e:
         raise wrap_oserror2(space, e, w_dirname)
-    return space.newlist(result_w)
 
 def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."
@@ -693,14 +695,21 @@ def symlink(space, w_src, w_dst):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path='fsencode')
-def readlink(space, path):
+def readlink(space, w_path):
     "Return a string representing the path to which the symbolic link points."
+    is_unicode = space.isinstance_w(w_path, space.w_unicode)
+    if is_unicode:
+        path = space.fsencode_w(w_path)
+    else:
+        path = space.bytes0_w(w_path)
     try:
         result = os.readlink(path)
     except OSError, e:
-        raise wrap_oserror(space, e, path)
-    return space.wrap(result)
+        raise wrap_oserror2(space, e, w_path)
+    w_result = space.wrapbytes(result)
+    if is_unicode:
+        return space.fsdecode(w_result)
+    return w_result
 
 before_fork_hooks = []
 after_fork_child_hooks = []
@@ -720,6 +729,8 @@ def get_fork_hooks(where):
 def add_fork_hook(where, hook):
     "NOT_RPYTHON"
     get_fork_hooks(where).append(hook)
+
+add_fork_hook('child', ExecutionContext._mark_thread_disappeared)
 
 @specialize.arg(0)
 def run_fork_hooks(where, space):
@@ -890,7 +901,8 @@ def uname(space):
         r = os.uname()
     except OSError, e:
         raise wrap_oserror(space, e)
-    l_w = [space.wrap(i) for i in [r[0], r[1], r[2], r[3], r[4]]]
+    l_w = [space.fsdecode(space.wrapbytes(i))
+           for i in [r[0], r[1], r[2], r[3], r[4]]]
     return space.newtuple(l_w)
 
 def getuid(space):
@@ -1217,7 +1229,7 @@ for name in RegisterOs.w_star:
 @unwrap_spec(fd=c_int)
 def ttyname(space, fd):
     try:
-        return space.wrap(os.ttyname(fd))
+        return space.fsdecode(space.wrapbytes(os.ttyname(fd)))
     except OSError, e:
         raise wrap_oserror(space, e)
 
@@ -1352,7 +1364,7 @@ def ctermid(space):
 
     Return the name of the controlling terminal for this process.
     """
-    return space.wrap(os.ctermid())
+    return space.fsdecode(space.wrapbytes(os.ctermid()))
 
 @unwrap_spec(fd=c_int)
 def device_encoding(space, fd):
@@ -1374,3 +1386,27 @@ def device_encoding(space, fd):
         if codeset:
             return space.wrap(codeset)
     return space.w_None
+
+if _WIN32:
+    from pypy.module.posix import interp_nt as nt
+
+    @unwrap_spec(fd=c_int)
+    def _getfileinformation(space, fd):
+        try:
+            info = nt._getfileinformation(fd)
+        except OSError as e:
+            raise wrap_oserror(space, e)
+        return space.newtuple([space.wrap(info[0]),
+                               space.wrap(info[1]),
+                               space.wrap(info[2])])
+
+    def _getfinalpathname(space, w_path):
+        path = space.unicode_w(w_path)
+        try:
+            result = nt._getfinalpathname(path)
+        except nt.LLNotImplemented as e:
+            raise OperationError(space.w_NotImplementedError,
+                                 space.wrap(e.msg))
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path)
+        return space.wrap(result)

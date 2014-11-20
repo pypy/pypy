@@ -630,6 +630,7 @@ from pypy.interpreter.generator import GeneratorIterator
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
+
 def descr_get_dict(space, w_obj):
     w_dict = w_obj.getdict(space)
     if w_dict is None:
@@ -649,6 +650,11 @@ def descr_get_weakref(space, w_obj):
     if lifeline is None:
         return space.w_None
     return lifeline.get_any_weakref(space)
+
+dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
+                            doc="dictionary for instance variables (if defined)")
+dict_descr.name = '__dict__'
+
 
 def generic_ne(space, w_obj1, w_obj2):
     if space.eq_w(w_obj1, w_obj2):
@@ -837,6 +843,9 @@ Function.typedef.acceptable_as_base_class = False
 
 Method.typedef = TypeDef(
     "method",
+    __doc__ = """instancemethod(function, instance, class)
+
+Create an instance method object.""",
     __new__ = interp2app(Method.descr_method__new__.im_func),
     __call__ = interp2app(Method.descr_method_call),
     __get__ = interp2app(Method.descr_method_get),
@@ -944,6 +953,7 @@ Cell.typedef = TypeDef("cell",
     __eq__       = interp2app(Cell.descr__eq__),
     __hash__     = None,
     __reduce__   = interp2app(Cell.descr__reduce__),
+    __repr__     = interp2app(Cell.descr__repr__),
     __setstate__ = interp2app(Cell.descr__setstate__),
     cell_contents= GetSetProperty(Cell.descr__cell_contents, cls=Cell),
 )

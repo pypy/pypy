@@ -1,5 +1,5 @@
-JIT hooks in PyPy
-=================
+JIT hooks
+=========
 
 There are several hooks in the ``pypyjit`` module that may help you with
 understanding what's pypy's JIT doing while running your program. There
@@ -34,7 +34,7 @@ are three functions related to that coming from the ``pypyjit`` module:
     aborted due to some reason.
 
     The hook will be invoked with the siagnture:
-    ``hook(jitdriver_name, greenkey, reason)``
+    ``hook(jitdriver_name, greenkey, reason, oplist)``
 
     Reason is a string, the meaning of other arguments is the same
     as attributes on JitLoopInfo object

@@ -19,8 +19,8 @@ class Test_DescrOperation:
         class Meta(type):
             def __subclasscheck__(mcls, cls):
                 return False
-        class Base:
-            __metaclass__ = Meta
+        class Base(metaclass=Meta):
+            pass
         class Sub(Base):
             pass
         return Base, Sub""")
@@ -306,17 +306,20 @@ class AppTest_Descroperation:
             raises(TypeError, operate, A())
 
     def test_missing_getattribute(self):
+        """
         class X(object):
             pass
 
-        class Y(X):
-            class __metaclass__(type):
-                def mro(cls):
-                    return [cls, X]
+        class metaclass(type):
+            def mro(cls):
+                return [cls, X]
+        class Y(X, metaclass=metaclass):
+            pass
 
         x = X()
         x.__class__ = Y
         raises(AttributeError, getattr, x, 'a')
+        """
 
     def test_unordeable_types(self):
         class A(object): pass
@@ -715,7 +718,52 @@ class AppTest_Descroperation:
                 return CannotConvertToBool()
         x = X()
         raises(MyError, "'foo' in x")
-        
-            
-class AppTestWithBuiltinShortcut(AppTest_Descroperation):
-    spaceconfig = {'objspace.std.builtinshortcut': True}
+
+    def test_sequence_rmul_overrides(self):
+        class oops(object):
+            def __rmul__(self, other):
+                return 42
+            def __index__(self):
+                return 3
+        assert b'2' * oops() == 42
+        assert [2] * oops() == 42
+        assert (2,) * oops() == 42
+        assert u'2' * oops() == 42
+        assert bytearray(b'2') * oops() == 42
+        assert 1000 * oops() == 42
+        assert b'2'.__mul__(oops()) == b'222'
+
+    def test_sequence_rmul_overrides_oldstyle(self):
+        class oops:
+            def __rmul__(self, other):
+                return 42
+            def __index__(self):
+                return 3
+        assert b'2' * oops() == 42
+        assert [2] * oops() == 42
+        assert (2,) * oops() == 42
+        assert u'2' * oops() == 42
+        assert bytearray(b'2') * oops() == 42
+        assert 1000 * oops() == 42
+        assert b'2'.__mul__(oops()) == b'222'
+
+    def test_sequence_radd_overrides(self):
+        class A1(list):
+            pass
+        class A2(list):
+            def __radd__(self, other):
+                return 42
+        assert [2] + A1([3]) == [2, 3]
+        assert type([2] + A1([3])) is list
+        assert [2] + A2([3]) == 42
+
+    def test_64bit_hash(self):
+        import sys
+        class BigHash(object):
+            def __hash__(self):
+                return sys.maxsize + 2
+            def __eq__(self, other):
+                return isinstance(other, BigHash)
+        # previously triggered an OverflowError
+        d = {BigHash(): None}
+        assert BigHash() in d

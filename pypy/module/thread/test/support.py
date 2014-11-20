@@ -42,9 +42,10 @@ def timeout_killer(cls, pid, delay):
 
 
 class GenericTestThread:
-    spaceconfig = dict(usemodules=('thread', 'rctime', 'signal'))
+    spaceconfig = dict(usemodules=('thread', 'time', 'signal'))
 
     def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
         if cls.runappdirect:
             cls.w_NORMAL_TIMEOUT = NORMAL_TIMEOUT
             def plain_waitfor(cls, condition, delay=1):

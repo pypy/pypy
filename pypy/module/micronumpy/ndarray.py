@@ -16,9 +16,8 @@ from pypy.module.micronumpy.base import W_NDimArray, convert_to_array, \
     ArrayArgumentException, wrap_impl
 from pypy.module.micronumpy.concrete import BaseConcreteArray
 from pypy.module.micronumpy.converters import multi_axis_converter, \
-    order_converter, shape_converter
+    order_converter, shape_converter, searchside_converter
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
-from pypy.module.micronumpy.flatiter import W_FlatIterator
 from pypy.module.micronumpy.strides import get_shape_from_iterable, \
     shape_agreement, shape_agreement_multiple
 
@@ -84,8 +83,12 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_AttributeError, space.wrap(
             "Cannot delete array dtype"))
 
+    def ndims(self):
+        return len(self.get_shape())
+    ndims._always_inline_ = True
+
     def descr_get_ndim(self, space):
-        return space.wrap(len(self.get_shape()))
+        return space.wrap(self.ndims())
 
     def descr_get_itemsize(self, space):
         return space.wrap(self.get_dtype().elsize)
@@ -104,14 +107,14 @@ class __extend__(W_NDimArray):
         return space.wrap(loop.tostring(space, self))
 
     def getitem_filter(self, space, arr):
-        if len(arr.get_shape()) > 1 and arr.get_shape() != self.get_shape():
+        if arr.ndims() > 1 and arr.get_shape() != self.get_shape():
             raise OperationError(space.w_ValueError, space.wrap(
                 "boolean index array should have 1 dimension"))
         if arr.get_size() > self.get_size():
             raise OperationError(space.w_ValueError, space.wrap(
                 "index out of range for array"))
         size = loop.count_all_true(arr)
-        if len(arr.get_shape()) == 1:
+        if arr.ndims() == 1:
             res_shape = [size] + self.get_shape()[1:]
         else:
             res_shape = [size]
@@ -120,7 +123,7 @@ class __extend__(W_NDimArray):
         return loop.getitem_filter(w_res, self, arr)
 
     def setitem_filter(self, space, idx, val):
-        if len(idx.get_shape()) > 1 and idx.get_shape() != self.get_shape():
+        if idx.ndims() > 1 and idx.get_shape() != self.get_shape():
             raise OperationError(space.w_ValueError, space.wrap(
                 "boolean index array should have 1 dimension"))
         if idx.get_size() > self.get_size():
@@ -211,7 +214,7 @@ class __extend__(W_NDimArray):
         if space.is_w(w_idx, space.w_Ellipsis):
             return self
         elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool() \
-                and len(w_idx.get_shape()) > 0:
+                and w_idx.ndims() > 0:
             return self.getitem_filter(space, w_idx)
         try:
             return self.implementation.descr_getitem(space, self, w_idx)
@@ -229,7 +232,7 @@ class __extend__(W_NDimArray):
             self.implementation.setslice(space, convert_to_array(space, w_value))
             return
         elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool() \
-                and len(w_idx.get_shape()) > 0:
+                and w_idx.ndims() > 0:
             self.setitem_filter(space, w_idx, convert_to_array(space, w_value))
             return
         try:
@@ -290,7 +293,7 @@ class __extend__(W_NDimArray):
             shape=shape, backward_broadcast=backward_broadcast)
 
     def is_scalar(self):
-        return len(self.get_shape()) == 0
+        return self.ndims() == 0
 
     def set_scalar_value(self, w_val):
         return self.implementation.setitem(self.implementation.start, w_val)
@@ -407,8 +410,19 @@ class __extend__(W_NDimArray):
         --------
         numpy.swapaxes : equivalent function
         """
-        if self.is_scalar():
+        if axis1 == axis2:
             return self
+        n = self.ndims()
+        if n <= 1:
+            return self
+        if axis1 < 0:
+            axis1 += n
+        if axis2 < 0:
+            axis2 += n
+        if axis1 < 0 or axis1 >= n:
+            raise oefmt(space.w_ValueError, "bad axis1 argument to swapaxes")
+        if axis2 < 0 or axis2 >= n:
+            raise oefmt(space.w_ValueError, "bad axis2 argument to swapaxes")
         return self.implementation.swapaxes(space, self, axis1, axis2)
 
     def descr_nonzero(self, space):
@@ -416,7 +430,7 @@ class __extend__(W_NDimArray):
         return self.implementation.nonzero(space, index_type)
 
     def descr_tolist(self, space):
-        if len(self.get_shape()) == 0:
+        if self.ndims() == 0:
             return self.get_scalar_value().item(space)
         l_w = []
         for i in range(self.get_shape()[0]):
@@ -464,14 +478,16 @@ class __extend__(W_NDimArray):
         return repeat(space, self, repeats, w_axis)
 
     def descr_set_flatiter(self, space, w_obj):
+        iter, state = self.create_iter()
+        dtype = self.get_dtype()
         arr = convert_to_array(space, w_obj)
-        loop.flatiter_setitem(space, self, arr, 0, 1, self.get_size())
+        loop.flatiter_setitem(space, dtype, arr, iter, state, 1, iter.size)
 
     def descr_get_flatiter(self, space):
+        from .flatiter import W_FlatIterator
         return space.wrap(W_FlatIterator(self))
 
-    def descr_item(self, space, __args__):
-        args_w, kw_w = __args__.unpack()
+    def descr_item(self, space, args_w):
         if len(args_w) == 1 and space.isinstance_w(args_w[0], space.w_tuple):
             args_w = space.fixedview(args_w[0])
         shape = self.get_shape()
@@ -502,7 +518,7 @@ class __extend__(W_NDimArray):
         if len(args_w) == 0:
             raise OperationError(space.w_ValueError, space.wrap(
                 "itemset must have at least one argument"))
-        if len(args_w) != len(self.get_shape()) + 1:
+        if len(args_w) != self.ndims() + 1:
             raise OperationError(space.w_ValueError, space.wrap(
                 "incorrect number of indices for array"))
         self.descr_setitem(space, space.newtuple(args_w[:-1]), args_w[-1])
@@ -627,14 +643,14 @@ class __extend__(W_NDimArray):
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):
-        if len(self.get_shape()) < 2:
+        if self.ndims() < 2:
             raise OperationError(space.w_ValueError, space.wrap(
                 "need at least 2 dimensions for diagonal"))
-        if (axis1 < 0 or axis2 < 0 or axis1 >= len(self.get_shape()) or
-                axis2 >= len(self.get_shape())):
+        if (axis1 < 0 or axis2 < 0 or axis1 >= self.ndims() or
+                axis2 >= self.ndims()):
             raise oefmt(space.w_ValueError,
                         "axis1(=%d) and axis2(=%d) must be withing range "
-                        "(ndim=%d)", axis1, axis2, len(self.get_shape()))
+                        "(ndim=%d)", axis1, axis2, self.ndims())
         if axis1 == axis2:
             raise OperationError(space.w_ValueError, space.wrap(
                 "axis1 and axis2 cannot be the same"))
@@ -707,29 +723,22 @@ class __extend__(W_NDimArray):
         loop.round(space, self, calc_dtype, self.get_shape(), decimals, out)
         return out
 
-    @unwrap_spec(side=str, w_sorter=WrappedDefault(None))
-    def descr_searchsorted(self, space, w_v, side='left', w_sorter=None):
+    @unwrap_spec(w_side=WrappedDefault('left'), w_sorter=WrappedDefault(None))
+    def descr_searchsorted(self, space, w_v, w_side=None, w_sorter=None):
         if not space.is_none(w_sorter):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 'sorter not supported in searchsort'))
-        if not side or len(side) < 1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "expected nonempty string for keyword 'side'"))
-        elif side[0] == 'l' or side[0] == 'L':
-            side = 'l'
-        elif side[0] == 'r' or side[0] == 'R':
-            side = 'r'
-        else:
-            raise oefmt(space.w_ValueError,
-                        "'%s' is an invalid value for keyword 'side'", side)
-        if len(self.get_shape()) > 1:
+        side = searchside_converter(space, w_side)
+        if self.ndims() != 1:
             raise oefmt(space.w_ValueError, "a must be a 1-d array")
         v = convert_to_array(space, w_v)
-        if len(v.get_shape()) > 1:
-            raise oefmt(space.w_ValueError, "v must be a 1-d array-like")
         ret = W_NDimArray.from_shape(
             space, v.get_shape(), descriptor.get_dtype_cache(space).w_longdtype)
-        app_searchsort(space, self, v, space.wrap(side), ret)
+        if side == NPY.SEARCHLEFT:
+            binsearch = loop.binsearch_left
+        else:
+            binsearch = loop.binsearch_right
+        binsearch(space, self, v, ret)
         if ret.is_scalar():
             return ret.get_scalar_value()
         return ret
@@ -959,7 +968,7 @@ class __extend__(W_NDimArray):
         if other.is_scalar():
             #Note: w_out is not modified, this is numpy compliant.
             return self.descr_mul(space, other)
-        elif len(self.get_shape()) < 2 and len(other.get_shape()) < 2:
+        elif self.ndims() < 2 and other.ndims() < 2:
             w_res = self.descr_mul(space, other)
             assert isinstance(w_res, W_NDimArray)
             return w_res.descr_sum(space, space.wrap(-1), out)
@@ -976,7 +985,7 @@ class __extend__(W_NDimArray):
                 matches = False
             elif not out.implementation.order == "C":
                 matches = False
-            elif len(out.get_shape()) != len(out_shape):
+            elif out.ndims() != len(out_shape):
                 matches = False
             else:
                 for i in range(len(out_shape)):
@@ -1277,31 +1286,6 @@ app_ptp = applevel(r"""
         return res
 """, filename=__file__).interphook('ptp')
 
-app_searchsort = applevel(r"""
-    def searchsort(arr, v, side, result):
-        import operator
-        def func(a, op, val):
-            imin = 0
-            imax = a.size
-            while imin < imax:
-                imid = imin + ((imax - imin) >> 1)
-                if op(a[imid], val):
-                    imin = imid +1
-                else:
-                    imax = imid
-            return imin
-        if side == 'l':
-            op = operator.lt
-        else:
-            op = operator.le
-        if v.size < 2:
-            result[...] = func(arr, op, v)
-        else:
-            for i in range(v.size):
-                result[i] = func(arr, op, v[i])
-        return result
-""", filename=__file__).interphook('searchsort')
-
 W_NDimArray.typedef = TypeDef("numpy.ndarray",
     __new__ = interp2app(descr_new_array),
 
@@ -1388,6 +1372,7 @@ W_NDimArray.typedef = TypeDef("numpy.ndarray",
     flags = GetSetProperty(W_NDimArray.descr_get_flags),
 
     fill = interp2app(W_NDimArray.descr_fill),
+    tobytes = interp2app(W_NDimArray.descr_tostring),
     tostring = interp2app(W_NDimArray.descr_tostring),
 
     mean = interp2app(W_NDimArray.descr_mean),
@@ -1466,23 +1451,3 @@ W_NDimArray.typedef = TypeDef("numpy.ndarray",
 
 def _reconstruct(space, w_subtype, w_shape, w_dtype):
     return descr_new_array(space, w_subtype, w_shape, w_dtype)
-
-
-W_FlatIterator.typedef = TypeDef("numpy.flatiter",
-    __iter__ = interp2app(W_FlatIterator.descr_iter),
-    __getitem__ = interp2app(W_FlatIterator.descr_getitem),
-    __setitem__ = interp2app(W_FlatIterator.descr_setitem),
-    __len__ = interp2app(W_FlatIterator.descr_len),
-
-    __eq__ = interp2app(W_FlatIterator.descr_eq),
-    __ne__ = interp2app(W_FlatIterator.descr_ne),
-    __lt__ = interp2app(W_FlatIterator.descr_lt),
-    __le__ = interp2app(W_FlatIterator.descr_le),
-    __gt__ = interp2app(W_FlatIterator.descr_gt),
-    __ge__ = interp2app(W_FlatIterator.descr_ge),
-
-    next = interp2app(W_FlatIterator.descr_next),
-    base = GetSetProperty(W_FlatIterator.descr_base),
-    index = GetSetProperty(W_FlatIterator.descr_index),
-    coords = GetSetProperty(W_FlatIterator.descr_coords),
-)

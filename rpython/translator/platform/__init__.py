@@ -153,18 +153,6 @@ class Platform(object):
             for line in stderr.splitlines():
                 log.WARNING(line)
 
-    def _make_response_file(self, prefix):
-        """Creates a temporary file with the specified prefix,
-        and returns its name"""
-        # Build unique filename
-        num = 0
-        while 1:
-            response_file = udir.join('%s%i' % (prefix, num))
-            num += 1
-            if not response_file.check():
-                break
-        return response_file
-
     def _make_o_file(self, cfile, ext):
         """Create an object file name under the udir for a .c file"""
         ofile = cfile.new(ext=ext)
@@ -192,9 +180,12 @@ class Platform(object):
         if standalone:
             extra = self.standalone_only
         else:
-            extra = self.shared_only
+            extra = self.get_shared_only_compile_flags()
         cflags = list(self.cflags) + list(extra)
         return (cflags + list(eci.compile_extra) + args)
+
+    def get_shared_only_compile_flags(self):
+        return tuple(self.shared_only)
 
     def preprocess_library_dirs(self, library_dirs):
         if 'PYPY_LOCALBASE' in os.environ:
@@ -210,15 +201,9 @@ class Platform(object):
         library_dirs = self._libdirs(library_dirs)
         libraries = self._libs(eci.libraries)
         link_files = self._linkfiles(eci.link_files)
-        export_flags = self._exportsymbols_link_flags(eci)
-        return (library_dirs + list(self.link_flags) + export_flags +
+        return (library_dirs + list(self.link_flags) +
                 link_files + list(eci.link_extra) + libraries +
                 list(self.extra_libs))
-
-    def _exportsymbols_link_flags(self, eci, relto=None):
-        if eci.export_symbols:
-            raise ValueError("This platform does not support export symbols")
-        return []
 
     def _finish_linking(self, ofiles, eci, outputfilename, standalone):
         if outputfilename is None:
@@ -354,8 +339,10 @@ def set_platform(new_platform, cc):
     platform = pick_platform(new_platform, cc)
     if not platform:
         raise ValueError("pick_platform(%r, %s) failed"%(new_platform, cc))
-    log.msg("Set platform with %r cc=%s, using cc=%r" % (new_platform, cc,
-                    getattr(platform, 'cc','Unknown')))
+    log.msg("Set platform with %r cc=%s, using cc=%r, version=%r" % (new_platform, cc,
+                    getattr(platform, 'cc','Unknown'),
+                    getattr(platform, 'version','Unknown'),
+    ))
 
     if new_platform == 'host':
         global host

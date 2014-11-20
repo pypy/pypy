@@ -151,14 +151,11 @@ class PollTests(unittest.TestCase):
         if x != 5:
             self.fail('Overflow must have occurred')
 
-        pollster = select.poll()
-        # Issue 15989
-        self.assertRaises(OverflowError, pollster.register, 0,
-                          _testcapi.SHRT_MAX + 1)
-        self.assertRaises(OverflowError, pollster.register, 0,
-                          _testcapi.USHRT_MAX + 1)
-        self.assertRaises(OverflowError, pollster.poll, _testcapi.INT_MAX + 1)
-        self.assertRaises(OverflowError, pollster.poll, _testcapi.UINT_MAX + 1)
+        # Issues #15989, #17919
+        self.assertRaises(OverflowError, pollster.register, 0, -1)
+        self.assertRaises(OverflowError, pollster.register, 0, 1 << 64)
+        self.assertRaises(OverflowError, pollster.modify, 1, -1)
+        self.assertRaises(OverflowError, pollster.modify, 1, 1 << 64)
 
 def test_main():
     run_unittest(PollTests)

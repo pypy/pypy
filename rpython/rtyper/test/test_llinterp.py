@@ -41,6 +41,7 @@ def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
     t.config.set(**extraconfigopts)
     a = t.buildannotator(policy=policy)
     timelog("annotating", a.build_types, func, argtypes, main_entry_point=True)
+    a.validate()
     if viewbefore == 'auto':
         viewbefore = getattr(option, 'view', False)
     if viewbefore:
@@ -129,7 +130,7 @@ def interpret_raises(exc, func, values, view='auto', viewbefore='auto',
     info = py.test.raises(LLException, "interp.eval_graph(graph, values)")
     try:
         got = interp.find_exception(info.value)
-    except ValueError, message:
+    except ValueError as message:
         got = 'None %r' % message
     assert got is exc, "wrong exception type, expected %r got %r" % (exc, got)
 

@@ -63,7 +63,10 @@ class __extend__(pyframe.PyFrame):
         try:
             while True:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
+        except Yield:
+            return self.popvalue()
         except ExitFrame:
+            self.last_exception = None
             return self.popvalue()
 
     def handle_bytecode(self, co_code, next_instr, ec):
@@ -204,7 +207,7 @@ class __extend__(pyframe.PyFrame):
             elif opcode == opcodedesc.BREAK_LOOP.index:
                 next_instr = self.BREAK_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.CONTINUE_LOOP.index:
-                next_instr = self.CONTINUE_LOOP(oparg, next_instr)
+                return self.CONTINUE_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.FOR_ITER.index:
                 next_instr = self.FOR_ITER(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_FORWARD.index:
@@ -1567,10 +1570,12 @@ def source_as_str(space, w_source, funcname, what, flags):
                         "%s() arg 1 must be a %s object", funcname, what)
         source = buf.as_str()
 
-    if '\x00' in source:
-        raise oefmt(space.w_TypeError,
-                    "source code string cannot contain null bytes")
-    return rstring.assert_str0(source), flags
+    if not (flags & consts.PyCF_ACCEPT_NULL_BYTES):
+        if '\x00' in source:
+            raise oefmt(space.w_TypeError,
+                        "source code string cannot contain null bytes")
+        source = rstring.assert_str0(source)
+    return source, flags
 
 
 def ensure_ns(space, w_globals, w_locals, funcname, caller=None):

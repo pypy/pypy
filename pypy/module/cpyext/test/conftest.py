@@ -7,7 +7,7 @@ def pytest_configure(config):
     # it's necessary to run "import time" at least once before any
     # other cpyext test, otherwise the same statement will fail in
     # test_datetime.py.
-    space = gettestobjspace(usemodules=['rctime'])
+    space = gettestobjspace(usemodules=['time'])
     space.getbuiltinmodule("time")
 
 def pytest_ignore_collect(path, config):

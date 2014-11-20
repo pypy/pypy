@@ -31,7 +31,7 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
         if op.opname in self.ok_operations:
             return self.bottom_result()
         if (op.opname.startswith('int_') or op.opname.startswith('float_')
-            or op.opname.startswith('cast_')):
+            or op.opname.startswith('uint_') or op.opname.startswith('cast_')):
             return self.bottom_result()
         if op.opname == 'setfield' or op.opname == 'bare_setfield':
             TP = op.args[2].concretetype

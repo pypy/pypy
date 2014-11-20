@@ -635,6 +635,7 @@ class TestFlowObjSpace(Base):
 
     def test_highly_branching_example(self):
         x = self.codetest(self.highly_branching_example)
+        simplify_graph(x)
         # roughly 20 blocks + 30 links
         assert len(list(x.iterblocks())) + len(list(x.iterlinks())) < 60
 
@@ -1265,6 +1266,18 @@ class TestFlowObjSpace(Base):
         assert ops[1].opname == 'simple_call'
         assert ops[1].args[0].value is os.unlink
 
+    def test_rabspath(self):
+        import os.path
+        def f(s):
+            return os.path.abspath(s)
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        ops = graph.startblock.operations
+        assert ops[0].opname == 'simple_call'
+        #
+        from rpython.rlib import rpath
+        assert ops[0].args[0].value is rpath.rabspath
+
     def test_constfold_in(self):
         def f():
             if 'x' in "xyz":
@@ -1277,6 +1290,27 @@ class TestFlowObjSpace(Base):
         assert link.target is graph.returnblock
         assert isinstance(link.args[0], Constant)
         assert link.args[0].value == 5
+
+    def test_remove_dead_ops(self):
+        def f():
+            a = [1]
+            b = (a, a)
+            c = type(b)
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert graph.startblock.operations == []
+        [link] = graph.startblock.exits
+        assert link.target is graph.returnblock
+
+    def test_not_combine(self):
+        def f(n):
+            t = not n
+            if not n:
+                t += 1
+            return t
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'bool': 1, 'inplace_add': 1}
 
 
 DATA = {'x': 5,

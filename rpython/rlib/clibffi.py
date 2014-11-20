@@ -15,7 +15,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from platform import machine
 import py
 import os
@@ -44,10 +44,12 @@ if _WIN32:
 
 if _WIN32:
     separate_module_sources = ['''
+    #include "src/precommondefs.h"
     #include <stdio.h>
     #include <windows.h>
 
     /* Get the module where the "fopen" function resides in */
+    RPY_EXTERN
     HANDLE pypy_get_libc_handle() {
         MEMORY_BASIC_INFORMATION  mi;
         char buf[1000];
@@ -93,7 +95,6 @@ elif _MINGW:
     eci = ExternalCompilationInfo(
         libraries = libraries,
         includes = includes,
-        export_symbols = [],
         separate_module_sources = separate_module_sources,
         )
 
@@ -113,15 +114,13 @@ else:
     eci = ExternalCompilationInfo(
         includes = ['ffi.h', 'windows.h'],
         libraries = ['kernel32'],
-        include_dirs = [libffidir],
+        include_dirs = [libffidir, cdir],
         separate_module_sources = separate_module_sources,
         separate_module_files = [libffidir.join('ffi.c'),
                                  libffidir.join('prep_cif.c'),
                                  libffidir.join(asm_ifc),
                                  libffidir.join('pypy_ffi.c'),
                                  ],
-        export_symbols = ['ffi_call', 'ffi_prep_cif', 'ffi_prep_closure',
-                          'pypy_get_libc_handle'],
         )
 
 FFI_TYPE_P = lltype.Ptr(lltype.ForwardReference())

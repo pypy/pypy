@@ -1,7 +1,6 @@
 # encoding: utf-8
 import sys
 from pypy.objspace.std import intobject as iobj
-from pypy.objspace.std.multimethod import FailedToImplement
 from rpython.rlib.rarithmetic import r_uint, is_valid_int
 from rpython.rlib.rbigint import rbigint
 

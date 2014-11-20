@@ -56,6 +56,7 @@ class JSONDecoder(object):
         self.end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         self.pos = 0
         self.last_type = TYPE_UNKNOWN
+        self.memo = {}
 
     def close(self):
         rffi.free_charp(self.ll_chars)
@@ -261,6 +262,8 @@ class JSONDecoder(object):
             w_name = self.decode_any(i)
             if self.last_type != TYPE_STRING:
                 self._raise("Key name must be string for object starting at char %d", start)
+            w_name = self.memo.setdefault(self.space.unicode_w(w_name), w_name)
+
             i = self.skip_whitespace(self.pos)
             ch = self.ll_chars[i]
             if ch != ':':

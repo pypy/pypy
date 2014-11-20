@@ -1,9 +1,14 @@
-from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.module._socket.interp_socket import (
-    converted_error, W_RSocket, addr_as_object, fill_from_object, get_error)
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import SocketError, INVALID_SOCKET
+from rpython.rlib.rarithmetic import intmask
+
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
+from pypy.module._socket.interp_socket import (
+    converted_error, W_Socket, addr_as_object, fill_from_object, get_error,
+    ipaddr_from_object
+)
+
 
 def gethostname(space):
     """gethostname() -> string
@@ -43,9 +48,8 @@ def gethostbyname_ex(space, host):
     Return the true host name, a list of aliases, and a list of IP addresses,
     for a host.  The host argument is a string giving a host name or IP number.
     """
-    lock = space.fromcache(State).netdb_lock
     try:
-        res = rsocket.gethostbyname_ex(host, lock)
+        res = rsocket.gethostbyname_ex(host)
     except SocketError, e:
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
@@ -57,9 +61,8 @@ def gethostbyaddr(space, host):
     Return the true host name, a list of aliases, and a list of IP addresses,
     for a host.  The host argument is a string giving a host name or IP number.
     """
-    lock = space.fromcache(State).netdb_lock
     try:
-        res = rsocket.gethostbyaddr(host, lock)
+        res = rsocket.gethostbyaddr(host)
     except SocketError, e:
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
@@ -156,10 +159,13 @@ def socketpair(space, family=rsocket.socketpair_default_family,
     AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
     """
     try:
-        sock1, sock2 = rsocket.socketpair(family, type, proto, W_RSocket)
+        sock1, sock2 = rsocket.socketpair(family, type, proto)
     except SocketError, e:
         raise converted_error(space, e)
-    return space.newtuple([space.wrap(sock1), space.wrap(sock2)])
+    return space.newtuple([
+        space.wrap(W_Socket(sock1)),
+        space.wrap(W_Socket(sock2))
+    ])
 
 # The following 4 functions refuse all negative numbers, like CPython 2.6.
 # They could also check that the argument is not too large, but CPython 2.6
@@ -170,7 +176,7 @@ def ntohs(space, x):
 
     Convert a 16-bit integer from network to host byte order.
     """
-    return space.wrap(rsocket.ntohs(x))
+    return space.wrap(rsocket.ntohs(intmask(x)))
 
 @unwrap_spec(x="c_uint")
 def ntohl(space, x):
@@ -186,7 +192,7 @@ def htons(space, x):
 
     Convert a 16-bit integer from host to network byte order.
     """
-    return space.wrap(rsocket.htons(x))
+    return space.wrap(rsocket.htons(intmask(x)))
 
 @unwrap_spec(x="c_uint")
 def htonl(space, x):
@@ -318,10 +324,3 @@ def setdefaulttimeout(space, w_timeout):
             raise OperationError(space.w_ValueError,
                                  space.wrap('Timeout value out of range'))
     rsocket.setdefaulttimeout(timeout)
-
-class State(object):
-    def __init__(self, space):
-        self.netdb_lock = None
-
-    def startup(self, space):
-        self.netdb_lock = space.allocate_lock()

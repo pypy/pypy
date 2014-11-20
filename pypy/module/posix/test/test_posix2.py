@@ -14,7 +14,7 @@ import sys
 import signal
 
 def setup_module(mod):
-    usemodules = ['binascii', 'posix', 'signal', 'struct', 'rctime']
+    usemodules = ['binascii', 'posix', 'signal', 'struct', 'time']
     # py3k os.open uses subprocess, requiring the following per platform
     if os.name != 'nt':
         usemodules += ['fcntl', 'select']
@@ -95,7 +95,7 @@ class AppTestPosix:
             need_sparse_files()
 
     def test_posix_is_pypy_s(self):
-        assert self.posix.__file__
+        assert hasattr(self.posix, '_statfields')
 
     def test_some_posix_basic_operation(self):
         path = self.path
@@ -1039,6 +1039,24 @@ class AppTestPosix:
         encoding = self.posix.device_encoding(sys.stdout.fileno())
         # just ensure it returns something reasonable
         assert encoding is None or type(encoding) is str
+
+    if os.name == 'nt':
+        def test__getfileinformation(self):
+            import os
+            path = os.path.join(self.pdir, 'file1')
+            with open(path) as fp:
+                info = self.posix._getfileinformation(fp.fileno())
+            assert len(info) == 3
+            assert all(isinstance(obj, int) for obj in info)
+
+        def test__getfinalpathname(self):
+            import os
+            path = os.path.join(self.pdir, 'file1')
+            try:
+                result = self.posix._getfinalpathname(path)
+            except NotImplementedError:
+                skip("_getfinalpathname not supported on this platform")
+            assert os.path.exists(result)
 
 
 class AppTestEnvironment(object):

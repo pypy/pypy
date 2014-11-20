@@ -15,16 +15,17 @@ class AppTestFork(GenericTestThread):
             skip("No fork on this platform")
 
         def busy_thread():
+            print('sleep')
             while run:
                 time.sleep(0)
             done.append(None)
 
-        for i in range(1):
+        for i in range(5):
             run = True
             done = []
             try:
-                _thread.start_new(busy_thread, ())
                 print('sleep')
+                _thread.start_new(busy_thread, ())
 
                 pid = os.fork()
                 if pid == 0:

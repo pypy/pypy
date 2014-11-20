@@ -62,9 +62,15 @@ def generator_new(space):
     new_generator = instantiate(GeneratorIteratorWithDel)
     return space.wrap(new_generator)
 
-def rangeiter_new(space, w_start, w_step, w_len, w_index):
-    from pypy.module.__builtin__.functional import W_RangeIterator
-    new_iter = W_RangeIterator(space, w_start, w_step, w_len, w_index)
+def longrangeiter_new(space, w_start, w_step, w_len, w_index):
+    from pypy.module.__builtin__.functional import W_LongRangeIterator
+    new_iter = W_LongRangeIterator(space, w_start, w_step, w_len, w_index)
+    return space.wrap(new_iter)
+
+@unwrap_spec(current=int, remaining=int, step=int)
+def intrangeiter_new(space, current, remaining, step):
+    from pypy.module.__builtin__.functional import W_IntRangeIterator
+    new_iter = W_IntRangeIterator(space, current, remaining, step)
     return space.wrap(new_iter)
 
 def operationerror_new(space):

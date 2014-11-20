@@ -12,10 +12,10 @@ from pypy.interpreter import unicodehelper
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef
 from pypy.module.unicodedata import unicodedb
 from pypy.objspace.std import newformat
 from pypy.objspace.std.formatting import mod_format
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 
 __all__ = ['W_UnicodeObject', 'wrapunicode', 'encode_object', 'decode_object',
@@ -24,7 +24,7 @@ __all__ = ['W_UnicodeObject', 'wrapunicode', 'encode_object', 'decode_object',
 
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
-    _immutable_fields_ = ['_value']
+    _immutable_fields_ = ['_value', '_utf8?']
 
     def __init__(w_self, unistr):
         assert isinstance(unistr, unicode)
@@ -95,6 +95,12 @@ class W_UnicodeObject(W_Root):
         return len(self._value)
 
     _val = unicode_w
+
+    @staticmethod
+    def _use_rstr_ops(space, w_other):
+        # Always return true because we always need to copy the other
+        # operand(s) before we can do comparisons
+        return True
 
     @staticmethod
     def _op_val(space, w_other):
@@ -990,7 +996,7 @@ class UnicodeDocstrings:
         """
 
 
-W_UnicodeObject.typedef = StdTypeDef(
+W_UnicodeObject.typedef = TypeDef(
     "str",
     __new__ = interp2app(W_UnicodeObject.descr_new),
     __doc__ = UnicodeDocstrings.__doc__,
@@ -1127,6 +1133,7 @@ W_UnicodeObject.typedef = StdTypeDef(
                            as_classmethod=True,
                            doc=UnicodeDocstrings.maketrans.__doc__),
 )
+W_UnicodeObject.typedef.flag_sequence_bug_compat = True
 
 
 def _create_list_from_unicode(value):

@@ -24,7 +24,6 @@ pypyroot = os.path.dirname(pypydir)
 RENAMED_USEMODULES = dict(
     _winreg='winreg',
     exceptions='builtins',
-    rctime='time',
     struct='_struct',
     thread='_thread',
     )
@@ -33,6 +32,7 @@ class AppError(Exception):
     def __init__(self, excinfo):
         self.excinfo = excinfo
 
+marker = py.test.mark.applevel
 
 def py3k_repr(value):
     "return the repr() that py3k would give for an object."""
@@ -200,7 +200,7 @@ def extract_docstring_if_empty_function(fn):
 class AppTestFunction(py.test.collect.Function):
     def __init__(self, *args, **kwargs):
         super(AppTestFunction, self).__init__(*args, **kwargs)
-        self.keywords['applevel'] = True
+        self._request.applymarker(marker)
 
     def _prunetraceback(self, traceback):
         return traceback
@@ -296,13 +296,6 @@ class AppClassInstance(py.test.collect.Instance):
 
 class AppClassCollector(PyPyClassCollector):
     Instance = AppClassInstance
-
-    def _haskeyword(self, keyword):
-        return keyword == 'applevel' or \
-               super(AppClassCollector, self)._haskeyword(keyword)
-
-    def _keywords(self):
-        return super(AppClassCollector, self)._keywords() + ['applevel']
 
     def setup(self):
         super(AppClassCollector, self).setup()

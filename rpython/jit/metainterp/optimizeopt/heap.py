@@ -6,6 +6,7 @@ from rpython.jit.metainterp.history import Const
 from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -272,6 +273,7 @@ class OptHeap(Optimization):
             opnum == rop.STRSETITEM or           # no effect on GC struct/array
             opnum == rop.UNICODESETITEM or       # no effect on GC struct/array
             opnum == rop.DEBUG_MERGE_POINT or    # no effect whatsoever
+            opnum == rop.JIT_DEBUG or            # no effect whatsoever
             opnum == rop.COPYSTRCONTENT or       # no effect on GC struct/array
             opnum == rop.COPYUNICODECONTENT):    # no effect on GC struct/array
             return
@@ -531,10 +533,14 @@ class OptHeap(Optimization):
 
     def optimize_QUASIIMMUT_FIELD(self, op):
         # Pattern: QUASIIMMUT_FIELD(s, descr=QuasiImmutDescr)
-        #          x = GETFIELD_GC(s, descr='inst_x')
-        # If 's' is a constant (after optimizations), then we make 's.inst_x'
-        # a constant too, and we rely on the rest of the optimizations to
-        # constant-fold the following getfield_gc.
+        #          x = GETFIELD_GC_PURE(s, descr='inst_x')
+        # If 's' is a constant (after optimizations) we rely on the rest of the
+        # optimizations to constant-fold the following getfield_gc_pure.
+        # in addition, we record the dependency here to make invalidation work
+        # correctly.
+        # NB: emitting the GETFIELD_GC_PURE is only safe because the
+        # QUASIIMMUT_FIELD is also emitted to make sure the dependency is
+        # registered.
         structvalue = self.getvalue(op.getarg(0))
         if not structvalue.is_constant():
             self._remove_guard_not_invalidated = True
@@ -544,21 +550,14 @@ class OptHeap(Optimization):
         qmutdescr = op.getdescr()
         assert isinstance(qmutdescr, QuasiImmutDescr)
         # check that the value is still correct; it could have changed
-        # already between the tracing and now.  In this case, we are
-        # simply ignoring the QUASIIMMUT_FIELD hint and compiling it
-        # as a regular getfield.
+        # already between the tracing and now.  In this case, we mark the loop
+        # as invalid
         if not qmutdescr.is_still_valid_for(structvalue.get_key_box()):
-            self._remove_guard_not_invalidated = True
-            return
+            raise InvalidLoop('quasi immutable field changed during tracing')
         # record as an out-of-line guard
         if self.optimizer.quasi_immutable_deps is None:
             self.optimizer.quasi_immutable_deps = {}
         self.optimizer.quasi_immutable_deps[qmutdescr.qmut] = None
-        # perform the replacement in the list of operations
-        fieldvalue = self.getvalue(qmutdescr.constantfieldbox)
-        cf = self.field_cache(qmutdescr.fielddescr)
-        cf.force_lazy_setfield(self)
-        cf.remember_field_value(structvalue, fieldvalue)
         self._remove_guard_not_invalidated = False
 
     def optimize_GUARD_NOT_INVALIDATED(self, op):

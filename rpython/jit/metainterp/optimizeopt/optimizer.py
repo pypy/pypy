@@ -257,6 +257,9 @@ class OptValue(object):
     def setinteriorfield(self, index, ofs, value):
         raise NotImplementedError
 
+    def get_missing_null_value(self):
+        raise NotImplementedError    # only for VArrayValue
+
 
 class ConstantValue(OptValue):
     def __init__(self, box):
@@ -655,6 +658,9 @@ class Optimizer(Optimization):
     # FIXME: Is this still needed?
 
     def optimize_DEBUG_MERGE_POINT(self, op):
+        self.emit_operation(op)
+
+    def optimize_JIT_DEBUG(self, op):
         self.emit_operation(op)
 
     def optimize_STRGETITEM(self, op):

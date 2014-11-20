@@ -321,6 +321,14 @@ class TestObjectModel(BaseRtypingTest):
         res = self.interpret(g, [3])
         assert res == 77
 
+    def test_prepare_dict_update(self):
+        def g(n):
+            d = {}
+            prepare_dict_update(d, n)
+            return 42
+        res = self.interpret(g, [3])
+        assert res == 42     # "did not crash"
+
     def test_compute_hash(self):
         class Foo(object):
             pass
@@ -430,6 +438,11 @@ def test_enforceargs_decorator():
     assert exc.value.message == "f argument 'b' must be of type <type 'str'>"
     py.test.raises(TypeError, "f('hello', 'world', 3)")
 
+def test_always_inline():
+    @always_inline
+    def f(a, b, c):
+        return a, b, c
+    assert f._always_inline_ == True
 
 def test_enforceargs_defaults():
     @enforceargs(int, int)

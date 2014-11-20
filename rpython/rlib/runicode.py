@@ -8,8 +8,10 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 
 if rffi.sizeof(lltype.UniChar) == 4:
     MAXUNICODE = 0x10ffff
+    allow_surrogate_by_default = False
 else:
     MAXUNICODE = 0xffff
+    allow_surrogate_by_default = True
 
 BYTEORDER = sys.byteorder
 
@@ -63,7 +65,7 @@ else:
 
 if MAXUNICODE > 0xFFFF:
     def code_to_unichr(code):
-        if not we_are_translated() and sys.maxunicode == 0xFFFF:
+        if is_narrow_host():
             # Host CPython is narrow build, generate surrogates
             return unichr_returns_surrogate(code)
         else:
@@ -82,6 +84,9 @@ def _STORECHAR(result, CH, byteorder):
     else:
         result.append(hi)
         result.append(lo)
+
+def is_narrow_host():
+    return not we_are_translated() and sys.maxunicode == 0xFFFF
 
 def default_unicode_error_decode(errors, encoding, msg, s,
                                  startingpos, endingpos):
@@ -122,7 +127,7 @@ utf8_code_length = [
 ]
 
 def str_decode_utf_8(s, size, errors, final=False,
-                     errorhandler=None, allow_surrogates=False):
+                     errorhandler=None, allow_surrogates=allow_surrogate_by_default):
     if errorhandler is None:
         errorhandler = default_unicode_error_decode
     result = UnicodeBuilder(size)
@@ -304,7 +309,7 @@ def _encodeUCS4(result, ch):
     result.append((chr((0x80 | (ch & 0x3f)))))
 
 def unicode_encode_utf_8(s, size, errors, errorhandler=None,
-                         allow_surrogates=False):
+                         allow_surrogates=allow_surrogate_by_default):
     if errorhandler is None:
         errorhandler = default_unicode_error_encode
     return unicode_encode_utf_8_impl(s, size, errors, errorhandler,
@@ -334,7 +339,8 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                         ch2 = ord(s[pos])
                         # Check for low surrogate and combine the two to
                         # form a UCS4 value
-                        if ((allow_surrogates or MAXUNICODE < 65536) and
+                        if ((allow_surrogates or MAXUNICODE < 65536
+                             or is_narrow_host()) and
                             ch <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF):
                             ch3 = ((ch - 0xD800) << 10 | (ch2 - 0xDC00)) + 0x10000
                             assert ch3 >= 0
@@ -802,6 +808,7 @@ def str_decode_utf_7(s, size, errors, final=False,
     result = UnicodeBuilder(size)
     pos = 0
     shiftOutStartPos = 0
+    startinpos = 0
     while pos < size:
         ch = s[pos]
         oc = ord(ch)
@@ -876,13 +883,14 @@ def str_decode_utf_7(s, size, errors, final=False,
                     result.append(unichr(ord(ch)))
 
         elif ch == '+':
+            startinpos = pos
             pos += 1 # consume '+'
             if pos < size and s[pos] == '-': # '+-' encodes '+'
                 pos += 1
                 result.append(u'+')
             else: # begin base64-encoded section
                 inShift = 1
-                shiftOutStartPos = pos - 1
+                shiftOutStartPos = result.getlength()
                 base64bits = 0
                 base64buffer = 0
 
@@ -890,13 +898,14 @@ def str_decode_utf_7(s, size, errors, final=False,
             result.append(unichr(oc))
             pos += 1
         else:
+            startinpos = pos
             pos += 1
             msg = "unexpected special character"
             res, pos = errorhandler(errors, 'utf7', msg, s, pos-1, pos)
             result.append(res)
 
     # end of string
-
+    final_length = result.getlength()
     if inShift and final: # in shift sequence, no more to follow
         # if we're in an inconsistent state, that's an error
         if (surrogate or
@@ -905,10 +914,13 @@ def str_decode_utf_7(s, size, errors, final=False,
             msg = "unterminated shift sequence"
             res, pos = errorhandler(errors, 'utf7', msg, s, shiftOutStartPos, pos)
             result.append(res)
+            final_length = result.getlength()
     elif inShift:
-        pos = shiftOutStartPos # back off output
+        pos = startinpos
+        final_length = shiftOutStartPos # back off output
 
-    return result.build(), pos
+    assert final_length >= 0
+    return result.build()[:final_length], pos
 
 def unicode_encode_utf_7(s, size, errors, errorhandler=None):
     if size == 0:
@@ -1342,8 +1354,7 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
 
             # The following logic is enabled only if MAXUNICODE == 0xffff, or
             # for testing on top of a host Python where sys.maxunicode == 0xffff
-            if ((MAXUNICODE < 65536 or
-                    (not we_are_translated() and sys.maxunicode < 65536))
+            if ((MAXUNICODE < 65536 or is_narrow_host())
                 and 0xD800 <= oc < 0xDC00 and pos + 1 < size):
                 # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes
                 pos += 1

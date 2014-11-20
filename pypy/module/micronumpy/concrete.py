@@ -19,6 +19,7 @@ class BaseConcreteArray(object):
                           'strides[*]', 'backstrides[*]', 'order']
     start = 0
     parent = None
+    flags = 0
 
     # JIT hints that length of all those arrays is a constant
 
@@ -357,11 +358,11 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.dtype = dtype
 
     def argsort(self, space, w_axis):
-        from pypy.module.micronumpy.sort import argsort_array
+        from .selection import argsort_array
         return argsort_array(self, space, w_axis)
 
     def sort(self, space, w_axis, w_order):
-        from pypy.module.micronumpy.sort import sort_array
+        from .selection import sort_array
         return sort_array(self, space, w_axis, w_order)
 
     def base(self):
@@ -369,9 +370,11 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
 
 
 class ConcreteArray(ConcreteArrayNotOwning):
-    def __init__(self, shape, dtype, order, strides, backstrides, storage=lltype.nullptr(RAW_STORAGE)):
+    def __init__(self, shape, dtype, order, strides, backstrides,
+                 storage=lltype.nullptr(RAW_STORAGE), zero=True):
         if storage == lltype.nullptr(RAW_STORAGE):
-            storage = dtype.itemtype.malloc(support.product(shape) * dtype.elsize)
+            storage = dtype.itemtype.malloc(support.product(shape) *
+                                            dtype.elsize, zero=zero)
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         storage)
 
@@ -446,7 +449,7 @@ class SliceArray(BaseConcreteArray):
                 strides.reverse()
                 backstrides.reverse()
                 new_shape.reverse()
-            return SliceArray(self.start, strides, backstrides, new_shape,
+            return self.__class__(self.start, strides, backstrides, new_shape,
                               self, orig_array)
         new_strides = calc_new_strides(new_shape, self.get_shape(),
                                        self.get_strides(),
@@ -457,8 +460,14 @@ class SliceArray(BaseConcreteArray):
         new_backstrides = [0] * len(new_shape)
         for nd in range(len(new_shape)):
             new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
-        return SliceArray(self.start, new_strides, new_backstrides, new_shape,
+        return self.__class__(self.start, new_strides, new_backstrides, new_shape,
                           self, orig_array)
+
+
+class NonWritableSliceArray(SliceArray):
+    def descr_setitem(self, space, orig_array, w_index, w_value):
+        raise OperationError(space.w_ValueError, space.wrap(
+            "assignment destination is read-only"))
 
 
 class VoidBoxStorage(BaseConcreteArray):

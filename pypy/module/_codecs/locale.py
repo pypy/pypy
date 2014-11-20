@@ -10,14 +10,14 @@ from rpython.rlib.rstring import UnicodeBuilder, assert_str0
 from rpython.rlib.runicode import (code_to_unichr,
     default_unicode_error_decode, default_unicode_error_encode)
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 cwd = py.path.local(__file__).dirpath()
 eci = ExternalCompilationInfo(
-    includes=[cwd.join('locale.h')],
-    separate_module_files=[cwd.join('locale.c')],
-    export_symbols=['pypy_char2wchar', 'pypy_char2wchar_free',
-                    'pypy_wchar2char', 'pypy_wchar2char_free'])
+    includes=[cwd.join('locale_codec.h')],
+    include_dirs=[str(cwd), cdir],
+    separate_module_files=[cwd.join('locale_codec.c')])
 
 def llexternal(*args, **kwargs):
     kwargs.setdefault('compilation_info', eci)

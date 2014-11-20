@@ -5,6 +5,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.rlib import rmmap, rarithmetic
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rmmap import RValueError, RTypeError, RMMapError
+from rpython.rlib.rstring import StringBuilder
 
 if rmmap.HAVE_LARGEFILE_SUPPORT:
     OFF_T = rarithmetic.r_longlong
@@ -172,17 +173,18 @@ class W_MMap(W_Root):
         self.check_valid()
 
         space = self.space
-        start, stop, step = space.decode_index(w_index, self.mmap.size)
+        start, stop, step, length = space.decode_index4(w_index, self.mmap.size)
         if step == 0:  # index only
             return space.wrap(ord(self.mmap.getitem(start)))
         elif step == 1:
             if stop - start < 0:
                 return space.wrapbytes("")
-            return space.wrapbytes(self.mmap.getslice(start, stop - start))
+            return space.wrapbytes(self.mmap.getslice(start, length))
         else:
-            res = "".join([self.mmap.getitem(i)
-                           for i in range(start, stop, step)])
-            return space.wrapbytes(res)
+            b = StringBuilder(length)
+            for i in range(start, stop, step):
+                b.append(self.mmap.getitem(i))
+            return space.wrapbytes(b.build())
 
     def descr_setitem(self, w_index, w_value):
         space = self.space
@@ -197,7 +199,7 @@ class W_MMap(W_Root):
                         "mmap item value must be in range(0, 256)"))
             self.mmap.setitem(start, chr(value))
         else:
-            value = space.realstr_w(w_value)
+            value = space.bytes_w(w_value)
             if len(value) != length:
                 raise OperationError(space.w_ValueError,
                           space.wrap("mmap slice assignment is wrong size"))

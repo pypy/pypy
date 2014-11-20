@@ -1,16 +1,17 @@
-from types import NoneType, MethodType
 import weakref
-from rpython.annotator.model import (
-        SomeInteger, SomeBool, SomeObject, AnnotatorError)
-from rpython.rlib.rarithmetic import (
-    r_int, r_uint, intmask, r_singlefloat, r_ulonglong, r_longlong,
-    r_longfloat, r_longlonglong, base_int, normalizedinttype, longlongmask,
-    longlonglongmask, maxint, is_valid_int, is_emulated_long)
-from rpython.rlib.objectmodel import Symbolic
-from rpython.tool.identity_dict import identity_dict
-from rpython.tool import leakfinder
+from types import MethodType, NoneType
+
 from rpython.annotator.bookkeeper import analyzer_for, immutablevalue
+from rpython.annotator.model import (
+        AnnotatorError, SomeBool, SomeInteger, SomeObject)
+from rpython.rlib.objectmodel import Symbolic
+from rpython.rlib.rarithmetic import (
+    base_int, intmask, is_emulated_long, is_valid_int, longlonglongmask,
+    longlongmask, maxint, normalizedinttype, r_int, r_longfloat, r_longlong,
+    r_longlonglong, r_singlefloat, r_uint, r_ulonglong)
 from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.tool import leakfinder
+from rpython.tool.identity_dict import identity_dict
 
 class State(object):
     pass
@@ -47,6 +48,7 @@ class WeakValueDictionary(weakref.WeakValueDictionary):
 
 class _uninitialized(object):
     def __init__(self, TYPE):
+        #self._TYPE = TYPE
         self.TYPE = TYPE
     def __repr__(self):
         return '<Uninitialized %r>'%(self.TYPE,)
@@ -189,6 +191,11 @@ class LowLevelType(object):
     def _is_varsize(self):
         return False
 
+    def _contains_value(self, value):
+        if self is Void:
+            return True
+        return isCompatibleType(typeOf(value), self)
+
 NFOUND = object()
 
 class ContainerType(LowLevelType):
@@ -313,14 +320,12 @@ class Struct(ContainerType):
         except KeyError:
             return ContainerType.__getattr__(self, name)
 
-
     def _nofield(self, name):
         raise AttributeError('struct %s has no field %r' % (self._name,
                                                              name))
 
     def _names_without_voids(self):
-        names_without_voids = [name for name in self._names if self._flds[name] is not Void]
-        return names_without_voids
+        return [name for name in self._names if self._flds[name] is not Void]
 
     def _str_fields_without_voids(self):
         return ', '.join(['%s: %s' % (name, self._flds[name])
@@ -378,8 +383,7 @@ class RttiStruct(Struct):
                                                 about=self)._obj
         Struct._install_extras(self, **kwds)
 
-    def _attach_runtime_type_info_funcptr(self, funcptr, destrptr,
-                                          customtraceptr):
+    def _attach_runtime_type_info_funcptr(self, funcptr, destrptr):
         if self._runtime_type_info is None:
             raise TypeError("attachRuntimeTypeInfo: %r must have been built "
                             "with the rtti=True argument" % (self,))
@@ -403,18 +407,6 @@ class RttiStruct(Struct):
                 raise TypeError("expected a destructor function "
                                 "implementation, got: %s" % destrptr)
             self._runtime_type_info.destructor_funcptr = destrptr
-        if customtraceptr is not None:
-            from rpython.rtyper.lltypesystem import llmemory
-            T = typeOf(customtraceptr)
-            if (not isinstance(T, Ptr) or
-                not isinstance(T.TO, FuncType) or
-                len(T.TO.ARGS) != 2 or
-                T.TO.RESULT != llmemory.Address or
-                T.TO.ARGS[0] != llmemory.Address or
-                T.TO.ARGS[1] != llmemory.Address):
-                raise TypeError("expected a custom trace function "
-                                "implementation, got: %s" % customtraceptr)
-            self._runtime_type_info.custom_trace_funcptr = customtraceptr
 
 class GcStruct(RttiStruct):
     _gckind = 'gc'
@@ -576,8 +568,10 @@ class OpaqueType(ContainerType):
     _gckind = 'raw'
 
     def __init__(self, tag, hints={}):
-        """ if hints['render_structure'] is set, the type is internal and not considered
-            to come from somewhere else (it should be rendered as a structure) """
+        """If hints['render_structure'] is set, the type is internal and
+        not considered to come from somewhere else (it should be
+        rendered as a structure)
+        """
         self.tag = tag
         self.__name__ = tag
         self.hints = frozendict(hints)
@@ -675,7 +669,8 @@ class Number(Primitive):
 
 _numbertypes = {int: Number("Signed", int, intmask)}
 _numbertypes[r_int] = _numbertypes[int]
-_numbertypes[r_longlonglong] = Number("SignedLongLongLong", r_longlonglong, longlonglongmask)
+_numbertypes[r_longlonglong] = Number("SignedLongLongLong", r_longlonglong,
+                                      longlonglongmask)
 if r_longlong is not r_int:
     _numbertypes[r_longlong] = Number("SignedLongLong", r_longlong,
                                       longlongmask)
@@ -702,8 +697,8 @@ SignedLongLongLong = build_number("SignedLongLongLong", r_longlonglong)
 UnsignedLongLong = build_number("UnsignedLongLong", r_ulonglong)
 
 Float       = Primitive("Float",       0.0)                  # C type 'double'
-SingleFloat = Primitive("SingleFloat", r_singlefloat(0.0))   # C type 'float'
-LongFloat   = Primitive("LongFloat",   r_longfloat(0.0))     # C type 'long double'
+SingleFloat = Primitive("SingleFloat", r_singlefloat(0.0))   # 'float'
+LongFloat   = Primitive("LongFloat",   r_longfloat(0.0))     # 'long double'
 r_singlefloat._TYPE = SingleFloat
 
 Char     = Primitive("Char", '\x00')
@@ -876,9 +871,11 @@ def cast_primitive(TGT, value):
 
 @analyzer_for(cast_primitive)
 def ann_cast_primitive(T, s_v):
-    from rpython.rtyper.llannotation import annotation_to_lltype, ll_to_annotation
+    from rpython.rtyper.llannotation import (
+        annotation_to_lltype, ll_to_annotation)
     assert T.is_constant()
-    return ll_to_annotation(cast_primitive(T.const, annotation_to_lltype(s_v)._defl()))
+    return ll_to_annotation(cast_primitive(T.const,
+                                           annotation_to_lltype(s_v)._defl()))
 
 
 def _cast_whatever(TGT, value):
@@ -905,7 +902,8 @@ def _cast_whatever(TGT, value):
     elif TGT == llmemory.Address and isinstance(ORIG, Ptr):
         return llmemory.cast_ptr_to_adr(value)
     elif TGT == Signed and isinstance(ORIG, Ptr) and ORIG.TO._gckind == 'raw':
-        return llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(value), 'symbolic')
+        return llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(value),
+                                        'symbolic')
     raise TypeError("don't know how to cast from %r to %r" % (ORIG, TGT))
 
 
@@ -1154,7 +1152,12 @@ class _abstract_ptr(object):
                 type(other).__name__,))
         if self._TYPE != other._TYPE:
             raise TypeError("comparing %r and %r" % (self._TYPE, other._TYPE))
-        return self._obj == other._obj
+        try:
+            return self._obj == other._obj
+        except DelayedPointer:
+            # if one of the two pointers is delayed, they cannot
+            # possibly be equal unless they are the same _ptr instance
+            return self is other
 
     def __ne__(self, other):
         return not (self == other)
@@ -1171,8 +1174,8 @@ class _abstract_ptr(object):
         except DelayedPointer:
             return True    # assume it's not a delayed null
 
-    # _setobj, _getobj and _obj0 are really _internal_ implementations details of _ptr,
-    # use _obj if necessary instead !
+    # _setobj, _getobj and _obj0 are really _internal_ implementations
+    # details of _ptr, use _obj if necessary instead !
     def _setobj(self, pointing_to, solid=False):
         if pointing_to is None:
             obj0 = None
@@ -1239,12 +1242,12 @@ class _abstract_ptr(object):
                 if T1 == T2:
                     setattr(self._obj, field_name, val)
                 else:
-                    raise TypeError("%r instance field %r:\n"
-                                    "expects %r\n"
-                                    "    got %r" % (self._T, field_name, T1, T2))
+                    raise TypeError(
+                        "%r instance field %r:\nexpects %r\n    got %r" %
+                        (self._T, field_name, T1, T2))
                 return
-        raise AttributeError("%r instance has no field %r" % (self._T,
-                                                              field_name))
+        raise AttributeError("%r instance has no field %r" %
+                             (self._T, field_name))
 
     def __getitem__(self, i): # ! can only return basic or ptr !
         if isinstance(self._T, (Array, FixedSizeArray)):
@@ -1261,7 +1264,8 @@ class _abstract_ptr(object):
         if isinstance(self._T, (Array, FixedSizeArray)):
             T1 = self._T.OF
             if isinstance(T1, ContainerType):
-                raise TypeError("cannot directly assign to container array items")
+                raise TypeError("cannot directly assign to container array "
+                                "items")
             T2 = typeOf(val)
             if T2 != T1:
                 from rpython.rtyper.lltypesystem import rffi
@@ -1311,7 +1315,8 @@ class _abstract_ptr(object):
         from rpython.rtyper.lltypesystem import rffi
         if isinstance(self._T, FuncType):
             if len(args) != len(self._T.ARGS):
-                raise TypeError("calling %r with wrong argument number: %r" % (self._T, args))
+                raise TypeError("calling %r with wrong argument number: %r" %
+                                (self._T, args))
             for i, a, ARG in zip(range(len(self._T.ARGS)), args, self._T.ARGS):
                 if typeOf(a) != ARG:
                     # ARG could be Void
@@ -1410,11 +1415,13 @@ class _ptr(_abstract_ptr):
                 raise RuntimeError("widening to trash: %r" % self)
             PARENTTYPE = struc._parent_type
             if getattr(parent, PARENTTYPE._names[0]) != struc:
-                raise InvalidCast(CURTYPE, PTRTYPE) # xxx different exception perhaps?
+                 # xxx different exception perhaps?
+                raise InvalidCast(CURTYPE, PTRTYPE)
             struc = parent
             u -= 1
         if PARENTTYPE != PTRTYPE.TO:
-            raise RuntimeError("widening %r inside %r instead of %r" % (CURTYPE, PARENTTYPE, PTRTYPE.TO))
+            raise RuntimeError("widening %r inside %r instead of %r" %
+                               (CURTYPE, PARENTTYPE, PTRTYPE.TO))
         return _ptr(PTRTYPE, struc, solid=self._solid)
 
     def _cast_to_int(self, check=True):
@@ -1425,7 +1432,9 @@ class _ptr(_abstract_ptr):
             return obj     # special case for cast_int_to_ptr() results
         obj = normalizeptr(self, check)._getobj(check)
         if isinstance(obj, int):
-            return obj     # special case for cast_int_to_ptr() results put into opaques
+            # special case for cast_int_to_ptr() results put into
+            # opaques
+            return obj
         if getattr(obj, '_read_directly_intval', False):
             return obj.intval   # special case for _llgcopaque
         result = intmask(obj._getid())
@@ -1463,7 +1472,8 @@ class _ptr(_abstract_ptr):
         """XXX A nice docstring here"""
         T = typeOf(val)
         if isinstance(T, ContainerType):
-            if self._T._gckind == 'gc' and T._gckind == 'raw' and not isinstance(T, OpaqueType):
+            if (self._T._gckind == 'gc' and T._gckind == 'raw' and
+                not isinstance(T, OpaqueType)):
                 val = _interior_ptr(T, self._obj, [offset])
             else:
                 val = _ptr(Ptr(T), val, solid=self._solid)
@@ -1526,12 +1536,14 @@ class SomePtr(SomeObject):
             setattr(example, s_attr.const, v_lltype._defl())
 
     def call(self, args):
-        from rpython.rtyper.llannotation import annotation_to_lltype, ll_to_annotation
+        from rpython.rtyper.llannotation import (
+            annotation_to_lltype, ll_to_annotation)
         args_s, kwds_s = args.unpack()
         if kwds_s:
             raise Exception("keyword arguments to call to a low-level fn ptr")
         info = 'argument to ll function pointer call'
-        llargs = [annotation_to_lltype(s_arg, info)._defl() for s_arg in args_s]
+        llargs = [annotation_to_lltype(s_arg, info)._defl()
+                  for s_arg in args_s]
         v = self.ll_ptrtype._example()(*llargs)
         return ll_to_annotation(v)
 
@@ -1586,7 +1598,6 @@ class _interior_ptr(_abstract_ptr):
             assert T._gckind == 'raw'
             val = _interior_ptr(T, self._parent, self._offsets + [offset])
         return val
-
 
 
 assert not '__dict__' in dir(_interior_ptr)
@@ -1702,7 +1713,7 @@ def _struct_variety(flds, cache={}):
         return cache[tag]
     except KeyError:
         class _struct1(_struct):
-            __slots__ = flds
+            __slots__ = tag + ('__arena_location__',)
         cache[tag] = _struct1
         return _struct1
 
@@ -1716,11 +1727,13 @@ class _struct(_parentable):
 
     __slots__ = ('_hash_cache_', '_compilation_info')
 
-    def __new__(self, TYPE, n=None, initialization=None, parent=None, parentindex=None):
+    def __new__(self, TYPE, n=None, initialization=None, parent=None,
+                parentindex=None):
         my_variety = _struct_variety(TYPE._names)
         return object.__new__(my_variety)
 
-    def __init__(self, TYPE, n=None, initialization=None, parent=None, parentindex=None):
+    def __init__(self, TYPE, n=None, initialization=None, parent=None,
+                 parentindex=None):
         _parentable.__init__(self, TYPE)
         if n is not None and TYPE._arrayfld is None:
             raise TypeError("%r is not variable-sized" % (TYPE,))
@@ -1729,9 +1742,11 @@ class _struct(_parentable):
         first, FIRSTTYPE = TYPE._first_struct()
         for fld, typ in TYPE._flds.items():
             if fld == TYPE._arrayfld:
-                value = _array(typ, n, initialization=initialization, parent=self, parentindex=fld)
+                value = _array(typ, n, initialization=initialization,
+                               parent=self, parentindex=fld)
             else:
-                value = typ._allocate(initialization=initialization, parent=self, parentindex=fld)
+                value = typ._allocate(initialization=initialization,
+                                      parent=self, parentindex=fld)
             setattr(self, fld, value)
         if parent is not None:
             self._setparentstructure(parent, parentindex)
@@ -1788,9 +1803,10 @@ class _struct(_parentable):
 class _array(_parentable):
     _kind = "array"
 
-    __slots__ = ('items',)
+    __slots__ = ('items', '__arena_location__',)
 
-    def __init__(self, TYPE, n, initialization=None, parent=None, parentindex=None):
+    def __init__(self, TYPE, n, initialization=None, parent=None,
+                 parentindex=None):
         if not is_valid_int(n):
             raise TypeError("array length must be an int")
         if n < 0:
@@ -1959,7 +1975,8 @@ class _subarray(_parentable):     # only for direct_fieldptr()
                     if not key._was_freed():
                         newcache[key] = value
                 except RuntimeError:
-                    pass    # ignore "accessing subxxx, but already gc-ed parent"
+                    # ignore "accessing subxxx, but already gc-ed parent"
+                    pass
             if newcache:
                 _subarray._cache[T] = newcache
             else:
@@ -2015,8 +2032,10 @@ class _func(_container):
         attrs.setdefault('_name', '?')
         attrs.setdefault('_callable', None)
         self.__dict__.update(attrs)
-        if '_callable' in attrs and hasattr(attrs['_callable'], '_compilation_info'):
-            self.__dict__['compilation_info'] = attrs['_callable']._compilation_info
+        if '_callable' in attrs and hasattr(attrs['_callable'],
+                                            '_compilation_info'):
+            self.__dict__['compilation_info'] = \
+                attrs['_callable']._compilation_info
 
     def __repr__(self):
         return '<%s>' % (self,)
@@ -2121,8 +2140,8 @@ def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
     return _ptr(Ptr(T), o, solid)
 
 @analyzer_for(malloc)
-def ann_malloc(s_T, s_n=None, s_flavor=None, s_zero=None, s_track_allocation=None,
-           s_add_memory_pressure=None):
+def ann_malloc(s_T, s_n=None, s_flavor=None, s_zero=None,
+               s_track_allocation=None, s_add_memory_pressure=None):
     assert (s_n is None or s_n.knowntype == int
             or issubclass(s_n.knowntype, base_int))
     assert s_T.is_constant()
@@ -2178,9 +2197,9 @@ def render_immortal(p, track_allocation=True):
 def ann_render_immortal(s_p, s_track_allocation=None):
     assert s_track_allocation is None or s_track_allocation.is_constant()
 
-def _make_scoped_allocator(T):
+def _make_scoped_allocator(T, zero):
     class ScopedAlloc:
-        def __init__(self, n=None, zero=False):
+        def __init__(self, n=None):
             if n is None:
                 self.buf = malloc(T, flavor='raw', zero=zero)
             else:
@@ -2204,8 +2223,8 @@ def scoped_alloc(T, n=None, zero=False):
             ...use array...
         ...it's freed now.
     """
-    return _make_scoped_allocator(T)(n=n, zero=zero)
-scoped_alloc._annspecialcase_ = 'specialize:arg(0)'
+    return _make_scoped_allocator(T, zero)(n=n)
+scoped_alloc._annspecialcase_ = 'specialize:arg(0, 2)'
 
 def functionptr(TYPE, name, **attrs):
     if not isinstance(TYPE, FuncType):
@@ -2256,12 +2275,10 @@ def ann_cast_int_to_ptr(PtrT, s_int):
     return SomePtr(ll_ptrtype=PtrT.const)
 
 
-def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None,
-                          customtraceptr=None):
+def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None):
     if not isinstance(GCSTRUCT, RttiStruct):
         raise TypeError("expected a RttiStruct: %s" % GCSTRUCT)
-    GCSTRUCT._attach_runtime_type_info_funcptr(funcptr, destrptr,
-                                               customtraceptr)
+    GCSTRUCT._attach_runtime_type_info_funcptr(funcptr, destrptr)
     return _ptr(Ptr(RuntimeTypeInfo), GCSTRUCT._runtime_type_info)
 
 def getRuntimeTypeInfo(GCSTRUCT):
@@ -2298,7 +2315,8 @@ def runtime_type_info(p):
 
 @analyzer_for(runtime_type_info)
 def ann_runtime_type_info(s_p):
-    assert isinstance(s_p, SomePtr), "runtime_type_info of non-pointer: %r" % s_p
+    assert isinstance(s_p, SomePtr), \
+        "runtime_type_info of non-pointer: %r" % s_p
     return SomePtr(typeOf(runtime_type_info(s_p.ll_ptrtype._example())))
 
 

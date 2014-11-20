@@ -11,7 +11,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
-from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 
 
@@ -427,6 +427,10 @@ class W_BytesObject(W_AbstractBytesObject):
     _val = bytes_w
 
     @staticmethod
+    def _use_rstr_ops(space, w_other):
+        return True
+
+    @staticmethod
     def _op_val(space, w_other):
         try:
             return space.bytes_w(w_other)
@@ -765,7 +769,7 @@ def makebytesdata_w(space, w_source):
     return data
 
 
-W_BytesObject.typedef = StdTypeDef(
+W_BytesObject.typedef = TypeDef(
     "bytes",
     __new__ = interp2app(W_BytesObject.descr_new),
     __doc__ = """bytes(iterable_of_ints) -> bytes
@@ -845,6 +849,7 @@ W_BytesObject.typedef = StdTypeDef(
     fromhex = interp2app(W_BytesObject.descr_fromhex, as_classmethod=True),
     maketrans = interp2app(W_BytesObject.descr_maketrans, as_classmethod=True),
 )
+W_BytesObject.typedef.flag_sequence_bug_compat = True
 
 
 def string_escape_encode(s, quotes):

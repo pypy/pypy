@@ -6,7 +6,8 @@ import sys
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.interpreter.gateway import (
+    interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import TypeDef
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
@@ -307,15 +308,19 @@ def _make_reversed(space, w_seq, w_remaining):
 
 
 class W_Range(W_Root):
-    def __init__(self, w_start, w_stop, w_step, w_length):
+    def __init__(self, w_start, w_stop, w_step, w_length, promote_step=False):
         self.w_start = w_start
         self.w_stop  = w_stop
         self.w_step  = w_step
         self.w_length = w_length
+        self.promote_step = promote_step
 
-    @unwrap_spec(w_step = WrappedDefault(1))
     def descr_new(space, w_subtype, w_start, w_stop=None, w_step=None):
         w_start = space.index(w_start)
+        promote_step = False
+        if space.is_none(w_step):  # no step argument provided
+            w_step = space.wrap(1)
+            promote_step = True
         if space.is_none(w_stop):  # only 1 argument provided
             w_start, w_stop = space.newint(0), w_start
         else:
@@ -331,7 +336,7 @@ class W_Range(W_Root):
                         "step argument must not be zero"))
         w_length = compute_range_length(space, w_start, w_stop, w_step)
         obj = space.allocate_instance(W_Range, w_subtype)
-        W_Range.__init__(obj, w_start, w_stop, w_step, w_length)
+        W_Range.__init__(obj, w_start, w_stop, w_step, w_length, promote_step)
         return space.wrap(obj)
 
     def descr_repr(self, space):
@@ -386,8 +391,19 @@ class W_Range(W_Root):
             return self._compute_item(space, w_index)
 
     def descr_iter(self, space):
-        return space.wrap(W_RangeIterator(
-                space, self.w_start, self.w_step, self.w_length))
+        try:
+            start = space.int_w(self.w_start)
+            stop = space.int_w(self.w_stop)
+            step = space.int_w(self.w_step)
+            length = space.int_w(self.w_length)
+        except OperationError as e:
+            pass
+        else:
+            if self.promote_step:
+                return W_IntRangeStepOneIterator(space, start, stop)
+            return W_IntRangeIterator(space, start, length, step)
+        return W_LongRangeIterator(space, self.w_start, self.w_step,
+                                   self.w_length)
 
     def descr_reversed(self, space):
         # lastitem = self.start + (self.length-1) * self.step
@@ -395,7 +411,7 @@ class W_Range(W_Root):
             self.w_start,
             space.mul(space.sub(self.w_length, space.newint(1)),
                       self.w_step))
-        return space.wrap(W_RangeIterator(
+        return space.wrap(W_LongRangeIterator(
                 space, w_lastitem, space.neg(self.w_step), self.w_length))
 
     def descr_reduce(self, space):
@@ -463,7 +479,22 @@ W_Range.typedef = TypeDef("range",
 W_Range.typedef.acceptable_as_base_class = False
 
 
-class W_RangeIterator(W_Root):
+class W_AbstractRangeIterator(W_Root):
+
+    def descr_iter(self, space):
+        return space.wrap(self)
+
+    def descr_len(self, space):
+        raise NotImplementedError
+
+    def descr_next(self, space):
+        raise NotImplementedError
+
+    def descr_reduce(self, space):
+        raise NotImplementedError
+
+
+class W_LongRangeIterator(W_AbstractRangeIterator):
     def __init__(self, space, w_start, w_step, w_len, w_index=None):
         self.w_start = w_start
         self.w_step = w_step
@@ -471,9 +502,6 @@ class W_RangeIterator(W_Root):
         if w_index is None:
             w_index = space.newint(0)
         self.w_index = w_index
-
-    def descr_iter(self, space):
-        return space.wrap(self)
 
     def descr_next(self, space):
         if space.is_true(space.lt(self.w_index, self.w_len)):
@@ -489,23 +517,75 @@ class W_RangeIterator(W_Root):
 
     def descr_reduce(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
+        w_mod = space.getbuiltinmodule('_pickle_support')
+        mod = space.interp_w(MixedModule, w_mod)
+        w_args = space.newtuple([self.w_start, self.w_step, self.w_len,
+                                 self.w_index])
+        return space.newtuple([mod.get('longrangeiter_new'), w_args])
+
+
+class W_IntRangeIterator(W_AbstractRangeIterator):
+
+    def __init__(self, space, current, remaining, step):
+        self.current = current
+        self.remaining = remaining
+        self.step = step
+
+    def descr_next(self, space):
+        return self.next(space)
+
+    def next(self, space):
+        if self.remaining > 0:
+            item = self.current
+            self.current = item + self.step
+            self.remaining -= 1
+            return space.wrap(item)
+        raise OperationError(space.w_StopIteration, space.w_None)
+
+    def descr_len(self, space):
+        return self.get_remaining(space)
+
+    def descr_reduce(self, space):
+        from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
+        new_inst = mod.get('intrangeiter_new')
+        w        = space.wrap
+        nt = space.newtuple
 
-        return space.newtuple(
-            [mod.get('rangeiter_new'),
-             space.newtuple([self.w_start, self.w_step,
-                             self.w_len, self.w_index]),
-             ])
+        tup = [w(self.current), self.get_remaining(space), w(self.step)]
+        return nt([new_inst, nt(tup)])
+
+    def get_remaining(self, space):
+        return space.wrap(self.remaining)
 
 
-W_RangeIterator.typedef = TypeDef("rangeiterator",
-    __iter__        = interp2app(W_RangeIterator.descr_iter),
-    __length_hint__ = interp2app(W_RangeIterator.descr_len),
-    __next__        = interp2app(W_RangeIterator.descr_next),
-    __reduce__      = interp2app(W_RangeIterator.descr_reduce),
+class W_IntRangeStepOneIterator(W_IntRangeIterator):
+    _immutable_fields_ = ['stop']
+
+    def __init__(self, space, start, stop):
+        self.current = start
+        self.stop = stop
+        self.step = 1
+
+    def next(self, space):
+        if self.current < self.stop:
+            item = self.current
+            self.current = item + 1
+            return space.wrap(item)
+        raise OperationError(space.w_StopIteration, space.w_None)
+
+    def get_remaining(self, space):
+        return space.wrap(self.stop - self.current)
+
+
+W_AbstractRangeIterator.typedef = TypeDef("rangeiterator",
+    __iter__        = interp2app(W_AbstractRangeIterator.descr_iter),
+    __length_hint__ = interpindirect2app(W_AbstractRangeIterator.descr_len),
+    __next__        = interpindirect2app(W_AbstractRangeIterator.descr_next),
+    __reduce__      = interpindirect2app(W_AbstractRangeIterator.descr_reduce),
 )
-W_RangeIterator.typedef.acceptable_as_base_class = False
+W_AbstractRangeIterator.typedef.acceptable_as_base_class = False
 
 
 class W_Map(W_Root):

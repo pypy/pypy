@@ -21,9 +21,6 @@ corresponding Unix manual entries for more information on calls."""
     if os.name == 'nt':
         del appleveldefs['urandom'] # at interp on win32
         appleveldefs.update({
-            'popen2': 'app_posix.popen2',
-            'popen3': 'app_posix.popen3',
-            'popen4': 'app_posix.popen4',
             'startfile': 'app_startfile.startfile',
         })
 
@@ -167,6 +164,11 @@ corresponding Unix manual entries for more information on calls."""
     # not visible via os, inconsistency in nt:
     if hasattr(posix, '_getfullpathname'):
         interpleveldefs['_getfullpathname'] = 'interp_posix._getfullpathname'
+    if os.name == 'nt':
+        interpleveldefs.update({
+                '_getfileinformation': 'interp_posix._getfileinformation',
+                '_getfinalpathname': 'interp_posix._getfinalpathname',
+        })
     if hasattr(os, 'chroot'):
         interpleveldefs['chroot'] = 'interp_posix.chroot'
 

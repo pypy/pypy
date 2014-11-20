@@ -57,6 +57,7 @@ def record_application_traceback(space, operror, frame, last_instruction):
     tb = operror.get_traceback()
     tb = PyTraceback(space, frame, last_instruction, tb)
     operror.set_traceback(tb)
+    operror.record_context(space, frame)
 
 
 def check_traceback(space, w_tb, msg):

@@ -33,6 +33,8 @@ def test_dir():
     py.test.raises(OSError, d.join, 'bar')
     st = d.stat()
     assert stat.S_ISDIR(st.st_mode)
+    assert d.access(os.R_OK | os.X_OK)
+    assert not d.access(os.W_OK)
 
 def test_file():
     f = File('hello world')
@@ -46,6 +48,8 @@ def test_file():
     st = f.stat()
     assert stat.S_ISREG(st.st_mode)
     assert st.st_size == 11
+    assert f.access(os.R_OK)
+    assert not f.access(os.W_OK)
 
 def test_realdir_realfile():
     for show_dotfiles in [False, True]:
@@ -78,6 +82,7 @@ def test_realdir_realfile():
 
                 f = v_test_vfs.join('symlink2')
                 assert stat.S_ISREG(f.stat().st_mode)
+                assert f.access(os.R_OK)
                 assert f.open().read() == 'secret'
             else:
                 py.test.raises(OSError, v_test_vfs.join, 'symlink1')

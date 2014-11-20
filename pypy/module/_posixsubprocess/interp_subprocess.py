@@ -3,6 +3,7 @@ import py
 
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform as platform
+from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 from pypy.interpreter.error import (
@@ -21,11 +22,9 @@ class CConfig:
 config = platform.configure(CConfig)
 
 eci = ExternalCompilationInfo(
-    separate_module_files=[thisdir.join('_posixsubprocess.c')],
-    export_symbols=['pypy_subprocess_child_exec',
-                    'pypy_subprocess_cloexec_pipe',
-                    'pypy_subprocess_init',
-                    ])
+    includes=[thisdir.join('_posixsubprocess.h')],
+    include_dirs=[str(thisdir), cdir],
+    separate_module_files=[thisdir.join('_posixsubprocess.c')])
 
 compile_extra = []
 if config['HAVE_SYS_SYSCALL_H']:

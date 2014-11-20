@@ -23,6 +23,8 @@ class AbstractResOp(object):
     pc = 0
     opnum = 0
     _cls_has_bool_result = False
+    boolreflex = -1
+    boolinverse = -1
 
     _attrs_ = ('result',)
 
@@ -481,15 +483,15 @@ _oplist = [
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
     '_MALLOC_FIRST',
-    'NEW/0d',
-    'NEW_WITH_VTABLE/1',
-    'NEW_ARRAY/1d',
-    'NEWSTR/1',
-    'NEWUNICODE/1',
+    'NEW/0d',             #-> GcStruct, gcptrs inside are zeroed (not the rest)
+    'NEW_WITH_VTABLE/1',  #-> GcStruct with vtable, gcptrs inside are zeroed
+    'NEW_ARRAY/1d',       #-> GcArray, not zeroed. only for arrays of primitives
+    'NEW_ARRAY_CLEAR/1d', #-> GcArray, fully zeroed
+    'NEWSTR/1',           #-> STR, the hash field is zeroed
+    'NEWUNICODE/1',       #-> UNICODE, the hash field is zeroed
     '_MALLOC_LAST',
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
-    'READ_TIMESTAMP/0',
     'MARK_OPAQUE_PTR/1b',
     # this one has no *visible* side effect, since the virtualizable
     # must be forced, however we need to execute it anyway
@@ -499,9 +501,13 @@ _oplist = [
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
     'SETINTERIORFIELD_GC/3d',
-    'SETINTERIORFIELD_RAW/3d',    # only used by llsupport/rewrite.py
+    'SETINTERIORFIELD_RAW/3d',    # right now, only used by tests
     'RAW_STORE/3d',
     'SETFIELD_GC/2d',
+    'ZERO_PTR_FIELD/2', # only emitted by the rewrite, clears a pointer field
+                        # at a given constant offset, no descr
+    'ZERO_ARRAY/3d',    # only emitted by the rewrite, clears (part of) an array
+                        # [arraygcptr, firstindex, length], descr=ArrayDescr
     'SETFIELD_RAW/2d',
     'STRSETITEM/3',
     'UNICODESETITEM/3',
@@ -619,7 +625,7 @@ def create_class_for_op(name, opnum, arity, withdescr):
 setup(__name__ == '__main__')   # print out the table when run directly
 del _oplist
 
-opboolinvers = {
+_opboolinverse = {
     rop.INT_EQ: rop.INT_NE,
     rop.INT_NE: rop.INT_EQ,
     rop.INT_LT: rop.INT_GE,
@@ -643,7 +649,7 @@ opboolinvers = {
     rop.PTR_NE: rop.PTR_EQ,
 }
 
-opboolreflex = {
+_opboolreflex = {
     rop.INT_EQ: rop.INT_EQ,
     rop.INT_NE: rop.INT_NE,
     rop.INT_LT: rop.INT_GT,
@@ -667,6 +673,19 @@ opboolreflex = {
     rop.PTR_NE: rop.PTR_NE,
 }
 
+def setup2():
+    for cls in opclasses:
+        if cls is None:
+            continue
+        opnum = cls.opnum
+        if opnum in _opboolreflex:
+            cls.boolreflex = _opboolreflex[opnum]
+        if opnum in _opboolinverse:
+            cls.boolinverse = _opboolinverse[opnum]
+
+setup2()
+del _opboolinverse
+del _opboolreflex
 
 def get_deep_immutable_oplist(operations):
     """

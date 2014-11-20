@@ -300,3 +300,34 @@ res = f()
             yield 1
             raise StopIteration
         assert tuple(f()) == (1,)
+
+    def test_exception_is_cleared_by_yield(self):
+        def f():
+            try:
+                foobar
+            except NameError:
+                yield 5
+                raise
+        gen = f()
+        next(gen)  # --> 5
+        try:
+            next(gen)
+        except NameError:
+            pass
+
+
+def test_should_not_inline(space):
+    from pypy.interpreter.generator import should_not_inline
+    w_co = space.appexec([], '''():
+        def g(x):
+            yield x + 5
+        return g.__code__
+    ''')
+    assert should_not_inline(w_co) == False
+    w_co = space.appexec([], '''():
+        def g(x):
+            yield x + 5
+            yield x + 6
+        return g.__code__
+    ''')
+    assert should_not_inline(w_co) == True

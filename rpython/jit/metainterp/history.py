@@ -279,13 +279,14 @@ class ConstFloat(Const):
             # careful in this comparison: if self.value and other.value
             # are both NaN, stored as regular floats (i.e. on 64-bit),
             # then just using "==" would say False: two NaNs are always
-            # different from each other.
+            # different from each other.  Conversely, "0.0 == -0.0" but
+            # they are not the same constant.
             return (longlong.extract_bits(self.value) ==
                     longlong.extract_bits(other.value))
         return False
 
     def nonnull(self):
-        return self.value != longlong.ZEROF
+        return bool(longlong.extract_bits(self.value))
 
     def _getrepr_(self):
         return self.getfloat()
@@ -460,7 +461,7 @@ class BoxFloat(Box):
         return longlong.gethash(self.value)
 
     def nonnull(self):
-        return self.value != longlong.ZEROF
+        return bool(longlong.extract_bits(self.value))
 
     def _getrepr_(self):
         return self.getfloat()

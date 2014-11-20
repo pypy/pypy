@@ -60,6 +60,12 @@ class AppTestFileIO:
         import _io
         import os
         path = os.path.join(self.tmpdir, '_pypy-日本')
+        try:
+            os.fsencode(path)
+        except UnicodeEncodeError:
+            import sys
+            skip("can't run this test with %s as filesystem encoding" %
+                 sys.getfilesystemencoding())
         exc = raises(IOError, _io.FileIO, path)
         expected = "[Errno 2] No such file or directory: %r" % path
         assert str(exc.value) == expected

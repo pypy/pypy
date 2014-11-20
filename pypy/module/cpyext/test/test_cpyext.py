@@ -77,7 +77,6 @@ def compile_extension_module(space, modname, **kwds):
 
     modname = modname.split('.')[-1]
     eci = ExternalCompilationInfo(
-        export_symbols=['PyInit_%s' % (modname,)],
         include_dirs=api.include_dirs,
         **kwds
         )
@@ -103,7 +102,7 @@ def freeze_refcnts(self):
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = dict(usemodules=['cpyext', 'thread', '_rawffi', 'array',
-                                   'itertools', 'rctime', 'binascii', 'micronumpy'])
+                                   'itertools', 'time', 'binascii', 'micronumpy'])
     spaceconfig['std.withmethodcache'] = True
 
     enable_leak_checking = True
@@ -207,12 +206,7 @@ class AppTestApi(LeakCheckingTest):
         import sys
         if sys.platform != "win32" or sys.version_info < (2, 6):
             skip("Windows Python >= 2.6 only")
-        assert sys.dllhandle
-        assert sys.dllhandle.getaddressindll('PyPyErr_NewException')
-        import ctypes # slow
-        PyUnicode_GetDefaultEncoding = ctypes.pythonapi.PyPyUnicode_GetDefaultEncoding
-        PyUnicode_GetDefaultEncoding.restype = ctypes.c_char_p
-        assert PyUnicode_GetDefaultEncoding() == 'ascii'
+        assert isinstance(sys.dllhandle, int)
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 
@@ -275,7 +269,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 #include <Python.h>
                 %(body)s
 
-                PyObject* PyInit_%(name)s(void) {
+                PyMODINIT_FUNC
+                PyInit_%(name)s(void) {
                 %(init)s
                 }
                 """ % dict(name=name, init=init, body=body,
@@ -308,9 +303,9 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 space.sys.get('modules'),
                 space.wrap(name))
 
-        @unwrap_spec(modname=str, prologue=str, PY_SSIZE_T_CLEAN=bool)
+        @unwrap_spec(modname=str, prologue=str, more_init=str, PY_SSIZE_T_CLEAN=bool)
         def import_extension(space, modname, w_functions, prologue="",
-                             PY_SSIZE_T_CLEAN=False):
+                             more_init="", PY_SSIZE_T_CLEAN=False):
             functions = space.unwrap(w_functions)
             methods_table = []
             codes = []
@@ -340,6 +335,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             };
             """ % dict(methods='\n'.join(methods_table), modname=modname)
             init = """PyObject *mod = PyModule_Create(&moduledef);"""
+            if more_init:
+                init += more_init
             return import_module(space, name=modname, init=init, body=body,
                                  PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
 

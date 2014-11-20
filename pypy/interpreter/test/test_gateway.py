@@ -541,6 +541,23 @@ class TestGateway:
         raises(gateway.OperationError, space.call_function, w_app_g3_u,
                w(42))
 
+    def test_interp2app_unwrap_spec_unwrapper(self):
+        space = self.space
+        class Unwrapper(gateway.Unwrapper):
+            def unwrap(self, space, w_value):
+                return space.int_w(w_value)
+
+        w = space.wrap
+        def g3_u(space, value):
+            return space.wrap(value + 1)
+        app_g3_u = gateway.interp2app_temp(g3_u,
+                                         unwrap_spec=[gateway.ObjSpace,
+                                                      Unwrapper])
+        assert self.space.eq_w(
+            space.call_function(w(app_g3_u), w(42)), w(43))
+        raises(gateway.OperationError, space.call_function,
+               w(app_g3_u), w(None))
+
     def test_interp2app_classmethod(self):
         space = self.space
         w = space.wrap
@@ -738,6 +755,22 @@ class TestGateway:
             never_called
         py.test.raises(AssertionError, space.wrap, gateway.interp2app_temp(g))
 
+    def test_unwrap_spec_default_applevel_bug2(self):
+        space = self.space
+        def g(space, w_x, w_y=None, __args__=None):
+            return w_x
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_42 = space.call_function(w_g, space.wrap(42))
+        assert space.int_w(w_42) == 42
+        py.test.raises(gateway.OperationError, space.call_function, w_g)
+        #
+        def g(space, w_x, w_y=None, args_w=None):
+            return w_x
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_42 = space.call_function(w_g, space.wrap(42))
+        assert space.int_w(w_42) == 42
+        py.test.raises(gateway.OperationError, space.call_function, w_g)
+
     def test_interp2app_doc(self):
         space = self.space
         def f(space, w_x):
@@ -873,11 +906,33 @@ y = a.m(33)
         assert len(called) == 1
         assert isinstance(called[0], argument.Arguments)
 
+    def test_pass_trough_arguments_method(self):
+        space = self.space
+
+        called = []
+
+        class W_Something(W_Root):
+            def f(self, space, __args__):
+                called.append(__args__)
+                a_w, _ = __args__.unpack()
+                return space.newtuple([space.wrap('f')]+a_w)
+
+        w_f = space.wrap(gateway.interp2app_temp(W_Something.f))
+
+        w_self = space.wrap(W_Something())
+        args = argument.Arguments(space, [space.wrap(7)])
+
+        w_res = space.call_obj_args(w_f, w_self, args)
+        assert space.is_true(space.eq(w_res, space.wrap(('f', 7))))
+
+        # white-box check for opt
+        assert called[0] is args
+
 
 class AppTestKeywordsToBuiltinSanity(object):
     def test_type(self):
         class X(object):
-            def __init__(self, **kw):
+            def __init__(myself, **kw):
                 pass
         clash = type.__call__.__code__.co_varnames[0]
 
@@ -892,7 +947,6 @@ class AppTestKeywordsToBuiltinSanity(object):
 
         X(**{clash: 33})
         object.__new__(X, **{clash: 33})
-
 
     def test_dict_new(self):
         clash = dict.__new__.__code__.co_varnames[0]

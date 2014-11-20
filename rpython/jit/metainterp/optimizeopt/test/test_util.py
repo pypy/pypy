@@ -1,8 +1,9 @@
 import py, random
 
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr, rffi
-from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
-from rpython.rtyper.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper import rclass
+from rpython.rtyper.rclass import (
+    OBJECT, OBJECT_VTABLE, FieldListAccessor, IR_QUASIIMMUTABLE)
 
 from rpython.jit.backend.llgraph import runner
 from rpython.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
@@ -331,7 +332,7 @@ class FakeMetaInterpStaticData(object):
     def get_name_from_address(self, addr):
         # hack
         try:
-            return "".join(addr.ptr.name)[:-1] # remove \x00
+            return "".join(addr.ptr.name.chars)
         except AttributeError:
             return ""
 

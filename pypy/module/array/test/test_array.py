@@ -404,6 +404,10 @@ class BaseArrayTests:
         raises(ValueError, self.array('i').tounicode)
         assert self.array('u', 'hello').tounicode() == 'hello'
 
+    def test_empty_tostring(self):
+        a = self.array('l')
+        assert a.tostring() == b''
+
     def test_buffer(self):
         a = self.array('h', b'Hi')
         buf = memoryview(a)
@@ -1044,13 +1048,8 @@ class AppTestArray(BaseArrayTests):
         raises(TypeError, "a[MyInt(0)]")
         raises(TypeError, "a[MyInt(0):MyInt(5)]")
 
-    def test_fresh_array_buffer_str(self):
-        assert memoryview(self.array('i')).tobytes() == b''
-
-
-class AppTestArrayBuiltinShortcut(AppTestArray):
-    spaceconfig = AppTestArray.spaceconfig.copy()
-    spaceconfig['objspace.std.builtinshortcut'] = True
+    def test_fresh_array_buffer_bytes(self):
+        assert bytes(memoryview(self.array('i'))) == b''
 
 
 class AppTestArrayReconstructor:

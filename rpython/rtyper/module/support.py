@@ -49,6 +49,7 @@ class StringTraits:
     CHAR = rffi.CHAR
     CCHARP = rffi.CCHARP
     charp2str = staticmethod(rffi.charp2str)
+    charpsize2str = staticmethod(rffi.charpsize2str)
     scoped_str2charp = staticmethod(rffi.scoped_str2charp)
     str2charp = staticmethod(rffi.str2charp)
     free_charp = staticmethod(rffi.free_charp)
@@ -68,6 +69,7 @@ class UnicodeTraits:
     CHAR = rffi.WCHAR_T
     CCHARP = rffi.CWCHARP
     charp2str = staticmethod(rffi.wcharp2unicode)
+    charpsize2str = staticmethod(rffi.wcharpsize2unicode)
     str2charp = staticmethod(rffi.unicode2wcharp)
     scoped_str2charp = staticmethod(rffi.scoped_unicode2wcharp)
     free_charp = staticmethod(rffi.free_wcharp)

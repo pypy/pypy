@@ -508,6 +508,16 @@ def PyUnicode_FromString(space, s):
     w_str = space.wrapbytes(rffi.charp2str(s))
     return space.call_method(w_str, 'decode', space.wrap("utf-8"))
 
+@cpython_api([CONST_STRING], PyObject)
+def PyUnicode_InternFromString(space, s):
+    """A combination of PyUnicode_FromString() and
+    PyUnicode_InternInPlace(), returning either a new unicode string
+    object that has been interned, or a new ("owned") reference to an
+    earlier interned string object with the same value.
+    """
+    w_str = PyUnicode_FromString(space, s)
+    return space.new_interned_w_str(w_str)
+
 @cpython_api([CONST_STRING, Py_ssize_t], PyObject)
 def PyUnicode_FromStringAndSize(space, s, size):
     """Create a Unicode Object from the char buffer u. The bytes will be

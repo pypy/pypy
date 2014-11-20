@@ -171,6 +171,12 @@ class ArgumentsForTranslation(CallSpec):
 def rawshape(args):
     return args._rawshape()
 
+def simple_args(args_s):
+    return ArgumentsForTranslation(list(args_s))
+
+def complex_args(args_s):
+    return ArgumentsForTranslation.fromshape(args_s[0].const,
+                                             list(args_s[1:]))
 
 #
 # ArgErr family of exceptions raised in case of argument mismatch.

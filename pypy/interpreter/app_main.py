@@ -46,6 +46,10 @@ try:
     from __pypy__ import hidden_applevel
 except ImportError:
     hidden_applevel = lambda f: f
+try:
+    from _ast import PyCF_ACCEPT_NULL_BYTES
+except ImportError:
+    PyCF_ACCEPT_NULL_BYTES = 0
 import errno
 import sys
 
@@ -274,12 +278,21 @@ def initstdio(encoding=None, unbuffered=False):
         else:
             errors = None
 
-        sys.stdin = sys.__stdin__ = create_stdio(
-            0, False, "<stdin>", encoding, errors, unbuffered)
-        sys.stdout = sys.__stdout__ = create_stdio(
-            1, True, "<stdout>", encoding, errors, unbuffered)
         sys.stderr = sys.__stderr__ = create_stdio(
             2, True, "<stderr>", encoding, 'backslashreplace', unbuffered)
+        sys.stdout = sys.__stdout__ = create_stdio(
+            1, True, "<stdout>", encoding, errors, unbuffered)
+
+        try:
+            sys.stdin = sys.__stdin__ = create_stdio(
+                0, False, "<stdin>", encoding, errors, unbuffered)
+        except OSError as e:
+            if e.errno != errno.EISDIR:
+                raise
+            import os
+            print("Python error: <stdin> is a directory, cannot continue",
+                  file=sys.stderr)
+            os._exit(1)
     finally:
         if encerr:
             display_exception(encerr)
@@ -615,7 +628,8 @@ def run_command_line(interactive,
                         def run_it():
                             co_python_startup = compile(startup,
                                                         python_startup,
-                                                        'exec')
+                                                        'exec',
+                                                        PyCF_ACCEPT_NULL_BYTES)
                             exec_(co_python_startup, mainmodule.__dict__)
                         mainmodule.__file__ = python_startup
                         mainmodule.__cached__ = None
@@ -630,7 +644,8 @@ def run_command_line(interactive,
                 # If not interactive, just read and execute stdin normally.
                 @hidden_applevel
                 def run_it():
-                    co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec')
+                    co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec',
+                                       PyCF_ACCEPT_NULL_BYTES)
                     exec_(co_stdin, mainmodule.__dict__)
                 mainmodule.__file__ = '<stdin>'
                 mainmodule.__cached__ = None
@@ -667,7 +682,9 @@ def run_command_line(interactive,
                     def execfile(filename, namespace):
                         with open(filename, 'rb') as f:
                             code = f.read()
-                        exec_(compile(code, filename, 'exec'), namespace)
+                        co = compile(code, filename, 'exec',
+                                     PyCF_ACCEPT_NULL_BYTES)
+                        exec_(co, namespace)
                     args = (execfile, filename, mainmodule.__dict__)
             success = run_toplevel(*args)
 

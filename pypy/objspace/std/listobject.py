@@ -10,28 +10,28 @@ http://morepypy.blogspot.com/2011/10/more-compact-lists-with-list-strategies.htm
 import operator
 import sys
 
-from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import (WrappedDefault, unwrap_spec, applevel,
-    interp2app)
-from pypy.interpreter.generator import GeneratorIterator
-from pypy.interpreter.signature import Signature
-from pypy.objspace.std import slicetype
-from pypy.objspace.std.bytesobject import W_BytesObject
-from pypy.objspace.std.floatobject import W_FloatObject
-from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.iterobject import (W_FastListIterObject,
-    W_ReverseSeqIterObject)
-from pypy.objspace.std.sliceobject import W_SliceObject
-from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.tupleobject import W_AbstractTupleObject
-from pypy.objspace.std.unicodeobject import W_UnicodeObject
-from pypy.objspace.std.util import get_positive_index, negate
 from rpython.rlib import debug, jit, rerased
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import (
-    instantiate, newlist_hint, resizelist_hint, specialize, import_from_mixin)
+    import_from_mixin, instantiate, newlist_hint, resizelist_hint, specialize)
 from rpython.tool.sourcetools import func_with_new_name
+
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import (
+    WrappedDefault, applevel, interp2app, unwrap_spec)
+from pypy.interpreter.generator import GeneratorIterator
+from pypy.interpreter.signature import Signature
+from pypy.interpreter.typedef import TypeDef
+from pypy.objspace.std.bytesobject import W_BytesObject
+from pypy.objspace.std.floatobject import W_FloatObject
+from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.iterobject import (
+    W_FastListIterObject, W_ReverseSeqIterObject)
+from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
+from pypy.objspace.std.tupleobject import W_AbstractTupleObject
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
+from pypy.objspace.std.util import get_positive_index, negate
 
 __all__ = ['W_ListObject', 'make_range_list', 'make_empty_list_with_size']
 
@@ -358,11 +358,13 @@ class W_ListObject(W_Root):
 
     @staticmethod
     def descr_new(space, w_listtype, __args__):
+        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
         w_obj = space.allocate_instance(W_ListObject, w_listtype)
         w_obj.clear(space)
         return w_obj
 
     def descr_init(self, space, __args__):
+        """x.__init__(...) initializes x; see help(type(x)) for signature"""
         # this is on the silly side
         w_iterable, = __args__.parse_obj(
                 None, 'list', init_signature, init_defaults)
@@ -601,8 +603,7 @@ class W_ListObject(W_Root):
         first index of value'''
         # needs to be safe against eq_w() mutating the w_list behind our back
         size = self.length()
-        i, stop = slicetype.unwrap_start_stop(
-                space, size, w_start, w_stop, True)
+        i, stop = unwrap_start_stop(space, size, w_start, w_stop, True)
         try:
             i = self.find(w_value, i, stop)
         except ValueError:
@@ -814,8 +815,6 @@ class EmptyListStrategy(ListStrategy):
     W_Lists do not switch back to EmptyListStrategy when becoming empty again.
     """
 
-    _applevel_repr = "empty"
-
     def __init__(self, space):
         ListStrategy.__init__(self, space)
 
@@ -937,15 +936,12 @@ class EmptyListStrategy(ListStrategy):
             w_list.lstorage = strategy.erase(floatlist)
             return
 
-        # XXX: listview_bytes works for bytes but not for strings, and the
-        # strategy works for strings but not for bytes. Disable it for now,
-        # but we'll need to fix it
-        ##byteslist = space.listview_bytes(w_iterable)
-        ##if byteslist is not None:
-        ##    w_list.strategy = strategy = space.fromcache(BytesListStrategy)
-        ##    # need to copy because intlist can share with w_iterable
-        ##    w_list.lstorage = strategy.erase(byteslist[:])
-        ##    return
+        byteslist = space.listview_bytes(w_iterable)
+        if byteslist is not None:
+            w_list.strategy = strategy = space.fromcache(BytesListStrategy)
+            # need to copy because intlist can share with w_iterable
+            w_list.lstorage = strategy.erase(byteslist[:])
+            return
 
         unilist = space.listview_unicode(w_iterable)
         if unilist is not None:
@@ -1077,8 +1073,6 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
        method providing only positive length. The storage is a one element tuple
        with positive integer storing length."""
 
-    _applevel_repr = "simple_range"
-
     erase, unerase = rerased.new_erasing_pair("simple_range")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
@@ -1150,8 +1144,6 @@ class RangeListStrategy(BaseRangeListStrategy):
     length and elements are calculated based on these values.  On any operation
     destroying the range (inserting, appending non-ints) the strategy is
     switched to IntegerListStrategy."""
-
-    _applevel_repr = "range"
 
     erase, unerase = rerased.new_erasing_pair("range")
     erase = staticmethod(erase)
@@ -1530,7 +1522,6 @@ class ObjectListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = None
-    _applevel_repr = "object"
 
     def unwrap(self, w_obj):
         return w_obj
@@ -1565,7 +1556,6 @@ class IntegerListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = 0
-    _applevel_repr = "int"
 
     def wrap(self, intval):
         return self.space.wrap(intval)
@@ -1619,7 +1609,6 @@ class FloatListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = 0.0
-    _applevel_repr = "float"
 
     def wrap(self, floatval):
         return self.space.wrap(floatval)
@@ -1652,7 +1641,6 @@ class BytesListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = None
-    _applevel_repr = "bytes"
 
     def wrap(self, stringval):
         return self.space.wrapbytes(stringval)
@@ -1685,7 +1673,6 @@ class UnicodeListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = None
-    _applevel_repr = "unicode"
 
     def wrap(self, stringval):
         return self.space.wrap(stringval)
@@ -1807,9 +1794,9 @@ class CustomKeySort(SimpleSort):
         return space.is_true(space.lt(a.w_key, b.w_key))
 
 
-W_ListObject.typedef = StdTypeDef("list",
-    __doc__ = """list() -> new list
-list(sequence) -> new list initialized from sequence's items""",
+W_ListObject.typedef = TypeDef("list",
+    __doc__ = """list() -> new empty list
+list(iterable) -> new list initialized from iterable's items""",
     __new__ = interp2app(W_ListObject.descr_new),
     __init__ = interp2app(W_ListObject.descr_init),
     __repr__ = interp2app(W_ListObject.descr_repr),
@@ -1847,3 +1834,4 @@ list(sequence) -> new list initialized from sequence's items""",
     insert = interp2app(W_ListObject.descr_insert),
     remove = interp2app(W_ListObject.descr_remove),
 )
+W_ListObject.typedef.flag_sequence_bug_compat = True

@@ -201,6 +201,11 @@ def enforceargs(*types_, **kwds):
         return result
     return decorator
 
+def always_inline(func):
+    """ mark the function as to-be-inlined by the RPython optimizations (not
+    the JIT!), no matter its size."""
+    func._always_inline_ = True
+    return func
 
 
 # ____________________________________________________________
@@ -738,6 +743,15 @@ class _r_dictkey(object):
 
     def __repr__(self):
         return repr(self.key)
+
+
+@specialize.call_location()
+def prepare_dict_update(dict, n_elements):
+    """RPython hint that the given dict (or r_dict) will soon be
+    enlarged by n_elements."""
+    if we_are_translated():
+        dict._prepare_dict_update(n_elements)
+        # ^^ call an extra method that doesn't exist before translation
 
 
 # ____________________________________________________________

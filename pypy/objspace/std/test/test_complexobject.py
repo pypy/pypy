@@ -3,10 +3,7 @@ from __future__ import print_function
 
 import py
 
-from pypy.objspace.std import complextype as cobjtype, StdObjSpace
-from pypy.objspace.std.complexobject import (W_ComplexObject,
-    pow__Complex_Complex_ANY)
-from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.objspace.std.complexobject import W_ComplexObject, _split_complex
 
 EPS = 1e-9
 
@@ -24,7 +21,7 @@ class TestW_ComplexObject:
             _t_complex(r,i)
 
     def test_parse_complex(self):
-        f = cobjtype._split_complex
+        f = _split_complex
         def test_cparse(cnum, realnum, imagnum):
             result = f(cnum)
             assert len(result) == 2
@@ -79,13 +76,13 @@ class TestW_ComplexObject:
         assert _powi((0.0,1.0),2) == (-1.0,0.0)
         c = W_ComplexObject(0.0,1.0)
         p = W_ComplexObject(2.0,0.0)
-        r = pow__Complex_Complex_ANY(self.space,c,p,self.space.wrap(None))
+        r = c.descr_pow(self.space, p, self.space.wrap(None))
         assert r.realval == -1.0
         assert r.imagval == 0.0
 
 
 class AppTestAppComplexTest:
-    spaceconfig = {"usemodules": ["binascii", "rctime", "unicodedata"]}
+    spaceconfig = {'usemodules': ['binascii', 'time', 'struct', 'unicodedata']}
 
     def w_check_div(self, x, y):
         """Compute complex z=x*y, and check that z/x==y and z/y==x."""
@@ -93,14 +90,10 @@ class AppTestAppComplexTest:
         if x != 0:
             q = z / x
             assert self.close(q, y)
-            q = z.__div__(x)
-            assert self.close(q, y)
             q = z.__truediv__(x)
             assert self.close(q, y)
         if y != 0:
             q = z / y
-            assert self.close(q, x)
-            q = z.__div__(y)
             assert self.close(q, x)
             q = z.__truediv__(y)
             assert self.close(q, x)
@@ -171,7 +164,7 @@ class AppTestAppComplexTest:
             self.check_div(complex(random(), random()),
                            complex(random(), random()))
 
-        raises(ZeroDivisionError, complex.__div__, 1+1j, 0+0j)
+        raises(ZeroDivisionError, complex.__truediv__, 1+1j, 0+0j)
         # FIXME: The following currently crashes on Alpha
         raises(OverflowError, pow, 1e200+1j, 1e200+1j)
 
@@ -202,6 +195,14 @@ class AppTestAppComplexTest:
         assert not large == (5+0j)
         assert (5+0j) != large
         assert large != (5+0j)
+
+    def test_richcompare_numbers(self):
+        for n in 8, 0.01:
+            assert complex.__eq__(n+0j, n)
+            assert not complex.__ne__(n+0j, n)
+            assert not complex.__eq__(complex(n, n), n)
+            assert complex.__ne__(complex(n, n), n)
+            assert complex.__lt__(n+0j, n) is NotImplemented
 
     def test_richcompare_boundaries(self):
         z = 9007199254740992+0j
@@ -378,6 +379,7 @@ class AppTestAppComplexTest:
         assert self.almost_equal(complex(real=float2(17.), imag=float2(23.)), 17+23j)
         raises(TypeError, complex, float2(None))
 
+    @py.test.mark.skipif("not config.option.runappdirect and sys.maxunicode == 0xffff")
     def test_constructor_unicode(self):
         b1 = '\N{MATHEMATICAL BOLD DIGIT ONE}' # 𝟏
         b2 = '\N{MATHEMATICAL BOLD DIGIT TWO}' # 𝟐

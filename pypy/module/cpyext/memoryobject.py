@@ -20,6 +20,5 @@ def PyMemoryView_FromBuffer(space, view):
         raise oefmt(space.w_ValueError,
                     "cannot make memory view from a buffer with a NULL data "
                     "pointer")
-    w_obj = from_ref(space, view.c_obj)
-    buf = CBuffer(space, view.c_buf, view.c_len, w_obj)
+    buf = CBuffer(space, view.c_buf, view.c_len, view.c_obj)
     return space.wrap(W_MemoryView(buf))

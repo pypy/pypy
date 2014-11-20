@@ -1,6 +1,7 @@
 """ discover and run doctests in modules and test files."""
 
 import pytest, py
+from _pytest.python import FixtureRequest, FuncFixtureInfo
 from py._code.code import TerminalRepr, ReprFileLocation
 
 def pytest_addoption(parser):
@@ -33,6 +34,14 @@ class ReprFailDoctest(TerminalRepr):
         self.reprlocation.toterminal(tw)
 
 class DoctestItem(pytest.Item):
+    def __init__(self, name, parent, runner=None, dtest=None):
+        super(DoctestItem, self).__init__(name, parent)
+        self.runner = runner
+        self.dtest = dtest
+
+    def runtest(self):
+        self.runner.run(self.dtest)
+
     def repr_failure(self, excinfo):
         doctest = py.std.doctest
         if excinfo.errisinstance((doctest.DocTestFailure,
@@ -41,17 +50,27 @@ class DoctestItem(pytest.Item):
             example = doctestfailure.example
             test = doctestfailure.test
             filename = test.filename
-            lineno = test.lineno + example.lineno + 1
+            if test.lineno is None:
+                lineno = None
+            else:
+                lineno = test.lineno + example.lineno + 1
             message = excinfo.type.__name__
             reprlocation = ReprFileLocation(filename, lineno, message)
             checker = py.std.doctest.OutputChecker()
             REPORT_UDIFF = py.std.doctest.REPORT_UDIFF
             filelines = py.path.local(filename).readlines(cr=0)
-            i = max(test.lineno, max(0, lineno - 10)) # XXX?
             lines = []
-            for line in filelines[i:lineno]:
-                lines.append("%03d %s" % (i+1, line))
-                i += 1
+            if lineno is not None:
+                i = max(test.lineno, max(0, lineno - 10)) # XXX?
+                for line in filelines[i:lineno]:
+                    lines.append("%03d %s" % (i+1, line))
+                    i += 1
+            else:
+                lines.append('EXAMPLE LOCATION UNKNOWN, not showing all tests of that example')
+                indent = '>>>'
+                for line in example.source.splitlines():
+                    lines.append('??? %s %s' % (indent, line))
+                    indent = '...'
             if excinfo.errisinstance(doctest.DocTestFailure):
                 lines += checker.output_difference(example,
                         doctestfailure.got, REPORT_UDIFF).split("\n")
@@ -65,23 +84,42 @@ class DoctestItem(pytest.Item):
             return super(DoctestItem, self).repr_failure(excinfo)
 
     def reportinfo(self):
-        return self.fspath, None, "[doctest]"
+        return self.fspath, None, "[doctest] %s" % self.name
 
 class DoctestTextfile(DoctestItem, pytest.File):
     def runtest(self):
         doctest = py.std.doctest
+        # satisfy `FixtureRequest` constructor...
+        self.funcargs = {}
+        fm = self.session._fixturemanager
+        def func():
+            pass
+        self._fixtureinfo = fm.getfixtureinfo(node=self, func=func,
+                                              cls=None, funcargs=False)
+        fixture_request = FixtureRequest(self)
+        fixture_request._fillfixtures()
         failed, tot = doctest.testfile(
             str(self.fspath), module_relative=False,
             optionflags=doctest.ELLIPSIS,
+            extraglobs=dict(getfixture=fixture_request.getfuncargvalue),
             raise_on_error=True, verbose=0)
 
-class DoctestModule(DoctestItem, pytest.File):
-    def runtest(self):
+class DoctestModule(pytest.File):
+    def collect(self):
         doctest = py.std.doctest
         if self.fspath.basename == "conftest.py":
             module = self.config._conftest.importconftest(self.fspath)
         else:
             module = self.fspath.pyimport()
-        failed, tot = doctest.testmod(
-            module, raise_on_error=True, verbose=0,
-            optionflags=doctest.ELLIPSIS)
+        # satisfy `FixtureRequest` constructor...
+        self.funcargs = {}
+        self._fixtureinfo = FuncFixtureInfo((), [], {})
+        fixture_request = FixtureRequest(self)
+        doctest_globals = dict(getfixture=fixture_request.getfuncargvalue)
+        # uses internal doctest module parsing mechanism
+        finder = doctest.DocTestFinder()
+        runner = doctest.DebugRunner(verbose=0, optionflags=doctest.ELLIPSIS)
+        for test in finder.find(module, module.__name__,
+                                extraglobs=doctest_globals):
+            if test.examples: # skip empty doctests
+                yield DoctestItem(test.name, self, runner, test)

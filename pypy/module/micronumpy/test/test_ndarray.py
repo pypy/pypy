@@ -11,7 +11,7 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 class MockDtype(object):
     class itemtype(object):
         @staticmethod
-        def malloc(size):
+        def malloc(size, zero=True):
             return None
 
     def __init__(self):
@@ -383,6 +383,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert zeros((), dtype='S') == ''
         assert zeros((), dtype='S').shape == ()
         assert zeros((), dtype='S').dtype == '|S1'
+
+    def test_check_shape(self):
+        import numpy as np
+        for func in [np.zeros, np.empty]:
+            exc = raises(ValueError, func, [0, -1, 1], 'int8')
+            assert str(exc.value) == "negative dimensions are not allowed"
+            exc = raises(ValueError, func, [2, -1, 3], 'int8')
+            assert str(exc.value) == "negative dimensions are not allowed"
+
+            exc = raises(ValueError, func, [975]*7, 'int8')
+            assert str(exc.value) == "array is too big."
+            exc = raises(ValueError, func, [26244]*5, 'int8')
+            assert str(exc.value) == "array is too big."
 
     def test_empty_like(self):
         import numpy as np
@@ -2020,6 +2033,14 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_swapaxes(self):
         from numpypy import array
+        x = array([])
+        assert x.swapaxes(0, 2) is x
+        x = array([[1, 2]])
+        assert x.swapaxes(0, 0) is x
+        exc = raises(ValueError, x.swapaxes, -3, 0)
+        assert exc.value.message == "bad axis1 argument to swapaxes"
+        exc = raises(ValueError, x.swapaxes, 0, 3)
+        assert exc.value.message == "bad axis2 argument to swapaxes"
         # testcases from numpy docstring
         x = array([[1, 2, 3]])
         assert (x.swapaxes(0, 1) == array([[1], [2], [3]])).all()
@@ -2697,15 +2718,35 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b.next()
         assert b.index == 3
         assert b.coords == (0, 3)
+        b.next()
         assert b[3] == 3
-        assert (b[::3] == [0, 3, 6, 9]).all()
-        assert (b[2::5] == [2, 7]).all()
-        assert b[-2] == 8
-        raises(IndexError, "b[11]")
-        raises(IndexError, "b[-11]")
-        raises(IndexError, 'b[0, 1]')
         assert b.index == 0
         assert b.coords == (0, 0)
+        b.next()
+        assert (b[::3] == [0, 3, 6, 9]).all()
+        assert b.index == 0
+        assert b.coords == (0, 0)
+        b.next()
+        assert (b[2::5] == [2, 7]).all()
+        assert b.index == 0
+        assert b.coords == (0, 0)
+        b.next()
+        assert b[-2] == 8
+        assert b.index == 0
+        assert b.coords == (0, 0)
+        b.next()
+        raises(IndexError, "b[11]")
+        assert b.index == 0
+        assert b.coords == (0, 0)
+        b.next()
+        raises(IndexError, "b[-11]")
+        assert b.index == 0
+        assert b.coords == (0, 0)
+        b.next()
+        exc = raises(IndexError, 'b[0, 1]')
+        assert str(exc.value) == "unsupported iterator index"
+        assert b.index == 1
+        assert b.coords == (0, 1)
 
     def test_flatiter_setitem(self):
         from numpypy import arange, array
@@ -2713,9 +2754,25 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b = a.T.flat
         b[6::2] = [-1, -2]
         assert (a == [[0, 1, -1, 3], [4, 5, 6, -1], [8, 9, -2, 11]]).all()
+        assert b[2] == 8
+        assert b.index == 0
+        b.next()
+        b[6::2] = [-21, -42]
+        assert (a == [[0, 1, -21, 3], [4, 5, 6, -21], [8, 9, -42, 11]]).all()
         b[0:2] = [[[100]]]
         assert(a[0,0] == 100)
         assert(a[1,0] == 100)
+        b.next()
+        assert b.index == 1
+        exc = raises(ValueError, "b[0] = [1, 2]")
+        assert str(exc.value) == "Error setting single item of array."
+        assert b.index == 0
+        b.next()
+        raises(IndexError, "b[100] = 42")
+        assert b.index == 1
+        exc = raises(IndexError, "b[0, 1] = 42")
+        assert str(exc.value) == "unsupported iterator index"
+        assert b.index == 1
 
     def test_flatiter_ops(self):
         from numpypy import arange, array
@@ -3008,6 +3065,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert a.item((1, 1, 1)) == 16
         exc = raises(ValueError, a.item, 1, 1, 1, 1)
         assert str(exc.value) == "incorrect number of indices for array"
+        raises(TypeError, "array([1]).item(a=1)")
 
     def test_itemset(self):
         import numpy as np
@@ -3123,6 +3181,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
 
 class AppTestSupport(BaseNumpyAppTest):
+    spaceconfig = {'usemodules': ['micronumpy', 'array']}
+
     def setup_class(cls):
         import struct
         BaseNumpyAppTest.setup_class.im_func(cls)
@@ -3132,6 +3192,44 @@ class AppTestSupport(BaseNumpyAppTest):
         cls.w_float32val = cls.space.wrap(struct.pack('f', 5.2))
         cls.w_float64val = cls.space.wrap(struct.pack('d', 300.4))
         cls.w_ulongval = cls.space.wrap(struct.pack('L', 12))
+
+    def test_frombuffer(self):
+        import numpy as np
+        exc = raises(AttributeError, np.frombuffer, None)
+        assert str(exc.value) == "'NoneType' object has no attribute '__buffer__'"
+        exc = raises(AttributeError, np.frombuffer, memoryview(self.data))
+        assert str(exc.value) == "'memoryview' object has no attribute '__buffer__'"
+        exc = raises(ValueError, np.frombuffer, self.data, 'S0')
+        assert str(exc.value) == "itemsize cannot be zero in type"
+        exc = raises(ValueError, np.frombuffer, self.data, offset=-1)
+        assert str(exc.value) == "offset must be non-negative and no greater than buffer length (32)"
+        exc = raises(ValueError, np.frombuffer, self.data, count=100)
+        assert str(exc.value) == "buffer is smaller than requested size"
+        for data in [self.data, buffer(self.data)]:
+            a = np.frombuffer(data)
+            for i in range(4):
+                assert a[i] == i + 1
+
+        import array
+        data = array.array('c', 'testing')
+        a = np.frombuffer(data, 'c')
+        assert a.base is data
+        a[2] = 'Z'
+        assert data.tostring() == 'teZting'
+
+        data = buffer(data)
+        a = np.frombuffer(data, 'c')
+        assert a.base is data
+        exc = raises(ValueError, "a[2] = 'Z'")
+        assert str(exc.value) == "assignment destination is read-only"
+
+        class A(object):
+            __buffer__ = 'abc'
+
+        data = A()
+        a = np.frombuffer(data, 'c')
+        #assert a.base is data.__buffer__
+        assert a.tostring() == 'abc'
 
     def test_fromstring(self):
         import sys
@@ -3299,6 +3397,7 @@ class AppTestSupport(BaseNumpyAppTest):
             '@\x01\x99\x99\x99\x99\x99\x9a\xbf\xf1\x99\x99\x99\x99\x99\x9a'
         assert array(2.2-1.1j, dtype='<c16').tostring() == \
             '\x9a\x99\x99\x99\x99\x99\x01@\x9a\x99\x99\x99\x99\x99\xf1\xbf'
+        assert a.tostring == a.tobytes
 
     def test_str(self):
         from numpypy import array

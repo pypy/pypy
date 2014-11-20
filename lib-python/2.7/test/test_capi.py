@@ -13,7 +13,9 @@ try:
 except ImportError:
     thread = None
     threading = None
-import _testcapi
+# Skip this test if the _testcapi module isn't available.
+_testcapi = test_support.import_module('_testcapi')
+
 
 skips = []
 if test_support.check_impl_detail(pypy=True):

@@ -7,7 +7,7 @@ from rpython.jit.backend.arm import shift
 from rpython.jit.backend.arm.arch import (WORD, DOUBLE_WORD, FUNC_ALIGN,
     JITFRAME_FIXED_SIZE)
 from rpython.jit.backend.arm.codebuilder import InstrBuilder, OverwritingBuilder
-from rpython.jit.backend.arm.locations import imm, StackLocation
+from rpython.jit.backend.arm.locations import imm, StackLocation, get_fp_offset
 from rpython.jit.backend.arm.helper.regalloc import VMEM_imm_size
 from rpython.jit.backend.arm.opassembler import ResOpAssembler
 from rpython.jit.backend.arm.regalloc import (Regalloc,
@@ -708,9 +708,9 @@ class AssemblerARM(ResOpAssembler):
 
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
-    def new_stack_loc(self, i, pos, tp):
+    def new_stack_loc(self, i, tp):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        return StackLocation(i, pos + base_ofs, tp)
+        return StackLocation(i, get_fp_offset(base_ofs, i), tp)
 
     def check_frame_before_jump(self, target_token):
         if target_token in self.target_tokens_currently_compiling:
@@ -931,6 +931,7 @@ class AssemblerARM(ResOpAssembler):
                                         guard, fcond)
                 fcond = asm_operations_with_guard[opnum](self, op,
                                         guard, arglocs, regalloc, fcond)
+                assert fcond is not None
                 regalloc.next_instruction()
                 regalloc.possibly_free_vars_for_op(guard)
                 regalloc.possibly_free_vars(guard.getfailargs())
@@ -941,6 +942,7 @@ class AssemblerARM(ResOpAssembler):
                 if arglocs is not None:
                     fcond = asm_operations[opnum](self, op, arglocs,
                                                         regalloc, fcond)
+                    assert fcond is not None
             if op.is_guard():
                 regalloc.possibly_free_vars(op.getfailargs())
             if op.result:

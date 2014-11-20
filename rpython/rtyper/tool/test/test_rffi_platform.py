@@ -5,6 +5,7 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
+from rpython.translator import cdir
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rfloat import isnan
 
@@ -121,10 +122,11 @@ def test_defined_constant_float():
     assert value == 1.5
     value = rffi_platform.getdefineddouble('BLAH', '#define BLAH 1.0e20')
     assert value == 1.0e20
-    value = rffi_platform.getdefineddouble('BLAH', '#define BLAH 1.0e50000')
-    assert value == float("inf")
-    value = rffi_platform.getdefineddouble('BLAH', '#define BLAH (double)0/0')
-    assert isnan(value)
+    if platform.name != 'msvc':
+        value = rffi_platform.getdefineddouble('BLAH', '#define BLAH 1.0e50000')
+        assert value == float("inf")
+        value = rffi_platform.getdefineddouble('BLAH', '#define BLAH (double)0/0')
+        assert isnan(value)
 
 def test_defined_constant_string():
     value = rffi_platform.getdefinedstring('MCDONC', '')
@@ -134,15 +136,17 @@ def test_defined_constant_string():
     assert value == 'Michael Merickel'
 
 def test_getintegerfunctionresult():
-    func = 'int sum(int a, int b) {return a + b;}'
+    func = 'RPY_EXPORTED int sum(int a, int b) {return a + b;}'
     value = rffi_platform.getintegerfunctionresult('sum', [6, 7], func)
     assert value == 13
-    value = rffi_platform.getintegerfunctionresult('lround', [6.7],
+    if not platform.name == 'msvc':
+        # MSVC gets lround in VS2013!
+        value = rffi_platform.getintegerfunctionresult('lround', [6.7],
                                                         '#include <math.h>')
-    assert value == 7
-    value = rffi_platform.getintegerfunctionresult('lround', [9.1],
+        assert value == 7
+        value = rffi_platform.getintegerfunctionresult('lround', [9.1],
                                                     includes=['math.h'])
-    assert value == 9
+        assert value == 9
 
 def test_configure():
     test_h = udir.join('test_ctypes_platform.h')
@@ -288,15 +292,17 @@ def test_memory_alignment():
     assert a % struct.calcsize("P") == 0
 
 def test_external_lib():
-    eci = ExternalCompilationInfo()
+    eci = ExternalCompilationInfo(include_dirs = [cdir])
+
     c_source = """
+    #include "src/precommondefs.h"
+    RPY_EXPORTED
     int f(int a, int b)
     {
         return (a + b);
     }
     """
-    if platform.name == 'mscv':
-        c_source = '__declspec(dllexport) ' + c_source
+    if platform.name == 'msvc':
         libname = 'libc_lib'
     else:
         libname = 'c_lib'

@@ -38,12 +38,14 @@ class LLHelpers(rstr.LLHelpers):
             i += s.length()
         cls.ll_strsetitem_nonneg(s, i, item)
 
+    @staticmethod
     def ll_strsetitem_nonneg(s, i, item):
         chars = s.chars
         ll_assert(i >= 0, "negative str getitem index")
         ll_assert(i < len(chars), "str getitem index out of bound")
         chars[i] = chr(item)
 
+    @staticmethod
     def ll_stritem_nonneg(s, i):
         return ord(rstr.LLHelpers.ll_stritem_nonneg(s, i))
 

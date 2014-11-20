@@ -31,8 +31,6 @@ def create_entry_point(space, w_dict):
     if w_dict is not None: # for tests
         w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
         w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
-        w_call_finish_gateway = space.wrap(gateway.interp2app(call_finish))
-        w_call_startup_gateway = space.wrap(gateway.interp2app(call_startup))
         withjit = space.config.objspace.usemodules.pypyjit
 
     def entry_point(argv):
@@ -54,10 +52,10 @@ def create_entry_point(space, w_dict):
             argv = argv[:1] + argv[3:]
         try:
             try:
-                space.call_function(w_run_toplevel, w_call_startup_gateway)
+                space.startup()
                 if rlocale.HAVE_LANGINFO:
                     try:
-                        rlocale.setlocale(rlocale.LC_ALL, '')
+                        rlocale.setlocale(rlocale.LC_CTYPE, '')
                     except rlocale.LocaleError:
                         pass
                 w_executable = space.fsdecode(space.wrapbytes(argv[0]))
@@ -76,7 +74,7 @@ def create_entry_point(space, w_dict):
                 return 1
         finally:
             try:
-                space.call_function(w_run_toplevel, w_call_finish_gateway)
+                space.finish()
             except OperationError, e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
@@ -191,11 +189,6 @@ def create_entry_point(space, w_dict):
                          'pypy_thread_attach': pypy_thread_attach,
                          'pypy_setup_home': pypy_setup_home}
 
-def call_finish(space):
-    space.finish()
-
-def call_startup(space):
-    space.startup()
 
 # _____ Define and setup target ___
 
@@ -221,23 +214,6 @@ class PyPyTarget(object):
         # set up the objspace optimizations based on the --opt argument
         from pypy.config.pypyoption import set_pypy_opt_level
         set_pypy_opt_level(config, translateconfig.opt)
-
-        # as of revision 27081, multimethod.py uses the InstallerVersion1 by default
-        # because it is much faster both to initialize and run on top of CPython.
-        # The InstallerVersion2 is optimized for making a translator-friendly
-        # structure for low level backends. However, InstallerVersion1 is still
-        # preferable for high level backends, so we patch here.
-
-        from pypy.objspace.std import multimethod
-        if config.objspace.std.multimethods == 'mrd':
-            assert multimethod.InstallerVersion1.instance_counter == 0,\
-                   'The wrong Installer version has already been instatiated'
-            multimethod.Installer = multimethod.InstallerVersion2
-        elif config.objspace.std.multimethods == 'doubledispatch':
-            # don't rely on the default, set again here
-            assert multimethod.InstallerVersion2.instance_counter == 0,\
-                   'The wrong Installer version has already been instatiated'
-            multimethod.Installer = multimethod.InstallerVersion1
 
     def print_help(self, config):
         self.opt_parser(config).print_help()
@@ -265,6 +241,8 @@ class PyPyTarget(object):
             enable_translationmodules(config)
 
         config.translation.suggest(check_str_without_nul=True)
+        if sys.platform.startswith('linux'):
+            config.translation.suggest(shared=True)
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True
@@ -315,7 +293,8 @@ class PyPyTarget(object):
         return self.get_entry_point(config)
 
     def jitpolicy(self, driver):
-        from pypy.module.pypyjit.policy import PyPyJitPolicy, pypy_hooks
+        from pypy.module.pypyjit.policy import PyPyJitPolicy
+        from pypy.module.pypyjit.hooks import pypy_hooks
         return PyPyJitPolicy(pypy_hooks)
 
     def get_entry_point(self, config):

@@ -9,8 +9,6 @@ class Module(MixedModule):
     """Built-in functions, exceptions, and other objects."""
     applevel_name = 'builtins'
 
-    expose__file__attribute = False
-
     appleveldefs = {
         'input'         : 'app_io.input',
         'print'         : 'app_io.print_',
@@ -29,7 +27,7 @@ class Module(MixedModule):
 
     interpleveldefs = {
         # constants
-        '__debug__'     : '(space.w_True)',      # XXX
+        '__debug__'     : '(space.w_True)',
         'None'          : '(space.w_None)',
         'False'         : '(space.w_False)',
         'True'          : '(space.w_True)',

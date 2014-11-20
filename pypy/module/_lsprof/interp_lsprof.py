@@ -11,7 +11,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rtimer import read_timestamp, _is_64_bit
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.rlib.rarithmetic import r_longlong
 
 import time, sys
@@ -20,8 +20,8 @@ import time, sys
 
 srcdir = py.path.local(cdir).join('src')
 eci = ExternalCompilationInfo(
-    separate_module_files=[srcdir.join('profiling.c')],
-    export_symbols=['pypy_setup_profiling', 'pypy_teardown_profiling'])
+    include_dirs          = [cdir],
+    separate_module_files = [srcdir.join('profiling.c')])
 
 c_setup_profiling = rffi.llexternal('pypy_setup_profiling',
                                   [], lltype.Void,

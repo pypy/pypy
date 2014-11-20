@@ -53,10 +53,24 @@ class SignatureBuilder(object):
 
 #________________________________________________________________
 
+
+class Unwrapper(object):
+    """A base class for custom unwrap_spec items.
+
+    Subclasses must override unwrap().
+    """
+    def _freeze_(self):
+        return True
+
+    def unwrap(self, space, w_value):
+        """NOT_RPYTHON"""
+        raise NotImplementedError
+
+
 class UnwrapSpecRecipe(object):
     "NOT_RPYTHON"
 
-    bases_order = [W_Root, ObjSpace, Arguments, object]
+    bases_order = [W_Root, ObjSpace, Arguments, Unwrapper, object]
 
     def dispatch(self, el, *args):
         if isinstance(el, str):
@@ -153,7 +167,13 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_c_short(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
+    def visit_c_ushort(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit_truncatedint_w(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit__Unwrapper(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
     def visit__ObjSpace(self, el, app_sig):
@@ -215,6 +235,10 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
         self.run_args.append("space.descr_self_interp_w(%s, %s)" %
                              (self.use(typ), self.scopenext()))
 
+    def visit__Unwrapper(self, typ):
+        self.run_args.append("%s().unwrap(space, %s)" %
+                             (self.use(typ), self.scopenext()))
+
     def visit__ObjSpace(self, el):
         self.run_args.append('space')
 
@@ -272,6 +296,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_c_short(self, typ):
         self.run_args.append("space.c_short_w(%s)" % (self.scopenext(),))
+
+    def visit_c_ushort(self, typ):
+        self.run_args.append("space.c_ushort_w(%s)" % (self.scopenext(),))
 
     def visit_truncatedint_w(self, typ):
         self.run_args.append("space.truncatedint_w(%s)" % (self.scopenext(),))
@@ -358,6 +385,10 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         self.unwrap.append("space.descr_self_interp_w(%s, %s)" %
                            (self.use(typ), self.nextarg()))
 
+    def visit__Unwrapper(self, typ):
+        self.unwrap.append("%s().unwrap(space, %s)" %
+                           (self.use(typ), self.nextarg()))
+
     def visit__ObjSpace(self, el):
         if self.finger > 1:
             raise FastFuncNotSupported
@@ -414,6 +445,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_c_short(self, typ):
         self.unwrap.append("space.c_short_w(%s)" % (self.nextarg(),))
+
+    def visit_c_ushort(self, typ):
+        self.unwrap.append("space.c_ushort_w(%s)" % (self.nextarg(),))
 
     def visit_truncatedint_w(self, typ):
         self.unwrap.append("space.truncatedint_w(%s)" % (self.nextarg(),))
@@ -610,6 +644,17 @@ class BuiltinCode(Code):
                 elif unwrap_spec == [ObjSpace, W_Root, Arguments]:
                     self.__class__ = BuiltinCodePassThroughArguments1
                     self.func__args__ = func
+                elif unwrap_spec == [self_type, ObjSpace, Arguments]:
+                    self.__class__ = BuiltinCodePassThroughArguments1
+                    miniglobals = {'func': func, 'self_type': self_type}
+                    d = {}
+                    source = """if 1:
+                        def _call(space, w_obj, args):
+                            self = space.descr_self_interp_w(self_type, w_obj)
+                            return func(self, space, args)
+                        \n"""
+                    exec compile2(source) in miniglobals, d
+                    self.func__args__ = d['_call']
             else:
                 self.__class__ = globals()['BuiltinCode%d' % arity]
                 setattr(self, 'fastfunc_%d' % arity, fastfunc)
@@ -905,7 +950,7 @@ class interp2app(W_Root):
                     "use unwrap_spec(...=WrappedDefault(default))" % (
                     self._code.identifier, name, defaultval))
                 defs_w.append(None)
-            else:
+            elif name != '__args__' and name != 'args_w':
                 spec = unwrap_spec[i]
                 if isinstance(defaultval, str) and spec not in [str]:
                     defs_w.append(space.wrapbytes(defaultval))

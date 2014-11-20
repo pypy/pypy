@@ -19,6 +19,7 @@
 #include <sys/syscall.h>
 #endif
 #include <dirent.h>
+#include "_posixsubprocess.h"
 
 #if defined(sun)
 /* readdir64 is used to work around Solaris 9 bug 6395699. */

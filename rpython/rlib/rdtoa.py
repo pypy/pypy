@@ -1,7 +1,7 @@
 from __future__ import with_statement
 from rpython.rlib import rfloat
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
@@ -32,10 +32,6 @@ eci = ExternalCompilationInfo(
     includes = ['src/dtoa.h'],
     libraries = [],
     separate_module_sources = [source_file],
-    export_symbols = ['_PyPy_dg_strtod',
-                      '_PyPy_dg_dtoa',
-                      '_PyPy_dg_freedtoa',
-                      ],
     )
 
 # dtoa.c is limited to 'int', so we refuse to pass it

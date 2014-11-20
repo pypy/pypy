@@ -22,9 +22,11 @@ class BasePosix(Platform):
         return ['-l%s' % lib for lib in libraries]
 
     def _libdirs(self, library_dirs):
+        assert '' not in library_dirs
         return ['-L%s' % ldir for ldir in library_dirs]
 
     def _includedirs(self, include_dirs):
+        assert '' not in include_dirs
         return ['-I%s' % idir for idir in include_dirs]
 
     def _linkfiles(self, link_files):
@@ -40,29 +42,6 @@ class BasePosix(Platform):
     def _link_args_from_eci(self, eci, standalone):
         return Platform._link_args_from_eci(self, eci, standalone)
 
-    def _exportsymbols_link_flags(self, eci, relto=None):
-        if not eci.export_symbols:
-            return []
-
-        if sys.platform.startswith('freebsd'):
-            eci.export_symbols += ('__progname', 'environ')
-
-        response_file = self._make_response_file("dynamic-symbols-")
-        f = response_file.open("w")
-        f.write("{\n\tglobal:\n")
-        for sym in eci.export_symbols:
-            f.write("\t\t%s;\n" % (sym,))
-        f.write("\tlocal:\n\t\t*;\n};")
-        f.close()
-
-        if relto:
-            response_file = relto.bestrelpath(response_file)
-        if (self.cc == 'mingw32' or (self.cc== 'gcc' and os.name=='nt')
-                or sys.platform == 'cygwin'):
-            return ["-Wl,--export-all-symbols,--version-script=%s" % \
-                    (response_file,)]
-        return ["-Wl,--export-dynamic,--version-script=%s" % (response_file,)]
-
     def _link(self, cc, ofiles, link_args, standalone, exe_name):
         args = [str(ofile) for ofile in ofiles] + link_args
         args += ['-o', str(exe_name)]
@@ -72,15 +51,39 @@ class BasePosix(Platform):
                                  cwd=str(exe_name.dirpath()))
         return exe_name
 
-    def _pkg_config(self, lib, opt, default):
+    def _pkg_config(self, lib, opt, default, check_result_dir=False):
         try:
             ret, out, err = _run_subprocess("pkg-config", [lib, opt])
-        except OSError:
+        except OSError, e:
+            err = str(e)
             ret = 1
         if ret:
-            return default
-        # strip compiler flags
-        return [entry[2:] for entry in out.split()]
+            result = default
+        else:
+            # strip compiler flags
+            result = [entry[2:] for entry in out.split()]
+        #
+        if not result:
+            pass # if pkg-config explicitly returned nothing, then
+                 # we assume it means no options are needed
+        elif check_result_dir:
+            # check that at least one of the results is a valid dir
+            for check in result:
+                if os.path.isdir(check):
+                    break
+            else:
+                if ret:
+                    msg = ("running 'pkg-config %s %s' failed:\n%s\n"
+                           "and the default %r is not a valid directory" % (
+                        lib, opt, err.rstrip(), default))
+                else:
+                    msg = ("'pkg-config %s %s' returned no valid directory:\n"
+                           "%s\n%s" % (lib, opt, out.rstrip(), err.rstrip()))
+                raise ValueError(msg)
+        return result
+
+    def get_shared_only_compile_flags(self):
+        return tuple(self.shared_only) + ('-fvisibility=hidden',)
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
@@ -101,8 +104,6 @@ class BasePosix(Platform):
         if shared:
             linkflags = self._args_for_shared(linkflags)
 
-        linkflags += self._exportsymbols_link_flags(eci, relto=path)
-
         if shared:
             libname = exe_name.new(ext='').basename
             target_name = 'lib' + exe_name.new(ext=self.so_ext).basename
@@ -110,7 +111,7 @@ class BasePosix(Platform):
             target_name = exe_name.basename
 
         if shared:
-            cflags = self.cflags + self.shared_only
+            cflags = self.cflags + self.get_shared_only_compile_flags()
         else:
             cflags = self.cflags + self.standalone_only
 
@@ -180,7 +181,7 @@ class BasePosix(Platform):
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); }" > $@')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
-                   '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@')
+                   '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ -Wl,-rpath=\'$$ORIGIN/\'')
 
         return m
 

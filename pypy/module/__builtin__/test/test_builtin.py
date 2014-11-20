@@ -1,8 +1,11 @@
 # coding: utf-8
 import sys
 
+from rpython.tool.udir import udir
+
 class AppTestBuiltinApp:
     def setup_class(cls):
+        space = cls.space
         class X(object):
             def __eq__(self, other):
                 raise OverflowError
@@ -12,18 +15,18 @@ class AppTestBuiltinApp:
         try:
             d[X()]
         except OverflowError:
-            cls.w_sane_lookup = cls.space.wrap(True)
+            cls.w_sane_lookup = space.wrap(True)
         except KeyError:
-            cls.w_sane_lookup = cls.space.wrap(False)
+            cls.w_sane_lookup = space.wrap(False)
         # starting with CPython 2.6, when the stack is almost out, we
         # can get a random error, instead of just a RuntimeError.
         # For example if an object x has a __getattr__, we can get
         # AttributeError if attempting to call x.__getattr__ runs out
         # of stack.  That's annoying, so we just work around it.
         if cls.runappdirect:
-            cls.w_safe_runtimerror = cls.space.wrap(True)
+            cls.w_safe_runtimerror = space.wrap(True)
         else:
-            cls.w_safe_runtimerror = cls.space.wrap(sys.version_info < (2, 6))
+            cls.w_safe_runtimerror = space.wrap(sys.version_info < (2, 6))
 
     def test_builtin_names(self):
         import builtins as __builtin__
@@ -221,13 +224,15 @@ class AppTestBuiltinApp:
         assert dir(Foo("a_mod")) == ["blah"]
 
     def test_dir_custom_lookup(self):
+        """
         class M(type):
             def __dir__(self, *args): return ["14"]
-        class X(object):
-            __metaclass__ = M
+        class X(metaclass=M):
+            pass
         x = X()
         x.__dir__ = lambda x: ["14"]
         assert dir(x) != ["14"]
+        """
 
     def test_format(self):
         assert format(4) == "4"
@@ -427,8 +432,6 @@ class AppTestBuiltinApp:
         x = X()
         assert setattr(x, 'x', 11) == None
         assert delattr(x, 'x') == None
-        # To make this test, we need autopath to work in application space.
-        #self.assertEquals(execfile('emptyfile.py'), None)
 
     def test_divmod(self):
         assert divmod(15,10) ==(1,5)
@@ -631,6 +634,22 @@ def fn(): pass
         co = compile(src, 'mymod', 'exec')
         firstlineno = co.co_firstlineno
         assert firstlineno == 2
+
+    def test_compile_null_bytes(self):
+        raises(TypeError, compile, '\x00', 'mymod', 'exec', 0)
+        src = "#abc\x00def\n"
+        raises(TypeError, compile, src, 'mymod', 'exec')
+        raises(TypeError, compile, src, 'mymod', 'exec', 0)
+
+    def test_compile_null_bytes_flag(self):
+        try:
+            from _ast import PyCF_ACCEPT_NULL_BYTES
+        except ImportError:
+            skip('PyPy only (requires _ast.PyCF_ACCEPT_NULL_BYTES)')
+        raises(SyntaxError, compile, '\x00', 'mymod', 'exec',
+               PyCF_ACCEPT_NULL_BYTES)
+        src = "#abc\x00def\n"
+        compile(src, 'mymod', 'exec', PyCF_ACCEPT_NULL_BYTES)  # works
 
     def test_print_function(self):
         import builtins

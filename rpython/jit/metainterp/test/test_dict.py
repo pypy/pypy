@@ -20,6 +20,21 @@ class DictTests:
         res = self.interp_operations(fn, [0])
         assert not res
 
+    def test_dict_of_classes_as_values(self):
+        class A:
+            x = 5
+        class B(A):
+            x = 8
+        def fn(n):
+            A()
+            B()
+            d = self.newdict()
+            d[42] = A
+            d[43] = B
+            return d[n].x
+        res = self.interp_operations(fn, [43])
+        assert res == 8
+
     def test_dict_keys_values_items(self):
         for name, extract, expected in [('keys', None, 'k'),
                                         ('values', None, 'v'),
@@ -168,10 +183,10 @@ class DictTests:
 
         res = self.meta_interp(f, [100], listops=True)
         assert res == f(50)
-        self.check_resops({'new_array': 2, 'getfield_gc': 2,
+        self.check_resops({'new_array_clear': 2, 'getfield_gc': 2,
                            'guard_true': 2, 'jump': 1,
                            'new_with_vtable': 2, 'getinteriorfield_gc': 2,
-                           'setfield_gc': 6, 'int_gt': 2, 'int_sub': 2,
+                           'setfield_gc': 8, 'int_gt': 2, 'int_sub': 2,
                            'call': 10, 'int_and': 2,
                            'guard_no_exception': 8, 'new': 2,
                            'guard_false': 2, 'int_is_true': 2})

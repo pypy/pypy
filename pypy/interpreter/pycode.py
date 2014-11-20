@@ -45,6 +45,7 @@ default_magic = pypy_incremental_magic | (ord('\r')<<16) | (ord('\n')<<24)
 def cpython_code_signature(code):
     "([list-of-arg-names], vararg-name-or-None, kwarg-name-or-None)."
     argcount = code.co_argcount
+    varnames = code.co_varnames
     if we_are_translated():
         kwonlyargcount = code.co_kwonlyargcount
     else:
@@ -52,18 +53,17 @@ def cpython_code_signature(code):
         kwonlyargcount = getattr(code, 'co_kwonlyargcount', 0)
     assert argcount >= 0     # annotator hint
     assert kwonlyargcount >= 0
-    argnames = list(code.co_varnames[:argcount])
-    kwonlyargs = list(code.co_varnames[argcount:argcount + kwonlyargcount])
+    argnames = list(varnames[:argcount])
+    if argcount < len(varnames):
+        kwonlyargs = list(varnames[argcount:argcount + kwonlyargcount])
+    else:
+        kwonlyargs = None
     if code.co_flags & CO_VARARGS:
-        varargname = code.co_varnames[argcount]
+        varargname = varnames[argcount]
         argcount += 1
     else:
         varargname = None
-    if code.co_flags & CO_VARKEYWORDS:
-        kwargname = code.co_varnames[argcount]
-        argcount += 1
-    else:
-        kwargname = None
+    kwargname = varnames[argcount] if code.co_flags & CO_VARKEYWORDS else None
     return Signature(argnames, varargname, kwargname, kwonlyargs)
 
 

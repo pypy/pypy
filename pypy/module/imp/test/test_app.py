@@ -4,7 +4,7 @@ from rpython.tool.udir import udir
 
 class AppTestImpModule:
     spaceconfig = {
-        "usemodules": ['imp', 'itertools', 'binascii', 'rctime'],
+        'usemodules': ['binascii', 'imp', 'itertools', 'time', 'struct'],
     }
 
     def setup_class(cls):
@@ -264,4 +264,4 @@ class AppTestImpModule:
     def test_get_tag(self):
         import imp
         import sys
-        assert imp.get_tag() == 'pypy-%d%d' % sys.pypy_version_info[0:2]
+        assert imp.get_tag() == 'pypy3-%d%d' % sys.pypy_version_info[0:2]

@@ -808,6 +808,28 @@ class TestCompiler:
             return y"""
         yield self.st, test, "f()", 4
 
+    def test_nonlocal_from_arg(self):
+        test = """if 1:
+        def test1(x):
+            def test2():
+                nonlocal x
+                def test3():
+                    return x
+                return test3()
+            return test2()"""
+        yield self.st, test, "test1(2)", 2
+
+    def test_class_nonlocal_from_arg(self):
+        test = """if 1:
+        def f(x):
+            class c:
+                nonlocal x
+                x += 1
+                def get(self):
+                    return x
+            return c().get()"""
+        yield self.st, test, "f(3)", 4
+
     def test_lots_of_loops(self):
         source = "for x in y: pass\n" * 1000
         compile_with_astcompiler(source, 'exec', self.space)
@@ -1011,6 +1033,13 @@ class AppTestCompiler:
         d = {}
         exec('# -*- coding: utf-8 -*-\n\nu = "\xf0\x9f\x92\x8b"', d)
         assert len(d['u']) == 4
+
+    def test_kw_defaults_None(self):
+        import _ast
+        source = "def foo(self, *args, name): pass"
+        ast = compile(source, '', 'exec', _ast.PyCF_ONLY_AST)
+        # compiling the produced AST previously triggered a crash
+        compile(ast, '', 'exec')
 
 
 class TestOptimizations:

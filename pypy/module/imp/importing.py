@@ -32,9 +32,10 @@ PY_FROZEN = 7
 IMP_HOOK = 9
 
 SO = '.pyd' if _WIN32 else '.so'
-DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
+PREFIX = 'pypy3-'
+DEFAULT_SOABI = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
 
-PYC_TAG = 'pypy-%d%d' % PYPY_VERSION[:2]
+PYC_TAG = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
 
 @specialize.memo()
 def get_so_extension(space):
@@ -754,11 +755,11 @@ class ImportRLock:
         self.lockcounter = 0
 
     def lock_held_by_someone_else(self):
-        return self.lockowner is not None and not self.lock_held()
-
-    def lock_held(self):
         me = self.space.getexecutioncontext()   # used as thread ident
-        return self.lockowner is me
+        return self.lockowner is not None and self.lockowner is not me
+
+    def lock_held_by_anyone(self):
+        return self.lockowner is not None
 
     def acquire_lock(self):
         # this function runs with the GIL acquired so there is no race
