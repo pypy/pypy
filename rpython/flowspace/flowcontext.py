@@ -278,6 +278,25 @@ compare_method = [
     "cmp_exc_match",
     ]
 
+class sliceview(object):
+    def __init__(self, lst, start, stop):
+        self.lst = lst
+        self.start = start
+        self.stop = stop
+
+    def __getitem__(self, n):
+        assert 0 <= self.start + n < self.stop
+        return self.lst[self.start + n]
+
+    def __setitem__(self, n, value):
+        assert 0 <= self.start + n < self.stop
+        self.lst[self.start + n] = value
+
+    def __delitem__(self, n):
+        assert 0 <= self.start + n < self.stop
+        del self.lst[self.start + n]
+
+
 class FlowContext(object):
     def __init__(self, graph, code):
         self.graph = graph
@@ -301,63 +320,71 @@ class FlowContext(object):
             self.closure = list(closure)
         assert len(self.closure) == len(self.pycode.co_freevars)
 
+    @property
+    def locals_w(self):
+        return sliceview(self.locals_stack_w, 0, self.nlocals)
+
+    @property
+    def stack(self):
+        return sliceview(self.locals_stack_w, self.nlocals, len(self.locals_stack_w))
+
+    @property
+    def stackdepth(self):
+        assert self.valuestackdepth >= self.nlocals
+        return self.valuestackdepth - self.nlocals
+
+    @stackdepth.setter
+    def stackdepth(self, n):
+        assert 0 <= n <= self.stacksize
+        self.valuestackdepth = self.nlocals + n
+
     def init_locals_stack(self, code):
         """
         Initialize the locals and the stack.
 
         The locals are ordered according to self.pycode.signature.
         """
-        self.valuestackdepth = code.co_nlocals
+        self.nlocals = self.valuestackdepth = code.co_nlocals
+        self.stacksize = code.co_stacksize
         self.locals_stack_w = [None] * (code.co_stacksize + code.co_nlocals)
 
     def pushvalue(self, w_object):
-        depth = self.valuestackdepth
-        self.locals_stack_w[depth] = w_object
-        self.valuestackdepth = depth + 1
+        depth = self.stackdepth
+        self.stackdepth = depth + 1
+        self.stack[depth] = w_object
 
     def popvalue(self):
-        depth = self.valuestackdepth - 1
-        assert depth >= self.pycode.co_nlocals, "pop from empty value stack"
-        w_object = self.locals_stack_w[depth]
-        self.locals_stack_w[depth] = None
-        self.valuestackdepth = depth
+        depth = self.stackdepth - 1
+        w_object = self.stack[depth]
+        self.stack[depth] = None
+        self.stackdepth = depth
         return w_object
 
     def peekvalue(self, index_from_top=0):
         # NOTE: top of the stack is peekvalue(0).
-        index = self.valuestackdepth + ~index_from_top
-        assert index >= self.pycode.co_nlocals, (
-            "peek past the bottom of the stack")
-        return self.locals_stack_w[index]
+        index = self.stackdepth + ~index_from_top
+        return self.stack[index]
 
     def settopvalue(self, w_object, index_from_top=0):
-        index = self.valuestackdepth + ~index_from_top
-        assert index >= self.pycode.co_nlocals, (
-            "settop past the bottom of the stack")
-        self.locals_stack_w[index] = w_object
+        index = self.stackdepth + ~index_from_top
+        self.stack[index] = w_object
 
     def popvalues(self, n):
         values_w = [self.popvalue() for i in range(n)]
         values_w.reverse()
         return values_w
 
-    def dropvalues(self, n):
-        finaldepth = self.valuestackdepth - n
-        for n in range(finaldepth, self.valuestackdepth):
-            self.locals_stack_w[n] = None
-        self.valuestackdepth = finaldepth
-
     def dropvaluesuntil(self, finaldepth):
-        for n in range(finaldepth, self.valuestackdepth):
-            self.locals_stack_w[n] = None
-        self.valuestackdepth = finaldepth
+        for n in range(finaldepth, self.stackdepth):
+            self.stack[n] = None
+        self.stackdepth = finaldepth
 
     def save_locals_stack(self):
         return self.locals_stack_w[:self.valuestackdepth]
 
     def restore_locals_stack(self, items_w):
         self.locals_stack_w[:len(items_w)] = items_w
-        self.dropvaluesuntil(len(items_w))
+        self.dropvaluesuntil(len(items_w) - self.nlocals)
 
     def getstate(self, next_offset):
         # getfastscope() can return real None, for undefined locals
@@ -516,8 +543,8 @@ class FlowContext(object):
     # hack for unrolling iterables, don't use this
     def replace_in_stack(self, oldvalue, newvalue):
         w_new = Constant(newvalue)
-        stack_items_w = self.locals_stack_w
-        for i in range(self.valuestackdepth - 1, self.pycode.co_nlocals - 1, -1):
+        stack_items_w = self.stack
+        for i in range(self.stackdepth - 1, - 1, -1):
             w_v = stack_items_w[i]
             if isinstance(w_v, Constant):
                 if w_v.value is oldvalue:
@@ -870,7 +897,7 @@ class FlowContext(object):
             op.simple_call(w_exitfunc, w_None, w_None, w_None).eval(self)
 
     def LOAD_FAST(self, varindex):
-        w_value = self.locals_stack_w[varindex]
+        w_value = self.locals_w[varindex]
         if w_value is None:
             raise FlowingError("Local variable referenced before assignment")
         self.pushvalue(w_value)
@@ -915,7 +942,7 @@ class FlowContext(object):
     def STORE_FAST(self, varindex):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
-        self.locals_stack_w[varindex] = w_newvalue
+        self.locals_w[varindex] = w_newvalue
         if isinstance(w_newvalue, Variable):
             w_newvalue.rename(self.getlocalvarname(varindex))
 
@@ -1128,11 +1155,11 @@ class FlowContext(object):
         op.simple_call(w_append_meth, w_value).eval(self)
 
     def DELETE_FAST(self, varindex):
-        if self.locals_stack_w[varindex] is None:
+        if self.locals_w[varindex] is None:
             varname = self.getlocalvarname(varindex)
             message = "local variable '%s' referenced before assignment"
             raise UnboundLocalError(message, varname)
-        self.locals_stack_w[varindex] = None
+        self.locals_w[varindex] = None
 
     def STORE_MAP(self, oparg):
         w_key = self.popvalue()
@@ -1295,21 +1322,21 @@ class FrameBlock(object):
 
     def __init__(self, ctx, handlerposition):
         self.handlerposition = handlerposition
-        self.valuestackdepth = ctx.valuestackdepth
+        self.stackdepth = ctx.stackdepth
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
                 self.handlerposition == other.handlerposition and
-                self.valuestackdepth == other.valuestackdepth)
+                self.stackdepth == other.stackdepth)
 
     def __ne__(self, other):
         return not (self == other)
 
     def __hash__(self):
-        return hash((self.handlerposition, self.valuestackdepth))
+        return hash((self.handlerposition, self.stackdepth))
 
     def cleanupstack(self, ctx):
-        ctx.dropvaluesuntil(self.valuestackdepth)
+        ctx.dropvaluesuntil(self.stackdepth)
 
     def handle(self, ctx, unroller):
         raise NotImplementedError
