@@ -309,44 +309,41 @@ class FlowContext(object):
         The locals are ordered according to self.pycode.signature.
         """
         self.nlocals = code.co_nlocals
-        self.stackdepth = 0
         self.locals_w = [None] * code.co_nlocals
-        self.stack = [None] * code.co_stacksize
+        self.stack = []
+
+    @property
+    def stackdepth(self):
+        return len(self.stack)
 
     def pushvalue(self, w_object):
-        depth = self.stackdepth
-        self.stackdepth = depth + 1
-        self.stack[depth] = w_object
+        self.stack.append(w_object)
 
     def popvalue(self):
-        depth = self.stackdepth - 1
-        w_object = self.stack[depth]
-        self.stack[depth] = None
-        self.stackdepth = depth
-        return w_object
+        return self.stack.pop()
 
     def peekvalue(self, index_from_top=0):
         # NOTE: top of the stack is peekvalue(0).
-        index = self.stackdepth + ~index_from_top
+        index = ~index_from_top
         return self.stack[index]
 
     def settopvalue(self, w_object, index_from_top=0):
-        index = self.stackdepth + ~index_from_top
+        index = ~index_from_top
         self.stack[index] = w_object
 
     def popvalues(self, n):
-        values_w = [self.popvalue() for i in range(n)]
-        values_w.reverse()
+        if n == 0:
+            return []
+        values_w = self.stack[-n:]
+        del self.stack[-n:]
         return values_w
 
     def dropvaluesuntil(self, finaldepth):
-        for n in range(finaldepth, self.stackdepth):
-            self.stack[n] = None
-        self.stackdepth = finaldepth
+        del self.stack[finaldepth:]
 
     def getstate(self, next_offset):
         data = self.locals_w[:]
-        data.extend(self.stack[:self.stackdepth])
+        data.extend(self.stack)
         if self.last_exception is None:
             data.append(Constant(None))
             data.append(Constant(None))
@@ -361,8 +358,7 @@ class FlowContext(object):
         data = state.mergeable[:]
         recursively_unflatten(data)
         self.locals_w = data[:self.nlocals]
-        self.stack[:len(data) - 2 - self.nlocals] = data[self.nlocals:-2]
-        self.dropvaluesuntil(len(data) - 2 - self.nlocals)
+        self.stack = data[self.nlocals:-2]
         if data[-2] == Constant(None):
             assert data[-1] == Constant(None)
             self.last_exception = None
