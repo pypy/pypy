@@ -109,7 +109,7 @@ def recursively_flatten(lst):
         if not isinstance(unroller, FlowSignal):
             i += 1
         else:
-            vars = unroller.state_unpack_variables()
+            vars = unroller.args
             key = unroller.__class__, len(vars)
             try:
                 tag = PICKLE_TAGS[key]
@@ -126,5 +126,5 @@ def recursively_unflatten(lst):
             unrollerclass, argcount = UNPICKLE_TAGS[item]
             arguments = lst[i + 1:i + 1 + argcount]
             del lst[i + 1:i + 1 + argcount]
-            unroller = unrollerclass.state_pack_variables(*arguments)
+            unroller = unrollerclass.rebuild(*arguments)
             lst[i] = unroller

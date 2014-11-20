@@ -1206,22 +1206,26 @@ class FlowSignal(Exception):
     def nomoreblocks(self):
         raise BytecodeCorruption("misplaced bytecode - should not return")
 
+    def __eq__(self, other):
+        return type(other) is type(self) and other.args == self.args
+
 
 class Return(FlowSignal):
     """Signals a 'return' statement.
-    Argument is the wrapped object to return."""
-
+    Argument is the wrapped object to return.
+    """
     def __init__(self, w_value):
         self.w_value = w_value
 
     def nomoreblocks(self):
         raise Return(self.w_value)
 
-    def state_unpack_variables(self):
+    @property
+    def args(self):
         return [self.w_value]
 
     @staticmethod
-    def state_pack_variables(w_value):
+    def rebuild(w_value):
         return Return(w_value)
 
 class Raise(FlowSignal):
@@ -1234,11 +1238,12 @@ class Raise(FlowSignal):
     def nomoreblocks(self):
         raise self
 
-    def state_unpack_variables(self):
+    @property
+    def args(self):
         return [self.w_exc.w_type, self.w_exc.w_value]
 
     @staticmethod
-    def state_pack_variables(w_type, w_value):
+    def rebuild(w_type, w_value):
         return Raise(FSException(w_type, w_value))
 
 class RaiseImplicit(Raise):
@@ -1248,11 +1253,12 @@ class RaiseImplicit(Raise):
 class Break(FlowSignal):
     """Signals a 'break' statement."""
 
-    def state_unpack_variables(self):
+    @property
+    def args(self):
         return []
 
     @staticmethod
-    def state_pack_variables():
+    def rebuild():
         return Break.singleton
 
 Break.singleton = Break()
@@ -1264,11 +1270,12 @@ class Continue(FlowSignal):
     def __init__(self, jump_to):
         self.jump_to = jump_to
 
-    def state_unpack_variables(self):
+    @property
+    def args(self):
         return [const(self.jump_to)]
 
     @staticmethod
-    def state_pack_variables(w_jump_to):
+    def rebuild(w_jump_to):
         return Continue(w_jump_to.value)
 
 
