@@ -297,6 +297,9 @@ following condition: ``x is y <=> id(x) == id(y)``. Therefore ``id`` of the
 above types will return a value that is computed from the argument, and can
 thus be larger than ``sys.maxint`` (i.e. it can be an arbitrary long).
 
+Notably missing from the list above are ``str`` and ``unicode``.  If your
+code relies on comparing strings with ``is``, then it might break in PyPy.
+
 
 Miscellaneous
 -------------
