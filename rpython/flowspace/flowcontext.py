@@ -12,8 +12,7 @@ from rpython.rlib import rstackovf
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
     c_last_exception, const, FSException)
-from rpython.flowspace.framestate import (FrameState, recursively_unflatten,
-    recursively_flatten)
+from rpython.flowspace.framestate import FrameState
 from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline)
 from rpython.flowspace.operation import op
@@ -342,28 +341,14 @@ class FlowContext(object):
         del self.stack[finaldepth:]
 
     def getstate(self, next_offset):
-        data = self.locals_w[:]
-        data.extend(self.stack)
-        if self.last_exception is None:
-            data.append(Constant(None))
-            data.append(Constant(None))
-        else:
-            data.append(self.last_exception.w_type)
-            data.append(self.last_exception.w_value)
-        recursively_flatten(data)
-        return FrameState(data, self.blockstack[:], next_offset)
+        return FrameState(self.locals_w[:], self.stack[:],
+                self.last_exception, self.blockstack[:], next_offset)
 
     def setstate(self, state):
         """ Reset the context to the given frame state. """
-        data = state.mergeable[:]
-        recursively_unflatten(data)
-        self.locals_w = data[:self.nlocals]
-        self.stack = data[self.nlocals:-2]
-        if data[-2] == Constant(None):
-            assert data[-1] == Constant(None)
-            self.last_exception = None
-        else:
-            self.last_exception = FSException(data[-2], data[-1])
+        self.locals_w = state.locals_w[:]
+        self.stack = state.stack[:]
+        self.last_exception = state.last_exception
         self.blockstack = state.blocklist[:]
         self._normalize_raise_signals()
 
