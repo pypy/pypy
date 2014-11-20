@@ -278,24 +278,6 @@ compare_method = [
     "cmp_exc_match",
     ]
 
-class sliceview(object):
-    def __init__(self, lst, start, stop):
-        self.lst = lst
-        self.start = start
-        self.stop = stop
-
-    def __getitem__(self, n):
-        assert 0 <= self.start + n < self.stop
-        return self.lst[self.start + n]
-
-    def __setitem__(self, n, value):
-        assert 0 <= self.start + n < self.stop
-        self.lst[self.start + n] = value
-
-    def __delitem__(self, n):
-        assert 0 <= self.start + n < self.stop
-        del self.lst[self.start + n]
-
 
 class FlowContext(object):
     def __init__(self, graph, code):
@@ -320,33 +302,16 @@ class FlowContext(object):
             self.closure = list(closure)
         assert len(self.closure) == len(self.pycode.co_freevars)
 
-    @property
-    def locals_w(self):
-        return sliceview(self.locals_stack_w, 0, self.nlocals)
-
-    @property
-    def stack(self):
-        return sliceview(self.locals_stack_w, self.nlocals, len(self.locals_stack_w))
-
-    @property
-    def stackdepth(self):
-        assert self.valuestackdepth >= self.nlocals
-        return self.valuestackdepth - self.nlocals
-
-    @stackdepth.setter
-    def stackdepth(self, n):
-        assert 0 <= n <= self.stacksize
-        self.valuestackdepth = self.nlocals + n
-
     def init_locals_stack(self, code):
         """
         Initialize the locals and the stack.
 
         The locals are ordered according to self.pycode.signature.
         """
-        self.nlocals = self.valuestackdepth = code.co_nlocals
-        self.stacksize = code.co_stacksize
-        self.locals_stack_w = [None] * (code.co_stacksize + code.co_nlocals)
+        self.nlocals = code.co_nlocals
+        self.stackdepth = 0
+        self.locals_w = [None] * code.co_nlocals
+        self.stack = [None] * code.co_stacksize
 
     def pushvalue(self, w_object):
         depth = self.stackdepth
@@ -380,10 +345,11 @@ class FlowContext(object):
         self.stackdepth = finaldepth
 
     def save_locals_stack(self):
-        return self.locals_stack_w[:self.valuestackdepth]
+        return self.locals_w + self.stack[:self.stackdepth]
 
     def restore_locals_stack(self, items_w):
-        self.locals_stack_w[:len(items_w)] = items_w
+        self.locals_w = items_w[:self.nlocals]
+        self.stack[:len(items_w) - self.nlocals] = items_w[self.nlocals:]
         self.dropvaluesuntil(len(items_w) - self.nlocals)
 
     def getstate(self, next_offset):
