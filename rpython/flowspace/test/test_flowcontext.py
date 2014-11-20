@@ -7,7 +7,7 @@ from rpython.flowspace.flowcontext import (
 @pytest.mark.parametrize('signal', [
     Return(Variable()),
     Raise(FSException(Variable(), Variable())),
-    #RaiseImplicit(FSException(Variable(), Variable())),
+    RaiseImplicit(FSException(Variable(), Variable())),
     Break(),
     Continue(42),
 ])

@@ -365,6 +365,13 @@ class FlowContext(object):
         else:
             self.last_exception = FSException(data[-2], data[-1])
         self.blockstack = state.blocklist[:]
+        self._normalize_raise_signals()
+
+    def _normalize_raise_signals(self):
+        st = self.stack
+        for i in range(len(st)):
+            if isinstance(st[i], RaiseImplicit):
+                st[i] = Raise(st[i].w_exc)
 
     def guessbool(self, w_condition):
         if isinstance(w_condition, Constant):
@@ -1242,9 +1249,9 @@ class Raise(FlowSignal):
     def args(self):
         return [self.w_exc.w_type, self.w_exc.w_value]
 
-    @staticmethod
-    def rebuild(w_type, w_value):
-        return Raise(FSException(w_type, w_value))
+    @classmethod
+    def rebuild(cls, w_type, w_value):
+        return cls(FSException(w_type, w_value))
 
 class RaiseImplicit(Raise):
     """Signals an exception raised implicitly"""
