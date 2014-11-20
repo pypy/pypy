@@ -796,6 +796,12 @@ class ObjSpace(object):
             self.interned_strings.set(s, w_s1)
         return w_s1
 
+    def is_interned_str(self, s):
+        # interface for marshal_impl
+        if not we_are_translated():
+            assert type(s) is str
+        return self.interned_strings.get(s) is not None
+
     def descr_self_interp_w(self, RequiredClass, w_obj):
         if not isinstance(w_obj, RequiredClass):
             raise DescrMismatch()
