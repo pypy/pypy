@@ -344,17 +344,9 @@ class FlowContext(object):
             self.stack[n] = None
         self.stackdepth = finaldepth
 
-    def save_locals_stack(self):
-        return self.locals_w + self.stack[:self.stackdepth]
-
-    def restore_locals_stack(self, items_w):
-        self.locals_w = items_w[:self.nlocals]
-        self.stack[:len(items_w) - self.nlocals] = items_w[self.nlocals:]
-        self.dropvaluesuntil(len(items_w) - self.nlocals)
-
     def getstate(self, next_offset):
-        # getfastscope() can return real None, for undefined locals
-        data = self.save_locals_stack()
+        data = self.locals_w[:]
+        data.extend(self.stack[:self.stackdepth])
         if self.last_exception is None:
             data.append(Constant(None))
             data.append(Constant(None))
@@ -368,7 +360,9 @@ class FlowContext(object):
         """ Reset the context to the given frame state. """
         data = state.mergeable[:]
         recursively_unflatten(data)
-        self.restore_locals_stack(data[:-2])  # Nones == undefined locals
+        self.locals_w = data[:self.nlocals]
+        self.stack[:len(data) - 2 - self.nlocals] = data[self.nlocals:-2]
+        self.dropvaluesuntil(len(data) - 2 - self.nlocals)
         if data[-2] == Constant(None):
             assert data[-1] == Constant(None)
             self.last_exception = None
