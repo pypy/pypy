@@ -107,14 +107,22 @@ def plot_log(logentries, ax):
                 tr.pauses[-1] = (tr.pauses[-1][0], entry.timestamp)
 
 
-        # attach logentry as transaction info
+        # attach logentry as clickable transaction info
         tr = curr_trs.get(th_num)
+        if tr is None:
+            # no current transaction
+            # try to attach it to the last transaction
+            tr = finished_trs.get(th_num, [None])[-1]
         if tr is not None:
             tr.info.append(str(entry))
-        if entry.event in (psl.STM_ABORTING_OTHER_CONTENTION,):
+        # also affects other transaction:
+        if entry.marker2:
             tr2 = curr_trs.get(entry.otherthreadnum)
+            if tr2 is None:
+                tr2 = finished_trs.get(entry.otherthreadnum, [None])[-1]
             if tr2 is not None:
                 tr2.info.append(str(entry))
+
 
 
 
@@ -170,9 +178,9 @@ def plot(logentries):
     thread_count = len(trs)
 
     axs[0].set_ylabel("Thread")
-    axs[0].set_ylim(0, thread_count)
-    axs[0].set_yticks([r+0.5 for r in range(thread_count)])
-    axs[0].set_yticklabels(range(thread_count))
+    axs[0].set_ylim(0, thread_count+2)
+    axs[0].set_yticks([r+0.5 for r in range(thread_count+1)])
+    axs[0].set_yticklabels(range(thread_count+1))
     #axs[0].set_xticks([])
     print "Drawn."
 
