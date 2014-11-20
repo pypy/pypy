@@ -2,7 +2,7 @@
 Python control flow graph generation and bytecode assembly.
 """
 
-from pypy.interpreter.astcompiler import ast, symtable
+from pypy.interpreter.astcompiler import ast, symtable, misc
 from pypy.interpreter import pycode
 from pypy.tool import stdlib_opcode as ops
 
@@ -365,7 +365,9 @@ class PythonCodeMaker(ast.ASTVisitor):
                     raise
                 break
             w_index = space.getitem(w_consts, w_key)
-            consts_w[space.int_w(w_index)] = space.getitem(w_key, first)
+            w_constant = space.getitem(w_key, first)
+            w_constant = misc.intern_if_common_string(space, w_constant)
+            consts_w[space.int_w(w_index)] = w_constant
         return consts_w
 
     def _get_code_flags(self):
