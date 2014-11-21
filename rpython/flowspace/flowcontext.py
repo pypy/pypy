@@ -468,7 +468,7 @@ class FlowContext(object):
 
         newblock = SpamBlock(newstate)
         varnames = self.pycode.co_varnames
-        for name, w_value in zip(varnames, newstate.mergeable):
+        for name, w_value in zip(varnames, newstate.locals_w):
             if isinstance(w_value, Variable):
                 w_value.rename(name)
         # unconditionally link the current block to the newblock

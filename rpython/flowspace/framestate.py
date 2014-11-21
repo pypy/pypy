@@ -124,23 +124,6 @@ def union(w1, w2):
                                             w2.__class__.__name__))
 
 
-# ____________________________________________________________
-#
-# We have to flatten out the state of the frame into a list of
-# Variables and Constants.  This is done above by collecting the
-# locals and the items on the value stack, but the latter may contain
-# FlowSignal.  We have to handle these specially, because
-# some of them hide references to more Variables and Constants.
-# The trick is to flatten ("pickle") them into the list so that the
-# extra Variables show up directly in the list too.
-
-class PickleTag:
-    pass
-
-PICKLE_TAGS = {}
-UNPICKLE_TAGS = {}
-
-
 def recursively_flatten(lst):
     from rpython.flowspace.flowcontext import FlowSignal
     i = 0
@@ -149,22 +132,4 @@ def recursively_flatten(lst):
         if not isinstance(unroller, FlowSignal):
             i += 1
         else:
-            vars = unroller.args
-            key = unroller.__class__, len(vars)
-            try:
-                tag = PICKLE_TAGS[key]
-            except KeyError:
-                tag = PICKLE_TAGS[key] = Constant(PickleTag())
-                UNPICKLE_TAGS[tag] = key
-            lst[i:i + 1] = [tag] + vars
-
-
-def recursively_unflatten(lst):
-    for i in xrange(len(lst) - 1, -1, -1):
-        item = lst[i]
-        if item in UNPICKLE_TAGS:
-            unrollerclass, argcount = UNPICKLE_TAGS[item]
-            arguments = lst[i + 1:i + 1 + argcount]
-            del lst[i + 1:i + 1 + argcount]
-            unroller = unrollerclass.rebuild(*arguments)
-            lst[i] = unroller
+            lst[i:i + 1] = unroller.args
