@@ -912,7 +912,7 @@ class LLFrame(object):
         # cond_call can't have a return value
         self.execute_call(calldescr, func, *args)
 
-    def execute_call(self, calldescr, func, *args):
+    def _execute_call(self, calldescr, func, *args):
         effectinfo = calldescr.get_extra_info()
         if effectinfo is not None and hasattr(effectinfo, 'oopspecindex'):
             oopspecindex = effectinfo.oopspecindex
@@ -927,6 +927,11 @@ class LLFrame(object):
             self.last_exception = lle
             res = _example_res[getkind(TP.RESULT)[0]]
         return res
+
+    execute_call_i = _execute_call
+    execute_call_r = _execute_call
+    execute_call_f = _execute_call
+    execute_call_n = _execute_call
 
     def execute_call_may_force(self, calldescr, func, *args):
         call_op = self.lltrace.operations[self.current_index]

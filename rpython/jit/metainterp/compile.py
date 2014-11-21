@@ -785,7 +785,6 @@ def compile_trace(metainterp, resumekey):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
-    xxx
     from rpython.jit.metainterp.optimizeopt import optimize_trace
 
     # The history contains new operations to attach as the code for the
@@ -797,7 +796,9 @@ def compile_trace(metainterp, resumekey):
     new_trace.inputargs = metainterp.history.inputargs[:]
     # clone ops, as optimize_bridge can mutate the ops
 
-    new_trace.operations = [op.clone() for op in metainterp.history.operations]
+    memo = Memo()
+    new_trace.operations = [op.clone(memo) for op in
+                            metainterp.history.operations]
     metainterp_sd = metainterp.staticdata
     state = metainterp.jitdriver_sd.warmstate
     if isinstance(resumekey, ResumeAtPositionDescr):
@@ -805,7 +806,8 @@ def compile_trace(metainterp, resumekey):
     else:
         inline_short_preamble = True
     try:
-        optimize_trace(metainterp_sd, new_trace, state.enable_opts, inline_short_preamble)
+        optimize_trace(metainterp_sd, new_trace, state.enable_opts,
+                       inline_short_preamble)
     except InvalidLoop:
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise

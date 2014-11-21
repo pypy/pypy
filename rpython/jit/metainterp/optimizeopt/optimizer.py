@@ -354,17 +354,6 @@ class Optimization(object):
             return rop.GETARRAYITEM_GC_PURE_F
         return rop.GETARRAYITEM_GC_PURE_I
 
-    def call_for_descr(self, descr):
-        tp = descr.get_result_type()
-        if tp == 'i':
-            return rop.CALL_I
-        elif tp == 'r':
-            return rop.CALL_R
-        elif tp == 'f':
-            return rop.CALL_F
-        assert tp == 'v'
-        return rop.CALL_N
-
     def setup(self):
         pass
 

@@ -1,7 +1,7 @@
 """This implements pyjitpl's execution of operations.
 """
 
-from rpython.rtyper.lltypesystem import lltype, rstr
+from rpython.rtyper.lltypesystem import lltype, rstr, llmemory
 from rpython.rlib.rarithmetic import ovfcheck, r_longlong, is_valid_int
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
@@ -15,81 +15,81 @@ from rpython.jit.codewriter import longlong
 
 # ____________________________________________________________
 
-def do_call(cpu, metainterp, argboxes, descr):
-    xxx
-    assert metainterp is not None
-    # count the number of arguments of the different types
-    count_i = count_r = count_f = 0
-    for i in range(1, len(argboxes)):
-        type = argboxes[i].type
-        if   type == INT:   count_i += 1
-        elif type == REF:   count_r += 1
-        elif type == FLOAT: count_f += 1
-    # allocate lists for each type that has at least one argument
-    if count_i: args_i = [0] * count_i
-    else:       args_i = None
-    if count_r: args_r = [NULL] * count_r
-    else:       args_r = None
-    if count_f: args_f = [longlong.ZEROF] * count_f
-    else:       args_f = None
-    # fill in the lists
-    count_i = count_r = count_f = 0
-    for i in range(1, len(argboxes)):
-        box = argboxes[i]
-        if   box.type == INT:
-            args_i[count_i] = box.getint()
-            count_i += 1
-        elif box.type == REF:
-            args_r[count_r] = box.getref_base()
-            count_r += 1
-        elif box.type == FLOAT:
-            args_f[count_f] = box.getfloatstorage()
-            count_f += 1
-    # get the function address as an integer
-    func = argboxes[0].getint()
-    # do the call using the correct function from the cpu
-    rettype = descr.get_result_type()
-    if rettype == INT or rettype == 'S':       # *S*ingle float
-        try:
-            result = cpu.bh_call_i(func, args_i, args_r, args_f, descr)
-        except Exception, e:
-            metainterp.execute_raised(e)
-            result = 0
-        return BoxInt(result)
-    if rettype == REF:
-        try:
-            result = cpu.bh_call_r(func, args_i, args_r, args_f, descr)
-        except Exception, e:
-            metainterp.execute_raised(e)
-            result = NULL
-        return BoxPtr(result)
-    if rettype == FLOAT or rettype == 'L':     # *L*ong long
-        try:
-            result = cpu.bh_call_f(func, args_i, args_r, args_f, descr)
-        except Exception, e:
-            metainterp.execute_raised(e)
-            result = longlong.ZEROF
-        return BoxFloat(result)
-    if rettype == VOID:
-        try:
-            cpu.bh_call_v(func, args_i, args_r, args_f, descr)
-        except Exception, e:
-            metainterp.execute_raised(e)
-        return None
-    raise AssertionError("bad rettype")
+def new_do_call(rettype):
+    def do_call(cpu, metainterp, argboxes, descr):
+        assert metainterp is not None
+        # count the number of arguments of the different types
+        count_i = count_r = count_f = 0
+        for i in range(1, len(argboxes)):
+            type = argboxes[i].type
+            if   type == INT:   count_i += 1
+            elif type == REF:   count_r += 1
+            elif type == FLOAT: count_f += 1
+        # allocate lists for each type that has at least one argument
+        if count_i: args_i = [0] * count_i
+        else:       args_i = None
+        if count_r: args_r = [NULL] * count_r
+        else:       args_r = None
+        if count_f: args_f = [longlong.ZEROF] * count_f
+        else:       args_f = None
+        # fill in the lists
+        count_i = count_r = count_f = 0
+        for i in range(1, len(argboxes)):
+            box = argboxes[i]
+            if   box.type == INT:
+                args_i[count_i] = box.getint()
+                count_i += 1
+            elif box.type == REF:
+                args_r[count_r] = box.getref_base()
+                count_r += 1
+            elif box.type == FLOAT:
+                args_f[count_f] = box.getfloatstorage()
+                count_f += 1
+        # get the function address as an integer
+        func = argboxes[0].getint()
+        # do the call using the correct function from the cpu
+        if rettype == INT or rettype == 'S':       # *S*ingle float
+            try:
+                result = cpu.bh_call_i(func, args_i, args_r, args_f, descr)
+            except Exception, e:
+                metainterp.execute_raised(e)
+                result = 0
+            return result
+        if rettype == REF:
+            try:
+                result = cpu.bh_call_r(func, args_i, args_r, args_f, descr)
+            except Exception, e:
+                metainterp.execute_raised(e)
+                result = NULL
+            return result
+        if rettype == FLOAT:
+            try:
+                result = cpu.bh_call_f(func, args_i, args_r, args_f, descr)
+            except Exception, e:
+                metainterp.execute_raised(e)
+                result = longlong.ZEROF
+            return result
+        if rettype == VOID:
+            try:
+                cpu.bh_call_v(func, args_i, args_r, args_f, descr)
+            except Exception, e:
+                metainterp.execute_raised(e)
+            return None
+        raise AssertionError("bad rettype")
+    return do_call
 
-do_call_r = do_call
-do_call_i = do_call
-do_call_f = do_call
-do_call_n = do_call
-do_call_loopinvariant_r = do_call
-do_call_loopinvariant_i = do_call
-do_call_loopinvariant_f = do_call
-do_call_loopinvariant_n = do_call
-do_call_may_force_r = do_call
-do_call_may_force_i = do_call
-do_call_may_force_f = do_call
-do_call_may_force_n = do_call
+do_call_r = new_do_call("r")
+do_call_i = new_do_call("i")
+do_call_f = new_do_call("f")
+do_call_n = new_do_call("v")
+do_call_loopinvariant_r = do_call_r
+do_call_loopinvariant_i = do_call_i
+do_call_loopinvariant_f = do_call_f
+do_call_loopinvariant_n = do_call_n
+do_call_may_force_r = do_call_r
+do_call_may_force_i = do_call_i
+do_call_may_force_f = do_call_f
+do_call_may_force_n = do_call_n
 
 def do_cond_call(cpu, metainterp, argboxes, descr):
     condbox = argboxes[0]
@@ -451,27 +451,26 @@ def execute(cpu, metainterp, opnum, descr, *argboxes):
 execute._annspecialcase_ = 'specialize:arg(2)'
 
 def execute_varargs(cpu, metainterp, opnum, argboxes, descr):
-    xxxx
     # only for opnums with a variable arity (calls, typically)
     check_descr(descr)
     func = get_execute_function(opnum, -1, True)
     return func(cpu, metainterp, argboxes, descr)
 execute_varargs._annspecialcase_ = 'specialize:arg(2)'
 
-
+@specialize.argtype(0)
+def wrap_constant(value):
+    if isinstance(value, int):
+        return ConstInt(value)
+    elif isinstance(value, float):
+        return ConstFloat(value)
+    else:
+        assert lltype.typeOf(value) == llmemory.GCREF
+        return ConstPtr(value)
+    
 def execute_nonspec_const(cpu, metainterp, opnum, argboxes, descr=None,
                           type='i'):
-    if type == 'i':
-        return ConstInt(_execute_nonspec(cpu, metainterp, opnum, argboxes,
-                                         descr, 'i'))
-    elif type == 'f':
-        return ConstFloat(_execute_nonspec(cpu, metainterp, opnum, argboxes,
-                                         descr, 'f'))
-    elif type == 'r':
-        return ConstPtr(_execute_nonspec(cpu, metainterp, opnum, argboxes,
-                                         descr, 'r'))
-    else:
-        assert False
+    return wrap_constant(_execute_nonspec(cpu, metainterp, opnum, argboxes,
+                                          descr, type))
 
 @specialize.arg(5)
 def _execute_nonspec(cpu, metainterp, opnum, argboxes, descr=None, type='i'):

@@ -13,7 +13,7 @@ from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.resoperation import rop, InputArgInt,\
-     InputArgFloat, InputArgRef
+     InputArgFloat, InputArgRef, OpHelpers
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints, make_sure_not_resized
@@ -602,12 +602,17 @@ class MIFrame(object):
         return indexbox
 
     @arguments("box", "descr")
-    def _opimpl_getfield_gc_any(self, box, fielddescr):
+    def opimpl_getfield_gc_i(self, box, fielddescr):
         return self._opimpl_getfield_gc_any_pureornot(
-                rop.GETFIELD_GC, box, fielddescr)
-    opimpl_getfield_gc_i = _opimpl_getfield_gc_any
-    opimpl_getfield_gc_r = _opimpl_getfield_gc_any
-    opimpl_getfield_gc_f = _opimpl_getfield_gc_any
+                rop.GETFIELD_GC_I, box, fielddescr, 'i')
+    @arguments("box", "descr")
+    def opimpl_getfield_gc_r(self, box, fielddescr):
+        return self._opimpl_getfield_gc_any_pureornot(
+                rop.GETFIELD_GC_R, box, fielddescr, 'r')
+    @arguments("box", "descr")
+    def opimpl_getfield_gc_f(self, box, fielddescr):
+        return self._opimpl_getfield_gc_any_pureornot(
+                rop.GETFIELD_GC_F, box, fielddescr, 'f')
 
     @arguments("box", "descr")
     def _opimpl_getfield_gc_pure_any(self, box, fielddescr):
@@ -630,15 +635,21 @@ class MIFrame(object):
     opimpl_getinteriorfield_gc_f = _opimpl_getinteriorfield_gc_any
     opimpl_getinteriorfield_gc_r = _opimpl_getinteriorfield_gc_any
 
-    @specialize.arg(1)
-    def _opimpl_getfield_gc_any_pureornot(self, opnum, box, fielddescr):
+    @specialize.arg(1, 4)
+    def _opimpl_getfield_gc_any_pureornot(self, opnum, box, fielddescr, type):
         tobox = self.metainterp.heapcache.getfield(box, fielddescr)
         if tobox is not None:
             # sanity check: see whether the current struct value
             # corresponds to what the cache thinks the value is
-            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETFIELD_GC, fielddescr, box)
-            assert resbox.constbox().same_constant(tobox.constbox())
+            resvalue = executor.execute(self.metainterp.cpu, self.metainterp,
+                                        opnum, fielddescr, box)
+            if type == 'i':
+                assert resvalue == tobox.getint()
+            elif type == 'r':
+                assert resvalue == tobox.getref_base()
+            else:
+                assert type == 'f'
+                assert resvalue == tobox.getfloatstorage()
             return tobox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
         self.metainterp.heapcache.getfield_now_known(box, fielddescr, resbox)
@@ -1460,7 +1471,8 @@ class MIFrame(object):
                                                 descr, False, False)
                 exc = effectinfo.check_can_raise()
                 pure = effectinfo.check_is_elidable()
-                return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
+                opnum = OpHelpers.call_for_descr(descr)
+                return self.execute_varargs(opnum, allboxes, descr, exc, pure)
         finally:
             debug_stop("jit-residual-call")
 
@@ -1896,16 +1908,15 @@ class MetaInterp(object):
         # execute the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum)
-        xxx
-        resbox = executor.execute_varargs(self.cpu, self,
-                                          opnum, argboxes, descr)
+        resvalue = executor.execute_varargs(self.cpu, self,
+                                            opnum, argboxes, descr)
         # check if the operation can be constant-folded away
         argboxes = list(argboxes)
         if rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST:
-            resbox = self._record_helper_pure_varargs(opnum, resbox, descr, argboxes)
-        else:
-            resbox = self._record_helper_nonpure_varargs(opnum, resbox, descr, argboxes)
-        return resbox
+            return self._record_helper_pure_varargs(opnum, resvalue, descr,
+                                                    argboxes)
+        return self._record_helper_nonpure_varargs(opnum, resvalue, descr,
+                                                   argboxes)
 
     @specialize.argtype(2)
     def _record_helper_pure(self, opnum, resvalue, descr, *argboxes):
@@ -1917,15 +1928,13 @@ class MetaInterp(object):
                                                        list(argboxes))
 
     @specialize.argtype(2)
-    def _record_helper_pure_varargs(self, opnum, resbox, descr, argboxes):
-        xxx
+    def _record_helper_pure_varargs(self, opnum, resvalue, descr, argboxes):
         canfold = self._all_constants_varargs(argboxes)
         if canfold:
-            resbox = resbox.constbox()       # ensure it is a Const
-            return resbox
+            return executor.wrap_constant(resvalue)
         else:
-            resbox = resbox.nonconstbox()    # ensure it is a Box
-            return self._record_helper_nonpure_varargs(opnum, resbox, descr, argboxes)
+            return self._record_helper_nonpure_varargs(opnum, resvalue, descr,
+                                                       argboxes)
 
     @specialize.argtype(2)
     def _record_helper_nonpure_varargs(self, opnum, resvalue, descr, argboxes):
@@ -1939,7 +1948,8 @@ class MetaInterp(object):
         self.heapcache.invalidate_caches(opnum, descr, argboxes)
         op = self.history.record(opnum, argboxes, resvalue, descr)
         self.attach_debug_info(op)
-        return op
+        if op.type != 'v':
+            return op
 
     def execute_new_with_vtable(self, known_class):
         resbox = self.execute_and_record(rop.NEW_WITH_VTABLE, None,

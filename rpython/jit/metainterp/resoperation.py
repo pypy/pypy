@@ -867,3 +867,16 @@ def get_deep_immutable_oplist(operations):
         op.setarg = setarg
         op.setdescr = setdescr
     return newops
+
+class OpHelpers(object):
+    @staticmethod
+    def call_for_descr(descr):
+        tp = descr.get_result_type()
+        if tp == 'i':
+            return rop.CALL_I
+        elif tp == 'r':
+            return rop.CALL_R
+        elif tp == 'f':
+            return rop.CALL_F
+        assert tp == 'v'
+        return rop.CALL_N

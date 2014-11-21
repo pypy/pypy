@@ -1,13 +1,13 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp import jitprof
-from rpython.jit.metainterp.history import (Box, Const, ConstInt, getkind,
-    BoxInt, BoxPtr, BoxFloat, INT, REF, FLOAT, AbstractDescr)
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.history import (Const, ConstInt, getkind,
+    INT, REF, FLOAT, AbstractDescr)
+from rpython.jit.metainterp.resoperation import rop, InputArgInt,\
+     InputArgFloat, InputArgRef
 from rpython.rlib import rarithmetic, rstack
 from rpython.rlib.objectmodel import (we_are_translated, specialize,
-        compute_unique_id, import_from_mixin)
-from rpython.rlib.debug import (have_debug_prints, ll_assert, debug_start,
-    debug_stop, debug_print)
+        compute_unique_id)
+from rpython.rlib.debug import ll_assert, debug_print
 from rpython.rtyper import annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.rclass import OBJECTPTR
@@ -1160,11 +1160,11 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             num += len(self.liveboxes)
             assert num >= 0
         if kind == INT:
-            box = BoxInt(self.cpu.get_int_value(self.deadframe, num))
+            box = InputArgInt(self.cpu.get_int_value(self.deadframe, num))
         elif kind == REF:
-            box = BoxPtr(self.cpu.get_ref_value(self.deadframe, num))
+            box = InputArgRef(self.cpu.get_ref_value(self.deadframe, num))
         elif kind == FLOAT:
-            box = BoxFloat(self.cpu.get_float_value(self.deadframe, num))
+            box = InputArgFloat(self.cpu.get_float_value(self.deadframe, num))
         else:
             assert 0, "bad kind: %d" % ord(kind)
         self.liveboxes[num] = box
