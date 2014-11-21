@@ -59,6 +59,13 @@ class FrameState(object):
                 return False
         return True
 
+    def _exc_args(self):
+        if self.last_exception is None:
+            return [Constant(None), Constant(None)]
+        else:
+            return [self.last_exception.w_type,
+                    self.last_exception.w_value]
+
     def union(self, other):
         """Compute a state that is at least as general as both self and other.
            A state 'a' is more general than a state 'b' if all Variables in 'b'
@@ -67,15 +74,13 @@ class FrameState(object):
         try:
             locals = _union(self.locals_w, other.locals_w)
             stack = _union(self.stack, other.stack)
-            if self.last_exception is None:
-                exc = other.last_exception
-            elif other.last_exception is None:
-                exc = self.last_exception
+            if self.last_exception is None and other.last_exception is None:
+                exc = None
             else:
-                e1 = self.last_exception
-                e2 = other.last_exception
-                exc = FSException(union(e1.w_type, e2.w_type),
-                        union(e1.w_value, e2.w_value))
+                args1 = self._exc_args()
+                args2 = other._exc_args()
+                exc = FSException(union(args1[0], args2[0]),
+                        union(args1[1], args2[1]))
         except UnionError:
             return None
         return FrameState(locals, stack, exc, self.blocklist, self.next_offset)
