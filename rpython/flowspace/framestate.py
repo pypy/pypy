@@ -22,10 +22,13 @@ class FrameState(object):
         self.last_exception = last_exception
         self.blocklist = blocklist
         self.next_offset = next_offset
+        self._mergeable = None
 
     @property
     def mergeable(self):
-        data = self.locals_w + self.stack
+        if self._mergeable is not None:
+            return self._mergeable
+        self._mergeable = data = self.locals_w + self.stack
         if self.last_exception is None:
             data.append(Constant(None))
             data.append(Constant(None))
