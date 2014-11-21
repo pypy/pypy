@@ -405,8 +405,6 @@ class CStandaloneBuilder(CBuilder):
             ('debug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT" debug_target'),
             ('debug_exc', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DDO_LOG_EXC" debug_target'),
             ('debug_mem', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DPYPY_USE_TRIVIAL_MALLOC" debug_target'),
-            ('no_obmalloc', '', '$(MAKE) CFLAGS="-g -O2 -DRPY_ASSERT -DPYPY_NO_OBMALLOC" $(TARGET)'),
-            ('linuxmemchk', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DPYPY_USE_LINUXMEMCHK" debug_target'),
             ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(TARGET)'),
             ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
             ('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -O0 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
@@ -762,7 +760,6 @@ def add_extra_files(eci):
     srcdir = py.path.local(__file__).join('..', 'src')
     files = [
         srcdir / 'entrypoint.c',       # ifdef PYPY_STANDALONE
-        srcdir / 'allocator.c',        # ifdef PYPY_STANDALONE
         srcdir / 'mem.c',
         srcdir / 'exception.c',
         srcdir / 'rtyper.c',           # ifdef HAVE_RTYPER
