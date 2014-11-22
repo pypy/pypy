@@ -53,6 +53,8 @@ char *_RPython_ThreadLocals_Build(void)
 
 void RPython_ThreadLocals_ThreadDie(void)
 {
+    memset(&pypy_threadlocal, 0xDD,
+           sizeof(struct pypy_threadlocal_s));  /* debug */
     pypy_threadlocal.ready = 0;
 }
 
@@ -106,6 +108,7 @@ void RPython_ThreadLocals_ThreadDie(void)
     void *p;
     OP_THREADLOCALREF_ADDR(p);
     _RPy_ThreadLocals_Set(NULL);
+    memset(p, 0xDD, sizeof(struct pypy_threadlocal_s));  /* debug */
     free(p);
 }
 
