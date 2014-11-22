@@ -1,14 +1,10 @@
 #include "common_header.h"
-#include "structdef.h"
-
-#ifdef RPY_HAS_THREADLOCAL_S     /* otherwise, this file is not needed */
-
+#include "structdef.h"       /* for struct pypy_threadlocal_s */
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 #include "src/threadlocal.h"
-#include "src/thread.h"
 
 
 #ifdef _WIN32
@@ -103,6 +99,3 @@ void RPython_ThreadLocals_ThreadDie(void)
 /* ------------------------------------------------------------ */
 #endif
 /* ------------------------------------------------------------ */
-
-
-#endif  /* RPY_HAS_THREADLOCAL_S */

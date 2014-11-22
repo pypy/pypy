@@ -19,6 +19,8 @@
 #include "src/address.h"
 #include "src/unichar.h"
 #include "src/llgroup.h"
+#include "src/stack.h"
+#include "src/threadlocal.h"
 
 #include "src/instrument.h"
 #include "src/asm.h"
@@ -47,8 +49,4 @@
 /* work around waitpid expecting different pointer type */
 #ifdef __CYGWIN__
 #include "src/cygwin_wait.h"
-#endif
-
-#ifdef RPY_HAS_THREADLOCAL_S
-#include "src/threadlocal.h"
 #endif

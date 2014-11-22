@@ -5,11 +5,6 @@
 #include <src/precommondefs.h>
 
 
-#ifndef RPY_HAS_THREADLOCAL_S
-#  error "src/threadlocal.h should only be included if RPY_HAS_THREADLOCAL_S"
-#endif
-
-
 /* ------------------------------------------------------------ */
 #ifdef USE___THREAD
 /* ------------------------------------------------------------ */
