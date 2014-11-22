@@ -10,6 +10,7 @@
 #ifdef _WIN32
 #  define RPyThreadGetIdent() GetCurrentThreadId()
 #else
+#  include <pthread.h>
 #  define RPyThreadGetIdent() ((long)pthread_self())
 /* xxx This abuses pthread_self() by assuming it just returns a long.
    According to comments in CPython's source code, the platforms where
