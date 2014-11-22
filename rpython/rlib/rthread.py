@@ -316,7 +316,7 @@ class ThreadLocalReference(ThreadLocalField):
         def set(value):
             assert isinstance(value, Cls) or value is None
             if we_are_translated():
-                from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
+                from rpython.rtyper.annlowlevel import cast_instance_to_gcref
                 from rpython.rlib.rgc import _make_sure_does_not_move
                 from rpython.rlib.objectmodel import running_on_llinterp
                 gcref = cast_instance_to_gcref(value)

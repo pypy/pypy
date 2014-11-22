@@ -6,18 +6,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <string.h>
 #include "src/threadlocal.h"
 #include "src/thread.h"
 
 
-static void _RPython_ThreadLocals_Init(char *p)
+static void _RPython_ThreadLocals_Init(void *p)
 {
-    struct pypy_threadlocal_s *tl = (struct pypy_threadlocal_s *)p;
+    memset(p, 0, sizeof(struct pypy_threadlocal_s));
 #ifdef RPY_TLOFS_p_errno
-    tl->p_errno = &errno;
+    ((struct pypy_threadlocal_s *)p)->p_errno = &errno;
 #endif
 #ifdef RPY_TLOFS_thread_ident
-    tl->thread_ident = RPyThreadGetIdent();
+    ((struct pypy_threadlocal_s *)p)->thread_ident = RPyThreadGetIdent();
 #endif
 }
 
@@ -67,7 +68,7 @@ void RPython_ThreadLocals_ProgramInit(void)
 
 void RPython_ThreadLocals_ThreadStart(void)
 {
-    char *p = malloc(sizeof(struct pypy_threadlocal_s));
+    void *p = malloc(sizeof(struct pypy_threadlocal_s));
     if (!p) {
         fprintf(stderr, "Internal RPython error: "
                         "out of memory for the thread-local storage");
@@ -83,7 +84,7 @@ void RPython_ThreadLocals_ThreadStart(void)
 
 void RPython_ThreadLocals_ThreadDie(void)
 {
-    char *p;
+    void *p;
     OP_THREADLOCALREF_ADDR(p);
     free(p);
 }
