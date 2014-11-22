@@ -339,7 +339,7 @@ def JUMP_FORWARD(self, block, graph):
 class SETUP_EXCEPT(BCInstruction):
     def eval(self, ctx):
         from rpython.flowspace.flowcontext import ExceptBlock
-        block = ExceptBlock(ctx, self.arg)
+        block = ExceptBlock(ctx.stackdepth, self.arg)
         ctx.blockstack.append(block)
 
 _unary_ops = [

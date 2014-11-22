@@ -732,11 +732,11 @@ class FlowContext(object):
                 raise
 
     def SETUP_LOOP(self, target):
-        block = LoopBlock(self, target)
+        block = LoopBlock(self.stackdepth, target)
         self.blockstack.append(block)
 
     def SETUP_FINALLY(self, target):
-        block = FinallyBlock(self, target)
+        block = FinallyBlock(self.stackdepth, target)
         self.blockstack.append(block)
 
     def SETUP_WITH(self, target):
@@ -748,7 +748,7 @@ class FlowContext(object):
         self.settopvalue(w_exit)
         w_enter = op.getattr(w_manager, const('__enter__')).eval(self)
         w_result = op.simple_call(w_enter).eval(self)
-        block = WithBlock(self, target)
+        block = WithBlock(self.stackdepth, target)
         self.blockstack.append(block)
         self.pushvalue(w_result)
 
@@ -1188,9 +1188,9 @@ class FrameBlock(object):
     """Abstract base class for frame blocks from the blockstack,
     used by the SETUP_XXX and POP_BLOCK opcodes."""
 
-    def __init__(self, ctx, handlerposition):
+    def __init__(self, stackdepth, handlerposition):
         self.handlerposition = handlerposition
-        self.stackdepth = ctx.stackdepth
+        self.stackdepth = stackdepth
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
