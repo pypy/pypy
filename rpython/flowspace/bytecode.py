@@ -133,23 +133,27 @@ class BytecodeReader(object):
             op = GenericOpcode(self.opnames[opnum], opnum, oparg, offset)
         return next_offset, op
 
+    def _iter_instr(self, code):
+        while self.offset < len(code.co_code):
+            next_offset, instr = self.read(code, self.offset)
+            yield instr
+            self.offset = next_offset
+
     def build_flow(self, code):
         contents = []
         offsets = []
         jumps = {}
         pos_map = {}
         cuts = []
-        pos = 0
+        self.offset = 0
         i = 0
-        while pos < len(code.co_code):
-            offsets.append(pos)
-            pos_map[pos] = i
-            next_pos, op = self.read(code, pos)
-            contents.append(op)
-            if op.has_jump():
-                jumps[pos] = op.arg
+        for instr in self._iter_instr(code):
+            offsets.append(self.offset)
+            pos_map[self.offset] = i
+            contents.append(instr)
+            if instr.has_jump():
+                jumps[self.offset] = instr.arg
                 cuts.append(i + 1)
-            pos = next_pos
             i += 1
         cuts.extend([pos_map[n] for n in jumps.values()])
         cuts.sort()
