@@ -100,7 +100,6 @@ class BaseTestRffi:
     def test_string_reverse(self):
         c_source = py.code.Source("""
         #include <string.h>
-        #include <src/allocator.h>
         #include <src/mem.h>
 
         char *f(char* arg)
