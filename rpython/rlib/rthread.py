@@ -90,6 +90,10 @@ def get_ident():
         import thread
         return thread.get_ident()
 
+def get_or_make_ident():
+    assert we_are_translated()
+    return tlfield_thread_ident.get_or_make_raw()
+
 @specialize.arg(0)
 def start_new_thread(x, y):
     """In RPython, no argument can be passed.  You have to use global
@@ -283,12 +287,18 @@ class ThreadLocalField(object):
             addr = llop.threadlocalref_addr(rffi.CCHARP)
             return llop.raw_load(FIELDTYPE, addr, offset)
 
+        def get_or_make_raw():
+            _threadlocalref_seeme(self)
+            addr = llop.threadlocalref_make(rffi.CCHARP)
+            return llop.raw_load(FIELDTYPE, addr, offset)
+
         def setraw(value):
             _threadlocalref_seeme(self)
             addr = llop.threadlocalref_addr(rffi.CCHARP)
             llop.raw_store(lltype.Void, addr, offset, value)
 
         self.getraw = getraw
+        self.get_or_make_raw = get_or_make_raw
         self.setraw = setraw
 
     def _freeze_(self):

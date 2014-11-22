@@ -920,12 +920,7 @@ class LLFrame(object):
         return 0
 
     def op_threadlocalref_addr(self, key, value):
-        raise NotImplementedError("threadlocalref_addr")  # XXX implement me?
-        try:
-            d = self.llinterpreter.tlrefsdict
-        except AttributeError:
-            d = self.llinterpreter.tlrefsdict = {}
-        d[key._obj] = value
+        raise NotImplementedError("threadlocalref_addr")
 
     # __________________________________________________________
     # operations on addresses

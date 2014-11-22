@@ -716,6 +716,7 @@ def gen_threadlocal_structdef(f, database):
         print >> f, ('#define RPY_TLOFS_%s  offsetof(' % field.fieldname +
                      'struct pypy_threadlocal_s, %s)' % field.fieldname)
     print >> f, 'struct pypy_threadlocal_s {'
+    print >> f, '\tint ready;'
     print >> f, '\tchar *stack_end;'
     for field in fields:
         typename = database.gettype(field.FIELDTYPE)

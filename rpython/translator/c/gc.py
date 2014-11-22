@@ -71,13 +71,13 @@ class BasicGcPolicy(object):
         return ''
 
     def OP_GC_THREAD_RUN(self, funcgen, op):
-        return ''
+        return '{ char *r; OP_THREADLOCALREF_MAKE(r); (void)r; } '
 
     def OP_GC_THREAD_START(self, funcgen, op):
         return ''
 
     def OP_GC_THREAD_DIE(self, funcgen, op):
-        return ''
+        return 'RPython_ThreadLocals_ThreadDie();'
 
     def OP_GC_THREAD_BEFORE_FORK(self, funcgen, op):
         return '%s = NULL;' % funcgen.expr(op.result)

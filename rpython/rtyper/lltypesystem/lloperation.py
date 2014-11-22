@@ -547,6 +547,7 @@ LL_OPERATIONS = {
     'check_and_clear_exc':  LLOp(),
 
     'threadlocalref_addr':  LLOp(sideeffects=False),
+    'threadlocalref_make':  LLOp(),
 
     # __________ debugging __________
     'debug_view':           LLOp(),

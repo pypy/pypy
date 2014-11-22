@@ -5,6 +5,22 @@
 #include <src/precommondefs.h>
 
 
+/* RPython_ThreadLocals_ProgramInit() is called once at program start-up. */
+RPY_EXTERN void RPython_ThreadLocals_ProgramInit(void);
+
+/* RPython_ThreadLocals_ThreadDie() is called in a thread that is about
+   to die. */
+RPY_EXTERN void RPython_ThreadLocals_ThreadDie(void);
+
+/* There are two llops: 'threadlocalref_addr' and 'threadlocalref_make'.
+   They both return the address of the thread-local structure (of the
+   C type 'struct pypy_threadlocal_s').  The difference is that
+   OP_THREADLOCALREF_MAKE() checks if we have initialized this thread-
+   local structure in the current thread, and if not, calls the following
+   helper. */
+RPY_EXTERN char *_RPython_ThreadLocals_Build(void);
+
+
 /* ------------------------------------------------------------ */
 #ifdef USE___THREAD
 /* ------------------------------------------------------------ */
@@ -14,6 +30,9 @@
 
 RPY_EXTERN __thread struct pypy_threadlocal_s pypy_threadlocal;
 #define OP_THREADLOCALREF_ADDR(r)    r = (char *)&pypy_threadlocal
+#define OP_THREADLOCALREF_MAKE(r)                               \
+    (OP_THREADLOCALREF_ADDR(r),                                 \
+     (pypy_threadlocal.ready || (r = _RPython_ThreadLocals_Build())))
 
 
 /* ------------------------------------------------------------ */
@@ -27,6 +46,9 @@ RPY_EXTERN __thread struct pypy_threadlocal_s pypy_threadlocal;
 RPY_EXTERN DWORD pypy_threadlocal_key;
 #define OP_THREADLOCALREF_ADDR(r)    r = (char *)TlsGetValue(  \
                                            pypy_threadlocal_key)
+#define OP_THREADLOCALREF_MAKE(r)                       \
+    (OP_THREADLOCALREF_ADDR(r),                         \
+     ((r) || (r = _RPython_ThreadLocals_Build())))
 
 
 /* ------------------------------------------------------------ */
@@ -41,15 +63,14 @@ RPY_EXTERN DWORD pypy_threadlocal_key;
 RPY_EXTERN pthread_key_t pypy_threadlocal_key;
 #define OP_THREADLOCALREF_ADDR(r)    r = (char *)pthread_getspecific(  \
                                            pypy_threadlocal_key)
+#define OP_THREADLOCALREF_MAKE(r)                       \
+    (OP_THREADLOCALREF_ADDR(r),                         \
+     ((r) || (r = _RPython_ThreadLocals_Build())))
 
 
 /* ------------------------------------------------------------ */
 #endif
 /* ------------------------------------------------------------ */
 
-
-RPY_EXTERN void RPython_ThreadLocals_ProgramInit(void);
-RPY_EXTERN void RPython_ThreadLocals_ThreadStart(void);
-RPY_EXTERN void RPython_ThreadLocals_ThreadDie(void);
 
 #endif /* _SRC_THREADLOCAL_H */

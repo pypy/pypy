@@ -18,7 +18,7 @@
 #endif
 
 
-static void _RPython_ThreadLocals_Init(void *p)
+static void _RPy_ThreadLocals_Init(void *p)
 {
     memset(p, 0, sizeof(struct pypy_threadlocal_s));
 #ifdef RPY_TLOFS_p_errno
@@ -27,6 +27,7 @@ static void _RPython_ThreadLocals_Init(void *p)
 #ifdef RPY_TLOFS_thread_ident
     ((struct pypy_threadlocal_s *)p)->thread_ident = RPyThreadGetIdent();
 #endif
+    ((struct pypy_threadlocal_s *)p)->ready = 1;
 }
 
 
@@ -35,20 +36,24 @@ static void _RPython_ThreadLocals_Init(void *p)
 /* ------------------------------------------------------------ */
 
 
+/* in this situation, we always have one full 'struct pypy_threadlocal_s'
+   available, managed by gcc. */
 __thread struct pypy_threadlocal_s pypy_threadlocal;
 
 void RPython_ThreadLocals_ProgramInit(void)
 {
-    RPython_ThreadLocals_ThreadStart();
+    _RPy_ThreadLocals_Init(&pypy_threadlocal);
 }
 
-void RPython_ThreadLocals_ThreadStart(void)
+char *_RPython_ThreadLocals_Build(void)
 {
-    _RPython_ThreadLocals_Init(&pypy_threadlocal);
+    _RPy_ThreadLocals_Init(&pypy_threadlocal);
+    return (char *)&pypy_threadlocal;
 }
 
 void RPython_ThreadLocals_ThreadDie(void)
 {
+    pypy_threadlocal.ready = 0;
 }
 
 
@@ -56,6 +61,16 @@ void RPython_ThreadLocals_ThreadDie(void)
 #else
 /* ------------------------------------------------------------ */
 
+
+/* this is the case where the 'struct pypy_threadlocal_s' is allocated
+   explicitly, with malloc()/free(), and attached to (a single) thread-
+   local key using the API of Windows or pthread. */
+
+#ifdef _WIN32
+#  define _RPy_ThreadLocals_Set(p)  TlsSetValue(pypy_threadlocal_key, p)
+#else
+#  define _RPy_ThreadLocals_Set(p)  pthread_setspecific(pypy_threadlocal_key, p)
+#endif
 
 void RPython_ThreadLocals_ProgramInit(void)
 {
@@ -70,10 +85,10 @@ void RPython_ThreadLocals_ProgramInit(void)
                         "out of thread-local storage indexes");
         abort();
     }
-    RPython_ThreadLocals_ThreadStart();
+    _RPython_ThreadLocals_Build();
 }
 
-void RPython_ThreadLocals_ThreadStart(void)
+char *_RPython_ThreadLocals_Build(void)
 {
     void *p = malloc(sizeof(struct pypy_threadlocal_s));
     if (!p) {
@@ -81,18 +96,16 @@ void RPython_ThreadLocals_ThreadStart(void)
                         "out of memory for the thread-local storage");
         abort();
     }
-    _RPython_ThreadLocals_Init(p);
-#ifdef _WIN32
-    TlsSetValue(pypy_threadlocal_key, p);
-#else
-    pthread_setspecific(pypy_threadlocal_key, p);
-#endif
+    _RPy_ThreadLocals_Init(p);
+    _RPy_ThreadLocals_Set(p);
+    return (char *)p;
 }
 
 void RPython_ThreadLocals_ThreadDie(void)
 {
     void *p;
     OP_THREADLOCALREF_ADDR(p);
+    _RPy_ThreadLocals_Set(NULL);
     free(p);
 }
 
