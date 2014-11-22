@@ -84,7 +84,11 @@ def ll_start_new_thread(func):
 # wrappers...
 
 def get_ident():
-    return tlfield_thread_ident.getraw()
+    if we_are_translated():
+        return tlfield_thread_ident.getraw()
+    else:
+        import thread
+        return thread.get_ident()
 
 @specialize.arg(0)
 def start_new_thread(x, y):
