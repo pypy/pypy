@@ -142,23 +142,27 @@ class BytecodeReader(object):
 
     def _add_jump(self, i, target):
         self.cuts.append(i + 1)
-        self.pending_cuts.append(target)
+        if target <= self.offset:
+            j = self.pos_map[target]
+            self.cuts.append(j)
+        else:
+            self.pending_cuts.append(target)
 
     def build_flow(self, code):
         contents = []
         offsets = []
         self.pending_cuts = []
-        pos_map = {}
+        self.pos_map = {}
         self.cuts = []
         i = 0
         for instr in self._iter_instr(code):
             offsets.append(self.offset)
-            pos_map[self.offset] = i
+            self.pos_map[self.offset] = i
             contents.append(instr)
             if instr.has_jump():
                 self._add_jump(i, instr.arg)
             i += 1
-        self.cuts.extend([pos_map[n] for n in self.pending_cuts])
+        self.cuts.extend([self.pos_map[n] for n in self.pending_cuts])
         self.cuts.sort()
         pendingblocks = [SimpleBlock(contents[i:j])
                 for i, j in zip([0] + self.cuts, self.cuts + [len(code.co_code)])]
