@@ -4,18 +4,10 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
-#include "src/threadlocal.h"
-
-
-#ifdef _WIN32
-#  define RPyThreadGetIdent() GetCurrentThreadId()
-#else
-#  include <pthread.h>
-#  define RPyThreadGetIdent() ((long)pthread_self())
-/* xxx This abuses pthread_self() by assuming it just returns a long.
-   According to comments in CPython's source code, the platforms where
-   it is wrong are rather old nowadays. */
+#ifndef _WIN32
+# include <pthread.h>
 #endif
+#include "src/threadlocal.h"
 
 
 static void _RPy_ThreadLocals_Init(void *p)
@@ -25,7 +17,15 @@ static void _RPy_ThreadLocals_Init(void *p)
     ((struct pypy_threadlocal_s *)p)->p_errno = &errno;
 #endif
 #ifdef RPY_TLOFS_thread_ident
-    ((struct pypy_threadlocal_s *)p)->thread_ident = RPyThreadGetIdent();
+    ((struct pypy_threadlocal_s *)p)->thread_ident =
+#    ifdef _WIN32
+        GetCurrentThreadId();
+#    else
+        (long)pthread_self();    /* xxx This abuses pthread_self() by
+                  assuming it just returns a integer.  According to
+                  comments in CPython's source code, the platforms
+                  where it is not the case are rather old nowadays. */
+#    endif
 #endif
     ((struct pypy_threadlocal_s *)p)->ready = 1;
 }
