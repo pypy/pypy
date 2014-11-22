@@ -21,8 +21,8 @@ char LL_stack_too_big_slowpath(long current)
 {
 	long diff, max_stack_size;
 	char *baseptr, *curptr = (char*)current;
-        char *tl;
-        struct pypy_threadlocal_s *tl1;
+	char *tl;
+	struct pypy_threadlocal_s *tl1;
 
 	/* The stack_end variable is updated to match the current value
 	   if it is still 0 or if we later find a 'curptr' position
@@ -30,8 +30,8 @@ char LL_stack_too_big_slowpath(long current)
 	   thread-local storage, but we try to minimize its overhead by
 	   keeping a local copy in _LLstacktoobig_stack_end. */
 
-        OP_THREADLOCALREF_ADDR(tl);
-        tl1 = (struct pypy_threadlocal_s *)tl;
+	OP_THREADLOCALREF_ADDR(tl);
+	tl1 = (struct pypy_threadlocal_s *)tl;
 	baseptr = tl1->stack_end;
 	max_stack_size = _LLstacktoobig_stack_length;
 	if (baseptr == NULL) {
@@ -55,7 +55,7 @@ char LL_stack_too_big_slowpath(long current)
 
 	/* update the stack base pointer to the current value */
 	baseptr = curptr;
-        tl1->stack_end = baseptr;
+	tl1->stack_end = baseptr;
 	_LLstacktoobig_stack_end = baseptr;
 	return 0;
 }
