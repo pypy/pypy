@@ -11,6 +11,16 @@
 #include "src/thread.h"
 
 
+#ifdef _WIN32
+#  define RPyThreadGetIdent() GetCurrentThreadId()
+#else
+#  define RPyThreadGetIdent() ((long)pthread_self())
+/* xxx This abuses pthread_self() by assuming it just returns a long.
+   According to comments in CPython's source code, the platforms where
+   it is wrong are rather old nowadays. */
+#endif
+
+
 static void _RPython_ThreadLocals_Init(void *p)
 {
     memset(p, 0, sizeof(struct pypy_threadlocal_s));

@@ -18,7 +18,7 @@
 /* Use the '__thread' specifier, so far only on Linux */
 
 RPY_EXTERN __thread struct pypy_threadlocal_s pypy_threadlocal;
-#define OP_THREADLOCALREF_ADDR(r)    r = &pypy_threadlocal
+#define OP_THREADLOCALREF_ADDR(r)    r = (char *)&pypy_threadlocal
 
 
 /* ------------------------------------------------------------ */
@@ -30,7 +30,8 @@ RPY_EXTERN __thread struct pypy_threadlocal_s pypy_threadlocal;
 #include <windows.h>
 
 RPY_EXTERN DWORD pypy_threadlocal_key;
-#define OP_THREADLOCALREF_ADDR(r)    r = TlsGetValue(pypy_threadlocal_key)
+#define OP_THREADLOCALREF_ADDR(r)    r = (char *)TlsGetValue(  \
+                                           pypy_threadlocal_key)
 
 
 /* ------------------------------------------------------------ */
@@ -43,7 +44,8 @@ RPY_EXTERN DWORD pypy_threadlocal_key;
 #include <pthread.h>
 
 RPY_EXTERN pthread_key_t pypy_threadlocal_key;
-#define OP_THREADLOCALREF_ADDR(r)  r = pthread_getspecific(pypy_threadlocal_key)
+#define OP_THREADLOCALREF_ADDR(r)    r = (char *)pthread_getspecific(  \
+                                           pypy_threadlocal_key)
 
 
 /* ------------------------------------------------------------ */

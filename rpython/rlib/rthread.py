@@ -276,12 +276,12 @@ class ThreadLocalField(object):
 
         def getraw():
             _threadlocalref_seeme(self)
-            addr = llop.threadlocalref_addr(llmemory.Address)
+            addr = llop.threadlocalref_addr(rffi.CCHARP)
             return llop.raw_load(FIELDTYPE, addr, offset)
 
         def setraw(value):
             _threadlocalref_seeme(self)
-            addr = llop.threadlocalref_addr(llmemory.Address)
+            addr = llop.threadlocalref_addr(rffi.CCHARP)
             llop.raw_store(lltype.Void, addr, offset, value)
 
         self.getraw = getraw
