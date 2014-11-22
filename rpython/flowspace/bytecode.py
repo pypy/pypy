@@ -96,22 +96,6 @@ class BytecodeReader(object):
         cls.num = self.register_name(name, cls)
         return cls
 
-    def disassemble(self, code):
-        contents = []
-        offsets = []
-        jumps = {}
-        pos = 0
-        i = 0
-        while pos < len(code.co_code):
-            offsets.append(pos)
-            next_pos, op = self.read(code, pos)
-            contents.append(op)
-            if op.has_jump():
-                jumps[pos] = op.arg
-            pos = next_pos
-            i += 1
-        return contents, offsets, jumps
-
     def read(self, code, offset):
         """
         Decode the instruction starting at position ``offset``.
@@ -150,10 +134,25 @@ class BytecodeReader(object):
         return next_offset, op
 
     def build_flow(self, code):
-        contents, offsets, jumps = self.disassemble(code)
-        pos_map = dict([(pos, i) for i, pos in enumerate(offsets)])
-        cuts = sorted([pos_map[n] + 1 for n in jumps.keys()] +
-                [pos_map[n] for n in jumps.values()])
+        contents = []
+        offsets = []
+        jumps = {}
+        pos_map = {}
+        cuts = []
+        pos = 0
+        i = 0
+        while pos < len(code.co_code):
+            offsets.append(pos)
+            pos_map[pos] = i
+            next_pos, op = self.read(code, pos)
+            contents.append(op)
+            if op.has_jump():
+                jumps[pos] = op.arg
+                cuts.append(i + 1)
+            pos = next_pos
+            i += 1
+        cuts.extend([pos_map[n] for n in jumps.values()])
+        cuts.sort()
         pendingblocks = [SimpleBlock(contents[i:j])
                 for i, j in zip([0] + cuts, cuts + [len(code.co_code)])]
 
