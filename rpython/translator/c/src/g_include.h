@@ -48,3 +48,7 @@
 #ifdef __CYGWIN__
 #include "src/cygwin_wait.h"
 #endif
+
+#ifdef RPY_HAS_THREADLOCAL_S
+#include "src/threadlocal.h"
+#endif

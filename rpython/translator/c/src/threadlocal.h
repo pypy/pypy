@@ -5,48 +5,54 @@
 #include <src/precommondefs.h>
 
 
-#ifdef _WIN32
+#ifndef RPY_HAS_THREADLOCAL_S
+#  error "src/threadlocal.h should only be included if RPY_HAS_THREADLOCAL_S"
+#endif
+
+
+/* ------------------------------------------------------------ */
+#ifdef USE___THREAD
+/* ------------------------------------------------------------ */
+
+
+/* Use the '__thread' specifier, so far only on Linux */
+
+RPY_EXTERN __thread struct pypy_threadlocal_s pypy_threadlocal;
+#define OP_THREADLOCALREF_ADDR(r)    r = &pypy_threadlocal
+
+
+/* ------------------------------------------------------------ */
+#elif _WIN32
+/* ------------------------------------------------------------ */
+
 
 #include <WinSock2.h>
 #include <windows.h>
-#define __thread __declspec(thread)
-typedef DWORD RPyThreadTLS;
-#define RPyThreadTLS_Get(key)		TlsGetValue(key)
-#define RPyThreadTLS_Set(key, value)	TlsSetValue(key, value)
 
+RPY_EXTERN DWORD pypy_threadlocal_key;
+#define OP_THREADLOCALREF_ADDR(r)    r = TlsGetValue(pypy_threadlocal_key)
+
+
+/* ------------------------------------------------------------ */
 #else
+/* ------------------------------------------------------------ */
+
+
+/* Other POSIX systems: use the pthread API */
 
 #include <pthread.h>
-typedef pthread_key_t RPyThreadTLS;
-#define RPyThreadTLS_Get(key)		pthread_getspecific(key)
-#define RPyThreadTLS_Set(key, value)	pthread_setspecific(key, value)
 
+RPY_EXTERN pthread_key_t pypy_threadlocal_key;
+#define OP_THREADLOCALREF_ADDR(r)  r = pthread_getspecific(pypy_threadlocal_key)
+
+
+/* ------------------------------------------------------------ */
 #endif
+/* ------------------------------------------------------------ */
 
 
-#ifdef USE___THREAD
-
-#define RPyThreadStaticTLS                  __thread void *
-#define RPyThreadStaticTLS_Create(tls)      (void)0
-#define RPyThreadStaticTLS_Get(tls)         tls
-#define RPyThreadStaticTLS_Set(tls, value)  tls = value
-#define OP_THREADLOCALREF_GETADDR(tlref, ptr)  ptr = tlref
-
-#endif
-
-#ifndef RPyThreadStaticTLS
-
-#define RPyThreadStaticTLS             RPyThreadTLS
-#define RPyThreadStaticTLS_Create(key) RPyThreadTLS_Create(key)
-#define RPyThreadStaticTLS_Get(key)    RPyThreadTLS_Get(key)
-#define RPyThreadStaticTLS_Set(key, value) RPyThreadTLS_Set(key, value)
-RPY_EXTERN void RPyThreadTLS_Create(RPyThreadTLS *result);
-
-#endif
-
-
-#define OP_THREADLOCALREF_SET(tlref, ptr, _) RPyThreadStaticTLS_Set(*tlref, ptr)
-#define OP_THREADLOCALREF_GET(tlref, ptr)   ptr = RPyThreadStaticTLS_Get(*tlref)
-
+RPY_EXTERN void RPython_ThreadLocals_ProgramInit(void);
+RPY_EXTERN void RPython_ThreadLocals_ThreadStart(void);
+RPY_EXTERN void RPython_ThreadLocals_ThreadDie(void);
 
 #endif /* _SRC_THREADLOCAL_H */
