@@ -497,7 +497,9 @@ class LLGraphCPU(model.AbstractCPU):
         array = a._obj
         return support.cast_result(descr.A.OF, array.getitem(index))
 
-    bh_getarrayitem_gc_pure = bh_getarrayitem_gc
+    bh_getarrayitem_gc_pure_i = bh_getarrayitem_gc
+    bh_getarrayitem_gc_pure_r = bh_getarrayitem_gc
+    bh_getarrayitem_gc_pure_f = bh_getarrayitem_gc
     bh_getarrayitem_gc_i = bh_getarrayitem_gc
     bh_getarrayitem_gc_r = bh_getarrayitem_gc
     bh_getarrayitem_gc_f = bh_getarrayitem_gc

@@ -157,13 +157,13 @@ class MIFrame(object):
         return env
 
     def replace_active_box_in_frame(self, oldbox, newbox):
-        if isinstance(oldbox, history.BoxInt):
+        if oldbox.type == 'i':
             count = self.jitcode.num_regs_i()
             registers = self.registers_i
-        elif isinstance(oldbox, history.BoxPtr):
+        elif oldbox.type == 'r':
             count = self.jitcode.num_regs_r()
             registers = self.registers_r
-        elif isinstance(oldbox, history.BoxFloat):
+        elif oldbox.type == 'f':
             count = self.jitcode.num_regs_f()
             registers = self.registers_f
         else:
@@ -377,7 +377,7 @@ class MIFrame(object):
             if not isinstance(box, Const):
                 self.metainterp.generate_guard(rop.GUARD_ISNULL, box,
                                                resumepc=orgpc)
-                promoted_box = box.constbox()
+                promoted_box = executor.constant_from_op(box)
                 self.metainterp.replace_box(box, promoted_box)
         return value
 
@@ -440,23 +440,30 @@ class MIFrame(object):
         if tobox:
             # sanity check: see whether the current array value
             # corresponds to what the cache thinks the value is
+            xxx
             resbox = executor.execute(self.metainterp.cpu, self.metainterp, op,
                                       arraydescr, arraybox, indexbox)
             assert resbox.constbox().same_constant(tobox.constbox())
             return tobox
-        resbox = self.execute_with_descr(op, arraydescr, arraybox, indexbox)
+        resop = self.execute_with_descr(op, arraydescr, arraybox, indexbox)
         self.metainterp.heapcache.getarrayitem_now_known(
-                arraybox, indexbox, resbox, arraydescr)
-        return resbox
+                arraybox, indexbox, resop, arraydescr)
+        return resop
 
     @arguments("box", "box", "descr")
-    def _opimpl_getarrayitem_gc_any(self, arraybox, indexbox, arraydescr):
-        return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC, arraybox,
+    def opimpl_getarrayitem_gc_i(self, arraybox, indexbox, arraydescr):
+        return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_I, arraybox,
                                             indexbox, arraydescr)
 
-    opimpl_getarrayitem_gc_i = _opimpl_getarrayitem_gc_any
-    opimpl_getarrayitem_gc_r = _opimpl_getarrayitem_gc_any
-    opimpl_getarrayitem_gc_f = _opimpl_getarrayitem_gc_any
+    @arguments("box", "box", "descr")
+    def opimpl_getarrayitem_gc_r(self, arraybox, indexbox, arraydescr):
+        return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_R, arraybox,
+                                            indexbox, arraydescr)
+
+    @arguments("box", "box", "descr")
+    def opimpl_getarrayitem_gc_f(self, arraybox, indexbox, arraydescr):
+        return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_F, arraybox,
+                                            indexbox, arraydescr)
 
     @arguments("box", "box", "descr")
     def _opimpl_getarrayitem_raw_any(self, arraybox, indexbox, arraydescr):
@@ -476,20 +483,40 @@ class MIFrame(object):
     opimpl_getarrayitem_raw_f_pure = _opimpl_getarrayitem_raw_pure_any
 
     @arguments("box", "box", "descr")
-    def _opimpl_getarrayitem_gc_pure_any(self, arraybox, indexbox, arraydescr):
+    def opimpl_getarrayitem_gc_i_pure(self, arraybox, indexbox, arraydescr):
         if isinstance(arraybox, ConstPtr) and isinstance(indexbox, ConstInt):
             # if the arguments are directly constants, bypass the heapcache
             # completely
-            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETARRAYITEM_GC_PURE, arraydescr,
+            val = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETARRAYITEM_GC_PURE_I, arraydescr,
                                       arraybox, indexbox)
-            return resbox.constbox()
-        return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_PURE, arraybox,
-                                            indexbox, arraydescr)
+            return executor.wrap_constant(val)
+        return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_PURE_I,
+                                            arraybox, indexbox, arraydescr)
 
-    opimpl_getarrayitem_gc_i_pure = _opimpl_getarrayitem_gc_pure_any
-    opimpl_getarrayitem_gc_r_pure = _opimpl_getarrayitem_gc_pure_any
-    opimpl_getarrayitem_gc_f_pure = _opimpl_getarrayitem_gc_pure_any
+    @arguments("box", "box", "descr")
+    def opimpl_getarrayitem_gc_f_pure(self, arraybox, indexbox, arraydescr):
+        if isinstance(arraybox, ConstPtr) and isinstance(indexbox, ConstInt):
+            # if the arguments are directly constants, bypass the heapcache
+            # completely
+            resval = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETARRAYITEM_GC_PURE_F, arraydescr,
+                                      arraybox, indexbox)
+            return executor.wrap_constant(resval)
+        return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_PURE_F,
+                                            arraybox, indexbox, arraydescr)
+
+    @arguments("box", "box", "descr")
+    def opimpl_getarrayitem_gc_r_pure(self, arraybox, indexbox, arraydescr):
+        if isinstance(arraybox, ConstPtr) and isinstance(indexbox, ConstInt):
+            # if the arguments are directly constants, bypass the heapcache
+            # completely
+            val = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETARRAYITEM_GC_PURE_R, arraydescr,
+                                      arraybox, indexbox)
+            return executor.wrap_constant(val)
+        return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_PURE_R,
+                                            arraybox, indexbox, arraydescr)
 
     @arguments("box", "box", "box", "descr")
     def _opimpl_setarrayitem_gc_any(self, arraybox, indexbox, itembox,
@@ -1355,7 +1382,7 @@ class MIFrame(object):
         if isinstance(box, Const):
             return box     # no promotion needed, already a Const
         else:
-            promoted_box = box.constbox()
+            promoted_box = executor.constant_from_op(box)
             self.metainterp.generate_guard(rop.GUARD_VALUE, box, [promoted_box],
                                            resumepc=orgpc)
             self.metainterp.replace_box(box, promoted_box)
@@ -1375,20 +1402,20 @@ class MIFrame(object):
     @specialize.arg(1)
     def execute_varargs(self, opnum, argboxes, descr, exc, pure):
         self.metainterp.clear_exception()
-        resbox = self.metainterp.execute_and_record_varargs(opnum, argboxes,
+        op = self.metainterp.execute_and_record_varargs(opnum, argboxes,
                                                             descr=descr)
-        if pure and self.metainterp.last_exc_value_box is None and resbox:
-            resbox = self.metainterp.record_result_of_call_pure(resbox)
-            exc = exc and not isinstance(resbox, Const)
+        if pure and self.metainterp.last_exc_value_box is None and op:
+            op = self.metainterp.record_result_of_call_pure(op)
+            exc = exc and not isinstance(op, Const)
         if exc:
-            if resbox is not None:
-                self.make_result_of_lastop(resbox)
+            if op is not None:
+                self.make_result_of_lastop(op)
                 # ^^^ this is done before handle_possible_exception() because we
                 # need the box to show up in get_list_of_active_boxes()
             self.metainterp.handle_possible_exception()
         else:
             self.metainterp.assert_no_exception()
-        return resbox
+        return op
 
     def _build_allboxes(self, funcbox, argboxes, descr):
         allboxes = [None] * (len(argboxes)+1)
@@ -2158,10 +2185,9 @@ class MetaInterp(object):
         for i in range(endindex):
             box = boxes[i]
             if isinstance(box, Const) or box in duplicates:
-                oldbox = box
-                box = oldbox.clonebox()
-                boxes[i] = box
-                self.history.record(rop.SAME_AS, [oldbox], box)
+                opnum = OpHelpers.same_as_for_type(box.type)
+                op = self.history.record_default_val(opnum, [box])
+                boxes[i] = op
             else:
                 duplicates[box] = None
 
@@ -2708,7 +2734,6 @@ class MetaInterp(object):
                                 None, descr=vinfo.vable_token_descr)
 
     def replace_box(self, oldbox, newbox):
-        assert isinstance(oldbox, Box)
         for frame in self.framestack:
             frame.replace_active_box_in_frame(oldbox, newbox)
         boxes = self.virtualref_boxes
@@ -2745,12 +2770,12 @@ class MetaInterp(object):
                 max_key = key
         return max_key
 
-    def record_result_of_call_pure(self, resbox):
+    def record_result_of_call_pure(self, op):
         """ Patch a CALL into a CALL_PURE.
         """
-        op = self.history.operations[-1]
-        assert op.getopnum() == rop.CALL
-        resbox_as_const = resbox.constbox()
+        opnum = op.getopnum()
+        assert opnum in [rop.CALL_R, rop.CALL_N, rop.CALL_I, rop.CALL_F]
+        resbox_as_const = executor.constant_from_op(op)
         for i in range(op.numargs()):
             if not isinstance(op.getarg(i), Const):
                 break
@@ -2761,11 +2786,12 @@ class MetaInterp(object):
             return resbox_as_const
         # not all constants (so far): turn CALL into CALL_PURE, which might
         # be either removed later by optimizeopt or turned back into CALL.
-        arg_consts = [a.constbox() for a in op.getarglist()]
+        arg_consts = [executor.constant_from_op(a) for a in op.getarglist()]
         self.call_pure_results[arg_consts] = resbox_as_const
-        newop = op.copy_and_change(rop.CALL_PURE, args=op.getarglist())
+        opnum = OpHelpers.call_pure_for_descr(op.getdescr())
+        newop = op._copy_and_change(opnum, args=op.getarglist())
         self.history.operations[-1] = newop
-        return resbox
+        return newop
 
     def direct_assembler_call(self, targetjitdriver_sd):
         """ Generate a direct call to assembler for portal entry point,

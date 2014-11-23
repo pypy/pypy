@@ -1,6 +1,6 @@
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.jit.metainterp.resoperation import ResOperation, rop, OpHelpers
 from rpython.jit.metainterp.history import TargetToken, JitCellToken
 
 class OptSimplify(Optimization):
@@ -15,9 +15,9 @@ class OptSimplify(Optimization):
         Optimization.emit_operation(self, op)
 
     def optimize_CALL_PURE_I(self, op):
-        args = op.getarglist()
-        self.emit_operation(ResOperation(rop.CALL, args, op.result,
-                                         op.getdescr()))
+        opnum = OpHelpers.call_for_descr(op.getdescr())
+        newop = self.optimizer.replace_op_with(op, opnum)
+        self.emit_operation(newop)
     optimize_CALL_PURE_R = optimize_CALL_PURE_I
     optimize_CALL_PURE_F = optimize_CALL_PURE_I
     optimize_CALL_PURE_N = optimize_CALL_PURE_I

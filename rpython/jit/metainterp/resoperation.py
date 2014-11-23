@@ -1,6 +1,7 @@
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import compute_identity_hash
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.jit.codewriter import longlong
 
 class AbstractValue(object):
     def _get_hash_(self):
@@ -303,6 +304,9 @@ class IntOp(object):
     def copy_value_from(self, other):
         self.setint(other.getint())
 
+    def nonnull(self):
+        return self._resint != 0
+
 class FloatOp(object):
     _mixin_ = True
 
@@ -319,6 +323,9 @@ class FloatOp(object):
     def copy_value_from(self, other):
         self.setfloatstorage(other.getfloatstorage())
 
+    def nonnull(self):
+        return bool(longlong.extract_bits(self._resfloat))
+
 class RefOp(object):
     _mixin_ = True
 
@@ -334,6 +341,9 @@ class RefOp(object):
 
     def copy_value_from(self, other):
         self.setref_base(other.getref_base())
+
+    def nonnull(self):
+        return bool(self._resref)
 
 class AbstractInputArg(AbstractValue):    
     def repr(self, memo):
@@ -880,3 +890,41 @@ class OpHelpers(object):
             return rop.CALL_F
         assert tp == 'v'
         return rop.CALL_N
+
+    @staticmethod
+    def call_pure_for_descr(descr):
+        tp = descr.get_result_type()
+        if tp == 'i':
+            return rop.CALL_PURE_I
+        elif tp == 'r':
+            return rop.CALL_PURE_R
+        elif tp == 'f':
+            return rop.CALL_PURE_F
+        assert tp == 'v'
+        return rop.CALL_PURE_N
+
+    @staticmethod
+    def getfield_pure_for_descr(descr):
+        if descr.is_pointer_field():
+            return rop.GETFIELD_GC_PURE_R
+        elif descr.is_float_field():
+            return rop.GETFIELD_GC_PURE_F
+        return rop.GETFIELD_GC_PURE_I
+
+    @staticmethod
+    def getarrayitem_pure_for_descr(descr):
+        if descr.is_array_of_pointers():
+            return rop.GETARRAYITEM_GC_PURE_R
+        elif descr.is_array_of_floats():
+            return rop.GETARRAYITEM_GC_PURE_F
+        return rop.GETARRAYITEM_GC_PURE_I
+
+    @staticmethod
+    def same_as_for_type(tp):
+        if tp == 'i':
+            return rop.SAME_AS_I
+        elif tp == 'r':
+            return rop.SAME_AS_R
+        else:
+            assert tp == 'f'
+            return rop.SAME_AS_F

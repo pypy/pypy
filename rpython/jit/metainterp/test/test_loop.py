@@ -191,8 +191,8 @@ class LoopTest(object):
                 if op.getopname() == 'guard_true':
                     liveboxes = op.getfailargs()
                     assert len(liveboxes) == 2     # x, y (in some order)
-                    assert isinstance(liveboxes[0], history.BoxInt)
-                    assert isinstance(liveboxes[1], history.BoxInt)
+                    assert liveboxes[0].type == 'i'
+                    assert liveboxes[1].type == 'i'
                     found += 1
             if 'unroll' in self.enable_opts:
                 assert found == 2

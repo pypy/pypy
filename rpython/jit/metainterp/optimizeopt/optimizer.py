@@ -340,20 +340,6 @@ class Optimization(object):
             return self.optimizer.optpure.get_pure_result(key)
         return None
 
-    def getfield_pure_for_descr(self, descr):
-        if descr.is_pointer_field():
-            return rop.GETFIELD_GC_PURE_R
-        elif descr.is_float_field():
-            return rop.GETFIELD_GC_PURE_F
-        return rop.GETFIELD_GC_PURE_I
-
-    def getarrayitem_pure_for_descr(self, descr):
-        if descr.is_array_of_pointers():
-            return rop.GETARRAYITEM_GC_PURE_R
-        elif descr.is_array_of_floats():
-            return rop.GETARRAYITEM_GC_PURE_F
-        return rop.GETARRAYITEM_GC_PURE_I
-
     def setup(self):
         pass
 
@@ -716,7 +702,7 @@ class Optimizer(Optimization):
     # dissabled and unrolling emits some SAME_AS ops to setup the
     # optimizier state. These needs to always be optimized out.
     def optimize_SAME_AS_I(self, op):
-        self.make_equal_to(op.result, self.getvalue(op.getarg(0)))
+        self.make_equal_to(op, self.getvalue(op.getarg(0)))
     optimize_SAME_AS_R = optimize_SAME_AS_I
     optimize_SAME_AS_F = optimize_SAME_AS_I
 

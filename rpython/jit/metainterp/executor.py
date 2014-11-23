@@ -466,6 +466,15 @@ def wrap_constant(value):
     else:
         assert lltype.typeOf(value) == llmemory.GCREF
         return ConstPtr(value)
+
+def constant_from_op(op):
+    if op.type == 'i':
+        return ConstInt(op.getint())
+    elif op.type == 'r':
+        return ConstPtr(op.getref_base())
+    else:
+        assert op.type == 'f'
+        return ConstFloat(op.getfloatstorage())
     
 def execute_nonspec_const(cpu, metainterp, opnum, argboxes, descr=None,
                           type='i'):

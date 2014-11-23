@@ -66,7 +66,8 @@ class LLTypeHelper(TypeSystemHelper):
         return llmemory.cast_ptr_to_adr(fnptr)
 
     def cls_of_box(self, box):
-        obj = box.getref(lltype.Ptr(rclass.OBJECT))
+        PTR = lltype.Ptr(rclass.OBJECT)
+        obj = lltype.cast_opaque_ptr(PTR, box.getref_base())
         cls = llmemory.cast_ptr_to_adr(obj.typeptr)
         return history.ConstInt(heaptracker.adr2int(cls))
 
