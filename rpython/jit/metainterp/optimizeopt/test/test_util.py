@@ -77,7 +77,8 @@ class LLtypeMixin(object):
     type_system = 'lltype'
 
     def get_class_of_box(self, box):
-        return box.getref(rclass.OBJECTPTR).typeptr
+        base = box.getref_base()
+        return lltype.cast_opaque_ptr(rclass.OBJECTPTR, base).typeptr
 
     node_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable.name = rclass.alloc_array_name('node')

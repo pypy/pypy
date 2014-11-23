@@ -298,6 +298,8 @@ class IntOp(object):
     def getint(self):
         return self._resint
 
+    getvalue = getint
+
     def setint(self, intval):
         self._resint = intval
 
@@ -317,6 +319,8 @@ class FloatOp(object):
     def getfloatstorage(self):
         return self._resfloat
 
+    getvalue = getfloatstorage
+
     def setfloatstorage(self, floatval):
         self._resfloat = floatval
 
@@ -335,6 +339,8 @@ class RefOp(object):
 
     def getref_base(self):
         return self._resref
+
+    getvalue = getref_base
 
     def setref_base(self, refval):
         self._resref = refval
@@ -910,6 +916,14 @@ class OpHelpers(object):
         elif descr.is_float_field():
             return rop.GETFIELD_GC_PURE_F
         return rop.GETFIELD_GC_PURE_I
+
+    @staticmethod
+    def getfield_for_descr(descr):
+        if descr.is_pointer_field():
+            return rop.GETFIELD_GC_R
+        elif descr.is_float_field():
+            return rop.GETFIELD_GC_F
+        return rop.GETFIELD_GC_I
 
     @staticmethod
     def getarrayitem_pure_for_descr(descr):

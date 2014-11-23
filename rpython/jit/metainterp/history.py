@@ -240,6 +240,8 @@ class ConstInt(Const):
     def getint(self):
         return self.value
 
+    getvalue = getint
+
     def getaddr(self):
         return heaptracker.int2adr(self.value)
 
@@ -279,6 +281,8 @@ class ConstFloat(Const):
 
     def getfloatstorage(self):
         return self.value
+
+    getvalue = getfloatstorage
 
     def _get_hash_(self):
         return longlong.gethash(self.value)
@@ -321,6 +325,8 @@ class ConstPtr(Const):
 
     def getref_base(self):
         return self.value
+
+    getvalue = getref_base
 
     def getref(self, PTR):
         return lltype.cast_opaque_ptr(PTR, self.getref_base())

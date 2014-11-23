@@ -8,7 +8,8 @@ import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.history import ConstInt, get_const_ptr_for_string
 from rpython.jit.metainterp import executor, compile, resume
-from rpython.jit.metainterp.resoperation import rop, ResOperation, InputArgInt
+from rpython.jit.metainterp.resoperation import rop, ResOperation, InputArgInt,\
+     OpHelpers
 from rpython.rlib.rarithmetic import LONG_BIT
 
 def test_store_final_boxes_in_guard():
@@ -2420,12 +2421,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             pfieldvar = match.group(3)
             pendingfields.append((pvar, pfieldname, pfieldvar))
         #
-        def _variables_equal(box, varname, strict):
+        def _variables_equal(value, varname, strict):
             if varname not in virtuals:
                 if strict:
                     assert box.same_box(oparse.getvar(varname))
                 else:
-                    assert box.value == oparse.getvar(varname).value
+                    assert value == oparse.getvar(varname).getvalue()
             else:
                 tag, resolved, fieldstext = virtuals[varname]
                 if tag[0] == 'virtual':
@@ -2469,8 +2470,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
                 if tag[0] in ('virtual', 'vstruct'):
                     fieldname, fieldvalue = fieldtext.split('=')
                     fielddescr = self.namespace[fieldname.strip()]
-                    fieldbox = executor.execute(self.cpu, None,
-                                                rop.GETFIELD_GC,
+                    opnum = OpHelpers.getfield_for_descr(fielddescr)
+                    fieldval = executor.execute(self.cpu, None, opnum,
                                                 fielddescr,
                                                 resolved)
                 elif tag[0] == 'varray':
@@ -2481,7 +2482,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
                                                 resolved, ConstInt(index))
                 else:
                     assert 0
-                _variables_equal(fieldbox, fieldvalue.strip(), strict=False)
+                _variables_equal(fieldval, fieldvalue.strip(), strict=False)
                 index += 1
 
     def check_expanded_fail_descr(self, expectedtext, guard_opnum):

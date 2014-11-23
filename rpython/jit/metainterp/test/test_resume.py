@@ -11,6 +11,7 @@ from rpython.jit.metainterp.history import ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp import executor
 from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.metainterp.resoperation import ResOperation
 
 class Storage:
     rd_frame_info_list = None
@@ -144,7 +145,6 @@ class MyMetaInterp:
         self.cpu = cpu
         self.trace = []
         self.framestack = []
-        self.resboxes = []
 
     def newframe(self, jitcode):
         frame = FakeFrame(jitcode, -1)
@@ -152,14 +152,11 @@ class MyMetaInterp:
         return frame    
 
     def execute_and_record(self, opnum, descr, *argboxes):
-        resbox = executor.execute(self.cpu, None, opnum, descr, *argboxes)
-        self.trace.append((opnum,
-                           list(argboxes),
-                           resbox,
-                           descr))
-        if resbox is not None:
-            self.resboxes.append(resbox)
-        return resbox
+        resvalue = executor.execute(self.cpu, None, opnum, descr, *argboxes)
+        op = ResOperation(opnum, list(argboxes), descr)
+        op.setvalue(resvalue)
+        self.trace.append(op)
+        return op
 
     def execute_new_with_vtable(self, known_class):
         return self.execute_and_record(rop.NEW_WITH_VTABLE, None,
