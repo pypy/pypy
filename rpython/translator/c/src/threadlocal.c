@@ -27,7 +27,7 @@ static void _RPy_ThreadLocals_Init(void *p)
                   where it is not the case are rather old nowadays. */
 #    endif
 #endif
-    ((struct pypy_threadlocal_s *)p)->ready = 1;
+    ((struct pypy_threadlocal_s *)p)->ready = 42;
 }
 
 
@@ -47,6 +47,7 @@ void RPython_ThreadLocals_ProgramInit(void)
 
 char *_RPython_ThreadLocals_Build(void)
 {
+    RPyAssert(pypy_threadlocal.ready == 0, "corrupted thread-local");
     _RPy_ThreadLocals_Init(&pypy_threadlocal);
     return (char *)&pypy_threadlocal;
 }

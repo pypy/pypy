@@ -2,7 +2,8 @@
 #ifndef _SRC_THREADLOCAL_H
 #define _SRC_THREADLOCAL_H
 
-#include <src/precommondefs.h>
+#include "src/precommondefs.h"
+#include "src/support.h"
 
 
 /* RPython_ThreadLocals_ProgramInit() is called once at program start-up. */
@@ -29,10 +30,20 @@ RPY_EXTERN char *_RPython_ThreadLocals_Build(void);
 /* Use the '__thread' specifier, so far only on Linux */
 
 RPY_EXTERN __thread struct pypy_threadlocal_s pypy_threadlocal;
-#define OP_THREADLOCALREF_ADDR(r)    r = (char *)&pypy_threadlocal
-#define OP_THREADLOCALREF_MAKE(r)                               \
-    (OP_THREADLOCALREF_ADDR(r),                                 \
-     (pypy_threadlocal.ready || (r = _RPython_ThreadLocals_Build())))
+
+#define OP_THREADLOCALREF_ADDR(r)                       \
+    do {                                                \
+        RPyAssert(pypy_threadlocal.ready == 42,         \
+                  "uninitialized thread-local!");       \
+        r = (char *)&pypy_threadlocal;                  \
+    } while (0)
+
+#define OP_THREADLOCALREF_MAKE(r)               \
+    do {                                        \
+        r = (char *)&pypy_threadlocal;          \
+        if (pypy_threadlocal.ready != 42)       \
+            r = _RPython_ThreadLocals_Build();  \
+    } while (0)
 
 
 /* ------------------------------------------------------------ */
