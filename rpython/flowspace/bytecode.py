@@ -139,9 +139,9 @@ class BytecodeReader(object):
         while self.offset < len(code.co_code):
             if self.offset in self.pending_blocks:
                 new_block = self.pending_blocks[self.offset]
-                if not self.blocks[-1].operations:
+                if not self.curr_block.operations:
                     self.blocks.pop()
-                self.blocks.append(new_block)
+                self.enter_next_block(new_block)
             next_offset, instr = self.read(code, self.offset)
             yield instr
             self.offset = next_offset
@@ -176,26 +176,32 @@ class BytecodeReader(object):
             self.pending_blocks[offset] = new_block
             return self.new_block()
 
+    def enter_next_block(self, block):
+        self.curr_block = block
+        self.blocks.append(block)
+
     def build_flow(self, code):
         offsets = []
         self.pending_blocks = {}
         self.blocks = [SimpleBlock([])]
+        self.curr_block = self.blocks[0]
         self.graph = graph = BytecodeGraph(self.blocks[0])
         last_offset = -1
         for instr in self._iter_instr(code):
             offsets.append(instr.offset)
-            block = self.blocks[-1]
+            block = self.curr_block
             graph.pos_index[instr.offset] = block, len(block.operations)
             graph._next_pos[last_offset] = instr.offset
             block.operations.append(instr)
             if instr.has_jump():
                 new_block = self.new_block()
-                self.blocks.append(new_block)
+                self.enter_next_block(new_block)
                 self.get_block_at(instr.arg)
             last_offset = instr.offset
 
         graph._next_pos[offsets[-1]] = len(code.co_code)
         for block in self.blocks:
+            self.curr_block = block
             for i, op in enumerate(block.operations):
                 op.bc_flow(block, graph)
         return graph
