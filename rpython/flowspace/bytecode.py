@@ -139,44 +139,54 @@ class BytecodeReader(object):
         while self.offset < len(code.co_code):
             self.pos_map[self.offset] = i
             if self.offset in self.pending_cuts:
-                self.cuts.append(self.pos_map[self.offset])
+                self.new_block()
             next_offset, instr = self.read(code, self.offset)
             yield instr
             self.offset = next_offset
             i += 1
 
-    def _add_jump(self, i, target):
-        self.cuts.append(i + 1)
+    def find_position(self, offset):
+        for i, block in enumerate(self.blocks):
+            if block.startpos <= offset:
+                n = i
+            else:
+                break
+        for i, instr in enumerate(self.blocks[n]):
+            if instr.offset == offset:
+                return n, i
+
+    def new_block(self):
+        if self.blocks[-1].operations:
+            new_block = SimpleBlock([])
+            self.blocks.append(new_block)
+
+    def _add_jump(self, target):
         if target <= self.offset:
-            j = self.pos_map[target]
-            self.cuts.append(j)
+            i_block, i_instr = self.find_position(target)
+            self.blocks[i_block:i_block + 1] = self.blocks[i_block].split_at(i_instr)
         else:
             self.pending_cuts.add(target)
 
     def build_flow(self, code):
-        contents = []
         offsets = []
         self.pending_cuts = set()
         self.pos_map = {}
-        self.cuts = []
+        self.blocks = [SimpleBlock([])]
         for instr in self._iter_instr(code):
             offsets.append(self.offset)
-            contents.append(instr)
+            self.blocks[-1].operations.append(instr)
             if instr.has_jump():
-                self._add_jump(self.pos_map[self.offset], instr.arg)
-        self.cuts.sort()
-        pendingblocks = [SimpleBlock(contents[i:j])
-                for i, j in zip([0] + self.cuts, self.cuts + [len(code.co_code)])]
+                self.new_block()
+                self._add_jump(instr.arg)
 
-        graph = BytecodeGraph(pendingblocks[0])
-        for block in pendingblocks:
+        graph = BytecodeGraph(self.blocks[0])
+        for block in self.blocks:
             for i, op in enumerate(block.operations):
                 graph.pos_index[op.offset] = block, i
-        graph._next_pos = dict([(offsets[i], offsets[i+1])
+        graph._next_pos = dict([(offsets[i], offsets[i + 1])
             for i in range(len(offsets) - 1)])
         graph._next_pos[offsets[-1]] = len(code.co_code)
-        while pendingblocks:
-            block = pendingblocks.pop()
+        for block in self.blocks:
             for i, op in enumerate(block.operations):
                 op.bc_flow(block, graph)
         return graph
@@ -234,6 +244,16 @@ class BytecodeBlock(object):
     @property
     def startpos(self):
         return self.operations[0].offset
+
+    def split_at(self, i):
+        if i == 0 or i == len(self.operations):
+            return [self]
+        assert 0 < i < len(self.operations)
+        tail = self.operations[i:]
+        assert tail
+        del self.operations[i:]
+        new_block = SimpleBlock(tail)
+        return [self, new_block]
 
 
 class EntryBlock(BytecodeBlock):
