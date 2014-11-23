@@ -18,7 +18,7 @@ from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
 from rpython.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
                                        JITFRAME_FIXED_SIZE, IS_X86_32,
-                                       PASS_ON_MY_FRAME)
+                                       PASS_ON_MY_FRAME, THREADLOCAL_OFS)
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
@@ -730,6 +730,7 @@ class Assembler386(BaseAssembler):
         self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.MOV_sr(PASS_ON_MY_FRAME * WORD, ebp.value)
         if IS_X86_64:
+            self.mc.MOV_sr(THREADLOCAL_OFS, esi.value)
             self.mc.MOV_rr(ebp.value, edi.value)
         else:
             self.mc.MOV_rs(ebp.value, (FRAME_FIXED_SIZE + 1) * WORD)
@@ -1955,7 +1956,8 @@ class Assembler386(BaseAssembler):
         self._emit_guard_not_forced(guard_token)
 
     def _call_assembler_emit_call(self, addr, argloc, _):
-        self.simple_call(addr, [argloc])
+        threadlocal_loc = RawEspLoc(THREADLOCAL_OFS, INT)
+        self.simple_call(addr, [argloc, threadlocal_loc])
 
     def _call_assembler_emit_helper_call(self, addr, arglocs, result_loc):
         self.simple_call(addr, arglocs, result_loc)
@@ -2321,8 +2323,13 @@ class Assembler386(BaseAssembler):
         self.mc.MOV_rr(reg.value, ebp.value)
 
     def threadlocalref_addr(self, resloc):
+        # This simply loads the stack location THREADLOCAL_OFS into a
+        # register.  It is only supported if 'translate_support_code' is
+        # true; otherwise, the original call to the piece of assembler
+        # was done with a dummy NULL value.
+        assert self.cpu.translate_support_code
         assert isinstance(resloc, RegLoc)
-        XXX
+        self.mc.MOV_rs(resloc.value, THREADLOCAL_OFS)
 
     def get_set_errno(self, op, loc, issue_a_write):
         # this function is only called on Linux

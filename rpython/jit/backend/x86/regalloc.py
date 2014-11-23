@@ -694,8 +694,11 @@ class RegAlloc(BaseRegalloc):
         self.perform_math(op, [loc0], loc0)
 
     def _consider_threadlocalref_addr(self, op):
-        resloc = self.force_allocate_reg(op.result)
-        self.assembler.threadlocalref_addr(resloc)
+        if self.translate_support_code:
+            resloc = self.force_allocate_reg(op.result)
+            self.assembler.threadlocalref_addr(resloc)
+        else:
+            self._consider_call(op)
 
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
         # we need to save registers on the stack:
@@ -774,8 +777,8 @@ class RegAlloc(BaseRegalloc):
                         return
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
                 return self._consider_math_sqrt(op)
-            #if oopspecindex == EffectInfo.OS_THREADLOCALREF_ADDR:
-            #    return self._consider_threadlocalref_addr(op)
+            if oopspecindex == EffectInfo.OS_THREADLOCALREF_ADDR:
+                return self._consider_threadlocalref_addr(op)
             if oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
                 return self._consider_math_read_timestamp(op)
         self._consider_call(op)
