@@ -176,17 +176,18 @@ class BytecodeReader(object):
         self.pending_cuts = set()
         self.blocks = [SimpleBlock([])]
         self.graph = graph = BytecodeGraph(self.blocks[0])
+        last_offset = -1
         for instr in self._iter_instr(code):
-            offsets.append(self.offset)
+            offsets.append(instr.offset)
             block = self.blocks[-1]
-            graph.pos_index[self.offset] = block, len(block.operations)
+            graph.pos_index[instr.offset] = block, len(block.operations)
+            graph._next_pos[last_offset] = instr.offset
             block.operations.append(instr)
             if instr.has_jump():
                 self.new_block()
                 self._add_jump(instr.arg)
+            last_offset = instr.offset
 
-        graph._next_pos = dict([(offsets[i], offsets[i + 1])
-            for i in range(len(offsets) - 1)])
         graph._next_pos[offsets[-1]] = len(code.co_code)
         for block in self.blocks:
             for i, op in enumerate(block.operations):
@@ -203,6 +204,7 @@ class BytecodeGraph(object):
         self.entry = EntryBlock()
         self.entry.set_exits([startblock])
         self.pos_index = {}
+        self._next_pos = {}
 
     def read(self, pos):
         bc_block, i = self.pos_index[pos]
