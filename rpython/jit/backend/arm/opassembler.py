@@ -19,7 +19,7 @@ from rpython.jit.backend.arm.helper.regalloc import VMEM_imm_size
 from rpython.jit.backend.arm.codebuilder import InstrBuilder, OverwritingBuilder
 from rpython.jit.backend.arm.jump import remap_frame_layout
 from rpython.jit.backend.arm.regalloc import TempBox
-from rpython.jit.backend.arm.locations import imm
+from rpython.jit.backend.arm.locations import imm, RawSPStackLocation
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.descr import InteriorFieldDescr
@@ -971,7 +971,9 @@ class ResOpAssembler(BaseAssembler):
         return fcond
 
     def _call_assembler_emit_call(self, addr, argloc, resloc):
-        self.simple_call(addr, [argloc], result_loc=resloc)
+        ofs = self.saved_threadlocal_addr
+        threadlocal_loc = RawSPStackLocation(ofs, INT)
+        self.simple_call(addr, [argloc, threadlocal_loc], result_loc=resloc)
 
     def _call_assembler_emit_helper_call(self, addr, arglocs, resloc):
         self.simple_call(addr, arglocs, result_loc=resloc)
@@ -1097,7 +1099,7 @@ class ResOpAssembler(BaseAssembler):
 
     emit_op_float_neg = gen_emit_unary_float_op('float_neg', 'VNEG')
     emit_op_float_abs = gen_emit_unary_float_op('float_abs', 'VABS')
-    emit_op_math_sqrt = gen_emit_unary_float_op('math_sqrt', 'VSQRT')
+    emit_opx_math_sqrt = gen_emit_unary_float_op('math_sqrt', 'VSQRT')
 
     emit_op_float_lt = gen_emit_float_cmp_op('float_lt', c.VFP_LT)
     emit_op_float_le = gen_emit_float_cmp_op('float_le', c.VFP_LE)
@@ -1131,13 +1133,13 @@ class ResOpAssembler(BaseAssembler):
 
     # the following five instructions are only ARMv7;
     # regalloc.py won't call them at all on ARMv6
-    emit_op_llong_add = gen_emit_float_op('llong_add', 'VADD_i64')
-    emit_op_llong_sub = gen_emit_float_op('llong_sub', 'VSUB_i64')
-    emit_op_llong_and = gen_emit_float_op('llong_and', 'VAND_i64')
-    emit_op_llong_or = gen_emit_float_op('llong_or', 'VORR_i64')
-    emit_op_llong_xor = gen_emit_float_op('llong_xor', 'VEOR_i64')
+    emit_opx_llong_add = gen_emit_float_op('llong_add', 'VADD_i64')
+    emit_opx_llong_sub = gen_emit_float_op('llong_sub', 'VSUB_i64')
+    emit_opx_llong_and = gen_emit_float_op('llong_and', 'VAND_i64')
+    emit_opx_llong_or = gen_emit_float_op('llong_or', 'VORR_i64')
+    emit_opx_llong_xor = gen_emit_float_op('llong_xor', 'VEOR_i64')
 
-    def emit_op_llong_to_int(self, op, arglocs, regalloc, fcond):
+    def emit_opx_llong_to_int(self, op, arglocs, regalloc, fcond):
         loc = arglocs[0]
         res = arglocs[1]
         assert loc.is_vfp_reg()
@@ -1270,4 +1272,10 @@ class ResOpAssembler(BaseAssembler):
                                         [dstaddr_loc, imm(0), length_loc])
             regalloc.rm.possibly_free_var(length_box)
         regalloc.rm.possibly_free_var(dstaddr_box)
+        return fcond
+
+    def emit_opx_threadlocalref_addr(self, op, arglocs, regalloc, fcond):
+        res, = arglocs
+        ofs = self.saved_threadlocal_addr
+        self.load_reg(self.mc, res, r.sp, ofs)
         return fcond
