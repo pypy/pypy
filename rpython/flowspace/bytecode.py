@@ -137,8 +137,11 @@ class BytecodeReader(object):
         self.offset = 0
         i = 0
         while self.offset < len(code.co_code):
-            if self.offset in self.pending_cuts:
-                self.new_block()
+            if self.offset in self.pending_blocks:
+                new_block = self.pending_blocks[self.offset]
+                if not self.blocks[-1].operations:
+                    self.blocks.pop()
+                self.blocks.append(new_block)
             next_offset, instr = self.read(code, self.offset)
             yield instr
             self.offset = next_offset
@@ -155,25 +158,27 @@ class BytecodeReader(object):
                 return n, i
 
     def new_block(self):
-        if self.blocks[-1].operations:
-            new_block = SimpleBlock([])
-            self.blocks.append(new_block)
+        return SimpleBlock([])
 
-    def _add_jump(self, target):
-        if target <= self.offset:
-            i_block, i_instr = self.find_position(target)
+    def get_block_at(self, offset):
+        """Get or create the block starting at ``offset``"""
+        if offset <= self.offset:
+            i_block, i_instr = self.find_position(offset)
             split = self.blocks[i_block].split_at(i_instr)
             if len(split) == 2:
                 new_block = split[1]
                 for i, instr in enumerate(new_block.operations):
                     self.graph.pos_index[instr.offset] = new_block, i
             self.blocks[i_block:i_block + 1] = split
+            return split[-1]
         else:
-            self.pending_cuts.add(target)
+            new_block = self.new_block()
+            self.pending_blocks[offset] = new_block
+            return self.new_block()
 
     def build_flow(self, code):
         offsets = []
-        self.pending_cuts = set()
+        self.pending_blocks = {}
         self.blocks = [SimpleBlock([])]
         self.graph = graph = BytecodeGraph(self.blocks[0])
         last_offset = -1
@@ -184,8 +189,9 @@ class BytecodeReader(object):
             graph._next_pos[last_offset] = instr.offset
             block.operations.append(instr)
             if instr.has_jump():
-                self.new_block()
-                self._add_jump(instr.arg)
+                new_block = self.new_block()
+                self.blocks.append(new_block)
+                self.get_block_at(instr.arg)
             last_offset = instr.offset
 
         graph._next_pos[offsets[-1]] = len(code.co_code)
