@@ -131,7 +131,6 @@ class PyFrame(W_Root):
         # class bodies only have CO_NEWLOCALS.
         # CO_NEWLOCALS: make a locals dict unless optimized is also set
         # CO_OPTIMIZED: no locals dict needed at all
-        # NB: this method is overridden in nestedscope.py
         flags = code.co_flags
         if not (flags & pycode.CO_OPTIMIZED):
             if flags & pycode.CO_NEWLOCALS:
