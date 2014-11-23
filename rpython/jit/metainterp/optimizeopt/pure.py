@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop, ResOperation, OpHelpers
 from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
     args_dict)
 
@@ -82,7 +82,7 @@ class OptPure(Optimization):
 
         # replace CALL_PURE with just CALL
         args = op.getarglist()
-        opnum = self.optimizer.call_for_descr(op.getdescr())
+        opnum = OpHelpers.call_for_descr(op.getdescr())
         newop = ResOperation(opnum, args, op.getdescr())
         self.getvalue(op).box = newop
         self.emit_operation(newop)

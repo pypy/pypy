@@ -101,32 +101,23 @@ class QuasiImmut(object):
 
 
 class QuasiImmutDescr(AbstractDescr):
-    structbox = None
-
-    def __init__(self, cpu, structbox, fielddescr, mutatefielddescr):
+    def __init__(self, cpu, struct, fielddescr, mutatefielddescr):
         self.cpu = cpu
-        self.structbox = structbox
+        self.struct = struct
         self.fielddescr = fielddescr
         self.mutatefielddescr = mutatefielddescr
-        gcref = structbox.getref_base()
-        self.qmut = get_current_qmut_instance(cpu, gcref, mutatefielddescr)
+        self.qmut = get_current_qmut_instance(cpu, struct, mutatefielddescr)
         self.constantfieldbox = self.get_current_constant_fieldvalue()
 
     def get_current_constant_fieldvalue(self):
-        from rpython.jit.metainterp import executor
-        from rpython.jit.metainterp.resoperation import rop
+        struct = self.struct
+        fielddescr = self.fielddescr
         if self.fielddescr.is_pointer_field():
-            return ConstPtr(executor.do_getfield_gc_r(self.cpu, None, rop.GETFIELD_GC_R,
-                                             self.fielddescr, self.structbox))
+            return ConstPtr(self.cpu.bh_getfield_gc_r(struct, fielddescr))
         elif self.fielddescr.is_float_field():
-            return ConstFloat(executor.execute(self.cpu, None,
-                                               rop.GETFIELD_GC_F,
-                                               self.fielddescr, self.structbox))
-            
+            return ConstFloat(self.cpu.bh_getfield_gc_f(struct, fielddescr))
         else:
-            return ConstInt(executor.do_getfield_gc_i(self.cpu, None,
-                                                      self.structbox,
-                                                      self.fielddescr))
+            return ConstInt(self.cpu.bh_getfield_gc_i(struct, fielddescr))
 
     def is_still_valid_for(self, structconst):
         assert self.structbox is not None

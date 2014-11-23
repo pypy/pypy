@@ -7,7 +7,7 @@ from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop, ResOperation, OpHelpers
 from rpython.rlib.objectmodel import we_are_translated
 
 
@@ -462,7 +462,7 @@ class OptHeap(Optimization):
     optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_PURE_I
 
     def optimize_SETFIELD_GC(self, op):
-        opnum = self.optimizer.getfield_pure_for_descr(op.getdescr())
+        opnum = OpHelpers.getfield_pure_for_descr(op.getdescr())
         if self.has_pure_result(opnum, [op.getarg(0)],
                                 op.getdescr()):
             os.write(2, '[bogus _immutable_field_ declaration: %s]\n' %
@@ -520,7 +520,7 @@ class OptHeap(Optimization):
     optimize_GETARRAYITEM_GC_PURE_F = optimize_GETARRAYITEM_GC_PURE_I
 
     def optimize_SETARRAYITEM_GC(self, op):
-        opnum = self.optimizer.getarrayitem_pure_for_descr(op.getdescr())
+        opnum = OpHelpers.getarrayitem_pure_for_descr(op.getdescr())
         if self.has_pure_result(opnum, [op.getarg(0), op.getarg(1)],
                                 op.getdescr()):
             os.write(2, '[bogus immutable array declaration: %s]\n' %

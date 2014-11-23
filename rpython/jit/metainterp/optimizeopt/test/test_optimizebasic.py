@@ -6,16 +6,16 @@ from rpython.jit.metainterp.history import TargetToken, JitCellToken
 import rpython.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.history import ConstInt, BoxInt, get_const_ptr_for_string
+from rpython.jit.metainterp.history import ConstInt, get_const_ptr_for_string
 from rpython.jit.metainterp import executor, compile, resume
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop, ResOperation, InputArgInt
 from rpython.rlib.rarithmetic import LONG_BIT
 
 def test_store_final_boxes_in_guard():
     from rpython.jit.metainterp.compile import ResumeGuardDescr
     from rpython.jit.metainterp.resume import tag, TAGBOX
-    b0 = BoxInt()
-    b1 = BoxInt()
+    b0 = InputArgInt()
+    b1 = InputArgInt()
     opt = optimizeopt.Optimizer(FakeMetaInterpStaticData(LLtypeMixin.cpu),
                                 None)
     fdescr = ResumeGuardDescr()

@@ -6,20 +6,18 @@ from rpython.rtyper.rclass import (
     OBJECT, OBJECT_VTABLE, FieldListAccessor, IR_QUASIIMMUTABLE)
 
 from rpython.jit.backend.llgraph import runner
-from rpython.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
-                                         Const, TreeLoop, AbstractDescr,
-                                         JitCellToken, TargetToken)
+from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr,
+                                            JitCellToken, TargetToken)
 from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
-from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.codewriter.heaptracker import register_known_gctype, adr2int
+from rpython.jit.codewriter.heaptracker import register_known_gctype
 from rpython.jit.tool.oparser import parse, pure_parse
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
 from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.config.translationoption import get_combined_translation_config
-from rpython.jit.metainterp.resoperation import rop, opname, ResOperation
+from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.optimizeopt.unroll import Inliner
 
 def test_sort_descrs():
@@ -101,11 +99,10 @@ class LLtypeMixin(object):
     node.parent.typeptr = node_vtable
     node2 = lltype.malloc(NODE2)
     node2.parent.parent.typeptr = node_vtable2
-    nodebox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node))
-    myptr = nodebox.value
+    myptr = lltype.cast_opaque_ptr(llmemory.GCREF, node)
     myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(NODE))
     nullptr = lltype.nullptr(llmemory.GCREF.TO)
-    nodebox2 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
+    #nodebox2 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
     nodesize = cpu.sizeof(NODE)
     nodesize2 = cpu.sizeof(NODE2)
     valuedescr = cpu.fielddescrof(NODE, 'value')
@@ -123,10 +120,8 @@ class LLtypeMixin(object):
     quasi = lltype.malloc(QUASI, immortal=True)
     quasi.inst_field = -4247
     quasifielddescr = cpu.fielddescrof(QUASI, 'inst_field')
-    quasibox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, quasi))
-    quasiptr = quasibox.value
-    quasiimmutdescr = QuasiImmutDescr(cpu, quasibox,
-                                      quasifielddescr,
+    quasiptr = lltype.cast_opaque_ptr(llmemory.GCREF, quasi)
+    quasiimmutdescr = QuasiImmutDescr(cpu, quasiptr, quasifielddescr,
                                       cpu.fielddescrof(QUASI, 'mutate_field'))
 
     NODEOBJ = lltype.GcStruct('NODEOBJ', ('parent', OBJECT),
@@ -159,7 +154,7 @@ class LLtypeMixin(object):
     ssize = cpu.sizeof(S)
     adescr = cpu.fielddescrof(S, 'a')
     bdescr = cpu.fielddescrof(S, 'b')
-    sbox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(S)))
+    #sbox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(S)))
     arraydescr2 = cpu.arraydescrof(lltype.GcArray(lltype.Ptr(S)))
 
     T = lltype.GcStruct('TUPLE',

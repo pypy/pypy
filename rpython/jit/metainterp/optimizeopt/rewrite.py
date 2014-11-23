@@ -8,7 +8,8 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, REMOVED,
     CONST_0, CONST_1)
 from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
-from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses
+from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses,\
+     OpHelpers
 from rpython.rlib.rarithmetic import highest_bit
 import math
 
@@ -404,7 +405,7 @@ class OptRewrite(Optimization):
         # change the op to be a normal call, from the backend's point of view
         # there is no reason to have a separate operation for this
         self.loop_invariant_producer[key] = op
-        opnum = self.optimizer.call_for_descr(op.getdescr())
+        opnum = OpHelpers.call_for_descr(op.getdescr())
         newop = self.optimizer.replace_op_with(op, opnum)
         self.emit_operation(newop)
         resvalue = self.getvalue(op)

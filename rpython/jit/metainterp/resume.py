@@ -1142,9 +1142,9 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
                 box = self.consts[num]
         elif tag == TAGVIRTUAL:
             if kind == INT:
-                box = self.getvirtual_int(num)
+                box = InputArgInt(self.getvirtual_int(num))
             else:
-                box = self.getvirtual_ptr(num)
+                box = InputArgRef(self.getvirtual_ptr(num))
         elif tag == TAGINT:
             box = ConstInt(num)
         else:

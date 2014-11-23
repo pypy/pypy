@@ -466,21 +466,24 @@ class MIFrame(object):
                                             indexbox, arraydescr)
 
     @arguments("box", "box", "descr")
-    def _opimpl_getarrayitem_raw_any(self, arraybox, indexbox, arraydescr):
-        return self.execute_with_descr(rop.GETARRAYITEM_RAW,
+    def opimpl_getarrayitem_raw_i(self, arraybox, indexbox, arraydescr):
+        return self.execute_with_descr(rop.GETARRAYITEM_RAW_I,
                                        arraydescr, arraybox, indexbox)
-
-    opimpl_getarrayitem_raw_i = _opimpl_getarrayitem_raw_any
-    opimpl_getarrayitem_raw_f = _opimpl_getarrayitem_raw_any
 
     @arguments("box", "box", "descr")
-    def _opimpl_getarrayitem_raw_pure_any(self, arraybox, indexbox,
-                                          arraydescr):
-        return self.execute_with_descr(rop.GETARRAYITEM_RAW_PURE,
+    def opimpl_getarrayitem_raw_f(self, arraybox, indexbox, arraydescr):
+        return self.execute_with_descr(rop.GETARRAYITEM_RAW_F,
                                        arraydescr, arraybox, indexbox)
 
-    opimpl_getarrayitem_raw_i_pure = _opimpl_getarrayitem_raw_pure_any
-    opimpl_getarrayitem_raw_f_pure = _opimpl_getarrayitem_raw_pure_any
+    @arguments("box", "box", "descr")
+    def opimpl_getarrayitem_raw_pure_i(self, arraybox, indexbox, arraydescr):
+        return self.execute_with_descr(rop.GETARRAYITEM_RAW_PURE_I,
+                                       arraydescr, arraybox, indexbox)
+
+    @arguments("box", "box", "descr")
+    def opimpl_getarrayitem_raw_pure_f(self, arraybox, indexbox, arraydescr):
+        return self.execute_with_descr(rop.GETARRAYITEM_RAW_PURE_F,
+                                       arraydescr, arraybox, indexbox)
 
     @arguments("box", "box", "descr")
     def opimpl_getarrayitem_gc_i_pure(self, arraybox, indexbox, arraydescr):
