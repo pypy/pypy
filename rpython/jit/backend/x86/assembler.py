@@ -1832,15 +1832,17 @@ class Assembler386(BaseAssembler):
             offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
             mc.MOV_br(offset, ebx.value)
 
-        # now we return from the complete frame, which starts from
-        # _call_header_with_stack_check().  The LEA in _call_footer below
-        # throws away most of the frame, including all the PUSHes that we
-        # did just above.
+        # fill in the jf_descr and jf_gcmap fields of the frame according
+        # to which failure we are resuming from.  These are constants
+        # pushed on the stack just before we jump to the current helper,
+        # in generate_quick_failure().
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.POP_b(ofs2)
         mc.POP_b(ofs)
 
+        # now we return from the complete frame, which starts from
+        # _call_header_with_stack_check().  The _call_footer below does it.
         self._call_footer()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
