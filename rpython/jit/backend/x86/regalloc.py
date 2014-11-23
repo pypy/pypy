@@ -693,31 +693,9 @@ class RegAlloc(BaseRegalloc):
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(1))
         self.perform_math(op, [loc0], loc0)
 
-    TLREF_SUPPORT = sys.platform.startswith('linux')
-    ERRNO_SUPPORT = sys.platform.startswith('linux')
-
-    def _consider_threadlocalref_get(self, op):
-        if self.TLREF_SUPPORT:
-            resloc = self.force_allocate_reg(op.result)
-            self.assembler.threadlocalref_get(op, resloc)
-        else:
-            self._consider_call(op)
-
-    def _consider_get_errno(self, op):
-        if self.ERRNO_SUPPORT:
-            resloc = self.force_allocate_reg(op.result)
-            self.assembler.get_set_errno(op, resloc, issue_a_write=False)
-        else:
-            self._consider_call(op)
-
-    def _consider_set_errno(self, op):
-        if self.ERRNO_SUPPORT:
-            # op.getarg(0) is the function set_errno; op.getarg(1) is
-            # the new errno value
-            loc0 = self.rm.make_sure_var_in_reg(op.getarg(1))
-            self.assembler.get_set_errno(op, loc0, issue_a_write=True)
-        else:
-            self._consider_call(op)
+    def _consider_threadlocalref_addr(self, op):
+        resloc = self.force_allocate_reg(op.result)
+        self.assembler.threadlocalref_addr(resloc)
 
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
         # we need to save registers on the stack:
@@ -796,12 +774,8 @@ class RegAlloc(BaseRegalloc):
                         return
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
                 return self._consider_math_sqrt(op)
-            if oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
-                return self._consider_threadlocalref_get(op)
-            if oopspecindex == EffectInfo.OS_GET_ERRNO:
-                return self._consider_get_errno(op)
-            if oopspecindex == EffectInfo.OS_SET_ERRNO:
-                return self._consider_set_errno(op)
+            #if oopspecindex == EffectInfo.OS_THREADLOCALREF_ADDR:
+            #    return self._consider_threadlocalref_addr(op)
             if oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
                 return self._consider_math_read_timestamp(op)
         self._consider_call(op)

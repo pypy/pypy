@@ -2320,24 +2320,9 @@ class Assembler386(BaseAssembler):
         assert isinstance(reg, RegLoc)
         self.mc.MOV_rr(reg.value, ebp.value)
 
-    def threadlocalref_get(self, op, resloc):
-        # this function is only called on Linux
-        from rpython.jit.codewriter.jitcode import ThreadLocalRefDescr
-        from rpython.jit.backend.x86 import stmtlocal
+    def threadlocalref_addr(self, resloc):
         assert isinstance(resloc, RegLoc)
-        effectinfo = op.getdescr().get_extra_info()
-        assert effectinfo.extradescrs is not None
-        ed = effectinfo.extradescrs[0]
-        assert isinstance(ed, ThreadLocalRefDescr)
-        addr1 = rffi.cast(lltype.Signed, ed.get_tlref_addr())
-        # 'addr1' is the address is the current thread, but we assume that
-        # it is a thread-local at a constant offset from %fs/%gs.
-        addr0 = stmtlocal.threadlocal_base()
-        addr = addr1 - addr0
-        assert rx86.fits_in_32bits(addr)
-        mc = self.mc
-        mc.writechar(stmtlocal.SEGMENT_TL)     # prefix: %fs or %gs
-        mc.MOV_rj(resloc.value, addr)          # memory read
+        XXX
 
     def get_set_errno(self, op, loc, issue_a_write):
         # this function is only called on Linux

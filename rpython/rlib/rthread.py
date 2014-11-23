@@ -284,17 +284,17 @@ class ThreadLocalField(object):
 
         def getraw():
             _threadlocalref_seeme(self)
-            addr = llop.threadlocalref_addr(rffi.CCHARP)
+            addr = llop.threadlocalref_addr(llmemory.Address)
             return llop.raw_load(FIELDTYPE, addr, offset)
 
         def get_or_make_raw():
             _threadlocalref_seeme(self)
-            addr = llop.threadlocalref_make(rffi.CCHARP)
+            addr = llop.threadlocalref_make(llmemory.Address)
             return llop.raw_load(FIELDTYPE, addr, offset)
 
         def setraw(value):
             _threadlocalref_seeme(self)
-            addr = llop.threadlocalref_addr(rffi.CCHARP)
+            addr = llop.threadlocalref_addr(llmemory.Address)
             llop.raw_store(lltype.Void, addr, offset, value)
 
         self.getraw = getraw
@@ -315,14 +315,16 @@ class ThreadLocalReference(ThreadLocalField):
         self.local = thread._local()      # <- NOT_RPYTHON
         unique_id = ThreadLocalReference._COUNT
         ThreadLocalReference._COUNT += 1
-        ThreadLocalField.__init__(self, llmemory.GCREF, 'tlref%d' % unique_id)
+        ThreadLocalField.__init__(self, lltype.Signed, 'tlref%d' % unique_id)
         getraw = self.getraw
         setraw = self.setraw
 
         def get():
             if we_are_translated():
                 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
-                return cast_gcref_to_instance(Cls, getraw())
+                value = getraw()
+                value = lltype.cast_int_to_ptr(llmemory.GCREF, value)
+                return cast_gcref_to_instance(Cls, value)
             else:
                 return getattr(self.local, 'value', None)
 
@@ -337,7 +339,8 @@ class ThreadLocalReference(ThreadLocalField):
                 if not running_on_llinterp:
                     if gcref:
                         _make_sure_does_not_move(gcref)
-                setraw(gcref)
+                value = lltype.cast_ptr_to_int(gcref)
+                setraw(value)
             else:
                 self.local.value = value
 

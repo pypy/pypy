@@ -919,8 +919,16 @@ class LLFrame(object):
     def op_stack_current(self):
         return 0
 
-    def op_threadlocalref_addr(self, key, value):
+    def op_threadlocalref_addr(self):
         raise NotImplementedError("threadlocalref_addr")
+        ## class FakeThreadLocalAddr(object):
+        ##     is_fake_thread_local_addr = True
+        ##     _TYPE = llmemory.Address
+        ##     def _cast_to_int(self, symbolic=None):
+        ##         return FakeThreadLocalAddrAsInt()
+        ## class FakeThreadLocalAddrAsInt(object):
+        ##     _TYPE = lltype.Signed
+        ## return FakeThreadLocalAddr()
 
     # __________________________________________________________
     # operations on addresses
@@ -967,6 +975,9 @@ class LLFrame(object):
             ll_p = rffi.cast(rffi.CArrayPtr(RESTYPE),
                              rffi.ptradd(ll_p, offset))
             value = ll_p[0]
+        ## elif getattr(addr, 'is_fake_thread_local_addr', False):
+        ##     assert type(offset) is CDefinedIntSymbolic
+        ##     value = self.llinterpreter.tlobj[offset.expr]
         else:
             assert offset.TYPE == RESTYPE
             value = getattr(addr, str(RESTYPE).lower())[offset.repeat]
@@ -987,6 +998,9 @@ class LLFrame(object):
             ll_p = rffi.cast(rffi.CArrayPtr(ARGTYPE),
                              rffi.ptradd(ll_p, offset))
             ll_p[0] = value
+        ## elif getattr(addr, 'is_fake_thread_local_addr', False):
+        ##     assert type(offset) is CDefinedIntSymbolic
+        ##     self.llinterpreter.tlobj[offset.expr] = value
         else:
             assert offset.TYPE == ARGTYPE
             getattr(addr, str(ARGTYPE).lower())[offset.repeat] = value
