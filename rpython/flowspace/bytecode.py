@@ -192,6 +192,7 @@ class BytecodeReader(object):
 
     def enter_next_block(self, block):
         if not self.curr_block._exits:
+            assert block is not self.curr_block
             self.curr_block.set_exits([block])
         self.curr_block = block
         self.blocks.append(block)
@@ -238,8 +239,15 @@ class BytecodeGraph(object):
         bc_block, i = self.pos_index[pos]
         return bc_block[i]
 
-    def next_pos(self, opcode):
-        return self._next_pos[opcode.offset]
+    def next_pos(self, instr):
+        block, i = self.pos_index[instr.offset]
+        i = i + 1
+        if i >= len(block.operations):
+            assert len(block._exits) == 1
+            assert block._exits[0] is not block
+            return block._exits[0].startpos
+        else:
+            return block.operations[i].offset
 
     def add_jump(self, block, target_block, target_offset):
         last_op = block.operations[-1]
@@ -323,8 +331,7 @@ class BCInstruction(object):
     def bc_flow(self, reader):
         reader.curr_block.operations.append(self)
         if self.has_jump():
-            new_block = reader.get_next_block()
-            reader.enter_next_block(new_block)
+            reader.end_block()
             reader.get_block_at(self.arg)
 
     def has_jump(self):
@@ -386,7 +393,6 @@ def POP_JUMP_IF_FALSE(self, reader):
     block = reader.curr_block
     block.operations[-1] = SWITCH_BOOL(on_False, on_True, offset=self.offset)
     block.set_exits([on_False, on_True])
-    reader.enter_next_block(on_True)
 
 @flow_opcode
 def POP_JUMP_IF_TRUE(self, reader):
@@ -396,7 +402,6 @@ def POP_JUMP_IF_TRUE(self, reader):
     block = reader.curr_block
     block.operations[-1] = SWITCH_BOOL(on_False, on_True, offset=self.offset)
     block.set_exits([on_False, on_True])
-    reader.enter_next_block(on_False)
 
 @bc_reader.register_opcode
 class JUMP_IF_FALSE_OR_POP(BCInstruction):
@@ -406,7 +411,6 @@ class JUMP_IF_FALSE_OR_POP(BCInstruction):
         self.on_True = reader.get_next_block()
         self.on_False = reader.get_block_at(self.arg)
         block.set_exits([self.on_False, self.on_True])
-        reader.enter_next_block(self.on_True)
 
     def eval(self, ctx):
         w_value = ctx.peekvalue()
@@ -423,7 +427,6 @@ class JUMP_IF_TRUE_OR_POP(BCInstruction):
         self.on_True = reader.get_block_at(self.arg)
         self.on_False = reader.get_next_block()
         block.set_exits([self.on_False, self.on_True])
-        reader.enter_next_block(self.on_False)
 
     def eval(self, ctx):
         w_value = ctx.peekvalue()
