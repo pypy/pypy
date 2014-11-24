@@ -194,19 +194,17 @@ class BytecodeReader(object):
         self.needs_new_block = True
 
     def build_flow(self, code):
-        offsets = []
         self.pending_blocks = {}
         self.blocks = [SimpleBlock([])]
         self.curr_block = self.blocks[0]
         self.needs_new_block = False
         self.graph = graph = BytecodeGraph(self.blocks[0])
         for instr in self._iter_instr(code):
-            offsets.append(instr.offset)
             block = self.curr_block
             graph.pos_index[instr.offset] = block, len(block.operations)
             instr.bc_flow(self)
 
-        graph._next_pos[offsets[-1]] = len(code.co_code)
+        graph._next_pos[instr.offset] = len(code.co_code)
         for b in self.blocks:
             for x in b._exits:
                 assert x in self.blocks
