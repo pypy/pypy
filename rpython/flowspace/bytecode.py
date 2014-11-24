@@ -358,6 +358,15 @@ def POP_JUMP_IF_FALSE(self, reader):
     block.operations[-1] = SWITCH_BOOL(on_False, on_True, offset=self.offset)
     block.set_exits([on_False, on_True])
 
+def prepare(self, reader):
+    block = reader.curr_block
+    block.operations.append(self)
+    if self.has_jump():
+        new_block = reader.new_block()
+        reader.enter_next_block(new_block)
+        reader.get_block_at(self.arg)
+POP_JUMP_IF_FALSE.prepare_flow = prepare
+
 @flow_opcode
 def POP_JUMP_IF_TRUE(self, reader):
     block = reader.curr_block
@@ -366,6 +375,15 @@ def POP_JUMP_IF_TRUE(self, reader):
     on_False = reader.get_block_at(graph.next_pos(self))
     block.operations[-1] = SWITCH_BOOL(on_False, on_True, offset=self.offset)
     block.set_exits([on_False, on_True])
+
+def prepare(self, reader):
+    block = reader.curr_block
+    block.operations.append(self)
+    if self.has_jump():
+        new_block = reader.new_block()
+        reader.enter_next_block(new_block)
+        reader.get_block_at(self.arg)
+POP_JUMP_IF_TRUE.prepare_flow = prepare
 
 class SWITCH_BOOL(BCInstruction):
     def __init__(self, on_False, on_True, offset=-1):
@@ -387,12 +405,30 @@ def JUMP_ABSOLUTE(self, reader):
     target_block = reader.get_block_at(self.arg)
     graph.add_jump(block, target_block)
 
+def prepare(self, reader):
+    block = reader.curr_block
+    block.operations.append(self)
+    if self.has_jump():
+        new_block = reader.new_block()
+        reader.enter_next_block(new_block)
+        reader.get_block_at(self.arg)
+JUMP_ABSOLUTE.prepare_flow = prepare
+
 @flow_opcode
 def JUMP_FORWARD(self, reader):
     block = reader.curr_block
     graph = reader.graph
     target_block = reader.get_block_at(self.arg)
     graph.add_jump(block, target_block)
+
+def prepare(self, reader):
+    block = reader.curr_block
+    block.operations.append(self)
+    if self.has_jump():
+        new_block = reader.new_block()
+        reader.enter_next_block(new_block)
+        reader.get_block_at(self.arg)
+JUMP_FORWARD.prepare_flow = prepare
 
 @bc_reader.register_opcode
 class SETUP_EXCEPT(BCInstruction):
