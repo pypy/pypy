@@ -146,9 +146,10 @@ class BytecodeReader(object):
                     self.blocks.pop()
                 self.enter_next_block(next_block)
             elif self.needs_new_block:
-                next_block = self.new_block()
+                next_block = self.get_next_block()
                 self.enter_next_block(next_block)
             next_offset, instr = self.read(code, self.offset)
+            self.next_offset = next_offset
             yield instr
             last_offset = instr.offset
             self.offset = next_offset
@@ -169,7 +170,7 @@ class BytecodeReader(object):
 
     def get_block_at(self, offset):
         """Get or create the block starting at ``offset``"""
-        if offset <= self.offset:
+        if offset < self.next_offset:
             i_block, i_instr = self.find_position(offset)
             split = self.blocks[i_block].split_at(i_instr)
             if len(split) == 2:
@@ -184,6 +185,10 @@ class BytecodeReader(object):
             new_block = self.new_block()
             self.pending_blocks[offset] = new_block
             return new_block
+
+    def get_next_block(self):
+        """Find or create the block starting at the next offset"""
+        return self.get_block_at(self.next_offset)
 
     def enter_next_block(self, block):
         self.curr_block = block
@@ -309,7 +314,7 @@ class BCInstruction(object):
     def bc_flow(self, reader):
         reader.curr_block.operations.append(self)
         if self.has_jump():
-            new_block = reader.new_block()
+            new_block = reader.get_next_block()
             reader.enter_next_block(new_block)
             reader.get_block_at(self.arg)
 
@@ -367,7 +372,7 @@ class POP_TOP(BCInstruction):
 @flow_opcode
 def POP_JUMP_IF_FALSE(self, reader):
     reader.curr_block.operations.append(self)
-    on_True = reader.new_block()
+    on_True = reader.get_next_block()
     on_False = reader.get_block_at(self.arg)
     block = reader.curr_block
     graph = reader.graph
@@ -378,7 +383,7 @@ def POP_JUMP_IF_FALSE(self, reader):
 @flow_opcode
 def POP_JUMP_IF_TRUE(self, reader):
     reader.curr_block.operations.append(self)
-    on_False = reader.new_block()
+    on_False = reader.get_next_block()
     on_True = reader.get_block_at(self.arg)
     block = reader.curr_block
     graph = reader.graph
