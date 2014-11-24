@@ -31,35 +31,18 @@ RPY_EXTERN char *_RPython_ThreadLocals_Build(void);
 
 RPY_EXTERN __thread struct pypy_threadlocal_s pypy_threadlocal;
 
-#define OP_THREADLOCALREF_ADDR(r)                       \
-    do {                                                \
-        RPyAssert(pypy_threadlocal.ready == 42,         \
-                  "uninitialized thread-local!");       \
-        r = (char *)&pypy_threadlocal;                  \
-    } while (0)
-
-#define OP_THREADLOCALREF_MAKE(r)               \
+#define OP_THREADLOCALREF_ADDR(r)               \
     do {                                        \
         r = (char *)&pypy_threadlocal;          \
         if (pypy_threadlocal.ready != 42)       \
             r = _RPython_ThreadLocals_Build();  \
     } while (0)
 
+#define RPY_THREADLOCALREF_ENSURE()             \
+    if (pypy_threadlocal.ready != 42)           \
+        (void)_RPython_ThreadLocals_Build();
 
-/* ------------------------------------------------------------ */
-#elif _WIN32
-/* ------------------------------------------------------------ */
-
-
-#include <WinSock2.h>
-#include <windows.h>
-
-RPY_EXTERN DWORD pypy_threadlocal_key;
-#define OP_THREADLOCALREF_ADDR(r)    r = (char *)TlsGetValue(  \
-                                           pypy_threadlocal_key)
-#define OP_THREADLOCALREF_MAKE(r)                       \
-    (OP_THREADLOCALREF_ADDR(r),                         \
-     ((r) || (r = _RPython_ThreadLocals_Build())))
+#define RPY_THREADLOCALREF_GET(FIELD)   pypy_threadlocal.FIELD
 
 
 /* ------------------------------------------------------------ */
@@ -67,16 +50,35 @@ RPY_EXTERN DWORD pypy_threadlocal_key;
 /* ------------------------------------------------------------ */
 
 
-/* Other POSIX systems: use the pthread API */
+/* Don't use '__thread'. */
 
-#include <pthread.h>
-
+#ifdef _WIN32
+#  include <WinSock2.h>
+#  include <windows.h>
+#  define _RPy_ThreadLocals_Get  TlsGetValue
+#  define _RPy_ThreadLocals_Set  TlsSetValue
+RPY_EXTERN DWORD pypy_threadlocal_key;
+#else
+#  include <pthread.h>
+#  define _RPy_ThreadLocals_Get  pthread_getspecific
+#  define _RPy_ThreadLocals_Set  pthread_setspecific
 RPY_EXTERN pthread_key_t pypy_threadlocal_key;
-#define OP_THREADLOCALREF_ADDR(r)    r = (char *)pthread_getspecific(  \
-                                           pypy_threadlocal_key)
-#define OP_THREADLOCALREF_MAKE(r)                       \
-    (OP_THREADLOCALREF_ADDR(r),                         \
-     ((r) || (r = _RPython_ThreadLocals_Build())))
+#endif
+
+
+#define OP_THREADLOCALREF_ADDR(r)               \
+    do {                                        \
+        r = (char *)_RPy_ThreadLocals_Get();    \
+        if (!r)                                 \
+            r = _RPython_ThreadLocals_Build();  \
+    } while (0)
+
+#define RPY_THREADLOCALREF_ENSURE()             \
+    if (!_RPy_ThreadLocals_Get())               \
+        (void)_RPython_ThreadLocals_Build();
+
+#define RPY_THREADLOCALREF_GET(FIELD)           \
+    ((struct pypy_threadlocal_s *)_RPy_ThreadLocals_Get())->FIELD
 
 
 /* ------------------------------------------------------------ */

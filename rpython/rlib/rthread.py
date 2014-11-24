@@ -284,12 +284,11 @@ class ThreadLocalField(object):
 
         def getraw():
             _threadlocalref_seeme(self)
-            addr = llop.threadlocalref_addr(llmemory.Address)
-            return llop.raw_load(FIELDTYPE, addr, offset)
+            return llop.threadlocalref_get(FIELDTYPE, offset)
 
         def get_or_make_raw():
             _threadlocalref_seeme(self)
-            addr = llop.threadlocalref_make(llmemory.Address)
+            addr = llop.threadlocalref_addr(llmemory.Address)
             return llop.raw_load(FIELDTYPE, addr, offset)
 
         def setraw(value):
@@ -316,15 +315,15 @@ class ThreadLocalReference(ThreadLocalField):
         unique_id = ThreadLocalReference._COUNT
         ThreadLocalReference._COUNT += 1
         ThreadLocalField.__init__(self, lltype.Signed, 'tlref%d' % unique_id)
-        getraw = self.getraw
         setraw = self.setraw
+        offset = self.offset
 
         def get():
             if we_are_translated():
                 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
-                value = getraw()
-                value = lltype.cast_int_to_ptr(llmemory.GCREF, value)
-                return cast_gcref_to_instance(Cls, value)
+                _threadlocalref_seeme(self)
+                gcref = llop.threadlocalref_get(llmemory.GCREF, offset)
+                return cast_gcref_to_instance(Cls, gcref)
             else:
                 return getattr(self.local, 'value', None)
 

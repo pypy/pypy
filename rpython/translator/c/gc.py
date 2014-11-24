@@ -75,7 +75,7 @@ class BasicGcPolicy(object):
         # in all cases except with framework+shadowstack.  In that
         # case the operation is removed because redundant with
         # rthread.get_or_make_ident().
-        return '{ char *r; OP_THREADLOCALREF_MAKE(r); (void)r; } '
+        return 'RPY_THREADLOCALREF_ENSURE();'
 
     def OP_GC_THREAD_START(self, funcgen, op):
         return ''

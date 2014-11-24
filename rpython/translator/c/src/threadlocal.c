@@ -69,12 +69,6 @@ void RPython_ThreadLocals_ThreadDie(void)
    explicitly, with malloc()/free(), and attached to (a single) thread-
    local key using the API of Windows or pthread. */
 
-#ifdef _WIN32
-#  define _RPy_ThreadLocals_Set(p)  TlsSetValue(pypy_threadlocal_key, p)
-#else
-#  define _RPy_ThreadLocals_Set(p)  pthread_setspecific(pypy_threadlocal_key, p)
-#endif
-
 void RPython_ThreadLocals_ProgramInit(void)
 {
 #ifdef _WIN32
@@ -106,11 +100,12 @@ char *_RPython_ThreadLocals_Build(void)
 
 void RPython_ThreadLocals_ThreadDie(void)
 {
-    void *p;
-    OP_THREADLOCALREF_ADDR(p);
-    _RPy_ThreadLocals_Set(NULL);
-    memset(p, 0xDD, sizeof(struct pypy_threadlocal_s));  /* debug */
-    free(p);
+    void *p = _RPy_ThreadLocals_Get();
+    if (p != NULL) {
+        _RPy_ThreadLocals_Set(NULL);
+        memset(p, 0xDD, sizeof(struct pypy_threadlocal_s));  /* debug */
+        free(p);
+    }
 }
 
 
