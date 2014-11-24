@@ -361,10 +361,9 @@ def POP_JUMP_IF_FALSE(self, reader):
 def prepare(self, reader):
     block = reader.curr_block
     block.operations.append(self)
-    if self.has_jump():
-        new_block = reader.new_block()
-        reader.enter_next_block(new_block)
-        reader.get_block_at(self.arg)
+    new_block = reader.new_block()
+    reader.enter_next_block(new_block)
+    reader.get_block_at(self.arg)
 POP_JUMP_IF_FALSE.prepare_flow = prepare
 
 @flow_opcode
@@ -379,10 +378,9 @@ def POP_JUMP_IF_TRUE(self, reader):
 def prepare(self, reader):
     block = reader.curr_block
     block.operations.append(self)
-    if self.has_jump():
-        new_block = reader.new_block()
-        reader.enter_next_block(new_block)
-        reader.get_block_at(self.arg)
+    new_block = reader.new_block()
+    reader.enter_next_block(new_block)
+    reader.get_block_at(self.arg)
 POP_JUMP_IF_TRUE.prepare_flow = prepare
 
 class SWITCH_BOOL(BCInstruction):
@@ -408,10 +406,9 @@ def JUMP_ABSOLUTE(self, reader):
 def prepare(self, reader):
     block = reader.curr_block
     block.operations.append(self)
-    if self.has_jump():
-        new_block = reader.new_block()
-        reader.enter_next_block(new_block)
-        reader.get_block_at(self.arg)
+    new_block = reader.new_block()
+    reader.enter_next_block(new_block)
+    reader.get_block_at(self.arg)
 JUMP_ABSOLUTE.prepare_flow = prepare
 
 @flow_opcode
@@ -424,10 +421,9 @@ def JUMP_FORWARD(self, reader):
 def prepare(self, reader):
     block = reader.curr_block
     block.operations.append(self)
-    if self.has_jump():
-        new_block = reader.new_block()
-        reader.enter_next_block(new_block)
-        reader.get_block_at(self.arg)
+    new_block = reader.new_block()
+    reader.enter_next_block(new_block)
+    reader.get_block_at(self.arg)
 JUMP_FORWARD.prepare_flow = prepare
 
 @bc_reader.register_opcode
