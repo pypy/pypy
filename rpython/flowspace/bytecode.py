@@ -136,7 +136,9 @@ class BytecodeReader(object):
     def _iter_instr(self, code):
         self.offset = 0
         i = 0
+        last_offset = -1
         while self.offset < len(code.co_code):
+            self.graph._next_pos.setdefault(last_offset, self.offset)
             if self.offset in self.pending_blocks:
                 new_block = self.pending_blocks[self.offset]
                 if not self.curr_block.operations:
@@ -144,6 +146,7 @@ class BytecodeReader(object):
                 self.enter_next_block(new_block)
             next_offset, instr = self.read(code, self.offset)
             yield instr
+            last_offset = instr.offset
             self.offset = next_offset
             i += 1
 
@@ -186,14 +189,11 @@ class BytecodeReader(object):
         self.blocks = [SimpleBlock([])]
         self.curr_block = self.blocks[0]
         self.graph = graph = BytecodeGraph(self.blocks[0])
-        last_offset = -1
         for instr in self._iter_instr(code):
             offsets.append(instr.offset)
             block = self.curr_block
             graph.pos_index[instr.offset] = block, len(block.operations)
-            graph._next_pos[last_offset] = instr.offset
             instr.prepare_flow(self)
-            last_offset = instr.offset
 
         graph._next_pos[offsets[-1]] = len(code.co_code)
         for block in self.blocks:
@@ -398,7 +398,7 @@ class SWITCH_BOOL(BCInstruction):
 
 @flow_opcode
 def JUMP_ABSOLUTE(self, reader):
-    reader.graph._next_pos[self.offset] = self.arg
+    pass
 
 def prepare(self, reader):
     block = reader.curr_block
@@ -412,7 +412,7 @@ JUMP_ABSOLUTE.prepare_flow = prepare
 
 @flow_opcode
 def JUMP_FORWARD(self, reader):
-    reader.graph._next_pos[self.offset] = self.arg
+    pass
 
 def prepare(self, reader):
     block = reader.curr_block
