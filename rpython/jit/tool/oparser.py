@@ -44,9 +44,9 @@ class FORCE_SPILL(UnaryOp, PlainResOp):
         op.initarglist(self.getarglist()[:])
         return op
 
-    def copy_and_change(self, opnum, args=None, result=None, descr=None):
+    def _copy_and_change(self, opnum, args=None, descr=None):
         assert opnum == self.OPNUM
-        newop = FORCE_SPILL(result or self.result)
+        newop = FORCE_SPILL()
         newop.initarglist(args or self.getarglist())
         return newop
 

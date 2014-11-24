@@ -338,10 +338,10 @@ class LLGraphCPU(model.AbstractCPU):
         values = []
         for box in frame.force_guard_op.getfailargs():
             if box is not None:
-                if box is not frame.current_op.result:
+                if box is not frame.current_op:
                     value = frame.env[box]
                 else:
-                    value = box.value    # 0 or 0.0 or NULL
+                    value = box.getvalue()    # 0 or 0.0 or NULL
             else:
                 value = None
             values.append(value)
@@ -679,7 +679,7 @@ class LLDeadFrame(object):
 
 
 class LLFrame(object):
-    _TYPE = llmemory.GCREF
+    _TYPE = lltype.Signed
 
     forced_deadframe = None
     overflow_flag = False
@@ -912,7 +912,7 @@ class LLFrame(object):
         if not cond:
             return
         # cond_call can't have a return value
-        self.execute_call(calldescr, func, *args)
+        self.execute_call_n(calldescr, func, *args)
 
     def _execute_call(self, calldescr, func, *args):
         effectinfo = calldescr.get_extra_info()
@@ -935,14 +935,19 @@ class LLFrame(object):
     execute_call_f = _execute_call
     execute_call_n = _execute_call
 
-    def execute_call_may_force(self, calldescr, func, *args):
+    def _execute_call_may_force(self, calldescr, func, *args):
         call_op = self.lltrace.operations[self.current_index]
         guard_op = self.lltrace.operations[self.current_index + 1]
         assert guard_op.getopnum() == rop.GUARD_NOT_FORCED
         self.force_guard_op = guard_op
-        res = self.execute_call(calldescr, func, *args)
+        res = self._execute_call(calldescr, func, *args)
         del self.force_guard_op
         return res
+
+    execute_call_may_force_n = _execute_call_may_force
+    execute_call_may_force_r = _execute_call_may_force
+    execute_call_may_force_f = _execute_call_may_force
+    execute_call_may_force_i = _execute_call_may_force
 
     def execute_call_release_gil(self, descr, func, *args):
         if hasattr(descr, '_original_func_'):
