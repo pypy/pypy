@@ -353,6 +353,17 @@ class LOAD_CONST(BCInstruction):
     def eval(self, ctx):
         ctx.pushvalue(const(self.arg))
 
+@bc_reader.register_opcode
+class DUP_TOP(BCInstruction):
+    def eval(self, ctx):
+        w_1 = ctx.peekvalue()
+        ctx.pushvalue(w_1)
+
+@bc_reader.register_opcode
+class POP_TOP(BCInstruction):
+    def eval(self, ctx):
+        ctx.popvalue()
+
 @flow_opcode
 def POP_JUMP_IF_FALSE(self, reader):
     reader.curr_block.operations.append(self)

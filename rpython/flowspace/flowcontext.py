@@ -818,9 +818,6 @@ class FlowContext(object):
         raise FlowingError(
             "Attempting to modify global variable  %r." % (varname))
 
-    def POP_TOP(self, oparg):
-        self.popvalue()
-
     def ROT_TWO(self, oparg):
         w_1 = self.popvalue()
         w_2 = self.popvalue()
@@ -844,10 +841,6 @@ class FlowContext(object):
         self.pushvalue(w_4)
         self.pushvalue(w_3)
         self.pushvalue(w_2)
-
-    def DUP_TOP(self, oparg):
-        w_1 = self.peekvalue()
-        self.pushvalue(w_1)
 
     def DUP_TOPX(self, itemcount):
         delta = itemcount - 1
