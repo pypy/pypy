@@ -192,18 +192,14 @@ class BytecodeReader(object):
             block = self.curr_block
             graph.pos_index[instr.offset] = block, len(block.operations)
             graph._next_pos[last_offset] = instr.offset
-            block.operations.append(instr)
-            if instr.has_jump():
-                new_block = self.new_block()
-                self.enter_next_block(new_block)
-                self.get_block_at(instr.arg)
+            instr.prepare_flow(self)
             last_offset = instr.offset
 
         graph._next_pos[offsets[-1]] = len(code.co_code)
         for block in self.blocks:
             self.curr_block = block
             for i, op in enumerate(block.operations):
-                op.bc_flow(block, graph)
+                op.bc_flow(self)
         return graph
 
     def build_code(self, code):
@@ -302,7 +298,15 @@ class BCInstruction(object):
     def eval(self, ctx):
         pass
 
-    def bc_flow(self, block, graph):
+    def prepare_flow(self, reader):
+        block = reader.curr_block
+        block.operations.append(self)
+        if self.has_jump():
+            new_block = reader.new_block()
+            reader.enter_next_block(new_block)
+            reader.get_block_at(self.arg)
+
+    def bc_flow(self, reader):
         pass
 
     def has_jump(self):
@@ -346,14 +350,18 @@ class LOAD_CONST(BCInstruction):
         ctx.pushvalue(const(self.arg))
 
 @flow_opcode
-def POP_JUMP_IF_FALSE(self, block, graph):
+def POP_JUMP_IF_FALSE(self, reader):
+    block = reader.curr_block
+    graph = reader.graph
     on_False, _ = graph.pos_index[self.arg]
     on_True, _ = graph.pos_index[graph.next_pos(self)]
     block.operations[-1] = SWITCH_BOOL(on_False, on_True, offset=self.offset)
     block.set_exits([on_False, on_True])
 
 @flow_opcode
-def POP_JUMP_IF_TRUE(self, block, graph):
+def POP_JUMP_IF_TRUE(self, reader):
+    block = reader.curr_block
+    graph = reader.graph
     on_True, _ = graph.pos_index[self.arg]
     on_False, _ = graph.pos_index[graph.next_pos(self)]
     block.operations[-1] = SWITCH_BOOL(on_False, on_True, offset=self.offset)
@@ -373,12 +381,16 @@ class SWITCH_BOOL(BCInstruction):
             return self.on_False
 
 @flow_opcode
-def JUMP_ABSOLUTE(self, block, graph):
+def JUMP_ABSOLUTE(self, reader):
+    block = reader.curr_block
+    graph = reader.graph
     target_block, _ = graph.pos_index[self.arg]
     graph.add_jump(block, target_block)
 
 @flow_opcode
-def JUMP_FORWARD(self, block, graph):
+def JUMP_FORWARD(self, reader):
+    block = reader.curr_block
+    graph = reader.graph
     target_block, _ = graph.pos_index[self.arg]
     graph.add_jump(block, target_block)
 
