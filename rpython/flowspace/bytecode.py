@@ -221,9 +221,9 @@ class BytecodeGraph(object):
     def next_pos(self, opcode):
         return self._next_pos[opcode.offset]
 
-    def add_jump(self, block, target_block):
+    def add_jump(self, block, target_block, target_offset):
         last_op = block.operations[-1]
-        self._next_pos[last_op.offset] = target_block.startpos
+        self._next_pos[last_op.offset] = target_offset
         block.set_exits([target_block])
 
 
@@ -401,7 +401,7 @@ def JUMP_ABSOLUTE(self, reader):
     block = reader.curr_block
     graph = reader.graph
     target_block = reader.get_block_at(self.arg)
-    graph.add_jump(block, target_block)
+    graph.add_jump(block, target_block, self.arg)
 
 def prepare(self, reader):
     block = reader.curr_block
@@ -416,7 +416,7 @@ def JUMP_FORWARD(self, reader):
     block = reader.curr_block
     graph = reader.graph
     target_block = reader.get_block_at(self.arg)
-    graph.add_jump(block, target_block)
+    graph.add_jump(block, target_block, self.arg)
 
 def prepare(self, reader):
     block = reader.curr_block
