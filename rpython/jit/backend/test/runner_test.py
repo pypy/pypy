@@ -5,9 +5,9 @@ from rpython.jit.metainterp.history import (AbstractFailDescr,
                                          BasicFinalDescr,
                                          JitCellToken, TargetToken,
                                          ConstInt, ConstPtr,
-                                         ConstFloat)
+                                         ConstFloat, Const)
 from rpython.jit.metainterp.resoperation import ResOperation, rop, InputArgInt,\
-     InputArgFloat
+     InputArgFloat, opname
 from rpython.jit.metainterp.typesystem import deref
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.tool.oparser import parse
@@ -53,11 +53,11 @@ class Runner(object):
         self.cpu.compile_loop(inputargs, operations, looptoken)
         args = []
         for box in inputargs:
-            if isinstance(box, BoxInt):
+            if box.type == 'i':
                 args.append(box.getint())
-            elif isinstance(box, BoxPtr):
+            elif box.type == 'r':
                 args.append(box.getref_base())
-            elif isinstance(box, BoxFloat):
+            elif box.type == 'f':
                 args.append(box.getfloatstorage())
             else:
                 raise NotImplementedError(box)
@@ -67,11 +67,11 @@ class Runner(object):
         else:
             self.guard_failed = True
         if result_type == 'int':
-            return BoxInt(self.cpu.get_int_value(deadframe, 0))
+            return self.cpu.get_int_value(deadframe, 0)
         elif result_type == 'ref':
-            return BoxPtr(self.cpu.get_ref_value(deadframe, 0))
+            return self.cpu.get_ref_value(deadframe, 0)
         elif result_type == 'float':
-            return BoxFloat(self.cpu.get_float_value(deadframe, 0))
+            return self.cpu.get_float_value(deadframe, 0)
         elif result_type == 'void':
             return None
         else:
@@ -79,23 +79,12 @@ class Runner(object):
 
     def _get_single_operation_list(self, opnum, result_type, valueboxes,
                                    descr):
+        op0 = ResOperation(opnum, valueboxes)
         if result_type == 'void':
-            result = None
-        elif result_type == 'int':
-            result = BoxInt()
-        elif result_type == 'ref':
-            result = BoxPtr()
-        elif result_type == 'float':
-            result = BoxFloat()
+            op1 = ResOperation(rop.FINISH, [], descr=BasicFinalDescr(0))
         else:
-            raise ValueError(result_type)
-        if result is None:
-            results = []
-        else:
-            results = [result]
-        operations = [ResOperation(opnum, valueboxes, result),
-                      ResOperation(rop.FINISH, results, None,
-                                   descr=BasicFinalDescr(0))]
+            op1 = ResOperation(rop.FINISH, [op0], descr=BasicFinalDescr(0))
+        operations = [op0, op1]
         if operations[0].is_guard():
             operations[0].setfailargs([])
             if not descr:
@@ -104,7 +93,7 @@ class Runner(object):
             operations[0].setdescr(descr)
         inputargs = []
         for box in valueboxes:
-            if isinstance(box, Box) and box not in inputargs:
+            if not isinstance(box, Const) and box not in inputargs:
                 inputargs.append(box)
         return inputargs, operations
 
@@ -413,16 +402,13 @@ class BaseBackendTest(Runner):
         for opnum, boxargs, retvalue in get_int_tests():
             print opnum
             res = self.execute_operation(opnum, boxargs, 'int')
-            assert res.value == retvalue
+            assert res == retvalue
 
     def test_float_operations(self):
         from rpython.jit.metainterp.test.test_executor import get_float_tests
         for opnum, boxargs, rettype, retvalue in get_float_tests(self.cpu):
             res = self.execute_operation(opnum, boxargs, rettype)
-            if isinstance(res, BoxFloat):
-                assert res.getfloat() == retvalue
-            else:
-                assert res.value == retvalue
+            assert res == retvalue
 
     def test_ovf_operations(self, reversed=False):
         minint = -sys.maxint-1

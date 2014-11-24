@@ -481,8 +481,8 @@ def execute_nonspec_const(cpu, metainterp, opnum, argboxes, descr=None,
     return wrap_constant(_execute_nonspec(cpu, metainterp, opnum, argboxes,
                                           descr, type))
 
-@specialize.arg(5)
-def _execute_nonspec(cpu, metainterp, opnum, argboxes, descr=None, type='i'):
+@specialize.arg(2)
+def _execute_nonspec(cpu, metainterp, opnum, argboxes, descr=None):
     arity = resoperation.oparity[opnum]
     assert arity == -1 or len(argboxes) == arity
     if resoperation.opwithdescr[opnum]:

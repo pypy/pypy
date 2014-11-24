@@ -320,6 +320,7 @@ class FloatOp(object):
         return self._resfloat
 
     getvalue = getfloatstorage
+    getfloat = getfloatstorage
 
     def setfloatstorage(self, floatval):
         self._resfloat = floatval
