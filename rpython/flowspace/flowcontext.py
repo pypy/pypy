@@ -288,9 +288,9 @@ class FlowContext(object):
     def dropvaluesuntil(self, finaldepth):
         del self.stack[finaldepth:]
 
-    def getstate(self, next_offset):
+    def getstate(self, position):
         return FrameState(self.locals_w[:], self.stack[:],
-                self.last_exception, self.blockstack[:], next_offset)
+                self.last_exception, self.blockstack[:], position)
 
     def setstate(self, state):
         """ Reset the context to the given frame state. """
@@ -347,15 +347,16 @@ class FlowContext(object):
 
     def record_block(self, block):
         self.setstate(block.framestate)
-        next_offset = block.framestate.next_offset
         self.recorder = block.make_recorder()
         bc_graph = self.pycode.graph
+        next_offset = bc_graph.get_offset(block.framestate.position)
         try:
             while True:
                 instr = bc_graph.read(next_offset)
                 self.last_offset = instr.offset
                 next_offset = self.handle_bytecode(instr)
-                self.recorder.final_state = self.getstate(next_offset)
+                position = bc_graph.get_position(next_offset)
+                self.recorder.final_state = self.getstate(position)
 
         except RaiseImplicit as e:
             w_exc = e.w_exc
@@ -393,10 +394,10 @@ class FlowContext(object):
         self.recorder = None
 
     def mergeblock(self, currentblock, currentstate):
-        next_offset = currentstate.next_offset
+        position = currentstate.position
         # can 'currentstate' be merged with one of the blocks that
         # already exist for this bytecode position?
-        candidates = self.joinpoints.setdefault(next_offset, [])
+        candidates = self.joinpoints.setdefault(position, [])
         for block in candidates:
             newstate = block.framestate.union(currentstate)
             if newstate is not None:

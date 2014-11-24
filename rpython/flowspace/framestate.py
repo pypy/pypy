@@ -16,12 +16,12 @@ def _union(seq1, seq2):
 
 
 class FrameState(object):
-    def __init__(self, locals_w, stack, last_exception, blocklist, next_offset):
+    def __init__(self, locals_w, stack, last_exception, blocklist, position):
         self.locals_w = locals_w
         self.stack = stack
         self.last_exception = last_exception
         self.blocklist = blocklist
-        self.next_offset = next_offset
+        self.position = position
         self._mergeable = None
 
     @property
@@ -44,7 +44,7 @@ class FrameState(object):
         if exc is not None:
             exc = FSException(_copy(exc.w_type), _copy(exc.w_value))
         return FrameState(map(_copy, self.locals_w), map(_copy, self.stack),
-                exc, self.blocklist, self.next_offset)
+                exc, self.blocklist, self.position)
 
     def getvariables(self):
         return [w for w in self.mergeable if isinstance(w, Variable)]
@@ -55,7 +55,7 @@ class FrameState(object):
         # safety check, don't try to compare states with different
         # nonmergeable states
         assert self.blocklist == other.blocklist
-        assert self.next_offset == other.next_offset
+        assert self.position == other.position
         for w1, w2 in zip(self.mergeable, other.mergeable):
             if not (w1 == w2 or (isinstance(w1, Variable) and
                                  isinstance(w2, Variable))):
@@ -86,7 +86,7 @@ class FrameState(object):
                         union(args1[1], args2[1]))
         except UnionError:
             return None
-        return FrameState(locals, stack, exc, self.blocklist, self.next_offset)
+        return FrameState(locals, stack, exc, self.blocklist, self.position)
 
     def getoutputargs(self, targetstate):
         "Return the output arguments needed to link self to targetstate."
