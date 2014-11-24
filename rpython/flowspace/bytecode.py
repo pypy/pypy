@@ -140,10 +140,14 @@ class BytecodeReader(object):
         while self.offset < len(code.co_code):
             self.graph._next_pos.setdefault(last_offset, self.offset)
             if self.offset in self.pending_blocks:
-                new_block = self.pending_blocks[self.offset]
+                next_block = self.pending_blocks[self.offset]
                 if not self.curr_block.operations:
+                    import pdb; pdb.set_trace
                     self.blocks.pop()
-                self.enter_next_block(new_block)
+                self.enter_next_block(next_block)
+            elif self.needs_new_block:
+                next_block = self.new_block()
+                self.enter_next_block(next_block)
             next_offset, instr = self.read(code, self.offset)
             yield instr
             last_offset = instr.offset
@@ -175,31 +179,37 @@ class BytecodeReader(object):
             self.blocks[i_block:i_block + 1] = split
             return split[-1]
         else:
+            if offset in self.pending_blocks:
+                return self.pending_blocks[offset]
             new_block = self.new_block()
             self.pending_blocks[offset] = new_block
-            return self.new_block()
+            return new_block
 
     def enter_next_block(self, block):
         self.curr_block = block
         self.blocks.append(block)
+        self.needs_new_block = False
+
+    def end_block(self):
+        self.needs_new_block = True
 
     def build_flow(self, code):
         offsets = []
         self.pending_blocks = {}
         self.blocks = [SimpleBlock([])]
         self.curr_block = self.blocks[0]
+        self.needs_new_block = False
         self.graph = graph = BytecodeGraph(self.blocks[0])
         for instr in self._iter_instr(code):
             offsets.append(instr.offset)
             block = self.curr_block
             graph.pos_index[instr.offset] = block, len(block.operations)
-            instr.prepare_flow(self)
+            instr.bc_flow(self)
 
         graph._next_pos[offsets[-1]] = len(code.co_code)
-        for block in self.blocks:
-            self.curr_block = block
-            for i, op in enumerate(block.operations):
-                op.bc_flow(self)
+        for b in self.blocks:
+            for x in b._exits:
+                assert x in self.blocks
         return graph
 
     def build_code(self, code):
@@ -298,16 +308,12 @@ class BCInstruction(object):
     def eval(self, ctx):
         pass
 
-    def prepare_flow(self, reader):
-        block = reader.curr_block
-        block.operations.append(self)
+    def bc_flow(self, reader):
+        reader.curr_block.operations.append(self)
         if self.has_jump():
             new_block = reader.new_block()
             reader.enter_next_block(new_block)
             reader.get_block_at(self.arg)
-
-    def bc_flow(self, reader):
-        pass
 
     def has_jump(self):
         return self.num in opcode.hasjrel or self.num in opcode.hasjabs
@@ -351,39 +357,29 @@ class LOAD_CONST(BCInstruction):
 
 @flow_opcode
 def POP_JUMP_IF_FALSE(self, reader):
+    reader.curr_block.operations.append(self)
+    on_True = reader.new_block()
+    on_False = reader.get_block_at(self.arg)
     block = reader.curr_block
     graph = reader.graph
-    on_False = reader.get_block_at(self.arg)
-    on_True = reader.get_block_at(graph.next_pos(self))
     block.operations[-1] = SWITCH_BOOL(on_False, on_True, offset=self.offset)
     block.set_exits([on_False, on_True])
-
-def prepare(self, reader):
-    block = reader.curr_block
-    block.operations.append(self)
-    new_block = reader.new_block()
-    reader.enter_next_block(new_block)
-    reader.get_block_at(self.arg)
-POP_JUMP_IF_FALSE.prepare_flow = prepare
+    reader.enter_next_block(on_True)
 
 @flow_opcode
 def POP_JUMP_IF_TRUE(self, reader):
+    reader.curr_block.operations.append(self)
+    on_False = reader.new_block()
+    on_True = reader.get_block_at(self.arg)
     block = reader.curr_block
     graph = reader.graph
-    on_True = reader.get_block_at(self.arg)
-    on_False = reader.get_block_at(graph.next_pos(self))
     block.operations[-1] = SWITCH_BOOL(on_False, on_True, offset=self.offset)
     block.set_exits([on_False, on_True])
-
-def prepare(self, reader):
-    block = reader.curr_block
-    block.operations.append(self)
-    new_block = reader.new_block()
-    reader.enter_next_block(new_block)
-    reader.get_block_at(self.arg)
-POP_JUMP_IF_TRUE.prepare_flow = prepare
+    reader.enter_next_block(on_False)
 
 class SWITCH_BOOL(BCInstruction):
+    name = 'Switch'
+    arg = -42
     def __init__(self, on_False, on_True, offset=-1):
         self.on_False = on_False
         self.on_True = on_True
@@ -398,31 +394,21 @@ class SWITCH_BOOL(BCInstruction):
 
 @flow_opcode
 def JUMP_ABSOLUTE(self, reader):
-    pass
-
-def prepare(self, reader):
+    reader.curr_block.operations.append(self)
+    target_block = reader.get_block_at(self.arg)
     block = reader.curr_block
     graph = reader.graph
-    block.operations.append(self)
-    new_block = reader.new_block()
-    reader.enter_next_block(new_block)
-    target_block = reader.get_block_at(self.arg)
     graph.add_jump(block, target_block, self.arg)
-JUMP_ABSOLUTE.prepare_flow = prepare
+    reader.end_block()
 
 @flow_opcode
 def JUMP_FORWARD(self, reader):
-    pass
-
-def prepare(self, reader):
+    reader.curr_block.operations.append(self)
+    target_block = reader.get_block_at(self.arg)
     block = reader.curr_block
     graph = reader.graph
-    block.operations.append(self)
-    new_block = reader.new_block()
-    reader.enter_next_block(new_block)
-    target_block = reader.get_block_at(self.arg)
     graph.add_jump(block, target_block, self.arg)
-JUMP_FORWARD.prepare_flow = prepare
+    reader.end_block()
 
 @bc_reader.register_opcode
 class SETUP_EXCEPT(BCInstruction):
