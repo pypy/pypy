@@ -1022,8 +1022,10 @@ class LLFrame(object):
             result = support.cast_to_floatstorage(result)
         return result
 
-    def execute_same_as(self, _, x):
+    def execute_same_as_i(self, _, x):
         return x
+    execute_same_as_f = execute_same_as_i
+    execute_same_as_r = execute_same_as_i
 
     def execute_debug_merge_point(self, descr, *args):
         from rpython.jit.metainterp.warmspot import get_stats
