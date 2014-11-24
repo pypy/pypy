@@ -244,6 +244,11 @@ class BytecodeGraph(object):
         else:
             return block.operations[i].offset
 
+    def dump(self):
+        all_blocks = set(x[0] for x in self.pos_index.values())
+        blocks = sorted(all_blocks, key=lambda b: b.startpos)
+        return [b.operations for b in blocks]
+
 
 class BytecodeBlock(object):
     """Base class for opcode blocks"""
