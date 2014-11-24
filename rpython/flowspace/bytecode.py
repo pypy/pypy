@@ -398,32 +398,30 @@ class SWITCH_BOOL(BCInstruction):
 
 @flow_opcode
 def JUMP_ABSOLUTE(self, reader):
-    block = reader.curr_block
-    graph = reader.graph
-    target_block = reader.get_block_at(self.arg)
-    graph.add_jump(block, target_block, self.arg)
+    reader.graph._next_pos[self.offset] = self.arg
 
 def prepare(self, reader):
     block = reader.curr_block
+    graph = reader.graph
     block.operations.append(self)
     new_block = reader.new_block()
     reader.enter_next_block(new_block)
-    reader.get_block_at(self.arg)
+    target_block = reader.get_block_at(self.arg)
+    graph.add_jump(block, target_block, self.arg)
 JUMP_ABSOLUTE.prepare_flow = prepare
 
 @flow_opcode
 def JUMP_FORWARD(self, reader):
-    block = reader.curr_block
-    graph = reader.graph
-    target_block = reader.get_block_at(self.arg)
-    graph.add_jump(block, target_block, self.arg)
+    reader.graph._next_pos[self.offset] = self.arg
 
 def prepare(self, reader):
     block = reader.curr_block
+    graph = reader.graph
     block.operations.append(self)
     new_block = reader.new_block()
     reader.enter_next_block(new_block)
-    reader.get_block_at(self.arg)
+    target_block = reader.get_block_at(self.arg)
+    graph.add_jump(block, target_block, self.arg)
 JUMP_FORWARD.prepare_flow = prepare
 
 @bc_reader.register_opcode
