@@ -294,6 +294,7 @@ class SimpleBlock(BytecodeBlock):
 
 
 OPNAMES = host_bytecode_spec.method_names
+NO_ARG = -1
 
 class BCInstruction(object):
     """
@@ -375,7 +376,6 @@ def POP_JUMP_IF_FALSE(self, reader):
     on_True = reader.get_next_block()
     on_False = reader.get_block_at(self.arg)
     block = reader.curr_block
-    graph = reader.graph
     block.operations[-1] = SWITCH_BOOL(on_False, on_True, offset=self.offset)
     block.set_exits([on_False, on_True])
     reader.enter_next_block(on_True)
@@ -386,14 +386,48 @@ def POP_JUMP_IF_TRUE(self, reader):
     on_False = reader.get_next_block()
     on_True = reader.get_block_at(self.arg)
     block = reader.curr_block
-    graph = reader.graph
     block.operations[-1] = SWITCH_BOOL(on_False, on_True, offset=self.offset)
     block.set_exits([on_False, on_True])
     reader.enter_next_block(on_False)
 
+@bc_reader.register_opcode
+class JUMP_IF_FALSE_OR_POP(BCInstruction):
+    def bc_flow(self, reader):
+        block = reader.curr_block
+        block.operations.append(self)
+        self.on_True = reader.get_next_block()
+        self.on_False = reader.get_block_at(self.arg)
+        block.set_exits([self.on_False, self.on_True])
+        reader.enter_next_block(self.on_True)
+
+    def eval(self, ctx):
+        w_value = ctx.peekvalue()
+        if not ctx.guessbool(op.bool(w_value).eval(ctx)):
+            return self.on_False
+        ctx.popvalue()
+        return self.on_True
+
+@bc_reader.register_opcode
+class JUMP_IF_TRUE_OR_POP(BCInstruction):
+    def bc_flow(self, reader):
+        block = reader.curr_block
+        block.operations.append(self)
+        self.on_True = reader.get_block_at(self.arg)
+        self.on_False = reader.get_next_block()
+        block.set_exits([self.on_False, self.on_True])
+        reader.enter_next_block(self.on_False)
+
+    def eval(self, ctx):
+        w_value = ctx.peekvalue()
+        if ctx.guessbool(op.bool(w_value).eval(ctx)):
+            return self.on_True
+        ctx.popvalue()
+        return self.on_False
+
+
 class SWITCH_BOOL(BCInstruction):
-    name = 'Switch'
-    arg = -42
+    name = 'SWITCH_BOOL'
+    arg = NO_ARG
     def __init__(self, on_False, on_True, offset=-1):
         self.on_False = on_False
         self.on_True = on_True

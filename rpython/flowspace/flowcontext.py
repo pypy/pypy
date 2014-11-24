@@ -698,19 +698,6 @@ class FlowContext(object):
         if self.guessbool(op.bool(w_cond).eval(self)):
             return target
 
-    def JUMP_IF_FALSE_OR_POP(self, target):
-        w_value = self.peekvalue()
-        if not self.guessbool(op.bool(w_value).eval(self)):
-            return target
-        self.popvalue()
-
-    def JUMP_IF_TRUE_OR_POP(self, target):
-        w_value = self.peekvalue()
-        if self.guessbool(op.bool(w_value).eval(self)):
-            return target
-            return target
-        self.popvalue()
-
     def JUMP_IF_NOT_DEBUG(self, target):
         pass
 
