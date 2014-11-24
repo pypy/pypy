@@ -82,7 +82,7 @@ class TestDicts(BaseTestPyPyC):
             guard_no_exception(descr=...)
             i23 = call(ConstClass(ll_dict_lookup_trampoline), p13, p10, i12, descr=<Calli . rri EF=4 OS=4>)
             guard_no_exception(descr=...)
-            i26 = int_and(i23, .*)
+            i26 = int_and(i23, #)
             i27 = int_is_true(i26)
             guard_false(i27, descr=...)
             p28 = getfield_gc(p13, descr=<FieldP dicttable.entries .*>)
