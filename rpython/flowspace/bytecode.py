@@ -191,6 +191,8 @@ class BytecodeReader(object):
         return self.get_block_at(self.next_offset)
 
     def enter_next_block(self, block):
+        if not self.curr_block._exits:
+            self.curr_block.set_exits([block])
         self.curr_block = block
         self.blocks.append(block)
         self.needs_new_block = False
@@ -208,12 +210,17 @@ class BytecodeReader(object):
             block = self.curr_block
             graph.pos_index[instr.offset] = block, len(block.operations)
             instr.bc_flow(self)
-
         graph._next_pos[instr.offset] = len(code.co_code)
+        self.check_graph()
+        return graph
+
+    def check_graph(self):
         for b in self.blocks:
+            if not b._exits:
+                assert any(instr.name in ('RETURN_VALUE', 'RAISE_VARARGS')
+                        for instr in b.operations)
             for x in b._exits:
                 assert x in self.blocks
-        return graph
 
     def build_code(self, code):
         return HostCode._from_code(code)
@@ -275,9 +282,10 @@ class BytecodeBlock(object):
             return [self]
         assert 0 < i < len(self.operations)
         tail = self.operations[i:]
-        assert tail
         del self.operations[i:]
         new_block = SimpleBlock(tail)
+        new_block.set_exits(self._exits)
+        self.set_exits([new_block])
         return [self, new_block]
 
 
