@@ -136,9 +136,7 @@ class BytecodeReader(object):
     def _iter_instr(self, code):
         self.offset = 0
         i = 0
-        last_offset = -1
         while self.offset < len(code.co_code):
-            self.graph._next_pos.setdefault(last_offset, self.offset)
             if self.offset in self.pending_blocks:
                 next_block = self.pending_blocks[self.offset]
                 if not self.curr_block.operations:
@@ -151,7 +149,6 @@ class BytecodeReader(object):
             next_offset, instr = self.read(code, self.offset)
             self.next_offset = next_offset
             yield instr
-            last_offset = instr.offset
             self.offset = next_offset
             i += 1
 
@@ -211,7 +208,6 @@ class BytecodeReader(object):
             block = self.curr_block
             graph.pos_index[instr.offset] = block, len(block.operations)
             instr.bc_flow(self)
-        graph._next_pos[instr.offset] = len(code.co_code)
         self.check_graph()
         return graph
 
@@ -233,7 +229,6 @@ class BytecodeGraph(object):
         self.entry = EntryBlock()
         self.entry.set_exits([startblock])
         self.pos_index = {}
-        self._next_pos = {}
 
     def read(self, pos):
         bc_block, i = self.pos_index[pos]
@@ -248,11 +243,6 @@ class BytecodeGraph(object):
             return block._exits[0].startpos
         else:
             return block.operations[i].offset
-
-    def add_jump(self, block, target_block, target_offset):
-        last_op = block.operations[-1]
-        self._next_pos[last_op.offset] = target_offset
-        block.set_exits([target_block])
 
 
 class BytecodeBlock(object):
@@ -453,20 +443,18 @@ class SWITCH_BOOL(BCInstruction):
 
 @flow_opcode
 def JUMP_ABSOLUTE(self, reader):
-    reader.curr_block.operations.append(self)
-    target_block = reader.get_block_at(self.arg)
     block = reader.curr_block
-    graph = reader.graph
-    graph.add_jump(block, target_block, self.arg)
+    block.operations.append(self)
+    target_block = reader.get_block_at(self.arg)
+    block.set_exits([target_block])
     reader.end_block()
 
 @flow_opcode
 def JUMP_FORWARD(self, reader):
-    reader.curr_block.operations.append(self)
-    target_block = reader.get_block_at(self.arg)
     block = reader.curr_block
-    graph = reader.graph
-    graph.add_jump(block, target_block, self.arg)
+    block.operations.append(self)
+    target_block = reader.get_block_at(self.arg)
+    block.set_exits([target_block])
     reader.end_block()
 
 @bc_reader.register_opcode
