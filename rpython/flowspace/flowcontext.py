@@ -7,7 +7,6 @@ import types
 import __builtin__
 
 from rpython.tool.error import source_lines
-from rpython.translator.simplify import eliminate_empty_blocks
 from rpython.rlib import rstackovf
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
@@ -15,9 +14,10 @@ from rpython.flowspace.model import (Constant, Variable, Block, Link,
 from rpython.flowspace.framestate import FrameState
 from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline)
-from rpython.flowspace.bytecode import BytecodeBlock
 from rpython.flowspace.operation import op
-from rpython.flowspace.bytecode import BytecodeCorruption
+from rpython.flowspace.bytecode import (
+    BytecodeBlock, BytecodeCorruption, bc_reader)
+from rpython.flowspace.pygraph import PyGraph
 
 w_None = const(None)
 
@@ -227,9 +227,10 @@ compare_method = [
 
 
 class FlowContext(object):
-    def __init__(self, graph, code):
+    def __init__(self, func):
+        code = bc_reader.build_code(func.func_code)
+        graph = PyGraph(func, code)
         self.graph = graph
-        func = graph.func
         self.pycode = code
         self.w_globals = Constant(func.func_globals)
         self.blockstack = []

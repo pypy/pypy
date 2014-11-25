@@ -10,9 +10,9 @@ class TestFrameState:
             func = func.im_func
         except AttributeError:
             pass
-        code = bc_reader.build_code(func.func_code)
-        graph = PyGraph(func, code)
-        ctx = FlowContext(graph, code)
+        ctx = FlowContext(func)
+        ctx.build_flow()
+        graph = ctx.graph
         # hack the frame
         ctx.setstate(graph.startblock.framestate)
         ctx.locals_w[-1] = Constant(None)

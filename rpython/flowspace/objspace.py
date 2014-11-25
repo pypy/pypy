@@ -3,12 +3,9 @@
 
 from inspect import CO_NEWLOCALS, isgeneratorfunction
 
-from rpython.flowspace.model import checkgraph
-from rpython.flowspace.bytecode import bc_reader
 from rpython.flowspace.flowcontext import (FlowContext, fixeggblocks)
 from rpython.flowspace.generator import (tweak_generator_graph,
         make_generator_entry_graph)
-from rpython.flowspace.pygraph import PyGraph
 
 
 def _assert_rpythonic(func):
@@ -36,11 +33,10 @@ def build_flow(func):
     if (isgeneratorfunction(func) and
             not hasattr(func, '_generator_next_method_of_')):
         return make_generator_entry_graph(func)
-    code = bc_reader.build_code(func.func_code)
-    graph = PyGraph(func, code)
-    ctx = FlowContext(graph, code)
+    ctx = FlowContext(func)
     ctx.build_flow()
+    graph = ctx.graph
     fixeggblocks(graph)
-    if code.is_generator:
+    if ctx.pycode.is_generator:
         tweak_generator_graph(graph)
     return graph
