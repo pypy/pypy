@@ -251,6 +251,12 @@ class BytecodeGraph(object):
         block, i = position
         return block[i].offset
 
+    def iter_instr(self):
+        while True:
+            offset = self.get_offset(self.curr_position)
+            instr = self.read(offset)
+            yield instr
+
     def dump(self):
         all_blocks = set(x[0] for x in self.pos_index.values())
         blocks = sorted(all_blocks, key=lambda b: b.startpos)

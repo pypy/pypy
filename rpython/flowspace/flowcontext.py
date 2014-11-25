@@ -350,13 +350,13 @@ class FlowContext(object):
         self.setstate(block.framestate)
         self.recorder = block.make_recorder()
         bc_graph = self.pycode.graph
-        next_offset = bc_graph.get_offset(block.framestate.position)
+        bc_graph.curr_position = block.framestate.position
         try:
-            while True:
-                instr = bc_graph.read(next_offset)
+            for instr in bc_graph.iter_instr():
                 self.last_offset = instr.offset
                 next_offset = self.handle_bytecode(instr)
                 position = bc_graph.get_position(next_offset)
+                bc_graph.curr_position = position
                 self.recorder.final_state = self.getstate(position)
 
         except RaiseImplicit as e:
