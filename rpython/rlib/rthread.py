@@ -320,10 +320,11 @@ class ThreadLocalReference(ThreadLocalField):
 
         def get():
             if we_are_translated():
-                from rpython.rtyper.annlowlevel import cast_gcref_to_instance
+                from rpython.rtyper import rclass
+                from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
                 _threadlocalref_seeme(self)
-                gcref = llop.threadlocalref_get(llmemory.GCREF, offset)
-                return cast_gcref_to_instance(Cls, gcref)
+                ptr = llop.threadlocalref_get(rclass.OBJECTPTR, offset)
+                return cast_base_ptr_to_instance(Cls, ptr)
             else:
                 return getattr(self.local, 'value', None)
 
