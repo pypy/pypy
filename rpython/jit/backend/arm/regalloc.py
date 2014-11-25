@@ -559,8 +559,8 @@ class Regalloc(BaseRegalloc):
                 args = self._prepare_op_math_sqrt(op, fcond)
                 self.perform_extra(op, args, fcond)
                 return
-            elif oopspecindex == EffectInfo.OS_THREADLOCALREF_ADDR:
-                args = self._prepare_threadlocalref_addr(op, fcond)
+            elif oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
+                args = self._prepare_threadlocalref_get(op, fcond)
                 self.perform_extra(op, args, fcond)
                 return
             #elif oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
@@ -619,9 +619,10 @@ class Regalloc(BaseRegalloc):
         res = self.force_allocate_reg(op.result)
         return [loc0, res]
 
-    def _prepare_threadlocalref_addr(self, op, fcond):
+    def _prepare_threadlocalref_get(self, op, fcond):
+        ofs0 = imm(op.getarg(1).getint())
         res = self.force_allocate_reg(op.result)
-        return [res]
+        return [ofs0, res]
 
     def _prepare_guard(self, op, args=None):
         if args is None:

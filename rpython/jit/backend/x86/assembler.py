@@ -2322,38 +2322,16 @@ class Assembler386(BaseAssembler):
         assert isinstance(reg, RegLoc)
         self.mc.MOV_rr(reg.value, ebp.value)
 
-    def threadlocalref_addr(self, resloc):
-        # This simply loads the stack location THREADLOCAL_OFS into a
-        # register.  It is only supported if 'translate_support_code' is
+    def threadlocalref_get(self, offset, resloc):
+        # This loads the stack location THREADLOCAL_OFS into a
+        # register, and then read the word at the given offset.
+        # It is only supported if 'translate_support_code' is
         # true; otherwise, the original call to the piece of assembler
         # was done with a dummy NULL value.
         assert self.cpu.translate_support_code
         assert isinstance(resloc, RegLoc)
         self.mc.MOV_rs(resloc.value, THREADLOCAL_OFS)
-
-    def get_set_errno(self, op, loc, issue_a_write):
-        # this function is only called on Linux
-        from rpython.jit.backend.x86 import stmtlocal
-        addr = stmtlocal.get_errno_tl()
-        assert rx86.fits_in_32bits(addr)
-        mc = self.mc
-        mc.writechar(stmtlocal.SEGMENT_TL)     # prefix: %fs or %gs
-        # !!important: the *next* instruction must be the one using 'addr'!!
-        if issue_a_write:
-            if isinstance(loc, RegLoc):
-                mc.MOV32_jr(addr, loc.value)       # memory write from reg
-            else:
-                assert isinstance(loc, ImmedLoc)
-                newvalue = loc.value
-                newvalue = rffi.cast(rffi.INT, newvalue)
-                newvalue = rffi.cast(lltype.Signed, newvalue)
-                mc.MOV32_ji(addr, newvalue)        # memory write immediate
-        else:
-            assert isinstance(loc, RegLoc)
-            if IS_X86_32:
-                mc.MOV_rj(loc.value, addr)         # memory read
-            elif IS_X86_64:
-                mc.MOVSX32_rj(loc.value, addr)     # memory read, sign-extend
+        self.mc.MOV_rm(resloc.value, (resloc.value, offset))
 
     def genop_discard_zero_array(self, op, arglocs):
         (base_loc, startindex_loc, bytes_loc,

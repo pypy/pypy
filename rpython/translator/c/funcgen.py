@@ -902,15 +902,20 @@ class FunctionCodeGenerator(object):
             return None    # use the default
 
     def OP_THREADLOCALREF_GET(self, op):
-        assert isinstance(op.args[0], Constant)
-        assert isinstance(op.args[0].value, CDefinedIntSymbolic)
-        fieldname = op.args[0].value.expr
-        assert fieldname.startswith('RPY_TLOFS_')
-        fieldname = fieldname[10:]
         typename = self.db.gettype(op.result.concretetype)
-        return '%s = (%s)RPY_THREADLOCALREF_GET(%s);' % (
-            self.expr(op.result),
-            cdecl(typename, ''),
-            fieldname)
+        if isinstance(op.args[0], Constant):
+            assert isinstance(op.args[0].value, CDefinedIntSymbolic)
+            fieldname = op.args[0].value.expr
+            assert fieldname.startswith('RPY_TLOFS_')
+            fieldname = fieldname[10:]
+            return '%s = (%s)RPY_THREADLOCALREF_GET(%s);' % (
+                self.expr(op.result),
+                cdecl(typename, ''),
+                fieldname)
+        else:
+            return 'OP_THREADLOCALREF_GET_NONCONST(%s, %s, %s);' % (
+                cdecl(typename, ''),
+                self.expr(op.args[0]),
+                self.expr(op.result))
 
 assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)

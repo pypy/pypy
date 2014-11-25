@@ -22,7 +22,7 @@ class EffectInfo(object):
     OS_STR2UNICODE              = 2    # "str.str2unicode"
     OS_SHRINK_ARRAY             = 3    # rgc.ll_shrink_array
     OS_DICT_LOOKUP              = 4    # ll_dict_lookup
-    OS_THREADLOCALREF_ADDR      = 5    # llop.threadlocalref_addr
+    OS_THREADLOCALREF_GET       = 5    # llop.threadlocalref_get
     OS_NOT_IN_TRACE             = 8    # for calls not recorded in the jit trace
     #
     OS_STR_CONCAT               = 22   # "stroruni.concat"

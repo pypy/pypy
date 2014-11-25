@@ -921,14 +921,12 @@ class LLFrame(object):
 
     def op_threadlocalref_addr(self):
         raise NotImplementedError("threadlocalref_addr")
-        ## class FakeThreadLocalAddr(object):
-        ##     is_fake_thread_local_addr = True
-        ##     _TYPE = llmemory.Address
-        ##     def _cast_to_int(self, symbolic=None):
-        ##         return FakeThreadLocalAddrAsInt()
-        ## class FakeThreadLocalAddrAsInt(object):
-        ##     _TYPE = lltype.Signed
-        ## return FakeThreadLocalAddr()
+
+    def op_threadlocalref_get(self, offset):
+        if (type(offset) is CDefinedIntSymbolic and
+                offset.expr == 'RPY_TLOFS_foobar_test_'):   # used in tests
+            return 0x544c
+        raise NotImplementedError("threadlocalref_get")
 
     # __________________________________________________________
     # operations on addresses

@@ -1274,8 +1274,10 @@ class ResOpAssembler(BaseAssembler):
         regalloc.rm.possibly_free_var(dstaddr_box)
         return fcond
 
-    def emit_opx_threadlocalref_addr(self, op, arglocs, regalloc, fcond):
-        res, = arglocs
+    def emit_opx_threadlocalref_get(self, op, arglocs, regalloc, fcond):
+        ofs0, res = arglocs
+        assert ofs0.is_imm()
         ofs = self.saved_threadlocal_addr
         self.load_reg(self.mc, res, r.sp, ofs)
+        self.load_reg(self.mc, res, res, ofs0.value)
         return fcond

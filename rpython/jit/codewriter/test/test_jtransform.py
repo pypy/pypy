@@ -148,7 +148,7 @@ class FakeBuiltinCallControl:
              EI.OS_UNIEQ_LENGTHOK:       ([PUNICODE, PUNICODE], INT),
              EI.OS_RAW_MALLOC_VARSIZE_CHAR: ([INT], ARRAYPTR),
              EI.OS_RAW_FREE:             ([ARRAYPTR], lltype.Void),
-             EI.OS_THREADLOCALREF_ADDR:  ([], llmemory.Address),
+             EI.OS_THREADLOCALREF_GET:   ([INT], INT),   # for example
             }
             argtypes = argtypes[oopspecindex]
             assert argtypes[0] == [v.concretetype for v in op.args[1:]]
@@ -157,9 +157,10 @@ class FakeBuiltinCallControl:
                 assert extraeffect == EI.EF_ELIDABLE_CAN_RAISE
             elif oopspecindex == EI.OS_RAW_MALLOC_VARSIZE_CHAR:
                 assert extraeffect == EI.EF_CAN_RAISE
-            elif oopspecindex in (EI.OS_RAW_FREE,
-                                  EI.OS_THREADLOCALREF_ADDR):
+            elif oopspecindex == EI.OS_RAW_FREE:
                 assert extraeffect == EI.EF_CANNOT_RAISE
+            elif oopspecindex == EI.OS_THREADLOCALREF_GET:
+                assert extraeffect == EI.EF_LOOPINVARIANT
             else:
                 assert extraeffect == EI.EF_ELIDABLE_CANNOT_RAISE
         return 'calldescr-%d' % oopspecindex
@@ -1341,16 +1342,20 @@ def test_cast_opaque_ptr():
     assert op1.result is None
     assert op2 is None
 
-def test_threadlocalref_addr():
-    OS_THREADLOCALREF_ADDR = effectinfo.EffectInfo.OS_THREADLOCALREF_ADDR
-    v = varoftype(llmemory.Address)
-    op = SpaceOperation('threadlocalref_addr', [], v)
+def test_threadlocalref_get():
+    from rpython.rlib.rthread import ThreadLocalField
+    tlfield = ThreadLocalField(lltype.Signed, 'foobar_test_')
+    OS_THREADLOCALREF_GET = effectinfo.EffectInfo.OS_THREADLOCALREF_GET
+    c = const(tlfield.offset)
+    v = varoftype(lltype.Signed)
+    op = SpaceOperation('threadlocalref_get', [c], v)
     tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
     op0 = tr.rewrite_operation(op)
-    assert op0.opname == 'residual_call_r_i'
-    assert op0.args[0].value == 'threadlocalref_addr' # pseudo-function as str
-    assert op0.args[1] == ListOfKind("ref", [])
-    assert op0.args[2] == 'calldescr-%d' % OS_THREADLOCALREF_ADDR
+    assert op0.opname == 'residual_call_ir_i'
+    assert op0.args[0].value == 'threadlocalref_get' # pseudo-function as str
+    assert op0.args[1] == ListOfKind("int", [c])
+    assert op0.args[2] == ListOfKind("ref", [])
+    assert op0.args[3] == 'calldescr-%d' % OS_THREADLOCALREF_GET
     assert op0.result == v
 
 def test_unknown_operation():

@@ -693,10 +693,11 @@ class RegAlloc(BaseRegalloc):
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(1))
         self.perform_math(op, [loc0], loc0)
 
-    def _consider_threadlocalref_addr(self, op):
+    def _consider_threadlocalref_get(self, op):
         if self.translate_support_code:
+            offset = op.getarg(1).getint()   # getarg(0) == 'threadlocalref_get'
             resloc = self.force_allocate_reg(op.result)
-            self.assembler.threadlocalref_addr(resloc)
+            self.assembler.threadlocalref_get(offset, resloc)
         else:
             self._consider_call(op)
 
@@ -777,8 +778,8 @@ class RegAlloc(BaseRegalloc):
                         return
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
                 return self._consider_math_sqrt(op)
-            if oopspecindex == EffectInfo.OS_THREADLOCALREF_ADDR:
-                return self._consider_threadlocalref_addr(op)
+            if oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
+                return self._consider_threadlocalref_get(op)
             if oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
                 return self._consider_math_read_timestamp(op)
         self._consider_call(op)
