@@ -245,10 +245,11 @@ class BytecodeGraph(object):
             return block.operations[i].offset
 
     def get_position(self, offset):
-        return offset
+        return self.pos_index[offset]
 
     def get_offset(self, position):
-        return position
+        block, i = position
+        return block[i].offset
 
     def dump(self):
         all_blocks = set(x[0] for x in self.pos_index.values())
