@@ -46,7 +46,7 @@ class MiniBuffer(W_Root):
         self.keepalive = keepalive
 
     def buffer_w(self, space, flags):
-        return self.buffer, 'B', 1
+        return self.buffer
 
     def descr_len(self, space):
         return space.wrap(self.buffer.getlength())
@@ -64,7 +64,7 @@ class MiniBuffer(W_Root):
                                                       self.buffer.getlength())
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
-        value = space.buffer_w(w_newstring, space.BUF_CONTIG_RO)[0]
+        value = space.buffer_w(w_newstring, space.BUF_CONTIG_RO)
         if value.getlength() != size:
             raise oefmt(space.w_ValueError,
                         "cannot modify size of memoryview object")

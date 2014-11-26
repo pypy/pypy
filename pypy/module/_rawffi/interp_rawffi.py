@@ -361,7 +361,7 @@ class W_DataInstance(W_Root):
         self.ll_buffer = lltype.nullptr(rffi.VOIDP.TO)
 
     def buffer_w(self, space, flags):
-        return RawFFIBuffer(self), 'B', 1
+        return RawFFIBuffer(self)
 
     def getrawsize(self):
         raise NotImplementedError("abstract base class")

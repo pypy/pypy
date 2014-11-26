@@ -32,7 +32,7 @@ class W_BytearrayObject(W_Root):
         return "%s(%s)" % (self.__class__.__name__, ''.join(self.data))
 
     def buffer_w(self, space, flags):
-        return BytearrayBuffer(self.data, False), 'B', 1
+        return BytearrayBuffer(self.data, False)
 
     def _new(self, value):
         if value is self.data:
@@ -67,7 +67,7 @@ class W_BytearrayObject(W_Root):
 
     @staticmethod
     def _op_val(space, w_other):
-        return space.buffer_w(w_other, space.BUF_SIMPLE)[0].as_str()
+        return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
 
     def _chr(self, char):
         assert len(char) == 1

@@ -40,7 +40,7 @@ class W_MyObject(W_Root):
         is_root(w_subtype)
 
     def buffer_w(self, space, flags):
-        return StringBuffer("foobar"), 'B', 1
+        return StringBuffer("foobar")
 
     def str_w(self, space):
         return NonConstant("foobar")

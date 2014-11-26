@@ -21,14 +21,14 @@ class W_MemoryView(W_Root):
         self.format = format
         self.itemsize = itemsize
 
-    def buffer_w(self, space, flags):
+    def buffer_w_ex(self, space, flags):
         self._check_released(space)
         space.check_buf_flags(flags, self.buf.readonly)
         return self.buf, self.format, self.itemsize
 
     @staticmethod
     def descr_new_memoryview(space, w_subtype, w_object):
-        return W_MemoryView(*space.buffer_w(w_object, space.BUF_FULL_RO))
+        return W_MemoryView(*space.buffer_w_ex(w_object, space.BUF_FULL_RO))
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
@@ -41,7 +41,7 @@ class W_MemoryView(W_Root):
                 return space.wrap(getattr(operator, name)(str1, str2))
 
             try:
-                buf = space.buffer_w(w_other, space.BUF_CONTIG_RO)[0]
+                buf = space.buffer_w(w_other, space.BUF_CONTIG_RO)
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -101,7 +101,7 @@ class W_MemoryView(W_Root):
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
-        value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)[0]
+        value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
         if value.getlength() != size * self.itemsize:
             raise oefmt(space.w_ValueError,
                         "cannot modify size of memoryview object")

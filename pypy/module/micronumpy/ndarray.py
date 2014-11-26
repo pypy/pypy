@@ -636,7 +636,7 @@ class __extend__(W_NDimArray):
 
     def buffer_w(self, space, flags):
         # XXX format isn't always 'B' probably
-        return self.implementation.get_buffer(space, True), 'B', 1
+        return self.implementation.get_buffer(space, True)
 
     def descr_get_data(self, space):
         return space.newbuffer(self.implementation.get_buffer(space, False))
