@@ -499,30 +499,36 @@ class FOR_ITER(BCInstruction):
             else:
                 raise
 
+class SetupInstruction(BCInstruction):
+    def bc_flow(self, reader):
+        reader.curr_block.operations.append(self)
+        self.target = reader.get_block_at(self.arg)
+
+    def eval(self, ctx):
+        block = self.make_block(ctx)
+        ctx.blockstack.append(block)
+
 
 @bc_reader.register_opcode
-class SETUP_EXCEPT(BCInstruction):
-    def eval(self, ctx):
+class SETUP_EXCEPT(SetupInstruction):
+    def make_block(self, ctx):
         from rpython.flowspace.flowcontext import ExceptBlock
-        block = ExceptBlock(ctx.stackdepth, self.arg)
-        ctx.blockstack.append(block)
+        return ExceptBlock(ctx.stackdepth, self.arg)
 
 @bc_reader.register_opcode
-class SETUP_LOOP(BCInstruction):
-    def eval(self, ctx):
+class SETUP_LOOP(SetupInstruction):
+    def make_block(self, ctx):
         from rpython.flowspace.flowcontext import LoopBlock
-        block = LoopBlock(ctx.stackdepth, self.arg)
-        ctx.blockstack.append(block)
+        return LoopBlock(ctx.stackdepth, self.arg)
 
 @bc_reader.register_opcode
-class SETUP_FINALLY(BCInstruction):
-    def eval(self, ctx):
+class SETUP_FINALLY(SetupInstruction):
+    def make_block(self, ctx):
         from rpython.flowspace.flowcontext import FinallyBlock
-        block = FinallyBlock(ctx.stackdepth, self.arg)
-        ctx.blockstack.append(block)
+        return FinallyBlock(ctx.stackdepth, self.arg)
 
 @bc_reader.register_opcode
-class SETUP_WITH(BCInstruction):
+class SETUP_WITH(SetupInstruction):
     def eval(self, ctx):
         from rpython.flowspace.flowcontext import WithBlock
         # A simpler version than the 'real' 2.7 one:
