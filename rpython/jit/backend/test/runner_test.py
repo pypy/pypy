@@ -2272,7 +2272,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 values.append(self.cpu.get_int_value(deadframe, 1))
                 self.cpu.set_savedata_ref(deadframe, random_gcref)
 
-        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Void)
+        FUNC = self.FuncType([llmemory.GCREF, lltype.Signed], lltype.Void)
         func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                          EffectInfo.MOST_GENERAL)
@@ -2281,8 +2281,8 @@ class LLtypeBackendTest(BaseBackendTest):
         finaldescr = BasicFinalDescr(0)
         loop = parse("""
         [i0, i1]
-        i2 = force_token()
-        call_may_force_n(ConstClass(func_ptr), i2, i1, descr=calldescr)
+        p2 = force_token()
+        call_may_force_n(ConstClass(func_ptr), p2, i1, descr=calldescr)
         guard_not_forced(descr=faildescr) [i1, i0]
         finish(i0, descr=finaldescr)
         """, namespace=locals())
@@ -2313,7 +2313,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 self.cpu.set_savedata_ref(deadframe, random_gcref)
             return 42
 
-        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
+        FUNC = self.FuncType([llmemory.GCREF, lltype.Signed], lltype.Signed)
         func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                          EffectInfo.MOST_GENERAL)
@@ -2322,8 +2322,8 @@ class LLtypeBackendTest(BaseBackendTest):
         finaldescr = BasicFinalDescr(0)
         loop = parse("""
         [i0, i1]
-        i3 = force_token()
-        i2 = call_may_force_i(ConstClass(func_ptr), i3, i1, descr=calldescr)
+        p3 = force_token()
+        i2 = call_may_force_i(ConstClass(func_ptr), p3, i1, descr=calldescr)
         guard_not_forced(descr=faildescr) [i1, i2, i0]
         finish(i2, descr=finaldescr)
         """, namespace=locals())
@@ -2356,7 +2356,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 self.cpu.set_savedata_ref(deadframe, random_gcref)
             return 42.5
 
-        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Float)
+        FUNC = self.FuncType([llmemory.GCREF, lltype.Signed], lltype.Float)
         func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
         funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
@@ -2366,8 +2366,8 @@ class LLtypeBackendTest(BaseBackendTest):
         finaldescr = BasicFinalDescr(0)
         loop = parse("""
         [i0, i1]
-        i3 = force_token()
-        f2 = call_may_force_f(ConstClass(func_ptr), i3, i1, descr=calldescr)
+        p3 = force_token()
+        f2 = call_may_force_f(ConstClass(func_ptr), p3, i1, descr=calldescr)
         guard_not_forced(descr=faildescr) [i1, f2, i0]
         finish(f2, descr=finaldescr)
         """, namespace=locals())
@@ -2397,16 +2397,16 @@ class LLtypeBackendTest(BaseBackendTest):
         loop = parse("""
         [i0]
         i1 = int_add(i0, 10)
-        i2 = force_token()
+        p2 = force_token()
         guard_not_forced_2(descr=faildescr) [i1]
-        finish(i2, descr=finaldescr)
+        finish(p2, descr=finaldescr)
         """, namespace=locals())
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken, 20)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 0
-        frame = self.cpu.get_int_value(deadframe, 0)
+        frame = self.cpu.get_ref_value(deadframe, 0)
         # actually, we should get the same pointer in 'frame' and 'deadframe'
         # but it is not the case on LLGraph
         if not getattr(self.cpu, 'is_llgraph', False):
@@ -4142,7 +4142,7 @@ class LLtypeBackendTest(BaseBackendTest):
             values.append(self.cpu.get_int_value(deadframe, 0))
             return 42
 
-        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
+        FUNC = self.FuncType([llmemory.GCREF, lltype.Signed], lltype.Signed)
         func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                          EffectInfo.MOST_GENERAL)
@@ -4150,8 +4150,8 @@ class LLtypeBackendTest(BaseBackendTest):
         faildescr = BasicFailDescr(23)
         loop = parse("""
         [i0, i1]
-        i2 = force_token()
-        i3 = call_may_force_i(ConstClass(func_ptr), i2, i1, descr=calldescr)
+        p2 = force_token()
+        i3 = call_may_force_i(ConstClass(func_ptr), p2, i1, descr=calldescr)
         guard_not_forced(descr=faildescr) [i3]
         finish(i3, descr=finaldescr)
         """, namespace=locals())
@@ -4165,7 +4165,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_compile_bridge_while_running(self):
         def func():
             bridge = parse("""
-            [i1, i2, ix]
+            [i1, i2, px]
             i3 = int_add(i1, i2)
             i4 = int_add(i1, i3)
             i5 = int_add(i1, i4)
@@ -4183,7 +4183,7 @@ class LLtypeBackendTest(BaseBackendTest):
             force_spill(i8)
             force_spill(i9)
             call_n(ConstClass(func2_ptr), 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, descr=calldescr2)
-            guard_true(i1, descr=guarddescr) [i1, i2, i3, i4, i5, i6, i7, i8, i9, ix]
+            guard_true(i1, descr=guarddescr) [i1, i2, i3, i4, i5, i6, i7, i8, i9, px]
             finish(i1, descr=finaldescr)
             """, namespace={'finaldescr': finaldescr, 'calldescr2': calldescr2,
                             'guarddescr': guarddescr, 'func2_ptr': func2_ptr})
@@ -4216,8 +4216,8 @@ class LLtypeBackendTest(BaseBackendTest):
         loop = parse("""
         [i0, i1, i2]
         call_n(ConstClass(func_ptr), descr=calldescr)
-        ix = force_token()
-        guard_true(i0, descr=faildescr) [i1, i2, ix]
+        px = force_token()
+        guard_true(i0, descr=faildescr) [i1, i2, px]
         finish(i2, descr=finaldescr2)
         """, namespace=locals())
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)

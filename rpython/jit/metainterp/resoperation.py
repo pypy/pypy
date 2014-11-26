@@ -650,7 +650,7 @@ _oplist = [
     'NEWSTR/1/r',         #-> STR, the hash field is zeroed
     'NEWUNICODE/1/r',     #-> UNICODE, the hash field is zeroed
     '_MALLOC_LAST',
-    'FORCE_TOKEN/0/i',
+    'FORCE_TOKEN/0/r',
     'VIRTUAL_REF/2/r',    # removed before it's passed to the backend
     'MARK_OPAQUE_PTR/1b/n',
     # this one has no *visible* side effect, since the virtualizable

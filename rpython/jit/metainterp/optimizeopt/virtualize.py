@@ -605,11 +605,13 @@ class OptVirtualize(optimizer.Optimization):
         # Replace the VIRTUAL_REF operation with a virtual structure of type
         # 'jit_virtual_ref'.  The jit_virtual_ref structure may be forced soon,
         # but the point is that doing so does not force the original structure.
-        op = ResOperation(rop.NEW_WITH_VTABLE, [c_cls], op)
-        vrefvalue = self.make_virtual(c_cls, op)
-        tokenbox = BoxPtr()
-        self.emit_operation(ResOperation(rop.FORCE_TOKEN, [], tokenbox))
-        vrefvalue.setfield(descr_virtual_token, self.getvalue(tokenbox))
+        newop = ResOperation(rop.NEW_WITH_VTABLE, [c_cls])
+        vrefvalue = self.make_virtual(c_cls, newop)
+        assert op not in self.optimizer.values
+        self.optimizer.values[op] = vrefvalue
+        token = ResOperation(rop.FORCE_TOKEN, [])
+        self.emit_operation(token)
+        vrefvalue.setfield(descr_virtual_token, self.getvalue(token))
         vrefvalue.setfield(descr_forced, self.optimizer.cpu.ts.CVAL_NULLREF)
 
     def optimize_VIRTUAL_REF_FINISH(self, op):
@@ -632,12 +634,12 @@ class OptVirtualize(optimizer.Optimization):
         # - set 'forced' to point to the real object
         objbox = op.getarg(1)
         if not CONST_NULL.same_constant(objbox):
-            seo(ResOperation(rop.SETFIELD_GC, op.getarglist(), None,
+            seo(ResOperation(rop.SETFIELD_GC, op.getarglist(),
                              descr=vrefinfo.descr_forced))
 
         # - set 'virtual_token' to TOKEN_NONE (== NULL)
         args = [op.getarg(0), CONST_NULL]
-        seo(ResOperation(rop.SETFIELD_GC, args, None,
+        seo(ResOperation(rop.SETFIELD_GC, args,
                          descr=vrefinfo.descr_virtual_token))
         # Note that in some cases the virtual in op.getarg(1) has been forced
         # already.  This is fine.  In that case, and *if* a residual

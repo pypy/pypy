@@ -679,7 +679,7 @@ class LLDeadFrame(object):
 
 
 class LLFrame(object):
-    _TYPE = lltype.Signed
+    _TYPE = llmemory.GCREF
 
     forced_deadframe = None
     overflow_flag = False

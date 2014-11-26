@@ -35,7 +35,7 @@ class UnrollableOptimizer(Optimizer):
 
     def emit_operation(self, op):
         if op.returns_bool_result():
-            self.bool_boxes[self.getvalue(op.result)] = None
+            self.bool_boxes[self.getvalue(op)] = None
         if self.emitting_dissabled:
             return
         if op.is_guard():
@@ -102,7 +102,7 @@ class UnrollOptimizer(Optimization):
 
         cell_token = jumpop.getdescr()
         assert isinstance(cell_token, JitCellToken)
-        stop_label = ResOperation(rop.LABEL, jumpop.getarglist(), None, TargetToken(cell_token))
+        stop_label = ResOperation(rop.LABEL, jumpop.getarglist(), TargetToken(cell_token))
 
         if jumpop.getopnum() == rop.JUMP:
             if self.jump_to_already_compiled_trace(jumpop, patchguardop):

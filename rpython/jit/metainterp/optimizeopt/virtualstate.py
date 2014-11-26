@@ -686,18 +686,18 @@ class ShortBoxes(object):
             raise BoxNotProducable
 
     def add_potential(self, op, synthetic=False):
-        if op.result and op.result in self.optimizer.values:
-            value = self.optimizer.values[op.result]
+        if op in self.optimizer.values:
+            value = self.optimizer.values[op]
             if value in self.optimizer.opaque_pointers:
                 classbox = value.get_constant_class(self.optimizer.cpu)
                 if classbox:
-                    self.assumed_classes[op.result] = classbox
-        if op.result not in self.potential_ops:
-            self.potential_ops[op.result] = op
+                    self.assumed_classes[op] = classbox
+        if op not in self.potential_ops:
+            self.potential_ops[op] = op
         else:
-            if op.result not in self.alternatives:
-                self.alternatives[op.result] = [self.potential_ops[op.result]]
-            self.alternatives[op.result].append(op)
+            if op not in self.alternatives:
+                self.alternatives[op] = [self.potential_ops[op]]
+            self.alternatives[op].append(op)
         if synthetic:
             self.synthetic[op] = True
 

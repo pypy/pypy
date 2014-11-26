@@ -48,7 +48,7 @@ mode_unicode = StrOrUnicode(rstr.UNICODE, annlowlevel.hlunicode, u'', unichr,
 class __extend__(optimizer.OptValue):
     """New methods added to the base class OptValue for this file."""
 
-    def getstrlen(self, string_optimizer, mode, lengthbox):
+    def getstrlen(self, string_optimizer, mode, lengthop):
         if mode is mode_string:
             s = self.get_constant_string_spec(mode_string)
             if s is not None:
@@ -61,10 +61,13 @@ class __extend__(optimizer.OptValue):
             return None
         self.ensure_nonnull()
         box = self.force_box(string_optimizer)
-        if lengthbox is None:
-            lengthbox = BoxInt()
-        string_optimizer.emit_operation(ResOperation(mode.STRLEN, [box], lengthbox))
-        return lengthbox
+        if lengthop is None:
+            xxx
+        else:
+            lengthop = string_optimizer.optimizer.replace_op_with(lengthop,
+                mode.STRLEN, [box])
+        string_optimizer.emit_operation(lengthop)
+        return lengthop
 
     @specialize.arg(1)
     def get_constant_string_spec(self, mode):
@@ -278,6 +281,7 @@ class VStringSliceValue(VAbstractStringValue):
         self.vlength = vlength
 
     def getstrlen(self, optforce, mode, lengthbox):
+        xxx
         return self.vlength.force_box(optforce)
 
     @specialize.arg(1)
@@ -485,11 +489,11 @@ class OptString(optimizer.Optimization):
 
     def _optimize_STRLEN(self, op, mode):
         value = self.getvalue(op.getarg(0))
-        lengthbox = value.getstrlen(self, mode, op.result)
-        if op.result in self.optimizer.values:
-            assert self.getvalue(op.result) is self.getvalue(lengthbox)
-        elif op.result is not lengthbox:
-            self.make_equal_to(op.result, self.getvalue(lengthbox))
+        lengthbox = value.getstrlen(self, mode, op)
+        if op in self.optimizer.values:
+            assert self.getvalue(op) is self.getvalue(lengthbox)
+        elif op is not lengthbox:
+            self.make_equal_to(op, self.getvalue(lengthbox))
 
     def optimize_COPYSTRCONTENT(self, op):
         self._optimize_COPYSTRCONTENT(op, mode_string)

@@ -516,18 +516,13 @@ class OptRewrite(Optimization):
                     assert isinstance(source_value, VArrayValue)
                     val = source_value.getitem(index + source_start)
                 else:
-                    if arraydescr.is_array_of_pointers():
-                        resbox = BoxPtr()
-                    elif arraydescr.is_array_of_floats():
-                        resbox = BoxFloat()
-                    else:
-                        resbox = BoxInt()
-                    newop = ResOperation(rop.GETARRAYITEM_GC,
+                    opnum = OpHelpers.getarrayitem_for_descr(arraydescr)
+                    newop = ResOperation(opnum,
                                       [op.getarg(1),
-                                       ConstInt(index + source_start)], resbox,
+                                       ConstInt(index + source_start)],
                                        descr=arraydescr)
                     self.optimizer.send_extra_operation(newop)
-                    val = self.getvalue(resbox)
+                    val = self.getvalue(newop)
                 if val is None:
                     continue
                 if dest_value.is_virtual():
@@ -536,7 +531,7 @@ class OptRewrite(Optimization):
                     newop = ResOperation(rop.SETARRAYITEM_GC,
                                          [op.getarg(2),
                                           ConstInt(index + dest_start),
-                                          val.get_key_box()], None,
+                                          val.get_key_box()],
                                          descr=arraydescr)
                     self.emit_operation(newop)
             return True
