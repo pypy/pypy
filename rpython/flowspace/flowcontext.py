@@ -708,18 +708,6 @@ class FlowContext(object):
         w_iterator = op.iter(w_iterable).eval(self)
         self.pushvalue(w_iterator)
 
-    def FOR_ITER(self, target):
-        w_iterator = self.peekvalue()
-        try:
-            w_nextitem = op.next(w_iterator).eval(self)
-            self.pushvalue(w_nextitem)
-        except Raise as e:
-            if self.exception_match(e.w_exc.w_type, const(StopIteration)):
-                self.popvalue()
-                return target
-            else:
-                raise
-
     def SETUP_LOOP(self, target):
         block = LoopBlock(self.stackdepth, target)
         self.blockstack.append(block)

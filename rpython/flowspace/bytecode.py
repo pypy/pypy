@@ -476,6 +476,22 @@ def JUMP_FORWARD(self, reader):
     reader.end_block()
 
 @bc_reader.register_opcode
+class FOR_ITER(BCInstruction):
+    def eval(self, ctx):
+        from rpython.flowspace.flowcontext import Raise
+        w_iterator = ctx.peekvalue()
+        try:
+            w_nextitem = op.next(w_iterator).eval(ctx)
+            ctx.pushvalue(w_nextitem)
+        except Raise as e:
+            if ctx.exception_match(e.w_exc.w_type, const(StopIteration)):
+                ctx.popvalue()
+                return self.arg
+            else:
+                raise
+
+
+@bc_reader.register_opcode
 class SETUP_EXCEPT(BCInstruction):
     def eval(self, ctx):
         from rpython.flowspace.flowcontext import ExceptBlock
