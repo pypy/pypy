@@ -949,7 +949,7 @@ class LLFrame(object):
     execute_call_may_force_f = _execute_call_may_force
     execute_call_may_force_i = _execute_call_may_force
 
-    def execute_call_release_gil(self, descr, func, *args):
+    def _execute_call_release_gil(self, descr, func, *args):
         if hasattr(descr, '_original_func_'):
             func = descr._original_func_     # see pyjitpl.py
             # we want to call the function that does the aroundstate
@@ -974,7 +974,12 @@ class LLFrame(object):
         del self.force_guard_op
         return support.cast_result(descr.RESULT, result)
 
-    def execute_call_assembler(self, descr, *args):
+    execute_call_release_gil_n = _execute_call_release_gil
+    execute_call_release_gil_i = _execute_call_release_gil
+    execute_call_release_gil_r = _execute_call_release_gil
+    execute_call_release_gil_f = _execute_call_release_gil
+
+    def _execute_call_assembler(self, descr, *args):
         # XXX simplify the following a bit
         #
         # pframe = CALL_ASSEMBLER(args..., descr=looptoken)
@@ -1026,6 +1031,11 @@ class LLFrame(object):
         if isinstance(result, float):
             result = support.cast_to_floatstorage(result)
         return result
+
+    execute_call_assembler_i = _execute_call_assembler
+    execute_call_assembler_r = _execute_call_assembler
+    execute_call_assembler_f = _execute_call_assembler
+    execute_call_assembler_n = _execute_call_assembler
 
     def execute_same_as_i(self, _, x):
         return x

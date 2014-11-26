@@ -321,7 +321,7 @@ class FloatOp(object):
 
     getvalue = getfloatstorage
     getfloat = getfloatstorage
-
+    
     def setfloatstorage(self, floatval):
         self._resfloat = floatval
 
@@ -580,7 +580,7 @@ _oplist = [
     'FLOAT_ABS/1/f',
     'CAST_FLOAT_TO_INT/1/i',          # don't use for unsigned ints; we would
     'CAST_INT_TO_FLOAT/1/f',          # need some messy code in the backend
-    'CAST_FLOAT_TO_SINGLEFLOAT/1/f',
+    'CAST_FLOAT_TO_SINGLEFLOAT/1/i',
     'CAST_SINGLEFLOAT_TO_FLOAT/1/f',
     'CONVERT_FLOAT_BYTES_TO_LONGLONG/1/i',
     'CONVERT_LONGLONG_BYTES_TO_FLOAT/1/f',
