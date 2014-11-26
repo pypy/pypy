@@ -102,6 +102,17 @@ class ResOpAssembler(BaseAssembler):
         self.mc.MOV_rr(res.value, arg.value, cond=c.GE)
         return fcond
 
+    def emit_op_int_signext(self, op, arglocs, regalloc, fcond):
+        arg, numbytes, res = arglocs
+        assert numbytes.is_imm()
+        if numbytes.value == 1:
+            self.mc.SXTB_rr(res.value, arg.value)
+        elif numbytes.value == 2:
+            self.mc.SXTB16_rr(res.value, arg.value)
+        else:
+            raise AssertionError("bad number of bytes")
+        return fcond
+
     #ref: http://blogs.arm.com/software-enablement/detecting-overflow-from-mul/
     def emit_guard_int_mul_ovf(self, op, guard, arglocs, regalloc, fcond):
         reg1 = arglocs[0]

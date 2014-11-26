@@ -1143,6 +1143,18 @@ class Assembler386(BaseAssembler):
     def genop_math_sqrt(self, op, arglocs, resloc):
         self.mc.SQRTSD(arglocs[0], resloc)
 
+    def genop_int_signext(self, op, arglocs, resloc):
+        argloc, numbytesloc = arglocs
+        assert isinstance(numbytesloc, ImmedLoc)
+        if numbytesloc.value == 1:
+            self.mc.MOVSX8(resloc, argloc)
+        elif numbytesloc.value == 2:
+            self.mc.MOVSX16(resloc, argloc)
+        elif IS_X86_64 and numbytesloc.value == 4:
+            self.mc.MOVSX32(resloc, argloc)
+        else:
+            raise AssertionError("bad number of bytes")
+
     def genop_guard_float_ne(self, op, guard_op, guard_token, arglocs, result_loc):
         guard_opnum = guard_op.getopnum()
         if isinstance(arglocs[0], RegLoc):

@@ -474,6 +474,12 @@ class RegAlloc(BaseRegalloc):
 
     consider_int_invert = consider_int_neg
 
+    def consider_int_signext(self, op):
+        argloc = self.loc(op.getarg(0))
+        numbytesloc = self.loc(op.getarg(1))
+        resloc = self.force_allocate_reg(op.result)
+        self.perform(op, [argloc, numbytesloc], resloc)
+
     def consider_int_lshift(self, op):
         if isinstance(op.getarg(1), Const):
             loc2 = self.rm.convert_to_imm(op.getarg(1))

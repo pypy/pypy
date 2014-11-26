@@ -458,6 +458,12 @@ class Regalloc(BaseRegalloc):
         resloc = self.force_allocate_reg(op.result, [op.getarg(0)])
         return [argloc, resloc]
 
+    def prepare_op_int_signext(self, op, fcond):
+        argloc = self.make_sure_var_in_reg(op.getarg(0))
+        numbytes = op.getarg(1).getint()
+        resloc = self.force_allocate_reg(op.result)
+        return [argloc, imm(numbytes), resloc]
+
     def prepare_guard_int_mul_ovf(self, op, guard, fcond):
         boxes = op.getarglist()
         reg1 = self.make_sure_var_in_reg(boxes[0], forbidden_vars=boxes)

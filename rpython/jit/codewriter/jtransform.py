@@ -1267,19 +1267,12 @@ class Transformer(object):
 
         result = []
         if min2:
-            c_min2 = Constant(min2, lltype.Signed)
-            v2 = varoftype(lltype.Signed)
-            result.append(SpaceOperation('int_sub', [v_arg, c_min2], v2))
+            c_bytes = Constant(size2, lltype.Signed)
+            result.append(SpaceOperation('int_signext', [v_arg, c_bytes],
+                                         v_result))
         else:
-            v2 = v_arg
-        c_mask = Constant(int((1 << (8 * size2)) - 1), lltype.Signed)
-        if min2:
-            v3 = varoftype(lltype.Signed)
-        else:
-            v3 = v_result
-        result.append(SpaceOperation('int_and', [v2, c_mask], v3))
-        if min2:
-            result.append(SpaceOperation('int_add', [v3, c_min2], v_result))
+            c_mask = Constant(int((1 << (8 * size2)) - 1), lltype.Signed)
+            result.append(SpaceOperation('int_and', [v_arg, c_mask], v_result))
         return result
 
     def _float_to_float_cast(self, v_arg, v_result):

@@ -3048,6 +3048,16 @@ class BasicTests:
         res = self.meta_interp(f, [32])
         assert res == f(32)
 
+    def test_int_signext(self):
+        def f(n):
+            return rffi.cast(rffi.SIGNEDCHAR, n)
+        res = self.interp_operations(f, [128])
+        assert res == -128
+        res = self.interp_operations(f, [-35 + 256 * 29])
+        assert res == -35
+        res = self.interp_operations(f, [127 - 256 * 29])
+        assert res == 127
+
 class BaseLLtypeTests(BasicTests):
 
     def test_identityhash(self):
