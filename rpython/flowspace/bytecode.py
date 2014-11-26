@@ -477,16 +477,25 @@ def JUMP_FORWARD(self, reader):
 
 @bc_reader.register_opcode
 class FOR_ITER(BCInstruction):
+    def bc_flow(self, reader):
+        block = reader.curr_block
+        block.operations.append(self)
+        self.exit = reader.get_block_at(self.arg)
+        self.body = reader.get_next_block()
+        block.set_exits([self.body, self.exit])
+        reader.end_block()
+
     def eval(self, ctx):
         from rpython.flowspace.flowcontext import Raise
         w_iterator = ctx.peekvalue()
         try:
             w_nextitem = op.next(w_iterator).eval(ctx)
             ctx.pushvalue(w_nextitem)
+            return self.body
         except Raise as e:
             if ctx.exception_match(e.w_exc.w_type, const(StopIteration)):
                 ctx.popvalue()
-                return self.arg
+                return self.exit
             else:
                 raise
 
