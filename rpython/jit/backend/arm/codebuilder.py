@@ -324,9 +324,9 @@ class AbstractARMBuilder(object):
                     | (rd & 0xF) << 12
                     | (rm & 0xF))
 
-    def SXTB16_rr(self, rd, rm, c=cond.AL):
+    def SXTH_rr(self, rd, rm, c=cond.AL):
         self.write32(c << 28
-                    | 0x068F0070
+                    | 0x06BF0070
                     | (rd & 0xF) << 12
                     | (rm & 0xF))
 

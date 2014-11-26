@@ -108,7 +108,7 @@ class ResOpAssembler(BaseAssembler):
         if numbytes.value == 1:
             self.mc.SXTB_rr(res.value, arg.value)
         elif numbytes.value == 2:
-            self.mc.SXTB16_rr(res.value, arg.value)
+            self.mc.SXTH_rr(res.value, arg.value)
         else:
             raise AssertionError("bad number of bytes")
         return fcond
