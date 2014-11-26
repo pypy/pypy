@@ -55,15 +55,16 @@ RPY_EXTERN __thread struct pypy_threadlocal_s pypy_threadlocal;
 #ifdef _WIN32
 #  include <WinSock2.h>
 #  include <windows.h>
-#  define _RPy_ThreadLocals_Get  TlsGetValue
-#  define _RPy_ThreadLocals_Set  TlsSetValue
-RPY_EXTERN DWORD pypy_threadlocal_key;
+#  define _RPy_ThreadLocals_Get()   TlsGetValue(pypy_threadlocal_key)
+#  define _RPy_ThreadLocals_Set(x)  TlsSetValue(pypy_threadlocal_key, x)
+typedef DWORD pthread_key_t;
 #else
 #  include <pthread.h>
-#  define _RPy_ThreadLocals_Get  pthread_getspecific
-#  define _RPy_ThreadLocals_Set  pthread_setspecific
-RPY_EXTERN pthread_key_t pypy_threadlocal_key;
+#  define _RPy_ThreadLocals_Get()   pthread_getspecific(pypy_threadlocal_key)
+#  define _RPy_ThreadLocals_Set(x)  pthread_setspecific(pypy_threadlocal_key, x)
 #endif
+
+RPY_EXTERN pthread_key_t pypy_threadlocal_key;
 
 
 #define OP_THREADLOCALREF_ADDR(r)               \

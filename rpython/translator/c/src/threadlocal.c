@@ -69,6 +69,9 @@ void RPython_ThreadLocals_ThreadDie(void)
    explicitly, with malloc()/free(), and attached to (a single) thread-
    local key using the API of Windows or pthread. */
 
+pthread_key_t pypy_threadlocal_key;
+
+
 void RPython_ThreadLocals_ProgramInit(void)
 {
 #ifdef _WIN32
