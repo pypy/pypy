@@ -234,15 +234,15 @@ class BytecodeGraph(object):
         bc_block, i = self.pos_index[pos]
         return bc_block[i]
 
-    def next_pos(self, instr):
-        block, i = self.pos_index[instr.offset]
+    def next_pos(self):
+        block, i = self.curr_position
         i = i + 1
         if i >= len(block.operations):
             assert len(block._exits) == 1
             assert block._exits[0] is not block
-            return block._exits[0].startpos
+            return (block._exits[0], 0)
         else:
-            return block.operations[i].offset
+            return block, i
 
     def get_position(self, offset):
         return self.pos_index[offset]

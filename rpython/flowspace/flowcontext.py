@@ -354,8 +354,7 @@ class FlowContext(object):
         try:
             for instr in bc_graph.iter_instr():
                 self.last_offset = instr.offset
-                next_offset = self.handle_bytecode(instr)
-                position = bc_graph.get_position(next_offset)
+                position = self.handle_bytecode(instr)
                 bc_graph.curr_position = position
                 self.recorder.final_state = self.getstate(position)
 
@@ -459,11 +458,12 @@ class FlowContext(object):
         try:
             next_offset = instr.eval(self)
         except FlowSignal as signal:
-            return self.unroll(signal)
+            return bc_graph.get_position(self.unroll(signal))
         if next_offset is None:
-            next_offset = bc_graph.next_pos(instr)
-        elif isinstance(next_offset, BytecodeBlock):
-            next_offset = next_offset.startpos
+            next_offset = bc_graph.next_pos()
+        else:
+            assert isinstance(next_offset, BytecodeBlock)
+            next_offset = next_offset, 0
         return next_offset
 
     def unroll(self, signal):
