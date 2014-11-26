@@ -479,12 +479,6 @@ class FlowContext(object):
     def BAD_OPCODE(self, _):
         raise FlowingError("This operation is not RPython")
 
-    def BREAK_LOOP(self, oparg):
-        raise Break
-
-    def CONTINUE_LOOP(self, startofloop):
-        raise Continue(startofloop)
-
     def not_(self, w_obj):
         w_bool = op.bool(w_obj).eval(self)
         return const(not self.guessbool(w_bool))
