@@ -507,9 +507,13 @@ class BREAK_LOOP(BCInstruction):
 
 @bc_reader.register_opcode
 class CONTINUE_LOOP(BCInstruction):
+    def bc_flow(self, reader):
+        reader.curr_block.operations.append(self)
+        self.target = reader.get_block_at(self.arg)
+
     def eval(self, ctx):
         from rpython.flowspace.flowcontext import Continue
-        raise Continue(self.arg)
+        raise Continue(self.target)
 
 class SetupInstruction(BCInstruction):
     def bc_flow(self, reader):
@@ -525,19 +529,19 @@ class SetupInstruction(BCInstruction):
 class SETUP_EXCEPT(SetupInstruction):
     def make_block(self, ctx):
         from rpython.flowspace.flowcontext import ExceptBlock
-        return ExceptBlock(ctx.stackdepth, self.arg)
+        return ExceptBlock(ctx.stackdepth, self.target)
 
 @bc_reader.register_opcode
 class SETUP_LOOP(SetupInstruction):
     def make_block(self, ctx):
         from rpython.flowspace.flowcontext import LoopBlock
-        return LoopBlock(ctx.stackdepth, self.arg)
+        return LoopBlock(ctx.stackdepth, self.target)
 
 @bc_reader.register_opcode
 class SETUP_FINALLY(SetupInstruction):
     def make_block(self, ctx):
         from rpython.flowspace.flowcontext import FinallyBlock
-        return FinallyBlock(ctx.stackdepth, self.arg)
+        return FinallyBlock(ctx.stackdepth, self.target)
 
 @bc_reader.register_opcode
 class SETUP_WITH(SetupInstruction):
@@ -551,7 +555,7 @@ class SETUP_WITH(SetupInstruction):
         ctx.settopvalue(w_exit)
         w_enter = op.getattr(w_manager, const('__enter__')).eval(ctx)
         w_result = op.simple_call(w_enter).eval(ctx)
-        block = WithBlock(ctx.stackdepth, self.arg)
+        block = WithBlock(ctx.stackdepth, self.target)
         ctx.blockstack.append(block)
         ctx.pushvalue(w_result)
 

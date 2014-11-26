@@ -16,6 +16,7 @@ from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline)
 from rpython.flowspace.operation import op
 from rpython.flowspace.bytecode import BytecodeCorruption, bc_reader
+from rpython.flowspace.bytecode import BytecodeBlock
 from rpython.flowspace.pygraph import PyGraph
 
 w_None = const(None)
@@ -356,12 +357,11 @@ class FlowContext(object):
                 try:
                     next_block = instr.eval(self)
                 except FlowSignal as signal:
-                    next_position = bc_graph.get_position(self.unroll(signal))
+                    next_block = self.unroll(signal)
+                if next_block is None:
+                    next_position = bc_graph.next_pos()
                 else:
-                    if next_block is None:
-                        next_position = bc_graph.next_pos()
-                    else:
-                        next_position = next_block, 0
+                    next_position = next_block, 0
                 bc_graph.curr_position = next_position
                 self.recorder.final_state = self.getstate(next_position)
 
@@ -1125,20 +1125,20 @@ class FrameBlock(object):
     """Abstract base class for frame blocks from the blockstack,
     used by the SETUP_XXX and POP_BLOCK opcodes."""
 
-    def __init__(self, stackdepth, handlerposition):
-        self.handlerposition = handlerposition
+    def __init__(self, stackdepth, handler):
+        self.handler = handler
         self.stackdepth = stackdepth
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
-                self.handlerposition == other.handlerposition and
+                self.handler == other.handler and
                 self.stackdepth == other.stackdepth)
 
     def __ne__(self, other):
         return not (self == other)
 
     def __hash__(self):
-        return hash((self.handlerposition, self.stackdepth))
+        return hash((self.handler, self.stackdepth))
 
     def cleanupstack(self, ctx):
         ctx.dropvaluesuntil(self.stackdepth)
@@ -1161,7 +1161,7 @@ class LoopBlock(FrameBlock):
         else:
             # jump to the end of the loop
             self.cleanupstack(ctx)
-            return self.handlerposition
+            return self.handler
 
 class ExceptBlock(FrameBlock):
     """An try:except: block.  Stores the position of the exception handler."""
@@ -1181,7 +1181,7 @@ class ExceptBlock(FrameBlock):
         ctx.pushvalue(w_exc.w_value)
         ctx.pushvalue(w_exc.w_type)
         ctx.last_exception = w_exc
-        return self.handlerposition   # jump to the handler
+        return self.handler   # jump to the handler
 
 class FinallyBlock(FrameBlock):
     """A try:finally: block.  Stores the position of the exception handler."""
@@ -1193,7 +1193,7 @@ class FinallyBlock(FrameBlock):
         # the block unrolling and the entering the finally: handler.
         self.cleanupstack(ctx)
         ctx.pushvalue(unroller)
-        return self.handlerposition   # jump to the handler
+        return self.handler   # jump to the handler
 
 
 class WithBlock(FinallyBlock):
