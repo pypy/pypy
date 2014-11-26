@@ -479,7 +479,7 @@ def constant_from_op(op):
 def execute_nonspec_const(cpu, metainterp, opnum, argboxes, descr=None,
                           type='i'):
     return wrap_constant(_execute_nonspec(cpu, metainterp, opnum, argboxes,
-                                          descr, type))
+                                          descr))
 
 @specialize.arg(2)
 def _execute_nonspec(cpu, metainterp, opnum, argboxes, descr=None):

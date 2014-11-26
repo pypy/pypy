@@ -2421,12 +2421,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             pfieldvar = match.group(3)
             pendingfields.append((pvar, pfieldname, pfieldvar))
         #
-        def _variables_equal(value, varname, strict):
+        def _variables_equal(box, varname, strict):
             if varname not in virtuals:
                 if strict:
                     assert box.same_box(oparse.getvar(varname))
                 else:
-                    assert value == oparse.getvar(varname).getvalue()
+                    assert box.getvalue() == oparse.getvar(varname).getvalue()
             else:
                 tag, resolved, fieldstext = virtuals[varname]
                 if tag[0] == 'virtual':
@@ -2438,7 +2438,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
                 else:
                     assert 0
                 if resolved is not None:
-                    assert resolved.value == box.value
+                    assert resolved.getvalue() == box.getvalue()
                 else:
                     virtuals[varname] = tag, box, fieldstext
         #
@@ -2482,7 +2482,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
                                                 resolved, ConstInt(index))
                 else:
                     assert 0
-                _variables_equal(fieldval, fieldvalue.strip(), strict=False)
+                _variables_equal(executor.wrap_constant(fieldval),
+                                 fieldvalue.strip(), strict=False)
                 index += 1
 
     def check_expanded_fail_descr(self, expectedtext, guard_opnum):
