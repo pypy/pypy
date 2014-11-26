@@ -507,6 +507,36 @@ class SETUP_EXCEPT(BCInstruction):
         block = ExceptBlock(ctx.stackdepth, self.arg)
         ctx.blockstack.append(block)
 
+@bc_reader.register_opcode
+class SETUP_LOOP(BCInstruction):
+    def eval(self, ctx):
+        from rpython.flowspace.flowcontext import LoopBlock
+        block = LoopBlock(ctx.stackdepth, self.arg)
+        ctx.blockstack.append(block)
+
+@bc_reader.register_opcode
+class SETUP_FINALLY(BCInstruction):
+    def eval(self, ctx):
+        from rpython.flowspace.flowcontext import FinallyBlock
+        block = FinallyBlock(ctx.stackdepth, self.arg)
+        ctx.blockstack.append(block)
+
+@bc_reader.register_opcode
+class SETUP_WITH(BCInstruction):
+    def eval(self, ctx):
+        from rpython.flowspace.flowcontext import WithBlock
+        # A simpler version than the 'real' 2.7 one:
+        # directly call manager.__enter__(), don't use special lookup functions
+        # which don't make sense on the RPython type system.
+        w_manager = ctx.peekvalue()
+        w_exit = op.getattr(w_manager, const("__exit__")).eval(ctx)
+        ctx.settopvalue(w_exit)
+        w_enter = op.getattr(w_manager, const('__enter__')).eval(ctx)
+        w_result = op.simple_call(w_enter).eval(ctx)
+        block = WithBlock(ctx.stackdepth, self.arg)
+        ctx.blockstack.append(block)
+        ctx.pushvalue(w_result)
+
 _unary_ops = [
     ('UNARY_POSITIVE', op.pos),
     ('UNARY_NEGATIVE', op.neg),

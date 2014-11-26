@@ -702,27 +702,6 @@ class FlowContext(object):
         w_iterator = op.iter(w_iterable).eval(self)
         self.pushvalue(w_iterator)
 
-    def SETUP_LOOP(self, target):
-        block = LoopBlock(self.stackdepth, target)
-        self.blockstack.append(block)
-
-    def SETUP_FINALLY(self, target):
-        block = FinallyBlock(self.stackdepth, target)
-        self.blockstack.append(block)
-
-    def SETUP_WITH(self, target):
-        # A simpler version than the 'real' 2.7 one:
-        # directly call manager.__enter__(), don't use special lookup functions
-        # which don't make sense on the RPython type system.
-        w_manager = self.peekvalue()
-        w_exit = op.getattr(w_manager, const("__exit__")).eval(self)
-        self.settopvalue(w_exit)
-        w_enter = op.getattr(w_manager, const('__enter__')).eval(self)
-        w_result = op.simple_call(w_enter).eval(self)
-        block = WithBlock(self.stackdepth, target)
-        self.blockstack.append(block)
-        self.pushvalue(w_result)
-
     def WITH_CLEANUP(self, oparg):
         # Note: RPython context managers receive None in lieu of tracebacks
         # and cannot suppress the exception.
