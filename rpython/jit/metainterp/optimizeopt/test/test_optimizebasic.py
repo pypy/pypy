@@ -2452,11 +2452,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         for pvar, pfieldname, pfieldvar in pendingfields:
             box = oparse.getvar(pvar)
             fielddescr = self.namespace[pfieldname.strip()]
-            fieldbox = executor.execute(self.cpu, None,
-                                        rop.GETFIELD_GC,
+            opnum = OpHelpers.getfield_for_descr(fielddescr)
+            fieldval = executor.execute(self.cpu, None,
+                                        opnum,
                                         fielddescr,
                                         box)
-            _variables_equal(fieldbox, pfieldvar, strict=True)
+            _variables_equal(executor.wrap_constant(fieldval), pfieldvar,
+                             strict=True)
         #
         for match in parts:
             pvar = match.group(1)
@@ -2476,8 +2478,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
                                                 resolved)
                 elif tag[0] == 'varray':
                     fieldvalue = fieldtext
-                    fieldbox = executor.execute(self.cpu, None,
-                                                rop.GETARRAYITEM_GC,
+                    #opnum = OpHelpers.getarrayitem_for_descr(fielddescr)
+                    fieldval = executor.execute(self.cpu, None,
+                                                rop.GETARRAYITEM_GC_I,
                                                 tag[1],
                                                 resolved, ConstInt(index))
                 else:
@@ -2637,7 +2640,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setarrayitem_gc(p1, 1, i1, descr=arraydescr)
         setarrayitem_gc(p1, 0, 25, descr=arraydescr)
         guard_true(i1, descr=fdescr) [p1]
-        i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
+        i2 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
         jump(i2)
         """
         expected = """
@@ -2731,7 +2734,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(p1, i2, i4)
         """
         self.optimize_loop(ops, expected)
-        self.loop.inputargs[0].value = self.nodebox.value
+        self.loop.inputargs[0].setref_base(self.nodeaddr)
         self.check_expanded_fail_descr('''
             p1.nextdescr = p2
             where p2 is a node_vtable, valuedescr=i2
@@ -2765,7 +2768,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p1, p2]
         i1 = getfield_gc_i(p1, descr=valuedescr)
-        i2 = call(i1, descr=nonwritedescr)
+        i2 = call_i(i1, descr=nonwritedescr)
         i3 = getfield_gc_i(p1, descr=valuedescr)
         escape(i1)
         escape(i3)
@@ -2774,7 +2777,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [p1, p2]
         i1 = getfield_gc_i(p1, descr=valuedescr)
-        i2 = call(i1, descr=nonwritedescr)
+        i2 = call_i(i1, descr=nonwritedescr)
         escape(i1)
         escape(i1)
         jump(p1, p2)
@@ -2786,7 +2789,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, p2]
         i1 = getfield_gc_i(p1, descr=adescr)
         i2 = getfield_gc_i(p1, descr=bdescr)
-        i3 = call(i1, descr=writeadescr)
+        i3 = call_i(i1, descr=writeadescr)
         i4 = getfield_gc_i(p1, descr=adescr)
         i5 = getfield_gc_i(p1, descr=bdescr)
         escape(i1)
@@ -2799,7 +2802,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, p2]
         i1 = getfield_gc_i(p1, descr=adescr)
         i2 = getfield_gc_i(p1, descr=bdescr)
-        i3 = call(i1, descr=writeadescr)
+        i3 = call_i(i1, descr=writeadescr)
         i4 = getfield_gc_i(p1, descr=adescr)
         escape(i1)
         escape(i2)
@@ -2812,11 +2815,11 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_residual_call_invalidate_arrays(self):
         ops = """
         [p1, p2, i1]
-        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
-        p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
-        i3 = call(i1, descr=writeadescr)
-        p5 = getarrayitem_gc(p1, 0, descr=arraydescr2)
-        p6 = getarrayitem_gc(p2, 1, descr=arraydescr2)
+        p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
+        p4 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
+        i3 = call_i(i1, descr=writeadescr)
+        p5 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
+        p6 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
         escape(p3)
         escape(p4)
         escape(p5)
@@ -2825,9 +2828,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [p1, p2, i1]
-        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
-        p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
-        i3 = call(i1, descr=writeadescr)
+        p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
+        p4 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
+        i3 = call_i(i1, descr=writeadescr)
         escape(p3)
         escape(p4)
         escape(p3)
@@ -2839,13 +2842,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_residual_call_invalidate_some_arrays(self):
         ops = """
         [p1, p2, i1]
-        p3 = getarrayitem_gc(p2, 0, descr=arraydescr2)
-        p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
-        i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
-        i3 = call(i1, descr=writearraydescr)
-        p5 = getarrayitem_gc(p2, 0, descr=arraydescr2)
-        p6 = getarrayitem_gc(p2, 1, descr=arraydescr2)
-        i4 = getarrayitem_gc(p1, 1, descr=arraydescr)
+        p3 = getarrayitem_gc_r(p2, 0, descr=arraydescr2)
+        p4 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
+        i2 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
+        i3 = call_i(i1, descr=writearraydescr)
+        p5 = getarrayitem_gc_r(p2, 0, descr=arraydescr2)
+        p6 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
+        i4 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
         escape(p3)
         escape(p4)
         escape(p5)
@@ -2856,11 +2859,11 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [p1, p2, i1]
-        p3 = getarrayitem_gc(p2, 0, descr=arraydescr2)
-        p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
-        i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
-        i3 = call(i1, descr=writearraydescr)
-        i4 = getarrayitem_gc(p1, 1, descr=arraydescr)
+        p3 = getarrayitem_gc_r(p2, 0, descr=arraydescr2)
+        p4 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
+        i2 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
+        i3 = call_i(i1, descr=writearraydescr)
+        i4 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
         escape(p3)
         escape(p4)
         escape(p3)
@@ -2876,7 +2879,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, i1, p2, i2]
         setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p2, i2, descr=adescr)
-        i3 = call(i1, descr=readadescr)
+        i3 = call_i(i1, descr=readadescr)
         setfield_gc(p1, i3, descr=valuedescr)
         setfield_gc(p2, i3, descr=adescr)
         jump(p1, i1, p2, i2)
@@ -2884,7 +2887,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [p1, i1, p2, i2]
         setfield_gc(p2, i2, descr=adescr)
-        i3 = call(i1, descr=readadescr)
+        i3 = call_i(i1, descr=readadescr)
         setfield_gc(p1, i3, descr=valuedescr)
         setfield_gc(p2, i3, descr=adescr)
         jump(p1, i1, p2, i2)
@@ -2896,7 +2899,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, i1, p2, i2]
         setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p2, i2, descr=adescr)
-        i3 = call(i1, descr=writeadescr)
+        i3 = call_i(i1, descr=writeadescr)
         setfield_gc(p1, i3, descr=valuedescr)
         setfield_gc(p2, i3, descr=adescr)
         jump(p1, i1, p2, i2)
@@ -2904,7 +2907,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [p1, i1, p2, i2]
         setfield_gc(p2, i2, descr=adescr)
-        i3 = call(i1, descr=writeadescr)
+        i3 = call_i(i1, descr=writeadescr)
         setfield_gc(p1, i3, descr=valuedescr)
         setfield_gc(p2, i3, descr=adescr)
         jump(p1, i1, p2, i2)
@@ -2916,7 +2919,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, i1, p2, i2]
         setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p2, i2, descr=adescr)
-        i3 = call(i1, descr=plaincalldescr)
+        i3 = call_i(i1, descr=plaincalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         setfield_gc(p2, i3, descr=adescr)
         jump(p1, i1, p2, i2)
@@ -2927,7 +2930,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = '''
         [p1, i1]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_assembler(i1, descr=asmdescr)
+        i3 = call_assembler_i(i1, descr=asmdescr)
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i3)
         '''
@@ -2938,14 +2941,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = '''
         [p1, i1]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_pure(p1, descr=plaincalldescr)
+        i3 = call_pure_i(p1, descr=plaincalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i3)
         '''
         expected = '''
         [p1, i1]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call(p1, descr=plaincalldescr)
+        i3 = call_i(p1, descr=plaincalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i3)
         '''
@@ -2963,15 +2966,15 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i0, i1, i2]
         escape(i1)
         escape(i2)
-        i3 = call_pure(123456, 4, 5, 6, descr=plaincalldescr)
-        i4 = call_pure(123456, 4, i0, 6, descr=plaincalldescr)
+        i3 = call_pure_i(123456, 4, 5, 6, descr=plaincalldescr)
+        i4 = call_pure_i(123456, 4, i0, 6, descr=plaincalldescr)
         jump(i0, i3, i4)
         '''
         expected = '''
         [i0, i1, i2]
         escape(i1)
         escape(i2)
-        i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
+        i4 = call_i(123456, 4, i0, 6, descr=plaincalldescr)
         jump(i0, 42, i4)
         '''
         self.optimize_loop(ops, expected, call_pure_results)

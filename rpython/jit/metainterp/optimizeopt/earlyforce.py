@@ -4,7 +4,7 @@ from rpython.jit.metainterp.resoperation import rop
 
 
 def is_raw_free(op, opnum):
-    if not op.is_call():
+    if not op.is_real_call():
         return False
     einfo = op.getdescr().get_extra_info()
     return einfo.oopspecindex == EffectInfo.OS_RAW_FREE

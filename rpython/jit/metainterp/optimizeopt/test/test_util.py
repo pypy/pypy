@@ -17,7 +17,7 @@ from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.config.translationoption import get_combined_translation_config
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop, ResOperation, InputArgRef
 from rpython.jit.metainterp.optimizeopt.unroll import Inliner
 
 def test_sort_descrs():
@@ -98,12 +98,14 @@ class LLtypeMixin(object):
                                      ('other', lltype.Ptr(NODE)))
     node = lltype.malloc(NODE)
     node.parent.typeptr = node_vtable
+    nodeaddr = lltype.cast_opaque_ptr(llmemory.GCREF, node)
+    #nodebox = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node))
     node2 = lltype.malloc(NODE2)
     node2.parent.parent.typeptr = node_vtable2
     myptr = lltype.cast_opaque_ptr(llmemory.GCREF, node)
     myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(NODE))
     nullptr = lltype.nullptr(llmemory.GCREF.TO)
-    #nodebox2 = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
+    #nodebox2 = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
     nodesize = cpu.sizeof(NODE)
     nodesize2 = cpu.sizeof(NODE2)
     valuedescr = cpu.fielddescrof(NODE, 'value')

@@ -255,7 +255,7 @@ class AbstractVArrayValue(AbstractVirtualValue):
             else:
                 box = None
             itemboxes.append(box)
-        visitor.register_virtual_fields(self.keybox, itemboxes)
+        visitor.register_virtual_fields(self.source_op, itemboxes)
         for i in range(self.getlength()):
             itemvalue = self.get_item_value(i)
             if itemvalue is not None:

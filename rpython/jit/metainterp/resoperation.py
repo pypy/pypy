@@ -194,6 +194,13 @@ class AbstractResOp(AbstractValue):
     def is_call(self):
         return rop._CALL_FIRST <= self.getopnum() <= rop._CALL_LAST
 
+    def is_real_call(self):
+        opnum = self.opnum
+        return (opnum == rop.CALL_I or
+                opnum == rop.CALL_R or
+                opnum == rop.CALL_F or
+                opnum == rop.CALL_N)
+
     def is_call_assembler(self):
         opnum = self.opnum
         return (opnum == rop.CALL_ASSEMBLER_I or
@@ -933,6 +940,14 @@ class OpHelpers(object):
         elif descr.is_array_of_floats():
             return rop.GETARRAYITEM_GC_PURE_F
         return rop.GETARRAYITEM_GC_PURE_I
+
+    @staticmethod
+    def getarrayitem_for_descr(descr):
+        if descr.is_array_of_pointers():
+            return rop.GETARRAYITEM_GC_R
+        elif descr.is_array_of_floats():
+            return rop.GETARRAYITEM_GC_F
+        return rop.GETARRAYITEM_GC_I
 
     @staticmethod
     def same_as_for_type(tp):
