@@ -15,8 +15,7 @@ from rpython.flowspace.framestate import FrameState
 from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline)
 from rpython.flowspace.operation import op
-from rpython.flowspace.bytecode import (
-    BytecodeBlock, BytecodeCorruption, bc_reader)
+from rpython.flowspace.bytecode import BytecodeCorruption, bc_reader
 from rpython.flowspace.pygraph import PyGraph
 
 w_None = const(None)
@@ -354,9 +353,17 @@ class FlowContext(object):
         try:
             for instr in bc_graph.iter_instr():
                 self.last_offset = instr.offset
-                position = self.handle_bytecode(instr)
-                bc_graph.curr_position = position
-                self.recorder.final_state = self.getstate(position)
+                try:
+                    next_block = instr.eval(self)
+                except FlowSignal as signal:
+                    next_position = bc_graph.get_position(self.unroll(signal))
+                else:
+                    if next_block is None:
+                        next_position = bc_graph.next_pos()
+                    else:
+                        next_position = next_block, 0
+                bc_graph.curr_position = next_position
+                self.recorder.final_state = self.getstate(next_position)
 
         except RaiseImplicit as e:
             w_exc = e.w_exc
@@ -452,19 +459,6 @@ class FlowContext(object):
                     # to 'oldvalue' with 'newvalue'.
                     stack_items_w[i] = w_new
                     break
-
-    def handle_bytecode(self, instr):
-        bc_graph = self.pycode.graph
-        try:
-            next_offset = instr.eval(self)
-        except FlowSignal as signal:
-            return bc_graph.get_position(self.unroll(signal))
-        if next_offset is None:
-            next_offset = bc_graph.next_pos()
-        else:
-            assert isinstance(next_offset, BytecodeBlock)
-            next_offset = next_offset, 0
-        return next_offset
 
     def unroll(self, signal):
         while self.blockstack:
