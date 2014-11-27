@@ -1152,6 +1152,14 @@ class AssemblerARM(ResOpAssembler):
         else:
             assert 0, 'unsupported case'
 
+    def _mov_raw_sp_to_loc(self, prev_loc, loc, cond=c.AL):
+        if loc.is_core_reg():
+            # load a value from 'SP + n'
+            assert prev_loc.value <= 0xFFF     # not too far
+            self.load_reg(self.mc, loc.value, r.sp, prev_loc.value, cond=cond)
+        else:
+            assert 0, 'unsupported case'
+
     def regalloc_mov(self, prev_loc, loc, cond=c.AL):
         """Moves a value from a previous location to some other location"""
         if prev_loc.is_imm():
@@ -1165,7 +1173,7 @@ class AssemblerARM(ResOpAssembler):
         elif prev_loc.is_vfp_reg():
             self._mov_vfp_reg_to_loc(prev_loc, loc, cond)
         elif prev_loc.is_raw_sp():
-            assert 0, 'raw sp locs are not supported as source loc'
+            self._mov_raw_sp_to_loc(prev_loc, loc, cond)
         else:
             assert 0, 'unsupported case'
     mov_loc_loc = regalloc_mov
