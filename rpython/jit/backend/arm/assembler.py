@@ -1156,7 +1156,7 @@ class AssemblerARM(ResOpAssembler):
         if loc.is_core_reg():
             # load a value from 'SP + n'
             assert prev_loc.value <= 0xFFF     # not too far
-            self.load_reg(self.mc, loc.value, r.sp, prev_loc.value, cond=cond)
+            self.load_reg(self.mc, loc, r.sp, prev_loc.value, cond=cond)
         else:
             assert 0, 'unsupported case'
 
