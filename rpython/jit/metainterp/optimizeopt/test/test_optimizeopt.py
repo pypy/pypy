@@ -5607,6 +5607,44 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, ops, ops)
 
+    def test_bound_backpropagate_int_signext(self):
+        ops = """
+        []
+        i0 = escape()
+        i1 = int_signext(i0, 1)
+        i2 = int_eq(i0, i1)
+        guard_true(i2) []
+        i3 = int_le(i0, 127)    # implied by equality with int_signext
+        guard_true(i3) []
+        i5 = int_gt(i0, -129)   # implied by equality with int_signext
+        guard_true(i5) []
+        jump()
+        """
+        expected = """
+        []
+        i0 = escape()
+        i1 = int_signext(i0, 1)
+        i2 = int_eq(i0, i1)
+        guard_true(i2) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_bound_backpropagate_int_signext_2(self):
+        ops = """
+        []
+        i0 = escape()
+        i1 = int_signext(i0, 1)
+        i2 = int_eq(i0, i1)
+        guard_true(i2) []
+        i3 = int_le(i0, 126)    # false for i1 == 127
+        guard_true(i3) []
+        i5 = int_gt(i0, -128)   # false for i1 == -128
+        guard_true(i5) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
     def test_mul_ovf(self):
         ops = """
         [i0, i1]

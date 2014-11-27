@@ -342,6 +342,13 @@ class OptIntBounds(Optimization):
         else:
             self.emit_operation(op)
 
+    def optimize_INT_SIGNEXT(self, op):
+        self.emit_operation(op)
+        v1 = self.getvalue(op.result)
+        numbits = op.getarg(1).getint() * 8
+        v1.intbound.make_ge(IntLowerBound(-(1 << (numbits - 1))))
+        v1.intbound.make_lt(IntUpperBound(1 << (numbits - 1)))
+
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)
         array = self.getvalue(op.getarg(0))
