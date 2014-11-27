@@ -199,21 +199,16 @@ class Test__ffi(BaseTestPyPyC):
         ldexp_addr, res = log.result
         assert res == 8.0 * 300
         loop, = log.loops_by_filename(self.filepath)
-        if 'ConstClass(ldexp)' in repr(loop):   # e.g. OS/X
-            ldexp_addr = 'ConstClass(ldexp)'
         assert loop.match_by_id('cfficall', """
-            ...
-            f1 = call_release_gil(..., descr=<Callf 8 fi EF=6 OS=62>)
-            ...
-        """)
-        ops = loop.ops_by_id('cfficall')
-        for name in ['raw_malloc', 'raw_free']:
-            assert name not in str(ops)
-        for name in ['raw_load', 'raw_store', 'getarrayitem_raw', 'setarrayitem_raw']:
-            assert name not in log.opnames(ops)
-        # so far just check that call_release_gil() is produced.
-        # later, also check that the arguments to call_release_gil()
-        # are constants
+            setarrayitem_raw(i69, 0, i95, descr=<ArrayS 4>)    # write 'errno'
+            p96 = force_token()
+            setfield_gc(p0, p96, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
+            f97 = call_release_gil(i59, 1.0, 3, descr=<Callf 8 fi EF=6 OS=62>)
+            guard_not_forced(descr=...)
+            guard_no_exception(descr=...)
+            i98 = getarrayitem_raw(i69, 0, descr=<ArrayS 4>)   # read 'errno'
+            setfield_gc(p65, i98, descr=<FieldS pypy.interpreter.executioncontext.ExecutionContext.inst__cffi_saved_errno .>)
+        """, ignore_ops=['guard_not_invalidated'])
 
     def test_cffi_call_guard_not_forced_fails(self):
         # this is the test_pypy_c equivalent of

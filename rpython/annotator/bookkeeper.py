@@ -65,6 +65,7 @@ class Bookkeeper(object):
         self.external_class_cache = {}      # cache of ExternalType classes
 
         self.needs_generic_instantiate = {}
+        self.thread_local_fields = set()
 
         delayed_imports()
 

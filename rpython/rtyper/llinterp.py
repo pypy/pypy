@@ -919,19 +919,14 @@ class LLFrame(object):
     def op_stack_current(self):
         return 0
 
-    def op_threadlocalref_set(self, key, value):
-        try:
-            d = self.llinterpreter.tlrefsdict
-        except AttributeError:
-            d = self.llinterpreter.tlrefsdict = {}
-        d[key._obj] = value
+    def op_threadlocalref_addr(self):
+        raise NotImplementedError("threadlocalref_addr")
 
-    def op_threadlocalref_get(self, key):
-        d = self.llinterpreter.tlrefsdict
-        return d[key._obj]
-
-    def op_threadlocalref_getaddr(self, key):
-        raise NotImplementedError("threadlocalref_getaddr")
+    def op_threadlocalref_get(self, offset):
+        if (type(offset) is CDefinedIntSymbolic and
+                offset.expr == 'RPY_TLOFS_foobar_test_'):   # used in tests
+            return 0x544c
+        raise NotImplementedError("threadlocalref_get")
 
     # __________________________________________________________
     # operations on addresses
@@ -978,6 +973,9 @@ class LLFrame(object):
             ll_p = rffi.cast(rffi.CArrayPtr(RESTYPE),
                              rffi.ptradd(ll_p, offset))
             value = ll_p[0]
+        ## elif getattr(addr, 'is_fake_thread_local_addr', False):
+        ##     assert type(offset) is CDefinedIntSymbolic
+        ##     value = self.llinterpreter.tlobj[offset.expr]
         else:
             assert offset.TYPE == RESTYPE
             value = getattr(addr, str(RESTYPE).lower())[offset.repeat]
@@ -998,6 +996,9 @@ class LLFrame(object):
             ll_p = rffi.cast(rffi.CArrayPtr(ARGTYPE),
                              rffi.ptradd(ll_p, offset))
             ll_p[0] = value
+        ## elif getattr(addr, 'is_fake_thread_local_addr', False):
+        ##     assert type(offset) is CDefinedIntSymbolic
+        ##     self.llinterpreter.tlobj[offset.expr] = value
         else:
             assert offset.TYPE == ARGTYPE
             getattr(addr, str(ARGTYPE).lower())[offset.repeat] = value

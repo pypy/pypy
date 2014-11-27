@@ -26,15 +26,6 @@ typedef struct {
 
 static long _pypythread_stacksize = 0;
 
-/*
- * Return the thread Id instead of an handle. The Id is said to uniquely
-   identify the thread in the system
- */
-long RPyThreadGetIdent()
-{
-  return GetCurrentThreadId();
-}
-
 static void
 bootstrap(void *call)
 {
@@ -42,7 +33,7 @@ bootstrap(void *call)
 	/* copy callobj since other thread might free it before we're done */
 	void (*func)(void) = obj->func;
 
-	obj->id = RPyThreadGetIdent();
+	obj->id = GetCurrentThreadId();
 	ReleaseSemaphore(obj->done, 1, NULL);
 	func();
 }

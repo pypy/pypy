@@ -439,8 +439,6 @@ class Transformer(object):
         elif oopspec_name.endswith('dict.lookup'):
             # also ordereddict.lookup
             prepare = self._handle_dict_lookup_call
-        elif oopspec_name.startswith('rposix.'):
-            prepare = self._handle_rposix_call
         else:
             prepare = self.prepare_builtin_call
         try:
@@ -1979,16 +1977,6 @@ class Transformer(object):
         else:
             raise NotImplementedError(oopspec_name)
 
-    def _handle_rposix_call(self, op, oopspec_name, args):
-        if oopspec_name == 'rposix.get_errno':
-            return self._handle_oopspec_call(op, args, EffectInfo.OS_GET_ERRNO,
-                                             EffectInfo.EF_CANNOT_RAISE)
-        elif oopspec_name == 'rposix.set_errno':
-            return self._handle_oopspec_call(op, args, EffectInfo.OS_SET_ERRNO,
-                                             EffectInfo.EF_CANNOT_RAISE)
-        else:
-            raise NotImplementedError(oopspec_name)
-
     def rewrite_op_ll_read_timestamp(self, op):
         op1 = self.prepare_builtin_call(op, "ll_read_timestamp", [])
         return self.handle_residual_call(op1,
@@ -2005,16 +1993,15 @@ class Transformer(object):
         return [op0, op1]
 
     def rewrite_op_threadlocalref_get(self, op):
-        from rpython.jit.codewriter.jitcode import ThreadLocalRefDescr
-        opaqueid = op.args[0].value
-        op1 = self.prepare_builtin_call(op, 'threadlocalref_getter', [],
-                                        extra=(opaqueid,),
-                                        extrakey=opaqueid._obj)
-        extradescr = ThreadLocalRefDescr(opaqueid)
+        # only supports RESTYPE being exactly one word.
+        RESTYPE = op.result.concretetype
+        assert (RESTYPE in (lltype.Signed, lltype.Unsigned, llmemory.Address)
+                or isinstance(RESTYPE, lltype.Ptr))
+        c_offset, = op.args
+        op1 = self.prepare_builtin_call(op, 'threadlocalref_get', [c_offset])
         return self.handle_residual_call(op1,
             oopspecindex=EffectInfo.OS_THREADLOCALREF_GET,
-            extraeffect=EffectInfo.EF_LOOPINVARIANT,
-            extradescr=[extradescr])
+            extraeffect=EffectInfo.EF_LOOPINVARIANT)
 
 # ____________________________________________________________
 

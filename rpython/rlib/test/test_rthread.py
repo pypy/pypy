@@ -47,6 +47,10 @@ def test_tlref_untranslated():
     time.sleep(0.5)
     assert results == [True] * 15
 
+def test_get_ident():
+    import thread
+    assert get_ident() == thread.get_ident()
+
 
 class AbstractThreadTests(AbstractGCTestClass):
     use_threads = True
