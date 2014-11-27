@@ -338,7 +338,7 @@ class Test__ffi(BaseTestPyPyC):
         i112 = int_signext(i160, 2)
         setfield_gc(p167, ConstPtr(null), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst__lifeline_ .+>)
         setfield_gc(p167, ConstPtr(ptr85), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst_ctype .+>)
-        i114 = int_ne(i112, i160)
+        i114 = int_ne(i160, i112)
         guard_false(i114, descr=...)
         --TICK--
         i119 = call(ConstClass(_ll_1_raw_malloc_varsize__Signed), 6, descr=<Calli . i EF=4 OS=110>)
