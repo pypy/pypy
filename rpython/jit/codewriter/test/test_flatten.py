@@ -282,30 +282,6 @@ class TestFlatten:
             foobar hi_there!
         """)
 
-    def test_switch(self):
-        def f(n):
-            if n == -5:  return 12
-            elif n == 2: return 51
-            elif n == 7: return 1212
-            else:        return 42
-        self.encoding_test(f, [65], """
-            -live-
-            int_guard_value %i0
-            goto_if_not_int_eq %i0, $-5, L1
-            int_return $12
-            ---
-            L1:
-            goto_if_not_int_eq %i0, $2, L2
-            int_return $51
-            ---
-            L2:
-            goto_if_not_int_eq %i0, $7, L3
-            int_return $1212
-            ---
-            L3:
-            int_return $42
-        """)
-
     def test_switch_dict(self):
         def f(x):
             if   x == 1: return 61

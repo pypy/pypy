@@ -1,4 +1,4 @@
-from rpython.jit.metainterp.history import AbstractDescr
+from rpython.jit.metainterp.history import AbstractDescr, ConstInt
 from rpython.jit.codewriter import heaptracker
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -108,6 +108,10 @@ class MissingLiveness(Exception):
 
 class SwitchDictDescr(AbstractDescr):
     "Get a 'dict' attribute mapping integer values to bytecode positions."
+
+    def attach(self, as_dict):
+        self.dict = as_dict
+        self.const_keys_in_order = map(ConstInt, sorted(as_dict.keys()))
 
     def __repr__(self):
         dict = getattr(self, 'dict', '?')
