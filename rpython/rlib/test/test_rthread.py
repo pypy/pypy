@@ -52,6 +52,18 @@ def test_get_ident():
     assert get_ident() == thread.get_ident()
 
 
+def test_threadlocalref_on_llinterp():
+    from rpython.rtyper.test.test_llinterp import interpret
+    tlfield = ThreadLocalField(lltype.Signed, "rthread_test_")
+    #
+    def f():
+        x = tlfield.setraw(42)
+        return tlfield.getraw()
+    #
+    res = interpret(f, [])
+    assert res == 42
+
+
 class AbstractThreadTests(AbstractGCTestClass):
     use_threads = True
 

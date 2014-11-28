@@ -11,10 +11,11 @@ class ThreadLocalTest(object):
         tlfield = rthread.ThreadLocalField(lltype.Signed, 'foobar_test_')
 
         def f():
+            tlfield.setraw(0x544c)
             return tlfield.getraw()
 
         res = self.interp_operations(f, [])
-        assert res == 0x544c    # magic value returned by llinterp
+        assert res == 0x544c
 
 
 class TestLLtype(ThreadLocalTest, LLJitMixin):

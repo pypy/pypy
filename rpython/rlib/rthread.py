@@ -286,11 +286,13 @@ class ThreadLocalField(object):
             _threadlocalref_seeme(self)
             return llop.threadlocalref_get(FIELDTYPE, offset)
 
+        @jit.dont_look_inside
         def get_or_make_raw():
             _threadlocalref_seeme(self)
             addr = llop.threadlocalref_addr(llmemory.Address)
             return llop.raw_load(FIELDTYPE, addr, offset)
 
+        @jit.dont_look_inside
         def setraw(value):
             _threadlocalref_seeme(self)
             addr = llop.threadlocalref_addr(llmemory.Address)
