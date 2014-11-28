@@ -127,12 +127,13 @@ class TestNumpyJit(LLJitMixin):
         assert result == 3 ** 2
         self.check_trace_count(1)
         self.check_simple_loop({
-            'call': 3,
+            'call': 1,
             'float_add': 1,
             'float_eq': 3,
             'float_mul': 2,
             'float_ne': 1,
             'getarrayitem_gc': 1,
+            'getarrayitem_raw': 1,     # read the errno
             'guard_false': 4,
             'guard_not_invalidated': 1,
             'guard_true': 3,
@@ -144,6 +145,7 @@ class TestNumpyJit(LLJitMixin):
             'raw_load': 2,
             'raw_store': 1,
             'setarrayitem_gc': 1,
+            'setarrayitem_raw': 1,     # write the errno
         })
 
     def define_pow_int():
