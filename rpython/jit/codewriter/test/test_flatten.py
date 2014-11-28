@@ -297,21 +297,27 @@ class TestFlatten:
             int_return $-1
             ---
             L1:
+            -live-
             int_return $61
             ---
             L2:
+            -live-
             int_return $511
             ---
             L3:
+            -live-
             int_return $-22
             ---
             L4:
+            -live-
             int_return $81
             ---
             L5:
+            -live-
             int_return $17
             ---
             L6:
+            -live-
             int_return $54
         """)
 
