@@ -1,4 +1,4 @@
-import py
+import py, sys
 from rpython.rlib.objectmodel import instantiate
 from rpython.jit.metainterp import compile, resume
 from rpython.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt, TreeLoop
@@ -190,6 +190,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
             args = []
             for _ in range(oparity[opnum]):
                 args.append(random.randrange(1, 20))
+            if opnum == rop.INT_SIGNEXT:
+                # 2nd arg is number of bytes to extend from ---
+                # must not be too random
+                args[-1] = random.choice([1, 2] if sys.maxint < 2**32 else
+                                         [1, 2, 4])
             ops = """
             []
             i1 = %s(%s)
