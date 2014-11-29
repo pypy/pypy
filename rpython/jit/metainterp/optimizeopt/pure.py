@@ -41,7 +41,7 @@ class OptPure(Optimization):
             args = self.optimizer.make_args_key(op.getopnum(),
                                                 op.getarglist(), op.getdescr())
             oldop = self.pure_operations.get(args, None)
-            if oldop is not None and oldop.getdescr() is op.getdescr():
+            if oldop is not None:
                 self.optimizer.make_equal_to(op, self.getvalue(oldop), True)
                 return
             else:

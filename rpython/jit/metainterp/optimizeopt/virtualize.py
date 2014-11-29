@@ -606,10 +606,10 @@ class OptVirtualize(optimizer.Optimization):
         # 'jit_virtual_ref'.  The jit_virtual_ref structure may be forced soon,
         # but the point is that doing so does not force the original structure.
         newop = ResOperation(rop.NEW_WITH_VTABLE, [c_cls])
+        newop.source_op = op
         vrefvalue = self.make_virtual(c_cls, newop)
-        assert op not in self.optimizer.values
-        self.optimizer.values[op] = vrefvalue
         token = ResOperation(rop.FORCE_TOKEN, [])
+        token.is_source_op = True
         self.emit_operation(token)
         vrefvalue.setfield(descr_virtual_token, self.getvalue(token))
         vrefvalue.setfield(descr_forced, self.optimizer.cpu.ts.CVAL_NULLREF)

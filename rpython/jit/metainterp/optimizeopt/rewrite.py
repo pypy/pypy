@@ -220,8 +220,7 @@ class OptRewrite(Optimization):
                     self.make_equal_to(op, v2)
                     return
                 elif v1.box.getfloatstorage() == -1.0:
-                    newop = op.copy_and_change(rop.FLOAT_NEG, args=[rhs])
-                    self.getvalue(op).box = newop
+                    newop = self.replace_op_with(op, rop.FLOAT_NEG, args=[rhs])
                     self.emit_operation(newop)
                     return
         self.emit_operation(op)
@@ -244,8 +243,8 @@ class OptRewrite(Optimization):
                 rfraction = math.frexp(reciprocal)[0]
                 if rfraction == 0.5 or rfraction == -0.5:
                     c = ConstFloat(longlong.getfloatstorage(reciprocal))
-                    newop = op.copy_and_change(rop.FLOAT_MUL, args=[arg1, c])
-                    self.getvalue(op).box = newop
+                    newop = self.replace_op_with(op, rop.FLOAT_MUL,
+                                                 args=[arg1, c])
         self.emit_operation(newop)
 
     def optimize_FLOAT_NEG(self, op):
@@ -405,10 +404,9 @@ class OptRewrite(Optimization):
         # change the op to be a normal call, from the backend's point of view
         # there is no reason to have a separate operation for this
         self.loop_invariant_producer[key] = op
-        opnum = OpHelpers.call_for_descr(op.getdescr())
-        newop = op.copy_and_change(opnum)
+        newop = self.replace_op_with(op,
+                                     OpHelpers.call_for_descr(op.getdescr()))
         resvalue = self.optimizer.getvalue(op)
-        resvalue.box = newop
         self.emit_operation(newop)
         self.loop_invariant_results[key] = resvalue
     optimize_CALL_LOOPINVARIANT_R = optimize_CALL_LOOPINVARIANT_I
@@ -521,6 +519,7 @@ class OptRewrite(Optimization):
                                       [op.getarg(1),
                                        ConstInt(index + source_start)],
                                        descr=arraydescr)
+                    newop.is_source_op = True
                     self.optimizer.send_extra_operation(newop)
                     val = self.getvalue(newop)
                 if val is None:
