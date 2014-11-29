@@ -17,6 +17,7 @@ class ESCAPE_OP(N_aryOp, ResOpWithDescr):
     OPNUM = -123
 
     type = 'i'
+    is_source_op = True
 
     def getopnum(self):
         return self.OPNUM
@@ -32,6 +33,7 @@ class ESCAPE_OP(N_aryOp, ResOpWithDescr):
 class FORCE_SPILL(UnaryOp, PlainResOp):
 
     OPNUM = -124
+    is_source_op = True
 
     def getopnum(self):
         return self.OPNUM
@@ -277,7 +279,9 @@ class OpParser(object):
             assert descr is None
             return op
         else:
-            return ResOperation(opnum, args, descr)
+            res = ResOperation(opnum, args, descr)
+            res.is_source_op = True
+            return res
 
     def parse_result_op(self, line):
         res, op = line.split("=", 1)

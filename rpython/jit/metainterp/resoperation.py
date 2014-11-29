@@ -39,6 +39,9 @@ class AbstractResOp(AbstractValue):
     boolreflex = -1
     boolinverse = -1
 
+    is_source_op = False
+    source_op = None
+
     _attrs_ = ()
 
     def getopnum(self):
@@ -87,7 +90,7 @@ class AbstractResOp(AbstractValue):
     # common methods
     # --------------
 
-    def _copy_and_change(self, opnum, args=None, descr=None):
+    def copy_and_change(self, opnum, args=None, descr=None):
         "shallow copy: the returned operation is meant to be used in place of self"
         if args is None:
             args = self.getarglist()
@@ -96,6 +99,7 @@ class AbstractResOp(AbstractValue):
         newop = ResOperation(opnum, args, descr)
         if self.type != 'v':
             newop.copy_value_from(self)
+        newop.source_op = self
         return newop
 
     @specialize.argtype(1)
@@ -279,8 +283,8 @@ class GuardResOp(ResOpWithDescr):
     def setfailargs(self, fail_args):
         self._fail_args = fail_args
 
-    def _copy_and_change(self, opnum, args=None, descr=None):
-        newop = AbstractResOp._copy_and_change(self, opnum, args, descr)
+    def copy_and_change(self, opnum, args=None, descr=None):
+        newop = AbstractResOp.copy_and_change(self, opnum, args, descr)
         newop.setfailargs(self.getfailargs())
         return newop
 
@@ -359,7 +363,10 @@ class RefOp(object):
     def nonnull(self):
         return bool(self._resref)
 
-class AbstractInputArg(AbstractValue):    
+class AbstractInputArg(AbstractValue):
+    is_source_op = True
+    source_op = None
+    
     def repr(self, memo):
         try:
             return memo[self]

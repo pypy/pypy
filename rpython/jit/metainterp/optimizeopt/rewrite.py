@@ -220,8 +220,8 @@ class OptRewrite(Optimization):
                     self.make_equal_to(op, v2)
                     return
                 elif v1.box.getfloatstorage() == -1.0:
-                    newop = self.optimizer.replace_op_with(op, rop.FLOAT_NEG,
-                                                           args=[rhs])
+                    newop = op.copy_and_change(rop.FLOAT_NEG, args=[rhs])
+                    self.getvalue(op).box = newop
                     self.emit_operation(newop)
                     return
         self.emit_operation(op)
@@ -233,6 +233,7 @@ class OptRewrite(Optimization):
         v2 = self.getvalue(arg2)
 
         # replace "x / const" by "x * (1/const)" if possible
+        newop = op
         if v2.is_constant():
             divisor = v2.box.getfloatstorage()
             fraction = math.frexp(divisor)[0]
@@ -243,9 +244,9 @@ class OptRewrite(Optimization):
                 rfraction = math.frexp(reciprocal)[0]
                 if rfraction == 0.5 or rfraction == -0.5:
                     c = ConstFloat(longlong.getfloatstorage(reciprocal))
-                    op = self.optimizer.replace_op_with(op, rop.FLOAT_MUL,
-                                                        args=[arg1, c])
-        self.emit_operation(op)
+                    newop = op.copy_and_change(rop.FLOAT_MUL, args=[arg1, c])
+                    self.getvalue(op).box = newop
+        self.emit_operation(newop)
 
     def optimize_FLOAT_NEG(self, op):
         v1 = op.getarg(0)
@@ -291,6 +292,7 @@ class OptRewrite(Optimization):
 
     def optimize_GUARD_VALUE(self, op):
         value = self.getvalue(op.getarg(0))
+        opv = self.getvalue(op)
         if value.is_virtual():
             arg = value.get_constant_class(self.optimizer.cpu)
             if arg:
@@ -316,10 +318,8 @@ class OptRewrite(Optimization):
                     r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
                     raise InvalidLoop('A GUARD_VALUE (%s) was proven to always fail' % r)
             arglist = [old_guard_op.getarg(0), op.getarg(1)]
-            op = self.optimizer.replace_op_with(old_guard_op,
-                                                rop.GUARD_VALUE,
-                                                args=arglist)
-            self.getvalue(old_guard_op).box = op
+            op = old_guard_op.copy_and_change(rop.GUARD_VALUE, args=arglist)
+            opv.box = op
             self.optimizer.replaces_guard[op] = old_guard_op
             # hack hack hack.  Change the guard_opnum on
             # new_guard_op.getdescr() so that when resuming,
@@ -351,6 +351,7 @@ class OptRewrite(Optimization):
         value.make_constant_class(expectedclassbox, None)
 
     def optimize_GUARD_CLASS(self, op):
+        opv = self.getvalue(op)
         value = self.getvalue(op.getarg(0))
         expectedclassbox = op.getarg(1)
         assert isinstance(expectedclassbox, Const)
@@ -369,9 +370,8 @@ class OptRewrite(Optimization):
                 # it was a guard_nonnull, which we replace with a
                 # guard_nonnull_class.
                 args = [old_guard_op.getarg(0), op.getarg(1)]
-                op = self.optimizer.replace_op_with(old_guard_op,
-                                                    rop.GUARD_NONNULL_CLASS,
-                                                    args)
+                op = old_guard_op.copy_and_change(rop.GUARD_NONNULL_CLASS, args)
+                opv.box = op
                 self.optimizer.replaces_guard[op] = old_guard_op
                 # hack hack hack.  Change the guard_opnum on
                 # new_guard_op.getdescr() so that when resuming,
@@ -406,10 +406,10 @@ class OptRewrite(Optimization):
         # there is no reason to have a separate operation for this
         self.loop_invariant_producer[key] = op
         opnum = OpHelpers.call_for_descr(op.getdescr())
-        newop = self.optimizer.replace_op_with(op, opnum)
-        self.emit_operation(newop)
-        resvalue = self.getvalue(op)
+        newop = op.copy_and_change(opnum)
+        resvalue = self.optimizer.getvalue(op)
         resvalue.box = newop
+        self.emit_operation(newop)
         self.loop_invariant_results[key] = resvalue
     optimize_CALL_LOOPINVARIANT_R = optimize_CALL_LOOPINVARIANT_I
     optimize_CALL_LOOPINVARIANT_F = optimize_CALL_LOOPINVARIANT_I

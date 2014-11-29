@@ -185,6 +185,9 @@ def newconst(value):
 class Const(AbstractValue):
     __slots__ = ()
 
+    is_source_op = True
+    source_op = None
+
     @staticmethod
     def _new(x):
         "NOT_RPYTHON"

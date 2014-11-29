@@ -64,15 +64,6 @@ class OptValue(object):
             self.make_constant(box)
         # invariant: box is a Const if and only if level == LEVEL_CONSTANT
 
-    def copy_attributes_from(self, other):
-        assert other.__class__ is OptValue
-        self.level = other.level
-        self.known_class = other.known_class
-        self.intbound = other.intbound
-        self.lenbound = other.lenbound
-        self.box = other.box
-        self.last_guard = other.last_guard
-
     def make_len_gt(self, mode, descr, val):
         if self.lenbound:
             assert self.lenbound.mode == mode
@@ -454,6 +445,9 @@ class Optimizer(Optimization):
 
     @specialize.argtype(0)
     def getvalue(self, box):
+        while box.source_op is not None:
+            box = box.source_op
+        assert box.is_source_op
         box = self.getinterned(box)
         try:
             value = self.values[box]
@@ -487,19 +481,13 @@ class Optimizer(Optimization):
     def clear_newoperations(self):
         self._newoperations = []
 
-    def make_equal_to(self, box, newvalue):
-        if box in self.values:
-            v = self.getvalue(box)
-            v.copy_attributes_from(newvalue)
-        else:
-            self.values[box] = newvalue
-
-    def replace_op_with(self, oldop, newopnum, args=None):
-        newop = oldop._copy_and_change(newopnum, args=args)
-        v = self.getvalue(oldop)
-        v.box = newop
-        self.values[newop] = v
-        return newop
+    def make_equal_to(self, box, value, replace=False):
+        assert isinstance(value, OptValue)
+        assert replace or box not in self.values
+        while box.source_op is not None:
+            box = box.source_op
+        assert box.is_source_op
+        self.values[box] = value
 
     def make_constant(self, box, constbox):
         try:
@@ -574,6 +562,10 @@ class Optimizer(Optimization):
     @specialize.argtype(0)
     def _emit_operation(self, op):
         assert not op.is_call_pure()
+        if op.getopnum() == rop.GUARD_VALUE:
+            val = self.getvalue(op.getarg(0))
+        else:
+            val = None
         for i in range(op.numargs()):
             arg = op.getarg(i)
             try:
@@ -593,7 +585,7 @@ class Optimizer(Optimization):
                 del self.replaces_guard[op]
                 return
             else:
-                op = self.store_final_boxes_in_guard(op, pendingfields)
+                op = self.store_final_boxes_in_guard(op, pendingfields, val)
         elif op.can_raise():
             self.exception_might_have_happened = True
         self._newoperations.append(op)
@@ -609,7 +601,7 @@ class Optimizer(Optimization):
         else:
             assert False
 
-    def store_final_boxes_in_guard(self, op, pendingfields):
+    def store_final_boxes_in_guard(self, op, pendingfields, val):
         assert pendingfields is not None
         descr = op.getdescr()
         assert isinstance(descr, compile.ResumeGuardDescr)
@@ -624,7 +616,7 @@ class Optimizer(Optimization):
         descr.store_final_boxes(op, newboxes, self.metainterp_sd)
         #
         if op.getopnum() == rop.GUARD_VALUE:
-            if self.getvalue(op.getarg(0)) in self.bool_boxes:
+            if val in self.bool_boxes:
                 # Hack: turn guard_value(bool) into guard_true/guard_false.
                 # This is done after the operation is emitted to let
                 # store_final_boxes_in_guard set the guard_opnum field of the

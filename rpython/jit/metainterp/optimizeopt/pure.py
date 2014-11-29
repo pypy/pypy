@@ -42,7 +42,7 @@ class OptPure(Optimization):
                                                 op.getarglist(), op.getdescr())
             oldop = self.pure_operations.get(args, None)
             if oldop is not None and oldop.getdescr() is op.getdescr():
-                self.optimizer.make_equal_to(op, self.getvalue(oldop))
+                self.optimizer.make_equal_to(op, self.getvalue(oldop), True)
                 return
             else:
                 self.pure_operations[args] = op
@@ -84,6 +84,7 @@ class OptPure(Optimization):
         args = op.getarglist()
         opnum = OpHelpers.call_for_descr(op.getdescr())
         newop = ResOperation(opnum, args, op.getdescr())
+        newop.source_op = op
         self.getvalue(op).box = newop
         self.emit_operation(newop)
     optimize_CALL_PURE_R = optimize_CALL_PURE_I

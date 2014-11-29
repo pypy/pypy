@@ -49,11 +49,10 @@ class OptIntBounds(Optimization):
         assert not op.is_ovf()
         self.emit_operation(op)
 
-    def propagate_bounds_backward(self, box):
+    def propagate_bounds_backward(self, box, v):
         # FIXME: This takes care of the instruction where box is the reuslt
         #        but the bounds produced by all instructions where box is
         #        an argument might also be tighten
-        v = self.getvalue(box)
         b = v.intbound
         if b.has_lower and b.has_upper and b.lower == b.upper:
             v.make_constant(ConstInt(b.lower))
@@ -62,8 +61,9 @@ class OptIntBounds(Optimization):
             dispatch_bounds_ops(self, box)
 
     def optimize_GUARD_TRUE(self, op):
+        v = self.getvalue(op.getarg(0))
         self.emit_operation(op)
-        self.propagate_bounds_backward(op.getarg(0))
+        self.propagate_bounds_backward(op.getarg(0), v)
 
     optimize_GUARD_FALSE = optimize_GUARD_TRUE
     optimize_GUARD_VALUE = optimize_GUARD_TRUE
@@ -237,25 +237,33 @@ class OptIntBounds(Optimization):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
         resbound = v1.intbound.add_bound(v2.intbound)
+        r = self.getvalue(op)
         if resbound.bounded():
             # Transform into INT_ADD.  The following guard will be killed
             # by optimize_GUARD_NO_OVERFLOW; if we see instead an
             # optimize_GUARD_OVERFLOW, then InvalidLoop.
-            op = self.optimizer.replace_op_with(op, rop.INT_ADD)
-        self.emit_operation(op) # emit the op
+            newop = op.copy_and_change(rop.INT_ADD)
+            r.box = newop
+        else:
+            newop = op
+        self.emit_operation(newop) # emit the op
         r = self.getvalue(op)
         r.intbound.intersect(resbound)
 
     def optimize_INT_SUB_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
+        r = self.getvalue(op)
         if v1 is v2:
             self.make_constant_int(op, 0)
             return
         resbound = v1.intbound.sub_bound(v2.intbound)
         if resbound.bounded():
-            op = self.optimizer.replace_op_with(op, rop.INT_SUB)
-        self.emit_operation(op) # emit the op
+            newop = op.copy_and_change(rop.INT_SUB)
+            r.box = newop
+        else:
+            newop = op
+        self.emit_operation(newop) # emit the op
         r = self.getvalue(op)
         r.intbound.intersect(resbound)
 
@@ -410,17 +418,17 @@ class OptIntBounds(Optimization):
         v1 = self.getvalue(box1)
         v2 = self.getvalue(box2)
         if v1.intbound.make_lt(v2.intbound):
-            self.propagate_bounds_backward(box1)
+            self.propagate_bounds_backward(box1, v1)
         if v2.intbound.make_gt(v1.intbound):
-            self.propagate_bounds_backward(box2)
+            self.propagate_bounds_backward(box2, v2)
 
     def make_int_le(self, box1, box2):
         v1 = self.getvalue(box1)
         v2 = self.getvalue(box2)
         if v1.intbound.make_le(v2.intbound):
-            self.propagate_bounds_backward(box1)
+            self.propagate_bounds_backward(box1, v1)
         if v2.intbound.make_ge(v1.intbound):
-            self.propagate_bounds_backward(box2)
+            self.propagate_bounds_backward(box2, v2)
 
     def make_int_gt(self, box1, box2):
         self.make_int_lt(box2, box1)
@@ -467,9 +475,9 @@ class OptIntBounds(Optimization):
                 v1 = self.getvalue(op.getarg(0))
                 v2 = self.getvalue(op.getarg(1))
                 if v1.intbound.intersect(v2.intbound):
-                    self.propagate_bounds_backward(op.getarg(0))
+                    self.propagate_bounds_backward(op.getarg(0), v1)
                 if v2.intbound.intersect(v1.intbound):
-                    self.propagate_bounds_backward(op.getarg(1))
+                    self.propagate_bounds_backward(op.getarg(1), v2)
 
     def propagate_bounds_INT_NE(self, op):
         r = self.getvalue(op)
@@ -489,7 +497,7 @@ class OptIntBounds(Optimization):
                 v1 = self.getvalue(op.getarg(0))
                 if v1.intbound.known_ge(IntBound(0, 0)):
                     v1.intbound.make_gt(IntBound(0, 0))
-                    self.propagate_bounds_backward(op.getarg(0))
+                    self.propagate_bounds_backward(op.getarg(0), v1)
 
     def propagate_bounds_INT_IS_ZERO(self, op):
         r = self.getvalue(op)
@@ -501,7 +509,7 @@ class OptIntBounds(Optimization):
                 # an assert, this is a clever way of expressing the same thing.
                 v1.intbound.make_ge(IntBound(0, 0))
                 v1.intbound.make_lt(IntBound(1, 1))
-                self.propagate_bounds_backward(op.getarg(0))
+                self.propagate_bounds_backward(op.getarg(0), v1)
 
     def propagate_bounds_INT_ADD(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -509,10 +517,10 @@ class OptIntBounds(Optimization):
         r = self.getvalue(op)
         b = r.intbound.sub_bound(v2.intbound)
         if v1.intbound.intersect(b):
-            self.propagate_bounds_backward(op.getarg(0))
+            self.propagate_bounds_backward(op.getarg(0), v1)
         b = r.intbound.sub_bound(v1.intbound)
         if v2.intbound.intersect(b):
-            self.propagate_bounds_backward(op.getarg(1))
+            self.propagate_bounds_backward(op.getarg(1), v2)
 
     def propagate_bounds_INT_SUB(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -520,10 +528,10 @@ class OptIntBounds(Optimization):
         r = self.getvalue(op)
         b = r.intbound.add_bound(v2.intbound)
         if v1.intbound.intersect(b):
-            self.propagate_bounds_backward(op.getarg(0))
+            self.propagate_bounds_backward(op.getarg(0), v1)
         b = r.intbound.sub_bound(v1.intbound).mul(-1)
         if v2.intbound.intersect(b):
-            self.propagate_bounds_backward(op.getarg(1))
+            self.propagate_bounds_backward(op.getarg(1), v2)
 
     def propagate_bounds_INT_MUL(self, op):
         v1 = self.getvalue(op.getarg(0))
