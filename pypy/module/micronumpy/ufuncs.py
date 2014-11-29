@@ -1322,6 +1322,7 @@ class W_GenericUFuncCaller(W_Root):
         else:
             for i in range(len(args_w)):
                 arg_i = args_w[i]
+                assert isinstance(arg_i, W_NDimArray)
                 raw_storage_setitem(dataps, CCHARP_SIZE * i,
                         rffi.cast(rffi.CCHARP, arg_i.implementation.get_storage_as_int(space)))
         try:
