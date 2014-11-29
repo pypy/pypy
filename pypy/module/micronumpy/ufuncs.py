@@ -1338,8 +1338,8 @@ class W_GenericUFuncCaller(W_Root):
             raise oefmt(space.w_RuntimeError,
                  "set_dims_and_steps called inappropriately")
         if self.dims_steps_set:
-            raise oefmt(space.w_RuntimeError,
-                 "set_dims_and_steps called inappropriately")
+            free_raw_storage(self.dims, track_allocation=False)
+            free_raw_storage(self.steps, track_allocation=False)
         self.dims = alloc_raw_storage(LONG_SIZE * len(dims), track_allocation=False)
         self.steps = alloc_raw_storage(LONG_SIZE * len(steps), track_allocation=False)
         for i in range(len(dims)):
