@@ -150,8 +150,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ufunc = frompyfunc([int_times2, double_times2], 1, 1,
                             signature='()->()',
                             dtypes=[dtype(int), dtype(int),
-                            dtype(float), dtype(float)
-                            ]
+                                    dtype(float), dtype(float)
+                                    ],
+                            stack_inputs=True,
                     )
         ai = arange(10, dtype=int)
         ai2 = ufunc(ai)
@@ -167,13 +168,23 @@ class AppTestUfuncs(BaseNumpyAppTest):
             out_array[:] = in_array * 2
         from numpy import frompyfunc, dtype, arange
         ufunc = frompyfunc([times_2], 1, 1,
+                            signature='(m,n)->(n,m)',
+                            dtypes=[dtype(int), dtype(int)],
+                            stack_inputs=True,
+                          )
+        ai = arange(18, dtype=int).reshape(2,3,3)
+        ai3 = ufunc(ai[0,:,:])
+        ai2 = ufunc(ai)
+        assert (ai2 == ai * 2).all()
+        ufunc = frompyfunc([times_2], 1, 1,
                             signature='(m,m)->(m,m)',
                             dtypes=[dtype(int), dtype(int)],
                             stack_inputs=True,
                           )
         ai = arange(18, dtype=int).reshape(2,3,3)
         exc = raises(ValueError, ufunc, ai[:,:,0])
-        assert "mismatch in its core dimension 1" in exc.value.message
+        assert "Operand 0 has a mismatch in its core dimension 1" in exc.value.message
+        ai3 = ufunc(ai[0,:,:])
         ai2 = ufunc(ai)
         assert (ai2 == ai * 2).all()
 

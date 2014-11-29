@@ -581,8 +581,13 @@ class W_UfuncGeneric(W_Ufunc):
         func = self.funcs[index]
         if not self.core_enabled:
             # func is going to do all the work, it must accept W_NDimArray args
-            arglist = space.newlist(list(inargs + outargs))
-            space.call_args(func, Arguments.frompacked(space, arglist))
+            if self.stack_inputs:
+                arglist = space.newlist(list(inargs + outargs))
+                space.call_args(func, Arguments.frompacked(space, arglist))
+            else:
+                arglist = space.newlist(inargs)
+                outargs = space.call_args(func, Arguments.frompacked(space, arglist))
+                return outargs
             if len(outargs) < 2:
                 return outargs[0]
             return space.newtuple(outargs)
@@ -603,12 +608,9 @@ class W_UfuncGeneric(W_Ufunc):
         for i in range(self.nin, self.nargs):
             iter_ndim += self.core_num_dims[i];
         # Validate the core dimensions of all the operands,
-        # and collect all of the labeled core dimension sizes
-        # into the array 'inner_dimensions[1:]'. Initialize them to
-        # 1, for example in the case where the operand broadcasts
-        # to a core dimension, it won't be visited.
         inner_dimensions = [1] * (self.core_num_dim_ix + 2)
         idim = 0
+        core_start_dim = 0
         for i in range(self.nin):
             curarg = inargs[i]
             assert isinstance(curarg, W_NDimArray)
@@ -706,8 +708,33 @@ class W_UfuncGeneric(W_Ufunc):
         w_itershape = space.newlist([space.wrap(i) for i in iter_shape]) 
         w_op_axes = space.w_None
 
-
         if self.stack_inputs:
+            #print '\nsignature', sig
+            #print [(d, getattr(self,d)) for d in dir(self) if 'core' in d or 'broad' in d]
+            #print [(d, locals()[d]) for d in locals() if 'core' in d or 'broad' in d]
+            #print 'shapes',[d.get_shape() for d in inargs + outargs]
+            #print 'steps',[d.implementation.strides for d in inargs + outargs]
+            if isinstance(func, W_GenericUFuncCaller):
+                # Use GeneralizeUfunc interface with signature
+                # Unlike numpy, we will not broadcast dims before
+                # the core_ndims rather we use nditer iteration
+                # so dims[0] == 1
+                dims = [1] + inner_dimensions[1:]
+                steps = []
+                allargs = inargs + outargs
+                assert core_start_dim >= 0
+                for i in range(len(allargs)):
+                    steps.append(0)
+                for i in range(len(allargs)):
+                    _arg = allargs[i]
+                    assert isinstance(_arg, W_NDimArray)
+                    steps += _arg.implementation.strides[core_start_dim:]
+                #print 'set_dims_and_steps with dims, steps',dims,steps
+                func.set_dims_and_steps(space, dims, steps)
+            else:
+                # it is a function, ready to be called by the iterator,
+                # from frompyfunc
+                pass
             # mimic NpyIter_AdvancedNew with a nditer
             nd_it = W_NDIter(space, space.newlist(inargs + outargs), w_flags,
                           w_op_flags, w_op_dtypes, w_casting, w_op_axes,
@@ -807,14 +834,6 @@ class W_UfuncGeneric(W_Ufunc):
         for i in range(len(outargs)):
             assert isinstance(outargs[i], W_NDimArray)
         return outargs
-
-    def prep_call(self, space, index, inargs, outargs):
-        # Use the index and signature to determine
-        # dims and steps for function call
-        return self.funcs[index], [inargs[0].get_shape()[0]], \
-                 [inargs[0].implementation.get_strides()[0],
-                  outargs[0].implementation.get_strides()[0]]
-
 
 W_Ufunc.typedef = TypeDef("numpy.ufunc",
     __call__ = interp2app(W_Ufunc.descr_call),
@@ -1176,7 +1195,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     stack_inputs*: boolean, whether the function is of the form
             out = func(*in)  False
             or
-            func(*in_out)    True (forces use of a nditer with 'external_loop')
+            func(*[in + out])    True 
 
     only one of out_dtype or signature may be specified
 
@@ -1243,8 +1262,8 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
             'identity must be None or an int')
 
     if len(signature) == 0:
-        # cpython compatability, func is of the form (i),(i)->(i)
-        signature = ','.join(['(i)'] * nin) + '->' + ','.join(['(i)'] * nout)
+        # cpython compatability, func is of the form (),()->()
+        signature = ','.join(['()'] * nin) + '->' + ','.join(['()'] * nout)
     else:
         #stack_inputs = True
         pass
@@ -1257,18 +1276,21 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
         w_ret.w_doc = space.wrap(doc)
     return w_ret
 
-# Instantiated in cpyext/ndarrayobject
+# Instantiated in cpyext/ndarrayobject. It is here since ufunc calls
+# set_dims_and_steps, otherwise ufunc, ndarrayobject would have circular
+# imports
 npy_intpp = rffi.LONGP
 LONG_SIZE = LONG_BIT / 8
 CCHARP_SIZE = _get_bitsize('P') / 8
 
 class W_GenericUFuncCaller(W_Root):
-    _attrs_ = ['func', 'data', 'dims', 'steps']
+    _attrs_ = ['func', 'data', 'dims', 'steps', 'dims_steps_set']
     def __init__(self, func, data):
         self.func = func
         self.data = data
         self.dims = alloc_raw_storage(0, track_allocation=False)
         self.steps = alloc_raw_storage(0, track_allocation=False)
+        self.dims_steps_set = False
 
     def __del__(self):
         free_raw_storage(self.dims, track_allocation=False)
@@ -1276,10 +1298,14 @@ class W_GenericUFuncCaller(W_Root):
 
     def descr_call(self, space, __args__):
         args_w, kwds_w = __args__.unpack()
-        # Can be called two ways, as an inner-loop function with boxes, 
-        # or as an outer-looop functio with ndarrays
+        # Can be called two ways, as a GenericUfunc or a GeneralizedUfunc.
+        # The difference is in the meaning of dims and steps,
+        # a GenericUfunc is a scalar function that flatiters over the array(s).
+        # a GeneralizedUfunc will iterate over dims[0], but will use dims[1...]
+        # and steps[1, ...] to call a function on ndarray(s).
+        # set up via a call to set_dims_and_steps()
         dataps = alloc_raw_storage(CCHARP_SIZE * len(args_w), track_allocation=False)
-        if isinstance(args_w[0], W_NDimArray):
+        if self.dims_steps_set is False:
             self.dims = alloc_raw_storage(LONG_SIZE * len(args_w), track_allocation=False)
             self.steps = alloc_raw_storage(LONG_SIZE * len(args_w), track_allocation=False)
             for i in range(len(args_w)):
@@ -1294,13 +1320,10 @@ class W_GenericUFuncCaller(W_Root):
                 raw_storage_setitem(self.dims, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_size()))
                 raw_storage_setitem(self.steps, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_dtype().elsize))
         else:
-            if self.dims is None or self.steps is None:
-                raise OperationError(space.w_RuntimeError,
-                     space.wrap("call set_dims_and_steps first"))
             for i in range(len(args_w)):
                 arg_i = args_w[i]
-                # raw_storage_setitem(dataps, CCHARP_SIZE * i,
-                #       rffi.cast(rffi.CCHARP, arg_i.storage))
+                raw_storage_setitem(dataps, CCHARP_SIZE * i,
+                        rffi.cast(rffi.CCHARP, arg_i.implementation.get_storage_as_int(space)))
         try:
             arg1 = rffi.cast(rffi.CArrayPtr(rffi.CCHARP), dataps)
             arg2 = rffi.cast(npy_intpp, self.dims)
@@ -1309,29 +1332,24 @@ class W_GenericUFuncCaller(W_Root):
         finally:
             free_raw_storage(dataps, track_allocation=False)
 
+    def set_dims_and_steps(self, space, dims, steps):
+        if not isinstance(dims, list) or not isinstance(steps, list):
+            raise oefmt(space.w_RuntimeError,
+                 "set_dims_and_steps called inappropriately")
+        if self.dims_steps_set:
+            raise oefmt(space.w_RuntimeError,
+                 "set_dims_and_steps called inappropriately")
+        self.dims = alloc_raw_storage(LONG_SIZE * len(dims), track_allocation=False)
+        self.steps = alloc_raw_storage(LONG_SIZE * len(steps), track_allocation=False)
+        for i in range(len(dims)):
+            raw_storage_setitem(self.dims, LONG_SIZE * i, rffi.cast(rffi.LONG, dims[i]))
+        for i in range(len(steps)):
+            raw_storage_setitem(self.steps, LONG_SIZE * i, rffi.cast(rffi.LONG, steps[i]))
+        self.dims_steps_set = True
+
 W_GenericUFuncCaller.typedef = TypeDef("hiddenclass",
     __call__ = interp2app(W_GenericUFuncCaller.descr_call),
 )
-
-def set_dims_and_steps(obj, space, dims, steps):
-        if not isinstance(obj, W_GenericUFuncCaller):
-            raise OperationError(space.w_RuntimeError,
-                 space.wrap("set_dims_and_steps called inappropriately"))
-        if not isinstance(dims, list) or not isinstance(steps, list):
-            raise OperationError(space.w_RuntimeError,
-                 space.wrap("set_dims_and_steps called inappropriately"))
-        if len(dims) != len(step):
-            raise OperationError(space.w_RuntimeError,
-                 space.wrap("set_dims_and_steps called inappropriately"))
-        if self.dims is not None or self.steps is not None:
-            raise OperationError(space.w_RuntimeError,
-                 space.wrap("set_dims_and_steps called inappropriately"))
-        self.dims = alloc_raw_storage(LONG_SIZE * len(dims), track_allocation=False)
-        self.steps = alloc_raw_storage(LONG_SIZE * len(dims), track_allocation=False)
-        for d in dims:
-            raw_storage_setitem(self.dims, LONG_SIZE * i, rffi.cast(rffi.LONG, d))
-        for d in steps:
-            raw_storage_setitem(self.steps, LONG_SIZE * i, rffi.cast(rffi.LONG, d))
 
 GenericUfunc = lltype.FuncType([rffi.CArrayPtr(rffi.CCHARP), npy_intpp, npy_intpp,
                                       rffi.VOIDP], lltype.Void)
