@@ -571,8 +571,8 @@ class W_UfuncGeneric(W_Ufunc):
                 outargs[i] = out
         if sig is None:
             sig = space.wrap(self.signature)
-        index = self.type_resolver(space, inargs, outargs, sig)
-        outargs = self.alloc_outargs(space, index, inargs, outargs)
+        index, dtypes = self.type_resolver(space, inargs, outargs, sig)
+        outargs = self.alloc_outargs(space, index, inargs, outargs, dtypes)
         for i in range(len(outargs)):
             assert isinstance(outargs[i], W_NDimArray)
         outargs0 = outargs[0]
@@ -805,23 +805,40 @@ class W_UfuncGeneric(W_Ufunc):
             kwargs_w.pop(kw)
         return w_subok, w_out, sig, casting, extobj
 
-    def type_resolver(self, space, inargs, outargs, sig):
+    def type_resolver(self, space, inargs, outargs, type_tup):
         # Find a match for the inargs.dtype in self.dtypes, like
         # linear_search_type_resolver in numpy ufunc_type_resolutions.c
+        # type_tup can be '', a tuple of dtypes, or a string
+        # of the form d,t -> D where the letters are dtype specs
         inargs0 = inargs[0]
         assert isinstance(inargs0, W_NDimArray)
+        nop = len(inargs) + len(outargs)
+        dtypes = []
+        if isinstance(type_tup, str):
+            if len(type_tup) == 1:
+                dtypes = [get_dtype_cache(space).dtypes_by_name[type_tup]] * self.nargs
+            elif len(type_tup) == self.nargs + 2:
+                for i in range(len(inargs)):
+                    dtypes.append(get_dtype_cache(space).dtype_by_name[type_tup[i]])
+                #skip the '->' in the signature
+                for i in range(len(self.nout)):
+                    dtypes.append(get_dtype_cache(space).dtype_by_name[type_tup[i+2]])
+            else:
+                raise oefmt(space.w_TypeError, "a type-string for %s," \
+                    "requires 1 typecode or %d typecode(s) before and %d" \
+                    " after the -> sign", self.name, self.nin, self.nout)
         for i in range(0, len(self.dtypes), self.nargs):
             if inargs0.get_dtype() == self.dtypes[i]:
                 break
         else:
             if len(self.funcs) < 2:
-                return 0
+                return 0, dtypes
             raise oefmt(space.w_TypeError,
                          'input dtype %s did not match any known dtypes',
                                               str(inargs0.get_dtype()))
-        return i / self.nargs
+        return i / self.nargs, dtypes
 
-    def alloc_outargs(self, space, index, inargs, outargs):
+    def alloc_outargs(self, space, index, inargs, outargs, dtypes):
         # Any None outarg should be allocated here
         inargs0 = inargs[0]
         assert isinstance(inargs0, W_NDimArray)

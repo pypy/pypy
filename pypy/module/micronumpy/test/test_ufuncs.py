@@ -1,7 +1,10 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.module.micronumpy.ufuncs import (find_binop_result_dtype,
-        find_unaryop_result_dtype)
+        find_unaryop_result_dtype, W_UfuncGeneric)
+from pypy.module.micronumpy.support import _parse_signature
 from pypy.module.micronumpy.descriptor import get_dtype_cache
+from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.concrete import VoidBoxStorage
 from pypy.interpreter.gateway import interp2app
 from pypy.conftest import option
 
@@ -82,6 +85,42 @@ class TestUfuncCoercion(object):
 
         # promote bools, happens with sign ufunc
         assert find_unaryop_result_dtype(space, bool_dtype, promote_bools=True) is int8_dtype
+
+
+class TestGenericUfuncOperation(object):
+    def test_signature_parser(self, space):
+        class Ufunc(object):
+            def __init__(self, nin, nout):
+                self.nin = nin
+                self.nout = nout
+                self.nargs = nin + nout
+                self.core_enabled = True
+                self.core_num_dim_ix = 0 
+                self.core_num_dims = [0] * self.nargs  
+                self.core_offsets = [0] * self.nargs
+                self.core_dim_ixs = [] 
+
+        u = Ufunc(2, 1)
+        _parse_signature(space, u, '(m,n), (n,r)->(m,r)')
+        assert u.core_dim_ixs == [0, 1, 1, 2, 0, 2]
+        assert u.core_num_dims == [2, 2, 2]
+        assert u.core_offsets == [0, 2, 4]
+
+    def test_type_resolver(self, space):
+        c128_dtype = get_dtype_cache(space).w_complex128dtype
+        f64_dtype = get_dtype_cache(space).w_float64dtype
+        u32_dtype = get_dtype_cache(space).w_uint32dtype
+        b_dtype = get_dtype_cache(space).w_booldtype
+
+        ufunc = W_UfuncGeneric(space, [None, None], 'eigenvals', None, 1, 1,
+                     [f64_dtype, c128_dtype, c128_dtype, c128_dtype],
+                     '')
+        f64 = W_NDimArray(VoidBoxStorage(0, f64_dtype))
+        c128 = W_NDimArray(VoidBoxStorage(0, c128_dtype))
+        index, dtypes = ufunc.type_resolver(space, [f64], [c128], 'd->D')
+        assert index == 0
+        assert dtypes == [f64_dtype, c128_dtype]
+
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def test_constants(self):
