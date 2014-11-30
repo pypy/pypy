@@ -703,7 +703,26 @@ def gen_structdef(f, database):
     for node in structdeflist:
         for line in node.definition():
             print >> f, line
+    gen_threadlocal_structdef(f, database)
     print >> f, "#endif"
+
+def gen_threadlocal_structdef(f, database):
+    from rpython.translator.c.support import cdecl
+    print >> f
+    bk = database.translator.annotator.bookkeeper
+    fields = list(bk.thread_local_fields)
+    fields.sort(key=lambda field: field.fieldname)
+    for field in fields:
+        print >> f, ('#define RPY_TLOFS_%s  offsetof(' % field.fieldname +
+                     'struct pypy_threadlocal_s, %s)' % field.fieldname)
+    print >> f, 'struct pypy_threadlocal_s {'
+    print >> f, '\tint ready;'
+    print >> f, '\tchar *stack_end;'
+    for field in fields:
+        typename = database.gettype(field.FIELDTYPE)
+        print >> f, '\t%s;' % cdecl(typename, field.fieldname)
+    print >> f, '};'
+    print >> f
 
 def gen_forwarddecl(f, database):
     print >> f, '/***********************************************************/'
@@ -730,6 +749,11 @@ def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
     print >> f, 'char *RPython_StartupCode(void) {'
     print >> f, '\tchar *error = NULL;'
+
+    bk = database.translator.annotator.bookkeeper
+    if bk.thread_local_fields:
+        print >> f, '\tRPython_ThreadLocals_ProgramInit();'
+
     for line in database.gcpolicy.gc_startup_code():
         print >> f,"\t" + line
 
@@ -748,6 +772,7 @@ def gen_startupcode(f, database):
                 print >> f, '\tif (error) return error;'
             for line in lines:
                 print >> f, '\t'+line
+
     print >> f, '\treturn error;'
     print >> f, '}'
 
@@ -770,6 +795,8 @@ def add_extra_files(eci):
         srcdir / 'asm.c',
         srcdir / 'instrument.c',
         srcdir / 'int.c',
+        srcdir / 'stack.c',
+        srcdir / 'threadlocal.c',
     ]
     if _CYGWIN:
         files.append(srcdir / 'cygwin_wait.c')

@@ -184,10 +184,10 @@ class TraceWithIds(Function):
         matcher = OpMatcher(ops)
         return matcher.match(expected_src, **kwds)
 
-    def match_by_id(self, id, expected_src, **kwds):
+    def match_by_id(self, id, expected_src, ignore_ops=[], **kwds):
         ops = list(self.ops_by_id(id, **kwds))
         matcher = OpMatcher(ops, id)
-        return matcher.match(expected_src)
+        return matcher.match(expected_src, ignore_ops=ignore_ops)
 
 class PartialTraceWithIds(TraceWithIds):
     def __init__(self, trace, is_entry_bridge=False):

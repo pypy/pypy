@@ -1,3 +1,4 @@
+from rpython.rlib import jit
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -264,8 +265,8 @@ class IndexIterator(object):
         self.index = [0] * len(shape)
         self.backward = backward
 
+    @jit.unroll_safe
     def next(self):
-        # TODO It's probably possible to refactor all the "next" method from each iterator
         for i in range(len(self.shape) - 1, -1, -1):
             if self.index[i] < self.shape[i] - 1:
                 self.index[i] += 1

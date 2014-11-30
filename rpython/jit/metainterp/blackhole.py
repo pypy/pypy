@@ -489,6 +489,9 @@ class BlackholeInterpreter(object):
         if i < 0:
             return 0
         return i
+    @arguments("i", "i", returns="i")
+    def bhimpl_int_signext(a, b):
+        return heaptracker.int_signext(a, b)
 
     @arguments("i", "i", returns="i")
     def bhimpl_uint_lt(a, b):

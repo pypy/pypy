@@ -1080,6 +1080,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
             assert not livevars, "live GC var around %s!" % (hop.spaceop,)
             hop.genop("direct_call", [self.root_walker.thread_run_ptr])
             self.pop_roots(hop, livevars)
+        else:
+            hop.rename("gc_thread_run")     # keep it around for c/gc.py,
+                                            # unless handled specially above
 
     def gct_gc_thread_start(self, hop):
         assert self.translator.config.translation.thread
@@ -1095,6 +1098,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
             assert not livevars, "live GC var around %s!" % (hop.spaceop,)
             hop.genop("direct_call", [self.root_walker.thread_die_ptr])
             self.pop_roots(hop, livevars)
+        hop.rename("gc_thread_die")     # keep it around for c/gc.py
 
     def gct_gc_thread_before_fork(self, hop):
         if (self.translator.config.translation.thread

@@ -82,7 +82,7 @@ class TestCall(BaseTestPyPyC):
         assert log.opnames(ops) == []
         #
         assert entry_bridge.match_by_id('call', """
-            p38 = call(ConstClass(_ll_0_threadlocalref_getter___), descr=<Callr . EF=1 OS=5>)
+            p38 = call(ConstClass(_ll_1_threadlocalref_get__Ptr_GcStruct_objectLlT_Signed), #, descr=<Callr . i EF=1 OS=5>)
             p39 = getfield_gc(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             i40 = force_token()
             p41 = getfield_gc_pure(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
@@ -444,7 +444,7 @@ class TestCall(BaseTestPyPyC):
             p26 = getfield_gc(p7, descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy .*>)
             guard_value(p26, ConstPtr(ptr27), descr=...)
             guard_not_invalidated(descr=...)
-            p29 = call(ConstClass(_ll_0_threadlocalref_getter___), descr=<Callr . EF=1 OS=5>)
+            p29 = call(ConstClass(_ll_1_threadlocalref_get__Ptr_GcStruct_objectLlT_Signed), #, descr=<Callr . i EF=1 OS=5>)
             p30 = getfield_gc(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             p31 = force_token()
             p32 = getfield_gc_pure(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)

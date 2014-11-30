@@ -342,6 +342,19 @@ class OptIntBounds(Optimization):
         else:
             self.emit_operation(op)
 
+    def optimize_INT_SIGNEXT(self, op):
+        value = self.getvalue(op.getarg(0))
+        numbits = op.getarg(1).getint() * 8
+        start = -(1 << (numbits - 1))
+        stop = 1 << (numbits - 1)
+        bounds = IntBound(start, stop - 1)
+        if bounds.contains_bound(value.intbound):
+            self.make_equal_to(op.result, value)
+        else:
+            self.emit_operation(op)
+            vres = self.getvalue(op.result)
+            vres.intbound.intersect(bounds)
+
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)
         array = self.getvalue(op.getarg(0))
