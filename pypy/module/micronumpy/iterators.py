@@ -154,7 +154,7 @@ class ArrayIter(object):
         index = state.index
         if self.track_index:
             index += 1
-        indices = [state.indices[i] for i in range(len(state.indices))]
+        indices = state.indices[:]
         offset = state.offset
         if self.contiguous:
             offset += self.array.dtype.elsize
