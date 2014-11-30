@@ -311,6 +311,12 @@ def unmarshal_NULL(self, u, tc):
     return None
 
 
+def _put_str_list(space, m, strlist):
+    m.atom_int(TYPE_TUPLE, len(strlist))
+    atom_str = m.atom_str
+    for item in strlist:
+        atom_str(TYPE_STRING, item)
+
 @marshaller(PyCode)
 def marshal_pycode(space, w_pycode, m):
     m.start(TYPE_CODE)
@@ -324,9 +330,9 @@ def marshal_pycode(space, w_pycode, m):
     m.atom_str(TYPE_STRING, x.co_code)
     m.put_tuple_w(TYPE_TUPLE, x.co_consts_w)
     m.put_tuple_w(TYPE_TUPLE, x.co_names_w)
-    m.atom_strlist(TYPE_TUPLE, TYPE_STRING, x.co_varnames)
-    m.atom_strlist(TYPE_TUPLE, TYPE_STRING, x.co_freevars)
-    m.atom_strlist(TYPE_TUPLE, TYPE_STRING, x.co_cellvars)
+    _put_str_list(space, m, x.co_varnames)
+    _put_str_list(space, m, x.co_freevars)
+    _put_str_list(space, m, x.co_cellvars)
     m.atom_str(TYPE_STRING, x.co_filename)
     m.atom_str(TYPE_STRING, x.co_name)
     m.put_int(x.co_firstlineno)
