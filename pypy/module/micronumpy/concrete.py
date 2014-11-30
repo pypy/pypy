@@ -47,6 +47,7 @@ class BaseConcreteArray(object):
     def setitem(self, index, value):
         self.dtype.itemtype.store(self, index, 0, value)
 
+    @jit.unroll_safe
     def setslice(self, space, arr):
         if len(arr.get_shape()) > 0 and len(self.get_shape()) == 0:
             raise oefmt(space.w_ValueError,
