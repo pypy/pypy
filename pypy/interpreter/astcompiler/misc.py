@@ -108,6 +108,16 @@ def mangle(name, klass):
     return "_%s%s" % (klass[i:], name)
 
 
+def intern_if_common_string(space, w_const):
+    # only intern identifier-like strings
+    if not space.is_w(space.type(w_const), space.w_str):
+        return w_const
+    for c in space.str_w(w_const):
+        if not (c.isalnum() or c == '_'):
+            return w_const
+    return space.new_interned_w_str(w_const)
+
+
 def new_identifier(space, name):
     # Check whether there are non-ASCII characters in the identifier; if
     # so, normalize to NFKC

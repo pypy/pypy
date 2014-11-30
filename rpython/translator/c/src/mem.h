@@ -9,13 +9,13 @@
 
 
 #define OP_RAW_MALLOC(size, r, restype)  {				\
-	r = (restype) PyObject_Malloc(size);				\
+	r = (restype) malloc(size);				\
 	if (r != NULL) {						\
 	    COUNT_MALLOC;						\
 	}								\
     }
 
-#define OP_RAW_FREE(p, r) PyObject_Free(p); COUNT_FREE;
+#define OP_RAW_FREE(p, r) free(p); COUNT_FREE;
 
 #define OP_RAW_MEMCLEAR(p, size, r) memset((void*)p, 0, size)
 #define OP_RAW_MEMSET(p, byte, size, r) memset((void*)p, byte, size)

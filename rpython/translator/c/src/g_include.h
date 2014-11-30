@@ -33,7 +33,6 @@
 #  include "src/debug_traceback.h"
 #endif
 
-#  include "src/allocator.h"
 #ifdef PYPY_STANDALONE
 #  include "src/entrypoint.h"
 #endif

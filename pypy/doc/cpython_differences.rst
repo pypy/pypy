@@ -205,23 +205,28 @@ method.
 The above is true both in CPython and in PyPy.  Differences
 can occur about whether a built-in function or method will
 call an overridden method of *another* object than ``self``.
-In PyPy, they are generally always called, whereas not in
-CPython.  For example, in PyPy, ``dict1.update(dict2)``
-considers that ``dict2`` is just a general mapping object, and
-will thus call overridden ``keys()``  and ``__getitem__()``
-methods on it.  So the following code prints ``42`` on PyPy
-but ``foo`` on CPython::
+In PyPy, they are often called in cases where CPython would not.
+Two examples::
 
-    >>>> class D(dict):
-    ....     def __getitem__(self, key):
-    ....         return 42
-    ....
-    >>>>
-    >>>> d1 = {}
-    >>>> d2 = D(a='foo')
-    >>>> d1.update(d2)
-    >>>> print d1['a']
-    42
+    class D(dict):
+        def __getitem__(self, key):
+            return "%r from D" % (key,)
+
+    class A(object):
+        pass
+
+    a = A()
+    a.__dict__ = D()
+    a.foo = "a's own foo"
+    print a.foo
+    # CPython => a's own foo
+    # PyPy => 'foo' from D
+
+    glob = D(foo="base item")
+    loc = {}
+    exec "print foo" in glob, loc
+    # CPython => base item
+    # PyPy => 'foo' from D
 
 
 Mutating classes of objects which are already used as dictionary keys
@@ -291,6 +296,9 @@ This change requires some changes to ``id`` as well. ``id`` fulfills the
 following condition: ``x is y <=> id(x) == id(y)``. Therefore ``id`` of the
 above types will return a value that is computed from the argument, and can
 thus be larger than ``sys.maxint`` (i.e. it can be an arbitrary long).
+
+Notably missing from the list above are ``str`` and ``unicode``.  If your
+code relies on comparing strings with ``is``, then it might break in PyPy.
 
 
 Miscellaneous

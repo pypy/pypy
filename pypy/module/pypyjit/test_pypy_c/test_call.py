@@ -395,7 +395,7 @@ class TestCall(BaseTestPyPyC):
             setarrayitem_gc(p24, 0, p26, descr=<ArrayP .>)
             setfield_gc(p22, p24, descr=<FieldP .*Arguments.inst_arguments_w .*>)
             }}}
-            p32 = call_may_force(..., p18, p22, descr=<Callr . rr EF=6>)
+            p32 = call_may_force(_, p18, p22, descr=<Callr . rr EF=6>)
             ...
         """)
 
