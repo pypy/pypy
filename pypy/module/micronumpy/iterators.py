@@ -104,6 +104,7 @@ class ArrayIter(object):
 
     track_index = True
 
+    @jit.unroll_safe
     def __init__(self, array, size, shape, strides, backstrides, op_flags=OpFlag()):
         from pypy.module.micronumpy import concrete
         assert len(shape) == len(strides) == len(backstrides)

@@ -455,6 +455,7 @@ class W_NDIter(W_Root):
     def descr_len(self, space):
         space.wrap(len(self.iters))
 
+    @jit.unroll_safe
     def descr_next(self, space):
         for it, st in self.iters:
             if not it.done(st):
