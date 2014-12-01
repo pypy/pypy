@@ -983,6 +983,14 @@ def ll_listsetslice(l1, start, stop, l2):
 #
 #  Comparison.
 
+def listeq_unroll_case(l1, l2, eqfn):
+    if jit.isvirtual(l1) and len(l1) < 10:
+        return True
+    if jit.isvirtual(l2) and len(l2) < 10:
+        return True
+    return False
+
+@jit.unroll_iff(listeq_unroll_case)
 def ll_listeq(l1, l2, eqfn):
     if not l1 and not l2:
         return True
