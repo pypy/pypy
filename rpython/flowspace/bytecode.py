@@ -521,32 +521,35 @@ class SetupInstruction(BCInstruction):
         self.target = reader.get_block_at(self.arg)
 
     def eval(self, ctx):
-        block = self.make_block(ctx)
+        block = self.make_block(ctx.stackdepth)
         ctx.blockstack.append(block)
 
 
 @bc_reader.register_opcode
 class SETUP_EXCEPT(SetupInstruction):
-    def make_block(self, ctx):
+    def make_block(self, stackdepth):
         from rpython.flowspace.flowcontext import ExceptBlock
-        return ExceptBlock(ctx.stackdepth, self.target)
+        return ExceptBlock(stackdepth, self.target)
 
 @bc_reader.register_opcode
 class SETUP_LOOP(SetupInstruction):
-    def make_block(self, ctx):
+    def make_block(self, stackdepth):
         from rpython.flowspace.flowcontext import LoopBlock
-        return LoopBlock(ctx.stackdepth, self.target)
+        return LoopBlock(stackdepth, self.target)
 
 @bc_reader.register_opcode
 class SETUP_FINALLY(SetupInstruction):
-    def make_block(self, ctx):
+    def make_block(self, stackdepth):
         from rpython.flowspace.flowcontext import FinallyBlock
-        return FinallyBlock(ctx.stackdepth, self.target)
+        return FinallyBlock(stackdepth, self.target)
 
 @bc_reader.register_opcode
 class SETUP_WITH(SetupInstruction):
-    def eval(self, ctx):
+    def make_block(self, stackdepth):
         from rpython.flowspace.flowcontext import WithBlock
+        return WithBlock(stackdepth, self.target)
+
+    def eval(self, ctx):
         # A simpler version than the 'real' 2.7 one:
         # directly call manager.__enter__(), don't use special lookup functions
         # which don't make sense on the RPython type system.
@@ -555,7 +558,7 @@ class SETUP_WITH(SetupInstruction):
         ctx.settopvalue(w_exit)
         w_enter = op.getattr(w_manager, const('__enter__')).eval(ctx)
         w_result = op.simple_call(w_enter).eval(ctx)
-        block = WithBlock(ctx.stackdepth, self.target)
+        block = self.make_block(ctx.stackdepth)
         ctx.blockstack.append(block)
         ctx.pushvalue(w_result)
 
