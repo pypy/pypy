@@ -270,7 +270,7 @@ def shape_agreement_multiple(space, array_list, shape=None):
                 shape = shape_agreement(space, shape, arr)
     return shape
 
-
+@jit.unroll_safe
 def _shape_agreement(shape1, shape2):
     """ Checks agreement about two shapes with respect to broadcasting. Returns
     the resulting shape.
