@@ -108,18 +108,25 @@ class TestGenericUfuncOperation(object):
 
     def test_type_resolver(self, space):
         c128_dtype = get_dtype_cache(space).w_complex128dtype
+        c64_dtype = get_dtype_cache(space).w_complex64dtype
         f64_dtype = get_dtype_cache(space).w_float64dtype
+        f32_dtype = get_dtype_cache(space).w_float32dtype
         u32_dtype = get_dtype_cache(space).w_uint32dtype
         b_dtype = get_dtype_cache(space).w_booldtype
 
-        ufunc = W_UfuncGeneric(space, [None, None], 'eigenvals', None, 1, 1,
-                     [f64_dtype, c128_dtype, c128_dtype, c128_dtype],
+        ufunc = W_UfuncGeneric(space, [None, None, None], 'eigenvals', None, 1, 1,
+                     [f32_dtype, c64_dtype, 
+                      f64_dtype, c128_dtype, 
+                      c128_dtype, c128_dtype],
                      '')
-        f64 = W_NDimArray(VoidBoxStorage(0, f64_dtype))
-        c128 = W_NDimArray(VoidBoxStorage(0, c128_dtype))
-        index, dtypes = ufunc.type_resolver(space, [f64], [c128], 'd->D')
-        assert index == 0
+        f32_array = W_NDimArray(VoidBoxStorage(0, f32_dtype))
+        index, dtypes = ufunc.type_resolver(space, [f32_array], [None], 'd->D')
+        #needs to cast input type, create output type
+        assert index == 1
         assert dtypes == [f64_dtype, c128_dtype]
+        index, dtypes = ufunc.type_resolver(space, [f32_array], [None], '')
+        assert index == 0
+        assert dtypes == [f32_dtype, c64_dtype]
 
 
 class AppTestUfuncs(BaseNumpyAppTest):
