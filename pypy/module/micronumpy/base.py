@@ -25,6 +25,7 @@ class W_NumpyObject(W_Root):
 
 class W_NDimArray(W_NumpyObject):
     __metaclass__ = extendabletype
+    _immutable_fields_ = ['implementation']
 
     def __init__(self, implementation):
         from pypy.module.micronumpy.concrete import BaseConcreteArray
@@ -97,6 +98,19 @@ class W_NDimArray(W_NumpyObject):
         w_arr = W_NDimArray.from_shape(space, [], dtype)
         w_arr.set_scalar_value(w_scalar)
         return w_arr
+
+    def get_shape(self):
+        return self.implementation.get_shape()
+
+    def get_dtype(self):
+        return self.implementation.dtype
+
+    def get_order(self):
+        return self.implementation.order
+
+    def ndims(self):
+        return len(self.get_shape())
+    ndims._always_inline_ = True
 
 
 def convert_to_array(space, w_obj):

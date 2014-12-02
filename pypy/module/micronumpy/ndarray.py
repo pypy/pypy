@@ -50,9 +50,6 @@ class __extend__(W_NDimArray):
         shape = self.get_shape()
         return space.newtuple([space.wrap(i) for i in shape])
 
-    def get_shape(self):
-        return self.implementation.get_shape()
-
     def descr_set_shape(self, space, w_new_shape):
         shape = get_shape_from_iterable(space, self.get_size(), w_new_shape)
         self.implementation = self.implementation.set_shape(space, self, shape)
@@ -60,12 +57,6 @@ class __extend__(W_NDimArray):
     def descr_get_strides(self, space):
         strides = self.implementation.get_strides()
         return space.newtuple([space.wrap(i) for i in strides])
-
-    def get_dtype(self):
-        return self.implementation.dtype
-
-    def get_order(self):
-        return self.implementation.order
 
     def descr_get_dtype(self, space):
         return self.implementation.dtype
@@ -82,10 +73,6 @@ class __extend__(W_NDimArray):
     def descr_del_dtype(self, space):
         raise OperationError(space.w_AttributeError, space.wrap(
             "Cannot delete array dtype"))
-
-    def ndims(self):
-        return len(self.get_shape())
-    ndims._always_inline_ = True
 
     def descr_get_ndim(self, space):
         return space.wrap(self.ndims())
