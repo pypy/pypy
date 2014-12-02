@@ -128,7 +128,7 @@ class BytecodeReader(object):
         elif opnum in opcode.hasname:
             oparg = code.names[oparg]
         try:
-            op = self.num2cls[opnum].decode(oparg, offset, code)
+            op = self.num2cls[opnum](oparg, offset)
         except KeyError:
             op = GenericOpcode(self.opnames[opnum], opnum, oparg, offset)
         return next_offset, op
@@ -329,10 +329,6 @@ class BCInstruction(object):
         self.arg = arg
         self.offset = offset
 
-    @classmethod
-    def decode(cls, arg, offset, code):
-        return cls(arg, offset)
-
     def eval(self, ctx):
         pass
 
@@ -375,12 +371,9 @@ def flow_opcode(func):
 
 @bc_reader.register_opcode
 class LOAD_CONST(BCInstruction):
-    @staticmethod
-    def decode(arg, offset, code):
-        return LOAD_CONST(code.consts[arg], offset)
-
     def eval(self, ctx):
-        ctx.pushvalue(const(self.arg))
+        v_arg = const(ctx.pycode.consts[self.arg])
+        ctx.pushvalue(v_arg)
 
 @bc_reader.register_opcode
 class DUP_TOP(BCInstruction):
