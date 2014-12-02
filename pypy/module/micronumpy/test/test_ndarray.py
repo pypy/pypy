@@ -3416,6 +3416,17 @@ class AppTestSupport(BaseNumpyAppTest):
         assert str(array(1.5)) == '1.5'
         assert str(array(1.5).real) == '1.5'
 
+    def test_ndarray_buffer_strides(self):
+        from numpy import ndarray, array
+        base = array([1, 2, 3, 4], dtype=int)
+        a = ndarray((4,), buffer=base, dtype=int)
+        assert a[1] == 2
+        a = ndarray((4,), buffer=base, dtype=int, strides=[base.strides[0]])
+        assert a[1] == 2
+        a = ndarray((4,), buffer=base, dtype=int, strides=[2 * base.strides[0]])
+        assert a[1] == 3
+
+
 
 class AppTestRepr(BaseNumpyAppTest):
     def setup_class(cls):
@@ -3883,6 +3894,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert np.greater(a, a) is NotImplemented
         assert np.less_equal(a, a) is NotImplemented
 
+
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
         if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
@@ -3927,18 +3939,8 @@ class AppTestPyPy(BaseNumpyAppTest):
         del x.__pypy_data__
         assert x.__pypy_data__ is None
 
-    def test_ndarray_buffer_strides(self):
-        from numpypy import ndarray, array
-        base = array([1, 2, 3, 4], dtype=int)
-        a = ndarray((4,), buffer=base, dtype=int)
-        assert a[1] == 2
-        a = ndarray((4,), buffer=base, dtype=int, strides=[base.strides[0]])
-        assert a[1] == 2
-        a = ndarray((4,), buffer=base, dtype=int, strides=[2 * base.strides[0]])
-        assert a[1] == 3
-
     def test_from_shape_and_storage_strides(self):
-        from numpypy import ndarray, array
+        from numpy import ndarray, array
         base = array([1, 2, 3, 4], dtype=int)
         addr, _ = base.__array_interface__['data']
         a = ndarray._from_shape_and_storage((4,), addr, int)
@@ -3949,4 +3951,3 @@ class AppTestPyPy(BaseNumpyAppTest):
         a = ndarray._from_shape_and_storage((4,), addr, int,
                                            strides=[2 * base.strides[0]])
         assert a[1] == 3
-        
