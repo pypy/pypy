@@ -762,9 +762,10 @@ class OptString(optimizer.Optimization):
             vchar1 = self.strgetitem(v1, optimizer.CVAL_ZERO, mode)
             vchar2 = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)
             seo = self.optimizer.send_extra_operation
-            seo(ResOperation(rop.INT_SUB, [vchar1.force_box(self),
-                                           vchar2.force_box(self)],
-                             op.result))
+            op = self.replace_op_with(op, rop.INT_SUB,
+                                      [vchar1.force_box(self),
+                                       vchar2.force_box(self)])
+            seo(op)
             return True
         return False
 
@@ -777,7 +778,7 @@ class OptString(optimizer.Optimization):
             length = v2.box.getint()
             v1.shrink(length)
             self.last_emitted_operation = REMOVED
-            self.make_equal_to(op.result, v1)
+            self.make_equal_to(op, v1)
             return True
         return False
 
