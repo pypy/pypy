@@ -1213,8 +1213,10 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
 
     if not space.is_none(w_buffer):
         if (not space.is_none(w_strides)):
-            raise OperationError(space.w_NotImplementedError,
-                                 space.wrap("unsupported param"))
+            strides = [space.int_w(w_i) for w_i in
+                       space.unpackiterable(w_strides)]
+        else:
+            strides = None
 
         try:
             buf = space.writebuf_w(w_buffer)
@@ -1237,7 +1239,8 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
                                                   w_subtype=w_subtype,
                                                   w_base=w_buffer,
-                                                  writable=not buf.readonly)
+                                                  writable=not buf.readonly,
+                                                  strides=strides)
 
     order = order_converter(space, w_order, NPY.CORDER)
     if order == NPY.CORDER:
@@ -1256,7 +1259,7 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
 
 
 @unwrap_spec(addr=int)
-def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subtype=None):
+def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subtype=None, w_strides=None):
     """
     Create an array from an existing buffer, given its address as int.
     PyPy-only implementation detail.
@@ -1265,14 +1268,21 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype, w_subtyp
     dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
         space.gettypefor(descriptor.W_Dtype), w_dtype))
     shape = shape_converter(space, w_shape, dtype)
+    if not space.is_none(w_strides):
+        strides = [space.int_w(w_i) for w_i in
+                   space.unpackiterable(w_strides)]
+    else:
+        strides = None
     if w_subtype:
         if not space.isinstance_w(w_subtype, space.w_type):
             raise OperationError(space.w_ValueError, space.wrap(
                 "subtype must be a subtype of ndarray, not a class instance"))
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
-                                                  'C', False, w_subtype)
+                                                  'C', False, w_subtype,
+                                                  strides=strides)
     else:
-        return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype)
+        return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
+                                                  strides=strides)
 
 app_take = applevel(r"""
     def take(a, indices, axis, out, mode):

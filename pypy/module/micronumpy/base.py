@@ -44,11 +44,16 @@ class W_NDimArray(W_NumpyObject):
         return W_NDimArray(impl)
 
     @staticmethod
-    def from_shape_and_storage(space, shape, storage, dtype, order='C', owning=False,
-                               w_subtype=None, w_base=None, writable=True):
+    def from_shape_and_storage(space, shape, storage, dtype, order='C',
+                               owning=False, w_subtype=None, w_base=None,
+                               writable=True, strides=None):
         from pypy.module.micronumpy import concrete
-        from pypy.module.micronumpy.strides import calc_strides
-        strides, backstrides = calc_strides(shape, dtype, order)
+        from pypy.module.micronumpy.strides import (calc_strides,
+                                                    calc_backstrides)
+        if strides is None:
+            strides, backstrides = calc_strides(shape, dtype, order)
+        else:
+            backstrides = calc_backstrides(strides, shape)
         if w_base is not None:
             if owning:
                 raise OperationError(space.w_ValueError,

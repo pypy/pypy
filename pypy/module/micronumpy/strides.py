@@ -362,6 +362,13 @@ def calc_strides(shape, dtype, order):
         backstrides.reverse()
     return strides, backstrides
 
+@jit.unroll_safe
+def calc_backstrides(strides, shape):
+    ndims = len(shape)
+    new_backstrides = [0] * ndims
+    for nd in range(ndims):
+        new_backstrides[nd] = (shape[nd] - 1) * strides[nd]
+    return new_backstrides
 
 # Recalculating strides. Find the steps that the iteration does for each
 # dimension, given the stride and shape. Then try to create a new stride that

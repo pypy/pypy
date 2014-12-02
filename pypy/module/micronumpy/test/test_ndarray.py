@@ -3926,3 +3926,27 @@ class AppTestPyPy(BaseNumpyAppTest):
         assert x.__pypy_data__ is obj
         del x.__pypy_data__
         assert x.__pypy_data__ is None
+
+    def test_ndarray_buffer_strides(self):
+        from numpypy import ndarray, array
+        base = array([1, 2, 3, 4], dtype=int)
+        a = ndarray((4,), buffer=base, dtype=int)
+        assert a[1] == 2
+        a = ndarray((4,), buffer=base, dtype=int, strides=[base.strides[0]])
+        assert a[1] == 2
+        a = ndarray((4,), buffer=base, dtype=int, strides=[2 * base.strides[0]])
+        assert a[1] == 3
+
+    def test_from_shape_and_storage_strides(self):
+        from numpypy import ndarray, array
+        base = array([1, 2, 3, 4], dtype=int)
+        addr, _ = base.__array_interface__['data']
+        a = ndarray._from_shape_and_storage((4,), addr, int)
+        assert a[1] == 2
+        a = ndarray._from_shape_and_storage((4,), addr, int,
+                                           strides=[base.strides[0]])
+        assert a[1] == 2
+        a = ndarray._from_shape_and_storage((4,), addr, int,
+                                           strides=[2 * base.strides[0]])
+        assert a[1] == 3
+        
