@@ -13,6 +13,8 @@ class AbstractValue(object):
     def repr_short(self, memo):
         return self.repr(memo)
 
+DONT_CHANGE = AbstractValue()
+
 def ResOperation(opnum, args, descr=None):
     cls = opclasses[opnum]
     op = cls()
@@ -96,6 +98,8 @@ class AbstractResOp(AbstractValue):
             args = self.getarglist()
         if descr is None:
             descr = self.getdescr()
+        if descr is DONT_CHANGE:
+            descr = None
         newop = ResOperation(opnum, args, descr)
         if self.type != 'v':
             newop.copy_value_from(self)

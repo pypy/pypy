@@ -114,7 +114,7 @@ class OptRewrite(Optimization):
         if v2.is_constant() and v2.box.getint() == 0:
             self.make_equal_to(op, v1)
         elif v1.is_constant() and v1.box.getint() == 0:
-            op = op.copy_and_change(rop.INT_NEG, args=[v2.box])
+            op = self.replace_op_with(op, rop.INT_NEG, args=[v2.box])
             self.emit_operation(op)
         elif v1 is v2:
             self.make_constant_int(op, 0)

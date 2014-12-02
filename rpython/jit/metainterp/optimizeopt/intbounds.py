@@ -151,8 +151,8 @@ class OptIntBounds(Optimization):
                 # nonneg % power-of-two ==> nonneg & (power-of-two - 1)
                 arg1 = op.getarg(0)
                 arg2 = ConstInt(val-1)
-                xxx
-                op = op.copy_and_change(rop.INT_AND, args=[arg1, arg2])
+                op = self.replace_op_with(op, rop.INT_AND,
+                                          args=[arg1, arg2])
         self.emit_operation(op)
         if v2.is_constant():
             val = v2.box.getint()
@@ -268,8 +268,7 @@ class OptIntBounds(Optimization):
         v2 = self.getvalue(op.getarg(1))
         resbound = v1.intbound.mul_bound(v2.intbound)
         if resbound.bounded():
-            xxx
-            op = op.copy_and_change(rop.INT_MUL)
+            op = self.replace_op_with(op, rop.INT_MUL)
         self.emit_operation(op)
         r = self.getvalue(op)
         r.intbound.intersect(resbound)
@@ -482,9 +481,9 @@ class OptIntBounds(Optimization):
                 v1 = self.getvalue(op.getarg(0))
                 v2 = self.getvalue(op.getarg(1))
                 if v1.intbound.intersect(v2.intbound):
-                    self.propagate_bounds_backward(op.getarg(0))
+                    self.propagate_bounds_backward(op.getarg(0), v1)
                 if v2.intbound.intersect(v1.intbound):
-                    self.propagate_bounds_backward(op.getarg(1))
+                    self.propagate_bounds_backward(op.getarg(1), v2)
 
     def propagate_bounds_INT_IS_TRUE(self, op):
         r = self.getvalue(op)
@@ -535,10 +534,10 @@ class OptIntBounds(Optimization):
         r = self.getvalue(op)
         b = r.intbound.div_bound(v2.intbound)
         if v1.intbound.intersect(b):
-            self.propagate_bounds_backward(op.getarg(0))
+            self.propagate_bounds_backward(op.getarg(0), v1)
         b = r.intbound.div_bound(v1.intbound)
         if v2.intbound.intersect(b):
-            self.propagate_bounds_backward(op.getarg(1))
+            self.propagate_bounds_backward(op.getarg(1), v2)
 
     def propagate_bounds_INT_LSHIFT(self, op):
         v1 = self.getvalue(op.getarg(0))

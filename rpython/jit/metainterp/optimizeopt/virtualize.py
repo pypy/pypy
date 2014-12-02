@@ -568,7 +568,9 @@ class OptVirtualize(optimizer.Optimization):
         if self._last_guard_not_forced_2 is not None:
             guard_op = self._last_guard_not_forced_2
             self.emit_operation(op)
-            guard_op = self.optimizer.store_final_boxes_in_guard(guard_op, [])
+            v = self.getvalue(op)
+            guard_op = self.optimizer.store_final_boxes_in_guard(guard_op, [],
+                                                                 v)
             i = len(self.optimizer._newoperations) - 1
             assert i >= 0
             self.optimizer._newoperations.insert(i, guard_op)

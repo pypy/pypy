@@ -293,8 +293,8 @@ class Optimization(object):
     def getvalue(self, box):
         return self.optimizer.getvalue(box)
 
-    def replace_op_with(self, op, newopnum, args=None):
-        return self.optimizer.replace_op_with(op, newopnum, args)
+    def replace_op_with(self, op, newopnum, args=None, descr=None):
+        return self.optimizer.replace_op_with(op, newopnum, args, descr)
 
     def make_constant(self, box, constbox):
         return self.optimizer.make_constant(box, constbox)
@@ -466,6 +466,8 @@ class Optimizer(Optimization):
     def get_constant_box(self, box):
         if isinstance(box, Const):
             return box
+        while box.source_op is not None:
+            box = box.source_op
         try:
             value = self.values[box]
             self.ensure_imported(value)
@@ -494,15 +496,17 @@ class Optimizer(Optimization):
 
     def make_constant(self, box, constbox):
         try:
+            while box.source_op is not None:
+                box = box.source_op
             value = self.values[box]
             value.level = LEVEL_CONSTANT
             value.make_constant(constbox)
         except KeyError:
             self.values[box] = ConstantValue(constbox)
 
-    def replace_op_with(self, op, newopnum, args=None):
+    def replace_op_with(self, op, newopnum, args=None, descr=None):
         v = self.getvalue(op)
-        newop = op.copy_and_change(newopnum, args=args)
+        newop = op.copy_and_change(newopnum, args=args, descr=descr)
         v.box = newop
         return newop
 
