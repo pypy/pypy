@@ -263,9 +263,11 @@ class BytecodeGraph(object):
             instr = self.read(offset)
             yield instr
 
+    def all_blocks(self):
+        return set(x[0] for x in self.pos_index.values())
+
     def dump(self):
-        all_blocks = set(x[0] for x in self.pos_index.values())
-        blocks = sorted(all_blocks, key=lambda b: b.startpos)
+        blocks = sorted(self.all_blocks(), key=lambda b: b.startpos)
         return [b.operations for b in blocks]
 
 
@@ -274,6 +276,7 @@ class BytecodeBlock(object):
     def __init__(self):
         self.parents = set()
         self._exits = []
+        self.blockstack = []
 
     def __getitem__(self, i):
         return self.operations[i]
@@ -522,6 +525,7 @@ class SetupInstruction(BCInstruction):
     def bc_flow(self, reader):
         reader.curr_block.operations.append(self)
         self.target = reader.get_block_at(self.arg)
+        reader.curr_block.blockstack.append(self.make_block(-1))
 
     def eval(self, ctx):
         block = self.make_block(ctx.stackdepth)
