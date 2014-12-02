@@ -1260,8 +1260,6 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
 def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype,
                 buf_len=-1, w_subtype=None, w_strides=None):
     """
-    _from_shape_and_storage(shape, addr, dtype, buf_len, 
-                            subtype=None, strides=None)
     Create an array from an existing buffer, given its address as int.
     PyPy-only implementation detail.
     """
