@@ -186,7 +186,8 @@ class TestNumArrayDirect(object):
         #
         dtypes = get_dtype_cache(self.space)
         w_array = W_NDimArray.from_shape_and_storage(self.space, [2, 2],
-                                                storage, dtypes.w_int8dtype)
+                                                storage, dtypes.w_int8dtype,
+                                                storage_bytes=4)
         def get(i, j):
             return w_array.getitem(self.space, [i, j]).value
         assert get(0, 0) == 0
@@ -3423,8 +3424,12 @@ class AppTestSupport(BaseNumpyAppTest):
         assert a[1] == 2
         a = ndarray((4,), buffer=base, dtype=int, strides=[base.strides[0]])
         assert a[1] == 2
-        a = ndarray((4,), buffer=base, dtype=int, strides=[2 * base.strides[0]])
+        a = ndarray((2,), buffer=base, dtype=int, strides=[2 * base.strides[0]])
         assert a[1] == 3
+        exc = raises(ValueError, ndarray, (4,), buffer=base, dtype=int, strides=[2 * base.strides[0]])
+        assert exc.value[0] == 'strides is incompatible with shape of requested array and size of buffer'
+        exc = raises(ValueError, ndarray, (2, 1), buffer=base, dtype=int, strides=[base.strides[0]])
+        assert exc.value[0] == 'strides, if given, must be the same length as shape'
 
 
 
@@ -3918,13 +3923,14 @@ class AppTestPyPy(BaseNumpyAppTest):
         from numpypy import array, ndarray
         x = array([1, 2, 3, 4])
         addr, _ = x.__array_interface__['data']
-        y = ndarray._from_shape_and_storage([2, 2], addr, x.dtype)
+        sz = x.size * x.dtype.itemsize
+        y = ndarray._from_shape_and_storage([2, 2], addr, x.dtype, sz)
         assert y[0, 1] == 2
         y[0, 1] = 42
         assert x[1] == 42
         class C(ndarray):
             pass
-        z = ndarray._from_shape_and_storage([4, 1], addr, x.dtype, C)
+        z = ndarray._from_shape_and_storage([4, 1], addr, x.dtype, sz, C)
         assert isinstance(z, C)
         assert z.shape == (4, 1)
         assert z[1, 0] == 42
@@ -3943,11 +3949,12 @@ class AppTestPyPy(BaseNumpyAppTest):
         from numpy import ndarray, array
         base = array([1, 2, 3, 4], dtype=int)
         addr, _ = base.__array_interface__['data']
-        a = ndarray._from_shape_and_storage((4,), addr, int)
+        sz = base.size * base.dtype.itemsize
+        a = ndarray._from_shape_and_storage((4,), addr, int, sz)
         assert a[1] == 2
-        a = ndarray._from_shape_and_storage((4,), addr, int,
+        a = ndarray._from_shape_and_storage((4,), addr, int, sz,
                                            strides=[base.strides[0]])
         assert a[1] == 2
-        a = ndarray._from_shape_and_storage((4,), addr, int,
+        a = ndarray._from_shape_and_storage((2,), addr, int, sz,
                                            strides=[2 * base.strides[0]])
         assert a[1] == 3
