@@ -127,11 +127,17 @@ class BytecodeReader(object):
             oparg += next_offset
         elif opnum in opcode.hasname:
             oparg = code.names[oparg]
+        instr = self.new_instr(opnum, oparg, offset)
+        return next_offset, instr
+
+    def new_instr(self, opnum, arg, offset=-1):
+        if not isinstance(opnum, int):
+            opnum = opcode.opmap[opnum]
         try:
-            op = self.num2cls[opnum](oparg, offset)
+            return self.num2cls[opnum](arg, offset)
         except KeyError:
-            op = GenericOpcode(self.opnames[opnum], opnum, oparg, offset)
-        return next_offset, op
+            return GenericOpcode(self.opnames[opnum], opnum, arg, offset)
+
 
     def _iter_instr(self, code):
         self.offset = 0
@@ -343,6 +349,10 @@ class BCInstruction(object):
 
     def __repr__(self):
         return "%s(%s)" % (self.name, self.arg)
+
+    def __eq__(self, other):
+        # NB: offsets are ignored, for testing convenience
+        return other.num == self.num and other.arg == self.arg
 
 class GenericOpcode(BCInstruction):
     def __init__(self, name, opcode, arg, offset=-1):
