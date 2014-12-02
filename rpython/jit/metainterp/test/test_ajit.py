@@ -3068,7 +3068,11 @@ class BasicTests:
     def test_int_signext(self):
         def f(n):
             return rffi.cast(rffi.SIGNEDCHAR, n)
+        def f1(n):
+            return rffi.cast(rffi.SIGNEDCHAR, n + 1)
         res = self.interp_operations(f, [128])
+        assert res == -128
+        res = self.interp_operations(f1, [127])
         assert res == -128
         res = self.interp_operations(f, [-35 + 256 * 29])
         assert res == -35
