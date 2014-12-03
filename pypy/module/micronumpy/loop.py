@@ -247,8 +247,8 @@ def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity, cumulati
                                             dtype=dtype)
         assert not arr_iter.done(arr_state)
         w_val = arr_iter.getitem(arr_state).convert_to(space, dtype)
-        out_state = out_iter.update(out_state)
-        if out_state.indices[axis] == 0:
+        out_indices = out_iter.indices(out_state)
+        if out_indices[axis] == 0:
             if identity is not None:
                 w_val = func(dtype, identity, w_val)
         else:
@@ -380,9 +380,9 @@ def nonzero(res, arr, box):
     while not arr_iter.done(arr_state):
         nonzero_driver.jit_merge_point(shapelen=shapelen, dims=dims, dtype=dtype)
         if arr_iter.getitem_bool(arr_state):
-            arr_state = arr_iter.update(arr_state)
+            arr_indices = arr_iter.indices(arr_state)
             for d in dims:
-                res_iter.setitem(res_state, box(arr_state.indices[d]))
+                res_iter.setitem(res_state, box(arr_indices[d]))
                 res_state = res_iter.next(res_state)
         arr_state = arr_iter.next(arr_state)
     return res

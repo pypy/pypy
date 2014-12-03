@@ -87,12 +87,12 @@ class PureShapeIter(object):
 
 
 class IterState(object):
-    _immutable_fields_ = ['iterator', 'index', 'indices', 'offset']
+    _immutable_fields_ = ['iterator', 'index', '_indices', 'offset']
 
     def __init__(self, iterator, index, indices, offset):
         self.iterator = iterator
         self.index = index
-        self.indices = indices
+        self._indices = indices
         self.offset = offset
 
 
@@ -144,7 +144,7 @@ class ArrayIter(object):
             indices = [0] * len(self.shape_m1)
         else:
             assert state.iterator is self
-            indices = state.indices
+            indices = state._indices
             for i in xrange(self.ndim_m1, -1, -1):
                 indices[i] = 0
         return IterState(self, 0, indices, self.array.start)
@@ -155,7 +155,7 @@ class ArrayIter(object):
         index = state.index
         if self.track_index:
             index += 1
-        indices = state.indices
+        indices = state._indices
         offset = state.offset
         if self.contiguous:
             offset += self.array.dtype.elsize
@@ -184,20 +184,20 @@ class ArrayIter(object):
         return IterState(self, index, None, offset)
 
     @jit.unroll_safe
-    def update(self, state):
+    def indices(self, state):
         assert state.iterator is self
         assert self.track_index
+        indices = state._indices
         if not self.contiguous:
-            return state
+            return indices
         current = state.index
-        indices = state.indices
         for i in xrange(len(self.shape_m1)):
             if self.factors[i] != 0:
                 indices[i] = current / self.factors[i]
                 current %= self.factors[i]
             else:
                 indices[i] = 0
-        return IterState(self, state.index, indices, state.offset)
+        return indices
 
     def done(self, state):
         assert state.iterator is self
