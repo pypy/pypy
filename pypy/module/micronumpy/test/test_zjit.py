@@ -102,18 +102,15 @@ class TestNumpyJit(LLJitMixin):
         assert result == 3 + 3
         self.check_trace_count(1)
         self.check_simple_loop({
+            'arraylen_gc': 1,
             'float_add': 1,
-            'getarrayitem_gc': 1,
             'guard_false': 1,
             'guard_not_invalidated': 1,
-            'guard_true': 1,
-            'int_add': 5,
+            'int_add': 4,
             'int_ge': 1,
-            'int_lt': 1,
             'jump': 1,
             'raw_load': 2,
             'raw_store': 1,
-            'setarrayitem_gc': 1,
         })
 
     def define_pow():
@@ -127,24 +124,22 @@ class TestNumpyJit(LLJitMixin):
         assert result == 3 ** 2
         self.check_trace_count(1)
         self.check_simple_loop({
+            'arraylen_gc': 1,
             'call': 1,
             'float_add': 1,
             'float_eq': 3,
             'float_mul': 2,
             'float_ne': 1,
-            'getarrayitem_gc': 1,
             'getarrayitem_raw': 1,     # read the errno
             'guard_false': 4,
             'guard_not_invalidated': 1,
-            'guard_true': 3,
-            'int_add': 5,
+            'guard_true': 2,
+            'int_add': 4,
             'int_ge': 1,
             'int_is_true': 1,
-            'int_lt': 1,
             'jump': 1,
             'raw_load': 2,
             'raw_store': 1,
-            'setarrayitem_gc': 1,
             'setarrayitem_raw': 1,     # write the errno
         })
 
@@ -162,18 +157,15 @@ class TestNumpyJit(LLJitMixin):
         self.check_trace_count(2)  # extra one for the astype
         del get_stats().loops[0]   # we don't care about it
         self.check_simple_loop({
+            'arraylen_gc': 1,
             'call': 1,
-            'getarrayitem_gc': 1,
             'guard_false': 1,
             'guard_not_invalidated': 1,
-            'guard_true': 1,
-            'int_add': 5,
+            'int_add': 4,
             'int_ge': 1,
-            'int_lt': 1,
             'jump': 1,
             'raw_load': 2,
             'raw_store': 1,
-            'setarrayitem_gc': 1,
         })
 
     def define_sum():
@@ -390,18 +382,15 @@ class TestNumpyJit(LLJitMixin):
         assert result == 18
         self.check_trace_count(1)
         self.check_simple_loop({
+            'arraylen_gc': 2,
             'float_add': 1,
-            'getarrayitem_gc': 2,
             'guard_false': 1,
             'guard_not_invalidated': 1,
-            'guard_true': 2,
-            'int_add': 6,
+            'int_add': 4,
             'int_ge': 1,
-            'int_lt': 2,
             'jump': 1,
             'raw_load': 2,
             'raw_store': 1,
-            'setarrayitem_gc': 2,
         })
 
     def define_take():
@@ -488,17 +477,14 @@ class TestNumpyJit(LLJitMixin):
         assert result == 5.5
         self.check_trace_count(1)
         self.check_simple_loop({
-            'getarrayitem_gc': 1,
+            'arraylen_gc': 1,
             'guard_false': 1,
             'guard_not_invalidated': 1,
-            'guard_true': 1,
-            'int_add': 4,
+            'int_add': 3,
             'int_ge': 1,
-            'int_lt': 1,
             'jump': 1,
             'raw_load': 1,
             'raw_store': 1,
-            'setarrayitem_gc': 1,
         })
 
     def define_virtual_slice():
@@ -618,12 +604,13 @@ class TestNumpyJit(LLJitMixin):
             'getarrayitem_gc_pure': 9,
             'getfield_gc_pure': 49,
             'guard_class': 4,
-            'guard_false': 13,
+            'guard_false': 15,
             'guard_not_invalidated': 2,
             'guard_true': 14,
             'int_add': 17,
             'int_ge': 4,
             'int_is_true': 3,
+            'int_is_zero': 2,
             'int_le': 5,
             'int_lt': 8,
             'int_sub': 3,

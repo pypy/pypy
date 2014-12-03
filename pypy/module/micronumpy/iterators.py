@@ -159,6 +159,8 @@ class ArrayIter(object):
         offset = state.offset
         if self.contiguous:
             offset += self.array.dtype.elsize
+        elif self.ndim_m1 == 0:
+            offset += self.strides[0]
         else:
             for i in xrange(self.ndim_m1, -1, -1):
                 idx = indices[i]
@@ -176,6 +178,8 @@ class ArrayIter(object):
         offset = self.array.start
         if self.contiguous:
             offset += index * self.array.dtype.elsize
+        elif self.ndim_m1 == 0:
+            offset += index * self.strides[0]
         else:
             current = index
             for i in xrange(len(self.shape_m1)):
@@ -188,7 +192,7 @@ class ArrayIter(object):
         assert state.iterator is self
         assert self.track_index
         indices = state._indices
-        if not self.contiguous:
+        if not (self.contiguous or self.ndim_m1 == 0):
             return indices
         current = state.index
         for i in xrange(len(self.shape_m1)):
