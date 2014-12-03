@@ -321,6 +321,14 @@ class ConstUnaryOperation(UnaryOperation):
         else:
             self.put(builder, [ConstFloat(r.random_float_storage())])
 
+class SignExtOperation(AbstractOperation):
+    def produce_into(self, builder, r):
+        sizes = [1, 2]
+        if sys.maxint > (1 << 32):
+            sizes.append(4)
+        self.put(builder, [r.choice(builder.intvars),
+                           ConstInt(r.choice(sizes))])
+
 class BinaryOperation(AbstractOperation):
     def __init__(self, opnum, and_mask=-1, or_mask=0, boolres=False):
         AbstractOperation.__init__(self, opnum, boolres=boolres)
@@ -509,6 +517,7 @@ for _op in [rop.INT_NEG,
 OPERATIONS.append(UnaryOperation(rop.INT_IS_TRUE, boolres=True))
 OPERATIONS.append(UnaryOperation(rop.INT_IS_ZERO, boolres=True))
 OPERATIONS.append(ConstUnaryOperation(rop.SAME_AS, boolres='sometimes'))
+OPERATIONS.append(SignExtOperation(rop.INT_SIGNEXT))
 
 for _op in [rop.INT_ADD_OVF,
             rop.INT_SUB_OVF,
