@@ -242,6 +242,9 @@ class AbstractResOp(AbstractValue):
     def returns_bool_result(self):
         return self._cls_has_bool_result
 
+    def forget_value(self):
+        pass
+
 
 # ===================
 # Top of the hierachy
@@ -357,6 +360,9 @@ class RefOp(object):
         return self._resref
 
     getvalue = getref_base
+
+    def forget_value(self):
+        self._resref = lltype.nullptr(llmemory.GCREF.TO)
 
     def setref_base(self, refval):
         self._resref = refval
@@ -626,7 +632,7 @@ _oplist = [
     'INT_INVERT/1/i',
     'INT_FORCE_GE_ZERO/1/i',
     #
-    'SAME_AS/1/rfi',      # gets a Const or a Box, turns it into another Box
+    'SAME_AS/1/ifr',      # gets a Const or a Box, turns it into another Box
     'CAST_PTR_TO_INT/1/i',
     'CAST_INT_TO_PTR/1/r',
     #

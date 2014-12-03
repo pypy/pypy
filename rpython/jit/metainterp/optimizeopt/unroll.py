@@ -1,8 +1,7 @@
 import sys
 
-from rpython.jit.metainterp.compile import ResumeGuardDescr
+from rpython.jit.metainterp.compile import Memo
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, Const
-from rpython.jit.metainterp.inliner import Inliner
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
@@ -115,7 +114,7 @@ class UnrollOptimizer(Optimization):
 
             if start_label and self.jump_to_start_label(start_label, stop_label):
                 # Initial label matches, jump to it
-                jumpop = ResOperation(rop.JUMP, stop_label.getarglist(), None,
+                jumpop = ResOperation(rop.JUMP, stop_label.getarglist(),
                                       descr=start_label.getdescr())
                 if self.short:
                     # Construct our short preamble
@@ -318,9 +317,10 @@ class UnrollOptimizer(Optimization):
                                       'end of this bridge does not do that.')
 
             args[short_inputargs[i]] = jmp_to_short_args[i]
-        self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
-        self._inline_short_preamble(self.short, self.short_inliner,
-                                    patchguardop, self.short_boxes.assumed_classes)
+        self.memo = Memo(short_inputargs, jmp_to_short_args)
+        self._inline_short_preamble(self.short, self.memo,
+                                    patchguardop,
+                                    self.short_boxes.assumed_classes)
 
         # Import boxes produced in the preamble but used in the loop
         newoperations = self.optimizer.get_newoperations()
@@ -341,7 +341,7 @@ class UnrollOptimizer(Optimization):
 
         jumpop.initarglist(jumpargs)
         self.optimizer.send_extra_operation(jumpop)
-        self.short.append(ResOperation(rop.JUMP, short_jumpargs, None, descr=jumpop.getdescr()))
+        self.short.append(ResOperation(rop.JUMP, short_jumpargs, descr=jumpop.getdescr()))
 
         # Verify that the virtual state at the end of the loop is one
         # that is compatible with the virtual state at the start of the loop
@@ -397,21 +397,20 @@ class UnrollOptimizer(Optimization):
             else:
                 newargs[i] = a.clonebox()
                 boxmap[a] = newargs[i]
-        inliner = Inliner(short_inputargs, newargs)
+        memo = Memo(short_inputargs, newargs)
         target_token.assumed_classes = {}
         for i in range(len(short)):
             op = short[i]
-            newop = inliner.inline_op(op)
-            if op.result and op.result in self.short_boxes.assumed_classes:
-                target_token.assumed_classes[newop.result] = self.short_boxes.assumed_classes[op.result]
+            newop = op.clone(memo)
+            if op.type != 'v' and op in self.short_boxes.assumed_classes:
+                target_token.assumed_classes[newop] = self.short_boxes.assumed_classes[op]
             short[i] = newop
 
         # Forget the values to allow them to be freed
         for box in short[0].getarglist():
             box.forget_value()
         for op in short:
-            if op.result:
-                op.result.forget_value()
+            op.forget_value()
         target_token.short_preamble = self.short
         target_token.exported_state = None
 
@@ -492,7 +491,7 @@ class UnrollOptimizer(Optimization):
 
 
     def _import_op(self, op, inputargs, short_jumpargs, jumpargs):
-        self.boxes_created_this_iteration[op.result] = None
+        self.boxes_created_this_iteration[op] = None
         args = op.getarglist()
         if op.is_guard():
             args = args + op.getfailargs()
@@ -551,7 +550,7 @@ class UnrollOptimizer(Optimization):
             args = target.virtual_state.make_inputargs(values, self.optimizer,
                                                        keyboxes=True)
             short_inputargs = target.short_preamble[0].getarglist()
-            inliner = Inliner(short_inputargs, args)
+            memo = Memo(short_inputargs, args)
 
             for guard in extra_guards:
                 if guard.is_guard():
@@ -561,7 +560,7 @@ class UnrollOptimizer(Optimization):
 
             try:
                 # NB: the short_preamble ends with a jump
-                self._inline_short_preamble(target.short_preamble, inliner, patchguardop, target.assumed_classes)
+                self._inline_short_preamble(target.short_preamble, memo, patchguardop, target.assumed_classes)
             except InvalidLoop:
                 #debug_print("Inlining failed unexpectedly",
                 #            "jumping to preamble instead")

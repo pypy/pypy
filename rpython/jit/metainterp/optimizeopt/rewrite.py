@@ -579,11 +579,11 @@ class OptRewrite(Optimization):
         self.emit_operation(op)
 
     def optimize_CAST_PTR_TO_INT(self, op):
-        self.pure(rop.CAST_INT_TO_PTR, [op.result], op.getarg(0))
+        self.pure(rop.CAST_INT_TO_PTR, [op], op.getarg(0))
         self.emit_operation(op)
 
     def optimize_CAST_INT_TO_PTR(self, op):
-        self.pure(rop.CAST_PTR_TO_INT, [op.result], op.getarg(0))
+        self.pure(rop.CAST_PTR_TO_INT, [op], op.getarg(0))
         self.emit_operation(op)
 
     def optimize_SAME_AS_i(self, op):

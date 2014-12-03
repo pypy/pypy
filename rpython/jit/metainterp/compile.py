@@ -13,7 +13,6 @@ from rpython.jit.metainterp.history import (TreeLoop, Const, JitCellToken,
     TargetToken, AbstractFailDescr, ConstInt)
 from rpython.jit.metainterp import history, jitexc
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.inliner import Inliner
 from rpython.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP, ResumeDataDirectReader
 from rpython.jit.codewriter import heaptracker, longlong
 
@@ -104,9 +103,12 @@ def record_loop_or_bridge(metainterp_sd, loop):
 # ____________________________________________________________
 
 class Memo(object):
-    def __init__(self):
+    def __init__(self, initial_args=None, initial_res=None):
         self.snapshots = {}
         self.box_mapping = {}
+        if initial_args is not None:
+            for i in range(len(initial_args)):
+                self.box_mapping[initial_args[i]] = initial_res[i]
 
     def get(self, box, default):
         return self.box_mapping.get(box, default)

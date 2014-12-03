@@ -219,14 +219,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [i0]
         p0 = new_with_vtable(ConstClass(node_vtable))
-        escape(p0)
+        escape_n(p0)
         guard_class(p0, ConstClass(node_vtable)) []
         jump(i0)
         """
         expected = """
         [i0]
         p0 = new_with_vtable(ConstClass(node_vtable))
-        escape(p0)
+        escape_n(p0)
         jump(i0)
         """
         self.optimize_loop(ops, expected)
@@ -315,19 +315,19 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_remove_consecutive_guard_value_constfold(self):
         ops = """
         []
-        i0 = escape()
+        i0 = escape_i()
         guard_value(i0, 0) []
         i1 = int_add(i0, 1)
         guard_value(i1, 1) []
         i2 = int_add(i1, 2)
-        escape(i2)
+        escape_n(i2)
         jump()
         """
         expected = """
         []
-        i0 = escape()
+        i0 = escape_i()
         guard_value(i0, 0) []
-        escape(3)
+        escape_n(3)
         jump()
         """
         self.optimize_loop(ops, expected)
@@ -428,14 +428,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_ooisnull_on_null_ptr_1(self):
         ops = """
         []
-        p0 = escape()
+        p0 = escape_r()
         guard_isnull(p0) []
         guard_isnull(p0) []
         jump()
         """
         expected = """
         []
-        p0 = escape()
+        p0 = escape_r()
         guard_isnull(p0) []
         jump()
         """
@@ -517,7 +517,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_constptr_guard_value(self):
         ops = """
         []
-        p1 = escape()
+        p1 = escape_r()
         guard_value(p1, ConstPtr(myptr)) []
         jump()
         """
@@ -592,7 +592,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [i1, p2, p3]
         i3 = getfield_gc_i(p3, descr=valuedescr)
-        escape(i3)
+        escape_n(i3)
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p1, i1, descr=valuedescr)
         jump(i1, p1, p2)
@@ -604,7 +604,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [i1, p2, p3]
         i3 = getfield_gc_i(p3, descr=valuedescr)
-        escape(i3)
+        escape_n(i3)
         p1 = new_with_vtable(ConstClass(node_vtable))
         p1sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p1sub, i1, descr=valuedescr)
@@ -621,7 +621,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i1, p2, p3]
         p3sub = getfield_gc_r(p3, descr=nextdescr)
         i3 = getfield_gc_i(p3sub, descr=valuedescr)
-        escape(i3)
+        escape_n(i3)
         p1 = new_with_vtable(ConstClass(node_vtable))
         p2sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p2sub, i1, descr=valuedescr)
@@ -974,7 +974,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         f2 = getinteriorfield_gc_f(p0, 0, descr=complexrealdescr)
         f3 = getinteriorfield_gc_f(p0, 0, descr=compleximagdescr)
         f4 = float_mul(f2, f3)
-        i0 = escape(f4, p0)
+        i0 = escape_i(f4, p0)
         finish(i0)
         """
         expected = """
@@ -983,7 +983,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p0 = new_array_clear(1, descr=complexarraydescr)
         setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
         setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
-        i0 = escape(f2, p0)
+        i0 = escape_i(f2, p0)
         finish(i0)
         """
         self.optimize_loop(ops, expected)
@@ -1008,8 +1008,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p1, i, descr=valuedescr)
         i0 = getfield_gc_i(p1, descr=valuedescr)
         i1 = int_add(i0, 1)
-        escape(p1)
-        escape(p1)
+        escape_n(p1)
+        escape_n(p1)
         jump(i1)
         """
         expected = """
@@ -1017,8 +1017,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i1 = int_add(i, 1)
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p1, i, descr=valuedescr)
-        escape(p1)
-        escape(p1)
+        escape_n(p1)
+        escape_n(p1)
         jump(i1)
         """
         self.optimize_loop(ops, expected)
@@ -1027,7 +1027,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [i, p0]
         i0 = getfield_gc_i(p0, descr=valuedescr)
-        escape(p0)
+        escape_n(p0)
         i1 = int_add(i0, i)
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p1, i1, descr=valuedescr)
@@ -1042,7 +1042,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p1, i, descr=valuedescr)
         i1 = getfield_gc_i(p1, descr=valuedescr)
-        escape(p1)
+        escape_n(p1)
         i2 = getfield_gc_i(p1, descr=valuedescr)
         i3 = int_add(i1, i2)
         jump(i3)
@@ -1051,7 +1051,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i]
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p1, i, descr=valuedescr)
-        escape(p1)
+        escape_n(p1)
         i2 = getfield_gc_i(p1, descr=valuedescr)
         i3 = int_add(i, i2)
         jump(i3)
@@ -1065,7 +1065,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p1, i, descr=valuedescr)
         i1 = getfield_gc_i(p1, descr=valuedescr)
         setfield_gc(p1, 0, descr=valuedescr)
-        escape(p1)
+        escape_n(p1)
         i2 = getfield_gc_i(p1, descr=valuedescr)
         jump(i2)
         """
@@ -1073,7 +1073,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i]
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p1, 0, descr=valuedescr)
-        escape(p1)
+        escape_n(p1)
         i2 = getfield_gc_i(p1, descr=valuedescr)
         jump(i2)
         """
@@ -1185,7 +1185,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p1 = new_array(5, descr=arraydescr)
         setarrayitem_gc(p1, 0, i1, descr=arraydescr)
         setarrayitem_gc(p1, 1, 0, descr=arraydescr)
-        escape(p1)
+        escape_n(p1)
         jump(i1)
         """
         expected = """
@@ -1193,7 +1193,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p1 = new_array(5, descr=arraydescr)
         setarrayitem_gc(p1, 0, i1, descr=arraydescr)
         setarrayitem_gc(p1, 1, 0, descr=arraydescr)
-        escape(p1)
+        escape_n(p1)
         jump(i1)
         """
         self.optimize_loop(ops, expected)
@@ -1223,7 +1223,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [i1, p2, p3]
         i3 = getarrayitem_gc_i(p3, 0, descr=arraydescr)
-        escape(i3)
+        escape_n(i3)
         p1 = new_array(1, descr=arraydescr)
         setarrayitem_gc(p1, 0, i1, descr=arraydescr)
         jump(i1, p1, p2)
@@ -1238,17 +1238,17 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p2, 3, descr=valuedescr)
         i1 = getfield_gc_i(p2, descr=valuedescr)    # i1 = const 3
         p1 = new_array(i1, descr=arraydescr)
-        escape(p1)
+        escape_n(p1)
         i2 = arraylen_gc(p1)
-        escape(i2)
+        escape_n(i2)
         jump()
         """
         expected = """
         []
         p1 = new_array(3, descr=arraydescr)
-        escape(p1)
+        escape_n(p1)
         i2 = arraylen_gc(p1)
-        escape(i2)
+        escape_n(i2)
         jump()
         """
         self.optimize_loop(ops, expected)
@@ -1257,14 +1257,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [i1, p2]
         i2 = getfield_gc(p2, descr=adescr)
-        escape(i2)
+        escape_n(i2)
         p3 = new(descr=ssize)
         setfield_gc(p3, i1, descr=adescr)
         jump(i1, p3)
         """
         expected = """
         [i1, i2]
-        escape(i2)
+        escape_n(i2)
         jump(i1, i1)
         """
         py.test.skip("XXX")
@@ -1274,7 +1274,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [i1, p2, p3]
         i3 = getfield_gc_i(p3, descr=adescr)
-        escape(i3)
+        escape_n(i3)
         p1 = new(descr=ssize)
         setfield_gc(p1, i1, descr=adescr)
         jump(i1, p1, p2)
@@ -1289,20 +1289,20 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i2 = getfield_gc_i(p2, descr=valuedescr)
         i3 = getfield_gc_i(p1, descr=valuedescr)
         i4 = getfield_gc_i(p2, descr=valuedescr)
-        escape(i1)
-        escape(i2)
-        escape(i3)
-        escape(i4)
+        escape_n(i1)
+        escape_n(i2)
+        escape_n(i3)
+        escape_n(i4)
         jump(p1, p2)
         """
         expected = """
         [p1, p2]
         i1 = getfield_gc_i(p1, descr=valuedescr)
         i2 = getfield_gc_i(p2, descr=valuedescr)
-        escape(i1)
-        escape(i2)
-        escape(i1)
-        escape(i2)
+        escape_n(i1)
+        escape_n(i2)
+        escape_n(i1)
+        escape_n(i2)
         jump(p1, p2)
         """
         self.optimize_loop(ops, expected)
@@ -1312,13 +1312,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, i1]
         setfield_gc(p1, i1, descr=valuedescr)
         i2 = getfield_gc_i(p1, descr=valuedescr)
-        escape(i2)
+        escape_n(i2)
         jump(p1, i1)
         """
         expected = """
         [p1, i1]
         setfield_gc(p1, i1, descr=valuedescr)
-        escape(i1)
+        escape_n(i1)
         jump(p1, i1)
         """
         self.optimize_loop(ops, expected)
@@ -1329,14 +1329,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p2, p1, descr=nextdescr)
         i2 = getfield_gc_i(p1, descr=valuedescr)
-        escape(i2)
+        escape_n(i2)
         jump(p1, p2, i1)
         """
         expected = """
         [p1, p2, i1]
         setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p2, p1, descr=nextdescr)
-        escape(i1)
+        escape_n(i1)
         jump(p1, p2, i1)
         """
         self.optimize_loop(ops, expected)
@@ -1347,7 +1347,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p2, i2, descr=valuedescr)
         i3 = getfield_gc_i(p1, descr=valuedescr)
-        escape(i3)
+        escape_n(i3)
         jump(p1, p2, i1, i3)
         """
         self.optimize_loop(ops, ops)
@@ -1358,16 +1358,16 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i1 = getfield_gc_i(p1, descr=valuedescr)
         debug_merge_point(15, 0)
         i2 = getfield_gc_i(p1, descr=valuedescr)
-        escape(i1)
-        escape(i2)
+        escape_n(i1)
+        escape_n(i2)
         jump(p1)
         """
         expected = """
         [p1]
         i1 = getfield_gc_i(p1, descr=valuedescr)
         debug_merge_point(15, 0)
-        escape(i1)
-        escape(i1)
+        escape_n(i1)
+        escape_n(i1)
         jump(p1)
         """
         self.optimize_loop(ops, expected)
@@ -1379,8 +1379,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i2 = int_add_ovf(i1, 14)
         guard_no_overflow() []
         i3 = getfield_gc_i(p1, descr=valuedescr)
-        escape(i2)
-        escape(i3)
+        escape_n(i2)
+        escape_n(i3)
         jump(p1)
         """
         expected = """
@@ -1388,8 +1388,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i1 = getfield_gc_i(p1, descr=valuedescr)
         i2 = int_add_ovf(i1, 14)
         guard_no_overflow() []
-        escape(i2)
-        escape(i1)
+        escape_n(i2)
+        escape_n(i1)
         jump(p1)
         """
         self.optimize_loop(ops, expected)
@@ -1400,16 +1400,16 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i1 = getfield_gc_i(p1, descr=valuedescr)
         setarrayitem_gc(p2, 0, p1, descr=arraydescr2)
         i3 = getfield_gc_i(p1, descr=valuedescr)
-        escape(i1)
-        escape(i3)
+        escape_n(i1)
+        escape_n(i3)
         jump(p1, p2)
         """
         expected = """
         [p1, p2]
         i1 = getfield_gc_i(p1, descr=valuedescr)
         setarrayitem_gc(p2, 0, p1, descr=arraydescr2)
-        escape(i1)
-        escape(i1)
+        escape_n(i1)
+        escape_n(i1)
         jump(p1, p2)
         """
         self.optimize_loop(ops, expected)
@@ -1419,15 +1419,15 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         []
         i1 = getfield_gc_i(ConstPtr(myptr), descr=valuedescr)
         i2 = getfield_gc_i(ConstPtr(myptr), descr=valuedescr)
-        escape(i1)
-        escape(i2)
+        escape_n(i1)
+        escape_n(i2)
         jump()
         """
         expected = """
         []
         i1 = getfield_gc_i(ConstPtr(myptr), descr=valuedescr)
-        escape(i1)
-        escape(i1)
+        escape_n(i1)
+        escape_n(i1)
         jump()
         """
         self.optimize_loop(ops, expected)
@@ -1438,15 +1438,15 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_value(p1, ConstPtr(myptr)) []
         i1 = getfield_gc_i(p1, descr=valuedescr)
         i2 = getfield_gc_i(ConstPtr(myptr), descr=valuedescr)
-        escape(i1)
-        escape(i2)
+        escape_n(i1)
+        escape_n(i2)
         jump(p1)
         """
         expected = """
         []
         i1 = getfield_gc_i(ConstPtr(myptr), descr=valuedescr)
-        escape(i1)
-        escape(i1)
+        escape_n(i1)
+        escape_n(i1)
         jump()
         """
         py.test.skip("XXX")
@@ -1456,10 +1456,10 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p1]
         i1 = getfield_gc_i(p1, descr=valuedescr)
-        escape()
+        escape_n()
         i2 = getfield_gc_i(p1, descr=valuedescr)
-        escape(i1)
-        escape(i2)
+        escape_n(i1)
+        escape_n(i2)
         jump(p1)
         """
         self.optimize_loop(ops, ops)
@@ -1468,9 +1468,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p1, i1]
         setfield_gc(p1, i1, descr=valuedescr)
-        escape()
+        escape_n()
         i2 = getfield_gc_i(p1, descr=valuedescr)
-        escape(i2)
+        escape_n(i2)
         jump(p1, i1)
         """
         self.optimize_loop(ops, ops)
@@ -1495,13 +1495,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p1, i1, descr=valuedescr)
         i2 = getfield_gc_i(p1, descr=valuedescr)
         setfield_gc(p1, i3, descr=valuedescr)
-        escape(i2)
+        escape_n(i2)
         jump(p1, i1, i3)
         """
         expected = """
         [p1, i1, i3]
         setfield_gc(p1, i3, descr=valuedescr)
-        escape(i1)
+        escape_n(i1)
         jump(p1, i1, i3)
         """
         self.optimize_loop(ops, expected)
@@ -1512,7 +1512,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p1, i1, descr=valuedescr)
         i2 = getfield_gc_i(p2, descr=valuedescr)
         setfield_gc(p1, i3, descr=valuedescr)
-        escape(i2)
+        escape_n(i2)
         jump(p1, p2, i1, i3)
         """
         # potential aliasing of p1 and p2 means that we cannot kill the
@@ -1558,14 +1558,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p2 = getfield_gc_r(p0, descr=nextdescr)
         i2 = getfield_gc_i(p2, descr=valuedescr)
         setfield_gc(p0, NULL, descr=nextdescr)
-        escape(i2)
+        escape_n(i2)
         jump(p0, i1)
         """
         expected = """
         [p0, i1]
         setfield_raw(i1, i1, descr=valuedescr)
         setfield_gc(p0, NULL, descr=nextdescr)
-        escape(i1)
+        escape_n(i1)
         jump(p0, i1)
         """
         self.optimize_loop(ops, expected)
@@ -1574,7 +1574,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p1, i1, i2]
         setfield_gc(p1, i1, descr=valuedescr)
-        escape()
+        escape_n()
         setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2)
         """
@@ -1691,20 +1691,20 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p3 = getarrayitem_gc_r(p1, 1, descr=arraydescr2)
         p4 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         p5 = getarrayitem_gc_r(p1, 1, descr=arraydescr2)
-        escape(p2)
-        escape(p3)
-        escape(p4)
-        escape(p5)
+        escape_n(p2)
+        escape_n(p3)
+        escape_n(p4)
+        escape_n(p5)
         jump(p1)
         """
         expected = """
         [p1]
         p2 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         p3 = getarrayitem_gc_r(p1, 1, descr=arraydescr2)
-        escape(p2)
-        escape(p3)
-        escape(p2)
-        escape(p3)
+        escape_n(p2)
+        escape_n(p3)
+        escape_n(p2)
+        escape_n(p3)
         jump(p1)
         """
         self.optimize_loop(ops, expected)
@@ -1714,13 +1714,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, p2]
         setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
         p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
-        escape(p3)
+        escape_n(p3)
         jump(p1, p3)
         """
         expected = """
         [p1, p2]
         setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
-        escape(p2)
+        escape_n(p2)
         jump(p1, p2)
         """
         self.optimize_loop(ops, expected)
@@ -1733,8 +1733,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setarrayitem_gc(p1, i1, p3, descr=arraydescr2)
         p4 = getarrayitem_gc(p1, 0, descr=arraydescr2)
         p5 = getarrayitem_gc(p1, i1, descr=arraydescr2)
-        escape(p4)
-        escape(p5)
+        escape_n(p4)
+        escape_n(p5)
         jump(p1, p2, p3, i1)
         """
         expected = """
@@ -1742,8 +1742,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
         setarrayitem_gc(p1, i1, p3, descr=arraydescr2)
         p4 = getarrayitem_gc(p1, 0, descr=arraydescr2)
-        escape(p4)
-        escape(p3)
+        escape_n(p4)
+        escape_n(p3)
         jump(p1, p2, p3, i1)
         """
         self.optimize_loop(ops, expected)
@@ -1757,9 +1757,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p5 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
         p6 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         p7 = getarrayitem_gc_r(p1, 1, descr=arraydescr2)
-        escape(p5)
-        escape(p6)
-        escape(p7)
+        escape_n(p5)
+        escape_n(p6)
+        escape_n(p7)
         jump(p1, p2, p3, p4, i1)
         """
         expected = """
@@ -1768,9 +1768,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setarrayitem_gc(p1, 0, p3, descr=arraydescr2)
         setarrayitem_gc(p1, 1, p4, descr=arraydescr2)
         p5 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
-        escape(p5)
-        escape(p3)
-        escape(p4)
+        escape_n(p5)
+        escape_n(p3)
+        escape_n(p4)
         jump(p1, p2, p3, p4, i1)
         """
         self.optimize_loop(ops, expected)
@@ -1781,17 +1781,17 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         i4 = getfield_gc_pure_i(ConstPtr(myptr), descr=valuedescr)
         p5 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
-        escape(p3)
-        escape(i4)
-        escape(p5)
+        escape_n(p3)
+        escape_n(i4)
+        escape_n(p5)
         jump(p1, p2)
         """
         expected = """
         [p1, p2]
         p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
-        escape(p3)
-        escape(5)
-        escape(p3)
+        escape_n(p3)
+        escape_n(5)
+        escape_n(p3)
         jump(p1, p2)
         """
         self.optimize_loop(ops, expected)
@@ -1803,16 +1803,16 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setarrayitem_gc(p2, 1, p4, descr=arraydescr2)
         p5 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         p6 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
-        escape(p5)
-        escape(p6)
+        escape_n(p5)
+        escape_n(p6)
         jump(p1, p2, p3, p4, i1)
         """
         expected = """
         [p1, p2, p3, p4, i1]
         setarrayitem_gc(p1, 0, p3, descr=arraydescr2)
         setarrayitem_gc(p2, 1, p4, descr=arraydescr2)
-        escape(p3)
-        escape(p4)
+        escape_n(p3)
+        escape_n(p4)
         jump(p1, p2, p3, p4, i1)
         """
         self.optimize_loop(ops, expected)
@@ -1864,19 +1864,19 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i0, p1]
         p4 = getfield_gc_r(p1, descr=nextdescr)
         guard_nonnull(p4) []
-        escape(p4)
+        escape_n(p4)
         #
         p2 = new_with_vtable(ConstClass(node_vtable))
-        p3 = escape()
+        p3 = escape_r()
         setfield_gc(p2, p3, descr=nextdescr)
         jump(i0, p2)
         """
         expected = """
         [i0, p4]
         guard_nonnull(p4) []
-        escape(p4)
+        escape_n(p4)
         #
-        p3 = escape()
+        p3 = escape_r()
         jump(i0, p3)
         """
         py.test.skip("XXX")
@@ -1888,19 +1888,19 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i0, p1]
         p4 = getarrayitem_gc(p1, 0, descr=arraydescr2)
         guard_nonnull(p4) []
-        escape(p4)
+        escape_n(p4)
         #
         p2 = new_array(1, descr=arraydescr2)
-        p3 = escape()
+        p3 = escape_r()
         setarrayitem_gc(p2, 0, p3, descr=arraydescr2)
         jump(i0, p2)
         """
         expected = """
         [i0, p4]
         guard_nonnull(p4) []
-        escape(p4)
+        escape_n(p4)
         #
-        p3 = escape()
+        p3 = escape_r()
         jump(i0, p3)
         """
         py.test.skip("XXX")
@@ -1922,7 +1922,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p1a = new_with_vtable(ConstClass(node_vtable2))
         p2a = new_with_vtable(ConstClass(node_vtable))
         p3a = new_with_vtable(ConstClass(node_vtable))
-        escape(p3a)
+        escape_n(p3a)
         setfield_gc(p1a, p2a, descr=nextdescr)
         setfield_gc(p1a, p3a, descr=otherdescr)
         jump(p1a)
@@ -1933,7 +1933,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_class(p3, ConstClass(node_vtable)) []
         setfield_gc(p3, p2, descr=otherdescr)
         p3a = new_with_vtable(ConstClass(node_vtable))
-        escape(p3a)
+        escape_n(p3a)
         p2a = new_with_vtable(ConstClass(node_vtable))
         jump(p2a, p3a)
         """
@@ -1955,7 +1955,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p2a = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p3, p2a, descr=otherdescr)
         p3a = new_with_vtable(ConstClass(node_vtable))
-        escape(p3a)
+        escape_n(p3a)
         setfield_gc(p1a, p2a, descr=nextdescr)
         setfield_gc(p1a, p3a, descr=otherdescr)
         jump(p1a)
@@ -1967,7 +1967,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p2a = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p3, p2a, descr=otherdescr)
         p3a = new_with_vtable(ConstClass(node_vtable))
-        escape(p3a)
+        escape_n(p3a)
         jump(p2a, p3a)
         """
         py.test.skip("XXX")
@@ -1992,7 +1992,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_class(p1, ConstClass(node_vtable2)) []
         #
         p2 = new_with_vtable(ConstClass(node_vtable))
-        escape(p2)      # prevent it from staying Virtual
+        escape_n(p2)      # prevent it from staying Virtual
         jump(p2)
         """
         py.test.raises(InvalidLoop, self.optimize_loop,
@@ -2128,8 +2128,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i4 = int_add(i2, 1)
         i4b = int_is_true(i4)
         guard_true(i4b) []
-        escape(i3)
-        escape(i4)
+        escape_n(i3)
+        escape_n(i4)
         guard_true(i1) []
         guard_true(i2) []
         jump(p1, p2)
@@ -2140,8 +2140,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i3 = int_add(i1, 1)
         i3b = int_is_true(i3)
         guard_true(i3b) []
-        escape(i3)
-        escape(i3)
+        escape_n(i3)
+        escape_n(i3)
         guard_true(i1) []
         jump(p1, p2)
         """
@@ -2178,8 +2178,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_no_overflow() []
         i4b = int_is_true(i4)
         guard_true(i4b) []
-        escape(i3)
-        escape(i4)
+        escape_n(i3)
+        escape_n(i4)
         jump(i1)
         """
         expected = """
@@ -2188,8 +2188,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_no_overflow() []
         i3b = int_is_true(i3)
         guard_true(i3b) []
-        escape(i3)
-        escape(i3)
+        escape_n(i3)
+        escape_n(i3)
         jump(i1)
         """
         self.optimize_loop(ops, expected)
@@ -2295,12 +2295,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [f0]
         f1 = float_mul(f0, 1.0)
-        f2 = escape(f1)
+        f2 = escape_f(f1)
         jump(f2)
         """
         expected = """
         [f0]
-        f2 = escape(f0)
+        f2 = escape_f(f0)
         jump(f2)
         """
         self.optimize_loop(ops, expected)
@@ -2308,12 +2308,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [f0]
         f1 = float_mul(1.0, f0)
-        f2 = escape(f1)
+        f2 = escape_f(f1)
         jump(f2)
         """
         expected = """
         [f0]
-        f2 = escape(f0)
+        f2 = escape_f(f0)
         jump(f2)
         """
         self.optimize_loop(ops, expected)
@@ -2322,13 +2322,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [f0]
         f1 = float_mul(f0, -1.0)
-        f2 = escape(f1)
+        f2 = escape_f(f1)
         jump(f2)
         """
         expected = """
         [f0]
         f1 = float_neg(f0)
-        f2 = escape(f1)
+        f2 = escape_f(f1)
         jump(f2)
         """
         self.optimize_loop(ops, expected)
@@ -2336,13 +2336,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [f0]
         f1 = float_mul(-1.0, f0)
-        f2 = escape(f1)
+        f2 = escape_f(f1)
         jump(f2)
         """
         expected = """
         [f0]
         f1 = float_neg(f0)
-        f2 = escape(f1)
+        f2 = escape_f(f1)
         jump(f2)
         """
         self.optimize_loop(ops, expected)
@@ -2354,14 +2354,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         f2 = float_neg(f1)
         f3 = float_neg(f2)
         f4 = float_neg(f3)
-        escape(f4)
+        escape_n(f4)
         jump(f4)
         """
         expected = """
         [f0]
         # The backend removes this dead op.
         f1 = float_neg(f0)
-        escape(f0)
+        escape_n(f0)
         jump(f0)
         """
         self.optimize_loop(ops, expected)
@@ -2373,7 +2373,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         f2 = float_truediv(f1, 3.0)
         f3 = float_truediv(f2, -0.25)
         f4 = float_truediv(f3, 0.0)
-        f5 = escape(f4)
+        f5 = escape_f(f4)
         jump(f5)
         """
 
@@ -2383,7 +2383,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         f2 = float_truediv(f1, 3.0)
         f3 = float_mul(f2, -4.0)
         f4 = float_truediv(f3, 0.0)
-        f5 = escape(f4)
+        f5 = escape_f(f4)
         jump(f5)
         """
         self.optimize_loop(ops, expected)
@@ -2770,16 +2770,16 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i1 = getfield_gc_i(p1, descr=valuedescr)
         i2 = call_i(i1, descr=nonwritedescr)
         i3 = getfield_gc_i(p1, descr=valuedescr)
-        escape(i1)
-        escape(i3)
+        escape_n(i1)
+        escape_n(i3)
         jump(p1, p2)
         """
         expected = """
         [p1, p2]
         i1 = getfield_gc_i(p1, descr=valuedescr)
         i2 = call_i(i1, descr=nonwritedescr)
-        escape(i1)
-        escape(i1)
+        escape_n(i1)
+        escape_n(i1)
         jump(p1, p2)
         """
         self.optimize_loop(ops, expected)
@@ -2792,10 +2792,10 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i3 = call_i(i1, descr=writeadescr)
         i4 = getfield_gc_i(p1, descr=adescr)
         i5 = getfield_gc_i(p1, descr=bdescr)
-        escape(i1)
-        escape(i2)
-        escape(i4)
-        escape(i5)
+        escape_n(i1)
+        escape_n(i2)
+        escape_n(i4)
+        escape_n(i5)
         jump(p1, p2)
         """
         expected = """
@@ -2804,10 +2804,10 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i2 = getfield_gc_i(p1, descr=bdescr)
         i3 = call_i(i1, descr=writeadescr)
         i4 = getfield_gc_i(p1, descr=adescr)
-        escape(i1)
-        escape(i2)
-        escape(i4)
-        escape(i2)
+        escape_n(i1)
+        escape_n(i2)
+        escape_n(i4)
+        escape_n(i2)
         jump(p1, p2)
         """
         self.optimize_loop(ops, expected)
@@ -2820,10 +2820,10 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i3 = call_i(i1, descr=writeadescr)
         p5 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         p6 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
-        escape(p3)
-        escape(p4)
-        escape(p5)
-        escape(p6)
+        escape_n(p3)
+        escape_n(p4)
+        escape_n(p5)
+        escape_n(p6)
         jump(p1, p2, i1)
         """
         expected = """
@@ -2831,10 +2831,10 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         p4 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
         i3 = call_i(i1, descr=writeadescr)
-        escape(p3)
-        escape(p4)
-        escape(p3)
-        escape(p4)
+        escape_n(p3)
+        escape_n(p4)
+        escape_n(p3)
+        escape_n(p4)
         jump(p1, p2, i1)
         """
         self.optimize_loop(ops, expected)
@@ -2849,12 +2849,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p5 = getarrayitem_gc_r(p2, 0, descr=arraydescr2)
         p6 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
         i4 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
-        escape(p3)
-        escape(p4)
-        escape(p5)
-        escape(p6)
-        escape(i2)
-        escape(i4)
+        escape_n(p3)
+        escape_n(p4)
+        escape_n(p5)
+        escape_n(p6)
+        escape_n(i2)
+        escape_n(i4)
         jump(p1, p2, i1)
         """
         expected = """
@@ -2864,12 +2864,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i2 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
         i3 = call_i(i1, descr=writearraydescr)
         i4 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
-        escape(p3)
-        escape(p4)
-        escape(p3)
-        escape(p4)
-        escape(i2)
-        escape(i4)
+        escape_n(p3)
+        escape_n(p4)
+        escape_n(p3)
+        escape_n(p4)
+        escape_n(i2)
+        escape_n(i4)
         jump(p1, p2, i1)
         """
         self.optimize_loop(ops, expected)
@@ -2964,16 +2964,16 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         call_pure_results = {tuple(arg_consts): ConstInt(42)}
         ops = '''
         [i0, i1, i2]
-        escape(i1)
-        escape(i2)
+        escape_n(i1)
+        escape_n(i2)
         i3 = call_pure_i(123456, 4, 5, 6, descr=plaincalldescr)
         i4 = call_pure_i(123456, 4, i0, 6, descr=plaincalldescr)
         jump(i0, i3, i4)
         '''
         expected = '''
         [i0, i1, i2]
-        escape(i1)
-        escape(i2)
+        escape_n(i1)
+        escape_n(i2)
         i4 = call_i(123456, 4, i0, 6, descr=plaincalldescr)
         jump(i0, 42, i4)
         '''
@@ -2997,7 +2997,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p1]
         p2 = virtual_ref(p1, 5)
-        escape(p2)
+        escape_n(p2)
         virtual_ref_finish(p2, p1)
         jump(p1)
         """
@@ -3007,7 +3007,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p0, descr=virtualtokendescr)
-        escape(p2)
+        escape_n(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, NULL, descr=virtualtokendescr)
         jump(p1)
@@ -3146,7 +3146,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i1]
         p1 = new_with_vtable(ConstClass(node_vtable))
         p2 = virtual_ref(p1, 7)
-        escape(p2)
+        escape_n(p2)
         virtual_ref_finish(p2, p1)
         call_may_force_n(i1, descr=mayforcevirtdescr)
         guard_not_forced() []
@@ -3158,7 +3158,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
-        escape(p2)
+        escape_n(p2)
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, NULL, descr=virtualtokendescr)
@@ -3172,7 +3172,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [i1, p1]
         p2 = virtual_ref(p1, 23)
-        escape(p2)
+        escape_n(p2)
         virtual_ref_finish(p2, p1)
         call_may_force_n(i1, descr=mayforcevirtdescr)
         guard_not_forced() [i1]
@@ -3184,7 +3184,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
         setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
-        escape(p2)
+        escape_n(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, NULL, descr=virtualtokendescr)
         call_may_force_n(i1, descr=mayforcevirtdescr)
@@ -4235,12 +4235,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p1 = same_as_r(s"ab")
         p2 = same_as_r(s"cde")
         p3 = call_r(0, p1, p2, descr=strconcatdescr)
-        escape(p3)
+        escape_n(p3)
         jump()
         """
         expected = """
         []
-        escape(s"abcde")
+        escape_n(s"abcde")
         jump()
         """
         self.optimize_strunicode_loop(ops, expected)
@@ -4329,7 +4329,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, i1, i2, i3]
         p2 = call_r(0, p1, i1, i2, descr=strslicedescr)
         i4 = strgetitem(p2, i3)
-        escape(i4)
+        escape_n(i4)
         jump(p1, i1, i2, i3)
         """
         expected = """
@@ -4337,7 +4337,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i6 = int_sub(i2, i1)      # killed by the backend
         i5 = int_add(i1, i3)
         i4 = strgetitem(p1, i5)
-        escape(i4)
+        escape_n(i4)
         jump(p1, i1, i2, i3)
         """
         self.optimize_strunicode_loop(ops, expected)
@@ -4350,12 +4350,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         strsetitem(p1, 1, i4)
         p2 = call_r(0, p1, 1, 2, descr=strslicedescr)
         i5 = strgetitem(p2, 0)
-        escape(i5)
+        escape_n(i5)
         jump(i3, i4)
         """
         expected = """
         [i3, i4]
-        escape(i4)
+        escape_n(i4)
         jump(i3, i4)
         """
         self.optimize_strunicode_loop(ops, expected)
@@ -4416,7 +4416,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p1, p2]
         i0 = call_i(0, p1, p2, descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(p1, p2)
         """
         self.optimize_strunicode_loop_extradescrs(ops, ops)
@@ -4426,7 +4426,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, p2, p3]
         p4 = call_r(0, p1, p2, descr=strconcatdescr)
         i0 = call_i(0, p3, p4, descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(p1, p2, p3)
         """
         expected = """
@@ -4438,7 +4438,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         copystrcontent(p1, p4, 0, 0, i1)
         copystrcontent(p2, p4, 0, i1, i2)
         i0 = call_i(0, p3, p4, descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(p1, p2, p3)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4448,14 +4448,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, i1, i2, p3]
         p4 = call_r(0, p1, i1, i2, descr=strslicedescr)
         i0 = call_i(0, p4, p3, descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(p1, i1, i2, p3)
         """
         expected = """
         [p1, i1, i2, p3]
         i3 = int_sub(i2, i1)
         i0 = call_i(0, p1, i1, i3, p3, descr=streq_slice_checknull_descr)
-        escape(i0)
+        escape_n(i0)
         jump(p1, i1, i2, p3)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4465,14 +4465,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, i1, i2, p3]
         p4 = call_r(0, p1, i1, i2, descr=strslicedescr)
         i0 = call_i(0, p3, p4, descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(p1, i1, i2, p3)
         """
         expected = """
         [p1, i1, i2, p3]
         i4 = int_sub(i2, i1)
         i0 = call_i(0, p1, i1, i4, p3, descr=streq_slice_checknull_descr)
-        escape(i0)
+        escape_n(i0)
         jump(p1, i1, i2, p3)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4483,7 +4483,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_nonnull(p3) []
         p4 = call_r(0, p1, i1, i2, descr=strslicedescr)
         i0 = call_i(0, p3, p4, descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(p1, i1, i2, p3)
         """
         expected = """
@@ -4491,7 +4491,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_nonnull(p3) []
         i4 = int_sub(i2, i1)
         i0 = call_i(0, p1, i1, i4, p3, descr=streq_slice_nonnull_descr)
-        escape(i0)
+        escape_n(i0)
         jump(p1, i1, i2, p3)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4501,14 +4501,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, i1, i2]
         p3 = call_r(0, p1, i1, i2, descr=strslicedescr)
         i0 = call_i(0, p3, s"x", descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(p1, i1, i2)
         """
         expected = """
         [p1, i1, i2]
         i3 = int_sub(i2, i1)
         i0 = call_i(0, p1, i1, i3, 120, descr=streq_slice_char_descr)
-        escape(i0)
+        escape_n(i0)
         jump(p1, i1, i2)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4520,14 +4520,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p5 = newstr(1)
         strsetitem(p5, 0, i3)
         i0 = call_i(0, p5, p4, descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(p1, i1, i2, i3)
         """
         expected = """
         [p1, i1, i2, i3]
         i4 = int_sub(i2, i1)
         i0 = call_i(0, p1, i1, i4, i3, descr=streq_slice_char_descr)
-        escape(i0)
+        escape_n(i0)
         jump(p1, i1, i2, i3)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4536,13 +4536,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p1]
         i0 = call_i(0, p1, NULL, descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(p1)
         """
         expected = """
         [p1]
         i0 = ptr_eq(p1, NULL)
-        escape(i0)
+        escape_n(i0)
         jump(p1)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4551,13 +4551,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p1]
         i0 = call_i(0, NULL, p1, descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(p1)
         """
         expected = """
         [p1]
         i0 = ptr_eq(p1, NULL)
-        escape(i0)
+        escape_n(i0)
         jump(p1)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4567,14 +4567,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1]
         guard_nonnull(p1) []
         i0 = call_i(0, p1, s"hello world", descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(p1)
         """
         expected = """
         [p1]
         guard_nonnull(p1) []
         i0 = call_i(0, p1, s"hello world", descr=streq_nonnull_descr)
-        escape(i0)
+        escape_n(i0)
         jump(p1)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4584,7 +4584,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1]
         guard_nonnull(p1) []
         i0 = call_i(0, p1, s"", descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(p1)
         """
         expected = """
@@ -4592,7 +4592,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_nonnull(p1) []
         i1 = strlen(p1)
         i0 = int_eq(i1, 0)
-        escape(i0)
+        escape_n(i0)
         jump(p1)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4602,14 +4602,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1]
         guard_nonnull(p1) []
         i0 = call_i(0, p1, s"x", descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(p1)
         """
         expected = """
         [p1]
         guard_nonnull(p1) []
         i0 = call_i(0, p1, 120, descr=streq_nonnull_char_descr)
-        escape(i0)
+        escape_n(i0)
         jump(p1)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4619,7 +4619,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, p2]
         p4 = call_r(0, p1, p2, descr=strconcatdescr)
         i0 = call_i(0, s"hello world", p4, descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(p1, p2)
         """
         expected = """
@@ -4631,7 +4631,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         copystrcontent(p1, p4, 0, 0, i1)
         copystrcontent(p2, p4, 0, i1, i2)
         i0 = call_i(0, s"hello world", p4, descr=streq_nonnull_descr)
-        escape(i0)
+        escape_n(i0)
         jump(p1, p2)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4641,12 +4641,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i1]
         p1 = newstr(0)
         i0 = call_i(0, p1, s"", descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(i1)
         """
         expected = """
         [i1]
-        escape(1)
+        escape_n(1)
         jump(i1)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4657,13 +4657,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p1 = newstr(1)
         strsetitem(p1, 0, i1)
         i0 = call_i(0, p1, s"x", descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(i1)
         """
         expected = """
         [i1]
         i0 = int_eq(i1, 120)     # ord('x')
-        escape(i0)
+        escape_n(i0)
         jump(i1)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4675,7 +4675,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         strsetitem(p1, 0, i1)
         strsetitem(p1, 1, i2)
         i0 = call_i(0, p1, s"xy", descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(i1, i2)
         """
         expected = """
@@ -4684,7 +4684,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         strsetitem(p1, 0, i1)
         strsetitem(p1, 1, i2)
         i0 = call_i(0, p1, s"xy", descr=streq_lengthok_descr)
-        escape(i0)
+        escape_n(i0)
         jump(i1, i2)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4693,13 +4693,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p1]
         i0 = call_i(0, s"x", p1, descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(p1)
         """
         expected = """
         [p1]
         i0 = call_i(0, p1, 120, descr=streq_checknull_char_descr)
-        escape(i0)
+        escape_n(i0)
         jump(p1)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4710,12 +4710,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p1 = newstr(1)
         strsetitem(p1, 0, i1)
         i0 = call_i(0, s"xy", p1, descr=strequaldescr)
-        escape(i0)
+        escape_n(i0)
         jump(i1)
         """
         expected = """
         [i1]
-        escape(0)
+        escape_n(0)
         jump(i1)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4724,12 +4724,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         []
         p0 = call_r(0, "xy", descr=s2u_descr)      # string -> unicode
-        escape(p0)
+        escape_n(p0)
         jump()
         """
         expected = """
         []
-        escape(u"xy")
+        escape_n(u"xy")
         jump()
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
@@ -4738,7 +4738,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p0]
         p1 = call_r(0, p0, descr=s2u_descr)      # string -> unicode
-        escape(p1)
+        escape_n(p1)
         jump(p1)
         """
         self.optimize_strunicode_loop_extradescrs(ops, ops)
@@ -4753,13 +4753,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i2 = strgetitem(p0, i0)
         i3 = int_eq(i1, i2)
         guard_true(i3) []
-        escape(i2)
+        escape_n(i2)
         jump(p0, i0)
         """
         expected = """
         [p0, i0]
         i1 = strgetitem(p0, i0)
-        escape(i1)
+        escape_n(i1)
         jump(p0, i0)
         """
         self.optimize_strunicode_loop(ops, expected)
@@ -4788,7 +4788,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p0, i0]
         i1 = int_add(i0, 1)
         p1 = call_r(0, p0, i0, i1, descr=strslicedescr)
-        escape(p1)
+        escape_n(p1)
         jump(p0, i1)
         """
         expected = """
@@ -4797,7 +4797,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p1 = newstr(1)
         i2 = strgetitem(p0, i0)
         strsetitem(p1, 0, i2)
-        escape(p1)
+        escape_n(p1)
         jump(p0, i1)
         """
         self.optimize_strunicode_loop(ops, expected)
@@ -4841,7 +4841,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [i0]
         p0 = newstr(i0)
-        escape(p0)
+        escape_n(p0)
         i1 = strlen(p0)
         i2 = int_add(i1, 1)
         jump(i2)
@@ -4849,7 +4849,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [i0]
         p0 = newstr(i0)
-        escape(p0)
+        escape_n(p0)
         i1 = int_add(i0, 1)
         jump(i1)
         """
@@ -5009,8 +5009,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i0, i1]
         p0 = new(descr=ssize)
         p1 = new(descr=ssize)
-        escape(p0)
-        escape(p1)
+        escape_n(p0)
+        escape_n(p1)
         setfield_gc(p0, i0, descr=adescr)
         setfield_gc(p1, i1, descr=adescr)
         i2 = getfield_gc_i(p0, descr=adescr)
@@ -5019,9 +5019,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [i0, i1]
         p0 = new(descr=ssize)
-        escape(p0)
+        escape_n(p0)
         p1 = new(descr=ssize)
-        escape(p1)
+        escape_n(p1)
         setfield_gc(p0, i0, descr=adescr)
         setfield_gc(p1, i1, descr=adescr)
         jump(i0, i0)
@@ -5192,14 +5192,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p1 = newstr(1)
         strsetitem(p1, 0, i0)
         p2 = newstr(1)
-        escape(p2)
+        escape_n(p2)
         copystrcontent(p1, p2, 0, 0, 1)
         finish()
         """
         expected = """
         [i0]
         p2 = newstr(1)
-        escape(p2)
+        escape_n(p2)
         strsetitem(p2, 0, i0)
         finish()
         """

@@ -14,9 +14,6 @@ class ParseError(Exception):
 
 class ESCAPE_OP(N_aryOp, ResOpWithDescr):
 
-    OPNUM = -123
-
-    type = 'i'
     is_source_op = True
 
     def getopnum(self):
@@ -25,14 +22,38 @@ class ESCAPE_OP(N_aryOp, ResOpWithDescr):
     def getopname(self):
         return 'escape'
 
-    def clone(self):
-        op = ESCAPE_OP()
-        op.initarglist(self.getarglist()[:])
+    def clone(self, memo):
+        op = self.__class__()
+        op.initarglist([memo.get(arg, arg) for arg in self.getarglist()])
+        memo.set(self, op)
         return op
+
+class ESCAPE_OP_I(ESCAPE_OP):
+    type = 'i'
+    OPNUM = -123
+
+class ESCAPE_OP_F(ESCAPE_OP):
+    type = 'f'
+    OPNUM = -124
+
+class ESCAPE_OP_N(ESCAPE_OP):
+    type = 'v'
+    OPNUM = -125
+
+class ESCAPE_OP_R(ESCAPE_OP):
+    type = 'r'
+    OPNUM = -126
+
+ALL_ESCAPE_OPS = {
+    ESCAPE_OP_I.OPNUM: ESCAPE_OP_I,
+    ESCAPE_OP_F.OPNUM: ESCAPE_OP_F,
+    ESCAPE_OP_N.OPNUM: ESCAPE_OP_N,
+    ESCAPE_OP_R.OPNUM: ESCAPE_OP_R
+}
 
 class FORCE_SPILL(UnaryOp, PlainResOp):
 
-    OPNUM = -124
+    OPNUM = -127
     is_source_op = True
 
     def getopnum(self):
@@ -224,8 +245,14 @@ class OpParser(object):
         try:
             opnum = getattr(rop, opname.upper())
         except AttributeError:
-            if opname == 'escape':
-                opnum = ESCAPE_OP.OPNUM
+            if opname == 'escape_i':
+                opnum = ESCAPE_OP_I.OPNUM
+            elif opname == 'escape_f':
+                opnum = ESCAPE_OP_F.OPNUM
+            elif opname == 'escape_n':
+                opnum = ESCAPE_OP_N.OPNUM
+            elif opname == 'escape_r':
+                opnum = ESCAPE_OP_R.OPNUM
             elif opname == 'force_spill':
                 opnum = FORCE_SPILL.OPNUM
             else:
@@ -268,8 +295,8 @@ class OpParser(object):
         return opnum, args, descr, fail_args
 
     def create_op(self, opnum, args, descr):
-        if opnum == ESCAPE_OP.OPNUM:
-            op = ESCAPE_OP()
+        if opnum in ALL_ESCAPE_OPS:
+            op = ALL_ESCAPE_OPS[opnum]()
             op.initarglist(args)
             assert descr is None
             return op

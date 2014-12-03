@@ -1,14 +1,15 @@
 import py
 from rpython.rlib.objectmodel import instantiate
 from rpython.jit.metainterp import compile, resume
-from rpython.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt, TreeLoop
+from rpython.jit.metainterp.history import AbstractDescr, ConstInt, TreeLoop
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import build_opt_chain
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     LLtypeMixin, BaseTest, convert_old_style_to_targets)
 from rpython.jit.metainterp.optimizeopt.test.test_optimizebasic import \
     FakeMetaInterpStaticData
-from rpython.jit.metainterp.resoperation import rop, opname, oparity
+from rpython.jit.metainterp.resoperation import rop, opname, oparity,\
+     InputArgInt
 
 
 def test_build_opt_chain():
@@ -134,10 +135,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_simple(self):
         ops = """
         []
-        f = escape()
+        f = escape_f()
         f0 = float_sub(f, 1.0)
         guard_value(f0, 0.0) [f0]
-        escape(f)
+        escape_n(f)
         jump()
         """
         self.optimize_loop(ops, ops)
@@ -178,9 +179,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_constfold_all(self):
-        from rpython.jit.metainterp.executor import execute_nonspec
+        from rpython.jit.metainterp.executor import _execute_nonspec
         import random
-        for opnum in range(rop.INT_ADD, rop.SAME_AS+1):
+        for opnum in range(rop.INT_ADD, rop.SAME_AS_I+1):
             try:
                 op = opname[opnum]
             except KeyError:
@@ -193,15 +194,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
             ops = """
             []
             i1 = %s(%s)
-            escape(i1)
+            escape_n(i1)
             jump()
             """ % (op.lower(), ', '.join(map(str, args)))
-            argboxes = [BoxInt(a) for a in args]
-            expected_value = execute_nonspec(self.cpu, None, opnum,
-                                             argboxes).getint()
+            argboxes = [InputArgInt(a) for a in args]
+            expected_value = _execute_nonspec(self.cpu, None, opnum, argboxes)
             expected = """
             []
-            escape(%d)
+            escape_n(%d)
             jump()
             """ % expected_value
             self.optimize_loop(ops, expected)

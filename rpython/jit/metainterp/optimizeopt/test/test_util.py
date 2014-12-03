@@ -18,7 +18,7 @@ from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.resoperation import rop, ResOperation, InputArgRef
-from rpython.jit.metainterp.optimizeopt.unroll import Inliner
+
 
 def test_sort_descrs():
     class PseudoDescr(AbstractDescr):
@@ -343,9 +343,9 @@ class Storage(compile.ResumeGuardDescr):
         op.setfailargs(boxes)
     def __eq__(self, other):
         return type(self) is type(other)      # xxx obscure
-    def clone_if_mutable(self):
+    def clone_if_mutable(self, memo):
         res = Storage(self.metainterp_sd, self.original_greenkey)
-        self.copy_all_attributes_into(res)
+        self.copy_all_attributes_into(res, memo)
         return res
 
 def _sortboxes(boxes):
@@ -367,7 +367,7 @@ class BaseTest(object):
     def add_guard_future_condition(self, res):
         # invent a GUARD_FUTURE_CONDITION to not have to change all tests
         if res.operations[-1].getopnum() == rop.JUMP:
-            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], None, descr=self.invent_fail_descr(None, -1, []))
+            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], descr=self.invent_fail_descr(None, -1, []))
             res.operations.insert(-1, guard)
 
     def invent_fail_descr(self, model, opnum, fail_args):
@@ -414,7 +414,10 @@ class BaseTest(object):
 
         jump_args = jumpop.getarglist()[:]
         operations = operations[:-1]
-        cloned_operations = [op.clone() for op in operations]
+        memo = compile.Memo()
+        cloned_operations = [op.clone(memo) for op in operations]
+        for op in cloned_operations:
+            op.is_source_op = True
 
         preamble = TreeLoop('preamble')
         preamble.inputargs = inputargs
@@ -427,11 +430,10 @@ class BaseTest(object):
 
         assert preamble.operations[-1].getopnum() == rop.LABEL
 
-        inliner = Inliner(inputargs, jump_args)
         loop.operations = [preamble.operations[-1]] + \
-                          [inliner.inline_op(op, clone=False) for op in cloned_operations] + \
-                          [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jump_args],
-                                        None, descr=token)]
+                          cloned_operations + \
+                          [ResOperation(rop.JUMP, [memo.get(a, a) for a in jump_args],
+                                        descr=token)]
                           #[inliner.inline_op(jumpop)]
         assert loop.operations[-1].getopnum() == rop.JUMP
         assert loop.operations[0].getopnum() == rop.LABEL

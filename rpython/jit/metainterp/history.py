@@ -285,6 +285,9 @@ class ConstFloat(Const):
     def getfloatstorage(self):
         return self.value
 
+    def getfloat(self):
+        return longlong.getrealfloat(self.value)
+
     getvalue = getfloatstorage
 
     def _get_hash_(self):
