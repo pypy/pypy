@@ -312,15 +312,18 @@ class FlowContext(object):
             return w_condition.value
         return self.recorder.guessbool(self, w_condition)
 
-    def record(self, spaceop):
+    def maybe_merge(self):
         recorder = self.recorder
         if getattr(recorder, 'final_state', None) is not None:
             self.mergeblock(recorder.crnt_block, recorder.final_state)
             raise StopFlowing
+
+    def record(self, spaceop):
         spaceop.offset = self.last_offset
-        recorder.append(spaceop)
+        self.recorder.append(spaceop)
 
     def do_op(self, op):
+        self.maybe_merge()
         self.record(op)
         self.guessexception(op.canraise)
         return op.result
@@ -410,14 +413,8 @@ class FlowContext(object):
             if newstate is not None:
                 break
         else:
-            newstate = currentstate.copy()
-            newblock = SpamBlock(newstate)
-            # unconditionally link the current block to the newblock
-            outputargs = currentstate.getoutputargs(newstate)
-            link = Link(outputargs, newblock)
-            currentblock.closeblock(link)
+            newblock = self.make_next_block(currentblock, currentstate)
             candidates.insert(0, newblock)
-            self.pendingblocks.append(newblock)
             return
 
         if newstate.matches(block.framestate):
@@ -446,6 +443,16 @@ class FlowContext(object):
 
         candidates.insert(0, newblock)
         self.pendingblocks.append(newblock)
+
+    def make_next_block(self, block, state):
+        newstate = state.copy()
+        newblock = SpamBlock(newstate)
+        # unconditionally link the current block to the newblock
+        outputargs = state.getoutputargs(newstate)
+        link = Link(outputargs, newblock)
+        block.closeblock(link)
+        self.pendingblocks.append(newblock)
+        return newblock
 
     # hack for unrolling iterables, don't use this
     def replace_in_stack(self, oldvalue, newvalue):
