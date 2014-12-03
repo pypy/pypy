@@ -221,8 +221,12 @@ class BytecodeReader(object):
     def analyze_signals(self, graph):
         for block in graph.iterblocks():
             self.curr_block = block
+            block.init_blockstack()
+            self.blockstack = block.blockstack[:]
             for instr in block:
                 instr.do_signals(self)
+            for exit in block._exits:
+                exit.set_blockstack(self.blockstack)
 
     def check_graph(self):
         for b in self.blocks:
@@ -294,7 +298,7 @@ class BytecodeBlock(object):
     def __init__(self):
         self.parents = set()
         self._exits = []
-        self.blockstack = []
+        self.blockstack = None
 
     def __getitem__(self, i):
         return self.operations[i]
@@ -319,6 +323,16 @@ class BytecodeBlock(object):
     @property
     def startpos(self):
         return self.operations[0].offset
+
+    def init_blockstack(self):
+        if self.blockstack is None:
+            self.blockstack = []
+
+    def set_blockstack(self, blockstack):
+        if self.blockstack is None:
+            self.blockstack = blockstack
+        else:
+            assert self.blockstack == blockstack
 
     def split_at(self, i):
         if i == 0 or i == len(self.operations):
@@ -546,7 +560,9 @@ class SetupInstruction(BCInstruction):
     def bc_flow(self, reader):
         reader.curr_block.operations.append(self)
         self.target = reader.get_block_at(self.arg)
-        reader.curr_block.blockstack.append(self.make_block(-1))
+
+    def do_signals(self, reader):
+        reader.blockstack.append(self.make_block(-1))
 
     def eval(self, ctx):
         block = self.make_block(ctx.stackdepth)
@@ -589,6 +605,16 @@ class SETUP_WITH(SetupInstruction):
         block = self.make_block(ctx.stackdepth)
         ctx.blockstack.append(block)
         ctx.pushvalue(w_result)
+
+@bc_reader.register_opcode
+class POP_BLOCK(BCInstruction):
+    def do_signals(self, reader):
+        reader.blockstack.pop()
+
+    def eval(self, ctx):
+        block = ctx.blockstack.pop()
+        block.cleanupstack(ctx)  # the block knows how to clean up the value stack
+
 
 _unary_ops = [
     ('UNARY_POSITIVE', op.pos),

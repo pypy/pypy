@@ -652,10 +652,6 @@ class FlowContext(object):
             signal = self.popvalue()
             raise signal
 
-    def POP_BLOCK(self, oparg):
-        block = self.blockstack.pop()
-        block.cleanupstack(self)  # the block knows how to clean up the value stack
-
     def YIELD_VALUE(self, _):
         assert self.pycode.is_generator
         w_result = self.popvalue()
