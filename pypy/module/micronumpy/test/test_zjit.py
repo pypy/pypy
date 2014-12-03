@@ -479,20 +479,27 @@ class TestNumpyJit(LLJitMixin):
         a = |30|
         b = |10|
         b[1] = 5.5
-        c = b + b
-        a[0:30:3] = c
+        a[0:30:3] = b
         a -> 3
         """
 
     def test_setslice(self):
         result = self.run("setslice")
-        assert result == 11.0
-        py.test.skip("don't run for now")
+        assert result == 5.5
         self.check_trace_count(1)
-        self.check_simple_loop({'raw_load': 2, 'float_add': 1,
-                                'raw_store': 1, 'int_add': 2,
-                                'int_eq': 1, 'guard_false': 1, 'jump': 1,
-                                'arraylen_gc': 1})
+        self.check_simple_loop({
+            'getarrayitem_gc': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 1,
+            'int_add': 4,
+            'int_ge': 1,
+            'int_lt': 1,
+            'jump': 1,
+            'raw_load': 1,
+            'raw_store': 1,
+            'setarrayitem_gc': 1,
+        })
 
     def define_virtual_slice():
         return """

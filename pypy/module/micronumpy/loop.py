@@ -104,6 +104,7 @@ def _setslice(space, shape, target, source):
     # array implementations, not arrays
     target_iter, target_state = target.create_iter(shape)
     source_iter, source_state = source.create_iter(shape)
+    source_iter.track_index = False
     dtype = target.dtype
     shapelen = len(shape)
     while not target_iter.done(target_state):
