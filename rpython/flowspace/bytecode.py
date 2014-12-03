@@ -214,8 +214,15 @@ class BytecodeReader(object):
             block = self.curr_block
             graph.pos_index[instr.offset] = block, len(block.operations)
             instr.bc_flow(self)
+        self.analyze_signals(graph)
         self.check_graph()
         return graph
+
+    def analyze_signals(self, graph):
+        for block in graph.iterblocks():
+            self.curr_block = block
+            for instr in block:
+                instr.do_signals(self)
 
     def check_graph(self):
         for b in self.blocks:
@@ -262,6 +269,17 @@ class BytecodeGraph(object):
             offset = self.get_offset(self.curr_position)
             instr = self.read(offset)
             yield instr
+
+    def iterblocks(self):
+        block = self.entry
+        seen = set()
+        stack = block._exits[:]
+        while stack:
+            block = stack.pop()
+            if block not in seen:
+                yield block
+                seen.add(block)
+                stack.extend(block._exits[:])
 
     def all_blocks(self):
         return set(x[0] for x in self.pos_index.values())
@@ -338,14 +356,17 @@ class BCInstruction(object):
         self.arg = arg
         self.offset = offset
 
-    def eval(self, ctx):
-        pass
-
     def bc_flow(self, reader):
         reader.curr_block.operations.append(self)
         if self.has_jump():
             reader.end_block()
             reader.get_block_at(self.arg)
+
+    def do_signals(self, reader):
+        pass
+
+    def eval(self, ctx):
+        pass
 
     def has_jump(self):
         return self.num in opcode.hasjrel or self.num in opcode.hasjabs
