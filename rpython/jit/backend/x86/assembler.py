@@ -1148,6 +1148,8 @@ class Assembler386(BaseAssembler):
         argloc, numbytesloc = arglocs
         assert isinstance(numbytesloc, ImmedLoc)
         if numbytesloc.value == 1:
+            if isinstance(argloc, RegLoc):
+                argloc = argloc.lowest8bits()
             self.mc.MOVSX8(resloc, argloc)
         elif numbytesloc.value == 2:
             self.mc.MOVSX16(resloc, argloc)
