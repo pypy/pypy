@@ -157,15 +157,15 @@ class OperandIter(ArrayIter):
                           'operand_type', 'base']
 
     def getitem(self, state):
-        # XXX cannot be called - must return a boxed value
+        # cannot be called - must return a boxed value
         assert False
 
     def getitem_bool(self, state):
-        # XXX cannot be called - must return a boxed value
+        # cannot be called - must return a boxed value
         assert False
 
     def setitem(self, state, elem):
-        # XXX cannot be called - must return a boxed value
+        # cannot be called - must return a boxed value
         assert False
 
 
@@ -187,7 +187,6 @@ class ConcreteIter(OperandIter):
     def getoperand(self, state):
         assert state.iterator is self
         impl = self.operand_type
-        #assert issubclass(impl, concrete.ConcreteArrayWithBase)
         res = impl([], self.array.dtype, self.array.order, [], [],
                    self.array.storage, self.base)
         res.start = state.offset
@@ -210,7 +209,6 @@ class SliceIter(OperandIter):
     def getoperand(self, state):
         assert state.iterator is self
         impl = self.operand_type
-        #assert issubclass(impl, concrete.SliceArray)
         arr = impl(state.offset, [self.slice_stride], [self.slice_backstride],
                    [self.slice_shape], self.array, self.base)
         return arr
