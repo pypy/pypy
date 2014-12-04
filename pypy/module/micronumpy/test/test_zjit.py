@@ -445,10 +445,47 @@ class TestNumpyJit(LLJitMixin):
     def test_multidim_slice(self):
         result = self.run('multidim_slice')
         assert result == 12
-        py.test.skip("improve")
         # XXX the bridge here is scary. Hopefully jit-targets will fix that,
         #     otherwise it looks kind of good
-        self.check_simple_loop({})
+        self.check_trace_count(2)
+        self.check_simple_loop({
+            'float_add': 1,
+            'getarrayitem_gc': 2,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 2,
+            'int_add': 6,
+            'int_ge': 1,
+            'int_lt': 2,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 2,
+        })
+        self.check_resops({
+            'float_add': 3,
+            'getarrayitem_gc': 7,
+            'getarrayitem_gc_pure': 14,
+            'getfield_gc_pure': 69,
+            'guard_class': 5,
+            'guard_false': 20,
+            'guard_nonnull': 6,
+            'guard_nonnull_class': 1,
+            'guard_not_invalidated': 3,
+            'guard_true': 16,
+            'guard_value': 2,
+            'int_add': 24,
+            'int_ge': 4,
+            'int_is_true': 6,
+            'int_is_zero': 4,
+            'int_le': 5,
+            'int_lt': 7,
+            'int_sub': 2,
+            'jump': 2,
+            'raw_load': 5,
+            'raw_store': 3,
+            'setarrayitem_gc': 8,
+        })
 
     def define_broadcast():
         return """
