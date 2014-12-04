@@ -498,8 +498,42 @@ class TestNumpyJit(LLJitMixin):
     def test_broadcast(self):
         result = self.run("broadcast")
         assert result == 10
-        py.test.skip("improve")
-        self.check_simple_loop({})
+        self.check_trace_count(2)
+        self.check_simple_loop({
+            'float_add': 1,
+            'getarrayitem_gc': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 1,
+            'int_add': 5,
+            'int_ge': 1,
+            'int_lt': 1,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 1,
+        })
+        self.check_resops({
+            'float_add': 2,
+            'getarrayitem_gc': 2,
+            'getarrayitem_gc_pure': 2,
+            'getfield_gc_pure': 36,
+            'guard_class': 3,
+            'guard_false': 7,
+            'guard_nonnull': 2,
+            'guard_not_invalidated': 2,
+            'guard_true': 8,
+            'int_add': 11,
+            'int_ge': 2,
+            'int_is_true': 3,
+            'int_is_zero': 1,
+            'int_le': 1,
+            'int_lt': 2,
+            'jump': 1,
+            'raw_load': 4,
+            'raw_store': 2,
+            'setarrayitem_gc': 2,
+        })
 
     def define_setslice():
         return """
