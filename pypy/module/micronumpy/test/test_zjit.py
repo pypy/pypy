@@ -188,18 +188,48 @@ class TestNumpyJit(LLJitMixin):
     def test_axissum(self):
         result = self.run("axissum")
         assert result == 30
-        py.test.skip("don't run for now")
         # XXX note - the bridge here is fairly crucial and yet it's pretty
         #            bogus. We need to improve the situation somehow.
-        self.check_simple_loop({'raw_load': 2,
-                                'raw_store': 1,
-                                'arraylen_gc': 2,
-                                'guard_true': 1,
-                                'int_lt': 1,
-                                'jump': 1,
-                                'float_add': 1,
-                                'int_add': 3,
-                                })
+        self.check_trace_count(2)
+        self.check_simple_loop({
+            'float_add': 1,
+            'getarrayitem_gc': 2,
+            'guard_false': 2,
+            'guard_not_invalidated': 1,
+            'guard_true': 1,
+            'int_add': 5,
+            'int_ge': 1,
+            'int_is_zero': 1,
+            'int_lt': 1,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 1,
+        })
+        self.check_resops({
+            'float_add': 2,
+            'getarrayitem_gc': 5,
+            'getarrayitem_gc_pure': 7,
+            'getfield_gc_pure': 56,
+            'guard_class': 3,
+            'guard_false': 11,
+            'guard_nonnull': 8,
+            'guard_nonnull_class': 3,
+            'guard_not_invalidated': 2,
+            'guard_true': 12,
+            'guard_value': 4,
+            'int_add': 17,
+            'int_ge': 4,
+            'int_is_true': 4,
+            'int_is_zero': 4,
+            'int_le': 2,
+            'int_lt': 3,
+            'int_sub': 1,
+            'jump': 2,
+            'raw_load': 4,
+            'raw_store': 2,
+            'setarrayitem_gc': 4,
+        })
 
     def define_reduce():
         return """
