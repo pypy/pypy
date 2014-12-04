@@ -16,14 +16,14 @@ class TestMicroNumPy(BaseTestPyPyC):
             i33 = raw_load(i9, i29, descr=<ArrayU 1>)
             guard_false(i33, descr=...)
             guard_not_invalidated(descr=...)
-            i34 = getarrayitem_raw(#, 1, descr=<ArrayU 1>)
-            guard_value(i34, 0, descr=...)
-            i35 = getarrayitem_raw(#, 0, descr=<ArrayU 1>)
+            i34 = getarrayitem_raw(#, 1, descr=<ArrayU 1>)  # XXX what are these?
+            guard_value(i34, 0, descr=...)                  # XXX
+            i35 = getarrayitem_raw(#, 0, descr=<ArrayU 1>)  # XXX
             i36 = int_add(i24, 1)
             i37 = int_add(i29, i28)
             i38 = int_ge(i36, i30)
             guard_false(i38, descr=...)
-            guard_value(i35, 1, descr=...)
+            guard_value(i35, 1, descr=...)                  # XXX
             jump(p0, p25, i36, i37, i9, i28, i30, descr=...)
         """)
 
@@ -130,7 +130,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             setfield_gc(p97, i93, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
             i96 = int_lt(i95, 0)
             guard_false(i96, descr=...)
-            jump(p0, p1, p3, p6, p12, p14, p16, i94, f90, p26, i45, i91, i59, p97, p96, i67, i93, i76, descr=...)
+            jump(p0, p1, p3, p6, p12, p14, p16, i94, f90, p26, i45, i91, i59, p96, p97, i67, i93, i76, descr=...)
         """)
 
     def test_array_flatiter_getitem_single(self):

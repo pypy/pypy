@@ -18,6 +18,7 @@ def done_if_true(dtype, val):
 def done_if_false(dtype, val):
     return not dtype.itemtype.bool(val)
 
+
 def _get_dtype(space, w_npyobj):
     if isinstance(w_npyobj, boxes.W_GenericBox):
         return w_npyobj.get_dtype(space)
