@@ -22,6 +22,9 @@ class FakeArrayImplementation(BaseConcreteArray):
     def get_shape(self):
         return self.shape
 
+    def get_size(self):
+        return self.base().get_size()
+
     def create_iter(self, shape=None, backward_broadcast=False):
         assert isinstance(self.base(), W_NDimArray)
         return self.base().create_iter()

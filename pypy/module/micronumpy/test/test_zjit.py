@@ -102,14 +102,13 @@ class TestNumpyJit(LLJitMixin):
         assert result == 3 + 3
         self.check_trace_count(1)
         self.check_simple_loop({
-            'arraylen_gc': 1,
             'float_add': 1,
             'guard_false': 1,
             'guard_not_invalidated': 1,
-            'int_add': 4,
+            'int_add': 3,
             'int_ge': 1,
             'jump': 1,
-            'raw_load': 2,
+            'raw_load': 1,
             'raw_store': 1,
         })
 
@@ -124,21 +123,18 @@ class TestNumpyJit(LLJitMixin):
         assert result == 3 ** 2
         self.check_trace_count(1)
         self.check_simple_loop({
-            'arraylen_gc': 1,
             'call': 1,
-            'float_add': 1,
-            'float_eq': 3,
+            'float_eq': 2,
             'float_mul': 2,
-            'float_ne': 1,
             'getarrayitem_raw': 1,     # read the errno
-            'guard_false': 4,
+            'guard_false': 2,
             'guard_not_invalidated': 1,
             'guard_true': 2,
-            'int_add': 4,
+            'int_add': 3,
             'int_ge': 1,
             'int_is_true': 1,
             'jump': 1,
-            'raw_load': 2,
+            'raw_load': 1,
             'raw_store': 1,
             'setarrayitem_raw': 1,     # write the errno
         })
@@ -157,14 +153,13 @@ class TestNumpyJit(LLJitMixin):
         self.check_trace_count(2)  # extra one for the astype
         del get_stats().loops[0]   # we don't care about it
         self.check_simple_loop({
-            'arraylen_gc': 1,
             'call': 1,
             'guard_false': 1,
             'guard_not_invalidated': 1,
-            'int_add': 4,
+            'int_add': 3,
             'int_ge': 1,
             'jump': 1,
-            'raw_load': 2,
+            'raw_load': 1,
             'raw_store': 1,
         })
 

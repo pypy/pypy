@@ -42,23 +42,38 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
 
     # TODO handle __array_priorities__ and maybe flip the order
 
+    if w_lhs.get_size() == 1:
+        w_left = w_lhs.get_scalar_value().convert_to(space, calc_dtype)
+        left_iter = left_state = None
+    else:
+        w_left = None
+        left_iter, left_state = w_lhs.create_iter(shape)
+        left_iter.track_index = False
+
+    if w_rhs.get_size() == 1:
+        w_right = w_rhs.get_scalar_value().convert_to(space, calc_dtype)
+        right_iter = right_state = None
+    else:
+        w_right = None
+        right_iter, right_state = w_rhs.create_iter(shape)
+        right_iter.track_index = False
+
     if out is None:
         out = W_NDimArray.from_shape(space, shape, res_dtype,
                                      w_instance=lhs_for_subtype)
-    left_iter, left_state = w_lhs.create_iter(shape)
-    right_iter, right_state = w_rhs.create_iter(shape)
     out_iter, out_state = out.create_iter(shape)
-    left_iter.track_index = right_iter.track_index = False
     shapelen = len(shape)
     while not out_iter.done(out_state):
         call2_driver.jit_merge_point(shapelen=shapelen, func=func,
                                      calc_dtype=calc_dtype, res_dtype=res_dtype)
-        w_left = left_iter.getitem(left_state).convert_to(space, calc_dtype)
-        w_right = right_iter.getitem(right_state).convert_to(space, calc_dtype)
+        if left_iter:
+            w_left = left_iter.getitem(left_state).convert_to(space, calc_dtype)
+            left_state = left_iter.next(left_state)
+        if right_iter:
+            w_right = right_iter.getitem(right_state).convert_to(space, calc_dtype)
+            right_state = right_iter.next(right_state)
         out_iter.setitem(out_state, func(calc_dtype, w_left, w_right).convert_to(
             space, res_dtype))
-        left_state = left_iter.next(left_state)
-        right_state = right_iter.next(right_state)
         out_state = out_iter.next(out_state)
     return out
 
@@ -68,11 +83,12 @@ call1_driver = jit.JitDriver(
     reds='auto')
 
 def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
+    obj_iter, obj_state = w_obj.create_iter(shape)
+    obj_iter.track_index = False
+
     if out is None:
         out = W_NDimArray.from_shape(space, shape, res_dtype, w_instance=w_obj)
-    obj_iter, obj_state = w_obj.create_iter(shape)
     out_iter, out_state = out.create_iter(shape)
-    obj_iter.track_index = False
     shapelen = len(shape)
     while not out_iter.done(out_state):
         call1_driver.jit_merge_point(shapelen=shapelen, func=func,
