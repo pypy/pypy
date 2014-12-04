@@ -420,13 +420,19 @@ class TestNumpyJit(LLJitMixin):
     def test_multidim(self):
         result = self.run('multidim')
         assert result == 8
-        py.test.skip("don't run for now")
         # int_add might be 1 here if we try slightly harder with
         # reusing indexes or some optimization
-        self.check_simple_loop({'float_add': 1, 'raw_load': 2,
-                                'guard_false': 1, 'int_add': 1, 'int_ge': 1,
-                                'jump': 1, 'raw_store': 1,
-                                'arraylen_gc': 1})
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'float_add': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'int_add': 4,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+        })
 
     def define_multidim_slice():
         return """
