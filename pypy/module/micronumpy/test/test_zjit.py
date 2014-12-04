@@ -289,30 +289,62 @@ class TestNumpyJit(LLJitMixin):
         return """
         a = |30|
         a[13] = 128
-        b = a + a
-        max(b)
+        max(a)
         """
 
     def test_max(self):
         result = self.run("max")
-        assert result == 256
-        py.test.skip("not there yet, getting though")
-        self.check_simple_loop({"raw_load": 2, "float_add": 1,
-                                "float_mul": 1, "int_add": 1,
-                                "int_lt": 1, "guard_true": 1, "jump": 1})
+        assert result == 128
+        self.check_trace_count(3)
+        self.check_simple_loop({
+            'float_ge': 1,
+            'float_ne': 1,
+            'guard_false': 3,
+            'guard_not_invalidated': 1,
+            'int_add': 2,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 1,
+        })
+        self.check_resops({
+            'float_ge': 2,
+            'float_ne': 2,
+            'getfield_gc_pure': 34,
+            'guard_class': 1,
+            'guard_false': 8,
+            'guard_nonnull': 2,
+            'guard_nonnull_class': 2,
+            'guard_not_invalidated': 2,
+            'guard_true': 7,
+            'guard_value': 2,
+            'int_add': 8,
+            'int_ge': 4,
+            'int_is_true': 3,
+            'jump': 3,
+            'raw_load': 2,
+        })
+
+    def define_min():
+        return """
+        a = |30|
+        a[13] = -128
+        min(a)
+        """
 
     def test_min(self):
-        py.test.skip("broken, investigate")
-        result = self.run("""
-        a = |30|
-        a[15] = -12
-        b = a + a
-        min(b)
-        """)
-        assert result == -24
-        self.check_simple_loop({"raw_load": 2, "float_add": 1,
-                                "float_mul": 1, "int_add": 1,
-                                "int_lt": 1, "guard_true": 1, "jump": 1})
+        result = self.run("min")
+        assert result == -128
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'float_le': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 1,
+            'int_add': 2,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 1,
+        })
 
     def define_any():
         return """
