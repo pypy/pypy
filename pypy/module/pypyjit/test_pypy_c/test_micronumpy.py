@@ -78,6 +78,46 @@ class TestMicroNumPy(BaseTestPyPyC):
             jump(p0, p1, p3, p6, p7, p12, p14, f86, p18, i87, i62, p41, i58, p47, i40, i64, i70, descr=...)
         """)
 
+    def test_array_flatiter_next(self):
+        def main():
+            import _numpypy.multiarray as np
+            arr = np.zeros((1024, 16)) + 42
+            ai = arr.flat
+            i = 0
+            while i < arr.size:
+                a = next(ai)
+                i += 1
+            return a
+        log = self.run(main, [])
+        assert log.result == 42.0
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i86 = int_lt(i79, i45)
+            guard_true(i86, descr=...)
+            guard_not_invalidated(descr=...)
+            i87 = getfield_gc_pure(p85, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_index .+>)
+            i88 = int_ge(i87, i59)
+            guard_false(i88, descr=...)
+            i89 = getfield_gc_pure(p85, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
+            f90 = raw_load(i67, i89, descr=<ArrayF 8>)
+            i91 = int_add(i87, 1)
+            p92 = getfield_gc_pure(p85, descr=<FieldP pypy.module.micronumpy.iterators.IterState.inst__indices .+>)
+            i93 = int_add(i89, i76)
+            i94 = int_add(i79, 1)
+            i95 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value 0>)
+            i96 = int_lt(i95, 0)
+            guard_false(i96, descr=...)
+            p97 = new_with_vtable(#)
+            {{{
+            setfield_gc(p97, p56, descr=<FieldP pypy.module.micronumpy.iterators.IterState.inst_iterator .+>)
+            setfield_gc(p97, p92, descr=<FieldP pypy.module.micronumpy.iterators.IterState.inst__indices .+>)
+            setfield_gc(p97, i91, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_index .+>)
+            setfield_gc(p97, i93, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
+            setfield_gc(p16, p97, descr=<FieldP pypy.module.micronumpy.flatiter.W_FlatIterator.inst_state .+>)
+            }}}
+            jump(p0, p1, p3, p6, p12, p14, p16, i94, f90, p26, i45, p97, i59, p56, i67, i76, descr=...)
+        """)
+
     def test_array_flatiter_getitem_single(self):
         def main():
             import _numpypy.multiarray as np
