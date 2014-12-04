@@ -176,10 +176,6 @@ class BytecodeReader(object):
         if offset < self.next_offset:
             i_block, i_instr = self.find_position(offset)
             split = self.blocks[i_block].split_at(i_instr)
-            if len(split) == 2:
-                new_block = split[1]
-                for i, instr in enumerate(new_block.operations):
-                    self.graph.pos_index[instr.offset] = new_block, i
             self.blocks[i_block:i_block + 1] = split
             return split[-1]
         else:
@@ -211,8 +207,6 @@ class BytecodeReader(object):
         self.needs_new_block = False
         self.graph = graph = BytecodeGraph(self.blocks[0])
         for instr in self._iter_instr(code):
-            block = self.curr_block
-            graph.pos_index[instr.offset] = block, len(block.operations)
             instr.bc_flow(self)
         self.analyze_signals(graph)
         self.check_graph()
@@ -245,10 +239,9 @@ class BytecodeGraph(object):
     def __init__(self, startblock):
         self.entry = EntryBlock()
         self.entry.set_exits([startblock])
-        self.pos_index = {}
 
     def read(self, pos):
-        bc_block, i = self.pos_index[pos]
+        bc_block, i = pos
         return bc_block[i]
 
     def next_pos(self):
@@ -261,17 +254,9 @@ class BytecodeGraph(object):
         else:
             return block, i
 
-    def get_position(self, offset):
-        return self.pos_index[offset]
-
-    def get_offset(self, position):
-        block, i = position
-        return block[i].offset
-
     def iter_instr(self):
         while True:
-            offset = self.get_offset(self.curr_position)
-            instr = self.read(offset)
+            instr = self.read(self.curr_position)
             yield instr
 
     def iterblocks(self):
@@ -286,7 +271,7 @@ class BytecodeGraph(object):
                 stack.extend(block._exits[:])
 
     def all_blocks(self):
-        return set(x[0] for x in self.pos_index.values())
+        return list(self.iterblocks())
 
     def dump(self):
         blocks = sorted(self.all_blocks(), key=lambda b: b.startpos)
