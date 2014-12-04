@@ -166,17 +166,22 @@ class TestNumpyJit(LLJitMixin):
     def define_sum():
         return """
         a = |30|
-        b = a + a
-        sum(b)
+        sum(a)
         """
 
     def test_sum(self):
         result = self.run("sum")
-        assert result == 2 * sum(range(30))
-        py.test.skip("don't run for now")
-        self.check_simple_loop({"raw_load": 2, "float_add": 2,
-                                "int_add": 1, "int_ge": 1, "guard_false": 1,
-                                "jump": 1, 'arraylen_gc': 1})
+        assert result == sum(range(30))
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'float_add': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'int_add': 2,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 1,
+        })
 
     def define_axissum():
         return """
@@ -260,8 +265,7 @@ class TestNumpyJit(LLJitMixin):
     def define_prod():
         return """
         a = |30|
-        b = a + a
-        prod(b)
+        prod(a)
         """
 
     def test_prod(self):
@@ -270,11 +274,16 @@ class TestNumpyJit(LLJitMixin):
         for i in range(30):
             expected *= i * 2
         assert result == expected
-        py.test.skip("don't run for now")
-        self.check_simple_loop({"raw_load": 2, "float_add": 1,
-                                "float_mul": 1, "int_add": 1,
-                                "int_ge": 1, "guard_false": 1, "jump": 1,
-                                'arraylen_gc': 1})
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'float_mul': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'int_add': 2,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 1,
+        })
 
     def define_max():
         return """
