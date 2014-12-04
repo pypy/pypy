@@ -517,7 +517,7 @@ class Next(SingleDispatchMixin, HLOperation):
                     ctx.replace_in_stack(it, next_unroller)
                     return const(v)
         w_item = ctx.do_op(self)
-        ctx.guessexception([StopIteration, RuntimeError], force=True)
+        ctx.recorder.guessexception(ctx, StopIteration, RuntimeError)
         return w_item
 
 class GetAttr(SingleDispatchMixin, HLOperation):
