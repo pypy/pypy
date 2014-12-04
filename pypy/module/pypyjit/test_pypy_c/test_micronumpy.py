@@ -3,6 +3,30 @@ from rpython.rlib.rawstorage import misaligned_is_fine
 
 
 class TestMicroNumPy(BaseTestPyPyC):
+    def test_array_any(self):
+        def main():
+            import _numpypy.multiarray as np
+            arr = np.array([False] * 1500)
+            return arr.any()
+        log = self.run(main, [])
+        assert log.result == False
+        assert len(log.loops) == 1
+        loop = log._filter(log.loops[0])
+        assert loop.match("""
+            i33 = raw_load(i9, i29, descr=<ArrayU 1>)
+            guard_false(i33, descr=...)
+            guard_not_invalidated(descr=...)
+            i34 = getarrayitem_raw(#, 1, descr=<ArrayU 1>)
+            guard_value(i34, 0, descr=...)
+            i35 = getarrayitem_raw(#, 0, descr=<ArrayU 1>)
+            i36 = int_add(i24, 1)
+            i37 = int_add(i29, i28)
+            i38 = int_ge(i36, i30)
+            guard_false(i38, descr=...)
+            guard_value(i35, 1, descr=...)
+            jump(p0, p25, i36, i37, i9, i28, i30, descr=...)
+        """)
+
     def test_array_getitem_basic(self):
         def main():
             import _numpypy.multiarray as np
