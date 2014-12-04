@@ -77,7 +77,7 @@ class PureShapeIter(object):
 
 
 class IterState(object):
-    _immutable_fields_ = ['iterator', 'index', '_indices', 'offset']
+    _immutable_fields_ = ['iterator', '_indices']
 
     def __init__(self, iterator, index, indices, offset):
         self.iterator = iterator
@@ -117,7 +117,8 @@ class ArrayIter(object):
         self.factors = factors
 
     @jit.unroll_safe
-    def reset(self, state=None):
+    def reset(self, state=None, mutate=False):
+        index = 0
         if state is None:
             indices = [0] * len(self.shape_m1)
         else:
@@ -125,10 +126,14 @@ class ArrayIter(object):
             indices = state._indices
             for i in xrange(self.ndim_m1, -1, -1):
                 indices[i] = 0
-        return IterState(self, 0, indices, self.array.start)
+        offset = self.array.start
+        if not mutate:
+            return IterState(self, index, indices, offset)
+        state.index = index
+        state.offset = offset
 
     @jit.unroll_safe
-    def next(self, state):
+    def next(self, state, mutate=False):
         assert state.iterator is self
         index = state.index
         if self.track_index:
@@ -149,7 +154,10 @@ class ArrayIter(object):
                 else:
                     indices[i] = 0
                     offset -= self.backstrides[i]
-        return IterState(self, index, indices, offset)
+        if not mutate:
+            return IterState(self, index, indices, offset)
+        state.index = index
+        state.offset = offset
 
     @jit.unroll_safe
     def goto(self, index):
