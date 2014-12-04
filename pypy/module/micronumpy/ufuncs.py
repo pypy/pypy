@@ -561,7 +561,8 @@ class W_UfuncGeneric(W_Ufunc):
                  self.name, self.nin, len(args_w))
         for i in range(self.nin):
             inargs[i] = convert_to_array(space, args_w[i])
-            assert isinstance(inargs[i], W_NDimArray)
+        for i in inargs:
+            assert isinstance(i, W_NDimArray)
         outargs = [None] * self.nout
         for i in range(len(args_w)-self.nin):
             out = args_w[i+self.nin]
@@ -574,16 +575,23 @@ class W_UfuncGeneric(W_Ufunc):
                 outargs[i] = out
         if sig is None:
             sig = space.wrap(self.signature)
-        index, dtypes = self.type_resolver(space, inargs, outargs, sig)
-        outargs = self.alloc_outargs(space, index, inargs, outargs, dtypes)
-        for i in range(len(outargs)):
-            assert isinstance(outargs[i], W_NDimArray)
-        outargs0 = outargs[0]
-        assert isinstance(outargs0, W_NDimArray)
-        res_dtype = outargs0.get_dtype()
+        _dtypes = self.dtypes
+        if self.match_dtypes:
+            _dtypes = [i.get_dtype() for i in inargs if isinstance(i, W_NDimArray)]
+            for i in outargs:
+                if isinstance(i, W_NDimArray):
+                    _dtypes.append(i.get_dtype())
+                else:
+                    _dtypes.append(_dtypes[0])
+        index, dtypes = self.type_resolver(space, inargs, outargs, sig, _dtypes)
         func = self.funcs[index]
         if not self.core_enabled:
             # func is going to do all the work, it must accept W_NDimArray args
+            inargs0 = inargs[0]
+            assert isinstance(inargs0, W_NDimArray)
+            outarg_shapes = [inargs0.get_shape()] * self.nargs
+            inargs, outargs = self.alloc_args(space, inargs, outargs,
+                                              dtypes, outarg_shapes)
             if self.stack_inputs:
                 arglist = space.newlist(list(inargs + outargs))
                 space.call_args(func, Arguments.frompacked(space, arglist))
@@ -594,121 +602,14 @@ class W_UfuncGeneric(W_Ufunc):
             if len(outargs) < 2:
                 return outargs[0]
             return space.newtuple(outargs)
-        # Figure out the number of iteration dimensions, which
-        # is the broadcast result of all the input non-core
-        # dimensions
-        broadcast_ndim = 0
-        for i in range(len(inargs)):
-            curarg = inargs[i]
-            assert isinstance(curarg, W_NDimArray)
-            n = curarg.ndims() - self.core_num_dims[i]
-            broadcast_ndim = max(broadcast_ndim, n)
-        # Figure out the number of iterator creation dimensions,
-        # which is the broadcast dimensions + all the core dimensions of
-        # the outputs, so that the iterator can allocate those output
-        # dimensions following the rules of order='F', for example.
-        iter_ndim = broadcast_ndim
-        for i in range(self.nin, self.nargs):
-            iter_ndim += self.core_num_dims[i];
-        # Validate the core dimensions of all the operands,
-        inner_dimensions = [1] * (self.core_num_dim_ix + 2)
-        idim = 0
-        core_start_dim = 0
-        for i in range(self.nin):
-            curarg = inargs[i]
-            assert isinstance(curarg, W_NDimArray)
-            dim_offset = self.core_offsets[i]
-            num_dims = self.core_num_dims[i]
-            core_start_dim = curarg.ndims() - num_dims
-            if core_start_dim >=0:
-                idim = 0
-            else:
-                idim = -core_start_dim
-            while(idim < num_dims):
-                core_dim_index = self.core_dim_ixs[dim_offset + idim]
-                op_dim_size = curarg.get_shape()[core_start_dim + idim]
-                if inner_dimensions[core_dim_index + 1] == 1:
-                    inner_dimensions[core_dim_index + 1] = op_dim_size
-                elif op_dim_size != 1 and inner_dimensions[1 + core_dim_index] != op_dim_size:
-                    raise oefmt(space.w_ValueError, "%s: Operand %d has a "
-                        "mismatch in its core dimension %d, with gufunc "
-                        "signature %s (size %d is different from %d)",
-                         self.name, i, idim, self.signature, op_dim_size,
-                         inner_dimensions[1 + core_dim_index])
-                idim += 1
-        for i in range(len(outargs)):
-            curarg = outargs[i]
-            assert isinstance(curarg, W_NDimArray)
-            dim_offset = self.core_offsets[i]
-            num_dims = self.core_num_dims[i]
-            core_start_dim = curarg.ndims() - num_dims
-            if core_start_dim < 0:
-                raise oefmt(space.w_ValueError, "%s: Output operand %d does "
-                    "not have enough dimensions (has %d, gufunc with "
-                    "signature %s requires %d)", self.name, i,
-                    curarg.ndims(), self.signature, num_dims)
-            if core_start_dim >=0:
-                idim = 0
-            else:
-                idim = -core_start_dim
-            while(idim < num_dims):
-                core_dim_index = self.core_dim_ixs[dim_offset + idim]
-                op_dim_size = curarg.get_shape()[core_start_dim + idim]
-                if inner_dimensions[core_dim_index + 1] == 1:
-                    inner_dimensions[core_dim_index + 1] = op_dim_size
-                elif inner_dimensions[1 + core_dim_index] != op_dim_size:
-                    raise oefmt(space.w_ValueError, "%s: Operand %d has a "
-                        "mismatch in its core dimension %d, with gufunc "
-                        "signature %s (size %d is different from %d)",
-                         self.name, i, idim, self.signature, op_dim_size,
-                         inner_dimensions[1 + core_dim_index])
-                idim += 1
-        iter_shape = [-1] * (broadcast_ndim + (len(outargs) * iter_ndim))
-        j = broadcast_ndim
-        core_dim_ixs_size = 0
-        firstdim = broadcast_ndim
-        for cnd in self.core_num_dims:
-            firstdim  += cnd
-        op_axes_arrays = [[-1,] * (self.nin + len(outargs)),] * firstdim
-        for i in range(self.nin):
-            # Note that n may be negative if broadcasting
-            # extends into the core dimensions.
-            curarg = inargs[i]
-            assert isinstance(curarg, W_NDimArray)
-            n = curarg.ndims() - self.core_num_dims[i]
-            for idim in range(broadcast_ndim):
-                if idim >= broadcast_ndim -n:
-                    op_axes_arrays[idim][i] = idim - (broadcast_ndim -n)
-            core_dim_ixs_size += self.core_num_dims[i];
-        for i in range(len(outargs)):
-            curarg = outargs[i]
-            assert isinstance(curarg, W_NDimArray)
-            iout = i + self.nin
-            n = curarg.ndims() - self.core_num_dims[iout]
-            for idim in range(broadcast_ndim):
-                if idim >= broadcast_ndim -n:
-                    op_axes_arrays[idim][iout] = idim - (broadcast_ndim -n)
-            dim_offset = self.core_offsets[iout]
-            num_dims = self.core_num_dims[iout]
-            for idim in range(num_dims):
-                cdi = self.core_dim_ixs[dim_offset + idim]
-                iter_shape[j] = inner_dimensions[1 + cdi]
-                op_axes_arrays[j][iout] = n + idim
-                j += 1
-            core_dim_ixs_size += self.core_num_dims[iout];
-        # TODO once we support obejct dtypes,
-        # FAIL with NotImplemented if the other object has
-        # the __r<op>__ method and has a higher priority than
-        # the current op (signalling it can handle ndarray's).
-
-        # TODO parse and handle subok
-        # TODO handle flags, op_flags
+        iter_shape, outarg_shapes, matched_dims = self.verify_args(space, inargs, outargs)
+        inargs, outargs = self.alloc_args(space, inargs, outargs, dtypes,
+                                          outarg_shapes)
         w_flags = space.w_None # NOT 'external_loop', we do coalescing by core_num_dims
         w_op_flags = space.newtuple([space.wrap(r) for r in ['readonly'] * len(inargs)] + \
                                     [space.wrap(r) for r in ['readwrite'] * len(outargs)])
         w_op_dtypes = space.w_None
         w_casting = space.w_None
-        w_itershape = space.newlist([space.wrap(i) for i in iter_shape]) 
         w_op_axes = space.w_None
 
         if self.stack_inputs:
@@ -722,16 +623,17 @@ class W_UfuncGeneric(W_Ufunc):
                 # Unlike numpy, we will not broadcast dims before
                 # the core_ndims rather we use nditer iteration
                 # so dims[0] == 1
-                dims = [1] + inner_dimensions[1:]
+                dims = [1] + matched_dims
                 steps = []
                 allargs = inargs + outargs
-                assert core_start_dim >= 0
                 for i in range(len(allargs)):
                     steps.append(0)
                 for i in range(len(allargs)):
                     _arg = allargs[i]
                     assert isinstance(_arg, W_NDimArray)
-                    steps += _arg.implementation.strides[core_start_dim:]
+                    start_dim = len(_arg.get_shape()) - len(iter_shape)
+                    assert start_dim >= 0
+                    steps += _arg.implementation.strides[start_dim:]
                 #print 'set_dims_and_steps with dims, steps',dims,steps
                 func.set_dims_and_steps(space, dims, steps)
             else:
@@ -739,6 +641,7 @@ class W_UfuncGeneric(W_Ufunc):
                 # from frompyfunc
                 pass
             # mimic NpyIter_AdvancedNew with a nditer
+            w_itershape = space.newlist([space.wrap(i) for i in iter_shape]) 
             nd_it = W_NDIter(space, space.newlist(inargs + outargs), w_flags,
                           w_op_flags, w_op_dtypes, w_casting, w_op_axes,
                           w_itershape)
@@ -770,7 +673,10 @@ class W_UfuncGeneric(W_Ufunc):
                 return space.newtuple([convert_to_array(space, o) for o in outargs])
             return outargs[0]
         inargs0 = inargs[0]
+        outargs0 = outargs[0]
         assert isinstance(inargs0, W_NDimArray)
+        assert isinstance(outargs0, W_NDimArray)
+        res_dtype = outargs0.get_dtype()
         new_shape = inargs0.get_shape()
         if len(outargs) < 2:
             return loop.call_many_to_one(space, new_shape, func,
@@ -808,8 +714,8 @@ class W_UfuncGeneric(W_Ufunc):
             kwargs_w.pop(kw)
         return w_subok, w_out, sig, casting, extobj
 
-    def type_resolver(self, space, inargs, outargs, type_tup):
-        # Find a match for the inargs.dtype in self.dtypes, like
+    def type_resolver(self, space, inargs, outargs, type_tup, _dtypes):
+        # Find a match for the inargs.dtype in _dtypes, like
         # linear_search_type_resolver in numpy ufunc_type_resolutions.c
         # type_tup can be '', a tuple of dtypes, or a string
         # of the form d,t -> D where the letters are dtype specs
@@ -831,7 +737,7 @@ class W_UfuncGeneric(W_Ufunc):
                     " after the -> sign, not '%s'", self.name, self.nin, 
                     self.nout, type_tup)
         else:
-            # XXX does not pass translation
+            # XXX why does the next line not pass translation?
             # dtypes = [i.get_dtype() for i in inargs]
             for i in inargs:
                 if isinstance(i, W_NDimArray):
@@ -843,39 +749,164 @@ class W_UfuncGeneric(W_Ufunc):
                     dtypes.append(i.get_dtype())
                 else:
                     dtypes.append(None)
-        #Find the first matchup of dtypes with self.dtypes
-        for i in range(0, len(self.dtypes), self.nargs):
+        #Find the first matchup of dtypes with _dtypes
+        for i in range(0, len(_dtypes), self.nargs):
             allok = True
             for j in range(self.nargs):
-                if dtypes[j] is not None and dtypes[j] != self.dtypes[i+j]:
+                if dtypes[j] is not None and dtypes[j] != _dtypes[i+j]:
                     allok = False
             if allok:    
                 break
         else:
-            if len(self.funcs) < 2:
-                return 0, dtypes
-            raise oefmt(space.w_TypeError,
-                         'input dtype did not match any known dtypes',
-                       )
+            if len(self.funcs) > 1:
+                raise oefmt(space.w_TypeError,
+                            'input dtype did not match any known dtypes',
+                           )
+            i = 0
         # Fill in empty dtypes
         for j in range(self.nargs):
             if dtypes[j] is None:
-                dtypes[j] = self.dtypes[i+j]
+                dtypes[j] = _dtypes[i+j]
         return i / self.nargs, dtypes
 
-    def alloc_outargs(self, space, index, inargs, outargs, dtypes):
-        # Any None outarg should be allocated here
+    def alloc_args(self, space, inargs, outargs, dtypes, outarg_shapes):
+        # Any None outarg are allocated, and inargs, outargs may need casting
         inargs0 = inargs[0]
         assert isinstance(inargs0, W_NDimArray)
-        temp_shape = inargs0.get_shape() # XXX wrong!!!
-        dtype = inargs0.get_dtype() # XXX wrong!!!
         order = inargs0.get_order()
         for i in range(len(outargs)):
             if outargs[i] is None:
-                outargs[i] = W_NDimArray.from_shape(space, temp_shape, dtype, order)
+                j = self.nin + i
+                outargs[i] = W_NDimArray.from_shape(space, outarg_shapes[i], dtypes[j], order)
+        for i in outargs:
+            assert isinstance(i, W_NDimArray)
+        return inargs, outargs
+
+    def verify_args(self, space, inargs, outargs):
+        # Figure out the number of iteration dimensions, which
+        # is the broadcast result of all the input non-core
+        # dimensions
+        iter_shape = []
+        max_matched_dims = 0
+        for i in self.core_dim_ixs:
+            if i > max_matched_dims:
+                max_matched_dims = i
+        matched_dims = [-1] * (1 + max_matched_dims)
+        for i in range(self.nin):
+            curarg = inargs[i]
+            assert isinstance(curarg, W_NDimArray)
+            dim_offset = self.core_offsets[i] # index into XXX_ixs
+            num_dims = self.core_num_dims[i]
+            # Make sure the last num_dims shape of curarg match the signature
+            n = len(curarg.get_shape()) - num_dims
+            if n < 0:
+                raise oefmt(space.w_ValueError, "%s: Input operand %d does "
+                    "not have enough dimensions (has %d, gufunc with "
+                    "signature %s requires %d)", self.name, i,
+                    num_dims+n, self.signature, num_dims)
+            dims_to_match = curarg.get_shape()[n:]
+            dims_to_broadcast = curarg.get_shape()[:n]
+            offset = len(dims_to_broadcast) - len(iter_shape) 
+            if offset >= 0:
+                # Prepend extra dimensions to iter_shape
+                iter_shape = dims_to_broadcast[:offset] + iter_shape
+                offset = 0
+            # Make sure iter_shape[offset:] matches dims_to_broadcast
+            offset = abs(offset) # for translation
+            for j in range(offset, len(iter_shape)):
+                x = iter_shape[j + offset]
+                y = dims_to_broadcast[j]
+                if (x > y and x % y) or y %x:
+                    raise oefmt(space.w_ValueError, "%s: Operand %d has a "
+                        "mismatch in its broadcast dimension %d "
+                        "(size %d is different from %d)",
+                         self.name, i, j, x, y)
+                iter_shape[offset + j] = max(x, y)
+            # Find or verify signature ixs
+            for j in range(num_dims):
+                core_dim_index = self.core_dim_ixs[dim_offset + j]
+                if core_dim_index > len(dims_to_match):
+                    raise oefmt(space.w_ValueError, "%s: Operand %d has a "
+                        "mismatch in its core dimension %d, with gufunc "
+                        "signature %s (index is larger than input shape)",
+                         self.name, i, j, self.signature, core_dim_index)
+                if matched_dims[core_dim_index] < 0:
+                    matched_dims[core_dim_index] = dims_to_match[j]
+                elif matched_dims[core_dim_index] != dims_to_match[j]:
+                    raise oefmt(space.w_ValueError, "%s: Operand %d has a "
+                        "mismatch in its core dimension %d, with gufunc "
+                        "signature %s (expected %d, got %d)",
+                         self.name, i, j, 
+                         self.signature, matched_dims[core_dim_index],
+                         dims_to_match[j])
+        outarg_shapes = []
         for i in range(len(outargs)):
-            assert isinstance(outargs[i], W_NDimArray)
-        return outargs
+            curarg = outargs[i]
+            dim_offset = self.core_offsets[i]
+            num_dims = self.core_num_dims[i]
+            if not isinstance(curarg, W_NDimArray):
+                arg_shape = iter_shape
+                for j in range(num_dims):
+                    core_dim_index = self.core_dim_ixs[dim_offset + j]
+                    if matched_dims[core_dim_index] < 0:
+                        raise oefmt(space.w_ValueError, "%s: Output operand %d "
+                            "is empty but unique core dimension %d in signature "
+                            "%s of gufunc was not specified",
+                             self.name, i, core_dim_index, self.signature)
+                    arg_shape.append(matched_dims[core_dim_index])
+                outarg_shapes.append(arg_shape) 
+                continue
+            n = len(curarg.get_shape()) - num_dims
+            if n < 0:
+                raise oefmt(space.w_ValueError, "%s: Output operand %d does "
+                    "not have enough dimensions (has %d, gufunc with "
+                    "signature %s requires %d)", self.name, i,
+                    num_dims+n, self.signature, num_dims)
+            dims_to_match = curarg.get_shape()[n:]
+            dims_to_broadcast = curarg.get_shape()[:n]
+            offset = len(dims_to_broadcast) - len(iter_shape)
+            if offset >= 0:
+                # Prepend extra dimensions to iter_shape, matched_dims
+                iter_shape = dims_to_broadcast[:offset] + iter_shape
+                outarg_shapes = [dims_to_broadcast[:offset] + asp for asp in outarg_shapes]
+                offset = 0
+            # Make sure iter_shape[offset:] matches dims_to_broadcast
+            offset = abs(offset) # for translation
+            for j in range(offset, len(iter_shape)):
+                x = iter_shape[j + offset]
+                y = dims_to_broadcast[j]
+                if (x > y and x % y) or y %x:
+                    raise oefmt(space.w_ValueError, "%s: Operand %d has a "
+                        "mismatch in its broadcast dimension %d "
+                        "(size %d is different from %d)",
+                         self.name, i, j, x, y)
+                iter_shape[offset + j] = max(x, y)
+            # Find or verify signature ixs
+            for j in range(num_dims):
+                core_dim_index = self.core_dim_ixs[dim_offset + j]
+                if core_dim_index > len(dims_to_match):
+                    raise oefmt(space.w_ValueError, "%s: Operand %d has a "
+                        "mismatch in its core dimension %d, with gufunc "
+                        "signature %s (index is larger than input shape)",
+                         self.name, i, j, self.signature, core_dim_index)
+                if matched_dims[core_dim_index] < 0:
+                    matched_dims[core_dim_index] = dims_to_match[core_dim_index]
+                elif matched_dims[core_dim_index] != dims_to_match[core_dim_index]:
+                    raise oefmt(space.w_ValueError, "%s: Operand %d has a "
+                        "mismatch in its core dimension %d, with gufunc "
+                        "signature %s (expected %d, got %d)",
+                         self.name, i, core_dim_index + num_dims, 
+                         self.signature, matched_dims[core_dim_index],
+                         dims_to_match[core_dim_index])
+            outarg_shapes.append(iter_shape + dims_to_match)
+        # TODO once we support obejct dtypes,
+        # FAIL with NotImplemented if the other object has
+        # the __r<op>__ method and has a higher priority than
+        # the current op (signalling it can handle ndarray's).
+
+        # TODO parse and handle subok
+        # TODO handle flags, op_flags
+        return iter_shape, outarg_shapes, matched_dims
 
 W_Ufunc.typedef = TypeDef("numpy.ufunc",
     __call__ = interp2app(W_Ufunc.descr_call),
