@@ -277,21 +277,45 @@ class TestNumpyJit(LLJitMixin):
 
     def define_any():
         return """
-        a = [0,0,0,0,0,0,0,0,0,0,0]
-        a[8] = -12
-        b = a + a
-        any(b)
+        a = [0,0,0,0,0,0,0,1,0,0,0]
+        any(a)
         """
 
     def test_any(self):
         result = self.run("any")
         assert result == 1
-        py.test.skip("don't run for now")
-        self.check_simple_loop({"raw_load": 2, "float_add": 1,
-                                "int_and": 1, "int_add": 1,
-                                'cast_float_to_int': 1,
-                                "int_ge": 1, "jump": 1,
-                                "guard_false": 2, 'arraylen_gc': 1})
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'cast_float_to_int': 1,
+            'guard_false': 2,
+            'guard_not_invalidated': 1,
+            'int_add': 2,
+            'int_and': 1,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 1,
+        })
+
+    def define_all():
+        return """
+        a = [1,1,1,1,1,1,1,1]
+        all(a)
+        """
+
+    def test_all(self):
+        result = self.run("all")
+        assert result == 1
+        self.check_simple_loop({
+            'cast_float_to_int': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 1,
+            'int_add': 2,
+            'int_and': 1,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 1,
+        })
 
     def define_already_forced():
         return """
