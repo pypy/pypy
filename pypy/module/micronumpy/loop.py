@@ -239,10 +239,9 @@ def where(space, out, shape, arr, x, y, dtype):
             state = x_state
     return out
 
-axis_reduce__driver = jit.JitDriver(name='numpy_axis_reduce',
-                                    greens=['shapelen',
-                                            'func', 'dtype'],
-                                    reds='auto')
+axis_reduce_driver = jit.JitDriver(name='numpy_axis_reduce',
+                                   greens=['shapelen', 'func', 'dtype'],
+                                   reds='auto')
 
 def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity, cumulative,
                    temp):
@@ -255,14 +254,16 @@ def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity, cumulati
         temp_iter = out_iter  # hack
         temp_state = out_state
     arr_iter, arr_state = arr.create_iter()
+    arr_iter.track_index = False
     if identity is not None:
         identity = identity.convert_to(space, dtype)
     shapelen = len(shape)
     while not out_iter.done(out_state):
-        axis_reduce__driver.jit_merge_point(shapelen=shapelen, func=func,
-                                            dtype=dtype)
-        assert not arr_iter.done(arr_state)
+        axis_reduce_driver.jit_merge_point(shapelen=shapelen, func=func,
+                                           dtype=dtype)
         w_val = arr_iter.getitem(arr_state).convert_to(space, dtype)
+        arr_state = arr_iter.next(arr_state)
+
         out_indices = out_iter.indices(out_state)
         if out_indices[axis] == 0:
             if identity is not None:
@@ -270,6 +271,7 @@ def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity, cumulati
         else:
             cur = temp_iter.getitem(temp_state)
             w_val = func(dtype, cur, w_val)
+
         out_iter.setitem(out_state, w_val)
         out_state = out_iter.next(out_state)
         if cumulative:
@@ -277,7 +279,6 @@ def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity, cumulati
             temp_state = temp_iter.next(temp_state)
         else:
             temp_state = out_state
-        arr_state = arr_iter.next(arr_state)
     return out
 
 
