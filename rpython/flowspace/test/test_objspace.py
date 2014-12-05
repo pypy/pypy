@@ -10,7 +10,6 @@ from rpython.flowspace.objspace import build_flow
 from rpython.flowspace.flowcontext import FlowingError, FlowContext
 from rpython.conftest import option
 from rpython.tool.stdlib_opcode import host_bytecode_spec
-from rpython.rlib import rposix
 
 import os
 import operator
@@ -1263,9 +1262,9 @@ class TestFlowObjSpace(Base):
         self.show(x)
         ops = x.startblock.operations
         assert ops[0].opname == 'simple_call'
-        assert ops[0].args[0].value is rposix.unlink
+        assert ops[0].args[0].value is os.unlink
         assert ops[1].opname == 'simple_call'
-        assert ops[1].args[0].value is rposix.unlink
+        assert ops[1].args[0].value is os.unlink
 
     def test_rabspath(self):
         import os.path
