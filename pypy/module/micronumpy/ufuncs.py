@@ -825,16 +825,17 @@ class W_UfuncGeneric(W_Ufunc):
             dim_offset = self.core_offsets[i]
             num_dims = self.core_num_dims[i]
             if not isinstance(curarg, W_NDimArray):
-                arg_shape = iter_shape[:]
+                target_dims = []
                 for j in range(num_dims):
                     core_dim_index = self.core_dim_ixs[dim_offset + j]
-                    if matched_dims[core_dim_index] < 0:
+                    v = matched_dims[core_dim_index]
+                    if v < 0:
                         raise oefmt(space.w_ValueError, "%s: %s operand %d "
                             "is empty but unique core dimension %d in signature "
                             "%s of gufunc was not specified",
                              self.name, name, _i, core_dim_index, self.signature)
-                    arg_shape.append(matched_dims[core_dim_index])
-                arg_shapes.append(arg_shape) 
+                    target_dims.append(v)
+                arg_shapes.append(iter_shape + target_dims) 
                 continue
             n = len(curarg.get_shape()) - num_dims
             if n < 0:
