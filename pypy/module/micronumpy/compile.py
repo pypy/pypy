@@ -33,7 +33,7 @@ class BadToken(Exception):
     pass
 
 
-SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
+SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any", "xor",
                         "unegative", "flat", "tostring", "count_nonzero",
                         "argsort", "cumsum"]
 TWO_ARG_FUNCTIONS = ["dot", 'take', 'searchsorted']
@@ -561,6 +561,9 @@ class FunctionCall(Node):
                 w_res = arr.descr_all(interp.space)
             elif self.name == "cumsum":
                 w_res = arr.descr_cumsum(interp.space)
+            elif self.name == "xor":
+                xor = ufuncs.get(interp.space).logical_xor
+                w_res = xor.reduce(interp.space, arr, None)
             elif self.name == "unegative":
                 neg = ufuncs.get(interp.space).negative
                 w_res = neg.call(interp.space, [arr])

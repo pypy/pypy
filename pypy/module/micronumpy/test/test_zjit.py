@@ -400,6 +400,7 @@ class TestNumpyJit(LLJitMixin):
     def test_all(self):
         result = self.run("all")
         assert result == 1
+        self.check_trace_count(1)
         self.check_simple_loop({
             'cast_float_to_int': 1,
             'guard_false': 1,
@@ -410,6 +411,36 @@ class TestNumpyJit(LLJitMixin):
             'int_ge': 1,
             'jump': 1,
             'raw_load': 1,
+        })
+
+    def define_logical_xor_reduce():
+        return """
+        a = [1,1,1,1,1,1,1,1]
+        xor(a)
+        """
+
+    def test_logical_xor_reduce(self):
+        result = self.run("logical_xor_reduce")
+        assert result == 0
+        self.check_trace_count(2)
+        # XXX fix this
+        self.check_simple_loop({
+            'cast_float_to_int': 1,
+            'getfield_gc': 2,
+            'getfield_gc_pure': 11,
+            'guard_class': 1,
+            'guard_false': 2,
+            'guard_not_invalidated': 1,
+            'guard_true': 4,
+            'int_add': 2,
+            'int_and': 1,
+            'int_ge': 1,
+            'int_is_true': 3,
+            'int_xor': 1,
+            'jump': 1,
+            'new_with_vtable': 1,
+            'raw_load': 1,
+            'setfield_gc': 4,
         })
 
     def define_already_forced():
