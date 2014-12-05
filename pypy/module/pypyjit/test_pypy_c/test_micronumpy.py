@@ -3,6 +3,59 @@ from rpython.rlib.rawstorage import misaligned_is_fine
 
 
 class TestMicroNumPy(BaseTestPyPyC):
+    def test_reduce_logical_xor(self):
+        def main():
+            import _numpypy.multiarray as np
+            import _numpypy.umath as um
+            arr = np.array([1.0] * 1500)
+            return um.logical_xor.reduce(arr)
+        log = self.run(main, [])
+        assert log.result is False
+        assert len(log.loops) == 1
+        loop = log._filter(log.loops[0])
+        assert loop.match("""
+            guard_class(p0, #, descr=...)
+            p4 = getfield_gc_pure(p0, descr=<FieldP pypy.module.micronumpy.iterators.ArrayIter.inst_array \d+>)
+            i5 = getfield_gc(p2, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset \d+>)
+            p6 = getfield_gc_pure(p4, descr=<FieldP pypy.module.micronumpy.concrete.BaseConcreteArray.inst_dtype \d+>)
+            p7 = getfield_gc_pure(p6, descr=<FieldP pypy.module.micronumpy.descriptor.W_Dtype.inst_itemtype \d+>)
+            guard_class(p7, ConstClass(Float64), descr=...)
+            i9 = getfield_gc_pure(p4, descr=<FieldU pypy.module.micronumpy.concrete.BaseConcreteArray.inst_storage \d+>)
+            f10 = raw_load(i9, i5, descr=<ArrayF \d+>)
+            i11 = getfield_gc_pure(p7, descr=<FieldU pypy.module.micronumpy.types.BaseType.inst_native \d+>)
+            guard_true(i11, descr=...)
+            guard_not_invalidated(descr=...)
+            i12 = cast_float_to_int(f10)
+            i14 = int_and(i12, 255)
+            guard_true(i14, descr=...)
+            i15 = getfield_gc_pure(p1, descr=<FieldU pypy.module.micronumpy.boxes.W_BoolBox.inst_value \d+>)
+            i16 = int_is_true(i15)
+            i18 = int_xor(i16, 1)
+            i19 = int_is_true(i18)
+            guard_true(i19, descr=...)
+            i20 = getfield_gc(p2, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_index \d+>)
+            i21 = getfield_gc_pure(p0, descr=<FieldU pypy.module.micronumpy.iterators.ArrayIter.inst_track_index \d+>)
+            guard_true(i21, descr=...)
+            i23 = int_add(i20, 1)
+            p24 = getfield_gc_pure(p2, descr=<FieldP pypy.module.micronumpy.iterators.IterState.inst__indices \d+>)
+            i25 = getfield_gc_pure(p0, descr=<FieldS pypy.module.micronumpy.iterators.ArrayIter.inst_contiguous \d+>)
+            i26 = int_is_true(i25)
+            guard_true(i26, descr=...)
+            i27 = getfield_gc_pure(p6, descr=<FieldS pypy.module.micronumpy.descriptor.W_Dtype.inst_elsize \d+>)
+            i28 = int_add(i5, i27)
+            i29 = getfield_gc_pure(p0, descr=<FieldS pypy.module.micronumpy.iterators.ArrayIter.inst_size \d+>)
+            i30 = int_ge(i23, i29)
+            guard_false(i30, descr=...)
+            p32 = new_with_vtable(#)
+            {{{
+            setfield_gc(p32, i23, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_index \d+>)
+            setfield_gc(p32, p24, descr=<FieldP pypy.module.micronumpy.iterators.IterState.inst__indices \d+>)
+            setfield_gc(p32, i28, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset \d+>)
+            setfield_gc(p32, p0, descr=<FieldP pypy.module.micronumpy.iterators.IterState.inst_iterator \d+>)
+            }}}
+            jump(..., descr=...)
+        """)
+
     def test_reduce_logical_and(self):
         def main():
             import _numpypy.multiarray as np
