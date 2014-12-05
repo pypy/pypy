@@ -382,12 +382,13 @@ class FlowContext(object):
         """
         if not exceptions:
             return
-        if not any(isinstance(block, (ExceptBlock, FinallyBlock))
-                for block in self.blockstack):
-            # The implicit exception wouldn't be caught and would later get
-            # removed, so don't bother creating it.
-            return
-        self.recorder.guessexception(self, *exceptions)
+        # Implicit exceptions are ignored unless they are caught explicitly
+        if self.has_exc_handler():
+            self.recorder.guessexception(self, *exceptions)
+
+    def has_exc_handler(self):
+        return any(isinstance(block, (ExceptBlock, FinallyBlock))
+                for block in self.blockstack)
 
     def build_flow(self):
         graph = self.graph
