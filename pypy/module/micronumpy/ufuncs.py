@@ -13,7 +13,7 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.ctors import numpify
 from pypy.module.micronumpy.nditer import W_NDIter, coalesce_iter
 from pypy.module.micronumpy.strides import shape_agreement
-from pypy.module.micronumpy.support import _parse_signature
+from pypy.module.micronumpy.support import _parse_signature, product
 from rpython.rlib.rawstorage import (raw_storage_setitem, free_raw_storage,
              alloc_raw_storage)
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -786,19 +786,27 @@ class W_UfuncGeneric(W_Ufunc):
             curarg = inargs[i]
             assert isinstance(curarg, W_NDimArray)
             if len(arg_shapes[i]) != curarg.ndims():
-                # XXX reshape (after merge with default)
+                # reshape
+                sz = product(curarg.get_shape()) * curarg.get_dtype().elsize
+                inargs[i] = W_NDimArray.from_shape_and_storage(
+                    space, arg_shapes[i], curarg.implementation.storage,
+                    curarg.get_dtype(), storage_bytes=sz, w_base=curarg)
                 pass
             need_to_cast.append(curarg.get_dtype() != dtypes[i])
         for i in range(len(outargs)):
             j = self.nin + i
             curarg = outargs[i]
-            assert isinstance(curarg, W_NDimArray)
             if not isinstance(curarg, W_NDimArray):
                 outargs[i] = W_NDimArray.from_shape(space, arg_shapes[j], dtypes[j], order)
                 curarg = outargs[i]
             elif len(arg_shapes[i]) != curarg.ndims():
-                # XXX reshape (after merge with default)
-                pass
+                # reshape
+                sz = product(curarg.get_shape()) * curarg.get_dtype().elsize
+                outargs[i] = W_NDimArray.from_shape_and_storage(
+                    space, arg_shapes[i], curarg.implementation.storage,
+                    curarg.get_dtype(), storage_bytes=sz, w_base=curarg)
+                curarg = outargs[i]
+            assert isinstance(curarg, W_NDimArray)
             need_to_cast.append(curarg.get_dtype() != dtypes[j])
         return inargs, outargs, need_to_cast
 
