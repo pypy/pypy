@@ -368,35 +368,8 @@ class FlowContext(object):
                     next_position = next_block, 0
                 bc_graph.curr_position = next_position
                 self.recorder.final_state = self.getstate(next_position)
-
-        except RaiseImplicit as e:
-            w_exc = e.w_exc
-            if isinstance(w_exc.w_type, Constant):
-                exc_cls = w_exc.w_type.value
-            else:
-                exc_cls = Exception
-            msg = "implicit %s shouldn't occur" % exc_cls.__name__
-            w_type = Constant(AssertionError)
-            w_value = Constant(AssertionError(msg))
-            link = Link([w_type, w_value], self.graph.exceptblock)
-            self.recorder.crnt_block.closeblock(link)
-
-        except Raise as e:
-            w_exc = e.w_exc
-            if w_exc.w_type == const(ImportError):
-                msg = 'import statement always raises %s' % e
-                raise ImportError(msg)
-            link = Link([w_exc.w_type, w_exc.w_value], self.graph.exceptblock)
-            self.recorder.crnt_block.closeblock(link)
-
         except StopFlowing:
             pass
-
-        except Return as exc:
-            w_result = exc.w_value
-            link = Link([w_result], self.graph.returnblock)
-            self.recorder.crnt_block.closeblock(link)
-
         except FlowingError as exc:
             if exc.ctx is None:
                 exc.ctx = self
@@ -474,7 +447,7 @@ class FlowContext(object):
             if isinstance(signal, block.handles):
                 return block.handle(self, signal)
             block.cleanupstack(self)
-        return signal.nomoreblocks()
+        return signal.nomoreblocks(self)
 
     def getlocalvarname(self, index):
         return self.pycode.co_varnames[index]
@@ -1049,7 +1022,7 @@ class FlowSignal(Exception):
                 WHY_CONTINUE,   Continue
                 WHY_YIELD       not needed
     """
-    def nomoreblocks(self):
+    def nomoreblocks(self, ctx):
         raise BytecodeCorruption("misplaced bytecode - should not return")
 
     def __eq__(self, other):
@@ -1063,8 +1036,10 @@ class Return(FlowSignal):
     def __init__(self, w_value):
         self.w_value = w_value
 
-    def nomoreblocks(self):
-        raise Return(self.w_value)
+    def nomoreblocks(self, ctx):
+        w_result = self.w_value
+        link = Link([w_result], ctx.graph.returnblock)
+        ctx.recorder.crnt_block.closeblock(link)
 
     @property
     def args(self):
@@ -1081,8 +1056,14 @@ class Raise(FlowSignal):
     def __init__(self, w_exc):
         self.w_exc = w_exc
 
-    def nomoreblocks(self):
-        raise self
+    def nomoreblocks(self, ctx):
+        w_exc = self.w_exc
+        if w_exc.w_type == const(ImportError):
+            msg = 'import statement always raises %s' % self
+            raise ImportError(msg)
+        link = Link([w_exc.w_type, w_exc.w_value], ctx.graph.exceptblock)
+        ctx.recorder.crnt_block.closeblock(link)
+        raise StopFlowing
 
     @property
     def args(self):
@@ -1094,6 +1075,18 @@ class Raise(FlowSignal):
 
 class RaiseImplicit(Raise):
     """Signals an exception raised implicitly"""
+    def nomoreblocks(self, ctx):
+        w_exc = self.w_exc
+        if isinstance(w_exc.w_type, Constant):
+            exc_cls = w_exc.w_type.value
+        else:
+            exc_cls = Exception
+        msg = "implicit %s shouldn't occur" % exc_cls.__name__
+        w_type = Constant(AssertionError)
+        w_value = Constant(AssertionError(msg))
+        link = Link([w_type, w_value], ctx.graph.exceptblock)
+        ctx.recorder.crnt_block.closeblock(link)
+        raise StopFlowing
 
 
 class Break(FlowSignal):
