@@ -72,14 +72,14 @@ class TestMicroNumPy(BaseTestPyPyC):
             i32 = cast_float_to_int(f31)
             i33 = int_and(i32, 255)
             guard_true(i33, descr=...)
-            i34 = getarrayitem_raw(#, 2, descr=<ArrayU 1>)  # XXX what are these?
-            guard_value(i34, 1, descr=...)                  # XXX don't appear in
-            i35 = getarrayitem_raw(#, 1, descr=<ArrayU 1>)  # XXX equiv test_zjit
+            i34 = getarrayitem_raw(#, #, descr=<ArrayU 1>)  # XXX what are these?
+            guard_value(i34, #, descr=...)                  # XXX don't appear in
+            i35 = getarrayitem_raw(#, #, descr=<ArrayU 1>)  # XXX equiv test_zjit
             i36 = int_add(i24, 1)
             i37 = int_add(i29, i28)
             i38 = int_ge(i36, i30)
             guard_false(i38, descr=...)
-            guard_value(i35, 2, descr=...)                  # XXX
+            guard_value(i35, #, descr=...)                  # XXX
             jump(..., descr=...)
         """)
 
