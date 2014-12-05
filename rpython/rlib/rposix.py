@@ -55,7 +55,7 @@ if os.name == 'nt':
 
         /* This function emulates what the windows CRT
             does to validate file handles */
-        RPY_EXPORTED_FOR_TESTS int
+        RPY_EXTERN int
         _PyVerify_fd(int fd)
         {
             const int i1 = fd >> IOINFO_L2E;
@@ -106,12 +106,19 @@ _get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
 # the default wrapper for set_errno is not suitable for use in critical places
 # like around GIL handling logic, so we provide our own wrappers.
 
-@jit.oopspec("rposix.get_errno()")
 def get_errno():
+    if jit.we_are_jitted():
+        from rpython.rlib import rthread
+        perrno = rthread.tlfield_p_errno.getraw()
+        return intmask(perrno[0])
     return intmask(_get_errno())
 
-@jit.oopspec("rposix.set_errno(errno)")
 def set_errno(errno):
+    if jit.we_are_jitted():
+        from rpython.rlib import rthread
+        perrno = rthread.tlfield_p_errno.getraw()
+        perrno[0] = rffi.cast(INT, errno)
+        return
     _set_errno(rffi.cast(INT, errno))
 
 if os.name == 'nt':

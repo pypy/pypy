@@ -272,6 +272,11 @@ class OptimizingVisitor(ast.ASTVisitor):
                 if w_const is None:
                     return tup
                 consts_w[i] = w_const
+            # intern the string constants packed into the tuple here,
+            # because assemble.py will see the result as just a tuple constant
+            for i in range(len(consts_w)):
+                consts_w[i] = misc.intern_if_common_string(
+                    self.space, consts_w[i])
         else:
             consts_w = []
         w_consts = self.space.newtuple(consts_w)

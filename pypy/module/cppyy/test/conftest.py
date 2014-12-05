@@ -50,7 +50,7 @@ def pytest_configure(config):
             eci = ExternalCompilationInfo(
                 separate_module_files=[srcpath.join('dummy_backend.cxx')],
                 include_dirs=[incpath, tstpath, cdir],
-                compile_extra=['-DRPY_EXPORTED_FOR_TESTS=RPY_EXPORTED'],
+                compile_extra=['-DRPY_EXTERN=RPY_EXPORTED'],
                 use_cpp_linker=True,
             )
 

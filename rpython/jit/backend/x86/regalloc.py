@@ -474,6 +474,12 @@ class RegAlloc(BaseRegalloc):
 
     consider_int_invert = consider_int_neg
 
+    def consider_int_signext(self, op):
+        argloc = self.loc(op.getarg(0))
+        numbytesloc = self.loc(op.getarg(1))
+        resloc = self.force_allocate_reg(op.result)
+        self.perform(op, [argloc, numbytesloc], resloc)
+
     def consider_int_lshift(self, op):
         if isinstance(op.getarg(1), Const):
             loc2 = self.rm.convert_to_imm(op.getarg(1))
@@ -693,29 +699,11 @@ class RegAlloc(BaseRegalloc):
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(1))
         self.perform_math(op, [loc0], loc0)
 
-    TLREF_SUPPORT = sys.platform.startswith('linux')
-    ERRNO_SUPPORT = sys.platform.startswith('linux')
-
     def _consider_threadlocalref_get(self, op):
-        if self.TLREF_SUPPORT:
+        if self.translate_support_code:
+            offset = op.getarg(1).getint()   # getarg(0) == 'threadlocalref_get'
             resloc = self.force_allocate_reg(op.result)
-            self.assembler.threadlocalref_get(op, resloc)
-        else:
-            self._consider_call(op)
-
-    def _consider_get_errno(self, op):
-        if self.ERRNO_SUPPORT:
-            resloc = self.force_allocate_reg(op.result)
-            self.assembler.get_set_errno(op, resloc, issue_a_write=False)
-        else:
-            self._consider_call(op)
-
-    def _consider_set_errno(self, op):
-        if self.ERRNO_SUPPORT:
-            # op.getarg(0) is the function set_errno; op.getarg(1) is
-            # the new errno value
-            loc0 = self.rm.make_sure_var_in_reg(op.getarg(1))
-            self.assembler.get_set_errno(op, loc0, issue_a_write=True)
+            self.assembler.threadlocalref_get(offset, resloc)
         else:
             self._consider_call(op)
 
@@ -798,10 +786,6 @@ class RegAlloc(BaseRegalloc):
                 return self._consider_math_sqrt(op)
             if oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
                 return self._consider_threadlocalref_get(op)
-            if oopspecindex == EffectInfo.OS_GET_ERRNO:
-                return self._consider_get_errno(op)
-            if oopspecindex == EffectInfo.OS_SET_ERRNO:
-                return self._consider_set_errno(op)
             if oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
                 return self._consider_math_read_timestamp(op)
         self._consider_call(op)
@@ -1398,7 +1382,7 @@ class RegAlloc(BaseRegalloc):
         startindex_loc = self.rm.make_sure_var_in_reg(args[1], args)
         if 0 <= constbytes <= 16 * 8 and (
                 valid_addressing_size(itemsize) or
--               isinstance(startindex_loc, ImmedLoc)):
+                isinstance(startindex_loc, ImmedLoc)):
             if IS_X86_64:
                 null_loc = X86_64_XMM_SCRATCH_REG
             else:

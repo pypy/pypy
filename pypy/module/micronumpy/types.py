@@ -287,8 +287,9 @@ class Primitive(object):
     def logical_xor(self, v1, v2):
         return bool(v1) ^ bool(v2)
 
+    @raw_unary_op
     def bool(self, v):
-        return bool(self.for_computation(self.unbox(v)))
+        return bool(v)
 
     @simple_binary_op
     def max(self, v1, v2):

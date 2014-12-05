@@ -1,16 +1,16 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.history import (Const, ConstInt, BoxInt, BoxFloat,
-    BoxPtr, make_hashable_int)
+    BoxPtr, make_hashable_int, ConstFloat)
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, REMOVED,
     CONST_0, CONST_1)
 from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
-from rpython.jit.metainterp.resoperation import (opboolinvers, opboolreflex, rop,
-    ResOperation)
+from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses
 from rpython.rlib.rarithmetic import highest_bit
-
+import math
 
 class OptRewrite(Optimization):
     """Rewrite operations into equivalent, cheaper operations.
@@ -25,9 +25,10 @@ class OptRewrite(Optimization):
             sb.add_potential(op)
 
     def propagate_forward(self, op):
-        args = self.optimizer.make_args_key(op)
-        if self.find_rewritable_bool(op, args):
-            return
+        if op.boolinverse != -1 or op.boolreflex != -1:
+            args = self.optimizer.make_args_key(op)
+            if self.find_rewritable_bool(op, args):
+                return
 
         dispatch_opt(self, op)
 
@@ -47,21 +48,15 @@ class OptRewrite(Optimization):
 
 
     def find_rewritable_bool(self, op, args):
-        try:
-            oldopnum = opboolinvers[op.getopnum()]
-        except KeyError:
-            pass
-        else:
+        oldopnum = op.boolinverse
+        if oldopnum != -1:
             targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[0], args[1]],
                                                               None))
             if self.try_boolinvers(op, targs):
                 return True
 
-        try:
-            oldopnum = opboolreflex[op.getopnum()] # FIXME: add INT_ADD, INT_MUL
-        except KeyError:
-            pass
-        else:
+        oldopnum = op.boolreflex # FIXME: add INT_ADD, INT_MUL
+        if oldopnum != -1:
             targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
                                                               None))
             oldop = self.get_pure_result(targs)
@@ -69,13 +64,12 @@ class OptRewrite(Optimization):
                 self.make_equal_to(op.result, self.getvalue(oldop.result))
                 return True
 
-        try:
-            oldopnum = opboolinvers[opboolreflex[op.getopnum()]]
-        except KeyError:
-            pass
-        else:
-            targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
-                                                              None))
+        if op.boolreflex == -1:
+            return False
+        oldopnum = opclasses[op.boolreflex].boolinverse
+        if oldopnum != -1:
+            targs = self.optimizer.make_args_key(
+                ResOperation(oldopnum, [args[1], args[0]], None))
             if self.try_boolinvers(op, targs):
                 return True
 
@@ -230,6 +224,25 @@ class OptRewrite(Optimization):
                     return
         self.emit_operation(op)
         self.pure(rop.FLOAT_MUL, [arg2, arg1], op.result)
+
+    def optimize_FLOAT_TRUEDIV(self, op):
+        arg1 = op.getarg(0)
+        arg2 = op.getarg(1)
+        v2 = self.getvalue(arg2)
+
+        # replace "x / const" by "x * (1/const)" if possible
+        if v2.is_constant():
+            divisor = v2.box.getfloat()
+            fraction = math.frexp(divisor)[0]
+            # This optimization is valid for powers of two
+            # but not for zeroes, some denormals and NaN:
+            if fraction == 0.5 or fraction == -0.5:
+                reciprocal = 1.0 / divisor
+                rfraction = math.frexp(reciprocal)[0]
+                if rfraction == 0.5 or rfraction == -0.5:
+                    c = ConstFloat(longlong.getfloatstorage(reciprocal))
+                    op = op.copy_and_change(rop.FLOAT_MUL, args=[arg1, c])
+        self.emit_operation(op)
 
     def optimize_FLOAT_NEG(self, op):
         v1 = op.getarg(0)

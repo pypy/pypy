@@ -263,7 +263,7 @@ class GcRewriterAssembler(object):
     def gen_malloc_frame(self, frame_info, frame, size_box):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
         if self.gc_ll_descr.kind == 'boehm':
-            op0 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
+            op0 = ResOperation(rop.GETFIELD_RAW, [history.ConstInt(frame_info)],
                                size_box,
                                descr=descrs.jfi_frame_depth)
             self.newops.append(op0)
@@ -272,7 +272,7 @@ class GcRewriterAssembler(object):
             self.handle_new_array(descrs.arraydescr, op1)
         else:
             # we read size in bytes here, not the length
-            op0 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
+            op0 = ResOperation(rop.GETFIELD_RAW, [history.ConstInt(frame_info)],
                                size_box,
                                descr=descrs.jfi_frame_size)
             self.newops.append(op0)
@@ -282,7 +282,7 @@ class GcRewriterAssembler(object):
             # we need to explicitely zero all the gc fields, because
             # of the unusal malloc pattern
             extra_ops = [
-                ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
+                ResOperation(rop.GETFIELD_RAW, [history.ConstInt(frame_info)],
                              length_box, descr=descrs.jfi_frame_depth),
                 ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
                              None, descr=descrs.jf_extra_stack_depth),

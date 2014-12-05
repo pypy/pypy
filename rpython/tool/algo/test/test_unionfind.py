@@ -18,6 +18,17 @@ def test_cleanup():
     uf.find(2)
     for i in xrange(2, 20, 2):
         uf.union(i, 2)
-    assert len(state) == 2 # we have exactly 2 partitions
+    assert len(state) == 2  # we have exactly 2 partitions
 
+def test_asymmetric_absorb():
+    class Info(object):
+        def __init__(self, obj):
+            self.values = [obj]
 
+        def absorb(self, other):
+            self.values += other.values
+
+    uf = UnionFind(Info)
+    uf.union(2, 3)
+    uf.union(1, 2)
+    assert uf[1].values == uf[2].values == uf[3].values == [1, 2, 3]

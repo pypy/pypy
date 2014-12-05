@@ -373,11 +373,8 @@ class Regalloc(BaseRegalloc):
         return gcmap
 
     # ------------------------------------------------------------
-    def perform_llong(self, op, args, fcond):
-        return self.assembler.regalloc_emit_llong(op, args, fcond, self)
-
-    def perform_math(self, op, args, fcond):
-        return self.assembler.regalloc_emit_math(op, args, self, fcond)
+    def perform_extra(self, op, args, fcond):
+        return self.assembler.regalloc_emit_extra(op, args, fcond, self)
 
     def force_spill_var(self, var):
         if var.type == FLOAT:
@@ -457,6 +454,12 @@ class Regalloc(BaseRegalloc):
         argloc = self.make_sure_var_in_reg(op.getarg(0))
         resloc = self.force_allocate_reg(op.result, [op.getarg(0)])
         return [argloc, resloc]
+
+    def prepare_op_int_signext(self, op, fcond):
+        argloc = self.make_sure_var_in_reg(op.getarg(0))
+        numbytes = op.getarg(1).getint()
+        resloc = self.force_allocate_reg(op.result)
+        return [argloc, imm(numbytes), resloc]
 
     def prepare_guard_int_mul_ovf(self, op, guard, fcond):
         boxes = op.getarglist()
@@ -552,15 +555,19 @@ class Regalloc(BaseRegalloc):
                             EffectInfo.OS_LLONG_XOR):
                 if self.cpu.cpuinfo.arch_version >= 7:
                     args = self._prepare_llong_binop_xx(op, fcond)
-                    self.perform_llong(op, args, fcond)
+                    self.perform_extra(op, args, fcond)
                     return
             elif oopspecindex == EffectInfo.OS_LLONG_TO_INT:
                 args = self._prepare_llong_to_int(op, fcond)
-                self.perform_llong(op, args, fcond)
+                self.perform_extra(op, args, fcond)
                 return
             elif oopspecindex == EffectInfo.OS_MATH_SQRT:
-                args = self.prepare_op_math_sqrt(op, fcond)
-                self.perform_math(op, args, fcond)
+                args = self._prepare_op_math_sqrt(op, fcond)
+                self.perform_extra(op, args, fcond)
+                return
+            elif oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
+                args = self._prepare_threadlocalref_get(op, fcond)
+                self.perform_extra(op, args, fcond)
                 return
             #elif oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
             #    ...
@@ -617,6 +624,11 @@ class Regalloc(BaseRegalloc):
         loc0 = self.make_sure_var_in_reg(op.getarg(1))
         res = self.force_allocate_reg(op.result)
         return [loc0, res]
+
+    def _prepare_threadlocalref_get(self, op, fcond):
+        ofs0 = imm(op.getarg(1).getint())
+        res = self.force_allocate_reg(op.result)
+        return [ofs0, res]
 
     def _prepare_guard(self, op, args=None):
         if args is None:
@@ -1278,7 +1290,7 @@ class Regalloc(BaseRegalloc):
     prepare_guard_float_ge = prepare_float_op(guard=True,
                             float_result=False, name='prepare_guard_float_ge')
 
-    def prepare_op_math_sqrt(self, op, fcond):
+    def _prepare_op_math_sqrt(self, op, fcond):
         loc = self.make_sure_var_in_reg(op.getarg(1))
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()

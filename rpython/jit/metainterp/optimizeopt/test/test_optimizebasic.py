@@ -2364,6 +2364,28 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_float_division_by_multiplication(self):
+        ops = """
+        [f0]
+        f1 = float_truediv(f0, 2.0)
+        f2 = float_truediv(f1, 3.0)
+        f3 = float_truediv(f2, -0.25)
+        f4 = float_truediv(f3, 0.0)
+        f5 = escape(f4)
+        jump(f5)
+        """
+
+        expected = """
+        [f0]
+        f1 = float_mul(f0, 0.5)
+        f2 = float_truediv(f1, 3.0)
+        f3 = float_mul(f2, -4.0)
+        f4 = float_truediv(f3, 0.0)
+        f5 = escape(f4)
+        jump(f5)
+        """
+        self.optimize_loop(ops, expected)
+
     # ----------
 
     def _verify_fail_args(self, boxes, oparse, text):
@@ -5471,6 +5493,41 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(i1, i1)
         """
         self.optimize_loop(ops, expected)
+
+    def test_int_signext_already_in_bounds(self):
+        ops = """
+        [i0]
+        i1 = int_signext(i0, 1)
+        i2 = int_signext(i1, 2)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_signext(i0, 1)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+        #
+        ops = """
+        [i0]
+        i1 = int_signext(i0, 1)
+        i2 = int_signext(i1, 1)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_signext(i0, 1)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+        #
+        ops = """
+        [i0]
+        i1 = int_signext(i0, 2)
+        i2 = int_signext(i1, 1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
 
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):

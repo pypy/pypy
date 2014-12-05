@@ -1,4 +1,4 @@
-from rpython.jit.metainterp.history import AbstractDescr
+from rpython.jit.metainterp.history import AbstractDescr, ConstInt
 from rpython.jit.codewriter import heaptracker
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -109,32 +109,16 @@ class MissingLiveness(Exception):
 class SwitchDictDescr(AbstractDescr):
     "Get a 'dict' attribute mapping integer values to bytecode positions."
 
+    def attach(self, as_dict):
+        self.dict = as_dict
+        self.const_keys_in_order = map(ConstInt, sorted(as_dict.keys()))
+
     def __repr__(self):
         dict = getattr(self, 'dict', '?')
         return '<SwitchDictDescr %s>' % (dict,)
 
     def _clone_if_mutable(self):
         raise NotImplementedError
-
-
-class ThreadLocalRefDescr(AbstractDescr):
-    # A special descr used as the extradescr in a call to a
-    # threadlocalref_get function.  If the backend supports it,
-    # it can use this 'get_tlref_addr()' to get the address *in the
-    # current thread* of the thread-local variable.  If, on the current
-    # platform, the "__thread" variables are implemented as an offset
-    # from some base register (e.g. %fs on x86-64), then the backend will
-    # immediately substract the current value of the base register.
-    # This gives an offset from the base register, and this can be
-    # written down in an assembler instruction to load the "__thread"
-    # variable from anywhere.
-
-    def __init__(self, opaque_id):
-        from rpython.rtyper.lltypesystem.lloperation import llop
-        from rpython.rtyper.lltypesystem import llmemory
-        def get_tlref_addr():
-            return llop.threadlocalref_getaddr(llmemory.Address, opaque_id)
-        self.get_tlref_addr = get_tlref_addr
 
 
 class LiveVarsInfo(object):
