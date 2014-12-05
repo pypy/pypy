@@ -120,11 +120,13 @@ class TestGenericUfuncOperation(object):
                       c128_dtype, c128_dtype],
                      '')
         f32_array = W_NDimArray(VoidBoxStorage(0, f32_dtype))
-        index, dtypes = ufunc.type_resolver(space, [f32_array], [None], 'd->D')
+        index, dtypes = ufunc.type_resolver(space, [f32_array], [None],
+                                            'd->D', ufunc.dtypes)
         #needs to cast input type, create output type
         assert index == 1
         assert dtypes == [f64_dtype, c128_dtype]
-        index, dtypes = ufunc.type_resolver(space, [f32_array], [None], '')
+        index, dtypes = ufunc.type_resolver(space, [f32_array], [None],
+                                             '', ufunc.dtypes)
         assert index == 0
         assert dtypes == [f32_dtype, c64_dtype]
 
@@ -229,7 +231,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                           )
         ai = arange(18, dtype=int).reshape(2,3,3)
         exc = raises(ValueError, ufunc, ai[:,:,0])
-        assert "Operand 0 has a mismatch in its core dimension 1" in exc.value.message
+        assert "perand 0 has a mismatch in its core dimension 1" in exc.value.message
         ai3 = ufunc(ai[0,:,:])
         ai2 = ufunc(ai)
         assert (ai2 == ai * 2).all()

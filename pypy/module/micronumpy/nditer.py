@@ -173,11 +173,9 @@ class ConcreteIter(OperandIter):
     def __init__(self, array, size, shape, strides, backstrides,
                  op_flags, base):
         OperandIter.__init__(self, array, size, shape, strides, backstrides)
-        self.slice_shape = 1
-        self.slice_stride = -1
-        if strides:
-            self.slice_stride = strides[-1]
-        self.slice_backstride = 1
+        self.slice_shape =[] 
+        self.slice_stride = []
+        self.slice_backstride = []
         if op_flags.rw == 'r':
             self.operand_type = concrete.ConcreteNonWritableArrayWithBase
         else:
@@ -209,8 +207,8 @@ class SliceIter(OperandIter):
     def getoperand(self, state):
         assert state.iterator is self
         impl = self.operand_type
-        arr = impl(state.offset, [self.slice_stride], [self.slice_backstride],
-                   [self.slice_shape], self.array, self.base)
+        arr = impl(state.offset, self.slice_stride, self.slice_backstride,
+                   self.slice_shape, self.array, self.base)
         return arr
 
 
