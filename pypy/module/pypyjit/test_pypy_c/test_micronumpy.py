@@ -58,9 +58,8 @@ class TestMicroNumPy(BaseTestPyPyC):
             """ + alignment_check + """
             f80 = raw_load(i67, i79, descr=<ArrayF 8>)
             i81 = int_add(i71, 1)
-            guard_not_invalidated(descr=...)
             --TICK--
-            jump(p0, p1, p3, p6, p7, p12, p14, p16, i81, f80, i59, p38, i55, p40, i37, i61, i67, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_array_getitem_accumulate(self):
@@ -130,7 +129,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             setfield_gc(p97, i93, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
             i96 = int_lt(i95, 0)
             guard_false(i96, descr=...)
-            jump(p0, p1, p3, p6, p12, p14, p16, i94, f90, p26, i45, i91, i59, p96, p97, i67, i93, i76, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_array_flatiter_getitem_single(self):
@@ -158,11 +157,8 @@ class TestMicroNumPy(BaseTestPyPyC):
             setarrayitem_gc(p150, 1, 0, descr=<ArrayS .+>)
             setarrayitem_gc(p150, 0, 0, descr=<ArrayS .+>)
             setfield_gc(p156, i55, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
-            guard_not_invalidated(descr=...)
-            i154 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value 0>)
-            i155 = int_lt(i154, 0)
-            guard_false(i155, descr=...)
-            jump(p0, p1, p3, p6, p7, p12, p14, p16, i151, f149, p26, i44, i50, i59, i55, i100, p150, p156, descr=...)
+            --TICK--
+            jump(..., descr=...)
         """)
 
     def test_array_flatiter_setitem_single(self):
@@ -194,5 +190,5 @@ class TestMicroNumPy(BaseTestPyPyC):
             setfield_gc(p158, i53, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
             i157 = int_lt(i154, 0)
             guard_false(i157, descr=...)
-            jump(p0, p1, p3, p6, p7, p12, p14, p16, i153, i42, i48, i57, i53, p47, i103, p152, p158, descr=...)
+            jump(..., descr=...)
         """)
