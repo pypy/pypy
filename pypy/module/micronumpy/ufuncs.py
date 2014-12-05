@@ -638,10 +638,8 @@ class W_UfuncGeneric(W_Ufunc):
                 for i in range(len(allargs)):
                     _arg = allargs[i]
                     assert isinstance(_arg, W_NDimArray)
-                    start_dim = len(_arg.get_shape()) - len(iter_shape)
-                    assert start_dim >= 0
+                    start_dim = len(iter_shape)
                     steps += _arg.implementation.strides[start_dim:]
-                #print 'set_dims_and_steps with dims, steps',dims,steps
                 func.set_dims_and_steps(space, dims, steps)
             else:
                 # it is a function, ready to be called by the iterator,
