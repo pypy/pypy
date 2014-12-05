@@ -3,28 +3,31 @@ from rpython.rlib.rawstorage import misaligned_is_fine
 
 
 class TestMicroNumPy(BaseTestPyPyC):
-    def test_array_any(self):
+    def test_reduce_logical_and(self):
         def main():
             import _numpypy.multiarray as np
-            arr = np.array([False] * 1500)
-            return arr.any()
+            import _numpypy.umath as um
+            arr = np.array([1.0] * 1500)
+            return um.logical_and.reduce(arr)
         log = self.run(main, [])
-        assert log.result == False
+        assert log.result is True
         assert len(log.loops) == 1
         loop = log._filter(log.loops[0])
         assert loop.match("""
-            i33 = raw_load(i9, i29, descr=<ArrayU 1>)
-            guard_false(i33, descr=...)
+            f31 = raw_load(i9, i29, descr=<ArrayF 8>)
             guard_not_invalidated(descr=...)
-            i34 = getarrayitem_raw(#, 1, descr=<ArrayU 1>)  # XXX what are these?
-            guard_value(i34, 0, descr=...)                  # XXX
-            i35 = getarrayitem_raw(#, 0, descr=<ArrayU 1>)  # XXX
+            i32 = cast_float_to_int(f31)
+            i33 = int_and(i32, 255)
+            guard_true(i33, descr=...)
+            i34 = getarrayitem_raw(#, 2, descr=<ArrayU 1>)  # XXX what are these?
+            guard_value(i34, 1, descr=...)                  # XXX don't appear in
+            i35 = getarrayitem_raw(#, 1, descr=<ArrayU 1>)  # XXX equiv test_zjit
             i36 = int_add(i24, 1)
             i37 = int_add(i29, i28)
             i38 = int_ge(i36, i30)
             guard_false(i38, descr=...)
-            guard_value(i35, 1, descr=...)                  # XXX
-            jump(p0, p25, i36, i37, i9, i28, i30, descr=...)
+            guard_value(i35, 2, descr=...)                  # XXX
+            jump(..., descr=...)
         """)
 
     def test_array_getitem_basic(self):
