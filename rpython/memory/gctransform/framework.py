@@ -461,17 +461,18 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                             annmodel.SomeInteger(nonneg=True)],
                                            annmodel.s_None)
 
-        self.pin_ptr = getfn(GCClass.pin,
-                             [s_gc, SomeAddress()],
-                             annmodel.SomeBool())
+        if GCClass.can_usually_pin_objects:
+            self.pin_ptr = getfn(GCClass.pin,
+                                 [s_gc, SomeAddress()],
+                                 annmodel.SomeBool())
 
-        self.unpin_ptr = getfn(GCClass.unpin,
-                               [s_gc, SomeAddress()],
-                               annmodel.s_None)
+            self.unpin_ptr = getfn(GCClass.unpin,
+                                   [s_gc, SomeAddress()],
+                                   annmodel.s_None)
 
-        self._is_pinned_ptr = getfn(GCClass._is_pinned,
-                                    [s_gc, SomeAddress()],
-                                    annmodel.SomeBool())
+            self._is_pinned_ptr = getfn(GCClass._is_pinned,
+                                        [s_gc, SomeAddress()],
+                                        annmodel.SomeBool())
 
         self.write_barrier_ptr = None
         self.write_barrier_from_array_ptr = None
@@ -1042,6 +1043,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                   v_size])
 
     def gct_gc_pin(self, hop):
+        if not hasattr(self, 'pin_ptr'):
+            c_false = rmodel.inputconst(lltype.Bool, False)
+            hop.genop("same_as", [c_false], resultvar=hop.spaceop.result)
+            return
         op = hop.spaceop
         v_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
             resulttype=llmemory.Address)
@@ -1049,6 +1054,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_gc_unpin(self, hop):
+        if not hasattr(self, 'unpin_ptr'):
+            return
         op = hop.spaceop
         v_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
             resulttype=llmemory.Address)
@@ -1056,6 +1063,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_gc__is_pinned(self, hop):
+        if not hasattr(self, '_is_pinned_ptr'):
+            c_false = rmodel.inputconst(lltype.Bool, False)
+            hop.genop("same_as", [c_false], resultvar=hop.spaceop.result)
+            return
         op = hop.spaceop
         v_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
             resulttype=llmemory.Address)
@@ -1069,6 +1080,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
             assert not livevars, "live GC var around %s!" % (hop.spaceop,)
             hop.genop("direct_call", [self.root_walker.thread_run_ptr])
             self.pop_roots(hop, livevars)
+        else:
+            hop.rename("gc_thread_run")     # keep it around for c/gc.py,
+                                            # unless handled specially above
 
     def gct_gc_thread_start(self, hop):
         assert self.translator.config.translation.thread
@@ -1084,6 +1098,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
             assert not livevars, "live GC var around %s!" % (hop.spaceop,)
             hop.genop("direct_call", [self.root_walker.thread_die_ptr])
             self.pop_roots(hop, livevars)
+        hop.rename("gc_thread_die")     # keep it around for c/gc.py
 
     def gct_gc_thread_before_fork(self, hop):
         if (self.translator.config.translation.thread

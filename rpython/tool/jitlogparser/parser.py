@@ -216,7 +216,7 @@ class TraceForOpcode(object):
     line_starts_here = property(getline_starts_here)
 
     def __repr__(self):
-        return "[%s]" % ", ".join([repr(op) for op in self.operations])
+        return "[%s\n]" % "\n    ".join([repr(op) for op in self.operations])
 
     def pretty_print(self, out):
         pass

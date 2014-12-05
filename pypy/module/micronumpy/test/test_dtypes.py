@@ -392,6 +392,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         t5 = dtype([('x', '<f4'), ('y', '<i4')])
         t6 = dtype([('y', '<i4'), ('x', '<f4')])
         assert hash(t5) != hash(t6)
+
     def test_pickle(self):
         import numpy as np
         from numpypy import array, dtype

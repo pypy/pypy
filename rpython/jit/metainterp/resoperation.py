@@ -419,6 +419,7 @@ _oplist = [
     'INT_RSHIFT/2',
     'INT_LSHIFT/2',
     'UINT_RSHIFT/2',
+    'INT_SIGNEXT/2',
     'FLOAT_ADD/2',
     'FLOAT_SUB/2',
     'FLOAT_MUL/2',
