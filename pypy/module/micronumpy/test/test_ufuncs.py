@@ -785,6 +785,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert exc.value[0] == "'axis' entry is out of bounds"
 
     def test_reduce_1d(self):
+        import numpy as np
         from numpypy import array, add, maximum, less, float16, complex64
 
         assert less.reduce([5, 4, 3, 2, 1])
@@ -798,6 +799,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert add.reduce(array([True, False] * 200), dtype='int8') == -56
         assert type(add.reduce(array([True, False] * 200, dtype='float16'))) is float16
         assert type(add.reduce(array([True, False] * 200, dtype='complex64'))) is complex64
+
+        for dtype in ['bool', 'int']:
+            assert np.equal.reduce([1, 2], dtype=dtype) == True
+            assert np.equal.reduce([1, 2, 0], dtype=dtype) == False
 
     def test_reduceND(self):
         from numpypy import add, arange
