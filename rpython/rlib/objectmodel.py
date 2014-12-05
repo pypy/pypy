@@ -290,22 +290,20 @@ def we_are_translated():
 def sc_we_are_translated(ctx):
     return Constant(True)
 
-
 def register_replacement_for(replaced_function, sandboxed_name=None):
-    """Decorator that causes RPython to replace the function passed as parameter
-    with the function being defined."""
     def wrap(func):
-        if replaced_function is not None:
-            @register_flow_sc(replaced_function)
-            def sc_redirected_function(ctx, *args_w):
-                return ctx.appcall(func, *args_w)
+        from rpython.rtyper.extregistry import ExtRegistryEntry
+        class ExtRegistry(ExtRegistryEntry):
+            _about_ = replaced_function
+            def compute_annotation(self):
+                return self.bookkeeper.immutablevalue(func)
+
         if sandboxed_name:
             func._sandbox_external_name = sandboxed_name
             # XXX THIS IS NOT CORRECT. Only do this when config.sandbox.
             func._dont_inline_ = True
         return func
     return wrap
-
 
 def keepalive_until_here(*values):
     pass
