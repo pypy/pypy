@@ -1139,9 +1139,9 @@ class __extend__(W_NDimArray):
         from pypy.interpreter.mixedmodule import MixedModule
         from pypy.module.micronumpy.concrete import SliceArray
 
-        numpypy = space.getbuiltinmodule("_numpypy")
-        assert isinstance(numpypy, MixedModule)
-        multiarray = numpypy.get("multiarray")
+        _numpypy = space.getbuiltinmodule("_numpypy")
+        assert isinstance(_numpypy, MixedModule)
+        multiarray = _numpypy.get("multiarray")
         assert isinstance(multiarray, MixedModule)
         reconstruct = multiarray.get("_reconstruct")
         parameters = space.newtuple([self.getclass(space), space.newtuple(

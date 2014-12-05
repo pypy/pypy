@@ -59,9 +59,9 @@ class Box(object):
     _mixin_ = True
 
     def reduce(self, space):
-        numpypy = space.getbuiltinmodule("_numpypy")
-        assert isinstance(numpypy, MixedModule)
-        multiarray = numpypy.get("multiarray")
+        _numpypy = space.getbuiltinmodule("_numpypy")
+        assert isinstance(_numpypy, MixedModule)
+        multiarray = _numpypy.get("multiarray")
         assert isinstance(multiarray, MixedModule)
         scalar = multiarray.get("scalar")
 
