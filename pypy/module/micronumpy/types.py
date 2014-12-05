@@ -285,7 +285,9 @@ class Primitive(object):
 
     @raw_binary_op
     def logical_xor(self, v1, v2):
-        return bool(v1) ^ bool(v2)
+        a = bool(v1)
+        b = bool(v2)
+        return (not b and a) or (not a and b)
 
     @raw_unary_op
     def bool(self, v):
@@ -1258,7 +1260,9 @@ class ComplexFloating(object):
 
     @raw_binary_op
     def logical_xor(self, v1, v2):
-        return self._bool(v1) ^ self._bool(v2)
+        a = self._bool(v1)
+        b = self._bool(v2)
+        return (not b and a) or (not a and b)
 
     def min(self, v1, v2):
         if self.le(v1, v2) or self.isnan(v1):
@@ -1733,7 +1737,9 @@ class StringType(FlexibleType):
 
     @str_binary_op
     def logical_xor(self, v1, v2):
-        return bool(v1) ^ bool(v2)
+        a = bool(v1)
+        b = bool(v2)
+        return (not b and a) or (not a and b)
 
     def bool(self, v):
         return bool(self.to_str(v))
