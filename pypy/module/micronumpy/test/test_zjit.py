@@ -416,7 +416,7 @@ class TestNumpyJit(LLJitMixin):
     def define_logical_xor_reduce():
         return """
         a = [1,1,1,1,1,1,1,1]
-        xor(a)
+        logical_xor_reduce(a)
         """
 
     def test_logical_xor_reduce(self):
