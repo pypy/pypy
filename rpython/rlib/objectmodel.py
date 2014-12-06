@@ -296,12 +296,12 @@ def register_replacement_for(replaced_function, sandboxed_name=None):
         class ExtRegistry(ExtRegistryEntry):
             _about_ = replaced_function
             def compute_annotation(self):
+                if sandboxed_name:
+                    config = self.bookkeeper.annotator.translator.config
+                    if config.translation.sandbox:
+                        func._sandbox_external_name = sandboxed_name
+                        func._dont_inline_ = True
                 return self.bookkeeper.immutablevalue(func)
-
-        if sandboxed_name:
-            func._sandbox_external_name = sandboxed_name
-            # XXX THIS IS NOT CORRECT. Only do this when config.sandbox.
-            func._dont_inline_ = True
         return func
     return wrap
 
