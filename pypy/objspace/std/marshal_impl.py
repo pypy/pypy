@@ -329,7 +329,7 @@ def marshal_pycode(space, w_pycode, m):
     m.put_int(x.co_flags)
     m.atom_str(TYPE_STRING, x.co_code)
     m.put_tuple_w(TYPE_TUPLE, x.co_consts_w)
-    m.put_tuple_w(TYPE_TUPLE, x.co_names_w)
+    _put_str_list(space, m, [space.str_w(w_name) for w_name in x.co_names_w])
     _put_str_list(space, m, x.co_varnames)
     _put_str_list(space, m, x.co_freevars)
     _put_str_list(space, m, x.co_cellvars)
