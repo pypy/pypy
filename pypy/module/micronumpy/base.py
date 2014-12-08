@@ -25,7 +25,6 @@ class W_NumpyObject(W_Root):
 
 class W_NDimArray(W_NumpyObject):
     __metaclass__ = extendabletype
-    _immutable_fields_ = ['implementation']
 
     def __init__(self, implementation):
         from pypy.module.micronumpy.concrete import BaseConcreteArray
