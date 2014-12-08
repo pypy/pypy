@@ -957,7 +957,6 @@ class MIFrame(object):
                 # recursion, which would be equivalent to unrolling a while
                 # loop.
                 portal_code = targetjitdriver_sd.mainjitcode
-                inline = True
                 count = 0
                 for f in self.metainterp.framestack:
                     if f.jitcode is not portal_code:
@@ -980,8 +979,7 @@ class MIFrame(object):
                     # hasn't happened already, the function is traced
                     # separately as soon as possible.
                     warmrunnerstate.dont_trace_here(greenboxes)
-                    inline = False
-                if inline:
+                else:
                     return self.metainterp.perform_call(portal_code, allboxes,
                                 greenkey=greenboxes)
             assembler_call = True
