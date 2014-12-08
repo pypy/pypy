@@ -648,6 +648,9 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
         assert s3 != s2
         s4 = s3.swapcase()
         assert intern(s4) is s2
+        s5 = "\ud800"
+        # previously failed
+        assert intern(s5) == s5
 
 
 class AppTestSysExcInfoDirect:

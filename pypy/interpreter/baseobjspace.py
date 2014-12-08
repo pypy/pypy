@@ -362,7 +362,7 @@ class ObjSpace(object):
         self.builtin_modules = {}
         self.reloading_modules = {}
 
-        self.interned_strings = make_weak_value_dictionary(self, str, W_Root)
+        self.interned_strings = make_weak_value_dictionary(self, unicode, W_Root)
         self.actionflag = ActionFlag()    # changed by the signal module
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
@@ -765,31 +765,35 @@ class ObjSpace(object):
         else:
             return self.w_False
 
-    def new_interned_w_str(self, w_s):
-        assert isinstance(w_s, W_Root)   # and is not None
-        s = self.str_w(w_s)
+    def new_interned_w_str(self, w_u):
+        assert isinstance(w_u, W_Root)   # and is not None
+        u = self.unicode_w(w_u)
         if not we_are_translated():
-            assert type(s) is str
-        w_s1 = self.interned_strings.get(s)
-        if w_s1 is None:
-            w_s1 = w_s
-            self.interned_strings.set(s, w_s1)
-        return w_s1
+            assert type(u) is unicode
+        w_u1 = self.interned_strings.get(u)
+        if w_u1 is None:
+            w_u1 = w_u
+            self.interned_strings.set(u, w_u1)
+        return w_u1
 
     def new_interned_str(self, s):
+        """Assumes an identifier (utf-8 encoded str)"""
         if not we_are_translated():
             assert type(s) is str
-        w_s1 = self.interned_strings.get(s)
+        u = s.decode('utf-8')
+        w_s1 = self.interned_strings.get(u)
         if w_s1 is None:
-            w_s1 = self.wrap(s)
-            self.interned_strings.set(s, w_s1)
+            w_s1 = self.wrap(u)
+            self.interned_strings.set(u, w_s1)
         return w_s1
 
     def is_interned_str(self, s):
+        """Assumes an identifier (utf-8 encoded str)"""
         # interface for marshal_impl
         if not we_are_translated():
             assert type(s) is str
-        return self.interned_strings.get(s) is not None
+        u = s.decode('utf-8')
+        return self.interned_strings.get(u) is not None
 
     def descr_self_interp_w(self, RequiredClass, w_obj):
         if not isinstance(w_obj, RequiredClass):
