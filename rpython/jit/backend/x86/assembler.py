@@ -1152,15 +1152,15 @@ class Assembler386(BaseAssembler):
             if isinstance(argloc, RegLoc):
                 if WORD == 4 and argloc.value >= 4:
                     # meh, can't read the lowest byte of esi or edi on 32-bit
-                    if resloc.value < 4:
+                    if resloc is not argloc:
                         self.mc.MOV(resloc, argloc)
                         argloc = resloc
-                    else:
-                        tmploc = RawEspLoc(0, INT)
-                        self.mc.MOV(tmploc, argloc)
-                        argloc = tmploc
-                if isinstance(argloc, RegLoc):
-                    argloc = argloc.lowest8bits()
+                    if resloc.value >= 4:
+                        # still annoyed, hack needed
+                        self.mc.SHL_ri(resloc.value, 24)
+                        self.mc.SAR_ri(resloc.value, 24)
+                        return
+                argloc = argloc.lowest8bits()
             self.mc.MOVSX8(resloc, argloc)
         elif numbytesloc.value == 2:
             self.mc.MOVSX16(resloc, argloc)

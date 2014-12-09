@@ -18,6 +18,7 @@ def done_if_true(dtype, val):
 def done_if_false(dtype, val):
     return not dtype.itemtype.bool(val)
 
+
 def _get_dtype(space, w_npyobj):
     if isinstance(w_npyobj, boxes.W_GenericBox):
         return w_npyobj.get_dtype(space)
@@ -195,16 +196,15 @@ class W_Ufunc(W_Root):
                 axis += shapelen
         assert axis >= 0
         dtype = descriptor.decode_w_dtype(space, dtype)
-        if dtype is None:
-            if self.comparison_func:
-                dtype = descriptor.get_dtype_cache(space).w_booldtype
-            else:
-                dtype = find_unaryop_result_dtype(
-                    space, obj.get_dtype(),
-                    promote_to_float=self.promote_to_float,
-                    promote_to_largest=self.promote_to_largest,
-                    promote_bools=self.promote_bools,
-                )
+        if self.comparison_func:
+            dtype = descriptor.get_dtype_cache(space).w_booldtype
+        elif dtype is None:
+            dtype = find_unaryop_result_dtype(
+                space, obj.get_dtype(),
+                promote_to_float=self.promote_to_float,
+                promote_to_largest=self.promote_to_largest,
+                promote_bools=self.promote_bools,
+            )
         if self.identity is None:
             for i in range(shapelen):
                 if space.is_none(w_axis) or i == axis:
