@@ -978,6 +978,9 @@ class MIFrame(object):
                     # inlining it further and to make sure that, if it
                     # hasn't happened already, the function is traced
                     # separately as soon as possible.
+                    if have_debug_prints():
+                        loc = targetjitdriver_sd.warmstate.get_location_str(greenboxes)
+                        debug_print("recursive function (not inlined):", loc)
                     warmrunnerstate.dont_trace_here(greenboxes)
                 else:
                     return self.metainterp.perform_call(portal_code, allboxes,
