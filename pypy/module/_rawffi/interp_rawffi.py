@@ -620,12 +620,10 @@ def set_errno(space, w_errno):
 
 if sys.platform == 'win32':
     def get_last_error(space):
-        from rpython.rlib.rwin32 import GetLastError
-        return space.wrap(GetLastError())
+        return space.wrap(lasterror.fetch_last_error(space))
     @unwrap_spec(error=int)
     def set_last_error(space, error):
-        from rpython.rlib.rwin32 import SetLastError
-        SetLastError(error)
+        lasterror.store_last_error(space, error)
 else:
     # always have at least a dummy version of these functions
     # (https://bugs.pypy.org/issue1242)

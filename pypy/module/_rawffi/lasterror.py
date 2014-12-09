@@ -8,10 +8,18 @@ _MS_WINDOWS = os.name == "nt"
 
 if _MS_WINDOWS:
     from rpython.rlib import rwin32
-    from pypy.interpreter.executioncontext import Executioncontext
+    from pypy.interpreter.executioncontext import ExecutionContext
 
 
     ExecutionContext._rawffi_last_error = 0
+
+    def fetch_last_error(space):
+        ec = space.getexecutioncontext()
+        return ec._rawffi_last_error
+
+    def store_last_error(space, last_error):
+        ec = space.getexecutioncontext()
+        ec._rawffi_last_error = last_error
 
     def restore_last_error(space):
         ec = space.getexecutioncontext()
