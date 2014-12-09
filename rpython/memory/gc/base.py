@@ -71,7 +71,6 @@ class GCBase(object):
                             member_index,
                             is_rpython_class,
                             has_custom_trace,
-                            get_custom_trace,
                             fast_path_tracing,
                             has_gcptr,
                             cannot_pin):
@@ -90,7 +89,6 @@ class GCBase(object):
         self.member_index = member_index
         self.is_rpython_class = is_rpython_class
         self.has_custom_trace = has_custom_trace
-        self.get_custom_trace = get_custom_trace
         self.fast_path_tracing = fast_path_tracing
         self.has_gcptr = has_gcptr
         self.cannot_pin = cannot_pin
@@ -235,15 +233,13 @@ class GCBase(object):
                 item += itemlength
                 length -= 1
         if self.has_custom_trace(typeid):
-            generator = self.get_custom_trace(typeid)
-            item = llmemory.NULL
-            while True:
-                item = generator(obj, item)
-                if not item:
-                    break
-                if self.points_to_valid_gc_object(item):
-                    callback(item, arg)
+            self.custom_trace_dispatcher(obj, typeid, callback, arg)
     _trace_slow_path._annspecialcase_ = 'specialize:arg(2)'
+
+    def _trace_callback(self, callback, arg, addr):
+        if self.is_valid_gc_object(addr.address[0]):
+            callback(addr, arg)
+    _trace_callback._annspecialcase_ = 'specialize:arg(1)'
 
     def trace_partial(self, obj, start, stop, callback, arg):
         """Like trace(), but only walk the array part, for indices in

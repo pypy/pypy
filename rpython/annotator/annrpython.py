@@ -224,6 +224,10 @@ class RPythonAnnotator(object):
         # policy-dependent computation
         self.bookkeeper.compute_at_fixpoint()
 
+    def validate(self):
+        """Check that the annotation results are valid"""
+        self.bookkeeper.check_no_flags_on_instances()
+
     def annotation(self, arg):
         "Gives the SomeValue corresponding to the given Variable or Constant."
         if isinstance(arg, Variable):

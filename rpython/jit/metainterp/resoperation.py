@@ -23,6 +23,8 @@ class AbstractResOp(object):
     pc = 0
     opnum = 0
     _cls_has_bool_result = False
+    boolreflex = -1
+    boolinverse = -1
 
     _attrs_ = ('result',)
 
@@ -417,6 +419,7 @@ _oplist = [
     'INT_RSHIFT/2',
     'INT_LSHIFT/2',
     'UINT_RSHIFT/2',
+    'INT_SIGNEXT/2',
     'FLOAT_ADD/2',
     'FLOAT_SUB/2',
     'FLOAT_MUL/2',
@@ -623,7 +626,7 @@ def create_class_for_op(name, opnum, arity, withdescr):
 setup(__name__ == '__main__')   # print out the table when run directly
 del _oplist
 
-opboolinvers = {
+_opboolinverse = {
     rop.INT_EQ: rop.INT_NE,
     rop.INT_NE: rop.INT_EQ,
     rop.INT_LT: rop.INT_GE,
@@ -647,7 +650,7 @@ opboolinvers = {
     rop.PTR_NE: rop.PTR_EQ,
 }
 
-opboolreflex = {
+_opboolreflex = {
     rop.INT_EQ: rop.INT_EQ,
     rop.INT_NE: rop.INT_NE,
     rop.INT_LT: rop.INT_GT,
@@ -671,6 +674,19 @@ opboolreflex = {
     rop.PTR_NE: rop.PTR_NE,
 }
 
+def setup2():
+    for cls in opclasses:
+        if cls is None:
+            continue
+        opnum = cls.opnum
+        if opnum in _opboolreflex:
+            cls.boolreflex = _opboolreflex[opnum]
+        if opnum in _opboolinverse:
+            cls.boolinverse = _opboolinverse[opnum]
+
+setup2()
+del _opboolinverse
+del _opboolreflex
 
 def get_deep_immutable_oplist(operations):
     """

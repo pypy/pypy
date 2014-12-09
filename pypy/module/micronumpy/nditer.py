@@ -1,3 +1,4 @@
+from rpython.rlib import jit
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -5,7 +6,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.micronumpy import ufuncs, support, concrete
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.descriptor import decode_w_dtype
-from pypy.module.micronumpy.iterators import ArrayIter, SliceIter, OpFlag
+from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                             shape_agreement, shape_agreement_multiple)
 
@@ -34,6 +35,16 @@ def parse_op_arg(space, name, w_op_flags, n, parse_one_arg):
             ret.append(op_flag)
     return ret
 
+
+class OpFlag(object):
+    def __init__(self):
+        self.rw = ''
+        self.broadcast = True
+        self.force_contig = False
+        self.force_align = False
+        self.native_byte_order = False
+        self.tmp_copy = ''
+        self.allocate = False
 
 def parse_op_flag(space, lst):
     op_flag = OpFlag()
@@ -89,10 +100,9 @@ def parse_func_flags(space, nditer, w_flags):
     for w_item in lst:
         if not space.isinstance_w(w_item, space.w_str) and not \
                 space.isinstance_w(w_item, space.w_unicode):
-            typename = space.type(w_item).getname(space)
             raise oefmt(space.w_TypeError,
-                        'expected string or Unicode object, %s found',
-                        typename)
+                        "expected string or Unicode object, %T found",
+                        w_item)
         item = space.str_w(w_item)
         if item == 'external_loop':
             nditer.external_loop = True
@@ -142,11 +152,73 @@ def is_backward(imp, order):
         raise NotImplementedError('not implemented yet')
 
 
-def get_iter(space, order, arr, shape, dtype, op_flags):
+class OperandIter(ArrayIter):
+    _immutable_fields_ = ['slice_shape', 'slice_stride', 'slice_backstride',
+                          'operand_type', 'base']
+
+    def getitem(self, state):
+        # cannot be called - must return a boxed value
+        assert False
+
+    def getitem_bool(self, state):
+        # cannot be called - must return a boxed value
+        assert False
+
+    def setitem(self, state, elem):
+        # cannot be called - must return a boxed value
+        assert False
+
+
+class ConcreteIter(OperandIter):
+    def __init__(self, array, size, shape, strides, backstrides,
+                 op_flags, base):
+        OperandIter.__init__(self, array, size, shape, strides, backstrides)
+        self.slice_shape = 1
+        self.slice_stride = -1
+        if strides:
+            self.slice_stride = strides[-1]
+        self.slice_backstride = 1
+        if op_flags.rw == 'r':
+            self.operand_type = concrete.ConcreteNonWritableArrayWithBase
+        else:
+            self.operand_type = concrete.ConcreteArrayWithBase
+        self.base = base
+
+    def getoperand(self, state):
+        assert state.iterator is self
+        impl = self.operand_type
+        res = impl([], self.array.dtype, self.array.order, [], [],
+                   self.array.storage, self.base)
+        res.start = state.offset
+        return res
+
+
+class SliceIter(OperandIter):
+    def __init__(self, array, size, shape, strides, backstrides, slice_shape,
+                 slice_stride, slice_backstride, op_flags, base):
+        OperandIter.__init__(self, array, size, shape, strides, backstrides)
+        self.slice_shape = slice_shape
+        self.slice_stride = slice_stride
+        self.slice_backstride = slice_backstride
+        if op_flags.rw == 'r':
+            self.operand_type = concrete.NonWritableSliceArray
+        else:
+            self.operand_type = concrete.SliceArray
+        self.base = base
+
+    def getoperand(self, state):
+        assert state.iterator is self
+        impl = self.operand_type
+        arr = impl(state.offset, [self.slice_stride], [self.slice_backstride],
+                   [self.slice_shape], self.array, self.base)
+        return arr
+
+
+def get_iter(space, order, arr, shape, dtype, op_flags, base):
     imp = arr.implementation
     backward = is_backward(imp, order)
     if arr.is_scalar():
-        return ArrayIter(imp, 1, [], [], [], op_flags=op_flags)
+        return ConcreteIter(imp, 1, [], [], [], op_flags, base)
     if (imp.strides[0] < imp.strides[-1] and not backward) or \
        (imp.strides[0] > imp.strides[-1] and backward):
         # flip the strides. Is this always true for multidimension?
@@ -161,7 +233,7 @@ def get_iter(space, order, arr, shape, dtype, op_flags):
         backstrides = imp.backstrides
     r = calculate_broadcast_strides(strides, backstrides, imp.shape,
                                     shape, backward)
-    return ArrayIter(imp, imp.get_size(), shape, r[0], r[1], op_flags=op_flags)
+    return ConcreteIter(imp, imp.get_size(), shape, r[0], r[1], op_flags, base)
 
 def calculate_ndim(op_in, oa_ndim):
     if oa_ndim >=0:
@@ -265,8 +337,8 @@ class IndexIterator(object):
         self.index = [0] * len(shape)
         self.backward = backward
 
+    @jit.unroll_safe
     def next(self):
-        # TODO It's probably possible to refactor all the "next" method from each iterator
         for i in range(len(self.shape) - 1, -1, -1):
             if self.index[i] < self.shape[i] - 1:
                 self.index[i] += 1
@@ -398,7 +470,7 @@ class W_NDIter(W_Root):
         self.iters = []
         for i in range(len(self.seq)):
             it = get_iter(space, self.order, self.seq[i], self.shape,
-                          self.dtypes[i], self.op_flags[i])
+                          self.dtypes[i], self.op_flags[i], self)
             it.contiguous = False
             self.iters.append((it, it.reset()))
 
@@ -437,7 +509,7 @@ class W_NDIter(W_Root):
         return space.wrap(self)
 
     def getitem(self, it, st):
-        res = it.getoperand(st, self)
+        res = it.getoperand(st)
         return W_NDimArray(res)
 
     def descr_getitem(self, space, w_idx):
@@ -455,6 +527,7 @@ class W_NDIter(W_Root):
     def descr_len(self, space):
         space.wrap(len(self.iters))
 
+    @jit.unroll_safe
     def descr_next(self, space):
         for it, st in self.iters:
             if not it.done(st):
