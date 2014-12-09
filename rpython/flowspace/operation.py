@@ -528,6 +528,10 @@ class GetAttr(SingleDispatchMixin, HLOperation):
     pyfunc = staticmethod(getattr)
 
     def constfold(self):
+        from rpython.flowspace.flowcontext import FlowingError
+        if len(self.args) == 3:
+            raise FlowingError(
+                "getattr() with three arguments not supported: %s" % (self,))
         w_obj, w_name = self.args
         # handling special things like sys
         if (w_obj in NOT_REALLY_CONST and
@@ -538,7 +542,6 @@ class GetAttr(SingleDispatchMixin, HLOperation):
             try:
                 result = getattr(obj, name)
             except Exception as e:
-                from rpython.flowspace.flowcontext import FlowingError
                 etype = e.__class__
                 msg = "getattr(%s, %s) always raises %s: %s" % (
                     obj, name, etype, e)
