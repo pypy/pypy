@@ -373,7 +373,7 @@ class W_TypeObject(W_Root):
         tup_w = w_self._pure_lookup_where_with_method_cache(name, version_tag)
         w_class, w_value = tup_w
         if needs_to_unwrap_cell(space, w_value):
-            return w_class, w_value.value
+            return w_class, w_value.w_value
         return tup_w   # don't make a new tuple, reuse the old one
 
     def _pure_lookup_where_possibly_with_method_cache(w_self, name, version_tag):
