@@ -125,6 +125,8 @@ class PyFrame(W_Root):
         else:
             return self.space.builtin
 
+    _NO_CELLS = []
+
     @jit.unroll_safe
     def initialize_frame_scopes(self, outer_func, code):
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
@@ -143,7 +145,7 @@ class PyFrame(W_Root):
         nfreevars = len(code.co_freevars)
         if not nfreevars:
             if not ncellvars:
-                self.cells = []
+                self.cells = self._NO_CELLS
                 return            # no self.cells needed - fast path
         elif outer_func is None:
             space = self.space
