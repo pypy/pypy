@@ -56,7 +56,8 @@ pypy_execute_frame_trampoline = rffi.llexternal(
     [llmemory.GCREF, llmemory.GCREF, llmemory.GCREF],
     llmemory.GCREF,
     compilation_info=eci,
-    _nowrapper=True, sandboxsafe=True)
+    _nowrapper=True, sandboxsafe=True,
+    random_effects_on_gcobjs=True)
 
 pypy_vmprof_init = rffi.llexternal("pypy_vmprof_init", [], lltype.Void, compilation_info=eci)
 vmprof_enable = rffi.llexternal("vmprof_enable", [rffi.CCHARP, rffi.LONG], lltype.Void, compilation_info=eci)
