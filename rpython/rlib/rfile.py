@@ -96,9 +96,12 @@ c_feof = llexternal('feof', [FILEP], rffi.INT)
 c_ferror = llexternal('ferror', [FILEP], rffi.INT)
 c_clearerr = llexternal('clearerr', [FILEP], lltype.Void)
 
-c_stdin = rffi.CExternVariable(FILEP, 'stdin', eci, c_type='FILE*')[0]
-c_stdout = rffi.CExternVariable(FILEP, 'stdout', eci, c_type='FILE*')[0]
-c_stderr = rffi.CExternVariable(FILEP, 'stderr', eci, c_type='FILE*')[0]
+c_stdin = rffi.CExternVariable(FILEP, 'stdin', eci, c_type='FILE*',
+                               getter_only=True)
+c_stdout = rffi.CExternVariable(FILEP, 'stdout', eci, c_type='FILE*',
+                                getter_only=True)
+c_stderr = rffi.CExternVariable(FILEP, 'stderr', eci, c_type='FILE*',
+                                getter_only=True)
 
 
 def _error(ll_file):
@@ -464,7 +467,7 @@ class RFile(object):
     @enforceargs(None, str)
     def write(self, value):
         self._check_closed()
-        ll_value = rffi.get_nonmovingbuffer(value)
+        ll_value, is_pinned, is_raw = rffi.get_nonmovingbuffer(value)
         try:
             # note that since we got a nonmoving buffer, it is either raw
             # or already cannot move, so the arithmetics below are fine
@@ -475,7 +478,7 @@ class RFile(object):
                 c_clearerr(self._ll_file)
                 raise IOError(errno, os.strerror(errno))
         finally:
-            rffi.free_nonmovingbuffer(value, ll_value)
+            rffi.free_nonmovingbuffer(value, ll_value, is_pinned, is_raw)
 
     def flush(self):
         self._check_closed()

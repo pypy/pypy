@@ -11,7 +11,7 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
     RecordChunk, calc_strides, calc_new_strides, shape_agreement,
-    calculate_broadcast_strides)
+    calculate_broadcast_strides, calc_backstrides)
 
 
 class BaseConcreteArray(object):
@@ -47,6 +47,7 @@ class BaseConcreteArray(object):
     def setitem(self, index, value):
         self.dtype.itemtype.store(self, index, 0, value)
 
+    @jit.unroll_safe
     def setslice(self, space, arr):
         if len(arr.get_shape()) > 0 and len(self.get_shape()) == 0:
             raise oefmt(space.w_ValueError,
@@ -78,10 +79,7 @@ class BaseConcreteArray(object):
                                                self.get_strides(), self.order)
         if new_strides is not None:
             # We can create a view, strides somehow match up.
-            ndims = len(new_shape)
-            new_backstrides = [0] * ndims
-            for nd in range(ndims):
-                new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
+            new_backstrides = calc_backstrides(new_strides, new_shape)
             assert isinstance(orig_array, W_NDimArray) or orig_array is None
             return SliceArray(self.start, new_strides, new_backstrides,
                               new_shape, self, orig_array)
@@ -449,7 +447,7 @@ class SliceArray(BaseConcreteArray):
                 strides.reverse()
                 backstrides.reverse()
                 new_shape.reverse()
-            return SliceArray(self.start, strides, backstrides, new_shape,
+            return self.__class__(self.start, strides, backstrides, new_shape,
                               self, orig_array)
         new_strides = calc_new_strides(new_shape, self.get_shape(),
                                        self.get_strides(),
@@ -460,8 +458,14 @@ class SliceArray(BaseConcreteArray):
         new_backstrides = [0] * len(new_shape)
         for nd in range(len(new_shape)):
             new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
-        return SliceArray(self.start, new_strides, new_backstrides, new_shape,
+        return self.__class__(self.start, new_strides, new_backstrides, new_shape,
                           self, orig_array)
+
+
+class NonWritableSliceArray(SliceArray):
+    def descr_setitem(self, space, orig_array, w_index, w_value):
+        raise OperationError(space.w_ValueError, space.wrap(
+            "assignment destination is read-only"))
 
 
 class VoidBoxStorage(BaseConcreteArray):

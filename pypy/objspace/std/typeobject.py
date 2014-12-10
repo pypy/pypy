@@ -1,13 +1,10 @@
 from pypy.interpreter import gateway
-from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.function import Function, StaticMethod
-from pypy.interpreter.typedef import weakref_descr, GetSetProperty, Member, \
-     descr_get_dict
+from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
+     descr_get_dict, dict_descr, Member, TypeDef
 from pypy.interpreter.astcompiler.misc import mangle
-from pypy.objspace.std.model import W_Object
-from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef
-from pypy.objspace.std.stdtypedef import StdTypeDef
 
 from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
      promote_string, elidable, dont_look_inside, unroll_safe)
@@ -56,7 +53,7 @@ UNKNOWN = 0
 COMPARES_BY_IDENTITY = 1
 OVERRIDES_EQ_CMP_OR_HASH = 2
 
-class W_TypeObject(W_Object):
+class W_TypeObject(W_Root):
     lazyloaders = {} # can be overridden by specific instances
 
     # the version_tag changes if the dict or the inheritance hierarchy changes
@@ -446,10 +443,6 @@ class W_TypeObject(W_Object):
         strategy = space.fromcache(DictProxyStrategy)
         storage = strategy.erase(w_self)
         return W_DictMultiObject(space, strategy, storage)
-
-    def unwrap(w_self, space):
-        from pypy.objspace.std.model import UnwrapError
-        raise UnwrapError(w_self)
 
     def is_heaptype(w_self):
         return w_self.flag_heaptype
@@ -856,7 +849,7 @@ def type_issubtype(w_obj, space, w_sub):
 def type_isinstance(w_obj, space, w_inst):
     return space.newbool(space.type(w_inst).issubtype(w_obj))
 
-W_TypeObject.typedef = StdTypeDef("type",
+W_TypeObject.typedef = TypeDef("type",
     __new__ = gateway.interp2app(descr__new__),
     __name__ = GetSetProperty(descr_get__name__, descr_set__name__),
     __bases__ = GetSetProperty(descr_get__bases__, descr_set__bases__),
@@ -912,6 +905,20 @@ def issublayout(w_layout1, w_layout2):
             return False
         w_layout1 = w_layout1.w_same_layout_as or w_layout1
     return True
+
+@unroll_safe
+def issubtypedef(a, b):
+    from pypy.objspace.std.objectobject import W_ObjectObject
+    if b is W_ObjectObject.typedef:
+        return True
+    if a is None:
+        return False
+    if a is b:
+        return True
+    for a1 in a.bases:
+        if issubtypedef(a1, b):
+            return True
+    return False
 
 def find_best_base(space, bases_w):
     """The best base is one of the bases in the given list: the one
@@ -1024,7 +1031,7 @@ def create_slot(w_self, slot_name):
 def create_dict_slot(w_self):
     if not w_self.hasdict:
         w_self.dict_w.setdefault('__dict__',
-                                 w_self.space.wrap(std_dict_descr))
+                                 w_self.space.wrap(dict_descr))
         w_self.hasdict = True
 
 def create_weakref_slot(w_self):
@@ -1198,3 +1205,41 @@ def mro_error(space, orderlists):
     names = [cls.getname(space) for cls in cycle]
     raise OperationError(space.w_TypeError, space.wrap(
         "cycle among base classes: " + ' < '.join(names)))
+
+
+class TypeCache(SpaceCache):
+    def build(self, typedef):
+        "NOT_RPYTHON: initialization-time only."
+        from pypy.objspace.std.objectobject import W_ObjectObject
+
+        space = self.space
+        rawdict = typedef.rawdict
+        lazyloaders = {}
+
+        # compute the bases
+        if typedef is W_ObjectObject.typedef:
+            bases_w = []
+        else:
+            bases = typedef.bases or [W_ObjectObject.typedef]
+            bases_w = [space.gettypeobject(base) for base in bases]
+
+        # wrap everything
+        dict_w = {}
+        for descrname, descrvalue in rawdict.items():
+            dict_w[descrname] = space.wrap(descrvalue)
+
+        if typedef.applevel_subclasses_base is not None:
+            overridetypedef = typedef.applevel_subclasses_base.typedef
+        else:
+            overridetypedef = typedef
+        w_type = W_TypeObject(space, typedef.name, bases_w, dict_w,
+                              overridetypedef=overridetypedef)
+        if typedef is not overridetypedef:
+            w_type.w_doc = space.wrap(typedef.doc)
+        if hasattr(typedef, 'flag_sequence_bug_compat'):
+            w_type.flag_sequence_bug_compat = typedef.flag_sequence_bug_compat
+        w_type.lazyloaders = lazyloaders
+        return w_type
+
+    def ready(self, w_type):
+        w_type.ready()

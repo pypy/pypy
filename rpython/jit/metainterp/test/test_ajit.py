@@ -698,6 +698,40 @@ class BasicTests:
         res = self.interp_operations(f, [12311])
         assert res == 42
 
+    def test_switch_bridges(self):
+        from rpython.rlib.rarithmetic import intmask
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        lsts = [[-5, 2, 20] * 6,
+                [7, 123, 2] * 6,
+                [12311, -5, 7] * 6,
+                [7, 123, 2] * 4 + [-5, -5, -5] * 2,
+                [7, 123, 2] * 4 + [-5, -5, -5] * 2 + [12311, 12311, 12311],
+                ]
+        def f(case):
+            x = 0
+            i = 0
+            lst = lsts[case]
+            while i < len(lst):
+                myjitdriver.jit_merge_point()
+                n = lst[i]
+                if n == -5:  a = 5
+                elif n == 2: a = 4
+                elif n == 7: a = 3
+                else:        a = 2
+                x = intmask(x * 10 + a)
+                i += 1
+            return x
+        res = self.meta_interp(f, [0], backendopt=True)
+        assert res == intmask(542 * 1001001001001001)
+        res = self.meta_interp(f, [1], backendopt=True)
+        assert res == intmask(324 * 1001001001001001)
+        res = self.meta_interp(f, [2], backendopt=True)
+        assert res == intmask(253 * 1001001001001001)
+        res = self.meta_interp(f, [3], backendopt=True)
+        assert res == intmask(324324324324555555)
+        res = self.meta_interp(f, [4], backendopt=True)
+        assert res == intmask(324324324324555555222)
+
     def test_r_uint(self):
         from rpython.rlib.rarithmetic import r_uint
         myjitdriver = JitDriver(greens = [], reds = ['y'])
@@ -832,23 +866,6 @@ class BasicTests:
         res = self.meta_interp(f, [7])
         assert type(res) == bool
         assert not res
-
-    def test_switch_dict(self):
-        def f(x):
-            if   x == 1: return 61
-            elif x == 2: return 511
-            elif x == 3: return -22
-            elif x == 4: return 81
-            elif x == 5: return 17
-            elif x == 6: return 54
-            elif x == 7: return 987
-            elif x == 8: return -12
-            elif x == 9: return 321
-            return -1
-        res = self.interp_operations(f, [5])
-        assert res == 17
-        res = self.interp_operations(f, [15])
-        assert res == -1
 
     def test_int_add_ovf(self):
         def f(x, y):
@@ -3048,6 +3065,20 @@ class BasicTests:
         res = self.meta_interp(f, [32])
         assert res == f(32)
 
+    def test_int_signext(self):
+        def f(n):
+            return rffi.cast(rffi.SIGNEDCHAR, n)
+        def f1(n):
+            return rffi.cast(rffi.SIGNEDCHAR, n + 1)
+        res = self.interp_operations(f, [128])
+        assert res == -128
+        res = self.interp_operations(f1, [127])
+        assert res == -128
+        res = self.interp_operations(f, [-35 + 256 * 29])
+        assert res == -35
+        res = self.interp_operations(f, [127 - 256 * 29])
+        assert res == 127
+
 class BaseLLtypeTests(BasicTests):
 
     def test_identityhash(self):
@@ -4119,3 +4150,64 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         assert res == 42
         res = self.interp_operations(f, [-42])
         assert res == 0
+
+    def test_cmp_fastpaths(self):
+        class Z: pass
+        def make_int(cmp):
+            def f(x):
+                if cmp == 'eq':
+                    return x == x and x == x
+                if cmp == 'ne':
+                    return x != x or x != x
+                if cmp == 'lt':
+                    return x < x or x != x
+                if cmp == 'le':
+                    return x <= x and x <= x
+                if cmp == 'gt':
+                    return x > x or x > x
+                if cmp == 'ge':
+                    return x >= x and x >= x
+                assert 0
+            return f
+
+        def make_str(cmp):
+            def f(x):
+                x = str(x)
+                if cmp == 'eq':
+                    return x is x or x is x
+                if cmp == 'ne':
+                    return x is not x and x is not x
+                assert 0
+            return f
+
+        def make_object(cmp):
+            def f(x):
+                y = Z()
+                y.x = x
+                x = y
+                if cmp == 'eq':
+                    return x is x
+                if cmp == 'ne':
+                    return x is not x
+                assert 0
+            return f
+
+        for cmp in 'eq ne lt le gt ge'.split():
+            f = make_int(cmp)
+            res = self.interp_operations(f, [42])
+            assert res == f(42)
+            opname = "int_%s" % cmp
+            self.check_operations_history(**{opname: 0})
+
+        for cmp in 'eq ne'.split():
+            f = make_str(cmp)
+            res = self.interp_operations(f, [42])
+            assert res == f(42)
+            opname = "ptr_%s" % cmp
+            self.check_operations_history(**{opname: 0})
+
+            f = make_object(cmp)
+            res = self.interp_operations(f, [42])
+            assert res == f(42)
+            opname = "instance_ptr_%s" % cmp
+            self.check_operations_history(**{opname: 0})

@@ -10,6 +10,7 @@ from rpython.rtyper.module.ll_os import RegisterOs
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
+from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.module.sys.interp_encoding import getfilesystemencoding
 
 
@@ -720,6 +721,8 @@ def get_fork_hooks(where):
 def add_fork_hook(where, hook):
     "NOT_RPYTHON"
     get_fork_hooks(where).append(hook)
+
+add_fork_hook('child', ExecutionContext._mark_thread_disappeared)
 
 @specialize.arg(0)
 def run_fork_hooks(where, space):

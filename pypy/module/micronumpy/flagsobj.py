@@ -1,3 +1,5 @@
+from rpython.rlib import jit
+
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
@@ -13,6 +15,7 @@ def clear_flags(arr, flags):
     arr.flags &= ~flags
 
 
+@jit.unroll_safe
 def _update_contiguous_flags(arr):
     shape = arr.shape
     strides = arr.strides

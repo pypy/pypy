@@ -286,7 +286,6 @@ class W_Dtype(W_Root):
     def descr_hash(self, space):
         return space.wrap(self._compute_hash(space, 0x345678))
 
-
     def descr_str(self, space):
         if self.fields:
             return space.str(self.descr_get_descr(space))

@@ -482,6 +482,9 @@ LL_OPERATIONS = {
     'gc_writebarrier':      LLOp(canrun=True),
     'gc_writebarrier_before_copy': LLOp(canrun=True),
     'gc_heap_stats'       : LLOp(canmallocgc=True),
+    'gc_pin'              : LLOp(canrun=True),
+    'gc_unpin'            : LLOp(canrun=True),
+    'gc__is_pinned'        : LLOp(canrun=True),
 
     'gc_get_rpy_roots'    : LLOp(),
     'gc_get_rpy_referents': LLOp(),
@@ -543,9 +546,8 @@ LL_OPERATIONS = {
     'getslice':             LLOp(canraise=(Exception,)),
     'check_and_clear_exc':  LLOp(),
 
-    'threadlocalref_get':   LLOp(sideeffects=False),
-    'threadlocalref_getaddr': LLOp(sideeffects=False),
-    'threadlocalref_set':   LLOp(),
+    'threadlocalref_addr':  LLOp(sideeffects=False),  # get (or make) addr of tl
+    'threadlocalref_get':   LLOp(sideeffects=False),  # read field (no check)
 
     # __________ debugging __________
     'debug_view':           LLOp(),

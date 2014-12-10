@@ -326,13 +326,6 @@ class TestUnicode(BaseApiTest):
         self.raises(space, api, TypeError, api.PyUnicode_FromEncodedObject, space.wrap(u_text), null_charp, None)
         rffi.free_charp(b_text)
 
-    def test_leak(self):
-        size = 50
-        raw_buf, gc_buf = rffi.alloc_buffer(size)
-        for i in range(size): raw_buf[i] = 'a'
-        str = rffi.str_from_buffer(raw_buf, gc_buf, size, size)
-        rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
-
     def test_mbcs(self, space, api):
         if sys.platform != 'win32':
             py.test.skip("mcbs encoding only exists on Windows")

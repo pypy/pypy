@@ -298,12 +298,16 @@ def create_instantiate_function(annotator, classdef):
 
 # ____________________________________________________________
 
+class TooLateForNewSubclass(Exception):
+    pass
+
 class TotalOrderSymbolic(ComputedIntSymbolic):
 
     def __init__(self, orderwitness, peers):
         self.orderwitness = orderwitness
         self.peers = peers
         self.value = None
+        self._with_subclasses = None    # unknown
         peers.append(self)
 
     def __cmp__(self, other):
@@ -320,12 +324,34 @@ class TotalOrderSymbolic(ComputedIntSymbolic):
     def __rsub__(self, other):
         return other - self.compute_fn()
 
+    def check_any_subclass_in_peer_list(self, i):
+        # check if the next peer, in order, is or not the end
+        # marker for this start marker
+        assert self.peers[i] is self
+        return self.peers[i + 1].orderwitness != self.orderwitness + [MAX]
+
+    def number_with_subclasses(self):
+        # Return True or False depending on whether this is the
+        # subclassrange_min corresponding to a class which has subclasses
+        # or not.  If this is called and returns False, then adding later
+        # new subclasses will crash in compute_fn().
+        if self._with_subclasses is None:     # unknown so far
+            self.peers.sort()
+            i = self.peers.index(self)
+            self._with_subclasses = self.check_any_subclass_in_peer_list(i)
+        return self._with_subclasses
+
     def compute_fn(self):
         if self.value is None:
             self.peers.sort()
             for i, peer in enumerate(self.peers):
                 assert peer.value is None or peer.value == i
                 peer.value = i
+                #
+                if peer._with_subclasses is False:
+                    if peer.check_any_subclass_in_peer_list(i):
+                        raise TooLateForNewSubclass
+                #
             assert self.value is not None
         return self.value
 

@@ -59,7 +59,7 @@ class RegrTest:
     def __init__(self, basename, core=False, compiler=None, usemodules='',
                  skip=None):
         self.basename = basename
-        self._usemodules = usemodules.split() + ['signal', 'rctime', 'itertools', '_socket']
+        self._usemodules = usemodules.split() + ['signal', 'time', 'itertools', '_socket']
         self._compiler = compiler
         self.core = core
         self.skip = skip

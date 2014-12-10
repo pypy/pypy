@@ -1,4 +1,3 @@
-====================================
 Differences between PyPy and CPython
 ====================================
 
@@ -11,29 +10,31 @@ Differences that are not listed here should be considered bugs of
 PyPy.
 
 
+.. _extension-modules:
+
 Extension modules
 -----------------
 
 List of extension modules that we support:
 
-* Supported as built-in modules (in `pypy/module/`_):
+* Supported as built-in modules (in :source:`pypy/module/`):
 
     __builtin__
-    `__pypy__`_
+    :doc:`__pypy__ <__pypy__-module>`
     _ast
     _codecs
     _collections
-    `_continuation`_
-    `_ffi`_
+    :doc:`_continuation <stackless>`
+    :doc:`_ffi <discussion/ctypes-implementation>`
     _hashlib
     _io
     _locale
     _lsprof
     _md5
-    `_minimal_curses`_
+    :doc:`_minimal_curses <config/objspace.usemodules._minimal_curses>`
     _multiprocessing
     _random
-    `_rawffi`_
+    :doc:`_rawffi <discussion/ctypes-implementation>`
     _sha
     _socket
     _sre
@@ -80,23 +81,17 @@ List of extension modules that we support:
     _winreg
 
 * Supported by being rewritten in pure Python (possibly using ``cffi``):
-  see the `lib_pypy/`_ directory.  Examples of modules that we
+  see the :source:`lib_pypy/` directory.  Examples of modules that we
   support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
   Note that some modules are both in there and in the list above;
   by default, the built-in module is used (but can be disabled
   at translation time).
 
 The extension modules (i.e. modules written in C, in the standard CPython)
-that are neither mentioned above nor in `lib_pypy/`_ are not available in PyPy.
+that are neither mentioned above nor in :source:`lib_pypy/` are not available in PyPy.
 (You may have a chance to use them anyway with `cpyext`_.)
 
-.. the nonstandard modules are listed below...
-.. _`__pypy__`: __pypy__-module.html
-.. _`_continuation`: stackless.html
-.. _`_ffi`: ctypes-implementation.html
-.. _`_rawffi`: ctypes-implementation.html
-.. _`_minimal_curses`: config/objspace.usemodules._minimal_curses.html
-.. _`cpyext`: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
+.. _cpyext: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
 
 
 Differences related to garbage collection strategies
@@ -210,23 +205,29 @@ method.
 The above is true both in CPython and in PyPy.  Differences
 can occur about whether a built-in function or method will
 call an overridden method of *another* object than ``self``.
-In PyPy, they are generally always called, whereas not in
-CPython.  For example, in PyPy, ``dict1.update(dict2)``
-considers that ``dict2`` is just a general mapping object, and
-will thus call overridden ``keys()``  and ``__getitem__()``
-methods on it.  So the following code prints ``42`` on PyPy
-but ``foo`` on CPython::
+In PyPy, they are often called in cases where CPython would not.
+Two examples::
 
-    >>>> class D(dict):
-    ....     def __getitem__(self, key):
-    ....         return 42
-    ....
-    >>>>
-    >>>> d1 = {}
-    >>>> d2 = D(a='foo')
-    >>>> d1.update(d2)
-    >>>> print d1['a']
-    42
+    class D(dict):
+        def __getitem__(self, key):
+            return "%r from D" % (key,)
+
+    class A(object):
+        pass
+
+    a = A()
+    a.__dict__ = D()
+    a.foo = "a's own foo"
+    print a.foo
+    # CPython => a's own foo
+    # PyPy => 'foo' from D
+
+    glob = D(foo="base item")
+    loc = {}
+    exec "print foo" in glob, loc
+    # CPython => base item
+    # PyPy => 'foo' from D
+
 
 Mutating classes of objects which are already used as dictionary keys
 ---------------------------------------------------------------------
@@ -275,6 +276,7 @@ Unless this behavior is clearly present by design and
 documented as such (as e.g. for hasattr()), in most cases PyPy
 lets the exception propagate instead.
 
+
 Object Identity of Primitive Values, ``is`` and ``id``
 -------------------------------------------------------
 
@@ -294,6 +296,9 @@ This change requires some changes to ``id`` as well. ``id`` fulfills the
 following condition: ``x is y <=> id(x) == id(y)``. Therefore ``id`` of the
 above types will return a value that is computed from the argument, and can
 thus be larger than ``sys.maxint`` (i.e. it can be an arbitrary long).
+
+Notably missing from the list above are ``str`` and ``unicode``.  If your
+code relies on comparing strings with ``is``, then it might break in PyPy.
 
 
 Miscellaneous
@@ -349,5 +354,3 @@ Miscellaneous
   interactive mode. In a released version, this behaviour is supressed, but
   setting the environment variable PYPY_IRC_TOPIC will bring it back. Note that
   downstream package providers have been known to totally disable this feature.
-
-.. include:: _ref.txt

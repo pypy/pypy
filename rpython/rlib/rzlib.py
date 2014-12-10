@@ -177,27 +177,22 @@ def crc32(string, start=CRC32_DEFAULT_START):
     Compute the CRC32 checksum of the string, possibly with the given
     start value, and return it as a unsigned 32 bit integer.
     """
-    bytes = rffi.get_nonmovingbuffer(string)
-    try:
+    with rffi.scoped_nonmovingbuffer(string) as bytes:
         checksum = _crc32(start, rffi.cast(Bytefp, bytes), len(string))
-    finally:
-        rffi.free_nonmovingbuffer(string, bytes)
     return checksum
 
 
 ADLER32_DEFAULT_START = 1
 
 def deflateSetDictionary(stream, string):
-    bytes = rffi.get_nonmovingbuffer(string)
-    err = _deflateSetDictionary(stream, rffi.cast(Bytefp, bytes), len(string))
-    rffi.free_nonmovingbuffer(string, bytes)
+    with rffi.scoped_nonmovingbuffer(string) as buf:
+        err = _deflateSetDictionary(stream, rffi.cast(Bytefp, buf), len(string))
     if err == Z_STREAM_ERROR:
         raise RZlibError("Parameter is invalid or the stream state is inconsistent")
 
 def inflateSetDictionary(stream, string):
-    bytes = rffi.get_nonmovingbuffer(string)
-    err = _inflateSetDictionary(stream, rffi.cast(Bytefp, bytes), len(string))
-    rffi.free_nonmovingbuffer(string, bytes)
+    with rffi.scoped_nonmovingbuffer(string) as buf:
+        err = _inflateSetDictionary(stream, rffi.cast(Bytefp, buf), len(string))
     if err == Z_STREAM_ERROR:
         raise RZlibError("Parameter is invalid or the stream state is inconsistent")
     elif err == Z_DATA_ERROR:
@@ -209,11 +204,8 @@ def adler32(string, start=ADLER32_DEFAULT_START):
     Compute the Adler-32 checksum of the string, possibly with the given
     start value, and return it as a unsigned 32 bit integer.
     """
-    bytes = rffi.get_nonmovingbuffer(string)
-    try:
+    with rffi.scoped_nonmovingbuffer(string) as bytes:
         checksum = _adler32(start, rffi.cast(Bytefp, bytes), len(string))
-    finally:
-        rffi.free_nonmovingbuffer(string, bytes)
     return checksum
 
 # ____________________________________________________________
@@ -372,6 +364,8 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
     """
     # Prepare the input buffer for the stream
     with lltype.scoped_alloc(rffi.CCHARP.TO, len(data)) as inbuf:
+        # XXX (groggi) should be possible to improve this with pinning by
+        # not performing the 'copy_string_to_raw' if non-movable/pinned
         copy_string_to_raw(llstr(data), inbuf, 0, len(data))
         stream.c_next_in = rffi.cast(Bytefp, inbuf)
         rffi.setintfield(stream, 'c_avail_in', len(data))

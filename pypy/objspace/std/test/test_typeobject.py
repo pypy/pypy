@@ -1,17 +1,16 @@
-from pypy.objspace.std.model import W_Object
-from pypy.objspace.std.stdtypedef import StdTypeDef
-
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.typedef import TypeDef
 
 
 class TestTypeObject:
     def test_not_acceptable_as_base_class(self):
         space = self.space
-        class W_Stuff(W_Object):
+        class W_Stuff(W_Root):
             pass
         def descr__new__(space, w_subtype):
             return space.allocate_instance(W_Stuff, w_subtype)
-        W_Stuff.typedef = StdTypeDef("stuff",
+        W_Stuff.typedef = TypeDef("stuff",
                                      __new__ = interp2app(descr__new__))
         W_Stuff.typedef.acceptable_as_base_class = False
         w_stufftype = space.gettypeobject(W_Stuff.typedef)

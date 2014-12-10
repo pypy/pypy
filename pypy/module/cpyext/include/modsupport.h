@@ -78,11 +78,20 @@ PyAPI_FUNC(int) PyArg_UnpackTuple(PyObject *args, const char *name, Py_ssize_t m
 /*
  * This is from pyport.h.  Perhaps it belongs elsewhere.
  */
+#ifdef _WIN32
+/* explicitly export since PyAPI_FUNC is usually dllimport */
+#ifdef __cplusplus
+#define PyMODINIT_FUNC extern "C" __declspec(dllexport) void
+#else
+#define PyMODINIT_FUNC __declspec(dllexport) void
+#endif
+#else
 #ifdef __cplusplus
 #define PyMODINIT_FUNC extern "C" PyAPI_FUNC(void)
 #else
 #define PyMODINIT_FUNC PyAPI_FUNC(void)
 #endif
+#endif /* WIN32 */
 
 PyAPI_DATA(char *) _Py_PackageContext;
 

@@ -182,8 +182,8 @@ class LowLevelType(object):
     def _freeze_(self):
         return True
 
-    def _inline_is_varsize(self, last):
-        return False
+    def _note_inlined_into(self, parent, first, last):
+        """Called when this type is being used inline in a container."""
 
     def _is_atomic(self):
         return False
@@ -201,8 +201,9 @@ NFOUND = object()
 class ContainerType(LowLevelType):
     _adtmeths = {}
 
-    def _inline_is_varsize(self, last):
-        raise TypeError("%r cannot be inlined in structure" % self)
+    def _note_inlined_into(self, parent, first, last):
+        raise TypeError("%r cannot be inlined in %r" % (
+            self.__class__.__name__, parent.__class__.__name__))
 
     def _install_extras(self, adtmeths={}, hints={}):
         self._adtmeths = frozendict(adtmeths)
@@ -279,11 +280,13 @@ class Struct(ContainerType):
 
         # look if we have an inlined variable-sized array as the last field
         if fields:
+            first = True
             for name, typ in fields[:-1]:
-                typ._inline_is_varsize(False)
+                typ._note_inlined_into(self, first=first, last=False)
                 first = False
             name, typ = fields[-1]
-            if typ._inline_is_varsize(True):
+            typ._note_inlined_into(self, first=first, last=True)
+            if typ._is_varsize():
                 self._arrayfld = name
         self._flds = frozendict(flds)
         self._names = tuple(names)
@@ -299,11 +302,14 @@ class Struct(ContainerType):
                 return first, FIRSTTYPE
         return None, None
 
-    def _inline_is_varsize(self, last):
-        if self._arrayfld:
+    def _note_inlined_into(self, parent, first, last):
+        if self._arrayfld is not None:
             raise TypeError("cannot inline a var-sized struct "
                             "inside another container")
-        return False
+        if self._gckind == 'gc':
+            if not first or not isinstance(parent, GcStruct):
+                raise TypeError("a GcStruct can only be inlined as the first "
+                                "field of another GcStruct")
 
     def _is_atomic(self):
         for typ in self._flds.values():
@@ -383,8 +389,7 @@ class RttiStruct(Struct):
                                                 about=self)._obj
         Struct._install_extras(self, **kwds)
 
-    def _attach_runtime_type_info_funcptr(self, funcptr, destrptr,
-                                          customtraceptr):
+    def _attach_runtime_type_info_funcptr(self, funcptr, destrptr):
         if self._runtime_type_info is None:
             raise TypeError("attachRuntimeTypeInfo: %r must have been built "
                             "with the rtti=True argument" % (self,))
@@ -408,18 +413,6 @@ class RttiStruct(Struct):
                 raise TypeError("expected a destructor function "
                                 "implementation, got: %s" % destrptr)
             self._runtime_type_info.destructor_funcptr = destrptr
-        if customtraceptr is not None:
-            from rpython.rtyper.lltypesystem import llmemory
-            T = typeOf(customtraceptr)
-            if (not isinstance(T, Ptr) or
-                not isinstance(T.TO, FuncType) or
-                len(T.TO.ARGS) != 2 or
-                T.TO.RESULT != llmemory.Address or
-                T.TO.ARGS[0] != llmemory.Address or
-                T.TO.ARGS[1] != llmemory.Address):
-                raise TypeError("expected a custom trace function "
-                                "implementation, got: %s" % customtraceptr)
-            self._runtime_type_info.custom_trace_funcptr = customtraceptr
 
 class GcStruct(RttiStruct):
     _gckind = 'gc'
@@ -441,15 +434,18 @@ class Array(ContainerType):
         if isinstance(self.OF, ContainerType) and self.OF._gckind != 'raw':
             raise TypeError("cannot have a %s container as array item type"
                             % (self.OF._gckind,))
-        self.OF._inline_is_varsize(False)
+        self.OF._note_inlined_into(self, first=False, last=False)
 
         self._install_extras(**kwds)
 
-    def _inline_is_varsize(self, last):
-        if not last:
+    def _note_inlined_into(self, parent, first, last):
+        if not last or not isinstance(parent, Struct):
             raise TypeError("cannot inline an array in another container"
                             " unless as the last field of a structure")
-        return True
+        if self._gckind == 'gc':
+            raise TypeError("cannot inline a GC array inside a structure")
+        if parent._gckind == 'gc' and self._hints.get('nolength', False):
+            raise TypeError("cannot inline a no-length array inside a GcStruct")
 
     def _is_atomic(self):
         return self.OF._is_atomic()
@@ -487,9 +483,6 @@ class Array(ContainerType):
 
 class GcArray(Array):
     _gckind = 'gc'
-    def _inline_is_varsize(self, last):
-        raise TypeError("cannot inline a GC array inside a structure")
-
 
 class FixedSizeArray(Struct):
     # behaves more or less like a Struct with fields item0, item1, ...
@@ -521,7 +514,7 @@ class FixedSizeArray(Struct):
         if isinstance(self.OF, ContainerType) and self.OF._gckind != 'raw':
             raise TypeError("cannot have a %s container as array item type"
                             % (self.OF._gckind,))
-        self.OF._inline_is_varsize(False)
+        self.OF._note_inlined_into(self, first=False, last=False)
 
     def _str_fields(self):
         return str(self.OF)
@@ -592,8 +585,11 @@ class OpaqueType(ContainerType):
     def __str__(self):
         return "%s (opaque)" % self.tag
 
-    def _inline_is_varsize(self, last):
-        return False    # OpaqueType can be inlined
+    def _note_inlined_into(self, parent, first, last):
+        # OpaqueType can be inlined, but not GcOpaqueType
+        if self._gckind == 'gc':
+            raise TypeError("%r cannot be inlined in %r" % (
+                self.__class__.__name__, parent.__class__.__name__))
 
     def _container_example(self):
         return _opaque(self)
@@ -611,10 +607,6 @@ class GcOpaqueType(OpaqueType):
 
     def __str__(self):
         return "%s (gcopaque)" % self.tag
-
-    def _inline_is_varsize(self, last):
-        raise TypeError("%r cannot be inlined in structure" % self)
-
 
 class ForwardReference(ContainerType):
     _gckind = 'raw'
@@ -1726,7 +1718,7 @@ def _struct_variety(flds, cache={}):
         return cache[tag]
     except KeyError:
         class _struct1(_struct):
-            __slots__ = flds
+            __slots__ = tag + ('__arena_location__',)
         cache[tag] = _struct1
         return _struct1
 
@@ -1816,7 +1808,7 @@ class _struct(_parentable):
 class _array(_parentable):
     _kind = "array"
 
-    __slots__ = ('items',)
+    __slots__ = ('items', '__arena_location__',)
 
     def __init__(self, TYPE, n, initialization=None, parent=None,
                  parentindex=None):
@@ -2288,12 +2280,10 @@ def ann_cast_int_to_ptr(PtrT, s_int):
     return SomePtr(ll_ptrtype=PtrT.const)
 
 
-def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None,
-                          customtraceptr=None):
+def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None):
     if not isinstance(GCSTRUCT, RttiStruct):
         raise TypeError("expected a RttiStruct: %s" % GCSTRUCT)
-    GCSTRUCT._attach_runtime_type_info_funcptr(funcptr, destrptr,
-                                               customtraceptr)
+    GCSTRUCT._attach_runtime_type_info_funcptr(funcptr, destrptr)
     return _ptr(Ptr(RuntimeTypeInfo), GCSTRUCT._runtime_type_info)
 
 def getRuntimeTypeInfo(GCSTRUCT):

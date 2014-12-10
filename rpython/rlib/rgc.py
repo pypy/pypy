@@ -18,6 +18,92 @@ def set_max_heap_size(nbytes):
     """
     pass
 
+# for test purposes we allow objects to be pinned and use
+# the following list to keep track of the pinned objects
+_pinned_objects = []
+
+def pin(obj):
+    """If 'obj' can move, then attempt to temporarily fix it.  This
+    function returns True if and only if 'obj' could be pinned; this is
+    a special state in the GC.  Note that can_move(obj) still returns
+    True even on pinned objects, because once unpinned it will indeed be
+    able to move again.  In other words, the code that succeeded in
+    pinning 'obj' can assume that it won't move until the corresponding
+    call to unpin(obj), despite can_move(obj) still being True.  (This
+    is important if multiple threads try to os.write() the same string:
+    only one of them will succeed in pinning the string.)
+
+    It is expected that the time between pinning and unpinning an object
+    is short. Therefore the expected use case is a single function
+    invoking pin(obj) and unpin(obj) only a few lines of code apart.
+
+    Note that this can return False for any reason, e.g. if the 'obj' is
+    already non-movable or already pinned, if the GC doesn't support
+    pinning, or if there are too many pinned objects.
+
+    Note further that pinning an object does not prevent it from being
+    collected if it is not used anymore.
+    """
+    _pinned_objects.append(obj)
+    return True
+        
+
+class PinEntry(ExtRegistryEntry):
+    _about_ = pin
+
+    def compute_result_annotation(self, s_obj):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeBool()
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc_pin', hop.args_v, resulttype=hop.r_result)
+
+def unpin(obj):
+    """Unpin 'obj', allowing it to move again.
+    Must only be called after a call to pin(obj) returned True.
+    """
+    for i in range(len(_pinned_objects)):
+        try:
+            if _pinned_objects[i] == obj:
+                del _pinned_objects[i]
+                return
+        except TypeError:
+            pass
+
+
+class UnpinEntry(ExtRegistryEntry):
+    _about_ = unpin
+
+    def compute_result_annotation(self, s_obj):
+        pass
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        hop.genop('gc_unpin', hop.args_v)
+
+def _is_pinned(obj):
+    """Method to check if 'obj' is pinned."""
+    for i in range(len(_pinned_objects)):
+        try:
+            if _pinned_objects[i] == obj:
+                return True
+        except TypeError:
+            pass
+    return False
+
+
+class IsPinnedEntry(ExtRegistryEntry):
+    _about_ = _is_pinned
+
+    def compute_result_annotation(self, s_obj):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeBool()
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc__is_pinned', hop.args_v, resulttype=hop.r_result)
+
 # ____________________________________________________________
 # Annotation and specialization
 
@@ -77,14 +163,22 @@ def _make_sure_does_not_move(p):
     Warning: should ideally only be used with the minimark GC, and only
     on objects that are already a bit old, so have a chance to be
     already non-movable."""
+    assert p
     if not we_are_translated():
-        return
+        # for testing purpose
+        return not _is_pinned(p)
+    #
+    if _is_pinned(p):
+        # although a pinned object can't move we must return 'False'.  A pinned
+        # object can be unpinned any time and becomes movable.
+        return False
     i = 0
     while can_move(p):
         if i > 6:
             raise NotImplementedError("can't make object non-movable!")
         collect(i)
         i += 1
+    return True
 
 def needs_write_barrier(obj):
     """ We need to emit write barrier if the right hand of assignment
@@ -549,3 +643,22 @@ class Entry(ExtRegistryEntry):
 
 def lltype_is_gc(TP):
     return getattr(getattr(TP, "TO", None), "_gckind", "?") == 'gc'
+
+def register_custom_trace_hook(TP, lambda_func):
+    """ This function does not do anything, but called from any annotated
+    place, will tell that "func" is used to trace GC roots inside any instance
+    of the type TP.  The func must be specified as "lambda: func" in this
+    call, for internal reasons.
+    """
+
+class RegisterGcTraceEntry(ExtRegistryEntry):
+    _about_ = register_custom_trace_hook
+
+    def compute_result_annotation(self, *args_s):
+        pass
+
+    def specialize_call(self, hop):
+        TP = hop.args_s[0].const
+        lambda_func = hop.args_s[1].const
+        hop.exception_cannot_occur()
+        hop.rtyper.custom_trace_funcs.append((TP, lambda_func()))

@@ -1,8 +1,9 @@
-from pypy.objspace.std.dictmultiobject import DictStrategy, create_iterator_classes
-from pypy.objspace.std.typeobject import unwrap_cell
-from pypy.interpreter.error import OperationError, oefmt
-
 from rpython.rlib import rerased
+
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.objspace.std.dictmultiobject import (
+    DictStrategy, create_iterator_classes)
+from pypy.objspace.std.typeobject import unwrap_cell
 
 
 class DictProxyStrategy(DictStrategy):
