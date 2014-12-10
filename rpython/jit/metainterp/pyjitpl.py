@@ -964,9 +964,40 @@ class MIFrame(object):
         assembler_call = False
         if warmrunnerstate.inlining:
             if warmrunnerstate.can_inline_callable(greenboxes):
+                # We've found a potentially inlinable function; now we need to
+                # see if it's already on the stack. In other words: are we about
+                # to enter recursion? If so, we don't want to inline the
+                # recursion, which would be equivalent to unrolling a while
+                # loop.
                 portal_code = targetjitdriver_sd.mainjitcode
-                return self.metainterp.perform_call(portal_code, allboxes,
-                                                    greenkey=greenboxes)
+                count = 0
+                for f in self.metainterp.framestack:
+                    if f.jitcode is not portal_code:
+                        continue
+                    gk = f.greenkey
+                    if gk is None:
+                        continue
+                    assert len(gk) == len(greenboxes)
+                    i = 0
+                    for i in range(len(gk)):
+                        if not gk[i].same_constant(greenboxes[i]):
+                            break
+                    else:
+                        count += 1
+                memmgr = self.metainterp.staticdata.warmrunnerdesc.memory_manager
+                if count >= memmgr.max_unroll_recursion:
+                    # This function is recursive and has exceeded the
+                    # maximum number of unrollings we allow. We want to stop
+                    # inlining it further and to make sure that, if it
+                    # hasn't happened already, the function is traced
+                    # separately as soon as possible.
+                    if have_debug_prints():
+                        loc = targetjitdriver_sd.warmstate.get_location_str(greenboxes)
+                        debug_print("recursive function (not inlined):", loc)
+                    warmrunnerstate.dont_trace_here(greenboxes)
+                else:
+                    return self.metainterp.perform_call(portal_code, allboxes,
+                                greenkey=greenboxes)
             assembler_call = True
             # verify that we have all green args, needed to make sure
             # that assembler that we call is still correct
