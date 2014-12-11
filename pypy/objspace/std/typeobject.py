@@ -17,13 +17,9 @@ class TypeCell(W_Root):
         self.w_value = w_value
 
 
-def needs_to_unwrap_cell(space, w_value):
-    return (space.config.objspace.std.withtypeversion and
-            isinstance(w_value, TypeCell))
-
-
 def unwrap_cell(space, w_value):
-    if needs_to_unwrap_cell(space, w_value):
+    if (space.config.objspace.std.withtypeversion and
+            isinstance(w_value, TypeCell)):
         return w_value.w_value
     return w_value
 
@@ -372,7 +368,8 @@ class W_TypeObject(W_Root):
         name = promote_string(name)
         tup_w = w_self._pure_lookup_where_with_method_cache(name, version_tag)
         w_class, w_value = tup_w
-        if needs_to_unwrap_cell(space, w_value):
+        if (space.config.objspace.std.withtypeversion and
+                isinstance(w_value, TypeCell)):
             return w_class, w_value.w_value
         return tup_w   # don't make a new tuple, reuse the old one
 
