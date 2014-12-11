@@ -702,7 +702,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # pinned object after the next pinned one and the one after the
                 # next or the end of the nursery. Graphically explained:
                 # 
-                #     |- allocating totalsize failed in this are
+                #     |- allocating totalsize failed in this area
                 #     v          v- next pinned object, jump over
                 # +---------+--------+--------+--------+-----------+
                 # | unknown | pinned | empty  | pinned |  empty    | <- nursery
