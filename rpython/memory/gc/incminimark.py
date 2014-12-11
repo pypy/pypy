@@ -52,6 +52,9 @@ Environment variables can be used to fine-tune the following parameters:
 # XXX total addressable size.  Maybe by keeping some minimarkpage arenas
 # XXX pre-reserved, enough for a few nursery collections?  What about
 # XXX raw-malloced memory?
+
+# XXX try merging old_objects_pointing_to_pinned into
+# XXX old_objects_pointing_to_young (IRC 2014-10-22, fijal and gregor_w)
 import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
