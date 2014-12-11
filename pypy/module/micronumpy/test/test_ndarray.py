@@ -1807,6 +1807,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         x = array([], dtype=[('a', 'int8'), ('b', 'int8')])
         y = x.view(dtype='int16')
 
+    def test_view_of_slice(self):
+        from numpy import empty
+        x = empty([6], 'uint32')
+        x.fill(0xdeadbeef)
+        s = x[::3]
+        exc = raises(ValueError, s.view, 'uint8')
+        assert exc.value[0] == 'new type not compatible with array.'
+        s[...] = 2
+        v = s.view(x.__class__)
+        assert (v == 2).all()
+    
     def test_tolist_scalar(self):
         from numpy import dtype
         int32 = dtype('int32').type

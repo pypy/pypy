@@ -19,7 +19,7 @@ from pypy.module.micronumpy.converters import multi_axis_converter, \
     order_converter, shape_converter, searchside_converter
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
 from pypy.module.micronumpy.strides import get_shape_from_iterable, \
-    shape_agreement, shape_agreement_multiple
+    shape_agreement, shape_agreement_multiple, is_c_contiguous, is_f_contiguous
 
 
 def _match_dot_shapes(space, left, right):
@@ -837,7 +837,15 @@ class __extend__(W_NDimArray):
                 raise OperationError(space.w_ValueError, space.wrap(
                     "new type not compatible with array."))
         else:
-            if dims == 1 or impl.get_strides()[0] < impl.get_strides()[-1]:
+            if not is_c_contiguous(impl) and not is_f_contiguous(impl):
+                if old_itemsize != new_itemsize:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "new type not compatible with array."))
+                # Strides, shape does not change
+                v = impl.astype(space, dtype)
+                return wrap_impl(space, w_type, self, v) 
+            strides = impl.get_strides()
+            if dims == 1 or strides[0] <strides[-1]:
                 # Column-major, resize first dimension
                 if new_shape[0] * old_itemsize % new_itemsize != 0:
                     raise OperationError(space.w_ValueError, space.wrap(
