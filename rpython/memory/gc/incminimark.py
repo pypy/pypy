@@ -682,7 +682,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def collect_and_reserve(self, totalsize):
         """To call when nursery_free overflows nursery_top.
         First check if the nursery_top is the real top, otherwise we
-        can just move the top of one cleanup and continue
+        can just move the top of one cleanup and continue.
 
         Do a minor collection, and possibly also a major collection,
         and finally reserve 'totalsize' bytes at the start of the
@@ -694,10 +694,22 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.nursery_free = llmemory.NULL      # debug: don't use me
 
             if self.nursery_barriers.non_empty():
+                # Pinned object in front of nursery_top. Try by jumping into the
+                # next area inside the nursery. 'Next area' is in this case the
+                # pinned object after the next pinned one and the one after the
+                # next or the end of the nursery. Graphically explained:
+                # 
+                #     |- allocating totalsize failed in this are
+                #     v          v- next pinned object, jump over
+                # +---------+--------+--------+--------+-----------+
+                # | unknown | pinned | empty  | pinned |  empty    | <- nursery
+                # +---------+--------+--------+--------+-----------+
+                #                      ^- try allocating totalsize in here next
+                #
                 size_gc_header = self.gcheaderbuilder.size_gc_header
                 pinned_obj_size = size_gc_header + self.get_size(
                         self.nursery_top + size_gc_header)
-
+                #
                 self.nursery_free = self.nursery_top + pinned_obj_size
                 self.nursery_top = self.nursery_barriers.popleft()
             else:
@@ -725,6 +737,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                             "Seeing minor_collection() at least twice."
                             "Too many pinned objects?")
             #
+            # GC tried to do something about nursery_free overflowing
+            # nursery_top before this point. Try to allocate totalsize now.
             result = self.nursery_free
             if self.nursery_free + totalsize <= self.nursery_top:
                 self.nursery_free = result + totalsize
