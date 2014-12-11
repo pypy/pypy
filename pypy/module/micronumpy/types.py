@@ -311,26 +311,26 @@ class Bool(BaseType, Primitive):
     BoxType = boxes.W_BoolBox
     format_code = "?"
 
-    True = BoxType(True)
-    False = BoxType(False)
+    _True = BoxType(True)
+    _False = BoxType(False)
 
     @specialize.argtype(1)
     def box(self, value):
         box = Primitive.box(self, value)
         if box.value:
-            return self.True
+            return self._True
         else:
-            return self.False
+            return self._False
 
     @specialize.argtype(1, 2)
     def box_complex(self, real, imag):
         box = Primitive.box(self, real)
         if box.value:
-            return self.True
+            return self._True
         box = Primitive.box(self, imag)
         if box.value:
-            return self.True
-        return self.False
+            return self._True
+        return self._False
 
     def coerce_subtype(self, space, w_subtype, w_item):
         # Doesn't return subclasses so it can return the constants.
@@ -1869,7 +1869,7 @@ class RecordType(FlexibleType):
                 items_w = space.fixedview(w_item.get_scalar_value())
             else:
                 # XXX support initializing from readable buffers
-                items_w = [w_item]
+                items_w = [w_item] * len(dtype.fields)
         else:
             items_w = [None] * len(dtype.fields)
         arr = VoidBoxStorage(dtype.elsize, dtype)

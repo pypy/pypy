@@ -2923,11 +2923,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = empty(10, dtype=[(_, int) for _ in 'abcde'])
         a.fill(123)
         for i in a:
-            import sys
-            if '__pypy__' in sys.builtin_module_names:
-                assert tuple(i) == (123,) + (0,) * 4
-            else:
-                assert tuple(i) == (123,) * 5
+            assert tuple(i) == (123,) * 5
 
         a = zeros(3, dtype=dtype(complex).newbyteorder())
         a.fill(1.5+2.5j)
@@ -3857,7 +3853,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a = np.array([b, b, b], dtype=dt)
         assert a.shape == (3, 2)
         for i in a.flat:
-            assert tuple(i) == (True, False)
+            assert tuple(i) == (True, True)
 
         dt = np.dtype([('A', '<i8'), ('B', '<f8'), ('C', '<c16')])
         b = np.array((999999, 1e+20, 1e+20+0j), dtype=dt)
