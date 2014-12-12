@@ -146,7 +146,7 @@ def compile_loop(metainterp, greenkey, start,
     loop.quasi_immutable_deps = {}
     if part.quasi_immutable_deps:
         loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
-    while part.operations[-1].getopnum() == rop.LABEL:
+    if part.operations[-1].getopnum() == rop.LABEL:
         inliner = Inliner(inputargs, jumpargs)
         part.quasi_immutable_deps = None
         part.operations = [part.operations[-1]] + \
@@ -167,6 +167,7 @@ def compile_loop(metainterp, greenkey, start,
         loop.operations = loop.operations[:-1] + part.operations
         if part.quasi_immutable_deps:
             loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
+    assert part.operations[-1].getopnum() != rop.LABEL
 
     if not loop.quasi_immutable_deps:
         loop.quasi_immutable_deps = None
