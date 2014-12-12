@@ -1007,14 +1007,11 @@ class InstanceRepr(Repr):
         v_obj, v_cls = hop.inputargs(instance_repr, class_repr)
         if isinstance(v_cls, Constant):
             cls = v_cls.value
-            # XXX re-implement the following optimization
-            #if cls.subclassrange_max == cls.subclassrange_min:
-            #    # a class with no subclass
-            #    return hop.gendirectcall(rclass.ll_isinstance_exact, v_obj, v_cls)
-            #else:
-            minid = hop.inputconst(Signed, cls.subclassrange_min)
-            maxid = hop.inputconst(Signed, cls.subclassrange_max)
-            return hop.gendirectcall(ll_isinstance_const, v_obj, minid, maxid)
+            llf, llf_nonnull = make_ll_isinstance(self.rtyper, cls)
+            if hop.args_s[0].can_be_None:
+                return hop.gendirectcall(llf, v_obj)
+            else:
+                return hop.gendirectcall(llf_nonnull, v_obj)
         else:
             return hop.gendirectcall(ll_isinstance, v_obj, v_cls)
 
@@ -1128,16 +1125,26 @@ def ll_isinstance(obj, cls):  # obj should be cast to OBJECT or NONGCOBJECT
     obj_cls = obj.typeptr
     return ll_issubclass(obj_cls, cls)
 
-def ll_isinstance_const(obj, minid, maxid):
-    if not obj:
-        return False
-    return ll_issubclass_const(obj.typeptr, minid, maxid)
-
-def ll_isinstance_exact(obj, cls):
-    if not obj:
-        return False
-    obj_cls = obj.typeptr
-    return obj_cls == cls
+def make_ll_isinstance(rtyper, cls):
+    try:
+        return rtyper.isinstance_helpers[cls._obj]
+    except KeyError:
+        minid = cls.subclassrange_min
+        maxid = cls.subclassrange_max
+        if minid.number_with_subclasses():
+            def ll_isinstance_const_nonnull(obj):
+                objid = obj.typeptr.subclassrange_min
+                return llop.int_between(Bool, minid, objid, maxid)
+        else:
+            def ll_isinstance_const_nonnull(obj):
+                return obj.typeptr == cls
+        def ll_isinstance_const(obj):
+            if not obj:
+                return False
+            return ll_isinstance_const_nonnull(obj)
+        result = (ll_isinstance_const, ll_isinstance_const_nonnull)
+        rtyper.isinstance_helpers[cls._obj] = result
+        return result
 
 def ll_runtime_type_info(obj):
     return obj.typeptr.rtti

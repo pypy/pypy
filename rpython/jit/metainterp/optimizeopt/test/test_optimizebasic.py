@@ -5501,6 +5501,41 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_signext_already_in_bounds(self):
+        ops = """
+        [i0]
+        i1 = int_signext(i0, 1)
+        i2 = int_signext(i1, 2)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_signext(i0, 1)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+        #
+        ops = """
+        [i0]
+        i1 = int_signext(i0, 1)
+        i2 = int_signext(i1, 1)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_signext(i0, 1)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+        #
+        ops = """
+        [i0]
+        i1 = int_signext(i0, 2)
+        i2 = int_signext(i1, 1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

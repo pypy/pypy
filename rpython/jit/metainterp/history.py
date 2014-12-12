@@ -640,7 +640,6 @@ class TargetToken(AbstractDescr):
         self.original_jitcell_token = None
 
         self.virtual_state = None
-        self.exported_state = None
         self.short_preamble = None
 
     def repr_of_descr(self):

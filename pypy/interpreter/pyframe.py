@@ -125,13 +125,14 @@ class PyFrame(W_Root):
         else:
             return self.space.builtin
 
+    _NO_CELLS = []
+
     @jit.unroll_safe
     def initialize_frame_scopes(self, outer_func, code):
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
         # CO_NEWLOCALS: make a locals dict unless optimized is also set
         # CO_OPTIMIZED: no locals dict needed at all
-        # NB: this method is overridden in nestedscope.py
         flags = code.co_flags
         if not (flags & pycode.CO_OPTIMIZED):
             if flags & pycode.CO_NEWLOCALS:
@@ -144,7 +145,7 @@ class PyFrame(W_Root):
         nfreevars = len(code.co_freevars)
         if not nfreevars:
             if not ncellvars:
-                self.cells = []
+                self.cells = self._NO_CELLS
                 return            # no self.cells needed - fast path
         elif outer_func is None:
             space = self.space

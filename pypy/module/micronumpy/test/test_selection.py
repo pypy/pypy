@@ -2,7 +2,7 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestSorting(BaseNumpyAppTest):
     def test_argsort_dtypes(self):
-        from numpypy import array, arange
+        from numpy import array, arange
         assert array(2.0).argsort() == 0
         nnp = self.non_native_prefix
         for dtype in ['int', 'float', 'int16', 'float32', 'uint64',
@@ -22,7 +22,7 @@ class AppTestSorting(BaseNumpyAppTest):
             raises(NotImplementedError, 'arange(10,dtype="float16").argsort()')
 
     def test_argsort_ndim(self):
-        from numpypy import array
+        from numpy import array
         a = array([[4, 2], [1, 3]])
         assert (a.argsort() == [[1, 0], [0, 1]]).all()
         a = array(range(10) + range(10) + range(10))
@@ -37,14 +37,14 @@ class AppTestSorting(BaseNumpyAppTest):
         assert b.size == 0
 
     def test_argsort_random(self):
-        from numpypy import array
+        from numpy import array
         from _random import Random
         rnd = Random(1)
         a = array([rnd.random() for i in range(512*2)]).reshape(512,2)
         a.argsort()
 
     def test_argsort_axis(self):
-        from numpypy import array
+        from numpy import array
         a = array([])
         for axis in [None, -1, 0]:
             assert a.argsort(axis=axis).shape == (0,)
@@ -58,7 +58,7 @@ class AppTestSorting(BaseNumpyAppTest):
         assert (a.argsort(axis=1) == [[2, 1, 0], [0, 1, 2]]).all()
 
     def test_sort_dtypes(self):
-        from numpypy import array, arange
+        from numpy import array, arange
         for dtype in ['int', 'float', 'int16', 'float32', 'uint64',
                       'i2', complex]:
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
@@ -73,7 +73,7 @@ class AppTestSorting(BaseNumpyAppTest):
             assert (a == c).all()
 
     def test_sort_nonnative(self):
-        from numpypy import array
+        from numpy import array
         nnp = self.non_native_prefix
         for dtype in [ nnp + 'i2']:
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
@@ -94,7 +94,7 @@ class AppTestSorting(BaseNumpyAppTest):
         # test doubles and complex doubles as the logic is the same.
 
         # check doubles
-        from numpypy import array, zeros, arange
+        from numpy import array, zeros, arange
         from math import isnan
         nan = float('nan')
         a = array([nan, 1, 0])
@@ -174,7 +174,7 @@ class AppTestSorting(BaseNumpyAppTest):
 
     def test_sort_corner_cases_string_records(self):
         skip('not implemented yet')
-        from numpypy import array, dtype
+        from numpy import array, dtype
         # test string sorts.
         s = 'aaaaaaaa'
         a = array([s + chr(i) for i in range(101)])
@@ -203,7 +203,7 @@ class AppTestSorting(BaseNumpyAppTest):
             assert (c == a).all(), msg
 
     def test_sort_unicode(self):
-        from numpypy import array
+        from numpy import array
         # test unicode sorts.
         s = 'aaaaaaaa'
         try:
@@ -222,7 +222,7 @@ class AppTestSorting(BaseNumpyAppTest):
 
     def test_sort_objects(self):
         # test object array sorts.
-        from numpypy import empty
+        from numpy import empty
         try:
             a = empty((101,), dtype=object)
         except:
@@ -239,7 +239,7 @@ class AppTestSorting(BaseNumpyAppTest):
             assert (c == a).all(), msg
 
     def test_sort_datetime(self):
-        from numpypy import arange
+        from numpy import arange
         # test datetime64 sorts.
         try:
             a = arange(0, 101, dtype='datetime64[D]')
@@ -268,7 +268,7 @@ class AppTestSorting(BaseNumpyAppTest):
             assert (c == a).all(), msg
 
     def test_sort_order(self):
-        from numpypy import array, zeros
+        from numpy import array, zeros
         from sys import byteorder
         # Test sorting an array with fields
         skip('not implemented yet')

@@ -5,7 +5,7 @@ from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import LONG_BIT
 
 # For testing, a simple implementation of ArenaCollection.
-# This version could be used together with obmalloc.c, but
+# This version could be used together with malloc, but
 # it requires an extra word per object in the 'all_objects'
 # list.
 

@@ -3795,6 +3795,30 @@ class LLtypeBackendTest(BaseBackendTest):
             deadframe = self.cpu.execute_token(looptoken, inp)
             assert outp == self.cpu.get_int_value(deadframe, 0)
 
+    def test_int_signext(self):
+        numbytes_cases = [1, 2] if IS_32_BIT else [1, 2, 4]
+        for spill in ["", "force_spill(i1)"]:
+          for numbytes in numbytes_cases:
+            print (spill, numbytes)
+            ops = """
+            [i0]
+            i1 = int_sub(i0, 0)     # force in register
+            %s
+            i2 = int_signext(i1, %d)
+            finish(i2, descr=descr)
+            """ % (spill, numbytes)
+            descr = BasicFinalDescr()
+            loop = parse(ops, self.cpu, namespace=locals())
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            test_cases = [random.randrange(-sys.maxint-1, sys.maxint+1)
+                          for _ in range(100)]
+            for test_case in test_cases:
+                deadframe = self.cpu.execute_token(looptoken, test_case)
+                got = self.cpu.get_int_value(deadframe, 0)
+                expected = heaptracker.int_signext(test_case, numbytes)
+                assert got == expected
+
     def test_compile_asmlen(self):
         from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):

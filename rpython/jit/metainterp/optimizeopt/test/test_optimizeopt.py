@@ -1,4 +1,4 @@
-import py
+import py, sys
 from rpython.rlib.objectmodel import instantiate
 from rpython.jit.metainterp import compile, resume
 from rpython.jit.metainterp.history import AbstractDescr, ConstInt, TreeLoop
@@ -191,6 +191,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
             args = []
             for _ in range(oparity[opnum]):
                 args.append(random.randrange(1, 20))
+            if opnum == rop.INT_SIGNEXT:
+                # 2nd arg is number of bytes to extend from ---
+                # must not be too random
+                args[-1] = random.choice([1, 2] if sys.maxint < 2**32 else
+                                         [1, 2, 4])
             ops = """
             []
             i1 = %s(%s)
@@ -5606,6 +5611,44 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i11)
         """
         self.optimize_loop(ops, ops, ops)
+
+    def test_bound_backpropagate_int_signext(self):
+        ops = """
+        []
+        i0 = escape()
+        i1 = int_signext(i0, 1)
+        i2 = int_eq(i0, i1)
+        guard_true(i2) []
+        i3 = int_le(i0, 127)    # implied by equality with int_signext
+        guard_true(i3) []
+        i5 = int_gt(i0, -129)   # implied by equality with int_signext
+        guard_true(i5) []
+        jump()
+        """
+        expected = """
+        []
+        i0 = escape()
+        i1 = int_signext(i0, 1)
+        i2 = int_eq(i0, i1)
+        guard_true(i2) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_bound_backpropagate_int_signext_2(self):
+        ops = """
+        []
+        i0 = escape()
+        i1 = int_signext(i0, 1)
+        i2 = int_eq(i0, i1)
+        guard_true(i2) []
+        i3 = int_le(i0, 126)    # false for i1 == 127
+        guard_true(i3) []
+        i5 = int_gt(i0, -128)   # false for i1 == -128
+        guard_true(i5) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
 
     def test_mul_ovf(self):
         ops = """

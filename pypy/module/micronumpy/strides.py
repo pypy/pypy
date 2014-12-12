@@ -270,7 +270,7 @@ def shape_agreement_multiple(space, array_list, shape=None):
                 shape = shape_agreement(space, shape, arr)
     return shape
 
-
+@jit.unroll_safe
 def _shape_agreement(shape1, shape2):
     """ Checks agreement about two shapes with respect to broadcasting. Returns
     the resulting shape.
@@ -362,6 +362,13 @@ def calc_strides(shape, dtype, order):
         backstrides.reverse()
     return strides, backstrides
 
+@jit.unroll_safe
+def calc_backstrides(strides, shape):
+    ndims = len(shape)
+    new_backstrides = [0] * ndims
+    for nd in range(ndims):
+        new_backstrides[nd] = (shape[nd] - 1) * strides[nd]
+    return new_backstrides
 
 # Recalculating strides. Find the steps that the iteration does for each
 # dimension, given the stride and shape. Then try to create a new stride that
@@ -422,3 +429,35 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                     n_old_elems_to_use *= old_shape[oldI]
     assert len(new_strides) == len(new_shape)
     return new_strides[:]
+
+@jit.unroll_safe
+def is_c_contiguous(arr):
+    shape = arr.get_shape()
+    strides = arr.get_strides()
+    ret = True
+    sd = arr.dtype.elsize
+    for i in range(len(shape) - 1, -1, -1):
+        dim = shape[i]
+        if strides[i] != sd:
+            ret = False
+            break
+        if dim == 0:
+            break
+        sd *= dim
+    return ret
+
+@jit.unroll_safe
+def is_f_contiguous(arr):
+    shape = arr.get_shape()
+    strides = arr.get_strides()
+    ret = True
+    sd = arr.dtype.elsize
+    for i in range(len(shape)):
+        dim = shape[i]
+        if strides[i] != sd:
+            ret = False
+            break
+        if dim == 0:
+            break
+        sd *= dim
+    return ret

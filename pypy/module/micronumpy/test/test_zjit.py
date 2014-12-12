@@ -103,17 +103,13 @@ class TestNumpyJit(LLJitMixin):
         self.check_trace_count(1)
         self.check_simple_loop({
             'float_add': 1,
-            'getarrayitem_gc': 1,
             'guard_false': 1,
             'guard_not_invalidated': 1,
-            'guard_true': 1,
-            'int_add': 5,
+            'int_add': 3,
             'int_ge': 1,
-            'int_lt': 1,
             'jump': 1,
-            'raw_load': 2,
+            'raw_load': 1,
             'raw_store': 1,
-            'setarrayitem_gc': 1,
         })
 
     def define_pow():
@@ -127,23 +123,20 @@ class TestNumpyJit(LLJitMixin):
         assert result == 3 ** 2
         self.check_trace_count(1)
         self.check_simple_loop({
-            'call': 3,
-            'float_add': 1,
-            'float_eq': 3,
+            'call': 1,
+            'float_eq': 2,
             'float_mul': 2,
-            'float_ne': 1,
-            'getarrayitem_gc': 1,
-            'guard_false': 4,
+            'getarrayitem_raw': 1,     # read the errno
+            'guard_false': 2,
             'guard_not_invalidated': 1,
-            'guard_true': 3,
-            'int_add': 5,
+            'guard_true': 2,
+            'int_add': 3,
             'int_ge': 1,
             'int_is_true': 1,
-            'int_lt': 1,
             'jump': 1,
-            'raw_load': 2,
+            'raw_load': 1,
             'raw_store': 1,
-            'setarrayitem_gc': 1,
+            'setarrayitem_raw': 1,     # write the errno
         })
 
     def define_pow_int():
@@ -161,33 +154,56 @@ class TestNumpyJit(LLJitMixin):
         del get_stats().loops[0]   # we don't care about it
         self.check_simple_loop({
             'call': 1,
-            'getarrayitem_gc': 1,
             'guard_false': 1,
             'guard_not_invalidated': 1,
-            'guard_true': 1,
-            'int_add': 5,
+            'int_add': 3,
             'int_ge': 1,
-            'int_lt': 1,
             'jump': 1,
-            'raw_load': 2,
+            'raw_load': 1,
             'raw_store': 1,
-            'setarrayitem_gc': 1,
         })
 
     def define_sum():
         return """
         a = |30|
-        b = a + a
-        sum(b)
+        sum(a)
         """
 
     def test_sum(self):
         result = self.run("sum")
-        assert result == 2 * sum(range(30))
-        py.test.skip("don't run for now")
-        self.check_simple_loop({"raw_load": 2, "float_add": 2,
-                                "int_add": 1, "int_ge": 1, "guard_false": 1,
-                                "jump": 1, 'arraylen_gc': 1})
+        assert result == sum(range(30))
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'float_add': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'int_add': 2,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 1,
+        })
+
+    def define_cumsum():
+        return """
+        a = |30|
+        b = cumsum(a)
+        b -> 5
+        """
+
+    def test_cumsum(self):
+        result = self.run("cumsum")
+        assert result == 15
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'float_add': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'int_add': 3,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 1,
+            'raw_store': 1,
+        })
 
     def define_axissum():
         return """
@@ -199,18 +215,49 @@ class TestNumpyJit(LLJitMixin):
     def test_axissum(self):
         result = self.run("axissum")
         assert result == 30
-        py.test.skip("don't run for now")
         # XXX note - the bridge here is fairly crucial and yet it's pretty
         #            bogus. We need to improve the situation somehow.
-        self.check_simple_loop({'raw_load': 2,
-                                'raw_store': 1,
-                                'arraylen_gc': 2,
-                                'guard_true': 1,
-                                'int_lt': 1,
-                                'jump': 1,
-                                'float_add': 1,
-                                'int_add': 3,
-                                })
+        self.check_trace_count(2)
+        self.check_simple_loop({
+            'float_add': 1,
+            'getarrayitem_gc': 2,
+            'guard_false': 2,
+            'guard_not_invalidated': 1,
+            'guard_true': 1,
+            'int_add': 4,
+            'int_ge': 1,
+            'int_is_zero': 1,
+            'int_lt': 1,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 1,
+        })
+        self.check_resops({
+            'float_add': 2,
+            'getarrayitem_gc': 5,
+            'getarrayitem_gc_pure': 7,
+            'getfield_gc': 5,
+            'getfield_gc_pure': 51,
+            'guard_class': 3,
+            'guard_false': 13,
+            'guard_nonnull': 11,
+            'guard_nonnull_class': 3,
+            'guard_not_invalidated': 2,
+            'guard_true': 10,
+            'guard_value': 5,
+            'int_add': 13,
+            'int_ge': 4,
+            'int_is_true': 4,
+            'int_is_zero': 4,
+            'int_le': 2,
+            'int_lt': 3,
+            'int_sub': 1,
+            'jump': 2,
+            'raw_load': 4,
+            'raw_store': 2,
+            'setarrayitem_gc': 4,
+        })
 
     def define_reduce():
         return """
@@ -241,8 +288,7 @@ class TestNumpyJit(LLJitMixin):
     def define_prod():
         return """
         a = |30|
-        b = a + a
-        prod(b)
+        prod(a)
         """
 
     def test_prod(self):
@@ -251,58 +297,150 @@ class TestNumpyJit(LLJitMixin):
         for i in range(30):
             expected *= i * 2
         assert result == expected
-        py.test.skip("don't run for now")
-        self.check_simple_loop({"raw_load": 2, "float_add": 1,
-                                "float_mul": 1, "int_add": 1,
-                                "int_ge": 1, "guard_false": 1, "jump": 1,
-                                'arraylen_gc': 1})
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'float_mul': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'int_add': 2,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 1,
+        })
 
     def define_max():
         return """
         a = |30|
         a[13] = 128
-        b = a + a
-        max(b)
+        max(a)
         """
 
     def test_max(self):
         result = self.run("max")
-        assert result == 256
-        py.test.skip("not there yet, getting though")
-        self.check_simple_loop({"raw_load": 2, "float_add": 1,
-                                "float_mul": 1, "int_add": 1,
-                                "int_lt": 1, "guard_true": 1, "jump": 1})
+        assert result == 128
+        self.check_trace_count(3)
+        self.check_simple_loop({
+            'float_ge': 1,
+            'float_ne': 1,
+            'guard_false': 3,
+            'guard_not_invalidated': 1,
+            'int_add': 2,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 1,
+        })
+        self.check_resops({
+            'float_ge': 2,
+            'float_ne': 2,
+            'getfield_gc': 4,
+            'getfield_gc_pure': 30,
+            'guard_class': 1,
+            'guard_false': 8,
+            'guard_nonnull': 2,
+            'guard_nonnull_class': 2,
+            'guard_not_invalidated': 2,
+            'guard_true': 7,
+            'guard_value': 2,
+            'int_add': 8,
+            'int_ge': 4,
+            'int_is_true': 3,
+            'jump': 3,
+            'raw_load': 2,
+        })
+
+    def define_min():
+        return """
+        a = |30|
+        a[13] = -128
+        min(a)
+        """
 
     def test_min(self):
-        py.test.skip("broken, investigate")
-        result = self.run("""
-        a = |30|
-        a[15] = -12
-        b = a + a
-        min(b)
-        """)
-        assert result == -24
-        self.check_simple_loop({"raw_load": 2, "float_add": 1,
-                                "float_mul": 1, "int_add": 1,
-                                "int_lt": 1, "guard_true": 1, "jump": 1})
+        result = self.run("min")
+        assert result == -128
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'float_le': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 1,
+            'int_add': 2,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 1,
+        })
 
     def define_any():
         return """
-        a = [0,0,0,0,0,0,0,0,0,0,0]
-        a[8] = -12
-        b = a + a
-        any(b)
+        a = [0,0,0,0,0,0,0,1,0,0,0]
+        any(a)
         """
 
     def test_any(self):
         result = self.run("any")
         assert result == 1
-        py.test.skip("don't run for now")
-        self.check_simple_loop({"raw_load": 2, "float_add": 1,
-                                "int_and": 1, "int_add": 1,
-                                'cast_float_to_int': 1,
-                                "int_ge": 1, "jump": 1,
-                                "guard_false": 2, 'arraylen_gc': 1})
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'cast_float_to_int': 1,
+            'guard_false': 2,
+            'guard_not_invalidated': 1,
+            'int_add': 2,
+            'int_and': 1,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 1,
+        })
+
+    def define_all():
+        return """
+        a = [1,1,1,1,1,1,1,1]
+        all(a)
+        """
+
+    def test_all(self):
+        result = self.run("all")
+        assert result == 1
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'cast_float_to_int': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 1,
+            'int_add': 2,
+            'int_and': 1,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 1,
+        })
+
+    def define_logical_xor_reduce():
+        return """
+        a = [1,1,1,1,1,1,1,1]
+        logical_xor_reduce(a)
+        """
+
+    def test_logical_xor_reduce(self):
+        result = self.run("logical_xor_reduce")
+        assert result == 0
+        self.check_trace_count(2)
+        # XXX fix this
+        self.check_simple_loop({
+            'cast_float_to_int': 1,
+            'getfield_gc': 2,
+            'getfield_gc_pure': 11,
+            'guard_class': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 5,
+            'int_add': 2,
+            'int_and': 1,
+            'int_ge': 1,
+            'int_is_true': 2,
+            'jump': 1,
+            'new_with_vtable': 1,
+            'raw_load': 1,
+            'setfield_gc': 4,
+        })
 
     def define_already_forced():
         return """
@@ -388,18 +526,15 @@ class TestNumpyJit(LLJitMixin):
         assert result == 18
         self.check_trace_count(1)
         self.check_simple_loop({
+            'arraylen_gc': 2,
             'float_add': 1,
-            'getarrayitem_gc': 2,
             'guard_false': 1,
             'guard_not_invalidated': 1,
-            'guard_true': 2,
-            'int_add': 6,
+            'int_add': 4,
             'int_ge': 1,
-            'int_lt': 2,
             'jump': 1,
             'raw_load': 2,
             'raw_store': 1,
-            'setarrayitem_gc': 2,
         })
 
     def define_take():
@@ -434,13 +569,19 @@ class TestNumpyJit(LLJitMixin):
     def test_multidim(self):
         result = self.run('multidim')
         assert result == 8
-        py.test.skip("don't run for now")
         # int_add might be 1 here if we try slightly harder with
         # reusing indexes or some optimization
-        self.check_simple_loop({'float_add': 1, 'raw_load': 2,
-                                'guard_false': 1, 'int_add': 1, 'int_ge': 1,
-                                'jump': 1, 'raw_store': 1,
-                                'arraylen_gc': 1})
+        self.check_trace_count(1)
+        self.check_simple_loop({
+            'float_add': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'int_add': 4,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+        })
 
     def define_multidim_slice():
         return """
@@ -453,10 +594,48 @@ class TestNumpyJit(LLJitMixin):
     def test_multidim_slice(self):
         result = self.run('multidim_slice')
         assert result == 12
-        py.test.skip("improve")
         # XXX the bridge here is scary. Hopefully jit-targets will fix that,
         #     otherwise it looks kind of good
-        self.check_simple_loop({})
+        self.check_trace_count(2)
+        self.check_simple_loop({
+            'float_add': 1,
+            'getarrayitem_gc': 2,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 2,
+            'int_add': 6,
+            'int_ge': 1,
+            'int_lt': 2,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 2,
+        })
+        self.check_resops({
+            'float_add': 3,
+            'getarrayitem_gc': 7,
+            'getarrayitem_gc_pure': 14,
+            'getfield_gc': 6,
+            'getfield_gc_pure': 63,
+            'guard_class': 5,
+            'guard_false': 20,
+            'guard_nonnull': 6,
+            'guard_nonnull_class': 1,
+            'guard_not_invalidated': 3,
+            'guard_true': 16,
+            'guard_value': 2,
+            'int_add': 24,
+            'int_ge': 4,
+            'int_is_true': 6,
+            'int_is_zero': 4,
+            'int_le': 5,
+            'int_lt': 7,
+            'int_sub': 2,
+            'jump': 2,
+            'raw_load': 5,
+            'raw_store': 3,
+            'setarrayitem_gc': 8,
+        })
 
     def define_broadcast():
         return """
@@ -469,28 +648,67 @@ class TestNumpyJit(LLJitMixin):
     def test_broadcast(self):
         result = self.run("broadcast")
         assert result == 10
-        py.test.skip("improve")
-        self.check_simple_loop({})
+        self.check_trace_count(2)
+        self.check_simple_loop({
+            'float_add': 1,
+            'getarrayitem_gc': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'guard_true': 1,
+            'int_add': 5,
+            'int_ge': 1,
+            'int_lt': 1,
+            'jump': 1,
+            'raw_load': 2,
+            'raw_store': 1,
+            'setarrayitem_gc': 1,
+        })
+        self.check_resops({
+            'float_add': 2,
+            'getarrayitem_gc': 2,
+            'getarrayitem_gc_pure': 2,
+            'getfield_gc': 6,
+            'getfield_gc_pure': 30,
+            'guard_class': 3,
+            'guard_false': 7,
+            'guard_nonnull': 2,
+            'guard_not_invalidated': 2,
+            'guard_true': 8,
+            'int_add': 11,
+            'int_ge': 2,
+            'int_is_true': 3,
+            'int_is_zero': 1,
+            'int_le': 1,
+            'int_lt': 2,
+            'jump': 1,
+            'raw_load': 4,
+            'raw_store': 2,
+            'setarrayitem_gc': 2,
+        })
 
     def define_setslice():
         return """
         a = |30|
         b = |10|
         b[1] = 5.5
-        c = b + b
-        a[0:30:3] = c
+        a[0:30:3] = b
         a -> 3
         """
 
     def test_setslice(self):
         result = self.run("setslice")
-        assert result == 11.0
-        py.test.skip("don't run for now")
+        assert result == 5.5
         self.check_trace_count(1)
-        self.check_simple_loop({'raw_load': 2, 'float_add': 1,
-                                'raw_store': 1, 'int_add': 2,
-                                'int_eq': 1, 'guard_false': 1, 'jump': 1,
-                                'arraylen_gc': 1})
+        self.check_simple_loop({
+            'arraylen_gc': 1,
+            'guard_false': 1,
+            'guard_not_invalidated': 1,
+            'int_add': 3,
+            'int_ge': 1,
+            'jump': 1,
+            'raw_load': 1,
+            'raw_store': 1,
+        })
 
     def define_virtual_slice():
         return """
@@ -607,14 +825,16 @@ class TestNumpyJit(LLJitMixin):
             'float_mul': 2,
             'getarrayitem_gc': 4,
             'getarrayitem_gc_pure': 9,
-            'getfield_gc_pure': 49,
+            'getfield_gc': 7,
+            'getfield_gc_pure': 42,
             'guard_class': 4,
-            'guard_false': 13,
+            'guard_false': 15,
             'guard_not_invalidated': 2,
             'guard_true': 14,
             'int_add': 17,
             'int_ge': 4,
             'int_is_true': 3,
+            'int_is_zero': 2,
             'int_le': 5,
             'int_lt': 8,
             'int_sub': 3,

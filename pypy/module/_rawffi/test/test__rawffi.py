@@ -16,6 +16,7 @@ class AppTestFfi:
         #include "src/precommondefs.h"
         #include <stdlib.h>
         #include <stdio.h>
+        #include <errno.h>
 
         struct x
         {
@@ -204,6 +205,24 @@ class AppTestFfi:
             return inp;
         }
 
+        RPY_EXPORTED
+        int check_errno(int incoming)
+        {
+            int old_errno = errno;
+            errno = incoming;
+            return old_errno;
+        }
+
+        #ifdef _WIN32
+        #include <Windows.h>
+        RPY_EXPORTED
+        int check_last_error(int incoming)
+        {
+            int old_errno = GetLastError();
+            SetLastError(incoming);
+            return old_errno;
+        }
+        #endif
         '''))
         eci = ExternalCompilationInfo(include_dirs=[cdir])
         return str(platform.compile([c_file], eci, 'x', standalone=False))
@@ -1149,6 +1168,37 @@ class AppTestFfi:
         arg1 = A(1)
         raises(OverflowError, "arg1[0] = 10**900")
         arg1.free()
+
+    def test_errno(self):
+        import _rawffi
+        lib = _rawffi.CDLL(self.lib_name)
+        A = _rawffi.Array('i')
+        f = lib.ptr('check_errno', ['i'], 'i')
+        _rawffi.set_errno(42)
+        arg = A(1)
+        arg[0] = 43
+        res = f(arg)
+        assert res[0] == 42
+        z = _rawffi.get_errno()
+        assert z == 43
+        arg.free()
+
+    def test_last_error(self):
+        import sys
+        if sys.platform != 'win32':
+            skip("Windows test")
+        import _rawffi
+        lib = _rawffi.CDLL(self.lib_name)
+        A = _rawffi.Array('i')
+        f = lib.ptr('check_last_error', ['i'], 'i')
+        _rawffi.set_last_error(42)
+        arg = A(1)
+        arg[0] = 43
+        res = f(arg)
+        assert res[0] == 42
+        z = _rawffi.get_last_error()
+        assert z == 43
+        arg.free()
 
 
 class AppTestAutoFree:

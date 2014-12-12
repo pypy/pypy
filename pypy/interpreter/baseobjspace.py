@@ -14,7 +14,7 @@ from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     UserDelAction)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.miscutils import ThreadLocals
+from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
 
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
@@ -384,7 +384,7 @@ class ObjSpace(object):
         self.builtin_modules = {}
         self.reloading_modules = {}
 
-        self.interned_strings = {}
+        self.interned_strings = make_weak_value_dictionary(self, str, W_Root)
         self.actionflag = ActionFlag()    # changed by the signal module
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
@@ -777,25 +777,30 @@ class ObjSpace(object):
             return self.w_False
 
     def new_interned_w_str(self, w_s):
+        assert isinstance(w_s, W_Root)   # and is not None
         s = self.str_w(w_s)
         if not we_are_translated():
             assert type(s) is str
-        try:
-            return self.interned_strings[s]
-        except KeyError:
-            pass
-        self.interned_strings[s] = w_s
-        return w_s
+        w_s1 = self.interned_strings.get(s)
+        if w_s1 is None:
+            w_s1 = w_s
+            self.interned_strings.set(s, w_s1)
+        return w_s1
 
     def new_interned_str(self, s):
         if not we_are_translated():
             assert type(s) is str
-        try:
-            return self.interned_strings[s]
-        except KeyError:
-            pass
-        w_s = self.interned_strings[s] = self.wrap(s)
-        return w_s
+        w_s1 = self.interned_strings.get(s)
+        if w_s1 is None:
+            w_s1 = self.wrap(s)
+            self.interned_strings.set(s, w_s1)
+        return w_s1
+
+    def is_interned_str(self, s):
+        # interface for marshal_impl
+        if not we_are_translated():
+            assert type(s) is str
+        return self.interned_strings.get(s) is not None
 
     def descr_self_interp_w(self, RequiredClass, w_obj):
         if not isinstance(w_obj, RequiredClass):

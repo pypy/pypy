@@ -105,7 +105,7 @@ class SomeWeakValueDict(annmodel.SomeObject):
                                                rtyper.getrepr(self.s_key))
 
     def rtyper_makekey(self):
-        return self.__class__,
+        return self.__class__, self.s_key.rtyper_makekey(), self.valueclassdef
 
     def method_get(self, s_key):
         return annmodel.SomeInstance(self.valueclassdef, can_be_None=True)
@@ -165,7 +165,7 @@ class SomeWeakKeyDict(annmodel.SomeObject):
         return _rweakkeydict.WeakKeyDictRepr(rtyper)
 
     def rtyper_makekey(self):
-        return self.__class__,
+        return self.__class__, self.keyclassdef, self.valueclassdef
 
     def method_get(self, s_key):
         assert isinstance(s_key, annmodel.SomeInstance)
