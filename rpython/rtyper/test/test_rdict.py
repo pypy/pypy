@@ -878,6 +878,81 @@ class BaseTestRDict(BaseRtypingTest):
         res = self.interpret(func, [])
         assert lltype.typeOf(res.item0) == lltype.typeOf(res.item1)
 
+    def test_r_dict(self):
+        class FooError(Exception):
+            pass
+        def myeq(n, m):
+            return n == m
+        def myhash(n):
+            if n < 0:
+                raise FooError
+            return -n
+        def f(n):
+            d = self.new_r_dict(myeq, myhash)
+            for i in range(10):
+                d[i] = i*i
+            try:
+                value1 = d[n]
+            except FooError:
+                value1 = 99
+            try:
+                value2 = n in d
+            except FooError:
+                value2 = 99
+            try:
+                value3 = d[-n]
+            except FooError:
+                value3 = 99
+            try:
+                value4 = (-n) in d
+            except FooError:
+                value4 = 99
+            return (value1 * 1000000 +
+                    value2 * 10000 +
+                    value3 * 100 +
+                    value4)
+        res = self.interpret(f, [5])
+        assert res == 25019999
+
+    def test_r_dict_popitem_hash(self):
+        def deq(n, m):
+            return n == m
+        def dhash(n):
+            return ~n
+        def func():
+            d = self.new_r_dict(deq, dhash)
+            d[5] = 2
+            d[6] = 3
+            k1, v1 = d.popitem()
+            assert len(d) == 1
+            k2, v2 = d.popitem()
+            try:
+                d.popitem()
+            except KeyError:
+                pass
+            else:
+                assert 0, "should have raised KeyError"
+            assert len(d) == 0
+            return k1*1000 + v1*100 + k2*10 + v2
+
+        res = self.interpret(func, [])
+        assert res in [5263, 6352]
+
+    def test_prebuilt_r_dict(self):
+        def deq(n, m):
+            return (n & 3) == (m & 3)
+        def dhash(n):
+            return n & 3
+        d = self.new_r_dict(deq, dhash)
+        d[0x123] = "abcd"
+        d[0x231] = "efgh"
+        def func():
+            return d[0x348973] + d[0x12981]
+
+        res = self.interpret(func, [])
+        res = self.ll_to_string(res)
+        assert res == "abcdefgh"
+
 
 class TestRDict(BaseTestRDict):
     @staticmethod
@@ -887,6 +962,10 @@ class TestRDict(BaseTestRDict):
     @staticmethod
     def newdict2():
         return {}
+
+    @staticmethod
+    def new_r_dict(myeq, myhash):
+        return r_dict(myeq, myhash)
 
     def test_two_dicts_with_different_value_types(self):
         def func(i):
@@ -1042,66 +1121,6 @@ class TestRDict(BaseTestRDict):
         # all three dicts should use the same low-level type
         assert lltype.typeOf(res.item1) == lltype.typeOf(res.item2)
         assert lltype.typeOf(res.item1) == lltype.typeOf(res.item3)
-
-    def test_r_dict(self):
-        class FooError(Exception):
-            pass
-        def myeq(n, m):
-            return n == m
-        def myhash(n):
-            if n < 0:
-                raise FooError
-            return -n
-        def f(n):
-            d = r_dict(myeq, myhash)
-            for i in range(10):
-                d[i] = i*i
-            try:
-                value1 = d[n]
-            except FooError:
-                value1 = 99
-            try:
-                value2 = n in d
-            except FooError:
-                value2 = 99
-            try:
-                value3 = d[-n]
-            except FooError:
-                value3 = 99
-            try:
-                value4 = (-n) in d
-            except FooError:
-                value4 = 99
-            return (value1 * 1000000 +
-                    value2 * 10000 +
-                    value3 * 100 +
-                    value4)
-        res = self.interpret(f, [5])
-        assert res == 25019999
-
-    def test_dict_popitem_hash(self):
-        def deq(n, m):
-            return n == m
-        def dhash(n):
-            return ~n
-        def func():
-            d = r_dict(deq, dhash)
-            d[5] = 2
-            d[6] = 3
-            k1, v1 = d.popitem()
-            assert len(d) == 1
-            k2, v2 = d.popitem()
-            try:
-                d.popitem()
-            except KeyError:
-                pass
-            else:
-                assert 0, "should have raised KeyError"
-            assert len(d) == 0
-            return k1*1000 + v1*100 + k2*10 + v2
-
-        res = self.interpret(func, [])
-        assert res in [5263, 6352]
 
     def test_nonnull_hint(self):
         def eq(a, b):

@@ -217,7 +217,7 @@ class OrderedDictRepr(AbstractDictRepr):
         #dictobj = getattr(dictobj, '__self__', dictobj)
         if dictobj is None:
             return lltype.nullptr(self.DICT)
-        if not isinstance(dictobj, (dict, objectmodel.r_dict)):
+        if not isinstance(dictobj, (dict, objectmodel.r_ordereddict)):
             raise TypeError("expected a dict: %r" % (dictobj,))
         try:
             key = Constant(dictobj)
@@ -231,7 +231,8 @@ class OrderedDictRepr(AbstractDictRepr):
             if r_key.lowleveltype == llmemory.Address:
                 raise TypeError("No prebuilt dicts of address keys")
             r_value = self.value_repr
-            if isinstance(dictobj, objectmodel.r_dict):
+            if isinstance(dictobj, objectmodel.r_ordereddict):
+                
                 if self.r_rdict_eqfn.lowleveltype != lltype.Void:
                     l_fn = self.r_rdict_eqfn.convert_const(dictobj.key_eq)
                     l_dict.fnkeyeq = l_fn
