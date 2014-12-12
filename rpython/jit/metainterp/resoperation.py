@@ -387,18 +387,30 @@ class AbstractInputArg(AbstractValue):
 
     def getdescr(self):
         return None
-        
+
+    def forget_value(self):
+        pass
+    
 class InputArgInt(IntOp, AbstractInputArg):
     def __init__(self, intval=0):
-        self.setint(intval)            
+        self.setint(intval)
+
+    def clone_input_arg(self):
+        return InputArgInt()
 
 class InputArgFloat(FloatOp, AbstractInputArg):
     def __init__(self, f=0.0):
         self.setfloatstorage(f)
 
+    def clone_input_arg(self):
+        return InputArgFloat()
+
 class InputArgRef(RefOp, AbstractInputArg):
     def __init__(self, r=lltype.nullptr(llmemory.GCREF.TO)):
         self.setref_base(r)
+
+    def clone_input_arg(self):
+        return InputArgRef()
 
 # ============
 # arity mixins

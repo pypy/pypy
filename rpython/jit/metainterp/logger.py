@@ -185,7 +185,7 @@ class LogOperations(object):
                 for op in target_token.exported_state.inputarg_setup_ops:
                     debug_print('    ' + self.repr_of_resop(op))
 
-    def _log_operations(self, inputargs, operations, ops_offset):
+    def _log_operations(self, inputargs, operations, ops_offset=None):
         if not have_debug_prints():
             return
         if ops_offset is None:

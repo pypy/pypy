@@ -161,7 +161,7 @@ class CachedField(object):
                     getop = ResOperation(rop.GETARRAYITEM_GC, [op.getarg(0), op.getarg(1)],
                                          result, op.getdescr())
                     shortboxes.add_potential(getop, synthetic=True)
-                elif op.result is not None:
+                elif op.type != 'v':
                     xxxx
                     shortboxes.add_potential(op)
 

@@ -586,10 +586,10 @@ class OptRewrite(Optimization):
         self.pure(rop.CAST_PTR_TO_INT, [op], op.getarg(0))
         self.emit_operation(op)
 
-    def optimize_SAME_AS_i(self, op):
-        self.make_equal_to(op.result, self.getvalue(op.getarg(0)))
-    optimize_SAME_AS_r = optimize_SAME_AS_i
-    optimize_SAME_AS_f = optimize_SAME_AS_i
+    def optimize_SAME_AS_I(self, op):
+        self.make_equal_to(op, self.getvalue(op.getarg(0)))
+    optimize_SAME_AS_R = optimize_SAME_AS_I
+    optimize_SAME_AS_F = optimize_SAME_AS_I
 
 dispatch_opt = make_dispatcher_method(OptRewrite, 'optimize_',
         default=OptRewrite.emit_operation)

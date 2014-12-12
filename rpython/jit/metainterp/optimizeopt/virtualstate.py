@@ -1,13 +1,15 @@
 from rpython.jit.metainterp.walkvirtual import VirtualVisitor
-from rpython.jit.metainterp.history import (BoxInt, ConstInt, BoxPtr, Const,
+from rpython.jit.metainterp.history import (ConstInt, Const,
         ConstPtr, ConstFloat)
 from rpython.jit.metainterp.optimizeopt import virtualize
 from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 from rpython.jit.metainterp.optimizeopt.optimizer import (LEVEL_CONSTANT,
     LEVEL_KNOWNCLASS, LEVEL_NONNULL, LEVEL_UNKNOWN, OptValue)
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop, ResOperation,\
+     AbstractInputArg
+from rpython.jit.metainterp.compile import Memo
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
-from rpython.rlib.objectmodel import we_are_translated, import_from_mixin
+from rpython.rlib.objectmodel import we_are_translated
 
 
 class BadVirtualState(Exception):
@@ -589,7 +591,7 @@ class ShortBoxes(object):
         self.potential_ops = {}
         self.alternatives = {}
         self.synthetic = {}
-        self.rename = {}
+        self.memo = Memo()
         self.optimizer = optimizer
         self.availible_boxes = availible_boxes
         self.assumed_classes = {}
@@ -602,9 +604,9 @@ class ShortBoxes(object):
             self.short_boxes = {}
             self.short_boxes_in_production = {}
 
-            for box in self.potential_ops.keys():
+            for op in self.potential_ops.keys():
                 try:
-                    self.produce_short_preamble_box(box)
+                    self.produce_short_preamble_op(op)
                 except BoxNotProducable:
                     pass
 
@@ -614,7 +616,7 @@ class ShortBoxes(object):
 
     def prioritized_alternatives(self, box):
         if box not in self.alternatives:
-            return [self.potential_ops[box]]
+            return [box]
         alts = self.alternatives[box]
         hi, lo = 0, len(alts) - 1
         while hi < lo:
@@ -628,16 +630,10 @@ class ShortBoxes(object):
                 lo -= 1
         return alts
 
-    def renamed(self, box):
-        if box in self.rename:
-            return self.rename[box]
-        return box
-
     def add_to_short(self, box, op):
         if op:
-            op = op.clone()
-            for i in range(op.numargs()):
-                op.setarg(i, self.renamed(op.getarg(i)))
+            op = op.clone(self.memo)
+            op.is_source_op = True
         if box in self.short_boxes:
             if op is None:
                 oldop = self.short_boxes[box].clone()
@@ -656,30 +652,30 @@ class ShortBoxes(object):
         else:
             self.short_boxes[box] = op
 
-    def produce_short_preamble_box(self, box):
-        if box in self.short_boxes:
+    def produce_short_preamble_op(self, op):
+        if op in self.short_boxes:
             return
-        if isinstance(box, Const):
+        if isinstance(op, Const) or isinstance(op, AbstractInputArg):
             return
-        if box in self.short_boxes_in_production:
+        if op in self.short_boxes_in_production:
             raise BoxNotProducable
-        if self.availible_boxes is not None and box not in self.availible_boxes:
+        if self.availible_boxes is not None and op not in self.availible_boxes:
             raise BoxNotProducable
-        self.short_boxes_in_production[box] = None
+        self.short_boxes_in_production[op] = None
 
-        if box in self.potential_ops:
-            ops = self.prioritized_alternatives(box)
+        if op in self.potential_ops:
+            ops = self.prioritized_alternatives(op)
             produced_one = False
-            for op in ops:
+            for newop in ops:
                 try:
-                    if op:
-                        for arg in op.getarglist():
-                            self.produce_short_preamble_box(arg)
+                    if newop:
+                        for arg in newop.getarglist():
+                            self.produce_short_preamble_op(arg)
                 except BoxNotProducable:
                     pass
                 else:
                     produced_one = True
-                    self.add_to_short(box, op)
+                    self.add_to_short(op, newop)
             if not produced_one:
                 raise BoxNotProducable
         else:
@@ -693,10 +689,10 @@ class ShortBoxes(object):
                 if classbox:
                     self.assumed_classes[op] = classbox
         if op not in self.potential_ops:
-            self.potential_ops[op] = op
+            self.potential_ops[op] = None
         else:
             if op not in self.alternatives:
-                self.alternatives[op] = [self.potential_ops[op]]
+                self.alternatives[op] = [op]
             self.alternatives[op].append(op)
         if synthetic:
             self.synthetic[op] = True

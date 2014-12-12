@@ -847,6 +847,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     calls back the interpreter.  Used temporarily: a fully compiled
     version of the code may end up replacing it.
     """
+    xxx
     jitcell_token = make_jitcell_token(jitdriver_sd)
     nb_red_args = jitdriver_sd.num_red_args
     assert len(redargtypes) == nb_red_args

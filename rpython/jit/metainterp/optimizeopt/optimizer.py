@@ -1,11 +1,13 @@
 from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec_const
+from rpython.jit.metainterp.logger import LogOperations
 from rpython.jit.metainterp.history import Const, ConstInt, REF
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
                                                      ImmutableIntUnbounded, \
                                                      IntLowerBound, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.resoperation import rop, ResOperation, AbstractResOp
+from rpython.jit.metainterp.resoperation import rop, ResOperation,\
+     AbstractResOp, AbstractInputArg, DONT_CHANGE
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.tool.pairtype import extendabletype
 from rpython.rlib.debug import debug_print
@@ -375,6 +377,7 @@ class Optimizer(Optimization):
         self.metainterp_sd = metainterp_sd
         self.cpu = metainterp_sd.cpu
         self.loop = loop
+        self.logops = LogOperations(metainterp_sd, False)
         self.values = {}
         self.interned_refs = self.cpu.ts.new_ref_dict()
         self.interned_ints = {}
@@ -506,8 +509,15 @@ class Optimizer(Optimization):
 
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         v = self.getvalue(op)
-        newop = op.copy_and_change(newopnum, args=args, descr=descr)
-        v.box = newop
+        if isinstance(op, AbstractInputArg):
+            if descr is DONT_CHANGE:
+                descr = None
+            newop = ResOperation(newopnum, args, descr)
+            newop.source_op = op
+        else:
+            newop = op.copy_and_change(newopnum, args=args, descr=descr)
+        if v.box is op: # don't replace if it's already replaced
+            v.box = newop
         return newop
 
     def make_constant_int(self, box, intvalue):

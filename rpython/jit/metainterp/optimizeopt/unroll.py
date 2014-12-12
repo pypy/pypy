@@ -2,12 +2,14 @@ import sys
 
 from rpython.jit.metainterp.compile import Memo
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, Const
+from rpython.jit.metainterp.logger import LogOperations
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.virtualstate import (VirtualStateConstructor,
         ShortBoxes, BadVirtualState, VirtualStatesCantMatch)
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop, ResOperation, DONT_CHANGE,\
+     OpHelpers, AbstractInputArg
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 
@@ -183,7 +185,10 @@ class UnrollOptimizer(Optimization):
             if values[i].is_virtual():
                 srcbox = values[i].force_box(self.optimizer)
             if original_jump_args[i] is not srcbox:
-                op = ResOperation(rop.SAME_AS, [srcbox], original_jump_args[i])
+                opnum = OpHelpers.same_as_for_type(original_jump_args[i].type)
+                op = self.optimizer.replace_op_with(original_jump_args[i],
+                                                    opnum, [srcbox],
+                                                    descr=DONT_CHANGE)
                 self.optimizer.emit_operation(op)
         inputarg_setup_ops = self.optimizer.get_newoperations()
 
@@ -197,12 +202,11 @@ class UnrollOptimizer(Optimization):
         for box in inputargs:
             exported_values[box] = self.optimizer.getvalue(box)
         for op in short_boxes.operations():
-            if op and op.result:
-                box = op.result
-                exported_values[box] = self.optimizer.getvalue(box)
+            if op and op.type != 'v':
+                exported_values[op] = self.optimizer.getvalue(op)
 
-        target_token.exported_state = ExportedState(short_boxes, inputarg_setup_ops,
-                                                    exported_values)
+        es = ExportedState(short_boxes, inputarg_setup_ops, exported_values)
+        target_token.exported_state = es
 
     def import_state(self, targetop):
         if not targetop: # Trace did not start with a label
@@ -245,20 +249,21 @@ class UnrollOptimizer(Optimization):
         seen = {}
         for op in self.short_boxes.operations():
             self.ensure_short_op_emitted(op, self.optimizer, seen)
-            if op and op.result:
-                preamble_value = exported_state.exported_values[op.result]
-                value = self.optimizer.getvalue(op.result)
+            if op and op.type != 'v':
+                preamble_value = exported_state.exported_values[op]
+                value = self.optimizer.getvalue(op)
                 if not value.is_virtual() and not value.is_constant():
                     imp = ValueImporter(self, preamble_value, op)
                     self.optimizer.importable_values[value] = imp
-                newvalue = self.optimizer.getvalue(op.result)
+                newvalue = self.optimizer.getvalue(op)
                 newresult = newvalue.get_key_box()
                 # note that emitting here SAME_AS should not happen, but
                 # in case it does, we would prefer to be suboptimal in asm
                 # to a fatal RPython exception.
-                if newresult is not op.result and \
+                if newresult is not op and \
                    not self.short_boxes.has_producer(newresult) and \
                    not newvalue.is_constant():
+                    xxx
                     op = ResOperation(rop.SAME_AS, [op.result], newresult)
                     self.optimizer._newoperations.append(op)
                     #if self.optimizer.loop.logops:
@@ -395,7 +400,7 @@ class UnrollOptimizer(Optimization):
             if a in boxmap:
                 newargs[i] = boxmap[a]
             else:
-                newargs[i] = a.clonebox()
+                newargs[i] = a.clone_input_arg()
                 boxmap[a] = newargs[i]
         memo = Memo(short_inputargs, newargs)
         target_token.assumed_classes = {}
@@ -417,10 +422,10 @@ class UnrollOptimizer(Optimization):
     def ensure_short_op_emitted(self, op, optimizer, seen):
         if op is None:
             return
-        if op.result is not None and op.result in seen:
+        if op.type != 'v' and op in seen:
             return
         for a in op.getarglist():
-            if not isinstance(a, Const) and a not in seen:
+            if not isinstance(a, Const) and not isinstance(a, AbstractInputArg) and a not in seen:
                 self.ensure_short_op_emitted(self.short_boxes.producer(a), optimizer,
                                              seen)
 
@@ -429,15 +434,15 @@ class UnrollOptimizer(Optimization):
         #                self.optimizer.loop.logops.repr_of_resop(op))
 
         optimizer.send_extra_operation(op)
-        seen[op.result] = None
+        seen[op] = None
         if op.is_ovf():
-            guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
+            guard = ResOperation(rop.GUARD_NO_OVERFLOW, [])
             optimizer.send_extra_operation(guard)
 
     def add_op_to_short(self, op, emit=True, guards_needed=False):
         if op is None:
             return None
-        if op.result is not None and op.result in self.short_seen:
+        if op is not None and op in self.short_seen:
             if emit and self.short_inliner:
                 return self.short_inliner.inline_arg(op.result)
             else:
@@ -609,3 +614,14 @@ class ExportedState(object):
         self.short_boxes = short_boxes
         self.inputarg_setup_ops = inputarg_setup_ops
         self.exported_values = exported_values
+
+    def dump(self):
+        debug_start("jit-exported-state")
+        logops = LogOperations()
+        debug_print("   inputarg setup")
+        logops._log_operations(self.inputarg_setup_ops)
+        debug_print("   short boxes")
+        self.short_boxes.dump(logops)
+        debug_print("   exported values")
+        self.exported_values.dump(logops)
+        debug_stop("jit-exported-state")

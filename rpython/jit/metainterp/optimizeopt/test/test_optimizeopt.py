@@ -256,14 +256,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [i0]
         p0 = new_with_vtable(ConstClass(node_vtable))
-        escape(p0)
+        escape_n(p0)
         guard_class(p0, ConstClass(node_vtable)) []
         jump(i0)
         """
         expected = """
         [i0]
         p0 = new_with_vtable(ConstClass(node_vtable))
-        escape(p0)
+        escape_n(p0)
         jump(i0)
         """
         self.optimize_loop(ops, expected)
@@ -271,7 +271,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_remove_guard_class_constant(self):
         ops = """
         [i0]
-        p0 = same_as(ConstPtr(myptr))
+        p0 = same_as_r(ConstPtr(myptr))
         guard_class(p0, ConstClass(node_vtable)) []
         jump(i0)
         """
@@ -368,19 +368,19 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_remove_consecutive_guard_value_constfold(self):
         ops = """
         []
-        i0 = escape()
+        i0 = escape_i()
         guard_value(i0, 0) []
         i1 = int_add(i0, 1)
         guard_value(i1, 1) []
         i2 = int_add(i1, 2)
-        escape(i2)
+        escape_n(i2)
         jump()
         """
         expected = """
         []
-        i0 = escape()
+        i0 = escape_i()
         guard_value(i0, 0) []
-        escape(3)
+        escape_n(3)
         jump()
         """
         self.optimize_loop(ops, expected)

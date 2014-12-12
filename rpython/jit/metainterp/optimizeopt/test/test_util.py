@@ -1,5 +1,6 @@
 import py, random
 
+from rpython.rlib.debug import debug_print
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import (
@@ -10,6 +11,7 @@ from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr,
                                             JitCellToken, TargetToken)
 from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.metainterp.logger import LogOperations
 from rpython.jit.codewriter.heaptracker import register_known_gctype
 from rpython.jit.tool.oparser import parse, pure_parse
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
@@ -406,6 +408,8 @@ class BaseTest(object):
         optimize_trace(metainterp_sd, loop, self.enable_opts)
 
     def unroll_and_optimize(self, loop, call_pure_results=None):
+        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
+        logops = LogOperations(metainterp_sd, False)
         self.add_guard_future_condition(loop)
         operations =  loop.operations
         jumpop = operations[-1]
@@ -435,11 +439,18 @@ class BaseTest(object):
                           [ResOperation(rop.JUMP, [memo.get(a, a) for a in jump_args],
                                         descr=token)]
                           #[inliner.inline_op(jumpop)]
+        
         assert loop.operations[-1].getopnum() == rop.JUMP
         assert loop.operations[0].getopnum() == rop.LABEL
         loop.inputargs = loop.operations[0].getarglist()
 
+        
+        debug_print("   noopt loop")
+        logops._log_operations(loop.inputargs, loop.operations)
+        
         self._do_optimize_loop(loop, call_pure_results)
+        debug_print("   opt loop")
+        logops._log_operations(loop.inputargs, loop.operations)
         extra_same_as = []
         while loop.operations[0].getopnum() != rop.LABEL:
             extra_same_as.append(loop.operations[0])
