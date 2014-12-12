@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tests for _sqlite3.py"""
 
+from __future__ import absolute_import
 import pytest
 import sys
 
@@ -263,7 +264,7 @@ class BaseTestSQLite:
             del _sqlite3.adapters[(int, _sqlite3.PrepareProtocol)]
 
 
-class TestSQLiteCPython(BaseTestSQLite):
+class TestSQLiteHost(BaseTestSQLite):
     def setup_class(cls):
         global _sqlite3
         import _sqlite3
