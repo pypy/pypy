@@ -351,10 +351,10 @@ class OptIntBounds(Optimization):
         stop = 1 << (numbits - 1)
         bounds = IntBound(start, stop - 1)
         if bounds.contains_bound(value.intbound):
-            self.make_equal_to(op.result, value)
+            self.make_equal_to(op, value)
         else:
             self.emit_operation(op)
-            vres = self.getvalue(op.result)
+            vres = self.getvalue(op)
             vres.intbound.intersect(bounds)
 
     def optimize_ARRAYLEN_GC(self, op):

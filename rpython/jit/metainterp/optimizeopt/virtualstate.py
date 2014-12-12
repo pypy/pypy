@@ -659,11 +659,7 @@ class ShortBoxes(object):
             return
         if op in self.short_boxes_in_production:
             raise BoxNotProducable
-<<<<<<< local
-        if self.availible_boxes is not None and op not in self.availible_boxes:
-=======
-        if self.available_boxes is not None and box not in self.available_boxes:
->>>>>>> other
+        if self.availible_boxes is not None and op not in self.available_boxes:
             raise BoxNotProducable
         self.short_boxes_in_production[op] = None
 
