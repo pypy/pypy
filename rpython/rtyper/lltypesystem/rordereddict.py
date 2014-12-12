@@ -217,7 +217,7 @@ class OrderedDictRepr(AbstractDictRepr):
         #dictobj = getattr(dictobj, '__self__', dictobj)
         if dictobj is None:
             return lltype.nullptr(self.DICT)
-        if not isinstance(dictobj, (dict, objectmodel.r_dict)):
+        if not isinstance(dictobj, (dict, objectmodel.r_ordereddict)):
             raise TypeError("expected a dict: %r" % (dictobj,))
         try:
             key = Constant(dictobj)
@@ -231,7 +231,8 @@ class OrderedDictRepr(AbstractDictRepr):
             if r_key.lowleveltype == llmemory.Address:
                 raise TypeError("No prebuilt dicts of address keys")
             r_value = self.value_repr
-            if isinstance(dictobj, objectmodel.r_dict):
+            if isinstance(dictobj, objectmodel.r_ordereddict):
+                
                 if self.r_rdict_eqfn.lowleveltype != lltype.Void:
                     l_fn = self.r_rdict_eqfn.convert_const(dictobj.key_eq)
                     l_dict.fnkeyeq = l_fn
@@ -288,6 +289,11 @@ class OrderedDictRepr(AbstractDictRepr):
         v_dic1, v_dic2 = hop.inputargs(self, self)
         hop.exception_cannot_occur()
         return hop.gendirectcall(ll_dict_update, v_dic1, v_dic2)
+
+    def rtype_method__prepare_dict_update(self, hop):
+        v_dict, v_num = hop.inputargs(self, lltype.Signed)
+        hop.exception_cannot_occur()
+        hop.gendirectcall(ll_prepare_dict_update, v_dict, v_num)
 
     def _rtype_method_kvi(self, hop, ll_func):
         v_dic, = hop.inputargs(self)
@@ -653,11 +659,14 @@ def ll_dict_resize(d):
     # make a 'new_size' estimate and shrink it if there are many
     # deleted entry markers.  See CPython for why it is a good idea to
     # quadruple the dictionary size as long as it's not too big.
-    num_items = d.num_items
-    if num_items > 50000:
-        new_estimate = num_items * 2
-    else:
-        new_estimate = num_items * 4
+    # (Quadrupling comes from '(d.num_items + d.num_items + 1) * 2'
+    # as long as num_items is not too large.)
+    num_extra = min(d.num_items + 1, 30000)
+    _ll_dict_resize_to(d, num_extra)
+ll_dict_resize.oopspec = 'odict.resize(d)'
+
+def _ll_dict_resize_to(d, num_extra):
+    new_estimate = (d.num_items + num_extra) * 2
     new_size = DICT_INITSIZE
     while new_size <= new_estimate:
         new_size *= 2
@@ -666,7 +675,6 @@ def ll_dict_resize(d):
         ll_dict_remove_deleted_items(d)
     else:
         ll_dict_reindex(d, new_size)
-ll_dict_resize.oopspec = 'odict.resize(d)'
 
 def ll_dict_reindex(d, new_size):
     ll_malloc_indexes_and_choose_lookup(d, new_size)
@@ -981,6 +989,9 @@ def ll_dict_clear(d):
 ll_dict_clear.oopspec = 'odict.clear(d)'
 
 def ll_dict_update(dic1, dic2):
+    if dic1 == dic2:
+        return
+    ll_prepare_dict_update(dic1, dic2.num_items)
     i = 0
     while i < dic2.num_used_items:
         entries = dic2.entries
@@ -993,6 +1004,16 @@ def ll_dict_update(dic1, dic2):
             _ll_dict_setitem_lookup_done(dic1, key, value, hash, index)
         i += 1
 ll_dict_update.oopspec = 'odict.update(dic1, dic2)'
+
+def ll_prepare_dict_update(d, num_extra):
+    # Prescale 'd' for 'num_extra' items, assuming that most items don't
+    # collide.  If this assumption is false, 'd' becomes too large by at
+    # most 'num_extra'.  The logic is based on:
+    #      (d.resize_counter - 1) // 3 = room left in d
+    #  so, if num_extra == 1, we need d.resize_counter > 3
+    #      if num_extra == 2, we need d.resize_counter > 6  etc.
+    jit.conditional_call(d.resize_counter <= num_extra * 3,
+                         _ll_dict_resize_to, d, num_extra)
 
 # this is an implementation of keys(), values() and items()
 # in a single function.
