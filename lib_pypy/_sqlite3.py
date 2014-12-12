@@ -1175,8 +1175,11 @@ class Cursor(object):
         try:
             return self.__description
         except AttributeError:
-            self.__description = self.__statement._get_description()
-            return self.__description
+            try:
+                self.__description = self.__statement._get_description()
+                return self.__description
+            except AttributeError:
+                return None
     description = property(__get_description)
 
     def __get_lastrowid(self):
