@@ -964,9 +964,40 @@ class MIFrame(object):
         assembler_call = False
         if warmrunnerstate.inlining:
             if warmrunnerstate.can_inline_callable(greenboxes):
+                # We've found a potentially inlinable function; now we need to
+                # see if it's already on the stack. In other words: are we about
+                # to enter recursion? If so, we don't want to inline the
+                # recursion, which would be equivalent to unrolling a while
+                # loop.
                 portal_code = targetjitdriver_sd.mainjitcode
-                return self.metainterp.perform_call(portal_code, allboxes,
-                                                    greenkey=greenboxes)
+                count = 0
+                for f in self.metainterp.framestack:
+                    if f.jitcode is not portal_code:
+                        continue
+                    gk = f.greenkey
+                    if gk is None:
+                        continue
+                    assert len(gk) == len(greenboxes)
+                    i = 0
+                    for i in range(len(gk)):
+                        if not gk[i].same_constant(greenboxes[i]):
+                            break
+                    else:
+                        count += 1
+                memmgr = self.metainterp.staticdata.warmrunnerdesc.memory_manager
+                if count >= memmgr.max_unroll_recursion:
+                    # This function is recursive and has exceeded the
+                    # maximum number of unrollings we allow. We want to stop
+                    # inlining it further and to make sure that, if it
+                    # hasn't happened already, the function is traced
+                    # separately as soon as possible.
+                    if have_debug_prints():
+                        loc = targetjitdriver_sd.warmstate.get_location_str(greenboxes)
+                        debug_print("recursive function (not inlined):", loc)
+                    warmrunnerstate.dont_trace_here(greenboxes)
+                else:
+                    return self.metainterp.perform_call(portal_code, allboxes,
+                                greenkey=greenboxes)
             assembler_call = True
             # verify that we have all green args, needed to make sure
             # that assembler that we call is still correct
@@ -1699,6 +1730,7 @@ class MetaInterpGlobalData(object):
 class MetaInterp(object):
     portal_call_depth = 0
     cancel_count = 0
+    exported_state = None
 
     def __init__(self, staticdata, jitdriver_sd):
         self.staticdata = staticdata
@@ -1719,9 +1751,10 @@ class MetaInterp(object):
         self.call_ids = []
         self.current_call_id = 0
 
-    def retrace_needed(self, trace):
+    def retrace_needed(self, trace, exported_state):
         self.partial_trace = trace
         self.retracing_from = len(self.history.operations) - 1
+        self.exported_state = exported_state
         self.heapcache.reset()
 
 
@@ -2218,7 +2251,9 @@ class MetaInterp(object):
                         raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP) # For now
                 # Found!  Compile it as a loop.
                 # raises in case it works -- which is the common case
-                self.compile_loop(original_boxes, live_arg_boxes, start)
+                self.compile_loop(original_boxes, live_arg_boxes, start,
+                                  exported_state=self.exported_state)
+                self.exported_state = None
                 # creation of the loop was cancelled!
                 self.cancel_count += 1
                 if self.staticdata.warmrunnerdesc:
@@ -2332,7 +2367,7 @@ class MetaInterp(object):
         return token
 
     def compile_loop(self, original_boxes, live_arg_boxes, start,
-                     try_disabling_unroll=False):
+                     try_disabling_unroll=False, exported_state=None):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
         if not self.partial_trace:
@@ -2346,7 +2381,8 @@ class MetaInterp(object):
                                                    original_boxes[num_green_args:],
                                                    live_arg_boxes[num_green_args:],
                                                    self.partial_trace,
-                                                   self.resumekey)
+                                                   self.resumekey,
+                                                   exported_state)
         else:
             target_token = compile.compile_loop(self, greenkey, start,
                                                 original_boxes[num_green_args:],

@@ -166,6 +166,7 @@ reduce_cum_driver = jit.JitDriver(name='numpy_reduce_cum_driver',
 def compute_reduce_cumulative(space, obj, out, calc_dtype, func, identity):
     obj_iter, obj_state = obj.create_iter()
     out_iter, out_state = out.create_iter()
+    out_iter.track_index = False
     if identity is None:
         cur_value = obj_iter.getitem(obj_state).convert_to(space, calc_dtype)
         out_iter.setitem(out_state, cur_value)

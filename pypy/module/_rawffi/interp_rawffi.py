@@ -18,6 +18,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.rarithmetic import intmask, r_uint
 from pypy.module._rawffi.buffer import RawFFIBuffer
 from pypy.module._rawffi.tracker import tracker
+from pypy.module._rawffi import lasterror
 
 TYPEMAP = {
     # XXX A mess with unsigned/signed/normal chars :-/
@@ -495,10 +496,14 @@ class W_FuncPtr(W_Root):
         try:
             if self.resshape is not None:
                 result = self.resshape.allocate(space, 1, autofree=True)
+                lasterror.restore_last_error(space)
                 self.ptr.call(args_ll, result.ll_buffer)
+                lasterror.save_last_error(space)
                 return space.wrap(result)
             else:
+                lasterror.restore_last_error(space)
                 self.ptr.call(args_ll, lltype.nullptr(rffi.VOIDP.TO))
+                lasterror.save_last_error(space)
                 return space.w_None
         except StackCheckError, e:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
@@ -615,12 +620,10 @@ def set_errno(space, w_errno):
 
 if sys.platform == 'win32':
     def get_last_error(space):
-        from rpython.rlib.rwin32 import GetLastError
-        return space.wrap(GetLastError())
+        return space.wrap(lasterror.fetch_last_error(space))
     @unwrap_spec(error=int)
     def set_last_error(space, error):
-        from rpython.rlib.rwin32 import SetLastError
-        SetLastError(error)
+        lasterror.store_last_error(space, error)
 else:
     # always have at least a dummy version of these functions
     # (https://bugs.pypy.org/issue1242)
