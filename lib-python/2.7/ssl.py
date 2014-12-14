@@ -129,18 +129,12 @@ try:
 except NameError:
     _SSLv2_IF_EXISTS = None
 
-<<<<<<< local
 from socket import socket, _fileobject, error as socket_error
-from socket import getnameinfo as _getnameinfo
-from socket import SOL_SOCKET, SO_TYPE, SOCK_STREAM
-=======
-from socket import socket, _fileobject, _delegate_methods, error as socket_error
 if sys.platform == "win32":
     from _ssl import enum_certificates, enum_crls
 
 from socket import socket, AF_INET, SOCK_STREAM, create_connection
 from socket import SOL_SOCKET, SO_TYPE
->>>>>>> other
 import base64        # for DER-to-PEM translation
 import errno
 
@@ -528,21 +522,12 @@ class SSLSocket(socket):
         if sock.getsockopt(SOL_SOCKET, SO_TYPE) != SOCK_STREAM:
             raise NotImplementedError("only stream sockets are supported")
         socket.__init__(self, _sock=sock._sock)
-<<<<<<< local
 
         # "close" the original socket: it is not usable any more. which should
         # not actually call the operating system's close() because the
         # reference counter is greater than 1 (we hold one too).
         sock._sock._drop()
-=======
-        # The initializer for socket overrides the methods send(), recv(), etc.
-        # in the instancce, which we don't need -- but we want to provide the
-        # methods defined in SSLSocket.
-        for attr in _delegate_methods:
-            try:
-                delattr(self, attr)
-            except AttributeError:
-                pass
+
         if server_side and server_hostname:
             raise ValueError("server_hostname can only be specified "
                              "in client mode")
@@ -552,7 +537,6 @@ class SSLSocket(socket):
         self.server_hostname = server_hostname
         self.do_handshake_on_connect = do_handshake_on_connect
         self.suppress_ragged_eofs = suppress_ragged_eofs
->>>>>>> other
 
         # See if we are connected
         try:
@@ -864,7 +848,6 @@ class SSLSocket(socket):
         # the file-like object.
         return _fileobject(self, mode, bufsize, close=True)
 
-<<<<<<< local
     def _reuse(self):
         self._makefile_refs += 1
 
@@ -874,7 +857,6 @@ class SSLSocket(socket):
         else:
             self._makefile_refs -= 1
 
-=======
     def get_channel_binding(self, cb_type="tls-unique"):
         """Get channel binding data for current connection.  Raise ValueError
         if the requested `cb_type` is not supported.  Return bytes of the data
@@ -898,7 +880,6 @@ class SSLSocket(socket):
         if self._sslobj is None:
             return None
         return self._sslobj.version()
->>>>>>> other
 
 
 def wrap_socket(sock, keyfile=None, certfile=None,
