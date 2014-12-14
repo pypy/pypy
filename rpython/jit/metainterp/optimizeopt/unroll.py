@@ -280,7 +280,7 @@ class UnrollOptimizer(Optimization):
 
         # We dont need to inline the short preamble we are creating as we are conneting
         # the bridge to a different trace with a different short preamble
-        self.short_inliner = None
+        self.memo = None
 
         newoperations = self.optimizer.get_newoperations()
         self.boxes_created_this_iteration = {}
@@ -384,13 +384,14 @@ class UnrollOptimizer(Optimization):
         assert isinstance(target_token, TargetToken)
 
         # Turn guards into conditional jumps to the preamble
-        for i in range(len(short)):
-            op = short[i]
-            if op.is_guard():
-                #op = op.clone() XXXX
-                op.setfailargs(None)
-                op.setdescr(None) # will be set to a proper descr when the preamble is used
-                short[i] = op
+        #for i in range(len(short)):
+        #    op = short[i]
+        #    if op.is_guard():
+                #op = op.clone(self.memo)
+                #op.is_source_op = True
+        #        op.setfailargs(None)
+        #        op.setdescr(None) # will be set to a proper descr when the preamble is used
+        #        short[i] = op
 
         # Clone ops and boxes to get private versions and
         short_inputargs = short[0].getarglist()
@@ -408,7 +409,10 @@ class UnrollOptimizer(Optimization):
         for i in range(len(short)):
             op = short[i]
             newop = op.clone(memo)
-            if op.type != 'v' and op in self.short_boxes.assumed_classes:
+            if newop.is_guard():
+                newop.setfailargs(None)
+                newop.setdescr(None)
+            if op in self.short_boxes.assumed_classes:
                 target_token.assumed_classes[newop] = self.short_boxes.assumed_classes[op]
             short[i] = newop
 
@@ -443,8 +447,8 @@ class UnrollOptimizer(Optimization):
         if op is None:
             return None
         if op is not None and op in self.short_seen:
-            if emit and self.short_inliner:
-                return self.short_inliner.inline_arg(op.result)
+            if emit and self.memo:
+                return self.memo.get(op, op)
             else:
                 return None
 
@@ -487,7 +491,7 @@ class UnrollOptimizer(Optimization):
         short_op = self.short_boxes.producer(box)
         newresult = self.add_op_to_short(short_op)
 
-        short_jumpargs.append(short_op.result)
+        short_jumpargs.append(short_op)
         inputargs.append(box)
         box = newresult
         if box in self.optimizer.values:

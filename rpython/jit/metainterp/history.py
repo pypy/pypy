@@ -94,13 +94,7 @@ class XxxAbstractValue(object):
         raise NotImplementedError
     getref._annspecialcase_ = 'specialize:arg(1)'
 
-    def clonebox(self):
-        raise NotImplementedError
-
     def constbox(self):
-        raise NotImplementedError
-
-    def nonconstbox(self):
         raise NotImplementedError
 
     def getaddr(self):
@@ -235,11 +229,6 @@ class ConstInt(Const):
                 assert isinstance(value, Symbolic)
         self.value = value
 
-    def clonebox(self):
-        return BoxInt(self.value)
-
-    nonconstbox = clonebox
-
     def getint(self):
         return self.value
 
@@ -276,11 +265,6 @@ class ConstFloat(Const):
     def __init__(self, valuestorage):
         assert lltype.typeOf(valuestorage) is longlong.FLOATSTORAGE
         self.value = valuestorage
-
-    def clonebox(self):
-        return BoxFloat(self.value)
-
-    nonconstbox = clonebox
 
     def getfloatstorage(self):
         return self.value
@@ -323,11 +307,6 @@ class ConstPtr(Const):
     def __init__(self, value):
         assert lltype.typeOf(value) == llmemory.GCREF
         self.value = value
-
-    def clonebox(self):
-        return BoxPtr(self.value)
-
-    nonconstbox = clonebox
 
     def getref_base(self):
         return self.value
@@ -435,9 +414,6 @@ class BoxInt(Box):
     def forget_value(self):
         self.value = 0
 
-    def clonebox(self):
-        return BoxInt(self.value)
-
     def constbox(self):
         return ConstInt(self.value)
 
@@ -471,9 +447,6 @@ class BoxFloat(Box):
     def forget_value(self):
         self.value = longlong.ZEROF
 
-    def clonebox(self):
-        return BoxFloat(self.value)
-
     def constbox(self):
         return ConstFloat(self.value)
 
@@ -503,9 +476,6 @@ class BoxPtr(Box):
 
     def forget_value(self):
         self.value = lltype.nullptr(llmemory.GCREF.TO)
-
-    def clonebox(self):
-        return BoxPtr(self.value)
 
     def constbox(self):
         return ConstPtr(self.value)

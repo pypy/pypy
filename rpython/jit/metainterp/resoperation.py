@@ -161,7 +161,12 @@ class AbstractResOp(AbstractValue):
                                              ['descr=%r' % descr]))
 
     def repr_short(self, memo):
-        return memo[self]
+        try:
+            return memo[self]
+        except KeyError:
+            name = self.type + str(len(memo))
+            memo[self] = name
+            return name
 
     def getopname(self):
         try:
@@ -327,6 +332,9 @@ class IntOp(object):
     def nonnull(self):
         return self._resint != 0
 
+    def clone_input_arg(self):
+        return InputArgInt()
+
 class FloatOp(object):
     _mixin_ = True
 
@@ -348,6 +356,9 @@ class FloatOp(object):
 
     def nonnull(self):
         return bool(longlong.extract_bits(self._resfloat))
+
+    def clone_input_arg(self):
+        return InputArgFloat()
 
 class RefOp(object):
     _mixin_ = True
@@ -372,6 +383,9 @@ class RefOp(object):
 
     def nonnull(self):
         return bool(self._resref)
+
+    def clone_input_arg(self):
+        return InputArgRef()
 
 class AbstractInputArg(AbstractValue):
     is_source_op = True

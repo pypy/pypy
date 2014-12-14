@@ -385,7 +385,7 @@ class BaseTest(object):
         assert len(optimized.inputargs) == len(expected.inputargs)
         remap = {}
         for box1, box2 in zip(optimized.inputargs, expected.inputargs):
-            assert box1.__class__ == box2.__class__
+            assert box1.type == box2.type
             remap[box2] = box1
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap, text_right)
@@ -419,7 +419,7 @@ class BaseTest(object):
 
         jump_args = jumpop.getarglist()[:]
         operations = operations[:-1]
-        memo = compile.Memo()
+        memo = compile.Memo(inputargs, jump_args)
         cloned_operations = [op.clone(memo) for op in operations]
         for op in cloned_operations:
             op.is_source_op = True

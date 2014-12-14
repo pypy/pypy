@@ -543,14 +543,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_ooisnull_on_null_ptr_1(self):
         ops = """
         []
-        p0 = escape()
+        p0 = escape_r()
         guard_isnull(p0) []
         guard_isnull(p0) []
         jump()
         """
         expected = """
         []
-        p0 = escape()
+        p0 = escape_r()
         guard_isnull(p0) []
         jump()
         """
@@ -562,7 +562,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         pv = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(pv, p0, descr=valuedescr)
         guard_nonnull(p0) []
-        p1 = getfield_gc(pv, descr=valuedescr)
+        p1 = getfield_gc_r(pv, descr=valuedescr)
         guard_nonnull(p1) []
         jump(p0)
         """
@@ -641,13 +641,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = ptr_eq(NULL, p0)
         guard_false(i3) []
         guard_nonnull(p0) []
-        escape(p0)
+        escape_r(p0)
         jump()
         """
         expected = """
         []
         p0 = new_array(5, descr=arraydescr)
-        escape(p0)
+        escape_r(p0)
         jump()
         """
         self.optimize_loop(ops, expected)
@@ -668,7 +668,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_constptr_guard_value(self):
         ops = """
         []
-        p1 = escape()
+        p1 = escape_r()
         guard_value(p1, ConstPtr(myptr)) []
         jump()
         """
@@ -755,7 +755,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_compare_with_itself(self):
         ops = """
         []
-        i0 = escape()
+        i0 = escape_i()
         i1 = int_lt(i0, i0)
         guard_false(i1) []
         i2 = int_le(i0, i0)
@@ -772,7 +772,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         []
-        i0 = escape()
+        i0 = escape_i()
         jump()
         """
         self.optimize_loop(ops, expected)
@@ -802,22 +802,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_p123_simple(self):
         ops = """
         [i1, p2, p3]
-        i3 = getfield_gc(p3, descr=valuedescr)
-        escape(i3)
+        i3 = getfield_gc_i(p3, descr=valuedescr)
+        escape_n(i3)
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p1, i1, descr=valuedescr)
         jump(i1, p1, p2)
         """
         preamble = """
         [i1, p2, p3]
-        i3 = getfield_gc(p3, descr=valuedescr)
-        escape(i3)
+        i3 = getfield_gc_i(p3, descr=valuedescr)
+        escape_n(i3)
         jump(i1, p2)
         """
         expected = """
         [i1, p2]
-        i3 = getfield_gc(p2, descr=valuedescr)
-        escape(i3)
+        i3 = getfield_gc_i(p2, descr=valuedescr)
+        escape_n(i3)
         p3 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p3, i1, descr=valuedescr)
         jump(i1, p3)
@@ -828,8 +828,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_p123_nested(self):
         ops = """
         [i1, p2, p3]
-        i3 = getfield_gc(p3, descr=valuedescr)
-        escape(i3)
+        i3 = getfield_gc_i(p3, descr=valuedescr)
+        escape_n(i3)
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p1, i1, descr=valuedescr)
         p1sub = new_with_vtable(ConstClass(node_vtable2))
@@ -841,14 +841,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # virtual.
         preamble = """
         [i1, p2, p3]
-        i3 = getfield_gc(p3, descr=valuedescr)
-        escape(i3)
+        i3 = getfield_gc_i(p3, descr=valuedescr)
+        escape_n(i3)
         jump(i1, p2)
         """
         expected = """
         [i1, p2]
-        i3 = getfield_gc(p2, descr=valuedescr)
-        escape(i3)
+        i3 = getfield_gc_i(p2, descr=valuedescr)
+        escape_n(i3)
         p4 = new_with_vtable(ConstClass(node_vtable))
         p1sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p1sub, i1, descr=valuedescr)
@@ -861,9 +861,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_p123_anti_nested(self):
         ops = """
         [i1, p2, p3]
-        p3sub = getfield_gc(p3, descr=nextdescr)
-        i3 = getfield_gc(p3sub, descr=valuedescr)
-        escape(i3)
+        p3sub = getfield_gc_r(p3, descr=nextdescr)
+        i3 = getfield_gc_i(p3sub, descr=valuedescr)
+        escape_n(i3)
         p1 = new_with_vtable(ConstClass(node_vtable))
         p2sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p2sub, i1, descr=valuedescr)
@@ -874,9 +874,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # a "young" virtual p2sub.  Make sure it is all forced.
         preamble = """
         [i1, p2, p3]
-        p3sub = getfield_gc(p3, descr=nextdescr)
-        i3 = getfield_gc(p3sub, descr=valuedescr)
-        escape(i3)
+        p3sub = getfield_gc_r(p3, descr=nextdescr)
+        i3 = getfield_gc_i(p3sub, descr=valuedescr)
+        escape_n(i3)
         p2sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p2sub, i1, descr=valuedescr)
         setfield_gc(p2, p2sub, descr=nextdescr)
@@ -884,8 +884,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [i1, p2, p2sub]
-        i3 = getfield_gc(p2sub, descr=valuedescr)
-        escape(i3)
+        i3 = getfield_gc_i(p2sub, descr=valuedescr)
+        escape_n(i3)
         p1 = new_with_vtable(ConstClass(node_vtable))
         p3sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p3sub, i1, descr=valuedescr)
