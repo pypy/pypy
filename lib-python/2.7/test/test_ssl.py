@@ -1995,51 +1995,6 @@ else:
 
     class ThreadedTests(unittest.TestCase):
 
-<<<<<<< local
-        def test_rude_shutdown(self):
-            """A brutal shutdown of an SSL server should raise an IOError
-            in the client when attempting handshake.
-            """
-            listener_ready = threading.Event()
-            listener_gone = threading.Event()
-
-            s = socket.socket()
-            port = test_support.bind_port(s, HOST)
-
-            # `listener` runs in a thread.  It sits in an accept() until
-            # the main thread connects.  Then it rudely closes the socket,
-            # and sets Event `listener_gone` to let the main thread know
-            # the socket is gone.
-            def listener():
-                s.listen(5)
-                listener_ready.set()
-                s.accept()
-                s.close()
-                listener_gone.set()
-
-            def connector():
-                listener_ready.wait()
-                c = socket.socket()
-                c.connect((HOST, port))
-                listener_gone.wait()
-                # XXX why is it necessary?
-                test_support.gc_collect()
-                try:
-                    ssl_sock = ssl.wrap_socket(c)
-                except IOError:
-                    pass
-                else:
-                    self.fail('connecting to closed SSL socket should have failed')
-
-            t = threading.Thread(target=listener)
-            t.start()
-            try:
-                connector()
-            finally:
-                t.join()
-
-=======
->>>>>>> other
         @skip_if_broken_ubuntu_ssl
         def test_echo(self):
             """Basic test of an SSL client connecting to a server"""
