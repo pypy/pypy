@@ -222,12 +222,7 @@ class BufferHashRandomizationTests(StringlikeHashRandomizationTests):
     repr_ = 'buffer("abc")'
 
     def test_empty_string(self):
-<<<<<<< local
         self.assertEqual(hash(buffer("")), self.EMPTY_STRING_HASH)
-=======
-        with test_support.check_py3k_warnings():
-            self.assertEqual(hash(buffer("")), 0)
->>>>>>> other
 
 class DatetimeTests(HashRandomizationTests):
     def get_hash_command(self, repr_):
