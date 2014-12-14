@@ -635,17 +635,8 @@ class GeneralModuleTests(unittest.TestCase):
         port = test_support.find_unused_port()
         big_port = port + 65536
         neg_port = port - 65536
-<<<<<<< local
-        sock = socket.socket()
-        try:
-            self.assertRaises((OverflowError, ValueError), sock.bind, (host, big_port))
-            self.assertRaises((OverflowError, ValueError), sock.bind, (host, neg_port))
-            sock.bind((host, port))
-        finally:
-            sock.close()
-=======
-        self.assertRaises(OverflowError, sock.bind, (HOST, big_port))
-        self.assertRaises(OverflowError, sock.bind, (HOST, neg_port))
+        self.assertRaises((OverflowError, ValueError), sock.bind, (HOST, big_port))
+        self.assertRaises((OverflowError, ValueError), sock.bind, (HOST, neg_port))
         # Since find_unused_port() is inherently subject to race conditions, we
         # call it a couple times if necessary.
         for i in itertools.count():
@@ -657,7 +648,6 @@ class GeneralModuleTests(unittest.TestCase):
                     raise
             else:
                 break
->>>>>>> other
 
     @unittest.skipUnless(os.name == "nt", "Windows specific")
     def test_sock_ioctl(self):
