@@ -91,6 +91,27 @@ class TestSpecifics(unittest.TestCase):
         with self.assertRaises(TypeError):
             exec("a = b + 1", g, l) in g, l
 
+    def test_nested_qualified_exec(self):
+        # Can use qualified exec in nested functions.
+        code = ["""
+def g():
+    def f():
+        if True:
+            exec "" in {}, {}
+        """, """
+def g():
+    def f():
+        if True:
+            exec("", {}, {})
+        """, """
+def g():
+    def f():
+        if True:
+            exec("", {})
+        """]
+        for c in code:
+            compile(c, "<code>", "exec")
+
     def test_exec_with_general_mapping_for_locals(self):
 
         class M:
@@ -393,9 +414,24 @@ if 1:
         l = lambda: "foo"
         self.assertIsNone(l.__doc__)
 
-    def test_unicode_encoding(self):
+    @test_support.requires_unicode
+    def test_encoding(self):
+        code = b'# -*- coding: badencoding -*-\npass\n'
+        self.assertRaises(SyntaxError, compile, code, 'tmp', 'exec')
         code = u"# -*- coding: utf-8 -*-\npass\n"
         self.assertRaises(SyntaxError, compile, code, "tmp", "exec")
+        code = 'u"\xc2\xa4"\n'
+        self.assertEqual(eval(code), u'\xc2\xa4')
+        code = u'u"\xc2\xa4"\n'
+        self.assertEqual(eval(code), u'\xc2\xa4')
+        code = '# -*- coding: latin1 -*-\nu"\xc2\xa4"\n'
+        self.assertEqual(eval(code), u'\xc2\xa4')
+        code = '# -*- coding: utf-8 -*-\nu"\xc2\xa4"\n'
+        self.assertEqual(eval(code), u'\xa4')
+        code = '# -*- coding: iso8859-15 -*-\nu"\xc2\xa4"\n'
+        self.assertEqual(eval(code), test_support.u(r'\xc2\u20ac'))
+        code = 'u"""\\\n# -*- coding: utf-8 -*-\n\xc2\xa4"""\n'
+        self.assertEqual(eval(code), u'# -*- coding: utf-8 -*-\n\xc2\xa4')
 
     def test_subscripts(self):
         # SF bug 1448804

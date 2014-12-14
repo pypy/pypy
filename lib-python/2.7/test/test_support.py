@@ -39,7 +39,7 @@ __all__ = ["Error", "TestFailed", "ResourceDenied", "import_module",
            "threading_cleanup", "reap_children", "cpython_only",
            "check_impl_detail", "get_attribute", "py3k_bytes",
            "import_fresh_module", "threading_cleanup", "reap_children",
-           "strip_python_stderr"]
+           "strip_python_stderr", "IPV6_ENABLED"]
 
 class Error(Exception):
     """Base class for regression test exceptions."""
@@ -326,12 +326,11 @@ def _is_gui_available():
                 reason = "cannot run without OS X gui process"
 
     # check on every platform whether tkinter can actually do anything
-    # but skip the test on OS X because it can cause segfaults in Cocoa Tk
-    # when running regrtest with the -j option (multiple threads/subprocesses)
-    if (not reason) and (sys.platform != 'darwin'):
+    if not reason:
         try:
             from Tkinter import Tk
             root = Tk()
+            root.update()
             root.destroy()
         except Exception as e:
             err_string = str(e)
@@ -465,6 +464,36 @@ def bind_port(sock, host=HOST):
     port = sock.getsockname()[1]
     return port
 
+def _is_ipv6_enabled():
+    """Check whether IPv6 is enabled on this host."""
+    if socket.has_ipv6:
+        sock = None
+        try:
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            sock.bind((HOSTv6, 0))
+            return True
+        except socket.error:
+            pass
+        finally:
+            if sock:
+                sock.close()
+    return False
+
+IPV6_ENABLED = _is_ipv6_enabled()
+
+def system_must_validate_cert(f):
+    """Skip the test on TLS certificate validation failures."""
+    @functools.wraps(f)
+    def dec(*args, **kwargs):
+        try:
+            f(*args, **kwargs)
+        except IOError as e:
+            if "CERTIFICATE_VERIFY_FAILED" in str(e):
+                raise unittest.SkipTest("system does not contain "
+                                        "necessary certificates")
+            raise
+    return dec
+
 FUZZ = 1e-6
 
 def fcmp(x, y): # fuzzy comparison function
@@ -498,13 +527,18 @@ PIPE_MAX_SIZE = 4 * 1024 * 1024 + 1
 # for a discussion of this number).
 SOCK_MAX_SIZE = 16 * 1024 * 1024 + 1
 
+is_jython = sys.platform.startswith('java')
+
 try:
     unicode
     have_unicode = True
 except NameError:
     have_unicode = False
 
-is_jython = sys.platform.startswith('java')
+requires_unicode = unittest.skipUnless(have_unicode, 'no unicode support')
+
+def u(s):
+    return unicode(s, 'unicode-escape')
 
 # FS_NONASCII: non-ASCII Unicode character encodable by
 # sys.getfilesystemencoding(), or None if there is no such character.
