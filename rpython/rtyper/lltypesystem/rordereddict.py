@@ -839,6 +839,7 @@ def ll_newdict(DICT):
     d.num_used_items = 0
     d.resize_counter = DICT_INITSIZE * 2
     return d
+OrderedDictRepr.ll_newdict = staticmethod(ll_newdict)
 
 def ll_newdict_size(DICT, orig_length_estimate):
     length_estimate = (orig_length_estimate // 2) * 3
@@ -1012,7 +1013,13 @@ def ll_prepare_dict_update(d, num_extra):
     #      (d.resize_counter - 1) // 3 = room left in d
     #  so, if num_extra == 1, we need d.resize_counter > 3
     #      if num_extra == 2, we need d.resize_counter > 6  etc.
-    jit.conditional_call(d.resize_counter <= num_extra * 3,
+    # Note however a further hack: if num_extra <= d.num_items,
+    # we avoid calling _ll_dict_resize_to here.  This is to handle
+    # the case where dict.update() actually has a lot of collisions.
+    # If num_extra is much greater than d.num_items the conditional_call
+    # will trigger anyway, which is really the goal.
+    x = num_extra - d.num_items
+    jit.conditional_call(d.resize_counter <= x * 3,
                          _ll_dict_resize_to, d, num_extra)
 
 # this is an implementation of keys(), values() and items()

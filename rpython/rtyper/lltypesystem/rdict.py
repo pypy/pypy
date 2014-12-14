@@ -669,6 +669,7 @@ def ll_newdict(DICT):
     d.num_items = 0
     d.resize_counter = DICT_INITSIZE * 2
     return d
+DictRepr.ll_newdict = staticmethod(ll_newdict)
 
 def ll_newdict_size(DICT, length_estimate):
     length_estimate = (length_estimate // 2) * 3
