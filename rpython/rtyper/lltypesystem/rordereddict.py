@@ -156,7 +156,7 @@ class OrderedDictRepr(AbstractDictRepr):
 
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
                  custom_eq_hash=None, force_non_null=False):
-        assert not force_non_null
+        #assert not force_non_null
         self.rtyper = rtyper
         self.finalized = False
         self.DICT = lltype.GcForwardReference()
@@ -217,7 +217,7 @@ class OrderedDictRepr(AbstractDictRepr):
         #dictobj = getattr(dictobj, '__self__', dictobj)
         if dictobj is None:
             return lltype.nullptr(self.DICT)
-        if not isinstance(dictobj, (dict, objectmodel.r_ordereddict)):
+        if not isinstance(dictobj, (dict, objectmodel.r_dict)):
             raise TypeError("expected a dict: %r" % (dictobj,))
         try:
             key = Constant(dictobj)
@@ -231,8 +231,8 @@ class OrderedDictRepr(AbstractDictRepr):
             if r_key.lowleveltype == llmemory.Address:
                 raise TypeError("No prebuilt dicts of address keys")
             r_value = self.value_repr
-            if isinstance(dictobj, objectmodel.r_ordereddict):
-                
+            if isinstance(dictobj, objectmodel.r_dict):
+
                 if self.r_rdict_eqfn.lowleveltype != lltype.Void:
                     l_fn = self.r_rdict_eqfn.convert_const(dictobj.key_eq)
                     l_dict.fnkeyeq = l_fn
