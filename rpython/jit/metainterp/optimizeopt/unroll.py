@@ -306,7 +306,9 @@ class UnrollOptimizer(Optimization):
         jumpop.initarglist(jumpargs)
 
         # Inline the short preamble at the end of the loop
-        jmp_to_short_args = virtual_state.make_inputargs(values, self.optimizer, keyboxes=True)
+        jmp_to_short_args = virtual_state.make_inputargs(values,
+                                                         self.optimizer,
+                                                         keyboxes=True)
         assert len(short_inputargs) == len(jmp_to_short_args)
         args = {}
         for i in range(len(short_inputargs)):
