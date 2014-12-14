@@ -717,8 +717,8 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
     INDEXES = _ll_ptr_to_array_of(T)
     entries = d.entries
     indexes = lltype.cast_opaque_ptr(INDEXES, d.indexes)
-    mask = len(indexes) - 1
-    i = r_uint(hash & mask)
+    mask = r_uint(len(indexes) - 1)
+    i = r_uint(hash) & mask
     # do the first try before any looping
     ENTRIES = lltype.typeOf(entries).TO
     direct_compare = not hasattr(ENTRIES, 'no_direct_compare')
@@ -802,8 +802,8 @@ def ll_dict_store_clean(d, hash, index, T):
     # It only finds the next free slot for the given hash.
     INDEXES = _ll_ptr_to_array_of(T)
     indexes = lltype.cast_opaque_ptr(INDEXES, d.indexes)
-    mask = len(indexes) - 1
-    i = r_uint(hash & mask)
+    mask = r_uint(len(indexes) - 1)
+    i = r_uint(hash) & mask
     perturb = r_uint(hash)
     while rffi.cast(lltype.Signed, indexes[i]) != 0:
         i = (i << 2) + i + perturb + 1

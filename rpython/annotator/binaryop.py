@@ -176,31 +176,35 @@ def _clone(f, can_only_throw = None):
     return newfunc
 
 class __extend__(pairtype(SomeInteger, SomeInteger)):
-    # unsignedness is considered a rare and contagious disease
 
     def union((int1, int2)):
-        if int1.unsigned == int2.unsigned:
-            knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
+        # Rules: int1 and int2 must be in one of the following two cases:
+        #  * int1 and int2 are the same type; or
+        #  * one of them is a constant 'int'.
+        # This rule is stricter than it used to be (Dec'14).
+        #
+        t1 = int1.knowntype
+        if t1 is bool:
+            t1 = int
+        t2 = int2.knowntype
+        if t2 is bool:
+            t2 = int
+        #
+        if t1 == t2:
+            knowntype = t1
+        elif (t1 in (int, rarithmetic.r_int) and
+              t2 in (int, rarithmetic.r_int)):
+            knowntype = rarithmetic.r_int
+        elif (t1 in (int, rarithmetic.r_int) and int1.is_constant()
+                        and long(t2(int1.const)) == int1.const):
+            knowntype = t2
+        elif (t2 in (int, rarithmetic.r_int) and int2.is_constant()
+                        and long(t1(int2.const)) == int2.const):
+            knowntype = t1
         else:
-            t1 = int1.knowntype
-            if t1 is bool:
-                t1 = int
-            t2 = int2.knowntype
-            if t2 is bool:
-                t2 = int
-
-            if t2 is int:
-                if int2.nonneg == False:
-                    raise UnionError(int1, int2, "RPython cannot prove that these " + \
-                            "integers are of the same signedness")
-                knowntype = t1
-            elif t1 is int:
-                if int1.nonneg == False:
-                    raise UnionError(int1, int2, "RPython cannot prove that these " + \
-                            "integers are of the same signedness")
-                knowntype = t2
-            else:
-                raise UnionError(int1, int2)
+            raise UnionError(int1, int2, "cannot merge two integers"
+                        " of different types; explicit casts are needed."
+                        " (exception: integer constants)")
         return SomeInteger(nonneg=int1.nonneg and int2.nonneg,
                            knowntype=knowntype)
 
@@ -218,13 +222,13 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     inplace_truediv = truediv
 
     def sub((int1, int2)):
-        knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
+        knowntype = pair(int1, int2).union().knowntype
         return SomeInteger(knowntype=knowntype)
     sub.can_only_throw = []
     sub_ovf = _clone(sub, [OverflowError])
 
     def and_((int1, int2)):
-        knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
+        knowntype = pair(int1, int2).union().knowntype
         return SomeInteger(nonneg=int1.nonneg or int2.nonneg,
                            knowntype=knowntype)
     and_.can_only_throw = []

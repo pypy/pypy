@@ -921,9 +921,7 @@ class TestAnnotateTestCase:
                 c = b
             return c
         a = self.RPythonAnnotator()
-        s = a.build_types(f, [r_uint, int])
-        assert s == annmodel.SomeInteger(nonneg = True, unsigned = True)
-
+        py.test.raises(annmodel.UnionError, a.build_types, f, [r_uint, int])
 
     def test_prebuilt_long_that_is_not_too_long(self):
         small_constant = 12L
@@ -4177,9 +4175,6 @@ class TestAnnotateTestCase:
 
         with py.test.raises(annmodel.UnionError) as exc:
             a.build_types(f, [int])
-
-        assert ("RPython cannot prove that these integers are of the "
-                "same signedness" in exc.value.msg)
 
     def test_unionerror_instance(self):
         class A(object): pass

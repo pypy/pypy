@@ -440,6 +440,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.max_delta = 0.125 * env.get_total_memory()
 
             gc_increment_step = env.read_uint_from_env('PYPY_GC_INCREMENT_STEP')
+            gc_increment_step = intmask(gc_increment_step)
             if gc_increment_step > 0:
                 self.gc_increment_step = gc_increment_step
             else:

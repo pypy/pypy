@@ -476,7 +476,7 @@ def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
     i = i & MASK
     ENTRY = lltype.typeOf(d.entries).TO.OF
     entry = d.entries[i]
-    if not d.entries.everused(i):
+    if not d.entries.everused(intmask(i)):
         # a new entry that was never used before
         ll_assert(not valid, "valid but not everused")
         rc = d.resize_counter - 3
@@ -586,10 +586,10 @@ def ll_dict_lookup(d, key, hash):
     entries = d.entries
     ENTRIES = lltype.typeOf(entries).TO
     direct_compare = not hasattr(ENTRIES, 'no_direct_compare')
-    mask = len(entries) - 1
-    i = r_uint(hash & mask)
+    mask = r_uint(len(entries) - 1)
+    i = r_uint(hash) & mask
     # do the first try before any looping
-    if entries.valid(i):
+    if entries.valid(intmask(i)):
         checkingkey = entries[i].key
         if direct_compare and checkingkey == key:
             return i   # found the entry
@@ -599,13 +599,14 @@ def ll_dict_lookup(d, key, hash):
             found = d.keyeq(checkingkey, key)
             if d.paranoia:
                 if (entries != d.entries or
-                    not entries.valid(i) or entries[i].key != checkingkey):
+                         not entries.valid(intmask(i)) or
+                         entries[i].key != checkingkey):
                     # the compare did major nasty stuff to the dict: start over
                     return ll_dict_lookup(d, key, hash)
             if found:
                 return i   # found the entry
         freeslot = -1
-    elif entries.everused(i):
+    elif entries.everused(intmask(i)):
         freeslot = intmask(i)
     else:
         return i | HIGHEST_BIT # pristine entry -- lookup failed
@@ -619,11 +620,11 @@ def ll_dict_lookup(d, key, hash):
         i = i & mask
         # keep 'i' as a signed number here, to consistently pass signed
         # arguments to the small helper methods.
-        if not entries.everused(i):
+        if not entries.everused(intmask(i)):
             if freeslot == -1:
                 freeslot = intmask(i)
             return r_uint(freeslot) | HIGHEST_BIT
-        elif entries.valid(i):
+        elif entries.valid(intmask(i)):
             checkingkey = entries[i].key
             if direct_compare and checkingkey == key:
                 return i
@@ -633,7 +634,8 @@ def ll_dict_lookup(d, key, hash):
                 found = d.keyeq(checkingkey, key)
                 if d.paranoia:
                     if (entries != d.entries or
-                        not entries.valid(i) or entries[i].key != checkingkey):
+                            not entries.valid(intmask(i)) or
+                            entries[i].key != checkingkey):
                         # the compare did major nasty stuff to the dict:
                         # start over
                         return ll_dict_lookup(d, key, hash)
@@ -648,10 +650,10 @@ def ll_dict_lookup_clean(d, hash):
     # key is new, and the dictionary doesn't contain deleted entries.
     # It only finds the next free slot for the given hash.
     entries = d.entries
-    mask = len(entries) - 1
-    i = r_uint(hash & mask)
+    mask = r_uint(len(entries) - 1)
+    i = r_uint(hash) & mask
     perturb = r_uint(hash)
-    while entries.everused(i):
+    while entries.everused(intmask(i)):
         i = (i << 2) + i + perturb + 1
         i = i & mask
         perturb >>= PERTURB_SHIFT
