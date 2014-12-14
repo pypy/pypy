@@ -104,6 +104,8 @@ class __extend__(PyCode):
 
 def get_virtual_ip(gc_frame):
     frame = cast_base_ptr_to_instance(PyFrame, gc_frame)
+    if jit._is_virtualizable_token_set(frame):
+        return rffi.cast(rffi.VOIDP, 0)
     virtual_ip = do_get_virtual_ip(frame)
     return rffi.cast(rffi.VOIDP, virtual_ip)
 get_virtual_ip.c_name = 'pypy_vmprof_get_virtual_ip'

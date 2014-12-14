@@ -280,6 +280,36 @@ def we_are_jitted():
 _we_are_jitted = CDefinedIntSymbolic('0 /* we are not jitted here */',
                                      default=0)
 
+def _get_virtualizable_token(frame):
+    """ An obscure API to get vable token.
+    Used by _vmprof
+    """
+    from rpython.rtyper.lltypesystem import lltype, llmemory
+    
+    return lltype.nullptr(llmemory.GCREF.TO)
+
+class GetVirtualizableTokenEntry(ExtRegistryEntry):
+    _about_ = _get_virtualizable_token
+
+    def compute_result_annotation(self, s_arg):
+        from rpython.rtyper.llannotation import SomePtr
+        from rpython.rtyper.lltypesystem import llmemory
+        return SomePtr(llmemory.GCREF)
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype, llmemory
+
+        hop.exception_cannot_occur()
+        T = hop.args_r[0].lowleveltype.TO
+        v = hop.inputarg(hop.args_r[0], arg=0)
+        c_super = hop.inputconst(lltype.Void, 'super')
+        while not hasattr(T, 'vable_token'):
+            v = hop.genop('getfield', [v, c_super], resulttype=T.super)
+            T = T.super
+        c_vable_token = hop.inputconst(lltype.Void, 'vable_token')
+        return hop.genop('getfield', [v, c_vable_token],
+                         resulttype=llmemory.GCREF)
+
 class Entry(ExtRegistryEntry):
     _about_ = we_are_jitted
 
