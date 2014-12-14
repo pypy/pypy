@@ -14,11 +14,7 @@ except ImportError:
     threading = None
 
 from test import test_support
-<<<<<<< local
-from test.test_support import TESTFN, run_unittest, gc_collect
-=======
-from test.test_support import TESTFN, run_unittest, requires
->>>>>>> other
+from test.test_support import TESTFN, run_unittest, gc_collect, requires
 from UserList import UserList
 
 class AutoFileTests(unittest.TestCase):
