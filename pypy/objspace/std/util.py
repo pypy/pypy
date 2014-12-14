@@ -1,6 +1,20 @@
-from pypy.interpreter import gateway
-from pypy.interpreter.error import OperationError
 from rpython.rlib.rstring import InvalidBaseError
+
+from pypy.interpreter.error import OperationError
+from pypy.interpreter import gateway
+
+
+IDTAG_INT     = 1
+IDTAG_LONG    = 3
+IDTAG_FLOAT   = 5
+IDTAG_COMPLEX = 7
+
+CMP_OPS = dict(lt='<', le='<=', eq='==', ne='!=', gt='>', ge='>=')
+BINARY_BITWISE_OPS = {'and': '&', 'lshift': '<<', 'or': '|', 'rshift': '>>',
+                      'xor': '^'}
+BINARY_OPS = dict(add='+', div='/', floordiv='//', mod='%', mul='*', sub='-',
+                  truediv='/', **BINARY_BITWISE_OPS)
+COMMUTATIVE_OPS = ('add', 'mul', 'and', 'or', 'xor')
 
 
 def negate(f):

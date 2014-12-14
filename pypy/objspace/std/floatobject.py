@@ -2,27 +2,28 @@ import math
 import operator
 import sys
 
+from rpython.rlib import rarithmetic, rfloat
+from rpython.rlib.rarithmetic import LONG_BIT, intmask, ovfcheck_float_to_int
+from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rfloat import (
+    DTSF_ADD_DOT_0, INFINITY, NAN, copysign,
+    float_as_rbigint_ratio, formatd, isfinite, isinf, isnan)
+from rpython.rlib.rstring import ParseStringError
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rtyper.lltypesystem.module.ll_math import math_fmod
+from rpython.tool.sourcetools import func_with_new_name
+
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.typedef import GetSetProperty
+from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.objspace.std import newformat
 from pypy.objspace.std.intobject import HASH_BITS, HASH_MODULUS, W_IntObject
 from pypy.objspace.std.longobject import (
     W_AbstractLongObject, newlong_from_float)
 from rpython.rlib.rarithmetic import (
     LONG_BIT, intmask, ovfcheck_float_to_int, r_uint)
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.util import wrap_parsestringerror
-from rpython.rlib import rarithmetic, rfloat
-from rpython.rlib.rbigint import rbigint
-from rpython.rlib.rfloat import (
-    isinf, isnan, isfinite, INFINITY, NAN, copysign, formatd,
-    DTSF_ADD_DOT_0, float_as_rbigint_ratio)
-from rpython.rlib.rstring import ParseStringError
-from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.lltypesystem.module.ll_math import math_fmod
 
 HASH_INF  = 314159
 HASH_NAN  = 0
@@ -191,7 +192,7 @@ class W_FloatObject(W_Root):
         if self.user_overridden_class:
             return None
         from rpython.rlib.longlong2float import float2longlong
-        from pypy.objspace.std.model import IDTAG_FLOAT as tag
+        from pypy.objspace.std.util import IDTAG_FLOAT as tag
         val = float2longlong(space.float_w(self))
         b = rbigint.fromrarith_int(val)
         b = b.lshift(3).or_(rbigint.fromint(tag))
@@ -640,7 +641,7 @@ class W_FloatObject(W_Root):
             return space.wrap("0x%sp%s%d" % (s, sign, exp))
 
 
-W_FloatObject.typedef = StdTypeDef("float",
+W_FloatObject.typedef = TypeDef("float",
     __doc__ = '''float(x) -> floating point number
 
 Convert a string or number to a floating point number, if possible.''',

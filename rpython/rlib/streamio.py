@@ -238,7 +238,14 @@ class Stream(object):
         bufsize = 8192
         result = []
         while True:
-            data = self.read(bufsize)
+            try:
+                data = self.read(bufsize)
+            except OSError:
+                # like CPython < 3.4, partial results followed by an error
+                # are returned as data
+                if not result:
+                    raise
+                break
             if not data:
                 break
             result.append(data)
@@ -657,8 +664,8 @@ class BufferingInputStream(Stream):
             try:
                 data = self.do_read(bufsize)
             except OSError, o:
-                if o.errno != errno.EAGAIN:
-                    raise
+                # like CPython < 3.4, partial results followed by an error
+                # are returned as data
                 if not chunks:
                     raise
                 break

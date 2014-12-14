@@ -1,19 +1,20 @@
 import math
 
-from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.objspace.std import newformat
-from pypy.objspace.std.floatobject import _hash_float
-from pypy.objspace.std.stdtypedef import GetSetProperty, StdTypeDef
-from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
 from rpython.rlib import jit, rcomplex
 from rpython.rlib.rarithmetic import intmask, r_ulonglong
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
-    formatd, DTSF_STR_PRECISION, isinf, isnan, copysign, string_to_float)
+    DTSF_STR_PRECISION, copysign, formatd, isinf, isnan, string_to_float)
 from rpython.rlib.rstring import ParseStringError
 from rpython.tool.sourcetools import func_with_new_name
+
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.typedef import GetSetProperty, TypeDef
+from pypy.objspace.std import newformat
+from pypy.objspace.std.floatobject import _hash_float
+from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
 
 HASH_IMAG = 1000003
 
@@ -248,7 +249,7 @@ class W_ComplexObject(W_Root):
         if self.user_overridden_class:
             return None
         from rpython.rlib.longlong2float import float2longlong
-        from pypy.objspace.std.model import IDTAG_COMPLEX as tag
+        from pypy.objspace.std.util import IDTAG_COMPLEX as tag
         real = space.float_w(space.getattr(self, space.wrap("real")))
         imag = space.float_w(space.getattr(self, space.wrap("imag")))
         real_b = rbigint.fromrarith_int(float2longlong(real))
@@ -511,7 +512,7 @@ def complexwprop(name, doc):
         return space.newfloat(getattr(w_obj, name))
     return GetSetProperty(fget, doc=doc)
 
-W_ComplexObject.typedef = StdTypeDef("complex",
+W_ComplexObject.typedef = TypeDef("complex",
     __doc__ = """complex(real[, imag]) -> complex number
 
 Create a complex number from a real part and an optional imaginary part.
