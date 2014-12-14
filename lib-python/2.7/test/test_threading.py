@@ -700,49 +700,6 @@ class ThreadJoinOnShutdown(BaseTestCase):
         output = "end of worker thread\nend of main thread\n"
         self.assertScriptHasOutput(script, output)
 
-    @unittest.skipIf(sys.platform in platforms_to_skip, "due to known OS bug")
-    def test_6_daemon_threads(self):
-        # Check that a daemon thread cannot crash the interpreter on shutdown
-        # by manipulating internal structures that are being disposed of in
-        # the main thread.
-        script = """if True:
-            import os
-            import random
-            import sys
-            import time
-            import threading
-
-            thread_has_run = set()
-
-            def random_io():
-                '''Loop for a while sleeping random tiny amounts and doing some I/O.'''
-                while True:
-                    in_f = open(os.__file__, 'rb')
-                    stuff = in_f.read(200)
-                    null_f = open(os.devnull, 'wb')
-                    null_f.write(stuff)
-                    time.sleep(random.random() / 1995)
-                    null_f.close()
-                    in_f.close()
-                    thread_has_run.add(threading.current_thread())
-
-            def main():
-                count = 0
-                for _ in range(40):
-                    new_thread = threading.Thread(target=random_io)
-                    new_thread.daemon = True
-                    new_thread.start()
-                    count += 1
-                while len(thread_has_run) < count:
-                    time.sleep(0.001)
-                # Trigger process shutdown
-                sys.exit(0)
-
-            main()
-            """
-        rc, out, err = assert_python_ok('-c', script)
-        self.assertFalse(err)
-
     @unittest.skipUnless(hasattr(os, 'fork'), "needs os.fork()")
     @unittest.skipIf(sys.platform in platforms_to_skip, "due to known OS bug")
     def test_reinit_tls_after_fork(self):
@@ -828,6 +785,85 @@ class ThreadingExceptionTests(BaseTestCase):
         thread = threading.Thread()
         thread.start()
         self.assertRaises(RuntimeError, setattr, thread, "daemon", True)
+
+    def test_print_exception(self):
+        script = r"""if 1:
+            import threading
+            import time
+
+            running = False
+            def run():
+                global running
+                running = True
+                while running:
+                    time.sleep(0.01)
+                1/0
+            t = threading.Thread(target=run)
+            t.start()
+            while not running:
+                time.sleep(0.01)
+            running = False
+            t.join()
+            """
+        rc, out, err = assert_python_ok("-c", script)
+        self.assertEqual(out, '')
+        self.assertIn("Exception in thread", err)
+        self.assertIn("Traceback (most recent call last):", err)
+        self.assertIn("ZeroDivisionError", err)
+        self.assertNotIn("Unhandled exception", err)
+
+    def test_print_exception_stderr_is_none_1(self):
+        script = r"""if 1:
+            import sys
+            import threading
+            import time
+
+            running = False
+            def run():
+                global running
+                running = True
+                while running:
+                    time.sleep(0.01)
+                1/0
+            t = threading.Thread(target=run)
+            t.start()
+            while not running:
+                time.sleep(0.01)
+            sys.stderr = None
+            running = False
+            t.join()
+            """
+        rc, out, err = assert_python_ok("-c", script)
+        self.assertEqual(out, '')
+        self.assertIn("Exception in thread", err)
+        self.assertIn("Traceback (most recent call last):", err)
+        self.assertIn("ZeroDivisionError", err)
+        self.assertNotIn("Unhandled exception", err)
+
+    def test_print_exception_stderr_is_none_2(self):
+        script = r"""if 1:
+            import sys
+            import threading
+            import time
+
+            running = False
+            def run():
+                global running
+                running = True
+                while running:
+                    time.sleep(0.01)
+                1/0
+            sys.stderr = None
+            t = threading.Thread(target=run)
+            t.start()
+            while not running:
+                time.sleep(0.01)
+            running = False
+            t.join()
+            """
+        rc, out, err = assert_python_ok("-c", script)
+        self.assertEqual(out, '')
+        self.assertNotIn("Unhandled exception", err)
 
 
 class LockTests(lock_tests.LockTests):

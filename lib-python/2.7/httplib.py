@@ -215,6 +215,10 @@ MAXAMOUNT = 1048576
 # maximal line length when calling readline().
 _MAXLINE = 65536
 
+# maximum amount of headers accepted
+_MAXHEADERS = 100
+
+
 class HTTPMessage(mimetools.Message):
 
     def addheader(self, key, value):
@@ -271,6 +275,8 @@ class HTTPMessage(mimetools.Message):
         elif self.seekable:
             tell = self.fp.tell
         while True:
+            if len(hlist) > _MAXHEADERS:
+                raise HTTPException("got more than %d headers" % _MAXHEADERS)
             if tell:
                 try:
                     startofline = tell()
@@ -1181,21 +1187,29 @@ else:
 
         def __init__(self, host, port=None, key_file=None, cert_file=None,
                      strict=None, timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
-                     source_address=None):
+                     source_address=None, context=None):
             HTTPConnection.__init__(self, host, port, strict, timeout,
                                     source_address)
             self.key_file = key_file
             self.cert_file = cert_file
+            if context is None:
+                context = ssl._create_default_https_context()
+            if key_file or cert_file:
+                context.load_cert_chain(cert_file, key_file)
+            self._context = context
 
         def connect(self):
             "Connect to a host on a given (SSL) port."
 
-            sock = self._create_connection((self.host, self.port),
-                                          self.timeout, self.source_address)
+            HTTPConnection.connect(self)
+
             if self._tunnel_host:
-                self.sock = sock
-                self._tunnel()
-            self.sock = ssl.wrap_socket(sock, self.key_file, self.cert_file)
+                server_hostname = self._tunnel_host
+            else:
+                server_hostname = self.host
+
+            self.sock = self._context.wrap_socket(self.sock,
+                                                  server_hostname=server_hostname)
 
     __all__.append("HTTPSConnection")
 
@@ -1210,14 +1224,15 @@ else:
         _connection_class = HTTPSConnection
 
         def __init__(self, host='', port=None, key_file=None, cert_file=None,
-                     strict=None):
+                     strict=None, context=None):
             # provide a default host, pass the X509 cert info
 
             # urf. compensate for bad input.
             if port == 0:
                 port = None
             self._setup(self._connection_class(host, port, key_file,
-                                               cert_file, strict))
+                                               cert_file, strict,
+                                               context=context))
 
             # we never actually use these for anything, but we keep them
             # here for compatibility with post-1.5.2 CVS.

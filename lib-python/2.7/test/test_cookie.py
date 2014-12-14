@@ -3,6 +3,7 @@
 from test.test_support import run_unittest, run_doctest, check_warnings
 import unittest
 import Cookie
+import pickle
 
 
 class CookieTests(unittest.TestCase):
@@ -80,6 +81,51 @@ class CookieTests(unittest.TestCase):
         self.assertEqual(C.output(['val']),
             'Set-Cookie: val="some\\054funky\\073stuff"')
 
+    def test_set_secure_httponly_attrs(self):
+        C = Cookie.SimpleCookie('Customer="WILE_E_COYOTE"')
+        C['Customer']['secure'] = True
+        C['Customer']['httponly'] = True
+        self.assertEqual(C.output(),
+            'Set-Cookie: Customer="WILE_E_COYOTE"; httponly; secure')
+
+    def test_secure_httponly_false_if_not_present(self):
+        C = Cookie.SimpleCookie()
+        C.load('eggs=scrambled; Path=/bacon')
+        self.assertFalse(C['eggs']['httponly'])
+        self.assertFalse(C['eggs']['secure'])
+
+    def test_secure_httponly_true_if_present(self):
+        # Issue 16611
+        C = Cookie.SimpleCookie()
+        C.load('eggs=scrambled; httponly; secure; Path=/bacon')
+        self.assertTrue(C['eggs']['httponly'])
+        self.assertTrue(C['eggs']['secure'])
+
+    def test_secure_httponly_true_if_have_value(self):
+        # This isn't really valid, but demonstrates what the current code
+        # is expected to do in this case.
+        C = Cookie.SimpleCookie()
+        C.load('eggs=scrambled; httponly=foo; secure=bar; Path=/bacon')
+        self.assertTrue(C['eggs']['httponly'])
+        self.assertTrue(C['eggs']['secure'])
+        # Here is what it actually does; don't depend on this behavior.  These
+        # checks are testing backward compatibility for issue 16611.
+        self.assertEqual(C['eggs']['httponly'], 'foo')
+        self.assertEqual(C['eggs']['secure'], 'bar')
+
+    def test_bad_attrs(self):
+        # Issue 16611: make sure we don't break backward compatibility.
+        C = Cookie.SimpleCookie()
+        C.load('cookie=with; invalid; version; second=cookie;')
+        self.assertEqual(C.output(),
+            'Set-Cookie: cookie=with\r\nSet-Cookie: second=cookie')
+
+    def test_extra_spaces(self):
+        C = Cookie.SimpleCookie()
+        C.load('eggs  =  scrambled  ;  secure  ;  path  =  bar   ; foo=foo   ')
+        self.assertEqual(C.output(),
+            'Set-Cookie: eggs=scrambled; Path=bar; secure\r\nSet-Cookie: foo=foo')
+
     def test_quoted_meta(self):
         # Try cookie with quoted meta-data
         C = Cookie.SimpleCookie()
@@ -87,6 +133,27 @@ class CookieTests(unittest.TestCase):
         self.assertEqual(C['Customer'].value, 'WILE_E_COYOTE')
         self.assertEqual(C['Customer']['version'], '1')
         self.assertEqual(C['Customer']['path'], '/acme')
+
+    def test_invalid_cookies(self):
+        # Accepting these could be a security issue
+        C = Cookie.SimpleCookie()
+        for s in (']foo=x', '[foo=x', 'blah]foo=x', 'blah[foo=x'):
+            C.load(s)
+            self.assertEqual(dict(C), {})
+            self.assertEqual(C.output(), '')
+
+    def test_pickle(self):
+        rawdata = 'Customer="WILE_E_COYOTE"; Path=/acme; Version=1'
+        expected_output = 'Set-Cookie: %s' % rawdata
+
+        C = Cookie.SimpleCookie()
+        C.load(rawdata)
+        self.assertEqual(C.output(), expected_output)
+
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            C1 = pickle.loads(pickle.dumps(C, protocol=proto))
+            self.assertEqual(C1.output(), expected_output)
+
 
 def test_main():
     run_unittest(CookieTests)
