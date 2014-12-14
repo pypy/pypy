@@ -591,32 +591,40 @@ class ShortBoxes(object):
         self.potential_ops = {}
         self.alternatives = {}
         self.synthetic = {}
-        self.memo = Memo()
         self.optimizer = optimizer
         self.available_boxes = available_boxes
         self.assumed_classes = {}
 
-        if surviving_boxes is not None:
-            for box in surviving_boxes:
-                self.potential_ops[box] = None
-            optimizer.produce_potential_short_preamble_ops(self)
+        assert surviving_boxes is not None
+        for box in surviving_boxes:
+            self.potential_ops[box] = None
+        optimizer.produce_potential_short_preamble_ops(self)
 
-            self.short_boxes = {}
-            self.short_boxes_in_production = {}
+        self.short_boxes = {}
+        self.short_boxes_in_production = {}
 
-            for op in self.potential_ops.keys():
-                try:
-                    self.produce_short_preamble_op(op)
-                except BoxNotProducable:
-                    pass
+        for op in self.potential_ops.keys():
+            try:
+                self.produce_short_preamble_op(op)
+            except BoxNotProducable:
+                pass
 
-            self.short_boxes_in_production = None # Not needed anymore
-        else:
-            self.short_boxes = {}
+        self.short_boxes_in_production = None # Not needed anymore
+        #else:
+        #    self.short_boxes = {}
+
+    def dump(self, logops):
+        for op, resop in self.short_boxes.iteritems():
+            if isinstance(op, AbstractInputArg):
+                assert resop is None
+                debug_print(logops.repr_of_arg(op))
+            else:
+                debug_print("%s:%s"% (logops.repr_of_resop(op),
+                                      logops.repr_of_resop(resop)))
 
     def prioritized_alternatives(self, box):
         if box not in self.alternatives:
-            return [box]
+            return [self.potential_ops[box]]
         alts = self.alternatives[box]
         hi, lo = 0, len(alts) - 1
         while hi < lo:
@@ -631,11 +639,13 @@ class ShortBoxes(object):
         return alts
 
     def add_to_short(self, box, op):
-        if op:
-            op = op.clone(self.memo)
-            op.is_source_op = True
+        #if op:
+        #    op = op.clone(self.memo)
+        #    op.is_source_op = True
         if box in self.short_boxes:
+            xxx
             if op is None:
+                xxxx
                 oldop = self.short_boxes[box].clone()
                 oldres = oldop.result
                 newbox = oldop.result = oldres.clonebox()
@@ -643,6 +653,7 @@ class ShortBoxes(object):
                 self.short_boxes[box] = None
                 self.short_boxes[newbox] = oldop
             else:
+                xxxx
                 newop = op.clone()
                 newbox = newop.result = op.result.clonebox()
                 self.short_boxes[newop.result] = newop
@@ -655,11 +666,11 @@ class ShortBoxes(object):
     def produce_short_preamble_op(self, op):
         if op in self.short_boxes:
             return
-        if isinstance(op, Const) or isinstance(op, AbstractInputArg):
+        if isinstance(op, Const):
             return
         if op in self.short_boxes_in_production:
             raise BoxNotProducable
-        if self.availible_boxes is not None and op not in self.available_boxes:
+        if self.available_boxes is not None and op not in self.available_boxes:
             raise BoxNotProducable
         self.short_boxes_in_production[op] = None
 
@@ -689,7 +700,7 @@ class ShortBoxes(object):
                 if classbox:
                     self.assumed_classes[op] = classbox
         if op not in self.potential_ops:
-            self.potential_ops[op] = None
+            self.potential_ops[op] = op
         else:
             if op not in self.alternatives:
                 self.alternatives[op] = [op]

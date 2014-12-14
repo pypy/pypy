@@ -150,6 +150,7 @@ class UnrollOptimizer(Optimization):
 
         loop.operations = self.optimizer.get_newoperations()
         final_state = self.export_state(stop_label)
+        final_state.dump(self.optimizer.metainterp_sd)
         loop.operations.append(stop_label)
         return final_state
 
@@ -386,7 +387,7 @@ class UnrollOptimizer(Optimization):
         for i in range(len(short)):
             op = short[i]
             if op.is_guard():
-                op = op.clone()
+                #op = op.clone() XXXX
                 op.setfailargs(None)
                 op.setdescr(None) # will be set to a proper descr when the preamble is used
                 short[i] = op
@@ -453,13 +454,13 @@ class UnrollOptimizer(Optimization):
         if op.is_guard():
             op.setdescr(None) # will be set to a proper descr when the preamble is used
 
-        if guards_needed and self.short_boxes.has_producer(op.result):
-            value_guards = self.getvalue(op.result).make_guards(op.result)
+        if guards_needed and self.short_boxes.has_producer(op):
+            value_guards = self.getvalue(op).make_guards(op)
         else:
             value_guards = []
 
         self.short.append(op)
-        self.short_seen[op.result] = None
+        self.short_seen[op] = None
         if emit and self.short_inliner:
             newop = self.short_inliner.inline_op(op)
             self.optimizer.send_extra_operation(newop)
@@ -577,21 +578,22 @@ class UnrollOptimizer(Optimization):
         debug_stop('jit-log-virtualstate')
         return False
 
-    def _inline_short_preamble(self, short_preamble, inliner, patchguardop,
+    def _inline_short_preamble(self, short_preamble, memo, patchguardop,
                                assumed_classes):
         i = 1
         # XXX this is intentiontal :-(. short_preamble can change during the
         # loop in some cases
         while i < len(short_preamble):
             shop = short_preamble[i]
-            newop = inliner.inline_op(shop)
+            newop = shop.clone(memo)
+            newop.is_source_op = True
             if newop.is_guard():
                 if not patchguardop:
                     raise InvalidLoop("would like to have short preamble, but it has a guard and there's no guard_future_condition")
-                descr = patchguardop.getdescr().clone_if_mutable()
+                descr = patchguardop.getdescr().clone_if_mutable(memo)
                 newop.setdescr(descr)
             self.optimizer.send_extra_operation(newop)
-            if shop.result in assumed_classes:
+            if shop in assumed_classes:
                 classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)
                 if not classbox or not classbox.same_constant(assumed_classes[shop.result]):
                     raise InvalidLoop('The class of an opaque pointer before the jump ' +
@@ -617,13 +619,13 @@ class ExportedState(object):
         self.inputarg_setup_ops = inputarg_setup_ops
         self.exported_values = exported_values
 
-    def dump(self):
+    def dump(self, metainterp_sd):
         debug_start("jit-exported-state")
-        logops = LogOperations()
+        logops = LogOperations(metainterp_sd, False)
         debug_print("   inputarg setup")
-        logops._log_operations(self.inputarg_setup_ops)
+        logops._log_operations([], self.inputarg_setup_ops)
         debug_print("   short boxes")
         self.short_boxes.dump(logops)
         debug_print("   exported values")
-        self.exported_values.dump(logops)
+        #self.exported_values.dump(logops)
         debug_stop("jit-exported-state")
