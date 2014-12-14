@@ -600,10 +600,12 @@ def ll_dict_remove_deleted_items(d):
     else:
         newitems = d.entries
     #
-    ENTRY = lltype.typeOf(d).TO.entries.TO.OF
+    ENTRIES = lltype.typeOf(d).TO.entries.TO
+    ENTRY = ENTRIES.OF
     isrc = 0
     idst = 0
-    while isrc < len(d.entries):
+    isrclimit = d.num_used_items
+    while isrc < isrclimit:
         if d.entries.valid(isrc):
             src = d.entries[isrc]
             dst = newitems[idst]
@@ -616,9 +618,21 @@ def ll_dict_remove_deleted_items(d):
                 dst.f_valid = True
             idst += 1
         isrc += 1
-    d.entries = newitems
     assert d.num_items == idst
     d.num_used_items = idst
+    if ((ENTRIES.must_clear_key or ENTRIES.must_clear_value) and
+            d.entries == newitems):
+        # must clear the extra entries: they may contain valid pointers
+        # which would create a temporary memory leak
+        while idst < isrclimit:
+            entry = newitems[idst]
+            if ENTRIES.must_clear_key:
+                entry.key = lltype.nullptr(ENTRY.key.TO)
+            if ENTRIES.must_clear_value:
+                entry.value = lltype.nullptr(ENTRY.value.TO)
+            idst += 1
+    else:
+        d.entries = newitems
 
     ll_dict_reindex(d, _ll_len_of_d_indexes(d))
 

@@ -251,6 +251,16 @@ class TestRDictDirect(object):
         assert rordereddict.ll_dict_pop_default(ll_d, llstr("k"), 40) == 40
         assert rordereddict.ll_dict_pop_default(ll_d, llstr("j"), 39) == 39
 
+    def test_bug_remove_deleted_items(self):
+        DICT = self._get_str_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        for i in range(15):
+            rordereddict.ll_dict_setitem(ll_d, llstr(chr(i)), 5)
+        for i in range(15):
+            rordereddict.ll_dict_delitem(ll_d, llstr(chr(i)))
+        rordereddict.ll_prepare_dict_update(ll_d, 7)
+        # used to get UninitializedMemoryAccess
+
 class TestRDictDirectDummyKey(TestRDictDirect):
     class dummykeyobj:
         ll_dummy_value = llstr("dupa")
