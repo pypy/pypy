@@ -36,6 +36,24 @@ class AppTestScalar(BaseNumpyAppTest):
         exc = raises(ValueError, "int(np.str_('abc'))")
         assert exc.value.message.startswith('invalid literal for int()')
         assert int(np.uint64((2<<63) - 1)) == (2<<63) - 1
+        exc = raises(ValueError, "int(np.float64(np.nan))")
+        assert str(exc.value) == "cannot convert float NaN to integer"
+        exc = raises(OverflowError, "int(np.float64(np.inf))")
+        assert str(exc.value) == "cannot convert float infinity to integer"
+        assert int(np.float64(1e100)) == int(1e100)
+        assert long(np.float64(1e100)) == int(1e100)
+        assert int(np.complex128(1e100+2j)) == int(1e100)
+        exc = raises(OverflowError, "int(np.complex64(1e100+2j))")
+        assert str(exc.value) == "cannot convert float infinity to integer"
+        assert int(np.str_('100000000000000000000')) == 100000000000000000000
+        assert long(np.str_('100000000000000000000')) == 100000000000000000000
+
+        assert float(np.float64(1e100)) == 1e100
+        assert float(np.complex128(1e100+2j)) == 1e100
+        assert float(np.str_('1e100')) == 1e100
+        assert float(np.str_('inf')) == np.inf
+        assert str(float(np.float64(np.nan))) == 'nan'
+
         assert oct(np.int32(11)) == '013'
         assert oct(np.float32(11.6)) == '013'
         assert oct(np.complex64(11-12j)) == '013'
@@ -171,6 +189,18 @@ class AppTestScalar(BaseNumpyAppTest):
             assert b == v
         raises(IndexError, "v['blah']")
 
+    def test_realimag(self):
+        import numpy as np
+        a = np.int64(2)
+        assert a.real == 2
+        assert a.imag == 0
+        a = np.float64(2.5)
+        assert a.real == 2.5
+        assert a.imag == 0.0
+        a = np.complex64(2.5-1.5j)
+        assert a.real == 2.5
+        assert a.imag == -1.5
+
     def test_view(self):
         import numpy as np
         import sys
@@ -224,6 +254,7 @@ class AppTestScalar(BaseNumpyAppTest):
         assert np.int64(123).reshape((1,)).shape == (1,)
         exc = raises(ValueError, "np.int64(123).reshape((2,))")
         assert exc.value[0] == 'total size of new array must be unchanged'
+        assert type(np.int64(123).reshape(())) == np.int64
 
     def test_complex_scalar_complex_cast(self):
         import numpy as np
@@ -260,3 +291,126 @@ class AppTestScalar(BaseNumpyAppTest):
             assert np.isnan(b/a)
             b = t(0.)
             assert np.isnan(b/a)
+
+    def test_scalar_iter(self):
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
+        for t in (int8, int16, int32, int64, float32, float64,
+                  complex64, complex128):
+            raises(TypeError, iter, t(17))
+
+    def test_item_tolist(self):
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128, dtype
+
+        def _do_test(np_type, py_type, orig_val, exp_val):
+            val = np_type(orig_val)
+            assert val == orig_val
+            assert val.item() == exp_val
+            assert val.tolist() == exp_val
+            assert type(val.item()) is py_type
+            assert type(val.tolist()) is py_type
+            val.item(0)
+            val.item(())
+            val.item((0,))
+            raises(ValueError, val.item, 0, 1)
+            raises(ValueError, val.item, 0, '')
+            raises(TypeError, val.item, '')
+            raises(IndexError, val.item, 2)
+
+        for t in int8, int16, int32:
+            _do_test(t, int, 17, 17)
+
+        py_type = int if dtype('int').itemsize == 8 else long
+        _do_test(int64, py_type, 17, 17)
+
+        for t in float32, float64:
+            _do_test(t, float, 17, 17)
+
+        for t in complex64, complex128:
+            _do_test(t, complex, 17j, 17j)
+
+    def test_transpose(self):
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
+
+        def _do_test(np_type, orig_val, exp_val):
+            val = np_type(orig_val)
+            assert val == orig_val
+            assert val.transpose() == exp_val
+            assert type(val.transpose()) is np_type
+            val.transpose(())
+            raises(ValueError, val.transpose, 0, 1)
+            raises(TypeError, val.transpose, 0, '')
+            raises(ValueError, val.transpose, 0)
+
+        for t in int8, int16, int32, int64:
+            _do_test(t, 17, 17)
+
+        for t in float32, float64:
+            _do_test(t, 17, 17)
+
+        for t in complex64, complex128:
+            _do_test(t, 17j, 17j)
+
+    def test_swapaxes(self):
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
+
+        def _do_test(np_type, orig_val, exp_val):
+            val = np_type(orig_val)
+            assert val == orig_val
+            assert val.swapaxes(10, 20) == exp_val
+            assert type(val.swapaxes(0, 1)) is np_type
+            raises(TypeError, val.swapaxes, 0, ())
+
+        for t in int8, int16, int32, int64:
+            _do_test(t, 17, 17)
+
+        for t in float32, float64:
+            _do_test(t, 17, 17)
+
+        for t in complex64, complex128:
+            _do_test(t, 17j, 17j)
+
+    def test_nonzero(self):
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
+
+        for t in (int8, int16, int32, int64, float32, float64,
+                  complex64, complex128):
+            res, = t(17).nonzero()
+            assert len(res) == 1
+            assert res[0] == 0
+            res, = t(0).nonzero()
+            assert len(res) == 0
+
+    def test_fill(self):
+        import sys
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
+
+        for t in (int8, int16, int32, int64, float32, float64,
+                  complex64, complex128):
+            t(17).fill(2)
+            exc = (TypeError if t in (complex64, complex128)
+                   and '__pypy__' not in sys.builtin_module_names
+                   else ValueError)
+            raises(exc, t(17).fill, '')
+
+    def test_conj(self):
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
+
+        def _do_test(np_type, orig_val, exp_val):
+            val = np_type(orig_val)
+            assert val == orig_val
+            assert val.conj() == exp_val
+            assert val.conjugate() == exp_val
+
+        for t in (int8, int16, int32, int64, float32, float64,
+                  complex64, complex128):
+            _do_test(t, 17, 17)
+
+        for t in complex64, complex128:
+            _do_test(t, 17j, -17j)

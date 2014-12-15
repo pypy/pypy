@@ -296,3 +296,13 @@ class TestRUnicode(AbstractTestRstr, BaseRtypingTest):
 
         res = self.interpret(f, [5])
         assert res == 0
+
+    def test_unicode_char_comparison(self):
+        const = u'abcdef'
+        def f(n):
+            return const[n] >= u'c'
+
+        res = self.interpret(f, [1])
+        assert res == False
+        res = self.interpret(f, [2])
+        assert res == True

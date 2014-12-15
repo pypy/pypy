@@ -219,6 +219,8 @@ class CFuncPtr(_CData):
             if restype is None:
                 import ctypes
                 restype = ctypes.c_int
+            if self._argtypes_ is None:
+                self._argtypes_ = []
             self._ptr = self._getfuncptr_fromaddress(self._argtypes_, restype)
             self._check_argtypes_for_fastpath()
             return
@@ -328,17 +330,16 @@ class CFuncPtr(_CData):
                 raise ValueError(
                     "native COM method call without 'this' parameter"
                     )
-            thisvalue = args.pop(0)
+            thisvalue = args[0]
             thisarg = cast(thisvalue, POINTER(POINTER(c_void_p)))
             keepalives, newargs, argtypes, outargs, errcheckargs = (
-                        self._convert_args(argtypes, args, kwargs))
-            args.insert(0, thisvalue)
+                self._convert_args(argtypes, args[1:], kwargs))
             newargs.insert(0, thisvalue.value)
             argtypes.insert(0, c_void_p)
         else:
             thisarg = None
             keepalives, newargs, argtypes, outargs, errcheckargs = (
-                        self._convert_args(argtypes, args, kwargs))
+                self._convert_args(argtypes, args, kwargs))
 
         funcptr = self._getfuncptr(argtypes, self._restype_, thisarg)
         result = self._call_funcptr(funcptr, *newargs)

@@ -8,7 +8,7 @@ from rpython.translator.backendopt import removenoops
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.support import log, find_loop_blocks
 from rpython.translator.simplify import join_blocks, cleanup_graph, get_graph
-from rpython.translator.unsimplify import copyvar, split_block
+from rpython.translator.unsimplify import split_block
 
 
 class CannotInline(Exception):
@@ -236,14 +236,13 @@ class BaseInliner(object):
         if isinstance(var, Constant):
             return var
         if var not in self.varmap:
-            self.varmap[var] = copyvar(None, var)
+            self.varmap[var] = var.copy()
         return self.varmap[var]
 
     def passon_vars(self, cache_key):
         if cache_key in self._passon_vars:
             return self._passon_vars[cache_key]
-        result = [copyvar(None, var)
-                      for var in self.original_passon_vars]
+        result = [var.copy() for var in self.original_passon_vars]
         self._passon_vars[cache_key] = result
         return result
 
@@ -328,7 +327,7 @@ class BaseInliner(object):
     def rewire_exceptblock_with_guard(self, afterblock, copiedexceptblock):
         # this rewiring does not always succeed. in the cases where it doesn't
         # there will be generic code inserted
-        from rpython.rtyper.lltypesystem import rclass
+        from rpython.rtyper import rclass
         excdata = self.translator.rtyper.exceptiondata
         exc_match = excdata.fn_exception_match
         for link in self.entrymap[self.graph_to_inline.exceptblock]:
@@ -362,8 +361,8 @@ class BaseInliner(object):
         exc_match.concretetype = typeOf(exc_match.value)
         blocks = []
         for i, link in enumerate(afterblock.exits[1:]):
-            etype = copyvar(None, copiedexceptblock.inputargs[0])
-            evalue = copyvar(None, copiedexceptblock.inputargs[1])
+            etype = copiedexceptblock.inputargs[0].copy()
+            evalue = copiedexceptblock.inputargs[1].copy()
             passon_vars = self.passon_vars(i)
             block = Block([etype, evalue] + passon_vars)
             res = Variable()
@@ -479,6 +478,7 @@ OP_WEIGHTS = {'same_as': 0,
               'malloc': 2,
               'instrument_count': 0,
               'debug_assert': -1,
+              'jit_force_virtualizable': 0,
               }
 
 def block_weight(block, weights=OP_WEIGHTS):

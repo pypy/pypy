@@ -7,33 +7,52 @@ from __future__ import absolute_import
 from rpython.flowspace.operation import op
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
-    SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeFloat, SomeIterator,
-    SomePBC, SomeType, s_ImpossibleValue,
+    SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
+    SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
     s_Bool, s_None, unionof, add_knowntypedata,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
-from rpython.annotator.bookkeeper import getbookkeeper
+from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
 from rpython.annotator.model import AnnotatorError
-
-# convenience only!
-def immutablevalue(x):
-    return getbookkeeper().immutablevalue(x)
+from rpython.annotator.argument import simple_args, complex_args
 
 UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])
+UNARY_OPERATIONS.remove('contains')
 
+@op.type.register(SomeObject)
+def type_SomeObject(annotator, arg):
+    r = SomeType()
+    r.is_type_of = [arg]
+    return r
+
+@op.bool.register(SomeObject)
+def bool_SomeObject(annotator, obj):
+    r = SomeBool()
+    annotator.annotation(obj).bool_behavior(r)
+    s_nonnone_obj = annotator.annotation(obj)
+    if s_nonnone_obj.can_be_none():
+        s_nonnone_obj = s_nonnone_obj.nonnoneify()
+    knowntypedata = {}
+    add_knowntypedata(knowntypedata, True, [obj], s_nonnone_obj)
+    r.set_knowntypedata(knowntypedata)
+    return r
+
+@op.contains.register(SomeObject)
+def contains_SomeObject(annotator, obj, element):
+    return s_Bool
+contains_SomeObject.can_only_throw = []
+
+@op.simple_call.register(SomeObject)
+def simple_call_SomeObject(annotator, func, *args):
+    return annotator.annotation(func).call(simple_args([annotator.annotation(arg) for arg in args]))
+
+@op.call_args.register(SomeObject)
+def call_args(annotator, func, *args):
+    return annotator.annotation(func).call(complex_args([annotator.annotation(arg) for arg in args]))
 
 class __extend__(SomeObject):
-
-    def type(self, *moreargs):
-        if moreargs:
-            raise Exception('type() called with more than one argument')
-        r = SomeType()
-        bk = getbookkeeper()
-        op = bk._find_current_op(opname="type", arity=1, pos=0, s_type=self)
-        r.is_type_of = [op.args[0]]
-        return r
 
     def issubtype(self, s_cls):
         if hasattr(self, 'is_type_of'):
@@ -55,21 +74,6 @@ class __extend__(SomeObject):
             s_len = self.len()
             if s_len.is_immutable_constant():
                 s.const = s_len.const > 0
-
-    def bool(s_obj):
-        r = SomeBool()
-        s_obj.bool_behavior(r)
-
-        bk = getbookkeeper()
-        knowntypedata = {}
-        op = bk._find_current_op(opname="bool", arity=1)
-        arg = op.args[0]
-        s_nonnone_obj = s_obj
-        if s_obj.can_be_none():
-            s_nonnone_obj = s_obj.nonnoneify()
-        add_knowntypedata(knowntypedata, True, [arg], s_nonnone_obj)
-        r.set_knowntypedata(knowntypedata)
-        return r
 
     def hash(self):
         raise AnnotatorError("cannot use hash() in RPython")
@@ -112,7 +116,7 @@ class __extend__(SomeObject):
         except AttributeError:
             return None
         else:
-            return SomeBuiltin(analyser, self, name)
+            return SomeBuiltinMethod(analyser, self, name)
 
     def getattr(self, s_attr):
         # get a SomeBuiltin if the SomeObject has
@@ -136,18 +140,8 @@ class __extend__(SomeObject):
     def bind_callables_under(self, classdef, name):
         return self   # default unbound __get__ implementation
 
-    def simple_call(self, *args_s):
-        return self.call(getbookkeeper().build_args("simple_call", args_s))
-
-    def call_args(self, *args_s):
-        return self.call(getbookkeeper().build_args("call_args", args_s))
-
     def call(self, args, implicit_init=False):
         raise AnnotatorError("Cannot prove that the object is callable")
-
-    def op_contains(self, s_element):
-        return s_Bool
-    op_contains.can_only_throw = []
 
     def hint(self, *args_s):
         return self
@@ -252,6 +246,12 @@ class __extend__(SomeTuple):
         items = self.items[s_start.const:s_stop.const]
         return SomeTuple(items)
 
+@op.contains.register(SomeList)
+def contains_SomeList(annotator, obj, element):
+    annotator.annotation(obj).listdef.generalize(annotator.annotation(element))
+    return s_Bool
+contains_SomeList.can_only_throw = []
+
 
 class __extend__(SomeList):
 
@@ -299,18 +299,13 @@ class __extend__(SomeList):
     def getanyitem(self):
         return self.listdef.read_item()
 
-    def op_contains(self, s_element):
-        self.listdef.generalize(s_element)
-        return s_Bool
-    op_contains.can_only_throw = []
-
     def hint(self, *args_s):
         hints = args_s[-1].const
         if 'maxlength' in hints:
-            # only for iteration over lists or dicts at the moment,
+            # only for iteration over lists or dicts or strs at the moment,
             # not over an iterator object (because it has no known length)
             s_iterable = args_s[0]
-            if isinstance(s_iterable, (SomeList, SomeDict)):
+            if isinstance(s_iterable, (SomeList, SomeDict, SomeString)):
                 self = SomeList(self.listdef) # create a fresh copy
                 self.listdef.resize()
                 self.listdef.listitem.hint_maxlength = True
@@ -342,6 +337,21 @@ def check_negative_slice(s_start, s_stop, error="slicing"):
            getattr(s_stop, 'const', 0) != -1:
         raise AnnotatorError("%s: not proven to have non-negative stop" % error)
 
+
+def _can_only_throw(s_dct, *ignore):
+    if s_dct.dictdef.dictkey.custom_eq_hash:
+        return None    # r_dict: can throw anything
+    return []          # else: no possible exception
+
+@op.contains.register(SomeDict)
+def contains_SomeDict(annotator, dct, element):
+    annotator.annotation(dct).dictdef.generalize_key(annotator.annotation(element))
+    if annotator.annotation(dct)._is_empty():
+        s_bool = SomeBool()
+        s_bool.const = False
+        return s_bool
+    return s_Bool
+contains_SomeDict.can_only_throw = _can_only_throw
 
 class __extend__(SomeDict):
 
@@ -391,6 +401,9 @@ class __extend__(SomeDict):
             return SomeImpossibleValue()
         dct1.dictdef.union(dct2.dictdef)
 
+    def method__prepare_dict_update(dct, num):
+        pass
+
     def method_keys(self):
         return getbookkeeper().newlist(self.dictdef.read_key())
 
@@ -421,19 +434,19 @@ class __extend__(SomeDict):
             self.dictdef.generalize_value(s_dfl)
         return self.dictdef.read_value()
 
-    def _can_only_throw(self, *ignore):
-        if self.dictdef.dictkey.custom_eq_hash:
-            return None    # r_dict: can throw anything
-        return []          # else: no possible exception
-
-    def op_contains(self, s_element):
-        self.dictdef.generalize_key(s_element)
-        if self._is_empty():
-            s_bool = SomeBool()
-            s_bool.const = False
-            return s_bool
-        return s_Bool
-    op_contains.can_only_throw = _can_only_throw
+@op.contains.register(SomeString)
+@op.contains.register(SomeUnicodeString)
+def contains_String(annotator, string, char):
+    if annotator.annotation(char).is_constant() and annotator.annotation(char).const == "\0":
+        r = SomeBool()
+        knowntypedata = {}
+        add_knowntypedata(knowntypedata, False, [string],
+                          annotator.annotation(string).nonnulify())
+        r.set_knowntypedata(knowntypedata)
+        return r
+    else:
+        return contains_SomeObject(annotator, string, char)
+contains_String.can_only_throw = []
 
 
 class __extend__(SomeString,
@@ -507,19 +520,6 @@ class __extend__(SomeString,
         check_negative_slice(s_start, s_stop)
         result = self.basestringclass(no_nul=self.no_nul)
         return result
-
-    def op_contains(self, s_element):
-        if s_element.is_constant() and s_element.const == "\0":
-            r = SomeBool()
-            bk = getbookkeeper()
-            op = bk._find_current_op(opname="contains", arity=2, pos=0, s_type=self)
-            knowntypedata = {}
-            add_knowntypedata(knowntypedata, False, [op.args[0]], self.nonnulify())
-            r.set_knowntypedata(knowntypedata)
-            return r
-        else:
-            return SomeObject.op_contains(self, s_element)
-    op_contains.can_only_throw = []
 
     def method_format(self, *args):
         raise AnnotatorError("Method format() is not RPython")
@@ -676,40 +676,58 @@ class __extend__(SomeInstance):
             # create or update the attribute in clsdef
             clsdef.generalize_attr(attr, s_value)
 
+            if isinstance(s_value, SomeList):
+                clsdef.classdesc.maybe_return_immutable_list(
+                    attr, s_value)
+        else:
+            raise AnnotatorError("setattr(instance, variable_attr, value)")
+
     def bool_behavior(self, s):
         if not self.can_be_None:
             s.const = True
 
-    def iter(self):
-        s_iterable = self._true_getattr('__iter__')
+    def _emulate_call(self, meth_name, *args_s):
         bk = getbookkeeper()
+        s_attr = self._true_getattr(meth_name)
         # record for calltables
-        bk.emulate_pbc_call(bk.position_key, s_iterable, [])
-        return s_iterable.call(bk.build_args("simple_call", []))
+        bk.emulate_pbc_call(bk.position_key, s_attr, args_s)
+        return s_attr.call(simple_args(args_s))
+
+    def iter(self):
+        return self._emulate_call('__iter__')
 
     def next(self):
-        s_next = self._true_getattr('next')
-        bk = getbookkeeper()
-        # record for calltables
-        bk.emulate_pbc_call(bk.position_key, s_next, [])
-        return s_next.call(bk.build_args("simple_call", []))
+        return self._emulate_call('next')
+
+    def len(self):
+        return self._emulate_call('__len__')
+
+    def getslice(self, s_start, s_stop):
+        return self._emulate_call('__getslice__', s_start, s_stop)
+
+    def setslice(self, s_start, s_stop, s_iterable):
+        return self._emulate_call('__setslice__', s_start, s_stop, s_iterable)
 
 class __extend__(SomeBuiltin):
+    def call(self, args, implicit_init=False):
+        args_s, kwds = args.unpack()
+        # prefix keyword arguments with 's_'
+        kwds_s = {}
+        for key, s_value in kwds.items():
+            kwds_s['s_'+key] = s_value
+        return self.analyser(*args_s, **kwds_s)
+
+
+class __extend__(SomeBuiltinMethod):
     def _can_only_throw(self, *args):
         analyser_func = getattr(self.analyser, 'im_func', None)
         can_only_throw = getattr(analyser_func, 'can_only_throw', None)
         if can_only_throw is None or isinstance(can_only_throw, list):
             return can_only_throw
-        if self.s_self is not None:
-            return can_only_throw(self.s_self, *args)
-        else:
-            return can_only_throw(*args)
+        return can_only_throw(self.s_self, *args)
 
     def simple_call(self, *args):
-        if self.s_self is not None:
-            return self.analyser(self.s_self, *args)
-        else:
-            return self.analyser(*args)
+        return self.analyser(self.s_self, *args)
     simple_call.can_only_throw = _can_only_throw
 
     def call(self, args, implicit_init=False):
@@ -718,22 +736,23 @@ class __extend__(SomeBuiltin):
         kwds_s = {}
         for key, s_value in kwds.items():
             kwds_s['s_'+key] = s_value
-        if self.s_self is not None:
-            return self.analyser(self.s_self, *args_s, **kwds_s)
-        else:
-            return self.analyser(*args_s, **kwds_s)
+        return self.analyser(self.s_self, *args_s, **kwds_s)
 
 
 class __extend__(SomePBC):
 
     def getattr(self, s_attr):
+        assert s_attr.is_constant()
+        if s_attr.const == '__name__':
+            from rpython.annotator.description import ClassDesc
+            if self.getKind() is ClassDesc:
+                return SomeString()
         bookkeeper = getbookkeeper()
         return bookkeeper.pbc_getattr(self, s_attr)
     getattr.can_only_throw = []
 
     def setattr(self, s_attr, s_value):
-        if not self.isNone():
-            raise AnnotatorError("Cannot modify attribute of a pre-built constant")
+        raise AnnotatorError("Cannot modify attribute of a pre-built constant")
 
     def call(self, args):
         bookkeeper = getbookkeeper()
@@ -744,19 +763,34 @@ class __extend__(SomePBC):
         return SomePBC(d, can_be_None=self.can_be_None)
 
     def bool_behavior(self, s):
-        if self.isNone():
-            s.const = False
-        elif not self.can_be_None:
+        if not self.can_be_None:
             s.const = True
 
     def len(self):
-        if self.isNone():
-            # this None could later be generalized into an empty list,
-            # whose length is the constant 0; so let's tentatively answer 0.
-            return immutablevalue(0)
-        else:
-            # This should probably never happen
-            raise AnnotatorError("Cannot call len on a pbc")
+        raise AnnotatorError("Cannot call len on a pbc")
+
+class __extend__(SomeNone):
+    def bind_callables_under(self, classdef, name):
+        return self
+
+    def getattr(self, s_attr):
+        return s_ImpossibleValue
+    getattr.can_only_throw = []
+
+    def setattr(self, s_attr, s_value):
+        return None
+
+    def call(self, args):
+        return s_ImpossibleValue
+
+    def bool_behavior(self, s):
+        s.const = False
+
+    def len(self):
+        # This None could later be generalized into a list, for example.
+        # For now, we give the impossible answer (because len(None) would
+        # really crash translated code).  It can be generalized later.
+        return SomeImpossibleValue()
 
 #_________________________________________
 # weakrefs

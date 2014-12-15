@@ -430,6 +430,36 @@ class TestRlist(BaseRtypingTest):
                 res = self.interpret(dummyfn, ())
                 assert res == 42
 
+    def test_bltn_list_from_string(self):
+        def dummyfn(n):
+            l1 = list(str(n))
+            return ord(l1[0])
+        res = self.interpret(dummyfn, [71234])
+        assert res == ord('7')
+
+    def test_bltn_list_from_unicode(self):
+        def dummyfn(n):
+            l1 = list(unicode(str(n)))
+            return ord(l1[0])
+        res = self.interpret(dummyfn, [71234])
+        assert res == ord('7')
+
+    def test_bltn_list_from_string_resize(self):
+        def dummyfn(n):
+            l1 = list(str(n))
+            l1.append('X')
+            return ord(l1[0])
+        res = self.interpret(dummyfn, [71234])
+        assert res == ord('7')
+
+    def test_bltn_list_from_unicode_resize(self):
+        def dummyfn(n):
+            l1 = list(unicode(str(n)))
+            l1.append(u'X')
+            return ord(l1[0])
+        res = self.interpret(dummyfn, [71234])
+        assert res == ord('7')
+
     def test_is_true(self):
         def is_true(lst):
             if lst:
@@ -939,6 +969,15 @@ class TestRlist(BaseRtypingTest):
             assert res == fn(arg)
         def fn(i):
             lst = [i, i + 1] * i
+            ret = len(lst)
+            if ret:
+                ret *= lst[-1]
+            return ret
+        for arg in (1, 9, 0, -1, -27):
+            res = self.interpret(fn, [arg])
+            assert res == fn(arg)
+        def fn(i):
+            lst =  i * [i, i + 1]
             ret = len(lst)
             if ret:
                 ret *= lst[-1]
@@ -1619,3 +1658,17 @@ class TestRlist(BaseRtypingTest):
             rgc.ll_arraycopy = old_arraycopy
         #
         assert 2 <= res <= 10
+
+    def test_alloc_and_set(self):
+        def fn(i):
+            lst = [0] * r_uint(i)
+            return lst
+        t, rtyper, graph = self.gengraph(fn, [int])
+        block = graph.startblock
+        seen = 0
+        for op in block.operations:
+            if op.opname in ['cast_int_to_uint', 'cast_uint_to_int']:
+                continue
+            assert op.opname == 'direct_call'
+            seen += 1
+        assert seen == 1

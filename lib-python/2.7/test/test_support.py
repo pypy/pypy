@@ -18,6 +18,8 @@ import importlib
 import UserDict
 import re
 import time
+import struct
+import sysconfig
 try:
     import thread
 except ImportError:
@@ -181,7 +183,7 @@ def unload(name):
 
 if sys.platform.startswith("win"):
     def _waitfor(func, pathname, waitall=False):
-        # Peform the operation
+        # Perform the operation
         func(pathname)
         # Now setup the wait loop
         if waitall:
@@ -197,7 +199,7 @@ if sys.platform.startswith("win"):
         # required when contention occurs.
         timeout = 0.001
         while timeout < 1.0:
-            # Note we are only testing for the existance of the file(s) in
+            # Note we are only testing for the existence of the file(s) in
             # the contents of the directory regardless of any security or
             # access rights.  If we have made it this far, we have sufficient
             # permissions to do that much using Python's equivalent of the
@@ -268,26 +270,104 @@ def forget(modname):
         # is exited) but there is a .pyo file.
         unlink(os.path.join(dirname, modname + os.extsep + 'pyo'))
 
+# Check whether a gui is actually available
+def _is_gui_available():
+    if hasattr(_is_gui_available, 'result'):
+        return _is_gui_available.result
+    reason = None
+    if sys.platform.startswith('win'):
+        # if Python is running as a service (such as the buildbot service),
+        # gui interaction may be disallowed
+        import ctypes
+        import ctypes.wintypes
+        UOI_FLAGS = 1
+        WSF_VISIBLE = 0x0001
+        class USEROBJECTFLAGS(ctypes.Structure):
+            _fields_ = [("fInherit", ctypes.wintypes.BOOL),
+                        ("fReserved", ctypes.wintypes.BOOL),
+                        ("dwFlags", ctypes.wintypes.DWORD)]
+        dll = ctypes.windll.user32
+        h = dll.GetProcessWindowStation()
+        if not h:
+            raise ctypes.WinError()
+        uof = USEROBJECTFLAGS()
+        needed = ctypes.wintypes.DWORD()
+        res = dll.GetUserObjectInformationW(h,
+            UOI_FLAGS,
+            ctypes.byref(uof),
+            ctypes.sizeof(uof),
+            ctypes.byref(needed))
+        if not res:
+            raise ctypes.WinError()
+        if not bool(uof.dwFlags & WSF_VISIBLE):
+            reason = "gui not available (WSF_VISIBLE flag not set)"
+    elif sys.platform == 'darwin':
+        # The Aqua Tk implementations on OS X can abort the process if
+        # being called in an environment where a window server connection
+        # cannot be made, for instance when invoked by a buildbot or ssh
+        # process not running under the same user id as the current console
+        # user.  To avoid that, raise an exception if the window manager
+        # connection is not available.
+        from ctypes import cdll, c_int, pointer, Structure
+        from ctypes.util import find_library
+
+        app_services = cdll.LoadLibrary(find_library("ApplicationServices"))
+
+        if app_services.CGMainDisplayID() == 0:
+            reason = "gui tests cannot run without OS X window manager"
+        else:
+            class ProcessSerialNumber(Structure):
+                _fields_ = [("highLongOfPSN", c_int),
+                            ("lowLongOfPSN", c_int)]
+            psn = ProcessSerialNumber()
+            psn_p = pointer(psn)
+            if (  (app_services.GetCurrentProcess(psn_p) < 0) or
+                  (app_services.SetFrontProcess(psn_p) < 0) ):
+                reason = "cannot run without OS X gui process"
+
+    # check on every platform whether tkinter can actually do anything
+    # but skip the test on OS X because it can cause segfaults in Cocoa Tk
+    # when running regrtest with the -j option (multiple threads/subprocesses)
+    if (not reason) and (sys.platform != 'darwin'):
+        try:
+            from Tkinter import Tk
+            root = Tk()
+            root.destroy()
+        except Exception as e:
+            err_string = str(e)
+            if len(err_string) > 50:
+                err_string = err_string[:50] + ' [...]'
+            reason = 'Tk unavailable due to {}: {}'.format(type(e).__name__,
+                                                           err_string)
+
+    _is_gui_available.reason = reason
+    _is_gui_available.result = not reason
+
+    return _is_gui_available.result
+
 def is_resource_enabled(resource):
-    """Test whether a resource is enabled.  Known resources are set by
-    regrtest.py."""
-    return use_resources is not None and resource in use_resources
+    """Test whether a resource is enabled.
+
+    Known resources are set by regrtest.py.  If not running under regrtest.py,
+    all resources are assumed enabled unless use_resources has been set.
+    """
+    return use_resources is None or resource in use_resources
 
 def requires(resource, msg=None):
-    """Raise ResourceDenied if the specified resource is not available.
-
-    If the caller's module is __main__ then automatically return True.  The
-    possibility of False being returned occurs when regrtest.py is executing."""
-    # see if the caller's module is __main__ - if so, treat as if
-    # the resource was set
-    if sys._getframe(1).f_globals.get("__name__") == "__main__":
-        return
+    """Raise ResourceDenied if the specified resource is not available."""
+    if resource == 'gui' and not _is_gui_available():
+        raise ResourceDenied(_is_gui_available.reason)
     if not is_resource_enabled(resource):
         if msg is None:
             msg = "Use of the `%s' resource not enabled" % resource
         raise ResourceDenied(msg)
 
-HOST = 'localhost'
+
+# Don't use "localhost", since resolving it uses the DNS under recent
+# Windows versions (see issue #18792).
+HOST = "127.0.0.1"
+HOSTv6 = "::1"
+
 
 def find_unused_port(family=socket.AF_INET, socktype=socket.SOCK_STREAM):
     """Returns an unused port that should be suitable for binding.  This is
@@ -369,9 +449,15 @@ def bind_port(sock, host=HOST):
                 raise TestFailed("tests should never set the SO_REUSEADDR "   \
                                  "socket option on TCP/IP sockets!")
         if hasattr(socket, 'SO_REUSEPORT'):
-            if sock.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT) == 1:
-                raise TestFailed("tests should never set the SO_REUSEPORT "   \
-                                 "socket option on TCP/IP sockets!")
+            try:
+                if sock.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT) == 1:
+                    raise TestFailed("tests should never set the SO_REUSEPORT "   \
+                                     "socket option on TCP/IP sockets!")
+            except EnvironmentError:
+                # Python's socket module was compiled using modern headers
+                # thus defining SO_REUSEPORT but this process is running
+                # under an older kernel that does not support SO_REUSEPORT.
+                pass
         if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
 
@@ -397,6 +483,21 @@ def fcmp(x, y): # fuzzy comparison function
         return (len(x) > len(y)) - (len(x) < len(y))
     return (x > y) - (x < y)
 
+
+# A constant likely larger than the underlying OS pipe buffer size, to
+# make writes blocking.
+# Windows limit seems to be around 512 B, and many Unix kernels have a
+# 64 KiB pipe buffer size or 16 * PAGE_SIZE: take a few megs to be sure.
+# (see issue #17835 for a discussion of this number).
+PIPE_MAX_SIZE = 4 * 1024 * 1024 + 1
+
+# A constant likely larger than the underlying OS socket buffer size, to make
+# writes blocking.
+# The socket buffer sizes can usually be tuned system-wide (e.g. through sysctl
+# on Linux), or on a per-socket basis (SO_SNDBUF/SO_RCVBUF). See issue #18643
+# for a discussion of this number).
+SOCK_MAX_SIZE = 16 * 1024 * 1024 + 1
+
 try:
     unicode
     have_unicode = True
@@ -404,6 +505,52 @@ except NameError:
     have_unicode = False
 
 is_jython = sys.platform.startswith('java')
+
+# FS_NONASCII: non-ASCII Unicode character encodable by
+# sys.getfilesystemencoding(), or None if there is no such character.
+FS_NONASCII = None
+if have_unicode:
+    for character in (
+        # First try printable and common characters to have a readable filename.
+        # For each character, the encoding list are just example of encodings able
+        # to encode the character (the list is not exhaustive).
+
+        # U+00E6 (Latin Small Letter Ae): cp1252, iso-8859-1
+        unichr(0x00E6),
+        # U+0130 (Latin Capital Letter I With Dot Above): cp1254, iso8859_3
+        unichr(0x0130),
+        # U+0141 (Latin Capital Letter L With Stroke): cp1250, cp1257
+        unichr(0x0141),
+        # U+03C6 (Greek Small Letter Phi): cp1253
+        unichr(0x03C6),
+        # U+041A (Cyrillic Capital Letter Ka): cp1251
+        unichr(0x041A),
+        # U+05D0 (Hebrew Letter Alef): Encodable to cp424
+        unichr(0x05D0),
+        # U+060C (Arabic Comma): cp864, cp1006, iso8859_6, mac_arabic
+        unichr(0x060C),
+        # U+062A (Arabic Letter Teh): cp720
+        unichr(0x062A),
+        # U+0E01 (Thai Character Ko Kai): cp874
+        unichr(0x0E01),
+
+        # Then try more "special" characters. "special" because they may be
+        # interpreted or displayed differently depending on the exact locale
+        # encoding and the font.
+
+        # U+00A0 (No-Break Space)
+        unichr(0x00A0),
+        # U+20AC (Euro Sign)
+        unichr(0x20AC),
+    ):
+        try:
+            character.encode(sys.getfilesystemencoding())\
+                     .decode(sys.getfilesystemencoding())
+        except UnicodeError:
+            pass
+        else:
+            FS_NONASCII = character
+            break
 
 # Filename used for testing
 if os.name == 'java':
@@ -469,7 +616,7 @@ def temp_cwd(name='tempcwd', quiet=False):
     the CWD, an error is raised.  If it's True, only a warning is raised
     and the original CWD is used.
     """
-    if isinstance(name, unicode):
+    if have_unicode and isinstance(name, unicode):
         try:
             name = name.encode(sys.getfilesystemencoding() or 'ascii')
         except UnicodeEncodeError:
@@ -835,6 +982,9 @@ def transient_internet(resource_name, timeout=30.0, errnos=()):
         ('EAI_FAIL', -4),
         ('EAI_NONAME', -2),
         ('EAI_NODATA', -5),
+        # Windows defines EAI_NODATA as 11001 but idiotic getaddrinfo()
+        # implementation actually returns WSANO_DATA i.e. 11004.
+        ('WSANO_DATA', 11004),
     ]
 
     denied = ResourceDenied("Resource '%s' is not available" % resource_name)
@@ -924,6 +1074,33 @@ def gc_collect():
         time.sleep(0.1)
     gc.collect()
     gc.collect()
+
+
+_header = '2P'
+if hasattr(sys, "gettotalrefcount"):
+    _header = '2P' + _header
+_vheader = _header + 'P'
+
+def calcobjsize(fmt):
+    return struct.calcsize(_header + fmt + '0P')
+
+def calcvobjsize(fmt):
+    return struct.calcsize(_vheader + fmt + '0P')
+
+
+_TPFLAGS_HAVE_GC = 1<<14
+_TPFLAGS_HEAPTYPE = 1<<9
+
+def check_sizeof(test, o, size):
+    import _testcapi
+    result = sys.getsizeof(o)
+    # add GC header size
+    if ((type(o) == type) and (o.__flags__ & _TPFLAGS_HEAPTYPE) or\
+        ((type(o) != type) and (type(o).__flags__ & _TPFLAGS_HAVE_GC))):
+        size += _testcapi.SIZEOF_PYGC_HEAD
+    msg = 'wrong size for %s: got %d, expected %d' \
+            % (type(o), result, size)
+    test.assertEqual(result, size, msg)
 
 
 #=======================================================================
@@ -1034,7 +1211,7 @@ def bigmemtest(minsize, memuse, overhead=5*_1M):
         return wrapper
     return decorator
 
-def precisionbigmemtest(size, memuse, overhead=5*_1M):
+def precisionbigmemtest(size, memuse, overhead=5*_1M, dry_run=True):
     def decorator(f):
         def wrapper(self):
             if not real_max_memuse:
@@ -1042,11 +1219,12 @@ def precisionbigmemtest(size, memuse, overhead=5*_1M):
             else:
                 maxsize = size
 
-                if real_max_memuse and real_max_memuse < maxsize * memuse:
-                    if verbose:
-                        sys.stderr.write("Skipping %s because of memory "
-                                         "constraint\n" % (f.__name__,))
-                    return
+            if ((real_max_memuse or not dry_run)
+                and real_max_memuse < maxsize * memuse):
+                if verbose:
+                    sys.stderr.write("Skipping %s because of memory "
+                                     "constraint\n" % (f.__name__,))
+                return
 
             return f(self, maxsize)
         wrapper.size = size
@@ -1079,6 +1257,8 @@ def _id(obj):
     return obj
 
 def requires_resource(resource):
+    if resource == 'gui' and not _is_gui_available():
+        return unittest.skip(_is_gui_available.reason)
     if is_resource_enabled(resource):
         return _id
     else:
@@ -1207,6 +1387,16 @@ def run_unittest(*classes):
     suite = filter_maybe(suite)
     _run_suite(suite)
 
+#=======================================================================
+# Check for the presence of docstrings.
+
+HAVE_DOCSTRINGS = (check_impl_detail(cpython=False) or
+                   sys.platform == 'win32' or
+                   sysconfig.get_config_var('WITH_DOC_STRINGS'))
+
+requires_docstrings = unittest.skipUnless(HAVE_DOCSTRINGS,
+                                          "test requires docstrings")
+
 
 #=======================================================================
 # doctest driver.
@@ -1306,6 +1496,33 @@ def reap_children():
             except:
                 break
 
+@contextlib.contextmanager
+def swap_attr(obj, attr, new_val):
+    """Temporary swap out an attribute with a new object.
+
+    Usage:
+        with swap_attr(obj, "attr", 5):
+            ...
+
+        This will set obj.attr to 5 for the duration of the with: block,
+        restoring the old value at the end of the block. If `attr` doesn't
+        exist on `obj`, it will be created and then deleted at the end of the
+        block.
+    """
+    if hasattr(obj, attr):
+        real_val = getattr(obj, attr)
+        setattr(obj, attr, new_val)
+        try:
+            yield
+        finally:
+            setattr(obj, attr, real_val)
+    else:
+        setattr(obj, attr, new_val)
+        try:
+            yield
+        finally:
+            delattr(obj, attr)
+
 def py3k_bytes(b):
     """Emulate the py3k bytes() constructor.
 
@@ -1324,22 +1541,8 @@ def py3k_bytes(b):
 def args_from_interpreter_flags():
     """Return a list of command-line arguments reproducing the current
     settings in sys.flags."""
-    flag_opt_map = {
-        'bytes_warning': 'b',
-        'dont_write_bytecode': 'B',
-        'ignore_environment': 'E',
-        'no_user_site': 's',
-        'no_site': 'S',
-        'optimize': 'O',
-        'py3k_warning': '3',
-        'verbose': 'v',
-    }
-    args = []
-    for flag, opt in flag_opt_map.items():
-        v = getattr(sys.flags, flag)
-        if v > 0:
-            args.append('-' + opt * v)
-    return args
+    import subprocess
+    return subprocess._args_from_interpreter_flags()
 
 def strip_python_stderr(stderr):
     """Strip the stderr of a Python process from potential debug output

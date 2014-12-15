@@ -14,6 +14,7 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import we_are_translated
 from pypy.module._rawffi.alt.type_converter import FromAppLevelConverter, ToAppLevelConverter
 from pypy.module._rawffi.interp_rawffi import got_libffi_error, wrap_dlopenerror
+from pypy.module._rawffi import lasterror
 
 import os
 if os.name == 'nt':
@@ -201,11 +202,23 @@ class CallFunctionConverter(ToAppLevelConverter):
         self.func = func
         self.argchain = argchain
 
+    def before(self):
+        lasterror.restore_last_error(self.space)
+
+    def after(self):
+        lasterror.save_last_error(self.space)
+
     def get_longlong(self, w_ffitype):
-        return self.func.call(self.argchain, rffi.LONGLONG)
+        self.before()
+        x = self.func.call(self.argchain, rffi.LONGLONG)
+        self.after()
+        return x
 
     def get_ulonglong(self, w_ffitype):
-        return self.func.call(self.argchain, rffi.ULONGLONG)
+        self.before()
+        x = self.func.call(self.argchain, rffi.ULONGLONG)
+        self.after()
+        return x
 
     def get_signed(self, w_ffitype):
         # if the declared return type of the function is smaller than LONG,
@@ -216,64 +229,94 @@ class CallFunctionConverter(ToAppLevelConverter):
         # to space.wrap in order to get a nice applevel <int>.
         #
         restype = w_ffitype.get_ffitype()
+        self.before()
         call = self.func.call
         if restype is libffi.types.slong:
-            return call(self.argchain, rffi.LONG)
+            x = call(self.argchain, rffi.LONG)
         elif restype is libffi.types.sint:
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.INT))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.INT))
         elif restype is libffi.types.sshort:
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.SHORT))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.SHORT))
         elif restype is libffi.types.schar:
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.SIGNEDCHAR))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.SIGNEDCHAR))
         else:
-            self.error(w_ffitype)
+            raise self.error(w_ffitype)
+        self.after()
+        return x
 
     def get_unsigned(self, w_ffitype):
-        return self.func.call(self.argchain, rffi.ULONG)
+        self.before()
+        x = self.func.call(self.argchain, rffi.ULONG)
+        self.after()
+        return x
 
     def get_unsigned_which_fits_into_a_signed(self, w_ffitype):
         # the same comment as get_signed apply
         restype = w_ffitype.get_ffitype()
+        self.before()
         call = self.func.call
         if restype is libffi.types.uint:
             assert not libffi.IS_32_BIT
             # on 32bit machines, we should never get here, because it's a case
             # which has already been handled by get_unsigned above.
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.UINT))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.UINT))
         elif restype is libffi.types.ushort:
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.USHORT))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.USHORT))
         elif restype is libffi.types.uchar:
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.UCHAR))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.UCHAR))
         else:
-            self.error(w_ffitype)
+            raise self.error(w_ffitype)
+        self.after()
+        return x
 
 
     def get_pointer(self, w_ffitype):
+        self.before()
         ptrres = self.func.call(self.argchain, rffi.VOIDP)
+        self.after()
         return rffi.cast(rffi.ULONG, ptrres)
 
     def get_char(self, w_ffitype):
-        return self.func.call(self.argchain, rffi.UCHAR)
+        self.before()
+        x = self.func.call(self.argchain, rffi.UCHAR)
+        self.after()
+        return x
 
     def get_unichar(self, w_ffitype):
-        return self.func.call(self.argchain, rffi.WCHAR_T)
+        self.before()
+        x = self.func.call(self.argchain, rffi.WCHAR_T)
+        self.after()
+        return x
 
     def get_float(self, w_ffitype):
-        return self.func.call(self.argchain, rffi.DOUBLE)
+        self.before()
+        x = self.func.call(self.argchain, rffi.DOUBLE)
+        self.after()
+        return x
 
     def get_singlefloat(self, w_ffitype):
-        return self.func.call(self.argchain, rffi.FLOAT)
+        self.before()
+        x = self.func.call(self.argchain, rffi.FLOAT)
+        self.after()
+        return x
 
     def get_struct(self, w_ffitype, w_structdescr):
+        self.before()
         addr = self.func.call(self.argchain, rffi.LONG, is_struct=True)
+        self.after()
         return w_structdescr.fromaddress(self.space, addr)
 
     def get_struct_rawffi(self, w_ffitype, w_structdescr):
+        self.before()
         uintval = self.func.call(self.argchain, rffi.ULONG, is_struct=True)
+        self.after()
         return w_structdescr.fromaddress(self.space, uintval)
 
     def get_void(self, w_ffitype):
-        return self.func.call(self.argchain, lltype.Void)
+        self.before()
+        x = self.func.call(self.argchain, lltype.Void)
+        self.after()
+        return x
 
 
 def unpack_argtypes(space, w_argtypes, w_restype):

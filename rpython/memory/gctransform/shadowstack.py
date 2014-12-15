@@ -73,16 +73,13 @@ class ShadowStackRootWalker(BaseRootWalker):
             return top
         self.decr_stack = decr_stack
 
-        root_iterator = get_root_iterator(gctransformer)
         def walk_stack_root(callback, start, end):
-            root_iterator.setcontext(NonConstant(llmemory.NULL))
             gc = self.gc
             addr = end
-            while True:
-                addr = root_iterator.nextleft(gc, start, addr)
-                if addr == llmemory.NULL:
-                    return
-                callback(gc, addr)
+            while addr != start:
+                addr -= sizeofaddr
+                if gc.points_to_valid_gc_object(addr):
+                    callback(gc, addr)
         self.rootstackhook = walk_stack_root
 
         self.shadow_stack_pool = ShadowStackPool(gcdata)
@@ -135,8 +132,12 @@ class ShadowStackRootWalker(BaseRootWalker):
             gcdata.root_stack_top/root_stack_base is the one corresponding
             to the current thread.
             No GC operation here, e.g. no mallocs or storing in a dict!
+
+            Note that here specifically we don't call rthread.get_ident(),
+            but rthread.get_or_make_ident().  We are possibly in a fresh
+            new thread, so we need to be careful.
             """
-            tid = get_tid()
+            tid = rthread.get_or_make_ident()
             if gcdata.active_tid != tid:
                 switch_shadow_stacks(tid)
 
@@ -349,25 +350,6 @@ class ShadowStackPool(object):
                 raise MemoryError
 
 
-def get_root_iterator(gctransformer):
-    if hasattr(gctransformer, '_root_iterator'):
-        return gctransformer._root_iterator     # if already built
-    class RootIterator(object):
-        def _freeze_(self):
-            return True
-        def setcontext(self, context):
-            pass
-        def nextleft(self, gc, start, addr):
-            while addr != start:
-                addr -= sizeofaddr
-                if gc.points_to_valid_gc_object(addr):
-                    return addr
-            return llmemory.NULL
-    result = RootIterator()
-    gctransformer._root_iterator = result
-    return result
-
-
 def get_shadowstackref(root_walker, gctransformer):
     if hasattr(gctransformer, '_SHADOWSTACKREF'):
         return gctransformer._SHADOWSTACKREF
@@ -381,19 +363,19 @@ def get_shadowstackref(root_walker, gctransformer):
                                      rtti=True)
     SHADOWSTACKREFPTR.TO.become(SHADOWSTACKREF)
 
-    gc = gctransformer.gcdata.gc
-    root_iterator = get_root_iterator(gctransformer)
-
-    def customtrace(obj, prev):
+    def customtrace(gc, obj, callback, arg):
         obj = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR)
-        if not prev:
-            root_iterator.setcontext(obj.context)
-            prev = obj.top
-        return root_iterator.nextleft(gc, obj.base, prev)
+        addr = obj.top
+        start = obj.base
+        while addr != start:
+            addr -= sizeofaddr
+            gc._trace_callback(callback, arg, addr)
 
-    CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                      llmemory.Address)
-    customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
+    gc = gctransformer.gcdata.gc
+    assert not hasattr(gc, 'custom_trace_dispatcher')
+    # ^^^ create_custom_trace_funcs() must not run before this
+    gctransformer.translator.rtyper.custom_trace_funcs.append(
+        (SHADOWSTACKREF, customtrace))
 
     def shadowstack_destructor(shadowstackref):
         if root_walker.stacklet_support:
@@ -414,8 +396,7 @@ def get_shadowstackref(root_walker, gctransformer):
     destrptr = gctransformer.annotate_helper(shadowstack_destructor,
                                              [SHADOWSTACKREFPTR], lltype.Void)
 
-    lltype.attachRuntimeTypeInfo(SHADOWSTACKREF, customtraceptr=customtraceptr,
-                                 destrptr=destrptr)
+    lltype.attachRuntimeTypeInfo(SHADOWSTACKREF, destrptr=destrptr)
 
     gctransformer._SHADOWSTACKREF = SHADOWSTACKREF
     return SHADOWSTACKREF

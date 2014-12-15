@@ -1,5 +1,5 @@
 from rpython.jit.backend.llsupport import jitframe
-from rpython.jit.backend.llsupport.memcpy import memcpy_fn
+from rpython.jit.backend.llsupport.memcpy import memcpy_fn, memset_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
     ConstInt, BoxInt, AbstractFailDescr)
@@ -15,7 +15,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
     # 'b'ridge, 'l'abel or # 'e'ntry point
-    ('i', lltype.Signed),
+    ('i', lltype.Signed),      # first field, at offset 0
     ('type', lltype.Char),
     ('number', lltype.Signed)
 )
@@ -63,8 +63,8 @@ class BaseAssembler(object):
     def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu
         self.memcpy_addr = 0
+        self.memset_addr = 0
         self.rtyper = cpu.rtyper
-        self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
         self._debug = False
 
     def setup_once(self):
@@ -80,6 +80,7 @@ class BaseAssembler(object):
         else:
             self.gc_size_of_header = WORD # for tests
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
+        self.memset_addr = self.cpu.cast_ptr_to_int(memset_fn)
         self._build_failure_recovery(False, withfloats=False)
         self._build_failure_recovery(True, withfloats=False)
         self._build_wb_slowpath(False)
@@ -142,18 +143,19 @@ class BaseAssembler(object):
         else:
             coeff = 2
         for pos in descr.rd_locs:
-            if pos == -1:
+            pos = rffi.cast(lltype.Signed, pos)
+            if pos == 0xFFFF:
                 continue
-            elif pos < GPR_REGS * WORD:
-                locs.append(self.cpu.gen_regs[pos // WORD])
-            elif pos < (GPR_REGS + XMM_REGS * coeff) * WORD:
-                pos = (pos // WORD - GPR_REGS) // coeff
+            elif pos < GPR_REGS:
+                locs.append(self.cpu.gen_regs[pos])
+            elif pos < GPR_REGS + XMM_REGS * coeff:
+                pos = (pos - GPR_REGS) // coeff
                 locs.append(self.cpu.float_regs[pos])
             else:
-                i = pos // WORD - self.cpu.JITFRAME_FIXED_SIZE
+                i = pos - self.cpu.JITFRAME_FIXED_SIZE
                 assert i >= 0
                 tp = inputargs[input_i].type
-                locs.append(self.new_stack_loc(i, pos, tp))
+                locs.append(self.new_stack_loc(i, tp))
             input_i += 1
         return locs
 
@@ -168,12 +170,15 @@ class BaseAssembler(object):
         fail_descr = cast_instance_to_gcref(guardtok.faildescr)
         fail_descr = rffi.cast(lltype.Signed, fail_descr)
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        positions = [0] * len(guardtok.fail_locs)
+        positions = [rffi.cast(rffi.USHORT, 0)] * len(guardtok.fail_locs)
         for i, loc in enumerate(guardtok.fail_locs):
             if loc is None:
-                positions[i] = -1
+                position = 0xFFFF
             elif loc.is_stack():
-                positions[i] = loc.value - base_ofs
+                assert (loc.value & (WORD - 1)) == 0, \
+                    "store_info_on_descr: misaligned"
+                position = (loc.value - base_ofs) // WORD
+                assert 0 < position < 0xFFFF, "store_info_on_descr: overflow!"
             else:
                 assert loc is not self.cpu.frame_reg # for now
                 if self.cpu.IS_64_BIT:
@@ -181,10 +186,10 @@ class BaseAssembler(object):
                 else:
                     coeff = 2
                 if loc.is_float():
-                    v = len(self.cpu.gen_regs) + loc.value * coeff
+                    position = len(self.cpu.gen_regs) + loc.value * coeff
                 else:
-                    v = self.cpu.all_reg_indexes[loc.value]
-                positions[i] = v * WORD
+                    position = self.cpu.all_reg_indexes[loc.value]
+            positions[i] = rffi.cast(rffi.USHORT, position)
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
         # we want the descr to keep alive
@@ -220,7 +225,8 @@ class BaseAssembler(object):
                 raise AssertionError(kind)
 
         gcref = cast_instance_to_gcref(value)
-        rgc._make_sure_does_not_move(gcref)
+        if gcref:
+            rgc._make_sure_does_not_move(gcref)
         value = rffi.cast(lltype.Signed, gcref)
         je_location = self._call_assembler_check_descr(value, tmploc)
         #
@@ -265,14 +271,8 @@ class BaseAssembler(object):
     def _append_debugging_code(self, operations, tp, number, token):
         counter = self._register_counter(tp, number, token)
         c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
-        box = BoxInt()
-        box2 = BoxInt()
-        ops = [ResOperation(rop.GETFIELD_RAW, [c_adr],
-                            box, descr=self.debug_counter_descr),
-               ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
-               ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
-                            None, descr=self.debug_counter_descr)]
-        operations.extend(ops)
+        operations.append(
+            ResOperation(rop.INCREMENT_DEBUG_COUNTER, [c_adr], None))
 
     def _register_counter(self, tp, number, token):
         # YYY very minor leak -- we need the counters to stay alive
@@ -297,37 +297,54 @@ class BaseAssembler(object):
                 struct = self.loop_run_counters[i]
                 if struct.type == 'l':
                     prefix = 'TargetToken(%d)' % struct.number
-                elif struct.type == 'b':
-                    prefix = 'bridge ' + str(struct.number)
                 else:
-                    prefix = 'entry ' + str(struct.number)
+                    num = struct.number
+                    if num == -1:
+                        num = '-1'
+                    else:
+                        num = str(r_uint(num))
+                    if struct.type == 'b':
+                        prefix = 'bridge %s' % num
+                    else:
+                        prefix = 'entry %s' % num
                 debug_print(prefix + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
 
     @staticmethod
     @rgc.no_collect
-    def _release_gil_asmgcc(css):
-        # similar to trackgcroot.py:pypy_asm_stackwalk, first part
-        from rpython.memory.gctransform import asmgcroot
-        new = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
-        next = asmgcroot.gcrootanchor.next
-        new.next = next
-        new.prev = asmgcroot.gcrootanchor
-        asmgcroot.gcrootanchor.next = new
-        next.prev = new
-        # and now release the GIL
-        before = rffi.aroundstate.before
-        if before:
-            before()
+    def _reacquire_gil_asmgcc(css, old_rpy_fastgil):
+        # Before doing an external call, 'rpy_fastgil' is initialized to
+        # be equal to css.  This function is called if we find out after
+        # the call that it is no longer equal to css.  See description
+        # in translator/c/src/thread_pthread.c.
 
-    @staticmethod
-    @rgc.no_collect
-    def _reacquire_gil_asmgcc(css):
-        # first reacquire the GIL
-        after = rffi.aroundstate.after
-        if after:
-            after()
-        # similar to trackgcroot.py:pypy_asm_stackwalk, second part
+        if old_rpy_fastgil == 0:
+            # this case occurs if some other thread stole the GIL but
+            # released it again.  What occurred here is that we changed
+            # 'rpy_fastgil' from 0 to 1, thus successfully reaquiring the
+            # GIL.
+            pass
+
+        elif old_rpy_fastgil == 1:
+            # 'rpy_fastgil' was (and still is) locked by someone else.
+            # We need to wait for the regular mutex.
+            after = rffi.aroundstate.after
+            if after:
+                after()
+        else:
+            # stole the GIL from a different thread that is also
+            # currently in an external call from the jit.  Attach
+            # the 'old_rpy_fastgil' into the chained list.
+            from rpython.memory.gctransform import asmgcroot
+            oth = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, old_rpy_fastgil)
+            next = asmgcroot.gcrootanchor.next
+            oth.next = next
+            oth.prev = asmgcroot.gcrootanchor
+            asmgcroot.gcrootanchor.next = oth
+            next.prev = oth
+
+        # similar to trackgcroot.py:pypy_asm_stackwalk, second part:
+        # detach the 'css' from the chained list
         from rpython.memory.gctransform import asmgcroot
         old = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
         prev = old.prev
@@ -337,42 +354,28 @@ class BaseAssembler(object):
 
     @staticmethod
     @rgc.no_collect
-    def _release_gil_shadowstack():
-        before = rffi.aroundstate.before
-        if before:
-            before()
-
-    @staticmethod
-    @rgc.no_collect
     def _reacquire_gil_shadowstack():
+        # Simplified version of _reacquire_gil_asmgcc(): in shadowstack mode,
+        # 'rpy_fastgil' contains only zero or non-zero, and this is only
+        # called when the old value stored in 'rpy_fastgil' was non-zero
+        # (i.e. still locked, must wait with the regular mutex)
         after = rffi.aroundstate.after
         if after:
             after()
 
-    @staticmethod
-    def _no_op():
-        pass
-
-    _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
-    _CLOSESTACK_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP],
-                                                  lltype.Void))
+    _REACQGIL0_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
+    _REACQGIL2_FUNC = lltype.Ptr(lltype.FuncType([rffi.CCHARP, lltype.Signed],
+                                                 lltype.Void))
 
     def _build_release_gil(self, gcrootmap):
-        if gcrootmap is None:
-            releasegil_func = llhelper(self._NOARG_FUNC, self._no_op)
-            reacqgil_func = llhelper(self._NOARG_FUNC, self._no_op)
-        elif gcrootmap.is_shadow_stack:
-            releasegil_func = llhelper(self._NOARG_FUNC,
-                                       self._release_gil_shadowstack)
-            reacqgil_func = llhelper(self._NOARG_FUNC,
+        if gcrootmap is None or gcrootmap.is_shadow_stack:
+            reacqgil_func = llhelper(self._REACQGIL0_FUNC,
                                      self._reacquire_gil_shadowstack)
+            self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
         else:
-            releasegil_func = llhelper(self._CLOSESTACK_FUNC,
-                                       self._release_gil_asmgcc)
-            reacqgil_func = llhelper(self._CLOSESTACK_FUNC,
+            reacqgil_func = llhelper(self._REACQGIL2_FUNC,
                                      self._reacquire_gil_asmgcc)
-        self.releasegil_addr  = self.cpu.cast_ptr_to_int(releasegil_func)
-        self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
+            self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
 
     def _is_asmgcc(self):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap

@@ -79,7 +79,7 @@ class CConfig:
             "MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT)")
 
         defines = """FORMAT_MESSAGE_ALLOCATE_BUFFER FORMAT_MESSAGE_FROM_SYSTEM
-                       MAX_PATH _MAX_ENV
+                       MAX_PATH _MAX_ENV FORMAT_MESSAGE_IGNORE_INSERTS
                        WAIT_OBJECT_0 WAIT_TIMEOUT INFINITE
                        ERROR_INVALID_HANDLE
                        DELETE READ_CONTROL SYNCHRONIZE WRITE_DAC
@@ -130,6 +130,7 @@ if WIN32:
     # is hidden by operations in ll2ctypes.  Call it now.
     GetLastError()
 
+    GetModuleHandle = winexternal('GetModuleHandleA', [rffi.CCHARP], HMODULE)
     LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], HMODULE)
     GetProcAddress = winexternal('GetProcAddress',
                                  [HMODULE, rffi.CCHARP],
@@ -169,7 +170,8 @@ if WIN32:
         cfile = udir.join('dosmaperr.c')
         cfile.write(r'''
                 #include <errno.h>
-                #include  <stdio.h>
+                #include <WinError.h>
+                #include <stdio.h>
                 #ifdef __GNUC__
                 #define _dosmaperr mingw_dosmaperr
                 #endif
@@ -196,6 +198,7 @@ if WIN32:
                 standalone=True)
         except (CompilationError, WindowsError):
             # Fallback for the mingw32 compiler
+            assert static_platform.name == 'mingw32'
             errors = {
                 2: 2, 3: 2, 4: 24, 5: 13, 6: 9, 7: 12, 8: 12, 9: 12, 10: 7,
                 11: 8, 15: 2, 16: 13, 17: 18, 18: 2, 19: 13, 20: 13, 21: 13,
@@ -224,7 +227,8 @@ if WIN32:
         buf[0] = lltype.nullptr(rffi.CCHARP.TO)
         try:
             msglen = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                                   FORMAT_MESSAGE_FROM_SYSTEM,
+                                   FORMAT_MESSAGE_FROM_SYSTEM | 
+                                   FORMAT_MESSAGE_IGNORE_INSERTS,
                                    None,
                                    rffi.cast(DWORD, code),
                                    DEFAULT_LANGUAGE,

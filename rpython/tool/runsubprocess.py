@@ -11,6 +11,9 @@ from subprocess import PIPE, Popen
 def run_subprocess(executable, args, env=None, cwd=None):
     return _run(executable, args, env, cwd)
 
+shell_default = False
+if sys.platform == 'win32':
+    shell_default = True
 
 def _run(executable, args, env, cwd):   # unless overridden below
     if isinstance(args, str):
@@ -21,7 +24,9 @@ def _run(executable, args, env, cwd):   # unless overridden below
             args = [str(executable)]
         else:
             args = [str(executable)] + args
-        shell = False
+        # shell=True on unix-like is a known security vulnerability, but
+        # on windows shell=True does not properly propogate the env dict
+        shell = shell_default
 
     # Just before spawning the subprocess, do a gc.collect().  This
     # should help if we are running on top of PyPy, if the subprocess
@@ -30,6 +35,10 @@ def _run(executable, args, env, cwd):   # unless overridden below
 
     pipe = Popen(args, stdout=PIPE, stderr=PIPE, shell=shell, env=env, cwd=cwd)
     stdout, stderr = pipe.communicate()
+    if (sys.platform == 'win32' and pipe.returncode == 1 and 
+        'is not recognized' in stderr):
+        # Setting shell=True on windows messes up expected exceptions
+        raise EnvironmentError(stderr)
     return pipe.returncode, stdout, stderr
 
 
@@ -43,7 +52,7 @@ if __name__ == '__main__':
         args = eval(operation)
         try:
             results = _run(*args)
-        except EnvironmentError, e:
+        except EnvironmentError as e:
             results = (None, str(e))
         sys.stdout.write('%r\n' % (results,))
         sys.stdout.flush()

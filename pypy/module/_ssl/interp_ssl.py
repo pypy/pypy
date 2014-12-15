@@ -1,14 +1,12 @@
-from __future__ import with_statement
-from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app, unwrap_spec
-
-from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rpoll, rsocket
+from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.ropenssl import *
+from rpython.rtyper.lltypesystem import lltype, rffi
 
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef
 from pypy.module._socket import interp_socket
 
 
@@ -35,7 +33,7 @@ SOCKET_IS_NONBLOCKING, SOCKET_IS_BLOCKING = 0, 1
 SOCKET_HAS_TIMED_OUT, SOCKET_HAS_BEEN_CLOSED = 2, 3
 SOCKET_TOO_LARGE_FOR_SELECT, SOCKET_OPERATION_OK = 4, 5
 
-HAVE_RPOLL = True  # Even win32 has rpoll.poll
+HAVE_RPOLL = 'poll' in dir(rpoll)
 
 constants = {}
 constants["SSL_ERROR_ZERO_RETURN"] = PY_SSL_ERROR_ZERO_RETURN
@@ -54,7 +52,8 @@ constants["CERT_REQUIRED"] = PY_SSL_CERT_REQUIRED
 
 if not OPENSSL_NO_SSL2:
     constants["PROTOCOL_SSLv2"]  = PY_SSL_VERSION_SSL2
-constants["PROTOCOL_SSLv3"]  = PY_SSL_VERSION_SSL3
+if not OPENSSL_NO_SSL3:
+    constants["PROTOCOL_SSLv3"]  = PY_SSL_VERSION_SSL3
 constants["PROTOCOL_SSLv23"] = PY_SSL_VERSION_SSL23
 constants["PROTOCOL_TLSv1"]  = PY_SSL_VERSION_TLS1
 
@@ -83,19 +82,15 @@ if HAVE_OPENSSL_RAND:
 
         Mix string into the OpenSSL PRNG state.  entropy (a float) is a lower
         bound on the entropy contained in string."""
-
-        buf = rffi.str2charp(string)
-        try:
+        with rffi.scoped_str2charp(string) as buf:
             libssl_RAND_add(buf, len(string), entropy)
-        finally:
-            rffi.free_charp(buf)
 
     def RAND_status(space):
         """RAND_status() -> 0 or 1
 
-        Returns 1 if the OpenSSL PRNG has been seeded with enough data and 0 if not.
-        It is necessary to seed the PRNG with RAND_add() on some platforms before
-        using the ssl() function."""
+        Returns 1 if the OpenSSL PRNG has been seeded with enough data
+        and 0 if not.  It is necessary to seed the PRNG with RAND_add()
+        on some platforms before using the ssl() function."""
 
         res = libssl_RAND_status()
         return space.wrap(res)
@@ -107,16 +102,12 @@ if HAVE_OPENSSL_RAND:
         Queries the entropy gather daemon (EGD) on socket path.  Returns number
         of bytes read.  Raises socket.sslerror if connection to EGD fails or
         if it does provide enough data to seed PRNG."""
-
-        socket_path = rffi.str2charp(path)
-        try:
+        with rffi.scoped_str2charp(path) as socket_path:
             bytes = libssl_RAND_egd(socket_path)
-        finally:
-            rffi.free_charp(socket_path)
         if bytes == -1:
-            msg = "EGD connection failed or EGD did not return"
-            msg += " enough data to seed the PRNG"
-            raise ssl_error(space, msg)
+            raise ssl_error(space,
+                            "EGD connection failed or EGD did not return "
+                            "enough data to seed the PRNG")
         return space.wrap(bytes)
 
 
@@ -127,17 +118,19 @@ class SSLObject(W_Root):
         self.ctx = lltype.nullptr(SSL_CTX.TO)
         self.ssl = lltype.nullptr(SSL.TO)
         self.peer_cert = lltype.nullptr(X509.TO)
-        self._server = lltype.malloc(rffi.CCHARP.TO, X509_NAME_MAXLEN, flavor='raw')
+        self._server = lltype.malloc(rffi.CCHARP.TO, X509_NAME_MAXLEN,
+                                     flavor='raw')
         self._server[0] = '\0'
-        self._issuer = lltype.malloc(rffi.CCHARP.TO, X509_NAME_MAXLEN, flavor='raw')
+        self._issuer = lltype.malloc(rffi.CCHARP.TO, X509_NAME_MAXLEN,
+                                     flavor='raw')
         self._issuer[0] = '\0'
         self.shutdown_seen_zero = False
 
-    def server(self):
-        return self.space.wrap(rffi.charp2str(self._server))
+    def server(self, space):
+        return space.wrap(rffi.charp2str(self._server))
 
-    def issuer(self):
-        return self.space.wrap(rffi.charp2str(self._issuer))
+    def issuer(self, space):
+        return space.wrap(rffi.charp2str(self._issuer))
 
     def __del__(self):
         self.enqueue_for_destruction(self.space, SSLObject.destructor,
@@ -155,21 +148,20 @@ class SSLObject(W_Root):
         lltype.free(self._issuer, flavor='raw')
 
     @unwrap_spec(data='bufferstr')
-    def write(self, data):
+    def write(self, space, data):
         """write(s) -> len
 
         Writes the string s into the SSL object.  Returns the number
         of bytes written."""
-        self._refresh_nonblocking(self.space)
+        self._refresh_nonblocking(space)
 
-        sockstate = check_socket_and_wait_for_timeout(self.space,
-            self.w_socket, True)
+        sockstate = checkwait(space, self.w_socket, True)
         if sockstate == SOCKET_HAS_TIMED_OUT:
-            raise ssl_error(self.space, "The write operation timed out")
+            raise ssl_error(space, "The write operation timed out")
         elif sockstate == SOCKET_HAS_BEEN_CLOSED:
-            raise ssl_error(self.space, "Underlying socket has been closed.")
+            raise ssl_error(space, "Underlying socket has been closed.")
         elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
-            raise ssl_error(self.space, "Underlying socket too large for select().")
+            raise ssl_error(space, "Underlying socket too large for select().")
 
         num_bytes = 0
         while True:
@@ -179,18 +171,16 @@ class SSLObject(W_Root):
             err = libssl_SSL_get_error(self.ssl, num_bytes)
 
             if err == SSL_ERROR_WANT_READ:
-                sockstate = check_socket_and_wait_for_timeout(self.space,
-                    self.w_socket, False)
+                sockstate = checkwait(space, self.w_socket, False)
             elif err == SSL_ERROR_WANT_WRITE:
-                sockstate = check_socket_and_wait_for_timeout(self.space,
-                    self.w_socket, True)
+                sockstate = checkwait(space, self.w_socket, True)
             else:
                 sockstate = SOCKET_OPERATION_OK
 
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise ssl_error(self.space, "The write operation timed out")
+                raise ssl_error(space, "The write operation timed out")
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
-                raise ssl_error(self.space, "Underlying socket has been closed.")
+                raise ssl_error(space, "Underlying socket has been closed.")
             elif sockstate == SOCKET_IS_NONBLOCKING:
                 break
 
@@ -200,74 +190,72 @@ class SSLObject(W_Root):
                 break
 
         if num_bytes > 0:
-            return self.space.wrap(num_bytes)
+            return space.wrap(num_bytes)
         else:
-            raise _ssl_seterror(self.space, self, num_bytes)
+            raise _ssl_seterror(space, self, num_bytes)
 
-    def pending(self):
+    def pending(self, space):
         """pending() -> count
 
         Returns the number of already decrypted bytes available for read,
         pending on the connection."""
         count = libssl_SSL_pending(self.ssl)
         if count < 0:
-            raise _ssl_seterror(self.space, self, count)
-        return self.space.wrap(count)
+            raise _ssl_seterror(space, self, count)
+        return space.wrap(count)
 
     @unwrap_spec(num_bytes=int)
-    def read(self, num_bytes=1024):
+    def read(self, space, num_bytes=1024):
         """read([len]) -> string
 
         Read up to len bytes from the SSL socket."""
-
         count = libssl_SSL_pending(self.ssl)
         if not count:
-            sockstate = check_socket_and_wait_for_timeout(self.space,
-                self.w_socket, False)
+            sockstate = checkwait(space, self.w_socket, False)
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise ssl_error(self.space, "The read operation timed out")
+                raise ssl_error(space, "The read operation timed out")
             elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
-                raise ssl_error(self.space, "Underlying socket too large for select().")
+                raise ssl_error(space,
+                                "Underlying socket too large for select().")
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
                 if libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN:
-                    return self.space.wrap('')
-                raise ssl_error(self.space, "Socket closed without SSL shutdown handshake")
+                    return space.wrap('')
+                raise ssl_error(space,
+                                "Socket closed without SSL shutdown handshake")
 
-        raw_buf, gc_buf = rffi.alloc_buffer(num_bytes)
-        while True:
-            err = 0
+        with rffi.scoped_alloc_buffer(num_bytes) as buf:
+            while True:
+                err = 0
 
-            count = libssl_SSL_read(self.ssl, raw_buf, num_bytes)
-            err = libssl_SSL_get_error(self.ssl, count)
+                count = libssl_SSL_read(self.ssl, buf.raw, num_bytes)
+                err = libssl_SSL_get_error(self.ssl, count)
 
-            if err == SSL_ERROR_WANT_READ:
-                sockstate = check_socket_and_wait_for_timeout(self.space,
-                    self.w_socket, False)
-            elif err == SSL_ERROR_WANT_WRITE:
-                sockstate = check_socket_and_wait_for_timeout(self.space,
-                    self.w_socket, True)
-            elif (err == SSL_ERROR_ZERO_RETURN and
-                  libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN):
-                return self.space.wrap("")
-            else:
-                sockstate = SOCKET_OPERATION_OK
+                if err == SSL_ERROR_WANT_READ:
+                    sockstate = checkwait(space, self.w_socket, False)
+                elif err == SSL_ERROR_WANT_WRITE:
+                    sockstate = checkwait(space, self.w_socket, True)
+                elif (err == SSL_ERROR_ZERO_RETURN and
+                   libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN):
+                    return space.wrap("")
+                else:
+                    sockstate = SOCKET_OPERATION_OK
 
-            if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise ssl_error(self.space, "The read operation timed out")
-            elif sockstate == SOCKET_IS_NONBLOCKING:
-                break
+                if sockstate == SOCKET_HAS_TIMED_OUT:
+                    raise ssl_error(space, "The read operation timed out")
+                elif sockstate == SOCKET_IS_NONBLOCKING:
+                    break
 
-            if err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE:
-                continue
-            else:
-                break
+                if err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE:
+                    continue
+                else:
+                    break
 
-        if count <= 0:
-            raise _ssl_seterror(self.space, self, count)
+            if count <= 0:
+                raise _ssl_seterror(space, self, count)
 
-        result = rffi.str_from_buffer(raw_buf, gc_buf, num_bytes, count)
-        rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
-        return self.space.wrap(result)
+            result = buf.str(count)
+
+        return space.wrap(result)
 
     def _refresh_nonblocking(self, space):
         # just in case the blocking state of the socket has been changed
@@ -286,11 +274,9 @@ class SSLObject(W_Root):
             err = libssl_SSL_get_error(self.ssl, ret)
             # XXX PyErr_CheckSignals()
             if err == SSL_ERROR_WANT_READ:
-                sockstate = check_socket_and_wait_for_timeout(
-                    space, self.w_socket, False)
+                sockstate = checkwait(space, self.w_socket, False)
             elif err == SSL_ERROR_WANT_WRITE:
-                sockstate = check_socket_and_wait_for_timeout(
-                    space, self.w_socket, True)
+                sockstate = checkwait(space, self.w_socket, True)
             else:
                 sockstate = SOCKET_OPERATION_OK
             if sockstate == SOCKET_HAS_TIMED_OUT:
@@ -298,7 +284,8 @@ class SSLObject(W_Root):
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
                 raise ssl_error(space, "Underlying socket has been closed.")
             elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
-                raise ssl_error(space, "Underlying socket too large for select().")
+                raise ssl_error(space,
+                                "Underlying socket too large for select().")
             elif sockstate == SOCKET_IS_NONBLOCKING:
                 break
 
@@ -330,7 +317,6 @@ class SSLObject(W_Root):
         self._refresh_nonblocking(space)
 
         zeros = 0
-
         while True:
             # Disable read-ahead so that unwrap can work correctly.
             # Otherwise OpenSSL might read in too much data,
@@ -360,21 +346,20 @@ class SSLObject(W_Root):
             # Possibly retry shutdown until timeout or failure
             ssl_err = libssl_SSL_get_error(self.ssl, ret)
             if ssl_err == SSL_ERROR_WANT_READ:
-                sockstate = check_socket_and_wait_for_timeout(
-                    self.space, self.w_socket, False)
+                sockstate = checkwait(space, self.w_socket, False)
             elif ssl_err == SSL_ERROR_WANT_WRITE:
-                sockstate = check_socket_and_wait_for_timeout(
-                    self.space, self.w_socket, True)
+                sockstate = checkwait(space, self.w_socket, True)
             else:
                 break
 
             if sockstate == SOCKET_HAS_TIMED_OUT:
                 if ssl_err == SSL_ERROR_WANT_READ:
-                    raise ssl_error(self.space, "The read operation timed out")
+                    raise ssl_error(space, "The read operation timed out")
                 else:
-                    raise ssl_error(self.space, "The write operation timed out")
+                    raise ssl_error(space, "The write operation timed out")
             elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
-                raise ssl_error(space, "Underlying socket too large for select().")
+                raise ssl_error(space,
+                                "Underlying socket too large for select().")
             elif sockstate != SOCKET_OPERATION_OK:
                 # Retain the SSL error code
                 break
@@ -392,37 +377,31 @@ class SSLObject(W_Root):
             return space.w_None
 
         name = libssl_SSL_CIPHER_get_name(current)
-        if name:
-            w_name = space.wrap(rffi.charp2str(name))
-        else:
-            w_name = space.w_None
+        w_name = space.wrap(rffi.charp2str(name)) if name else space.w_None
 
         proto = libssl_SSL_CIPHER_get_version(current)
-        if proto:
-            w_proto = space.wrap(rffi.charp2str(proto))
-        else:
-            w_proto = space.w_None
+        w_proto = space.wrap(rffi.charp2str(proto)) if proto else space.w_None
 
         bits = libssl_SSL_CIPHER_get_bits(current,
                                           lltype.nullptr(rffi.INTP.TO))
         w_bits = space.newint(bits)
-
         return space.newtuple([w_name, w_proto, w_bits])
 
     @unwrap_spec(der=bool)
-    def peer_certificate(self, der=False):
+    def peer_certificate(self, space, der=False):
         """peer_certificate([der=False]) -> certificate
 
-        Returns the certificate for the peer.  If no certificate was provided,
-        returns None.  If a certificate was provided, but not validated, returns
-        an empty dictionary.  Otherwise returns a dict containing information
-        about the peer certificate.
+        Returns the certificate for the peer.  If no certificate was
+        provided, returns None.  If a certificate was provided, but not
+        validated, returns an empty dictionary.  Otherwise returns a
+        dict containing information about the peer certificate.
 
-        If the optional argument is True, returns a DER-encoded copy of the
-        peer certificate, or None if no certificate was provided.  This will
-        return the certificate even if it wasn't validated."""
+        If the optional argument is True, returns a DER-encoded copy of
+        the peer certificate, or None if no certificate was provided.
+        This will return the certificate even if it wasn't validated.
+        """
         if not self.peer_cert:
-            return self.space.w_None
+            return space.w_None
 
         if der:
             # return cert in DER-encoded format
@@ -430,20 +409,19 @@ class SSLObject(W_Root):
                 buf_ptr[0] = lltype.nullptr(rffi.CCHARP.TO)
                 length = libssl_i2d_X509(self.peer_cert, buf_ptr)
                 if length < 0:
-                    raise _ssl_seterror(self.space, self, length)
+                    raise _ssl_seterror(space, self, length)
                 try:
                     # this is actually an immutable bytes sequence
-                    return self.space.wrap(rffi.charpsize2str(buf_ptr[0],
-                                                              length))
+                    return space.wrap(rffi.charpsize2str(buf_ptr[0], length))
                 finally:
                     libssl_OPENSSL_free(buf_ptr[0])
         else:
             verification = libssl_SSL_CTX_get_verify_mode(
                 libssl_SSL_get_SSL_CTX(self.ssl))
             if not verification & SSL_VERIFY_PEER:
-                return self.space.newdict()
+                return space.newdict()
             else:
-                return _decode_certificate(self.space, self.peer_cert)
+                return _decode_certificate(space, self.peer_cert)
 
 def _decode_certificate(space, certificate, verbose=False):
     w_retval = space.newdict()
@@ -578,18 +556,38 @@ def _get_peer_alt_names(space, certificate):
                 # Get a rendering of each name in the set of names
 
                 name = libssl_sk_GENERAL_NAME_value(names, j)
-                if intmask(name[0].c_type) == GEN_DIRNAME:
-
-                    # we special-case DirName as a tuple of tuples of attributes
+                gntype = intmask(name[0].c_type)
+                if gntype == GEN_DIRNAME:
+                    # we special-case DirName as a tuple of tuples of
+                    # attributes
                     dirname = libssl_pypy_GENERAL_NAME_dirn(name)
                     w_t = space.newtuple([
                             space.wrap("DirName"),
                             _create_tuple_for_X509_NAME(space, dirname)
                             ])
+                elif gntype in (GEN_EMAIL, GEN_DNS, GEN_URI):
+                    # GENERAL_NAME_print() doesn't handle NULL bytes in
+                    # ASN1_string correctly, CVE-2013-4238
+                    if gntype == GEN_EMAIL:
+                        v = space.wrap("email")
+                    elif gntype == GEN_DNS:
+                        v = space.wrap("DNS")
+                    elif gntype == GEN_URI:
+                        v = space.wrap("URI")
+                    else:
+                        assert False
+                    as_ = libssl_pypy_GENERAL_NAME_dirn(name)
+                    as_ = rffi.cast(ASN1_STRING, as_)
+                    buf = libssl_ASN1_STRING_data(as_)
+                    length = libssl_ASN1_STRING_length(as_)
+                    w_t = space.newtuple([v,
+                        space.wrap(rffi.charpsize2str(buf, length))])
                 else:
-
                     # for everything else, we use the OpenSSL print form
-
+                    if gntype not in (GEN_OTHERNAME, GEN_X400, GEN_EDIPARTY,
+                                      GEN_IPADD, GEN_RID):
+                        space.warn(space.wrap("Unknown general name type"),
+                                   space.w_RuntimeWarning)
                     libssl_BIO_reset(biobuf)
                     libssl_GENERAL_NAME_print(biobuf, name)
                     with lltype.scoped_alloc(rffi.CCHARP.TO, 2048) as buf:
@@ -646,26 +644,11 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
 
     sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
     w_timeout = space.call_method(w_sock, "gettimeout")
-    if space.is_none(w_timeout):
-        has_timeout = False
-    else:
-        has_timeout = True
-    if space.is_none(w_key_file):
-        key_file = None
-    else:
-        key_file = space.str_w(w_key_file)
-    if space.is_none(w_cert_file):
-        cert_file = None
-    else:
-        cert_file = space.str_w(w_cert_file)
-    if space.is_none(w_cacerts_file):
-        cacerts_file = None
-    else:
-        cacerts_file = space.str_w(w_cacerts_file)
-    if space.is_none(w_ciphers):
-        ciphers = None
-    else:
-        ciphers = space.str_w(w_ciphers)
+    has_timeout = not space.is_none(w_timeout)
+    key_file = space.str_or_None_w(w_key_file)
+    cert_file = space.str_or_None_w(w_cert_file)
+    cacerts_file = space.str_or_None_w(w_cacerts_file)
+    ciphers = space.str_or_None_w(w_ciphers)
 
     if side == PY_SSL_SERVER and (not key_file or not cert_file):
         raise ssl_error(space, "Both the key & certificate files "
@@ -674,7 +657,7 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
     # set up context
     if protocol == PY_SSL_VERSION_TLS1:
         method = libssl_TLSv1_method()
-    elif protocol == PY_SSL_VERSION_SSL3:
+    elif protocol == PY_SSL_VERSION_SSL3 and not OPENSSL_NO_SSL3:
         method = libssl_SSLv3_method()
     elif protocol == PY_SSL_VERSION_SSL2 and not OPENSSL_NO_SSL2:
         method = libssl_SSLv2_method()
@@ -728,8 +711,8 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
     libssl_SSL_set_fd(ss.ssl, sock_fd) # set the socket for SSL
     # The ACCEPT_MOVING_WRITE_BUFFER flag is necessary because the address
     # of a str object may be changed by the garbage collector.
-    libssl_SSL_set_mode(ss.ssl,
-                        SSL_MODE_AUTO_RETRY | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER)
+    libssl_SSL_set_mode(
+        ss.ssl, SSL_MODE_AUTO_RETRY | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER)
 
     # If the socket is in non-blocking mode or timeout mode, set the BIO
     # to non-blocking mode (blocking is the default)
@@ -746,7 +729,7 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
     ss.w_socket = w_sock
     return ss
 
-def check_socket_and_wait_for_timeout(space, w_sock, writing):
+def checkwait(space, w_sock, writing):
     """If the socket has a timeout, do a select()/poll() on the socket.
     The argument writing indicates the direction.
     Returns one of the possibilities in the timeout_state enum (above)."""
@@ -777,17 +760,25 @@ def check_socket_and_wait_for_timeout(space, w_sock, writing):
 
         # socket's timeout is in seconds, poll's timeout in ms
         timeout = int(sock_timeout * 1000 + 0.5)
-        ready = rpoll.poll(fddict, timeout)
+        try:
+            ready = rpoll.poll(fddict, timeout)
+        except rpoll.PollError, e:
+            message = e.get_msg()
+            raise ssl_error(space, message, e.errno)
     else:
         if MAX_FD_SIZE is not None and sock_fd >= MAX_FD_SIZE:
             return SOCKET_TOO_LARGE_FOR_SELECT
 
-        if writing:
-            r, w, e = rpoll.select([], [sock_fd], [], sock_timeout)
-            ready = w
-        else:
-            r, w, e = rpoll.select([sock_fd], [], [], sock_timeout)
-            ready = r
+        try:
+            if writing:
+                r, w, e = rpoll.select([], [sock_fd], [], sock_timeout)
+                ready = w
+            else:
+                r, w, e = rpoll.select([sock_fd], [], [], sock_timeout)
+                ready = r
+        except rpoll.SelectError as e:
+            message = e.get_msg()
+            raise ssl_error(space, message, e.errno)
     if ready:
         return SOCKET_OPERATION_OK
     else:

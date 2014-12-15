@@ -60,7 +60,6 @@ class AppTestFile(object):
         finally:
             f.close()
 
-
     def test_fdopen(self):
         import os
         f = self.file(self.temppath, "w")
@@ -253,7 +252,46 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         assert os.strerror(errno.EBADF) in g.getvalue()
         # the following is a "nice to have" feature that CPython doesn't have
         if '__pypy__' in sys.builtin_module_names:
-            assert self.temppath in g.getvalue()
+            assert repr(self.temppath) in g.getvalue()
+
+    def test_truncate(self):
+        f = self.file(self.temppath, "w")
+        f.write("foo")
+        f.close()
+        with self.file(self.temppath, 'r') as f:
+            raises(IOError, f.truncate, 100)
+
+    def test_write_full(self):
+        try:
+            f = self.file('/dev/full', 'w', 1)
+        except IOError:
+            skip("requires '/dev/full'")
+        try:
+            f.write('hello')
+            raises(IOError, f.write, '\n')
+            f.write('zzz')
+            raises(IOError, f.flush)
+            f.flush()
+        finally:
+            f.close()
+
+    def test_ignore_ioerror_in_readall_if_nonempty_result(self):
+        # this is the behavior of regular files in CPython 2.7, as
+        # well as of _io.FileIO at least in CPython 3.3.  This is
+        # *not* the behavior of _io.FileIO in CPython 3.4 or 3.5;
+        # see CPython's issue #21090.
+        try:
+            from posix import openpty, fdopen, write, close
+        except ImportError:
+            skip('no openpty on this platform')
+        read_fd, write_fd = openpty()
+        write(write_fd, 'Abc\n')
+        close(write_fd)
+        f = fdopen(read_fd)
+        s = f.read()
+        assert s == 'Abc\r\n'
+        raises(IOError, f.read)
+        f.close()
 
 
 class AppTestNonblocking(object):
@@ -266,7 +304,7 @@ class AppTestNonblocking(object):
             py.test.skip("works with internals of _file impl on py.py")
         state = [0]
         def read(fd, n=None):
-            if fd != 42:
+            if fd != 424242:
                 return cls.old_read(fd, n)
             if state[0] == 0:
                 state[0] += 1
@@ -277,7 +315,7 @@ class AppTestNonblocking(object):
             return ''
         os.read = read
         stdin = W_File(cls.space)
-        stdin.file_fdopen(42, 'rb', 1)
+        stdin.file_fdopen(424242, 'rb', 1)
         stdin.name = '<stdin>'
         cls.w_stream = stdin
 

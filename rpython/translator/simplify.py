@@ -5,14 +5,17 @@
 simplify_graph() applies all simplifications defined in this file.
 """
 import py
+from collections import defaultdict
 
+from rpython.tool.algo.unionfind import UnionFind
 from rpython.flowspace.model import (Variable, Constant,
                                      c_last_exception, checkgraph, mkentrymap)
 from rpython.flowspace.operation import OverflowingOperation, op
 from rpython.rlib import rarithmetic
 from rpython.translator import unsimplify
-from rpython.translator.backendopt import ssa
 from rpython.rtyper.lltypesystem import lloperation, lltype
+from rpython.translator.backendopt.ssa import (
+        SSA_to_SSI, DataFlowFamilyBuilder)
 
 def get_graph(arg, translator):
     if isinstance(arg, Variable):
@@ -74,10 +77,12 @@ def eliminate_empty_blocks(graph):
                 outputargs = []
                 for v in exit.args:
                     if isinstance(v, Variable):
-                        # this variable is valid in the context of block1
-                        # but it must come from 'link'
-                        i = block1.inputargs.index(v)
-                        v = link.args[i]
+                        try:
+                            i = block1.inputargs.index(v)
+                            v = link.args[i]
+                        except ValueError:
+                            # the variable was passed implicitly to block1
+                            pass
                     outputargs.append(v)
                 link.args = outputargs
                 link.target = exit.target
@@ -242,6 +247,59 @@ def remove_dead_exceptions(graph):
             seen.append(case)
         block.recloseblock(*exits)
 
+def constfold_exitswitch(graph):
+    """Remove trivial links by merging their source and target blocks
+
+    A link is trivial if it has no arguments, is the single exit of its
+    source and the single parent of its target.
+    """
+    block = graph.startblock
+    seen = set([block])
+    stack = list(block.exits)
+    while stack:
+        link = stack.pop()
+        target = link.target
+        if target in seen:
+            continue
+        source = link.prevblock
+        switch = source.exitswitch
+        if (isinstance(switch, Constant) and switch != c_last_exception):
+            exits = replace_exitswitch_by_constant(source, switch)
+            stack.extend(exits)
+        else:
+            seen.add(target)
+            stack.extend(target.exits)
+
+
+def remove_trivial_links(graph):
+    """Remove trivial links by merging their source and target blocks
+
+    A link is trivial if it has no arguments, is the single exit of its
+    source and the single parent of its target.
+    """
+    entrymap = mkentrymap(graph)
+    block = graph.startblock
+    seen = set([block])
+    stack = list(block.exits)
+    while stack:
+        link = stack.pop()
+        if link.target in seen:
+            continue
+        source = link.prevblock
+        target = link.target
+        if (not link.args and source.exitswitch is None and
+                len(entrymap[target]) == 1 and
+                target.exits):  # stop at the returnblock
+            assert len(source.exits) == 1
+            source.operations.extend(target.operations)
+            source.exitswitch = newexitswitch = target.exitswitch
+            source.recloseblock(*target.exits)
+            stack.extend(source.exits)
+        else:
+            seen.add(target)
+            stack.extend(target.exits)
+
+
 def join_blocks(graph):
     """Links can be deleted if they are the single exit of a block and
     the single entry point of the next block.  When this happens, we can
@@ -401,8 +459,8 @@ def find_start_blocks(graphs):
 def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
     """Remove dead operations and variables that are passed over a link
     but not used in the target block. Input is a set of blocks"""
-    read_vars = {}  # set of variables really used
-    variable_flow = {}  # map {Var: list-of-Vars-it-depends-on}
+    read_vars = set()  # set of variables really used
+    dependencies = defaultdict(set) # map {Var: list-of-Vars-it-depends-on}
     set_of_blocks = set(blocks)
     start_blocks = find_start_blocks(graphs)
 
@@ -414,53 +472,48 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
         # cannot remove the exc-raising operation
         return op is not block.operations[-1]
 
-    # compute variable_flow and an initial read_vars
+    # compute dependencies and an initial read_vars
     for block in blocks:
         # figure out which variables are ever read
         for op in block.operations:
-            if not canremove(op, block):   # mark the inputs as really needed
-                for arg in op.args:
-                    read_vars[arg] = True
+            if not canremove(op, block):   # the inputs are always needed
+                read_vars.update(op.args)
             else:
-                # if CanRemove, only mark dependencies of the result
-                # on the input variables
-                deps = variable_flow.setdefault(op.result, [])
-                deps.extend(op.args)
+                dependencies[op.result].update(op.args)
 
         if isinstance(block.exitswitch, Variable):
-            read_vars[block.exitswitch] = True
+            read_vars.add(block.exitswitch)
 
         if block.exits:
             for link in block.exits:
                 if link.target not in set_of_blocks:
                     for arg, targetarg in zip(link.args, link.target.inputargs):
-                        read_vars[arg] = True
-                        read_vars[targetarg] = True
+                        read_vars.add(arg)
+                        read_vars.add(targetarg)
                 else:
                     for arg, targetarg in zip(link.args, link.target.inputargs):
-                        deps = variable_flow.setdefault(targetarg, [])
-                        deps.append(arg)
+                        dependencies[targetarg].add(arg)
         else:
             # return and except blocks implicitely use their input variable(s)
             for arg in block.inputargs:
-                read_vars[arg] = True
-        # an input block's inputargs should not be modified, even if some
+                read_vars.add(arg)
+        # a start block's inputargs should not be modified, even if some
         # of the function's input arguments are not actually used
         if block in start_blocks:
             for arg in block.inputargs:
-                read_vars[arg] = True
+                read_vars.add(arg)
 
     # flow read_vars backwards so that any variable on which a read_vars
     # depends is also included in read_vars
     def flow_read_var_backward(pending):
-        pending = list(pending)
-        for var in pending:
-            for prevvar in variable_flow.get(var, []):
+        while pending:
+            var = pending.pop()
+            for prevvar in dependencies[var]:
                 if prevvar not in read_vars:
-                    read_vars[prevvar] = True
-                    pending.append(prevvar)
+                    read_vars.add(prevvar)
+                    pending.add(prevvar)
 
-    flow_read_var_backward(read_vars)
+    flow_read_var_backward(set(read_vars))
 
     for block in blocks:
 
@@ -508,6 +561,77 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
             if block.inputargs[i] not in read_vars:
                 del block.inputargs[i]
 
+class Representative(object):
+    def __init__(self, var):
+        self.rep = var
+
+    def absorb(self, other):
+        pass
+
+def all_equal(lst):
+    first = lst[0]
+    return all(first == x for x in lst[1:])
+
+def isspecialvar(v):
+    return isinstance(v, Variable) and v._name in ('last_exception_', 'last_exc_value_')
+
+def remove_identical_vars_SSA(graph):
+    """When the same variable is passed multiple times into the next block,
+    pass it only once.  This enables further optimizations by the annotator,
+    which otherwise doesn't realize that tests performed on one of the copies
+    of the variable also affect the other."""
+    uf = UnionFind(Representative)
+    entrymap = mkentrymap(graph)
+    del entrymap[graph.startblock]
+    entrymap.pop(graph.returnblock, None)
+    entrymap.pop(graph.exceptblock, None)
+    inputs = {}
+    for block, links in entrymap.items():
+        phis = zip(block.inputargs, zip(*[link.args for link in links]))
+        inputs[block] = phis
+
+    def simplify_phis(block):
+        phis = inputs[block]
+        to_remove = []
+        unique_phis = {}
+        for i, (input, phi_args) in enumerate(phis):
+            new_args = [uf.find_rep(arg) for arg in phi_args]
+            if all_equal(new_args) and not isspecialvar(new_args[0]):
+                uf.union(new_args[0], input)
+                to_remove.append(i)
+            else:
+                t = tuple(new_args)
+                if t in unique_phis:
+                    uf.union(unique_phis[t], input)
+                    to_remove.append(i)
+                else:
+                    unique_phis[t] = input
+        for i in reversed(to_remove):
+            del phis[i]
+        return bool(to_remove)
+
+    progress = True
+    while progress:
+        progress = False
+        for block in inputs:
+            if simplify_phis(block):
+                progress = True
+
+    renaming = dict((key, uf[key].rep) for key in uf)
+    for block, links in entrymap.items():
+        if inputs[block]:
+            new_inputs, new_args = zip(*inputs[block])
+            new_args = map(list, zip(*new_args))
+        else:
+            new_inputs = []
+            new_args = [[] for _ in links]
+        block.inputargs = new_inputs
+        assert len(links) == len(new_args)
+        for link, args in zip(links, new_args):
+            link.args = args
+    for block in graph.iterblocks():
+        block.renamevariables(renaming)
+
 def remove_identical_vars(graph):
     """When the same variable is passed multiple times into the next block,
     pass it only once.  This enables further optimizations by the annotator,
@@ -534,7 +658,7 @@ def remove_identical_vars(graph):
     #    when for all possible incoming paths they would get twice the same
     #    value (this is really the purpose of remove_identical_vars()).
     #
-    builder = ssa.DataFlowFamilyBuilder(graph)
+    builder = DataFlowFamilyBuilder(graph)
     variable_families = builder.get_variable_families()  # vertical removal
     while True:
         if not builder.merge_identical_phi_nodes():    # horizontal removal
@@ -629,7 +753,7 @@ def detect_list_comprehension(graph):
     # NB. this assumes RPythonicity: we can only iterate over something
     # that has a len(), and this len() cannot change as long as we are
     # using the iterator.
-    builder = ssa.DataFlowFamilyBuilder(graph)
+    builder = DataFlowFamilyBuilder(graph)
     variable_families = builder.get_variable_families()
     c_append = Constant('append')
     newlist_v = {}
@@ -962,12 +1086,14 @@ class ListComprehensionDetector(object):
 # ____ all passes & simplify_graph
 
 all_passes = [
+    transform_dead_op_vars,
     eliminate_empty_blocks,
     remove_assertion_errors,
-    join_blocks,
+    remove_identical_vars_SSA,
+    constfold_exitswitch,
+    remove_trivial_links,
+    SSA_to_SSI,
     coalesce_bool,
-    transform_dead_op_vars,
-    remove_identical_vars,
     transform_ovfcheck,
     simplify_exceptions,
     transform_xxxitem,
@@ -978,7 +1104,6 @@ def simplify_graph(graph, passes=True): # can take a list of passes to apply, Tr
     """inplace-apply all the existing optimisations to the graph."""
     if passes is True:
         passes = all_passes
-    checkgraph(graph)
     for pass_ in passes:
         pass_(graph)
     checkgraph(graph)

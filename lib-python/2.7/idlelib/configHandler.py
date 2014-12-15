@@ -20,7 +20,6 @@ configuration problem notification and resolution.
 import os
 import sys
 import string
-from idlelib import macosxSupport
 from ConfigParser import ConfigParser, NoOptionError, NoSectionError
 
 class InvalidConfigType(Exception): pass
@@ -237,24 +236,39 @@ class IdleConf:
         printed to stderr.
 
         """
-        if self.userCfg[configType].has_option(section,option):
-            return self.userCfg[configType].Get(section, option,
-                                                type=type, raw=raw)
-        elif self.defaultCfg[configType].has_option(section,option):
-            return self.defaultCfg[configType].Get(section, option,
-                                                   type=type, raw=raw)
-        else: #returning default, print warning
-            if warn_on_default:
-                warning = ('\n Warning: configHandler.py - IdleConf.GetOption -\n'
-                           ' problem retrieving configuration option %r\n'
-                           ' from section %r.\n'
-                           ' returning default value: %r\n' %
-                           (option, section, default))
-                try:
-                    sys.stderr.write(warning)
-                except IOError:
-                    pass
-            return default
+        try:
+            if self.userCfg[configType].has_option(section,option):
+                return self.userCfg[configType].Get(section, option,
+                                                    type=type, raw=raw)
+        except ValueError:
+            warning = ('\n Warning: configHandler.py - IdleConf.GetOption -\n'
+                       ' invalid %r value for configuration option %r\n'
+                       ' from section %r: %r\n' %
+                       (type, option, section,
+                        self.userCfg[configType].Get(section, option,
+                                                     raw=raw)))
+            try:
+                sys.stderr.write(warning)
+            except IOError:
+                pass
+        try:
+            if self.defaultCfg[configType].has_option(section,option):
+                return self.defaultCfg[configType].Get(section, option,
+                                                       type=type, raw=raw)
+        except ValueError:
+            pass
+        #returning default, print warning
+        if warn_on_default:
+            warning = ('\n Warning: configHandler.py - IdleConf.GetOption -\n'
+                       ' problem retrieving configuration option %r\n'
+                       ' from section %r.\n'
+                       ' returning default value: %r\n' %
+                       (option, section, default))
+            try:
+                sys.stderr.write(warning)
+            except IOError:
+                pass
+        return default
 
     def SetOption(self, configType, section, option, value):
         """In user's config file, set section's option to value.
@@ -511,10 +525,13 @@ class IdleConf:
     def GetCurrentKeySet(self):
         result = self.GetKeySet(self.CurrentKeys())
 
-        if macosxSupport.runningAsOSXApp():
-            # We're using AquaTk, replace all keybingings that use the
-            # Alt key by ones that use the Option key because the former
-            # don't work reliably.
+        if sys.platform == "darwin":
+            # OS X Tk variants do not support the "Alt" keyboard modifier.
+            # So replace all keybingings that use "Alt" with ones that
+            # use the "Option" keyboard modifier.
+            # TO DO: the "Option" modifier does not work properly for
+            #        Cocoa Tk and XQuartz Tk so we should not use it
+            #        in default OS X KeySets.
             for k, v in result.items():
                 v2 = [ x.replace('<Alt-', '<Option-') for x in v ]
                 if v != v2:
@@ -595,7 +612,7 @@ class IdleConf:
             '<<replace>>': ['<Control-h>'],
             '<<goto-line>>': ['<Alt-g>'],
             '<<smart-backspace>>': ['<Key-BackSpace>'],
-            '<<newline-and-indent>>': ['<Key-Return> <Key-KP_Enter>'],
+            '<<newline-and-indent>>': ['<Key-Return>', '<Key-KP_Enter>'],
             '<<smart-indent>>': ['<Key-Tab>'],
             '<<indent-region>>': ['<Control-Key-bracketright>'],
             '<<dedent-region>>': ['<Control-Key-bracketleft>'],

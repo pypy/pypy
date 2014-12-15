@@ -1,7 +1,7 @@
 import signal as cpy_signal
 import sys
 import py
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -41,11 +41,6 @@ eci = ExternalCompilationInfo(
     includes = includes,
     separate_module_files = [cdir / 'src' / 'signals.c'],
     include_dirs = [str(cdir)],
-    export_symbols = ['pypysig_poll', 'pypysig_default',
-                      'pypysig_ignore', 'pypysig_setflag',
-                      'pypysig_reinstall',
-                      'pypysig_set_wakeup_fd',
-                      'pypysig_getaddr_occurred'],
 )
 
 class CConfig:

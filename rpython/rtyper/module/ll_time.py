@@ -9,7 +9,7 @@ from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.extfunc import BaseLazyRegistering, registering, extdef
 from rpython.rlib import rposix
-from rpython.rlib.rarithmetic import intmask, maxint32
+from rpython.rlib.rarithmetic import intmask, UINT_MAX
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 if sys.platform == 'win32':
@@ -183,19 +183,17 @@ class RegisterTime(BaseLazyRegistering):
     @registering(time.sleep)
     def register_time_sleep(self):
         if sys.platform == 'win32':
-            MAX = maxint32
             Sleep = self.llexternal('Sleep', [rffi.ULONG], lltype.Void)
             def time_sleep_llimpl(secs):
                 millisecs = secs * 1000.0
-                while millisecs > MAX:
-                    Sleep(MAX)
-                    millisecs -= MAX
+                while millisecs > UINT_MAX:
+                    Sleep(UINT_MAX)
+                    millisecs -= UINT_MAX
                 Sleep(rffi.cast(rffi.ULONG, int(millisecs)))
         else:
             c_select = self.llexternal('select', [rffi.INT, rffi.VOIDP,
                                                   rffi.VOIDP, rffi.VOIDP,
                                                   self.TIMEVALP], rffi.INT)
-            
             def time_sleep_llimpl(secs):
                 void = lltype.nullptr(rffi.VOIDP.TO)
                 t = lltype.malloc(self.TIMEVAL, flavor='raw')

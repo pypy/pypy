@@ -130,7 +130,9 @@ def elidable_promote(promote_args='all'):
         if promote_args != 'all':
             args = [args[int(i)] for i in promote_args.split(",")]
         for arg in args:
-            code.append("    %s = hint(%s, promote=True)\n" % (arg, arg))
+            code.append( #use both hints, and let jtransform pick the right one
+                "    %s = hint(%s, promote=True, promote_string=True)\n" %
+                (arg, arg))
         code.append("    return _orig_func_unlikely_name(%s)\n" % (argstring, ))
         d = {"_orig_func_unlikely_name": func, "hint": hint}
         exec py.code.Source("\n".join(code)).compile() in d
@@ -191,6 +193,14 @@ def oopspec(spec):
         func.oopspec = spec
         return func
     return decorator
+
+def not_in_trace(func):
+    """A decorator for a function with no return value.  It makes the
+    function call disappear from the jit traces. It is still called in
+    interpreted mode, and by the jit tracing and blackholing, but not
+    by the final assembler."""
+    func.oopspec = "jit.not_in_trace()"   # note that 'func' may take arguments
+    return func
 
 @oopspec("jit.isconstant(value)")
 def isconstant(value):
@@ -338,6 +348,7 @@ def jit_callback(name):
 # ____________________________________________________________
 # VRefs
 
+@specialize.argtype(0)
 def virtual_ref(x):
     """Creates a 'vref' object that contains a reference to 'x'.  Calls
     to virtual_ref/virtual_ref_finish must be properly nested.  The idea
@@ -349,6 +360,7 @@ def virtual_ref(x):
     return DirectJitVRef(x)
 virtual_ref.oopspec = 'virtual_ref(x)'
 
+@specialize.argtype(1)
 def virtual_ref_finish(vref, x):
     """See docstring in virtual_ref(x)"""
     keepalive_until_here(x)   # otherwise the whole function call is removed
@@ -451,6 +463,7 @@ PARAMETER_DOCS = {
     'max_unroll_loops': 'number of extra unrollings a loop can cause',
     'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
+    'max_unroll_recursion': 'how many levels deep to unroll a recursive function'
     }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -464,6 +477,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'max_retrace_guards': 15,
               'max_unroll_loops': 0,
               'enable_opts': 'all',
+              'max_unroll_recursion': 7,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 
@@ -591,7 +605,7 @@ class JitDriver(object):
 
     def can_enter_jit(_self, **livevars):
         if _self.autoreds:
-            raise TypeError, "Cannot call can_enter_jit on a driver with reds='auto'"
+            raise TypeError("Cannot call can_enter_jit on a driver with reds='auto'")
         # special-cased by ExtRegistryEntry
         if _self.check_untranslated:
             _self._check_arguments(livevars, False)
@@ -989,7 +1003,8 @@ class Entry(ExtRegistryEntry):
         assert isinstance(s_inst, annmodel.SomeInstance)
 
     def specialize_call(self, hop):
-        from rpython.rtyper.lltypesystem import rclass, lltype
+        from rpython.rtyper.lltypesystem import lltype
+        from rpython.rtyper import rclass
 
         classrepr = rclass.get_type_repr(hop.rtyper)
 

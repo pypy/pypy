@@ -12,7 +12,7 @@ from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
     isconstant, isvirtual, set_param, record_known_class)
 from rpython.rlib.longlong2float import float2longlong, longlong2float
-from rpython.rlib.rarithmetic import ovfcheck, is_valid_int
+from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
@@ -698,6 +698,40 @@ class BasicTests:
         res = self.interp_operations(f, [12311])
         assert res == 42
 
+    def test_switch_bridges(self):
+        from rpython.rlib.rarithmetic import intmask
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        lsts = [[-5, 2, 20] * 6,
+                [7, 123, 2] * 6,
+                [12311, -5, 7] * 6,
+                [7, 123, 2] * 4 + [-5, -5, -5] * 2,
+                [7, 123, 2] * 4 + [-5, -5, -5] * 2 + [12311, 12311, 12311],
+                ]
+        def f(case):
+            x = 0
+            i = 0
+            lst = lsts[case]
+            while i < len(lst):
+                myjitdriver.jit_merge_point()
+                n = lst[i]
+                if n == -5:  a = 5
+                elif n == 2: a = 4
+                elif n == 7: a = 3
+                else:        a = 2
+                x = intmask(x * 10 + a)
+                i += 1
+            return x
+        res = self.meta_interp(f, [0], backendopt=True)
+        assert res == intmask(542 * 1001001001001001)
+        res = self.meta_interp(f, [1], backendopt=True)
+        assert res == intmask(324 * 1001001001001001)
+        res = self.meta_interp(f, [2], backendopt=True)
+        assert res == intmask(253 * 1001001001001001)
+        res = self.meta_interp(f, [3], backendopt=True)
+        assert res == intmask(324324324324555555)
+        res = self.meta_interp(f, [4], backendopt=True)
+        assert res == intmask(324324324324555555222)
+
     def test_r_uint(self):
         from rpython.rlib.rarithmetic import r_uint
         myjitdriver = JitDriver(greens = [], reds = ['y'])
@@ -832,23 +866,6 @@ class BasicTests:
         res = self.meta_interp(f, [7])
         assert type(res) == bool
         assert not res
-
-    def test_switch_dict(self):
-        def f(x):
-            if   x == 1: return 61
-            elif x == 2: return 511
-            elif x == 3: return -22
-            elif x == 4: return 81
-            elif x == 5: return 17
-            elif x == 6: return 54
-            elif x == 7: return 987
-            elif x == 8: return -12
-            elif x == 9: return 321
-            return -1
-        res = self.interp_operations(f, [5])
-        assert res == 17
-        res = self.interp_operations(f, [15])
-        assert res == -1
 
     def test_int_add_ovf(self):
         def f(x, y):
@@ -1435,6 +1452,16 @@ class BasicTests:
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
         self.check_resops(guard_class=0, guard_value=6)
+        #
+        # The original 'guard_class' is rewritten to be directly 'guard_value'.
+        # Check that this rewrite does not interfere with the descr, which
+        # should be a full-fledged multivalued 'guard_value' descr.
+        if self.basic:
+            for loop in get_stats().get_all_loops():
+                for op in loop.get_operations():
+                    if op.getopname() == "guard_value":
+                        descr = op.getdescr()
+                        assert descr.get_index_of_guard_value() >= 0
 
     def test_merge_guardnonnull_guardclass(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
@@ -3038,6 +3065,20 @@ class BasicTests:
         res = self.meta_interp(f, [32])
         assert res == f(32)
 
+    def test_int_signext(self):
+        def f(n):
+            return rffi.cast(rffi.SIGNEDCHAR, n)
+        def f1(n):
+            return rffi.cast(rffi.SIGNEDCHAR, n + 1)
+        res = self.interp_operations(f, [128])
+        assert res == -128
+        res = self.interp_operations(f1, [127])
+        assert res == -128
+        res = self.interp_operations(f, [-35 + 256 * 29])
+        assert res == -35
+        res = self.interp_operations(f, [127 - 256 * 29])
+        assert res == 127
+
 class BaseLLtypeTests(BasicTests):
 
     def test_identityhash(self):
@@ -3228,8 +3269,6 @@ class BaseLLtypeTests(BasicTests):
         self.check_resops(arraylen_gc=2)
 
     def test_release_gil_flush_heap_cache(self):
-        if sys.platform == "win32":
-            py.test.skip("needs 'time'")
         T = rffi.CArrayPtr(rffi.TIME_T)
 
         external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True)
@@ -3331,6 +3370,25 @@ class BaseLLtypeTests(BasicTests):
         assert res == main(1, 10, 2)
         self.check_resops(call=0)
 
+    def test_look_inside_iff_const_float(self):
+        @look_inside_iff(lambda arg: isconstant(arg))
+        def f(arg):
+            return arg + 0.5
+
+        driver = JitDriver(greens = [], reds = ['n', 'total'])
+
+        def main(n):
+            total = 0.0
+            while n > 0:
+                driver.jit_merge_point(n=n, total=total)
+                total = f(total)
+                n -= 1
+            return total
+
+        res = self.meta_interp(main, [10], enable_opts='')
+        assert res == 5.0
+        self.check_resops(call=1)
+
     def test_look_inside_iff_virtual(self):
         # There's no good reason for this to be look_inside_iff, but it's a test!
         @look_inside_iff(lambda arg, n: isvirtual(arg))
@@ -3400,6 +3458,26 @@ class BaseLLtypeTests(BasicTests):
         self.check_resops({'int_gt': 2, 'strlen': 2, 'guard_true': 2,
                            'int_sub': 2, 'jump': 1, 'call': 2,
                            'guard_no_exception': 2, 'int_add': 4})
+
+    def test_elidable_method(self):
+        py.test.skip("not supported so far: @elidable methods")
+        class A(object):
+            @elidable
+            def meth(self):
+                return 41
+        class B(A):
+            @elidable
+            def meth(self):
+                return 42
+        x = B()
+        def callme(x):
+            return x.meth()
+        def f():
+            callme(A())
+            return callme(x)
+        res = self.interp_operations(f, [])
+        assert res == 42
+        self.check_operations_history({'finish': 1})
 
     def test_look_inside_iff_const_getarrayitem_gc_pure(self):
         driver = JitDriver(greens=['unroll'], reds=['s', 'n'])
@@ -3580,6 +3658,24 @@ class BaseLLtypeTests(BasicTests):
         self.check_resops({'int_gt': 2, 'getfield_gc': 1, 'int_eq': 1,
                            'guard_true': 2, 'int_sub': 2, 'jump': 1,
                            'guard_false': 1})
+
+    def test_virtual_after_bridge(self):
+        myjitdriver = JitDriver(greens = [], reds = ["n"])
+        @look_inside_iff(lambda x: isvirtual(x))
+        def g(x):
+            return x[0]
+        def f(n):
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n)
+                x = [1]
+                if n & 1:    # bridge
+                    n -= g(x)
+                else:
+                    n -= g(x)
+            return n
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_resops(call=0, call_may_force=0, new_array=0)
 
 
     def test_convert_from_SmallFunctionSetPBCRepr_to_FunctionsPBCRepr(self):
@@ -3947,9 +4043,9 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             external(lltype.nullptr(T.TO))
             return len(state.l)
 
-        res = self.interp_operations(f, [])
+        res = self.interp_operations(f, [], supports_longlong=True)
         assert res == 2
-        res = self.interp_operations(f, [])
+        res = self.interp_operations(f, [], supports_longlong=True)
         assert res == 2
         self.check_operations_history(call_release_gil=1, call_may_force=0)
 
@@ -3970,3 +4066,148 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             return a.x
         res = self.interp_operations(f, [42])
         assert res == 0
+
+    def test_conditions_without_guards(self):
+        def f(n):
+            if (n == 1) | (n == 3) | (n == 17):
+                return 42
+            return 5
+        res = self.interp_operations(f, [17])
+        assert res == 42
+        self.check_operations_history(guard_true=1, guard_false=0)
+
+    def test_not_in_trace(self):
+        class X:
+            n = 0
+        def g(x):
+            if we_are_jitted():
+                raise NotImplementedError
+            x.n += 1
+        g.oopspec = 'jit.not_in_trace()'
+
+        jitdriver = JitDriver(greens=[], reds=['n', 'token', 'x'])
+        def f(n):
+            token = 0
+            x = X()
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n, x=x, token=token)
+                if not we_are_jitted():
+                    token += 1
+                g(x)
+                n -= 1
+            return x.n + token * 1000
+
+        res = self.meta_interp(f, [10])
+        assert res == 2003     # two runs before jitting; then one tracing run
+        self.check_resops(int_add=0, call=0, call_may_force=0)
+
+    def test_not_in_trace_exception(self):
+        def g():
+            if we_are_jitted():
+                raise NotImplementedError
+            raise ValueError
+        g.oopspec = 'jit.not_in_trace()'
+
+        jitdriver = JitDriver(greens=[], reds=['n'])
+        def f(n):
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n)
+                try:
+                    g()
+                except ValueError:
+                    n -= 1
+            return 42
+
+        res = self.meta_interp(f, [10])
+        assert res == 42
+        self.check_aborted_count(3)
+
+    def test_not_in_trace_blackhole(self):
+        class X:
+            seen = 0
+        def g(x):
+            if we_are_jitted():
+                raise NotImplementedError
+            x.seen = 42
+        g.oopspec = 'jit.not_in_trace()'
+
+        jitdriver = JitDriver(greens=[], reds=['n'])
+        def f(n):
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n)
+                n -= 1
+            x = X()
+            g(x)
+            return x.seen
+
+        res = self.meta_interp(f, [10])
+        assert res == 42
+
+    def test_int_force_ge_zero(self):
+        def f(n):
+            return int_force_ge_zero(n)
+        res = self.interp_operations(f, [42])
+        assert res == 42
+        res = self.interp_operations(f, [-42])
+        assert res == 0
+
+    def test_cmp_fastpaths(self):
+        class Z: pass
+        def make_int(cmp):
+            def f(x):
+                if cmp == 'eq':
+                    return x == x and x == x
+                if cmp == 'ne':
+                    return x != x or x != x
+                if cmp == 'lt':
+                    return x < x or x != x
+                if cmp == 'le':
+                    return x <= x and x <= x
+                if cmp == 'gt':
+                    return x > x or x > x
+                if cmp == 'ge':
+                    return x >= x and x >= x
+                assert 0
+            return f
+
+        def make_str(cmp):
+            def f(x):
+                x = str(x)
+                if cmp == 'eq':
+                    return x is x or x is x
+                if cmp == 'ne':
+                    return x is not x and x is not x
+                assert 0
+            return f
+
+        def make_object(cmp):
+            def f(x):
+                y = Z()
+                y.x = x
+                x = y
+                if cmp == 'eq':
+                    return x is x
+                if cmp == 'ne':
+                    return x is not x
+                assert 0
+            return f
+
+        for cmp in 'eq ne lt le gt ge'.split():
+            f = make_int(cmp)
+            res = self.interp_operations(f, [42])
+            assert res == f(42)
+            opname = "int_%s" % cmp
+            self.check_operations_history(**{opname: 0})
+
+        for cmp in 'eq ne'.split():
+            f = make_str(cmp)
+            res = self.interp_operations(f, [42])
+            assert res == f(42)
+            opname = "ptr_%s" % cmp
+            self.check_operations_history(**{opname: 0})
+
+            f = make_object(cmp)
+            res = self.interp_operations(f, [42])
+            assert res == f(42)
+            opname = "instance_ptr_%s" % cmp
+            self.check_operations_history(**{opname: 0})

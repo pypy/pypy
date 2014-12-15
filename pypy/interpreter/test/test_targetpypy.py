@@ -26,5 +26,7 @@ def test_exeucte_source(space):
     # did not crash - the same globals
     pypy_setup_home = d['pypy_setup_home']
     lls = rffi.str2charp(__file__)
-    pypy_setup_home(lls, rffi.cast(rffi.INT, 1))
+    res = pypy_setup_home(lls, rffi.cast(rffi.INT, 1))
+    assert lltype.typeOf(res) == rffi.LONG
+    assert rffi.cast(lltype.Signed, res) == 0
     lltype.free(lls, flavor='raw')

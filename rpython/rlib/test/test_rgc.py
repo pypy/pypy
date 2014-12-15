@@ -158,6 +158,16 @@ def test_ll_arraycopy_array_of_structs():
     assert a2[2].x == 3
     assert a2[2].y == 15
 
+def test_ll_arrayclear():
+    TYPE = lltype.GcArray(lltype.Signed)
+    a1 = lltype.malloc(TYPE, 10)
+    for i in range(10):
+        a1[i] = 100 + i
+    rgc.ll_arrayclear(a1)
+    assert len(a1) == 10
+    for i in range(10):
+        assert a1[i] == 0
+
 def test__contains_gcptr():
     assert not rgc._contains_gcptr(lltype.Signed)
     assert not rgc._contains_gcptr(
@@ -228,3 +238,17 @@ def test_get_memory_usage():
     x1 = X()
     n = rgc.get_rpy_memory_usage(rgc.cast_instance_to_gcref(x1))
     assert n >= 8 and n <= 64
+
+def test_register_custom_trace_hook():
+    TP = lltype.GcStruct('X')
+
+    def trace_func():
+        xxx # should not be annotated here
+    lambda_trace_func = lambda: trace_func
+    
+    def f():
+        rgc.register_custom_trace_hook(TP, lambda_trace_func)
+    
+    t, typer, graph = gengraph(f, [])
+
+    assert typer.custom_trace_funcs == [(TP, trace_func)]

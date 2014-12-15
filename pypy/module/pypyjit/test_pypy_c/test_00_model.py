@@ -3,17 +3,17 @@ import sys, os
 import types
 import subprocess
 import py
-from lib_pypy import disassembler
+from rpython.tool import disassembler
 from rpython.tool.udir import udir
 from rpython.tool import logparser
 from rpython.jit.tool.jitoutput import parse_prof
-from pypy.module.pypyjit.test_pypy_c.model import (Log, find_ids_range,
-                                                   find_ids,
-                                                   OpMatcher, InvalidMatch)
+from pypy.module.pypyjit.test_pypy_c.model import \
+    Log, find_ids_range, find_ids, OpMatcher, InvalidMatch
+
 
 class BaseTestPyPyC(object):
     log_string = 'jit-log-opt,jit-log-noopt,jit-log-virtualstate,jit-summary'
-    
+
     def setup_class(cls):
         if '__pypy__' not in sys.builtin_module_names:
             py.test.skip("must run this test with pypy")
@@ -98,7 +98,6 @@ class BaseTestPyPyC(object):
 
 
 class TestLog(object):
-
     def test_find_ids_range(self):
         def f():
             a = 0 # ID: myline
@@ -127,9 +126,8 @@ class TestLog(object):
 
 
 class TestOpMatcher_(object):
-
     def match(self, src1, src2, **kwds):
-        from pypy.tool.jitlogparser.parser import SimpleParser
+        from rpython.tool.jitlogparser.parser import SimpleParser
         loop = SimpleParser.parse_from_input(src1)
         matcher = OpMatcher(loop.operations)
         try:
@@ -160,6 +158,24 @@ class TestOpMatcher_(object):
         assert match_var('v0', 'V0')
         assert match_var('ConstPtr(ptr0)', '_')
         py.test.raises(AssertionError, "match_var('_', 'v0')")
+        #
+        # numerics
+        assert match_var('1234', '1234')
+        assert not match_var('1234', '1235')
+        assert not match_var('v0', '1234')
+        assert not match_var('1234', 'v0')
+        assert match_var('1234', '#')        # the '#' char matches any number
+        assert not match_var('v0', '#')
+        assert match_var('1234', '_')        # the '_' char matches anything
+        #
+        # float numerics
+        assert match_var('0.000000', '0.0')
+        assert not match_var('0.000000', '0')
+        assert not match_var('0', '0.0')
+        assert not match_var('v0', '0.0')
+        assert not match_var('0.0', 'v0')
+        assert match_var('0.0', '#')
+        assert match_var('0.0', '_')
 
     def test_parse_op(self):
         res = OpMatcher.parse_op("  a =   int_add(  b,  3 ) # foo")
@@ -212,6 +228,19 @@ class TestOpMatcher_(object):
         """
         assert not self.match(loop, expected)
 
+    def test_dotdotdot_in_operation(self):
+        loop = """
+            [i0, i1]
+            jit_debug(i0, 1, ConstClass(myclass), i1)
+        """
+        assert self.match(loop, "jit_debug(...)")
+        assert self.match(loop, "jit_debug(i0, ...)")
+        assert self.match(loop, "jit_debug(i0, 1, ...)")
+        assert self.match(loop, "jit_debug(i0, 1, _, ...)")
+        assert self.match(loop, "jit_debug(i0, 1, _, i1, ...)")
+        py.test.raises(AssertionError, self.match,
+                       loop, "jit_debug(i0, 1, ..., i1)")
+
     def test_match_descr(self):
         loop = """
             [p0]
@@ -234,7 +263,7 @@ class TestOpMatcher_(object):
             jump(i4)
         """
         expected = """
-            i1 = int_add(0, 1)
+            i1 = int_add(i0, 1)
             ...
             i4 = int_mul(i1, 1000)
             jump(i4, descr=...)
@@ -251,7 +280,7 @@ class TestOpMatcher_(object):
             jump(i4, descr=...)
         """
         expected = """
-            i1 = int_add(0, 1)
+            i1 = int_add(i0, 1)
             ...
             _ = int_mul(_, 1000)
             jump(i4, descr=...)
@@ -270,7 +299,7 @@ class TestOpMatcher_(object):
             jump(i4)
         """
         expected = """
-            i1 = int_add(0, 1)
+            i1 = int_add(i0, 1)
             ...
         """
         assert self.match(loop, expected)
@@ -287,6 +316,16 @@ class TestOpMatcher_(object):
             i1 = int_add(i0, 1)
             i2 = int_sub(i1, 10)
             jump(i4, descr=...)
+        """
+        assert self.match(loop, expected, ignore_ops=['force_token'])
+        #
+        loop = """
+            [i0]
+            i1 = int_add(i0, 1)
+            i4 = force_token()
+        """
+        expected = """
+            i1 = int_add(i0, 1)
         """
         assert self.match(loop, expected, ignore_ops=['force_token'])
 
@@ -347,7 +386,6 @@ class TestOpMatcher_(object):
 
 
 class TestRunPyPyC(BaseTestPyPyC):
-
     def test_run_function(self):
         def f(a, b):
             return a+b
@@ -385,7 +423,7 @@ class TestRunPyPyC(BaseTestPyPyC):
         assert len(loops) == 1
         assert loops[0].filename == self.filepath
         assert len([op for op in loops[0].allops() if op.name == 'label']) == 0
-        assert len([op for op in loops[0].allops() if op.name == 'guard_nonnull_class']) == 0        
+        assert len([op for op in loops[0].allops() if op.name == 'guard_nonnull_class']) == 0
         #
         loops = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         assert len(loops) == 1
@@ -454,7 +492,6 @@ class TestRunPyPyC(BaseTestPyPyC):
         #
         ops = loop.ops_by_id('foo', opcode='INPLACE_SUBTRACT')
         assert log.opnames(ops) == ['int_sub_ovf', 'guard_no_overflow']
-        
 
     def test_inlined_function(self):
         def f():

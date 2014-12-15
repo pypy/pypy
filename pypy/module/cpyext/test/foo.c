@@ -634,7 +634,8 @@ static PyMethodDef foo_functions[] = {
 
 /* Initialize this module. */
 
-void initfoo(void)
+PyMODINIT_FUNC
+initfoo(void)
 {
     PyObject *m, *d;
 

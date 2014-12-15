@@ -1,16 +1,16 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.history import (Const, ConstInt, BoxInt, BoxFloat,
-    BoxPtr, make_hashable_int)
+    BoxPtr, make_hashable_int, ConstFloat)
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, REMOVED,
     CONST_0, CONST_1)
 from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
-from rpython.jit.metainterp.resoperation import (opboolinvers, opboolreflex, rop,
-    ResOperation)
+from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses
 from rpython.rlib.rarithmetic import highest_bit
-
+import math
 
 class OptRewrite(Optimization):
     """Rewrite operations into equivalent, cheaper operations.
@@ -25,9 +25,10 @@ class OptRewrite(Optimization):
             sb.add_potential(op)
 
     def propagate_forward(self, op):
-        args = self.optimizer.make_args_key(op)
-        if self.find_rewritable_bool(op, args):
-            return
+        if op.boolinverse != -1 or op.boolreflex != -1:
+            args = self.optimizer.make_args_key(op)
+            if self.find_rewritable_bool(op, args):
+                return
 
         dispatch_opt(self, op)
 
@@ -47,21 +48,15 @@ class OptRewrite(Optimization):
 
 
     def find_rewritable_bool(self, op, args):
-        try:
-            oldopnum = opboolinvers[op.getopnum()]
-        except KeyError:
-            pass
-        else:
+        oldopnum = op.boolinverse
+        if oldopnum != -1:
             targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[0], args[1]],
                                                               None))
             if self.try_boolinvers(op, targs):
                 return True
 
-        try:
-            oldopnum = opboolreflex[op.getopnum()] # FIXME: add INT_ADD, INT_MUL
-        except KeyError:
-            pass
-        else:
+        oldopnum = op.boolreflex # FIXME: add INT_ADD, INT_MUL
+        if oldopnum != -1:
             targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
                                                               None))
             oldop = self.get_pure_result(targs)
@@ -69,13 +64,12 @@ class OptRewrite(Optimization):
                 self.make_equal_to(op.result, self.getvalue(oldop.result))
                 return True
 
-        try:
-            oldopnum = opboolinvers[opboolreflex[op.getopnum()]]
-        except KeyError:
-            pass
-        else:
-            targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
-                                                              None))
+        if op.boolreflex == -1:
+            return False
+        oldopnum = opclasses[op.boolreflex].boolinverse
+        if oldopnum != -1:
+            targs = self.optimizer.make_args_key(
+                ResOperation(oldopnum, [args[1], args[0]], None))
             if self.try_boolinvers(op, targs):
                 return True
 
@@ -231,6 +225,25 @@ class OptRewrite(Optimization):
         self.emit_operation(op)
         self.pure(rop.FLOAT_MUL, [arg2, arg1], op.result)
 
+    def optimize_FLOAT_TRUEDIV(self, op):
+        arg1 = op.getarg(0)
+        arg2 = op.getarg(1)
+        v2 = self.getvalue(arg2)
+
+        # replace "x / const" by "x * (1/const)" if possible
+        if v2.is_constant():
+            divisor = v2.box.getfloat()
+            fraction = math.frexp(divisor)[0]
+            # This optimization is valid for powers of two
+            # but not for zeroes, some denormals and NaN:
+            if fraction == 0.5 or fraction == -0.5:
+                reciprocal = 1.0 / divisor
+                rfraction = math.frexp(reciprocal)[0]
+                if rfraction == 0.5 or rfraction == -0.5:
+                    c = ConstFloat(longlong.getfloatstorage(reciprocal))
+                    op = op.copy_and_change(rop.FLOAT_MUL, args=[arg1, c])
+        self.emit_operation(op)
+
     def optimize_FLOAT_NEG(self, op):
         v1 = op.getarg(0)
         self.emit_operation(op)
@@ -242,8 +255,9 @@ class OptRewrite(Optimization):
             box = value.box
             assert isinstance(box, Const)
             if not box.same_constant(constbox):
-                raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} was proven to' +
-                                  'always fail')
+                r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+                raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} (%s) was proven '
+                                  'to always fail' % r)
             return
         if emit_operation:
             self.emit_operation(op)
@@ -255,7 +269,9 @@ class OptRewrite(Optimization):
         if value.is_null():
             return
         elif value.is_nonnull():
-            raise InvalidLoop('A GUARD_ISNULL was proven to always fail')
+            r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+            raise InvalidLoop('A GUARD_ISNULL (%s) was proven to always fail'
+                              % r)
         self.emit_operation(op)
         value.make_constant(self.optimizer.cpu.ts.CONST_NULL)
 
@@ -264,14 +280,22 @@ class OptRewrite(Optimization):
         if value.is_nonnull():
             return
         elif value.is_null():
-            raise InvalidLoop('A GUARD_NONNULL was proven to always fail')
+            r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+            raise InvalidLoop('A GUARD_NONNULL (%s) was proven to always fail'
+                              % r)
         self.emit_operation(op)
         value.make_nonnull(op)
 
     def optimize_GUARD_VALUE(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_virtual():
-            raise InvalidLoop('A promote of a virtual (a recently allocated object) never makes sense!')
+            arg = value.get_constant_class(self.optimizer.cpu)
+            if arg:
+                addr = arg.getaddr()
+                name = self.optimizer.metainterp_sd.get_name_from_address(addr)
+            else:
+                name = "<unknown>"
+            raise InvalidLoop('A promote of a virtual %s (a recently allocated object) never makes sense!' % name)
         if value.last_guard:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value, which is rather silly.
@@ -286,7 +310,8 @@ class OptRewrite(Optimization):
                 assert previous_classbox is not None
                 assert expected_classbox is not None
                 if not previous_classbox.same_constant(expected_classbox):
-                    raise InvalidLoop('A GUARD_VALUE was proven to always fail')
+                    r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+                    raise InvalidLoop('A GUARD_VALUE (%s) was proven to always fail' % r)
             op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
                                       args = [old_guard_op.getarg(0), op.getarg(1)])
             self.optimizer.replaces_guard[op] = old_guard_op
@@ -327,7 +352,9 @@ class OptRewrite(Optimization):
         if realclassbox is not None:
             if realclassbox.same_constant(expectedclassbox):
                 return
-            raise InvalidLoop('A GUARD_CLASS was proven to always fail')
+            r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+            raise InvalidLoop('A GUARD_CLASS (%s) was proven to always fail'
+                              % r)
         if value.last_guard:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value.
@@ -350,8 +377,9 @@ class OptRewrite(Optimization):
     def optimize_GUARD_NONNULL_CLASS(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_null():
-            raise InvalidLoop('A GUARD_NONNULL_CLASS was proven to always ' +
-                              'fail')
+            r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+            raise InvalidLoop('A GUARD_NONNULL_CLASS (%s) was proven to '
+                              'always fail' % r)
         self.optimize_GUARD_CLASS(op)
 
     def optimize_CALL_LOOPINVARIANT(self, op):
@@ -379,6 +407,7 @@ class OptRewrite(Optimization):
         val = self.getvalue(arg)
         if val.is_constant():
             if val.box.same_constant(CONST_0):
+                self.last_emitted_operation = REMOVED
                 return
             op = op.copy_and_change(rop.CALL, args=op.getarglist()[1:])
         self.emit_operation(op)
@@ -486,6 +515,8 @@ class OptRewrite(Optimization):
                                        descr=arraydescr)
                     self.optimizer.send_extra_operation(newop)
                     val = self.getvalue(resbox)
+                if val is None:
+                    continue
                 if dest_value.is_virtual():
                     dest_value.setitem(index + dest_start, val)
                 else:
@@ -501,24 +532,13 @@ class OptRewrite(Optimization):
         return False
 
     def optimize_CALL_PURE(self, op):
-        arg_consts = []
-        for i in range(op.numargs()):
-            arg = op.getarg(i)
-            const = self.get_constant_box(arg)
-            if const is None:
-                break
-            arg_consts.append(const)
-        else:
-            # all constant arguments: check if we already know the result
-            try:
-                result = self.optimizer.call_pure_results[arg_consts]
-            except KeyError:
-                pass
-            else:
-                # this removes a CALL_PURE with all constant arguments.
-                self.make_constant(op.result, result)
-                self.last_emitted_operation = REMOVED
-                return
+        # this removes a CALL_PURE with all constant arguments.
+        # Note that it's also done in pure.py.  For now we need both...
+        result = self._can_optimize_call_pure(op)
+        if result is not None:
+            self.make_constant(op.result, result)
+            self.last_emitted_operation = REMOVED
+            return
         self.emit_operation(op)
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
@@ -527,6 +547,9 @@ class OptRewrite(Optimization):
             # so we also kill the following GUARD_NO_EXCEPTION
             return
         self.emit_operation(op)
+
+    def optimize_GUARD_FUTURE_CONDITION(self, op):
+        pass # just remove it
 
     def optimize_INT_FLOORDIV(self, op):
         v1 = self.getvalue(op.getarg(0))

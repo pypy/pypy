@@ -18,7 +18,7 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
-for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY
+for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
 POP_BLOCK END_FINALLY'''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 HAVE_ARGUMENT = stdlib_opcode.HAVE_ARGUMENT
@@ -125,13 +125,14 @@ class PyFrame(W_Root):
         else:
             return self.space.builtin
 
+    _NO_CELLS = []
+
     @jit.unroll_safe
     def initialize_frame_scopes(self, outer_func, code):
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
         # CO_NEWLOCALS: make a locals dict unless optimized is also set
         # CO_OPTIMIZED: no locals dict needed at all
-        # NB: this method is overridden in nestedscope.py
         flags = code.co_flags
         if not (flags & pycode.CO_OPTIMIZED):
             if flags & pycode.CO_NEWLOCALS:
@@ -144,7 +145,7 @@ class PyFrame(W_Root):
         nfreevars = len(code.co_freevars)
         if not nfreevars:
             if not ncellvars:
-                self.cells = []
+                self.cells = self._NO_CELLS
                 return            # no self.cells needed - fast path
         elif outer_func is None:
             space = self.space
@@ -511,10 +512,10 @@ class PyFrame(W_Root):
         for i in range(min(len(varnames), self.getcode().co_nlocals)):
             name = varnames[i]
             w_value = self.locals_stack_w[i]
-            w_name = self.space.wrap(name)
             if w_value is not None:
-                self.space.setitem(self.w_locals, w_name, w_value)
+                self.space.setitem_str(self.w_locals, name, w_value)
             else:
+                w_name = self.space.wrap(name)
                 try:
                     self.space.delitem(self.w_locals, w_name)
                 except OperationError as e:
@@ -534,8 +535,7 @@ class PyFrame(W_Root):
             except ValueError:
                 pass
             else:
-                w_name = self.space.wrap(name)
-                self.space.setitem(self.w_locals, w_name, w_value)
+                self.space.setitem_str(self.w_locals, name, w_value)
 
 
     @jit.unroll_safe
@@ -548,13 +548,9 @@ class PyFrame(W_Root):
         new_fastlocals_w = [None] * numlocals
 
         for i in range(min(len(varnames), numlocals)):
-            w_name = self.space.wrap(varnames[i])
-            try:
-                w_value = self.space.getitem(self.w_locals, w_name)
-            except OperationError, e:
-                if not e.match(self.space, self.space.w_KeyError):
-                    raise
-            else:
+            name = varnames[i]
+            w_value = self.space.finditem_str(self.w_locals, name)
+            if w_value is not None:
                 new_fastlocals_w[i] = w_value
 
         self.setfastscope(new_fastlocals_w)
@@ -563,13 +559,8 @@ class PyFrame(W_Root):
         for i in range(len(freevarnames)):
             name = freevarnames[i]
             cell = self.cells[i]
-            w_name = self.space.wrap(name)
-            try:
-                w_value = self.space.getitem(self.w_locals, w_name)
-            except OperationError, e:
-                if not e.match(self.space, self.space.w_KeyError):
-                    raise
-            else:
+            w_value = self.space.finditem_str(self.w_locals, name)
+            if w_value is not None:
                 cell.set(w_value)
 
     @jit.unroll_safe
@@ -655,18 +646,18 @@ class PyFrame(W_Root):
         addr = 0
         while addr < len(code):
             op = ord(code[addr])
-            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY):
+            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH):
                 blockstack.append([addr, False])
             elif op == POP_BLOCK:
                 setup_op = ord(code[blockstack[-1][0]])
-                if setup_op == SETUP_FINALLY:
+                if setup_op == SETUP_FINALLY or setup_op == SETUP_WITH:
                     blockstack[-1][1] = True
                 else:
                     blockstack.pop()
             elif op == END_FINALLY:
                 if len(blockstack) > 0:
                     setup_op = ord(code[blockstack[-1][0]])
-                    if setup_op == SETUP_FINALLY:
+                    if setup_op == SETUP_FINALLY or setup_op == SETUP_WITH:
                         blockstack.pop()
 
             if addr == new_lasti or addr == self.last_instr:
@@ -703,7 +694,7 @@ class PyFrame(W_Root):
         while addr < max_addr:
             op = ord(code[addr])
 
-            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY):
+            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH):
                 delta_iblock += 1
             elif op == POP_BLOCK:
                 delta_iblock -= 1

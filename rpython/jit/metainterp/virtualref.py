@@ -1,5 +1,6 @@
 from rpython.rtyper.rmodel import inputconst, log
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper import rclass
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.virtualizable import TOKEN_NONE
 from rpython.jit.metainterp.virtualizable import TOKEN_TRACING_RESCALL

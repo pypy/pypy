@@ -29,6 +29,7 @@ __all__ = [
 
 # Imports.
 
+import io as _io
 import os as _os
 import errno as _errno
 from random import Random as _Random
@@ -193,15 +194,18 @@ def _get_default_tempdir():
             name = namer.next()
             filename = _os.path.join(dir, name)
             try:
-                fd = _os.open(filename, flags, 0600)
-                fp = _os.fdopen(fd, 'w')
-                fp.write('blat')
-                fp.close()
-                _os.unlink(filename)
-                del fp, fd
+                fd = _os.open(filename, flags, 0o600)
+                try:
+                    try:
+                        with _io.open(fd, 'wb', closefd=False) as fp:
+                            fp.write(b'blat')
+                    finally:
+                        _os.close(fd)
+                finally:
+                    _os.unlink(filename)
                 return dir
-            except (OSError, IOError), e:
-                if e[0] != _errno.EEXIST:
+            except (OSError, IOError) as e:
+                if e.args[0] != _errno.EEXIST:
                     break # no point trying more names in this directory
                 pass
     raise IOError, (_errno.ENOENT,
@@ -238,6 +242,10 @@ def _mkstemp_inner(dir, pre, suf, flags):
         except OSError, e:
             if e.errno == _errno.EEXIST:
                 continue # try again
+            if _os.name == 'nt' and e.errno == _errno.EACCES:
+                # On windows, when a directory with the chosen name already
+                # exists, EACCES error code is returned instead of EEXIST.
+                continue
             raise
 
     raise IOError, (_errno.EEXIST, "No usable temporary file name found")
@@ -452,8 +460,12 @@ def NamedTemporaryFile(mode='w+b', bufsize=-1, suffix="",
         flags |= _os.O_TEMPORARY
 
     (fd, name) = _mkstemp_inner(dir, prefix, suffix, flags)
-    file = _os.fdopen(fd, mode, bufsize)
-    return _TemporaryFileWrapper(file, name, delete)
+    try:
+        file = _os.fdopen(fd, mode, bufsize)
+        return _TemporaryFileWrapper(file, name, delete)
+    except:
+        _os.close(fd)
+        raise
 
 if _os.name != 'posix' or _os.sys.platform == 'cygwin':
     # On non-POSIX and Cygwin systems, assume that we cannot unlink a file
@@ -546,10 +558,6 @@ class SpooledTemporaryFile:
     def closed(self):
         return self._file.closed
 
-    @property
-    def encoding(self):
-        return self._file.encoding
-
     def fileno(self):
         self.rollover()
         return self._file.fileno()
@@ -562,15 +570,17 @@ class SpooledTemporaryFile:
 
     @property
     def mode(self):
-        return self._file.mode
+        try:
+            return self._file.mode
+        except AttributeError:
+            return self._TemporaryFileArgs[0]
 
     @property
     def name(self):
-        return self._file.name
-
-    @property
-    def newlines(self):
-        return self._file.newlines
+        try:
+            return self._file.name
+        except AttributeError:
+            return None
 
     def next(self):
         return self._file.next
@@ -610,4 +620,7 @@ class SpooledTemporaryFile:
         return rv
 
     def xreadlines(self, *args):
-        return self._file.xreadlines(*args)
+        if hasattr(self._file, 'xreadlines'):  # real file
+            return iter(self._file)
+        else:  # StringIO()
+            return iter(self._file.readlines(*args))

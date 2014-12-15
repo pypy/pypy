@@ -1,8 +1,4 @@
-
-
-
 class TestW_BoolObject:
-
     def setup_method(self,method):
         self.true = self.space.w_True
         self.false = self.space.w_False
@@ -29,6 +25,7 @@ class TestW_BoolObject:
     def test_rbigint_w(self):
         assert self.space.bigint_w(self.true)._digits == [1]
 
+
 class AppTestAppBoolTest:
     def test_bool_callable(self):
         assert True == bool(1)
@@ -44,13 +41,12 @@ class AppTestAppBoolTest:
     def test_bool_int(self):
         assert int(True) is 1
         assert int(False) is 0
-        # XXX: broken
-        #assert True.__int__() is 1
+        assert True.__int__() is 1
 
     def test_bool_long(self):
-        assert long(True) is 1L
-        assert long(False) is 0L
-        assert True.__long__() is 1L
+        assert long(True) == 1L
+        assert long(False) == 0L
+        assert True.__long__() == 1L
 
     def test_bool_ops(self):
         assert True + True == 2
@@ -60,6 +56,19 @@ class AppTestAppBoolTest:
         assert True ^ True is False
         assert False ^ False is False
         assert True ^ False is True
+        assert True & 1 == 1
+        assert False & 0 == 0 & 0
+
+    def test_bool_int_ops(self):
+        assert True == 1
+        assert 1 == True
+        assert False == 0
+        assert 0 == False
+
+        assert True is not 1
+        assert 1 is not True
+        assert False is not 0
+        assert 0 is not False
 
     def test_new(self):
         assert bool.__new__(bool, "hi") is True

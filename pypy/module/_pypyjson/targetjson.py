@@ -4,10 +4,8 @@ ROOT = py.path.local(__file__).dirpath('..', '..', '..')
 sys.path.insert(0, str(ROOT))
 
 import time
-from rpython.rlib.streamio import open_file_as_stream
 from pypy.interpreter.error import OperationError
 from pypy.module._pypyjson.interp_decoder import loads
-
 
 
 ## MSG = open('msg.json').read()
@@ -92,7 +90,7 @@ class FakeSpace(object):
 
     def wrapfloat(self, x):
         return W_Float(x)
-    
+
     def wrap(self, x):
         if isinstance(x, int):
             return W_Int(x)
@@ -109,7 +107,6 @@ fakespace = FakeSpace()
 
 def myloads(msg):
     return loads(fakespace, W_String(msg))
-    
 
 def bench(title, N, fn, arg):
     a = time.clock()
@@ -124,14 +121,14 @@ def entry_point(argv):
         return 1
     filename = argv[1]
     N = int(argv[2])
-    f = open_file_as_stream(filename)
-    msg = f.readall()
-    
+    f = open(filename)
+    msg = f.read()
+
     try:
         bench('loads     ', N, myloads,  msg)
     except OperationError, e:
         print 'Error', e._compute_value(fakespace)
-        
+
     return 0
 
 # _____ Define and setup target ___

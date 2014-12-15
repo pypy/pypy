@@ -340,3 +340,25 @@ class AppTestOpen:
             assert res == "world\n"
             assert f.newlines == "\n"
             assert type(f.newlines) is unicode
+
+    def test_mod(self):
+        import _io
+        typemods = dict((t, t.__module__) for t in vars(_io).values()
+                        if isinstance(t, type))
+        for t, mod in typemods.items():
+            if t is _io.BlockingIOError:
+                assert mod == '__builtin__'
+            elif t is _io.UnsupportedOperation:
+                assert mod == 'io'
+            else:
+                assert mod == '_io'
+
+    def test_issue1902(self):
+        import _io
+        with _io.open(self.tmpfile, 'w+b', 4096) as f:
+            f.write(b'\xff' * 13569)
+            f.flush()
+            f.seek(0, 0)
+            f.read(1)
+            f.seek(-1, 1)
+            f.write(b'')

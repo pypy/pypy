@@ -2,8 +2,8 @@ from rpython.annotator.model import SomeInstance, s_None
 from pypy.interpreter import argument, gateway
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.sliceobject import W_SliceObject
+from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.objectmodel import instantiate, we_are_translated, specialize
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
@@ -39,19 +39,22 @@ class W_MyObject(W_Root):
     def setclass(self, space, w_subtype):
         is_root(w_subtype)
 
+    def buffer_w(self, space, flags):
+        return StringBuffer("foobar")
+
     def str_w(self, space):
         return NonConstant("foobar")
 
     def unicode_w(self, space):
         return NonConstant(u"foobar")
 
-    def int_w(self, space):
+    def int_w(self, space, allow_conversion=True):
         return NonConstant(-42)
 
     def uint_w(self, space):
         return r_uint(NonConstant(42))
 
-    def bigint_w(self, space):
+    def bigint_w(self, space, allow_conversion=True):
         from rpython.rlib.rbigint import rbigint
         return rbigint.fromint(NonConstant(42))
 
@@ -60,6 +63,8 @@ class W_MyListObj(W_MyObject):
         pass
 
 class W_MyType(W_MyObject):
+    name = "foobar"
+
     def __init__(self):
         self.mro_w = [w_some_obj(), w_some_obj()]
         self.dict_w = {'__str__': w_some_obj()}
@@ -106,6 +111,10 @@ class Entry(ExtRegistryEntry):
 # ____________________________________________________________
 
 
+BUILTIN_TYPES = ['int', 'str', 'float', 'long', 'tuple', 'list', 'dict',
+                 'unicode', 'complex', 'slice', 'bool', 'basestring', 'object',
+                 'bytearray', 'buffer']
+
 class FakeObjSpace(ObjSpace):
     def __init__(self, config=None):
         self._seen_extras = []
@@ -115,7 +124,7 @@ class FakeObjSpace(ObjSpace):
     def _freeze_(self):
         return True
 
-    def float_w(self, w_obj):
+    def float_w(self, w_obj, allow_conversion=True):
         is_root(w_obj)
         return NonConstant(42.5)
 
@@ -164,6 +173,9 @@ class FakeObjSpace(ObjSpace):
         return w_some_obj()
 
     def newseqiter(self, x):
+        return w_some_obj()
+
+    def newbuffer(self, x):
         return w_some_obj()
 
     def marshal_w(self, w_obj):
@@ -305,6 +317,9 @@ class FakeObjSpace(ObjSpace):
         t = TranslationContext(config=config)
         self.t = t     # for debugging
         ann = t.buildannotator()
+        def _do_startup():
+            self.threadlocals.enter_thread(self)
+        ann.build_types(_do_startup, [], complete_now=False)
         if func is not None:
             ann.build_types(func, argtypes, complete_now=False)
         if seeobj_w:
@@ -330,9 +345,7 @@ class FakeObjSpace(ObjSpace):
     def setup(space):
         for name in (ObjSpace.ConstantTable +
                      ObjSpace.ExceptionTable +
-                     ['int', 'str', 'float', 'long', 'tuple', 'list',
-                      'dict', 'unicode', 'complex', 'slice', 'bool',
-                      'basestring', 'object', 'bytearray']):
+                     BUILTIN_TYPES):
             setattr(space, 'w_' + name, w_some_obj())
         space.w_type = w_some_type()
         #
@@ -363,7 +376,7 @@ class FakeObjSpace(ObjSpace):
 @specialize.memo()
 def see_typedef(space, typedef):
     assert isinstance(typedef, TypeDef)
-    if not isinstance(typedef, StdTypeDef):
+    if typedef.name not in BUILTIN_TYPES:
         for name, value in typedef.rawdict.items():
             space.wrap(value)
 

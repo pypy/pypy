@@ -262,10 +262,10 @@ class Process(object):
         except SystemExit, e:
             if not e.args:
                 exitcode = 1
-            elif type(e.args[0]) is int:
+            elif isinstance(e.args[0], int):
                 exitcode = e.args[0]
             else:
-                sys.stderr.write(e.args[0] + '\n')
+                sys.stderr.write(str(e.args[0]) + '\n')
                 sys.stderr.flush()
                 exitcode = 1
         except:

@@ -7,6 +7,7 @@ from pypy.interpreter.typedef import interp_attrproperty_w, interp_attrproperty
 from pypy.module._csv.interp_csv import _build_dialect
 from pypy.module._csv.interp_csv import (QUOTE_MINIMAL, QUOTE_ALL,
                                          QUOTE_NONNUMERIC, QUOTE_NONE)
+from pypy.objspace.std.util import wrap_parsestringerror
 
 (START_RECORD, START_FIELD, ESCAPED_CHAR, IN_FIELD,
  IN_QUOTED_FIELD, ESCAPE_IN_QUOTED_FIELD, QUOTE_IN_QUOTED_FIELD,
@@ -48,7 +49,6 @@ class W_Reader(W_Root):
             try:
                 ff = string_to_float(field)
             except ParseStringError as e:
-                from pypy.objspace.std.inttype import wrap_parsestringerror
                 raise wrap_parsestringerror(space, e, space.wrap(field))
             w_obj = space.wrap(ff)
         else:
@@ -245,8 +245,7 @@ def csv_reader(space, w_iterator, w_dialect=None,
     return W_Reader(space, dialect, w_iter)
 
 W_Reader.typedef = TypeDef(
-        'reader',
-        __module__ = '_csv',
+        '_csv.reader',
         dialect = interp_attrproperty_w('dialect', W_Reader),
         line_num = interp_attrproperty('line_num', W_Reader),
         __iter__ = interp2app(W_Reader.iter_w),

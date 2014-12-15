@@ -2,8 +2,8 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
 
-from pypy.module.micronumpy.interp_numarray import W_NDimArray
-from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+from pypy.module.micronumpy.ndarray import W_NDimArray
+from pypy.module.micronumpy.descriptor import get_dtype_cache
 
 def scalar(space):
     dtype = get_dtype_cache(space).w_float64dtype
@@ -77,7 +77,7 @@ class TestNDArrayObject(BaseApiTest):
 
     def test_FromAny_scalar(self, space, api):
         a0 = scalar(space)
-        assert a0.implementation.get_scalar_value().value == 10.
+        assert a0.get_scalar_value().value == 10.
 
         a = api._PyArray_FromAny(a0, NULL, 0, 0, 0, NULL)
         assert api._PyArray_NDIM(a) == 0
@@ -246,9 +246,9 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                 ("test_FromAny", "METH_NOARGS",
                 '''
                 npy_intp dims[2] ={2, 3};
-                PyObject * obj1 = PyArray_SimpleNew(2, dims, 1);
+                PyObject * obj2, * obj1 = PyArray_SimpleNew(2, dims, 1);
                 PyArray_FILLWBYTE(obj1, 42);
-                PyObject * obj2 = _PyArray_FromAny(obj1, NULL, 0, 0, 0, NULL);
+                obj2 = _PyArray_FromAny(obj1, NULL, 0, 0, 0, NULL);
                 Py_DECREF(obj1);
                 return obj2;
                 '''
@@ -256,9 +256,9 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                  ("test_FromObject", "METH_NOARGS",
                 '''
                 npy_intp dims[2] ={2, 3};
-                PyObject * obj1 = PyArray_SimpleNew(2, dims, 1);
+                PyObject  * obj2, * obj1 = PyArray_SimpleNew(2, dims, 1);
                 PyArray_FILLWBYTE(obj1, 42);
-                PyObject * obj2 = _PyArray_FromObject(obj1, 12, 0, 0);
+                obj2 = _PyArray_FromObject(obj1, 12, 0, 0);
                 Py_DECREF(obj1);
                 return obj2;
                 '''

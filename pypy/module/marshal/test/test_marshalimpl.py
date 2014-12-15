@@ -43,6 +43,8 @@ class AppTestMarshalMore:
         s = marshal.dumps(array.array('c', 'asd'))
         t = marshal.loads(s)
         assert type(t) is str and t == 'asd'
+        exc = raises(ValueError, marshal.dumps, memoryview('asd'))
+        assert str(exc.value) == "unmarshallable object"
 
     def test_unmarshal_evil_long(self):
         import marshal
@@ -75,7 +77,7 @@ def test_long_more(space):
         expected = marshal.dumps(long(x))
         w_obj = space.wraplong(x)
         m = FakeM()
-        space.marshal_w(w_obj, m)
+        interp_marshal.marshal(space, w_obj, m)
         assert ''.join(m.seen) == expected
         #
         u = interp_marshal.StringUnmarshaller(space, space.wrap(expected))

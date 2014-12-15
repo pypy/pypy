@@ -24,6 +24,8 @@ def get_integer_max(is_unsigned, byte_size):
         return (1 << ((byte_size << 3) - 1)) - 1
 
 
+IS_64_BIT = sys.maxint > 2**32
+
 def next_pow2_m1(n):
     """Calculate next power of 2 greater than n minus one."""
     n |= n >> 1
@@ -31,7 +33,8 @@ def next_pow2_m1(n):
     n |= n >> 4
     n |= n >> 8
     n |= n >> 16
-    n |= n >> 32
+    if IS_64_BIT:
+        n |= n >> 32
     return n
 
 
@@ -198,11 +201,11 @@ class OptIntBounds(Optimization):
             opnum = lastop.getopnum()
             args = lastop.getarglist()
             result = lastop.result
-            # If the INT_xxx_OVF was replaced with INT_xxx, then we can kill
-            # the GUARD_NO_OVERFLOW.
-            if (opnum == rop.INT_ADD or
-                opnum == rop.INT_SUB or
-                opnum == rop.INT_MUL):
+            # If the INT_xxx_OVF was replaced with INT_xxx or removed
+            # completely, then we can kill the GUARD_NO_OVERFLOW.
+            if (opnum != rop.INT_ADD_OVF and
+                opnum != rop.INT_SUB_OVF and
+                opnum != rop.INT_MUL_OVF):
                 return
             # Else, synthesize the non overflowing op for optimize_default to
             # reuse, as well as the reverse op
@@ -248,6 +251,9 @@ class OptIntBounds(Optimization):
     def optimize_INT_SUB_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
+        if v1 is v2:
+            self.make_constant_int(op.result, 0)
+            return
         resbound = v1.intbound.sub_bound(v2.intbound)
         if resbound.bounded():
             op = op.copy_and_change(rop.INT_SUB)
@@ -328,6 +334,26 @@ class OptIntBounds(Optimization):
             self.make_constant_int(op.result, 0)
         else:
             self.emit_operation(op)
+
+    def optimize_INT_FORCE_GE_ZERO(self, op):
+        value = self.getvalue(op.getarg(0))
+        if value.intbound.known_ge(IntBound(0, 0)):
+            self.make_equal_to(op.result, value)
+        else:
+            self.emit_operation(op)
+
+    def optimize_INT_SIGNEXT(self, op):
+        value = self.getvalue(op.getarg(0))
+        numbits = op.getarg(1).getint() * 8
+        start = -(1 << (numbits - 1))
+        stop = 1 << (numbits - 1)
+        bounds = IntBound(start, stop - 1)
+        if bounds.contains_bound(value.intbound):
+            self.make_equal_to(op.result, value)
+        else:
+            self.emit_operation(op)
+            vres = self.getvalue(op.result)
+            vres.intbound.intersect(bounds)
 
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)

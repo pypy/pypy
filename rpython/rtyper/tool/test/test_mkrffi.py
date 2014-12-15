@@ -1,6 +1,7 @@
 
 import ctypes
 from rpython.rtyper.tool.mkrffi import *
+from rpython.translator import cdir
 import py
 
 class random_structure(ctypes.Structure):
@@ -59,21 +60,21 @@ class TestMkrffi(object):
         from rpython.tool.udir import udir
         from rpython.translator.platform import platform
         from rpython.translator.tool.cbuild import ExternalCompilationInfo
-        
+
         c_source = """
+        #include "src/precommondefs.h"
+
+        RPY_EXPORTED
         void *int_to_void_p(int arg) {}
 
-        struct random_strucutre {
-          int one;
-          int *two;
-        };
-
+        RPY_EXPORTED
         struct random_structure* int_int_to_struct_p(int one, int two) {}
         """
 
         c_file = udir.join('rffilib.c')
         c_file.write(c_source)
-        libname = platform.compile([c_file], ExternalCompilationInfo(),
+        eci = ExternalCompilationInfo(include_dirs=[cdir])
+        libname = platform.compile([c_file], eci,
                                    standalone=False)
         cls.lib = ctypes.CDLL(str(libname))
     

@@ -174,8 +174,8 @@ class MiniMarkGC(MovingGCBase):
         # fall-back number.
         "nursery_size": 896*1024,
 
-        # The system page size.  Like obmalloc.c, we assume that it is 4K
-        # for 32-bit systems; unlike obmalloc.c, we assume that it is 8K
+        # The system page size.  Like malloc, we assume that it is 4K
+        # for 32-bit systems; unlike malloc, we assume that it is 8K
         # for 64-bit systems, for consistent results.
         "page_size": 1024*WORD,
 
@@ -822,9 +822,6 @@ class MiniMarkGC(MovingGCBase):
             self.nursery_top = self.nursery_real_top
             self.nursery_free = self.nursery_real_top
 
-    def can_malloc_nonmovable(self):
-        return True
-
     def can_optimize_clean_setarrayitems(self):
         if self.card_page_indices > 0:
             return False
@@ -859,19 +856,6 @@ class MiniMarkGC(MovingGCBase):
         offset_to_length = self.varsize_offset_to_length(typeid)
         (obj + offset_to_length).signed[0] = smallerlength
         return True
-
-
-    def malloc_fixedsize_nonmovable(self, typeid):
-        obj = self.external_malloc(typeid, 0)
-        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
-
-    def malloc_varsize_nonmovable(self, typeid, length):
-        obj = self.external_malloc(typeid, length)
-        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
-
-    def malloc_nonmovable(self, typeid, length, zero):
-        # helper for testing, same as GCBase.malloc
-        return self.external_malloc(typeid, length or 0)    # None -> 0
 
 
     # ----------

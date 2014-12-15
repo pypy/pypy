@@ -8,7 +8,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.baseobjspace import W_Root, CannotHaveLock
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
 from rpython.rlib import streamio, jit
@@ -247,12 +247,10 @@ def importhook(space, name, w_globals=None,
         fromlist_w = None
 
     rel_modulename = None
-    if (level != 0 and
-        w_globals is not None and
-        space.isinstance_w(w_globals, space.w_dict)):
-
-        rel_modulename, rel_level = _get_relative_name(space, modulename, level, w_globals)
-
+    if (level != 0 and w_globals is not None and
+            space.isinstance_w(w_globals, space.w_dict)):
+        rel_modulename, rel_level = _get_relative_name(space, modulename, level,
+                                                       w_globals)
         if rel_modulename:
             # if no level was set, ignore import errors, and
             # fall back to absolute import at the end of the
@@ -576,11 +574,13 @@ def load_c_extension(space, filename, modulename):
 def load_module(space, w_modulename, find_info, reuse=False):
     if find_info is None:
         return
+
     if find_info.w_loader:
         return space.call_method(find_info.w_loader, "load_module", w_modulename)
 
     if find_info.modtype == C_BUILTIN:
-        return space.getbuiltinmodule(find_info.filename, force_init=True)
+        return space.getbuiltinmodule(find_info.filename, force_init=True,
+                                      reuse=reuse)
 
     if find_info.modtype in (PY_SOURCE, PY_COMPILED, C_EXTENSION, PKG_DIRECTORY):
         w_mod = None
@@ -601,7 +601,7 @@ def load_module(space, w_modulename, find_info, reuse=False):
         try:
             if find_info.modtype == PY_SOURCE:
                 load_source_module(
-                    space, w_modulename, w_mod, 
+                    space, w_modulename, w_mod,
                     find_info.filename, find_info.stream.readall(),
                     find_info.stream.try_to_find_file_descriptor())
                 return w_mod
@@ -748,32 +748,20 @@ class ImportRLock:
         self.lockcounter = 0
 
     def lock_held_by_someone_else(self):
-        return self.lockowner is not None and not self.lock_held()
-
-    def lock_held(self):
         me = self.space.getexecutioncontext()   # used as thread ident
-        return self.lockowner is me
+        return self.lockowner is not None and self.lockowner is not me
 
-    def _can_have_lock(self):
-        # hack: we can't have self.lock != None during translation,
-        # because prebuilt lock objects are not allowed.  In this
-        # special situation we just don't lock at all (translation is
-        # not multithreaded anyway).
-        if we_are_translated():
-            return True     # we need a lock at run-time
-        elif self.space.config.translating:
-            assert self.lock is None
-            return False
-        else:
-            return True     # in py.py
+    def lock_held_by_anyone(self):
+        return self.lockowner is not None
 
     def acquire_lock(self):
         # this function runs with the GIL acquired so there is no race
         # condition in the creation of the lock
         if self.lock is None:
-            if not self._can_have_lock():
+            try:
+                self.lock = self.space.allocate_lock()
+            except CannotHaveLock:
                 return
-            self.lock = self.space.allocate_lock()
         me = self.space.getexecutioncontext()   # used as thread ident
         if self.lockowner is me:
             pass    # already acquired by the current thread
@@ -791,7 +779,7 @@ class ImportRLock:
                 # Too bad.  This situation can occur if a fork() occurred
                 # with the import lock held, and we're the child.
                 return
-            if not self._can_have_lock():
+            if self.lock is None:   # CannotHaveLock occurred
                 return
             space = self.space
             raise OperationError(space.w_RuntimeError,

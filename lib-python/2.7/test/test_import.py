@@ -5,20 +5,35 @@ import os
 import py_compile
 import random
 import stat
+import struct
 import sys
 import unittest
+import textwrap
+import shutil
+
 from test.test_support import (unlink, TESTFN, unload, run_unittest, rmtree,
                                is_jython, check_warnings, EnvironmentVarGuard,
                                impl_detail, check_impl_detail)
-import textwrap
+from test import symlink_support
 from test import script_helper
 
+def _files(name):
+    return (name + os.extsep + "py",
+            name + os.extsep + "pyc",
+            name + os.extsep + "pyo",
+            name + os.extsep + "pyw",
+            name + "$py.class")
+
+def chmod_files(name):
+    for f in _files(name):
+        try:
+            os.chmod(f, 0600)
+        except OSError as exc:
+            if exc.errno != errno.ENOENT:
+                raise
+
 def remove_files(name):
-    for f in (name + os.extsep + "py",
-              name + os.extsep + "pyc",
-              name + os.extsep + "pyo",
-              name + os.extsep + "pyw",
-              name + "$py.class"):
+    for f in _files(name):
         unlink(f)
 
 
@@ -75,7 +90,8 @@ class ImportTests(unittest.TestCase):
                     unlink(source)
 
             try:
-                imp.reload(mod)
+                if not sys.dont_write_bytecode:
+                    imp.reload(mod)
             except ImportError, err:
                 self.fail("import from .pyc/.pyo failed: %s" % err)
             finally:
@@ -92,7 +108,10 @@ class ImportTests(unittest.TestCase):
         finally:
             del sys.path[0]
 
-    @unittest.skipUnless(os.name == 'posix', "test meaningful only on posix systems")
+    @unittest.skipUnless(os.name == 'posix',
+        "test meaningful only on posix systems")
+    @unittest.skipIf(sys.dont_write_bytecode,
+        "test meaningful only when writing bytecode")
     def test_execute_bit_not_copied(self):
         # Issue 6070: under posix .pyc files got their execute bit set if
         # the .py file had the execute bit set, but they aren't executable.
@@ -115,6 +134,43 @@ class ImportTests(unittest.TestCase):
                              stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
         finally:
             os.umask(oldmask)
+            remove_files(TESTFN)
+            unload(TESTFN)
+            del sys.path[0]
+
+    @unittest.skipIf(sys.dont_write_bytecode,
+        "test meaningful only when writing bytecode")
+    def test_rewrite_pyc_with_read_only_source(self):
+        # Issue 6074: a long time ago on posix, and more recently on Windows,
+        # a read only source file resulted in a read only pyc file, which
+        # led to problems with updating it later
+        sys.path.insert(0, os.curdir)
+        fname = TESTFN + os.extsep + "py"
+        try:
+            # Write a Python file, make it read-only and import it
+            with open(fname, 'w') as f:
+                f.write("x = 'original'\n")
+            # Tweak the mtime of the source to ensure pyc gets updated later
+            s = os.stat(fname)
+            os.utime(fname, (s.st_atime, s.st_mtime-100000000))
+            os.chmod(fname, 0400)
+            m1 = __import__(TESTFN)
+            self.assertEqual(m1.x, 'original')
+            # Change the file and then reimport it
+            os.chmod(fname, 0600)
+            with open(fname, 'w') as f:
+                f.write("x = 'rewritten'\n")
+            unload(TESTFN)
+            m2 = __import__(TESTFN)
+            self.assertEqual(m2.x, 'rewritten')
+            # Now delete the source file and check the pyc was rewritten
+            if check_impl_detail(pypy=False):
+                unlink(fname)
+            unload(TESTFN)
+            m3 = __import__(TESTFN)
+            self.assertEqual(m3.x, 'rewritten')
+        finally:
+            chmod_files(TESTFN)
             remove_files(TESTFN)
             unload(TESTFN)
             del sys.path[0]
@@ -307,6 +363,46 @@ class ImportTests(unittest.TestCase):
             del sys.path[0]
             remove_files(TESTFN)
 
+    def test_pyc_mtime(self):
+        # Test for issue #13863: .pyc timestamp sometimes incorrect on Windows.
+        sys.path.insert(0, os.curdir)
+        try:
+            # Jan 1, 2012; Jul 1, 2012.
+            mtimes = 1325376000, 1341100800
+
+            # Different names to avoid running into import caching.
+            tails = "spam", "eggs"
+            for mtime, tail in zip(mtimes, tails):
+                module = TESTFN + tail
+                source = module + ".py"
+                compiled = source + ('c' if __debug__ else 'o')
+
+                # Create a new Python file with the given mtime.
+                with open(source, 'w') as f:
+                    f.write("# Just testing\nx=1, 2, 3\n")
+                os.utime(source, (mtime, mtime))
+
+                # Generate the .pyc/o file; if it couldn't be created
+                # for some reason, skip the test.
+                m = __import__(module)
+                if not os.path.exists(compiled):
+                    unlink(source)
+                    self.skipTest("Couldn't create .pyc/.pyo file.")
+
+                # Actual modification time of .py file.
+                mtime1 = int(os.stat(source).st_mtime) & 0xffffffff
+
+                # mtime that was encoded in the .pyc file.
+                with open(compiled, 'rb') as f:
+                    mtime2 = struct.unpack('<L', f.read(8)[4:])[0]
+
+                unlink(compiled)
+                unlink(source)
+
+                self.assertEqual(mtime1, mtime2)
+        finally:
+            sys.path.pop(0)
+
 
 class PycRewritingTests(unittest.TestCase):
     # Test that the `co_filename` attribute on code objects always points
@@ -357,7 +453,8 @@ func_filename = func.func_code.co_filename
         self.assertEqual(mod.func_filename, self.file_name)
         del sys.modules[self.module_name]
         mod = self.import_module()
-        self.assertEqual(mod.module_filename, self.compiled_name)
+        if not sys.dont_write_bytecode:
+            self.assertEqual(mod.module_filename, self.compiled_name)
         self.assertEqual(mod.code_filename, self.file_name)
         self.assertEqual(mod.func_filename, self.file_name)
 
@@ -430,6 +527,13 @@ class PathsTests(unittest.TestCase):
         drive = path[0]
         unc = "\\\\%s\\%s$"%(hn, drive)
         unc += path[2:]
+        try:
+            os.listdir(unc)
+        except OSError as e:
+            if e.errno in (errno.EPERM, errno.EACCES):
+                # See issue #15338
+                self.skipTest("cannot access administrative share %r" % (unc,))
+            raise
         sys.path.append(path)
         mod = __import__("test_trailing_slash")
         self.assertEqual(mod.testdata, 'test_trailing_slash')
@@ -494,8 +598,58 @@ class RelativeImportTests(unittest.TestCase):
                       "implicit absolute import")
 
 
+class TestSymbolicallyLinkedPackage(unittest.TestCase):
+    package_name = 'sample'
+
+    def setUp(self):
+        if os.path.exists(self.tagged):
+            shutil.rmtree(self.tagged)
+        if os.path.exists(self.package_name):
+            symlink_support.remove_symlink(self.package_name)
+        self.orig_sys_path = sys.path[:]
+
+        # create a sample package; imagine you have a package with a tag and
+        #  you want to symbolically link it from its untagged name.
+        os.mkdir(self.tagged)
+        init_file = os.path.join(self.tagged, '__init__.py')
+        open(init_file, 'w').close()
+        assert os.path.exists(init_file)
+
+        # now create a symlink to the tagged package
+        # sample -> sample-tagged
+        symlink_support.symlink(self.tagged, self.package_name)
+
+        assert os.path.isdir(self.package_name)
+        assert os.path.isfile(os.path.join(self.package_name, '__init__.py'))
+
+    @property
+    def tagged(self):
+        return self.package_name + '-tagged'
+
+    # regression test for issue6727
+    @unittest.skipUnless(
+        not hasattr(sys, 'getwindowsversion')
+        or sys.getwindowsversion() >= (6, 0),
+        "Windows Vista or later required")
+    @symlink_support.skip_unless_symlink
+    def test_symlinked_dir_importable(self):
+        # make sure sample can only be imported from the current directory.
+        sys.path[:] = ['.']
+
+        # and try to import the package
+        __import__(self.package_name)
+
+    def tearDown(self):
+        # now cleanup
+        if os.path.exists(self.package_name):
+            symlink_support.remove_symlink(self.package_name)
+        if os.path.exists(self.tagged):
+            shutil.rmtree(self.tagged)
+        sys.path[:] = self.orig_sys_path
+
 def test_main(verbose=None):
-    run_unittest(ImportTests, PycRewritingTests, PathsTests, RelativeImportTests)
+    run_unittest(ImportTests, PycRewritingTests, PathsTests,
+        RelativeImportTests, TestSymbolicallyLinkedPackage)
 
 if __name__ == '__main__':
     # Test needs to be a package, so we can do relative imports.

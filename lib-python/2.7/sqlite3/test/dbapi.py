@@ -1,4 +1,4 @@
-#-*- coding: iso-8859-1 -*-
+#-*- coding: ISO-8859-1 -*-
 # pysqlite2/test/dbapi.py: tests for DB-API compliance
 #
 # Copyright (C) 2004-2010 Gerhard Häring <gh@ghaering.de>
@@ -477,6 +477,29 @@ class CursorTests(unittest.TestCase):
             self.fail("should have raised a ValueError")
         except TypeError:
             pass
+
+    def CheckCurDescription(self):
+        self.cu.execute("select * from test")
+
+        actual = self.cu.description
+        expected = [
+            ('id', None, None, None, None, None, None),
+            ('name', None, None, None, None, None, None),
+            ('income', None, None, None, None, None, None),
+        ]
+        self.assertEqual(expected, actual)
+
+    def CheckCurDescriptionVoidStatement(self):
+        self.cu.execute("insert into test(name) values (?)", ("foo",))
+        self.assertIsNone(self.cu.description)
+
+    def CheckCurDescriptionWithoutStatement(self):
+        cu = self.cx.cursor()
+        try:
+            self.assertIsNone(cu.description)
+        finally:
+            cu.close()
+
 
 @unittest.skipUnless(threading, 'This test requires threading.')
 class ThreadTests(unittest.TestCase):

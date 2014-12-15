@@ -199,22 +199,16 @@ class Test__ffi(BaseTestPyPyC):
         ldexp_addr, res = log.result
         assert res == 8.0 * 300
         loop, = log.loops_by_filename(self.filepath)
-        if 'ConstClass(ldexp)' in repr(loop):   # e.g. OS/X
-            ldexp_addr = 'ConstClass(ldexp)'
         assert loop.match_by_id('cfficall', """
-            ...
-            f1 = call_release_gil(..., descr=<Callf 8 fi EF=6 OS=62>)
-            ...
-        """)
-        ops = loop.ops_by_id('cfficall')
-        assert 'raw_malloc' not in str(ops)
-        assert 'raw_free' not in str(ops)
-        assert 'getarrayitem_raw' not in log.opnames(ops)
-        assert 'setarrayitem_raw' not in log.opnames(ops)
-        # so far just check that call_release_gil() is produced.
-        # later, also check that the arguments to call_release_gil()
-        # are constants
-        # are constants, and that the numerous raw_mallocs are removed
+            setarrayitem_raw(i69, 0, i95, descr=<ArrayS 4>)    # write 'errno'
+            p96 = force_token()
+            setfield_gc(p0, p96, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
+            f97 = call_release_gil(i59, 1.0, 3, descr=<Callf 8 fi EF=6 OS=62>)
+            guard_not_forced(descr=...)
+            guard_no_exception(descr=...)
+            i98 = getarrayitem_raw(i69, 0, descr=<ArrayS 4>)   # read 'errno'
+            setfield_gc(p65, i98, descr=<FieldS pypy.interpreter.executioncontext.ExecutionContext.inst__cffi_saved_errno .>)
+        """, ignore_ops=['guard_not_invalidated'])
 
     def test_cffi_call_guard_not_forced_fails(self):
         # this is the test_pypy_c equivalent of
@@ -341,32 +335,17 @@ class Test__ffi(BaseTestPyPyC):
         guard_value(p166, ConstPtr(ptr72), descr=...)
         p167 = call(ConstClass(_ll_0_alloc_with_del___), descr=<Callr . EF=4>)
         guard_no_exception(descr=...)
-        i168 = call(ConstClass(_ll_1_raw_malloc_varsize__Signed), 6, descr=<Calli . i EF=4>)
-        setfield_gc(p167, 0, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__cdata .>)
-        setfield_gc(p167, ConstPtr(ptr86), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst__lifeline_ .+>)
-        guard_no_exception(descr=...)
-        i169 = int_add(i168, i97)
-        i170 = int_sub(i160, i106)
-        setfield_gc(p167, i168, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__cdata .>)
-        setfield_gc(p167, ConstPtr(ptr89), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst_ctype .+>)
-        i171 = uint_gt(i170, i108)
-        guard_false(i171, descr=...)
-        i172 = int_sub(i160, -32768)
-        i173 = int_and(i172, 65535)
-        i174 = int_add(i173, -32768)
-        setarrayitem_raw(i169, 0, i174, descr=<ArrayS 2>)
-        i175 = int_add(i168, i121)
-        i176 = int_sub(i160, i130)
-        i177 = uint_gt(i176, i132)
-        guard_false(i177, descr=...)
-        setarrayitem_raw(i175, 0, i174, descr=<ArrayS 2>)
-        i178 = int_add(i168, i140)
-        i179 = int_sub(i160, i149)
-        i180 = uint_gt(i179, i151)
-        guard_false(i180, descr=...)
-        setarrayitem_raw(i178, 0, i174, descr=<ArrayS 2>)
+        i112 = int_signext(i160, 2)
+        setfield_gc(p167, ConstPtr(null), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst__lifeline_ .+>)
+        setfield_gc(p167, ConstPtr(ptr85), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst_ctype .+>)
+        i114 = int_ne(i160, i112)
+        guard_false(i114, descr=...)
         --TICK--
-        i183 = arraylen_gc(p67, descr=<ArrayP .>)
-        i184 = arraylen_gc(p92, descr=<ArrayP .>)
+        i119 = call(ConstClass(_ll_1_raw_malloc_varsize__Signed), 6, descr=<Calli . i EF=4 OS=110>)
+        raw_store(i119, 0, i160, descr=<ArrayS 2>)
+        raw_store(i119, 2, i160, descr=<ArrayS 2>)
+        raw_store(i119, 4, i160, descr=<ArrayS 2>)
+        setfield_gc(p167, i119, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__cdata .+>)
+        i123 = arraylen_gc(p67, descr=<ArrayP .>)
         jump(..., descr=...)
         """)

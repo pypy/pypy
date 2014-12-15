@@ -5,7 +5,7 @@ Tests for the sha module implemented at interp-level in pypy/module/sha.
 
 class AppTestSHA(object):
     spaceconfig = {
-        "usemodules": ['_sha', 'rctime', 'binascii'],
+        'usemodules': ['_sha', 'binascii', 'time', 'struct'],
     }
 
     def setup_class(cls):

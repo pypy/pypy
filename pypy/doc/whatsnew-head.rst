@@ -1,84 +1,53 @@
 =======================
-What's new in PyPy 2.2+
+What's new in PyPy 2.5+
 =======================
 
-.. this is a revision shortly after release-2.2.x
-.. startrev: 4cd1bc8b3111
+.. this is a revision shortly after release-2.4.x
+.. startrev: 7026746cbb1b
 
-.. branch: release-2.2.x
+.. branch: win32-fixes5
 
-.. branch: numpy-newbyteorder
-Clean up numpy types, add newbyteorder functionality
+Fix c code generation for msvc so empty "{ }" are avoided in unions,
+Avoid re-opening files created with NamedTemporaryFile,
+Allocate by 4-byte chunks in rffi_platform,
+Skip testing objdump if it does not exist,
+and other small adjustments in own tests
 
-.. branch: windows-packaging
-Package tk/tcl runtime with win32
+.. branch: rtyper-stuff
 
-.. branch: armhf-singlefloat
-JIT support for singlefloats on ARM using the hardfloat ABI
+Small internal refactorings in the rtyper.
 
-.. branch: voidtype_strformat
-Better support for record numpy arrays
+.. branch: var-in-Some
 
-.. branch: osx-eci-frameworks-makefile
-OSX: Ensure frameworks end up in Makefile when specified in External compilation info
+Store annotations on the Variable objects, rather than in a big dict.
+Introduce a new framework for double-dispatched annotation implementations.
 
-.. branch: less-stringly-ops
-Use subclasses of SpaceOperation instead of SpaceOperator objects.
-Random cleanups in flowspace and annotator.
+.. branch: ClassRepr
 
-.. branch: ndarray-buffer
-adds support for the buffer= argument to the ndarray ctor
+Refactor ClassRepr and make normalizecalls independent of the rtyper.
 
-.. branch: better_ftime_detect2
-On OpenBSD do not pull in libcompat.a as it is about to be removed.
-And more generally, if you have gettimeofday(2) you will not need ftime(3).
+.. branch: remove-remaining-smm
 
-.. branch: timeb_h
-Remove dependency upon <sys/timeb.h> on OpenBSD. This will be disappearing
-along with libcompat.a.
+Remove all remaining multimethods.
 
-.. branch: OlivierBlanvillain/fix-3-broken-links-on-pypy-published-pap-1386250839215
-Fix 3 broken links on PyPy published papers in docs.
+.. branch: improve-docs
 
-.. branch: jit-ordereddict
+Split RPython documentation from PyPy documentation and clean up.  There now is
+a clearer separation between documentation for users, developers and people
+interested in background information.
 
-.. branch: refactor-str-types
-Remove multimethods on str/unicode/bytearray and make the implementations share code.
+.. branch: kill-multimethod
 
-.. branch: remove-del-from-generatoriterator
-Speed up generators that don't yield inside try or wait blocks by skipping
-unnecessary cleanup.
+Kill multimethod machinery, all multimethods were removed earlier.
 
-.. branch: annotator
-Remove FlowObjSpace.
-Improve cohesion between rpython.flowspace and rpython.annotator.
+.. branch nditer-external_loop
 
-.. branch: detect-immutable-fields
-mapdicts keep track of whether or not an attribute is every assigned to
-multiple times. If it's only assigned once then an elidable lookup is used when
-possible.
+Implement `external_loop` arguement to numpy's nditer
 
-.. branch: precompiled-headers
-Create a Makefile using precompiled headers for MSVC platforms.
-The downside is a messy nmake-compatible Makefile. Since gcc shows minimal
-speedup, it was not implemented.
+.. branch kill-rctime
 
-.. branch: camelot
-With a properly configured 256-color terminal (TERM=...-256color), the
-Mandelbrot set shown during translation now uses a range of 50 colours.
-Essential!
+Rename pypy/module/rctime to pypy/module/time, since it contains the implementation of the 'time' module.
 
-.. branch: NonConstant
-Simplify implementation of NonConstant.
+.. branch: ssa-flow
 
-.. branch: array-propagate-len
-Kill some guards and operations in JIT traces by adding integer bounds
-propagation for getfield_(raw|gc) and getarrayitem_(raw|gc).
-
-.. branch: optimize-int-and
-Optimize away INT_AND with constant mask of 1s that fully cover the bitrange
-of other operand.
-
-.. branch: bounds-int-add-or
-Propagate appropriate bounds through INT_(OR|XOR|AND) operations if the
-operands are positive to kill some guards
+Use SSA form for flow graphs inside build_flow() and part of simplify_graph()

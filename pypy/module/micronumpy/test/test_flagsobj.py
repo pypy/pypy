@@ -2,6 +2,14 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestFlagsObj(BaseNumpyAppTest):
+    def test_init(self):
+        import numpy as np
+        a = np.array([1,2,3])
+        assert a.flags['C'] is True
+        b = type(a.flags)()
+        assert b is not a.flags
+        assert b['C'] is True
+
     def test_repr(self):
         import numpy as np
         a = np.array([1,2,3])

@@ -1,7 +1,6 @@
 from rpython.rtyper.lltypesystem.lltype import DelayedPointer
 from rpython.translator.simplify import get_graph
 from rpython.tool.algo.unionfind import UnionFind
-from rpython.rtyper.lltypesystem import rclass
 
 
 class GraphAnalyzer(object):

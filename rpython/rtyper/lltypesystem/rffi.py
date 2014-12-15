@@ -1,10 +1,10 @@
 import py
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import SomePtr
-from rpython.rtyper.lltypesystem import lltype, rstr
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr
-from rpython.rtyper.lltypesystem.llmemory import itemoffsetof, raw_memcopy
+from rpython.rtyper.lltypesystem.llmemory import itemoffsetof
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import Symbolic
@@ -95,6 +95,8 @@ def llexternal(name, args, result, _callable=None,
                 name, macro, ext_type, compilation_info)
         else:
             _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
+    else:
+        assert macro is None, "'macro' is useless if you specify '_callable'"
     if elidable_function:
         _callable._elidable_function_ = True
     kwds = {}
@@ -116,12 +118,14 @@ def llexternal(name, args, result, _callable=None,
         # default case:
         # invoke the around-handlers only for "not too small" external calls;
         # sandboxsafe is a hint for "too-small-ness" (e.g. math functions).
-        invoke_around_handlers = not sandboxsafe
+        # Also, _nowrapper functions cannot release the GIL, by default.
+        invoke_around_handlers = not sandboxsafe and not _nowrapper
 
     if random_effects_on_gcobjs not in (False, True):
         random_effects_on_gcobjs = (
             invoke_around_handlers or   # because it can release the GIL
             has_callback)               # because the callback can do it
+    assert not (elidable_function and random_effects_on_gcobjs)
 
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  compilation_info=compilation_info,
@@ -170,7 +174,13 @@ def llexternal(name, args, result, _callable=None,
         call_external_function._dont_inline_ = True
         call_external_function._annspecialcase_ = 'specialize:ll'
         call_external_function._gctransformer_hint_close_stack_ = True
-        call_external_function._call_aroundstate_target_ = funcptr
+        #
+        # '_call_aroundstate_target_' is used by the JIT to generate a
+        # CALL_RELEASE_GIL directly to 'funcptr'.  This doesn't work if
+        # 'funcptr' might be a C macro, though.
+        if macro is None:
+            call_external_function._call_aroundstate_target_ = funcptr
+        #
         call_external_function = func_with_new_name(call_external_function,
                                                     'ccall_' + name)
         # don't inline, as a hack to guarantee that no GC pointer is alive
@@ -178,14 +188,28 @@ def llexternal(name, args, result, _callable=None,
     else:
         # if we don't have to invoke the aroundstate, we can just call
         # the low-level function pointer carelessly
-        call_external_function = funcptr
+        if macro is None:
+            call_external_function = funcptr
+        else:
+            # ...well, unless it's a macro, in which case we still have
+            # to hide it from the JIT...
+            argnames = ', '.join(['a%d' % i for i in range(len(args))])
+            source = py.code.Source("""
+                def call_external_function(%(argnames)s):
+                    return funcptr(%(argnames)s)
+            """ % locals())
+            miniglobals = {'funcptr':     funcptr,
+                           '__name__':    __name__,
+                           }
+            exec source.compile() in miniglobals
+            call_external_function = miniglobals['call_external_function']
+            call_external_function = func_with_new_name(call_external_function,
+                                                        'ccall_' + name)
+            call_external_function = jit.dont_look_inside(
+                call_external_function)
 
     unrolling_arg_tps = unrolling_iterable(enumerate(args))
     def wrapper(*args):
-        # XXX the next line is a workaround for the annotation bug
-        # shown in rpython.test.test_llann:test_pbctype.  Remove it
-        # when the test is fixed...
-        assert isinstance(lltype.Signed, lltype.Number)
         real_args = ()
         to_free = ()
         for i, TARGET in unrolling_arg_tps:
@@ -355,10 +379,11 @@ def generate_macro_wrapper(name, macro, functype, eci):
     db = LowLevelDatabase()
     implementationtypename = db.gettype(functype, argnames=argnames)
     if functype.RESULT is lltype.Void:
-        pattern = '%s { %s(%s); }'
+        pattern = '%s%s { %s(%s); }'
     else:
-        pattern = '%s { return %s(%s); }'
+        pattern = '%s%s { return %s(%s); }'
     source = pattern % (
+        'RPY_EXTERN ',
         cdecl(implementationtypename, wrapper_name),
         macro, ', '.join(argnames))
 
@@ -368,7 +393,6 @@ def generate_macro_wrapper(name, macro, functype, eci):
     # first function)
     ctypes_eci = eci.merge(ExternalCompilationInfo(
             separate_module_sources=[source],
-            export_symbols=[wrapper_name],
             ))
     if hasattr(eci, '_with_ctypes'):
         ctypes_eci = eci._with_ctypes.merge(ctypes_eci)
@@ -581,7 +605,7 @@ def COpaquePtr(*args, **kwds):
 
 def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
                     sandboxsafe=False, _nowrapper=False,
-                    c_type=None):
+                    c_type=None, getter_only=False):
     """Return a pair of functions - a getter and a setter - to access
     the given global C variable.
     """
@@ -603,8 +627,10 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
 
     getter_name = 'get_' + name
     setter_name = 'set_' + name
-    getter_prototype = "%(c_type)s %(getter_name)s ();" % locals()
-    setter_prototype = "void %(setter_name)s (%(c_type)s v);" % locals()
+    getter_prototype = (
+       "RPY_EXTERN %(c_type)s %(getter_name)s ();" % locals())
+    setter_prototype = (
+       "RPY_EXTERN void %(setter_name)s (%(c_type)s v);" % locals())
     c_getter = "%(c_type)s %(getter_name)s () { return %(name)s; }" % locals()
     c_setter = "void %(setter_name)s (%(c_type)s v) { %(name)s = v; }" % locals()
 
@@ -612,20 +638,26 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
     if sys.platform != 'win32':
         lines.append('extern %s %s;' % (c_type, name))
     lines.append(c_getter)
-    lines.append(c_setter)
+    if not getter_only:
+        lines.append(c_setter)
+    prototypes = [getter_prototype]
+    if not getter_only:
+        prototypes.append(setter_prototype)
     sources = ('\n'.join(lines),)
     new_eci = eci.merge(ExternalCompilationInfo(
         separate_module_sources = sources,
-        post_include_bits = [getter_prototype, setter_prototype],
-        export_symbols = [getter_name, setter_name],
+        post_include_bits = prototypes,
     ))
 
     getter = llexternal(getter_name, [], TYPE, compilation_info=new_eci,
                         sandboxsafe=sandboxsafe, _nowrapper=_nowrapper)
-    setter = llexternal(setter_name, [TYPE], lltype.Void,
-                        compilation_info=new_eci, sandboxsafe=sandboxsafe,
-                        _nowrapper=_nowrapper)
-    return getter, setter
+    if getter_only:
+        return getter
+    else:
+        setter = llexternal(setter_name, [TYPE], lltype.Void,
+                            compilation_info=new_eci, sandboxsafe=sandboxsafe,
+                            _nowrapper=_nowrapper)
+        return getter, setter
 
 # char, represented as a Python character
 # (use SIGNEDCHAR or UCHAR for the small integer types)
@@ -681,23 +713,27 @@ def make_string_mappings(strtype):
 
     if strtype is str:
         from rpython.rtyper.lltypesystem.rstr import (STR as STRTYPE,
-                                                      copy_string_to_raw)
+                                                      copy_string_to_raw,
+                                                      copy_raw_to_string,
+                                                      copy_string_contents,
+                                                      mallocstr as mallocfn)
         from rpython.rtyper.annlowlevel import llstr as llstrtype
         from rpython.rtyper.annlowlevel import hlstr as hlstrtype
         TYPEP = CCHARP
         ll_char_type = lltype.Char
         lastchar = '\x00'
-        builder_class = StringBuilder
     else:
         from rpython.rtyper.lltypesystem.rstr import (
             UNICODE as STRTYPE,
-            copy_unicode_to_raw as copy_string_to_raw)
+            copy_unicode_to_raw as copy_string_to_raw,
+            copy_raw_to_unicode as copy_raw_to_string,
+            copy_unicode_contents as copy_string_contents,
+            mallocunicode as mallocfn)
         from rpython.rtyper.annlowlevel import llunicode as llstrtype
         from rpython.rtyper.annlowlevel import hlunicode as hlstrtype
         TYPEP = CWCHARP
         ll_char_type = lltype.UniChar
         lastchar = u'\x00'
-        builder_class = UnicodeBuilder
 
     # str -> char*
     def str2charp(s, track_allocation=True):
@@ -726,126 +762,145 @@ def make_string_mappings(strtype):
         size = 0
         while cp[size] != lastchar:
             size += 1
-        b = builder_class(size)
-        i = 0
-        while cp[i] != lastchar:
-            b.append(cp[i])
-            i += 1
-        return assert_str0(b.build())
+        return assert_str0(charpsize2str(cp, size))
 
-    # str -> char*
+    # str -> char*, bool, bool
     # Can't inline this because of the raw address manipulation.
     @jit.dont_look_inside
     def get_nonmovingbuffer(data):
         """
         Either returns a non-moving copy or performs neccessary pointer
         arithmetic to return a pointer to the characters of a string if the
-        string is already nonmovable.  Must be followed by a
+        string is already nonmovable or could be pinned.  Must be followed by a
         free_nonmovingbuffer call.
+
+        First bool returned indicates if 'data' was pinned. Second bool returned
+        indicates if we did a raw alloc because pinning failed. Both bools
+        should never be true at the same time.
         """
+
         lldata = llstrtype(data)
+        count = len(data)
+
+        pinned = False
         if rgc.can_move(data):
-            count = len(data)
-            buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
-            copy_string_to_raw(lldata, buf, 0, count)
-            return buf
-        else:
-            data_start = cast_ptr_to_adr(lldata) + \
-                offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
-            return cast(TYPEP, data_start)
+            if rgc.pin(data):
+                pinned = True
+            else:
+                buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
+                copy_string_to_raw(lldata, buf, 0, count)
+                return buf, pinned, True
+                # ^^^ raw malloc used to get a nonmovable copy
+        #
+        # following code is executed if:
+        # - rgc.can_move(data) and rgc.pin(data) both returned true
+        # - rgc.can_move(data) returned false
+        data_start = cast_ptr_to_adr(lldata) + \
+            offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
+
+        return cast(TYPEP, data_start), pinned, False
+        # ^^^ already nonmovable. Therefore it's not raw allocated nor
+        # pinned.
+    get_nonmovingbuffer._always_inline_ = 'try' # get rid of the returned tuple
     get_nonmovingbuffer._annenforceargs_ = [strtype]
 
-    # (str, char*) -> None
+    # (str, char*, bool, bool) -> None
     # Can't inline this because of the raw address manipulation.
     @jit.dont_look_inside
-    def free_nonmovingbuffer(data, buf):
+    def free_nonmovingbuffer(data, buf, is_pinned, is_raw):
         """
-        Either free a non-moving buffer or keep the original storage alive.
+        Keep 'data' alive and unpin it if it was pinned ('is_pinned' is true).
+        Otherwise free the non-moving copy ('is_raw' is true).
         """
-        # We cannot rely on rgc.can_move(data) here, because its result
-        # might have changed since get_nonmovingbuffer().  Instead we check
-        # if 'buf' points inside 'data'.  This is only possible if we
-        # followed the 2nd case in get_nonmovingbuffer(); in the first case,
-        # 'buf' points to its own raw-malloced memory.
-        data = llstrtype(data)
-        data_start = cast_ptr_to_adr(data) + \
-            offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
-        followed_2nd_path = (buf == cast(TYPEP, data_start))
-        keepalive_until_here(data)
-        if not followed_2nd_path:
+        if is_pinned:
+            rgc.unpin(data)
+        if is_raw:
             lltype.free(buf, flavor='raw')
-    free_nonmovingbuffer._annenforceargs_ = [strtype, None]
+        # if is_pinned and is_raw are false: data was already nonmovable,
+        # we have nothing to clean up
+        keepalive_until_here(data)
+    free_nonmovingbuffer._annenforceargs_ = [strtype, None, bool, bool]
 
-    # int -> (char*, str)
+    # int -> (char*, str, int)
+    # Can't inline this because of the raw address manipulation.
+    @jit.dont_look_inside
     def alloc_buffer(count):
         """
-        Returns a (raw_buffer, gc_buffer) pair, allocated with count bytes.
+        Returns a (raw_buffer, gc_buffer, case_num) triple,
+        allocated with count bytes.
         The raw_buffer can be safely passed to a native function which expects
         it to not move. Call str_from_buffer with the returned values to get a
         safe high-level string. When the garbage collector cooperates, this
         allows for the process to be performed without an extra copy.
         Make sure to call keep_buffer_alive_until_here on the returned values.
         """
-        raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
-        return raw_buf, lltype.nullptr(STRTYPE)
+        new_buf = mallocfn(count)
+        pinned = 0
+        if rgc.can_move(new_buf):
+            if rgc.pin(new_buf):
+                pinned = 1
+            else:
+                raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
+                return raw_buf, new_buf, 2
+        #
+        # following code is executed if:
+        # - rgc.can_move(data) and rgc.pin(data) both returned true
+        # - rgc.can_move(data) returned false
+        data_start = cast_ptr_to_adr(new_buf) + \
+            offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
+        return cast(TYPEP, data_start), new_buf, pinned
     alloc_buffer._always_inline_ = 'try' # to get rid of the returned tuple
     alloc_buffer._annenforceargs_ = [int]
 
     # (char*, str, int, int) -> None
     @jit.dont_look_inside
-    @enforceargs(None, None, int, int)
-    def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
+    @enforceargs(None, None, int, int, int)
+    def str_from_buffer(raw_buf, gc_buf, case_num, allocated_size, needed_size):
         """
         Converts from a pair returned by alloc_buffer to a high-level string.
         The returned string will be truncated to needed_size.
         """
         assert allocated_size >= needed_size
+        if allocated_size != needed_size:
+            from rpython.rtyper.lltypesystem.lloperation import llop
+            if llop.shrink_array(lltype.Bool, gc_buf, needed_size):
+                pass     # now 'gc_buf' is smaller
+            else:
+                gc_buf = mallocfn(needed_size)
+                case_num = 2
+        if case_num == 2:
+            copy_raw_to_string(raw_buf, gc_buf, 0, needed_size)
+        return hlstrtype(gc_buf)
 
-        if gc_buf and (allocated_size == needed_size):
-            return hlstrtype(gc_buf)
-
-        new_buf = lltype.malloc(STRTYPE, needed_size)
-        str_chars_offset = (offsetof(STRTYPE, 'chars') + \
-                            itemoffsetof(STRTYPE.chars, 0))
-        if gc_buf:
-            src = cast_ptr_to_adr(gc_buf) + str_chars_offset
-        else:
-            src = cast_ptr_to_adr(raw_buf) + itemoffsetof(TYPEP.TO, 0)
-        dest = cast_ptr_to_adr(new_buf) + str_chars_offset
-        raw_memcopy(src, dest,
-                    llmemory.sizeof(ll_char_type) * needed_size)
-        keepalive_until_here(gc_buf)
-        keepalive_until_here(new_buf)
-        return hlstrtype(new_buf)
-
-    # (char*, str) -> None
+    # (char*, str, int) -> None
     @jit.dont_look_inside
-    def keep_buffer_alive_until_here(raw_buf, gc_buf):
+    def keep_buffer_alive_until_here(raw_buf, gc_buf, case_num):
         """
         Keeps buffers alive or frees temporary buffers created by alloc_buffer.
         This must be called after a call to alloc_buffer, usually in a
         try/finally block.
         """
-        if gc_buf:
-            keepalive_until_here(gc_buf)
-        elif raw_buf:
+        keepalive_until_here(gc_buf)
+        if case_num == 1:
+            rgc.unpin(gc_buf)
+        if case_num == 2:
             lltype.free(raw_buf, flavor='raw')
 
     # char* -> str, with an upper bound on the length in case there is no \x00
     @enforceargs(None, int)
     def charp2strn(cp, maxlen):
-        b = builder_class(maxlen)
-        i = 0
-        while i < maxlen and cp[i] != lastchar:
-            b.append(cp[i])
-            i += 1
-        return assert_str0(b.build())
+        size = 0
+        while size < maxlen and cp[size] != lastchar:
+            size += 1
+        return assert_str0(charpsize2str(cp, size))
 
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):
-        b = builder_class(size)
-        b.append_charpsize(cp, size)
-        return b.build()
+        ll_str = mallocfn(size)
+        copy_raw_to_string(cp, ll_str, 0, size)
+        result = hlstrtype(ll_str)
+        assert result is not None
+        return result
     charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,
@@ -1097,42 +1152,49 @@ class scoped_nonmovingbuffer:
     def __init__(self, data):
         self.data = data
     def __enter__(self):
-        self.buf = get_nonmovingbuffer(self.data)
+        self.buf, self.pinned, self.is_raw = get_nonmovingbuffer(self.data)
         return self.buf
     def __exit__(self, *args):
-        free_nonmovingbuffer(self.data, self.buf)
-
+        free_nonmovingbuffer(self.data, self.buf, self.pinned, self.is_raw)
+    __init__._always_inline_ = 'try'
+    __enter__._always_inline_ = 'try'
+    __exit__._always_inline_ = 'try'
 
 class scoped_nonmoving_unicodebuffer:
     def __init__(self, data):
         self.data = data
     def __enter__(self):
-        self.buf = get_nonmoving_unicodebuffer(self.data)
+        self.buf, self.pinned, self.is_raw = get_nonmoving_unicodebuffer(self.data)
         return self.buf
     def __exit__(self, *args):
-        free_nonmoving_unicodebuffer(self.data, self.buf)
+        free_nonmoving_unicodebuffer(self.data, self.buf, self.pinned, self.is_raw)
+    __init__._always_inline_ = 'try'
+    __enter__._always_inline_ = 'try'
+    __exit__._always_inline_ = 'try'
 
 class scoped_alloc_buffer:
     def __init__(self, size):
         self.size = size
     def __enter__(self):
-        self.raw, self.gc_buf = alloc_buffer(self.size)
+        self.raw, self.gc_buf, self.case_num = alloc_buffer(self.size)
         return self
     def __exit__(self, *args):
-        keep_buffer_alive_until_here(self.raw, self.gc_buf)
+        keep_buffer_alive_until_here(self.raw, self.gc_buf, self.case_num)
     def str(self, length):
-        return str_from_buffer(self.raw, self.gc_buf, self.size, length)
+        return str_from_buffer(self.raw, self.gc_buf, self.case_num,
+                               self.size, length)
 
 class scoped_alloc_unicodebuffer:
     def __init__(self, size):
         self.size = size
     def __enter__(self):
-        self.raw, self.gc_buf = alloc_unicodebuffer(self.size)
+        self.raw, self.gc_buf, self.case_num = alloc_unicodebuffer(self.size)
         return self
     def __exit__(self, *args):
-        keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf)
+        keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf, self.case_num)
     def str(self, length):
-        return unicode_from_buffer(self.raw, self.gc_buf, self.size, length)
+        return unicode_from_buffer(self.raw, self.gc_buf, self.case_num,
+                                   self.size, length)
 
 # You would have to have a *huge* amount of data for this to block long enough
 # to be worth it to release the GIL.

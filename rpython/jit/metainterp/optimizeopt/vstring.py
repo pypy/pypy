@@ -189,32 +189,30 @@ class VStringPlainValue(VAbstractStringValue):
             charvalue = self.getitem(i)
             if charvalue is not None:
                 charbox = charvalue.force_box(string_optimizer)
-                if not (isinstance(charbox, Const) and
-                        charbox.same_constant(CONST_0)):
-                    op = ResOperation(mode.STRSETITEM, [targetbox,
-                                                        offsetbox,
-                                                        charbox],
-                                      None)
-                    string_optimizer.emit_operation(op)
+                op = ResOperation(mode.STRSETITEM, [targetbox,
+                                                    offsetbox,
+                                                    charbox],
+                                  None)
+                string_optimizer.emit_operation(op)
             offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
         return offsetbox
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            charboxes = []
-            for value in self._chars:
-                if value is not None:
-                    box = value.get_key_box()
-                else:
-                    box = None
-                charboxes.append(box)
-            modifier.register_virtual_fields(self.keybox, charboxes)
-            for value in self._chars:
-                if value is not None:
-                    value.get_args_for_fail(modifier)
+    def _visitor_walk_recursive(self, visitor):
+        charboxes = []
+        for value in self._chars:
+            if value is not None:
+                box = value.get_key_box()
+            else:
+                box = None
+            charboxes.append(box)
+        visitor.register_virtual_fields(self.keybox, charboxes)
+        for value in self._chars:
+            if value is not None:
+                value.visitor_walk_recursive(visitor)
 
-    def _make_virtual(self, modifier):
-        return modifier.make_vstrplain(self.mode is mode_unicode)
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vstrplain(self.mode is mode_unicode)
 
 
 class VStringConcatValue(VAbstractStringValue):
@@ -256,18 +254,18 @@ class VStringConcatValue(VAbstractStringValue):
                                                  offsetbox, mode)
         return offsetbox
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            # we don't store the lengthvalue in guards, because the
-            # guard-failed code starts with a regular STR_CONCAT again
-            leftbox = self.left.get_key_box()
-            rightbox = self.right.get_key_box()
-            modifier.register_virtual_fields(self.keybox, [leftbox, rightbox])
-            self.left.get_args_for_fail(modifier)
-            self.right.get_args_for_fail(modifier)
+    def _visitor_walk_recursive(self, visitor):
+        # we don't store the lengthvalue in guards, because the
+        # guard-failed code starts with a regular STR_CONCAT again
+        leftbox = self.left.get_key_box()
+        rightbox = self.right.get_key_box()
+        visitor.register_virtual_fields(self.keybox, [leftbox, rightbox])
+        self.left.visitor_walk_recursive(visitor)
+        self.right.visitor_walk_recursive(visitor)
 
-    def _make_virtual(self, modifier):
-        return modifier.make_vstrconcat(self.mode is mode_unicode)
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vstrconcat(self.mode is mode_unicode)
 
 
 class VStringSliceValue(VAbstractStringValue):
@@ -302,18 +300,18 @@ class VStringSliceValue(VAbstractStringValue):
                                 self.vstart.force_box(string_optimizer), offsetbox,
                                 lengthbox, mode)
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            boxes = [self.vstr.get_key_box(),
-                     self.vstart.get_key_box(),
-                     self.vlength.get_key_box()]
-            modifier.register_virtual_fields(self.keybox, boxes)
-            self.vstr.get_args_for_fail(modifier)
-            self.vstart.get_args_for_fail(modifier)
-            self.vlength.get_args_for_fail(modifier)
+    def _visitor_walk_recursive(self, visitor):
+        boxes = [self.vstr.get_key_box(),
+                 self.vstart.get_key_box(),
+                 self.vlength.get_key_box()]
+        visitor.register_virtual_fields(self.keybox, boxes)
+        self.vstr.visitor_walk_recursive(visitor)
+        self.vstart.visitor_walk_recursive(visitor)
+        self.vlength.visitor_walk_recursive(visitor)
 
-    def _make_virtual(self, modifier):
-        return modifier.make_vstrslice(self.mode is mode_unicode)
+    @specialize.argtype(1)
+    def _visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vstrslice(self.mode is mode_unicode)
 
 
 def copy_str_content(string_optimizer, srcbox, targetbox,
@@ -730,6 +728,25 @@ class OptString(optimizer.Optimization):
                                              v1.vstart.force_box(self),
                                              v1.vlength.force_box(self),
                                              v2.force_box(self)], resultbox, mode)
+            return True
+        return False
+
+    def opt_call_stroruni_STR_CMP(self, op, mode):
+        v1 = self.getvalue(op.getarg(1))
+        v2 = self.getvalue(op.getarg(2))
+        l1box = v1.getstrlen(None, mode, None)
+        l2box = v2.getstrlen(None, mode, None)
+        if (l1box is not None and l2box is not None and
+            isinstance(l1box, ConstInt) and
+            isinstance(l2box, ConstInt) and
+            l1box.value == l2box.value == 1):
+            # comparing two single chars
+            vchar1 = self.strgetitem(v1, optimizer.CVAL_ZERO, mode)
+            vchar2 = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)
+            seo = self.optimizer.send_extra_operation
+            seo(ResOperation(rop.INT_SUB, [vchar1.force_box(self),
+                                           vchar2.force_box(self)],
+                             op.result))
             return True
         return False
 

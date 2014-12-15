@@ -167,6 +167,40 @@ class TestObjSpace:
         self.space.setattr(w_oldstyle, self.space.wrap("__call__"), w_func)
         assert is_callable(w_oldstyle)
 
+    def test_int_w(self):
+        space = self.space
+        w_x = space.wrap(42)
+        assert space.int_w(w_x) == 42
+        assert space.int_w(w_x, allow_conversion=False) == 42
+        #
+        w_x = space.wrap(44.0)
+        space.raises_w(space.w_TypeError, space.int_w, w_x)
+        space.raises_w(space.w_TypeError, space.int_w, w_x, allow_conversion=False)
+        #
+        w_instance = self.space.appexec([], """():
+            class MyInt(object):
+                def __int__(self):
+                    return 43
+            return MyInt()
+        """)
+        assert space.int_w(w_instance) == 43
+        space.raises_w(space.w_TypeError, space.int_w, w_instance, allow_conversion=False)
+        #
+        w_instance = self.space.appexec([], """():
+            class MyInt(object):
+                def __int__(self):
+                    return 43
+
+            class AnotherInt(object):
+                def __int__(self):
+                    return MyInt()
+
+            return AnotherInt()
+        """)
+        space.raises_w(space.w_TypeError, space.int_w, w_instance)
+        space.raises_w(space.w_TypeError, space.int_w, w_instance, allow_conversion=False)
+
+
     def test_interp_w(self):
         w = self.space.wrap
         w_bltinfunction = self.space.builtin.get('len')
@@ -344,3 +378,41 @@ class TestModuleMinimal:
         assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
         space.startup()
         assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
+
+    def test_interned_strings_are_weak(self):
+        import weakref, gc, random
+        space = self.space
+        assert space.config.translation.rweakref
+        w1 = space.new_interned_str("abcdef")
+        w2 = space.new_interned_str("abcdef")
+        assert w2 is w1
+        #
+        # check that 'w1' goes away if we don't hold a reference to it
+        rw1 = weakref.ref(w1)
+        del w1, w2
+        i = 10
+        while rw1() is not None:
+            i -= 1
+            assert i >= 0
+            gc.collect()
+        #
+        s = "foobar%r" % random.random()
+        w0 = space.wrap(s)
+        w1 = space.new_interned_w_str(w0)
+        assert w1 is w0
+        w2 = space.new_interned_w_str(w0)
+        assert w2 is w0
+        w3 = space.wrap(s)
+        assert w3 is not w0
+        w4 = space.new_interned_w_str(w3)
+        assert w4 is w0
+        #
+        # check that 'w0' goes away if we don't hold a reference to it
+        # (even if we hold a reference to 'w3')
+        rw0 = weakref.ref(w0)
+        del w0, w1, w2, w4
+        i = 10
+        while rw0() is not None:
+            i -= 1
+            assert i >= 0
+            gc.collect()

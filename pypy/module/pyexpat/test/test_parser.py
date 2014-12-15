@@ -2,7 +2,7 @@ from pypy.module.pyexpat.interp_pyexpat import global_storage
 from pytest import skip
 
 class AppTestPyexpat:
-    spaceconfig = dict(usemodules=['pyexpat'])
+    spaceconfig = dict(usemodules=['pyexpat', '_multibytecodec'])
 
     def teardown_class(cls):
         global_storage.clear()
@@ -109,6 +109,13 @@ class AppTestPyexpat:
         p.CharacterDataHandler = gotText
         p.Parse(xml)
 
+    def test_mbcs(self):
+        xml = "<?xml version='1.0' encoding='gbk'?><p/>"
+        import pyexpat
+        p = pyexpat.ParserCreate()
+        exc = raises(ValueError, p.Parse, xml)
+        assert str(exc.value) == "multi-byte encodings are not supported"
+
     def test_decode_error(self):
         xml = '<fran\xe7ais>Comment \xe7a va ? Tr\xe8s bien ?</fran\xe7ais>'
         import pyexpat
@@ -170,7 +177,7 @@ class AppTestPyexpat:
 
 class AppTestPyexpat2:
     spaceconfig = dict(usemodules=['pyexpat', 'itertools', '_socket',
-                                   'rctime', 'struct', 'binascii'])
+                                   'time', 'struct', 'binascii'])
 
     def test_django_bug(self):
         xml_str = '<?xml version="1.0" standalone="no"?><!DOCTYPE example SYSTEM "http://example.com/example.dtd"><root/>'

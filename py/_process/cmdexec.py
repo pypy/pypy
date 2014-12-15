@@ -1,8 +1,4 @@
-"""
-
-"""
-
-import os, sys
+import sys
 import subprocess
 import py
 from subprocess import Popen, PIPE
@@ -10,7 +6,7 @@ from subprocess import Popen, PIPE
 def cmdexec(cmd):
     """ return unicode output of executing 'cmd' in a separate process.
 
-    raise cmdexec.ExecutionFailed exeception if the command failed.
+    raise cmdexec.Error exeception if the command failed.
     the exception will provide an 'err' attribute containing
     the error-output from the command.
     if the subprocess module does not provide a proper encoding/unicode strings

@@ -5,7 +5,8 @@ from rpython.flowspace import model as flowmodel
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.rmodel import Repr, IntegerRepr
+from rpython.rtyper.rmodel import Repr
+from rpython.rtyper.rint import IntegerRepr
 from rpython.tool.pairtype import pairtype
 
 
@@ -114,9 +115,9 @@ class PtrRepr(Repr):
 
 class __extend__(pairtype(PtrRepr, PtrRepr)):
     def convert_from_to((r_ptr1, r_ptr2), v, llop):
-        assert r_ptr1.lowleveltype == r_ptr2.lowleveltype
-        return v
-
+        if r_ptr1.lowleveltype == r_ptr2.lowleveltype:
+            return v
+        return NotImplemented
 
 class __extend__(pairtype(PtrRepr, IntegerRepr)):
 

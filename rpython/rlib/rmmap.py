@@ -10,6 +10,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import intmask
 
@@ -133,8 +134,8 @@ PTR = rffi.CCHARP
 
 if _CYGWIN:
     # XXX: macro=True hack for newer versions of Cygwin (as of 12/2012)
-    c_malloc, _ = external('malloc', [size_t], PTR, macro=True)
-    c_free, _ = external('free', [PTR], lltype.Void, macro=True)
+    _, c_malloc_safe = external('malloc', [size_t], PTR, macro=True)
+    _, c_free_safe = external('free', [PTR], lltype.Void, macro=True)
 
 c_memmove, _ = external('memmove', [PTR, PTR, size_t], lltype.Void)
 
@@ -642,6 +643,8 @@ if _POSIX:
             size = st[stat.ST_SIZE]
             if stat.S_ISREG(mode):
                 if map_size == 0:
+                    if size == 0:
+                        raise RValueError("cannot mmap an empty file")
                     if offset > size:
                         raise RValueError(
                             "mmap offset is greater than file size")
@@ -675,14 +678,20 @@ if _POSIX:
         return m
 
     def alloc_hinted(hintp, map_size):
-        flags = NonConstant(MAP_PRIVATE | MAP_ANONYMOUS)
-        prot = NonConstant(PROT_EXEC | PROT_READ | PROT_WRITE)
+        flags = MAP_PRIVATE | MAP_ANONYMOUS
+        prot = PROT_EXEC | PROT_READ | PROT_WRITE
+        if we_are_translated():
+            flags = NonConstant(flags)
+            prot = NonConstant(prot)
         return c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
 
     def clear_large_memory_chunk_aligned(addr, map_size):
         addr = rffi.cast(PTR, addr)
-        flags = NonConstant(MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS)
-        prot = NonConstant(PROT_READ | PROT_WRITE)
+        flags = MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS
+        prot = PROT_READ | PROT_WRITE
+        if we_are_translated():
+            flags = NonConstant(flags)
+            prot = NonConstant(prot)
         res = c_mmap_safe(addr, map_size, prot, flags, -1, 0)
         return res == addr
 
@@ -700,7 +709,7 @@ if _POSIX:
             # XXX: JIT memory should be using mmap MAP_PRIVATE with
             #      PROT_EXEC but Cygwin's fork() fails.  mprotect()
             #      cannot be used, but seems to be unnecessary there.
-            res = c_malloc(map_size)
+            res = c_malloc_safe(map_size)
             if res == rffi.cast(PTR, 0):
                 raise MemoryError
             return res
@@ -717,7 +726,7 @@ if _POSIX:
     alloc._annenforceargs_ = (int,)
 
     if _CYGWIN:
-        free = c_free
+        free = c_free_safe
     else:
         free = c_munmap_safe
 
@@ -770,6 +779,8 @@ elif _MS_WINDOWS:
                     size = (high << 32) + low
                     size = rffi.cast(lltype.Signed, size)
                 if map_size == 0:
+                    if size == 0:
+                        raise RValueError("cannot mmap an empty file")
                     if offset > size:
                         raise RValueError(
                             "mmap offset is greater than file size")

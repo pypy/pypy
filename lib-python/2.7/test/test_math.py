@@ -599,6 +599,9 @@ class MathTests(unittest.TestCase):
         self.assertEqual(math.log(INF), INF)
         self.assertRaises(ValueError, math.log, NINF)
         self.assertTrue(math.isnan(math.log(NAN)))
+        # Log values should match for int and long (issue #18739).
+        for n in range(1, 1000):
+            self.assertEqual(math.log(n), math.log(long(n)))
 
     def testLog1p(self):
         self.assertRaises(TypeError, math.log1p)
@@ -621,6 +624,9 @@ class MathTests(unittest.TestCase):
         self.assertEqual(math.log(INF), INF)
         self.assertRaises(ValueError, math.log10, NINF)
         self.assertTrue(math.isnan(math.log10(NAN)))
+        # Log values should match for int and long (issue #18739).
+        for n in range(1, 1000):
+            self.assertEqual(math.log10(n), math.log10(long(n)))
 
     def testModf(self):
         self.assertRaises(TypeError, math.modf)
@@ -900,38 +906,37 @@ class MathTests(unittest.TestCase):
     # still fails this part of the test on some platforms.  For now, we only
     # *run* test_exceptions() in verbose mode, so that this isn't normally
     # tested.
+    @unittest.skipUnless(verbose, 'requires verbose mode')
+    def test_exceptions(self):
+        try:
+            x = math.exp(-1000000000)
+        except:
+            # mathmodule.c is failing to weed out underflows from libm, or
+            # we've got an fp format with huge dynamic range
+            self.fail("underflowing exp() should not have raised "
+                        "an exception")
+        if x != 0:
+            self.fail("underflowing exp() should have returned 0")
 
-    if verbose:
-        def test_exceptions(self):
-            try:
-                x = math.exp(-1000000000)
-            except:
-                # mathmodule.c is failing to weed out underflows from libm, or
-                # we've got an fp format with huge dynamic range
-                self.fail("underflowing exp() should not have raised "
-                          "an exception")
-            if x != 0:
-                self.fail("underflowing exp() should have returned 0")
+        # If this fails, probably using a strict IEEE-754 conforming libm, and x
+        # is +Inf afterwards.  But Python wants overflows detected by default.
+        try:
+            x = math.exp(1000000000)
+        except OverflowError:
+            pass
+        else:
+            self.fail("overflowing exp() didn't trigger OverflowError")
 
-            # If this fails, probably using a strict IEEE-754 conforming libm, and x
-            # is +Inf afterwards.  But Python wants overflows detected by default.
-            try:
-                x = math.exp(1000000000)
-            except OverflowError:
-                pass
-            else:
-                self.fail("overflowing exp() didn't trigger OverflowError")
-
-            # If this fails, it could be a puzzle.  One odd possibility is that
-            # mathmodule.c's macros are getting confused while comparing
-            # Inf (HUGE_VAL) to a NaN, and artificially setting errno to ERANGE
-            # as a result (and so raising OverflowError instead).
-            try:
-                x = math.sqrt(-1.0)
-            except ValueError:
-                pass
-            else:
-                self.fail("sqrt(-1) didn't raise ValueError")
+        # If this fails, it could be a puzzle.  One odd possibility is that
+        # mathmodule.c's macros are getting confused while comparing
+        # Inf (HUGE_VAL) to a NaN, and artificially setting errno to ERANGE
+        # as a result (and so raising OverflowError instead).
+        try:
+            x = math.sqrt(-1.0)
+        except ValueError:
+            pass
+        else:
+            self.fail("sqrt(-1) didn't raise ValueError")
 
     @requires_IEEE_754
     def test_testfile(self):

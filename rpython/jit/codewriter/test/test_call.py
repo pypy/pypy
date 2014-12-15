@@ -1,10 +1,12 @@
 import py
+
 from rpython.flowspace.model import SpaceOperation, Constant, Variable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.unsimplify import varoftype
 from rpython.rlib import jit
+from rpython.jit.codewriter import support, call
 from rpython.jit.codewriter.call import CallControl
-from rpython.jit.codewriter import support
+
 
 class FakePolicy:
     def look_inside_graph(self, graph):
@@ -151,18 +153,19 @@ def test_guess_call_kind_and_calls_from_graphs():
 
 # ____________________________________________________________
 
-def test_get_jitcode():
+def test_get_jitcode(monkeypatch):
     from rpython.jit.codewriter.test.test_flatten import FakeCPU
     class FakeRTyper:
         class annotator:
             translator = None
         class type_system:
             name = 'lltypesystem'
-            @staticmethod
-            def getcallable(graph):
-                F = lltype.FuncType([], lltype.Signed)
-                return lltype.functionptr(F, 'bar')
-    #
+
+    def getfunctionptr(graph):
+        F = lltype.FuncType([], lltype.Signed)
+        return lltype.functionptr(F, 'bar')
+
+    monkeypatch.setattr(call, 'getfunctionptr', getfunctionptr)
     cc = CallControl(FakeCPU(FakeRTyper()))
     class somegraph:
         name = "foo"
@@ -248,3 +251,26 @@ def test_random_effects_on_stacklet_switch():
     op = block.operations[-1]
     call_descr = cc.getcalldescr(op)
     assert call_descr.extrainfo.has_random_effects()
+
+def test_no_random_effects_for_rotateLeft():
+    from rpython.jit.backend.llgraph.runner import LLGraphCPU
+    from rpython.rlib.rarithmetic import r_uint
+
+    if r_uint.BITS == 32:
+        py.test.skip("64-bit only")
+
+    from rpython.rlib.rmd5 import _rotateLeft
+    def f(n, m):
+        return _rotateLeft(r_uint(n), m)
+
+    rtyper = support.annotate(f, [7, 9])
+    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+    cc = CallControl(LLGraphCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
+    res = cc.find_all_graphs(FakePolicy())
+
+    [f_graph] = [x for x in res if x.func is f]
+    [block, _] = list(f_graph.iterblocks())
+    op = block.operations[-1]
+    call_descr = cc.getcalldescr(op)
+    assert not call_descr.extrainfo.has_random_effects()
+    assert call_descr.extrainfo.check_is_elidable()

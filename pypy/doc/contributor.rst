@@ -1,4 +1,3 @@
-
 Contributors to PyPy
 ====================
 
@@ -15,46 +14,47 @@ appropriate measure but it's something)::
   Alex Gaynor
   Michael Hudson
   David Schneider
+  Matti Picus
+  Brian Kearns
+  Philip Jenvey
   Holger Krekel
   Christian Tismer
-  Matti Picus
   Hakan Ardo
   Benjamin Peterson
-  Philip Jenvey
-  Anders Chrigstrom
-  Brian Kearns
   Manuel Jacob
+  Anders Chrigstrom
   Eric van Riet Paap
+  Ronan Lamy
   Wim Lavrijsen
   Richard Emslie
   Alexander Schremmer
   Dan Villiom Podlaski Christiansen
-  Ronan Lamy
   Lukas Diekmann
   Sven Hager
   Anders Lehmann
   Aurelien Campeas
   Niklaus Haldimann
+  Remi Meier
   Camillo Bruni
   Laura Creighton
   Toon Verwaest
   Leonardo Santagada
   Seo Sanghyeon
+  Romain Guillebert
   Justin Peel
   Ronny Pfannschmidt
   David Edelsohn
   Anders Hammarquist
   Jakub Gustak
-  Romain Guillebert
   Guido Wesdorp
   Lawrence Oluyede
-  Remi Meier
   Bartosz Skowron
+  Gregor Wegberg
   Daniel Roberts
   Niko Matsakis
   Adrien Di Mascio
-  Ludovic Aubry
   Alexander Hesse
+  Ludovic Aubry
   Jacob Hallen
   Jason Creighton
   Alex Martelli
@@ -63,6 +63,7 @@ appropriate measure but it's something)::
   stian
   Michael Foord
   Stephan Diehl
+  Tyler Wade
   Stefan Schwarzer
   Valentino Volonghi
   Tomek Meka
@@ -71,28 +72,34 @@ appropriate measure but it's something)::
   Bruno Gola
   Jean-Paul Calderone
   Timo Paulssen
+  Squeaky
   Alexandre Fayolle
   Simon Burton
   Marius Gedminas
-  John Witulski
+  Martin Matusiak
   Konstantin Lopuhin
+  John Witulski
+  Wenzhu Man
   Greg Price
   Dario Bertini
   Mark Pearse
   Simon Cross
+  Ivan Sichmann Freitas
   Andreas Stührk
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
+  Stefano Rivera
   Paweł Piotr Przeradowski
   Paul deGrandis
   Ilya Osadchiy
+  Tobias Oberstein
   Adrian Kuhn
   Boris Feigin
-  Stefano Rivera
   tav
   Taavi Burns
   Georg Brandl
+  Laurence Tratt
   Bert Freudenberg
   Stian Andreassen
   Wanja Saatkamp
@@ -100,19 +107,20 @@ appropriate measure but it's something)::
   Mike Blume
   Oscar Nierstrasz
   Stefan H. Muller
-  Laurence Tratt
+  Edd Barrett
+  Jeremy Thurgood
   Rami Chowdhury
+  Tobias Pape
   David Malcolm
   Eugene Oden
   Henry Mason
+  Vasily Kuznetsov
   Preston Timmons
   Jeff Terrace
   David Ripton
   Dusty Phillips
   Lukas Renggli
-  Edd Barrett
   Guenter Jantzen
-  Tobias Oberstein
   Ned Batchelder
   Amit Regmi
   Ben Young
@@ -123,18 +131,15 @@ appropriate measure but it's something)::
   Nicholas Riley
   Jason Chu
   Igor Trindade Oliveira
-  Jeremy Thurgood
+  Tim Felgentreff
   Rocco Moretti
   Gintautas Miliauskas
   Michael Twomey
   Lucian Branescu Mihaila
-  Tim Felgentreff
-  Tyler Wade
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
   Karl Bartel
-  Tobias Pape
   Brian Dorsey
   Victor Stinner
   Andrews Medina
@@ -147,21 +152,23 @@ appropriate measure but it's something)::
   Michael Cheng
   Justas Sadzevicius
   Gasper Zejn
+  anatoly techtonik
   Neil Shepperd
   Mikael Schönenberg
-  Elmo Mäntynen
+  Elmo M?ntynen
   Jonathan David Riehl
   Stanislaw Halik
   Anders Qvist
+  Corbin Simpson
   Chirag Jadwani
   Beatrice During
   Alex Perry
   Vincent Legoll
   Alan McIntyre
   Alexander Sedov
-  Corbin Simpson
   Christopher Pope
   Christian Tismer 
+  Marc Abramowitz
   Dan Stromberg
   Stefano Parmesan
   Alexis Daboville
@@ -169,25 +176,33 @@ appropriate measure but it's something)::
   Carl Meyer
   Karl Ramm
   Pieter Zieschang
+  Sebastian Pawluś
   Gabriel
+  Lukas Vacek
   Andrew Dalke
   Sylvain Thenault
   Nathan Taylor
   Vladimir Kryachko
+  Arjun Naik
+  Attila Gobi
   Jacek Generowicz
   Alejandro J. Cura
   Jacob Oscarson
   Travis Francis Athougies
+  Ryan Gonzalez
+  Ian Foote
   Kristjan Valur Jonsson
   Neil Blakey-Milner
   Lutz Paelike
   Lucio Torre
   Lars Wassermann
+  Valentina Mukhamedzhanova
   Henrik Vendelbo
   Dan Buch
   Miguel de Val Borro
   Artur Lisiecki
   Sergey Kishchenko
+  Yichao Yu
   Ignas Mikalajunas
   Christoph Gerum
   Martin Blais
@@ -211,7 +226,10 @@ appropriate measure but it's something)::
   Michael Hudson-Doyle
   Anders Sigfridsson
   Yasir Suhail
+  Jason Michalski
+  rafalgalczynski@gmail.com
   Floris Bruynooghe
+  Laurens Van Houtven
   Akira Li
   Gustavo Niemeyer
   Stephan Busemann
@@ -219,21 +237,28 @@ appropriate measure but it's something)::
   Christian Muirhead
   James Lan
   shoma hosaka
-  Daniel Neuhäuser
+  Daniel Neuh?user
+  Matthew Miller
   Buck Golemon
   Konrad Delong
   Dinu Gherman
   Chris Lambacher
   coolbutuseless@gmail.com
-  w31rd0
-  Jim Baker
   Rodrigo Araújo
+  Jim Baker
+  James Robert
   Armin Ronacher
   Brett Cannon
   yrttyr
+  aliceinwire
+  OlivierBlanvillain
   Zooko Wilcox-O Hearn
   Tomer Chachamu
   Christopher Groskopf
+  Asmo Soinio
+  Stefan Marr
+  jiaaro
+  Mads Kiilerich
   opassembler.py
   Antony Lee
   Jim Hunziker
@@ -241,12 +266,15 @@ appropriate measure but it's something)::
   Even Wiik Thomassen
   jbs
   soareschen
+  Kurt Griffiths
   Mike Bayer
+  Matthew Miller
   Flavio Percoco
   Kristoffer Kleine
   yasirs
   Michael Chermside
   Anna Ravencroft
+  Dan Crosta
   Julien Phalip
   Dan Loewenherz
 

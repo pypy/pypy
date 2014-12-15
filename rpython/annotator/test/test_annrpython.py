@@ -14,7 +14,6 @@ from rpython.flowspace.model import *
 from rpython.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib import objectmodel
-from rpython.flowspace.objspace import build_flow
 from rpython.flowspace.flowcontext import FlowingError
 from rpython.flowspace.operation import op
 
@@ -49,20 +48,10 @@ class TestAnnotateTestCase:
     class RPythonAnnotator(_RPythonAnnotator):
         def build_types(self, *args):
             s = _RPythonAnnotator.build_types(self, *args)
+            self.validate()
             if option.view:
                 self.translator.view()
             return s
-
-    def make_fun(self, func):
-        import inspect
-        try:
-            func = func.im_func
-        except AttributeError:
-            pass
-        name = func.func_name
-        funcgraph = build_flow(func)
-        funcgraph.source = inspect.getsource(func)
-        return funcgraph
 
     def test_simple_func(self):
         """
@@ -857,7 +846,11 @@ class TestAnnotateTestCase:
         s = a.build_types(snippet.harmonic, [int])
         assert s.knowntype == float
         # check that the list produced by range() is not mutated or resized
-        for s_value in a.bindings.values():
+        graph = graphof(a, snippet.harmonic)
+        all_vars = set().union(*[block.getvariables() for block in graph.iterblocks()])
+        print all_vars
+        for var in all_vars:
+            s_value = var.annotation
             if isinstance(s_value, annmodel.SomeList):
                 assert not s_value.listdef.listitem.resized
                 assert not s_value.listdef.listitem.mutated
@@ -1435,7 +1428,7 @@ class TestAnnotateTestCase:
             elif a==2:
                 raise X(1)
             elif a==3:
-                raise X,4
+                raise X(4)
             else:
                 try:
                     l[0]
@@ -2536,6 +2529,22 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert s.const == 2
 
+    def test_cannot_use_directly_mixin(self):
+        class A(object):
+            _mixin_ = True
+        #
+        def f():
+            return A()
+        a = self.RPythonAnnotator()
+        py.test.raises(annmodel.AnnotatorError, a.build_types, f, [])
+        #
+        class B(object):
+            pass
+        x = B()
+        def g():
+            return isinstance(x, A)
+        py.test.raises(annmodel.AnnotatorError, a.build_types, g, [])
+
     def test_import_from_mixin(self):
         class M(object):
             def f(self):
@@ -2751,8 +2760,8 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         a.build_types(f, [])
         v1, v2 = graphof(a, readout).getargs()
-        assert not a.bindings[v1].is_constant()
-        assert not a.bindings[v2].is_constant()
+        assert not a.binding(v1).is_constant()
+        assert not a.binding(v2).is_constant()
 
     def test_prebuilt_mutables_dont_use_eq(self):
         # test that __eq__ is not called during annotation, at least
@@ -2872,7 +2881,6 @@ class TestAnnotateTestCase:
         py.test.raises(Exception, a.build_types, fun, [s_nonneg, int])
 
     def test_sig_bug(self):
-        py.test.skip("_annenforceargs_ does not work for default arguments")
         def g(x, y=5):
             return y == 5
         g._annenforceargs_ = (int, int)
@@ -2880,7 +2888,8 @@ class TestAnnotateTestCase:
             return g(x)
         a = self.RPythonAnnotator()
         s = a.build_types(fun, [int])
-        assert not s.is_constant()
+        assert s.knowntype is bool
+        assert s.is_constant()
 
     def test_sig_list(self):
         def g(buf):
@@ -3628,7 +3637,7 @@ class TestAnnotateTestCase:
         def f():
             e = OverflowError()
             lle = cast_instance_to_base_ptr(e)
-            raise Exception, lle
+            raise Exception(lle)
             # ^^^ instead, must cast back from a base ptr to an instance
         a = self.RPythonAnnotator()
         py.test.raises(AssertionError, a.build_types, f, [])
@@ -3718,6 +3727,18 @@ class TestAnnotateTestCase:
             l1.append(n+1)
             a.lst = l1
             return a.lst
+
+        a = self.RPythonAnnotator()
+        py.test.raises(ListChangeUnallowed, a.build_types, f, [int])
+
+    def test_immutable_list_is_assigned_a_resizable_list(self):
+        class A:
+            _immutable_fields_ = 'lst[*]'
+        def f(n):
+            a = A()
+            foo = []
+            foo.append(n)
+            a.lst = foo
 
         a = self.RPythonAnnotator()
         py.test.raises(ListChangeUnallowed, a.build_types, f, [int])
@@ -3923,6 +3944,78 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         s = a.build_types(fn, [int])
+        assert isinstance(s, annmodel.SomeInteger)
+
+    def test_instance_getitem(self):
+        class A(object):
+            def __getitem__(self, i):
+                return i * i
+
+        def fn(i):
+            a = A()
+            return a[i]
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [int])
+        assert len(a.translator.graphs) == 2 # fn, __getitem__
+        assert isinstance(s, annmodel.SomeInteger)
+
+    def test_instance_setitem(self):
+        class A(object):
+            def __setitem__(self, i, v):
+                self.value = i * v
+
+        def fn(i, v):
+            a = A()
+            a[i] = v
+            return a.value
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [int, int])
+        assert len(a.translator.graphs) == 2 # fn, __setitem__
+        assert isinstance(s, annmodel.SomeInteger)
+
+    def test_instance_getslice(self):
+        class A(object):
+            def __getslice__(self, stop, start):
+                return "Test"[stop:start]
+
+        def fn():
+            a = A()
+            return a[0:2]
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert len(a.translator.graphs) == 2 # fn, __getslice__
+        assert isinstance(s, annmodel.SomeString)
+
+    def test_instance_setslice(self):
+        class A(object):
+            def __setslice__(self, stop, start, value):
+                self.value = value
+
+        def fn():
+            a = A()
+            a[0:2] = '00'
+            return a.value
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert len(a.translator.graphs) == 2 # fn, __setslice__
+        assert isinstance(s, annmodel.SomeString)
+
+    def test_instance_len(self):
+        class A(object):
+            def __len__(self):
+                return 0
+
+        def fn():
+            a = A()
+            return len(a)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert len(a.translator.graphs) == 2 # fn, __len__
         assert isinstance(s, annmodel.SomeInteger)
 
     def test_reversed(self):
@@ -4184,6 +4277,54 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert isinstance(s, annmodel.SomeTuple)
         assert s.items[1].const == 42
+
+    def test_unpack_none_gets_a_blocked_block(self):
+        def f(x):
+            a, b = x
+        a = self.RPythonAnnotator()
+        py.test.raises(annmodel.AnnotatorError,
+                       a.build_types, f, [annmodel.s_None])
+
+    def test_class___name__(self):
+        class Abc(object):
+            pass
+        def f():
+            return Abc().__class__.__name__
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeString)
+
+    def test_isinstance_str_1(self):
+        def g():
+            pass
+        def f(n):
+            if n > 5:
+                s = "foo"
+            else:
+                s = None
+            g()
+            return isinstance(s, str)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeBool)
+        assert not s.is_constant()
+
+    def test_isinstance_str_2(self):
+        def g():
+            pass
+        def f(n):
+            if n > 5:
+                s = "foo"
+            else:
+                s = None
+            g()
+            if isinstance(s, str):
+                return s
+            return ""
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeString)
+        assert not s.can_be_none()
 
 
 def g(n):

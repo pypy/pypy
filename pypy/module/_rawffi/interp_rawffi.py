@@ -16,7 +16,9 @@ if _MS_WINDOWS:
 
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.rarithmetic import intmask, r_uint
+from pypy.module._rawffi.buffer import RawFFIBuffer
 from pypy.module._rawffi.tracker import tracker
+from pypy.module._rawffi import lasterror
 
 TYPEMAP = {
     # XXX A mess with unsigned/signed/normal chars :-/
@@ -352,9 +354,14 @@ class W_DataInstance(W_Root):
         lltype.free(self.ll_buffer, flavor='raw')
         self.ll_buffer = lltype.nullptr(rffi.VOIDP.TO)
 
-    def descr_buffer(self, space):
-        from pypy.module._rawffi.buffer import RawFFIBuffer
-        return space.wrap(RawFFIBuffer(self))
+    def buffer_w(self, space, flags):
+        return RawFFIBuffer(self)
+
+    def readbuf_w(self, space):
+        return RawFFIBuffer(self)
+
+    def writebuf_w(self, space):
+        return RawFFIBuffer(self)
 
     def getrawsize(self):
         raise NotImplementedError("abstract base class")
@@ -418,12 +425,10 @@ def wrap_value(space, func, add_arg, argdesc, letter):
             if c in TYPEMAP_PTR_LETTERS:
                 res = func(add_arg, argdesc, rffi.VOIDP)
                 return space.wrap(rffi.cast(lltype.Unsigned, res))
-            elif c == 'q' or c == 'Q' or c == 'L' or c == 'c' or c == 'u':
-                return space.wrap(func(add_arg, argdesc, ll_type))
             elif c == 'f' or c == 'd' or c == 'g':
                 return space.wrap(float(func(add_arg, argdesc, ll_type)))
             else:
-                return space.wrap(intmask(func(add_arg, argdesc, ll_type)))
+                return space.wrap(func(add_arg, argdesc, ll_type))
     raise OperationError(space.w_TypeError,
                          space.wrap("cannot directly read value"))
 wrap_value._annspecialcase_ = 'specialize:arg(1)'
@@ -491,10 +496,14 @@ class W_FuncPtr(W_Root):
         try:
             if self.resshape is not None:
                 result = self.resshape.allocate(space, 1, autofree=True)
+                lasterror.restore_last_error(space)
                 self.ptr.call(args_ll, result.ll_buffer)
+                lasterror.save_last_error(space)
                 return space.wrap(result)
             else:
+                lasterror.restore_last_error(space)
                 self.ptr.call(args_ll, lltype.nullptr(rffi.VOIDP.TO))
+                lasterror.save_last_error(space)
                 return space.w_None
         except StackCheckError, e:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
@@ -504,7 +513,10 @@ def descr_new_funcptr(space, w_tp, addr, w_args, w_res, flags=FUNCFLAG_CDECL):
     argshapes = unpack_argshapes(space, w_args)
     resshape = unpack_resshape(space, w_res)
     ffi_args = [shape.get_basic_ffi_type() for shape in argshapes]
-    ffi_res = resshape.get_basic_ffi_type()
+    if resshape is not None:
+        ffi_res = resshape.get_basic_ffi_type()
+    else:
+        ffi_res = ffi_type_void
     try:
         ptr = RawFuncPtr('???', ffi_args, ffi_res, rffi.cast(rffi.VOIDP, addr),
                          flags)
@@ -608,12 +620,10 @@ def set_errno(space, w_errno):
 
 if sys.platform == 'win32':
     def get_last_error(space):
-        from rpython.rlib.rwin32 import GetLastError
-        return space.wrap(GetLastError())
+        return space.wrap(lasterror.fetch_last_error(space))
     @unwrap_spec(error=int)
     def set_last_error(space, error):
-        from rpython.rlib.rwin32 import SetLastError
-        SetLastError(error)
+        lasterror.store_last_error(space, error)
 else:
     # always have at least a dummy version of these functions
     # (https://bugs.pypy.org/issue1242)

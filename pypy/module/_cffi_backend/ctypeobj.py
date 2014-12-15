@@ -14,6 +14,8 @@ class W_CType(W_Root):
     _immutable_fields_ = ['size?', 'name', 'name_position']
     # note that 'size' is not strictly immutable, because it can change
     # from -1 to the real value in the W_CTypeStruct subclass.
+    # XXX this could be improved with an elidable method get_size()
+    # that raises in case it's still -1...
 
     cast_anything = False
     is_primitive_integer = False
@@ -208,8 +210,7 @@ class W_CType(W_Root):
 
 
 W_CType.typedef = TypeDef(
-    'CTypeDescr',
-    __module__ = '_cffi_backend',
+    '_cffi_backend.CTypeDescr',
     __repr__ = interp2app(W_CType.repr),
     __weakref__ = make_weakref_descr(W_CType),
     kind = GetSetProperty(W_CType.fget_kind, doc="kind"),

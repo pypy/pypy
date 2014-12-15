@@ -20,25 +20,6 @@ slist = [s1, s2, s3, s4, s6]  # not s5 -- unionof(s4,s5) modifies s4 and s5
 class C(object):
     pass
 
-class DummyClassDef:
-    def __init__(self, cls=C):
-        self.cls = cls
-        self.name = cls.__name__
-
-si0 = SomeInstance(DummyClassDef(), True)
-si1 = SomeInstance(DummyClassDef())
-sTrue = SomeBool()
-sTrue.const = True
-sFalse = SomeBool()
-sFalse.const = False
-
-def test_is_None():
-    assert pair(s_None, s_None).is_() == sTrue
-    assert pair(si1, s_None).is_() == sFalse
-    assert pair(si0, s_None).is_() != sTrue
-    assert pair(si0, s_None).is_() != sFalse
-    assert pair(si0, s_None).is_() == SomeBool()
-
 def test_equality():
     assert s1 != s2 != s3 != s4 != s5 != s6
     assert s1 == SomeType()
@@ -130,8 +111,9 @@ def test_blocked_inference2():
     py.test.raises(AnnotatorError, compile_function, blocked_inference)
 
 
-if __name__ == '__main__':
-    for name, value in globals().items():
-        if name.startswith('test_'):
-            value()
-
+def test_not_const():
+    s_int = SomeInteger()
+    s_int.const = 2
+    assert s_int != SomeInteger()
+    assert not_const(s_int) == SomeInteger()
+    assert not_const(s_None) == s_None

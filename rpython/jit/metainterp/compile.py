@@ -74,7 +74,6 @@ def record_loop_or_bridge(metainterp_sd, loop):
             # for a CALL_ASSEMBLER: record it as a potential jump.
             if descr is not original_jitcell_token:
                 original_jitcell_token.record_jump_to(descr)
-            descr.exported_state = None
             op.cleardescr()    # clear reference, mostly for tests
         elif isinstance(descr, TargetToken):
             # for a JUMP: record it as a potential jump.
@@ -84,10 +83,6 @@ def record_loop_or_bridge(metainterp_sd, loop):
             if descr.original_jitcell_token is not original_jitcell_token:
                 assert descr.original_jitcell_token is not None
                 original_jitcell_token.record_jump_to(descr.original_jitcell_token)
-            # exported_state is clear by optimizeopt when the short preamble is
-            # constrcucted. if that did not happen the label should not show up
-            # in a trace that will be used
-            assert descr.exported_state is None
             if not we_are_translated():
                 op._descr_wref = weakref.ref(op._descr)
             op.cleardescr()    # clear reference to prevent the history.Stats
@@ -106,7 +101,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 def compile_loop(metainterp, greenkey, start,
                  inputargs, jumpargs,
-                 resume_at_jump_descr, full_preamble_needed=True,
+                 full_preamble_needed=True,
                  try_disabling_unroll=False):
     """Try to compile a new procedure by closing the current history back
     to the first operation.
@@ -128,13 +123,12 @@ def compile_loop(metainterp, greenkey, start,
     part = create_empty_loop(metainterp)
     part.inputargs = inputargs[:]
     h_ops = history.operations
-    part.resume_at_jump_descr = resume_at_jump_descr
     part.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(jitcell_token))] + \
                       [h_ops[i].clone() for i in range(start, len(h_ops))] + \
                       [ResOperation(rop.LABEL, jumpargs, None, descr=jitcell_token)]
 
     try:
-        optimize_trace(metainterp_sd, part, enable_opts)
+        start_state = optimize_trace(metainterp_sd, part, enable_opts)
     except InvalidLoop:
         return None
     target_token = part.operations[0].getdescr()
@@ -147,7 +141,7 @@ def compile_loop(metainterp, greenkey, start,
     loop.quasi_immutable_deps = {}
     if part.quasi_immutable_deps:
         loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
-    while part.operations[-1].getopnum() == rop.LABEL:
+    if part.operations[-1].getopnum() == rop.LABEL:
         inliner = Inliner(inputargs, jumpargs)
         part.quasi_immutable_deps = None
         part.operations = [part.operations[-1]] + \
@@ -161,13 +155,15 @@ def compile_loop(metainterp, greenkey, start,
         jumpargs = part.operations[-1].getarglist()
 
         try:
-            optimize_trace(metainterp_sd, part, enable_opts)
+            optimize_trace(metainterp_sd, part, enable_opts,
+                           start_state=start_state)
         except InvalidLoop:
             return None
 
         loop.operations = loop.operations[:-1] + part.operations
         if part.quasi_immutable_deps:
             loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
+    assert part.operations[-1].getopnum() != rop.LABEL
 
     if not loop.quasi_immutable_deps:
         loop.quasi_immutable_deps = None
@@ -187,7 +183,7 @@ def compile_loop(metainterp, greenkey, start,
 
 def compile_retrace(metainterp, greenkey, start,
                     inputargs, jumpargs,
-                    resume_at_jump_descr, partial_trace, resumekey):
+                    partial_trace, resumekey, start_state):
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
@@ -203,7 +199,6 @@ def compile_retrace(metainterp, greenkey, start,
 
     part = create_empty_loop(metainterp)
     part.inputargs = inputargs[:]
-    part.resume_at_jump_descr = resume_at_jump_descr
     h_ops = history.operations
 
     part.operations = [partial_trace.operations[-1]] + \
@@ -213,18 +208,19 @@ def compile_retrace(metainterp, greenkey, start,
     orignial_label = label.clone()
     assert label.getopnum() == rop.LABEL
     try:
-        optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
+        optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts,
+                       start_state=start_state)
     except InvalidLoop:
         # Fall back on jumping to preamble
         target_token = label.getdescr()
         assert isinstance(target_token, TargetToken)
-        assert target_token.exported_state
         part.operations = [orignial_label] + \
                           [ResOperation(rop.JUMP, inputargs[:],
                                         None, descr=loop_jitcell_token)]
         try:
-            optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts,
-                           inline_short_preamble=False)
+            optimize_trace(metainterp_sd, part,
+                           jitdriver_sd.warmstate.enable_opts,
+                           inline_short_preamble=False, start_state=start_state)
         except InvalidLoop:
             return None
     assert part.operations[-1].getopnum() != rop.LABEL
@@ -500,8 +496,9 @@ class ResumeGuardDescr(ResumeDescr):
     ST_BUSY_FLAG    = 0x01     # if set, busy tracing from the guard
     ST_TYPE_MASK    = 0x06     # mask for the type (TY_xxx)
     ST_SHIFT        = 3        # in "status >> ST_SHIFT" is stored:
-                               # - if TY_NONE, the jitcounter index directly
+                               # - if TY_NONE, the jitcounter hash directly
                                # - otherwise, the guard_value failarg index
+    ST_SHIFT_MASK   = -(1 << ST_SHIFT)
     TY_NONE         = 0x00
     TY_INT          = 0x02
     TY_REF          = 0x04
@@ -514,8 +511,8 @@ class ResumeGuardDescr(ResumeDescr):
         #
         if metainterp_sd.warmrunnerdesc is not None:   # for tests
             jitcounter = metainterp_sd.warmrunnerdesc.jitcounter
-            index = jitcounter.in_second_half(jitcounter.fetch_next_index())
-            self.status = index << self.ST_SHIFT
+            hash = jitcounter.fetch_next_hash()
+            self.status = hash & self.ST_SHIFT_MASK
 
     def make_a_counter_per_value(self, guard_value_op):
         assert guard_value_op.getopnum() == rop.GUARD_VALUE
@@ -566,7 +563,8 @@ class ResumeGuardDescr(ResumeDescr):
             # common case: this is not a guard_value, and we are not
             # already busy tracing.  The rest of self.status stores a
             # valid per-guard index in the jitcounter.
-            index = self.status >> self.ST_SHIFT
+            hash = self.status
+            assert hash == (self.status & self.ST_SHIFT_MASK)
         #
         # do we have the BUSY flag?  If so, we're tracing right now, e.g. in an
         # outer invocation of the same function, so don't trace again for now.
@@ -597,12 +595,16 @@ class ResumeGuardDescr(ResumeDescr):
                     intval = llmemory.cast_adr_to_int(
                         llmemory.cast_int_to_adr(intval), "forced")
 
-            hash = (current_object_addr_as_int(self) * 777767777 +
-                    intval * 1442968193)
-            index = jitcounter.in_second_half(jitcounter.get_index(hash))
+            hash = r_uint(current_object_addr_as_int(self) * 777767777 +
+                          intval * 1442968193)
         #
         increment = jitdriver_sd.warmstate.increment_trace_eagerness
-        return jitcounter.tick(index, increment)
+        return jitcounter.tick(hash, increment)
+
+    def get_index_of_guard_value(self):
+        if (self.status & self.ST_TYPE_MASK) == 0:
+            return -1
+        return intmask(self.status >> self.ST_SHIFT)
 
     def start_compiling(self):
         # start tracing and compiling from this guard.
@@ -764,7 +766,7 @@ class ResumeFromInterpDescr(ResumeDescr):
         metainterp_sd.stats.add_jitcell_token(jitcell_token)
 
 
-def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
+def compile_trace(metainterp, resumekey):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
@@ -780,7 +782,6 @@ def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
     # clone ops, as optimize_bridge can mutate the ops
 
     new_trace.operations = [op.clone() for op in metainterp.history.operations]
-    new_trace.resume_at_jump_descr = resume_at_jump_descr
     metainterp_sd = metainterp.staticdata
     state = metainterp.jitdriver_sd.warmstate
     if isinstance(resumekey, ResumeAtPositionDescr):
@@ -788,7 +789,7 @@ def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
     else:
         inline_short_preamble = True
     try:
-        optimize_trace(metainterp_sd, new_trace, state.enable_opts, inline_short_preamble)
+        state = optimize_trace(metainterp_sd, new_trace, state.enable_opts, inline_short_preamble)
     except InvalidLoop:
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
@@ -804,7 +805,7 @@ def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
         record_loop_or_bridge(metainterp_sd, new_trace)
         return target_token
     else:
-        metainterp.retrace_needed(new_trace)
+        metainterp.retrace_needed(new_trace, state)
         return None
 
 # ____________________________________________________________

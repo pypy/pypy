@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 from test import test_support
 import unittest
 import urlparse
@@ -364,6 +362,16 @@ class UrlParseTestCase(unittest.TestCase):
             ('http://[::12.34.56.78]/foo/', '::12.34.56.78', None),
             ('http://[::ffff:12.34.56.78]/foo/',
              '::ffff:12.34.56.78', None),
+            ('http://Test.python.org:/foo/', 'test.python.org', None),
+            ('http://12.34.56.78:/foo/', '12.34.56.78', None),
+            ('http://[::1]:/foo/', '::1', None),
+            ('http://[dead:beef::1]:/foo/', 'dead:beef::1', None),
+            ('http://[dead:beef::]:/foo/', 'dead:beef::', None),
+            ('http://[dead:beef:cafe:5417:affe:8FA3:deaf:feed]:/foo/',
+             'dead:beef:cafe:5417:affe:8fa3:deaf:feed', None),
+            ('http://[::12.34.56.78]:/foo/', '::12.34.56.78', None),
+            ('http://[::ffff:12.34.56.78]:/foo/',
+             '::ffff:12.34.56.78', None),
             ]:
             urlparsed = urlparse.urlparse(url)
             self.assertEqual((urlparsed.hostname, urlparsed.port) , (hostname, port))
@@ -437,6 +445,51 @@ class UrlParseTestCase(unittest.TestCase):
         self.assertEqual(p.port, 80)
         self.assertEqual(p.geturl(), url)
 
+        # Verify an illegal port of value greater than 65535 is set as None
+        url = "http://www.python.org:65536"
+        p = urlparse.urlsplit(url)
+        self.assertEqual(p.port, None)
+
+    def test_issue14072(self):
+        p1 = urlparse.urlsplit('tel:+31-641044153')
+        self.assertEqual(p1.scheme, 'tel')
+        self.assertEqual(p1.path, '+31-641044153')
+
+        p2 = urlparse.urlsplit('tel:+31641044153')
+        self.assertEqual(p2.scheme, 'tel')
+        self.assertEqual(p2.path, '+31641044153')
+
+        # Assert for urlparse
+        p1 = urlparse.urlparse('tel:+31-641044153')
+        self.assertEqual(p1.scheme, 'tel')
+        self.assertEqual(p1.path, '+31-641044153')
+
+        p2 = urlparse.urlparse('tel:+31641044153')
+        self.assertEqual(p2.scheme, 'tel')
+        self.assertEqual(p2.path, '+31641044153')
+
+
+    def test_telurl_params(self):
+        p1 = urlparse.urlparse('tel:123-4;phone-context=+1-650-516')
+        self.assertEqual(p1.scheme, 'tel')
+        self.assertEqual(p1.path, '123-4')
+        self.assertEqual(p1.params, 'phone-context=+1-650-516')
+
+        p1 = urlparse.urlparse('tel:+1-201-555-0123')
+        self.assertEqual(p1.scheme, 'tel')
+        self.assertEqual(p1.path, '+1-201-555-0123')
+        self.assertEqual(p1.params, '')
+
+        p1 = urlparse.urlparse('tel:7042;phone-context=example.com')
+        self.assertEqual(p1.scheme, 'tel')
+        self.assertEqual(p1.path, '7042')
+        self.assertEqual(p1.params, 'phone-context=example.com')
+
+        p1 = urlparse.urlparse('tel:863-1234;phone-context=+1-914-555')
+        self.assertEqual(p1.scheme, 'tel')
+        self.assertEqual(p1.path, '863-1234')
+        self.assertEqual(p1.params, 'phone-context=+1-914-555')
+
 
     def test_attributes_bad_port(self):
         """Check handling of non-integer ports."""
@@ -493,6 +546,10 @@ class UrlParseTestCase(unittest.TestCase):
                          ('s3','foo.com','/stuff','','',''))
         self.assertEqual(urlparse.urlparse("x-newscheme://foo.com/stuff"),
                          ('x-newscheme','foo.com','/stuff','','',''))
+        self.assertEqual(urlparse.urlparse("x-newscheme://foo.com/stuff?query#fragment"),
+                         ('x-newscheme','foo.com','/stuff','','query','fragment'))
+        self.assertEqual(urlparse.urlparse("x-newscheme://foo.com/stuff?query"),
+                         ('x-newscheme','foo.com','/stuff','','query',''))
 
     def test_withoutscheme(self):
         # Test urlparse without scheme

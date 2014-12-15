@@ -23,14 +23,19 @@ from idlelib import macosxSupport
 
 class ConfigDialog(Toplevel):
 
-    def __init__(self,parent,title):
+    def __init__(self,parent,title,_htest=False):
+        """
+        _htest - bool, change box location when running htest
+        """
         Toplevel.__init__(self, parent)
         self.wm_withdraw()
 
         self.configure(borderwidth=5)
         self.title('IDLE Preferences')
+        if _htest:
+            parent.instance_dict = {}
         self.geometry("+%d+%d" % (parent.winfo_rootx()+20,
-                parent.winfo_rooty()+30))
+                parent.winfo_rooty()+(30 if not _htest else 150)))
         #Theme Elements. Each theme element key is its display name.
         #The first value of the tuple is the sample area tag name.
         #The second value is the display name list sort index.
@@ -71,16 +76,17 @@ class ConfigDialog(Toplevel):
                 page_names=['Fonts/Tabs','Highlighting','Keys','General'])
         frameActionButtons = Frame(self,pady=2)
         #action buttons
-        if macosxSupport.runningAsOSXApp():
+        if macosxSupport.isAquaTk():
             # Changing the default padding on OSX results in unreadable
             # text in the buttons
             paddingArgs={}
         else:
             paddingArgs={'padx':6, 'pady':3}
 
-        self.buttonHelp = Button(frameActionButtons,text='Help',
-                command=self.Help,takefocus=FALSE,
-                **paddingArgs)
+# Comment out button creation and packing until implement self.Help
+##        self.buttonHelp = Button(frameActionButtons,text='Help',
+##                command=self.Help,takefocus=FALSE,
+##                **paddingArgs)
         self.buttonOk = Button(frameActionButtons,text='Ok',
                 command=self.Ok,takefocus=FALSE,
                 **paddingArgs)
@@ -94,7 +100,7 @@ class ConfigDialog(Toplevel):
         self.CreatePageHighlight()
         self.CreatePageKeys()
         self.CreatePageGeneral()
-        self.buttonHelp.pack(side=RIGHT,padx=5)
+##        self.buttonHelp.pack(side=RIGHT,padx=5)
         self.buttonOk.pack(side=LEFT,padx=5)
         self.buttonApply.pack(side=LEFT,padx=5)
         self.buttonCancel.pack(side=LEFT,padx=5)
@@ -183,7 +189,7 @@ class ConfigDialog(Toplevel):
                               text=' Highlighting Theme ')
         #frameCustom
         self.textHighlightSample=Text(frameCustom,relief=SOLID,borderwidth=1,
-            font=('courier',12,''),cursor='hand2',width=21,height=10,
+            font=('courier',12,''),cursor='hand2',width=21,height=11,
             takefocus=FALSE,highlightthickness=0,wrap=NONE)
         text=self.textHighlightSample
         text.bind('<Double-Button-1>',lambda e: 'break')
@@ -832,8 +838,9 @@ class ConfigDialog(Toplevel):
             fontWeight=tkFont.BOLD
         else:
             fontWeight=tkFont.NORMAL
-        self.editFont.config(size=self.fontSize.get(),
-                weight=fontWeight,family=fontName)
+        newFont = (fontName, self.fontSize.get(), fontWeight)
+        self.labelFontSample.config(font=newFont)
+        self.textHighlightSample.configure(font=newFont)
 
     def SetHighlightTarget(self):
         if self.highlightTarget.get()=='Cursor': #bg not possible
@@ -946,7 +953,7 @@ class ConfigDialog(Toplevel):
             self.listFontName.select_anchor(currentFontIndex)
         ##font size dropdown
         fontSize=idleConf.GetOption('main','EditorWindow','font-size',
-                default='10')
+                type='int', default='10')
         self.optMenuFontSize.SetMenu(('7','8','9','10','11','12','13','14',
                 '16','18','20','22'),fontSize )
         ##fontWeight
@@ -1032,10 +1039,13 @@ class ConfigDialog(Toplevel):
         self.autoSave.set(idleConf.GetOption('main', 'General', 'autosave',
                                              default=0, type='bool'))
         #initial window size
-        self.winWidth.set(idleConf.GetOption('main','EditorWindow','width'))
-        self.winHeight.set(idleConf.GetOption('main','EditorWindow','height'))
+        self.winWidth.set(idleConf.GetOption('main','EditorWindow','width',
+                                             type='int'))
+        self.winHeight.set(idleConf.GetOption('main','EditorWindow','height',
+                                              type='int'))
         #initial paragraph reformat size
-        self.paraWidth.set(idleConf.GetOption('main','FormatParagraph','paragraph'))
+        self.paraWidth.set(idleConf.GetOption('main','FormatParagraph','paragraph',
+                                              type='int'))
         # default source encoding
         self.encoding.set(idleConf.GetOption('main', 'EditorWindow',
                                              'encoding', default='none'))
@@ -1146,9 +1156,5 @@ class ConfigDialog(Toplevel):
         pass
 
 if __name__ == '__main__':
-    #test the dialog
-    root=Tk()
-    Button(root,text='Dialog',
-            command=lambda:ConfigDialog(root,'Settings')).pack()
-    root.instance_dict={}
-    root.mainloop()
+    from idlelib.idle_test.htest import run
+    run(ConfigDialog)

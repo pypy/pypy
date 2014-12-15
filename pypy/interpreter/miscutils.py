@@ -11,11 +11,14 @@ class ThreadLocals:
     """
     _value = None
 
-    def getvalue(self):
+    def get_ec(self):
         return self._value
 
-    def setvalue(self, value):
-        self._value = value
+    def enter_thread(self, space):
+        self._value = space.createexecutioncontext()
+
+    def try_enter_thread(self, space):
+        return False
 
     def signals_enabled(self):
         return True
@@ -28,3 +31,19 @@ class ThreadLocals:
 
     def getallvalues(self):
         return {0: self._value}
+
+
+def make_weak_value_dictionary(space, keytype, valuetype):
+    "NOT_RPYTHON"
+    if space.config.translation.rweakref:
+        from rpython.rlib.rweakref import RWeakValueDictionary
+        return RWeakValueDictionary(keytype, valuetype)
+    else:
+        class FakeWeakValueDict(object):
+            def __init__(self):
+                self._dict = {}
+            def get(self, key):
+                return self._dict.get(key, None)
+            def set(self, key, value):
+                self._dict[key] = value
+        return FakeWeakValueDict()

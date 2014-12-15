@@ -22,6 +22,7 @@ class CallTip:
         self.parenline = self.parencol = None
         self.lastline = None
         self.hideid = self.checkhideid = None
+        self.checkhide_after_id = None
 
     def position_window(self):
         """Check if needs to reposition the window, and if so - do it."""
@@ -47,13 +48,7 @@ class CallTip:
     def showtip(self, text, parenleft, parenright):
         """Show the calltip, bind events which will close it and reposition it.
         """
-        # truncate overly long calltip
-        if len(text) >= 79:
-            textlines = text.splitlines()
-            for i, line in enumerate(textlines):
-                if len(line) > 79:
-                    textlines[i] = line[:75] + ' ...'
-            text = '\n'.join(textlines)
+        # Only called in CallTips, where lines are truncated
         self.text = text
         if self.tipwindow or not self.text:
             return
@@ -102,7 +97,10 @@ class CallTip:
             self.hidetip()
         else:
             self.position_window()
-            self.widget.after(CHECKHIDE_TIME, self.checkhide_event)
+            if self.checkhide_after_id is not None:
+                self.widget.after_cancel(self.checkhide_after_id)
+            self.checkhide_after_id = \
+                self.widget.after(CHECKHIDE_TIME, self.checkhide_event)
 
     def hide_event(self, event):
         if not self.tipwindow:
@@ -135,37 +133,36 @@ class CallTip:
         return bool(self.tipwindow)
 
 
+def _calltip_window(parent):
+    root = Tk()
+    root.title("Test calltips")
+    width, height, x, y = list(map(int, re.split('[x+]', parent.geometry())))
+    root.geometry("+%d+%d"%(x, y + 150))
 
-###############################
-#
-# Test Code
-#
-class container: # Conceptually an editor_window
-    def __init__(self):
-        root = Tk()
-        text = self.text = Text(root)
-        text.pack(side=LEFT, fill=BOTH, expand=1)
-        text.insert("insert", "string.split")
-        root.update()
-        self.calltip = CallTip(text)
+    class MyEditWin: # comparenceptually an editor_window
+        def __init__(self):
+            text = self.text = Text(root)
+            text.pack(side=LEFT, fill=BOTH, expand=1)
+            text.insert("insert", "string.split")
+            root.update()
+            self.calltip = CallTip(text)
 
-        text.event_add("<<calltip-show>>", "(")
-        text.event_add("<<calltip-hide>>", ")")
-        text.bind("<<calltip-show>>", self.calltip_show)
-        text.bind("<<calltip-hide>>", self.calltip_hide)
+            text.event_add("<<calltip-show>>", "(")
+            text.event_add("<<calltip-hide>>", ")")
+            text.bind("<<calltip-show>>", self.calltip_show)
+            text.bind("<<calltip-hide>>", self.calltip_hide)
 
-        text.focus_set()
-        root.mainloop()
+            text.focus_set()
+            root.mainloop()
 
-    def calltip_show(self, event):
-        self.calltip.showtip("Hello world")
+        def calltip_show(self, event):
+            self.calltip.showtip("Hello world", "insert", "end")
 
-    def calltip_hide(self, event):
-        self.calltip.hidetip()
+        def calltip_hide(self, event):
+            self.calltip.hidetip()
 
-def main():
-    # Test code
-    c=container()
+    editwin = MyEditWin()
 
 if __name__=='__main__':
-    main()
+    from idlelib.idle_test.htest import run
+    run(_calltip_window)

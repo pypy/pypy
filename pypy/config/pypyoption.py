@@ -3,7 +3,7 @@ import sys
 import py
 
 from rpython.config.config import (OptionDescription, BoolOption, IntOption,
-  ChoiceOption, StrOption, to_optparse, ConflictConfigError)
+  ChoiceOption, StrOption, to_optparse)
 from rpython.config.translationoption import IS_64_BITS
 
 
@@ -13,73 +13,67 @@ all_modules = [p.basename for p in modulepath.listdir()
                and p.join('__init__.py').check()
                and not p.basename.startswith('test')]
 
-essential_modules = dict.fromkeys(
-    ["exceptions", "_file", "sys", "__builtin__", "posix", "_warnings"]
-)
+essential_modules = set([
+    "exceptions", "_file", "sys", "__builtin__", "posix", "_warnings",
+    "itertools"
+])
 
 default_modules = essential_modules.copy()
-default_modules.update(dict.fromkeys(
-    ["_codecs", "gc", "_weakref", "marshal", "errno", "imp",
-     "math", "cmath", "_sre", "_pickle_support", "operator",
-     "parser", "symbol", "token", "_ast",  "_io", "_random", "__pypy__",
-     "_testing"]))
+default_modules.update([
+    "_codecs", "gc", "_weakref", "marshal", "errno", "imp", "math", "cmath",
+    "_sre", "_pickle_support", "operator", "parser", "symbol", "token", "_ast",
+    "_io", "_random", "__pypy__", "_testing"
+])
 
 
 # --allworkingmodules
 working_modules = default_modules.copy()
-working_modules.update(dict.fromkeys(
-    ["_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
-     "rctime" , "select", "zipimport", "_lsprof",
-     "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
-     "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
-     "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
-     "binascii", "_multiprocessing", '_warnings',
-     "_collections", "_multibytecodec", "micronumpy",
-     "_continuation", "_cffi_backend", "_csv", "cppyy", "_pypyjson",
-     "unipycation"]
-))
+working_modules.update([
+    "_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd", "time" ,
+    "select", "zipimport", "_lsprof", "crypt", "signal", "_rawffi", "termios",
+    "zlib", "bz2", "struct", "_hashlib", "_md5", "_sha", "_minimal_curses",
+    "cStringIO", "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
+    "binascii", "_multiprocessing", '_warnings', "_collections",
+    "_multibytecodec", "micronumpy", "_continuation", "_cffi_backend",
+    "_csv", "cppyy", "_pypyjson",
+    "unipycation",
+])
 
 translation_modules = default_modules.copy()
-translation_modules.update(dict.fromkeys(
-    ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
-     "struct", "_md5", "cStringIO", "array",
-     "binascii",
-     # the following are needed for pyrepl (and hence for the
-     # interactive prompt/pdb)
-     "termios", "_minimal_curses",
-     ]))
+translation_modules.update([
+    "fcntl", "time", "select", "signal", "_rawffi", "zlib", "struct", "_md5",
+    "cStringIO", "array", "binascii",
+    # the following are needed for pyrepl (and hence for the
+    # interactive prompt/pdb)
+    "termios", "_minimal_curses",
+])
 
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
 #     check or something)
 if sys.platform == "win32":
-    working_modules["_winreg"] = None
+    working_modules.add("_winreg")
     # unix only modules
-    del working_modules["crypt"]
-    del working_modules["fcntl"]
-    del working_modules["pwd"]
-    del working_modules["termios"]
-    del working_modules["_minimal_curses"]
+    for name in ["crypt", "fcntl", "pwd", "termios", "_minimal_curses"]:
+        working_modules.remove(name)
+        if name in translation_modules:
+            translation_modules.remove(name)
 
     if "cppyy" in working_modules:
-        del working_modules["cppyy"]  # not tested on win32
+        working_modules.remove("cppyy")  # not tested on win32
 
     # The _locale module is needed by site.py on Windows
-    default_modules["_locale"] = None
+    default_modules.add("_locale")
 
 if sys.platform == "sunos5":
-    del working_modules['mmap']   # depend on ctypes, can't get at c-level 'errono'
-    del working_modules['rctime'] # depend on ctypes, missing tm_zone/tm_gmtoff
-    del working_modules['signal'] # depend on ctypes, can't get at c-level 'errono'
-    del working_modules['fcntl']  # LOCK_NB not defined
-    del working_modules["_minimal_curses"]
-    del working_modules["termios"]
-    del working_modules["_multiprocessing"]   # depends on rctime
+    working_modules.remove('fcntl')  # LOCK_NB not defined
+    working_modules.remove("_minimal_curses")
+    working_modules.remove("termios")
     if "cppyy" in working_modules:
-        del working_modules["cppyy"]  # depends on ctypes
+        working_modules.remove("cppyy")  # depends on ctypes
 
 
 module_dependencies = {
-    '_multiprocessing': [('objspace.usemodules.rctime', True),
+    '_multiprocessing': [('objspace.usemodules.time', True),
                          ('objspace.usemodules.thread', True)],
     'cpyext': [('objspace.usemodules.array', True)],
     'cppyy': [('objspace.usemodules.cpyext', True)],
@@ -89,9 +83,10 @@ module_suggests = {
     # itself needs the interp-level struct module
     # because 'P' is missing from the app-level one
     "_rawffi": [("objspace.usemodules.struct", True)],
-    "cpyext": [("translation.secondaryentrypoints", "cpyext,main"),
-               ("translation.shared", sys.platform == "win32")],
+    "cpyext": [("translation.secondaryentrypoints", "cpyext,main")],
 }
+if sys.platform == "win32":
+    module_suggests["cpyext"].append(("translation.shared", True))
 
 module_import_dependencies = {
     # no _rawffi if importing rpython.rlib.clibffi raises ImportError
@@ -115,7 +110,7 @@ def get_module_validator(modname):
             try:
                 for name in modlist:
                     __import__(name)
-            except (ImportError, CompilationError, py.test.skip.Exception), e:
+            except (ImportError, CompilationError, py.test.skip.Exception) as e:
                 errcls = e.__class__.__name__
                 raise Exception(
                     "The module %r is disabled\n" % (modname,) +
@@ -219,7 +214,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "make instances really small but slow without the JIT",
                    default=False,
                    requires=[("objspace.std.getattributeshortcut", True),
-                             ("objspace.std.withmethodcache", True),
+                             ("objspace.std.withtypeversion", True),
                        ]),
 
         BoolOption("withrangelist",
@@ -251,14 +246,12 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         IntOption("methodcachesizeexp",
                   " 2 ** methodcachesizeexp is the size of the of the method cache ",
                   default=11),
-        BoolOption("optimized_int_add",
-                   "special case the addition of two integers in BINARY_ADD",
+        BoolOption("intshortcut",
+                   "special case addition and subtraction of two integers in BINARY_ADD/"
+                   "/BINARY_SUBTRACT and their inplace counterparts",
                    default=False),
         BoolOption("optimized_list_getitem",
                    "special case the 'list[integer]' expressions",
-                   default=False),
-        BoolOption("builtinshortcut",
-                   "a shortcut for operations between built-in types",
                    default=False),
         BoolOption("getattributeshortcut",
                    "track types that override __getattribute__",
@@ -271,9 +264,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    # weakrefs needed, because of get_subclasses()
                    requires=[("translation.rweakref", True)]),
 
-        ChoiceOption("multimethods", "the multimethod implementation to use",
-                     ["doubledispatch", "mrd"],
-                     default="mrd"),
         BoolOption("withidentitydict",
                    "track types that override __hash__, __eq__ or __cmp__ and use a special dict strategy for those which do not",
                    default=False,
@@ -292,17 +282,12 @@ def set_pypy_opt_level(config, level):
     """Apply PyPy-specific optimization suggestions on the 'config'.
     The optimizations depend on the selected level and possibly on the backend.
     """
-    # warning: during some tests, the type_system and the backend may be
-    # unspecified and we get None.  It shouldn't occur in translate.py though.
-    type_system = config.translation.type_system
-    backend = config.translation.backend
-
     # all the good optimizations for PyPy should be listed here
     if level in ['2', '3', 'jit']:
         config.objspace.std.suggest(withrangelist=True)
         config.objspace.std.suggest(withmethodcache=True)
         config.objspace.std.suggest(withprebuiltchar=True)
-        config.objspace.std.suggest(builtinshortcut=True)
+        config.objspace.std.suggest(intshortcut=True)
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
         #config.objspace.std.suggest(newshortcut=True)

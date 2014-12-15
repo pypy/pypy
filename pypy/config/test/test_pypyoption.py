@@ -12,9 +12,9 @@ def test_required():
     assert conf.objspace.usemodules.gc
 
     conf.objspace.std.withmapdict = True
-    assert conf.objspace.std.withmethodcache
+    assert conf.objspace.std.withtypeversion
     conf = get_pypy_config()
-    conf.objspace.std.withmethodcache = False
+    conf.objspace.std.withtypeversion = False
     py.test.raises(ConfigError, "conf.objspace.std.withmapdict = True")
 
 def test_conflicting_gcrootfinder():
@@ -64,7 +64,7 @@ def test_check_documentation():
     def check_file_exists(fn):
         assert configdocdir.join(fn).check()
 
-    from pypy.doc.config.confrest import all_optiondescrs
+    from pypy.doc.config.generate import all_optiondescrs
     configdocdir = thisdir.dirpath().dirpath().join("doc", "config")
     for descr in all_optiondescrs:
         prefix = descr._name

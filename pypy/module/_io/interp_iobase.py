@@ -1,3 +1,4 @@
+from errno import EINTR
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
@@ -15,6 +16,17 @@ def convert_size(space, w_size):
         return -1
     else:
         return space.int_w(w_size)
+
+def trap_eintr(space, error):
+    # Return True if an EnvironmentError with errno == EINTR is set
+    if not error.match(space, space.w_EnvironmentError):
+        return False
+    try:
+        w_value = error.get_w_value(space)
+        w_errno = space.getattr(w_value, space.wrap("errno"))
+        return space.eq_w(w_errno, space.wrap(EINTR))
+    except OperationError:
+        return False
 
 def unsupported(space, message):
     w_exc = space.getattr(space.getbuiltinmodule('_io'),
@@ -178,7 +190,12 @@ class W_IOBase(W_Root):
             nreadahead = 1
 
             if has_peek:
-                w_readahead = space.call_method(self, "peek", space.wrap(1))
+                try:
+                    w_readahead = space.call_method(self, "peek", space.wrap(1))
+                except OperationError, e:
+                    if trap_eintr(space, e):
+                        continue
+                    raise
                 if not space.isinstance_w(w_readahead, space.w_str):
                     raise oefmt(space.w_IOError,
                                 "peek() should have returned a bytes object, "
@@ -203,7 +220,12 @@ class W_IOBase(W_Root):
                                 break
                     nreadahead = n
 
-            w_read = space.call_method(self, "read", space.wrap(nreadahead))
+            try:
+                w_read = space.call_method(self, "read", space.wrap(nreadahead))
+            except OperationError, e:
+                if trap_eintr(space, e):
+                    continue
+                raise
             if not space.isinstance_w(w_read, space.w_str):
                 raise oefmt(space.w_IOError,
                             "peek() should have returned a bytes object, not "
@@ -254,10 +276,18 @@ class W_IOBase(W_Root):
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break  # done
-            space.call_method(self, "write", w_line)
+            while True:
+                try:
+                    space.call_method(self, "write", w_line)
+                except OperationError, e:
+                    if trap_eintr(space, e):
+                        continue
+                    raise
+                else:
+                    break
 
 W_IOBase.typedef = TypeDef(
-    '_IOBase',
+    '_io._IOBase',
     __new__ = generic_new_descr(W_IOBase),
     __enter__ = interp2app(W_IOBase.enter_w),
     __exit__ = interp2app(W_IOBase.exit_w),
@@ -306,8 +336,13 @@ class W_RawIOBase(W_IOBase):
     def readall_w(self, space):
         builder = StringBuilder()
         while True:
-            w_data = space.call_method(self, "read",
-                                       space.wrap(DEFAULT_BUFFER_SIZE))
+            try:
+                w_data = space.call_method(self, "read",
+                                           space.wrap(DEFAULT_BUFFER_SIZE))
+            except OperationError, e:
+                if trap_eintr(space, e):
+                    continue
+                raise
             if space.is_w(w_data, space.w_None):
                 if not builder.getlength():
                     return w_data
@@ -323,7 +358,7 @@ class W_RawIOBase(W_IOBase):
         return space.wrap(builder.build())
 
 W_RawIOBase.typedef = TypeDef(
-    '_RawIOBase', W_IOBase.typedef,
+    '_io._RawIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_RawIOBase),
 
     read = interp2app(W_RawIOBase.read_w),

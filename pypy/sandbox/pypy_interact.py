@@ -21,7 +21,7 @@ provided you use enough -u options:
 """
 
 import sys, os
-sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from rpython.translator.sandbox.sandlib import SimpleIOSandboxedProc
 from rpython.translator.sandbox.sandlib import VirtualizedSandboxedProc
 from rpython.translator.sandbox.vfs import Dir, RealDir, RealFile
@@ -55,7 +55,7 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
 
         return Dir({
             'bin': Dir({
-                'pypy-c': RealFile(self.executable),
+                'pypy-c': RealFile(self.executable, mode=0111),
                 'lib-python': RealDir(os.path.join(libroot, 'lib-python'),
                                       exclude=exclude), 
                 'lib_pypy': RealDir(os.path.join(libroot, 'lib_pypy'),

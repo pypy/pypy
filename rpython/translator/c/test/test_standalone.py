@@ -2,6 +2,7 @@ import py
 import sys, os, re
 
 from rpython.config.translationoption import get_combined_translation_config
+from rpython.config.translationoption import SUPPORT__THREAD
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.debug import ll_assert, have_debug_prints, debug_flush
@@ -13,7 +14,7 @@ from rpython.translator.backendopt import all
 from rpython.translator.c.genc import CStandaloneBuilder, ExternalCompilationInfo
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.tool.udir import udir
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.conftest import option
 
 def setup_module(module):
@@ -187,6 +188,8 @@ class TestStandalone(StandaloneTests):
         assert map(float, data.split()) == [0.0, 0.0]
 
     def test_profopt(self):
+        if sys.platform == 'win32':
+            py.test.skip("no profopt on win32")
         def add(a,b):
             return a + b - b + b - b + b - b + b - b + b - b + b - b + b
         def entry_point(argv):
@@ -304,8 +307,13 @@ class TestStandalone(StandaloneTests):
         assert "  ll_strtod.o" in makefile
 
     def test_debug_print_start_stop(self):
+        import sys
         from rpython.rtyper.lltypesystem import rffi
-
+        if sys.platform == 'win32':
+            # ftell(stderr) is a bit different under subprocess.Popen
+            tell = 0
+        else:
+            tell = -1
         def entry_point(argv):
             x = "got:"
             debug_start  ("mycat")
@@ -327,7 +335,7 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point)
         # check with PYPYLOG undefined
         out, err = cbuilder.cmdexec("", err=True, env={})
-        assert out.strip() == 'got:a.-1.'
+        assert out.strip() == 'got:a.%d.' % tell
         assert 'toplevel' in err
         assert 'mycat' not in err
         assert 'foo 2 bar 3' not in err
@@ -336,7 +344,7 @@ class TestStandalone(StandaloneTests):
         assert 'bok' not in err
         # check with PYPYLOG defined to an empty string (same as undefined)
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ''})
-        assert out.strip() == 'got:a.-1.'
+        assert out.strip() == 'got:a.%d.' % tell
         assert 'toplevel' in err
         assert 'mycat' not in err
         assert 'foo 2 bar 3' not in err
@@ -345,7 +353,7 @@ class TestStandalone(StandaloneTests):
         assert 'bok' not in err
         # check with PYPYLOG=:- (means print to stderr)
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ':-'})
-        assert out.strip() == 'got:bcda.-1.'
+        assert out.strip() == 'got:bcda.%d.' % tell
         assert 'toplevel' in err
         assert '{mycat' in err
         assert 'mycat}' in err
@@ -374,7 +382,27 @@ class TestStandalone(StandaloneTests):
         assert 'bok' in data
         # check with PYPYLOG=somefilename
         path = udir.join('test_debug_xxx_prof.log')
-        out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': str(path)})
+        if str(path).find(':')>=0:
+            # bad choice of udir, there is a ':' in it which messes up the test
+            pass
+        else:
+            out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': str(path)})
+            size = os.stat(str(path)).st_size
+            assert out.strip() == 'got:a.' + str(size) + '.'
+            assert not err
+            assert path.check(file=1)
+            data = path.read()
+            assert 'toplevel' in data
+            assert '{mycat' in data
+            assert 'mycat}' in data
+            assert 'foo 2 bar 3' not in data
+            assert '{cat2' in data
+            assert 'cat2}' in data
+            assert 'baz' not in data
+            assert 'bok' not in data
+        # check with PYPYLOG=+somefilename
+        path = udir.join('test_debug_xxx_prof_2.log')
+        out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': '+%s' % path})
         size = os.stat(str(path)).st_size
         assert out.strip() == 'got:a.' + str(size) + '.'
         assert not err
@@ -935,6 +963,50 @@ class TestStandalone(StandaloneTests):
         self.compile(entry_point)
         # assert did not explode
 
+    def test_unicode_builder(self):
+        import random
+        from rpython.rlib.rstring import UnicodeBuilder
+
+        to_do = []
+        for i in range(15000):
+            to_do.append(random.randrange(0, 100000))
+        to_do.append(0)
+
+        expected = []
+        s = ''
+        for x in to_do:
+            if x < 1500:
+                expected.append("``%s''" % (s,))
+                if x < 1000:
+                    s = ''
+            elif x < 20000:
+                s += chr(32 + (x & 63))
+            elif x < 30000:
+                s += chr(32 + (x & 63)) * (x % 93)
+            else:
+                s += str(x)
+        expected = '\n'.join(expected)
+
+        def entry_point(argv):
+            b = UnicodeBuilder(32)
+            for x in to_do:
+                if x < 1500:
+                    print "``%s''" % str(b.build())
+                    if x < 1000:
+                        b = UnicodeBuilder(32)
+                elif x < 20000:
+                    b.append(unichr(32 + (x & 63)))
+                elif x < 30000:
+                    b.append_multiple_char(unichr(32 + (x & 63)), x % 93)
+                else:
+                    b.append(unicode(str(x)))
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        out = cbuilder.cmdexec('')
+        assert out.strip() == expected
+
+
 class TestMaemo(TestStandalone):
     def setup_class(cls):
         py.test.skip("TestMaemo: tests skipped for now")
@@ -955,11 +1027,12 @@ class TestThread(object):
     gcrootfinder = 'shadowstack'
     config = None
 
-    def compile(self, entry_point):
+    def compile(self, entry_point, no__thread=True):
         t = TranslationContext(self.config)
         t.config.translation.gc = "semispace"
         t.config.translation.gcrootfinder = self.gcrootfinder
         t.config.translation.thread = True
+        t.config.translation.no__thread = no__thread
         t.buildannotator().build_types(entry_point, [s_list_of_strings])
         t.buildrtyper().specialize()
         #
@@ -1071,7 +1144,7 @@ class TestThread(object):
 
     def test_thread_and_gc(self):
         import time, gc
-        from rpython.rlib import rthread
+        from rpython.rlib import rthread, rposix
         from rpython.rtyper.lltypesystem import lltype
         from rpython.rlib.objectmodel import invoke_around_extcall
 
@@ -1092,14 +1165,22 @@ class TestThread(object):
                 self.head = head
                 self.tail = tail
 
+        def check_errno(value):
+            rposix.set_errno(value)
+            for i in range(10000000):
+                pass
+            assert rposix.get_errno() == value
+
         def bootstrap():
             rthread.gc_thread_start()
+            check_errno(42)
             state.xlist.append(Cons(123, Cons(456, None)))
             gc.collect()
             rthread.gc_thread_die()
 
         def new_thread():
             ident = rthread.start_new_thread(bootstrap, ())
+            check_errno(41)
             time.sleep(0.5)    # enough time to start, hopefully
             return ident
 
@@ -1138,14 +1219,19 @@ class TestThread(object):
                 os.write(1, "%d ok\n" % (i+1))
             return 0
 
-        t, cbuilder = self.compile(entry_point)
-        data = cbuilder.cmdexec('')
-        assert data.splitlines() == ['hello world',
-                                     '1 ok',
-                                     '2 ok',
-                                     '3 ok',
-                                     '4 ok',
-                                     '5 ok']
+        def runme(no__thread):
+            t, cbuilder = self.compile(entry_point, no__thread=no__thread)
+            data = cbuilder.cmdexec('')
+            assert data.splitlines() == ['hello world',
+                                         '1 ok',
+                                         '2 ok',
+                                         '3 ok',
+                                         '4 ok',
+                                         '5 ok']
+
+        if SUPPORT__THREAD:
+            runme(no__thread=False)
+        runme(no__thread=True)
 
 
     def test_gc_with_fork_without_threads(self):
@@ -1297,7 +1383,10 @@ class TestShared(StandaloneTests):
 
         t, cbuilder = self.compile(entry_point, shared=True,
                                    entrypoints=[f])
+        ext_suffix = '.so'
+        if cbuilder.eci.platform.name == 'msvc':
+            ext_suffix = '.dll'
         libname = cbuilder.executable_name.join('..', 'lib' +
-                                                cbuilder.modulename + '.so')
+                                      cbuilder.modulename + ext_suffix)
         lib = ctypes.CDLL(str(libname))
         assert lib.foo(13) == 16

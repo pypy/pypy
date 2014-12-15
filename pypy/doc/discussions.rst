@@ -8,10 +8,8 @@ Help from domain experts would be welcome, since some of these documents probabl
 
 .. toctree::
 
-	discussion/finalizer-order.rst
-	discussion/howtoimplementpickling.rst
-	discussion/improve-rpython.rst
-	discussion/outline-external-ootype.rst
-	discussion/VM-integration.rst
-
-
+   discussion/finalizer-order
+   discussion/howtoimplementpickling
+   discussion/improve-rpython
+   discussion/ctypes-implementation
+   discussion/jit-profiler

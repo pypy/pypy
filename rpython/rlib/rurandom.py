@@ -5,11 +5,13 @@ from __future__ import with_statement
 import os, sys
 import errno
 
+from rpython.rtyper.lltypesystem import lltype, rffi
+
+
 if sys.platform == 'win32':
     from rpython.rlib import rwin32
     from rpython.translator.tool.cbuild import ExternalCompilationInfo
     from rpython.rtyper.tool import rffi_platform
-    from rpython.rtyper.lltypesystem import lltype, rffi
 
     eci = ExternalCompilationInfo(
         includes = ['windows.h', 'wincrypt.h'],
@@ -81,25 +83,28 @@ elif 0:  # __VMS
             return buf.str(n)
 else:  # Posix implementation
     def init_urandom():
-        pass
+        """NOT_RPYTHON
+        Return an array of one int, initialized to 0.
+        It is filled automatically the first time urandom() is called.
+        """
+        return lltype.malloc(rffi.CArray(lltype.Signed), 1,
+                             immortal=True, zero=True)
 
     def urandom(context, n):
         "Read n bytes from /dev/urandom."
         result = ''
         if n == 0:
             return result
-        fd = os.open("/dev/urandom", os.O_RDONLY, 0777)
-        try:
-            while n > 0:
-                try:
-                    data = os.read(fd, n)
-                except OSError, e:
-                    if e.errno != errno.EINTR:
-                        raise
-                    data = ''
-                result += data
-                n -= len(data)
-        finally:
-            os.close(fd)
+        if not context[0]:
+            context[0] = os.open("/dev/urandom", os.O_RDONLY, 0777)
+        while n > 0:
+            try:
+                data = os.read(context[0], n)
+            except OSError, e:
+                if e.errno != errno.EINTR:
+                    raise
+                data = ''
+            result += data
+            n -= len(data)
         return result
 

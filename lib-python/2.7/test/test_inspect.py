@@ -221,8 +221,23 @@ class TestRetrievingSourceCode(GetSourceBase):
                          [('FesteringGob', mod.FesteringGob),
                           ('MalodorousPervert', mod.MalodorousPervert),
                           ('ParrotDroppings', mod.ParrotDroppings),
-                          ('StupidGit', mod.StupidGit)])
-        tree = inspect.getclasstree([cls[1] for cls in classes], 1)
+                          ('StupidGit', mod.StupidGit),
+                          ('Tit', mod.MalodorousPervert),
+                         ])
+        tree = inspect.getclasstree([cls[1] for cls in classes])
+        self.assertEqual(tree,
+                         [(mod.ParrotDroppings, ()),
+                          [(mod.FesteringGob, (mod.MalodorousPervert,
+                                                  mod.ParrotDroppings))
+                           ],
+                          (mod.StupidGit, ()),
+                          [(mod.MalodorousPervert, (mod.StupidGit,)),
+                           [(mod.FesteringGob, (mod.MalodorousPervert,
+                                                   mod.ParrotDroppings))
+                            ]
+                           ]
+                          ])
+        tree = inspect.getclasstree([cls[1] for cls in classes], True)
         self.assertEqual(tree,
                          [(mod.ParrotDroppings, ()),
                           (mod.StupidGit, ()),
@@ -404,6 +419,12 @@ class TestBuggyCases(GetSourceBase):
         linecache.cache[co.co_filename] = (1, None, lines, co.co_filename)
         self.assertEqual(inspect.findsource(co), (lines,0))
         self.assertEqual(inspect.getsource(co), lines[0])
+
+    def test_findsource_without_filename(self):
+        for fname in ['', '<string>']:
+            co = compile('x=1', fname, "exec")
+            self.assertRaises(IOError, inspect.findsource, co)
+            self.assertRaises(IOError, inspect.getsource, co)
 
 
 class _BrokenDataDescriptor(object):

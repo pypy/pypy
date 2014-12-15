@@ -1,10 +1,11 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.jit.metainterp import history
+from rpython.jit.metainterp import history, compile
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.backend.model import AbstractCPU
 from rpython.jit.backend.llsupport import symbolic, jitframe
@@ -14,6 +15,7 @@ from rpython.jit.backend.llsupport.descr import (
     get_call_descr, get_interiorfield_descr,
     FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr,
     FLAG_POINTER, FLAG_FLOAT)
+from rpython.jit.backend.llsupport.memcpy import memset_fn
 from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from rpython.rlib.unroll import unrolling_iterable
 
@@ -215,7 +217,13 @@ class AbstractLLCPU(AbstractCPU):
         return lltype.cast_opaque_ptr(llmemory.GCREF, frame)
 
     def make_execute_token(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
+        # The JIT backend must generate functions with the following
+        # signature: it takes the jitframe and the threadlocal_addr
+        # as arguments, and it returns the (possibly reallocated) jitframe.
+        # The backend can optimize OS_THREADLOCALREF_GET calls to return a
+        # field of this threadlocal_addr, but only if 'translate_support_code':
+        # in untranslated tests, threadlocal_addr is a dummy NULL.
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.Address],
                                              llmemory.GCREF))
 
         lst = [(i, history.getkind(ARG)[0]) for i, ARG in enumerate(ARGS)]
@@ -247,8 +255,13 @@ class AbstractLLCPU(AbstractCPU):
                     else:
                         assert kind == history.REF
                         self.set_ref_value(ll_frame, num, arg)
+                if self.translate_support_code:
+                    ll_threadlocal_addr = llop.threadlocalref_addr(
+                        llmemory.Address)
+                else:
+                    ll_threadlocal_addr = llmemory.NULL
                 llop.gc_writebarrier(lltype.Void, ll_frame)
-                ll_frame = func(ll_frame)
+                ll_frame = func(ll_frame, ll_threadlocal_addr)
             finally:
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter
@@ -299,6 +312,7 @@ class AbstractLLCPU(AbstractCPU):
         return ofs, size, sign
     unpack_fielddescr_size._always_inline_ = True
 
+    @specialize.memo()
     def arraydescrof(self, A):
         return get_array_descr(self.gc_ll_descr, A)
 
@@ -342,10 +356,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def _decode_pos(self, deadframe, index):
         descr = self.get_latest_descr(deadframe)
-        if descr.final_descr:
-            assert index == 0
-            return 0
-        return descr.rd_locs[index]
+        return rffi.cast(lltype.Signed, descr.rd_locs[index]) * WORD
 
     def get_int_value(self, deadframe, index):
         pos = self._decode_pos(deadframe, index)
@@ -610,6 +621,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_new_array(self, length, arraydescr):
         return self.gc_ll_descr.gc_malloc_array(length, arraydescr)
+    bh_new_array_clear = bh_new_array
 
     def bh_newstr(self, length):
         return self.gc_ll_descr.gc_malloc_str(length)
@@ -659,3 +671,8 @@ class AbstractLLCPU(AbstractCPU):
             calldescr.verify_types(args_i, args_r, args_f, history.VOID)
         # the 'i' return value is ignored (and nonsense anyway)
         calldescr.call_stub_i(func, args_i, args_r, args_f)
+
+
+final_descr_rd_locs = [rffi.cast(rffi.USHORT, 0)]
+history.BasicFinalDescr.rd_locs = final_descr_rd_locs
+compile._DoneWithThisFrameDescr.rd_locs = final_descr_rd_locs
