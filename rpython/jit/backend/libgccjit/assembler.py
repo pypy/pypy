@@ -93,11 +93,19 @@ class AssemblerLibgccjit(BaseAssembler):
 
         self.b_current = self.lib.gcc_jit_function_new_block(self.fn, NULL)
 
-        for op in operations:
+        for op in operations:       
             print(op)
             print(type(op))
             print(dir(op))
             print(repr(op.getopname()))
+            # Add a comment describing this ResOperation
+            comment_text = str2charp(str(op))
+            self.lib.gcc_jit_block_add_comment(self.b_current,
+                                               self.lib.null_location_ptr,
+                                               comment_text)
+            free_charp(comment_text)
+
+            # Compile the operation itself...
             methname = '_on_%s' % op.getopname()
             getattr(self, methname) (op)
 
