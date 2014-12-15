@@ -605,6 +605,10 @@ def ll_dict_remove_deleted_items(d):
         newitems = lltype.malloc(lltype.typeOf(d).TO.entries.TO, new_allocated)
     else:
         newitems = d.entries
+        # The loop below does a lot of writes into 'newitems'.  It's a better
+        # idea to do a single gc_writebarrier rather than activating the
+        # card-by-card logic (worth 11% in microbenchmarks).
+        llop.gc_writebarrier(lltype.Void, newitems)
     #
     ENTRIES = lltype.typeOf(d).TO.entries.TO
     ENTRY = ENTRIES.OF
