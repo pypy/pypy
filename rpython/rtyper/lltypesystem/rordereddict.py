@@ -661,19 +661,11 @@ def _ll_dict_del(d, index):
         entry.key = lltype.nullptr(ENTRY.key.TO)
     if ENTRIES.must_clear_value:
         entry.value = lltype.nullptr(ENTRY.value.TO)
-    #
-    # The rest is commented out: like CPython we no longer shrink the
-    # dictionary here.  It may shrink later if we try to append a number
-    # of new items to it.  Unsure if this behavior was designed in
-    # CPython or is accidental.  A design reason would be that if you
-    # delete all items in a dictionary (e.g. with a series of
-    # popitem()), then CPython avoids shrinking the table several times.
-    #num_entries = len(d.entries)
-    #if num_entries > DICT_INITSIZE and d.num_items <= num_entries / 4:
-    #    ll_dict_resize(d)
-    # A previous xxx: move the size checking and resize into a single
-    # call which is opaque to the JIT when the dict isn't virtual, to
-    # avoid extra branches.
+
+    # If the dictionary is at least 87.5% dead items, then consider shrinking
+    # it.
+    if d.num_live_items + DICT_INITSIZE <= len(d.entries) / 8:
+        ll_dict_resize(d)
 
 def ll_dict_resize(d):
     # make a 'new_size' estimate and shrink it if there are many
