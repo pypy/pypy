@@ -418,6 +418,7 @@ TYPE_INT   = rffi.UINT
 TYPE_LONG  = lltype.Unsigned
 
 def ll_malloc_indexes_and_choose_lookup(d, n):
+    # keep in sync with ll_clear_indexes() below
     if n <= 256:
         d.indexes = lltype.cast_opaque_ptr(llmemory.GCREF,
                                            lltype.malloc(DICTINDEX_BYTE.TO, n,
@@ -438,6 +439,16 @@ def ll_malloc_indexes_and_choose_lookup(d, n):
                                            lltype.malloc(DICTINDEX_LONG.TO, n,
                                                          zero=True))
         d.lookup_function_no = FUNC_LONG
+
+def ll_clear_indexes(d, n):
+    if n <= 256:
+        rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_BYTE, d.indexes))
+    elif n <= 65536:
+        rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_SHORT, d.indexes))
+    elif IS_64BIT and n <= 2 ** 32:
+        rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_INT, d.indexes))
+    else:
+        rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_LONG, d.indexes))
 
 def ll_call_insert_clean_function(d, hash, i):
     DICT = lltype.typeOf(d).TO
@@ -704,13 +715,17 @@ def _ll_dict_resize_to(d, num_extra):
         ll_dict_reindex(d, new_size)
 
 def ll_dict_reindex(d, new_size):
-    ll_malloc_indexes_and_choose_lookup(d, new_size)
+    if bool(d.indexes) and _ll_len_of_d_indexes(d) == new_size:
+        ll_clear_indexes(d, new_size)   # hack: we can reuse the same array
+    else:
+        ll_malloc_indexes_and_choose_lookup(d, new_size)
     d.resize_counter = new_size * 2 - d.num_items * 3
     assert d.resize_counter > 0
     #
     entries = d.entries
     i = 0
-    while i < d.num_used_items:
+    ibound = d.num_used_items
+    while i < ibound:
         if entries.valid(i):
             hash = entries.hash(i)
             ll_call_insert_clean_function(d, hash, i)
