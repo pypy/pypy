@@ -71,7 +71,7 @@ class TestRDictDirect(object):
             for j in range(i):
                 assert rordereddict.ll_dict_getitem(ll_d, llstr(str(j))) == j
             rordereddict.ll_dict_setitem(ll_d, llstr(str(i)), i)
-        assert ll_d.num_items == 20
+        assert ll_d.num_live_items == 20
         for i in range(20):
             assert rordereddict.ll_dict_getitem(ll_d, llstr(str(i))) == i
 
@@ -84,7 +84,7 @@ class TestRDictDirect(object):
             rordereddict.ll_dict_setitem(ll_d, llstr(str(i)), i)
             if i % 2 != 0:
                 rordereddict.ll_dict_delitem(ll_d, llstr(str(i)))
-        assert ll_d.num_items == 10
+        assert ll_d.num_live_items == 10
         for i in range(0, 20, 2):
             assert rordereddict.ll_dict_getitem(ll_d, llstr(str(i))) == i
 
@@ -129,7 +129,7 @@ class TestRDictDirect(object):
         for i in range(40):
             rordereddict.ll_dict_setitem(ll_d, lls, i)
             rordereddict.ll_dict_delitem(ll_d, lls)
-        assert ll_d.num_used_items <= 10
+        assert ll_d.num_ever_used_items <= 10
 
     def test_dict_iteration(self):
         DICT = self._get_str_dict()
@@ -190,7 +190,7 @@ class TestRDictDirect(object):
         rordereddict.ll_dict_setitem(ll_d, llstr("j"), 1)
         rordereddict.ll_dict_setitem(ll_d, llstr("l"), 1)
         rordereddict.ll_dict_clear(ll_d)
-        assert ll_d.num_items == 0
+        assert ll_d.num_live_items == 0
 
     def test_get(self):
         DICT = self._get_str_dict()
@@ -349,7 +349,7 @@ class TestStress:
             if 1.38 <= x <= 1.39:
                 complete_check()
                 print 'current dict length:', referencelength
-            assert l_dict.num_items == referencelength
+            assert l_dict.num_live_items == referencelength
         complete_check()
 
     def test_stress_2(self):
@@ -418,5 +418,5 @@ class TestStress:
             if 1.38 <= x <= 1.39:
                 complete_check()
                 print 'current dict length:', referencelength
-            assert l_dict.num_items == referencelength
+            assert l_dict.num_live_items == referencelength
         complete_check()
