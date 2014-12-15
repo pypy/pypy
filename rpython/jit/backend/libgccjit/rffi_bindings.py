@@ -238,12 +238,13 @@ class Library:
     def add_entrypoint(self, returntype, name, paramtypes):
         setattr(self, name,
                 llexternal(name, paramtypes, returntype,
-                           compilation_info=self.eci))
+                           compilation_info=self.eci,
+                           _nowrapper=True))
 
     def make_enum_values(self, lines):
         for value, name in enumerate(lines.split(',')):
             name = name.strip()
             if name:
-                setattr(self, name, value)
+                setattr(self, name, r_int(value))
         
 

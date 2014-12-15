@@ -73,42 +73,50 @@ def test_compile_add_one_to():
 
         lib.gcc_jit_context_set_bool_option(ctxt,
                                             lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
-                                            1)
+                                            r_int(1))
         lib.gcc_jit_context_set_int_option(ctxt,
                                            lib.GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
-                                           3)
+                                           r_int(3))
         lib.gcc_jit_context_set_bool_option(ctxt,
                                             lib.GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
-                                            1)
+                                            r_int(1))
         lib.gcc_jit_context_set_bool_option(ctxt,
                                             lib.GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
-                                            1)
+                                            r_int(1))
         lib.gcc_jit_context_set_bool_option(ctxt,
                                             lib.GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE,
-                                            1)
+                                            r_int(1))
         t_int = lib.gcc_jit_context_get_type(ctxt, lib.GCC_JIT_TYPE_INT)
+        param_name = str2charp("input")
         param = lib.gcc_jit_context_new_param(ctxt,
                                               lib.null_location_ptr,
                                               t_int,
-                                              "input")
+                                              param_name)
+        free_charp(param_name)
         # FIXME: how to build an array of params at this level?
         # see liststr2charpp in rffi.py
         
+        fn_name = str2charp("add_one_to")
         param_array = make_param_array(lib, [param])
         fn = lib.gcc_jit_context_new_function(ctxt,
                                               lib.null_location_ptr,
                                               lib.GCC_JIT_FUNCTION_EXPORTED,
                                               t_int,
-                                              "add_one_to",
-                                              1, param_array, 0)
+                                              fn_name,
+                                              r_int(1), param_array, r_int(0))
         lltype.free(param_array, flavor='raw')
+        free_charp(fn_name)
 
+        local_name = str2charp("v_res")
         v_res = lib.gcc_jit_function_new_local(fn,
                                                lib.null_location_ptr,
                                                t_int,
-                                               "v_res")
-        b_initial = lib.gcc_jit_function_new_block(fn, "initial")
-        c_one = lib.gcc_jit_context_new_rvalue_from_int(ctxt, t_int, 1)
+                                               local_name)
+        free_charp(local_name)
+        block_name = str2charp("initial")
+        b_initial = lib.gcc_jit_function_new_block(fn, block_name)
+        free_charp(block_name)
+        c_one = lib.gcc_jit_context_new_rvalue_from_int(ctxt, t_int, r_int(1))
         op_add = lib.gcc_jit_context_new_binary_op(ctxt,
                                                    lib.null_location_ptr,
                                                    lib.GCC_JIT_BINARY_OP_PLUS,
@@ -127,7 +135,9 @@ def test_compile_add_one_to():
             # FIXME: get error from context
             raise Exception("jit_result is NULL")
 
-        fn_ptr = lib.gcc_jit_result_get_code(jit_result, "add_one_to")
+        fn_name = str2charp("add_one_to")
+        fn_ptr = lib.gcc_jit_result_get_code(jit_result, fn_name)
+        free_charp(fn_name)
         if not fn_ptr:
             raise Exception("fn_ptr is NULL")
         print('fn_ptr: %s' % fn_ptr)
@@ -154,7 +164,7 @@ def test_compile_add_one_to():
         
     f1 = compile_c(f, [], backendopt=False)
     assert f1() == 42
-    #assert False # to see stderr
+    assert False # to see stderr
     
 # TODO: test of an error
 # should turn it into an exception, and capture the error
