@@ -148,22 +148,21 @@ class CachedField(object):
                     opnum = OpHelpers.getfield_for_descr(op.getdescr())
                     getop = ResOperation(opnum, [op.getarg(0)],
                                          op.getdescr())
-                    getop.is_source_op = True
+                    getop.source_op = result
                     if isinstance(result, Const):
                         optimizer.make_constant(getop, result)
-                    shortboxes.add_potential(getop, synthetic=True)
+                    shortboxes.add_potential(result, getop, synthetic=True)
                 if op.getopnum() == rop.SETARRAYITEM_GC:
                     result = op.getarg(2)
+                    opnum = OpHelpers.getarrayitem_for_descr(op.getdescr())
+                    getop = ResOperation(opnum, [op.getarg(0), op.getarg(1)],
+                                         op.getdescr())
+                    getop.source_op = result
                     if isinstance(result, Const):
-                        newresult = result.clonebox()
-                        optimizer.make_constant(newresult, result)
-                        result = newresult
-                    getop = ResOperation(rop.GETARRAYITEM_GC, [op.getarg(0), op.getarg(1)],
-                                         result, op.getdescr())
-                    shortboxes.add_potential(getop, synthetic=True)
+                        optimizer.make_constant(getop, result)
+                    shortboxes.add_potential(result, getop, synthetic=True)
                 elif op.type != 'v':
-                    xxxx
-                    shortboxes.add_potential(op)
+                    shortboxes.add_potential(op, op)
 
 class BogusPureField(JitException):
     pass

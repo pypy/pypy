@@ -1404,14 +1404,6 @@ class FakeOptimizer:
 
 
 class TestShortBoxes:
-    p1 = BoxPtr()
-    p2 = BoxPtr()
-    p3 = BoxPtr()
-    p4 = BoxPtr()
-    i1 = BoxInt()
-    i2 = BoxInt()
-    i3 = BoxInt()
-    i4 = BoxInt()
     
     def test_short_box_duplication_direct(self):
         class Optimizer(FakeOptimizer):

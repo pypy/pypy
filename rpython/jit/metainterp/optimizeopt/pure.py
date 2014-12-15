@@ -124,7 +124,7 @@ class OptPure(Optimization):
 
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.emitted_pure_operations:
-            sb.add_potential(op)
+            sb.add_potential(op, op)
 
 dispatch_opt = make_dispatcher_method(OptPure, 'optimize_',
                                       default=OptPure.optimize_default)

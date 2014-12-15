@@ -261,11 +261,15 @@ class UnrollOptimizer(Optimization):
                 # note that emitting here SAME_AS should not happen, but
                 # in case it does, we would prefer to be suboptimal in asm
                 # to a fatal RPython exception.
-                if newresult is not op and \
+                source_op = newresult
+                while source_op.source_op:
+                    source_op = source_op.source_op
+                if source_op is not op and \
                    not self.short_boxes.has_producer(newresult) and \
                    not newvalue.is_constant():
                     xxx
-                    op = ResOperation(rop.SAME_AS, [op.result], newresult)
+                    opnum = OpHelpers.same_as_for_type(op.type)
+                    op = ResOperation(opnum, [op])
                     self.optimizer._newoperations.append(op)
                     #if self.optimizer.loop.logops:
                     #    debug_print('  Falling back to add extra: ' +

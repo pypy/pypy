@@ -614,13 +614,14 @@ class ShortBoxes(object):
         #    self.short_boxes = {}
 
     def dump(self, logops):
-        for op, resop in self.short_boxes.iteritems():
-            if isinstance(op, AbstractInputArg):
-                assert resop is None
-                debug_print(logops.repr_of_arg(op))
-            else:
-                debug_print("%s:%s"% (logops.repr_of_resop(op),
-                                      logops.repr_of_resop(resop)))
+        if 0:
+            for op, resop in self.short_boxes.iteritems():
+                if isinstance(op, AbstractInputArg):
+                    assert resop is None
+                    debug_print(logops.repr_of_arg(op))
+                else:
+                    debug_print("%s:%s"% (logops.repr_of_resop(op),
+                                          logops.repr_of_resop(resop)))
 
     def prioritized_alternatives(self, box):
         if box not in self.alternatives:
@@ -643,23 +644,30 @@ class ShortBoxes(object):
         #    op = op.clone(self.memo)
         #    op.is_source_op = True
         if box in self.short_boxes:
-            xxx
+            #if op is None:
+            #    xxx
+            #    oldop = self.short_boxes[box]
+            #    self.rename[op] = oldop
+            #    self.short_boxes[box] = None
+            #    self.short_boxes[oldop] = oldop
+            #else:
+            #    xxxx
+            #    newop = op.clone()
+            #    newbox = newop.result = op.result.clonebox()
+            #    self.short_boxes[newop.result] = newop
+            #xxx
+            #value = self.optimizer.getvalue(box)
+            #self.optimizer.emit_operation(ResOperation(rop.SAME_AS, [box], newbox))
+            #self.optimizer.make_equal_to(newbox, value)
             if op is None:
-                xxxx
-                oldop = self.short_boxes[box].clone()
-                oldres = oldop.result
-                newbox = oldop.result = oldres.clonebox()
-                self.rename[box] = newbox
-                self.short_boxes[box] = None
-                self.short_boxes[newbox] = oldop
+                if self.short_boxes[box] is not box:
+                    xxx
             else:
-                xxxx
-                newop = op.clone()
-                newbox = newop.result = op.result.clonebox()
-                self.short_boxes[newop.result] = newop
-            value = self.optimizer.getvalue(box)
-            self.optimizer.emit_operation(ResOperation(rop.SAME_AS, [box], newbox))
-            self.optimizer.make_equal_to(newbox, value)
+                if self.short_boxes[box] is not op:
+                    if self.short_boxes[box] is None:
+                        self.short_boxes[box] = op
+                    else:
+                        xxx
         else:
             self.short_boxes[box] = op
 
@@ -692,19 +700,19 @@ class ShortBoxes(object):
         else:
             raise BoxNotProducable
 
-    def add_potential(self, op, synthetic=False):
-        if op in self.optimizer.values:
-            value = self.optimizer.values[op]
+    def add_potential(self, key, op, synthetic=False):
+        if key in self.optimizer.values:
+            value = self.optimizer.values[key]
             if value in self.optimizer.opaque_pointers:
                 classbox = value.get_constant_class(self.optimizer.cpu)
                 if classbox:
-                    self.assumed_classes[op] = classbox
-        if op not in self.potential_ops:
-            self.potential_ops[op] = op
+                    self.assumed_classes[key] = classbox
+        if key not in self.potential_ops:
+            self.potential_ops[key] = op
         else:
-            if op not in self.alternatives:
-                self.alternatives[op] = [op]
-            self.alternatives[op].append(op)
+            if key not in self.alternatives:
+                self.alternatives[key] = [self.potential_ops[key]]
+            self.alternatives[key].append(op)
         if synthetic:
             self.synthetic[op] = True
 
