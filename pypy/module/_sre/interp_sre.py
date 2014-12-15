@@ -415,7 +415,8 @@ class W_SRE_Match(W_Root):
         try:
             groupnum = space.int_w(w_arg)
         except OperationError, e:
-            if not e.match(space, space.w_TypeError):
+            if not e.match(space, space.w_TypeError) and \
+                    not e.match(space, space.w_OverflowError):
                 raise
             try:
                 w_groupnum = space.getitem(self.srepat.w_groupindex, w_arg)
