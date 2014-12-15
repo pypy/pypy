@@ -263,6 +263,19 @@ class BaseTestSQLite:
         finally:
             del _sqlite3.adapters[(int, _sqlite3.PrepareProtocol)]
 
+    def test_null_character(self, con):
+        if not hasattr(_sqlite3, '_ffi') and sys.version_info < (2, 7, 9):
+            pytest.skip("_sqlite3 too old")
+        exc = raises(ValueError, con, "\0select 1")
+        assert str(exc.value) == "the query contains a null character"
+        exc = raises(ValueError, con, "select 1\0")
+        assert str(exc.value) == "the query contains a null character"
+        cur = con.cursor()
+        exc = raises(ValueError, cur.execute, "\0select 2")
+        assert str(exc.value) == "the query contains a null character"
+        exc = raises(ValueError, cur.execute, "select 2\0")
+        assert str(exc.value) == "the query contains a null character"
+
 
 class TestSQLiteHost(BaseTestSQLite):
     def setup_class(cls):

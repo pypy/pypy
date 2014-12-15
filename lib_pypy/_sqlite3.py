@@ -1202,6 +1202,8 @@ class Statement(object):
 
         if not isinstance(sql, basestring):
             raise Warning("SQL is of wrong type. Must be string or unicode.")
+        if '\0' in sql:
+            raise ValueError("the query contains a null character")
 
         first_word = sql.lstrip().split(" ")[0].upper()
         if first_word == "":
