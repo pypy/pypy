@@ -34,7 +34,7 @@ def test_string():
     assert xf() == 3
 """
 
-from rpython.jit.backend.libgccjit.rffi_bindings import make_eci, Library
+from rpython.jit.backend.libgccjit.rffi_bindings import make_eci, Library, make_param_array
 
 def test_compile_empty_context():
     eci = make_eci()
@@ -51,15 +51,6 @@ def test_compile_empty_context():
     f1 ()
     #assert False # to see stderr
 
-def make_param_array(lib, l):
-    array = lltype.malloc(lib.PARAM_P_P.TO,
-                          len(l),
-                          flavor='raw') # of maybe gc?
-    for i in range(len(l)):
-        array[i] = l[i]
-    return array
-    # FIXME: don't leak!
-    
 def test_compile_add_one_to():
     eci = make_eci()
 

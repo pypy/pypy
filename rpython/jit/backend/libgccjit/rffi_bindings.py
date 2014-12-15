@@ -37,6 +37,15 @@ def make_eci():
                                   library_dirs=[LIB_DIR])
     return eci
 
+def make_param_array(lib, l):
+    array = lltype.malloc(lib.PARAM_P_P.TO,
+                          len(l),
+                          flavor='raw') # of maybe gc?
+    for i in range(len(l)):
+        array[i] = l[i]
+    return array
+    # FIXME: don't leak!
+
 class Library:
     def __init__(self, eci):
         self.eci = eci
