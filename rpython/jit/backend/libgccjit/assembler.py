@@ -59,6 +59,8 @@ class AssemblerLibgccjit(BaseAssembler):
         print('assemble_loop')
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         print(clt)
+        looptoken.compiled_loop_token = clt
+        clt._debug_nbargs = len(inputargs)
 
         # Make function:
         self.lvalue_for_box = {}
@@ -93,11 +95,13 @@ class AssemblerLibgccjit(BaseAssembler):
 
         self.b_current = self.lib.gcc_jit_function_new_block(self.fn, NULL)
 
-        for op in operations:       
+        for op in operations:
+            """
             print(op)
             print(type(op))
             print(dir(op))
             print(repr(op.getopname()))
+            """
             # Add a comment describing this ResOperation
             comment_text = str2charp(str(op))
             self.lib.gcc_jit_block_add_comment(self.b_current,
@@ -114,15 +118,24 @@ class AssemblerLibgccjit(BaseAssembler):
         if not jit_result:
             # FIXME: get error from context
             raise Exception("jit_result is NULL")
-        raise foo
+
+        fn_name = str2charp(loopname)
+        fn_ptr = self.lib.gcc_jit_result_get_code(jit_result, fn_name)
+        free_charp(fn_name)
+
+        looptoken._ll_function_addr = fn_ptr
+
+        # FIXME: this leaks the gcc_jit_result
 
     def expr_to_rvalue(self, expr):
+        """
         print('expr_to_rvalue')
         print(' %s' % expr)
         print(' %r' % expr)
         print(' %s' % type(expr))
         print(' %s' % dir(expr))
         print(' %s' % expr.__dict__)
+        """
 
         if isinstance(expr, BoxInt):
             return self.lib.gcc_jit_lvalue_as_rvalue(self.get_box_as_lvalue(expr))
@@ -132,6 +145,7 @@ class AssemblerLibgccjit(BaseAssembler):
             return self.lib.gcc_jit_context_new_rvalue_from_int(self.ctxt,
                                                                 self.t_int,
                                                                 r_int(expr.value))
+        raise ValueError('unhandled expr: %s' % expr)
 
     def get_box_as_lvalue(self, box):
         if box not in self.lvalue_for_box:
@@ -145,24 +159,27 @@ class AssemblerLibgccjit(BaseAssembler):
         return self.lvalue_for_box[box]
 
     def expr_to_lvalue(self, expr):
+        """
         print('expr_to_lvalue')
         print(' %s' % expr)
         print(' %r' % expr)
         print(' %s' % type(expr))
         print(' %s' % dir(expr))
         print(' %s' % expr.__dict__)
+        """
         if isinstance(expr, BoxInt):
             return self.get_box_as_lvalue(expr)
-        raise foo
+        raise ValueError('unhandled expr: %s' % expr)
 
     # Handling of specific ResOperation subclasses
 
     def _on_int_add(self, op):
+        """
         print(op._arg0)
         print(op._arg1)
         print(op.result)
         print(op.__dict__)
-
+        """
         rval0 = self.expr_to_rvalue(op._arg0)
         rval1 = self.expr_to_rvalue(op._arg1)
         lvalres = self.expr_to_lvalue(op.result)
@@ -180,7 +197,9 @@ class AssemblerLibgccjit(BaseAssembler):
                                               op_add)
 
     def _on_finish(self, op):
+        """
         print(op.__dict__)
+        """
         # FIXME: assume just 1-ary FINISH for now
         assert len(op._args) == 1
         result = op._args[0]

@@ -14,6 +14,7 @@ class CPU(AbstractLLCPU):
 
     def compile_loop(self, inputargs, operations, looptoken,
                      log=True, name='', logger=None):
+        """
         import sys
         sys.stderr.write('compile_loop:\n')
         for i, arg in enumerate(inputargs):
@@ -27,6 +28,6 @@ class CPU(AbstractLLCPU):
         sys.stderr.write('  name: %r\n' % (name, ))
         sys.stderr.write('  logger: %r\n' % (logger, ))
         sys.stderr.write('compile_loop: %r\n' % locals ())
-        #raise NotImplementedError
+        """
         return self.assembler.assemble_loop(inputargs, operations, looptoken, log,
                                             name, logger)
