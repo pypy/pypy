@@ -608,6 +608,7 @@ def ll_dict_remove_deleted_items(d):
         # The loop below does a lot of writes into 'newitems'.  It's a better
         # idea to do a single gc_writebarrier rather than activating the
         # card-by-card logic (worth 11% in microbenchmarks).
+        from rpython.rtyper.lltypesystem.lloperation import llop
         llop.gc_writebarrier(lltype.Void, newitems)
     #
     ENTRIES = lltype.typeOf(d).TO.entries.TO
