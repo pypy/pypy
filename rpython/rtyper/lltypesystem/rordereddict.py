@@ -72,6 +72,8 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
         'must_clear_value': (isinstance(DICTVALUE, lltype.Ptr)
                              and DICTVALUE._needsgc()),
         }
+    if getattr(ll_eq_function, 'no_direct_compare', False):
+        entrymeths['no_direct_compare'] = True
 
     # * the key
     entryfields.append(("key", DICTKEY))
