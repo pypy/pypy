@@ -575,7 +575,11 @@ def _overallocate_entries_len(baselen):
 
 @jit.dont_look_inside
 def ll_dict_grow(d):
-    if d.num_items < d.num_used_items // 4:
+    if d.num_items < d.num_used_items // 2:
+        # At least 50% of the allocated entries are dead, so perform a
+        # compaction. If ll_dict_remove_deleted_items detects that over
+        # 75% of allocated entries are dead, then it will also shrink the
+        # memory allocated at the same time as doing a compaction.
         ll_dict_remove_deleted_items(d)
         return True
 
@@ -594,8 +598,10 @@ def ll_dict_grow(d):
     return False
 
 def ll_dict_remove_deleted_items(d):
-    new_allocated = _overallocate_entries_len(d.num_items)
-    if new_allocated < len(d.entries) // 2:
+    if d.num_items < len(d.entries) // 4:
+        # At least 75% of the allocated entries are dead, so shrink the memory
+        # allocated as well as doing a compaction.
+        new_allocated = _overallocate_entries_len(d.num_items)
         newitems = lltype.malloc(lltype.typeOf(d).TO.entries.TO, new_allocated)
     else:
         newitems = d.entries
