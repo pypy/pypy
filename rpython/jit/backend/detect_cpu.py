@@ -99,6 +99,9 @@ def autodetect():
 
 
 def getcpuclassname(backend_name="auto"):
+    # FIXME:
+    return 'rpython.jit.backend.libgccjit.runner', 'CPU'
+
     if backend_name == "auto":
         backend_name = autodetect()
     backend_name = backend_name.replace('_', '-')
