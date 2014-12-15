@@ -662,6 +662,19 @@ def _ll_dict_del(d, index):
     if ENTRIES.must_clear_value:
         entry.value = lltype.nullptr(ENTRY.value.TO)
 
+    if index == d.num_ever_used_items - 1:
+        # The last element of the ordereddict has been deleted. Instead of
+        # simply marking the item as dead, we can safely reuse it. Since it's
+        # also possible that there are more dead items immediately behind the
+        # last one, we reclaim all the dead items at the end of the ordereditem
+        # at the same point.
+        i = d.num_ever_used_items - 2
+        while i >= 0 and not d.entries.valid(i):
+            i -= 1
+        j = i + 1
+        assert j >= 0
+        d.num_ever_used_items = j
+
     # If the dictionary is at least 87.5% dead items, then consider shrinking
     # it.
     if d.num_live_items + DICT_INITSIZE <= len(d.entries) / 8:
