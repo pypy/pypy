@@ -1179,7 +1179,11 @@ class TestOrderedDict(unittest.TestCase):
         od = OrderedDict(pairs)
         # yaml.dump(od) -->
         # '!!python/object/apply:__main__.OrderedDict\n- - [a, 1]\n  - [b, 2]\n'
-        self.assertTrue(all(type(pair)==list for pair in od.__reduce__()[1]))
+
+        # PyPy bug fix: added [0] at the end of this line, because the
+        # test is really about the 2-tuples that need to be 2-lists
+        # inside the list of 6 of them
+        self.assertTrue(all(type(pair)==list for pair in od.__reduce__()[1][0]))
 
     def test_reduce_not_too_fat(self):
         # do not save instance dictionary if not needed
