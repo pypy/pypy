@@ -536,7 +536,7 @@ def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
         if len(d.entries) == d.num_ever_used_items:
             try:
                 reindexed = ll_dict_grow(d)
-            except MemoryError:
+            except:
                 _ll_dict_rescue(d)
                 raise
         rc = d.resize_counter - 3
@@ -544,7 +544,7 @@ def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
             try:
                 ll_dict_resize(d)
                 reindexed = True
-            except MemoryError:
+            except:
                 _ll_dict_rescue(d)
                 raise
             rc = d.resize_counter - 3
