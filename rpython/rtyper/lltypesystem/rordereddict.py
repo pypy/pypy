@@ -532,9 +532,27 @@ def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
         entry = d.entries[i]
         entry.value = value
     else:
+        reindexed = False
         if len(d.entries) == d.num_ever_used_items:
-            if ll_dict_grow(d):
-                ll_call_insert_clean_function(d, hash, d.num_ever_used_items)
+            try:
+                reindexed = ll_dict_grow(d)
+            except MemoryError:
+                _ll_dict_rescue(d)
+                raise
+        rc = d.resize_counter - 3
+        if rc <= 0:
+            try:
+                ll_dict_resize(d)
+                reindexed = True
+            except MemoryError:
+                _ll_dict_rescue(d)
+                raise
+            rc = d.resize_counter - 3
+            ll_assert(rc > 0, "ll_dict_resize failed?")
+        if reindexed:
+            ll_call_insert_clean_function(d, hash, d.num_ever_used_items)
+        #
+        d.resize_counter = rc
         entry = d.entries[d.num_ever_used_items]
         entry.key = key
         entry.value = value
@@ -544,12 +562,13 @@ def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
             entry.f_valid = True
         d.num_ever_used_items += 1
         d.num_live_items += 1
-        rc = d.resize_counter - 3
-        if rc <= 0:
-            ll_dict_resize(d)
-            rc = d.resize_counter - 3
-            ll_assert(rc > 0, "ll_dict_resize failed?")
-        d.resize_counter = rc
+
+def _ll_dict_rescue(d):
+    # MemoryError situation!  The 'indexes' contains an invalid entry
+    # at this point.  But we can call ll_dict_reindex() with the
+    # following arguments, ensuring no further malloc occurs.
+    ll_dict_reindex(d, _ll_len_of_d_indexes(d))
+_ll_dict_rescue._dont_inline_ = True
 
 def _ll_dict_insertclean(d, key, value, hash):
     ENTRY = lltype.typeOf(d.entries).TO.OF

@@ -292,9 +292,6 @@ class TestOrderedRDict(BaseTestRDict):
         res = self.interpret(func, [5])
         assert res == 6
 
-    def test_memoryerror_should_not_insert(self):
-        py.test.skip("I don't want to edit this file on two branches")
-
 
 class TestStress:
 
