@@ -563,6 +563,7 @@ def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
         d.num_ever_used_items += 1
         d.num_live_items += 1
 
+@jit.dont_look_inside
 def _ll_dict_rescue(d):
     # MemoryError situation!  The 'indexes' contains an invalid entry
     # at this point.  But we can call ll_dict_reindex() with the
@@ -588,6 +589,7 @@ def _ll_dict_insertclean(d, key, value, hash):
 def _ll_len_of_d_indexes(d):
     # xxx Haaaack: returns len(d.indexes).  Works independently of
     # the exact type pointed to by d, using a forced cast...
+    # Must only be called by @jit.dont_look_inside functions.
     return len(rffi.cast(DICTINDEX_BYTE, d.indexes))
 
 def _overallocate_entries_len(baselen):
