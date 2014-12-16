@@ -705,6 +705,27 @@ class SSLSocket(W_Root):
                     return space.wrap(
                         rffi.charpsize2str(out_ptr[0], widen(len_ptr[0])))
 
+    def tls_unique_cb(self, space):
+        """Returns the 'tls-unique' channel binding data, as defined by RFC 5929.
+        If the TLS handshake is not yet complete, None is returned"""
+
+        # In case of 'tls-unique' it will be 12 bytes for TLS, 36
+        # bytes for older SSL, but let's be safe
+        CB_MAXLEN = 128
+
+        with lltype.scoped_alloc(rffi.CCHARP.TO, CB_MAXLEN) as buf:
+            if (libssl_SSL_session_reused(self.ssl) ^ 
+                (self.socket_side == PY_SSL_CLIENT)):
+                # if session is resumed XOR we are the client
+                length = libssl_SSL_get_finished(self.ssl, buf, CB_MAXLEN)
+            else:
+                # if a new session XOR we are the server
+                length = libssl_SSL_get_peer_finished(self.ssl, buf, CB_MAXLEN)
+            
+            if length > 0:
+                return space.wrapbytes(rffi.charpsize2str(buf, intmask(length)))
+
+
 def _decode_certificate(space, certificate, verbose=False):
     w_retval = space.newdict()
 
@@ -916,6 +937,7 @@ SSLSocket.typedef = TypeDef("_SSLSocket",
     cipher = interp2app(SSLSocket.cipher),
     peer_certificate = interp2app(SSLSocket.peer_certificate),
     selected_npn_protocol = interp2app(SSLSocket.selected_npn_protocol),
+    tls_unique_cb = interp2app(SSLSocket.tls_unique_cb),
 )
 
 
@@ -947,6 +969,7 @@ def new_sslobject(space, ctx, w_sock, side, server_hostname):
         libssl_SSL_set_connect_state(ss.ssl)
     else:
         libssl_SSL_set_accept_state(ss.ssl)
+    ss.socket_side = side
 
     ss.w_socket = weakref.ref(w_sock)
     return ss

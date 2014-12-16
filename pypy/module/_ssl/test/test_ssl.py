@@ -190,6 +190,14 @@ class AppTestConnectedSSL:
         self.s.close()
         del ss; gc.collect()
 
+    def test_tls_unique_cb(self):
+        import ssl, sys, gc
+        ss = ssl.wrap_socket(self.s)
+        ss.do_handshake()
+        assert isinstance(ss.get_channel_binding(), bytes)
+        self.s.close()
+        del ss; gc.collect()
+
 
 class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
     # Same tests, with a socket timeout
