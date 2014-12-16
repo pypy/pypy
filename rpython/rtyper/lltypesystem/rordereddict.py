@@ -463,6 +463,19 @@ def ll_call_insert_clean_function(d, hash, i):
     else:
         assert False
 
+def ll_call_delete_by_entry_index(d, hash, i):
+    DICT = lltype.typeOf(d).TO
+    if d.lookup_function_no == FUNC_BYTE:
+        ll_dict_delete_by_entry_index(d, hash, i, TYPE_BYTE)
+    elif d.lookup_function_no == FUNC_SHORT:
+        ll_dict_delete_by_entry_index(d, hash, i, TYPE_SHORT)
+    elif IS_64BIT and d.lookup_function_no == FUNC_INT:
+        ll_dict_delete_by_entry_index(d, hash, i, TYPE_INT)
+    elif d.lookup_function_no == FUNC_LONG:
+        ll_dict_delete_by_entry_index(d, hash, i, TYPE_LONG)
+    else:
+        assert False
+
 def ll_valid_from_flag(entries, i):
     return entries[i].f_valid
 
@@ -769,22 +782,10 @@ MIN_INDEXES_MINUS_ENTRIES = VALID_OFFSET + 1
 FLAG_LOOKUP = 0
 FLAG_STORE = 1
 FLAG_DELETE = 2
-FLAG_DELETE_TRY_HARD = 3
 
 @specialize.memo()
 def _ll_ptr_to_array_of(T):
     return lltype.Ptr(lltype.GcArray(T))
-
-def ll_kill_something(d, T):
-    INDEXES = _ll_ptr_to_array_of(T)
-    i = 0
-    indexes = lltype.cast_opaque_ptr(INDEXES, d.indexes)
-    while True:
-        index = rffi.cast(lltype.Signed, indexes[i])
-        if index >= VALID_OFFSET:
-            indexes[i] = rffi.cast(T, DELETED)
-            return index
-        i += 1
 
 @jit.look_inside_iff(lambda d, key, hash, store_flag, T:
                      jit.isvirtual(d) and jit.isconstant(key))
@@ -827,8 +828,6 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
         # pristine entry -- lookup failed
         if store_flag == FLAG_STORE:
             indexes[i] = rffi.cast(T, d.num_ever_used_items + VALID_OFFSET)
-        elif d.paranoia and store_flag == FLAG_DELETE_TRY_HARD:
-            return ll_kill_something(d, T)
         return -1
 
     # In the loop, a deleted entry (everused and not valid) is by far
@@ -845,8 +844,6 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
                     deletedslot = intmask(i)
                 indexes[deletedslot] = rffi.cast(T, d.num_ever_used_items +
                                                  VALID_OFFSET)
-            elif d.paranoia and store_flag == FLAG_DELETE_TRY_HARD:
-                return ll_kill_something(d, T)
             return -1
         elif index >= VALID_OFFSET:
             checkingkey = entries[index - VALID_OFFSET].key
@@ -881,11 +878,30 @@ def ll_dict_store_clean(d, hash, index, T):
     mask = len(indexes) - 1
     i = r_uint(hash & mask)
     perturb = r_uint(hash)
-    while rffi.cast(lltype.Signed, indexes[i]) != 0:
+    while rffi.cast(lltype.Signed, indexes[i]) != FREE:
         i = (i << 2) + i + perturb + 1
         i = i & mask
         perturb >>= PERTURB_SHIFT
     indexes[i] = rffi.cast(T, index + VALID_OFFSET)
+
+def ll_dict_delete_by_entry_index(d, hash, locate_index, T):
+    # Another simplified version of ll_dict_lookup() which locates a
+    # hashtable entry with the given 'index' stored in it, and deletes it.
+    # This *should* be safe against evil user-level __eq__/__hash__
+    # functions because the 'hash' argument here should be the one stored
+    # into the directory, which is correct.
+    INDEXES = _ll_ptr_to_array_of(T)
+    indexes = lltype.cast_opaque_ptr(INDEXES, d.indexes)
+    mask = len(indexes) - 1
+    i = r_uint(hash & mask)
+    perturb = r_uint(hash)
+    locate_value = locate_index + VALID_OFFSET
+    while rffi.cast(lltype.Signed, indexes[i]) != locate_value:
+        assert rffi.cast(lltype.Signed, indexes[i]) != FREE
+        i = (i << 2) + i + perturb + 1
+        i = i & mask
+        perturb >>= PERTURB_SHIFT
+    indexes[i] = rffi.cast(T, DELETED)
 
 # ____________________________________________________________
 #
@@ -1133,16 +1149,9 @@ def _ll_getnextitem(dic):
             break
         dic.num_ever_used_items -= 1
 
-    key = entries[i].key
-    index = dic.lookup_function(dic, key, entries.hash(i),
-                                FLAG_DELETE_TRY_HARD)
-    # if the lookup function returned me a random strange thing,
-    # don't care about deleting the item
-    if index == dic.num_ever_used_items - 1:
-        dic.num_ever_used_items -= 1
-    else:
-        assert index != -1
-    return index
+    # we must remove the precise entry in the hashtable that points to 'i'
+    ll_call_delete_by_entry_index(dic, entries.hash(i), i)
+    return i
 
 def ll_dict_popitem(ELEM, dic):
     i = _ll_getnextitem(dic)
