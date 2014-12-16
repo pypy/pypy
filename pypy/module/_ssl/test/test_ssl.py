@@ -222,6 +222,15 @@ class AppTestConnectedSSL:
         raises(ssl.SSLError, ss.write, "hello\n")
         del ss; gc.collect()
 
+    def test_npn_protocol(self):
+        import socket, _ssl, gc
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx._set_npn_protocols(b'\x08http/1.1\x06spdy/2')
+        ss = ctx._wrap_socket(self.s, True,
+                              server_hostname="svn.python.org")
+        self.s.close()
+        del ss; gc.collect()
+
 
 class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
     # Same tests, with a socket timeout
