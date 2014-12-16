@@ -1143,6 +1143,10 @@ def _ll_getnextitem(dic):
 
     entries = dic.entries
 
+    # find the last entry.  It's unclear if the loop below is still
+    # needed nowadays, because 'num_ever_used_items - 1' should always
+    # point to the last active item (we decrease it as needed in
+    # _ll_dict_del).  Better safe than sorry.
     while True:
         i = dic.num_ever_used_items - 1
         if entries.valid(i):
