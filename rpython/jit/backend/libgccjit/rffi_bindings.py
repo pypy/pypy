@@ -351,6 +351,13 @@ class Context(Wrapper):
             raise Exception("result is NULL")
         return Result(self.lib, inner_result)
 
+    def dump_to_file(self, path, update_locations):
+        path_charp = str2charp(path)
+        self.lib.gcc_jit_context_dump_to_file(self.inner_ctxt,
+                                              path_charp,
+                                              update_locations)
+        free_charp(path_charp)
+
     def get_type(self, r_enum):
         return Type(self.lib,
                     self.lib.gcc_jit_context_get_type(self.inner_ctxt,
@@ -364,10 +371,42 @@ class Context(Wrapper):
                                                    name_charp)
         free_charp(name_charp)
         return Field(self.lib, field)
+
+    def new_struct_type(self, name, fields):
+        name_charp = str2charp(name)
+        field_array = lltype.malloc(self.lib.FIELD_P_P.TO,
+                                    len(fields),
+                                    flavor='raw') # of maybe gc?
+        for i in range(len(fields)):
+            field_array[i] = fields[i].inner_field
+        inner_struct = (
+            self.lib.gcc_jit_context_new_struct_type(self.inner_ctxt,
+                                                     self.lib.null_location_ptr,
+                                                     name_charp,
+                                                     r_int(len(fields)),
+                                                     field_array))
+        lltype.free(field_array, flavor='raw')
+        free_charp(name_charp)
+        return Struct(self.lib, inner_struct)
     
+    def new_opaque_struct(self, name):
+        name_charp = str2charp(name)
+        inner_struct = (
+            self.lib.gcc_jit_context_new_opaque_struct(self.inner_ctxt,
+                                                       self.lib.null_location_ptr,
+                                                       name_charp))
+        free_charp(name_charp)
+        return Struct(self.lib, inner_struct)
+
     def new_rvalue_from_int(self, type_, llvalue):
         return RValue(self.lib,
                       self.lib.gcc_jit_context_new_rvalue_from_int(self.inner_ctxt,
+                                                                   type_.inner_type,
+                                                                   llvalue))
+
+    def new_rvalue_from_ptr(self, type_, llvalue):
+        return RValue(self.lib,
+                      self.lib.gcc_jit_context_new_rvalue_from_ptr(self.inner_ctxt,
                                                                    type_.inner_type,
                                                                    llvalue))
 
@@ -415,16 +454,47 @@ class Type(Wrapper):
         Wrapper.__init__(self, lib)
         self.inner_type = inner_type
 
+    def get_pointer(self):
+        return Type(self.lib,
+                    self.lib.gcc_jit_type_get_pointer(self.inner_type))
 
 class Field(Wrapper):
     def __init__(self, lib, inner_field):
         Wrapper.__init__(self, lib)
         self.inner_field = inner_field
 
+class Struct(Wrapper):
+    def __init__(self, lib, inner_struct):
+        Wrapper.__init__(self, lib)
+        self.inner_struct = inner_struct
+
+    def as_type(self):
+        return Type(self.lib,
+                    self.lib.gcc_jit_struct_as_type(self.inner_struct))
+
+
+    def set_fields(self, fields):
+        field_array = lltype.malloc(self.lib.FIELD_P_P.TO,
+                                    len(fields),
+                                    flavor='raw') # of maybe gc?
+        for i in range(len(fields)):
+            field_array[i] = fields[i].inner_field
+        self.lib.gcc_jit_struct_set_fields(self.inner_struct,
+                                           self.lib.null_location_ptr,
+                                           r_int(len(fields)),
+                                           field_array)
+        lltype.free(field_array, flavor='raw')
+
 class RValue(Wrapper):
     def __init__(self, lib, inner_rvalue):
         Wrapper.__init__(self, lib)
         self.inner_rvalue = inner_rvalue
+
+    def dereference_field(self, field):
+        return LValue(self.lib,
+                      self.lib.gcc_jit_rvalue_dereference_field(self.inner_rvalue,
+                                                                self.lib.null_location_ptr,
+                                                                field.inner_field))
 
 class LValue(Wrapper):
     def __init__(self, lib, inner_lvalue):
@@ -458,11 +528,15 @@ class Function(Wrapper):
         free_charp(name_charp)
         return LValue(self.lib, local)
 
-    def new_block(self, name):
-        name_charp = str2charp(name)
+    def new_block(self, name=None):
+        if name is not None:
+            name_charp = str2charp(name)
+        else:
+            name_charp = NULL
         block = self.lib.gcc_jit_function_new_block(self.inner_function,
                                                     name_charp)
-        free_charp(name_charp)
+        if name_charp:
+            free_charp(name_charp)
         return Block(self.lib, block)
 
 class Block(Wrapper):
@@ -475,6 +549,13 @@ class Block(Wrapper):
                                               self.lib.null_location_ptr,
                                               lvalue.inner_lvalue,
                                               rvalue.inner_rvalue)
+
+    def add_comment(self, text):
+        text_charp = str2charp(text)
+        self.lib.gcc_jit_block_add_comment(self.inner_block,
+                                           self.lib.null_location_ptr,
+                                           text_charp)
+        free_charp(text_charp)
 
     def end_with_return(self, rvalue):
         self.lib.gcc_jit_block_end_with_return(self.inner_block,
