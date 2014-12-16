@@ -578,7 +578,12 @@ class TestCollectionABCs(ABCTestCase):
             def __repr__(self):
                 return "MySet(%s)" % repr(list(self))
         s = MySet([5,43,2,1])
-        self.assertEqual(s.pop(), 1)
+        # changed from CPython 2.7: it was "s.pop() == 1" but I see
+        # nothing that guarantees a particular order here.  In the
+        # 'all_ordered_dicts' branch of PyPy (or with OrderedDict
+        # instead of sets), it consistently returns 5, but this test
+        # should not rely on this or any other order.
+        self.assert_(s.pop() in [5,43,2,1])
 
     def test_issue8750(self):
         empty = WithSet()
