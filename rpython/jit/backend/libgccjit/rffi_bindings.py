@@ -219,6 +219,19 @@ class Library:
                                                    self.GCC_JIT_RVALUE_P,
                                                    self.GCC_JIT_RVALUE_P]),
 
+                (self.GCC_JIT_RVALUE_P,
+                 'gcc_jit_context_new_comparison', [self.GCC_JIT_CONTEXT_P,
+                                                    self.GCC_JIT_LOCATION_P,
+                                                    INT, # enum gcc_jit_binary_op op,
+                                                    self.GCC_JIT_RVALUE_P,
+                                                    self.GCC_JIT_RVALUE_P]),
+
+                (self.GCC_JIT_RVALUE_P,
+                 'gcc_jit_context_new_cast', [self.GCC_JIT_CONTEXT_P,
+                                              self.GCC_JIT_LOCATION_P,
+                                              self.GCC_JIT_RVALUE_P,
+                                              self.GCC_JIT_TYPE_P]),
+
                 (self.GCC_JIT_LVALUE_P,
                  'gcc_jit_rvalue_dereference_field', [self.GCC_JIT_RVALUE_P,
                                                       self.GCC_JIT_LOCATION_P,
@@ -236,6 +249,16 @@ class Library:
                  'gcc_jit_block_add_comment', [self.GCC_JIT_BLOCK_P,
                                                self.GCC_JIT_LOCATION_P,
                                                CCHARP]),
+                (lltype.Void,
+                 'gcc_jit_block_end_with_conditional', [self.GCC_JIT_BLOCK_P,
+                                                        self.GCC_JIT_LOCATION_P,
+                                                        self.GCC_JIT_RVALUE_P,
+                                                        self.GCC_JIT_BLOCK_P,
+                                                        self.GCC_JIT_BLOCK_P]),
+                (lltype.Void,
+                 'gcc_jit_block_end_with_jump', [self.GCC_JIT_BLOCK_P,
+                                                 self.GCC_JIT_LOCATION_P,
+                                                 self.GCC_JIT_BLOCK_P]),
                 (lltype.Void,
                  'gcc_jit_block_end_with_return', [self.GCC_JIT_BLOCK_P,
                                                    self.GCC_JIT_LOCATION_P,
@@ -301,6 +324,16 @@ class Library:
             GCC_JIT_BINARY_OP_LOGICAL_OR,
             GCC_JIT_BINARY_OP_LSHIFT,
             GCC_JIT_BINARY_OP_RSHIFT
+            """)
+
+        self.make_enum_values(
+            """
+            GCC_JIT_COMPARISON_EQ,
+            GCC_JIT_COMPARISON_NE,
+            GCC_JIT_COMPARISON_LT,
+            GCC_JIT_COMPARISON_LE,
+            GCC_JIT_COMPARISON_GT,
+            GCC_JIT_COMPARISON_GE
             """)
 
         self.null_location_ptr = lltype.nullptr(self.GCC_JIT_LOCATION_P.TO)
@@ -418,6 +451,13 @@ class Context(Wrapper):
                                                              type_.inner_type,
                                                              a.inner_rvalue, b.inner_rvalue))
 
+    def new_comparison(self, op, a, b):
+        return RValue(self.lib,
+                      self.lib.gcc_jit_context_new_comparison(self.inner_ctxt,
+                                                              self.lib.null_location_ptr,
+                                                              op,
+                                                              a.inner_rvalue, b.inner_rvalue))
+
     def new_param(self, type_, name):
         name_charp = str2charp(name)
         param = self.lib.gcc_jit_context_new_param(self.inner_ctxt,
@@ -448,6 +488,12 @@ class Context(Wrapper):
 
         return Function(self.lib, fn)
 
+    def new_cast(self, rvalue, type_):
+        return RValue(self.lib,
+                      self.lib.gcc_jit_context_new_cast(self.inner_ctxt,
+                                                        self.lib.null_location_ptr,
+                                                        rvalue.inner_rvalue,
+                                                        type_.inner_type))
 
 class Type(Wrapper):
     def __init__(self, lib, inner_type):
@@ -556,6 +602,18 @@ class Block(Wrapper):
                                            self.lib.null_location_ptr,
                                            text_charp)
         free_charp(text_charp)
+
+    def end_with_conditional(self, boolval, on_true, on_false):
+        self.lib.gcc_jit_block_end_with_conditional(self.inner_block,
+                                                    self.lib.null_location_ptr,
+                                                    boolval.inner_rvalue,
+                                                    on_true.inner_block,
+                                                    on_false.inner_block)
+
+    def end_with_jump (self, target):
+        self.lib.gcc_jit_block_end_with_jump (self.inner_block,
+                                              self.lib.null_location_ptr,
+                                              target.inner_block)
 
     def end_with_return(self, rvalue):
         self.lib.gcc_jit_block_end_with_return(self.inner_block,
