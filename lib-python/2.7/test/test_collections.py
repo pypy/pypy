@@ -1203,6 +1203,16 @@ class TestOrderedDict(unittest.TestCase):
         od.x = 10
         self.assertEqual(len(od.__reduce__()), 3)
 
+    def test_reduce_exact_output(self):
+        # PyPy: test that __reduce__() produces the exact same answer as
+        # CPython does, even though in the 'all_ordered_dicts' branch we
+        # have to emulate it.
+        pairs = [['c', 1], ['b', 2], ['d', 4]]
+        od = OrderedDict(pairs)
+        self.assertEqual(od.__reduce__(), (OrderedDict, (pairs,)))
+        od.x = 10
+        self.assertEqual(od.__reduce__(), (OrderedDict, (pairs,), {'x': 10}))
+
     def test_repr(self):
         od = OrderedDict([('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)])
         self.assertEqual(repr(od),
