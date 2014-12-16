@@ -36,25 +36,28 @@ class AssemblerLibgccjit(BaseAssembler):
         self.num_anon_loops = 0
 
         self.make_context()
-        self.t_int = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_INT)
+        self.t_long = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_LONG)
         self.t_void_ptr = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID_PTR)
 
     def make_context(self):
         eci = make_eci()
         self.lib = Library(eci)
         self.ctxt = Context.acquire(self.lib)#self.lib.gcc_jit_context_acquire()
-        self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
-                                  r_int(1))
+        if 0:
+            self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
+                                      r_int(1))
         self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DEBUGINFO,
                                   r_int(1))
-        self.ctxt.set_int_option(self.lib.GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
-                                 r_int(3))
+        if 1:
+            self.ctxt.set_int_option(self.lib.GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
+                                     r_int(3))
         self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
                                   r_int(1))
         self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
                                   r_int(1))
-        self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE,
-                                  r_int(1))
+        if 0:
+            self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE,
+                                      r_int(1))
         
     def setup(self, looptoken):
         allblocks = self.get_asmmemmgr_blocks(looptoken)
@@ -90,25 +93,17 @@ class AssemblerLibgccjit(BaseAssembler):
         print('jitframe.JITFRAME._flds: %r' % jitframe.JITFRAME._flds)
 
         # For now, build a "struct jit_frame".
-        # This will have the fields of jitframe, but instead of 
-        # jf_frame, we'll have any input and output boxes:
-        visible_boxes = []
-        for arg in inputargs:
-            visible_boxes.append(arg)
-        for op in operations:
-            if op.getopname() == 'finish':
-                for arg in op._args:
-                    if arg not in visible_boxes:
-                        visible_boxes.append(arg)
-        print('visible_boxes: %r' % visible_boxes)
+        # This will have the fields of jitframe,
+        # We'll construct numbered arg0..argN for use
+        # for inputargs and the outputs
 
         fields = []
         def make_field(name, jit_type):
             field = self.ctxt.new_field(jit_type,name)
             fields.append(field)
             return field
-        make_field('jfi_frame_depth', self.t_int)
-        make_field('jfi_frame_size', self.t_int)
+        make_field('jfi_frame_depth', self.t_long)
+        make_field('jfi_frame_size', self.t_long)
 
         t_JITFRAMEINFO = (
             self.ctxt.new_struct_type ("JITFRAMEINFO",
@@ -122,25 +117,36 @@ class AssemblerLibgccjit(BaseAssembler):
 
         fields = []
         # FIXME: Does the GCStruct implicitly add any fields?
-        # If I put this here, then the arguments appear to be written to the
-        # place where I expect:
-        make_field('hack_rtti', self.t_void_ptr)
+        # If I omit this, then the jf_* fields appears in the same
+        # place in llmodel.py's get_latest_descr deadframe as
+        # in my generated code as seen in gdb.
+        #make_field('hack_rtti', self.t_void_ptr)
         make_field('jf_frame_info', t_JITFRAMEINFOPTR)
         self.field_jf_descr = make_field('jf_descr', self.t_void_ptr)
         make_field('jf_force_descr', self.t_void_ptr)
         make_field('jf_gcmap', self.t_void_ptr)
-        make_field('jf_extra_stack_depth', self.t_int)
+        make_field('jf_extra_stack_depth', self.t_long)
         make_field('jf_savedata', self.t_void_ptr)
         make_field('jf_guard_exc', self.t_void_ptr)
         make_field('jf_forward', t_jit_frame_ptr)
-        # jf_frame:
-        self.field_for_box = {}
+        # FIXME: for some reason there's an implicit word here;
+        # create it
+        make_field('jf_frame', self.t_long)
+
         locs = []
         #loc = jitframe.getofs('jf_frame')
-        for loc, box in enumerate(visible_boxes):
-            field = make_field(str(box), self.t_int)
-            locs.append(loc) # hack!
-            self.field_for_box[box] = field
+
+        max_args = len(inputargs)
+        for op in operations:
+            if op.getopname() == 'finish':
+                max_args = max(max_args, len(op._args))
+            # FIXME: other ops
+
+        self.field_for_arg_idx = {}
+        for idx in range(max_args):
+            self.field_for_arg_idx[idx] = make_field("arg%i" % idx,
+                                                     self.t_long)
+            locs.append(idx) # hack!
 
         struct_jit_frame.set_fields (fields)
 
@@ -155,36 +161,24 @@ class AssemblerLibgccjit(BaseAssembler):
         self.param_addr = self.ctxt.new_param(self.t_void_ptr, "addr")
         params.append(self.param_addr)
 
-        # For now, generate lvalues for the "visible boxes" directly as
-        # field lookups within the jit_frame:
-        for box in visible_boxes:
-            self.lvalue_for_box[box] = (
-                self.param_frame.as_rvalue().
-                  dereference_field (self.field_for_box[box]))
-
-        """
-        for arg in inputargs:
-            param_name = str2charp(str(arg))
-            param = self.lib.gcc_jit_context_new_param(self.ctxt,
-                                                       self.lib.null_location_ptr,
-                                                       self.t_int, # FIXME: use correct type
-                                                       param_name)
-            self.lvalue_for_box[arg] = self.lib.gcc_jit_param_as_lvalue(param)
-            free_charp(param_name)
-            params.append(param)
-        """
-        
         print("loopname: %r" % loopname)
         if not loopname:
             loopname = 'anonloop_%i' % self.num_anon_loops
             self.num_anon_loops += 1
         self.fn = self.ctxt.new_function(self.lib.GCC_JIT_FUNCTION_EXPORTED,
-                                         t_jit_frame_ptr, # self.t_int,
+                                         t_jit_frame_ptr, # self.t_long,
                                          loopname,
                                          params,
                                          r_int(0))
 
         self.b_current = self.fn.new_block()
+
+        # Get initial values from input args:
+        for idx, arg in enumerate(inputargs):
+            self.b_current.add_comment("inputargs[%i]: %s" % (idx, arg))
+            self.b_current.add_assignment(
+                self.get_box_as_lvalue(arg),
+                self.get_arg_as_lvalue(idx).as_rvalue())
 
         for op in operations:
             print(op)
@@ -227,17 +221,19 @@ class AssemblerLibgccjit(BaseAssembler):
         elif isinstance(expr, ConstInt):
             #print('value: %r' % expr.value)
             #print('type(value): %r' % type(expr.value))
-            return self.ctxt.new_rvalue_from_int(self.t_int,
+            return self.ctxt.new_rvalue_from_int(self.t_long,
                                                  r_int(expr.value))
         raise ValueError('unhandled expr: %s' % expr)
 
     def get_box_as_lvalue(self, box):
         if box not in self.lvalue_for_box:
-            raise foo
-            self.lvalue_for_box[box] = (
-                self.fn.new_local(self.t_int, # FIXME: use correct type
-                                  local_name))
+            self.lvalue_for_box[box] = self.fn.new_local(self.t_long,
+                                                         str(box))
         return self.lvalue_for_box[box]
+
+    def get_arg_as_lvalue(self, idx):
+        return self.param_frame.as_rvalue ().dereference_field (
+            self.field_for_arg_idx[idx])
 
     def expr_to_lvalue(self, expr):
         """
@@ -267,11 +263,18 @@ class AssemblerLibgccjit(BaseAssembler):
 
         op_add = (
             self.ctxt.new_binary_op(self.lib.GCC_JIT_BINARY_OP_PLUS,
-                                    self.t_int,
+                                    self.t_long,
                                     rval0, rval1))
         self.b_current.add_assignment(lvalres, op_add)
 
     def _emit_finish(self, op):
+        # Write outputs back:
+        for idx, arg in enumerate(op._args):
+            #self.b_current.add_comment("  op._args[%i]: %s" % (idx, arg))
+            self.b_current.add_assignment(
+                self.get_arg_as_lvalue(idx),
+                self.get_box_as_lvalue(arg).as_rvalue())
+
         # Write back to the jf_descr:
         #  "jitframe->jf_descr = op.getdescr();"
         descr = rffi.cast(lltype.Signed,
