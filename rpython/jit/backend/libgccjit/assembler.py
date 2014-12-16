@@ -173,6 +173,16 @@ class AssemblerLibgccjit(BaseAssembler):
 
         self.b_current = self.fn.new_block()
 
+        # Add an initial comment summarizing the loop
+        text = '\n\tinputargs: %s\n\n' % inputargs
+        for op in operations:
+            print(op)
+            print(type(op))
+            print(dir(op))
+            print(repr(op.getopname()))
+            text += '\t%s\n' % op
+        self.b_current.add_comment(str(text))
+    
         # Get initial values from input args:
         for idx, arg in enumerate(inputargs):
             self.b_current.add_comment("inputargs[%i]: %s" % (idx, arg))
@@ -189,7 +199,7 @@ class AssemblerLibgccjit(BaseAssembler):
             self.b_current.add_comment(str(op))
 
             # Compile the operation itself...
-            methname = '_emit_%s' % op.getopname()
+            methname = 'emit_%s' % op.getopname()
             getattr(self, methname) (op)
 
         
@@ -250,7 +260,7 @@ class AssemblerLibgccjit(BaseAssembler):
 
     # Handling of specific ResOperation subclasses
 
-    def _emit_int_add(self, op):
+    def emit_int_add(self, op):
         """
         print(op._arg0)
         print(op._arg1)
@@ -267,7 +277,25 @@ class AssemblerLibgccjit(BaseAssembler):
                                     rval0, rval1))
         self.b_current.add_assignment(lvalres, op_add)
 
-    def _emit_finish(self, op):
+    """
+    def emit_label(self, op):
+        print(op)
+        print(op.__dict__)
+
+    def emit_int_le(self, op):
+        print(op)
+        print(op.__dict__)
+
+    def emit_int_ge(self, op):
+        print(op)
+        print(op.__dict__)
+
+    def emit_guard_true(self, op):
+        print(op)
+        print(op.__dict__)
+    """
+
+    def emit_finish(self, op):
         # Write outputs back:
         for idx, arg in enumerate(op._args):
             #self.b_current.add_comment("  op._args[%i]: %s" % (idx, arg))
