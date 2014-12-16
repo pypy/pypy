@@ -46,6 +46,15 @@ def make_param_array(lib, l):
     return array
     # FIXME: don't leak!
 
+def make_field_array(lib, l):
+    array = lltype.malloc(lib.FIELD_P_P.TO,
+                          len(l),
+                          flavor='raw') # of maybe gc?
+    for i in range(len(l)):
+        array[i] = l[i]
+    return array
+    # FIXME: don't leak!
+
 class Library:
     def __init__(self, eci):
         self.eci = eci
@@ -57,6 +66,10 @@ class Library:
                                                    compilation_info=eci))
         self.GCC_JIT_TYPE_P = lltype.Ptr(COpaque(name='gcc_jit_type',
                                                  compilation_info=eci))
+        self.GCC_JIT_FIELD_P = lltype.Ptr(COpaque(name='gcc_jit_field',
+                                                  compilation_info=eci))
+        self.GCC_JIT_STRUCT_P = lltype.Ptr(COpaque(name='gcc_jit_struct',
+                                                   compilation_info=eci))
         self.GCC_JIT_LOCATION_P = lltype.Ptr(COpaque(name='gcc_jit_location',
                                                      compilation_info=eci))
         self.GCC_JIT_PARAM_P = lltype.Ptr(COpaque(name='gcc_jit_param',
@@ -70,6 +83,8 @@ class Library:
         self.GCC_JIT_BLOCK_P = lltype.Ptr(COpaque(name='gcc_jit_block',
                                                      compilation_info=eci))
 
+        self.FIELD_P_P = lltype.Ptr(lltype.Array(self.GCC_JIT_FIELD_P,
+                                                 hints={'nolength': True}))
         self.PARAM_P_P = lltype.Ptr(lltype.Array(self.GCC_JIT_PARAM_P,
                                                  hints={'nolength': True}))
 
@@ -94,6 +109,11 @@ class Library:
                  'gcc_jit_context_compile', [self.GCC_JIT_CONTEXT_P]),
 
 
+                (lltype.Void,
+                 'gcc_jit_context_dump_to_file', [self.GCC_JIT_CONTEXT_P,
+                                                  CCHARP,
+                                                  INT]),
+
                 (VOIDP,
                  'gcc_jit_result_get_code', [self.GCC_JIT_RESULT_P,
                                              CCHARP]),
@@ -107,6 +127,34 @@ class Library:
                 (self.GCC_JIT_TYPE_P,
                  'gcc_jit_context_get_type', [self.GCC_JIT_CONTEXT_P,
                                               INT]),
+
+                (self.GCC_JIT_TYPE_P,
+                 'gcc_jit_type_get_pointer', [self.GCC_JIT_TYPE_P]),
+
+                (self.GCC_JIT_FIELD_P,
+                 'gcc_jit_context_new_field', [self.GCC_JIT_CONTEXT_P,
+                                               self.GCC_JIT_LOCATION_P,
+                                               self.GCC_JIT_TYPE_P,
+                                               CCHARP]),
+                (self.GCC_JIT_STRUCT_P,
+                 'gcc_jit_context_new_struct_type', [self.GCC_JIT_CONTEXT_P,
+                                                     self.GCC_JIT_LOCATION_P,
+                                                     CCHARP,
+                                                     INT,
+                                                     self.FIELD_P_P]),
+
+                (self.GCC_JIT_STRUCT_P,
+                 'gcc_jit_context_new_opaque_struct', [self.GCC_JIT_CONTEXT_P,
+                                                       self.GCC_JIT_LOCATION_P,
+                                                       CCHARP]),
+                (self.GCC_JIT_TYPE_P,
+                 'gcc_jit_struct_as_type', [self.GCC_JIT_STRUCT_P]),
+
+                (lltype.Void,
+                 'gcc_jit_struct_set_fields', [self.GCC_JIT_STRUCT_P,
+                                               self.GCC_JIT_LOCATION_P,
+                                               INT,
+                                               self.FIELD_P_P]),
 
                 ############################################################
                 # Constructing functions.
@@ -159,12 +207,22 @@ class Library:
                                          self.GCC_JIT_TYPE_P]),
 
                 (self.GCC_JIT_RVALUE_P,
+                 'gcc_jit_context_new_rvalue_from_ptr', [self.GCC_JIT_CONTEXT_P,
+                                                         self.GCC_JIT_TYPE_P,
+                                                         VOIDP]),
+
+                (self.GCC_JIT_RVALUE_P,
                  'gcc_jit_context_new_binary_op', [self.GCC_JIT_CONTEXT_P,
                                                    self.GCC_JIT_LOCATION_P,
                                                    INT, # enum gcc_jit_binary_op op,
                                                    self.GCC_JIT_TYPE_P,
                                                    self.GCC_JIT_RVALUE_P,
                                                    self.GCC_JIT_RVALUE_P]),
+
+                (self.GCC_JIT_LVALUE_P,
+                 'gcc_jit_rvalue_dereference_field', [self.GCC_JIT_RVALUE_P,
+                                                      self.GCC_JIT_LOCATION_P,
+                                                      self.GCC_JIT_FIELD_P]),
 
                 ############################################################
                 # Statement-creation.
@@ -259,5 +317,181 @@ class Library:
             name = name.strip()
             if name:
                 setattr(self, name, r_int(value))
-        
 
+# An object-oriented interfact to the library
+
+class Wrapper:
+    def __init__(self, lib):
+        self.lib = lib
+
+class Context(Wrapper):
+    def __init__(self, lib, inner_ctxt):
+        Wrapper.__init__(self, lib)
+        self.inner_ctxt = inner_ctxt
+
+    @staticmethod
+    def acquire(lib):
+        return Context(lib, lib.gcc_jit_context_acquire())
+
+    def release(self):
+        self.lib.gcc_jit_context_release(self.inner_ctxt)
+
+    def set_bool_option(self, key, val):
+        self.lib.gcc_jit_context_set_bool_option(self.inner_ctxt,
+                                                 key, val)
+
+    def set_int_option(self, key, val):
+        self.lib.gcc_jit_context_set_int_option(self.inner_ctxt,
+                                                key, val)
+
+    def compile(self):
+        inner_result = self.lib.gcc_jit_context_compile(self.inner_ctxt)
+        if not inner_result:
+            # FIXME: get error from context
+            raise Exception("result is NULL")
+        return Result(self.lib, inner_result)
+
+    def get_type(self, r_enum):
+        return Type(self.lib,
+                    self.lib.gcc_jit_context_get_type(self.inner_ctxt,
+                                                      r_enum))
+
+    def new_field(self, type_, name):
+        name_charp = str2charp(name)
+        field = self.lib.gcc_jit_context_new_field(self.inner_ctxt,
+                                                   self.lib.null_location_ptr,
+                                                   type_.inner_type,
+                                                   name_charp)
+        free_charp(name_charp)
+        return Field(self.lib, field)
+    
+    def new_rvalue_from_int(self, type_, llvalue):
+        return RValue(self.lib,
+                      self.lib.gcc_jit_context_new_rvalue_from_int(self.inner_ctxt,
+                                                                   type_.inner_type,
+                                                                   llvalue))
+
+    def new_binary_op(self, op, type_, a, b):
+        return RValue(self.lib,
+                      self.lib.gcc_jit_context_new_binary_op(self.inner_ctxt,
+                                                             self.lib.null_location_ptr,
+                                                             op,
+                                                             type_.inner_type,
+                                                             a.inner_rvalue, b.inner_rvalue))
+
+    def new_param(self, type_, name):
+        name_charp = str2charp(name)
+        param = self.lib.gcc_jit_context_new_param(self.inner_ctxt,
+                                                   self.lib.null_location_ptr,
+                                                   type_.inner_type,
+                                                   name_charp)
+        free_charp(name_charp)
+        return Param(self.lib, param)
+
+    def new_function(self, kind, returntype, name, params, is_variadic):
+        name_charp = str2charp(name)
+        raw_param_array = lltype.malloc(self.lib.PARAM_P_P.TO,
+                                    len(params),
+                                    flavor='raw') # of maybe gc?
+        for i in range(len(params)):
+            raw_param_array[i] = params[i].inner_param
+
+        fn = self.lib.gcc_jit_context_new_function(self.inner_ctxt,
+                                                   self.lib.null_location_ptr,
+                                                   kind,
+                                                   returntype.inner_type,
+                                                   name_charp,
+                                                   r_int(len(params)),
+                                                   raw_param_array,
+                                                   is_variadic)
+        lltype.free(raw_param_array, flavor='raw')
+        free_charp(name_charp)
+
+        return Function(self.lib, fn)
+
+
+class Type(Wrapper):
+    def __init__(self, lib, inner_type):
+        Wrapper.__init__(self, lib)
+        self.inner_type = inner_type
+
+
+class Field(Wrapper):
+    def __init__(self, lib, inner_field):
+        Wrapper.__init__(self, lib)
+        self.inner_field = inner_field
+
+class RValue(Wrapper):
+    def __init__(self, lib, inner_rvalue):
+        Wrapper.__init__(self, lib)
+        self.inner_rvalue = inner_rvalue
+
+class LValue(Wrapper):
+    def __init__(self, lib, inner_lvalue):
+        Wrapper.__init__(self, lib)
+        self.inner_lvalue = inner_lvalue
+
+    def as_rvalue(self):
+        return RValue(self.lib,
+                      self.lib.gcc_jit_lvalue_as_rvalue(self.inner_lvalue))
+
+class Param(Wrapper):
+    def __init__(self, lib, inner_param):
+        Wrapper.__init__(self, lib)
+        self.inner_param = inner_param
+
+    def as_rvalue(self):
+        return RValue(self.lib,
+                      self.lib.gcc_jit_param_as_rvalue(self.inner_param))
+
+class Function(Wrapper):
+    def __init__(self, lib, inner_function):
+        Wrapper.__init__(self, lib)
+        self.inner_function = inner_function
+
+    def new_local(self, type_, name):
+        name_charp = str2charp(name)
+        local = self.lib.gcc_jit_function_new_local(self.inner_function,
+                                                    self.lib.null_location_ptr,
+                                                    type_.inner_type,
+                                                    name_charp)
+        free_charp(name_charp)
+        return LValue(self.lib, local)
+
+    def new_block(self, name):
+        name_charp = str2charp(name)
+        block = self.lib.gcc_jit_function_new_block(self.inner_function,
+                                                    name_charp)
+        free_charp(name_charp)
+        return Block(self.lib, block)
+
+class Block(Wrapper):
+    def __init__(self, lib, inner_block):
+        Wrapper.__init__(self, lib)
+        self.inner_block = inner_block
+
+    def add_assignment(self, lvalue, rvalue):
+        self.lib.gcc_jit_block_add_assignment(self.inner_block,
+                                              self.lib.null_location_ptr,
+                                              lvalue.inner_lvalue,
+                                              rvalue.inner_rvalue)
+
+    def end_with_return(self, rvalue):
+        self.lib.gcc_jit_block_end_with_return(self.inner_block,
+                                               self.lib.null_location_ptr,
+                                               rvalue.inner_rvalue)
+
+class Result(Wrapper):
+    def __init__(self, lib, inner_result):
+        Wrapper.__init__(self, lib)
+        self.inner_result = inner_result
+
+    def get_code(self, name):
+        name_charp = str2charp(name)
+        fn_ptr = self.lib.gcc_jit_result_get_code(self.inner_result,
+                                                  name_charp)
+        free_charp(name_charp)
+        return fn_ptr
+
+    def release(self):
+        self.lib.gcc_jit_result_release(self.inner_result)

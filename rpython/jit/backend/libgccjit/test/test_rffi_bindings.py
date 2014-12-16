@@ -34,7 +34,7 @@ def test_string():
     assert xf() == 3
 """
 
-from rpython.jit.backend.libgccjit.rffi_bindings import make_eci, Library, make_param_array
+from rpython.jit.backend.libgccjit.rffi_bindings import make_eci, Library, make_param_array, Context
 
 def test_compile_empty_context():
     eci = make_eci()
@@ -84,6 +84,7 @@ def test_compile_add_one_to():
                                               t_int,
                                               param_name)
         free_charp(param_name)
+
         # FIXME: how to build an array of params at this level?
         # see liststr2charpp in rffi.py
         
@@ -150,6 +151,75 @@ def test_compile_add_one_to():
         #funcptr = lltype.functionptr(ft)
 
         lib.gcc_jit_result_release(jit_result)
+
+        return int(fn_result)
+        
+    f1 = compile_c(f, [], backendopt=False)
+    assert f1() == 42
+    assert False # to see stderr
+
+def test_oo_compile_add_one_to():
+    eci = make_eci()
+
+    lib = Library(eci)
+
+    ft = lltype.FuncType([INT], INT)#, abi="C")
+    ftp = lltype.Ptr(ft)
+
+    def f():
+        ctxt = Context.acquire(lib)
+        # FIXME: etc:
+        ctxt.set_bool_option(lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
+                             r_int(1))
+        ctxt.set_int_option(lib.GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
+                            r_int(3))
+        ctxt.set_bool_option(lib.GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
+                             r_int(1))
+        ctxt.set_bool_option(lib.GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
+                             r_int(1))
+        ctxt.set_bool_option(lib.GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE,
+                             r_int(1))
+        t_int = ctxt.get_type(lib.GCC_JIT_TYPE_INT)
+        param = ctxt.new_param(t_int, "input")
+        fn = ctxt.new_function(lib.GCC_JIT_FUNCTION_EXPORTED,
+                               t_int,
+                               "add_one_to",
+                               [param],
+                               r_int(0))
+        v_res = fn.new_local(t_int, "v_res")
+        b_initial = fn.new_block("initial")
+        c_one = ctxt.new_rvalue_from_int(t_int, r_int(1))
+        op_add = ctxt.new_binary_op(lib.GCC_JIT_BINARY_OP_PLUS,
+                                    t_int,
+                                    param.as_rvalue(),
+                                    c_one)
+        b_initial.add_assignment(v_res, op_add)
+        b_initial.end_with_return(v_res.as_rvalue())
+
+        jit_result = ctxt.compile()
+        ctxt.release()
+        fn_ptr = jit_result.get_code("add_one_to")
+        if not fn_ptr:
+            raise Exception("fn_ptr is NULL")
+        print('fn_ptr: %s' % fn_ptr)
+
+        #ft = lltype.FuncType([INT], INT)#, abi="C")
+        # looks like we can't build a FuncType inside RPython
+        # but we can use one built outside:
+        print(ft)
+        print(ftp)
+
+        typed_fn_ptr = cast(ftp, fn_ptr)
+        print(typed_fn_ptr)
+        fn_result = typed_fn_ptr (r_int(41))
+        #print('fn_result: %d' % fn_result)
+        #assert fn_result == r_int(42)
+
+        # and it looks like we can't create a functionptr from this
+        # FuncType:
+        #funcptr = lltype.functionptr(ft)
+
+        jit_result.release()
 
         return int(fn_result)
         
