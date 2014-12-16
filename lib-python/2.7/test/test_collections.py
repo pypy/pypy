@@ -1108,6 +1108,16 @@ class TestOrderedDict(unittest.TestCase):
             od.popitem()
         self.assertEqual(len(od), 0)
 
+    def test_popitem_first(self):
+        pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
+        shuffle(pairs)
+        od = OrderedDict(pairs)
+        while pairs:
+            self.assertEqual(od.popitem(last=False), pairs.pop(0))
+        with self.assertRaises(KeyError):
+            od.popitem(last=False)
+        self.assertEqual(len(od), 0)
+
     def test_pop(self):
         pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
         shuffle(pairs)
