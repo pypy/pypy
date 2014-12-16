@@ -1830,9 +1830,9 @@ else:
                         outdata = s.read()
                         if outdata != indata.lower():
                             self.fail(
-                                "While sending with <<{name:s}>> bad data "
-                                "<<{outdata:r}>> ({nout:d}) received; "
-                                "expected <<{indata:r}>> ({nin:d})\n".format(
+                                "While sending with <<{name}>> bad data "
+                                "<<{outdata!r}>> ({nout}) received; "
+                                "expected <<{indata!r}>> ({nin})\n".format(
                                     name=meth_name, outdata=outdata[:20],
                                     nout=len(outdata),
                                     indata=indata[:20], nin=len(indata)

@@ -80,6 +80,7 @@ class CConfig:
     SSL_OP_SINGLE_DH_USE = rffi_platform.ConstantInteger(
         "SSL_OP_SINGLE_DH_USE")
     HAS_SNI = rffi_platform.Defined("SSL_CTRL_SET_TLSEXT_HOSTNAME")
+    HAS_NPN = rffi_platform.Defined("OPENSSL_NPN_NEGOTIATED")
     SSL_VERIFY_NONE = rffi_platform.ConstantInteger("SSL_VERIFY_NONE")
     SSL_VERIFY_PEER = rffi_platform.ConstantInteger("SSL_VERIFY_PEER")
     SSL_VERIFY_FAIL_IF_NO_PEER_CERT = rffi_platform.ConstantInteger("SSL_VERIFY_FAIL_IF_NO_PEER_CERT")
@@ -99,6 +100,7 @@ class CConfig:
         "SSL_RECEIVED_SHUTDOWN")
     SSL_MODE_AUTO_RETRY = rffi_platform.ConstantInteger("SSL_MODE_AUTO_RETRY")
     SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER = rffi_platform.ConstantInteger("SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER")
+    SSL_TLSEXT_ERR_OK = rffi_platform.ConstantInteger("SSL_TLSEXT_ERR_OK")
 
     NID_subject_alt_name = rffi_platform.ConstantInteger("NID_subject_alt_name")
     GEN_DIRNAME = rffi_platform.ConstantInteger("GEN_DIRNAME")
@@ -311,6 +313,24 @@ ssl_external('BIO_read_filename', [BIO, rffi.CCHARP], rffi.INT, macro=True)
 ssl_external('BIO_gets', [BIO, rffi.CCHARP, rffi.INT], rffi.INT)
 ssl_external('PEM_read_bio_X509_AUX',
              [BIO, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP], X509)
+
+if HAS_NPN:
+    SSL_NEXT_PROTOS_ADV_CB = lltype.Ptr(lltype.FuncType(
+        [SSL, rffi.CCHARPP, rffi.UINTP, rffi.VOIDP], rffi.INT))
+    ssl_external('SSL_CTX_set_next_protos_advertised_cb',
+                 [SSL_CTX, SSL_NEXT_PROTOS_ADV_CB, rffi.VOIDP], lltype.Void)
+    SSL_NEXT_PROTOS_SEL_CB = lltype.Ptr(lltype.FuncType(
+        [SSL, rffi.CCHARPP, rffi.UCHARP, rffi.CCHARP, rffi.UINT, rffi.VOIDP],
+        rffi.INT))
+    ssl_external('SSL_CTX_set_next_proto_select_cb',
+                 [SSL_CTX, SSL_NEXT_PROTOS_SEL_CB, rffi.VOIDP], lltype.Void)
+    ssl_external(
+        'SSL_select_next_proto', [rffi.CCHARPP, rffi.UCHARP,
+                                  rffi.CCHARP, rffi.UINT,
+                                  rffi.CCHARP, rffi.UINT], rffi.INT)
+    ssl_external(
+        'SSL_get0_next_proto_negotiated', [
+            SSL, rffi.CCHARPP, rffi.UINTP], lltype.Void)
 
 EVP_MD_CTX = rffi.COpaquePtr('EVP_MD_CTX', compilation_info=eci)
 EVP_MD     = lltype.Ptr(EVP_MD_st)

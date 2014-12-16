@@ -1,9 +1,10 @@
 import weakref
 
 from rpython.rlib import rpoll, rsocket
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, widen, r_uint
 from rpython.rlib.ropenssl import *
 from rpython.rlib.rposix import get_errno, set_errno
+from rpython.rlib.rweakref import RWeakValueDictionary
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -69,7 +70,7 @@ constants["OP_NO_SSLv3"] = SSL_OP_NO_SSLv3
 constants["OP_NO_TLSv1"] = SSL_OP_NO_TLSv1
 constants["HAS_SNI"] = HAS_SNI
 constants["HAS_ECDH"] = True  # To break the test suite
-constants["HAS_NPN"] = True  # To break the test suite
+constants["HAS_NPN"] = HAS_NPN
 constants["HAS_TLS_UNIQUE"] = True  # To break the test suite
 
 # OpenSSL version
@@ -94,6 +95,53 @@ def ssl_error(space, msg, errno=0, w_errtype=None):
     w_exception = space.call_function(w_errtype,
                                       space.wrap(errno), space.wrap(msg))
     return OperationError(w_errtype, w_exception)
+
+class SSLNpnProtocols(object):
+
+    def __init__(self, ctx, protos):
+        self.protos = protos
+        self.buf, self.pinned, self.is_raw = rffi.get_nonmovingbuffer(protos)
+        NPN_STORAGE.set(r_uint(rffi.cast(rffi.UINT, self.buf)), self)
+
+        # set both server and client callbacks, because the context
+        # can be used to create both types of sockets
+        libssl_SSL_CTX_set_next_protos_advertised_cb(
+            ctx, self.advertiseNPN_cb, self.buf)
+        libssl_SSL_CTX_set_next_proto_select_cb(
+            ctx, self.selectNPN_cb, self.buf)
+
+    def __del__(self):
+        rffi.free_nonmovingbuffer(
+            self.protos, self.buf, self.pinned, self.is_raw)    
+
+    @staticmethod
+    def advertiseNPN_cb(s, data_ptr, len_ptr, args):
+        npn = NPN_STORAGE.get(r_uint(rffi.cast(rffi.UINT, args)))
+        if npn and npn.protos:
+            data_ptr[0] = npn.buf
+            len_ptr[0] = rffi.cast(rffi.UINT, len(npn.protos))
+        else:
+            data_ptr[0] = lltype.nullptr(rffi.CCHARP.TO)
+            len_ptr[0] = rffi.cast(rffi.UINT, 0)
+
+        return rffi.cast(rffi.INT, SSL_TLSEXT_ERR_OK)
+
+    @staticmethod
+    def selectNPN_cb(s, out_ptr, outlen_ptr, server, server_len, args):
+        npn = NPN_STORAGE.get(r_uint(rffi.cast(rffi.UINT, args)))
+        if npn and npn.protos:
+            client = npn.buf
+            client_len = len(npn.protos)
+        else:
+            client = lltype.nullptr(rffi.CCHARP.TO)
+            client_len = 0            
+
+        libssl_SSL_select_next_proto(out_ptr, outlen_ptr,
+                                     server, server_len,
+                                     client, client_len)
+        return rffi.cast(rffi.INT, SSL_TLSEXT_ERR_OK)
+
+NPN_STORAGE = RWeakValueDictionary(r_uint, SSLNpnProtocols)
 
 
 class SSLContext(W_Root):
@@ -277,6 +325,13 @@ class SSLContext(W_Root):
         if ret != 1:
             raise _ssl_seterror(space, None, -1)
 
+    @unwrap_spec(protos='bufferstr')
+    def set_npn_protocols_w(self, space, protos):
+        if not HAS_NPN:
+            raise oefmt(space.w_NotImplementedError,
+                        "The NPN extension requires OpenSSL 1.0.1 or later.")
+
+        self.npn_protocols = SSLNpnProtocols(self.ctx, protos)
 
 SSLContext.typedef = TypeDef(
     "_SSLContext",
@@ -291,6 +346,7 @@ SSLContext.typedef = TypeDef(
     load_verify_locations = interp2app(SSLContext.load_verify_locations_w),
     session_stats = interp2app(SSLContext.session_stats_w),
     set_default_verify_paths=interp2app(SSLContext.set_default_verify_paths_w),
+    _set_npn_protocols=interp2app(SSLContext.set_npn_protocols_w),
 )
 
     
@@ -640,6 +696,15 @@ class SSLSocket(W_Root):
             else:
                 return _decode_certificate(space, self.peer_cert)
 
+    def selected_npn_protocol(self, space):
+        with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as out_ptr:
+            with lltype.scoped_alloc(rffi.UINTP.TO, 1) as len_ptr:
+                libssl_SSL_get0_next_proto_negotiated(self.ssl,
+                                                      out_ptr, len_ptr)
+                if out_ptr[0]:
+                    return space.wrap(
+                        rffi.charpsize2str(out_ptr[0], widen(len_ptr[0])))
+
 def _decode_certificate(space, certificate, verbose=False):
     w_retval = space.newdict()
 
@@ -850,6 +915,7 @@ SSLSocket.typedef = TypeDef("_SSLSocket",
     shutdown = interp2app(SSLSocket.shutdown),
     cipher = interp2app(SSLSocket.cipher),
     peer_certificate = interp2app(SSLSocket.peer_certificate),
+    selected_npn_protocol = interp2app(SSLSocket.selected_npn_protocol),
 )
 
 
