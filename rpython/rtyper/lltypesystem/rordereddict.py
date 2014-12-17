@@ -620,8 +620,12 @@ def _overallocate_entries_len(baselen):
     some += newsize >> 3
     return newsize + some
 
-@jit.dont_look_inside
+@jit.look_inside_iff(lambda d: jit.isvirtual(d))
 def ll_dict_grow(d):
+    # note: this @jit.look_inside_iff is here to inline the three lines
+    # at the end of this function.  It's important because dicts start
+    # with a length-zero 'd.entries' which must be grown as soon as we
+    # insert an element.
     if d.num_live_items < d.num_ever_used_items // 2:
         # At least 50% of the allocated entries are dead, so perform a
         # compaction. If ll_dict_remove_deleted_items detects that over
@@ -644,6 +648,7 @@ def ll_dict_grow(d):
     d.entries = newitems
     return False
 
+@jit.dont_look_inside
 def ll_dict_remove_deleted_items(d):
     if d.num_live_items < len(d.entries) // 4:
         # At least 75% of the allocated entries are dead, so shrink the memory
