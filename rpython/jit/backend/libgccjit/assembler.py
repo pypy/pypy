@@ -44,19 +44,22 @@ class AssemblerLibgccjit(BaseAssembler):
         if 0:
             self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE,
                                       r_int(1))
-        if 1:
+        if 0:
             self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
                                       r_int(1))
-        self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DEBUGINFO,
-                                  r_int(1))
+        if 1:
+            self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DEBUGINFO,
+                                      r_int(1))
         if 1:
             self.ctxt.set_int_option(self.lib.GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
                                      r_int(2))
-        self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
-                                  r_int(1))
-        self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
-                                  r_int(1))
-        if 1:
+        if 0:
+            self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
+                                      r_int(1))
+        if 0:
+            self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
+                                      r_int(1))
+        if 0:
             self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE,
                                       r_int(1))
         
@@ -75,7 +78,7 @@ class AssemblerLibgccjit(BaseAssembler):
                       loopname, logger):
         print('assemble_loop')
         clt = CompiledLoopToken(self.cpu, looptoken.number)
-        print(clt)
+        #print(clt)
         looptoken.compiled_loop_token = clt
         clt._debug_nbargs = len(inputargs)
 
@@ -90,6 +93,8 @@ class AssemblerLibgccjit(BaseAssembler):
         self.make_context()
         self.t_Signed = self.ctxt.get_int_type(r_int(self.sizeof_signed),
                                                r_int(1))
+        self.t_UINT = self.ctxt.get_int_type(r_int(self.sizeof_signed),
+                                             r_int(0))
         self.t_float = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_DOUBLE) # FIXME                                          
         self.t_bool = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_BOOL)
         self.t_void_ptr = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID_PTR)
@@ -101,9 +106,9 @@ class AssemblerLibgccjit(BaseAssembler):
                                                 self.u_float])
         self.lvalue_for_box = {}
 
-        print(jitframe.JITFRAME)
-        print(dir(jitframe.JITFRAME))
-        print('jitframe.JITFRAME._flds: %r' % jitframe.JITFRAME._flds)
+        #print(jitframe.JITFRAME)
+        #print(dir(jitframe.JITFRAME))
+        #print('jitframe.JITFRAME._flds: %r' % jitframe.JITFRAME._flds)
 
         # For now, build a "struct JITFRAME".
         # This will have the fields of jitframe,
@@ -169,7 +174,7 @@ class AssemblerLibgccjit(BaseAssembler):
         struct_jit_frame.set_fields (fields)
 
         # Make function:
-        print('  inputargs: %r' % (inputargs, ))
+        #print('  inputargs: %r' % (inputargs, ))
         #jitframe.JITFRAMEINFOPTR
         params = []
 
@@ -179,10 +184,10 @@ class AssemblerLibgccjit(BaseAssembler):
         self.param_addr = self.ctxt.new_param(self.t_void_ptr, "addr")
         params.append(self.param_addr)
 
-        print("loopname: %r" % loopname)
         if not loopname:
             loopname = 'anonloop_%i' % self.num_anon_loops
             self.num_anon_loops += 1
+        print("  loopname: %r" % loopname)
         self.fn = self.ctxt.new_function(self.lib.GCC_JIT_FUNCTION_EXPORTED,
                                          t_jit_frame_ptr,
                                          loopname,
@@ -196,10 +201,10 @@ class AssemblerLibgccjit(BaseAssembler):
         # Add an initial comment summarizing the loop
         text = '\n\tinputargs: %s\n\n' % inputargs
         for op in operations:
-            print(op)
-            print(type(op))
-            print(dir(op))
-            print(repr(op.getopname()))
+            #print(op)
+            #print(type(op))
+            #print(dir(op))
+            #print(repr(op.getopname()))
             text += '\t%s\n' % op
         self.b_current.add_comment(str(text))
     
@@ -223,10 +228,10 @@ class AssemblerLibgccjit(BaseAssembler):
                 src_rvalue)
 
         for op in operations:
-            print(op)
-            print(type(op))
-            print(dir(op))
-            print(repr(op.getopname()))
+            #print(op)
+            #print(type(op))
+            #print(dir(op))
+            #print(repr(op.getopname()))
             # Add a comment describing this ResOperation
             self.b_current.add_comment(str(op))
 
@@ -239,7 +244,7 @@ class AssemblerLibgccjit(BaseAssembler):
         clt.frame_info.update_frame_depth(baseofs,
                                           max_args)
         
-        self.ctxt.dump_to_file("/tmp/foo.c", r_int(1))
+        self.ctxt.dump_to_file("/tmp/%s.c" % loopname, r_int(1))
 
         #raise foo
 
@@ -448,6 +453,19 @@ class AssemblerLibgccjit(BaseAssembler):
                                              rval0, rval1)
         self.b_current.add_assignment(lvalres, binop_expr)
 
+    def _impl_uint_binop(self, resop, gcc_jit_binary_op):
+        rval0 = self.expr_to_rvalue(resop._arg0)
+        rval0 = self.ctxt.new_cast(rval0, self.t_UINT)
+        rval1 = self.expr_to_rvalue(resop._arg1)
+        rval1 = self.ctxt.new_cast(rval1, self.t_UINT)
+        lvalres = self.expr_to_lvalue(resop.result)
+        binop_expr = self.ctxt.new_binary_op(gcc_jit_binary_op,
+                                             self.t_UINT,
+                                             rval0, rval1)
+        self.b_current.add_assignment(lvalres,
+                                      self.ctxt.new_cast(binop_expr,
+                                                         self.t_Signed))
+
     def emit_int_add(self, resop):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_PLUS)
     def emit_int_sub(self, resop):
@@ -456,6 +474,8 @@ class AssemblerLibgccjit(BaseAssembler):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_MULT)
     def emit_int_floordiv(self, resop):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_DIVIDE)
+    def emit_uint_floordiv(self, resop):
+        self._impl_uint_binop(resop, self.lib.GCC_JIT_BINARY_OP_DIVIDE)
     def emit_int_mod(self, resop):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_MODULO)
     def emit_int_and(self, resop):
@@ -468,6 +488,8 @@ class AssemblerLibgccjit(BaseAssembler):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_RSHIFT)
     def emit_int_lshift(self, resop):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_LSHIFT)
+    def emit_uint_rshift(self, resop):
+        self._impl_uint_binop(resop, self.lib.GCC_JIT_BINARY_OP_RSHIFT)
 
     # "FLOAT" binary ops:
     def impl_float_binop(self, resop, gcc_jit_binary_op):
