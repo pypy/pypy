@@ -151,7 +151,11 @@ class CachedField(object):
                     getop.source_op = result
                     if isinstance(result, Const):
                         optimizer.make_constant(getop, result)
-                    shortboxes.add_potential(result, getop, synthetic=True)
+                        getop.is_source_op = True
+                        shortboxes.add_potential(getop, getop, synthetic=True)
+                    else:
+                        getop.source_op = result                        
+                        shortboxes.add_potential(result, getop, synthetic=True)
                 if op.getopnum() == rop.SETARRAYITEM_GC:
                     result = op.getarg(2)
                     opnum = OpHelpers.getarrayitem_for_descr(op.getdescr())
@@ -159,6 +163,7 @@ class CachedField(object):
                                          op.getdescr())
                     getop.source_op = result
                     if isinstance(result, Const):
+                        xxx
                         optimizer.make_constant(getop, result)
                     shortboxes.add_potential(result, getop, synthetic=True)
                 elif op.type != 'v':

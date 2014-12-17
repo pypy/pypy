@@ -105,7 +105,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
                 # once when parsing 'preamble', once when parsing 'expected'.
                 self.oparse = oparse
                 self.rd_frame_info_list, self.rd_snapshot = snapshot(fail_args)
-            def _clone_if_mutable(self):
+            def _clone_if_mutable(self, memo):
                 assert self is fdescr
                 return fdescr2
             def __repr__(self):
@@ -1809,7 +1809,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_malloc_force(self):
         ops = """
         [i1]
-        i2 = call('malloc', 20, descr=raw_malloc_descr)
+        i2 = call_i('malloc', 20, descr=raw_malloc_descr)
         guard_no_exception() []
         setarrayitem_raw(i2, 0, i1, descr=rawarraydescr_char)
         setarrayitem_raw(i2, 2, 456, descr=rawarraydescr_char)
@@ -1817,20 +1817,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setarrayitem_raw(i2, 1, 789, descr=rawarraydescr_float)
         label('foo') # we expect the buffer to be forced *after* the label
         escape_n(i2)
-        call('free', i2, descr=raw_free_descr)
+        call_n('free', i2, descr=raw_free_descr)
         jump(i1)
         """
         expected = """
         [i1]
         label('foo')
-        i2 = call('malloc', 20, descr=raw_malloc_descr)
+        i2 = call_i('malloc', 20, descr=raw_malloc_descr)
         #guard_no_exception() []  # XXX should appear
         raw_store(i2, 0, i1, descr=rawarraydescr_char)
         raw_store(i2, 1, 123, descr=rawarraydescr_char)
         raw_store(i2, 2, 456, descr=rawarraydescr_char)
         raw_store(i2, 8, 789, descr=rawarraydescr_float)
         escape_n(i2)
-        call('free', i2, descr=raw_free_descr)
+        call_n('free', i2, descr=raw_free_descr)
         jump(i1)
         """
         self.optimize_loop(ops, expected)
@@ -1838,22 +1838,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_malloc_invalid_write_force(self):
         ops = """
         [i1]
-        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
         guard_no_exception() []
         setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
         label('foo') # we expect the buffer to be forced *after* the label
         setarrayitem_raw(i2, 2, 456, descr=rawarraydescr_char) # overlap!
-        call('free', i2, descr=raw_free_descr)
+        call_n('free', i2, descr=raw_free_descr)
         jump(i1)
         """
         expected = """
         [i1]
         label('foo')
-        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
         #guard_no_exception() []  # XXX should appear
         raw_store(i2, 0, i1, descr=rawarraydescr)
         setarrayitem_raw(i2, 2, 456, descr=rawarraydescr_char)
-        call('free', i2, descr=raw_free_descr)
+        call_n('free', i2, descr=raw_free_descr)
         jump(i1)
         """
         self.optimize_loop(ops, expected)
@@ -1861,22 +1861,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_malloc_invalid_read_force(self):
         ops = """
         [i1]
-        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
         guard_no_exception() []
         setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
         label('foo') # we expect the buffer to be forced *after* the label
-        i3 = getarrayitem_raw(i2, 0, descr=rawarraydescr_char)
-        call('free', i2, descr=raw_free_descr)
+        i3 = getarrayitem_raw_i(i2, 0, descr=rawarraydescr_char)
+        call_n('free', i2, descr=raw_free_descr)
         jump(i1)
         """
         expected = """
         [i1]
         label('foo')
-        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
         #guard_no_exception() []  # XXX should appear
         raw_store(i2, 0, i1, descr=rawarraydescr)
-        i3 = getarrayitem_raw(i2, 0, descr=rawarraydescr_char)
-        call('free', i2, descr=raw_free_descr)
+        i3 = getarrayitem_raw_i(i2, 0, descr=rawarraydescr_char)
+        call_n('free', i2, descr=raw_free_descr)
         jump(i1)
         """
         self.optimize_loop(ops, expected)
@@ -1884,15 +1884,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_slice(self):
         ops = """
         [i0, i1]
-        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
         guard_no_exception() []
         setarrayitem_raw(i2, 0, 42, descr=rawarraydescr_char)
         i3 = int_add(i2, 1) # get a slice of the original buffer
         setarrayitem_raw(i3, 0, 4242, descr=rawarraydescr) # write to the slice
-        i4 = getarrayitem_raw(i2, 0, descr=rawarraydescr_char)
+        i4 = getarrayitem_raw_i(i2, 0, descr=rawarraydescr_char)
         i5 = int_add(i2, 1)
-        i6 = getarrayitem_raw(i5, 0, descr=rawarraydescr)
-        call('free', i2, descr=raw_free_descr)
+        i6 = getarrayitem_raw_i(i5, 0, descr=rawarraydescr)
+        call_n('free', i2, descr=raw_free_descr)
         jump(i0, i1)
         """
         expected = """
@@ -1904,13 +1904,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_slice_of_a_raw_slice(self):
         ops = """
         [i0, i1]
-        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
         guard_no_exception() []
         i3 = int_add(i2, 1) # get a slice of the original buffer
         i4 = int_add(i3, 1) # get a slice of a slice
         setarrayitem_raw(i4, 0, i1, descr=rawarraydescr_char) # write to the slice
-        i5 = getarrayitem_raw(i2, 2, descr=rawarraydescr_char)
-        call('free', i2, descr=raw_free_descr)
+        i5 = getarrayitem_raw_i(i2, 2, descr=rawarraydescr_char)
+        call_n('free', i2, descr=raw_free_descr)
         jump(i0, i5)
         """
         expected = """
@@ -1922,7 +1922,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_slice_force(self):
         ops = """
         [i0, i1]
-        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
         guard_no_exception() []
         setarrayitem_raw(i2, 0, 42, descr=rawarraydescr_char)
         i3 = int_add(i2, 1) # get a slice of the original buffer
@@ -1935,7 +1935,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, i1]
         label('foo')
         # these ops are generated by VirtualRawBufferValue._really_force
-        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
         #guard_no_exception() []  # XXX should appear
         raw_store(i2, 0, 42, descr=rawarraydescr_char)
         raw_store(i2, 5, 4242, descr=rawarraydescr_char)
@@ -1949,10 +1949,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_malloc_virtualstate(self):
         ops = """
         [i0]
-        i1 = getarrayitem_raw(i0, 0, descr=rawarraydescr)
+        i1 = getarrayitem_raw_i(i0, 0, descr=rawarraydescr)
         i2 = int_add(i1, 1)
-        call('free', i0, descr=raw_free_descr)
-        i3 = call('malloc', 10, descr=raw_malloc_descr)
+        call_n('free', i0, descr=raw_free_descr)
+        i3 = call_i('malloc', 10, descr=raw_malloc_descr)
         guard_no_exception() []
         setarrayitem_raw(i3, 0, i2, descr=rawarraydescr)
         label('foo')
@@ -1960,11 +1960,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [i0]
-        i1 = getarrayitem_raw(i0, 0, descr=rawarraydescr)
+        i1 = getarrayitem_raw_i(i0, 0, descr=rawarraydescr)
         i2 = int_add(i1, 1)
-        call('free', i0, descr=raw_free_descr)
+        call_n('free', i0, descr=raw_free_descr)
         label('foo')
-        i3 = call('malloc', 10, descr=raw_malloc_descr)
+        i3 = call_i('malloc', 10, descr=raw_malloc_descr)
         #guard_no_exception() []  # XXX should appear
         raw_store(i3, 0, i2, descr=rawarraydescr)
         jump(i3)
@@ -1974,12 +1974,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_store_raw_load(self):
         ops = """
         [i1]
-        i0 = call('malloc', 10, descr=raw_malloc_descr)
+        i0 = call_i('malloc', 10, descr=raw_malloc_descr)
         guard_no_exception() []
         raw_store(i0, 0, i1, descr=rawarraydescr)
-        i2 = raw_load(i0, 0, descr=rawarraydescr)
+        i2 = raw_load_i(i0, 0, descr=rawarraydescr)
         i3 = int_add(i1, i2)
-        call('free', i0, descr=raw_free_descr)
+        call_n('free', i0, descr=raw_free_descr)
         jump(i3)
         """
         expected = """
@@ -1992,12 +1992,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_store_getarrayitem_raw(self):
         ops = """
         [f1]
-        i0 = call('malloc', 16, descr=raw_malloc_descr)
+        i0 = call_i('malloc', 16, descr=raw_malloc_descr)
         guard_no_exception() []
         raw_store(i0, 8, f1, descr=rawarraydescr_float)
-        f2 = getarrayitem_raw(i0, 1, descr=rawarraydescr_float)
+        f2 = getarrayitem_raw_f(i0, 1, descr=rawarraydescr_float)
         f3 = float_add(f1, f2)
-        call('free', i0, descr=raw_free_descr)
+        call_n('free', i0, descr=raw_free_descr)
         jump(f3)
         """
         expected = """
@@ -2010,12 +2010,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_setarrayitem_raw_raw_load(self):
         ops = """
         [f1]
-        i0 = call('malloc', 16, descr=raw_malloc_descr)
+        i0 = call_i('malloc', 16, descr=raw_malloc_descr)
         guard_no_exception() []
         setarrayitem_raw(i0, 1, f1, descr=rawarraydescr_float)
-        f2 = raw_load(i0, 8, descr=rawarraydescr_float)
+        f2 = raw_load_f(i0, 8, descr=rawarraydescr_float)
         f3 = float_add(f1, f2)
-        call('free', i0, descr=raw_free_descr)
+        call_n('free', i0, descr=raw_free_descr)
         jump(f3)
         """
         expected = """
@@ -2028,7 +2028,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_buffer_forced_but_slice_not_forced(self):
         ops = """
         [f1]
-        i0 = call('malloc', 16, descr=raw_malloc_descr)
+        i0 = call_i('malloc', 16, descr=raw_malloc_descr)
         guard_no_exception() []
         i1 = int_add(i0, 8)
         escape_n(i0)
@@ -2037,7 +2037,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [f1]
-        i0 = call('malloc', 16, descr=raw_malloc_descr)
+        i0 = call_i('malloc', 16, descr=raw_malloc_descr)
         #guard_no_exception() []  # XXX should appear
         escape_n(i0)
         i1 = int_add(i0, 8)
@@ -2263,14 +2263,18 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2)
         """
-        expected = """
+        preamble = """
         [p1, i1, i2]
         setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2)
         """
+        expected = """
+        [p1, i1, i2]
+        jump(p1, i1, i2)
+        """
         # in this case, all setfields are removed, because we can prove
         # that in the loop it will always have the same value
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, expected, preamble)
 
     def test_duplicate_setfield_1(self):
         ops = """
@@ -2326,7 +2330,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, i1, descr=valuedescr)
         #
         # some operations on which the above setfield_gc cannot have effect
-        i3 = getarrayitem_gc_pure(p3, 1, descr=arraydescr)
+        i3 = getarrayitem_gc_pure_i(p3, 1, descr=arraydescr)
         i4 = getarrayitem_gc_i(p3, i3, descr=arraydescr)
         i5 = int_add(i3, i4)
         setarrayitem_gc(p3, 0, i5, descr=arraydescr)
@@ -2339,7 +2343,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = """
         [p1, i1, i2, p3]
         #
-        i3 = getarrayitem_gc_pure(p3, 1, descr=arraydescr)
+        i3 = getarrayitem_gc_pure_i(p3, 1, descr=arraydescr)
         i4 = getarrayitem_gc_i(p3, i3, descr=arraydescr)
         i5 = int_add(i3, i4)
         #
@@ -2370,7 +2374,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p0, p1, descr=nextdescr)
         setfield_raw(i1, i1, descr=valuedescr)    # random op with side-effects
-        p2 = getfield_gc(p0, descr=nextdescr)
+        p2 = getfield_gc_r(p0, descr=nextdescr)
         i2 = getfield_gc_i(p2, descr=valuedescr)
         setfield_gc(p0, NULL, descr=nextdescr)
         escape_n(i2)
@@ -2410,8 +2414,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(i3) []
         i4 = int_neg(i2)
         setfield_gc(p1, i2, descr=valuedescr)
-        i7 = same_as(i2) # This same_as should be killed by backend
-        i6 = same_as(i4)
+        i7 = same_as_i(i2) # This same_as should be killed by backend
+        i6 = same_as_i(i4)
         jump(p1, i1, i2, i4, i6)
         """
         expected = """
@@ -2793,10 +2797,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1]
         guard_nonnull(p1) []
         guard_class(p1, ConstClass(node_vtable2)) []
-        p2 = getfield_gc(p1, descr=nextdescr)
+        p2 = getfield_gc_r(p1, descr=nextdescr)
         guard_nonnull(12) []
         guard_class(p2, ConstClass(node_vtable)) []
-        p3 = getfield_gc(p1, descr=otherdescr)
+        p3 = getfield_gc_r(p1, descr=otherdescr)
         guard_nonnull(12) []
         guard_class(p3, ConstClass(node_vtable)) []
         setfield_gc(p3, p2, descr=otherdescr)
@@ -2811,9 +2815,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = """
         [p1]
         guard_nonnull_class(p1, ConstClass(node_vtable2)) []
-        p2 = getfield_gc(p1, descr=nextdescr)
+        p2 = getfield_gc_r(p1, descr=nextdescr)
         guard_class(p2, ConstClass(node_vtable)) []
-        p3 = getfield_gc(p1, descr=otherdescr)
+        p3 = getfield_gc_r(p1, descr=otherdescr)
         guard_class(p3, ConstClass(node_vtable)) []
         p3a = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p3, p2, descr=otherdescr)
@@ -2842,10 +2846,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1]
         guard_nonnull(p1) []
         guard_class(p1, ConstClass(node_vtable2)) []
-        p2 = getfield_gc(p1, descr=nextdescr)
+        p2 = getfield_gc_r(p1, descr=nextdescr)
         guard_nonnull(12) []
         guard_class(p2, ConstClass(node_vtable)) []
-        p3 = getfield_gc(p1, descr=otherdescr)
+        p3 = getfield_gc_r(p1, descr=otherdescr)
         guard_nonnull(12) []
         guard_class(p3, ConstClass(node_vtable)) []
         p1a = new_with_vtable(ConstClass(node_vtable2))
@@ -2860,9 +2864,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = """
         [p1]
         guard_nonnull_class(p1, ConstClass(node_vtable2)) []
-        p2 = getfield_gc(p1, descr=nextdescr)
+        p2 = getfield_gc_r(p1, descr=nextdescr)
         guard_class(p2, ConstClass(node_vtable)) []
-        p3 = getfield_gc(p1, descr=otherdescr)
+        p3 = getfield_gc_r(p1, descr=otherdescr)
         guard_class(p3, ConstClass(node_vtable)) []
         # p1a = new_with_vtable(ConstClass(node_vtable2))
         p3a = new_with_vtable(ConstClass(node_vtable))
@@ -2907,11 +2911,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0]
         i0 = escape_i()
-        i2 = getfield_gc(p0, descr=valuedescr)
+        i2 = getfield_gc_i(p0, descr=valuedescr)
         i4 = int_add(i2, 1)
         setfield_gc(p0, i4, descr=valuedescr)
         guard_true(i0) []
-        i6 = getfield_gc(p0, descr=valuedescr)
+        i6 = getfield_gc_i(p0, descr=valuedescr)
         i8 = int_sub(i6, 1)
         setfield_gc(p0, i8, descr=valuedescr)
         escape_n()
@@ -2920,7 +2924,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p0]
         i0 = escape_i()
-        i2 = getfield_gc(p0, descr=valuedescr)
+        i2 = getfield_gc_i(p0, descr=valuedescr)
         i4 = int_add(i2, 1)
         setfield_gc(p0, i4, descr=valuedescr)
         guard_true(i0) []
@@ -2954,7 +2958,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_invalid_loop_3(self):
         ops = """
         [p1]
-        p2 = getfield_gc(p1, descr=nextdescr)
+        p2 = getfield_gc_r(p1, descr=nextdescr)
         guard_isnull(p2) []
         #
         p3 = new_with_vtable(ConstClass(node_vtable))
@@ -3092,8 +3096,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_oois_of_itself(self):
         ops = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr)
-        p2 = getfield_gc(p0, descr=nextdescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        p2 = getfield_gc_r(p0, descr=nextdescr)
         i1 = ptr_eq(p1, p2)
         guard_true(i1) []
         i2 = ptr_ne(p1, p2)
@@ -3102,7 +3106,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         preamble = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
         jump(p0)
         """
         expected = """
@@ -3245,8 +3249,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p8, p11, i24]
         p26 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p26, i24, descr=adescr)
-        i34 = getfield_gc_pure(p11, descr=valuedescr)
-        i35 = getfield_gc_pure(p26, descr=adescr)
+        i34 = getfield_gc_pure_i(p11, descr=valuedescr)
+        i35 = getfield_gc_pure_i(p26, descr=adescr)
         i36 = int_add_ovf(i34, i35)
         guard_no_overflow() []
         jump(p8, p11, i35)
@@ -3260,21 +3264,21 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_ovf_guard_in_short_preamble2(self):
         ops = """
         [p8, p11, p12]
-        p16 = getfield_gc(p8, descr=valuedescr)
-        i17 = getfield_gc(p8, descr=nextdescr)
-        i19 = getfield_gc(p16, descr=valuedescr)
+        p16 = getfield_gc_r(p8, descr=valuedescr)
+        i17 = getfield_gc_i(p8, descr=nextdescr)
+        i19 = getfield_gc_i(p16, descr=valuedescr)
         i20 = int_ge(i17, i19)
         guard_false(i20) []
-        i21 = getfield_gc(p16, descr=otherdescr)
-        i22 = getfield_gc(p16, descr=nextdescr)
+        i21 = getfield_gc_i(p16, descr=otherdescr)
+        i22 = getfield_gc_i(p16, descr=nextdescr)
         i23 = int_mul(i17, i22)
         i24 = int_add(i21, i23)
         p26 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p26, i24, descr=adescr)
         i28 = int_add(i17, 1)
         setfield_gc(p8, i28, descr=nextdescr)
-        i34 = getfield_gc_pure(p11, descr=valuedescr)
-        i35 = getfield_gc_pure(p26, descr=adescr)
+        i34 = getfield_gc_pure_i(p11, descr=valuedescr)
+        i35 = getfield_gc_pure_i(p26, descr=adescr)
         guard_nonnull(p12) []
         i36 = int_add_ovf(i34, i35)
         guard_no_overflow() []
@@ -3286,7 +3290,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p8, p11, i24, i39, i19, p16, i21, i34]
         i40 = int_ge(i39, i19)
         guard_false(i40) []
-        i41 = getfield_gc(p16, descr=nextdescr)
+        i41 = getfield_gc_i(p16, descr=nextdescr)
         i42 = int_mul(i39, i41)
         i43 = int_add(i21, i42)
         i44 = int_add(i39, 1)
@@ -3444,17 +3448,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_residual_call_does_not_invalidate_caches(self):
         ops = """
         [p1, p2]
-        i1 = getfield_gc(p1, descr=valuedescr)
-        i2 = call(i1, descr=nonwritedescr)
-        i3 = getfield_gc(p1, descr=valuedescr)
+        i1 = getfield_gc_i(p1, descr=valuedescr)
+        i2 = call_i(i1, descr=nonwritedescr)
+        i3 = getfield_gc_i(p1, descr=valuedescr)
         escape_n(i1)
         escape_n(i3)
         jump(p1, p2)
         """
         expected = """
         [p1, p2]
-        i1 = getfield_gc(p1, descr=valuedescr)
-        i2 = call(i1, descr=nonwritedescr)
+        i1 = getfield_gc_i(p1, descr=valuedescr)
+        i2 = call_i(i1, descr=nonwritedescr)
         escape_n(i1)
         escape_n(i1)
         jump(p1, p2)
@@ -3464,11 +3468,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_residual_call_invalidate_some_caches(self):
         ops = """
         [p1, p2]
-        i1 = getfield_gc(p1, descr=adescr)
-        i2 = getfield_gc(p1, descr=bdescr)
-        i3 = call(i1, descr=writeadescr)
-        i4 = getfield_gc(p1, descr=adescr)
-        i5 = getfield_gc(p1, descr=bdescr)
+        i1 = getfield_gc_i(p1, descr=adescr)
+        i2 = getfield_gc_i(p1, descr=bdescr)
+        i3 = call_i(i1, descr=writeadescr)
+        i4 = getfield_gc_i(p1, descr=adescr)
+        i5 = getfield_gc_i(p1, descr=bdescr)
         escape_n(i1)
         escape_n(i2)
         escape_n(i4)
@@ -3477,10 +3481,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p1, p2]
-        i1 = getfield_gc(p1, descr=adescr)
-        i2 = getfield_gc(p1, descr=bdescr)
-        i3 = call(i1, descr=writeadescr)
-        i4 = getfield_gc(p1, descr=adescr)
+        i1 = getfield_gc_i(p1, descr=adescr)
+        i2 = getfield_gc_i(p1, descr=bdescr)
+        i3 = call_i(i1, descr=writeadescr)
+        i4 = getfield_gc_i(p1, descr=adescr)
         escape_n(i1)
         escape_n(i2)
         escape_n(i4)
@@ -3492,11 +3496,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_residual_call_invalidate_arrays(self):
         ops = """
         [p1, p2, i1]
-        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
-        p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
-        i3 = call(i1, descr=writeadescr)
-        p5 = getarrayitem_gc(p1, 0, descr=arraydescr2)
-        p6 = getarrayitem_gc(p2, 1, descr=arraydescr2)
+        p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
+        p4 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
+        i3 = call_i(i1, descr=writeadescr)
+        p5 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
+        p6 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
         escape_n(p3)
         escape_n(p4)
         escape_n(p5)
@@ -3505,9 +3509,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p1, p2, i1]
-        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
-        p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
-        i3 = call(i1, descr=writeadescr)
+        p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
+        p4 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
+        i3 = call_i(i1, descr=writeadescr)
         escape_n(p3)
         escape_n(p4)
         escape_n(p3)
@@ -3519,12 +3523,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_residual_call_invalidate_some_arrays(self):
         ops = """
         [p1, p2, i1]
-        p3 = getarrayitem_gc(p2, 0, descr=arraydescr2)
-        p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
+        p3 = getarrayitem_gc_r(p2, 0, descr=arraydescr2)
+        p4 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
         i2 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
-        i3 = call(i1, descr=writearraydescr)
-        p5 = getarrayitem_gc(p2, 0, descr=arraydescr2)
-        p6 = getarrayitem_gc(p2, 1, descr=arraydescr2)
+        i3 = call_i(i1, descr=writearraydescr)
+        p5 = getarrayitem_gc_r(p2, 0, descr=arraydescr2)
+        p6 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
         i4 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
         escape_n(p3)
         escape_n(p4)
@@ -3536,10 +3540,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p1, p2, i1]
-        p3 = getarrayitem_gc(p2, 0, descr=arraydescr2)
-        p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
+        p3 = getarrayitem_gc_r(p2, 0, descr=arraydescr2)
+        p4 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
         i2 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
-        i3 = call(i1, descr=writearraydescr)
+        i3 = call_i(i1, descr=writearraydescr)
         i4 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
         escape_n(p3)
         escape_n(p4)
@@ -3556,7 +3560,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, i1, p2, i2]
         setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p2, i2, descr=adescr)
-        i3 = call(i1, descr=readadescr)
+        i3 = call_i(i1, descr=readadescr)
         setfield_gc(p1, i3, descr=valuedescr)
         setfield_gc(p2, i3, descr=adescr)
         jump(p1, i1, p2, i2)
@@ -3564,7 +3568,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p1, i1, p2, i2]
         setfield_gc(p2, i2, descr=adescr)
-        i3 = call(i1, descr=readadescr)
+        i3 = call_i(i1, descr=readadescr)
         setfield_gc(p1, i3, descr=valuedescr)
         setfield_gc(p2, i3, descr=adescr)
         jump(p1, i1, p2, i2)
@@ -4682,11 +4686,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_add_sub_ovf_virtual_unroll(self):
         ops = """
         [p15]
-        i886 = getfield_gc_pure(p15, descr=valuedescr)
+        i886 = getfield_gc_pure_i(p15, descr=valuedescr)
         i888 = int_sub_ovf(i886, 1)
         guard_no_overflow() []
         escape_n(i888)
-        i4360 = getfield_gc_pure(p15, descr=valuedescr)
+        i4360 = getfield_gc_pure_i(p15, descr=valuedescr)
         i4362 = int_add_ovf(i4360, 1)
         guard_no_overflow() []
         i4360p = int_sub_ovf(i4362, 1)

@@ -644,6 +644,7 @@ class ShortBoxes(object):
         #    op = op.clone(self.memo)
         #    op.is_source_op = True
         if box in self.short_boxes:
+            return # XXX avoid those corner cases
             #if op is None:
             #    xxx
             #    oldop = self.short_boxes[box]
@@ -659,15 +660,15 @@ class ShortBoxes(object):
             #value = self.optimizer.getvalue(box)
             #self.optimizer.emit_operation(ResOperation(rop.SAME_AS, [box], newbox))
             #self.optimizer.make_equal_to(newbox, value)
-            if op is None:
-                if self.short_boxes[box] is not box:
-                    xxx
-            else:
-                if self.short_boxes[box] is not op:
-                    if self.short_boxes[box] is None:
-                        self.short_boxes[box] = op
-                    else:
-                        xxx
+            #if op is None:
+            #    if self.short_boxes[box] is not box:
+            #        xxx
+            #else:
+            #    if self.short_boxes[box] is not op:
+            #        if self.short_boxes[box] is None:
+            #            self.short_boxes[box] = op
+            #        else:
+            #            xxx
         else:
             self.short_boxes[box] = op
 

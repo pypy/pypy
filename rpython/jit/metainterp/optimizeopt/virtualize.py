@@ -421,8 +421,8 @@ class VArrayStructValue(AbstractVirtualValue):
 class VRawBufferValue(AbstractVArrayValue):
     is_about_raw = True
 
-    def __init__(self, cpu, logops, size, keybox, source_op):
-        AbstractVirtualValue.__init__(self, keybox, source_op)
+    def __init__(self, cpu, logops, size, source_op):
+        AbstractVirtualValue.__init__(self, source_op)
         # note that size is unused, because we assume that the buffer is big
         # enough to write/read everything we need. If it's not, it's undefined
         # behavior anyway, although in theory we could probably detect such
@@ -467,7 +467,7 @@ class VRawBufferValue(AbstractVArrayValue):
             itemvalue = self.buffer.values[i]
             itembox = itemvalue.force_box(optforce)
             op = ResOperation(rop.RAW_STORE,
-                              [self.box, ConstInt(offset), itembox], None,
+                              [self.box, ConstInt(offset), itembox],
                               descr=descr)
             optforce.emit_operation(op)
 
@@ -484,8 +484,8 @@ class VRawBufferValue(AbstractVArrayValue):
 class VRawSliceValue(AbstractVirtualValue):
     is_about_raw = True
 
-    def __init__(self, rawbuffer_value, offset, keybox, source_op):
-        AbstractVirtualValue.__init__(self, keybox, source_op)
+    def __init__(self, rawbuffer_value, offset, source_op):
+        AbstractVirtualValue.__init__(self, source_op)
         self.rawbuffer_value = rawbuffer_value
         self.offset = offset
 
@@ -540,15 +540,15 @@ class OptVirtualize(optimizer.Optimization):
         self.make_equal_to(source_op, vvalue)
         return vvalue
 
-    def make_virtual_raw_memory(self, size, box, source_op):
+    def make_virtual_raw_memory(self, size, source_op):
         logops = self.optimizer.loop.logops
-        vvalue = VRawBufferValue(self.optimizer.cpu, logops, size, box, source_op)
-        self.make_equal_to(box, vvalue)
+        vvalue = VRawBufferValue(self.optimizer.cpu, logops, size, source_op)
+        self.make_equal_to(source_op, vvalue)
         return vvalue
 
-    def make_virtual_raw_slice(self, rawbuffer_value, offset, box, source_op):
-        vvalue = VRawSliceValue(rawbuffer_value, offset, box, source_op)
-        self.make_equal_to(box, vvalue)
+    def make_virtual_raw_slice(self, rawbuffer_value, offset, source_op):
+        vvalue = VRawSliceValue(rawbuffer_value, offset, source_op)
+        self.make_equal_to(source_op, vvalue)
         return vvalue
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
@@ -736,6 +736,7 @@ class OptVirtualize(optimizer.Optimization):
         else:
             self.emit_operation(op)
     optimize_CALL_R = optimize_CALL_N
+    optimize_CALL_I = optimize_CALL_N
 
     def do_RAW_MALLOC_VARSIZE_CHAR(self, op):
         sizebox = self.get_constant_box(op.getarg(1))

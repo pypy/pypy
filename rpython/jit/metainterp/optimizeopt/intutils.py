@@ -1,7 +1,7 @@
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, maxint, is_valid_int
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.jit.metainterp.history import BoxInt, ConstInt
+from rpython.jit.metainterp.history import ConstInt
 
 MAXINT = maxint
 MININT = -maxint - 1
@@ -238,17 +238,15 @@ class IntBound(object):
     def make_guards(self, box, guards):
         if self.has_lower and self.lower > MININT:
             bound = self.lower
-            res = BoxInt()
-            op = ResOperation(rop.INT_GE, [box, ConstInt(bound)], res)
+            op = ResOperation(rop.INT_GE, [box, ConstInt(bound)])
             guards.append(op)
-            op = ResOperation(rop.GUARD_TRUE, [res], None)
+            op = ResOperation(rop.GUARD_TRUE, [op])
             guards.append(op)
         if self.has_upper and self.upper < MAXINT:
             bound = self.upper
-            res = BoxInt()
-            op = ResOperation(rop.INT_LE, [box, ConstInt(bound)], res)
+            op = ResOperation(rop.INT_LE, [box, ConstInt(bound)])
             guards.append(op)
-            op = ResOperation(rop.GUARD_TRUE, [res], None)
+            op = ResOperation(rop.GUARD_TRUE, [op])
             guards.append(op)
 
 

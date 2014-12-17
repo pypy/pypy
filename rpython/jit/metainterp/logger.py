@@ -1,6 +1,6 @@
 from rpython.jit.metainterp.history import (ConstInt, BoxInt, ConstFloat,
     BoxFloat, TargetToken)
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, AbstractInputArg
 from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
     debug_print)
 from rpython.rlib.objectmodel import we_are_translated, compute_unique_id
@@ -132,6 +132,8 @@ class LogOperations(object):
             return '?'
 
     def repr_of_resop(self, op, ops_offset=None):
+        if isinstance(op, AbstractInputArg):
+            return self.repr_of_arg(op)
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
             jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
             s = jd_sd.warmstate.get_location_str(op.getarglist()[3:])
@@ -196,6 +198,8 @@ class LogOperations(object):
             offset = ops_offset[None]
             debug_print("+%d: --end of the loop--" % offset)
 
+    def log_loop(self, loop):
+        self._log_operations(loop.inputargs, loop.operations)
 
 def int_could_be_an_address(x):
     if we_are_translated():

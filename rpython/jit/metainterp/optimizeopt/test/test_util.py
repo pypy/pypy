@@ -432,6 +432,8 @@ class BaseTest(object):
                               operations +  \
                               [ResOperation(rop.LABEL, jump_args, descr=token)]
         start_state = self._do_optimize_loop(preamble, call_pure_results)
+        import pdb
+        pdb.set_trace()
 
         assert preamble.operations[-1].getopnum() == rop.LABEL
 

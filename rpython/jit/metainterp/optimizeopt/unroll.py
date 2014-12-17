@@ -305,6 +305,8 @@ class UnrollOptimizer(Optimization):
         # Construct jumpargs from the virtual state
         original_jumpargs = jumpop.getarglist()[:]
         values = [self.getvalue(arg) for arg in jumpop.getarglist()]
+        import pdb
+        pdb.set_trace()
         try:
             jumpargs = virtual_state.make_inputargs(values, self.optimizer)
         except BadVirtualState:
@@ -635,5 +637,7 @@ class ExportedState(object):
         debug_print("   short boxes")
         self.short_boxes.dump(logops)
         debug_print("   exported values")
-        #self.exported_values.dump(logops)
+        for k, v in self.exported_values.iteritems():
+            debug_print("%s:%s" % (logops.repr_of_resop(k),
+                                   logops.repr_of_resop(v.box)))
         debug_stop("jit-exported-state")
