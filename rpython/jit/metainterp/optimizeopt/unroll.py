@@ -17,10 +17,11 @@ from rpython.rlib.debug import debug_print, debug_start, debug_stop
 # FIXME: Introduce some VirtualOptimizer super class instead
 
 def optimize_unroll(metainterp_sd, loop, optimizations,
-                    inline_short_preamble=True, start_state=None):
+                    inline_short_preamble=True, start_state=None,
+                    export_state=True):
     opt = UnrollOptimizer(metainterp_sd, loop, optimizations)
     opt.inline_short_preamble = inline_short_preamble
-    return opt.propagate_all_forward(start_state)
+    return opt.propagate_all_forward(start_state, export_state)
 
 
 class UnrollableOptimizer(Optimizer):
@@ -71,7 +72,7 @@ class UnrollOptimizer(Optimization):
         prev = self.fix_snapshot(jump_args, snapshot.prev)
         return Snapshot(prev, new_snapshot_args)
 
-    def propagate_all_forward(self, starting_state):
+    def propagate_all_forward(self, starting_state, export_state=True):
         loop = self.optimizer.loop
         self.optimizer.clear_newoperations()
 
@@ -146,11 +147,14 @@ class UnrollOptimizer(Optimization):
             self.close_bridge(start_label)
 
         self.optimizer.flush()
-        KillHugeIntBounds(self.optimizer).apply()
+        if export_state:
+            KillHugeIntBounds(self.optimizer).apply()
 
         loop.operations = self.optimizer.get_newoperations()
-        final_state = self.export_state(stop_label)
-        final_state.dump(self.optimizer.metainterp_sd)
+        if export_state:
+            final_state = self.export_state(stop_label)
+        else:
+            final_state = None
         loop.operations.append(stop_label)
         return final_state
 
@@ -179,8 +183,7 @@ class UnrollOptimizer(Optimization):
             for box in self.inputargs:
                 self.boxes_created_this_iteration[box] = None
 
-        short_boxes = ShortBoxes(self.optimizer, inputargs,
-                                 self.boxes_created_this_iteration)
+        short_boxes = ShortBoxes(self.optimizer, inputargs)
 
         self.optimizer.clear_newoperations()
         for i in range(len(original_jump_args)):
@@ -317,7 +320,9 @@ class UnrollOptimizer(Optimization):
         jumpop.initarglist(jumpargs)
 
         # Inline the short preamble at the end of the loop
-        jmp_to_short_args = virtual_state.make_inputargs(values, self.optimizer, keyboxes=True)
+        jmp_to_short_args = virtual_state.make_inputargs(values,
+                                                         self.optimizer,
+                                                         keyboxes=True)
         assert len(short_inputargs) == len(jmp_to_short_args)
         args = {}
         for i in range(len(short_inputargs)):

@@ -45,7 +45,8 @@ class BaseTestMultiLabel(BaseTest):
             part.operations = operations
 
             self.add_guard_future_condition(part)
-            state = self._do_optimize_loop(part, None, state)
+            state = self._do_optimize_loop(part, None, state,
+                                           export_state=True)
             if part.operations[-1].getopnum() == rop.LABEL:
                 last_label = [part.operations.pop()]
             else:
@@ -497,7 +498,8 @@ dispatch_opt = make_dispatcher_method(OptRenameStrlen, 'optimize_',
 
 class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
 
-    def _do_optimize_loop(self, loop, call_pure_results, state):
+    def _do_optimize_loop(self, loop, call_pure_results, state,
+                          export_state=False):
         from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
         from rpython.jit.metainterp.optimizeopt.util import args_dict
         from rpython.jit.metainterp.optimizeopt.pure import OptPure
@@ -505,7 +507,7 @@ class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
         self.loop = loop
         loop.call_pure_results = args_dict()
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        return optimize_unroll(metainterp_sd, loop, [OptRewrite(), OptRenameStrlen(), OptHeap(), OptPure()], True, state)
+        return optimize_unroll(metainterp_sd, loop, [OptRewrite(), OptRenameStrlen(), OptHeap(), OptPure()], True, state, export_state)
 
     def test_optimizer_renaming_boxes1(self):
         ops = """
@@ -543,8 +545,8 @@ class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
         self.optimize_loop(ops, expected)
 
 
-class TestLLtype(OptimizeoptTestMultiLabel, LLtypeMixin):
+class XxxTestLLtype(OptimizeoptTestMultiLabel, LLtypeMixin):
     pass
 
-class TestOptimizerRenamingBoxesLLtype(BaseTestOptimizerRenamingBoxes, LLtypeMixin):
+class XxxTestOptimizerRenamingBoxesLLtype(BaseTestOptimizerRenamingBoxes, LLtypeMixin):
     pass

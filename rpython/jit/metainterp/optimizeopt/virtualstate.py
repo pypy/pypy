@@ -587,12 +587,11 @@ class BoxNotProducable(Exception):
 
 
 class ShortBoxes(object):
-    def __init__(self, optimizer, surviving_boxes, available_boxes=None):
+    def __init__(self, optimizer, surviving_boxes):
         self.potential_ops = {}
         self.alternatives = {}
         self.synthetic = {}
         self.optimizer = optimizer
-        self.available_boxes = available_boxes
         self.assumed_classes = {}
 
         assert surviving_boxes is not None
@@ -678,8 +677,6 @@ class ShortBoxes(object):
         if isinstance(op, Const):
             return
         if op in self.short_boxes_in_production:
-            raise BoxNotProducable
-        if self.available_boxes is not None and op not in self.available_boxes:
             raise BoxNotProducable
         self.short_boxes_in_production[op] = None
 

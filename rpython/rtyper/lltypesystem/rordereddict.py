@@ -28,8 +28,8 @@ from rpython.rtyper.annlowlevel import llhelper
 #    }
 #
 #    struct dicttable {
-#        int num_items;
-#        int num_used_items;
+#        int num_live_items;
+#        int num_ever_used_items;
 #        int resize_counter;
 #        {byte, short, int, long} *indexes;
 #        dictentry *entries;
@@ -72,6 +72,8 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
         'must_clear_value': (isinstance(DICTVALUE, lltype.Ptr)
                              and DICTVALUE._needsgc()),
         }
+    if getattr(ll_eq_function, 'no_direct_compare', False):
+        entrymeths['no_direct_compare'] = True
 
     # * the key
     entryfields.append(("key", DICTKEY))
@@ -113,8 +115,8 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
     DICTENTRY = lltype.Struct("odictentry", *entryfields)
     DICTENTRYARRAY = lltype.GcArray(DICTENTRY,
                                     adtmeths=entrymeths)
-    fields =          [ ("num_items", lltype.Signed),
-                        ("num_used_items", lltype.Signed),
+    fields =          [ ("num_live_items", lltype.Signed),
+                        ("num_ever_used_items", lltype.Signed),
                         ("resize_counter", lltype.Signed),
                         ("indexes", llmemory.GCREF),
                         ("lookup_function_no", lltype.Signed),
@@ -156,7 +158,7 @@ class OrderedDictRepr(AbstractDictRepr):
 
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
                  custom_eq_hash=None, force_non_null=False):
-        assert not force_non_null
+        #assert not force_non_null
         self.rtyper = rtyper
         self.finalized = False
         self.DICT = lltype.GcForwardReference()
@@ -217,7 +219,7 @@ class OrderedDictRepr(AbstractDictRepr):
         #dictobj = getattr(dictobj, '__self__', dictobj)
         if dictobj is None:
             return lltype.nullptr(self.DICT)
-        if not isinstance(dictobj, (dict, objectmodel.r_ordereddict)):
+        if not isinstance(dictobj, (dict, objectmodel.r_dict)):
             raise TypeError("expected a dict: %r" % (dictobj,))
         try:
             key = Constant(dictobj)
@@ -231,8 +233,8 @@ class OrderedDictRepr(AbstractDictRepr):
             if r_key.lowleveltype == llmemory.Address:
                 raise TypeError("No prebuilt dicts of address keys")
             r_value = self.value_repr
-            if isinstance(dictobj, objectmodel.r_ordereddict):
-                
+            if isinstance(dictobj, objectmodel.r_dict):
+
                 if self.r_rdict_eqfn.lowleveltype != lltype.Void:
                     l_fn = self.r_rdict_eqfn.convert_const(dictobj.key_eq)
                     l_dict.fnkeyeq = l_fn
@@ -416,6 +418,7 @@ TYPE_INT   = rffi.UINT
 TYPE_LONG  = lltype.Unsigned
 
 def ll_malloc_indexes_and_choose_lookup(d, n):
+    # keep in sync with ll_clear_indexes() below
     if n <= 256:
         d.indexes = lltype.cast_opaque_ptr(llmemory.GCREF,
                                            lltype.malloc(DICTINDEX_BYTE.TO, n,
@@ -436,6 +439,16 @@ def ll_malloc_indexes_and_choose_lookup(d, n):
                                            lltype.malloc(DICTINDEX_LONG.TO, n,
                                                          zero=True))
         d.lookup_function_no = FUNC_LONG
+
+def ll_clear_indexes(d, n):
+    if n <= 256:
+        rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_BYTE, d.indexes))
+    elif n <= 65536:
+        rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_SHORT, d.indexes))
+    elif IS_64BIT and n <= 2 ** 32:
+        rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_INT, d.indexes))
+    else:
+        rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_LONG, d.indexes))
 
 def ll_call_insert_clean_function(d, hash, i):
     DICT = lltype.typeOf(d).TO
@@ -492,11 +505,11 @@ def ll_keyeq_custom(d, key1, key2):
     return objectmodel.hlinvoke(DICT.r_rdict_eqfn, d.fnkeyeq, key1, key2)
 
 def ll_dict_len(d):
-    return d.num_items
+    return d.num_live_items
 
 def ll_dict_bool(d):
     # check if a dict is True, allowing for None
-    return bool(d) and d.num_items != 0
+    return bool(d) and d.num_live_items != 0
 
 def ll_dict_getitem(d, key):
     index = d.lookup_function(d, key, d.keyhash(key), FLAG_LOOKUP)
@@ -519,43 +532,64 @@ def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
         entry = d.entries[i]
         entry.value = value
     else:
-        if len(d.entries) == d.num_used_items:
-            if ll_dict_grow(d):
-                ll_call_insert_clean_function(d, hash, d.num_used_items)
-        entry = d.entries[d.num_used_items]
+        reindexed = False
+        if len(d.entries) == d.num_ever_used_items:
+            try:
+                reindexed = ll_dict_grow(d)
+            except:
+                _ll_dict_rescue(d)
+                raise
+        rc = d.resize_counter - 3
+        if rc <= 0:
+            try:
+                ll_dict_resize(d)
+                reindexed = True
+            except:
+                _ll_dict_rescue(d)
+                raise
+            rc = d.resize_counter - 3
+            ll_assert(rc > 0, "ll_dict_resize failed?")
+        if reindexed:
+            ll_call_insert_clean_function(d, hash, d.num_ever_used_items)
+        #
+        d.resize_counter = rc
+        entry = d.entries[d.num_ever_used_items]
         entry.key = key
         entry.value = value
         if hasattr(ENTRY, 'f_hash'):
             entry.f_hash = hash
         if hasattr(ENTRY, 'f_valid'):
             entry.f_valid = True
-        d.num_used_items += 1
-        d.num_items += 1
-        rc = d.resize_counter - 3
-        if rc <= 0:
-            ll_dict_resize(d)
-            rc = d.resize_counter - 3
-            ll_assert(rc > 0, "ll_dict_resize failed?")
-        d.resize_counter = rc
+        d.num_ever_used_items += 1
+        d.num_live_items += 1
+
+@jit.dont_look_inside
+def _ll_dict_rescue(d):
+    # MemoryError situation!  The 'indexes' contains an invalid entry
+    # at this point.  But we can call ll_dict_reindex() with the
+    # following arguments, ensuring no further malloc occurs.
+    ll_dict_reindex(d, _ll_len_of_d_indexes(d))
+_ll_dict_rescue._dont_inline_ = True
 
 def _ll_dict_insertclean(d, key, value, hash):
     ENTRY = lltype.typeOf(d.entries).TO.OF
-    ll_call_insert_clean_function(d, hash, d.num_used_items)
-    entry = d.entries[d.num_used_items]
+    ll_call_insert_clean_function(d, hash, d.num_ever_used_items)
+    entry = d.entries[d.num_ever_used_items]
     entry.key = key
     entry.value = value
     if hasattr(ENTRY, 'f_hash'):
         entry.f_hash = hash
     if hasattr(ENTRY, 'f_valid'):
         entry.f_valid = True
-    d.num_used_items += 1
-    d.num_items += 1
+    d.num_ever_used_items += 1
+    d.num_live_items += 1
     rc = d.resize_counter - 3
     d.resize_counter = rc
 
 def _ll_len_of_d_indexes(d):
     # xxx Haaaack: returns len(d.indexes).  Works independently of
     # the exact type pointed to by d, using a forced cast...
+    # Must only be called by @jit.dont_look_inside functions.
     return len(rffi.cast(DICTINDEX_BYTE, d.indexes))
 
 def _overallocate_entries_len(baselen):
@@ -575,7 +609,11 @@ def _overallocate_entries_len(baselen):
 
 @jit.dont_look_inside
 def ll_dict_grow(d):
-    if d.num_items < d.num_used_items // 4:
+    if d.num_live_items < d.num_ever_used_items // 2:
+        # At least 50% of the allocated entries are dead, so perform a
+        # compaction. If ll_dict_remove_deleted_items detects that over
+        # 75% of allocated entries are dead, then it will also shrink the
+        # memory allocated at the same time as doing a compaction.
         ll_dict_remove_deleted_items(d)
         return True
 
@@ -594,16 +632,25 @@ def ll_dict_grow(d):
     return False
 
 def ll_dict_remove_deleted_items(d):
-    new_allocated = _overallocate_entries_len(d.num_items)
-    if new_allocated < len(d.entries) // 2:
+    if d.num_live_items < len(d.entries) // 4:
+        # At least 75% of the allocated entries are dead, so shrink the memory
+        # allocated as well as doing a compaction.
+        new_allocated = _overallocate_entries_len(d.num_live_items)
         newitems = lltype.malloc(lltype.typeOf(d).TO.entries.TO, new_allocated)
     else:
         newitems = d.entries
+        # The loop below does a lot of writes into 'newitems'.  It's a better
+        # idea to do a single gc_writebarrier rather than activating the
+        # card-by-card logic (worth 11% in microbenchmarks).
+        from rpython.rtyper.lltypesystem.lloperation import llop
+        llop.gc_writebarrier(lltype.Void, newitems)
     #
-    ENTRY = lltype.typeOf(d).TO.entries.TO.OF
+    ENTRIES = lltype.typeOf(d).TO.entries.TO
+    ENTRY = ENTRIES.OF
     isrc = 0
     idst = 0
-    while isrc < len(d.entries):
+    isrclimit = d.num_ever_used_items
+    while isrc < isrclimit:
         if d.entries.valid(isrc):
             src = d.entries[isrc]
             dst = newitems[idst]
@@ -616,9 +663,21 @@ def ll_dict_remove_deleted_items(d):
                 dst.f_valid = True
             idst += 1
         isrc += 1
-    d.entries = newitems
-    assert d.num_items == idst
-    d.num_used_items = idst
+    assert d.num_live_items == idst
+    d.num_ever_used_items = idst
+    if ((ENTRIES.must_clear_key or ENTRIES.must_clear_value) and
+            d.entries == newitems):
+        # must clear the extra entries: they may contain valid pointers
+        # which would create a temporary memory leak
+        while idst < isrclimit:
+            entry = newitems[idst]
+            if ENTRIES.must_clear_key:
+                entry.key = lltype.nullptr(ENTRY.key.TO)
+            if ENTRIES.must_clear_value:
+                entry.value = lltype.nullptr(ENTRY.value.TO)
+            idst += 1
+    else:
+        d.entries = newitems
 
     ll_dict_reindex(d, _ll_len_of_d_indexes(d))
 
@@ -632,7 +691,7 @@ def ll_dict_delitem(d, key):
 @jit.look_inside_iff(lambda d, i: jit.isvirtual(d) and jit.isconstant(i))
 def _ll_dict_del(d, index):
     d.entries.mark_deleted(index)
-    d.num_items -= 1
+    d.num_live_items -= 1
     # clear the key and the value if they are GC pointers
     ENTRIES = lltype.typeOf(d.entries).TO
     ENTRY = ENTRIES.OF
@@ -641,32 +700,37 @@ def _ll_dict_del(d, index):
         entry.key = lltype.nullptr(ENTRY.key.TO)
     if ENTRIES.must_clear_value:
         entry.value = lltype.nullptr(ENTRY.value.TO)
-    #
-    # The rest is commented out: like CPython we no longer shrink the
-    # dictionary here.  It may shrink later if we try to append a number
-    # of new items to it.  Unsure if this behavior was designed in
-    # CPython or is accidental.  A design reason would be that if you
-    # delete all items in a dictionary (e.g. with a series of
-    # popitem()), then CPython avoids shrinking the table several times.
-    #num_entries = len(d.entries)
-    #if num_entries > DICT_INITSIZE and d.num_items <= num_entries / 4:
-    #    ll_dict_resize(d)
-    # A previous xxx: move the size checking and resize into a single
-    # call which is opaque to the JIT when the dict isn't virtual, to
-    # avoid extra branches.
+
+    if index == d.num_ever_used_items - 1:
+        # The last element of the ordereddict has been deleted. Instead of
+        # simply marking the item as dead, we can safely reuse it. Since it's
+        # also possible that there are more dead items immediately behind the
+        # last one, we reclaim all the dead items at the end of the ordereditem
+        # at the same point.
+        i = d.num_ever_used_items - 2
+        while i >= 0 and not d.entries.valid(i):
+            i -= 1
+        j = i + 1
+        assert j >= 0
+        d.num_ever_used_items = j
+
+    # If the dictionary is at least 87.5% dead items, then consider shrinking
+    # it.
+    if d.num_live_items + DICT_INITSIZE <= len(d.entries) / 8:
+        ll_dict_resize(d)
 
 def ll_dict_resize(d):
     # make a 'new_size' estimate and shrink it if there are many
     # deleted entry markers.  See CPython for why it is a good idea to
     # quadruple the dictionary size as long as it's not too big.
-    # (Quadrupling comes from '(d.num_items + d.num_items + 1) * 2'
-    # as long as num_items is not too large.)
-    num_extra = min(d.num_items + 1, 30000)
+    # (Quadrupling comes from '(d.num_live_items + d.num_live_items + 1) * 2'
+    # as long as num_live_items is not too large.)
+    num_extra = min(d.num_live_items + 1, 30000)
     _ll_dict_resize_to(d, num_extra)
 ll_dict_resize.oopspec = 'odict.resize(d)'
 
 def _ll_dict_resize_to(d, num_extra):
-    new_estimate = (d.num_items + num_extra) * 2
+    new_estimate = (d.num_live_items + num_extra) * 2
     new_size = DICT_INITSIZE
     while new_size <= new_estimate:
         new_size *= 2
@@ -677,13 +741,17 @@ def _ll_dict_resize_to(d, num_extra):
         ll_dict_reindex(d, new_size)
 
 def ll_dict_reindex(d, new_size):
-    ll_malloc_indexes_and_choose_lookup(d, new_size)
-    d.resize_counter = new_size * 2 - d.num_items * 3
+    if bool(d.indexes) and _ll_len_of_d_indexes(d) == new_size:
+        ll_clear_indexes(d, new_size)   # hack: we can reuse the same array
+    else:
+        ll_malloc_indexes_and_choose_lookup(d, new_size)
+    d.resize_counter = new_size * 2 - d.num_live_items * 3
     assert d.resize_counter > 0
     #
     entries = d.entries
     i = 0
-    while i < d.num_used_items:
+    ibound = d.num_ever_used_items
+    while i < ibound:
         if entries.valid(i):
             hash = entries.hash(i)
             ll_call_insert_clean_function(d, hash, i)
@@ -758,7 +826,7 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
     else:
         # pristine entry -- lookup failed
         if store_flag == FLAG_STORE:
-            indexes[i] = rffi.cast(T, d.num_used_items + VALID_OFFSET)
+            indexes[i] = rffi.cast(T, d.num_ever_used_items + VALID_OFFSET)
         elif d.paranoia and store_flag == FLAG_DELETE_TRY_HARD:
             return ll_kill_something(d, T)
         return -1
@@ -775,7 +843,7 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
             if store_flag == FLAG_STORE:
                 if deletedslot == -1:
                     deletedslot = intmask(i)
-                indexes[deletedslot] = rffi.cast(T, d.num_used_items +
+                indexes[deletedslot] = rffi.cast(T, d.num_ever_used_items +
                                                  VALID_OFFSET)
             elif d.paranoia and store_flag == FLAG_DELETE_TRY_HARD:
                 return ll_kill_something(d, T)
@@ -835,10 +903,11 @@ def ll_newdict(DICT):
     d = DICT.allocate()
     d.entries = _ll_empty_array(DICT)
     ll_malloc_indexes_and_choose_lookup(d, DICT_INITSIZE)
-    d.num_items = 0
-    d.num_used_items = 0
+    d.num_live_items = 0
+    d.num_ever_used_items = 0
     d.resize_counter = DICT_INITSIZE * 2
     return d
+OrderedDictRepr.ll_newdict = staticmethod(ll_newdict)
 
 def ll_newdict_size(DICT, orig_length_estimate):
     length_estimate = (orig_length_estimate // 2) * 3
@@ -848,8 +917,8 @@ def ll_newdict_size(DICT, orig_length_estimate):
     d = DICT.allocate()
     d.entries = DICT.entries.TO.allocate(orig_length_estimate)
     ll_malloc_indexes_and_choose_lookup(d, n)
-    d.num_items = 0
-    d.num_used_items = 0
+    d.num_live_items = 0
+    d.num_ever_used_items = 0
     d.resize_counter = n * 2
     return d
 
@@ -863,23 +932,6 @@ def _ll_malloc_entries(ENTRIES, n):
 def _ll_free_entries(entries):
     pass
 
-
-def rtype_r_dict(hop):
-    r_dict = hop.r_result
-    if not r_dict.custom_eq_hash:
-        raise TyperError("r_dict() call does not return an r_dict instance")
-    v_eqfn = hop.inputarg(r_dict.r_rdict_eqfn, arg=0)
-    v_hashfn = hop.inputarg(r_dict.r_rdict_hashfn, arg=1)
-    cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
-    hop.exception_cannot_occur()
-    v_result = hop.gendirectcall(ll_newdict, cDICT)
-    if r_dict.r_rdict_eqfn.lowleveltype != lltype.Void:
-        cname = hop.inputconst(lltype.Void, 'fnkeyeq')
-        hop.genop('setfield', [v_result, cname, v_eqfn])
-    if r_dict.r_rdict_hashfn.lowleveltype != lltype.Void:
-        cname = hop.inputconst(lltype.Void, 'fnkeyhash')
-        hop.genop('setfield', [v_result, cname, v_hashfn])
-    return v_result
 
 # ____________________________________________________________
 #
@@ -916,7 +968,7 @@ def _ll_dictnext(iter):
         entries = dict.entries
         index = iter.index
         assert index >= 0
-        entries_len = dict.num_used_items
+        entries_len = dict.num_ever_used_items
         while index < entries_len:
             nextindex = index + 1
             if entries.valid(index):
@@ -951,15 +1003,15 @@ def ll_dict_copy(dict):
     newdict = DICT.allocate()
     newdict.entries = DICT.entries.TO.allocate(len(dict.entries))
 
-    newdict.num_items = dict.num_items
-    newdict.num_used_items = dict.num_used_items
+    newdict.num_live_items = dict.num_live_items
+    newdict.num_ever_used_items = dict.num_ever_used_items
     if hasattr(DICT, 'fnkeyeq'):
         newdict.fnkeyeq = dict.fnkeyeq
     if hasattr(DICT, 'fnkeyhash'):
         newdict.fnkeyhash = dict.fnkeyhash
 
     i = 0
-    while i < newdict.num_used_items:
+    while i < newdict.num_ever_used_items:
         d_entry = newdict.entries[i]
         entry = dict.entries[i]
         ENTRY = lltype.typeOf(newdict.entries).TO.OF
@@ -976,14 +1028,14 @@ def ll_dict_copy(dict):
 ll_dict_copy.oopspec = 'odict.copy(dict)'
 
 def ll_dict_clear(d):
-    if d.num_used_items == 0:
+    if d.num_ever_used_items == 0:
         return
     DICT = lltype.typeOf(d).TO
     old_entries = d.entries
     d.entries = _ll_empty_array(DICT)
     ll_malloc_indexes_and_choose_lookup(d, DICT_INITSIZE)
-    d.num_items = 0
-    d.num_used_items = 0
+    d.num_live_items = 0
+    d.num_ever_used_items = 0
     d.resize_counter = DICT_INITSIZE * 2
     # old_entries.delete() XXX
 ll_dict_clear.oopspec = 'odict.clear(d)'
@@ -991,9 +1043,9 @@ ll_dict_clear.oopspec = 'odict.clear(d)'
 def ll_dict_update(dic1, dic2):
     if dic1 == dic2:
         return
-    ll_prepare_dict_update(dic1, dic2.num_items)
+    ll_prepare_dict_update(dic1, dic2.num_live_items)
     i = 0
-    while i < dic2.num_used_items:
+    while i < dic2.num_ever_used_items:
         entries = dic2.entries
         if entries.valid(i):
             entry = entries[i]
@@ -1012,7 +1064,13 @@ def ll_prepare_dict_update(d, num_extra):
     #      (d.resize_counter - 1) // 3 = room left in d
     #  so, if num_extra == 1, we need d.resize_counter > 3
     #      if num_extra == 2, we need d.resize_counter > 6  etc.
-    jit.conditional_call(d.resize_counter <= num_extra * 3,
+    # Note however a further hack: if num_extra <= d.num_live_items,
+    # we avoid calling _ll_dict_resize_to here.  This is to handle
+    # the case where dict.update() actually has a lot of collisions.
+    # If num_extra is much greater than d.num_live_items the conditional_call
+    # will trigger anyway, which is really the goal.
+    x = num_extra - d.num_live_items
+    jit.conditional_call(d.resize_counter <= x * 3,
                          _ll_dict_resize_to, d, num_extra)
 
 # this is an implementation of keys(), values() and items()
@@ -1028,9 +1086,9 @@ def recast(P, v):
 
 def _make_ll_keys_values_items(kind):
     def ll_kvi(LIST, dic):
-        res = LIST.ll_newlist(dic.num_items)
+        res = LIST.ll_newlist(dic.num_live_items)
         entries = dic.entries
-        dlen = dic.num_used_items
+        dlen = dic.num_ever_used_items
         items = res.ll_items()
         i = 0
         p = 0
@@ -1064,24 +1122,24 @@ def ll_dict_contains(d, key):
     return i != -1
 
 def _ll_getnextitem(dic):
-    if dic.num_items == 0:
+    if dic.num_live_items == 0:
         raise KeyError
 
     entries = dic.entries
 
     while True:
-        i = dic.num_used_items - 1
+        i = dic.num_ever_used_items - 1
         if entries.valid(i):
             break
-        dic.num_used_items -= 1
+        dic.num_ever_used_items -= 1
 
     key = entries[i].key
     index = dic.lookup_function(dic, key, entries.hash(i),
                                 FLAG_DELETE_TRY_HARD)
     # if the lookup function returned me a random strange thing,
     # don't care about deleting the item
-    if index == dic.num_used_items - 1:
-        dic.num_used_items -= 1
+    if index == dic.num_ever_used_items - 1:
+        dic.num_ever_used_items -= 1
     else:
         assert index != -1
     return index

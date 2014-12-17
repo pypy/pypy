@@ -330,6 +330,20 @@ def ll_shrink_array(p, smallerlength):
     keepalive_until_here(newp)
     return newp
 
+@jit.dont_look_inside
+@specialize.ll()
+def ll_arrayclear(p):
+    # Equivalent to memset(array, 0).  Only for GcArray(primitive-type) for now.
+    from rpython.rlib.objectmodel import keepalive_until_here
+
+    length = len(p)
+    ARRAY = lltype.typeOf(p).TO
+    offset = llmemory.itemoffsetof(ARRAY, 0)
+    dest_addr = llmemory.cast_ptr_to_adr(p) + offset
+    llmemory.raw_memclear(dest_addr, llmemory.sizeof(ARRAY.OF) * length)
+    keepalive_until_here(p)
+
+
 def no_release_gil(func):
     func._dont_inline_ = True
     func._no_release_gil_ = True

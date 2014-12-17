@@ -105,7 +105,7 @@ class BaseTestBasic(BaseTest):
         if loop.operations[-1].getopnum() == rop.JUMP:
             loop.operations[-1].setdescr(token)
         expected = convert_old_style_to_targets(self.parse(optops), jump=True)
-        self._do_optimize_loop(loop, call_pure_results)
+        self._do_optimize_loop(loop, call_pure_results, export_state=False)
         #print '\n'.join([str(o) for o in loop.operations])
         self.assert_equal(loop, expected)
 
