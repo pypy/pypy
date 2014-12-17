@@ -88,7 +88,8 @@ class AssemblerLibgccjit(BaseAssembler):
         clt.frame_info.clear() # for now
 
         self.make_context()
-        self.t_long = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_LONG)
+        self.t_Signed = self.ctxt.get_int_type(r_int(self.sizeof_signed),
+                                               r_int(1))
         self.t_bool = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_BOOL)
         self.t_void_ptr = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID_PTR)
 
@@ -108,8 +109,8 @@ class AssemblerLibgccjit(BaseAssembler):
             field = self.ctxt.new_field(jit_type,name)
             fields.append(field)
             return field
-        make_field('jfi_frame_depth', self.t_long)
-        make_field('jfi_frame_size', self.t_long)
+        make_field('jfi_frame_depth', self.t_Signed)
+        make_field('jfi_frame_size', self.t_Signed)
 
         t_JITFRAMEINFO = (
             self.ctxt.new_struct_type ("JITFRAMEINFO",
@@ -131,13 +132,13 @@ class AssemblerLibgccjit(BaseAssembler):
         self.field_jf_descr = make_field('jf_descr', self.t_void_ptr)
         make_field('jf_force_descr', self.t_void_ptr)
         make_field('jf_gcmap', self.t_void_ptr)
-        make_field('jf_extra_stack_depth', self.t_long)
+        make_field('jf_extra_stack_depth', self.t_Signed)
         make_field('jf_savedata', self.t_void_ptr)
         make_field('jf_guard_exc', self.t_void_ptr)
         make_field('jf_forward', t_jit_frame_ptr)
         # FIXME: for some reason there's an implicit word here;
         # create it
-        make_field('jf_frame', self.t_long)
+        make_field('jf_frame', self.t_Signed)
 
         initial_locs = []
         #loc = jitframe.getofs('jf_frame')
@@ -153,7 +154,7 @@ class AssemblerLibgccjit(BaseAssembler):
         self.field_for_arg_idx = {}
         for idx in range(max_args):
             self.field_for_arg_idx[idx] = make_field("arg%i" % idx,
-                                                     self.t_long)
+                                                     self.t_Signed)
             initial_locs.append(idx * self.sizeof_signed) # hack!
 
         struct_jit_frame.set_fields (fields)
@@ -174,7 +175,7 @@ class AssemblerLibgccjit(BaseAssembler):
             loopname = 'anonloop_%i' % self.num_anon_loops
             self.num_anon_loops += 1
         self.fn = self.ctxt.new_function(self.lib.GCC_JIT_FUNCTION_EXPORTED,
-                                         t_jit_frame_ptr, # self.t_long,
+                                         t_jit_frame_ptr,
                                          loopname,
                                          params,
                                          r_int(0))
@@ -247,13 +248,13 @@ class AssemblerLibgccjit(BaseAssembler):
         elif isinstance(expr, ConstInt):
             #print('value: %r' % expr.value)
             #print('type(value): %r' % type(expr.value))
-            return self.ctxt.new_rvalue_from_int(self.t_long,
+            return self.ctxt.new_rvalue_from_int(self.t_Signed,
                                                  r_int(expr.value))
         raise ValueError('unhandled expr: %s' % expr)
 
     def get_box_as_lvalue(self, box):
         if box not in self.lvalue_for_box:
-            self.lvalue_for_box[box] = self.fn.new_local(self.t_long,
+            self.lvalue_for_box[box] = self.fn.new_local(self.t_Signed,
                                                          str(box))
         return self.lvalue_for_box[box]
 
@@ -282,7 +283,7 @@ class AssemblerLibgccjit(BaseAssembler):
         lvalres = self.expr_to_lvalue(resop.result)
 
         binop_expr = self.ctxt.new_binary_op(gcc_jit_binary_op,
-                                             self.t_long,
+                                             self.t_Signed,
                                              rval0, rval1)
         self.b_current.add_assignment(lvalres, binop_expr)
 
@@ -327,7 +328,7 @@ class AssemblerLibgccjit(BaseAssembler):
         # First pass: capture the value of relevant boxes at the JUMP:
         tmps = []
         for i in range(len(jumpop._args)):
-            tmps.append(self.fn.new_local(self.t_long, "tmp%i" % i))
+            tmps.append(self.fn.new_local(self.t_Signed, "tmp%i" % i))
             self.b_current.add_assignment(
                 tmps[i],
                 self.get_box_as_lvalue(jumpop._args[i]).as_rvalue())
@@ -347,7 +348,7 @@ class AssemblerLibgccjit(BaseAssembler):
             self.ctxt.new_cast(
                 self.ctxt.new_comparison(gcc_jit_comparison,
                                          rval0, rval1),
-                self.t_long)
+                self.t_Signed)
             )
         self.b_current.add_assignment(lvalres,
                                       resop_cmp)
@@ -407,7 +408,7 @@ class AssemblerLibgccjit(BaseAssembler):
                 """
                 self.b_current.add_assignment(
                     self.get_arg_as_lvalue(idx),
-                    self.ctxt.new_rvalue_from_int (self.t_long,
+                    self.ctxt.new_rvalue_from_int (self.t_Signed,
                                                    r_int(0)))
                 """
 
