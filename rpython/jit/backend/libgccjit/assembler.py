@@ -319,7 +319,124 @@ class AssemblerLibgccjit(BaseAssembler):
         else:
             raise ValueError('unhandled box: %s %s' % (box, type(box)))        
 
-    # Handling of specific ResOperation subclasses
+    # Handling of specific ResOperation subclasses: each one is
+    # a method named "emit_foo", where "foo" is the str() of the resop.
+    #
+    # Keep these in the same order as _oplist within
+    # rpython/jit/metainterp/resoperation.py.
+
+    # JUMP and FINISH:
+
+    def emit_jump(self, jumpop):
+        print(jumpop)
+        print(jumpop.__dict__)
+        label = self.label_for_descr[jumpop.getdescr()]
+        print(jumpop.getdescr())
+        print('label: %r' % label)
+
+        assert len(jumpop._args) == len(label._args)
+
+        # We need to write to the boxes listed in the label's args
+        # with the values from those listed in the jump's args.
+        # However, there are potential cases like JUMP(i0, i1) going to LABEL(i1, i0)
+        # where all such assignments happen "simultaneously".
+        # Hence we need to set up temporaries.
+        # First pass: capture the value of relevant boxes at the JUMP:
+        tmps = []
+        for i in range(len(jumpop._args)):
+            tmps.append(self.fn.new_local(self.t_Signed, "tmp%i" % i))
+            self.b_current.add_assignment(
+                tmps[i],
+                self.get_box_as_lvalue(jumpop._args[i]).as_rvalue())
+        # Second pass: write the values to the boxes at the LABEL:
+        for i in range(len(jumpop._args)):
+            self.b_current.add_assignment(
+                self.get_box_as_lvalue(label._args[i]),
+                tmps[i].as_rvalue())
+            
+        self.b_current.end_with_jump(self.block_for_label_descr[jumpop.getdescr()])
+
+    def emit_finish(self, resop):
+        self._impl_write_output_args(resop._args)
+        self._impl_write_jf_descr(resop)
+        self.b_current.end_with_return(self.param_frame.as_rvalue ())
+
+    def emit_label(self, resop):
+        print(resop)
+        print(resop.__dict__)
+        #print('resop.getdescr(): %r' % resop.getdescr())
+        #print('resop.getdescr().__dict__: %r' % resop.getdescr().__dict__)
+
+        b_new = self.fn.new_block(str(resop))
+        self.block_for_label_descr[resop.getdescr()] = b_new
+        self.label_for_descr[resop.getdescr()] = resop
+        self.b_current.end_with_jump(b_new)
+        self.b_current = b_new
+
+    # GUARD_*
+
+    def _impl_guard(self, resop, istrue):
+        print(resop)
+        print(resop.__dict__)
+        b_true = self.fn.new_block("on_true_at_%s" % resop)
+        b_false = self.fn.new_block("on_false_at_%s" % resop)
+        boolval = self.ctxt.new_cast(self.expr_to_rvalue(resop._arg0),
+                                     self.t_bool)
+        self.b_current.end_with_conditional(boolval,
+                                            b_true, b_false)
+
+        if istrue:
+            self.b_current = b_false
+        else:
+            self.b_current = b_true
+        self._impl_write_output_args(resop._fail_args)
+        self._impl_write_jf_descr(resop)
+        self.b_current.end_with_return(self.param_frame.as_rvalue ())
+        rd_locs = []
+        for idx, arg in enumerate(resop._fail_args):
+            rd_locs.append(idx * self.sizeof_signed)
+        resop.getdescr().rd_locs = rd_locs
+
+        if istrue:
+            self.b_current = b_true
+        else:
+            self.b_current = b_false
+
+    def emit_guard_true(self, resop):
+        self._impl_guard(resop, r_int(1))
+        
+    def emit_guard_false(self, resop):
+        self._impl_guard(resop, r_int(0))
+
+    def _impl_write_output_args(self, args):
+        # Write outputs back:
+        for idx, arg in enumerate(args):
+            if arg is not None:
+                src_rvalue = self.get_box_as_lvalue(arg).as_rvalue()
+                field = self.get_union_field_for_box(arg)
+                dst_lvalue = self.get_arg_as_lvalue(idx).access_field(field)
+                self.b_current.add_assignment(dst_lvalue, src_rvalue)
+            else:
+                # FIXME: see test_compile_with_holes_in_fail_args
+                raise ValueError("how to handle holes in fail args?")
+                """
+                self.b_current.add_assignment(
+                    self.get_arg_as_lvalue(idx),
+                    self.ctxt.new_rvalue_from_int (self.t_Signed,
+                                                   r_int(0)))
+                """
+
+    def _impl_write_jf_descr(self, resop):
+        # Write back to the jf_descr:
+        #  "jitframe->jf_descr = resop.getdescr();"
+        descr = rffi.cast(lltype.Signed,
+                          cast_instance_to_gcref(resop.getdescr()))
+
+        self.b_current.add_assignment(
+            self.param_frame.as_rvalue ().dereference_field (
+                self.field_jf_descr),
+            self.ctxt.new_rvalue_from_ptr (self.t_void_ptr,
+                                           rffi.cast(VOIDP, descr)))
 
     # Binary operations on "int":
     def impl_int_binop(self, resop, gcc_jit_binary_op):
@@ -397,50 +514,8 @@ class AssemblerLibgccjit(BaseAssembler):
         cast_expr = self.ctxt.new_cast(rvalue, self.t_float)
         self.b_current.add_assignment(lvalres, cast_expr)
 
-    # These are out-of-order compared to the list in resoperation.py:
-
-    def emit_label(self, resop):
-        print(resop)
-        print(resop.__dict__)
-        #print('resop.getdescr(): %r' % resop.getdescr())
-        #print('resop.getdescr().__dict__: %r' % resop.getdescr().__dict__)
-
-        b_new = self.fn.new_block(str(resop))
-        self.block_for_label_descr[resop.getdescr()] = b_new
-        self.label_for_descr[resop.getdescr()] = resop
-        self.b_current.end_with_jump(b_new)
-        self.b_current = b_new
-
-    def emit_jump(self, jumpop):
-        print(jumpop)
-        print(jumpop.__dict__)
-        label = self.label_for_descr[jumpop.getdescr()]
-        print(jumpop.getdescr())
-        print('label: %r' % label)
-
-        assert len(jumpop._args) == len(label._args)
-
-        # We need to write to the boxes listed in the label's args
-        # with the values from those listed in the jump's args.
-        # However, there are potential cases like JUMP(i0, i1) going to LABEL(i1, i0)
-        # where all such assignments happen "simultaneously".
-        # Hence we need to set up temporaries.
-        # First pass: capture the value of relevant boxes at the JUMP:
-        tmps = []
-        for i in range(len(jumpop._args)):
-            tmps.append(self.fn.new_local(self.t_Signed, "tmp%i" % i))
-            self.b_current.add_assignment(
-                tmps[i],
-                self.get_box_as_lvalue(jumpop._args[i]).as_rvalue())
-        # Second pass: write the values to the boxes at the LABEL:
-        for i in range(len(jumpop._args)):
-            self.b_current.add_assignment(
-                self.get_box_as_lvalue(label._args[i]),
-                tmps[i].as_rvalue())
-            
-        self.b_current.end_with_jump(self.block_for_label_descr[jumpop.getdescr()])
-
-    # "INT" comparisons:
+    # Comparisons:
+    #   "INT" comparisons:
     def impl_int_cmp(self, resop, gcc_jit_comparison):
         rval0 = self.expr_to_rvalue(resop._arg0)
         rval1 = self.expr_to_rvalue(resop._arg1)
@@ -466,9 +541,9 @@ class AssemblerLibgccjit(BaseAssembler):
     def emit_int_ge(self, resop):
         self.impl_int_cmp(resop, self.lib.GCC_JIT_COMPARISON_GE)
 
-    # "UINT" comparisons:  TODO
+    #   "UINT" comparisons:  TODO
 
-    # "FLOAT" comparisons:
+    #   "FLOAT" comparisons:
     def impl_float_cmp(self, resop, gcc_jit_comparison):
         rval0 = self.expr_to_rvalue(resop._arg0)
         rval1 = self.expr_to_rvalue(resop._arg1)
@@ -495,70 +570,3 @@ class AssemblerLibgccjit(BaseAssembler):
     def emit_float_ge(self, resop):
         self.impl_float_cmp(resop, self.lib.GCC_JIT_COMPARISON_GE)
 
-    def impl_guard(self, resop, istrue):
-        print(resop)
-        print(resop.__dict__)
-        b_true = self.fn.new_block("on_true_at_%s" % resop)
-        b_false = self.fn.new_block("on_false_at_%s" % resop)
-        boolval = self.ctxt.new_cast(self.expr_to_rvalue(resop._arg0),
-                                     self.t_bool)
-        self.b_current.end_with_conditional(boolval,
-                                            b_true, b_false)
-
-        if istrue:
-            self.b_current = b_false
-        else:
-            self.b_current = b_true
-        self.impl_write_output_args(resop._fail_args)
-        self.impl_write_jf_descr(resop)
-        self.b_current.end_with_return(self.param_frame.as_rvalue ())
-        rd_locs = []
-        for idx, arg in enumerate(resop._fail_args):
-            rd_locs.append(idx * self.sizeof_signed)
-        resop.getdescr().rd_locs = rd_locs
-
-        if istrue:
-            self.b_current = b_true
-        else:
-            self.b_current = b_false
-
-    def emit_guard_true(self, resop):
-        self.impl_guard(resop, r_int(1))
-        
-    def emit_guard_false(self, resop):
-        self.impl_guard(resop, r_int(0))
-
-    def impl_write_output_args(self, args):
-        # Write outputs back:
-        for idx, arg in enumerate(args):
-            if arg is not None:
-                src_rvalue = self.get_box_as_lvalue(arg).as_rvalue()
-                field = self.get_union_field_for_box(arg)
-                dst_lvalue = self.get_arg_as_lvalue(idx).access_field(field)
-                self.b_current.add_assignment(dst_lvalue, src_rvalue)
-            else:
-                # FIXME: see test_compile_with_holes_in_fail_args
-                raise ValueError("how to handle holes in fail args?")
-                """
-                self.b_current.add_assignment(
-                    self.get_arg_as_lvalue(idx),
-                    self.ctxt.new_rvalue_from_int (self.t_Signed,
-                                                   r_int(0)))
-                """
-
-    def impl_write_jf_descr(self, resop):
-        # Write back to the jf_descr:
-        #  "jitframe->jf_descr = resop.getdescr();"
-        descr = rffi.cast(lltype.Signed,
-                          cast_instance_to_gcref(resop.getdescr()))
-
-        self.b_current.add_assignment(
-            self.param_frame.as_rvalue ().dereference_field (
-                self.field_jf_descr),
-            self.ctxt.new_rvalue_from_ptr (self.t_void_ptr,
-                                           rffi.cast(VOIDP, descr)))
-    
-    def emit_finish(self, resop):
-        self.impl_write_output_args(resop._args)
-        self.impl_write_jf_descr(resop)
-        self.b_current.end_with_return(self.param_frame.as_rvalue ())
