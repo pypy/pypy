@@ -42,7 +42,6 @@ from rpython.rtyper.annlowlevel import llhelper
 #
 
 def ll_call_lookup_function(d, key, hash, flag):
-    DICT = lltype.typeOf(d).TO
     fun = d.lookup_function_no
     if fun == FUNC_BYTE:
         return ll_dict_lookup(d, key, hash, flag, TYPE_BYTE)
@@ -451,7 +450,6 @@ def ll_clear_indexes(d, n):
         rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_LONG, d.indexes))
 
 def ll_call_insert_clean_function(d, hash, i):
-    DICT = lltype.typeOf(d).TO
     if d.lookup_function_no == FUNC_BYTE:
         ll_dict_store_clean(d, hash, i, TYPE_BYTE)
     elif d.lookup_function_no == FUNC_SHORT:
@@ -464,7 +462,6 @@ def ll_call_insert_clean_function(d, hash, i):
         assert False
 
 def ll_call_delete_by_entry_index(d, hash, i):
-    DICT = lltype.typeOf(d).TO
     if d.lookup_function_no == FUNC_BYTE:
         ll_dict_delete_by_entry_index(d, hash, i, TYPE_BYTE)
     elif d.lookup_function_no == FUNC_SHORT:
