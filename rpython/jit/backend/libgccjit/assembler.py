@@ -105,10 +105,13 @@ class AssemblerLibgccjit(BaseAssembler):
         print(dir(jitframe.JITFRAME))
         print('jitframe.JITFRAME._flds: %r' % jitframe.JITFRAME._flds)
 
-        # For now, build a "struct jit_frame".
+        # For now, build a "struct JITFRAME".
         # This will have the fields of jitframe,
-        # We'll construct numbered arg0..argN for use
+        # plus additional numbered arg0..argN for use
         # for inputargs and the outputs
+        #
+        # They'll each be of type "union any", so that we can freely read/write
+        # to them as any of the fundamental types.
 
         fields = []
         def make_field(name, jit_type):
@@ -382,6 +385,20 @@ class AssemblerLibgccjit(BaseAssembler):
     def emit_float_abs(self, resop):
         self._impl_float_unaryop(resop, self.lib.GCC_JIT_UNARY_OP_ABS)
 
+    # "CAST_" operations:
+    def emit_cast_float_to_int(self, resop):
+        rvalue = self.expr_to_rvalue(resop._arg0)
+        lvalres = self.expr_to_lvalue(resop.result)
+        cast_expr = self.ctxt.new_cast(rvalue, self.t_Signed)
+        self.b_current.add_assignment(lvalres, cast_expr)
+    def emit_cast_int_to_float(self, resop):
+        rvalue = self.expr_to_rvalue(resop._arg0)
+        lvalres = self.expr_to_lvalue(resop.result)
+        cast_expr = self.ctxt.new_cast(rvalue, self.t_float)
+        self.b_current.add_assignment(lvalres, cast_expr)
+
+    # These are out-of-order compared to the list in resoperation.py:
+
     def emit_label(self, resop):
         print(resop)
         print(resop.__dict__)
@@ -449,9 +466,7 @@ class AssemblerLibgccjit(BaseAssembler):
     def emit_int_ge(self, resop):
         self.impl_int_cmp(resop, self.lib.GCC_JIT_COMPARISON_GE)
 
-    # "UINT" comparisons:
-
-    # (TODO)
+    # "UINT" comparisons:  TODO
 
     # "FLOAT" comparisons:
     def impl_float_cmp(self, resop, gcc_jit_comparison):
