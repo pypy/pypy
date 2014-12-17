@@ -35,16 +35,15 @@ class AssemblerLibgccjit(BaseAssembler):
 
         self.num_anon_loops = 0
 
-        self.make_context()
-        self.t_long = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_LONG)
-        self.t_bool = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_BOOL)
-        self.t_void_ptr = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID_PTR)
+        self.sizeof_signed = rffi.sizeof(lltype.Signed)
 
     def make_context(self):
         eci = make_eci()
         self.lib = Library(eci)
         self.ctxt = Context.acquire(self.lib)#self.lib.gcc_jit_context_acquire()
-        self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE, r_int(1))
+        if 0:
+            self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE,
+                                      r_int(1))
         if 1:
             self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
                                       r_int(1))
@@ -52,7 +51,7 @@ class AssemblerLibgccjit(BaseAssembler):
                                   r_int(1))
         if 1:
             self.ctxt.set_int_option(self.lib.GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
-                                     r_int(3))
+                                     r_int(2))
         self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
                                   r_int(1))
         self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
@@ -87,6 +86,11 @@ class AssemblerLibgccjit(BaseAssembler):
         clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
         clt.allgcrefs = []
         clt.frame_info.clear() # for now
+
+        self.make_context()
+        self.t_long = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_LONG)
+        self.t_bool = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_BOOL)
+        self.t_void_ptr = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID_PTR)
 
         self.lvalue_for_box = {}
 
@@ -135,20 +139,22 @@ class AssemblerLibgccjit(BaseAssembler):
         # create it
         make_field('jf_frame', self.t_long)
 
-        locs = []
+        initial_locs = []
         #loc = jitframe.getofs('jf_frame')
 
         max_args = len(inputargs)
         for op in operations:
             if op.getopname() == 'finish':
                 max_args = max(max_args, len(op._args))
+            if op.getopname() == 'guard_true':
+                max_args = max(max_args, len(op._fail_args))
             # FIXME: other ops
 
         self.field_for_arg_idx = {}
         for idx in range(max_args):
             self.field_for_arg_idx[idx] = make_field("arg%i" % idx,
                                                      self.t_long)
-            locs.append(idx) # hack!
+            initial_locs.append(idx * self.sizeof_signed) # hack!
 
         struct_jit_frame.set_fields (fields)
 
@@ -206,6 +212,10 @@ class AssemblerLibgccjit(BaseAssembler):
             methname = 'emit_%s' % op.getopname()
             getattr(self, methname) (op)
 
+        # Ensure that the frame is large enough
+        baseofs = self.cpu.get_baseofs_of_frame_field()
+        clt.frame_info.update_frame_depth(baseofs,
+                                          max_args)
         
         self.ctxt.dump_to_file("/tmp/foo.c", r_int(1))
 
@@ -218,7 +228,7 @@ class AssemblerLibgccjit(BaseAssembler):
 
         looptoken._ll_function_addr = fn_ptr
 
-        looptoken.compiled_loop_token._ll_initial_locs = locs
+        looptoken.compiled_loop_token._ll_initial_locs = initial_locs
 
         # FIXME: this leaks the gcc_jit_result
 
@@ -266,32 +276,37 @@ class AssemblerLibgccjit(BaseAssembler):
 
     # Handling of specific ResOperation subclasses
 
-    def emit_int_add(self, op):
-        """
-        print(op._arg0)
-        print(op._arg1)
-        print(op.result)
-        print(op.__dict__)
-        """
-        rval0 = self.expr_to_rvalue(op._arg0)
-        rval1 = self.expr_to_rvalue(op._arg1)
-        lvalres = self.expr_to_lvalue(op.result)
+    def impl_int_binop(self, resop, gcc_jit_binary_op):
+        rval0 = self.expr_to_rvalue(resop._arg0)
+        rval1 = self.expr_to_rvalue(resop._arg1)
+        lvalres = self.expr_to_lvalue(resop.result)
 
-        op_add = (
-            self.ctxt.new_binary_op(self.lib.GCC_JIT_BINARY_OP_PLUS,
-                                    self.t_long,
-                                    rval0, rval1))
-        self.b_current.add_assignment(lvalres, op_add)
+        binop_expr = self.ctxt.new_binary_op(gcc_jit_binary_op,
+                                             self.t_long,
+                                             rval0, rval1)
+        self.b_current.add_assignment(lvalres, binop_expr)
 
-    def emit_label(self, op):
-        print(op)
-        print(op.__dict__)
-        #print('op.getdescr(): %r' % op.getdescr())
-        #print('op.getdescr().__dict__: %r' % op.getdescr().__dict__)
+    def emit_int_add(self, resop):
+        self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_PLUS)
 
-        b_new = self.fn.new_block(str(op))
-        self.block_for_label_descr[op.getdescr()] = b_new
-        self.label_for_descr[op.getdescr()] = op
+    def emit_int_sub(self, resop):
+        self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_MINUS)
+
+    def emit_int_mul(self, resop):
+        self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_MULT)
+
+    def emit_int_floordiv(self, resop):
+        self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_DIVIDE)
+
+    def emit_label(self, resop):
+        print(resop)
+        print(resop.__dict__)
+        #print('resop.getdescr(): %r' % resop.getdescr())
+        #print('resop.getdescr().__dict__: %r' % resop.getdescr().__dict__)
+
+        b_new = self.fn.new_block(str(resop))
+        self.block_for_label_descr[resop.getdescr()] = b_new
+        self.label_for_descr[resop.getdescr()] = resop
         self.b_current.end_with_jump(b_new)
         self.b_current = b_new
 
@@ -324,58 +339,83 @@ class AssemblerLibgccjit(BaseAssembler):
             
         self.b_current.end_with_jump(self.block_for_label_descr[jumpop.getdescr()])
 
-    def impl_int_cmp(self, op, gcc_jit_comparison):
-        rval0 = self.expr_to_rvalue(op._arg0)
-        rval1 = self.expr_to_rvalue(op._arg1)
-        lvalres = self.expr_to_lvalue(op.result)
-        op_cmp = (
+    def impl_int_cmp(self, resop, gcc_jit_comparison):
+        rval0 = self.expr_to_rvalue(resop._arg0)
+        rval1 = self.expr_to_rvalue(resop._arg1)
+        lvalres = self.expr_to_lvalue(resop.result)
+        resop_cmp = (
             self.ctxt.new_cast(
                 self.ctxt.new_comparison(gcc_jit_comparison,
                                          rval0, rval1),
                 self.t_long)
             )
         self.b_current.add_assignment(lvalres,
-                                      op_cmp)
+                                      resop_cmp)
 
-    def emit_int_le(self, op):
-        self.impl_int_cmp(op, self.lib.GCC_JIT_COMPARISON_LE)
+    def emit_int_eq(self, resop):
+        self.impl_int_cmp(resop, self.lib.GCC_JIT_COMPARISON_EQ)
 
-    def emit_int_ge(self, op):
-        self.impl_int_cmp(op, self.lib.GCC_JIT_COMPARISON_GE)
+    def emit_int_le(self, resop):
+        self.impl_int_cmp(resop, self.lib.GCC_JIT_COMPARISON_LE)
 
-    def emit_guard_true(self, op):
-        print(op)
-        print(op.__dict__)
-        b_true = self.fn.new_block("on_true_at_%s" % op)
-        b_false = self.fn.new_block("on_false_at_%s" % op)
-        boolval = self.ctxt.new_cast(self.expr_to_rvalue(op._arg0),
+    def emit_int_ge(self, resop):
+        self.impl_int_cmp(resop, self.lib.GCC_JIT_COMPARISON_GE)
+
+    def impl_guard(self, resop, istrue):
+        print(resop)
+        print(resop.__dict__)
+        b_true = self.fn.new_block("on_true_at_%s" % resop)
+        b_false = self.fn.new_block("on_false_at_%s" % resop)
+        boolval = self.ctxt.new_cast(self.expr_to_rvalue(resop._arg0),
                                      self.t_bool)
         self.b_current.end_with_conditional(boolval,
                                             b_true, b_false)
 
-        self.b_current = b_false
-        self.impl_write_output_args(op._fail_args)
-        self.impl_write_jf_descr(op)
+        if istrue:
+            self.b_current = b_false
+        else:
+            self.b_current = b_true
+        self.impl_write_output_args(resop._fail_args)
+        self.impl_write_jf_descr(resop)
         self.b_current.end_with_return(self.param_frame.as_rvalue ())
         rd_locs = []
-        for idx, arg in enumerate(op._fail_args):
-            rd_locs.append(idx)
-        op.getdescr().rd_locs = rd_locs
+        for idx, arg in enumerate(resop._fail_args):
+            rd_locs.append(idx * self.sizeof_signed)
+        resop.getdescr().rd_locs = rd_locs
 
-        self.b_current = b_true
+        if istrue:
+            self.b_current = b_true
+        else:
+            self.b_current = b_false
+
+    def emit_guard_true(self, resop):
+        self.impl_guard(resop, r_int(1))
+        
+    def emit_guard_false(self, resop):
+        self.impl_guard(resop, r_int(0))
 
     def impl_write_output_args(self, args):
         # Write outputs back:
         for idx, arg in enumerate(args):
-            self.b_current.add_assignment(
-                self.get_arg_as_lvalue(idx),
-                self.get_box_as_lvalue(arg).as_rvalue())
+            if arg is not None:
+                self.b_current.add_assignment(
+                    self.get_arg_as_lvalue(idx),
+                    self.get_box_as_lvalue(arg).as_rvalue())
+            else:
+                # FIXME: see test_compile_with_holes_in_fail_args
+                raise ValueError("how to handle holes in fail args?")
+                """
+                self.b_current.add_assignment(
+                    self.get_arg_as_lvalue(idx),
+                    self.ctxt.new_rvalue_from_int (self.t_long,
+                                                   r_int(0)))
+                """
 
-    def impl_write_jf_descr(self, op):
+    def impl_write_jf_descr(self, resop):
         # Write back to the jf_descr:
-        #  "jitframe->jf_descr = op.getdescr();"
+        #  "jitframe->jf_descr = resop.getdescr();"
         descr = rffi.cast(lltype.Signed,
-                          cast_instance_to_gcref(op.getdescr()))
+                          cast_instance_to_gcref(resop.getdescr()))
 
         self.b_current.add_assignment(
             self.param_frame.as_rvalue ().dereference_field (
@@ -383,7 +423,7 @@ class AssemblerLibgccjit(BaseAssembler):
             self.ctxt.new_rvalue_from_ptr (self.t_void_ptr,
                                            rffi.cast(VOIDP, descr)))
     
-    def emit_finish(self, op):
-        self.impl_write_output_args(op._args)
-        self.impl_write_jf_descr(op)
+    def emit_finish(self, resop):
+        self.impl_write_output_args(resop._args)
+        self.impl_write_jf_descr(resop)
         self.b_current.end_with_return(self.param_frame.as_rvalue ())
