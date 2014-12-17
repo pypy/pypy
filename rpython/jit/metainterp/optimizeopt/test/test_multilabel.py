@@ -545,8 +545,8 @@ class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
         self.optimize_loop(ops, expected)
 
 
-class TestLLtype(OptimizeoptTestMultiLabel, LLtypeMixin):
+class XxxTestLLtype(OptimizeoptTestMultiLabel, LLtypeMixin):
     pass
 
-class TestOptimizerRenamingBoxesLLtype(BaseTestOptimizerRenamingBoxes, LLtypeMixin):
+class XxxTestOptimizerRenamingBoxesLLtype(BaseTestOptimizerRenamingBoxes, LLtypeMixin):
     pass

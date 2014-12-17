@@ -182,8 +182,7 @@ class UnrollOptimizer(Optimization):
             for box in self.inputargs:
                 self.boxes_created_this_iteration[box] = None
 
-        short_boxes = ShortBoxes(self.optimizer, inputargs,
-                                 self.boxes_created_this_iteration)
+        short_boxes = ShortBoxes(self.optimizer, inputargs)
 
         self.optimizer.clear_newoperations()
         for i in range(len(original_jump_args)):
