@@ -41,6 +41,7 @@ from rpython.rtyper.annlowlevel import llhelper
 #
 #
 
+@jit.look_inside_iff(lambda d, key, hash, flag: jit.isvirtual(d))
 def ll_call_lookup_function(d, key, hash, flag):
     fun = d.lookup_function_no
     if fun == FUNC_BYTE:
@@ -449,6 +450,7 @@ def ll_clear_indexes(d, n):
     else:
         rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_LONG, d.indexes))
 
+@jit.dont_look_inside
 def ll_call_insert_clean_function(d, hash, i):
     if d.lookup_function_no == FUNC_BYTE:
         ll_dict_store_clean(d, hash, i, TYPE_BYTE)
@@ -582,6 +584,7 @@ def _ll_dict_rescue(d):
 _ll_dict_rescue._dont_inline_ = True
 
 def _ll_dict_insertclean(d, key, value, hash):
+    # never translated
     ENTRY = lltype.typeOf(d.entries).TO.OF
     ll_call_insert_clean_function(d, hash, d.num_ever_used_items)
     entry = d.entries[d.num_ever_used_items]
