@@ -17,20 +17,13 @@ class CPU(AbstractLLCPU):
 
     def compile_loop(self, inputargs, operations, looptoken,
                      log=True, name='', logger=None):
-        """
-        import sys
-        sys.stderr.write('compile_loop:\n')
-        for i, arg in enumerate(inputargs):
-            sys.stderr.write('  arg[%i] = %r\n' % (i, arg))
-            sys.stderr.write('    type(arg[%i]) = %r\n' % (i, type(arg)))
-        for i, op in enumerate(operations):
-            sys.stderr.write('  op[%i] = %r\n' % (i, op))
-            sys.stderr.write('    type(op[%i]) = %r\n' % (i, type(op)))
-        sys.stderr.write('  looptoken: %r\n' % (looptoken, ))
-        sys.stderr.write('  log: %r\n' % (log, ))
-        sys.stderr.write('  name: %r\n' % (name, ))
-        sys.stderr.write('  logger: %r\n' % (logger, ))
-        sys.stderr.write('compile_loop: %r\n' % locals ())
-        """
         return self.assembler.assemble_loop(inputargs, operations, looptoken, log,
                                             name, logger)
+
+    def compile_bridge(self, faildescr, inputargs, operations,
+                       original_loop_token, log=True, logger=None):
+        clt = original_loop_token.compiled_loop_token
+        clt.compiling_a_bridge()
+        return self.assembler.assemble_bridge(logger, faildescr, inputargs,
+                                              operations,
+                                              original_loop_token, log=log)

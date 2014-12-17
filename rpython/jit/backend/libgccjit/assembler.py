@@ -259,6 +259,15 @@ class AssemblerLibgccjit(BaseAssembler):
 
         # FIXME: this leaks the gcc_jit_result
 
+    def assemble_bridge(self, logger, faildescr, inputargs, operations,
+                        original_loop_token, log):
+        print('assemble_bridge(%r)' % locals())
+        if not we_are_translated():
+            # Arguments should be unique
+            assert len(set(inputargs)) == len(inputargs)
+
+        raise foo
+
     def expr_to_rvalue(self, expr):
         """
         print('expr_to_rvalue')
@@ -391,9 +400,14 @@ class AssemblerLibgccjit(BaseAssembler):
                                             b_true, b_false)
 
         if istrue:
-            self.b_current = b_false
+            b_guard_failure = b_false
+            b_guard_success = b_true
         else:
-            self.b_current = b_true
+            b_guard_failure = b_true
+            b_guard_success = b_false
+
+        # Write out guard failure impl:
+        self.b_current = b_guard_failure
         self._impl_write_output_args(resop._fail_args)
         self._impl_write_jf_descr(resop)
         self.b_current.end_with_return(self.param_frame.as_rvalue ())
@@ -402,10 +416,8 @@ class AssemblerLibgccjit(BaseAssembler):
             rd_locs.append(idx * self.sizeof_signed)
         resop.getdescr().rd_locs = rd_locs
 
-        if istrue:
-            self.b_current = b_true
-        else:
-            self.b_current = b_false
+        # Further operations go into the guard success block:
+        self.b_current = b_guard_success
 
     def emit_guard_true(self, resop):
         self._impl_guard(resop, r_int(1))
