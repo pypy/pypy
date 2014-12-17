@@ -146,7 +146,8 @@ class UnrollOptimizer(Optimization):
             self.close_bridge(start_label)
 
         self.optimizer.flush()
-        KillHugeIntBounds(self.optimizer).apply()
+        if export_state:
+            KillHugeIntBounds(self.optimizer).apply()
 
         loop.operations = self.optimizer.get_newoperations()
         if export_state:
