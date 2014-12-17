@@ -633,11 +633,29 @@ def ll_dict_grow(d):
 
     new_allocated = _overallocate_entries_len(len(d.entries))
 
-    # Detect an obscure case where the indexes numeric type is too
-    # small to store all the entry indexes
-    if (max(128, _ll_len_of_d_indexes(d)) - new_allocated
-                   < MIN_INDEXES_MINUS_ENTRIES):
+    # Detect a relatively rare case where the indexes numeric type is too
+    # small to store all the entry indexes: there would be 'new_allocated'
+    # entries, which may in corner cases be larger than 253 even though we
+    # have single bytes in 'd.indexes' (and the same for the larger
+    # boundaries).  The 'd.indexes' hashtable is never more than 2/3rd
+    # full, so we know that 'd.num_live_items' should be at most 2/3 * 256
+    # (or 65536 or etc.) so after the ll_dict_remove_deleted_items() below
+    # at least 1/3rd items in 'd.entries' are free.
+    fun = d.lookup_function_no
+    toobig = False
+    if fun == FUNC_BYTE:
+        assert d.num_live_items < ((1 << 8) - MIN_INDEXES_MINUS_ENTRIES)
+        toobig = new_allocated > ((1 << 8) - MIN_INDEXES_MINUS_ENTRIES)
+    elif fun == FUNC_SHORT:
+        assert d.num_live_items < ((1 << 16) - MIN_INDEXES_MINUS_ENTRIES)
+        toobig = new_allocated > ((1 << 16) - MIN_INDEXES_MINUS_ENTRIES)
+    elif IS_64BIT and fun == FUNC_INT:
+        assert d.num_live_items < ((1 << 32) - MIN_INDEXES_MINUS_ENTRIES)
+        toobig = new_allocated > ((1 << 32) - MIN_INDEXES_MINUS_ENTRIES)
+    #
+    if toobig:
         ll_dict_remove_deleted_items(d)
+        assert d.num_live_items == d.num_ever_used_items
         return True
 
     newitems = lltype.malloc(lltype.typeOf(d).TO.entries.TO, new_allocated)
