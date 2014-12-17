@@ -264,6 +264,7 @@ class UnrollOptimizer(Optimization):
                 # note that emitting here SAME_AS should not happen, but
                 # in case it does, we would prefer to be suboptimal in asm
                 # to a fatal RPython exception.
+                # XXX investigate what is it
                 source_op = newresult
                 while source_op.source_op:
                     source_op = source_op.source_op

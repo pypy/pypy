@@ -420,7 +420,8 @@ class OptRewrite(Optimization):
             if val.box.same_constant(CONST_0):
                 self.last_emitted_operation = REMOVED
                 return
-            op = op.copy_and_change(rop.CALL, args=op.getarglist()[1:])
+            opnum = OpHelpers.call_for_type(op)
+            op = op.copy_and_change(opnum, args=op.getarglist()[1:])
         self.emit_operation(op)
 
     def _optimize_nullness(self, op, box, expect_nonnull):

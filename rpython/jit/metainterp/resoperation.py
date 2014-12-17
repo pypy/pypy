@@ -1002,3 +1002,13 @@ class OpHelpers(object):
         else:
             assert tp == 'f'
             return rop.SAME_AS_F
+
+    @staticmethod
+    def call_for_type(tp):
+        if tp == 'i':
+            return rop.CALL_I
+        elif tp == 'r':
+            return rop.CALL_R
+        elif tp == 'f':
+            return rop.CALL_F
+        return rop.CALL_N

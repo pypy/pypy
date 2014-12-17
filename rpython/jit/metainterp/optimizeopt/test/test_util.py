@@ -99,6 +99,7 @@ class LLtypeMixin(object):
     NODE2 = lltype.GcStruct('NODE2', ('parent', NODE),
                                      ('other', lltype.Ptr(NODE)))
     node = lltype.malloc(NODE)
+    node.value = 5
     node.parent.typeptr = node_vtable
     nodeaddr = lltype.cast_opaque_ptr(llmemory.GCREF, node)
     #nodebox = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node))

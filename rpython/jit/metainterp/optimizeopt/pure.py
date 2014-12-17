@@ -83,9 +83,7 @@ class OptPure(Optimization):
         # replace CALL_PURE with just CALL
         args = op.getarglist()
         opnum = OpHelpers.call_for_descr(op.getdescr())
-        newop = ResOperation(opnum, args, op.getdescr())
-        newop.source_op = op
-        self.getvalue(op).box = newop
+        newop = self.optimizer.replace_op_with(op, opnum)
         self.emit_operation(newop)
     optimize_CALL_PURE_R = optimize_CALL_PURE_I
     optimize_CALL_PURE_F = optimize_CALL_PURE_I

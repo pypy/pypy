@@ -28,6 +28,10 @@ class ESCAPE_OP(N_aryOp, ResOpWithDescr):
         memo.set(self, op)
         return op
 
+    def clone_input_arg(self):
+        assert self.type == 'r'
+        return InputArgRef()
+
 class ESCAPE_OP_I(ESCAPE_OP):
     type = 'i'
     OPNUM = -123
