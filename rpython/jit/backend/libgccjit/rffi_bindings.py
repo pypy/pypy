@@ -87,6 +87,8 @@ class Library:
                                                  hints={'nolength': True}))
         self.PARAM_P_P = lltype.Ptr(lltype.Array(self.GCC_JIT_PARAM_P,
                                                  hints={'nolength': True}))
+        self.RVALUE_P_P = lltype.Ptr(lltype.Array(self.GCC_JIT_RVALUE_P,
+                                                  hints={'nolength': True}))
 
         # Entrypoints:
         for returntype, name, paramtypes in [
@@ -251,6 +253,13 @@ class Library:
                                                     INT, # enum gcc_jit_comparison op,
                                                     self.GCC_JIT_RVALUE_P,
                                                     self.GCC_JIT_RVALUE_P]),
+
+                (self.GCC_JIT_RVALUE_P,
+                 'gcc_jit_context_new_call', [self.GCC_JIT_CONTEXT_P,
+                                              self.GCC_JIT_LOCATION_P,
+                                              self.GCC_JIT_FUNCTION_P,
+                                              INT,
+                                              self.RVALUE_P_P]),
 
                 (self.GCC_JIT_RVALUE_P,
                  'gcc_jit_context_new_cast', [self.GCC_JIT_CONTEXT_P,
@@ -539,6 +548,20 @@ class Context(Wrapper):
                                                               self.lib.null_location_ptr,
                                                               op,
                                                               a.inner_rvalue, b.inner_rvalue))
+
+    def new_call(self, fn, args):
+        raw_arg_array = lltype.malloc(self.lib.RVALUE_P_P.TO,
+                                      len(args),
+                                      flavor='raw') # of maybe gc?
+        for i in range(len(args)):
+            raw_arg_array[i] = args[i].inner_rvalue
+        rvalue = self.lib.gcc_jit_context_new_call(self.inner_ctxt,
+                                                   self.lib.null_location_ptr,
+                                                   fn.inner_function,
+                                                   r_int(len(args)),
+                                                   raw_arg_array)
+        lltype.free(raw_arg_array, flavor='raw')
+        return RValue(self.lib, rvalue)
 
     def new_param(self, type_, name):
         name_charp = str2charp(name)

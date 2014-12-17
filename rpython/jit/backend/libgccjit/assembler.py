@@ -10,6 +10,17 @@ from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref, cast_ob
 from rpython.rtyper.lltypesystem.rffi import *
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 
+class Params:
+    def __init__(self, assembler):
+        self.paramlist = []
+        self.param_frame = assembler.ctxt.new_param(assembler.t_jit_frame_ptr,
+                                                    "jitframe")
+        self.paramlist.append(self.param_frame)
+
+        self.param_addr = assembler.ctxt.new_param(assembler.t_void_ptr,
+                                                   "addr")
+        self.paramlist.append(self.param_addr)
+
 class AssemblerLibgccjit(BaseAssembler):
     _regalloc = None
     #_output_loop_log = None
@@ -34,6 +45,7 @@ class AssemblerLibgccjit(BaseAssembler):
         #self.teardown()
 
         self.num_anon_loops = 0
+        self.num_guard_failure_fns = 0
 
         self.sizeof_signed = rffi.sizeof(lltype.Signed)
 
@@ -98,6 +110,7 @@ class AssemblerLibgccjit(BaseAssembler):
         self.t_float = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_DOUBLE) # FIXME                                          
         self.t_bool = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_BOOL)
         self.t_void_ptr = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID_PTR)
+        self.t_void = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID)
 
         self.u_signed = self.ctxt.new_field(self.t_Signed, "u_signed")
         self.u_float = self.ctxt.new_field(self.t_float, "u_float")
@@ -134,7 +147,7 @@ class AssemblerLibgccjit(BaseAssembler):
 
         struct_jit_frame = self.ctxt.new_opaque_struct ("JITFRAME")
 
-        t_jit_frame_ptr = struct_jit_frame.as_type().get_pointer()
+        self.t_jit_frame_ptr = struct_jit_frame.as_type().get_pointer()
 
         fields = []
         # FIXME: Does the GCStruct implicitly add any fields?
@@ -149,7 +162,7 @@ class AssemblerLibgccjit(BaseAssembler):
         make_field('jf_extra_stack_depth', self.t_Signed)
         make_field('jf_savedata', self.t_void_ptr)
         make_field('jf_guard_exc', self.t_void_ptr)
-        make_field('jf_forward', t_jit_frame_ptr)
+        make_field('jf_forward', self.t_jit_frame_ptr)
         # FIXME: for some reason there's an implicit word here;
         # create it
         make_field('jf_frame', self.t_Signed)
@@ -176,22 +189,16 @@ class AssemblerLibgccjit(BaseAssembler):
         # Make function:
         #print('  inputargs: %r' % (inputargs, ))
         #jitframe.JITFRAMEINFOPTR
-        params = []
-
-        self.param_frame = self.ctxt.new_param(t_jit_frame_ptr, "jitframe")
-        params.append(self.param_frame)
-
-        self.param_addr = self.ctxt.new_param(self.t_void_ptr, "addr")
-        params.append(self.param_addr)
+        self.loop_params = Params(self)
 
         if not loopname:
             loopname = 'anonloop_%i' % self.num_anon_loops
             self.num_anon_loops += 1
         print("  loopname: %r" % loopname)
         self.fn = self.ctxt.new_function(self.lib.GCC_JIT_FUNCTION_EXPORTED,
-                                         t_jit_frame_ptr,
+                                         self.t_jit_frame_ptr,
                                          loopname,
-                                         params,
+                                         self.loop_params.paramlist,
                                          r_int(0))
 
         self.b_current = self.fn.new_block("initial")
@@ -300,7 +307,7 @@ class AssemblerLibgccjit(BaseAssembler):
         return self.lvalue_for_box[box]
 
     def get_arg_as_lvalue(self, idx):
-        return self.param_frame.as_rvalue ().dereference_field (
+        return self.loop_params.param_frame.as_rvalue ().dereference_field (
             self.field_for_arg_idx[idx])
 
     def expr_to_lvalue(self, expr):
@@ -371,9 +378,9 @@ class AssemblerLibgccjit(BaseAssembler):
         self.b_current.end_with_jump(self.block_for_label_descr[jumpop.getdescr()])
 
     def emit_finish(self, resop):
-        self._impl_write_output_args(resop._args)
-        self._impl_write_jf_descr(resop)
-        self.b_current.end_with_return(self.param_frame.as_rvalue ())
+        self._impl_write_output_args(self.loop_params, resop._args)
+        self._impl_write_jf_descr(self.loop_params, resop)
+        self.b_current.end_with_return(self.loop_params.param_frame.as_rvalue ())
 
     def emit_label(self, resop):
         print(resop)
@@ -408,15 +415,34 @@ class AssemblerLibgccjit(BaseAssembler):
 
         # Write out guard failure impl:
         self.b_current = b_guard_failure
-        self._impl_write_output_args(resop._fail_args)
-        self._impl_write_jf_descr(resop)
-        self.b_current.end_with_return(self.param_frame.as_rvalue ())
+
+        # Implement it as a tail-call to a handler function
+        # This will eventually become a function ptr, allowing
+        # patchability
+        failure_params = Params(self)
+        failure_fn = (
+            self.ctxt.new_function(self.lib.GCC_JIT_FUNCTION_INTERNAL,
+                                   self.t_jit_frame_ptr,
+                                   "on_guard_failure_%i" % self.num_guard_failure_fns,
+                                   failure_params.paramlist,
+                                   r_int(0)))
+        self.num_guard_failure_fns += 1
+        call = self.ctxt.new_call (failure_fn,
+                                   [param.as_rvalue()
+                                    for param in self.loop_params.paramlist])
+        self._impl_write_output_args(self.loop_params, resop._fail_args)
+        self.b_current.end_with_return(call)
+
+        b_within_failure_fn = failure_fn.new_block("initial")
+        self.b_current = b_within_failure_fn
+        self._impl_write_jf_descr(failure_params, resop)
+        self.b_current.end_with_return(failure_params.param_frame.as_rvalue ())
         rd_locs = []
         for idx, arg in enumerate(resop._fail_args):
             rd_locs.append(idx * self.sizeof_signed)
         resop.getdescr().rd_locs = rd_locs
 
-        # Further operations go into the guard success block:
+        # Further operations go into the guard success block in the original fn:
         self.b_current = b_guard_success
 
     def emit_guard_true(self, resop):
@@ -425,7 +451,7 @@ class AssemblerLibgccjit(BaseAssembler):
     def emit_guard_false(self, resop):
         self._impl_guard(resop, r_int(0))
 
-    def _impl_write_output_args(self, args):
+    def _impl_write_output_args(self, params, args):
         # Write outputs back:
         for idx, arg in enumerate(args):
             if arg is not None:
@@ -443,14 +469,14 @@ class AssemblerLibgccjit(BaseAssembler):
                                                    r_int(0)))
                 """
 
-    def _impl_write_jf_descr(self, resop):
+    def _impl_write_jf_descr(self, params, resop):
         # Write back to the jf_descr:
         #  "jitframe->jf_descr = resop.getdescr();"
         descr = rffi.cast(lltype.Signed,
                           cast_instance_to_gcref(resop.getdescr()))
 
         self.b_current.add_assignment(
-            self.param_frame.as_rvalue ().dereference_field (
+            params.param_frame.as_rvalue ().dereference_field (
                 self.field_jf_descr),
             self.ctxt.new_rvalue_from_ptr (self.t_void_ptr,
                                            rffi.cast(VOIDP, descr)))
@@ -603,4 +629,3 @@ class AssemblerLibgccjit(BaseAssembler):
         self.impl_float_cmp(resop, self.lib.GCC_JIT_COMPARISON_GT)
     def emit_float_ge(self, resop):
         self.impl_float_cmp(resop, self.lib.GCC_JIT_COMPARISON_GE)
-
