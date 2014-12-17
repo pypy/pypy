@@ -4,7 +4,7 @@ from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.regalloc import FrameManager
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.libgccjit.rffi_bindings import make_eci, Library, make_param_array, make_field_array, Context, Type
-from rpython.jit.metainterp.history import BoxInt, ConstInt
+from rpython.jit.metainterp.history import BoxInt, ConstInt, BoxFloat, ConstFloat
 from rpython.jit.metainterp.resoperation import *
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref, cast_object_to_ptr
 from rpython.rtyper.lltypesystem.rffi import *
@@ -90,9 +90,15 @@ class AssemblerLibgccjit(BaseAssembler):
         self.make_context()
         self.t_Signed = self.ctxt.get_int_type(r_int(self.sizeof_signed),
                                                r_int(1))
+        self.t_float = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_DOUBLE) # FIXME                                          
         self.t_bool = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_BOOL)
         self.t_void_ptr = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID_PTR)
 
+        self.u_signed = self.ctxt.new_field(self.t_Signed, "u_signed")
+        self.u_float = self.ctxt.new_field(self.t_float, "u_float")
+        self.t_any = self.ctxt.new_union_type ("any",
+                                               [self.u_signed,
+                                                self.u_float])
         self.lvalue_for_box = {}
 
         print(jitframe.JITFRAME)
@@ -154,7 +160,7 @@ class AssemblerLibgccjit(BaseAssembler):
         self.field_for_arg_idx = {}
         for idx in range(max_args):
             self.field_for_arg_idx[idx] = make_field("arg%i" % idx,
-                                                     self.t_Signed)
+                                                     self.t_any)
             initial_locs.append(idx * self.sizeof_signed) # hack!
 
         struct_jit_frame.set_fields (fields)
@@ -197,9 +203,21 @@ class AssemblerLibgccjit(BaseAssembler):
         # Get initial values from input args:
         for idx, arg in enumerate(inputargs):
             self.b_current.add_comment("inputargs[%i]: %s" % (idx, arg))
+            # (gdb) p *(double*)&jitframe->arg0
+            # $7 = 10.5
+            # (gdb) p *(double*)&jitframe->arg1
+            # $8 = -2.25
+            #src_ptr_rvalue = self.get_arg_as_lvalue(idx).get_address()
+            #src_ptr_rvalue = self.ctxt.new_cast(src_ptr_rvalue, self.t_float.get_pointer())
+            #src_rvalue = self.ctxt.new_dereference(src_ptr_rvalue)
+            # or do it as a union
+            field = self.get_union_field_for_box(arg)
+            src_rvalue = self.get_arg_as_lvalue(idx).access_field(field).as_rvalue()
+            # FIXME: this may need a cast:
+            #src_rvalue = self.ctxt.new_cast(src_rvalue, self.t_float)
             self.b_current.add_assignment(
                 self.get_box_as_lvalue(arg),
-                self.get_arg_as_lvalue(idx).as_rvalue())
+                src_rvalue)
 
         for op in operations:
             print(op)
@@ -243,19 +261,25 @@ class AssemblerLibgccjit(BaseAssembler):
         print(' %s' % expr.__dict__)
         """
 
-        if isinstance(expr, BoxInt):
+        if isinstance(expr, (BoxInt, BoxFloat)):
             return self.get_box_as_lvalue(expr).as_rvalue()
         elif isinstance(expr, ConstInt):
             #print('value: %r' % expr.value)
             #print('type(value): %r' % type(expr.value))
             return self.ctxt.new_rvalue_from_long(self.t_Signed,
                                                   r_long(expr.value))
-        raise ValueError('unhandled expr: %s' % expr)
+        elif isinstance(expr, ConstFloat):
+            #print('value: %r' % expr.value)
+            #print('type(value): %r' % type(expr.value))
+            return self.ctxt.new_rvalue_from_double(self.t_float,
+                                                    expr.value)#r_double(expr.value))
+        raise ValueError('unhandled expr: %s %s' % (expr, type(expr)))
 
     def get_box_as_lvalue(self, box):
         if box not in self.lvalue_for_box:
-            self.lvalue_for_box[box] = self.fn.new_local(self.t_Signed,
-                                                         str(box))
+            self.lvalue_for_box[box] = (
+                self.fn.new_local(self.get_type_for_box(box),
+                                  str(box)))
         return self.lvalue_for_box[box]
 
     def get_arg_as_lvalue(self, idx):
@@ -271,17 +295,34 @@ class AssemblerLibgccjit(BaseAssembler):
         print(' %s' % dir(expr))
         print(' %s' % expr.__dict__)
         """
-        if isinstance(expr, BoxInt):
+        if isinstance(expr, (BoxInt, BoxFloat)):
             return self.get_box_as_lvalue(expr)
+            
         raise ValueError('unhandled expr: %s' % expr)
+
+    def get_type_for_box(self, box):
+        if isinstance(box, BoxInt):
+            return self.t_Signed;
+        elif isinstance(box, BoxFloat):
+            return self.t_float;
+        else:
+            raise ValueError('unhandled box: %s %s' % (box, type(box)))
+
+    def get_union_field_for_box(self, box):
+        if isinstance(box, BoxInt):
+            return self.u_signed;
+        elif isinstance(box, BoxFloat):
+            return self.u_float;
+        else:
+            raise ValueError('unhandled box: %s %s' % (box, type(box)))        
 
     # Handling of specific ResOperation subclasses
 
+    # Binary operations on "int":
     def impl_int_binop(self, resop, gcc_jit_binary_op):
         rval0 = self.expr_to_rvalue(resop._arg0)
         rval1 = self.expr_to_rvalue(resop._arg1)
         lvalres = self.expr_to_lvalue(resop.result)
-
         binop_expr = self.ctxt.new_binary_op(gcc_jit_binary_op,
                                              self.t_Signed,
                                              rval0, rval1)
@@ -289,33 +330,57 @@ class AssemblerLibgccjit(BaseAssembler):
 
     def emit_int_add(self, resop):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_PLUS)
-
     def emit_int_sub(self, resop):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_MINUS)
-
     def emit_int_mul(self, resop):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_MULT)
-
     def emit_int_floordiv(self, resop):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_DIVIDE)
-
     def emit_int_mod(self, resop):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_MODULO)
-
     def emit_int_and(self, resop):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_BITWISE_AND)
-
     def emit_int_or(self, resop):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_BITWISE_OR)
-
     def emit_int_xor(self, resop):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_BITWISE_XOR)
-
     def emit_int_rshift(self, resop):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_RSHIFT)
-
     def emit_int_lshift(self, resop):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_LSHIFT)
+
+    # "FLOAT" binary ops:
+    def impl_float_binop(self, resop, gcc_jit_binary_op):
+        rval0 = self.expr_to_rvalue(resop._arg0)
+        rval1 = self.expr_to_rvalue(resop._arg1)
+        lvalres = self.expr_to_lvalue(resop.result)
+        binop_expr = self.ctxt.new_binary_op(gcc_jit_binary_op,
+                                             self.t_float,
+                                             rval0, rval1)
+        self.b_current.add_assignment(lvalres, binop_expr)
+
+    def emit_float_add(self, resop):
+        self.impl_float_binop(resop, self.lib.GCC_JIT_BINARY_OP_PLUS)
+    def emit_float_sub(self, resop):
+        self.impl_float_binop(resop, self.lib.GCC_JIT_BINARY_OP_MINUS)
+    def emit_float_mul(self, resop):
+        self.impl_float_binop(resop, self.lib.GCC_JIT_BINARY_OP_MULT)
+    def emit_float_truediv(self, resop):
+        self.impl_float_binop(resop, self.lib.GCC_JIT_BINARY_OP_DIVIDE)
+
+    # "FLOAT" unary ops:
+    def _impl_float_unaryop(self, resop, gcc_jit_unary_op):
+        rvalue = self.expr_to_rvalue(resop._arg0)
+        lvalres = self.expr_to_lvalue(resop.result)
+        unaryop_expr = self.ctxt.new_unary_op(gcc_jit_unary_op,
+                                            self.t_float,
+                                            rvalue)
+        self.b_current.add_assignment(lvalres, unaryop_expr)
+
+    def emit_float_neg(self, resop):
+        self._impl_float_unaryop(resop, self.lib.GCC_JIT_UNARY_OP_MINUS)
+    def emit_float_abs(self, resop):
+        self._impl_float_unaryop(resop, self.lib.GCC_JIT_UNARY_OP_ABS)
 
     def emit_label(self, resop):
         print(resop)
@@ -358,6 +423,7 @@ class AssemblerLibgccjit(BaseAssembler):
             
         self.b_current.end_with_jump(self.block_for_label_descr[jumpop.getdescr()])
 
+    # "INT" comparisons:
     def impl_int_cmp(self, resop, gcc_jit_comparison):
         rval0 = self.expr_to_rvalue(resop._arg0)
         rval1 = self.expr_to_rvalue(resop._arg1)
@@ -370,15 +436,49 @@ class AssemblerLibgccjit(BaseAssembler):
             )
         self.b_current.add_assignment(lvalres,
                                       resop_cmp)
-
-    def emit_int_eq(self, resop):
-        self.impl_int_cmp(resop, self.lib.GCC_JIT_COMPARISON_EQ)
-
+    def emit_int_lt(self, resop):
+        self.impl_int_cmp(resop, self.lib.GCC_JIT_COMPARISON_LT)
     def emit_int_le(self, resop):
         self.impl_int_cmp(resop, self.lib.GCC_JIT_COMPARISON_LE)
-
+    def emit_int_eq(self, resop):
+        self.impl_int_cmp(resop, self.lib.GCC_JIT_COMPARISON_EQ)
+    def emit_int_ne(self, resop):
+        self.impl_int_cmp(resop, self.lib.GCC_JIT_COMPARISON_NE)
+    def emit_int_gt(self, resop):
+        self.impl_int_cmp(resop, self.lib.GCC_JIT_COMPARISON_GT)
     def emit_int_ge(self, resop):
         self.impl_int_cmp(resop, self.lib.GCC_JIT_COMPARISON_GE)
+
+    # "UINT" comparisons:
+
+    # (TODO)
+
+    # "FLOAT" comparisons:
+    def impl_float_cmp(self, resop, gcc_jit_comparison):
+        rval0 = self.expr_to_rvalue(resop._arg0)
+        rval1 = self.expr_to_rvalue(resop._arg1)
+        lvalres = self.expr_to_lvalue(resop.result)
+        resop_cmp = (
+            self.ctxt.new_cast(
+                self.ctxt.new_comparison(gcc_jit_comparison,
+                                         rval0, rval1),
+                self.t_Signed)
+            )
+        self.b_current.add_assignment(lvalres,
+                                      resop_cmp)
+
+    def emit_float_lt(self, resop):
+        self.impl_float_cmp(resop, self.lib.GCC_JIT_COMPARISON_LT)
+    def emit_float_le(self, resop):
+        self.impl_float_cmp(resop, self.lib.GCC_JIT_COMPARISON_LE)
+    def emit_float_eq(self, resop):
+        self.impl_float_cmp(resop, self.lib.GCC_JIT_COMPARISON_EQ)
+    def emit_float_ne(self, resop):
+        self.impl_float_cmp(resop, self.lib.GCC_JIT_COMPARISON_NE)
+    def emit_float_gt(self, resop):
+        self.impl_float_cmp(resop, self.lib.GCC_JIT_COMPARISON_GT)
+    def emit_float_ge(self, resop):
+        self.impl_float_cmp(resop, self.lib.GCC_JIT_COMPARISON_GE)
 
     def impl_guard(self, resop, istrue):
         print(resop)
@@ -417,9 +517,10 @@ class AssemblerLibgccjit(BaseAssembler):
         # Write outputs back:
         for idx, arg in enumerate(args):
             if arg is not None:
-                self.b_current.add_assignment(
-                    self.get_arg_as_lvalue(idx),
-                    self.get_box_as_lvalue(arg).as_rvalue())
+                src_rvalue = self.get_box_as_lvalue(arg).as_rvalue()
+                field = self.get_union_field_for_box(arg)
+                dst_lvalue = self.get_arg_as_lvalue(idx).access_field(field)
+                self.b_current.add_assignment(dst_lvalue, src_rvalue)
             else:
                 # FIXME: see test_compile_with_holes_in_fail_args
                 raise ValueError("how to handle holes in fail args?")

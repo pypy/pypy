@@ -161,6 +161,13 @@ class Library:
                                                INT,
                                                self.FIELD_P_P]),
 
+                (self.GCC_JIT_TYPE_P,
+                 'gcc_jit_context_new_union_type', [self.GCC_JIT_CONTEXT_P,
+                                                    self.GCC_JIT_LOCATION_P,
+                                                    CCHARP,
+                                                    INT,
+                                                    self.FIELD_P_P]),
+
                 ############################################################
                 # Constructing functions.
                 ############################################################
@@ -214,11 +221,21 @@ class Library:
                 (self.GCC_JIT_RVALUE_P,
                  'gcc_jit_context_one', [self.GCC_JIT_CONTEXT_P,
                                          self.GCC_JIT_TYPE_P]),
-
+                (self.GCC_JIT_RVALUE_P,
+                 'gcc_jit_context_new_rvalue_from_double', [self.GCC_JIT_CONTEXT_P,
+                                                            self.GCC_JIT_TYPE_P,
+                                                            DOUBLE]),
                 (self.GCC_JIT_RVALUE_P,
                  'gcc_jit_context_new_rvalue_from_ptr', [self.GCC_JIT_CONTEXT_P,
                                                          self.GCC_JIT_TYPE_P,
                                                          VOIDP]),
+
+                (self.GCC_JIT_RVALUE_P,
+                 'gcc_jit_context_new_unary_op', [self.GCC_JIT_CONTEXT_P,
+                                                  self.GCC_JIT_LOCATION_P,
+                                                  INT, # enum gcc_jit_unary_op op,
+                                                  self.GCC_JIT_TYPE_P,
+                                                  self.GCC_JIT_RVALUE_P]),
 
                 (self.GCC_JIT_RVALUE_P,
                  'gcc_jit_context_new_binary_op', [self.GCC_JIT_CONTEXT_P,
@@ -231,7 +248,7 @@ class Library:
                 (self.GCC_JIT_RVALUE_P,
                  'gcc_jit_context_new_comparison', [self.GCC_JIT_CONTEXT_P,
                                                     self.GCC_JIT_LOCATION_P,
-                                                    INT, # enum gcc_jit_binary_op op,
+                                                    INT, # enum gcc_jit_comparison op,
                                                     self.GCC_JIT_RVALUE_P,
                                                     self.GCC_JIT_RVALUE_P]),
 
@@ -240,6 +257,11 @@ class Library:
                                               self.GCC_JIT_LOCATION_P,
                                               self.GCC_JIT_RVALUE_P,
                                               self.GCC_JIT_TYPE_P]),
+
+                (self.GCC_JIT_LVALUE_P,
+                 'gcc_jit_lvalue_access_field', [self.GCC_JIT_LVALUE_P,
+                                                 self.GCC_JIT_LOCATION_P,
+                                                 self.GCC_JIT_FIELD_P]),
 
                 (self.GCC_JIT_LVALUE_P,
                  'gcc_jit_rvalue_dereference_field', [self.GCC_JIT_RVALUE_P,
@@ -318,6 +340,14 @@ class Library:
         GCC_JIT_FUNCTION_INTERNAL,
         GCC_JIT_FUNCTION_IMPORTED,
         GCC_JIT_FUNCTION_ALWAYS_INLINE""")
+
+        self.make_enum_values(
+            """
+            GCC_JIT_UNARY_OP_MINUS,
+            GCC_JIT_UNARY_OP_BITWISE_NEGATE,
+            GCC_JIT_UNARY_OP_LOGICAL_NEGATE,
+            GCC_JIT_UNARY_OP_ABS
+            """)
 
         self.make_enum_values(
             """
@@ -446,6 +476,23 @@ class Context(Wrapper):
         free_charp(name_charp)
         return Struct(self.lib, inner_struct)
 
+    def new_union_type(self, name, fields):
+        name_charp = str2charp(name)
+        field_array = lltype.malloc(self.lib.FIELD_P_P.TO,
+                                    len(fields),
+                                    flavor='raw') # of maybe gc?
+        for i in range(len(fields)):
+            field_array[i] = fields[i].inner_field
+        inner_type = (
+            self.lib.gcc_jit_context_new_union_type(self.inner_ctxt,
+                                                    self.lib.null_location_ptr,
+                                                    name_charp,
+                                                    r_int(len(fields)),
+                                                    field_array))
+        lltype.free(field_array, flavor='raw')
+        free_charp(name_charp)
+        return Type(self.lib, inner_type)
+
     def new_rvalue_from_int(self, type_, llvalue):
         return RValue(self.lib,
                       self.lib.gcc_jit_context_new_rvalue_from_int(self.inner_ctxt,
@@ -458,11 +505,25 @@ class Context(Wrapper):
                                                                     type_.inner_type,
                                                                     llvalue))
 
+    def new_rvalue_from_double(self, type_, llvalue):
+        return RValue(self.lib,
+                      self.lib.gcc_jit_context_new_rvalue_from_double(self.inner_ctxt,
+                                                                      type_.inner_type,
+                                                                      llvalue))
+
     def new_rvalue_from_ptr(self, type_, llvalue):
         return RValue(self.lib,
                       self.lib.gcc_jit_context_new_rvalue_from_ptr(self.inner_ctxt,
                                                                    type_.inner_type,
                                                                    llvalue))
+
+    def new_unary_op(self, op, type_, rvalue):
+        return RValue(self.lib,
+                      self.lib.gcc_jit_context_new_unary_op(self.inner_ctxt,
+                                                            self.lib.null_location_ptr,
+                                                            op,
+                                                            type_.inner_type,
+                                                             rvalue.inner_rvalue))
 
     def new_binary_op(self, op, type_, a, b):
         return RValue(self.lib,
@@ -571,6 +632,12 @@ class LValue(Wrapper):
     def as_rvalue(self):
         return RValue(self.lib,
                       self.lib.gcc_jit_lvalue_as_rvalue(self.inner_lvalue))
+
+    def access_field(self, field):
+        return LValue(self.lib,
+                      self.lib.gcc_jit_lvalue_access_field (self.inner_lvalue,
+                                                            self.lib.null_location_ptr,
+                                                            field.inner_field))
 
 class Param(Wrapper):
     def __init__(self, lib, inner_param):

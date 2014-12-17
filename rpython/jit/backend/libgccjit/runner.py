@@ -4,6 +4,9 @@ from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 
 #class CPU(model.AbstractCPU):
 class CPU(AbstractLLCPU):
+
+    supports_floats = True
+
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
