@@ -705,6 +705,19 @@ class SSLSocket(W_Root):
                     return space.wrap(
                         rffi.charpsize2str(out_ptr[0], widen(len_ptr[0])))
 
+    def compression(self, space):
+        # if OPENSSL_NO_COMP
+        #     return None
+        if not self.ssl:
+            return None
+        comp_method = libssl_SSL_get_current_compression(self.ssl)
+        if not comp_method or widen(comp_method[0].c_type) == NID_undef:
+            return None
+        short_name = libssl_OBJ_nid2sn(comp_method[0].c_type)
+        if not short_name:
+            return None
+        return space.wrap(rffi.charp2str(short_name))
+
     def tls_unique_cb(self, space):
         """Returns the 'tls-unique' channel binding data, as defined by RFC 5929.
         If the TLS handshake is not yet complete, None is returned"""
@@ -937,6 +950,7 @@ SSLSocket.typedef = TypeDef("_SSLSocket",
     cipher = interp2app(SSLSocket.cipher),
     peer_certificate = interp2app(SSLSocket.peer_certificate),
     selected_npn_protocol = interp2app(SSLSocket.selected_npn_protocol),
+    compression = interp2app(SSLSocket.compression),
     tls_unique_cb = interp2app(SSLSocket.tls_unique_cb),
 )
 

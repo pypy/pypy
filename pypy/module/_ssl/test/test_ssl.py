@@ -198,6 +198,14 @@ class AppTestConnectedSSL:
         self.s.close()
         del ss; gc.collect()
 
+    def test_compression(self):
+        import ssl, sys, gc
+        ss = ssl.wrap_socket(self.s)
+        ss.do_handshake()
+        assert ss.compression() in [None, 'ZLIB', 'RLE']
+        self.s.close()
+        del ss; gc.collect()
+
 
 class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
     # Same tests, with a socket timeout

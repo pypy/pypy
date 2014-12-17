@@ -102,6 +102,7 @@ class CConfig:
     SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER = rffi_platform.ConstantInteger("SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER")
     SSL_TLSEXT_ERR_OK = rffi_platform.ConstantInteger("SSL_TLSEXT_ERR_OK")
 
+    NID_undef = rffi_platform.ConstantInteger("NID_undef")
     NID_subject_alt_name = rffi_platform.ConstantInteger("NID_subject_alt_name")
     GEN_DIRNAME = rffi_platform.ConstantInteger("GEN_DIRNAME")
     GEN_EMAIL = rffi_platform.ConstantInteger("GEN_EMAIL")
@@ -149,6 +150,10 @@ class CConfig:
          ('name', rffi.CCHARP),
          ])
 
+    COMP_METHOD_st = rffi_platform.Struct(
+        'COMP_METHOD',
+        [('type', rffi.INT),
+        ])
 
 for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v
@@ -170,6 +175,7 @@ ASN1_INTEGER = rffi.COpaquePtr('ASN1_INTEGER')
 GENERAL_NAMES = rffi.COpaquePtr('GENERAL_NAMES')
 GENERAL_NAME = rffi.CArrayPtr(GENERAL_NAME_st)
 OBJ_NAME = rffi.CArrayPtr(OBJ_NAME_st)
+COMP_METHOD = rffi.CArrayPtr(COMP_METHOD_st)
 
 HAVE_OPENSSL_RAND = OPENSSL_VERSION_NUMBER >= 0x0090500f
 HAVE_SSL_CTX_CLEAR_OPTIONS = OPENSSL_VERSION_NUMBER >= 0x009080df
@@ -283,11 +289,15 @@ ssl_external('sk_GENERAL_NAME_value', [GENERAL_NAMES, rffi.INT], GENERAL_NAME,
 ssl_external('GENERAL_NAME_print', [BIO, GENERAL_NAME], rffi.INT)
 ssl_external('pypy_GENERAL_NAME_dirn', [GENERAL_NAME], X509_NAME,
              macro=True)
+ssl_external('OBJ_nid2sn',
+             [rffi.INT], rffi.CCHARP)
 
 ssl_external('SSL_get_current_cipher', [SSL], SSL_CIPHER)
 ssl_external('SSL_CIPHER_get_name', [SSL_CIPHER], rffi.CCHARP)
 ssl_external('SSL_CIPHER_get_version', [SSL_CIPHER], rffi.CCHARP)
 ssl_external('SSL_CIPHER_get_bits', [SSL_CIPHER, rffi.INTP], rffi.INT)
+
+ssl_external('SSL_get_current_compression', [SSL], COMP_METHOD)
 
 ssl_external('ERR_get_error', [], rffi.INT)
 ssl_external('ERR_peek_last_error', [], rffi.INT)
