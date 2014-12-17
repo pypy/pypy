@@ -100,6 +100,10 @@ class __extend__(PyCode):
         self._vmprof_virtual_ip = _vmprof.get_next_virtual_IP()
         self._vmprof_registered = 0
 
+# avoid rtyper warnings
+PyCode._vmprof_virtual_ip = 0
+PyCode._vmprof_registered = 0
+
 
 
 def get_virtual_ip(gc_frame):
