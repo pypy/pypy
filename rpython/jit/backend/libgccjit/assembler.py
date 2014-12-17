@@ -248,8 +248,8 @@ class AssemblerLibgccjit(BaseAssembler):
         elif isinstance(expr, ConstInt):
             #print('value: %r' % expr.value)
             #print('type(value): %r' % type(expr.value))
-            return self.ctxt.new_rvalue_from_int(self.t_Signed,
-                                                 r_int(expr.value))
+            return self.ctxt.new_rvalue_from_long(self.t_Signed,
+                                                  r_long(expr.value))
         raise ValueError('unhandled expr: %s' % expr)
 
     def get_box_as_lvalue(self, box):
@@ -298,6 +298,24 @@ class AssemblerLibgccjit(BaseAssembler):
 
     def emit_int_floordiv(self, resop):
         self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_DIVIDE)
+
+    def emit_int_mod(self, resop):
+        self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_MODULO)
+
+    def emit_int_and(self, resop):
+        self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_BITWISE_AND)
+
+    def emit_int_or(self, resop):
+        self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_BITWISE_OR)
+
+    def emit_int_xor(self, resop):
+        self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_BITWISE_XOR)
+
+    def emit_int_rshift(self, resop):
+        self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_RSHIFT)
+
+    def emit_int_lshift(self, resop):
+        self.impl_int_binop(resop, self.lib.GCC_JIT_BINARY_OP_LSHIFT)
 
     def emit_label(self, resop):
         print(resop)

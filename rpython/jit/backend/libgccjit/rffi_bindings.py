@@ -129,6 +129,11 @@ class Library:
                                               INT]),
 
                 (self.GCC_JIT_TYPE_P,
+                 'gcc_jit_context_get_int_type', [self.GCC_JIT_CONTEXT_P,
+                                                  INT,
+                                                  INT]),
+
+                (self.GCC_JIT_TYPE_P,
                  'gcc_jit_type_get_pointer', [self.GCC_JIT_TYPE_P]),
 
                 (self.GCC_JIT_FIELD_P,
@@ -199,6 +204,10 @@ class Library:
                  'gcc_jit_context_new_rvalue_from_int', [self.GCC_JIT_CONTEXT_P,
                                                          self.GCC_JIT_TYPE_P,
                                                          INT]),
+                (self.GCC_JIT_RVALUE_P,
+                 'gcc_jit_context_new_rvalue_from_long', [self.GCC_JIT_CONTEXT_P,
+                                                          self.GCC_JIT_TYPE_P,
+                                                          LONG]),
                 (self.GCC_JIT_RVALUE_P,
                  'gcc_jit_context_zero', [self.GCC_JIT_CONTEXT_P,
                                           self.GCC_JIT_TYPE_P]),
@@ -396,6 +405,12 @@ class Context(Wrapper):
                     self.lib.gcc_jit_context_get_type(self.inner_ctxt,
                                                       r_enum))
 
+    def get_int_type(self, num_bytes, is_signed):
+        return Type(self.lib,
+                    self.lib.gcc_jit_context_get_int_type(self.inner_ctxt,
+                                                          num_bytes,
+                                                          is_signed))
+
     def new_field(self, type_, name):
         name_charp = str2charp(name)
         field = self.lib.gcc_jit_context_new_field(self.inner_ctxt,
@@ -436,6 +451,12 @@ class Context(Wrapper):
                       self.lib.gcc_jit_context_new_rvalue_from_int(self.inner_ctxt,
                                                                    type_.inner_type,
                                                                    llvalue))
+
+    def new_rvalue_from_long(self, type_, llvalue):
+        return RValue(self.lib,
+                      self.lib.gcc_jit_context_new_rvalue_from_long(self.inner_ctxt,
+                                                                    type_.inner_type,
+                                                                    llvalue))
 
     def new_rvalue_from_ptr(self, type_, llvalue):
         return RValue(self.lib,
