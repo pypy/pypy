@@ -483,11 +483,14 @@ class OptRewrite(Optimization):
         self.emit_operation(op)
 
     def _optimize_CALL_ARRAYCOPY(self, op):
+        length = self.get_constant_box(op.getarg(5))
+        if length and length.getint() == 0:
+            return True # 0-length arraycopy
+
         source_value = self.getvalue(op.getarg(1))
         dest_value = self.getvalue(op.getarg(2))
         source_start_box = self.get_constant_box(op.getarg(3))
         dest_start_box = self.get_constant_box(op.getarg(4))
-        length = self.get_constant_box(op.getarg(5))
         extrainfo = op.getdescr().get_extra_info()
         if (source_start_box and dest_start_box
             and length and (dest_value.is_virtual() or length.getint() <= 8) and
@@ -498,6 +501,8 @@ class OptRewrite(Optimization):
             dest_start = dest_start_box.getint()
             # XXX fish fish fish
             arraydescr = extrainfo.write_descrs_arrays[0]
+            if arraydescr.is_array_of_structs():
+                return False       # not supported right now
             for index in range(length.getint()):
                 if source_value.is_virtual():
                     assert isinstance(source_value, VArrayValue)
@@ -527,8 +532,6 @@ class OptRewrite(Optimization):
                                          descr=arraydescr)
                     self.emit_operation(newop)
             return True
-        if length and length.getint() == 0:
-            return True # 0-length arraycopy
         return False
 
     def optimize_CALL_PURE(self, op):
