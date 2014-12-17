@@ -128,7 +128,8 @@ def compile_loop(metainterp, greenkey, start,
                       [ResOperation(rop.LABEL, jumpargs, None, descr=jitcell_token)]
 
     try:
-        start_state = optimize_trace(metainterp_sd, part, enable_opts)
+        start_state = optimize_trace(metainterp_sd, part, enable_opts,
+                                     export_state=True)
     except InvalidLoop:
         return None
     target_token = part.operations[0].getdescr()
@@ -156,7 +157,7 @@ def compile_loop(metainterp, greenkey, start,
 
         try:
             optimize_trace(metainterp_sd, part, enable_opts,
-                           start_state=start_state)
+                           start_state=start_state, export_state=False)
         except InvalidLoop:
             return None
 
@@ -209,7 +210,7 @@ def compile_retrace(metainterp, greenkey, start,
     assert label.getopnum() == rop.LABEL
     try:
         optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts,
-                       start_state=start_state)
+                       start_state=start_state, export_state=False)
     except InvalidLoop:
         # Fall back on jumping to preamble
         target_token = label.getdescr()
@@ -220,7 +221,8 @@ def compile_retrace(metainterp, greenkey, start,
         try:
             optimize_trace(metainterp_sd, part,
                            jitdriver_sd.warmstate.enable_opts,
-                           inline_short_preamble=False, start_state=start_state)
+                           inline_short_preamble=False, start_state=start_state,
+                           export_state=False)
         except InvalidLoop:
             return None
     assert part.operations[-1].getopnum() != rop.LABEL
@@ -789,7 +791,8 @@ def compile_trace(metainterp, resumekey):
     else:
         inline_short_preamble = True
     try:
-        state = optimize_trace(metainterp_sd, new_trace, state.enable_opts, inline_short_preamble)
+        state = optimize_trace(metainterp_sd, new_trace, state.enable_opts,
+                               inline_short_preamble, export_state=True)
     except InvalidLoop:
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise

@@ -16,10 +16,11 @@ from rpython.rlib.debug import debug_print, debug_start, debug_stop
 # FIXME: Introduce some VirtualOptimizer super class instead
 
 def optimize_unroll(metainterp_sd, loop, optimizations,
-                    inline_short_preamble=True, start_state=None):
+                    inline_short_preamble=True, start_state=None,
+                    export_state=True):
     opt = UnrollOptimizer(metainterp_sd, loop, optimizations)
     opt.inline_short_preamble = inline_short_preamble
-    return opt.propagate_all_forward(start_state)
+    return opt.propagate_all_forward(start_state, export_state)
 
 
 class UnrollableOptimizer(Optimizer):
@@ -70,7 +71,7 @@ class UnrollOptimizer(Optimization):
         prev = self.fix_snapshot(jump_args, snapshot.prev)
         return Snapshot(prev, new_snapshot_args)
 
-    def propagate_all_forward(self, starting_state):
+    def propagate_all_forward(self, starting_state, export_state=True):
         loop = self.optimizer.loop
         self.optimizer.clear_newoperations()
 
@@ -148,7 +149,10 @@ class UnrollOptimizer(Optimization):
         KillHugeIntBounds(self.optimizer).apply()
 
         loop.operations = self.optimizer.get_newoperations()
-        final_state = self.export_state(stop_label)
+        if export_state:
+            final_state = self.export_state(stop_label)
+        else:
+            final_state = None
         loop.operations.append(stop_label)
         return final_state
 
