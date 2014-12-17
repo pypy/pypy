@@ -32,6 +32,7 @@ class BaseTestMultiLabel(BaseTest):
                   if op.getopnum()==rop.LABEL]
         prv = 0
         last_label = []
+        state = None
         for nxt in labels + [len(loop.operations)]:
             assert prv != nxt
             operations = last_label + loop.operations[prv:nxt]
@@ -44,7 +45,7 @@ class BaseTestMultiLabel(BaseTest):
             part.operations = operations
 
             self.add_guard_future_condition(part)
-            self._do_optimize_loop(part, None)
+            state = self._do_optimize_loop(part, None, state)
             if part.operations[-1].getopnum() == rop.LABEL:
                 last_label = [part.operations.pop()]
             else:
@@ -496,7 +497,7 @@ dispatch_opt = make_dispatcher_method(OptRenameStrlen, 'optimize_',
 
 class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
 
-    def _do_optimize_loop(self, loop, call_pure_results):
+    def _do_optimize_loop(self, loop, call_pure_results, state):
         from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
         from rpython.jit.metainterp.optimizeopt.util import args_dict
         from rpython.jit.metainterp.optimizeopt.pure import OptPure
@@ -504,7 +505,7 @@ class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
         self.loop = loop
         loop.call_pure_results = args_dict()
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        optimize_unroll(metainterp_sd, loop, [OptRewrite(), OptRenameStrlen(), OptHeap(), OptPure()], True)
+        return optimize_unroll(metainterp_sd, loop, [OptRewrite(), OptRenameStrlen(), OptHeap(), OptPure()], True, state)
 
     def test_optimizer_renaming_boxes1(self):
         ops = """

@@ -390,7 +390,7 @@ class BaseTest(object):
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap, text_right)
 
-    def _do_optimize_loop(self, loop, call_pure_results):
+    def _do_optimize_loop(self, loop, call_pure_results, start_state=None):
         from rpython.jit.metainterp.optimizeopt import optimize_trace
         from rpython.jit.metainterp.optimizeopt.util import args_dict
 
@@ -405,7 +405,8 @@ class BaseTest(object):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        optimize_trace(metainterp_sd, loop, self.enable_opts)
+        return optimize_trace(metainterp_sd, loop, self.enable_opts,
+                              start_state=start_state)
 
     def unroll_and_optimize(self, loop, call_pure_results=None):
         self.add_guard_future_condition(loop)
@@ -425,7 +426,7 @@ class BaseTest(object):
         preamble.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(token))] + \
                               operations +  \
                               [ResOperation(rop.LABEL, jump_args, None, descr=token)]
-        self._do_optimize_loop(preamble, call_pure_results)
+        start_state = self._do_optimize_loop(preamble, call_pure_results)
 
         assert preamble.operations[-1].getopnum() == rop.LABEL
 
@@ -439,7 +440,7 @@ class BaseTest(object):
         assert loop.operations[0].getopnum() == rop.LABEL
         loop.inputargs = loop.operations[0].getarglist()
 
-        self._do_optimize_loop(loop, call_pure_results)
+        self._do_optimize_loop(loop, call_pure_results, start_state)
         extra_same_as = []
         while loop.operations[0].getopnum() != rop.LABEL:
             extra_same_as.append(loop.operations[0])

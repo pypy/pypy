@@ -415,9 +415,12 @@ class OpMatcher(object):
         self.match_descr(op.descr, exp_descr)
 
 
-    def _next_op(self, iter_ops, assert_raises=False):
+    def _next_op(self, iter_ops, assert_raises=False, ignore_ops=set()):
         try:
-            op = iter_ops.next()
+            while True:
+                op = iter_ops.next()
+                if op.name not in ignore_ops:
+                    break
         except StopIteration:
             self._assert(assert_raises, "not enough operations")
             return
@@ -454,9 +457,7 @@ class OpMatcher(object):
         else:
             assert 0, "'{{{' not followed by '}}}'"
         while exp_ops:
-            op = self._next_op(iter_ops)
-            if op.name in ignore_ops:
-                continue
+            op = self._next_op(iter_ops, ignore_ops=ignore_ops)
             # match 'op' against any of the exp_ops; the first successful
             # match is kept, and the exp_op gets removed from the list
             for i, exp_op in enumerate(exp_ops):
@@ -491,10 +492,7 @@ class OpMatcher(object):
                     self.match_any_order(iter_exp_ops, iter_ops, ignore_ops)
                     continue
                 else:
-                    while True:
-                        op = self._next_op(iter_ops)
-                        if op.name not in ignore_ops:
-                            break
+                    op = self._next_op(iter_ops, ignore_ops=ignore_ops)
                 self.match_op(op, exp_op)
             except InvalidMatch, e:
                 if type(exp_op) is not str and exp_op[4] is False:    # optional operation
@@ -504,7 +502,7 @@ class OpMatcher(object):
                 raise
         #
         # make sure we exhausted iter_ops
-        self._next_op(iter_ops, assert_raises=True)
+        self._next_op(iter_ops, assert_raises=True, ignore_ops=ignore_ops)
 
     def match(self, expected_src, ignore_ops=[]):
         def format(src, opindex=None):

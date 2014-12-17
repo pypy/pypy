@@ -251,6 +251,16 @@ class TestRDictDirect(object):
         assert rordereddict.ll_dict_pop_default(ll_d, llstr("k"), 40) == 40
         assert rordereddict.ll_dict_pop_default(ll_d, llstr("j"), 39) == 39
 
+    def test_bug_remove_deleted_items(self):
+        DICT = self._get_str_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        for i in range(15):
+            rordereddict.ll_dict_setitem(ll_d, llstr(chr(i)), 5)
+        for i in range(15):
+            rordereddict.ll_dict_delitem(ll_d, llstr(chr(i)))
+        rordereddict.ll_prepare_dict_update(ll_d, 7)
+        # used to get UninitializedMemoryAccess
+
 class TestRDictDirectDummyKey(TestRDictDirect):
     class dummykeyobj:
         ll_dummy_value = llstr("dupa")
@@ -267,6 +277,10 @@ class TestOrderedRDict(BaseTestRDict):
     @staticmethod
     def newdict2():
         return OrderedDict()
+
+    @staticmethod
+    def new_r_dict(myeq, myhash):
+        return objectmodel.r_ordereddict(myeq, myhash)
 
     def test_two_dicts_with_different_value_types(self):
         def func(i):
@@ -285,62 +299,124 @@ class TestOrderedRDict(BaseTestRDict):
         py.test.skip("I don't want to edit this file on two branches")
 
 
-    def test_r_dict(self):
-        class FooError(Exception):
-            pass
-        def myeq(n, m):
-            return n == m
-        def myhash(n):
-            if n < 0:
-                raise FooError
-            return -n
-        def f(n):
-            d = objectmodel.r_ordereddict(myeq, myhash)
-            for i in range(10):
-                d[i] = i*i
-            try:
-                value1 = d[n]
-            except FooError:
-                value1 = 99
-            try:
-                value2 = n in d
-            except FooError:
-                value2 = 99
-            try:
-                value3 = d[-n]
-            except FooError:
-                value3 = 99
-            try:
-                value4 = (-n) in d
-            except FooError:
-                value4 = 99
-            return (value1 * 1000000 +
-                    value2 * 10000 +
-                    value3 * 100 +
-                    value4)
-        res = self.interpret(f, [5])
-        assert res == 25019999
+class TestStress:
 
-    def test_dict_popitem_hash(self):
-        def deq(n, m):
-            return n == m
-        def dhash(n):
-            return ~n
-        def func():
-            d = objectmodel.r_ordereddict(deq, dhash)
-            d[5] = 2
-            d[6] = 3
-            k1, v1 = d.popitem()
-            assert len(d) == 1
-            k2, v2 = d.popitem()
-            try:
-                d.popitem()
-            except KeyError:
-                pass
+    def test_stress(self):
+        from rpython.annotator.dictdef import DictKey, DictValue
+        from rpython.annotator import model as annmodel
+        from rpython.rtyper import rint
+        from rpython.rtyper.test.test_rdict import not_really_random
+        rodct = rordereddict
+        dictrepr = rodct.OrderedDictRepr(
+                                  None, rint.signed_repr, rint.signed_repr,
+                                  DictKey(None, annmodel.SomeInteger()),
+                                  DictValue(None, annmodel.SomeInteger()))
+        dictrepr.setup()
+        l_dict = rodct.ll_newdict(dictrepr.DICT)
+        referencetable = [None] * 400
+        referencelength = 0
+        value = 0
+
+        def complete_check():
+            for n, refvalue in zip(range(len(referencetable)), referencetable):
+                try:
+                    gotvalue = rodct.ll_dict_getitem(l_dict, n)
+                except KeyError:
+                    assert refvalue is None
+                else:
+                    assert gotvalue == refvalue
+
+        for x in not_really_random():
+            n = int(x*100.0)    # 0 <= x < 400
+            op = repr(x)[-1]
+            if op <= '2' and referencetable[n] is not None:
+                rodct.ll_dict_delitem(l_dict, n)
+                referencetable[n] = None
+                referencelength -= 1
+            elif op <= '6':
+                rodct.ll_dict_setitem(l_dict, n, value)
+                if referencetable[n] is None:
+                    referencelength += 1
+                referencetable[n] = value
+                value += 1
             else:
-                assert 0, "should have raised KeyError"
-            assert len(d) == 0
-            return k1*1000 + v1*100 + k2*10 + v2
+                try:
+                    gotvalue = rodct.ll_dict_getitem(l_dict, n)
+                except KeyError:
+                    assert referencetable[n] is None
+                else:
+                    assert gotvalue == referencetable[n]
+            if 1.38 <= x <= 1.39:
+                complete_check()
+                print 'current dict length:', referencelength
+            assert l_dict.num_items == referencelength
+        complete_check()
 
-        res = self.interpret(func, [])
-        assert res in [5263, 6352]
+    def test_stress_2(self):
+        yield self.stress_combination, True,  False
+        yield self.stress_combination, False, True
+        yield self.stress_combination, False, False
+        yield self.stress_combination, True,  True
+
+    def stress_combination(self, key_can_be_none, value_can_be_none):
+        from rpython.rtyper.lltypesystem.rstr import string_repr
+        from rpython.annotator.dictdef import DictKey, DictValue
+        from rpython.annotator import model as annmodel
+        from rpython.rtyper.test.test_rdict import not_really_random
+        rodct = rordereddict
+
+        print
+        print "Testing combination with can_be_None: keys %s, values %s" % (
+            key_can_be_none, value_can_be_none)
+
+        class PseudoRTyper:
+            cache_dummy_values = {}
+        dictrepr = rodct.OrderedDictRepr(
+                       PseudoRTyper(), string_repr, string_repr,
+                       DictKey(None, annmodel.SomeString(key_can_be_none)),
+                       DictValue(None, annmodel.SomeString(value_can_be_none)))
+        dictrepr.setup()
+        print dictrepr.lowleveltype
+        #for key, value in dictrepr.DICTENTRY._adtmeths.items():
+        #    print '    %s = %s' % (key, value)
+        l_dict = rodct.ll_newdict(dictrepr.DICT)
+        referencetable = [None] * 400
+        referencelength = 0
+        values = not_really_random()
+        keytable = [string_repr.convert_const("foo%d" % n)
+                    for n in range(len(referencetable))]
+
+        def complete_check():
+            for n, refvalue in zip(range(len(referencetable)), referencetable):
+                try:
+                    gotvalue = rodct.ll_dict_getitem(l_dict, keytable[n])
+                except KeyError:
+                    assert refvalue is None
+                else:
+                    assert gotvalue == refvalue
+
+        for x in not_really_random():
+            n = int(x*100.0)    # 0 <= x < 400
+            op = repr(x)[-1]
+            if op <= '2' and referencetable[n] is not None:
+                rodct.ll_dict_delitem(l_dict, keytable[n])
+                referencetable[n] = None
+                referencelength -= 1
+            elif op <= '6':
+                ll_value = string_repr.convert_const(str(values.next()))
+                rodct.ll_dict_setitem(l_dict, keytable[n], ll_value)
+                if referencetable[n] is None:
+                    referencelength += 1
+                referencetable[n] = ll_value
+            else:
+                try:
+                    gotvalue = rodct.ll_dict_getitem(l_dict, keytable[n])
+                except KeyError:
+                    assert referencetable[n] is None
+                else:
+                    assert gotvalue == referencetable[n]
+            if 1.38 <= x <= 1.39:
+                complete_check()
+                print 'current dict length:', referencelength
+            assert l_dict.num_items == referencelength
+        complete_check()

@@ -329,6 +329,18 @@ class TestObjectModel(BaseRtypingTest):
         res = self.interpret(g, [3])
         assert res == 42     # "did not crash"
 
+    def test_prepare_dict_update_2(self):
+        try:
+            from collections import OrderedDict
+        except ImportError:     # Python 2.6
+            py.test.skip("requires collections.OrderedDict")
+        def g(n):
+            d = OrderedDict()
+            prepare_dict_update(d, n)
+            return 42
+        res = self.interpret(g, [3])
+        assert res == 42     # "did not crash"
+
     def test_compute_hash(self):
         class Foo(object):
             pass

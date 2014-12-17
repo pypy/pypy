@@ -318,6 +318,16 @@ class TestOpMatcher_(object):
             jump(i4, descr=...)
         """
         assert self.match(loop, expected, ignore_ops=['force_token'])
+        #
+        loop = """
+            [i0]
+            i1 = int_add(i0, 1)
+            i4 = force_token()
+        """
+        expected = """
+            i1 = int_add(i0, 1)
+        """
+        assert self.match(loop, expected, ignore_ops=['force_token'])
 
     def test_match_dots_in_arguments(self):
         loop = """
