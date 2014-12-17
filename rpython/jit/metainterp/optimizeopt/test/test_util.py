@@ -223,6 +223,10 @@ class LLtypeMixin(object):
     complexarraydescr = cpu.arraydescrof(complexarray)
     complexrealdescr = cpu.interiorfielddescrof(complexarray, "real")
     compleximagdescr = cpu.interiorfielddescrof(complexarray, "imag")
+    complexarraycopydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+            EffectInfo([], [complexarraydescr], [], [], [complexarraydescr], [],
+                       EffectInfo.EF_CANNOT_RAISE,
+                       oopspecindex=EffectInfo.OS_ARRAYCOPY))
 
     rawarraydescr = cpu.arraydescrof(lltype.Array(lltype.Signed,
                                                   hints={'nolength': True}))
