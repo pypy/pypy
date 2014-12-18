@@ -89,6 +89,8 @@ class Library:
                                                  hints={'nolength': True}))
         self.RVALUE_P_P = lltype.Ptr(lltype.Array(self.GCC_JIT_RVALUE_P,
                                                   hints={'nolength': True}))
+        self.TYPE_P_P = lltype.Ptr(lltype.Array(self.GCC_JIT_TYPE_P,
+                                                hints={'nolength': True}))
 
         # Entrypoints:
         for returntype, name, paramtypes in [
@@ -119,6 +121,10 @@ class Library:
                 (VOIDP,
                  'gcc_jit_result_get_code', [self.GCC_JIT_RESULT_P,
                                              CCHARP]),
+
+                (VOIDP,
+                 'gcc_jit_result_get_global', [self.GCC_JIT_RESULT_P,
+                                               CCHARP]),
 
                 (lltype.Void,
                  'gcc_jit_result_release', [self.GCC_JIT_RESULT_P]),
@@ -170,6 +176,14 @@ class Library:
                                                     INT,
                                                     self.FIELD_P_P]),
 
+                (self.GCC_JIT_TYPE_P,
+                 'gcc_jit_context_new_function_ptr_type', [self.GCC_JIT_CONTEXT_P,
+                                                           self.GCC_JIT_LOCATION_P,
+                                                           self.GCC_JIT_TYPE_P,
+                                                           INT,
+                                                           self.TYPE_P_P,
+                                                           INT]),
+
                 ############################################################
                 # Constructing functions.
                 ############################################################
@@ -205,6 +219,13 @@ class Library:
                 ############################################################
                 # lvalues, rvalues and expressions.
                 ############################################################
+                (self.GCC_JIT_LVALUE_P,
+                 'gcc_jit_context_new_global', [self.GCC_JIT_CONTEXT_P,
+                                                self.GCC_JIT_LOCATION_P,
+                                                INT, # enum gcc_jit_global_kind
+                                                self.GCC_JIT_TYPE_P,
+                                                CCHARP]),
+
                 (self.GCC_JIT_RVALUE_P,
                  'gcc_jit_lvalue_as_rvalue', [self.GCC_JIT_LVALUE_P]),
 
@@ -260,6 +281,13 @@ class Library:
                                               self.GCC_JIT_FUNCTION_P,
                                               INT,
                                               self.RVALUE_P_P]),
+
+                (self.GCC_JIT_RVALUE_P,
+                 'gcc_jit_context_new_call_through_ptr',[self.GCC_JIT_CONTEXT_P,
+                                                         self.GCC_JIT_LOCATION_P,
+                                                         self.GCC_JIT_RVALUE_P,
+                                                         INT,
+                                                         self.RVALUE_P_P]),
 
                 (self.GCC_JIT_RVALUE_P,
                  'gcc_jit_context_new_cast', [self.GCC_JIT_CONTEXT_P,
@@ -349,6 +377,13 @@ class Library:
         GCC_JIT_FUNCTION_INTERNAL,
         GCC_JIT_FUNCTION_IMPORTED,
         GCC_JIT_FUNCTION_ALWAYS_INLINE""")
+
+        self.make_enum_values(
+            """
+            GCC_JIT_GLOBAL_EXPORTED,
+            GCC_JIT_GLOBAL_INTERNAL,
+            GCC_JIT_GLOBAL_IMPORTED
+            """)
 
         self.make_enum_values(
             """
@@ -502,6 +537,23 @@ class Context(Wrapper):
         free_charp(name_charp)
         return Type(self.lib, inner_type)
 
+    def new_function_ptr_type(self, returntype, param_types, is_variadic):
+        raw_type_array = lltype.malloc(self.lib.TYPE_P_P.TO,
+                                       len(param_types),
+                                       flavor='raw') # of maybe gc?
+        for i in range(len(param_types)):
+            raw_type_array[i] = param_types[i].inner_type
+
+        type_ = self.lib.gcc_jit_context_new_function_ptr_type(self.inner_ctxt,
+                                                               self.lib.null_location_ptr,
+                                                               returntype.inner_type,
+                                                               r_int(len(param_types)),
+                                                               raw_type_array,
+                                                               is_variadic)
+        lltype.free(raw_type_array, flavor='raw')
+
+        return Type(self.lib, type_)
+
     def new_rvalue_from_int(self, type_, llvalue):
         return RValue(self.lib,
                       self.lib.gcc_jit_context_new_rvalue_from_int(self.inner_ctxt,
@@ -563,6 +615,20 @@ class Context(Wrapper):
         lltype.free(raw_arg_array, flavor='raw')
         return RValue(self.lib, rvalue)
 
+    def new_call_through_ptr(self, fn_ptr, args):
+        raw_arg_array = lltype.malloc(self.lib.RVALUE_P_P.TO,
+                                      len(args),
+                                      flavor='raw') # of maybe gc?
+        for i in range(len(args)):
+            raw_arg_array[i] = args[i].inner_rvalue
+        rvalue = self.lib.gcc_jit_context_new_call_through_ptr(self.inner_ctxt,
+                                                               self.lib.null_location_ptr,
+                                                               fn_ptr.inner_rvalue,
+                                                               r_int(len(args)),
+                                                               raw_arg_array)
+        lltype.free(raw_arg_array, flavor='raw')
+        return RValue(self.lib, rvalue)
+
     def new_param(self, type_, name):
         name_charp = str2charp(name)
         param = self.lib.gcc_jit_context_new_param(self.inner_ctxt,
@@ -592,6 +658,16 @@ class Context(Wrapper):
         free_charp(name_charp)
 
         return Function(self.lib, fn)
+
+    def new_global(self, kind, type_, name):
+        name_charp = str2charp(name)
+        lvalue = self.lib.gcc_jit_context_new_global(self.inner_ctxt,
+                                                     self.lib.null_location_ptr,
+                                                     kind,
+                                                     type_.inner_type,
+                                                     name_charp)
+        free_charp(name_charp)
+        return LValue(self.lib, lvalue)
 
     def new_cast(self, rvalue, type_):
         return RValue(self.lib,
@@ -742,6 +818,13 @@ class Result(Wrapper):
                                                   name_charp)
         free_charp(name_charp)
         return fn_ptr
+
+    def get_global(self, name):
+        name_charp = str2charp(name)
+        sym_ptr = self.lib.gcc_jit_result_get_global(self.inner_result,
+                                                     name_charp)
+        free_charp(name_charp)
+        return sym_ptr
 
     def release(self):
         self.lib.gcc_jit_result_release(self.inner_result)
