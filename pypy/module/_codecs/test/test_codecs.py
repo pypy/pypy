@@ -295,6 +295,12 @@ class AppTestPartialEvaluation:
         assert _codecs.unicode_internal_decode(array.array('b', bytes))[0] == u"a"
         assert _codecs.unicode_internal_decode(memoryview(bytes))[0] == u"a"
 
+        # This codec accepts bytes and unicode on both sides
+        _codecs.unicode_internal_decode(u'\0\0\0\0')
+        _codecs.unicode_internal_decode(b'\0\0\0\0')
+        _codecs.unicode_internal_encode(u'\0\0\0\0')
+        _codecs.unicode_internal_encode(b'\0\0\0\0')
+
     def test_raw_unicode_escape(self):
         import _codecs
         assert str(b"\u0663", "raw-unicode-escape") == "\u0663"
