@@ -202,6 +202,8 @@ def _log_any(space, w_x, base):
             x = _get_double(space, w_x)
             if base == 10.0:
                 result = math.log10(x)
+            elif base == 2.0:
+                result = rfloat.log2(x)
             else:
                 result = math.log(x)
                 if base != 0.0:
