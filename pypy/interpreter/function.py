@@ -36,10 +36,10 @@ class Function(W_Root):
                           'w_kw_defs?']
 
     def __init__(self, space, code, w_globals=None, defs_w=[], w_kw_defs=None,
-                 closure=None, w_ann=None, forcename=None):
+                 closure=None, w_ann=None, forcename=None, qualname=None):
         self.space = space
         self.name = forcename or code.co_name
-        self.qualname = self.name.decode('utf-8')  # So far
+        self.qualname = qualname or self.name.decode('utf-8')
         self.w_doc = None   # lazily read from code.getdocstring()
         self.code = code       # Code instance
         self.w_func_globals = w_globals  # the globals dictionary

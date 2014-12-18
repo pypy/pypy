@@ -205,7 +205,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         """Convenience function for compiling a sub scope."""
         generator = kind(self.space, name, node, lineno, self.symbols,
                          self.compile_info)
-        return generator.assemble()
+        generator.qualname = '%s.%s' % (self.qualname, name)
+        return generator.assemble(), generator.qualname
 
     def push_frame_block(self, kind, block):
         self.frame_blocks.append((kind, block))
@@ -282,9 +283,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.add_none_to_final_return = False
         mod.body.walkabout(self)
 
-    def _make_function(self, code, num_defaults=0):
+    def _make_function(self, code, num_defaults=0, qualname=None):
         """Emit the opcodes to turn a code object into a function."""
         code_index = self.add_const(code)
+        w_qualname = self.space.wrap(qualname or code.co_name)
+        qualname_index = self.add_const(w_qualname)
         if code.co_freevars:
             # Load cell and free vars to pass on.
             for free in code.co_freevars:
@@ -296,9 +299,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_op_arg(ops.LOAD_CLOSURE, index)
             self.emit_op_arg(ops.BUILD_TUPLE, len(code.co_freevars))
             self.emit_op_arg(ops.LOAD_CONST, code_index)
+            self.emit_op_arg(ops.LOAD_CONST, qualname_index)
             self.emit_op_arg(ops.MAKE_CLOSURE, num_defaults)
         else:
             self.emit_op_arg(ops.LOAD_CONST, code_index)
+            self.emit_op_arg(ops.LOAD_CONST, qualname_index)
             self.emit_op_arg(ops.MAKE_FUNCTION, num_defaults)
 
     def _visit_kwonlydefaults(self, args):
@@ -359,9 +364,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         oparg = num_defaults
         oparg |= kw_default_count << 8
         oparg |= num_annotations << 16
-        code = self.sub_scope(FunctionCodeGenerator, func.name, func,
-                              func.lineno)
-        self._make_function(code, oparg)
+        code, qualname = self.sub_scope(FunctionCodeGenerator, func.name, func,
+                                        func.lineno)
+        self._make_function(code, oparg, qualname=qualname)
         # Apply decorators.
         if func.decorator_list:
             for i in range(len(func.decorator_list)):
@@ -377,20 +382,22 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             kw_default_count = self._visit_kwonlydefaults(args)
         self.visit_sequence(args.defaults)
         default_count = len(args.defaults) if args.defaults is not None else 0
-        code = self.sub_scope(LambdaCodeGenerator, "<lambda>", lam, lam.lineno)
+        code, qualname = self.sub_scope(
+            LambdaCodeGenerator, "<lambda>", lam, lam.lineno)
         oparg = default_count
         oparg |= kw_default_count << 8
-        self._make_function(code, oparg)
+        self._make_function(code, oparg, qualname=qualname)
 
     def visit_ClassDef(self, cls):
         self.update_position(cls.lineno, True)
         self.visit_sequence(cls.decorator_list)
         # 1. compile the class body into a code object
-        code = self.sub_scope(ClassCodeGenerator, cls.name, cls, cls.lineno)
+        code, qualname = self.sub_scope(
+            ClassCodeGenerator, cls.name, cls, cls.lineno)
         # 2. load the 'build_class' function
         self.emit_op(ops.LOAD_BUILD_CLASS)
         # 3. load a function (or closure) made from the code object
-        self._make_function(code, 0)
+        self._make_function(code, qualname=qualname)
         # 4. load class name
         self.load_const(self.space.wrap(cls.name.decode('utf-8')))
         # 5. generate the rest of the code for the call
@@ -1140,9 +1147,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(anchor)
 
     def _compile_comprehension(self, node, name, sub_scope):
-        code = self.sub_scope(sub_scope, name, node, node.lineno)
+        code, qualname = self.sub_scope(sub_scope, name, node, node.lineno)
         self.update_position(node.lineno)
-        self._make_function(code)
+        self._make_function(code, qualname=qualname)
         first_comp = node.get_generators()[0]
         assert isinstance(first_comp, ast.comprehension)
         first_comp.iter.walkabout(self)

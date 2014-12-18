@@ -23,7 +23,7 @@ class AppTestFunctionIntrospection:
 
     def test_qualname(self):
         def f(): pass
-        assert f.__qualname__ == 'f'
+        assert f.__qualname__ == 'test_qualname.f'
         f.__qualname__ = 'qualname'
         assert f.__qualname__ == 'qualname'
         raises(TypeError, "f.__qualname__ = b'name'")

@@ -1215,6 +1215,8 @@ class __extend__(pyframe.PyFrame):
     @jit.unroll_safe
     def _make_function(self, oparg, freevars=None):
         space = self.space
+        w_qualname = self.popvalue()
+        qualname = self.space.unicode_w(w_qualname)
         w_codeobj = self.popvalue()
         codeobj = self.space.interp_w(PyCode, w_codeobj)
         if freevars is not None:
@@ -1238,7 +1240,7 @@ class __extend__(pyframe.PyFrame):
                 w_def = self.popvalue()
                 space.setitem(w_kw_defs, w_def, w_name)
         fn = function.Function(space, codeobj, self.w_globals, defaultarguments,
-                               w_kw_defs, freevars, w_ann)
+                               w_kw_defs, freevars, w_ann, qualname=qualname)
         self.pushvalue(space.wrap(fn))
 
     def MAKE_FUNCTION(self, oparg, next_instr):
@@ -1246,7 +1248,7 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def MAKE_CLOSURE(self, oparg, next_instr):
-        w_freevarstuple = self.peekvalue(1)
+        w_freevarstuple = self.peekvalue(2)
         freevars = [self.space.interp_w(Cell, cell)
                     for cell in self.space.fixedview(w_freevarstuple)]
         self._make_function(oparg, freevars)
