@@ -97,6 +97,7 @@ class UnrollOptimizer(Optimization):
             jumpop = None
 
         self.import_state(start_label, starting_state)
+
         self.optimizer.propagate_all_forward(clear=False)
 
         if not jumpop:
