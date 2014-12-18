@@ -107,9 +107,7 @@ class OptValue(object):
             assert other.level == LEVEL_CONSTANT
             assert other.box.same_constant(self.box)
             return
-        if self.level == LEVEL_KNOWNCLASS:
-            return
-        #assert self.level <= LEVEL_NONNULL
+        assert self.level <= LEVEL_NONNULL
         if other.level == LEVEL_CONSTANT:
             self.make_constant(other.get_key_box())
             optimizer.turned_constant(self)

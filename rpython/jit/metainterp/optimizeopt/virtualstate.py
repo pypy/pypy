@@ -638,7 +638,6 @@ class ShortBoxes(object):
             for i in range(op.numargs()):
                 op.setarg(i, self.renamed(op.getarg(i)))
         if box in self.short_boxes:
-            return
             if op is None:
                 oldop = self.short_boxes[box].clone()
                 oldres = oldop.result
