@@ -177,7 +177,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     across the AST tree generating bytecode as needed.
     """
 
-    def __init__(self, space, name, tree, lineno, symbols, compile_info):
+    def __init__(self, space, name, tree, lineno, symbols, compile_info,
+                 qualname):
         self.scope = symbols.find_scope(tree)
         assemble.PythonCodeMaker.__init__(self, space, name, lineno,
                                           self.scope, compile_info)
@@ -185,6 +186,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.frame_blocks = []
         self.interactive = False
         self.temporary_name_counter = 1
+        self.qualname = qualname
         self._compile(tree)
 
     def _compile(self, tree):
@@ -203,10 +205,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def sub_scope(self, kind, name, node, lineno):
         """Convenience function for compiling a sub scope."""
+        if self.qualname:
+            qualname = '%s.%s' % (self.qualname, name)
+        else:
+            qualname = name
         generator = kind(self.space, name, node, lineno, self.symbols,
-                         self.compile_info)
-        generator.qualname = '%s.%s' % (self.qualname, name)
-        return generator.assemble(), generator.qualname
+                         self.compile_info, qualname)
+        return generator.assemble(), qualname
 
     def push_frame_block(self, kind, block):
         self.frame_blocks.append((kind, block))
@@ -285,9 +290,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _make_function(self, code, num_defaults=0, qualname=None):
         """Emit the opcodes to turn a code object into a function."""
-        code_index = self.add_const(code)
         w_qualname = self.space.wrap(qualname or code.co_name)
-        qualname_index = self.add_const(w_qualname)
         if code.co_freevars:
             # Load cell and free vars to pass on.
             for free in code.co_freevars:
@@ -298,12 +301,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     index = self.free_vars[free]
                 self.emit_op_arg(ops.LOAD_CLOSURE, index)
             self.emit_op_arg(ops.BUILD_TUPLE, len(code.co_freevars))
-            self.emit_op_arg(ops.LOAD_CONST, code_index)
-            self.emit_op_arg(ops.LOAD_CONST, qualname_index)
+            self.load_const(code)
+            self.load_const(w_qualname)
             self.emit_op_arg(ops.MAKE_CLOSURE, num_defaults)
         else:
-            self.emit_op_arg(ops.LOAD_CONST, code_index)
-            self.emit_op_arg(ops.LOAD_CONST, qualname_index)
+            self.load_const(code)
+            self.load_const(w_qualname)
             self.emit_op_arg(ops.MAKE_FUNCTION, num_defaults)
 
     def _visit_kwonlydefaults(self, args):
@@ -1242,7 +1245,7 @@ class TopLevelCodeGenerator(PythonCodeGenerator):
 
     def __init__(self, space, tree, symbols, compile_info):
         PythonCodeGenerator.__init__(self, space, "<module>", tree, -1,
-                                     symbols, compile_info)
+                                     symbols, compile_info, qualname=None)
 
     def _compile(self, tree):
         tree.walkabout(self)
@@ -1361,6 +1364,10 @@ class ClassCodeGenerator(PythonCodeGenerator):
         self.name_op("__name__", ast.Load)
         # ... and store it as __module__
         self.name_op("__module__", ast.Store)
+        # store the qualname
+        w_qualname = self.space.wrap(self.qualname)
+        self.load_const(w_qualname)
+        self.name_op("__qualname__", ast.Store)
         # compile the body proper
         self._handle_body(cls.body)
         # return the (empty) __class__ cell

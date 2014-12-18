@@ -109,3 +109,10 @@ class AppTestClass:
         c = C()
         assert c.one == "two"
         raises(AttributeError, getattr, c, "two")
+
+    def test_qualname(self):
+        class C:
+            class D:
+                pass
+        assert C.__qualname__ == 'test_qualname.C'
+        assert C.D.__qualname__ == 'test_qualname.C.D'

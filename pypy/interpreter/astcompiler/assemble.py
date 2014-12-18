@@ -157,7 +157,6 @@ class PythonCodeMaker(ast.ASTVisitor):
     def __init__(self, space, name, first_lineno, scope, compile_info):
         self.space = space
         self.name = name
-        self.qualname = name
         self.first_lineno = first_lineno
         self.compile_info = compile_info
         self.first_block = self.new_block()
