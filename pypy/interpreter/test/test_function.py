@@ -21,6 +21,13 @@ class AppTestFunctionIntrospection:
         assert f.__name__ == 'f'
         assert f.__module__ == 'mymodulename'
 
+    def test_qualname(self):
+        def f(): pass
+        assert f.__qualname__ == 'f'
+        f.__qualname__ = 'qualname'
+        assert f.__qualname__ == 'qualname'
+        raises(TypeError, "f.__qualname__ = b'name'")
+
     def test_annotations(self):
         def f(): pass
         ann = f.__annotations__

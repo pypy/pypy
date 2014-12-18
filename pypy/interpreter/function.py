@@ -39,6 +39,7 @@ class Function(W_Root):
                  closure=None, w_ann=None, forcename=None):
         self.space = space
         self.name = forcename or code.co_name
+        self.qualname = self.name.decode('utf-8')  # So far
         self.w_doc = None   # lazily read from code.getdocstring()
         self.code = code       # Code instance
         self.w_func_globals = w_globals  # the globals dictionary
@@ -400,7 +401,20 @@ class Function(W_Root):
         except OperationError, e:
             if e.match(space, space.w_TypeError):
                 raise OperationError(space.w_TypeError,
-                                     space.wrap("func_name must be set "
+                                     space.wrap("__name__ must be set "
+                                                "to a string object"))
+            raise
+
+    def fget_func_qualname(self, space):
+        return space.wrap(self.qualname)
+
+    def fset_func_qualname(self, space, w_name):
+        try:
+            self.qualname = space.unicode_w(w_name)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("__qualname__ must be set "
                                                 "to a string object"))
             raise
 
