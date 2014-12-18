@@ -194,6 +194,8 @@ class AppTestSreMatch:
     def test_group_takes_long(self):
         import re
         import sys
+        if sys.version_info < (2, 7, 9):
+            skip()
         assert re.match("(foo)", "foo").group(1L) == "foo"
         exc = raises(IndexError, re.match("", "").group, sys.maxint + 1)
         assert str(exc.value) == "no such group"

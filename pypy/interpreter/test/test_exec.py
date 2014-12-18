@@ -246,6 +246,9 @@ class AppTestExecStmt:
         assert ord(x[0]) == 0x0439
 
     def test_nested_qualified_exec(self):
+        import sys
+        if sys.version_info < (2, 7, 9):
+            skip()
         code = ["""
 def g():
     def f():
