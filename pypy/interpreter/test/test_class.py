@@ -114,5 +114,5 @@ class AppTestClass:
         class C:
             class D:
                 pass
-        assert C.__qualname__ == 'test_qualname.C'
-        assert C.D.__qualname__ == 'test_qualname.C.D'
+        assert C.__qualname__ == 'test_qualname.<locals>.C'
+        assert C.D.__qualname__ == 'test_qualname.<locals>.C.D'

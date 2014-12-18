@@ -186,7 +186,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.frame_blocks = []
         self.interactive = False
         self.temporary_name_counter = 1
-        self.qualname = qualname
+        if isinstance(self.scope, symtable.FunctionScope):
+            self.qualname = qualname + '.<locals>'
+        else:
+            self.qualname = qualname
         self._compile(tree)
 
     def _compile(self, tree):

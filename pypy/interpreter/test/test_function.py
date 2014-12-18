@@ -22,8 +22,12 @@ class AppTestFunctionIntrospection:
         assert f.__module__ == 'mymodulename'
 
     def test_qualname(self):
-        def f(): pass
-        assert f.__qualname__ == 'test_qualname.f'
+        def f():
+            def g():
+                pass
+            return g
+        assert f.__qualname__ == 'test_qualname.<locals>.f'
+        assert f().__qualname__ == 'test_qualname.<locals>.f.<locals>.g'
         f.__qualname__ = 'qualname'
         assert f.__qualname__ == 'qualname'
         raises(TypeError, "f.__qualname__ = b'name'")
