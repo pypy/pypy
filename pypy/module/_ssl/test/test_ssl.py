@@ -130,20 +130,6 @@ class AppTestConnectedSSL:
         self.s.close()
         del ss; gc.collect()
 
-    def test_server(self):
-        import socket, gc
-        ss = socket.ssl(self.s)
-        assert isinstance(ss.server(), str)
-        self.s.close()
-        del ss; gc.collect()
-
-    def test_issuer(self):
-        import socket, gc
-        ss = socket.ssl(self.s)
-        assert isinstance(ss.issuer(), str)
-        self.s.close()
-        del ss; gc.collect()
-
     def test_write(self):
         import socket, gc
         ss = socket.ssl(self.s)
@@ -157,9 +143,10 @@ class AppTestConnectedSSL:
     def test_read(self):
         import socket, gc
         ss = socket.ssl(self.s)
+        raises(TypeError, ss.read)
         raises(TypeError, ss.read, "foo")
         ss.write("hello\n")
-        data = ss.read()
+        data = ss.read(10)
         assert isinstance(data, str)
         self.s.close()
         del ss; gc.collect()

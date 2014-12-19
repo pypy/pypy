@@ -5,9 +5,19 @@ class Module(MixedModule):
     See the socket module for documentation."""
 
     interpleveldefs = {
-        'sslwrap': 'interp_ssl.sslwrap',
-        'SSLError': 'interp_ssl.get_error(space)',
         '_test_decode_cert': 'interp_ssl._test_decode_cert',
+        'txt2obj': 'interp_ssl.txt2obj',
+        'nid2obj': 'interp_ssl.nid2obj',
+
+        'SSLError': "interp_ssl.get_exception_class(space, 'w_sslerror')",
+        'SSLZeroReturnError': "interp_ssl.get_exception_class(space, 'w_sslzeroreturnerror')",
+        'SSLWantReadError': "interp_ssl.get_exception_class(space, 'w_sslwantreaderror')",
+        'SSLWantWriteError': "interp_ssl.get_exception_class(space, 'w_sslwantwriteerror')",
+        'SSLSyscallError': "interp_ssl.get_exception_class(space, 'w_sslsyscallerror')",
+        'SSLEOFError': "interp_ssl.get_exception_class(space, 'w_ssleoferror')",
+
+        '_SSLSocket': 'interp_ssl._SSLSocket',
+        '_SSLContext': 'interp_ssl._SSLContext',
     }
 
     appleveldefs = {

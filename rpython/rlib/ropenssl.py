@@ -69,6 +69,8 @@ class CConfig:
         "SSLEAY_VERSION", "SSLeay_version(SSLEAY_VERSION)")
     OPENSSL_NO_SSL2 = rffi_platform.Defined("OPENSSL_NO_SSL2")
     OPENSSL_NO_SSL3 = rffi_platform.Defined("OPENSSL_NO_SSL3")
+    OPENSSL_NO_ECDH = rffi_platform.Defined("OPENSSL_NO_ECDH")
+    OPENSSL_NPN_NEGOTIATED = rffi_platform.Defined("OPENSSL_NPN_NEGOTIATED")
     SSL_FILETYPE_PEM = rffi_platform.ConstantInteger("SSL_FILETYPE_PEM")
     SSL_OP_ALL = rffi_platform.ConstantInteger("SSL_OP_ALL")
     SSL_OP_NO_SSLv2 = rffi_platform.ConstantInteger("SSL_OP_NO_SSLv2")
@@ -80,6 +82,9 @@ class CConfig:
     SSL_VERIFY_NONE = rffi_platform.ConstantInteger("SSL_VERIFY_NONE")
     SSL_VERIFY_PEER = rffi_platform.ConstantInteger("SSL_VERIFY_PEER")
     SSL_VERIFY_FAIL_IF_NO_PEER_CERT = rffi_platform.ConstantInteger("SSL_VERIFY_FAIL_IF_NO_PEER_CERT")
+    X509_V_FLAG_CRL_CHECK = rffi_platform.ConstantInteger("X509_V_FLAG_CRL_CHECK")
+    X509_V_FLAG_CRL_CHECK_ALL = rffi_platform.ConstantInteger("X509_V_FLAG_CRL_CHECK_ALL")
+    X509_V_FLAG_X509_STRICT = rffi_platform.ConstantInteger("X509_V_FLAG_X509_STRICT")
     SSL_ERROR_WANT_READ = rffi_platform.ConstantInteger(
         "SSL_ERROR_WANT_READ")
     SSL_ERROR_WANT_WRITE = rffi_platform.ConstantInteger(
@@ -97,6 +102,7 @@ class CConfig:
     SSL_MODE_AUTO_RETRY = rffi_platform.ConstantInteger("SSL_MODE_AUTO_RETRY")
     SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER = rffi_platform.ConstantInteger("SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER")
 
+    NID_undef = rffi_platform.ConstantInteger("NID_undef")
     NID_subject_alt_name = rffi_platform.ConstantInteger("NID_subject_alt_name")
     GEN_DIRNAME = rffi_platform.ConstantInteger("GEN_DIRNAME")
     GEN_EMAIL = rffi_platform.ConstantInteger("GEN_EMAIL")
@@ -173,7 +179,10 @@ GENERAL_NAME = rffi.CArrayPtr(GENERAL_NAME_st)
 OBJ_NAME = rffi.CArrayPtr(OBJ_NAME_st)
 
 HAVE_OPENSSL_RAND = OPENSSL_VERSION_NUMBER >= 0x0090500f
+HAVE_OPENSSL_FINISHED = OPENSSL_VERSION_NUMBER >= 0x0090500f
 HAVE_SSL_CTX_CLEAR_OPTIONS = OPENSSL_VERSION_NUMBER >= 0x009080df
+if OPENSSL_VERSION_NUMBER < 0x0090800f and not OPENSSL_NO_ECDH:
+    OPENSSL_NO_ECDH = True
 
 def external(name, argtypes, restype, **kw):
     kw['compilation_info'] = eci
@@ -265,6 +274,11 @@ ssl_external('X509V3_EXT_get', [X509_EXTENSION], X509V3_EXT_METHOD)
 
 ssl_external('OBJ_obj2txt',
              [rffi.CCHARP, rffi.INT, ASN1_OBJECT, rffi.INT], rffi.INT)
+ssl_external('OBJ_obj2nid', [ASN1_OBJECT], rffi.INT)
+ssl_external('OBJ_nid2sn', [rffi.INT], rffi.CCHARP)
+ssl_external('OBJ_nid2ln', [rffi.INT], rffi.CCHARP)
+ssl_external('OBJ_txt2obj', [rffi.CCHARP, rffi.INT], ASN1_OBJECT)
+ssl_external('ASN1_OBJECT_free', [ASN1_OBJECT], lltype.Void)
 ssl_external('ASN1_STRING_data', [ASN1_STRING], rffi.CCHARP)
 ssl_external('ASN1_STRING_length', [ASN1_STRING], rffi.INT)
 ssl_external('ASN1_STRING_to_UTF8', [rffi.CCHARPP, ASN1_STRING], rffi.INT)
