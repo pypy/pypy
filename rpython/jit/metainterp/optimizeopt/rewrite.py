@@ -33,9 +33,8 @@ class OptRewrite(Optimization):
         dispatch_opt(self, op)
 
     def try_boolinvers(self, op, targs):
-        oldop = self.get_pure_result(targs)
-        if oldop is not None and oldop.getdescr() is op.getdescr():
-            value = self.getvalue(oldop.result)
+        value = self.get_pure_result(targs)
+        if value is not None:
             if value.is_constant():
                 if value.box.same_constant(CONST_1):
                     self.make_constant(op.result, CONST_0)
@@ -59,9 +58,9 @@ class OptRewrite(Optimization):
         if oldopnum != -1:
             targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
                                                               None))
-            oldop = self.get_pure_result(targs)
-            if oldop is not None and oldop.getdescr() is op.getdescr():
-                self.make_equal_to(op.result, self.getvalue(oldop.result))
+            value = self.get_pure_result(targs)
+            if value is not None:
+                self.optimizer.make_equal_to(op.result, value, True)
                 return True
 
         if op.boolreflex == -1:

@@ -299,8 +299,8 @@ class Optimization(object):
     def make_constant_int(self, box, intconst):
         return self.optimizer.make_constant_int(box, intconst)
 
-    def make_equal_to(self, box, value):
-        return self.optimizer.make_equal_to(box, value)
+    def make_equal_to(self, box, value, replace=False):
+        return self.optimizer.make_equal_to(box, value, replace=replace)
 
     def get_constant_box(self, box):
         return self.optimizer.get_constant_box(box)
