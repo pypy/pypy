@@ -89,10 +89,10 @@ def dump_traceback(space, w_file, w_all_threads):
             code = frame.pycode
             lineno = frame.get_last_lineno()
             if code:
-                os.write(fd, "File \"%s\", line %s in %s\n" % (
+                os.write(fd, "  File \"%s\", line %s in %s\n" % (
                         code.co_filename, lineno, code.co_name))
             else:
-                os.write(fd, "File ???, line %s in ???\n" % (
+                os.write(fd, "  File ???, line %s in ???\n" % (
                         lineno,))
 
             frame = frame.f_backref()
