@@ -176,7 +176,7 @@ def next_item(self):
     strategy = self.strategy
     assert isinstance(strategy, KwargsDictStrategy)
     for i in self.iterator:
-        keys, values_w = strategy.unerase(self.dictimplementation.dstorage)
+        keys, values_w = strategy.unerase(self.w_dict.dstorage)
         return _wrapkey(self.space, keys[i]), values_w[i]
     else:
         return None, None

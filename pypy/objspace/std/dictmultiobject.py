@@ -565,10 +565,10 @@ def _new_next(TP):
         EMPTY = None, None
 
     def next(self):
-        if self.dictimplementation is None:
+        if self.w_dict is None:
             return EMPTY
         space = self.space
-        if self.len != self.dictimplementation.length():
+        if self.len != self.w_dict.length():
             self.len = -1   # Make this error state sticky
             raise oefmt(space.w_RuntimeError,
                         "dictionary changed size during iteration")
@@ -577,7 +577,7 @@ def _new_next(TP):
         if self.pos < self.len:
             result = getattr(self, 'next_' + TP + '_entry')()
             self.pos += 1
-            if self.strategy is self.dictimplementation.strategy:
+            if self.strategy is self.w_dict.strategy:
                 return result      # common case
             else:
                 # waaa, obscure case: the strategy changed, but not the
@@ -587,28 +587,28 @@ def _new_next(TP):
                 if TP == 'key' or TP == 'value':
                     return result
                 w_key = result[0]
-                w_value = self.dictimplementation.getitem(w_key)
+                w_value = self.w_dict.getitem(w_key)
                 if w_value is None:
                     self.len = -1   # Make this error state sticky
                     raise oefmt(space.w_RuntimeError,
                                 "dictionary changed during iteration")
                 return (w_key, w_value)
         # no more entries
-        self.dictimplementation = None
+        self.w_dict = None
         return EMPTY
     return func_with_new_name(next, 'next_' + TP)
 
 
 class BaseIteratorImplementation(object):
-    def __init__(self, space, strategy, implementation):
+    def __init__(self, space, strategy, w_dict):
         self.space = space
         self.strategy = strategy
-        self.dictimplementation = implementation
-        self.len = implementation.length()
+        self.w_dict = w_dict
+        self.len = w_dict.length()
         self.pos = 0
 
     def length(self):
-        if self.dictimplementation is not None and self.len != -1:
+        if self.w_dict is not None and self.len != -1:
             return self.len - self.pos
         return 0
 
@@ -646,9 +646,9 @@ def create_iterator_classes(dictimpl,
             'setitem_untyped_%s' % dictimpl.__name__)
 
     class IterClassKeys(BaseKeyIterator):
-        def __init__(self, space, strategy, impl):
-            self.iterator = strategy.getiterkeys(impl)
-            BaseIteratorImplementation.__init__(self, space, strategy, impl)
+        def __init__(self, space, strategy, w_dict):
+            self.iterator = strategy.getiterkeys(w_dict)
+            BaseIteratorImplementation.__init__(self, space, strategy, w_dict)
 
         if override_next_key is not None:
             next_key_entry = override_next_key
@@ -660,9 +660,9 @@ def create_iterator_classes(dictimpl,
                     return None
 
     class IterClassValues(BaseValueIterator):
-        def __init__(self, space, strategy, impl):
-            self.iterator = strategy.getitervalues(impl)
-            BaseIteratorImplementation.__init__(self, space, strategy, impl)
+        def __init__(self, space, strategy, w_dict):
+            self.iterator = strategy.getitervalues(w_dict)
+            BaseIteratorImplementation.__init__(self, space, strategy, w_dict)
 
         if override_next_value is not None:
             next_value_entry = override_next_value
@@ -674,9 +674,9 @@ def create_iterator_classes(dictimpl,
                     return None
 
     class IterClassItems(BaseItemIterator):
-        def __init__(self, space, strategy, impl):
-            self.iterator = strategy.getiteritems(impl)
-            BaseIteratorImplementation.__init__(self, space, strategy, impl)
+        def __init__(self, space, strategy, w_dict):
+            self.iterator = strategy.getiteritems(w_dict)
+            BaseIteratorImplementation.__init__(self, space, strategy, w_dict)
 
         if override_next_item is not None:
             next_item_entry = override_next_item
@@ -1167,43 +1167,27 @@ class W_BaseDictMultiIterObject(W_Root):
         At unpickling time, we just use that list
         and create an iterator on it.
         This is of course not the standard way.
-
-        XXX to do: remove this __reduce__ method and do
-        a registration with copyreg, instead.
         """
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('dictiter_surrogate_new')
-        w_typeobj = space.type(self)
 
-        raise oefmt(space.w_TypeError,
-                    "can't pickle dictionary-keyiterator objects")
-        # XXXXXX get that working again
+        w_dict = self.iteratorimplementation.w_dict
 
-        # we cannot call __init__ since we don't have the original dict
         if isinstance(self, W_DictMultiIterKeysObject):
-            w_clone = space.allocate_instance(W_DictMultiIterKeysObject,
-                                              w_typeobj)
+            w_clone = W_DictMultiIterKeysObject(space, w_dict.iterkeys())
         elif isinstance(self, W_DictMultiIterValuesObject):
-            w_clone = space.allocate_instance(W_DictMultiIterValuesObject,
-                                              w_typeobj)
+            w_clone = W_DictMultiIterValuesObject(space, w_dict.itervalues())
         elif isinstance(self, W_DictMultiIterItemsObject):
-            w_clone = space.allocate_instance(W_DictMultiIterItemsObject,
-                                              w_typeobj)
+            w_clone = W_DictMultiIterItemsObject(space, w_dict.iteritems())
         else:
             raise oefmt(space.w_TypeError,
                         "unsupported dictiter type '%R' during pickling", self)
-        w_clone.space = space
-        w_clone.content = self.content
-        w_clone.len = self.len
-        w_clone.pos = 0
-        w_clone.setup_iterator()
+
         # spool until we have the same pos
-        while w_clone.pos < self.pos:
-            w_clone.next_entry()
-            w_clone.pos += 1
-        stuff = [w_clone.next_entry() for i in range(w_clone.pos, w_clone.len)]
-        w_res = space.newlist(stuff)
+        for x in xrange(self.iteratorimplementation.pos):
+            w_clone.descr_next(space)
+        w_res = space.call_function(space.w_list, w_clone)
         w_ret = space.newtuple([new_inst, space.newtuple([w_res])])
         return w_ret
 
