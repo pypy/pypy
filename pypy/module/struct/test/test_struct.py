@@ -328,6 +328,12 @@ class AppTestStruct(object):
             raises(error, unpack, "0p", "")   # segfaults on CPython 2.5.2!
         raises(error, pack, "b", 150)   # argument out of range
         # XXX the accepted ranges still differs between PyPy and CPython
+        exc = raises(error, pack, ">d", 'abc')
+        assert str(exc.value) == "required argument is not a float"
+        exc = raises(error, pack, ">l", 'abc')
+        assert str(exc.value) == "cannot convert argument to integer"
+        exc = raises(error, pack, ">H", 'abc')
+        assert str(exc.value) == "cannot convert argument to integer"
 
     def test_overflow_error(self):
         """

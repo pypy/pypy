@@ -84,7 +84,12 @@ class PackFormatIterator(FormatIterator):
         else:
             msg = "integer argument expected, got non-integer"
         space.warn(space.wrap(msg), space.w_DeprecationWarning)
-        return space.int(w_obj)   # wrapped float -> wrapped int or long
+        try:
+            return space.int(w_obj)   # wrapped float -> wrapped int or long
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                raise StructError("cannot convert argument to integer")
+            raise
 
     def accept_bool_arg(self):
         w_obj = self.accept_obj_arg()
@@ -100,7 +105,12 @@ class PackFormatIterator(FormatIterator):
 
     def accept_float_arg(self):
         w_obj = self.accept_obj_arg()
-        return self.space.float_w(w_obj)
+        try:
+            return self.space.float_w(w_obj)
+        except OperationError as e:
+            if e.match(self.space, self.space.w_TypeError):
+                raise StructError("required argument is not a float")
+            raise
 
 
 class UnpackFormatIterator(FormatIterator):
