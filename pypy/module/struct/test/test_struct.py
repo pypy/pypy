@@ -63,12 +63,22 @@ class AppTestStruct(object):
     def test_deprecation_warning(self):
         import warnings
         for code in 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q':
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
-                raises(TypeError, self.struct.pack, code, 3j)
-            assert len(w) == 1
-            assert str(w[0].message) == "integer argument expected, got non-integer"
-            assert w[0].category is DeprecationWarning
+            for val in [3., 3j]:
+                with warnings.catch_warnings(record=True) as w:
+                    warnings.simplefilter("always")
+                    if type(val) is float:
+                        self.struct.pack(code, val)
+                    else:
+                        raises(TypeError, self.struct.pack, code, val)
+                assert len(w) == 1
+                if type(val) is float:
+                    assert str(w[0].message) == (
+                        "integer argument expected, got float")
+                else:
+                    assert str(w[0].message) == (
+                        "integer argument expected, got non-integer"
+                        " (implicit conversion using __int__ is deprecated)")
+                assert w[0].category is DeprecationWarning
 
     def test_pack_standard_little(self):
         """
