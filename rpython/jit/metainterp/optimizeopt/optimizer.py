@@ -541,7 +541,8 @@ class Optimizer(Optimization):
         self.first_optimization.propagate_forward(op)
 
     def propagate_forward(self, op):
-        self.producer[op.result] = op
+        if op.result is not None:
+            self.producer[op.result] = op
         dispatch_opt(self, op)
 
     def emit_operation(self, op):
