@@ -65,7 +65,10 @@ class AppTestSSL:
         if sys.platform == 'darwin' or 'freebsd' in sys.platform:
             skip("hangs indefinitely on OSX & FreeBSD (also on CPython)")
         s = _socket.socket()
-        ss = _ssl.sslwrap(s, 0)
+        if sys.version_info < (2, 7, 9):
+            ss = _ssl.sslwrap(s, 0)
+        else:
+            ss = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)._wrap_socket(s, 0)
         exc = raises(_socket.error, ss.do_handshake)
         if sys.platform == 'win32':
             assert exc.value.errno == 10057 # WSAENOTCONN
@@ -75,13 +78,16 @@ class AppTestSSL:
         gc.collect()     # force the destructor() to be called now
 
     def test_async_closed(self):
-        import _ssl, _socket, gc
+        import _ssl, _socket, sys, gc
         s = _socket.socket()
         s.settimeout(3)
-        ss = _ssl.sslwrap(s, 0)
+        if sys.version_info < (2, 7, 9):
+            ss = _ssl.sslwrap(s, 0)
+        else:
+            ss = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)._wrap_socket(s, 0)
         s.close()
         exc = raises(_ssl.SSLError, ss.write, "data")
-        assert exc.value.strerror == "Underlying socket has been closed."
+        assert exc.value.message == 'Underlying socket has been closed.'
         del exc, ss, s
         gc.collect()     # force the destructor() to be called now
 
