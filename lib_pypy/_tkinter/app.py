@@ -359,6 +359,8 @@ class TkApp(object):
             return tuple(result)
         elif isinstance(arg, tuple):
             return self._splitObj(arg)
+        if isinstance(arg, str):
+            arg = arg.encode('utf-8')
         return self._split(arg)
 
     def splitlist(self, arg):
@@ -383,7 +385,7 @@ class TkApp(object):
         if res == tklib.TCL_ERROR:
             self.raiseTclError()
 
-        result = tuple(tkffi.string(argv[0][i]).decode('utf-8')
+        result = tuple(FromTclString(tkffi.string(argv[0][i]))
                        for i in range(argc[0]))
         tklib.Tcl_Free(argv[0])
         return result
@@ -427,13 +429,13 @@ class TkApp(object):
             # Not a list.
             # Could be a quoted string containing funnies, e.g. {"}.
             # Return the string itself.
-            return arg.decode('utf-8')
+            return FromTclString(arg)
 
         try:
             if argc[0] == 0:
                 return ""
             elif argc[0] == 1:
-                return tkffi.string(argv[0][0])
+                return FromTclString(tkffi.string(argv[0][0]))
             else:
                 return tuple(self._split(argv[0][i])
                              for i in range(argc[0]))
