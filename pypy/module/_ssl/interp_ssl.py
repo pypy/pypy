@@ -86,8 +86,11 @@ constants["OPENSSL_VERSION"] = SSLEAY_VERSION
 
 def ssl_error(space, msg, errno=0, exc='w_sslerror'):
     w_exception_class = get_exception_class(space, exc)
-    w_exception = space.call_function(w_exception_class,
-                                      space.wrap(errno), space.wrap(msg))
+    if not errno:
+        w_exception = space.call_function(w_exception_class, space.wrap(msg))
+    else:
+        w_exception = space.call_function(w_exception_class,
+                                          space.wrap(errno), space.wrap(msg))
     return OperationError(w_exception_class, w_exception)
 
 if HAVE_OPENSSL_RAND:
