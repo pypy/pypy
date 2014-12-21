@@ -113,11 +113,19 @@ class AppTestSSL:
     def test_context(self):
         import _ssl
         s = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+
         assert type(s.options) is long
         assert s.options & _ssl.OP_NO_SSLv2
         s.options &= ~_ssl.OP_NO_SSLv2
         assert not s.options & _ssl.OP_NO_SSLv2
         raises(TypeError, "s.options = 2.5")
+
+        assert s.verify_mode == _ssl.CERT_NONE
+        s.verify_mode = _ssl.CERT_REQUIRED
+        assert s.verify_mode == _ssl.CERT_REQUIRED
+        exc = raises(ValueError, "s.verify_mode = 1234")
+        assert str(exc.value) == "invalid value for verify_mode"
+
 
 class AppTestConnectedSSL:
     spaceconfig = {

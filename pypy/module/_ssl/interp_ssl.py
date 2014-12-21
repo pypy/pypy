@@ -870,6 +870,29 @@ class _SSLContext(W_Root):
         if set:
             libssl_SSL_CTX_set_options(self.ctx, set)
 
+    def descr_get_verify_mode(self, space):
+        mode = libssl_SSL_CTX_get_verify_mode(self.ctx)
+        if mode == SSL_VERIFY_NONE:
+            return space.newlong(PY_SSL_CERT_NONE)
+        elif mode == SSL_VERIFY_PEER:
+            return space.newlong(PY_SSL_CERT_OPTIONAL)
+        elif mode == SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT:
+            return space.newlong(PY_SSL_CERT_REQUIRED)
+        raise ssl_error(space, "invalid return value from SSL_CTX_get_verify_mode")
+
+    def descr_set_verify_mode(self, space, w_mode):
+        n = space.int_w(w_mode)
+        if n == PY_SSL_CERT_NONE:
+            mode = SSL_VERIFY_NONE
+        elif n == PY_SSL_CERT_OPTIONAL:
+            mode = SSL_VERIFY_PEER
+        elif n == PY_SSL_CERT_REQUIRED:
+            mode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT
+        else:
+            raise oefmt(space.w_ValueError,
+                        "invalid value for verify_mode")
+        libssl_SSL_CTX_set_verify(self.ctx, mode, None)
+
 _SSLContext.typedef = TypeDef("_SSLContext",
     __module__ = "_ssl",
     __new__ = interp2app(_SSLContext.descr_new),
@@ -877,6 +900,8 @@ _SSLContext.typedef = TypeDef("_SSLContext",
     set_ciphers = interp2app(_SSLContext.descr_set_ciphers),
     options = GetSetProperty(_SSLContext.descr_get_options,
                              _SSLContext.descr_set_options),
+    verify_mode = GetSetProperty(_SSLContext.descr_get_verify_mode,
+                                 _SSLContext.descr_set_verify_mode),
 )
 
 
