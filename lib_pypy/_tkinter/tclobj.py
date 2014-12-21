@@ -110,6 +110,11 @@ class Tcl_Obj(object):
             return self._string
         return tkffi.string(tklib.Tcl_GetString(self._value)).decode('utf-8')
 
+    def __eq__(self, other):
+        if not isinstance(other, Tcl_Obj):
+            return NotImplemented
+        return self._value == other._value
+
     @property
     def string(self):
         "the string representation of this object, either as str or bytes"
