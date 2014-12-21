@@ -409,6 +409,16 @@ class TkApp(object):
                 result[i] = newelem
             if result is not None:
                 return tuple(result)
+        elif isinstance(arg, str):
+            argc = tkffi.new("int*")
+            argv = tkffi.new("char***")
+            list_ = arg.encode('utf-8')
+            res = tklib.Tcl_SplitList(tkffi.NULL, list_, argc, argv)
+            if res != tklib.TCL_OK:
+                return arg
+            tklib.Tcl_Free(argv[0])
+            if argc[0] > 1:
+                return self._split(list_)
         elif isinstance(arg, bytes):
             argc = tkffi.new("int*")
             argv = tkffi.new("char***")
