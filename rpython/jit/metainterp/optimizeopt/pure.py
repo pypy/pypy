@@ -101,7 +101,7 @@ class OptPure(Optimization):
         op = ResOperation(opnum, args, result)
         key = self.optimizer.make_args_key(op)
         if key not in self.pure_operations:
-            self.pure_operations[key] = self.getvalue(op.result)
+            self.pure_operations[key] = self.getvalue(result)
 
     def has_pure_result(self, opnum, args, descr):
         op = ResOperation(opnum, args, None, descr)
