@@ -1,6 +1,7 @@
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import wrap_oserror, wrap_oserror2
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
@@ -131,7 +132,7 @@ class W_FileIO(W_RawIOBase):
         return space.wrap(self)
 
     @unwrap_spec(mode=str, closefd=int)
-    def descr_init(self, space, w_name, mode='r', closefd=True):
+    def descr_init(self, space, w_name, mode='r', closefd=True, w_opener=None):
         if space.isinstance_w(w_name, space.w_float):
             raise OperationError(space.w_TypeError, space.wrap(
                 "integer argument expected, got float"))
@@ -159,7 +160,7 @@ class W_FileIO(W_RawIOBase):
                     # else: pass
                 self.fd = fd
                 self.closefd = bool(closefd)
-            else:
+            elif space.is_none(w_opener):
                 self.closefd = True
                 if not closefd:
                     raise OperationError(space.w_ValueError, space.wrap(
@@ -173,6 +174,17 @@ class W_FileIO(W_RawIOBase):
                 except OSError, e:
                     raise wrap_oserror2(space, e, w_name,
                                         exception_name='w_IOError')
+                finally:
+                    fd_is_own = True
+            else:
+                w_fd = space.call_function(w_opener, w_name, space.wrap(flags))
+                try:
+                    self.fd = space.int_w(w_fd)
+                except OperationError as e:
+                    if not e.match(space, space.w_TypeError):
+                        raise
+                    raise oefmt(space.w_TypeError,
+                                "expected integer from opener")
                 finally:
                     fd_is_own = True
 

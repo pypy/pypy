@@ -229,6 +229,16 @@ class AppTestOpen:
                 assert g.name == f.fileno()
                 assert g.raw.name == f.fileno()
 
+    def test_opener(self):
+        import _io, os
+        with _io.open(self.tmpfile, "w") as f:
+            f.write("egg\n")
+        fd = os.open(self.tmpfile, os.O_RDONLY)
+        def opener(path, flags):
+            return fd
+        with _io.open("non-existent", "r", opener=opener) as f:
+            assert f.read() == "egg\n"
+
     def test_seek_and_tell(self):
         import _io
 
