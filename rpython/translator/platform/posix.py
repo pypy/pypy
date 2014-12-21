@@ -180,7 +180,12 @@ class BasePosix(Platform):
                    'int $(PYPY_MAIN_FUNCTION)(int, char*[]); '
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); }" > $@')
-            m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
+            if sys.platform == 'darwin':
+                m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
+                       ['$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@',
+                        'install_name_tool -add_rpath @executable_path $@'])
+            else:
+                m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
                    '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ -Wl,-rpath=\'$$ORIGIN/\'')
 
         return m
