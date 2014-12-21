@@ -839,6 +839,7 @@ class _SSLContext(W_Root):
 
         self = space.allocate_instance(_SSLContext, w_subtype)
         self.ctx = ctx
+        self.check_hostname = False
         options = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         if protocol != PY_SSL_VERSION_SSL2:
             options |= SSL_OP_NO_SSLv2
@@ -894,7 +895,22 @@ class _SSLContext(W_Root):
         else:
             raise oefmt(space.w_ValueError,
                         "invalid value for verify_mode")
+        if mode == SSL_VERIFY_NONE and self.check_hostname:
+            raise oefmt(space.w_ValueError,
+                        "Cannot set verify_mode to CERT_NONE when "
+                        "check_hostname is enabled.")
         libssl_SSL_CTX_set_verify(self.ctx, mode, None)
+
+    def descr_get_check_hostname(self, space):
+        return space.newbool(self.check_hostname)
+
+    def descr_set_check_hostname(self, space, w_obj):
+        check_hostname = space.is_true(w_obj)
+        if check_hostname and libssl_SSL_CTX_get_verify_mode(self.ctx) == SSL_VERIFY_NONE:
+            raise oefmt(space.w_ValueError,
+                        "check_hostname needs a SSL context with either "
+                        "CERT_OPTIONAL or CERT_REQUIRED")
+        self.check_hostname = check_hostname
 
 _SSLContext.typedef = TypeDef("_SSLContext",
     __module__ = "_ssl",
@@ -905,6 +921,8 @@ _SSLContext.typedef = TypeDef("_SSLContext",
                              _SSLContext.descr_set_options),
     verify_mode = GetSetProperty(_SSLContext.descr_get_verify_mode,
                                  _SSLContext.descr_set_verify_mode),
+    check_hostname = GetSetProperty(_SSLContext.descr_get_check_hostname,
+                                    _SSLContext.descr_set_check_hostname),
 )
 
 

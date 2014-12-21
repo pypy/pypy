@@ -120,11 +120,23 @@ class AppTestSSL:
         assert not s.options & _ssl.OP_NO_SSLv2
         raises(TypeError, "s.options = 2.5")
 
+        assert not s.check_hostname
+        exc = raises(ValueError, "s.check_hostname = True")
+        assert str(exc.value) == "check_hostname needs a SSL context with " \
+                                 "either CERT_OPTIONAL or CERT_REQUIRED"
+
         assert s.verify_mode == _ssl.CERT_NONE
         s.verify_mode = _ssl.CERT_REQUIRED
         assert s.verify_mode == _ssl.CERT_REQUIRED
         exc = raises(ValueError, "s.verify_mode = 1234")
         assert str(exc.value) == "invalid value for verify_mode"
+
+        s.check_hostname = True
+        assert s.check_hostname
+
+        exc = raises(ValueError, "s.verify_mode = _ssl.CERT_NONE")
+        assert str(exc.value) == "Cannot set verify_mode to CERT_NONE " \
+                                 "when check_hostname is enabled."
 
 
 class AppTestConnectedSSL:
