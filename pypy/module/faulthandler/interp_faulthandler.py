@@ -119,3 +119,9 @@ def sigbus():
 
 def sigill():
     pypy_faulthandler_sigill()
+
+@unwrap_spec(msg=str)
+def fatal_error(space, msg):
+    os.write(2, "Fatal Python error: %s\n" % msg);
+    dump_traceback(space, space.wrap(None), space.wrap(True))
+    raise RuntimeError(msg)

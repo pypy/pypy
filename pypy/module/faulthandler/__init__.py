@@ -18,4 +18,5 @@ class Module(MixedModule):
         '_sigabrt': 'interp_faulthandler.sigabrt',
         '_sigbus': 'interp_faulthandler.sigbus',
         '_sigill': 'interp_faulthandler.sigill',
+        '_fatal_error': 'interp_faulthandler.fatal_error',
     }
