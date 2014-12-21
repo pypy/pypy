@@ -26,7 +26,11 @@ class _DummyLock(object):
 def varname_converter(input):
     if isinstance(input, Tcl_Obj):
         return input.string
-    return input.encode('utf-8')
+    if isinstance(input, str):
+        input = input.encode('utf-8')
+    if b'\0' in input:
+        raise ValueError("NUL character in string")
+    return input
 
 
 def Tcl_AppInit(app):
