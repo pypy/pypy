@@ -114,6 +114,10 @@ class AppTestSSL:
         import _ssl
         s = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
         assert type(s.options) is long
+        assert s.options & _ssl.OP_NO_SSLv2
+        s.options &= ~_ssl.OP_NO_SSLv2
+        assert not s.options & _ssl.OP_NO_SSLv2
+        raises(TypeError, "s.options = 2.5")
 
 class AppTestConnectedSSL:
     spaceconfig = {

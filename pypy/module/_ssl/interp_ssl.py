@@ -67,6 +67,11 @@ if not OPENSSL_NO_SSL3:
 constants["PROTOCOL_SSLv23"] = PY_SSL_VERSION_SSL23
 constants["PROTOCOL_TLSv1"]  = PY_SSL_VERSION_TLS1
 
+constants["OP_ALL"] = SSL_OP_ALL &~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
+constants["OP_NO_SSLv2"] = SSL_OP_NO_SSLv2
+constants["OP_NO_SSLv3"] = SSL_OP_NO_SSLv3
+constants["OP_NO_TLSv1"] = SSL_OP_NO_TLSv1
+
 constants["OPENSSL_VERSION_NUMBER"] = OPENSSL_VERSION_NUMBER
 ver = OPENSSL_VERSION_NUMBER
 ver, status = divmod(ver, 16)
@@ -831,6 +836,10 @@ class _SSLContext(W_Root):
 
         self = space.allocate_instance(_SSLContext, w_subtype)
         self.ctx = ctx
+        options = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
+        if protocol != PY_SSL_VERSION_SSL2:
+            options |= SSL_OP_NO_SSLv2
+        libssl_SSL_CTX_set_options(ctx, options)
         return self
 
     @unwrap_spec(server_side=int)
@@ -847,12 +856,27 @@ class _SSLContext(W_Root):
     def descr_get_options(self, space):
         return space.newlong(libssl_SSL_CTX_get_options(self.ctx))
 
+    def descr_set_options(self, space, w_new_opts):
+        new_opts = space.int_w(w_new_opts)
+        opts = libssl_SSL_CTX_get_options(self.ctx)
+        clear = opts & ~new_opts
+        set = ~opts & new_opts
+        if clear:
+            if HAVE_SSL_CTX_CLEAR_OPTIONS:
+                libssl_SSL_CTX_clear_options(self.ctx, clear)
+            else:
+                raise oefmt(space.w_ValueError,
+                            "can't clear options before OpenSSL 0.9.8m")
+        if set:
+            libssl_SSL_CTX_set_options(self.ctx, set)
+
 _SSLContext.typedef = TypeDef("_SSLContext",
     __module__ = "_ssl",
     __new__ = interp2app(_SSLContext.descr_new),
     _wrap_socket = interp2app(_SSLContext.descr_wrap_socket),
     set_ciphers = interp2app(_SSLContext.descr_set_ciphers),
-    options = GetSetProperty(_SSLContext.descr_get_options),
+    options = GetSetProperty(_SSLContext.descr_get_options,
+                             _SSLContext.descr_set_options),
 )
 
 
