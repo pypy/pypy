@@ -280,18 +280,18 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def __init__(self, value, is_opaque=False):
         self.is_opaque = is_opaque
-        self.known_class = value.known_class
+        self.known_class = value.get_known_class()
         self.level = value.level
-        if value.intbound is None:
+        if value.getintbound() is None:
             self.intbound = IntUnbounded()
         else:
-            self.intbound = value.intbound.clone()
+            self.intbound = value.getintbound().clone()
         if value.is_constant():
             self.constbox = value.box
         else:
             self.constbox = None
         self.position_in_notvirtuals = -1
-        self.lenbound = value.lenbound
+        self.lenbound = value.getlenbound()
 
 
     def _generate_guards(self, other, value, state):

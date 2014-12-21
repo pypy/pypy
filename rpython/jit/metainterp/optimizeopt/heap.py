@@ -383,7 +383,7 @@ class OptHeap(Optimization):
         except KeyError:
             return
         for idx, cf in submap.iteritems():
-            if indexvalue is None or indexvalue.intbound.contains(idx):
+            if indexvalue is None or indexvalue.getintbound().contains(idx):
                 cf.force_lazy_setfield(self, can_cache)
 
     def _assert_valid_cf(self, cf):
