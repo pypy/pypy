@@ -495,9 +495,9 @@ class TkApp(object):
     def getdouble(self, s):
         if isinstance(s, float):
             return s
-        s = s.encode('utf-8')
-        if b'\x00' in s:
+        if '\x00' in s:
             raise TypeError
+        s = s.encode('utf-8')
         v = tkffi.new("double*")
         res = tklib.Tcl_GetDouble(self.interp, s, v)
         if res == tklib.TCL_ERROR:
@@ -505,8 +505,9 @@ class TkApp(object):
         return v[0]
 
     def exprboolean(self, s):
-        if b'\x00' in s:
+        if '\x00' in s:
             raise TypeError
+        s = s.encode('utf-8')
         v = tkffi.new("int*")
         res = tklib.Tcl_ExprBoolean(self.interp, s, v)
         if res == tklib.TCL_ERROR:
@@ -514,8 +515,9 @@ class TkApp(object):
         return v[0]
 
     def exprlong(self, s):
-        if b'\x00' in s:
+        if '\x00' in s:
             raise TypeError
+        s = s.encode('utf-8')
         v = tkffi.new("long*")
         res = tklib.Tcl_ExprLong(self.interp, s, v)
         if res == tklib.TCL_ERROR:
@@ -523,8 +525,9 @@ class TkApp(object):
         return v[0]
 
     def exprdouble(self, s):
-        if b'\x00' in s:
+        if '\x00' in s:
             raise TypeError
+        s = s.encode('utf-8')
         v = tkffi.new("double*")
         res = tklib.Tcl_ExprDouble(self.interp, s, v)
         if res == tklib.TCL_ERROR:
@@ -532,12 +535,14 @@ class TkApp(object):
         return v[0]
 
     def exprstring(self, s):
-        if b'\x00' in s:
+        if '\x00' in s:
             raise TypeError
+        s = s.encode('utf-8')
         res = tklib.Tcl_ExprString(self.interp, s)
         if res == tklib.TCL_ERROR:
             self.raiseTclError()
-        return tkffi.string(tklib.Tcl_GetStringResult(self.interp))
+        return FromTclString(tkffi.string(
+            tklib.Tcl_GetStringResult(self.interp)))
 
     def mainloop(self, threshold):
         self._check_tcl_appartment()
