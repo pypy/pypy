@@ -6,7 +6,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module._socket import interp_socket
 
 
@@ -844,11 +844,15 @@ class _SSLContext(W_Root):
             libssl_ERR_clear_error()
             raise ssl_error(space, "No cipher can be selected.")
 
+    def descr_get_options(self, space):
+        return space.newlong(libssl_SSL_CTX_get_options(self.ctx))
+
 _SSLContext.typedef = TypeDef("_SSLContext",
     __module__ = "_ssl",
     __new__ = interp2app(_SSLContext.descr_new),
     _wrap_socket = interp2app(_SSLContext.descr_wrap_socket),
     set_ciphers = interp2app(_SSLContext.descr_set_ciphers),
+    options = GetSetProperty(_SSLContext.descr_get_options),
 )
 
 

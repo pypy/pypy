@@ -110,6 +110,10 @@ class AppTestSSL:
              ('IP Address', '192.0.2.1'),
              ('IP Address', '2001:DB8:0:0:0:0:0:1\n'))
 
+    def test_context(self):
+        import _ssl
+        s = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        assert type(s.options) is long
 
 class AppTestConnectedSSL:
     spaceconfig = {
