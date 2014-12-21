@@ -62,7 +62,6 @@ class OptValue(object):
         assert self.level <= LEVEL_NONNULL
         if other.level == LEVEL_CONSTANT:
             self.make_constant(other.get_key_box())
-            optimizer.turned_constant(self)
         elif other.level == LEVEL_KNOWNCLASS:
             self.make_constant_class(other.get_known_class(), None)
         else:
@@ -74,6 +73,11 @@ class OptValue(object):
             op = ResOperation(rop.GUARD_VALUE, [box, self.box], None)
             return [op]
         return []
+
+    def copy_from(self, other_value):
+        assert isinstance(other_value, OptValue)
+        self.box = other_value.box
+        self.level = other_value.level
 
     def force_box(self, optforce):
         return self.box
@@ -204,6 +208,14 @@ class PtrOptValue(OptValue):
         if not isinstance(box, Const):
             self.known_class = known_class
 
+    def copy_from(self, other_value):
+        assert isinstance(other_value, PtrOptValue)
+        self.box = other_value.box
+        self.known_class = other_value.known_class
+        self.level = other_value.level
+        self.last_guard = other_value.last_guard
+        self.lenbound = other_value.lenbound
+
     def make_len_gt(self, mode, descr, val):
         if self.lenbound:
             assert self.lenbound.mode == mode
@@ -297,6 +309,12 @@ class IntOptValue(OptValue):
                 self.intbound = IntBound(MININT, MAXINT)
             else:
                 self.intbound = IntUnbounded()
+
+    def copy_from(self, other_value):
+        assert isinstance(other_value, IntOptValue)
+        self.box = other_value.box
+        self.intbound = other_value.intbound
+        self.level = other_value.level
 
     def make_constant(self, constbox):
         """Replace 'self.box' with a Const box."""
@@ -439,9 +457,6 @@ class Optimization(object):
     def setup(self):
         pass
 
-    def turned_constant(self, value):
-        pass
-
     def force_at_end_of_preamble(self):
         pass
 
@@ -492,6 +507,7 @@ class Optimizer(Optimization):
         self.seen_results = {}
         self.optimizer = self
         self.optpure = None
+        self.optheap = None
         self.optearlyforce = None
         if loop is not None:
             self.call_pure_results = loop.call_pure_results
@@ -526,10 +542,6 @@ class Optimizer(Optimization):
     def produce_potential_short_preamble_ops(self, sb):
         for opt in self.optimizations:
             opt.produce_potential_short_preamble_ops(sb)
-
-    def turned_constant(self, value):
-        for o in self.optimizations:
-            o.turned_constant(value)
 
     def forget_numberings(self, virtualbox):
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_FORCINGS)
@@ -593,7 +605,17 @@ class Optimizer(Optimization):
 
     def make_equal_to(self, box, value, replace=False):
         assert isinstance(value, OptValue)
-        assert replace or box not in self.values
+        if replace:
+            try:
+                cur_value = self.values[box]
+            except KeyError:
+                pass
+            else:
+                assert value.level != LEVEL_CONSTANT
+                assert cur_value.level != LEVEL_CONSTANT
+                # replacing with a different box
+                cur_value.copy_from(value)
+                return
         self.values[box] = value
 
     def make_constant(self, box, constbox):

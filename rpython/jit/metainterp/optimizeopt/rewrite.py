@@ -261,7 +261,8 @@ class OptRewrite(Optimization):
         if emit_operation:
             self.emit_operation(op)
         value.make_constant(constbox)
-        self.optimizer.turned_constant(value)
+        if self.optimizer.optheap:
+            self.optimizer.optheap.value_updated(value, self.getvalue(constbox))
 
     def optimize_GUARD_ISNULL(self, op):
         value = self.getvalue(op.getarg(0))
