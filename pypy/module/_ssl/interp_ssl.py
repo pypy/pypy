@@ -912,6 +912,11 @@ class _SSLContext(W_Root):
                         "CERT_OPTIONAL or CERT_REQUIRED")
         self.check_hostname = check_hostname
 
+    def descr_set_default_verify_paths(self, space):
+        if not libssl_SSL_CTX_set_default_verify_paths(self.ctx):
+            raise ssl_error(space, "")
+
+
 _SSLContext.typedef = TypeDef("_SSLContext",
     __module__ = "_ssl",
     __new__ = interp2app(_SSLContext.descr_new),
@@ -923,6 +928,7 @@ _SSLContext.typedef = TypeDef("_SSLContext",
                                  _SSLContext.descr_set_verify_mode),
     check_hostname = GetSetProperty(_SSLContext.descr_get_check_hostname,
                                     _SSLContext.descr_set_check_hostname),
+    set_default_verify_paths=interp2app(_SSLContext.descr_set_default_verify_paths),
 )
 
 

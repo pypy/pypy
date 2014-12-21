@@ -138,6 +138,11 @@ class AppTestSSL:
         assert str(exc.value) == "Cannot set verify_mode to CERT_NONE " \
                                  "when check_hostname is enabled."
 
+    def test_set_default_verify_paths(self):
+        import _ssl
+        s = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        s.set_default_verify_paths()
+
 
 class AppTestConnectedSSL:
     spaceconfig = {
