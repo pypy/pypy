@@ -2,7 +2,7 @@
 
 from .tklib import tklib, tkffi
 from . import TclError
-from .tclobj import TclObject, FromObj, FromTclString, AsObj, TypeCache
+from .tclobj import Tcl_Obj, FromObj, FromTclString, AsObj, TypeCache
 
 import contextlib
 import sys
@@ -24,7 +24,7 @@ class _DummyLock(object):
 
 
 def varname_converter(input):
-    if isinstance(input, TclObject):
+    if isinstance(input, Tcl_Obj):
         return input.string
     return input.encode('utf-8')
 
@@ -339,7 +339,7 @@ class TkApp(object):
             return FromTclString(result)
 
     def split(self, arg):
-        if isinstance(arg, TclObject):
+        if isinstance(arg, Tcl_Obj):
             objc = tkffi.new("int*")
             objv = tkffi.new("Tcl_Obj***")
             status = tklib.Tcl_ListObjGetElements(self.interp, arg._value, objc, objv)
@@ -358,7 +358,7 @@ class TkApp(object):
         return self._split(arg)
 
     def splitlist(self, arg):
-        if isinstance(arg, TclObject):
+        if isinstance(arg, Tcl_Obj):
             objc = tkffi.new("int*")
             objv = tkffi.new("Tcl_Obj***")
             status = tklib.Tcl_ListObjGetElements(self.interp, arg._value, objc, objv)

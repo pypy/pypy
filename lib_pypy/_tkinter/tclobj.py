@@ -1,4 +1,4 @@
-# TclObject, conversions with Python objects
+# Tcl_Obj, conversions with Python objects
 
 from .tklib import tklib, tkffi
 
@@ -64,7 +64,7 @@ def FromObj(app, value):
         buf = tkffi.buffer(tkffi.cast("char*", buf), length*2)[:]
         return buf.decode('utf-16')
 
-    return TclObject(value)
+    return Tcl_Obj(value)
 
 def AsObj(value):
     if isinstance(value, bytes):
@@ -88,13 +88,13 @@ def AsObj(value):
         buf = tkffi.new("char[]", encoded)
         inbuf = tkffi.cast("Tcl_UniChar*", buf)
         return tklib.Tcl_NewUnicodeObj(buf, len(encoded)//2)
-    elif isinstance(value, TclObject):
+    elif isinstance(value, Tcl_Obj):
         tklib.Tcl_IncrRefCount(value._value)
         return value._value
 
     return AsObj(str(value))
 
-class TclObject(object):
+class Tcl_Obj(object):
     def __new__(cls, value):
         self = object.__new__(cls)
         tklib.Tcl_IncrRefCount(value)

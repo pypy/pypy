@@ -18,6 +18,7 @@ except cffi.VerificationError:
     raise ImportError("Tk headers and development libraries are required")
 
 from .app import TkApp
+from .tclobj import Tcl_Obj
 
 TK_VERSION = tkffi.string(tklib.get_tk_version()).decode('utf-8')
 TCL_VERSION = tkffi.string(tklib.get_tcl_version()).decode('utf-8')
