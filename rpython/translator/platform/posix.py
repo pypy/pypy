@@ -140,7 +140,7 @@ class BasePosix(Platform):
         rel_libdirs = [rpyrel(libdir) for libdir in
                        self.preprocess_library_dirs(eci.library_dirs)]
 
-        if os.platform == 'darwin':
+        if sys.platform == 'darwin':
             rpath_flags = ['-Wl,-rpath', '-Wl,@executable_path']
         else:
             rpath_flags = ['-Wl,-rpath=\'$$ORIGIN/\'']
