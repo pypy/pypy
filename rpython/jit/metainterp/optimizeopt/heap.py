@@ -2,7 +2,7 @@ import os
 
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt.util import args_dict
-from rpython.jit.metainterp.history import Const
+from rpython.jit.metainterp.history import Const, ConstInt
 from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -307,6 +307,9 @@ class OptHeap(Optimization):
         self.emit_operation(op)
 
     def _optimize_CALL_DICT_LOOKUP(self, op):
+        from rpython.rtyper.lltypesystem.rordereddict import FLAG_LOOKUP
+        if not op.getarg(4).same_box(ConstInt(FLAG_LOOKUP)):
+            return False
         descrs = op.getdescr().get_extra_info().extradescrs
         assert descrs        # translation hint
         descr1 = descrs[0]

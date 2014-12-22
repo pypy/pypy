@@ -42,6 +42,7 @@ from rpython.rtyper.annlowlevel import llhelper
 #
 
 @jit.look_inside_iff(lambda d, key, hash, flag: jit.isvirtual(d))
+@jit.oopspec('ordereddict.lookup(d, key, hash, flag)')
 def ll_call_lookup_function(d, key, hash, flag):
     fun = d.lookup_function_no
     if fun == FUNC_BYTE:
