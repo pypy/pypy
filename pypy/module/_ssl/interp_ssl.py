@@ -10,16 +10,16 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module._socket import interp_socket
 
 
-## user defined constants
+# user defined constants
 X509_NAME_MAXLEN = 256
-## # these mirror ssl.h
+# these mirror ssl.h
 PY_SSL_ERROR_NONE, PY_SSL_ERROR_SSL = 0, 1
 PY_SSL_ERROR_WANT_READ, PY_SSL_ERROR_WANT_WRITE = 2, 3
 PY_SSL_ERROR_WANT_X509_LOOKUP = 4
-PY_SSL_ERROR_SYSCALL = 5 # look at error stack/return value/errno
+PY_SSL_ERROR_SYSCALL = 5  # look at error stack/return value/errno
 PY_SSL_ERROR_ZERO_RETURN, PY_SSL_ERROR_WANT_CONNECT = 6, 7
 # start of non ssl.h errorcodes
-PY_SSL_ERROR_EOF = 8 # special case of SSL_ERROR_SYSCALL
+PY_SSL_ERROR_EOF = 8  # special case of SSL_ERROR_SYSCALL
 PY_SSL_ERROR_INVALID_ERROR_CODE = 9
 
 PY_SSL_CERT_NONE, PY_SSL_CERT_OPTIONAL, PY_SSL_CERT_REQUIRED = 0, 1, 2
@@ -84,6 +84,7 @@ constants["OPENSSL_VERSION_INFO"] = version_info
 constants["_OPENSSL_API_VERSION"] = version_info
 constants["OPENSSL_VERSION"] = SSLEAY_VERSION
 
+
 def ssl_error(space, msg, errno=0, exc='w_sslerror'):
     w_exception_class = get_exception_class(space, exc)
     if not errno:
@@ -143,8 +144,8 @@ class _SSLSocket(W_Root):
         self.handshake_done = False
 
         sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
-        self.ssl = libssl_SSL_new(sslctx.ctx) # new ssl struct
-        libssl_SSL_set_fd(self.ssl, sock_fd) # set the socket for SSL
+        self.ssl = libssl_SSL_new(sslctx.ctx)  # new ssl struct
+        libssl_SSL_set_fd(self.ssl, sock_fd)  # set the socket for SSL
         # The ACCEPT_MOVING_WRITE_BUFFER flag is necessary because the address
         # of a str object may be changed by the garbage collector.
         libssl_SSL_set_mode(
@@ -268,7 +269,7 @@ class _SSLSocket(W_Root):
                 elif err == SSL_ERROR_WANT_WRITE:
                     sockstate = checkwait(space, self.w_socket, True)
                 elif (err == SSL_ERROR_ZERO_RETURN and
-                   libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN):
+                        libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN):
                     return space.wrap("")
                 else:
                     sockstate = SOCKET_OPERATION_OK
@@ -450,6 +451,19 @@ class _SSLSocket(W_Root):
             else:
                 return _decode_certificate(space, self.peer_cert)
 
+_SSLSocket.typedef = TypeDef(
+    "_ssl._SSLSocket",
+
+    do_handshake=interp2app(_SSLSocket.do_handshake),
+    write=interp2app(_SSLSocket.write),
+    read=interp2app(_SSLSocket.read),
+    pending=interp2app(_SSLSocket.pending),
+    peer_certificate=interp2app(_SSLSocket.peer_certificate),
+    cipher=interp2app(_SSLSocket.cipher),
+    shutdown=interp2app(_SSLSocket.shutdown),
+)
+
+
 def _decode_certificate(space, certificate, verbose=False):
     w_retval = space.newdict()
 
@@ -510,6 +524,7 @@ def _decode_certificate(space, certificate, verbose=False):
 
     return w_retval
 
+
 def _create_tuple_for_X509_NAME(space, xname):
     entry_count = libssl_X509_NAME_entry_count(xname)
     dn_w = []
@@ -537,6 +552,7 @@ def _create_tuple_for_X509_NAME(space, xname):
     if rdn_w:
         dn_w.append(space.newtuple(list(rdn_w)))
     return space.newtuple(list(dn_w))
+
 
 def _get_peer_alt_names(space, certificate):
     # this code follows the procedure outlined in
@@ -573,11 +589,11 @@ def _get_peer_alt_names(space, certificate):
                 null = lltype.nullptr(rffi.VOIDP.TO)
                 if method[0].c_it:
                     names = rffi.cast(GENERAL_NAMES, libssl_ASN1_item_d2i(
-                            null, p_ptr, length,
-                            libssl_ASN1_ITEM_ptr(method[0].c_it)))
+                        null, p_ptr, length,
+                        libssl_ASN1_ITEM_ptr(method[0].c_it)))
                 else:
                     names = rffi.cast(GENERAL_NAMES, method[0].c_d2i(
-                            null, p_ptr, length))
+                        null, p_ptr, length))
 
             for j in range(libssl_sk_GENERAL_NAME_num(names)):
                 # Get a rendering of each name in the set of names
@@ -589,9 +605,9 @@ def _get_peer_alt_names(space, certificate):
                     # attributes
                     dirname = libssl_pypy_GENERAL_NAME_dirn(name)
                     w_t = space.newtuple([
-                            space.wrap("DirName"),
-                            _create_tuple_for_X509_NAME(space, dirname)
-                            ])
+                        space.wrap("DirName"),
+                        _create_tuple_for_X509_NAME(space, dirname)
+                        ])
                 elif gntype in (GEN_EMAIL, GEN_DNS, GEN_URI):
                     # GENERAL_NAME_print() doesn't handle NULL bytes in
                     # ASN1_string correctly, CVE-2013-4238
@@ -607,8 +623,8 @@ def _get_peer_alt_names(space, certificate):
                     as_ = rffi.cast(ASN1_STRING, as_)
                     buf = libssl_ASN1_STRING_data(as_)
                     length = libssl_ASN1_STRING_length(as_)
-                    w_t = space.newtuple([v,
-                        space.wrap(rffi.charpsize2str(buf, length))])
+                    w_t = space.newtuple([
+                        v, space.wrap(rffi.charpsize2str(buf, length))])
                 else:
                     # for everything else, we use the OpenSSL print form
                     if gntype not in (GEN_OTHERNAME, GEN_X400, GEN_EDIPARTY,
@@ -636,6 +652,7 @@ def _get_peer_alt_names(space, certificate):
     else:
         return space.w_None
 
+
 def _create_tuple_for_attribute(space, name, value):
     with lltype.scoped_alloc(rffi.CCHARP.TO, X509_NAME_MAXLEN) as buf:
         length = libssl_OBJ_obj2txt(buf, X509_NAME_MAXLEN, name, 0)
@@ -651,16 +668,6 @@ def _create_tuple_for_attribute(space, name, value):
         w_value = space.call_method(w_value, "decode", space.wrap("utf-8"))
 
     return space.newtuple([w_name, w_value])
-
-_SSLSocket.typedef = TypeDef("_SSLSocket",
-    do_handshake = interp2app(_SSLSocket.do_handshake),
-    write = interp2app(_SSLSocket.write),
-    read = interp2app(_SSLSocket.read),
-    pending = interp2app(_SSLSocket.pending),
-    peer_certificate = interp2app(_SSLSocket.peer_certificate),
-    cipher = interp2app(_SSLSocket.cipher),
-    shutdown = interp2app(_SSLSocket.shutdown),
-)
 
 
 def checkwait(space, w_sock, writing):
@@ -680,7 +687,6 @@ def checkwait(space, w_sock, writing):
     # guard against closed socket
     if sock_fd < 0:
         return SOCKET_HAS_BEEN_CLOSED
-
 
     # see if the socket is ready
 
@@ -717,6 +723,7 @@ def checkwait(space, w_sock, writing):
         return SOCKET_OPERATION_OK
     else:
         return SOCKET_HAS_TIMED_OUT
+
 
 def _ssl_seterror(space, ss, ret):
     assert ret <= 0
@@ -793,6 +800,7 @@ class Cache:
         self.w_ssleoferror = space.new_exception_class(
             "_ssl.SSLEOFError", self.w_sslerror)
 
+
 def get_exception_class(space, name):
     return getattr(space.fromcache(Cache), name)
 
@@ -857,6 +865,10 @@ class _SSLContext(W_Root):
             libssl_ERR_clear_error()
             raise ssl_error(space, "No cipher can be selected.")
 
+    def descr_set_default_verify_paths(self, space):
+        if not libssl_SSL_CTX_set_default_verify_paths(self.ctx):
+            raise ssl_error(space, "")
+
     def descr_get_options(self, space):
         return space.newlong(libssl_SSL_CTX_get_options(self.ctx))
 
@@ -912,23 +924,19 @@ class _SSLContext(W_Root):
                         "CERT_OPTIONAL or CERT_REQUIRED")
         self.check_hostname = check_hostname
 
-    def descr_set_default_verify_paths(self, space):
-        if not libssl_SSL_CTX_set_default_verify_paths(self.ctx):
-            raise ssl_error(space, "")
-
-
-_SSLContext.typedef = TypeDef("_SSLContext",
-    __module__ = "_ssl",
-    __new__ = interp2app(_SSLContext.descr_new),
-    _wrap_socket = interp2app(_SSLContext.descr_wrap_socket),
-    set_ciphers = interp2app(_SSLContext.descr_set_ciphers),
-    options = GetSetProperty(_SSLContext.descr_get_options,
-                             _SSLContext.descr_set_options),
-    verify_mode = GetSetProperty(_SSLContext.descr_get_verify_mode,
-                                 _SSLContext.descr_set_verify_mode),
-    check_hostname = GetSetProperty(_SSLContext.descr_get_check_hostname,
-                                    _SSLContext.descr_set_check_hostname),
+_SSLContext.typedef = TypeDef(
+    "_ssl._SSLContext",
+    __new__=interp2app(_SSLContext.descr_new),
+    _wrap_socket=interp2app(_SSLContext.descr_wrap_socket),
+    set_ciphers=interp2app(_SSLContext.descr_set_ciphers),
     set_default_verify_paths=interp2app(_SSLContext.descr_set_default_verify_paths),
+
+    options=GetSetProperty(_SSLContext.descr_get_options,
+                           _SSLContext.descr_set_options),
+    verify_mode=GetSetProperty(_SSLContext.descr_get_verify_mode,
+                               _SSLContext.descr_set_verify_mode),
+    check_hostname=GetSetProperty(_SSLContext.descr_get_check_hostname,
+                                  _SSLContext.descr_set_check_hostname),
 )
 
 

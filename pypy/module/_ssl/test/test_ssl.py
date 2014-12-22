@@ -8,6 +8,8 @@ class AppTestSSL:
 
     def test_init_module(self):
         import _ssl
+        assert _ssl._SSLSocket.__module__ == '_ssl'
+        assert _ssl._SSLContext.__module__ == '_ssl'
 
     def test_sslerror(self):
         import _ssl, _socket
