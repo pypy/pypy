@@ -118,8 +118,10 @@ if WIN32:
     INVALID_HANDLE_VALUE = rffi.cast(HANDLE, -1)
     PFILETIME = rffi.CArrayPtr(FILETIME)
 
-    _GetLastError = winexternal('GetLastError', [], DWORD, releasegil=False)
-    _SetLastError = winexternal('SetLastError', [DWORD], lltype.Void)
+    _GetLastError = winexternal('GetLastError', [], DWORD,
+                                _nowrapper=True, sandboxsafe=True)
+    _SetLastError = winexternal('SetLastError', [DWORD], lltype.Void,
+                                _nowrapper=True, sandboxsafe=True)
 
     def GetLastError():
         return rffi.cast(lltype.Signed, _GetLastError())
