@@ -140,6 +140,11 @@ class BasePosix(Platform):
         rel_libdirs = [rpyrel(libdir) for libdir in
                        self.preprocess_library_dirs(eci.library_dirs)]
 
+        if os.platform == 'darwin':
+            rpath_flags = ['-Wl,-rpath', '-Wl,@executable_path']
+        else:
+            rpath_flags = ['-Wl,-rpath=\'$$ORIGIN/\'']
+
         m.comment('automatically generated makefile')
         definitions = [
             ('RPYDIR', '"%s"' % rpydir),
@@ -158,6 +163,7 @@ class BasePosix(Platform):
             ('CC', self.cc),
             ('CC_LINK', eci.use_cpp_linker and 'g++' or '$(CC)'),
             ('LINKFILES', eci.link_files),
+            ('RPATH_FLAGS', rpath_flags),
             ]
         for args in definitions:
             m.definition(*args)
@@ -180,13 +186,8 @@ class BasePosix(Platform):
                    'int $(PYPY_MAIN_FUNCTION)(int, char*[]); '
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); }" > $@')
-            if sys.platform == 'darwin':
-                m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
-                       ['$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@',
-                        'install_name_tool -add_rpath @executable_path $@'])
-            else:
-                m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
-                   '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ -Wl,-rpath=\'$$ORIGIN/\'')
+            m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
+                   '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS)')
 
         return m
 
