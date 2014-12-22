@@ -29,25 +29,33 @@ except ImportError:
 ################################################################################
 
 class OrderedDict(dict):
-    'Dictionary that remembers insertion order'
-    # An inherited dict maps keys to values.
-    # The inherited dict provides __getitem__, __len__, __contains__, and get.
-    # The remaining methods are order-aware.
-    # Big-O running times for all methods are the same as regular dictionaries.
+    '''Dictionary that remembers insertion order.
 
-    # XXX FIX THIS COMMENT
-    # The internal self.__map dict maps keys to links in a doubly linked list.
-    # The circular doubly linked list starts and ends with a sentinel element.
-    # The sentinel element never gets deleted (this simplifies the algorithm).
-    # Each link is stored as a list of length three:  [PREV, NEXT, KEY].
+    In PyPy all dicts are ordered anyway.  This is mostly useful as a
+    placeholder to mean "this dict must be ordered even on CPython.'''
 
     def __iter__(self):
-        for x in self._pypy_mut_safe_iter():
-            yield x
+        # This method allows some concurrent changes to the dictionary
+        # while iterating.  The annoying part is that the exact allowed
+        # changes are messy to define and different than CPython's own
+        # messy definition (which the docs have nothing to say about).
+        # For now, we'll suppose it is good enough.  Precisely: we
+        # iterate over the list of keys grabbed at the start; we return
+        # all keys that are still in the dictionary at the time we
+        # reach them.  This is a simple rule, but if a key is deleted
+        # and re-added, this method will return it in its old position,
+        # which is arguably wrong.  Also, any newly-added key is never
+        # returned, unlike CPython (which usually returns them, but not
+        # always).
+        for k in dict.keys(self):
+            if k in self:
+                yield k
 
     def __reversed__(self):
         'od.__reversed__() <==> reversed(od)'
-        return XXX
+        for k in reversed(dict.keys(self)):
+            if k in self:
+                yield k
 
     def iterkeys(self):
         'od.iterkeys() -> an iterator over the keys in od'
@@ -71,9 +79,11 @@ class OrderedDict(dict):
         if last:
             return dict.popitem(self)
         else:
-            if not self:
+            it = dict.__iter__(self)
+            try:
+                k = it.next()
+            except StopIteration:
                 raise KeyError('dictionary is empty')
-            k = iter(self).next()
             return (k, self.pop(k))
 
     def __repr__(self, _repr_running={}):
