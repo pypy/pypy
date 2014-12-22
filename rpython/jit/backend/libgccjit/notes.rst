@@ -9,6 +9,8 @@ only in my local repo:
 
      * :c:func:`gcc_jit_context_new_rvalue_from_long`
 
+     * :c:func:`gcc_jit_context_get_last_error`
+
    * a new value :c:macro:`GCC_JIT_UNARY_OP_ABS` within
      :c:type:`enum gcc_jit_unary_op`.
 

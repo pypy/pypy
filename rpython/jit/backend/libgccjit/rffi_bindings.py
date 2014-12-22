@@ -120,6 +120,9 @@ class Library:
                                                   CCHARP,
                                                   INT]),
 
+                (CCHARP,
+                 'gcc_jit_context_get_last_error', [self.GCC_JIT_CONTEXT_P]),
+
                 (VOIDP,
                  'gcc_jit_result_get_code', [self.GCC_JIT_RESULT_P,
                                              CCHARP]),
@@ -485,11 +488,13 @@ class Context(Wrapper):
 
     def get_type(self, r_enum):
         return Type(self.lib,
+                    self,
                     self.lib.gcc_jit_context_get_type(self.inner_ctxt,
                                                       r_enum))
 
     def get_int_type(self, num_bytes, is_signed):
         return Type(self.lib,
+                    self,
                     self.lib.gcc_jit_context_get_int_type(self.inner_ctxt,
                                                           num_bytes,
                                                           is_signed))
@@ -501,7 +506,7 @@ class Context(Wrapper):
                                                    type_.inner_type,
                                                    name_charp)
         free_charp(name_charp)
-        return Field(self.lib, field)
+        return Field(self.lib, self, field)
 
     def new_struct_type(self, name, fields):
         name_charp = str2charp(name)
@@ -518,7 +523,7 @@ class Context(Wrapper):
                                                      field_array))
         lltype.free(field_array, flavor='raw')
         free_charp(name_charp)
-        return Struct(self.lib, inner_struct)
+        return Struct(self.lib, self, inner_struct)
     
     def new_opaque_struct(self, name):
         name_charp = str2charp(name)
@@ -527,7 +532,7 @@ class Context(Wrapper):
                                                        self.lib.null_location_ptr,
                                                        name_charp))
         free_charp(name_charp)
-        return Struct(self.lib, inner_struct)
+        return Struct(self.lib, self, inner_struct)
 
     def new_union_type(self, name, fields):
         name_charp = str2charp(name)
@@ -544,7 +549,7 @@ class Context(Wrapper):
                                                     field_array))
         lltype.free(field_array, flavor='raw')
         free_charp(name_charp)
-        return Type(self.lib, inner_type)
+        return Type(self.lib, self, inner_type)
 
     def new_function_ptr_type(self, returntype, param_types, is_variadic):
         raw_type_array = lltype.malloc(self.lib.TYPE_P_P.TO,
@@ -561,34 +566,39 @@ class Context(Wrapper):
                                                                is_variadic)
         lltype.free(raw_type_array, flavor='raw')
 
-        return Type(self.lib, type_)
+        return Type(self.lib, self, type_)
 
     def new_rvalue_from_int(self, type_, llvalue):
         return RValue(self.lib,
+                      self,
                       self.lib.gcc_jit_context_new_rvalue_from_int(self.inner_ctxt,
                                                                    type_.inner_type,
                                                                    llvalue))
 
     def new_rvalue_from_long(self, type_, llvalue):
         return RValue(self.lib,
+                      self,
                       self.lib.gcc_jit_context_new_rvalue_from_long(self.inner_ctxt,
                                                                     type_.inner_type,
                                                                     llvalue))
 
     def new_rvalue_from_double(self, type_, llvalue):
         return RValue(self.lib,
+                      self,
                       self.lib.gcc_jit_context_new_rvalue_from_double(self.inner_ctxt,
                                                                       type_.inner_type,
                                                                       llvalue))
 
     def new_rvalue_from_ptr(self, type_, llvalue):
         return RValue(self.lib,
+                      self,
                       self.lib.gcc_jit_context_new_rvalue_from_ptr(self.inner_ctxt,
                                                                    type_.inner_type,
                                                                    llvalue))
 
     def new_unary_op(self, op, type_, rvalue):
         return RValue(self.lib,
+                      self,
                       self.lib.gcc_jit_context_new_unary_op(self.inner_ctxt,
                                                             self.lib.null_location_ptr,
                                                             op,
@@ -597,6 +607,7 @@ class Context(Wrapper):
 
     def new_binary_op(self, op, type_, a, b):
         return RValue(self.lib,
+                      self,
                       self.lib.gcc_jit_context_new_binary_op(self.inner_ctxt,
                                                              self.lib.null_location_ptr,
                                                              op,
@@ -605,6 +616,7 @@ class Context(Wrapper):
 
     def new_comparison(self, op, a, b):
         return RValue(self.lib,
+                      self,
                       self.lib.gcc_jit_context_new_comparison(self.inner_ctxt,
                                                               self.lib.null_location_ptr,
                                                               op,
@@ -622,7 +634,7 @@ class Context(Wrapper):
                                                    r_int(len(args)),
                                                    raw_arg_array)
         lltype.free(raw_arg_array, flavor='raw')
-        return RValue(self.lib, rvalue)
+        return RValue(self.lib, self, rvalue)
 
     def new_call_through_ptr(self, fn_ptr, args):
         raw_arg_array = lltype.malloc(self.lib.RVALUE_P_P.TO,
@@ -636,7 +648,7 @@ class Context(Wrapper):
                                                                r_int(len(args)),
                                                                raw_arg_array)
         lltype.free(raw_arg_array, flavor='raw')
-        return RValue(self.lib, rvalue)
+        return RValue(self.lib, self, rvalue)
 
     def new_param(self, type_, name):
         name_charp = str2charp(name)
@@ -645,7 +657,7 @@ class Context(Wrapper):
                                                    type_.inner_type,
                                                    name_charp)
         free_charp(name_charp)
-        return Param(self.lib, param)
+        return Param(self.lib, self, param)
 
     def new_function(self, kind, returntype, name, params, is_variadic):
         name_charp = str2charp(name)
@@ -666,7 +678,7 @@ class Context(Wrapper):
         lltype.free(raw_param_array, flavor='raw')
         free_charp(name_charp)
 
-        return Function(self.lib, fn)
+        return Function(self.lib, self, fn)
 
     def new_global(self, kind, type_, name):
         name_charp = str2charp(name)
@@ -676,36 +688,54 @@ class Context(Wrapper):
                                                      type_.inner_type,
                                                      name_charp)
         free_charp(name_charp)
-        return LValue(self.lib, lvalue)
+        return LValue(self.lib, self, lvalue)
 
     def new_cast(self, rvalue, type_):
         return RValue(self.lib,
+                      self, 
                       self.lib.gcc_jit_context_new_cast(self.inner_ctxt,
                                                         self.lib.null_location_ptr,
                                                         rvalue.inner_rvalue,
                                                         type_.inner_type))
 
-class Type(Wrapper):
-    def __init__(self, lib, inner_type):
+class LibgccjitError(Exception):
+    def __init__(self, ctxt):
+        self.msg = charp2str(ctxt.lib.gcc_jit_context_get_last_error (ctxt.inner_ctxt))
+        #print('self.msg: %r' % self.msg)
+
+    def __str__(self):
+        return self.msg
+
+class Object(Wrapper):
+    def __init__(self, lib, ctxt, inner_obj):
+        if not inner_obj:
+            raise LibgccjitError(ctxt)
         Wrapper.__init__(self, lib)
+        self.inner_obj = inner_obj
+
+class Type(Object):
+    def __init__(self, lib, ctxt, inner_type):
+        Object.__init__(self, lib, ctxt, inner_type)
         self.inner_type = inner_type
 
     def get_pointer(self):
         return Type(self.lib,
+                    self, 
                     self.lib.gcc_jit_type_get_pointer(self.inner_type))
 
-class Field(Wrapper):
-    def __init__(self, lib, inner_field):
-        Wrapper.__init__(self, lib)
+class Field(Object):
+    def __init__(self, lib, ctxt, inner_field):
+        Object.__init__(self, lib, ctxt, inner_field)
         self.inner_field = inner_field
 
-class Struct(Wrapper):
-    def __init__(self, lib, inner_struct):
-        Wrapper.__init__(self, lib)
+class Struct(Object):
+    def __init__(self, lib, ctxt, inner_struct):
+        Object.__init__(self, lib, ctxt, inner_struct)
         self.inner_struct = inner_struct
 
     def as_type(self):
         return Type(self.lib,
+                    self, 
                     self.lib.gcc_jit_struct_as_type(self.inner_struct))
 
 
@@ -721,44 +751,48 @@ class Struct(Wrapper):
                                            field_array)
         lltype.free(field_array, flavor='raw')
 
-class RValue(Wrapper):
-    def __init__(self, lib, inner_rvalue):
-        Wrapper.__init__(self, lib)
+class RValue(Object):
+    def __init__(self, lib, ctxt, inner_rvalue):
+        Object.__init__(self, lib, ctxt, inner_rvalue)
         self.inner_rvalue = inner_rvalue
 
     def dereference_field(self, field):
         return LValue(self.lib,
+                      self,
                       self.lib.gcc_jit_rvalue_dereference_field(self.inner_rvalue,
                                                                 self.lib.null_location_ptr,
                                                                 field.inner_field))
 
-class LValue(Wrapper):
-    def __init__(self, lib, inner_lvalue):
-        Wrapper.__init__(self, lib)
+class LValue(Object):
+    def __init__(self, lib, ctxt, inner_lvalue):
+        Object.__init__(self, lib, ctxt, inner_lvalue)
         self.inner_lvalue = inner_lvalue
 
     def as_rvalue(self):
         return RValue(self.lib,
+                      self,
                       self.lib.gcc_jit_lvalue_as_rvalue(self.inner_lvalue))
 
     def access_field(self, field):
         return LValue(self.lib,
+                      self,
                       self.lib.gcc_jit_lvalue_access_field (self.inner_lvalue,
                                                             self.lib.null_location_ptr,
                                                             field.inner_field))
 
-class Param(Wrapper):
-    def __init__(self, lib, inner_param):
-        Wrapper.__init__(self, lib)
+class Param(Object):
+    def __init__(self, lib, ctxt, inner_param):
+        Object.__init__(self, lib, ctxt, inner_param)
         self.inner_param = inner_param
 
     def as_rvalue(self):
         return RValue(self.lib,
+                      self,
                       self.lib.gcc_jit_param_as_rvalue(self.inner_param))
 
-class Function(Wrapper):
-    def __init__(self, lib, inner_function):
-        Wrapper.__init__(self, lib)
+class Function(Object):
+    def __init__(self, lib, ctxt, inner_function):
+        Object.__init__(self, lib, ctxt, inner_function)
         self.inner_function = inner_function
 
     def new_local(self, type_, name):
@@ -768,7 +802,7 @@ class Function(Wrapper):
                                                     type_.inner_type,
                                                     name_charp)
         free_charp(name_charp)
-        return LValue(self.lib, local)
+        return LValue(self.lib, self, local)
 
     def new_block(self, name=None):
         if name is not None:
@@ -779,11 +813,11 @@ class Function(Wrapper):
                                                     name_charp)
         if name_charp:
             free_charp(name_charp)
-        return Block(self.lib, block)
+        return Block(self.lib, self, block)
 
-class Block(Wrapper):
-    def __init__(self, lib, inner_block):
-        Wrapper.__init__(self, lib)
+class Block(Object):
+    def __init__(self, lib, ctxt, inner_block):
+        Object.__init__(self, lib, ctxt, inner_block)
         self.inner_block = inner_block
 
     def add_assignment(self, lvalue, rvalue):
@@ -816,7 +850,7 @@ class Block(Wrapper):
                                                self.lib.null_location_ptr,
                                                rvalue.inner_rvalue)
 
-class Result(Wrapper):
+class Result(Object):
     def __init__(self, lib, inner_result):
         Wrapper.__init__(self, lib)
         self.inner_result = inner_result
