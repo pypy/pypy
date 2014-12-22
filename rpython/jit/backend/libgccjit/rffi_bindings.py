@@ -64,6 +64,8 @@ class Library:
                                                     compilation_info=eci))
         self.GCC_JIT_RESULT_P = lltype.Ptr(COpaque(name='gcc_jit_result',
                                                    compilation_info=eci))
+        self.GCC_JIT_OBJECT_P = lltype.Ptr(COpaque(name='gcc_jit_object',
+                                                   compilation_info=eci))
         self.GCC_JIT_TYPE_P = lltype.Ptr(COpaque(name='gcc_jit_type',
                                                  compilation_info=eci))
         self.GCC_JIT_FIELD_P = lltype.Ptr(COpaque(name='gcc_jit_field',
@@ -128,6 +130,9 @@ class Library:
 
                 (lltype.Void,
                  'gcc_jit_result_release', [self.GCC_JIT_RESULT_P]),
+
+                (CCHARP,
+                 'gcc_jit_object_get_debug_string', [self.GCC_JIT_OBJECT_P]),
 
                 ############################################################
                 # Types
@@ -206,6 +211,10 @@ class Library:
                                                   INT,
                                                   self.PARAM_P_P,
                                                   INT]),
+
+                (self.GCC_JIT_OBJECT_P,
+                 'gcc_jit_function_as_object', [self.GCC_JIT_FUNCTION_P]),
+
                 (self.GCC_JIT_LVALUE_P,
                  'gcc_jit_function_new_local', [self.GCC_JIT_FUNCTION_P,
                                                 self.GCC_JIT_LOCATION_P,
