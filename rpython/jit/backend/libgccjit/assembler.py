@@ -399,7 +399,7 @@ class AssemblerLibgccjit(BaseAssembler):
             #src_ptr_rvalue = self.ctxt.new_cast(src_ptr_rvalue, self.t_float.get_pointer())
             #src_rvalue = self.ctxt.new_dereference(src_ptr_rvalue)
             # or do it as a union
-            field = self.get_union_field_for_box(arg)
+            field = self.get_union_field_for_expr(arg)
             src_rvalue = self.get_arg_as_lvalue(idx).access_field(field).as_rvalue()
             # FIXME: this may need a cast:
             #src_rvalue = self.ctxt.new_cast(src_rvalue, self.t_float)
@@ -476,13 +476,13 @@ class AssemblerLibgccjit(BaseAssembler):
         else:
             raise ValueError('unhandled box: %s %s' % (box, type(box)))
 
-    def get_union_field_for_box(self, box):
-        if isinstance(box, BoxInt):
+    def get_union_field_for_expr(self, expr):
+        if isinstance(expr, (BoxInt, ConstInt)):
             return self.u_signed;
-        elif isinstance(box, BoxFloat):
+        elif isinstance(expr, (BoxFloat, ConstFloat)):
             return self.u_float;
         else:
-            raise ValueError('unhandled box: %s %s' % (box, type(box)))        
+            raise ValueError('unhandled expr: %s %s' % (expr, type(expr)))        
 
     # Handling of specific ResOperation subclasses: each one is
     # a method named "emit_foo", where "foo" is the str() of the resop.
@@ -614,8 +614,8 @@ class AssemblerLibgccjit(BaseAssembler):
         # Write outputs back:
         for idx, arg in enumerate(args):
             if arg is not None:
-                src_rvalue = self.get_box_as_lvalue(arg).as_rvalue()
-                field = self.get_union_field_for_box(arg)
+                src_rvalue = self.expr_to_rvalue(arg)
+                field = self.get_union_field_for_expr(arg)
                 dst_lvalue = self.get_arg_as_lvalue(idx).access_field(field)
                 self.b_current.add_assignment(dst_lvalue, src_rvalue)
             else:
