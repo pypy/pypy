@@ -221,6 +221,12 @@ class OptValue(object):
         if self.level < LEVEL_NONNULL:
             self.level = LEVEL_NONNULL
 
+    def get_constant_int(self):
+        assert self.is_constant()
+        box = self.box
+        assert isinstance(box, ConstInt)
+        return box.getint()
+
     def is_virtual(self):
         # Don't check this with 'isinstance(_, VirtualValue)'!
         # Even if it is a VirtualValue, the 'box' can be non-None,
@@ -625,18 +631,20 @@ class Optimizer(Optimization):
                 descr.make_a_counter_per_value(op)
         return op
 
+    def get_arg_key(self, box):
+        try:
+            value = self.values[box]
+        except KeyError:
+            pass
+        else:
+            box = value.get_key_box()
+        return box
+
     def make_args_key(self, op):
         n = op.numargs()
         args = [None] * (n + 2)
         for i in range(n):
-            arg = op.getarg(i)
-            try:
-                value = self.values[arg]
-            except KeyError:
-                pass
-            else:
-                arg = value.get_key_box()
-            args[i] = arg
+            args[i] = self.get_arg_key(op.getarg(i))
         args[n] = ConstInt(op.getopnum())
         args[n + 1] = op.getdescr()
         return args

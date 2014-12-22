@@ -194,7 +194,7 @@ class DictTests:
                            'guard_true': 4, 'jump': 1,
                            'new_with_vtable': 2, 'getinteriorfield_gc': 2,
                            'setfield_gc': 14, 'int_gt': 2, 'int_sub': 2,
-                           'call': 10, 'int_ne': 2,
+                           'call': 10, 'int_ge': 2,
                            'guard_no_exception': 8, 'new': 2})
 
     def test_unrolling_of_dict_iter(self):
@@ -297,10 +297,6 @@ class DictTests:
         self.check_simple_loop(call=7)
 
     def test_dict_double_lookup_2(self):
-        py.test.skip("xxx reimplement me")
-        # one read and one write at the same key should be jitted as only
-        # one lookup, but it's a bit harder now with rordereddict.py
-
         driver = JitDriver(greens = [], reds = 'auto')
         indexes = ['aa', 'b', 'cc']
 
@@ -366,7 +362,6 @@ class DictTests:
                         raise Exception
         self.meta_interp(f, [10])
         self.check_simple_loop(call_may_force=0, call=4)
-          # XXX should be call=3, same reason as test_dict_double_lookup_2
 
     def test_dict_virtual(self):
         myjitdriver = JitDriver(greens = [], reds = 'auto')

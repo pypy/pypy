@@ -526,7 +526,7 @@ def ll_dict_bool(d):
 
 def ll_dict_getitem(d, key):
     index = d.lookup_function(d, key, d.keyhash(key), FLAG_LOOKUP)
-    if index != -1:
+    if index >= 0:
         return d.entries[index].value
     else:
         raise KeyError
@@ -721,7 +721,7 @@ def ll_dict_remove_deleted_items(d):
 
 def ll_dict_delitem(d, key):
     index = d.lookup_function(d, key, d.keyhash(key), FLAG_DELETE)
-    if index == -1:
+    if index < 0:
         raise KeyError
     _ll_dict_del(d, index)
 
@@ -1024,7 +1024,7 @@ def _ll_dictnext(iter):
 
 def ll_dict_get(dict, key, default):
     index = dict.lookup_function(dict, key, dict.keyhash(key), FLAG_LOOKUP)
-    if index == -1:
+    if index < 0:
         return default
     else:
         return dict.entries[index].value
@@ -1032,7 +1032,7 @@ def ll_dict_get(dict, key, default):
 def ll_dict_setdefault(dict, key, default):
     hash = dict.keyhash(key)
     index = dict.lookup_function(dict, key, hash, FLAG_STORE)
-    if index == -1:
+    if index < 0:
         _ll_dict_setitem_lookup_done(dict, key, default, hash, -1)
         return default
     else:
@@ -1159,7 +1159,7 @@ ll_dict_items  = _make_ll_keys_values_items('items')
 
 def ll_dict_contains(d, key):
     i = d.lookup_function(d, key, d.keyhash(key), FLAG_LOOKUP)
-    return i != -1
+    return i >= 0
 
 def _ll_getnextitem(dic):
     if dic.num_live_items == 0:
@@ -1192,7 +1192,7 @@ def ll_dict_popitem(ELEM, dic):
 
 def ll_dict_pop(dic, key):
     index = dic.lookup_function(dic, key, dic.keyhash(key), FLAG_DELETE)
-    if index == -1:
+    if index < 0:
         raise KeyError
     value = dic.entries[index].value
     _ll_dict_del(dic, index)
@@ -1200,7 +1200,7 @@ def ll_dict_pop(dic, key):
 
 def ll_dict_pop_default(dic, key, dfl):
     index = dic.lookup_function(dic, key, dic.keyhash(key), FLAG_DELETE)
-    if index == -1:
+    if index < 0:
         return dfl
     value = dic.entries[index].value
     _ll_dict_del(dic, index)
