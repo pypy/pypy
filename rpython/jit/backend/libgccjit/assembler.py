@@ -23,6 +23,21 @@ class Params:
         self.paramtypes = [assembler.t_jit_frame_ptr,
                            assembler.t_void_ptr]
 
+class Function:
+    """
+    Wrapper around a rffi_bindings.Function, for a loop or bridge
+    """
+    def __init__(self, name, rffi_fn):
+        self.name = name
+        self.rffi_fn = rffi_fn
+        self.patchpoints = []
+
+    def new_block(self, name): 
+       return self.rffi_fn.new_block(name)
+
+    def new_local(self, type_, name): 
+       return self.rffi_fn.new_local(type_, name)
+
 class Patchpoint:
     """
     We need to be able to patch out the generated code that runs when a
@@ -91,7 +106,12 @@ class Patchpoint:
         # this is a:
         #   struct JITFRAME * (**guard_failure_fn) (struct JITFRAME *, void *)
         # i.e. one extra level of indirection.
-        fn_ptr_ptr = result.get_global(self.fn_ptr_name)
+        self.fn_ptr_ptr = result.get_global(self.fn_ptr_name)
+
+        self.set_handler(handler)
+
+    def set_handler(self, handler):
+        print('set_handler(%r)' % handler)
 
         # We want to write the equivalent of:
         #    (*fn_ptr_ptr) = handler;
@@ -102,7 +122,7 @@ class Patchpoint:
 
         # We can't directly express the function ptr ptr in lltype,
         # so instead pretend we have a (const char **) and a (const char *):
-        fn_ptr_ptr = rffi.cast(rffi.CCHARPP, fn_ptr_ptr)
+        fn_ptr_ptr = rffi.cast(rffi.CCHARPP, self.fn_ptr_ptr)
         handler = rffi.cast(rffi.CCHARP, handler)
 
         # ...and write through the ptr:
@@ -133,13 +153,18 @@ class AssemblerLibgccjit(BaseAssembler):
 
         self.num_anon_loops = 0
         self.num_guard_failure_fns = 0
+        self.num_bridges = 0
 
         self.sizeof_signed = rffi.sizeof(lltype.Signed)
-        self.patchpoints = []
+        self.label_for_descr = {}
+        self.block_for_label_descr = {}
+        self.function_for_label_descr = {}
+        self.patchpoint_for_descr = {}
 
-    def make_context(self):
         eci = make_eci()
         self.lib = Library(eci)
+
+    def make_context(self):
         self.ctxt = Context.acquire(self.lib)#self.lib.gcc_jit_context_acquire()
         if 0:
             self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE,
@@ -162,7 +187,22 @@ class AssemblerLibgccjit(BaseAssembler):
         if 0:
             self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE,
                                       r_int(1))
-        
+
+        self.t_Signed = self.ctxt.get_int_type(r_int(self.sizeof_signed),
+                                               r_int(1))
+        self.t_UINT = self.ctxt.get_int_type(r_int(self.sizeof_signed),
+                                             r_int(0))
+        self.t_float = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_DOUBLE) # FIXME                                          
+        self.t_bool = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_BOOL)
+        self.t_void_ptr = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID_PTR)
+        self.t_void = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID)
+
+        self.u_signed = self.ctxt.new_field(self.t_Signed, "u_signed")
+        self.u_float = self.ctxt.new_field(self.t_float, "u_float")
+        self.t_any = self.ctxt.new_union_type ("any",
+                                               [self.u_signed,
+                                                self.u_float])
+
     def setup(self, looptoken):
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
@@ -191,22 +231,69 @@ class AssemblerLibgccjit(BaseAssembler):
         clt.frame_info.clear() # for now
 
         self.make_context()
-        self.t_Signed = self.ctxt.get_int_type(r_int(self.sizeof_signed),
-                                               r_int(1))
-        self.t_UINT = self.ctxt.get_int_type(r_int(self.sizeof_signed),
-                                             r_int(0))
-        self.t_float = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_DOUBLE) # FIXME                                          
-        self.t_bool = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_BOOL)
-        self.t_void_ptr = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID_PTR)
-        self.t_void = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID)
-
-        self.u_signed = self.ctxt.new_field(self.t_Signed, "u_signed")
-        self.u_float = self.ctxt.new_field(self.t_float, "u_float")
-        self.t_any = self.ctxt.new_union_type ("any",
-                                               [self.u_signed,
-                                                self.u_float])
+        max_args, initial_locs = self.make_JITFRAME_struct(inputargs,
+                                                           operations)
         self.lvalue_for_box = {}
 
+        if not loopname:
+            loopname = 'anonloop_%i' % self.num_anon_loops
+            self.num_anon_loops += 1
+        print("  loopname: %r" % loopname)
+        self.make_function(loopname, inputargs, operations)
+
+        # Ensure that the frame is large enough
+        baseofs = self.cpu.get_baseofs_of_frame_field()
+        clt.frame_info.update_frame_depth(baseofs,
+                                          max_args)
+
+        self.ctxt.dump_to_file("/tmp/%s.c" % loopname, r_int(1))
+
+        #raise foo
+
+        jit_result = self.ctxt.compile()
+        self.ctxt.release()
+
+        # Patch all patchpoints to their initial handlers:
+        for pp in self.fn.patchpoints:
+            pp.write_initial_handler(jit_result)
+
+        fn_ptr = jit_result.get_code(loopname)
+
+        looptoken._ll_function_addr = fn_ptr
+
+        looptoken.compiled_loop_token._ll_initial_locs = initial_locs
+
+        # FIXME: this leaks the gcc_jit_result
+
+    def assemble_bridge(self, logger, faildescr, inputargs, operations,
+                        original_loop_token, log):
+        print('assemble_bridge(%r)' % locals())
+        if not we_are_translated():
+            # Arguments should be unique
+            assert len(set(inputargs)) == len(inputargs)
+
+        self.make_context()
+        max_args, initial_locs = self.make_JITFRAME_struct(inputargs,
+                                                           operations)
+        self.lvalue_for_box = {}
+
+        name = "bridge_%i" % self.num_bridges
+        self.num_bridges += 1
+
+        self.make_function(name, inputargs, operations)
+        self.ctxt.dump_to_file("/tmp/%s.c" % name, r_int(1))
+        jit_result = self.ctxt.compile()
+        self.ctxt.release()
+
+        # Patch all patchpoints to their initial handlers:
+        for pp in self.fn.patchpoints:
+            pp.write_initial_handler(jit_result)
+
+        # Patch the patchpoint for "faildescr" to point to our new code
+        fn_ptr = jit_result.get_code(name)
+        self.patchpoint_for_descr[faildescr].set_handler(fn_ptr)
+
+    def make_JITFRAME_struct(self, inputargs, operations):
         #print(jitframe.JITFRAME)
         #print(dir(jitframe.JITFRAME))
         #print('jitframe.JITFRAME._flds: %r' % jitframe.JITFRAME._flds)
@@ -274,26 +361,24 @@ class AssemblerLibgccjit(BaseAssembler):
 
         struct_jit_frame.set_fields (fields)
 
+        return max_args, initial_locs
+
+    def make_function(self, name, inputargs, operations):
         # Make function:
         #print('  inputargs: %r' % (inputargs, ))
         #jitframe.JITFRAMEINFOPTR
         self.loop_params = Params(self)
 
-        if not loopname:
-            loopname = 'anonloop_%i' % self.num_anon_loops
-            self.num_anon_loops += 1
-        print("  loopname: %r" % loopname)
-        self.fn = self.ctxt.new_function(self.lib.GCC_JIT_FUNCTION_EXPORTED,
-                                         self.t_jit_frame_ptr,
-                                         loopname,
-                                         self.loop_params.paramlist,
-                                         r_int(0))
+        self.fn = Function(name,
+                           self.ctxt.new_function(self.lib.GCC_JIT_FUNCTION_EXPORTED,
+                                                  self.t_jit_frame_ptr,
+                                                  name,
+                                                  self.loop_params.paramlist,
+                                                  r_int(0)))
 
         self.b_current = self.fn.new_block("initial")
-        self.label_for_descr = {}
-        self.block_for_label_descr = {}
 
-        # Add an initial comment summarizing the loop
+        # Add an initial comment summarizing the loop or bridge:
         text = '\n\tinputargs: %s\n\n' % inputargs
         for op in operations:
             #print(op)
@@ -302,7 +387,7 @@ class AssemblerLibgccjit(BaseAssembler):
             #print(repr(op.getopname()))
             text += '\t%s\n' % op
         self.b_current.add_comment(str(text))
-    
+
         # Get initial values from input args:
         for idx, arg in enumerate(inputargs):
             self.b_current.add_comment("inputargs[%i]: %s" % (idx, arg))
@@ -333,39 +418,6 @@ class AssemblerLibgccjit(BaseAssembler):
             # Compile the operation itself...
             methname = 'emit_%s' % op.getopname()
             getattr(self, methname) (op)
-
-        # Ensure that the frame is large enough
-        baseofs = self.cpu.get_baseofs_of_frame_field()
-        clt.frame_info.update_frame_depth(baseofs,
-                                          max_args)
-        
-        self.ctxt.dump_to_file("/tmp/%s.c" % loopname, r_int(1))
-
-        #raise foo
-
-        jit_result = self.ctxt.compile()
-        self.ctxt.release()
-
-        # Patch all patchpoints to their initial handlers:
-        for pp in self.patchpoints:
-            pp.write_initial_handler(jit_result)
-
-        fn_ptr = jit_result.get_code(loopname)
-
-        looptoken._ll_function_addr = fn_ptr
-
-        looptoken.compiled_loop_token._ll_initial_locs = initial_locs
-
-        # FIXME: this leaks the gcc_jit_result
-
-    def assemble_bridge(self, logger, faildescr, inputargs, operations,
-                        original_loop_token, log):
-        print('assemble_bridge(%r)' % locals())
-        if not we_are_translated():
-            # Arguments should be unique
-            assert len(set(inputargs)) == len(inputargs)
-
-        raise foo
 
     def expr_to_rvalue(self, expr):
         """
@@ -466,8 +518,27 @@ class AssemblerLibgccjit(BaseAssembler):
             self.b_current.add_assignment(
                 self.get_box_as_lvalue(label._args[i]),
                 tmps[i].as_rvalue())
-            
-        self.b_current.end_with_jump(self.block_for_label_descr[jumpop.getdescr()])
+
+        print('jumpop.getdescr(): %r' % jumpop.getdescr())
+        dest_fn = self.function_for_label_descr[jumpop.getdescr()]
+        print('dest_fn: %r' % dest_fn)
+        if dest_fn == self.fn:
+            b_dest = self.block_for_label_descr[jumpop.getdescr()]
+            self.b_current.end_with_jump(b_dest)
+        else:
+            # Implement as a tail-call:
+            # Sadly, we need to "import" the fn by name, since it was
+            # created on a different gcc_jit_context.
+            p = Params(self)
+            other_fn = self.ctxt.new_function(self.lib.GCC_JIT_FUNCTION_IMPORTED,
+                                              self.t_jit_frame_ptr,
+                                              dest_fn.name,
+                                              p.paramlist,
+                                              r_int(0))
+            args = [param.as_rvalue()
+                    for param in self.loop_params.paramlist]
+            call = self.ctxt.new_call(other_fn, args)
+            self.b_current.end_with_return(call)
 
     def emit_finish(self, resop):
         self._impl_write_output_args(self.loop_params, resop._args)
@@ -483,6 +554,7 @@ class AssemblerLibgccjit(BaseAssembler):
         b_new = self.fn.new_block(str(resop))
         self.block_for_label_descr[resop.getdescr()] = b_new
         self.label_for_descr[resop.getdescr()] = resop
+        self.function_for_label_descr[resop.getdescr()] = self.fn
         self.b_current.end_with_jump(b_new)
         self.b_current = b_new
 
@@ -511,7 +583,8 @@ class AssemblerLibgccjit(BaseAssembler):
         # Implement it as a tail-call through a function ptr to
         # a handler function, allowing patchability
         pp = Patchpoint(self)
-        self.patchpoints.append(pp)
+        self.fn.patchpoints.append(pp)
+        self.patchpoint_for_descr[resop.getdescr()] = pp
         args = [param.as_rvalue()
                 for param in self.loop_params.paramlist]
         call = self.ctxt.new_call_through_ptr (pp.failure_fn_ptr.as_rvalue(),
