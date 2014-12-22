@@ -1,9 +1,11 @@
 from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec
-from rpython.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt, REF
-from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
+from rpython.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt,\
+     REF, BoxPtr, ConstPtr, ConstFloat
+from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded,\
                                                      ImmutableIntUnbounded, \
-                                                     IntLowerBound, MININT, MAXINT
+                                                     IntLowerBound, MININT,\
+                                                     MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation, AbstractResOp
 from rpython.jit.metainterp.typesystem import llhelper
@@ -39,68 +41,18 @@ class LenBound(object):
 
 class OptValue(object):
     __metaclass__ = extendabletype
-    _attrs_ = ('box', 'known_class', 'last_guard', 'level', 'intbound', 'lenbound')
-    last_guard = None
+    _attrs_ = ('box', 'level')
 
     level = LEVEL_UNKNOWN
-    known_class = None
-    intbound = ImmutableIntUnbounded()
-    lenbound = None
 
     def __init__(self, box, level=None, known_class=None, intbound=None):
         self.box = box
         if level is not None:
             self.level = level
-        self.known_class = known_class
-        if intbound:
-            self.intbound = intbound
-        else:
-            if isinstance(box, BoxInt):
-                self.intbound = IntBound(MININT, MAXINT)
-            else:
-                self.intbound = IntUnbounded()
 
         if isinstance(box, Const):
             self.make_constant(box)
         # invariant: box is a Const if and only if level == LEVEL_CONSTANT
-
-    def make_len_gt(self, mode, descr, val):
-        if self.lenbound:
-            assert self.lenbound.mode == mode
-            assert self.lenbound.descr == descr
-            self.lenbound.bound.make_gt(IntBound(val, val))
-        else:
-            self.lenbound = LenBound(mode, descr, IntLowerBound(val + 1))
-
-    def make_guards(self, box):
-        guards = []
-        if self.level == LEVEL_CONSTANT:
-            op = ResOperation(rop.GUARD_VALUE, [box, self.box], None)
-            guards.append(op)
-        elif self.level == LEVEL_KNOWNCLASS:
-            op = ResOperation(rop.GUARD_NONNULL, [box], None)
-            guards.append(op)
-            op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
-            guards.append(op)
-        else:
-            if self.level == LEVEL_NONNULL:
-                op = ResOperation(rop.GUARD_NONNULL, [box], None)
-                guards.append(op)
-            self.intbound.make_guards(box, guards)
-            if self.lenbound:
-                lenbox = BoxInt()
-                if self.lenbound.mode == MODE_ARRAY:
-                    op = ResOperation(rop.ARRAYLEN_GC, [box], lenbox, self.lenbound.descr)
-                elif self.lenbound.mode == MODE_STR:
-                    op = ResOperation(rop.STRLEN, [box], lenbox, self.lenbound.descr)
-                elif self.lenbound.mode == MODE_UNICODE:
-                    op = ResOperation(rop.UNICODELEN, [box], lenbox, self.lenbound.descr)
-                else:
-                    debug_print("Unknown lenbound mode")
-                    assert False
-                guards.append(op)
-                self.lenbound.bound.make_guards(lenbox, guards)
-        return guards
 
     def import_from(self, other, optimizer):
         if self.level == LEVEL_CONSTANT:
@@ -110,21 +62,22 @@ class OptValue(object):
         assert self.level <= LEVEL_NONNULL
         if other.level == LEVEL_CONSTANT:
             self.make_constant(other.get_key_box())
-            optimizer.turned_constant(self)
         elif other.level == LEVEL_KNOWNCLASS:
-            self.make_constant_class(other.known_class, None)
+            self.make_constant_class(other.get_known_class(), None)
         else:
             if other.level == LEVEL_NONNULL:
                 self.ensure_nonnull()
-            self.intbound.intersect(other.intbound)
-            if other.lenbound:
-                if self.lenbound:
-                    assert other.lenbound.mode == self.lenbound.mode
-                    assert other.lenbound.descr == self.lenbound.descr
-                    self.lenbound.bound.intersect(other.lenbound.bound)
-                else:
-                    self.lenbound = other.lenbound.clone()
 
+    def make_guards(self, box):
+        if self.level == LEVEL_CONSTANT:
+            op = ResOperation(rop.GUARD_VALUE, [box, self.box], None)
+            return [op]
+        return []
+
+    def copy_from(self, other_value):
+        assert isinstance(other_value, OptValue)
+        self.box = other_value.box
+        self.level = other_value.level
 
     def force_box(self, optforce):
         return self.box
@@ -168,38 +121,6 @@ class OptValue(object):
             return self.box.same_constant(other.box)
         return self is other
 
-    def make_constant(self, constbox):
-        """Replace 'self.box' with a Const box."""
-        assert isinstance(constbox, Const)
-        self.box = constbox
-        self.level = LEVEL_CONSTANT
-
-        if isinstance(constbox, ConstInt):
-            val = constbox.getint()
-            self.intbound = IntBound(val, val)
-        else:
-            self.intbound = IntUnbounded()
-
-    def get_constant_class(self, cpu):
-        level = self.level
-        if level == LEVEL_KNOWNCLASS:
-            return self.known_class
-        elif level == LEVEL_CONSTANT:
-            return cpu.ts.cls_of_box(self.box)
-        else:
-            return None
-
-    def make_constant_class(self, classbox, guardop):
-        assert self.level < LEVEL_KNOWNCLASS
-        self.known_class = classbox
-        self.level = LEVEL_KNOWNCLASS
-        self.last_guard = guardop
-
-    def make_nonnull(self, guardop):
-        assert self.level < LEVEL_NONNULL
-        self.level = LEVEL_NONNULL
-        self.last_guard = guardop
-
     def is_nonnull(self):
         level = self.level
         if level == LEVEL_NONNULL or level == LEVEL_KNOWNCLASS:
@@ -208,12 +129,6 @@ class OptValue(object):
             box = self.box
             assert isinstance(box, Const)
             return box.nonnull()
-        elif self.intbound:
-            if self.intbound.known_gt(IntBound(0, 0)) or \
-               self.intbound.known_lt(IntBound(0, 0)):
-                return True
-            else:
-                return False
         else:
             return False
 
@@ -266,8 +181,216 @@ class OptValue(object):
     def get_missing_null_value(self):
         raise NotImplementedError    # only for VArrayValue
 
+    def make_constant(self, constbox):
+        """Replace 'self.box' with a Const box."""
+        assert isinstance(constbox, Const)
+        self.box = constbox
+        self.level = LEVEL_CONSTANT
 
-class ConstantValue(OptValue):
+    def get_last_guard(self):
+        return None
+
+    def get_known_class(self):
+        return None
+
+    def getlenbound(self):
+        return None
+
+    def getintbound(self):
+        return None
+
+    def get_constant_class(self, cpu):
+        return None
+
+class PtrOptValue(OptValue):
+    _attrs_ = ('known_class', 'last_guard', 'lenbound')
+
+    known_class = None
+    last_guard = None
+    lenbound = None
+
+    def __init__(self, box, level=None, known_class=None, intbound=None):
+        OptValue.__init__(self, box, level, None, intbound)
+        if not isinstance(box, Const):
+            self.known_class = known_class
+
+    def copy_from(self, other_value):
+        assert isinstance(other_value, PtrOptValue)
+        self.box = other_value.box
+        self.known_class = other_value.known_class
+        self.level = other_value.level
+        self.last_guard = other_value.last_guard
+        self.lenbound = other_value.lenbound
+
+    def make_len_gt(self, mode, descr, val):
+        if self.lenbound:
+            assert self.lenbound.mode == mode
+            assert self.lenbound.descr == descr
+            self.lenbound.bound.make_gt(IntBound(val, val))
+        else:
+            self.lenbound = LenBound(mode, descr, IntLowerBound(val + 1))
+
+    def make_nonnull(self, guardop):
+        assert self.level < LEVEL_NONNULL
+        self.level = LEVEL_NONNULL
+        self.last_guard = guardop
+
+    def make_constant_class(self, classbox, guardop):
+        assert self.level < LEVEL_KNOWNCLASS
+        self.known_class = classbox
+        self.level = LEVEL_KNOWNCLASS
+        self.last_guard = guardop
+
+    def import_from(self, other, optimizer):
+        OptValue.import_from(self, other, optimizer)
+        if self.level != LEVEL_CONSTANT:
+            if other.getlenbound():
+                if self.lenbound:
+                    assert other.getlenbound().mode == self.lenbound.mode
+                    assert other.getlenbound().descr == self.lenbound.descr
+                    self.lenbound.bound.intersect(other.getlenbound().bound)
+                else:
+                    self.lenbound = other.getlenbound().clone()
+
+    def make_guards(self, box):
+        guards = []
+        if self.level == LEVEL_CONSTANT:
+            op = ResOperation(rop.GUARD_VALUE, [box, self.box], None)
+            guards.append(op)
+        elif self.level == LEVEL_KNOWNCLASS:
+            op = ResOperation(rop.GUARD_NONNULL, [box], None)
+            guards.append(op)
+            op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
+            guards.append(op)
+        else:
+            if self.level == LEVEL_NONNULL:
+                op = ResOperation(rop.GUARD_NONNULL, [box], None)
+                guards.append(op)
+            if self.lenbound:
+                lenbox = BoxInt()
+                if self.lenbound.mode == MODE_ARRAY:
+                    op = ResOperation(rop.ARRAYLEN_GC, [box], lenbox, self.lenbound.descr)
+                elif self.lenbound.mode == MODE_STR:
+                    op = ResOperation(rop.STRLEN, [box], lenbox, self.lenbound.descr)
+                elif self.lenbound.mode == MODE_UNICODE:
+                    op = ResOperation(rop.UNICODELEN, [box], lenbox, self.lenbound.descr)
+                else:
+                    debug_print("Unknown lenbound mode")
+                    assert False
+                guards.append(op)
+                self.lenbound.bound.make_guards(lenbox, guards)
+        return guards
+
+    def get_constant_class(self, cpu):
+        level = self.level
+        if level == LEVEL_KNOWNCLASS:
+            return self.known_class
+        elif level == LEVEL_CONSTANT:
+            return cpu.ts.cls_of_box(self.box)
+        else:
+            return None
+
+    def getlenbound(self):
+        return self.lenbound
+
+    def get_last_guard(self):
+        return self.last_guard
+
+    def get_known_class(self):
+        return self.known_class
+
+class IntOptValue(OptValue):
+    _attrs_ = ('intbound',)
+
+    intbound = ImmutableIntUnbounded()
+
+    def __init__(self, box, level=None, known_class=None, intbound=None):
+        OptValue.__init__(self, box, level, None, None)
+        if isinstance(box, Const):
+            return
+        if intbound:
+            self.intbound = intbound
+        else:
+            if isinstance(box, BoxInt):
+                self.intbound = IntBound(MININT, MAXINT)
+            else:
+                self.intbound = IntUnbounded()
+
+    def copy_from(self, other_value):
+        assert isinstance(other_value, IntOptValue)
+        self.box = other_value.box
+        self.intbound = other_value.intbound
+        self.level = other_value.level
+
+    def make_constant(self, constbox):
+        """Replace 'self.box' with a Const box."""
+        assert isinstance(constbox, ConstInt)
+        self.box = constbox
+        self.level = LEVEL_CONSTANT
+        val = constbox.getint()
+        self.intbound = IntBound(val, val)
+
+    def is_nonnull(self):
+        if OptValue.is_nonnull(self):
+            return True
+        if self.intbound:
+            if self.intbound.known_gt(IntBound(0, 0)) or \
+               self.intbound.known_lt(IntBound(0, 0)):
+                return True
+        return False
+
+    def make_nonnull(self, guardop):
+        assert self.level < LEVEL_NONNULL
+        self.level = LEVEL_NONNULL
+
+    def import_from(self, other, optimizer):
+        OptValue.import_from(self, other, optimizer)
+        if self.level != LEVEL_CONSTANT:
+            if other.getintbound() is not None: # VRawBufferValue
+                self.intbound.intersect(other.getintbound())
+
+    def make_guards(self, box):
+        guards = []
+        if self.level == LEVEL_CONSTANT:
+            op = ResOperation(rop.GUARD_VALUE, [box, self.box], None)
+            guards.append(op)
+        elif self.level == LEVEL_KNOWNCLASS:
+            op = ResOperation(rop.GUARD_NONNULL, [box], None)
+            guards.append(op)
+        else:
+            if self.level == LEVEL_NONNULL:
+                op = ResOperation(rop.GUARD_NONNULL, [box], None)
+                guards.append(op)
+            self.intbound.make_guards(box, guards)
+        return guards
+
+    def getintbound(self):
+        return self.intbound
+
+    def get_last_guard(self):
+        return None
+
+    def get_known_class(self):
+        return None
+
+    def getlenbound(self):
+        return None
+
+class ConstantFloatValue(OptValue):
+    def __init__(self, box):
+        self.make_constant(box)
+
+    def __repr__(self):
+        return 'Constant(%r)' % (self.box,)
+
+class ConstantIntValue(IntOptValue):
+    def __init__(self, box):
+        self.make_constant(box)
+
+    def __repr__(self):
+        return 'Constant(%r)' % (self.box,)
+
+class ConstantPtrValue(PtrOptValue):
     def __init__(self, box):
         self.make_constant(box)
 
@@ -276,9 +399,9 @@ class ConstantValue(OptValue):
 
 CONST_0      = ConstInt(0)
 CONST_1      = ConstInt(1)
-CVAL_ZERO    = ConstantValue(CONST_0)
-CVAL_ZERO_FLOAT = ConstantValue(Const._new(0.0))
-llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
+CVAL_ZERO    = ConstantIntValue(CONST_0)
+CVAL_ZERO_FLOAT = ConstantFloatValue(Const._new(0.0))
+llhelper.CVAL_NULLREF = ConstantPtrValue(llhelper.CONST_NULL)
 REMOVED = AbstractResOp(None)
 
 
@@ -305,8 +428,8 @@ class Optimization(object):
     def make_constant_int(self, box, intconst):
         return self.optimizer.make_constant_int(box, intconst)
 
-    def make_equal_to(self, box, value):
-        return self.optimizer.make_equal_to(box, value)
+    def make_equal_to(self, box, value, replace=False):
+        return self.optimizer.make_equal_to(box, value, replace=replace)
 
     def get_constant_box(self, box):
         return self.optimizer.get_constant_box(box)
@@ -338,9 +461,6 @@ class Optimization(object):
         return None
 
     def setup(self):
-        pass
-
-    def turned_constant(self, value):
         pass
 
     def force_at_end_of_preamble(self):
@@ -390,9 +510,9 @@ class Optimizer(Optimization):
         self.opaque_pointers = {}
         self.replaces_guard = {}
         self._newoperations = []
-        self.seen_results = {}
         self.optimizer = self
         self.optpure = None
+        self.optheap = None
         self.optearlyforce = None
         if loop is not None:
             self.call_pure_results = loop.call_pure_results
@@ -428,10 +548,6 @@ class Optimizer(Optimization):
         for opt in self.optimizations:
             opt.produce_potential_short_preamble_ops(sb)
 
-    def turned_constant(self, value):
-        for o in self.optimizations:
-            o.turned_constant(value)
-
     def forget_numberings(self, virtualbox):
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_FORCINGS)
         self.resumedata_memo.forget_numberings(virtualbox)
@@ -457,7 +573,12 @@ class Optimizer(Optimization):
         try:
             value = self.values[box]
         except KeyError:
-            value = self.values[box] = OptValue(box)
+            if isinstance(box, BoxPtr) or isinstance(box, ConstPtr):
+                value = self.values[box] = PtrOptValue(box)
+            elif isinstance(box, BoxInt) or isinstance(box, ConstInt):
+                value = self.values[box] = IntOptValue(box)
+            else:
+                value = self.values[box] = OptValue(box)
         self.ensure_imported(value)
         return value
 
@@ -485,15 +606,31 @@ class Optimizer(Optimization):
 
     def clear_newoperations(self):
         self._newoperations = []
-        self.seen_results = {}
 
     def make_equal_to(self, box, value, replace=False):
         assert isinstance(value, OptValue)
-        assert replace or box not in self.values
+        if replace:
+            try:
+                cur_value = self.values[box]
+            except KeyError:
+                pass
+            else:
+                assert value.level != LEVEL_CONSTANT
+                assert cur_value.level != LEVEL_CONSTANT
+                # replacing with a different box
+                cur_value.copy_from(value)
+                return
         self.values[box] = value
 
     def make_constant(self, box, constbox):
-        self.make_equal_to(box, ConstantValue(constbox))
+        if isinstance(constbox, ConstInt):
+            self.make_equal_to(box, ConstantIntValue(constbox))
+        elif isinstance(constbox, ConstPtr):
+            self.make_equal_to(box, ConstantPtrValue(constbox))
+        elif isinstance(constbox, ConstFloat):
+            self.make_equal_to(box, ConstantFloatValue(constbox))
+        else:
+            assert False
 
     def make_constant_int(self, box, intvalue):
         self.make_constant(box, ConstInt(intvalue))
@@ -547,7 +684,8 @@ class Optimizer(Optimization):
         self.first_optimization.propagate_forward(op)
 
     def propagate_forward(self, op):
-        self.producer[op.result] = op
+        if op.result is not None:
+            self.producer[op.result] = op
         dispatch_opt(self, op)
 
     def emit_operation(self, op):
@@ -580,10 +718,6 @@ class Optimizer(Optimization):
                 op = self.store_final_boxes_in_guard(op, pendingfields)
         elif op.can_raise():
             self.exception_might_have_happened = True
-        if op.result:
-            if op.result in self.seen_results:
-                raise ValueError, "invalid optimization"
-            self.seen_results[op.result] = None
         self._newoperations.append(op)
 
     def replace_op(self, old_op, new_op):

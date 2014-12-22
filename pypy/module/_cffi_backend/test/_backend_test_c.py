@@ -397,7 +397,7 @@ def test_cmp_none():
 def test_invalid_indexing():
     p = new_primitive_type("int")
     x = cast(p, 42)
-    py.test.raises(TypeError, "p[0]")
+    py.test.raises(TypeError, "x[0]")
 
 def test_default_str():
     BChar = new_primitive_type("char")

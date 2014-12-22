@@ -104,7 +104,7 @@ class BaseTestBasic(BaseTest):
         if loop.operations[-1].getopnum() == rop.JUMP:
             loop.operations[-1].setdescr(token)
         expected = convert_old_style_to_targets(self.parse(optops), jump=True)
-        self._do_optimize_loop(loop, call_pure_results)
+        self._do_optimize_loop(loop, call_pure_results, export_state=False)
         print '\n'.join([str(o) for o in loop.operations])
         self.assert_equal(loop, expected)
 
@@ -998,6 +998,40 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         finish(2)
         """
         self.optimize_loop(ops, expected)
+
+    def test_virtual_array_of_struct_arraycopy(self):
+        ops = """
+        [f0, f1]
+        p0 = new_array_clear(3, descr=complexarraydescr)
+        setinteriorfield_gc(p0, 0, f0, descr=compleximagdescr)
+        setinteriorfield_gc(p0, 0, f1, descr=complexrealdescr)
+        call(0, p0, p0, 0, 2, 1, descr=complexarraycopydescr)
+        f2 = getinteriorfield_gc(p0, 2, descr=complexrealdescr)
+        f3 = getinteriorfield_gc(p0, 2, descr=compleximagdescr)
+        escape(f2)
+        escape(f3)
+        finish(1)
+        """
+        expected = """
+        [f0, f1]
+        escape(f1)
+        escape(f0)
+        finish(1)
+        """
+        self.optimize_loop(ops, ops)
+        py.test.skip("XXX missing optimization: ll_arraycopy(array-of-structs)")
+
+    def test_nonvirtual_array_of_struct_arraycopy(self):
+        ops = """
+        [p0]
+        call(0, p0, p0, 0, 2, 1, descr=complexarraycopydescr)
+        f2 = getinteriorfield_gc(p0, 2, descr=compleximagdescr)
+        f3 = getinteriorfield_gc(p0, 2, descr=complexrealdescr)
+        escape(f2)
+        escape(f3)
+        finish(1)
+        """
+        self.optimize_loop(ops, ops)
 
     def test_nonvirtual_1(self):
         ops = """

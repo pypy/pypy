@@ -618,8 +618,8 @@ class W_ListObject(W_Root):
         try:
             i = self.find(w_value, 0, sys.maxint)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("list.remove(x): x not in list"))
+            raise oefmt(space.w_ValueError,
+                        "list.remove(): %R is not in list", w_value)
         if i < self.length():  # otherwise list was mutated
             self.pop(i)
 
@@ -633,8 +633,7 @@ class W_ListObject(W_Root):
         try:
             i = self.find(w_value, i, stop)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("list.index(x): x not in list"))
+            raise oefmt(space.w_ValueError, "%R is not in list", w_value)
         return space.wrap(i)
 
     @unwrap_spec(reverse=bool)

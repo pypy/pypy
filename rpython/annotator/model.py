@@ -389,7 +389,7 @@ class SomeOrderedDict(SomeDict):
         assert isinstance(dct2, SomeOrderedDict), "OrderedDict.update(dict) not allowed"
         dct1.dictdef.union(dct2.dictdef)
 
-SomeDict=SomeOrderedDict
+SomeDict = SomeOrderedDict      # all dicts are ordered!
 
 
 class SomeIterator(SomeObject):
