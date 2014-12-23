@@ -849,7 +849,7 @@ class AssemblerLibgccjit(BaseAssembler):
     def emit_float_abs(self, resop):
         self._impl_float_unaryop(resop, self.lib.GCC_JIT_UNARY_OP_ABS)
 
-    # "CAST_" operations:
+    # "CAST_" operations for "FLOAT":
     def emit_cast_float_to_int(self, resop):
         rvalue = self.expr_to_rvalue(resop._arg0)
         lvalres = self.expr_to_lvalue(resop.result)
@@ -966,6 +966,28 @@ class AssemblerLibgccjit(BaseAssembler):
         self._impl_int_unaryop(resop, self.lib.GCC_JIT_UNARY_OP_MINUS)
     def emit_int_invert(self, resop):
         self._impl_int_unaryop(resop, self.lib.GCC_JIT_UNARY_OP_BITWISE_NEGATE)
+
+    # "CAST_" operations for "INT" vs "PTR":
+    def emit_cast_ptr_to_int(self, resop):
+        rvalue_in = self.expr_to_rvalue(resop._arg0)
+        lvalue_tmp = self.fn.new_local(self.t_any, "tmp")
+        lvalue_result = self.expr_to_lvalue(resop.result)
+        self.b_current.add_assignment(
+            lvalue_tmp.access_field(self.u_ptr),
+            rvalue_in)
+        self.b_current.add_assignment(
+            lvalue_result,
+            lvalue_tmp.as_rvalue().access_field(self.u_signed))
+    def emit_cast_int_to_ptr(self, resop):
+        rvalue_in = self.expr_to_rvalue(resop._arg0)
+        lvalue_tmp = self.fn.new_local(self.t_any, "tmp")
+        lvalue_result = self.expr_to_lvalue(resop.result)
+        self.b_current.add_assignment(
+            lvalue_tmp.access_field(self.u_signed),
+            rvalue_in)
+        self.b_current.add_assignment(
+            lvalue_result,
+            lvalue_tmp.as_rvalue().access_field(self.u_ptr))
 
     #
 

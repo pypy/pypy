@@ -356,6 +356,11 @@ class Library:
                                              self.GCC_JIT_LOCATION_P,
                                              self.GCC_JIT_FIELD_P]),
 
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_rvalue_access_field', [self.GCC_JIT_RVALUE_P,
+                                             self.GCC_JIT_LOCATION_P,
+                                             self.GCC_JIT_FIELD_P]),
+
             (self.GCC_JIT_LVALUE_P,
              'gcc_jit_rvalue_dereference_field', [self.GCC_JIT_RVALUE_P,
                                                   self.GCC_JIT_LOCATION_P,
@@ -858,6 +863,14 @@ class RValue(Object):
         return Type(self.lib,
                     self,
                     self.lib.gcc_jit_rvalue_get_type(self.inner_rvalue))
+
+    def access_field(self, field):
+        return RValue(self.lib,
+                      self,
+                      self.lib.gcc_jit_rvalue_access_field(
+                          self.inner_rvalue,
+                          self.lib.null_location_ptr,
+                          field.inner_field))
 
     def dereference_field(self, field):
         return LValue(self.lib,
