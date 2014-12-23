@@ -1067,6 +1067,11 @@ class AssemblerLibgccjit(BaseAssembler):
             self.ctxt.new_cast(self.expr_to_rvalue(resop._arg1),
                                t_field))
 
+    def emit_debug_merge_point(self, resop):
+        pass # noop
+    def emit_jit_debug(self, resop):
+        pass # noop
+
     # "INT_*_OVF" operations:
     def _impl_int_ovf(self, resop, builtin_name):
         """
