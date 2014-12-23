@@ -14,6 +14,11 @@ from rpython.rtyper.annlowlevel import (
 from rpython.rtyper.lltypesystem.rffi import *
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 
+# Global state
+num_anon_loops = 0
+num_guard_failure_fns = 0
+num_bridges = 0
+
 class Params:
     def __init__(self, assembler):
         self.paramlist = []
@@ -77,8 +82,9 @@ class Patchpoint:
     """
     def __init__(self, assembler):
         self.failure_params = Params(assembler)
-        self.serial = assembler.num_guard_failure_fns
-        assembler.num_guard_failure_fns += 1
+        global num_guard_failure_fns
+        self.serial = num_guard_failure_fns
+        num_guard_failure_fns += 1
         self.t_fn_ptr_type = assembler.ctxt.new_function_ptr_type (
             assembler.t_jit_frame_ptr,
             self.failure_params.paramtypes,
@@ -154,10 +160,6 @@ class AssemblerLibgccjit(BaseAssembler):
         self.stack_check_slowpath = 0
         self.propagate_exception_path = 0
         #self.teardown()
-
-        self.num_anon_loops = 0
-        self.num_guard_failure_fns = 0
-        self.num_bridges = 0
 
         self.sizeof_signed = rffi.sizeof(lltype.Signed)
         self.label_for_descr = {}
@@ -251,8 +253,9 @@ class AssemblerLibgccjit(BaseAssembler):
         self.lvalue_for_box = {}
 
         if not loopname:
-            loopname = 'anonloop_%i' % self.num_anon_loops
-            self.num_anon_loops += 1
+            global num_anon_loops
+            loopname = 'anonloop_%i' % num_anon_loops
+            num_anon_loops += 1
         print("  loopname: %r" % loopname)
         self.make_function(loopname, inputargs, operations)
 
@@ -295,8 +298,9 @@ class AssemblerLibgccjit(BaseAssembler):
                                                            operations)
         self.lvalue_for_box = {}
 
-        name = "bridge_%i" % self.num_bridges
-        self.num_bridges += 1
+        global num_bridges
+        name = "bridge_%i" % num_bridges
+        num_bridges += 1
 
         self.make_function(name, inputargs, operations)
 
@@ -399,6 +403,7 @@ class AssemblerLibgccjit(BaseAssembler):
                                    self.loop_params.paramlist,
                                    r_int(0)))
 
+        self.lvalue_ovf = self.fn.new_local(self.t_bool, "ovf")
         self.b_current = self.fn.new_block("initial")
 
         # Add an initial comment summarizing the loop or bridge:
@@ -725,6 +730,14 @@ class AssemblerLibgccjit(BaseAssembler):
                              self.t_bool,
                              boolval_is_nonnull, boolval_vtable_equality))
 
+    def emit_guard_no_overflow(self, resop):
+        self._impl_guard(resop, r_int(0),
+                         self.lvalue_ovf.as_rvalue())
+
+    def emit_guard_overflow(self, resop):
+        self._impl_guard(resop, r_int(1),
+                         self.lvalue_ovf.as_rvalue())
+
     def _impl_write_output_args(self, params, args):
         # Write outputs back:
         for idx, arg in enumerate(args):
@@ -1031,3 +1044,29 @@ class AssemblerLibgccjit(BaseAssembler):
             # ... = ARG1,
             self.ctxt.new_cast(self.expr_to_rvalue(resop._arg1),
                                t_field))
+
+    # "INT_*_OVF" operations:
+    def _impl_int_ovf(self, resop, builtin_name):
+        """
+        We implement ovf int binops using GCC builtins,
+        generating a call of the form:
+          ovf = __builtin_FOO_overflow(arg0, arg1, &result);
+        This is then optimized by gcc's builtins.c
+        fold_builtin_arith_overflow.
+        """
+        rval0 = self.expr_to_rvalue(resop._arg0)
+        rval1 = self.expr_to_rvalue(resop._arg1)
+        lvalres = self.expr_to_lvalue(resop.result)
+        builtin_fn = self.ctxt.get_builtin_function(builtin_name)
+        # "ovf = __builtin_FOO_overflow(arg0, arg1, &result);"
+        call = self.ctxt.new_call(builtin_fn,
+                                  [rval0,
+                                   rval1,
+                                   lvalres.get_address()])
+        self.b_current.add_assignment(self.lvalue_ovf, call)
+    def emit_int_add_ovf(self, resop):
+        self._impl_int_ovf(resop, '__builtin_add_overflow')
+    def emit_int_sub_ovf(self, resop):
+        self._impl_int_ovf(resop, '__builtin_sub_overflow')
+    def emit_int_mul_ovf(self, resop):
+        self._impl_int_ovf(resop, '__builtin_mul_overflow')

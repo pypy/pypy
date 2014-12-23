@@ -230,6 +230,10 @@ class Library:
                                               self.PARAM_P_P,
                                               INT]),
 
+            (self.GCC_JIT_FUNCTION_P,
+             'gcc_jit_context_get_builtin_function', [self.GCC_JIT_CONTEXT_P,
+                                                      CCHARP]),
+
             (self.GCC_JIT_OBJECT_P,
              'gcc_jit_function_as_object', [self.GCC_JIT_FUNCTION_P]),
 
@@ -749,6 +753,13 @@ class Context(Wrapper):
         lltype.free(raw_param_array, flavor='raw')
         free_charp(name_charp)
 
+        return Function(self.lib, self, fn)
+
+    def get_builtin_function(self, name):
+        name_charp = str2charp(name)
+        fn = self.lib.gcc_jit_context_get_builtin_function(self.inner_ctxt,
+                                                           name_charp)
+        free_charp(name_charp)
         return Function(self.lib, self, fn)
 
     def new_global(self, kind, type_, name):
