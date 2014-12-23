@@ -96,274 +96,284 @@ class Library:
 
         # Entrypoints:
         for returntype, name, paramtypes in [
-                (self.GCC_JIT_CONTEXT_P,
-                 'gcc_jit_context_acquire', []),
+            (self.GCC_JIT_CONTEXT_P,
+             'gcc_jit_context_acquire', []),
 
-                (lltype.Void,
-                 'gcc_jit_context_release', [self.GCC_JIT_CONTEXT_P]),
+            (lltype.Void,
+             'gcc_jit_context_release', [self.GCC_JIT_CONTEXT_P]),
 
-                (lltype.Void,
-                 'gcc_jit_context_set_int_option', [self.GCC_JIT_CONTEXT_P,
-                                                    INT, # FIXME: enum gcc_jit_int_option opt,
-                                                    INT]),
-                (lltype.Void,
-                 'gcc_jit_context_set_bool_option', [self.GCC_JIT_CONTEXT_P,
-                                                     INT, # FIXME: enum gcc_jit_bool_option opt,
-                                                     INT]),
+            (lltype.Void,
+             'gcc_jit_context_set_int_option', [self.GCC_JIT_CONTEXT_P,
+                                                # FIXME:
+                                                #   enum gcc_jit_int_option:
+                                                INT,
+                                                INT]),
+            (lltype.Void,
+             'gcc_jit_context_set_bool_option', [self.GCC_JIT_CONTEXT_P,
+                                                 # FIXME:
+                                                 # enum gcc_jit_bool_option:
+                                                 INT,
+                                                 INT]),
 
-                (self.GCC_JIT_RESULT_P,
-                 'gcc_jit_context_compile', [self.GCC_JIT_CONTEXT_P]),
+            (self.GCC_JIT_RESULT_P,
+             'gcc_jit_context_compile', [self.GCC_JIT_CONTEXT_P]),
 
 
-                (lltype.Void,
-                 'gcc_jit_context_dump_to_file', [self.GCC_JIT_CONTEXT_P,
-                                                  CCHARP,
-                                                  INT]),
-
-                (CCHARP,
-                 'gcc_jit_context_get_last_error', [self.GCC_JIT_CONTEXT_P]),
-
-                (VOIDP,
-                 'gcc_jit_result_get_code', [self.GCC_JIT_RESULT_P,
-                                             CCHARP]),
-
-                (VOIDP,
-                 'gcc_jit_result_get_global', [self.GCC_JIT_RESULT_P,
-                                               CCHARP]),
-
-                (lltype.Void,
-                 'gcc_jit_result_release', [self.GCC_JIT_RESULT_P]),
-
-                (CCHARP,
-                 'gcc_jit_object_get_debug_string', [self.GCC_JIT_OBJECT_P]),
-
-                ############################################################
-                # Types
-                ############################################################
-                (self.GCC_JIT_TYPE_P,
-                 'gcc_jit_context_get_type', [self.GCC_JIT_CONTEXT_P,
+            (lltype.Void,
+             'gcc_jit_context_dump_to_file', [self.GCC_JIT_CONTEXT_P,
+                                              CCHARP,
                                               INT]),
 
-                (self.GCC_JIT_TYPE_P,
-                 'gcc_jit_context_get_int_type', [self.GCC_JIT_CONTEXT_P,
-                                                  INT,
-                                                  INT]),
+            (CCHARP,
+             'gcc_jit_context_get_last_error', [self.GCC_JIT_CONTEXT_P]),
 
-                (self.GCC_JIT_TYPE_P,
-                 'gcc_jit_type_get_pointer', [self.GCC_JIT_TYPE_P]),
+            (VOIDP,
+             'gcc_jit_result_get_code', [self.GCC_JIT_RESULT_P,
+                                         CCHARP]),
 
-                (self.GCC_JIT_FIELD_P,
-                 'gcc_jit_context_new_field', [self.GCC_JIT_CONTEXT_P,
-                                               self.GCC_JIT_LOCATION_P,
-                                               self.GCC_JIT_TYPE_P,
-                                               CCHARP]),
-                (self.GCC_JIT_STRUCT_P,
-                 'gcc_jit_context_new_struct_type', [self.GCC_JIT_CONTEXT_P,
-                                                     self.GCC_JIT_LOCATION_P,
-                                                     CCHARP,
-                                                     INT,
-                                                     self.FIELD_P_P]),
+            (VOIDP,
+             'gcc_jit_result_get_global', [self.GCC_JIT_RESULT_P,
+                                           CCHARP]),
 
-                (self.GCC_JIT_STRUCT_P,
-                 'gcc_jit_context_new_opaque_struct', [self.GCC_JIT_CONTEXT_P,
-                                                       self.GCC_JIT_LOCATION_P,
-                                                       CCHARP]),
-                (self.GCC_JIT_TYPE_P,
-                 'gcc_jit_struct_as_type', [self.GCC_JIT_STRUCT_P]),
+            (lltype.Void,
+             'gcc_jit_result_release', [self.GCC_JIT_RESULT_P]),
 
-                (lltype.Void,
-                 'gcc_jit_struct_set_fields', [self.GCC_JIT_STRUCT_P,
-                                               self.GCC_JIT_LOCATION_P,
-                                               INT,
-                                               self.FIELD_P_P]),
+            (CCHARP,
+             'gcc_jit_object_get_debug_string', [self.GCC_JIT_OBJECT_P]),
 
-                (self.GCC_JIT_TYPE_P,
-                 'gcc_jit_context_new_union_type', [self.GCC_JIT_CONTEXT_P,
-                                                    self.GCC_JIT_LOCATION_P,
-                                                    CCHARP,
-                                                    INT,
-                                                    self.FIELD_P_P]),
+            ############################################################
+            # Types
+            ############################################################
+            (self.GCC_JIT_TYPE_P,
+             'gcc_jit_context_get_type', [self.GCC_JIT_CONTEXT_P,
+                                              INT]),
 
-                (self.GCC_JIT_TYPE_P,
-                 'gcc_jit_context_new_function_ptr_type', [self.GCC_JIT_CONTEXT_P,
-                                                           self.GCC_JIT_LOCATION_P,
-                                                           self.GCC_JIT_TYPE_P,
-                                                           INT,
-                                                           self.TYPE_P_P,
-                                                           INT]),
-
-                ############################################################
-                # Constructing functions.
-                ############################################################
-                (self.GCC_JIT_PARAM_P,
-                 'gcc_jit_context_new_param', [self.GCC_JIT_CONTEXT_P,
-                                               self.GCC_JIT_LOCATION_P,
-                                               self.GCC_JIT_TYPE_P,
-                                               CCHARP]),
-                (self.GCC_JIT_LVALUE_P,
-                 'gcc_jit_param_as_lvalue', [self.GCC_JIT_PARAM_P]),
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_param_as_rvalue', [self.GCC_JIT_PARAM_P]),
-
-                (self.GCC_JIT_FUNCTION_P,
-                 'gcc_jit_context_new_function', [self.GCC_JIT_CONTEXT_P,
-                                                  self.GCC_JIT_LOCATION_P,
-                                                  INT, # enum gcc_jit_function_kind kind,
-                                                  self.GCC_JIT_TYPE_P,
-                                                  CCHARP,
-                                                  INT,
-                                                  self.PARAM_P_P,
-                                                  INT]),
-
-                (self.GCC_JIT_OBJECT_P,
-                 'gcc_jit_function_as_object', [self.GCC_JIT_FUNCTION_P]),
-
-                (self.GCC_JIT_LVALUE_P,
-                 'gcc_jit_function_new_local', [self.GCC_JIT_FUNCTION_P,
-                                                self.GCC_JIT_LOCATION_P,
-                                                self.GCC_JIT_TYPE_P,
-                                                CCHARP]),
-
-                (self.GCC_JIT_BLOCK_P,
-                 'gcc_jit_function_new_block', [self.GCC_JIT_FUNCTION_P,
-                                                CCHARP]),
-
-                ############################################################
-                # lvalues, rvalues and expressions.
-                ############################################################
-                (self.GCC_JIT_LVALUE_P,
-                 'gcc_jit_context_new_global', [self.GCC_JIT_CONTEXT_P,
-                                                self.GCC_JIT_LOCATION_P,
-                                                INT, # enum gcc_jit_global_kind
-                                                self.GCC_JIT_TYPE_P,
-                                                CCHARP]),
-
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_lvalue_as_rvalue', [self.GCC_JIT_LVALUE_P]),
-
-                (self.GCC_JIT_TYPE_P,
-                 'gcc_jit_rvalue_get_type', [self.GCC_JIT_RVALUE_P]),
-
-                # Integer constants.
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_context_new_rvalue_from_int', [self.GCC_JIT_CONTEXT_P,
-                                                         self.GCC_JIT_TYPE_P,
-                                                         INT]),
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_context_new_rvalue_from_long', [self.GCC_JIT_CONTEXT_P,
-                                                          self.GCC_JIT_TYPE_P,
-                                                          LONG]),
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_context_zero', [self.GCC_JIT_CONTEXT_P,
-                                          self.GCC_JIT_TYPE_P]),
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_context_one', [self.GCC_JIT_CONTEXT_P,
-                                         self.GCC_JIT_TYPE_P]),
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_context_new_rvalue_from_double', [self.GCC_JIT_CONTEXT_P,
-                                                            self.GCC_JIT_TYPE_P,
-                                                            DOUBLE]),
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_context_new_rvalue_from_ptr', [self.GCC_JIT_CONTEXT_P,
-                                                         self.GCC_JIT_TYPE_P,
-                                                         VOIDP]),
-
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_context_null', [self.GCC_JIT_CONTEXT_P,
-                                          self.GCC_JIT_TYPE_P]),
-
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_context_new_unary_op', [self.GCC_JIT_CONTEXT_P,
-                                                  self.GCC_JIT_LOCATION_P,
-                                                  INT, # enum gcc_jit_unary_op op,
-                                                  self.GCC_JIT_TYPE_P,
-                                                  self.GCC_JIT_RVALUE_P]),
-
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_context_new_binary_op', [self.GCC_JIT_CONTEXT_P,
-                                                   self.GCC_JIT_LOCATION_P,
-                                                   INT, # enum gcc_jit_binary_op op,
-                                                   self.GCC_JIT_TYPE_P,
-                                                   self.GCC_JIT_RVALUE_P,
-                                                   self.GCC_JIT_RVALUE_P]),
-
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_context_new_comparison', [self.GCC_JIT_CONTEXT_P,
-                                                    self.GCC_JIT_LOCATION_P,
-                                                    INT, # enum gcc_jit_comparison op,
-                                                    self.GCC_JIT_RVALUE_P,
-                                                    self.GCC_JIT_RVALUE_P]),
-
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_context_new_call', [self.GCC_JIT_CONTEXT_P,
-                                              self.GCC_JIT_LOCATION_P,
-                                              self.GCC_JIT_FUNCTION_P,
+            (self.GCC_JIT_TYPE_P,
+             'gcc_jit_context_get_int_type', [self.GCC_JIT_CONTEXT_P,
                                               INT,
-                                              self.RVALUE_P_P]),
+                                              INT]),
 
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_context_new_call_through_ptr',[self.GCC_JIT_CONTEXT_P,
-                                                         self.GCC_JIT_LOCATION_P,
-                                                         self.GCC_JIT_RVALUE_P,
-                                                         INT,
-                                                         self.RVALUE_P_P]),
+            (self.GCC_JIT_TYPE_P,
+             'gcc_jit_type_get_pointer', [self.GCC_JIT_TYPE_P]),
 
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_context_new_cast', [self.GCC_JIT_CONTEXT_P,
-                                              self.GCC_JIT_LOCATION_P,
-                                              self.GCC_JIT_RVALUE_P,
-                                              self.GCC_JIT_TYPE_P]),
-
-                (self.GCC_JIT_LVALUE_P,
-                 'gcc_jit_context_new_array_access', [self.GCC_JIT_CONTEXT_P,
-                                                      self.GCC_JIT_LOCATION_P,
-                                                      self.GCC_JIT_RVALUE_P,
-                                                      self.GCC_JIT_RVALUE_P]),
-
-                (self.GCC_JIT_LVALUE_P,
-                 'gcc_jit_lvalue_access_field', [self.GCC_JIT_LVALUE_P,
+            (self.GCC_JIT_FIELD_P,
+             'gcc_jit_context_new_field', [self.GCC_JIT_CONTEXT_P,
+                                           self.GCC_JIT_LOCATION_P,
+                                           self.GCC_JIT_TYPE_P,
+                                           CCHARP]),
+            (self.GCC_JIT_STRUCT_P,
+             'gcc_jit_context_new_struct_type', [self.GCC_JIT_CONTEXT_P,
                                                  self.GCC_JIT_LOCATION_P,
-                                                 self.GCC_JIT_FIELD_P]),
+                                                 CCHARP,
+                                                 INT,
+                                                 self.FIELD_P_P]),
 
-                (self.GCC_JIT_LVALUE_P,
-                 'gcc_jit_rvalue_dereference_field', [self.GCC_JIT_RVALUE_P,
-                                                      self.GCC_JIT_LOCATION_P,
-                                                      self.GCC_JIT_FIELD_P]),
-
-                (self.GCC_JIT_LVALUE_P,
-                 'gcc_jit_rvalue_dereference', [self.GCC_JIT_RVALUE_P,
-                                                self.GCC_JIT_LOCATION_P]),
-
-                (self.GCC_JIT_RVALUE_P,
-                 'gcc_jit_lvalue_get_address', [self.GCC_JIT_LVALUE_P,
-                                                self.GCC_JIT_LOCATION_P]),
-
-                ############################################################
-                # Statement-creation.
-                ############################################################
-                (lltype.Void,
-                 'gcc_jit_block_add_assignment', [self.GCC_JIT_BLOCK_P,
-                                                  self.GCC_JIT_LOCATION_P,
-                                                  self.GCC_JIT_LVALUE_P,
-                                                  self.GCC_JIT_RVALUE_P]),
-                (lltype.Void,
-                 'gcc_jit_block_add_comment', [self.GCC_JIT_BLOCK_P,
-                                               self.GCC_JIT_LOCATION_P,
-                                               CCHARP]),
-                (lltype.Void,
-                 'gcc_jit_block_end_with_conditional', [self.GCC_JIT_BLOCK_P,
-                                                        self.GCC_JIT_LOCATION_P,
-                                                        self.GCC_JIT_RVALUE_P,
-                                                        self.GCC_JIT_BLOCK_P,
-                                                        self.GCC_JIT_BLOCK_P]),
-                (lltype.Void,
-                 'gcc_jit_block_end_with_jump', [self.GCC_JIT_BLOCK_P,
-                                                 self.GCC_JIT_LOCATION_P,
-                                                 self.GCC_JIT_BLOCK_P]),
-                (lltype.Void,
-                 'gcc_jit_block_end_with_return', [self.GCC_JIT_BLOCK_P,
+            (self.GCC_JIT_STRUCT_P,
+             'gcc_jit_context_new_opaque_struct', [self.GCC_JIT_CONTEXT_P,
                                                    self.GCC_JIT_LOCATION_P,
-                                                   self.GCC_JIT_RVALUE_P]),
+                                                   CCHARP]),
+            (self.GCC_JIT_TYPE_P,
+             'gcc_jit_struct_as_type', [self.GCC_JIT_STRUCT_P]),
+
+            (lltype.Void,
+             'gcc_jit_struct_set_fields', [self.GCC_JIT_STRUCT_P,
+                                           self.GCC_JIT_LOCATION_P,
+                                           INT,
+                                           self.FIELD_P_P]),
+
+            (self.GCC_JIT_TYPE_P,
+             'gcc_jit_context_new_union_type', [self.GCC_JIT_CONTEXT_P,
+                                                self.GCC_JIT_LOCATION_P,
+                                                CCHARP,
+                                                INT,
+                                                self.FIELD_P_P]),
+
+            (self.GCC_JIT_TYPE_P,
+             'gcc_jit_context_new_function_ptr_type', [self.GCC_JIT_CONTEXT_P,
+                                                       self.GCC_JIT_LOCATION_P,
+                                                       self.GCC_JIT_TYPE_P,
+                                                       INT,
+                                                       self.TYPE_P_P,
+                                                       INT]),
+
+            ############################################################
+            # Constructing functions.
+            ############################################################
+            (self.GCC_JIT_PARAM_P,
+             'gcc_jit_context_new_param', [self.GCC_JIT_CONTEXT_P,
+                                           self.GCC_JIT_LOCATION_P,
+                                           self.GCC_JIT_TYPE_P,
+                                           CCHARP]),
+            (self.GCC_JIT_LVALUE_P,
+             'gcc_jit_param_as_lvalue', [self.GCC_JIT_PARAM_P]),
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_param_as_rvalue', [self.GCC_JIT_PARAM_P]),
+
+            (self.GCC_JIT_FUNCTION_P,
+             'gcc_jit_context_new_function', [self.GCC_JIT_CONTEXT_P,
+                                              self.GCC_JIT_LOCATION_P,
+                                              # FIXME:
+                                              #   enum gcc_jit_function_kind:
+                                              INT,
+                                              self.GCC_JIT_TYPE_P,
+                                              CCHARP,
+                                              INT,
+                                              self.PARAM_P_P,
+                                              INT]),
+
+            (self.GCC_JIT_OBJECT_P,
+             'gcc_jit_function_as_object', [self.GCC_JIT_FUNCTION_P]),
+
+            (self.GCC_JIT_LVALUE_P,
+             'gcc_jit_function_new_local', [self.GCC_JIT_FUNCTION_P,
+                                            self.GCC_JIT_LOCATION_P,
+                                            self.GCC_JIT_TYPE_P,
+                                            CCHARP]),
+
+            (self.GCC_JIT_BLOCK_P,
+             'gcc_jit_function_new_block', [self.GCC_JIT_FUNCTION_P,
+                                            CCHARP]),
+
+            ############################################################
+            # lvalues, rvalues and expressions.
+            ############################################################
+            (self.GCC_JIT_LVALUE_P,
+             'gcc_jit_context_new_global', [self.GCC_JIT_CONTEXT_P,
+                                            self.GCC_JIT_LOCATION_P,
+                                            # FIXME enum gcc_jit_global_kind:
+                                            INT,
+                                            self.GCC_JIT_TYPE_P,
+                                            CCHARP]),
+
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_lvalue_as_rvalue', [self.GCC_JIT_LVALUE_P]),
+
+            (self.GCC_JIT_TYPE_P,
+             'gcc_jit_rvalue_get_type', [self.GCC_JIT_RVALUE_P]),
+
+            # Integer constants.
+            (self.GCC_JIT_RVALUE_P,
+            'gcc_jit_context_new_rvalue_from_int', [self.GCC_JIT_CONTEXT_P,
+                                                    self.GCC_JIT_TYPE_P,
+                                                    INT]),
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_context_new_rvalue_from_long', [self.GCC_JIT_CONTEXT_P,
+                                                      self.GCC_JIT_TYPE_P,
+                                                      LONG]),
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_context_zero', [self.GCC_JIT_CONTEXT_P,
+                                      self.GCC_JIT_TYPE_P]),
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_context_one', [self.GCC_JIT_CONTEXT_P,
+                                     self.GCC_JIT_TYPE_P]),
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_context_new_rvalue_from_double', [self.GCC_JIT_CONTEXT_P,
+                                                        self.GCC_JIT_TYPE_P,
+                                                        DOUBLE]),
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_context_new_rvalue_from_ptr', [self.GCC_JIT_CONTEXT_P,
+                                                     self.GCC_JIT_TYPE_P,
+                                                     VOIDP]),
+
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_context_null', [self.GCC_JIT_CONTEXT_P,
+                                      self.GCC_JIT_TYPE_P]),
+
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_context_new_unary_op', [self.GCC_JIT_CONTEXT_P,
+                                              self.GCC_JIT_LOCATION_P,
+                                              # FIXME enum gcc_jit_unary_op:
+                                              INT,
+                                              self.GCC_JIT_TYPE_P,
+                                              self.GCC_JIT_RVALUE_P]),
+
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_context_new_binary_op', [self.GCC_JIT_CONTEXT_P,
+                                               self.GCC_JIT_LOCATION_P,
+                                               # FIXME enum gcc_jit_binary_op:
+                                               INT,
+                                               self.GCC_JIT_TYPE_P,
+                                               self.GCC_JIT_RVALUE_P,
+                                               self.GCC_JIT_RVALUE_P]),
+
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_context_new_comparison', [self.GCC_JIT_CONTEXT_P,
+                                                self.GCC_JIT_LOCATION_P,
+                                                # FIXME enum gcc_jit_comparison:
+                                                INT,
+                                                self.GCC_JIT_RVALUE_P,
+                                                self.GCC_JIT_RVALUE_P]),
+
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_context_new_call', [self.GCC_JIT_CONTEXT_P,
+                                          self.GCC_JIT_LOCATION_P,
+                                          self.GCC_JIT_FUNCTION_P,
+                                          INT,
+                                          self.RVALUE_P_P]),
+
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_context_new_call_through_ptr',[self.GCC_JIT_CONTEXT_P,
+                                                     self.GCC_JIT_LOCATION_P,
+                                                     self.GCC_JIT_RVALUE_P,
+                                                     INT,
+                                                     self.RVALUE_P_P]),
+
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_context_new_cast', [self.GCC_JIT_CONTEXT_P,
+                                          self.GCC_JIT_LOCATION_P,
+                                          self.GCC_JIT_RVALUE_P,
+                                          self.GCC_JIT_TYPE_P]),
+
+            (self.GCC_JIT_LVALUE_P,
+             'gcc_jit_context_new_array_access', [self.GCC_JIT_CONTEXT_P,
+                                                  self.GCC_JIT_LOCATION_P,
+                                                  self.GCC_JIT_RVALUE_P,
+                                                  self.GCC_JIT_RVALUE_P]),
+
+            (self.GCC_JIT_LVALUE_P,
+             'gcc_jit_lvalue_access_field', [self.GCC_JIT_LVALUE_P,
+                                             self.GCC_JIT_LOCATION_P,
+                                             self.GCC_JIT_FIELD_P]),
+
+            (self.GCC_JIT_LVALUE_P,
+             'gcc_jit_rvalue_dereference_field', [self.GCC_JIT_RVALUE_P,
+                                                  self.GCC_JIT_LOCATION_P,
+                                                  self.GCC_JIT_FIELD_P]),
+
+            (self.GCC_JIT_LVALUE_P,
+             'gcc_jit_rvalue_dereference', [self.GCC_JIT_RVALUE_P,
+                                            self.GCC_JIT_LOCATION_P]),
+
+            (self.GCC_JIT_RVALUE_P,
+             'gcc_jit_lvalue_get_address', [self.GCC_JIT_LVALUE_P,
+                                            self.GCC_JIT_LOCATION_P]),
+
+            ############################################################
+            # Statement-creation.
+            ############################################################
+            (lltype.Void,
+             'gcc_jit_block_add_assignment', [self.GCC_JIT_BLOCK_P,
+                                              self.GCC_JIT_LOCATION_P,
+                                              self.GCC_JIT_LVALUE_P,
+                                              self.GCC_JIT_RVALUE_P]),
+            (lltype.Void,
+             'gcc_jit_block_add_comment', [self.GCC_JIT_BLOCK_P,
+                                           self.GCC_JIT_LOCATION_P,
+                                           CCHARP]),
+            (lltype.Void,
+             'gcc_jit_block_end_with_conditional', [self.GCC_JIT_BLOCK_P,
+                                                    self.GCC_JIT_LOCATION_P,
+                                                    self.GCC_JIT_RVALUE_P,
+                                                    self.GCC_JIT_BLOCK_P,
+                                                    self.GCC_JIT_BLOCK_P]),
+            (lltype.Void,
+             'gcc_jit_block_end_with_jump', [self.GCC_JIT_BLOCK_P,
+                                             self.GCC_JIT_LOCATION_P,
+                                             self.GCC_JIT_BLOCK_P]),
+            (lltype.Void,
+             'gcc_jit_block_end_with_return', [self.GCC_JIT_BLOCK_P,
+                                               self.GCC_JIT_LOCATION_P,
+                                               self.GCC_JIT_RVALUE_P]),
         ]:
             self.add_entrypoint(returntype, name, paramtypes)
 
@@ -545,13 +555,13 @@ class Context(Wrapper):
         lltype.free(field_array, flavor='raw')
         free_charp(name_charp)
         return Struct(self.lib, self, inner_struct)
-    
+
     def new_opaque_struct(self, name):
         name_charp = str2charp(name)
-        inner_struct = (
-            self.lib.gcc_jit_context_new_opaque_struct(self.inner_ctxt,
-                                                       self.lib.null_location_ptr,
-                                                       name_charp))
+        inner_struct = self.lib.gcc_jit_context_new_opaque_struct(
+            self.inner_ctxt,
+            self.lib.null_location_ptr,
+            name_charp)
         free_charp(name_charp)
         return Struct(self.lib, self, inner_struct)
 
@@ -579,12 +589,13 @@ class Context(Wrapper):
         for i in range(len(param_types)):
             raw_type_array[i] = param_types[i].inner_type
 
-        type_ = self.lib.gcc_jit_context_new_function_ptr_type(self.inner_ctxt,
-                                                               self.lib.null_location_ptr,
-                                                               returntype.inner_type,
-                                                               r_int(len(param_types)),
-                                                               raw_type_array,
-                                                               is_variadic)
+        type_ = self.lib.gcc_jit_context_new_function_ptr_type(
+            self.inner_ctxt,
+            self.lib.null_location_ptr,
+            returntype.inner_type,
+            r_int(len(param_types)),
+            raw_type_array,
+            is_variadic)
         lltype.free(raw_type_array, flavor='raw')
 
         return Type(self.lib, self, type_)
@@ -592,30 +603,34 @@ class Context(Wrapper):
     def new_rvalue_from_int(self, type_, llvalue):
         return RValue(self.lib,
                       self,
-                      self.lib.gcc_jit_context_new_rvalue_from_int(self.inner_ctxt,
-                                                                   type_.inner_type,
-                                                                   llvalue))
+                      self.lib.gcc_jit_context_new_rvalue_from_int(
+                          self.inner_ctxt,
+                          type_.inner_type,
+                          llvalue))
 
     def new_rvalue_from_long(self, type_, llvalue):
         return RValue(self.lib,
                       self,
-                      self.lib.gcc_jit_context_new_rvalue_from_long(self.inner_ctxt,
-                                                                    type_.inner_type,
-                                                                    llvalue))
+                      self.lib.gcc_jit_context_new_rvalue_from_long(
+                          self.inner_ctxt,
+                          type_.inner_type,
+                          llvalue))
 
     def new_rvalue_from_double(self, type_, llvalue):
         return RValue(self.lib,
                       self,
-                      self.lib.gcc_jit_context_new_rvalue_from_double(self.inner_ctxt,
-                                                                      type_.inner_type,
-                                                                      llvalue))
+                      self.lib.gcc_jit_context_new_rvalue_from_double(
+                          self.inner_ctxt,
+                          type_.inner_type,
+                          llvalue))
 
     def new_rvalue_from_ptr(self, type_, llvalue):
         return RValue(self.lib,
                       self,
-                      self.lib.gcc_jit_context_new_rvalue_from_ptr(self.inner_ctxt,
-                                                                   type_.inner_type,
-                                                                   llvalue))
+                      self.lib.gcc_jit_context_new_rvalue_from_ptr(
+                          self.inner_ctxt,
+                          type_.inner_type,
+                          llvalue))
 
 
     def null(self, pointer_type):
@@ -627,28 +642,31 @@ class Context(Wrapper):
     def new_unary_op(self, op, type_, rvalue):
         return RValue(self.lib,
                       self,
-                      self.lib.gcc_jit_context_new_unary_op(self.inner_ctxt,
-                                                            self.lib.null_location_ptr,
-                                                            op,
-                                                            type_.inner_type,
-                                                             rvalue.inner_rvalue))
+                      self.lib.gcc_jit_context_new_unary_op(
+                          self.inner_ctxt,
+                          self.lib.null_location_ptr,
+                          op,
+                          type_.inner_type,
+                          rvalue.inner_rvalue))
 
     def new_binary_op(self, op, type_, a, b):
         return RValue(self.lib,
                       self,
-                      self.lib.gcc_jit_context_new_binary_op(self.inner_ctxt,
-                                                             self.lib.null_location_ptr,
-                                                             op,
-                                                             type_.inner_type,
-                                                             a.inner_rvalue, b.inner_rvalue))
+                      self.lib.gcc_jit_context_new_binary_op(
+                          self.inner_ctxt,
+                          self.lib.null_location_ptr,
+                          op,
+                          type_.inner_type,
+                          a.inner_rvalue, b.inner_rvalue))
 
     def new_comparison(self, op, a, b):
         return RValue(self.lib,
                       self,
-                      self.lib.gcc_jit_context_new_comparison(self.inner_ctxt,
-                                                              self.lib.null_location_ptr,
-                                                              op,
-                                                              a.inner_rvalue, b.inner_rvalue))
+                      self.lib.gcc_jit_context_new_comparison(
+                          self.inner_ctxt,
+                          self.lib.null_location_ptr,
+                          op,
+                          a.inner_rvalue, b.inner_rvalue))
 
     def new_call(self, fn, args):
         raw_arg_array = lltype.malloc(self.lib.RVALUE_P_P.TO,
@@ -670,11 +688,12 @@ class Context(Wrapper):
                                       flavor='raw') # of maybe gc?
         for i in range(len(args)):
             raw_arg_array[i] = args[i].inner_rvalue
-        rvalue = self.lib.gcc_jit_context_new_call_through_ptr(self.inner_ctxt,
-                                                               self.lib.null_location_ptr,
-                                                               fn_ptr.inner_rvalue,
-                                                               r_int(len(args)),
-                                                               raw_arg_array)
+        rvalue = self.lib.gcc_jit_context_new_call_through_ptr(
+            self.inner_ctxt,
+            self.lib.null_location_ptr,
+            fn_ptr.inner_rvalue,
+            r_int(len(args)),
+            raw_arg_array)
         lltype.free(raw_arg_array, flavor='raw')
         return RValue(self.lib, self, rvalue)
 
@@ -720,11 +739,12 @@ class Context(Wrapper):
 
     def new_cast(self, rvalue, type_):
         return RValue(self.lib,
-                      self, 
-                      self.lib.gcc_jit_context_new_cast(self.inner_ctxt,
-                                                        self.lib.null_location_ptr,
-                                                        rvalue.inner_rvalue,
-                                                        type_.inner_type))
+                      self,
+                      self.lib.gcc_jit_context_new_cast(
+                          self.inner_ctxt,
+                          self.lib.null_location_ptr,
+                          rvalue.inner_rvalue,
+                          type_.inner_type))
 
     def new_array_access(self, ptr, index):
         return LValue(self.lib,
@@ -737,7 +757,8 @@ class Context(Wrapper):
 
 class LibgccjitError(Exception):
     def __init__(self, ctxt):
-        self.msg = charp2str(ctxt.lib.gcc_jit_context_get_last_error (ctxt.inner_ctxt))
+        self.msg = charp2str(ctxt.lib.gcc_jit_context_get_last_error (
+            ctxt.inner_ctxt))
         #print('self.msg: %r' % self.msg)
 
     def __str__(self):
@@ -757,7 +778,7 @@ class Type(Object):
 
     def get_pointer(self):
         return Type(self.lib,
-                    self, 
+                    self,
                     self.lib.gcc_jit_type_get_pointer(self.inner_type))
 
 class Field(Object):
@@ -772,7 +793,7 @@ class Struct(Object):
 
     def as_type(self):
         return Type(self.lib,
-                    self, 
+                    self,
                     self.lib.gcc_jit_struct_as_type(self.inner_struct))
 
 
@@ -801,9 +822,10 @@ class RValue(Object):
     def dereference_field(self, field):
         return LValue(self.lib,
                       self,
-                      self.lib.gcc_jit_rvalue_dereference_field(self.inner_rvalue,
-                                                                self.lib.null_location_ptr,
-                                                                field.inner_field))
+                      self.lib.gcc_jit_rvalue_dereference_field(
+                          self.inner_rvalue,
+                          self.lib.null_location_ptr,
+                          field.inner_field))
 
     def dereference(self):
         return LValue(self.lib,
@@ -825,9 +847,10 @@ class LValue(Object):
     def access_field(self, field):
         return LValue(self.lib,
                       self,
-                      self.lib.gcc_jit_lvalue_access_field (self.inner_lvalue,
-                                                            self.lib.null_location_ptr,
-                                                            field.inner_field))
+                      self.lib.gcc_jit_lvalue_access_field (
+                          self.inner_lvalue,
+                          self.lib.null_location_ptr,
+                          field.inner_field))
 
     def get_address(self):
         return RValue(self.lib,

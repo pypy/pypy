@@ -34,7 +34,8 @@ def test_string():
     assert xf() == 3
 """
 
-from rpython.jit.backend.libgccjit.rffi_bindings import make_eci, Library, make_param_array, Context
+from rpython.jit.backend.libgccjit.rffi_bindings import (
+    make_eci, Library, make_param_array, Context)
 
 def test_compile_empty_context():
     eci = make_eci()
@@ -46,7 +47,7 @@ def test_compile_empty_context():
         result = lib.gcc_jit_context_compile(ctxt)
         lib.gcc_jit_context_release(ctxt)
         lib.gcc_jit_result_release(result)
-        
+
     f1 = compile_c(f, [], backendopt=False)
     f1 ()
     #assert False # to see stderr
@@ -62,21 +63,26 @@ def test_compile_add_one_to():
     def f():
         ctxt = lib.gcc_jit_context_acquire()
 
-        lib.gcc_jit_context_set_bool_option(ctxt,
-                                            lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
-                                            r_int(1))
-        lib.gcc_jit_context_set_int_option(ctxt,
-                                           lib.GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
-                                           r_int(3))
-        lib.gcc_jit_context_set_bool_option(ctxt,
-                                            lib.GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
-                                            r_int(1))
-        lib.gcc_jit_context_set_bool_option(ctxt,
-                                            lib.GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
-                                            r_int(1))
-        lib.gcc_jit_context_set_bool_option(ctxt,
-                                            lib.GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE,
-                                            r_int(1))
+        lib.gcc_jit_context_set_bool_option(
+            ctxt,
+            lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
+            r_int(1))
+        lib.gcc_jit_context_set_int_option(
+            ctxt,
+            lib.GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
+            r_int(3))
+        lib.gcc_jit_context_set_bool_option(
+            ctxt,
+            lib.GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
+            r_int(1))
+        lib.gcc_jit_context_set_bool_option(
+            ctxt,
+            lib.GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
+            r_int(1))
+        lib.gcc_jit_context_set_bool_option(
+            ctxt,
+            lib.GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE,
+            r_int(1))
         t_int = lib.gcc_jit_context_get_type(ctxt, lib.GCC_JIT_TYPE_INT)
         param_name = str2charp("input")
         param = lib.gcc_jit_context_new_param(ctxt,
@@ -87,7 +93,7 @@ def test_compile_add_one_to():
 
         # FIXME: how to build an array of params at this level?
         # see liststr2charpp in rffi.py
-        
+
         fn_name = str2charp("add_one_to")
         param_array = make_param_array(lib, [param])
         fn = lib.gcc_jit_context_new_function(ctxt,
@@ -109,12 +115,13 @@ def test_compile_add_one_to():
         b_initial = lib.gcc_jit_function_new_block(fn, block_name)
         free_charp(block_name)
         c_one = lib.gcc_jit_context_new_rvalue_from_int(ctxt, t_int, r_int(1))
-        op_add = lib.gcc_jit_context_new_binary_op(ctxt,
-                                                   lib.null_location_ptr,
-                                                   lib.GCC_JIT_BINARY_OP_PLUS,
-                                                   t_int,
-                                                   lib.gcc_jit_param_as_rvalue(param),
-                                                   c_one)
+        op_add = lib.gcc_jit_context_new_binary_op(
+            ctxt,
+            lib.null_location_ptr,
+            lib.GCC_JIT_BINARY_OP_PLUS,
+            t_int,
+            lib.gcc_jit_param_as_rvalue(param),
+            c_one)
         lib.gcc_jit_block_add_assignment(b_initial, lib.null_location_ptr,
                                          v_res,
                                          op_add)
@@ -153,7 +160,7 @@ def test_compile_add_one_to():
         lib.gcc_jit_result_release(jit_result)
 
         return int(fn_result)
-        
+
     f1 = compile_c(f, [], backendopt=False)
     assert f1() == 42
     assert False # to see stderr
@@ -222,10 +229,10 @@ def test_oo_compile_add_one_to():
         jit_result.release()
 
         return int(fn_result)
-        
+
     f1 = compile_c(f, [], backendopt=False)
     assert f1() == 42
     assert False # to see stderr
-    
+
 # TODO: test of an error
 # should turn it into an exception, and capture the error

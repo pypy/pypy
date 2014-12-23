@@ -6,9 +6,11 @@ from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.libgccjit.rffi_bindings import (
     make_eci, Library, make_param_array, make_field_array, Context, Type,
     RValue)
-from rpython.jit.metainterp.history import BoxInt, ConstInt, BoxFloat, ConstFloat, BoxPtr, ConstPtr
+from rpython.jit.metainterp.history import (
+    BoxInt, ConstInt, BoxFloat, ConstFloat, BoxPtr, ConstPtr)
 from rpython.jit.metainterp.resoperation import *
-from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref, cast_object_to_ptr
+from rpython.rtyper.annlowlevel import (
+    llhelper, cast_instance_to_gcref, cast_object_to_ptr)
 from rpython.rtyper.lltypesystem.rffi import *
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 
@@ -34,10 +36,10 @@ class Function:
         self.rffi_fn = rffi_fn
         self.patchpoints = []
 
-    def new_block(self, name): 
+    def new_block(self, name):
        return self.rffi_fn.new_block(name)
 
-    def new_local(self, type_, name): 
+    def new_local(self, type_, name):
        return self.rffi_fn.new_local(type_, name)
 
 class Patchpoint:
@@ -69,7 +71,7 @@ class Patchpoint:
 
       0x00007fffeb7086d0 <+16>:  jle    0x7fffeb7086c8 <anonloop_0+8>
       0x00007fffeb7086d2 <+18>:  mov    %rax,0x48(%rdi)
-      0x00007fffeb7086d6 <+22>:  mov    0x2008fb(%rip),%rax        # 0x7fffeb908fd8
+      0x00007fffeb7086d6 <+22>:  mov    0x2008fb(%rip),%rax   # 0x7fffeb908fd8
       0x00007fffeb7086dd <+29>:  mov    (%rax),%rax
       0x00007fffeb7086e0 <+32>:  jmpq   *%rax
     """
@@ -77,10 +79,10 @@ class Patchpoint:
         self.failure_params = Params(assembler)
         self.serial = assembler.num_guard_failure_fns
         assembler.num_guard_failure_fns += 1
-        self.t_fn_ptr_type = (
-            assembler.ctxt.new_function_ptr_type (assembler.t_jit_frame_ptr,
-                                                  self.failure_params.paramtypes,
-                                                  r_int(0)))
+        self.t_fn_ptr_type = assembler.ctxt.new_function_ptr_type (
+            assembler.t_jit_frame_ptr,
+            self.failure_params.paramtypes,
+            r_int(0))
         # Create the function ptr
         # Globals are zero-initialized, so we'll need to
         # write in the ptr to the initial handler before the loop is called,
@@ -169,36 +171,44 @@ class AssemblerLibgccjit(BaseAssembler):
     def make_context(self):
         self.ctxt = Context.acquire(self.lib)#self.lib.gcc_jit_context_acquire()
         if 0:
-            self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE,
-                                      r_int(1))
+            self.ctxt.set_bool_option(
+                self.lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE,
+                r_int(1))
         if 0:
-            self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
-                                      r_int(1))
+            self.ctxt.set_bool_option(
+                self.lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
+                r_int(1))
         if 1:
-            self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DEBUGINFO,
-                                      r_int(1))
+            self.ctxt.set_bool_option(
+                self.lib.GCC_JIT_BOOL_OPTION_DEBUGINFO,
+                r_int(1))
         if 1:
-            self.ctxt.set_int_option(self.lib.GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
-                                     r_int(2))
+            self.ctxt.set_int_option(
+                self.lib.GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
+                r_int(2))
         if 1:
-            self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
-                                      r_int(1))
+            self.ctxt.set_bool_option(
+                self.lib.GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
+                r_int(1))
         if 1:
-            self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
-                                      r_int(1))
+            self.ctxt.set_bool_option(
+                self.lib.GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
+                r_int(1))
         if 0:
-            self.ctxt.set_bool_option(self.lib.GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE,
-                                      r_int(1))
+            self.ctxt.set_bool_option(
+                self.lib.GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE,
+                r_int(1))
 
         self.t_Signed = self.ctxt.get_int_type(r_int(self.sizeof_signed),
                                                r_int(1))
         self.t_UINT = self.ctxt.get_int_type(r_int(self.sizeof_signed),
                                              r_int(0))
-        self.t_float = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_DOUBLE) # FIXME                                          
+        self.t_float = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_DOUBLE) # FIXME
         self.t_bool = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_BOOL)
         self.t_void_ptr = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID_PTR)
         self.t_void = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID)
-        self.t_char_ptr = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_CHAR).get_pointer()
+        self.t_char_ptr = self.ctxt.get_type(
+            self.lib.GCC_JIT_TYPE_CHAR).get_pointer()
 
         self.u_signed = self.ctxt.new_field(self.t_Signed, "u_signed")
         self.u_float = self.ctxt.new_field(self.t_float, "u_float")
@@ -374,12 +384,13 @@ class AssemblerLibgccjit(BaseAssembler):
         #jitframe.JITFRAMEINFOPTR
         self.loop_params = Params(self)
 
-        self.fn = Function(name,
-                           self.ctxt.new_function(self.lib.GCC_JIT_FUNCTION_EXPORTED,
-                                                  self.t_jit_frame_ptr,
-                                                  name,
-                                                  self.loop_params.paramlist,
-                                                  r_int(0)))
+        self.fn = Function(
+            name,
+            self.ctxt.new_function(self.lib.GCC_JIT_FUNCTION_EXPORTED,
+                                   self.t_jit_frame_ptr,
+                                   name,
+                                   self.loop_params.paramlist,
+                                   r_int(0)))
 
         self.b_current = self.fn.new_block("initial")
 
@@ -401,11 +412,13 @@ class AssemblerLibgccjit(BaseAssembler):
             # (gdb) p *(double*)&jitframe->arg1
             # $8 = -2.25
             #src_ptr_rvalue = self.get_arg_as_lvalue(idx).get_address()
-            #src_ptr_rvalue = self.ctxt.new_cast(src_ptr_rvalue, self.t_float.get_pointer())
+            #src_ptr_rvalue = self.ctxt.new_cast(src_ptr_rvalue,
+            #                                    self.t_float.get_pointer())
             #src_rvalue = self.ctxt.new_dereference(src_ptr_rvalue)
             # or do it as a union
             field = self.get_union_field_for_expr(arg)
-            src_rvalue = self.get_arg_as_lvalue(idx).access_field(field).as_rvalue()
+            src_rvalue = self.get_arg_as_lvalue(
+                idx).access_field(field).as_rvalue()
             # FIXME: this may need a cast:
             #src_rvalue = self.ctxt.new_cast(src_rvalue, self.t_float)
             self.b_current.add_assignment(
@@ -451,8 +464,9 @@ class AssemblerLibgccjit(BaseAssembler):
         elif isinstance(expr, ConstFloat):
             #print('value: %r' % expr.value)
             #print('type(value): %r' % type(expr.value))
-            return self.ctxt.new_rvalue_from_double(self.t_float,
-                                                    expr.value)#r_double(expr.value))
+            return self.ctxt.new_rvalue_from_double(
+                self.t_float,
+                expr.value)#r_double(expr.value))
         elif isinstance(expr, ConstPtr):
             #print('value: %r' % expr.value)
             #print('type(value): %r' % type(expr.value))
@@ -482,7 +496,7 @@ class AssemblerLibgccjit(BaseAssembler):
         """
         if isinstance(expr, (BoxInt, BoxFloat, BoxPtr)):
             return self.get_box_as_lvalue(expr)
-            
+
         raise NotImplementedError('unhandled expr: %s' % expr)
 
     def get_type_for_box(self, box):
@@ -503,7 +517,8 @@ class AssemblerLibgccjit(BaseAssembler):
         elif isinstance(expr, (BoxPtr, ConstPtr)):
             return self.u_ptr;
         else:
-            raise NotImplementedError('unhandled expr: %s %s' % (expr, type(expr)))
+            raise NotImplementedError('unhandled expr: %s %s'
+                                      % (expr, type(expr)))
 
     # Handling of specific ResOperation subclasses: each one is
     # a method named "emit_foo", where "foo" is the str() of the resop.
@@ -524,8 +539,8 @@ class AssemblerLibgccjit(BaseAssembler):
 
         # We need to write to the boxes listed in the label's args
         # with the values from those listed in the jump's args.
-        # However, there are potential cases like JUMP(i0, i1) going to LABEL(i1, i0)
-        # where all such assignments happen "simultaneously".
+        # However, there are potential cases like JUMP(i0, i1) going
+        # to LABEL(i1, i0) where all such assignments happen "simultaneously".
         # Hence we need to set up temporaries.
         # First pass: capture the value of relevant boxes at the JUMP:
         tmps = []
@@ -551,11 +566,12 @@ class AssemblerLibgccjit(BaseAssembler):
             # Sadly, we need to "import" the fn by name, since it was
             # created on a different gcc_jit_context.
             p = Params(self)
-            other_fn = self.ctxt.new_function(self.lib.GCC_JIT_FUNCTION_IMPORTED,
-                                              self.t_jit_frame_ptr,
-                                              dest_fn.name,
-                                              p.paramlist,
-                                              r_int(0))
+            other_fn = self.ctxt.new_function(
+                self.lib.GCC_JIT_FUNCTION_IMPORTED,
+                self.t_jit_frame_ptr,
+                dest_fn.name,
+                p.paramlist,
+                r_int(0))
             args = [param.as_rvalue()
                     for param in self.loop_params.paramlist]
             call = self.ctxt.new_call(other_fn, args)
@@ -564,7 +580,8 @@ class AssemblerLibgccjit(BaseAssembler):
     def emit_finish(self, resop):
         self._impl_write_output_args(self.loop_params, resop._args)
         self._impl_write_jf_descr(self.loop_params, resop)
-        self.b_current.end_with_return(self.loop_params.param_frame.as_rvalue ())
+        self.b_current.end_with_return(
+            self.loop_params.param_frame.as_rvalue ())
 
     def emit_label(self, resop):
         print(resop)
@@ -613,7 +630,8 @@ class AssemblerLibgccjit(BaseAssembler):
         b_within_failure_fn = pp.failure_fn.new_block("initial")
         self.b_current = b_within_failure_fn
         self._impl_write_jf_descr(pp.failure_params, resop)
-        self.b_current.end_with_return(pp.failure_params.param_frame.as_rvalue ())
+        self.b_current.end_with_return(
+            pp.failure_params.param_frame.as_rvalue ())
         rd_locs = []
         for idx, arg in enumerate(resop._fail_args):
             rd_locs.append(idx * self.sizeof_signed)
@@ -629,7 +647,7 @@ class AssemblerLibgccjit(BaseAssembler):
 
     def emit_guard_true(self, resop):
         self._impl_bool_guard(resop, r_int(1))
-        
+
     def emit_guard_false(self, resop):
         self._impl_bool_guard(resop, r_int(0))
 
@@ -922,7 +940,6 @@ class AssemblerLibgccjit(BaseAssembler):
 
         self.b_current.add_assignment(
             field_lvalue,
-            
             # ... = ARG1,
             self.ctxt.new_cast(self.expr_to_rvalue(resop._arg1),
                                t_field))
