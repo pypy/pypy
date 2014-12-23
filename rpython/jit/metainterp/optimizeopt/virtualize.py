@@ -16,7 +16,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 class AbstractVirtualValue(optimizer.PtrOptValue):
     _attrs_ = ('keybox', 'source_op', '_cached_vinfo')
     box = None
-    level = optimizer.LEVEL_NONNULL
+    _tag = optimizer.LEVEL_NONNULL
     is_about_raw = False
     _cached_vinfo = None
 
@@ -198,7 +198,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             fieldvalue.visitor_walk_recursive(visitor)
 
 class VirtualValue(AbstractVirtualStructValue):
-    level = optimizer.LEVEL_KNOWNCLASS
+    _tag = optimizer.LEVEL_KNOWNCLASS
 
     def __init__(self, cpu, known_class, keybox, source_op=None):
         AbstractVirtualStructValue.__init__(self, cpu, keybox, source_op)

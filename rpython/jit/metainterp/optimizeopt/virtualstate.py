@@ -281,7 +281,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def __init__(self, value, is_opaque=False):
         self.is_opaque = is_opaque
         self.known_class = value.get_known_class()
-        self.level = value.level
+        self.level = value.getlevel()
         if value.getintbound() is None:
             self.intbound = IntUnbounded()
         else:

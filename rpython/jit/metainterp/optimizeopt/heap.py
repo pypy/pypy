@@ -4,7 +4,8 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.history import Const
 from rpython.jit.metainterp.jitexc import JitException
-from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS, REMOVED, LEVEL_CONSTANT
+from rpython.jit.metainterp.optimizeopt.optimizer import Optimization,\
+     MODE_ARRAY, LEVEL_KNOWNCLASS, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation
@@ -137,7 +138,7 @@ class CachedField(object):
                 continue
             value = optimizer.getvalue(op.getarg(0))
             if value in optimizer.opaque_pointers:
-                if value.level < LEVEL_KNOWNCLASS:
+                if value.getlevel() < LEVEL_KNOWNCLASS:
                     continue
                 if op.getopnum() != rop.SETFIELD_GC and op.getopnum() != rop.GETFIELD_GC:
                     continue
