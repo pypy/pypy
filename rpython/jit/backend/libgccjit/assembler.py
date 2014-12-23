@@ -3,7 +3,9 @@ from rpython.jit.backend.llsupport.assembler import BaseAssembler
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.regalloc import FrameManager
 from rpython.jit.backend.model import CompiledLoopToken
-from rpython.jit.backend.libgccjit.rffi_bindings import make_eci, Library, make_param_array, make_field_array, Context, Type
+from rpython.jit.backend.libgccjit.rffi_bindings import (
+    make_eci, Library, make_param_array, make_field_array, Context, Type,
+    RValue)
 from rpython.jit.metainterp.history import BoxInt, ConstInt, BoxFloat, ConstFloat, BoxPtr, ConstPtr
 from rpython.jit.metainterp.resoperation import *
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref, cast_object_to_ptr
@@ -572,13 +574,10 @@ class AssemblerLibgccjit(BaseAssembler):
 
     # GUARD_*
 
-    def _impl_guard(self, resop, istrue):
-        print(resop)
-        print(resop.__dict__)
+    def _impl_guard(self, resop, istrue, boolval):
+        assert isinstance(boolval, RValue)
         b_true = self.fn.new_block("on_true_at_%s" % resop)
         b_false = self.fn.new_block("on_false_at_%s" % resop)
-        boolval = self.ctxt.new_cast(self.expr_to_rvalue(resop._arg0),
-                                     self.t_bool)
         self.b_current.end_with_conditional(boolval,
                                             b_true, b_false)
 
@@ -616,11 +615,39 @@ class AssemblerLibgccjit(BaseAssembler):
         # Further operations go into the guard success block in the original fn:
         self.b_current = b_guard_success
 
+    def _impl_bool_guard(self, resop, istrue):
+        boolval = self.ctxt.new_cast(self.expr_to_rvalue(resop._arg0),
+                                     self.t_bool)
+        self._impl_guard(resop, istrue, boolval)
+
     def emit_guard_true(self, resop):
-        self._impl_guard(resop, r_int(1))
+        self._impl_bool_guard(resop, r_int(1))
         
     def emit_guard_false(self, resop):
-        self._impl_guard(resop, r_int(0))
+        self._impl_bool_guard(resop, r_int(0))
+
+    def emit_guard_value(self, resop):
+        boolval = self.ctxt.new_comparison(
+            self.lib.GCC_JIT_COMPARISON_EQ,
+            self.expr_to_rvalue(resop._arg0),
+            self.expr_to_rvalue(resop._arg1))
+        self._impl_guard(resop, r_int(1), boolval)
+
+    def emit_guard_nonnull(self, resop):
+        ptr_rvalue = self.expr_to_rvalue(resop._arg0)
+        boolval = self.ctxt.new_comparison(
+            self.lib.GCC_JIT_COMPARISON_NE,
+            ptr_rvalue,
+            self.ctxt.null(ptr_rvalue.get_type()))
+        self._impl_guard(resop, r_int(1), boolval)
+
+    def emit_guard_isnull(self, resop):
+        ptr_rvalue = self.expr_to_rvalue(resop._arg0)
+        boolval = self.ctxt.new_comparison(
+            self.lib.GCC_JIT_COMPARISON_EQ,
+            ptr_rvalue,
+            self.ctxt.null(ptr_rvalue.get_type()))
+        self._impl_guard(resop, r_int(1), boolval)
 
     def _impl_write_output_args(self, params, args):
         # Write outputs back:

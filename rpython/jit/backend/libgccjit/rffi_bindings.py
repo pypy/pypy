@@ -241,6 +241,9 @@ class Library:
                 (self.GCC_JIT_RVALUE_P,
                  'gcc_jit_lvalue_as_rvalue', [self.GCC_JIT_LVALUE_P]),
 
+                (self.GCC_JIT_TYPE_P,
+                 'gcc_jit_rvalue_get_type', [self.GCC_JIT_RVALUE_P]),
+
                 # Integer constants.
                 (self.GCC_JIT_RVALUE_P,
                  'gcc_jit_context_new_rvalue_from_int', [self.GCC_JIT_CONTEXT_P,
@@ -264,6 +267,10 @@ class Library:
                  'gcc_jit_context_new_rvalue_from_ptr', [self.GCC_JIT_CONTEXT_P,
                                                          self.GCC_JIT_TYPE_P,
                                                          VOIDP]),
+
+                (self.GCC_JIT_RVALUE_P,
+                 'gcc_jit_context_null', [self.GCC_JIT_CONTEXT_P,
+                                          self.GCC_JIT_TYPE_P]),
 
                 (self.GCC_JIT_RVALUE_P,
                  'gcc_jit_context_new_unary_op', [self.GCC_JIT_CONTEXT_P,
@@ -610,6 +617,13 @@ class Context(Wrapper):
                                                                    type_.inner_type,
                                                                    llvalue))
 
+
+    def null(self, pointer_type):
+        return RValue(self.lib,
+                      self,
+                      self.lib.gcc_jit_context_null(self.inner_ctxt,
+                                                    pointer_type.inner_type))
+
     def new_unary_op(self, op, type_, rvalue):
         return RValue(self.lib,
                       self,
@@ -778,6 +792,11 @@ class RValue(Object):
     def __init__(self, lib, ctxt, inner_rvalue):
         Object.__init__(self, lib, ctxt, inner_rvalue)
         self.inner_rvalue = inner_rvalue
+
+    def get_type(self):
+        return Type(self.lib,
+                    self,
+                    self.lib.gcc_jit_rvalue_get_type(self.inner_rvalue))
 
     def dereference_field(self, field):
         return LValue(self.lib,
