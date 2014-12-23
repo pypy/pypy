@@ -31,7 +31,7 @@ from rpython.rtyper.lltypesystem.rffi import *
 from rpython.rtyper.lltypesystem import lltype
 
 def make_eci():
-    eci = ExternalCompilationInfo(includes=['libgccjit.h'],
+    eci = ExternalCompilationInfo(includes=['stdio.h', 'libgccjit.h'],
                                   include_dirs=[INCLUDE_DIR],
                                   libraries=['gccjit'],
                                   library_dirs=[LIB_DIR])
@@ -144,6 +144,9 @@ class Library:
             ############################################################
             # Types
             ############################################################
+            (self.GCC_JIT_OBJECT_P,
+             'gcc_jit_type_as_object', [self.GCC_JIT_TYPE_P]),
+
             (self.GCC_JIT_TYPE_P,
              'gcc_jit_context_get_type', [self.GCC_JIT_CONTEXT_P,
                                               INT]),
@@ -161,7 +164,11 @@ class Library:
                                            self.GCC_JIT_LOCATION_P,
                                            self.GCC_JIT_TYPE_P,
                                            CCHARP]),
-            (self.GCC_JIT_STRUCT_P,
+
+            (self.GCC_JIT_OBJECT_P,
+             'gcc_jit_field_as_object', [self.GCC_JIT_FIELD_P]),
+
+           (self.GCC_JIT_STRUCT_P,
              'gcc_jit_context_new_struct_type', [self.GCC_JIT_CONTEXT_P,
                                                  self.GCC_JIT_LOCATION_P,
                                                  CCHARP,
@@ -204,6 +211,8 @@ class Library:
                                            self.GCC_JIT_LOCATION_P,
                                            self.GCC_JIT_TYPE_P,
                                            CCHARP]),
+            (self.GCC_JIT_OBJECT_P,
+             'gcc_jit_param_as_object', [self.GCC_JIT_PARAM_P]),
             (self.GCC_JIT_LVALUE_P,
              'gcc_jit_param_as_lvalue', [self.GCC_JIT_PARAM_P]),
             (self.GCC_JIT_RVALUE_P,
@@ -233,6 +242,8 @@ class Library:
             (self.GCC_JIT_BLOCK_P,
              'gcc_jit_function_new_block', [self.GCC_JIT_FUNCTION_P,
                                             CCHARP]),
+            (self.GCC_JIT_OBJECT_P,
+             'gcc_jit_block_as_object', [self.GCC_JIT_BLOCK_P]),
 
             ############################################################
             # lvalues, rvalues and expressions.
@@ -245,8 +256,14 @@ class Library:
                                             self.GCC_JIT_TYPE_P,
                                             CCHARP]),
 
+            (self.GCC_JIT_OBJECT_P,
+             'gcc_jit_lvalue_as_object', [self.GCC_JIT_LVALUE_P]),
+
             (self.GCC_JIT_RVALUE_P,
              'gcc_jit_lvalue_as_rvalue', [self.GCC_JIT_LVALUE_P]),
+
+            (self.GCC_JIT_OBJECT_P,
+             'gcc_jit_rvalue_as_object', [self.GCC_JIT_RVALUE_P]),
 
             (self.GCC_JIT_TYPE_P,
              'gcc_jit_rvalue_get_type', [self.GCC_JIT_RVALUE_P]),
@@ -773,7 +790,8 @@ class Object(Wrapper):
 
 class Type(Object):
     def __init__(self, lib, ctxt, inner_type):
-        Object.__init__(self, lib, ctxt, inner_type)
+        Object.__init__(self, lib, ctxt,
+                        lib.gcc_jit_type_as_object(inner_type))
         self.inner_type = inner_type
 
     def get_pointer(self):
@@ -783,12 +801,15 @@ class Type(Object):
 
 class Field(Object):
     def __init__(self, lib, ctxt, inner_field):
-        Object.__init__(self, lib, ctxt, inner_field)
+        Object.__init__(self, lib, ctxt,
+                        lib.gcc_jit_field_as_object(inner_field))
         self.inner_field = inner_field
 
 class Struct(Object):
     def __init__(self, lib, ctxt, inner_struct):
-        Object.__init__(self, lib, ctxt, inner_struct)
+        Object.__init__(self, lib, ctxt,
+                        lib.gcc_jit_type_as_object(
+                            lib.gcc_jit_struct_as_type(inner_struct)))
         self.inner_struct = inner_struct
 
     def as_type(self):
@@ -811,7 +832,8 @@ class Struct(Object):
 
 class RValue(Object):
     def __init__(self, lib, ctxt, inner_rvalue):
-        Object.__init__(self, lib, ctxt, inner_rvalue)
+        Object.__init__(self, lib, ctxt,
+                        lib.gcc_jit_rvalue_as_object(inner_rvalue))
         self.inner_rvalue = inner_rvalue
 
     def get_type(self):
@@ -836,7 +858,8 @@ class RValue(Object):
 
 class LValue(Object):
     def __init__(self, lib, ctxt, inner_lvalue):
-        Object.__init__(self, lib, ctxt, inner_lvalue)
+        Object.__init__(self, lib, ctxt,
+                        lib.gcc_jit_lvalue_as_object(inner_lvalue))
         self.inner_lvalue = inner_lvalue
 
     def as_rvalue(self):
@@ -861,7 +884,8 @@ class LValue(Object):
 
 class Param(Object):
     def __init__(self, lib, ctxt, inner_param):
-        Object.__init__(self, lib, ctxt, inner_param)
+        Object.__init__(self, lib, ctxt,
+                        lib.gcc_jit_param_as_object(inner_param))
         self.inner_param = inner_param
 
     def as_rvalue(self):
@@ -871,7 +895,9 @@ class Param(Object):
 
 class Function(Object):
     def __init__(self, lib, ctxt, inner_function):
-        Object.__init__(self, lib, ctxt, inner_function)
+        Object.__init__(self, lib, ctxt,
+                        lib.gcc_jit_function_as_object(inner_function))
+
         self.inner_function = inner_function
 
     def new_local(self, type_, name):
@@ -896,7 +922,9 @@ class Function(Object):
 
 class Block(Object):
     def __init__(self, lib, ctxt, inner_block):
-        Object.__init__(self, lib, ctxt, inner_block)
+        Object.__init__(self, lib, ctxt,
+                        lib.gcc_jit_block_as_object(inner_block))
+
         self.inner_block = inner_block
 
     def add_assignment(self, lvalue, rvalue):

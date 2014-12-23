@@ -50,7 +50,6 @@ def test_compile_empty_context():
 
     f1 = compile_c(f, [], backendopt=False)
     f1 ()
-    #assert False # to see stderr
 
 def test_compile_add_one_to():
     eci = make_eci()
@@ -163,7 +162,6 @@ def test_compile_add_one_to():
 
     f1 = compile_c(f, [], backendopt=False)
     assert f1() == 42
-    assert False # to see stderr
 
 def test_oo_compile_add_one_to():
     eci = make_eci()
@@ -232,7 +230,6 @@ def test_oo_compile_add_one_to():
 
     f1 = compile_c(f, [], backendopt=False)
     assert f1() == 42
-    assert False # to see stderr
 
 # TODO: test of an error
 # should turn it into an exception, and capture the error
