@@ -261,6 +261,9 @@ class AssemblerLibgccjit(BaseAssembler):
         clt.frame_info.update_frame_depth(baseofs,
                                           max_args)
 
+        self.datablockwrapper.done()      # finish using cpu.asmmemmgr
+        self.datablockwrapper = None
+
         self.ctxt.dump_to_file("/tmp/%s.c" % loopname, r_int(1))
 
         #raise foo
@@ -296,6 +299,10 @@ class AssemblerLibgccjit(BaseAssembler):
         self.num_bridges += 1
 
         self.make_function(name, inputargs, operations)
+
+        self.datablockwrapper.done()      # finish using cpu.asmmemmgr
+        self.datablockwrapper = None
+
         self.ctxt.dump_to_file("/tmp/%s.c" % name, r_int(1))
         jit_result = self.ctxt.compile()
         self.ctxt.release()
