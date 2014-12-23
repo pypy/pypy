@@ -422,6 +422,8 @@ class AssemblerLibgccjit(BaseAssembler):
 
             # Compile the operation itself...
             methname = 'emit_%s' % op.getopname()
+            if not hasattr(self, methname):
+                raise NotImplementedError('resop not yet implemented: %s' % op)
             getattr(self, methname) (op)
 
     def expr_to_rvalue(self, expr):
@@ -439,6 +441,11 @@ class AssemblerLibgccjit(BaseAssembler):
         elif isinstance(expr, ConstInt):
             #print('value: %r' % expr.value)
             #print('type(value): %r' % type(expr.value))
+            if isinstance(expr.value, llmemory.AddressAsInt):
+                assert isinstance(expr.value.adr, llmemory.fakeaddress)
+                assert isinstance(expr.value.adr.ptr, lltype._ptr)
+                return self.ctxt.new_rvalue_from_ptr(self.t_void_ptr,
+                                                     expr.value.adr.ptr)
             return self.ctxt.new_rvalue_from_long(self.t_Signed,
                                                   r_long(expr.value))
         elif isinstance(expr, ConstFloat):
@@ -451,7 +458,7 @@ class AssemblerLibgccjit(BaseAssembler):
             #print('type(value): %r' % type(expr.value))
             return self.ctxt.new_rvalue_from_ptr(self.t_void_ptr,
                                                  expr.value)
-        raise ValueError('unhandled expr: %s %s' % (expr, type(expr)))
+        raise NotImplementedError('unhandled expr: %s %s' % (expr, type(expr)))
 
     def get_box_as_lvalue(self, box):
         if box not in self.lvalue_for_box:
@@ -476,7 +483,7 @@ class AssemblerLibgccjit(BaseAssembler):
         if isinstance(expr, (BoxInt, BoxFloat, BoxPtr)):
             return self.get_box_as_lvalue(expr)
             
-        raise ValueError('unhandled expr: %s' % expr)
+        raise NotImplementedError('unhandled expr: %s' % expr)
 
     def get_type_for_box(self, box):
         if isinstance(box, BoxInt):
@@ -486,7 +493,7 @@ class AssemblerLibgccjit(BaseAssembler):
         elif isinstance(box, BoxPtr):
             return self.t_void_ptr;
         else:
-            raise ValueError('unhandled box: %s %s' % (box, type(box)))
+            raise NotImplementedError('unhandled box: %s %s' % (box, type(box)))
 
     def get_union_field_for_expr(self, expr):
         if isinstance(expr, (BoxInt, ConstInt)):
@@ -496,7 +503,7 @@ class AssemblerLibgccjit(BaseAssembler):
         elif isinstance(expr, (BoxPtr, ConstPtr)):
             return self.u_ptr;
         else:
-            raise ValueError('unhandled expr: %s %s' % (expr, type(expr)))        
+            raise NotImplementedError('unhandled expr: %s %s' % (expr, type(expr)))
 
     # Handling of specific ResOperation subclasses: each one is
     # a method named "emit_foo", where "foo" is the str() of the resop.
@@ -630,6 +637,21 @@ class AssemblerLibgccjit(BaseAssembler):
         boolval = self.ctxt.new_comparison(
             self.lib.GCC_JIT_COMPARISON_EQ,
             self.expr_to_rvalue(resop._arg0),
+            self.expr_to_rvalue(resop._arg1))
+        self._impl_guard(resop, r_int(1), boolval)
+
+    def emit_guard_class(self, resop):
+        print(resop)
+        print(dir(resop))
+        vtable_offset = self.cpu.vtable_offset
+        print('vtable_offset: %r' % vtable_offset)
+        assert vtable_offset is not None
+        lvalue_obj_vtable = self.impl_get_lvalue_at_offset_from_ptr(
+            resop._arg0, r_int(vtable_offset), self.t_void_ptr)
+        print('resop._arg1: %r' % resop._arg1)
+        boolval = self.ctxt.new_comparison(
+            self.lib.GCC_JIT_COMPARISON_EQ,
+            lvalue_obj_vtable.as_rvalue(),
             self.expr_to_rvalue(resop._arg1))
         self._impl_guard(resop, r_int(1), boolval)
 
@@ -828,12 +850,7 @@ class AssemblerLibgccjit(BaseAssembler):
     def emit_float_ge(self, resop):
         self.impl_float_cmp(resop, self.lib.GCC_JIT_COMPARISON_GE)
 
-    def impl_get_lvalue_for_field(self, ptr_expr, fielddescr):
-        assert isinstance(ptr_expr, (BoxPtr, ConstPtr))
-        #print(fielddescr)
-        #print(dir(fielddescr))
-        #print('fielddescr.field_size: %r' % fielddescr.field_size)
-
+    def impl_get_lvalue_at_offset_from_ptr(self, ptr_expr, ll_offset, t_field):
         ptr = self.expr_to_rvalue(ptr_expr)
 
         # Cast to (char *) so we can use offset:
@@ -843,21 +860,10 @@ class AssemblerLibgccjit(BaseAssembler):
         # ((char *)ARG0)[offset]
         ptr = self.ctxt.new_array_access(
             ptr,
-            self.ctxt.new_rvalue_from_int(self.t_Signed,
-                                          r_int(fielddescr.offset)))
+            self.ctxt.new_rvalue_from_int(self.t_Signed, ll_offset))
 
         # (char **)(((char *)ARG0)[offset])
         field_ptr_address = ptr.get_address ()
-
-        # ...and cast back to the correct type:
-        if fielddescr.is_pointer_field():
-            t_field = self.t_void_ptr
-        elif fielddescr.is_float_field():
-            # FIXME: do we need to handle C float vs C double?
-            t_field = self.t_float
-        else:
-            t_field = self.ctxt.get_int_type(r_int(fielddescr.field_size),
-                                             r_int(fielddescr.is_field_signed()))
 
         # (T *)(char **)(((char *)ARG0)[offset])
         field_ptr = self.ctxt.new_cast(field_ptr_address,
@@ -867,13 +873,36 @@ class AssemblerLibgccjit(BaseAssembler):
         # *(T *)(char **)(((char *)ARG0)[offset])
         field_lvalue = field_ptr.dereference()
 
-        return field_lvalue, t_field
+        return field_lvalue
+
+    def impl_get_type_for_field(self, fielddescr):
+        # ...and cast back to the correct type:
+        if fielddescr.is_pointer_field():
+            return self.t_void_ptr
+        elif fielddescr.is_float_field():
+            # FIXME: do we need to handle C float vs C double?
+            return self.t_float
+        else:
+            return self.ctxt.get_int_type(r_int(fielddescr.field_size),
+                                          r_int(fielddescr.is_field_signed()))
+
+    def impl_get_lvalue_for_field(self, ptr_expr, fielddescr):
+        assert isinstance(ptr_expr, (BoxPtr, ConstPtr))
+        #print(fielddescr)
+        #print(dir(fielddescr))
+        #print('fielddescr.field_size: %r' % fielddescr.field_size)
+
+        offset = fielddescr.offset
+        t_field = self.impl_get_type_for_field(fielddescr)
+
+        return self.impl_get_lvalue_at_offset_from_ptr(
+            ptr_expr, r_int(offset), t_field)
 
     def emit_getfield_gc(self, resop):
         #print(repr(resop))
         assert isinstance(resop._arg0, (BoxPtr, ConstPtr))
         lvalres = self.expr_to_lvalue(resop.result)
-        field_lvalue, t_field = self.impl_get_lvalue_for_field(
+        field_lvalue = self.impl_get_lvalue_for_field(
             resop._arg0,
             resop.getdescr())
         self.b_current.add_assignment(
@@ -886,9 +915,10 @@ class AssemblerLibgccjit(BaseAssembler):
         assert isinstance(resop._arg0, (BoxPtr, ConstPtr))
         #print(resop._arg1)
 
-        field_lvalue, t_field = self.impl_get_lvalue_for_field(
+        field_lvalue = self.impl_get_lvalue_for_field(
             resop._arg0,
             resop.getdescr())
+        t_field = self.impl_get_type_for_field(fielddescr)
 
         self.b_current.add_assignment(
             field_lvalue,
