@@ -304,9 +304,6 @@ class AssemblerLibgccjit(BaseAssembler):
 
         self.make_function(name, inputargs, operations)
 
-        self.datablockwrapper.done()      # finish using cpu.asmmemmgr
-        self.datablockwrapper = None
-
         self.ctxt.dump_to_file("/tmp/%s.c" % name, r_int(1))
         jit_result = self.ctxt.compile()
         self.ctxt.release()
