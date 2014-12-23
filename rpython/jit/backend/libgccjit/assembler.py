@@ -1054,10 +1054,10 @@ class AssemblerLibgccjit(BaseAssembler):
         #print(repr(resop))
         assert isinstance(resop._arg0, (BoxPtr, ConstPtr))
         #print(resop._arg1)
-
+        fielddescr = resop.getdescr()
         field_lvalue = self.impl_get_lvalue_for_field(
             resop._arg0,
-            resop.getdescr())
+            fielddescr)
         t_field = self.impl_get_type_for_field(fielddescr)
 
         self.b_current.add_assignment(
