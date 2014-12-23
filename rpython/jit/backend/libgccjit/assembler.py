@@ -4,7 +4,7 @@ from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.regalloc import FrameManager
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.libgccjit.rffi_bindings import make_eci, Library, make_param_array, make_field_array, Context, Type
-from rpython.jit.metainterp.history import BoxInt, ConstInt, BoxFloat, ConstFloat
+from rpython.jit.metainterp.history import BoxInt, ConstInt, BoxFloat, ConstFloat, BoxPtr, ConstPtr
 from rpython.jit.metainterp.resoperation import *
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref, cast_object_to_ptr
 from rpython.rtyper.lltypesystem.rffi import *
@@ -196,12 +196,15 @@ class AssemblerLibgccjit(BaseAssembler):
         self.t_bool = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_BOOL)
         self.t_void_ptr = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID_PTR)
         self.t_void = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID)
+        self.t_char_ptr = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_CHAR).get_pointer()
 
         self.u_signed = self.ctxt.new_field(self.t_Signed, "u_signed")
         self.u_float = self.ctxt.new_field(self.t_float, "u_float")
+        self.u_ptr = self.ctxt.new_field(self.t_void_ptr, "u_ptr")
         self.t_any = self.ctxt.new_union_type ("any",
                                                [self.u_signed,
-                                                self.u_float])
+                                                self.u_float,
+                                                self.u_ptr])
 
     def setup(self, looptoken):
         allblocks = self.get_asmmemmgr_blocks(looptoken)
@@ -429,7 +432,7 @@ class AssemblerLibgccjit(BaseAssembler):
         print(' %s' % expr.__dict__)
         """
 
-        if isinstance(expr, (BoxInt, BoxFloat)):
+        if isinstance(expr, (BoxInt, BoxFloat, BoxPtr)):
             return self.get_box_as_lvalue(expr).as_rvalue()
         elif isinstance(expr, ConstInt):
             #print('value: %r' % expr.value)
@@ -441,6 +444,11 @@ class AssemblerLibgccjit(BaseAssembler):
             #print('type(value): %r' % type(expr.value))
             return self.ctxt.new_rvalue_from_double(self.t_float,
                                                     expr.value)#r_double(expr.value))
+        elif isinstance(expr, ConstPtr):
+            #print('value: %r' % expr.value)
+            #print('type(value): %r' % type(expr.value))
+            return self.ctxt.new_rvalue_from_ptr(self.t_void_ptr,
+                                                 expr.value)
         raise ValueError('unhandled expr: %s %s' % (expr, type(expr)))
 
     def get_box_as_lvalue(self, box):
@@ -463,7 +471,7 @@ class AssemblerLibgccjit(BaseAssembler):
         print(' %s' % dir(expr))
         print(' %s' % expr.__dict__)
         """
-        if isinstance(expr, (BoxInt, BoxFloat)):
+        if isinstance(expr, (BoxInt, BoxFloat, BoxPtr)):
             return self.get_box_as_lvalue(expr)
             
         raise ValueError('unhandled expr: %s' % expr)
@@ -473,6 +481,8 @@ class AssemblerLibgccjit(BaseAssembler):
             return self.t_Signed;
         elif isinstance(box, BoxFloat):
             return self.t_float;
+        elif isinstance(box, BoxPtr):
+            return self.t_void_ptr;
         else:
             raise ValueError('unhandled box: %s %s' % (box, type(box)))
 
@@ -481,6 +491,8 @@ class AssemblerLibgccjit(BaseAssembler):
             return self.u_signed;
         elif isinstance(expr, (BoxFloat, ConstFloat)):
             return self.u_float;
+        elif isinstance(expr, (BoxPtr, ConstPtr)):
+            return self.u_ptr;
         else:
             raise ValueError('unhandled expr: %s %s' % (expr, type(expr)))        
 
@@ -788,3 +800,72 @@ class AssemblerLibgccjit(BaseAssembler):
         self.impl_float_cmp(resop, self.lib.GCC_JIT_COMPARISON_GT)
     def emit_float_ge(self, resop):
         self.impl_float_cmp(resop, self.lib.GCC_JIT_COMPARISON_GE)
+
+    def impl_get_lvalue_for_field(self, ptr_expr, fielddescr):
+        assert isinstance(ptr_expr, (BoxPtr, ConstPtr))
+        #print(fielddescr)
+        #print(dir(fielddescr))
+        #print('fielddescr.field_size: %r' % fielddescr.field_size)
+
+        ptr = self.expr_to_rvalue(ptr_expr)
+
+        # Cast to (char *) so we can use offset:
+        # ((char *)ARG0)
+        ptr = self.ctxt.new_cast(ptr, self.t_char_ptr)
+
+        # ((char *)ARG0)[offset]
+        ptr = self.ctxt.new_array_access(
+            ptr,
+            self.ctxt.new_rvalue_from_int(self.t_Signed,
+                                          r_int(fielddescr.offset)))
+
+        # (char **)(((char *)ARG0)[offset])
+        field_ptr_address = ptr.get_address ()
+
+        # ...and cast back to the correct type:
+        if fielddescr.is_pointer_field():
+            t_field = self.t_void_ptr
+        elif fielddescr.is_float_field():
+            # FIXME: do we need to handle C float vs C double?
+            t_field = self.t_float
+        else:
+            t_field = self.ctxt.get_int_type(r_int(fielddescr.field_size),
+                                             r_int(fielddescr.is_field_signed()))
+
+        # (T *)(char **)(((char *)ARG0)[offset])
+        field_ptr = self.ctxt.new_cast(field_ptr_address,
+                                       t_field.get_pointer())
+
+        # and dereference:
+        # *(T *)(char **)(((char *)ARG0)[offset])
+        field_lvalue = field_ptr.dereference()
+
+        return field_lvalue, t_field
+
+    def emit_getfield_gc(self, resop):
+        #print(repr(resop))
+        assert isinstance(resop._arg0, (BoxPtr, ConstPtr))
+        lvalres = self.expr_to_lvalue(resop.result)
+        field_lvalue, t_field = self.impl_get_lvalue_for_field(
+            resop._arg0,
+            resop.getdescr())
+        self.b_current.add_assignment(
+            lvalres,
+            self.ctxt.new_cast(field_lvalue.as_rvalue(),
+                               self.get_type_for_box(resop.result)))
+
+    def emit_setfield_gc(self, resop):
+        #print(repr(resop))
+        assert isinstance(resop._arg0, (BoxPtr, ConstPtr))
+        #print(resop._arg1)
+
+        field_lvalue, t_field = self.impl_get_lvalue_for_field(
+            resop._arg0,
+            resop.getdescr())
+
+        self.b_current.add_assignment(
+            field_lvalue,
+            
+            # ... = ARG1,
+            self.ctxt.new_cast(self.expr_to_rvalue(resop._arg1),
+                               t_field))

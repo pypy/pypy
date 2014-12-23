@@ -308,6 +308,12 @@ class Library:
                                               self.GCC_JIT_TYPE_P]),
 
                 (self.GCC_JIT_LVALUE_P,
+                 'gcc_jit_context_new_array_access', [self.GCC_JIT_CONTEXT_P,
+                                                      self.GCC_JIT_LOCATION_P,
+                                                      self.GCC_JIT_RVALUE_P,
+                                                      self.GCC_JIT_RVALUE_P]),
+
+                (self.GCC_JIT_LVALUE_P,
                  'gcc_jit_lvalue_access_field', [self.GCC_JIT_LVALUE_P,
                                                  self.GCC_JIT_LOCATION_P,
                                                  self.GCC_JIT_FIELD_P]),
@@ -316,6 +322,14 @@ class Library:
                  'gcc_jit_rvalue_dereference_field', [self.GCC_JIT_RVALUE_P,
                                                       self.GCC_JIT_LOCATION_P,
                                                       self.GCC_JIT_FIELD_P]),
+
+                (self.GCC_JIT_LVALUE_P,
+                 'gcc_jit_rvalue_dereference', [self.GCC_JIT_RVALUE_P,
+                                                self.GCC_JIT_LOCATION_P]),
+
+                (self.GCC_JIT_RVALUE_P,
+                 'gcc_jit_lvalue_get_address', [self.GCC_JIT_LVALUE_P,
+                                                self.GCC_JIT_LOCATION_P]),
 
                 ############################################################
                 # Statement-creation.
@@ -698,6 +712,15 @@ class Context(Wrapper):
                                                         rvalue.inner_rvalue,
                                                         type_.inner_type))
 
+    def new_array_access(self, ptr, index):
+        return LValue(self.lib,
+                      self,
+                      self.lib.gcc_jit_context_new_array_access(
+                          self.inner_ctxt,
+                          self.lib.null_location_ptr,
+                          ptr.inner_rvalue,
+                          index.inner_rvalue))
+
 class LibgccjitError(Exception):
     def __init__(self, ctxt):
         self.msg = charp2str(ctxt.lib.gcc_jit_context_get_last_error (ctxt.inner_ctxt))
@@ -763,6 +786,13 @@ class RValue(Object):
                                                                 self.lib.null_location_ptr,
                                                                 field.inner_field))
 
+    def dereference(self):
+        return LValue(self.lib,
+                      self,
+                      self.lib.gcc_jit_rvalue_dereference(
+                          self.inner_rvalue,
+                          self.lib.null_location_ptr))
+
 class LValue(Object):
     def __init__(self, lib, ctxt, inner_lvalue):
         Object.__init__(self, lib, ctxt, inner_lvalue)
@@ -779,6 +809,13 @@ class LValue(Object):
                       self.lib.gcc_jit_lvalue_access_field (self.inner_lvalue,
                                                             self.lib.null_location_ptr,
                                                             field.inner_field))
+
+    def get_address(self):
+        return RValue(self.lib,
+                      self,
+                      self.lib.gcc_jit_lvalue_get_address(
+                          self.inner_lvalue,
+                          self.lib.null_location_ptr))
 
 class Param(Object):
     def __init__(self, lib, ctxt, inner_param):
