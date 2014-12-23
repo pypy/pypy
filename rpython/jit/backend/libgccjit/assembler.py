@@ -659,14 +659,10 @@ class AssemblerLibgccjit(BaseAssembler):
         self._impl_guard(resop, r_int(1), boolval)
 
     def emit_guard_class(self, resop):
-        print(resop)
-        print(dir(resop))
         vtable_offset = self.cpu.vtable_offset
-        print('vtable_offset: %r' % vtable_offset)
         assert vtable_offset is not None
         lvalue_obj_vtable = self.impl_get_lvalue_at_offset_from_ptr(
             resop._arg0, r_int(vtable_offset), self.t_void_ptr)
-        print('resop._arg1: %r' % resop._arg1)
         boolval = self.ctxt.new_comparison(
             self.lib.GCC_JIT_COMPARISON_EQ,
             lvalue_obj_vtable.as_rvalue(),
@@ -688,6 +684,39 @@ class AssemblerLibgccjit(BaseAssembler):
             ptr_rvalue,
             self.ctxt.null(ptr_rvalue.get_type()))
         self._impl_guard(resop, r_int(1), boolval)
+
+    def emit_guard_nonnull_class(self, resop):
+        # GUARD_NONNULL_CLASS means:
+        #   "check that _arg0 (instance ptr) is non-NULL
+        #    and then (if non-NULL)
+        #       check the ptr's vtable for equality against _arg1
+        #    if both true then guard is true,
+        #    if either fails then guard has failed"
+
+        # Hence we need two conditionals; we can do this
+        # using a logical AND of the two conditionals;
+        # libgccjit should shortcircuit things appropriately.
+
+        ptr_rvalue = self.expr_to_rvalue(resop._arg0)
+        boolval_is_nonnull = self.ctxt.new_comparison(
+            self.lib.GCC_JIT_COMPARISON_NE,
+            ptr_rvalue,
+            self.ctxt.null(ptr_rvalue.get_type()))
+
+        vtable_offset = self.cpu.vtable_offset
+        assert vtable_offset is not None
+        lvalue_obj_vtable = self.impl_get_lvalue_at_offset_from_ptr(
+            resop._arg0, r_int(vtable_offset), self.t_void_ptr)
+        boolval_vtable_equality = self.ctxt.new_comparison(
+            self.lib.GCC_JIT_COMPARISON_EQ,
+            lvalue_obj_vtable.as_rvalue(),
+            self.expr_to_rvalue(resop._arg1))
+
+        self._impl_guard(resop, r_int(1),
+                         self.ctxt.new_binary_op(
+                             self.lib.GCC_JIT_BINARY_OP_LOGICAL_AND,
+                             self.t_bool,
+                             boolval_is_nonnull, boolval_vtable_equality))
 
     def _impl_write_output_args(self, params, args):
         # Write outputs back:
