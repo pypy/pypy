@@ -231,5 +231,5 @@ def get_typeids_z(space):
 
 def get_typeids_list(space):
     l = rgc.get_typeids_list()
-    list_w = [space.wrap(l[i] for i in range(len(l)))]
+    list_w = [space.wrap(l[i]) for i in range(len(l))]
     return space.newlist(list_w)
