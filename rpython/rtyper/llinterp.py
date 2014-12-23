@@ -911,6 +911,9 @@ class LLFrame(object):
     def op_gc_typeids_z(self):
         raise NotImplementedError("gc_typeids_z")
 
+    def op_gc_typeids_list(self):
+        raise NotImplementedError("gc_typeids_list")
+
     def op_gc_gcflag_extra(self, subopnum, *args):
         return self.heap.gcflag_extra(subopnum, *args)
 

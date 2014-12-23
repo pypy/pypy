@@ -1,7 +1,7 @@
 """
 Utility RPython functions to inspect objects in the GC.
 """
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
 from rpython.rlib.objectmodel import free_non_gc_object
 from rpython.rtyper.module.ll_os import UNDERSCORE_ON_WIN32
 from rpython.rlib import rposix, rgc
@@ -238,3 +238,8 @@ def dump_rpy_heap(gc, fd):
 def get_typeids_z(gc):
     srcaddress = gc.root_walker.gcdata.typeids_z
     return llmemory.cast_adr_to_ptr(srcaddress, lltype.Ptr(rgc.ARRAY_OF_CHAR))
+
+def get_typeids_list(gc):
+    srcaddress = gc.root_walker.gcdata.typeids_list
+    return llmemory.cast_adr_to_ptr(srcaddress, lltype.Ptr(ARRAY_OF_HALFWORDS))
+ARRAY_OF_HALFWORDS = lltype.Array(llgroup.HALFWORD)
