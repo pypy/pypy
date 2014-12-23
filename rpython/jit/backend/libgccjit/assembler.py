@@ -875,7 +875,29 @@ class AssemblerLibgccjit(BaseAssembler):
     def emit_int_ge(self, resop):
         self.impl_int_cmp(resop, self.lib.GCC_JIT_COMPARISON_GE)
 
-    #   "UINT" comparisons:  TODO
+    #   "UINT" comparisons:
+    def impl_uint_cmp(self, resop, gcc_jit_comparison):
+        rval0 = self.expr_to_rvalue(resop._arg0)
+        rval1 = self.expr_to_rvalue(resop._arg1)
+        rval0 = self.ctxt.new_cast(rval0, self.t_UINT)
+        rval1 = self.ctxt.new_cast(rval1, self.t_UINT)
+        lvalres = self.expr_to_lvalue(resop.result)
+        resop_cmp = (
+            self.ctxt.new_cast(
+                self.ctxt.new_comparison(gcc_jit_comparison,
+                                         rval0, rval1),
+                self.t_Signed)
+            )
+        self.b_current.add_assignment(lvalres,
+                                      resop_cmp)
+    def emit_uint_lt(self, resop):
+        self.impl_uint_cmp(resop, self.lib.GCC_JIT_COMPARISON_LT)
+    def emit_uint_le(self, resop):
+        self.impl_uint_cmp(resop, self.lib.GCC_JIT_COMPARISON_LE)
+    def emit_uint_gt(self, resop):
+        self.impl_uint_cmp(resop, self.lib.GCC_JIT_COMPARISON_GT)
+    def emit_uint_ge(self, resop):
+        self.impl_uint_cmp(resop, self.lib.GCC_JIT_COMPARISON_GE)
 
     #   "FLOAT" comparisons:
     def impl_float_cmp(self, resop, gcc_jit_comparison):
@@ -903,6 +925,36 @@ class AssemblerLibgccjit(BaseAssembler):
         self.impl_float_cmp(resop, self.lib.GCC_JIT_COMPARISON_GT)
     def emit_float_ge(self, resop):
         self.impl_float_cmp(resop, self.lib.GCC_JIT_COMPARISON_GE)
+
+    # Unary "INT" operations:
+    def _impl_int_unaryop(self, resop, gcc_jit_unary_op):
+        rvalue = self.expr_to_rvalue(resop._arg0)
+        lvalres = self.expr_to_lvalue(resop.result)
+        unaryop_expr = self.ctxt.new_unary_op(gcc_jit_unary_op,
+                                              self.t_Signed,
+                                              rvalue)
+        self.b_current.add_assignment(lvalres, unaryop_expr)
+
+    def emit_int_is_zero(self, resop):
+        self._impl_int_unaryop(resop, self.lib.GCC_JIT_UNARY_OP_LOGICAL_NEGATE)
+    def emit_int_is_true(self, resop):
+        rvalarg = self.expr_to_rvalue(resop._arg0)
+        lvalres = self.expr_to_lvalue(resop.result)
+        resop_cmp = (
+            self.ctxt.new_cast(
+                self.ctxt.new_comparison(self.lib.GCC_JIT_COMPARISON_NE,
+                                         rvalarg,
+                                         self.ctxt.zero(self.t_Signed)),
+                self.t_Signed)
+            )
+        self.b_current.add_assignment(lvalres,
+                                      resop_cmp)
+    def emit_int_neg(self, resop):
+        self._impl_int_unaryop(resop, self.lib.GCC_JIT_UNARY_OP_MINUS)
+    def emit_int_invert(self, resop):
+        self._impl_int_unaryop(resop, self.lib.GCC_JIT_UNARY_OP_BITWISE_NEGATE)
+
+    #
 
     def impl_get_lvalue_at_offset_from_ptr(self, ptr_expr, ll_offset, t_field):
         ptr = self.expr_to_rvalue(ptr_expr)

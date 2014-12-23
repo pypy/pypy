@@ -633,6 +633,13 @@ class Context(Wrapper):
                           type_.inner_type,
                           llvalue))
 
+    def zero(self, numeric_type):
+        return RValue(self.lib,
+                      self,
+                      self.lib.gcc_jit_context_zero(
+                          self.inner_ctxt,
+                          numeric_type.inner_type))
+
     def new_rvalue_from_double(self, type_, llvalue):
         return RValue(self.lib,
                       self,
