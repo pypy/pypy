@@ -1097,8 +1097,9 @@ class AppTestOptimizer:
 
     def test_interned_strings(self):
         source = """x = ('foo_bar42', 5); y = 'foo_bar42'; z = x[0]"""
-        exec source
-        assert y is z
+        ns = {}
+        exec(source, ns)
+        assert ns['y'] is ns['z']
 
 
 class AppTestExceptions:
