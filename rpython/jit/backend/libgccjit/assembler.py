@@ -1,6 +1,7 @@
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.assembler import BaseAssembler
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
+from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.backend.llsupport.regalloc import FrameManager
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.libgccjit.rffi_bindings import (
@@ -486,7 +487,7 @@ class AssemblerLibgccjit(BaseAssembler):
     def get_box_as_lvalue(self, box):
         if box not in self.lvalue_for_box:
             self.lvalue_for_box[box] = (
-                self.fn.new_local(self.get_type_for_box(box),
+                self.fn.new_local(self.get_type_for_expr(box),
                                   str(box)))
         return self.lvalue_for_box[box]
 
@@ -508,15 +509,16 @@ class AssemblerLibgccjit(BaseAssembler):
 
         raise NotImplementedError('unhandled expr: %s' % expr)
 
-    def get_type_for_box(self, box):
-        if isinstance(box, BoxInt):
+    def get_type_for_expr(self, expr):
+        if isinstance(expr, (BoxInt, ConstInt)):
             return self.t_Signed;
-        elif isinstance(box, BoxFloat):
+        elif isinstance(expr, (BoxFloat, ConstFloat)):
             return self.t_float;
-        elif isinstance(box, BoxPtr):
+        elif isinstance(expr, (BoxPtr, ConstPtr)):
             return self.t_void_ptr;
         else:
-            raise NotImplementedError('unhandled box: %s %s' % (box, type(box)))
+            raise NotImplementedError('unhandled expr: %s %s'
+                                      % (expr, type(expr)))
 
     def get_union_field_for_expr(self, expr):
         if isinstance(expr, (BoxInt, ConstInt)):
@@ -1046,7 +1048,7 @@ class AssemblerLibgccjit(BaseAssembler):
         self.b_current.add_assignment(
             lvalres,
             self.ctxt.new_cast(field_lvalue.as_rvalue(),
-                               self.get_type_for_box(resop.result)))
+                               self.get_type_for_expr(resop.result)))
 
     def emit_setfield_gc(self, resop):
         #print(repr(resop))
@@ -1069,6 +1071,53 @@ class AssemblerLibgccjit(BaseAssembler):
     def emit_jit_debug(self, resop):
         pass # noop
 
+    # '_CANRAISE_FIRST', # ----- start of can_raise operations -----
+    # '_CALL_FIRST',
+
+    def emit_call(self, resop):
+        print(resop)
+        print(dir(resop))
+        calldescr = resop.getdescr()
+        assert isinstance(calldescr, CallDescr)
+        #size = calldescr.get_result_size()
+        #sign = calldescr.is_result_signed()
+        print('resop.numargs(): %r' % resop.numargs())
+        print('[resop.getarg(i) for i in range(resop.numargs())]: %r'
+              % [resop.getarg(i) for i in range(resop.numargs())])
+        #print('resop.result: %r' % resop.result)
+
+        print('resop.getarg(0): %r' % resop.getarg(0))
+        print('dir(resop.getarg(0)): %r' % dir(resop.getarg(0)))
+        print('resop.getarg(0).type: %r' % resop.getarg(0).type)
+
+        #arg0 is a fnptr
+        #arg1..N are the args to the call
+
+        # FIXME: is the returntype of the fn always that of the result
+        # location?
+        returntype = self.get_type_for_expr(resop.result)
+
+        # FIXME: are the params types always those of the input args?
+        paramtypes = [self.get_type_for_expr(resop.getarg(i))
+                       for i in range(1, resop.numargs())]
+
+        fn_ptr_type = self.ctxt.new_function_ptr_type(
+            returntype,
+            paramtypes,
+            r_int(0)) # is_variadic
+        fn_ptr = self.ctxt.new_cast(self.expr_to_rvalue(resop.getarg(0)),
+                                    fn_ptr_type)
+        arg_rvalues = [self.expr_to_rvalue(resop.getarg(i))
+                       for i in range(1, resop.numargs())]
+        call = self.ctxt.new_call_through_ptr(fn_ptr,
+                                              arg_rvalues)
+        self.b_current.add_assignment(self.expr_to_lvalue(resop.result),
+                                      call)
+
+    #'_CALL_LAST',
+    #'_CANRAISE_LAST', # ----- end of can_raise operations -----
+
+    # '_OVF_FIRST', # ----- start of is_ovf operations -----
     # "INT_*_OVF" operations:
     def _impl_int_ovf(self, resop, builtin_name):
         """
@@ -1094,3 +1143,6 @@ class AssemblerLibgccjit(BaseAssembler):
         self._impl_int_ovf(resop, '__builtin_sub_overflow')
     def emit_int_mul_ovf(self, resop):
         self._impl_int_ovf(resop, '__builtin_mul_overflow')
+
+    # '_OVF_LAST', # ----- end of is_ovf operations -----
+    # '_LAST',     # for the backend to add more internal operations
