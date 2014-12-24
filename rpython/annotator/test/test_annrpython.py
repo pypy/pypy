@@ -4326,6 +4326,13 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeString)
         assert not s.can_be_none()
 
+    def test_nonnulify(self):
+        s = annmodel.SomeString(can_be_None=True).nonnulify()
+        assert s.can_be_None is True
+        assert s.no_nul is True
+        s = annmodel.SomeChar().nonnulify()
+        assert s.no_nul is True
+
 
 def g(n):
     return [0, 1, 2, n]
