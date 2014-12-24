@@ -366,8 +366,12 @@ class W_TypeObject(W_Root):
             tup = w_self._lookup_where(name)
             return tup
         name = promote_string(name)
-        w_class, w_value = w_self._pure_lookup_where_with_method_cache(name, version_tag)
-        return w_class, unwrap_cell(space, w_value)
+        tup_w = w_self._pure_lookup_where_with_method_cache(name, version_tag)
+        w_class, w_value = tup_w
+        if (space.config.objspace.std.withtypeversion and
+                isinstance(w_value, TypeCell)):
+            return w_class, w_value.w_value
+        return tup_w   # don't make a new tuple, reuse the old one
 
     def _pure_lookup_where_possibly_with_method_cache(w_self, name, version_tag):
         if w_self.space.config.objspace.std.withmethodcache:

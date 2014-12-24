@@ -74,7 +74,6 @@ def record_loop_or_bridge(metainterp_sd, loop):
             # for a CALL_ASSEMBLER: record it as a potential jump.
             if descr is not original_jitcell_token:
                 original_jitcell_token.record_jump_to(descr)
-            descr.exported_state = None
             op.cleardescr()    # clear reference, mostly for tests
         elif isinstance(descr, TargetToken):
             # for a JUMP: record it as a potential jump.
@@ -84,10 +83,6 @@ def record_loop_or_bridge(metainterp_sd, loop):
             if descr.original_jitcell_token is not original_jitcell_token:
                 assert descr.original_jitcell_token is not None
                 original_jitcell_token.record_jump_to(descr.original_jitcell_token)
-            # exported_state is clear by optimizeopt when the short preamble is
-            # constrcucted. if that did not happen the label should not show up
-            # in a trace that will be used
-            assert descr.exported_state is None
             if not we_are_translated():
                 op._descr_wref = weakref.ref(op._descr)
             op.cleardescr()    # clear reference to prevent the history.Stats
@@ -133,7 +128,8 @@ def compile_loop(metainterp, greenkey, start,
                       [ResOperation(rop.LABEL, jumpargs, None, descr=jitcell_token)]
 
     try:
-        optimize_trace(metainterp_sd, part, enable_opts)
+        start_state = optimize_trace(metainterp_sd, part, enable_opts,
+                                     export_state=True)
     except InvalidLoop:
         return None
     target_token = part.operations[0].getdescr()
@@ -146,7 +142,7 @@ def compile_loop(metainterp, greenkey, start,
     loop.quasi_immutable_deps = {}
     if part.quasi_immutable_deps:
         loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
-    while part.operations[-1].getopnum() == rop.LABEL:
+    if part.operations[-1].getopnum() == rop.LABEL:
         inliner = Inliner(inputargs, jumpargs)
         part.quasi_immutable_deps = None
         part.operations = [part.operations[-1]] + \
@@ -160,13 +156,15 @@ def compile_loop(metainterp, greenkey, start,
         jumpargs = part.operations[-1].getarglist()
 
         try:
-            optimize_trace(metainterp_sd, part, enable_opts)
+            optimize_trace(metainterp_sd, part, enable_opts,
+                           start_state=start_state, export_state=False)
         except InvalidLoop:
             return None
 
         loop.operations = loop.operations[:-1] + part.operations
         if part.quasi_immutable_deps:
             loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
+    assert part.operations[-1].getopnum() != rop.LABEL
 
     if not loop.quasi_immutable_deps:
         loop.quasi_immutable_deps = None
@@ -186,7 +184,7 @@ def compile_loop(metainterp, greenkey, start,
 
 def compile_retrace(metainterp, greenkey, start,
                     inputargs, jumpargs,
-                    partial_trace, resumekey):
+                    partial_trace, resumekey, start_state):
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
@@ -211,18 +209,20 @@ def compile_retrace(metainterp, greenkey, start,
     orignial_label = label.clone()
     assert label.getopnum() == rop.LABEL
     try:
-        optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
+        optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts,
+                       start_state=start_state, export_state=False)
     except InvalidLoop:
         # Fall back on jumping to preamble
         target_token = label.getdescr()
         assert isinstance(target_token, TargetToken)
-        assert target_token.exported_state
         part.operations = [orignial_label] + \
                           [ResOperation(rop.JUMP, inputargs[:],
                                         None, descr=loop_jitcell_token)]
         try:
-            optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts,
-                           inline_short_preamble=False)
+            optimize_trace(metainterp_sd, part,
+                           jitdriver_sd.warmstate.enable_opts,
+                           inline_short_preamble=False, start_state=start_state,
+                           export_state=False)
         except InvalidLoop:
             return None
     assert part.operations[-1].getopnum() != rop.LABEL
@@ -791,7 +791,8 @@ def compile_trace(metainterp, resumekey):
     else:
         inline_short_preamble = True
     try:
-        optimize_trace(metainterp_sd, new_trace, state.enable_opts, inline_short_preamble)
+        state = optimize_trace(metainterp_sd, new_trace, state.enable_opts,
+                               inline_short_preamble, export_state=True)
     except InvalidLoop:
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
@@ -807,7 +808,7 @@ def compile_trace(metainterp, resumekey):
         record_loop_or_bridge(metainterp_sd, new_trace)
         return target_token
     else:
-        metainterp.retrace_needed(new_trace)
+        metainterp.retrace_needed(new_trace, state)
         return None
 
 # ____________________________________________________________

@@ -474,7 +474,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert math.isnan(fmod(v, 2))
 
     def test_minimum(self):
-        from numpypy import array, minimum, nan, isnan
+        from numpy import array, minimum, nan, isnan
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
@@ -487,7 +487,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert isnan(minimum(arg1, arg2)).all()
 
     def test_maximum(self):
-        from numpypy import array, maximum, nan, isnan
+        from numpy import array, maximum, nan, isnan
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])

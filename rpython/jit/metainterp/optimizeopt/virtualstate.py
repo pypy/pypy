@@ -280,18 +280,18 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def __init__(self, value, is_opaque=False):
         self.is_opaque = is_opaque
-        self.known_class = value.known_class
-        self.level = value.level
-        if value.intbound is None:
+        self.known_class = value.get_known_class()
+        self.level = value.getlevel()
+        if value.getintbound() is None:
             self.intbound = IntUnbounded()
         else:
-            self.intbound = value.intbound.clone()
+            self.intbound = value.getintbound().clone()
         if value.is_constant():
             self.constbox = value.box
         else:
             self.constbox = None
         self.position_in_notvirtuals = -1
-        self.lenbound = value.lenbound
+        self.lenbound = value.getlenbound()
 
 
     def _generate_guards(self, other, value, state):
@@ -585,13 +585,12 @@ class BoxNotProducable(Exception):
 
 
 class ShortBoxes(object):
-    def __init__(self, optimizer, surviving_boxes, availible_boxes=None):
+    def __init__(self, optimizer, surviving_boxes):
         self.potential_ops = {}
         self.alternatives = {}
         self.synthetic = {}
         self.rename = {}
         self.optimizer = optimizer
-        self.availible_boxes = availible_boxes
         self.assumed_classes = {}
 
         if surviving_boxes is not None:
@@ -662,8 +661,6 @@ class ShortBoxes(object):
         if isinstance(box, Const):
             return
         if box in self.short_boxes_in_production:
-            raise BoxNotProducable
-        if self.availible_boxes is not None and box not in self.availible_boxes:
             raise BoxNotProducable
         self.short_boxes_in_production[box] = None
 

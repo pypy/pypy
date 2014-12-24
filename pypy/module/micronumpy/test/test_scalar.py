@@ -293,15 +293,15 @@ class AppTestScalar(BaseNumpyAppTest):
             assert np.isnan(b/a)
 
     def test_scalar_iter(self):
-        from numpypy import int8, int16, int32, int64, float32, float64
-        from numpypy import complex64, complex128
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
         for t in (int8, int16, int32, int64, float32, float64,
                   complex64, complex128):
             raises(TypeError, iter, t(17))
 
     def test_item_tolist(self):
-        from numpypy import int8, int16, int32, int64, float32, float64
-        from numpypy import complex64, complex128, dtype
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128, dtype
 
         def _do_test(np_type, py_type, orig_val, exp_val):
             val = np_type(orig_val)
@@ -331,8 +331,8 @@ class AppTestScalar(BaseNumpyAppTest):
             _do_test(t, complex, 17j, 17j)
 
     def test_transpose(self):
-        from numpypy import int8, int16, int32, int64, float32, float64
-        from numpypy import complex64, complex128
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
 
         def _do_test(np_type, orig_val, exp_val):
             val = np_type(orig_val)
@@ -354,8 +354,8 @@ class AppTestScalar(BaseNumpyAppTest):
             _do_test(t, 17j, 17j)
 
     def test_swapaxes(self):
-        from numpypy import int8, int16, int32, int64, float32, float64
-        from numpypy import complex64, complex128
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
 
         def _do_test(np_type, orig_val, exp_val):
             val = np_type(orig_val)
@@ -374,8 +374,8 @@ class AppTestScalar(BaseNumpyAppTest):
             _do_test(t, 17j, 17j)
 
     def test_nonzero(self):
-        from numpypy import int8, int16, int32, int64, float32, float64
-        from numpypy import complex64, complex128
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
 
         for t in (int8, int16, int32, int64, float32, float64,
                   complex64, complex128):
@@ -387,8 +387,8 @@ class AppTestScalar(BaseNumpyAppTest):
 
     def test_fill(self):
         import sys
-        from numpypy import int8, int16, int32, int64, float32, float64
-        from numpypy import complex64, complex128
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
 
         for t in (int8, int16, int32, int64, float32, float64,
                   complex64, complex128):
@@ -399,8 +399,8 @@ class AppTestScalar(BaseNumpyAppTest):
             raises(exc, t(17).fill, '')
 
     def test_conj(self):
-        from numpypy import int8, int16, int32, int64, float32, float64
-        from numpypy import complex64, complex128
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
 
         def _do_test(np_type, orig_val, exp_val):
             val = np_type(orig_val)
