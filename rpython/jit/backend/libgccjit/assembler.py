@@ -123,7 +123,7 @@ class Patchpoint:
         self.set_handler(handler)
 
     def set_handler(self, handler):
-        print('set_handler(%r)' % handler)
+        #print('set_handler(%r)' % handler)
 
         # We want to write the equivalent of:
         #    (*fn_ptr_ptr) = handler;
@@ -172,6 +172,8 @@ class AssemblerLibgccjit(BaseAssembler):
         eci = make_eci()
         self.lib = Library(eci)
 
+        self.add_comments = 1
+
     def make_context(self):
         self.ctxt = Context.acquire(self.lib)#self.lib.gcc_jit_context_acquire()
         if 0:
@@ -190,11 +192,11 @@ class AssemblerLibgccjit(BaseAssembler):
             self.ctxt.set_int_option(
                 self.lib.GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
                 r_int(2))
-        if 1:
+        if 0:
             self.ctxt.set_bool_option(
                 self.lib.GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
                 r_int(1))
-        if 1:
+        if 0:
             self.ctxt.set_bool_option(
                 self.lib.GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
                 r_int(1))
@@ -269,7 +271,8 @@ class AssemblerLibgccjit(BaseAssembler):
         self.datablockwrapper.done()      # finish using cpu.asmmemmgr
         self.datablockwrapper = None
 
-        self.ctxt.dump_to_file("/tmp/%s.c" % loopname, r_int(1))
+        if 1:
+            self.ctxt.dump_to_file("/tmp/%s.c" % loopname, r_int(1))
 
         #raise foo
 
@@ -306,7 +309,8 @@ class AssemblerLibgccjit(BaseAssembler):
 
         self.make_function(name, inputargs, operations)
 
-        self.ctxt.dump_to_file("/tmp/%s.c" % name, r_int(1))
+        if 1:
+            self.ctxt.dump_to_file("/tmp/%s.c" % name, r_int(1))
         jit_result = self.ctxt.compile()
         self.ctxt.release()
 
@@ -413,11 +417,13 @@ class AssemblerLibgccjit(BaseAssembler):
             #print(dir(op))
             #print(repr(op.getopname()))
             text += '\t%s\n' % op
-        self.b_current.add_comment(str(text))
+        if self.add_comments:
+            self.b_current.add_comment(str(text))
 
         # Get initial values from input args:
         for idx, arg in enumerate(inputargs):
-            self.b_current.add_comment("inputargs[%i]: %s" % (idx, arg))
+            if self.add_comments:
+                self.b_current.add_comment("inputargs[%i]: %s" % (idx, arg))
             # (gdb) p *(double*)&jitframe->arg0
             # $7 = 10.5
             # (gdb) p *(double*)&jitframe->arg1
@@ -442,7 +448,8 @@ class AssemblerLibgccjit(BaseAssembler):
             #print(dir(op))
             #print(repr(op.getopname()))
             # Add a comment describing this ResOperation
-            self.b_current.add_comment(str(op))
+            if self.add_comments:
+                self.b_current.add_comment(str(op))
 
             # Compile the operation itself...
             methname = 'emit_%s' % op.getopname()
