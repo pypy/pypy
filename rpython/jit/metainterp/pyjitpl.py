@@ -2170,7 +2170,8 @@ class MetaInterp(object):
         assert isinstance(key, compile.ResumeGuardDescr)
         # store the resumekey.wref_original_loop_token() on 'self' to make
         # sure that it stays alive as long as this MetaInterp
-        self.resumekey_original_loop_token = key.wref_original_loop_token()
+        # XXXX this is stored these days via rd_loop_token on resumedescr
+        #self.resumekey_original_loop_token = key.wref_original_loop_token()
         self.staticdata.try_to_free_some_loops()
         self.initialize_state_from_guard_failure(key, deadframe)
         try:

@@ -65,12 +65,14 @@ def record_loop_or_bridge(metainterp_sd, loop):
     wref = weakref.ref(original_jitcell_token)
     for op in loop.operations:
         descr = op.getdescr()
-        if isinstance(descr, ResumeDescr):
-            descr.wref_original_loop_token = wref   # stick it there
-            n = descr.index
-            if n >= 0:       # we also record the resumedescr number
-                original_jitcell_token.compiled_loop_token.record_faildescr_index(n)
-        elif isinstance(descr, JitCellToken):
+        # not sure what descr.index is about
+        #if isinstance(descr, ResumeDescr):
+            #descr.wref_original_loop_token = wref   # stick it there
+            #n = descr.index
+            #if n >= 0:       # we also record the resumedescr number
+            #    original_jitcell_token.compiled_loop_token.record_faildescr_index(n)
+        #    pass
+        if isinstance(descr, JitCellToken):
             # for a CALL_ASSEMBLER: record it as a potential jump.
             if descr is not original_jitcell_token:
                 original_jitcell_token.record_jump_to(descr)
