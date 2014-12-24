@@ -123,8 +123,10 @@ if WIN32:
     _SetLastError = winexternal('SetLastError', [DWORD], lltype.Void,
                                 _nowrapper=True, sandboxsafe=True)
 
+    @jit.dont_look_inside
     def GetLastError():
         return rffi.cast(lltype.Signed, _GetLastError())
+    @jit.dont_look_inside
     def SetLastError(err):
         _SetLastError(rffi.cast(DWORD, err))
 
