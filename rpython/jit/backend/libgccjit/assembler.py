@@ -7,6 +7,7 @@ from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.libgccjit.rffi_bindings import (
     make_eci, Library, make_param_array, make_field_array, Context, Type,
     RValue)
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (
     BoxInt, ConstInt, BoxFloat, ConstFloat, BoxPtr, ConstPtr)
 from rpython.jit.metainterp.resoperation import *
@@ -1075,23 +1076,46 @@ class AssemblerLibgccjit(BaseAssembler):
     # '_CALL_FIRST',
 
     def emit_call(self, resop):
-        print(resop)
-        print(dir(resop))
+        #print(resop)
+        #print(dir(resop))
         calldescr = resop.getdescr()
-        assert isinstance(calldescr, CallDescr)
-        #size = calldescr.get_result_size()
-        #sign = calldescr.is_result_signed()
-        print('resop.numargs(): %r' % resop.numargs())
-        print('[resop.getarg(i) for i in range(resop.numargs())]: %r'
-              % [resop.getarg(i) for i in range(resop.numargs())])
-        #print('resop.result: %r' % resop.result)
-
-        print('resop.getarg(0): %r' % resop.getarg(0))
-        print('dir(resop.getarg(0)): %r' % dir(resop.getarg(0)))
-        print('resop.getarg(0).type: %r' % resop.getarg(0).type)
+        #assert isinstance(calldescr, CallDescr)
+        #print('dir(calldescr): %r' % dir(calldescr))
+        #print('calldescr.__dict__: %r' % calldescr.__dict__)
+        #print('calldescr.extrainfo: %r' % calldescr.extrainfo)
 
         #arg0 is a fnptr
         #arg1..N are the args to the call
+
+        arg_rvalues = [self.expr_to_rvalue(resop.getarg(i))
+                       for i in range(1, resop.numargs())]
+
+        #print('type(calldescr.extrainfo): %r' % type(calldescr.extrainfo))
+        assert isinstance(calldescr.extrainfo, EffectInfo)
+        if calldescr.extrainfo.oopspecindex:
+            #print('  calldescr.extrainfo.oopspecindex: %r'
+            #      % calldescr.extrainfo.oopspecindex)
+            if calldescr.extrainfo.oopspecindex == EffectInfo.OS_MATH_SQRT:
+                # Convert into a call to builtin: "double sqrt(double);"
+                fn = self.ctxt.get_builtin_function('sqrt')
+                call = self.ctxt.new_call(fn,
+                                          arg_rvalues)
+                self.b_current.add_assignment(
+                    self.expr_to_lvalue(resop.result),
+                    call)
+                return
+
+        #size = calldescr.get_result_size()
+        #sign = calldescr.is_result_signed()
+        #print('resop.numargs(): %r' % resop.numargs())
+        #print('[resop.getarg(i) for i in range(resop.numargs())]: %r'
+        #      % [resop.getarg(i) for i in range(resop.numargs())])
+        #print('resop.result: %r' % resop.result)
+
+        #print('resop.getarg(0): %r' % resop.getarg(0))
+        #print('dir(resop.getarg(0)): %r' % dir(resop.getarg(0)))
+        #print('resop.getarg(0).type: %r' % resop.getarg(0).type)
+
 
         # FIXME: is the returntype of the fn always that of the result
         # location?
@@ -1107,8 +1131,6 @@ class AssemblerLibgccjit(BaseAssembler):
             r_int(0)) # is_variadic
         fn_ptr = self.ctxt.new_cast(self.expr_to_rvalue(resop.getarg(0)),
                                     fn_ptr_type)
-        arg_rvalues = [self.expr_to_rvalue(resop.getarg(i))
-                       for i in range(1, resop.numargs())]
         call = self.ctxt.new_call_through_ptr(fn_ptr,
                                               arg_rvalues)
         self.b_current.add_assignment(self.expr_to_lvalue(resop.result),
