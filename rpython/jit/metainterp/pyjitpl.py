@@ -12,7 +12,7 @@ from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, GuardResOp
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints, make_sure_not_resized
@@ -1875,22 +1875,45 @@ class MetaInterp(object):
         else:
             moreargs = list(extraargs)
         if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
-            resumedescr = compile.ResumeGuardForcedDescr(self.staticdata,
-                                                         self.jitdriver_sd)
+            resumedescr = compile.ResumeGuardForcedDescr()
+            resumedescr._init(self.staticdata, self.jitdriver_sd)
         elif opnum == rop.GUARD_NOT_INVALIDATED:
             resumedescr = compile.ResumeGuardNotInvalidated()
         elif opnum == rop.GUARD_FUTURE_CONDITION:
             resumedescr = compile.ResumeAtPositionDescr()
+        elif opnum == rop.GUARD_VALUE:
+            resumedescr = compile.ResumeGuardValueDescr()
+        elif opnum == rop.GUARD_NONNULL:
+            resumedescr = compile.ResumeGuardNonnullDescr()
+        elif opnum == rop.GUARD_ISNULL:
+            resumedescr = compile.ResumeGuardIsnullDescr()
+        elif opnum == rop.GUARD_NONNULL_CLASS:
+            resumedescr = compile.ResumeGuardNonnullClassDescr()
+        elif opnum == rop.GUARD_CLASS:
+            resumedescr = compile.ResumeGuardClassDescr()
+        elif opnum == rop.GUARD_TRUE:
+            resumedescr = compile.ResumeGuardTrueDescr()
+        elif opnum == rop.GUARD_FALSE:
+            resumedescr = compile.ResumeGuardFalseDescr()
+        elif opnum == rop.GUARD_EXCEPTION:
+            resumedescr = compile.ResumeGuardExceptionDescr()
+        elif opnum == rop.GUARD_NO_EXCEPTION:
+            resumedescr = compile.ResumeGuardNoExceptionDescr()
+        elif opnum == rop.GUARD_OVERFLOW:
+            resumedescr = compile.ResumeGuardOverflowDescr()
+        elif opnum == rop.GUARD_NO_OVERFLOW:
+            resumedescr = compile.ResumeGuardNoOverflowDescr()
         else:
-            resumedescr = compile.ResumeGuardDescr()
+            assert False
         guard_op = self.history.record(opnum, moreargs, None, descr=resumedescr)
-        self.capture_resumedata(resumedescr, resumepc)
+        assert isinstance(guard_op, GuardResOp)
+        self.capture_resumedata(guard_op, resumedescr, resumepc)
         self.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
         # count
         self.attach_debug_info(guard_op)
         return guard_op
 
-    def capture_resumedata(self, resumedescr, resumepc=-1):
+    def capture_resumedata(self, guard_op, resumedescr, resumepc=-1):
         virtualizable_boxes = None
         if (self.jitdriver_sd.virtualizable_info is not None or
             self.jitdriver_sd.greenfield_info is not None):
@@ -1902,7 +1925,7 @@ class MetaInterp(object):
             if resumepc >= 0:
                 frame.pc = resumepc
         resume.capture_resumedata(self.framestack, virtualizable_boxes,
-                                  self.virtualref_boxes, resumedescr)
+                                  self.virtualref_boxes, resumedescr, guard_op)
         if self.framestack:
             self.framestack[-1].pc = saved_pc
 
@@ -2163,13 +2186,8 @@ class MetaInterp(object):
         self.seen_loop_header_for_jdindex = -1
         if isinstance(key, compile.ResumeAtPositionDescr):
             self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
-            dont_change_position = True
-        else:
-            dont_change_position = False
         try:
-            self.prepare_resume_from_failure(key.guard_opnum,
-                                             dont_change_position,
-                                             deadframe)
+            self.prepare_resume_from_failure(key.guard_opnum, deadframe)
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
             self.interpret()
@@ -2312,12 +2330,12 @@ class MetaInterp(object):
             else: assert 0
         self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
 
-    def prepare_resume_from_failure(self, opnum, dont_change_position,
-                                    deadframe):
+    def prepare_resume_from_failure(self, opnum, deadframe):
         frame = self.framestack[-1]
-        if opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
-            if not dont_change_position:
-                frame.pc = frame.jitcode.follow_jump(frame.pc)
+        if opnum == rop.GUARD_FUTURE_CONDITION:
+            pass
+        elif opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
+            frame.pc = frame.jitcode.follow_jump(frame.pc)
         elif opnum == rop.GUARD_FALSE:     # a goto_if_not that stops jumping;
             pass                  # or a switch that was in its "default" case
         elif opnum == rop.GUARD_VALUE or opnum == rop.GUARD_CLASS:
@@ -2341,12 +2359,11 @@ class MetaInterp(object):
             pass # XXX we want to do something special in resume descr,
                  # but not now
         elif opnum == rop.GUARD_NO_OVERFLOW:   # an overflow now detected
-            if not dont_change_position:
-                self.execute_raised(OverflowError(), constant=True)
-                try:
-                    self.finishframe_exception()
-                except ChangeFrame:
-                    pass
+            self.execute_raised(OverflowError(), constant=True)
+            try:
+                self.finishframe_exception()
+            except ChangeFrame:
+                pass
         elif opnum == rop.GUARD_OVERFLOW:      # no longer overflowing
             self.clear_exception()
         else:

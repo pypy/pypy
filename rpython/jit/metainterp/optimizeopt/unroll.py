@@ -1,6 +1,5 @@
 import sys
 
-from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, Const
 from rpython.jit.metainterp.inliner import Inliner
 from rpython.jit.metainterp.optimize import InvalidLoop
@@ -8,7 +7,7 @@ from rpython.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.virtualstate import (VirtualStateConstructor,
         ShortBoxes, BadVirtualState, VirtualStatesCantMatch)
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop, ResOperation, GuardResOp
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 
@@ -560,7 +559,10 @@ class UnrollOptimizer(Optimization):
 
             for guard in extra_guards:
                 if guard.is_guard():
-                    descr = patchguardop.getdescr().clone_if_mutable()
+                    descr = patchguardop.getdescr().clone()
+                    assert isinstance(guard, GuardResOp)
+                    assert isinstance(patchguardop, GuardResOp)
+                    guard.rd_snapshot = patchguardop.rd_snapshot
                     guard.setdescr(descr)
                 self.optimizer.send_extra_operation(guard)
 
@@ -590,7 +592,10 @@ class UnrollOptimizer(Optimization):
             if newop.is_guard():
                 if not patchguardop:
                     raise InvalidLoop("would like to have short preamble, but it has a guard and there's no guard_future_condition")
-                descr = patchguardop.getdescr().clone_if_mutable()
+                descr = patchguardop.getdescr().clone()
+                assert isinstance(newop, GuardResOp)
+                assert isinstance(patchguardop, GuardResOp)
+                newop.rd_snapshot = patchguardop.rd_snapshot
                 newop.setdescr(descr)
             self.optimizer.send_extra_operation(newop)
             if shop.result in assumed_classes:

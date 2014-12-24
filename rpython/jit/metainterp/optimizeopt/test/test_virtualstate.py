@@ -15,6 +15,7 @@ from rpython.jit.metainterp.optimizeopt.virtualize import (VirtualValue,
 from rpython.jit.metainterp.history import TreeLoop, JitCellToken
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
 from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.jit.metainterp import resume
 
 class BaseTestGenerateGuards(BaseTest):
 
@@ -804,8 +805,9 @@ class BaseTestBridges(BaseTest):
     def optimize_bridge(self, loops, bridge, expected, expected_target='Loop', **boxvalues):
         if isinstance(loops, str):
             loops = (loops, )
-        loops = [self.parse(loop) for loop in loops]
-        bridge = self.parse(bridge)
+        loops = [self.parse(loop, postprocess=self.postprocess)
+                 for loop in loops]
+        bridge = self.parse(bridge, postprocess=self.postprocess)
         self.add_guard_future_condition(bridge)
         for loop in loops:
             loop.preamble = self.unroll_and_optimize(loop)

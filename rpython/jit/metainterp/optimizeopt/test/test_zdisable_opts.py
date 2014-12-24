@@ -13,7 +13,7 @@ for optnum in range(len(allopts)):
 
         def optimize_loop(self, ops, expected, expected_preamble=None,
                           call_pure_results=None, expected_short=None):
-            loop = self.parse(ops)
+            loop = self.parse(ops, postprocess=self.postprocess)
             if expected != "crash!":
                 expected = self.parse(expected)
             if expected_preamble:

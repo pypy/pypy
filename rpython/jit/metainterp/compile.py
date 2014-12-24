@@ -479,21 +479,35 @@ def make_done_loop_tokens():
     return d
 
 class ResumeDescr(AbstractFailDescr):
-    pass
+    _attrs_ = ()
 
 class ResumeGuardDescr(ResumeDescr):
-    # this class also gets the following attributes stored by resume.py code
-    # XXX move all of unused stuff to guard_op, now that we can have
-    #     a separate class, so it does not survive that long
-    rd_snapshot = None
-    rd_frame_info_list = None
+    _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
+               'rd_frame_info_list', 'rd_pendingfields', 'status')
+    
     rd_numb = lltype.nullptr(NUMBERING)
     rd_count = 0
     rd_consts = None
     rd_virtuals = None
+    rd_frame_info_list = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
     status = r_uint(0)
+
+    def clone(self):
+        new = self.__class__()
+        new.rd_frame_info_list = self.rd_frame_info_list
+        return new
+
+    def copy_all_attributes_from(self, other):
+        assert isinstance(other, ResumeGuardDescr)
+        self.rd_count = other.rd_count
+        self.rd_consts = other.rd_consts
+        self.rd_frame_info_list = other.rd_frame_info_list
+        self.rd_pendingfields = other.rd_pendingfields
+        self.rd_virtuals = other.rd_virtuals
+        self.rd_numb = other.rd_numb
+        # we don't copy status
 
     ST_BUSY_FLAG    = 0x01     # if set, busy tracing from the guard
     ST_TYPE_MASK    = 0x06     # mask for the type (TY_xxx)
@@ -509,30 +523,11 @@ class ResumeGuardDescr(ResumeDescr):
     def store_final_boxes(self, guard_op, boxes, metainterp_sd):
         guard_op.setfailargs(boxes)
         self.rd_count = len(boxes)
-        self.guard_opnum = guard_op.getopnum()
         #
         if metainterp_sd.warmrunnerdesc is not None:   # for tests
             jitcounter = metainterp_sd.warmrunnerdesc.jitcounter
             hash = jitcounter.fetch_next_hash()
             self.status = hash & self.ST_SHIFT_MASK
-
-    def make_a_counter_per_value(self, guard_value_op):
-        assert guard_value_op.getopnum() == rop.GUARD_VALUE
-        box = guard_value_op.getarg(0)
-        try:
-            i = guard_value_op.getfailargs().index(box)
-        except ValueError:
-            return     # xxx probably very rare
-        else:
-            if box.type == history.INT:
-                ty = self.TY_INT
-            elif box.type == history.REF:
-                ty = self.TY_REF
-            elif box.type == history.FLOAT:
-                ty = self.TY_FLOAT
-            else:
-                assert 0, box.type
-            self.status = ty | (r_uint(i) << self.ST_SHIFT)
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         if self.must_compile(deadframe, metainterp_sd, jitdriver_sd):
@@ -632,32 +627,62 @@ class ResumeGuardDescr(ResumeDescr):
                                self, inputargs, new_loop.operations,
                                new_loop.original_jitcell_token)
 
-    def copy_all_attributes_into(self, res):
-        # XXX a bit ugly to have to list them all here
-        res.rd_snapshot = self.rd_snapshot
-        res.rd_frame_info_list = self.rd_frame_info_list
-        res.rd_numb = self.rd_numb
-        res.rd_consts = self.rd_consts
-        res.rd_virtuals = self.rd_virtuals
-        res.rd_pendingfields = self.rd_pendingfields
-        res.rd_count = self.rd_count
+    def make_a_counter_per_value(self, guard_value_op):
+        assert guard_value_op.getopnum() == rop.GUARD_VALUE
+        box = guard_value_op.getarg(0)
+        try:
+            i = guard_value_op.getfailargs().index(box)
+        except ValueError:
+            return     # xxx probably very rare
+        else:
+            if box.type == history.INT:
+                ty = self.TY_INT
+            elif box.type == history.REF:
+                ty = self.TY_REF
+            elif box.type == history.FLOAT:
+                ty = self.TY_FLOAT
+            else:
+                assert 0, box.type
+            self.status = ty | (r_uint(i) << self.ST_SHIFT)
 
-    def _clone_if_mutable(self):
-        res = ResumeGuardDescr()
-        self.copy_all_attributes_into(res)
-        return res
+class ResumeGuardNonnullDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_NONNULL
+
+class ResumeGuardIsnullDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_ISNULL
+
+class ResumeGuardClassDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_CLASS
+
+class ResumeGuardTrueDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_TRUE
+
+class ResumeGuardFalseDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_FALSE
+
+class ResumeGuardNonnullClassDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_NONNULL_CLASS
+
+class ResumeGuardExceptionDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_EXCEPTION
+
+class ResumeGuardNoExceptionDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_NO_EXCEPTION
+
+class ResumeGuardOverflowDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_OVERFLOW
+
+class ResumeGuardNoOverflowDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_NO_OVERFLOW
+
+class ResumeGuardValueDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_VALUE
 
 class ResumeGuardNotInvalidated(ResumeGuardDescr):
-    def _clone_if_mutable(self):
-        res = ResumeGuardNotInvalidated()
-        self.copy_all_attributes_into(res)
-        return res
+    guard_opnum = rop.GUARD_NOT_INVALIDATED
 
 class ResumeAtPositionDescr(ResumeGuardDescr):
-    def _clone_if_mutable(self):
-        res = ResumeAtPositionDescr()
-        self.copy_all_attributes_into(res)
-        return res
+    guard_opnum = rop.GUARD_FUTURE_CONDITION
 
 class AllVirtuals:
     llopaque = True
@@ -678,10 +703,18 @@ class AllVirtuals:
 
 
 class ResumeGuardForcedDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_NOT_FORCED
 
-    def __init__(self, metainterp_sd, jitdriver_sd):
+    def _init(self, metainterp_sd, jitdriver_sd):
+        # to please the annotator
         self.metainterp_sd = metainterp_sd
         self.jitdriver_sd = jitdriver_sd
+
+    def clone(self):
+        new = ResumeGuardForcedDescr()
+        new._init(self.metainterp_sd, self.jitdriver_sd)
+        new.rd_frame_info_list = self.rd_frame_info_list
+        return new
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         # Failures of a GUARD_NOT_FORCED are never compiled, but
@@ -739,13 +772,6 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         obj = AllVirtuals(all_virtuals)
         hidden_all_virtuals = obj.hide(metainterp_sd.cpu)
         metainterp_sd.cpu.set_savedata_ref(deadframe, hidden_all_virtuals)
-
-    def _clone_if_mutable(self):
-        res = ResumeGuardForcedDescr(self.metainterp_sd,
-                                     self.jitdriver_sd)
-        self.copy_all_attributes_into(res)
-        return res
-
 
 class ResumeFromInterpDescr(ResumeDescr):
     def __init__(self, original_greenkey):
