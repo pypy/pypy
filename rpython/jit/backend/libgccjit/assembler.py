@@ -998,6 +998,29 @@ class AssemblerLibgccjit(BaseAssembler):
 
     #
 
+    def _impl_ptr_cmp(self, resop, gcc_jit_comparison):
+        rval0 = self.expr_to_rvalue(resop._arg0)
+        rval1 = self.expr_to_rvalue(resop._arg1)
+        lvalres = self.expr_to_lvalue(resop.result)
+        resop_cmp = (
+            self.ctxt.new_cast(
+                self.ctxt.new_comparison(gcc_jit_comparison,
+                                         rval0, rval1),
+                self.t_Signed)
+            )
+        self.b_current.add_assignment(lvalres,
+                                      resop_cmp)
+    def emit_ptr_eq(self, resop):
+        self._impl_ptr_cmp(resop, self.lib.GCC_JIT_COMPARISON_EQ)
+    def emit_ptr_ne(self, resop):
+        self._impl_ptr_cmp(resop, self.lib.GCC_JIT_COMPARISON_NE)
+    def emit_instance_ptr_eq(self, resop):
+        self._impl_ptr_cmp(resop, self.lib.GCC_JIT_COMPARISON_EQ)
+    def emit_instance_ptr_ne(self, resop):
+        self._impl_ptr_cmp(resop, self.lib.GCC_JIT_COMPARISON_NE)
+
+    #
+
     def impl_get_lvalue_at_offset_from_ptr(self, ptr_expr, ll_offset, t_field):
         ptr = self.expr_to_rvalue(ptr_expr)
 
