@@ -151,7 +151,7 @@ class AbstractFailDescr(AbstractDescr):
     index = -1
     final_descr = False
 
-    _attrs_ = ()
+    _attrs_ = ('adr_jump_offset',)
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         raise NotImplementedError
