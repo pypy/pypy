@@ -63,11 +63,13 @@ def record_loop_or_bridge(metainterp_sd, loop):
     if metainterp_sd.warmrunnerdesc is not None:    # for tests
         assert original_jitcell_token.generation > 0     # has been registered with memmgr
     wref = weakref.ref(original_jitcell_token)
+    clt = original_jitcell_token.compiled_loop_token
+    clt.loop_token_wref = wref
     for op in loop.operations:
         descr = op.getdescr()
         # not sure what descr.index is about
         if isinstance(descr, ResumeDescr):
-            descr.rd_loop_token = original_jitcell_token   # stick it there
+            descr.rd_loop_token = clt   # stick it there
             #n = descr.index
             #if n >= 0:       # we also record the resumedescr number
             #    original_jitcell_token.compiled_loop_token.record_faildescr_index(n)
