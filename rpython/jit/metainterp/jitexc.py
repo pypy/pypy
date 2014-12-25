@@ -41,6 +41,8 @@ class DoneWithThisFrameFloat(JitException):
 
 class ExitFrameWithExceptionRef(JitException):
     def __init__(self, cpu, value):
+        import pdb
+        pdb.set_trace()
         assert lltype.typeOf(value) == cpu.ts.BASETYPE
         self.value = value
     def __str__(self):

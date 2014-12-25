@@ -502,8 +502,9 @@ class Optimization(object):
 
 class Optimizer(Optimization):
 
-    def __init__(self, metainterp_sd, loop, optimizations=None):
+    def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations=None):
         self.metainterp_sd = metainterp_sd
+        self.jitdriver_sd = jitdriver_sd
         self.cpu = metainterp_sd.cpu
         self.loop = loop
         self.values = {}
@@ -748,7 +749,12 @@ class Optimizer(Optimization):
 
     def store_final_boxes_in_guard(self, op, pendingfields):
         assert pendingfields is not None
-        descr = op.getdescr()
+        if op.getdescr() is not None:
+            descr = op.getdescr()
+            assert isinstance(descr, compile.ResumeAtPositionDescr)
+        else:
+            descr = compile.invent_fail_descr_for_op(op, self)
+            op.setdescr(descr)
         assert isinstance(descr, compile.ResumeGuardDescr)
         assert isinstance(op, GuardResOp)
         modifier = resume.ResumeDataVirtualAdder(descr, op,

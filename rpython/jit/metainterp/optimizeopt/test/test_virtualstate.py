@@ -799,7 +799,7 @@ class BaseTestBridges(BaseTest):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        optimize_trace(metainterp_sd, bridge, self.enable_opts)
+        optimize_trace(metainterp_sd, None, bridge, self.enable_opts)
 
         
     def optimize_bridge(self, loops, bridge, expected, expected_target='Loop', **boxvalues):

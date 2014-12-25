@@ -1874,46 +1874,15 @@ class MetaInterp(object):
             moreargs = [box] + extraargs
         else:
             moreargs = list(extraargs)
-        if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
-            resumedescr = compile.ResumeGuardForcedDescr()
-            resumedescr._init(self.staticdata, self.jitdriver_sd)
-        elif opnum == rop.GUARD_NOT_INVALIDATED:
-            resumedescr = compile.ResumeGuardNotInvalidated()
-        elif opnum == rop.GUARD_FUTURE_CONDITION:
-            resumedescr = compile.ResumeAtPositionDescr()
-        elif opnum == rop.GUARD_VALUE:
-            resumedescr = compile.ResumeGuardValueDescr()
-        elif opnum == rop.GUARD_NONNULL:
-            resumedescr = compile.ResumeGuardNonnullDescr()
-        elif opnum == rop.GUARD_ISNULL:
-            resumedescr = compile.ResumeGuardIsnullDescr()
-        elif opnum == rop.GUARD_NONNULL_CLASS:
-            resumedescr = compile.ResumeGuardNonnullClassDescr()
-        elif opnum == rop.GUARD_CLASS:
-            resumedescr = compile.ResumeGuardClassDescr()
-        elif opnum == rop.GUARD_TRUE:
-            resumedescr = compile.ResumeGuardTrueDescr()
-        elif opnum == rop.GUARD_FALSE:
-            resumedescr = compile.ResumeGuardFalseDescr()
-        elif opnum == rop.GUARD_EXCEPTION:
-            resumedescr = compile.ResumeGuardExceptionDescr()
-        elif opnum == rop.GUARD_NO_EXCEPTION:
-            resumedescr = compile.ResumeGuardNoExceptionDescr()
-        elif opnum == rop.GUARD_OVERFLOW:
-            resumedescr = compile.ResumeGuardOverflowDescr()
-        elif opnum == rop.GUARD_NO_OVERFLOW:
-            resumedescr = compile.ResumeGuardNoOverflowDescr()
-        else:
-            assert False
-        guard_op = self.history.record(opnum, moreargs, None, descr=resumedescr)
+        guard_op = self.history.record(opnum, moreargs, None)
         assert isinstance(guard_op, GuardResOp)
-        self.capture_resumedata(guard_op, resumedescr, resumepc)
+        self.capture_resumedata(guard_op, resumepc)
         self.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
         # count
         self.attach_debug_info(guard_op)
         return guard_op
 
-    def capture_resumedata(self, guard_op, resumedescr, resumepc=-1):
+    def capture_resumedata(self, guard_op, resumepc=-1):
         virtualizable_boxes = None
         if (self.jitdriver_sd.virtualizable_info is not None or
             self.jitdriver_sd.greenfield_info is not None):
@@ -1925,7 +1894,7 @@ class MetaInterp(object):
             if resumepc >= 0:
                 frame.pc = resumepc
         resume.capture_resumedata(self.framestack, virtualizable_boxes,
-                                  self.virtualref_boxes, resumedescr, guard_op)
+                                  self.virtualref_boxes, guard_op)
         if self.framestack:
             self.framestack[-1].pc = saved_pc
 

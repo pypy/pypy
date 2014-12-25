@@ -216,6 +216,7 @@ class GuardResOp(ResOpWithDescr):
     _fail_args = None
 
     rd_snapshot = None
+    rd_frame_info_list = None
 
     def getfailargs(self):
         return self._fail_args
@@ -228,6 +229,7 @@ class GuardResOp(ResOpWithDescr):
         assert isinstance(newop, GuardResOp)
         newop.setfailargs(self.getfailargs())
         newop.rd_snapshot = self.rd_snapshot
+        newop.rd_frame_info_list = self.rd_frame_info_list
         return newop
 
     def clone(self):
@@ -235,10 +237,7 @@ class GuardResOp(ResOpWithDescr):
         assert isinstance(newop, GuardResOp)
         newop.setfailargs(self.getfailargs())
         newop.rd_snapshot = self.rd_snapshot
-        descr = self.getdescr()
-        if descr is not None: # for short preamble which is a mess
-            newdescr = descr.clone()
-            newop.setdescr(newdescr)
+        newop.rd_frame_info_list = self.rd_frame_info_list
         return newop
 
 # ============

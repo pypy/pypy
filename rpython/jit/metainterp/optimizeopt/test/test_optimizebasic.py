@@ -17,16 +17,16 @@ def test_store_final_boxes_in_guard():
     b0 = BoxInt()
     b1 = BoxInt()
     opt = optimizeopt.Optimizer(FakeMetaInterpStaticData(LLtypeMixin.cpu),
-                                None)
-    fdescr = ResumeGuardDescr()
-    op = ResOperation(rop.GUARD_TRUE, ['dummy'], None, descr=fdescr)
+                                None, None)
+    op = ResOperation(rop.GUARD_TRUE, ['dummy'], None)
     # setup rd data
     fi0 = resume.FrameInfo(None, "code0", 11)
-    fdescr.rd_frame_info_list = resume.FrameInfo(fi0, "code1", 33)
     snapshot0 = resume.Snapshot(None, [b0])
     op.rd_snapshot = resume.Snapshot(snapshot0, [b1])
+    op.rd_frame_info_list = resume.FrameInfo(fi0, "code1", 33)
     #
     opt.store_final_boxes_in_guard(op, [])
+    fdescr = op.getdescr()
     if op.getfailargs() == [b0, b1]:
         assert list(fdescr.rd_numb.nums)      == [tag(1, TAGBOX)]
         assert list(fdescr.rd_numb.prev.nums) == [tag(0, TAGBOX)]

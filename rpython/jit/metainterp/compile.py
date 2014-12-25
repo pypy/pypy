@@ -130,8 +130,8 @@ def compile_loop(metainterp, greenkey, start,
                       [ResOperation(rop.LABEL, jumpargs, None, descr=jitcell_token)]
 
     try:
-        start_state = optimize_trace(metainterp_sd, part, enable_opts,
-                                     export_state=True)
+        start_state = optimize_trace(metainterp_sd, jitdriver_sd, part,
+                                     enable_opts, export_state=True)
     except InvalidLoop:
         return None
     target_token = part.operations[0].getdescr()
@@ -158,7 +158,7 @@ def compile_loop(metainterp, greenkey, start,
         jumpargs = part.operations[-1].getarglist()
 
         try:
-            optimize_trace(metainterp_sd, part, enable_opts,
+            optimize_trace(metainterp_sd, jitdriver_sd, part, enable_opts,
                            start_state=start_state, export_state=False)
         except InvalidLoop:
             return None
@@ -211,7 +211,8 @@ def compile_retrace(metainterp, greenkey, start,
     orignial_label = label.clone()
     assert label.getopnum() == rop.LABEL
     try:
-        optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts,
+        optimize_trace(metainterp_sd, jitdriver_sd, part,
+                       jitdriver_sd.warmstate.enable_opts,
                        start_state=start_state, export_state=False)
     except InvalidLoop:
         # Fall back on jumping to preamble
@@ -221,7 +222,7 @@ def compile_retrace(metainterp, greenkey, start,
                           [ResOperation(rop.JUMP, inputargs[:],
                                         None, descr=loop_jitcell_token)]
         try:
-            optimize_trace(metainterp_sd, part,
+            optimize_trace(metainterp_sd, jitdriver_sd, part,
                            jitdriver_sd.warmstate.enable_opts,
                            inline_short_preamble=False, start_state=start_state,
                            export_state=False)
@@ -496,11 +497,6 @@ class ResumeGuardDescr(ResumeDescr):
 
     status = r_uint(0)
 
-    def clone(self):
-        new = self.__class__()
-        new.rd_frame_info_list = self.rd_frame_info_list
-        return new
-
     def copy_all_attributes_from(self, other):
         assert isinstance(other, ResumeGuardDescr)
         self.rd_count = other.rd_count
@@ -712,12 +708,6 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         self.metainterp_sd = metainterp_sd
         self.jitdriver_sd = jitdriver_sd
 
-    def clone(self):
-        new = ResumeGuardForcedDescr()
-        new._init(self.metainterp_sd, self.jitdriver_sd)
-        new.rd_frame_info_list = self.rd_frame_info_list
-        return new
-
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         # Failures of a GUARD_NOT_FORCED are never compiled, but
         # always just blackholed.  First fish for the data saved when
@@ -775,6 +765,41 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         hidden_all_virtuals = obj.hide(metainterp_sd.cpu)
         metainterp_sd.cpu.set_savedata_ref(deadframe, hidden_all_virtuals)
 
+def invent_fail_descr_for_op(op, optimizer):
+    opnum = op.getopnum()
+    if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
+        resumedescr = ResumeGuardForcedDescr()
+        resumedescr._init(optimizer.metainterp_sd, optimizer.jitdriver_sd)
+    elif opnum == rop.GUARD_NOT_INVALIDATED:
+        resumedescr = ResumeGuardNotInvalidated()
+    elif opnum == rop.GUARD_FUTURE_CONDITION:
+        resumedescr = ResumeAtPositionDescr()
+    elif opnum == rop.GUARD_VALUE:
+        resumedescr = ResumeGuardValueDescr()
+    elif opnum == rop.GUARD_NONNULL:
+        resumedescr = ResumeGuardNonnullDescr()
+    elif opnum == rop.GUARD_ISNULL:
+        resumedescr = ResumeGuardIsnullDescr()
+    elif opnum == rop.GUARD_NONNULL_CLASS:
+        resumedescr = ResumeGuardNonnullClassDescr()
+    elif opnum == rop.GUARD_CLASS:
+        resumedescr = ResumeGuardClassDescr()
+    elif opnum == rop.GUARD_TRUE:
+        resumedescr = ResumeGuardTrueDescr()
+    elif opnum == rop.GUARD_FALSE:
+        resumedescr = ResumeGuardFalseDescr()
+    elif opnum == rop.GUARD_EXCEPTION:
+        resumedescr = ResumeGuardExceptionDescr()
+    elif opnum == rop.GUARD_NO_EXCEPTION:
+        resumedescr = ResumeGuardNoExceptionDescr()
+    elif opnum == rop.GUARD_OVERFLOW:
+        resumedescr = ResumeGuardOverflowDescr()
+    elif opnum == rop.GUARD_NO_OVERFLOW:
+        resumedescr = ResumeGuardNoOverflowDescr()
+    else:
+        assert False
+    return resumedescr
+
 class ResumeFromInterpDescr(ResumeDescr):
     def __init__(self, original_greenkey):
         self.original_greenkey = original_greenkey
@@ -813,13 +838,15 @@ def compile_trace(metainterp, resumekey):
 
     new_trace.operations = [op.clone() for op in metainterp.history.operations]
     metainterp_sd = metainterp.staticdata
-    state = metainterp.jitdriver_sd.warmstate
+    jitdriver_sd = metainterp.jitdriver_sd
+    state = jitdriver_sd.warmstate
     if isinstance(resumekey, ResumeAtPositionDescr):
         inline_short_preamble = False
     else:
         inline_short_preamble = True
     try:
-        state = optimize_trace(metainterp_sd, new_trace, state.enable_opts,
+        state = optimize_trace(metainterp_sd, jitdriver_sd, new_trace,
+                               state.enable_opts,
                                inline_short_preamble, export_state=True)
     except InvalidLoop:
         debug_print("compile_new_bridge: got an InvalidLoop")

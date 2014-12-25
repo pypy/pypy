@@ -361,35 +361,22 @@ final_descr = BasicFinalDescr()
 class BaseTest(object):
 
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
-        if want_fail_descr:
-            invent_fail_descr = self.invent_fail_descr
-        else:
-            invent_fail_descr = lambda *args: None
         self.oparse = OpParser(s, self.cpu, self.namespace, 'lltype',
                                boxkinds,
-                               invent_fail_descr, False, postprocess)
+                               None, False, postprocess)
         return self.oparse.parse()
 
     def postprocess(self, op):
         if op.is_guard():
             op.rd_snapshot = resume.Snapshot(None, op.getfailargs())
-            op.getdescr().rd_frame_info_list = resume.FrameInfo(None, "code", 11)
+            op.rd_frame_info_list = resume.FrameInfo(None, "code", 11)
 
     def add_guard_future_condition(self, res):
         # invent a GUARD_FUTURE_CONDITION to not have to change all tests
         if res.operations[-1].getopnum() == rop.JUMP:
-            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], None, descr=self.invent_fail_descr(None, rop.GUARD_FUTURE_CONDITION, []))
+            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], None)
             guard.rd_snapshot = resume.Snapshot(None, [])
             res.operations.insert(-1, guard)
-
-    def invent_fail_descr(self, model, opnum, fail_args):
-        if rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST:
-            descr = Storage()
-            descr.guard_opnum = opnum
-            descr.rd_frame_info_list = resume.FrameInfo(None, "code", 11)
-        else:
-            descr = final_descr
-        return descr
 
     def assert_equal(self, optimized, expected, text_right=None):
         from rpython.jit.metainterp.optimizeopt.util import equaloplists
@@ -417,7 +404,8 @@ class BaseTest(object):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        return optimize_trace(metainterp_sd, loop, self.enable_opts,
+        return optimize_trace(metainterp_sd, None, loop,
+                              self.enable_opts,
                               start_state=start_state,
                               export_state=export_state)
 
