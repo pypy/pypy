@@ -284,7 +284,7 @@ class OptRewrite(Optimization):
             raise InvalidLoop('A GUARD_NONNULL (%s) was proven to always fail'
                               % r)
         self.emit_operation(op)
-        value.make_nonnull(op)
+        value.make_nonnull(self.optimizer)
 
     def optimize_GUARD_VALUE(self, op):
         value = self.getvalue(op.getarg(0))
@@ -296,11 +296,11 @@ class OptRewrite(Optimization):
             else:
                 name = "<unknown>"
             raise InvalidLoop('A promote of a virtual %s (a recently allocated object) never makes sense!' % name)
-        if value.get_last_guard():
+        old_guard_op = value.get_last_guard(self.optimizer)
+        if old_guard_op:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value, which is rather silly.
             # replace the original guard with a guard_value
-            old_guard_op = value.get_last_guard()
             if old_guard_op.getopnum() != rop.GUARD_NONNULL:
                 # This is only safe if the class of the guard_value matches the
                 # class of the guard_*_class, otherwise the intermediate ops might
@@ -314,7 +314,7 @@ class OptRewrite(Optimization):
                     raise InvalidLoop('A GUARD_VALUE (%s) was proven to always fail' % r)
             op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
                                       args = [old_guard_op.getarg(0), op.getarg(1)])
-            self.optimizer.replaces_guard[op] = old_guard_op
+            self.optimizer.replace_guard(op, value)
             # hack hack hack.  Change the guard_opnum on
             # new_guard_op.getdescr() so that when resuming,
             # the operation is not skipped by pyjitpl.py.
@@ -324,7 +324,7 @@ class OptRewrite(Optimization):
             descr.make_a_counter_per_value(op)
             # to be safe
             if isinstance(value, PtrOptValue):
-                value.last_guard = None
+                value.last_guard_pos = -1
         constbox = op.getarg(1)
         assert isinstance(constbox, Const)
         self.optimize_guard(op, constbox)
@@ -343,7 +343,7 @@ class OptRewrite(Optimization):
         if realclassbox is not None:
             assert realclassbox.same_constant(expectedclassbox)
             return
-        value.make_constant_class(expectedclassbox, None)
+        value.make_constant_class(None, expectedclassbox)
 
     def optimize_GUARD_CLASS(self, op):
         value = self.getvalue(op.getarg(0))
@@ -357,16 +357,16 @@ class OptRewrite(Optimization):
             raise InvalidLoop('A GUARD_CLASS (%s) was proven to always fail'
                               % r)
         assert isinstance(value, PtrOptValue)
-        if value.last_guard:
+        old_guard_op = value.get_last_guard(self.optimizer)
+        if old_guard_op:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value.
-            old_guard_op = value.last_guard
             if old_guard_op.getopnum() == rop.GUARD_NONNULL:
                 # it was a guard_nonnull, which we replace with a
                 # guard_nonnull_class.
                 op = old_guard_op.copy_and_change (rop.GUARD_NONNULL_CLASS,
                                          args = [old_guard_op.getarg(0), op.getarg(1)])
-                self.optimizer.replaces_guard[op] = old_guard_op
+                self.optimizer.replace_guard(op, value)
                 # hack hack hack.  Change the guard_opnum on
                 # new_guard_op.getdescr() so that when resuming,
                 # the operation is not skipped by pyjitpl.py.
@@ -374,7 +374,7 @@ class OptRewrite(Optimization):
                 assert isinstance(descr, compile.ResumeGuardDescr)
                 descr.guard_opnum = rop.GUARD_NONNULL_CLASS
         self.emit_operation(op)
-        value.make_constant_class(expectedclassbox, op)
+        value.make_constant_class(self.optimizer, expectedclassbox)
 
     def optimize_GUARD_NONNULL_CLASS(self, op):
         value = self.getvalue(op.getarg(0))

@@ -134,6 +134,7 @@ class UnrollOptimizer(Optimization):
                 else:
                     debug_print("Retrace count reached, jumping to preamble")
                     assert cell_token.target_tokens[0].virtual_state is None
+                    jumpop = jumpop.clone()
                     jumpop.setdescr(cell_token.target_tokens[0])
                     self.optimizer.send_extra_operation(jumpop)
                     return
@@ -506,6 +507,7 @@ class UnrollOptimizer(Optimization):
             self.import_box(a, inputargs, short_jumpargs, jumpargs)
 
     def jump_to_already_compiled_trace(self, jumpop, patchguardop):
+        jumpop = jumpop.clone()
         assert jumpop.getopnum() == rop.JUMP
         cell_token = jumpop.getdescr()
 
