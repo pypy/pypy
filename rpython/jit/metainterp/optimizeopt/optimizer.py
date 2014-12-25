@@ -378,10 +378,10 @@ class IntOptValue(OptValue):
     def getintbound(self):
         return self.intbound
 
-    def get_last_guard(self):
+    def get_last_guard(self, optimizer):
         return None
 
-    def get_known_class(self):
+    def get_known_class(self, optimizer):
         return None
 
     def getlenbound(self):
