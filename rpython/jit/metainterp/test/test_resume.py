@@ -542,7 +542,7 @@ def test_capture_resumedata():
     fs = [FakeFrame("code0", 0, b1, c1, b2)]
 
     storage = Storage()
-    capture_resumedata(fs, None, [], storage, storage)
+    capture_resumedata(fs, None, [], storage)
 
     assert fs[0].parent_resumedata_snapshot is None
     assert fs[0].parent_resumedata_frame_info_list is None
@@ -558,7 +558,7 @@ def test_capture_resumedata():
     fs = [FakeFrame("code0", 0, b1, c1, b2),
           FakeFrame("code1", 3, b3, c2, b1),
           FakeFrame("code2", 9, c3, b2)]
-    capture_resumedata(fs, None, [], storage, storage)
+    capture_resumedata(fs, None, [], storage)
 
     frame_info_list = storage.rd_frame_info_list
     assert frame_info_list.prev is fs[2].parent_resumedata_frame_info_list
@@ -588,7 +588,7 @@ def test_capture_resumedata():
     fs[2].pc = 15
     vbs = [b1, b2]
     vrs = [b3]
-    capture_resumedata(fs, vbs, vrs, storage, storage)
+    capture_resumedata(fs, vbs, vrs, storage)
 
     frame_info_list = storage.rd_frame_info_list
     assert frame_info_list.prev is fs[2].parent_resumedata_frame_info_list
@@ -616,7 +616,7 @@ def test_rebuild_from_resumedata():
     fs = [FakeFrame("code0", 0, b1, c1, b2),
           FakeFrame("code1", 3, b3, c2, b1),
           FakeFrame("code2", 9, c3, b2)]
-    capture_resumedata(fs, None, [], storage, storage)
+    capture_resumedata(fs, None, [], storage)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     modifier = ResumeDataVirtualAdder(storage, storage, memo)
     liveboxes = modifier.finish(FakeOptimizer({}))
@@ -640,7 +640,7 @@ def test_rebuild_from_resumedata_with_virtualizable():
     fs = [FakeFrame("code0", 0, b1, c1, b2),
           FakeFrame("code1", 3, b3, c2, b1),
           FakeFrame("code2", 9, c3, b2)]
-    capture_resumedata(fs, [b4], [], storage, storage)
+    capture_resumedata(fs, [b4], [], storage)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     modifier = ResumeDataVirtualAdder(storage, memo)
     liveboxes = modifier.finish(FakeOptimizer({}))
@@ -665,10 +665,10 @@ def test_rebuild_from_resumedata_two_guards():
     fs = [FakeFrame("code0", 0, b1, c1, b2),
           FakeFrame("code1", 3, b3, c2, b1),
           FakeFrame("code2", 9, c3, b2)]
-    capture_resumedata(fs, None, [], storage, storage)
+    capture_resumedata(fs, None, [], storage)
     storage2 = Storage()
     fs = fs[:-1] + [FakeFrame("code2", 10, c3, b2, b4)]
-    capture_resumedata(fs, None, [], storage2, storage2)
+    capture_resumedata(fs, None, [], storage2)
     
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     modifier = ResumeDataVirtualAdder(storage, memo)
@@ -728,10 +728,10 @@ def test_rebuild_from_resumedata_two_guards_w_virtuals():
     fs = [FakeFrame("code0", 0, b1, c1, b2),
           FakeFrame("code1", 3, b3, c2, b1),
           FakeFrame("code2", 9, c3, b2)]
-    capture_resumedata(fs, None, [], storage, storage)
+    capture_resumedata(fs, None, [], storage)
     storage2 = Storage()
     fs = fs[:-1] + [FakeFrame("code2", 10, c3, b2, b4)]
-    capture_resumedata(fs, None, [], storage2, storage2)
+    capture_resumedata(fs, None, [], storage2)
     
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     values = {b2: virtual_value(b2, b5, c4)}
@@ -788,7 +788,7 @@ def test_rebuild_from_resumedata_two_guards_w_shared_virtuals():
                       LLtypeMixin.nodebox.constbox()]
     storage = Storage()
     fs = [FakeFrame("code0", 0, c1, b2, b3)]
-    capture_resumedata(fs, None, [], storage, storage)
+    capture_resumedata(fs, None, [], storage)
     
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     values = {b2: virtual_value(b2, b5, c4)}
@@ -800,7 +800,7 @@ def test_rebuild_from_resumedata_two_guards_w_shared_virtuals():
 
     storage2 = Storage()
     fs = [FakeFrame("code0", 0, b1, b4, b2)]
-    capture_resumedata(fs, None, [], storage2, storage2)
+    capture_resumedata(fs, None, [], storage2)
     values[b4] = virtual_value(b4, b6, c4)
     modifier = ResumeDataVirtualAdder(storage2, memo)
     liveboxes = modifier.finish(FakeOptimizer(values))
@@ -814,7 +814,7 @@ def test_resumedata_top_recursive_virtuals():
     b1, b2, b3 = [BoxPtr(), BoxPtr(), BoxInt()]
     storage = Storage()
     fs = [FakeFrame("code0", 0, b1, b2)]
-    capture_resumedata(fs, None, [], storage, storage)
+    capture_resumedata(fs, None, [], storage)
     
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     v1 = virtual_value(b1, b3, None)
