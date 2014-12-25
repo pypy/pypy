@@ -562,6 +562,7 @@ class UnrollOptimizer(Optimization):
             for guard in extra_guards:
                 if guard.is_guard():
                     assert isinstance(patchguardop, GuardResOp)
+                    assert isinstance(guard, GuardResOp)
                     guard.rd_snapshot = patchguardop.rd_snapshot
                     guard.rd_frame_info_list = patchguardop.rd_frame_info_list
                     guard.setdescr(compile.ResumeAtPositionDescr())
