@@ -461,7 +461,16 @@ for _name in 'short int long'.split():
 TYPES += ['signed char', 'unsigned char',
           'long long', 'unsigned long long',
           'size_t', 'time_t', 'wchar_t',
-          'uintptr_t', 'intptr_t',
+          'uintptr_t', 'intptr_t', 'ptrdiff_t',
+          'int_least8_t',  'uint_least8_t',
+          'int_least16_t', 'uint_least16_t',
+          'int_least32_t', 'uint_least32_t',
+          'int_least64_t', 'uint_least64_t',
+          'int_fast8_t',  'uint_fast8_t',
+          'int_fast16_t', 'uint_fast16_t',
+          'int_fast32_t', 'uint_fast32_t',
+          'int_fast64_t', 'uint_fast64_t',
+          'intmax_t', 'uintmax_t',
           'void*']    # generic pointer type
 
 # This is a bit of a hack since we can't use rffi_platform here.
@@ -471,7 +480,6 @@ try:
 except CompilationError:
     pass
 
-_TYPES_ARE_UNSIGNED = set(['size_t', 'uintptr_t'])   # plus "unsigned *"
 if os.name != 'nt':
     TYPES.append('mode_t')
     TYPES.append('pid_t')
@@ -489,8 +497,10 @@ def populate_inttypes():
         if name.startswith('unsigned'):
             name = 'u' + name[9:]
             signed = False
+        elif name == 'size_t' or name.startswith('uint'):
+            signed = False
         else:
-            signed = (name not in _TYPES_ARE_UNSIGNED)
+            signed = True
         name = name.replace(' ', '')
         names.append(name)
         populatelist.append((name.upper(), c_name, signed))

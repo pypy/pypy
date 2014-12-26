@@ -62,9 +62,29 @@ eptypesize("uint64_t", 8, ctypeprim.W_CTypePrimitiveUnsigned)
 
 eptype("intptr_t",  rffi.INTPTR_T,  ctypeprim.W_CTypePrimitiveSigned)
 eptype("uintptr_t", rffi.UINTPTR_T, ctypeprim.W_CTypePrimitiveUnsigned)
-eptype("ptrdiff_t", rffi.INTPTR_T,  ctypeprim.W_CTypePrimitiveSigned) # <-xxx
+eptype("ptrdiff_t", rffi.PTRDIFF_T, ctypeprim.W_CTypePrimitiveSigned)
 eptype("size_t",    rffi.SIZE_T,    ctypeprim.W_CTypePrimitiveUnsigned)
 eptype("ssize_t",   rffi.SSIZE_T,   ctypeprim.W_CTypePrimitiveSigned)
+eptype("intmax_t",  rffi.INTMAX_T,  ctypeprim.W_CTypePrimitiveSigned)
+eptype("uintmax_t", rffi.UINTMAX_T, ctypeprim.W_CTypePrimitiveUnsigned)
+
+eptype("int_least8_t",  rffi.INT_LEAST8_T,  ctypeprim.W_CTypePrimitiveSigned)
+eptype("int_least16_t", rffi.INT_LEAST16_T, ctypeprim.W_CTypePrimitiveSigned)
+eptype("int_least32_t", rffi.INT_LEAST32_T, ctypeprim.W_CTypePrimitiveSigned)
+eptype("int_least64_t", rffi.INT_LEAST64_T, ctypeprim.W_CTypePrimitiveSigned)
+eptype("uint_least8_t", rffi.UINT_LEAST8_T,  ctypeprim.W_CTypePrimitiveUnsigned)
+eptype("uint_least16_t",rffi.UINT_LEAST16_T, ctypeprim.W_CTypePrimitiveUnsigned)
+eptype("uint_least32_t",rffi.UINT_LEAST32_T, ctypeprim.W_CTypePrimitiveUnsigned)
+eptype("uint_least64_t",rffi.UINT_LEAST64_T, ctypeprim.W_CTypePrimitiveUnsigned)
+
+eptype("int_fast8_t",  rffi.INT_FAST8_T,  ctypeprim.W_CTypePrimitiveSigned)
+eptype("int_fast16_t", rffi.INT_FAST16_T, ctypeprim.W_CTypePrimitiveSigned)
+eptype("int_fast32_t", rffi.INT_FAST32_T, ctypeprim.W_CTypePrimitiveSigned)
+eptype("int_fast64_t", rffi.INT_FAST64_T, ctypeprim.W_CTypePrimitiveSigned)
+eptype("uint_fast8_t", rffi.UINT_FAST8_T,  ctypeprim.W_CTypePrimitiveUnsigned)
+eptype("uint_fast16_t",rffi.UINT_FAST16_T, ctypeprim.W_CTypePrimitiveUnsigned)
+eptype("uint_fast32_t",rffi.UINT_FAST32_T, ctypeprim.W_CTypePrimitiveUnsigned)
+eptype("uint_fast64_t",rffi.UINT_FAST64_T, ctypeprim.W_CTypePrimitiveUnsigned)
 
 @unwrap_spec(name=str)
 def new_primitive_type(space, name):
