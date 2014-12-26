@@ -287,8 +287,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = np.array('123', dtype='intp')
         assert a == 123
         assert a.dtype == np.intp
-        a = np.array( -(2**60))
-        assert a.dtype == np.int64
 
     def test_array_copy(self):
         from numpy import array
