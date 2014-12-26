@@ -227,7 +227,7 @@ def simpleops():
     '<tag key="value" />'
     >>> element.remove(subelement)    # doctest: +ELLIPSIS
     Traceback (most recent call last):
-    ValueError: list.remove(x): ...
+    ValueError: list.remove(...
     >>> serialize(element) # 6
     '<tag key="value" />'
     >>> element[0:0] = [subelement, subelement, subelement]
