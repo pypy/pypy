@@ -461,16 +461,7 @@ for _name in 'short int long'.split():
 TYPES += ['signed char', 'unsigned char',
           'long long', 'unsigned long long',
           'size_t', 'time_t', 'wchar_t',
-          'uintptr_t', 'intptr_t', 'ptrdiff_t',
-          'int_least8_t',  'uint_least8_t',
-          'int_least16_t', 'uint_least16_t',
-          'int_least32_t', 'uint_least32_t',
-          'int_least64_t', 'uint_least64_t',
-          'int_fast8_t',  'uint_fast8_t',
-          'int_fast16_t', 'uint_fast16_t',
-          'int_fast32_t', 'uint_fast32_t',
-          'int_fast64_t', 'uint_fast64_t',
-          'intmax_t', 'uintmax_t',
+          'uintptr_t', 'intptr_t',
           'void*']    # generic pointer type
 
 # This is a bit of a hack since we can't use rffi_platform here.
@@ -484,6 +475,17 @@ if os.name != 'nt':
     TYPES.append('mode_t')
     TYPES.append('pid_t')
     TYPES.append('ssize_t')
+    # the types below are rare enough and not available on Windows
+    TYPES.extend(['ptrdiff_t',
+          'int_least8_t',  'uint_least8_t',
+          'int_least16_t', 'uint_least16_t',
+          'int_least32_t', 'uint_least32_t',
+          'int_least64_t', 'uint_least64_t',
+          'int_fast8_t',  'uint_fast8_t',
+          'int_fast16_t', 'uint_fast16_t',
+          'int_fast32_t', 'uint_fast32_t',
+          'int_fast64_t', 'uint_fast64_t',
+          'intmax_t', 'uintmax_t'])
 else:
     MODE_T = lltype.Signed
     PID_T = lltype.Signed
