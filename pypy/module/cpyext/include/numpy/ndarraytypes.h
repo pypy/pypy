@@ -1,38 +1,12 @@
 #ifndef NDARRAYTYPES_H
 #define NDARRAYTYPES_H
 
-//#include "npy_common.h"
+#include "numpy/npy_common.h"
 //#include "npy_endian.h"
 //#include "npy_cpu.h"
 //#include "utils.h"
 
 //for pypy - numpy has lots of typedefs
-#ifndef _NPY_COMMON_H_
-#define _NPY_COMMON_H_
-typedef Py_intptr_t npy_intp;
-typedef Py_uintptr_t npy_uintp;
-typedef unsigned char npy_bool;
-typedef long npy_int32;
-typedef unsigned long npy_uint32;
-typedef unsigned long npy_ucs4;
-typedef long npy_int64;
-typedef unsigned long npy_uint64;
-#if defined(_MSC_VER)
-        #define NPY_INLINE __inline
-#elif defined(__GNUC__)
-	#if defined(__STRICT_ANSI__)
-		#define NPY_INLINE __inline__
-	#else
-		#define NPY_INLINE inline
-	#endif
-#else
-        #define NPY_INLINE
-#endif
-#ifndef NPY_INTP_FMT
-#define NPY_INTP_FMT "ld"
-#endif
-#endif //_NPY_COMMON_H_
-
 //for pypy - make life easier, less backward support
 #define NPY_1_8_API_VERSION 0x00000008
 #define NPY_NO_DEPRECATED_API NPY_1_8_API_VERSION

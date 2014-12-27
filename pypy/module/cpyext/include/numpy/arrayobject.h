@@ -11,6 +11,8 @@ extern "C" {
 #endif
 
 #include "old_defines.h"
+#include "npy_common.h"
+#include "__multiarray_api.h"
 
 #define NPY_UNUSED(x) x
 #define PyArray_MAX(a,b) (((a)>(b))?(a):(b))
@@ -22,23 +24,6 @@ extern "C" {
 
 PyAPI_DATA(PyTypeObject) PyArray_Type;
 
-#ifndef _NPY_COMMON_H_
-#define _NPY_COMMON_H_
-typedef unsigned char npy_bool;
-typedef unsigned char npy_uint8;
-typedef unsigned short npy_uint16;
-typedef signed short npy_int16;
-typedef signed char npy_int8;
-typedef int npy_int;
-
-typedef long npy_intp;
-#ifndef NPY_INTP_FMT
-#define NPY_INTP_FMT "ld"
-#endif
-#endif
-#ifndef import_array
-#define import_array()
-#endif
 
 #define NPY_MAXDIMS 32
 
