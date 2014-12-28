@@ -1195,7 +1195,11 @@ class ComplexFloating(object):
 
     @complex_to_real_unary_op
     def abs(self, v):
-        return rcomplex.c_abs(v[0], v[1])
+        try:
+            return rcomplex.c_abs(v[0], v[1])
+        except OverflowError:
+            # warning ...
+            return rfloat.INFINITY
 
     @raw_unary_op
     def isnan(self, v):
