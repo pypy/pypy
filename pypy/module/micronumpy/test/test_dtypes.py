@@ -665,6 +665,7 @@ class AppTestTypes(BaseAppTestDtypes):
 
         assert numpy.int64(9223372036854775807) == 9223372036854775807
         assert numpy.int64(9223372036854775807) == 9223372036854775807
+        assert numpy.int64(-9223372036854775807) == -9223372036854775807
         raises(OverflowError, numpy.int64, 9223372036854775808)
         raises(OverflowError, numpy.int64, 9223372036854775808L)
 

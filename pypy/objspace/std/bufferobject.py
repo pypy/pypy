@@ -5,7 +5,7 @@ from rpython.rlib.buffer import Buffer, SubBuffer
 from rpython.rlib.objectmodel import compute_hash
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 
@@ -123,6 +123,17 @@ class W_Buffer(W_Root):
         return space.wrap("<%s for 0x%s, size %d>" %
                           (info, addrstring, self.buf.getlength()))
 
+    def descr_pypy_raw_address(self, space):
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        try:
+            ptr = self.buf.get_raw_address()
+        except ValueError:
+            # report the error using the RPython-level internal repr of self.buf
+            msg = ("cannot find the underlying address of buffer that "
+                   "is internally %r" % (self.buf,))
+            raise OperationError(space.w_ValueError, space.wrap(msg))
+        return space.wrap(rffi.cast(lltype.Signed, ptr))
+
 W_Buffer.typedef = TypeDef(
     "buffer",
     __doc__ = """\
@@ -149,5 +160,6 @@ extend to the end of the target object (or with the specified size).
     __mul__ = interp2app(W_Buffer.descr_mul),
     __rmul__ = interp2app(W_Buffer.descr_mul),
     __repr__ = interp2app(W_Buffer.descr_repr),
+    _pypy_raw_address = interp2app(W_Buffer.descr_pypy_raw_address),
 )
 W_Buffer.typedef.acceptable_as_base_class = False
