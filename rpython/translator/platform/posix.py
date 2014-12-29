@@ -17,6 +17,7 @@ class BasePosix(Platform):
 
     def __init__(self, cc=None):
         self.cc = cc or os.environ.get('CC', self.DEFAULT_CC)
+        self.rpath_flags = ['-Wl,-rpath=\'$$ORIGIN/\'']
 
     def _libs(self, libraries):
         return ['-l%s' % lib for lib in libraries]
@@ -140,11 +141,6 @@ class BasePosix(Platform):
         rel_libdirs = [rpyrel(libdir) for libdir in
                        self.preprocess_library_dirs(eci.library_dirs)]
 
-        if sys.platform == 'darwin':
-            rpath_flags = ['-Wl,-rpath', '-Wl,@executable_path']
-        else:
-            rpath_flags = ['-Wl,-rpath=\'$$ORIGIN/\'']
-
         m.comment('automatically generated makefile')
         definitions = [
             ('RPYDIR', '"%s"' % rpydir),
@@ -163,7 +159,7 @@ class BasePosix(Platform):
             ('CC', self.cc),
             ('CC_LINK', eci.use_cpp_linker and 'g++' or '$(CC)'),
             ('LINKFILES', eci.link_files),
-            ('RPATH_FLAGS', rpath_flags),
+            ('RPATH_FLAGS', self.rpath_flags),
             ]
         for args in definitions:
             m.definition(*args)
