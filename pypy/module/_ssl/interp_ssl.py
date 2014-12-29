@@ -1,10 +1,11 @@
 from rpython.rlib import rpoll, rsocket
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.ropenssl import *
+from rpython.rlib.rposix import get_errno, set_errno
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module._socket import interp_socket
@@ -924,11 +925,37 @@ class _SSLContext(W_Root):
                         "CERT_OPTIONAL or CERT_REQUIRED")
         self.check_hostname = check_hostname
 
+    def load_verify_locations_w(self, space, w_cafile=None, w_capath=None):
+        if space.is_none(w_cafile):
+            cafile = None
+        else:
+            cafile = space.str_w(w_cafile)
+        if space.is_none(w_capath):
+            capath = None
+        else:
+            capath = space.str_w(w_capath)
+        if cafile is None and capath is None:
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "cafile and capath cannot be both omitted"))
+        set_errno(0)
+        ret = libssl_SSL_CTX_load_verify_locations(
+            self.ctx, cafile, capath)
+        if ret != 1:
+            errno = get_errno()
+            if errno:
+                libssl_ERR_clear_error()
+                raise wrap_oserror(space, OSError(errno, ''),
+                                   exception_name = 'w_IOError')
+            else:
+                raise _ssl_seterror(space, None, -1)
+
+
 _SSLContext.typedef = TypeDef(
     "_ssl._SSLContext",
     __new__=interp2app(_SSLContext.descr_new),
     _wrap_socket=interp2app(_SSLContext.descr_wrap_socket),
     set_ciphers=interp2app(_SSLContext.descr_set_ciphers),
+    load_verify_locations=interp2app(_SSLContext.load_verify_locations_w),
     set_default_verify_paths=interp2app(_SSLContext.descr_set_default_verify_paths),
 
     options=GetSetProperty(_SSLContext.descr_get_options,
