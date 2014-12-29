@@ -30,23 +30,23 @@ class AppTestCodecs:
         assert e.reason == "incomplete multibyte sequence"
         #
         e = raises(UnicodeDecodeError, codec.decode, b"~{xyz}").value
-        assert e.args == ('hz', b'~{xyz}', 2, 4, 'illegal multibyte sequence')
+        assert e.args == ('hz', b'~{xyz}', 2, 3, 'illegal multibyte sequence')
 
     def test_decode_hz_ignore(self):
         import _codecs_cn
         codec = _codecs_cn.getcodec("hz")
         r = codec.decode(b"def~{}abc", errors='ignore')
-        assert r == ('def\u5fcf', 9)
+        assert r == ('def\u5f95', 9)
         r = codec.decode(b"def~{}abc", 'ignore')
-        assert r == ('def\u5fcf', 9)
+        assert r == ('def\u5f95', 9)
 
     def test_decode_hz_replace(self):
         import _codecs_cn
         codec = _codecs_cn.getcodec("hz")
         r = codec.decode(b"def~{}abc", errors='replace')
-        assert r == ('def\ufffd\u5fcf', 9)
+        assert r == ('def\ufffd\u5f95\ufffd', 9)
         r = codec.decode(b"def~{}abc", 'replace')
-        assert r == ('def\ufffd\u5fcf', 9)
+        assert r == ('def\ufffd\u5f95\ufffd', 9)
 
     def test_decode_custom_error_handler(self):
         import codecs

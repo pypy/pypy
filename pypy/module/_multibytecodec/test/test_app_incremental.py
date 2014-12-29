@@ -21,11 +21,11 @@ class AppTestClasses:
             return IncrementalHzEncoder
         """)
         cls.w_IncrementalBig5hkscsEncoder = cls.space.appexec([], """():
-            import _codecs_cn
+            import _codecs_hk
             from _multibytecodec import MultibyteIncrementalEncoder
 
             class IncrementalBig5hkscsEncoder(MultibyteIncrementalEncoder):
-                codec = _codecs_cn.getcodec('big5hkscs')
+                codec = _codecs_hk.getcodec('big5hkscs')
 
             return IncrementalBig5hkscsEncoder
         """)
