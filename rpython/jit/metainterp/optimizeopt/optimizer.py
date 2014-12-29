@@ -635,7 +635,6 @@ class Optimizer(Optimization):
             except KeyError:
                 pass
             else:
-                assert value.getlevel() != LEVEL_CONSTANT
                 assert cur_value.getlevel() != LEVEL_CONSTANT
                 # replacing with a different box
                 cur_value.copy_from(value)

@@ -619,6 +619,9 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
             space.int_w(w_obj)
         except OperationError, e:
             if e.match(space, space.w_OverflowError):
+                if space.is_true(space.le(w_obj, space.wrap(0))):
+                    return find_binop_result_dtype(space, int64_dtype,
+                                               current_guess)
                 return find_binop_result_dtype(space, uint64_dtype,
                                                current_guess)
             raise
