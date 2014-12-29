@@ -92,7 +92,7 @@ from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, interp_attrproperty,
     descr_get_dict, descr_set_dict, descr_del_dict)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError, setup_context
+from pypy.interpreter.error import OperationError, oefmt, setup_context
 from pypy.interpreter.pytraceback import PyTraceback, check_traceback
 from rpython.rlib import rwin32
 
@@ -467,43 +467,97 @@ class W_OSError(W_Exception):
         W_BaseException.__init__(self, space)
 
     @staticmethod
+    def _use_init(space, w_subtype):
+        # When __init__ is defined in a OSError subclass, we want any
+        # extraneous argument to __new__ to be ignored.  The only reasonable
+        # solution, given __new__ takes a variable number of arguments,
+        # is to defer arg parsing and initialization to __init__.
+        #
+        # But when __new__ is overriden as well, it should call our __new__
+        # with the right arguments.
+        #
+        # (see http://bugs.python.org/issue12555#msg148829 )
+        if space.is_w(w_subtype, space.w_OSError):
+            return False
+        if ((space.getattr(w_subtype, space.wrap('__init__')) !=
+             space.getattr(space.w_OSError, space.wrap('__init__'))) and
+            (space.getattr(w_subtype, space.wrap('__new__')) ==
+             space.getattr(space.w_OSError, space.wrap('__new__')))):
+            return True
+        return False
+
+    @staticmethod
+    def _parse_init_args(space, args_w):
+        if 2 <= len(args_w) <= 3:
+            w_errno = args_w[0]
+            w_strerror = args_w[1]
+            if len(args_w) == 3:
+                w_filename = args_w[2]
+            else:
+                w_filename = None
+            return w_errno, w_strerror, w_filename
+        return None, None, None
+
+    @staticmethod
     def descr_new(space, w_subtype, __args__):
-        args_w, kwds_w = __args__.unpack()  # ignore kwds
-        if space.is_w(w_subtype, space.gettypeobject(W_OSError.typedef)):
-            if len(args_w) > 0:
+        args_w, kwds_w = __args__.unpack()
+        w_errno = None
+        w_strerror = None
+        w_filename = None
+        if not W_OSError._use_init(space, w_subtype):
+            if kwds_w:
+                raise oefmt(space.w_TypeError,
+                            "OSError does not take keyword arguments")
+            (w_errno, w_strerror, w_filename,
+             ) = W_OSError._parse_init_args(space, args_w)
+        if (not space.is_none(w_errno) and
+            space.is_w(w_subtype, space.gettypeobject(W_OSError.typedef))):
+            try:
+                errno = space.int_w(w_errno)
+            except OperationError:
+                pass
+            else:
                 try:
-                    errno = space.int_w(args_w[0])
-                except OperationError:
+                    subclass = ERRNO_MAP[errno]
+                except KeyError:
                     pass
                 else:
-                    try:
-                        subclass = ERRNO_MAP[errno]
-                    except KeyError:
-                        pass
-                    else:
-                        w_subtype = space.gettypeobject(subclass.typedef)
+                    w_subtype = space.gettypeobject(subclass.typedef)
         exc = space.allocate_instance(W_OSError, w_subtype)
         W_OSError.__init__(exc, space)
-        exc.args_w = args_w
+        if not W_OSError._use_init(space, w_subtype):
+            exc._init_error(space, args_w, w_errno, w_strerror, w_filename)
         return space.wrap(exc)
 
-    def descr_init(self, space, args_w):
+    def descr_init(self, space, __args__):
+        args_w, kwds_w = __args__.unpack()
+        if not W_OSError._use_init(space, space.type(self)):
+            # Everything already done in OSError_new
+            return
+        if kwds_w:
+            raise oefmt(space.w_TypeError,
+                        "OSError does not take keyword arguments")
+        (w_errno, w_strerror, w_filename
+         ) = W_OSError._parse_init_args(space, args_w)
+        self._init_error(space, args_w, w_errno, w_strerror, w_filename)
+
+    def _init_error(self, space, args_w, w_errno, w_strerror, w_filename):
         W_BaseException.descr_init(self, space, args_w)
-        if 2 <= len(args_w) <= 3:
-            self.w_errno = args_w[0]
-            self.w_strerror = args_w[1]
-        if len(args_w) == 3:
-            # BlockingIOError's 3rd argument can be the number of
-            # characters written.
+        self.w_errno = w_errno
+        self.w_strerror = w_strerror
+
+        if not space.is_none(w_filename):
             if space.isinstance_w(
                     self, space.gettypeobject(W_BlockingIOError.typedef)):
                 try:
-                    self.written = space.int_w(args_w[2])
+                    self.written = space.int_w(w_filename)
                 except OperationError:
-                    self.w_filename = args_w[2]
+                    self.w_filename = w_filename
             else:
-                self.w_filename = args_w[2]
-            self.args_w = [args_w[0], args_w[1]]
+                self.w_filename = w_filename
+                # filename is removed from the args tuple (for compatibility
+                # purposes, see test_exceptions.py)
+                self.args_w = [w_errno, w_strerror]
 
     # since we rebind args_w, we need special reduce, grump
     def descr_reduce(self, space):
@@ -563,10 +617,10 @@ class W_WindowsError(W_OSError):
         self.w_winerror = space.w_None
         W_OSError.__init__(self, space)
 
-    def descr_init(self, space, args_w):
+    def descr_init(self, space, __args__):
         # Set errno to the POSIX errno, and winerror to the Win32
         # error code.
-        W_OSError.descr_init(self, space, args_w)
+        W_OSError.descr_init(self, space, __args__)
         try:
             errno = space.int_w(self.w_errno)
         except OperationError:

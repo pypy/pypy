@@ -345,3 +345,33 @@ class AppTestExc(object):
         for errcode in othercodes:
             e = OSError(errcode, "Some message")
             assert type(e) is OSError
+
+    def test_oserror_init_overriden(self):
+        class SubOSErrorWithInit(OSError):
+            def __init__(self, message, bar):
+                self.bar = bar
+                super().__init__(message)
+
+        e = SubOSErrorWithInit("some message", "baz")
+        assert e.bar == "baz"
+        assert e.args == ("some message",)
+
+        e = SubOSErrorWithInit("some message", bar="baz")
+        assert e.bar == "baz"
+        assert e.args == ("some message",)
+
+    def test_oserror_new_overriden(self):
+        class SubOSErrorWithNew(OSError):
+            def __new__(cls, message, baz):
+                self = super().__new__(cls, message)
+                self.baz = baz
+                return self
+
+        e = SubOSErrorWithNew("some message", "baz")
+        assert e.baz == "baz"
+        assert e.args == ("some message",)
+
+        e = SubOSErrorWithNew("some message", baz="baz")
+        assert e.baz == "baz"
+        assert e.args == ("some message",)
+
