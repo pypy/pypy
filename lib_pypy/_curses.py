@@ -1127,6 +1127,8 @@ def setupterm(term=None, fd=-1):
 
     if term is None:
         term = ffi.NULL
+    elif isinstance(term, str):
+        term = term.encode('utf-8')
     err = ffi.new("int *")
     if lib.setupterm(term, fd, err) == lib.ERR:
         err = err[0]

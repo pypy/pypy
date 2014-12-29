@@ -315,7 +315,7 @@ class ExternalCompilationInfo(object):
             d['link_files'] = [fn for fn in d['link_files']
                                   if not fn.endswith('.a')]
         d['compile_extra'] = d['compile_extra'] + (
-            '-DRPY_EXPORTED_FOR_TESTS=RPY_EXPORTED',)
+            '-DRPY_EXTERN=RPY_EXPORTED',)
         self = ExternalCompilationInfo(**d)
 
         lib = str(host.compile([], self, outputfilename=outputfilename,

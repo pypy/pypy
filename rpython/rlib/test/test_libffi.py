@@ -576,7 +576,9 @@ class TestLibffiCall(BaseFfiTest):
             }
             """
             libfoo = self.get_libfoo()
-            func = (libfoo, 'std_diff_xy', [types.sint, types.signed], types.sint)
+            # __stdcall without a DEF file decorates the name with the number of bytes
+            # that the callee will remove from the call stack
+            func = (libfoo, '_std_diff_xy@8', [types.sint, types.signed], types.sint)
             try:
                 self.call(func, [50, 8], lltype.Signed)
             except ValueError, e:
@@ -613,7 +615,9 @@ class TestLibffiCall(BaseFfiTest):
             """
             from rpython.rlib.libffi import WinDLL
             dll = WinDLL(self.libfoo_name)
-            f_by_name = dll.getpointer('BBB_second_ordinal_function' ,[],
+            # __stdcall without a DEF file decorates the name with the number of bytes
+            # that the callee will remove from the call stack
+            f_by_name = dll.getpointer('_BBB_second_ordinal_function@0' ,[],
                                           types.uint)
             f_by_ordinal = dll.getpointer_by_ordinal(2 ,[], types.uint)
             print dir(f_by_name)

@@ -1,9 +1,11 @@
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import SomeAddress, SomePtr
 from rpython.rlib import rgc
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import rmodel, annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
-from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS
+from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS, llop
 from rpython.memory import gctypelayout
 from rpython.memory.gctransform.log import log
 from rpython.memory.gctransform.support import get_rtti, ll_call_destructor
@@ -239,6 +241,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
             root_walker.need_stacklet_support(self, getfn)
 
         self.layoutbuilder.encode_type_shapes_now()
+        self.create_custom_trace_funcs(gcdata.gc, translator.rtyper)
 
         annhelper.finish()   # at this point, annotate all mix-level helpers
         annhelper.backend_optimize()
@@ -458,17 +461,18 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                             annmodel.SomeInteger(nonneg=True)],
                                            annmodel.s_None)
 
-        self.pin_ptr = getfn(GCClass.pin,
-                             [s_gc, SomeAddress()],
-                             annmodel.SomeBool())
+        if GCClass.can_usually_pin_objects:
+            self.pin_ptr = getfn(GCClass.pin,
+                                 [s_gc, SomeAddress()],
+                                 annmodel.SomeBool())
 
-        self.unpin_ptr = getfn(GCClass.unpin,
-                               [s_gc, SomeAddress()],
-                               annmodel.s_None)
+            self.unpin_ptr = getfn(GCClass.unpin,
+                                   [s_gc, SomeAddress()],
+                                   annmodel.s_None)
 
-        self._is_pinned_ptr = getfn(GCClass._is_pinned,
-                                    [s_gc, SomeAddress()],
-                                    annmodel.SomeBool())
+            self._is_pinned_ptr = getfn(GCClass._is_pinned,
+                                        [s_gc, SomeAddress()],
+                                        annmodel.SomeBool())
 
         self.write_barrier_ptr = None
         self.write_barrier_from_array_ptr = None
@@ -502,6 +506,29 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                                    [SomeAddress()],
                                                    annmodel.s_None)
 
+    def create_custom_trace_funcs(self, gc, rtyper):
+        custom_trace_funcs = tuple(rtyper.custom_trace_funcs)
+        rtyper.custom_trace_funcs = custom_trace_funcs
+        # too late to register new custom trace functions afterwards
+
+        custom_trace_funcs_unrolled = unrolling_iterable(
+            [(self.get_type_id(TP), func) for TP, func in custom_trace_funcs])
+
+        @specialize.arg(2)
+        def custom_trace_dispatcher(obj, typeid, callback, arg):
+            for type_id_exp, func in custom_trace_funcs_unrolled:
+                if (llop.combine_ushort(lltype.Signed, typeid, 0) ==
+                    llop.combine_ushort(lltype.Signed, type_id_exp, 0)):
+                    func(gc, obj, callback, arg)
+                    return
+            else:
+                assert False
+
+        gc.custom_trace_dispatcher = custom_trace_dispatcher
+
+        for TP, func in custom_trace_funcs:
+            self.gcdata._has_got_custom_trace(self.get_type_id(TP))
+            specialize.arg(2)(func)
 
     def consider_constant(self, TYPE, value):
         self.layoutbuilder.consider_constant(TYPE, value, self.gcdata.gc)
@@ -1016,6 +1043,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                   v_size])
 
     def gct_gc_pin(self, hop):
+        if not hasattr(self, 'pin_ptr'):
+            c_false = rmodel.inputconst(lltype.Bool, False)
+            hop.genop("same_as", [c_false], resultvar=hop.spaceop.result)
+            return
         op = hop.spaceop
         v_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
             resulttype=llmemory.Address)
@@ -1023,6 +1054,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_gc_unpin(self, hop):
+        if not hasattr(self, 'unpin_ptr'):
+            return
         op = hop.spaceop
         v_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
             resulttype=llmemory.Address)
@@ -1030,6 +1063,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_gc__is_pinned(self, hop):
+        if not hasattr(self, '_is_pinned_ptr'):
+            c_false = rmodel.inputconst(lltype.Bool, False)
+            hop.genop("same_as", [c_false], resultvar=hop.spaceop.result)
+            return
         op = hop.spaceop
         v_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
             resulttype=llmemory.Address)
@@ -1043,6 +1080,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
             assert not livevars, "live GC var around %s!" % (hop.spaceop,)
             hop.genop("direct_call", [self.root_walker.thread_run_ptr])
             self.pop_roots(hop, livevars)
+        else:
+            hop.rename("gc_thread_run")     # keep it around for c/gc.py,
+                                            # unless handled specially above
 
     def gct_gc_thread_start(self, hop):
         assert self.translator.config.translation.thread
@@ -1058,6 +1098,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
             assert not livevars, "live GC var around %s!" % (hop.spaceop,)
             hop.genop("direct_call", [self.root_walker.thread_die_ptr])
             self.pop_roots(hop, livevars)
+        hop.rename("gc_thread_die")     # keep it around for c/gc.py
 
     def gct_gc_thread_before_fork(self, hop):
         if (self.translator.config.translation.thread

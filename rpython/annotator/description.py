@@ -388,6 +388,9 @@ class FunctionDesc(Desc):
 
             return s_sigs
 
+def is_mixin(cls):
+    return cls.__dict__.get('_mixin_', False)
+
 NODEFAULT = object()
 
 class ClassDesc(Desc):
@@ -414,13 +417,12 @@ class ClassDesc(Desc):
         self.specialize = specialize
         self._classdefs = {}
 
-        assert cls.__module__ != '__builtin__'
-        base = object
-        baselist = list(cls.__bases__)
-
-        if cls.__dict__.get('_mixin_', False):
+        if is_mixin(cls):
             raise AnnotatorError("cannot use directly the class %r because "
                                  "it is a _mixin_" % (cls,))
+
+        assert cls.__module__ != '__builtin__'
+        baselist = list(cls.__bases__)
 
         # special case: skip BaseException, and pretend
         # that all exceptions ultimately inherit from Exception instead
@@ -432,10 +434,11 @@ class ClassDesc(Desc):
 
         mixins_before = []
         mixins_after = []
+        base = object
         for b1 in baselist:
             if b1 is object:
                 continue
-            if b1.__dict__.get('_mixin_', False):
+            if is_mixin(b1):
                 if base is object:
                     mixins_before.append(b1)
                 else:
@@ -539,7 +542,7 @@ class ClassDesc(Desc):
         add(check_not_in)
         #
         for base in reversed(mro):
-            assert base.__dict__.get("_mixin_", False), (
+            assert is_mixin(base), (
                 "Mixin class %r has non mixin base class %r" % (mixins, base))
             for name, value in base.__dict__.items():
                 if name in skip:

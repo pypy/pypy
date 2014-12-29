@@ -181,6 +181,14 @@ class AppTestConnectedSSL:
         self.s.close()
         del ss; gc.collect()
         
+    def test_peer_certificate(self):
+        import gc, ssl
+        ss = ssl.wrap_socket(self.s)
+        assert ss.getpeercert() == {}
+        assert type(ss.getpeercert(True)) is bytes
+        self.s.close()
+        del ss; gc.collect()
+
     def test_npn_protocol(self):
         import socket, _ssl, gc
         ctx = _ssl._SSLContext()

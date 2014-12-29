@@ -30,7 +30,7 @@ default_modules.update([
 # --allworkingmodules
 working_modules = default_modules.copy()
 working_modules.update([
-    "_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd", "rctime" ,
+    "_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd", "time" ,
     "select", "zipimport", "_lsprof", "crypt", "signal", "_rawffi", "termios",
     "zlib", "bz2", "struct", "_hashlib", "_md5", "_minimal_curses",
     "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
@@ -42,7 +42,7 @@ working_modules.update([
 
 translation_modules = default_modules.copy()
 translation_modules.update([
-    "fcntl", "rctime", "select", "signal", "_rawffi", "zlib", "struct",
+    "fcntl", "time", "select", "signal", "_rawffi", "zlib", "struct",
     "array", "binascii",
     # the following are needed for pyrepl (and hence for the
     # interactive prompt/pdb)
@@ -67,19 +67,15 @@ if sys.platform == "win32":
     default_modules.add("_locale")
 
 if sys.platform == "sunos5":
-    working_modules.remove('mmap')   # depend on ctypes, can't get at c-level 'errono'
-    working_modules.remove('rctime') # depend on ctypes, missing tm_zone/tm_gmtoff
-    working_modules.remove('signal') # depend on ctypes, can't get at c-level 'errono'
     working_modules.remove('fcntl')  # LOCK_NB not defined
     working_modules.remove("_minimal_curses")
     working_modules.remove("termios")
-    working_modules.remove("_multiprocessing")   # depends on rctime
     if "cppyy" in working_modules:
         working_modules.remove("cppyy")  # depends on ctypes
 
 
 module_dependencies = {
-    '_multiprocessing': [('objspace.usemodules.rctime', True),
+    '_multiprocessing': [('objspace.usemodules.time', True),
                          ('objspace.usemodules.thread', True)],
     'cpyext': [('objspace.usemodules.array', True)],
     'cppyy': [('objspace.usemodules.cpyext', True)],
@@ -89,9 +85,10 @@ module_suggests = {
     # itself needs the interp-level struct module
     # because 'P' is missing from the app-level one
     "_rawffi": [("objspace.usemodules.struct", True)],
-    "cpyext": [("translation.secondaryentrypoints", "cpyext,main"),
-               ("translation.shared", sys.platform == "win32")],
+    "cpyext": [("translation.secondaryentrypoints", "cpyext,main")],
 }
+if sys.platform == "win32":
+    module_suggests["cpyext"].append(("translation.shared", True))
 
 module_import_dependencies = {
     # no _rawffi if importing rpython.rlib.clibffi raises ImportError

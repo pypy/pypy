@@ -238,7 +238,7 @@
 
 #define OP_BOOL_NOT(x, r) r = !(x)
 
-long long op_llong_mul_ovf(long long a, long long b);
+RPY_EXTERN long long op_llong_mul_ovf(long long a, long long b);
 
 /* The definitions above can be used with various types */ 
 

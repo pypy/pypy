@@ -3,40 +3,35 @@ from rpython.rlib.unroll import SpecTag
 
 
 class FrameState(object):
-    def __init__(self, mergeable, blocklist, next_instr):
+    def __init__(self, mergeable, blocklist, next_offset):
         self.mergeable = mergeable
         self.blocklist = blocklist
-        self.next_instr = next_instr
+        self.next_offset = next_offset
 
     def copy(self):
         "Make a copy of this state in which all Variables are fresh."
         newstate = []
         for w in self.mergeable:
             if isinstance(w, Variable):
-                w = Variable()
+                w = Variable(w)
             newstate.append(w)
-        return FrameState(newstate, self.blocklist, self.next_instr)
+        return FrameState(newstate, self.blocklist, self.next_offset)
 
     def getvariables(self):
         return [w for w in self.mergeable if isinstance(w, Variable)]
 
-    def __eq__(self, other):
-        """Two states are equal
-        if they only use different Variables at the same place"""
+    def matches(self, other):
+        """Two states match if they only differ by using different Variables
+        at the same place"""
         # safety check, don't try to compare states with different
         # nonmergeable states
-        assert isinstance(other, FrameState)
-        assert len(self.mergeable) == len(other.mergeable)
         assert self.blocklist == other.blocklist
-        assert self.next_instr == other.next_instr
+        assert self.next_offset == other.next_offset
         for w1, w2 in zip(self.mergeable, other.mergeable):
             if not (w1 == w2 or (isinstance(w1, Variable) and
                                  isinstance(w2, Variable))):
                 return False
         return True
-
-    def __ne__(self, other):
-        return not (self == other)
 
     def union(self, other):
         """Compute a state that is at least as general as both self and other.
@@ -49,7 +44,7 @@ class FrameState(object):
                 newstate.append(union(w1, w2))
         except UnionError:
             return None
-        return FrameState(newstate, self.blocklist, self.next_instr)
+        return FrameState(newstate, self.blocklist, self.next_offset)
 
     def getoutputargs(self, targetstate):
         "Return the output arguments needed to link self to targetstate."
@@ -66,14 +61,14 @@ class UnionError(Exception):
 
 def union(w1, w2):
     "Union of two variables or constants."
+    if w1 == w2:
+        return w1
     if w1 is None or w2 is None:
         return None  # if w1 or w2 is an undefined local, we "kill" the value
                      # coming from the other path and return an undefined local
     if isinstance(w1, Variable) or isinstance(w2, Variable):
         return Variable()  # new fresh Variable
     if isinstance(w1, Constant) and isinstance(w2, Constant):
-        if w1 == w2:
-            return w1
         # FlowSignal represent stack unrollers in the stack.
         # They should not be merged because they will be unwrapped.
         # This is needed for try:except: and try:finally:, though

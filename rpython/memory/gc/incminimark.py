@@ -216,8 +216,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # fall-back number.
         "nursery_size": 896*1024,
 
-        # The system page size.  Like obmalloc.c, we assume that it is 4K
-        # for 32-bit systems; unlike obmalloc.c, we assume that it is 8K
+        # The system page size.  Like malloc, we assume that it is 4K
+        # for 32-bit systems; unlike malloc, we assume that it is 8K
         # for 64-bit systems, for consistent results.
         "page_size": 1024*WORD,
 
@@ -593,7 +593,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
-            result = self.collect_and_reserve(rawtotalsize)
+            result = self.nursery_free
+            self.nursery_free = new_free = result + totalsize
+            if new_free > self.nursery_top:
+                result = self.collect_and_reserve(totalsize)
             #
             # Build the object.
             llarena.arena_reserve(result, totalsize)
@@ -649,7 +652,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
-            result = self.collect_and_reserve(raw_malloc_usage(totalsize))
+            result = self.nursery_free
+            self.nursery_free = new_free = result + totalsize
+            if new_free > self.nursery_top:
+                result = self.collect_and_reserve(totalsize)
             #
             # Build the object.
             llarena.arena_reserve(result, totalsize)
@@ -682,13 +688,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         and finally reserve 'totalsize' bytes at the start of the
         now-empty nursery.
         """
-        if self.nursery_free + totalsize <= self.nursery_top:
-            result = self.nursery_free
-            self.nursery_free = result + totalsize
-            return result
 
         minor_collection_count = 0
         while True:
+            self.nursery_free = llmemory.NULL      # debug: don't use me
+
             if self.nursery_barriers.non_empty():
                 size_gc_header = self.gcheaderbuilder.size_gc_header
                 pinned_obj_size = size_gc_header + self.get_size(

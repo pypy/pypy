@@ -13,7 +13,7 @@ class AppTestZipimport(BaseImportTest):
     """
     compression = ZIP_STORED
     spaceconfig = {
-        "usemodules": ['zipimport', 'rctime', 'struct', 'binascii', 'marshal'],
+        "usemodules": ['zipimport', 'time', 'struct', 'binascii', 'marshal'],
     }
     pathsep = os.path.sep
 

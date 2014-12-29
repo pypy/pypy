@@ -217,7 +217,13 @@ class AbstractLLCPU(AbstractCPU):
         return lltype.cast_opaque_ptr(llmemory.GCREF, frame)
 
     def make_execute_token(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
+        # The JIT backend must generate functions with the following
+        # signature: it takes the jitframe and the threadlocal_addr
+        # as arguments, and it returns the (possibly reallocated) jitframe.
+        # The backend can optimize OS_THREADLOCALREF_GET calls to return a
+        # field of this threadlocal_addr, but only if 'translate_support_code':
+        # in untranslated tests, threadlocal_addr is a dummy NULL.
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.Address],
                                              llmemory.GCREF))
 
         lst = [(i, history.getkind(ARG)[0]) for i, ARG in enumerate(ARGS)]
@@ -249,8 +255,13 @@ class AbstractLLCPU(AbstractCPU):
                     else:
                         assert kind == history.REF
                         self.set_ref_value(ll_frame, num, arg)
+                if self.translate_support_code:
+                    ll_threadlocal_addr = llop.threadlocalref_addr(
+                        llmemory.Address)
+                else:
+                    ll_threadlocal_addr = llmemory.NULL
                 llop.gc_writebarrier(lltype.Void, ll_frame)
-                ll_frame = func(ll_frame)
+                ll_frame = func(ll_frame, ll_threadlocal_addr)
             finally:
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter
