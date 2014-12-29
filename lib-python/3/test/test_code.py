@@ -81,7 +81,7 @@ varnames: ()
 cellvars: ()
 freevars: ()
 nlocals: 0
-flags: 67
+flags: 1048643
 consts: ("'doc string'", 'None')
 
 >>> def keywordonly_args(a,b,*,k1):
@@ -104,7 +104,7 @@ consts: ('None',)
 
 import unittest
 import weakref
-from test.support import run_doctest, run_unittest, cpython_only
+from test.support import run_doctest, run_unittest, cpython_only, gc_collect
 
 
 def consts(t):
@@ -156,6 +156,7 @@ class CodeWeakRefTest(unittest.TestCase):
         coderef = weakref.ref(f.__code__, callback)
         self.assertTrue(bool(coderef()))
         del f
+        gc_collect()
         self.assertFalse(bool(coderef()))
         self.assertTrue(self.called)
 
