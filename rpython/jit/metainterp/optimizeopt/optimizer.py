@@ -7,7 +7,8 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded,\
                                                      IntLowerBound, MININT,\
                                                      MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.resoperation import rop, ResOperation, AbstractResOp
+from rpython.jit.metainterp.resoperation import rop, ResOperation,\
+     AbstractResOp, GuardResOp
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.tool.pairtype import extendabletype
 from rpython.rlib.debug import debug_print
@@ -501,8 +502,9 @@ class Optimization(object):
 
 class Optimizer(Optimization):
 
-    def __init__(self, metainterp_sd, loop, optimizations=None):
+    def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations=None):
         self.metainterp_sd = metainterp_sd
+        self.jitdriver_sd = jitdriver_sd
         self.cpu = metainterp_sd.cpu
         self.loop = loop
         self.values = {}
@@ -734,6 +736,11 @@ class Optimizer(Optimization):
         while i > 0:
             i -= 1
             if self._newoperations[i] is old_op:
+                # a bit of dance to make sure we copy all the attrs on
+                # an already emitted descr
+                newdescr = new_op.getdescr()
+                olddescr = old_op.getdescr()
+                newdescr.copy_all_attributes_from(olddescr)
                 self._newoperations[i] = new_op
                 break
         else:
@@ -741,9 +748,16 @@ class Optimizer(Optimization):
 
     def store_final_boxes_in_guard(self, op, pendingfields):
         assert pendingfields is not None
-        descr = op.getdescr()
+        if op.getdescr() is not None:
+            descr = op.getdescr()
+            assert isinstance(descr, compile.ResumeAtPositionDescr)
+        else:
+            descr = compile.invent_fail_descr_for_op(op, self)
+            op.setdescr(descr)
         assert isinstance(descr, compile.ResumeGuardDescr)
-        modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
+        assert isinstance(op, GuardResOp)
+        modifier = resume.ResumeDataVirtualAdder(descr, op,
+                                                 self.resumedata_memo)
         try:
             newboxes = modifier.finish(self, pendingfields)
             if len(newboxes) > self.metainterp_sd.options.failargs_limit:
