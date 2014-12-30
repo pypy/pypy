@@ -543,8 +543,10 @@ class W_OSError(W_Exception):
 
     def _init_error(self, space, args_w, w_errno, w_strerror, w_filename):
         W_BaseException.descr_init(self, space, args_w)
-        self.w_errno = w_errno
-        self.w_strerror = w_strerror
+        if w_errno:
+            self.w_errno = w_errno
+        if w_strerror:
+            self.w_strerror = w_strerror
 
         if not space.is_none(w_filename):
             if space.isinstance_w(
