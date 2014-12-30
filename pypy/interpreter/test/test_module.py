@@ -89,7 +89,7 @@ class AppTest_ModuleObject:
         import os
 
         assert sys.__package__ is None
-        assert os.__package__ is None
+        assert os.__package__ == ''
         assert not hasattr(type(sys)('foo'), '__package__')
 
     def test_name_nonascii(self):
