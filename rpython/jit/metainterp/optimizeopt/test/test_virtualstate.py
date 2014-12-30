@@ -285,8 +285,7 @@ class BaseTestGenerateGuards(BaseTest):
         # knownclass unknown
         expected = """
         [p0]
-        guard_nonnull(p0) []
-        guard_class(p0, ConstClass(node_vtable)) []
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
         """
         self.guards(knownclass_info, unknown_info, unknown_val, expected)
         self.check_invalid(knownclass_info, unknown_info, unknownnull_val)
@@ -390,8 +389,7 @@ class BaseTestGenerateGuards(BaseTest):
         info2 = NotVirtualStateInfo(PtrOptValue(self.nodebox))
         expected = """
         [p0]
-        guard_nonnull(p0) []        
-        guard_class(p0, ConstClass(node_vtable)) []
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []        
         """
         self.guards(info1, info2, self.nodebox, expected)
         self.check_invalid(info1, info2, BoxPtr())
@@ -444,8 +442,7 @@ class BaseTestGenerateGuards(BaseTest):
 
         expected = """
         [p0]
-        guard_nonnull(p0) []
-        guard_class(p0, ConstClass(node_vtable)) []
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
         """
         state = vstate1.generate_guards(vstate2, [value, value], self.cpu)
         self.compare(state.extra_guards, expected, [self.nodebox])
@@ -480,8 +477,7 @@ class BaseTestGenerateGuards(BaseTest):
 
         expected = """
         [p0]
-        guard_nonnull(p0) []
-        guard_class(p0, ConstClass(node_vtable)) []
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
         """
         self.guards(info1, info2, value1, expected, [self.nodebox])
 
@@ -505,8 +501,7 @@ class BaseTestGenerateGuards(BaseTest):
 
         expected = """
         [p0]
-        guard_nonnull(p0) []
-        guard_class(p0, ConstClass(node_vtable)) []
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
         """
         self.guards(info1, info2, value1, expected, [self.nodebox])
 
@@ -532,8 +527,7 @@ class BaseTestGenerateGuards(BaseTest):
 
         expected = """
         [p0]
-        guard_nonnull(p0) []
-        guard_class(p0, ConstClass(node_vtable)) []
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
         """
         self.guards(info1, info2, value1, expected, [self.nodebox])
 
@@ -560,8 +554,7 @@ class BaseTestGenerateGuards(BaseTest):
 
         expected = """
         [p0]
-        guard_nonnull(p0) []
-        guard_class(p0, ConstClass(node_vtable)) []
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
         """
         self.guards(info1, info2, value1, expected, [self.nodebox])
 
