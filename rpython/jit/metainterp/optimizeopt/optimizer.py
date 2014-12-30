@@ -239,14 +239,17 @@ class PtrOptValue(OptValue):
     def make_nonnull(self, optimizer):
         assert self.getlevel() < LEVEL_NONNULL
         self.setlevel(LEVEL_NONNULL)
-        self.last_guard_pos = len(optimizer._newoperations)
+        if optimizer is not None:
+            self.last_guard_pos = len(optimizer._newoperations) - 1
+            assert self.get_last_guard(optimizer).is_guard()
 
     def make_constant_class(self, optimizer, classbox):
         assert self.getlevel() < LEVEL_KNOWNCLASS
         self.known_class = classbox
         self.setlevel(LEVEL_KNOWNCLASS)
         if optimizer is not None:
-            self.last_guard_pos = len(optimizer._newoperations)
+            self.last_guard_pos = len(optimizer._newoperations) - 1
+            assert self.get_last_guard(optimizer).is_guard()
 
     def import_from(self, other, optimizer):
         OptValue.import_from(self, other, optimizer)
@@ -381,7 +384,7 @@ class IntOptValue(OptValue):
     def get_last_guard(self, optimizer):
         return None
 
-    def get_known_class(self, optimizer):
+    def get_known_class(self):
         return None
 
     def getlenbound(self):
@@ -602,6 +605,13 @@ class Optimizer(Optimization):
         self.ensure_imported(value)
         return value
 
+    def get_box_replacement(self, box):
+        try:
+            v = self.values[box]
+        except KeyError:
+            return box
+        return v.get_key_box()
+
     def ensure_imported(self, value):
         pass
 
@@ -726,9 +736,10 @@ class Optimizer(Optimization):
             else:
                 self.ensure_imported(value)
                 newbox = value.force_box(self)
-                if not changed and arg is not newbox:
-                    op = op.clone()
-                    changed = True
+                if arg is not newbox:
+                    if not changed:
+                        op = op.clone()
+                        changed = True
                     op.setarg(i, newbox)
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_OPS)
         if op.is_guard():
@@ -744,7 +755,24 @@ class Optimizer(Optimization):
                 op = self.store_final_boxes_in_guard(guard_op, pendingfields)
         elif op.can_raise():
             self.exception_might_have_happened = True
+        self._last_emitted_op = orig_op
         self._newoperations.append(op)
+
+    def get_op_replacement(self, op):
+        changed = False
+        for i, arg in enumerate(op.getarglist()):
+            try:
+                v = self.values[arg]
+            except KeyError:
+                pass
+            else:
+                box = v.get_key_box()
+                if box is not arg:
+                    if not changed:
+                        changed = True
+                        op = op.clone()
+                    op.setarg(i, box)
+        return op
 
     def replace_op(self, old_op_pos, new_op):
         old_op = self._newoperations[old_op_pos]
@@ -760,7 +788,7 @@ class Optimizer(Optimization):
             descr = op.getdescr()
             assert isinstance(descr, compile.ResumeAtPositionDescr)
         else:
-            descr = compile.invent_fail_descr_for_op(op, self)
+            descr = compile.invent_fail_descr_for_op(op.getopnum(), self)
             op.setdescr(descr)
         assert isinstance(descr, compile.ResumeGuardDescr)
         assert isinstance(op, GuardResOp)
@@ -799,13 +827,7 @@ class Optimizer(Optimization):
         n = op.numargs()
         args = [None] * (n + 2)
         for i in range(n):
-            arg = op.getarg(i)
-            try:
-                value = self.values[arg]
-            except KeyError:
-                pass
-            else:
-                arg = value.get_key_box()
+            arg = self.get_box_replacement(op.getarg(i))
             args[i] = arg
         args[n] = ConstInt(op.getopnum())
         args[n + 1] = op.getdescr()

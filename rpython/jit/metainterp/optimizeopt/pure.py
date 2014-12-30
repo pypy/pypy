@@ -26,6 +26,7 @@ class OptPure(Optimization):
             nextop = None
 
         args = None
+        remember = None
         if canfold:
             for i in range(op.numargs()):
                 if self.get_constant_box(op.getarg(i)) is None:
@@ -45,7 +46,7 @@ class OptPure(Optimization):
                 self.optimizer.make_equal_to(op.result, oldvalue, True)
                 return
             else:
-                self.remember_emitting_pure(op)
+                remember = op
 
         # otherwise, the operation remains
         self.emit_operation(op)
@@ -55,6 +56,8 @@ class OptPure(Optimization):
             self.emit_operation(nextop)
         if args is not None:
             self.pure_operations[args] = self.getvalue(op.result)
+        if remember:
+            self.remember_emitting_pure(remember)
 
     def optimize_CALL_PURE(self, op):
         # Step 1: check if all arguments are constant
@@ -77,12 +80,12 @@ class OptPure(Optimization):
             return
         else:
             self.pure_operations[args] = self.getvalue(op.result)
-            self.remember_emitting_pure(op)
 
         # replace CALL_PURE with just CALL
         args = op.getarglist()
         self.emit_operation(ResOperation(rop.CALL, args, op.result,
                                          op.getdescr()))
+        self.remember_emitting_pure(op)
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:
@@ -112,6 +115,7 @@ class OptPure(Optimization):
         return self.pure_operations.get(key, None)
 
     def remember_emitting_pure(self, op):
+        op = self.optimizer.get_op_replacement(op)
         self.emitted_pure_operations[op] = True
 
     def produce_potential_short_preamble_ops(self, sb):

@@ -94,10 +94,12 @@ class CachedField(object):
         else:
             return self._cached_fields.get(structvalue, None)
 
-    def remember_field_value(self, structvalue, fieldvalue, getfield_op=None):
+    def remember_field_value(self, structvalue, fieldvalue, op=None,
+                             optimizer=None):
         assert self._lazy_setfield is None
         self._cached_fields[structvalue] = fieldvalue
-        self._cached_fields_getfield_op[structvalue] = getfield_op
+        op = optimizer.get_op_replacement(op)
+        self._cached_fields_getfield_op[structvalue] = op
 
     def force_lazy_setfield(self, optheap, can_cache=True):
         op = self._lazy_setfield
@@ -121,7 +123,8 @@ class CachedField(object):
             # field.
             structvalue = optheap.getvalue(op.getarg(0))
             fieldvalue = optheap.getvalue(op.getarglist()[-1])
-            self.remember_field_value(structvalue, fieldvalue, op)
+            self.remember_field_value(structvalue, fieldvalue, op,
+                                      optheap.optimizer)
         elif not can_cache:
             self.clear()
 
@@ -446,7 +449,7 @@ class OptHeap(Optimization):
         self.emit_operation(op)
         # then remember the result of reading the field
         fieldvalue = self.getvalue(op.result)
-        cf.remember_field_value(structvalue, fieldvalue, op)
+        cf.remember_field_value(structvalue, fieldvalue, op, self.optimizer)
 
     def optimize_GETFIELD_GC_PURE(self, op):
         structvalue = self.getvalue(op.getarg(0))
@@ -490,7 +493,7 @@ class OptHeap(Optimization):
         # the remember the result of reading the array item
         if cf is not None:
             fieldvalue = self.getvalue(op.result)
-            cf.remember_field_value(arrayvalue, fieldvalue, op)
+            cf.remember_field_value(arrayvalue, fieldvalue, op, self.optimizer)
 
     def optimize_GETARRAYITEM_GC_PURE(self, op):
         arrayvalue = self.getvalue(op.getarg(0))

@@ -317,6 +317,7 @@ class OptRewrite(Optimization):
                         args = [old_guard_op.getarg(0), op.getarg(1)],
                         descr = descr)
             self.optimizer.replace_guard(op, value)
+            descr.make_a_counter_per_value(op)
             # to be safe
             if isinstance(value, PtrOptValue):
                 value.last_guard_pos = -1
@@ -364,8 +365,13 @@ class OptRewrite(Optimization):
                             args = [old_guard_op.getarg(0), op.getarg(1)],
                             descr=descr)
                 self.optimizer.replace_guard(op, value)
-        value.make_constant_class(self.optimizer, expectedclassbox)
+                # not emitting the guard, so we have to pass None to
+                # make_constant_class, so last_guard_pos is not updated
+                self.emit_operation(op)
+                value.make_constant_class(None, expectedclassbox)
+                return
         self.emit_operation(op)
+        value.make_constant_class(self.optimizer, expectedclassbox)
 
     def optimize_GUARD_NONNULL_CLASS(self, op):
         value = self.getvalue(op.getarg(0))
