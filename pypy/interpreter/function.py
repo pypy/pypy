@@ -588,6 +588,9 @@ class StaticMethod(W_Root):
         instance.__init__(w_function)
         return space.wrap(instance)
 
+    def descr_isabstract(self, space):
+        return space.newbool(space.isabstractmethod_w(self.w_function))
+
 
 class ClassMethod(W_Root):
     """The classmethod objects."""
@@ -605,6 +608,10 @@ class ClassMethod(W_Root):
         instance = space.allocate_instance(ClassMethod, w_subtype)
         instance.__init__(w_function)
         return space.wrap(instance)
+
+    def descr_isabstract(self, space):
+        return space.newbool(space.isabstractmethod_w(self.w_function))
+
 
 class FunctionWithFixedCode(Function):
     can_change_code = False

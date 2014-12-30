@@ -1139,6 +1139,15 @@ class ObjSpace(object):
         # Equivalent to 'obj.__class__'.
         return self.type(w_obj)
 
+    def isabstractmethod_w(self, w_obj):
+        try:
+            w_result = self.getattr(w_obj, self.wrap("__isabstractmethod__"))
+        except OperationError, e:
+            if e.match(self, self.w_AttributeError):
+                return False
+            raise
+        return self.bool_w(self.nonzero(w_result))
+
     # CPython rules allows subclasses of BaseExceptions to be exceptions.
     # This is slightly less general than the case above, so we prefix
     # it with exception_

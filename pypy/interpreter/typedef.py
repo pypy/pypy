@@ -882,6 +882,7 @@ It can be called either on the class (e.g. C.f()) or on an instance
     __get__ = interp2app(StaticMethod.descr_staticmethod_get),
     __new__ = interp2app(StaticMethod.descr_staticmethod__new__.im_func),
     __func__= interp_attrproperty_w('w_function', cls=StaticMethod),
+    __isabstractmethod__ = GetSetProperty(StaticMethod.descr_isabstract),
     )
 
 ClassMethod.typedef = TypeDef(
@@ -889,6 +890,7 @@ ClassMethod.typedef = TypeDef(
     __new__ = interp2app(ClassMethod.descr_classmethod__new__.im_func),
     __get__ = interp2app(ClassMethod.descr_classmethod_get),
     __func__= interp_attrproperty_w('w_function', cls=ClassMethod),
+    __isabstractmethod__ = GetSetProperty(ClassMethod.descr_isabstract),
     __doc__ = """classmethod(function) -> class method
 
 Convert a function to be a class method.

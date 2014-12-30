@@ -401,6 +401,12 @@ class AppTestBuiltinApp:
         del x.x
         assert x.z == 42
 
+    def test_abstract_property(self):
+        def foo(self): pass
+        foo.__isabstractmethod__ = True
+        foo = property(foo)
+        assert foo.__isabstractmethod__ is True
+
     def test___class___variable(self):
         class X:
             def f(self):
