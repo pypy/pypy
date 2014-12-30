@@ -10,7 +10,8 @@ class AppTestGrp:
                                     "No grp module on this platform")
 
     def test_basic(self):
-        raises(KeyError, self.grp.getgrnam, "dEkLofcG")
+        e = raises(KeyError, self.grp.getgrnam, "dEkLofcG")
+        assert e.value.args[0] == "'getgrnam(): name not found: dEkLofcG'"
         for name in ["root", "wheel"]:
             try:
                 g = self.grp.getgrnam(name)

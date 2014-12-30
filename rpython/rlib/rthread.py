@@ -5,8 +5,10 @@ import py
 from rpython.rlib import jit, rgc
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import CDefinedIntSymbolic
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.tool import rffi_platform
+from rpython.rtyper.extregistry import ExtRegistryEntry
 
 class RThreadError(Exception):
     pass
@@ -40,8 +42,6 @@ c_thread_start = llexternal('RPyThreadStart', [CALLBACK], rffi.LONG,
                             releasegil=True)  # release the GIL, but most
                                               # importantly, reacquire it
                                               # around the callback
-c_thread_get_ident = llexternal('RPyThreadGetIdent', [], rffi.LONG,
-                                _nowrapper=True)    # always call directly
 
 TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock',
                           compilation_info=eci)
@@ -83,9 +83,16 @@ def ll_start_new_thread(func):
 
 # wrappers...
 
-@jit.loop_invariant
 def get_ident():
-    return rffi.cast(lltype.Signed, c_thread_get_ident())
+    if we_are_translated():
+        return tlfield_thread_ident.getraw()
+    else:
+        import thread
+        return thread.get_ident()
+
+def get_or_make_ident():
+    assert we_are_translated()
+    return tlfield_thread_ident.get_or_make_raw()
 
 @specialize.arg(0)
 def start_new_thread(x, y):
@@ -265,17 +272,42 @@ def gc_thread_after_fork(result_of_fork, opaqueaddr):
 # KEEP THE REFERENCE ALIVE, THE GC DOES NOT FOLLOW THEM SO FAR!
 # We use _make_sure_does_not_move() to make sure the pointer will not move.
 
-ecitl = ExternalCompilationInfo(
-    includes = ['src/threadlocal.h'],
-    separate_module_files = [translator_c_dir / 'src' / 'threadlocal.c'])
-ensure_threadlocal = rffi.llexternal_use_eci(ecitl)
 
-class ThreadLocalReference(object):
+class ThreadLocalField(object):
+    def __init__(self, FIELDTYPE, fieldname):
+        "NOT_RPYTHON: must be prebuilt"
+        self.FIELDTYPE = FIELDTYPE
+        self.fieldname = fieldname
+        offset = CDefinedIntSymbolic('RPY_TLOFS_%s' % self.fieldname,
+                                     default='?')
+        self.offset = offset
+
+        def getraw():
+            _threadlocalref_seeme(self)
+            return llop.threadlocalref_get(FIELDTYPE, offset)
+
+        @jit.dont_look_inside
+        def get_or_make_raw():
+            _threadlocalref_seeme(self)
+            addr = llop.threadlocalref_addr(llmemory.Address)
+            return llop.raw_load(FIELDTYPE, addr, offset)
+
+        @jit.dont_look_inside
+        def setraw(value):
+            _threadlocalref_seeme(self)
+            addr = llop.threadlocalref_addr(llmemory.Address)
+            llop.raw_store(lltype.Void, addr, offset, value)
+
+        self.getraw = getraw
+        self.get_or_make_raw = get_or_make_raw
+        self.setraw = setraw
+
+    def _freeze_(self):
+        return True
+
+
+class ThreadLocalReference(ThreadLocalField):
     _COUNT = 1
-    OPAQUEID = lltype.OpaqueType("ThreadLocalRef",
-                                 hints={"threadlocalref": True,
-                                        "external": "C",
-                                        "c_name": "RPyThreadStaticTLS"})
 
     def __init__(self, Cls):
         "NOT_RPYTHON: must be prebuilt"
@@ -284,15 +316,16 @@ class ThreadLocalReference(object):
         self.local = thread._local()      # <- NOT_RPYTHON
         unique_id = ThreadLocalReference._COUNT
         ThreadLocalReference._COUNT += 1
-        opaque_id = lltype.opaqueptr(ThreadLocalReference.OPAQUEID,
-                                     'tlref%d' % unique_id)
-        self.opaque_id = opaque_id
+        ThreadLocalField.__init__(self, lltype.Signed, 'tlref%d' % unique_id)
+        setraw = self.setraw
+        offset = self.offset
 
         def get():
             if we_are_translated():
                 from rpython.rtyper import rclass
                 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-                ptr = llop.threadlocalref_get(rclass.OBJECTPTR, opaque_id)
+                _threadlocalref_seeme(self)
+                ptr = llop.threadlocalref_get(rclass.OBJECTPTR, offset)
                 return cast_base_ptr_to_instance(Cls, ptr)
             else:
                 return getattr(self.local, 'value', None)
@@ -301,21 +334,34 @@ class ThreadLocalReference(object):
         def set(value):
             assert isinstance(value, Cls) or value is None
             if we_are_translated():
-                from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
+                from rpython.rtyper.annlowlevel import cast_instance_to_gcref
                 from rpython.rlib.rgc import _make_sure_does_not_move
                 from rpython.rlib.objectmodel import running_on_llinterp
-                ptr = cast_instance_to_base_ptr(value)
+                gcref = cast_instance_to_gcref(value)
                 if not running_on_llinterp:
-                    gcref = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
                     if gcref:
                         _make_sure_does_not_move(gcref)
-                llop.threadlocalref_set(lltype.Void, opaque_id, ptr)
-                ensure_threadlocal()
+                value = lltype.cast_ptr_to_int(gcref)
+                setraw(value)
             else:
                 self.local.value = value
 
         self.get = get
         self.set = set
 
-    def _freeze_(self):
-        return True
+
+tlfield_thread_ident = ThreadLocalField(lltype.Signed, "thread_ident")
+tlfield_p_errno = ThreadLocalField(rffi.CArrayPtr(rffi.INT), "p_errno")
+
+def _threadlocalref_seeme(field):
+    "NOT_RPYTHON"
+
+class _Entry(ExtRegistryEntry):
+    _about_ = _threadlocalref_seeme
+
+    def compute_result_annotation(self, s_field):
+        field = s_field.const
+        self.bookkeeper.thread_local_fields.add(field)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()

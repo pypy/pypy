@@ -1121,7 +1121,13 @@ class AppTestOptimizer:
             sys.stdout = out
         output = s.getvalue()
         assert "CALL_METHOD" in output
-            
+
+    def test_interned_strings(self):
+        source = """x = ('foo_bar42', 5); y = 'foo_bar42'; z = x[0]"""
+        ns = {}
+        exec(source, ns)
+        assert ns['y'] is ns['z']
+
 
 class AppTestExceptions:
     def test_indentation_error(self):

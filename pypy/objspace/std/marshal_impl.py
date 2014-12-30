@@ -311,6 +311,12 @@ def unmarshal_NULL(self, u, tc):
     return None
 
 
+def _put_str_list(space, m, strlist):
+    m.atom_int(TYPE_TUPLE, len(strlist))
+    atom_str = m.atom_str
+    for item in strlist:
+        atom_str(TYPE_STRING, item)
+
 @marshaller(PyCode)
 def marshal_pycode(space, w_pycode, m):
     m.start(TYPE_CODE)
@@ -322,19 +328,18 @@ def marshal_pycode(space, w_pycode, m):
     m.put_int(x.co_stacksize)
     m.put_int(x.co_flags)
     m.atom_str(TYPE_STRING, x.co_code)
-    m.put_tuple_w(TYPE_TUPLE, x.co_consts_w[:])
-    m.atom_strlist(TYPE_TUPLE, TYPE_STRING, [space.str_w(w_name) for w_name in x.co_names_w])
-    m.atom_strlist(TYPE_TUPLE, TYPE_STRING, x.co_varnames)
-    m.atom_strlist(TYPE_TUPLE, TYPE_STRING, x.co_freevars)
-    m.atom_strlist(TYPE_TUPLE, TYPE_STRING, x.co_cellvars)
+    m.put_tuple_w(TYPE_TUPLE, x.co_consts_w)
+    _put_str_list(space, m, [space.str_w(w_name) for w_name in x.co_names_w])
+    _put_str_list(space, m, x.co_varnames)
+    _put_str_list(space, m, x.co_freevars)
+    _put_str_list(space, m, x.co_cellvars)
     m.atom_str(TYPE_STRING, x.co_filename)
     m.atom_str(TYPE_STRING, x.co_name)
     m.put_int(x.co_firstlineno)
     m.atom_str(TYPE_STRING, x.co_lnotab)
 
-# helper for unmarshalling string lists of code objects.
-# unfortunately they now can be interned or referenced,
-# so we no longer can handle it in interp_marshal.atom_strlist
+# helper for unmarshalling "tuple of string" objects
+# into rpython-level lists of strings.  Only for code objects.
 
 def unmarshal_str(u):
     w_obj = u.get_w_obj()

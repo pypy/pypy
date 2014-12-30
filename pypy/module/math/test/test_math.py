@@ -7,7 +7,7 @@ from rpython.rlib.rfloat import INFINITY, NAN
 
 class AppTestMath:
     spaceconfig = {
-        "usemodules": ['math', 'struct', 'itertools', 'rctime', 'binascii'],
+        "usemodules": ['math', 'struct', 'itertools', 'time', 'binascii'],
     }
 
     def setup_class(cls):

@@ -117,7 +117,7 @@ def test_socketio():
 
     proc = SocketProc([exe])
     output, error = proc.communicate("")
-    assert output.startswith('HTTP/1.0 503 Service Unavailable')
+    assert output.startswith('HTTP/1.1 301 Moved Permanently')
 
 @supported
 def test_oserror():

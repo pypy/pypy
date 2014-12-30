@@ -65,6 +65,7 @@ class Bookkeeper(object):
         self.external_class_cache = {}      # cache of ExternalType classes
 
         self.needs_generic_instantiate = {}
+        self.thread_local_fields = set()
 
         delayed_imports()
 
@@ -110,8 +111,8 @@ class Bookkeeper(object):
         finally:
             self.leave()
 
+    def check_no_flags_on_instances(self):
         # sanity check: no flags attached to heap stored instances
-
         seen = set()
 
         def check_no_flags(s_value_or_def):

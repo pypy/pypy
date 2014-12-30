@@ -8,8 +8,8 @@ Given an array x: x.shape == [5,6], where each element occupies one byte
 At which byte in x.data does the item x[3,4] begin?
 if x.strides==[1,5]:
     pData = x.pData + (x.start + 3*1 + 4*5)*sizeof(x.pData[0])
-    pData = x.pData + (x.start + 24) * sizeof(x.pData[0])
-so the offset of the element is 24 elements after the first
+    pData = x.pData + (x.start + 23) * sizeof(x.pData[0])
+so the offset of the element is 23 elements after the first
 
 What is the next element in x after coordinates [3,4]?
 if x.order =='C':
@@ -33,13 +33,23 @@ shape dimension
   which is x.strides[1] * (x.shape[1] - 1) + x.strides[0]
 so if we precalculate the overflow backstride as
 [x.strides[i] * (x.shape[i] - 1) for i in range(len(x.shape))]
-we can go faster.
+we can do only addition while iterating
 All the calculations happen in next()
 """
 from rpython.rlib import jit
 from pypy.module.micronumpy import support, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.flagsobj import _update_contiguous_flags
+
+class OpFlag(object):
+    def __init__(self):
+        self.rw = ''
+        self.broadcast = True
+        self.force_contig = False
+        self.force_align = False
+        self.native_byte_order = False
+        self.tmp_copy = ''
+        self.allocate = False
 
 
 class PureShapeIter(object):
@@ -89,11 +99,13 @@ class IterState(object):
 class ArrayIter(object):
     _immutable_fields_ = ['contiguous', 'array', 'size', 'ndim_m1', 'shape_m1[*]',
                           'strides[*]', 'backstrides[*]', 'factors[*]',
-                          'track_index']
+                          'slice_shape', 'slice_stride', 'slice_backstride',
+                          'track_index', 'operand_type', 'slice_operand_type']
 
     track_index = True
 
-    def __init__(self, array, size, shape, strides, backstrides):
+    def __init__(self, array, size, shape, strides, backstrides, op_flags=OpFlag()):
+        from pypy.module.micronumpy import concrete
         assert len(shape) == len(strides) == len(backstrides)
         _update_contiguous_flags(array)
         self.contiguous = (array.flags & NPY.ARRAY_C_CONTIGUOUS and
@@ -105,6 +117,12 @@ class ArrayIter(object):
         self.shape_m1 = [s - 1 for s in shape]
         self.strides = strides
         self.backstrides = backstrides
+        self.slice_shape = 1
+        self.slice_stride = -1
+        if strides:
+            self.slice_stride = strides[-1]
+        self.slice_backstride = 1
+        self.slice_operand_type = concrete.SliceArray
 
         ndim = len(shape)
         factors = [0] * ndim
@@ -114,6 +132,10 @@ class ArrayIter(object):
             else:
                 factors[ndim-i-1] = factors[ndim-i] * shape[ndim-i]
         self.factors = factors
+        if op_flags.rw == 'r':
+            self.operand_type = concrete.ConcreteNonWritableArrayWithBase
+        else:
+            self.operand_type = concrete.ConcreteArrayWithBase
 
     @jit.unroll_safe
     def reset(self, state=None):
@@ -132,7 +154,7 @@ class ArrayIter(object):
         index = state.index
         if self.track_index:
             index += 1
-        indices = state.indices
+        indices = state.indices[:]
         offset = state.offset
         if self.contiguous:
             offset += self.array.dtype.elsize
@@ -193,6 +215,12 @@ class ArrayIter(object):
         assert state.iterator is self
         self.array.setitem(state.offset, elem)
 
+    def getoperand(self, st, base):
+        impl = self.operand_type
+        res = impl([], self.array.dtype, self.array.order, [], [],
+                   self.array.storage, base)
+        res.start = st.offset
+        return res
 
 def AxisIter(array, shape, axis, cumulative):
     strides = array.get_strides()
@@ -216,3 +244,42 @@ def AllButAxisIter(array, axis):
         size /= shape[axis]
     shape[axis] = backstrides[axis] = 0
     return ArrayIter(array, size, shape, array.strides, backstrides)
+
+class SliceIter(ArrayIter):
+    '''
+    used with external loops, getitem and setitem return a SliceArray
+    view into the original array
+    '''
+    _immutable_fields_ = ['base', 'slice_shape[*]', 'slice_stride[*]', 'slice_backstride[*]']
+
+    def __init__(self, array, size, shape, strides, backstrides, slice_shape,
+                 slice_stride, slice_backstride, op_flags, base):
+        from pypy.module.micronumpy import concrete
+        ArrayIter.__init__(self, array, size, shape, strides, backstrides, op_flags)
+        self.slice_shape = slice_shape
+        self.slice_stride = slice_stride
+        self.slice_backstride = slice_backstride
+        self.base = base
+        if op_flags.rw == 'r':
+            self.slice_operand_type = concrete.NonWritableSliceArray
+        else:
+            self.slice_operand_type = concrete.SliceArray
+
+    def getitem(self, state):
+        # XXX cannot be called - must return a boxed value
+        assert False
+
+    def getitem_bool(self, state):
+        # XXX cannot be called - must return a boxed value
+        assert False
+
+    def setitem(self, state, elem):
+        # XXX cannot be called - must return a boxed value
+        assert False
+
+    def getoperand(self, state, base):
+        assert state.iterator is self
+        impl = self.slice_operand_type
+        arr = impl(state.offset, [self.slice_stride], [self.slice_backstride],
+                   [self.slice_shape], self.array, self.base)
+        return arr

@@ -24,7 +24,6 @@ pypyroot = os.path.dirname(pypydir)
 RENAMED_USEMODULES = dict(
     _winreg='winreg',
     exceptions='builtins',
-    rctime='time',
     struct='_struct',
     thread='_thread',
     )

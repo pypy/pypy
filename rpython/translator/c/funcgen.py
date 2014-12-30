@@ -13,6 +13,7 @@ from rpython.rtyper.lltypesystem.llmemory import Address
 from rpython.translator.backendopt.ssa import SSI_to_SSA
 from rpython.translator.backendopt.innerloop import find_inner_loops
 from rpython.tool.identity_dict import identity_dict
+from rpython.rlib.objectmodel import CDefinedIntSymbolic
 
 
 LOCALVAR = 'l_%s'
@@ -899,5 +900,22 @@ class FunctionCodeGenerator(object):
                 self.expr(op.args[0]))
         else:
             return None    # use the default
+
+    def OP_THREADLOCALREF_GET(self, op):
+        typename = self.db.gettype(op.result.concretetype)
+        if isinstance(op.args[0], Constant):
+            assert isinstance(op.args[0].value, CDefinedIntSymbolic)
+            fieldname = op.args[0].value.expr
+            assert fieldname.startswith('RPY_TLOFS_')
+            fieldname = fieldname[10:]
+            return '%s = (%s)RPY_THREADLOCALREF_GET(%s);' % (
+                self.expr(op.result),
+                cdecl(typename, ''),
+                fieldname)
+        else:
+            return 'OP_THREADLOCALREF_GET_NONCONST(%s, %s, %s);' % (
+                cdecl(typename, ''),
+                self.expr(op.args[0]),
+                self.expr(op.result))
 
 assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)

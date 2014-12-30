@@ -60,8 +60,8 @@ struct pypydtentry_s {
   void *exctype;
 };
 
-extern int pypydtcount;
-extern struct pypydtentry_s pypy_debug_tracebacks[PYPY_DEBUG_TRACEBACK_DEPTH];
+RPY_EXTERN int pypydtcount;
+RPY_EXTERN struct pypydtentry_s pypy_debug_tracebacks[PYPY_DEBUG_TRACEBACK_DEPTH];
 
-void pypy_debug_traceback_print(void);
-void pypy_debug_catch_fatal_exception(void);
+RPY_EXTERN void pypy_debug_traceback_print(void);
+RPY_EXTERN void pypy_debug_catch_fatal_exception(void);

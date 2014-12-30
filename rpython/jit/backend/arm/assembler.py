@@ -497,9 +497,11 @@ class AssemblerARM(ResOpAssembler):
         if self.cpu.supports_floats:
             mc.VPOP([reg.value for reg in r.callee_saved_vfp_registers],
                                                                     cond=cond)
-        # pop all callee saved registers and IP to keep the alignment
+        # pop all callee saved registers.  This pops 'pc' last.
+        # It also pops the threadlocal_addr back into 'r1', but it
+        # is not needed any more and will be discarded.
         mc.POP([reg.value for reg in r.callee_restored_registers] +
-                                                       [r.ip.value], cond=cond)
+                                                       [r.r1.value], cond=cond)
         mc.BKPT()
 
     def gen_func_prolog(self):
@@ -508,11 +510,16 @@ class AssemblerARM(ResOpAssembler):
         if self.cpu.supports_floats:
             stack_size += len(r.callee_saved_vfp_registers) * 2 * WORD
 
-        # push all callee saved registers and IP to keep the alignment
+        # push all callee saved registers including lr; and push r1 as
+        # well, which contains the threadlocal_addr argument.  Note that
+        # we're pushing a total of 10 words, which keeps the stack aligned.
         self.mc.PUSH([reg.value for reg in r.callee_saved_registers] +
-                                                        [r.ip.value])
+                                                        [r.r1.value])
+        self.saved_threadlocal_addr = 0   # at offset 0 from location 'sp'
         if self.cpu.supports_floats:
             self.mc.VPUSH([reg.value for reg in r.callee_saved_vfp_registers])
+            self.saved_threadlocal_addr += (
+                len(r.callee_saved_vfp_registers) * 2 * WORD)
         assert stack_size % 8 == 0 # ensure we keep alignment
 
         # set fp to point to the JITFRAME
@@ -952,16 +959,11 @@ class AssemblerARM(ResOpAssembler):
             regalloc._check_invariants()
         self.mc.mark_op(None)  # end of the loop
 
-    def regalloc_emit_llong(self, op, arglocs, fcond, regalloc):
+    def regalloc_emit_extra(self, op, arglocs, fcond, regalloc):
+        # for calls to a function with a specifically-supported OS_xxx
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
-        asm_llong_operations[oopspecindex](self, op, arglocs, regalloc, fcond)
-        return fcond
-
-    def regalloc_emit_math(self, op, arglocs, fcond, regalloc):
-        effectinfo = op.getdescr().get_extra_info()
-        oopspecindex = effectinfo.oopspecindex
-        asm_math_operations[oopspecindex](self, op, arglocs, regalloc, fcond)
+        asm_extra_operations[oopspecindex](self, op, arglocs, regalloc, fcond)
         return fcond
 
     def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
@@ -1150,6 +1152,14 @@ class AssemblerARM(ResOpAssembler):
         else:
             assert 0, 'unsupported case'
 
+    def _mov_raw_sp_to_loc(self, prev_loc, loc, cond=c.AL):
+        if loc.is_core_reg():
+            # load a value from 'SP + n'
+            assert prev_loc.value <= 0xFFF     # not too far
+            self.load_reg(self.mc, loc, r.sp, prev_loc.value, cond=cond)
+        else:
+            assert 0, 'unsupported case'
+
     def regalloc_mov(self, prev_loc, loc, cond=c.AL):
         """Moves a value from a previous location to some other location"""
         if prev_loc.is_imm():
@@ -1163,7 +1173,7 @@ class AssemblerARM(ResOpAssembler):
         elif prev_loc.is_vfp_reg():
             self._mov_vfp_reg_to_loc(prev_loc, loc, cond)
         elif prev_loc.is_raw_sp():
-            assert 0, 'raw sp locs are not supported as source loc'
+            self._mov_raw_sp_to_loc(prev_loc, loc, cond)
         else:
             assert 0, 'unsupported case'
     mov_loc_loc = regalloc_mov
@@ -1509,22 +1519,17 @@ def notimplemented_op_with_guard(self, op, guard_op, arglocs, regalloc, fcond):
 
 asm_operations = [notimplemented_op] * (rop._LAST + 1)
 asm_operations_with_guard = [notimplemented_op_with_guard] * (rop._LAST + 1)
-asm_llong_operations = {}
-asm_math_operations = {}
+asm_extra_operations = {}
 
 for name, value in ResOpAssembler.__dict__.iteritems():
     if name.startswith('emit_guard_'):
         opname = name[len('emit_guard_'):]
         num = getattr(rop, opname.upper())
         asm_operations_with_guard[num] = value
-    elif name.startswith('emit_op_llong_'):
-        opname = name[len('emit_op_llong_'):]
-        num = getattr(EffectInfo, 'OS_LLONG_' + opname.upper())
-        asm_llong_operations[num] = value
-    elif name.startswith('emit_op_math_'):
-        opname = name[len('emit_op_math_'):]
-        num = getattr(EffectInfo, 'OS_MATH_' + opname.upper())
-        asm_math_operations[num] = value
+    elif name.startswith('emit_opx_'):
+        opname = name[len('emit_opx_'):]
+        num = getattr(EffectInfo, 'OS_' + opname.upper())
+        asm_extra_operations[num] = value
     elif name.startswith('emit_op_'):
         opname = name[len('emit_op_'):]
         num = getattr(rop, opname.upper())

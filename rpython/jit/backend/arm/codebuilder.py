@@ -318,6 +318,18 @@ class AbstractARMBuilder(object):
                     | (rd & 0xF) << 12
                     | imm16 & 0xFFF)
 
+    def SXTB_rr(self, rd, rm, c=cond.AL):
+        self.write32(c << 28
+                    | 0x06AF0070
+                    | (rd & 0xF) << 12
+                    | (rm & 0xF))
+
+    def SXTH_rr(self, rd, rm, c=cond.AL):
+        self.write32(c << 28
+                    | 0x06BF0070
+                    | (rd & 0xF) << 12
+                    | (rm & 0xF))
+
     def LDREX(self, rt, rn, c=cond.AL):
         self.write32(c << 28
                     | 0x01900f9f

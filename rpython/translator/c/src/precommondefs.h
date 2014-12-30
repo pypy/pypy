@@ -42,15 +42,33 @@
 #endif
 
 
+/* All functions and global variables declared anywhere should use
+   one of the following attributes:
+
+   RPY_EXPORTED:  the symbol is exported out of libpypy-c.so.
+
+   RPY_EXTERN:    the symbol is not exported out of libpypy-c.so, but
+                  otherwise works like 'extern' by being available to
+                  other C sources.
+
+   static:        as usual, this means the symbol is local to this C file.
+
+   Don't use _RPY_HIDDEN directly.  For tests involving building a custom
+   .so, translator/tool/cbuild.py overrides RPY_EXTERN so that it becomes
+   equal to RPY_EXPORTED.
+
+   Any function or global variable declared with no attribute at all is
+   a bug; please report or fix it.
+*/
 #ifdef __GNUC__
-#  define RPY_EXPORTED __attribute__((visibility("default")))
-#  define RPY_HIDDEN   __attribute__((visibility("hidden")))
+#  define RPY_EXPORTED extern __attribute__((visibility("default")))
+#  define _RPY_HIDDEN  __attribute__((visibility("hidden")))
 #else
-#  define RPY_EXPORTED __declspec(dllexport)
-#  define RPY_HIDDEN   /* nothing */
+#  define RPY_EXPORTED extern __declspec(dllexport)
+#  define _RPY_HIDDEN  /* nothing */
 #endif
-#ifndef RPY_EXPORTED_FOR_TESTS
-#  define RPY_EXPORTED_FOR_TESTS  /* nothing */
+#ifndef RPY_EXTERN
+#  define RPY_EXTERN   extern _RPY_HIDDEN
 #endif
 
 

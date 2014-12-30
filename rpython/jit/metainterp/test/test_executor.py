@@ -4,7 +4,7 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.metainterp.executor import execute
 from rpython.jit.metainterp.executor import execute_varargs, execute_nonspec
-from rpython.jit.metainterp.resoperation import rop, opboolinvers, opboolreflex, opname
+from rpython.jit.metainterp.resoperation import rop, opname, opclasses
 from rpython.jit.metainterp.history import BoxInt, ConstInt
 from rpython.jit.metainterp.history import BoxPtr, ConstPtr
 from rpython.jit.metainterp.history import BoxFloat, ConstFloat
@@ -343,7 +343,11 @@ def make_args_for_op(op, a, b):
 
 def test_opboolinvers():
     cpu = FakeCPU()
-    for op1, op2 in opboolinvers.items():
+    for op1 in opclasses:
+        if op1 is None or op1.boolinverse == -1:
+            continue
+        op2 = opclasses[op1.boolinverse].opnum
+        op1 = op1.opnum
         for a in (1,2,3):
             for b in (1,2,3):
                 arg1, arg2 = make_args_for_op(op1, a, b)
@@ -353,7 +357,11 @@ def test_opboolinvers():
 
 def test_opboolreflex():
     cpu = FakeCPU()
-    for op1, op2 in opboolreflex.items():
+    for op1 in opclasses:
+        if op1 is None or op1.boolreflex == -1:
+            continue
+        op2 = opclasses[op1.boolreflex].opnum
+        op1 = op1.opnum
         for a in (1,2,3):
             for b in (1,2,3):
                 arg1, arg2 = make_args_for_op(op1, a, b)

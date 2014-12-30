@@ -163,7 +163,7 @@ def _teardown(space, w_saved_modules):
 
 class AppTestImport(BaseImportTest):
     spaceconfig = {
-        "usemodules": ['rctime'],
+        "usemodules": ['time'],
     }
 
     def setup_class(cls):
@@ -1049,7 +1049,7 @@ def test_PYTHONPATH_takes_precedence(space):
 
 class AppTestImportHooks(object):
     spaceconfig = {
-        "usemodules": ['struct', 'itertools', 'rctime'],
+        "usemodules": ['struct', 'itertools', 'time'],
     }
 
     def setup_class(cls):
@@ -1266,7 +1266,7 @@ class AppTestNoLonePycFile(AppTestNoPycFile):
 
 
 class AppTestMultithreadedImp(object):
-    spaceconfig = dict(usemodules=['thread', 'rctime'])
+    spaceconfig = dict(usemodules=['thread', 'time'])
 
     def setup_class(cls):
         #if not conftest.option.runappdirect:

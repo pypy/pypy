@@ -88,6 +88,21 @@ setslice_driver = jit.JitDriver(name='numpy_setslice',
                                 reds = 'auto')
 
 def setslice(space, shape, target, source):
+    if not shape:
+        # XXX - simplify
+        target_iter, target_state = target.create_iter(shape)
+        source_iter, source_state = source.create_iter(shape)
+        dtype = target.dtype
+        val = source_iter.getitem(source_state)
+        if dtype.is_str_or_unicode():
+            val = dtype.coerce(space, val)
+        else:
+            val = val.convert_to(space, dtype)
+        target_iter.setitem(target_state, val)
+        return target        
+    return _setslice(space, shape, target, source)
+
+def _setslice(space, shape, target, source):
     # note that unlike everything else, target and source here are
     # array implementations, not arrays
     target_iter, target_state = target.create_iter(shape)
