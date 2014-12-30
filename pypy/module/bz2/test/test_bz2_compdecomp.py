@@ -41,7 +41,7 @@ def teardown_module(mod):
     interp_bz2.SMALLCHUNK = mod.OLD_SMALLCHUNK
 
 class AppTestBZ2Compressor(CheckAllocation):
-    spaceconfig = dict(usemodules=('bz2', 'rctime'))
+    spaceconfig = dict(usemodules=('bz2', 'time'))
 
     def setup_class(cls):
         cls.w_TEXT = cls.space.wrapbytes(TEXT)
@@ -117,7 +117,7 @@ class AppTestBZ2Compressor(CheckAllocation):
 
 
 class AppTestBZ2Decompressor(CheckAllocation):
-    spaceconfig = dict(usemodules=('bz2', 'rctime'))
+    spaceconfig = dict(usemodules=('bz2', 'time'))
 
     def setup_class(cls):
         cls.w_TEXT = cls.space.wrapbytes(TEXT)
@@ -202,7 +202,7 @@ class AppTestBZ2Decompressor(CheckAllocation):
 
 
 class AppTestBZ2ModuleFunctions(CheckAllocation):
-    spaceconfig = dict(usemodules=('bz2', 'rctime'))
+    spaceconfig = dict(usemodules=('bz2', 'time'))
 
     def setup_class(cls):
         cls.w_TEXT = cls.space.wrapbytes(TEXT)
