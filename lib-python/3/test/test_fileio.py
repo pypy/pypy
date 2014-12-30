@@ -128,8 +128,8 @@ class AutoFileTests(unittest.TestCase):
         self.assertTrue(f.closed)
 
     def testMethods(self):
-        methods = ['fileno', 'isatty', 'read', 'readinto',
-                   'seek', 'tell', 'truncate', 'write', 'seekable',
+        methods = ['fileno', 'isatty', 'read',
+                   'tell', 'truncate', 'seekable',
                    'readable', 'writable']
 
         self.f.close()
@@ -139,6 +139,10 @@ class AutoFileTests(unittest.TestCase):
             method = getattr(self.f, methodname)
             # should raise on closed file
             self.assertRaises(ValueError, method)
+        # methods with one argument
+        self.assertRaises(ValueError, self.f.readinto, 0)
+        self.assertRaises(ValueError, self.f.write, 0)
+        self.assertRaises(ValueError, self.f.seek, 0)
 
     def testOpendir(self):
         # Issue 3703: opening a directory should fill the errno
