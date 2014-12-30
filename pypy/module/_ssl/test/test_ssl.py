@@ -261,6 +261,15 @@ class AppTestContext:
         tmpfile.write(SSL_EMPTYCERT)
         cls.w_emptycert = cls.space.wrap(str(tmpfile))
 
+    def test_load_cert_chain(self):
+        import _ssl
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx.load_cert_chain(self.keycert)
+        ctx.load_cert_chain(self.cert, self.key)
+        raises(IOError, ctx.load_cert_chain, "inexistent.pem")
+        raises(_ssl.SSLError, ctx.load_cert_chain, self.badcert)
+        raises(_ssl.SSLError, ctx.load_cert_chain, self.emptycert)
+
     def test_load_verify_locations(self):
         import _ssl
         ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)

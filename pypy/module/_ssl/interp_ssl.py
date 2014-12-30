@@ -925,6 +925,43 @@ class _SSLContext(W_Root):
                         "CERT_OPTIONAL or CERT_REQUIRED")
         self.check_hostname = check_hostname
 
+    def load_cert_chain_w(self, space, w_certfile, w_keyfile=None):
+        if space.is_none(w_certfile):
+            certfile = None
+        else:
+            certfile = space.str_w(w_certfile)
+        if space.is_none(w_keyfile):
+            keyfile = certfile
+        else:
+            keyfile = space.str_w(w_keyfile)
+
+        set_errno(0)
+
+        ret = libssl_SSL_CTX_use_certificate_chain_file(self.ctx, certfile)
+        if ret != 1:
+            errno = get_errno()
+            if errno:
+                libssl_ERR_clear_error()
+                raise wrap_oserror(space, OSError(errno, ''),
+                                   exception_name = 'w_IOError')
+            else:
+                raise _ssl_seterror(space, None, -1)
+
+        ret = libssl_SSL_CTX_use_PrivateKey_file(self.ctx, keyfile,
+                                                 SSL_FILETYPE_PEM)
+        if ret != 1:
+            errno = get_errno()
+            if errno:
+                libssl_ERR_clear_error()
+                raise wrap_oserror(space, OSError(errno, ''),
+                                   exception_name = 'w_IOError')
+            else:
+                raise _ssl_seterror(space, None, -1)
+
+        ret = libssl_SSL_CTX_check_private_key(self.ctx)
+        if ret != 1:
+            raise _ssl_seterror(space, None, -1)
+
     def load_verify_locations_w(self, space, w_cafile=None, w_capath=None):
         if space.is_none(w_cafile):
             cafile = None
@@ -956,6 +993,7 @@ _SSLContext.typedef = TypeDef(
     _wrap_socket=interp2app(_SSLContext.descr_wrap_socket),
     set_ciphers=interp2app(_SSLContext.descr_set_ciphers),
     load_verify_locations=interp2app(_SSLContext.load_verify_locations_w),
+    load_cert_chain=interp2app(_SSLContext.load_cert_chain_w),
     set_default_verify_paths=interp2app(_SSLContext.descr_set_default_verify_paths),
 
     options=GetSetProperty(_SSLContext.descr_get_options,
