@@ -46,7 +46,7 @@ class BaseTestWithUnroll(BaseTest):
 
     def optimize_loop(self, ops, expected, expected_preamble=None,
                       call_pure_results=None, expected_short=None):
-        loop = self.parse(ops)
+        loop = self.parse(ops, postprocess=self.postprocess)
         if expected != "crash!":
             expected = self.parse(expected)
         if expected_preamble:
@@ -97,6 +97,7 @@ class BaseTestWithUnroll(BaseTest):
 
 
 class OptimizeOptTest(BaseTestWithUnroll):
+<<<<<<< local
     def setup_method(self, meth=None):
         class FailDescr(compile.ResumeGuardDescr):
             oparse = None
@@ -132,6 +133,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.namespace.pop('fdescr', None)
         self.namespace.pop('fdescr2', None)
 
+=======
+>>>>>>> other
     def test_simple(self):
         ops = """
         []
@@ -1181,7 +1184,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = getfield_gc_i(p0, descr=valuedescr)
         i2 = int_sub(i1, 1)
         i3 = int_add(i0, i1)
+<<<<<<< local
         #i4 = same_as_i(i2) # This same_as should be killed by backend
+=======
+        i4 = same_as(i2) # This same_as should be killed by backend
+>>>>>>> other
         jump(i3, i1, i2)
         """
         expected = """
@@ -1313,7 +1320,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p30 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p30, i28, descr=nextdescr)
         setfield_gc(p3, p30, descr=valuedescr)
-        #p46 = same_as(p30) # This same_as should be killed by backend
+        p46 = same_as(p30) # This same_as should be killed by backend
         jump(i29, p30, p3)
         """
         expected = """
@@ -2410,16 +2417,16 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(i3) []
         i4 = int_neg(i2)
         setfield_gc(p1, i2, descr=valuedescr)
-        #i7 = same_as(i2) # This same_as should be killed by backend
-        #i6 = same_as(i4)
-        jump(p1, i1, i2, i4)
+        i7 = same_as(i2) # This same_as should be killed by backend
+        i6 = same_as(i4)
+        jump(p1, i1, i2, i4, i6)
         """
         expected = """
-        [p1, i1, i2, i4]
+        [p1, i1, i2, i4, i5]
         setfield_gc(p1, i1, descr=valuedescr)
         guard_true(i4) []
         setfield_gc(p1, i2, descr=valuedescr)
-        jump(p1, i1, i2, 1)
+        jump(p1, i1, i2, i5, i5)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -2441,16 +2448,31 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(i3) [p1]
         i4 = int_neg(i2)
         setfield_gc(p1, NULL, descr=nextdescr)
+<<<<<<< local
         escape_n()
         #i5 = same_as(i4)
         jump(p1, i2, i4)
+=======
+        escape()
+        i5 = same_as(i4)
+        jump(p1, i2, i4, i5)
+>>>>>>> other
         """
         expected = """
+<<<<<<< local
         [p1, i2, i4]
+=======
+        [p1, i2, i4, i5]
+>>>>>>> other
         guard_true(i4) [p1]
         setfield_gc(p1, NULL, descr=nextdescr)
+<<<<<<< local
         escape_n()
         jump(p1, i2, 1)
+=======
+        escape()
+        jump(p1, i2, i5, i5)
+>>>>>>> other
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -2471,16 +2493,31 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(i3) [i2, p1]
         i4 = int_neg(i2)
         setfield_gc(p1, NULL, descr=nextdescr)
+<<<<<<< local
         escape_n()
         #i5 = same_as(i4)
         jump(p1, i2, i4)
+=======
+        escape()
+        i5 = same_as(i4)
+        jump(p1, i2, i4, i5)
+>>>>>>> other
         """
         expected = """
+<<<<<<< local
         [p1, i2, i4]
+=======
+        [p1, i2, i4, i5]
+>>>>>>> other
         guard_true(i4) [i2, p1]
         setfield_gc(p1, NULL, descr=nextdescr)
+<<<<<<< local
         escape_n()
         jump(p1, i2, 1)
+=======
+        escape()
+        jump(p1, i2, i5, i5)
+>>>>>>> other
         """
         self.optimize_loop(ops, expected)
 
@@ -2503,17 +2540,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(i5) []
         i4 = int_neg(i2)
         setfield_gc(p1, i2, descr=valuedescr)
-        #i8 = same_as(i2) # This same_as should be killed by backend
-        #i7 = same_as(i4)
-        jump(p1, i1, i2, i4)
+        i8 = same_as(i2) # This same_as should be killed by backend
+        i7 = same_as(i4)
+        jump(p1, i1, i2, i4, i7)
         """
         expected = """
-        [p1, i1, i2, i4]
+        [p1, i1, i2, i4, i7]
         setfield_gc(p1, i1, descr=valuedescr)
         i5 = int_eq(i4, 5)
         guard_true(i5) []
         setfield_gc(p1, i2, descr=valuedescr)
-        jump(p1, i1, i2, 5)
+        jump(p1, i1, i2, i7, i7)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -2731,16 +2768,16 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p2, p4, descr=nextdescr)
         setfield_gc(p1, p2, descr=nextdescr)
-        #i101 = same_as(i4)
-        jump(p1, i2, i4, p4)
+        i101 = same_as(i4)
+        jump(p1, i2, i4, p4, i101)
         """
         expected = """
-        [p1, i2, i4, p4]
+        [p1, i2, i4, p4, i5]
         guard_true(i4) [p1, p4]
         p2 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p2, p4, descr=nextdescr)
         setfield_gc(p1, p2, descr=nextdescr)
-        jump(p1, i2, 1, p4)
+        jump(p1, i2, i5, p4, i5)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -3000,20 +3037,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_merge_guard_nonnull_guard_class(self):
         ops = """
         [p1, i0, i1, i2, p2]
-        guard_nonnull(p1, descr=fdescr) [i0]
+        guard_nonnull(p1) [i0]
         i3 = int_add(i1, i2)
         guard_class(p1, ConstClass(node_vtable)) [i1]
         jump(p2, i0, i1, i3, p2)
         """
         preamble = """
         [p1, i0, i1, i2, p2]
-        guard_nonnull_class(p1, ConstClass(node_vtable), descr=fdescr) [i0]
+        guard_nonnull_class(p1, ConstClass(node_vtable)) [i0]
         i3 = int_add(i1, i2)
         jump(p2, i0, i1, i3)
         """
         expected = """
         [p2, i0, i1, i2]
-        guard_nonnull_class(p2, ConstClass(node_vtable), descr=fdescr2) [i0]
+        guard_nonnull_class(p2, ConstClass(node_vtable)) [i0]
         i3 = int_add(i1, i2)
         jump(p2, i0, i1, i3)
         """
@@ -3023,20 +3060,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_merge_guard_nonnull_guard_value(self):
         ops = """
         [p1, i0, i1, i2, p2]
-        guard_nonnull(p1, descr=fdescr) [i0]
+        guard_nonnull(p1) [i0]
         i3 = int_add(i1, i2)
         guard_value(p1, ConstPtr(myptr)) [i1]
         jump(p2, i0, i1, i3, p2)
         """
         preamble = """
         [p1, i0, i1, i2, p2]
-        guard_value(p1, ConstPtr(myptr), descr=fdescr) [i0]
+        guard_value(p1, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
         jump(p2, i0, i1, i3)
         """
         expected = """
         [p2, i0, i1, i2]
-        guard_value(p2, ConstPtr(myptr), descr=fdescr2) [i0]
+        guard_value(p2, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
         jump(ConstPtr(myptr), i0, i1, i3)
         """
@@ -3046,7 +3083,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_merge_guard_nonnull_guard_class_guard_value(self):
         ops = """
         [p1, i0, i1, i2, p2]
-        guard_nonnull(p1, descr=fdescr) [i0]
+        guard_nonnull(p1) [i0]
         i3 = int_add(i1, i2)
         guard_class(p1, ConstClass(node_vtable)) [i2]
         i4 = int_sub(i3, 1)
@@ -3055,14 +3092,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         preamble = """
         [p1, i0, i1, i2, p2]
-        guard_value(p1, ConstPtr(myptr), descr=fdescr) [i0]
+        guard_value(p1, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
         i4 = int_sub(i3, 1)
         jump(p2, i0, i1, i4)
         """
         expected = """
         [p2, i0, i1, i2]
-        guard_value(p2, ConstPtr(myptr), descr=fdescr2) [i0]
+        guard_value(p2, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
         i4 = int_sub(i3, 1)
         jump(ConstPtr(myptr), i0, i1, i4)
@@ -3616,7 +3653,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call_assembler_i(i1, descr=asmdescr)
         setfield_gc(p1, i3, descr=valuedescr)
-        #i143 = same_as(i3) # Should be killed by backend
+        i143 = same_as(i3) # Should be killed by backend
         jump(p1, i4, i3)
         '''
         self.optimize_loop(ops, ops, preamble)
@@ -3641,18 +3678,18 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, i4, i3)
         '''
         expected = '''
-        [p1, i4, i3]
-        setfield_gc(p1, i3, descr=valuedescr)
-        jump(p1, i3, i3)
+        [p1, i4, i3, i5]
+        setfield_gc(p1, i5, descr=valuedescr)
+        jump(p1, i3, i5, i5)
         '''
         preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call_i(p1, descr=plaincalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
-        #i148 = same_as(i3)
-        #i147 = same_as(i3)
-        jump(p1, i4, i3)
+        i148 = same_as(i3)
+        i147 = same_as(i3)
+        jump(p1, i4, i3, i148)
         '''
         self.optimize_loop(ops, expected, preamble)
 
@@ -3666,17 +3703,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, i4, i3)
         '''
         expected = '''
-        [p1, i4, i3]
+        [p1, i4, i3, i5]
         setfield_gc(p1, i4, descr=valuedescr)
-        jump(p1, i3, i3)
+        jump(p1, i3, i5, i5)
         '''
         preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call_i(p1, descr=plaincalldescr)
         setfield_gc(p1, i1, descr=valuedescr)
-        #i151 = same_as(i3)
-        jump(p1, i4, i3)
+        i151 = same_as(i3)
+        jump(p1, i4, i3, i151)
         '''
         self.optimize_loop(ops, expected, preamble)
 
@@ -3693,17 +3730,32 @@ class OptimizeOptTest(BaseTestWithUnroll):
         '''
         preamble = '''
         [i0, i1, i2]
+<<<<<<< local
         escape_n(i1)
         escape_n(i2)
         i4 = call_i(123456, 4, i0, 6, descr=plaincalldescr)
         #i153 = same_as(i4)
         jump(i0, i4)
+=======
+        escape(i1)
+        escape(i2)
+        i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
+        i153 = same_as(i4)
+        jump(i0, i4, i153)
+>>>>>>> other
         '''
         expected = '''
+<<<<<<< local
         [i0, i4]
         escape_n(42)
         escape_n(i4)
         jump(i0, i4)
+=======
+        [i0, i4, i5]
+        escape(42)
+        escape(i4)
+        jump(i0, i5, i5)
+>>>>>>> other
         '''
         self.optimize_loop(ops, expected, preamble, call_pure_results)
 
@@ -3727,14 +3779,21 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape_n(i2)
         i4 = call_i(123456, 4, i0, 6, descr=plaincalldescr)
         guard_no_exception() []
-        #i155 = same_as(i4)
-        jump(i0, i4)
+        i155 = same_as(i4)
+        jump(i0, i4, i155)
         '''
         expected = '''
+<<<<<<< local
         [i0, i2]
         escape_n(42)
         escape_n(i2)
         jump(i0, i2)
+=======
+        [i0, i2, i3]
+        escape(42)
+        escape(i2)
+        jump(i0, i3, i3)
+>>>>>>> other
         '''
         self.optimize_loop(ops, expected, preamble, call_pure_results)
 
@@ -3855,8 +3914,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         #
         p2 = virtual_ref(p1, 2)
         setfield_gc(p0, p2, descr=nextdescr)
+<<<<<<< local
         call_may_force_n(i1, descr=mayforcevirtdescr)
         guard_not_forced(descr=fdescr) [p2, p1]
+=======
+        call_may_force(i1, descr=mayforcevirtdescr)
+        guard_not_forced() [p2, p1]
+>>>>>>> other
         virtual_ref_finish(p2, p1)
         setfield_gc(p0, NULL, descr=nextdescr)
         jump(p0, i1)
@@ -3870,8 +3934,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p2, p3, descr=virtualtokendescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
+<<<<<<< local
         call_may_force_n(i1, descr=mayforcevirtdescr)
         guard_not_forced(descr=fdescr2) [p2, i1]
+=======
+        call_may_force(i1, descr=mayforcevirtdescr)
+        guard_not_forced() [p2, i1]
+>>>>>>> other
         #
         setfield_gc(p0, NULL, descr=nextdescr)
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -3901,8 +3970,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         #
         p2 = virtual_ref(p1, 2)
         setfield_gc(p0, p2, descr=refdescr)
+<<<<<<< local
         call_n(i1, descr=nonwritedescr)
         guard_no_exception(descr=fdescr) [p2, p1]
+=======
+        call(i1, descr=nonwritedescr)
+        guard_no_exception() [p2, p1]
+>>>>>>> other
         virtual_ref_finish(p2, p1)
         setfield_gc(p0, NULL, descr=refdescr)
         escape_n()
@@ -3911,8 +3985,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = """
         [p0, i1]
         p3 = force_token()
+<<<<<<< local
         call_n(i1, descr=nonwritedescr)
         guard_no_exception(descr=fdescr) [p3, i1, p0]
+=======
+        call(i1, descr=nonwritedescr)
+        guard_no_exception() [p3, i1, p0]
+>>>>>>> other
         setfield_gc(p0, NULL, descr=refdescr)
         escape_n()
         jump(p0, i1)
@@ -3920,8 +3999,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p0, i1]
         p3 = force_token()
+<<<<<<< local
         call_n(i1, descr=nonwritedescr)
         guard_no_exception(descr=fdescr2) [p3, i1, p0]
+=======
+        call(i1, descr=nonwritedescr)
+        guard_no_exception() [p3, i1, p0]
+>>>>>>> other
         setfield_gc(p0, NULL, descr=refdescr)
         escape_n()
         jump(p0, i1)
@@ -5860,12 +5944,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0]
         p1 = getfield_gc_r(p0, descr=valuedescr)
         setfield_gc(p0, p0, descr=valuedescr)
-        #p4450 = same_as(p0) # Should be killed by backend
+        p4450 = same_as(p0) # Should be killed by backend
         jump(p0)
         """
         expected = """
         [p0]
+<<<<<<< local
         p1 = getfield_gc_r(p0, descr=valuedescr)
+=======
+>>>>>>> other
         setfield_gc(p0, p0, descr=valuedescr)
         jump(p0)
         """
@@ -6261,13 +6348,24 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, i1, i2, i3]
         escape_n(i3)
         i4 = int_sub(i2, i1)
+<<<<<<< local
         #i5 = same_as(i4)
         jump(p1, i1, i2, i4)
+=======
+        i5 = same_as(i4)
+        jump(p1, i1, i2, i4, i5)
+>>>>>>> other
         """
         expected = """
+<<<<<<< local
         [p1, i1, i2, i3]
         escape_n(i3)
         jump(p1, i1, i2, i3)
+=======
+        [p1, i1, i2, i3, i4]
+        escape(i3)
+        jump(p1, i1, i2, i4, i4)
+>>>>>>> other
         """
         self.optimize_strunicode_loop(ops, expected, preamble)
 
@@ -6287,15 +6385,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape_n(i5)
         i4 = int_sub(i2, i1)
         setfield_gc(p2, i4, descr=valuedescr)
+<<<<<<< local
         #i8 = same_as(i4)
         jump(p1, i1, i2, p2, i4)
+=======
+        i8 = same_as(i4)
+        jump(p1, i1, i2, p2, i8, i4)
+>>>>>>> other
         """
         expected = """
+<<<<<<< local
         [p1, i1, i2, p2, i5]
         i311 = getfield_gc_i(p2, descr=valuedescr)
         escape_n(i311)
         setfield_gc(p2, i5, descr=valuedescr)
         jump(p1, i1, i2, p2, i5)
+=======
+        [p1, i1, i2, p2, i5, i6]
+        escape(i5)
+        setfield_gc(p2, i6, descr=valuedescr)
+        jump(p1, i1, i2, p2, i6, i6)
+>>>>>>> other
         """
         self.optimize_strunicode_loop(ops, expected, preamble)
 
@@ -7101,19 +7211,35 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, p187, i184]
         p188 = getarrayitem_gc_r(p187, 42, descr=<GcPtrArrayDescr>)
         guard_value(p188, ConstPtr(myptr)) []
+<<<<<<< local
         p25 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
         jump(p25, p187, i184)
+=======
+        p25 = getfield_gc(ConstPtr(myptr), descr=otherdescr)
+        p26 = same_as(p25)
+        jump(p25, p187, i184, p26)
+>>>>>>> other
         """
         short = """
         [p1, p187, i184]
         p188 = getarrayitem_gc_r(p187, 42, descr=<GcPtrArrayDescr>)
         guard_value(p188, ConstPtr(myptr)) []
+<<<<<<< local
         p25 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
         jump(p25, p187, i184)
+=======
+        p25 = getfield_gc(ConstPtr(myptr), descr=otherdescr)
+        jump(p1, p187, i184, p25)
+>>>>>>> other
         """
         expected = """
+<<<<<<< local
         [p25, p187, i184]
         jump(p25, p187, i184)
+=======
+        [p25, p187, i184, p189]
+        jump(p189, p187, i184, p189)
+>>>>>>> other
         """
         self.optimize_loop(ops, expected, preamble, expected_short=short)
 
@@ -7222,16 +7348,24 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_add(i1, i2)
         setfield_gc(p0, ii, descr=valuedescr)
         setfield_gc(p1, ii, descr=otherdescr)
+<<<<<<< local
         jump(p0, p1, ii2, ii)
+=======
+        jump(p0, p1, ii2, ii, ii, ii)
+>>>>>>> other
         """
         expected = """
+<<<<<<< local
         [p0, p1, ii, ii2]
         i1 = getfield_gc_i(p0, descr=valuedescr)
         i2 = getfield_gc_i(p1, descr=otherdescr)
+=======
+        [p0, p1, ii, ii2, i1, i2]
+>>>>>>> other
         i3 = int_add(i1, i2)
         setfield_gc(p0, ii, descr=valuedescr)
         setfield_gc(p1, ii, descr=otherdescr)
-        jump(p0, p1, ii2, ii)
+        jump(p0, p1, ii2, ii, ii, ii)
         """
         self.optimize_loop(ops, expected)
 
@@ -7722,10 +7856,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1)
         """
         expected = """
+<<<<<<< local
         [p0]
         call_n(p0, descr=nonwritedescr)
         call_n(p0, descr=writeadescr)
         jump(p0)
+=======
+        [p0, p1]
+        call(p0, descr=nonwritedescr)
+        call(p1, descr=writeadescr)
+        jump(p1, p1)
+>>>>>>> other
         """
         self.optimize_loop(ops, expected)
 
@@ -7836,11 +7977,16 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p5, p6)
         """
         expected = """
+<<<<<<< local
         [p5, p6, i10]
         i11 = getfield_gc_i(p6, descr=nextdescr)
         call_n(i10, i11, descr=nonwritedescr)
+=======
+        [p5, p6, i10, i11]
+        call(i10, i11, descr=nonwritedescr)
+>>>>>>> other
         setfield_gc(p6, i10, descr=nextdescr)
-        jump(p5, p6, i10)
+        jump(p5, p6, i10, i10)
         """
         self.optimize_loop(ops, expected)
 
@@ -7856,12 +8002,18 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p5, p6)
         """
         expected = """
+<<<<<<< local
         [p5, p6, i12, i10]
         i11 = getfield_gc_i(p6, descr=nextdescr)
         i13 = int_add(i11, 7)
         call_n(i12, i13, descr=nonwritedescr)
+=======
+        [p5, p6, i14, i12, i10]
+        i13 = int_add(i14, 7)
+        call(i12, i13, descr=nonwritedescr)
+>>>>>>> other
         setfield_gc(p6, i10, descr=nextdescr)
-        jump(p5, p6, i12, i10)
+        jump(p5, p6, i10, i12, i10)
         """
         self.optimize_loop(ops, expected)
 
@@ -7981,9 +8133,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i1, i3)
         """
         expected = """
+<<<<<<< local
         [i1, i2, i6]
         call_n(i6, descr=nonwritedescr)
         jump(i1, i2, i6)
+=======
+        [i1, i2, i6, i3]
+        call(i6, descr=nonwritedescr)
+        jump(i1, i3, i6, i3)
+>>>>>>> other
         """
         short = """
         [i1, i2]
@@ -7991,7 +8149,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i4 = int_add(i3, i3)
         i5 = int_add(i4, i4)
         i6 = int_add(i5, i5)
-        jump(i1, i3, i6)
+        jump(i1, i2, i6, i3)
         """
         self.optimize_loop(ops, expected, expected_short=short)
 
@@ -8146,18 +8304,31 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call_n(i2, descr=nonwritedescr)
         setfield_gc(p22, i1, descr=valuedescr)
         guard_nonnull_class(p18, ConstClass(node_vtable)) []
-        jump(p22, p18, i1)
+        i10 = same_as(i1)
+        jump(p22, p18, i1, i10)
         """
         short = """
         [p22, p18, i1]
+<<<<<<< local
         jump(p22, p18, i1)
+=======
+        i2 = getfield_gc(p22, descr=valuedescr)
+        jump(p22, p18, i1, i2)
+>>>>>>> other
         """
         expected = """
+<<<<<<< local
         [p22, p18, i2]
         i1 = getfield_gc_i(p22, descr=valuedescr)
         call_n(i1, descr=nonwritedescr)
         setfield_gc(p22, i2, descr=valuedescr)
         jump(p22, p18, i2)
+=======
+        [p22, p18, i1, i2]
+        call(i2, descr=nonwritedescr)
+        setfield_gc(p22, i1, descr=valuedescr)
+        jump(p22, p18, i1, i1)
+>>>>>>> other
         """
         self.optimize_loop(ops, expected, preamble, expected_short=short)
 

@@ -41,9 +41,6 @@ class AbstractResOp(AbstractValue):
     boolreflex = -1
     boolinverse = -1
 
-    is_source_op = False
-    source_op = None
-
     _attrs_ = ()
 
     def getopnum(self):
@@ -103,7 +100,6 @@ class AbstractResOp(AbstractValue):
         newop = ResOperation(opnum, args, descr)
         if self.type != 'v':
             newop.copy_value_from(self)
-        newop.source_op = self
         return newop
 
     @specialize.argtype(1)
@@ -122,9 +118,7 @@ class AbstractResOp(AbstractValue):
     def clone(self, memo):
         args = [memo.get(arg, arg) for arg in self.getarglist()]
         descr = self.getdescr()
-        if descr is not None:
-            descr = descr.clone_if_mutable(memo)
-        op = ResOperation(self.getopnum(), args, descr)
+        op = ResOperation(self.getopnum(), args[:], self.result, descr)
         if not we_are_translated():
             op.name = self.name
             op.pc = self.pc
@@ -289,22 +283,30 @@ class GuardResOp(ResOpWithDescr):
 
     _fail_args = None
 
+    rd_snapshot = None
+    rd_frame_info_list = None
+
     def getfailargs(self):
         return self._fail_args
 
     def setfailargs(self, fail_args):
         self._fail_args = fail_args
 
-    def copy_and_change(self, opnum, args=None, descr=None):
-        newop = AbstractResOp.copy_and_change(self, opnum, args, descr)
+    def copy_and_change(self, opnum, args=None, result=None, descr=None):
+        newop = AbstractResOp.copy_and_change(self, opnum, args, result, descr)
+        assert isinstance(newop, GuardResOp)
         newop.setfailargs(self.getfailargs())
+        newop.rd_snapshot = self.rd_snapshot
+        newop.rd_frame_info_list = self.rd_frame_info_list
         return newop
 
     def clone(self, memo):
-        newop = AbstractResOp.clone(self, memo)
-        failargs = self.getfailargs()
-        if failargs is not None:
-            newop.setfailargs([memo.get(arg, arg) for arg in failargs])
+        xxx
+        newop = AbstractResOp.clone(self)
+        assert isinstance(newop, GuardResOp)
+        newop.setfailargs(self.getfailargs())
+        newop.rd_snapshot = self.rd_snapshot
+        newop.rd_frame_info_list = self.rd_frame_info_list
         return newop
 
 # ===========
@@ -388,8 +390,6 @@ class RefOp(object):
         return InputArgRef()
 
 class AbstractInputArg(AbstractValue):
-    is_source_op = True
-    source_op = None
     
     def repr(self, memo):
         try:

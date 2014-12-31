@@ -572,13 +572,13 @@ class Assembler386(BaseAssembler):
 
     def patch_pending_failure_recoveries(self, rawstart):
         # after we wrote the assembler to raw memory, set up
-        # tok.faildescr._x86_adr_jump_offset to contain the raw address of
+        # tok.faildescr.adr_jump_offset to contain the raw address of
         # the 4-byte target field in the JMP/Jcond instruction, and patch
         # the field in question to point (initially) to the recovery stub
         clt = self.current_clt
         for tok in self.pending_guard_tokens:
             addr = rawstart + tok.pos_jump_offset
-            tok.faildescr._x86_adr_jump_offset = addr
+            tok.faildescr.adr_jump_offset = addr
             relative_target = tok.pos_recovery_stub - (tok.pos_jump_offset + 4)
             assert rx86.fits_in_32bits(relative_target)
             #
@@ -685,7 +685,7 @@ class Assembler386(BaseAssembler):
                                    self.cpu.gc_ll_descr.gcrootmap)
 
     def patch_jump_for_descr(self, faildescr, adr_new_target):
-        adr_jump_offset = faildescr._x86_adr_jump_offset
+        adr_jump_offset = faildescr.adr_jump_offset
         assert adr_jump_offset != 0
         offset = adr_new_target - (adr_jump_offset + 4)
         # If the new target fits within a rel32 of the jump, just patch
@@ -705,7 +705,7 @@ class Assembler386(BaseAssembler):
             p = rffi.cast(rffi.INTP, adr_jump_offset)
             adr_target = adr_jump_offset + 4 + rffi.cast(lltype.Signed, p[0])
             mc.copy_to_raw_memory(adr_target)
-        faildescr._x86_adr_jump_offset = 0    # means "patched"
+        faildescr.adr_jump_offset = 0    # means "patched"
 
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:

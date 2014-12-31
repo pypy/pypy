@@ -15,13 +15,14 @@ class AppTestUserObject:
         assert NotEmpty.__dict__.get("b") is None
         raises(TypeError, 'NotEmpty.__dict__[15] = "y"')
         raises(KeyError, 'del NotEmpty.__dict__[15]')
+
+        key, value = NotEmpty.__dict__.popitem()
+        assert (key == 'a' and value == 1) or (key == 'b' and value == 4)
+
         assert NotEmpty.__dict__.setdefault("string", 1) == 1
         assert NotEmpty.__dict__.setdefault("string", 2) == 1
         assert NotEmpty.string == 1
         raises(TypeError, 'NotEmpty.__dict__.setdefault(15, 1)')
-
-        key, value = NotEmpty.__dict__.popitem()
-        assert (key == 'a' and value == 1) or (key == 'b' and value == 4)
 
     def test_dictproxy_getitem(self):
         class NotEmpty(object):

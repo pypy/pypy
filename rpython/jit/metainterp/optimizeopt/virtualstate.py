@@ -282,18 +282,18 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def __init__(self, value, is_opaque=False):
         self.is_opaque = is_opaque
-        self.known_class = value.known_class
-        self.level = value.level
-        if value.intbound is None:
+        self.known_class = value.get_known_class()
+        self.level = value.getlevel()
+        if value.getintbound() is None:
             self.intbound = IntUnbounded()
         else:
-            self.intbound = value.intbound.clone()
+            self.intbound = value.getintbound().clone()
         if value.is_constant():
             self.constbox = value.box
         else:
             self.constbox = None
         self.position_in_notvirtuals = -1
-        self.lenbound = value.lenbound
+        self.lenbound = value.getlenbound()
 
 
     def _generate_guards(self, other, value, state):
@@ -348,9 +348,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             if other.level == LEVEL_UNKNOWN:
                 if (box and box.nonnull() and
                         self.known_class.same_constant(cpu.ts.cls_of_box(box))):
-                    op = ResOperation(rop.GUARD_NONNULL, [box], None)
-                    extra_guards.append(op)
-                    op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
+                    op = ResOperation(rop.GUARD_NONNULL_CLASS, [box, self.known_class], None)
                     extra_guards.append(op)
                     return
                 else:
@@ -644,6 +642,7 @@ class ShortBoxes(object):
         #    op = op.clone(self.memo)
         #    op.is_source_op = True
         if box in self.short_boxes:
+            xxx
             return # XXX avoid those corner cases
             #if op is None:
             #    xxx
@@ -669,6 +668,20 @@ class ShortBoxes(object):
             #            self.short_boxes[box] = op
             #        else:
             #            xxx
+            if op is None:
+                oldop = self.short_boxes[box].clone()
+                oldres = oldop.result
+                newbox = oldop.result = oldres.clonebox()
+                self.rename[box] = newbox
+                self.short_boxes[box] = None
+                self.short_boxes[newbox] = oldop
+            else:
+                newop = op.clone()
+                newbox = newop.result = op.result.clonebox()
+                self.short_boxes[newop.result] = newop
+            value = self.optimizer.getvalue(box)
+            self.optimizer.emit_operation(ResOperation(rop.SAME_AS, [box], newbox))
+            self.optimizer.make_equal_to(newbox, value)
         else:
             self.short_boxes[box] = op
 

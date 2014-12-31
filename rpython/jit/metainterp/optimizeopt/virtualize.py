@@ -11,13 +11,13 @@ from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
 from rpython.jit.metainterp.optimizeopt.rawbuffer import RawBuffer, InvalidRawOperation
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 
-
-class AbstractVirtualValue(optimizer.OptValue):
+class AbstractVirtualValue(optimizer.PtrOptValue):
     _attrs_ = ('keybox', 'source_op', '_cached_vinfo')
-    level = optimizer.LEVEL_NONNULL
-    is_about_raw = False
     box = None
+    _tag = optimizer.LEVEL_NONNULL
+    is_about_raw = False
     _cached_vinfo = None
 
     def __init__(self, source_op):
@@ -195,7 +195,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             fieldvalue.visitor_walk_recursive(visitor)
 
 class VirtualValue(AbstractVirtualStructValue):
-    level = optimizer.LEVEL_KNOWNCLASS
+    _tag = optimizer.LEVEL_KNOWNCLASS
 
     def __init__(self, cpu, known_class, source_op):
         AbstractVirtualStructValue.__init__(self, cpu, source_op)
@@ -430,6 +430,9 @@ class VRawBufferValue(AbstractVArrayValue):
         self.size = size
         self.buffer = RawBuffer(cpu, logops)
 
+    def getintbound(self):
+        return IntUnbounded()
+
     def getlength(self):
         return len(self.buffer.values)
 
@@ -488,6 +491,9 @@ class VRawSliceValue(AbstractVirtualValue):
         AbstractVirtualValue.__init__(self, source_op)
         self.rawbuffer_value = rawbuffer_value
         self.offset = offset
+
+    def getintbound(self):
+        return IntUnbounded()
 
     def _really_force(self, optforce):
         op = self.source_op

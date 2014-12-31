@@ -397,7 +397,7 @@ def test_cmp_none():
 def test_invalid_indexing():
     p = new_primitive_type("int")
     x = cast(p, 42)
-    py.test.raises(TypeError, "p[0]")
+    py.test.raises(TypeError, "x[0]")
 
 def test_default_str():
     BChar = new_primitive_type("char")
@@ -2718,7 +2718,16 @@ def test_GetLastError():
 def test_nonstandard_integer_types():
     for typename in ['int8_t', 'uint8_t', 'int16_t', 'uint16_t', 'int32_t',
                      'uint32_t', 'int64_t', 'uint64_t', 'intptr_t',
-                     'uintptr_t', 'ptrdiff_t', 'size_t', 'ssize_t']:
+                     'uintptr_t', 'ptrdiff_t', 'size_t', 'ssize_t',
+                     'int_least8_t',  'uint_least8_t',
+                     'int_least16_t', 'uint_least16_t',
+                     'int_least32_t', 'uint_least32_t',
+                     'int_least64_t', 'uint_least64_t',
+                     'int_fast8_t',  'uint_fast8_t',
+                     'int_fast16_t', 'uint_fast16_t',
+                     'int_fast32_t', 'uint_fast32_t',
+                     'int_fast64_t', 'uint_fast64_t',
+                     'intmax_t', 'uintmax_t']:
         new_primitive_type(typename)    # works
 
 def test_cannot_convert_unicode_to_charp():

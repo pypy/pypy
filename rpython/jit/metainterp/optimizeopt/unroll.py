@@ -9,17 +9,18 @@ from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.virtualstate import (VirtualStateConstructor,
         ShortBoxes, BadVirtualState, VirtualStatesCantMatch)
 from rpython.jit.metainterp.resoperation import rop, ResOperation, DONT_CHANGE,\
-     OpHelpers, AbstractInputArg
+     OpHelpers, AbstractInputArg, GuardResOp
 from rpython.jit.metainterp.resume import Snapshot
+from rpython.jit.metainterp import compile
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 
 
 # FIXME: Introduce some VirtualOptimizer super class instead
 
-def optimize_unroll(metainterp_sd, loop, optimizations,
+def optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble=True, start_state=None,
                     export_state=True):
-    opt = UnrollOptimizer(metainterp_sd, loop, optimizations)
+    opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
     opt.inline_short_preamble = inline_short_preamble
     return opt.propagate_all_forward(start_state, export_state)
 
@@ -53,8 +54,9 @@ class UnrollOptimizer(Optimization):
 
     inline_short_preamble = True
 
-    def __init__(self, metainterp_sd, loop, optimizations):
-        self.optimizer = UnrollableOptimizer(metainterp_sd, loop, optimizations)
+    def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations):
+        self.optimizer = UnrollableOptimizer(metainterp_sd, jitdriver_sd,
+                                             loop, optimizations)
         self.boxes_created_this_iteration = None
 
     def get_virtual_state(self, args):
@@ -135,6 +137,7 @@ class UnrollOptimizer(Optimization):
                 else:
                     debug_print("Retrace count reached, jumping to preamble")
                     assert cell_token.target_tokens[0].virtual_state is None
+                    jumpop = jumpop.clone()
                     jumpop.setdescr(cell_token.target_tokens[0])
                     self.optimizer.send_extra_operation(jumpop)
                     return
@@ -519,6 +522,7 @@ class UnrollOptimizer(Optimization):
             self.import_box(a, inputargs, short_jumpargs, jumpargs)
 
     def jump_to_already_compiled_trace(self, jumpop, patchguardop):
+        jumpop = jumpop.clone()
         assert jumpop.getopnum() == rop.JUMP
         cell_token = jumpop.getdescr()
 
@@ -573,8 +577,11 @@ class UnrollOptimizer(Optimization):
 
             for guard in extra_guards:
                 if guard.is_guard():
-                    descr = patchguardop.getdescr().clone_if_mutable()
-                    guard.setdescr(descr)
+                    assert isinstance(patchguardop, GuardResOp)
+                    assert isinstance(guard, GuardResOp)
+                    guard.rd_snapshot = patchguardop.rd_snapshot
+                    guard.rd_frame_info_list = patchguardop.rd_frame_info_list
+                    guard.setdescr(compile.ResumeAtPositionDescr())
                 self.optimizer.send_extra_operation(guard)
 
             try:
@@ -604,8 +611,11 @@ class UnrollOptimizer(Optimization):
             if newop.is_guard():
                 if not patchguardop:
                     raise InvalidLoop("would like to have short preamble, but it has a guard and there's no guard_future_condition")
-                descr = patchguardop.getdescr().clone_if_mutable(memo)
-                newop.setdescr(descr)
+                assert isinstance(newop, GuardResOp)
+                assert isinstance(patchguardop, GuardResOp)
+                newop.rd_snapshot = patchguardop.rd_snapshot
+                newop.rd_frame_info_list = patchguardop.rd_frame_info_list
+                newop.setdescr(compile.ResumeAtPositionDescr())
             self.optimizer.send_extra_operation(newop)
             if shop in assumed_classes:
                 classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)

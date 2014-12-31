@@ -25,6 +25,8 @@ class OptPure(Optimization):
         else:
             nextop = None
 
+        args = None
+        remember = None
         if canfold:
             for i in range(op.numargs()):
                 if self.get_constant_box(op.getarg(i)) is None:
@@ -40,13 +42,12 @@ class OptPure(Optimization):
             # did we do the exact same operation already?
             args = self.optimizer.make_args_key(op.getopnum(),
                                                 op.getarglist(), op.getdescr())
-            oldop = self.pure_operations.get(args, None)
-            if oldop is not None:
-                self.optimizer.make_equal_to(op, self.getvalue(oldop), True)
+            oldval = self.pure_operations.get(args, None)
+            if oldval is not None:
+                self.optimizer.make_equal_to(op, oldval, True)
                 return
             else:
-                self.pure_operations[args] = op
-                self.remember_emitting_pure(op)
+                remember = op
 
         # otherwise, the operation remains
         self.emit_operation(op)
@@ -54,6 +55,10 @@ class OptPure(Optimization):
             self.optimizer.bool_boxes[self.getvalue(op)] = None
         if nextop:
             self.emit_operation(nextop)
+        if args is not None:
+            self.pure_operations[args] = self.getvalue(op.result)
+        if remember:
+            self.remember_emitting_pure(remember)
 
     def optimize_CALL_PURE_I(self, op):
         # Step 1: check if all arguments are constant
@@ -68,22 +73,22 @@ class OptPure(Optimization):
         # CALL_PURE.
         args = self.optimizer.make_args_key(op.getopnum(), op.getarglist(),
                                             op.getdescr())
-        oldop = self.pure_operations.get(args, None)
-        if oldop is not None and oldop.getdescr() is op.getdescr():
+        oldval = self.pure_operations.get(args, None)
+        if oldval is not None:
             assert oldop.getopnum() == op.getopnum()
             # this removes a CALL_PURE that has the same (non-constant)
             # arguments as a previous CALL_PURE.
-            self.make_equal_to(op, self.getvalue(oldop))
+            self.make_equal_to(op, oldval)
             self.last_emitted_operation = REMOVED
             return
         else:
-            self.pure_operations[args] = op
-            self.remember_emitting_pure(op)
+            self.pure_operations[args] = self.getvalue(op.result)
 
         # replace CALL_PURE with just CALL
         args = op.getarglist()
         opnum = OpHelpers.call_for_descr(op.getdescr())
         newop = self.optimizer.replace_op_with(op, opnum)
+        self.remember_emitting_pure(op)
         self.emit_operation(newop)
     optimize_CALL_PURE_R = optimize_CALL_PURE_I
     optimize_CALL_PURE_F = optimize_CALL_PURE_I
@@ -105,19 +110,17 @@ class OptPure(Optimization):
     def pure(self, opnum, args, result):
         key = self.optimizer.make_args_key(opnum, args, None)
         if key not in self.pure_operations:
-            self.pure_operations[key] = result
+            self.pure_operations[key] = self.getvalue(result)
 
     def has_pure_result(self, opnum, args, descr):
         key = self.optimizer.make_args_key(opnum, args, descr)
-        op = self.pure_operations.get(key, None)
-        if op is None:
-            return False
-        return op.getdescr() is descr
+        return self.pure_operations.get(key, None) is not None
 
     def get_pure_result(self, key):
         return self.pure_operations.get(key, None)
 
     def remember_emitting_pure(self, op):
+        op = self.optimizer.get_op_replacement(op)
         self.emitted_pure_operations[op] = True
 
     def produce_potential_short_preamble_ops(self, sb):
