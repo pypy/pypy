@@ -52,7 +52,7 @@ def w_array(space, w_cls, typecode, __args__):
                         a.descr_frombytes(space, buf)
             break
     else:
-        msg = 'bad typecode (must be b, B, u, h, H, i, I, l, L, f or d)'
+        msg = 'bad typecode (must be b, B, u, h, H, i, I, l, L, q, Q, f or d)'
         raise OperationError(space.w_ValueError, space.wrap(msg))
 
     return a
@@ -620,6 +620,8 @@ types = {
                                                     # rbigint.touint() which
                                                     # corresponds to the
                                                     # C-type unsigned long
+    'q': TypeCode(rffi.LONGLONG,      'bigint_w', True, True),
+    'Q': TypeCode(rffi.ULONGLONG,     'bigint_w', True),
     'f': TypeCode(lltype.SingleFloat, 'float_w', method='__float__'),
     'd': TypeCode(lltype.Float,       'float_w', method='__float__'),
     }

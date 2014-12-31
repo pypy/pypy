@@ -8,7 +8,7 @@ class BaseArrayTests:
 
         raises(TypeError, self.array, 'hi')
         raises(TypeError, self.array, 1)
-        raises(ValueError, self.array, 'q')
+        raises(ValueError, self.array, 'x')
 
         a = self.array('u')
         raises(TypeError, a.append, 7)
@@ -22,7 +22,7 @@ class BaseArrayTests:
         b = self.array('h', (1, 2, 3))
         assert a == b
 
-        for tc in 'bhilBHILfd':
+        for tc in 'bhilBHILQqfd':
             assert self.array(tc).typecode == tc
             raises(TypeError, self.array, tc, None)
 
@@ -111,6 +111,8 @@ class BaseArrayTests:
             assert(self.array(t).itemsize >= 4)
         for t in 'd':
             assert(self.array(t).itemsize >= 8)
+        for t in 'Qq':
+            assert(self.array(t).itemsize >= 8)
 
         inttypes = 'bhil'
         for t in inttypes:
@@ -143,7 +145,7 @@ class BaseArrayTests:
         a.fromstring('')
         assert not len(a)
 
-        for t in 'bBhHiIlLfd':
+        for t in 'bBhHiIlLfdQq':
             a = self.array(t)
             a.fromstring('\x00' * a.itemsize * 2)
             assert len(a) == 2 and a[0] == 0 and a[1] == 0
@@ -717,13 +719,13 @@ class BaseArrayTests:
         assert repr(a) == "array('i', [4, 3, 2, 1, 0])"
 
     def test_type(self):
-        for t in 'bBhHiIlLfdu':
+        for t in 'bBhHiIlLfduQq':
             assert type(self.array(t)) is self.array
             assert isinstance(self.array(t), self.array)
 
     def test_iterable(self):
         import collections
-        for t in 'bBhHiIlLfdu':
+        for t in 'bBhHiIlLfduQq':
             assert isinstance(self.array(t), collections.Iterable)
 
     def test_subclass(self):
