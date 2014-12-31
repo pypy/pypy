@@ -827,9 +827,14 @@ if __name__ == '__main__':
     del os # make sure that os is not available globally, because this is what
            # happens in "real life" outside the tests
 
+    # when run as __main__, this module is often executed by a Python
+    # interpreter that have a different list of builtin modules.
+    # Make some tests happy by loading them before we clobber sys.path
+    import runpy
     if 'time' not in sys.builtin_module_names:
-        # make some tests happy by loading this before we clobber sys.path
         import time; del time
+    if 'operator' not in sys.builtin_module_names:
+        import operator; del operator
 
     # no one should change to which lists sys.argv and sys.path are bound
     old_argv = sys.argv

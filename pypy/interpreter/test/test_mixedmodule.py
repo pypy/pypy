@@ -52,6 +52,13 @@ class AppTestMixedModule(object):
 
         m = Module(space, space.wrap("test_module"))
         m.install()
+        # Python3's importlib relies on sys.builtin_module_names, the
+        # call to m.install() above is not enough because the object
+        # space was already initialized.
+        space.setattr(space.sys, space.wrap('builtin_module_names'),
+                      space.add(space.sys.get('builtin_module_names'),
+                                space.newtuple([
+                                    space.wrap("test_module")])))
 
     def teardown_class(cls):
         from pypy.module.sys.state import get

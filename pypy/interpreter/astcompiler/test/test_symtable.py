@@ -391,9 +391,6 @@ class TestSymbolTable:
     def test_tmpnames(self):
         scp = self.mod_scope("with x: pass")
         assert scp.lookup("_[1]") == symtable.SCOPE_LOCAL
-        scp = self.mod_scope("with x as y: pass")
-        assert scp.lookup("_[1]") == symtable.SCOPE_LOCAL
-        assert scp.lookup("_[2]") == symtable.SCOPE_LOCAL
 
     def test_issue13343(self):
         scp = self.mod_scope("lambda *, k1=x, k2: None")
