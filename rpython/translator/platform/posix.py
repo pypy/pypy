@@ -14,10 +14,10 @@ class BasePosix(Platform):
     relevant_environ = ('CPATH', 'LIBRARY_PATH', 'C_INCLUDE_PATH')
 
     DEFAULT_CC = 'gcc'
+    rpath_flags = ['-Wl,-rpath=\'$$ORIGIN/\'']
 
     def __init__(self, cc=None):
         self.cc = cc or os.environ.get('CC', self.DEFAULT_CC)
-        self.rpath_flags = ['-Wl,-rpath=\'$$ORIGIN/\'']
 
     def _libs(self, libraries):
         return ['-l%s' % lib for lib in libraries]
