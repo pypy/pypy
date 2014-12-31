@@ -259,6 +259,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 return expr_value
         return None
 
+    def ensure_docstring_constant(self, body):
+        # If there's a docstring, store it as the first constant.
+        if body:
+            doc_expr = self.possible_docstring(body[0])
+        else:
+            doc_expr = None
+        if doc_expr is not None:
+            self.add_const(doc_expr.s)
+            self.scope.doc_removable = True
+            return True
+        else:
+            self.add_const(self.space.w_None)
+            return False
+
     def _get_code_flags(self):
         # Default for everything but module scopes.
         return consts.CO_NEWLOCALS
@@ -1291,18 +1305,8 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, func):
         assert isinstance(func, ast.FunctionDef)
-        # If there's a docstring, store it as the first constant.
-        if func.body:
-            doc_expr = self.possible_docstring(func.body[0])
-        else:
-            doc_expr = None
-        if doc_expr is not None:
-            self.add_const(doc_expr.s)
-            self.scope.doc_removable = True
-            start = 1
-        else:
-            self.add_const(self.space.w_None)
-            start = 0
+        has_docstring = self.ensure_docstring_constant(func.body)
+        start = 1 if has_docstring else 0
         args = func.args
         assert isinstance(args, ast.arguments)
         if args.args:
@@ -1357,6 +1361,7 @@ class ClassCodeGenerator(PythonCodeGenerator):
 
     def _compile(self, cls):
         assert isinstance(cls, ast.ClassDef)
+        self.ensure_docstring_constant(cls.body)
         self.lineno = self.first_lineno
         self.argcount = 1
         # load the first argument (__locals__) ...

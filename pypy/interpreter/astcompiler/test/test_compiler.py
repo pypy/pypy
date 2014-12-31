@@ -24,7 +24,7 @@ def generate_function_code(expr, space):
     function_ast = ast.body[0]
     symbols = symtable.SymtableBuilder(space, ast, info)
     generator = codegen.FunctionCodeGenerator(
-        space, 'function', function_ast, 1, symbols, info)
+        space, 'function', function_ast, 1, symbols, info, qualname='function')
     blocks = generator.first_block.post_order()
     generator._resolve_block_targets(blocks)
     return generator, blocks
