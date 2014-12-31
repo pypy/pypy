@@ -2,7 +2,7 @@ import builtins
 import math
 import struct
 from fractions import gcd
-from ctypes import create_string_buffer
+from cffi import FFI
 
 
 _buffer = memoryview
@@ -327,13 +327,14 @@ def mul(cp, size, factor):
     _check_params(len(cp), size)
     clip = _get_clipfn(size)
 
-    result = create_string_buffer(len(cp))
+    rv = ffi.new("unsigned char[]", len(cp))
+    result = ffi.buffer(rv)
 
     for i, sample in enumerate(_get_samples(cp, size)):
         sample = clip(int(sample * factor))
         _put_sample(result, size, i, sample)
 
-    return result.raw
+    return result[:]
 
 
 def tomono(cp, size, fac1, fac2):
@@ -342,7 +343,8 @@ def tomono(cp, size, fac1, fac2):
 
     sample_count = _sample_count(cp, size)
 
-    result = create_string_buffer(len(cp) // 2)
+    rv = ffi.new("unsigned char[]", len(cp) // 2)
+    result = ffi.buffer(rv)
 
     for i in range(0, sample_count, 2):
         l_sample = getsample(cp, size, i)
@@ -353,7 +355,7 @@ def tomono(cp, size, fac1, fac2):
 
         _put_sample(result, size, i // 2, sample)
 
-    return result.raw
+    return result[:]
 
 
 def tostereo(cp, size, fac1, fac2):
@@ -361,7 +363,8 @@ def tostereo(cp, size, fac1, fac2):
 
     sample_count = _sample_count(cp, size)
 
-    result = create_string_buffer(len(cp) * 2)
+    rv = ffi.new("unsigned char[]", len(cp) * 2)
+    result = ffi.buffer(rv)
     clip = _get_clipfn(size)
 
     for i in range(sample_count):
@@ -373,7 +376,7 @@ def tostereo(cp, size, fac1, fac2):
         _put_sample(result, size, i * 2, l_sample)
         _put_sample(result, size, i * 2 + 1, r_sample)
 
-    return result.raw
+    return result[:]
 
 
 def add(cp1, cp2, size):
@@ -384,7 +387,8 @@ def add(cp1, cp2, size):
 
     clip = _get_clipfn(size)
     sample_count = _sample_count(cp1, size)
-    result = create_string_buffer(len(cp1))
+    rv = ffi.new("unsigned char[]", len(cp1))
+    result = ffi.buffer(rv)
 
     for i in range(sample_count):
         sample1 = getsample(cp1, size, i)
@@ -394,30 +398,32 @@ def add(cp1, cp2, size):
 
         _put_sample(result, size, i, sample)
 
-    return result.raw
+    return result[:]
 
 
 def bias(cp, size, bias):
     _check_params(len(cp), size)
 
-    result = create_string_buffer(len(cp))
+    rv = ffi.new("unsigned char[]", len(cp))
+    result = ffi.buffer(rv)
 
     for i, sample in enumerate(_get_samples(cp, size)):
         sample = _overflow(sample + bias, size)
         _put_sample(result, size, i, sample)
 
-    return result.raw
+    return result[:]
 
 
 def reverse(cp, size):
     _check_params(len(cp), size)
     sample_count = _sample_count(cp, size)
 
-    result = create_string_buffer(len(cp))
+    rv = ffi.new("unsigned char[]", len(cp))
+    result = ffi.buffer(rv)
     for i, sample in enumerate(_get_samples(cp, size)):
         _put_sample(result, size, sample_count - i - 1, sample)
 
-    return result.raw
+    return result[:]
 
 
 def lin2lin(cp, size, size2):
@@ -428,7 +434,8 @@ def lin2lin(cp, size, size2):
         return cp
 
     new_len = (len(cp) // size) * size2
-    result = create_string_buffer(new_len)
+    rv = ffi.new("unsigned char[]", new_len)
+    result = ffi.buffer(rv)
 
     for i in range(_sample_count(cp, size)):
         sample = _get_sample(cp, size, i)
@@ -443,7 +450,7 @@ def lin2lin(cp, size, size2):
         sample = _overflow(sample, size2)
         _put_sample(result, size2, i, sample)
 
-    return result.raw
+    return result[:]
 
 
 def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
@@ -488,7 +495,8 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
     ceiling = (q + 1) * outrate
     nbytes = ceiling * bytes_per_frame
 
-    result = create_string_buffer(nbytes)
+    rv = ffi.new("unsigned char[]", nbytes)
+    result = ffi.buffer(rv)
 
     samples = _get_samples(cp, size)
     out_i = 0
@@ -496,7 +504,7 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
         while d < 0:
             if frame_count == 0:
                 samps = zip(prev_i, cur_i)
-                retval = result.raw
+                retval = result[:]
 
                 # slice off extra bytes
                 trim_index = (out_i * bytes_per_frame) - len(retval)
@@ -527,7 +535,6 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
                 d -= inrate
 
 
-from cffi import FFI
 ffi = FFI()
 ffi.cdef("""
 typedef short PyInt16;
