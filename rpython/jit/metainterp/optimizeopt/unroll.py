@@ -234,11 +234,7 @@ class UnrollOptimizer(Optimization):
         self.short_boxes = exported_state.short_boxes
         self.initial_virtual_state = target_token.virtual_state
 
-        seen = {}
         for box in self.inputargs:
-            if box in seen:
-                continue
-            seen[box] = None
             preamble_value = exported_state.exported_values[box]
             value = self.optimizer.getvalue(box)
             value.import_from(preamble_value, self.optimizer)
