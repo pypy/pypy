@@ -425,6 +425,11 @@ class W_BytearrayObject(W_Root):
     def descr_reverse(self, space):
         self.data.reverse()
 
+    def descr_clear(self, space):
+        self.data = []
+
+    def descr_copy(self, space):
+        return self._new(self.data[:])
 
 
 # ____________________________________________________________
@@ -592,6 +597,18 @@ class BytearrayDocstrings:
 
         Return B centered in a string of length width.  Padding is
         done using the specified fill character (default is a space).
+        """
+
+    def clear():
+        """B.clear() -> None
+
+        Remove all items from B.
+        """
+
+    def copy():
+        """B.copy() -> bytearray
+
+        Return a copy of B.
         """
 
     def count():
@@ -1045,6 +1062,10 @@ W_BytearrayObject.typedef = TypeDef(
                         doc=BytearrayDocstrings.remove.__doc__),
     reverse = interp2app(W_BytearrayObject.descr_reverse,
                          doc=BytearrayDocstrings.reverse.__doc__),
+    clear = interp2app(W_BytearrayObject.descr_clear,
+                       doc=BytearrayDocstrings.clear.__doc__),
+    copy = interp2app(W_BytearrayObject.descr_copy,
+                         doc=BytearrayDocstrings.copy.__doc__),
 )
 W_BytearrayObject.typedef.flag_sequence_bug_compat = True
 
