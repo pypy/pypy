@@ -554,6 +554,17 @@ class AppTestSysModulePortedFromCPython:
         ns1 = type(sys.implementation)(x=1, y=2, w=3)
         assert repr(ns1) == "namespace(w=3, x=1, y=2)"
 
+    def test_simplenamespace(self):
+        import sys
+        SimpleNamespace = type(sys.implementation)
+        ns = SimpleNamespace(x=1, y=2, w=3)
+        #
+        ns.z = 4
+        assert ns.__dict__ == dict(x=1, y=2, w=3, z=4)
+        #
+        raises(AttributeError, "del ns.spam")
+        del ns.y
+
     def test_settrace(self):
         import sys
         counts = []
