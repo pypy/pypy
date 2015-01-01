@@ -399,20 +399,15 @@ class ASTBuilder(object):
             else:
                 otherwise = self.handle_suite(try_node.children[-1])
                 except_count -= 1
+        handlers = []
         if except_count:
-            handlers = []
             for i in range(except_count):
                 base_offset = i * 3
                 exc = try_node.children[3 + base_offset]
                 except_body = try_node.children[5 + base_offset]
                 handlers.append(self.handle_except_clause(exc, except_body))
-            except_ast = ast.TryExcept(body, handlers, otherwise,
-                                       try_node.lineno, try_node.column)
-            if finally_suite is None:
-                return except_ast
-            body = [except_ast]
-        return ast.TryFinally(body, finally_suite, try_node.lineno,
-                              try_node.column)
+        return ast.Try(body, handlers, otherwise, finally_suite,
+                       try_node.lineno, try_node.column)
 
     def handle_with_stmt(self, with_node):
         body = self.handle_suite(with_node.children[-1])

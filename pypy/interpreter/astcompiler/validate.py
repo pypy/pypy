@@ -240,15 +240,12 @@ class AstValidator(ast.ASTVisitor):
         elif node.cause:
             raise ValidationError("Raise with cause but no exception")
 
-    def visit_TryExcept(self, node):
-        self._validate_body(node.body, "TryExcept")
+    def visit_Try(self, node):
+        self._validate_body(node.body, "Try")
         for handler in node.handlers:
             handler.walkabout(self)
         self._validate_stmts(node.orelse)
-
-    def visit_TryFinally(self, node):
-        self._validate_body(node.body, "TryFinally")
-        self._validate_body(node.finalbody, "TryFinally")
+        self._validate_stmts(node.finalbody)
 
     def visit_ExceptHandler(self, node):
         if node.type:

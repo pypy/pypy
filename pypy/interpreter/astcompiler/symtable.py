@@ -557,15 +557,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
             role = SYM_ASSIGNED
         self.note_symbol(name.id, role)
 
-    def visit_TryExcept(self, node):
+    def visit_Try(self, node):
         self.scope.note_try_start(node)
         self.visit_sequence(node.body)
         self.scope.note_try_end(node)
         self.visit_sequence(node.handlers)
         self.visit_sequence(node.orelse)
-
-    def visit_TryFinally(self, node):
-        self.scope.note_try_start(node)
-        self.visit_sequence(node.body)
-        self.scope.note_try_end(node)
         self.visit_sequence(node.finalbody)

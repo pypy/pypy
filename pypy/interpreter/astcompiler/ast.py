@@ -334,10 +334,8 @@ class stmt(AST):
             return With.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Raise):
             return Raise.from_object(space, w_node)
-        if space.isinstance_w(w_node, get(space).w_TryExcept):
-            return TryExcept.from_object(space, w_node)
-        if space.isinstance_w(w_node, get(space).w_TryFinally):
-            return TryFinally.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_Try):
+            return Try.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Assert):
             return Assert.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Import):
@@ -1009,16 +1007,17 @@ class Raise(stmt):
 State.ast_type('Raise', 'stmt', ['exc', 'cause'])
 
 
-class TryExcept(stmt):
+class Try(stmt):
 
-    def __init__(self, body, handlers, orelse, lineno, col_offset):
+    def __init__(self, body, handlers, orelse, finalbody, lineno, col_offset):
         self.body = body
         self.handlers = handlers
         self.orelse = orelse
+        self.finalbody = finalbody
         stmt.__init__(self, lineno, col_offset)
 
     def walkabout(self, visitor):
-        visitor.visit_TryExcept(self)
+        visitor.visit_Try(self)
 
     def mutate_over(self, visitor):
         if self.body:
@@ -1027,10 +1026,12 @@ class TryExcept(stmt):
             visitor._mutate_sequence(self.handlers)
         if self.orelse:
             visitor._mutate_sequence(self.orelse)
-        return visitor.visit_TryExcept(self)
+        if self.finalbody:
+            visitor._mutate_sequence(self.finalbody)
+        return visitor.visit_Try(self)
 
     def to_object(self, space):
-        w_node = space.call_function(get(space).w_TryExcept)
+        w_node = space.call_function(get(space).w_Try)
         if self.body is None:
             body_w = []
         else:
@@ -1049,57 +1050,6 @@ class TryExcept(stmt):
             orelse_w = [node.to_object(space) for node in self.orelse] # stmt
         w_orelse = space.newlist(orelse_w)
         space.setattr(w_node, space.wrap('orelse'), w_orelse)
-        w_lineno = space.wrap(self.lineno)  # int
-        space.setattr(w_node, space.wrap('lineno'), w_lineno)
-        w_col_offset = space.wrap(self.col_offset)  # int
-        space.setattr(w_node, space.wrap('col_offset'), w_col_offset)
-        return w_node
-
-    @staticmethod
-    def from_object(space, w_node):
-        w_body = get_field(space, w_node, 'body', False)
-        w_handlers = get_field(space, w_node, 'handlers', False)
-        w_orelse = get_field(space, w_node, 'orelse', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        body_w = space.unpackiterable(w_body)
-        _body = [stmt.from_object(space, w_item) for w_item in body_w]
-        handlers_w = space.unpackiterable(w_handlers)
-        _handlers = [excepthandler.from_object(space, w_item) for w_item in handlers_w]
-        orelse_w = space.unpackiterable(w_orelse)
-        _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
-        _lineno = space.int_w(w_lineno)
-        _col_offset = space.int_w(w_col_offset)
-        return TryExcept(_body, _handlers, _orelse, _lineno, _col_offset)
-
-State.ast_type('TryExcept', 'stmt', ['body', 'handlers', 'orelse'])
-
-
-class TryFinally(stmt):
-
-    def __init__(self, body, finalbody, lineno, col_offset):
-        self.body = body
-        self.finalbody = finalbody
-        stmt.__init__(self, lineno, col_offset)
-
-    def walkabout(self, visitor):
-        visitor.visit_TryFinally(self)
-
-    def mutate_over(self, visitor):
-        if self.body:
-            visitor._mutate_sequence(self.body)
-        if self.finalbody:
-            visitor._mutate_sequence(self.finalbody)
-        return visitor.visit_TryFinally(self)
-
-    def to_object(self, space):
-        w_node = space.call_function(get(space).w_TryFinally)
-        if self.body is None:
-            body_w = []
-        else:
-            body_w = [node.to_object(space) for node in self.body] # stmt
-        w_body = space.newlist(body_w)
-        space.setattr(w_node, space.wrap('body'), w_body)
         if self.finalbody is None:
             finalbody_w = []
         else:
@@ -1115,18 +1065,24 @@ class TryFinally(stmt):
     @staticmethod
     def from_object(space, w_node):
         w_body = get_field(space, w_node, 'body', False)
+        w_handlers = get_field(space, w_node, 'handlers', False)
+        w_orelse = get_field(space, w_node, 'orelse', False)
         w_finalbody = get_field(space, w_node, 'finalbody', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        handlers_w = space.unpackiterable(w_handlers)
+        _handlers = [excepthandler.from_object(space, w_item) for w_item in handlers_w]
+        orelse_w = space.unpackiterable(w_orelse)
+        _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
         finalbody_w = space.unpackiterable(w_finalbody)
         _finalbody = [stmt.from_object(space, w_item) for w_item in finalbody_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return TryFinally(_body, _finalbody, _lineno, _col_offset)
+        return Try(_body, _handlers, _orelse, _finalbody, _lineno, _col_offset)
 
-State.ast_type('TryFinally', 'stmt', ['body', 'finalbody'])
+State.ast_type('Try', 'stmt', ['body', 'handlers', 'orelse', 'finalbody'])
 
 
 class Assert(stmt):
@@ -3651,9 +3607,7 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Raise(self, node):
         return self.default_visitor(node)
-    def visit_TryExcept(self, node):
-        return self.default_visitor(node)
-    def visit_TryFinally(self, node):
+    def visit_Try(self, node):
         return self.default_visitor(node)
     def visit_Assert(self, node):
         return self.default_visitor(node)
@@ -3818,13 +3772,10 @@ class GenericASTVisitor(ASTVisitor):
         if node.cause:
             node.cause.walkabout(self)
 
-    def visit_TryExcept(self, node):
+    def visit_Try(self, node):
         self.visit_sequence(node.body)
         self.visit_sequence(node.handlers)
         self.visit_sequence(node.orelse)
-
-    def visit_TryFinally(self, node):
-        self.visit_sequence(node.body)
         self.visit_sequence(node.finalbody)
 
     def visit_Assert(self, node):

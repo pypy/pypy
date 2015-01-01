@@ -599,20 +599,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.visit_sequence(wh.orelse)
             self.use_next_block(end)
 
-    def visit_TryExcept(self, te):
-        self.update_position(te.lineno, True)
+    def _visit_try_except(self, tr):
+        self.update_position(tr.lineno, True)
         exc = self.new_block()
         otherwise = self.new_block()
         end = self.new_block()
         self.emit_jump(ops.SETUP_EXCEPT, exc)
         body = self.use_next_block()
         self.push_frame_block(F_BLOCK_EXCEPT, body)
-        self.visit_sequence(te.body)
+        self.visit_sequence(tr.body)
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_EXCEPT, body)
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
-        for handler in te.handlers:
+        for handler in tr.handlers:
             assert isinstance(handler, ast.ExceptHandler)
             self.update_position(handler.lineno, True)
             next_except = self.new_block()
@@ -672,25 +672,34 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.END_FINALLY)   # this END_FINALLY will always re-raise
         self.is_dead_code()
         self.use_next_block(otherwise)
-        self.visit_sequence(te.orelse)
+        self.visit_sequence(tr.orelse)
         self.use_next_block(end)
 
-    def visit_TryFinally(self, tf):
-        self.update_position(tf.lineno, True)
+    def _visit_try_finally(self, tr):
+        self.update_position(tr.lineno, True)
         end = self.new_block()
         self.emit_jump(ops.SETUP_FINALLY, end)
         body = self.use_next_block()
         self.push_frame_block(F_BLOCK_FINALLY, body)
-        self.visit_sequence(tf.body)
+        if tr.handlers:
+            self._visit_try_except(tr)
+        else:
+            self.visit_sequence(tr.body)
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_FINALLY, body)
         # Indicates there was no exception.
         self.load_const(self.space.w_None)
         self.use_next_block(end)
         self.push_frame_block(F_BLOCK_FINALLY_END, end)
-        self.visit_sequence(tf.finalbody)
+        self.visit_sequence(tr.finalbody)
         self.emit_op(ops.END_FINALLY)
         self.pop_frame_block(F_BLOCK_FINALLY_END, end)
+
+    def visit_Try(self, tr):
+        if tr.finalbody:
+            return self._visit_try_finally(tr)
+        else:
+            return self._visit_try_except(tr)
 
     def _import_as(self, alias):
         source_name = alias.name

@@ -306,14 +306,15 @@ class TestAstBuilder:
     def test_try(self):
         tr = self.get_first_stmt("try: x" + "\n" +
                                  "finally: pass")
-        assert isinstance(tr, ast.TryFinally)
+        assert isinstance(tr, ast.Try)
         assert len(tr.body) == 1
         assert isinstance(tr.body[0].value, ast.Name)
         assert len(tr.finalbody) == 1
         assert isinstance(tr.finalbody[0], ast.Pass)
+        assert tr.orelse is None
         tr = self.get_first_stmt("try: x" + "\n" +
                                  "except: pass")
-        assert isinstance(tr, ast.TryExcept)
+        assert isinstance(tr, ast.Try)
         assert len(tr.body) == 1
         assert isinstance(tr.body[0].value, ast.Name)
         assert len(tr.handlers) == 1
@@ -324,6 +325,7 @@ class TestAstBuilder:
         assert len(handler.body) == 1
         assert isinstance(handler.body[0], ast.Pass)
         assert tr.orelse is None
+        assert tr.finalbody is None
         tr = self.get_first_stmt("try: x" + "\n" +
                                  "except Exception: pass")
         assert len(tr.handlers) == 1
@@ -375,32 +377,27 @@ class TestAstBuilder:
         tr = self.get_first_stmt("try: x" + "\n" +
                                  "except: 4" + "\n" +
                                  "finally: pass")
-        assert isinstance(tr, ast.TryFinally)
+        assert isinstance(tr, ast.Try)
         assert len(tr.finalbody) == 1
         assert isinstance(tr.finalbody[0], ast.Pass)
+        assert len(tr.handlers) == 1
+        assert len(tr.handlers[0].body) == 1
+        assert isinstance(tr.handlers[0].body[0].value, ast.Num)
         assert len(tr.body) == 1
-        exc = tr.body[0]
-        assert isinstance(exc, ast.TryExcept)
-        assert len(exc.handlers) == 1
-        assert len(exc.handlers[0].body) == 1
-        assert isinstance(exc.handlers[0].body[0].value, ast.Num)
-        assert len(exc.body) == 1
-        assert isinstance(exc.body[0].value, ast.Name)
+        assert isinstance(tr.body[0].value, ast.Name)
         tr = self.get_first_stmt("try: x" + "\n" +
                                  "except: 4" + "\n" +
                                  "else: 'hi'" + "\n" +
                                  "finally: pass")
-        assert isinstance(tr, ast.TryFinally)
+        assert isinstance(tr, ast.Try)
         assert len(tr.finalbody) == 1
         assert isinstance(tr.finalbody[0], ast.Pass)
         assert len(tr.body) == 1
-        exc = tr.body[0]
-        assert isinstance(exc, ast.TryExcept)
-        assert len(exc.orelse) == 1
-        assert isinstance(exc.orelse[0].value, ast.Str)
-        assert len(exc.body) == 1
-        assert isinstance(exc.body[0].value, ast.Name)
-        assert len(exc.handlers) == 1
+        assert len(tr.orelse) == 1
+        assert isinstance(tr.orelse[0].value, ast.Str)
+        assert len(tr.body) == 1
+        assert isinstance(tr.body[0].value, ast.Name)
+        assert len(tr.handlers) == 1
 
     def test_with(self):
         wi = self.get_first_stmt("with x: pass")
