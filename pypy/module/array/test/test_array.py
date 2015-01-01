@@ -413,7 +413,7 @@ class BaseArrayTests:
     def test_buffer(self):
         a = self.array('h', b'Hi')
         buf = memoryview(a)
-        assert buf[1] == b'i'
+        assert buf[1] == ord('i')
 
     def test_buffer_write(self):
         a = self.array('b', b'hello')
@@ -426,7 +426,7 @@ class BaseArrayTests:
 
     def test_buffer_keepalive(self):
         buf = memoryview(self.array('b', b'text'))
-        assert buf[2] == b'x'
+        assert buf[2] == ord('x')
         #
         a = self.array('b', b'foobarbaz')
         buf = memoryview(a)
