@@ -103,7 +103,7 @@ class W_UnicodeObject(W_Root):
         return True
 
     @staticmethod
-    def _op_val(space, w_other):
+    def _op_val(space, w_other, allow_char=False):
         if isinstance(w_other, W_UnicodeObject):
             return w_other._value
         raise oefmt(space.w_TypeError,

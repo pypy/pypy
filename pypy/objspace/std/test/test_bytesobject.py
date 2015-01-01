@@ -706,7 +706,7 @@ class AppTestBytesObject:
         x += b"llo"
         b = memoryview(x)
         assert len(b) == 5
-        assert b[-1] == b"o"
+        assert b[-1] == ord("o")
         assert b[:] == b"hello"
         assert b[1:0] == b""
         raises(TypeError, "b[3] = 'x'")
