@@ -149,17 +149,22 @@ class AppTestUfuncs(BaseNumpyAppTest):
         from numpy import ufunc, frompyfunc, arange, dtype
         def adder(a, b):
             return a+b
+        def sumdiff(a, b):
+                return a+b, a-b
         try:
             adder_ufunc0 = frompyfunc(adder, 2, 1)
             adder_ufunc1 = frompyfunc(adder, 2, 1)
             int_func22 = frompyfunc(int, 2, 2)
             int_func12 = frompyfunc(int, 1, 2)
+            sumdiff = frompyfunc(sumdiff, 2, 2)
             retype = dtype(object)
         except NotImplementedError as e:
             # dtype of returned value is object, which is not supported yet
             assert 'object' in str(e)
             # Use pypy specific extension for out_dtype
             adder_ufunc0 = frompyfunc(adder, 2, 1, dtypes=['match'])
+            sumdiff = frompyfunc(sumdiff, 2, 2, dtypes=['match'], 
+                                    signature='(i),(i)->(i),(i)')
             adder_ufunc1 = frompyfunc([adder, adder], 2, 1,
                             dtypes=[int, int, int, float, float, float])
             int_func22 = frompyfunc([int, int], 2, 2, signature='(i),(i)->(i),(i)',
@@ -167,19 +172,23 @@ class AppTestUfuncs(BaseNumpyAppTest):
             int_func12 = frompyfunc([int], 1, 2, signature='(i)->(i),(i)',
                                     dtypes=['match'])
             retype = dtype(int)
+        a = arange(10)
         assert isinstance(adder_ufunc1, ufunc)
-        res = adder_ufunc0(arange(10), arange(10))
+        res = adder_ufunc0(a, a)
         assert res.dtype == retype
-        assert all(res == arange(10) + arange(10))
-        res = adder_ufunc1(arange(10), arange(10))
+        assert all(res == a + a)
+        res = adder_ufunc1(a, a)
         assert res.dtype == retype
-        assert all(res == arange(10) + arange(10))
+        assert all(res == a + a)
         raises(TypeError, frompyfunc, 1, 2, 3)
-        raises (ValueError, int_func22, arange(10))
-        res = int_func12(arange(10))
+        raises (ValueError, int_func22, a)
+        res = int_func12(a)
         assert len(res) == 2
         assert isinstance(res, tuple)
-        assert (res[0] == arange(10)).all()
+        assert (res[0] == a).all()
+        res = sumdiff(2 * a, a)
+        assert (res[0] == 3 * a).all()
+        assert (res[1] == a).all()
 
     def test_frompyfunc_outerloop(self):
         def int_times2(in_array, out_array):

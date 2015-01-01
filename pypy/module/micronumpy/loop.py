@@ -126,9 +126,9 @@ def call_many_to_one(space, shape, func, res_dtype, in_args, out):
                                      res_dtype=res_dtype, nin=nin)
         for i in range(nin):
             vals[i] = in_iters[i].getitem(in_states[i])
-        arglist = space.newlist(vals)
-        out_val = space.call_args(func, Arguments.frompacked(space, arglist))
-        out_iter.setitem(out_state, res_dtype.coerce(space, out_val))
+        w_arglist = space.newlist(vals)
+        w_out_val = space.call_args(func, Arguments.frompacked(space, w_arglist))
+        out_iter.setitem(out_state, res_dtype.coerce(space, w_out_val))
         for i in range(nin):
             in_states[i] = in_iters[i].next(in_states[i])
         out_state = out_iter.next(out_state)
@@ -162,23 +162,22 @@ def call_many_to_many(space, shape, func, res_dtype, in_args, out_args):
         out_states[i] = out_state
     shapelen = len(shape)
     vals = [None] * nin
-    # what does the function return?
     while not out_iters[0].done(out_states[0]):
         call_many_to_many_driver.jit_merge_point(shapelen=shapelen, func=func,
                                      res_dtype=res_dtype, nin=nin, nout=nout)
         for i in range(nin):
             vals[i] = in_iters[i].getitem(in_states[i])
-        arglist = space.newlist(vals)
-        out_vals = space.call_args(func, Arguments.frompacked(space, arglist))
-        # XXX bad form - out_vals should be a list or tuple of boxes.
-        # but func can return anything, 
-        if not isinstance(out_vals, list) and not isinstance(out_vals, tuple):
-            out_iters[0].setitem(out_states[0], res_dtype.coerce(space, out_vals))
-            out_states[0] = out_iters[0].next(out_states[0])
-        else:    
-            for i in range(len(out_vals)):
-                out_iters[i].setitem(out_states[i], res_dtype.coerce(space, out_vals[i]))
+        w_arglist = space.newlist(vals)
+        w_outvals = space.call_args(func, Arguments.frompacked(space, w_arglist))
+        # w_outvals should be a tuple, but func can return a single value as well 
+        if space.isinstance_w(w_outvals, space.w_tuple):
+            batch = space.listview(w_outvals)
+            for i in range(len(batch)):
+                out_iters[i].setitem(out_states[i], res_dtype.coerce(space, batch[i]))
                 out_states[i] = out_iters[i].next(out_states[i])
+        else:
+            out_iters[0].setitem(out_states[0], res_dtype.coerce(space, w_outvals))
+            out_states[0] = out_iters[0].next(out_states[0])
         for i in range(nin):
             in_states[i] = in_iters[i].next(in_states[i])
     return space.newtuple([convert_to_array(space, o) for o in out_args])
