@@ -202,6 +202,7 @@ class TestBisect:
 class TestBisectPython(TestBisect, unittest.TestCase):
     module = py_bisect
 
+@unittest.skipUnless(c_bisect, 'requires _bisect')
 class TestBisectC(TestBisect, unittest.TestCase):
     module = c_bisect
 
@@ -237,6 +238,7 @@ class TestInsort:
 class TestInsortPython(TestInsort, unittest.TestCase):
     module = py_bisect
 
+@unittest.skipUnless(c_bisect, 'requires _bisect')
 class TestInsortC(TestInsort, unittest.TestCase):
     module = c_bisect
 
@@ -292,6 +294,7 @@ class TestErrorHandling:
 class TestErrorHandlingPython(TestErrorHandling, unittest.TestCase):
     module = py_bisect
 
+@unittest.skipUnless(c_bisect, 'requires _bisect')
 class TestErrorHandlingC(TestErrorHandling, unittest.TestCase):
     module = c_bisect
 
@@ -319,6 +322,7 @@ class TestDocExample:
 class TestDocExamplePython(TestDocExample, unittest.TestCase):
     module = py_bisect
 
+@unittest.skipUnless(c_bisect, 'requires _bisect')
 class TestDocExampleC(TestDocExample, unittest.TestCase):
     module = c_bisect
 
