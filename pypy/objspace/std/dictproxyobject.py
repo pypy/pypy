@@ -145,7 +145,12 @@ class MappingProxyStrategy(DictStrategy):
     unerase = staticmethod(unerase)
 
     def getitem(self, w_dict, w_key):
-        return self.space.getitem(self.unerase(w_dict.dstorage), w_key)
+        try:
+            return self.space.getitem(self.unerase(w_dict.dstorage), w_key)
+        except OperationError, e:
+            if not e.match(self.space, self.space.w_KeyError):
+                raise
+            return None
 
     def setitem(self, w_dict, w_key, w_value):
         raise oefmt(self.space.w_TypeError,

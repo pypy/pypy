@@ -46,6 +46,8 @@ class AppTestUserObject:
         assert a.__dict__ != b.__dict__
         assert a.__dict__ != {'123': '456'}
         assert {'123': '456'} != a.__dict__
+        b.__dict__.pop('__qualname__')
+        c.__dict__.pop('__qualname__')
         assert b.__dict__ == c.__dict__
 
     def test_str_repr(self):
@@ -69,6 +71,8 @@ class AppTestUserObject:
         mapping = dict(a=1, b=2, c=3)
         proxy = dictproxy(mapping)
         assert proxy['a'] == 1
+        assert 'a' in proxy
+        assert 'z' not in proxy
         assert repr(proxy) == 'mappingproxy(%r)' % mapping
         assert proxy.keys() == mapping.keys()
         raises(TypeError, "proxy['a'] = 4")
