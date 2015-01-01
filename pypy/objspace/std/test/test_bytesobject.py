@@ -307,6 +307,7 @@ class AppTestBytesObject:
         assert b'aaa'.count(b'a', 0, -1) == 2
         assert b'aaa'.count(b'a', 0, -10) == 0
         assert b'ababa'.count(b'aba') == 1
+        assert b'ababa'.count(ord('a')) == 3
 
     def test_startswith(self):
         assert b'ab'.startswith(b'ab') is True
