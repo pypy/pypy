@@ -3195,6 +3195,20 @@ def test_packed_with_bitfields():
                              ('a2', BChar, 5)],
                    None, -1, -1, SF_PACKED)
 
+def test_from_buffer():
+    import array
+    a = array.array('H', [10000, 20000, 30000])
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    c = from_buffer(BCharA, a)
+    assert typeof(c) is BCharA
+    assert len(c) == 6
+    assert repr(c) == "<cdata 'char[]' buffer len 6 from 'array.array' object>"
+    p = new_pointer_type(new_primitive_type("unsigned short"))
+    cast(p, c)[1] += 500
+    assert list(a) == [10000, 20500, 30000]
+
 def test_version():
     # this test is here mostly for PyPy
     assert __version__ == "0.8.6"
