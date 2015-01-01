@@ -360,6 +360,8 @@ class Test_testcapi(unittest.TestCase):
         for name in dir(_testcapi):
             if name.startswith('test_'):
                 test = getattr(_testcapi, name)
+                if support.verbose:
+                    print("_tescapi.%s()" % name)
                 test()
 
 if __name__ == "__main__":
