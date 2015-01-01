@@ -508,6 +508,8 @@ class Optimization(object):
 
 class Optimizer(Optimization):
 
+    exporting_state = False
+
     def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations=None):
         self.metainterp_sd = metainterp_sd
         self.jitdriver_sd = jitdriver_sd

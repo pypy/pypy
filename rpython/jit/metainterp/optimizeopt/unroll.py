@@ -73,6 +73,7 @@ class UnrollOptimizer(Optimization):
         return Snapshot(prev, new_snapshot_args)
 
     def propagate_all_forward(self, starting_state, export_state=True):
+        self.optimizer.exporting_state = export_state
         loop = self.optimizer.loop
         self.optimizer.clear_newoperations()
 

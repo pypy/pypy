@@ -64,16 +64,17 @@ class CachedField(object):
             # cancelling its previous effects with no side effect.
             self._lazy_setfield = None
 
-    def value_updated(self, oldvalue, newvalue):
+    def value_updated(self, oldvalue, newvalue, exporting_state):
         try:
             fieldvalue = self._cached_fields[oldvalue]
         except KeyError:
             pass
         else:
             self._cached_fields[newvalue] = fieldvalue
-            op = self._cached_fields_getfield_op[oldvalue].clone()
-            op.setarg(0, newvalue.box)
-            self._cached_fields_getfield_op[newvalue] = op
+            if exporting_state:
+                op = self._cached_fields_getfield_op[oldvalue].clone()
+                op.setarg(0, newvalue.box)
+                self._cached_fields_getfield_op[newvalue] = op
 
     def possible_aliasing(self, optheap, structvalue):
         # If lazy_setfield is set and contains a setfield on a different
@@ -98,8 +99,9 @@ class CachedField(object):
                              optimizer=None):
         assert self._lazy_setfield is None
         self._cached_fields[structvalue] = fieldvalue
-        op = optimizer.get_op_replacement(op)
-        self._cached_fields_getfield_op[structvalue] = op
+        if optimizer.exporting_state:
+            op = optimizer.get_op_replacement(op)
+            self._cached_fields_getfield_op[structvalue] = op
 
     def force_lazy_setfield(self, optheap, can_cache=True):
         op = self._lazy_setfield
@@ -133,6 +135,7 @@ class CachedField(object):
         self._cached_fields_getfield_op.clear()
 
     def produce_potential_short_preamble_ops(self, optimizer, shortboxes, descr):
+        assert optimizer.exporting_state
         if self._lazy_setfield is not None:
             return
         for structvalue in self._cached_fields_getfield_op.keys():
@@ -195,10 +198,11 @@ class OptHeap(Optimization):
     def value_updated(self, oldvalue, newvalue):
         # XXXX very unhappy about that
         for cf in self.cached_fields.itervalues():
-            cf.value_updated(oldvalue, newvalue)
+            cf.value_updated(oldvalue, newvalue, self.optimizer.exporting_state)
         for submap in self.cached_arrayitems.itervalues():
             for cf in submap.itervalues():
-                cf.value_updated(oldvalue, newvalue)
+                cf.value_updated(oldvalue, newvalue,
+                                 self.optimizer.exporting_state)
 
     def force_at_end_of_preamble(self):
         self.cached_dict_reads.clear()

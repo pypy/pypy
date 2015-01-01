@@ -115,8 +115,9 @@ class OptPure(Optimization):
         return self.pure_operations.get(key, None)
 
     def remember_emitting_pure(self, op):
-        op = self.optimizer.get_op_replacement(op)
-        self.emitted_pure_operations[op] = True
+        if self.optimizer.exporting_state:
+            op = self.optimizer.get_op_replacement(op)
+            self.emitted_pure_operations[op] = True
 
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.emitted_pure_operations:
