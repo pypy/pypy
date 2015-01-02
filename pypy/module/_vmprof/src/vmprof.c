@@ -77,10 +77,9 @@ static void prof_binary_trailer(FILE* f) {
  * ******************************************************
  */
 
-static void* jit_start;
-static void* jit_end;
+static void* jit_start = NULL;
+static void* jit_end = NULL;
 void vmprof_set_jit_range(void* start, void* end) {
-    printf("vmprof JIT range: %p-%p\n", start, end);
     jit_start = start;
     jit_end = end;
 }
