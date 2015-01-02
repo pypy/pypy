@@ -11,6 +11,11 @@ from pypy.objspace.std.typeobject import unwrap_cell
 class W_DictProxyObject(W_DictMultiObject):
     @staticmethod
     def descr_new(space, w_type, w_mapping):
+        if (not space.lookup(w_mapping, "__getitem__") or
+            space.isinstance_w(w_mapping, space.w_list) or
+            space.isinstance_w(w_mapping, space.w_tuple)):
+            raise oefmt(space.w_TypeError,
+                        "mappingproxy() argument must be a mapping, not %T", w_mapping)
         strategy = space.fromcache(MappingProxyStrategy)
         storage = strategy.erase(w_mapping)
         w_obj = space.allocate_instance(W_DictProxyObject, w_type)

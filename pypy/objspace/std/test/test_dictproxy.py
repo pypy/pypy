@@ -83,6 +83,9 @@ class AppTestUserObject:
             def copy(self): return 3
         proxy = dictproxy(D(a=1, b=2, c=3))
         assert proxy.copy() == 3
+        #
+        raises(TypeError, dictproxy, 3)
+        raises(TypeError, dictproxy, [3])
 
 class AppTestUserObjectMethodCache(AppTestUserObject):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
