@@ -292,10 +292,9 @@ class PyPyTarget(object):
         return PyPyJitPolicy(pypy_hooks)
 
     def get_entry_point(self, config):
-        if sys.platform != 'win32':
-            from pypy.tool.lib_pypy import import_from_lib_pypy
-            rebuild = import_from_lib_pypy('ctypes_config_cache/rebuild')
-            rebuild.try_rebuild()
+        from pypy.tool.lib_pypy import import_from_lib_pypy
+        rebuild = import_from_lib_pypy('ctypes_config_cache/rebuild')
+        rebuild.try_rebuild()
 
         space = make_objspace(config)
 
