@@ -37,6 +37,12 @@ objects support decompress() and flush()."""
     appleveldefs = {
         }
 
+    def setup_after_space_initialization(self):
+        space = self.space
+        space.setattr(self, space.wrap('ZLIB_RUNTIME_VERSION'),
+                      space.wrap(rzlib.zlibVersion()))
+
+
 
 for _name in """
     MAX_WBITS  DEFLATED  DEF_MEM_LEVEL

@@ -309,3 +309,7 @@ class AppTestZlib(object):
         assert do.decompress(d0) == piece
         do.decompress(d1) == piece[100:]
         do.decompress(d2) == piece[:-100]
+
+    def test_version(self):
+        zlib = self.zlib
+        assert zlib.ZLIB_VERSION[0] == zlib.ZLIB_RUNTIME_VERSION[0]
