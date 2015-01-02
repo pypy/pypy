@@ -25,6 +25,9 @@ class Module(MixedModule):
         for name in ['ITIMER_REAL', 'ITIMER_VIRTUAL', 'ITIMER_PROF']:
             interpleveldefs[name] = 'space.wrap(interp_signal.%s)' % (name,)
 
+    if os.name == 'posix':
+        interpleveldefs['pthread_kill'] = 'interp_signal.pthread_kill'
+
     appleveldefs = {
     }
 

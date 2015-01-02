@@ -96,3 +96,5 @@ if sys.platform != 'win32':
     c_setitimer = external('setitimer',
                            [rffi.INT, itimervalP, itimervalP], rffi.INT)
     c_getitimer = external('getitimer', [rffi.INT, itimervalP], rffi.INT)
+
+c_pthread_kill = external('pthread_kill', [lltype.Signed, rffi.INT], rffi.INT)

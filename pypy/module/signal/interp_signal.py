@@ -328,3 +328,13 @@ def getitimer(space, which):
         c_getitimer(which, old)
 
         return itimer_retval(space, old[0])
+
+
+@unwrap_spec(tid=int, signum=int)
+def pthread_kill(space, tid, signum):
+    "Send a signal to a thread."
+    ret = c_pthread_kill(tid, signum)
+    if ret != 0:
+        raise exception_from_errno(space, space.w_OSError)
+    # the signal may have been send to the current thread
+    space.getexecutioncontext().checksignals()

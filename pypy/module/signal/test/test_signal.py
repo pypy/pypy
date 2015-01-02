@@ -319,3 +319,17 @@ class AppTestItimer:
         import signal
 
         raises(signal.ItimerError, signal.setitimer, -1, 0)
+
+class AppTestPThread:
+    spaceconfig = dict(usemodules=['signal', 'thread', 'time'])
+
+    def test_pthread_kill(self):
+        import signal
+        import _thread
+        signum = signal.SIGUSR1
+        def handler(signum, frame):
+            1/0
+        signal.signal(signum, handler)
+        tid = _thread.get_ident()
+        raises(ZeroDivisionError, signal.pthread_kill, tid, signum)
+        
